@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="120"
+   height="120"
+   viewBox="0 0 120 120"
+   version="1.1"
+   id="svg1"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <g
+     id="layer1">
+    <path
+       id="path1-8-7-58"
+       style="fill:#800000;fill-opacity:1;stroke:#ff0000;stroke-width:2.11793;stroke-dasharray:none;stroke-opacity:1"
+       d="M 60.111557,2.3742053 A 53.856374,53.854401 0 0 0 6.2564865,56.227187 53.856374,53.854401 0 0 0 53.897322,109.63627 a 6.5067571,6.5065186 0 0 0 -0.29061,1.89096 6.5067571,6.5065186 0 0 0 6.506032,6.51198 6.5067571,6.5065186 0 0 0 6.512277,-6.51198 6.5067571,6.5065186 0 0 0 -0.284728,-1.89096 A 53.856374,53.854401 0 0 0 113.97466,56.227187 53.856374,53.854401 0 0 0 60.113705,2.3742053 Z" />
+    <circle
+       style="fill:#e30000;fill-opacity:1;stroke:none;stroke-width:1.89505;stroke-dasharray:none;stroke-opacity:1"
+       id="path1-8-7-3"
+       cx="60.11557"
+       cy="55.837379"
+       r="48.18808" />
+    <circle
+       style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.870095;stroke-dasharray:none;stroke-opacity:1"
+       id="path1-8-7-5"
+       cx="39.387287"
+       cy="33.883091"
+       r="8.8549814" />
+    <circle
+       style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.870095;stroke-dasharray:none;stroke-opacity:1"
+       id="circle8"
+       cx="79.384773"
+       cy="33.883091"
+       r="8.8549814" />
+    <circle
+       style="fill:#020200;fill-opacity:1;stroke:#000000;stroke-width:0.870095;stroke-dasharray:none;stroke-opacity:1"
+       id="circle9"
+       cx="30.077654"
+       cy="71.331528"
+       r="8.8549814" />
+    <circle
+       style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.870095;stroke-dasharray:none;stroke-opacity:1"
+       id="circle10"
+       cx="90.084557"
+       cy="71.331528"
+       r="8.8549814" />
+    <circle
+       style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.997643;stroke-dasharray:none;stroke-opacity:1"
+       id="circle11"
+       cx="59.4258"
+       cy="87.37088"
+       r="10.153037" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:19.6982px;line-height:1.25;font-family:sans-serif;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.492452"
+       x="34.244141"
+       y="62.614399"
+       id="text11"><tspan
+         id="tspan11"
+         style="fill:#ffffff;fill-opacity:1;stroke-width:0.492452"
+         x="34.244141"
+         y="62.614399">125A</tspan></text>
+  </g>
+</svg>

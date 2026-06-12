@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="66"
+   height="66"
+   viewBox="0 0 66 66"
+   version="1.1"
+   id="svg1"
+   sodipodi:docname="16-3ph-Male.svg"
+   inkscape:version="1.3.2 (091e20e, 2023-11-25)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#505050"
+     bordercolor="#eeeeee"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="5.1833333"
+     inkscape:cx="59.807074"
+     inkscape:cy="59.903537"
+     inkscape:window-width="1392"
+     inkscape:window-height="1212"
+     inkscape:window-x="0"
+     inkscape:window-y="30"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="svg1" />
+  <defs
+     id="defs1" />
+  <g
+     id="layer1"
+     transform="translate(-28.938907,-25.85209)">
+    <path
+       id="path1-8-7-58"
+       style="fill:#800000;fill-opacity:1;stroke:#ff0000;stroke-width:1.14245;stroke-dasharray:none;stroke-opacity:1"
+       d="M 61.946352,27.674088 A 29.050885,29.04982 0 0 0 32.89617,56.723144 29.050885,29.04982 0 0 0 58.594306,85.53275 a 3.5098362,3.5097076 0 0 0 -0.156759,1.020017 3.5098362,3.5097076 0 0 0 3.509445,3.51265 3.5098362,3.5097076 0 0 0 3.512813,-3.51265 A 3.5098362,3.5097076 0 0 0 65.306219,85.53275 29.050885,29.04982 0 0 0 91.000864,56.723144 29.050885,29.04982 0 0 0 61.94751,27.674088 Z" />
+    <circle
+       style="fill:#e30000;fill-opacity:1;stroke:none;stroke-width:1.02222;stroke-dasharray:none;stroke-opacity:1"
+       id="path1-8-7-3"
+       cx="61.948509"
+       cy="56.512878"
+       r="25.993328" />
+    <circle
+       style="fill:#a0892c;fill-opacity:1;stroke:#786721;stroke-width:0.469342;stroke-dasharray:none;stroke-opacity:1"
+       id="path1-8-7-5"
+       cx="50.767384"
+       cy="44.670422"
+       r="4.7765017" />
+    <circle
+       style="fill:#a0892c;fill-opacity:1;stroke:#786721;stroke-width:0.469342;stroke-dasharray:none;stroke-opacity:1"
+       id="circle8"
+       cx="72.34259"
+       cy="44.670422"
+       r="4.7765017" />
+    <circle
+       style="fill:#a0892c;fill-opacity:1;stroke:#786721;stroke-width:0.469342;stroke-dasharray:none;stroke-opacity:1"
+       id="circle9"
+       cx="45.745636"
+       cy="64.870636"
+       r="4.7765017" />
+    <circle
+       style="fill:#a0892c;fill-opacity:1;stroke:#786721;stroke-width:0.469342;stroke-dasharray:none;stroke-opacity:1"
+       id="circle10"
+       cx="78.114204"
+       cy="64.870636"
+       r="4.7765017" />
+    <circle
+       style="fill:#a0892c;fill-opacity:1;stroke:#786721;stroke-width:0.538143;stroke-dasharray:none;stroke-opacity:1"
+       id="circle11"
+       cx="61.576439"
+       cy="73.522491"
+       r="5.4766908" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:10.6255px;line-height:1.25;font-family:sans-serif;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.265635"
+       x="51.990681"
+       y="59.926216"
+       id="text11"><tspan
+         id="tspan11"
+         style="fill:#ffffff;fill-opacity:1;stroke-width:0.265635"
+         x="51.990681"
+         y="59.926216">16A</tspan></text>
+  </g>
+</svg>
