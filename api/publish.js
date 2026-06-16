@@ -1,4 +1,4 @@
-import { put } from "@vercel/blob";
+import { put, head } from "@vercel/blob";
 import crypto from "node:crypto";
 import zlib from "node:zlib";
 
@@ -36,6 +36,13 @@ function inflateBase64(value) {
   return zlib.gunzipSync(Buffer.from(String(value), "base64")).toString("utf8");
 }
 
+function safeBlobPath(value, id, filename) {
+  const path = String(value || "").trim();
+  const expectedPrefix = `${PROJECT_PREFIX}/${id}/`;
+  if (!path.startsWith(expectedPrefix) || !path.endsWith(`/${filename}`)) return "";
+  return path;
+}
+
 export default async function handler(request, response) {
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST");
@@ -49,45 +56,58 @@ export default async function handler(request, response) {
     const body = readBody(request);
     const title = String(body.title || body.project?.projectName || "Untitled AV Wirechart").trim().slice(0, MAX_TITLE_LENGTH);
     const password = String(body.password || "");
-    const projectText = body.projectGzipBase64 ? inflateBase64(body.projectGzipBase64) : JSON.stringify(body.project || {});
-    const project = JSON.parse(projectText || "{}");
-    const html = body.htmlGzipBase64 ? inflateBase64(body.htmlGzipBase64) : String(body.html || "");
 
-    if (!project || typeof project !== "object") return json(response, 400, { error: "Missing project data." });
-    if (!html.trim()) return json(response, 400, { error: "Missing hosted viewer HTML." });
     if (password.length < 4) return json(response, 400, { error: "Password must be at least 4 characters." });
     if (password.length > MAX_PASSWORD_LENGTH) return json(response, 400, { error: "Password is too long." });
 
-    const id = `${slugify(title)}-${crypto.randomBytes(5).toString("hex")}`;
+    const id = String(body.id || `${slugify(title)}-${crypto.randomBytes(5).toString("hex")}`);
     const basePath = `${PROJECT_PREFIX}/${id}`;
+    let projectPath = safeBlobPath(body.projectPath || body.projectBlob?.pathname, id, "project.json");
+    let htmlPath = safeBlobPath(body.htmlPath || body.htmlBlob?.pathname, id, "viewer.html");
+
+    if (!projectPath || !htmlPath) {
+      const projectText = body.projectGzipBase64 ? inflateBase64(body.projectGzipBase64) : JSON.stringify(body.project || {});
+      const project = JSON.parse(projectText || "{}");
+      const html = body.htmlGzipBase64 ? inflateBase64(body.htmlGzipBase64) : String(body.html || "");
+      if (!project || typeof project !== "object") return json(response, 400, { error: "Missing project data." });
+      if (!html.trim()) return json(response, 400, { error: "Missing hosted viewer HTML." });
+      projectPath = `${basePath}/project.json`;
+      htmlPath = `${basePath}/viewer.html`;
+      await Promise.all([
+        put(projectPath, projectText, {
+          access: "private",
+          contentType: "application/json"
+        }),
+        put(htmlPath, html, {
+          access: "private",
+          contentType: "text/html; charset=utf-8"
+        })
+      ]);
+    } else {
+      await Promise.all([
+        head(projectPath),
+        head(htmlPath)
+      ]);
+    }
+
     const passwordRecord = hashPassword(password);
     const now = new Date().toISOString();
     const metadata = {
       id,
       title,
-      projectName: project.projectName || title,
+      projectName: title,
       createdAt: now,
       updatedAt: now,
       password: passwordRecord,
-      projectPath: `${basePath}/project.json`,
-      htmlPath: `${basePath}/viewer.html`,
+      projectPath,
+      htmlPath,
       schema: 1
     };
 
-    await Promise.all([
-      put(metadata.projectPath, projectText, {
-        access: "private",
-        contentType: "application/json"
-      }),
-      put(metadata.htmlPath, html, {
-        access: "private",
-        contentType: "text/html; charset=utf-8"
-      }),
-      put(`${basePath}/meta.json`, JSON.stringify(metadata), {
-        access: "private",
-        contentType: "application/json"
-      })
-    ]);
+    await put(`${basePath}/meta.json`, JSON.stringify(metadata), {
+      access: "private",
+      contentType: "application/json"
+    });
 
     const origin = request.headers.origin || `https://${request.headers.host}`;
     return json(response, 200, {
