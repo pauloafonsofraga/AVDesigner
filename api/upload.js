@@ -1,7 +1,11 @@
 import { handleUpload } from "@vercel/blob/client";
 
-export default async function handler(request) {
-  const body = await request.json();
+export default async function handler(request, response) {
+  if (request.method !== "POST") {
+    response.setHeader("Allow", "POST");
+    return response.status(405).json({ error: "Method not allowed." });
+  }
+  const body = request.body;
   try {
     const jsonResponse = await handleUpload({
       body,
@@ -22,11 +26,8 @@ export default async function handler(request) {
       },
       onUploadCompleted: async () => {}
     });
-    return Response.json(jsonResponse);
+    return response.status(200).json(jsonResponse);
   } catch (error) {
-    return Response.json(
-      { error: error.message || "Upload failed." },
-      { status: 400 }
-    );
+    return response.status(400).json({ error: error.message || "Upload failed." });
   }
 }
