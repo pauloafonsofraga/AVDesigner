@@ -191,8 +191,20 @@
         if (!response.ok) throw new Error(result.error || "Could not open this project.");
         if (!result.html) throw new Error("The hosted viewer file is missing.");
         setStatus("Opening viewer...", "success");
-        const objectUrl = URL.createObjectURL(new Blob([result.html], { type: "text/html" }));
-        location.replace(objectUrl);
+        const frame = document.createElement("iframe");
+        frame.setAttribute("title", result.projectName || result.title || "AV Designer Viewer");
+        frame.setAttribute("loading", "eager");
+        frame.style.position = "fixed";
+        frame.style.inset = "0";
+        frame.style.width = "100%";
+        frame.style.height = "100%";
+        frame.style.border = "0";
+        frame.style.background = "#11161b";
+        document.body.innerHTML = "";
+        document.body.style.padding = "0";
+        document.body.style.display = "block";
+        document.body.appendChild(frame);
+        frame.srcdoc = result.html;
       } catch (error) {
         setStatus(error.message || "The viewer could not be opened.", "error");
         button.disabled = false;
