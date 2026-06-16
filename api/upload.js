@@ -15,6 +15,7 @@ export default async function handler(request, response) {
           throw new Error("Invalid upload path.");
         }
         return {
+          access: "private",
           allowedContentTypes: [
             "application/json",
             "text/html",
