@@ -191,9 +191,8 @@
         if (!response.ok) throw new Error(result.error || "Could not open this project.");
         if (!result.html) throw new Error("The hosted viewer file is missing.");
         setStatus("Opening viewer...", "success");
-        document.open();
-        document.write(result.html);
-        document.close();
+        const objectUrl = URL.createObjectURL(new Blob([result.html], { type: "text/html" }));
+        location.replace(objectUrl);
       } catch (error) {
         setStatus(error.message || "The viewer could not be opened.", "error");
         button.disabled = false;
