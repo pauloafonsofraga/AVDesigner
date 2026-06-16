@@ -33,7 +33,12 @@ function verifyPassword(password, record) {
 }
 
 async function blobText(pathname) {
-  const result = await get(pathname, { access: "private" });
+  let result;
+  try {
+    result = await get(pathname, { access: "private" });
+  } catch (error) {
+    result = await get(pathname);
+  }
   if (!result || result.statusCode !== 200 || !result.stream) return "";
   return await new Response(result.stream).text();
 }
