@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/v/:id",
+      "destination": "/viewer.html?id=:id"
+    }
+  ]
+}

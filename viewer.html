@@ -153,7 +153,8 @@
 
   <script>
     const params = new URLSearchParams(location.search);
-    const projectId = params.get("id") || "";
+    const pathMatch = location.pathname.match(/\/v\/([^/?#]+)/);
+    const projectId = params.get("id") || (pathMatch ? decodeURIComponent(pathMatch[1]) : "");
     const form = document.getElementById("unlockForm");
     const passwordInput = document.getElementById("projectPassword");
     const statusEl = document.getElementById("viewerStatus");

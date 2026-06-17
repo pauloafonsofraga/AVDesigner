@@ -113,7 +113,7 @@ export default async function handler(request, response) {
     return json(response, 200, {
       id,
       title,
-      url: `${origin}/viewer.html?id=${encodeURIComponent(id)}`
+      url: `${origin}/v/${encodeURIComponent(id)}`
     });
   } catch (error) {
     return json(response, 500, { error: error.message || "Publish failed." });
