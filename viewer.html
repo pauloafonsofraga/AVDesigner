@@ -179,6 +179,7 @@
     }
     function hostedWirechartSvgCss() {
       return `
+        .details{display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px;margin:0 18px 14px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--panel-strong);color:var(--text);font-size:12px}.details dt{margin:0;padding:5px 0;color:var(--muted);font-weight:900}.details dd{margin:0;padding:5px 0;color:var(--text);font-weight:800;overflow-wrap:anywhere}
         .canvas-device,.area-room,.comment-box,.title-block{cursor:default}
         .device-outline{fill:#fff;stroke:#1d2732;stroke-width:2}
         .dark-mode .device-outline{fill:#18202a;stroke:#fff}
