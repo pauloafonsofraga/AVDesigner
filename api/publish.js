@@ -109,7 +109,8 @@ export default async function handler(request, response) {
       contentType: "application/json"
     });
 
-    const origin = request.headers.origin || `https://${request.headers.host}`;
+    const configuredOrigin = String(process.env.PUBLIC_VIEWER_ORIGIN || "https://avdesigner.videocore.net").trim().replace(/\/+$/, "");
+    const origin = configuredOrigin.startsWith("http") ? configuredOrigin : `https://${configuredOrigin}`;
     return json(response, 200, {
       id,
       title,
