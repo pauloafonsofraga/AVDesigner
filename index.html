@@ -905,6 +905,7 @@
     }
 
     .canvas-wrap.live-zooming #canvas {
+      opacity: 0;
       pointer-events: none;
       transform-origin: 0 0;
     }
@@ -34880,6 +34881,14 @@
     }
 
     function beginLiveZoom() {
+      if (zoomRenderTimer) {
+        clearTimeout(zoomRenderTimer);
+        zoomRenderTimer = null;
+      }
+      if (zoomRenderFrame) {
+        cancelAnimationFrame(zoomRenderFrame);
+        zoomRenderFrame = null;
+      }
       if (liveZoomState) return;
       liveZoomState = {
         x: canvasView.x,
@@ -47850,6 +47859,7 @@
         lastClientX: event.clientX,
         lastClientY: event.clientY
       };
+      beginLiveZoom();
       canvasWrap.classList.add("panning");
       canvas.setPointerCapture(event.pointerId);
     }, true);
@@ -47882,8 +47892,7 @@
         canvasView.y -= (event.clientY - panState.lastClientY) * scale;
         panState.lastClientX = event.clientX;
         panState.lastClientY = event.clientY;
-        updateCanvasView();
-        scheduleViewportCanvasRender();
+        updateCanvasView({ deferSvgViewBox: true });
         return;
       }
 
@@ -48201,6 +48210,8 @@
       if (panState && panState.pointerId === event.pointerId) {
         panState = null;
         canvasWrap.classList.remove("panning");
+        if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+        scheduleZoomCanvasRender();
         return;
       }
       cancelLiveCanvasRender();
@@ -48324,6 +48335,15 @@
         render();
       }
       if (needsFullRender) render();
+    });
+
+    canvas.addEventListener("pointercancel", event => {
+      if (panState && panState.pointerId === event.pointerId) {
+        panState = null;
+        canvasWrap.classList.remove("panning");
+        if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+        scheduleZoomCanvasRender();
+      }
     });
 
     canvas.addEventListener("click", event => {
@@ -53487,7 +53507,7 @@ fit();
       pendingLedGridReplaceSurfaceId = "";
       ledGridInput.value = "";
     });
-    canvas.addEventListener("wheel", event => {
+    canvasWrap.addEventListener("wheel", event => {
       const isMacZoom = event.altKey;
       const isWindowsZoom = event.ctrlKey;
       if (!isMacZoom && !isWindowsZoom) {
