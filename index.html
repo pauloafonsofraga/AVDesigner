@@ -35550,11 +35550,12 @@
       };
     }
 
-    function centerCanvasAtPoint(point) {
+    function centerCanvasAtPoint(point, options = {}) {
       const rect = canvasWrap.getBoundingClientRect();
       canvasView.x = point.x - Math.max(1, rect.width / canvasView.zoom) / 2;
       canvasView.y = point.y - Math.max(1, rect.height / canvasView.zoom) / 2;
       updateCanvasView();
+      if (options.render !== false) renderCanvasOnly({ lightweight: true });
     }
 
     function setZoom(nextZoom) {
@@ -46184,6 +46185,7 @@
       canvasView.x = point.x - Math.max(1, rect.width / canvasView.zoom) / 2;
       canvasView.y = point.y - Math.max(1, rect.height / canvasView.zoom) / 2;
       updateCanvasView();
+      scheduleViewportCanvasRender();
     }
 
     function clearWireTrace() {
@@ -49349,7 +49351,7 @@
     function centerEndpointOnCanvas(endpoint) {
       if (!endpoint) return;
       const point = pointForEndpoint(endpoint);
-      centerCanvasAtPoint(point);
+      centerCanvasAtPoint(point, { render: false });
       if (endpoint.surfaceId) state.selected = { type: "led-surface", id: endpoint.surfaceId };
       else state.selected = { type: "connector", deviceId: endpoint.deviceId, connectorId: endpoint.connectorId };
       render();
