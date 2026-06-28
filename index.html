@@ -38871,19 +38871,37 @@
       if (!deviceEditorPreview) return;
       const rect = deviceEditorPreview.getBoundingClientRect();
       const size = editorPreviewContentSize();
-      const pad = 34;
       if (!rect.width || !rect.height || !size.width || !size.height) {
         editorPreviewZoom = 1;
         editorPreviewPan = { x: 0, y: 0 };
         renderDeviceEditorPreview();
         return;
       }
-      editorPreviewZoom = clamp(Math.min(
-        rect.width / (size.width + pad * 2),
-        rect.height / (size.height + pad * 2)
-      ), .08, 8);
-      editorPreviewPan = { x: 0, y: 0 };
+      editorPreviewZoom = 1;
+      editorPreviewPan = editorPreviewFitPan(size.width, size.height, editorPreviewZoom, deviceEditorPreview);
       renderDeviceEditorPreview();
+    }
+
+    function editorPreviewViewBox(width, height, zoom, pan = { x: 0, y: 0 }, svgElement = deviceEditorPreview) {
+      const pad = 34;
+      const totalWidth = Math.max(1, Number(width) || DEVICE_WIDTH) + pad * 2;
+      const totalHeight = Math.max(1, Number(height) || 190) + pad * 2;
+      const safeZoom = Math.max(.08, Number(zoom) || 1);
+      const rect = svgElement?.getBoundingClientRect?.();
+      const aspect = rect?.width && rect?.height ? rect.width / rect.height : totalWidth / totalHeight;
+      const viewWidth = totalWidth / safeZoom;
+      const viewHeight = aspect > 0 ? viewWidth / aspect : totalHeight / safeZoom;
+      const viewX = (totalWidth - viewWidth) / 2 - pad + (Number(pan?.x) || 0);
+      const viewY = (totalHeight - viewHeight) / 2 - pad + (Number(pan?.y) || 0);
+      return { viewX, viewY, viewWidth, viewHeight, totalWidth, totalHeight };
+    }
+
+    function editorPreviewFitPan(width, height, zoom = 1, svgElement = deviceEditorPreview) {
+      const box = editorPreviewViewBox(width, height, zoom, { x: 0, y: 0 }, svgElement);
+      return {
+        x: 0,
+        y: box.viewHeight < box.totalHeight ? (box.viewHeight - box.totalHeight) / 2 : 0
+      };
     }
 
     function updateDeviceEditorTitle(template = currentEditorTemplate()) {
@@ -40080,14 +40098,10 @@
       }
       updateEditorFaceplatePreviewControls(template);
       deviceEditorPreview.innerHTML = "";
-      const pad = 34;
       const width = deviceTemplateWidth(template);
       const height = Number(template.height) || 132;
-      const viewWidth = (width + pad * 2) / editorPreviewZoom;
-      const viewHeight = (height + pad * 2) / editorPreviewZoom;
-      const viewX = (width + pad * 2 - viewWidth) / 2 - pad + editorPreviewPan.x;
-      const viewY = (height + pad * 2 - viewHeight) / 2 - pad + editorPreviewPan.y;
-      deviceEditorPreview.setAttribute("viewBox", `${viewX} ${viewY} ${viewWidth} ${viewHeight}`);
+      const view = editorPreviewViewBox(width, height, editorPreviewZoom, editorPreviewPan, deviceEditorPreview);
+      deviceEditorPreview.setAttribute("viewBox", `${view.viewX} ${view.viewY} ${view.viewWidth} ${view.viewHeight}`);
       deviceEditorPreview.appendChild(createSvg("rect", {
         class: isAdapterTemplate(template) ? "editor-adapter-body" : "editor-device-body",
         "data-editor-device-body": "true",
@@ -40264,12 +40278,8 @@
       const rows = Math.max(1, inputConnectors.length, outputConnectors.length);
       const width = DEVICE_WIDTH;
       const height = (rows + 2) * SLOT_HEIGHT;
-      const pad = 34;
-      const viewWidth = (width + pad * 2) / editorPreviewZoom;
-      const viewHeight = (height + pad * 2) / editorPreviewZoom;
-      const viewX = (width + pad * 2 - viewWidth) / 2 - pad + editorPreviewPan.x;
-      const viewY = (height + pad * 2 - viewHeight) / 2 - pad + editorPreviewPan.y;
-      deviceEditorPreview.setAttribute("viewBox", `${viewX} ${viewY} ${viewWidth} ${viewHeight}`);
+      const view = editorPreviewViewBox(width, height, editorPreviewZoom, editorPreviewPan, deviceEditorPreview);
+      deviceEditorPreview.setAttribute("viewBox", `${view.viewX} ${view.viewY} ${view.viewWidth} ${view.viewHeight}`);
       const kind = card.kind || "io";
       const band = kind === "input"
         ? { x: 10, width: DEVICE_WIDTH / 2 - 16, textX: DEVICE_WIDTH / 4 }
@@ -50766,6 +50776,7 @@
         .area-rect{stroke:rgba(50,182,255,.65);stroke-width:2}.area-caption{fill:#32b6ff;font-size:33px;font-weight:800;paint-order:stroke;stroke:rgba(0,0,0,.65);stroke-width:6}
         .rack-frame{fill:rgba(50,182,255,.045);stroke:rgba(50,182,255,.74);stroke-width:2;stroke-dasharray:10 7}.rack-label{fill:#32b6ff;font-size:16px;font-weight:900;paint-order:stroke;stroke:rgba(0,0,0,.82);stroke-width:5}
         .comment-leader{fill:none;stroke:#32b6ff;stroke-width:5}.comment-box rect{stroke:#9aa2aa;stroke-width:1.4}.comment-title{fill:#32b6ff;font-size:11px;font-weight:800;text-anchor:middle;dominant-baseline:middle;paint-order:stroke;stroke:#18202a;stroke-width:4}.comment-body{font-size:12px;dominant-baseline:hanging}
+        .jump-node-hit{fill:transparent;stroke:transparent;pointer-events:all}.jump-node-core{fill:url(#jumpNodeGradient);stroke:#0951f5;stroke-width:3}.jump-node-label{fill:#fff;font-size:6px;font-weight:900;text-anchor:middle;dominant-baseline:middle;paint-order:stroke;stroke:rgba(0,0,0,.85);stroke-width:2}.jump-node-info rect{fill:rgba(20,29,38,.94);stroke:#32b6ff;stroke-width:1}.jump-node-info text{fill:#edf2f7;font-size:9px;font-weight:800;dominant-baseline:middle}.print-light .jump-node-core{fill:#32b6ff!important;stroke:#fb7904!important}.print-light .jump-node-label{fill:#fff!important;stroke:rgba(0,0,0,.85)!important}
         .title-block-frame{fill:#f2f4f7;stroke:#111;stroke-width:1.3}.dark-mode .title-block-frame{fill:#20262d;stroke:#b8c4d2}.title-block-text{font:700 11px Arial,sans-serif;fill:#111}.dark-mode .title-block-text{fill:#f4f7fb}
         .selected .area-rect,.selected .rack-frame,.selected .led-surface-hit,.selected .title-block-frame,.comment-box.selected rect{stroke:#fb7904!important;filter:drop-shadow(0 0 8px rgba(251,121,4,.9)) drop-shadow(0 0 18px rgba(251,121,4,.55))}
         .card-band{fill:rgba(50,182,255,.07);stroke:rgba(50,182,255,.45);stroke-width:1;stroke-dasharray:5 4}.card-caption{fill:#fff;font-size:8.5px;font-weight:900;text-anchor:middle;paint-order:stroke fill;stroke:rgba(0,0,0,.92);stroke-width:5px;stroke-linejoin:round}.dark-mode .card-caption{fill:#fff;stroke:rgba(0,0,0,.92)}
@@ -50846,6 +50857,7 @@
 
     function forceLightPrintableSvg(svgNode) {
       svgNode.classList.remove("dark-mode");
+      svgNode.classList.add("print-light");
       svgNode.querySelectorAll(".title-block-frame").forEach(frame => {
         frame.setAttribute("fill", "#f2f4f7");
         frame.setAttribute("stroke", "#111");
@@ -50876,6 +50888,10 @@
       svgNode.querySelectorAll(".connector-label").forEach(label => {
         label.setAttribute("fill", "#18202a");
         label.setAttribute("stroke", "rgba(255,255,255,.96)");
+      });
+      svgNode.querySelectorAll(".jump-node-core").forEach(core => {
+        core.setAttribute("fill", "#32b6ff");
+        core.setAttribute("stroke", "#fb7904");
       });
     }
 
