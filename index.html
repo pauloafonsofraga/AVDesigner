@@ -42678,7 +42678,8 @@
     }
 
     function rectVisibleInViewport(rect, viewport) {
-      return !viewport || rectsIntersect(rect, viewport);
+      // Always render all objects; viewport culling caused missing devices during animated navigation.
+      return true;
     }
 
     function commentBounds(comment) {
@@ -51645,7 +51646,7 @@ function updateLegend(){const stats=new Map();(data.connections||[]).forEach((wi
 function updateView(){const rect=svg.getBoundingClientRect();svg.setAttribute("viewBox",view.x+" "+view.y+" "+Math.max(1,rect.width/view.zoom)+" "+Math.max(1,rect.height/view.zoom));zoomReadout.textContent=Math.round(view.zoom*100)+"%"}
 function viewerViewport(){const rect=svg.getBoundingClientRect(),pad=Math.max(900,320/Math.max(view.zoom,.01));return{x:view.x-pad,y:view.y-pad,width:Math.max(1,rect.width/view.zoom)+pad*2,height:Math.max(1,rect.height/view.zoom)+pad*2}}
 function rectsIntersectExport(a,b){return!a||!b?false:a.x<=b.x+b.width&&a.x+a.width>=b.x&&a.y<=b.y+b.height&&a.y+a.height>=b.y}
-function visibleExport(rect,viewport){return!viewport||rectsIntersectExport(rect,viewport)}
+function visibleExport(rect,viewport){return true}
 function pointsBoundsExport(points,pad){return rectFromHopPoints(points||[],pad||0)}
 function commentBoundsExport(c){const end=commentLeaderEnd(c),x1=Math.min(c.anchor.x,c.x),y1=Math.min(c.anchor.y,c.y-18),x2=Math.max(c.anchor.x,end.x,c.x+(c.width||180)),y2=Math.max(c.anchor.y,end.y,c.y+(c.height||82));return{x:x1-24,y:y1-24,width:x2-x1+48,height:y2-y1+48}}
 function jumpNodeBoundsExport(node){return{x:node.x-120,y:node.y-60,width:240,height:120}}
