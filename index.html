@@ -34571,6 +34571,112 @@
       }
     }
 
+    function webglPolylineLength(points) {
+      let length = 0;
+      for (let index = 0; index < points.length - 1; index += 1) {
+        length += Math.hypot(points[index + 1].x - points[index].x, points[index + 1].y - points[index].y);
+      }
+      return length;
+    }
+
+    function webglPointAtDistance(points, targetDistance) {
+      let walked = 0;
+      for (let index = 0; index < points.length - 1; index += 1) {
+        const from = points[index];
+        const to = points[index + 1];
+        const segmentLength = Math.hypot(to.x - from.x, to.y - from.y);
+        if (!segmentLength) continue;
+        if (walked + segmentLength >= targetDistance) {
+          const ratio = clamp((targetDistance - walked) / segmentLength, 0, 1);
+          return {
+            x: from.x + (to.x - from.x) * ratio,
+            y: from.y + (to.y - from.y) * ratio
+          };
+        }
+        walked += segmentLength;
+      }
+      return points[points.length - 1] || { x: 0, y: 0 };
+    }
+
+    function webglPolylineSlice(points, startFraction, endFraction) {
+      if (!points?.length || points.length < 2) return [];
+      const length = webglPolylineLength(points);
+      if (!length) return [];
+      const startDistance = clamp(startFraction, 0, 1) * length;
+      const endDistance = clamp(endFraction, 0, 1) * length;
+      if (endDistance <= startDistance) return [];
+      const sliced = [webglPointAtDistance(points, startDistance)];
+      let walked = 0;
+      for (let index = 0; index < points.length - 1; index += 1) {
+        const from = points[index];
+        const to = points[index + 1];
+        const segmentLength = Math.hypot(to.x - from.x, to.y - from.y);
+        const nextWalked = walked + segmentLength;
+        if (segmentLength && nextWalked > startDistance && nextWalked < endDistance) sliced.push(to);
+        walked = nextWalked;
+      }
+      sliced.push(webglPointAtDistance(points, endDistance));
+      return sliced;
+    }
+
+    function pushWebglArrowhead(vertices, from, to, size, color) {
+      if (!from || !to) return;
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const length = Math.hypot(dx, dy);
+      if (!length) return;
+      const ux = dx / length;
+      const uy = dy / length;
+      const nx = -uy;
+      const ny = ux;
+      const base = { x: to.x - ux * size, y: to.y - uy * size };
+      const half = size * .48;
+      const left = { x: base.x + nx * half, y: base.y + ny * half };
+      const right = { x: base.x - nx * half, y: base.y - ny * half };
+      const [r, g, b, a] = color;
+      vertices.push(
+        to.x, to.y, r, g, b, a,
+        left.x, left.y, r, g, b, a,
+        right.x, right.y, r, g, b, a
+      );
+    }
+
+    function webglPathToPolyline(d) {
+      if (!d) return [];
+      const sampled = samplePathForCableHops(d);
+      return sampled?.points?.map(point => ({ x: point.x, y: point.y })) || [];
+    }
+
+    function webglWirePointsForRoute(route, visualPath = "") {
+      if (visualPath && visualPath !== route?.d) {
+        const points = webglPathToPolyline(visualPath);
+        if (points.length > 1) return points;
+      }
+      return webglRoutePolyline(route);
+    }
+
+    function pushWebglWireVisual(vertices, route, connection, options = {}) {
+      const points = webglWirePointsForRoute(route, options.visualPath);
+      if (!points?.length || points.length < 2) return;
+      const selected = isWireHighlighted(connection.id);
+      if (selected) {
+        pushWebglPolyline(vertices, points, 15, webglParseColor("rgba(251,121,4,.34)", "rgba(251,121,4,.34)", .34));
+        pushWebglPolyline(vertices, points, 9, webglParseColor("rgba(251,121,4,.50)", "rgba(251,121,4,.50)", .50));
+      }
+      const segmentColors = colorSegmentsForConnection(connection);
+      const colors = segmentColors?.length ? segmentColors : [colorForConnection(connection)];
+      colors.forEach((color, index) => {
+        const start = index / colors.length;
+        const end = (index + 1) / colors.length;
+        const segmentPoints = colors.length > 1 ? webglPolylineSlice(points, start, end) : points;
+        pushWebglPolyline(vertices, segmentPoints, 4.8, webglParseColor(color));
+      });
+      const direction = cableDirection(connection.cableType);
+      const arrowSize = 15;
+      pushWebglArrowhead(vertices, points[points.length - 2], points[points.length - 1], arrowSize, webglParseColor(colors[colors.length - 1]));
+      if (direction === "two-way") pushWebglArrowhead(vertices, points[1], points[0], arrowSize, webglParseColor(colors[0]));
+    }
+
     function pushWebglCircle(vertices, x, y, radius, color) {
       if (!Number.isFinite(x + y + radius) || radius <= 0) return;
       const [r, g, b, a] = color;
@@ -34845,10 +34951,18 @@
       });
       const routeContext = state.wireMode === "orthogonal" ? createOrthogonalRouteContext() : null;
       const orderedConnections = routeContext ? [...state.connections].sort(compareConnectionsForRouting) : state.connections;
+      const routeMap = new Map();
       orderedConnections.forEach(connection => {
         const route = routeForConnection(connection, routeContext);
         if (routeContext) registerOrthogonalRoute(routeContext, route.points);
-        pushWebglPolyline(lines, webglRoutePolyline(route), 4.5, webglParseColor(colorForConnection(connection)));
+        routeMap.set(connection.id, route);
+      });
+      const cableHopPathMap = buildCableHopPathMap(routeMap, 1);
+      orderedConnections.forEach(connection => {
+        const route = routeMap.get(connection.id);
+        pushWebglWireVisual(lines, route, connection, {
+          visualPath: cableHopPathMap.get(connection.id)
+        });
       });
       state.comments.forEach(comment => {
         pushWebglLine(lines, comment.anchor, commentLeaderEnd(comment), 2.5, webglParseColor(comment.leaderColor || "#32b6ff"));
@@ -34868,6 +34982,10 @@
         webglRenderer = null;
       }
       return webglRenderer;
+    }
+
+    function canvasWireVisualsInWebgl() {
+      return Boolean(WEBGL_RENDERER_ENABLED && ensureWebglRenderer());
     }
 
     function markWebglSceneDirty() {
@@ -45007,6 +45125,7 @@
         }))
         : routeMap;
       const cableHopPathMap = liveInteraction ? new Map() : buildCableHopPathMap(visibleRouteMap, detailScale);
+      const gpuWireVisuals = canvasWireVisualsInWebgl() && !options.live;
       visibleConnections.forEach(connection => {
         const route = routeMap.get(connection.id) || routeForConnection(connection, null);
         const { from, to, d, points } = route;
@@ -45020,7 +45139,7 @@
 
         const hit = createSvg("path", { class: "wire-hit", d, fill: "none", stroke: "transparent" });
         const direction = cableDirection(connection.cableType);
-        const lines = appendWireVisuals(wireGroup, visiblePath, connection, direction);
+        const lines = gpuWireVisuals ? [] : appendWireVisuals(wireGroup, visiblePath, connection, direction);
 
         hit.addEventListener("click", event => {
           event.stopPropagation();
@@ -48044,6 +48163,28 @@
 
     canvasWrap.addEventListener("pointerdown", handleActiveCanvasToolPointerDown, true);
 
+    function endCanvasPan(event = null, options = {}) {
+      const hasPan = Boolean(panState);
+      if (!hasPan) {
+        if (options.force) {
+          canvasWrap.classList.remove("panning");
+          if (liveZoomState) scheduleZoomCanvasRender({ refreshDetails: false, refreshSnapshot: false });
+        }
+        return false;
+      }
+      if (!options.force && event?.pointerId != null && panState.pointerId !== event.pointerId) return false;
+      const pointerId = panState.pointerId;
+      panState = null;
+      canvasWrap.classList.remove("panning");
+      try {
+        if (canvas.hasPointerCapture?.(pointerId)) canvas.releasePointerCapture(pointerId);
+      } catch (error) {
+        // Pointer capture can already be gone if the browser cancelled the middle button gesture.
+      }
+      scheduleZoomCanvasRender({ refreshDetails: false, refreshSnapshot: false });
+      return true;
+    }
+
     canvas.addEventListener("pointerdown", event => {
       if (event.button !== 1) return;
       event.preventDefault();
@@ -48401,13 +48542,7 @@
     });
 
     canvas.addEventListener("pointerup", event => {
-      if (panState && panState.pointerId === event.pointerId) {
-        panState = null;
-        canvasWrap.classList.remove("panning");
-        if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
-        scheduleZoomCanvasRender({ refreshDetails: false, refreshSnapshot: false });
-        return;
-      }
+      if (endCanvasPan(event)) return;
       cancelLiveCanvasRender();
       endSnapSession();
       let needsFullRender = false;
@@ -48532,12 +48667,15 @@
     });
 
     canvas.addEventListener("pointercancel", event => {
-      if (panState && panState.pointerId === event.pointerId) {
-        panState = null;
-        canvasWrap.classList.remove("panning");
-        if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
-        scheduleZoomCanvasRender({ refreshDetails: false, refreshSnapshot: false });
-      }
+      endCanvasPan(event, { force: true });
+    });
+
+    canvas.addEventListener("lostpointercapture", event => endCanvasPan(event, { force: true }));
+    window.addEventListener("pointerup", event => endCanvasPan(event, { force: true }), true);
+    window.addEventListener("mouseup", () => endCanvasPan(null, { force: true }), true);
+    window.addEventListener("blur", () => endCanvasPan(null, { force: true }));
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) endCanvasPan(null, { force: true });
     });
 
     canvas.addEventListener("click", event => {
@@ -53729,6 +53867,10 @@ fit();
       const deviceTechSpecsOpen = deviceTechSpecsModal && !deviceTechSpecsModal.classList.contains("hidden");
       const publishProjectOpen = publishProjectModal && !publishProjectModal.classList.contains("hidden");
       if (event.key === "Escape") {
+        if (endCanvasPan(null, { force: true })) {
+          event.preventDefault();
+          return;
+        }
         if (deviceContextMenu && !deviceContextMenu.classList.contains("hidden")) {
           event.preventDefault();
           hideDeviceContextMenu();
