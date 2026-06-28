@@ -33030,6 +33030,7 @@
     let editorCardSlotDrag = null;
     let editorPowerPlugDrag = null;
     let editorPowerPlugSnap = null;
+    let editorConnectorSnapGuide = null;
     let editorPowerPlugMarquee = null;
     let editorResizeDrag = null;
     let editorSelectedFaceplate = false;
@@ -35859,6 +35860,7 @@
       editorSelectedFaceplate = false;
       editorSelectedPowerPlugIds.clear();
       editorPowerPlugMarquee = null;
+      editorConnectorSnapGuide = null;
       editorPreviewZoom = 1;
       editorPreviewPan = { x: 0, y: 0 };
       editorActiveTab = "device";
@@ -35904,6 +35906,7 @@
       editorSelectedFaceplate = false;
       editorSelectedPowerPlugIds.clear();
       editorPowerPlugMarquee = null;
+      editorConnectorSnapGuide = null;
       editorPreviewZoom = 1;
       editorPreviewPan = { x: 0, y: 0 };
       editorActiveTab = "device";
@@ -36050,6 +36053,7 @@
       editorSelectedFaceplate = false;
       editorSelectedPowerPlugIds.clear();
       editorPowerPlugMarquee = null;
+      editorConnectorSnapGuide = null;
       editorCardIndex = 0;
       editorSlotIndex = 0;
       editorSelectedCardNodeIndex = null;
@@ -38480,6 +38484,19 @@
       return bounds ? bounds.y + bounds.height / 2 : connectorStartYForTemplate(template);
     }
 
+    function adapterCenterY(template) {
+      return (Number(template?.height) || ADAPTER_MIN_HEIGHT) / 2;
+    }
+
+    function connectorCanSnapToAdapterCenter(template, connector) {
+      return isAdapterTemplate(template) && connector?.direction === "input";
+    }
+
+    function isAdapterCenterDropTarget(template, connector, y) {
+      if (!connectorCanSnapToAdapterCenter(template, connector)) return false;
+      return Math.abs((Number(y) || 0) - adapterCenterY(template)) <= SLOT_HEIGHT * .28;
+    }
+
     function isFaceplateSideDropTarget(template, y) {
       const bounds = faceplateSideConnectorBounds(template);
       if (!bounds) return false;
@@ -38560,6 +38577,10 @@
         const side = connectorSideKey(connector);
         connector.x = side === "input" ? 0 : edgeX;
         connector.faceplateSide = canUseSideConnector && connector.faceplateSide === true;
+        if (isAdapterTemplate(template) && connectorCanSnapToAdapterCenter(template, connector) && connector.adapterCenterSnap === true) {
+          connector.y = adapterCenterY(template);
+          return;
+        }
         if (connector.faceplateSide) {
           connector.y = faceplateSideConnectorY(template);
           return;
@@ -38596,6 +38617,11 @@
         });
       normalizeMixedDeviceRows(template);
       template.connectors.forEach(connector => {
+        if (isAdapterTemplate(template) && connectorCanSnapToAdapterCenter(template, connector) && connector.adapterCenterSnap === true) {
+          connector.x = 0;
+          connector.y = adapterCenterY(template);
+          return;
+        }
         if (connector.faceplateSide) {
           connector.x = connectorSideKey(connector) === "input" ? 0 : edgeX;
           connector.y = faceplateSideConnectorY(template);
@@ -38627,6 +38653,7 @@
     function reorderConnectorInDirection(template, connector, targetY) {
       const startY = connectorStartYForTemplate(template);
       const requestedY = Number(targetY) || startY;
+      let adapterCenterPlaced = false;
       if (isFaceplateSideDropTarget(template, requestedY)) {
         const side = connectorSideKey(connector);
         template.connectors
@@ -38634,14 +38661,25 @@
           .forEach(item => moveConnectorBelowFaceplate(template, item));
         connector.faceplateSide = true;
         connector.y = faceplateSideConnectorY(template);
+        delete connector.adapterCenterSnap;
+      } else if (isAdapterCenterDropTarget(template, connector, requestedY)) {
+        connector.faceplateSide = false;
+        connector.adapterCenterSnap = true;
+        connector.y = adapterCenterY(template);
+        adapterCenterPlaced = true;
       } else {
         connector.faceplateSide = false;
+        delete connector.adapterCenterSnap;
         connector.y = Math.max(startY, requestedY);
       }
       connector.x = connectorSideKey(connector) === "input" ? 0 : deviceTemplateWidth(template);
       if (isPairedNetworkConnector(connector) && connector.pairedConnectorId) {
         const pair = template.connectors.find(item => item.id === connector.pairedConnectorId);
         if (pair) pair.y = connector.y;
+      }
+      if (adapterCenterPlaced) {
+        template.height = deviceHeightForSlotCounts(template);
+        return;
       }
       normalizeMixedDeviceRows(template);
       template.height = deviceHeightForSlotCounts(template);
@@ -38673,6 +38711,10 @@
       const selected = new Set(draggedIds);
       const dragged = template.connectors.find(connector => connector.id === editorNodeDrag.connectorId);
       if (!dragged) return map;
+      if (draggedIds.length === 1 && isAdapterCenterDropTarget(template, dragged, editorNodeDrag.currentY)) {
+        map.set(dragged.id, adapterCenterY(template));
+        return map;
+      }
       if (draggedIds.length === 1 && isFaceplateSideDropTarget(template, editorNodeDrag.currentY)) {
         map.set(dragged.id, faceplateSideConnectorY(template));
         return map;
@@ -38805,6 +38847,43 @@
 
     function currentEditorTemplate() {
       return editorDraft[editorIndex];
+    }
+
+    function editorPreviewContentSize() {
+      const template = currentEditorTemplate();
+      if (!template) return { width: DEVICE_WIDTH, height: 190 };
+      if (editorActiveTab === "cards") {
+        const card = currentEditorCard();
+        const inputCount = card?.connectors?.filter(connector => connector.direction === "input").length || 0;
+        const outputCount = card?.connectors?.filter(connector => connector.direction !== "input").length || 0;
+        return {
+          width: DEVICE_WIDTH,
+          height: (Math.max(1, inputCount, outputCount) + 2) * SLOT_HEIGHT
+        };
+      }
+      return {
+        width: deviceTemplateWidth(template),
+        height: Number(template.height) || deviceHeightForSlotCounts(template)
+      };
+    }
+
+    function fitDeviceEditorPreview() {
+      if (!deviceEditorPreview) return;
+      const rect = deviceEditorPreview.getBoundingClientRect();
+      const size = editorPreviewContentSize();
+      const pad = 34;
+      if (!rect.width || !rect.height || !size.width || !size.height) {
+        editorPreviewZoom = 1;
+        editorPreviewPan = { x: 0, y: 0 };
+        renderDeviceEditorPreview();
+        return;
+      }
+      editorPreviewZoom = clamp(Math.min(
+        rect.width / (size.width + pad * 2),
+        rect.height / (size.height + pad * 2)
+      ), .6, 8);
+      editorPreviewPan = { x: 0, y: 0 };
+      renderDeviceEditorPreview();
     }
 
     function updateDeviceEditorTitle(template = currentEditorTemplate()) {
@@ -39561,6 +39640,19 @@
       if (guides.childNodes.length) parent.appendChild(guides);
     }
 
+    function drawEditorConnectorSnapGuide(parent, template) {
+      if (!editorConnectorSnapGuide || !isAdapterTemplate(template)) return;
+      const y = Number(editorConnectorSnapGuide.centerY);
+      if (!Number.isFinite(y)) return;
+      parent.appendChild(createSvg("line", {
+        class: "power-plug-guide",
+        x1: 0,
+        x2: deviceTemplateWidth(template),
+        y1: y,
+        y2: y
+      }));
+    }
+
     function drawPowerPlugImage(parent, entry) {
       const meta = powerPlugMeta(entry.connector?.type);
       const crop = meta?.crop;
@@ -40032,6 +40124,7 @@
       if (!isAdapterTemplate(template)) drawEditorCardSlotBands(deviceEditorPreview, template);
       if (isAdapterTemplate(template)) drawAdapterInternalWires(deviceEditorPreview, template);
       drawEditorEthernetPairLines(deviceEditorPreview, template);
+      drawEditorConnectorSnapGuide(deviceEditorPreview, template);
       drawEditorPowerPlugMarquee(deviceEditorPreview);
       const previewPositions = editorPreviewPositions(template);
       template.connectors.forEach((connector, index) => {
@@ -40856,7 +40949,8 @@
       const point = getEditorPreviewPoint(event);
       const startY = connectorStartYForTemplate(template);
       const maxY = Math.max(startY, (Number(template.height) || deviceHeightForSlotCount(1, startY)) - DEVICE_BOTTOM_PAD);
-      const movingConnectors = editorDragConnectorIds(template)
+      const draggedIds = editorDragConnectorIds(template);
+      const movingConnectors = draggedIds
         .map(id => template.connectors.find(item => item.id === id))
         .filter(Boolean);
       const startYs = movingConnectors.map(item => editorDragStartY(item));
@@ -40867,7 +40961,12 @@
         : startY;
       const primaryStartY = editorDragStartY(connector);
       const requestedY = point.y - editorNodeDrag.offsetY;
-      const deltaY = clamp(requestedY - primaryStartY, minY - minStartY, maxY - maxStartY);
+      const snapY = draggedIds.length === 1 && isAdapterCenterDropTarget(template, connector, requestedY)
+        ? adapterCenterY(template)
+        : null;
+      const targetY = snapY !== null ? snapY : requestedY;
+      editorConnectorSnapGuide = snapY !== null ? { centerY: snapY } : null;
+      const deltaY = clamp(targetY - primaryStartY, minY - minStartY, maxY - maxStartY);
       editorNodeDrag.deltaY = deltaY;
       editorNodeDrag.currentY = primaryStartY + deltaY;
       editorNodeDrag.moved = true;
@@ -40960,6 +41059,7 @@
         commitEditorNodeDrag(template);
       }
       editorNodeDrag = null;
+      editorConnectorSnapGuide = null;
       renderDeviceEditorPreview();
     }
 
@@ -42678,7 +42778,7 @@
       if (selection.type === "title-block") {
         const block = titleBlockById(selection.id);
         const group = cachedLiveElement(commentsLayer, `title-block:${selection.id}`, `[data-title-block-id="${CSS.escape(selection.id)}"]`);
-        if (block && group) group.setAttribute("transform", `translate(${block.x}, ${block.y})`);
+        if (block && group) group.setAttribute("transform", `translate(${block.x}, ${block.y}) scale(${titleBlockScale(block)})`);
         return Boolean(block && group);
       }
       if (selection.type === "comment") {
@@ -43598,7 +43698,11 @@
           class: "adapter-outline",
           width,
           height,
-          rx: 6
+          rx: 6,
+          fill: "#32b6ff",
+          "fill-opacity": .08,
+          stroke: "#32b6ff",
+          "stroke-opacity": .72
         }));
         drawAdapterInternalWires(group, template, instance);
         const label = createSvg("text", {
@@ -49678,6 +49782,10 @@
           <dt>Brand</dt><dd>${escapeHtml(deviceBrandLabel(template))}</dd>
           <dt>Name</dt><dd>${escapeHtml(instance.name || template.name || "Device")}</dd>
         </dl>
+        <div class="field">
+          <label for="deviceNameInput">Name</label>
+          <input id="deviceNameInput" type="text" value="${escapeAttr(instance.name || template.name || "Device")}">
+        </div>
         ${renderPositionInputs("device", instance)}
         ${connectedNodesMarkup(instance, template)}
         <div class="field">
@@ -49691,6 +49799,18 @@
       `;
       bindPositionInputs("device", instance, { type: "device", id: instance.instanceId });
       bindConnectedNodeInspector();
+      bindDeferredCanvasTextCommit(
+        document.getElementById("deviceNameInput"),
+        value => { instance.name = value; },
+        value => {
+          const nextName = String(value || "").trim() || template.name || "Device";
+          if (!instance.templateOverride) instance.templateOverride = structuredClone(template);
+          instance.name = nextName;
+          if (instance.templateOverride) instance.templateOverride.name = nextName;
+          renderProjectCustomDevices();
+          render();
+        }
+      );
       document.getElementById("deviceNotes").addEventListener("input", event => {
         instance.notes = event.target.value;
       });
@@ -49742,6 +49862,7 @@
       const relative = text.match(/^([+-])\s*(\d+(?:\.\d+)?)$/);
       if (relative) {
         const amount = Number(relative[2]);
+        if (relative[1] === "-" && base < 0) return Math.round(base + amount);
         return Math.round(relative[1] === "-" ? base - amount : base + amount);
       }
 
@@ -49760,17 +49881,20 @@
       const control = document.getElementById(controlId);
       if (!control) return;
       const commit = () => {
+        if (control.value === control.dataset.lastCommittedText) return;
         const current = Number(object[key]) || 0;
         const base = control.dataset.baseValue ?? current;
         object[key] = parsePositionValue(control.value, base, current);
         control.value = Math.round(object[key]);
         control.dataset.baseValue = object[key];
+        control.dataset.lastCommittedText = control.value;
         if (movedSelection) repairOrthogonalRoutesForMovedSelections([movedSelection]);
         renderCanvasOnly();
       };
       control.addEventListener("change", commit);
       control.addEventListener("focus", () => {
         control.dataset.baseValue = Number(object[key]) || 0;
+        control.dataset.lastCommittedText = control.value;
         setTimeout(() => control.select(), 0);
       });
       control.addEventListener("click", event => {
@@ -50630,7 +50754,7 @@
         .canvas-device,.area-room,.comment-box,.title-block{cursor:default}
         .device-outline{fill:#fff;stroke:#1d2732;stroke-width:2}
         .dark-mode .device-outline{fill:#18202a;stroke:#fff}
-        .adapter-outline{fill:rgba(50,182,255,.08);stroke:rgba(50,182,255,.72);stroke-width:2;stroke-dasharray:7 5}
+        .adapter-outline{fill:#32b6ff;fill-opacity:.08;stroke:#32b6ff;stroke-opacity:.72;stroke-width:2;stroke-dasharray:7 5}
         .adapter-internal-wire{fill:none;stroke-width:3;stroke-linecap:round;pointer-events:none;opacity:.95}
         .adapter-label{fill:#18202a;font-size:13px;font-weight:900;text-anchor:middle;dominant-baseline:middle;paint-order:stroke;stroke:rgba(255,255,255,.92);stroke-width:4;stroke-linejoin:round}.dark-mode .adapter-label{fill:#f7fafc;stroke:rgba(0,0,0,.85)}
         .selected .device-outline,.selected .adapter-outline{stroke:#fb7904!important;stroke-width:3;filter:drop-shadow(0 0 9px rgba(251,121,4,.95)) drop-shadow(0 0 22px rgba(251,121,4,.55))}
@@ -51080,6 +51204,7 @@ document.addEventListener("click", function(event) {
           projectFileName = options.fileHandle?.name || file?.name || "";
           renderDeviceLibrary();
           render();
+          requestAnimationFrame(zoomToFit);
           if (projectFileHandle) setStatus(`Loaded ${projectFileName || "project"}. Save will overwrite this file.`);
         } catch (error) {
           alert("This project file could not be loaded.");
@@ -51518,7 +51643,7 @@ function clampPowerCenter(t,x,y,w,h){const r=powerFaceRect(t);return{x:Math.min(
 function powerPlugLayout(t){if(!t||!t.isPowerDistro||t.faceImage||t.faceplateDeleted)return[];const r=powerFaceRect(t),out=[],ins=powerPlugConnectors(t,"input",false),outs=powerPlugConnectors(t,"output",false),leftX=r.x+r.width*.25,rightX=r.x+r.width*.75,top=r.y+18;function stack(list,side){let y=top;list.forEach(c=>{const size=powerPlugSize(c),auto={x:side==="input"?leftX:rightX,y:y+size.height/2},p=c.powerPlug&&c.powerPlug.manual?clampPowerCenter(t,c.powerPlug.x,c.powerPlug.y,size.width,size.height):auto;out.push({c,href:powerPlugImage(c),x:p.x-size.width/2,y:p.y-size.height/2,width:size.width,height:size.height,powerlock:false});y+=size.height+10})}stack(ins,"input");stack(outs,"output");let lockY=top+Math.max(powerStackHeight(ins),powerStackHeight(outs))+((ins.length||outs.length)?18:0);[...powerPlugConnectors(t,"input",true),...powerPlugConnectors(t,"output",true)].forEach(c=>{const size=powerPlugSize(c),cy=lockY+size.height/2,p=c.powerPlug&&c.powerPlug.manual?clampPowerCenter(t,c.powerPlug.x,c.powerPlug.y,size.width,size.height):{x:r.x+r.width/2,y:cy};out.push({c,href:powerPlugImage(c),x:p.x-size.width/2,y:p.y-size.height/2,width:size.width,height:size.height,powerlock:true});lockY+=size.height+10});return out}
 function drawPowerPlugImage(g,p){const m=powerPlugTypes[p.c&&p.c.type]||{},crop=m.crop;if(!crop||!crop.viewBox||!crop.box){g.appendChild(s("image",{class:"power-plug-image",href:p.href,x:p.x,y:p.y,width:p.width,height:p.height,preserveAspectRatio:"xMidYMid meet"}));return}const vb=crop.viewBox.map(Number),box=crop.box.map(Number),scale=Math.min(p.width/box[2],p.height/box[3]),cw=box[2]*scale,ch=box[3]*scale,clip="power-plug-export-clip-"+clipSeq++,defs=s("defs"),cp=s("clipPath",{id:clip});cp.appendChild(s("rect",{x:p.x,y:p.y,width:p.width,height:p.height,rx:2}));defs.appendChild(cp);g.appendChild(defs);g.appendChild(s("image",{class:"power-plug-image",href:p.href,x:p.x+(p.width-cw)/2-(box[0]-vb[0])*scale,y:p.y+(p.height-ch)/2-(box[1]-vb[1])*scale,width:vb[2]*scale,height:vb[3]*scale,preserveAspectRatio:"none","clip-path":"url(#"+clip+")"}))}
 function drawPowerFace(g,t){if(!t||!t.isPowerDistro||t.faceImage||t.faceplateDeleted)return false;const r=powerFaceRect(t);g.appendChild(s("rect",{class:"device-face power-distro-face",x:r.x,y:r.y,width:r.width,height:r.height,rx:5}));powerPlugLayout(t).forEach(p=>drawPowerPlugImage(g,p));return true}
-function drawDevice(g,inst,t){if(isAdapterTemplate(t)){const w=Number(t.width)||ADAPTER_WIDTH,h=Number(t.height)||76;g.appendChild(s("rect",{class:"adapter-outline",width:w,height:h,rx:6}));drawAdapterInternalWires(g,t,inst);const label=s("text",{class:"adapter-label",x:w/2,y:-5,"dominant-baseline":"auto"});label.textContent=inst.name||t.name||"Adapter / Breakout";g.appendChild(label);effectiveConnectors(t).filter(c=>!c.empty&&!connectorHidden(inst,c)).forEach(c=>drawConnector(g,inst,c));return}g.appendChild(s("rect",{class:"device-outline",width:t.width||DEVICE_WIDTH,height:t.height||190,rx:8}));if(t.faceImage){const face=facePlacement(t);g.appendChild(s("image",{href:t.faceImage,x:face.x,y:face.y,width:face.width,height:face.height,preserveAspectRatio:"xMidYMid meet"}))}else if(drawPowerFace(g,t)){}else if(!t.faceplateDeleted){g.appendChild(s("rect",{class:"device-face",x:FACE_MARGIN,y:FACE_TOP_Y,width:(t.width||DEVICE_WIDTH)-FACE_MARGIN*2,height:FACE_HEIGHT,rx:5}));g.appendChild(s("rect",{class:"device-screen",x:24,y:FACE_TOP_Y+10,width:76,height:34,rx:4}));[0,1,2,3,4,5].forEach(i=>g.appendChild(s("circle",{cx:128+i*18,cy:FACE_TOP_Y+24,r:3.3,fill:i%2?"#fb7904":"#32b6ff"})))};(t.cardSlots||[]).forEach(slot=>{const card=cardTypeById(t,slot.installedCardTypeId);const band=cardBandGeometry(t,slot);g.appendChild(s("rect",{class:"card-band",x:band.x,y:band.y,width:band.width,height:band.height,rx:6}));drawCardCaptionExport(g,card&&card.name||"Empty",band.textX,(Number(slot.y)||CONNECTOR_START_Y)+3,card,band.width-12)});effectiveConnectors(t).filter(c=>!c.empty&&!connectorHidden(inst,c)).forEach(c=>drawConnector(g,inst,c));const label=s("text",{class:"device-label",x:20,y:22});label.textContent=inst.name||t.name||"Device";g.appendChild(label)}
+function drawDevice(g,inst,t){if(isAdapterTemplate(t)){const w=Number(t.width)||ADAPTER_WIDTH,h=Number(t.height)||76;g.appendChild(s("rect",{class:"adapter-outline",width:w,height:h,rx:6,fill:"#32b6ff","fill-opacity":.08,stroke:"#32b6ff","stroke-opacity":.72}));drawAdapterInternalWires(g,t,inst);const label=s("text",{class:"adapter-label",x:w/2,y:-5,"dominant-baseline":"auto"});label.textContent=inst.name||t.name||"Adapter / Breakout";g.appendChild(label);effectiveConnectors(t).filter(c=>!c.empty&&!connectorHidden(inst,c)).forEach(c=>drawConnector(g,inst,c));return}g.appendChild(s("rect",{class:"device-outline",width:t.width||DEVICE_WIDTH,height:t.height||190,rx:8}));if(t.faceImage){const face=facePlacement(t);g.appendChild(s("image",{href:t.faceImage,x:face.x,y:face.y,width:face.width,height:face.height,preserveAspectRatio:"xMidYMid meet"}))}else if(drawPowerFace(g,t)){}else if(!t.faceplateDeleted){g.appendChild(s("rect",{class:"device-face",x:FACE_MARGIN,y:FACE_TOP_Y,width:(t.width||DEVICE_WIDTH)-FACE_MARGIN*2,height:FACE_HEIGHT,rx:5}));g.appendChild(s("rect",{class:"device-screen",x:24,y:FACE_TOP_Y+10,width:76,height:34,rx:4}));[0,1,2,3,4,5].forEach(i=>g.appendChild(s("circle",{cx:128+i*18,cy:FACE_TOP_Y+24,r:3.3,fill:i%2?"#fb7904":"#32b6ff"})))};(t.cardSlots||[]).forEach(slot=>{const card=cardTypeById(t,slot.installedCardTypeId);const band=cardBandGeometry(t,slot);g.appendChild(s("rect",{class:"card-band",x:band.x,y:band.y,width:band.width,height:band.height,rx:6}));drawCardCaptionExport(g,card&&card.name||"Empty",band.textX,(Number(slot.y)||CONNECTOR_START_Y)+3,card,band.width-12)});effectiveConnectors(t).filter(c=>!c.empty&&!connectorHidden(inst,c)).forEach(c=>drawConnector(g,inst,c));const label=s("text",{class:"device-label",x:20,y:22});label.textContent=inst.name||t.name||"Device";g.appendChild(label)}
 function drawSegmentedConnectorNode(g,x,y,r,colors){const clip="connector-node-export-clip-"+clipSeq++,defs=s("defs"),cp=s("clipPath",{id:clip});cp.appendChild(s("circle",{cx:x,cy:y,r:r}));defs.appendChild(cp);g.appendChild(defs);const step=r*2/colors.length;colors.forEach((color,i)=>g.appendChild(s("rect",{x:x-r+i*step,y:y-r,width:step+.5,height:r*2,fill:color,"clip-path":"url(#"+clip+")","pointer-events":"none"})));g.appendChild(s("circle",{class:"connector-node",cx:x,cy:y,r:r,fill:"none"}))}
 function drawConnector(g,inst,c){const detailScale=canvasDetailScale(),selectedNode=selected&&selected.type==="connector"&&selected.deviceId===inst.instanceId&&selected.connectorId===c.id,infoBoxMode=view.zoom<=INFO_BOX_HIDE_ZOOM?"hidden":detailScale>=INFO_BOX_COMPACT_SCALE?"compact":"full",dimmed=connectorDimmed(inst,c);const node=s("g",{class:selectedNode?"selected":"",opacity:dimmed?0.5:1}),segments=connectorColorSegments(c);if(segments)drawSegmentedConnectorNode(node,c.x,c.y,7,segments);else node.appendChild(s("circle",{class:"connector-node",cx:c.x,cy:c.y,r:7,fill:connectorColor(c,inst.instanceId)}));node.appendChild(s("circle",{class:"connector-hit",cx:c.x,cy:c.y,r:17,fill:"transparent",stroke:"transparent"}));const label=s("text",{class:"connector-label",x:c.direction==="input"?c.x+17:c.x-17,y:c.y+20,"text-anchor":c.direction==="input"?"start":"end"});label.textContent=connectorLabel(c);node.appendChild(label);if(!isAdapterTemplate(templateForInstance(inst))&&!c.faceplateSide){const fields=c.type==="led-signal"?[{field:"customText",title:connectorFieldTitle(c,"customText"),text:c.customText}]:[{field:"nameText",title:connectorFieldTitle(c,"nameText"),text:c.nameText},{field:"resolutionFrameRate",title:connectorFieldTitle(c,"resolutionFrameRate"),text:c.resolutionFrameRate},{field:"customText",title:connectorFieldTitle(c,"customText"),text:c.customText}];addVisibleInfoBoxes(node,c,fields,detailScale,infoBoxMode)}node.addEventListener("click",e=>{e.stopPropagation();select({type:"connector",deviceId:inst.instanceId,connectorId:c.id})});node.addEventListener("dblclick",e=>{e.stopPropagation();jumpConnectedNode(inst.instanceId,c.id)});g.appendChild(node)}
 function drawWireVisuals(g,d,w,dir){const colors=connectionColorSegments(w);if(!colors){const line=s("path",{class:"wire",d,fill:"none",stroke:connectionColor(w),"marker-end":"url(#arrowEnd)"});if(dir==="two-way")line.setAttribute("marker-start","url(#arrowStart)");g.appendChild(line);return[line]}const len=100/colors.length;return colors.map((color,i)=>{const line=s("path",{class:"wire wire-segmented",d,fill:"none",stroke:color,pathLength:100,"stroke-dasharray":len+" 100","stroke-dashoffset":String(-i*len),"stroke-linecap":"butt"});if(i===colors.length-1)line.setAttribute("marker-end","url(#arrowEnd)");if(dir==="two-way"&&i===0)line.setAttribute("marker-start","url(#arrowStart)");g.appendChild(line);return line})}
@@ -51577,7 +51702,7 @@ function clearWireTrace(){if(window.__wireTraceAnimation)cancelAnimationFrame(wi
 function makeTracePath(d){const path=s("path",{class:"wire-trace-path",d:d});wireLayer.appendChild(path);let length=0;try{length=path.getTotalLength()}catch(e){length=0}return{path,length}}
 function animateTraceSegment(segment,dot,done){if(!segment||!segment.wire){done&&done();return}const pts=wireEndpoints(segment.wire),d=pathForConnection(segment.wire,pts),trace=makeTracePath(d);wireLayer.appendChild(dot);if(!trace.length){trace.path.remove();done&&done();return}const duration=Math.max(650,Math.min(4500,trace.length*4.6));let start=0;function step(now){if(!start)start=now;const t=Math.min(1,(now-start)/duration),ease=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2,dist=segment.reverse?trace.length*(1-ease):trace.length*ease,pt=trace.path.getPointAtLength(dist);dot.setAttribute("cx",pt.x);dot.setAttribute("cy",pt.y);focusTraceCamera(pt);if(t<1){window.__wireTraceAnimation=requestAnimationFrame(step);return}trace.path.remove();done&&done()}window.__wireTraceAnimation=requestAnimationFrame(step)}
 function playWireTrace(wireId){const w=(data.connections||[]).find(item=>item.id===wireId);if(!w)return;clearWireTrace();const sequence=wireTraceSequence(w).map(item=>({wire:item.wire||item,reverse:!!item.reverse}));if(!sequence.length)return;const firstPts=wireEndpoints(sequence[0].wire);focusTraceCamera(sequence[0].reverse?firstPts.to:firstPts.from);render();const dot=s("circle",{class:"wire-trace-dot",r:8,fill:"#fb7904",stroke:"#32b6ff","stroke-width":3});wireLayer.appendChild(dot);let index=0;function next(){if(index>=sequence.length){setTimeout(clearWireTrace,350);return}animateTraceSegment(sequence[index++],dot,()=>{if(index<sequence.length){const nextSegment=sequence[index],jumpId=nextSegment.reverse?nextSegment.wire.to&&nextSegment.wire.to.jumpNodeId:nextSegment.wire.from&&nextSegment.wire.from.jumpNodeId;if(jumpId){const p=pointForJumpNode(jumpId);dot.setAttribute("cx",p.x);dot.setAttribute("cy",p.y);focusTraceCamera(p)}}setTimeout(next,index<sequence.length?180:0)})}next()}
-function normalizeCableLength(value){const text=String(value||"").trim();if(!text)return"Unspecified";const compact=text.toLowerCase().replace(",",".").replace(/\s+/g," ");const format=(amount,unit)=>{const rounded=Math.round(amount*1000)/1000;const formatted=Number.isInteger(rounded)?String(rounded):String(rounded).replace(/(\.\d*?)0+$/,"$1").replace(/\.$/,"");return formatted+unit};const metric=compact.match(/^(\d+(?:\.\d+)?)\s*(mm|millimeter|millimeters|millimetre|millimetres|cm|centimeter|centimeters|centimetre|centimetres|m|meter|meters|metre|metres|km|kilometer|kilometers|kilometre|kilometres)$/);if(metric){const amount=Number(metric[1]),unit=metric[2],meters=unit.startsWith("mm")||unit.startsWith("milli")?amount/1000:unit.startsWith("cm")||unit.startsWith("centi")?amount/100:unit.startsWith("km")||unit.startsWith("kilo")?amount*1000:amount;return format(meters,"m")}const imperial=compact.match(/^(\d+(?:\.\d+)?)\s*(in|inch|inches|"|ft|foot|feet|'|yd|yard|yards)$/);if(imperial){const amount=Number(imperial[1]),unit=imperial[2],feet=unit==="in"||unit==="inch"||unit==="inches"||unit==="\"" ? amount/12 : unit==="yd"||unit==="yard"||unit==="yards" ? amount*3 : amount;return format(feet,"ft")}return text}
+function normalizeCableLength(value){const text=String(value||"").trim();if(!text)return"Unspecified";const compact=text.toLowerCase().replace(",",".").replace(/[ \t]+/g," ");const format=(amount,unit)=>{const rounded=Math.round(amount*1000)/1000;const formatted=Number.isInteger(rounded)?String(rounded):String(rounded).replace(/([.][0-9]*?)0+$/,"$1").replace(/[.]$/,"");return formatted+unit};const numberPart="([0-9]+(?:[.][0-9]+)?)";const metric=new RegExp("^"+numberPart+" *(mm|millimeter|millimeters|millimetre|millimetres|cm|centimeter|centimeters|centimetre|centimetres|m|meter|meters|metre|metres|km|kilometer|kilometers|kilometre|kilometres)$").exec(compact);if(metric){const amount=Number(metric[1]),unit=metric[2],meters=unit.startsWith("mm")||unit.startsWith("milli")?amount/1000:unit.startsWith("cm")||unit.startsWith("centi")?amount/100:unit.startsWith("km")||unit.startsWith("kilo")?amount*1000:amount;return format(meters,"m")}const imperial=new RegExp("^"+numberPart+" *(in|inch|inches|"+String.fromCharCode(34)+"|ft|foot|feet|'|yd|yard|yards)$").exec(compact);if(imperial){const amount=Number(imperial[1]),unit=imperial[2],feet=unit==="in"||unit==="inch"||unit==="inches"||unit===String.fromCharCode(34)?amount/12:unit==="yd"||unit==="yard"||unit==="yards"?amount*3:amount;return format(feet,"ft")}return text}
 function reportTable(columns,rows,emptyText){if(!rows||!rows.length)return'<p class="report-empty">'+h(emptyText)+'</p>';return'<table><thead><tr>'+columns.map(c=>'<th>'+h(c.label)+'</th>').join("")+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+columns.map(c=>'<td>'+h(row[c.key]??"")+'</td>').join("")+'</tr>').join("")+'</tbody></table>'}
 function reportCableTable(rows,emptyText){if(!rows||!rows.length)return'<p class="report-empty">'+h(emptyText)+'</p>';return'<table class="report-clickable-table"><thead><tr><th>Qty</th><th>Cable Type</th><th>Length</th></tr></thead><tbody>'+rows.map(row=>'<tr data-report-cable-type="'+h(row.typeId||"")+'" data-report-cable-length="'+h(row.length||"")+'"><td>'+h(row.quantity??"")+'</td><td>'+h(row.type??"")+'</td><td>'+h(row.length??"")+'</td></tr>').join("")+'</tbody></table>'}
 function selectReportCableGroup(typeId,length){const normalizedLength=normalizeCableLength(length),ids=(data.connections||[]).filter(w=>(w.cableType||"")===typeId&&normalizeCableLength(w.length)===normalizedLength).map(w=>w.id);if(!ids.length)return;selected=ids.length===1?{type:"wire",id:ids[0]}:{type:"multi-wire",ids};render()}
@@ -51603,6 +51728,7 @@ document.getElementById("reportButton").onclick=()=>{renderReport();reportBackdr
 document.getElementById("closeReport").onclick=()=>reportBackdrop.classList.add("hidden");
 reportBackdrop.addEventListener("click",e=>{if(e.target===reportBackdrop)reportBackdrop.classList.add("hidden")});
 reportContent.addEventListener("click",e=>{const row=e.target.closest("[data-report-cable-type]");if(!row)return;selectReportCableGroup(row.dataset.reportCableType||"",row.dataset.reportCableLength||"")});
+document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(!reportBackdrop.classList.contains("hidden")){e.preventDefault();reportBackdrop.classList.add("hidden");return}if(mobileViewerQuery.matches&&!document.body.classList.contains("topbar-collapsed")){e.preventDefault();document.body.classList.add("topbar-collapsed");updateViewerDrawerButtons();syncMobileViewerLayout();setTimeout(updateView,30);return}if(!document.body.classList.contains("inspector-collapsed")){e.preventDefault();document.body.classList.add("inspector-collapsed");updateViewerDrawerButtons();syncMobileViewerLayout();setTimeout(updateView,190)}});
 document.getElementById("projectTitle").textContent=data.projectName||"AV Designer Export";
 statusEl.textContent=statusSummary();
 updateLegend();
@@ -51913,6 +52039,7 @@ fit();
       editorSelectedCardNodeIndex = null;
       if (markDefaultConfig) markDefaultConfig.checked = false;
       renderDeviceEditor();
+      requestAnimationFrame(fitDeviceEditorPreview);
     }
     editorDeviceList.addEventListener("click", event => {
       const rackDevice = event.target.closest("[data-rack-device-id]");
@@ -52611,11 +52738,9 @@ fit();
       renderDeviceEditorPreview();
     });
     document.getElementById("editorZoomReset").addEventListener("click", () => {
-      editorPreviewZoom = 1;
-      editorPreviewPan = { x: 0, y: 0 };
       editorFaceplatePreviewZoom = 1;
       editorFaceplatePreviewPan = { x: 0, y: 0 };
-      renderDeviceEditorPreview();
+      fitDeviceEditorPreview();
     });
     pdFaceplatePreviewToggle?.addEventListener("change", event => {
       editorFaceplatePreviewEnabled = event.target.checked;
@@ -52825,7 +52950,18 @@ fit();
       const rackBuilderOpen = rackBuilderModal && !rackBuilderModal.classList.contains("hidden");
       const titleBlockOpen = titleBlockModal && !titleBlockModal.classList.contains("hidden");
       const deviceTechSpecsOpen = deviceTechSpecsModal && !deviceTechSpecsModal.classList.contains("hidden");
+      const publishProjectOpen = publishProjectModal && !publishProjectModal.classList.contains("hidden");
       if (event.key === "Escape") {
+        if (deviceContextMenu && !deviceContextMenu.classList.contains("hidden")) {
+          event.preventDefault();
+          hideDeviceContextMenu();
+          return;
+        }
+        if (publishProjectOpen) {
+          event.preventDefault();
+          closePublishProjectModal();
+          return;
+        }
         if (deviceTechSpecsOpen) {
           event.preventDefault();
           closeDeviceTechSpecsModal();
@@ -52865,7 +53001,6 @@ fit();
         }
       }
       if (isTyping) return;
-      const publishProjectOpen = publishProjectModal && !publishProjectModal.classList.contains("hidden");
       const mainCanvasShortcutTarget = !matrixRoutingOpen
         && !deviceEditorOpen
         && !nodeBuilderOpen
