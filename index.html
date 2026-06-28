@@ -3312,6 +3312,11 @@
       filter: drop-shadow(0 0 8px rgba(251, 121, 4, .9));
     }
 
+    .editor-node .editor-node-hit {
+      pointer-events: all;
+      filter: none;
+    }
+
     .editor-node-dragging {
       opacity: .42;
       pointer-events: none;
@@ -34516,6 +34521,15 @@
       const segments = colorSegmentsForConnector(connector);
       if (segments) {
         appendSegmentedConnectorNode(parent, x, y, radius, segments, 1);
+        parent.appendChild(createSvg("circle", {
+          class: "editor-node-hit",
+          cx: x,
+          cy: y,
+          r: radius + 6,
+          fill: "transparent",
+          stroke: "transparent",
+          "stroke-width": 0
+        }));
         return;
       }
       parent.appendChild(createSvg("circle", {
