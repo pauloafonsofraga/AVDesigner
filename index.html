@@ -854,20 +854,7 @@
       cursor: grabbing;
     }
 
-    #fastCanvas {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      display: block;
-      opacity: 0;
-      pointer-events: none;
-      z-index: 1;
-    }
-
     #canvas {
-      position: relative;
-      z-index: 2;
       width: 100%;
       height: 100%;
       display: block;
@@ -892,14 +879,6 @@
     #canvas.grid-off,
     body.dark-mode #canvas.grid-off {
       background: transparent;
-    }
-
-    .canvas-wrap.fast-canvas-mode #canvas > :not(defs) {
-      visibility: hidden;
-    }
-
-    .canvas-wrap.fast-canvas-mode #fastCanvas {
-      opacity: 1;
     }
 
     .empty-hint {
@@ -3803,7 +3782,6 @@
         <div class="legend" id="cableLegend" aria-label="Cable color legend"></div>
       </div>
       <div class="canvas-wrap" id="canvasWrap">
-        <canvas id="fastCanvas" aria-hidden="true"></canvas>
         <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <marker id="arrowEnd" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
@@ -33101,10 +33079,6 @@
     let svgDomIdCounter = 1;
     let zoomRenderFrame = null;
     let zoomRenderTimer = null;
-    let fastCanvasFrame = null;
-    let fastCanvasTimer = null;
-    let fastCanvasActive = false;
-    const fastCanvasImageCache = new Map();
     let wireTraceAnimationFrame = null;
     const ZOOM_RENDER_IDLE_MS = 140;
     const canvasView = { x: 0, y: 0, zoom: 1 };
@@ -33115,8 +33089,6 @@
 
     const canvas = document.getElementById("canvas");
     const canvasWrap = document.getElementById("canvasWrap");
-    const fastCanvas = document.getElementById("fastCanvas");
-    const fastCanvasContext = fastCanvas?.getContext?.("2d");
     const areasLayer = document.getElementById("areas");
     const racksLayer = document.getElementById("racks");
     const wiresLayer = document.getElementById("wires");
@@ -34444,442 +34416,15 @@
       };
     }
 
-    function fastCanvasDpr() {
-      return Math.min(window.devicePixelRatio || 1, 2);
-    }
-
-    function resizeFastCanvas() {
-      if (!fastCanvas || !fastCanvasContext) return null;
-      const rect = canvasWrap.getBoundingClientRect();
-      const dpr = fastCanvasDpr();
-      const width = Math.max(1, Math.round(rect.width * dpr));
-      const height = Math.max(1, Math.round(rect.height * dpr));
-      if (fastCanvas.width !== width || fastCanvas.height !== height) {
-        fastCanvas.width = width;
-        fastCanvas.height = height;
-      }
-      fastCanvas.style.width = `${Math.max(1, rect.width)}px`;
-      fastCanvas.style.height = `${Math.max(1, rect.height)}px`;
-      return { rect, dpr };
-    }
-
-    function fastCanvasImage(src) {
-      if (!src) return null;
-      const key = String(src);
-      let image = fastCanvasImageCache.get(key);
-      if (!image) {
-        image = new Image();
-        image.decoding = "async";
-        image.onload = () => {
-          if (fastCanvasActive) scheduleFastCanvasPaint();
-        };
-        image.src = key;
-        fastCanvasImageCache.set(key, image);
-      }
-      return image.complete && image.naturalWidth ? image : null;
-    }
-
-    function fastRoundedRect(ctx, x, y, width, height, radius = 4) {
-      const r = Math.max(0, Math.min(radius, width / 2, height / 2));
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.lineTo(x + width - r, y);
-      ctx.quadraticCurveTo(x + width, y, x + width, y + r);
-      ctx.lineTo(x + width, y + height - r);
-      ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
-      ctx.lineTo(x + r, y + height);
-      ctx.quadraticCurveTo(x, y + height, x, y + height - r);
-      ctx.lineTo(x, y + r);
-      ctx.quadraticCurveTo(x, y, x + r, y);
-      ctx.closePath();
-    }
-
-    function fastFillStrokeRoundedRect(ctx, x, y, width, height, radius, fill, stroke, lineWidth = 1) {
-      fastRoundedRect(ctx, x, y, width, height, radius);
-      if (fill) {
-        ctx.fillStyle = fill;
-        ctx.fill();
-      }
-      if (stroke) {
-        ctx.strokeStyle = stroke;
-        ctx.lineWidth = lineWidth;
-        ctx.stroke();
-      }
-    }
-
-    function fastStrokeText(ctx, text, x, y, options = {}) {
-      if (!text) return;
-      ctx.save();
-      ctx.font = options.font || "700 12px Inter, Arial, sans-serif";
-      ctx.textAlign = options.align || "left";
-      ctx.textBaseline = options.baseline || "alphabetic";
-      ctx.lineJoin = "round";
-      if (options.outline !== false) {
-        ctx.strokeStyle = options.stroke || "rgba(0,0,0,.88)";
-        ctx.lineWidth = Number(options.strokeWidth) || 3;
-        ctx.strokeText(String(text), x, y);
-      }
-      ctx.fillStyle = options.fill || "#f6f8fb";
-      ctx.fillText(String(text), x, y);
-      ctx.restore();
-    }
-
-    function fastSetWorldTransform(ctx, dpr) {
-      ctx.setTransform(
-        dpr * canvasView.zoom,
-        0,
-        0,
-        dpr * canvasView.zoom,
-        dpr * -canvasView.x * canvasView.zoom,
-        dpr * -canvasView.y * canvasView.zoom
-      );
-    }
-
-    function fastDrawPath(ctx, d, stroke, width = 3, dash = null) {
-      if (!d) return;
-      ctx.save();
-      ctx.strokeStyle = stroke;
-      ctx.lineWidth = width;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      if (dash) ctx.setLineDash(dash);
-      try {
-        ctx.stroke(new Path2D(d));
-      } catch {
-        // Path2D can reject malformed routes; the SVG renderer remains authoritative.
-      }
-      ctx.restore();
-    }
-
-    function fastDrawArrow(ctx, from, to, color, size = 9) {
-      if (!from || !to) return;
-      const angle = Math.atan2(to.y - from.y, to.x - from.x);
-      ctx.save();
-      ctx.translate(to.x, to.y);
-      ctx.rotate(angle);
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(-size, -size * .55);
-      ctx.lineTo(-size, size * .55);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-    }
-
-    function fastDrawConnectorNode(ctx, connector, instanceId = "", radius = 7) {
-      const segments = colorSegmentsForConnector(connector);
-      if (segments?.length > 1) {
-        const segmentWidth = (Math.PI * 2) / segments.length;
-        segments.forEach((color, index) => {
-          ctx.beginPath();
-          ctx.moveTo(connector.x, connector.y);
-          ctx.arc(connector.x, connector.y, radius, -Math.PI / 2 + index * segmentWidth, -Math.PI / 2 + (index + 1) * segmentWidth);
-          ctx.closePath();
-          ctx.fillStyle = color;
-          ctx.fill();
-        });
-      } else {
-        ctx.beginPath();
-        ctx.arc(connector.x, connector.y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = colorForConnector(connector, instanceId);
-        ctx.fill();
-      }
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = "#f8fbff";
-      ctx.stroke();
-    }
-
-    function fastDrawConnectorInfoBoxes(ctx, connector, fields) {
-      if (canvasView.zoom <= INFO_BOX_HIDE_ZOOM) return;
-      const visibleFields = (fields || []).filter(field => field.text);
-      if (!visibleFields.length) return;
-      const compact = canvasDetailScale() >= INFO_BOX_COMPACT_SCALE;
-      const scale = compact ? INFO_BOX_COMPACT_SCALE : canvasDetailScale();
-      const width = 44 * scale;
-      const height = 15.5 * scale;
-      const slotStep = 48 * scale;
-      const sideOffset = 18 * scale;
-      visibleFields.forEach((field, index) => {
-        const x = connector.direction === "input"
-          ? connector.x + sideOffset + index * slotStep
-          : connector.x - sideOffset - width - index * slotStep;
-        const y = connector.y - height / 2;
-        fastFillStrokeRoundedRect(ctx, x, y, width, height, 4, "rgba(17,26,36,.72)", "#9aa2aa", 1.05 * scale);
-        if (!compact) {
-          fastStrokeText(ctx, field.title, x + width / 2, y - 1.5 * scale, {
-            font: `800 ${5.4 * scale}px Inter, Arial, sans-serif`,
-            align: "center",
-            fill: "#32b6ff",
-            strokeWidth: 1.4 * scale
-          });
-          fastStrokeText(ctx, field.text, x + width / 2, y + height / 2 + 2.8 * scale, {
-            font: `700 ${5.6 * scale}px Inter, Arial, sans-serif`,
-            align: "center",
-            fill: "#f7fbff",
-            strokeWidth: 1.1 * scale
-          });
-        }
-      });
-    }
-
-    function fastDrawDevice(ctx, instance) {
-      const template = templateForInstance(instance);
-      if (!template) return;
-      const width = Number(template.width) || DEVICE_WIDTH;
-      const height = Number(template.height) || 190;
-      const isAdapter = isAdapterTemplate(template);
-      ctx.save();
-      ctx.translate(instance.x, instance.y);
-      if (isAdapter) {
-        const adapterHeight = Number(template.height) || 76;
-        ctx.setLineDash([10, 9]);
-        fastFillStrokeRoundedRect(ctx, 0, 0, width, adapterHeight, 8, "rgba(50,182,255,.08)", "#32b6ff", 3);
-        ctx.setLineDash([]);
-        fastStrokeText(ctx, instance.name || template.name || "Adapter / Breakout", width / 2, -5, {
-          font: "900 18px Inter, Arial, sans-serif",
-          align: "center",
-          fill: "#f7fbff",
-          strokeWidth: 4
-        });
-      } else {
-        const bodyFill = document.body.classList.contains("dark-mode") ? "#151d26" : "#f8fbff";
-        fastFillStrokeRoundedRect(ctx, 0, 0, width, height, 8, bodyFill, "#f8fbff", 2);
-        if (template.faceImage && !template.faceplateDeleted) {
-          const face = faceImagePlacement(template, width, height);
-          const image = fastCanvasImage(template.faceImage);
-          if (image) ctx.drawImage(image, face.x, face.y, face.width, face.height);
-          else fastFillStrokeRoundedRect(ctx, face.x, face.y, face.width, face.height, 4, "#253443", "#31465a", 1);
-        } else if (!template.faceplateDeleted) {
-          const faceHeight = typeof faceplateHeightForTemplate === "function" ? faceplateHeightForTemplate(template, width) : FACE_HEIGHT;
-          fastFillStrokeRoundedRect(ctx, FACE_MARGIN, FACE_TOP_Y, width - FACE_MARGIN * 2, faceHeight, 5, "#253443", null);
-          fastFillStrokeRoundedRect(ctx, 24, FACE_TOP_Y + 10, 76, 34, 4, "#82d0c5", null);
-          for (let index = 0; index < 6; index += 1) {
-            ctx.beginPath();
-            ctx.arc(128 + index * 18, FACE_TOP_Y + 24, 3.3, 0, Math.PI * 2);
-            ctx.fillStyle = index % 2 ? "#fb7904" : "#32b6ff";
-            ctx.fill();
-          }
-        }
-        (template.cardSlots || []).forEach(slot => {
-          const card = cardTypeById(template, slot.installedCardTypeId);
-          const band = cardBandGeometry(template, slot);
-          ctx.setLineDash([5, 5]);
-          fastFillStrokeRoundedRect(ctx, band.x, band.y, band.width, band.height, 6, "rgba(50,182,255,.08)", "#257faf", 1);
-          ctx.setLineDash([]);
-          const caption = String(card?.name || "Empty").trim();
-          if (caption) {
-            const captionHeight = 16;
-            fastFillStrokeRoundedRect(ctx, band.x + 6, band.y + 8, band.width - 12, captionHeight, 4, card?.captionBackgroundColor || "rgba(50,182,255,.55)", null);
-            fastStrokeText(ctx, caption, band.x + band.width / 2, band.y + 20, {
-              font: "900 10px Inter, Arial, sans-serif",
-              align: "center",
-              fill: card?.captionTextColor || "#ffffff",
-              strokeWidth: 2.5
-            });
-          }
-        });
-        fastStrokeText(ctx, instance.name || template.name || "Device", 20, 22, {
-          font: "900 15px Inter, Arial, sans-serif",
-          fill: "#f8fbff",
-          strokeWidth: 4
-        });
-      }
-      effectiveTemplateConnectors(template)
-        .filter(connector => !connector.empty && isConnectorVisibleOnCanvas(instance, connector))
-        .forEach(connector => {
-          const dimmed = isConnectorDimmedOnCanvas(instance.instanceId, connector);
-          ctx.save();
-          ctx.globalAlpha = dimmed ? .5 : 1;
-          fastDrawConnectorNode(ctx, connector, instance.instanceId);
-          fastStrokeText(ctx, connectorTypeLabel(connector), connector.direction === "input" ? connector.x + 14 : connector.x - 14, connector.y + 20, {
-            font: "700 9px Inter, Arial, sans-serif",
-            align: connector.direction === "input" ? "left" : "right",
-            fill: document.body.classList.contains("dark-mode") ? "#f8fbff" : "#111821",
-            strokeWidth: document.body.classList.contains("dark-mode") ? 3 : 2.4
-          });
-          if (!isAdapter) fastDrawConnectorInfoBoxes(ctx, connector, connectorInfoFields(connector));
-          ctx.restore();
-        });
-      ctx.restore();
-    }
-
-    function fastDrawLedSurface(ctx, surface) {
-      const image = fastCanvasImage(surface.image);
-      if (image) ctx.drawImage(image, surface.x, surface.y, surface.width, surface.height);
-      else fastFillStrokeRoundedRect(ctx, surface.x, surface.y, surface.width, surface.height, 4, "#202a35", "#fb7904", 1.5);
-      ctx.setLineDash([3, 3]);
-      fastFillStrokeRoundedRect(ctx, surface.x, surface.y, surface.width, surface.height, 4, null, "#fb7904", 1);
-      ctx.setLineDash([]);
-    }
-
-    function fastDrawJumpNode(ctx, node) {
-      const gradient = ctx.createRadialGradient(node.x, node.y, 2, node.x, node.y, JUMP_NODE_RADIUS);
-      gradient.addColorStop(0, "rgb(50,182,255)");
-      gradient.addColorStop(.58, "rgb(9,81,245)");
-      gradient.addColorStop(1, "rgb(255,121,4)");
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, JUMP_NODE_RADIUS, 0, Math.PI * 2);
-      ctx.fillStyle = gradient;
-      ctx.fill();
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = "rgb(9,81,245)";
-      ctx.stroke();
-    }
-
-    function fastDrawWires(ctx) {
-      const routeContext = state.wireMode === "orthogonal" ? createOrthogonalRouteContext() : null;
-      const ordered = routeContext ? [...state.connections].sort(compareConnectionsForRouting) : state.connections;
-      const routes = new Map();
-      ordered.forEach(connection => {
-        const route = routeForConnection(connection, routeContext);
-        routes.set(connection.id, route);
-        if (routeContext) registerOrthogonalRoute(routeContext, route.points);
-      });
-      state.connections.forEach(connection => {
-        const route = routes.get(connection.id);
-        if (!route) return;
-        const selected = isWireSelected(connection.id) || isWireHighlighted(connection.id);
-        const color = colorForConnection(connection);
-        const segments = colorSegmentsForConnection(connection);
-        if (segments?.length > 1) {
-          fastDrawPath(ctx, route.d, segments[0], selected ? 6 : 3.5);
-        } else {
-          fastDrawPath(ctx, route.d, color, selected ? 6 : 3.5);
-        }
-        if (selected) fastDrawPath(ctx, route.d, "rgba(251,121,4,.38)", 16);
-        const direction = cableDirection(connection.cableType);
-        if (direction === "one-way" || direction === "two-way") fastDrawArrow(ctx, route.points[route.points.length - 2] || route.from, route.to, color, 10);
-        if (direction === "two-way") fastDrawArrow(ctx, route.points[1] || route.to, route.from, color, 10);
-      });
-    }
-
-    function fastDrawComments(ctx) {
-      state.comments.forEach(comment => {
-        const end = commentLeaderEnd(comment);
-        ctx.save();
-        ctx.strokeStyle = comment.leaderColor || "#32b6ff";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(comment.anchor.x, comment.anchor.y);
-        ctx.lineTo(end.x, end.y);
-        ctx.stroke();
-        fastFillStrokeRoundedRect(ctx, comment.x, comment.y, comment.width || 180, comment.height || 82, 4, comment.backgroundColor || "#18202a", "#9aa2aa", 1);
-        fastStrokeText(ctx, comment.title || "Comment", comment.x + (comment.width || 180) / 2, comment.y, {
-          font: "900 12px Inter, Arial, sans-serif",
-          align: "center",
-          fill: "#32b6ff",
-          strokeWidth: 2.4
-        });
-        fastStrokeText(ctx, String(comment.text || "").split("\n")[0] || "", comment.x + 10, comment.y + 24, {
-          font: `700 ${comment.textSize || 12}px Inter, Arial, sans-serif`,
-          fill: comment.textColor || "#edf2f7",
-          strokeWidth: 2
-        });
-        ctx.restore();
-      });
-    }
-
-    function fastDrawTitleBlocks(ctx) {
-      state.titleBlocks.forEach(block => {
-        const rect = titleBlockRect(block);
-        fastFillStrokeRoundedRect(ctx, rect.x, rect.y, rect.width, rect.height, 0, "rgba(244,247,250,.92)", "#111", 1.4);
-        fastStrokeText(ctx, block.title || "Video Wirechart", rect.x + rect.width * .42, rect.y + rect.height * .34, {
-          font: `800 ${Math.max(8, rect.height * .09)}px Inter, Arial, sans-serif`,
-          align: "center",
-          fill: "#111",
-          outline: false
-        });
-      });
-    }
-
-    function renderFastCanvas2D() {
-      if (!fastCanvasContext) return;
-      const size = resizeFastCanvas();
-      if (!size) return;
-      const { rect, dpr } = size;
-      const ctx = fastCanvasContext;
-      ctx.save();
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, rect.width, rect.height);
-      fastSetWorldTransform(ctx, dpr);
-      state.areas.forEach(area => {
-        fastFillStrokeRoundedRect(ctx, area.x, area.y, area.width, area.height, 4, area.backgroundColor || "rgba(50,182,255,.10)", "rgba(50,182,255,.45)", 1);
-        fastStrokeText(ctx, area.name || "Area / Room Name", area.x + 18, area.y + 42, {
-          font: `900 ${area.textSize || 33}px Inter, Arial, sans-serif`,
-          fill: "#32b6ff",
-          strokeWidth: 4
-        });
-      });
-      state.racks.forEach(rack => {
-        const bounds = rackBounds(rack.id);
-        if (!bounds) return;
-        ctx.setLineDash([10, 7]);
-        fastFillStrokeRoundedRect(ctx, bounds.x, bounds.y, bounds.width, bounds.height, 12, "rgba(50,182,255,.05)", "#32b6ff", 2);
-        ctx.setLineDash([]);
-        fastStrokeText(ctx, rackName(rack), bounds.x + 16, bounds.y + 24, {
-          font: "900 14px Inter, Arial, sans-serif",
-          fill: "#32b6ff",
-          strokeWidth: 3
-        });
-      });
-      fastDrawWires(ctx);
-      state.ledSurfaces.forEach(surface => fastDrawLedSurface(ctx, surface));
-      state.devices.forEach(instance => fastDrawDevice(ctx, instance));
-      state.jumpNodes.forEach(node => fastDrawJumpNode(ctx, node));
-      fastDrawTitleBlocks(ctx);
-      fastDrawComments(ctx);
-      ctx.restore();
-    }
-
-    function beginFastCanvasNavigation() {
-      if (!fastCanvasContext) return;
-      const wasActive = fastCanvasActive;
-      fastCanvasActive = true;
-      if (!wasActive) renderFastCanvas2D();
-      canvasWrap.classList.add("fast-canvas-mode");
-      if (fastCanvasTimer) {
-        clearTimeout(fastCanvasTimer);
-        fastCanvasTimer = null;
-      }
-    }
-
-    function endFastCanvasNavigation() {
-      if (fastCanvasFrame) {
-        cancelAnimationFrame(fastCanvasFrame);
-        fastCanvasFrame = null;
-      }
-      if (fastCanvasTimer) {
-        clearTimeout(fastCanvasTimer);
-        fastCanvasTimer = null;
-      }
-      fastCanvasActive = false;
-      canvasWrap.classList.remove("fast-canvas-mode");
-      if (fastCanvasContext) {
-        const size = resizeFastCanvas();
-        if (size) {
-          fastCanvasContext.setTransform(size.dpr, 0, 0, size.dpr, 0, 0);
-          fastCanvasContext.clearRect(0, 0, size.rect.width, size.rect.height);
-        }
-      }
-    }
-
-    function scheduleFastCanvasPaint() {
-      if (!fastCanvasContext || fastCanvasFrame) return;
-      fastCanvasFrame = requestAnimationFrame(() => {
-        fastCanvasFrame = null;
-        renderFastCanvas2D();
-      });
-    }
-
     function scheduleViewportCanvasRender() {
-      if (!fastCanvasContext) return;
-      beginFastCanvasNavigation();
-      scheduleFastCanvasPaint();
       if (zoomRenderTimer) clearTimeout(zoomRenderTimer);
       zoomRenderTimer = setTimeout(() => {
         zoomRenderTimer = null;
-        endFastCanvasNavigation();
+        if (zoomRenderFrame) return;
+        zoomRenderFrame = requestAnimationFrame(() => {
+          zoomRenderFrame = null;
+          renderCanvasOnly({ lightweight: true });
+        });
       }, ZOOM_RENDER_IDLE_MS);
     }
 
@@ -34896,7 +34441,6 @@
       canvasView.zoom = Math.min(2.5, Math.max(0.1, nextZoom));
       canvasView.x = beforeX - localX / canvasView.zoom;
       canvasView.y = beforeY - localY / canvasView.zoom;
-      beginFastCanvasNavigation();
       updateCanvasView();
       scheduleZoomCanvasRender();
     }
@@ -36052,7 +35596,6 @@
       const newHeight = rect.height / canvasView.zoom;
       canvasView.x = center.x - newWidth / 2;
       canvasView.y = center.y - newHeight / 2;
-      beginFastCanvasNavigation();
       updateCanvasView();
       scheduleZoomCanvasRender();
     }
@@ -43156,7 +42699,6 @@
     }
 
     function renderCanvasOnly(options = {}) {
-      if (fastCanvasActive && options.fastCanvas !== true) endFastCanvasNavigation();
       const lightweight = options.lightweight === true;
       const viewport = lightweight ? lightweightRenderViewport() : null;
       const renderOptions = { viewport, lightweight };
@@ -47831,7 +47373,6 @@
         canvasView.y -= (event.clientY - panState.lastClientY) * scale;
         panState.lastClientX = event.clientX;
         panState.lastClientY = event.clientY;
-        beginFastCanvasNavigation();
         updateCanvasView();
         scheduleViewportCanvasRender();
         return;
@@ -52111,7 +51652,7 @@ function commentBoundsExport(c){const end=commentLeaderEnd(c),x1=Math.min(c.anch
 function jumpNodeBoundsExport(node){return{x:node.x-120,y:node.y-60,width:240,height:120}}
 function svgPoint(evt){const p=svg.createSVGPoint();p.x=evt.clientX;p.y=evt.clientY;return p.matrixTransform(svg.getScreenCTM().inverse())}
 function scheduleRender(delay=90){clearTimeout(renderTimer);renderTimer=setTimeout(()=>{renderTimer=null;render()},delay)}
-function zoomAt(nextZoom,clientX,clientY){const before=svgPoint({clientX,clientY});view.zoom=Math.min(3,Math.max(.1,nextZoom));updateView();const after=svgPoint({clientX,clientY});view.x+=before.x-after.x;view.y+=before.y-after.y;updateView()}
+function zoomAt(nextZoom,clientX,clientY){const before=svgPoint({clientX,clientY});view.zoom=Math.min(3,Math.max(.1,nextZoom));updateView();const after=svgPoint({clientX,clientY});view.x+=before.x-after.x;view.y+=before.y-after.y;updateView();scheduleRender()}
 function titleBlockScaleExport(b){const ws=Number(b&&b.width)?Number(b.width)/760:null,hs=Number(b&&b.height)?Number(b.height)/112:null,stored=Math.max(ws||0,hs||0),s=Math.max(.34,stored||1);return Number.isFinite(s)?s:1}
 function titleBlockSizeExport(b){const s=titleBlockScaleExport(b);return{width:760*s,height:112*s}}
 function allBounds(){const bounds=[];(data.areas||[]).forEach(a=>bounds.push({x:a.x,y:a.y,width:a.width,height:a.height}));(data.ledSurfaces||[]).forEach(su=>bounds.push({x:su.x,y:su.y,width:su.width,height:su.height}));(data.devices||[]).forEach(inst=>{const t=templateForInstance(inst);bounds.push({x:inst.x,y:inst.y,width:t.width||DEVICE_WIDTH,height:t.height||190})});(data.jumpNodes||[]).forEach(node=>bounds.push({x:node.x-36,y:node.y-36,width:72,height:72}));(data.racks||[]).forEach(r=>{const b=rackBounds(r.id);if(b)bounds.push(b)});(data.connections||[]).filter(w=>isSelfPatch(w)||manualRoutePoints(w).length).forEach(w=>{if(manualRoutePoints(w).length){const pts=routePointsForWire(w,wireEndpoints(w));const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);bounds.push({x:Math.min(...xs)-24,y:Math.min(...ys)-24,width:Math.max(...xs)-Math.min(...xs)+48,height:Math.max(...ys)-Math.min(...ys)+48});return}const inst=instanceById(w.from.deviceId),t=templateForInstance(inst),i=Math.max(0,selfPatchIndex(w));if(inst&&t){const extra=70+i*28;bounds.push({x:inst.x-extra,y:inst.y-extra,width:(t.width||DEVICE_WIDTH)+extra*2,height:(t.height||190)+extra*2})}});(data.comments||[]).forEach(c=>bounds.push({x:Math.min(c.anchor.x,c.x),y:Math.min(c.anchor.y,c.y-18),width:Math.abs(c.anchor.x-c.x)+(c.width||180),height:Math.abs(c.anchor.y-c.y)+(c.height||82)+18}));(data.titleBlocks||[]).forEach(b=>{const size=titleBlockSizeExport(b);bounds.push({x:b.x,y:b.y,width:size.width,height:size.height})});return bounds}
@@ -52223,9 +51764,9 @@ function pointerDistance(a,b){return Math.hypot(a.clientX-b.clientX,a.clientY-b.
 function pointerMid(a,b){return{clientX:(a.clientX+b.clientX)/2,clientY:(a.clientY+b.clientY)/2}}
 function syncMobileViewerLayout(){const mobile=mobileViewerQuery.matches;if(mobile){if(!document.body.dataset.mobileViewerInit){document.body.classList.add("topbar-collapsed","inspector-collapsed");document.body.dataset.mobileViewerInit="1"}}else{document.body.classList.remove("topbar-collapsed")}document.documentElement.style.setProperty("--mobile-topbar-height",(topbarEl?.offsetHeight||58)+"px")}
 function updateViewerDrawerButtons(){const inspectorCollapsed=document.body.classList.contains("inspector-collapsed");const topbarCollapsed=document.body.classList.contains("topbar-collapsed");if(mobileViewerQuery.matches){inspectorToggle.textContent=inspectorCollapsed?"☰":"✕"}else{inspectorToggle.textContent=inspectorCollapsed?"›":"‹"}inspectorToggle.setAttribute("aria-label",inspectorCollapsed?"Open inspector":"Close inspector");if(topbarToggle){topbarToggle.textContent=topbarCollapsed?"☰":"✕";topbarToggle.setAttribute("aria-label",topbarCollapsed?"Open controls":"Close controls")}}
-svg.addEventListener("wheel",e=>{e.preventDefault();if(!e.altKey&&!e.ctrlKey&&!e.metaKey){view.x+=e.deltaX/view.zoom;view.y+=e.deltaY/view.zoom;updateView();return}zoomAt(view.zoom*(e.deltaY<0?1.12:1/1.12),e.clientX,e.clientY)},{passive:false});
+svg.addEventListener("wheel",e=>{e.preventDefault();if(!e.altKey&&!e.ctrlKey&&!e.metaKey){view.x+=e.deltaX/view.zoom;view.y+=e.deltaY/view.zoom;updateView();scheduleRender(80);return}zoomAt(view.zoom*(e.deltaY<0?1.12:1/1.12),e.clientX,e.clientY)},{passive:false});
 svg.addEventListener("pointerdown",e=>{pointers.set(e.pointerId,{clientX:e.clientX,clientY:e.clientY});if(pointers.size===2){const ps=[...pointers.values()];pinch={distance:pointerDistance(ps[0],ps[1]),zoom:view.zoom,mid:pointerMid(ps[0],ps[1])};return}if(e.pointerType==="touch"||e.target===svg||e.button===1){pan={id:e.pointerId,x:e.clientX,y:e.clientY,vx:view.x,vy:view.y,moved:false};svg.setPointerCapture(e.pointerId);svg.classList.add("panning");if(e.button===1)e.preventDefault()}});
-svg.addEventListener("pointermove",e=>{if(pointers.has(e.pointerId))pointers.set(e.pointerId,{clientX:e.clientX,clientY:e.clientY});if(pinch&&pointers.size>=2){const ps=[...pointers.values()];const mid=pointerMid(ps[0],ps[1]);zoomAt(pinch.zoom*(pointerDistance(ps[0],ps[1])/Math.max(1,pinch.distance)),mid.clientX,mid.clientY);return}if(!pan||pan.id!==e.pointerId)return;const dx=e.clientX-pan.x,dy=e.clientY-pan.y;if(Math.hypot(dx,dy)>4)pan.moved=true;view.x=pan.vx-dx/view.zoom;view.y=pan.vy-dy/view.zoom;updateView()});
+svg.addEventListener("pointermove",e=>{if(pointers.has(e.pointerId))pointers.set(e.pointerId,{clientX:e.clientX,clientY:e.clientY});if(pinch&&pointers.size>=2){const ps=[...pointers.values()];const mid=pointerMid(ps[0],ps[1]);zoomAt(pinch.zoom*(pointerDistance(ps[0],ps[1])/Math.max(1,pinch.distance)),mid.clientX,mid.clientY);return}if(!pan||pan.id!==e.pointerId)return;const dx=e.clientX-pan.x,dy=e.clientY-pan.y;if(Math.hypot(dx,dy)>4)pan.moved=true;view.x=pan.vx-dx/view.zoom;view.y=pan.vy-dy/view.zoom;updateView();scheduleRender(80)});
 function endPointer(e){pointers.delete(e.pointerId);if(pan&&pan.id===e.pointerId){if(pan.moved)suppressSelectionUntil=Date.now()+260;pan=null;svg.classList.remove("panning")}if(pointers.size<2)pinch=null}
 svg.addEventListener("pointerup",endPointer);svg.addEventListener("pointercancel",endPointer);svg.addEventListener("auxclick",e=>{if(e.button===1)e.preventDefault()});
 svg.addEventListener("click",e=>{if(e.target===svg)select(null)});
@@ -53445,7 +52986,6 @@ fit();
         event.preventDefault();
         canvasView.x += event.deltaX / canvasView.zoom;
         canvasView.y += event.deltaY / canvasView.zoom;
-        beginFastCanvasNavigation();
         updateCanvasView();
         scheduleViewportCanvasRender();
         return;
