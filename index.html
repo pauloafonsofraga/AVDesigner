@@ -902,6 +902,12 @@
       opacity: 1;
     }
 
+    .canvas-wrap.live-zooming #canvas {
+      pointer-events: none;
+      transform-origin: 0 0;
+      will-change: transform;
+    }
+
     .empty-hint {
       position: absolute;
       left: 50%;
@@ -33102,7 +33108,9 @@
     let zoomRenderFrame = null;
     let zoomRenderTimer = null;
     let wireTraceAnimationFrame = null;
-    const ZOOM_RENDER_IDLE_MS = 140;
+    let liveZoomState = null;
+    const VIEWPORT_RENDER_IDLE_MS = 140;
+    const ZOOM_RENDER_IDLE_MS = 250;
     const canvasView = { x: 0, y: 0, zoom: 1 };
     const JUMP_NODE_RADIUS = 21;
     const JUMP_NODE_HIT_RADIUS = 36;
@@ -34854,11 +34862,47 @@
           zoomRenderFrame = null;
           renderCanvasOnly({ lightweight: true });
         });
-      }, ZOOM_RENDER_IDLE_MS);
+      }, VIEWPORT_RENDER_IDLE_MS);
+    }
+
+    function beginLiveZoom() {
+      if (liveZoomState) return;
+      liveZoomState = {
+        x: canvasView.x,
+        y: canvasView.y,
+        zoom: canvasView.zoom
+      };
+      canvasWrap.classList.add("live-zooming");
+    }
+
+    function applyLiveZoomTransform() {
+      if (!liveZoomState) return;
+      const scale = canvasView.zoom / Math.max(liveZoomState.zoom, 0.0001);
+      const tx = (liveZoomState.x - canvasView.x) * canvasView.zoom;
+      const ty = (liveZoomState.y - canvasView.y) * canvasView.zoom;
+      canvas.style.transform = `matrix(${scale}, 0, 0, ${scale}, ${tx}, ${ty})`;
+    }
+
+    function commitLiveZoomView() {
+      if (!liveZoomState) return false;
+      liveZoomState = null;
+      canvas.style.transform = "";
+      canvasWrap.classList.remove("live-zooming");
+      updateCanvasView();
+      return true;
     }
 
     function scheduleZoomCanvasRender() {
-      scheduleViewportCanvasRender();
+      if (zoomRenderTimer) clearTimeout(zoomRenderTimer);
+      zoomRenderTimer = setTimeout(() => {
+        zoomRenderTimer = null;
+        if (zoomRenderFrame) return;
+        zoomRenderFrame = requestAnimationFrame(() => {
+          zoomRenderFrame = null;
+          commitLiveZoomView();
+          renderCanvasOnly({ lightweight: true });
+        });
+      }, ZOOM_RENDER_IDLE_MS);
     }
 
     function zoomAtClientPoint(nextZoom, clientX, clientY) {
@@ -34867,10 +34911,11 @@
       const localY = clientY - rect.top;
       const beforeX = canvasView.x + localX / canvasView.zoom;
       const beforeY = canvasView.y + localY / canvasView.zoom;
+      beginLiveZoom();
       canvasView.zoom = Math.min(2.5, Math.max(0.1, nextZoom));
       canvasView.x = beforeX - localX / canvasView.zoom;
       canvasView.y = beforeY - localY / canvasView.zoom;
-      updateCanvasView();
+      updateCanvasView({ deferSvgViewBox: true });
       scheduleZoomCanvasRender();
     }
 
@@ -35985,13 +36030,22 @@
       return "full";
     }
 
-    function updateCanvasView() {
+    function updateCanvasView(options = {}) {
       const rect = canvasWrap.getBoundingClientRect();
       const width = Math.max(1, rect.width / canvasView.zoom);
       const height = Math.max(1, rect.height / canvasView.zoom);
-      canvas.setAttribute("viewBox", `${canvasView.x} ${canvasView.y} ${width} ${height}`);
+      if (options.deferSvgViewBox) {
+        applyLiveZoomTransform();
+      } else {
+        if (liveZoomState) {
+          liveZoomState = null;
+          canvas.style.transform = "";
+          canvasWrap.classList.remove("live-zooming");
+        }
+        canvas.setAttribute("viewBox", `${canvasView.x} ${canvasView.y} ${width} ${height}`);
+      }
       zoomReadout.textContent = `${Math.round(canvasView.zoom * 100)}%`;
-      renderSnapGuides();
+      if (!options.deferSvgViewBox) renderSnapGuides();
       scheduleWebglDraw();
     }
 
@@ -36021,12 +36075,13 @@
         x: canvasView.x + oldWidth / 2,
         y: canvasView.y + oldHeight / 2
       };
+      beginLiveZoom();
       canvasView.zoom = Math.min(2.5, Math.max(0.1, nextZoom));
       const newWidth = rect.width / canvasView.zoom;
       const newHeight = rect.height / canvasView.zoom;
       canvasView.x = center.x - newWidth / 2;
       canvasView.y = center.y - newHeight / 2;
-      updateCanvasView();
+      updateCanvasView({ deferSvgViewBox: true });
       scheduleZoomCanvasRender();
     }
 
