@@ -3317,6 +3317,14 @@
       filter: none;
     }
 
+    .editor-node-marquee {
+      fill: rgba(50, 182, 255, .1);
+      stroke: rgb(50, 182, 255);
+      stroke-width: 1.5;
+      stroke-dasharray: 6 4;
+      pointer-events: none;
+    }
+
     .editor-node-dragging {
       opacity: .42;
       pointer-events: none;
@@ -33018,6 +33026,7 @@
     let editorFaceplatePreviewResize = null;
     let editorFaceImageResize = null;
     let editorNodeDrag = null;
+    let editorNodeMarquee = null;
     let editorCardSlotDrag = null;
     let editorPowerPlugDrag = null;
     let editorPowerPlugSnap = null;
@@ -39754,12 +39763,53 @@
       );
     }
 
+    function selectEditorNodesInRect(template, marqueeRect, options = {}) {
+      if (!template?.connectors) return;
+      const paddedRect = {
+        left: marqueeRect.left - 2,
+        top: marqueeRect.top - 2,
+        right: marqueeRect.right + 2,
+        bottom: marqueeRect.bottom + 2
+      };
+      const nextIds = options.baseIds ? new Set(options.baseIds) : new Set();
+      template.connectors.forEach(connector => {
+        const x = Number(connector.x) || 0;
+        const y = Number(connector.y) || 0;
+        const radius = 13;
+        const connectorRect = {
+          left: x - radius,
+          top: y - radius,
+          right: x + radius,
+          bottom: y + radius
+        };
+        if (edgeRectsIntersect(paddedRect, connectorRect) || rectContainsPoint(paddedRect, { x, y })) {
+          nextIds.add(connector.id);
+        }
+      });
+      editorSelectedNodeIds = nextIds;
+      syncEditorNodeSelection(template);
+    }
+
     function drawEditorPowerPlugMarquee(parent) {
       if (!editorPowerPlugMarquee) return;
       const rect = rectFromPoints(editorPowerPlugMarquee.start, editorPowerPlugMarquee.current);
       if (rect.width < 1 && rect.height < 1) return;
       parent.appendChild(createSvg("rect", {
         class: "editor-power-plug-marquee",
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+        rx: 4
+      }));
+    }
+
+    function drawEditorNodeMarquee(parent) {
+      if (!editorNodeMarquee) return;
+      const rect = rectFromPoints(editorNodeMarquee.start, editorNodeMarquee.current);
+      if (rect.width < 1 && rect.height < 1) return;
+      parent.appendChild(createSvg("rect", {
+        class: "editor-node-marquee",
         x: rect.x,
         y: rect.y,
         width: rect.width,
@@ -40074,6 +40124,7 @@
         }
         deviceEditorPreview.appendChild(g);
       });
+      drawEditorNodeMarquee(deviceEditorPreview);
       generatedCardConnectors(template).forEach(connector => {
         const band = cardBandGeometry(template, template.cardSlots.find(slot => slot.id === connector.cardSlotId) || {});
         const labelX = connector.direction === "input" ? band.x + 8 : band.x + band.width - 8;
@@ -40606,6 +40657,33 @@
       return true;
     }
 
+    function startEditorNodeMarquee(event) {
+      if (event.button !== 0 || editorActiveTab !== "connectors") return false;
+      const template = currentEditorTemplate();
+      if (!template?.connectors?.length) return false;
+      const svg = editorSvgForEvent(event);
+      if (svg !== deviceEditorPreview) return false;
+      if (event.target.closest("[data-editor-node], [data-editor-card-slot-id], [data-editor-power-plug-id], [data-editor-resize-target], [data-editor-field], [data-editor-misc-color], [data-editor-remove-node], [data-editor-remove-card-slot]")) return false;
+      event.preventDefault();
+      event.stopPropagation();
+      const point = getEditorPreviewPoint(event);
+      const add = event.shiftKey || event.metaKey || event.ctrlKey;
+      editorNodeMarquee = {
+        pointerId: event.pointerId,
+        start: point,
+        current: point,
+        moved: false,
+        baseIds: add ? new Set(editorSelectedNodeIds) : new Set()
+      };
+      if (!add) clearEditorNodeSelection();
+      editorSelectedFaceplate = false;
+      editorSelectedPowerPlugIds.clear();
+      setEditorPointerCapture(event);
+      renderSelectedConnectorSettings();
+      renderDeviceEditorPreview();
+      return true;
+    }
+
     function startEditorNodeDrag(event) {
       if (event.button !== 0) return;
       if (startRackPreviewDeviceDrag(event)) return;
@@ -40615,6 +40693,7 @@
       if (startEditorPowerPlugDrag(event)) return;
       if (startEditorCardSlotDrag(event)) return;
       if (startEditorFaceplateMarquee(event)) return;
+      if (startEditorNodeMarquee(event)) return;
       const node = event.target.closest("[data-editor-node]");
       if (!node) return;
       const template = currentEditorTemplate();
@@ -40693,6 +40772,21 @@
         if (editorPowerPlugMarquee.moved) {
           selectPowerPlugsInRect(template, rectFromPoints(editorPowerPlugMarquee.start, point));
           editorSelectedFaceplate = false;
+        }
+        renderDeviceEditorPreview();
+        return;
+      }
+      if (editorNodeMarquee && event.pointerId === editorNodeMarquee.pointerId) {
+        const template = currentEditorTemplate();
+        if (!template) return;
+        const point = getEditorPreviewPoint(event);
+        editorNodeMarquee.current = point;
+        editorNodeMarquee.moved = Math.hypot(point.x - editorNodeMarquee.start.x, point.y - editorNodeMarquee.start.y) > 4;
+        if (editorNodeMarquee.moved) {
+          selectEditorNodesInRect(template, rectFromPoints(editorNodeMarquee.start, point), { baseIds: editorNodeMarquee.baseIds });
+          editorSelectedFaceplate = false;
+          editorSelectedPowerPlugIds.clear();
+          renderSelectedConnectorSettings();
         }
         renderDeviceEditorPreview();
         return;
@@ -40810,6 +40904,23 @@
         } else {
           editorSelectedFaceplate = false;
         }
+        renderDeviceEditorPreview();
+        return;
+      }
+      if (editorNodeMarquee) {
+        if (event?.pointerId !== undefined && event.pointerId !== editorNodeMarquee.pointerId) return;
+        const template = currentEditorTemplate();
+        if (template && event?.clientX !== undefined && event?.clientY !== undefined) {
+          const point = getEditorPreviewPoint(event);
+          editorNodeMarquee.current = point;
+          editorNodeMarquee.moved = editorNodeMarquee.moved || Math.hypot(point.x - editorNodeMarquee.start.x, point.y - editorNodeMarquee.start.y) > 4;
+          if (editorNodeMarquee.moved) {
+            selectEditorNodesInRect(template, rectFromPoints(editorNodeMarquee.start, point), { baseIds: editorNodeMarquee.baseIds });
+          }
+        }
+        releaseEditorPointerCapture(event);
+        editorNodeMarquee = null;
+        renderSelectedConnectorSettings();
         renderDeviceEditorPreview();
         return;
       }
