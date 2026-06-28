@@ -896,6 +896,8 @@
 
     .canvas-wrap.webgl-engine-active #canvas {
       background: transparent;
+      transform: translateZ(0);
+      will-change: transform;
     }
 
     .canvas-wrap.webgl-engine-active #webglCanvas {
@@ -905,7 +907,6 @@
     .canvas-wrap.live-zooming #canvas {
       pointer-events: none;
       transform-origin: 0 0;
-      will-change: transform;
     }
 
     .empty-hint {
@@ -34592,6 +34593,7 @@
         this.lineCount = 0;
         this.circleCount = 0;
         this.gridCount = 0;
+        this.hasScene = false;
         this.initPrograms();
       }
 
@@ -34686,6 +34688,7 @@
         this.rectCount = this.setBuffer(this.rectBuffer, scene.rectangles, 6);
         this.lineCount = this.setBuffer(this.lineBuffer, scene.lines, 6);
         this.circleCount = this.setBuffer(this.circleBuffer, scene.circles, 9);
+        this.hasScene = true;
       }
 
       buildGrid(viewWidth, viewHeight) {
@@ -34755,15 +34758,17 @@
         gl.drawArrays(gl.TRIANGLES, 0, this.circleCount);
       }
 
-      draw() {
+      draw(options = {}) {
         const view = this.resize();
         const gl = this.gl;
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
-        this.buildGrid(view.width, view.height);
-        this.drawSolid(this.gridBuffer, this.gridCount, view);
+        if (!options.skipGrid) {
+          this.buildGrid(view.width, view.height);
+          this.drawSolid(this.gridBuffer, this.gridCount, view);
+        }
         this.drawSolid(this.rectBuffer, this.rectCount, view);
         this.drawSolid(this.lineBuffer, this.lineCount, view);
         this.drawCircles(view);
@@ -34850,6 +34855,15 @@
           webglSceneDirty = false;
         }
         renderer.draw();
+      });
+    }
+
+    function scheduleWebglCameraDraw(options = {}) {
+      const renderer = ensureWebglRenderer();
+      if (!renderer || !renderer.hasScene || webglFrame) return;
+      webglFrame = requestAnimationFrame(() => {
+        webglFrame = null;
+        renderer.draw(options);
       });
     }
 
@@ -36046,7 +36060,11 @@
       }
       zoomReadout.textContent = `${Math.round(canvasView.zoom * 100)}%`;
       if (!options.deferSvgViewBox) renderSnapGuides();
-      scheduleWebglDraw();
+      if (options.deferSvgViewBox) {
+        scheduleWebglCameraDraw({ skipGrid: true });
+      } else {
+        scheduleWebglDraw();
+      }
     }
 
     function canvasVisibleRect() {
