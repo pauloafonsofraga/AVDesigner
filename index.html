@@ -11515,8 +11515,8 @@
                         "pairPlaceFirst": false,
                         "defaultConfiguration": null,
                         "faceImage": "Devices/faceplates/library/resolume-server-custom-device-mq961ujb.png",
-                        "faceImageNaturalWidth": 1800,
-                        "faceImageNaturalHeight": 663,
+                        "faceImageNaturalWidth": 2066,
+                        "faceImageNaturalHeight": 761,
                         "favorite": false,
                         "faceplateDeleted": false,
                         "faceImageScale": 1,
@@ -19477,8 +19477,8 @@
                         "faceImageOffsetX": 0,
                         "faceImageOffsetY": -10,
                         "faceImage": "Devices/faceplates/library/blustream-acm200-custom-device-mqj3nj49.png",
-                        "faceImageNaturalWidth": 1800,
-                        "faceImageNaturalHeight": 413,
+                        "faceImageNaturalWidth": 2051,
+                        "faceImageNaturalHeight": 471,
                         "techSpecs": "",
                         "objectType": "device",
                         "isAdapterBreakout": false,
@@ -23647,8 +23647,8 @@
                         "faceImageOffsetX": 0,
                         "faceImageOffsetY": 0,
                         "faceImage": "Devices/faceplates/library/black-magic-design-atem-contellation-2-m-e-4k-copy-custom-device-atem-co.png",
-                        "faceImageNaturalWidth": 1800,
-                        "faceImageNaturalHeight": 174,
+                        "faceImageNaturalWidth": 2146,
+                        "faceImageNaturalHeight": 207,
                         "techSpecs": "",
                         "objectType": "device",
                         "isAdapterBreakout": false,
@@ -24985,8 +24985,8 @@
                         "faceImageOffsetX": 0,
                         "faceImageOffsetY": 0,
                         "faceImage": "Devices/faceplates/library/novastar-vx1000-custom-device-mqkqx8lg.png",
-                        "faceImageNaturalWidth": 1800,
-                        "faceImageNaturalHeight": 173,
+                        "faceImageNaturalWidth": 3894,
+                        "faceImageNaturalHeight": 374,
                         "techSpecs": "",
                         "objectType": "device",
                         "isAdapterBreakout": false,
@@ -27206,8 +27206,8 @@
                         "faceImageOffsetX": 0,
                         "faceImageOffsetY": 0,
                         "faceImage": "Devices/faceplates/library/l-acoustics-la-panel-aes3-custom-device-mqqkh3lq.png",
-                        "faceImageNaturalWidth": 1800,
-                        "faceImageNaturalHeight": 173,
+                        "faceImageNaturalWidth": 3840,
+                        "faceImageNaturalHeight": 369,
                         "techSpecs": "",
                         "thumbnailImage": "Devices/faceplates/library/thumbs/l-acoustics-la-panel-aes3-custom-device-mqqkh3lq.png"
               },
@@ -27515,8 +27515,8 @@
                         "faceImageOffsetX": 0,
                         "faceImageOffsetY": 0,
                         "faceImage": "Devices/faceplates/library/l-acoustics-la-panel-custom-device-mqqmigja.png",
-                        "faceImageNaturalWidth": 1800,
-                        "faceImageNaturalHeight": 173,
+                        "faceImageNaturalWidth": 3894,
+                        "faceImageNaturalHeight": 374,
                         "techSpecs": "",
                         "thumbnailImage": "Devices/faceplates/library/thumbs/l-acoustics-la-panel-custom-device-mqqmigja.png"
               },
@@ -27728,8 +27728,8 @@
                         "faceImageOffsetX": 0,
                         "faceImageOffsetY": 0,
                         "faceImage": "Devices/faceplates/library/l-acoustics-la-power-custom-device-mqqmmarc.png",
-                        "faceImageNaturalWidth": 1800,
-                        "faceImageNaturalHeight": 346,
+                        "faceImageNaturalWidth": 3894,
+                        "faceImageNaturalHeight": 748,
                         "techSpecs": "",
                         "thumbnailImage": "Devices/faceplates/library/thumbs/l-acoustics-la-power-custom-device-mqqmmarc.png"
               },
@@ -29931,8 +29931,8 @@
                         "faceImageOffsetX": 0,
                         "faceImageOffsetY": 0,
                         "faceImage": "Devices/faceplates/library/yamaha-dm7-custom-device-mqw9yhs8.png",
-                        "faceImageNaturalWidth": 1800,
-                        "faceImageNaturalHeight": 1133,
+                        "faceImageNaturalWidth": 3000,
+                        "faceImageNaturalHeight": 1888,
                         "thumbnailImage": "Devices/faceplates/library/thumbs/yamaha-dm7-custom-device-mqw9yhs8.png"
               },
               {
@@ -32931,8 +32931,8 @@
                         "faceImageOffsetX": 0,
                         "faceImageOffsetY": 0,
                         "faceImage": "Devices/faceplates/library/yamaha-rio-3234-d3-custom-device-dm7-copy-2.png",
-                        "faceImageNaturalWidth": 1800,
-                        "faceImageNaturalHeight": 820,
+                        "faceImageNaturalWidth": 3901,
+                        "faceImageNaturalHeight": 1777,
                         "thumbnailImage": "Devices/faceplates/library/thumbs/yamaha-rio-3234-d3-custom-device-dm7-copy-2.png"
               }
     ];
@@ -38881,7 +38881,7 @@
       editorPreviewZoom = clamp(Math.min(
         rect.width / (size.width + pad * 2),
         rect.height / (size.height + pad * 2)
-      ), .6, 8);
+      ), .08, 8);
       editorPreviewPan = { x: 0, y: 0 };
       renderDeviceEditorPreview();
     }
@@ -50844,7 +50844,42 @@
       }));
     }
 
-    async function wirechartSvgMarkup(powerPlugAssets = {}) {
+    function forceLightPrintableSvg(svgNode) {
+      svgNode.classList.remove("dark-mode");
+      svgNode.querySelectorAll(".title-block-frame").forEach(frame => {
+        frame.setAttribute("fill", "#f2f4f7");
+        frame.setAttribute("stroke", "#111");
+      });
+      svgNode.querySelectorAll(".title-block line").forEach(line => {
+        line.setAttribute("stroke", "#111");
+      });
+      svgNode.querySelectorAll(".title-block text").forEach(text => {
+        text.setAttribute("fill", "#111");
+      });
+      svgNode.querySelectorAll(".adapter-outline").forEach(outline => {
+        outline.setAttribute("fill", "#32b6ff");
+        outline.setAttribute("fill-opacity", ".08");
+        outline.setAttribute("stroke", "#32b6ff");
+        outline.setAttribute("stroke-opacity", ".72");
+      });
+      svgNode.querySelectorAll(".adapter-label").forEach(label => {
+        label.setAttribute("fill", "#18202a");
+        label.setAttribute("stroke", "rgba(255,255,255,.92)");
+      });
+      svgNode.querySelectorAll(".device-outline").forEach(outline => {
+        outline.setAttribute("fill", "#fff");
+        outline.setAttribute("stroke", "#1d2732");
+      });
+      svgNode.querySelectorAll(".device-label").forEach(label => {
+        label.setAttribute("fill", "#18202a");
+      });
+      svgNode.querySelectorAll(".connector-label").forEach(label => {
+        label.setAttribute("fill", "#18202a");
+        label.setAttribute("stroke", "rgba(255,255,255,.96)");
+      });
+    }
+
+    async function wirechartSvgMarkup(powerPlugAssets = {}, options = {}) {
       const bounds = wirechartExportBounds();
       if (!bounds) return "";
       const clone = canvas.cloneNode(true);
@@ -50858,6 +50893,7 @@
         element.classList.remove("device-selected", "wire-selected", "area-selected", "comment-selected", "title-block-selected", "led-surface-selected", "node-selected");
       });
       await embedImageAssetsInSvg(clone, powerPlugAssets);
+      if (options.forceLight) forceLightPrintableSvg(clone);
       const style = document.createElementNS(SVG_NS, "style");
       style.textContent = wirechartSvgStyle();
       clone.insertBefore(style, clone.firstChild);
@@ -51065,7 +51101,7 @@ document.addEventListener("click", function(event) {
         logoSourceForReport(),
         powerPlugAssetPayload()
       ]);
-      const drawingSvg = await wirechartSvgMarkup(powerPlugAssets);
+      const drawingSvg = await wirechartSvgMarkup(powerPlugAssets, { forceLight: true });
       popup.document.open();
       popup.document.write(buildPrintableReportHtml(report, drawingSvg, logoSrc));
       popup.document.close();
@@ -52039,7 +52075,7 @@ fit();
       editorSelectedCardNodeIndex = null;
       if (markDefaultConfig) markDefaultConfig.checked = false;
       renderDeviceEditor();
-      requestAnimationFrame(fitDeviceEditorPreview);
+      requestAnimationFrame(() => requestAnimationFrame(fitDeviceEditorPreview));
     }
     editorDeviceList.addEventListener("click", event => {
       const rackDevice = event.target.closest("[data-rack-device-id]");
@@ -52730,7 +52766,7 @@ fit();
       miscColorTargetIndex = null;
     });
     document.getElementById("editorZoomOut").addEventListener("click", () => {
-      editorPreviewZoom = Math.max(.6, editorPreviewZoom / 1.2);
+      editorPreviewZoom = Math.max(.08, editorPreviewZoom / 1.2);
       renderDeviceEditorPreview();
     });
     document.getElementById("editorZoomIn").addEventListener("click", () => {
@@ -52749,9 +52785,9 @@ fit();
 
     function zoomEditorPreviewSvg(svg, factor) {
       if (svg === deviceEditorFaceplatePreview) {
-        editorFaceplatePreviewZoom = Math.min(8, Math.max(.6, editorFaceplatePreviewZoom * factor));
+        editorFaceplatePreviewZoom = Math.min(8, Math.max(.08, editorFaceplatePreviewZoom * factor));
       } else {
-        editorPreviewZoom = Math.min(8, Math.max(.6, editorPreviewZoom * factor));
+        editorPreviewZoom = Math.min(8, Math.max(.08, editorPreviewZoom * factor));
       }
       renderDeviceEditorPreview();
     }
