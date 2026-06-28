@@ -50073,6 +50073,29 @@
       }
     }
 
+    function bindDeferredCanvasTextCommit(control, onInput, onCommit) {
+      if (!control) return;
+      let committedValue = control.value;
+      const commit = () => {
+        const value = control.value;
+        onInput(value);
+        if (value === committedValue) return;
+        committedValue = value;
+        onCommit(value);
+      };
+      control.addEventListener("input", event => {
+        onInput(event.target.value);
+      });
+      control.addEventListener("change", commit);
+      control.addEventListener("blur", commit);
+      control.addEventListener("keydown", event => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        commit();
+        control.blur();
+      });
+    }
+
     function renderWireInspector(connectionId) {
       const connection = state.connections.find(item => item.id === connectionId);
       if (!connection) return;
@@ -50113,10 +50136,11 @@
         connection.label = event.target.value;
         renderCanvasOnly();
       });
-      document.getElementById("wireLength").addEventListener("input", event => {
-        connection.length = event.target.value;
-        renderCanvasOnly();
-      });
+      bindDeferredCanvasTextCommit(
+        document.getElementById("wireLength"),
+        value => { connection.length = value; },
+        () => renderCanvasOnly()
+      );
       document.getElementById("wireHideLabel").addEventListener("change", event => {
         connection.hideLabel = event.target.checked;
         renderCanvasOnly();
@@ -50159,13 +50183,15 @@
         </div>
         <button class="tool-button" id="resetMultiWireRoutes" type="button" ${wires.some(connection => normalizedWireRoutePoints(connection).length) ? "" : "disabled"}>Reset Wire Routes</button>
       `;
-      document.getElementById("multiWireLength").addEventListener("input", event => {
-        const value = event.target.value;
-        wires.forEach(connection => {
-          connection.length = value;
-        });
-        renderCanvasOnly();
-      });
+      bindDeferredCanvasTextCommit(
+        document.getElementById("multiWireLength"),
+        value => {
+          wires.forEach(connection => {
+            connection.length = value;
+          });
+        },
+        () => renderCanvasOnly()
+      );
       document.getElementById("multiWireNotes").addEventListener("input", event => {
         wires.forEach(connection => {
           connection.notes = event.target.value;
