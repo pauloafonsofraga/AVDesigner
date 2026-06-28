@@ -865,9 +865,22 @@
       z-index: 1;
     }
 
+    #navigationSnapshotCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      opacity: 0;
+      pointer-events: none;
+      transform-origin: 0 0;
+      will-change: transform;
+      z-index: 2;
+    }
+
     #canvas {
       position: relative;
-      z-index: 2;
+      z-index: 3;
       width: 100%;
       height: 100%;
       display: block;
@@ -908,6 +921,10 @@
       opacity: 0;
       pointer-events: none;
       transform-origin: 0 0;
+    }
+
+    .canvas-wrap.live-zooming #navigationSnapshotCanvas.ready {
+      opacity: 1;
     }
 
     .empty-hint {
@@ -3812,6 +3829,7 @@
       </div>
       <div class="canvas-wrap" id="canvasWrap">
         <canvas id="webglCanvas" aria-hidden="true"></canvas>
+        <canvas id="navigationSnapshotCanvas" aria-hidden="true"></canvas>
         <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <marker id="arrowEnd" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
@@ -33111,6 +33129,10 @@
     let zoomRenderTimer = null;
     let wireTraceAnimationFrame = null;
     let liveZoomState = null;
+    let navigationSnapshotFrame = null;
+    let navigationSnapshotTimer = null;
+    let navigationSnapshotVersion = 0;
+    let navigationSnapshotState = null;
     const VIEWPORT_RENDER_IDLE_MS = 140;
     const ZOOM_RENDER_IDLE_MS = 250;
     const canvasView = { x: 0, y: 0, zoom: 1 };
@@ -33137,6 +33159,7 @@
     const selectionMarquee = document.getElementById("selectionMarquee");
     const debugOutput = document.getElementById("debugOutput");
     const webglCanvas = document.getElementById("webglCanvas");
+    const navigationSnapshotCanvas = document.getElementById("navigationSnapshotCanvas");
     const deviceContextMenu = document.getElementById("deviceContextMenu");
     const titleBlockModal = document.getElementById("titleBlockModal");
     const titleBlockPreview = document.getElementById("titleBlockPreview");
@@ -34846,6 +34869,102 @@
       webglSceneDirty = true;
     }
 
+    function cancelNavigationSnapshotRefresh() {
+      if (navigationSnapshotTimer) {
+        clearTimeout(navigationSnapshotTimer);
+        navigationSnapshotTimer = null;
+      }
+      if (navigationSnapshotFrame) {
+        cancelAnimationFrame(navigationSnapshotFrame);
+        navigationSnapshotFrame = null;
+      }
+    }
+
+    function navigationSnapshotStyleText() {
+      const styles = Array.from(document.querySelectorAll("style"))
+        .map(style => style.textContent || "")
+        .join("\n");
+      return document.body.classList.contains("dark-mode")
+        ? styles.replace(/body\.dark-mode\s+/g, ".dark-mode ")
+        : styles;
+    }
+
+    function applyNavigationSnapshotTransform() {
+      if (!navigationSnapshotCanvas || !navigationSnapshotState) return;
+      const snap = navigationSnapshotState;
+      const scale = canvasView.zoom / Math.max(snap.zoom, 0.0001);
+      const tx = (snap.x - canvasView.x) * canvasView.zoom;
+      const ty = (snap.y - canvasView.y) * canvasView.zoom;
+      navigationSnapshotCanvas.style.transform = `matrix(${scale}, 0, 0, ${scale}, ${tx}, ${ty})`;
+    }
+
+    async function refreshNavigationSnapshot() {
+      if (!navigationSnapshotCanvas || !canvas || liveZoomState) return;
+      const version = ++navigationSnapshotVersion;
+      const rect = canvasWrap.getBoundingClientRect();
+      const cssWidth = Math.max(1, Math.round(rect.width));
+      const cssHeight = Math.max(1, Math.round(rect.height));
+      if (!cssWidth || !cssHeight) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const clone = canvas.cloneNode(true);
+      clone.removeAttribute("style");
+      clone.classList.remove("hidden");
+      clone.setAttribute("width", String(cssWidth));
+      clone.setAttribute("height", String(cssHeight));
+      clone.setAttribute("viewBox", canvas.getAttribute("viewBox") || `${canvasView.x} ${canvasView.y} ${cssWidth / canvasView.zoom} ${cssHeight / canvasView.zoom}`);
+      if (document.body.classList.contains("dark-mode")) clone.classList.add("dark-mode");
+      clone.querySelectorAll("#snapGuides,#previewMultiWires,#previewWire,#previewCommentLine,#previewAreaRect,#selectionMarquee,#infoBoxHoverLayer,.wire-hit,.connector-hit,.empty-hit,.hidden").forEach(element => element.remove());
+      const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
+      style.textContent = navigationSnapshotStyleText();
+      clone.insertBefore(style, clone.firstChild);
+      const text = new XMLSerializer().serializeToString(clone);
+      const url = URL.createObjectURL(new Blob([text], { type: "image/svg+xml;charset=utf-8" }));
+      const image = new Image();
+      try {
+        await new Promise((resolve, reject) => {
+          image.onload = resolve;
+          image.onerror = reject;
+          image.src = url;
+        });
+        if (version !== navigationSnapshotVersion || liveZoomState) return;
+        navigationSnapshotCanvas.width = Math.max(1, Math.round(cssWidth * dpr));
+        navigationSnapshotCanvas.height = Math.max(1, Math.round(cssHeight * dpr));
+        navigationSnapshotCanvas.style.width = `${cssWidth}px`;
+        navigationSnapshotCanvas.style.height = `${cssHeight}px`;
+        const context = navigationSnapshotCanvas.getContext("2d", { alpha: true });
+        context.setTransform(dpr, 0, 0, dpr, 0, 0);
+        context.clearRect(0, 0, cssWidth, cssHeight);
+        context.drawImage(image, 0, 0, cssWidth, cssHeight);
+        navigationSnapshotState = {
+          x: canvasView.x,
+          y: canvasView.y,
+          zoom: canvasView.zoom,
+          width: cssWidth,
+          height: cssHeight
+        };
+        navigationSnapshotCanvas.classList.add("ready");
+        navigationSnapshotCanvas.style.transform = "";
+      } catch (error) {
+        console.warn("Navigation snapshot unavailable:", error);
+        navigationSnapshotCanvas.classList.remove("ready");
+        navigationSnapshotState = null;
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    function scheduleNavigationSnapshotRefresh(delay = 180) {
+      if (!navigationSnapshotCanvas) return;
+      cancelNavigationSnapshotRefresh();
+      navigationSnapshotTimer = setTimeout(() => {
+        navigationSnapshotTimer = null;
+        navigationSnapshotFrame = requestAnimationFrame(() => {
+          navigationSnapshotFrame = null;
+          refreshNavigationSnapshot();
+        });
+      }, delay);
+    }
+
     function scheduleWebglDraw() {
       const renderer = ensureWebglRenderer();
       if (!renderer || webglFrame) return;
@@ -34881,6 +35000,7 @@
     }
 
     function beginLiveZoom() {
+      cancelNavigationSnapshotRefresh();
       if (zoomRenderTimer) {
         clearTimeout(zoomRenderTimer);
         zoomRenderTimer = null;
@@ -34896,6 +35016,7 @@
         zoom: canvasView.zoom
       };
       canvasWrap.classList.add("live-zooming");
+      applyNavigationSnapshotTransform();
     }
 
     function applyLiveZoomTransform() {
@@ -34904,6 +35025,7 @@
       const tx = (liveZoomState.x - canvasView.x) * canvasView.zoom;
       const ty = (liveZoomState.y - canvasView.y) * canvasView.zoom;
       canvas.style.transform = `matrix(${scale}, 0, 0, ${scale}, ${tx}, ${ty})`;
+      applyNavigationSnapshotTransform();
     }
 
     function commitLiveZoomView() {
@@ -34911,6 +35033,7 @@
       liveZoomState = null;
       canvas.style.transform = "";
       canvasWrap.classList.remove("live-zooming");
+      if (navigationSnapshotCanvas) navigationSnapshotCanvas.style.transform = "";
       updateCanvasView();
       return true;
     }
@@ -34924,6 +35047,7 @@
           zoomRenderFrame = null;
           commitLiveZoomView();
           renderCanvasOnly({ lightweight: true });
+          scheduleNavigationSnapshotRefresh();
         });
       }, ZOOM_RENDER_IDLE_MS);
     }
@@ -43243,6 +43367,7 @@
       markWebglSceneDirty();
       scheduleWebglDraw();
       suppressCanvasInfoBoxes = previousSuppressCanvasInfoBoxes;
+      if (!options.live && !liveZoomState) scheduleNavigationSnapshotRefresh(lightweight ? 260 : 180);
       if (!lightweight) {
         updateUndoRedoButtons();
         emptyHint.classList.toggle("hidden", state.devices.length > 0 || state.ledSurfaces.length > 0 || state.areas.length > 0 || state.comments.length > 0 || state.titleBlocks.length > 0);
@@ -47102,11 +47227,12 @@
 
     function focusTraceCamera(point) {
       const rect = canvasWrap.getBoundingClientRect();
+      beginLiveZoom();
       canvasView.zoom = 1.13;
       canvasView.x = point.x - Math.max(1, rect.width / canvasView.zoom) / 2;
       canvasView.y = point.y - Math.max(1, rect.height / canvasView.zoom) / 2;
-      updateCanvasView();
-      scheduleViewportCanvasRender();
+      updateCanvasView({ deferSvgViewBox: true });
+      scheduleZoomCanvasRender();
     }
 
     function clearWireTrace() {
@@ -53513,10 +53639,11 @@ fit();
       if (!isMacZoom && !isWindowsZoom) {
         if (!event.deltaX && !event.deltaY) return;
         event.preventDefault();
+        beginLiveZoom();
         canvasView.x += event.deltaX / canvasView.zoom;
         canvasView.y += event.deltaY / canvasView.zoom;
-        updateCanvasView();
-        scheduleViewportCanvasRender();
+        updateCanvasView({ deferSvgViewBox: true });
+        scheduleZoomCanvasRender();
         return;
       }
       event.preventDefault();
