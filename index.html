@@ -33131,10 +33131,15 @@
     let liveZoomState = null;
     let navigationSnapshotFrame = null;
     let navigationSnapshotTimer = null;
+    let navigationSnapshotIdle = null;
     let navigationSnapshotVersion = 0;
     let navigationSnapshotState = null;
+    let svgDetailRefreshTimer = null;
+    let svgDetailRefreshFrame = null;
+    let svgDetailRefreshIdle = null;
     const VIEWPORT_RENDER_IDLE_MS = 140;
     const ZOOM_RENDER_IDLE_MS = 250;
+    const SVG_DETAIL_REFRESH_IDLE_MS = 1200;
     const canvasView = { x: 0, y: 0, zoom: 1 };
     const JUMP_NODE_RADIUS = 21;
     const JUMP_NODE_HIT_RADIUS = 36;
@@ -34878,6 +34883,11 @@
         cancelAnimationFrame(navigationSnapshotFrame);
         navigationSnapshotFrame = null;
       }
+      if (navigationSnapshotIdle) {
+        if (typeof cancelIdleCallback === "function") cancelIdleCallback(navigationSnapshotIdle);
+        else clearTimeout(navigationSnapshotIdle);
+        navigationSnapshotIdle = null;
+      }
     }
 
     function navigationSnapshotStyleText() {
@@ -34953,14 +34963,65 @@
       }
     }
 
-    function scheduleNavigationSnapshotRefresh(delay = 180) {
+    function scheduleNavigationSnapshotRefresh(delay = 900) {
       if (!navigationSnapshotCanvas) return;
       cancelNavigationSnapshotRefresh();
       navigationSnapshotTimer = setTimeout(() => {
         navigationSnapshotTimer = null;
-        navigationSnapshotFrame = requestAnimationFrame(() => {
-          navigationSnapshotFrame = null;
-          refreshNavigationSnapshot();
+        const queue = callback => {
+          if (typeof requestIdleCallback === "function") {
+            navigationSnapshotIdle = requestIdleCallback(callback, { timeout: 1800 });
+          } else {
+            navigationSnapshotIdle = setTimeout(callback, 220);
+          }
+        };
+        queue(() => {
+          navigationSnapshotIdle = null;
+          navigationSnapshotFrame = requestAnimationFrame(() => {
+            navigationSnapshotFrame = null;
+            refreshNavigationSnapshot();
+          });
+        });
+      }, delay);
+    }
+
+    function cancelSvgDetailRefresh() {
+      if (svgDetailRefreshTimer) {
+        clearTimeout(svgDetailRefreshTimer);
+        svgDetailRefreshTimer = null;
+      }
+      if (svgDetailRefreshFrame) {
+        cancelAnimationFrame(svgDetailRefreshFrame);
+        svgDetailRefreshFrame = null;
+      }
+      if (svgDetailRefreshIdle) {
+        if (typeof cancelIdleCallback === "function") cancelIdleCallback(svgDetailRefreshIdle);
+        else clearTimeout(svgDetailRefreshIdle);
+        svgDetailRefreshIdle = null;
+      }
+    }
+
+    function scheduleSvgDetailRefresh(delay = SVG_DETAIL_REFRESH_IDLE_MS) {
+      cancelSvgDetailRefresh();
+      svgDetailRefreshTimer = setTimeout(() => {
+        svgDetailRefreshTimer = null;
+        const queue = callback => {
+          if (typeof requestIdleCallback === "function") {
+            svgDetailRefreshIdle = requestIdleCallback(callback, { timeout: 3200 });
+          } else {
+            svgDetailRefreshIdle = setTimeout(callback, 520);
+          }
+        };
+        queue(() => {
+          svgDetailRefreshIdle = null;
+          if (liveZoomState || isLiveCanvasInteraction()) {
+            scheduleSvgDetailRefresh(delay);
+            return;
+          }
+          svgDetailRefreshFrame = requestAnimationFrame(() => {
+            svgDetailRefreshFrame = null;
+            renderCanvasOnly({ lightweight: true, cameraDetailRefresh: true });
+          });
         });
       }, delay);
     }
@@ -34994,13 +35055,15 @@
         if (zoomRenderFrame) return;
         zoomRenderFrame = requestAnimationFrame(() => {
           zoomRenderFrame = null;
-          renderCanvasOnly({ lightweight: true });
+          commitLiveZoomView();
+          scheduleNavigationSnapshotRefresh(1400);
         });
       }, VIEWPORT_RENDER_IDLE_MS);
     }
 
     function beginLiveZoom() {
       cancelNavigationSnapshotRefresh();
+      cancelSvgDetailRefresh();
       if (zoomRenderTimer) {
         clearTimeout(zoomRenderTimer);
         zoomRenderTimer = null;
@@ -35013,7 +35076,8 @@
       liveZoomState = {
         x: canvasView.x,
         y: canvasView.y,
-        zoom: canvasView.zoom
+        zoom: canvasView.zoom,
+        detailLevel: canvasDetailLevel()
       };
       canvasWrap.classList.add("live-zooming");
       applyNavigationSnapshotTransform();
@@ -35029,25 +35093,29 @@
     }
 
     function commitLiveZoomView() {
-      if (!liveZoomState) return false;
+      if (!liveZoomState) return { committed: false, detailLevelChanged: false };
+      const previousDetailLevel = liveZoomState.detailLevel;
       liveZoomState = null;
       canvas.style.transform = "";
       canvasWrap.classList.remove("live-zooming");
       if (navigationSnapshotCanvas) navigationSnapshotCanvas.style.transform = "";
       updateCanvasView();
-      return true;
+      return {
+        committed: true,
+        detailLevelChanged: previousDetailLevel !== canvasDetailLevel()
+      };
     }
 
-    function scheduleZoomCanvasRender() {
+    function scheduleZoomCanvasRender(options = {}) {
       if (zoomRenderTimer) clearTimeout(zoomRenderTimer);
       zoomRenderTimer = setTimeout(() => {
         zoomRenderTimer = null;
         if (zoomRenderFrame) return;
         zoomRenderFrame = requestAnimationFrame(() => {
           zoomRenderFrame = null;
-          commitLiveZoomView();
-          renderCanvasOnly({ lightweight: true });
-          scheduleNavigationSnapshotRefresh();
+          const commit = commitLiveZoomView();
+          if (options.refreshSnapshot !== false) scheduleNavigationSnapshotRefresh();
+          if (options.refreshDetails !== false && commit.detailLevelChanged) scheduleSvgDetailRefresh();
         });
       }, ZOOM_RENDER_IDLE_MS);
     }
@@ -48337,7 +48405,7 @@
         panState = null;
         canvasWrap.classList.remove("panning");
         if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
-        scheduleZoomCanvasRender();
+        scheduleZoomCanvasRender({ refreshDetails: false, refreshSnapshot: false });
         return;
       }
       cancelLiveCanvasRender();
@@ -48468,7 +48536,7 @@
         panState = null;
         canvasWrap.classList.remove("panning");
         if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
-        scheduleZoomCanvasRender();
+        scheduleZoomCanvasRender({ refreshDetails: false, refreshSnapshot: false });
       }
     });
 
@@ -53643,7 +53711,7 @@ fit();
         canvasView.x += event.deltaX / canvasView.zoom;
         canvasView.y += event.deltaY / canvasView.zoom;
         updateCanvasView({ deferSvgViewBox: true });
-        scheduleZoomCanvasRender();
+        scheduleZoomCanvasRender({ refreshDetails: false, refreshSnapshot: false });
         return;
       }
       event.preventDefault();
