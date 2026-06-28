@@ -33023,6 +33023,7 @@
     let editorInteractionSvg = null;
     let editorFaceplatePreviewEnabled = false;
     let editorSelectedNodeIndex = null;
+    let editorSelectedNodeIds = new Set();
     let editorSelectedCardNodeIndex = null;
     let editorActiveTab = "device";
     let editorCardIndex = 0;
@@ -35831,7 +35832,7 @@
       editorInstanceId = null;
       editorDraft = structuredClone(deviceLibrary);
       editorIndex = 0;
-      editorSelectedNodeIndex = null;
+      clearEditorNodeSelection();
       editorSelectedFaceplate = false;
       editorSelectedPowerPlugIds.clear();
       editorPowerPlugMarquee = null;
@@ -35876,7 +35877,7 @@
       if (instance.powerUnit) editorDraft[0].powerUnit = normalizePowerUnit(instance.powerUnit);
       editorIndex = 0;
       editorInstanceName = instance.name || template.name || "";
-      editorSelectedNodeIndex = null;
+      clearEditorNodeSelection();
       editorSelectedFaceplate = false;
       editorSelectedPowerPlugIds.clear();
       editorPowerPlugMarquee = null;
@@ -36022,7 +36023,7 @@
     }
 
     function resetEditorDeviceSelections() {
-      editorSelectedNodeIndex = null;
+      clearEditorNodeSelection();
       editorSelectedFaceplate = false;
       editorSelectedPowerPlugIds.clear();
       editorPowerPlugMarquee = null;
@@ -37736,7 +37737,7 @@
       editorPowerConsumption.value = formatPowerNumber(powerValueForUnit(template.powerWatts, powerUnit), 2);
       setPowerUnitToggle(editorPowerUnitToggle, powerUnit);
       if (editorPowerEquivalent) editorPowerEquivalent.textContent = formatPowerPair(template.powerWatts);
-      if (editorSelectedNodeIndex !== null && !template.connectors[editorSelectedNodeIndex]) editorSelectedNodeIndex = null;
+      syncEditorNodeSelection(template);
       const selectedCard = template.cardTypes?.[editorCardIndex];
       if (editorSelectedCardNodeIndex !== null && !selectedCard?.connectors?.[editorSelectedCardNodeIndex]) editorSelectedCardNodeIndex = null;
       editorLedOutputCount.innerHTML = Array.from({ length: 19 }, (_, index) => {
@@ -37795,6 +37796,64 @@
       if (editorDeviceTechSpecsPanel) {
         editorDeviceTechSpecsPanel.classList.toggle("hidden", editorActiveTab !== "device");
       }
+    }
+
+    function clearEditorNodeSelection() {
+      editorSelectedNodeIndex = null;
+      editorSelectedNodeIds.clear();
+    }
+
+    function syncEditorNodeSelection(template = currentEditorTemplate()) {
+      if (!template?.connectors) {
+        clearEditorNodeSelection();
+        return;
+      }
+      const validIds = new Set(template.connectors.map(connector => connector.id));
+      editorSelectedNodeIds = new Set([...editorSelectedNodeIds].filter(id => validIds.has(id)));
+      const indexedConnector = template.connectors[editorSelectedNodeIndex];
+      if (indexedConnector && !editorSelectedNodeIds.size) {
+        editorSelectedNodeIds.add(indexedConnector.id);
+      }
+      if (!editorSelectedNodeIds.size) {
+        editorSelectedNodeIndex = null;
+        return;
+      }
+      const currentConnector = template.connectors[editorSelectedNodeIndex];
+      if (!currentConnector || !editorSelectedNodeIds.has(currentConnector.id)) {
+        const firstId = editorSelectedNodeIds.values().next().value;
+        editorSelectedNodeIndex = template.connectors.findIndex(connector => connector.id === firstId);
+      }
+    }
+
+    function setEditorNodeSelection(template, index, options = {}) {
+      const connector = template?.connectors?.[index];
+      if (!connector) {
+        clearEditorNodeSelection();
+        return [];
+      }
+      if (options.toggle) {
+        if (editorSelectedNodeIds.has(connector.id)) editorSelectedNodeIds.delete(connector.id);
+        else editorSelectedNodeIds.add(connector.id);
+      } else if (options.add) {
+        editorSelectedNodeIds.add(connector.id);
+      } else if (!(options.keepGroup && editorSelectedNodeIds.has(connector.id))) {
+        editorSelectedNodeIds = new Set([connector.id]);
+      }
+      if (editorSelectedNodeIds.has(connector.id)) editorSelectedNodeIndex = index;
+      syncEditorNodeSelection(template);
+      return [...editorSelectedNodeIds];
+    }
+
+    function editorSelectedConnectorIds(template, options = {}) {
+      syncEditorNodeSelection(template);
+      const ids = new Set([...editorSelectedNodeIds]);
+      if (options.includePaired) {
+        [...ids].forEach(id => {
+          const connector = template?.connectors?.find(item => item.id === id);
+          if (connector?.pairedConnectorId) ids.add(connector.pairedConnectorId);
+        });
+      }
+      return [...ids].filter(id => template?.connectors?.some(connector => connector.id === id));
     }
 
     function renderCardEditor() {
@@ -37883,6 +37942,7 @@
     function renderSelectedConnectorSettings() {
       if (!selectedConnectorSettings) return;
       const template = currentEditorTemplate();
+      syncEditorNodeSelection(template);
       const connector = template?.connectors?.[editorSelectedNodeIndex];
       if (!connector) {
         selectedConnectorSettings.innerHTML = template?.isMatrixRouter === true
@@ -38564,19 +38624,91 @@
       template.height = deviceHeightForSlotCounts(template);
     }
 
-    function editorDragPreviewY(template, connector) {
-      if (!editorNodeDrag || editorNodeDrag.connectorId !== connector.id) return null;
-      if (isFaceplateSideDropTarget(template, editorNodeDrag.currentY)) return faceplateSideConnectorY(template);
-      return Math.max(connectorStartYForTemplate(template), editorNodeDrag.currentY);
+    function editorDragConnectorIds(template) {
+      if (!editorNodeDrag) return [];
+      const dragIds = Array.isArray(editorNodeDrag.connectorIds)
+        ? editorNodeDrag.connectorIds
+        : (editorNodeDrag.connectorId ? [editorNodeDrag.connectorId] : []);
+      return dragIds.filter(id => template?.connectors?.some(connector => connector.id === id));
+    }
+
+    function editorNodeDragIncludes(connector) {
+      if (!editorNodeDrag || !connector) return false;
+      return editorDragConnectorIds(currentEditorTemplate()).includes(connector.id);
+    }
+
+    function editorDragStartY(connector) {
+      const start = editorNodeDrag?.starts?.get(connector.id)?.y;
+      return Number.isFinite(Number(start)) ? Number(start) : (Number(connector.y) || 0);
     }
 
     function editorPreviewPositions(template) {
       const map = new Map();
       if (!editorNodeDrag) return map;
+      const draggedIds = editorDragConnectorIds(template);
+      if (!draggedIds.length) return map;
+      const selected = new Set(draggedIds);
       const dragged = template.connectors.find(connector => connector.id === editorNodeDrag.connectorId);
       if (!dragged) return map;
-      map.set(dragged.id, editorDragPreviewY(template, dragged));
+      if (draggedIds.length === 1 && isFaceplateSideDropTarget(template, editorNodeDrag.currentY)) {
+        map.set(dragged.id, faceplateSideConnectorY(template));
+        return map;
+      }
+      const startY = connectorStartYForTemplate(template);
+      const deltaY = Number(editorNodeDrag.deltaY) || 0;
+      ["input", "output"].forEach(side => {
+        const moving = template.connectors
+          .filter(connector => selected.has(connector.id) && connectorSideKey(connector) === side)
+          .sort((a, b) => editorDragStartY(a) - editorDragStartY(b));
+        if (!moving.length) return;
+        const stationary = template.connectors
+          .filter(connector => !selected.has(connector.id) && !connector.faceplateSide && connectorSideKey(connector) === side)
+          .sort((a, b) => (Number(a.y) || startY) - (Number(b.y) || startY));
+        const anchor = moving.find(connector => connector.id === dragged.id) || moving[0];
+        const anchorIndex = Math.max(0, moving.findIndex(connector => connector.id === anchor.id));
+        const targetLane = laneIndexForY(editorDragStartY(anchor) + deltaY, startY);
+        const insertAt = clamp(targetLane - anchorIndex, 0, stationary.length);
+        const ordered = [
+          ...stationary.slice(0, insertAt),
+          ...moving,
+          ...stationary.slice(insertAt)
+        ];
+        ordered.forEach((connector, index) => {
+          map.set(connector.id, laneY(index, startY));
+        });
+        moving.forEach(connector => {
+          map.set(connector.id, editorDragStartY(connector) + deltaY);
+        });
+      });
       return map;
+    }
+
+    function commitEditorNodeDrag(template) {
+      if (!template || !editorNodeDrag) return;
+      const draggedIds = editorDragConnectorIds(template);
+      const connector = template.connectors.find(item => item.id === editorNodeDrag.connectorId);
+      if (!connector) return;
+      if (draggedIds.length <= 1) {
+        reorderConnectorInDirection(template, connector, editorNodeDrag.currentY);
+        setEditorNodeSelection(template, template.connectors.findIndex(item => item.id === connector.id), { keepGroup: true });
+        return;
+      }
+      const previewPositions = editorPreviewPositions(template);
+      previewPositions.forEach((y, connectorId) => {
+        const item = template.connectors.find(connectorItem => connectorItem.id === connectorId);
+        if (!item) return;
+        item.faceplateSide = false;
+        item.y = y;
+        item.x = connectorSideKey(item) === "input" ? 0 : deviceTemplateWidth(template);
+      });
+      template.connectors.forEach(item => {
+        if (!isPairedNetworkConnector(item) || !item.pairedConnectorId) return;
+        const pair = template.connectors.find(pairCandidate => pairCandidate.id === item.pairedConnectorId);
+        if (pair) pair.y = item.y;
+      });
+      normalizeMixedDeviceRows(template);
+      template.height = deviceHeightForSlotCounts(template);
+      syncEditorNodeSelection(template);
     }
 
     function pairedNetworkTypeRank(type) {
@@ -39700,7 +39832,7 @@
         },
         moved: false
       };
-      editorSelectedNodeIndex = null;
+      clearEditorNodeSelection();
       editorSelectedFaceplate = false;
       editorSelectedPowerPlugIds.clear();
       setEditorPointerCapture(event);
@@ -39841,9 +39973,10 @@
       template.connectors.forEach((connector, index) => {
         const displayY = previewPositions.get(connector.id) ?? connector.y;
         const displayConnector = { ...connector, y: displayY };
-        const isDragging = editorNodeDrag?.connectorId === connector.id;
+        const isDragging = editorNodeDragIncludes(connector);
+        const isSelected = editorSelectedNodeIds.has(connector.id) || editorSelectedNodeIndex === index;
         const g = createSvg("g", {
-          class: `editor-node ${connector.empty ? "editor-slot-empty" : ""} ${editorSelectedNodeIndex === index ? "editor-node-selected" : ""} ${isDragging ? "editor-node-dragging" : ""}`,
+          class: `editor-node ${connector.empty ? "editor-slot-empty" : ""} ${isSelected ? "editor-node-selected" : ""} ${isDragging ? "editor-node-dragging" : ""}`,
           "data-editor-node": index
         });
         if (editorNodeDrag && !isDragging && Math.abs(displayY - connector.y) > 0.1) {
@@ -40316,7 +40449,7 @@
       event.preventDefault();
       event.stopPropagation();
       const point = getEditorPreviewPoint(event);
-      editorSelectedNodeIndex = null;
+      clearEditorNodeSelection();
       editorSelectedPowerPlugIds.clear();
       editorSelectedFaceplate = target === "faceplate";
       const startFaceRect = template.isPowerDistro && !template.faceImage ? powerDistroFaceRect(template) : { y: FACE_TOP_Y, height: FACE_HEIGHT };
@@ -40347,7 +40480,7 @@
       event.preventDefault();
       event.stopPropagation();
       const point = getEditorPreviewPoint(event);
-      editorSelectedNodeIndex = null;
+      clearEditorNodeSelection();
       editorSelectedPowerPlugIds.clear();
       editorSelectedFaceplate = startedOnFaceplate;
       editorPowerPlugMarquee = {
@@ -40375,7 +40508,7 @@
       event.preventDefault();
       event.stopPropagation();
       const point = getEditorPreviewPoint(event);
-      editorSelectedNodeIndex = template.connectors.findIndex(item => item.id === connectorId);
+      setEditorNodeSelection(template, template.connectors.findIndex(item => item.id === connectorId));
       editorSelectedFaceplate = false;
       renderSelectedConnectorSettings();
       if (!editorSelectedPowerPlugIds.has(connectorId)) {
@@ -40476,18 +40609,37 @@
       if (!connector) return;
       event.preventDefault();
       event.stopPropagation();
-      editorSelectedNodeIndex = index;
+      const additiveSelection = event.shiftKey || event.metaKey || event.ctrlKey;
+      if (additiveSelection) {
+        const wasSelected = editorSelectedNodeIds.has(connector.id);
+        setEditorNodeSelection(template, index, { toggle: true });
+        if (wasSelected && !editorSelectedNodeIds.has(connector.id)) {
+          renderSelectedConnectorSettings();
+          renderDeviceEditorPreview();
+          return;
+        }
+      } else {
+        setEditorNodeSelection(template, index, { keepGroup: editorSelectedNodeIds.size > 1 });
+      }
       editorSelectedFaceplate = false;
       editorSelectedPowerPlugIds.clear();
       renderSelectedConnectorSettings();
       const point = getEditorPreviewPoint(event);
+      const connectorIds = editorSelectedConnectorIds(template, { includePaired: true });
+      const starts = new Map(connectorIds.map(id => {
+        const item = template.connectors.find(candidate => candidate.id === id);
+        return item ? [id, { y: Number(item.y) || connectorStartYForTemplate(template) }] : null;
+      }).filter(Boolean));
       editorNodeDrag = {
         pointerId: event.pointerId,
         index,
         connectorId: connector.id,
+        connectorIds,
+        starts,
         side: connectorSideKey(connector),
         offsetY: point.y - connector.y,
         currentY: connector.y,
+        deltaY: 0,
         moved: false
       };
       setEditorPointerCapture(event);
@@ -40591,13 +40743,25 @@
       }
       if (!editorNodeDrag || event.pointerId !== editorNodeDrag.pointerId) return;
       const template = currentEditorTemplate();
-      const connector = template?.connectors[editorNodeDrag.index];
+      const connector = template?.connectors.find(item => item.id === editorNodeDrag.connectorId);
       if (!connector) return;
       const point = getEditorPreviewPoint(event);
       const startY = connectorStartYForTemplate(template);
       const maxY = Math.max(startY, (Number(template.height) || deviceHeightForSlotCount(1, startY)) - DEVICE_BOTTOM_PAD);
-      const minY = canUseFaceplateSideConnector(template) ? Math.min(startY, faceplateSideConnectorY(template)) : startY;
-      editorNodeDrag.currentY = clamp(point.y - editorNodeDrag.offsetY, minY, maxY);
+      const movingConnectors = editorDragConnectorIds(template)
+        .map(id => template.connectors.find(item => item.id === id))
+        .filter(Boolean);
+      const startYs = movingConnectors.map(item => editorDragStartY(item));
+      const minStartY = startYs.length ? Math.min(...startYs) : editorDragStartY(connector);
+      const maxStartY = startYs.length ? Math.max(...startYs) : editorDragStartY(connector);
+      const minY = movingConnectors.length <= 1 && canUseFaceplateSideConnector(template)
+        ? Math.min(startY, faceplateSideConnectorY(template))
+        : startY;
+      const primaryStartY = editorDragStartY(connector);
+      const requestedY = point.y - editorNodeDrag.offsetY;
+      const deltaY = clamp(requestedY - primaryStartY, minY - minStartY, maxY - maxStartY);
+      editorNodeDrag.deltaY = deltaY;
+      editorNodeDrag.currentY = primaryStartY + deltaY;
       editorNodeDrag.moved = true;
       renderDeviceEditorPreview();
     }
@@ -40667,9 +40831,8 @@
       if (event?.pointerId !== undefined && event.pointerId !== editorNodeDrag.pointerId) return;
       releaseEditorPointerCapture(event);
       const template = currentEditorTemplate();
-      const connector = template?.connectors.find(item => item.id === editorNodeDrag.connectorId);
-      if (template && connector && editorNodeDrag.moved) {
-        reorderConnectorInDirection(template, connector, editorNodeDrag.currentY);
+      if (template && editorNodeDrag.moved) {
+        commitEditorNodeDrag(template);
       }
       editorNodeDrag = null;
       renderDeviceEditorPreview();
@@ -40689,7 +40852,7 @@
         if (pair) sidesToCompact.add(connectorSideKey(pair));
       }
       template.connectors = template.connectors.filter(item => !idsToRemove.has(item.id));
-      editorSelectedNodeIndex = null;
+      clearEditorNodeSelection();
       normalizeConnectorRows(template);
       shiftRowsAfterFaceChange(template, startBefore, rowsBefore);
       sidesToCompact.forEach(side => compactConnectorSide(template, side));
@@ -41135,10 +41298,10 @@
       template.connectors.push(connector);
       normalizeConnectorRows(template);
       const createdIndex = template.connectors.findIndex(item => item.id === connector.id);
-      editorSelectedNodeIndex = createdIndex;
+      setEditorNodeSelection(template, createdIndex);
       if (options.type && createdIndex !== -1) {
         fillEditorSlot(createdIndex, options.type);
-        editorSelectedNodeIndex = template.connectors.findIndex(item => item.id === connector.id);
+        setEditorNodeSelection(template, template.connectors.findIndex(item => item.id === connector.id));
         renderSelectedConnectorSettings();
         return;
       }
@@ -51590,7 +51753,7 @@ fit();
       if (editorMode === "instance") return;
       syncEditorFieldsToDraft();
       editorIndex = clamp(Number(index) || 0, 0, Math.max(0, editorDraft.length - 1));
-      editorSelectedNodeIndex = null;
+      clearEditorNodeSelection();
       editorSelectedFaceplate = false;
       editorSelectedPowerPlugIds.clear();
       editorPowerPlugMarquee = null;
@@ -52028,7 +52191,7 @@ fit();
         return;
       }
       resetTemplateToDefault(template);
-      editorSelectedNodeIndex = null;
+      clearEditorNodeSelection();
       editorSelectedFaceplate = false;
       editorSelectedPowerPlugIds.clear();
       editorPowerPlugMarquee = null;
