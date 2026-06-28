@@ -854,7 +854,20 @@
       cursor: grabbing;
     }
 
+    #webglCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+
     #canvas {
+      position: relative;
+      z-index: 2;
       width: 100%;
       height: 100%;
       display: block;
@@ -879,6 +892,14 @@
     #canvas.grid-off,
     body.dark-mode #canvas.grid-off {
       background: transparent;
+    }
+
+    .canvas-wrap.webgl-engine-active #canvas {
+      background: transparent;
+    }
+
+    .canvas-wrap.webgl-engine-active #webglCanvas {
+      opacity: 1;
     }
 
     .empty-hint {
@@ -3782,6 +3803,7 @@
         <div class="legend" id="cableLegend" aria-label="Cable color legend"></div>
       </div>
       <div class="canvas-wrap" id="canvasWrap">
+        <canvas id="webglCanvas" aria-hidden="true"></canvas>
         <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <marker id="arrowEnd" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
@@ -33104,6 +33126,7 @@
     const previewTitleBlockRect = document.getElementById("previewTitleBlockRect");
     const selectionMarquee = document.getElementById("selectionMarquee");
     const debugOutput = document.getElementById("debugOutput");
+    const webglCanvas = document.getElementById("webglCanvas");
     const deviceContextMenu = document.getElementById("deviceContextMenu");
     const titleBlockModal = document.getElementById("titleBlockModal");
     const titleBlockPreview = document.getElementById("titleBlockPreview");
@@ -34416,6 +34439,412 @@
       };
     }
 
+    const WEBGL_RENDERER_ENABLED = true;
+    let webglRenderer = null;
+    let webglSceneDirty = true;
+    let webglFrame = null;
+
+    function webglParseColor(value, fallback = "#32b6ff", alpha = 1) {
+      const text = String(value || fallback || "").trim();
+      const hex = /^#?([0-9a-f]{6})$/i.exec(text);
+      if (hex) {
+        const intValue = parseInt(hex[1], 16);
+        return [
+          ((intValue >> 16) & 255) / 255,
+          ((intValue >> 8) & 255) / 255,
+          (intValue & 255) / 255,
+          alpha
+        ];
+      }
+      const rgb = /^rgba?\(([^)]+)\)$/i.exec(text);
+      if (rgb) {
+        const parts = rgb[1].split(",").map(part => Number(String(part).trim()));
+        if (parts.length >= 3 && parts.slice(0, 3).every(Number.isFinite)) {
+          return [
+            Math.max(0, Math.min(255, parts[0])) / 255,
+            Math.max(0, Math.min(255, parts[1])) / 255,
+            Math.max(0, Math.min(255, parts[2])) / 255,
+            Number.isFinite(parts[3]) ? Math.max(0, Math.min(1, parts[3])) : alpha
+          ];
+        }
+      }
+      return webglParseColor(fallback || "#32b6ff", "#32b6ff", alpha);
+    }
+
+    function webglBezierPoints(from, to, steps = 28) {
+      const dx = Math.max(80, Math.abs(to.x - from.x) * 0.45);
+      const direction = to.x >= from.x ? 1 : -1;
+      const c1 = { x: from.x + dx * direction, y: from.y };
+      const c2 = { x: to.x - dx * direction, y: to.y };
+      const points = [];
+      for (let index = 0; index <= steps; index += 1) {
+        const t = index / steps;
+        const mt = 1 - t;
+        points.push({
+          x: mt * mt * mt * from.x + 3 * mt * mt * t * c1.x + 3 * mt * t * t * c2.x + t * t * t * to.x,
+          y: mt * mt * mt * from.y + 3 * mt * mt * t * c1.y + 3 * mt * t * t * c2.y + t * t * t * to.y
+        });
+      }
+      return points;
+    }
+
+    function webglRoutePolyline(route) {
+      if (!route?.points?.length) return [];
+      if (route.points.length > 2 || state.wireMode === "orthogonal") return route.points;
+      return webglBezierPoints(route.from, route.to);
+    }
+
+    function pushWebglRect(vertices, x, y, width, height, color) {
+      if (!Number.isFinite(x + y + width + height) || width <= 0 || height <= 0) return;
+      const [r, g, b, a] = color;
+      const x2 = x + width;
+      const y2 = y + height;
+      vertices.push(
+        x, y, r, g, b, a,
+        x2, y, r, g, b, a,
+        x2, y2, r, g, b, a,
+        x, y, r, g, b, a,
+        x2, y2, r, g, b, a,
+        x, y2, r, g, b, a
+      );
+    }
+
+    function pushWebglLine(vertices, from, to, width, color) {
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const length = Math.hypot(dx, dy);
+      if (!length) return;
+      const nx = -dy / length * width / 2;
+      const ny = dx / length * width / 2;
+      const [r, g, b, a] = color;
+      vertices.push(
+        from.x + nx, from.y + ny, r, g, b, a,
+        to.x + nx, to.y + ny, r, g, b, a,
+        to.x - nx, to.y - ny, r, g, b, a,
+        from.x + nx, from.y + ny, r, g, b, a,
+        to.x - nx, to.y - ny, r, g, b, a,
+        from.x - nx, from.y - ny, r, g, b, a
+      );
+    }
+
+    function pushWebglPolyline(vertices, points, width, color) {
+      for (let index = 0; index < points.length - 1; index += 1) {
+        pushWebglLine(vertices, points[index], points[index + 1], width, color);
+      }
+    }
+
+    function pushWebglCircle(vertices, x, y, radius, color) {
+      if (!Number.isFinite(x + y + radius) || radius <= 0) return;
+      const [r, g, b, a] = color;
+      vertices.push(
+        x, y, radius, -1, -1, r, g, b, a,
+        x, y, radius, 1, -1, r, g, b, a,
+        x, y, radius, 1, 1, r, g, b, a,
+        x, y, radius, -1, -1, r, g, b, a,
+        x, y, radius, 1, 1, r, g, b, a,
+        x, y, radius, -1, 1, r, g, b, a
+      );
+    }
+
+    function compileWebglShader(gl, type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        throw new Error(gl.getShaderInfoLog(shader) || "WebGL shader compile failed");
+      }
+      return shader;
+    }
+
+    function createWebglProgram(gl, vertexSource, fragmentSource) {
+      const program = gl.createProgram();
+      gl.attachShader(program, compileWebglShader(gl, gl.VERTEX_SHADER, vertexSource));
+      gl.attachShader(program, compileWebglShader(gl, gl.FRAGMENT_SHADER, fragmentSource));
+      gl.linkProgram(program);
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        throw new Error(gl.getProgramInfoLog(program) || "WebGL program link failed");
+      }
+      return program;
+    }
+
+    class AVWebglRenderer {
+      constructor(canvas, wrap) {
+        this.canvas = canvas;
+        this.wrap = wrap;
+        this.gl = canvas?.getContext("webgl", {
+          alpha: true,
+          antialias: true,
+          depth: false,
+          stencil: false,
+          preserveDrawingBuffer: false
+        });
+        if (!this.gl) throw new Error("WebGL is not available");
+        this.dpr = 1;
+        this.rectCount = 0;
+        this.lineCount = 0;
+        this.circleCount = 0;
+        this.gridCount = 0;
+        this.initPrograms();
+      }
+
+      initPrograms() {
+        const vertex = `
+          attribute vec2 a_position;
+          attribute vec4 a_color;
+          uniform vec4 u_view;
+          varying vec4 v_color;
+          void main() {
+            vec2 clip = vec2(
+              ((a_position.x - u_view.x) / u_view.z) * 2.0 - 1.0,
+              1.0 - ((a_position.y - u_view.y) / u_view.w) * 2.0
+            );
+            gl_Position = vec4(clip, 0.0, 1.0);
+            v_color = a_color;
+          }
+        `;
+        const fragment = `
+          precision mediump float;
+          varying vec4 v_color;
+          void main() {
+            gl_FragColor = v_color;
+          }
+        `;
+        const circleVertex = `
+          attribute vec2 a_center;
+          attribute float a_radius;
+          attribute vec2 a_offset;
+          attribute vec4 a_color;
+          uniform vec4 u_view;
+          varying vec2 v_offset;
+          varying vec4 v_color;
+          void main() {
+            vec2 world = a_center + a_offset * a_radius;
+            vec2 clip = vec2(
+              ((world.x - u_view.x) / u_view.z) * 2.0 - 1.0,
+              1.0 - ((world.y - u_view.y) / u_view.w) * 2.0
+            );
+            gl_Position = vec4(clip, 0.0, 1.0);
+            v_offset = a_offset;
+            v_color = a_color;
+          }
+        `;
+        const circleFragment = `
+          precision mediump float;
+          varying vec2 v_offset;
+          varying vec4 v_color;
+          void main() {
+            float dist = length(v_offset);
+            if (dist > 1.0) discard;
+            float edge = smoothstep(1.0, 0.88, dist);
+            gl_FragColor = vec4(v_color.rgb, v_color.a * edge);
+          }
+        `;
+        const gl = this.gl;
+        this.solidProgram = createWebglProgram(gl, vertex, fragment);
+        this.circleProgram = createWebglProgram(gl, circleVertex, circleFragment);
+        this.rectBuffer = gl.createBuffer();
+        this.lineBuffer = gl.createBuffer();
+        this.circleBuffer = gl.createBuffer();
+        this.gridBuffer = gl.createBuffer();
+      }
+
+      resize() {
+        const rect = this.wrap.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const width = Math.max(1, Math.round(rect.width * dpr));
+        const height = Math.max(1, Math.round(rect.height * dpr));
+        if (this.canvas.width !== width || this.canvas.height !== height) {
+          this.canvas.width = width;
+          this.canvas.height = height;
+        }
+        this.canvas.style.width = `${Math.max(1, rect.width)}px`;
+        this.canvas.style.height = `${Math.max(1, rect.height)}px`;
+        this.dpr = dpr;
+        this.gl.viewport(0, 0, width, height);
+        return {
+          width: Math.max(1, rect.width / canvasView.zoom),
+          height: Math.max(1, rect.height / canvasView.zoom)
+        };
+      }
+
+      setBuffer(buffer, vertices, stride) {
+        const gl = this.gl;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+        return vertices.length / stride;
+      }
+
+      setScene(scene) {
+        this.rectCount = this.setBuffer(this.rectBuffer, scene.rectangles, 6);
+        this.lineCount = this.setBuffer(this.lineBuffer, scene.lines, 6);
+        this.circleCount = this.setBuffer(this.circleBuffer, scene.circles, 9);
+      }
+
+      buildGrid(viewWidth, viewHeight) {
+        const vertices = [];
+        if (!state.gridVisible) {
+          this.gridCount = this.setBuffer(this.gridBuffer, vertices, 6);
+          return;
+        }
+        const dark = document.body.classList.contains("dark-mode");
+        const minor = webglParseColor(dark ? "rgba(224,232,242,.08)" : "rgba(28,44,62,.08)");
+        const major = webglParseColor(dark ? "rgba(224,232,242,.16)" : "rgba(28,44,62,.14)");
+        const minX = Math.floor(canvasView.x / 20) * 20;
+        const minY = Math.floor(canvasView.y / 20) * 20;
+        const maxX = canvasView.x + viewWidth;
+        const maxY = canvasView.y + viewHeight;
+        for (let x = minX; x <= maxX; x += 20) {
+          const color = Math.abs(Math.round(x)) % 100 === 0 ? major : minor;
+          pushWebglLine(vertices, { x, y: canvasView.y }, { x, y: maxY }, 1 / canvasView.zoom, color);
+        }
+        for (let y = minY; y <= maxY; y += 20) {
+          const color = Math.abs(Math.round(y)) % 100 === 0 ? major : minor;
+          pushWebglLine(vertices, { x: canvasView.x, y }, { x: maxX, y }, 1 / canvasView.zoom, color);
+        }
+        this.gridCount = this.setBuffer(this.gridBuffer, vertices, 6);
+      }
+
+      bindSolidAttributes(buffer) {
+        const gl = this.gl;
+        const stride = 6 * 4;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        const position = gl.getAttribLocation(this.solidProgram, "a_position");
+        const color = gl.getAttribLocation(this.solidProgram, "a_color");
+        gl.enableVertexAttribArray(position);
+        gl.vertexAttribPointer(position, 2, gl.FLOAT, false, stride, 0);
+        gl.enableVertexAttribArray(color);
+        gl.vertexAttribPointer(color, 4, gl.FLOAT, false, stride, 2 * 4);
+      }
+
+      drawSolid(buffer, count, view) {
+        if (!count) return;
+        const gl = this.gl;
+        gl.useProgram(this.solidProgram);
+        gl.uniform4f(gl.getUniformLocation(this.solidProgram, "u_view"), canvasView.x, canvasView.y, view.width, view.height);
+        this.bindSolidAttributes(buffer);
+        gl.drawArrays(gl.TRIANGLES, 0, count);
+      }
+
+      drawCircles(view) {
+        if (!this.circleCount) return;
+        const gl = this.gl;
+        const stride = 9 * 4;
+        gl.useProgram(this.circleProgram);
+        gl.uniform4f(gl.getUniformLocation(this.circleProgram, "u_view"), canvasView.x, canvasView.y, view.width, view.height);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.circleBuffer);
+        const center = gl.getAttribLocation(this.circleProgram, "a_center");
+        const radius = gl.getAttribLocation(this.circleProgram, "a_radius");
+        const offset = gl.getAttribLocation(this.circleProgram, "a_offset");
+        const color = gl.getAttribLocation(this.circleProgram, "a_color");
+        gl.enableVertexAttribArray(center);
+        gl.vertexAttribPointer(center, 2, gl.FLOAT, false, stride, 0);
+        gl.enableVertexAttribArray(radius);
+        gl.vertexAttribPointer(radius, 1, gl.FLOAT, false, stride, 2 * 4);
+        gl.enableVertexAttribArray(offset);
+        gl.vertexAttribPointer(offset, 2, gl.FLOAT, false, stride, 3 * 4);
+        gl.enableVertexAttribArray(color);
+        gl.vertexAttribPointer(color, 4, gl.FLOAT, false, stride, 5 * 4);
+        gl.drawArrays(gl.TRIANGLES, 0, this.circleCount);
+      }
+
+      draw() {
+        const view = this.resize();
+        const gl = this.gl;
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        this.buildGrid(view.width, view.height);
+        this.drawSolid(this.gridBuffer, this.gridCount, view);
+        this.drawSolid(this.rectBuffer, this.rectCount, view);
+        this.drawSolid(this.lineBuffer, this.lineCount, view);
+        this.drawCircles(view);
+      }
+    }
+
+    function buildWebglScene() {
+      const rectangles = [];
+      const lines = [];
+      const circles = [];
+      const dark = document.body.classList.contains("dark-mode");
+      state.areas.forEach(area => {
+        pushWebglRect(rectangles, area.x, area.y, area.width, area.height, webglParseColor(area.backgroundColor || "rgba(50,182,255,.10)", "rgba(50,182,255,.10)", .42));
+      });
+      state.ledSurfaces.forEach(surface => {
+        pushWebglRect(rectangles, surface.x, surface.y, surface.width, surface.height, webglParseColor("rgba(120,130,140,.32)", "rgba(120,130,140,.32)", .32));
+      });
+      state.devices.forEach(instance => {
+        const template = templateForInstance(instance);
+        if (!template) return;
+        const width = Number(template.width) || DEVICE_WIDTH;
+        const height = Number(template.height) || 190;
+        const bodyColor = isAdapterTemplate(template)
+          ? webglParseColor("rgba(50,182,255,.08)", "rgba(50,182,255,.08)", .28)
+          : webglParseColor(dark ? "#151d26" : "#f8fbff");
+        pushWebglRect(rectangles, instance.x, instance.y, width, height, bodyColor);
+        if (!template.faceplateDeleted) {
+          const faceHeight = typeof faceplateHeightForTemplate === "function" ? faceplateHeightForTemplate(template, width) : FACE_HEIGHT;
+          pushWebglRect(rectangles, instance.x + FACE_MARGIN, instance.y + FACE_TOP_Y, width - FACE_MARGIN * 2, faceHeight, webglParseColor(dark ? "#253443" : "#d8e2ec"));
+        }
+        (template.cardSlots || []).forEach(slot => {
+          const band = cardBandGeometry(template, slot);
+          pushWebglRect(rectangles, instance.x + band.x, instance.y + band.y, band.width, band.height, webglParseColor("rgba(50,182,255,.10)", "rgba(50,182,255,.10)", .34));
+        });
+        effectiveTemplateConnectors(template)
+          .filter(connector => !connector.empty && isConnectorVisibleOnCanvas(instance, connector))
+          .forEach(connector => {
+            const segments = colorSegmentsForConnector(connector);
+            const color = segments?.length ? segments[0] : colorForConnector(connector, instance.instanceId);
+            pushWebglCircle(circles, instance.x + connector.x, instance.y + connector.y, 7, webglParseColor(color));
+          });
+      });
+      state.jumpNodes.forEach(node => {
+        pushWebglCircle(circles, node.x, node.y, JUMP_NODE_RADIUS, webglParseColor("#32b6ff"));
+      });
+      const routeContext = state.wireMode === "orthogonal" ? createOrthogonalRouteContext() : null;
+      const orderedConnections = routeContext ? [...state.connections].sort(compareConnectionsForRouting) : state.connections;
+      orderedConnections.forEach(connection => {
+        const route = routeForConnection(connection, routeContext);
+        if (routeContext) registerOrthogonalRoute(routeContext, route.points);
+        pushWebglPolyline(lines, webglRoutePolyline(route), 4.5, webglParseColor(colorForConnection(connection)));
+      });
+      state.comments.forEach(comment => {
+        pushWebglLine(lines, comment.anchor, commentLeaderEnd(comment), 2.5, webglParseColor(comment.leaderColor || "#32b6ff"));
+        pushWebglRect(rectangles, comment.x, comment.y, comment.width || 180, comment.height || 82, webglParseColor(comment.backgroundColor || "#18202a", "#18202a", .78));
+      });
+      return { rectangles, lines, circles };
+    }
+
+    function ensureWebglRenderer() {
+      if (!WEBGL_RENDERER_ENABLED || !webglCanvas) return null;
+      if (webglRenderer) return webglRenderer;
+      try {
+        webglRenderer = new AVWebglRenderer(webglCanvas, canvasWrap);
+        canvasWrap.classList.add("webgl-engine-active");
+      } catch (error) {
+        console.warn("WebGL renderer disabled:", error);
+        webglRenderer = null;
+      }
+      return webglRenderer;
+    }
+
+    function markWebglSceneDirty() {
+      webglSceneDirty = true;
+    }
+
+    function scheduleWebglDraw() {
+      const renderer = ensureWebglRenderer();
+      if (!renderer || webglFrame) return;
+      webglFrame = requestAnimationFrame(() => {
+        webglFrame = null;
+        if (webglSceneDirty) {
+          renderer.setScene(buildWebglScene());
+          webglSceneDirty = false;
+        }
+        renderer.draw();
+      });
+    }
+
     function scheduleViewportCanvasRender() {
       if (zoomRenderTimer) clearTimeout(zoomRenderTimer);
       zoomRenderTimer = setTimeout(() => {
@@ -35563,6 +35992,7 @@
       canvas.setAttribute("viewBox", `${canvasView.x} ${canvasView.y} ${width} ${height}`);
       zoomReadout.textContent = `${Math.round(canvasView.zoom * 100)}%`;
       renderSnapGuides();
+      scheduleWebglDraw();
     }
 
     function canvasVisibleRect() {
@@ -35655,6 +36085,8 @@
       darkModeToggle.setAttribute("aria-pressed", String(enabled));
       setToolbarIcon(darkModeToggle, enabled ? "icons/darkmode.png" : "icons/lightmode.png");
       darkModeToggle.querySelector("span").innerHTML = "DARK<br>MODE";
+      markWebglSceneDirty();
+      scheduleWebglDraw();
     }
 
     function setGridVisible(enabled) {
@@ -35663,6 +36095,8 @@
       gridToggle.setAttribute("aria-pressed", String(enabled));
       setToolbarIcon(gridToggle, enabled ? "icons/grid_on.png" : "icons/grid_off.png");
       gridToggle.querySelector("span").textContent = "GRID";
+      markWebglSceneDirty();
+      scheduleWebglDraw();
     }
 
     function setObjectSnapping(enabled) {
@@ -42724,6 +43158,8 @@
       renderJumpNodes(renderOptions);
       renderTitleBlocks(renderOptions);
       renderComments(renderOptions);
+      markWebglSceneDirty();
+      scheduleWebglDraw();
       suppressCanvasInfoBoxes = previousSuppressCanvasInfoBoxes;
       if (!lightweight) {
         updateUndoRedoButtons();
