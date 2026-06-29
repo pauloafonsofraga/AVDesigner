@@ -923,17 +923,21 @@
     }
 
     .canvas-wrap.live-zooming #canvas {
-      opacity: 0;
+      opacity: 1;
       pointer-events: none;
       transform-origin: 0 0;
     }
 
     .canvas-wrap.live-zooming #navigationSnapshotCanvas.ready {
-      opacity: 1;
+      opacity: 0;
     }
 
     .canvas-wrap.live-zooming #deviceTextureCanvas.ready {
-      opacity: 1;
+      opacity: 0;
+    }
+
+    .canvas-wrap.live-wire-overrides #webglCanvas {
+      opacity: 0;
     }
 
     .empty-hint {
@@ -34499,6 +34503,8 @@
     }
 
     const WEBGL_RENDERER_ENABLED = true;
+    const NAVIGATION_SNAPSHOT_ENABLED = false;
+    const DEVICE_TEXTURE_LAYER_ENABLED = false;
     let webglRenderer = null;
     let webglSceneDirty = true;
     let webglFrame = null;
@@ -34549,6 +34555,10 @@
 
     function webglRoutePolyline(route) {
       if (!route?.points?.length) return [];
+      if (state.wireMode !== "orthogonal" && route.d) {
+        const sampled = webglPathToPolyline(route.d);
+        if (sampled.length > 1) return sampled;
+      }
       if (route.points.length > 2 || state.wireMode === "orthogonal") return route.points;
       return webglBezierPoints(route.from, route.to);
     }
@@ -34999,9 +35009,7 @@
       state.areas.forEach(area => {
         pushWebglRect(rectangles, area.x, area.y, area.width, area.height, webglParseColor(area.backgroundColor || "rgba(50,182,255,.10)", "rgba(50,182,255,.10)", .42));
       });
-      state.ledSurfaces.forEach(surface => {
-        pushWebglRect(rectangles, surface.x, surface.y, surface.width, surface.height, webglParseColor("rgba(120,130,140,.32)", "rgba(120,130,140,.32)", .32));
-      });
+      // LED screens stay in the SVG layer so imported PNG detail is never replaced by a grey WebGL placeholder.
       // Device bodies are rendered by the SVG layer at rest and by the device texture canvas during live navigation.
       // Keeping placeholder device geometry out of WebGL prevents stale grey ghosts after object moves.
       state.jumpNodes.forEach(node => {
@@ -35152,6 +35160,7 @@
     }
 
     function scheduleDeviceTextureRefresh(delay = 700) {
+      if (!DEVICE_TEXTURE_LAYER_ENABLED) return;
       if (!deviceTextureCanvas) return;
       cancelDeviceTextureRefresh();
       const version = ++deviceTextureVersion;
@@ -35228,6 +35237,7 @@
     }
 
     function scheduleDeviceTextureDraw() {
+      if (!DEVICE_TEXTURE_LAYER_ENABLED) return;
       if (!deviceTextureCanvas || deviceTextureFrame) return;
       deviceTextureFrame = requestAnimationFrame(() => {
         deviceTextureFrame = null;
@@ -35265,6 +35275,7 @@
     }
 
     function applyNavigationSnapshotTransform() {
+      if (!NAVIGATION_SNAPSHOT_ENABLED) return;
       if (!navigationSnapshotCanvas || !navigationSnapshotState) return;
       const snap = navigationSnapshotState;
       const scale = canvasView.zoom / Math.max(snap.zoom, 0.0001);
@@ -35274,6 +35285,7 @@
     }
 
     async function refreshNavigationSnapshot() {
+      if (!NAVIGATION_SNAPSHOT_ENABLED) return;
       if (!navigationSnapshotCanvas || !canvas || liveZoomState) return;
       const version = ++navigationSnapshotVersion;
       const rect = canvasWrap.getBoundingClientRect();
@@ -35329,6 +35341,7 @@
     }
 
     function scheduleNavigationSnapshotRefresh(delay = 900) {
+      if (!NAVIGATION_SNAPSHOT_ENABLED) return;
       if (!navigationSnapshotCanvas) return;
       cancelNavigationSnapshotRefresh();
       navigationSnapshotTimer = setTimeout(() => {
@@ -35401,6 +35414,7 @@
           webglSceneDirty = false;
         }
         renderer.draw();
+        if (!isLiveCanvasInteraction()) canvasWrap.classList.remove("live-wire-overrides");
       });
     }
 
@@ -36677,7 +36691,7 @@
       canvasView.y = 0;
       canvasView.zoom = 1;
       updateCanvasView();
-      render();
+      scheduleSvgDetailRefresh(120);
     }
 
     function zoomToFit() {
@@ -36713,7 +36727,7 @@
       canvasView.x = minX + width / 2 - viewWidth / 2;
       canvasView.y = minY + height / 2 - viewHeight / 2;
       updateCanvasView();
-      render();
+      scheduleSvgDetailRefresh(120);
     }
 
     function setToolbarIcon(button, src) {
@@ -43958,6 +43972,7 @@
       const moved = selections.every(updateLiveSelectionElement);
       if (!moved) return false;
       const wireIds = affectedConnectionIdsForSelections(selections);
+      canvasWrap.classList.toggle("live-wire-overrides", wireIds.length > 0);
       if (wireIds.length) renderWires({ connectionIds: wireIds, live: true });
       return true;
     }
@@ -43966,6 +43981,7 @@
       const connectionId = wireSegmentDrag?.connectionId || wireCornerDrag?.connectionId || "";
       if (!connectionId) return false;
       if (infoBoxHoverLayer) infoBoxHoverLayer.innerHTML = "";
+      canvasWrap.classList.add("live-wire-overrides");
       renderWires({ connectionIds: [connectionId], live: true });
       return true;
     }
@@ -43999,6 +44015,7 @@
       liveCanvasRenderQueued = false;
       liveCanvasRenderSimplified = false;
       liveElementCache.clear();
+      if (!isLiveCanvasInteraction()) canvasWrap.classList.remove("live-wire-overrides");
     }
 
     function rackBounds(rackId) {
@@ -48894,10 +48911,26 @@
       endSnapSession();
       let needsFullRender = false;
       if (dragState) {
-        if (dragState.moved) event.preventDefault();
-        needsFullRender = needsFullRender || dragState.moved;
+        const dragMoved = dragState.moved;
+        if (dragMoved) event.preventDefault();
+        const movedSelections = dragMoved ? liveMovedSelections() : [];
+        const affectedWireIds = dragMoved ? affectedConnectionIdsForSelections(movedSelections) : [];
+        const canTargetRenderMove = movedSelections.length && movedSelections.every(selection => selection.type === "device");
         dragState = null;
         clearSnapGuides();
+        if (canTargetRenderMove) {
+          renderDeviceInstancesById(movedSelections.map(selection => selection.id));
+          if (affectedWireIds.length) {
+            renderWireOnlyChange(affectedWireIds, { endpointDevices: false, summary: false });
+          } else {
+            renderInspector();
+            updateUndoRedoButtons();
+            markWebglSceneDirty();
+            scheduleWebglDraw();
+          }
+        } else {
+          needsFullRender = needsFullRender || dragMoved;
+        }
       }
       if (ledSurfaceDrag) {
         if (ledSurfaceDrag.moved) event.preventDefault();
