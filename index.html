@@ -937,7 +937,7 @@
     }
 
     .canvas-wrap.live-wire-overrides #webglCanvas {
-      opacity: 0;
+      opacity: 1;
     }
 
     .empty-hint {
@@ -34503,11 +34503,17 @@
     }
 
     const WEBGL_RENDERER_ENABLED = true;
+    // Live navigation updates the SVG viewBox directly so newly exposed objects are not clipped.
+    // The old snapshot/device texture layers serialized SVG after renders and caused main-thread stalls;
+    // keep them disabled until they are replaced with per-object, invalidation-based WebGL textures.
+    const LIVE_SVG_VIEWBOX_UPDATES = true;
     const NAVIGATION_SNAPSHOT_ENABLED = false;
     const DEVICE_TEXTURE_LAYER_ENABLED = false;
     let webglRenderer = null;
     let webglSceneDirty = true;
     let webglFrame = null;
+    let webglWireExcludeIds = new Set();
+    let deferredWebglSceneTimer = null;
 
     function webglParseColor(value, fallback = "#32b6ff", alpha = 1) {
       const text = String(value || fallback || "").trim();
@@ -35016,7 +35022,10 @@
         pushWebglCircle(circles, node.x, node.y, JUMP_NODE_RADIUS, webglParseColor("#32b6ff"));
       });
       const routeContext = state.wireMode === "orthogonal" ? createOrthogonalRouteContext() : null;
-      const orderedConnections = routeContext ? [...state.connections].sort(compareConnectionsForRouting) : state.connections;
+      const webglConnections = webglWireExcludeIds.size
+        ? state.connections.filter(connection => !webglWireExcludeIds.has(connection.id))
+        : state.connections;
+      const orderedConnections = routeContext ? [...webglConnections].sort(compareConnectionsForRouting) : webglConnections;
       const routeMap = new Map();
       orderedConnections.forEach(connection => {
         const route = routeForConnection(connection, routeContext);
@@ -35247,6 +35256,55 @@
 
     function markWebglSceneDirty() {
       webglSceneDirty = true;
+    }
+
+    function webglWireExclusionKey(ids = []) {
+      return [...new Set(ids)].filter(Boolean).sort().join("|");
+    }
+
+    function setWebglWireExclusions(ids = []) {
+      const next = new Set((ids || []).filter(Boolean));
+      if (webglWireExclusionKey(next) === webglWireExclusionKey(webglWireExcludeIds)) return;
+      webglWireExcludeIds = next;
+      markWebglSceneDirty();
+      scheduleWebglDraw();
+    }
+
+    function scheduleDeferredWebglSceneRebuild(delay = 420, cleanupConnectionIds = []) {
+      if (deferredWebglSceneTimer) clearTimeout(deferredWebglSceneTimer);
+      const cleanupIds = connectionIdsFromResult(cleanupConnectionIds);
+      deferredWebglSceneTimer = setTimeout(() => {
+        deferredWebglSceneTimer = null;
+        markWebglSceneDirty();
+        scheduleWebglDraw();
+        if (cleanupIds.length) {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              if (isLiveCanvasInteraction()) return;
+              renderWires({ connectionIds: cleanupIds, skipCableHops: true });
+            });
+          });
+        }
+      }, delay);
+    }
+
+    function clearWebglWireExclusions(options = {}) {
+      const previousIds = [...webglWireExcludeIds];
+      if (!previousIds.length) return previousIds;
+      webglWireExcludeIds = new Set();
+      if (options.defer === false) {
+        markWebglSceneDirty();
+        scheduleWebglDraw();
+      } else {
+        scheduleDeferredWebglSceneRebuild(options.delay ?? 320, options.cleanupConnectionIds || previousIds);
+      }
+      return previousIds;
+    }
+
+    function resetWebglWireExclusions() {
+      const previousIds = [...webglWireExcludeIds];
+      webglWireExcludeIds = new Set();
+      return previousIds;
     }
 
     function cancelNavigationSnapshotRefresh() {
@@ -36631,7 +36689,19 @@
       const width = Math.max(1, rect.width / canvasView.zoom);
       const height = Math.max(1, rect.height / canvasView.zoom);
       if (options.deferSvgViewBox) {
-        applyLiveZoomTransform();
+        if (LIVE_SVG_VIEWBOX_UPDATES) {
+          // Keep the real SVG viewport current during pan/zoom; CSS-transforming an old
+          // viewBox clips newly exposed objects until interaction end.
+          canvas.style.transform = "";
+          canvas.setAttribute("viewBox", `${canvasView.x} ${canvasView.y} ${width} ${height}`);
+          if (liveZoomState) {
+            liveZoomState.x = canvasView.x;
+            liveZoomState.y = canvasView.y;
+            liveZoomState.zoom = canvasView.zoom;
+          }
+        } else {
+          applyLiveZoomTransform();
+        }
       } else {
         if (liveZoomState) {
           liveZoomState = null;
@@ -36691,7 +36761,7 @@
       canvasView.y = 0;
       canvasView.zoom = 1;
       updateCanvasView();
-      scheduleSvgDetailRefresh(120);
+      scheduleSvgDetailRefresh();
     }
 
     function zoomToFit() {
@@ -36727,7 +36797,7 @@
       canvasView.x = minX + width / 2 - viewWidth / 2;
       canvasView.y = minY + height / 2 - viewHeight / 2;
       updateCanvasView();
-      scheduleSvgDetailRefresh(120);
+      scheduleSvgDetailRefresh();
     }
 
     function setToolbarIcon(button, src) {
@@ -43580,6 +43650,7 @@
 
     function render() {
       cancelLiveCanvasRender();
+      clearWebglWireExclusions({ defer: false });
       renderCanvasOnly();
       renderInspector();
     }
@@ -43859,13 +43930,22 @@
       }
       const idSet = new Set(ids);
       if (options.endpointDevices !== false) renderDeviceInstancesById(deviceIdsForConnectionIds(ids));
-      markWebglSceneDirty();
-      scheduleWebglDraw();
+      const deferWebgl = options.deferWebgl !== false;
+      if (deferWebgl) {
+        scheduleDeferredWebglSceneRebuild(options.webglDelay ?? 360, ids);
+      } else {
+        markWebglSceneDirty();
+        scheduleWebglDraw();
+      }
       const highlightedIds = [...portalLinkedWireIdSet(selectedWireIds())].filter(id => idSet.has(id));
+      const forceIds = new Set([
+        ...highlightedIds,
+        ...(deferWebgl ? ids : ids.filter(id => webglWireExcludeIds.has(id)))
+      ]);
       renderWires({
         connectionIds: ids,
         skipCableHops: true,
-        forceSvgVisualIds: highlightedIds
+        forceSvgVisualIds: [...forceIds]
       });
       renderInspector();
       if (options.summary !== false) {
@@ -43972,7 +44052,7 @@
       const moved = selections.every(updateLiveSelectionElement);
       if (!moved) return false;
       const wireIds = affectedConnectionIdsForSelections(selections);
-      canvasWrap.classList.toggle("live-wire-overrides", wireIds.length > 0);
+      setWebglWireExclusions(wireIds);
       if (wireIds.length) renderWires({ connectionIds: wireIds, live: true });
       return true;
     }
@@ -43981,7 +44061,7 @@
       const connectionId = wireSegmentDrag?.connectionId || wireCornerDrag?.connectionId || "";
       if (!connectionId) return false;
       if (infoBoxHoverLayer) infoBoxHoverLayer.innerHTML = "";
-      canvasWrap.classList.add("live-wire-overrides");
+      setWebglWireExclusions([connectionId]);
       renderWires({ connectionIds: [connectionId], live: true });
       return true;
     }
@@ -44015,7 +44095,7 @@
       liveCanvasRenderQueued = false;
       liveCanvasRenderSimplified = false;
       liveElementCache.clear();
-      if (!isLiveCanvasInteraction()) canvasWrap.classList.remove("live-wire-overrides");
+      if (!isLiveCanvasInteraction()) clearWebglWireExclusions({ defer: true });
     }
 
     function rackBounds(rackId) {
@@ -48919,6 +48999,7 @@
         dragState = null;
         clearSnapGuides();
         if (canTargetRenderMove) {
+          resetWebglWireExclusions();
           renderDeviceInstancesById(movedSelections.map(selection => selection.id));
           if (affectedWireIds.length) {
             renderWireOnlyChange(affectedWireIds, { endpointDevices: false, summary: false });
@@ -49016,6 +49097,7 @@
         if (wireCornerDrag.moved) event.preventDefault();
         const connectionId = wireCornerDrag.connectionId;
         wireCornerDrag = null;
+        resetWebglWireExclusions();
         renderWireOnlyChange([connectionId], { endpointDevices: false, summary: false });
       }
       if (wireSegmentDrag) {
@@ -49025,6 +49107,7 @@
         const connectionId = wireSegmentDrag.connectionId;
         wireSegmentDrag = null;
         clearSnapGuides();
+        resetWebglWireExclusions();
         renderWireOnlyChange([connectionId], { endpointDevices: false, summary: false });
       }
       if (connectState) {
@@ -49046,7 +49129,10 @@
         if (created) renderWireOnlyChange(created);
         else render();
       }
-      if (needsFullRender) render();
+      if (needsFullRender) {
+        clearWebglWireExclusions({ defer: false });
+        render();
+      }
     });
 
     canvas.addEventListener("pointercancel", event => {
@@ -49294,7 +49380,10 @@
           { type: "device", id: second.instanceId }
         ]
       };
-      render();
+      renderDeviceInstancesById([first.instanceId, second.instanceId]);
+      renderInspector();
+      updateUndoRedoButtons();
+      emptyHint.classList.add("hidden");
       setStatus(`${firstTemplate.name || "Device"} and ${secondTemplate.name || "Device"} added.`);
     }
 
@@ -49320,7 +49409,10 @@
       pushUndo();
       state.devices.push(instance);
       state.selected = { type: "device", id: instance.instanceId };
-      render();
+      renderDeviceInstancesById([instance.instanceId]);
+      renderInspector();
+      updateUndoRedoButtons();
+      emptyHint.classList.add("hidden");
     }
 
     function showDeviceContextMenu(event, instanceId) {
