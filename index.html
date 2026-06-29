@@ -34513,7 +34513,11 @@
     let webglSceneDirty = true;
     let webglFrame = null;
     let webglWireExcludeIds = new Set();
+    let webglWireExcludeKey = "";
     let deferredWebglSceneTimer = null;
+    let webglChunkBuildFrame = null;
+    let webglChunkBuildToken = 0;
+    let webglChunkBuildInProgress = false;
 
     function webglParseColor(value, fallback = "#32b6ff", alpha = 1) {
       const text = String(value || fallback || "").trim();
@@ -34751,6 +34755,10 @@
         };
         queue(() => {
           webglCableHopRefreshIdle = null;
+          if (isLiveCanvasInteraction()) {
+            scheduleWebglCableHopRefresh();
+            return;
+          }
           webglCableHopRefreshFrame = requestAnimationFrame(() => {
             webglCableHopRefreshFrame = null;
             if (version !== webglCableHopRefreshVersion) return;
@@ -34773,7 +34781,7 @@
             }
           });
         });
-      }, 480);
+      }, 1800);
     }
 
     function webglCableHopPathMap(routeMap) {
@@ -35254,29 +35262,91 @@
       });
     }
 
+    function cancelChunkedWebglSceneBuild() {
+      if (webglChunkBuildFrame) {
+        cancelAnimationFrame(webglChunkBuildFrame);
+        webglChunkBuildFrame = null;
+      }
+      if (webglChunkBuildInProgress) webglChunkBuildToken += 1;
+      webglChunkBuildInProgress = false;
+    }
+
     function markWebglSceneDirty() {
       webglSceneDirty = true;
+      cancelChunkedWebglSceneBuild();
     }
 
     function webglWireExclusionKey(ids = []) {
       return [...new Set(ids)].filter(Boolean).sort().join("|");
     }
 
-    function setWebglWireExclusions(ids = []) {
+    function setWebglWireExclusions(ids = [], options = {}) {
       const next = new Set((ids || []).filter(Boolean));
-      if (webglWireExclusionKey(next) === webglWireExclusionKey(webglWireExcludeIds)) return;
+      const nextKey = options.key ?? webglWireExclusionKey(next);
+      if (nextKey === webglWireExcludeKey) return;
       webglWireExcludeIds = next;
+      webglWireExcludeKey = nextKey;
       markWebglSceneDirty();
       scheduleWebglDraw();
     }
 
-    function scheduleDeferredWebglSceneRebuild(delay = 420, cleanupConnectionIds = []) {
-      if (deferredWebglSceneTimer) clearTimeout(deferredWebglSceneTimer);
+    function buildWebglStaticSceneParts(scene) {
+      state.areas.forEach(area => {
+        pushWebglRect(scene.rectangles, area.x, area.y, area.width, area.height, webglParseColor(area.backgroundColor || "rgba(50,182,255,.10)", "rgba(50,182,255,.10)", .42));
+      });
+      state.jumpNodes.forEach(node => {
+        pushWebglCircle(scene.circles, node.x, node.y, JUMP_NODE_RADIUS, webglParseColor("#32b6ff"));
+      });
+      state.comments.forEach(comment => {
+        pushWebglLine(scene.lines, comment.anchor, commentLeaderEnd(comment), 2.5, webglParseColor(comment.leaderColor || "#32b6ff"));
+        pushWebglRect(scene.rectangles, comment.x, comment.y, comment.width || 180, comment.height || 82, webglParseColor(comment.backgroundColor || "#18202a", "#18202a", .78));
+      });
+    }
+
+    function buildWebglConnectionQueue() {
+      const routeContext = state.wireMode === "orthogonal" ? createOrthogonalRouteContext() : null;
+      const webglConnections = webglWireExcludeIds.size
+        ? state.connections.filter(connection => !webglWireExcludeIds.has(connection.id))
+        : state.connections;
+      return {
+        routeContext,
+        orderedConnections: routeContext ? [...webglConnections].sort(compareConnectionsForRouting) : webglConnections
+      };
+    }
+
+    function scheduleChunkedWebglSceneRebuild(cleanupConnectionIds = []) {
+      const renderer = ensureWebglRenderer();
+      if (!renderer) return;
+      if (webglChunkBuildFrame) cancelAnimationFrame(webglChunkBuildFrame);
+      const token = ++webglChunkBuildToken;
       const cleanupIds = connectionIdsFromResult(cleanupConnectionIds);
-      deferredWebglSceneTimer = setTimeout(() => {
-        deferredWebglSceneTimer = null;
-        markWebglSceneDirty();
-        scheduleWebglDraw();
+      const scene = { rectangles: [], lines: [], circles: [] };
+      buildWebglStaticSceneParts(scene);
+      const { routeContext, orderedConnections } = buildWebglConnectionQueue();
+      const routeMap = new Map();
+      let cableHopPathMap = new Map();
+      let index = 0;
+      webglSceneDirty = true;
+      webglChunkBuildInProgress = true;
+
+      // Build large wire buffers incrementally. This keeps drop/rewire responsive and avoids
+      // recreating the full WebGL scene in one blocking task after a drag interaction.
+      const runChunk = work => {
+        const start = performance.now();
+        while (index < orderedConnections.length && performance.now() - start < 7) {
+          work(orderedConnections[index]);
+          index += 1;
+        }
+        return index >= orderedConnections.length;
+      };
+
+      const finish = () => {
+        if (token !== webglChunkBuildToken) return;
+        webglChunkBuildInProgress = false;
+        renderer.setScene(scene);
+        webglSceneDirty = false;
+        renderer.draw();
+        if (!isLiveCanvasInteraction()) canvasWrap.classList.remove("live-wire-overrides");
         if (cleanupIds.length) {
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
@@ -35285,6 +35355,47 @@
             });
           });
         }
+      };
+
+      const buildVisuals = () => {
+        if (token !== webglChunkBuildToken) return;
+        if (runChunk(connection => {
+          const route = routeMap.get(connection.id);
+          pushWebglWireVisual(scene.lines, route, connection, {
+            visualPath: cableHopPathMap.get(connection.id)
+          });
+        })) {
+          webglChunkBuildFrame = null;
+          finish();
+          return;
+        }
+        webglChunkBuildFrame = requestAnimationFrame(buildVisuals);
+      };
+
+      const buildRoutes = () => {
+        if (token !== webglChunkBuildToken) return;
+        if (runChunk(connection => {
+          const route = routeForConnection(connection, routeContext);
+          if (routeContext) registerOrthogonalRoute(routeContext, route.points);
+          routeMap.set(connection.id, route);
+        })) {
+          cableHopPathMap = webglCableHopPathMap(routeMap);
+          index = 0;
+          webglChunkBuildFrame = requestAnimationFrame(buildVisuals);
+          return;
+        }
+        webglChunkBuildFrame = requestAnimationFrame(buildRoutes);
+      };
+
+      webglChunkBuildFrame = requestAnimationFrame(buildRoutes);
+    }
+
+    function scheduleDeferredWebglSceneRebuild(delay = 420, cleanupConnectionIds = []) {
+      if (deferredWebglSceneTimer) clearTimeout(deferredWebglSceneTimer);
+      const cleanupIds = connectionIdsFromResult(cleanupConnectionIds);
+      deferredWebglSceneTimer = setTimeout(() => {
+        deferredWebglSceneTimer = null;
+        scheduleChunkedWebglSceneRebuild(cleanupIds);
       }, delay);
     }
 
@@ -35292,6 +35403,7 @@
       const previousIds = [...webglWireExcludeIds];
       if (!previousIds.length) return previousIds;
       webglWireExcludeIds = new Set();
+      webglWireExcludeKey = "";
       if (options.defer === false) {
         markWebglSceneDirty();
         scheduleWebglDraw();
@@ -35304,6 +35416,7 @@
     function resetWebglWireExclusions() {
       const previousIds = [...webglWireExcludeIds];
       webglWireExcludeIds = new Set();
+      webglWireExcludeKey = "";
       return previousIds;
     }
 
@@ -35468,6 +35581,10 @@
       webglFrame = requestAnimationFrame(() => {
         webglFrame = null;
         if (webglSceneDirty) {
+          if (webglChunkBuildInProgress) {
+            renderer.draw();
+            return;
+          }
           renderer.setScene(buildWebglScene());
           webglSceneDirty = false;
         }
@@ -43972,19 +44089,82 @@
       return ["device", "led-surface", "title-block", "comment", "area", "jump-node"].includes(selection?.type);
     }
 
+    function liveConnectionCacheOwner() {
+      return dragState || ledSurfaceDrag || ledSurfaceResize || titleBlockDrag || titleBlockResize || commentDrag || commentResize || areaDrag || areaResize || jumpNodeDrag;
+    }
+
+    function buildConnectionMoveIndex() {
+      const byMoveKey = new Map();
+      const byId = new Map();
+      const add = (key, connection) => {
+        if (!key) return;
+        if (!byMoveKey.has(key)) byMoveKey.set(key, []);
+        byMoveKey.get(key).push(connection);
+      };
+      state.connections.forEach(connection => {
+        byId.set(connection.id, connection);
+        add(endpointMoveKey(connection.from), connection);
+        add(endpointMoveKey(connection.to), connection);
+      });
+      return { byMoveKey, byId };
+    }
+
+    function connectionCacheKeyForSelections(selections) {
+      return (selections || []).map(selectionMoveKey).sort().join("|");
+    }
+
+    function connectionMoveKeysForSelections(selections) {
+      return new Set((selections || []).map(selectionMoveKey).filter(Boolean));
+    }
+
+    function connectionIdsFromMoveIndex(moveKeys, index) {
+      const ids = new Set();
+      if (!index?.byMoveKey) return [];
+      moveKeys.forEach(key => {
+        (index.byMoveKey.get(key) || []).forEach(connection => ids.add(connection.id));
+      });
+      return [...ids];
+    }
+
+    function primeLiveConnectionCache(owner, selections) {
+      if (!owner) return;
+      const moveIndex = buildConnectionMoveIndex();
+      const moveKeys = connectionMoveKeysForSelections(selections);
+      const ids = connectionIdsFromMoveIndex(moveKeys, moveIndex);
+      owner.connectionMoveIndex = moveIndex;
+      owner.liveAffectedConnectionKey = connectionCacheKeyForSelections(selections);
+      owner.liveAffectedConnectionIds = ids;
+      owner.liveAffectedConnections = ids.map(id => moveIndex.byId.get(id)).filter(Boolean);
+      owner.liveMovedKeys = moveKeys;
+      owner.webglWireExclusionKey = webglWireExclusionKey(ids);
+    }
+
     function affectedConnectionIdsForSelections(selections) {
-      const cacheOwner = dragState || ledSurfaceDrag || ledSurfaceResize || titleBlockDrag || titleBlockResize || commentDrag || commentResize || areaDrag || areaResize || jumpNodeDrag;
-      const cacheKey = (selections || []).map(selectionMoveKey).sort().join("|");
+      const cacheOwner = liveConnectionCacheOwner();
+      const cacheKey = connectionCacheKeyForSelections(selections);
       if (cacheOwner?.liveAffectedConnectionKey === cacheKey) return cacheOwner.liveAffectedConnectionIds || [];
-      const moveKeys = new Set((selections || []).map(selectionMoveKey));
-      const ids = state.connections
-        .filter(connection => moveKeys.has(endpointMoveKey(connection.from)) || moveKeys.has(endpointMoveKey(connection.to)))
-        .map(connection => connection.id);
+      const moveKeys = connectionMoveKeysForSelections(selections);
+      const moveIndex = cacheOwner?.connectionMoveIndex || buildConnectionMoveIndex();
+      const ids = connectionIdsFromMoveIndex(moveKeys, moveIndex);
       if (cacheOwner) {
+        cacheOwner.connectionMoveIndex = moveIndex;
         cacheOwner.liveAffectedConnectionKey = cacheKey;
         cacheOwner.liveAffectedConnectionIds = ids;
+        cacheOwner.liveAffectedConnections = ids.map(id => moveIndex.byId.get(id)).filter(Boolean);
+        cacheOwner.liveMovedKeys = moveKeys;
+        cacheOwner.webglWireExclusionKey = webglWireExclusionKey(ids);
       }
       return ids;
+    }
+
+    function affectedConnectionsForSelections(selections) {
+      const cacheOwner = liveConnectionCacheOwner();
+      const cacheKey = connectionCacheKeyForSelections(selections);
+      if (cacheOwner?.liveAffectedConnectionKey === cacheKey && cacheOwner.liveAffectedConnections) {
+        return cacheOwner.liveAffectedConnections;
+      }
+      const ids = new Set(affectedConnectionIdsForSelections(selections));
+      return state.connections.filter(connection => ids.has(connection.id));
     }
 
     function cachedLiveElement(root, key, selector) {
@@ -44052,7 +44232,7 @@
       const moved = selections.every(updateLiveSelectionElement);
       if (!moved) return false;
       const wireIds = affectedConnectionIdsForSelections(selections);
-      setWebglWireExclusions(wireIds);
+      setWebglWireExclusions(wireIds, { key: liveConnectionCacheOwner()?.webglWireExclusionKey });
       if (wireIds.length) renderWires({ connectionIds: wireIds, live: true });
       return true;
     }
@@ -44069,7 +44249,7 @@
     function isLiveCanvasInteraction() {
       return Boolean(
         dragState || ledSurfaceDrag || ledSurfaceResize || commentDrag || commentResize
-        || titleBlockDrag || titleBlockResize || areaDrag || areaResize || wireSegmentDrag || wireCornerDrag
+        || titleBlockDrag || titleBlockResize || areaDrag || areaResize || jumpNodeDrag || wireSegmentDrag || wireCornerDrag
       );
     }
 
@@ -44213,6 +44393,7 @@
         collisionIndex: collisionIndexForSelections(items, "objects"),
         moved: false
       };
+      primeLiveConnectionCache(dragState, dragState.items);
       canvas.setPointerCapture(event.pointerId);
     }
 
@@ -44451,6 +44632,7 @@
           collisionIndex: collisionIndexForSelections(state.selected.items, "objects"),
           moved: false
         };
+        primeLiveConnectionCache(dragState, dragState.items);
         canvas.setPointerCapture(event.pointerId);
         return;
       }
@@ -46663,6 +46845,7 @@
           collisionIndex: collisionIndexForSelections(items, "objects"),
           moved: false
         };
+        primeLiveConnectionCache(dragState, dragState.items);
         canvas.setPointerCapture(event.pointerId);
         return;
       }
@@ -46675,6 +46858,7 @@
         collisionIndex: collisionIndexForSelections([{ type: "device", id: instanceId }], "devices"),
         moved: false
       };
+      primeLiveConnectionCache(dragState, [{ type: "device", id: instanceId }]);
       select({ type: "device", id: instanceId });
       beginSnapSession({ type: "device", id: instanceId });
       canvas.setPointerCapture(event.pointerId);
@@ -46696,6 +46880,7 @@
           collisionIndex: collisionIndexForSelections(state.selected.items, "objects"),
           moved: false
         };
+        primeLiveConnectionCache(dragState, dragState.items);
         canvas.setPointerCapture(event.pointerId);
         return;
       }
@@ -46707,6 +46892,7 @@
         startY: surface.y,
         moved: false
       };
+      primeLiveConnectionCache(ledSurfaceDrag, [{ type: "led-surface", id: surfaceId }]);
       select({ type: "led-surface", id: surfaceId });
       beginSnapSession({ type: "led-surface", id: surfaceId });
       canvas.setPointerCapture(event.pointerId);
@@ -46753,6 +46939,7 @@
           collisionIndex: collisionIndexForSelections(state.selected.items, "objects"),
           moved: false
         };
+        primeLiveConnectionCache(dragState, dragState.items);
         canvas.setPointerCapture(event.pointerId);
         return;
       }
@@ -47669,9 +47856,10 @@
     }
 
     function repairOrthogonalRoutesForMovedSelections(movedSelections) {
+      if (state.wireMode !== "orthogonal") return;
       if (!movedSelections?.length) return;
       const movedKeys = new Set(movedSelections.map(selectionMoveKey));
-      state.connections.forEach(connection => {
+      affectedConnectionsForSelections(movedSelections).forEach(connection => {
         if (!movedKeys.has(endpointMoveKey(connection.from)) && !movedKeys.has(endpointMoveKey(connection.to))) return;
         repairOrthogonalRouteForMovedEndpoint(connection, movedKeys);
       });
@@ -47680,7 +47868,7 @@
     function moveWireRoutePointsWithSelection(movedSelections, dx, dy) {
       if (!movedSelections?.length || (!dx && !dy)) return;
       const movedKeys = new Set(movedSelections.map(selectionMoveKey));
-      state.connections.forEach(connection => {
+      affectedConnectionsForSelections(movedSelections).forEach(connection => {
         const fromKey = endpointMoveKey(connection.from);
         const toKey = endpointMoveKey(connection.to);
         if (!fromKey || !toKey) return;
@@ -47794,6 +47982,7 @@
         lastPoint: point,
         moved: false
       };
+      primeLiveConnectionCache(jumpNodeDrag, [{ type: "jump-node", id: jumpNodeId }]);
       select({ type: "jump-node", id: jumpNodeId });
       canvas.setPointerCapture(event.pointerId);
     }
@@ -49006,8 +49195,6 @@
           } else {
             renderInspector();
             updateUndoRedoButtons();
-            markWebglSceneDirty();
-            scheduleWebglDraw();
           }
         } else {
           needsFullRender = needsFullRender || dragMoved;
