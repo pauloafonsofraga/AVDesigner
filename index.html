@@ -33062,6 +33062,11 @@
     let liveCanvasRenderSimplified = false;
     let suppressCanvasInfoBoxes = false;
     let liveElementCache = new Map();
+    let webglCableHopCache = { signature: "", map: new Map() };
+    let webglCableHopRefreshTimer = null;
+    let webglCableHopRefreshIdle = null;
+    let webglCableHopRefreshFrame = null;
+    let webglCableHopRefreshVersion = 0;
     let snapSession = null;
     let undoStack = [];
     let redoStack = [];
@@ -34706,6 +34711,66 @@
       );
     }
 
+    function wireRouteSignature(routeMap) {
+      if (!state.cableHops || state.connections.length < 2) return "off";
+      return state.connections
+        .map(connection => {
+          const route = routeMap.get(connection.id);
+          return `${connection.id}:${connection.cableType}:${route?.d || ""}`;
+        })
+        .join("|");
+    }
+
+    function scheduleWebglCableHopRefresh() {
+      if (!state.cableHops || webglCableHopRefreshTimer || webglCableHopRefreshIdle || webglCableHopRefreshFrame) return;
+      const version = ++webglCableHopRefreshVersion;
+      webglCableHopRefreshTimer = setTimeout(() => {
+        webglCableHopRefreshTimer = null;
+        const queue = callback => {
+          if (typeof requestIdleCallback === "function") {
+            webglCableHopRefreshIdle = requestIdleCallback(callback, { timeout: 3200 });
+          } else {
+            webglCableHopRefreshIdle = setTimeout(callback, 360);
+          }
+        };
+        queue(() => {
+          webglCableHopRefreshIdle = null;
+          webglCableHopRefreshFrame = requestAnimationFrame(() => {
+            webglCableHopRefreshFrame = null;
+            if (version !== webglCableHopRefreshVersion) return;
+            const routeContext = state.wireMode === "orthogonal" ? createOrthogonalRouteContext() : null;
+            const orderedConnections = routeContext ? [...state.connections].sort(compareConnectionsForRouting) : state.connections;
+            const routeMap = new Map();
+            orderedConnections.forEach(connection => {
+              const route = routeForConnection(connection, routeContext);
+              if (routeContext) registerOrthogonalRoute(routeContext, route.points);
+              routeMap.set(connection.id, route);
+            });
+            const signature = wireRouteSignature(routeMap);
+            if (signature !== "off" && signature !== webglCableHopCache.signature) {
+              webglCableHopCache = {
+                signature,
+                map: buildCableHopPathMap(routeMap, 1)
+              };
+              markWebglSceneDirty();
+              scheduleWebglDraw();
+            }
+          });
+        });
+      }, 480);
+    }
+
+    function webglCableHopPathMap(routeMap) {
+      const signature = wireRouteSignature(routeMap);
+      if (signature === "off") {
+        webglCableHopCache = { signature: "off", map: new Map() };
+        return webglCableHopCache.map;
+      }
+      if (webglCableHopCache.signature === signature) return webglCableHopCache.map;
+      scheduleWebglCableHopRefresh();
+      return new Map();
+    }
+
     function compileWebglShader(gl, type, source) {
       const shader = gl.createShader(type);
       gl.shaderSource(shader, source);
@@ -34950,7 +35015,7 @@
         if (routeContext) registerOrthogonalRoute(routeContext, route.points);
         routeMap.set(connection.id, route);
       });
-      const cableHopPathMap = buildCableHopPathMap(routeMap, 1);
+      const cableHopPathMap = webglCableHopPathMap(routeMap);
       orderedConnections.forEach(connection => {
         const route = routeMap.get(connection.id);
         pushWebglWireVisual(lines, route, connection, {
@@ -43750,6 +43815,53 @@
       }
     }
 
+    function connectionIdsFromResult(result) {
+      if (Array.isArray(result)) return result.filter(Boolean);
+      return typeof result === "string" && result ? [result] : [];
+    }
+
+    function deviceIdsForConnectionIds(connectionIds) {
+      const ids = new Set(connectionIds || []);
+      const deviceIds = new Set();
+      state.connections.forEach(connection => {
+        if (!ids.has(connection.id)) return;
+        deviceIdsForConnection(connection).forEach(deviceId => deviceIds.add(deviceId));
+      });
+      return [...deviceIds];
+    }
+
+    function deviceIdsForConnection(connection) {
+      return [
+        connection?.from?.deviceId,
+        connection?.to?.deviceId
+      ].filter(Boolean);
+    }
+
+    function renderWireOnlyChange(connectionIds, options = {}) {
+      const ids = connectionIdsFromResult(connectionIds);
+      if (!ids.length) {
+        render();
+        return;
+      }
+      const idSet = new Set(ids);
+      if (options.endpointDevices !== false) renderDeviceInstancesById(deviceIdsForConnectionIds(ids));
+      markWebglSceneDirty();
+      scheduleWebglDraw();
+      const highlightedIds = [...portalLinkedWireIdSet(selectedWireIds())].filter(id => idSet.has(id));
+      renderWires({
+        connectionIds: ids,
+        skipCableHops: true,
+        forceSvgVisualIds: highlightedIds
+      });
+      renderInspector();
+      if (options.summary !== false) {
+        renderCableLegend();
+        setStatus(statusSummary());
+      }
+      updateUndoRedoButtons();
+      scheduleNavigationSnapshotRefresh(220);
+    }
+
     function liveMovedSelections() {
       if (dragState?.multi) return dragState.items || [];
       if (dragState?.instanceId) return [{ type: "device", id: dragState.instanceId }];
@@ -44305,58 +44417,69 @@
       document.getElementById("deviceHoverTooltip")?.classList.remove("visible");
     }
 
-    function renderDevices(options = {}) {
+    function appendCanvasDevice(instance, options = {}) {
       const { viewport = null } = options;
-      state.devices.forEach(instance => {
-        const template = templateForInstance(instance);
-        if (!template) return;
-        if (!rectVisibleInViewport({ x: instance.x, y: instance.y, width: template.width || DEVICE_WIDTH, height: template.height || 190 }, viewport)) return;
-        const selected = state.selected?.type === "device" && state.selected.id === instance.instanceId
-          || state.selected?.type === "rack" && state.selected.id === instance.rackId
-          || state.selected?.type === "multi" && state.selected.items?.some(item => sameSelection(item, { type: "device", id: instance.instanceId }));
+      const template = templateForInstance(instance);
+      if (!template) return false;
+      if (!rectVisibleInViewport({ x: instance.x, y: instance.y, width: template.width || DEVICE_WIDTH, height: template.height || 190 }, viewport)) return false;
+      const selected = state.selected?.type === "device" && state.selected.id === instance.instanceId
+        || state.selected?.type === "rack" && state.selected.id === instance.rackId
+        || state.selected?.type === "multi" && state.selected.items?.some(item => sameSelection(item, { type: "device", id: instance.instanceId }));
 
-        const group = createSvg("g", {
-          class: `canvas-device ${selected ? "device-selected" : ""}`,
-          transform: `translate(${instance.x}, ${instance.y})`,
-          "data-instance-id": instance.instanceId
-        });
+      const group = createSvg("g", {
+        class: `canvas-device ${selected ? "device-selected" : ""}`,
+        transform: `translate(${instance.x}, ${instance.y})`,
+        "data-instance-id": instance.instanceId
+      });
 
-        group.addEventListener("pointerdown", event => {
-          event.stopPropagation();
-          startDeviceDrag(event, instance.instanceId);
-        });
-        group.addEventListener("click", event => {
-          event.stopPropagation();
-          if (event.defaultPrevented) return;
-          if (instance.rackId) selectRack(instance.rackId);
-          else select({ type: "device", id: instance.instanceId });
-        });
-        group.addEventListener("contextmenu", event => {
-          event.preventDefault();
-          event.stopPropagation();
-          if (instance.rackId) {
-            selectRack(instance.rackId);
-            showRackContextMenu(event, instance.rackId);
-          } else {
-            select({ type: "device", id: instance.instanceId });
-            showDeviceContextMenu(event, instance.instanceId);
-          }
-        });
-        group.addEventListener("pointerenter", event => {
-          if (canvasView.zoom <= .85) showDeviceHoverTooltip(event, instance, template);
-        });
-        group.addEventListener("pointermove", event => {
-          if (canvasView.zoom <= .85) showDeviceHoverTooltip(event, instance, template);
-          else hideDeviceHoverTooltip();
-        });
-        group.addEventListener("pointerleave", hideDeviceHoverTooltip);
+      group.addEventListener("pointerdown", event => {
+        event.stopPropagation();
+        startDeviceDrag(event, instance.instanceId);
+      });
+      group.addEventListener("click", event => {
+        event.stopPropagation();
+        if (event.defaultPrevented) return;
+        if (instance.rackId) selectRack(instance.rackId);
+        else select({ type: "device", id: instance.instanceId });
+      });
+      group.addEventListener("contextmenu", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (instance.rackId) {
+          selectRack(instance.rackId);
+          showRackContextMenu(event, instance.rackId);
+        } else {
+          select({ type: "device", id: instance.instanceId });
+          showDeviceContextMenu(event, instance.instanceId);
+        }
+      });
+      group.addEventListener("pointerenter", event => {
+        if (canvasView.zoom <= .85) showDeviceHoverTooltip(event, instance, template);
+      });
+      group.addEventListener("pointermove", event => {
+        if (canvasView.zoom <= .85) showDeviceHoverTooltip(event, instance, template);
+        else hideDeviceHoverTooltip();
+      });
+      group.addEventListener("pointerleave", hideDeviceHoverTooltip);
 
-        drawDeviceBody(group, template, instance);
-        drawEthernetPairLines(group, instance, template);
-        effectiveTemplateConnectors(template)
-          .filter(connector => !connector.empty && isConnectorVisibleOnCanvas(instance, connector))
-          .forEach(connector => drawConnector(group, instance, connector));
-        devicesLayer.appendChild(group);
+      drawDeviceBody(group, template, instance);
+      drawEthernetPairLines(group, instance, template);
+      effectiveTemplateConnectors(template)
+        .filter(connector => !connector.empty && isConnectorVisibleOnCanvas(instance, connector))
+        .forEach(connector => drawConnector(group, instance, connector));
+      devicesLayer.appendChild(group);
+      return true;
+    }
+
+    function renderDevices(options = {}) {
+      state.devices.forEach(instance => appendCanvasDevice(instance, options));
+    }
+
+    function renderDeviceInstancesById(deviceIds) {
+      [...new Set(deviceIds || [])].forEach(deviceId => {
+        devicesLayer.querySelector(`[data-instance-id="${CSS.escape(deviceId)}"]`)?.remove();
+        const instance = instanceById(deviceId);
+        if (instance) appendCanvasDevice(instance);
       });
     }
 
@@ -45279,6 +45402,7 @@
       const filterIds = options.connectionIds?.length
         ? new Set(options.connectionIds)
         : null;
+      const forceSvgVisualIds = new Set(options.forceSvgVisualIds || []);
       if (filterIds) {
         filterIds.forEach(connectionId => {
           wiresLayer.querySelector(`[data-wire-id="${CSS.escape(connectionId)}"]`)?.remove();
@@ -45312,8 +45436,10 @@
           return [connection.id, route];
         }))
         : routeMap;
-      const cableHopPathMap = liveInteraction ? new Map() : buildCableHopPathMap(visibleRouteMap, detailScale);
-      const gpuWireVisuals = canvasWireVisualsInWebgl() && !options.live;
+      const needsSvgCableHops = !liveInteraction
+        && !options.skipCableHops
+        && (!canvasWireVisualsInWebgl() || forceSvgVisualIds.size > 0);
+      const cableHopPathMap = needsSvgCableHops ? buildCableHopPathMap(visibleRouteMap, detailScale) : new Map();
       visibleConnections.forEach(connection => {
         const route = routeMap.get(connection.id) || routeForConnection(connection, null);
         const { from, to, d, points } = route;
@@ -45327,6 +45453,7 @@
 
         const hit = createSvg("path", { class: "wire-hit", d, fill: "none", stroke: "transparent" });
         const direction = cableDirection(connection.cableType);
+        const gpuWireVisuals = canvasWireVisualsInWebgl() && !options.live && !forceSvgVisualIds.has(connection.id);
         const lines = gpuWireVisuals ? [] : appendWireVisuals(wireGroup, visiblePath, connection, direction);
 
         hit.addEventListener("click", event => {
@@ -45555,20 +45682,42 @@
     function splinePathThroughPoints(points) {
       if (points.length < 2) return "";
       if (points.length === 2) return bezierPath(points[0], points[1]);
-      const tension = 0.72;
+      const tangentForPoint = index => {
+        const current = points[index];
+        const previous = points[Math.max(0, index - 1)];
+        const next = points[Math.min(points.length - 1, index + 1)];
+        const incoming = { x: current.x - previous.x, y: current.y - previous.y };
+        const outgoing = { x: next.x - current.x, y: next.y - current.y };
+        const incomingLength = Math.hypot(incoming.x, incoming.y);
+        const outgoingLength = Math.hypot(outgoing.x, outgoing.y);
+        const limit = Math.max(1, Math.min(incomingLength || outgoingLength || 1, outgoingLength || incomingLength || 1) * 1.15);
+        let tangent;
+        if (index === 0) tangent = outgoing;
+        else if (index === points.length - 1) tangent = incoming;
+        else tangent = { x: next.x - previous.x, y: next.y - previous.y };
+        let length = Math.hypot(tangent.x, tangent.y);
+        if (length < 0.001) {
+          const base = incomingLength >= 0.001 ? incoming : outgoing;
+          tangent = { x: -base.y, y: base.x };
+          length = Math.hypot(tangent.x, tangent.y) || 1;
+        }
+        const scale = Math.min(limit, length) / length * 0.82;
+        return { x: tangent.x * scale, y: tangent.y * scale };
+      };
+      const tangents = points.map((_, index) => tangentForPoint(index));
       const parts = [`M ${points[0].x} ${points[0].y}`];
       for (let index = 0; index < points.length - 1; index++) {
-        const previous = points[Math.max(0, index - 1)];
         const current = points[index];
         const next = points[index + 1];
-        const after = points[Math.min(points.length - 1, index + 2)];
+        const currentTangent = tangents[index];
+        const nextTangent = tangents[index + 1];
         const c1 = {
-          x: current.x + (next.x - previous.x) * tension / 6,
-          y: current.y + (next.y - previous.y) * tension / 6
+          x: current.x + currentTangent.x / 3,
+          y: current.y + currentTangent.y / 3
         };
         const c2 = {
-          x: next.x - (after.x - current.x) * tension / 6,
-          y: next.y - (after.y - current.y) * tension / 6
+          x: next.x - nextTangent.x / 3,
+          y: next.y - nextTangent.y / 3
         };
         parts.push(`C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${next.x} ${next.y}`);
       }
@@ -47961,6 +48110,8 @@
         const fixedConnector = connectorById(existing.other.deviceId, existing.other.connectorId);
         if (!fixedConnector) return;
         pushUndo();
+        const removedConnectionId = existing.connection.id;
+        const affectedDeviceIds = deviceIdsForConnection(existing.connection);
         state.connections = state.connections.filter(connection => connection.id !== existing.connection.id);
         connectState = {
           deviceId: existing.other.deviceId,
@@ -47973,7 +48124,13 @@
             fixedEndpoint: structuredClone(existing.other)
           }
         };
-        renderCanvasOnly();
+        wiresLayer.querySelector(`[data-wire-id="${CSS.escape(removedConnectionId)}"]`)?.remove();
+        renderDeviceInstancesById(affectedDeviceIds);
+        markWebglSceneDirty();
+        scheduleWebglDraw();
+        renderInspector();
+        renderCableLegend();
+        setStatus(statusSummary());
         previewWire.setAttribute("stroke", colorForConnector(fixedConnector, existing.other.deviceId));
         if (cableDirection(effectiveConnectorType(fixedConnector)) === "two-way") {
           previewWire.setAttribute("marker-start", "url(#arrowStart)");
@@ -48004,7 +48161,8 @@
       const created = createConnectionBetween(deviceId, connectorId);
       if (!created) restoreRewireConnection();
       endConnection();
-      render();
+      if (created) renderWireOnlyChange(created);
+      else render();
     }
 
     function finishConnectionToJump(event, jumpNodeId) {
@@ -48014,7 +48172,8 @@
       const created = createConnectionToJump(jumpNodeId);
       if (!created) restoreRewireConnection();
       endConnection();
-      render();
+      if (created) renderWireOnlyChange(created);
+      else render();
     }
 
     function connectionLabelForEndpoints(source, target) {
@@ -48075,7 +48234,7 @@
       state.connections.push(connection);
       if (!rewire) freezeOrthogonalRouteFromPreview(connection);
       select({ type: "wire", id: connection.id });
-      return true;
+      return [connection.id, ...replacementIds];
     }
 
     function createConnectionFromJumpToDevice(deviceId, connectorId) {
@@ -48124,7 +48283,7 @@
       state.connections.push(connection);
       freezeOrthogonalRouteFromPreview(connection);
       select({ type: "wire", id: connection.id });
-      return true;
+      return [connection.id, ...replacementIds];
     }
 
     function createConnectionBetween(deviceId, connectorId) {
@@ -48189,7 +48348,7 @@
         state.connections.push(connection);
         if (!rewire) freezeOrthogonalRouteFromPreview(connection);
         select({ type: "wire", id: connection.id });
-        return true;
+        return [connection.id, ...replacementIds];
       }
       return false;
     }
@@ -48228,7 +48387,7 @@
         ledConnectorSelection = [];
         select({ type: "led-surface", id: surfaceId });
         setStatus(`${endpoints.length} LED signal line${endpoints.length === 1 ? "" : "s"} connected.`);
-        return true;
+        return createdConnections.map(connection => connection.id);
       }
       const sourceType = effectiveConnectorType(source) || source.type;
       if (sourceType !== "led-signal" && !isLedGridPowerType(sourceType)) {
@@ -48255,7 +48414,7 @@
       state.connections.push(connection);
       freezeOrthogonalRouteFromPreview(connection);
       select({ type: "wire", id: connection.id });
-      return true;
+      return connection.id;
     }
 
     function renderPreviewWires(point) {
@@ -48822,16 +48981,18 @@
         if (connection && wireCornerDrag.moved) storeCleanRoutePoints(connection, normalizedWireRoutePoints(connection, mode), mode);
         if (event?.pointerId !== undefined && canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
         if (wireCornerDrag.moved) event.preventDefault();
+        const connectionId = wireCornerDrag.connectionId;
         wireCornerDrag = null;
-        renderCanvasOnly();
+        renderWireOnlyChange([connectionId], { endpointDevices: false, summary: false });
       }
       if (wireSegmentDrag) {
         const connection = state.connections.find(item => item.id === wireSegmentDrag.connectionId);
         if (connection) storeCleanRoutePoints(connection, normalizedWireRoutePoints(connection));
         if (wireSegmentDrag.moved) event.preventDefault();
+        const connectionId = wireSegmentDrag.connectionId;
         wireSegmentDrag = null;
         clearSnapGuides();
-        renderCanvasOnly();
+        renderWireOnlyChange([connectionId], { endpointDevices: false, summary: false });
       }
       if (connectState) {
         const target = document.elementFromPoint(event.clientX, event.clientY);
@@ -48849,7 +49010,8 @@
         }
         if (!created) restoreRewireConnection();
         endConnection();
-        render();
+        if (created) renderWireOnlyChange(created);
+        else render();
       }
       if (needsFullRender) render();
     });
@@ -49382,8 +49544,7 @@
     function showWireCornerContextMenu(event, connectionId, cornerIndex) {
       const connection = state.connections.find(item => item.id === connectionId);
       if (!connection || !normalizedWireRoutePoints(connection)[cornerIndex]) return;
-      select({ type: "wire", id: connectionId });
-      renderCanvasOnly();
+      selectWiresFast({ type: "wire", id: connectionId });
       deviceContextMenu.innerHTML = `
         <button type="button" class="danger" data-wire-menu="delete-corner">Delete Corner</button>
         <button type="button" data-wire-menu="reset">Reset Wire Route</button>
@@ -49596,40 +49757,57 @@
       return portalLinkedWireIdSet(selectedWireIds()).has(wireId);
     }
 
+    function refreshWireSelectionRender(previousWireIds = []) {
+      const nextWireIds = selectedWireIds();
+      const previousHighlighted = portalLinkedWireIdSet(previousWireIds);
+      const nextHighlighted = portalLinkedWireIdSet(nextWireIds);
+      const affectedIds = new Set([...previousHighlighted, ...nextHighlighted]);
+      if (!affectedIds.size) return;
+      renderWires({
+        connectionIds: [...affectedIds],
+        skipCableHops: true,
+        forceSvgVisualIds: [...nextHighlighted]
+      });
+    }
+
+    function selectWiresFast(selection, previousWireIds = selectedWireIds()) {
+      select(selection);
+      refreshWireSelectionRender(previousWireIds);
+    }
+
     function selectWire(connectionId, event = null) {
+      const previousWireIds = selectedWireIds();
       if (event?.shiftKey) {
         const ids = new Set(selectedWireIds());
         if (ids.has(connectionId)) ids.delete(connectionId);
         else ids.add(connectionId);
         const items = [...ids].map(id => ({ type: "wire", id }));
-        select(items.length === 1 ? items[0] : items.length ? { type: "multi", items } : null);
-        renderCanvasOnly();
+        selectWiresFast(items.length === 1 ? items[0] : items.length ? { type: "multi", items } : null, previousWireIds);
         return;
       }
-      select({ type: "wire", id: connectionId });
-      renderCanvasOnly();
+      selectWiresFast({ type: "wire", id: connectionId }, previousWireIds);
     }
 
     function selectWiresOfSameType(connectionId) {
       const source = state.connections.find(connection => connection.id === connectionId);
       if (!source) return;
+      const previousWireIds = selectedWireIds();
       const items = state.connections
         .filter(connection => connection.cableType === source.cableType)
         .map(connection => ({ type: "wire", id: connection.id }));
-      select(items.length === 1 ? items[0] : { type: "multi", items });
-      renderCanvasOnly();
+      selectWiresFast(items.length === 1 ? items[0] : { type: "multi", items }, previousWireIds);
       const label = cableTypes[source.cableType]?.label || source.cableType || "wire";
       setStatus(`${items.length} ${label} wire${items.length === 1 ? "" : "s"} selected.`);
     }
 
     function selectReportCableGroup(typeId, length) {
       const normalizedLength = normalizeCableLength(length);
+      const previousWireIds = selectedWireIds();
       const items = state.connections
         .filter(connection => (connection.cableType || "") === typeId && normalizeCableLength(connection.length) === normalizedLength)
         .map(connection => ({ type: "wire", id: connection.id }));
       if (!items.length) return;
-      select(items.length === 1 ? items[0] : { type: "multi", items });
-      renderCanvasOnly();
+      selectWiresFast(items.length === 1 ? items[0] : { type: "multi", items }, previousWireIds);
       const label = cableTypes[typeId]?.label || typeId || "Cable";
       setStatus(`${items.length} ${label} cable${items.length === 1 ? "" : "s"} selected from report.`);
     }
@@ -49639,8 +49817,7 @@
     function wireContextSelectionIds(clickedWireId) {
       const selectedIds = selectedWireIds();
       if (selectedIds.includes(clickedWireId)) return selectedIds;
-      select({ type: "wire", id: clickedWireId });
-      renderCanvasOnly();
+      selectWiresFast({ type: "wire", id: clickedWireId }, selectedIds);
       return [clickedWireId];
     }
 
@@ -49659,7 +49836,7 @@
       routePoints.splice(insert.index, 0, insert.point);
       setWireRoutePoints(connection, routePoints, state.wireMode);
       select({ type: "wire", id: connectionId });
-      render();
+      renderWireOnlyChange([connectionId], { endpointDevices: false, summary: false });
     }
 
     function resetWireRoutes(connectionIds) {
@@ -49673,7 +49850,7 @@
         deleteWireRoutePoints(connection);
         if (state.wireMode === "orthogonal") freezeOrthogonalRoute(connection);
       });
-      render();
+      renderWireOnlyChange([...ids], { endpointDevices: false, summary: false });
     }
 
     function deleteWireCorner(connectionId, cornerIndex) {
@@ -49685,7 +49862,7 @@
       if (routePoints.length) setWireRoutePoints(connection, routePoints);
       else deleteWireRoutePoints(connection);
       select({ type: "wire", id: connectionId });
-      render();
+      renderWireOnlyChange([connectionId], { endpointDevices: false, summary: false });
     }
 
     function startWireCornerDrag(event, connectionId, cornerIndex) {
@@ -49702,7 +49879,7 @@
         pointerId: event.pointerId,
         moved: false
       };
-      select({ type: "wire", id: connectionId });
+      selectWiresFast({ type: "wire", id: connectionId });
       canvas.setPointerCapture(event.pointerId);
     }
 
@@ -49729,7 +49906,7 @@
         snapTargets: wireSegmentSnapTargetsForDrag(connectionId),
         moved: false
       };
-      select({ type: "wire", id: connectionId });
+      selectWiresFast({ type: "wire", id: connectionId });
       canvas.setPointerCapture(event.pointerId);
     }
 
@@ -52667,7 +52844,7 @@ function selfPatchPath(w,from,to){const inst=instanceById(w.from.deviceId),t=tem
 function pathForWire(from,to){if(data.wireMode==="orthogonal"){const dir=to.x>=from.x?1:-1;const sx=from.x+33*dir;const mx=(sx+to.x)/2;return"M "+from.x+" "+from.y+" L "+sx+" "+from.y+" L "+mx+" "+from.y+" L "+mx+" "+to.y+" L "+to.x+" "+to.y}const dx=Math.max(80,Math.abs(to.x-from.x)*.45),dir=to.x>=from.x?1:-1;return"M "+from.x+" "+from.y+" C "+(from.x+dx*dir)+" "+from.y+", "+(to.x-dx*dir)+" "+to.y+", "+to.x+" "+to.y}
 function manualRoutePoints(w){const key=data.wireMode==="orthogonal"?"orthogonalRoutePoints":"routePoints";return(w[key]||[]).map(p=>({x:Number(p.x),y:Number(p.y)})).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y))}
 function segmentBezier(from,to){const dx=Math.max(54,Math.abs(to.x-from.x)*.42),dir=to.x>=from.x?1:-1;return"C "+(from.x+dx*dir)+" "+from.y+", "+(to.x-dx*dir)+" "+to.y+", "+to.x+" "+to.y}
-function splinePathThroughPoints(points){if(points.length<2)return"";if(points.length===2)return pathForWire(points[0],points[1]);const tension=.72,parts=["M "+points[0].x+" "+points[0].y];for(let i=0;i<points.length-1;i++){const prev=points[Math.max(0,i-1)],cur=points[i],next=points[i+1],after=points[Math.min(points.length-1,i+2)],c1={x:cur.x+(next.x-prev.x)*tension/6,y:cur.y+(next.y-prev.y)*tension/6},c2={x:next.x-(after.x-cur.x)*tension/6,y:next.y-(after.y-cur.y)*tension/6};parts.push("C "+c1.x+" "+c1.y+", "+c2.x+" "+c2.y+", "+next.x+" "+next.y)}return parts.join(" ")}
+function splinePathThroughPoints(points){if(points.length<2)return"";if(points.length===2)return pathForWire(points[0],points[1]);const tangentForPoint=i=>{const cur=points[i],prev=points[Math.max(0,i-1)],next=points[Math.min(points.length-1,i+1)],incoming={x:cur.x-prev.x,y:cur.y-prev.y},outgoing={x:next.x-cur.x,y:next.y-cur.y},inLen=Math.hypot(incoming.x,incoming.y),outLen=Math.hypot(outgoing.x,outgoing.y),limit=Math.max(1,Math.min(inLen||outLen||1,outLen||inLen||1)*1.15);let tangent;if(i===0)tangent=outgoing;else if(i===points.length-1)tangent=incoming;else tangent={x:next.x-prev.x,y:next.y-prev.y};let len=Math.hypot(tangent.x,tangent.y);if(len<.001){const base=inLen>=.001?incoming:outgoing;tangent={x:-base.y,y:base.x};len=Math.hypot(tangent.x,tangent.y)||1}const scale=Math.min(limit,len)/len*.82;return{x:tangent.x*scale,y:tangent.y*scale}};const tangents=points.map((_,i)=>tangentForPoint(i)),parts=["M "+points[0].x+" "+points[0].y];for(let i=0;i<points.length-1;i++){const cur=points[i],next=points[i+1],a=tangents[i],b=tangents[i+1],c1={x:cur.x+a.x/3,y:cur.y+a.y/3},c2={x:next.x-b.x/3,y:next.y-b.y/3};parts.push("C "+c1.x+" "+c1.y+", "+c2.x+" "+c2.y+", "+next.x+" "+next.y)}return parts.join(" ")}
 function pathThroughPoints(points){const clean=points.filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));if(clean.length<2)return"";if(data.wireMode==="orthogonal")return"M "+clean[0].x+" "+clean[0].y+" "+clean.slice(1).map(p=>"L "+p.x+" "+p.y).join(" ");return splinePathThroughPoints(clean)}
 function wireEndpoints(w){const a0=pointForEndpoint(w.from,w),b0=pointForEndpoint(w.to,w);return{from:visibleEndpoint(w.from,w,b0),to:visibleEndpoint(w.to,w,a0)}}
 function routePointsForWire(w,pts){const manual=manualRoutePoints(w);return manual.length?[pts.from,...manual,pts.to]:[pts.from,pts.to]}
