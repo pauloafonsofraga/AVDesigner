@@ -865,6 +865,7 @@
       z-index: 1;
     }
 
+    #deviceTextureCanvas,
     #navigationSnapshotCanvas {
       position: absolute;
       inset: 0;
@@ -878,9 +879,13 @@
       z-index: 2;
     }
 
+    #navigationSnapshotCanvas {
+      z-index: 3;
+    }
+
     #canvas {
       position: relative;
-      z-index: 3;
+      z-index: 4;
       width: 100%;
       height: 100%;
       display: block;
@@ -924,6 +929,10 @@
     }
 
     .canvas-wrap.live-zooming #navigationSnapshotCanvas.ready {
+      opacity: 1;
+    }
+
+    .canvas-wrap.live-zooming #deviceTextureCanvas.ready {
       opacity: 1;
     }
 
@@ -3829,6 +3838,7 @@
       </div>
       <div class="canvas-wrap" id="canvasWrap">
         <canvas id="webglCanvas" aria-hidden="true"></canvas>
+        <canvas id="deviceTextureCanvas" aria-hidden="true"></canvas>
         <canvas id="navigationSnapshotCanvas" aria-hidden="true"></canvas>
         <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
           <defs>
@@ -33137,6 +33147,11 @@
     let svgDetailRefreshTimer = null;
     let svgDetailRefreshFrame = null;
     let svgDetailRefreshIdle = null;
+    let deviceTextureFrame = null;
+    let deviceTextureRefreshTimer = null;
+    let deviceTextureRefreshIdle = null;
+    let deviceTextureVersion = 0;
+    const deviceTextureCache = new Map();
     const VIEWPORT_RENDER_IDLE_MS = 140;
     const ZOOM_RENDER_IDLE_MS = 250;
     const SVG_DETAIL_REFRESH_IDLE_MS = 1200;
@@ -33164,6 +33179,7 @@
     const selectionMarquee = document.getElementById("selectionMarquee");
     const debugOutput = document.getElementById("debugOutput");
     const webglCanvas = document.getElementById("webglCanvas");
+    const deviceTextureCanvas = document.getElementById("deviceTextureCanvas");
     const navigationSnapshotCanvas = document.getElementById("navigationSnapshotCanvas");
     const deviceContextMenu = document.getElementById("deviceContextMenu");
     const titleBlockModal = document.getElementById("titleBlockModal");
@@ -34921,31 +34937,8 @@
       state.ledSurfaces.forEach(surface => {
         pushWebglRect(rectangles, surface.x, surface.y, surface.width, surface.height, webglParseColor("rgba(120,130,140,.32)", "rgba(120,130,140,.32)", .32));
       });
-      state.devices.forEach(instance => {
-        const template = templateForInstance(instance);
-        if (!template) return;
-        const width = Number(template.width) || DEVICE_WIDTH;
-        const height = Number(template.height) || 190;
-        const bodyColor = isAdapterTemplate(template)
-          ? webglParseColor("rgba(50,182,255,.08)", "rgba(50,182,255,.08)", .28)
-          : webglParseColor(dark ? "#151d26" : "#f8fbff");
-        pushWebglRect(rectangles, instance.x, instance.y, width, height, bodyColor);
-        if (!template.faceplateDeleted) {
-          const faceHeight = typeof faceplateHeightForTemplate === "function" ? faceplateHeightForTemplate(template, width) : FACE_HEIGHT;
-          pushWebglRect(rectangles, instance.x + FACE_MARGIN, instance.y + FACE_TOP_Y, width - FACE_MARGIN * 2, faceHeight, webglParseColor(dark ? "#253443" : "#d8e2ec"));
-        }
-        (template.cardSlots || []).forEach(slot => {
-          const band = cardBandGeometry(template, slot);
-          pushWebglRect(rectangles, instance.x + band.x, instance.y + band.y, band.width, band.height, webglParseColor("rgba(50,182,255,.10)", "rgba(50,182,255,.10)", .34));
-        });
-        effectiveTemplateConnectors(template)
-          .filter(connector => !connector.empty && isConnectorVisibleOnCanvas(instance, connector))
-          .forEach(connector => {
-            const segments = colorSegmentsForConnector(connector);
-            const color = segments?.length ? segments[0] : colorForConnector(connector, instance.instanceId);
-            pushWebglCircle(circles, instance.x + connector.x, instance.y + connector.y, 7, webglParseColor(color));
-          });
-      });
+      // Device bodies are rendered by the SVG layer at rest and by the device texture canvas during live navigation.
+      // Keeping placeholder device geometry out of WebGL prevents stale grey ghosts after object moves.
       state.jumpNodes.forEach(node => {
         pushWebglCircle(circles, node.x, node.y, JUMP_NODE_RADIUS, webglParseColor("#32b6ff"));
       });
@@ -34986,6 +34979,195 @@
 
     function canvasWireVisualsInWebgl() {
       return Boolean(WEBGL_RENDERER_ENABLED && ensureWebglRenderer());
+    }
+
+    function deviceTextureLocalBounds(instance, template = templateForInstance(instance)) {
+      const width = Number(template?.width) || DEVICE_WIDTH;
+      const height = Number(template?.height) || 190;
+      const padX = 52;
+      const padTop = isAdapterTemplate(template) ? 76 : 48;
+      const padBottom = 52;
+      return {
+        offsetX: -padX,
+        offsetY: -padTop,
+        width: width + padX * 2,
+        height: height + padTop + padBottom
+      };
+    }
+
+    function absoluteSvgImageHrefs(root) {
+      root.querySelectorAll("image").forEach(image => {
+        const href = image.getAttribute("href") || image.getAttributeNS("http://www.w3.org/1999/xlink", "href") || "";
+        if (!href || /^(data:|blob:|https?:)/i.test(href)) return;
+        try {
+          image.setAttribute("href", new URL(href, document.baseURI).href);
+        } catch (error) {
+          // Keep the original href if the browser cannot resolve it.
+        }
+      });
+    }
+
+    function cleanDeviceTextureClone(clone) {
+      clone.classList.remove("device-selected", "node-selected", "led-surface-selected");
+      clone.querySelectorAll(".device-selected,.node-selected,.led-surface-selected").forEach(element => {
+        element.classList.remove("device-selected", "node-selected", "led-surface-selected");
+      });
+      clone.querySelectorAll(".connector-hit,.empty-hit,.led-resize-handle,.wire-route-handle,.wire-segment-handle").forEach(element => element.remove());
+      absoluteSvgImageHrefs(clone);
+      return clone;
+    }
+
+    function deviceTextureSvgMarkup(instance, template, sourceGroup, bounds) {
+      const root = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      root.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      root.setAttribute("width", String(bounds.width));
+      root.setAttribute("height", String(bounds.height));
+      root.setAttribute("viewBox", `${instance.x + bounds.offsetX} ${instance.y + bounds.offsetY} ${bounds.width} ${bounds.height}`);
+      if (document.body.classList.contains("dark-mode")) root.classList.add("dark-mode");
+      const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
+      style.textContent = navigationSnapshotStyleText();
+      root.appendChild(style);
+      const defs = canvas.querySelector("defs");
+      if (defs) root.appendChild(defs.cloneNode(true));
+      root.appendChild(cleanDeviceTextureClone(sourceGroup.cloneNode(true)));
+      return new XMLSerializer().serializeToString(root);
+    }
+
+    async function captureDeviceTexture(instance, version = deviceTextureVersion) {
+      if (!deviceTextureCanvas || !instance?.instanceId) return;
+      const template = templateForInstance(instance);
+      if (!template) return;
+      const sourceGroup = devicesLayer.querySelector(`[data-instance-id="${CSS.escape(instance.instanceId)}"]`);
+      if (!sourceGroup) return;
+      const bounds = deviceTextureLocalBounds(instance, template);
+      const markup = deviceTextureSvgMarkup(instance, template, sourceGroup, bounds);
+      const url = URL.createObjectURL(new Blob([markup], { type: "image/svg+xml;charset=utf-8" }));
+      const image = new Image();
+      try {
+        await new Promise((resolve, reject) => {
+          image.onload = resolve;
+          image.onerror = reject;
+          image.src = url;
+        });
+        if (version !== deviceTextureVersion) return;
+        deviceTextureCache.set(instance.instanceId, {
+          image,
+          offsetX: bounds.offsetX,
+          offsetY: bounds.offsetY,
+          width: bounds.width,
+          height: bounds.height
+        });
+        deviceTextureCanvas.classList.toggle("ready", deviceTextureCache.size > 0);
+        if (liveZoomState) scheduleDeviceTextureDraw();
+      } catch (error) {
+        console.warn("Device texture unavailable:", error);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    function cancelDeviceTextureRefresh() {
+      if (deviceTextureRefreshTimer) {
+        clearTimeout(deviceTextureRefreshTimer);
+        deviceTextureRefreshTimer = null;
+      }
+      if (deviceTextureRefreshIdle) {
+        if (typeof cancelIdleCallback === "function") cancelIdleCallback(deviceTextureRefreshIdle);
+        else clearTimeout(deviceTextureRefreshIdle);
+        deviceTextureRefreshIdle = null;
+      }
+    }
+
+    function pruneDeviceTextureCache() {
+      const activeIds = new Set(state.devices.map(instance => instance.instanceId));
+      [...deviceTextureCache.keys()].forEach(instanceId => {
+        if (!activeIds.has(instanceId)) deviceTextureCache.delete(instanceId);
+      });
+      deviceTextureCanvas?.classList.toggle("ready", deviceTextureCache.size > 0);
+    }
+
+    function scheduleDeviceTextureRefresh(delay = 700) {
+      if (!deviceTextureCanvas) return;
+      cancelDeviceTextureRefresh();
+      const version = ++deviceTextureVersion;
+      deviceTextureRefreshTimer = setTimeout(() => {
+        deviceTextureRefreshTimer = null;
+        const queue = callback => {
+          if (typeof requestIdleCallback === "function") {
+            deviceTextureRefreshIdle = requestIdleCallback(callback, { timeout: 2600 });
+          } else {
+            deviceTextureRefreshIdle = setTimeout(callback, 240);
+          }
+        };
+        queue(async () => {
+          deviceTextureRefreshIdle = null;
+          for (const instance of state.devices) {
+            if (version !== deviceTextureVersion) return;
+            await captureDeviceTexture(instance, version);
+            await new Promise(resolve => setTimeout(resolve, 0));
+          }
+          if (version === deviceTextureVersion) {
+            pruneDeviceTextureCache();
+            deviceTextureCanvas.classList.toggle("ready", deviceTextureCache.size > 0);
+            scheduleDeviceTextureDraw();
+          }
+        });
+      }, delay);
+    }
+
+    function resizeDeviceTextureCanvas() {
+      if (!deviceTextureCanvas) return null;
+      const rect = canvasWrap.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const width = Math.max(1, Math.round(rect.width * dpr));
+      const height = Math.max(1, Math.round(rect.height * dpr));
+      if (deviceTextureCanvas.width !== width || deviceTextureCanvas.height !== height) {
+        deviceTextureCanvas.width = width;
+        deviceTextureCanvas.height = height;
+      }
+      deviceTextureCanvas.style.width = `${Math.max(1, rect.width)}px`;
+      deviceTextureCanvas.style.height = `${Math.max(1, rect.height)}px`;
+      return { rect, dpr };
+    }
+
+    function drawDeviceTextureLayer() {
+      if (!deviceTextureCanvas) return;
+      const sizing = resizeDeviceTextureCanvas();
+      if (!sizing) return;
+      const context = deviceTextureCanvas.getContext("2d", { alpha: true });
+      const cssWidth = Math.max(1, sizing.rect.width);
+      const cssHeight = Math.max(1, sizing.rect.height);
+      context.setTransform(sizing.dpr, 0, 0, sizing.dpr, 0, 0);
+      context.clearRect(0, 0, cssWidth, cssHeight);
+      context.setTransform(
+        sizing.dpr * canvasView.zoom,
+        0,
+        0,
+        sizing.dpr * canvasView.zoom,
+        -canvasView.x * sizing.dpr * canvasView.zoom,
+        -canvasView.y * sizing.dpr * canvasView.zoom
+      );
+      const view = canvasVisibleRect();
+      state.devices.forEach(instance => {
+        const cached = deviceTextureCache.get(instance.instanceId);
+        if (!cached?.image) return;
+        const target = {
+          x: instance.x + cached.offsetX,
+          y: instance.y + cached.offsetY,
+          width: cached.width,
+          height: cached.height
+        };
+        if (!rectsIntersect(target, view)) return;
+        context.drawImage(cached.image, target.x, target.y, target.width, target.height);
+      });
+    }
+
+    function scheduleDeviceTextureDraw() {
+      if (!deviceTextureCanvas || deviceTextureFrame) return;
+      deviceTextureFrame = requestAnimationFrame(() => {
+        deviceTextureFrame = null;
+        drawDeviceTextureLayer();
+      });
     }
 
     function markWebglSceneDirty() {
@@ -35199,6 +35381,7 @@
       };
       canvasWrap.classList.add("live-zooming");
       applyNavigationSnapshotTransform();
+      scheduleDeviceTextureDraw();
     }
 
     function applyLiveZoomTransform() {
@@ -35208,6 +35391,7 @@
       const ty = (liveZoomState.y - canvasView.y) * canvasView.zoom;
       canvas.style.transform = `matrix(${scale}, 0, 0, ${scale}, ${tx}, ${ty})`;
       applyNavigationSnapshotTransform();
+      scheduleDeviceTextureDraw();
     }
 
     function commitLiveZoomView() {
@@ -36381,6 +36565,7 @@
       if (!options.deferSvgViewBox) renderSnapGuides();
       if (options.deferSvgViewBox) {
         scheduleWebglCameraDraw({ skipGrid: true });
+        scheduleDeviceTextureDraw();
       } else {
         scheduleWebglDraw();
       }
@@ -43553,7 +43738,10 @@
       markWebglSceneDirty();
       scheduleWebglDraw();
       suppressCanvasInfoBoxes = previousSuppressCanvasInfoBoxes;
-      if (!options.live && !liveZoomState) scheduleNavigationSnapshotRefresh(lightweight ? 260 : 180);
+      if (!options.live && !liveZoomState) {
+        scheduleNavigationSnapshotRefresh(lightweight ? 260 : 180);
+        scheduleDeviceTextureRefresh(lightweight ? 760 : 540);
+      }
       if (!lightweight) {
         updateUndoRedoButtons();
         emptyHint.classList.toggle("hidden", state.devices.length > 0 || state.ledSurfaces.length > 0 || state.areas.length > 0 || state.comments.length > 0 || state.titleBlocks.length > 0);
