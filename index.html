@@ -34518,6 +34518,28 @@
     let webglChunkBuildFrame = null;
     let webglChunkBuildToken = 0;
     let webglChunkBuildInProgress = false;
+    let deferredWireSvgRefreshTimer = null;
+    let deferredWireSvgRefreshIds = new Set();
+    let deferredWireSvgRefreshOptions = {};
+
+    const DRAG_PERF_LOG_ENABLED = (() => {
+      try {
+        return localStorage.getItem("avdesignerPerfDrag") === "1"
+          || new URLSearchParams(window.location.search).has("perfDrag");
+      } catch (error) {
+        return false;
+      }
+    })();
+
+    function dragPerfStart() {
+      return DRAG_PERF_LOG_ENABLED ? performance.now() : 0;
+    }
+
+    function dragPerfLog(label, startTime = 0, detail = {}) {
+      if (!DRAG_PERF_LOG_ENABLED) return;
+      const elapsed = startTime ? performance.now() - startTime : 0;
+      console.debug(`[AVD drag] ${label}: ${elapsed.toFixed(1)}ms`, detail);
+    }
 
     function webglParseColor(value, fallback = "#32b6ff", alpha = 1) {
       const text = String(value || fallback || "").trim();
@@ -34772,10 +34794,12 @@
             });
             const signature = wireRouteSignature(routeMap);
             if (signature !== "off" && signature !== webglCableHopCache.signature) {
+              const hopStart = dragPerfStart();
               webglCableHopCache = {
                 signature,
                 map: buildCableHopPathMap(routeMap, 1)
               };
+              dragPerfLog("cable-hop recalculation", hopStart, { wires: routeMap.size, source: "idle-refresh" });
               markWebglSceneDirty();
               scheduleWebglDraw();
             }
@@ -35287,7 +35311,13 @@
       webglWireExcludeIds = next;
       webglWireExcludeKey = nextKey;
       markWebglSceneDirty();
-      scheduleWebglDraw();
+      if (isLiveCanvasInteraction()) {
+        // During drag/edit, rebuilding the whole WebGL wire scene in one frame causes pickup stalls.
+        // Keep the previous scene visible and replace it through the chunked builder.
+        scheduleChunkedWebglSceneRebuild();
+      } else {
+        scheduleWebglDraw();
+      }
     }
 
     function buildWebglStaticSceneParts(scene) {
@@ -35359,31 +35389,41 @@
 
       const buildVisuals = () => {
         if (token !== webglChunkBuildToken) return;
+        const chunkStart = dragPerfStart();
+        const startIndex = index;
         if (runChunk(connection => {
           const route = routeMap.get(connection.id);
           pushWebglWireVisual(scene.lines, route, connection, {
             visualPath: cableHopPathMap.get(connection.id)
           });
         })) {
+          dragPerfLog("WebGL rebuild chunk", chunkStart, { phase: "visuals", processed: orderedConnections.length - startIndex, total: orderedConnections.length });
           webglChunkBuildFrame = null;
           finish();
           return;
         }
+        dragPerfLog("WebGL rebuild chunk", chunkStart, { phase: "visuals", processed: index - startIndex, total: orderedConnections.length });
         webglChunkBuildFrame = requestAnimationFrame(buildVisuals);
       };
 
       const buildRoutes = () => {
         if (token !== webglChunkBuildToken) return;
+        const chunkStart = dragPerfStart();
+        const startIndex = index;
         if (runChunk(connection => {
           const route = routeForConnection(connection, routeContext);
           if (routeContext) registerOrthogonalRoute(routeContext, route.points);
           routeMap.set(connection.id, route);
         })) {
+          dragPerfLog("WebGL rebuild chunk", chunkStart, { phase: "routes", processed: orderedConnections.length - startIndex, total: orderedConnections.length });
+          const hopStart = dragPerfStart();
           cableHopPathMap = webglCableHopPathMap(routeMap);
+          dragPerfLog("cable-hop recalculation", hopStart, { wires: routeMap.size, source: "webgl-rebuild" });
           index = 0;
           webglChunkBuildFrame = requestAnimationFrame(buildVisuals);
           return;
         }
+        dragPerfLog("WebGL rebuild chunk", chunkStart, { phase: "routes", processed: index - startIndex, total: orderedConnections.length });
         webglChunkBuildFrame = requestAnimationFrame(buildRoutes);
       };
 
@@ -44073,6 +44113,26 @@
       scheduleNavigationSnapshotRefresh(220);
     }
 
+    function scheduleDeferredWireSvgRefresh(connectionIds, options = {}, delay = 220) {
+      connectionIdsFromResult(connectionIds).forEach(id => deferredWireSvgRefreshIds.add(id));
+      if (!deferredWireSvgRefreshIds.size) return;
+      deferredWireSvgRefreshOptions = { ...deferredWireSvgRefreshOptions, ...options };
+      if (deferredWireSvgRefreshTimer) clearTimeout(deferredWireSvgRefreshTimer);
+      const run = () => {
+        if (isLiveCanvasInteraction()) {
+          deferredWireSvgRefreshTimer = setTimeout(run, 260);
+          return;
+        }
+        const ids = [...deferredWireSvgRefreshIds];
+        const refreshOptions = { ...deferredWireSvgRefreshOptions };
+        deferredWireSvgRefreshTimer = null;
+        deferredWireSvgRefreshIds.clear();
+        deferredWireSvgRefreshOptions = {};
+        renderWireOnlyChange(ids, refreshOptions);
+      };
+      deferredWireSvgRefreshTimer = setTimeout(run, delay);
+    }
+
     function liveMovedSelections() {
       if (dragState?.multi) return dragState.items || [];
       if (dragState?.instanceId) return [{ type: "device", id: dragState.instanceId }];
@@ -44128,6 +44188,7 @@
 
     function primeLiveConnectionCache(owner, selections) {
       if (!owner) return;
+      const lookupStart = dragPerfStart();
       const moveIndex = buildConnectionMoveIndex();
       const moveKeys = connectionMoveKeysForSelections(selections);
       const ids = connectionIdsFromMoveIndex(moveKeys, moveIndex);
@@ -44137,6 +44198,19 @@
       owner.liveAffectedConnections = ids.map(id => moveIndex.byId.get(id)).filter(Boolean);
       owner.liveMovedKeys = moveKeys;
       owner.webglWireExclusionKey = webglWireExclusionKey(ids);
+      dragPerfLog("affected wire lookup", lookupStart, {
+        selections: selections?.length || 0,
+        totalWires: state.connections.length,
+        affectedWires: ids.length
+      });
+    }
+
+    function dragStartPerfLog(startTime, owner, label, selections) {
+      dragPerfLog("dragStart total", startTime, {
+        label,
+        selections: selections?.length || 0,
+        affectedWires: owner?.liveAffectedConnectionIds?.length || 0
+      });
     }
 
     function affectedConnectionIdsForSelections(selections) {
@@ -44233,7 +44307,11 @@
       if (!moved) return false;
       const wireIds = affectedConnectionIdsForSelections(selections);
       setWebglWireExclusions(wireIds, { key: liveConnectionCacheOwner()?.webglWireExclusionKey });
-      if (wireIds.length) renderWires({ connectionIds: wireIds, live: true });
+      if (wireIds.length) {
+        const overlayStart = dragPerfStart();
+        renderWires({ connectionIds: wireIds, live: true });
+        dragPerfLog("affected wire overlay update", overlayStart, { wires: wireIds.length, selections: selections.length });
+      }
       return true;
     }
 
@@ -46809,6 +46887,7 @@
     }
 
     function startDeviceDrag(event, instanceId) {
+      const dragStart = dragPerfStart();
       if (event.target.closest("[data-connector-id]")) return;
       if (event.button !== 0) return;
       event.preventDefault();
@@ -46831,6 +46910,8 @@
           collisionIndex: collisionIndexForSelections(state.selected.items, "objects"),
           moved: false
         };
+        primeLiveConnectionCache(dragState, dragState.items);
+        dragStartPerfLog(dragStart, dragState, "selected-devices", dragState.items);
         canvas.setPointerCapture(event.pointerId);
         return;
       }
@@ -46846,6 +46927,7 @@
           moved: false
         };
         primeLiveConnectionCache(dragState, dragState.items);
+        dragStartPerfLog(dragStart, dragState, "rack-devices", dragState.items);
         canvas.setPointerCapture(event.pointerId);
         return;
       }
@@ -46859,6 +46941,7 @@
         moved: false
       };
       primeLiveConnectionCache(dragState, [{ type: "device", id: instanceId }]);
+      dragStartPerfLog(dragStart, dragState, "single-device", [{ type: "device", id: instanceId }]);
       select({ type: "device", id: instanceId });
       beginSnapSession({ type: "device", id: instanceId });
       canvas.setPointerCapture(event.pointerId);
@@ -47887,6 +47970,61 @@
           }
         });
       });
+    }
+
+    function applyPendingMultiDragFrame(drag = dragState, options = {}) {
+      if (!drag?.multi || !drag.pendingPoint) return false;
+      const frameStart = dragPerfStart();
+      const point = plainPoint(drag.pendingPoint);
+      const eventLike = { shiftKey: Boolean(drag.pendingShiftKey) };
+      drag.pendingPoint = null;
+      drag.pendingShiftKey = false;
+      const { dx, dy } = constrainDragDelta(point, drag, eventLike);
+      let movedItems = [];
+      if (canMoveSelectionsBy(drag.items, dx, dy, drag.collisionIndex)) {
+        movedItems = drag.items.filter(item => moveSelectionBy(item, dx, dy));
+        moveWireRoutePointsWithSelection(movedItems, dx, dy);
+      }
+      drag.lastPoint = point;
+      drag.moved = true;
+      if (options.renderNow) renderFastLiveCanvasMove();
+      else renderLiveCanvasMove();
+      dragPerfLog("rAF visual update", frameStart, {
+        items: drag.items?.length || 0,
+        movedItems: movedItems.length,
+        affectedWires: drag.liveAffectedConnectionIds?.length || 0
+      });
+      return true;
+    }
+
+    function schedulePendingMultiDragFrame(point, event) {
+      const drag = dragState;
+      if (!drag?.multi) return false;
+      const scheduleStart = dragPerfStart();
+      drag.pendingPoint = plainPoint(point);
+      drag.pendingShiftKey = Boolean(event?.shiftKey);
+      if (!drag.pendingFrame) {
+        drag.pendingFrame = requestAnimationFrame(() => {
+          const activeDrag = drag;
+          activeDrag.pendingFrame = null;
+          if (dragState !== activeDrag) return;
+          applyPendingMultiDragFrame(activeDrag);
+        });
+      }
+      dragPerfLog("pointermove scheduling", scheduleStart, {
+        items: drag.items?.length || 0,
+        affectedWires: drag.liveAffectedConnectionIds?.length || 0
+      });
+      return true;
+    }
+
+    function flushPendingMultiDragFrame(drag = dragState) {
+      if (!drag?.multi) return false;
+      if (drag.pendingFrame) {
+        cancelAnimationFrame(drag.pendingFrame);
+        drag.pendingFrame = null;
+      }
+      return applyPendingMultiDragFrame(drag, { renderNow: true });
     }
 
     function setJumpNodeToolActive(enabled) {
@@ -48955,14 +49093,7 @@
 
       if (dragState) {
         if (dragState.multi) {
-          const { dx, dy } = constrainDragDelta(point, dragState, event);
-          if (canMoveSelectionsBy(dragState.items, dx, dy, dragState.collisionIndex)) {
-            const movedItems = dragState.items.filter(item => moveSelectionBy(item, dx, dy));
-            moveWireRoutePointsWithSelection(movedItems, dx, dy);
-          }
-          dragState.lastPoint = point;
-          dragState.moved = true;
-          renderLiveCanvasMove();
+          schedulePendingMultiDragFrame(point, event);
           return;
         }
         const instance = instanceById(dragState.instanceId);
@@ -49176,6 +49307,8 @@
 
     canvas.addEventListener("pointerup", event => {
       if (endCanvasPan(event)) return;
+      const dropStart = dragPerfStart();
+      const flushedMultiDrag = flushPendingMultiDragFrame(dragState);
       cancelLiveCanvasRender();
       endSnapSession();
       let needsFullRender = false;
@@ -49189,15 +49322,30 @@
         clearSnapGuides();
         if (canTargetRenderMove) {
           resetWebglWireExclusions();
-          renderDeviceInstancesById(movedSelections.map(selection => selection.id));
+          // The live drag frame already moved these SVG groups to the committed positions.
+          // Re-rendering every selected device here made large group drops block the UI.
           if (affectedWireIds.length) {
-            renderWireOnlyChange(affectedWireIds, { endpointDevices: false, summary: false });
+            scheduleDeferredWebglSceneRebuild(120, affectedWireIds);
+            renderInspector();
+            updateUndoRedoButtons();
+            scheduleDeferredWireSvgRefresh(affectedWireIds, { endpointDevices: false, summary: false }, 260);
           } else {
             renderInspector();
             updateUndoRedoButtons();
           }
+          dragPerfLog("pointerup/drop commit", dropStart, {
+            selections: movedSelections.length,
+            affectedWires: affectedWireIds.length,
+            flushedMultiDrag
+          });
         } else {
           needsFullRender = needsFullRender || dragMoved;
+          dragPerfLog("pointerup/drop commit", dropStart, {
+            selections: movedSelections.length,
+            affectedWires: affectedWireIds.length,
+            fullRender: needsFullRender,
+            flushedMultiDrag
+          });
         }
       }
       if (ledSurfaceDrag) {
