@@ -13,9 +13,9 @@ export function createEnginePrototype(options) {
 }
 
 class EnginePrototype {
-  constructor({ canvas, hud, fileInput, select20Button, fitButton, bench1Button, bench20Button, generateButtons }) {
+  constructor({ canvas, labelCanvas, hud, fileInput, select20Button, fitButton, bench1Button, bench20Button, generateButtons }) {
     this.canvas = canvas;
-    this.renderer = new WebglGraphRenderer(canvas);
+    this.renderer = new WebglGraphRenderer(canvas, labelCanvas);
     this.hud = new PerfHud(hud);
     this.fileInput = fileInput;
     this.select20Button = select20Button;
@@ -77,20 +77,26 @@ class EnginePrototype {
     const start = performance.now();
     this.scene.setData(data);
     const sceneBuildMs = performance.now() - start;
-    const staticMs = this.renderer.setStaticScene(this.scene);
+    const staticStats = this.renderer.setStaticScene(this.scene);
     this.hud.setSceneStats({
       devices: this.scene.devices.length,
       wires: this.scene.wires.length,
       selected: 0
     });
+    this.hud.setMetric("adapter", data.meta?.adapterMs ? `${data.meta.adapterMs.toFixed(1)} ms` : "-");
     this.hud.setMetric("sceneBuild", `${sceneBuildMs.toFixed(1)} ms`);
     this.hud.setMetric("spatialIndex", "included");
-    this.hud.setMetric("static upload", `${staticMs.toFixed(1)} ms`);
+    this.hud.setMetric("static upload", `${staticStats.totalMs.toFixed(1)} ms`);
+    this.hud.setMetric("static detail", `g ${staticStats.geometryMs.toFixed(1)} / u ${staticStats.uploadMs.toFixed(1)} ms`);
+    this.hud.setMetric("skipped", `${data.meta?.skippedWires || 0} wires`);
     console.info("[engine] scene loaded", {
       devices: this.scene.devices.length,
       wires: this.scene.wires.length,
+      meta: data.meta || {},
       sceneBuildMs: sceneBuildMs.toFixed(1),
-      staticUploadMs: staticMs.toFixed(1)
+      staticUploadMs: staticStats.totalMs.toFixed(1),
+      staticGeometryMs: staticStats.geometryMs.toFixed(1),
+      staticGpuUploadMs: staticStats.uploadMs.toFixed(1)
     });
     this.fitView();
     this.scheduleRender();
@@ -177,9 +183,6 @@ class EnginePrototype {
       selectedIds: this.scene.selectedIds,
       startWorld: worldPoint
     });
-    const hiddenDeviceIds = new Set(this.dragSession.selectedIds);
-    const hiddenWireIds = new Set(this.dragSession.affectedWireIds);
-    const staticMs = this.renderer.setStaticScene(this.scene, { hiddenDeviceIds, hiddenWireIds });
     const totalMs = performance.now() - start;
     this.hud.setMetric("dragStart", `${totalMs.toFixed(2)} ms`);
     this.hud.setMetric("affectedLookup", `${this.dragSession.affectedWireLookupMs.toFixed(3)} ms`);
@@ -187,7 +190,7 @@ class EnginePrototype {
       selected: this.dragSession.selectedIds.length,
       affectedWires: this.dragSession.affectedWireIds.size,
       totalMs: totalMs.toFixed(2),
-      staticRebuildMs: staticMs.toFixed(2),
+      staticRebuildMs: "skipped",
       affectedLookupMs: this.dragSession.affectedWireLookupMs.toFixed(3)
     });
     this.canvas.classList.add("dragging");
@@ -219,14 +222,23 @@ class EnginePrototype {
     }
     if (this.dragSession) {
       const start = performance.now();
+      const selectedIds = [...this.dragSession.selectedIds];
+      const affectedWireIds = [...this.dragSession.affectedWireIds];
       const commitMs = this.dragSession.commit();
-      this.renderer.setStaticScene(this.scene);
+      const dirtyStats = this.renderer.updateDirty(this.scene, {
+        deviceIds: selectedIds,
+        wireIds: affectedWireIds
+      });
       const totalMs = performance.now() - start;
       this.hud.setMetric("dropCommit", `${totalMs.toFixed(2)} ms`);
+      this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
       console.info("[engine] drop commit", {
-        selected: this.dragSession.selectedIds.length,
-        affectedWires: this.dragSession.affectedWireIds.size,
+        selected: selectedIds.length,
+        affectedWires: affectedWireIds.length,
         commitMs: commitMs.toFixed(2),
+        dirtyUpdateMs: dirtyStats.totalMs.toFixed(2),
+        dirtyGeometryMs: dirtyStats.geometryMs.toFixed(2),
+        dirtyUploadMs: dirtyStats.uploadMs.toFixed(2),
         totalMs: totalMs.toFixed(2)
       });
       this.dragSession = null;
@@ -263,8 +275,13 @@ class EnginePrototype {
       frames.push(performance.now() - frameStart);
     }
     const dropAt = performance.now();
+    const selectedIds = [...this.dragSession.selectedIds];
+    const affectedWireIds = [...this.dragSession.affectedWireIds];
     const commitMs = this.dragSession.commit();
-    const rebuildMs = this.renderer.setStaticScene(this.scene);
+    const dirtyStats = this.renderer.updateDirty(this.scene, {
+      deviceIds: selectedIds,
+      wireIds: affectedWireIds
+    });
     const dropTotalMs = performance.now() - dropAt;
     this.dragSession = null;
     this.canvas.classList.remove("dragging");
@@ -273,6 +290,7 @@ class EnginePrototype {
     this.hud.setMetric("affectedLookup", "see console");
     this.hud.setMetric("dragDraw", `${average(frames).toFixed(2)} ms avg`);
     this.hud.setMetric("dropCommit", `${dropTotalMs.toFixed(2)} ms`);
+    this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
     this.hud.setMetric("benchmark", `${count} dev / max ${Math.max(...frames).toFixed(2)} ms`);
     console.info("[engine] drag benchmark", {
       selected: count,
@@ -282,7 +300,9 @@ class EnginePrototype {
       frameAvgMs: average(frames).toFixed(2),
       frameMaxMs: Math.max(...frames).toFixed(2),
       commitMs: commitMs.toFixed(2),
-      staticRebuildMs: rebuildMs.toFixed(2),
+      dirtyUpdateMs: dirtyStats.totalMs.toFixed(2),
+      dirtyGeometryMs: dirtyStats.geometryMs.toFixed(2),
+      dirtyUploadMs: dirtyStats.uploadMs.toFixed(2),
       dropTotalMs: dropTotalMs.toFixed(2)
     });
     this.scheduleRender();

@@ -34,12 +34,17 @@ export class PerfHud {
       ["fps", this.metrics.get("fps") || 0],
       ["render", this.metrics.get("render") || "-"],
       ["hit test", this.metrics.get("hitTest") || "-"],
+      ["adapter", this.metrics.get("adapter") || "-"],
       ["scene build", this.metrics.get("sceneBuild") || "-"],
       ["spatial index", this.metrics.get("spatialIndex") || "-"],
+      ["static upload", this.metrics.get("static upload") || "-"],
+      ["static detail", this.metrics.get("static detail") || "-"],
       ["drag start", this.metrics.get("dragStart") || "-"],
       ["affected lookup", this.metrics.get("affectedLookup") || "-"],
       ["drag draw", this.metrics.get("dragDraw") || "-"],
       ["drop commit", this.metrics.get("dropCommit") || "-"],
+      ["dirty update", this.metrics.get("dirty update") || "-"],
+      ["skipped", this.metrics.get("skipped") || "-"],
       ["benchmark", this.metrics.get("benchmark") || "-"]
     ];
     this.element.innerHTML = [

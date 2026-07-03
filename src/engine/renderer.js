@@ -6,8 +6,10 @@ const GRID_MINOR = "rgba(255,255,255,.055)";
 const GRID_MAJOR = "rgba(255,255,255,.12)";
 
 export class WebglGraphRenderer {
-  constructor(canvas) {
+  constructor(canvas, labelCanvas = null) {
     this.canvas = canvas;
+    this.labelCanvas = labelCanvas;
+    this.labelContext = labelCanvas?.getContext("2d") || null;
     this.gl = canvas.getContext("webgl2", {
       alpha: false,
       antialias: true,
@@ -16,12 +18,16 @@ export class WebglGraphRenderer {
       preserveDrawingBuffer: false
     });
     if (!this.gl) throw new Error("WebGL2 is not available in this browser.");
-    this.staticBuffer = this.gl.createBuffer();
+    this.staticWireBuffer = this.gl.createBuffer();
+    this.staticDeviceBuffer = this.gl.createBuffer();
     this.liveBuffer = this.gl.createBuffer();
     this.gridBuffer = this.gl.createBuffer();
-    this.staticVertexCount = 0;
+    this.staticWireVertexCount = 0;
+    this.staticDeviceVertexCount = 0;
     this.liveVertexCount = 0;
     this.gridVertexCount = 0;
+    this.wireVertexMap = new Map();
+    this.deviceVertexMap = new Map();
     this.program = createProgram(this.gl, vertexSource, fragmentSource);
     this.positionLocation = this.gl.getAttribLocation(this.program, "a_position");
     this.colorLocation = this.gl.getAttribLocation(this.program, "a_color");
@@ -38,25 +44,68 @@ export class WebglGraphRenderer {
       this.canvas.width = width;
       this.canvas.height = height;
     }
+    if (this.labelCanvas && (this.labelCanvas.width !== width || this.labelCanvas.height !== height)) {
+      this.labelCanvas.width = width;
+      this.labelCanvas.height = height;
+    }
     this.resolution = { width: rect.width, height: rect.height };
     this.gl.viewport(0, 0, width, height);
   }
 
-  setStaticScene(scene, options = {}) {
+  setStaticScene(scene) {
     const start = performance.now();
-    const hiddenDevices = options.hiddenDeviceIds || new Set();
-    const hiddenWires = options.hiddenWireIds || new Set();
-    const vertices = [];
+    this.wireVertexMap.clear();
+    this.deviceVertexMap.clear();
+    const geometryStart = performance.now();
+    // Static geometry is built once per scene load. Pan/zoom/drag must not
+    // rebuild this path; otherwise large real projects stutter badly.
     scene.wires.forEach(wire => {
-      if (hiddenWires.has(wire.id)) return;
-      pushWire(vertices, scene, wire, null, 2.2, wire.color || WIRE_FALLBACK);
+      this.wireVertexMap.set(wire.id, verticesForWire(scene, wire, null, 2.2, wire.color || WIRE_FALLBACK));
     });
     scene.devices.forEach(device => {
-      if (hiddenDevices.has(device.id)) return;
-      pushDevice(vertices, device, null);
+      this.deviceVertexMap.set(device.id, verticesForDevice(device, null));
     });
-    this.staticVertexCount = upload(this.gl, this.staticBuffer, vertices);
-    return performance.now() - start;
+    const geometryMs = performance.now() - geometryStart;
+    const uploadStart = performance.now();
+    this.staticWireVertexCount = upload(this.gl, this.staticWireBuffer, flattenVertexMap(this.wireVertexMap));
+    this.staticDeviceVertexCount = upload(this.gl, this.staticDeviceBuffer, flattenVertexMap(this.deviceVertexMap));
+    const uploadMs = performance.now() - uploadStart;
+    return {
+      totalMs: performance.now() - start,
+      geometryMs,
+      uploadMs,
+      wireVertices: this.staticWireVertexCount,
+      deviceVertices: this.staticDeviceVertexCount
+    };
+  }
+
+  updateDirty(scene, { deviceIds = [], wireIds = [] } = {}) {
+    const start = performance.now();
+    const geometryStart = performance.now();
+    // Only refresh objects whose underlying project data changed. This keeps
+    // drop/connection work away from the old full-scene geometry rebuild.
+    deviceIds.forEach(id => {
+      const device = scene.getDevice(id);
+      if (device) this.deviceVertexMap.set(id, verticesForDevice(device, null));
+      else this.deviceVertexMap.delete(id);
+    });
+    wireIds.forEach(id => {
+      const wire = scene.getWire(id);
+      if (wire) this.wireVertexMap.set(id, verticesForWire(scene, wire, null, 2.2, wire.color || WIRE_FALLBACK));
+      else this.wireVertexMap.delete(id);
+    });
+    const geometryMs = performance.now() - geometryStart;
+    const uploadStart = performance.now();
+    if (wireIds.length) this.staticWireVertexCount = upload(this.gl, this.staticWireBuffer, flattenVertexMap(this.wireVertexMap));
+    if (deviceIds.length) this.staticDeviceVertexCount = upload(this.gl, this.staticDeviceBuffer, flattenVertexMap(this.deviceVertexMap));
+    const uploadMs = performance.now() - uploadStart;
+    return {
+      totalMs: performance.now() - start,
+      geometryMs,
+      uploadMs,
+      dirtyDevices: deviceIds.length,
+      dirtyWires: wireIds.length
+    };
   }
 
   draw(scene, camera, options = {}) {
@@ -68,11 +117,14 @@ export class WebglGraphRenderer {
     gl.useProgram(this.program);
     gl.uniform4f(this.viewLocation, camera.x, camera.y, this.resolution.width / camera.zoom, this.resolution.height / camera.zoom);
     this.drawGrid(camera);
-    this.drawBuffer(this.staticBuffer, this.staticVertexCount);
+    this.drawBuffer(this.staticWireBuffer, this.staticWireVertexCount);
+    this.drawBuffer(this.staticDeviceBuffer, this.staticDeviceVertexCount);
     const liveVertices = [];
     const dragSession = options.dragSession || null;
     if (dragSession) {
       const offsets = dragSession.offsetMap();
+      // During drag, selected devices and affected wires are drawn as a live
+      // overlay. The cached static scene remains visible for everything else.
       dragSession.affectedWireIds.forEach(wireId => {
         const wire = scene.getWire(wireId);
         if (wire) pushWire(liveVertices, scene, wire, offsets, 3.2, wire.color || WIRE_FALLBACK);
@@ -89,7 +141,37 @@ export class WebglGraphRenderer {
     }
     this.liveVertexCount = upload(gl, this.liveBuffer, liveVertices);
     this.drawBuffer(this.liveBuffer, this.liveVertexCount);
+    this.drawLabels(scene, camera, options);
     return performance.now() - start;
+  }
+
+  drawLabels(scene, camera, options = {}) {
+    if (!this.labelContext || !this.labelCanvas) return;
+    const ctx = this.labelContext;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, this.resolution.width, this.resolution.height);
+    if (camera.zoom < 0.08) return;
+    const view = {
+      x: camera.x,
+      y: camera.y,
+      width: this.resolution.width / camera.zoom,
+      height: this.resolution.height / camera.zoom
+    };
+    const visible = scene.spatialIndex.queryRect(view).map(item => item.payload?.device).filter(Boolean);
+    if (visible.length > 1500) return;
+    const dragSession = options.dragSession || null;
+    const offsets = dragSession?.offsetMap();
+    const drawn = new Set();
+    visible.forEach(device => {
+      drawn.add(device.id);
+      drawDeviceLabel(ctx, device, camera, offsets);
+    });
+    (options.selectedIds || new Set()).forEach(id => {
+      if (drawn.has(id)) return;
+      const device = scene.getDevice(id);
+      if (device) drawDeviceLabel(ctx, device, camera, offsets);
+    });
   }
 
   drawGrid(camera) {
@@ -136,15 +218,24 @@ function pushDevice(vertices, device, offsets = null, selected = false) {
   const x = device.x + (offset?.dx || 0);
   const y = device.y + (offset?.dy || 0);
   if (selected) pushSelectionOutline(vertices, device, offsets);
-  pushRect(vertices, x, y, device.width, device.height, DEVICE_FILL);
+  pushRect(vertices, x, y, device.width, device.height, device.color || DEVICE_FILL);
   pushLine(vertices, { x, y }, { x: x + device.width, y }, 2.2, "#dbe7f3");
   pushLine(vertices, { x: x + device.width, y }, { x: x + device.width, y: y + device.height }, 2.2, "#dbe7f3");
   pushLine(vertices, { x: x + device.width, y: y + device.height }, { x, y: y + device.height }, 2.2, "#dbe7f3");
   pushLine(vertices, { x, y: y + device.height }, { x, y }, 2.2, "#dbe7f3");
-  for (let index = 0; index < device.portCount; index += 1) {
-    const py = y + device.height * ((index + 1) / (device.portCount + 1));
-    pushRect(vertices, x - 4, py - 4, 8, 8, PORT_COLOR);
-    pushRect(vertices, x + device.width - 4, py - 4, 8, 8, PORT_COLOR);
+  if (device.connectors?.length) {
+    device.connectors.forEach(connector => {
+      const px = x + connector.x;
+      const py = y + connector.y;
+      const size = device.kind === "jump" ? 13 : 8;
+      pushRect(vertices, px - size / 2, py - size / 2, size, size, connector.color || PORT_COLOR);
+    });
+  } else {
+    for (let index = 0; index < device.portCount; index += 1) {
+      const py = y + device.height * ((index + 1) / (device.portCount + 1));
+      pushRect(vertices, x - 4, py - 4, 8, 8, PORT_COLOR);
+      pushRect(vertices, x + device.width - 4, py - 4, 8, 8, PORT_COLOR);
+    }
   }
 }
 
@@ -161,9 +252,47 @@ function pushSelectionOutline(vertices, device, offsets = null) {
 }
 
 function pushWire(vertices, scene, wire, offsets, width, color) {
-  const from = scene.endpointForWire(wire, "from", offsets);
-  const to = scene.endpointForWire(wire, "to", offsets);
-  pushLine(vertices, from, to, width, color);
+  const points = scene.wirePoints(wire, offsets);
+  for (let index = 1; index < points.length; index += 1) {
+    pushLine(vertices, points[index - 1], points[index], width, color);
+  }
+}
+
+function verticesForDevice(device, offsets = null) {
+  const vertices = [];
+  pushDevice(vertices, device, offsets);
+  return vertices;
+}
+
+function verticesForWire(scene, wire, offsets = null, width = 2.2, color = WIRE_FALLBACK) {
+  const vertices = [];
+  pushWire(vertices, scene, wire, offsets, width, color);
+  return vertices;
+}
+
+function flattenVertexMap(map) {
+  const vertices = [];
+  map.forEach(chunk => vertices.push(...chunk));
+  return vertices;
+}
+
+function drawDeviceLabel(ctx, device, camera, offsets = null) {
+  const offset = offsets?.get(device.id);
+  const x = (device.x + (offset?.dx || 0) - camera.x) * camera.zoom;
+  const y = (device.y + (offset?.dy || 0) - camera.y) * camera.zoom;
+  const text = String(device.label || device.id || "").trim();
+  if (!text) return;
+  const size = Math.max(9, Math.min(16, 11 * Math.sqrt(camera.zoom)));
+  ctx.font = `700 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.textBaseline = "top";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "rgba(0,0,0,.78)";
+  ctx.lineWidth = Math.max(2, size * 0.22);
+  ctx.fillStyle = "#ffffff";
+  const labelX = x + 8;
+  const labelY = y + 7;
+  ctx.strokeText(text, labelX, labelY);
+  ctx.fillText(text, labelX, labelY);
 }
 
 function pushRect(vertices, x, y, width, height, colorValue) {

@@ -4,6 +4,7 @@ export class SceneGraph {
   constructor() {
     this.devices = [];
     this.wires = [];
+    this.meta = {};
     this.devicesById = new Map();
     this.wiresById = new Map();
     this.wireIdsByDeviceId = new Map();
@@ -14,9 +15,10 @@ export class SceneGraph {
     this.spatialIndex = new SpatialIndex();
   }
 
-  setData({ devices = [], wires = [] }) {
+  setData({ devices = [], wires = [], meta = {} }) {
     this.devices = devices.map(normalizeDevice);
     this.wires = wires.map(normalizeWire).filter(wire => wire.fromDeviceId && wire.toDeviceId);
+    this.meta = meta || {};
     this.devicesById = new Map(this.devices.map(device => [device.id, device]));
     this.wiresById = new Map(this.wires.map(wire => [wire.id, wire]));
     this.selectedIds.clear();
@@ -101,10 +103,26 @@ export class SceneGraph {
   }
 
   endpointForWire(wire, end, offsetMap = null) {
+    const rawFrom = this.rawEndpointForWire(wire, "from", offsetMap);
+    const rawTo = this.rawEndpointForWire(wire, "to", offsetMap);
+    return end === "from"
+      ? this.visibleEndpoint(wire, "from", rawFrom, rawTo)
+      : this.visibleEndpoint(wire, "to", rawTo, rawFrom);
+  }
+
+  rawEndpointForWire(wire, end, offsetMap = null) {
     const deviceId = end === "from" ? wire.fromDeviceId : wire.toDeviceId;
     const device = this.getDevice(deviceId);
     if (!device) return { x: 0, y: 0 };
     const pos = this.positionForDevice(device, offsetMap);
+    const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
+    const connector = connectorId ? device.connectorsById.get(connectorId) : null;
+    if (connector) {
+      return {
+        x: pos.x + connector.x,
+        y: pos.y + connector.y
+      };
+    }
     const side = end === "from" ? wire.fromSide : wire.toSide;
     const portIndex = end === "from" ? wire.fromPortIndex : wire.toPortIndex;
     const portCount = Math.max(1, device.portCount || 4);
@@ -113,6 +131,47 @@ export class SceneGraph {
       x: side === "left" ? pos.x : pos.x + device.width,
       y
     };
+  }
+
+  visibleEndpoint(wire, end, point, otherPoint) {
+    const deviceId = end === "from" ? wire.fromDeviceId : wire.toDeviceId;
+    const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
+    const side = end === "from" ? wire.fromSide : wire.toSide;
+    const device = this.getDevice(deviceId);
+    const connector = connectorId ? device?.connectorsById.get(connectorId) : null;
+    const radius = device?.kind === "jump" ? 22 : 6;
+    const connectorSide = connector?.side || side;
+    if (connectorSide === "left") return { x: point.x - radius, y: point.y };
+    if (connectorSide === "right") return { x: point.x + radius, y: point.y };
+    if (!otherPoint) return point;
+    const dx = point.x - otherPoint.x;
+    const dy = point.y - otherPoint.y;
+    const length = Math.hypot(dx, dy) || 1;
+    return {
+      x: point.x + (dx / length) * radius,
+      y: point.y + (dy / length) * radius
+    };
+  }
+
+  wirePoints(wire, offsetMap = null) {
+    const from = this.endpointForWire(wire, "from", offsetMap);
+    const to = this.endpointForWire(wire, "to", offsetMap);
+    const routeOffset = this.routePointOffsetForWire(wire, offsetMap);
+    const routePoints = (wire.routePoints || []).map(point => ({
+      x: point.x + routeOffset.dx,
+      y: point.y + routeOffset.dy
+    }));
+    return [from, ...routePoints, to];
+  }
+
+  routePointOffsetForWire(wire, offsetMap = null) {
+    if (!offsetMap || !wire.routePoints?.length) return { dx: 0, dy: 0 };
+    const fromOffset = offsetMap.get(wire.fromDeviceId);
+    const toOffset = offsetMap.get(wire.toDeviceId);
+    if (!fromOffset || !toOffset) return { dx: 0, dy: 0 };
+    const sameDx = Math.abs((fromOffset.dx || 0) - (toOffset.dx || 0)) < 0.001;
+    const sameDy = Math.abs((fromOffset.dy || 0) - (toOffset.dy || 0)) < 0.001;
+    return sameDx && sameDy ? { dx: fromOffset.dx || 0, dy: fromOffset.dy || 0 } : { dx: 0, dy: 0 };
   }
 
   bounds() {
@@ -146,15 +205,21 @@ export function deviceBounds(device) {
 }
 
 function normalizeDevice(device) {
+  const connectors = (Array.isArray(device.connectors) ? device.connectors : [])
+    .map((connector, index) => normalizeConnector(connector, index))
+    .filter(Boolean);
   return {
     id: String(device.id),
+    kind: device.kind || "device",
     x: Number(device.x) || 0,
     y: Number(device.y) || 0,
     width: Math.max(40, Number(device.width) || 120),
     height: Math.max(28, Number(device.height) || 58),
     label: device.label || device.name || String(device.id),
     color: device.color || "#182531",
-    portCount: Math.max(1, Number(device.portCount) || 4)
+    connectors,
+    connectorsById: new Map(connectors.map(connector => [connector.id, connector])),
+    portCount: Math.max(1, Number(device.portCount) || connectors.length || 4)
   };
 }
 
@@ -163,10 +228,35 @@ function normalizeWire(wire) {
     id: String(wire.id),
     fromDeviceId: wire.fromDeviceId ? String(wire.fromDeviceId) : "",
     toDeviceId: wire.toDeviceId ? String(wire.toDeviceId) : "",
+    fromConnectorId: wire.fromConnectorId ? String(wire.fromConnectorId) : "",
+    toConnectorId: wire.toConnectorId ? String(wire.toConnectorId) : "",
     fromSide: wire.fromSide || "right",
     toSide: wire.toSide || "left",
     fromPortIndex: Math.max(0, Number(wire.fromPortIndex) || 0),
     toPortIndex: Math.max(0, Number(wire.toPortIndex) || 0),
-    color: wire.color || "#32b6ff"
+    routePoints: Array.isArray(wire.routePoints)
+      ? wire.routePoints
+        .map(point => ({ x: Number(point.x), y: Number(point.y) }))
+        .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y))
+      : [],
+    color: wire.color || "#32b6ff",
+    label: wire.label || wire.cableType || String(wire.id),
+    cableType: wire.cableType || ""
+  };
+}
+
+function normalizeConnector(connector, index) {
+  if (!connector) return null;
+  const x = Number(connector.x);
+  const y = Number(connector.y);
+  return {
+    id: String(connector.id || `connector-${index}`),
+    type: connector.type || "",
+    label: connector.label || connector.nameText || connector.type || `Connector ${index + 1}`,
+    direction: connector.direction || "io",
+    side: connector.side || (connector.direction === "input" ? "left" : connector.direction === "output" ? "right" : "center"),
+    x: Number.isFinite(x) ? x : 0,
+    y: Number.isFinite(y) ? y : 0,
+    color: connector.color || "#32b6ff"
   };
 }
