@@ -58,6 +58,7 @@ export function generateSyntheticProject({ deviceCount = 100, wireCount = 300 } 
       width: 122,
       height: 58,
       portCount: 4,
+      connectors: syntheticConnectors(),
       label: `D${index + 1}`,
       labelMapped: true,
       usesRealSize: true,
@@ -73,13 +74,17 @@ export function generateSyntheticProject({ deviceCount = 100, wireCount = 300 } 
       id: `wire-${index}`,
       fromDeviceId: `device-${fromIndex}`,
       toDeviceId: `device-${toIndex}`,
+      fromConnectorId: `out-${(index % 4) + 1}`,
+      toConnectorId: `in-${((index * 3) % 4) + 1}`,
       fromSide: "right",
       toSide: "left",
       fromPortIndex: index % 4,
       toPortIndex: (index * 3) % 4,
       color: WIRE_COLORS[index % WIRE_COLORS.length],
-      usesRealConnectorEndpoints: false,
-      hasFallbackEndpoint: true
+      fromUsesRealConnector: true,
+      toUsesRealConnector: true,
+      usesRealConnectorEndpoints: true,
+      hasFallbackEndpoint: false
     });
   }
   console.info("[engine] synthetic project generated", {
@@ -94,20 +99,50 @@ export function generateSyntheticProject({ deviceCount = 100, wireCount = 300 } 
       dataSource: "Synthetic",
       sourceName: `${devices.length} devices / ${wires.length} wires`,
       adapterMs: performance.now() - buildStart,
-      connectorCount: 0,
+      connectorCount: devices.reduce((total, device) => total + device.connectors.length, 0),
       jumpNodes: 0,
       ledSurfaces: 0,
       routedWires: 0,
       skippedWires: 0,
-      realEndpointWires: 0,
-      fallbackEndpointWires: wires.length,
+      realEndpointWires: wires.length,
+      fallbackEndpointWires: 0,
       devicesUsingRealSize: devices.length,
       devicesUsingFallbackSize: 0,
-      connectorColorsMapped: 0,
+      connectorColorsMapped: devices.reduce((total, device) => total + device.connectors.length, 0),
       labelsMapped: devices.length,
       fullProjectAdapter: false
     }
   };
+}
+
+function syntheticConnectors() {
+  const connectors = [];
+  for (let index = 0; index < 4; index += 1) {
+    const y = DEFAULT_DEVICE_HEIGHT * ((index + 1) / 5);
+    connectors.push({
+      id: `in-${index + 1}`,
+      direction: "input",
+      side: "left",
+      x: 0,
+      y,
+      type: "synthetic",
+      label: `IN ${index + 1}`,
+      color: WIRE_COLORS[index % WIRE_COLORS.length],
+      colorMapped: true
+    });
+    connectors.push({
+      id: `out-${index + 1}`,
+      direction: "output",
+      side: "right",
+      x: DEFAULT_DEVICE_WIDTH,
+      y,
+      type: "synthetic",
+      label: `OUT ${index + 1}`,
+      color: WIRE_COLORS[(index + 2) % WIRE_COLORS.length],
+      colorMapped: true
+    });
+  }
+  return connectors;
 }
 
 export async function loadProjectFile(file) {

@@ -269,6 +269,42 @@ export class WebglGraphRenderer {
     return this.lastDirtyStats;
   }
 
+  appendWire(scene, wireId) {
+    const start = performance.now();
+    const wire = scene.getWire(wireId);
+    if (!wire) return { totalMs: 0, appended: false };
+    const geometryStart = performance.now();
+    const vertices = verticesForWire(scene, wire, null, 2.2, wireColor(wire, this.renderOptions), this.renderOptions);
+    const geometryMs = performance.now() - geometryStart;
+    const uploadStart = performance.now();
+    const offset = this.staticWireArray.length;
+    const next = new Float32Array(offset + vertices.length);
+    next.set(this.staticWireArray, 0);
+    next.set(vertices, offset);
+    this.staticWireArray = next;
+    this.wireVertexMap.set(wireId, vertices);
+    this.wireRangeMap.set(wireId, { offset, count: vertices.length });
+    this.staticWireVertexCount = uploadArray(this.gl, this.staticWireBuffer, this.staticWireArray);
+    const uploadMs = performance.now() - uploadStart;
+    this.rangeUpdateCount += 1;
+    this.lastDirtyStats = {
+      totalMs: performance.now() - start,
+      geometryMs,
+      uploadMs,
+      rangeUploadMs: uploadMs,
+      dirtyDevices: 0,
+      dirtyWires: 1,
+      deviceRangeUpdates: 0,
+      wireRangeUpdates: 1,
+      rangeUpdates: 1,
+      fallbackRebuild: false,
+      appended: true,
+      fullRebuildCount: this.fullRebuildCount,
+      rangeUpdateCount: this.rangeUpdateCount
+    };
+    return this.lastDirtyStats;
+  }
+
   draw(scene, camera, options = {}) {
     const start = performance.now();
     this.resize();
@@ -284,6 +320,7 @@ export class WebglGraphRenderer {
       dirtyWireIds: options.renderOptions?.dirtyWireIds || this.renderOptions.dirtyWireIds || new Set()
     };
     const dragSession = options.dragSession || null;
+    const interaction = options.interactionState || {};
     this.drawGrid(camera);
     if (renderOptions.wires) this.drawBuffer(this.staticWireBuffer, this.staticWireVertexCount);
     this.drawBuffer(this.staticDeviceBuffer, this.staticDeviceVertexCount);
@@ -306,6 +343,10 @@ export class WebglGraphRenderer {
         const device = scene.getDevice(id);
         if (device) pushSelectionOutline(liveVertices, device, null);
       });
+      (options.selectedWireIds || new Set()).forEach(id => {
+        const wire = scene.getWire(id);
+        if (wire && renderOptions.wires) pushWire(liveVertices, scene, wire, null, 5.2, "#ff7904", { ...renderOptions, routePoints: false });
+      });
       (renderOptions.dirtyWireIds || new Set()).forEach(id => {
         const wire = scene.getWire(id);
         if (wire && renderOptions.wires) pushWire(liveVertices, scene, wire, null, 4.4, "#ff7904", { ...renderOptions, routePoints: false });
@@ -315,6 +356,7 @@ export class WebglGraphRenderer {
         if (device) pushSelectionOutline(liveVertices, device, null);
       });
     }
+    pushInteractionOverlay(liveVertices, scene, interaction, renderOptions);
     this.liveVertexCount = upload(gl, this.liveBuffer, liveVertices);
     this.drawBuffer(this.liveBuffer, this.liveVertexCount);
     this.drawLabels(scene, camera, { ...options, renderOptions });
@@ -470,6 +512,67 @@ function visibleDevices(scene, camera, resolution) {
   };
   const hits = scene.spatialIndex.queryRect(view).map(item => item.payload?.device).filter(Boolean);
   return hits.length ? hits : scene.devices;
+}
+
+function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions = DEFAULT_RENDER_OPTIONS) {
+  const hoveredWireId = interaction.hoveredWire?.wire?.id || interaction.hoveredWireId;
+  if (hoveredWireId && renderOptions.wires) {
+    const wire = scene.getWire(hoveredWireId);
+    if (wire) pushWire(vertices, scene, wire, null, 4.6, "#ffffff", { ...renderOptions, routePoints: false });
+  }
+  (interaction.selectedRoutePoints || new Set()).forEach(key => {
+    const [wireId, indexText] = String(key).split(":");
+    const wire = scene.getWire(wireId);
+    const point = wire?.routePoints?.[Number(indexText)];
+    if (point) pushRoutePointHighlight(vertices, point, 9, "#ff7904");
+  });
+  const routePoint = interaction.hoveredRoutePoint?.point;
+  if (routePoint) pushRoutePointHighlight(vertices, routePoint, 8, "#ffffff");
+
+  (interaction.selectedConnectors || new Set()).forEach(key => {
+    const [deviceId, connectorId] = String(key).split(":");
+    const device = scene.getDevice(deviceId);
+    const connector = device?.connectorsById.get(connectorId);
+    if (device && connector) pushConnectorHighlight(vertices, scene.connectorWorldPoint(device, connector), 12, "#ff7904");
+  });
+  if (interaction.hoveredConnector?.point) {
+    pushConnectorHighlight(vertices, interaction.hoveredConnector.point, 11, "#ffffff");
+  }
+
+  if (interaction.tempWire?.from && interaction.tempWire?.to) {
+    pushLine(vertices, interaction.tempWire.from, interaction.tempWire.to, 3.4, interaction.tempWire.color || "#32b6ff");
+    pushConnectorHighlight(vertices, interaction.tempWire.from, 11, "#32b6ff");
+  }
+
+  if (interaction.marquee) {
+    pushBoxOutline(vertices, interaction.marquee, 2.4, "rgba(50, 182, 255, .92)");
+  }
+}
+
+function pushConnectorHighlight(vertices, point, size, color) {
+  pushBoxOutline(vertices, {
+    x: point.x - size,
+    y: point.y - size,
+    width: size * 2,
+    height: size * 2
+  }, 3.4, color);
+}
+
+function pushRoutePointHighlight(vertices, point, size, color) {
+  pushRect(vertices, point.x - size, point.y - size, size * 2, size * 2, color);
+  pushBoxOutline(vertices, {
+    x: point.x - size - 3,
+    y: point.y - size - 3,
+    width: size * 2 + 6,
+    height: size * 2 + 6
+  }, 2.2, "#ffffff");
+}
+
+function pushBoxOutline(vertices, rect, width, color) {
+  pushLine(vertices, { x: rect.x, y: rect.y }, { x: rect.x + rect.width, y: rect.y }, width, color);
+  pushLine(vertices, { x: rect.x + rect.width, y: rect.y }, { x: rect.x + rect.width, y: rect.y + rect.height }, width, color);
+  pushLine(vertices, { x: rect.x + rect.width, y: rect.y + rect.height }, { x: rect.x, y: rect.y + rect.height }, width, color);
+  pushLine(vertices, { x: rect.x, y: rect.y + rect.height }, { x: rect.x, y: rect.y }, width, color);
 }
 
 function pushDevice(vertices, device, offsets = null, selected = false, options = DEFAULT_RENDER_OPTIONS) {

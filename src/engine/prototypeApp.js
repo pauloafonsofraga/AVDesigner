@@ -1,12 +1,18 @@
 import { DragSession } from "./dragSession.js";
-import { hitTestDevice, screenToWorld } from "./hitTest.js";
+import {
+  hitTestConnector,
+  hitTestDevice,
+  hitTestRoutePoint,
+  hitTestWire,
+  screenToWorld
+} from "./hitTest.js";
 import { generateSyntheticProject, loadProjectFile, syntheticPreset } from "./projectAdapter.js";
 import { WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
 import { PerfHud } from "./perfHud.js";
 
 const PROTOTYPE_BRANCH = "engine-prototype";
-const PROTOTYPE_BASE = "56977d3+m4-texture-quality";
+const PROTOTYPE_BASE = "39cf053+interaction-hit-testing";
 
 export function createEnginePrototype(options) {
   const app = new EnginePrototype(options);
@@ -53,6 +59,17 @@ class EnginePrototype {
     this.renderFrame = null;
     this.dragSession = null;
     this.panState = null;
+    this.routePointDrag = null;
+    this.wireCreate = null;
+    this.marqueeState = null;
+    this.hoverState = {
+      device: null,
+      connector: null,
+      wire: null,
+      routePoint: null,
+      candidateCount: 0,
+      hitMs: 0
+    };
     this.lastDirtyDeviceIds = new Set();
     this.lastDirtyWireIds = new Set();
     this.renderOptions = {
@@ -101,7 +118,7 @@ class EnginePrototype {
     });
     this.select20Button.addEventListener("click", () => {
       this.scene.selectMany(this.visibleDeviceIds().slice(0, 20));
-      this.hud.setSceneStats({ selected: this.scene.selectedIds.size });
+      this.updateSelectionHud();
       this.scheduleRender();
     });
     this.bench1Button.addEventListener("click", () => this.runDragBenchmark(1));
@@ -128,6 +145,7 @@ class EnginePrototype {
     this.canvas.addEventListener("pointermove", event => this.handlePointerMove(event));
     this.canvas.addEventListener("pointerup", event => this.handlePointerUp(event));
     this.canvas.addEventListener("pointercancel", event => this.handlePointerUp(event));
+    window.addEventListener("keydown", event => this.handleKeyDown(event));
     window.addEventListener("resize", () => this.scheduleRender());
   }
 
@@ -149,6 +167,8 @@ class EnginePrototype {
       routed: adapterStats.routedWires,
       selected: 0
     });
+    this.updateSelectionHud();
+    this.updateInteractionHud("scene-load");
     this.hud.setMetric("adapter", data.meta?.adapterMs ? `${data.meta.adapterMs.toFixed(1)} ms` : "-");
     this.hud.setMetric("sceneBuild", `${sceneBuildMs.toFixed(1)} ms`);
     this.hud.setMetric("spatialIndex", "included");
@@ -307,7 +327,17 @@ class EnginePrototype {
       ["Texture prepare time", `${textures.lastPrepareMs.toFixed(2)} ms`],
       ["Texture draw", `${textures.drawMs.toFixed(2)} ms / ${textures.quads} quads`],
       ["Missing texture fallbacks", textures.missing],
-      ["Last texture invalidation", textures.lastInvalidationReason || "-"]
+      ["Last texture invalidation", textures.lastInvalidationReason || "-"],
+      ["Hovered device", this.hoverState.device ? deviceSummary(this.hoverState.device) : "-"],
+      ["Hovered connector", this.hoverState.connector ? connectorSummary(this.hoverState.connector) : "-"],
+      ["Hovered wire", this.hoverState.wire ? wireSummary(this.hoverState.wire.wire) : "-"],
+      ["Hovered route point", this.hoverState.routePoint ? `${this.hoverState.routePoint.wire.id}:${this.hoverState.routePoint.pointIndex}` : "-"],
+      ["Selected devices", this.scene.selectedIds.size],
+      ["Selected wires", this.scene.selectedWireIds.size],
+      ["Selected connectors", this.scene.selectedConnectorKeys.size],
+      ["Selected route points", this.scene.selectedRoutePointKeys.size],
+      ["Hit candidates", this.hoverState.candidateCount || 0],
+      ["Hit-test time", `${(this.hoverState.hitMs || 0).toFixed(3)} ms`]
     ];
     this.adapterDebug.innerHTML = [
       "<h2>Project Adapter Debug</h2>",
@@ -318,6 +348,8 @@ class EnginePrototype {
           <li>Click <strong>Generate 5k / 20k</strong>.</li>
           <li>Click <strong>Select 20</strong>, then drag the selected group.</li>
           <li>Watch FPS, drop commit, dirty update, range updates, and fallback rebuild.</li>
+          <li>Drag from one connector dot to another to append a test wire without rebuilding the scene.</li>
+          <li>Click wires or route points to verify data-indexed hit testing and selection overlays.</li>
           <li>Load a real <strong>.avd</strong> file and compare object/wire/connector counts.</li>
           <li>Use highlight toggles to prove real endpoints, fallback endpoints, and routed wires.</li>
         </ol>
@@ -350,6 +382,10 @@ class EnginePrototype {
       width: rect.width / this.camera.zoom,
       height: rect.height / this.camera.zoom
     };
+  }
+
+  hitToleranceWorld(screenPixels = 10) {
+    return screenPixels / Math.max(this.camera.zoom, 0.001);
   }
 
   fitView() {
@@ -387,18 +423,55 @@ class EnginePrototype {
     }
     if (event.button !== 0) return;
     const world = screenToWorld(this.camera, point);
+    const tolerance = this.hitToleranceWorld();
+
+    if (this.renderOptions.routePoints) {
+      const routeHit = hitTestRoutePoint(this.scene, world, tolerance * 1.2);
+      if (routeHit.routePoint) {
+        this.hud.setMetric("hitTest", `${routeHit.ms.toFixed(3)} ms`);
+        this.scene.selectRoutePointOnly(routeHit.routePoint.wire.id, routeHit.routePoint.pointIndex);
+        this.beginRoutePointDrag(routeHit.routePoint, world);
+        this.updateSelectionHud();
+        this.updateInteractionHud("route-point-drag", routeHit);
+        this.scheduleRender();
+        return;
+      }
+    }
+
+    const connectorHit = hitTestConnector(this.scene, world, tolerance * 1.35);
+    if (connectorHit.connector) {
+      this.hud.setMetric("hitTest", `${connectorHit.ms.toFixed(3)} ms`);
+      this.scene.selectConnectorOnly(connectorHit.connector.device.id, connectorHit.connector.connector.id);
+      this.beginWireCreate(connectorHit.connector, world);
+      this.updateSelectionHud();
+      this.updateInteractionHud("wire-create", connectorHit);
+      this.scheduleRender();
+      return;
+    }
+
+    const wireHit = hitTestWire(this.scene, world, tolerance);
+    if (wireHit.wire) {
+      this.hud.setMetric("hitTest", `${wireHit.ms.toFixed(3)} ms`);
+      if (event.shiftKey) this.scene.toggleWireSelection(wireHit.wire.wire.id);
+      else this.scene.selectWireOnly(wireHit.wire.wire.id);
+      this.updateSelectionHud();
+      this.updateInteractionHud("wire-select", wireHit);
+      this.scheduleRender();
+      return;
+    }
+
     const hit = hitTestDevice(this.scene, world);
     this.hud.setMetric("hitTest", `${hit.ms.toFixed(3)} ms`);
     if (!hit.device) {
-      this.scene.selectedIds.clear();
-      this.hud.setSceneStats({ selected: 0 });
-      this.beginPan(event, point);
+      if (!event.shiftKey) this.scene.clearSelection();
+      this.beginMarquee(world);
+      this.updateSelectionHud();
       this.scheduleRender();
       return;
     }
     if (event.shiftKey) this.scene.toggleSelection(hit.device.id);
     else if (!this.scene.selectedIds.has(hit.device.id)) this.scene.selectOnly(hit.device.id);
-    this.hud.setSceneStats({ selected: this.scene.selectedIds.size });
+    this.updateSelectionHud();
     this.beginDrag(world);
   }
 
@@ -431,6 +504,188 @@ class EnginePrototype {
     this.scheduleRender();
   }
 
+  beginRoutePointDrag(routePoint, worldPoint) {
+    this.routePointDrag = {
+      wireId: routePoint.wire.id,
+      pointIndex: routePoint.pointIndex,
+      startWorld: { ...worldPoint }
+    };
+    this.canvas.classList.add("dragging");
+  }
+
+  beginWireCreate(connectorHit, worldPoint) {
+    this.wireCreate = {
+      from: connectorHit,
+      pointerWorld: { ...worldPoint },
+      target: null,
+      color: connectorHit.connector.color || "#32b6ff"
+    };
+    this.canvas.classList.add("dragging");
+  }
+
+  completeWireCreate() {
+    const source = this.wireCreate?.from;
+    const target = this.wireCreate?.target;
+    this.wireCreate = null;
+    this.canvas.classList.remove("dragging");
+    if (!source || !target) {
+      this.updateInteractionHud("idle");
+      this.scheduleRender();
+      return;
+    }
+    if (source.device.id === target.device.id && source.connector.id === target.connector.id) {
+      this.updateInteractionHud("idle");
+      this.scheduleRender();
+      return;
+    }
+    const textureBefore = this.renderer.textureStats();
+    const wire = this.scene.addWire({
+      fromDeviceId: source.device.id,
+      fromConnectorId: source.connector.id,
+      toDeviceId: target.device.id,
+      toConnectorId: target.connector.id,
+      color: source.connector.color || target.connector.color || "#32b6ff",
+      cableType: "Engine Test Cable"
+    });
+    if (!wire) {
+      this.updateInteractionHud("wire-create failed");
+      this.scheduleRender();
+      return;
+    }
+    const dirtyStats = this.renderer.appendWire(this.scene, wire.id);
+    const textureAfter = this.renderer.textureStats();
+    this.scene.selectWireOnly(wire.id);
+    this.lastDirtyWireIds = new Set([wire.id]);
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.hud.setSceneStats({ wires: this.scene.wires.length });
+    this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+    this.hud.setMetric("dirty counts", `${dirtyStats.dirtyDevices} dev / ${dirtyStats.dirtyWires} wires`);
+    this.hud.setMetric("gpu update", dirtyStats.appended ? "append wire buffer" : "bufferSubData ranges");
+    this.hud.setMetric("texture drag rebuilds", textureAfter.rebuilds - textureBefore.rebuilds);
+    this.hud.setMetric("wire creation", wire.id);
+    this.updateSelectionHud();
+    this.updateInteractionHud("wire-created");
+    this.updateDebugPanel();
+    this.scheduleRender();
+  }
+
+  beginMarquee(worldPoint) {
+    this.marqueeState = {
+      startWorld: { ...worldPoint },
+      currentWorld: { ...worldPoint }
+    };
+  }
+
+  completeMarquee(additive = false) {
+    if (!this.marqueeState) return;
+    const rect = normalizedWorldRect(this.marqueeState.startWorld, this.marqueeState.currentWorld);
+    this.marqueeState = null;
+    const ids = this.scene.spatialIndex.queryRect(rect)
+      .map(item => item.payload?.device?.id)
+      .filter(Boolean);
+    if (additive) {
+      ids.forEach(id => this.scene.selectedIds.add(id));
+    } else {
+      this.scene.selectMany(ids);
+    }
+    this.updateSelectionHud();
+    this.updateInteractionHud("marquee-select");
+    this.updateDebugPanel();
+    this.scheduleRender();
+  }
+
+  updateHover(world) {
+    const tolerance = this.hitToleranceWorld();
+    const routeHit = this.renderOptions.routePoints
+      ? hitTestRoutePoint(this.scene, world, tolerance * 1.2)
+      : { routePoint: null, candidates: 0, ms: 0 };
+    const connectorHit = routeHit.routePoint
+      ? { connector: null, candidates: 0, ms: 0 }
+      : hitTestConnector(this.scene, world, tolerance * 1.35);
+    const wireHit = routeHit.routePoint || connectorHit.connector
+      ? { wire: null, candidates: 0, ms: 0 }
+      : hitTestWire(this.scene, world, tolerance);
+    const deviceHit = routeHit.routePoint || connectorHit.connector || wireHit.wire
+      ? { device: null, ms: 0 }
+      : hitTestDevice(this.scene, world);
+    this.hoverState = {
+      device: deviceHit.device,
+      connector: connectorHit.connector,
+      wire: wireHit.wire,
+      routePoint: routeHit.routePoint,
+      candidateCount: routeHit.candidates + connectorHit.candidates + wireHit.candidates,
+      hitMs: routeHit.ms + connectorHit.ms + wireHit.ms + deviceHit.ms
+    };
+    this.updateInteractionHud("hover");
+    this.scheduleRender();
+  }
+
+  updateSelectionHud() {
+    const selectedDevices = this.scene.selectedIds.size;
+    const selectedWires = this.scene.selectedWireIds.size;
+    const selectedRoutePoints = this.scene.selectedRoutePointKeys.size;
+    const selectedConnectors = this.scene.selectedConnectorKeys.size;
+    const selectedJumpNodes = [...this.scene.selectedIds]
+      .map(id => this.scene.getDevice(id))
+      .filter(device => device?.kind === "jump").length;
+    const selectedTotal = selectedDevices + selectedWires + selectedRoutePoints + selectedConnectors;
+    this.hud.setSceneStats({ selected: selectedTotal });
+    this.hud.setMetric("selected devices", selectedDevices);
+    this.hud.setMetric("selected wires", selectedWires);
+    this.hud.setMetric("selected connectors", selectedConnectors);
+    this.hud.setMetric("selected route points", selectedRoutePoints);
+    this.hud.setMetric("selected jump nodes", selectedJumpNodes);
+  }
+
+  updateInteractionHud(mode = "idle", hit = null) {
+    const hoverDevice = this.hoverState.device;
+    const hoverConnector = this.hoverState.connector;
+    const hoverWire = this.hoverState.wire;
+    const hoverRoutePoint = this.hoverState.routePoint;
+    const candidates = hit?.candidates ?? this.hoverState.candidateCount ?? 0;
+    const hitMs = hit?.ms ?? this.hoverState.hitMs ?? 0;
+    this.hud.setMetric("hovered device", hoverDevice ? deviceSummary(hoverDevice) : "-");
+    this.hud.setMetric("hovered connector", hoverConnector ? connectorSummary(hoverConnector) : "-");
+    this.hud.setMetric("hovered wire", hoverWire ? wireSummary(hoverWire.wire) : "-");
+    this.hud.setMetric("hovered route point", hoverRoutePoint ? `${hoverRoutePoint.wire.id}:${hoverRoutePoint.pointIndex}` : "-");
+    this.hud.setMetric("interaction mode", mode);
+    this.hud.setMetric("wire creation", this.wireCreate ? wireCreateSummary(this.wireCreate) : "-");
+    this.hud.setMetric("hit candidates", candidates);
+    this.hud.setMetric("hitTest", `${hitMs.toFixed(3)} ms`);
+  }
+
+  interactionRenderState() {
+    const tempWire = this.wireCreate
+      ? {
+        from: this.wireCreate.from.point,
+        to: this.wireCreate.target?.point || this.wireCreate.pointerWorld,
+        color: this.wireCreate.color
+      }
+      : null;
+    return {
+      hoveredConnector: this.hoverState.connector,
+      hoveredWire: this.hoverState.wire,
+      hoveredRoutePoint: this.hoverState.routePoint,
+      selectedConnectors: this.scene.selectedConnectorKeys,
+      selectedRoutePoints: this.scene.selectedRoutePointKeys,
+      tempWire,
+      marquee: this.marqueeState ? normalizedWorldRect(this.marqueeState.startWorld, this.marqueeState.currentWorld) : null
+    };
+  }
+
+  handleKeyDown(event) {
+    if (event.key !== "Escape") return;
+    if (this.wireCreate || this.routePointDrag || this.marqueeState) {
+      this.wireCreate = null;
+      this.routePointDrag = null;
+      this.marqueeState = null;
+      this.canvas.classList.remove("dragging");
+      this.updateInteractionHud("cancelled");
+      this.scheduleRender();
+    }
+  }
+
   handlePointerMove(event) {
     const point = this.eventPoint(event);
     if (this.panState) {
@@ -441,18 +696,65 @@ class EnginePrototype {
       this.scheduleRender();
       return;
     }
+    if (this.routePointDrag) {
+      const start = performance.now();
+      const world = screenToWorld(this.camera, point);
+      this.scene.moveRoutePoint(this.routePointDrag.wireId, this.routePointDrag.pointIndex, world.x, world.y, { refreshIndexes: false });
+      const dirtyStats = this.renderer.updateDirty(this.scene, { wireIds: [this.routePointDrag.wireId] });
+      this.hud.setMetric("dragDraw", `${(performance.now() - start).toFixed(3)} ms`);
+      this.hud.setMetric("dirty counts", `${dirtyStats.dirtyDevices} dev / ${dirtyStats.dirtyWires} wires`);
+      this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
+      this.lastDirtyWireIds = new Set([this.routePointDrag.wireId]);
+      this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+      this.renderer.setRenderOptions(this.renderOptions);
+      this.scheduleRender();
+      return;
+    }
+    if (this.wireCreate) {
+      const world = screenToWorld(this.camera, point);
+      const connectorHit = hitTestConnector(this.scene, world, this.hitToleranceWorld() * 1.35);
+      this.hoverState.connector = connectorHit.connector;
+      this.hoverState.hitMs = connectorHit.ms;
+      this.hoverState.candidateCount = connectorHit.candidates;
+      this.wireCreate.pointerWorld = world;
+      this.wireCreate.target = connectorHit.connector;
+      this.updateInteractionHud("wire-create", connectorHit);
+      this.scheduleRender();
+      return;
+    }
+    if (this.marqueeState) {
+      this.marqueeState.currentWorld = screenToWorld(this.camera, point);
+      this.updateInteractionHud("marquee");
+      this.scheduleRender();
+      return;
+    }
     if (this.dragSession) {
       const start = performance.now();
       this.dragSession.update(screenToWorld(this.camera, point));
       this.hud.setMetric("dragDraw", `${(performance.now() - start).toFixed(3)} ms`);
       this.scheduleRender();
+      return;
     }
+    this.updateHover(screenToWorld(this.camera, point));
   }
 
   handlePointerUp(event) {
     if (this.panState) {
       this.panState = null;
       this.canvas.classList.remove("panning");
+    }
+    if (this.routePointDrag) {
+      const { wireId } = this.routePointDrag;
+      this.scene.refreshWireIndexes([wireId]);
+      this.routePointDrag = null;
+      this.updateInteractionHud("idle");
+      this.updateDebugPanel();
+    }
+    if (this.wireCreate) {
+      this.completeWireCreate();
+    }
+    if (this.marqueeState) {
+      this.completeMarquee(event.shiftKey);
     }
     if (this.dragSession) {
       const start = performance.now();
@@ -523,6 +825,8 @@ class EnginePrototype {
       });
       this.renderer.draw(this.scene, this.camera, {
         selectedIds: this.scene.selectedIds,
+        selectedWireIds: this.scene.selectedWireIds,
+        interactionState: this.interactionRenderState(),
         dragSession: this.dragSession
       });
       frames.push(performance.now() - frameStart);
@@ -545,7 +849,7 @@ class EnginePrototype {
     const dropTotalMs = performance.now() - dropAt;
     this.dragSession = null;
     this.canvas.classList.remove("dragging");
-    this.hud.setSceneStats({ selected: this.scene.selectedIds.size });
+    this.updateSelectionHud();
     this.hud.setMetric("dragStart", `${dragStartMs.toFixed(2)} ms`);
     this.hud.setMetric("affectedLookup", "see console");
     this.hud.setMetric("dragDraw", `${average(frames).toFixed(2)} ms avg`);
@@ -594,7 +898,9 @@ class EnginePrototype {
       this.renderFrame = null;
       const renderMs = this.renderer.draw(this.scene, this.camera, {
         selectedIds: this.scene.selectedIds,
+        selectedWireIds: this.scene.selectedWireIds,
         dragSession: this.dragSession,
+        interactionState: this.interactionRenderState(),
         renderOptions: this.renderOptions
       });
       this.hud.recordFrame(renderMs);
@@ -609,6 +915,39 @@ function clamp(value, min, max) {
 
 function average(values) {
   return values.length ? values.reduce((total, value) => total + value, 0) / values.length : 0;
+}
+
+function normalizedWorldRect(a, b) {
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  return {
+    x,
+    y,
+    width: Math.abs(a.x - b.x),
+    height: Math.abs(a.y - b.y)
+  };
+}
+
+function deviceSummary(device) {
+  if (!device) return "-";
+  return `${device.label || device.id}${device.kind === "jump" ? " (jump)" : ""}`;
+}
+
+function connectorSummary(hit) {
+  if (!hit) return "-";
+  return `${hit.device.label || hit.device.id} / ${hit.connector.label || hit.connector.id}`;
+}
+
+function wireSummary(wire) {
+  if (!wire) return "-";
+  return wire.label || wire.cableType || wire.id;
+}
+
+function wireCreateSummary(state) {
+  if (!state?.from) return "-";
+  const source = connectorSummary(state.from);
+  const target = state.target ? connectorSummary(state.target) : "select target";
+  return `${source} -> ${target}`;
 }
 
 function escapeHtml(value) {

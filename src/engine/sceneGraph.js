@@ -13,6 +13,12 @@ export class SceneGraph {
     this.dirtyWires = new Set();
     this.dirtyTextures = new Set();
     this.spatialIndex = new SpatialIndex();
+    this.connectorIndex = new SpatialIndex(96);
+    this.wireIndex = new SpatialIndex(420);
+    this.routePointIndex = new SpatialIndex(96);
+    this.selectedWireIds = new Set();
+    this.selectedConnectorKeys = new Set();
+    this.selectedRoutePointKeys = new Set();
   }
 
   setData({ devices = [], wires = [], meta = {} }) {
@@ -22,8 +28,11 @@ export class SceneGraph {
     this.devicesById = new Map(this.devices.map(device => [device.id, device]));
     this.wiresById = new Map(this.wires.map(wire => [wire.id, wire]));
     this.selectedIds.clear();
+    this.selectedWireIds.clear();
+    this.selectedConnectorKeys.clear();
+    this.selectedRoutePointKeys.clear();
     this.rebuildWireIndex();
-    this.rebuildSpatialIndex();
+    this.rebuildSpatialIndexes();
     this.dirtyDevices.clear();
     this.dirtyWires.clear();
     this.dirtyTextures.clear();
@@ -73,6 +82,64 @@ export class SceneGraph {
     this.spatialIndex.rebuild(items);
   }
 
+  rebuildSpatialIndexes() {
+    this.rebuildSpatialIndex();
+    this.rebuildConnectorIndex();
+    this.rebuildWireSpatialIndex();
+    this.rebuildRoutePointIndex();
+  }
+
+  rebuildConnectorIndex() {
+    const items = [];
+    this.devices.forEach(device => {
+      device.connectors.forEach(connector => {
+        const point = this.connectorWorldPoint(device, connector);
+        items.push({
+          id: connectorKey(device.id, connector.id),
+          bounds: centeredBounds(point, device.kind === "jump" ? 42 : 24),
+          device,
+          connector,
+          point
+        });
+      });
+    });
+    this.connectorIndex.rebuild(items);
+  }
+
+  rebuildWireSpatialIndex() {
+    const items = this.wires.map(wire => ({
+      id: wire.id,
+      bounds: inflateBounds(pointsBounds(this.wirePoints(wire)), 28),
+      wire
+    }));
+    this.wireIndex.rebuild(items);
+  }
+
+  rebuildRoutePointIndex() {
+    const items = [];
+    this.wires.forEach(wire => {
+      (wire.routePoints || []).forEach((point, index) => {
+        items.push({
+          id: routePointKey(wire.id, index),
+          bounds: centeredBounds(point, 24),
+          wire,
+          point,
+          pointIndex: index
+        });
+      });
+    });
+    this.routePointIndex.rebuild(items);
+  }
+
+  refreshWireIndexes(wireIds = []) {
+    // The prototype currently rebuilds the two lightweight interaction indexes
+    // after route edits or wire creation. This happens off the pan/zoom/hover
+    // path and keeps hit testing data-based instead of DOM-based.
+    if (!wireIds.length) return;
+    this.rebuildWireSpatialIndex();
+    this.rebuildRoutePointIndex();
+  }
+
   getDevice(id) {
     return this.devicesById.get(id) || null;
   }
@@ -83,6 +150,9 @@ export class SceneGraph {
 
   selectOnly(id) {
     this.selectedIds.clear();
+    this.selectedWireIds.clear();
+    this.selectedConnectorKeys.clear();
+    this.selectedRoutePointKeys.clear();
     if (id) this.selectedIds.add(id);
   }
 
@@ -93,6 +163,50 @@ export class SceneGraph {
 
   selectMany(ids) {
     this.selectedIds = new Set(ids.filter(id => this.devicesById.has(id)));
+    this.selectedWireIds.clear();
+    this.selectedConnectorKeys.clear();
+    this.selectedRoutePointKeys.clear();
+  }
+
+  selectWireOnly(id) {
+    this.selectedIds.clear();
+    this.selectedWireIds.clear();
+    this.selectedConnectorKeys.clear();
+    this.selectedRoutePointKeys.clear();
+    if (this.wiresById.has(id)) this.selectedWireIds.add(id);
+  }
+
+  toggleWireSelection(id) {
+    this.selectedIds.clear();
+    this.selectedConnectorKeys.clear();
+    this.selectedRoutePointKeys.clear();
+    if (this.selectedWireIds.has(id)) this.selectedWireIds.delete(id);
+    else if (this.wiresById.has(id)) this.selectedWireIds.add(id);
+  }
+
+  selectConnectorOnly(deviceId, connectorId) {
+    this.selectedIds.clear();
+    this.selectedWireIds.clear();
+    this.selectedConnectorKeys.clear();
+    this.selectedRoutePointKeys.clear();
+    const key = connectorKey(deviceId, connectorId);
+    if (this.getConnector(deviceId, connectorId)) this.selectedConnectorKeys.add(key);
+  }
+
+  selectRoutePointOnly(wireId, pointIndex) {
+    this.selectedIds.clear();
+    this.selectedWireIds.clear();
+    this.selectedConnectorKeys.clear();
+    this.selectedRoutePointKeys.clear();
+    const wire = this.getWire(wireId);
+    if (wire?.routePoints?.[pointIndex]) this.selectedRoutePointKeys.add(routePointKey(wireId, pointIndex));
+  }
+
+  clearSelection() {
+    this.selectedIds.clear();
+    this.selectedWireIds.clear();
+    this.selectedConnectorKeys.clear();
+    this.selectedRoutePointKeys.clear();
   }
 
   affectedWireIdsForDevices(deviceIds) {
@@ -112,7 +226,71 @@ export class SceneGraph {
       this.dirtyDevices.add(deviceId);
       (this.wireIdsByDeviceId.get(deviceId) || []).forEach(wireId => this.dirtyWires.add(wireId));
     });
-    this.rebuildSpatialIndex();
+    this.rebuildSpatialIndexes();
+  }
+
+  moveRoutePoint(wireId, pointIndex, x, y, { refreshIndexes = true } = {}) {
+    const wire = this.getWire(wireId);
+    const point = wire?.routePoints?.[pointIndex];
+    if (!point) return false;
+    point.x = x;
+    point.y = y;
+    this.dirtyWires.add(wireId);
+    if (refreshIndexes) this.refreshWireIndexes([wireId]);
+    return true;
+  }
+
+  addWire({ fromDeviceId, fromConnectorId, toDeviceId, toConnectorId, color = "#32b6ff", cableType = "Test Cable" }) {
+    const fromDevice = this.getDevice(fromDeviceId);
+    const toDevice = this.getDevice(toDeviceId);
+    const fromConnector = this.getConnector(fromDeviceId, fromConnectorId);
+    const toConnector = this.getConnector(toDeviceId, toConnectorId);
+    if (!fromDevice || !toDevice || !fromConnector || !toConnector) return null;
+    const wire = normalizeWire({
+      id: this.nextWireId(),
+      fromDeviceId,
+      toDeviceId,
+      fromConnectorId,
+      toConnectorId,
+      fromSide: fromConnector.side || "right",
+      toSide: toConnector.side || "left",
+      fromUsesRealConnector: true,
+      toUsesRealConnector: true,
+      usesRealConnectorEndpoints: true,
+      hasFallbackEndpoint: false,
+      color,
+      cableType,
+      label: `${fromConnector.label || fromConnector.type || "Connector"} to ${toConnector.label || toConnector.type || "Connector"}`
+    });
+    this.wires.push(wire);
+    this.wiresById.set(wire.id, wire);
+    this.addWireDeviceIndex(wire.fromDeviceId, wire.id);
+    this.addWireDeviceIndex(wire.toDeviceId, wire.id);
+    this.dirtyWires.add(wire.id);
+    this.refreshWireIndexes([wire.id]);
+    return wire;
+  }
+
+  nextWireId() {
+    let index = this.wires.length + 1;
+    let id = `engine-wire-${index}`;
+    while (this.wiresById.has(id)) {
+      index += 1;
+      id = `engine-wire-${index}`;
+    }
+    return id;
+  }
+
+  getConnector(deviceId, connectorId) {
+    const device = this.getDevice(deviceId);
+    return connectorId ? device?.connectorsById.get(connectorId) || null : null;
+  }
+
+  connectorWorldPoint(device, connector) {
+    return {
+      x: device.x + (Number(connector.x) || 0),
+      y: device.y + (Number(connector.y) || 0)
+    };
   }
 
   positionForDevice(device, offsetMap = null) {
@@ -222,6 +400,52 @@ export function deviceBounds(device) {
     y: device.y,
     width: device.width,
     height: device.height
+  };
+}
+
+export function connectorKey(deviceId, connectorId) {
+  return `${deviceId}:${connectorId}`;
+}
+
+export function routePointKey(wireId, pointIndex) {
+  return `${wireId}:${pointIndex}`;
+}
+
+function centeredBounds(point, size) {
+  return {
+    x: point.x - size / 2,
+    y: point.y - size / 2,
+    width: size,
+    height: size
+  };
+}
+
+function inflateBounds(bounds, amount) {
+  return {
+    x: bounds.x - amount,
+    y: bounds.y - amount,
+    width: bounds.width + amount * 2,
+    height: bounds.height + amount * 2
+  };
+}
+
+function pointsBounds(points) {
+  if (!points.length) return { x: 0, y: 0, width: 1, height: 1 };
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  points.forEach(point => {
+    minX = Math.min(minX, point.x);
+    minY = Math.min(minY, point.y);
+    maxX = Math.max(maxX, point.x);
+    maxY = Math.max(maxY, point.y);
+  });
+  return {
+    x: minX,
+    y: minY,
+    width: Math.max(1, maxX - minX),
+    height: Math.max(1, maxY - minY)
   };
 }
 
