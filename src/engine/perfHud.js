@@ -50,6 +50,8 @@ export class PerfHud {
       ["GPU update", metric("gpu update")],
       ["texture count", metric("texture count")],
       ["texture memory", metric("texture memory")],
+      ["texture quality", metric("texture quality")],
+      ["texture sizes", metric("texture sizes")],
       ["texture builds", metric("texture builds")],
       ["texture cache", metric("texture cache")],
       ["texture timing", metric("texture timing")],

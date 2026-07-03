@@ -241,9 +241,58 @@ function normalizeDevice(device) {
     usesRealSize: Boolean(device.usesRealSize),
     usesFallbackSize: Boolean(device.usesFallbackSize),
     color: device.color || "#182531",
+    brand: device.brand || device.visual?.brand || "",
+    model: device.model || device.visual?.model || "",
+    category: device.category || device.visual?.category || "",
+    templateId: device.templateId || "",
+    visual: normalizeVisualMetadata(device.visual),
     connectors,
     connectorsById: new Map(connectors.map(connector => [connector.id, connector])),
     portCount: Math.max(1, Number(device.portCount) || connectors.length || 4)
+  };
+}
+
+function normalizeVisualMetadata(visual = {}) {
+  if (!visual || typeof visual !== "object") return {};
+  return {
+    brand: visual.brand || "",
+    model: visual.model || "",
+    category: visual.category || "",
+    templateName: visual.templateName || "",
+    displayName: visual.displayName || "",
+    faceImage: visual.faceImage || "",
+    thumbnailImage: visual.thumbnailImage || "",
+    hasFaceImage: Boolean(visual.hasFaceImage || visual.faceImage),
+    hasThumbnailImage: Boolean(visual.hasThumbnailImage || visual.thumbnailImage),
+    faceplateDeleted: Boolean(visual.faceplateDeleted),
+    faceImageNaturalWidth: Number(visual.faceImageNaturalWidth) || 0,
+    faceImageNaturalHeight: Number(visual.faceImageNaturalHeight) || 0,
+    faceImageScaleX: Number(visual.faceImageScaleX) || 1,
+    faceImageScaleY: Number(visual.faceImageScaleY) || 1,
+    hasSwappableCards: Boolean(visual.hasSwappableCards),
+    isLedProcessor: Boolean(visual.isLedProcessor),
+    isPowerDistro: Boolean(visual.isPowerDistro),
+    isMatrixRouter: Boolean(visual.isMatrixRouter),
+    isAdapterBreakout: Boolean(visual.isAdapterBreakout),
+    visualCards: Array.isArray(visual.visualCards)
+      ? visual.visualCards.map(normalizeVisualCard).filter(Boolean)
+      : []
+  };
+}
+
+function normalizeVisualCard(card, index) {
+  if (!card || typeof card !== "object") return null;
+  return {
+    id: String(card.id || `visual-card-${index}`),
+    name: card.name || "",
+    slotName: card.slotName || "",
+    type: card.type || "",
+    x: Number(card.x) || 0,
+    y: Number(card.y) || 0,
+    width: Math.max(1, Number(card.width) || 1),
+    height: Math.max(1, Number(card.height) || 1),
+    connectorCount: Math.max(0, Number(card.connectorCount) || 0),
+    direction: card.direction || "io"
   };
 }
 
@@ -283,6 +332,8 @@ function normalizeConnector(connector, index) {
     label: connector.label || connector.nameText || connector.type || `Connector ${index + 1}`,
     direction: connector.direction || "io",
     side: connector.side || (connector.direction === "input" ? "left" : connector.direction === "output" ? "right" : "center"),
+    cardSlotId: connector.cardSlotId || "",
+    generatedFromCard: Boolean(connector.generatedFromCard),
     x: Number.isFinite(x) ? x : 0,
     y: Number.isFinite(y) ? y : 0,
     color: connector.color || "#32b6ff",

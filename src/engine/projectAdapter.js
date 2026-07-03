@@ -237,6 +237,7 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
     .map(connector => applyInstanceConnectorOverride(instance, connector))
     .map((connector, connectorIndex) => normalizeConnector(connector, connectorIndex, width, nodeColorByType))
     .filter(Boolean);
+  const visual = normalizeDeviceVisualMetadata(template, instance, width, height);
   return {
     id,
     kind: template.isAdapterBreakout ? "adapter" : "device",
@@ -251,8 +252,70 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
     color: template.isAdapterBreakout ? "rgba(24,37,49,.34)" : "#182531",
     connectors,
     portCount: Math.max(1, connectors.length || 4),
-    templateId: template.id || templateId || ""
+    templateId: template.id || templateId || "",
+    brand: visual.brand,
+    model: visual.model,
+    category: visual.category,
+    visual
   };
+}
+
+function normalizeDeviceVisualMetadata(template = {}, instance = {}, width = DEFAULT_DEVICE_WIDTH, height = DEFAULT_DEVICE_HEIGHT) {
+  const brand = String(instance.brand || template.brand || "").trim();
+  const model = String(instance.model || template.model || "").trim();
+  const category = String(template.category || template.type || template.section || "").trim();
+  const faceImage = String(template.faceImage || "").trim();
+  const thumbnailImage = String(template.thumbnailImage || "").trim();
+  return {
+    brand,
+    model,
+    category,
+    templateName: String(template.name || "").trim(),
+    displayName: String(instance.name || template.name || template.model || "").trim(),
+    faceImage,
+    thumbnailImage,
+    hasFaceImage: Boolean(faceImage),
+    hasThumbnailImage: Boolean(thumbnailImage),
+    faceplateDeleted: Boolean(template.faceplateDeleted),
+    faceImageNaturalWidth: positiveNumber(template.faceImageNaturalWidth),
+    faceImageNaturalHeight: positiveNumber(template.faceImageNaturalHeight),
+    faceImageScaleX: positiveNumber(template.faceImageScaleX) || positiveNumber(template.faceImageScale) || 1,
+    faceImageScaleY: positiveNumber(template.faceImageScaleY) || positiveNumber(template.faceImageScale) || 1,
+    hasSwappableCards: Boolean(template.hasSwappableCards),
+    isLedProcessor: Boolean(template.isLedProcessor),
+    isPowerDistro: Boolean(template.isPowerDistro),
+    isMatrixRouter: Boolean(template.isMatrixRouter),
+    isAdapterBreakout: Boolean(template.isAdapterBreakout || template.objectType === "adapter"),
+    visualCards: normalizeVisualCards(template, width, height)
+  };
+}
+
+function normalizeVisualCards(template = {}, width = DEFAULT_DEVICE_WIDTH, height = DEFAULT_DEVICE_HEIGHT) {
+  if (!Array.isArray(template.cardSlots) || !Array.isArray(template.cardTypes)) return [];
+  return template.cardSlots.map((slot, index) => {
+    const card = template.cardTypes.find(item => item.id === slot.installedCardTypeId) || null;
+    const connectorCount = Array.isArray(card?.connectors)
+      ? card.connectors.filter(connector => !connector.empty && connector.type).length
+      : 0;
+    const slotX = finiteNumber(slot.x, Number.NaN);
+    const slotY = finiteNumber(slot.y, Number.NaN);
+    const slotWidth = positiveNumber(slot.width);
+    const slotHeight = positiveNumber(slot.height);
+    const defaultWidth = Math.max(44, width - 28);
+    const defaultHeight = Math.max(SLOT_HEIGHT * 1.25, SLOT_HEIGHT + Math.ceil(connectorCount / 2) * SLOT_HEIGHT);
+    return {
+      id: String(slot.id || `visual-card-${index}`),
+      name: String(card?.name || slot.name || slot.label || `Card ${index + 1}`).trim(),
+      slotName: String(slot.name || slot.label || "").trim(),
+      type: String(card?.type || card?.direction || "").trim(),
+      x: Number.isFinite(slotX) ? slotX : 14,
+      y: Number.isFinite(slotY) ? slotY : 78 + index * (defaultHeight + 14),
+      width: slotWidth || defaultWidth,
+      height: slotHeight || defaultHeight,
+      connectorCount,
+      direction: card?.direction || slot.direction || "io"
+    };
+  }).filter(card => card.name || card.connectorCount || card.width || card.height);
 }
 
 function effectiveConnectorsForTemplate(template) {
@@ -317,6 +380,8 @@ function normalizeConnector(connector, index, deviceWidth, nodeColorByType) {
     label: connector.nameText || connector.label || connector.type || `Connector ${index + 1}`,
     direction,
     side: direction === "input" ? "left" : direction === "output" ? "right" : localX <= deviceWidth / 2 ? "left" : "right",
+    cardSlotId: connector.cardSlotId || "",
+    generatedFromCard: Boolean(connector.generatedFromCard),
     x: localX,
     y: localY,
     color: connectorColor(connector, nodeColorByType),

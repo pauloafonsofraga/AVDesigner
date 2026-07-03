@@ -1,4 +1,4 @@
-import { buildDeviceVisual, deviceVisualCacheKey } from "./deviceVisualBuilder.js";
+import { buildDeviceVisual, deviceVisualCacheKey, textureQuality } from "./deviceVisualBuilder.js";
 
 const EMPTY_STATS = {
   enabled: false,
@@ -12,11 +12,18 @@ const EMPTY_STATS = {
   misses: 0,
   sharedHits: 0,
   fallbacks: 0,
+  qualityMode: "medium",
+  textureScale: 1,
+  averageTextureSize: "0 x 0",
+  maxTextureSize: "0 x 0",
+  maxTexturePixels: 0,
+  maxTextureSide: 0,
   lastBuildMs: 0,
   lastUploadMs: 0,
   lastPrepareMs: 0,
   lastPreparedDevices: 0,
-  lastInvalidationReason: "-"
+  lastInvalidationReason: "-",
+  modeSignature: ""
 };
 
 export class TextureCache {
@@ -32,6 +39,15 @@ export class TextureCache {
       this.statsData.enabled = false;
       return this.stats();
     }
+    // Texture cache invalidation is mode-based, not viewport-based. Camera
+    // movement, drag, selection, and wire updates must reuse existing entries.
+    const modeSignature = textureModeSignature(options);
+    if (this.statsData.modeSignature && this.statsData.modeSignature !== modeSignature) {
+      this.clear();
+      this.statsData.lastInvalidationReason = "texture mode changed";
+    }
+    this.statsData.modeSignature = modeSignature;
+    applyQualityStats(this.statsData, options);
     const start = performance.now();
     let prepared = 0;
     devices.forEach(device => {
@@ -46,6 +62,7 @@ export class TextureCache {
   }
 
   ensureDeviceTexture(device, options = {}, reason = "ensure") {
+    applyQualityStats(this.statsData, options);
     const key = deviceVisualCacheKey(device, options);
     const existing = this.entriesByDeviceId.get(device.id);
     if (existing && existing.key === key && existing.record?.texture) {
@@ -60,6 +77,8 @@ export class TextureCache {
 
     const shared = this.texturesByKey.get(key);
     if (shared?.texture) {
+      // Multiple instances of the same visual template point at one texture.
+      // Per-instance names/details are rendered by overlays, not baked here.
       const entry = this.createEntry(device, key, shared, reason, false);
       this.entriesByDeviceId.set(device.id, entry);
       this.statsData.hits += 1;
@@ -93,6 +112,7 @@ export class TextureCache {
       buildMs,
       uploadMs,
       fallback: Boolean(visual.fallback),
+      qualityMode: visual.qualityMode || this.statsData.qualityMode,
       lastBuiltAt: performance.now(),
       refCount: 0
     };
@@ -156,16 +176,57 @@ export class TextureCache {
   refreshCounts() {
     let memoryBytes = 0;
     let fallbackCount = 0;
+    let totalWidth = 0;
+    let totalHeight = 0;
+    let maxWidth = 0;
+    let maxHeight = 0;
+    let maxPixels = 0;
+    let scaleTotal = 0;
+    let scaleCount = 0;
     this.texturesByKey.forEach(record => {
       memoryBytes += Math.max(1, record.width) * Math.max(1, record.height) * 4;
       if (record.fallback) fallbackCount += 1;
+      totalWidth += record.width;
+      totalHeight += record.height;
+      maxWidth = Math.max(maxWidth, record.width);
+      maxHeight = Math.max(maxHeight, record.height);
+      maxPixels = Math.max(maxPixels, record.width * record.height);
+      if (record.pixelRatio) {
+        scaleTotal += record.pixelRatio;
+        scaleCount += 1;
+      }
     });
+    const count = Math.max(1, this.texturesByKey.size);
     this.statsData.deviceEntries = this.entriesByDeviceId.size;
     this.statsData.textureCount = this.texturesByKey.size;
     this.statsData.memoryBytes = memoryBytes;
     this.statsData.memoryLabel = formatBytes(memoryBytes);
     this.statsData.fallbacks = Math.max(this.statsData.fallbacks, fallbackCount);
+    this.statsData.averageTextureSize = this.texturesByKey.size
+      ? `${Math.round(totalWidth / count)} x ${Math.round(totalHeight / count)}`
+      : "0 x 0";
+    this.statsData.maxTextureSize = this.texturesByKey.size ? `${maxWidth} x ${maxHeight}` : "0 x 0";
+    this.statsData.maxTexturePixels = maxPixels;
+    this.statsData.textureScale = scaleCount ? scaleTotal / scaleCount : this.statsData.textureScale || 1;
   }
+}
+
+function textureModeSignature(options = {}) {
+  const quality = textureQuality(options);
+  return [
+    quality.mode,
+    quality.highDpi ? "hidpi" : "1x",
+    options.simplifiedCards ? "simplified" : "standard",
+    options.detailedDeviceTextures === false ? "basic" : "detailed",
+    options.connectorColors === false ? "flat-connectors" : "connector-colors"
+  ].join(":");
+}
+
+function applyQualityStats(stats, options = {}) {
+  const quality = textureQuality(options);
+  stats.qualityMode = quality.mode;
+  stats.textureScale = quality.scale;
+  stats.maxTextureSide = quality.maxSide;
 }
 
 function uploadTexture(gl, source) {

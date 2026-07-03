@@ -25,6 +25,9 @@ const DEFAULT_RENDER_OPTIONS = {
   textureCacheEnabled: true,
   simplifiedCards: true,
   texturedDevices: true,
+  textureQuality: "medium",
+  highDpiTextures: true,
+  detailedDeviceTextures: true,
   lodMode: true,
   dirtyDeviceIds: new Set(),
   dirtyWireIds: new Set()

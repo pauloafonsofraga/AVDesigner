@@ -354,12 +354,12 @@
           <span class="badge">WebGL2 engine</span>
         </div>
         <p class="prototype-note">
-          Isolated performance prototype for proving real AV Designer project loading, connector-aware wires, route points, jump nodes, LED surfaces, and dirty GPU updates.
+        Isolated performance prototype for proving real AV Designer project loading, connector-aware wires, route points, jump nodes, LED surfaces, dirty GPU updates, and cached device textures.
         </p>
       </div>
       <div id="prototypeStatus" class="status-strip">
         <span class="badge">branch: engine-prototype</span>
-        <span class="badge">base: 200c3a1+m3-texture-cache</span>
+        <span class="badge">base: 56977d3+m4-texture-quality</span>
         <span class="badge orange">source: starting...</span>
       </div>
     </section>
@@ -394,11 +394,21 @@
         <label class="toggle"><input type="checkbox" data-toggle="textureCacheEnabled" checked>Texture cache</label>
         <label class="toggle"><input type="checkbox" data-toggle="texturedDevices" checked>Textured devices</label>
         <label class="toggle"><input type="checkbox" data-toggle="simplifiedCards" checked>Simplified cards</label>
+        <label class="toggle"><input type="checkbox" data-toggle="detailedDeviceTextures" checked>Detailed textures</label>
+        <label class="toggle"><input type="checkbox" data-toggle="highDpiTextures" checked>High-DPI textures</label>
         <label class="toggle"><input type="checkbox" data-toggle="lodMode" checked>LOD</label>
         <label class="toggle"><input type="checkbox" data-toggle="showTextureStats" checked>Texture stats</label>
         <label class="toggle"><input type="checkbox" data-toggle="hud" checked>Performance HUD</label>
       </span>
       <span class="group">
+        <label>
+          Texture quality
+          <select id="textureQuality">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+        </label>
         <button data-texture-action="rebuild-visible">Rebuild Visible Textures</button>
         <button data-texture-action="clear">Clear Texture Cache</button>
       </span>
@@ -443,11 +453,12 @@
         bench1Button: document.getElementById("bench1"),
         bench20Button: document.getElementById("bench20"),
         generateButtons: [...document.querySelectorAll("[data-generate]")],
-        textureButtons: [...document.querySelectorAll("[data-texture-action]")]
+        textureButtons: [...document.querySelectorAll("[data-texture-action]")],
+        textureQualitySelect: document.getElementById("textureQuality")
       });
       console.info("[engine prototype] page loaded", {
         branch: "engine-prototype",
-        baseCommit: "200c3a1+m3-texture-cache",
+        baseCommit: "56977d3+m4-texture-quality",
         renderer: "WebGL2 engine",
         app
       });

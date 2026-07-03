@@ -6,7 +6,7 @@ import { SceneGraph } from "./sceneGraph.js";
 import { PerfHud } from "./perfHud.js";
 
 const PROTOTYPE_BRANCH = "engine-prototype";
-const PROTOTYPE_BASE = "200c3a1+m3-texture-cache";
+const PROTOTYPE_BASE = "56977d3+m4-texture-quality";
 
 export function createEnginePrototype(options) {
   const app = new EnginePrototype(options);
@@ -30,7 +30,8 @@ class EnginePrototype {
     bench1Button,
     bench20Button,
     generateButtons,
-    textureButtons
+    textureButtons,
+    textureQualitySelect
   }) {
     this.canvas = canvas;
     this.renderer = new WebglGraphRenderer(canvas, labelCanvas);
@@ -46,6 +47,7 @@ class EnginePrototype {
     this.bench20Button = bench20Button;
     this.generateButtons = generateButtons;
     this.textureButtons = textureButtons || [];
+    this.textureQualitySelect = textureQualitySelect;
     this.scene = new SceneGraph();
     this.camera = { x: -120, y: -120, zoom: 1 };
     this.renderFrame = null;
@@ -67,6 +69,9 @@ class EnginePrototype {
       textureCacheEnabled: true,
       simplifiedCards: true,
       texturedDevices: true,
+      textureQuality: this.textureQualitySelect?.value || "medium",
+      highDpiTextures: true,
+      detailedDeviceTextures: true,
       lodMode: true,
       showTextureStats: true,
       dirtyDeviceIds: this.lastDirtyDeviceIds,
@@ -90,6 +95,7 @@ class EnginePrototype {
     this.textureButtons.forEach(button => {
       button.addEventListener("click", () => this.handleTextureAction(button.dataset.textureAction));
     });
+    this.textureQualitySelect?.addEventListener("change", () => this.applyTextureQuality());
     this.toggles.forEach(input => {
       input.addEventListener("change", () => this.applyToggle(input));
     });
@@ -193,6 +199,18 @@ class EnginePrototype {
     this.scheduleRender();
   }
 
+  applyTextureQuality() {
+    this.renderOptions.textureQuality = this.textureQualitySelect?.value || "medium";
+    this.renderer.setRenderOptions(this.renderOptions);
+    const staticStats = this.renderer.setStaticScene(this.scene);
+    this.hud.setMetric("static upload", `${staticStats.totalMs.toFixed(1)} ms`);
+    this.hud.setMetric("static detail", `g ${staticStats.geometryMs.toFixed(1)} / u ${staticStats.uploadMs.toFixed(1)} / t ${staticStats.textureMs.toFixed(1)} ms`);
+    this.hud.setMetric("gpu update", "texture quality changed");
+    this.updateTextureHud("quality");
+    this.updateDebugPanel();
+    this.scheduleRender();
+  }
+
   handleTextureAction(action) {
     if (!action) return;
     let stats;
@@ -215,6 +233,8 @@ class EnginePrototype {
     if (!this.renderOptions.showTextureStats) return;
     this.hud.setMetric("texture count", `${stats.textureCount} / ${stats.deviceEntries} dev`);
     this.hud.setMetric("texture memory", stats.memoryLabel);
+    this.hud.setMetric("texture quality", `${stats.qualityMode} / ${stats.textureScale.toFixed(2)}x / max ${stats.maxTextureSide}`);
+    this.hud.setMetric("texture sizes", `avg ${stats.averageTextureSize} / max ${stats.maxTextureSize}`);
     this.hud.setMetric("texture builds", `${stats.builds} build / ${stats.rebuilds} rebuild`);
     this.hud.setMetric("texture cache", `${stats.hits} hit / ${stats.misses} miss / ${stats.sharedHits} shared`);
     this.hud.setMetric("texture timing", `b ${stats.lastBuildMs.toFixed(2)} / u ${stats.lastUploadMs.toFixed(2)} / p ${stats.lastPrepareMs.toFixed(2)} ms`);
@@ -275,8 +295,10 @@ class EnginePrototype {
       ["Full rebuild count", staticStats.fullRebuildCount ?? this.renderer.fullRebuildCount],
       ["Range update count", dirty.rangeUpdateCount ?? this.renderer.rangeUpdateCount],
       ["Texture cache enabled", textures.enabled ? "yes" : "no"],
+      ["Texture quality", `${textures.qualityMode} / ${textures.textureScale.toFixed(2)}x`],
       ["Texture entries", `${textures.textureCount} unique / ${textures.deviceEntries} devices`],
       ["Texture memory estimate", textures.memoryLabel],
+      ["Texture avg/max size", `${textures.averageTextureSize} / ${textures.maxTextureSize}`],
       ["Texture builds", textures.builds],
       ["Texture rebuilds", textures.rebuilds],
       ["Texture hits / misses", `${textures.hits} / ${textures.misses}`],
