@@ -6,13 +6,14 @@ import {
   hitTestWire,
   screenToWorld
 } from "./hitTest.js";
-import { generateSyntheticProject, loadProjectFile, syntheticPreset } from "./projectAdapter.js";
+import { generateSyntheticProject, loadProjectFile, normalizeAvDesignerProject, syntheticPreset } from "./projectAdapter.js";
+import { ProjectMutationAdapter } from "./projectMutations.js";
 import { WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
 import { PerfHud } from "./perfHud.js";
 
 const PROTOTYPE_BRANCH = "engine-prototype";
-const PROTOTYPE_BASE = "39cf053+interaction-hit-testing";
+const PROTOTYPE_BASE = "70da034+project-mutations";
 
 export function createEnginePrototype(options) {
   const app = new EnginePrototype(options);
@@ -37,7 +38,11 @@ class EnginePrototype {
     bench20Button,
     generateButtons,
     textureButtons,
-    textureQualitySelect
+    textureQualitySelect,
+    exportProjectButton,
+    resetProjectButton,
+    reloadExportedProjectButton,
+    clearMutationsButton
   }) {
     this.canvas = canvas;
     this.renderer = new WebglGraphRenderer(canvas, labelCanvas);
@@ -54,7 +59,13 @@ class EnginePrototype {
     this.generateButtons = generateButtons;
     this.textureButtons = textureButtons || [];
     this.textureQualitySelect = textureQualitySelect;
+    this.exportProjectButton = exportProjectButton;
+    this.resetProjectButton = resetProjectButton;
+    this.reloadExportedProjectButton = reloadExportedProjectButton;
+    this.clearMutationsButton = clearMutationsButton;
     this.scene = new SceneGraph();
+    this.mutations = null;
+    this.lastExportedProjectJson = "";
     this.camera = { x: -120, y: -120, zoom: 1 };
     this.renderFrame = null;
     this.dragSession = null;
@@ -91,6 +102,7 @@ class EnginePrototype {
       detailedDeviceTextures: true,
       lodMode: true,
       showTextureStats: true,
+      mutationDebug: true,
       dirtyDeviceIds: this.lastDirtyDeviceIds,
       dirtyWireIds: this.lastDirtyWireIds
     };
@@ -123,6 +135,10 @@ class EnginePrototype {
     });
     this.bench1Button.addEventListener("click", () => this.runDragBenchmark(1));
     this.bench20Button.addEventListener("click", () => this.runDragBenchmark(20));
+    this.exportProjectButton?.addEventListener("click", () => this.exportEditedProject());
+    this.resetProjectButton?.addEventListener("click", () => this.resetLoadedProject());
+    this.reloadExportedProjectButton?.addEventListener("click", () => this.reloadExportedProject());
+    this.clearMutationsButton?.addEventListener("click", () => this.clearPrototypeMutations());
     this.fitButton.addEventListener("click", () => {
       this.fitView();
       this.scheduleRender();
@@ -158,6 +174,7 @@ class EnginePrototype {
     this.renderer.setRenderOptions(this.renderOptions);
     const start = performance.now();
     this.scene.setData(data);
+    this.mutations = new ProjectMutationAdapter(data);
     const sceneBuildMs = performance.now() - start;
     const staticStats = this.renderer.setStaticScene(this.scene);
     const adapterStats = this.scene.adapterStats();
@@ -178,6 +195,8 @@ class EnginePrototype {
     this.hud.setMetric("full rebuilds", staticStats.fullRebuildCount);
     this.hud.setMetric("range updates", staticStats.rangeUpdateCount);
     this.hud.setMetric("gpu update", "full static upload");
+    this.hud.setMetric("project dirty", "no");
+    this.hud.setMetric("project mutation", "-");
     this.updateTextureHud("scene load");
     console.info("[engine] scene loaded", {
       prototypeBranch: PROTOTYPE_BRANCH,
@@ -204,6 +223,11 @@ class EnginePrototype {
     if (key === "hud") {
       this.hudVisible = input.checked;
       this.hud.element?.classList.toggle("hidden", !this.hudVisible);
+      return;
+    }
+    if (key === "mutationDebug") {
+      this.renderOptions.mutationDebug = input.checked;
+      this.updateDebugPanel();
       return;
     }
     this.renderOptions[key] = input.checked;
@@ -283,8 +307,14 @@ class EnginePrototype {
 
   updateDebugPanel() {
     if (!this.adapterDebug) return;
+    if (this.renderOptions.mutationDebug === false) {
+      this.adapterDebug.classList.add("hidden");
+      return;
+    }
+    this.adapterDebug.classList.remove("hidden");
     const meta = this.scene.meta || {};
     const stats = this.scene.adapterStats();
+    const mutationStats = this.mutations?.stats() || {};
     const dirty = this.renderer.lastDirtyStats || {};
     const staticStats = this.renderer.lastStaticStats || {};
     const textures = this.renderer.textureStats();
@@ -337,7 +367,21 @@ class EnginePrototype {
       ["Selected connectors", this.scene.selectedConnectorKeys.size],
       ["Selected route points", this.scene.selectedRoutePointKeys.size],
       ["Hit candidates", this.hoverState.candidateCount || 0],
-      ["Hit-test time", `${(this.hoverState.hitMs || 0).toFixed(3)} ms`]
+      ["Hit-test time", `${(this.hoverState.hitMs || 0).toFixed(3)} ms`],
+      ["Project dirty", mutationStats.dirty ? "yes" : "no"],
+      ["Mutation count", mutationStats.mutationCount ?? 0],
+      ["Last mutation", mutationStats.lastMutationType || "-"],
+      ["Last mutation duration", mutationStats.lastMutationDurationMs != null ? `${mutationStats.lastMutationDurationMs.toFixed(3)} ms` : "-"],
+      ["Last written path", mutationStats.lastMutationPath || "-"],
+      ["Exported project size", mutationStats.exportedSize ? `${formatBytes(mutationStats.exportedSize)}` : "-"],
+      ["Created wires", mutationStats.createdWireCount ?? 0],
+      ["Moved devices", mutationStats.movedDeviceCount ?? 0],
+      ["Edited route points", mutationStats.editedRoutePointCount ?? 0],
+      ["Deleted wires", mutationStats.deletedWireCount ?? 0],
+      ["Write-back errors", mutationStats.errorCount ?? 0],
+      ["Last write-back error", mutationStats.lastError || "-"],
+      ["Round-trip validation", mutationStats.roundTripResult || "-"],
+      ["Prototype command history", mutationStats.commandHistory ?? 0]
     ];
     this.adapterDebug.innerHTML = [
       "<h2>Project Adapter Debug</h2>",
@@ -366,6 +410,60 @@ class EnginePrototype {
     }
     this.errorPanel.classList.remove("hidden");
     this.errorPanel.innerHTML = `<h2>Prototype Error</h2>${escapeHtml(message)}`;
+  }
+
+  exportEditedProject() {
+    if (!this.mutations) return;
+    const json = this.mutations.exportJson({ pretty: true });
+    this.lastExportedProjectJson = json;
+    const size = json.length;
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const name = slugify(this.scene.meta?.projectName || this.scene.meta?.sourceName || "engine-edited-project");
+    link.href = url;
+    link.download = `${name}-engine-edited.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    this.hud.setMetric("project export", `${formatBytes(size)}`);
+    this.hud.setMetric("project mutation", "export project json");
+    this.updateDebugPanel();
+  }
+
+  resetLoadedProject() {
+    if (!this.mutations) return;
+    const original = this.mutations.resetToLoadedProject();
+    this.lastExportedProjectJson = "";
+    this.loadScene(normalizeAvDesignerProject(original, {
+      dataSource: "Reset to loaded project",
+      sourceName: this.scene.meta?.sourceName || "Loaded project"
+    }));
+  }
+
+  reloadExportedProject() {
+    if (!this.lastExportedProjectJson) {
+      this.showError("Export an edited project JSON before reloading it.");
+      return;
+    }
+    try {
+      const parsed = JSON.parse(this.lastExportedProjectJson);
+      this.loadScene(normalizeAvDesignerProject(parsed, {
+        dataSource: "Reloaded edited JSON",
+        sourceName: "Last engine export"
+      }));
+      this.hud.setMetric("project reload", "export reloaded");
+    } catch (error) {
+      this.showError(`Could not reload exported JSON:\n${error.message}`);
+    }
+  }
+
+  clearPrototypeMutations() {
+    this.mutations?.clearMutationDebug();
+    this.hud.setMetric("project mutation", "debug cleared");
+    this.hud.setMetric("project dirty", this.mutations?.stats().dirty ? "yes" : "no");
+    this.updateDebugPanel();
   }
 
   visibleDeviceIds() {
@@ -552,6 +650,7 @@ class EnginePrototype {
       this.scheduleRender();
       return;
     }
+    const mutationMs = this.mutations?.commitCreatedWire(this.scene, wire) || 0;
     const dirtyStats = this.renderer.appendWire(this.scene, wire.id);
     const textureAfter = this.renderer.textureStats();
     this.scene.selectWireOnly(wire.id);
@@ -564,6 +663,8 @@ class EnginePrototype {
     this.hud.setMetric("gpu update", dirtyStats.appended ? "append wire buffer" : "bufferSubData ranges");
     this.hud.setMetric("texture drag rebuilds", textureAfter.rebuilds - textureBefore.rebuilds);
     this.hud.setMetric("wire creation", wire.id);
+    this.hud.setMetric("project mutation", `create wire ${mutationMs.toFixed(3)} ms`);
+    this.hud.setMetric("project dirty", this.mutations?.stats().dirty ? "yes" : "no");
     this.updateSelectionHud();
     this.updateInteractionHud("wire-created");
     this.updateDebugPanel();
@@ -746,6 +847,9 @@ class EnginePrototype {
     if (this.routePointDrag) {
       const { wireId } = this.routePointDrag;
       this.scene.refreshWireIndexes([wireId]);
+      const mutationMs = this.mutations?.commitRoutePoints(this.scene, wireId) || 0;
+      this.hud.setMetric("project mutation", `route point ${mutationMs.toFixed(3)} ms`);
+      this.hud.setMetric("project dirty", this.mutations?.stats().dirty ? "yes" : "no");
       this.routePointDrag = null;
       this.updateInteractionHud("idle");
       this.updateDebugPanel();
@@ -762,6 +866,7 @@ class EnginePrototype {
       const affectedWireIds = [...this.dragSession.affectedWireIds];
       const textureBefore = this.renderer.textureStats();
       const commitMs = this.dragSession.commit();
+      const mutationMs = this.mutations?.commitDevicePositions(this.scene, selectedIds) || 0;
       const dirtyStats = this.renderer.updateDirty(this.scene, {
         deviceIds: selectedIds,
         wireIds: affectedWireIds
@@ -780,11 +885,14 @@ class EnginePrototype {
       this.hud.setMetric("full rebuilds", dirtyStats.fullRebuildCount);
       this.hud.setMetric("range updates", dirtyStats.rangeUpdateCount);
       this.hud.setMetric("texture drag rebuilds", textureAfter.rebuilds - textureBefore.rebuilds);
+      this.hud.setMetric("project mutation", `move ${mutationMs.toFixed(3)} ms`);
+      this.hud.setMetric("project dirty", this.mutations?.stats().dirty ? "yes" : "no");
       this.updateTextureHud("drop");
       console.info("[engine] drop commit", {
         selected: selectedIds.length,
         affectedWires: affectedWireIds.length,
         commitMs: commitMs.toFixed(2),
+        projectMutationMs: mutationMs.toFixed(3),
         dirtyUpdateMs: dirtyStats.totalMs.toFixed(2),
         dirtyGeometryMs: dirtyStats.geometryMs.toFixed(2),
         dirtyUploadMs: dirtyStats.uploadMs.toFixed(2),
@@ -836,6 +944,7 @@ class EnginePrototype {
     const affectedWireIds = [...this.dragSession.affectedWireIds];
     const textureBefore = this.renderer.textureStats();
     const commitMs = this.dragSession.commit();
+    const mutationMs = this.mutations?.commitDevicePositions(this.scene, selectedIds) || 0;
     const dirtyStats = this.renderer.updateDirty(this.scene, {
       deviceIds: selectedIds,
       wireIds: affectedWireIds
@@ -860,6 +969,8 @@ class EnginePrototype {
     this.hud.setMetric("full rebuilds", dirtyStats.fullRebuildCount);
     this.hud.setMetric("range updates", dirtyStats.rangeUpdateCount);
     this.hud.setMetric("texture drag rebuilds", textureAfter.rebuilds - textureBefore.rebuilds);
+    this.hud.setMetric("project mutation", `move ${mutationMs.toFixed(3)} ms`);
+    this.hud.setMetric("project dirty", this.mutations?.stats().dirty ? "yes" : "no");
     this.hud.setMetric("benchmark", `${count} dev / max ${Math.max(...frames).toFixed(2)} ms`);
     this.updateTextureHud("benchmark");
     console.info("[engine] drag benchmark", {
@@ -870,6 +981,7 @@ class EnginePrototype {
       frameAvgMs: average(frames).toFixed(2),
       frameMaxMs: Math.max(...frames).toFixed(2),
       commitMs: commitMs.toFixed(2),
+      projectMutationMs: mutationMs.toFixed(3),
       dirtyUpdateMs: dirtyStats.totalMs.toFixed(2),
       dirtyGeometryMs: dirtyStats.geometryMs.toFixed(2),
       dirtyUploadMs: dirtyStats.uploadMs.toFixed(2),
@@ -915,6 +1027,21 @@ function clamp(value, min, max) {
 
 function average(values) {
   return values.length ? values.reduce((total, value) => total + value, 0) / values.length : 0;
+}
+
+function formatBytes(bytes) {
+  const value = Number(bytes) || 0;
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function slugify(value) {
+  return String(value || "engine-edited-project")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "engine-edited-project";
 }
 
 function normalizedWorldRect(a, b) {

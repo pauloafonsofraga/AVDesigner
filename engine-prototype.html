@@ -359,7 +359,7 @@
       </div>
       <div id="prototypeStatus" class="status-strip">
         <span class="badge">branch: engine-prototype</span>
-        <span class="badge">base: 39cf053+interaction-hit-testing</span>
+        <span class="badge">base: 70da034+project-mutations</span>
         <span class="badge orange">source: starting...</span>
       </div>
     </section>
@@ -380,6 +380,12 @@
         Load .avd/.json
         <input id="fileInput" type="file" accept=".avd,.json,application/json">
       </label>
+      <span class="group">
+        <button id="exportProject">Export Edited Project JSON</button>
+        <button id="resetProject">Reset to Loaded Project</button>
+        <button id="reloadExportedProject">Reload Exported Project</button>
+        <button id="clearMutations">Clear Prototype Mutations</button>
+      </span>
       <span class="group" id="debugToggles">
         <label class="toggle"><input type="checkbox" data-toggle="labels" checked>Labels</label>
         <label class="toggle"><input type="checkbox" data-toggle="wires" checked>Wires</label>
@@ -398,6 +404,7 @@
         <label class="toggle"><input type="checkbox" data-toggle="highDpiTextures" checked>High-DPI textures</label>
         <label class="toggle"><input type="checkbox" data-toggle="lodMode" checked>LOD</label>
         <label class="toggle"><input type="checkbox" data-toggle="showTextureStats" checked>Texture stats</label>
+        <label class="toggle"><input type="checkbox" data-toggle="mutationDebug" checked>Project mutation debug</label>
         <label class="toggle"><input type="checkbox" data-toggle="hud" checked>Performance HUD</label>
       </span>
       <span class="group">
@@ -420,7 +427,7 @@
       <div id="perfHud" class="hud"></div>
       <div id="errorPanel" class="error-panel hidden"></div>
       <div class="hint">
-        This page is the isolated WebGL prototype, not index.html. Wheel zooms, middle mouse pans, click a device to select, Shift-click adds/removes, drag selected devices as one group.
+        This page is the isolated WebGL prototype, not index.html. Export Edited Project JSON is prototype export, not production save. Wheel zooms, middle mouse pans, click a device to select, Shift-click adds/removes, drag selected devices as one group.
       </div>
     </div>
   </div>
@@ -454,11 +461,15 @@
         bench20Button: document.getElementById("bench20"),
         generateButtons: [...document.querySelectorAll("[data-generate]")],
         textureButtons: [...document.querySelectorAll("[data-texture-action]")],
-        textureQualitySelect: document.getElementById("textureQuality")
+        textureQualitySelect: document.getElementById("textureQuality"),
+        exportProjectButton: document.getElementById("exportProject"),
+        resetProjectButton: document.getElementById("resetProject"),
+        reloadExportedProjectButton: document.getElementById("reloadExportedProject"),
+        clearMutationsButton: document.getElementById("clearMutations")
       });
       console.info("[engine prototype] page loaded", {
         branch: "engine-prototype",
-        baseCommit: "39cf053+interaction-hit-testing",
+        baseCommit: "70da034+project-mutations",
         renderer: "WebGL2 engine",
         app
       });

@@ -455,6 +455,8 @@ function normalizeDevice(device) {
     .filter(Boolean);
   return {
     id: String(device.id),
+    sourceKind: device.sourceKind || "",
+    sourceId: device.sourceId || device.id || "",
     kind: device.kind || "device",
     x: Number(device.x) || 0,
     y: Number(device.y) || 0,
@@ -523,6 +525,8 @@ function normalizeVisualCard(card, index) {
 function normalizeWire(wire) {
   return {
     id: String(wire.id),
+    sourceKind: wire.sourceKind || "",
+    sourceId: wire.sourceId || wire.id || "",
     fromDeviceId: wire.fromDeviceId ? String(wire.fromDeviceId) : "",
     toDeviceId: wire.toDeviceId ? String(wire.toDeviceId) : "",
     fromConnectorId: wire.fromConnectorId ? String(wire.fromConnectorId) : "",

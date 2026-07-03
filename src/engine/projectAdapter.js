@@ -53,6 +53,8 @@ export function generateSyntheticProject({ deviceCount = 100, wireCount = 300 } 
     const row = Math.floor(index / columns);
     devices.push({
       id: `device-${index}`,
+      sourceKind: "device",
+      sourceId: `device-${index}`,
       x: col * stepX,
       y: row * stepY,
       width: 122,
@@ -72,6 +74,8 @@ export function generateSyntheticProject({ deviceCount = 100, wireCount = 300 } 
     if (fromIndex === toIndex) continue;
     wires.push({
       id: `wire-${index}`,
+      sourceKind: "connection",
+      sourceId: `wire-${index}`,
       fromDeviceId: `device-${fromIndex}`,
       toDeviceId: `device-${toIndex}`,
       fromConnectorId: `out-${(index % 4) + 1}`,
@@ -207,6 +211,9 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
   return {
     devices: allDevices,
     wires,
+    // Keep an untouched copy beside the render graph. The mutation adapter is
+    // the only prototype module allowed to write back into this project copy.
+    projectData: deepClone(data),
     meta: {
       dataSource: loadMeta.dataSource || "Loaded project",
       sourceName: loadMeta.sourceName || root.projectName || data?.projectName || "Project data",
@@ -217,6 +224,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
       jumpNodes: jumpDevices.length,
       ledSurfaces: surfaceDevices.length,
       projectName: root.projectName || data?.projectName || "",
+      projectRootKind: data?.state ? "state" : data?.project ? "project" : "root",
       fullProjectAdapter: true,
       ...stats
     }
@@ -275,6 +283,8 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
   const visual = normalizeDeviceVisualMetadata(template, instance, width, height);
   return {
     id,
+    sourceKind: "device",
+    sourceId: id,
     kind: template.isAdapterBreakout ? "adapter" : "device",
     x: finiteNumber(instance.x, 0),
     y: finiteNumber(instance.y, 0),
@@ -436,6 +446,8 @@ function normalizeJumpNodes(jumpNodes) {
     const id = String(node.id || `jump-${index}`);
     return {
       id,
+      sourceKind: "jumpNode",
+      sourceId: id,
       kind: "jump",
       x: finiteNumber(node.x, 0) - JUMP_NODE_SIZE / 2,
       y: finiteNumber(node.y, 0) - JUMP_NODE_SIZE / 2,
@@ -469,6 +481,8 @@ function normalizeLedSurfaces(surfaces) {
     const height = positiveNumber(surface.height) || positiveNumber(surface.naturalHeight) || SURFACE_FALLBACK_HEIGHT;
     return {
       id: String(surface.id || `led-${index}`),
+      sourceKind: "ledSurface",
+      sourceId: String(surface.id || `led-${index}`),
       kind: "surface",
       x: finiteNumber(surface.x, 0),
       y: finiteNumber(surface.y, 0),
@@ -509,6 +523,8 @@ function normalizeProjectWire(wire, index, context) {
   const cableType = String(wire.cableType || wire.type || "");
   return {
     id: String(wire.id || `project-wire-${index}`),
+    sourceKind: "connection",
+    sourceId: String(wire.id || `project-wire-${index}`),
     fromDeviceId: from.deviceId,
     toDeviceId: to.deviceId,
     fromConnectorId: from.connectorId,
@@ -526,6 +542,10 @@ function normalizeProjectWire(wire, index, context) {
     label: wire.label || cableType || `Wire ${index + 1}`,
     cableType
   };
+}
+
+function deepClone(value) {
+  return value == null ? value : JSON.parse(JSON.stringify(value));
 }
 
 function normalizeEndpoint(endpoint, end, wire, context) {
