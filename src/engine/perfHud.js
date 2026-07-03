@@ -30,6 +30,7 @@ export class PerfHud {
     const rows = [
       ["devices", this.sceneStats.devices],
       ["wires", this.sceneStats.wires],
+      ["routed", this.sceneStats.routed || 0],
       ["selected", this.sceneStats.selected || 0],
       ["fps", this.metrics.get("fps") || 0],
       ["render", this.metrics.get("render") || "-"],
@@ -44,6 +45,10 @@ export class PerfHud {
       ["drag draw", this.metrics.get("dragDraw") || "-"],
       ["drop commit", this.metrics.get("dropCommit") || "-"],
       ["dirty update", this.metrics.get("dirty update") || "-"],
+      ["dirty counts", this.metrics.get("dirty counts") || "-"],
+      ["GPU update", this.metrics.get("gpu update") || "-"],
+      ["full rebuilds", this.metrics.get("full rebuilds") || "-"],
+      ["range updates", this.metrics.get("range updates") || "-"],
       ["skipped", this.metrics.get("skipped") || "-"],
       ["benchmark", this.metrics.get("benchmark") || "-"]
     ];

@@ -32,23 +32,92 @@
 
     .shell {
       display: grid;
-      grid-template-rows: auto 1fr;
+      grid-template-rows: auto auto 1fr;
       height: 100vh;
+    }
+
+    .prototype-banner {
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) auto;
+      gap: 14px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(90deg, rgba(50, 182, 255, .16), transparent 38%), #101922;
+    }
+
+    .prototype-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 5px;
+    }
+
+    .prototype-title h1 {
+      margin: 0;
+      font-size: 21px;
+      letter-spacing: .01em;
+    }
+
+    .prototype-note {
+      margin: 0;
+      max-width: 980px;
+      color: var(--muted);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 3px 9px;
+      border: 1px solid rgba(50, 182, 255, .45);
+      border-radius: 999px;
+      color: var(--blue);
+      background: rgba(50, 182, 255, .1);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .badge.orange {
+      border-color: rgba(255, 121, 4, .55);
+      color: var(--orange);
+      background: rgba(255, 121, 4, .12);
+    }
+
+    .status-strip {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 7px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
     }
 
     .toolbar {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 10px 12px;
+      padding: 9px 12px;
       border-bottom: 1px solid var(--line);
       background: var(--panel);
       white-space: nowrap;
+      overflow-x: auto;
     }
 
     .toolbar strong {
-      margin-right: 12px;
+      margin-right: 6px;
       font-size: 14px;
+    }
+
+    .toolbar .group {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding-right: 8px;
+      border-right: 1px solid rgba(255, 255, 255, .11);
     }
 
     button,
@@ -69,6 +138,24 @@
 
     button:hover {
       border-color: var(--blue);
+    }
+
+    label.toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 8px;
+      border: 1px solid #314253;
+      border-radius: 999px;
+      background: rgba(17, 25, 34, .9);
+      color: var(--muted);
+      font-size: 12px;
+      user-select: none;
+    }
+
+    label.toggle input {
+      margin: 0;
+      accent-color: var(--blue);
     }
 
     .canvas-wrap {
@@ -111,8 +198,8 @@
       position: absolute;
       top: 12px;
       right: 12px;
-      min-width: 260px;
-      max-width: 320px;
+      min-width: 285px;
+      max-width: 340px;
       padding: 10px 12px;
       border: 1px solid rgba(50, 182, 255, .35);
       border-radius: 8px;
@@ -125,12 +212,22 @@
       z-index: 3;
     }
 
-    .hud h2 {
+    .hud h2,
+    .adapter-debug h2,
+    .error-panel h2 {
       margin: 0 0 8px;
-      color: var(--blue);
       font-size: 12px;
       letter-spacing: .12em;
       text-transform: uppercase;
+    }
+
+    .hud h2 {
+      color: var(--blue);
+    }
+
+    .adapter-debug h2,
+    .error-panel h2 {
+      color: var(--orange);
     }
 
     .hud-row {
@@ -145,11 +242,84 @@
       border-top: 0;
     }
 
+    .hud.hidden,
+    .adapter-debug.hidden,
+    .error-panel.hidden {
+      display: none;
+    }
+
+    .adapter-debug {
+      position: absolute;
+      left: 12px;
+      top: 12px;
+      width: min(440px, calc(100vw - 380px));
+      max-height: calc(100vh - 210px);
+      overflow: auto;
+      padding: 10px 12px;
+      border: 1px solid rgba(255, 121, 4, .45);
+      border-radius: 8px;
+      background: rgba(13, 20, 26, .88);
+      backdrop-filter: blur(8px);
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      z-index: 3;
+    }
+
+    .debug-grid {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 2px 12px;
+    }
+
+    .debug-grid div {
+      border-top: 1px solid rgba(255, 255, 255, .065);
+      padding: 3px 0;
+    }
+
+    .debug-grid div:nth-child(odd) {
+      color: var(--muted);
+    }
+
+    .testing-guide {
+      margin-top: 10px;
+      padding-top: 9px;
+      border-top: 1px solid rgba(255, 255, 255, .1);
+      color: var(--muted);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 12px;
+    }
+
+    .testing-guide strong {
+      color: var(--text);
+    }
+
+    .testing-guide ol {
+      margin: 6px 0 0 18px;
+      padding: 0;
+    }
+
+    .error-panel {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: min(680px, calc(100vw - 40px));
+      padding: 14px 16px;
+      border: 1px solid rgba(255, 85, 85, .7);
+      border-radius: 8px;
+      background: rgba(25, 10, 12, .94);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, .45);
+      color: #ffd8d8;
+      z-index: 5;
+      white-space: pre-wrap;
+    }
+
     .hint {
       position: absolute;
       left: 12px;
       bottom: 12px;
-      max-width: 620px;
+      max-width: 650px;
       padding: 8px 10px;
       border: 1px solid rgba(255, 255, 255, .12);
       border-radius: 6px;
@@ -158,30 +328,80 @@
       pointer-events: none;
       z-index: 3;
     }
+
+    @media (max-width: 1100px) {
+      .prototype-banner {
+        grid-template-columns: 1fr;
+      }
+
+      .status-strip {
+        justify-content: flex-start;
+      }
+
+      .adapter-debug {
+        width: min(390px, calc(100vw - 24px));
+      }
+    }
   </style>
 </head>
 <body>
   <div class="shell">
+    <section class="prototype-banner">
+      <div>
+        <div class="prototype-title">
+          <h1>AV Designer Engine Prototype</h1>
+          <span class="badge orange">Not production renderer</span>
+          <span class="badge">WebGL2 engine</span>
+        </div>
+        <p class="prototype-note">
+          Isolated performance prototype for proving real AV Designer project loading, connector-aware wires, route points, jump nodes, LED surfaces, and dirty GPU updates.
+        </p>
+      </div>
+      <div id="prototypeStatus" class="status-strip">
+        <span class="badge">branch: engine-prototype</span>
+        <span class="badge">base: 132a130</span>
+        <span class="badge orange">source: starting...</span>
+      </div>
+    </section>
     <div class="toolbar">
-      <strong>Engine Prototype</strong>
-      <button class="primary" data-generate="small">100 / 300</button>
-      <button class="primary" data-generate="medium">1k / 5k</button>
-      <button class="primary" data-generate="large">5k / 20k</button>
-      <button id="select20">Select 20</button>
-      <button id="bench1">Benchmark Drag 1</button>
-      <button id="bench20">Benchmark Drag 20</button>
-      <button id="fitView">Fit</button>
+      <strong>Test Controls</strong>
+      <span class="group">
+        <button class="primary" data-generate="small">Generate 100 / 300</button>
+        <button class="primary" data-generate="medium">Generate 1k / 5k</button>
+        <button class="primary" data-generate="large">Generate 5k / 20k</button>
+      </span>
+      <span class="group">
+        <button id="select20">Select 20</button>
+        <button id="bench1">Benchmark Drag 1</button>
+        <button id="bench20">Benchmark Drag 20</button>
+        <button id="fitView">Reset Camera</button>
+      </span>
       <label>
         Load .avd/.json
         <input id="fileInput" type="file" accept=".avd,.json,application/json">
       </label>
+      <span class="group" id="debugToggles">
+        <label class="toggle"><input type="checkbox" data-toggle="labels" checked>Labels</label>
+        <label class="toggle"><input type="checkbox" data-toggle="wires" checked>Wires</label>
+        <label class="toggle"><input type="checkbox" data-toggle="connectorMarkers" checked>Connectors</label>
+        <label class="toggle"><input type="checkbox" data-toggle="connectorColors" checked>Colors</label>
+        <label class="toggle"><input type="checkbox" data-toggle="routePoints" checked>Route points</label>
+        <label class="toggle"><input type="checkbox" data-toggle="jumpNodes" checked>Jump nodes</label>
+        <label class="toggle"><input type="checkbox" data-toggle="ledSurfaces" checked>LED surfaces</label>
+        <label class="toggle"><input type="checkbox" data-toggle="highlightFallback">Fallback endpoints</label>
+        <label class="toggle"><input type="checkbox" data-toggle="highlightReal">Real endpoints</label>
+        <label class="toggle"><input type="checkbox" data-toggle="highlightRouted">Routed wires</label>
+        <label class="toggle"><input type="checkbox" data-toggle="hud" checked>Performance HUD</label>
+      </span>
     </div>
     <div class="canvas-wrap">
       <canvas id="engineCanvas"></canvas>
       <canvas id="labelCanvas"></canvas>
+      <div id="adapterDebug" class="adapter-debug"></div>
       <div id="perfHud" class="hud"></div>
+      <div id="errorPanel" class="error-panel hidden"></div>
       <div class="hint">
-        Wheel zooms, middle mouse pans, click a device to select, Shift-click adds/removes, drag selected devices as one group.
+        This page is the isolated WebGL prototype, not index.html. Wheel zooms, middle mouse pans, click a device to select, Shift-click adds/removes, drag selected devices as one group.
       </div>
     </div>
   </div>
@@ -189,17 +409,41 @@
   <script type="module">
     import { createEnginePrototype } from "./src/engine/prototypeApp.js";
 
-    createEnginePrototype({
-      canvas: document.getElementById("engineCanvas"),
-      labelCanvas: document.getElementById("labelCanvas"),
-      hud: document.getElementById("perfHud"),
-      fileInput: document.getElementById("fileInput"),
-      select20Button: document.getElementById("select20"),
-      fitButton: document.getElementById("fitView"),
-      bench1Button: document.getElementById("bench1"),
-      bench20Button: document.getElementById("bench20"),
-      generateButtons: [...document.querySelectorAll("[data-generate]")]
-    });
+    const errorPanel = document.getElementById("errorPanel");
+    const showError = error => {
+      const message = error?.stack || error?.message || String(error);
+      console.error("[engine prototype] fatal", error);
+      errorPanel.classList.remove("hidden");
+      errorPanel.innerHTML = `<h2>Prototype Error</h2>${message}`;
+    };
+    window.addEventListener("error", event => showError(event.error || event.message));
+    window.addEventListener("unhandledrejection", event => showError(event.reason));
+
+    try {
+      const app = createEnginePrototype({
+        canvas: document.getElementById("engineCanvas"),
+        labelCanvas: document.getElementById("labelCanvas"),
+        hud: document.getElementById("perfHud"),
+        adapterDebug: document.getElementById("adapterDebug"),
+        status: document.getElementById("prototypeStatus"),
+        errorPanel,
+        toggles: [...document.querySelectorAll("[data-toggle]")],
+        fileInput: document.getElementById("fileInput"),
+        select20Button: document.getElementById("select20"),
+        fitButton: document.getElementById("fitView"),
+        bench1Button: document.getElementById("bench1"),
+        bench20Button: document.getElementById("bench20"),
+        generateButtons: [...document.querySelectorAll("[data-generate]")]
+      });
+      console.info("[engine prototype] page loaded", {
+        branch: "engine-prototype",
+        baseCommit: "132a130",
+        renderer: "WebGL2 engine",
+        app
+      });
+    } catch (error) {
+      showError(error);
+    }
   </script>
 </body>
 </html>

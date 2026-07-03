@@ -4,6 +4,25 @@ const PORT_COLOR = "#32b6ff";
 const WIRE_FALLBACK = "#32b6ff";
 const GRID_MINOR = "rgba(255,255,255,.055)";
 const GRID_MAJOR = "rgba(255,255,255,.12)";
+const ROUTE_POINT_COLOR = "#ff7904";
+const FALLBACK_WIRE_COLOR = "#ff4f5f";
+const REAL_ENDPOINT_WIRE_COLOR = "#32b6ff";
+const ROUTED_WIRE_COLOR = "#ff7904";
+
+const DEFAULT_RENDER_OPTIONS = {
+  labels: true,
+  wires: true,
+  connectorMarkers: true,
+  connectorColors: true,
+  routePoints: true,
+  jumpNodes: true,
+  ledSurfaces: true,
+  highlightFallback: false,
+  highlightReal: false,
+  highlightRouted: false,
+  dirtyDeviceIds: new Set(),
+  dirtyWireIds: new Set()
+};
 
 export class WebglGraphRenderer {
   constructor(canvas, labelCanvas = null) {
@@ -28,11 +47,29 @@ export class WebglGraphRenderer {
     this.gridVertexCount = 0;
     this.wireVertexMap = new Map();
     this.deviceVertexMap = new Map();
+    this.wireRangeMap = new Map();
+    this.deviceRangeMap = new Map();
+    this.staticWireArray = new Float32Array();
+    this.staticDeviceArray = new Float32Array();
+    this.renderOptions = { ...DEFAULT_RENDER_OPTIONS };
+    this.fullRebuildCount = 0;
+    this.rangeUpdateCount = 0;
+    this.lastStaticStats = null;
+    this.lastDirtyStats = null;
     this.program = createProgram(this.gl, vertexSource, fragmentSource);
     this.positionLocation = this.gl.getAttribLocation(this.program, "a_position");
     this.colorLocation = this.gl.getAttribLocation(this.program, "a_color");
     this.viewLocation = this.gl.getUniformLocation(this.program, "u_view");
     this.resolution = { width: 1, height: 1 };
+  }
+
+  setRenderOptions(options = {}) {
+    this.renderOptions = {
+      ...this.renderOptions,
+      ...options,
+      dirtyDeviceIds: options.dirtyDeviceIds || this.renderOptions.dirtyDeviceIds || new Set(),
+      dirtyWireIds: options.dirtyWireIds || this.renderOptions.dirtyWireIds || new Set()
+    };
   }
 
   resize() {
@@ -56,27 +93,39 @@ export class WebglGraphRenderer {
     const start = performance.now();
     this.wireVertexMap.clear();
     this.deviceVertexMap.clear();
+    this.wireRangeMap.clear();
+    this.deviceRangeMap.clear();
     const geometryStart = performance.now();
     // Static geometry is built once per scene load. Pan/zoom/drag must not
     // rebuild this path; otherwise large real projects stutter badly.
     scene.wires.forEach(wire => {
-      this.wireVertexMap.set(wire.id, verticesForWire(scene, wire, null, 2.2, wire.color || WIRE_FALLBACK));
+      this.wireVertexMap.set(wire.id, verticesForWire(scene, wire, null, 2.2, wireColor(wire, this.renderOptions), this.renderOptions));
     });
     scene.devices.forEach(device => {
-      this.deviceVertexMap.set(device.id, verticesForDevice(device, null));
+      this.deviceVertexMap.set(device.id, verticesForDevice(device, null, this.renderOptions));
     });
     const geometryMs = performance.now() - geometryStart;
     const uploadStart = performance.now();
-    this.staticWireVertexCount = upload(this.gl, this.staticWireBuffer, flattenVertexMap(this.wireVertexMap));
-    this.staticDeviceVertexCount = upload(this.gl, this.staticDeviceBuffer, flattenVertexMap(this.deviceVertexMap));
+    const wirePack = packVertexMap(this.wireVertexMap);
+    const devicePack = packVertexMap(this.deviceVertexMap);
+    this.staticWireArray = wirePack.array;
+    this.staticDeviceArray = devicePack.array;
+    this.wireRangeMap = wirePack.ranges;
+    this.deviceRangeMap = devicePack.ranges;
+    this.staticWireVertexCount = uploadArray(this.gl, this.staticWireBuffer, this.staticWireArray);
+    this.staticDeviceVertexCount = uploadArray(this.gl, this.staticDeviceBuffer, this.staticDeviceArray);
     const uploadMs = performance.now() - uploadStart;
-    return {
+    this.fullRebuildCount += 1;
+    this.lastStaticStats = {
       totalMs: performance.now() - start,
       geometryMs,
       uploadMs,
       wireVertices: this.staticWireVertexCount,
-      deviceVertices: this.staticDeviceVertexCount
+      deviceVertices: this.staticDeviceVertexCount,
+      fullRebuildCount: this.fullRebuildCount,
+      rangeUpdateCount: this.rangeUpdateCount
     };
+    return this.lastStaticStats;
   }
 
   updateDirty(scene, { deviceIds = [], wireIds = [] } = {}) {
@@ -84,28 +133,72 @@ export class WebglGraphRenderer {
     const geometryStart = performance.now();
     // Only refresh objects whose underlying project data changed. This keeps
     // drop/connection work away from the old full-scene geometry rebuild.
+    let fallbackRebuild = false;
+    let deviceRangeUpdates = 0;
+    let wireRangeUpdates = 0;
+    let rangeUploadMs = 0;
     deviceIds.forEach(id => {
       const device = scene.getDevice(id);
-      if (device) this.deviceVertexMap.set(id, verticesForDevice(device, null));
-      else this.deviceVertexMap.delete(id);
+      const next = device ? verticesForDevice(device, null, this.renderOptions) : [];
+      const range = this.deviceRangeMap.get(id);
+      if (!device) {
+        fallbackRebuild = true;
+        this.deviceVertexMap.delete(id);
+        return;
+      }
+      if (!range || range.count !== next.length) {
+        fallbackRebuild = true;
+      } else {
+        this.deviceVertexMap.set(id, next);
+        this.staticDeviceArray.set(next, range.offset);
+        const subUploadStart = performance.now();
+        subUpload(this.gl, this.staticDeviceBuffer, range.offset, next);
+        rangeUploadMs += performance.now() - subUploadStart;
+        deviceRangeUpdates += 1;
+      }
     });
     wireIds.forEach(id => {
       const wire = scene.getWire(id);
-      if (wire) this.wireVertexMap.set(id, verticesForWire(scene, wire, null, 2.2, wire.color || WIRE_FALLBACK));
-      else this.wireVertexMap.delete(id);
+      const next = wire ? verticesForWire(scene, wire, null, 2.2, wireColor(wire, this.renderOptions), this.renderOptions) : [];
+      const range = this.wireRangeMap.get(id);
+      if (!wire) {
+        fallbackRebuild = true;
+        this.wireVertexMap.delete(id);
+        return;
+      }
+      if (!range || range.count !== next.length) {
+        fallbackRebuild = true;
+      } else {
+        this.wireVertexMap.set(id, next);
+        this.staticWireArray.set(next, range.offset);
+        const subUploadStart = performance.now();
+        subUpload(this.gl, this.staticWireBuffer, range.offset, next);
+        rangeUploadMs += performance.now() - subUploadStart;
+        wireRangeUpdates += 1;
+      }
     });
     const geometryMs = performance.now() - geometryStart;
     const uploadStart = performance.now();
-    if (wireIds.length) this.staticWireVertexCount = upload(this.gl, this.staticWireBuffer, flattenVertexMap(this.wireVertexMap));
-    if (deviceIds.length) this.staticDeviceVertexCount = upload(this.gl, this.staticDeviceBuffer, flattenVertexMap(this.deviceVertexMap));
-    const uploadMs = performance.now() - uploadStart;
-    return {
+    let fallbackStats = null;
+    if (fallbackRebuild) fallbackStats = this.setStaticScene(scene);
+    const uploadMs = rangeUploadMs + (performance.now() - uploadStart);
+    this.rangeUpdateCount += deviceRangeUpdates + wireRangeUpdates;
+    this.lastDirtyStats = {
       totalMs: performance.now() - start,
       geometryMs,
       uploadMs,
+      rangeUploadMs,
       dirtyDevices: deviceIds.length,
-      dirtyWires: wireIds.length
+      dirtyWires: wireIds.length,
+      deviceRangeUpdates,
+      wireRangeUpdates,
+      rangeUpdates: deviceRangeUpdates + wireRangeUpdates,
+      fallbackRebuild,
+      fallbackStats,
+      fullRebuildCount: this.fullRebuildCount,
+      rangeUpdateCount: this.rangeUpdateCount
     };
+    return this.lastDirtyStats;
   }
 
   draw(scene, camera, options = {}) {
@@ -116,8 +209,14 @@ export class WebglGraphRenderer {
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(this.program);
     gl.uniform4f(this.viewLocation, camera.x, camera.y, this.resolution.width / camera.zoom, this.resolution.height / camera.zoom);
+    const renderOptions = {
+      ...this.renderOptions,
+      ...options.renderOptions,
+      dirtyDeviceIds: options.renderOptions?.dirtyDeviceIds || this.renderOptions.dirtyDeviceIds || new Set(),
+      dirtyWireIds: options.renderOptions?.dirtyWireIds || this.renderOptions.dirtyWireIds || new Set()
+    };
     this.drawGrid(camera);
-    this.drawBuffer(this.staticWireBuffer, this.staticWireVertexCount);
+    if (renderOptions.wires) this.drawBuffer(this.staticWireBuffer, this.staticWireVertexCount);
     this.drawBuffer(this.staticDeviceBuffer, this.staticDeviceVertexCount);
     const liveVertices = [];
     const dragSession = options.dragSession || null;
@@ -127,21 +226,29 @@ export class WebglGraphRenderer {
       // overlay. The cached static scene remains visible for everything else.
       dragSession.affectedWireIds.forEach(wireId => {
         const wire = scene.getWire(wireId);
-        if (wire) pushWire(liveVertices, scene, wire, offsets, 3.2, wire.color || WIRE_FALLBACK);
+        if (wire && renderOptions.wires) pushWire(liveVertices, scene, wire, offsets, 3.2, wireColor(wire, renderOptions), renderOptions);
       });
       dragSession.selectedIds.forEach(id => {
         const device = scene.getDevice(id);
-        if (device) pushDevice(liveVertices, device, offsets, true);
+        if (device) pushDevice(liveVertices, device, offsets, true, renderOptions);
       });
     } else {
       (options.selectedIds || new Set()).forEach(id => {
         const device = scene.getDevice(id);
         if (device) pushSelectionOutline(liveVertices, device, null);
       });
+      (renderOptions.dirtyWireIds || new Set()).forEach(id => {
+        const wire = scene.getWire(id);
+        if (wire && renderOptions.wires) pushWire(liveVertices, scene, wire, null, 4.4, "#ff7904", { ...renderOptions, routePoints: false });
+      });
+      (renderOptions.dirtyDeviceIds || new Set()).forEach(id => {
+        const device = scene.getDevice(id);
+        if (device) pushSelectionOutline(liveVertices, device, null);
+      });
     }
     this.liveVertexCount = upload(gl, this.liveBuffer, liveVertices);
     this.drawBuffer(this.liveBuffer, this.liveVertexCount);
-    this.drawLabels(scene, camera, options);
+    this.drawLabels(scene, camera, { ...options, renderOptions });
     return performance.now() - start;
   }
 
@@ -151,6 +258,8 @@ export class WebglGraphRenderer {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, this.resolution.width, this.resolution.height);
+    const renderOptions = options.renderOptions || this.renderOptions;
+    if (!renderOptions.labels) return;
     if (camera.zoom < 0.08) return;
     const view = {
       x: camera.x,
@@ -165,12 +274,12 @@ export class WebglGraphRenderer {
     const drawn = new Set();
     visible.forEach(device => {
       drawn.add(device.id);
-      drawDeviceLabel(ctx, device, camera, offsets);
+      if (deviceVisible(device, renderOptions)) drawDeviceLabel(ctx, device, camera, offsets);
     });
     (options.selectedIds || new Set()).forEach(id => {
       if (drawn.has(id)) return;
       const device = scene.getDevice(id);
-      if (device) drawDeviceLabel(ctx, device, camera, offsets);
+      if (device && deviceVisible(device, renderOptions)) drawDeviceLabel(ctx, device, camera, offsets);
     });
   }
 
@@ -213,24 +322,37 @@ function adaptiveGridStep(zoom) {
   return step;
 }
 
-function pushDevice(vertices, device, offsets = null, selected = false) {
+function pushDevice(vertices, device, offsets = null, selected = false, options = DEFAULT_RENDER_OPTIONS) {
+  if (!deviceVisible(device, options)) return;
   const offset = offsets?.get(device.id);
   const x = device.x + (offset?.dx || 0);
   const y = device.y + (offset?.dy || 0);
   if (selected) pushSelectionOutline(vertices, device, offsets);
-  pushRect(vertices, x, y, device.width, device.height, device.color || DEVICE_FILL);
+  const fill = device.kind === "jump"
+    ? "#10243a"
+    : device.kind === "surface"
+      ? "rgba(75, 75, 75, .72)"
+      : device.color || DEVICE_FILL;
+  pushRect(vertices, x, y, device.width, device.height, fill);
+  if (device.kind === "adapter") {
+    pushLine(vertices, { x, y }, { x: x + device.width, y }, 3, "#32b6ff");
+    pushLine(vertices, { x: x + device.width, y }, { x: x + device.width, y: y + device.height }, 3, "#32b6ff");
+    pushLine(vertices, { x: x + device.width, y: y + device.height }, { x, y: y + device.height }, 3, "#32b6ff");
+    pushLine(vertices, { x, y: y + device.height }, { x, y }, 3, "#32b6ff");
+    return;
+  }
   pushLine(vertices, { x, y }, { x: x + device.width, y }, 2.2, "#dbe7f3");
   pushLine(vertices, { x: x + device.width, y }, { x: x + device.width, y: y + device.height }, 2.2, "#dbe7f3");
   pushLine(vertices, { x: x + device.width, y: y + device.height }, { x, y: y + device.height }, 2.2, "#dbe7f3");
   pushLine(vertices, { x, y: y + device.height }, { x, y }, 2.2, "#dbe7f3");
-  if (device.connectors?.length) {
+  if (options.connectorMarkers && device.connectors?.length) {
     device.connectors.forEach(connector => {
       const px = x + connector.x;
       const py = y + connector.y;
       const size = device.kind === "jump" ? 13 : 8;
-      pushRect(vertices, px - size / 2, py - size / 2, size, size, connector.color || PORT_COLOR);
+      pushRect(vertices, px - size / 2, py - size / 2, size, size, options.connectorColors ? connector.color || PORT_COLOR : PORT_COLOR);
     });
-  } else {
+  } else if (options.connectorMarkers) {
     for (let index = 0; index < device.portCount; index += 1) {
       const py = y + device.height * ((index + 1) / (device.portCount + 1));
       pushRect(vertices, x - 4, py - 4, 8, 8, PORT_COLOR);
@@ -251,29 +373,45 @@ function pushSelectionOutline(vertices, device, offsets = null) {
   pushLine(vertices, { x, y: y + h }, { x, y }, 4, DEVICE_SELECTED);
 }
 
-function pushWire(vertices, scene, wire, offsets, width, color) {
+function pushWire(vertices, scene, wire, offsets, width, color, options = DEFAULT_RENDER_OPTIONS) {
   const points = scene.wirePoints(wire, offsets);
   for (let index = 1; index < points.length; index += 1) {
     pushLine(vertices, points[index - 1], points[index], width, color);
   }
+  if (options.routePoints && wire.routePoints?.length) {
+    const routeOffset = scene.routePointOffsetForWire(wire, offsets);
+    wire.routePoints.forEach(point => {
+      pushRect(vertices, point.x + routeOffset.dx - 4, point.y + routeOffset.dy - 4, 8, 8, ROUTE_POINT_COLOR);
+    });
+  }
 }
 
-function verticesForDevice(device, offsets = null) {
+function verticesForDevice(device, offsets = null, options = DEFAULT_RENDER_OPTIONS) {
   const vertices = [];
-  pushDevice(vertices, device, offsets);
+  pushDevice(vertices, device, offsets, false, options);
   return vertices;
 }
 
-function verticesForWire(scene, wire, offsets = null, width = 2.2, color = WIRE_FALLBACK) {
+function verticesForWire(scene, wire, offsets = null, width = 2.2, color = WIRE_FALLBACK, options = DEFAULT_RENDER_OPTIONS) {
   const vertices = [];
-  pushWire(vertices, scene, wire, offsets, width, color);
+  pushWire(vertices, scene, wire, offsets, width, color, options);
   return vertices;
 }
 
-function flattenVertexMap(map) {
-  const vertices = [];
-  map.forEach(chunk => vertices.push(...chunk));
-  return vertices;
+function packVertexMap(map) {
+  let total = 0;
+  map.forEach(chunk => {
+    total += chunk.length;
+  });
+  const array = new Float32Array(total);
+  const ranges = new Map();
+  let offset = 0;
+  map.forEach((chunk, id) => {
+    array.set(chunk, offset);
+    ranges.set(id, { offset, count: chunk.length });
+    offset += chunk.length;
+  });
+  return { array, ranges };
 }
 
 function drawDeviceLabel(ctx, device, camera, offsets = null) {
@@ -331,6 +469,30 @@ function upload(gl, buffer, vertices) {
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
   return vertices.length / 6;
+}
+
+function uploadArray(gl, buffer, vertices) {
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
+  return vertices.length / 6;
+}
+
+function subUpload(gl, buffer, floatOffset, vertices) {
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bufferSubData(gl.ARRAY_BUFFER, floatOffset * 4, new Float32Array(vertices));
+}
+
+function deviceVisible(device, options = DEFAULT_RENDER_OPTIONS) {
+  if (device.kind === "jump" && !options.jumpNodes) return false;
+  if (device.kind === "surface" && !options.ledSurfaces) return false;
+  return true;
+}
+
+function wireColor(wire, options = DEFAULT_RENDER_OPTIONS) {
+  if (options.highlightRouted && wire.routePoints?.length) return ROUTED_WIRE_COLOR;
+  if (options.highlightFallback && wire.hasFallbackEndpoint) return FALLBACK_WIRE_COLOR;
+  if (options.highlightReal && wire.usesRealConnectorEndpoints) return REAL_ENDPOINT_WIRE_COLOR;
+  return wire.color || WIRE_FALLBACK;
 }
 
 function parseColor(value) {

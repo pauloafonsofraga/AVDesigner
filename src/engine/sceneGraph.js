@@ -29,6 +29,27 @@ export class SceneGraph {
     this.dirtyTextures.clear();
   }
 
+  adapterStats() {
+    const connectorCount = this.devices.reduce((total, device) => total + device.connectors.length, 0);
+    const routedWires = this.wires.filter(wire => wire.routePoints.length).length;
+    const realEndpointWires = this.wires.filter(wire => wire.usesRealConnectorEndpoints).length;
+    const fallbackEndpointWires = this.wires.filter(wire => wire.hasFallbackEndpoint).length;
+    return {
+      connectorCount,
+      routedWires,
+      realEndpointWires,
+      fallbackEndpointWires,
+      jumpNodes: this.devices.filter(device => device.kind === "jump").length,
+      ledSurfaces: this.devices.filter(device => device.kind === "surface").length,
+      devicesUsingRealSize: this.devices.filter(device => device.usesRealSize).length,
+      devicesUsingFallbackSize: this.devices.filter(device => device.usesFallbackSize).length,
+      connectorColorsMapped: this.devices.reduce((total, device) => (
+        total + device.connectors.filter(connector => connector.colorMapped).length
+      ), 0),
+      labelsMapped: this.devices.filter(device => device.labelMapped).length
+    };
+  }
+
   rebuildWireIndex() {
     this.wireIdsByDeviceId.clear();
     this.wires.forEach(wire => {
@@ -216,6 +237,9 @@ function normalizeDevice(device) {
     width: Math.max(40, Number(device.width) || 120),
     height: Math.max(28, Number(device.height) || 58),
     label: device.label || device.name || String(device.id),
+    labelMapped: Boolean(device.labelMapped || device.label || device.name),
+    usesRealSize: Boolean(device.usesRealSize),
+    usesFallbackSize: Boolean(device.usesFallbackSize),
     color: device.color || "#182531",
     connectors,
     connectorsById: new Map(connectors.map(connector => [connector.id, connector])),
@@ -239,6 +263,10 @@ function normalizeWire(wire) {
         .map(point => ({ x: Number(point.x), y: Number(point.y) }))
         .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y))
       : [],
+    fromUsesRealConnector: Boolean(wire.fromUsesRealConnector),
+    toUsesRealConnector: Boolean(wire.toUsesRealConnector),
+    usesRealConnectorEndpoints: Boolean(wire.usesRealConnectorEndpoints),
+    hasFallbackEndpoint: Boolean(wire.hasFallbackEndpoint),
     color: wire.color || "#32b6ff",
     label: wire.label || wire.cableType || String(wire.id),
     cableType: wire.cableType || ""
@@ -257,6 +285,7 @@ function normalizeConnector(connector, index) {
     side: connector.side || (connector.direction === "input" ? "left" : connector.direction === "output" ? "right" : "center"),
     x: Number.isFinite(x) ? x : 0,
     y: Number.isFinite(y) ? y : 0,
-    color: connector.color || "#32b6ff"
+    color: connector.color || "#32b6ff",
+    colorMapped: Boolean(connector.colorMapped)
   };
 }

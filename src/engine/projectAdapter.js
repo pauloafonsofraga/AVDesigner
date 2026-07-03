@@ -58,7 +58,10 @@ export function generateSyntheticProject({ deviceCount = 100, wireCount = 300 } 
       width: 122,
       height: 58,
       portCount: 4,
-      label: `D${index + 1}`
+      label: `D${index + 1}`,
+      labelMapped: true,
+      usesRealSize: true,
+      usesFallbackSize: false
     });
   }
   for (let index = 0; index < wireCount; index += 1) {
@@ -74,7 +77,9 @@ export function generateSyntheticProject({ deviceCount = 100, wireCount = 300 } 
       toSide: "left",
       fromPortIndex: index % 4,
       toPortIndex: (index * 3) % 4,
-      color: WIRE_COLORS[index % WIRE_COLORS.length]
+      color: WIRE_COLORS[index % WIRE_COLORS.length],
+      usesRealConnectorEndpoints: false,
+      hasFallbackEndpoint: true
     });
   }
   console.info("[engine] synthetic project generated", {
@@ -82,16 +87,39 @@ export function generateSyntheticProject({ deviceCount = 100, wireCount = 300 } 
     wires: wires.length,
     ms: Math.round((performance.now() - buildStart) * 10) / 10
   });
-  return { devices, wires };
+  return {
+    devices,
+    wires,
+    meta: {
+      dataSource: "Synthetic",
+      sourceName: `${devices.length} devices / ${wires.length} wires`,
+      adapterMs: performance.now() - buildStart,
+      connectorCount: 0,
+      jumpNodes: 0,
+      ledSurfaces: 0,
+      routedWires: 0,
+      skippedWires: 0,
+      realEndpointWires: 0,
+      fallbackEndpointWires: wires.length,
+      devicesUsingRealSize: devices.length,
+      devicesUsingFallbackSize: 0,
+      connectorColorsMapped: 0,
+      labelsMapped: devices.length,
+      fullProjectAdapter: false
+    }
+  };
 }
 
 export async function loadProjectFile(file) {
   const text = await file.text();
   const data = JSON.parse(text);
-  return normalizeAvDesignerProject(data);
+  return normalizeAvDesignerProject(data, {
+    dataSource: /\.avd$/i.test(file.name || "") ? "Loaded .avd" : "Loaded JSON",
+    sourceName: file.name || "Loaded project"
+  });
 }
 
-export function normalizeAvDesignerProject(data) {
+export function normalizeAvDesignerProject(data, loadMeta = {}) {
   const adapterStart = performance.now();
   const root = data?.state || data?.project || data || {};
   const templates = collectTemplates(root, data);
@@ -108,11 +136,16 @@ export function normalizeAvDesignerProject(data) {
   const jumpNodeIds = new Set(jumpDevices.map(device => device.id));
   const surfaceIds = new Set(surfaceDevices.map(device => device.id));
   const deviceIds = new Set(allDevices.map(device => device.id));
+  const connectorIdsByDevice = new Map(allDevices.map(device => [
+    device.id,
+    new Set((device.connectors || []).map(connector => connector.id))
+  ]));
   const rawConnections = Array.isArray(root.connections) ? root.connections : [];
   const skipped = { wires: 0, devices: 0 };
   const wires = rawConnections.map((wire, index) => {
     const normalized = normalizeProjectWire(wire, index, {
       deviceIds,
+      connectorIdsByDevice,
       jumpNodeIds,
       surfaceIds,
       surfaceConnectionOrder,
@@ -123,17 +156,34 @@ export function normalizeAvDesignerProject(data) {
   }).filter(Boolean);
   if (!allDevices.length) return generateSyntheticProject(SIZE_PRESETS.small);
   const adapterMs = performance.now() - adapterStart;
+  const connectorCount = allDevices.reduce((total, device) => total + (device.connectors?.length || 0), 0);
+  const stats = {
+    connectorCount,
+    routedWires: wires.filter(wire => wire.routePoints?.length).length,
+    realEndpointWires: wires.filter(wire => wire.usesRealConnectorEndpoints).length,
+    fallbackEndpointWires: wires.filter(wire => wire.hasFallbackEndpoint).length,
+    devicesUsingRealSize: allDevices.filter(device => device.usesRealSize).length,
+    devicesUsingFallbackSize: allDevices.filter(device => device.usesFallbackSize).length,
+    connectorColorsMapped: allDevices.reduce((total, device) => (
+      total + (device.connectors || []).filter(connector => connector.colorMapped).length
+    ), 0),
+    labelsMapped: allDevices.filter(device => device.labelMapped).length
+  };
   return {
     devices: allDevices,
     wires,
     meta: {
+      dataSource: loadMeta.dataSource || "Loaded project",
+      sourceName: loadMeta.sourceName || root.projectName || data?.projectName || "Project data",
       adapterMs,
       skippedWires: skipped.wires,
       skippedDevices: skipped.devices,
       realDevices: devices.length,
       jumpNodes: jumpDevices.length,
       ledSurfaces: surfaceDevices.length,
-      projectName: root.projectName || data?.projectName || ""
+      projectName: root.projectName || data?.projectName || "",
+      fullProjectAdapter: true,
+      ...stats
     }
   };
 }
@@ -177,9 +227,12 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
     || templates.get(templateId)
     || templates.get(instance.templateName)
     || {};
-  const width = positiveNumber(instance.width) || positiveNumber(template.width) || DEFAULT_DEVICE_WIDTH;
-  const height = positiveNumber(instance.height) || positiveNumber(template.height) || DEFAULT_DEVICE_HEIGHT;
+  const widthSource = positiveNumber(instance.width) || positiveNumber(template.width);
+  const heightSource = positiveNumber(instance.height) || positiveNumber(template.height);
+  const width = widthSource || DEFAULT_DEVICE_WIDTH;
+  const height = heightSource || DEFAULT_DEVICE_HEIGHT;
   const id = String(instance.instanceId || instance.id || `project-device-${index}`);
+  const label = instance.name || template.name || template.model || `Device ${index + 1}`;
   const connectors = effectiveConnectorsForTemplate(template)
     .map(connector => applyInstanceConnectorOverride(instance, connector))
     .map((connector, connectorIndex) => normalizeConnector(connector, connectorIndex, width, nodeColorByType))
@@ -191,7 +244,10 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
     y: finiteNumber(instance.y, 0),
     width,
     height,
-    label: instance.name || template.name || template.model || `Device ${index + 1}`,
+    label,
+    labelMapped: Boolean(instance.name || template.name || template.model),
+    usesRealSize: Boolean(widthSource && heightSource),
+    usesFallbackSize: !(widthSource && heightSource),
     color: template.isAdapterBreakout ? "rgba(24,37,49,.34)" : "#182531",
     connectors,
     portCount: Math.max(1, connectors.length || 4),
@@ -253,15 +309,18 @@ function normalizeConnector(connector, index, deviceWidth, nodeColorByType) {
   const localY = Number.isFinite(Number(connector.y))
     ? Number(connector.y)
     : 34 + index * 18;
+  const type = String(connector.type || "");
+  const colorMapped = Boolean(connector.customColor || nodeColorByType.has(type) || NODE_TYPE_FALLBACKS.has(type));
   return {
     id: String(connector.id || `connector-${index}`),
-    type: String(connector.type || ""),
+    type,
     label: connector.nameText || connector.label || connector.type || `Connector ${index + 1}`,
     direction,
     side: direction === "input" ? "left" : direction === "output" ? "right" : localX <= deviceWidth / 2 ? "left" : "right",
     x: localX,
     y: localY,
-    color: connectorColor(connector, nodeColorByType)
+    color: connectorColor(connector, nodeColorByType),
+    colorMapped
   };
 }
 
@@ -283,6 +342,9 @@ function normalizeJumpNodes(jumpNodes) {
       width: JUMP_NODE_SIZE,
       height: JUMP_NODE_SIZE,
       label: node.label || "Jump",
+      labelMapped: Boolean(node.label),
+      usesRealSize: true,
+      usesFallbackSize: false,
       color: "#15344a",
       connectors: [{
         id: "jump-center",
@@ -292,7 +354,8 @@ function normalizeJumpNodes(jumpNodes) {
         side: "center",
         x: JUMP_NODE_SIZE / 2,
         y: JUMP_NODE_SIZE / 2,
-        color: "#ff7904"
+        color: "#ff7904",
+        colorMapped: true
       }],
       portCount: 1
     };
@@ -312,6 +375,9 @@ function normalizeLedSurfaces(surfaces) {
       width,
       height,
       label: surface.name || `LED Screen ${index + 1}`,
+      labelMapped: Boolean(surface.name),
+      usesRealSize: Boolean(positiveNumber(surface.width) && positiveNumber(surface.height)),
+      usesFallbackSize: !(positiveNumber(surface.width) && positiveNumber(surface.height)),
       color: "rgba(70, 70, 70, .65)",
       connectors: [],
       portCount: Math.max(1, Number(surface.signalSlots) || 1)
@@ -352,6 +418,10 @@ function normalizeProjectWire(wire, index, context) {
     fromPortIndex: from.portIndex ?? index % 4,
     toPortIndex: to.portIndex ?? (index * 3) % 4,
     routePoints: normalizeRoutePoints(wire.routePoints || wire.orthogonalRoutePoints),
+    fromUsesRealConnector: Boolean(from.usesRealConnector),
+    toUsesRealConnector: Boolean(to.usesRealConnector),
+    usesRealConnectorEndpoints: Boolean(from.usesRealConnector && to.usesRealConnector),
+    hasFallbackEndpoint: Boolean(!from.usesRealConnector || !to.usesRealConnector),
     color: wire.customColor || context.nodeColorByType.get(cableType) || WIRE_COLORS[index % WIRE_COLORS.length],
     label: wire.label || cableType || `Wire ${index + 1}`,
     cableType
@@ -361,10 +431,14 @@ function normalizeProjectWire(wire, index, context) {
 function normalizeEndpoint(endpoint, end, wire, context) {
   if (!endpoint) return null;
   if (endpoint.deviceId) {
+    const deviceId = String(endpoint.deviceId);
+    const connectorId = String(endpoint.connectorId || "");
+    const connectorIds = context.connectorIdsByDevice.get(deviceId);
     return {
-      deviceId: String(endpoint.deviceId),
-      connectorId: String(endpoint.connectorId || ""),
-      side: end === "from" ? "right" : "left"
+      deviceId,
+      connectorId,
+      side: end === "from" ? "right" : "left",
+      usesRealConnector: Boolean(connectorId && connectorIds?.has(connectorId))
     };
   }
   if (endpoint.jumpNodeId && context.jumpNodeIds.has(String(endpoint.jumpNodeId))) {
@@ -372,7 +446,8 @@ function normalizeEndpoint(endpoint, end, wire, context) {
       deviceId: String(endpoint.jumpNodeId),
       connectorId: "jump-center",
       side: "center",
-      portIndex: 0
+      portIndex: 0,
+      usesRealConnector: true
     };
   }
   if (endpoint.surfaceId && context.surfaceIds.has(String(endpoint.surfaceId))) {
@@ -383,7 +458,8 @@ function normalizeEndpoint(endpoint, end, wire, context) {
       deviceId: surfaceId,
       connectorId: `surface-port-${wire.id || portIndex}`,
       side: "left",
-      portIndex
+      portIndex,
+      usesRealConnector: true
     };
   }
   return null;
