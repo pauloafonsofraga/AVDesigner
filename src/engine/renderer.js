@@ -1,3 +1,5 @@
+import { TextureCache } from "./textureCache.js";
+
 const DEVICE_FILL = "#182531";
 const DEVICE_SELECTED = "#ff7904";
 const PORT_COLOR = "#32b6ff";
@@ -20,6 +22,10 @@ const DEFAULT_RENDER_OPTIONS = {
   highlightFallback: false,
   highlightReal: false,
   highlightRouted: false,
+  textureCacheEnabled: true,
+  simplifiedCards: true,
+  texturedDevices: true,
+  lodMode: true,
   dirtyDeviceIds: new Set(),
   dirtyWireIds: new Set()
 };
@@ -41,6 +47,7 @@ export class WebglGraphRenderer {
     this.staticDeviceBuffer = this.gl.createBuffer();
     this.liveBuffer = this.gl.createBuffer();
     this.gridBuffer = this.gl.createBuffer();
+    this.textureBuffer = this.gl.createBuffer();
     this.staticWireVertexCount = 0;
     this.staticDeviceVertexCount = 0;
     this.liveVertexCount = 0;
@@ -56,11 +63,21 @@ export class WebglGraphRenderer {
     this.rangeUpdateCount = 0;
     this.lastStaticStats = null;
     this.lastDirtyStats = null;
+    this.lastTextureStats = null;
+    this.lastTextureDrawStats = null;
+    this.textureCache = new TextureCache(this.gl);
     this.program = createProgram(this.gl, vertexSource, fragmentSource);
     this.positionLocation = this.gl.getAttribLocation(this.program, "a_position");
     this.colorLocation = this.gl.getAttribLocation(this.program, "a_color");
     this.viewLocation = this.gl.getUniformLocation(this.program, "u_view");
+    this.textureProgram = createProgram(this.gl, textureVertexSource, textureFragmentSource);
+    this.texturePositionLocation = this.gl.getAttribLocation(this.textureProgram, "a_position");
+    this.textureCoordLocation = this.gl.getAttribLocation(this.textureProgram, "a_texcoord");
+    this.textureViewLocation = this.gl.getUniformLocation(this.textureProgram, "u_view");
+    this.textureSamplerLocation = this.gl.getUniformLocation(this.textureProgram, "u_texture");
     this.resolution = { width: 1, height: 1 };
+    this.gl.enable(this.gl.BLEND);
+    this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
   }
 
   setRenderOptions(options = {}) {
@@ -115,17 +132,65 @@ export class WebglGraphRenderer {
     this.staticWireVertexCount = uploadArray(this.gl, this.staticWireBuffer, this.staticWireArray);
     this.staticDeviceVertexCount = uploadArray(this.gl, this.staticDeviceBuffer, this.staticDeviceArray);
     const uploadMs = performance.now() - uploadStart;
+    const textureStart = performance.now();
+    this.lastTextureStats = this.prepareTextures(scene, "static scene");
+    const textureMs = performance.now() - textureStart;
     this.fullRebuildCount += 1;
     this.lastStaticStats = {
       totalMs: performance.now() - start,
       geometryMs,
       uploadMs,
+      textureMs,
       wireVertices: this.staticWireVertexCount,
       deviceVertices: this.staticDeviceVertexCount,
       fullRebuildCount: this.fullRebuildCount,
       rangeUpdateCount: this.rangeUpdateCount
     };
     return this.lastStaticStats;
+  }
+
+  prepareTextures(scene, reason = "prepare") {
+    // Texture creation is explicit and cache-key driven. Draw, pan, zoom,
+    // selection, drag, and wire updates must reuse cached textures and should
+    // not call this path implicitly.
+    const stats = this.textureCache.prepareDevices(scene.devices, {
+      ...this.renderOptions,
+      invalidationReason: reason
+    });
+    this.lastTextureStats = stats;
+    return stats;
+  }
+
+  rebuildVisibleTextures(scene, camera) {
+    const start = performance.now();
+    this.resize();
+    const visible = visibleDevices(scene, camera, this.resolution);
+    visible.forEach(device => {
+      this.textureCache.invalidateDevice(device.id, "visible rebuild");
+      this.textureCache.ensureDeviceTexture(device, this.renderOptions, "visible rebuild");
+    });
+    const stats = this.textureCache.stats();
+    stats.lastPrepareMs = performance.now() - start;
+    stats.lastPreparedDevices = visible.length;
+    this.lastTextureStats = stats;
+    return stats;
+  }
+
+  clearTextureCache() {
+    this.textureCache.clear();
+    this.lastTextureStats = this.textureCache.stats();
+    return this.lastTextureStats;
+  }
+
+  textureStats() {
+    return {
+      ...this.textureCache.stats(),
+      drawMs: this.lastTextureDrawStats?.drawMs || 0,
+      drawCalls: this.lastTextureDrawStats?.drawCalls || 0,
+      quads: this.lastTextureDrawStats?.quads || 0,
+      missing: this.lastTextureDrawStats?.missing || 0,
+      lodSkipped: this.lastTextureDrawStats?.lodSkipped || 0
+    };
   }
 
   updateDirty(scene, { deviceIds = [], wireIds = [] } = {}) {
@@ -215,11 +280,12 @@ export class WebglGraphRenderer {
       dirtyDeviceIds: options.renderOptions?.dirtyDeviceIds || this.renderOptions.dirtyDeviceIds || new Set(),
       dirtyWireIds: options.renderOptions?.dirtyWireIds || this.renderOptions.dirtyWireIds || new Set()
     };
+    const dragSession = options.dragSession || null;
     this.drawGrid(camera);
     if (renderOptions.wires) this.drawBuffer(this.staticWireBuffer, this.staticWireVertexCount);
     this.drawBuffer(this.staticDeviceBuffer, this.staticDeviceVertexCount);
+    this.drawTextureDevices(scene, camera, renderOptions, dragSession);
     const liveVertices = [];
-    const dragSession = options.dragSession || null;
     if (dragSession) {
       const offsets = dragSession.offsetMap();
       // During drag, selected devices and affected wires are drawn as a live
@@ -313,6 +379,76 @@ export class WebglGraphRenderer {
     gl.vertexAttribPointer(this.colorLocation, 4, gl.FLOAT, false, stride, 2 * 4);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
   }
+
+  drawTextureDevices(scene, camera, renderOptions, dragSession = null) {
+    const start = performance.now();
+    if (!renderOptions.textureCacheEnabled || !renderOptions.texturedDevices) {
+      this.lastTextureDrawStats = { drawMs: 0, drawCalls: 0, quads: 0, missing: 0, lodSkipped: 0 };
+      return;
+    }
+    if (renderOptions.lodMode && renderOptions.simplifiedCards && camera.zoom < 0.18) {
+      this.lastTextureDrawStats = { drawMs: 0, drawCalls: 0, quads: 0, missing: 0, lodSkipped: 1 };
+      return;
+    }
+    const gl = this.gl;
+    const groups = new Map();
+    const dragOffsets = dragSession?.offsetMap();
+    const selected = dragSession ? new Set(dragSession.selectedIds) : new Set();
+    let missing = 0;
+    let quads = 0;
+
+    const addDevice = device => {
+      if (!deviceVisible(device, renderOptions)) return;
+      const entry = this.textureCache.getEntry(device.id);
+      if (!entry?.texture) {
+        missing += 1;
+        return;
+      }
+      const vertices = groups.get(entry.texture) || [];
+      pushTextureQuad(vertices, device, dragOffsets);
+      groups.set(entry.texture, vertices);
+      quads += 1;
+    };
+
+    visibleDevices(scene, camera, this.resolution).forEach(device => {
+      if (selected.has(device.id)) return;
+      addDevice(device);
+    });
+    if (dragSession) {
+      dragSession.selectedIds.forEach(id => {
+        const device = scene.getDevice(id);
+        if (device) addDevice(device);
+      });
+    }
+
+    gl.useProgram(this.textureProgram);
+    gl.uniform4f(this.textureViewLocation, camera.x, camera.y, this.resolution.width / camera.zoom, this.resolution.height / camera.zoom);
+    gl.uniform1i(this.textureSamplerLocation, 0);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.textureBuffer);
+    gl.enableVertexAttribArray(this.texturePositionLocation);
+    gl.vertexAttribPointer(this.texturePositionLocation, 2, gl.FLOAT, false, 4 * 4, 0);
+    gl.enableVertexAttribArray(this.textureCoordLocation);
+    gl.vertexAttribPointer(this.textureCoordLocation, 2, gl.FLOAT, false, 4 * 4, 2 * 4);
+
+    let drawCalls = 0;
+    groups.forEach((vertices, texture) => {
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STREAM_DRAW);
+      gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 4);
+      drawCalls += 1;
+    });
+
+    gl.useProgram(this.program);
+    gl.uniform4f(this.viewLocation, camera.x, camera.y, this.resolution.width / camera.zoom, this.resolution.height / camera.zoom);
+    this.lastTextureDrawStats = {
+      drawMs: performance.now() - start,
+      drawCalls,
+      quads,
+      missing,
+      lodSkipped: 0
+    };
+  }
 }
 
 function adaptiveGridStep(zoom) {
@@ -320,6 +456,17 @@ function adaptiveGridStep(zoom) {
   while (step * zoom < 18) step *= 2;
   while (step * zoom > 90 && step > 25) step /= 2;
   return step;
+}
+
+function visibleDevices(scene, camera, resolution) {
+  const view = {
+    x: camera.x,
+    y: camera.y,
+    width: resolution.width / camera.zoom,
+    height: resolution.height / camera.zoom
+  };
+  const hits = scene.spatialIndex.queryRect(view).map(item => item.payload?.device).filter(Boolean);
+  return hits.length ? hits : scene.devices;
 }
 
 function pushDevice(vertices, device, offsets = null, selected = false, options = DEFAULT_RENDER_OPTIONS) {
@@ -384,6 +531,22 @@ function pushWire(vertices, scene, wire, offsets, width, color, options = DEFAUL
       pushRect(vertices, point.x + routeOffset.dx - 4, point.y + routeOffset.dy - 4, 8, 8, ROUTE_POINT_COLOR);
     });
   }
+}
+
+function pushTextureQuad(vertices, device, offsets = null) {
+  const offset = offsets?.get(device.id);
+  const x = device.x + (offset?.dx || 0);
+  const y = device.y + (offset?.dy || 0);
+  const x2 = x + device.width;
+  const y2 = y + device.height;
+  vertices.push(
+    x, y, 0, 0,
+    x2, y, 1, 0,
+    x2, y2, 1, 1,
+    x, y, 0, 0,
+    x2, y2, 1, 1,
+    x, y2, 0, 1
+  );
 }
 
 function verticesForDevice(device, offsets = null, options = DEFAULT_RENDER_OPTIONS) {
@@ -561,5 +724,30 @@ const fragmentSource = `#version 300 es
   out vec4 outColor;
   void main() {
     outColor = v_color;
+  }
+`;
+
+const textureVertexSource = `#version 300 es
+  in vec2 a_position;
+  in vec2 a_texcoord;
+  uniform vec4 u_view;
+  out vec2 v_texcoord;
+  void main() {
+    vec2 clip = vec2(
+      ((a_position.x - u_view.x) / u_view.z) * 2.0 - 1.0,
+      1.0 - ((a_position.y - u_view.y) / u_view.w) * 2.0
+    );
+    gl_Position = vec4(clip, 0.0, 1.0);
+    v_texcoord = a_texcoord;
+  }
+`;
+
+const textureFragmentSource = `#version 300 es
+  precision mediump float;
+  uniform sampler2D u_texture;
+  in vec2 v_texcoord;
+  out vec4 outColor;
+  void main() {
+    outColor = texture(u_texture, v_texcoord);
   }
 `;

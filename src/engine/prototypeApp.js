@@ -6,7 +6,7 @@ import { SceneGraph } from "./sceneGraph.js";
 import { PerfHud } from "./perfHud.js";
 
 const PROTOTYPE_BRANCH = "engine-prototype";
-const PROTOTYPE_BASE = "132a130";
+const PROTOTYPE_BASE = "200c3a1+m3-texture-cache";
 
 export function createEnginePrototype(options) {
   const app = new EnginePrototype(options);
@@ -29,7 +29,8 @@ class EnginePrototype {
     fitButton,
     bench1Button,
     bench20Button,
-    generateButtons
+    generateButtons,
+    textureButtons
   }) {
     this.canvas = canvas;
     this.renderer = new WebglGraphRenderer(canvas, labelCanvas);
@@ -44,6 +45,7 @@ class EnginePrototype {
     this.bench1Button = bench1Button;
     this.bench20Button = bench20Button;
     this.generateButtons = generateButtons;
+    this.textureButtons = textureButtons || [];
     this.scene = new SceneGraph();
     this.camera = { x: -120, y: -120, zoom: 1 };
     this.renderFrame = null;
@@ -62,6 +64,11 @@ class EnginePrototype {
       highlightFallback: false,
       highlightReal: false,
       highlightRouted: false,
+      textureCacheEnabled: true,
+      simplifiedCards: true,
+      texturedDevices: true,
+      lodMode: true,
+      showTextureStats: true,
       dirtyDeviceIds: this.lastDirtyDeviceIds,
       dirtyWireIds: this.lastDirtyWireIds
     };
@@ -79,6 +86,9 @@ class EnginePrototype {
       button.addEventListener("click", () => {
         this.loadScene(generateSyntheticProject(syntheticPreset(button.dataset.generate)));
       });
+    });
+    this.textureButtons.forEach(button => {
+      button.addEventListener("click", () => this.handleTextureAction(button.dataset.textureAction));
     });
     this.toggles.forEach(input => {
       input.addEventListener("change", () => this.applyToggle(input));
@@ -137,11 +147,12 @@ class EnginePrototype {
     this.hud.setMetric("sceneBuild", `${sceneBuildMs.toFixed(1)} ms`);
     this.hud.setMetric("spatialIndex", "included");
     this.hud.setMetric("static upload", `${staticStats.totalMs.toFixed(1)} ms`);
-    this.hud.setMetric("static detail", `g ${staticStats.geometryMs.toFixed(1)} / u ${staticStats.uploadMs.toFixed(1)} ms`);
+    this.hud.setMetric("static detail", `g ${staticStats.geometryMs.toFixed(1)} / u ${staticStats.uploadMs.toFixed(1)} / t ${staticStats.textureMs.toFixed(1)} ms`);
     this.hud.setMetric("skipped", `${data.meta?.skippedWires || 0} wires`);
     this.hud.setMetric("full rebuilds", staticStats.fullRebuildCount);
     this.hud.setMetric("range updates", staticStats.rangeUpdateCount);
     this.hud.setMetric("gpu update", "full static upload");
+    this.updateTextureHud("scene load");
     console.info("[engine] scene loaded", {
       prototypeBranch: PROTOTYPE_BRANCH,
       prototypeBase: PROTOTYPE_BASE,
@@ -173,12 +184,43 @@ class EnginePrototype {
     this.renderer.setRenderOptions(this.renderOptions);
     const staticStats = this.renderer.setStaticScene(this.scene);
     this.hud.setMetric("static upload", `${staticStats.totalMs.toFixed(1)} ms`);
-    this.hud.setMetric("static detail", `g ${staticStats.geometryMs.toFixed(1)} / u ${staticStats.uploadMs.toFixed(1)} ms`);
+    this.hud.setMetric("static detail", `g ${staticStats.geometryMs.toFixed(1)} / u ${staticStats.uploadMs.toFixed(1)} / t ${staticStats.textureMs.toFixed(1)} ms`);
     this.hud.setMetric("full rebuilds", staticStats.fullRebuildCount);
     this.hud.setMetric("range updates", staticStats.rangeUpdateCount);
     this.hud.setMetric("gpu update", "full rebuild after toggle");
+    this.updateTextureHud("toggle");
     this.updateDebugPanel();
     this.scheduleRender();
+  }
+
+  handleTextureAction(action) {
+    if (!action) return;
+    let stats;
+    if (action === "rebuild-visible") {
+      stats = this.renderer.rebuildVisibleTextures(this.scene, this.camera);
+      this.hud.setMetric("texture action", `rebuilt ${stats.lastPreparedDevices} visible`);
+    } else if (action === "clear") {
+      stats = this.renderer.clearTextureCache();
+      this.hud.setMetric("texture action", "cache cleared");
+    }
+    if (stats) {
+      this.updateTextureHud(action);
+      this.updateDebugPanel();
+      this.scheduleRender();
+    }
+  }
+
+  updateTextureHud(context = "-") {
+    const stats = this.renderer.textureStats();
+    if (!this.renderOptions.showTextureStats) return;
+    this.hud.setMetric("texture count", `${stats.textureCount} / ${stats.deviceEntries} dev`);
+    this.hud.setMetric("texture memory", stats.memoryLabel);
+    this.hud.setMetric("texture builds", `${stats.builds} build / ${stats.rebuilds} rebuild`);
+    this.hud.setMetric("texture cache", `${stats.hits} hit / ${stats.misses} miss / ${stats.sharedHits} shared`);
+    this.hud.setMetric("texture timing", `b ${stats.lastBuildMs.toFixed(2)} / u ${stats.lastUploadMs.toFixed(2)} / p ${stats.lastPrepareMs.toFixed(2)} ms`);
+    this.hud.setMetric("texture draw", `${stats.drawMs.toFixed(2)} ms / ${stats.quads} quads / ${stats.drawCalls} calls`);
+    this.hud.setMetric("texture missing", stats.missing);
+    this.hud.setMetric("texture context", context);
   }
 
   updateStatus() {
@@ -205,6 +247,7 @@ class EnginePrototype {
     const stats = this.scene.adapterStats();
     const dirty = this.renderer.lastDirtyStats || {};
     const staticStats = this.renderer.lastStaticStats || {};
+    const textures = this.renderer.textureStats();
     const rows = [
       ["Data source", meta.dataSource || "Unknown"],
       ["Source name", meta.sourceName || meta.projectName || "-"],
@@ -230,7 +273,19 @@ class EnginePrototype {
       ["Range updates last drop", dirty.rangeUpdates ?? 0],
       ["Fallback rebuild last drop", dirty.fallbackRebuild ? "yes" : "no"],
       ["Full rebuild count", staticStats.fullRebuildCount ?? this.renderer.fullRebuildCount],
-      ["Range update count", dirty.rangeUpdateCount ?? this.renderer.rangeUpdateCount]
+      ["Range update count", dirty.rangeUpdateCount ?? this.renderer.rangeUpdateCount],
+      ["Texture cache enabled", textures.enabled ? "yes" : "no"],
+      ["Texture entries", `${textures.textureCount} unique / ${textures.deviceEntries} devices`],
+      ["Texture memory estimate", textures.memoryLabel],
+      ["Texture builds", textures.builds],
+      ["Texture rebuilds", textures.rebuilds],
+      ["Texture hits / misses", `${textures.hits} / ${textures.misses}`],
+      ["Texture shared hits", textures.sharedHits],
+      ["Texture build/upload", `${textures.lastBuildMs.toFixed(2)} / ${textures.lastUploadMs.toFixed(2)} ms`],
+      ["Texture prepare time", `${textures.lastPrepareMs.toFixed(2)} ms`],
+      ["Texture draw", `${textures.drawMs.toFixed(2)} ms / ${textures.quads} quads`],
+      ["Missing texture fallbacks", textures.missing],
+      ["Last texture invalidation", textures.lastInvalidationReason || "-"]
     ];
     this.adapterDebug.innerHTML = [
       "<h2>Project Adapter Debug</h2>",
@@ -381,11 +436,13 @@ class EnginePrototype {
       const start = performance.now();
       const selectedIds = [...this.dragSession.selectedIds];
       const affectedWireIds = [...this.dragSession.affectedWireIds];
+      const textureBefore = this.renderer.textureStats();
       const commitMs = this.dragSession.commit();
       const dirtyStats = this.renderer.updateDirty(this.scene, {
         deviceIds: selectedIds,
         wireIds: affectedWireIds
       });
+      const textureAfter = this.renderer.textureStats();
       this.lastDirtyDeviceIds = new Set(selectedIds);
       this.lastDirtyWireIds = new Set(affectedWireIds);
       this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
@@ -398,6 +455,8 @@ class EnginePrototype {
       this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
       this.hud.setMetric("full rebuilds", dirtyStats.fullRebuildCount);
       this.hud.setMetric("range updates", dirtyStats.rangeUpdateCount);
+      this.hud.setMetric("texture drag rebuilds", textureAfter.rebuilds - textureBefore.rebuilds);
+      this.updateTextureHud("drop");
       console.info("[engine] drop commit", {
         selected: selectedIds.length,
         affectedWires: affectedWireIds.length,
@@ -408,6 +467,8 @@ class EnginePrototype {
         deviceRangeUpdates: dirtyStats.deviceRangeUpdates,
         wireRangeUpdates: dirtyStats.wireRangeUpdates,
         fallbackRebuild: dirtyStats.fallbackRebuild,
+        textureRebuildsAfterDrag: textureAfter.rebuilds - textureBefore.rebuilds,
+        textureBuildsAfterDrag: textureAfter.builds - textureBefore.builds,
         totalMs: totalMs.toFixed(2)
       });
       this.dragSession = null;
@@ -447,11 +508,13 @@ class EnginePrototype {
     const dropAt = performance.now();
     const selectedIds = [...this.dragSession.selectedIds];
     const affectedWireIds = [...this.dragSession.affectedWireIds];
+    const textureBefore = this.renderer.textureStats();
     const commitMs = this.dragSession.commit();
     const dirtyStats = this.renderer.updateDirty(this.scene, {
       deviceIds: selectedIds,
       wireIds: affectedWireIds
     });
+    const textureAfter = this.renderer.textureStats();
     this.lastDirtyDeviceIds = new Set(selectedIds);
     this.lastDirtyWireIds = new Set(affectedWireIds);
     this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
@@ -470,7 +533,9 @@ class EnginePrototype {
     this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
     this.hud.setMetric("full rebuilds", dirtyStats.fullRebuildCount);
     this.hud.setMetric("range updates", dirtyStats.rangeUpdateCount);
+    this.hud.setMetric("texture drag rebuilds", textureAfter.rebuilds - textureBefore.rebuilds);
     this.hud.setMetric("benchmark", `${count} dev / max ${Math.max(...frames).toFixed(2)} ms`);
+    this.updateTextureHud("benchmark");
     console.info("[engine] drag benchmark", {
       selected: count,
       devices: this.scene.devices.length,
@@ -485,6 +550,8 @@ class EnginePrototype {
       deviceRangeUpdates: dirtyStats.deviceRangeUpdates,
       wireRangeUpdates: dirtyStats.wireRangeUpdates,
       fallbackRebuild: dirtyStats.fallbackRebuild,
+      textureRebuildsAfterDrag: textureAfter.rebuilds - textureBefore.rebuilds,
+      textureBuildsAfterDrag: textureAfter.builds - textureBefore.builds,
       dropTotalMs: dropTotalMs.toFixed(2)
     });
     this.updateDebugPanel();
@@ -509,6 +576,7 @@ class EnginePrototype {
         renderOptions: this.renderOptions
       });
       this.hud.recordFrame(renderMs);
+      if (this.renderOptions.showTextureStats) this.updateTextureHud("draw");
     });
   }
 }

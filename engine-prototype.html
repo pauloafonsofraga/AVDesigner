@@ -359,7 +359,7 @@
       </div>
       <div id="prototypeStatus" class="status-strip">
         <span class="badge">branch: engine-prototype</span>
-        <span class="badge">base: 132a130</span>
+        <span class="badge">base: 200c3a1+m3-texture-cache</span>
         <span class="badge orange">source: starting...</span>
       </div>
     </section>
@@ -391,7 +391,16 @@
         <label class="toggle"><input type="checkbox" data-toggle="highlightFallback">Fallback endpoints</label>
         <label class="toggle"><input type="checkbox" data-toggle="highlightReal">Real endpoints</label>
         <label class="toggle"><input type="checkbox" data-toggle="highlightRouted">Routed wires</label>
+        <label class="toggle"><input type="checkbox" data-toggle="textureCacheEnabled" checked>Texture cache</label>
+        <label class="toggle"><input type="checkbox" data-toggle="texturedDevices" checked>Textured devices</label>
+        <label class="toggle"><input type="checkbox" data-toggle="simplifiedCards" checked>Simplified cards</label>
+        <label class="toggle"><input type="checkbox" data-toggle="lodMode" checked>LOD</label>
+        <label class="toggle"><input type="checkbox" data-toggle="showTextureStats" checked>Texture stats</label>
         <label class="toggle"><input type="checkbox" data-toggle="hud" checked>Performance HUD</label>
+      </span>
+      <span class="group">
+        <button data-texture-action="rebuild-visible">Rebuild Visible Textures</button>
+        <button data-texture-action="clear">Clear Texture Cache</button>
       </span>
     </div>
     <div class="canvas-wrap">
@@ -433,11 +442,12 @@
         fitButton: document.getElementById("fitView"),
         bench1Button: document.getElementById("bench1"),
         bench20Button: document.getElementById("bench20"),
-        generateButtons: [...document.querySelectorAll("[data-generate]")]
+        generateButtons: [...document.querySelectorAll("[data-generate]")],
+        textureButtons: [...document.querySelectorAll("[data-texture-action]")]
       });
       console.info("[engine prototype] page loaded", {
         branch: "engine-prototype",
-        baseCommit: "132a130",
+        baseCommit: "200c3a1+m3-texture-cache",
         renderer: "WebGL2 engine",
         app
       });
