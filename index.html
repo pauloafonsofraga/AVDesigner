@@ -34450,6 +34450,7 @@
       setProjectVoltage(snapshot.powerVoltage || DEFAULT_POWER_VOLTAGE, { renderUi: false });
       syncIdCounter();
       render();
+      window.avDesignerEngineBridge?.refreshFromProduction?.("snapshot restored");
     }
 
     function pushUndo() {
@@ -52944,6 +52945,7 @@ document.addEventListener("click", function(event) {
           renderDeviceLibrary();
           render();
           requestAnimationFrame(zoomToFit);
+          window.avDesignerEngineBridge?.refreshFromProduction?.("project loaded");
           if (projectFileHandle) setStatus(`Loaded ${projectFileName || "project"}. Save will overwrite this file.`);
         } catch (error) {
           alert("This project file could not be loaded.");
@@ -54826,6 +54828,98 @@ fit();
       }
     });
 
+    function experimentalEngineRendererRequested() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("engine") === "1") return true;
+      try {
+        return localStorage.getItem("avdesignerEngineRenderer") === "1";
+      } catch (error) {
+        return false;
+      }
+    }
+
+    function syncProductionSelectionFromEngine(selection = {}) {
+      const selectedDevices = selection.devices || [];
+      const selectedWires = selection.wireIds || [];
+      const selectedConnectors = selection.connectorKeys || [];
+      if (selectedDevices.length === 1 && !selectedWires.length && !selectedConnectors.length) {
+        const device = selectedDevices[0];
+        if (device.kind === "surface" || device.sourceKind === "ledSurface") {
+          state.selected = { type: "led-surface", id: device.sourceId };
+        } else if (device.kind === "jump" || device.sourceKind === "jumpNode") {
+          state.selected = { type: "jump-node", id: device.sourceId };
+        } else {
+          state.selected = { type: "device", id: device.sourceId };
+        }
+        renderInspector();
+        return;
+      }
+      if (selectedWires.length === 1 && !selectedDevices.length && !selectedConnectors.length) {
+        const connection = state.connections.find(item => item.id === selectedWires[0]);
+        if (connection) {
+          state.selected = { type: "wire", id: connection.id };
+          renderInspector();
+        }
+        return;
+      }
+      if (selectedConnectors.length === 1 && !selectedDevices.length && !selectedWires.length) {
+        const [deviceId, connectorId] = String(selectedConnectors[0]).split(":");
+        if (deviceId && connectorId) {
+          state.selected = { type: "connector", deviceId, connectorId };
+          renderInspector();
+        }
+        return;
+      }
+      if (selectedDevices.length > 1) {
+        state.selected = {
+          type: "multi",
+          items: selectedDevices.map(device => ({
+            type: device.kind === "surface" || device.sourceKind === "ledSurface"
+              ? "led-surface"
+              : device.kind === "jump" || device.sourceKind === "jumpNode"
+                ? "jump-node"
+                : "device",
+            id: device.sourceId
+          }))
+        };
+        renderInspector();
+        return;
+      }
+      if (!selectedDevices.length && !selectedWires.length && !selectedConnectors.length) {
+        state.selected = null;
+        renderInspector();
+      }
+    }
+
+    function startExperimentalEngineRenderer() {
+      if (!experimentalEngineRendererRequested()) return;
+      console.info("[engine-bridge] Requested experimental engine renderer.");
+      import("./src/engine/productionBridge.js")
+        .then(module => {
+          window.avDesignerEngineBridge = module.createProductionEngineBridge({
+            canvasWrap,
+            getProjectData: projectSnapshotData,
+            onEngineSelection: syncProductionSelectionFromEngine,
+            onEngineCommit: ({ type, mutationStats }) => {
+              renderCableLegend();
+              renderInspector();
+              updateUndoRedoButtons();
+              setStatus(`Experimental engine committed: ${type}. ${statusSummary()}`);
+              console.info("[engine-bridge] production data mutated", { type, mutationStats });
+            },
+            onExit: () => {
+              render();
+              setStatus(statusSummary());
+            }
+          });
+          setStatus("Experimental Engine Renderer active. Remove ?engine=1 or click Exit Engine Mode to return to SVG.");
+        })
+        .catch(error => {
+          console.error("[engine-bridge] Could not start experimental renderer.", error);
+          setStatus(`Experimental engine renderer failed: ${error.message || error}`);
+        });
+    }
+
     loadNodeLibraryPreference();
     loadDeviceLibraryOrderPreference();
     loadDeviceFavoritesPreference();
@@ -54842,6 +54936,7 @@ fit();
     updateProjectNameControl();
     window.addEventListener("resize", updateCanvasView);
     render();
+    startExperimentalEngineRenderer();
   </script>
 </body>
 </html>

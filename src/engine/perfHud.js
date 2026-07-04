@@ -74,6 +74,8 @@ export class PerfHud {
       ["texture context", metric("texture context")],
       ["full rebuilds", metric("full rebuilds")],
       ["range updates", metric("range updates")],
+      ["project mutation", metric("project mutation")],
+      ["project dirty", metric("project dirty")],
       ["skipped", metric("skipped")],
       ["benchmark", metric("benchmark")]
     ];

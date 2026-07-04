@@ -1,0 +1,891 @@
+import { DragSession } from "./dragSession.js";
+import {
+  hitTestConnector,
+  hitTestDevice,
+  hitTestRoutePoint,
+  hitTestWire,
+  screenToWorld
+} from "./hitTest.js";
+import { normalizeAvDesignerProject } from "./projectAdapter.js";
+import { ProjectMutationAdapter } from "./projectMutations.js";
+import { WebglGraphRenderer } from "./renderer.js";
+import { SceneGraph } from "./sceneGraph.js";
+import { PerfHud } from "./perfHud.js";
+
+const BRIDGE_VERSION = "production-bridge-1";
+
+export function createProductionEngineBridge(api = {}) {
+  const bridge = new ProductionEngineBridge(api);
+  try {
+    bridge.start();
+  } catch (error) {
+    bridge.destroy({ restoreProduction: false });
+    throw error;
+  }
+  return bridge;
+}
+
+class ProductionEngineBridge {
+  constructor(api = {}) {
+    this.api = api;
+    this.container = api.canvasWrap || document.getElementById("canvasWrap");
+    this.engineRoot = null;
+    this.canvas = null;
+    this.labelCanvas = null;
+    this.renderer = null;
+    this.scene = new SceneGraph();
+    this.mutations = null;
+    this.hud = null;
+    this.debugPanel = null;
+    this.statusPanel = null;
+    this.errorPanel = null;
+    this.camera = { x: 0, y: 0, zoom: 1 };
+    this.renderFrame = null;
+    this.dragSession = null;
+    this.panState = null;
+    this.routePointDrag = null;
+    this.wireCreate = null;
+    this.marqueeState = null;
+    this.hoverState = {
+      device: null,
+      connector: null,
+      wire: null,
+      routePoint: null,
+      candidateCount: 0,
+      hitMs: 0
+    };
+    this.lastDirtyDeviceIds = new Set();
+    this.lastDirtyWireIds = new Set();
+    this.renderOptions = {
+      labels: true,
+      wires: true,
+      connectorMarkers: true,
+      connectorColors: true,
+      routePoints: true,
+      jumpNodes: true,
+      ledSurfaces: true,
+      highlightFallback: false,
+      highlightReal: false,
+      highlightRouted: false,
+      textureCacheEnabled: true,
+      simplifiedCards: true,
+      texturedDevices: true,
+      textureQuality: "medium",
+      highDpiTextures: true,
+      detailedDeviceTextures: true,
+      lodMode: true,
+      mutationDebug: true,
+      dirtyDeviceIds: this.lastDirtyDeviceIds,
+      dirtyWireIds: this.lastDirtyWireIds
+    };
+    this.started = false;
+  }
+
+  start() {
+    if (!this.container) throw new Error("Production engine bridge could not find #canvasWrap.");
+    injectBridgeStyles();
+    this.mountUi();
+    this.renderer = new WebglGraphRenderer(this.canvas, this.labelCanvas);
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.hud = new PerfHud(this.debugPanel);
+    this.bindEvents();
+    this.refreshFromProduction("initial production state");
+    this.started = true;
+    console.info("[engine-bridge] Experimental Engine Renderer active", {
+      version: BRIDGE_VERSION,
+      renderer: "WebGL2 engine",
+      activation: engineActivationSource()
+    });
+  }
+
+  destroy({ restoreProduction = true } = {}) {
+    this.started = false;
+    this.engineRoot?.remove();
+    this.engineRoot = null;
+    this.container?.classList.remove("engine-bridge-active");
+    this.container?.classList.remove("webgl-engine-active");
+    window.removeEventListener("keydown", this.boundKeyDown);
+    window.removeEventListener("resize", this.boundResize);
+    if (restoreProduction) this.api.onExit?.();
+  }
+
+  refreshFromProduction(reason = "manual refresh") {
+    const rawProject = this.api.getProjectData?.();
+    const normalized = normalizeProductionProject(rawProject, reason);
+    this.lastDirtyDeviceIds.clear();
+    this.lastDirtyWireIds.clear();
+    this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer?.setRenderOptions(this.renderOptions);
+    const start = performance.now();
+    // The bridge builds the engine scene from production state at explicit sync
+    // points only. Pan, zoom, hover, and drag frames must keep using cached
+    // engine buffers/textures and must not re-adapt the whole production app.
+    this.scene.setData(normalized);
+    this.mutations = new ProjectMutationAdapter(normalized, { cloneProjectData: false });
+    const sceneBuildMs = performance.now() - start;
+    const staticStats = this.renderer.setStaticScene(this.scene);
+    this.fitView();
+    this.updateHud({
+      sceneBuildMs,
+      staticStats,
+      mode: `scene refresh: ${reason}`
+    });
+    this.updateStatusPanel(reason);
+    this.showError("");
+    this.scheduleRender();
+  }
+
+  mountUi() {
+    this.container.classList.add("engine-bridge-active", "webgl-engine-active");
+    this.engineRoot = document.createElement("div");
+    this.engineRoot.className = "engine-bridge-root";
+    this.engineRoot.innerHTML = `
+      <canvas class="engine-bridge-canvas" aria-label="Experimental WebGL engine canvas"></canvas>
+      <canvas class="engine-bridge-label-canvas" aria-hidden="true"></canvas>
+      <div class="engine-bridge-badge">
+        <strong>Experimental Engine Renderer</strong>
+        <span>branch: engine-prototype</span>
+        <span>${BRIDGE_VERSION}</span>
+        <button type="button" data-engine-action="refresh">Refresh</button>
+        <button type="button" data-engine-action="exit">Exit Engine Mode</button>
+      </div>
+      <div class="engine-bridge-status"></div>
+      <div class="engine-bridge-error hidden"></div>
+      <div class="engine-bridge-debug"></div>
+    `;
+    this.container.appendChild(this.engineRoot);
+    this.canvas = this.engineRoot.querySelector(".engine-bridge-canvas");
+    this.labelCanvas = this.engineRoot.querySelector(".engine-bridge-label-canvas");
+    this.debugPanel = this.engineRoot.querySelector(".engine-bridge-debug");
+    this.statusPanel = this.engineRoot.querySelector(".engine-bridge-status");
+    this.errorPanel = this.engineRoot.querySelector(".engine-bridge-error");
+    this.engineRoot.querySelector("[data-engine-action='refresh']")?.addEventListener("click", () => this.refreshFromProduction("manual button"));
+    this.engineRoot.querySelector("[data-engine-action='exit']")?.addEventListener("click", () => exitEngineMode());
+  }
+
+  bindEvents() {
+    this.canvas.addEventListener("contextmenu", event => event.preventDefault());
+    this.canvas.addEventListener("wheel", event => this.handleWheel(event), { passive: false });
+    this.canvas.addEventListener("pointerdown", event => this.handlePointerDown(event));
+    this.canvas.addEventListener("pointermove", event => this.handlePointerMove(event));
+    this.canvas.addEventListener("pointerup", event => this.handlePointerUp(event));
+    this.canvas.addEventListener("pointercancel", event => this.handlePointerUp(event));
+    this.boundKeyDown = event => this.handleKeyDown(event);
+    this.boundResize = () => this.scheduleRender();
+    window.addEventListener("keydown", this.boundKeyDown);
+    window.addEventListener("resize", this.boundResize);
+  }
+
+  handleWheel(event) {
+    event.preventDefault();
+    const point = this.eventPoint(event);
+    const before = screenToWorld(this.camera, point);
+    const factor = Math.exp(-event.deltaY * 0.0015);
+    this.camera.zoom = clamp(this.camera.zoom * factor, 0.03, 8);
+    this.camera.x = before.x - point.x / this.camera.zoom;
+    this.camera.y = before.y - point.y / this.camera.zoom;
+    this.scheduleRender();
+  }
+
+  handlePointerDown(event) {
+    this.canvas.setPointerCapture(event.pointerId);
+    const point = this.eventPoint(event);
+    if (event.button === 1 || event.buttons === 4) {
+      this.beginPan(point);
+      return;
+    }
+    if (event.button !== 0) return;
+    const world = screenToWorld(this.camera, point);
+    const tolerance = this.hitToleranceWorld();
+
+    const routeHit = this.renderOptions.routePoints
+      ? hitTestRoutePoint(this.scene, world, tolerance * 1.2)
+      : { routePoint: null, candidates: 0, ms: 0 };
+    if (routeHit.routePoint) {
+      this.scene.selectRoutePointOnly(routeHit.routePoint.wire.id, routeHit.routePoint.pointIndex);
+      this.beginRoutePointDrag(routeHit.routePoint);
+      this.updateSelectionHud();
+      this.updateInteractionHud("route-point-drag", routeHit);
+      this.scheduleRender();
+      return;
+    }
+
+    const connectorHit = hitTestConnector(this.scene, world, tolerance * 1.35);
+    if (connectorHit.connector) {
+      this.scene.selectConnectorOnly(connectorHit.connector.device.id, connectorHit.connector.connector.id);
+      this.beginWireCreate(connectorHit.connector, world);
+      this.updateSelectionHud();
+      this.updateInteractionHud("wire-create", connectorHit);
+      this.scheduleRender();
+      return;
+    }
+
+    const wireHit = hitTestWire(this.scene, world, tolerance);
+    if (wireHit.wire) {
+      if (event.shiftKey) this.scene.toggleWireSelection(wireHit.wire.wire.id);
+      else this.scene.selectWireOnly(wireHit.wire.wire.id);
+      this.updateSelectionHud();
+      this.updateInteractionHud("wire-select", wireHit);
+      this.scheduleRender();
+      return;
+    }
+
+    const deviceHit = hitTestDevice(this.scene, world);
+    if (!deviceHit.device) {
+      if (!event.shiftKey) this.scene.clearSelection();
+      this.beginMarquee(world);
+      this.updateSelectionHud();
+      this.scheduleRender();
+      return;
+    }
+    if (event.shiftKey) this.scene.toggleSelection(deviceHit.device.id);
+    else if (!this.scene.selectedIds.has(deviceHit.device.id)) this.scene.selectOnly(deviceHit.device.id);
+    this.updateSelectionHud();
+    this.beginDrag(world);
+  }
+
+  handlePointerMove(event) {
+    const point = this.eventPoint(event);
+    if (this.panState) {
+      const dx = (point.x - this.panState.startPoint.x) / this.camera.zoom;
+      const dy = (point.y - this.panState.startPoint.y) / this.camera.zoom;
+      this.camera.x = this.panState.startCamera.x - dx;
+      this.camera.y = this.panState.startCamera.y - dy;
+      this.scheduleRender();
+      return;
+    }
+    if (this.routePointDrag) {
+      const start = performance.now();
+      const world = screenToWorld(this.camera, point);
+      this.scene.moveRoutePoint(this.routePointDrag.wireId, this.routePointDrag.pointIndex, world.x, world.y, { refreshIndexes: false });
+      const dirtyStats = this.renderer.updateDirty(this.scene, { wireIds: [this.routePointDrag.wireId] });
+      this.lastDirtyWireIds = new Set([this.routePointDrag.wireId]);
+      this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+      this.renderer.setRenderOptions(this.renderOptions);
+      this.hud.setMetric("dragDraw", `${(performance.now() - start).toFixed(3)} ms`);
+      this.hud.setMetric("dirty counts", `${dirtyStats.dirtyDevices} dev / ${dirtyStats.dirtyWires} wires`);
+      this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
+      this.scheduleRender();
+      return;
+    }
+    if (this.wireCreate) {
+      const world = screenToWorld(this.camera, point);
+      const connectorHit = hitTestConnector(this.scene, world, this.hitToleranceWorld() * 1.35);
+      this.hoverState.connector = connectorHit.connector;
+      this.hoverState.hitMs = connectorHit.ms;
+      this.hoverState.candidateCount = connectorHit.candidates;
+      this.wireCreate.pointerWorld = world;
+      this.wireCreate.target = connectorHit.connector;
+      this.updateInteractionHud("wire-create", connectorHit);
+      this.scheduleRender();
+      return;
+    }
+    if (this.marqueeState) {
+      this.marqueeState.currentWorld = screenToWorld(this.camera, point);
+      this.updateInteractionHud("marquee");
+      this.scheduleRender();
+      return;
+    }
+    if (this.dragSession) {
+      const start = performance.now();
+      this.dragSession.update(screenToWorld(this.camera, point));
+      this.hud.setMetric("dragDraw", `${(performance.now() - start).toFixed(3)} ms`);
+      this.scheduleRender();
+      return;
+    }
+    this.updateHover(screenToWorld(this.camera, point));
+  }
+
+  handlePointerUp(event) {
+    if (this.panState) {
+      this.panState = null;
+      this.canvas.classList.remove("panning");
+    }
+    if (this.routePointDrag) {
+      const { wireId } = this.routePointDrag;
+      this.scene.refreshWireIndexes([wireId]);
+      const mutationMs = this.mutations?.commitRoutePoints(this.scene, wireId) || 0;
+      this.markCommitted("route point", mutationMs);
+      this.routePointDrag = null;
+      this.updateInteractionHud("idle");
+    }
+    if (this.wireCreate) this.completeWireCreate();
+    if (this.marqueeState) this.completeMarquee(event.shiftKey);
+    if (this.dragSession) this.completeDrag();
+    try {
+      this.canvas.releasePointerCapture(event.pointerId);
+    } catch (error) {
+      // Browser may already have released the pointer capture.
+    }
+    this.scheduleRender();
+  }
+
+  handleKeyDown(event) {
+    if (event.key !== "Escape") return;
+    if (this.wireCreate || this.routePointDrag || this.marqueeState || this.dragSession) {
+      this.wireCreate = null;
+      this.routePointDrag = null;
+      this.marqueeState = null;
+      this.dragSession = null;
+      this.canvas.classList.remove("dragging");
+      this.updateInteractionHud("cancelled");
+      this.scheduleRender();
+    }
+  }
+
+  beginPan(point) {
+    this.panState = {
+      startPoint: point,
+      startCamera: { ...this.camera }
+    };
+    this.canvas.classList.add("panning");
+  }
+
+  beginDrag(worldPoint) {
+    const start = performance.now();
+    this.dragSession = new DragSession({
+      scene: this.scene,
+      selectedIds: this.scene.selectedIds,
+      startWorld: worldPoint
+    });
+    const totalMs = performance.now() - start;
+    this.hud.setMetric("dragStart", `${totalMs.toFixed(2)} ms`);
+    this.hud.setMetric("affectedLookup", `${this.dragSession.affectedWireLookupMs.toFixed(3)} ms`);
+    this.canvas.classList.add("dragging");
+    this.scheduleRender();
+  }
+
+  beginRoutePointDrag(routePoint) {
+    this.routePointDrag = {
+      wireId: routePoint.wire.id,
+      pointIndex: routePoint.pointIndex
+    };
+    this.canvas.classList.add("dragging");
+  }
+
+  beginWireCreate(connectorHit, worldPoint) {
+    this.wireCreate = {
+      from: connectorHit,
+      pointerWorld: { ...worldPoint },
+      target: null,
+      color: connectorHit.connector.color || "#32b6ff"
+    };
+    this.canvas.classList.add("dragging");
+  }
+
+  completeWireCreate() {
+    const source = this.wireCreate?.from;
+    const target = this.wireCreate?.target;
+    this.wireCreate = null;
+    this.canvas.classList.remove("dragging");
+    if (!source || !target) {
+      this.updateInteractionHud("idle");
+      return;
+    }
+    if (source.device.id === target.device.id && source.connector.id === target.connector.id) {
+      this.updateInteractionHud("idle");
+      return;
+    }
+    const wire = this.scene.addWire({
+      fromDeviceId: source.device.id,
+      fromConnectorId: source.connector.id,
+      toDeviceId: target.device.id,
+      toConnectorId: target.connector.id,
+      color: source.connector.color || target.connector.color || "#32b6ff",
+      cableType: source.connector.type || target.connector.type || "Engine Test Cable"
+    });
+    if (!wire) {
+      this.updateInteractionHud("wire-create failed");
+      return;
+    }
+    const mutationMs = this.mutations?.commitCreatedWire(this.scene, wire) || 0;
+    const dirtyStats = this.renderer.appendWire(this.scene, wire.id);
+    this.scene.selectWireOnly(wire.id);
+    this.lastDirtyWireIds = new Set([wire.id]);
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+    this.hud.setMetric("dirty counts", `${dirtyStats.dirtyDevices} dev / ${dirtyStats.dirtyWires} wires`);
+    this.hud.setMetric("gpu update", dirtyStats.appended ? "append wire buffer" : "bufferSubData ranges");
+    this.markCommitted("create wire", mutationMs);
+    this.updateSelectionHud();
+    this.updateInteractionHud("wire-created");
+  }
+
+  completeMarquee(additive = false) {
+    if (!this.marqueeState) return;
+    const rect = normalizedWorldRect(this.marqueeState.startWorld, this.marqueeState.currentWorld);
+    this.marqueeState = null;
+    const ids = this.scene.spatialIndex.queryRect(rect)
+      .map(item => item.payload?.device?.id)
+      .filter(Boolean);
+    if (additive) ids.forEach(id => this.scene.selectedIds.add(id));
+    else this.scene.selectMany(ids);
+    this.updateSelectionHud();
+    this.updateInteractionHud("marquee-select");
+  }
+
+  completeDrag() {
+    const start = performance.now();
+    const selectedIds = [...this.dragSession.selectedIds];
+    const affectedWireIds = [...this.dragSession.affectedWireIds];
+    // Commit once at pointer-up. During pointermove the engine renders with a
+    // transient DragSession offset so the real production data stays untouched
+    // and existing save/load/report code only sees finalized edits.
+    const commitMs = this.dragSession.commit();
+    const mutationMs = this.mutations?.commitDevicePositions(this.scene, selectedIds) || 0;
+    const dirtyStats = this.renderer.updateDirty(this.scene, {
+      deviceIds: selectedIds,
+      wireIds: affectedWireIds
+    });
+    this.lastDirtyDeviceIds = new Set(selectedIds);
+    this.lastDirtyWireIds = new Set(affectedWireIds);
+    this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.dragSession = null;
+    this.canvas.classList.remove("dragging");
+    this.hud.setMetric("dropCommit", `${(performance.now() - start).toFixed(2)} ms`);
+    this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+    this.hud.setMetric("dirty counts", `${dirtyStats.dirtyDevices} dev / ${dirtyStats.dirtyWires} wires`);
+    this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
+    this.hud.setMetric("full rebuilds", dirtyStats.fullRebuildCount);
+    this.hud.setMetric("range updates", dirtyStats.rangeUpdateCount);
+    this.markCommitted(`move ${selectedIds.length} object${selectedIds.length === 1 ? "" : "s"}`, mutationMs, { commitMs });
+    this.updateSelectionHud();
+    this.updateInteractionHud("idle");
+  }
+
+  updateHover(world) {
+    const tolerance = this.hitToleranceWorld();
+    const routeHit = this.renderOptions.routePoints
+      ? hitTestRoutePoint(this.scene, world, tolerance * 1.2)
+      : { routePoint: null, candidates: 0, ms: 0 };
+    const connectorHit = routeHit.routePoint
+      ? { connector: null, candidates: 0, ms: 0 }
+      : hitTestConnector(this.scene, world, tolerance * 1.35);
+    const wireHit = routeHit.routePoint || connectorHit.connector
+      ? { wire: null, candidates: 0, ms: 0 }
+      : hitTestWire(this.scene, world, tolerance);
+    const deviceHit = routeHit.routePoint || connectorHit.connector || wireHit.wire
+      ? { device: null, ms: 0 }
+      : hitTestDevice(this.scene, world);
+    this.hoverState = {
+      device: deviceHit.device,
+      connector: connectorHit.connector,
+      wire: wireHit.wire,
+      routePoint: routeHit.routePoint,
+      candidateCount: routeHit.candidates + connectorHit.candidates + wireHit.candidates,
+      hitMs: routeHit.ms + connectorHit.ms + wireHit.ms + deviceHit.ms
+    };
+    this.updateInteractionHud("hover");
+    this.scheduleRender();
+  }
+
+  interactionRenderState() {
+    const tempWire = this.wireCreate
+      ? {
+        from: this.wireCreate.from.point,
+        to: this.wireCreate.target?.point || this.wireCreate.pointerWorld,
+        color: this.wireCreate.color
+      }
+      : null;
+    return {
+      hoveredConnector: this.hoverState.connector,
+      hoveredWire: this.hoverState.wire,
+      hoveredRoutePoint: this.hoverState.routePoint,
+      selectedConnectors: this.scene.selectedConnectorKeys,
+      selectedRoutePoints: this.scene.selectedRoutePointKeys,
+      tempWire,
+      marquee: this.marqueeState ? normalizedWorldRect(this.marqueeState.startWorld, this.marqueeState.currentWorld) : null
+    };
+  }
+
+  updateSelectionHud() {
+    const selectedDevices = this.scene.selectedIds.size;
+    const selectedWires = this.scene.selectedWireIds.size;
+    const selectedRoutePoints = this.scene.selectedRoutePointKeys.size;
+    const selectedConnectors = this.scene.selectedConnectorKeys.size;
+    const selectedTotal = selectedDevices + selectedWires + selectedRoutePoints + selectedConnectors;
+    this.hud.setSceneStats({ selected: selectedTotal });
+    this.hud.setMetric("selected devices", selectedDevices);
+    this.hud.setMetric("selected wires", selectedWires);
+    this.hud.setMetric("selected connectors", selectedConnectors);
+    this.hud.setMetric("selected route points", selectedRoutePoints);
+    this.hud.setMetric("selected jump nodes", [...this.scene.selectedIds].filter(id => this.scene.getDevice(id)?.kind === "jump").length);
+    const selectedDeviceObjects = [...this.scene.selectedIds]
+      .map(id => this.scene.getDevice(id))
+      .filter(Boolean)
+      .map(device => ({
+        id: device.id,
+        sourceId: device.sourceId || device.id,
+        sourceKind: device.sourceKind || device.kind || "device",
+        kind: device.kind || "device"
+      }));
+    this.api.onEngineSelection?.({
+      deviceIds: [...this.scene.selectedIds],
+      wireIds: [...this.scene.selectedWireIds],
+      connectorKeys: [...this.scene.selectedConnectorKeys],
+      routePointKeys: [...this.scene.selectedRoutePointKeys],
+      devices: selectedDeviceObjects
+    });
+  }
+
+  updateInteractionHud(mode = "idle", hit = null) {
+    this.hud.setMetric("hovered device", this.hoverState.device ? deviceSummary(this.hoverState.device) : "-");
+    this.hud.setMetric("hovered connector", this.hoverState.connector ? connectorSummary(this.hoverState.connector) : "-");
+    this.hud.setMetric("hovered wire", this.hoverState.wire ? wireSummary(this.hoverState.wire.wire) : "-");
+    this.hud.setMetric("hovered route point", this.hoverState.routePoint ? `${this.hoverState.routePoint.wire.id}:${this.hoverState.routePoint.pointIndex}` : "-");
+    this.hud.setMetric("interaction mode", mode);
+    this.hud.setMetric("wire creation", this.wireCreate ? wireCreateSummary(this.wireCreate) : "-");
+    this.hud.setMetric("hit candidates", hit?.candidates ?? this.hoverState.candidateCount ?? 0);
+    this.hud.setMetric("hitTest", `${(hit?.ms ?? this.hoverState.hitMs ?? 0).toFixed(3)} ms`);
+  }
+
+  updateHud({ sceneBuildMs = null, staticStats = null, mode = "ready" } = {}) {
+    const adapterStats = this.scene.adapterStats();
+    const textureStats = this.renderer.textureStats();
+    this.hud.setSceneStats({
+      devices: this.scene.devices.length,
+      wires: this.scene.wires.length,
+      routed: adapterStats.routedWires,
+      selected: this.scene.selectedIds.size + this.scene.selectedWireIds.size
+    });
+    this.hud.setMetric("adapter", this.scene.meta?.adapterMs ? `${this.scene.meta.adapterMs.toFixed(1)} ms` : "-");
+    if (sceneBuildMs != null) this.hud.setMetric("sceneBuild", `${sceneBuildMs.toFixed(1)} ms`);
+    this.hud.setMetric("spatialIndex", "data indexes");
+    if (staticStats) {
+      this.hud.setMetric("static upload", `${staticStats.totalMs.toFixed(1)} ms`);
+      this.hud.setMetric("static detail", `g ${staticStats.geometryMs.toFixed(1)} / u ${staticStats.uploadMs.toFixed(1)} / t ${staticStats.textureMs.toFixed(1)} ms`);
+      this.hud.setMetric("full rebuilds", staticStats.fullRebuildCount);
+      this.hud.setMetric("range updates", staticStats.rangeUpdateCount);
+    }
+    this.hud.setMetric("texture count", `${textureStats.textureCount} / ${textureStats.deviceEntries} dev`);
+    this.hud.setMetric("texture memory", textureStats.memoryLabel);
+    this.hud.setMetric("texture builds", `${textureStats.builds} build / ${textureStats.rebuilds} rebuild`);
+    this.hud.setMetric("texture cache", `${textureStats.hits} hit / ${textureStats.misses} miss / ${textureStats.sharedHits} shared`);
+    this.hud.setMetric("texture drag rebuilds", 0);
+    this.hud.setMetric("gpu update", staticStats ? "full static upload" : "ready");
+    this.hud.setMetric("skipped", `${this.scene.meta?.skippedWires || 0} wires`);
+    this.hud.setMetric("benchmark", mode);
+    this.updateSelectionHud();
+    this.updateInteractionHud(mode);
+  }
+
+  updateStatusPanel(reason = "") {
+    if (!this.statusPanel) return;
+    const meta = this.scene.meta || {};
+    const mutationStats = this.mutations?.stats() || {};
+    this.statusPanel.innerHTML = [
+      `<strong>WebGL2 engine</strong>`,
+      `<span>${escapeHtml(meta.sourceName || meta.projectName || "Production project")}</span>`,
+      `<span>${this.scene.devices.length} objects / ${this.scene.wires.length} wires</span>`,
+      `<span>mutations: ${mutationStats.mutationCount || 0}</span>`,
+      `<span>${escapeHtml(reason)}</span>`
+    ].join("");
+  }
+
+  markCommitted(type, mutationMs = 0, extra = {}) {
+    const mutationStats = this.mutations?.stats() || {};
+    this.hud.setMetric("project mutation", `${type} ${mutationMs.toFixed(3)} ms`);
+    this.hud.setMetric("project dirty", mutationStats.dirty ? "yes" : "no");
+    this.updateStatusPanel(type);
+    this.api.onEngineCommit?.({ type, mutationMs, mutationStats, ...extra });
+  }
+
+  showError(message) {
+    if (!this.errorPanel) return;
+    if (!message) {
+      this.errorPanel.classList.add("hidden");
+      this.errorPanel.textContent = "";
+      return;
+    }
+    this.errorPanel.classList.remove("hidden");
+    this.errorPanel.textContent = message;
+  }
+
+  fitView() {
+    const bounds = this.scene.bounds();
+    const rect = this.canvas.getBoundingClientRect();
+    const padding = 120;
+    const zoomX = rect.width / Math.max(1, bounds.width + padding * 2);
+    const zoomY = rect.height / Math.max(1, bounds.height + padding * 2);
+    this.camera.zoom = clamp(Math.min(zoomX, zoomY), 0.04, 4);
+    this.camera.x = bounds.x + bounds.width / 2 - rect.width / this.camera.zoom / 2;
+    this.camera.y = bounds.y + bounds.height / 2 - rect.height / this.camera.zoom / 2;
+  }
+
+  eventPoint(event) {
+    const rect = this.canvas.getBoundingClientRect();
+    return {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top
+    };
+  }
+
+  hitToleranceWorld(screenPixels = 10) {
+    return screenPixels / Math.max(this.camera.zoom, 0.001);
+  }
+
+  scheduleRender() {
+    if (this.renderFrame) return;
+    this.renderFrame = requestAnimationFrame(() => {
+      this.renderFrame = null;
+      const renderMs = this.renderer.draw(this.scene, this.camera, {
+        selectedIds: this.scene.selectedIds,
+        selectedWireIds: this.scene.selectedWireIds,
+        dragSession: this.dragSession,
+        interactionState: this.interactionRenderState(),
+        renderOptions: this.renderOptions
+      });
+      this.hud.recordFrame(renderMs);
+      const textures = this.renderer.textureStats();
+      this.hud.setMetric("texture draw", `${textures.drawMs.toFixed(2)} ms / ${textures.quads} quads`);
+    });
+  }
+}
+
+function normalizeProductionProject(projectData, reason) {
+  const root = projectData?.state || projectData?.project || projectData || {};
+  const hasObjects = ["devices", "jumpNodes", "ledSurfaces"].some(key => Array.isArray(root[key]) && root[key].length);
+  if (!hasObjects) {
+    return {
+      devices: [],
+      wires: [],
+      projectData,
+      meta: {
+        dataSource: "Production bridge",
+        sourceName: projectData?.projectName || "Empty production project",
+        projectName: projectData?.projectName || "",
+        adapterMs: 0,
+        skippedWires: 0,
+        reason
+      }
+    };
+  }
+  const normalized = normalizeAvDesignerProject(projectData, {
+    dataSource: "Production bridge",
+    sourceName: root.projectName || projectData?.projectName || "AV Designer project"
+  });
+  // The adapter returns a cloned projectData for the standalone prototype. The
+  // bridge must point back to the production state snapshot object so mutation
+  // commits update the real arrays used by existing save/load/export code.
+  normalized.projectData = projectData;
+  normalized.meta = {
+    ...normalized.meta,
+    dataSource: "Production bridge",
+    sourceName: root.projectName || projectData?.projectName || normalized.meta?.sourceName || "AV Designer project",
+    bridgeVersion: BRIDGE_VERSION,
+    reason
+  };
+  return normalized;
+}
+
+function injectBridgeStyles() {
+  if (document.getElementById("engineBridgeStyles")) return;
+  const style = document.createElement("style");
+  style.id = "engineBridgeStyles";
+  style.textContent = `
+    .canvas-wrap.engine-bridge-active { position: relative; }
+    .canvas-wrap.engine-bridge-active > #canvas,
+    .canvas-wrap.engine-bridge-active > #webglCanvas,
+    .canvas-wrap.engine-bridge-active > #deviceTextureCanvas,
+    .canvas-wrap.engine-bridge-active > #navigationSnapshotCanvas {
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    .engine-bridge-root {
+      position: absolute;
+      inset: 0;
+      z-index: 40;
+      background: #111820;
+      overflow: hidden;
+      color: #eef5ff;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .engine-bridge-canvas,
+    .engine-bridge-label-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .engine-bridge-label-canvas { pointer-events: none; }
+    .engine-bridge-root.panning,
+    .engine-bridge-canvas.panning { cursor: grabbing; }
+    .engine-bridge-canvas.dragging { cursor: grabbing; }
+    .engine-bridge-badge {
+      position: absolute;
+      left: 14px;
+      top: 14px;
+      z-index: 3;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      max-width: min(900px, calc(100% - 28px));
+      padding: 8px 10px;
+      border: 1px solid rgba(50,182,255,.45);
+      border-radius: 8px;
+      background: rgba(15, 24, 32, .88);
+      box-shadow: 0 0 24px rgba(50,182,255,.16);
+      pointer-events: auto;
+      font-size: 12px;
+    }
+    .engine-bridge-badge strong { color: #32b6ff; letter-spacing: .04em; text-transform: uppercase; }
+    .engine-bridge-badge span {
+      color: #ccd7e4;
+      border-left: 1px solid rgba(204,215,228,.25);
+      padding-left: 8px;
+    }
+    .engine-bridge-badge button {
+      color: #eef5ff;
+      background: #1b2632;
+      border: 1px solid rgba(204,215,228,.35);
+      border-radius: 6px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font: inherit;
+    }
+    .engine-bridge-badge button:hover { border-color: #32b6ff; }
+    .engine-bridge-status {
+      position: absolute;
+      left: 14px;
+      bottom: 14px;
+      z-index: 3;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      max-width: min(880px, calc(100% - 420px));
+      padding: 8px 10px;
+      border: 1px solid rgba(204,215,228,.22);
+      border-radius: 8px;
+      background: rgba(15, 24, 32, .76);
+      font-size: 12px;
+      pointer-events: none;
+    }
+    .engine-bridge-status span,
+    .engine-bridge-status strong {
+      display: inline-block;
+      white-space: nowrap;
+    }
+    .engine-bridge-status strong { color: #ff7904; }
+    .engine-bridge-error {
+      position: absolute;
+      left: 14px;
+      top: 70px;
+      z-index: 4;
+      max-width: 620px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255,79,95,.75);
+      border-radius: 8px;
+      background: rgba(80, 14, 20, .9);
+      color: #fff;
+      white-space: pre-wrap;
+      pointer-events: none;
+    }
+    .engine-bridge-debug {
+      position: absolute;
+      right: 14px;
+      bottom: 14px;
+      z-index: 3;
+      width: 320px;
+      max-height: min(520px, calc(100% - 28px));
+      overflow: auto;
+      padding: 10px;
+      border: 1px solid rgba(50,182,255,.35);
+      border-radius: 8px;
+      background: rgba(15, 24, 32, .84);
+      font-size: 11px;
+      pointer-events: auto;
+    }
+    .engine-bridge-debug h2 {
+      margin: 0 0 8px;
+      color: #32b6ff;
+      font-size: 12px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .engine-bridge-debug .hud-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      padding: 2px 0;
+      border-bottom: 1px solid rgba(204,215,228,.08);
+    }
+    .engine-bridge-debug .hud-row span { color: #aeb9c6; }
+    .engine-bridge-debug .hud-row strong { color: #eef5ff; font-weight: 700; }
+    .engine-bridge-root .hidden { display: none !important; }
+  `;
+  document.head.appendChild(style);
+}
+
+function exitEngineMode() {
+  try {
+    localStorage.removeItem("avdesignerEngineRenderer");
+  } catch (error) {
+    // localStorage may be unavailable in private or restricted contexts.
+  }
+  const url = new URL(window.location.href);
+  url.searchParams.delete("engine");
+  window.location.href = url.toString();
+}
+
+function engineActivationSource() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("engine") === "1") return "?engine=1";
+  try {
+    if (localStorage.getItem("avdesignerEngineRenderer") === "1") return "localStorage";
+  } catch (error) {
+    // localStorage may be blocked.
+  }
+  return "unknown";
+}
+
+function normalizedWorldRect(a, b) {
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  return {
+    x,
+    y,
+    width: Math.abs(a.x - b.x),
+    height: Math.abs(a.y - b.y)
+  };
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function deviceSummary(device) {
+  if (!device) return "-";
+  return `${device.label || device.id}${device.kind === "jump" ? " (jump)" : ""}`;
+}
+
+function connectorSummary(hit) {
+  if (!hit) return "-";
+  return `${hit.device.label || hit.device.id} / ${hit.connector.label || hit.connector.id}`;
+}
+
+function wireSummary(wire) {
+  if (!wire) return "-";
+  return wire.label || wire.cableType || wire.id;
+}
+
+function wireCreateSummary(state) {
+  if (!state?.from) return "-";
+  const source = connectorSummary(state.from);
+  const target = state.target ? connectorSummary(state.target) : "select target";
+  return `${source} -> ${target}`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
