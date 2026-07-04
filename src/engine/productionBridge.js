@@ -11,6 +11,7 @@ import { ProjectMutationAdapter } from "./projectMutations.js";
 import { WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
 import { PerfHud } from "./perfHud.js";
+import { validateEngineScene } from "./sceneValidation.js";
 
 const BRIDGE_VERSION = "production-bridge-1";
 
@@ -41,8 +42,10 @@ class ProductionEngineBridge {
     this.inspectorPanel = null;
     this.errorPanel = null;
     this.loadingPanel = null;
+    this.validationPanel = null;
     this.camera = { x: 0, y: 0, zoom: 1 };
     this.renderFrame = null;
+    this.loadingReadyTimer = null;
     this.dragSession = null;
     this.pendingDrag = null;
     this.panState = null;
@@ -88,6 +91,7 @@ class ProductionEngineBridge {
     this.commandIndex = 0;
     this.lastMutationType = "-";
     this.productionDirty = false;
+    this.engineWarnings = new Map();
   }
 
   start() {
@@ -109,6 +113,7 @@ class ProductionEngineBridge {
 
   destroy({ restoreProduction = true } = {}) {
     this.started = false;
+    this.clearLoadingReadyTimer();
     this.engineRoot?.remove();
     this.engineRoot = null;
     this.container?.classList.remove("engine-bridge-active");
@@ -119,6 +124,7 @@ class ProductionEngineBridge {
   }
 
   refreshFromProduction(reason = "manual refresh") {
+    this.clearLoadingReadyTimer();
     this.setLoading(true, `Preparing engine scene: ${reason}`);
     const loadStart = performance.now();
     try {
@@ -151,8 +157,8 @@ class ProductionEngineBridge {
       this.updateStatusPanel(reason);
       this.renderEngineInspector();
       this.showError("");
-      this.hud.setMetric("load ready", `${(performance.now() - loadStart).toFixed(1)} ms`);
-      this.setLoading(false);
+      this.hud.setMetric("load build", `${(performance.now() - loadStart).toFixed(1)} ms`);
+      this.finishLoadingAfterOptionalDelay(loadStart);
       this.scheduleRender();
     } catch (error) {
       this.setLoading(true, "Engine scene failed to load.");
@@ -180,8 +186,10 @@ class ProductionEngineBridge {
         <button type="button" data-engine-action="undo">Undo Engine Edit</button>
         <button type="button" data-engine-action="redo">Redo Engine Edit</button>
         <button type="button" data-engine-action="delete-wire">Delete Selected Wire</button>
+        <button type="button" data-engine-action="validate">Validate Engine Scene</button>
       </div>
       <div class="engine-bridge-inspector"></div>
+      <div class="engine-bridge-validation hidden"></div>
       <div class="engine-bridge-error hidden"></div>
       <div class="engine-bridge-loading" role="status" aria-live="polite">
         <strong>Loading engine scene</strong>
@@ -195,6 +203,7 @@ class ProductionEngineBridge {
     this.debugPanel = this.engineRoot.querySelector(".engine-bridge-debug");
     this.statusPanel = this.engineRoot.querySelector(".engine-bridge-status");
     this.inspectorPanel = this.engineRoot.querySelector(".engine-bridge-inspector");
+    this.validationPanel = this.engineRoot.querySelector(".engine-bridge-validation");
     this.errorPanel = this.engineRoot.querySelector(".engine-bridge-error");
     this.loadingPanel = this.engineRoot.querySelector(".engine-bridge-loading");
     this.engineRoot.querySelector("[data-engine-action='refresh']")?.addEventListener("click", () => this.refreshFromProduction("manual button"));
@@ -202,6 +211,7 @@ class ProductionEngineBridge {
     this.engineRoot.querySelector("[data-engine-action='undo']")?.addEventListener("click", () => this.undoEngineCommand());
     this.engineRoot.querySelector("[data-engine-action='redo']")?.addEventListener("click", () => this.redoEngineCommand());
     this.engineRoot.querySelector("[data-engine-action='delete-wire']")?.addEventListener("click", () => this.deleteSelectedWires());
+    this.engineRoot.querySelector("[data-engine-action='validate']")?.addEventListener("click", () => this.runSceneValidation());
   }
 
   bindEvents() {
@@ -593,6 +603,15 @@ class ProductionEngineBridge {
     this.hud.setMetric("full rebuilds", dirtyStats.fullRebuildCount);
     this.hud.setMetric("range updates", dirtyStats.rangeUpdateCount);
     this.recordDirtyVisualMetrics(dirtyStats, "drop");
+    const releaseMs = performance.now() - start;
+    const releaseTargetMs = selectedIds.length > 1 ? 300 : 100;
+    this.hud.setMetric("release target", `${releaseTargetMs} ms (${selectedIds.length} selected)`);
+    this.setEngineWarning(
+      "release",
+      releaseMs > releaseTargetMs
+        ? `Release ${releaseMs.toFixed(1)} ms exceeded ${releaseTargetMs} ms target.`
+        : ""
+    );
     this.markCommitted(`move ${selectedIds.length} object${selectedIds.length === 1 ? "" : "s"}`, mutationMs, { commitMs });
     this.recordCommand(moveDevicesCommand(beforePositions, afterPositions, affectedWireIds));
     this.updateSelectionHud();
@@ -701,6 +720,8 @@ class ProductionEngineBridge {
   updateHud({ sceneBuildMs = null, staticStats = null, mode = "ready" } = {}) {
     const adapterStats = this.scene.adapterStats();
     const textureStats = this.renderer.textureStats();
+    this.hud.setMetric("engine mode", "active");
+    this.hud.setMetric("loading", this.ready ? "ready" : "loading");
     this.hud.setSceneStats({
       devices: this.scene.devices.length,
       wires: this.scene.wires.length,
@@ -721,6 +742,8 @@ class ProductionEngineBridge {
     this.hud.setMetric("texture builds", `${textureStats.builds} build / ${textureStats.rebuilds} rebuild`);
     this.hud.setMetric("texture cache", `${textureStats.hits} hit / ${textureStats.misses} miss / ${textureStats.sharedHits} shared`);
     this.hud.setMetric("texture drag rebuilds", 0);
+    this.hud.setMetric("undo redo", `${this.commandIndex} undo / ${this.commandHistory.length - this.commandIndex} redo`);
+    this.hud.setMetric("last command", this.lastMutationType);
     this.hud.setMetric("gpu update", staticStats ? "full static upload" : "ready");
     this.hud.setMetric("skipped", `${this.scene.meta?.skippedWires || 0} wires`);
     this.hud.setMetric("benchmark", mode);
@@ -760,6 +783,7 @@ class ProductionEngineBridge {
     if (undo) undo.disabled = this.commandIndex <= 0;
     if (redo) redo.disabled = this.commandIndex >= this.commandHistory.length;
     if (deleteWire) deleteWire.disabled = this.scene.selectedWireIds.size === 0;
+    this.hud?.setMetric("undo redo", `${this.commandIndex} undo / ${this.commandHistory.length - this.commandIndex} redo`);
   }
 
   renderEngineInspector() {
@@ -832,6 +856,7 @@ class ProductionEngineBridge {
   markCommitted(type, mutationMs = 0, extra = {}) {
     const mutationStats = this.mutations?.stats() || {};
     this.lastMutationType = type;
+    this.hud.setMetric("last command", type);
     this.hud.setMetric("project mutation", `${type} ${mutationMs.toFixed(3)} ms`);
     this.hud.setMetric("project dirty", mutationStats.dirty ? "yes" : "no");
     this.updateStatusPanel(type);
@@ -854,6 +879,8 @@ class ProductionEngineBridge {
     this.commandHistory.push(command);
     if (this.commandHistory.length > 80) this.commandHistory.shift();
     this.commandIndex = this.commandHistory.length;
+    this.hud?.setMetric("last command", command.type);
+    this.hud?.setMetric("undo redo", `${this.commandIndex} undo / ${this.commandHistory.length - this.commandIndex} redo`);
     this.updateStatusPanel(command.type);
     this.renderEngineInspector();
   }
@@ -995,10 +1022,77 @@ class ProductionEngineBridge {
 
   setLoading(active, message = "") {
     this.ready = !active;
+    this.hud?.setMetric("loading", active ? (message || "loading") : "ready");
     if (!this.loadingPanel) return;
     this.loadingPanel.classList.toggle("hidden", !active);
     const text = this.loadingPanel.querySelector("span");
     if (text && active) text.textContent = message || "Preparing project data...";
+  }
+
+  finishLoadingAfterOptionalDelay(loadStart) {
+    const delayMs = engineDebugLoadDelayMs();
+    if (!delayMs) {
+      this.hud.setMetric("load ready", `${(performance.now() - loadStart).toFixed(1)} ms`);
+      this.setLoading(false);
+      return;
+    }
+    this.hud.setMetric("loading", `debug hold ${delayMs} ms`);
+    const text = this.loadingPanel?.querySelector("span");
+    if (text) text.textContent = `Debug loading hold: ${delayMs} ms`;
+    this.loadingReadyTimer = window.setTimeout(() => {
+      this.loadingReadyTimer = null;
+      this.hud.setMetric("load ready", `${(performance.now() - loadStart).toFixed(1)} ms`);
+      this.setLoading(false);
+      this.scheduleRender();
+    }, delayMs);
+  }
+
+  clearLoadingReadyTimer() {
+    if (!this.loadingReadyTimer) return;
+    window.clearTimeout(this.loadingReadyTimer);
+    this.loadingReadyTimer = null;
+  }
+
+  runSceneValidation() {
+    if (this.dragSession || this.pendingDrag || this.routePointDrag || this.wireCreate || this.marqueeState) {
+      this.setEngineWarning("validation", "Validation skipped during active interaction.");
+      return;
+    }
+    const result = validateEngineScene(this.scene, this.mutations?.project || null);
+    this.hud.setMetric("validation", `${result.ok ? "passed" : "failed"} ${result.durationMs.toFixed(1)} ms`);
+    this.setEngineWarning("validation", result.errors.length ? `${result.errors.length} validation error(s)` : "");
+    this.renderValidationPanel(result);
+    console.info("[engine-bridge] scene validation", result);
+  }
+
+  renderValidationPanel(result) {
+    if (!this.validationPanel) return;
+    const problems = [
+      ...result.errors.map(message => ({ kind: "error", message })),
+      ...result.warnings.map(message => ({ kind: "warning", message }))
+    ].slice(0, 12);
+    this.validationPanel.classList.remove("hidden");
+    this.validationPanel.innerHTML = `
+      <h3>Engine Scene Validation</h3>
+      ${detailsMarkup([
+        ["Result", result.ok ? "Passed" : "Failed"],
+        ["Duration", `${result.durationMs.toFixed(1)} ms`],
+        ["Objects", `${result.counts.objects} scene / ${result.counts.productionObjects} production`],
+        ["Wires", `${result.counts.wires} scene / ${result.counts.productionConnections} production`],
+        ["Route Points", result.counts.routePoints],
+        ["Selected", `${result.counts.selectedObjects} objects / ${result.counts.selectedWires} wires`],
+        ["Errors", result.errors.length],
+        ["Warnings", result.warnings.length]
+      ])}
+      ${problems.length ? `<ul>${problems.map(item => `<li class="${item.kind}">${escapeHtml(item.message)}</li>`).join("")}</ul>` : "<div class=\"engine-bridge-muted\">No validation problems found.</div>"}
+    `;
+  }
+
+  setEngineWarning(key, message = "") {
+    if (message) this.engineWarnings.set(key, message);
+    else this.engineWarnings.delete(key);
+    const text = [...this.engineWarnings.values()].join(" | ") || "-";
+    this.hud?.setMetric("warnings", text);
   }
 
   releasePointerCapture(pointerId) {
@@ -1244,6 +1338,21 @@ function injectBridgeStyles() {
       font-size: 11px;
       pointer-events: auto;
     }
+    .engine-bridge-validation {
+      position: absolute;
+      right: 14px;
+      top: 392px;
+      z-index: 3;
+      width: 320px;
+      max-height: 280px;
+      overflow: auto;
+      padding: 10px;
+      border: 1px solid rgba(255,121,4,.45);
+      border-radius: 8px;
+      background: rgba(15, 24, 32, .86);
+      font-size: 11px;
+      pointer-events: auto;
+    }
     .engine-bridge-inspector h3 {
       margin: 0 0 8px;
       color: #32b6ff;
@@ -1251,6 +1360,20 @@ function injectBridgeStyles() {
       letter-spacing: .08em;
       text-transform: uppercase;
     }
+    .engine-bridge-validation h3 {
+      margin: 0 0 8px;
+      color: #ff7904;
+      font-size: 12px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .engine-bridge-validation ul {
+      margin: 8px 0 0;
+      padding-left: 16px;
+    }
+    .engine-bridge-validation li { margin: 3px 0; }
+    .engine-bridge-validation li.error { color: #ff808a; }
+    .engine-bridge-validation li.warning { color: #ffd37a; }
     .engine-bridge-details {
       display: grid;
       grid-template-columns: 105px minmax(0, 1fr);
@@ -1335,6 +1458,7 @@ function injectBridgeStyles() {
     }
     .engine-bridge-debug .hud-row span { color: #aeb9c6; }
     .engine-bridge-debug .hud-row strong { color: #eef5ff; font-weight: 700; }
+    .engine-bridge-debug .hud-row-warning strong { color: #ff7904; }
     .engine-bridge-root .hidden { display: none !important; }
   `;
   document.head.appendChild(style);
@@ -1360,6 +1484,13 @@ function engineActivationSource() {
     // localStorage may be blocked.
   }
   return "unknown";
+}
+
+function engineDebugLoadDelayMs() {
+  const params = new URLSearchParams(window.location.search);
+  const explicit = Number(params.get("loadDelay"));
+  if (Number.isFinite(explicit) && explicit > 0) return Math.min(5000, explicit);
+  return params.get("debugLoad") === "1" ? 1000 : 0;
 }
 
 function normalizedWorldRect(a, b) {

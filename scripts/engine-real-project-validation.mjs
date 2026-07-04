@@ -6,6 +6,7 @@ import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 import { DragSession } from "../src/engine/dragSession.js";
+import { validateEngineScene } from "../src/engine/sceneValidation.js";
 
 const defaultProjectPath = "/Users/paulofraga/Documents/Solas Projects/11765-PWC_GPM 2026_Madinat Arena/11765-pwc-gpm-2026-madinatarena-rev1-0-project.avd";
 const projectPath = process.argv[2] || defaultProjectPath;
@@ -46,6 +47,7 @@ const scene = new SceneGraph();
 time("scene graph build", () => scene.setData(normalized));
 const mutations = time("mutation adapter build", () => new ProjectMutationAdapter(normalized));
 const root = projectRoot(mutations.project);
+const initialValidation = time("initial scene validation", () => validateEngineScene(scene, mutations.project));
 
 const initialCounts = {
   devices: scene.devices.length,
@@ -58,6 +60,10 @@ const initialCounts = {
 check("real project has devices and wires", () => {
   assert.ok(initialCounts.devices > 0, "expected at least one device");
   assert.ok(initialCounts.wires > 0, "expected at least one wire");
+});
+
+check("initial engine scene validates", () => {
+  assert.deepEqual(initialValidation.errors, []);
 });
 
 const firstDevice = scene.devices.find(device => device.kind !== "surface") || scene.devices[0];
@@ -163,6 +169,11 @@ check("restore keeps original wire identity and route points", () => {
   );
 });
 
+const finalValidation = time("final scene validation", () => validateEngineScene(scene, mutations.project));
+check("edited engine scene validates", () => {
+  assert.deepEqual(finalValidation.errors, []);
+});
+
 const exportedJson = time("export project json", () => mutations.exportJson({ pretty: false }));
 const reparsed = time("parse exported json", () => JSON.parse(exportedJson));
 const renormalized = time("renormalize exported project", () => normalizeAvDesignerProject(reparsed, {
@@ -171,10 +182,15 @@ const renormalized = time("renormalize exported project", () => normalizeAvDesig
 }));
 const reloadScene = new SceneGraph();
 time("reload scene graph build", () => reloadScene.setData(renormalized));
+const reloadValidation = time("reload scene validation", () => validateEngineScene(reloadScene, reparsed));
 
 check("round-trip keeps counts compatible", () => {
   assert.equal(reloadScene.devices.length, scene.devices.length);
   assert.equal(reloadScene.wires.length, scene.wires.length);
+});
+
+check("round-trip engine scene validates", () => {
+  assert.deepEqual(reloadValidation.errors, []);
 });
 
 check("round-trip keeps moved device position", () => {
@@ -209,6 +225,26 @@ const summary = {
     deleteRestoreTested: Boolean(deleteTarget)
   },
   mutationStats,
+  validation: {
+    initial: {
+      ok: initialValidation.ok,
+      errors: initialValidation.errors.length,
+      warnings: initialValidation.warnings.length,
+      durationMs: round(initialValidation.durationMs)
+    },
+    final: {
+      ok: finalValidation.ok,
+      errors: finalValidation.errors.length,
+      warnings: finalValidation.warnings.length,
+      durationMs: round(finalValidation.durationMs)
+    },
+    reload: {
+      ok: reloadValidation.ok,
+      errors: reloadValidation.errors.length,
+      warnings: reloadValidation.warnings.length,
+      durationMs: round(reloadValidation.durationMs)
+    }
+  },
   timingsMs: Object.fromEntries(Object.entries(timings).map(([key, value]) => [key, round(value)])),
   checks,
   performanceTargets: {
