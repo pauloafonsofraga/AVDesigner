@@ -40,13 +40,17 @@ class ProductionEngineBridge {
     this.statusPanel = null;
     this.inspectorPanel = null;
     this.errorPanel = null;
+    this.loadingPanel = null;
     this.camera = { x: 0, y: 0, zoom: 1 };
     this.renderFrame = null;
     this.dragSession = null;
+    this.pendingDrag = null;
     this.panState = null;
     this.routePointDrag = null;
     this.wireCreate = null;
     this.marqueeState = null;
+    this.dragThresholdPx = 4;
+    this.ready = false;
     this.hoverState = {
       device: null,
       connector: null,
@@ -115,35 +119,46 @@ class ProductionEngineBridge {
   }
 
   refreshFromProduction(reason = "manual refresh") {
-    const rawProject = this.api.getProjectData?.();
-    const normalized = normalizeProductionProject(rawProject, reason);
-    this.lastDirtyDeviceIds.clear();
-    this.lastDirtyWireIds.clear();
-    this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
-    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
-    this.renderer?.setRenderOptions(this.renderOptions);
-    const start = performance.now();
-    // The bridge builds the engine scene from production state at explicit sync
-    // points only. Pan, zoom, hover, and drag frames must keep using cached
-    // engine buffers/textures and must not re-adapt the whole production app.
-    this.scene.setData(normalized);
-    this.mutations = new ProjectMutationAdapter(normalized, { cloneProjectData: false });
-    this.commandHistory = [];
-    this.commandIndex = 0;
-    this.lastMutationType = "-";
-    this.productionDirty = false;
-    const sceneBuildMs = performance.now() - start;
-    const staticStats = this.renderer.setStaticScene(this.scene);
-    this.fitView();
-    this.updateHud({
-      sceneBuildMs,
-      staticStats,
-      mode: `scene refresh: ${reason}`
-    });
-    this.updateStatusPanel(reason);
-    this.renderEngineInspector();
-    this.showError("");
-    this.scheduleRender();
+    this.setLoading(true, `Preparing engine scene: ${reason}`);
+    const loadStart = performance.now();
+    try {
+      const rawProject = this.api.getProjectData?.();
+      const normalized = normalizeProductionProject(rawProject, reason);
+      this.cancelActiveInteraction("scene refresh", { updateHud: false });
+      this.lastDirtyDeviceIds.clear();
+      this.lastDirtyWireIds.clear();
+      this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+      this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+      this.renderer?.setRenderOptions(this.renderOptions);
+      const start = performance.now();
+      // The bridge builds the engine scene from production state at explicit sync
+      // points only. Pan, zoom, hover, and drag frames must keep using cached
+      // engine buffers/textures and must not re-adapt the whole production app.
+      this.scene.setData(normalized);
+      this.mutations = new ProjectMutationAdapter(normalized, { cloneProjectData: false });
+      this.commandHistory = [];
+      this.commandIndex = 0;
+      this.lastMutationType = "-";
+      this.productionDirty = false;
+      const sceneBuildMs = performance.now() - start;
+      const staticStats = this.renderer.setStaticScene(this.scene);
+      this.fitView();
+      this.updateHud({
+        sceneBuildMs,
+        staticStats,
+        mode: `scene refresh: ${reason}`
+      });
+      this.updateStatusPanel(reason);
+      this.renderEngineInspector();
+      this.showError("");
+      this.hud.setMetric("load ready", `${(performance.now() - loadStart).toFixed(1)} ms`);
+      this.setLoading(false);
+      this.scheduleRender();
+    } catch (error) {
+      this.setLoading(true, "Engine scene failed to load.");
+      this.showError(error?.stack || error?.message || String(error));
+      throw error;
+    }
   }
 
   mountUi() {
@@ -168,6 +183,10 @@ class ProductionEngineBridge {
       </div>
       <div class="engine-bridge-inspector"></div>
       <div class="engine-bridge-error hidden"></div>
+      <div class="engine-bridge-loading" role="status" aria-live="polite">
+        <strong>Loading engine scene</strong>
+        <span>Preparing project data...</span>
+      </div>
       <div class="engine-bridge-debug"></div>
     `;
     this.container.appendChild(this.engineRoot);
@@ -177,6 +196,7 @@ class ProductionEngineBridge {
     this.statusPanel = this.engineRoot.querySelector(".engine-bridge-status");
     this.inspectorPanel = this.engineRoot.querySelector(".engine-bridge-inspector");
     this.errorPanel = this.engineRoot.querySelector(".engine-bridge-error");
+    this.loadingPanel = this.engineRoot.querySelector(".engine-bridge-loading");
     this.engineRoot.querySelector("[data-engine-action='refresh']")?.addEventListener("click", () => this.refreshFromProduction("manual button"));
     this.engineRoot.querySelector("[data-engine-action='exit']")?.addEventListener("click", () => exitEngineMode());
     this.engineRoot.querySelector("[data-engine-action='undo']")?.addEventListener("click", () => this.undoEngineCommand());
@@ -190,7 +210,8 @@ class ProductionEngineBridge {
     this.canvas.addEventListener("pointerdown", event => this.handlePointerDown(event));
     this.canvas.addEventListener("pointermove", event => this.handlePointerMove(event));
     this.canvas.addEventListener("pointerup", event => this.handlePointerUp(event));
-    this.canvas.addEventListener("pointercancel", event => this.handlePointerUp(event));
+    this.canvas.addEventListener("pointercancel", event => this.handlePointerCancel(event));
+    this.canvas.addEventListener("lostpointercapture", event => this.handleLostPointerCapture(event));
     this.boundKeyDown = event => this.handleKeyDown(event);
     this.boundResize = () => this.scheduleRender();
     window.addEventListener("keydown", this.boundKeyDown);
@@ -198,6 +219,7 @@ class ProductionEngineBridge {
   }
 
   handleWheel(event) {
+    if (!this.ready) return;
     event.preventDefault();
     const point = this.eventPoint(event);
     const before = screenToWorld(this.camera, point);
@@ -209,6 +231,10 @@ class ProductionEngineBridge {
   }
 
   handlePointerDown(event) {
+    if (!this.ready) {
+      event.preventDefault();
+      return;
+    }
     this.canvas.setPointerCapture(event.pointerId);
     const point = this.eventPoint(event);
     if (event.button === 1 || event.buttons === 4) {
@@ -259,13 +285,22 @@ class ProductionEngineBridge {
       this.scheduleRender();
       return;
     }
-    if (event.shiftKey) this.scene.toggleSelection(deviceHit.device.id);
-    else if (!this.scene.selectedIds.has(deviceHit.device.id)) this.scene.selectOnly(deviceHit.device.id);
+    const wasSelected = this.scene.selectedIds.has(deviceHit.device.id);
+    if (event.shiftKey) {
+      this.scene.toggleSelection(deviceHit.device.id);
+      this.updateSelectionHud();
+      this.updateInteractionHud("selection-toggle", deviceHit);
+      this.scheduleRender();
+      return;
+    } else if (!wasSelected) {
+      this.scene.selectOnly(deviceHit.device.id);
+    }
     this.updateSelectionHud();
-    this.beginDrag(world);
+    this.beginPendingDrag(point, world);
   }
 
   handlePointerMove(event) {
+    if (!this.ready) return;
     const pointerStart = performance.now();
     const point = this.eventPoint(event);
     if (this.panState) {
@@ -312,6 +347,19 @@ class ProductionEngineBridge {
       this.scheduleRender();
       return;
     }
+    if (this.pendingDrag) {
+      const screenDx = point.x - this.pendingDrag.startPoint.x;
+      const screenDy = point.y - this.pendingDrag.startPoint.y;
+      if (screenDx * screenDx + screenDy * screenDy < this.dragThresholdPx * this.dragThresholdPx) {
+        this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
+        return;
+      }
+      // A plain click must stay selection-only. Only after the screen-space
+      // threshold is crossed do we create the transient drag offset map.
+      const pending = this.pendingDrag;
+      this.pendingDrag = null;
+      this.beginDrag(pending.startWorld, pending.selectedIds);
+    }
     if (this.dragSession) {
       const start = performance.now();
       this.dragSession.update(screenToWorld(this.camera, point));
@@ -325,6 +373,10 @@ class ProductionEngineBridge {
   }
 
   handlePointerUp(event) {
+    if (!this.ready) {
+      this.releasePointerCapture(event.pointerId);
+      return;
+    }
     if (this.panState) {
       this.panState = null;
       this.canvas.classList.remove("panning");
@@ -344,12 +396,24 @@ class ProductionEngineBridge {
     }
     if (this.wireCreate) this.completeWireCreate();
     if (this.marqueeState) this.completeMarquee(event.shiftKey);
-    if (this.dragSession) this.completeDrag();
-    try {
-      this.canvas.releasePointerCapture(event.pointerId);
-    } catch (error) {
-      // Browser may already have released the pointer capture.
+    if (this.pendingDrag) {
+      this.pendingDrag = null;
+      this.updateInteractionHud("select");
     }
+    if (this.dragSession) this.completeDrag();
+    this.releasePointerCapture(event.pointerId);
+    this.scheduleRender();
+  }
+
+  handlePointerCancel(event) {
+    this.cancelActiveInteraction("pointer-cancel");
+    this.releasePointerCapture(event.pointerId);
+    this.scheduleRender();
+  }
+
+  handleLostPointerCapture() {
+    if (!this.dragSession && !this.pendingDrag && !this.panState && !this.routePointDrag && !this.wireCreate && !this.marqueeState) return;
+    this.cancelActiveInteraction("lost-pointer-capture");
     this.scheduleRender();
   }
 
@@ -368,13 +432,8 @@ class ProductionEngineBridge {
       return;
     }
     if (event.key !== "Escape") return;
-    if (this.wireCreate || this.routePointDrag || this.marqueeState || this.dragSession) {
-      this.wireCreate = null;
-      this.routePointDrag = null;
-      this.marqueeState = null;
-      this.dragSession = null;
-      this.canvas.classList.remove("dragging");
-      this.updateInteractionHud("cancelled");
+    if (this.wireCreate || this.routePointDrag || this.marqueeState || this.dragSession || this.pendingDrag || this.panState) {
+      this.cancelActiveInteraction("cancelled");
       this.scheduleRender();
     }
   }
@@ -387,11 +446,24 @@ class ProductionEngineBridge {
     this.canvas.classList.add("panning");
   }
 
-  beginDrag(worldPoint) {
+  beginPendingDrag(point, worldPoint) {
+    const selectedIds = [...this.scene.selectedIds];
+    if (!selectedIds.length) return;
+    this.pendingDrag = {
+      startPoint: { ...point },
+      startWorld: { ...worldPoint },
+      selectedIds
+    };
+    this.hud.setMetric("drag pending", `${selectedIds.length} object${selectedIds.length === 1 ? "" : "s"}`);
+    this.updateInteractionHud("select");
+    this.scheduleRender();
+  }
+
+  beginDrag(worldPoint, selectedIds = this.scene.selectedIds) {
     const start = performance.now();
     this.dragSession = new DragSession({
       scene: this.scene,
-      selectedIds: this.scene.selectedIds,
+      selectedIds,
       startWorld: worldPoint
     });
     const totalMs = performance.now() - start;
@@ -480,6 +552,13 @@ class ProductionEngineBridge {
 
   completeDrag() {
     const start = performance.now();
+    if (!this.dragSession) return;
+    if (Math.abs(this.dragSession.dx) < 0.0001 && Math.abs(this.dragSession.dy) < 0.0001) {
+      this.dragSession = null;
+      this.canvas.classList.remove("dragging");
+      this.updateInteractionHud("idle");
+      return;
+    }
     const selectedIds = [...this.dragSession.selectedIds];
     const affectedWireIds = [...this.dragSession.affectedWireIds];
     const beforePositions = selectedIds.map(id => {
@@ -518,6 +597,17 @@ class ProductionEngineBridge {
     this.recordCommand(moveDevicesCommand(beforePositions, afterPositions, affectedWireIds));
     this.updateSelectionHud();
     this.updateInteractionHud("idle");
+  }
+
+  cancelActiveInteraction(reason = "cancelled", { updateHud = true } = {}) {
+    this.pendingDrag = null;
+    this.dragSession = null;
+    this.panState = null;
+    this.routePointDrag = null;
+    this.wireCreate = null;
+    this.marqueeState = null;
+    this.canvas?.classList.remove("dragging", "panning");
+    if (updateHud) this.updateInteractionHud(reason);
   }
 
   updateHover(world) {
@@ -903,6 +993,24 @@ class ProductionEngineBridge {
     this.errorPanel.textContent = message;
   }
 
+  setLoading(active, message = "") {
+    this.ready = !active;
+    if (!this.loadingPanel) return;
+    this.loadingPanel.classList.toggle("hidden", !active);
+    const text = this.loadingPanel.querySelector("span");
+    if (text && active) text.textContent = message || "Preparing project data...";
+  }
+
+  releasePointerCapture(pointerId) {
+    try {
+      if (pointerId != null && this.canvas?.hasPointerCapture?.(pointerId)) {
+        this.canvas.releasePointerCapture(pointerId);
+      }
+    } catch (error) {
+      // Browser may already have released the pointer capture.
+    }
+  }
+
   fitView() {
     const bounds = this.scene.bounds();
     const rect = this.canvas.getBoundingClientRect();
@@ -1173,6 +1281,28 @@ function injectBridgeStyles() {
       color: #fff;
       white-space: pre-wrap;
       pointer-events: none;
+    }
+    .engine-bridge-loading {
+      position: absolute;
+      inset: 0;
+      z-index: 6;
+      display: grid;
+      place-items: center;
+      align-content: center;
+      gap: 8px;
+      background: rgba(10, 15, 20, .72);
+      color: #eef5ff;
+      pointer-events: auto;
+    }
+    .engine-bridge-loading strong {
+      color: #32b6ff;
+      font-size: 17px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .engine-bridge-loading span {
+      color: #cbd6e3;
+      font-size: 13px;
     }
     .engine-bridge-debug {
       position: absolute;
