@@ -4,17 +4,18 @@ export class PerfHud {
     this.metrics = new Map();
     this.frames = [];
     this.sceneStats = { devices: 0, wires: 0 };
+    this.renderScheduled = false;
     this.render();
   }
 
   setSceneStats(stats) {
     this.sceneStats = { ...this.sceneStats, ...stats };
-    this.render();
+    this.scheduleRender();
   }
 
   setMetric(name, value) {
     this.metrics.set(name, value);
-    this.render();
+    this.scheduleRender();
   }
 
   recordFrame(renderMs) {
@@ -23,6 +24,18 @@ export class PerfHud {
     while (this.frames.length && now - this.frames[0].now > 1000) this.frames.shift();
     this.setMetric("fps", this.frames.length);
     this.setMetric("render", `${renderMs.toFixed(2)} ms`);
+  }
+
+  scheduleRender() {
+    if (this.renderScheduled) return;
+    this.renderScheduled = true;
+    const schedule = typeof requestAnimationFrame === "function"
+      ? requestAnimationFrame
+      : callback => setTimeout(callback, 0);
+    schedule(() => {
+      this.renderScheduled = false;
+      this.render();
+    });
   }
 
   render() {
@@ -35,6 +48,14 @@ export class PerfHud {
       ["selected", this.sceneStats.selected || 0],
       ["fps", metric("fps")],
       ["render", metric("render")],
+      ["WebGL frame", metric("WebGL frame")],
+      ["pointermove", metric("pointermove")],
+      ["rAF visual", metric("rAF visual")],
+      ["selected transform", metric("selected transform")],
+      ["affected wire overlay", metric("affected wire overlay")],
+      ["selection overlay", metric("selection overlay")],
+      ["interaction overlay", metric("interaction overlay")],
+      ["label draw", metric("label draw")],
       ["hovered device", metric("hovered device")],
       ["hovered connector", metric("hovered connector")],
       ["hovered wire", metric("hovered wire")],
@@ -66,6 +87,10 @@ export class PerfHud {
       ["dirty update", metric("dirty update")],
       ["dirty counts", metric("dirty counts")],
       ["GPU update", metric("gpu update")],
+      ["WebGL wire geometry", metric("WebGL wire geometry")],
+      ["post-drop cleanup", metric("post-drop cleanup")],
+      ["cable hops", metric("cable hops")],
+      ["chunk stats", metric("chunk stats")],
       ["texture count", metric("texture count")],
       ["texture memory", metric("texture memory")],
       ["texture quality", metric("texture quality")],
@@ -74,6 +99,8 @@ export class PerfHud {
       ["texture cache", metric("texture cache")],
       ["texture timing", metric("texture timing")],
       ["texture draw", metric("texture draw")],
+      ["texture rebuild/frame", metric("texture rebuild/frame")],
+      ["texture rebuild time/frame", metric("texture rebuild time/frame")],
       ["texture missing", metric("texture missing")],
       ["texture drag rebuilds", metric("texture drag rebuilds")],
       ["texture action", metric("texture action")],

@@ -68,6 +68,7 @@ export class WebglGraphRenderer {
     this.lastDirtyStats = null;
     this.lastTextureStats = null;
     this.lastTextureDrawStats = null;
+    this.lastFrameStats = null;
     this.textureCache = new TextureCache(this.gl);
     this.program = createProgram(this.gl, vertexSource, fragmentSource);
     this.positionLocation = this.gl.getAttribLocation(this.program, "a_position");
@@ -194,6 +195,10 @@ export class WebglGraphRenderer {
       missing: this.lastTextureDrawStats?.missing || 0,
       lodSkipped: this.lastTextureDrawStats?.lodSkipped || 0
     };
+  }
+
+  frameStats() {
+    return this.lastFrameStats || {};
   }
 
   updateDirty(scene, { deviceIds = [], wireIds = [] } = {}) {
@@ -341,6 +346,27 @@ export class WebglGraphRenderer {
 
   draw(scene, camera, options = {}) {
     const start = performance.now();
+    const frameStats = {
+      totalMs: 0,
+      gridMs: 0,
+      staticWireMs: 0,
+      staticDeviceMs: 0,
+      textureDrawMs: 0,
+      liveBuildMs: 0,
+      liveUploadMs: 0,
+      liveDrawMs: 0,
+      affectedWireOverlayMs: 0,
+      selectedObjectOverlayMs: 0,
+      selectionOverlayMs: 0,
+      interactionOverlayMs: 0,
+      labelMs: 0,
+      affectedWires: 0,
+      selectedObjects: 0,
+      textureBuilds: 0,
+      textureRebuilds: 0,
+      textureRebuildMs: 0
+    };
+    const textureBefore = this.textureCache.stats();
     this.resize();
     const gl = this.gl;
     gl.clearColor(0.047, 0.071, 0.094, 1);
@@ -355,24 +381,42 @@ export class WebglGraphRenderer {
     };
     const dragSession = options.dragSession || null;
     const interaction = options.interactionState || {};
+    let sectionStart = performance.now();
     this.drawGrid(camera);
-    if (renderOptions.wires) this.drawBuffer(this.staticWireBuffer, this.staticWireVertexCount);
+    frameStats.gridMs = performance.now() - sectionStart;
+    if (renderOptions.wires) {
+      sectionStart = performance.now();
+      this.drawBuffer(this.staticWireBuffer, this.staticWireVertexCount);
+      frameStats.staticWireMs = performance.now() - sectionStart;
+    }
+    sectionStart = performance.now();
     this.drawBuffer(this.staticDeviceBuffer, this.staticDeviceVertexCount);
+    frameStats.staticDeviceMs = performance.now() - sectionStart;
+    sectionStart = performance.now();
     this.drawTextureDevices(scene, camera, renderOptions, dragSession);
+    frameStats.textureDrawMs = performance.now() - sectionStart;
     const liveVertices = [];
+    const liveBuildStart = performance.now();
     if (dragSession) {
       const offsets = dragSession.offsetMap();
       // During drag, selected devices and affected wires are drawn as a live
       // overlay. The cached static scene remains visible for everything else.
+      const wireOverlayStart = performance.now();
       dragSession.affectedWireIds.forEach(wireId => {
         const wire = scene.getWire(wireId);
         if (wire && renderOptions.wires) pushWire(liveVertices, scene, wire, offsets, 3.2, wireColor(wire, renderOptions), renderOptions);
       });
+      frameStats.affectedWireOverlayMs = performance.now() - wireOverlayStart;
+      frameStats.affectedWires = dragSession.affectedWireIds.size;
+      const objectOverlayStart = performance.now();
       dragSession.selectedIds.forEach(id => {
         const device = scene.getDevice(id);
         if (device) pushDevice(liveVertices, device, offsets, true, renderOptions);
       });
+      frameStats.selectedObjectOverlayMs = performance.now() - objectOverlayStart;
+      frameStats.selectedObjects = dragSession.selectedIds.length;
     } else {
+      const selectionStart = performance.now();
       (options.selectedIds || new Set()).forEach(id => {
         const device = scene.getDevice(id);
         if (device) pushSelectionOutline(liveVertices, device, null);
@@ -389,12 +433,30 @@ export class WebglGraphRenderer {
         const device = scene.getDevice(id);
         if (device) pushSelectionOutline(liveVertices, device, null);
       });
+      frameStats.selectionOverlayMs = performance.now() - selectionStart;
     }
+    const interactionStart = performance.now();
     pushInteractionOverlay(liveVertices, scene, interaction, renderOptions);
+    frameStats.interactionOverlayMs = performance.now() - interactionStart;
+    frameStats.liveBuildMs = performance.now() - liveBuildStart;
+    sectionStart = performance.now();
     this.liveVertexCount = upload(gl, this.liveBuffer, liveVertices);
+    frameStats.liveUploadMs = performance.now() - sectionStart;
+    sectionStart = performance.now();
     this.drawBuffer(this.liveBuffer, this.liveVertexCount);
+    frameStats.liveDrawMs = performance.now() - sectionStart;
+    sectionStart = performance.now();
     this.drawLabels(scene, camera, { ...options, renderOptions });
-    return performance.now() - start;
+    frameStats.labelMs = performance.now() - sectionStart;
+    const textureAfter = this.textureCache.stats();
+    frameStats.textureBuilds = textureAfter.builds - textureBefore.builds;
+    frameStats.textureRebuilds = textureAfter.rebuilds - textureBefore.rebuilds;
+    frameStats.textureRebuildMs = frameStats.textureBuilds || frameStats.textureRebuilds
+      ? (textureAfter.lastBuildMs || 0) + (textureAfter.lastUploadMs || 0)
+      : 0;
+    frameStats.totalMs = performance.now() - start;
+    this.lastFrameStats = frameStats;
+    return frameStats.totalMs;
   }
 
   drawLabels(scene, camera, options = {}) {

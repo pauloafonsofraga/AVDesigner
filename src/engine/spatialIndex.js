@@ -17,16 +17,36 @@ export class SpatialIndex {
 
   insert(id, bounds, payload = null) {
     if (!id || !bounds) return;
+    if (this.items.has(id)) this.delete(id);
     const normalized = normalizeBounds(bounds);
-    this.items.set(id, { id, bounds: normalized, payload });
+    const bucketKeys = [];
     const range = this.bucketRange(normalized);
     for (let x = range.minX; x <= range.maxX; x += 1) {
       for (let y = range.minY; y <= range.maxY; y += 1) {
         const key = this.bucketKey(x, y);
         if (!this.buckets.has(key)) this.buckets.set(key, new Set());
         this.buckets.get(key).add(id);
+        bucketKeys.push(key);
       }
     }
+    this.items.set(id, { id, bounds: normalized, payload, bucketKeys });
+  }
+
+  delete(id) {
+    const item = this.items.get(id);
+    if (!item) return;
+    (item.bucketKeys || []).forEach(key => {
+      const bucket = this.buckets.get(key);
+      if (!bucket) return;
+      bucket.delete(id);
+      if (!bucket.size) this.buckets.delete(key);
+    });
+    this.items.delete(id);
+  }
+
+  update(id, bounds, payload = null) {
+    this.delete(id);
+    this.insert(id, bounds, payload);
   }
 
   queryPoint(point) {

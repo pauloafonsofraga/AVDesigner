@@ -132,12 +132,65 @@ export class SceneGraph {
   }
 
   refreshWireIndexes(wireIds = []) {
-    // The prototype currently rebuilds the two lightweight interaction indexes
-    // after route edits or wire creation. This happens off the pan/zoom/hover
-    // path and keeps hit testing data-based instead of DOM-based.
     if (!wireIds.length) return;
-    this.rebuildWireSpatialIndex();
-    this.rebuildRoutePointIndex();
+    // Keep index refreshes scoped to changed wires. A full project rebuild here
+    // makes drop/route-point/wire-create feel sticky on large real projects.
+    this.refreshWireSpatialIndexes(wireIds);
+    this.refreshRoutePointIndexes(wireIds);
+  }
+
+  refreshMovedDeviceIndexes(deviceIds = [], affectedWireIds = []) {
+    if (!deviceIds.length) return;
+    deviceIds.forEach(deviceId => {
+      const device = this.getDevice(deviceId);
+      if (!device) {
+        this.spatialIndex.delete(deviceId);
+        return;
+      }
+      this.spatialIndex.update(deviceId, deviceBounds(device), { id: device.id, bounds: deviceBounds(device), device });
+      device.connectors.forEach(connector => {
+        const point = this.connectorWorldPoint(device, connector);
+        this.connectorIndex.update(connectorKey(device.id, connector.id), centeredBounds(point, device.kind === "jump" ? 42 : 24), {
+          id: connectorKey(device.id, connector.id),
+          bounds: centeredBounds(point, device.kind === "jump" ? 42 : 24),
+          device,
+          connector,
+          point
+        });
+      });
+    });
+    this.refreshWireSpatialIndexes(affectedWireIds);
+  }
+
+  refreshWireSpatialIndexes(wireIds = []) {
+    wireIds.forEach(wireId => {
+      const wire = this.getWire(wireId);
+      this.wireIndex.delete(wireId);
+      if (!wire) return;
+      this.wireIndex.insert(wire.id, inflateBounds(pointsBounds(this.wirePoints(wire)), 28), {
+        id: wire.id,
+        bounds: inflateBounds(pointsBounds(this.wirePoints(wire)), 28),
+        wire
+      });
+    });
+  }
+
+  refreshRoutePointIndexes(wireIds = []) {
+    wireIds.forEach(wireId => {
+      [...this.routePointIndex.items.keys()].forEach(key => {
+        if (String(key).startsWith(`${wireId}:`)) this.routePointIndex.delete(key);
+      });
+      const wire = this.getWire(wireId);
+      (wire?.routePoints || []).forEach((point, index) => {
+        this.routePointIndex.insert(routePointKey(wire.id, index), centeredBounds(point, 24), {
+          id: routePointKey(wire.id, index),
+          bounds: centeredBounds(point, 24),
+          wire,
+          point,
+          pointIndex: index
+        });
+      });
+    });
   }
 
   getDevice(id) {
@@ -218,15 +271,21 @@ export class SceneGraph {
   }
 
   moveDevicesBy(deviceIds, dx, dy) {
+    const affectedWireIds = new Set();
+    const movedDeviceIds = [];
     deviceIds.forEach(deviceId => {
       const device = this.getDevice(deviceId);
       if (!device) return;
       device.x += dx;
       device.y += dy;
       this.dirtyDevices.add(deviceId);
-      (this.wireIdsByDeviceId.get(deviceId) || []).forEach(wireId => this.dirtyWires.add(wireId));
+      movedDeviceIds.push(deviceId);
+      (this.wireIdsByDeviceId.get(deviceId) || []).forEach(wireId => {
+        this.dirtyWires.add(wireId);
+        affectedWireIds.add(wireId);
+      });
     });
-    this.rebuildSpatialIndexes();
+    this.refreshMovedDeviceIndexes(movedDeviceIds, [...affectedWireIds]);
   }
 
   moveRoutePoint(wireId, pointIndex, x, y, { refreshIndexes = true } = {}) {

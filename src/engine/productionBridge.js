@@ -266,12 +266,14 @@ class ProductionEngineBridge {
   }
 
   handlePointerMove(event) {
+    const pointerStart = performance.now();
     const point = this.eventPoint(event);
     if (this.panState) {
       const dx = (point.x - this.panState.startPoint.x) / this.camera.zoom;
       const dy = (point.y - this.panState.startPoint.y) / this.camera.zoom;
       this.camera.x = this.panState.startCamera.x - dx;
       this.camera.y = this.panState.startCamera.y - dy;
+      this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
       this.scheduleRender();
       return;
     }
@@ -286,6 +288,7 @@ class ProductionEngineBridge {
       this.hud.setMetric("dragDraw", `${(performance.now() - start).toFixed(3)} ms`);
       this.hud.setMetric("dirty counts", `${dirtyStats.dirtyDevices} dev / ${dirtyStats.dirtyWires} wires`);
       this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
+      this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
       this.scheduleRender();
       return;
     }
@@ -298,12 +301,14 @@ class ProductionEngineBridge {
       this.wireCreate.pointerWorld = world;
       this.wireCreate.target = connectorHit.connector;
       this.updateInteractionHud("wire-create", connectorHit);
+      this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
       this.scheduleRender();
       return;
     }
     if (this.marqueeState) {
       this.marqueeState.currentWorld = screenToWorld(this.camera, point);
       this.updateInteractionHud("marquee");
+      this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
       this.scheduleRender();
       return;
     }
@@ -311,10 +316,12 @@ class ProductionEngineBridge {
       const start = performance.now();
       this.dragSession.update(screenToWorld(this.camera, point));
       this.hud.setMetric("dragDraw", `${(performance.now() - start).toFixed(3)} ms`);
+      this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
       this.scheduleRender();
       return;
     }
     this.updateHover(screenToWorld(this.camera, point));
+    this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
   }
 
   handlePointerUp(event) {
@@ -450,6 +457,7 @@ class ProductionEngineBridge {
     this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
     this.hud.setMetric("dirty counts", `${dirtyStats.dirtyDevices} dev / ${dirtyStats.dirtyWires} wires`);
     this.hud.setMetric("gpu update", dirtyStats.appended ? "append wire buffer" : "bufferSubData ranges");
+    this.recordDirtyVisualMetrics(dirtyStats, "create wire");
     this.markCommitted("create wire", mutationMs);
     this.recordCommand(createWireCommand(cloneWire(wire), connectionData));
     this.updateSelectionHud();
@@ -505,6 +513,7 @@ class ProductionEngineBridge {
     this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
     this.hud.setMetric("full rebuilds", dirtyStats.fullRebuildCount);
     this.hud.setMetric("range updates", dirtyStats.rangeUpdateCount);
+    this.recordDirtyVisualMetrics(dirtyStats, "drop");
     this.markCommitted(`move ${selectedIds.length} object${selectedIds.length === 1 ? "" : "s"}`, mutationMs, { commitMs });
     this.recordCommand(moveDevicesCommand(beforePositions, afterPositions, affectedWireIds));
     this.updateSelectionHud();
@@ -797,8 +806,8 @@ class ProductionEngineBridge {
       this.scene.dirtyDevices.add(position.id);
       ids.push(position.id);
     });
-    this.scene.rebuildSpatialIndexes();
     const affectedWireIds = [...this.scene.affectedWireIdsForDevices(ids)];
+    this.scene.refreshMovedDeviceIndexes(ids, affectedWireIds);
     const mutationMs = this.mutations?.commitDevicePositions(this.scene, ids) || 0;
     const dirtyStats = this.renderer.updateDirty(this.scene, { deviceIds: ids, wireIds: affectedWireIds });
     this.lastDirtyDeviceIds = new Set(ids);
@@ -808,6 +817,7 @@ class ProductionEngineBridge {
     this.renderer.setRenderOptions(this.renderOptions);
     this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
     this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
+    this.recordDirtyVisualMetrics(dirtyStats, "position apply");
     return { mutationMs, dirtyStats };
   }
 
@@ -823,6 +833,7 @@ class ProductionEngineBridge {
     this.renderer.setRenderOptions(this.renderOptions);
     this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
     this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
+    this.recordDirtyVisualMetrics(dirtyStats, "route point");
     return { mutationMs, dirtyStats };
   }
 
@@ -836,6 +847,7 @@ class ProductionEngineBridge {
     this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
     this.renderer.setRenderOptions(this.renderOptions);
     this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+    this.recordDirtyVisualMetrics(dirtyStats, "restore wire");
     return { mutationMs, dirtyStats };
   }
 
@@ -852,6 +864,7 @@ class ProductionEngineBridge {
     this.renderer.setRenderOptions(this.renderOptions);
     this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
     this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
+    this.recordDirtyVisualMetrics(dirtyStats, "remove wire");
     return { mutationMs, dirtyStats, wireData, connectionData };
   }
 
@@ -916,6 +929,7 @@ class ProductionEngineBridge {
   scheduleRender() {
     if (this.renderFrame) return;
     this.renderFrame = requestAnimationFrame(() => {
+      const rafStart = performance.now();
       this.renderFrame = null;
       const renderMs = this.renderer.draw(this.scene, this.camera, {
         selectedIds: this.scene.selectedIds,
@@ -925,9 +939,30 @@ class ProductionEngineBridge {
         renderOptions: this.renderOptions
       });
       this.hud.recordFrame(renderMs);
+      const frameStats = this.renderer.frameStats();
+      this.hud.setMetric("WebGL frame", `${renderMs.toFixed(2)} ms`);
+      this.hud.setMetric("rAF visual", `${(performance.now() - rafStart).toFixed(2)} ms`);
+      this.hud.setMetric("selected transform", `${(frameStats.selectedObjectOverlayMs || 0).toFixed(2)} ms / ${frameStats.selectedObjects || 0}`);
+      this.hud.setMetric("affected wire overlay", `${(frameStats.affectedWireOverlayMs || 0).toFixed(2)} ms / ${frameStats.affectedWires || 0}`);
+      this.hud.setMetric("selection overlay", `${(frameStats.selectionOverlayMs || 0).toFixed(2)} ms`);
+      this.hud.setMetric("interaction overlay", `${(frameStats.interactionOverlayMs || 0).toFixed(2)} ms`);
+      this.hud.setMetric("label draw", `${(frameStats.labelMs || 0).toFixed(2)} ms`);
+      this.hud.setMetric("texture rebuild/frame", `${frameStats.textureBuilds || 0} build / ${frameStats.textureRebuilds || 0} rebuild`);
+      this.hud.setMetric("texture rebuild time/frame", `${(frameStats.textureRebuildMs || 0).toFixed(2)} ms`);
       const textures = this.renderer.textureStats();
       this.hud.setMetric("texture draw", `${textures.drawMs.toFixed(2)} ms / ${textures.quads} quads`);
     });
+  }
+
+  recordDirtyVisualMetrics(dirtyStats, context = "update") {
+    const fallback = dirtyStats?.fallbackStats;
+    const wireGeometryMs = fallback?.wireOnlyRebuild
+      ? fallback.geometryMs || 0
+      : dirtyStats?.geometryMs || 0;
+    this.hud.setMetric("WebGL wire geometry", `${wireGeometryMs.toFixed(2)} ms`);
+    this.hud.setMetric("post-drop cleanup", `${(dirtyStats?.totalMs || 0).toFixed(2)} ms (${context})`);
+    this.hud.setMetric("cable hops", "not in engine visual path");
+    this.hud.setMetric("chunk stats", fallback?.wireOnlyRebuild ? "wire geometry rebuild" : "range updates");
   }
 }
 
