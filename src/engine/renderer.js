@@ -201,7 +201,8 @@ export class WebglGraphRenderer {
     const geometryStart = performance.now();
     // Only refresh objects whose underlying project data changed. This keeps
     // drop/connection work away from the old full-scene geometry rebuild.
-    let fallbackRebuild = false;
+    let deviceFallbackRebuild = false;
+    let wireFallbackRebuild = false;
     let deviceRangeUpdates = 0;
     let wireRangeUpdates = 0;
     let rangeUploadMs = 0;
@@ -210,12 +211,12 @@ export class WebglGraphRenderer {
       const next = device ? verticesForDevice(device, null, this.renderOptions) : [];
       const range = this.deviceRangeMap.get(id);
       if (!device) {
-        fallbackRebuild = true;
+        deviceFallbackRebuild = true;
         this.deviceVertexMap.delete(id);
         return;
       }
       if (!range || range.count !== next.length) {
-        fallbackRebuild = true;
+        deviceFallbackRebuild = true;
       } else {
         this.deviceVertexMap.set(id, next);
         this.staticDeviceArray.set(next, range.offset);
@@ -230,12 +231,12 @@ export class WebglGraphRenderer {
       const next = wire ? verticesForWire(scene, wire, null, 2.2, wireColor(wire, this.renderOptions), this.renderOptions) : [];
       const range = this.wireRangeMap.get(id);
       if (!wire) {
-        fallbackRebuild = true;
+        wireFallbackRebuild = true;
         this.wireVertexMap.delete(id);
         return;
       }
       if (!range || range.count !== next.length) {
-        fallbackRebuild = true;
+        wireFallbackRebuild = true;
       } else {
         this.wireVertexMap.set(id, next);
         this.staticWireArray.set(next, range.offset);
@@ -248,7 +249,11 @@ export class WebglGraphRenderer {
     const geometryMs = performance.now() - geometryStart;
     const uploadStart = performance.now();
     let fallbackStats = null;
-    if (fallbackRebuild) fallbackStats = this.setStaticScene(scene);
+    if (deviceFallbackRebuild) {
+      fallbackStats = this.setStaticScene(scene);
+    } else if (wireFallbackRebuild) {
+      fallbackStats = this.rebuildWireGeometry(scene);
+    }
     const uploadMs = rangeUploadMs + (performance.now() - uploadStart);
     this.rangeUpdateCount += deviceRangeUpdates + wireRangeUpdates;
     this.lastDirtyStats = {
@@ -261,12 +266,41 @@ export class WebglGraphRenderer {
       deviceRangeUpdates,
       wireRangeUpdates,
       rangeUpdates: deviceRangeUpdates + wireRangeUpdates,
-      fallbackRebuild,
+      fallbackRebuild: deviceFallbackRebuild || wireFallbackRebuild,
+      deviceFallbackRebuild,
+      wireFallbackRebuild,
       fallbackStats,
       fullRebuildCount: this.fullRebuildCount,
       rangeUpdateCount: this.rangeUpdateCount
     };
     return this.lastDirtyStats;
+  }
+
+  rebuildWireGeometry(scene) {
+    const start = performance.now();
+    this.wireVertexMap.clear();
+    this.wireRangeMap.clear();
+    const geometryStart = performance.now();
+    scene.wires.forEach(wire => {
+      this.wireVertexMap.set(wire.id, verticesForWire(scene, wire, null, 2.2, wireColor(wire, this.renderOptions), this.renderOptions));
+    });
+    const geometryMs = performance.now() - geometryStart;
+    const uploadStart = performance.now();
+    const wirePack = packVertexMap(this.wireVertexMap);
+    this.staticWireArray = wirePack.array;
+    this.wireRangeMap = wirePack.ranges;
+    this.staticWireVertexCount = uploadArray(this.gl, this.staticWireBuffer, this.staticWireArray);
+    const uploadMs = performance.now() - uploadStart;
+    this.rangeUpdateCount += 1;
+    return {
+      totalMs: performance.now() - start,
+      geometryMs,
+      uploadMs,
+      wireVertices: this.staticWireVertexCount,
+      wireOnlyRebuild: true,
+      fullRebuildCount: this.fullRebuildCount,
+      rangeUpdateCount: this.rangeUpdateCount
+    };
   }
 
   appendWire(scene, wireId) {

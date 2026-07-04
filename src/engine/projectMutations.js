@@ -6,7 +6,8 @@ export class ProjectMutationAdapter {
     const rawProject = sceneData.projectData
       ? (cloneProjectData ? deepClone(sceneData.projectData) : sceneData.projectData)
       : buildProjectFromSceneData(sceneData);
-    this.originalProject = deepClone(rawProject);
+    this.cloneProjectData = cloneProjectData;
+    this.originalProject = cloneProjectData ? deepClone(rawProject) : null;
     // The standalone prototype owns a private clone by default. Production
     // engine mode passes cloneProjectData:false so committed engine edits write
     // through to the real AV Designer state object and existing save/load keeps
@@ -64,10 +65,16 @@ export class ProjectMutationAdapter {
   }
 
   originalProjectData() {
-    return deepClone(this.originalProject);
+    return deepClone(this.originalProject || this.project);
   }
 
   resetToLoadedProject() {
+    if (!this.originalProject) {
+      this.resetStats();
+      this.rebuildIndexes();
+      this.roundTripResult = "reset unavailable in write-through mode";
+      return deepClone(this.project);
+    }
     this.project = deepClone(this.originalProject);
     this.resetStats();
     this.rebuildIndexes();

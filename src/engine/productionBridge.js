@@ -323,6 +323,7 @@ class ProductionEngineBridge {
       this.canvas.classList.remove("panning");
     }
     if (this.routePointDrag) {
+      const commitStart = performance.now();
       const { wireId, beforePoints } = this.routePointDrag;
       this.scene.refreshWireIndexes([wireId]);
       const afterPoints = cloneRoutePoints(this.scene.getWire(wireId)?.routePoints || []);
@@ -332,6 +333,7 @@ class ProductionEngineBridge {
       this.recordCommand(routePointCommand(wireId, beforePoints, afterPoints));
       this.routePointDrag = null;
       this.updateInteractionHud("idle");
+      this.hud.setMetric("route point commit", `${(performance.now() - commitStart).toFixed(2)} ms`);
     }
     if (this.wireCreate) this.completeWireCreate();
     if (this.marqueeState) this.completeMarquee(event.shiftKey);
@@ -412,6 +414,7 @@ class ProductionEngineBridge {
   }
 
   completeWireCreate() {
+    const commitStart = performance.now();
     const source = this.wireCreate?.from;
     const target = this.wireCreate?.target;
     this.wireCreate = null;
@@ -451,6 +454,7 @@ class ProductionEngineBridge {
     this.recordCommand(createWireCommand(cloneWire(wire), connectionData));
     this.updateSelectionHud();
     this.updateInteractionHud("wire-created");
+    this.hud.setMetric("create wire commit", `${(performance.now() - commitStart).toFixed(2)} ms`);
   }
 
   completeMarquee(additive = false) {
@@ -733,12 +737,16 @@ class ProductionEngineBridge {
     this.hud.setMetric("project dirty", mutationStats.dirty ? "yes" : "no");
     this.updateStatusPanel(type);
     this.renderEngineInspector();
+    const syncStart = performance.now();
     this.api.onEngineCommit?.({ type, mutationMs, mutationStats, ...extra });
+    this.hud.setMetric("production sync", `${(performance.now() - syncStart).toFixed(2)} ms`);
   }
 
   beginProductionCommit(type) {
     this.productionDirty = true;
+    const start = performance.now();
     this.api.onEngineBeforeCommit?.({ type });
+    this.hud.setMetric("history snapshot", `${(performance.now() - start).toFixed(2)} ms`);
   }
 
   recordCommand(command) {
@@ -753,6 +761,7 @@ class ProductionEngineBridge {
 
   undoEngineCommand() {
     if (this.commandIndex <= 0) return;
+    const commandStart = performance.now();
     const command = this.commandHistory[this.commandIndex - 1];
     this.beginProductionCommit(`undo ${command.type}`);
     const result = command.undo(this) || {};
@@ -760,11 +769,13 @@ class ProductionEngineBridge {
     this.markCommitted(`undo ${command.type}`, result.mutationMs || 0, { command: command.type });
     this.updateSelectionHud();
     this.updateInteractionHud("undo");
+    this.hud.setMetric("command time", `${(performance.now() - commandStart).toFixed(2)} ms`);
     this.scheduleRender();
   }
 
   redoEngineCommand() {
     if (this.commandIndex >= this.commandHistory.length) return;
+    const commandStart = performance.now();
     const command = this.commandHistory[this.commandIndex];
     this.beginProductionCommit(`redo ${command.type}`);
     const result = command.redo(this) || {};
@@ -772,6 +783,7 @@ class ProductionEngineBridge {
     this.markCommitted(`redo ${command.type}`, result.mutationMs || 0, { command: command.type });
     this.updateSelectionHud();
     this.updateInteractionHud("redo");
+    this.hud.setMetric("command time", `${(performance.now() - commandStart).toFixed(2)} ms`);
     this.scheduleRender();
   }
 
@@ -844,6 +856,7 @@ class ProductionEngineBridge {
   }
 
   deleteSelectedWires() {
+    const commitStart = performance.now();
     const wireIds = [...this.scene.selectedWireIds];
     if (!wireIds.length) return;
     this.beginProductionCommit(`delete ${wireIds.length} wire${wireIds.length === 1 ? "" : "s"}`);
@@ -862,6 +875,7 @@ class ProductionEngineBridge {
     this.markCommitted(`delete ${wireIds.length} wire${wireIds.length === 1 ? "" : "s"}`, mutationMs);
     this.updateSelectionHud();
     this.updateInteractionHud("wire-delete");
+    this.hud.setMetric("delete wire commit", `${(performance.now() - commitStart).toFixed(2)} ms`);
     this.scheduleRender();
   }
 
