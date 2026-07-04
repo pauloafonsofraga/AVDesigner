@@ -172,6 +172,23 @@ export class ProjectMutationAdapter {
     return this.lastMutation.durationMs;
   }
 
+  connectionDataForWire(wireId) {
+    const entry = this.connectionById.get(String(wireId));
+    return entry ? deepClone(entry.item) : null;
+  }
+
+  restoreWire(connectionData) {
+    const start = performance.now();
+    if (!connectionData?.id || this.connectionById.has(String(connectionData.id))) return 0;
+    const connection = deepClone(connectionData);
+    this.root.connections.push(connection);
+    this.rebuildIndexes();
+    this.record("restore wire", performance.now() - start, `connections[${this.root.connections.length - 1}]`, {
+      wireId: connection.id
+    });
+    return this.lastMutation.durationMs;
+  }
+
   exportJson({ pretty = true } = {}) {
     const start = performance.now();
     const json = JSON.stringify(this.project, null, pretty ? 2 : 0);

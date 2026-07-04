@@ -271,6 +271,33 @@ export class SceneGraph {
     return wire;
   }
 
+  insertWire(wireData) {
+    const wire = normalizeWire(wireData);
+    if (!wire.fromDeviceId || !wire.toDeviceId || this.wiresById.has(wire.id)) return null;
+    this.wires.push(wire);
+    this.wiresById.set(wire.id, wire);
+    this.addWireDeviceIndex(wire.fromDeviceId, wire.id);
+    this.addWireDeviceIndex(wire.toDeviceId, wire.id);
+    this.dirtyWires.add(wire.id);
+    this.refreshWireIndexes([wire.id]);
+    return wire;
+  }
+
+  deleteWire(wireId) {
+    const id = String(wireId || "");
+    const wire = this.wiresById.get(id);
+    if (!wire) return null;
+    this.wires = this.wires.filter(item => item.id !== id);
+    this.wiresById.delete(id);
+    this.selectedWireIds.delete(id);
+    [...this.selectedRoutePointKeys].forEach(key => {
+      if (String(key).startsWith(`${id}:`)) this.selectedRoutePointKeys.delete(key);
+    });
+    this.rebuildWireIndex();
+    this.refreshWireIndexes([id]);
+    return wire;
+  }
+
   nextWireId() {
     let index = this.wires.length + 1;
     let id = `engine-wire-${index}`;

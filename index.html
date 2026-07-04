@@ -54900,6 +54900,10 @@ fit();
             canvasWrap,
             getProjectData: projectSnapshotData,
             onEngineSelection: syncProductionSelectionFromEngine,
+            onEngineBeforeCommit: ({ type }) => {
+              pushUndo();
+              console.info("[engine-bridge] production undo snapshot captured", { type });
+            },
             onEngineCommit: ({ type, mutationStats }) => {
               renderCableLegend();
               renderInspector();

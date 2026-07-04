@@ -38,6 +38,7 @@ class ProductionEngineBridge {
     this.hud = null;
     this.debugPanel = null;
     this.statusPanel = null;
+    this.inspectorPanel = null;
     this.errorPanel = null;
     this.camera = { x: 0, y: 0, zoom: 1 };
     this.renderFrame = null;
@@ -79,6 +80,10 @@ class ProductionEngineBridge {
       dirtyWireIds: this.lastDirtyWireIds
     };
     this.started = false;
+    this.commandHistory = [];
+    this.commandIndex = 0;
+    this.lastMutationType = "-";
+    this.productionDirty = false;
   }
 
   start() {
@@ -123,6 +128,10 @@ class ProductionEngineBridge {
     // engine buffers/textures and must not re-adapt the whole production app.
     this.scene.setData(normalized);
     this.mutations = new ProjectMutationAdapter(normalized, { cloneProjectData: false });
+    this.commandHistory = [];
+    this.commandIndex = 0;
+    this.lastMutationType = "-";
+    this.productionDirty = false;
     const sceneBuildMs = performance.now() - start;
     const staticStats = this.renderer.setStaticScene(this.scene);
     this.fitView();
@@ -132,6 +141,7 @@ class ProductionEngineBridge {
       mode: `scene refresh: ${reason}`
     });
     this.updateStatusPanel(reason);
+    this.renderEngineInspector();
     this.showError("");
     this.scheduleRender();
   }
@@ -151,6 +161,12 @@ class ProductionEngineBridge {
         <button type="button" data-engine-action="exit">Exit Engine Mode</button>
       </div>
       <div class="engine-bridge-status"></div>
+      <div class="engine-bridge-command-bar">
+        <button type="button" data-engine-action="undo">Undo Engine Edit</button>
+        <button type="button" data-engine-action="redo">Redo Engine Edit</button>
+        <button type="button" data-engine-action="delete-wire">Delete Selected Wire</button>
+      </div>
+      <div class="engine-bridge-inspector"></div>
       <div class="engine-bridge-error hidden"></div>
       <div class="engine-bridge-debug"></div>
     `;
@@ -159,9 +175,13 @@ class ProductionEngineBridge {
     this.labelCanvas = this.engineRoot.querySelector(".engine-bridge-label-canvas");
     this.debugPanel = this.engineRoot.querySelector(".engine-bridge-debug");
     this.statusPanel = this.engineRoot.querySelector(".engine-bridge-status");
+    this.inspectorPanel = this.engineRoot.querySelector(".engine-bridge-inspector");
     this.errorPanel = this.engineRoot.querySelector(".engine-bridge-error");
     this.engineRoot.querySelector("[data-engine-action='refresh']")?.addEventListener("click", () => this.refreshFromProduction("manual button"));
     this.engineRoot.querySelector("[data-engine-action='exit']")?.addEventListener("click", () => exitEngineMode());
+    this.engineRoot.querySelector("[data-engine-action='undo']")?.addEventListener("click", () => this.undoEngineCommand());
+    this.engineRoot.querySelector("[data-engine-action='redo']")?.addEventListener("click", () => this.redoEngineCommand());
+    this.engineRoot.querySelector("[data-engine-action='delete-wire']")?.addEventListener("click", () => this.deleteSelectedWires());
   }
 
   bindEvents() {
@@ -303,10 +323,13 @@ class ProductionEngineBridge {
       this.canvas.classList.remove("panning");
     }
     if (this.routePointDrag) {
-      const { wireId } = this.routePointDrag;
+      const { wireId, beforePoints } = this.routePointDrag;
       this.scene.refreshWireIndexes([wireId]);
+      const afterPoints = cloneRoutePoints(this.scene.getWire(wireId)?.routePoints || []);
+      this.beginProductionCommit("route point");
       const mutationMs = this.mutations?.commitRoutePoints(this.scene, wireId) || 0;
       this.markCommitted("route point", mutationMs);
+      this.recordCommand(routePointCommand(wireId, beforePoints, afterPoints));
       this.routePointDrag = null;
       this.updateInteractionHud("idle");
     }
@@ -322,6 +345,19 @@ class ProductionEngineBridge {
   }
 
   handleKeyDown(event) {
+    if (event.key === "Delete" || event.key === "Backspace") {
+      if (this.scene.selectedWireIds.size) {
+        event.preventDefault();
+        this.deleteSelectedWires();
+      }
+      return;
+    }
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
+      event.preventDefault();
+      if (event.shiftKey) this.redoEngineCommand();
+      else this.undoEngineCommand();
+      return;
+    }
     if (event.key !== "Escape") return;
     if (this.wireCreate || this.routePointDrag || this.marqueeState || this.dragSession) {
       this.wireCreate = null;
@@ -359,7 +395,8 @@ class ProductionEngineBridge {
   beginRoutePointDrag(routePoint) {
     this.routePointDrag = {
       wireId: routePoint.wire.id,
-      pointIndex: routePoint.pointIndex
+      pointIndex: routePoint.pointIndex,
+      beforePoints: cloneRoutePoints(routePoint.wire.routePoints)
     };
     this.canvas.classList.add("dragging");
   }
@@ -399,7 +436,9 @@ class ProductionEngineBridge {
       this.updateInteractionHud("wire-create failed");
       return;
     }
+    this.beginProductionCommit("create wire");
     const mutationMs = this.mutations?.commitCreatedWire(this.scene, wire) || 0;
+    const connectionData = this.mutations?.connectionDataForWire(wire.sourceId || wire.id);
     const dirtyStats = this.renderer.appendWire(this.scene, wire.id);
     this.scene.selectWireOnly(wire.id);
     this.lastDirtyWireIds = new Set([wire.id]);
@@ -409,6 +448,7 @@ class ProductionEngineBridge {
     this.hud.setMetric("dirty counts", `${dirtyStats.dirtyDevices} dev / ${dirtyStats.dirtyWires} wires`);
     this.hud.setMetric("gpu update", dirtyStats.appended ? "append wire buffer" : "bufferSubData ranges");
     this.markCommitted("create wire", mutationMs);
+    this.recordCommand(createWireCommand(cloneWire(wire), connectionData));
     this.updateSelectionHud();
     this.updateInteractionHud("wire-created");
   }
@@ -430,10 +470,19 @@ class ProductionEngineBridge {
     const start = performance.now();
     const selectedIds = [...this.dragSession.selectedIds];
     const affectedWireIds = [...this.dragSession.affectedWireIds];
+    const beforePositions = selectedIds.map(id => {
+      const startPosition = this.dragSession.startPositions.get(id);
+      return startPosition ? { id, x: startPosition.x, y: startPosition.y } : null;
+    }).filter(Boolean);
     // Commit once at pointer-up. During pointermove the engine renders with a
     // transient DragSession offset so the real production data stays untouched
     // and existing save/load/report code only sees finalized edits.
     const commitMs = this.dragSession.commit();
+    const afterPositions = selectedIds.map(id => {
+      const device = this.scene.getDevice(id);
+      return device ? { id, x: device.x, y: device.y } : null;
+    }).filter(Boolean);
+    this.beginProductionCommit(`move ${selectedIds.length} object${selectedIds.length === 1 ? "" : "s"}`);
     const mutationMs = this.mutations?.commitDevicePositions(this.scene, selectedIds) || 0;
     const dirtyStats = this.renderer.updateDirty(this.scene, {
       deviceIds: selectedIds,
@@ -453,6 +502,7 @@ class ProductionEngineBridge {
     this.hud.setMetric("full rebuilds", dirtyStats.fullRebuildCount);
     this.hud.setMetric("range updates", dirtyStats.rangeUpdateCount);
     this.markCommitted(`move ${selectedIds.length} object${selectedIds.length === 1 ? "" : "s"}`, mutationMs, { commitMs });
+    this.recordCommand(moveDevicesCommand(beforePositions, afterPositions, affectedWireIds));
     this.updateSelectionHud();
     this.updateInteractionHud("idle");
   }
@@ -530,6 +580,8 @@ class ProductionEngineBridge {
       routePointKeys: [...this.scene.selectedRoutePointKeys],
       devices: selectedDeviceObjects
     });
+    this.updateStatusPanel("selection");
+    this.renderEngineInspector();
   }
 
   updateInteractionHud(mode = "idle", hit = null) {
@@ -577,21 +629,240 @@ class ProductionEngineBridge {
     if (!this.statusPanel) return;
     const meta = this.scene.meta || {};
     const mutationStats = this.mutations?.stats() || {};
+    const selectedDeviceCount = this.scene.selectedIds.size;
+    const selectedWireCount = this.scene.selectedWireIds.size;
+    const selectedRoutePointCount = this.scene.selectedRoutePointKeys.size;
     this.statusPanel.innerHTML = [
-      `<strong>WebGL2 engine</strong>`,
+      `<strong>WebGL2 engine active</strong>`,
       `<span>${escapeHtml(meta.sourceName || meta.projectName || "Production project")}</span>`,
       `<span>${this.scene.devices.length} objects / ${this.scene.wires.length} wires</span>`,
+      `<span>selected: ${selectedDeviceCount} devices / ${selectedWireCount} wires / ${selectedRoutePointCount} route points</span>`,
+      `<span>last: ${escapeHtml(this.lastMutationType)}</span>`,
+      `<span>history: ${this.commandIndex}/${this.commandHistory.length}</span>`,
+      `<span>undo: ${this.commandIndex > 0 ? "yes" : "no"} / redo: ${this.commandIndex < this.commandHistory.length ? "yes" : "no"}</span>`,
+      `<span>dirty: ${this.productionDirty || mutationStats.dirty ? "yes" : "no"}</span>`,
+      `<span>sync: production write-through</span>`,
+      `<span>save: existing project save reads updated data</span>`,
       `<span>mutations: ${mutationStats.mutationCount || 0}</span>`,
       `<span>${escapeHtml(reason)}</span>`
     ].join("");
+    this.updateCommandButtons();
+  }
+
+  updateCommandButtons() {
+    if (!this.engineRoot) return;
+    const undo = this.engineRoot.querySelector("[data-engine-action='undo']");
+    const redo = this.engineRoot.querySelector("[data-engine-action='redo']");
+    const deleteWire = this.engineRoot.querySelector("[data-engine-action='delete-wire']");
+    if (undo) undo.disabled = this.commandIndex <= 0;
+    if (redo) redo.disabled = this.commandIndex >= this.commandHistory.length;
+    if (deleteWire) deleteWire.disabled = this.scene.selectedWireIds.size === 0;
+  }
+
+  renderEngineInspector() {
+    if (!this.inspectorPanel) return;
+    const selectedDevices = [...this.scene.selectedIds].map(id => this.scene.getDevice(id)).filter(Boolean);
+    const selectedWires = [...this.scene.selectedWireIds].map(id => this.scene.getWire(id)).filter(Boolean);
+    const selectedRoutePoints = [...this.scene.selectedRoutePointKeys];
+    if (selectedDevices.length === 1 && !selectedWires.length && !selectedRoutePoints.length) {
+      const device = selectedDevices[0];
+      const connectedWireCount = this.scene.affectedWireIdsForDevices([device.id]).size;
+      this.inspectorPanel.innerHTML = `
+        <h3>Engine Inspector</h3>
+        ${detailsMarkup([
+          ["Device ID", device.sourceId || device.id],
+          ["Name", device.label || device.id],
+          ["Type / Model", [device.category || device.kind || "Device", device.model || device.templateId || ""].filter(Boolean).join(" / ")],
+          ["Position", `${roundForUi(device.x)}, ${roundForUi(device.y)}`],
+          ["Size", `${roundForUi(device.width)} x ${roundForUi(device.height)}`],
+          ["Connectors", device.connectors.length],
+          ["Connected Wires", connectedWireCount]
+        ])}
+      `;
+      return;
+    }
+    if (selectedWires.length === 1 && !selectedDevices.length && !selectedRoutePoints.length) {
+      const wire = selectedWires[0];
+      this.inspectorPanel.innerHTML = `
+        <h3>Engine Inspector</h3>
+        ${detailsMarkup([
+          ["Wire ID", wire.sourceId || wire.id],
+          ["Cable Type", wire.cableType || wire.label || "-"],
+          ["Source", endpointLabel(this.scene, wire.fromDeviceId, wire.fromConnectorId)],
+          ["Destination", endpointLabel(this.scene, wire.toDeviceId, wire.toConnectorId)],
+          ["Route Points", wire.routePoints.length]
+        ])}
+      `;
+      return;
+    }
+    if (selectedRoutePoints.length === 1) {
+      const [wireId, indexText] = selectedRoutePoints[0].split(":");
+      const point = this.scene.getWire(wireId)?.routePoints?.[Number(indexText)];
+      this.inspectorPanel.innerHTML = `
+        <h3>Engine Inspector</h3>
+        ${detailsMarkup([
+          ["Route Point", selectedRoutePoints[0]],
+          ["Wire", wireId],
+          ["Position", point ? `${roundForUi(point.x)}, ${roundForUi(point.y)}` : "-"],
+          ["Production Sync", "engine-only selection"]
+        ])}
+      `;
+      return;
+    }
+    if (selectedDevices.length || selectedWires.length || selectedRoutePoints.length) {
+      this.inspectorPanel.innerHTML = `
+        <h3>Engine Inspector</h3>
+        ${detailsMarkup([
+          ["Devices", selectedDevices.length],
+          ["Wires", selectedWires.length],
+          ["Route Points", selectedRoutePoints.length]
+        ])}
+      `;
+      return;
+    }
+    this.inspectorPanel.innerHTML = `
+      <h3>Engine Inspector</h3>
+      <div class="engine-bridge-muted">Select a device, wire, connector, or route point.</div>
+    `;
   }
 
   markCommitted(type, mutationMs = 0, extra = {}) {
     const mutationStats = this.mutations?.stats() || {};
+    this.lastMutationType = type;
     this.hud.setMetric("project mutation", `${type} ${mutationMs.toFixed(3)} ms`);
     this.hud.setMetric("project dirty", mutationStats.dirty ? "yes" : "no");
     this.updateStatusPanel(type);
+    this.renderEngineInspector();
     this.api.onEngineCommit?.({ type, mutationMs, mutationStats, ...extra });
+  }
+
+  beginProductionCommit(type) {
+    this.productionDirty = true;
+    this.api.onEngineBeforeCommit?.({ type });
+  }
+
+  recordCommand(command) {
+    if (!command) return;
+    this.commandHistory = this.commandHistory.slice(0, this.commandIndex);
+    this.commandHistory.push(command);
+    if (this.commandHistory.length > 80) this.commandHistory.shift();
+    this.commandIndex = this.commandHistory.length;
+    this.updateStatusPanel(command.type);
+    this.renderEngineInspector();
+  }
+
+  undoEngineCommand() {
+    if (this.commandIndex <= 0) return;
+    const command = this.commandHistory[this.commandIndex - 1];
+    this.beginProductionCommit(`undo ${command.type}`);
+    const result = command.undo(this) || {};
+    this.commandIndex -= 1;
+    this.markCommitted(`undo ${command.type}`, result.mutationMs || 0, { command: command.type });
+    this.updateSelectionHud();
+    this.updateInteractionHud("undo");
+    this.scheduleRender();
+  }
+
+  redoEngineCommand() {
+    if (this.commandIndex >= this.commandHistory.length) return;
+    const command = this.commandHistory[this.commandIndex];
+    this.beginProductionCommit(`redo ${command.type}`);
+    const result = command.redo(this) || {};
+    this.commandIndex += 1;
+    this.markCommitted(`redo ${command.type}`, result.mutationMs || 0, { command: command.type });
+    this.updateSelectionHud();
+    this.updateInteractionHud("redo");
+    this.scheduleRender();
+  }
+
+  applyDevicePositions(positions = []) {
+    const ids = [];
+    positions.forEach(position => {
+      const device = this.scene.getDevice(position.id);
+      if (!device) return;
+      device.x = position.x;
+      device.y = position.y;
+      this.scene.dirtyDevices.add(position.id);
+      ids.push(position.id);
+    });
+    this.scene.rebuildSpatialIndexes();
+    const affectedWireIds = [...this.scene.affectedWireIdsForDevices(ids)];
+    const mutationMs = this.mutations?.commitDevicePositions(this.scene, ids) || 0;
+    const dirtyStats = this.renderer.updateDirty(this.scene, { deviceIds: ids, wireIds: affectedWireIds });
+    this.lastDirtyDeviceIds = new Set(ids);
+    this.lastDirtyWireIds = new Set(affectedWireIds);
+    this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+    this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
+    return { mutationMs, dirtyStats };
+  }
+
+  applyRoutePoints(wireId, points = []) {
+    const wire = this.scene.getWire(wireId);
+    if (!wire) return { mutationMs: 0 };
+    wire.routePoints = cloneRoutePoints(points);
+    this.scene.refreshWireIndexes([wireId]);
+    const mutationMs = this.mutations?.commitRoutePoints(this.scene, wireId) || 0;
+    const dirtyStats = this.renderer.updateDirty(this.scene, { wireIds: [wireId] });
+    this.lastDirtyWireIds = new Set([wireId]);
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+    this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
+    return { mutationMs, dirtyStats };
+  }
+
+  restoreWire(wireData, connectionData) {
+    const wire = this.scene.insertWire(wireData);
+    if (!wire) return { mutationMs: 0 };
+    const mutationMs = this.mutations?.restoreWire(connectionData) || 0;
+    const dirtyStats = this.renderer.appendWire(this.scene, wire.id);
+    this.scene.selectWireOnly(wire.id);
+    this.lastDirtyWireIds = new Set([wire.id]);
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+    return { mutationMs, dirtyStats };
+  }
+
+  removeWire(wireId) {
+    const wire = this.scene.getWire(wireId);
+    const connectionData = this.mutations?.connectionDataForWire(wire?.sourceId || wireId);
+    const wireData = wire ? cloneWire(wire) : null;
+    const removed = this.scene.deleteWire(wireId);
+    if (!removed) return { mutationMs: 0, wireData, connectionData };
+    const mutationMs = this.mutations?.deleteWire(removed.sourceId || removed.id) || 0;
+    const dirtyStats = this.renderer.updateDirty(this.scene, { wireIds: [removed.id] });
+    this.lastDirtyWireIds = new Set([removed.id]);
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+    this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
+    return { mutationMs, dirtyStats, wireData, connectionData };
+  }
+
+  deleteSelectedWires() {
+    const wireIds = [...this.scene.selectedWireIds];
+    if (!wireIds.length) return;
+    this.beginProductionCommit(`delete ${wireIds.length} wire${wireIds.length === 1 ? "" : "s"}`);
+    const deleted = [];
+    let mutationMs = 0;
+    wireIds.forEach(wireId => {
+      const result = this.removeWire(wireId);
+      mutationMs += result.mutationMs || 0;
+      if (result.wireData && result.connectionData) deleted.push({
+        wireData: result.wireData,
+        connectionData: result.connectionData
+      });
+    });
+    this.scene.selectedWireIds.clear();
+    this.recordCommand(deleteWiresCommand(deleted));
+    this.markCommitted(`delete ${wireIds.length} wire${wireIds.length === 1 ? "" : "s"}`, mutationMs);
+    this.updateSelectionHud();
+    this.updateInteractionHud("wire-delete");
+    this.scheduleRender();
   }
 
   showError(message) {
@@ -772,6 +1043,74 @@ function injectBridgeStyles() {
       white-space: nowrap;
     }
     .engine-bridge-status strong { color: #ff7904; }
+    .engine-bridge-command-bar {
+      position: absolute;
+      left: 14px;
+      bottom: 14px;
+      z-index: 3;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      max-width: min(560px, calc(100% - 370px));
+      padding: 8px;
+      border: 1px solid rgba(50,182,255,.28);
+      border-radius: 8px;
+      background: rgba(15, 24, 32, .82);
+      pointer-events: auto;
+    }
+    .engine-bridge-command-bar button {
+      min-height: 28px;
+      padding: 0 9px;
+      border: 1px solid rgba(204,215,228,.3);
+      border-radius: 7px;
+      background: rgba(28, 41, 54, .96);
+      color: #eef5ff;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .engine-bridge-command-bar button:disabled {
+      opacity: .42;
+      cursor: default;
+    }
+    .engine-bridge-inspector {
+      position: absolute;
+      right: 14px;
+      top: 116px;
+      z-index: 3;
+      width: 320px;
+      max-height: min(260px, calc(100% - 660px));
+      overflow: auto;
+      padding: 10px;
+      border: 1px solid rgba(50,182,255,.35);
+      border-radius: 8px;
+      background: rgba(15, 24, 32, .84);
+      font-size: 11px;
+      pointer-events: auto;
+    }
+    .engine-bridge-inspector h3 {
+      margin: 0 0 8px;
+      color: #32b6ff;
+      font-size: 12px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .engine-bridge-details {
+      display: grid;
+      grid-template-columns: 105px minmax(0, 1fr);
+      gap: 5px 9px;
+      margin: 0;
+    }
+    .engine-bridge-details dt {
+      color: #aeb9c6;
+      font-weight: 800;
+    }
+    .engine-bridge-details dd {
+      min-width: 0;
+      margin: 0;
+      color: #eef5ff;
+      overflow-wrap: anywhere;
+    }
+    .engine-bridge-muted { color: #aeb9c6; }
     .engine-bridge-error {
       position: absolute;
       left: 14px;
@@ -879,6 +1218,104 @@ function wireCreateSummary(state) {
   const source = connectorSummary(state.from);
   const target = state.target ? connectorSummary(state.target) : "select target";
   return `${source} -> ${target}`;
+}
+
+function moveDevicesCommand(beforePositions, afterPositions) {
+  return {
+    type: `MoveDevicesCommand (${afterPositions.length})`,
+    affectedIds: afterPositions.map(item => item.id),
+    undo: bridge => bridge.applyDevicePositions(beforePositions),
+    redo: bridge => bridge.applyDevicePositions(afterPositions)
+  };
+}
+
+function routePointCommand(wireId, beforePoints, afterPoints) {
+  return {
+    type: "MoveRoutePointCommand",
+    affectedIds: [wireId],
+    undo: bridge => bridge.applyRoutePoints(wireId, beforePoints),
+    redo: bridge => bridge.applyRoutePoints(wireId, afterPoints)
+  };
+}
+
+function createWireCommand(wireData, connectionData) {
+  return {
+    type: "CreateWireCommand",
+    affectedIds: [wireData?.id].filter(Boolean),
+    undo: bridge => bridge.removeWire(wireData.id),
+    redo: bridge => bridge.restoreWire(wireData, connectionData)
+  };
+}
+
+function deleteWiresCommand(deleted = []) {
+  return {
+    type: `DeleteWireCommand (${deleted.length})`,
+    affectedIds: deleted.map(item => item.wireData?.id).filter(Boolean),
+    undo: bridge => {
+      let mutationMs = 0;
+      deleted.forEach(item => {
+        const result = bridge.restoreWire(item.wireData, item.connectionData);
+        mutationMs += result.mutationMs || 0;
+      });
+      return { mutationMs };
+    },
+    redo: bridge => {
+      let mutationMs = 0;
+      deleted.forEach(item => {
+        const result = bridge.removeWire(item.wireData?.id);
+        mutationMs += result.mutationMs || 0;
+      });
+      return { mutationMs };
+    }
+  };
+}
+
+function cloneWire(wire) {
+  return wire ? {
+    id: wire.id,
+    sourceKind: wire.sourceKind,
+    sourceId: wire.sourceId,
+    fromDeviceId: wire.fromDeviceId,
+    toDeviceId: wire.toDeviceId,
+    fromConnectorId: wire.fromConnectorId,
+    toConnectorId: wire.toConnectorId,
+    fromSide: wire.fromSide,
+    toSide: wire.toSide,
+    fromPortIndex: wire.fromPortIndex,
+    toPortIndex: wire.toPortIndex,
+    routePoints: cloneRoutePoints(wire.routePoints),
+    fromUsesRealConnector: wire.fromUsesRealConnector,
+    toUsesRealConnector: wire.toUsesRealConnector,
+    usesRealConnectorEndpoints: wire.usesRealConnectorEndpoints,
+    hasFallbackEndpoint: wire.hasFallbackEndpoint,
+    color: wire.color,
+    label: wire.label,
+    cableType: wire.cableType
+  } : null;
+}
+
+function cloneRoutePoints(points = []) {
+  return (points || []).map(point => ({ x: Number(point.x) || 0, y: Number(point.y) || 0 }));
+}
+
+function endpointLabel(scene, deviceId, connectorId) {
+  const device = scene.getDevice(deviceId);
+  const connector = scene.getConnector(deviceId, connectorId);
+  return [
+    device?.label || device?.sourceId || deviceId || "-",
+    connector?.label || connector?.type || connectorId || "-"
+  ].filter(Boolean).join(" - ");
+}
+
+function detailsMarkup(rows) {
+  return `<dl class="engine-bridge-details">${
+    rows.map(([key, value]) => `<dt>${escapeHtml(key)}</dt><dd>${escapeHtml(String(value ?? "-"))}</dd>`).join("")
+  }</dl>`;
+}
+
+function roundForUi(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.round(number * 10) / 10 : 0;
 }
 
 function escapeHtml(value) {
