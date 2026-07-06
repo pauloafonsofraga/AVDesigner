@@ -43,6 +43,7 @@ class ProductionEngineBridge {
     this.errorPanel = null;
     this.loadingPanel = null;
     this.validationPanel = null;
+    this.layerDebugPanel = null;
     this.camera = { x: 0, y: 0, zoom: 1 };
     this.renderFrame = null;
     this.loadingReadyTimer = null;
@@ -64,6 +65,7 @@ class ProductionEngineBridge {
     };
     this.lastDirtyDeviceIds = new Set();
     this.lastDirtyWireIds = new Set();
+    this.debugLayerMode = engineLayerDebugEnabled();
     this.renderOptions = {
       labels: true,
       wires: true,
@@ -83,6 +85,7 @@ class ProductionEngineBridge {
       detailedDeviceTextures: true,
       lodMode: true,
       mutationDebug: true,
+      ...engineLayerDebugRenderOptions(this.debugLayerMode),
       dirtyDeviceIds: this.lastDirtyDeviceIds,
       dirtyWireIds: this.lastDirtyWireIds
     };
@@ -227,6 +230,20 @@ class ProductionEngineBridge {
         <strong>Loading engine scene</strong>
         <span>Preparing project data...</span>
       </div>
+      <div class="engine-bridge-layer-debug ${this.debugLayerMode ? "" : "hidden"}">
+        <h2>Layer Debug</h2>
+        <div class="engine-bridge-layer-toggles">
+          ${layerDebugControl("hideStaticObjects", "hide static objects", this.renderOptions.hideStaticObjects)}
+          ${layerDebugControl("hideStaticWires", "hide static wires", this.renderOptions.hideStaticWires)}
+          ${layerDebugControl("hideTextureLayer", "hide texture/image layer", this.renderOptions.hideTextureLayer)}
+          ${layerDebugControl("hideDragOverlay", "hide live drag overlay", this.renderOptions.hideDragOverlay)}
+          ${layerDebugControl("hideLabels", "hide labels/text", this.renderOptions.hideLabels)}
+          ${layerDebugControl("hideSurfaces", "hide LED surfaces", this.renderOptions.hideSurfaces)}
+          ${layerDebugControl("hideSelectionOverlay", "hide selection overlay", this.renderOptions.hideSelectionOverlay)}
+          ${layerDebugControl("showProductionSvg", "show production SVG/DOM", engineLayerDebugShowProductionSvg())}
+        </div>
+        <pre data-layer-trace>Drag a selected object to trace render layers.</pre>
+      </div>
       <div class="engine-bridge-debug"></div>
     `;
     this.container.appendChild(this.engineRoot);
@@ -238,12 +255,33 @@ class ProductionEngineBridge {
     this.validationPanel = this.engineRoot.querySelector(".engine-bridge-validation");
     this.errorPanel = this.engineRoot.querySelector(".engine-bridge-error");
     this.loadingPanel = this.engineRoot.querySelector(".engine-bridge-loading");
+    this.layerDebugPanel = this.engineRoot.querySelector(".engine-bridge-layer-debug");
     this.engineRoot.querySelector("[data-engine-action='refresh']")?.addEventListener("click", () => this.refreshFromProduction("manual button"));
     this.engineRoot.querySelector("[data-engine-action='exit']")?.addEventListener("click", () => exitEngineMode());
     this.engineRoot.querySelector("[data-engine-action='undo']")?.addEventListener("click", () => this.undoEngineCommand());
     this.engineRoot.querySelector("[data-engine-action='redo']")?.addEventListener("click", () => this.redoEngineCommand());
     this.engineRoot.querySelector("[data-engine-action='delete-wire']")?.addEventListener("click", () => this.deleteSelectedWires());
     this.engineRoot.querySelector("[data-engine-action='validate']")?.addEventListener("click", () => this.runSceneValidation());
+    if (this.debugLayerMode && engineLayerDebugShowProductionSvg()) {
+      this.container.classList.add("engine-bridge-show-production-svg");
+    }
+    this.bindLayerDebugControls();
+  }
+
+  bindLayerDebugControls() {
+    if (!this.debugLayerMode || !this.layerDebugPanel) return;
+    this.layerDebugPanel.querySelectorAll("[data-layer-option]").forEach(input => {
+      input.addEventListener("change", () => {
+        const key = input.getAttribute("data-layer-option");
+        if (key === "showProductionSvg") {
+          this.container.classList.toggle("engine-bridge-show-production-svg", input.checked);
+        } else {
+          this.renderOptions[key] = input.checked;
+          this.renderer?.setRenderOptions(this.renderOptions);
+        }
+        this.scheduleRender();
+      });
+    });
   }
 
   bindEvents() {
@@ -408,6 +446,7 @@ class ProductionEngineBridge {
     if (this.dragSession) {
       const start = performance.now();
       this.dragSession.update(screenToWorld(this.camera, point));
+      this.captureDebugDragTrace();
       this.hud.setMetric("dragDraw", `${(performance.now() - start).toFixed(3)} ms`);
       this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
       this.scheduleRender();
@@ -521,7 +560,14 @@ class ProductionEngineBridge {
     this.hud.setMetric("dragStart", `${totalMs.toFixed(2)} ms`);
     this.hud.setMetric("affectedLookup", `${this.dragSession.affectedWireLookupMs.toFixed(3)} ms`);
     this.canvas.classList.add("dragging");
+    this.captureDebugDragTrace();
     this.scheduleRender();
+  }
+
+  captureDebugDragTrace() {
+    if (!this.debugLayerMode || !this.dragSession) return;
+    this.renderer.captureDragLayerTrace(this.scene, this.camera, this.dragSession, this.renderOptions);
+    this.updateLayerDebugPanel();
   }
 
   beginRoutePointDrag(routePoint) {
@@ -1307,7 +1353,54 @@ class ProductionEngineBridge {
       );
       const textures = this.renderer.textureStats();
       this.hud.setMetric("texture draw", `${textures.drawMs.toFixed(2)} ms / ${textures.quads} quads`);
+      this.updateLayerDebugPanel();
     });
+  }
+
+  updateLayerDebugPanel() {
+    if (!this.debugLayerMode || !this.layerDebugPanel) return;
+    const output = this.layerDebugPanel.querySelector("[data-layer-trace]");
+    if (!output) return;
+    const currentTrace = this.renderer.layerTrace();
+    const trace = currentTrace.active ? currentTrace : currentTrace.lastActiveTrace || currentTrace;
+    const lines = [
+      `drag active: ${currentTrace.active ? "yes" : "no"}`,
+      `trace source: ${currentTrace.active ? "current drag" : currentTrace.lastActiveTrace ? "last completed drag" : "current frame"}`,
+      `selected: ${trace.selectedIds?.length || 0}`,
+      `affected wires: ${trace.affectedWireIds?.length || 0}`,
+      `production SVG/DOM: ${this.container.classList.contains("engine-bridge-show-production-svg") ? "debug visible" : "hidden"}`
+    ];
+    if (!currentTrace.active && !currentTrace.lastActiveTrace) {
+      lines.push("No active drag. Start dragging a selected object to see layer ownership.");
+    }
+    (trace.objects || []).forEach(object => {
+      lines.push("");
+      lines.push(`${object.id} (${object.type}) ${object.label || ""}`.trim());
+      lines.push(`  static range: ${formatDebugRange(object.staticRange)}`);
+      Object.entries(object.layers || {}).forEach(([layer, status]) => {
+        lines.push(`  ${layer}: ${status}`);
+      });
+      const objectVisualLayers = ["staticDeviceLayer", "textureLayer", "liveDragObjectOverlay"];
+      const objectDraws = objectVisualLayers
+        .filter(layer => String(object.layers?.[layer] || "").startsWith("drawn"));
+      const labelDraws = Object.entries(object.layers || {})
+        .filter(([layer, status]) => layer.toLowerCase().includes("label") && String(status).startsWith("drawn"))
+        .map(([layer]) => layer);
+      lines.push(`  object draw layers: ${objectDraws.length ? objectDraws.join(", ") : "none"}${objectDraws.length > 1 ? "  <-- duplicate object draw" : ""}`);
+      lines.push(`  text/label layers: ${labelDraws.length ? labelDraws.join(", ") : "none"}`);
+    });
+    (trace.wires || []).slice(0, 12).forEach(wire => {
+      lines.push("");
+      lines.push(`wire ${wire.id}`);
+      lines.push(`  static range: ${formatDebugRange(wire.staticRange)}`);
+      Object.entries(wire.layers || {}).forEach(([layer, status]) => {
+        lines.push(`  ${layer}: ${status}`);
+      });
+    });
+    if ((trace.wires || []).length > 12) {
+      lines.push(`... ${trace.wires.length - 12} more affected wires`);
+    }
+    output.textContent = lines.join("\n");
   }
 
   recordDirtyVisualMetrics(dirtyStats, context = "update") {
@@ -1587,6 +1680,61 @@ function injectBridgeStyles() {
       color: #cbd6e3;
       font-size: 13px;
     }
+    .engine-bridge-layer-debug {
+      position: absolute;
+      left: 14px;
+      bottom: 14px;
+      z-index: 4;
+      width: min(520px, calc(100% - 28px));
+      max-height: min(460px, calc(100% - 28px));
+      overflow: auto;
+      padding: 10px;
+      border: 1px solid rgba(255,121,4,.5);
+      border-radius: 8px;
+      background: rgba(15, 24, 32, .9);
+      color: #eef5ff;
+      font-size: 11px;
+      pointer-events: auto;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+    .engine-bridge-layer-debug h2 {
+      margin: 0 0 8px;
+      color: #ff7904;
+      font-size: 12px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .engine-bridge-layer-toggles {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 5px 10px;
+      margin-bottom: 8px;
+    }
+    .engine-bridge-layer-toggles label {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      color: #d7e2ee;
+      line-height: 1.25;
+    }
+    .engine-bridge-layer-toggles input { accent-color: #32b6ff; }
+    .engine-bridge-layer-debug pre {
+      margin: 0;
+      max-height: 300px;
+      overflow: auto;
+      color: #cbd6e3;
+      white-space: pre-wrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .canvas-wrap.engine-bridge-show-production-svg > #canvas,
+    .canvas-wrap.engine-bridge-show-production-svg > #webglCanvas,
+    .canvas-wrap.engine-bridge-show-production-svg > #deviceTextureCanvas,
+    .canvas-wrap.engine-bridge-show-production-svg > #navigationSnapshotCanvas {
+      opacity: .45 !important;
+    }
+    .canvas-wrap.engine-bridge-show-production-svg .engine-bridge-root {
+      background: rgba(17, 24, 32, .72);
+    }
     .engine-bridge-debug {
       position: absolute;
       right: 14px;
@@ -1646,6 +1794,43 @@ function engineDebugLoadDelayMs() {
   const explicit = Number(params.get("loadDelay"));
   if (Number.isFinite(explicit) && explicit > 0) return Math.min(5000, explicit);
   return params.get("debugLoad") === "1" ? 1000 : 0;
+}
+
+function engineLayerDebugEnabled() {
+  return new URLSearchParams(window.location.search).get("debugLayers") === "1";
+}
+
+function engineLayerDebugShowProductionSvg() {
+  return new URLSearchParams(window.location.search).get("showProductionSvg") === "1";
+}
+
+function engineLayerDebugRenderOptions(enabled) {
+  if (!enabled) return { debugLayers: false };
+  const params = new URLSearchParams(window.location.search);
+  const isEnabled = key => params.get(key) === "1";
+  return {
+    debugLayers: true,
+    hideStaticObjects: isEnabled("hideStaticObjects"),
+    hideStaticWires: isEnabled("hideStaticWires"),
+    hideTextureLayer: isEnabled("hideTextureLayer") || isEnabled("hideTextures"),
+    hideDragOverlay: isEnabled("hideDragOverlay"),
+    hideLabels: isEnabled("hideLabels"),
+    hideSurfaces: isEnabled("hideSurfaces"),
+    hideSelectionOverlay: isEnabled("hideSelectionOverlay")
+  };
+}
+
+function layerDebugControl(key, label, checked) {
+  return `
+    <label>
+      <input type="checkbox" data-layer-option="${key}" ${checked ? "checked" : ""}>
+      <span>${label}</span>
+    </label>
+  `;
+}
+
+function formatDebugRange(range) {
+  return range ? `${range.offset}:${range.count}` : "none";
 }
 
 function normalizedWorldRect(a, b) {

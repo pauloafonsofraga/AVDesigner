@@ -29,6 +29,14 @@ const DEFAULT_RENDER_OPTIONS = {
   highDpiTextures: true,
   detailedDeviceTextures: true,
   lodMode: true,
+  debugLayers: false,
+  hideStaticObjects: false,
+  hideStaticWires: false,
+  hideTextureLayer: false,
+  hideDragOverlay: false,
+  hideLabels: false,
+  hideSurfaces: false,
+  hideSelectionOverlay: false,
   dirtyDeviceIds: new Set(),
   dirtyWireIds: new Set()
 };
@@ -69,6 +77,8 @@ export class WebglGraphRenderer {
     this.lastTextureStats = null;
     this.lastTextureDrawStats = null;
     this.lastFrameStats = null;
+    this.lastLayerTrace = null;
+    this.lastActiveLayerTrace = null;
     this.textureCache = new TextureCache(this.gl);
     this.program = createProgram(this.gl, vertexSource, fragmentSource);
     this.positionLocation = this.gl.getAttribLocation(this.program, "a_position");
@@ -199,6 +209,81 @@ export class WebglGraphRenderer {
 
   frameStats() {
     return this.lastFrameStats || {};
+  }
+
+  layerTrace() {
+    return this.lastLayerTrace || { active: false, objects: [], wires: [], lastActiveTrace: this.lastActiveLayerTrace };
+  }
+
+  captureDragLayerTrace(scene, camera, dragSession, renderOptions = this.renderOptions) {
+    if (!dragSession) return null;
+    const options = {
+      ...this.renderOptions,
+      ...renderOptions
+    };
+    const trace = this.beginLayerTrace(scene, dragSession, options);
+    if (!trace) return null;
+
+    if (options.wires && !options.hideStaticWires) {
+      dragSession.affectedWireIds.forEach(id => {
+        this.recordWireLayer(trace, id, "staticWireLayer", this.wireRangeMap.has(id) ? "skipped" : "no-range");
+      });
+    } else {
+      this.recordAffectedWires(trace, "staticWireLayer", options.wires ? "hidden" : "disabled");
+    }
+
+    if (!options.hideStaticObjects) {
+      dragSession.selectedIds.forEach(id => {
+        this.recordObjectLayer(trace, id, "staticDeviceLayer", this.deviceRangeMap.has(id) ? "skipped" : "no-range");
+      });
+    } else {
+      this.recordSelectedObjects(trace, "staticDeviceLayer", "hidden");
+    }
+
+    const texturedDragIds = new Set();
+    if (options.hideTextureLayer || !options.textureCacheEnabled || !options.texturedDevices) {
+      this.recordSelectedObjects(trace, "textureLayer", options.hideTextureLayer ? "hidden" : "disabled");
+    } else if (options.lodMode && options.simplifiedCards && camera.zoom < 0.18) {
+      this.recordSelectedObjects(trace, "textureLayer", "lod-skipped");
+    } else {
+      dragSession.selectedIds.forEach(id => {
+        const device = scene.getDevice(id);
+        if (!device || !deviceVisible(device, options)) {
+          this.recordObjectLayer(trace, id, "textureLayer", device ? "hidden" : "missing");
+          return;
+        }
+        const entry = this.textureCache.getEntry(id);
+        if (entry?.texture) {
+          texturedDragIds.add(id);
+          this.recordObjectLayer(trace, id, "textureLayer", "drawn-moving");
+        } else {
+          this.recordObjectLayer(trace, id, "textureLayer", "missing-texture");
+        }
+      });
+    }
+
+    if (options.hideDragOverlay) {
+      this.recordAffectedWires(trace, "liveDragWireOverlay", "hidden");
+      this.recordSelectedObjects(trace, "liveDragObjectOverlay", "hidden");
+    } else {
+      dragSession.affectedWireIds.forEach(id => {
+        const wire = scene.getWire(id);
+        this.recordWireLayer(trace, id, "liveDragWireOverlay", wire && options.wires ? "drawn-moving" : "disabled");
+      });
+      dragSession.selectedIds.forEach(id => {
+        this.recordObjectLayer(trace, id, "liveDragObjectOverlay", texturedDragIds.has(id) ? "outline-only" : "drawn-moving");
+      });
+    }
+
+    if (!options.labels || options.hideLabels || camera.zoom < 0.08) {
+      this.recordSelectedObjects(trace, "labelLayer", options.labels ? "hidden" : "disabled");
+    } else {
+      this.recordSelectedObjects(trace, "labelLayer", "drawn-moving");
+    }
+
+    this.lastActiveLayerTrace = trace;
+    this.lastLayerTrace = { active: false, objects: [], wires: [], lastActiveTrace: trace };
+    return trace;
   }
 
   updateDirty(scene, { deviceIds = [], wireIds = [] } = {}) {
@@ -384,23 +469,30 @@ export class WebglGraphRenderer {
     let sectionStart = performance.now();
     this.drawGrid(camera);
     frameStats.gridMs = performance.now() - sectionStart;
-    if (renderOptions.wires) {
+    const layerTrace = this.beginLayerTrace(scene, dragSession, renderOptions);
+    if (renderOptions.wires && !renderOptions.hideStaticWires) {
       sectionStart = performance.now();
-      this.drawBuffer(this.staticWireBuffer, this.staticWireVertexCount);
+      this.drawStaticWires(dragSession, layerTrace);
       frameStats.staticWireMs = performance.now() - sectionStart;
+    } else {
+      this.recordAffectedWires(layerTrace, "staticWireLayer", renderOptions.wires ? "hidden" : "disabled");
     }
     sectionStart = performance.now();
     // Drag rendering uses a live overlay for selected objects. Skip their
     // static ranges here so the old-position simplified device does not remain
     // visible as a grey shadow while the live dragged copy moves.
-    this.drawStaticDevices(dragSession);
+    if (!renderOptions.hideStaticObjects) {
+      this.drawStaticDevices(dragSession, layerTrace);
+    } else {
+      this.recordSelectedObjects(layerTrace, "staticDeviceLayer", "hidden");
+    }
     frameStats.staticDeviceMs = performance.now() - sectionStart;
     sectionStart = performance.now();
-    this.drawTextureDevices(scene, camera, renderOptions, dragSession);
+    const texturedDragIds = this.drawTextureDevices(scene, camera, renderOptions, dragSession, layerTrace);
     frameStats.textureDrawMs = performance.now() - sectionStart;
     const liveVertices = [];
     const liveBuildStart = performance.now();
-    if (dragSession) {
+    if (dragSession && !renderOptions.hideDragOverlay) {
       const offsets = dragSession.offsetMap();
       // During drag, selected devices and affected wires are drawn as a live
       // overlay. The cached static scene remains visible for everything else.
@@ -408,26 +500,42 @@ export class WebglGraphRenderer {
       dragSession.affectedWireIds.forEach(wireId => {
         const wire = scene.getWire(wireId);
         if (wire && renderOptions.wires) pushWire(liveVertices, scene, wire, offsets, 3.2, wireColor(wire, renderOptions), renderOptions);
+        this.recordWireLayer(layerTrace, wireId, "liveDragWireOverlay", wire && renderOptions.wires ? "drawn-moving" : "disabled");
       });
       frameStats.affectedWireOverlayMs = performance.now() - wireOverlayStart;
       frameStats.affectedWires = dragSession.affectedWireIds.size;
       const objectOverlayStart = performance.now();
       dragSession.selectedIds.forEach(id => {
         const device = scene.getDevice(id);
-        if (device) pushDevice(liveVertices, device, offsets, true, renderOptions);
+        if (!device) return;
+        if (texturedDragIds.has(id)) {
+          // A cached texture already draws this selected object at the drag
+          // offset. Keep the live layer to the orange outline only so a dragged
+          // object exists in exactly one moving object layer.
+          pushSelectionOutline(liveVertices, device, offsets);
+          this.recordObjectLayer(layerTrace, id, "liveDragObjectOverlay", "outline-only");
+        } else {
+          pushDevice(liveVertices, device, offsets, true, renderOptions);
+          this.recordObjectLayer(layerTrace, id, "liveDragObjectOverlay", "drawn-moving");
+        }
       });
       frameStats.selectedObjectOverlayMs = performance.now() - objectOverlayStart;
       frameStats.selectedObjects = dragSession.selectedIds.length;
+    } else if (dragSession) {
+      this.recordAffectedWires(layerTrace, "liveDragWireOverlay", "hidden");
+      this.recordSelectedObjects(layerTrace, "liveDragObjectOverlay", "hidden");
     } else {
       const selectionStart = performance.now();
-      (options.selectedIds || new Set()).forEach(id => {
-        const device = scene.getDevice(id);
-        if (device) pushSelectionOutline(liveVertices, device, null);
-      });
-      (options.selectedWireIds || new Set()).forEach(id => {
-        const wire = scene.getWire(id);
-        if (wire && renderOptions.wires) pushWire(liveVertices, scene, wire, null, 5.2, "#ff7904", { ...renderOptions, routePoints: false });
-      });
+      if (!renderOptions.hideSelectionOverlay) {
+        (options.selectedIds || new Set()).forEach(id => {
+          const device = scene.getDevice(id);
+          if (device) pushSelectionOutline(liveVertices, device, null);
+        });
+        (options.selectedWireIds || new Set()).forEach(id => {
+          const wire = scene.getWire(id);
+          if (wire && renderOptions.wires) pushWire(liveVertices, scene, wire, null, 5.2, "#ff7904", { ...renderOptions, routePoints: false });
+        });
+      }
       (renderOptions.dirtyWireIds || new Set()).forEach(id => {
         const wire = scene.getWire(id);
         if (wire && renderOptions.wires) pushWire(liveVertices, scene, wire, null, 4.4, "#ff7904", { ...renderOptions, routePoints: false });
@@ -449,7 +557,7 @@ export class WebglGraphRenderer {
     this.drawBuffer(this.liveBuffer, this.liveVertexCount);
     frameStats.liveDrawMs = performance.now() - sectionStart;
     sectionStart = performance.now();
-    this.drawLabels(scene, camera, { ...options, renderOptions });
+    this.drawLabels(scene, camera, { ...options, renderOptions, layerTrace });
     frameStats.labelMs = performance.now() - sectionStart;
     const textureAfter = this.textureCache.stats();
     frameStats.textureBuilds = textureAfter.builds - textureBefore.builds;
@@ -459,6 +567,9 @@ export class WebglGraphRenderer {
       : 0;
     frameStats.totalMs = performance.now() - start;
     this.lastFrameStats = frameStats;
+    this.lastLayerTrace = layerTrace;
+    if (layerTrace?.active) this.lastActiveLayerTrace = layerTrace;
+    if (layerTrace && !layerTrace.active) layerTrace.lastActiveTrace = this.lastActiveLayerTrace;
     return frameStats.totalMs;
   }
 
@@ -469,7 +580,7 @@ export class WebglGraphRenderer {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, this.resolution.width, this.resolution.height);
     const renderOptions = options.renderOptions || this.renderOptions;
-    if (!renderOptions.labels) return;
+    if (!renderOptions.labels || renderOptions.hideLabels) return;
     if (camera.zoom < 0.08) return;
     const view = {
       x: camera.x,
@@ -484,11 +595,13 @@ export class WebglGraphRenderer {
     const drawn = new Set();
     visible.forEach(device => {
       drawn.add(device.id);
+      this.recordObjectLayer(options.layerTrace, device.id, "labelLayer", "drawn");
       if (deviceVisible(device, renderOptions)) drawDeviceLabel(ctx, device, camera, offsets);
     });
     (options.selectedIds || new Set()).forEach(id => {
       if (drawn.has(id)) return;
       const device = scene.getDevice(id);
+      this.recordObjectLayer(options.layerTrace, id, "labelLayer", device ? "drawn-selected" : "missing");
       if (device && deviceVisible(device, renderOptions)) drawDeviceLabel(ctx, device, camera, offsets);
     });
   }
@@ -524,7 +637,22 @@ export class WebglGraphRenderer {
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
   }
 
-  drawStaticDevices(dragSession = null) {
+  drawStaticWires(dragSession = null, layerTrace = null) {
+    if (!dragSession?.affectedWireIds?.size) {
+      this.drawBuffer(this.staticWireBuffer, this.staticWireVertexCount);
+      return;
+    }
+    const skippedRanges = [...dragSession.affectedWireIds]
+      .map(id => this.wireRangeMap.get(id))
+      .filter(Boolean)
+      .sort((a, b) => a.offset - b.offset);
+    dragSession.affectedWireIds.forEach(id => {
+      this.recordWireLayer(layerTrace, id, "staticWireLayer", this.wireRangeMap.has(id) ? "skipped" : "no-range");
+    });
+    this.drawBufferExceptRanges(this.staticWireBuffer, this.staticWireVertexCount, skippedRanges);
+  }
+
+  drawStaticDevices(dragSession = null, layerTrace = null) {
     if (!dragSession?.selectedIds?.length) {
       this.drawBuffer(this.staticDeviceBuffer, this.staticDeviceVertexCount);
       return;
@@ -533,6 +661,9 @@ export class WebglGraphRenderer {
       .map(id => this.deviceRangeMap.get(id))
       .filter(Boolean)
       .sort((a, b) => a.offset - b.offset);
+    dragSession.selectedIds.forEach(id => {
+      this.recordObjectLayer(layerTrace, id, "staticDeviceLayer", this.deviceRangeMap.has(id) ? "skipped" : "no-range");
+    });
     this.drawBufferExceptRanges(this.staticDeviceBuffer, this.staticDeviceVertexCount, skippedRanges);
   }
 
@@ -565,15 +696,17 @@ export class WebglGraphRenderer {
     }
   }
 
-  drawTextureDevices(scene, camera, renderOptions, dragSession = null) {
+  drawTextureDevices(scene, camera, renderOptions, dragSession = null, layerTrace = null) {
     const start = performance.now();
-    if (!renderOptions.textureCacheEnabled || !renderOptions.texturedDevices) {
+    if (renderOptions.hideTextureLayer || !renderOptions.textureCacheEnabled || !renderOptions.texturedDevices) {
       this.lastTextureDrawStats = { drawMs: 0, drawCalls: 0, quads: 0, missing: 0, lodSkipped: 0 };
-      return;
+      this.recordSelectedObjects(layerTrace, "textureLayer", renderOptions.hideTextureLayer ? "hidden" : "disabled");
+      return new Set();
     }
     if (renderOptions.lodMode && renderOptions.simplifiedCards && camera.zoom < 0.18) {
       this.lastTextureDrawStats = { drawMs: 0, drawCalls: 0, quads: 0, missing: 0, lodSkipped: 1 };
-      return;
+      this.recordSelectedObjects(layerTrace, "textureLayer", "lod-skipped");
+      return new Set();
     }
     const gl = this.gl;
     const groups = new Map();
@@ -581,28 +714,35 @@ export class WebglGraphRenderer {
     const selected = dragSession ? new Set(dragSession.selectedIds) : new Set();
     let missing = 0;
     let quads = 0;
+    const draggedTextureIds = new Set();
 
-    const addDevice = device => {
+    const addDevice = (device, reason = "drawn") => {
       if (!deviceVisible(device, renderOptions)) return;
       const entry = this.textureCache.getEntry(device.id);
       if (!entry?.texture) {
         missing += 1;
+        this.recordObjectLayer(layerTrace, device.id, "textureLayer", "missing-texture");
         return;
       }
       const vertices = groups.get(entry.texture) || [];
       pushTextureQuad(vertices, device, dragOffsets);
       groups.set(entry.texture, vertices);
       quads += 1;
+      if (selected.has(device.id)) draggedTextureIds.add(device.id);
+      this.recordObjectLayer(layerTrace, device.id, "textureLayer", reason);
     };
 
     visibleDevices(scene, camera, this.resolution).forEach(device => {
-      if (selected.has(device.id)) return;
+      if (selected.has(device.id)) {
+        this.recordObjectLayer(layerTrace, device.id, "textureLayer", "skipped-static");
+        return;
+      }
       addDevice(device);
     });
     if (dragSession) {
       dragSession.selectedIds.forEach(id => {
         const device = scene.getDevice(id);
-        if (device) addDevice(device);
+        if (device) addDevice(device, "drawn-moving");
       });
     }
 
@@ -633,7 +773,79 @@ export class WebglGraphRenderer {
       missing,
       lodSkipped: 0
     };
+    return draggedTextureIds;
   }
+
+  beginLayerTrace(scene, dragSession = null, renderOptions = this.renderOptions) {
+    if (!renderOptions.debugLayers) return null;
+    const selectedIds = [...(dragSession?.selectedIds || [])];
+    const affectedWireIds = [...(dragSession?.affectedWireIds || [])];
+    const trace = {
+      active: Boolean(dragSession),
+      selectedIds,
+      affectedWireIds,
+      options: {
+        hideStaticObjects: Boolean(renderOptions.hideStaticObjects),
+        hideStaticWires: Boolean(renderOptions.hideStaticWires),
+        hideTextureLayer: Boolean(renderOptions.hideTextureLayer),
+        hideDragOverlay: Boolean(renderOptions.hideDragOverlay),
+        hideLabels: Boolean(renderOptions.hideLabels),
+        hideSurfaces: Boolean(renderOptions.hideSurfaces),
+        hideSelectionOverlay: Boolean(renderOptions.hideSelectionOverlay)
+      },
+      objects: selectedIds.map(id => {
+        const device = scene.getDevice(id);
+        return {
+          id,
+          label: device?.label || id,
+          type: device?.kind || "missing",
+          staticRange: formatRange(this.deviceRangeMap.get(id)),
+          texture: "unknown",
+          layers: {}
+        };
+      }),
+      wires: affectedWireIds.map(id => ({
+        id,
+        staticRange: formatRange(this.wireRangeMap.get(id)),
+        layers: {}
+      }))
+    };
+    this.lastLayerTrace = trace;
+    return trace;
+  }
+
+  recordSelectedObjects(trace, layer, status) {
+    if (!trace) return;
+    trace.objects.forEach(entry => {
+      entry.layers[layer] = status;
+    });
+  }
+
+  recordAffectedWires(trace, layer, status) {
+    if (!trace) return;
+    trace.wires.forEach(entry => {
+      entry.layers[layer] = status;
+    });
+  }
+
+  recordObjectLayer(trace, id, layer, status) {
+    if (!trace || !id) return;
+    const entry = trace.objects.find(item => item.id === id);
+    if (!entry) return;
+    entry.layers[layer] = status;
+  }
+
+  recordWireLayer(trace, id, layer, status) {
+    if (!trace || !id) return;
+    const entry = trace.wires.find(item => item.id === id);
+    if (!entry) return;
+    entry.layers[layer] = status;
+  }
+}
+
+function formatRange(range) {
+  if (!range) return null;
+  return { offset: range.offset, count: range.count };
 }
 
 function adaptiveGridStep(zoom) {
@@ -893,7 +1105,7 @@ function subUpload(gl, buffer, floatOffset, vertices) {
 
 function deviceVisible(device, options = DEFAULT_RENDER_OPTIONS) {
   if (device.kind === "jump" && !options.jumpNodes) return false;
-  if (device.kind === "surface" && !options.ledSurfaces) return false;
+  if (device.kind === "surface" && (!options.ledSurfaces || options.hideSurfaces)) return false;
   return true;
 }
 
