@@ -118,7 +118,7 @@ class ProductionEngineBridge {
     this.engineRoot = null;
     this.container?.classList.remove("engine-bridge-active");
     this.container?.classList.remove("webgl-engine-active");
-    window.removeEventListener("keydown", this.boundKeyDown);
+    window.removeEventListener("keydown", this.boundKeyDown, true);
     window.removeEventListener("resize", this.boundResize);
     if (restoreProduction) this.api.onExit?.();
   }
@@ -224,7 +224,10 @@ class ProductionEngineBridge {
     this.canvas.addEventListener("lostpointercapture", event => this.handleLostPointerCapture(event));
     this.boundKeyDown = event => this.handleKeyDown(event);
     this.boundResize = () => this.scheduleRender();
-    window.addEventListener("keydown", this.boundKeyDown);
+    // Engine mode must intercept undo/redo before the production document
+    // listener. Letting both handlers see Cmd/Ctrl-Z restores a full
+    // production snapshot, which is slow and also resets the engine camera.
+    window.addEventListener("keydown", this.boundKeyDown, true);
     window.addEventListener("resize", this.boundResize);
   }
 
@@ -430,19 +433,25 @@ class ProductionEngineBridge {
   handleKeyDown(event) {
     if (event.key === "Delete" || event.key === "Backspace") {
       if (this.scene.selectedWireIds.size) {
-        event.preventDefault();
+        consumeEngineShortcut(event);
         this.deleteSelectedWires();
       }
       return;
     }
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
-      event.preventDefault();
+      consumeEngineShortcut(event);
       if (event.shiftKey) this.redoEngineCommand();
       else this.undoEngineCommand();
       return;
     }
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "y") {
+      consumeEngineShortcut(event);
+      this.redoEngineCommand();
+      return;
+    }
     if (event.key !== "Escape") return;
     if (this.wireCreate || this.routePointDrag || this.marqueeState || this.dragSession || this.pendingDrag || this.panState) {
+      consumeEngineShortcut(event);
       this.cancelActiveInteraction("cancelled");
       this.scheduleRender();
     }
@@ -866,11 +875,13 @@ class ProductionEngineBridge {
     this.hud.setMetric("production sync", `${(performance.now() - syncStart).toFixed(2)} ms`);
   }
 
-  beginProductionCommit(type) {
+  beginProductionCommit(type, { snapshot = true } = {}) {
     this.productionDirty = true;
     const start = performance.now();
-    this.api.onEngineBeforeCommit?.({ type });
-    this.hud.setMetric("history snapshot", `${(performance.now() - start).toFixed(2)} ms`);
+    if (snapshot) this.api.onEngineBeforeCommit?.({ type });
+    const elapsed = performance.now() - start;
+    this.hud.setMetric("history snapshot", snapshot ? `${elapsed.toFixed(2)} ms` : "skipped");
+    return elapsed;
   }
 
   recordCommand(command) {
@@ -887,29 +898,68 @@ class ProductionEngineBridge {
 
   undoEngineCommand() {
     if (this.commandIndex <= 0) return;
-    const commandStart = performance.now();
-    const command = this.commandHistory[this.commandIndex - 1];
-    this.beginProductionCommit(`undo ${command.type}`);
-    const result = command.undo(this) || {};
-    this.commandIndex -= 1;
-    this.markCommitted(`undo ${command.type}`, result.mutationMs || 0, { command: command.type });
-    this.updateSelectionHud();
-    this.updateInteractionHud("undo");
-    this.hud.setMetric("command time", `${(performance.now() - commandStart).toFixed(2)} ms`);
-    this.scheduleRender();
+    this.replayEngineCommand("undo", this.commandHistory[this.commandIndex - 1], () => {
+      this.commandIndex -= 1;
+      return this.commandHistory[this.commandIndex]?.undo(this) || {};
+    });
   }
 
   redoEngineCommand() {
     if (this.commandIndex >= this.commandHistory.length) return;
+    this.replayEngineCommand("redo", this.commandHistory[this.commandIndex], () => {
+      const result = this.commandHistory[this.commandIndex]?.redo(this) || {};
+      this.commandIndex += 1;
+      return result;
+    });
+  }
+
+  replayEngineCommand(direction, command, applyCommand) {
+    if (!command) return;
     const commandStart = performance.now();
-    const command = this.commandHistory[this.commandIndex];
-    this.beginProductionCommit(`redo ${command.type}`);
-    const result = command.redo(this) || {};
-    this.commandIndex += 1;
-    this.markCommitted(`redo ${command.type}`, result.mutationMs || 0, { command: command.type });
+    const beforeCamera = cloneCamera(this.camera);
+    const textureBefore = this.renderer?.textureStats?.() || {};
+    // Undo/redo replays the engine command history incrementally. Do not take
+    // another production snapshot here: restoring that snapshot path performs a
+    // full production render and calls refreshFromProduction(), which resets
+    // fitView and causes the several-second browser stall.
+    this.beginProductionCommit(`${direction} ${command.type}`, { snapshot: false });
+    const mutationStart = performance.now();
+    const result = applyCommand() || {};
+    const mutationReplayMs = performance.now() - mutationStart;
+    const textureAfter = this.renderer?.textureStats?.() || {};
+    const textureBuildDelta = Math.max(0, (textureAfter.builds || 0) - (textureBefore.builds || 0));
+    const textureRebuildDelta = Math.max(0, (textureAfter.rebuilds || 0) - (textureBefore.rebuilds || 0));
+    if (!sameCamera(beforeCamera, this.camera)) {
+      this.camera = beforeCamera;
+      this.setEngineWarning("undo-camera", `${direction} tried to change viewport; restored camera.`);
+    } else {
+      this.setEngineWarning("undo-camera", "");
+    }
+    this.markCommitted(`${direction} ${command.type}`, result.mutationMs || 0, {
+      command: command.type,
+      historyReplay: true
+    });
     this.updateSelectionHud();
-    this.updateInteractionHud("redo");
-    this.hud.setMetric("command time", `${(performance.now() - commandStart).toFixed(2)} ms`);
+    this.updateInteractionHud(direction);
+    const totalMs = performance.now() - commandStart;
+    const targetMs = commandTargetMs(command);
+    this.hud.setMetric("command replay", `${direction} ${command.type}`);
+    this.hud.setMetric("command mutation", `${mutationReplayMs.toFixed(2)} ms`);
+    this.hud.setMetric("command time", `${totalMs.toFixed(2)} ms`);
+    this.hud.setMetric("undo texture delta", `${textureBuildDelta} build / ${textureRebuildDelta} rebuild`);
+    this.hud.setMetric("undo target", `${targetMs} ms`);
+    this.setEngineWarning(
+      "undo-redo",
+      totalMs > targetMs
+        ? `${direction} ${totalMs.toFixed(1)} ms exceeded ${targetMs} ms target.`
+        : ""
+    );
+    this.setEngineWarning(
+      "undo-textures",
+      textureBuildDelta || textureRebuildDelta
+        ? `${direction} rebuilt ${textureBuildDelta + textureRebuildDelta} texture(s).`
+        : ""
+    );
     this.scheduleRender();
   }
 
@@ -1600,6 +1650,37 @@ function deleteWiresCommand(deleted = []) {
       return { mutationMs };
     }
   };
+}
+
+function consumeEngineShortcut(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  event.stopImmediatePropagation?.();
+}
+
+function cloneCamera(camera = {}) {
+  return {
+    x: Number(camera.x) || 0,
+    y: Number(camera.y) || 0,
+    zoom: Number(camera.zoom) || 1
+  };
+}
+
+function sameCamera(a, b) {
+  return Math.abs((a?.x || 0) - (b?.x || 0)) < 0.0001
+    && Math.abs((a?.y || 0) - (b?.y || 0)) < 0.0001
+    && Math.abs((a?.zoom || 1) - (b?.zoom || 1)) < 0.000001;
+}
+
+function commandTargetMs(command) {
+  const type = String(command?.type || "");
+  if (type.includes("MoveRoutePoint")) return 100;
+  if (type.includes("CreateWire") || type.includes("DeleteWire")) return 300;
+  if (type.includes("MoveDevices")) {
+    const count = Number(command?.affectedIds?.length) || 1;
+    return count > 1 ? 300 : 100;
+  }
+  return 300;
 }
 
 function cloneWire(wire) {
