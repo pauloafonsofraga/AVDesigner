@@ -4,17 +4,36 @@ Engine mode is experimental and remains opt-in behind `index.html?engine=1`.
 Normal `index.html` must continue to use the production SVG renderer until this
 matrix is mostly covered and the export/viewer/report migration is planned.
 
+Current visible build label: `Iteration 22`.
+The app top bar must show one of these labels:
+
+- `Iteration 22 — Production — c5ca11c`
+- `Iteration 22 — Engine Beta — c5ca11c`
+- `Iteration 22 — Engine Default Test — c5ca11c`
+
+The commit/build hash is a static label in this standalone HTML build, so use
+the actual Git commit as the final source of truth when reviewing a pushed
+change.
+
 ## How To Test
 
 1. Open production mode: `index.html`.
-2. Open engine mode: `index.html?engine=1`.
-3. Open the debug loading guard: `index.html?engine=1&debugLoad=1`.
-4. Open a timed loading guard: `index.html?engine=1&loadDelay=1500`.
-5. Load a real `.avd` or `.json` project.
-6. Use **Validate Engine Scene** after loading and after edits.
-7. Run the fixture validation:
+2. Open production mode with cache busting: `index.html?v=iteration22`.
+3. Open engine beta mode: `index.html?engine=1`.
+4. Open engine beta mode with cache busting:
+   `index.html?engine=1&v=iteration22`.
+5. Open the controlled default experiment:
+   `index.html?engineDefaultTest=1&v=iteration22`.
+6. Open the debug loading guard: `index.html?engine=1&debugLoad=1`.
+7. Open a timed loading guard: `index.html?engine=1&loadDelay=1500`.
+8. Confirm the top bar build label matches the mode you intended to test.
+9. Disable engine beta/default-test mode with the **Engine Beta** toolbar button,
+   or remove `engine=1` / `engineDefaultTest=1` from the URL.
+10. Load a real `.avd` or `.json` project.
+11. Use **Validate Engine Scene** after loading and after edits.
+12. Run the fixture validation:
    `node scripts/engine-real-project-validation.mjs --fixture`
-8. Run the real-project validation:
+13. Run the real-project validation:
    `node scripts/engine-real-project-validation.mjs "/path/to/project.avd"`
 
 ## Status Legend

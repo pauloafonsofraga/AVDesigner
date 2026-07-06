@@ -154,6 +154,26 @@
       box-shadow: 0 0 0 3px rgba(40, 189, 253, .14);
     }
 
+    .app-build-label {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 9px;
+      border: 1px solid rgba(50, 182, 255, .34);
+      border-radius: 999px;
+      background: rgba(50, 182, 255, .08);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .02em;
+      white-space: nowrap;
+    }
+
+    body.dark-mode .app-build-label {
+      background: rgba(50, 182, 255, .12);
+      color: #d6e0ea;
+    }
+
     body.dark-mode .project-name-control input {
       background: #151a20;
       color: var(--ink);
@@ -3700,6 +3720,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 22 — Production — c5ca11c</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -4405,6 +4426,9 @@
   </div>
 
   <script>
+    const APP_ITERATION = 22;
+    const APP_BUILD_ID = "c5ca11c";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const SVG_NS = "http://www.w3.org/2000/svg";
     const DEVICE_WIDTH = 380;
     const ADAPTER_WIDTH = 190;
@@ -54879,7 +54903,12 @@ fit();
 
     function engineBetaRequestedByUrl() {
       const params = new URLSearchParams(window.location.search);
-      return params.get("engine") === "1";
+      return params.get("engine") === "1" || params.get("engineDefaultTest") === "1";
+    }
+
+    function engineDefaultTestRequestedByUrl() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("engineDefaultTest") === "1";
     }
 
     function experimentalEngineRendererRequested() {
@@ -54907,8 +54936,13 @@ fit();
 
     function engineBetaUrl(enabled) {
       const url = new URL(window.location.href);
-      if (enabled) url.searchParams.set("engine", "1");
-      else url.searchParams.delete("engine");
+      if (enabled) {
+        url.searchParams.set("engine", "1");
+        url.searchParams.delete("engineDefaultTest");
+      } else {
+        url.searchParams.delete("engine");
+        url.searchParams.delete("engineDefaultTest");
+      }
       return url.toString();
     }
 
@@ -54922,15 +54956,31 @@ fit();
       const button = document.getElementById("engineBetaToggle");
       if (!button) return;
       const requested = engineBetaRequestedByUrl();
+      const defaultTest = engineDefaultTestRequestedByUrl();
       const active = Boolean(activeEngineBridge());
       button.setAttribute("aria-pressed", requested ? "true" : "false");
       button.title = requested
-        ? "Disable experimental rendering/edit engine"
+        ? defaultTest
+          ? "Disable experimental default-mode test"
+          : "Disable experimental rendering/edit engine"
         : "Enable experimental rendering/edit engine";
       button.innerHTML = requested
-        ? "<span>Engine<br>Active</span>"
+        ? defaultTest
+          ? "<span>Default<br>Test</span>"
+          : "<span>Engine<br>Active</span>"
         : "<span>Engine<br>Beta</span>";
       button.classList.toggle("active", active);
+    }
+
+    function appRuntimeModeLabel() {
+      if (engineDefaultTestRequestedByUrl()) return "Engine Default Test";
+      return engineBetaRequestedByUrl() ? "Engine Beta" : "Production";
+    }
+
+    function updateAppBuildLabel() {
+      const label = document.getElementById("appBuildLabel");
+      if (!label) return;
+      label.textContent = `${APP_BUILD_LABEL} — ${appRuntimeModeLabel()} — ${APP_BUILD_ID}`;
     }
 
     function syncProductionSelectionFromEngine(selection = {}) {
@@ -54988,7 +55038,11 @@ fit();
 
     function startExperimentalEngineRenderer() {
       if (!experimentalEngineRendererRequested()) return;
-      console.info("[engine-bridge] Requested experimental engine renderer.");
+      console.info("[engine-bridge] Requested experimental engine renderer.", {
+        mode: appRuntimeModeLabel(),
+        iteration: APP_ITERATION,
+        build: APP_BUILD_ID
+      });
       import("./src/engine/productionBridge.js")
         .then(module => {
           window.avDesignerEngineBridge = module.createProductionEngineBridge({
@@ -55014,15 +55068,19 @@ fit();
               setStatus(statusSummary());
               updateUndoRedoButtons();
               updateEngineBetaControl();
+              updateAppBuildLabel();
             }
           });
-          setStatus("Engine Beta active. Use the Engine Beta toolbar button to reload back to SVG mode.");
+          const activeMode = appRuntimeModeLabel();
+          setStatus(`${activeMode} active. Use the Engine Beta toolbar button to reload back to SVG mode.`);
           updateEngineBetaControl();
+          updateAppBuildLabel();
         })
         .catch(error => {
           console.error("[engine-bridge] Could not start experimental renderer.", error);
           setStatus(`Experimental engine renderer failed: ${error.message || error}`);
           updateEngineBetaControl();
+          updateAppBuildLabel();
         });
     }
 
@@ -55041,6 +55099,7 @@ fit();
     setProjectVoltage(DEFAULT_POWER_VOLTAGE, { renderUi: false });
     updateProjectNameControl();
     updateEngineBetaControl();
+    updateAppBuildLabel();
     window.addEventListener("resize", updateCanvasView);
     render();
     startExperimentalEngineRenderer();
