@@ -4,12 +4,12 @@ Engine mode is experimental and remains opt-in behind `index.html?engine=1`.
 Normal `index.html` must continue to use the production SVG renderer until this
 matrix is mostly covered and the export/viewer/report migration is planned.
 
-Current visible build label: `Iteration 22`.
+Current visible build label: `Iteration 23`.
 The app top bar must show one of these labels:
 
-- `Iteration 22 — Production — c5ca11c`
-- `Iteration 22 — Engine Beta — c5ca11c`
-- `Iteration 22 — Engine Default Test — c5ca11c`
+- `Iteration 23 — Production — 0b15728`
+- `Iteration 23 — Engine Beta — 0b15728`
+- `Iteration 23 — Engine Default Test — 0b15728`
 
 The commit/build hash is a static label in this standalone HTML build, so use
 the actual Git commit as the final source of truth when reviewing a pushed
@@ -18,12 +18,12 @@ change.
 ## How To Test
 
 1. Open production mode: `index.html`.
-2. Open production mode with cache busting: `index.html?v=iteration22`.
+2. Open production mode with cache busting: `index.html?v=iteration23`.
 3. Open engine beta mode: `index.html?engine=1`.
 4. Open engine beta mode with cache busting:
-   `index.html?engine=1&v=iteration22`.
+   `index.html?engine=1&v=iteration23`.
 5. Open the controlled default experiment:
-   `index.html?engineDefaultTest=1&v=iteration22`.
+   `index.html?engineDefaultTest=1&v=iteration23`.
 6. Open the debug loading guard: `index.html?engine=1&debugLoad=1`.
 7. Open a timed loading guard: `index.html?engine=1&loadDelay=1500`.
 8. Confirm the top bar build label matches the mode you intended to test.

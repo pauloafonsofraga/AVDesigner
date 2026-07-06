@@ -390,7 +390,10 @@ export class WebglGraphRenderer {
       frameStats.staticWireMs = performance.now() - sectionStart;
     }
     sectionStart = performance.now();
-    this.drawBuffer(this.staticDeviceBuffer, this.staticDeviceVertexCount);
+    // Drag rendering uses a live overlay for selected objects. Skip their
+    // static ranges here so the old-position simplified device does not remain
+    // visible as a grey shadow while the live dragged copy moves.
+    this.drawStaticDevices(dragSession);
     frameStats.staticDeviceMs = performance.now() - sectionStart;
     sectionStart = performance.now();
     this.drawTextureDevices(scene, camera, renderOptions, dragSession);
@@ -519,6 +522,47 @@ export class WebglGraphRenderer {
     gl.enableVertexAttribArray(this.colorLocation);
     gl.vertexAttribPointer(this.colorLocation, 4, gl.FLOAT, false, stride, 2 * 4);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
+  }
+
+  drawStaticDevices(dragSession = null) {
+    if (!dragSession?.selectedIds?.length) {
+      this.drawBuffer(this.staticDeviceBuffer, this.staticDeviceVertexCount);
+      return;
+    }
+    const skippedRanges = dragSession.selectedIds
+      .map(id => this.deviceRangeMap.get(id))
+      .filter(Boolean)
+      .sort((a, b) => a.offset - b.offset);
+    this.drawBufferExceptRanges(this.staticDeviceBuffer, this.staticDeviceVertexCount, skippedRanges);
+  }
+
+  drawBufferExceptRanges(buffer, vertexCount, skippedRanges = []) {
+    if (!vertexCount) return;
+    if (!skippedRanges.length) {
+      this.drawBuffer(buffer, vertexCount);
+      return;
+    }
+    const gl = this.gl;
+    const stride = 6 * 4;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.enableVertexAttribArray(this.positionLocation);
+    gl.vertexAttribPointer(this.positionLocation, 2, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(this.colorLocation);
+    gl.vertexAttribPointer(this.colorLocation, 4, gl.FLOAT, false, stride, 2 * 4);
+
+    let cursor = 0;
+    skippedRanges.forEach(range => {
+      const start = Math.max(0, range.offset);
+      const end = Math.max(start, range.offset + range.count);
+      if (start > cursor) {
+        gl.drawArrays(gl.TRIANGLES, cursor / 6, (start - cursor) / 6);
+      }
+      cursor = Math.max(cursor, end);
+    });
+    const final = vertexCount * 6;
+    if (cursor < final) {
+      gl.drawArrays(gl.TRIANGLES, cursor / 6, (final - cursor) / 6);
+    }
   }
 
   drawTextureDevices(scene, camera, renderOptions, dragSession = null) {
