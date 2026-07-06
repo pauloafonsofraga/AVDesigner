@@ -34460,7 +34460,19 @@
       updateUndoRedoButtons();
     }
 
+    function activeEngineBridge() {
+      const bridge = window.avDesignerEngineBridge;
+      if (!bridge || typeof bridge.isActive !== "function") return null;
+      return bridge.isActive() ? bridge : null;
+    }
+
     function undoAction() {
+      const engineBridge = activeEngineBridge();
+      if (engineBridge) {
+        engineBridge.undoEngineCommand?.();
+        updateUndoRedoButtons();
+        return;
+      }
       if (!undoStack.length) return;
       redoStack.push(projectSnapshot());
       restoreSnapshot(undoStack.pop());
@@ -34468,6 +34480,12 @@
     }
 
     function redoAction() {
+      const engineBridge = activeEngineBridge();
+      if (engineBridge) {
+        engineBridge.redoEngineCommand?.();
+        updateUndoRedoButtons();
+        return;
+      }
       if (!redoStack.length) return;
       undoStack.push(projectSnapshot());
       restoreSnapshot(redoStack.pop());
@@ -34477,6 +34495,12 @@
     function updateUndoRedoButtons() {
       const undo = document.getElementById("undoAction");
       const redo = document.getElementById("redoAction");
+      const engineBridge = activeEngineBridge();
+      if (engineBridge) {
+        if (undo) undo.disabled = !engineBridge.canUndoEngineCommand?.();
+        if (redo) redo.disabled = !engineBridge.canRedoEngineCommand?.();
+        return;
+      }
       if (undo) undo.disabled = undoStack.length === 0;
       if (redo) redo.disabled = redoStack.length === 0;
     }
@@ -54911,9 +54935,13 @@ fit();
               setStatus(`Experimental engine committed: ${type}. ${statusSummary()}`);
               console.info("[engine-bridge] production data mutated", { type, mutationStats });
             },
+            onEngineHistoryChange: () => {
+              updateUndoRedoButtons();
+            },
             onExit: () => {
               render();
               setStatus(statusSummary());
+              updateUndoRedoButtons();
             }
           });
           setStatus("Experimental Engine Renderer active. Remove ?engine=1 or click Exit Engine Mode to return to SVG.");

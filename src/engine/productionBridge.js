@@ -123,6 +123,29 @@ class ProductionEngineBridge {
     if (restoreProduction) this.api.onExit?.();
   }
 
+  isActive() {
+    return this.started && !!this.engineRoot;
+  }
+
+  canUndoEngineCommand() {
+    return this.commandIndex > 0;
+  }
+
+  canRedoEngineCommand() {
+    return this.commandIndex < this.commandHistory.length;
+  }
+
+  engineHistoryState(reason = "") {
+    return {
+      active: this.isActive(),
+      canUndo: this.canUndoEngineCommand(),
+      canRedo: this.canRedoEngineCommand(),
+      commandIndex: this.commandIndex,
+      commandCount: this.commandHistory.length,
+      reason
+    };
+  }
+
   refreshFromProduction(reason = "manual refresh") {
     this.clearLoadingReadyTimer();
     this.setLoading(true, `Preparing engine scene: ${reason}`);
@@ -155,6 +178,7 @@ class ProductionEngineBridge {
         mode: `scene refresh: ${reason}`
       });
       this.updateStatusPanel(reason);
+      this.notifyHistoryChange(reason);
       this.renderEngineInspector();
       this.showError("");
       this.hud.setMetric("load build", `${(performance.now() - loadStart).toFixed(1)} ms`);
@@ -795,6 +819,10 @@ class ProductionEngineBridge {
     this.hud?.setMetric("undo redo", `${this.commandIndex} undo / ${this.commandHistory.length - this.commandIndex} redo`);
   }
 
+  notifyHistoryChange(reason = "") {
+    this.api.onEngineHistoryChange?.(this.engineHistoryState(reason));
+  }
+
   renderEngineInspector() {
     if (!this.inspectorPanel) return;
     const selectedDevices = [...this.scene.selectedIds].map(id => this.scene.getDevice(id)).filter(Boolean);
@@ -894,23 +922,26 @@ class ProductionEngineBridge {
     this.hud?.setMetric("undo redo", `${this.commandIndex} undo / ${this.commandHistory.length - this.commandIndex} redo`);
     this.updateStatusPanel(command.type);
     this.renderEngineInspector();
+    this.notifyHistoryChange(command.type);
   }
 
   undoEngineCommand() {
-    if (this.commandIndex <= 0) return;
+    if (this.commandIndex <= 0) return false;
     this.replayEngineCommand("undo", this.commandHistory[this.commandIndex - 1], () => {
       this.commandIndex -= 1;
       return this.commandHistory[this.commandIndex]?.undo(this) || {};
     });
+    return true;
   }
 
   redoEngineCommand() {
-    if (this.commandIndex >= this.commandHistory.length) return;
+    if (this.commandIndex >= this.commandHistory.length) return false;
     this.replayEngineCommand("redo", this.commandHistory[this.commandIndex], () => {
       const result = this.commandHistory[this.commandIndex]?.redo(this) || {};
       this.commandIndex += 1;
       return result;
     });
+    return true;
   }
 
   replayEngineCommand(direction, command, applyCommand) {
@@ -960,6 +991,7 @@ class ProductionEngineBridge {
         ? `${direction} rebuilt ${textureBuildDelta + textureRebuildDelta} texture(s).`
         : ""
     );
+    this.notifyHistoryChange(`${direction} ${command.type}`);
     this.scheduleRender();
   }
 
