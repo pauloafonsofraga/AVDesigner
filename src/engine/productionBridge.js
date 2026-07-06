@@ -199,7 +199,7 @@ class ProductionEngineBridge {
       <canvas class="engine-bridge-canvas" aria-label="Experimental WebGL engine canvas"></canvas>
       <canvas class="engine-bridge-label-canvas" aria-hidden="true"></canvas>
       <div class="engine-bridge-badge">
-        <strong>Experimental Engine Renderer</strong>
+        <strong>Engine Beta Active</strong>
         <span>branch: engine-prototype</span>
         <span>${BRIDGE_VERSION}</span>
         <button type="button" data-engine-action="refresh">Refresh</button>
@@ -1582,11 +1582,6 @@ function exitEngineMode() {
 function engineActivationSource() {
   const params = new URLSearchParams(window.location.search);
   if (params.get("engine") === "1") return "?engine=1";
-  try {
-    if (localStorage.getItem("avdesignerEngineRenderer") === "1") return "localStorage";
-  } catch (error) {
-    // localStorage may be blocked.
-  }
   return "unknown";
 }
 

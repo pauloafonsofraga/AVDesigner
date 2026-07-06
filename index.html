@@ -328,6 +328,25 @@
       width: 76px;
     }
 
+    .engine-beta-control {
+      min-width: 62px;
+      border-color: rgba(50, 182, 255, .38);
+      background: rgba(50, 182, 255, .08);
+      color: var(--ink);
+      font-weight: 900;
+    }
+
+    .engine-beta-control[aria-pressed="true"] {
+      border-color: rgb(50, 182, 255);
+      background: rgba(50, 182, 255, .22);
+      box-shadow: 0 0 0 1px rgba(50, 182, 255, .24), 0 0 18px rgba(50, 182, 255, .18);
+    }
+
+    body.dark-mode .engine-beta-control {
+      background: rgba(50, 182, 255, .12);
+      color: var(--ink);
+    }
+
     @keyframes switch-pop {
       0% { transform: scale(.88); }
       70% { transform: scale(1.08); }
@@ -3729,6 +3748,9 @@
           <!-- Icon: Project voltage state, icons/220.png or icons/110v.png -->
           <img class="toolbar-icon" src="icons/220.png" alt="" aria-hidden="true">
           <span>220V</span>
+        </button>
+        <button class="tool-button engine-beta-control" id="engineBetaToggle" type="button" aria-pressed="false" title="Enable experimental rendering/edit engine">
+          <span>Engine<br>Beta</span>
         </button>
         <button class="tool-button has-icon" id="deviceEditorButton" type="button" title="Edit device library" aria-label="Edit device library">
           <!-- Icon: Device Editor, icons/Device_Editor.png -->
@@ -54651,6 +54673,9 @@ fit();
     });
     document.getElementById("saveProject").addEventListener("click", saveProject);
     document.getElementById("saveProjectAs").addEventListener("click", saveProjectAs);
+    document.getElementById("engineBetaToggle")?.addEventListener("click", () => {
+      switchEngineBetaMode(!engineBetaRequestedByUrl());
+    });
     document.getElementById("loadProject").addEventListener("click", openProjectFile);
     document.getElementById("exportHtml").addEventListener("click", exportHtml);
     projectReportButton?.addEventListener("click", openEditorReport);
@@ -54852,14 +54877,60 @@ fit();
       }
     });
 
-    function experimentalEngineRendererRequested() {
+    function engineBetaRequestedByUrl() {
       const params = new URLSearchParams(window.location.search);
-      if (params.get("engine") === "1") return true;
-      try {
-        return localStorage.getItem("avdesignerEngineRenderer") === "1";
-      } catch (error) {
-        return false;
-      }
+      return params.get("engine") === "1";
+    }
+
+    function experimentalEngineRendererRequested() {
+      return engineBetaRequestedByUrl();
+    }
+
+    function projectHasReloadRisk() {
+      const count = value => Array.isArray(value) ? value.length : 0;
+      return undoStack.length > 0
+        || redoStack.length > 0
+        || count(state.devices) > 0
+        || count(state.connections) > 0
+        || count(state.ledSurfaces) > 0
+        || count(state.areas) > 0
+        || count(state.comments) > 0
+        || count(state.racks) > 0
+        || count(state.jumpNodes) > 0
+        || count(state.titleBlocks) > 0;
+    }
+
+    function confirmEngineBetaReload() {
+      if (!projectHasReloadRisk()) return true;
+      return window.confirm("Switching engine mode will reload the app. Save your project first if needed.");
+    }
+
+    function engineBetaUrl(enabled) {
+      const url = new URL(window.location.href);
+      if (enabled) url.searchParams.set("engine", "1");
+      else url.searchParams.delete("engine");
+      return url.toString();
+    }
+
+    function switchEngineBetaMode(enabled) {
+      if (enabled === engineBetaRequestedByUrl()) return;
+      if (!confirmEngineBetaReload()) return;
+      window.location.href = engineBetaUrl(enabled);
+    }
+
+    function updateEngineBetaControl() {
+      const button = document.getElementById("engineBetaToggle");
+      if (!button) return;
+      const requested = engineBetaRequestedByUrl();
+      const active = Boolean(activeEngineBridge());
+      button.setAttribute("aria-pressed", requested ? "true" : "false");
+      button.title = requested
+        ? "Disable experimental rendering/edit engine"
+        : "Enable experimental rendering/edit engine";
+      button.innerHTML = requested
+        ? "<span>Engine<br>Active</span>"
+        : "<span>Engine<br>Beta</span>";
+      button.classList.toggle("active", active);
     }
 
     function syncProductionSelectionFromEngine(selection = {}) {
@@ -54942,13 +55013,16 @@ fit();
               render();
               setStatus(statusSummary());
               updateUndoRedoButtons();
+              updateEngineBetaControl();
             }
           });
-          setStatus("Experimental Engine Renderer active. Remove ?engine=1 or click Exit Engine Mode to return to SVG.");
+          setStatus("Engine Beta active. Use the Engine Beta toolbar button to reload back to SVG mode.");
+          updateEngineBetaControl();
         })
         .catch(error => {
           console.error("[engine-bridge] Could not start experimental renderer.", error);
           setStatus(`Experimental engine renderer failed: ${error.message || error}`);
+          updateEngineBetaControl();
         });
     }
 
@@ -54966,6 +55040,7 @@ fit();
     setCableHops(true);
     setProjectVoltage(DEFAULT_POWER_VOLTAGE, { renderUi: false });
     updateProjectNameControl();
+    updateEngineBetaControl();
     window.addEventListener("resize", updateCanvasView);
     render();
     startExperimentalEngineRenderer();
