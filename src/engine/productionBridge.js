@@ -1376,6 +1376,13 @@ class ProductionEngineBridge {
     (trace.objects || []).forEach(object => {
       lines.push("");
       lines.push(`${object.id} (${object.type}) ${object.label || ""}`.trim());
+      if (object.committedPosition && object.expectedLivePosition) {
+        lines.push(`  committed: ${formatDebugPoint(object.committedPosition)}`);
+        lines.push(`  drag delta: ${formatDebugDelta(object.dragDelta)}`);
+        lines.push(`  expected live: ${formatDebugPoint(object.expectedLivePosition)}`);
+        lines.push(`  texture body: ${object.actualTexturePosition ? formatDebugPoint(object.actualTexturePosition) : "not drawn during drag"}`);
+        lines.push(`  live body: ${object.actualLiveBodyPosition ? formatDebugPoint(object.actualLiveBodyPosition) : "not drawn"}`);
+      }
       lines.push(`  static range: ${formatDebugRange(object.staticRange)}`);
       Object.entries(object.layers || {}).forEach(([layer, status]) => {
         lines.push(`  ${layer}: ${status}`);
@@ -1831,6 +1838,16 @@ function layerDebugControl(key, label, checked) {
 
 function formatDebugRange(range) {
   return range ? `${range.offset}:${range.count}` : "none";
+}
+
+function formatDebugPoint(point) {
+  if (!point) return "none";
+  return `${Number(point.x || 0).toFixed(1)}, ${Number(point.y || 0).toFixed(1)}`;
+}
+
+function formatDebugDelta(delta) {
+  if (!delta) return "none";
+  return `${Number(delta.dx || 0).toFixed(1)}, ${Number(delta.dy || 0).toFixed(1)}`;
 }
 
 function normalizedWorldRect(a, b) {

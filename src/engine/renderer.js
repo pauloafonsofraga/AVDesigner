@@ -240,7 +240,6 @@ export class WebglGraphRenderer {
       this.recordSelectedObjects(trace, "staticDeviceLayer", "hidden");
     }
 
-    const texturedDragIds = new Set();
     if (options.hideTextureLayer || !options.textureCacheEnabled || !options.texturedDevices) {
       this.recordSelectedObjects(trace, "textureLayer", options.hideTextureLayer ? "hidden" : "disabled");
     } else if (options.lodMode && options.simplifiedCards && camera.zoom < 0.18) {
@@ -252,13 +251,7 @@ export class WebglGraphRenderer {
           this.recordObjectLayer(trace, id, "textureLayer", device ? "hidden" : "missing");
           return;
         }
-        const entry = this.textureCache.getEntry(id);
-        if (entry?.texture) {
-          texturedDragIds.add(id);
-          this.recordObjectLayer(trace, id, "textureLayer", "drawn-moving");
-        } else {
-          this.recordObjectLayer(trace, id, "textureLayer", "missing-texture");
-        }
+        this.recordObjectLayer(trace, id, "textureLayer", "skipped-during-drag");
       });
     }
 
@@ -271,7 +264,7 @@ export class WebglGraphRenderer {
         this.recordWireLayer(trace, id, "liveDragWireOverlay", wire && options.wires ? "drawn-moving" : "disabled");
       });
       dragSession.selectedIds.forEach(id => {
-        this.recordObjectLayer(trace, id, "liveDragObjectOverlay", texturedDragIds.has(id) ? "outline-only" : "drawn-moving");
+        this.recordObjectLayer(trace, id, "liveDragObjectOverlay", "drawn-moving-body");
       });
     }
 
@@ -488,7 +481,7 @@ export class WebglGraphRenderer {
     }
     frameStats.staticDeviceMs = performance.now() - sectionStart;
     sectionStart = performance.now();
-    const texturedDragIds = this.drawTextureDevices(scene, camera, renderOptions, dragSession, layerTrace);
+    this.drawTextureDevices(scene, camera, renderOptions, dragSession, layerTrace);
     frameStats.textureDrawMs = performance.now() - sectionStart;
     const liveVertices = [];
     const liveBuildStart = performance.now();
@@ -508,16 +501,11 @@ export class WebglGraphRenderer {
       dragSession.selectedIds.forEach(id => {
         const device = scene.getDevice(id);
         if (!device) return;
-        if (texturedDragIds.has(id)) {
-          // A cached texture already draws this selected object at the drag
-          // offset. Keep the live layer to the orange outline only so a dragged
-          // object exists in exactly one moving object layer.
-          pushSelectionOutline(liveVertices, device, offsets);
-          this.recordObjectLayer(layerTrace, id, "liveDragObjectOverlay", "outline-only");
-        } else {
-          pushDevice(liveVertices, device, offsets, true, renderOptions);
-          this.recordObjectLayer(layerTrace, id, "liveDragObjectOverlay", "drawn-moving");
-        }
+        // While dragging, the live overlay owns the selected object body. The
+        // static and texture layers deliberately skip selected objects so there
+        // is no old-position ghost, while the overlay can update every rAF.
+        pushDevice(liveVertices, device, offsets, true, renderOptions);
+        this.recordObjectLayer(layerTrace, id, "liveDragObjectOverlay", "drawn-moving-body");
       });
       frameStats.selectedObjectOverlayMs = performance.now() - objectOverlayStart;
       frameStats.selectedObjects = dragSession.selectedIds.length;
@@ -710,7 +698,6 @@ export class WebglGraphRenderer {
     }
     const gl = this.gl;
     const groups = new Map();
-    const dragOffsets = dragSession?.offsetMap();
     const selected = dragSession ? new Set(dragSession.selectedIds) : new Set();
     let missing = 0;
     let quads = 0;
@@ -725,7 +712,7 @@ export class WebglGraphRenderer {
         return;
       }
       const vertices = groups.get(entry.texture) || [];
-      pushTextureQuad(vertices, device, dragOffsets);
+      pushTextureQuad(vertices, device, null);
       groups.set(entry.texture, vertices);
       quads += 1;
       if (selected.has(device.id)) draggedTextureIds.add(device.id);
@@ -734,17 +721,11 @@ export class WebglGraphRenderer {
 
     visibleDevices(scene, camera, this.resolution).forEach(device => {
       if (selected.has(device.id)) {
-        this.recordObjectLayer(layerTrace, device.id, "textureLayer", "skipped-static");
+        this.recordObjectLayer(layerTrace, device.id, "textureLayer", "skipped-during-drag");
         return;
       }
       addDevice(device);
     });
-    if (dragSession) {
-      dragSession.selectedIds.forEach(id => {
-        const device = scene.getDevice(id);
-        if (device) addDevice(device, "drawn-moving");
-      });
-    }
 
     gl.useProgram(this.textureProgram);
     gl.uniform4f(this.textureViewLocation, camera.x, camera.y, this.resolution.width / camera.zoom, this.resolution.height / camera.zoom);
@@ -793,12 +774,21 @@ export class WebglGraphRenderer {
         hideSurfaces: Boolean(renderOptions.hideSurfaces),
         hideSelectionOverlay: Boolean(renderOptions.hideSelectionOverlay)
       },
+      dragDelta: dragSession ? { dx: dragSession.dx, dy: dragSession.dy } : null,
       objects: selectedIds.map(id => {
         const device = scene.getDevice(id);
+        const offset = dragSession?.offsetMap().get(id) || { dx: 0, dy: 0 };
+        const committed = device ? { x: device.x, y: device.y } : null;
+        const expected = device ? { x: device.x + offset.dx, y: device.y + offset.dy } : null;
         return {
           id,
           label: device?.label || id,
           type: device?.kind || "missing",
+          committedPosition: committed,
+          dragDelta: { dx: offset.dx, dy: offset.dy },
+          expectedLivePosition: expected,
+          actualTexturePosition: null,
+          actualLiveBodyPosition: expected,
           staticRange: formatRange(this.deviceRangeMap.get(id)),
           texture: "unknown",
           layers: {}
