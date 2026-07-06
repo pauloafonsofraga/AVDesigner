@@ -25,11 +25,16 @@ export function validateEngineScene(scene, projectData = null) {
     selectedWires: scene?.selectedWireIds?.size || 0,
     selectedConnectors: scene?.selectedConnectorKeys?.size || 0,
     selectedRoutePoints: scene?.selectedRoutePointKeys?.size || 0,
-    skippedWires
+    skippedWires,
+    duplicateObjectIds: 0,
+    duplicateWireIds: 0,
+    orphanWires: 0,
+    invalidConnectorReferences: 0,
+    routePointMismatches: 0
   };
 
-  checkDuplicates(sceneDevices.map(device => device.id), "object", errors);
-  checkDuplicates(sceneWires.map(wire => wire.id), "wire", errors);
+  counts.duplicateObjectIds = checkDuplicates(sceneDevices.map(device => device.id), "object", errors);
+  counts.duplicateWireIds = checkDuplicates(sceneWires.map(wire => wire.id), "wire", errors);
 
   if (productionObjectCount && sceneDevices.length !== productionObjectCount) {
     errors.push(`Scene object count ${sceneDevices.length} does not match production object count ${productionObjectCount}.`);
@@ -39,9 +44,9 @@ export function validateEngineScene(scene, projectData = null) {
   }
   if (skippedWires) warnings.push(`${skippedWires} production wire(s) were skipped by the project adapter.`);
 
-  sceneWires.forEach(wire => validateWire(scene, wire, errors, warnings));
+  sceneWires.forEach(wire => validateWire(scene, wire, errors, warnings, counts));
   validateSelection(scene, errors);
-  validateRoutePointParity(sceneWires, productionConnections, errors, warnings);
+  validateRoutePointParity(sceneWires, productionConnections, errors, warnings, counts);
 
   const durationMs = performance.now() - start;
   return {
@@ -54,22 +59,32 @@ export function validateEngineScene(scene, projectData = null) {
   };
 }
 
-function validateWire(scene, wire, errors, warnings) {
+function validateWire(scene, wire, errors, warnings, counts) {
   const fromDevice = scene?.getDevice?.(wire.fromDeviceId);
   const toDevice = scene?.getDevice?.(wire.toDeviceId);
-  if (!fromDevice) errors.push(`Wire ${wire.id} has missing source object ${wire.fromDeviceId}.`);
-  if (!toDevice) errors.push(`Wire ${wire.id} has missing destination object ${wire.toDeviceId}.`);
+  let hasMissingEndpoint = false;
+  if (!fromDevice) {
+    hasMissingEndpoint = true;
+    errors.push(`Wire ${wire.id} has missing source object ${wire.fromDeviceId}.`);
+  }
+  if (!toDevice) {
+    hasMissingEndpoint = true;
+    errors.push(`Wire ${wire.id} has missing destination object ${wire.toDeviceId}.`);
+  }
+  if (hasMissingEndpoint) counts.orphanWires += 1;
   const fromConnector = scene?.getConnector?.(wire.fromDeviceId, wire.fromConnectorId);
   const toConnector = scene?.getConnector?.(wire.toDeviceId, wire.toConnectorId);
   if (wire.fromConnectorId && !fromConnector) {
     const message = `Wire ${wire.id} has missing source connector ${wire.fromDeviceId}:${wire.fromConnectorId}.`;
     if (!isVirtualSurfacePort(fromDevice, wire.fromConnectorId)) {
+      counts.invalidConnectorReferences += 1;
       (wire.fromUsesRealConnector || wire.usesRealConnectorEndpoints ? errors : warnings).push(message);
     }
   }
   if (wire.toConnectorId && !toConnector) {
     const message = `Wire ${wire.id} has missing destination connector ${wire.toDeviceId}:${wire.toConnectorId}.`;
     if (!isVirtualSurfacePort(toDevice, wire.toConnectorId)) {
+      counts.invalidConnectorReferences += 1;
       (wire.toUsesRealConnector || wire.usesRealConnectorEndpoints ? errors : warnings).push(message);
     }
   }
@@ -102,7 +117,7 @@ function validateSelection(scene, errors) {
   });
 }
 
-function validateRoutePointParity(sceneWires, productionConnections, errors, warnings) {
+function validateRoutePointParity(sceneWires, productionConnections, errors, warnings, counts) {
   if (!productionConnections.length) return;
   const connectionById = new Map(productionConnections.map(connection => [String(connection.id || ""), connection]));
   sceneWires.forEach(wire => {
@@ -114,12 +129,14 @@ function validateRoutePointParity(sceneWires, productionConnections, errors, war
     const productionPoints = routePointsFromConnection(connection);
     const scenePoints = routePointsFromWire(wire);
     if (productionPoints.length !== scenePoints.length) {
+      counts.routePointMismatches += 1;
       errors.push(`Wire ${wire.id} route point count ${scenePoints.length} does not match production count ${productionPoints.length}.`);
       return;
     }
     productionPoints.forEach((point, index) => {
       const scenePoint = scenePoints[index];
       if (!nearlyEqual(point.x, scenePoint.x) || !nearlyEqual(point.y, scenePoint.y)) {
+        counts.routePointMismatches += 1;
         errors.push(`Wire ${wire.id} route point ${index} differs from production data.`);
       }
     });
@@ -128,11 +145,16 @@ function validateRoutePointParity(sceneWires, productionConnections, errors, war
 
 function checkDuplicates(ids, label, errors) {
   const seen = new Set();
+  let duplicates = 0;
   ids.forEach(id => {
     if (!id) errors.push(`Missing ${label} id.`);
-    if (seen.has(id)) errors.push(`Duplicate ${label} id ${id}.`);
+    if (seen.has(id)) {
+      duplicates += 1;
+      errors.push(`Duplicate ${label} id ${id}.`);
+    }
     seen.add(id);
   });
+  return duplicates;
 }
 
 function routePointsFromConnection(connection) {

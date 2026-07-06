@@ -1,5 +1,7 @@
 import fs from "node:fs";
+import path from "node:path";
 import assert from "node:assert/strict";
+import { fileURLToPath } from "node:url";
 import { performance } from "node:perf_hooks";
 
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
@@ -8,16 +10,31 @@ import { SceneGraph } from "../src/engine/sceneGraph.js";
 import { DragSession } from "../src/engine/dragSession.js";
 import { validateEngineScene } from "../src/engine/sceneValidation.js";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const fixturePath = path.resolve(__dirname, "../fixtures/engine-parity-project.avd");
 const defaultProjectPath = "/Users/paulofraga/Documents/Solas Projects/11765-PWC_GPM 2026_Madinat Arena/11765-pwc-gpm-2026-madinatarena-rev1-0-project.avd";
-const projectPath = process.argv[2] || defaultProjectPath;
+const args = process.argv.slice(2);
+const useFixture = args.includes("--fixture");
+const explicitPath = args.find(arg => !arg.startsWith("--"));
+const projectPath = useFixture ? fixturePath : explicitPath || defaultProjectPath;
 
 const timings = {};
 const checks = [];
+const commandResults = [];
+const validationResults = [];
+const roundTrips = [];
 
 function time(label, fn) {
   const start = performance.now();
   const result = fn();
-  timings[label] = performance.now() - start;
+  timings[label] = (timings[label] || 0) + performance.now() - start;
+  return result;
+}
+
+function timed(label, bucket, fn) {
+  const start = performance.now();
+  const result = fn();
+  bucket[label] = performance.now() - start;
   return result;
 }
 
@@ -32,234 +49,366 @@ function check(label, fn) {
 }
 
 const rawText = time("read project", () => fs.readFileSync(projectPath, "utf8"));
-const project = time("parse project", () => JSON.parse(rawText));
-const normalized = time("normalize project", () => normalizeAvDesignerProject(project, {
-  dataSource: "Validation script",
-  sourceName: projectPath
-}));
-const writeThroughProject = JSON.parse(rawText);
-const writeThroughNormalized = normalizeAvDesignerProject(writeThroughProject, {
-  dataSource: "Validation script write-through",
-  sourceName: projectPath
-});
-time("mutation adapter build write-through", () => new ProjectMutationAdapter(writeThroughNormalized, { cloneProjectData: false }));
-const scene = new SceneGraph();
-time("scene graph build", () => scene.setData(normalized));
-const mutations = time("mutation adapter build", () => new ProjectMutationAdapter(normalized));
-const root = projectRoot(mutations.project);
-const initialValidation = time("initial scene validation", () => validateEngineScene(scene, mutations.project));
+const baseJson = time("parse project", () => JSON.parse(rawText));
+const initialHarness = time("initial harness build", () => createHarness(rawText, projectPath));
+const initialValidation = validateAndRoundTrip(initialHarness, "initial");
+const initialCounts = sceneCounts(initialHarness.scene);
 
-const initialCounts = {
-  devices: scene.devices.length,
-  wires: scene.wires.length,
-  routed: scene.wires.filter(wire => wire.routePoints?.length).length,
-  routePoints: scene.wires.reduce((total, wire) => total + (wire.routePoints?.length || 0), 0),
-  skippedWires: scene.meta?.skippedWires || 0
-};
-
-check("real project has devices and wires", () => {
+check("project has devices and wires", () => {
   assert.ok(initialCounts.devices > 0, "expected at least one device");
   assert.ok(initialCounts.wires > 0, "expected at least one wire");
 });
 
 check("initial engine scene validates", () => {
-  assert.deepEqual(initialValidation.errors, []);
+  assert.deepEqual(initialValidation.validation.errors, []);
 });
 
-const firstDevice = scene.devices.find(device => device.kind !== "surface") || scene.devices[0];
-const originalFirstPosition = { x: firstDevice.x, y: firstDevice.y };
-time("single affected lookup", () => scene.affectedWireIdsForDevices([firstDevice.id]));
-time("single drag session start", () => new DragSession({
-  scene,
-  selectedIds: new Set([firstDevice.id]),
-  startWorld: { x: firstDevice.x, y: firstDevice.y }
-}));
-time("single device move", () => scene.moveDevicesBy([firstDevice.id], 23, -17));
-const singleMutationCountBefore = mutations.stats().mutationCount;
-time("single production position sync", () => mutations.commitDevicePositions(scene, [firstDevice.id]));
+runCommandCycle(initialHarness, buildSingleMoveCommand(initialHarness));
+runCommandCycle(initialHarness, buildMultiMoveCommand(initialHarness));
+runCommandCycle(initialHarness, buildRoutePointMoveCommand(initialHarness));
+runCommandCycle(initialHarness, buildCreateWireCommand(initialHarness));
+runCommandCycle(initialHarness, buildDeleteWireCommand(initialHarness));
 
-check("single move writes to project data", () => {
-  const entry = root.devices.find(device => String(device.instanceId || device.id) === String(firstDevice.sourceId || firstDevice.id));
-  assert.equal(Number(entry.x), originalFirstPosition.x + 23);
-  assert.equal(Number(entry.y), originalFirstPosition.y - 17);
-  assert.equal(mutations.stats().mutationCount, singleMutationCountBefore + 1);
+const finalValidation = validateAndRoundTrip(initialHarness, "final");
+check("final engine scene validates", () => {
+  assert.deepEqual(finalValidation.validation.errors, []);
 });
 
-const groupDevices = scene.devices.filter(device => device.kind !== "surface").slice(0, 20);
-const groupBefore = new Map(groupDevices.map(device => [device.id, { x: device.x, y: device.y }]));
-const groupIds = groupDevices.map(device => device.id);
-time("multi affected lookup", () => scene.affectedWireIdsForDevices(groupIds));
-const multiSession = time("multi drag session start", () => new DragSession({
-  scene,
-  selectedIds: new Set(groupIds),
-  startWorld: { x: 0, y: 0 }
-}));
-time("multi drag session update", () => multiSession.update({ x: 80, y: 25 }));
-time("multi drag session commit", () => multiSession.commit());
-const multiMutationCountBefore = mutations.stats().mutationCount;
-time("multi production position sync", () => mutations.commitDevicePositions(scene, groupIds));
+const commandShape = commandResults.reduce((summary, result) => {
+  summary[result.name] = {
+    tested: result.tested,
+    executeMs: round(result.timings.execute || 0),
+    undoMs: round(result.timings.undo || 0),
+    redoMs: round(result.timings.redo || 0),
+    affectedIds: result.affectedIds || []
+  };
+  return summary;
+}, {});
 
-check("multi move is one project mutation", () => {
-  assert.equal(mutations.stats().mutationCount, multiMutationCountBefore + 1);
-  groupDevices.forEach(device => {
-    const before = groupBefore.get(device.id);
-    assert.equal(device.x, before.x + 80);
-    assert.equal(device.y, before.y + 25);
-  });
-});
-
-const routedWire = scene.wires.find(wire => wire.routePoints?.length) || null;
-let routeBefore = null;
-let routeAfter = null;
-if (routedWire) {
-  routeBefore = clonePoints(routedWire.routePoints);
-  routeAfter = clonePoints(routedWire.routePoints);
-  routeAfter[0] = { x: routeAfter[0].x + 11, y: routeAfter[0].y + 9 };
-  time("route point move frame", () => scene.moveRoutePoint(routedWire.id, 0, routeAfter[0].x, routeAfter[0].y, { refreshIndexes: false }));
-  time("route point index refresh", () => scene.refreshWireIndexes([routedWire.id]));
-  time("route point production sync", () => mutations.commitRoutePoints(scene, routedWire.id));
-  check("route point writes to project data", () => {
-    const connection = root.connections.find(item => item.id === routedWire.sourceId);
-    const storedPoints = connection.routePoints || connection.orthogonalRoutePoints || [];
-    assert.equal(storedPoints[0].x, routeAfter[0].x);
-    assert.equal(storedPoints[0].y, routeAfter[0].y);
-  });
-}
-
-const pair = findConnectablePair(scene);
-let createdWire = null;
-let createdConnection = null;
-if (pair) {
-  createdWire = time("create wire scene insert", () => scene.addWire({
-    fromDeviceId: pair.fromDevice.id,
-    fromConnectorId: pair.fromConnector.id,
-    toDeviceId: pair.toDevice.id,
-    toConnectorId: pair.toConnector.id,
-    color: pair.fromConnector.color || pair.toConnector.color || "#32b6ff",
-    cableType: pair.fromConnector.type || pair.toConnector.type || "Engine Validation Cable"
-  }));
-  time("create wire production sync", () => mutations.commitCreatedWire(scene, createdWire));
-  createdConnection = mutations.connectionDataForWire(createdWire.sourceId || createdWire.id);
-  check("created wire writes to project data", () => {
-    assert.ok(createdWire, "created wire missing");
-    assert.ok(root.connections.some(item => item.id === createdConnection.id), "created connection missing");
-  });
-}
-
-const deleteTarget = routedWire || createdWire || scene.wires[0];
-const deleteWireData = cloneWire(deleteTarget);
-const deleteConnectionData = mutations.connectionDataForWire(deleteTarget.sourceId || deleteTarget.id);
-time("delete wire scene remove", () => scene.deleteWire(deleteTarget.id));
-time("delete wire production sync", () => mutations.deleteWire(deleteConnectionData.id));
-check("delete removes only selected wire", () => {
-  assert.equal(scene.getWire(deleteTarget.id), null);
-  assert.equal(root.connections.some(item => item.id === deleteConnectionData.id), false);
-});
-time("restore wire scene insert", () => scene.insertWire(deleteWireData));
-time("restore wire production sync", () => mutations.restoreWire(deleteConnectionData));
-check("restore keeps original wire identity and route points", () => {
-  const restoredWire = scene.getWire(deleteTarget.id);
-  const restoredConnection = root.connections.find(item => item.id === deleteConnectionData.id);
-  assert.ok(restoredWire, "restored scene wire missing");
-  assert.ok(restoredConnection, "restored project connection missing");
-  assert.equal(restoredConnection.id, deleteConnectionData.id);
-  assert.deepEqual(
-    normalizeStoredPoints(restoredConnection),
-    normalizeStoredPoints(deleteConnectionData)
-  );
-});
-
-const finalValidation = time("final scene validation", () => validateEngineScene(scene, mutations.project));
-check("edited engine scene validates", () => {
-  assert.deepEqual(finalValidation.errors, []);
-});
-
-const exportedJson = time("export project json", () => mutations.exportJson({ pretty: false }));
-const reparsed = time("parse exported json", () => JSON.parse(exportedJson));
-const renormalized = time("renormalize exported project", () => normalizeAvDesignerProject(reparsed, {
-  dataSource: "Validation script reload",
-  sourceName: "round-trip"
-}));
-const reloadScene = new SceneGraph();
-time("reload scene graph build", () => reloadScene.setData(renormalized));
-const reloadValidation = time("reload scene validation", () => validateEngineScene(reloadScene, reparsed));
-
-check("round-trip keeps counts compatible", () => {
-  assert.equal(reloadScene.devices.length, scene.devices.length);
-  assert.equal(reloadScene.wires.length, scene.wires.length);
-});
-
-check("round-trip engine scene validates", () => {
-  assert.deepEqual(reloadValidation.errors, []);
-});
-
-check("round-trip keeps moved device position", () => {
-  const moved = reloadScene.getDevice(firstDevice.id);
-  assert.equal(moved.x, firstDevice.x);
-  assert.equal(moved.y, firstDevice.y);
-});
-
-if (routedWire) {
-  check("round-trip keeps custom route points", () => {
-    const wire = reloadScene.getWire(routedWire.id);
-    assert.deepEqual(clonePoints(wire.routePoints), clonePoints(scene.getWire(routedWire.id).routePoints));
-  });
-}
-
-const mutationStats = mutations.stats();
 const summary = {
   projectPath,
+  fixture: useFixture,
   initialCounts,
-  finalCounts: {
-    devices: scene.devices.length,
-    wires: scene.wires.length,
-    routed: scene.wires.filter(wire => wire.routePoints?.length).length,
-    routePoints: scene.wires.reduce((total, wire) => total + (wire.routePoints?.length || 0), 0)
-  },
-  commandShape: {
-    singleMoveMutationCount: 1,
-    multiMoveDeviceCount: groupIds.length,
-    multiMoveMutationCount: 1,
-    routePointTested: Boolean(routedWire),
-    createWireTested: Boolean(createdWire),
-    deleteRestoreTested: Boolean(deleteTarget)
-  },
-  mutationStats,
-  validation: {
-    initial: {
-      ok: initialValidation.ok,
-      errors: initialValidation.errors.length,
-      warnings: initialValidation.warnings.length,
-      durationMs: round(initialValidation.durationMs)
-    },
-    final: {
-      ok: finalValidation.ok,
-      errors: finalValidation.errors.length,
-      warnings: finalValidation.warnings.length,
-      durationMs: round(finalValidation.durationMs)
-    },
-    reload: {
-      ok: reloadValidation.ok,
-      errors: reloadValidation.errors.length,
-      warnings: reloadValidation.warnings.length,
-      durationMs: round(reloadValidation.durationMs)
-    }
-  },
+  finalCounts: sceneCounts(initialHarness.scene),
+  commandShape,
+  validation: validationResults,
+  roundTrips,
   timingsMs: Object.fromEntries(Object.entries(timings).map(([key, value]) => [key, round(value)])),
   checks,
   performanceTargets: {
-    singlePositionSyncUnder100ms: (timings["single production position sync"] || 0) <= 100,
-    multiPositionSyncUnder300ms: (timings["multi production position sync"] || 0) <= 300,
-    routePointSyncUnder100ms: !routedWire || (timings["route point production sync"] || 0) <= 100
+    singleMoveUnder100ms: commandUnder("single device move", 100),
+    multiMoveUnder300ms: commandUnder("20-device move", 300),
+    routePointUnder100ms: commandUnder("route point move", 100),
+    createWireUnder100ms: commandUnder("create wire", 100),
+    deleteWireUnder100ms: commandUnder("delete wire", 100)
   }
 };
 
 console.log(JSON.stringify(summary, null, 2));
 
-function projectRoot(project) {
-  if (project?.state && typeof project.state === "object") return project.state;
-  if (project?.project && typeof project.project === "object") return project.project;
-  return project || {};
+function createHarness(projectText, sourceName) {
+  const project = JSON.parse(projectText);
+  const normalized = normalizeAvDesignerProject(project, {
+    dataSource: "Validation script",
+    sourceName
+  });
+  const scene = new SceneGraph();
+  scene.setData(normalized);
+  const mutations = new ProjectMutationAdapter(normalized);
+  return {
+    project,
+    normalized,
+    scene,
+    mutations,
+    root: projectRoot(mutations.project)
+  };
+}
+
+function validateAndRoundTrip(harness, label) {
+  const validation = time(`${label} scene validation`, () => validateEngineScene(harness.scene, harness.mutations.project));
+  validationResults.push(validationSummary(label, validation));
+  check(`${label} validation has no errors`, () => {
+    assert.deepEqual(validation.errors, []);
+  });
+
+  const json = time(`${label} save serialization`, () => JSON.stringify(harness.mutations.project));
+  const reloadProject = time(`${label} reload parse`, () => JSON.parse(json));
+  const reloadNormalized = time(`${label} reload normalize`, () => normalizeAvDesignerProject(reloadProject, {
+    dataSource: "Validation reload",
+    sourceName: `${label} round-trip`
+  }));
+  const reloadScene = new SceneGraph();
+  time(`${label} reload scene build`, () => reloadScene.setData(reloadNormalized));
+  const reloadValidation = time(`${label} reload scene validation`, () => validateEngineScene(reloadScene, reloadProject));
+  roundTrips.push({
+    label,
+    bytes: json.length,
+    counts: sceneCounts(reloadScene),
+    ok: reloadValidation.ok,
+    errors: reloadValidation.errors.length,
+    warnings: reloadValidation.warnings.length,
+    durationMs: round(reloadValidation.durationMs)
+  });
+  check(`${label} round-trip validation has no errors`, () => {
+    assert.deepEqual(reloadValidation.errors, []);
+  });
+  check(`${label} round-trip keeps scene counts`, () => {
+    assert.equal(reloadScene.devices.length, harness.scene.devices.length);
+    assert.equal(reloadScene.wires.length, harness.scene.wires.length);
+  });
+  return { validation, reloadValidation };
+}
+
+function runCommandCycle(harness, command) {
+  if (!command?.tested) {
+    commandResults.push({ name: command?.name || "unknown", tested: false, reason: command?.reason || "not available", timings: {} });
+    return;
+  }
+  const timingsForCommand = {};
+  const before = snapshotState(harness);
+  const executeResult = timed("execute", timingsForCommand, () => command.execute());
+  const afterExecute = snapshotState(harness);
+  command.assertExecute?.(before, afterExecute, executeResult);
+  validateAndRoundTrip(harness, `${command.name} execute`);
+
+  timed("undo", timingsForCommand, () => command.undo());
+  const afterUndo = snapshotState(harness);
+  assertSnapshotsEqual(afterUndo, before, `${command.name} undo`);
+  validateAndRoundTrip(harness, `${command.name} undo`);
+
+  timed("redo", timingsForCommand, () => command.redo());
+  const afterRedo = snapshotState(harness);
+  assertSnapshotsEqual(afterRedo, afterExecute, `${command.name} redo`);
+  command.assertRedo?.(before, afterRedo, executeResult);
+  validateAndRoundTrip(harness, `${command.name} redo`);
+
+  commandResults.push({
+    name: command.name,
+    tested: true,
+    affectedIds: command.affectedIds || [],
+    timings: timingsForCommand
+  });
+}
+
+function buildSingleMoveCommand(harness) {
+  const device = harness.scene.devices.find(item => item.kind !== "surface");
+  if (!device) return skippedCommand("single device move", "no device");
+  const beforePositions = [{ id: device.id, x: device.x, y: device.y }];
+  const afterPositions = [{ id: device.id, x: device.x + 23, y: device.y - 17 }];
+  return moveDevicesCommand(harness, "single device move", beforePositions, afterPositions);
+}
+
+function buildMultiMoveCommand(harness) {
+  const devices = harness.scene.devices.filter(item => item.kind !== "surface").slice(0, 20);
+  if (!devices.length) return skippedCommand("20-device move", "no devices");
+  const beforePositions = devices.map(device => ({ id: device.id, x: device.x, y: device.y }));
+  const afterPositions = beforePositions.map(position => ({ ...position, x: position.x + 80, y: position.y + 25 }));
+  return moveDevicesCommand(harness, "20-device move", beforePositions, afterPositions);
+}
+
+function moveDevicesCommand(harness, name, beforePositions, afterPositions) {
+  const affectedIds = afterPositions.map(position => position.id);
+  return {
+    name,
+    tested: true,
+    affectedIds,
+    execute: () => applyDevicePositions(harness, afterPositions),
+    undo: () => applyDevicePositions(harness, beforePositions),
+    redo: () => applyDevicePositions(harness, afterPositions),
+    assertExecute: (before, after) => {
+      assertUnrelatedDevicesUnchanged(before, after, new Set(affectedIds), name);
+      assertUnrelatedWiresUnchanged(before, after, new Set(), name);
+      affectedIds.forEach(id => {
+        assert.notDeepEqual(after.devices.get(id), before.devices.get(id), `${name}: expected ${id} to move`);
+      });
+    }
+  };
+}
+
+function buildRoutePointMoveCommand(harness) {
+  const wire = harness.scene.wires.find(item => item.routePoints?.length);
+  if (!wire) return skippedCommand("route point move", "no custom route point");
+  const beforePoints = clonePoints(wire.routePoints);
+  const afterPoints = clonePoints(wire.routePoints);
+  afterPoints[0] = { x: afterPoints[0].x + 11, y: afterPoints[0].y + 9 };
+  return {
+    name: "route point move",
+    tested: true,
+    affectedIds: [wire.id],
+    execute: () => applyRoutePoints(harness, wire.id, afterPoints),
+    undo: () => applyRoutePoints(harness, wire.id, beforePoints),
+    redo: () => applyRoutePoints(harness, wire.id, afterPoints),
+    assertExecute: (before, after) => {
+      assertUnrelatedDevicesUnchanged(before, after, new Set(), "route point move");
+      assertUnrelatedWiresUnchanged(before, after, new Set([wire.id]), "route point move");
+      assert.deepEqual(after.wires.get(wire.id).routePoints, afterPoints);
+    }
+  };
+}
+
+function buildCreateWireCommand(harness) {
+  const pair = findConnectablePair(harness.scene);
+  if (!pair) return skippedCommand("create wire", "no compatible pair");
+  let wireData = null;
+  let connectionData = null;
+  return {
+    name: "create wire",
+    tested: true,
+    affectedIds: [],
+    execute: () => {
+      const wire = harness.scene.addWire({
+        fromDeviceId: pair.fromDevice.id,
+        fromConnectorId: pair.fromConnector.id,
+        toDeviceId: pair.toDevice.id,
+        toConnectorId: pair.toConnector.id,
+        color: pair.fromConnector.color || pair.toConnector.color || "#32b6ff",
+        cableType: pair.fromConnector.type || pair.toConnector.type || "Engine Validation Cable"
+      });
+      assert.ok(wire, "created wire missing");
+      harness.mutations.commitCreatedWire(harness.scene, wire);
+      wireData = cloneWire(wire);
+      connectionData = harness.mutations.connectionDataForWire(wire.sourceId || wire.id);
+      assert.ok(connectionData, "created connection missing");
+      return { wireData, connectionData };
+    },
+    undo: () => {
+      assert.ok(wireData, "create wire undo missing wire data");
+      harness.scene.deleteWire(wireData.id);
+      harness.mutations.deleteWire(connectionData.id);
+    },
+    redo: () => {
+      harness.scene.insertWire(wireData);
+      harness.mutations.restoreWire(connectionData);
+    },
+    assertExecute: (before, after, result) => {
+      assert.equal(after.wires.size, before.wires.size + 1);
+      assert.ok(after.wires.has(result.wireData.id), "created wire not in scene");
+      assertUnrelatedDevicesUnchanged(before, after, new Set(), "create wire");
+      assertUnrelatedWiresUnchanged(before, after, new Set([result.wireData.id]), "create wire");
+    },
+    assertRedo: (before, after) => {
+      assert.ok(after.wires.has(wireData.id), "redo did not restore created wire id");
+    }
+  };
+}
+
+function buildDeleteWireCommand(harness) {
+  const wire = harness.scene.wires.find(item => item.routePoints?.length) || harness.scene.wires[0];
+  if (!wire) return skippedCommand("delete wire", "no wire");
+  const wireData = cloneWire(wire);
+  const connectionData = harness.mutations.connectionDataForWire(wire.sourceId || wire.id);
+  if (!connectionData) return skippedCommand("delete wire", "no production connection");
+  return {
+    name: "delete wire",
+    tested: true,
+    affectedIds: [wire.id],
+    execute: () => {
+      harness.scene.deleteWire(wireData.id);
+      harness.mutations.deleteWire(connectionData.id);
+      return { wireData, connectionData };
+    },
+    undo: () => {
+      harness.scene.insertWire(wireData);
+      harness.mutations.restoreWire(connectionData);
+    },
+    redo: () => {
+      harness.scene.deleteWire(wireData.id);
+      harness.mutations.deleteWire(connectionData.id);
+    },
+    assertExecute: (before, after) => {
+      assert.equal(after.wires.size, before.wires.size - 1);
+      assert.equal(after.wires.has(wireData.id), false);
+      assertUnrelatedDevicesUnchanged(before, after, new Set(), "delete wire");
+      assertUnrelatedWiresUnchanged(before, after, new Set([wireData.id]), "delete wire");
+    },
+    assertRedo: (before, after) => {
+      assert.equal(after.wires.has(wireData.id), false, "redo did not delete original wire id");
+    }
+  };
+}
+
+function applyDevicePositions(harness, positions = []) {
+  const ids = [];
+  positions.forEach(position => {
+    const device = harness.scene.getDevice(position.id);
+    if (!device) return;
+    device.x = position.x;
+    device.y = position.y;
+    harness.scene.dirtyDevices.add(position.id);
+    ids.push(position.id);
+  });
+  const affectedWireIds = [...harness.scene.affectedWireIdsForDevices(ids)];
+  harness.scene.refreshMovedDeviceIndexes(ids, affectedWireIds);
+  const mutationMs = harness.mutations.commitDevicePositions(harness.scene, ids);
+  return { mutationMs, ids, affectedWireIds };
+}
+
+function applyRoutePoints(harness, wireId, points = []) {
+  const wire = harness.scene.getWire(wireId);
+  assert.ok(wire, `missing wire ${wireId}`);
+  wire.routePoints = clonePoints(points);
+  harness.scene.dirtyWires.add(wireId);
+  harness.scene.refreshWireIndexes([wireId]);
+  const mutationMs = harness.mutations.commitRoutePoints(harness.scene, wireId);
+  return { mutationMs, wireId };
+}
+
+function snapshotState(harness) {
+  const root = projectRoot(harness.mutations.project);
+  return {
+    devices: new Map(harness.scene.devices.map(device => [
+      device.id,
+      {
+        x: round(device.x),
+        y: round(device.y),
+        width: round(device.width),
+        height: round(device.height)
+      }
+    ])),
+    wires: new Map(harness.scene.wires.map(wire => [wire.id, snapshotWire(wire)])),
+    productionConnections: new Map((root.connections || []).map(connection => [String(connection.id), stableClone(connection)])),
+    counts: {
+      devices: harness.scene.devices.length,
+      wires: harness.scene.wires.length,
+      connections: (root.connections || []).length
+    }
+  };
+}
+
+function snapshotWire(wire) {
+  return {
+    id: wire.id,
+    sourceId: wire.sourceId,
+    fromDeviceId: wire.fromDeviceId,
+    toDeviceId: wire.toDeviceId,
+    fromConnectorId: wire.fromConnectorId,
+    toConnectorId: wire.toConnectorId,
+    cableType: wire.cableType,
+    label: wire.label,
+    color: wire.color,
+    routePoints: clonePoints(wire.routePoints || [])
+  };
+}
+
+function assertSnapshotsEqual(actual, expected, label) {
+  assert.deepEqual(actual.devices, expected.devices, `${label}: device snapshot mismatch`);
+  assert.deepEqual(actual.wires, expected.wires, `${label}: wire snapshot mismatch`);
+  assert.deepEqual(actual.productionConnections, expected.productionConnections, `${label}: production connection snapshot mismatch`);
+  assert.deepEqual(actual.counts, expected.counts, `${label}: count snapshot mismatch`);
+}
+
+function assertUnrelatedDevicesUnchanged(before, after, changedDeviceIds, label) {
+  before.devices.forEach((device, id) => {
+    if (changedDeviceIds.has(id)) return;
+    assert.deepEqual(after.devices.get(id), device, `${label}: unrelated device ${id} changed`);
+  });
+}
+
+function assertUnrelatedWiresUnchanged(before, after, changedWireIds, label) {
+  before.wires.forEach((wire, id) => {
+    if (changedWireIds.has(id)) return;
+    assert.deepEqual(after.wires.get(id), wire, `${label}: unrelated wire ${id} changed`);
+  });
 }
 
 function findConnectablePair(scene) {
@@ -272,8 +421,45 @@ function findConnectablePair(scene) {
   return { fromDevice, fromConnector, toDevice, toConnector };
 }
 
+function skippedCommand(name, reason) {
+  return { name, tested: false, reason };
+}
+
+function sceneCounts(scene) {
+  return {
+    devices: scene.devices.length,
+    wires: scene.wires.length,
+    routed: scene.wires.filter(wire => wire.routePoints?.length).length,
+    routePoints: scene.wires.reduce((total, wire) => total + (wire.routePoints?.length || 0), 0),
+    skippedWires: scene.meta?.skippedWires || 0
+  };
+}
+
+function validationSummary(label, result) {
+  return {
+    label,
+    ok: result.ok,
+    errors: result.errors.length,
+    warnings: result.warnings.length,
+    durationMs: round(result.durationMs),
+    counts: result.counts
+  };
+}
+
+function commandUnder(name, maxMs) {
+  const result = commandResults.find(item => item.name === name);
+  if (!result?.tested) return false;
+  return Math.max(result.timings.execute || 0, result.timings.undo || 0, result.timings.redo || 0) <= maxMs;
+}
+
+function projectRoot(project) {
+  if (project?.state && typeof project.state === "object") return project.state;
+  if (project?.project && typeof project.project === "object") return project.project;
+  return project || {};
+}
+
 function clonePoints(points = []) {
-  return points.map(point => ({ x: Number(point.x), y: Number(point.y) }));
+  return points.map(point => ({ x: round(point.x), y: round(point.y) }));
 }
 
 function cloneWire(wire) {
@@ -300,10 +486,10 @@ function cloneWire(wire) {
   };
 }
 
-function normalizeStoredPoints(connection) {
-  return clonePoints(connection?.routePoints || connection?.orthogonalRoutePoints || []);
+function stableClone(value) {
+  return JSON.parse(JSON.stringify(value));
 }
 
 function round(value) {
-  return Math.round(value * 1000) / 1000;
+  return Math.round(Number(value) * 1000) / 1000;
 }

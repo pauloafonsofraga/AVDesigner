@@ -1,0 +1,123 @@
+{
+  "format": "av-designer-project",
+  "version": 1,
+  "projectName": "Engine Parity Fixture",
+  "state": {
+    "projectName": "Engine Parity Fixture",
+    "nodeLibrary": [
+      { "id": "HDMI", "color": "#ffd600" },
+      { "id": "SDI", "color": "#006b3f" },
+      { "id": "CAT6", "color": "#cfd8dc" }
+    ],
+    "deviceLibrary": [],
+    "devices": [
+      {
+        "instanceId": "fixture-src",
+        "id": "fixture-src",
+        "name": "Fixture Source",
+        "x": 120,
+        "y": 140,
+        "width": 180,
+        "height": 120,
+        "templateOverride": {
+          "id": "fixture-source-template",
+          "name": "Fixture Source",
+          "brand": "VideoCore",
+          "category": "Video",
+          "width": 180,
+          "height": 120,
+          "connectors": [
+            { "id": "src-out-hdmi", "type": "HDMI", "direction": "output", "nameText": "OUT HDMI", "x": 180, "y": 42 },
+            { "id": "src-out-sdi", "type": "SDI", "direction": "output", "nameText": "OUT SDI", "x": 180, "y": 82 }
+          ]
+        }
+      },
+      {
+        "instanceId": "fixture-router",
+        "id": "fixture-router",
+        "name": "Fixture Router",
+        "x": 500,
+        "y": 130,
+        "width": 200,
+        "height": 150,
+        "templateOverride": {
+          "id": "fixture-router-template",
+          "name": "Fixture Router",
+          "brand": "VideoCore",
+          "category": "Matrixes",
+          "width": 200,
+          "height": 150,
+          "connectors": [
+            { "id": "router-in-hdmi", "type": "HDMI", "direction": "input", "nameText": "IN HDMI", "x": 0, "y": 45 },
+            { "id": "router-in-sdi", "type": "SDI", "direction": "input", "nameText": "IN SDI", "x": 0, "y": 95 },
+            { "id": "router-out-cat6", "type": "CAT6", "direction": "output", "nameText": "LAN", "x": 200, "y": 75 }
+          ]
+        }
+      },
+      {
+        "instanceId": "fixture-display",
+        "id": "fixture-display",
+        "name": "Fixture Display",
+        "x": 900,
+        "y": 160,
+        "width": 160,
+        "height": 100,
+        "templateOverride": {
+          "id": "fixture-display-template",
+          "name": "Fixture Display",
+          "brand": "VideoCore",
+          "category": "Displays",
+          "width": 160,
+          "height": 100,
+          "connectors": [
+            { "id": "display-in-cat6", "type": "CAT6", "direction": "input", "nameText": "LAN", "x": 0, "y": 50 },
+            { "id": "display-in-hdmi", "type": "HDMI", "direction": "input", "nameText": "HDMI", "x": 0, "y": 76 }
+          ]
+        }
+      }
+    ],
+    "jumpNodes": [
+      { "id": "fixture-jump-a", "x": 390, "y": 350, "label": "Jump A" },
+      { "id": "fixture-jump-b", "x": 760, "y": 350, "label": "Jump B" }
+    ],
+    "ledSurfaces": [],
+    "connections": [
+      {
+        "id": "fixture-wire-hdmi-routed",
+        "cableType": "HDMI",
+        "label": "HDMI routed",
+        "customColor": "#ffd600",
+        "from": { "deviceId": "fixture-src", "connectorId": "src-out-hdmi" },
+        "to": { "deviceId": "fixture-router", "connectorId": "router-in-hdmi" },
+        "routePoints": [
+          { "x": 360, "y": 110 },
+          { "x": 420, "y": 250 }
+        ]
+      },
+      {
+        "id": "fixture-wire-sdi",
+        "cableType": "SDI",
+        "label": "SDI normal",
+        "customColor": "#006b3f",
+        "from": { "deviceId": "fixture-src", "connectorId": "src-out-sdi" },
+        "to": { "deviceId": "fixture-router", "connectorId": "router-in-sdi" }
+      },
+      {
+        "id": "fixture-wire-cat6",
+        "cableType": "CAT6",
+        "label": "CAT6 normal",
+        "customColor": "#cfd8dc",
+        "from": { "deviceId": "fixture-router", "connectorId": "router-out-cat6" },
+        "to": { "deviceId": "fixture-display", "connectorId": "display-in-cat6" }
+      },
+      {
+        "id": "fixture-wire-jump",
+        "cableType": "HDMI",
+        "label": "Jump node wire",
+        "customColor": "#ffd600",
+        "from": { "deviceId": "fixture-src", "connectorId": "src-out-hdmi" },
+        "to": { "jumpNodeId": "fixture-jump-a" }
+      }
+    ]
+  }
+}

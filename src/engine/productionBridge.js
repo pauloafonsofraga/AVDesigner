@@ -1079,7 +1079,12 @@ class ProductionEngineBridge {
         ["Duration", `${result.durationMs.toFixed(1)} ms`],
         ["Objects", `${result.counts.objects} scene / ${result.counts.productionObjects} production`],
         ["Wires", `${result.counts.wires} scene / ${result.counts.productionConnections} production`],
+        ["Custom-routed Wires", result.counts.routedWires],
         ["Route Points", result.counts.routePoints],
+        ["Orphan Wires", result.counts.orphanWires],
+        ["Duplicate IDs", `${result.counts.duplicateObjectIds} objects / ${result.counts.duplicateWireIds} wires`],
+        ["Invalid Connector Refs", result.counts.invalidConnectorReferences],
+        ["Route Point Mismatches", result.counts.routePointMismatches],
         ["Selected", `${result.counts.selectedObjects} objects / ${result.counts.selectedWires} wires`],
         ["Errors", result.errors.length],
         ["Warnings", result.warnings.length]
@@ -1151,6 +1156,17 @@ class ProductionEngineBridge {
       this.hud.setMetric("label draw", `${(frameStats.labelMs || 0).toFixed(2)} ms`);
       this.hud.setMetric("texture rebuild/frame", `${frameStats.textureBuilds || 0} build / ${frameStats.textureRebuilds || 0} rebuild`);
       this.hud.setMetric("texture rebuild time/frame", `${(frameStats.textureRebuildMs || 0).toFixed(2)} ms`);
+      const textureChanges = (frameStats.textureBuilds || 0) + (frameStats.textureRebuilds || 0);
+      this.setEngineWarning(
+        "frame",
+        renderMs > 33 ? `Frame ${renderMs.toFixed(1)} ms exceeded 33 ms target.` : ""
+      );
+      this.setEngineWarning(
+        "texture-drag",
+        this.dragSession && textureChanges > 0
+          ? `${textureChanges} texture rebuild(s) during drag.`
+          : ""
+      );
       const textures = this.renderer.textureStats();
       this.hud.setMetric("texture draw", `${textures.drawMs.toFixed(2)} ms / ${textures.quads} quads`);
     });
@@ -1165,6 +1181,12 @@ class ProductionEngineBridge {
     this.hud.setMetric("post-drop cleanup", `${(dirtyStats?.totalMs || 0).toFixed(2)} ms (${context})`);
     this.hud.setMetric("cable hops", "not in engine visual path");
     this.hud.setMetric("chunk stats", fallback?.wireOnlyRebuild ? "wire geometry rebuild" : "range updates");
+    this.setEngineWarning(
+      "post-drop",
+      (dirtyStats?.totalMs || 0) > 100
+        ? `Post-drop cleanup ${(dirtyStats?.totalMs || 0).toFixed(1)} ms exceeded 100 ms target.`
+        : ""
+    );
   }
 }
 
