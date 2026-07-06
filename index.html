@@ -34519,6 +34519,10 @@
         updateUndoRedoButtons();
         return;
       }
+      if (experimentalEngineRendererRequested()) {
+        setStatus("Engine undo is not available until the experimental engine finishes loading.");
+        return;
+      }
       if (!undoStack.length) return;
       redoStack.push(projectSnapshot());
       restoreSnapshot(undoStack.pop());
@@ -34530,6 +34534,10 @@
       if (engineBridge) {
         engineBridge.redoEngineCommand?.();
         updateUndoRedoButtons();
+        return;
+      }
+      if (experimentalEngineRendererRequested()) {
+        setStatus("Engine redo is not available until the experimental engine finishes loading.");
         return;
       }
       if (!redoStack.length) return;

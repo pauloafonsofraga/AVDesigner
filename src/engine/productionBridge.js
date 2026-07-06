@@ -92,6 +92,10 @@ class ProductionEngineBridge {
     this.lastMutationType = "-";
     this.productionDirty = false;
     this.engineWarnings = new Map();
+    // Command replay must preserve the user's viewport. This scoped guard lets
+    // undo/redo block accidental full-refresh/fit paths without changing manual
+    // refresh, initial loading, or explicit Fit behavior.
+    this.viewportReplayGuard = null;
   }
 
   start() {
@@ -147,6 +151,10 @@ class ProductionEngineBridge {
   }
 
   refreshFromProduction(reason = "manual refresh") {
+    if (this.viewportReplayGuard) {
+      this.recordBlockedViewportMutation("refreshFromProduction", { reason });
+      return;
+    }
     this.clearLoadingReadyTimer();
     this.setLoading(true, `Preparing engine scene: ${reason}`);
     const loadStart = performance.now();
@@ -953,25 +961,34 @@ class ProductionEngineBridge {
     // another production snapshot here: restoring that snapshot path performs a
     // full production render and calls refreshFromProduction(), which resets
     // fitView and causes the several-second browser stall.
-    this.beginProductionCommit(`${direction} ${command.type}`, { snapshot: false });
-    const mutationStart = performance.now();
-    const result = applyCommand() || {};
-    const mutationReplayMs = performance.now() - mutationStart;
-    const textureAfter = this.renderer?.textureStats?.() || {};
-    const textureBuildDelta = Math.max(0, (textureAfter.builds || 0) - (textureBefore.builds || 0));
-    const textureRebuildDelta = Math.max(0, (textureAfter.rebuilds || 0) - (textureBefore.rebuilds || 0));
-    if (!sameCamera(beforeCamera, this.camera)) {
-      this.camera = beforeCamera;
-      this.setEngineWarning("undo-camera", `${direction} tried to change viewport; restored camera.`);
-    } else {
-      this.setEngineWarning("undo-camera", "");
+    this.viewportReplayGuard = {
+      label: `${direction} ${command.type}`,
+      camera: beforeCamera,
+      blocked: []
+    };
+    let result = {};
+    let mutationReplayMs = 0;
+    let textureBuildDelta = 0;
+    let textureRebuildDelta = 0;
+    try {
+      this.beginProductionCommit(`${direction} ${command.type}`, { snapshot: false });
+      const mutationStart = performance.now();
+      result = applyCommand() || {};
+      mutationReplayMs = performance.now() - mutationStart;
+      const textureAfter = this.renderer?.textureStats?.() || {};
+      textureBuildDelta = Math.max(0, (textureAfter.builds || 0) - (textureBefore.builds || 0));
+      textureRebuildDelta = Math.max(0, (textureAfter.rebuilds || 0) - (textureBefore.rebuilds || 0));
+      this.markCommitted(`${direction} ${command.type}`, result.mutationMs || 0, {
+        command: command.type,
+        historyReplay: true
+      });
+      this.updateSelectionHud();
+      this.updateInteractionHud(direction);
+      this.notifyHistoryChange(`${direction} ${command.type}`);
+    } finally {
+      this.restoreReplayViewport("after command replay");
+      this.viewportReplayGuard = null;
     }
-    this.markCommitted(`${direction} ${command.type}`, result.mutationMs || 0, {
-      command: command.type,
-      historyReplay: true
-    });
-    this.updateSelectionHud();
-    this.updateInteractionHud(direction);
     const totalMs = performance.now() - commandStart;
     const targetMs = commandTargetMs(command);
     this.hud.setMetric("command replay", `${direction} ${command.type}`);
@@ -991,7 +1008,6 @@ class ProductionEngineBridge {
         ? `${direction} rebuilt ${textureBuildDelta + textureRebuildDelta} texture(s).`
         : ""
     );
-    this.notifyHistoryChange(`${direction} ${command.type}`);
     this.scheduleRender();
   }
 
@@ -1182,6 +1198,42 @@ class ProductionEngineBridge {
     this.hud?.setMetric("warnings", text);
   }
 
+  recordBlockedViewportMutation(source, details = {}) {
+    const guard = this.viewportReplayGuard;
+    const label = guard?.label || "command replay";
+    guard?.blocked.push({ source, details });
+    this.hud?.setMetric("blocked viewport", `${source} during ${label}`);
+    this.setEngineWarning("undo-camera", `${label} blocked ${source}; viewport preserved.`);
+    console.warn("[engine-bridge] blocked viewport mutation during command replay", {
+      source,
+      label,
+      details,
+      camera: cloneCamera(this.camera)
+    });
+  }
+
+  restoreReplayViewport(stage) {
+    const guard = this.viewportReplayGuard;
+    if (!guard) return;
+    const before = guard.camera;
+    if (!sameCamera(before, this.camera)) {
+      const attempted = cloneCamera(this.camera);
+      this.camera = cloneCamera(before);
+      this.hud?.setMetric("viewport guard", `${stage}: restored`);
+      this.setEngineWarning("undo-camera", `${guard.label} tried to change viewport; restored camera.`);
+      console.warn("[engine-bridge] restored viewport after command replay", {
+        label: guard.label,
+        stage,
+        before,
+        attempted,
+        blocked: guard.blocked
+      });
+      return;
+    }
+    this.hud?.setMetric("viewport guard", `${stage}: stable`);
+    if (!guard.blocked.length) this.setEngineWarning("undo-camera", "");
+  }
+
   releasePointerCapture(pointerId) {
     try {
       if (pointerId != null && this.canvas?.hasPointerCapture?.(pointerId)) {
@@ -1193,6 +1245,10 @@ class ProductionEngineBridge {
   }
 
   fitView() {
+    if (this.viewportReplayGuard) {
+      this.recordBlockedViewportMutation("fitView");
+      return;
+    }
     const bounds = this.scene.bounds();
     const rect = this.canvas.getBoundingClientRect();
     const padding = 120;
