@@ -1,15 +1,16 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
-Engine editing is now the default path for the app shell. The legacy production
-SVG editor remains available as a safe fallback behind explicit URL flags.
-Export, viewer, and report rendering still use the existing production paths;
-those migrations are intentionally deferred.
+Iteration 25 is a hardening pass for the default Engine Editor. Engine editing
+is now the default path for the app shell, while the legacy production SVG
+editor remains available as a safe fallback behind explicit URL flags. Export,
+viewer, and report rendering still use the existing production paths; those
+migrations are intentionally deferred.
 
-Current visible build label: `Iteration 24`.
+Current visible build label: `Iteration 25`.
 The app top bar must show one of these labels:
 
-- `Iteration 24 — Engine Editor — iteration24`
-- `Iteration 24 — Legacy Editor — iteration24`
+- `Iteration 25 — Engine Editor — iteration25`
+- `Iteration 25 — Legacy Editor — iteration25`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -18,14 +19,14 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration24`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration24`.
+   `index.html?v=iteration25`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration25`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration24`.
+   `index.html?engineDefaultTest=1&v=iteration25`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration24`.
+   `index.html?legacy=1&v=iteration25`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration24`.
+   `index.html?engine=0&v=iteration25`.
 7. Open the debug loading guard: `index.html?engine=1&debugLoad=1`.
 8. Open a timed loading guard: `index.html?engine=1&loadDelay=1500`.
 9. Open the expanded engine HUD: `index.html?engine=1&debugHud=1`.
@@ -39,6 +40,20 @@ Git commit as the final source of truth when reviewing a pushed change.
    `node scripts/engine-real-project-validation.mjs --fixture`
 16. Run the real-project validation:
    `node scripts/engine-real-project-validation.mjs "/path/to/project.avd"`
+17. The validation script now includes a long mixed undo/redo chain. Confirm the
+   JSON output contains a `longChain` section and all `checks` are `ok: true`.
+
+## Iteration 25 Focus
+
+- Engine Editor is the default editing path.
+- Legacy Editor remains the fallback through `legacy=1` or `engine=0`.
+- Keyboard shortcuts must not fire while typing in inputs, selects, textareas,
+  contenteditable elements, or inline editors.
+- Debug HUD and layer diagnostics remain opt-in through the HUD button,
+  `debugHud=1`, or `debugLayers=1`.
+- Validation covers isolated command cycles and a longer mixed edit chain.
+- Visual look-and-feel migration is still deferred to Iteration 26, starting
+  with Bezier wires.
 
 ## Status Legend
 
@@ -83,7 +98,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 | LED surfaces | Production LED grid object and signal ports. | Engine maps LED surfaces with virtual surface ports. | covered | Scene validation accepts virtual `surface-port-*` endpoints. | medium | Visual fidelity still production-only. |
 | reports compatibility | Production reports read project state. | Engine write-through should keep report data readable. | partial | Script validates production data shape. | medium | Reports are not migrated to engine renderer. |
 | viewer/export compatibility | Production export/viewer use existing renderer/data. | Engine does not change export/viewer. | not intended yet | Keep normal export tests separate. | high | Do not migrate until engine parity is stronger. |
-| normal `index.html` without flags | Engine editor path. | Engine bridge mounts and uses production data. | covered | Browser smoke. | low | Iteration 24 controlled default switch. |
+| normal `index.html` without flags | Engine editor path. | Engine bridge mounts and uses production data. | covered | Browser smoke. | low | Iteration 25 controlled default switch. |
 | `index.html?engine=1` | Explicit engine editor path. | Engine bridge mounts and uses production data. | covered | Browser smoke. | low | Kept for existing test links. |
 | `index.html?legacy=1` / `?engine=0` | Legacy production SVG editor. | Engine bridge does not mount. | covered | Browser smoke. | low | Safe fallback if engine default breaks. |
 | debug loading overlay | Not production behavior. | `debugLoad=1` / `loadDelay=` holds readiness. | covered | Browser smoke. | low | Diagnostic only. |
@@ -96,7 +111,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 - Do not remove legacy fallback until production/export/viewer parity is proven.
 - Keep `?engine=1`, `?engineDefaultTest=1`, `?legacy=1`, and `?engine=0`
-  routing working during Iteration 24 hardening.
+  routing working during Iteration 25 hardening.
 - Do not run validation during drag.
 - Do not rebuild device textures for position-only moves.
 - Do not add report/export recalculation to pointermove or drag/drop paths.

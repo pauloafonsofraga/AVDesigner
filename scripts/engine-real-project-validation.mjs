@@ -69,6 +69,9 @@ runCommandCycle(initialHarness, buildRoutePointMoveCommand(initialHarness));
 runCommandCycle(initialHarness, buildCreateWireCommand(initialHarness));
 runCommandCycle(initialHarness, buildDeleteWireCommand(initialHarness));
 
+const longChainHarness = time("long-chain harness build", () => createHarness(rawText, `${projectPath} long-chain`));
+const longChain = runLongUndoRedoChain(longChainHarness);
+
 const finalValidation = validateAndRoundTrip(initialHarness, "final");
 check("final engine scene validates", () => {
   assert.deepEqual(finalValidation.validation.errors, []);
@@ -91,6 +94,7 @@ const summary = {
   initialCounts,
   finalCounts: sceneCounts(initialHarness.scene),
   commandShape,
+  longChain,
   validation: validationResults,
   roundTrips,
   timingsMs: Object.fromEntries(Object.entries(timings).map(([key, value]) => [key, round(value)])),
@@ -188,6 +192,78 @@ function runCommandCycle(harness, command) {
     affectedIds: command.affectedIds || [],
     timings: timingsForCommand
   });
+}
+
+function runLongUndoRedoChain(harness) {
+  const chain = [];
+  const timingsForChain = {};
+  const startSnapshot = snapshotState(harness);
+  const commandBuilders = [
+    buildSingleMoveCommand,
+    buildMultiMoveCommand,
+    buildRoutePointMoveCommand,
+    buildCreateWireCommand,
+    buildDeleteWireCommand
+  ];
+
+  commandBuilders.forEach(builder => {
+    const command = builder(harness);
+    if (!command?.tested) {
+      chain.push({
+        name: command?.name || "unknown",
+        tested: false,
+        reason: command?.reason || "not available"
+      });
+      return;
+    }
+    const before = snapshotState(harness);
+    const result = timed(`${command.name} chain execute`, timingsForChain, () => command.execute());
+    const after = snapshotState(harness);
+    command.assertExecute?.(before, after, result);
+    validateAndRoundTrip(harness, `chain ${command.name} execute`);
+    chain.push({
+      name: command.name,
+      tested: true,
+      command,
+      executeSnapshot: after
+    });
+  });
+
+  const afterAllExecutes = snapshotState(harness);
+  [...chain].reverse().forEach(entry => {
+    if (!entry.tested) return;
+    timed(`${entry.name} chain undo`, timingsForChain, () => entry.command.undo());
+    validateAndRoundTrip(harness, `chain ${entry.name} undo`);
+  });
+  const afterAllUndone = snapshotState(harness);
+  assertSnapshotsEqual(afterAllUndone, startSnapshot, "long chain all undone");
+
+  chain.forEach(entry => {
+    if (!entry.tested) return;
+    timed(`${entry.name} chain redo`, timingsForChain, () => entry.command.redo());
+    validateAndRoundTrip(harness, `chain ${entry.name} redo`);
+  });
+  const afterAllRedone = snapshotState(harness);
+  assertSnapshotsEqual(afterAllRedone, afterAllExecutes, "long chain all redone");
+  validateAndRoundTrip(harness, "chain final redo state");
+
+  check("long chain has no duplicate device ids", () => {
+    assert.equal(new Set(harness.scene.devices.map(device => device.id)).size, harness.scene.devices.length);
+  });
+  check("long chain has no duplicate wire ids", () => {
+    assert.equal(new Set(harness.scene.wires.map(wire => wire.id)).size, harness.scene.wires.length);
+  });
+
+  return {
+    commands: chain.map(entry => ({
+      name: entry.name,
+      tested: entry.tested,
+      reason: entry.reason || "",
+      affectedIds: entry.command?.affectedIds || []
+    })),
+    timingsMs: Object.fromEntries(Object.entries(timingsForChain).map(([key, value]) => [key, round(value)])),
+    finalCounts: sceneCounts(harness.scene)
+  };
 }
 
 function buildSingleMoveCommand(harness) {

@@ -506,6 +506,7 @@ class ProductionEngineBridge {
   }
 
   handleKeyDown(event) {
+    if (isEditableEventTarget(event.target)) return;
     if (event.key === "Delete" || event.key === "Backspace") {
       if (this.scene.selectedWireIds.size) {
         consumeEngineShortcut(event);
@@ -1346,6 +1347,12 @@ class ProductionEngineBridge {
       this.hud.setMetric("texture rebuild time/frame", `${(frameStats.textureRebuildMs || 0).toFixed(2)} ms`);
       const textureChanges = (frameStats.textureBuilds || 0) + (frameStats.textureRebuilds || 0);
       this.setEngineWarning(
+        "drag-frame",
+        this.dragSession && renderMs > 16.7
+          ? `Drag frame ${renderMs.toFixed(1)} ms exceeded 16.7 ms target.`
+          : ""
+      );
+      this.setEngineWarning(
         "frame",
         renderMs > 33 ? `Frame ${renderMs.toFixed(1)} ms exceeded 33 ms target.` : ""
       );
@@ -1953,6 +1960,14 @@ function consumeEngineShortcut(event) {
   event.preventDefault();
   event.stopPropagation();
   event.stopImmediatePropagation?.();
+}
+
+function isEditableEventTarget(target = document.activeElement) {
+  if (!target) return false;
+  const tag = String(target.tagName || "").toUpperCase();
+  return ["INPUT", "TEXTAREA", "SELECT"].includes(tag)
+    || target.isContentEditable
+    || Boolean(target.closest?.("[contenteditable='true'], .inline-editor, [role='textbox']"));
 }
 
 function cloneCamera(camera = {}) {
