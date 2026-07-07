@@ -3749,7 +3749,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 27 — Engine Editor — iteration27</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 27.5 — Engine Editor — iteration27.5</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -4455,8 +4455,8 @@
   </div>
 
   <script>
-    const APP_ITERATION = 27;
-    const APP_BUILD_ID = "iteration27";
+    const APP_ITERATION = "27.5";
+    const APP_BUILD_ID = "iteration27.5";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const SVG_NS = "http://www.w3.org/2000/svg";
     const DEVICE_WIDTH = 380;
@@ -53012,10 +53012,15 @@ document.addEventListener("click", function(event) {
     }
 
     function loadProjectFile(file, options = {}) {
+      const engineBridge = activeEngineBridge() || window.avDesignerEngineBridge;
+      engineBridge?.beginProjectLoad?.(`Loading file: ${file?.name || "project"}`);
       const reader = new FileReader();
       reader.onload = () => {
+        const bridge = activeEngineBridge() || window.avDesignerEngineBridge;
         try {
+          bridge?.setLoadingPhase?.("Parsing project file...");
           const data = JSON.parse(reader.result);
+          bridge?.setLoadingPhase?.("Applying project settings...");
           state.version = data.version || 1;
           state.projectName = data.projectName || "Untitled AV Wirechart";
       setDarkMode(data.darkMode !== false);
@@ -53024,6 +53029,7 @@ document.addEventListener("click", function(event) {
           setWireMode(data.wireMode || "bezier");
           setCableHops(data.cableHops !== false);
           setProjectVoltage(data.powerVoltage || DEFAULT_POWER_VOLTAGE, { renderUi: false });
+          bridge?.setLoadingPhase?.("Loading node and device libraries...");
           applySerializedNodeLibrary(data.nodeLibrary || data.nodes);
           saveNodeLibraryPreference();
           deviceLibrary = mergeLoadedDeviceLibrary(data.deviceLibrary);
@@ -53040,6 +53046,7 @@ document.addEventListener("click", function(event) {
           state.comments = Array.isArray(data.comments) ? data.comments : [];
           state.titleBlocks = Array.isArray(data.titleBlocks) ? data.titleBlocks : [];
           state.connections = Array.isArray(data.connections) ? data.connections : [];
+          bridge?.setLoadingPhase?.("Rebuilding production compatibility data...");
           ensureRackList();
           state.selected = null;
           syncIdCounter();
@@ -53052,11 +53059,24 @@ document.addEventListener("click", function(event) {
           renderDeviceLibrary();
           render();
           requestAnimationFrame(zoomToFit);
-          window.avDesignerEngineBridge?.refreshFromProduction?.("project loaded");
+          bridge?.setLoadingPhase?.("Rebuilding Engine Editor scene...");
+          try {
+            bridge?.refreshFromProduction?.("project loaded");
+          } catch (engineError) {
+            console.error("[engine-bridge] Project loaded, but Engine Editor rebuild failed.", engineError);
+            setStatus(`Engine editor failed after project load: ${engineError.message || engineError}`);
+            showEngineFailureFallback(engineError);
+            return;
+          }
           if (projectFileHandle) setStatus(`Loaded ${projectFileName || "project"}. Save will overwrite this file.`);
         } catch (error) {
+          bridge?.abortProjectLoad?.("This project file could not be loaded.");
           alert("This project file could not be loaded.");
         }
+      };
+      reader.onerror = () => {
+        engineBridge?.abortProjectLoad?.("Project file could not be read.");
+        alert("This project file could not be read.");
       };
       reader.readAsText(file);
     }

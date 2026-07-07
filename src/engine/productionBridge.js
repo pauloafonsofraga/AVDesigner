@@ -47,6 +47,7 @@ class ProductionEngineBridge {
     this.camera = { x: 0, y: 0, zoom: 1 };
     this.renderFrame = null;
     this.loadingReadyTimer = null;
+    this.pendingReadyAfterRender = null;
     this.dragSession = null;
     this.pendingDrag = null;
     this.panState = null;
@@ -135,11 +136,11 @@ class ProductionEngineBridge {
   }
 
   canUndoEngineCommand() {
-    return this.commandIndex > 0;
+    return this.ready && this.commandIndex > 0;
   }
 
   canRedoEngineCommand() {
-    return this.commandIndex < this.commandHistory.length;
+    return this.ready && this.commandIndex < this.commandHistory.length;
   }
 
   engineHistoryState(reason = "") {
@@ -159,11 +160,14 @@ class ProductionEngineBridge {
       return;
     }
     this.clearLoadingReadyTimer();
-    this.setLoading(true, `Preparing engine scene: ${reason}`);
+    this.setLoading(true, `Loading Engine Editor: ${reason}`);
     const loadStart = performance.now();
     try {
+      this.setLoadingPhase("Reading project data...");
       const rawProject = this.api.getProjectData?.();
+      this.setLoadingPhase("Normalizing project...");
       const normalized = normalizeProductionProject(rawProject, reason);
+      this.setLoadingPhase("Finalizing interaction state...");
       this.cancelActiveInteraction("scene refresh", { updateHud: false });
       this.lastDirtyDeviceIds.clear();
       this.lastDirtyWireIds.clear();
@@ -171,6 +175,7 @@ class ProductionEngineBridge {
       this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
       this.renderer?.setRenderOptions(this.renderOptions);
       const start = performance.now();
+      this.setLoadingPhase("Building scene graph and spatial indexes...");
       // The bridge builds the engine scene from production state at explicit sync
       // points only. Pan, zoom, hover, and drag frames must keep using cached
       // engine buffers/textures and must not re-adapt the whole production app.
@@ -181,8 +186,10 @@ class ProductionEngineBridge {
       this.lastMutationType = "-";
       this.productionDirty = false;
       const sceneBuildMs = performance.now() - start;
+      this.setLoadingPhase("Preparing WebGL buffers...");
       const staticStats = this.renderer.setStaticScene(this.scene);
       this.fitView();
+      this.setLoadingPhase("Preparing wire paths and labels...");
       this.updateHud({
         sceneBuildMs,
         staticStats,
@@ -193,13 +200,26 @@ class ProductionEngineBridge {
       this.renderEngineInspector();
       this.showError("");
       this.hud.setMetric("load build", `${(performance.now() - loadStart).toFixed(1)} ms`);
+      this.setLoadingPhase("Rendering first engine frame...");
       this.finishLoadingAfterOptionalDelay(loadStart);
-      this.scheduleRender();
     } catch (error) {
-      this.setLoading(true, "Engine scene failed to load.");
+      this.showLoadingFailure(error);
       this.showError(error?.stack || error?.message || String(error));
       throw error;
     }
+  }
+
+  beginProjectLoad(message = "Loading project file...") {
+    this.clearLoadingReadyTimer();
+    this.cancelActiveInteraction("project loading", { updateHud: false });
+    this.setLoading(true, message);
+    this.setLoadingPhase(message);
+  }
+
+  abortProjectLoad(message = "Project loading was cancelled.") {
+    this.clearLoadingReadyTimer();
+    this.showError(message);
+    this.setLoading(false);
   }
 
   mountUi() {
@@ -228,8 +248,14 @@ class ProductionEngineBridge {
       <div class="engine-bridge-validation hidden"></div>
       <div class="engine-bridge-error hidden"></div>
       <div class="engine-bridge-loading" role="status" aria-live="polite">
-        <strong>Loading engine scene</strong>
-        <span>Preparing project data...</span>
+        <div class="engine-bridge-loading-card">
+          <strong class="engine-bridge-loading-title">Loading Engine Editor...</strong>
+          <span class="engine-bridge-loading-status">Preparing project data...</span>
+          <div class="engine-bridge-loading-bar" aria-hidden="true"><span></span></div>
+          <p class="engine-bridge-loading-note">Interaction is locked until scene data, WebGL buffers, labels, and hit testing are ready.</p>
+          <pre class="engine-bridge-loading-error hidden"></pre>
+          <button type="button" class="engine-bridge-loading-fallback hidden" data-engine-action="loading-exit">Open Legacy Editor</button>
+        </div>
       </div>
       <div class="engine-bridge-layer-debug ${this.debugLayerMode ? "" : "hidden"}">
         <h2>Layer Debug</h2>
@@ -259,6 +285,7 @@ class ProductionEngineBridge {
     this.layerDebugPanel = this.engineRoot.querySelector(".engine-bridge-layer-debug");
     this.engineRoot.querySelector("[data-engine-action='refresh']")?.addEventListener("click", () => this.refreshFromProduction("manual button"));
     this.engineRoot.querySelector("[data-engine-action='exit']")?.addEventListener("click", () => exitEngineMode());
+    this.engineRoot.querySelector("[data-engine-action='loading-exit']")?.addEventListener("click", () => exitEngineMode());
     this.engineRoot.querySelector("[data-engine-action='toggle-hud']")?.addEventListener("click", () => {
       this.debugPanel?.classList.toggle("hidden");
     });
@@ -306,7 +333,10 @@ class ProductionEngineBridge {
   }
 
   handleWheel(event) {
-    if (!this.ready) return;
+    if (!this.ready) {
+      this.blockInteraction(event, "wheel while loading");
+      return;
+    }
     event.preventDefault();
     const point = this.eventPoint(event);
     const before = screenToWorld(this.camera, point);
@@ -319,7 +349,7 @@ class ProductionEngineBridge {
 
   handlePointerDown(event) {
     if (!this.ready) {
-      event.preventDefault();
+      this.blockInteraction(event, "pointerdown while loading");
       return;
     }
     this.canvas.setPointerCapture(event.pointerId);
@@ -462,6 +492,7 @@ class ProductionEngineBridge {
 
   handlePointerUp(event) {
     if (!this.ready) {
+      this.blockInteraction(event, "pointerup while loading");
       this.releasePointerCapture(event.pointerId);
       return;
     }
@@ -507,6 +538,13 @@ class ProductionEngineBridge {
 
   handleKeyDown(event) {
     if (isEditableEventTarget(event.target)) return;
+    if (!this.ready) {
+      if (isEngineCanvasShortcut(event)) {
+        consumeEngineShortcut(event);
+        this.hud?.setMetric("blocked shortcut", `${event.key} while loading`);
+      }
+      return;
+    }
     if (event.key === "Delete" || event.key === "Backspace") {
       if (this.scene.selectedWireIds.size) {
         consumeEngineShortcut(event);
@@ -872,9 +910,11 @@ class ProductionEngineBridge {
     const undo = this.engineRoot.querySelector("[data-engine-action='undo']");
     const redo = this.engineRoot.querySelector("[data-engine-action='redo']");
     const deleteWire = this.engineRoot.querySelector("[data-engine-action='delete-wire']");
-    if (undo) undo.disabled = this.commandIndex <= 0;
-    if (redo) redo.disabled = this.commandIndex >= this.commandHistory.length;
-    if (deleteWire) deleteWire.disabled = this.scene.selectedWireIds.size === 0;
+    const validate = this.engineRoot.querySelector("[data-engine-action='validate']");
+    if (undo) undo.disabled = !this.ready || this.commandIndex <= 0;
+    if (redo) redo.disabled = !this.ready || this.commandIndex >= this.commandHistory.length;
+    if (deleteWire) deleteWire.disabled = !this.ready || this.scene.selectedWireIds.size === 0;
+    if (validate) validate.disabled = !this.ready;
     this.hud?.setMetric("undo redo", `${this.commandIndex} undo / ${this.commandHistory.length - this.commandIndex} redo`);
   }
 
@@ -985,6 +1025,10 @@ class ProductionEngineBridge {
   }
 
   undoEngineCommand() {
+    if (!this.ready) {
+      this.hud?.setMetric("blocked command", "undo while loading");
+      return false;
+    }
     if (this.commandIndex <= 0) return false;
     this.replayEngineCommand("undo", this.commandHistory[this.commandIndex - 1], () => {
       this.commandIndex -= 1;
@@ -994,6 +1038,10 @@ class ProductionEngineBridge {
   }
 
   redoEngineCommand() {
+    if (!this.ready) {
+      this.hud?.setMetric("blocked command", "redo while loading");
+      return false;
+    }
     if (this.commandIndex >= this.commandHistory.length) return false;
     this.replayEngineCommand("redo", this.commandHistory[this.commandIndex], () => {
       const result = this.commandHistory[this.commandIndex]?.redo(this) || {};
@@ -1135,6 +1183,10 @@ class ProductionEngineBridge {
   }
 
   deleteSelectedWires() {
+    if (!this.ready) {
+      this.hud?.setMetric("blocked command", "delete while loading");
+      return;
+    }
     const commitStart = performance.now();
     const wireIds = [...this.scene.selectedWireIds];
     if (!wireIds.length) return;
@@ -1172,37 +1224,89 @@ class ProductionEngineBridge {
   setLoading(active, message = "") {
     this.ready = !active;
     this.hud?.setMetric("loading", active ? (message || "loading") : "ready");
+    this.engineRoot?.classList.toggle("engine-bridge-loading-active", active);
+    if (active) this.engineRoot?.classList.remove("engine-bridge-loading-failed");
+    this.updateCommandButtons();
     if (!this.loadingPanel) return;
     this.loadingPanel.classList.toggle("hidden", !active);
-    const text = this.loadingPanel.querySelector("span");
+    const text = this.loadingPanel.querySelector(".engine-bridge-loading-status");
     if (text && active) text.textContent = message || "Preparing project data...";
+    const title = this.loadingPanel.querySelector(".engine-bridge-loading-title");
+    if (title && active) title.textContent = "Loading Engine Editor...";
+    const fallback = this.loadingPanel.querySelector("[data-engine-action='loading-exit']");
+    fallback?.classList.add("hidden");
+    const error = this.loadingPanel.querySelector(".engine-bridge-loading-error");
+    error?.classList.add("hidden");
   }
 
   finishLoadingAfterOptionalDelay(loadStart) {
     const delayMs = engineDebugLoadDelayMs();
-    if (!delayMs) {
-      this.hud.setMetric("load ready", `${(performance.now() - loadStart).toFixed(1)} ms`);
-      this.setLoading(false);
-      return;
-    }
-    this.hud.setMetric("loading", `debug hold ${delayMs} ms`);
-    const text = this.loadingPanel?.querySelector("span");
-    if (text) text.textContent = `Debug loading hold: ${delayMs} ms`;
-    this.loadingReadyTimer = window.setTimeout(() => {
+    // Readiness is released from the render loop, not from the synchronous
+    // project adapter path. This keeps the canvas locked until WebGL buffers,
+    // labels, overlays, and hit-test data have produced their first frame.
+    this.pendingReadyAfterRender = { loadStart, delayMs };
+    this.scheduleRender();
+  }
+
+  resolvePendingReadyAfterRender() {
+    if (!this.pendingReadyAfterRender) return;
+    const pending = this.pendingReadyAfterRender;
+    this.pendingReadyAfterRender = null;
+    const release = () => {
       this.loadingReadyTimer = null;
-      this.hud.setMetric("load ready", `${(performance.now() - loadStart).toFixed(1)} ms`);
+      this.hud.setMetric("load ready", `${(performance.now() - pending.loadStart).toFixed(1)} ms`);
+      this.setLoadingPhase("Ready.");
       this.setLoading(false);
       this.scheduleRender();
-    }, delayMs);
+    };
+    if (!pending.delayMs) {
+      release();
+      return;
+    }
+    this.hud.setMetric("loading", `debug hold ${pending.delayMs} ms`);
+    this.setLoadingPhase(`Debug loading hold: ${pending.delayMs} ms`);
+    this.loadingReadyTimer = window.setTimeout(release, pending.delayMs);
   }
 
   clearLoadingReadyTimer() {
-    if (!this.loadingReadyTimer) return;
-    window.clearTimeout(this.loadingReadyTimer);
-    this.loadingReadyTimer = null;
+    if (this.loadingReadyTimer) {
+      window.clearTimeout(this.loadingReadyTimer);
+      this.loadingReadyTimer = null;
+    }
+    this.pendingReadyAfterRender = null;
+  }
+
+  setLoadingPhase(message = "") {
+    if (!message) return;
+    this.hud?.setMetric("load phase", message);
+    const text = this.loadingPanel?.querySelector(".engine-bridge-loading-status");
+    if (text) text.textContent = message;
+  }
+
+  showLoadingFailure(error) {
+    this.clearLoadingReadyTimer();
+    this.ready = false;
+    this.engineRoot?.classList.add("engine-bridge-loading-active", "engine-bridge-loading-failed");
+    if (!this.loadingPanel) return;
+    this.loadingPanel.classList.remove("hidden");
+    const title = this.loadingPanel.querySelector(".engine-bridge-loading-title");
+    if (title) title.textContent = "Engine Editor failed to load";
+    this.setLoadingPhase("Open Legacy Editor or check the console for details.");
+    const errorText = error?.message || error?.stack || String(error || "Unknown engine loading error.");
+    const errorPanel = this.loadingPanel.querySelector(".engine-bridge-loading-error");
+    if (errorPanel) {
+      errorPanel.textContent = errorText;
+      errorPanel.classList.remove("hidden");
+    }
+    this.loadingPanel.querySelector("[data-engine-action='loading-exit']")?.classList.remove("hidden");
+    this.updateCommandButtons();
   }
 
   runSceneValidation() {
+    if (!this.ready) {
+      this.setEngineWarning("validation", "Validation skipped while the engine is loading.");
+      return;
+    }
     if (this.dragSession || this.pendingDrag || this.routePointDrag || this.wireCreate || this.marqueeState) {
       this.setEngineWarning("validation", "Validation skipped during active interaction.");
       return;
@@ -1322,6 +1426,12 @@ class ProductionEngineBridge {
     return screenPixels / Math.max(this.camera.zoom, 0.001);
   }
 
+  blockInteraction(event, reason = "loading") {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    this.hud?.setMetric("blocked interaction", reason);
+  }
+
   scheduleRender() {
     if (this.renderFrame) return;
     this.renderFrame = requestAnimationFrame(() => {
@@ -1371,6 +1481,7 @@ class ProductionEngineBridge {
       const textures = this.renderer.textureStats();
       this.hud.setMetric("texture draw", `${textures.drawMs.toFixed(2)} ms / ${textures.quads} quads`);
       this.updateLayerDebugPanel();
+      this.resolvePendingReadyAfterRender();
     });
   }
 
@@ -1682,29 +1793,91 @@ function injectBridgeStyles() {
       white-space: pre-wrap;
       pointer-events: none;
     }
-    .engine-bridge-loading {
-      position: absolute;
-      inset: 0;
-      z-index: 6;
-      display: grid;
-      place-items: center;
-      align-content: center;
-      gap: 8px;
-      background: rgba(10, 15, 20, .72);
-      color: #eef5ff;
-      pointer-events: auto;
-    }
-    .engine-bridge-loading strong {
-      color: #32b6ff;
-      font-size: 17px;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-    }
+	    .engine-bridge-loading {
+	      position: absolute;
+	      inset: 0;
+	      z-index: 6;
+	      display: grid;
+	      place-items: center;
+	      background: rgba(10, 15, 20, .78);
+	      color: #eef5ff;
+	      pointer-events: auto;
+	    }
+	    .engine-bridge-loading-card {
+	      width: min(520px, calc(100% - 36px));
+	      padding: 22px 24px;
+	      border: 1px solid rgba(50,182,255,.45);
+	      border-radius: 10px;
+	      background: rgba(18, 28, 38, .94);
+	      box-shadow: 0 18px 60px rgba(0,0,0,.45), 0 0 34px rgba(50,182,255,.18);
+	      display: grid;
+	      gap: 10px;
+	    }
+	    .engine-bridge-loading strong {
+	      color: #32b6ff;
+	      font-size: 17px;
+	      letter-spacing: .08em;
+	      text-transform: uppercase;
+	    }
     .engine-bridge-loading span {
-      color: #cbd6e3;
-      font-size: 13px;
-    }
-    .engine-bridge-layer-debug {
+	      color: #cbd6e3;
+	      font-size: 13px;
+	    }
+	    .engine-bridge-loading-bar {
+	      position: relative;
+	      height: 6px;
+	      overflow: hidden;
+	      border-radius: 999px;
+	      background: rgba(204,215,228,.16);
+	    }
+	    .engine-bridge-loading-bar span {
+	      position: absolute;
+	      inset: 0 auto 0 0;
+	      width: 44%;
+	      border-radius: inherit;
+	      background: linear-gradient(90deg, #32b6ff, #ff7904);
+	      animation: engine-loading-sweep 1s ease-in-out infinite;
+	    }
+	    .engine-bridge-loading-note {
+	      margin: 0;
+	      color: #93a3b3;
+	      font-size: 12px;
+	      line-height: 1.4;
+	    }
+	    .engine-bridge-loading-error {
+	      max-height: 180px;
+	      overflow: auto;
+	      margin: 0;
+	      padding: 10px;
+	      border: 1px solid rgba(255,79,95,.5);
+	      border-radius: 8px;
+	      background: rgba(80, 14, 20, .42);
+	      color: #ffdce0;
+	      white-space: pre-wrap;
+	      font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	    }
+	    .engine-bridge-loading-fallback {
+	      justify-self: start;
+	      min-height: 32px;
+	      padding: 0 12px;
+	      border: 1px solid rgba(50,182,255,.5);
+	      border-radius: 8px;
+	      background: #1b2632;
+	      color: #eef5ff;
+	      font-weight: 800;
+	      cursor: pointer;
+	    }
+	    .engine-bridge-loading-failed .engine-bridge-loading-card {
+	      border-color: rgba(255,79,95,.75);
+	      box-shadow: 0 18px 60px rgba(0,0,0,.45), 0 0 34px rgba(255,79,95,.18);
+	    }
+	    .engine-bridge-loading-failed .engine-bridge-loading-title { color: #ff6b75; }
+	    @keyframes engine-loading-sweep {
+	      0% { transform: translateX(-110%); }
+	      50% { transform: translateX(70%); }
+	      100% { transform: translateX(230%); }
+	    }
+	    .engine-bridge-layer-debug {
       position: absolute;
       left: 14px;
       bottom: 14px;
@@ -1966,6 +2139,15 @@ function consumeEngineShortcut(event) {
   event.preventDefault();
   event.stopPropagation();
   event.stopImmediatePropagation?.();
+}
+
+function isEngineCanvasShortcut(event) {
+  if (!event) return false;
+  const key = String(event.key || "").toLowerCase();
+  return key === "delete"
+    || key === "backspace"
+    || key === "escape"
+    || ((event.metaKey || event.ctrlKey) && (key === "z" || key === "y"));
 }
 
 function isEditableEventTarget(target = document.activeElement) {

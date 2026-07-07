@@ -1,17 +1,18 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
-Iteration 27 continues the visual parity phase for the default Engine Editor.
-This pass restores legacy-style wire interaction feedback in the engine visual
-path: hover/selection styling, wire captions, and route-point handle visuals.
+Iteration 27.5 is a loading and interaction-gate hardening pass before
+Iteration 28. This pass keeps the Iteration 27 wire visuals intact while adding
+a clear Engine Editor loading overlay and blocking canvas interaction until the
+engine scene, WebGL buffers, labels, overlays, and hit-testing are ready.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags. Export, viewer, and report rendering still use the existing
 production paths; those migrations are intentionally deferred.
 
-Current visible build label: `Iteration 27`.
+Current visible build label: `Iteration 27.5`.
 The app top bar must show one of these labels:
 
-- `Iteration 27 — Engine Editor — iteration27`
-- `Iteration 27 — Legacy Editor — iteration27`
+- `Iteration 27.5 — Engine Editor — iteration27.5`
+- `Iteration 27.5 — Legacy Editor — iteration27.5`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -20,41 +21,55 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration27`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration27`.
+   `index.html?v=iteration27.5`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration27.5`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration27`.
+   `index.html?engineDefaultTest=1&v=iteration27.5`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration27`.
+   `index.html?legacy=1&v=iteration27.5`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration27`.
-7. Open the debug loading guard: `index.html?engine=1&debugLoad=1`.
-8. Open a timed loading guard: `index.html?engine=1&loadDelay=1500`.
-9. Open the expanded engine HUD: `index.html?engine=1&debugHud=1`.
+   `index.html?engine=0&v=iteration27.5`.
+7. Open the debug loading guard:
+   `index.html?engine=1&debugLoad=1&v=iteration27.5`.
+8. Open a timed loading guard:
+   `index.html?engine=1&loadDelay=1500&v=iteration27.5`.
+9. Open the expanded engine HUD:
+   `index.html?engine=1&debugHud=1&v=iteration27.5`.
 10. Confirm the top bar build label matches the mode you intended to test.
 11. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.
 12. Disable engine temporarily by using `legacy=1` or `engine=0`.
 13. Load a real `.avd` or `.json` project.
-14. Use **Validate Engine Scene** after loading and after edits.
-15. Run the fixture validation:
+14. During project loading, confirm the Engine Editor loading overlay appears,
+   shortcut/delete/drag interaction is blocked, and the overlay hides only after
+   the first engine frame is ready.
+15. Use **Validate Engine Scene** after loading and after edits.
+16. Run the fixture validation:
    `node scripts/engine-real-project-validation.mjs --fixture`
-16. Run the real-project validation:
+17. Run the real-project validation:
    `node scripts/engine-real-project-validation.mjs "/path/to/project.avd"`
-17. The validation script now includes a long mixed undo/redo chain. Confirm the
+18. The validation script now includes a long mixed undo/redo chain. Confirm the
    JSON output contains a `longChain` section and all `checks` are `ok: true`.
-18. Compare Engine and Legacy wire rendering with the same project:
-   `index.html?v=iteration27` beside `index.html?legacy=1&v=iteration27`.
-19. In `index.html?engine=1&debugHud=1&v=iteration27`, confirm the HUD `wire paths`
-   row shows Bezier/custom/orthogonal counts.
-20. Hover and select wires in Engine mode. Confirm hover/selection feedback is
+19. Compare Engine and Legacy wire rendering with the same project:
+   `index.html?v=iteration27.5` beside `index.html?legacy=1&v=iteration27.5`.
+20. In `index.html?engine=1&debugHud=1&v=iteration27.5`, confirm the HUD
+   `load phase`, `load ready`, and `wire paths` rows update.
+21. Hover and select wires in Engine mode. Confirm hover/selection feedback is
    visibly distinct, selected/hovered labels appear, route-point handles are
    round orange controls, and labels do not block wire selection.
 
-## Iteration 27 Focus
+## Iteration 27.5 Focus
 
 - Engine Editor is the default editing path.
 - Legacy Editor remains the fallback through `legacy=1` or `engine=0`.
+- A clear Engine Editor loading overlay appears during startup scene sync,
+  project file loading, manual engine refresh, and forced debug delays.
+- Pointer and keyboard canvas actions are blocked while the engine is loading.
+- The overlay releases readiness only after the first engine render completes.
+- `debugLoad=1` and `loadDelay=1500` can be used to force visible loading
+  states for manual testing.
+- If an engine rebuild fails, the loading panel exposes a Legacy Editor fallback.
+- Iteration 28 connector/device visual parity work has not started yet.
 - Normal/default engine wires render as fixed-sample Bezier curves using the
   same control-point rule as Legacy.
 - Engine wire hover and selection render as live overlays without rebuilding the
