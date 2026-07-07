@@ -51,6 +51,13 @@ export class TextureCache {
     const start = performance.now();
     let prepared = 0;
     devices.forEach(device => {
+      if (device.kind === "jump") {
+        // Jump nodes are lightweight live geometry, not baked device textures.
+        // Keeping them out of the texture cache prevents stale rectangular
+        // snapshots from competing with their single circular interaction model.
+        this.entriesByDeviceId.delete(device.id);
+        return;
+      }
       this.ensureDeviceTexture(device, options, "scene prepare");
       prepared += 1;
     });

@@ -814,6 +814,13 @@ export class WebglGraphRenderer {
 
     const addDevice = (device, reason = "drawn") => {
       if (!deviceVisible(device, renderOptions)) return;
+      if (device.kind === "jump") {
+        // Jump nodes are drawn by the live/static geometry path only. The
+        // generic texture layer bakes rectangular device snapshots, which makes
+        // a jump node look like two selectable objects stacked together.
+        this.recordObjectLayer(layerTrace, device.id, "textureLayer", "skipped-jump-object");
+        return;
+      }
       const entry = this.textureCache.getEntry(device.id);
       if (!entry?.texture) {
         missing += 1;
@@ -967,6 +974,7 @@ function visibleDevices(scene, camera, resolution) {
 
 function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions = DEFAULT_RENDER_OPTIONS) {
   const stats = { connectorOverlayCount: 0, wirePreviewDrawn: 0 };
+  const wireCreateActive = Boolean(interaction.tempWire);
   const hoveredWireId = interaction.hoveredWire?.wire?.id || interaction.hoveredWireId;
   if (hoveredWireId && renderOptions.wires) {
     const wire = scene.getWire(hoveredWireId);
@@ -986,11 +994,12 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
     const device = scene.getDevice(deviceId);
     const connector = device?.connectorsById.get(connectorId);
     if (device && connector) {
+      if (isJumpConnectorHit({ device, connector })) return;
       pushConnectorHighlight(vertices, scene.connectorWorldPoint(device, connector), connectorVisualRadius(device) + 5, "#ff7904", "selected");
       stats.connectorOverlayCount += 1;
     }
   });
-  if (interaction.hoveredConnector?.point) {
+  if (interaction.hoveredConnector?.point && (wireCreateActive || !isJumpConnectorHit(interaction.hoveredConnector))) {
     pushConnectorHighlight(vertices, interaction.hoveredConnector.point, connectorVisualRadius(interaction.hoveredConnector.device) + 4, "#32b6ff", "hover");
     stats.connectorOverlayCount += 1;
   }
@@ -1047,10 +1056,13 @@ function pushDevice(vertices, device, offsets = null, selected = false, options 
   const offset = offsets?.get(device.id);
   const x = device.x + (offset?.dx || 0);
   const y = device.y + (offset?.dy || 0);
+  if (device.kind === "jump") {
+    if (selected) pushSelectionOutline(vertices, device, offsets);
+    pushJumpNode(vertices, { x: x + device.width / 2, y: y + device.height / 2 }, Math.max(device.width, device.height) / 2);
+    return;
+  }
   if (selected) pushSelectionOutline(vertices, device, offsets);
-  const fill = device.kind === "jump"
-    ? "#10243a"
-    : device.kind === "surface"
+  const fill = device.kind === "surface"
       ? "rgba(75, 75, 75, .72)"
       : device.color || DEVICE_FILL;
   pushRect(vertices, x, y, device.width, device.height, fill);
@@ -1078,6 +1090,17 @@ function pushDevice(vertices, device, offsets = null, selected = false, options 
       pushConnectorNode(vertices, { x: x + device.width, y: py }, { color: PORT_COLOR }, device, options);
     }
   }
+}
+
+function pushJumpNode(vertices, center, radius) {
+  // Jump nodes are selectable objects with a synthetic connector endpoint. Draw
+  // only one visible node here; connector overlays stay hidden unless an active
+  // wire-create interaction is targeting the endpoint.
+  pushCircle(vertices, center, radius + 2.5, "#ff7904", 34);
+  pushCircle(vertices, center, radius, "#0951f5", 34);
+  pushCircle(vertices, center, radius * 0.68, "#32b6ff", 34);
+  pushCircleOutline(vertices, center, radius + 2.5, 2.2, "rgba(9,81,245,.95)", 34);
+  pushCircleOutline(vertices, center, radius + 5.5, 1.2, "rgba(255,255,255,.72)", 34);
 }
 
 function pushConnectorNode(vertices, point, connector = {}, device = {}, options = DEFAULT_RENDER_OPTIONS) {
@@ -1343,14 +1366,15 @@ function countRoutePointHandles(scene, selectedWireIds = new Set(), interaction 
 
 function connectorTooltipCandidates(scene, interaction = {}) {
   const entries = new Map();
-  const addHit = (hit, tone = "hover") => {
+  const addHit = (hit, tone = "hover", { allowJump = false } = {}) => {
     if (!hit?.device || !hit?.connector || !hit?.point) return;
+    if (!allowJump && isJumpConnectorHit(hit)) return;
     const key = hit.key || `${hit.device.id}:${hit.connector.id}`;
     entries.set(key, { ...hit, tone });
   };
   addHit(interaction.hoveredConnector, "hover");
   if (interaction.tempWire?.targetHit) {
-    addHit(interaction.tempWire.targetHit, interaction.tempWire.validTarget ? "target" : "invalid");
+    addHit(interaction.tempWire.targetHit, interaction.tempWire.validTarget ? "target" : "invalid", { allowJump: true });
   }
   (interaction.selectedConnectors || new Set()).forEach(key => {
     if (entries.has(key)) return;
@@ -1358,6 +1382,7 @@ function connectorTooltipCandidates(scene, interaction = {}) {
     const device = scene.getDevice(deviceId);
     const connector = device?.connectorsById?.get(connectorId);
     if (!device || !connector) return;
+    if (isJumpConnectorHit({ device, connector })) return;
     entries.set(key, {
       key,
       device,
@@ -1413,7 +1438,7 @@ function drawDeviceLabel(ctx, device, camera, offsets = null, tone = "normal") {
   const offset = offsets?.get(device.id);
   const x = (device.x + (offset?.dx || 0) - camera.x) * camera.zoom;
   const y = (device.y + (offset?.dy || 0) - camera.y) * camera.zoom;
-  const text = deviceLabel(device);
+  const text = device.kind === "jump" ? "JUMP" : deviceLabel(device);
   if (!text) return;
   const toneBoost = tone === "selected" ? 1.1 : tone === "hover" ? 1.06 : 1;
   const size = Math.max(9, Math.min(17, 11 * Math.sqrt(camera.zoom) * toneBoost));
@@ -1430,11 +1455,19 @@ function drawDeviceLabel(ctx, device, camera, offsets = null, tone = "normal") {
   ctx.strokeStyle = "rgba(0,0,0,.78)";
   ctx.lineWidth = Math.max(2.2, size * 0.24);
   ctx.fillStyle = "#ffffff";
-  const labelX = x + 8;
-  const labelY = y + 7;
+  const labelX = device.kind === "jump" ? x + device.width * camera.zoom / 2 : x + 8;
+  const labelY = device.kind === "jump" ? y + device.height * camera.zoom / 2 + 1 : y + 7;
+  if (device.kind === "jump") {
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+  }
   ctx.strokeText(text, labelX, labelY);
   ctx.fillText(text, labelX, labelY);
   ctx.restore();
+}
+
+function isJumpConnectorHit(hit) {
+  return hit?.device?.kind === "jump" || hit?.connector?.id === "jump-center";
 }
 
 function drawObjectHoverTooltip(ctx, device, camera, offsets = null, screenPoint = null, resolution = { width: 0, height: 0 }) {

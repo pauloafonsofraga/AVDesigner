@@ -376,6 +376,22 @@ class ProductionEngineBridge {
 
     const connectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld());
     if (connectorHit.connector) {
+      if (isJumpConnectorHit(connectorHit.connector)) {
+        const jumpDevice = connectorHit.connector.device;
+        const wasSelected = this.scene.selectedIds.has(jumpDevice.id);
+        if (event.shiftKey) {
+          this.scene.toggleSelection(jumpDevice.id);
+          this.updateSelectionHud();
+          this.updateInteractionHud("jump-selection-toggle", { ...connectorHit, device: jumpDevice });
+          this.scheduleRender();
+          return;
+        }
+        if (!wasSelected) this.scene.selectOnly(jumpDevice.id);
+        this.updateSelectionHud();
+        this.updateInteractionHud("jump-select", { ...connectorHit, device: jumpDevice });
+        this.beginPendingDrag(point, world);
+        return;
+      }
       this.scene.selectConnectorOnly(connectorHit.connector.device.id, connectorHit.connector.connector.id);
       this.beginWireCreate(connectorHit.connector, world);
       this.updateSelectionHud();
@@ -780,9 +796,12 @@ class ProductionEngineBridge {
     const routeHit = this.renderOptions.routePoints
       ? hitTestRoutePoint(this.scene, world, tolerance * 1.2)
       : { routePoint: null, candidates: 0, ms: 0 };
-    const connectorHit = routeHit.routePoint
+    let connectorHit = routeHit.routePoint
       ? { connector: null, candidates: 0, ms: 0 }
       : hitTestConnector(this.scene, world, this.connectorHitToleranceWorld());
+    if (!this.wireCreate && isJumpConnectorHit(connectorHit.connector)) {
+      connectorHit = { connector: null, candidates: connectorHit.candidates, ms: connectorHit.ms };
+    }
     const wireHit = routeHit.routePoint || connectorHit.connector
       ? { wire: null, candidates: 0, ms: 0 }
       : hitTestWire(this.scene, world, tolerance);
@@ -2161,6 +2180,10 @@ function connectorSummary(hit) {
 function sameConnectorHit(a, b) {
   if (!a || !b) return false;
   return a.device?.id === b.device?.id && a.connector?.id === b.connector?.id;
+}
+
+function isJumpConnectorHit(hit) {
+  return hit?.device?.kind === "jump" || hit?.connector?.id === "jump-center";
 }
 
 function connectorSelectionDetails(scene, key) {

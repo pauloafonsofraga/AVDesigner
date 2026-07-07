@@ -1,18 +1,19 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
-Iteration 29 is the device and object visual interaction parity pass. It keeps
+Iteration 29.5 is the jump-node selection cleanup pass after the device and
+object visual interaction parity work. It keeps
 the Iteration 27.5 loading gate, Iteration 28 connector feedback, and Iteration
-28.5 new-wire selection fix intact while adding Engine-side object hover,
-selection, labels, and zoomed-out hover tooltips.
+28.5 new-wire selection fix intact while adding one coherent Engine-side jump
+node object selection model.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags. Export, viewer, and report rendering still use the existing
 production paths; those migrations are intentionally deferred.
 
-Current visible build label: `Iteration 29`.
+Current visible build label: `Iteration 29.5`.
 The app top bar must show one of these labels:
 
-- `Iteration 29 — Engine Editor — iteration29`
-- `Iteration 29 — Legacy Editor — iteration29`
+- `Iteration 29.5 — Engine Editor — iteration29-5`
+- `Iteration 29.5 — Legacy Editor — iteration29-5`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -21,20 +22,20 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration29`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration29`.
+   `index.html?v=iteration29-5`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration29-5`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration29`.
+   `index.html?engineDefaultTest=1&v=iteration29-5`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration29`.
+   `index.html?legacy=1&v=iteration29-5`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration29`.
+   `index.html?engine=0&v=iteration29-5`.
 7. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration29`.
+   `index.html?engine=1&debugLoad=1&v=iteration29-5`.
 8. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration29`.
+   `index.html?engine=1&loadDelay=1500&v=iteration29-5`.
 9. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration29`.
+   `index.html?engine=1&debugHud=1&v=iteration29-5`.
 10. Confirm the top bar build label matches the mode you intended to test.
 11. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.
@@ -51,9 +52,9 @@ Git commit as the final source of truth when reviewing a pushed change.
 18. The validation script now includes a long mixed undo/redo chain. Confirm the
    JSON output contains a `longChain` section and all `checks` are `ok: true`.
 19. Compare Engine and Legacy connector behavior with the same project:
-   `index.html?v=iteration29` beside
-   `index.html?legacy=1&v=iteration29`.
-20. In `index.html?engine=1&debugHud=1&v=iteration29`, confirm the HUD
+   `index.html?v=iteration29-5` beside
+   `index.html?legacy=1&v=iteration29-5`.
+20. In `index.html?engine=1&debugHud=1&v=iteration29-5`, confirm the HUD
    `load phase`, `load ready`, `wire paths`, `connector overlay`, and
    `connector tooltips` rows update.
 21. Hover and select wires in Engine mode. Confirm hover/selection feedback is
@@ -80,6 +81,22 @@ Git commit as the final source of truth when reviewing a pushed change.
    orange multi-layer outline and selected labels stay readable.
 30. Zoom out below the detail threshold and hover a device. Confirm the fast
    black hover tooltip follows the pointer and does not block selection.
+31. Hover and click jump nodes. Confirm the jump node renders as one circular
+   object, not a square body plus separate selected connector ring.
+32. Start a wire from a normal connector and hover/drop on a jump node. Confirm
+   the jump endpoint can still act as the wire target without leaving a stale
+   connector selection overlay.
+
+## Iteration 29.5 Focus
+
+- Jump nodes use an object-first interaction model while idle: hover/click
+  selects the jump node object, not its synthetic internal connector.
+- The synthetic `jump-center` connector remains available as a wire endpoint
+  during active wire creation, so normal-to-jump connections can still be made.
+- Jump nodes render as a single circular object in the engine. The generic
+  connector marker, selected connector ring, and connector tooltip are
+  suppressed for idle jump nodes to avoid double-selection visuals.
+- Legacy Editor remains unchanged.
 
 ## Iteration 29 Focus
 
@@ -122,7 +139,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 - Validation covers isolated command cycles and a longer mixed edit chain.
 - Cable-hop rendering is not migrated into the engine visual path yet; existing
   production/export/viewer hop logic remains untouched.
-- Export, reports, and viewer rendering are not migrated in Iteration 29.
+- Export, reports, and viewer rendering are not migrated in Iteration 29.5.
 - Newly created wires now use only the central wire-selection state for orange
   selection glow. Dirty GPU update IDs remain internal bookkeeping and no longer
   paint stale selected-wire overlays or forced stale labels.
