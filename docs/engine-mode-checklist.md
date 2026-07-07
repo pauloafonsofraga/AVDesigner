@@ -1,7 +1,8 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
-Iteration 29.6 is the jump-node wire ownership cleanup pass after the
-Iteration 29.5 jump-node object selection work. It keeps the Iteration 27.5
+Iteration 29.7 fixes the selected/hover affected-wire ghost during jump-node
+drag after the Iteration 29.6 jump-node wire ownership cleanup pass. It keeps
+the Iteration 27.5
 loading gate, Iteration 28 connector feedback, Iteration 28.5 new-wire
 selection fix, and Iteration 29.5 object-first jump-node selection intact while
 fixing stale wire ghosts during jump-node drag.
@@ -9,11 +10,11 @@ The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags. Export, viewer, and report rendering still use the existing
 production paths; those migrations are intentionally deferred.
 
-Current visible build label: `Iteration 29.6`.
+Current visible build label: `Iteration 29.7`.
 The app top bar must show one of these labels:
 
-- `Iteration 29.6 — Engine Editor — iteration29-6`
-- `Iteration 29.6 — Legacy Editor — iteration29-6`
+- `Iteration 29.7 — Engine Editor — iteration29-7`
+- `Iteration 29.7 — Legacy Editor — iteration29-7`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -22,20 +23,20 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration29-6`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration29-6`.
+   `index.html?v=iteration29-7`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration29-7`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration29-6`.
+   `index.html?engineDefaultTest=1&v=iteration29-7`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration29-6`.
+   `index.html?legacy=1&v=iteration29-7`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration29-6`.
+   `index.html?engine=0&v=iteration29-7`.
 7. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration29-6`.
+   `index.html?engine=1&debugLoad=1&v=iteration29-7`.
 8. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration29-6`.
+   `index.html?engine=1&loadDelay=1500&v=iteration29-7`.
 9. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration29-6`.
+   `index.html?engine=1&debugHud=1&v=iteration29-7`.
 10. Confirm the top bar build label matches the mode you intended to test.
 11. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.
@@ -52,9 +53,9 @@ Git commit as the final source of truth when reviewing a pushed change.
 18. The validation script now includes a long mixed undo/redo chain. Confirm the
    JSON output contains a `longChain` section and all `checks` are `ok: true`.
 19. Compare Engine and Legacy connector behavior with the same project:
-   `index.html?v=iteration29-6` beside
-   `index.html?legacy=1&v=iteration29-6`.
-20. In `index.html?engine=1&debugHud=1&v=iteration29-6`, confirm the HUD
+   `index.html?v=iteration29-7` beside
+   `index.html?legacy=1&v=iteration29-7`.
+20. In `index.html?engine=1&debugHud=1&v=iteration29-7`, confirm the HUD
    `load phase`, `load ready`, `wire paths`, `connector overlay`, and
    `connector tooltips` rows update.
 21. Hover and select wires in Engine mode. Confirm hover/selection feedback is
@@ -86,14 +87,28 @@ Git commit as the final source of truth when reviewing a pushed change.
 32. Start a wire from a normal connector and hover/drop on a jump node. Confirm
    the jump endpoint can still act as the wire target without leaving a stale
    connector selection overlay.
-33. Open `index.html?engine=1&debugHud=1&debugLayers=1&v=iteration29-6`, drag
-   a connected jump node, and confirm no stale wire remains at the original
-   jump-node position.
+33. Open `index.html?engine=1&debugHud=1&debugLayers=1&v=iteration29-7`, drag
+   a connected jump node with its connected wire selected, and confirm no stale
+   selected or hovered wire remains at the original jump-node position.
 34. In the debug layer panel for that same drag, confirm the connected wire has
-   `staticWireLayer: skipped`, `liveDragWireOverlay: drawn-moving`, and endpoint
-   owner details that resolve the jump endpoint to the jump object.
+   `staticWireLayer: skipped`, `selectedWireOverlay: suppressed-affected` when
+   selected, `hoverWireOverlay: suppressed-affected` when hovered,
+   `liveDragWireOverlay: drawn-moving-selected` or `drawn-moving-hover`, and
+   endpoint owner details that resolve the jump endpoint to the jump object.
 35. Drag a normal connected device and a multi-selection with connected wires.
    Confirm those wires still follow live and do not leave static ghosts.
+
+## Iteration 29.7 Focus
+
+- If a wire is affected by an active drag, every stale/static representation of
+  that wire is suppressed, including static wire geometry, selected-wire
+  overlays, hover-wire overlays, and stale labels.
+- Affected selected/hovered wires are drawn once in the live drag overlay using
+  selected/hover styling at the moving endpoint positions.
+- Jump nodes remain visually above affected wires during drag. Wire hover or
+  selection overlays must not be drawn after the dragged jump-node body.
+- Debug layer mode now lists selected wires, affected selected wires, and the
+  affected hovered wire so duplicate selected/hover ghosts can be diagnosed.
 
 ## Iteration 29.6 Focus
 
@@ -106,7 +121,7 @@ Git commit as the final source of truth when reviewing a pushed change.
   must not be drawn by the live drag wire overlay.
 - Debug layer mode now lists affected wire endpoint owners (`from owner` and
   `to owner`) so stale/duplicate wire layer bugs can be diagnosed directly.
-- Test with `index.html?debugHud=1&debugLayers=1&v=iteration29-6`, drag a
+- Test with `index.html?debugHud=1&debugLayers=1&v=iteration29-7`, drag a
   connected jump node, and confirm each connected wire reports
   `staticWireLayer: skipped` and `liveDragWireOverlay: drawn-moving`.
 - Bezier and custom-routed wires connected to jump nodes must keep their route
@@ -154,7 +169,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 - Validation covers isolated command cycles and a longer mixed edit chain.
 - Cable-hop rendering is not migrated into the engine visual path yet; existing
   production/export/viewer hop logic remains untouched.
-- Export, reports, and viewer rendering are not migrated in Iteration 29.6.
+- Export, reports, and viewer rendering are not migrated in Iteration 29.7.
 - Newly created wires now use only the central wire-selection state for orange
   selection glow. Dirty GPU update IDs remain internal bookkeeping and no longer
   paint stale selected-wire overlays or forced stale labels.

@@ -635,7 +635,11 @@ class ProductionEngineBridge {
 
   captureDebugDragTrace() {
     if (!this.debugLayerMode || !this.dragSession) return;
-    this.renderer.captureDragLayerTrace(this.scene, this.camera, this.dragSession, this.renderOptions);
+    const hoveredWireId = this.hoverState.wire?.wire?.id || "";
+    this.renderer.captureDragLayerTrace(this.scene, this.camera, this.dragSession, this.renderOptions, {
+      selectedWireIds: this.scene.selectedWireIds,
+      hoveredWireId
+    });
     this.updateLayerDebugPanel();
   }
 
@@ -1554,6 +1558,7 @@ class ProductionEngineBridge {
       this.hud.setMetric("selection overlay", `${(frameStats.selectionOverlayMs || 0).toFixed(2)} ms`);
       this.hud.setMetric("interaction overlay", `${(frameStats.interactionOverlayMs || 0).toFixed(2)} ms`);
       this.hud.setMetric("connector overlay", `${frameStats.connectorOverlayCount || 0} nodes / ${frameStats.wirePreviewDrawn ? "preview" : "idle"}`);
+      this.hud.setMetric("affected wire overlay suppress", `${frameStats.suppressedAffectedWireOverlays || 0}`);
       this.hud.setMetric("label draw", `${(frameStats.labelMs || 0).toFixed(2)} ms`);
       const labelStats = this.renderer.labelStats();
       this.hud.setMetric("wire labels", `${labelStats.wires || 0}`);
@@ -1599,6 +1604,9 @@ class ProductionEngineBridge {
       `trace source: ${currentTrace.active ? "current drag" : currentTrace.lastActiveTrace ? "last completed drag" : "current frame"}`,
       `selected: ${trace.selectedIds?.length || 0}`,
       `affected wires: ${trace.affectedWireIds?.length || 0}`,
+      `selected wires: ${trace.selectedWireIds?.length || 0}`,
+      `affected selected wires: ${trace.affectedSelectedWireIds?.length || 0}`,
+      `affected hovered wire: ${trace.affectedHoveredWireId || "none"}`,
       `production SVG/DOM: ${this.container.classList.contains("engine-bridge-show-production-svg") ? "debug visible" : "hidden"}`
     ];
     if (!currentTrace.active && !currentTrace.lastActiveTrace) {

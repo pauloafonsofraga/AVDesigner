@@ -233,13 +233,13 @@ export class WebglGraphRenderer {
     return this.lastLayerTrace || { active: false, objects: [], wires: [], lastActiveTrace: this.lastActiveLayerTrace };
   }
 
-  captureDragLayerTrace(scene, camera, dragSession, renderOptions = this.renderOptions) {
+  captureDragLayerTrace(scene, camera, dragSession, renderOptions = this.renderOptions, traceOptions = {}) {
     if (!dragSession) return null;
     const options = {
       ...this.renderOptions,
       ...renderOptions
     };
-    const trace = this.beginLayerTrace(scene, dragSession, options);
+    const trace = this.beginLayerTrace(scene, dragSession, options, traceOptions);
     if (!trace) return null;
 
     if (options.wires && !options.hideStaticWires) {
@@ -277,10 +277,28 @@ export class WebglGraphRenderer {
       this.recordAffectedWires(trace, "liveDragWireOverlay", "hidden");
       this.recordSelectedObjects(trace, "liveDragObjectOverlay", "hidden");
     } else {
+      const selectedWireIds = traceOptions.selectedWireIds || new Set();
+      const hoveredWireId = traceOptions.hoveredWireId || "";
       dragSession.affectedWireIds.forEach(id => {
         const wire = scene.getWire(id);
-        this.recordWireLayer(trace, id, "liveDragWireOverlay", wire && options.wires ? "drawn-moving" : "disabled");
+        let status = "disabled";
+        if (wire && options.wires) {
+          status = selectedWireIds.has(id)
+            ? "drawn-moving-selected"
+            : hoveredWireId === id
+              ? "drawn-moving-hover"
+              : "drawn-moving";
+        }
+        this.recordWireLayer(trace, id, "liveDragWireOverlay", status);
       });
+      selectedWireIds.forEach(id => {
+        if (dragSession.affectedWireIds.has(id)) {
+          this.recordWireLayer(trace, id, "selectedWireOverlay", "suppressed-affected");
+        }
+      });
+      if (hoveredWireId && dragSession.affectedWireIds.has(hoveredWireId)) {
+        this.recordWireLayer(trace, hoveredWireId, "hoverWireOverlay", "suppressed-affected");
+      }
       dragSession.selectedIds.forEach(id => {
         this.recordObjectLayer(trace, id, "liveDragObjectOverlay", "drawn-moving-body");
       });
@@ -468,6 +486,7 @@ export class WebglGraphRenderer {
       objectHoverOverlayMs: 0,
       connectorOverlayCount: 0,
       wirePreviewDrawn: 0,
+      suppressedAffectedWireOverlays: 0,
       textureBuilds: 0,
       textureRebuilds: 0,
       textureRebuildMs: 0
@@ -487,10 +506,12 @@ export class WebglGraphRenderer {
     };
     const dragSession = options.dragSession || null;
     const interaction = options.interactionState || {};
+    const selectedWireIds = options.selectedWireIds || new Set();
+    const hoveredWireId = interaction.hoveredWire?.wire?.id || interaction.hoveredWireId || "";
     let sectionStart = performance.now();
     this.drawGrid(camera);
     frameStats.gridMs = performance.now() - sectionStart;
-    const layerTrace = this.beginLayerTrace(scene, dragSession, renderOptions);
+    const layerTrace = this.beginLayerTrace(scene, dragSession, renderOptions, { selectedWireIds, hoveredWireId });
     if (renderOptions.wires && !renderOptions.hideStaticWires) {
       sectionStart = performance.now();
       this.drawStaticWires(dragSession, layerTrace);
@@ -520,9 +541,29 @@ export class WebglGraphRenderer {
       const wireOverlayStart = performance.now();
       dragSession.affectedWireIds.forEach(wireId => {
         const wire = scene.getWire(wireId);
-        if (wire && renderOptions.wires) pushWire(liveVertices, scene, wire, offsets, WIRE_BASE_WIDTH, wireColor(wire, renderOptions), renderOptions);
-        this.recordWireLayer(layerTrace, wireId, "liveDragWireOverlay", wire && renderOptions.wires ? "drawn-moving" : "disabled");
+        let status = "disabled";
+        if (wire && renderOptions.wires) {
+          if (selectedWireIds.has(wireId)) {
+            pushWireSelection(liveVertices, scene, wire, offsets, renderOptions);
+            status = "drawn-moving-selected";
+          } else if (hoveredWireId === wireId) {
+            pushWireHover(liveVertices, scene, wire, offsets, renderOptions);
+            status = "drawn-moving-hover";
+          } else {
+            pushWire(liveVertices, scene, wire, offsets, WIRE_BASE_WIDTH, wireColor(wire, renderOptions), renderOptions);
+            status = "drawn-moving";
+          }
+        }
+        this.recordWireLayer(layerTrace, wireId, "liveDragWireOverlay", status);
       });
+      selectedWireIds.forEach(wireId => {
+        if (dragSession.affectedWireIds.has(wireId)) {
+          this.recordWireLayer(layerTrace, wireId, "selectedWireOverlay", "suppressed-affected");
+        }
+      });
+      if (hoveredWireId && dragSession.affectedWireIds.has(hoveredWireId)) {
+        this.recordWireLayer(layerTrace, hoveredWireId, "hoverWireOverlay", "suppressed-affected");
+      }
       frameStats.affectedWireOverlayMs = performance.now() - wireOverlayStart;
       frameStats.affectedWires = dragSession.affectedWireIds.size;
       const objectOverlayStart = performance.now();
@@ -562,10 +603,11 @@ export class WebglGraphRenderer {
       frameStats.selectionOverlayMs = performance.now() - selectionStart;
     }
     const interactionStart = performance.now();
-    const interactionStats = pushInteractionOverlay(liveVertices, scene, interaction, renderOptions);
+    const interactionStats = pushInteractionOverlay(liveVertices, scene, interaction, renderOptions, dragSession);
     frameStats.interactionOverlayMs = performance.now() - interactionStart;
     frameStats.connectorOverlayCount = interactionStats.connectorOverlayCount || 0;
     frameStats.wirePreviewDrawn = interactionStats.wirePreviewDrawn || 0;
+    frameStats.suppressedAffectedWireOverlays = interactionStats.suppressedAffectedWireOverlays || 0;
     frameStats.liveBuildMs = performance.now() - liveBuildStart;
     sectionStart = performance.now();
     this.liveVertexCount = upload(gl, this.liveBuffer, liveVertices);
@@ -676,7 +718,8 @@ export class WebglGraphRenderer {
         if (!caption) return;
         drawWireLabel(ctx, scene, wire, camera, offsets, caption);
         wireLabelCount += 1;
-        this.recordWireLayer(options.layerTrace, wire.id, "labelLayer", "drawn");
+        const moving = dragSession?.affectedWireIds?.has(wire.id);
+        this.recordWireLayer(options.layerTrace, wire.id, "labelLayer", moving ? "drawn-moving" : "drawn");
       });
     }
     let connectorTooltipCount = 0;
@@ -873,14 +916,20 @@ export class WebglGraphRenderer {
     return draggedTextureIds;
   }
 
-  beginLayerTrace(scene, dragSession = null, renderOptions = this.renderOptions) {
+  beginLayerTrace(scene, dragSession = null, renderOptions = this.renderOptions, traceOptions = {}) {
     if (!renderOptions.debugLayers) return null;
     const selectedIds = [...(dragSession?.selectedIds || [])];
     const affectedWireIds = [...(dragSession?.affectedWireIds || [])];
+    const selectedWireIds = [...(traceOptions.selectedWireIds || [])];
+    const hoveredWireId = traceOptions.hoveredWireId || "";
     const trace = {
       active: Boolean(dragSession),
       selectedIds,
       affectedWireIds,
+      selectedWireIds,
+      hoveredWireId,
+      affectedSelectedWireIds: selectedWireIds.filter(id => dragSession?.affectedWireIds?.has(id)),
+      affectedHoveredWireId: hoveredWireId && dragSession?.affectedWireIds?.has(hoveredWireId) ? hoveredWireId : "",
       options: {
         hideStaticObjects: Boolean(renderOptions.hideStaticObjects),
         hideStaticWires: Boolean(renderOptions.hideStaticWires),
@@ -977,13 +1026,15 @@ function visibleDevices(scene, camera, resolution) {
   return hits.length ? hits : scene.devices;
 }
 
-function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions = DEFAULT_RENDER_OPTIONS) {
-  const stats = { connectorOverlayCount: 0, wirePreviewDrawn: 0 };
+function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions = DEFAULT_RENDER_OPTIONS, dragSession = null) {
+  const stats = { connectorOverlayCount: 0, wirePreviewDrawn: 0, suppressedAffectedWireOverlays: 0 };
   const wireCreateActive = Boolean(interaction.tempWire);
   const hoveredWireId = interaction.hoveredWire?.wire?.id || interaction.hoveredWireId;
-  if (hoveredWireId && renderOptions.wires) {
+  if (hoveredWireId && renderOptions.wires && !dragSession?.affectedWireIds?.has(hoveredWireId)) {
     const wire = scene.getWire(hoveredWireId);
     if (wire) pushWireHover(vertices, scene, wire, null, renderOptions);
+  } else if (hoveredWireId && dragSession?.affectedWireIds?.has(hoveredWireId)) {
+    stats.suppressedAffectedWireOverlays += 1;
   }
   (interaction.selectedRoutePoints || new Set()).forEach(key => {
     const [wireId, indexText] = String(key).split(":");
