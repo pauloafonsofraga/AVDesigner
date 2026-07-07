@@ -48,6 +48,18 @@ const DEFAULT_RENDER_OPTIONS = {
   dirtyWireIds: new Set()
 };
 
+function defaultLabelStats() {
+  return {
+    devices: 0,
+    wires: 0,
+    routePointHandles: 0,
+    connectorTooltips: 0,
+    objectHoverTooltips: 0,
+    deviceLabelsHidden: 0,
+    deviceLabelsTruncated: 0
+  };
+}
+
 export class WebglGraphRenderer {
   constructor(canvas, labelCanvas = null) {
     this.canvas = canvas;
@@ -84,7 +96,7 @@ export class WebglGraphRenderer {
     this.lastTextureStats = null;
     this.lastTextureDrawStats = null;
     this.lastFrameStats = null;
-    this.lastLabelStats = { devices: 0, wires: 0, routePointHandles: 0, connectorTooltips: 0 };
+    this.lastLabelStats = defaultLabelStats();
     this.lastWirePathStats = { bezier: 0, custom: 0, orthogonal: 0 };
     this.lastLayerTrace = null;
     this.lastActiveLayerTrace = null;
@@ -222,7 +234,7 @@ export class WebglGraphRenderer {
   }
 
   labelStats() {
-    return this.lastLabelStats || { devices: 0, wires: 0, routePointHandles: 0, connectorTooltips: 0 };
+    return this.lastLabelStats || defaultLabelStats();
   }
 
   wirePathStats() {
@@ -664,7 +676,7 @@ export class WebglGraphRenderer {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, this.resolution.width, this.resolution.height);
     const renderOptions = options.renderOptions || this.renderOptions;
-    this.lastLabelStats = { devices: 0, wires: 0, routePointHandles: 0, connectorTooltips: 0, objectHoverTooltips: 0 };
+    this.lastLabelStats = defaultLabelStats();
     if (!renderOptions.labels || renderOptions.hideLabels) return;
     if (camera.zoom < 0.08) return;
     const view = {
@@ -681,30 +693,47 @@ export class WebglGraphRenderer {
     const hoveredDeviceId = hoveredDevice?.id || "";
     const drawn = new Set();
     let deviceLabelCount = 0;
+    let deviceLabelsHidden = 0;
+    let deviceLabelsTruncated = 0;
+    const trackDeviceLabel = (device, tone, layerName) => {
+      const result = drawDeviceLabel(ctx, device, camera, offsets, tone);
+      if (result.drawn) deviceLabelCount += 1;
+      if (result.hidden) deviceLabelsHidden += 1;
+      if (result.truncated) deviceLabelsTruncated += 1;
+      this.recordObjectLayer(
+        options.layerTrace,
+        device.id,
+        "labelLayer",
+        result.drawn
+          ? result.truncated
+            ? `${layerName}-truncated`
+            : layerName
+          : `${layerName}-hidden-small`
+      );
+    };
     if (visible.length <= 1500) {
       visible.forEach(device => {
         drawn.add(device.id);
-        this.recordObjectLayer(options.layerTrace, device.id, "labelLayer", "drawn");
         if (deviceVisible(device, renderOptions)) {
           const tone = selectedIds.has(device.id) ? "selected" : hoveredDeviceId === device.id ? "hover" : "normal";
-          drawDeviceLabel(ctx, device, camera, offsets, tone);
-          deviceLabelCount += 1;
+          trackDeviceLabel(device, tone, "drawn");
         }
       });
     }
     selectedIds.forEach(id => {
       if (drawn.has(id)) return;
       const device = scene.getDevice(id);
-      this.recordObjectLayer(options.layerTrace, id, "labelLayer", device ? "drawn-selected" : "missing");
+      if (!device) {
+        this.recordObjectLayer(options.layerTrace, id, "labelLayer", "missing");
+        return;
+      }
       if (device && deviceVisible(device, renderOptions)) {
-        drawDeviceLabel(ctx, device, camera, offsets, "selected");
-        deviceLabelCount += 1;
+        trackDeviceLabel(device, "selected", "drawn-selected");
         drawn.add(id);
       }
     });
     if (hoveredDevice && !drawn.has(hoveredDevice.id) && deviceVisible(hoveredDevice, renderOptions)) {
-      drawDeviceLabel(ctx, hoveredDevice, camera, offsets, selectedIds.has(hoveredDevice.id) ? "selected" : "hover");
-      deviceLabelCount += 1;
+      trackDeviceLabel(hoveredDevice, selectedIds.has(hoveredDevice.id) ? "selected" : "hover", "drawn-hover");
       drawn.add(hoveredDevice.id);
     }
     let wireLabelCount = 0;
@@ -762,7 +791,9 @@ export class WebglGraphRenderer {
       wires: wireLabelCount,
       routePointHandles: countRoutePointHandles(scene, options.selectedWireIds, options.interactionState),
       connectorTooltips: connectorTooltipCount,
-      objectHoverTooltips: objectHoverTooltipCount
+      objectHoverTooltips: objectHoverTooltipCount,
+      deviceLabelsHidden,
+      deviceLabelsTruncated
     };
   }
 
@@ -1551,7 +1582,9 @@ function drawDeviceLabel(ctx, device, camera, offsets = null, tone = "normal") {
   const x = (device.x + (offset?.dx || 0) - camera.x) * camera.zoom;
   const y = (device.y + (offset?.dy || 0) - camera.y) * camera.zoom;
   const text = device.kind === "jump" ? "JUMP" : deviceLabel(device);
-  if (!text) return;
+  if (!text) return { drawn: false, hidden: true, truncated: false };
+  const screenWidth = Math.max(0, Math.abs((device.width || 0) * camera.zoom));
+  const screenHeight = Math.max(0, Math.abs((device.height || 0) * camera.zoom));
   const toneBoost = tone === "selected" ? 1.1 : tone === "hover" ? 1.06 : 1;
   const size = Math.max(9, Math.min(17, 11 * Math.sqrt(camera.zoom) * toneBoost));
   ctx.save();
@@ -1567,15 +1600,69 @@ function drawDeviceLabel(ctx, device, camera, offsets = null, tone = "normal") {
   ctx.strokeStyle = "rgba(0,0,0,.78)";
   ctx.lineWidth = Math.max(2.2, size * 0.24);
   ctx.fillStyle = "#ffffff";
-  const labelX = device.kind === "jump" ? x + device.width * camera.zoom / 2 : x + 8;
-  const labelY = device.kind === "jump" ? y + device.height * camera.zoom / 2 + 1 : y + 7;
   if (device.kind === "jump") {
+    const labelX = x + screenWidth / 2;
+    const labelY = y + screenHeight / 2 + 1;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
+    ctx.strokeText(text, labelX, labelY);
+    ctx.fillText(text, labelX, labelY);
+    ctx.restore();
+    return { drawn: true, hidden: false, truncated: false };
   }
-  ctx.strokeText(text, labelX, labelY);
-  ctx.fillText(text, labelX, labelY);
+
+  // Device names are drawn in screen space for readability. Constrain them to
+  // the device screen bounds so low-zoom labels cannot spill over nearby gear.
+  const clipInset = 1;
+  const paddingX = 7;
+  const paddingY = 4;
+  const availableWidth = screenWidth - paddingX * 2 - clipInset * 2;
+  const availableHeight = screenHeight - paddingY * 2 - clipInset * 2;
+  if (availableWidth < 10 || availableHeight < size * 0.85) {
+    ctx.restore();
+    return { drawn: false, hidden: true, truncated: false };
+  }
+  const fitted = fitCanvasText(ctx, text, availableWidth);
+  if (!fitted) {
+    ctx.restore();
+    return { drawn: false, hidden: true, truncated: false };
+  }
+  const truncated = fitted !== text;
+  ctx.beginPath();
+  ctx.rect(
+    x + clipInset,
+    y + clipInset,
+    Math.max(0, screenWidth - clipInset * 2),
+    Math.max(0, screenHeight - clipInset * 2)
+  );
+  ctx.clip();
+  ctx.textAlign = "left";
+  const labelX = x + paddingX;
+  const labelY = y + Math.max(paddingY, Math.min(availableHeight - size + paddingY, 7));
+  ctx.strokeText(fitted, labelX, labelY);
+  ctx.fillText(fitted, labelX, labelY);
   ctx.restore();
+  return { drawn: true, hidden: false, truncated };
+}
+
+function fitCanvasText(ctx, text, maxWidth) {
+  if (maxWidth <= 0) return "";
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  const suffix = "...";
+  const suffixWidth = ctx.measureText(suffix).width;
+  if (suffixWidth > maxWidth) return "";
+  let low = 0;
+  let high = text.length;
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    const candidate = text.slice(0, mid).trimEnd() + suffix;
+    if (ctx.measureText(candidate).width <= maxWidth) {
+      low = mid;
+    } else {
+      high = mid - 1;
+    }
+  }
+  return text.slice(0, low).trimEnd() + suffix;
 }
 
 function isJumpConnectorHit(hit) {

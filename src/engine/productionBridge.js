@@ -1563,6 +1563,8 @@ class ProductionEngineBridge {
       const labelStats = this.renderer.labelStats();
       this.hud.setMetric("wire labels", `${labelStats.wires || 0}`);
       this.hud.setMetric("device labels", `${labelStats.devices || 0}`);
+      this.hud.setMetric("device labels hidden", `${labelStats.deviceLabelsHidden || 0}`);
+      this.hud.setMetric("device labels truncated", `${labelStats.deviceLabelsTruncated || 0}`);
       this.hud.setMetric("object hover overlay", `${(frameStats.objectHoverOverlayMs || 0).toFixed(2)} ms / ${frameStats.objectHoverOverlays || 0}`);
       this.hud.setMetric("object hover tooltip", `${labelStats.objectHoverTooltips || 0}`);
       this.hud.setMetric("connector tooltips", `${labelStats.connectorTooltips || 0}`);

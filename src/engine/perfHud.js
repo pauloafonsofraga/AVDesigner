@@ -45,6 +45,8 @@ export class PerfHud {
       ["label draw", () => this.metric("label draw")],
       ["wire labels", () => this.metric("wire labels")],
       ["device labels", () => this.metric("device labels")],
+      ["device labels hidden", () => this.metric("device labels hidden")],
+      ["device labels truncated", () => this.metric("device labels truncated")],
       ["object hover overlay", () => this.metric("object hover overlay")],
       ["object hover tooltip", () => this.metric("object hover tooltip")],
       ["route handles", () => this.metric("route handles")],
