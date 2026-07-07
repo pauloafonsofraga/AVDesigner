@@ -210,11 +210,12 @@ class ProductionEngineBridge {
       <canvas class="engine-bridge-canvas" aria-label="Experimental WebGL engine canvas"></canvas>
       <canvas class="engine-bridge-label-canvas" aria-hidden="true"></canvas>
       <div class="engine-bridge-badge">
-        <strong>Engine Beta Active</strong>
+        <strong>Engine Editor Active</strong>
         <span>branch: engine-prototype</span>
         <span>${BRIDGE_VERSION}</span>
         <button type="button" data-engine-action="refresh">Refresh</button>
-        <button type="button" data-engine-action="exit">Exit Engine Mode</button>
+        <button type="button" data-engine-action="toggle-hud">HUD</button>
+        <button type="button" data-engine-action="exit">Use Legacy Editor</button>
       </div>
       <div class="engine-bridge-status"></div>
       <div class="engine-bridge-command-bar">
@@ -244,7 +245,7 @@ class ProductionEngineBridge {
         </div>
         <pre data-layer-trace>Drag a selected object to trace render layers.</pre>
       </div>
-      <div class="engine-bridge-debug"></div>
+      <div class="engine-bridge-debug ${engineDebugHudEnabled() ? "" : "hidden"}"></div>
     `;
     this.container.appendChild(this.engineRoot);
     this.canvas = this.engineRoot.querySelector(".engine-bridge-canvas");
@@ -258,6 +259,9 @@ class ProductionEngineBridge {
     this.layerDebugPanel = this.engineRoot.querySelector(".engine-bridge-layer-debug");
     this.engineRoot.querySelector("[data-engine-action='refresh']")?.addEventListener("click", () => this.refreshFromProduction("manual button"));
     this.engineRoot.querySelector("[data-engine-action='exit']")?.addEventListener("click", () => exitEngineMode());
+    this.engineRoot.querySelector("[data-engine-action='toggle-hud']")?.addEventListener("click", () => {
+      this.debugPanel?.classList.toggle("hidden");
+    });
     this.engineRoot.querySelector("[data-engine-action='undo']")?.addEventListener("click", () => this.undoEngineCommand());
     this.engineRoot.querySelector("[data-engine-action='redo']")?.addEventListener("click", () => this.redoEngineCommand());
     this.engineRoot.querySelector("[data-engine-action='delete-wire']")?.addEventListener("click", () => this.deleteSelectedWires());
@@ -1786,14 +1790,17 @@ function exitEngineMode() {
     // localStorage may be unavailable in private or restricted contexts.
   }
   const url = new URL(window.location.href);
+  url.searchParams.set("legacy", "1");
   url.searchParams.delete("engine");
+  url.searchParams.delete("engineDefaultTest");
   window.location.href = url.toString();
 }
 
 function engineActivationSource() {
   const params = new URLSearchParams(window.location.search);
   if (params.get("engine") === "1") return "?engine=1";
-  return "unknown";
+  if (params.get("engineDefaultTest") === "1") return "?engineDefaultTest=1";
+  return "default";
 }
 
 function engineDebugLoadDelayMs() {
@@ -1809,6 +1816,11 @@ function engineLayerDebugEnabled() {
 
 function engineLayerDebugShowProductionSvg() {
   return new URLSearchParams(window.location.search).get("showProductionSvg") === "1";
+}
+
+function engineDebugHudEnabled() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("debugHud") === "1" || params.get("debugLayers") === "1";
 }
 
 function engineLayerDebugRenderOptions(enabled) {

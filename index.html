@@ -367,6 +367,35 @@
       color: var(--ink);
     }
 
+    .engine-failure-fallback {
+      position: absolute;
+      left: 18px;
+      top: 18px;
+      z-index: 80;
+      display: grid;
+      gap: 8px;
+      max-width: min(520px, calc(100% - 36px));
+      padding: 14px;
+      border: 1px solid rgba(229, 72, 77, .78);
+      border-radius: 10px;
+      background: rgba(28, 18, 20, .94);
+      color: #fff;
+      box-shadow: 0 16px 54px rgba(0,0,0,.36);
+    }
+
+    .engine-failure-fallback strong {
+      color: #ff808a;
+      font-size: 14px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .engine-failure-fallback span {
+      color: #f3d5d8;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
     @keyframes switch-pop {
       0% { transform: scale(.88); }
       70% { transform: scale(1.08); }
@@ -3720,7 +3749,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 23 — Production — ab8800b</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 24 — Engine Editor — iteration24</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -3770,8 +3799,8 @@
           <img class="toolbar-icon" src="icons/220.png" alt="" aria-hidden="true">
           <span>220V</span>
         </button>
-        <button class="tool-button engine-beta-control" id="engineBetaToggle" type="button" aria-pressed="false" title="Enable experimental rendering/edit engine">
-          <span>Engine<br>Beta</span>
+        <button class="tool-button engine-beta-control" id="engineBetaToggle" type="button" aria-pressed="true" title="Switch to Legacy Editor">
+          <span>Legacy<br>Editor</span>
         </button>
         <button class="tool-button has-icon" id="deviceEditorButton" type="button" title="Edit device library" aria-label="Edit device library">
           <!-- Icon: Device Editor, icons/Device_Editor.png -->
@@ -4426,8 +4455,8 @@
   </div>
 
   <script>
-    const APP_ITERATION = 23;
-    const APP_BUILD_ID = "ab8800b";
+    const APP_ITERATION = 24;
+    const APP_BUILD_ID = "iteration24";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const SVG_NS = "http://www.w3.org/2000/svg";
     const DEVICE_WIDTH = 380;
@@ -54706,7 +54735,7 @@ fit();
     document.getElementById("saveProject").addEventListener("click", saveProject);
     document.getElementById("saveProjectAs").addEventListener("click", saveProjectAs);
     document.getElementById("engineBetaToggle")?.addEventListener("click", () => {
-      switchEngineBetaMode(!engineBetaRequestedByUrl());
+      switchEngineEditorMode(!engineEditorRequestedByUrl());
     });
     document.getElementById("loadProject").addEventListener("click", openProjectFile);
     document.getElementById("exportHtml").addEventListener("click", exportHtml);
@@ -54909,9 +54938,21 @@ fit();
       }
     });
 
-    function engineBetaRequestedByUrl() {
+    function legacyEditorRequestedByUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const engineFlag = String(params.get("engine") || "").toLowerCase();
+      return params.get("legacy") === "1" || engineFlag === "0" || engineFlag === "false";
+    }
+
+    function explicitEngineRequestedByUrl() {
       const params = new URLSearchParams(window.location.search);
       return params.get("engine") === "1" || params.get("engineDefaultTest") === "1";
+    }
+
+    function engineEditorRequestedByUrl() {
+      if (legacyEditorRequestedByUrl()) return false;
+      if (explicitEngineRequestedByUrl()) return true;
+      return true;
     }
 
     function engineDefaultTestRequestedByUrl() {
@@ -54920,7 +54961,7 @@ fit();
     }
 
     function experimentalEngineRendererRequested() {
-      return engineBetaRequestedByUrl();
+      return engineEditorRequestedByUrl();
     }
 
     function projectHasReloadRisk() {
@@ -54937,52 +54978,51 @@ fit();
         || count(state.titleBlocks) > 0;
     }
 
-    function confirmEngineBetaReload() {
+    function confirmEngineModeReload() {
       if (!projectHasReloadRisk()) return true;
-      return window.confirm("Switching engine mode will reload the app. Save your project first if needed.");
+      return window.confirm("Switching editor mode will reload the app. Save your project first if needed.");
     }
 
-    function engineBetaUrl(enabled) {
+    function engineModeUrl(enabled) {
       const url = new URL(window.location.href);
       if (enabled) {
-        url.searchParams.set("engine", "1");
+        url.searchParams.delete("legacy");
+        const engineFlag = String(url.searchParams.get("engine") || "").toLowerCase();
+        if (engineFlag === "0" || engineFlag === "false") {
+          url.searchParams.delete("engine");
+        }
         url.searchParams.delete("engineDefaultTest");
       } else {
+        url.searchParams.set("legacy", "1");
         url.searchParams.delete("engine");
         url.searchParams.delete("engineDefaultTest");
       }
       return url.toString();
     }
 
-    function switchEngineBetaMode(enabled) {
-      if (enabled === engineBetaRequestedByUrl()) return;
-      if (!confirmEngineBetaReload()) return;
-      window.location.href = engineBetaUrl(enabled);
+    function switchEngineEditorMode(enabled) {
+      if (enabled === engineEditorRequestedByUrl()) return;
+      if (!confirmEngineModeReload()) return;
+      window.location.href = engineModeUrl(enabled);
     }
 
     function updateEngineBetaControl() {
       const button = document.getElementById("engineBetaToggle");
       if (!button) return;
-      const requested = engineBetaRequestedByUrl();
-      const defaultTest = engineDefaultTestRequestedByUrl();
+      const requested = engineEditorRequestedByUrl();
       const active = Boolean(activeEngineBridge());
       button.setAttribute("aria-pressed", requested ? "true" : "false");
       button.title = requested
-        ? defaultTest
-          ? "Disable experimental default-mode test"
-          : "Disable experimental rendering/edit engine"
-        : "Enable experimental rendering/edit engine";
+        ? "Switch to Legacy Editor"
+        : "Switch to Engine Editor";
       button.innerHTML = requested
-        ? defaultTest
-          ? "<span>Default<br>Test</span>"
-          : "<span>Engine<br>Active</span>"
-        : "<span>Engine<br>Beta</span>";
+        ? "<span>Legacy<br>Editor</span>"
+        : "<span>Engine<br>Editor</span>";
       button.classList.toggle("active", active);
     }
 
     function appRuntimeModeLabel() {
-      if (engineDefaultTestRequestedByUrl()) return "Engine Default Test";
-      return engineBetaRequestedByUrl() ? "Engine Beta" : "Production";
+      return engineEditorRequestedByUrl() ? "Engine Editor" : "Legacy Editor";
     }
 
     function updateAppBuildLabel() {
@@ -55080,16 +55120,33 @@ fit();
             }
           });
           const activeMode = appRuntimeModeLabel();
-          setStatus(`${activeMode} active. Use the Engine Beta toolbar button to reload back to SVG mode.`);
+          setStatus(`${activeMode} active. Use the toolbar mode switch to reload the legacy editor if needed.`);
           updateEngineBetaControl();
           updateAppBuildLabel();
         })
         .catch(error => {
           console.error("[engine-bridge] Could not start experimental renderer.", error);
-          setStatus(`Experimental engine renderer failed: ${error.message || error}`);
+          setStatus(`Engine editor failed: ${error.message || error}`);
+          showEngineFailureFallback(error);
           updateEngineBetaControl();
           updateAppBuildLabel();
         });
+    }
+
+    function showEngineFailureFallback(error) {
+      if (document.getElementById("engineFailureFallback")) return;
+      const panel = document.createElement("div");
+      panel.id = "engineFailureFallback";
+      panel.className = "engine-failure-fallback";
+      panel.innerHTML = `
+        <strong>Engine editor failed to start.</strong>
+        <span>${escapeHtml(error?.message || error || "Unknown engine startup error.")}</span>
+        <button class="tool-button" type="button">Reload Legacy Editor</button>
+      `;
+      panel.querySelector("button")?.addEventListener("click", () => {
+        window.location.href = engineModeUrl(false);
+      });
+      canvasWrap.appendChild(panel);
     }
 
     loadNodeLibraryPreference();
