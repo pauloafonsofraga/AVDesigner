@@ -487,6 +487,8 @@ export class WebglGraphRenderer {
       connectorOverlayCount: 0,
       wirePreviewDrawn: 0,
       suppressedAffectedWireOverlays: 0,
+      suppressedHoveredWireOverlays: 0,
+      jumpForegroundNodes: 0,
       textureBuilds: 0,
       textureRebuilds: 0,
       textureRebuildMs: 0
@@ -599,15 +601,33 @@ export class WebglGraphRenderer {
           const wire = scene.getWire(id);
           if (wire && renderOptions.wires) pushWireSelection(liveVertices, scene, wire, null, renderOptions);
         });
+        if (hoveredWireId && !(options.selectedWireIds || new Set()).has(hoveredWireId)) {
+          const wire = scene.getWire(hoveredWireId);
+          if (wire && renderOptions.wires) pushWireHover(liveVertices, scene, wire, null, renderOptions);
+        }
+        // Jump nodes must stay visually on top of selected/hovered wire
+        // emphasis. They are normally part of the static device buffer, so a
+        // lightweight foreground pass redraws only visible jump nodes before
+        // connector feedback and route-point handles are added.
+        frameStats.jumpForegroundNodes = pushJumpNodeForeground(liveVertices, scene, camera, this.resolution, {
+          selectedIds: options.selectedIds || new Set(),
+          hoveredDeviceId: hoveredDevice?.id || "",
+          renderOptions,
+          layerTrace,
+          renderer: this
+        });
       }
       frameStats.selectionOverlayMs = performance.now() - selectionStart;
     }
     const interactionStart = performance.now();
-    const interactionStats = pushInteractionOverlay(liveVertices, scene, interaction, renderOptions, dragSession);
+    const interactionStats = pushInteractionOverlay(liveVertices, scene, interaction, renderOptions, dragSession, {
+      suppressHoveredWire: !dragSession
+    });
     frameStats.interactionOverlayMs = performance.now() - interactionStart;
     frameStats.connectorOverlayCount = interactionStats.connectorOverlayCount || 0;
     frameStats.wirePreviewDrawn = interactionStats.wirePreviewDrawn || 0;
     frameStats.suppressedAffectedWireOverlays = interactionStats.suppressedAffectedWireOverlays || 0;
+    frameStats.suppressedHoveredWireOverlays = interactionStats.suppressedHoveredWireOverlays || 0;
     frameStats.liveBuildMs = performance.now() - liveBuildStart;
     sectionStart = performance.now();
     this.liveVertexCount = upload(gl, this.liveBuffer, liveVertices);
@@ -1026,11 +1046,18 @@ function visibleDevices(scene, camera, resolution) {
   return hits.length ? hits : scene.devices;
 }
 
-function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions = DEFAULT_RENDER_OPTIONS, dragSession = null) {
-  const stats = { connectorOverlayCount: 0, wirePreviewDrawn: 0, suppressedAffectedWireOverlays: 0 };
+function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions = DEFAULT_RENDER_OPTIONS, dragSession = null, overlayOptions = {}) {
+  const stats = {
+    connectorOverlayCount: 0,
+    wirePreviewDrawn: 0,
+    suppressedAffectedWireOverlays: 0,
+    suppressedHoveredWireOverlays: 0
+  };
   const wireCreateActive = Boolean(interaction.tempWire);
   const hoveredWireId = interaction.hoveredWire?.wire?.id || interaction.hoveredWireId;
-  if (hoveredWireId && renderOptions.wires && !dragSession?.affectedWireIds?.has(hoveredWireId)) {
+  if (hoveredWireId && overlayOptions.suppressHoveredWire) {
+    stats.suppressedHoveredWireOverlays += 1;
+  } else if (hoveredWireId && renderOptions.wires && !dragSession?.affectedWireIds?.has(hoveredWireId)) {
     const wire = scene.getWire(hoveredWireId);
     if (wire) pushWireHover(vertices, scene, wire, null, renderOptions);
   } else if (hoveredWireId && dragSession?.affectedWireIds?.has(hoveredWireId)) {
@@ -1086,6 +1113,35 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
     pushBoxOutline(vertices, interaction.marquee, 2.4, "rgba(50, 182, 255, .92)");
   }
   return stats;
+}
+
+function pushJumpNodeForeground(vertices, scene, camera, resolution, {
+  selectedIds = new Set(),
+  hoveredDeviceId = "",
+  renderOptions = DEFAULT_RENDER_OPTIONS,
+  layerTrace = null,
+  renderer = null
+} = {}) {
+  let count = 0;
+  visibleDevices(scene, camera, resolution).forEach(device => {
+    if (device?.kind !== "jump" || !deviceVisible(device, renderOptions)) return;
+    const selected = selectedIds.has(device.id);
+    const hovered = hoveredDeviceId === device.id;
+    if (selected) pushSelectionOutline(vertices, device, null);
+    else if (hovered) pushHoverOutline(vertices, device, null);
+    pushJumpNode(vertices, {
+      x: device.x + device.width / 2,
+      y: device.y + device.height / 2
+    }, Math.max(device.width, device.height) / 2);
+    renderer?.recordObjectLayer?.(
+      layerTrace,
+      device.id,
+      "jumpForegroundLayer",
+      selected ? "drawn-selected-body" : hovered ? "drawn-hover-body" : "drawn-body"
+    );
+    count += 1;
+  });
+  return count;
 }
 
 function pushConnectorHighlight(vertices, point, size, color, mode = "hover") {
