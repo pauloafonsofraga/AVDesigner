@@ -547,14 +547,6 @@ export class WebglGraphRenderer {
           if (wire && renderOptions.wires) pushWireSelection(liveVertices, scene, wire, null, renderOptions);
         });
       }
-      (renderOptions.dirtyWireIds || new Set()).forEach(id => {
-        const wire = scene.getWire(id);
-        if (wire && renderOptions.wires) pushWireSelection(liveVertices, scene, wire, null, renderOptions);
-      });
-      (renderOptions.dirtyDeviceIds || new Set()).forEach(id => {
-        const device = scene.getDevice(id);
-        if (device) pushSelectionOutline(liveVertices, device, null);
-      });
       frameStats.selectionOverlayMs = performance.now() - selectionStart;
     }
     const interactionStart = performance.now();
@@ -649,10 +641,6 @@ export class WebglGraphRenderer {
         const wire = scene.getWire(hoveredWireId);
         if (wire) wireCandidates.set(hoveredWireId, wire);
       }
-      (renderOptions.dirtyWireIds || new Set()).forEach(id => {
-        const wire = scene.getWire(id);
-        if (wire) wireCandidates.set(id, wire);
-      });
       dragSession?.affectedWireIds?.forEach(id => {
         const wire = scene.getWire(id);
         if (wire) wireCandidates.set(id, wire);

@@ -1,18 +1,19 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
-Iteration 28 is a connector, node, and hotspot visual interaction parity pass.
-This pass keeps the Iteration 27.5 loading gate intact while making Engine
-connector hover, selected, target, cursor, tooltip, and inspector feedback much
-closer to the Legacy connector behavior.
+Iteration 28.5 is a small wire-selection correctness pass after the Iteration 28
+connector, node, and hotspot visual interaction parity work. This pass keeps the
+Iteration 27.5 loading gate and Iteration 28 connector feedback intact while
+fixing newly created wires so they follow the same selection and deselection
+rules as existing wires.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags. Export, viewer, and report rendering still use the existing
 production paths; those migrations are intentionally deferred.
 
-Current visible build label: `Iteration 28`.
+Current visible build label: `Iteration 28.5`.
 The app top bar must show one of these labels:
 
-- `Iteration 28 — Engine Editor — iteration28`
-- `Iteration 28 — Legacy Editor — iteration28`
+- `Iteration 28.5 — Engine Editor — iteration28-wireselect`
+- `Iteration 28.5 — Legacy Editor — iteration28-wireselect`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -21,20 +22,20 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration28`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration28`.
+   `index.html?v=iteration28-wireselect`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration28-wireselect`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration28`.
+   `index.html?engineDefaultTest=1&v=iteration28-wireselect`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration28`.
+   `index.html?legacy=1&v=iteration28-wireselect`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration28`.
+   `index.html?engine=0&v=iteration28-wireselect`.
 7. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration28`.
+   `index.html?engine=1&debugLoad=1&v=iteration28-wireselect`.
 8. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration28`.
+   `index.html?engine=1&loadDelay=1500&v=iteration28-wireselect`.
 9. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration28`.
+   `index.html?engine=1&debugHud=1&v=iteration28-wireselect`.
 10. Confirm the top bar build label matches the mode you intended to test.
 11. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.
@@ -51,8 +52,9 @@ Git commit as the final source of truth when reviewing a pushed change.
 18. The validation script now includes a long mixed undo/redo chain. Confirm the
    JSON output contains a `longChain` section and all `checks` are `ok: true`.
 19. Compare Engine and Legacy connector behavior with the same project:
-   `index.html?v=iteration28` beside `index.html?legacy=1&v=iteration28`.
-20. In `index.html?engine=1&debugHud=1&v=iteration28`, confirm the HUD
+   `index.html?v=iteration28-wireselect` beside
+   `index.html?legacy=1&v=iteration28-wireselect`.
+20. In `index.html?engine=1&debugHud=1&v=iteration28-wireselect`, confirm the HUD
    `load phase`, `load ready`, `wire paths`, `connector overlay`, and
    `connector tooltips` rows update.
 21. Hover and select wires in Engine mode. Confirm hover/selection feedback is
@@ -67,8 +69,14 @@ Git commit as the final source of truth when reviewing a pushed change.
 24. Start a wire from a connector. Confirm the source connector highlights blue,
    valid target connectors highlight green, and dropping back on the same
    connector is treated as invalid.
+25. Create a new wire, then click empty canvas. Confirm the wire deselects and
+   loses the orange selected glow.
+26. Create another new wire, then select an existing wire, device, and connector
+   in turn. Confirm only the actual current selection is highlighted.
+27. Delete, undo, and redo a newly created wire. Confirm the restored/redone wire
+   can still be selected and deselected normally.
 
-## Iteration 28 Focus
+## Iteration 28.5 Focus
 
 - Engine Editor is the default editing path.
 - Legacy Editor remains the fallback through `legacy=1` or `engine=0`.
@@ -104,6 +112,9 @@ Git commit as the final source of truth when reviewing a pushed change.
 - Cable-hop rendering is not migrated into the engine visual path yet; existing
   production/export/viewer hop logic remains untouched.
 - Export, reports, and viewer rendering are not migrated in Iteration 28.
+- Newly created wires now use only the central wire-selection state for orange
+  selection glow. Dirty GPU update IDs remain internal bookkeeping and no longer
+  paint stale selected-wire overlays or forced stale labels.
 
 ## Status Legend
 
