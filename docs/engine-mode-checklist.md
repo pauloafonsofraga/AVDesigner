@@ -1,18 +1,18 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
-Iteration 27.5 is a loading and interaction-gate hardening pass before
-Iteration 28. This pass keeps the Iteration 27 wire visuals intact while adding
-a clear Engine Editor loading overlay and blocking canvas interaction until the
-engine scene, WebGL buffers, labels, overlays, and hit-testing are ready.
+Iteration 28 is a connector, node, and hotspot visual interaction parity pass.
+This pass keeps the Iteration 27.5 loading gate intact while making Engine
+connector hover, selected, target, cursor, tooltip, and inspector feedback much
+closer to the Legacy connector behavior.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags. Export, viewer, and report rendering still use the existing
 production paths; those migrations are intentionally deferred.
 
-Current visible build label: `Iteration 27.5`.
+Current visible build label: `Iteration 28`.
 The app top bar must show one of these labels:
 
-- `Iteration 27.5 — Engine Editor — iteration27.5`
-- `Iteration 27.5 — Legacy Editor — iteration27.5`
+- `Iteration 28 — Engine Editor — iteration28`
+- `Iteration 28 — Legacy Editor — iteration28`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -21,20 +21,20 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration27.5`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration27.5`.
+   `index.html?v=iteration28`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration28`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration27.5`.
+   `index.html?engineDefaultTest=1&v=iteration28`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration27.5`.
+   `index.html?legacy=1&v=iteration28`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration27.5`.
+   `index.html?engine=0&v=iteration28`.
 7. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration27.5`.
+   `index.html?engine=1&debugLoad=1&v=iteration28`.
 8. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration27.5`.
+   `index.html?engine=1&loadDelay=1500&v=iteration28`.
 9. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration27.5`.
+   `index.html?engine=1&debugHud=1&v=iteration28`.
 10. Confirm the top bar build label matches the mode you intended to test.
 11. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.
@@ -50,26 +50,42 @@ Git commit as the final source of truth when reviewing a pushed change.
    `node scripts/engine-real-project-validation.mjs "/path/to/project.avd"`
 18. The validation script now includes a long mixed undo/redo chain. Confirm the
    JSON output contains a `longChain` section and all `checks` are `ok: true`.
-19. Compare Engine and Legacy wire rendering with the same project:
-   `index.html?v=iteration27.5` beside `index.html?legacy=1&v=iteration27.5`.
-20. In `index.html?engine=1&debugHud=1&v=iteration27.5`, confirm the HUD
-   `load phase`, `load ready`, and `wire paths` rows update.
+19. Compare Engine and Legacy connector behavior with the same project:
+   `index.html?v=iteration28` beside `index.html?legacy=1&v=iteration28`.
+20. In `index.html?engine=1&debugHud=1&v=iteration28`, confirm the HUD
+   `load phase`, `load ready`, `wire paths`, `connector overlay`, and
+   `connector tooltips` rows update.
 21. Hover and select wires in Engine mode. Confirm hover/selection feedback is
    visibly distinct, selected/hovered labels appear, route-point handles are
    round orange controls, and labels do not block wire selection.
+22. Hover connectors in Engine mode. Confirm the cursor changes to a crosshair,
+   circular connector hover feedback appears, and a small tooltip follows the
+   hovered connector.
+23. Click a connector. Confirm the inspector shows connector details, selected
+   connector state is orange, and selecting a device or wire clears connector
+   selection.
+24. Start a wire from a connector. Confirm the source connector highlights blue,
+   valid target connectors highlight green, and dropping back on the same
+   connector is treated as invalid.
 
-## Iteration 27.5 Focus
+## Iteration 28 Focus
 
 - Engine Editor is the default editing path.
 - Legacy Editor remains the fallback through `legacy=1` or `engine=0`.
-- A clear Engine Editor loading overlay appears during startup scene sync,
-  project file loading, manual engine refresh, and forced debug delays.
-- Pointer and keyboard canvas actions are blocked while the engine is loading.
-- The overlay releases readiness only after the first engine render completes.
-- `debugLoad=1` and `loadDelay=1500` can be used to force visible loading
-  states for manual testing.
-- If an engine rebuild fails, the loading panel exposes a Legacy Editor fallback.
-- Iteration 28 connector/device visual parity work has not started yet.
+- The Iteration 27.5 loading overlay remains intact. Pointer and keyboard canvas
+  actions stay blocked while the engine is loading.
+- Connector markers in Engine are drawn as Legacy-style circular nodes with a
+  white rim instead of square placeholders.
+- Connector hover is rendered as a lightweight blue live overlay.
+- Connector selection is rendered as a lightweight orange live overlay and now
+  updates the temporary Engine Inspector with connector details.
+- Wire creation highlights the source connector, target connector, and invalid
+  same-connector target without changing save/load data.
+- Connector hit testing uses the existing spatial connector index and a
+  Legacy-sized screen-space tolerance.
+- Connector tooltips are drawn on the label canvas for hovered/selected/target
+  connectors only, so labels do not block hit testing.
+- Cursor feedback changes to crosshair over connectors and during wire creation.
 - Normal/default engine wires render as fixed-sample Bezier curves using the
   same control-point rule as Legacy.
 - Engine wire hover and selection render as live overlays without rebuilding the
@@ -87,6 +103,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 - Validation covers isolated command cycles and a longer mixed edit chain.
 - Cable-hop rendering is not migrated into the engine visual path yet; existing
   production/export/viewer hop logic remains untouched.
+- Export, reports, and viewer rendering are not migrated in Iteration 28.
 
 ## Status Legend
 
@@ -105,7 +122,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 | device selection | Click selects one device and inspector updates. | Engine hit-test selects one object and syncs selection. | covered | Manual engine smoke. | low | Repeated-click offset bug fixed before this pass. |
 | multi-device selection | Marquee/keyboard selection selects several objects. | Engine marquee selects multiple objects. | partial | Manual smoke and drag session checks. | medium | Advanced production selection gestures need broader manual coverage. |
 | wire selection | Click wire selects it for inspector/delete. | Engine wire hit-test selects wire. | covered | Manual smoke and validation script delete cycle. | medium | Dense projects still need UX tuning, but data path is covered. |
-| connector selection | Click connector selects connector / starts wire draw. | Engine connector hit-test selects connector and starts wire create. | partial | Manual smoke. | medium | Inspector parity is temporary in engine mode. |
+| connector selection | Click connector selects connector / starts wire draw with circular node feedback. | Engine connector hit-test selects connector, starts wire create, shows circular overlay feedback, and updates the temporary inspector. | covered | Manual Engine vs Legacy connector compare plus HUD connector metrics. | medium | Deeper cable-type compatibility feedback remains future work. |
 | device move | Drag updates device and connected wires. | Drag session commits one position update. | covered | Validation script single move execute/undo/redo. | low | No texture rebuild should happen for position-only move. |
 | multi-device move | Selected group moves together. | One drag session and one mutation for selected group. | covered | Validation script 20-device move execute/undo/redo. | medium | Visual/manual stress remains useful on very large projects. |
 | route point move | Custom route points can move and save. | Route point command writes back to production connection. | covered | Validation script route point move execute/undo/redo. | medium | Custom corner geometry is preserved as data points. |

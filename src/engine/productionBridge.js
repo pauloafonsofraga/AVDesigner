@@ -374,7 +374,7 @@ class ProductionEngineBridge {
       return;
     }
 
-    const connectorHit = hitTestConnector(this.scene, world, tolerance * 1.35);
+    const connectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld());
     if (connectorHit.connector) {
       this.scene.selectConnectorOnly(connectorHit.connector.device.id, connectorHit.connector.connector.id);
       this.beginWireCreate(connectorHit.connector, world);
@@ -446,7 +446,7 @@ class ProductionEngineBridge {
     }
     if (this.wireCreate) {
       const world = screenToWorld(this.camera, point);
-      const connectorHit = hitTestConnector(this.scene, world, this.hitToleranceWorld() * 1.35);
+      const connectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld());
       this.hoverState.connector = connectorHit.connector;
       this.hoverState.hitMs = connectorHit.ms;
       this.hoverState.candidateCount = connectorHit.candidates;
@@ -499,6 +499,7 @@ class ProductionEngineBridge {
     if (this.panState) {
       this.panState = null;
       this.canvas.classList.remove("panning");
+      this.updateCanvasCursor();
     }
     if (this.routePointDrag) {
       const commitStart = performance.now();
@@ -510,6 +511,8 @@ class ProductionEngineBridge {
       this.markCommitted("route point", mutationMs);
       this.recordCommand(routePointCommand(wireId, beforePoints, afterPoints));
       this.routePointDrag = null;
+      this.canvas.classList.remove("dragging");
+      this.updateCanvasCursor();
       this.updateInteractionHud("idle");
       this.hud.setMetric("route point commit", `${(performance.now() - commitStart).toFixed(2)} ms`);
     }
@@ -577,6 +580,7 @@ class ProductionEngineBridge {
       startCamera: { ...this.camera }
     };
     this.canvas.classList.add("panning");
+    this.updateCanvasCursor();
   }
 
   beginPendingDrag(point, worldPoint) {
@@ -589,6 +593,7 @@ class ProductionEngineBridge {
     };
     this.hud.setMetric("drag pending", `${selectedIds.length} object${selectedIds.length === 1 ? "" : "s"}`);
     this.updateInteractionHud("select");
+    this.updateCanvasCursor();
     this.scheduleRender();
   }
 
@@ -603,6 +608,7 @@ class ProductionEngineBridge {
     this.hud.setMetric("dragStart", `${totalMs.toFixed(2)} ms`);
     this.hud.setMetric("affectedLookup", `${this.dragSession.affectedWireLookupMs.toFixed(3)} ms`);
     this.canvas.classList.add("dragging");
+    this.updateCanvasCursor();
     this.captureDebugDragTrace();
     this.scheduleRender();
   }
@@ -620,6 +626,7 @@ class ProductionEngineBridge {
       beforePoints: cloneRoutePoints(routePoint.wire.routePoints)
     };
     this.canvas.classList.add("dragging");
+    this.updateCanvasCursor();
   }
 
   beginWireCreate(connectorHit, worldPoint) {
@@ -629,7 +636,8 @@ class ProductionEngineBridge {
       target: null,
       color: connectorHit.connector.color || "#32b6ff"
     };
-    this.canvas.classList.add("dragging");
+    this.canvas.classList.add("dragging", "wire-creating");
+    this.updateCanvasCursor();
   }
 
   completeWireCreate() {
@@ -637,7 +645,8 @@ class ProductionEngineBridge {
     const source = this.wireCreate?.from;
     const target = this.wireCreate?.target;
     this.wireCreate = null;
-    this.canvas.classList.remove("dragging");
+    this.canvas.classList.remove("dragging", "wire-creating");
+    this.updateCanvasCursor();
     if (!source || !target) {
       this.updateInteractionHud("idle");
       return;
@@ -696,6 +705,7 @@ class ProductionEngineBridge {
     if (Math.abs(this.dragSession.dx) < 0.0001 && Math.abs(this.dragSession.dy) < 0.0001) {
       this.dragSession = null;
       this.canvas.classList.remove("dragging");
+      this.updateCanvasCursor();
       this.updateInteractionHud("idle");
       return;
     }
@@ -726,6 +736,7 @@ class ProductionEngineBridge {
     this.renderer.setRenderOptions(this.renderOptions);
     this.dragSession = null;
     this.canvas.classList.remove("dragging");
+    this.updateCanvasCursor();
     this.hud.setMetric("dropCommit", `${(performance.now() - start).toFixed(2)} ms`);
     this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
     this.hud.setMetric("dirty counts", `${dirtyStats.dirtyDevices} dev / ${dirtyStats.dirtyWires} wires`);
@@ -755,7 +766,8 @@ class ProductionEngineBridge {
     this.routePointDrag = null;
     this.wireCreate = null;
     this.marqueeState = null;
-    this.canvas?.classList.remove("dragging", "panning");
+    this.canvas?.classList.remove("dragging", "panning", "wire-creating");
+    this.updateCanvasCursor();
     if (updateHud) this.updateInteractionHud(reason);
   }
 
@@ -766,7 +778,7 @@ class ProductionEngineBridge {
       : { routePoint: null, candidates: 0, ms: 0 };
     const connectorHit = routeHit.routePoint
       ? { connector: null, candidates: 0, ms: 0 }
-      : hitTestConnector(this.scene, world, tolerance * 1.35);
+      : hitTestConnector(this.scene, world, this.connectorHitToleranceWorld());
     const wireHit = routeHit.routePoint || connectorHit.connector
       ? { wire: null, candidates: 0, ms: 0 }
       : hitTestWire(this.scene, world, tolerance);
@@ -781,16 +793,24 @@ class ProductionEngineBridge {
       candidateCount: routeHit.candidates + connectorHit.candidates + wireHit.candidates,
       hitMs: routeHit.ms + connectorHit.ms + wireHit.ms + deviceHit.ms
     };
+    this.updateCanvasCursor();
     this.updateInteractionHud("hover");
     this.scheduleRender();
   }
 
   interactionRenderState() {
+    const wireTargetValid = this.wireCreate?.target
+      ? !sameConnectorHit(this.wireCreate.from, this.wireCreate.target)
+      : false;
     const tempWire = this.wireCreate
       ? {
         from: this.wireCreate.from.point,
         to: this.wireCreate.target?.point || this.wireCreate.pointerWorld,
-        color: this.wireCreate.color
+        color: this.wireCreate.color,
+        sourceHit: this.wireCreate.from,
+        targetHit: this.wireCreate.target,
+        targetPoint: this.wireCreate.target?.point || null,
+        validTarget: wireTargetValid
       }
       : null;
     return {
@@ -843,6 +863,8 @@ class ProductionEngineBridge {
     this.hud.setMetric("hovered route point", this.hoverState.routePoint ? `${this.hoverState.routePoint.wire.id}:${this.hoverState.routePoint.pointIndex}` : "-");
     this.hud.setMetric("interaction mode", mode);
     this.hud.setMetric("wire creation", this.wireCreate ? wireCreateSummary(this.wireCreate) : "-");
+    this.hud.setMetric("wire target", this.wireCreate?.target ? (sameConnectorHit(this.wireCreate.from, this.wireCreate.target) ? "invalid: same connector" : "valid target") : "-");
+    this.hud.setMetric("selected connector", [...this.scene.selectedConnectorKeys][0] || "-");
     this.hud.setMetric("hit candidates", hit?.candidates ?? this.hoverState.candidateCount ?? 0);
     this.hud.setMetric("hitTest", `${(hit?.ms ?? this.hoverState.hitMs ?? 0).toFixed(3)} ms`);
   }
@@ -888,11 +910,12 @@ class ProductionEngineBridge {
     const selectedDeviceCount = this.scene.selectedIds.size;
     const selectedWireCount = this.scene.selectedWireIds.size;
     const selectedRoutePointCount = this.scene.selectedRoutePointKeys.size;
+    const selectedConnectorCount = this.scene.selectedConnectorKeys.size;
     this.statusPanel.innerHTML = [
       `<strong>WebGL2 engine active</strong>`,
       `<span>${escapeHtml(meta.sourceName || meta.projectName || "Production project")}</span>`,
       `<span>${this.scene.devices.length} objects / ${this.scene.wires.length} wires</span>`,
-      `<span>selected: ${selectedDeviceCount} devices / ${selectedWireCount} wires / ${selectedRoutePointCount} route points</span>`,
+      `<span>selected: ${selectedDeviceCount} devices / ${selectedWireCount} wires / ${selectedConnectorCount} connectors / ${selectedRoutePointCount} route points</span>`,
       `<span>last: ${escapeHtml(this.lastMutationType)}</span>`,
       `<span>history: ${this.commandIndex}/${this.commandHistory.length}</span>`,
       `<span>undo: ${this.commandIndex > 0 ? "yes" : "no"} / redo: ${this.commandIndex < this.commandHistory.length ? "yes" : "no"}</span>`,
@@ -927,7 +950,10 @@ class ProductionEngineBridge {
     const selectedDevices = [...this.scene.selectedIds].map(id => this.scene.getDevice(id)).filter(Boolean);
     const selectedWires = [...this.scene.selectedWireIds].map(id => this.scene.getWire(id)).filter(Boolean);
     const selectedRoutePoints = [...this.scene.selectedRoutePointKeys];
-    if (selectedDevices.length === 1 && !selectedWires.length && !selectedRoutePoints.length) {
+    const selectedConnectors = [...this.scene.selectedConnectorKeys]
+      .map(key => connectorSelectionDetails(this.scene, key))
+      .filter(Boolean);
+    if (selectedDevices.length === 1 && !selectedWires.length && !selectedRoutePoints.length && !selectedConnectors.length) {
       const device = selectedDevices[0];
       const connectedWireCount = this.scene.affectedWireIdsForDevices([device.id]).size;
       this.inspectorPanel.innerHTML = `
@@ -944,7 +970,7 @@ class ProductionEngineBridge {
       `;
       return;
     }
-    if (selectedWires.length === 1 && !selectedDevices.length && !selectedRoutePoints.length) {
+    if (selectedWires.length === 1 && !selectedDevices.length && !selectedRoutePoints.length && !selectedConnectors.length) {
       const wire = selectedWires[0];
       this.inspectorPanel.innerHTML = `
         <h3>Engine Inspector</h3>
@@ -958,7 +984,7 @@ class ProductionEngineBridge {
       `;
       return;
     }
-    if (selectedRoutePoints.length === 1) {
+    if (selectedRoutePoints.length === 1 && !selectedConnectors.length) {
       const [wireId, indexText] = selectedRoutePoints[0].split(":");
       const point = this.scene.getWire(wireId)?.routePoints?.[Number(indexText)];
       this.inspectorPanel.innerHTML = `
@@ -972,12 +998,30 @@ class ProductionEngineBridge {
       `;
       return;
     }
-    if (selectedDevices.length || selectedWires.length || selectedRoutePoints.length) {
+    if (selectedConnectors.length === 1 && !selectedDevices.length && !selectedWires.length && !selectedRoutePoints.length) {
+      const selected = selectedConnectors[0];
+      this.inspectorPanel.innerHTML = `
+        <h3>Engine Inspector</h3>
+        ${detailsMarkup([
+          ["Connector", selected.connector.label || selected.connector.id],
+          ["Device", selected.device.label || selected.device.id],
+          ["Direction", selected.connector.direction || "io"],
+          ["Cable Type", selected.connector.type || "-"],
+          ["Side", selected.connector.side || "-"],
+          ["Position", `${roundForUi(selected.point.x)}, ${roundForUi(selected.point.y)}`],
+          ["Connected Wires", selected.connectedWireIds.length],
+          ["Action", "Drag to a compatible connector to create a wire"]
+        ])}
+      `;
+      return;
+    }
+    if (selectedDevices.length || selectedWires.length || selectedRoutePoints.length || selectedConnectors.length) {
       this.inspectorPanel.innerHTML = `
         <h3>Engine Inspector</h3>
         ${detailsMarkup([
           ["Devices", selectedDevices.length],
           ["Wires", selectedWires.length],
+          ["Connectors", selectedConnectors.length],
           ["Route Points", selectedRoutePoints.length]
         ])}
       `;
@@ -1426,6 +1470,35 @@ class ProductionEngineBridge {
     return screenPixels / Math.max(this.camera.zoom, 0.001);
   }
 
+  connectorHitToleranceWorld(screenPixels = 17) {
+    return this.hitToleranceWorld(screenPixels);
+  }
+
+  updateCanvasCursor() {
+    if (!this.canvas) return;
+    if (this.panState || this.dragSession || this.routePointDrag) {
+      this.canvas.style.cursor = "grabbing";
+      return;
+    }
+    if (this.wireCreate || this.hoverState.connector) {
+      this.canvas.style.cursor = "crosshair";
+      return;
+    }
+    if (this.hoverState.routePoint) {
+      this.canvas.style.cursor = "grab";
+      return;
+    }
+    if (this.hoverState.wire) {
+      this.canvas.style.cursor = "pointer";
+      return;
+    }
+    if (this.hoverState.device) {
+      this.canvas.style.cursor = "grab";
+      return;
+    }
+    this.canvas.style.cursor = "";
+  }
+
   blockInteraction(event, reason = "loading") {
     event?.preventDefault?.();
     event?.stopPropagation?.();
@@ -1454,10 +1527,12 @@ class ProductionEngineBridge {
       this.hud.setMetric("wire paths", `${wirePathStats.bezier || 0} bezier / ${wirePathStats.custom || 0} custom / ${wirePathStats.orthogonal || 0} orthogonal`);
       this.hud.setMetric("selection overlay", `${(frameStats.selectionOverlayMs || 0).toFixed(2)} ms`);
       this.hud.setMetric("interaction overlay", `${(frameStats.interactionOverlayMs || 0).toFixed(2)} ms`);
+      this.hud.setMetric("connector overlay", `${frameStats.connectorOverlayCount || 0} nodes / ${frameStats.wirePreviewDrawn ? "preview" : "idle"}`);
       this.hud.setMetric("label draw", `${(frameStats.labelMs || 0).toFixed(2)} ms`);
       const labelStats = this.renderer.labelStats();
       this.hud.setMetric("wire labels", `${labelStats.wires || 0}`);
       this.hud.setMetric("device labels", `${labelStats.devices || 0}`);
+      this.hud.setMetric("connector tooltips", `${labelStats.connectorTooltips || 0}`);
       this.hud.setMetric("route handles", `${labelStats.routePointHandles || 0}`);
       this.hud.setMetric("texture rebuild/frame", `${frameStats.textureBuilds || 0} build / ${frameStats.textureRebuilds || 0} rebuild`);
       this.hud.setMetric("texture rebuild time/frame", `${(frameStats.textureRebuildMs || 0).toFixed(2)} ms`);
@@ -1626,6 +1701,7 @@ function injectBridgeStyles() {
     .engine-bridge-root.panning,
     .engine-bridge-canvas.panning { cursor: grabbing; }
     .engine-bridge-canvas.dragging { cursor: grabbing; }
+    .engine-bridge-canvas.wire-creating { cursor: crosshair; }
     .engine-bridge-badge {
       position: absolute;
       left: 14px;
@@ -2071,6 +2147,26 @@ function deviceSummary(device) {
 function connectorSummary(hit) {
   if (!hit) return "-";
   return `${hit.device.label || hit.device.id} / ${hit.connector.label || hit.connector.id}`;
+}
+
+function sameConnectorHit(a, b) {
+  if (!a || !b) return false;
+  return a.device?.id === b.device?.id && a.connector?.id === b.connector?.id;
+}
+
+function connectorSelectionDetails(scene, key) {
+  const [deviceId, connectorId] = String(key || "").split(":");
+  const device = scene.getDevice(deviceId);
+  const connector = scene.getConnector(deviceId, connectorId);
+  if (!device || !connector) return null;
+  const point = scene.connectorWorldPoint(device, connector);
+  const connectedWireIds = scene.wires
+    .filter(wire => (
+      (wire.fromDeviceId === deviceId && wire.fromConnectorId === connectorId)
+      || (wire.toDeviceId === deviceId && wire.toConnectorId === connectorId)
+    ))
+    .map(wire => wire.id);
+  return { key, device, connector, point, connectedWireIds };
 }
 
 function wireSummary(wire) {
