@@ -1340,6 +1340,8 @@ class ProductionEngineBridge {
       this.hud.setMetric("rAF visual", `${(performance.now() - rafStart).toFixed(2)} ms`);
       this.hud.setMetric("selected transform", `${(frameStats.selectedObjectOverlayMs || 0).toFixed(2)} ms / ${frameStats.selectedObjects || 0}`);
       this.hud.setMetric("affected wire overlay", `${(frameStats.affectedWireOverlayMs || 0).toFixed(2)} ms / ${frameStats.affectedWires || 0}`);
+      const wirePathStats = this.renderer.wirePathStats();
+      this.hud.setMetric("wire paths", `${wirePathStats.bezier || 0} bezier / ${wirePathStats.custom || 0} custom / ${wirePathStats.orthogonal || 0} orthogonal`);
       this.hud.setMetric("selection overlay", `${(frameStats.selectionOverlayMs || 0).toFixed(2)} ms`);
       this.hud.setMetric("interaction overlay", `${(frameStats.interactionOverlayMs || 0).toFixed(2)} ms`);
       this.hud.setMetric("label draw", `${(frameStats.labelMs || 0).toFixed(2)} ms`);

@@ -521,6 +521,8 @@ function normalizeProjectWire(wire, index, context) {
   const to = normalizeEndpoint(wire.to || { deviceId: wire.toDeviceId }, "to", wire, context);
   if (!from || !to || !context.deviceIds.has(from.deviceId) || !context.deviceIds.has(to.deviceId)) return null;
   const cableType = String(wire.cableType || wire.type || "");
+  const usesOrthogonalRoute = Array.isArray(wire.orthogonalRoutePoints);
+  const routePoints = normalizeRoutePoints(usesOrthogonalRoute ? wire.orthogonalRoutePoints : wire.routePoints);
   return {
     id: String(wire.id || `project-wire-${index}`),
     sourceKind: "connection",
@@ -533,7 +535,8 @@ function normalizeProjectWire(wire, index, context) {
     toSide: to.side,
     fromPortIndex: from.portIndex ?? index % 4,
     toPortIndex: to.portIndex ?? (index * 3) % 4,
-    routePoints: normalizeRoutePoints(wire.routePoints || wire.orthogonalRoutePoints),
+    routePoints,
+    routeStyle: usesOrthogonalRoute ? "orthogonal" : routePoints.length ? "custom" : "bezier",
     fromUsesRealConnector: Boolean(from.usesRealConnector),
     toUsesRealConnector: Boolean(to.usesRealConnector),
     usesRealConnectorEndpoints: Boolean(from.usesRealConnector && to.usesRealConnector),

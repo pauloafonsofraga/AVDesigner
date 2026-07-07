@@ -1,4 +1,5 @@
 import { SpatialIndex } from "./spatialIndex.js";
+import { wirePolylineFromPoints } from "./wirePath.js";
 
 export class SceneGraph {
   constructor() {
@@ -109,7 +110,7 @@ export class SceneGraph {
   rebuildWireSpatialIndex() {
     const items = this.wires.map(wire => ({
       id: wire.id,
-      bounds: inflateBounds(pointsBounds(this.wirePoints(wire)), 28),
+      bounds: inflateBounds(pointsBounds(this.wireRenderPolyline(wire)), 28),
       wire
     }));
     this.wireIndex.rebuild(items);
@@ -167,9 +168,10 @@ export class SceneGraph {
       const wire = this.getWire(wireId);
       this.wireIndex.delete(wireId);
       if (!wire) return;
-      this.wireIndex.insert(wire.id, inflateBounds(pointsBounds(this.wirePoints(wire)), 28), {
+      const bounds = inflateBounds(pointsBounds(this.wireRenderPolyline(wire)), 28);
+      this.wireIndex.insert(wire.id, bounds, {
         id: wire.id,
-        bounds: inflateBounds(pointsBounds(this.wirePoints(wire)), 28),
+        bounds,
         wire
       });
     });
@@ -449,6 +451,10 @@ export class SceneGraph {
     return [from, ...routePoints, to];
   }
 
+  wireRenderPolyline(wire, offsetMap = null) {
+    return wirePolylineFromPoints(wire, this.wirePoints(wire, offsetMap));
+  }
+
   routePointOffsetForWire(wire, offsetMap = null) {
     if (!offsetMap || !wire.routePoints?.length) return { dx: 0, dy: 0 };
     const fromOffset = offsetMap.get(wire.fromDeviceId);
@@ -626,6 +632,7 @@ function normalizeWire(wire) {
         .map(point => ({ x: Number(point.x), y: Number(point.y) }))
         .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y))
       : [],
+    routeStyle: wire.routeStyle === "orthogonal" ? "orthogonal" : wire.routePoints?.length ? "custom" : "bezier",
     fromUsesRealConnector: Boolean(wire.fromUsesRealConnector),
     toUsesRealConnector: Boolean(wire.toUsesRealConnector),
     usesRealConnectorEndpoints: Boolean(wire.usesRealConnectorEndpoints),

@@ -1,4 +1,5 @@
 import { TextureCache } from "./textureCache.js";
+import { wirePathStatsForWires, wirePolylineFromPoints } from "./wirePath.js";
 
 const DEVICE_FILL = "#182531";
 const DEVICE_SELECTED = "#ff7904";
@@ -77,6 +78,7 @@ export class WebglGraphRenderer {
     this.lastTextureStats = null;
     this.lastTextureDrawStats = null;
     this.lastFrameStats = null;
+    this.lastWirePathStats = { bezier: 0, custom: 0, orthogonal: 0 };
     this.lastLayerTrace = null;
     this.lastActiveLayerTrace = null;
     this.textureCache = new TextureCache(this.gl);
@@ -132,6 +134,7 @@ export class WebglGraphRenderer {
     scene.wires.forEach(wire => {
       this.wireVertexMap.set(wire.id, verticesForWire(scene, wire, null, 2.2, wireColor(wire, this.renderOptions), this.renderOptions));
     });
+    this.lastWirePathStats = wirePathStatsForWires(scene.wires);
     scene.devices.forEach(device => {
       this.deviceVertexMap.set(device.id, verticesForDevice(device, null, this.renderOptions));
     });
@@ -209,6 +212,10 @@ export class WebglGraphRenderer {
 
   frameStats() {
     return this.lastFrameStats || {};
+  }
+
+  wirePathStats() {
+    return this.lastWirePathStats || { bezier: 0, custom: 0, orthogonal: 0 };
   }
 
   layerTrace() {
@@ -367,6 +374,7 @@ export class WebglGraphRenderer {
     scene.wires.forEach(wire => {
       this.wireVertexMap.set(wire.id, verticesForWire(scene, wire, null, 2.2, wireColor(wire, this.renderOptions), this.renderOptions));
     });
+    this.lastWirePathStats = wirePathStatsForWires(scene.wires);
     const geometryMs = performance.now() - geometryStart;
     const uploadStart = performance.now();
     const wirePack = packVertexMap(this.wireVertexMap);
@@ -882,7 +890,12 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
   }
 
   if (interaction.tempWire?.from && interaction.tempWire?.to) {
-    pushLine(vertices, interaction.tempWire.from, interaction.tempWire.to, 3.4, interaction.tempWire.color || "#32b6ff");
+    pushPolyline(
+      vertices,
+      wirePolylineFromPoints({ routeStyle: "bezier", routePoints: [] }, [interaction.tempWire.from, interaction.tempWire.to]),
+      3.4,
+      interaction.tempWire.color || "#32b6ff"
+    );
     pushConnectorHighlight(vertices, interaction.tempWire.from, 11, "#32b6ff");
   }
 
@@ -969,15 +982,19 @@ function pushSelectionOutline(vertices, device, offsets = null) {
 }
 
 function pushWire(vertices, scene, wire, offsets, width, color, options = DEFAULT_RENDER_OPTIONS) {
-  const points = scene.wirePoints(wire, offsets);
-  for (let index = 1; index < points.length; index += 1) {
-    pushLine(vertices, points[index - 1], points[index], width, color);
-  }
+  const points = scene.wireRenderPolyline(wire, offsets);
+  pushPolyline(vertices, points, width, color);
   if (options.routePoints && wire.routePoints?.length) {
     const routeOffset = scene.routePointOffsetForWire(wire, offsets);
     wire.routePoints.forEach(point => {
       pushRect(vertices, point.x + routeOffset.dx - 4, point.y + routeOffset.dy - 4, 8, 8, ROUTE_POINT_COLOR);
     });
+  }
+}
+
+function pushPolyline(vertices, points, width, color) {
+  for (let index = 1; index < points.length; index += 1) {
+    pushLine(vertices, points[index - 1], points[index], width, color);
   }
 }
 

@@ -39,6 +39,7 @@ export class PerfHud {
       ["delete wire commit", () => this.metric("delete wire commit")],
       ["selected transform", () => this.metric("selected transform")],
       ["affected wire overlay", () => this.metric("affected wire overlay")],
+      ["wire paths", () => this.metric("wire paths")],
       ["selection overlay", () => this.metric("selection overlay")],
       ["interaction overlay", () => this.metric("interaction overlay")],
       ["label draw", () => this.metric("label draw")],
