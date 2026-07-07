@@ -1,19 +1,18 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
-Iteration 28.5 is a small wire-selection correctness pass after the Iteration 28
-connector, node, and hotspot visual interaction parity work. This pass keeps the
-Iteration 27.5 loading gate and Iteration 28 connector feedback intact while
-fixing newly created wires so they follow the same selection and deselection
-rules as existing wires.
+Iteration 29 is the device and object visual interaction parity pass. It keeps
+the Iteration 27.5 loading gate, Iteration 28 connector feedback, and Iteration
+28.5 new-wire selection fix intact while adding Engine-side object hover,
+selection, labels, and zoomed-out hover tooltips.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags. Export, viewer, and report rendering still use the existing
 production paths; those migrations are intentionally deferred.
 
-Current visible build label: `Iteration 28.5`.
+Current visible build label: `Iteration 29`.
 The app top bar must show one of these labels:
 
-- `Iteration 28.5 — Engine Editor — iteration28-wireselect`
-- `Iteration 28.5 — Legacy Editor — iteration28-wireselect`
+- `Iteration 29 — Engine Editor — iteration29`
+- `Iteration 29 — Legacy Editor — iteration29`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -22,20 +21,20 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration28-wireselect`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration28-wireselect`.
+   `index.html?v=iteration29`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration29`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration28-wireselect`.
+   `index.html?engineDefaultTest=1&v=iteration29`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration28-wireselect`.
+   `index.html?legacy=1&v=iteration29`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration28-wireselect`.
+   `index.html?engine=0&v=iteration29`.
 7. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration28-wireselect`.
+   `index.html?engine=1&debugLoad=1&v=iteration29`.
 8. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration28-wireselect`.
+   `index.html?engine=1&loadDelay=1500&v=iteration29`.
 9. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration28-wireselect`.
+   `index.html?engine=1&debugHud=1&v=iteration29`.
 10. Confirm the top bar build label matches the mode you intended to test.
 11. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.
@@ -52,9 +51,9 @@ Git commit as the final source of truth when reviewing a pushed change.
 18. The validation script now includes a long mixed undo/redo chain. Confirm the
    JSON output contains a `longChain` section and all `checks` are `ok: true`.
 19. Compare Engine and Legacy connector behavior with the same project:
-   `index.html?v=iteration28-wireselect` beside
-   `index.html?legacy=1&v=iteration28-wireselect`.
-20. In `index.html?engine=1&debugHud=1&v=iteration28-wireselect`, confirm the HUD
+   `index.html?v=iteration29` beside
+   `index.html?legacy=1&v=iteration29`.
+20. In `index.html?engine=1&debugHud=1&v=iteration29`, confirm the HUD
    `load phase`, `load ready`, `wire paths`, `connector overlay`, and
    `connector tooltips` rows update.
 21. Hover and select wires in Engine mode. Confirm hover/selection feedback is
@@ -75,8 +74,14 @@ Git commit as the final source of truth when reviewing a pushed change.
    in turn. Confirm only the actual current selection is highlighted.
 27. Delete, undo, and redo a newly created wire. Confirm the restored/redone wire
    can still be selected and deselected normally.
+28. Hover normal devices, jump nodes, LED surfaces, and adapters. Confirm a
+   lightweight blue object outline appears without texture rebuilds.
+29. Select one object and several objects. Confirm selected objects use the
+   orange multi-layer outline and selected labels stay readable.
+30. Zoom out below the detail threshold and hover a device. Confirm the fast
+   black hover tooltip follows the pointer and does not block selection.
 
-## Iteration 28.5 Focus
+## Iteration 29 Focus
 
 - Engine Editor is the default editing path.
 - Legacy Editor remains the fallback through `legacy=1` or `engine=0`.
@@ -100,6 +105,12 @@ Git commit as the final source of truth when reviewing a pushed change.
   static scene.
 - Engine wire labels use the existing label canvas so captions do not intercept
   pointer events.
+- Engine object hover and selection outlines are drawn as live overlays, not as
+  texture changes.
+- Engine object labels use the label canvas, with stronger selected/hovered
+  treatment and a zoomed-out hover tooltip.
+- Jump nodes and LED surfaces use the same object hover/selection overlay path
+  as regular devices.
 - Wire labels follow the legacy detail rule: visible at close zoom, and always
   visible for selected/hovered wires.
 - Custom route-point handles use the legacy orange circular handle affordance.
@@ -111,7 +122,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 - Validation covers isolated command cycles and a longer mixed edit chain.
 - Cable-hop rendering is not migrated into the engine visual path yet; existing
   production/export/viewer hop logic remains untouched.
-- Export, reports, and viewer rendering are not migrated in Iteration 28.
+- Export, reports, and viewer rendering are not migrated in Iteration 29.
 - Newly created wires now use only the central wire-selection state for orange
   selection glow. Dirty GPU update IDs remain internal bookkeeping and no longer
   paint stale selected-wire overlays or forced stale labels.

@@ -448,6 +448,10 @@ class ProductionEngineBridge {
       const world = screenToWorld(this.camera, point);
       const connectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld());
       this.hoverState.connector = connectorHit.connector;
+      this.hoverState.device = null;
+      this.hoverState.wire = null;
+      this.hoverState.routePoint = null;
+      this.hoverState.screenPoint = point;
       this.hoverState.hitMs = connectorHit.ms;
       this.hoverState.candidateCount = connectorHit.candidates;
       this.wireCreate.pointerWorld = world;
@@ -486,7 +490,7 @@ class ProductionEngineBridge {
       this.scheduleRender();
       return;
     }
-    this.updateHover(screenToWorld(this.camera, point));
+    this.updateHover(screenToWorld(this.camera, point), point);
     this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
   }
 
@@ -771,7 +775,7 @@ class ProductionEngineBridge {
     if (updateHud) this.updateInteractionHud(reason);
   }
 
-  updateHover(world) {
+  updateHover(world, screenPoint = null) {
     const tolerance = this.hitToleranceWorld();
     const routeHit = this.renderOptions.routePoints
       ? hitTestRoutePoint(this.scene, world, tolerance * 1.2)
@@ -790,6 +794,7 @@ class ProductionEngineBridge {
       connector: connectorHit.connector,
       wire: wireHit.wire,
       routePoint: routeHit.routePoint,
+      screenPoint,
       candidateCount: routeHit.candidates + connectorHit.candidates + wireHit.candidates,
       hitMs: routeHit.ms + connectorHit.ms + wireHit.ms + deviceHit.ms
     };
@@ -815,8 +820,10 @@ class ProductionEngineBridge {
       : null;
     return {
       hoveredConnector: this.hoverState.connector,
+      hoveredDevice: this.hoverState.device,
       hoveredWire: this.hoverState.wire,
       hoveredRoutePoint: this.hoverState.routePoint,
+      hoverScreenPoint: this.hoverState.screenPoint,
       selectedConnectors: this.scene.selectedConnectorKeys,
       selectedRoutePoints: this.scene.selectedRoutePointKeys,
       tempWire,
@@ -1532,6 +1539,8 @@ class ProductionEngineBridge {
       const labelStats = this.renderer.labelStats();
       this.hud.setMetric("wire labels", `${labelStats.wires || 0}`);
       this.hud.setMetric("device labels", `${labelStats.devices || 0}`);
+      this.hud.setMetric("object hover overlay", `${(frameStats.objectHoverOverlayMs || 0).toFixed(2)} ms / ${frameStats.objectHoverOverlays || 0}`);
+      this.hud.setMetric("object hover tooltip", `${labelStats.objectHoverTooltips || 0}`);
       this.hud.setMetric("connector tooltips", `${labelStats.connectorTooltips || 0}`);
       this.hud.setMetric("route handles", `${labelStats.routePointHandles || 0}`);
       this.hud.setMetric("texture rebuild/frame", `${frameStats.textureBuilds || 0} build / ${frameStats.textureRebuilds || 0} rebuild`);

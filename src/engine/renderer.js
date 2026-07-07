@@ -3,6 +3,7 @@ import { wirePathStatsForWires, wirePolylineFromPoints } from "./wirePath.js";
 
 const DEVICE_FILL = "#182531";
 const DEVICE_SELECTED = "#ff7904";
+const DEVICE_HOVER = "#32b6ff";
 const PORT_COLOR = "#32b6ff";
 const WIRE_FALLBACK = "#32b6ff";
 const GRID_MINOR = "rgba(255,255,255,.055)";
@@ -13,6 +14,7 @@ const REAL_ENDPOINT_WIRE_COLOR = "#32b6ff";
 const ROUTED_WIRE_COLOR = "#ff7904";
 const WIRE_BASE_WIDTH = 4.6;
 const WIRE_LABEL_ZOOM_THRESHOLD = 0.55;
+const DEVICE_HOVER_TOOLTIP_ZOOM_THRESHOLD = 0.55;
 const CONNECTOR_RADIUS = 7;
 const JUMP_CONNECTOR_RADIUS = 12;
 
@@ -461,6 +463,9 @@ export class WebglGraphRenderer {
       deviceLabels: 0,
       routePointHandles: 0,
       connectorTooltips: 0,
+      objectHoverTooltips: 0,
+      objectHoverOverlays: 0,
+      objectHoverOverlayMs: 0,
       connectorOverlayCount: 0,
       wirePreviewDrawn: 0,
       textureBuilds: 0,
@@ -538,6 +543,13 @@ export class WebglGraphRenderer {
     } else {
       const selectionStart = performance.now();
       if (!renderOptions.hideSelectionOverlay) {
+        const hoverOverlayStart = performance.now();
+        const hoveredDevice = interaction.hoveredDevice?.device || interaction.hoveredDevice || null;
+        if (hoveredDevice && !(options.selectedIds || new Set()).has(hoveredDevice.id)) {
+          pushHoverOutline(liveVertices, hoveredDevice, null);
+          frameStats.objectHoverOverlays = 1;
+        }
+        frameStats.objectHoverOverlayMs = performance.now() - hoverOverlayStart;
         (options.selectedIds || new Set()).forEach(id => {
           const device = scene.getDevice(id);
           if (device) pushSelectionOutline(liveVertices, device, null);
@@ -568,6 +580,7 @@ export class WebglGraphRenderer {
     frameStats.deviceLabels = this.lastLabelStats.devices || 0;
     frameStats.routePointHandles = this.lastLabelStats.routePointHandles || 0;
     frameStats.connectorTooltips = this.lastLabelStats.connectorTooltips || 0;
+    frameStats.objectHoverTooltips = this.lastLabelStats.objectHoverTooltips || 0;
     const textureAfter = this.textureCache.stats();
     frameStats.textureBuilds = textureAfter.builds - textureBefore.builds;
     frameStats.textureRebuilds = textureAfter.rebuilds - textureBefore.rebuilds;
@@ -589,7 +602,7 @@ export class WebglGraphRenderer {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, this.resolution.width, this.resolution.height);
     const renderOptions = options.renderOptions || this.renderOptions;
-    this.lastLabelStats = { devices: 0, wires: 0, routePointHandles: 0, connectorTooltips: 0 };
+    this.lastLabelStats = { devices: 0, wires: 0, routePointHandles: 0, connectorTooltips: 0, objectHoverTooltips: 0 };
     if (!renderOptions.labels || renderOptions.hideLabels) return;
     if (camera.zoom < 0.08) return;
     const view = {
@@ -599,28 +612,39 @@ export class WebglGraphRenderer {
       height: this.resolution.height / camera.zoom
     };
     const visible = scene.spatialIndex.queryRect(view).map(item => item.payload?.device).filter(Boolean);
-    if (visible.length > 1500) return;
     const dragSession = options.dragSession || null;
     const offsets = dragSession?.offsetMap();
+    const selectedIds = options.selectedIds || new Set();
+    const hoveredDevice = options.interactionState?.hoveredDevice?.device || options.interactionState?.hoveredDevice || null;
+    const hoveredDeviceId = hoveredDevice?.id || "";
     const drawn = new Set();
     let deviceLabelCount = 0;
-    visible.forEach(device => {
-      drawn.add(device.id);
-      this.recordObjectLayer(options.layerTrace, device.id, "labelLayer", "drawn");
-      if (deviceVisible(device, renderOptions)) {
-        drawDeviceLabel(ctx, device, camera, offsets);
-        deviceLabelCount += 1;
-      }
-    });
-    (options.selectedIds || new Set()).forEach(id => {
+    if (visible.length <= 1500) {
+      visible.forEach(device => {
+        drawn.add(device.id);
+        this.recordObjectLayer(options.layerTrace, device.id, "labelLayer", "drawn");
+        if (deviceVisible(device, renderOptions)) {
+          const tone = selectedIds.has(device.id) ? "selected" : hoveredDeviceId === device.id ? "hover" : "normal";
+          drawDeviceLabel(ctx, device, camera, offsets, tone);
+          deviceLabelCount += 1;
+        }
+      });
+    }
+    selectedIds.forEach(id => {
       if (drawn.has(id)) return;
       const device = scene.getDevice(id);
       this.recordObjectLayer(options.layerTrace, id, "labelLayer", device ? "drawn-selected" : "missing");
       if (device && deviceVisible(device, renderOptions)) {
-        drawDeviceLabel(ctx, device, camera, offsets);
+        drawDeviceLabel(ctx, device, camera, offsets, "selected");
         deviceLabelCount += 1;
+        drawn.add(id);
       }
     });
+    if (hoveredDevice && !drawn.has(hoveredDevice.id) && deviceVisible(hoveredDevice, renderOptions)) {
+      drawDeviceLabel(ctx, hoveredDevice, camera, offsets, selectedIds.has(hoveredDevice.id) ? "selected" : "hover");
+      deviceLabelCount += 1;
+      drawn.add(hoveredDevice.id);
+    }
     let wireLabelCount = 0;
     if (renderOptions.wires) {
       const selectedWireIds = options.selectedWireIds || new Set();
@@ -661,11 +685,21 @@ export class WebglGraphRenderer {
       drawConnectorTooltip(ctx, entry, camera, offsets);
       connectorTooltipCount += 1;
     });
+    let objectHoverTooltipCount = 0;
+    if (
+      hoveredDevice
+      && !dragSession
+      && camera.zoom < DEVICE_HOVER_TOOLTIP_ZOOM_THRESHOLD
+      && drawObjectHoverTooltip(ctx, hoveredDevice, camera, offsets, options.interactionState?.hoverScreenPoint, this.resolution)
+    ) {
+      objectHoverTooltipCount = 1;
+    }
     this.lastLabelStats = {
       devices: deviceLabelCount,
       wires: wireLabelCount,
       routePointHandles: countRoutePointHandles(scene, options.selectedWireIds, options.interactionState),
-      connectorTooltips: connectorTooltipCount
+      connectorTooltips: connectorTooltipCount,
+      objectHoverTooltips: objectHoverTooltipCount
     };
   }
 
@@ -1062,15 +1096,42 @@ function connectorVisualRadius(device = {}) {
 }
 
 function pushSelectionOutline(vertices, device, offsets = null) {
+  pushObjectOutline(vertices, device, offsets, [
+    { expand: 15, width: 11, color: "rgba(255,121,4,.13)" },
+    { expand: 11, width: 6.5, color: "rgba(255,121,4,.32)" },
+    { expand: 7, width: 2.8, color: DEVICE_SELECTED }
+  ]);
+}
+
+function pushHoverOutline(vertices, device, offsets = null) {
+  pushObjectOutline(vertices, device, offsets, [
+    { expand: 12, width: 8, color: "rgba(50,182,255,.12)" },
+    { expand: 8, width: 4.2, color: "rgba(50,182,255,.38)" },
+    { expand: 5, width: 1.8, color: DEVICE_HOVER }
+  ]);
+}
+
+function pushObjectOutline(vertices, device, offsets = null, layers = []) {
   const offset = offsets?.get(device.id);
-  const x = device.x + (offset?.dx || 0) - 7;
-  const y = device.y + (offset?.dy || 0) - 7;
-  const w = device.width + 14;
-  const h = device.height + 14;
-  pushLine(vertices, { x, y }, { x: x + w, y }, 4, DEVICE_SELECTED);
-  pushLine(vertices, { x: x + w, y }, { x: x + w, y: y + h }, 4, DEVICE_SELECTED);
-  pushLine(vertices, { x: x + w, y: y + h }, { x, y: y + h }, 4, DEVICE_SELECTED);
-  pushLine(vertices, { x, y: y + h }, { x, y }, 4, DEVICE_SELECTED);
+  const x = device.x + (offset?.dx || 0);
+  const y = device.y + (offset?.dy || 0);
+  if (device.kind === "jump") {
+    const center = { x: x + device.width / 2, y: y + device.height / 2 };
+    const radius = Math.max(device.width, device.height) / 2;
+    layers.forEach(layer => {
+      pushCircleOutline(vertices, center, radius + layer.expand, layer.width, layer.color, 34);
+    });
+    return;
+  }
+  layers.forEach(layer => {
+    const rect = {
+      x: x - layer.expand,
+      y: y - layer.expand,
+      width: device.width + layer.expand * 2,
+      height: device.height + layer.expand * 2
+    };
+    pushBoxOutline(vertices, rect, layer.width, layer.color);
+  });
 }
 
 function pushWireSelection(vertices, scene, wire, offsets, options = DEFAULT_RENDER_OPTIONS) {
@@ -1348,23 +1409,66 @@ function drawConnectorTooltip(ctx, entry, camera, offsets = null) {
   ctx.restore();
 }
 
-function drawDeviceLabel(ctx, device, camera, offsets = null) {
+function drawDeviceLabel(ctx, device, camera, offsets = null, tone = "normal") {
   const offset = offsets?.get(device.id);
   const x = (device.x + (offset?.dx || 0) - camera.x) * camera.zoom;
   const y = (device.y + (offset?.dy || 0) - camera.y) * camera.zoom;
-  const text = String(device.label || device.id || "").trim();
+  const text = deviceLabel(device);
   if (!text) return;
-  const size = Math.max(9, Math.min(16, 11 * Math.sqrt(camera.zoom)));
-  ctx.font = `700 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  const toneBoost = tone === "selected" ? 1.1 : tone === "hover" ? 1.06 : 1;
+  const size = Math.max(9, Math.min(17, 11 * Math.sqrt(camera.zoom) * toneBoost));
+  ctx.save();
+  ctx.font = `800 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
   ctx.textBaseline = "top";
   ctx.lineJoin = "round";
+  ctx.shadowColor = tone === "selected"
+    ? "rgba(255,121,4,.68)"
+    : tone === "hover"
+      ? "rgba(50,182,255,.58)"
+      : "transparent";
+  ctx.shadowBlur = tone === "normal" ? 0 : 10;
   ctx.strokeStyle = "rgba(0,0,0,.78)";
-  ctx.lineWidth = Math.max(2, size * 0.22);
+  ctx.lineWidth = Math.max(2.2, size * 0.24);
   ctx.fillStyle = "#ffffff";
   const labelX = x + 8;
   const labelY = y + 7;
   ctx.strokeText(text, labelX, labelY);
   ctx.fillText(text, labelX, labelY);
+  ctx.restore();
+}
+
+function drawObjectHoverTooltip(ctx, device, camera, offsets = null, screenPoint = null, resolution = { width: 0, height: 0 }) {
+  const text = deviceLabel(device);
+  if (!text) return false;
+  const offset = offsets?.get(device.id) || { dx: 0, dy: 0 };
+  const anchor = screenPoint || {
+    x: (device.x + offset.dx + device.width - camera.x) * camera.zoom,
+    y: (device.y + offset.dy + device.height - camera.y) * camera.zoom
+  };
+  const size = 12;
+  ctx.save();
+  ctx.font = `800 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  const paddingX = 8;
+  const paddingY = 5;
+  const width = Math.min(280, Math.max(64, ctx.measureText(text).width + paddingX * 2));
+  const height = size + paddingY * 2;
+  const maxX = Math.max(8, (resolution.width || 0) - width - 8);
+  const maxY = Math.max(8, (resolution.height || 0) - height - 8);
+  const boxX = Math.min(maxX, Math.max(8, anchor.x + 16));
+  const boxY = Math.min(maxY, Math.max(8, anchor.y + 18));
+  ctx.fillStyle = "rgba(5, 8, 12, .94)";
+  ctx.strokeStyle = DEVICE_HOVER;
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.rect(boxX, boxY, width, height);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#ffffff";
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  ctx.fillText(text, boxX + paddingX, boxY + height / 2, width - paddingX * 2);
+  ctx.restore();
+  return true;
 }
 
 function pushRect(vertices, x, y, width, height, colorValue) {
