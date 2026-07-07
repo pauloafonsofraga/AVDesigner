@@ -3749,7 +3749,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 29.9 — Engine Editor — iteration29-9</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 30 — Engine Editor — iteration30</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -4455,8 +4455,8 @@
   </div>
 
   <script>
-    const APP_ITERATION = "29.9";
-    const APP_BUILD_ID = "iteration29-9";
+    const APP_ITERATION = "30";
+    const APP_BUILD_ID = "iteration30";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const SVG_NS = "http://www.w3.org/2000/svg";
     const DEVICE_WIDTH = 380;
@@ -55117,6 +55117,26 @@ fit();
             canvasWrap,
             getProjectData: projectSnapshotData,
             onEngineSelection: syncProductionSelectionFromEngine,
+            onEngineContextMenu: ({ event, target }) => {
+              hideDeviceContextMenu();
+              if (!target) return;
+              if (target.type === "device") {
+                showDeviceContextMenu(event, target.sourceId);
+                return;
+              }
+              if (target.type === "led-surface") {
+                showLedSurfaceContextMenu(event, target.sourceId);
+                return;
+              }
+              if (target.type === "wire") {
+                showWireContextMenu(event, target.wireId);
+                return;
+              }
+              if (target.type === "wire-corner") {
+                showWireCornerContextMenu(event, target.wireId, target.pointIndex);
+                return;
+              }
+            },
             onEngineBeforeCommit: ({ type }) => {
               pushUndo();
               console.info("[engine-bridge] production undo snapshot captured", { type });

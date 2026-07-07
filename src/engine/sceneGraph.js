@@ -277,6 +277,9 @@ export class SceneGraph {
   }
 
   toggleSelection(id) {
+    this.selectedWireIds.clear();
+    this.selectedConnectorKeys.clear();
+    this.selectedRoutePointKeys.clear();
     if (this.selectedIds.has(id)) this.selectedIds.delete(id);
     else this.selectedIds.add(id);
   }

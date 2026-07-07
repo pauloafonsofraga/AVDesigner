@@ -1,22 +1,22 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
-Iteration 29.9 fixes zoomed-out device label overflow after the Iteration 29.8
-idle selected/hover wire z-order fix around jump nodes, the Iteration 29.7
-selected/hover affected-wire drag ghost fix, and the Iteration 29.6 jump-node
-wire ownership cleanup pass. It keeps the Iteration 27.5 loading gate,
-Iteration 28 connector feedback, Iteration 28.5 new-wire selection fix, and
-Iteration 29.5 object-first jump-node selection intact while ensuring
-zoomed-out device labels stay inside their object bounds or fall back to the
-fast hover tooltip.
+Iteration 30 polishes canvas-level Engine Editor interaction after the
+Iteration 29.9 zoomed-out label fix, the Iteration 29.8 idle selected/hover wire
+z-order fix around jump nodes, the Iteration 29.7 selected/hover affected-wire
+drag ghost fix, and the Iteration 29.6 jump-node wire ownership cleanup pass.
+It keeps the Iteration 27.5 loading gate, Iteration 28 connector feedback,
+Iteration 28.5 new-wire selection fix, and Iteration 29.5 object-first jump-node
+selection intact while hardening selection transitions, hover cleanup, cursor
+states, context-menu forwarding, and hit-test priority.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags. Export, viewer, and report rendering still use the existing
 production paths; those migrations are intentionally deferred.
 
-Current visible build label: `Iteration 29.9`.
+Current visible build label: `Iteration 30`.
 The app top bar must show one of these labels:
 
-- `Iteration 29.9 — Engine Editor — iteration29-9`
-- `Iteration 29.9 — Legacy Editor — iteration29-9`
+- `Iteration 30 — Engine Editor — iteration30`
+- `Iteration 30 — Legacy Editor — iteration30`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -25,20 +25,20 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration29-9`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration29-9`.
+   `index.html?v=iteration30`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration30`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration29-9`.
+   `index.html?engineDefaultTest=1&v=iteration30`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration29-9`.
+   `index.html?legacy=1&v=iteration30`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration29-9`.
+   `index.html?engine=0&v=iteration30`.
 7. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration29-9`.
+   `index.html?engine=1&debugLoad=1&v=iteration30`.
 8. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration29-9`.
+   `index.html?engine=1&loadDelay=1500&v=iteration30`.
 9. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration29-9`.
+   `index.html?engine=1&debugHud=1&v=iteration30`.
 10. Confirm the top bar build label matches the mode you intended to test.
 11. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.
@@ -55,9 +55,9 @@ Git commit as the final source of truth when reviewing a pushed change.
 18. The validation script now includes a long mixed undo/redo chain. Confirm the
    JSON output contains a `longChain` section and all `checks` are `ok: true`.
 19. Compare Engine and Legacy connector behavior with the same project:
-   `index.html?v=iteration29-9` beside
-   `index.html?legacy=1&v=iteration29-9`.
-20. In `index.html?engine=1&debugHud=1&v=iteration29-9`, confirm the HUD
+   `index.html?v=iteration30` beside
+   `index.html?legacy=1&v=iteration30`.
+20. In `index.html?engine=1&debugHud=1&v=iteration30`, confirm the HUD
    `load phase`, `load ready`, `wire paths`, `connector overlay`, and
    `connector tooltips` rows update.
 21. Hover and select wires in Engine mode. Confirm hover/selection feedback is
@@ -89,7 +89,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 32. Start a wire from a normal connector and hover/drop on a jump node. Confirm
    the jump endpoint can still act as the wire target without leaving a stale
    connector selection overlay.
-33. Open `index.html?engine=1&debugHud=1&debugLayers=1&v=iteration29-9`, drag
+33. Open `index.html?engine=1&debugHud=1&debugLayers=1&v=iteration30`, drag
    a connected jump node with its connected wire selected, and confirm no stale
    selected or hovered wire remains at the original jump-node position.
 34. In the debug layer panel for that same drag, confirm the connected wire has
@@ -109,6 +109,35 @@ Git commit as the final source of truth when reviewing a pushed change.
    black hover tooltip still shows the full device name.
 39. With the expanded engine HUD open, confirm `device labels hidden` and
    `device labels truncated` update as zoom changes.
+
+## Iteration 30 Focus
+
+- Engine Editor selection now keeps one active selection family at a time:
+  object selections clear stale wire/connector/route-point selections, wire
+  selections clear object/connector state, and Escape clears selection when no
+  interaction is active.
+- Empty-canvas clicks still start the existing Engine marquee path and clear the
+  current selection unless a selection modifier is held.
+- Shift, Cmd, and Ctrl act as Engine multi-select modifiers for object and wire
+  toggling. This is intentionally broader than the older Shift-only path and is
+  documented as an Engine convenience.
+- Pointer capture is now taken only for left-button Engine interactions or
+  middle-button pan. Right-click no longer starts or captures a drag path.
+- Right-clicks in Engine mode use Engine hit testing, then forward device, LED
+  surface, wire, and wire-corner targets to the existing production context
+  menus. Connector and jump-node context menus remain intentionally limited:
+  they select/update the inspector but do not open a new menu yet.
+- Hover state is cleared on pan start, zoom, empty-canvas selection changes,
+  completed/cancelled drags, completed wire creation, Escape, pointercancel, and
+  lost pointer capture.
+- Cursor state is centralized in the bridge and reported in the optional HUD:
+  loading uses wait, pan/drag uses grabbing, objects/route points use grab,
+  connectors/wire creation/marquee use crosshair, and wires use pointer.
+- Engine hit-test priority is explicit in the bridge: route-point handles,
+  connectors, wires, objects/jump nodes/LED surfaces, then empty canvas.
+  Wire/device labels are rendered on the label canvas and are not hit targets.
+- No renderer, export, viewer, report, or save/load format migration is part of
+  Iteration 30.
 
 ## Iteration 29.9 Focus
 

@@ -56,14 +56,9 @@ class ProductionEngineBridge {
     this.marqueeState = null;
     this.dragThresholdPx = 4;
     this.ready = false;
-    this.hoverState = {
-      device: null,
-      connector: null,
-      wire: null,
-      routePoint: null,
-      candidateCount: 0,
-      hitMs: 0
-    };
+    this.hoverState = emptyHoverState();
+    this.hoverCleanupCount = 0;
+    this.lastCursorState = "";
     this.lastDirtyDeviceIds = new Set();
     this.lastDirtyWireIds = new Set();
     this.debugLayerMode = engineLayerDebugEnabled();
@@ -316,7 +311,7 @@ class ProductionEngineBridge {
   }
 
   bindEvents() {
-    this.canvas.addEventListener("contextmenu", event => event.preventDefault());
+    this.canvas.addEventListener("contextmenu", event => this.handleContextMenu(event));
     this.canvas.addEventListener("wheel", event => this.handleWheel(event), { passive: false });
     this.canvas.addEventListener("pointerdown", event => this.handlePointerDown(event));
     this.canvas.addEventListener("pointermove", event => this.handlePointerMove(event));
@@ -344,6 +339,7 @@ class ProductionEngineBridge {
     this.camera.zoom = clamp(this.camera.zoom * factor, 0.03, 8);
     this.camera.x = before.x - point.x / this.camera.zoom;
     this.camera.y = before.y - point.y / this.camera.zoom;
+    this.clearHoverState("zoom", { render: false });
     this.scheduleRender();
   }
 
@@ -352,20 +348,24 @@ class ProductionEngineBridge {
       this.blockInteraction(event, "pointerdown while loading");
       return;
     }
-    this.canvas.setPointerCapture(event.pointerId);
     const point = this.eventPoint(event);
     if (event.button === 1 || event.buttons === 4) {
+      this.capturePointer(event.pointerId);
+      this.clearHoverState("pan-start", { render: false });
       this.beginPan(point);
       return;
     }
     if (event.button !== 0) return;
+    this.capturePointer(event.pointerId);
     const world = screenToWorld(this.camera, point);
     const tolerance = this.hitToleranceWorld();
+    const additiveSelection = isSelectionModifier(event);
 
     const routeHit = this.renderOptions.routePoints
       ? hitTestRoutePoint(this.scene, world, tolerance * 1.2)
       : { routePoint: null, candidates: 0, ms: 0 };
     if (routeHit.routePoint) {
+      this.clearHoverState("route-point-select", { render: false });
       this.scene.selectRoutePointOnly(routeHit.routePoint.wire.id, routeHit.routePoint.pointIndex);
       this.beginRoutePointDrag(routeHit.routePoint);
       this.updateSelectionHud();
@@ -379,7 +379,8 @@ class ProductionEngineBridge {
       if (isJumpConnectorHit(connectorHit.connector)) {
         const jumpDevice = connectorHit.connector.device;
         const wasSelected = this.scene.selectedIds.has(jumpDevice.id);
-        if (event.shiftKey) {
+        this.clearHoverState("jump-select", { render: false });
+        if (additiveSelection) {
           this.scene.toggleSelection(jumpDevice.id);
           this.updateSelectionHud();
           this.updateInteractionHud("jump-selection-toggle", { ...connectorHit, device: jumpDevice });
@@ -392,6 +393,7 @@ class ProductionEngineBridge {
         this.beginPendingDrag(point, world);
         return;
       }
+      this.clearHoverState("wire-create-start", { render: false });
       this.scene.selectConnectorOnly(connectorHit.connector.device.id, connectorHit.connector.connector.id);
       this.beginWireCreate(connectorHit.connector, world);
       this.updateSelectionHud();
@@ -402,7 +404,8 @@ class ProductionEngineBridge {
 
     const wireHit = hitTestWire(this.scene, world, tolerance);
     if (wireHit.wire) {
-      if (event.shiftKey) this.scene.toggleWireSelection(wireHit.wire.wire.id);
+      this.clearHoverState("wire-select", { render: false });
+      if (additiveSelection) this.scene.toggleWireSelection(wireHit.wire.wire.id);
       else this.scene.selectWireOnly(wireHit.wire.wire.id);
       this.updateSelectionHud();
       this.updateInteractionHud("wire-select", wireHit);
@@ -412,14 +415,16 @@ class ProductionEngineBridge {
 
     const deviceHit = hitTestDevice(this.scene, world);
     if (!deviceHit.device) {
-      if (!event.shiftKey) this.scene.clearSelection();
+      this.clearHoverState("empty-canvas", { render: false });
+      if (!additiveSelection) this.scene.clearSelection();
       this.beginMarquee(world);
       this.updateSelectionHud();
       this.scheduleRender();
       return;
     }
     const wasSelected = this.scene.selectedIds.has(deviceHit.device.id);
-    if (event.shiftKey) {
+    this.clearHoverState("device-select", { render: false });
+    if (additiveSelection) {
       this.scene.toggleSelection(deviceHit.device.id);
       this.updateSelectionHud();
       this.updateInteractionHud("selection-toggle", deviceHit);
@@ -432,6 +437,39 @@ class ProductionEngineBridge {
     this.beginPendingDrag(point, world);
   }
 
+  handleContextMenu(event) {
+    if (!this.ready) {
+      this.blockInteraction(event, "contextmenu while loading");
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    if (this.dragSession || this.pendingDrag || this.panState || this.routePointDrag || this.wireCreate || this.marqueeState) {
+      this.cancelActiveInteraction("context-menu", { updateHud: false });
+    }
+    const target = this.contextMenuTarget(event);
+    this.clearHoverState("context-menu", { render: false });
+    if (!target) {
+      this.scene.clearSelection();
+      this.updateSelectionHud();
+      this.updateInteractionHud("context-empty");
+      this.api.onEngineContextMenu?.({ event, target: null });
+      this.scheduleRender();
+      return;
+    }
+    if (target.type === "wire" || target.type === "wire-corner") {
+      this.scene.selectWireOnly(target.engineWireId || target.wireId);
+    } else if (target.type === "connector") {
+      this.scene.selectConnectorOnly(target.engineDeviceId, target.connectorId);
+    } else if (target.engineDeviceId) {
+      this.scene.selectOnly(target.engineDeviceId);
+    }
+    this.updateSelectionHud();
+    this.updateInteractionHud(`context-${target.type}`);
+    this.api.onEngineContextMenu?.({ event, target });
+    this.scheduleRender();
+  }
+
   handlePointerMove(event) {
     if (!this.ready) return;
     const pointerStart = performance.now();
@@ -441,6 +479,7 @@ class ProductionEngineBridge {
       const dy = (point.y - this.panState.startPoint.y) / this.camera.zoom;
       this.camera.x = this.panState.startCamera.x - dx;
       this.camera.y = this.panState.startCamera.y - dy;
+      this.clearHoverState("panning", { render: false });
       this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
       this.scheduleRender();
       return;
@@ -463,13 +502,13 @@ class ProductionEngineBridge {
     if (this.wireCreate) {
       const world = screenToWorld(this.camera, point);
       const connectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld());
-      this.hoverState.connector = connectorHit.connector;
-      this.hoverState.device = null;
-      this.hoverState.wire = null;
-      this.hoverState.routePoint = null;
-      this.hoverState.screenPoint = point;
-      this.hoverState.hitMs = connectorHit.ms;
-      this.hoverState.candidateCount = connectorHit.candidates;
+      this.hoverState = {
+        ...emptyHoverState(),
+        connector: connectorHit.connector,
+        screenPoint: point,
+        hitMs: connectorHit.ms,
+        candidateCount: connectorHit.candidates
+      };
       this.wireCreate.pointerWorld = world;
       this.wireCreate.target = connectorHit.connector;
       this.updateInteractionHud("wire-create", connectorHit);
@@ -591,6 +630,15 @@ class ProductionEngineBridge {
       consumeEngineShortcut(event);
       this.cancelActiveInteraction("cancelled");
       this.scheduleRender();
+      return;
+    }
+    if (this.hasSelection() || this.hasHoverState()) {
+      consumeEngineShortcut(event);
+      this.scene.clearSelection();
+      this.clearHoverState("escape", { render: false });
+      this.updateSelectionHud();
+      this.updateInteractionHud("selection-cleared");
+      this.scheduleRender();
     }
   }
 
@@ -601,6 +649,14 @@ class ProductionEngineBridge {
     };
     this.canvas.classList.add("panning");
     this.updateCanvasCursor();
+  }
+
+  capturePointer(pointerId) {
+    try {
+      this.canvas.setPointerCapture(pointerId);
+    } catch (error) {
+      this.hud?.setMetric("pointer capture", "failed");
+    }
   }
 
   beginPendingDrag(point, worldPoint) {
@@ -670,6 +726,7 @@ class ProductionEngineBridge {
     const target = this.wireCreate?.target;
     this.wireCreate = null;
     this.canvas.classList.remove("dragging", "wire-creating");
+    this.clearHoverState("wire-create-complete", { render: false });
     this.updateCanvasCursor();
     if (!source || !target) {
       this.updateInteractionHud("idle");
@@ -721,6 +778,7 @@ class ProductionEngineBridge {
     else this.scene.selectMany(ids);
     this.updateSelectionHud();
     this.updateInteractionHud("marquee-select");
+    this.updateCanvasCursor();
   }
 
   completeDrag() {
@@ -729,6 +787,7 @@ class ProductionEngineBridge {
     if (Math.abs(this.dragSession.dx) < 0.0001 && Math.abs(this.dragSession.dy) < 0.0001) {
       this.dragSession = null;
       this.canvas.classList.remove("dragging");
+      this.clearHoverState("drag-cancel", { render: false });
       this.updateCanvasCursor();
       this.updateInteractionHud("idle");
       return;
@@ -760,6 +819,7 @@ class ProductionEngineBridge {
     this.renderer.setRenderOptions(this.renderOptions);
     this.dragSession = null;
     this.canvas.classList.remove("dragging");
+    this.clearHoverState("drag-complete", { render: false });
     this.updateCanvasCursor();
     this.hud.setMetric("dropCommit", `${(performance.now() - start).toFixed(2)} ms`);
     this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
@@ -791,6 +851,7 @@ class ProductionEngineBridge {
     this.wireCreate = null;
     this.marqueeState = null;
     this.canvas?.classList.remove("dragging", "panning", "wire-creating");
+    this.clearHoverState(reason, { render: false });
     this.updateCanvasCursor();
     if (updateHud) this.updateInteractionHud(reason);
   }
@@ -824,6 +885,83 @@ class ProductionEngineBridge {
     this.updateCanvasCursor();
     this.updateInteractionHud("hover");
     this.scheduleRender();
+  }
+
+  clearHoverState(reason = "clear", { render = false } = {}) {
+    if (!this.hasHoverState()) return false;
+    this.hoverState = emptyHoverState();
+    this.hoverCleanupCount += 1;
+    this.hud?.setMetric("hover cleanup", `${this.hoverCleanupCount} (${reason})`);
+    this.updateCanvasCursor();
+    if (render) this.scheduleRender();
+    return true;
+  }
+
+  hasHoverState() {
+    return Boolean(this.hoverState.device || this.hoverState.connector || this.hoverState.wire || this.hoverState.routePoint);
+  }
+
+  hasSelection() {
+    return Boolean(
+      this.scene.selectedIds.size
+      || this.scene.selectedWireIds.size
+      || this.scene.selectedConnectorKeys.size
+      || this.scene.selectedRoutePointKeys.size
+    );
+  }
+
+  contextMenuTarget(event) {
+    const point = this.eventPoint(event);
+    const world = screenToWorld(this.camera, point);
+    const tolerance = this.hitToleranceWorld();
+    if (this.renderOptions.routePoints) {
+      const routeHit = hitTestRoutePoint(this.scene, world, tolerance * 1.2);
+      if (routeHit.routePoint) {
+        const wire = routeHit.routePoint.wire;
+        return {
+          type: "wire-corner",
+          wireId: wire.sourceId || wire.id,
+          engineWireId: wire.id,
+          pointIndex: routeHit.routePoint.pointIndex
+        };
+      }
+    }
+    const connectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld());
+    if (connectorHit.connector) {
+      const device = connectorHit.connector.device;
+      if (isJumpConnectorHit(connectorHit.connector)) return this.contextMenuObjectTarget(device);
+      return {
+        type: "connector",
+        deviceId: device.sourceId || device.id,
+        engineDeviceId: device.id,
+        connectorId: connectorHit.connector.connector.id
+      };
+    }
+    const wireHit = hitTestWire(this.scene, world, tolerance);
+    if (wireHit.wire) {
+      const wire = wireHit.wire.wire;
+      return {
+        type: "wire",
+        wireId: wire.sourceId || wire.id,
+        engineWireId: wire.id
+      };
+    }
+    const deviceHit = hitTestDevice(this.scene, world);
+    return deviceHit.device ? this.contextMenuObjectTarget(deviceHit.device) : null;
+  }
+
+  contextMenuObjectTarget(device) {
+    if (!device) return null;
+    const sourceKind = device.sourceKind || device.kind || "device";
+    return {
+      type: sourceKind === "ledSurface" || device.kind === "surface"
+        ? "led-surface"
+        : sourceKind === "jumpNode" || device.kind === "jump"
+          ? "jump-node"
+          : "device",
+      sourceId: device.sourceId || device.id,
+      engineDeviceId: device.id
+    };
   }
 
   interactionRenderState() {
@@ -1506,27 +1644,30 @@ class ProductionEngineBridge {
 
   updateCanvasCursor() {
     if (!this.canvas) return;
-    if (this.panState || this.dragSession || this.routePointDrag) {
-      this.canvas.style.cursor = "grabbing";
-      return;
+    let cursor = "";
+    let cursorState = "default";
+    if (!this.ready) {
+      cursor = "wait";
+      cursorState = "loading";
+    } else if (this.panState || this.dragSession || this.routePointDrag) {
+      cursor = "grabbing";
+      cursorState = this.panState ? "panning" : "dragging";
+    } else if (this.wireCreate || this.hoverState.connector || this.marqueeState) {
+      cursor = "crosshair";
+      cursorState = this.wireCreate ? "wire-create" : this.marqueeState ? "marquee" : "connector";
+    } else if (this.pendingDrag || this.hoverState.routePoint || this.hoverState.device) {
+      cursor = "grab";
+      cursorState = this.pendingDrag ? "pending-drag" : this.hoverState.routePoint ? "route-point" : "object";
+    } else if (this.hoverState.wire) {
+      cursor = "pointer";
+      cursorState = "wire";
     }
-    if (this.wireCreate || this.hoverState.connector) {
-      this.canvas.style.cursor = "crosshair";
-      return;
+    this.canvas.style.cursor = cursor;
+    if (cursorState !== this.lastCursorState) {
+      this.lastCursorState = cursorState;
+      this.hud?.setMetric("cursor", cursorState);
     }
-    if (this.hoverState.routePoint) {
-      this.canvas.style.cursor = "grab";
-      return;
-    }
-    if (this.hoverState.wire) {
-      this.canvas.style.cursor = "pointer";
-      return;
-    }
-    if (this.hoverState.device) {
-      this.canvas.style.cursor = "grab";
-      return;
-    }
-    this.canvas.style.cursor = "";
+    return;
   }
 
   blockInteraction(event, reason = "loading") {
@@ -2357,6 +2498,22 @@ function cloneWire(wire) {
     label: wire.label,
     cableType: wire.cableType
   } : null;
+}
+
+function emptyHoverState() {
+  return {
+    device: null,
+    connector: null,
+    wire: null,
+    routePoint: null,
+    screenPoint: null,
+    candidateCount: 0,
+    hitMs: 0
+  };
+}
+
+function isSelectionModifier(event) {
+  return Boolean(event?.shiftKey || event?.metaKey || event?.ctrlKey);
 }
 
 function cloneRoutePoints(points = []) {
