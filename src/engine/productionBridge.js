@@ -1631,9 +1631,14 @@ class ProductionEngineBridge {
       lines.push("");
       lines.push(`wire ${wire.id}`);
       lines.push(`  static range: ${formatDebugRange(wire.staticRange)}`);
+      if (wire.from) lines.push(`  from owner: ${formatWireEndpointDebug(wire.from)}`);
+      if (wire.to) lines.push(`  to owner: ${formatWireEndpointDebug(wire.to)}`);
       Object.entries(wire.layers || {}).forEach(([layer, status]) => {
         lines.push(`  ${layer}: ${status}`);
       });
+      const staticDrawn = String(wire.layers?.staticWireLayer || "").startsWith("drawn");
+      const liveDrawn = String(wire.layers?.liveDragWireOverlay || "").startsWith("drawn");
+      if (staticDrawn && liveDrawn) lines.push("  duplicate wire draw: static + live");
     });
     if ((trace.wires || []).length > 12) {
       lines.push(`... ${trace.wires.length - 12} more affected wires`);
@@ -2150,6 +2155,15 @@ function formatDebugPoint(point) {
 function formatDebugDelta(delta) {
   if (!delta) return "none";
   return `${Number(delta.dx || 0).toFixed(1)}, ${Number(delta.dy || 0).toFixed(1)}`;
+}
+
+function formatWireEndpointDebug(endpoint) {
+  if (!endpoint) return "none";
+  const owner = endpoint.ownerId
+    ? `${endpoint.ownerId}${endpoint.ownerKind ? ` (${endpoint.ownerKind})` : ""}`
+    : "unresolved";
+  const connector = endpoint.connectorId || "no-connector";
+  return `${owner} via ${connector}`;
 }
 
 function normalizedWorldRect(a, b) {

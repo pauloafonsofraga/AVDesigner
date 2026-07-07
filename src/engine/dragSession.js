@@ -13,7 +13,7 @@ export class DragSession {
       this.offsets.set(id, { dx: 0, dy: 0 });
     });
     const lookupStart = performance.now();
-    this.affectedWireIds = scene.affectedWireIdsForDevices(this.selectedIds);
+    this.affectedWireIds = scene.affectedWireIdsForObjects(this.selectedIds);
     this.affectedWireLookupMs = performance.now() - lookupStart;
   }
 

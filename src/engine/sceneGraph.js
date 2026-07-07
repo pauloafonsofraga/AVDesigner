@@ -9,6 +9,9 @@ export class SceneGraph {
     this.devicesById = new Map();
     this.wiresById = new Map();
     this.wireIdsByDeviceId = new Map();
+    this.connectorOwnerByKey = new Map();
+    this.connectorKeysByOwnerId = new Map();
+    this.wireIdsByConnectorKey = new Map();
     this.selectedIds = new Set();
     this.dirtyDevices = new Set();
     this.dirtyWires = new Set();
@@ -61,10 +64,11 @@ export class SceneGraph {
   }
 
   rebuildWireIndex() {
+    this.rebuildConnectorOwnershipIndex();
     this.wireIdsByDeviceId.clear();
+    this.wireIdsByConnectorKey.clear();
     this.wires.forEach(wire => {
-      this.addWireDeviceIndex(wire.fromDeviceId, wire.id);
-      this.addWireDeviceIndex(wire.toDeviceId, wire.id);
+      this.addWireEndpointIndexes(wire);
     });
   }
 
@@ -72,6 +76,67 @@ export class SceneGraph {
     if (!deviceId) return;
     if (!this.wireIdsByDeviceId.has(deviceId)) this.wireIdsByDeviceId.set(deviceId, new Set());
     this.wireIdsByDeviceId.get(deviceId).add(wireId);
+  }
+
+  rebuildConnectorOwnershipIndex() {
+    this.connectorOwnerByKey.clear();
+    this.connectorKeysByOwnerId.clear();
+    this.devices.forEach(device => {
+      (device.connectors || []).forEach(connector => {
+        this.addConnectorOwner(device.id, connector.id);
+      });
+    });
+  }
+
+  addConnectorOwner(ownerId, connectorId) {
+    if (!ownerId || !connectorId) return;
+    const key = connectorKey(ownerId, connectorId);
+    this.connectorOwnerByKey.set(key, ownerId);
+    if (!this.connectorKeysByOwnerId.has(ownerId)) this.connectorKeysByOwnerId.set(ownerId, new Set());
+    this.connectorKeysByOwnerId.get(ownerId).add(key);
+  }
+
+  addWireEndpointIndexes(wire) {
+    if (!wire?.id) return;
+    ["from", "to"].forEach(end => {
+      const key = this.wireEndpointConnectorKey(wire, end);
+      if (key) {
+        if (!this.wireIdsByConnectorKey.has(key)) this.wireIdsByConnectorKey.set(key, new Set());
+        this.wireIdsByConnectorKey.get(key).add(wire.id);
+      }
+      const ownerId = this.wireEndpointOwnerId(wire, end);
+      if (ownerId) this.addWireDeviceIndex(ownerId, wire.id);
+    });
+  }
+
+  wireEndpointConnectorKey(wire, end) {
+    const deviceId = end === "from" ? wire.fromDeviceId : wire.toDeviceId;
+    const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
+    return deviceId && connectorId ? connectorKey(deviceId, connectorId) : "";
+  }
+
+  wireEndpointOwnerId(wire, end) {
+    const deviceId = end === "from" ? wire.fromDeviceId : wire.toDeviceId;
+    if (!deviceId) return "";
+    const key = this.wireEndpointConnectorKey(wire, end);
+    return this.connectorOwnerByKey.get(key) || (this.devicesById.has(deviceId) ? deviceId : "");
+  }
+
+  wireEndpointDebug(wire, end) {
+    if (!wire) return null;
+    const deviceId = end === "from" ? wire.fromDeviceId : wire.toDeviceId;
+    const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
+    const key = this.wireEndpointConnectorKey(wire, end);
+    const ownerId = this.wireEndpointOwnerId(wire, end);
+    const owner = ownerId ? this.getDevice(ownerId) : null;
+    return {
+      deviceId,
+      connectorId,
+      connectorKey: key,
+      ownerId,
+      ownerKind: owner?.kind || "",
+      ownerLabel: owner?.label || ""
+    };
   }
 
   rebuildSpatialIndex() {
@@ -265,15 +330,34 @@ export class SceneGraph {
   }
 
   affectedWireIdsForDevices(deviceIds) {
+    return this.affectedWireIdsForObjects(deviceIds);
+  }
+
+  affectedWireIdsForObjects(objectIds) {
     const result = new Set();
-    deviceIds.forEach(deviceId => {
-      (this.wireIdsByDeviceId.get(deviceId) || []).forEach(wireId => result.add(wireId));
+    const movingIds = new Set((objectIds || []).map(id => String(id || "")).filter(Boolean));
+    movingIds.forEach(objectId => {
+      (this.wireIdsByDeviceId.get(objectId) || []).forEach(wireId => result.add(wireId));
+      (this.connectorKeysByOwnerId.get(objectId) || []).forEach(key => {
+        (this.wireIdsByConnectorKey.get(key) || []).forEach(wireId => result.add(wireId));
+      });
+    });
+    // Safety net for endpoints whose connector is virtual or produced by a
+    // legacy adapter. This runs only at drag/commit boundaries; pointermove
+    // uses the cached DragSession set.
+    this.wires.forEach(wire => {
+      if (
+        movingIds.has(this.wireEndpointOwnerId(wire, "from")) ||
+        movingIds.has(this.wireEndpointOwnerId(wire, "to"))
+      ) {
+        result.add(wire.id);
+      }
     });
     return result;
   }
 
   moveDevicesBy(deviceIds, dx, dy) {
-    const affectedWireIds = new Set();
+    const affectedWireIds = this.affectedWireIdsForObjects(deviceIds);
     const movedDeviceIds = [];
     deviceIds.forEach(deviceId => {
       const device = this.getDevice(deviceId);
@@ -282,11 +366,8 @@ export class SceneGraph {
       device.y += dy;
       this.dirtyDevices.add(deviceId);
       movedDeviceIds.push(deviceId);
-      (this.wireIdsByDeviceId.get(deviceId) || []).forEach(wireId => {
-        this.dirtyWires.add(wireId);
-        affectedWireIds.add(wireId);
-      });
     });
+    affectedWireIds.forEach(wireId => this.dirtyWires.add(wireId));
     this.refreshMovedDeviceIndexes(movedDeviceIds, [...affectedWireIds]);
   }
 
@@ -325,8 +406,7 @@ export class SceneGraph {
     });
     this.wires.push(wire);
     this.wiresById.set(wire.id, wire);
-    this.addWireDeviceIndex(wire.fromDeviceId, wire.id);
-    this.addWireDeviceIndex(wire.toDeviceId, wire.id);
+    this.addWireEndpointIndexes(wire);
     this.dirtyWires.add(wire.id);
     this.refreshWireIndexes([wire.id]);
     return wire;
@@ -337,8 +417,7 @@ export class SceneGraph {
     if (!wire.fromDeviceId || !wire.toDeviceId || this.wiresById.has(wire.id)) return null;
     this.wires.push(wire);
     this.wiresById.set(wire.id, wire);
-    this.addWireDeviceIndex(wire.fromDeviceId, wire.id);
-    this.addWireDeviceIndex(wire.toDeviceId, wire.id);
+    this.addWireEndpointIndexes(wire);
     this.dirtyWires.add(wire.id);
     this.refreshWireIndexes([wire.id]);
     return wire;

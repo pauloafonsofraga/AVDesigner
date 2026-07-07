@@ -910,11 +910,16 @@ export class WebglGraphRenderer {
           layers: {}
         };
       }),
-      wires: affectedWireIds.map(id => ({
-        id,
-        staticRange: formatRange(this.wireRangeMap.get(id)),
-        layers: {}
-      }))
+      wires: affectedWireIds.map(id => {
+        const wire = scene.getWire(id);
+        return {
+          id,
+          staticRange: formatRange(this.wireRangeMap.get(id)),
+          from: scene.wireEndpointDebug(wire, "from"),
+          to: scene.wireEndpointDebug(wire, "to"),
+          layers: {}
+        };
+      })
     };
     this.lastLayerTrace = trace;
     return trace;
