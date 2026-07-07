@@ -639,6 +639,7 @@ function normalizeWire(wire) {
     hasFallbackEndpoint: Boolean(wire.hasFallbackEndpoint),
     color: wire.color || "#32b6ff",
     label: wire.label || wire.cableType || String(wire.id),
+    length: wire.length || "",
     cableType: wire.cableType || ""
   };
 }

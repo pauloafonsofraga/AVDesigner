@@ -1,16 +1,17 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
-Iteration 26 begins the visual parity phase for the default Engine Editor.
-This pass restores legacy-style Bezier wire rendering in the engine visual path,
-while the legacy production SVG editor remains available as a safe fallback
-behind explicit URL flags. Export, viewer, and report rendering still use the
-existing production paths; those migrations are intentionally deferred.
+Iteration 27 continues the visual parity phase for the default Engine Editor.
+This pass restores legacy-style wire interaction feedback in the engine visual
+path: hover/selection styling, wire captions, and route-point handle visuals.
+The legacy production SVG editor remains available as a safe fallback behind
+explicit URL flags. Export, viewer, and report rendering still use the existing
+production paths; those migrations are intentionally deferred.
 
-Current visible build label: `Iteration 26`.
+Current visible build label: `Iteration 27`.
 The app top bar must show one of these labels:
 
-- `Iteration 26 — Engine Editor — iteration26`
-- `Iteration 26 — Legacy Editor — iteration26`
+- `Iteration 27 — Engine Editor — iteration27`
+- `Iteration 27 — Legacy Editor — iteration27`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -19,14 +20,14 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration26`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration26`.
+   `index.html?v=iteration27`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration27`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration26`.
+   `index.html?engineDefaultTest=1&v=iteration27`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration26`.
+   `index.html?legacy=1&v=iteration27`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration26`.
+   `index.html?engine=0&v=iteration27`.
 7. Open the debug loading guard: `index.html?engine=1&debugLoad=1`.
 8. Open a timed loading guard: `index.html?engine=1&loadDelay=1500`.
 9. Open the expanded engine HUD: `index.html?engine=1&debugHud=1`.
@@ -43,16 +44,26 @@ Git commit as the final source of truth when reviewing a pushed change.
 17. The validation script now includes a long mixed undo/redo chain. Confirm the
    JSON output contains a `longChain` section and all `checks` are `ok: true`.
 18. Compare Engine and Legacy wire rendering with the same project:
-   `index.html?v=iteration26` beside `index.html?legacy=1&v=iteration26`.
-19. In `index.html?engine=1&debugHud=1&v=iteration26`, confirm the HUD `wire paths`
+   `index.html?v=iteration27` beside `index.html?legacy=1&v=iteration27`.
+19. In `index.html?engine=1&debugHud=1&v=iteration27`, confirm the HUD `wire paths`
    row shows Bezier/custom/orthogonal counts.
+20. Hover and select wires in Engine mode. Confirm hover/selection feedback is
+   visibly distinct, selected/hovered labels appear, route-point handles are
+   round orange controls, and labels do not block wire selection.
 
-## Iteration 26 Focus
+## Iteration 27 Focus
 
 - Engine Editor is the default editing path.
 - Legacy Editor remains the fallback through `legacy=1` or `engine=0`.
 - Normal/default engine wires render as fixed-sample Bezier curves using the
   same control-point rule as Legacy.
+- Engine wire hover and selection render as live overlays without rebuilding the
+  static scene.
+- Engine wire labels use the existing label canvas so captions do not intercept
+  pointer events.
+- Wire labels follow the legacy detail rule: visible at close zoom, and always
+  visible for selected/hovered wires.
+- Custom route-point handles use the legacy orange circular handle affordance.
 - Custom route-point wires remain routed through their stored points.
 - Orthogonal route-point wires remain straight-segment orthogonal paths.
 - Wire hit-testing and spatial indexing use the same sampled render path.
@@ -108,7 +119,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 | LED surfaces | Production LED grid object and signal ports. | Engine maps LED surfaces with virtual surface ports. | covered | Scene validation accepts virtual `surface-port-*` endpoints. | medium | Visual fidelity still production-only. |
 | reports compatibility | Production reports read project state. | Engine write-through should keep report data readable. | partial | Script validates production data shape. | medium | Reports are not migrated to engine renderer. |
 | viewer/export compatibility | Production export/viewer use existing renderer/data. | Engine does not change export/viewer. | not intended yet | Keep normal export tests separate. | high | Do not migrate until engine parity is stronger. |
-| normal `index.html` without flags | Engine editor path. | Engine bridge mounts and uses production data. | covered | Browser smoke. | low | Iteration 26 default engine path. |
+| normal `index.html` without flags | Engine editor path. | Engine bridge mounts and uses production data. | covered | Browser smoke. | low | Iteration 27 default engine path. |
 | `index.html?engine=1` | Explicit engine editor path. | Engine bridge mounts and uses production data. | covered | Browser smoke. | low | Kept for existing test links. |
 | `index.html?legacy=1` / `?engine=0` | Legacy production SVG editor. | Engine bridge does not mount. | covered | Browser smoke. | low | Safe fallback if engine default breaks. |
 | debug loading overlay | Not production behavior. | `debugLoad=1` / `loadDelay=` holds readiness. | covered | Browser smoke. | low | Diagnostic only. |
@@ -121,7 +132,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 - Do not remove legacy fallback until production/export/viewer parity is proven.
 - Keep `?engine=1`, `?engineDefaultTest=1`, `?legacy=1`, and `?engine=0`
-  routing working during Iteration 26 visual parity work.
+  routing working during Iteration 27 visual parity work.
 - Do not run validation during drag.
 - Do not rebuild device textures for position-only moves.
 - Do not add report/export recalculation to pointermove or drag/drop paths.

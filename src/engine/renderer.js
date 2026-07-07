@@ -11,6 +11,8 @@ const ROUTE_POINT_COLOR = "#ff7904";
 const FALLBACK_WIRE_COLOR = "#ff4f5f";
 const REAL_ENDPOINT_WIRE_COLOR = "#32b6ff";
 const ROUTED_WIRE_COLOR = "#ff7904";
+const WIRE_BASE_WIDTH = 4.6;
+const WIRE_LABEL_ZOOM_THRESHOLD = 0.55;
 
 const DEFAULT_RENDER_OPTIONS = {
   labels: true,
@@ -78,6 +80,7 @@ export class WebglGraphRenderer {
     this.lastTextureStats = null;
     this.lastTextureDrawStats = null;
     this.lastFrameStats = null;
+    this.lastLabelStats = { devices: 0, wires: 0, routePointHandles: 0 };
     this.lastWirePathStats = { bezier: 0, custom: 0, orthogonal: 0 };
     this.lastLayerTrace = null;
     this.lastActiveLayerTrace = null;
@@ -212,6 +215,10 @@ export class WebglGraphRenderer {
 
   frameStats() {
     return this.lastFrameStats || {};
+  }
+
+  labelStats() {
+    return this.lastLabelStats || { devices: 0, wires: 0, routePointHandles: 0 };
   }
 
   wirePathStats() {
@@ -448,6 +455,9 @@ export class WebglGraphRenderer {
       labelMs: 0,
       affectedWires: 0,
       selectedObjects: 0,
+      wireLabels: 0,
+      deviceLabels: 0,
+      routePointHandles: 0,
       textureBuilds: 0,
       textureRebuilds: 0,
       textureRebuildMs: 0
@@ -500,7 +510,7 @@ export class WebglGraphRenderer {
       const wireOverlayStart = performance.now();
       dragSession.affectedWireIds.forEach(wireId => {
         const wire = scene.getWire(wireId);
-        if (wire && renderOptions.wires) pushWire(liveVertices, scene, wire, offsets, 3.2, wireColor(wire, renderOptions), renderOptions);
+        if (wire && renderOptions.wires) pushWire(liveVertices, scene, wire, offsets, WIRE_BASE_WIDTH, wireColor(wire, renderOptions), renderOptions);
         this.recordWireLayer(layerTrace, wireId, "liveDragWireOverlay", wire && renderOptions.wires ? "drawn-moving" : "disabled");
       });
       frameStats.affectedWireOverlayMs = performance.now() - wireOverlayStart;
@@ -529,12 +539,12 @@ export class WebglGraphRenderer {
         });
         (options.selectedWireIds || new Set()).forEach(id => {
           const wire = scene.getWire(id);
-          if (wire && renderOptions.wires) pushWire(liveVertices, scene, wire, null, 5.2, "#ff7904", { ...renderOptions, routePoints: false });
+          if (wire && renderOptions.wires) pushWireSelection(liveVertices, scene, wire, null, renderOptions);
         });
       }
       (renderOptions.dirtyWireIds || new Set()).forEach(id => {
         const wire = scene.getWire(id);
-        if (wire && renderOptions.wires) pushWire(liveVertices, scene, wire, null, 4.4, "#ff7904", { ...renderOptions, routePoints: false });
+        if (wire && renderOptions.wires) pushWireSelection(liveVertices, scene, wire, null, renderOptions);
       });
       (renderOptions.dirtyDeviceIds || new Set()).forEach(id => {
         const device = scene.getDevice(id);
@@ -555,6 +565,9 @@ export class WebglGraphRenderer {
     sectionStart = performance.now();
     this.drawLabels(scene, camera, { ...options, renderOptions, layerTrace });
     frameStats.labelMs = performance.now() - sectionStart;
+    frameStats.wireLabels = this.lastLabelStats.wires || 0;
+    frameStats.deviceLabels = this.lastLabelStats.devices || 0;
+    frameStats.routePointHandles = this.lastLabelStats.routePointHandles || 0;
     const textureAfter = this.textureCache.stats();
     frameStats.textureBuilds = textureAfter.builds - textureBefore.builds;
     frameStats.textureRebuilds = textureAfter.rebuilds - textureBefore.rebuilds;
@@ -576,6 +589,7 @@ export class WebglGraphRenderer {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, this.resolution.width, this.resolution.height);
     const renderOptions = options.renderOptions || this.renderOptions;
+    this.lastLabelStats = { devices: 0, wires: 0, routePointHandles: 0 };
     if (!renderOptions.labels || renderOptions.hideLabels) return;
     if (camera.zoom < 0.08) return;
     const view = {
@@ -589,17 +603,67 @@ export class WebglGraphRenderer {
     const dragSession = options.dragSession || null;
     const offsets = dragSession?.offsetMap();
     const drawn = new Set();
+    let deviceLabelCount = 0;
     visible.forEach(device => {
       drawn.add(device.id);
       this.recordObjectLayer(options.layerTrace, device.id, "labelLayer", "drawn");
-      if (deviceVisible(device, renderOptions)) drawDeviceLabel(ctx, device, camera, offsets);
+      if (deviceVisible(device, renderOptions)) {
+        drawDeviceLabel(ctx, device, camera, offsets);
+        deviceLabelCount += 1;
+      }
     });
     (options.selectedIds || new Set()).forEach(id => {
       if (drawn.has(id)) return;
       const device = scene.getDevice(id);
       this.recordObjectLayer(options.layerTrace, id, "labelLayer", device ? "drawn-selected" : "missing");
-      if (device && deviceVisible(device, renderOptions)) drawDeviceLabel(ctx, device, camera, offsets);
+      if (device && deviceVisible(device, renderOptions)) {
+        drawDeviceLabel(ctx, device, camera, offsets);
+        deviceLabelCount += 1;
+      }
     });
+    let wireLabelCount = 0;
+    if (renderOptions.wires) {
+      const selectedWireIds = options.selectedWireIds || new Set();
+      const hoveredWireId = options.interactionState?.hoveredWire?.wire?.id || options.interactionState?.hoveredWireId || "";
+      const wireCandidates = new Map();
+      const fullWireLabels = camera.zoom >= WIRE_LABEL_ZOOM_THRESHOLD;
+      if (fullWireLabels) {
+        scene.wireIndex.queryRect(view).forEach(item => {
+          const wire = item.payload?.wire;
+          if (wire) wireCandidates.set(wire.id, wire);
+        });
+      }
+      selectedWireIds.forEach(id => {
+        const wire = scene.getWire(id);
+        if (wire) wireCandidates.set(id, wire);
+      });
+      if (hoveredWireId) {
+        const wire = scene.getWire(hoveredWireId);
+        if (wire) wireCandidates.set(hoveredWireId, wire);
+      }
+      (renderOptions.dirtyWireIds || new Set()).forEach(id => {
+        const wire = scene.getWire(id);
+        if (wire) wireCandidates.set(id, wire);
+      });
+      dragSession?.affectedWireIds?.forEach(id => {
+        const wire = scene.getWire(id);
+        if (wire) wireCandidates.set(id, wire);
+      });
+      wireCandidates.forEach(wire => {
+        const selected = selectedWireIds.has(wire.id);
+        const hovered = hoveredWireId === wire.id;
+        const caption = wireCaption(scene, wire, selected || hovered);
+        if (!caption) return;
+        drawWireLabel(ctx, scene, wire, camera, offsets, caption);
+        wireLabelCount += 1;
+        this.recordWireLayer(options.layerTrace, wire.id, "labelLayer", "drawn");
+      });
+    }
+    this.lastLabelStats = {
+      devices: deviceLabelCount,
+      wires: wireLabelCount,
+      routePointHandles: countRoutePointHandles(scene, options.selectedWireIds, options.interactionState)
+    };
   }
 
   drawGrid(camera) {
@@ -868,7 +932,7 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
   const hoveredWireId = interaction.hoveredWire?.wire?.id || interaction.hoveredWireId;
   if (hoveredWireId && renderOptions.wires) {
     const wire = scene.getWire(hoveredWireId);
-    if (wire) pushWire(vertices, scene, wire, null, 4.6, "#ffffff", { ...renderOptions, routePoints: false });
+    if (wire) pushWireHover(vertices, scene, wire, null, renderOptions);
   }
   (interaction.selectedRoutePoints || new Set()).forEach(key => {
     const [wireId, indexText] = String(key).split(":");
@@ -914,13 +978,8 @@ function pushConnectorHighlight(vertices, point, size, color) {
 }
 
 function pushRoutePointHighlight(vertices, point, size, color) {
-  pushRect(vertices, point.x - size, point.y - size, size * 2, size * 2, color);
-  pushBoxOutline(vertices, {
-    x: point.x - size - 3,
-    y: point.y - size - 3,
-    width: size * 2 + 6,
-    height: size * 2 + 6
-  }, 2.2, "#ffffff");
+  pushCircle(vertices, point, size, color);
+  pushCircleOutline(vertices, point, size + 3, 2.2, "#ffffff");
 }
 
 function pushBoxOutline(vertices, rect, width, color) {
@@ -981,13 +1040,28 @@ function pushSelectionOutline(vertices, device, offsets = null) {
   pushLine(vertices, { x, y: y + h }, { x, y }, 4, DEVICE_SELECTED);
 }
 
+function pushWireSelection(vertices, scene, wire, offsets, options = DEFAULT_RENDER_OPTIONS) {
+  const drawOptions = { ...options, routePoints: false };
+  pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 11, "rgba(255,121,4,.18)", drawOptions);
+  pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 6, "rgba(255,121,4,.36)", drawOptions);
+  pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 1.5, "rgba(255,121,4,.82)", drawOptions);
+}
+
+function pushWireHover(vertices, scene, wire, offsets, options = DEFAULT_RENDER_OPTIONS) {
+  const drawOptions = { ...options, routePoints: false };
+  pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 8, "rgba(255,255,255,.22)", drawOptions);
+  pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 3, "rgba(50,182,255,.72)", drawOptions);
+}
+
 function pushWire(vertices, scene, wire, offsets, width, color, options = DEFAULT_RENDER_OPTIONS) {
   const points = scene.wireRenderPolyline(wire, offsets);
   pushPolyline(vertices, points, width, color);
   if (options.routePoints && wire.routePoints?.length) {
     const routeOffset = scene.routePointOffsetForWire(wire, offsets);
     wire.routePoints.forEach(point => {
-      pushRect(vertices, point.x + routeOffset.dx - 4, point.y + routeOffset.dy - 4, 8, 8, ROUTE_POINT_COLOR);
+      const center = { x: point.x + routeOffset.dx, y: point.y + routeOffset.dy };
+      pushCircle(vertices, center, 5, ROUTE_POINT_COLOR);
+      pushCircleOutline(vertices, center, 7, 1.8, "#ffffff");
     });
   }
 }
@@ -995,6 +1069,35 @@ function pushWire(vertices, scene, wire, offsets, width, color, options = DEFAUL
 function pushPolyline(vertices, points, width, color) {
   for (let index = 1; index < points.length; index += 1) {
     pushLine(vertices, points[index - 1], points[index], width, color);
+  }
+}
+
+function pushCircle(vertices, point, radius, colorValue, segments = 18) {
+  const color = parseColor(colorValue);
+  const count = Math.max(8, Math.floor(segments));
+  for (let index = 0; index < count; index += 1) {
+    const a = (index / count) * Math.PI * 2;
+    const b = ((index + 1) / count) * Math.PI * 2;
+    pushVertex(vertices, point.x, point.y, color);
+    pushVertex(vertices, point.x + Math.cos(a) * radius, point.y + Math.sin(a) * radius, color);
+    pushVertex(vertices, point.x + Math.cos(b) * radius, point.y + Math.sin(b) * radius, color);
+  }
+}
+
+function pushCircleOutline(vertices, point, radius, width, colorValue, segments = 18) {
+  const count = Math.max(8, Math.floor(segments));
+  let previous = {
+    x: point.x + radius,
+    y: point.y
+  };
+  for (let index = 1; index <= count; index += 1) {
+    const angle = (index / count) * Math.PI * 2;
+    const next = {
+      x: point.x + Math.cos(angle) * radius,
+      y: point.y + Math.sin(angle) * radius
+    };
+    pushLine(vertices, previous, next, width, colorValue);
+    previous = next;
   }
 }
 
@@ -1020,7 +1123,7 @@ function verticesForDevice(device, offsets = null, options = DEFAULT_RENDER_OPTI
   return vertices;
 }
 
-function verticesForWire(scene, wire, offsets = null, width = 2.2, color = WIRE_FALLBACK, options = DEFAULT_RENDER_OPTIONS) {
+function verticesForWire(scene, wire, offsets = null, width = WIRE_BASE_WIDTH, color = WIRE_FALLBACK, options = DEFAULT_RENDER_OPTIONS) {
   const vertices = [];
   pushWire(vertices, scene, wire, offsets, width, color, options);
   return vertices;
@@ -1040,6 +1143,108 @@ function packVertexMap(map) {
     offset += chunk.length;
   });
   return { array, ranges };
+}
+
+function wireCaption(scene, wire, full = false) {
+  const cable = String(wire.cableType || wire.label || "Wire").trim();
+  const length = String(wire.length || "").trim();
+  if (!full) return [cable, length].filter(Boolean).join(" - ");
+  const fromDevice = scene.getDevice(wire.fromDeviceId);
+  const toDevice = scene.getDevice(wire.toDeviceId);
+  const fromConnector = fromDevice?.connectorsById?.get(wire.fromConnectorId);
+  const toConnector = toDevice?.connectorsById?.get(wire.toConnectorId);
+  return [
+    cable,
+    deviceLabel(fromDevice),
+    connectorLabel(fromConnector, wire.fromConnectorId),
+    deviceLabel(toDevice),
+    connectorLabel(toConnector, wire.toConnectorId),
+    length
+  ].filter(Boolean).join(" - ");
+}
+
+function deviceLabel(device) {
+  return String(device?.label || device?.visual?.displayName || device?.id || "").trim();
+}
+
+function connectorLabel(connector, fallback = "") {
+  return String(connector?.label || connector?.name || connector?.type || fallback || "").trim();
+}
+
+function drawWireLabel(ctx, scene, wire, camera, offsets, text) {
+  const points = scene.wireRenderPolyline(wire, offsets);
+  const placement = labelPlacementForPolyline(points);
+  if (!placement || !text) return;
+  const x = (placement.x - camera.x) * camera.zoom;
+  const y = (placement.y - camera.y) * camera.zoom;
+  const size = Math.max(10, Math.min(15, 11 * Math.sqrt(camera.zoom)));
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(placement.angle * Math.PI / 180);
+  ctx.font = `700 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "rgba(0,0,0,.82)";
+  ctx.lineWidth = Math.max(3, size * 0.38);
+  ctx.fillStyle = "#ffffff";
+  ctx.strokeText(text, 0, -8 * Math.max(1, Math.sqrt(camera.zoom)));
+  ctx.fillText(text, 0, -8 * Math.max(1, Math.sqrt(camera.zoom)));
+  ctx.restore();
+}
+
+function labelPlacementForPolyline(points = []) {
+  if (points.length < 2) return null;
+  let total = 0;
+  const segments = [];
+  for (let index = 1; index < points.length; index += 1) {
+    const from = points[index - 1];
+    const to = points[index];
+    const length = Math.hypot(to.x - from.x, to.y - from.y);
+    if (!length) continue;
+    segments.push({ from, to, length });
+    total += length;
+  }
+  if (!segments.length) return null;
+  let traveled = 0;
+  const halfway = total / 2;
+  for (const segment of segments) {
+    if (traveled + segment.length >= halfway) {
+      const ratio = (halfway - traveled) / segment.length;
+      return {
+        x: segment.from.x + (segment.to.x - segment.from.x) * ratio,
+        y: segment.from.y + (segment.to.y - segment.from.y) * ratio,
+        angle: readableLabelAngle(Math.atan2(segment.to.y - segment.from.y, segment.to.x - segment.from.x) * 180 / Math.PI)
+      };
+    }
+    traveled += segment.length;
+  }
+  const last = segments[segments.length - 1];
+  return {
+    x: last.to.x,
+    y: last.to.y,
+    angle: readableLabelAngle(Math.atan2(last.to.y - last.from.y, last.to.x - last.from.x) * 180 / Math.PI)
+  };
+}
+
+function readableLabelAngle(angle) {
+  let normalized = ((angle % 360) + 360) % 360;
+  if (normalized > 180) normalized -= 360;
+  if (normalized > 90) normalized -= 180;
+  if (normalized < -90) normalized += 180;
+  return normalized;
+}
+
+function countRoutePointHandles(scene, selectedWireIds = new Set(), interaction = {}) {
+  const wireIds = new Set(selectedWireIds || []);
+  if (interaction.hoveredRoutePoint?.wire?.id) wireIds.add(interaction.hoveredRoutePoint.wire.id);
+  const hoveredWireId = interaction.hoveredWire?.wire?.id || interaction.hoveredWireId;
+  if (hoveredWireId) wireIds.add(hoveredWireId);
+  let count = 0;
+  wireIds.forEach(id => {
+    count += scene.getWire(id)?.routePoints?.length || 0;
+  });
+  return count;
 }
 
 function drawDeviceLabel(ctx, device, camera, offsets = null) {

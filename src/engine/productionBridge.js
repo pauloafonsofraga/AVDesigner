@@ -1345,6 +1345,10 @@ class ProductionEngineBridge {
       this.hud.setMetric("selection overlay", `${(frameStats.selectionOverlayMs || 0).toFixed(2)} ms`);
       this.hud.setMetric("interaction overlay", `${(frameStats.interactionOverlayMs || 0).toFixed(2)} ms`);
       this.hud.setMetric("label draw", `${(frameStats.labelMs || 0).toFixed(2)} ms`);
+      const labelStats = this.renderer.labelStats();
+      this.hud.setMetric("wire labels", `${labelStats.wires || 0}`);
+      this.hud.setMetric("device labels", `${labelStats.devices || 0}`);
+      this.hud.setMetric("route handles", `${labelStats.routePointHandles || 0}`);
       this.hud.setMetric("texture rebuild/frame", `${frameStats.textureBuilds || 0} build / ${frameStats.textureRebuilds || 0} rebuild`);
       this.hud.setMetric("texture rebuild time/frame", `${(frameStats.textureRebuildMs || 0).toFixed(2)} ms`);
       const textureChanges = (frameStats.textureBuilds || 0) + (frameStats.textureRebuilds || 0);

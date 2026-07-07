@@ -543,6 +543,7 @@ function normalizeProjectWire(wire, index, context) {
     hasFallbackEndpoint: Boolean(!from.usesRealConnector || !to.usesRealConnector),
     color: wire.customColor || context.nodeColorByType.get(cableType) || WIRE_COLORS[index % WIRE_COLORS.length],
     label: wire.label || cableType || `Wire ${index + 1}`,
+    length: wire.length || wire.cableLength || "",
     cableType
   };
 }
