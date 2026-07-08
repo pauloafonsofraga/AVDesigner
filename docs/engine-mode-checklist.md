@@ -1,26 +1,25 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
-Iteration 33 audits the visual-output boundary between the default Engine Editor
-and the existing save, report, PDF, hosted publish, and standalone technician
-viewer paths. Engine editing writes through to the production project data
-model, and those downstream outputs still read from `projectSnapshotData()`.
+Iteration 34 starts the standalone technician-viewer visual parity migration for
+wires while keeping the editor, save, report, hosted publish, and PDF
+compatibility boundary intact. Engine editing writes through to the production
+project data model, and downstream outputs still read from
+`projectSnapshotData()`.
 
-This is a compatibility-hardening pass, not a renderer migration. The existing
-viewer/export/report/PDF code paths stay in place. Engine cable-hop geometry is
-runtime-only and is not saved into `.avd` or JSON project data. The exported
-viewer and PDF drawing still use the existing production/export rendering paths.
-Iteration 33 adds shared-helper output diagnostics before any renderer migration,
-so small visual differences from the Engine canvas are expected until those
-outputs are migrated deliberately.
+This is a narrow output-renderer pass, not a full viewer rewrite. The exported
+standalone HTML viewer now embeds Engine-style wire path and cable-hop geometry
+helpers for Bezier, custom-routed, and orthogonal/custom-corner wires. Cable-hop
+geometry remains runtime-only and is not saved into `.avd` or JSON project data.
+PDF and report drawing paths are deliberately unchanged.
 
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags.
 
-Current visible build label: `Iteration 33`.
+Current visible build label: `Iteration 34`.
 The app top bar must show one of these labels:
 
-- `Iteration 33 — Engine Editor — iteration33`
-- `Iteration 33 — Legacy Editor — iteration33`
+- `Iteration 34 — Engine Editor — iteration34`
+- `Iteration 34 — Legacy Editor — iteration34`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -29,20 +28,20 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration33`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration33`.
+   `index.html?v=iteration34`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration34`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration33`.
+   `index.html?engineDefaultTest=1&v=iteration34`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration33`.
+   `index.html?legacy=1&v=iteration34`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration33`.
+   `index.html?engine=0&v=iteration34`.
 7. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration33`.
+   `index.html?engine=1&debugLoad=1&v=iteration34`.
 8. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration33`.
+   `index.html?engine=1&loadDelay=1500&v=iteration34`.
 9. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration33`.
+   `index.html?engine=1&debugHud=1&v=iteration34`.
 10. Confirm the top bar build label matches the mode you intended to test.
 11. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.
@@ -59,9 +58,9 @@ Git commit as the final source of truth when reviewing a pushed change.
 18. The validation script now includes a long mixed undo/redo chain. Confirm the
    JSON output contains a `longChain` section and all `checks` are `ok: true`.
 19. Compare Engine and Legacy connector behavior with the same project:
-   `index.html?v=iteration33` beside
-   `index.html?legacy=1&v=iteration33`.
-20. In `index.html?engine=1&debugHud=1&v=iteration33`, confirm the HUD
+   `index.html?v=iteration34` beside
+   `index.html?legacy=1&v=iteration34`.
+20. In `index.html?engine=1&debugHud=1&v=iteration34`, confirm the HUD
    `load phase`, `load ready`, `wire paths`, `connector overlay`, and
    `connector tooltips` rows update.
 21. Hover and select wires in Engine mode. Confirm hover/selection feedback is
@@ -93,7 +92,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 32. Start a wire from a normal connector and hover/drop on a jump node. Confirm
    the jump endpoint can still act as the wire target without leaving a stale
    connector selection overlay.
-33. Open `index.html?engine=1&debugHud=1&debugLayers=1&v=iteration33`, drag
+33. Open `index.html?engine=1&debugHud=1&debugLayers=1&v=iteration34`, drag
    a connected jump node with its connected wire selected, and confirm no stale
    selected or hovered wire remains at the original jump-node position.
 34. In the debug layer panel for that same drag, confirm the connected wire has
@@ -114,8 +113,8 @@ Git commit as the final source of truth when reviewing a pushed change.
 39. With the expanded engine HUD open, confirm `device labels hidden` and
    `device labels truncated` update as zoom changes.
 40. Compare cable crossings in Engine and Legacy with the same project:
-    `index.html?v=iteration33` beside
-    `index.html?legacy=1&v=iteration33`.
+    `index.html?v=iteration34` beside
+    `index.html?legacy=1&v=iteration34`.
 41. In Engine, inspect Bezier, custom-routed, orthogonal/custom-corner, and
     jump-node-connected wire crossings. Confirm hops are visible and stable
     after pan/zoom.
@@ -124,7 +123,7 @@ Git commit as the final source of truth when reviewing a pushed change.
     return after drop.
 43. Drag a route point near a crossing. Confirm the wire remains editable while
     moving and cable hops finalize after release.
-44. Open `index.html?engine=1&debugHud=1&v=iteration33` and confirm the HUD
+44. Open `index.html?engine=1&debugHud=1&v=iteration34` and confirm the HUD
     rows `cable hops`, `cable hop calc`, `cable hop candidates`, and
     `cable hop dirty` update.
 
@@ -132,35 +131,40 @@ Git commit as the final source of truth when reviewing a pushed change.
     `outputVisual` rows for `initial`, `final`, and `chain final redo state`.
 46. Run the real-project validation and confirm each `outputVisual` row reports
     finite base polylines, finite hopped polylines, and `deterministic: true`.
-47. Export a standalone HTML viewer and a PDF report from an Engine-edited
-    project. Confirm they still open and render using the existing output paths;
-    this pass validates helper safety but does not replace those renderers.
+47. Export a standalone HTML viewer from an Engine-edited project. Confirm
+    Bezier wires, custom-routed wires, orthogonal/custom-corner wires, cable
+    hops, wire labels, and jump-node z-order look closer to the Engine Editor.
+48. Export a PDF report from the same project. Confirm the PDF still opens and
+    uses the previous PDF path; Iteration 34 does not migrate PDF rendering.
 
-## Iteration 33 Focus
+## Iteration 34 Focus
 
-- Engine wire geometry is now exercised from the real validation script as a
-  data-only output helper smoke test. It samples Engine wire polylines, runs the
-  runtime cable-hop helper, applies hop geometry, and checks that the result is
-  finite and deterministic.
-- `src/engine/wirePath.js` and `src/engine/cableHops.js` remain DOM/WebGL-free
-  enough to be used by scripts and future output-renderer work. They do not need
-  live Engine renderer state, textures, selection state, debug HUD state, or
-  browser DOM nodes.
 - Standalone HTML export and hosted publish still generate a self-contained
-  viewer through `buildStandaloneHtml(...)`. That generated viewer currently
-  contains its own inline wire path, label, and cable-hop functions so it can be
-  opened locally or hosted without module imports.
+  viewer through `buildStandaloneHtml(...)`, but that viewer now embeds a copied
+  Engine-style wire geometry helper block for Bezier, custom-routed, and
+  orthogonal/custom-corner wires.
+- Viewer cable hops are now calculated from sampled wire polylines with a
+  runtime-only spatial grid, then applied as point geometry before the SVG path
+  is drawn. Hop information is not serialized into `.avd`, JSON, publish
+  payloads, or saved project files.
+- Viewer wire labels now use the same sampled route polyline used for drawing,
+  so labels track Bezier/custom/orthogonal wire shapes more consistently.
+- Jump nodes are still drawn after wires in the standalone viewer layer order,
+  so jump-node bodies and labels remain above regular and selected wires.
+- `src/engine/wirePath.js` and `src/engine/cableHops.js` remain the canonical
+  helper shape. The standalone viewer uses an embedded copy because exported
+  HTML must open locally and hosted without module imports.
 - PDF export still snapshots the production SVG canvas through
   `wirechartSvgMarkup(..., { forceLight: true })`. Moving PDF drawing onto the
   shared Engine helpers would require a separate data-driven SVG output path,
   not a clone of the live canvas.
 - Report tables are data-only; the visual wirechart section in the printable
   PDF is the only report path that currently depends on SVG wire rendering.
-- Iteration 33 deliberately avoids saving cable-hop data. Cable hops remain a
+- Iteration 34 deliberately avoids saving cable-hop data. Cable hops remain a
   runtime/output calculation and do not change the `.avd` or JSON format.
-- Direct viewer/PDF visual migration is deferred until a dedicated output
-  renderer can be introduced without breaking the portable standalone viewer or
-  the current printable PDF workflow.
+- PDF visual migration remains deferred until a dedicated data-driven PDF output
+  renderer can be introduced without breaking the current printable PDF
+  workflow.
 
 ## Iteration 32 Focus
 
