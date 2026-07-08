@@ -9,6 +9,8 @@ import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 import { DragSession } from "../src/engine/dragSession.js";
 import { validateEngineScene } from "../src/engine/sceneValidation.js";
+import { calculateCableHops, applyCableHopsToPolyline } from "../src/engine/cableHops.js";
+import { wirePathStatsForWires } from "../src/engine/wirePath.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturePath = path.resolve(__dirname, "../fixtures/engine-parity-project.avd");
@@ -24,6 +26,12 @@ const commandResults = [];
 const validationResults = [];
 const roundTrips = [];
 const compatibilityResults = [];
+const outputVisualResults = [];
+const OUTPUT_VISUAL_CHECK_LABELS = new Set([
+  "initial",
+  "final",
+  "chain final redo state"
+]);
 const RUNTIME_ONLY_KEYS = new Set([
   "cableHopMap",
   "hopsByWireId",
@@ -124,6 +132,7 @@ const summary = {
   validation: validationResults,
   roundTrips,
   compatibility: compatibilityResults,
+  outputVisual: outputVisualResults,
   timingsMs: Object.fromEntries(Object.entries(timings).map(([key, value]) => [key, round(value)])),
   checks,
   performanceTargets: {
@@ -561,6 +570,97 @@ function validateOutputCompatibility(harness, label) {
   check(`${label} report cable quantities match connections`, () => {
     assert.equal(compatibility.report.cableQuantityTotal, compatibility.counts.connections);
   });
+  if (OUTPUT_VISUAL_CHECK_LABELS.has(label)) {
+    validateOutputVisualHelpers(harness, label);
+  }
+}
+
+// Output renderer migration is intentionally staged. This smoke test exercises
+// the shared Engine geometry/hop helpers from serializable project data without
+// touching the standalone viewer or PDF pipelines yet.
+function validateOutputVisualHelpers(harness, label) {
+  const root = projectRoot(harness.mutations.project);
+  const enabled = root.cableHops !== false;
+  const first = time(`${label} output visual hop smoke`, () => calculateCableHops(harness.scene, {
+    enabled,
+    mode: "output-visual-validation"
+  }));
+  const second = time(`${label} output visual hop deterministic repeat`, () => calculateCableHops(harness.scene, {
+    enabled,
+    mode: "output-visual-validation-repeat"
+  }));
+  const firstSignature = serializeHopMap(first.hopsByWireId);
+  const secondSignature = serializeHopMap(second.hopsByWireId);
+  let finitePolylineWires = 0;
+  let finiteHoppedPolylineWires = 0;
+  let maxPolylinePoints = 0;
+  let maxHoppedPolylinePoints = 0;
+  const invalidPolylines = [];
+  const invalidHoppedPolylines = [];
+
+  harness.scene.wires.forEach(wire => {
+    const points = harness.scene.wireRenderPolyline(wire);
+    if (finitePolyline(points)) {
+      finitePolylineWires += 1;
+      maxPolylinePoints = Math.max(maxPolylinePoints, points.length);
+    } else {
+      invalidPolylines.push(wire.id);
+    }
+    const hoppedPoints = applyCableHopsToPolyline(points, first.hopsByWireId.get(wire.id) || []);
+    if (finitePolyline(hoppedPoints)) {
+      finiteHoppedPolylineWires += 1;
+      maxHoppedPolylinePoints = Math.max(maxHoppedPolylinePoints, hoppedPoints.length);
+    } else {
+      invalidHoppedPolylines.push(wire.id);
+    }
+  });
+
+  const visualSummary = {
+    label,
+    enabled,
+    wires: harness.scene.wires.length,
+    pathStats: wirePathStatsForWires(harness.scene.wires),
+    finitePolylineWires,
+    finiteHoppedPolylineWires,
+    maxPolylinePoints,
+    maxHoppedPolylinePoints,
+    hoppedWires: first.hopsByWireId.size,
+    totalHops: first.stats.totalHops,
+    candidateCount: first.stats.candidateCount,
+    crossingCount: first.stats.crossingCount,
+    calcMs: round(first.stats.calcMs),
+    deterministic: true
+  };
+  outputVisualResults.push(visualSummary);
+
+  check(`${label} output visual helper polylines are finite`, () => {
+    assert.deepEqual(invalidPolylines, []);
+  });
+  check(`${label} output visual helper hopped polylines are finite`, () => {
+    assert.deepEqual(invalidHoppedPolylines, []);
+  });
+  check(`${label} output visual helper hop calculation is deterministic`, () => {
+    assert.deepEqual(firstSignature, secondSignature);
+  });
+}
+
+function serializeHopMap(hopsByWireId = new Map()) {
+  return [...hopsByWireId.entries()]
+    .sort(([a], [b]) => String(a).localeCompare(String(b)))
+    .map(([wireId, hops]) => ({
+      wireId: String(wireId),
+      hops: (hops || []).map(hop => ({
+        distance: round(hop.distance),
+        x: round(hop.point?.x),
+        y: round(hop.point?.y)
+      }))
+    }));
+}
+
+function finitePolyline(points = []) {
+  return points.length >= 2 && points.every(point => (
+    Number.isFinite(Number(point?.x)) && Number.isFinite(Number(point?.y))
+  ));
 }
 
 function buildOutputCompatibilitySummary(root) {
