@@ -196,6 +196,46 @@ export class ProjectMutationAdapter {
     return this.lastMutation.durationMs;
   }
 
+  insertDeviceInstance(deviceData, { index = null, type = "create device" } = {}) {
+    const start = performance.now();
+    const id = String(deviceData?.instanceId || deviceData?.id || "");
+    if (!id || this.deviceById.has(id)) return { mutationMs: 0, index: -1 };
+    const item = deepClone(deviceData);
+    const targetIndex = Number.isInteger(index)
+      ? Math.max(0, Math.min(index, this.root.devices.length))
+      : this.root.devices.length;
+    this.root.devices.splice(targetIndex, 0, item);
+    this.rebuildIndexes();
+    this.record(type, performance.now() - start, `devices[${targetIndex}]`, {
+      deviceId: id
+    });
+    return { mutationMs: this.lastMutation.durationMs, index: targetIndex };
+  }
+
+  removeDeviceInstance(deviceId) {
+    const start = performance.now();
+    const id = String(deviceId || "");
+    const entry = this.deviceById.get(id);
+    if (!entry) return { mutationMs: 0, deviceData: null, index: -1 };
+    const [removed] = this.root.devices.splice(entry.index, 1);
+    this.rebuildIndexes();
+    this.record("delete device", performance.now() - start, `devices[${entry.index}]`, {
+      deviceId: id
+    });
+    return {
+      mutationMs: this.lastMutation.durationMs,
+      deviceData: deepClone(removed),
+      index: entry.index
+    };
+  }
+
+  restoreDeviceInstance(deviceData, index = null) {
+    return this.insertDeviceInstance(deviceData, {
+      index,
+      type: "restore device"
+    });
+  }
+
   exportJson({ pretty = true } = {}) {
     const start = performance.now();
     const json = JSON.stringify(this.project, null, pretty ? 2 : 0);

@@ -4,11 +4,12 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 34`
+- Current build label: `Iteration 35`
 
-Iteration 34 pauses viewer/PDF/report visual migration. The Engine Editor is now
-the fast editing path, but several product behaviours still need to match the
-Legacy Editor before output migration continues.
+Iteration 35 restores Device Library drag/drop for normal devices, project
+custom devices, and paired-device entries in the Engine Editor. Viewer/PDF/report
+visual migration remains paused while the remaining Legacy functional gaps are
+worked through.
 
 ## Executive Summary
 
@@ -20,7 +21,8 @@ cable-hop visuals.
 The biggest gaps are functional workflows that still live only in the Legacy
 single-file editor:
 
-1. Device selector drag/drop and rack/library creation are Legacy-only.
+1. Rack library creation is still Legacy-only; normal Device Library drops now
+   work in Engine mode through a create-device command.
 2. Engine wire creation does not reuse Legacy connector compatibility rules.
 3. Endpoint rewire is not yet restored in Engine mode.
 4. Modular card/chassis, faceplate, power-distro, and rack-builder behaviours
@@ -29,7 +31,7 @@ single-file editor:
 
 ## Root Causes Of The Known Blockers
 
-### Device Selector Drag/Drop Does Nothing In Engine Editor
+### Device Selector Drag/Drop Is Restored For Device Templates
 
 Legacy creates devices through DOM library drag state and direct `state.devices`
 mutation:
@@ -45,15 +47,20 @@ mutation:
 - Rack library drops use `startRackLibraryDrag(...)` and
   `addRackInstanceToCanvas(...)`.
 
-Current Engine mode builds its scene from production data during
-`ProductionEngineBridge.refreshFromProduction(...)`, then performs known engine
-commands such as move, route-point edit, wire create/delete, and undo/redo. It
-does not yet have a device-library drop command or a bridge API that converts a
-library template into a new Engine scene device plus production-state device.
+Iteration 35 keeps the Legacy drag ghost, canvas hit-test, `getCanvasPoint(...)`
+coordinate conversion, non-overlap placement, and hydration semantics, then
+routes successful Engine-mode device drops through
+`ProductionEngineBridge.createDeviceFromLibraryDrop(...)` or
+`createDevicesFromLibraryDrop(...)`.
 
-So the missing piece is not a renderer issue. It is a command/write-through gap:
-the library drag/drop path still belongs to Legacy, while the Engine scene does
-not receive a first-class "create device from template" command.
+The restored Engine path writes the new production-shaped device instance into
+`state.devices`, inserts the normalized device into the Engine scene graph,
+updates connector/spatial indexes, appends device geometry/texture to the
+renderer, selects the created object, and records one undoable create command.
+
+Rack library drops still need their own command because rack placement copies a
+rack definition, member devices, internal wiring, exposed ports, and shifted
+route data rather than a single device template.
 
 ### All Nodes Can Connect To All Nodes
 
@@ -95,9 +102,9 @@ PD geometry, and special template behaviours.
 
 | Feature / workflow | Legacy behaviour at `8301fbf` | Current Engine behaviour | Status | Legacy code locations | Engine code locations | Data structures involved | Save/load impact | Undo/redo impact | Report/export/viewer impact | Risk | Restore in | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Device library drag/drop | Library cards start a pointer drag, convert pointer to canvas coordinates, hydrate a device, avoid overlaps, push undo, append to `state.devices`, select, render. | No first-class Engine command for library template drops. Engine scene is built from production state and supports edit commands after objects already exist. | broken | `renderDeviceLibrary`, `startLibraryDrag`, `moveLibraryGhost`, `finishLibraryDrag`, `addDeviceInstanceFromTemplate` | `ProductionEngineBridge.refreshFromProduction`, `ProjectMutationAdapter.commitDevicePositions`; no create-device mutation yet | `deviceLibrary`, `state.devices`, template overrides, connector overrides | New device must persist as production `devices[]` entry | Should be one undo step | Reports/export/viewer need placed devices in production data | high | 35 | Implement as Engine command that reuses Legacy hydration/placement semantics. |
-| Device pairs | Legacy pair library entry drops two hydrated devices with `DEVICE_PAIR_GAP`, non-overlap search, multi-selection, one undo snapshot. | Engine has no pair-drop command. Existing loaded paired devices can render as normal devices. | missing | `deviceLibraryEntries`, `pairedTemplateFor`, `addDevicePairInstances` | none dedicated | two `devices[]` instances, pair metadata in templates | Must save as two real devices | One group undo | Reports count two devices | medium | 35 | Should share the same create-device command family. |
-| Project custom device drag/drop | Edited project devices appear in Project Custom Devices, can be dragged as `templateOverride` copies or clicked to frame. | Engine can render existing custom devices, but custom-device library drag remains Legacy-only. | broken | `renderProjectCustomDevices`, `startProjectCustomDeviceDrag`, `selectAndFrameDevice` | no Engine custom-device drop command | `instance.templateOverride`, `instance.name` | Must preserve override | One undo for created copy | Export must include compact template override | high | 35 | Important because user-created devices are central to project workflow. |
+| Device library drag/drop | Library cards start a pointer drag, convert pointer to canvas coordinates, hydrate a device, avoid overlaps, push undo, append to `state.devices`, select, render. | Engine now reuses the Legacy preparation path and commits the hydrated instance through `CreateDeviceCommand`. | covered | `renderDeviceLibrary`, `startLibraryDrag`, `moveLibraryGhost`, `finishLibraryDrag`, `prepareDeviceInstanceFromTemplate`, `addDeviceInstanceFromTemplate` | `ProductionEngineBridge.createDeviceFromLibraryDrop`, `ProjectMutationAdapter.restoreDeviceInstance`, `SceneGraph.insertDevice`, `WebglGraphRenderer.appendDevice` | `deviceLibrary`, `state.devices`, template overrides, connector overrides | New device persists as production `devices[]` entry | One undo removes it; redo restores same data/ID | Reports/export/viewer see placed devices through production data | medium | 35 | Browser smoke still needed for every library type, but command/save path is validated. |
+| Device pairs | Legacy pair library entry drops two hydrated devices with `DEVICE_PAIR_GAP`, non-overlap search, multi-selection, one undo snapshot. | Engine now prepares both instances through Legacy pair placement and commits them as one `CreateDevicesCommand`. | covered | `deviceLibraryEntries`, `pairedTemplateFor`, `prepareDevicePairInstances`, `addDevicePairInstances` | `ProductionEngineBridge.createDevicesFromLibraryDrop` | two `devices[]` instances, pair metadata in templates | Saves as two real devices | One group undo | Reports count two devices | medium | 35 | Does not create a linking wire; same as requested Legacy behaviour. |
+| Project custom device drag/drop | Edited project devices appear in Project Custom Devices, can be dragged as `templateOverride` copies or clicked to frame. | Engine now preserves `templateOverride` and custom display name when dropped through the create-device command. | covered | `renderProjectCustomDevices`, `startProjectCustomDeviceDrag`, `selectAndFrameDevice`, `finishLibraryDrag` | `ProductionEngineBridge.createDeviceFromLibraryDrop`, `normalizeAvDesignerDevice` | `instance.templateOverride`, `instance.name` | Preserves override in production data | One undo for created copy | Export can include compact template override | medium | 35 | Click-to-frame remains the existing selector behaviour. |
 | Rack library drag/drop | Rack entries drop a rack instance with copied member devices, internal connections, exposed ports, route-point shifts, and rack bounds. | Engine can load many project objects, but rack library creation is not an Engine command. | missing | `renderRackLibraryList`, `startRackLibraryDrag`, `addRackInstanceToCanvas` | no Engine rack-create command | `state.racks`, rack member `devices[]`, `internalConnections`, exposed ports | Must persist rack instance and internal data | One undo | Viewer/report depend on production state | high | 42 | Depends on rack parity work. |
 | Connector compatibility | Exact type match, CAT-family match, USB-family match, cage active module type, dead-cage blocking, input/output blocking, paired network and two-way exceptions. | Engine create path accepts any two different connectors. | broken | `effectiveConnectorType`, `areConnectorTypesCompatible`, `connectionError`, `isDeadCageConnector`, `isTwoWayConnector`, `isPairedNetworkConnector` | `ProductionEngineBridge.completeWireCreate`, `SceneGraph.addWire` | connector `type`, `direction`, `installedModuleType`, cable type metadata | Invalid connections currently can be saved if created in Engine | Undo works for created wire but should not allow invalid wire | Reports/export would inherit invalid data | critical | 36 | Extract shared compatibility module before adding more wire features. |
 | Wire hover target feedback | Preview highlights only compatible, unoccupied targets and shows blocked states/status text. | Engine has connector hover and create feedback, but not full Legacy compatibility validity. | partial | `updateHoverConnector`, `renderPreviewWires`, `connectionError` | `ProductionEngineBridge.handlePointerMove`, `beginWireCreate`, `completeWireCreate` | same as connector compatibility | none unless committed | none | visual only | high | 36 | Should call the same shared rule used on commit. |
@@ -149,14 +156,19 @@ Legacy fields required for a placed device:
 - `notes`
 - template-derived connectors from `effectiveTemplateConnectors(...)`
 
-What Engine needs:
+What Iteration 35 restored:
 
-- A create-device command that accepts a template ID or template override.
+- A create-device command that accepts an already hydrated Legacy-style device
+  instance from a template ID or template override.
 - A pair-create command that commits both devices as one undo step.
-- A rack-create command or a separate rack iteration.
-- Production write-through through `state.devices`/`state.racks`.
+- Production write-through through `state.devices`.
 - Engine scene append/update without full fallback rebuild.
 - One undo command per user action.
+
+What remains:
+
+- Rack creation still needs a separate rack command because it involves rack
+  definitions, member devices, internal wires, and exposed ports.
 
 ### B. Connector / Node Compatibility
 
@@ -551,9 +563,9 @@ Run these after each parity iteration:
 2. `node scripts/engine-real-project-validation.mjs "/path/to/real-project.avd"`
 3. `git diff --check`
 4. Browser smoke:
-   - `index.html?v=iteration34`
-   - `index.html?legacy=1&v=iteration34`
-   - `index.html?engine=1&debugHud=1&v=iteration34`
+   - `index.html?v=iteration35`
+   - `index.html?legacy=1&v=iteration35`
+   - `index.html?engine=1&debugHud=1&v=iteration35`
 5. Manual create/edit/save/reload:
    - drag device from library
    - create compatible wire
@@ -569,7 +581,7 @@ Run these after each parity iteration:
 
 ## Deliberately Not Changed In This Audit
 
-- No runtime code was ported.
+- Runtime code was ported only for the Iteration 35 create-device path.
 - No compatibility rules were migrated yet.
 - No viewer/PDF/report migration was added.
 - No save/load format change was made.

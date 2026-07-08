@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import { performance } from "node:perf_hooks";
 
-import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
+import { normalizeAvDesignerDevice, normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 import { DragSession } from "../src/engine/dragSession.js";
@@ -100,6 +100,7 @@ check("initial engine scene validates", () => {
 runCommandCycle(initialHarness, buildSingleMoveCommand(initialHarness));
 runCommandCycle(initialHarness, buildMultiMoveCommand(initialHarness));
 runCommandCycle(initialHarness, buildRoutePointMoveCommand(initialHarness));
+runCommandCycle(initialHarness, buildCreateDeviceCommand(initialHarness));
 runCommandCycle(initialHarness, buildCreateWireCommand(initialHarness));
 runCommandCycle(initialHarness, buildDeleteWireCommand(initialHarness));
 
@@ -241,6 +242,7 @@ function runLongUndoRedoChain(harness) {
     buildSingleMoveCommand,
     buildMultiMoveCommand,
     buildRoutePointMoveCommand,
+    buildCreateDeviceCommand,
     buildCreateWireCommand,
     buildDeleteWireCommand
   ];
@@ -407,6 +409,48 @@ function buildCreateWireCommand(harness) {
   };
 }
 
+function buildCreateDeviceCommand(harness) {
+  const root = projectRoot(harness.mutations.project);
+  const normalizedSource = harness.scene.devices.find(item => item.kind !== "surface" && arrayOf(item.connectors).length);
+  const sourceInstance = normalizedSource
+    ? arrayOf(root.devices).find(item => String(item.instanceId || item.id || item.deviceId) === String(normalizedSource.sourceId || normalizedSource.id))
+    : null;
+  const template = sourceInstance
+    ? null
+    : arrayOf(root.deviceLibrary).find(item => item?.id && arrayOf(item.connectors).some(connector => connector && !connector.empty && connector.type))
+      || arrayOf(root.deviceLibrary).find(item => item?.id);
+  const sourceTemplate = sourceInstance?.templateOverride || template;
+  if (!sourceTemplate) return skippedCommand("create device", "no device template");
+  const deviceData = {
+    instanceId: "engine-validation-created-device",
+    templateId: template?.id || sourceInstance?.templateId || "",
+    templateOverride: sourceInstance?.templateOverride ? stableClone(sourceInstance.templateOverride) : undefined,
+    name: `${sourceTemplate.name || "Validation Device"} Copy`,
+    x: 12345,
+    y: -6789,
+    notes: ""
+  };
+  const index = arrayOf(root.devices).length;
+  return {
+    name: "create device",
+    tested: true,
+    affectedIds: [deviceData.instanceId],
+    execute: () => restoreValidationDevice(harness, deviceData, index),
+    undo: () => removeValidationDevice(harness, deviceData.instanceId),
+    redo: () => restoreValidationDevice(harness, deviceData, index),
+    assertExecute: (before, after, result) => {
+      assert.equal(after.devices.size, before.devices.size + 1);
+      assert.ok(after.devices.has(deviceData.instanceId), "created device not in scene");
+      assert.ok(result.device.connectors.length > 0 || !normalizedSource, "created device connectors missing");
+      assertUnrelatedDevicesUnchanged(before, after, new Set([deviceData.instanceId]), "create device");
+      assertUnrelatedWiresUnchanged(before, after, new Set(), "create device");
+    },
+    assertRedo: (before, after) => {
+      assert.ok(after.devices.has(deviceData.instanceId), "redo did not restore created device id");
+    }
+  };
+}
+
 function buildDeleteWireCommand(harness) {
   const wire = harness.scene.wires.find(item => item.routePoints?.length) || harness.scene.wires[0];
   if (!wire) return skippedCommand("delete wire", "no wire");
@@ -440,6 +484,21 @@ function buildDeleteWireCommand(harness) {
       assert.equal(after.wires.has(wireData.id), false, "redo did not delete original wire id");
     }
   };
+}
+
+function restoreValidationDevice(harness, deviceData, index) {
+  const normalized = normalizeAvDesignerDevice(harness.mutations.project, deviceData, index);
+  const mutation = harness.mutations.restoreDeviceInstance(deviceData, index);
+  const device = harness.scene.insertDevice(normalized);
+  assert.ok(device, `failed to insert validation device ${deviceData.instanceId}`);
+  return { mutationMs: mutation.mutationMs, device };
+}
+
+function removeValidationDevice(harness, deviceId) {
+  const removed = harness.scene.deleteDevice(deviceId);
+  const mutation = harness.mutations.removeDeviceInstance(deviceId);
+  assert.ok(removed, `failed to delete validation device ${deviceId}`);
+  return { mutationMs: mutation.mutationMs, deviceData: mutation.deviceData };
 }
 
 function applyDevicePositions(harness, positions = []) {

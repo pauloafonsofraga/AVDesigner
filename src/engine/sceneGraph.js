@@ -384,6 +384,47 @@ export class SceneGraph {
     this.refreshMovedDeviceIndexes(movedDeviceIds, [...affectedWireIds]);
   }
 
+  insertDevice(deviceData) {
+    const device = normalizeDevice(deviceData);
+    if (!device.id || this.devicesById.has(device.id)) return null;
+    this.devices.push(device);
+    this.devicesById.set(device.id, device);
+    (device.connectors || []).forEach(connector => this.addConnectorOwner(device.id, connector.id));
+    this.spatialIndex.insert(device.id, deviceBounds(device), { id: device.id, bounds: deviceBounds(device), device });
+    (device.connectors || []).forEach(connector => {
+      const point = this.connectorWorldPoint(device, connector);
+      this.connectorIndex.insert(connectorKey(device.id, connector.id), centeredBounds(point, device.kind === "jump" ? 42 : 24), {
+        id: connectorKey(device.id, connector.id),
+        bounds: centeredBounds(point, device.kind === "jump" ? 42 : 24),
+        device,
+        connector,
+        point
+      });
+    });
+    this.dirtyDevices.add(device.id);
+    return device;
+  }
+
+  deleteDevice(deviceId) {
+    const id = String(deviceId || "");
+    const device = this.devicesById.get(id);
+    if (!device) return null;
+    this.devices = this.devices.filter(item => item.id !== id);
+    this.devicesById.delete(id);
+    this.selectedIds.delete(id);
+    this.spatialIndex.delete(id);
+    (this.connectorKeysByOwnerId.get(id) || new Set()).forEach(key => {
+      this.connectorOwnerByKey.delete(key);
+      this.connectorIndex.delete(key);
+      this.wireIdsByConnectorKey.delete(key);
+      this.selectedConnectorKeys.delete(key);
+    });
+    this.connectorKeysByOwnerId.delete(id);
+    this.wireIdsByDeviceId.delete(id);
+    this.dirtyDevices.add(id);
+    return device;
+  }
+
   moveRoutePoint(wireId, pointIndex, x, y, { refreshIndexes = true } = {}) {
     const wire = this.getWire(wireId);
     const point = wire?.routePoints?.[pointIndex];

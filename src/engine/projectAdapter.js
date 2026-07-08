@@ -233,6 +233,13 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
   };
 }
 
+export function normalizeAvDesignerDevice(data, instance, index = 0) {
+  const root = data?.state || data?.project || data || {};
+  const templates = collectTemplates(root, data);
+  const nodeColorByType = collectNodeColors(root, data);
+  return normalizeProjectDevice(instance, index, templates, nodeColorByType);
+}
+
 function collectTemplates(root, data) {
   const candidates = [
     root.deviceLibrary,

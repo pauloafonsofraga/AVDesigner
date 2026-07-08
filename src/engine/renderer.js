@@ -491,6 +491,89 @@ export class WebglGraphRenderer {
     };
   }
 
+  rebuildDeviceGeometry(scene) {
+    const start = performance.now();
+    this.deviceVertexMap.clear();
+    this.deviceRangeMap.clear();
+    const geometryStart = performance.now();
+    scene.devices.forEach(device => {
+      this.deviceVertexMap.set(device.id, verticesForDevice(device, null, this.renderOptions));
+    });
+    const geometryMs = performance.now() - geometryStart;
+    const uploadStart = performance.now();
+    const devicePack = packVertexMap(this.deviceVertexMap);
+    this.staticDeviceArray = devicePack.array;
+    this.deviceRangeMap = devicePack.ranges;
+    this.staticDeviceVertexCount = uploadArray(this.gl, this.staticDeviceBuffer, this.staticDeviceArray);
+    const uploadMs = performance.now() - uploadStart;
+    this.rangeUpdateCount += 1;
+    return {
+      totalMs: performance.now() - start,
+      geometryMs,
+      uploadMs,
+      deviceVertices: this.staticDeviceVertexCount,
+      deviceOnlyRebuild: true,
+      fullRebuildCount: this.fullRebuildCount,
+      rangeUpdateCount: this.rangeUpdateCount
+    };
+  }
+
+  appendDevice(scene, deviceId) {
+    const start = performance.now();
+    const device = scene.getDevice(deviceId);
+    if (!device) return { totalMs: 0, appended: false };
+    const geometryStart = performance.now();
+    const vertices = verticesForDevice(device, null, this.renderOptions);
+    const geometryMs = performance.now() - geometryStart;
+    const uploadStart = performance.now();
+    const offset = this.staticDeviceArray.length;
+    const next = new Float32Array(offset + vertices.length);
+    next.set(this.staticDeviceArray, 0);
+    next.set(vertices, offset);
+    this.staticDeviceArray = next;
+    this.deviceVertexMap.set(deviceId, vertices);
+    this.deviceRangeMap.set(deviceId, { offset, count: vertices.length });
+    this.staticDeviceVertexCount = uploadArray(this.gl, this.staticDeviceBuffer, this.staticDeviceArray);
+    const uploadMs = performance.now() - uploadStart;
+    const textureStart = performance.now();
+    const textureEntry = device.kind === "jump"
+      ? null
+      : this.textureCache.ensureDeviceTexture(device, this.renderOptions, "append device");
+    const textureMs = performance.now() - textureStart;
+    this.rangeUpdateCount += 1;
+    this.lastDirtyStats = {
+      totalMs: performance.now() - start,
+      geometryMs,
+      uploadMs,
+      rangeUploadMs: uploadMs,
+      textureMs,
+      dirtyDevices: 1,
+      dirtyWires: 0,
+      deviceRangeUpdates: 1,
+      wireRangeUpdates: 0,
+      rangeUpdates: 1,
+      fallbackRebuild: false,
+      appended: true,
+      texturePrepared: Boolean(textureEntry),
+      fullRebuildCount: this.fullRebuildCount,
+      rangeUpdateCount: this.rangeUpdateCount
+    };
+    return this.lastDirtyStats;
+  }
+
+  removeDevice(scene, deviceId) {
+    this.textureCache.invalidateDevice(deviceId, "remove device");
+    const rebuildStats = this.rebuildDeviceGeometry(scene);
+    this.lastDirtyStats = {
+      ...rebuildStats,
+      dirtyDevices: 1,
+      dirtyWires: 0,
+      fallbackRebuild: false,
+      removed: true
+    };
+    return this.lastDirtyStats;
+  }
+
   appendWire(scene, wireId) {
     const start = performance.now();
     const wire = scene.getWire(wireId);

@@ -6,7 +6,7 @@ import {
   hitTestWire,
   screenToWorld
 } from "./hitTest.js";
-import { normalizeAvDesignerProject } from "./projectAdapter.js";
+import { normalizeAvDesignerDevice, normalizeAvDesignerProject } from "./projectAdapter.js";
 import { ProjectMutationAdapter } from "./projectMutations.js";
 import { WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
@@ -1475,6 +1475,99 @@ class ProductionEngineBridge {
     return { mutationMs, dirtyStats };
   }
 
+  createDeviceFromLibraryDrop(deviceData) {
+    return this.createDevicesFromLibraryDrop([deviceData]);
+  }
+
+  createDevicesFromLibraryDrop(deviceList = []) {
+    if (!this.ready) {
+      this.hud?.setMetric("blocked command", "create device while loading");
+      this.showError("Engine Editor is still loading. Try dropping the device again when it is ready.");
+      return false;
+    }
+    const commitStart = performance.now();
+    const rawDevices = (deviceList || []).map(deepClone).filter(Boolean);
+    const ids = rawDevices.map(device => String(device?.instanceId || device?.id || "")).filter(Boolean);
+    if (!rawDevices.length || ids.length !== rawDevices.length) {
+      this.showError("Dropped device data is incomplete.");
+      return false;
+    }
+    const duplicateId = ids.find(id => this.scene.getDevice(id) || this.mutations?.deviceById?.has(id));
+    if (duplicateId) {
+      this.showError(`Device ${duplicateId} already exists.`);
+      return false;
+    }
+    const firstIndex = this.mutations?.root?.devices?.length ?? null;
+    this.beginProductionCommit(`create ${rawDevices.length} device${rawDevices.length === 1 ? "" : "s"}`);
+    const created = [];
+    let mutationMs = 0;
+    rawDevices.forEach((rawDevice, offset) => {
+      const index = Number.isInteger(firstIndex) ? firstIndex + offset : null;
+      const result = this.restoreCreatedDevice(rawDevice, index, { select: false, recordMetric: false });
+      if (result.device) created.push(result.device);
+      mutationMs += result.mutationMs || 0;
+    });
+    if (!created.length) return false;
+    if (created.length === 1) this.scene.selectOnly(created[0].id);
+    else this.scene.selectMany(created.map(device => device.id));
+    this.recordCommand(createDevicesCommand(rawDevices, firstIndex));
+    this.markCommitted(`create ${created.length} device${created.length === 1 ? "" : "s"}`, mutationMs);
+    this.updateSelectionHud();
+    this.updateInteractionHud("device-created");
+    this.hud.setMetric("create device commit", `${(performance.now() - commitStart).toFixed(2)} ms`);
+    this.scheduleRender();
+    return true;
+  }
+
+  restoreCreatedDevice(deviceData, index = null, { select = true, recordMetric = true } = {}) {
+    const id = String(deviceData?.instanceId || deviceData?.id || "");
+    if (!id) return { mutationMs: 0, device: null };
+    if (this.scene.getDevice(id)) return { mutationMs: 0, device: this.scene.getDevice(id) };
+    const projectData = this.mutations?.project || this.api.getProjectData?.();
+    const normalized = normalizeAvDesignerDevice(projectData, deviceData, Number.isInteger(index) ? index : 0);
+    const mutationResult = this.mutations?.restoreDeviceInstance(deviceData, index) || { mutationMs: 0 };
+    const device = this.scene.insertDevice(normalized);
+    if (!device) return { mutationMs: mutationResult.mutationMs || 0, device: null };
+    const dirtyStats = this.renderer.appendDevice(this.scene, device.id);
+    this.lastDirtyDeviceIds = new Set([device.id]);
+    this.lastDirtyWireIds = new Set();
+    this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    if (select) this.scene.selectOnly(device.id);
+    if (recordMetric) {
+      this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+      this.hud.setMetric("gpu update", dirtyStats.appended ? "append device buffer" : "device update");
+      this.recordDirtyVisualMetrics(dirtyStats, "restore device");
+    }
+    return { mutationMs: mutationResult.mutationMs || 0, dirtyStats, device };
+  }
+
+  removeCreatedDevice(deviceId) {
+    const id = String(deviceId || "");
+    const device = this.scene.getDevice(id);
+    const sourceId = String(device?.sourceId || id);
+    const mutationResult = this.mutations?.removeDeviceInstance(sourceId) || { mutationMs: 0, deviceData: null, index: -1 };
+    const removed = this.scene.deleteDevice(id);
+    if (!removed) return { mutationMs: mutationResult.mutationMs || 0, deviceData: mutationResult.deviceData, index: mutationResult.index };
+    const dirtyStats = this.renderer.removeDevice(this.scene, id);
+    this.lastDirtyDeviceIds = new Set([id]);
+    this.lastDirtyWireIds = new Set();
+    this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.scene.clearSelection();
+    this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+    this.hud.setMetric("gpu update", dirtyStats.deviceOnlyRebuild ? "device geometry rebuild" : "device remove");
+    this.recordDirtyVisualMetrics(dirtyStats, "remove device");
+    return {
+      mutationMs: mutationResult.mutationMs || 0,
+      dirtyStats,
+      deviceData: mutationResult.deviceData,
+      index: mutationResult.index
+    };
+  }
+
   restoreWire(wireData, connectionData) {
     const wire = this.scene.insertWire(wireData);
     if (!wire) return { mutationMs: 0 };
@@ -2592,6 +2685,37 @@ function routePointCommand(wireId, beforePoints, afterPoints) {
   };
 }
 
+function createDevicesCommand(deviceList = [], firstIndex = null) {
+  const rawDevices = (deviceList || []).map(deepClone).filter(Boolean);
+  const ids = rawDevices.map(device => String(device?.instanceId || device?.id || "")).filter(Boolean);
+  return {
+    type: rawDevices.length === 1 ? "CreateDeviceCommand" : `CreateDevicesCommand (${rawDevices.length})`,
+    affectedIds: ids,
+    undo: bridge => {
+      let mutationMs = 0;
+      ids.slice().reverse().forEach(id => {
+        const result = bridge.removeCreatedDevice(id);
+        mutationMs += result.mutationMs || 0;
+      });
+      return { mutationMs };
+    },
+    redo: bridge => {
+      let mutationMs = 0;
+      const restored = [];
+      rawDevices.forEach((rawDevice, offset) => {
+        const index = Number.isInteger(firstIndex) ? firstIndex + offset : null;
+        const result = bridge.restoreCreatedDevice(rawDevice, index, { select: false });
+        mutationMs += result.mutationMs || 0;
+        if (result.device) restored.push(result.device);
+      });
+      if (restored.length === 1) bridge.scene.selectOnly(restored[0].id);
+      else if (restored.length > 1) bridge.scene.selectMany(restored.map(device => device.id));
+      bridge.updateSelectionHud();
+      return { mutationMs };
+    }
+  };
+}
+
 function createWireCommand(wireData, connectionData) {
   return {
     type: "CreateWireCommand",
@@ -2665,11 +2789,16 @@ function commandTargetMs(command) {
   const type = String(command?.type || "");
   if (type.includes("MoveRoutePoint")) return 100;
   if (type.includes("CreateWire") || type.includes("DeleteWire")) return 300;
+  if (type.includes("CreateDevice")) return 300;
   if (type.includes("MoveDevices")) {
     const count = Number(command?.affectedIds?.length) || 1;
     return count > 1 ? 300 : 100;
   }
   return 300;
+}
+
+function deepClone(value) {
+  return value == null ? value : JSON.parse(JSON.stringify(value));
 }
 
 function cloneWire(wire) {

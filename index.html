@@ -4455,8 +4455,8 @@
   </div>
 
   <script>
-    const APP_ITERATION = "34";
-    const APP_BUILD_ID = "iteration34";
+    const APP_ITERATION = "35";
+    const APP_BUILD_ID = "iteration35";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const SVG_NS = "http://www.w3.org/2000/svg";
     const DEVICE_WIDTH = 380;
@@ -43759,7 +43759,24 @@
       libraryDrag.ghost.remove();
       if (template && isOverCanvas && libraryDrag.moved) {
         const point = getCanvasPoint(event);
-        if (libraryDrag.pairTemplateId) {
+        const engineBridge = activeEngineBridge();
+        if (engineBridge) {
+          if (libraryDrag.pairTemplateId) {
+            const instances = prepareDevicePairInstances(libraryDrag.templateId, libraryDrag.pairTemplateId, point.x, point.y);
+            if (instances?.length && engineBridge.createDevicesFromLibraryDrop?.(instances)) {
+              emptyHint.classList.add("hidden");
+            }
+          } else {
+            const instance = prepareDeviceInstanceFromTemplate(template, point.x - template.width / 2, point.y - template.height / 2, {
+              templateId: libraryDrag.templateId,
+              templateOverride: libraryDrag.templateOverride ? structuredClone(libraryDrag.templateOverride) : null,
+              name: libraryDrag.name
+            });
+            if (instance && engineBridge.createDeviceFromLibraryDrop?.(instance)) {
+              emptyHint.classList.add("hidden");
+            }
+          }
+        } else if (libraryDrag.pairTemplateId) {
           addDevicePairInstances(libraryDrag.templateId, libraryDrag.pairTemplateId, point.x, point.y);
         } else {
           addDeviceInstanceFromTemplate(template, point.x - template.width / 2, point.y - template.height / 2, {
@@ -49768,6 +49785,14 @@
       const template = templateById(templateId);
       if (!template) return;
       const point = getCanvasPoint(event);
+      const engineBridge = activeEngineBridge();
+      if (engineBridge) {
+        const instance = prepareDeviceInstanceFromTemplate(template, point.x - template.width / 2, point.y - template.height / 2, { templateId });
+        if (instance && engineBridge.createDeviceFromLibraryDrop?.(instance)) {
+          emptyHint.classList.add("hidden");
+        }
+        return;
+      }
       addDeviceInstance(templateId, point.x - template.width / 2, point.y - template.height / 2);
     });
 
@@ -49777,10 +49802,10 @@
       addDeviceInstanceFromTemplate(template, x, y, { templateId });
     }
 
-    function addDevicePairInstances(firstTemplateId, secondTemplateId, centerX, centerY) {
+    function prepareDevicePairInstances(firstTemplateId, secondTemplateId, centerX, centerY) {
       const firstTemplate = templateById(firstTemplateId);
       const secondTemplate = templateById(secondTemplateId);
-      if (!firstTemplate || !secondTemplate) return;
+      if (!firstTemplate || !secondTemplate) return null;
       const firstWidth = firstTemplate.width || DEVICE_WIDTH;
       const firstHeight = firstTemplate.height || 190;
       const secondWidth = secondTemplate.width || DEVICE_WIDTH;
@@ -49796,24 +49821,35 @@
       const target = findNonOverlappingRect(preferred);
       if (!target) {
         setStatus("No clear space for that device pair here.");
-        return;
+        return null;
       }
-      const first = hydrateDeviceInstance({
-        instanceId: nextId("dev"),
-        templateId: firstTemplate.id,
-        name: firstTemplate.name,
-        x: target.x,
-        y: target.y,
-        notes: ""
-      });
-      const second = hydrateDeviceInstance({
-        instanceId: nextId("dev"),
-        templateId: secondTemplate.id,
-        name: secondTemplate.name,
-        x: target.x + firstWidth + DEVICE_PAIR_GAP,
-        y: target.y,
-        notes: ""
-      });
+      return [
+        hydrateDeviceInstance({
+          instanceId: nextId("dev"),
+          templateId: firstTemplate.id,
+          name: firstTemplate.name,
+          x: target.x,
+          y: target.y,
+          notes: ""
+        }),
+        hydrateDeviceInstance({
+          instanceId: nextId("dev"),
+          templateId: secondTemplate.id,
+          name: secondTemplate.name,
+          x: target.x + firstWidth + DEVICE_PAIR_GAP,
+          y: target.y,
+          notes: ""
+        })
+      ];
+    }
+
+    function addDevicePairInstances(firstTemplateId, secondTemplateId, centerX, centerY) {
+      const firstTemplate = templateById(firstTemplateId);
+      const secondTemplate = templateById(secondTemplateId);
+      if (!firstTemplate || !secondTemplate) return;
+      const instances = prepareDevicePairInstances(firstTemplateId, secondTemplateId, centerX, centerY);
+      if (!instances) return;
+      const [first, second] = instances;
       pushUndo();
       state.devices.push(first, second);
       state.selected = {
@@ -49830,8 +49866,8 @@
       setStatus(`${firstTemplate.name || "Device"} and ${secondTemplate.name || "Device"} added.`);
     }
 
-    function addDeviceInstanceFromTemplate(template, x, y, options = {}) {
-      if (!template) return;
+    function prepareDeviceInstanceFromTemplate(template, x, y, options = {}) {
+      if (!template) return null;
       const templateOverride = options.templateOverride ? structuredClone(options.templateOverride) : null;
       const instance = hydrateDeviceInstance({
         instanceId: nextId("dev"),
@@ -49845,10 +49881,16 @@
       const position = findNonOverlappingPosition(instance, instance.x, instance.y);
       if (!position) {
         setStatus("No clear space for that device here.");
-        return;
+        return null;
       }
       instance.x = position.x;
       instance.y = position.y;
+      return instance;
+    }
+
+    function addDeviceInstanceFromTemplate(template, x, y, options = {}) {
+      const instance = prepareDeviceInstanceFromTemplate(template, x, y, options);
+      if (!instance) return;
       pushUndo();
       state.devices.push(instance);
       state.selected = { type: "device", id: instance.instanceId };
