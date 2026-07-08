@@ -133,6 +133,25 @@ class ProductionEngineBridge {
     return this.started && !!this.engineRoot;
   }
 
+  isReady() {
+    return this.ready;
+  }
+
+  sceneCounts() {
+    return {
+      sceneObjects: this.scene.devices.length,
+      sceneWires: this.scene.wires.length,
+      productionObjects: this.api.getProjectData?.()?.devices?.length ?? null,
+      productionWires: this.api.getProjectData?.()?.connections?.length ?? null,
+      selectedObjects: this.scene.selectedIds.size,
+      selectedWires: this.scene.selectedWireIds.size
+    };
+  }
+
+  setDiagnosticMetric(name, value) {
+    this.hud?.setMetric(name, value);
+  }
+
   canUndoEngineCommand() {
     return this.ready && this.commandIndex > 0;
   }
@@ -1483,18 +1502,36 @@ class ProductionEngineBridge {
     if (!this.ready) {
       this.hud?.setMetric("blocked command", "create device while loading");
       this.showError("Engine Editor is still loading. Try dropping the device again when it is ready.");
+      console.info("[avdesigner-library-drag] create-device command failure", {
+        reason: "engine not ready",
+        ready: this.ready
+      });
       return false;
     }
     const commitStart = performance.now();
     const rawDevices = (deviceList || []).map(deepClone).filter(Boolean);
     const ids = rawDevices.map(device => String(device?.instanceId || device?.id || "")).filter(Boolean);
+    console.info("[avdesigner-library-drag] create-device command received", {
+      count: rawDevices.length,
+      ids,
+      ready: this.ready,
+      before: this.sceneCounts()
+    });
     if (!rawDevices.length || ids.length !== rawDevices.length) {
       this.showError("Dropped device data is incomplete.");
+      console.info("[avdesigner-library-drag] create-device command failure", {
+        reason: "incomplete device data",
+        ids
+      });
       return false;
     }
     const duplicateId = ids.find(id => this.scene.getDevice(id) || this.mutations?.deviceById?.has(id));
     if (duplicateId) {
       this.showError(`Device ${duplicateId} already exists.`);
+      console.info("[avdesigner-library-drag] create-device command failure", {
+        reason: "duplicate id",
+        duplicateId
+      });
       return false;
     }
     const firstIndex = this.mutations?.root?.devices?.length ?? null;
@@ -1515,6 +1552,20 @@ class ProductionEngineBridge {
     this.updateSelectionHud();
     this.updateInteractionHud("device-created");
     this.hud.setMetric("create device commit", `${(performance.now() - commitStart).toFixed(2)} ms`);
+    const validation = validateEngineScene(this.scene, this.api.getProjectData?.());
+    this.hud?.setMetric("library validation", validation.ok ? "passed" : "failed");
+    console.info("[avdesigner-library-drag] validation result", {
+      ok: validation.ok,
+      summary: validation.summary,
+      counts: validation.counts,
+      errors: validation.errors,
+      warnings: validation.warnings
+    });
+    console.info("[avdesigner-library-drag] selected new device", {
+      createdIds: created.map(device => device.id),
+      selectedIds: [...this.scene.selectedIds],
+      after: this.sceneCounts()
+    });
     this.scheduleRender();
     return true;
   }
@@ -1529,6 +1580,10 @@ class ProductionEngineBridge {
     const device = this.scene.insertDevice(normalized);
     if (!device) return { mutationMs: mutationResult.mutationMs || 0, device: null };
     const dirtyStats = this.renderer.appendDevice(this.scene, device.id);
+    console.info("[avdesigner-library-drag] renderer insert called", {
+      deviceId: device.id,
+      dirtyStats
+    });
     this.lastDirtyDeviceIds = new Set([device.id]);
     this.lastDirtyWireIds = new Set();
     this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;

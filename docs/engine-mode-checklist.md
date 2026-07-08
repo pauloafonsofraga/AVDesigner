@@ -1,6 +1,6 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
-Iteration 35.1 fixes the real Device Library drop target in the default Engine
+Iteration 35.2 fixes the real Device Library drop target in the default Engine
 Editor while viewer/PDF/report visual migration remains paused. The current
 functional audit lives in
 [`docs/legacy-functional-parity.md`](legacy-functional-parity.md) and uses
@@ -23,11 +23,11 @@ PDF and report drawing paths are deliberately unchanged.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags.
 
-Current visible build label: `Iteration 35.1`.
+Current visible build label: `Iteration 35.2`.
 The app top bar must show one of these labels:
 
-- `Iteration 35.1 — Engine Editor — iteration35-1`
-- `Iteration 35.1 — Legacy Editor — iteration35-1`
+- `Iteration 35.2 — Engine Editor — iteration35-2`
+- `Iteration 35.2 — Legacy Editor — iteration35-2`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -36,20 +36,20 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration35-1`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration35-1`.
+   `index.html?v=iteration35-2`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration35-2`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration35-1`.
+   `index.html?engineDefaultTest=1&v=iteration35-2`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration35-1`.
+   `index.html?legacy=1&v=iteration35-2`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration35-1`.
+   `index.html?engine=0&v=iteration35-2`.
 7. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration35-1`.
+   `index.html?engine=1&debugLoad=1&v=iteration35-2`.
 8. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration35-1`.
+   `index.html?engine=1&loadDelay=1500&v=iteration35-2`.
 9. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration35-1`.
+   `index.html?engine=1&debugHud=1&v=iteration35-2`.
 10. Confirm the top bar build label matches the mode you intended to test.
 11. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.
@@ -66,9 +66,9 @@ Git commit as the final source of truth when reviewing a pushed change.
 18. The validation script now includes a long mixed undo/redo chain. Confirm the
    JSON output contains a `longChain` section and all `checks` are `ok: true`.
 19. Compare Engine and Legacy connector behavior with the same project:
-   `index.html?v=iteration35-1` beside
-   `index.html?legacy=1&v=iteration35-1`.
-20. In `index.html?engine=1&debugHud=1&v=iteration35-1`, confirm the HUD
+   `index.html?v=iteration35-2` beside
+   `index.html?legacy=1&v=iteration35-2`.
+20. In `index.html?engine=1&debugHud=1&v=iteration35-2`, confirm the HUD
    `load phase`, `load ready`, `wire paths`, `connector overlay`, and
    `connector tooltips` rows update.
 21. Hover and select wires in Engine mode. Confirm hover/selection feedback is
@@ -100,7 +100,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 32. Start a wire from a normal connector and hover/drop on a jump node. Confirm
    the jump endpoint can still act as the wire target without leaving a stale
    connector selection overlay.
-33. Open `index.html?engine=1&debugHud=1&debugLayers=1&v=iteration35-1`, drag
+33. Open `index.html?engine=1&debugHud=1&debugLayers=1&v=iteration35-2`, drag
    a connected jump node with its connected wire selected, and confirm no stale
    selected or hovered wire remains at the original jump-node position.
 34. In the debug layer panel for that same drag, confirm the connected wire has
@@ -121,8 +121,8 @@ Git commit as the final source of truth when reviewing a pushed change.
 39. With the expanded engine HUD open, confirm `device labels hidden` and
    `device labels truncated` update as zoom changes.
 40. Compare cable crossings in Engine and Legacy with the same project:
-    `index.html?v=iteration35-1` beside
-    `index.html?legacy=1&v=iteration35-1`.
+    `index.html?v=iteration35-2` beside
+    `index.html?legacy=1&v=iteration35-2`.
 41. In Engine, inspect Bezier, custom-routed, orthogonal/custom-corner, and
     jump-node-connected wire crossings. Confirm hops are visible and stable
     after pan/zoom.
@@ -131,7 +131,7 @@ Git commit as the final source of truth when reviewing a pushed change.
     return after drop.
 43. Drag a route point near a crossing. Confirm the wire remains editable while
     moving and cable hops finalize after release.
-44. Open `index.html?engine=1&debugHud=1&v=iteration35-1` and confirm the HUD
+44. Open `index.html?engine=1&debugHud=1&v=iteration35-2` and confirm the HUD
     rows `cable hops`, `cable hop calc`, `cable hop candidates`, and
     `cable hop dirty` update.
 
@@ -148,7 +148,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 49. Undo and redo the created device. Confirm undo removes it, redo restores
     the same device ID/data, the viewport does not move, and the device remains
     save/reload compatible.
-50. Repeat a Device Library drag/drop in `index.html?legacy=1&v=iteration35-1`
+50. Repeat a Device Library drag/drop in `index.html?legacy=1&v=iteration35-2`
     to confirm Legacy fallback behaviour is unchanged.
 51. Export a standalone HTML viewer from an Engine-edited project. Confirm
     Bezier wires, custom-routed wires, orthogonal/custom-corner wires, cable
@@ -156,7 +156,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 52. Export a PDF report from the same project. Confirm the PDF still opens and
     uses the previous PDF path; Iteration 35 does not migrate PDF rendering.
 
-## Iteration 35.1 Focus
+## Iteration 35.2 Focus
 
 - The real Device Library pointer-drop path now tests against the active Engine
   canvas, not the hidden Legacy SVG canvas.

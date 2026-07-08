@@ -4455,8 +4455,8 @@
   </div>
 
   <script>
-    const APP_ITERATION = "35.1";
-    const APP_BUILD_ID = "iteration35-1";
+    const APP_ITERATION = "35.2";
+    const APP_BUILD_ID = "iteration35-2";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const SVG_NS = "http://www.w3.org/2000/svg";
     const DEVICE_WIDTH = 380;
@@ -34611,6 +34611,29 @@
       return getCanvasPoint(event);
     }
 
+    function logLibraryDragStep(step, details = {}, options = {}) {
+      const engineBridge = activeEngineBridge();
+      const payload = {
+        step,
+        engineActive: Boolean(engineBridge),
+        engineReady: engineBridge?.isReady?.() ?? null,
+        ...details
+      };
+      console.info(`[avdesigner-library-drag] ${step}`, payload);
+      engineBridge?.setDiagnosticMetric?.("library drag", step);
+      if (payload.templateName) engineBridge?.setDiagnosticMetric?.("library template", payload.templateName);
+      if (payload.sceneObjects != null) engineBridge?.setDiagnosticMetric?.("library scene objects", payload.sceneObjects);
+      if (options.status) setStatus(`Library drag: ${step}`);
+    }
+
+    function libraryDragSceneCounts(engineBridge = activeEngineBridge()) {
+      return engineBridge?.sceneCounts?.() || {
+        sceneObjects: state.devices.length + state.ledSurfaces.length + state.jumpNodes.length,
+        productionObjects: state.devices.length,
+        wires: state.connections.length
+      };
+    }
+
     function isTextEditingTarget(target = document.activeElement) {
       if (!target) return false;
       const tag = target.tagName;
@@ -43634,11 +43657,15 @@
       if (!template) return;
       event.preventDefault();
       event.stopPropagation();
+      clearLibraryDragSession("restart", { log: false });
       const ghost = document.createElement("div");
       ghost.className = `drag-ghost${options.custom ? " hidden" : ""}`;
       const pairedTemplate = options.pairTemplateId ? templateById(options.pairTemplateId) : null;
       ghost.innerHTML = `<strong>${escapeHtml(options.pairName || options.name || template.name)}</strong><span>${escapeHtml(pairedTemplate ? "Device pair" : template.category)} / ${escapeHtml(pairedTemplate ? `${template.name || "Device"} + ${pairedTemplate.name || "Device"}` : (template.model || template.name))}</span>`;
       document.body.appendChild(ghost);
+      const sourceElement = event.currentTarget instanceof Element
+        ? event.currentTarget
+        : event.target?.closest?.(".library-device, .rack-library-item");
       libraryDrag = {
         templateId,
         pairTemplateId: options.pairTemplateId || "",
@@ -43647,15 +43674,98 @@
         name: options.name || template.name,
         clickAction: options.clickAction || null,
         ghost,
+        pointerId: event.pointerId,
+        sourceElement,
         startX: event.clientX,
         startY: event.clientY,
+        lastClientX: event.clientX,
+        lastClientY: event.clientY,
         moved: !options.custom,
+        loggedDragStart: false,
+        wasOverCanvas: false,
         reorderTargetId: "",
         reorderPlacement: "before"
       };
+      try {
+        sourceElement?.setPointerCapture?.(event.pointerId);
+      } catch (error) {
+        logLibraryDragStep("pointer capture failed", {
+          templateId,
+          templateName: options.pairName || options.name || template.name,
+          error: error?.message || String(error)
+        });
+      }
+      logLibraryDragStep("library pointerdown", {
+        templateId,
+        templateName: options.pairName || options.name || template.name,
+        paired: Boolean(options.pairTemplateId),
+        pairTemplateId: options.pairTemplateId || "",
+        pointerId: event.pointerId,
+        screenX: Math.round(event.clientX),
+        screenY: Math.round(event.clientY)
+      });
       moveLibraryGhost(event);
-      document.addEventListener("pointermove", moveLibraryGhost);
-      document.addEventListener("pointerup", finishLibraryDrag, { once: true, capture: true });
+      installLibraryDragListeners();
+    }
+
+    function installLibraryDragListeners() {
+      window.addEventListener("pointermove", moveLibraryGhost, true);
+      window.addEventListener("pointerup", finishLibraryDrag, true);
+      window.addEventListener("pointercancel", cancelLibraryDragFromEvent, true);
+      window.addEventListener("keydown", handleLibraryDragKeyDown, true);
+    }
+
+    function removeLibraryDragListeners() {
+      window.removeEventListener("pointermove", moveLibraryGhost, true);
+      window.removeEventListener("pointerup", finishLibraryDrag, true);
+      window.removeEventListener("pointercancel", cancelLibraryDragFromEvent, true);
+      window.removeEventListener("keydown", handleLibraryDragKeyDown, true);
+    }
+
+    function releaseLibraryDragPointer(drag = libraryDrag) {
+      try {
+        if (drag?.sourceElement?.hasPointerCapture?.(drag.pointerId)) {
+          drag.sourceElement.releasePointerCapture(drag.pointerId);
+        }
+      } catch (error) {
+        logLibraryDragStep("pointer release failed", {
+          templateId: drag?.templateId || "",
+          templateName: drag?.name || "",
+          error: error?.message || String(error)
+        });
+      }
+    }
+
+    function clearLibraryDragSession(reason = "clear", options = {}) {
+      const drag = libraryDrag;
+      removeLibraryDragListeners();
+      if (drag) {
+        releaseLibraryDragPointer(drag);
+        drag.ghost?.remove();
+      }
+      clearLibraryReorderCue();
+      libraryDrag = null;
+      if (drag && options.log !== false) {
+        logLibraryDragStep(`library drag ${reason}`, {
+          templateId: drag.templateId,
+          templateName: drag.name || drag.pairName || "",
+          pointerId: drag.pointerId
+        }, { status: options.status === true });
+      }
+    }
+
+    function cancelLibraryDragFromEvent(event) {
+      if (!libraryDrag) return;
+      if (event?.pointerId != null && libraryDrag.pointerId != null && event.pointerId !== libraryDrag.pointerId) return;
+      event?.preventDefault?.();
+      clearLibraryDragSession("cancelled", { status: true });
+    }
+
+    function handleLibraryDragKeyDown(event) {
+      if (!libraryDrag || event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      clearLibraryDragSession("cancelled by escape", { status: true });
     }
 
     function deviceLibraryReorderKey(template) {
@@ -43757,63 +43867,177 @@
 
     function moveLibraryGhost(event) {
       if (!libraryDrag) return;
+      if (event.pointerId != null && libraryDrag.pointerId != null && event.pointerId !== libraryDrag.pointerId) return;
+      libraryDrag.lastClientX = event.clientX;
+      libraryDrag.lastClientY = event.clientY;
       const distance = Math.hypot(event.clientX - libraryDrag.startX, event.clientY - libraryDrag.startY);
       if (distance > 5) libraryDrag.moved = true;
       libraryDrag.ghost.classList.toggle("hidden", !libraryDrag.moved);
       if (!libraryDrag.moved) return;
+      event.preventDefault();
       libraryDrag.ghost.style.left = `${event.clientX}px`;
       libraryDrag.ghost.style.top = `${event.clientY}px`;
+      if (!libraryDrag.loggedDragStart) {
+        const template = libraryDrag.templateOverride || templateById(libraryDrag.templateId);
+        logLibraryDragStep("library drag start", {
+          templateId: libraryDrag.templateId,
+          templateName: libraryDrag.pairName || libraryDrag.name || template?.name || "",
+          paired: Boolean(libraryDrag.pairTemplateId),
+          custom: Boolean(libraryDrag.templateOverride),
+          payload: {
+            templateId: libraryDrag.templateId,
+            pairTemplateId: libraryDrag.pairTemplateId || "",
+            templateName: template?.name || "",
+            category: template?.category || "",
+            model: template?.model || ""
+          }
+        });
+        libraryDrag.loggedDragStart = true;
+      }
+      const target = canvasDropTargetForEvent(event);
+      if (target.isOverCanvas !== libraryDrag.wasOverCanvas) {
+        libraryDrag.wasOverCanvas = target.isOverCanvas;
+        logLibraryDragStep(
+          target.isOverCanvas ? "canvas pointer over while library dragging" : "canvas pointer left while library dragging",
+          {
+            templateId: libraryDrag.templateId,
+            templateName: libraryDrag.pairName || libraryDrag.name || "",
+            canvasRect: target.rect
+              ? {
+                left: Math.round(target.rect.left),
+                top: Math.round(target.rect.top),
+                width: Math.round(target.rect.width),
+                height: Math.round(target.rect.height)
+              }
+              : null,
+            screenX: Math.round(event.clientX),
+            screenY: Math.round(event.clientY)
+          }
+        );
+      }
       updateLibraryReorderCue(event);
     }
 
     function finishLibraryDrag(event) {
-      document.removeEventListener("pointermove", moveLibraryGhost);
       if (!libraryDrag) return;
-      const template = libraryDrag.templateOverride || templateById(libraryDrag.templateId);
+      if (event.pointerId != null && libraryDrag.pointerId != null && event.pointerId !== libraryDrag.pointerId) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const drag = libraryDrag;
+      const template = drag.templateOverride || templateById(drag.templateId);
       const { engineBridge, isOverCanvas } = canvasDropTargetForEvent(event);
-      libraryDrag.ghost.remove();
-      if (template && isOverCanvas && libraryDrag.moved) {
+      const sceneBefore = libraryDragSceneCounts(engineBridge);
+      logLibraryDragStep("document pointerup while library dragging", {
+        templateId: drag.templateId,
+        templateName: drag.pairName || drag.name || template?.name || "",
+        moved: Boolean(drag.moved),
+        isOverCanvas,
+        screenX: Math.round(event.clientX),
+        screenY: Math.round(event.clientY),
+        ...sceneBefore
+      });
+      clearLibraryDragSession("finished", { log: false });
+      if (template && isOverCanvas && drag.moved) {
         const point = canvasDropPointForEvent(event, engineBridge);
+        logLibraryDragStep("canvas drop received", {
+          templateId: drag.templateId,
+          templateName: drag.pairName || drag.name || template.name,
+          dropWorldX: Math.round(point.x),
+          dropWorldY: Math.round(point.y),
+          engineReady: engineBridge?.isReady?.() ?? null
+        });
         if (engineBridge) {
-          if (libraryDrag.pairTemplateId) {
-            const instances = prepareDevicePairInstances(libraryDrag.templateId, libraryDrag.pairTemplateId, point.x, point.y);
+          let createdIds = [];
+          let success = false;
+          if (drag.pairTemplateId) {
+            const instances = prepareDevicePairInstances(drag.templateId, drag.pairTemplateId, point.x, point.y);
+            createdIds = instances?.map(instance => instance.instanceId).filter(Boolean) || [];
+            logLibraryDragStep("create-device command called", {
+              templateId: drag.templateId,
+              templateName: drag.pairName || drag.name || template.name,
+              paired: true,
+              createdIds
+            });
             if (instances?.length && engineBridge.createDevicesFromLibraryDrop?.(instances)) {
+              success = true;
               emptyHint.classList.add("hidden");
             }
           } else {
             const instance = prepareDeviceInstanceFromTemplate(template, point.x - template.width / 2, point.y - template.height / 2, {
-              templateId: libraryDrag.templateId,
-              templateOverride: libraryDrag.templateOverride ? structuredClone(libraryDrag.templateOverride) : null,
-              name: libraryDrag.name
+              templateId: drag.templateId,
+              templateOverride: drag.templateOverride ? structuredClone(drag.templateOverride) : null,
+              name: drag.name
+            });
+            createdIds = instance?.instanceId ? [instance.instanceId] : [];
+            logLibraryDragStep("create-device command called", {
+              templateId: drag.templateId,
+              templateName: drag.name || template.name,
+              paired: false,
+              createdIds
             });
             if (instance && engineBridge.createDeviceFromLibraryDrop?.(instance)) {
+              success = true;
               emptyHint.classList.add("hidden");
             }
           }
-        } else if (libraryDrag.pairTemplateId) {
-          addDevicePairInstances(libraryDrag.templateId, libraryDrag.pairTemplateId, point.x, point.y);
+          logLibraryDragStep(success ? "create-device command success" : "create-device command failure", {
+            templateId: drag.templateId,
+            templateName: drag.pairName || drag.name || template.name,
+            createdIds,
+            ...libraryDragSceneCounts(engineBridge)
+          }, { status: true });
+        } else if (drag.pairTemplateId) {
+          addDevicePairInstances(drag.templateId, drag.pairTemplateId, point.x, point.y);
+          logLibraryDragStep("legacy device pair created", {
+            templateId: drag.templateId,
+            templateName: drag.pairName || drag.name || template.name,
+            productionObjects: state.devices.length
+          }, { status: true });
         } else {
           addDeviceInstanceFromTemplate(template, point.x - template.width / 2, point.y - template.height / 2, {
-            templateId: libraryDrag.templateId,
-            templateOverride: libraryDrag.templateOverride ? structuredClone(libraryDrag.templateOverride) : null,
-            name: libraryDrag.name
+            templateId: drag.templateId,
+            templateOverride: drag.templateOverride ? structuredClone(drag.templateOverride) : null,
+            name: drag.name
           });
+          logLibraryDragStep("legacy device created", {
+            templateId: drag.templateId,
+            templateName: drag.name || template.name,
+            productionObjects: state.devices.length
+          }, { status: true });
         }
-      } else if (libraryDrag.clickAction && !libraryDrag.moved) {
-        libraryDrag.clickAction();
-      } else if (template && libraryDrag.moved && !libraryDrag.templateOverride && selectedDeviceType !== "__racks") {
+      } else if (drag.clickAction && !drag.moved) {
+        drag.clickAction();
+      } else if (template && drag.moved && !drag.templateOverride && selectedDeviceType !== "__racks") {
         const target = libraryReorderTargetAt(event.clientX, event.clientY) || {
-          targetId: libraryDrag.reorderTargetId || "",
-          placement: libraryDrag.reorderPlacement || "before"
+          targetId: drag.reorderTargetId || "",
+          placement: drag.reorderPlacement || "before"
         };
-        if (reorderDeviceLibraryTemplate(libraryDrag.templateId, target.targetId, target.placement)) {
+        if (reorderDeviceLibraryTemplate(drag.templateId, target.targetId, target.placement)) {
           saveDeviceLibraryOrderPreference();
           renderDeviceLibrary();
           setStatus("Device library order updated.");
+          logLibraryDragStep("library reorder complete", {
+            templateId: drag.templateId,
+            templateName: drag.name || template.name,
+            targetId: target.targetId || "",
+            placement: target.placement || "before"
+          });
+        } else if (!isOverCanvas) {
+          logLibraryDragStep("library drag cancelled outside canvas", {
+            templateId: drag.templateId,
+            templateName: drag.name || template.name,
+            screenX: Math.round(event.clientX),
+            screenY: Math.round(event.clientY)
+          }, { status: true });
         }
+      } else if (drag.moved && !isOverCanvas) {
+        logLibraryDragStep("library drag cancelled outside canvas", {
+          templateId: drag.templateId,
+          templateName: drag.name || template?.name || "",
+          screenX: Math.round(event.clientX),
+          screenY: Math.round(event.clientY)
+        }, { status: true });
       }
-      clearLibraryReorderCue();
-      libraryDrag = null;
     }
 
     function startRackLibraryDrag(event, rackId) {
