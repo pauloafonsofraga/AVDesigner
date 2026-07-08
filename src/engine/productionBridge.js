@@ -54,6 +54,8 @@ class ProductionEngineBridge {
     this.routePointDrag = null;
     this.wireCreate = null;
     this.marqueeState = null;
+    this.marqueeElement = null;
+    this.ctrlLeftClickContextMenuSuppression = null;
     this.dragThresholdPx = 4;
     this.ready = false;
     this.hoverState = emptyHoverState();
@@ -224,6 +226,7 @@ class ProductionEngineBridge {
     this.engineRoot.innerHTML = `
       <canvas class="engine-bridge-canvas" aria-label="Experimental WebGL engine canvas"></canvas>
       <canvas class="engine-bridge-label-canvas" aria-hidden="true"></canvas>
+      <div class="engine-bridge-marquee hidden" aria-hidden="true"></div>
       <div class="engine-bridge-badge">
         <strong>Engine Editor Active</strong>
         <span>branch: engine-prototype</span>
@@ -271,6 +274,7 @@ class ProductionEngineBridge {
     this.container.appendChild(this.engineRoot);
     this.canvas = this.engineRoot.querySelector(".engine-bridge-canvas");
     this.labelCanvas = this.engineRoot.querySelector(".engine-bridge-label-canvas");
+    this.marqueeElement = this.engineRoot.querySelector(".engine-bridge-marquee");
     this.debugPanel = this.engineRoot.querySelector(".engine-bridge-debug");
     this.statusPanel = this.engineRoot.querySelector(".engine-bridge-status");
     this.inspectorPanel = this.engineRoot.querySelector(".engine-bridge-inspector");
@@ -317,6 +321,7 @@ class ProductionEngineBridge {
     this.canvas.addEventListener("pointermove", event => this.handlePointerMove(event));
     this.canvas.addEventListener("pointerup", event => this.handlePointerUp(event));
     this.canvas.addEventListener("pointercancel", event => this.handlePointerCancel(event));
+    this.canvas.addEventListener("pointerleave", event => this.handlePointerLeave(event));
     this.canvas.addEventListener("lostpointercapture", event => this.handleLostPointerCapture(event));
     this.boundKeyDown = event => this.handleKeyDown(event);
     this.boundResize = () => this.scheduleRender();
@@ -334,6 +339,7 @@ class ProductionEngineBridge {
     }
     event.preventDefault();
     const point = this.eventPoint(event);
+    this.cancelMarquee("zoom", { updateCursor: false, render: false });
     const before = screenToWorld(this.camera, point);
     const factor = Math.exp(-event.deltaY * 0.0015);
     this.camera.zoom = clamp(this.camera.zoom * factor, 0.03, 8);
@@ -351,15 +357,17 @@ class ProductionEngineBridge {
     const point = this.eventPoint(event);
     if (event.button === 1 || event.buttons === 4) {
       this.capturePointer(event.pointerId);
+      this.cancelMarquee("pan-start", { updateCursor: false, render: false });
       this.clearHoverState("pan-start", { render: false });
       this.beginPan(point);
       return;
     }
     if (event.button !== 0) return;
+    if (event.ctrlKey) this.noteCtrlLeftClickForContextMenu(event, point);
     this.capturePointer(event.pointerId);
     const world = screenToWorld(this.camera, point);
     const tolerance = this.hitToleranceWorld();
-    const additiveSelection = isSelectionModifier(event);
+    const additiveSelection = isAdditiveSelectionModifier(event);
 
     const routeHit = this.renderOptions.routePoints
       ? hitTestRoutePoint(this.scene, world, tolerance * 1.2)
@@ -417,7 +425,7 @@ class ProductionEngineBridge {
     if (!deviceHit.device) {
       this.clearHoverState("empty-canvas", { render: false });
       if (!additiveSelection) this.scene.clearSelection();
-      this.beginMarquee(world);
+      this.beginMarquee(point, world, additiveSelection);
       this.updateSelectionHud();
       this.scheduleRender();
       return;
@@ -440,6 +448,14 @@ class ProductionEngineBridge {
   handleContextMenu(event) {
     if (!this.ready) {
       this.blockInteraction(event, "contextmenu while loading");
+      return;
+    }
+    if (this.shouldSuppressCtrlLeftClickContextMenu(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+      this.ctrlLeftClickContextMenuSuppression = null;
+      this.hud?.setMetric("context menu", "suppressed ctrl-left additive");
       return;
     }
     event.preventDefault();
@@ -517,7 +533,7 @@ class ProductionEngineBridge {
       return;
     }
     if (this.marqueeState) {
-      this.marqueeState.currentWorld = screenToWorld(this.camera, point);
+      this.updateMarquee(point, screenToWorld(this.camera, point));
       this.updateInteractionHud("marquee");
       this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
       this.scheduleRender();
@@ -576,7 +592,7 @@ class ProductionEngineBridge {
       this.hud.setMetric("route point commit", `${(performance.now() - commitStart).toFixed(2)} ms`);
     }
     if (this.wireCreate) this.completeWireCreate();
-    if (this.marqueeState) this.completeMarquee(event.shiftKey);
+    if (this.marqueeState) this.completeMarquee();
     if (this.pendingDrag) {
       this.pendingDrag = null;
       this.updateInteractionHud("select");
@@ -589,6 +605,12 @@ class ProductionEngineBridge {
   handlePointerCancel(event) {
     this.cancelActiveInteraction("pointer-cancel");
     this.releasePointerCapture(event.pointerId);
+    this.scheduleRender();
+  }
+
+  handlePointerLeave(event) {
+    if (!this.marqueeState || this.canvas?.hasPointerCapture?.(event.pointerId)) return;
+    this.cancelMarquee("pointer-leave");
     this.scheduleRender();
   }
 
@@ -649,6 +671,66 @@ class ProductionEngineBridge {
     };
     this.canvas.classList.add("panning");
     this.updateCanvasCursor();
+  }
+
+  beginMarquee(point, worldPoint, additive = false) {
+    this.marqueeState = {
+      startPoint: { ...point },
+      currentPoint: { ...point },
+      startWorld: { ...worldPoint },
+      currentWorld: { ...worldPoint },
+      additive: Boolean(additive),
+      active: false
+    };
+    this.hideMarqueeOverlay();
+    this.hud.setMetric("marquee", `pending${additive ? " additive" : ""}`);
+    this.updateCanvasCursor();
+  }
+
+  updateMarquee(point, worldPoint) {
+    if (!this.marqueeState) return;
+    this.marqueeState.currentPoint = { ...point };
+    this.marqueeState.currentWorld = { ...worldPoint };
+    const dx = point.x - this.marqueeState.startPoint.x;
+    const dy = point.y - this.marqueeState.startPoint.y;
+    if (!this.marqueeState.active && dx * dx + dy * dy >= this.dragThresholdPx * this.dragThresholdPx) {
+      this.marqueeState.active = true;
+      this.canvas.classList.add("marquee-selecting");
+    }
+    if (!this.marqueeState.active) return;
+    this.updateMarqueeOverlay();
+    this.hud.setMetric("marquee", `${Math.round(Math.abs(dx))} x ${Math.round(Math.abs(dy))} px${this.marqueeState.additive ? " additive" : ""}`);
+    this.scheduleRender();
+  }
+
+  updateMarqueeOverlay() {
+    if (!this.marqueeElement || !this.marqueeState?.active) return;
+    const rect = screenRectFromPoints(this.marqueeState.startPoint, this.marqueeState.currentPoint);
+    this.marqueeElement.classList.remove("hidden");
+    this.marqueeElement.style.left = `${rect.x}px`;
+    this.marqueeElement.style.top = `${rect.y}px`;
+    this.marqueeElement.style.width = `${rect.width}px`;
+    this.marqueeElement.style.height = `${rect.height}px`;
+  }
+
+  hideMarqueeOverlay() {
+    if (!this.marqueeElement) return;
+    this.marqueeElement.classList.add("hidden");
+    this.marqueeElement.style.left = "0px";
+    this.marqueeElement.style.top = "0px";
+    this.marqueeElement.style.width = "0px";
+    this.marqueeElement.style.height = "0px";
+    this.canvas?.classList.remove("marquee-selecting");
+  }
+
+  cancelMarquee(reason = "cancelled", { updateCursor = true, render = true } = {}) {
+    if (!this.marqueeState) return false;
+    this.marqueeState = null;
+    this.hideMarqueeOverlay();
+    this.hud?.setMetric("marquee", `cancelled: ${reason}`);
+    if (updateCursor) this.updateCanvasCursor();
+    if (render) this.scheduleRender();
+    return true;
   }
 
   capturePointer(pointerId) {
@@ -767,15 +849,25 @@ class ProductionEngineBridge {
     this.hud.setMetric("create wire commit", `${(performance.now() - commitStart).toFixed(2)} ms`);
   }
 
-  completeMarquee(additive = false) {
+  completeMarquee() {
     if (!this.marqueeState) return;
-    const rect = normalizedWorldRect(this.marqueeState.startWorld, this.marqueeState.currentWorld);
+    const state = this.marqueeState;
     this.marqueeState = null;
-    const ids = this.scene.spatialIndex.queryRect(rect)
-      .map(item => item.payload?.device?.id)
-      .filter(Boolean);
-    if (additive) ids.forEach(id => this.scene.selectedIds.add(id));
+    this.hideMarqueeOverlay();
+    if (!state.active) {
+      this.hud.setMetric("marquee", "click");
+      this.updateCanvasCursor();
+      return;
+    }
+    const rect = normalizedWorldRect(state.startWorld, state.currentWorld);
+    const ids = uniqueItems(this.scene.spatialIndex.queryRect(rect)
+      .map(item => item.payload?.device)
+      .filter(isMarqueeSelectableDevice)
+      .map(device => device.id)
+      .filter(Boolean));
+    if (state.additive) this.scene.toggleMany(ids);
     else this.scene.selectMany(ids);
+    this.hud.setMetric("marquee", `${ids.length} object${ids.length === 1 ? "" : "s"}${state.additive ? " toggled" : ""}`);
     this.updateSelectionHud();
     this.updateInteractionHud("marquee-select");
     this.updateCanvasCursor();
@@ -849,7 +941,7 @@ class ProductionEngineBridge {
     this.panState = null;
     this.routePointDrag = null;
     this.wireCreate = null;
-    this.marqueeState = null;
+    this.cancelMarquee(reason, { updateCursor: false, render: false });
     this.canvas?.classList.remove("dragging", "panning", "wire-creating");
     this.clearHoverState(reason, { render: false });
     this.updateCanvasCursor();
@@ -988,7 +1080,7 @@ class ProductionEngineBridge {
       selectedConnectors: this.scene.selectedConnectorKeys,
       selectedRoutePoints: this.scene.selectedRoutePointKeys,
       tempWire,
-      marquee: this.marqueeState ? normalizedWorldRect(this.marqueeState.startWorld, this.marqueeState.currentWorld) : null
+      marquee: this.marqueeState?.active ? normalizedWorldRect(this.marqueeState.startWorld, this.marqueeState.currentWorld) : null
     };
   }
 
@@ -1642,6 +1734,27 @@ class ProductionEngineBridge {
     return this.hitToleranceWorld(screenPixels);
   }
 
+  noteCtrlLeftClickForContextMenu(event, point = this.eventPoint(event)) {
+    this.ctrlLeftClickContextMenuSuppression = {
+      time: performance.now(),
+      x: event.clientX,
+      y: event.clientY,
+      canvasX: point.x,
+      canvasY: point.y
+    };
+  }
+
+  shouldSuppressCtrlLeftClickContextMenu(event) {
+    const suppression = this.ctrlLeftClickContextMenuSuppression;
+    if (!suppression) return false;
+    const ageMs = performance.now() - suppression.time;
+    const dx = event.clientX - suppression.x;
+    const dy = event.clientY - suppression.y;
+    const shouldSuppress = ageMs < 700 && dx * dx + dy * dy < 100;
+    if (!shouldSuppress || ageMs >= 700) this.ctrlLeftClickContextMenuSuppression = null;
+    return shouldSuppress;
+  }
+
   updateCanvasCursor() {
     if (!this.canvas) return;
     let cursor = "";
@@ -1882,10 +1995,21 @@ function injectBridgeStyles() {
       display: block;
     }
     .engine-bridge-label-canvas { pointer-events: none; }
+    .engine-bridge-marquee {
+      position: absolute;
+      z-index: 2;
+      pointer-events: none;
+      box-sizing: border-box;
+      border: 1.5px solid rgba(50, 182, 255, .98);
+      border-radius: 3px;
+      background: rgba(50, 182, 255, .16);
+      box-shadow: 0 0 0 1px rgba(9, 81, 245, .32), 0 0 24px rgba(50, 182, 255, .24);
+    }
     .engine-bridge-root.panning,
     .engine-bridge-canvas.panning { cursor: grabbing; }
     .engine-bridge-canvas.dragging { cursor: grabbing; }
     .engine-bridge-canvas.wire-creating { cursor: crosshair; }
+    .engine-bridge-canvas.marquee-selecting { cursor: crosshair; }
     .engine-bridge-badge {
       position: absolute;
       left: 14px;
@@ -2328,6 +2452,30 @@ function normalizedWorldRect(a, b) {
   };
 }
 
+function screenRectFromPoints(a, b) {
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  return {
+    x,
+    y,
+    width: Math.abs(a.x - b.x),
+    height: Math.abs(a.y - b.y)
+  };
+}
+
+function uniqueItems(items = []) {
+  return [...new Set(items)];
+}
+
+function isMarqueeSelectableDevice(device) {
+  if (!device) return false;
+  return device.kind === "device"
+    || device.kind === "adapter"
+    || device.kind === "surface"
+    || device.sourceKind === "device"
+    || device.sourceKind === "ledSurface";
+}
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -2512,7 +2660,7 @@ function emptyHoverState() {
   };
 }
 
-function isSelectionModifier(event) {
+function isAdditiveSelectionModifier(event) {
   return Boolean(event?.shiftKey || event?.metaKey || event?.ctrlKey);
 }
 

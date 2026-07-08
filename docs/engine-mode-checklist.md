@@ -1,6 +1,8 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
-Iteration 30 polishes canvas-level Engine Editor interaction after the
+Iteration 30.1 completes the Engine selection-transition cleanup from Iteration
+30 by restoring visible marquee selection and fixing Ctrl additive selection.
+Iteration 30 polished canvas-level Engine Editor interaction after the
 Iteration 29.9 zoomed-out label fix, the Iteration 29.8 idle selected/hover wire
 z-order fix around jump nodes, the Iteration 29.7 selected/hover affected-wire
 drag ghost fix, and the Iteration 29.6 jump-node wire ownership cleanup pass.
@@ -12,11 +14,11 @@ The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags. Export, viewer, and report rendering still use the existing
 production paths; those migrations are intentionally deferred.
 
-Current visible build label: `Iteration 30`.
+Current visible build label: `Iteration 30.1`.
 The app top bar must show one of these labels:
 
-- `Iteration 30 — Engine Editor — iteration30`
-- `Iteration 30 — Legacy Editor — iteration30`
+- `Iteration 30.1 — Engine Editor — iteration30-1`
+- `Iteration 30.1 — Legacy Editor — iteration30-1`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -25,20 +27,20 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration30`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration30`.
+   `index.html?v=iteration30-1`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration30-1`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration30`.
+   `index.html?engineDefaultTest=1&v=iteration30-1`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration30`.
+   `index.html?legacy=1&v=iteration30-1`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration30`.
+   `index.html?engine=0&v=iteration30-1`.
 7. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration30`.
+   `index.html?engine=1&debugLoad=1&v=iteration30-1`.
 8. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration30`.
+   `index.html?engine=1&loadDelay=1500&v=iteration30-1`.
 9. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration30`.
+   `index.html?engine=1&debugHud=1&v=iteration30-1`.
 10. Confirm the top bar build label matches the mode you intended to test.
 11. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.
@@ -55,9 +57,9 @@ Git commit as the final source of truth when reviewing a pushed change.
 18. The validation script now includes a long mixed undo/redo chain. Confirm the
    JSON output contains a `longChain` section and all `checks` are `ok: true`.
 19. Compare Engine and Legacy connector behavior with the same project:
-   `index.html?v=iteration30` beside
-   `index.html?legacy=1&v=iteration30`.
-20. In `index.html?engine=1&debugHud=1&v=iteration30`, confirm the HUD
+   `index.html?v=iteration30-1` beside
+   `index.html?legacy=1&v=iteration30-1`.
+20. In `index.html?engine=1&debugHud=1&v=iteration30-1`, confirm the HUD
    `load phase`, `load ready`, `wire paths`, `connector overlay`, and
    `connector tooltips` rows update.
 21. Hover and select wires in Engine mode. Confirm hover/selection feedback is
@@ -89,7 +91,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 32. Start a wire from a normal connector and hover/drop on a jump node. Confirm
    the jump endpoint can still act as the wire target without leaving a stale
    connector selection overlay.
-33. Open `index.html?engine=1&debugHud=1&debugLayers=1&v=iteration30`, drag
+33. Open `index.html?engine=1&debugHud=1&debugLayers=1&v=iteration30-1`, drag
    a connected jump node with its connected wire selected, and confirm no stale
    selected or hovered wire remains at the original jump-node position.
 34. In the debug layer panel for that same drag, confirm the connected wire has
@@ -109,6 +111,26 @@ Git commit as the final source of truth when reviewing a pushed change.
    black hover tooltip still shows the full device name.
 39. With the expanded engine HUD open, confirm `device labels hidden` and
    `device labels truncated` update as zoom changes.
+
+## Iteration 30.1 Focus
+
+- Engine marquee selection is visible again. Empty-canvas left-drag now creates
+  a screen-space overlay with a blue translucent fill and border above the
+  WebGL/label canvases.
+- Marquee selection uses the same additive modifier helper as click selection:
+  Shift, Cmd/Meta, and Ctrl.
+- Marquee selection currently includes devices, adapters, and LED surfaces.
+  Wires and route-point corners are deliberately excluded from marquee
+  selection in this cleanup pass to avoid mixing object selection with wire
+  edit state.
+- A normal empty-canvas click below the drag threshold keeps the Iteration 30
+  empty-canvas clear behavior.
+- Ctrl-left-click additive selection suppresses only the browser context menu
+  caused by that Ctrl-left-click. Real right-click/contextmenu still forwards
+  to the existing production menus.
+- Marquee state is cleaned up on Escape, pan start, zoom, context menu,
+  pointercancel, pointerleave without capture, lost pointer capture, and scene
+  refresh.
 
 ## Iteration 30 Focus
 

@@ -284,6 +284,16 @@ export class SceneGraph {
     else this.selectedIds.add(id);
   }
 
+  toggleMany(ids) {
+    this.selectedWireIds.clear();
+    this.selectedConnectorKeys.clear();
+    this.selectedRoutePointKeys.clear();
+    ids.filter(id => this.devicesById.has(id)).forEach(id => {
+      if (this.selectedIds.has(id)) this.selectedIds.delete(id);
+      else this.selectedIds.add(id);
+    });
+  }
+
   selectMany(ids) {
     this.selectedIds = new Set(ids.filter(id => this.devicesById.has(id)));
     this.selectedWireIds.clear();
