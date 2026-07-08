@@ -14,7 +14,7 @@ import { PerfHud } from "./perfHud.js";
 import { validateEngineScene } from "./sceneValidation.js";
 
 const BRIDGE_VERSION = "production-bridge-1";
-const NODE_HIT_TEST_MIN_ZOOM = 0.4;
+const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
 
 export function createProductionEngineBridge(api = {}) {
   const bridge = new ProductionEngineBridge(api);
@@ -370,8 +370,8 @@ class ProductionEngineBridge {
     const tolerance = this.hitToleranceWorld();
     const additiveSelection = isAdditiveSelectionModifier(event);
 
-    const shouldHitNodes = this.shouldHitTestNodeTargets();
-    const routeHit = shouldHitNodes && this.renderOptions.routePoints
+    const shouldHitDetails = this.shouldHitTestDetailTargets();
+    const routeHit = shouldHitDetails && this.renderOptions.routePoints
       ? hitTestRoutePoint(this.scene, world, tolerance * 1.2)
       : { routePoint: null, candidates: 0, ms: 0 };
     if (routeHit.routePoint) {
@@ -384,7 +384,7 @@ class ProductionEngineBridge {
       return;
     }
 
-    const connectorHit = shouldHitNodes
+    const connectorHit = shouldHitDetails
       ? hitTestConnector(this.scene, world, this.connectorHitToleranceWorld())
       : { connector: null, candidates: 0, ms: 0 };
     if (connectorHit.connector) {
@@ -425,7 +425,7 @@ class ProductionEngineBridge {
       return;
     }
 
-    const deviceHit = hitTestDevice(this.scene, world, this.deviceHitPredicate());
+    const deviceHit = hitTestDevice(this.scene, world);
     if (!deviceHit.device) {
       this.clearHoverState("empty-canvas", { render: false });
       if (!additiveSelection) this.scene.clearSelection();
@@ -521,7 +521,7 @@ class ProductionEngineBridge {
     }
     if (this.wireCreate) {
       const world = screenToWorld(this.camera, point);
-      const connectorHit = this.shouldHitTestNodeTargets({ includeActiveWireCreate: true })
+      const connectorHit = this.shouldHitTestDetailTargets({ includeActiveWireCreate: true })
         ? hitTestConnector(this.scene, world, this.connectorHitToleranceWorld())
         : { connector: null, candidates: 0, ms: 0 };
       this.hoverState = {
@@ -866,10 +866,9 @@ class ProductionEngineBridge {
       return;
     }
     const rect = normalizedWorldRect(state.startWorld, state.currentWorld);
-    const includeNodeTargets = this.shouldHitTestNodeTargets();
     const ids = uniqueItems(this.scene.spatialIndex.queryRect(rect)
       .map(item => item.payload?.device)
-      .filter(device => isMarqueeSelectableDevice(device, includeNodeTargets))
+      .filter(isMarqueeSelectableDevice)
       .map(device => device.id)
       .filter(Boolean));
     if (state.additive) this.scene.toggleMany(ids);
@@ -957,13 +956,13 @@ class ProductionEngineBridge {
 
   updateHover(world, screenPoint = null) {
     const tolerance = this.hitToleranceWorld();
-    const shouldHitNodes = this.shouldHitTestNodeTargets();
-    const routeHit = shouldHitNodes && this.renderOptions.routePoints
+    const shouldHitDetails = this.shouldHitTestDetailTargets();
+    const routeHit = shouldHitDetails && this.renderOptions.routePoints
       ? hitTestRoutePoint(this.scene, world, tolerance * 1.2)
       : { routePoint: null, candidates: 0, ms: 0 };
     let connectorHit = routeHit.routePoint
       ? { connector: null, candidates: 0, ms: 0 }
-      : shouldHitNodes
+      : shouldHitDetails
         ? hitTestConnector(this.scene, world, this.connectorHitToleranceWorld())
         : { connector: null, candidates: 0, ms: 0 };
     if (!this.wireCreate && isJumpConnectorHit(connectorHit.connector)) {
@@ -974,7 +973,7 @@ class ProductionEngineBridge {
       : hitTestWire(this.scene, world, tolerance);
     const deviceHit = routeHit.routePoint || connectorHit.connector || wireHit.wire
       ? { device: null, ms: 0 }
-      : hitTestDevice(this.scene, world, this.deviceHitPredicate());
+      : hitTestDevice(this.scene, world);
     this.hoverState = {
       device: deviceHit.device,
       connector: connectorHit.connector,
@@ -1016,8 +1015,8 @@ class ProductionEngineBridge {
     const point = this.eventPoint(event);
     const world = screenToWorld(this.camera, point);
     const tolerance = this.hitToleranceWorld();
-    const shouldHitNodes = this.shouldHitTestNodeTargets();
-    if (shouldHitNodes && this.renderOptions.routePoints) {
+    const shouldHitDetails = this.shouldHitTestDetailTargets();
+    if (shouldHitDetails && this.renderOptions.routePoints) {
       const routeHit = hitTestRoutePoint(this.scene, world, tolerance * 1.2);
       if (routeHit.routePoint) {
         const wire = routeHit.routePoint.wire;
@@ -1029,7 +1028,7 @@ class ProductionEngineBridge {
         };
       }
     }
-    const connectorHit = shouldHitNodes
+    const connectorHit = shouldHitDetails
       ? hitTestConnector(this.scene, world, this.connectorHitToleranceWorld())
       : { connector: null, candidates: 0, ms: 0 };
     if (connectorHit.connector) {
@@ -1051,7 +1050,7 @@ class ProductionEngineBridge {
         engineWireId: wire.id
       };
     }
-    const deviceHit = hitTestDevice(this.scene, world, this.deviceHitPredicate());
+    const deviceHit = hitTestDevice(this.scene, world);
     return deviceHit.device ? this.contextMenuObjectTarget(deviceHit.device) : null;
   }
 
@@ -1747,18 +1746,14 @@ class ProductionEngineBridge {
     return this.hitToleranceWorld(screenPixels);
   }
 
-  shouldHitTestNodeTargets({ includeActiveWireCreate = false } = {}) {
-    // Node-level targets are intentionally suppressed at far zoom so tiny
-    // connectors and jump nodes do not steal object hover/selection. Active
-    // wire creation keeps connector hit-testing alive so a wire already being
-    // dragged can still find its target while the user zooms out.
-    return this.camera.zoom >= NODE_HIT_TEST_MIN_ZOOM
+  shouldHitTestDetailTargets({ includeActiveWireCreate = false } = {}) {
+    // Detail-level targets are intentionally suppressed at far zoom so tiny
+    // connectors, ports, and route-point handles do not steal object
+    // hover/selection. Jump nodes stay object-level targets at every zoom.
+    // Active wire creation keeps connector hit-testing alive so a wire already
+    // being dragged can still find its target while the user zooms out.
+    return this.camera.zoom >= DETAIL_HIT_TEST_MIN_ZOOM
       || (includeActiveWireCreate && Boolean(this.wireCreate));
-  }
-
-  deviceHitPredicate() {
-    const includeNodeTargets = this.shouldHitTestNodeTargets();
-    return device => includeNodeTargets || !isNodeTargetDevice(device);
   }
 
   noteCtrlLeftClickForContextMenu(event, point = this.eventPoint(event)) {
@@ -2494,19 +2489,15 @@ function uniqueItems(items = []) {
   return [...new Set(items)];
 }
 
-function isMarqueeSelectableDevice(device, includeNodeTargets = true) {
+function isMarqueeSelectableDevice(device) {
   if (!device) return false;
-  if (isNodeTargetDevice(device)) return Boolean(includeNodeTargets);
   return device.kind === "device"
     || device.kind === "adapter"
     || device.kind === "surface"
+    || device.kind === "jump"
     || device.sourceKind === "device"
-    || device.sourceKind === "ledSurface";
-}
-
-function isNodeTargetDevice(device) {
-  if (!device) return false;
-  return device.kind === "jump" || device.sourceKind === "jumpNode";
+    || device.sourceKind === "ledSurface"
+    || device.sourceKind === "jumpNode";
 }
 
 function clamp(value, min, max) {
