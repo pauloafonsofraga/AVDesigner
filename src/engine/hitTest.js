@@ -5,14 +5,15 @@ export function screenToWorld(camera, point) {
   };
 }
 
-export function hitTestDevice(scene, worldPoint) {
+export function hitTestDevice(scene, worldPoint, predicate = null) {
   const start = performance.now();
   const hits = scene.spatialIndex.queryPoint(worldPoint);
   let result = null;
   for (let index = hits.length - 1; index >= 0; index -= 1) {
     const item = hits[index];
-    if (item?.payload?.device) {
-      result = item.payload.device;
+    const device = item?.payload?.device;
+    if (device && (!predicate || predicate(device))) {
+      result = device;
       break;
     }
   }
