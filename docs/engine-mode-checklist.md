@@ -1,28 +1,25 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
-Iteration 30.3 adjusts the Engine low-zoom detail hit-test threshold to 50%
-and keeps jump nodes selectable, draggable, and marquee-selectable as
-object-level targets at every zoom. Iteration 30.2 added jump-node marquee
-selection and suppressed idle node-level hit tests below 40% zoom. Iteration
-30.1 restored visible marquee selection and fixed Ctrl
-additive selection. Iteration 30 polished canvas-level Engine Editor
-interaction after the
-Iteration 29.9 zoomed-out label fix, the Iteration 29.8 idle selected/hover wire
-z-order fix around jump nodes, the Iteration 29.7 selected/hover affected-wire
-drag ghost fix, and the Iteration 29.6 jump-node wire ownership cleanup pass.
-It keeps the Iteration 27.5 loading gate, Iteration 28 connector feedback,
-Iteration 28.5 new-wire selection fix, and Iteration 29.5 object-first jump-node
-selection intact while hardening selection transitions, hover cleanup, cursor
-states, context-menu forwarding, and hit-test priority.
+Iteration 31 brings cable-hop / wire-crossing visuals into the Engine Editor
+canvas. Engine cable hops are runtime-only geometry calculated from sampled
+wire polylines, using a spatial grid to avoid naive all-wire pair scans. The
+same deterministic rule as Legacy is used: the later wire in scene draw order
+hops over the earlier wire. During active object drags, affected wires use
+simplified live geometry and hops are finalized after the drop dirty update.
+During route-point drags, the affected wire keeps the previous hop map and
+finalizes after release. Iteration 31 keeps the Iteration 30.3 low-zoom detail hit-test
+threshold, jump-node selection behavior, Iteration 30 canvas interaction
+polish, Iteration 29 wire/object parity work, Iteration 28 connector feedback,
+and Iteration 27.5 loading gate intact.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags. Export, viewer, and report rendering still use the existing
 production paths; those migrations are intentionally deferred.
 
-Current visible build label: `Iteration 30.3`.
+Current visible build label: `Iteration 31`.
 The app top bar must show one of these labels:
 
-- `Iteration 30.3 — Engine Editor — iteration30-3`
-- `Iteration 30.3 — Legacy Editor — iteration30-3`
+- `Iteration 31 — Engine Editor — iteration31`
+- `Iteration 31 — Legacy Editor — iteration31`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -31,20 +28,20 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration30-3`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration30-3`.
+   `index.html?v=iteration31`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration31`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration30-3`.
+   `index.html?engineDefaultTest=1&v=iteration31`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration30-3`.
+   `index.html?legacy=1&v=iteration31`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration30-3`.
+   `index.html?engine=0&v=iteration31`.
 7. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration30-3`.
+   `index.html?engine=1&debugLoad=1&v=iteration31`.
 8. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration30-3`.
+   `index.html?engine=1&loadDelay=1500&v=iteration31`.
 9. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration30-3`.
+   `index.html?engine=1&debugHud=1&v=iteration31`.
 10. Confirm the top bar build label matches the mode you intended to test.
 11. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.
@@ -61,9 +58,9 @@ Git commit as the final source of truth when reviewing a pushed change.
 18. The validation script now includes a long mixed undo/redo chain. Confirm the
    JSON output contains a `longChain` section and all `checks` are `ok: true`.
 19. Compare Engine and Legacy connector behavior with the same project:
-   `index.html?v=iteration30-3` beside
-   `index.html?legacy=1&v=iteration30-3`.
-20. In `index.html?engine=1&debugHud=1&v=iteration30-3`, confirm the HUD
+   `index.html?v=iteration31` beside
+   `index.html?legacy=1&v=iteration31`.
+20. In `index.html?engine=1&debugHud=1&v=iteration31`, confirm the HUD
    `load phase`, `load ready`, `wire paths`, `connector overlay`, and
    `connector tooltips` rows update.
 21. Hover and select wires in Engine mode. Confirm hover/selection feedback is
@@ -95,7 +92,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 32. Start a wire from a normal connector and hover/drop on a jump node. Confirm
    the jump endpoint can still act as the wire target without leaving a stale
    connector selection overlay.
-33. Open `index.html?engine=1&debugHud=1&debugLayers=1&v=iteration30-3`, drag
+33. Open `index.html?engine=1&debugHud=1&debugLayers=1&v=iteration31`, drag
    a connected jump node with its connected wire selected, and confirm no stale
    selected or hovered wire remains at the original jump-node position.
 34. In the debug layer panel for that same drag, confirm the connected wire has
@@ -115,6 +112,45 @@ Git commit as the final source of truth when reviewing a pushed change.
    black hover tooltip still shows the full device name.
 39. With the expanded engine HUD open, confirm `device labels hidden` and
    `device labels truncated` update as zoom changes.
+40. Compare cable crossings in Engine and Legacy with the same project:
+    `index.html?v=iteration31` beside
+    `index.html?legacy=1&v=iteration31`.
+41. In Engine, inspect Bezier, custom-routed, orthogonal/custom-corner, and
+    jump-node-connected wire crossings. Confirm hops are visible and stable
+    after pan/zoom.
+42. Drag a connected device or jump node through a dense crossing area. Confirm
+    affected moving wires draw once, without stale hop marks, and final hops
+    return after drop.
+43. Drag a route point near a crossing. Confirm the wire remains editable while
+    moving and cable hops finalize after release.
+44. Open `index.html?engine=1&debugHud=1&v=iteration31` and confirm the HUD
+    rows `cable hops`, `cable hop calc`, `cable hop candidates`, and
+    `cable hop dirty` update.
+
+## Iteration 31 Focus
+
+- Engine Editor now calculates cable-hop visuals from sampled wire polylines at
+  runtime. Hop information is not saved in project data and does not change the
+  `.avd`/JSON format.
+- The hop owner is deterministic and mirrors Legacy: the later wire in the
+  scene wire order hops over the earlier wire.
+- Engine hop detection supports default Bezier wires, custom-routed wires, and
+  orthogonal/custom-corner wires because it runs on the common sampled render
+  polyline.
+- A spatial grid limits crossing candidates before segment intersection tests.
+  This avoids the obvious full pairwise segment scan in dense projects.
+- Static wire geometry, selected-wire overlays, hovered-wire overlays, and
+  route-point handles all use the same runtime hop map when idle.
+- During active device/jump-node drags, affected wires intentionally skip hop
+  geometry in the live drag overlay. The final dirty update recalculates and
+  restores hops after drop.
+- During route-point drags, the affected wire keeps the previous hop map while
+  the pointer is moving, then finalizes with recalculated cable hops on release.
+- Debug HUD rows report hop count, wires with hops, calculation time, crossing
+  candidates, actual crossings, changed wires, affected recalculation count,
+  and whether the last hop update was deferred.
+- Export, reports, and the technician viewer are not migrated in Iteration 31;
+  they keep using the existing production/export hop logic.
 
 ## Iteration 30.3 Focus
 
@@ -328,7 +364,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 | custom routed wires | Production route points draw routed paths. | Engine custom route-point wires render through stored route points. | covered | Fixture/real project validation plus route point drag smoke. | medium | Stored data is unchanged. |
 | orthogonal route wires | Production orthogonal points draw straight segments. | Engine preserves orthogonal route-point provenance and straight segments. | partial | Data validation and visual smoke. | medium | Global orthogonal auto-routing is not migrated. |
 | texture rebuild behavior | Production SVG has no texture cache. | Engine tracks texture counts and warnings. | partial | HUD metrics and manual drag checks. | medium | No continuous validation during drag. |
-| cable hops | Production supports cable hops. | Engine visual path does not calculate hops yet. | not intended yet | Checklist only. | high | Existing viewer/export hop logic must remain production-owned for now. |
+| cable hops | Production supports runtime visual cable hops. | Engine calculates runtime hop geometry from sampled wire polylines, with affected wires simplified during drag and finalized after drop. | partial | Engine vs Legacy visual compare plus `debugHud=1` hop metrics. | high | Export/viewer/report hop paths remain production-owned for now. |
 | rack/internal wires | Production supports rack/internal wires. | Engine adapter maps supported production connections. | partial | Scene validation catches missing endpoints. | high | Deep rack editor parity remains future work. |
 | jump nodes | Production jump nodes and source/destination boxes. | Engine maps jump nodes as objects/connectors. | partial | Fixture includes jump node connection. | medium | Full jump-node UI parity is future work. |
 | LED surfaces | Production LED grid object and signal ports. | Engine maps LED surfaces with virtual surface ports. | covered | Scene validation accepts virtual `surface-port-*` endpoints. | medium | Visual fidelity still production-only. |

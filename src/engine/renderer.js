@@ -1,4 +1,10 @@
 import { TextureCache } from "./textureCache.js";
+import {
+  applyCableHopsToPolyline,
+  calculateCableHops,
+  changedCableHopWireIds,
+  emptyCableHopStats
+} from "./cableHops.js";
 import { wirePathStatsForWires, wirePolylineFromPoints } from "./wirePath.js";
 
 const DEVICE_FILL = "#182531";
@@ -44,6 +50,7 @@ const DEFAULT_RENDER_OPTIONS = {
   hideLabels: false,
   hideSurfaces: false,
   hideSelectionOverlay: false,
+  cableHops: true,
   dirtyDeviceIds: new Set(),
   dirtyWireIds: new Set()
 };
@@ -98,6 +105,8 @@ export class WebglGraphRenderer {
     this.lastFrameStats = null;
     this.lastLabelStats = defaultLabelStats();
     this.lastWirePathStats = { bezier: 0, custom: 0, orthogonal: 0 };
+    this.cableHopMap = new Map();
+    this.lastCableHopStats = emptyCableHopStats({ mode: "not-calculated" });
     this.lastLayerTrace = null;
     this.lastActiveLayerTrace = null;
     this.textureCache = new TextureCache(this.gl);
@@ -148,10 +157,11 @@ export class WebglGraphRenderer {
     this.wireRangeMap.clear();
     this.deviceRangeMap.clear();
     const geometryStart = performance.now();
+    this.refreshCableHops(scene, { mode: "full-static" });
     // Static geometry is built once per scene load. Pan/zoom/drag must not
     // rebuild this path; otherwise large real projects stutter badly.
     scene.wires.forEach(wire => {
-      this.wireVertexMap.set(wire.id, verticesForWire(scene, wire, null, 2.2, wireColor(wire, this.renderOptions), this.renderOptions));
+      this.wireVertexMap.set(wire.id, verticesForWire(scene, wire, null, 2.2, wireColor(wire, this.renderOptions), this.renderOptions, this.cableHopMap));
     });
     this.lastWirePathStats = wirePathStatsForWires(scene.wires);
     scene.devices.forEach(device => {
@@ -241,6 +251,27 @@ export class WebglGraphRenderer {
     return this.lastWirePathStats || { bezier: 0, custom: 0, orthogonal: 0 };
   }
 
+  cableHopStats() {
+    return this.lastCableHopStats || emptyCableHopStats({ mode: "not-calculated" });
+  }
+
+  refreshCableHops(scene, { mode = "full", affectedWireIds = [], deferred = false } = {}) {
+    const previous = this.cableHopMap || new Map();
+    const result = calculateCableHops(scene, {
+      enabled: this.renderOptions.cableHops !== false && scene?.meta?.cableHops !== false,
+      mode,
+      affectedWireIds,
+      deferred
+    });
+    const changedWireIds = changedCableHopWireIds(previous, result.hopsByWireId, affectedWireIds);
+    this.cableHopMap = result.hopsByWireId;
+    this.lastCableHopStats = {
+      ...result.stats,
+      changedWireIds
+    };
+    return this.lastCableHopStats;
+  }
+
   layerTrace() {
     return this.lastLayerTrace || { active: false, objects: [], wires: [], lastActiveTrace: this.lastActiveLayerTrace };
   }
@@ -327,9 +358,31 @@ export class WebglGraphRenderer {
     return trace;
   }
 
-  updateDirty(scene, { deviceIds = [], wireIds = [] } = {}) {
+  updateDirty(scene, { deviceIds = [], wireIds = [], refreshCableHops = true } = {}) {
     const start = performance.now();
     const geometryStart = performance.now();
+    const effectiveWireIds = new Set(wireIds);
+    let cableHopMapForDirtyWires = this.cableHopMap;
+    if (wireIds.length && refreshCableHops) {
+      const hopStats = this.refreshCableHops(scene, {
+        mode: "full-calc-dirty-update",
+        affectedWireIds: wireIds,
+        deferred: false
+      });
+      (hopStats.changedWireIds || []).forEach(id => effectiveWireIds.add(id));
+    } else if (wireIds.length) {
+      // Route-point drags defer crossing recalculation, but keep the previous
+      // hop map while the pointer moves. That preserves static buffer sizes and
+      // avoids falling back to a full wire rebuild on every drag frame.
+      cableHopMapForDirtyWires = this.cableHopMap;
+      this.lastCableHopStats = {
+        ...this.cableHopStats(),
+        mode: "deferred-live-wire-update",
+        deferred: true,
+        affectedRecalculationCount: wireIds.length,
+        changedWireIds: [...wireIds]
+      };
+    }
     // Only refresh objects whose underlying project data changed. This keeps
     // drop/connection work away from the old full-scene geometry rebuild.
     let deviceFallbackRebuild = false;
@@ -357,9 +410,9 @@ export class WebglGraphRenderer {
         deviceRangeUpdates += 1;
       }
     });
-    wireIds.forEach(id => {
+    [...effectiveWireIds].forEach(id => {
       const wire = scene.getWire(id);
-      const next = wire ? verticesForWire(scene, wire, null, 2.2, wireColor(wire, this.renderOptions), this.renderOptions) : [];
+      const next = wire ? verticesForWire(scene, wire, null, 2.2, wireColor(wire, this.renderOptions), this.renderOptions, cableHopMapForDirtyWires) : [];
       const range = this.wireRangeMap.get(id);
       if (!wire) {
         wireFallbackRebuild = true;
@@ -393,7 +446,7 @@ export class WebglGraphRenderer {
       uploadMs,
       rangeUploadMs,
       dirtyDevices: deviceIds.length,
-      dirtyWires: wireIds.length,
+      dirtyWires: effectiveWireIds.size,
       deviceRangeUpdates,
       wireRangeUpdates,
       rangeUpdates: deviceRangeUpdates + wireRangeUpdates,
@@ -401,6 +454,8 @@ export class WebglGraphRenderer {
       deviceFallbackRebuild,
       wireFallbackRebuild,
       fallbackStats,
+      cableHopsRefreshed: refreshCableHops,
+      cableHopStats: this.cableHopStats(),
       fullRebuildCount: this.fullRebuildCount,
       rangeUpdateCount: this.rangeUpdateCount
     };
@@ -412,8 +467,9 @@ export class WebglGraphRenderer {
     this.wireVertexMap.clear();
     this.wireRangeMap.clear();
     const geometryStart = performance.now();
+    this.refreshCableHops(scene, { mode: "full-wire-rebuild" });
     scene.wires.forEach(wire => {
-      this.wireVertexMap.set(wire.id, verticesForWire(scene, wire, null, 2.2, wireColor(wire, this.renderOptions), this.renderOptions));
+      this.wireVertexMap.set(wire.id, verticesForWire(scene, wire, null, 2.2, wireColor(wire, this.renderOptions), this.renderOptions, this.cableHopMap));
     });
     this.lastWirePathStats = wirePathStatsForWires(scene.wires);
     const geometryMs = performance.now() - geometryStart;
@@ -439,8 +495,24 @@ export class WebglGraphRenderer {
     const start = performance.now();
     const wire = scene.getWire(wireId);
     if (!wire) return { totalMs: 0, appended: false };
+    const hopStats = this.refreshCableHops(scene, {
+      mode: "full-calc-append-wire",
+      affectedWireIds: [wireId],
+      deferred: false
+    });
+    if ((hopStats.changedWireIds || []).length) {
+      const rebuildStats = this.rebuildWireGeometry(scene);
+      this.lastDirtyStats = {
+        ...rebuildStats,
+        totalMs: performance.now() - start,
+        appended: false,
+        hopChangedWires: hopStats.changedWireIds.length,
+        wireOnlyRebuild: true
+      };
+      return this.lastDirtyStats;
+    }
     const geometryStart = performance.now();
-    const vertices = verticesForWire(scene, wire, null, 2.2, wireColor(wire, this.renderOptions), this.renderOptions);
+    const vertices = verticesForWire(scene, wire, null, 2.2, wireColor(wire, this.renderOptions), this.renderOptions, this.cableHopMap);
     const geometryMs = performance.now() - geometryStart;
     const uploadStart = performance.now();
     const offset = this.staticWireArray.length;
@@ -515,6 +587,7 @@ export class WebglGraphRenderer {
     const renderOptions = {
       ...this.renderOptions,
       ...options.renderOptions,
+      cableHopMap: this.cableHopMap,
       dirtyDeviceIds: options.renderOptions?.dirtyDeviceIds || this.renderOptions.dirtyDeviceIds || new Set(),
       dirtyWireIds: options.renderOptions?.dirtyWireIds || this.renderOptions.dirtyWireIds || new Set()
     };
@@ -558,13 +631,13 @@ export class WebglGraphRenderer {
         let status = "disabled";
         if (wire && renderOptions.wires) {
           if (selectedWireIds.has(wireId)) {
-            pushWireSelection(liveVertices, scene, wire, offsets, renderOptions);
+            pushWireSelection(liveVertices, scene, wire, offsets, renderOptions, null);
             status = "drawn-moving-selected";
           } else if (hoveredWireId === wireId) {
-            pushWireHover(liveVertices, scene, wire, offsets, renderOptions);
+            pushWireHover(liveVertices, scene, wire, offsets, renderOptions, null);
             status = "drawn-moving-hover";
           } else {
-            pushWire(liveVertices, scene, wire, offsets, WIRE_BASE_WIDTH, wireColor(wire, renderOptions), renderOptions);
+            pushWire(liveVertices, scene, wire, offsets, WIRE_BASE_WIDTH, wireColor(wire, renderOptions), renderOptions, null);
             status = "drawn-moving";
           }
         }
@@ -611,11 +684,11 @@ export class WebglGraphRenderer {
         });
         (options.selectedWireIds || new Set()).forEach(id => {
           const wire = scene.getWire(id);
-          if (wire && renderOptions.wires) pushWireSelection(liveVertices, scene, wire, null, renderOptions);
+          if (wire && renderOptions.wires) pushWireSelection(liveVertices, scene, wire, null, renderOptions, this.cableHopMap);
         });
         if (hoveredWireId && !(options.selectedWireIds || new Set()).has(hoveredWireId)) {
           const wire = scene.getWire(hoveredWireId);
-          if (wire && renderOptions.wires) pushWireHover(liveVertices, scene, wire, null, renderOptions);
+          if (wire && renderOptions.wires) pushWireHover(liveVertices, scene, wire, null, renderOptions, this.cableHopMap);
         }
         // Jump nodes must stay visually on top of selected/hovered wire
         // emphasis. They are normally part of the static device buffer, so a
@@ -1090,7 +1163,7 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
     stats.suppressedHoveredWireOverlays += 1;
   } else if (hoveredWireId && renderOptions.wires && !dragSession?.affectedWireIds?.has(hoveredWireId)) {
     const wire = scene.getWire(hoveredWireId);
-    if (wire) pushWireHover(vertices, scene, wire, null, renderOptions);
+    if (wire) pushWireHover(vertices, scene, wire, null, renderOptions, renderOptions.cableHopMap);
   } else if (hoveredWireId && dragSession?.affectedWireIds?.has(hoveredWireId)) {
     stats.suppressedAffectedWireOverlays += 1;
   }
@@ -1300,21 +1373,27 @@ function pushObjectOutline(vertices, device, offsets = null, layers = []) {
   });
 }
 
-function pushWireSelection(vertices, scene, wire, offsets, options = DEFAULT_RENDER_OPTIONS) {
+function pushWireSelection(vertices, scene, wire, offsets, options = DEFAULT_RENDER_OPTIONS, cableHopMap = options.cableHopMap) {
   const drawOptions = { ...options, routePoints: false };
-  pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 11, "rgba(255,121,4,.18)", drawOptions);
-  pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 6, "rgba(255,121,4,.36)", drawOptions);
-  pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 1.5, "rgba(255,121,4,.82)", drawOptions);
+  pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 11, "rgba(255,121,4,.18)", drawOptions, cableHopMap);
+  pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 6, "rgba(255,121,4,.36)", drawOptions, cableHopMap);
+  pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 1.5, "rgba(255,121,4,.82)", drawOptions, cableHopMap);
 }
 
-function pushWireHover(vertices, scene, wire, offsets, options = DEFAULT_RENDER_OPTIONS) {
+function pushWireHover(vertices, scene, wire, offsets, options = DEFAULT_RENDER_OPTIONS, cableHopMap = options.cableHopMap) {
   const drawOptions = { ...options, routePoints: false };
-  pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 8, "rgba(255,255,255,.22)", drawOptions);
-  pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 3, "rgba(50,182,255,.72)", drawOptions);
+  pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 8, "rgba(255,255,255,.22)", drawOptions, cableHopMap);
+  pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 3, "rgba(50,182,255,.72)", drawOptions, cableHopMap);
 }
 
-function pushWire(vertices, scene, wire, offsets, width, color, options = DEFAULT_RENDER_OPTIONS) {
-  const points = scene.wireRenderPolyline(wire, offsets);
+function pushWire(vertices, scene, wire, offsets, width, color, options = DEFAULT_RENDER_OPTIONS, cableHopMap = options.cableHopMap) {
+  const basePoints = scene.wireRenderPolyline(wire, offsets);
+  // Cable hops are runtime-only geometry. During active object drags the
+  // affected live overlay deliberately skips hop geometry; route-point drags
+  // keep the previous hop map and finalize through updateDirty after release.
+  const points = offsets || options.cableHops === false
+    ? basePoints
+    : applyCableHopsToPolyline(basePoints, cableHopMap?.get(wire.id));
   pushPolyline(vertices, points, width, color);
   if (options.routePoints && wire.routePoints?.length) {
     const routeOffset = scene.routePointOffsetForWire(wire, offsets);
@@ -1383,9 +1462,9 @@ function verticesForDevice(device, offsets = null, options = DEFAULT_RENDER_OPTI
   return vertices;
 }
 
-function verticesForWire(scene, wire, offsets = null, width = WIRE_BASE_WIDTH, color = WIRE_FALLBACK, options = DEFAULT_RENDER_OPTIONS) {
+function verticesForWire(scene, wire, offsets = null, width = WIRE_BASE_WIDTH, color = WIRE_FALLBACK, options = DEFAULT_RENDER_OPTIONS, cableHopMap = options.cableHopMap) {
   const vertices = [];
-  pushWire(vertices, scene, wire, offsets, width, color, options);
+  pushWire(vertices, scene, wire, offsets, width, color, options, cableHopMap);
   return vertices;
 }
 

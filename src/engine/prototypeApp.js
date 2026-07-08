@@ -801,7 +801,10 @@ class EnginePrototype {
       const start = performance.now();
       const world = screenToWorld(this.camera, point);
       this.scene.moveRoutePoint(this.routePointDrag.wireId, this.routePointDrag.pointIndex, world.x, world.y, { refreshIndexes: false });
-      const dirtyStats = this.renderer.updateDirty(this.scene, { wireIds: [this.routePointDrag.wireId] });
+      const dirtyStats = this.renderer.updateDirty(this.scene, {
+        wireIds: [this.routePointDrag.wireId],
+        refreshCableHops: false
+      });
       this.hud.setMetric("dragDraw", `${(performance.now() - start).toFixed(3)} ms`);
       this.hud.setMetric("dirty counts", `${dirtyStats.dirtyDevices} dev / ${dirtyStats.dirtyWires} wires`);
       this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
@@ -848,7 +851,12 @@ class EnginePrototype {
       const { wireId } = this.routePointDrag;
       this.scene.refreshWireIndexes([wireId]);
       const mutationMs = this.mutations?.commitRoutePoints(this.scene, wireId) || 0;
+      const dirtyStats = this.renderer.updateDirty(this.scene, { wireIds: [wireId] });
+      this.lastDirtyWireIds = new Set([wireId]);
+      this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+      this.renderer.setRenderOptions(this.renderOptions);
       this.hud.setMetric("project mutation", `route point ${mutationMs.toFixed(3)} ms`);
+      this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
       this.hud.setMetric("project dirty", this.mutations?.stats().dirty ? "yes" : "no");
       this.routePointDrag = null;
       this.updateInteractionHud("idle");

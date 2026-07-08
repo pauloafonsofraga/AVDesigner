@@ -508,7 +508,10 @@ class ProductionEngineBridge {
       const start = performance.now();
       const world = screenToWorld(this.camera, point);
       this.scene.moveRoutePoint(this.routePointDrag.wireId, this.routePointDrag.pointIndex, world.x, world.y, { refreshIndexes: false });
-      const dirtyStats = this.renderer.updateDirty(this.scene, { wireIds: [this.routePointDrag.wireId] });
+      const dirtyStats = this.renderer.updateDirty(this.scene, {
+        wireIds: [this.routePointDrag.wireId],
+        refreshCableHops: false
+      });
       this.lastDirtyWireIds = new Set([this.routePointDrag.wireId]);
       this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
       this.renderer.setRenderOptions(this.renderOptions);
@@ -589,6 +592,11 @@ class ProductionEngineBridge {
       const afterPoints = cloneRoutePoints(this.scene.getWire(wireId)?.routePoints || []);
       this.beginProductionCommit("route point");
       const mutationMs = this.mutations?.commitRoutePoints(this.scene, wireId) || 0;
+      const dirtyStats = this.renderer.updateDirty(this.scene, { wireIds: [wireId] });
+      this.lastDirtyWireIds = new Set([wireId]);
+      this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+      this.renderer.setRenderOptions(this.renderOptions);
+      this.recordDirtyVisualMetrics(dirtyStats, "route point final");
       this.markCommitted("route point", mutationMs);
       this.recordCommand(routePointCommand(wireId, beforePoints, afterPoints));
       this.routePointDrag = null;
@@ -1831,6 +1839,7 @@ class ProductionEngineBridge {
       this.hud.setMetric("affected wire overlay", `${(frameStats.affectedWireOverlayMs || 0).toFixed(2)} ms / ${frameStats.affectedWires || 0}`);
       const wirePathStats = this.renderer.wirePathStats();
       this.hud.setMetric("wire paths", `${wirePathStats.bezier || 0} bezier / ${wirePathStats.custom || 0} custom / ${wirePathStats.orthogonal || 0} orthogonal`);
+      this.updateCableHopHud();
       this.hud.setMetric("selection overlay", `${(frameStats.selectionOverlayMs || 0).toFixed(2)} ms`);
       this.hud.setMetric("interaction overlay", `${(frameStats.interactionOverlayMs || 0).toFixed(2)} ms`);
       this.hud.setMetric("connector overlay", `${frameStats.connectorOverlayCount || 0} nodes / ${frameStats.wirePreviewDrawn ? "preview" : "idle"}`);
@@ -1932,6 +1941,21 @@ class ProductionEngineBridge {
     output.textContent = lines.join("\n");
   }
 
+  updateCableHopHud(context = "") {
+    const stats = this.renderer?.cableHopStats?.() || {};
+    const changedCount = stats.changedWireIds?.length || 0;
+    this.hud.setMetric("cable hops", `${stats.totalHops || 0} / ${stats.wiresWithHops || 0} wires`);
+    this.hud.setMetric("cable hop calc", `${(stats.calcMs || 0).toFixed(2)} ms / ${stats.mode || "-"}${stats.deferred ? " / deferred" : ""}`);
+    this.hud.setMetric("cable hop candidates", `${stats.candidateCount || 0} candidates / ${stats.crossingCount || 0} crossings`);
+    this.hud.setMetric("cable hop dirty", `${changedCount} changed / ${stats.affectedRecalculationCount || 0} affected${context ? ` / ${context}` : ""}`);
+    this.setEngineWarning(
+      "cable-hops",
+      (stats.calcMs || 0) > 50
+        ? `Cable-hop calculation ${(stats.calcMs || 0).toFixed(1)} ms exceeded 50 ms.`
+        : ""
+    );
+  }
+
   recordDirtyVisualMetrics(dirtyStats, context = "update") {
     const fallback = dirtyStats?.fallbackStats;
     const wireGeometryMs = fallback?.wireOnlyRebuild
@@ -1939,7 +1963,7 @@ class ProductionEngineBridge {
       : dirtyStats?.geometryMs || 0;
     this.hud.setMetric("WebGL wire geometry", `${wireGeometryMs.toFixed(2)} ms`);
     this.hud.setMetric("post-drop cleanup", `${(dirtyStats?.totalMs || 0).toFixed(2)} ms (${context})`);
-    this.hud.setMetric("cable hops", "not in engine visual path");
+    this.updateCableHopHud(context);
     this.hud.setMetric("chunk stats", fallback?.wireOnlyRebuild ? "wire geometry rebuild" : "range updates");
     this.setEngineWarning(
       "post-drop",

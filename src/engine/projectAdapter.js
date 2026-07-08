@@ -103,6 +103,7 @@ export function generateSyntheticProject({ deviceCount = 100, wireCount = 300 } 
       dataSource: "Synthetic",
       sourceName: `${devices.length} devices / ${wires.length} wires`,
       adapterMs: performance.now() - buildStart,
+      cableHops: true,
       connectorCount: devices.reduce((total, device) => total + device.connectors.length, 0),
       jumpNodes: 0,
       ledSurfaces: 0,
@@ -226,6 +227,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
       projectName: root.projectName || data?.projectName || "",
       projectRootKind: data?.state ? "state" : data?.project ? "project" : "root",
       fullProjectAdapter: true,
+      cableHops: root.cableHops !== false && data?.cableHops !== false,
       ...stats
     }
   };
