@@ -14,10 +14,45 @@ const PAIRED_NETWORK_TYPES = new Set([
 
 const TRANSCEIVER_MODULE_ACTIVE_TYPES = new Map([
   ["", ""],
-  ["lc-singlemode", "fiber-lc"],
-  ["lc-multimode", "fiber-lc"],
-  ["rj45-ethernet", "cat6a"],
-  ["mpo-fiber", "fiber-mpo"]
+  ["empty", ""],
+  ["none", ""],
+  ["nomodule", ""],
+  ["lc", "fiber-lc"],
+  ["fiberlc", "fiber-lc"],
+  ["lcsinglemode", "fiber-lc"],
+  ["lcsinglemodeos1", "fiber-lc"],
+  ["lcsinglemodeos2", "fiber-lc"],
+  ["lcmultimode", "fiber-lc"],
+  ["lcmultimodeom1", "fiber-lc"],
+  ["lcmultimodeom2", "fiber-lc"],
+  ["lcmultimodeom3", "fiber-lc"],
+  ["lcmultimodeom4", "fiber-lc"],
+  ["lcmultimodeom5", "fiber-lc"],
+  ["sfplc", "fiber-lc"],
+  ["sfplcsinglemode", "fiber-lc"],
+  ["sfplcmultimode", "fiber-lc"],
+  ["sfppluslc", "fiber-lc"],
+  ["sfppluslcsinglemode", "fiber-lc"],
+  ["sfppluslcmultimode", "fiber-lc"],
+  ["rj45", "cat6a"],
+  ["rj45ethernet", "cat6a"],
+  ["sfprj45", "cat6a"],
+  ["sfprj45ethernet", "cat6a"],
+  ["sfpplusrj45", "cat6a"],
+  ["sfpplusrj45ethernet", "cat6a"],
+  ["1grj45", "cat6a"],
+  ["10grj45", "cat6a"],
+  ["cat", "cat6a"],
+  ["cat6a", "cat6a"],
+  ["mpo", "fiber-mpo"],
+  ["fibermpo", "fiber-mpo"],
+  ["mpofiber", "fiber-mpo"],
+  ["qsfpmpo", "fiber-mpo"],
+  ["qsfpmpofiber", "fiber-mpo"],
+  ["bnc", "bnc"],
+  ["sdi", "sdi"],
+  ["sfpbnc", "bnc"],
+  ["sfpsdi", "sdi"]
 ]);
 
 const TWO_WAY_TYPES = new Set([
@@ -105,13 +140,12 @@ export function isEngineCageConnector(connector) {
 }
 
 export function isEngineDeadCageConnector(connector) {
-  return isEngineCageConnector(connector) && !String(connector?.installedModuleType || "").trim();
+  return isEngineCageConnector(connector) && !installedModuleHasValue(connector);
 }
 
 export function activeTypeForEngineCageConnector(connector) {
   if (!isEngineCageConnector(connector)) return connectorType(connector);
-  const moduleType = String(connector?.installedModuleType || "").trim();
-  return TRANSCEIVER_MODULE_ACTIVE_TYPES.get(moduleType) || "";
+  return installedModuleDetailsForEngine(connector).effectiveType;
 }
 
 export function effectiveConnectorTypeForEngine(connector) {
@@ -119,6 +153,52 @@ export function effectiveConnectorTypeForEngine(connector) {
   if (isEngineDeadCageConnector(connector)) return "";
   if (isEngineCageConnector(connector)) return activeTypeForEngineCageConnector(connector);
   return connectorType(connector);
+}
+
+export function installedModuleDetailsForEngine(connector) {
+  const module = objectValue(connector?.installedModule) || objectValue(connector?.module) || objectValue(connector?.transceiverModule);
+  const id = firstText(
+    connector?.installedModuleId,
+    connector?.moduleId,
+    connector?.transceiverModuleId,
+    module?.id,
+    module?.value
+  );
+  const name = firstText(
+    connector?.installedModuleName,
+    connector?.moduleName,
+    connector?.transceiverModuleName,
+    module?.name,
+    module?.label
+  );
+  const type = firstText(
+    connector?.installedModuleType,
+    connector?.moduleType,
+    connector?.transceiverModuleType,
+    module?.type,
+    module?.value
+  );
+  const directActiveType = firstText(
+    connector?.installedModuleActiveType,
+    connector?.installedModuleEffectiveType,
+    connector?.moduleActiveType,
+    connector?.moduleEffectiveType,
+    connector?.transceiverModuleActiveType,
+    connector?.transceiverModuleEffectiveType,
+    module?.activeType,
+    module?.effectiveType,
+    module?.connectorType
+  );
+  const rawValue = firstText(type, id, name);
+  const effectiveType = activeTypeForModuleValue(directActiveType) || activeTypeForModuleValue(rawValue);
+  return {
+    id,
+    name,
+    type,
+    rawValue,
+    activeType: directActiveType,
+    effectiveType
+  };
 }
 
 export function areEngineConnectorTypesCompatible(source, target) {
@@ -136,36 +216,41 @@ export function engineCompatibilitySummary(sourceHit, targetHit) {
   const sourceType = effectiveConnectorTypeForEngine(source);
   const targetType = effectiveConnectorTypeForEngine(target);
   if (!source || !target) {
-    return result(false, "missing", "Missing connector.", sourceType, targetType);
+    return result(false, "missing", "Missing connector.", sourceType, targetType, source, target);
   }
   if (sameEngineConnectorHit(sourceHit, targetHit)) {
-    return result(false, "same-connector", "Cannot connect a connector to itself.", sourceType, targetType);
+    return result(false, "same-connector", "Cannot connect a connector to itself.", sourceType, targetType, source, target);
   }
   if (isEngineDeadCageConnector(source) || isEngineDeadCageConnector(target)) {
-    return result(false, "dead-cage", "Install a transceiver/module before connecting this cage.", sourceType, targetType);
+    return result(false, "dead-cage", "Install a transceiver/module before connecting this cage.", sourceType, targetType, source, target);
+  }
+  if ((isEngineCageConnector(source) && !sourceType) || (isEngineCageConnector(target) && !targetType)) {
+    return result(false, "inactive-cage-module", "Installed transceiver/module does not expose a supported connector type.", sourceType, targetType, source, target);
   }
   if (!areEngineConnectorTypesCompatible(source, target)) {
     return result(
       false,
       "type-mismatch",
-      `${connectorDisplayName(source)} is ${typeDisplayName(connectorType(source))}, but ${connectorDisplayName(target)} is ${typeDisplayName(connectorType(target))}.`,
+      `${connectorDisplayName(source)} is ${typeDisplayName(sourceType || connectorType(source))}, but ${connectorDisplayName(target)} is ${typeDisplayName(targetType || connectorType(target))}.`,
       sourceType,
-      targetType
+      targetType,
+      source,
+      target
     );
   }
   if (isPairedNetworkConnector(source) && isPairedNetworkConnector(target)) {
-    return result(true, "paired-network", "", sourceType, targetType);
+    return result(true, "paired-network", "", sourceType, targetType, source, target);
   }
   if (isTwoWayConnector(source) && isTwoWayConnector(target)) {
-    return result(true, "two-way", "", sourceType, targetType);
+    return result(true, "two-way", "", sourceType, targetType, source, target);
   }
   if (source.direction === "output" && target.direction === "output") {
-    return result(false, "output-output", "Output nodes cannot connect to output nodes.", sourceType, targetType);
+    return result(false, "output-output", "Output nodes cannot connect to output nodes.", sourceType, targetType, source, target);
   }
   if (source.direction === "input" && target.direction === "input") {
-    return result(false, "input-input", "Input nodes cannot connect to input nodes.", sourceType, targetType);
+    return result(false, "input-input", "Input nodes cannot connect to input nodes.", sourceType, targetType, source, target);
   }
-  return result(true, "directional", "", sourceType, targetType);
+  return result(true, "directional", "", sourceType, targetType, source, target);
 }
 
 export function engineConnectionError(sourceHit, targetHit) {
@@ -202,12 +287,63 @@ function typeDisplayName(type) {
   return CONNECTOR_LABELS.get(type) || type || "Unknown";
 }
 
-function result(valid, rule, reason, sourceType, targetType) {
+function installedModuleHasValue(connector) {
+  const details = installedModuleDetailsForEngine(connector);
+  return Boolean(details.effectiveType || (details.rawValue && !isEmptyModuleValue(details.rawValue)));
+}
+
+function activeTypeForModuleValue(value) {
+  const key = moduleKey(value);
+  return TRANSCEIVER_MODULE_ACTIVE_TYPES.get(key) || "";
+}
+
+function isEmptyModuleValue(value) {
+  const key = moduleKey(value);
+  return !key || key === "empty" || key === "none" || key === "nomodule";
+}
+
+function moduleKey(value) {
+  return String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function objectValue(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+
+function firstText(...values) {
+  for (const value of values) {
+    const text = String(value ?? "").trim();
+    if (text) return text;
+  }
+  return "";
+}
+
+function result(valid, rule, reason, sourceType, targetType, source = null, target = null) {
+  const sourceModule = installedModuleDetailsForEngine(source);
+  const targetModule = installedModuleDetailsForEngine(target);
   return {
     valid,
     rule,
     reason,
+    rawSourceType: connectorType(source),
+    rawTargetType: connectorType(target),
     sourceType: sourceType || "",
-    targetType: targetType || ""
+    targetType: targetType || "",
+    sourceEffectiveType: sourceType || "",
+    targetEffectiveType: targetType || "",
+    sourceDirection: source?.direction || "",
+    targetDirection: target?.direction || "",
+    sourceCageType: isEngineCageConnector(source) ? connectorType(source) : "",
+    targetCageType: isEngineCageConnector(target) ? connectorType(target) : "",
+    sourceInstalledModuleId: sourceModule.id,
+    sourceInstalledModuleName: sourceModule.name,
+    sourceInstalledModuleType: sourceModule.type,
+    sourceInstalledModuleRaw: sourceModule.rawValue,
+    sourceInstalledModuleActiveType: sourceModule.activeType,
+    targetInstalledModuleId: targetModule.id,
+    targetInstalledModuleName: targetModule.name,
+    targetInstalledModuleType: targetModule.type,
+    targetInstalledModuleRaw: targetModule.rawValue,
+    targetInstalledModuleActiveType: targetModule.activeType
   };
 }

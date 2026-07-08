@@ -4,9 +4,9 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 36`
+- Current build label: `Iteration 36.1`
 
-Iteration 36 restores Legacy connector compatibility rules in Engine wire
+Iteration 36.1 restores Legacy connector compatibility rules in Engine wire
 creation. Viewer/PDF/report visual migration remains paused while the remaining
 Legacy functional gaps are worked through.
 
@@ -428,7 +428,7 @@ Validation:
 - Save/reload in Engine.
 - Open same saved file in Legacy.
 
-### Iteration 36 — Shared Connector Compatibility
+### Iteration 36.1 — Shared Connector Compatibility
 
 Extract Legacy connector compatibility into a shared data-only module.
 
@@ -442,6 +442,9 @@ Implemented scope:
 - hover validity and commit validity use the same rule
 - same connector blocking
 - active transceiver module type mapping for SFP/SFP+/QSFP cages
+- installed-module diagnostics for `debugCompatibility=1`, including raw cage
+  type, module id/name/type/value, effective type, direction, rule, and
+  rejection reason
 
 Still intentionally out of scope:
 
@@ -455,6 +458,10 @@ Validation:
 - CAT5E/CAT6/CAT6A/etherCON/Ethernet cross-family valid.
 - USB-A/USB-B/USB-C cross-family valid.
 - dead SFP/QSFP cage invalid until module is installed.
+- installed LC SFP/SFP+ cages connect as Fiber LC, including label-style and
+  object-style saved module data.
+- installed QSFP MPO cages connect as Fiber MPO.
+- installed LC cages reject incompatible RJ45/CAT module cages.
 - two outputs invalid unless two-way/paired exception applies.
 
 ### Iteration 37 — Endpoint Rewire Parity

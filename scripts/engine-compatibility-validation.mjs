@@ -5,6 +5,7 @@ import {
   effectiveConnectorTypeForEngine,
   engineCompatibilitySummary,
   engineConnectionError,
+  installedModuleDetailsForEngine,
   isEngineDeadCageConnector
 } from "../src/engine/connectorCompatibility.js";
 
@@ -82,16 +83,58 @@ expectValid(
 const emptyCage = hit("Cage A", { id: "sfp-a", type: "sfp-plus-cage", direction: "input", installedModuleType: "" });
 const lcCage = hit("Cage B", { id: "sfp-b", type: "sfp-plus-cage", direction: "output", installedModuleType: "lc-multimode" });
 const rj45Cage = hit("Cage C", { id: "sfp-c", type: "sfp-cage", direction: "output", installedModuleType: "rj45-ethernet" });
+const labelLcCage = hit("Cage D", { id: "sfp-d", type: "sfp-plus-cage", direction: "input", installedModuleType: "SFP+ LC Multimode" });
+const objectLcCage = hit("Cage E", {
+  id: "sfp-e",
+  type: "sfp-plus-cage",
+  direction: "output",
+  installedModule: { id: "module-lc-mm", label: "LC Multimode", activeType: "fiber-lc" }
+});
+const qsfpMpoCage = hit("Cage F", { id: "qsfp-f", type: "qsfp-cage", direction: "output", installedModuleType: "QSFP MPO Fiber" });
 
 assert.equal(isEngineDeadCageConnector(emptyCage.connector), true, "empty cage should be dead");
 assert.equal(effectiveConnectorTypeForEngine(emptyCage.connector), "", "empty cage has no effective type");
 assert.equal(effectiveConnectorTypeForEngine(lcCage.connector), "fiber-lc", "LC module maps to Fiber LC");
 assert.equal(effectiveConnectorTypeForEngine(rj45Cage.connector), "cat6a", "RJ45 module maps to CAT6A");
+assert.equal(effectiveConnectorTypeForEngine(labelLcCage.connector), "fiber-lc", "label-style LC module maps to Fiber LC");
+assert.equal(effectiveConnectorTypeForEngine(objectLcCage.connector), "fiber-lc", "object-style LC module maps to Fiber LC");
+assert.equal(effectiveConnectorTypeForEngine(qsfpMpoCage.connector), "fiber-mpo", "QSFP MPO module maps to Fiber MPO");
+assert.equal(installedModuleDetailsForEngine(objectLcCage.connector).id, "module-lc-mm", "module details report id");
+assert.equal(installedModuleDetailsForEngine(objectLcCage.connector).name, "LC Multimode", "module details report name");
+assert.equal(installedModuleDetailsForEngine(objectLcCage.connector).effectiveType, "fiber-lc", "module details report effective type");
+{
+  const summary = engineCompatibilitySummary(labelLcCage, objectLcCage);
+  assert.equal(summary.sourceEffectiveType, "fiber-lc", "summary reports source effective type");
+  assert.equal(summary.targetEffectiveType, "fiber-lc", "summary reports target effective type");
+  assert.equal(summary.sourceCageType, "sfp-plus-cage", "summary reports source cage type");
+  assert.equal(summary.targetCageType, "sfp-plus-cage", "summary reports target cage type");
+  assert.equal(summary.targetInstalledModuleId, "module-lc-mm", "summary reports target installed module id");
+  assert.equal(summary.targetInstalledModuleName, "LC Multimode", "summary reports target installed module name");
+}
 expectInvalid("dead cage cannot connect", emptyCage, lcCage, "dead-cage");
+expectInvalid("empty cage to installed LC cage cannot connect", emptyCage, labelLcCage, "dead-cage");
 expectValid(
   "active LC cage connects as Fiber LC",
   lcCage,
   hit("Fiber Device", { id: "lc-in", type: "fiber-lc", direction: "input", label: "Fiber LC" }),
+  "two-way"
+);
+expectValid(
+  "installed LC cage connects to installed LC cage",
+  labelLcCage,
+  objectLcCage,
+  "paired-network"
+);
+expectInvalid(
+  "installed LC cage rejects incompatible installed RJ45 cage",
+  labelLcCage,
+  rj45Cage,
+  "type-mismatch"
+);
+expectValid(
+  "installed QSFP MPO cage connects as Fiber MPO",
+  qsfpMpoCage,
+  hit("Fiber MPO Device", { id: "mpo-in", type: "fiber-mpo", direction: "input", label: "Fiber MPO" }),
   "two-way"
 );
 expectValid(

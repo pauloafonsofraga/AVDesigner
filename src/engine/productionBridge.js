@@ -1185,8 +1185,9 @@ class ProductionEngineBridge {
     this.hud.setMetric("wire creation", this.wireCreate ? wireCreateSummary(this.wireCreate) : "-");
     this.hud.setMetric("wire target", this.wireCreate?.target ? (compatibility.valid ? `valid: ${compatibility.rule}` : `invalid: ${compatibility.reason}`) : "-");
     if (this.debugCompatibility) {
-      this.hud.setMetric("compatibility types", this.wireCreate?.target ? `${compatibility.sourceType || "-"} -> ${compatibility.targetType || "-"}` : "-");
+      this.hud.setMetric("compatibility types", this.wireCreate?.target ? `${compatibility.rawSourceType || "-"}(${compatibility.sourceType || "-"}) -> ${compatibility.rawTargetType || "-"}(${compatibility.targetType || "-"})` : "-");
       this.hud.setMetric("compatibility rule", this.wireCreate?.target ? compatibility.rule : "-");
+      this.hud.setMetric("compatibility modules", this.wireCreate?.target ? `${compatibility.sourceInstalledModuleRaw || "-"} -> ${compatibility.targetInstalledModuleRaw || "-"}` : "-");
     }
     this.hud.setMetric("selected connector", [...this.scene.selectedConnectorKeys][0] || "-");
     this.hud.setMetric("hit candidates", hit?.candidates ?? this.hoverState.candidateCount ?? 0);
@@ -1217,8 +1218,26 @@ class ProductionEngineBridge {
       reason: summary.reason,
       source: source ? connectorSummary(source) : "",
       target: target ? connectorSummary(target) : "",
+      rawSourceType: summary.rawSourceType,
+      rawTargetType: summary.rawTargetType,
       sourceType: summary.sourceType,
-      targetType: summary.targetType
+      targetType: summary.targetType,
+      sourceEffectiveType: summary.sourceEffectiveType,
+      targetEffectiveType: summary.targetEffectiveType,
+      sourceDirection: summary.sourceDirection,
+      targetDirection: summary.targetDirection,
+      sourceCageType: summary.sourceCageType,
+      targetCageType: summary.targetCageType,
+      sourceInstalledModuleId: summary.sourceInstalledModuleId,
+      sourceInstalledModuleName: summary.sourceInstalledModuleName,
+      sourceInstalledModuleType: summary.sourceInstalledModuleType,
+      sourceInstalledModuleRaw: summary.sourceInstalledModuleRaw,
+      sourceInstalledModuleActiveType: summary.sourceInstalledModuleActiveType,
+      targetInstalledModuleId: summary.targetInstalledModuleId,
+      targetInstalledModuleName: summary.targetInstalledModuleName,
+      targetInstalledModuleType: summary.targetInstalledModuleType,
+      targetInstalledModuleRaw: summary.targetInstalledModuleRaw,
+      targetInstalledModuleActiveType: summary.targetInstalledModuleActiveType
     });
   }
 
