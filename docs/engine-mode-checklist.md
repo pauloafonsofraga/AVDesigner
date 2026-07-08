@@ -1,10 +1,18 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
-Iteration 34 starts the standalone technician-viewer visual parity migration for
-wires while keeping the editor, save, report, hosted publish, and PDF
-compatibility boundary intact. Engine editing writes through to the production
-project data model, and downstream outputs still read from
-`projectSnapshotData()`.
+Iteration 34 now pauses further standalone viewer/PDF/report visual migration
+while the Legacy functional parity audit is worked through. The current
+functional audit lives in
+[`docs/legacy-functional-parity.md`](legacy-functional-parity.md) and uses
+Legacy commit `8301fbf23c82f3e3f2496cb90234019c7bf47958` as the source of
+truth for pre-engine behaviour.
+
+The previous Iteration 34 standalone technician-viewer wire parity work remains
+committed, but no additional output migration should happen until the high-risk
+functional gaps in the audit are restored.
+
+Engine editing writes through to the production project data model, and
+downstream outputs still read from `projectSnapshotData()`.
 
 This is a narrow output-renderer pass, not a full viewer rewrite. The exported
 standalone HTML viewer now embeds Engine-style wire path and cable-hop geometry
