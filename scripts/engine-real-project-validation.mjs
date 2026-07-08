@@ -23,6 +23,32 @@ const checks = [];
 const commandResults = [];
 const validationResults = [];
 const roundTrips = [];
+const compatibilityResults = [];
+const RUNTIME_ONLY_KEYS = new Set([
+  "cableHopMap",
+  "hopsByWireId",
+  "lastCableHopStats",
+  "lastFrameStats",
+  "lastLabelStats",
+  "lastWirePathStats",
+  "lastLayerTrace",
+  "lastActiveLayerTrace",
+  "wireVertexMap",
+  "deviceVertexMap",
+  "textureCache",
+  "renderOptions",
+  "dragSession",
+  "dirtyDevices",
+  "dirtyWires",
+  "dirtyConnectors",
+  "selectedIds",
+  "selectedWireIds",
+  "selectedConnectorKeys",
+  "selectedRoutePointKeys",
+  "hoveredWireId",
+  "hoveredDeviceId",
+  "hoveredConnectorKey"
+]);
 
 function time(label, fn) {
   const start = performance.now();
@@ -97,6 +123,7 @@ const summary = {
   longChain,
   validation: validationResults,
   roundTrips,
+  compatibility: compatibilityResults,
   timingsMs: Object.fromEntries(Object.entries(timings).map(([key, value]) => [key, round(value)])),
   checks,
   performanceTargets: {
@@ -160,6 +187,7 @@ function validateAndRoundTrip(harness, label) {
     assert.equal(reloadScene.devices.length, harness.scene.devices.length);
     assert.equal(reloadScene.wires.length, harness.scene.wires.length);
   });
+  validateOutputCompatibility(harness, label);
   return { validation, reloadValidation };
 }
 
@@ -509,6 +537,203 @@ function sceneCounts(scene) {
     routePoints: scene.wires.reduce((total, wire) => total + (wire.routePoints?.length || 0), 0),
     skippedWires: scene.meta?.skippedWires || 0
   };
+}
+
+function validateOutputCompatibility(harness, label) {
+  const root = projectRoot(harness.mutations.project);
+  const compatibility = buildOutputCompatibilitySummary(root);
+  compatibilityResults.push({ label, ...compatibility });
+  check(`${label} export compatibility has no duplicate ids`, () => {
+    assert.deepEqual(compatibility.duplicateIds, []);
+  });
+  check(`${label} export compatibility has no orphan endpoints`, () => {
+    assert.deepEqual(compatibility.orphanEndpoints, []);
+  });
+  check(`${label} export compatibility has no runtime fields`, () => {
+    assert.deepEqual(compatibility.runtimeFields, []);
+  });
+  check(`${label} export compatibility keeps finite route points`, () => {
+    assert.deepEqual(compatibility.invalidRoutePoints, []);
+  });
+  check(`${label} compact viewer data has required built-in templates`, () => {
+    assert.deepEqual(compatibility.viewer.missingTemplateIds, []);
+  });
+  check(`${label} report cable quantities match connections`, () => {
+    assert.equal(compatibility.report.cableQuantityTotal, compatibility.counts.connections);
+  });
+}
+
+function buildOutputCompatibilitySummary(root) {
+  const serializable = stableClone(root);
+  return {
+    counts: compatibilityCounts(serializable),
+    duplicateIds: duplicateProjectIds(serializable),
+    orphanEndpoints: orphanConnectionEndpoints(serializable),
+    invalidRoutePoints: invalidConnectionRoutePoints(serializable),
+    runtimeFields: runtimeOnlyFieldPaths(serializable),
+    viewer: compactViewerCompatibility(serializable),
+    report: reportCompatibility(serializable)
+  };
+}
+
+function compatibilityCounts(root) {
+  return {
+    devices: arrayOf(root.devices).length,
+    racks: arrayOf(root.racks).length,
+    rackDevices: arrayOf(root.racks).reduce((total, rack) => total + arrayOf(rack.devices).length, 0),
+    ledSurfaces: arrayOf(root.ledSurfaces).length,
+    areas: arrayOf(root.areas).length,
+    jumpNodes: arrayOf(root.jumpNodes).length,
+    comments: arrayOf(root.comments).length,
+    titleBlocks: arrayOf(root.titleBlocks).length,
+    connections: arrayOf(root.connections).length,
+    deviceLibrary: arrayOf(root.deviceLibrary).length
+  };
+}
+
+function duplicateProjectIds(root) {
+  const seen = new Map();
+  const duplicates = [];
+  const add = (scope, id) => {
+    if (!id) return;
+    const key = `${scope}:${String(id)}`;
+    if (seen.has(key)) duplicates.push(key);
+    seen.set(key, true);
+  };
+  arrayOf(root.devices).forEach(item => add("device", item.instanceId || item.id || item.deviceId));
+  arrayOf(root.racks).forEach(item => add("rack", item.id));
+  arrayOf(root.racks).forEach(rack => {
+    arrayOf(rack.devices).forEach(item => add(`rack:${rack.id}:device`, item.instanceId || item.id || item.deviceId));
+  });
+  arrayOf(root.ledSurfaces).forEach(item => add("ledSurface", item.id));
+  arrayOf(root.areas).forEach(item => add("area", item.id));
+  arrayOf(root.jumpNodes).forEach(item => add("jumpNode", item.id));
+  arrayOf(root.comments).forEach(item => add("comment", item.id));
+  arrayOf(root.titleBlocks).forEach(item => add("titleBlock", item.id));
+  arrayOf(root.connections).forEach(item => add("connection", item.id));
+  return duplicates;
+}
+
+function orphanConnectionEndpoints(root) {
+  const deviceIds = new Set(arrayOf(root.devices).map(item => String(item.instanceId || item.id || item.deviceId)).filter(Boolean));
+  const rackDeviceIds = new Set();
+  arrayOf(root.racks).forEach(rack => {
+    arrayOf(rack.devices).forEach(item => {
+      const id = item.instanceId || item.id || item.deviceId;
+      if (id) rackDeviceIds.add(String(id));
+    });
+  });
+  const surfaceIds = new Set(arrayOf(root.ledSurfaces).map(item => String(item.id)).filter(Boolean));
+  const jumpIds = new Set(arrayOf(root.jumpNodes).map(item => String(item.id)).filter(Boolean));
+  const missing = [];
+  arrayOf(root.connections).forEach(connection => {
+    const endpoints = [
+      ["from", connection.from || {
+        deviceId: connection.fromDeviceId,
+        connectorId: connection.fromConnectorId,
+        surfaceId: connection.fromSurfaceId,
+        jumpNodeId: connection.fromJumpNodeId
+      }],
+      ["to", connection.to || {
+        deviceId: connection.toDeviceId,
+        connectorId: connection.toConnectorId,
+        surfaceId: connection.toSurfaceId,
+        jumpNodeId: connection.toJumpNodeId
+      }]
+    ];
+    endpoints.forEach(([side, endpoint]) => {
+      if (!endpointExists(endpoint, { deviceIds, rackDeviceIds, surfaceIds, jumpIds })) {
+        missing.push(`${connection.id || "connection"}:${side}`);
+      }
+    });
+  });
+  return missing;
+}
+
+function endpointExists(endpoint, maps) {
+  if (!endpoint || typeof endpoint !== "object") return false;
+  if (endpoint.jumpNodeId) return maps.jumpIds.has(String(endpoint.jumpNodeId));
+  if (endpoint.surfaceId) return maps.surfaceIds.has(String(endpoint.surfaceId));
+  if (endpoint.ledSurfaceId) return maps.surfaceIds.has(String(endpoint.ledSurfaceId));
+  if (endpoint.deviceId) {
+    const id = String(endpoint.deviceId);
+    return maps.deviceIds.has(id) || maps.rackDeviceIds.has(id);
+  }
+  return false;
+}
+
+function invalidConnectionRoutePoints(root) {
+  const invalid = [];
+  arrayOf(root.connections).forEach(connection => {
+    ["routePoints", "orthogonalRoutePoints"].forEach(key => {
+      arrayOf(connection[key]).forEach((point, index) => {
+        if (!Number.isFinite(Number(point?.x)) || !Number.isFinite(Number(point?.y))) {
+          invalid.push(`${connection.id || "connection"}.${key}[${index}]`);
+        }
+      });
+    });
+  });
+  return invalid;
+}
+
+function runtimeOnlyFieldPaths(value, pathLabel = "$", hits = []) {
+  if (!value || typeof value !== "object") return hits;
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => runtimeOnlyFieldPaths(item, `${pathLabel}[${index}]`, hits));
+    return hits;
+  }
+  Object.entries(value).forEach(([key, child]) => {
+    if (
+      RUNTIME_ONLY_KEYS.has(key)
+      || key.startsWith("__engine")
+      || key.startsWith("_engine")
+    ) {
+      hits.push(`${pathLabel}.${key}`);
+    }
+    runtimeOnlyFieldPaths(child, `${pathLabel}.${key}`, hits);
+  });
+  return hits;
+}
+
+function compactViewerCompatibility(root) {
+  const libraryIds = new Set(arrayOf(root.deviceLibrary).map(template => String(template.id)).filter(Boolean));
+  const missingTemplateIds = new Set();
+  const compactLibraryIds = new Set();
+  const addInstance = instance => {
+    if (!instance?.templateId) return;
+    const templateId = String(instance.templateId);
+    if (instance.templateOverride) return;
+    if (libraryIds.has(templateId)) compactLibraryIds.add(templateId);
+    else missingTemplateIds.add(templateId);
+  };
+  arrayOf(root.devices).forEach(addInstance);
+  arrayOf(root.racks).forEach(rack => arrayOf(rack.devices).forEach(addInstance));
+  return {
+    compactDeviceLibrary: compactLibraryIds.size,
+    missingTemplateIds: [...missingTemplateIds].sort()
+  };
+}
+
+function reportCompatibility(root) {
+  const cableRows = new Map();
+  arrayOf(root.connections).forEach(connection => {
+    const type = String(connection.cableType || connection.type || "Unknown");
+    const length = String(connection.length || "Unspecified");
+    const key = `${type}::${length}`;
+    cableRows.set(key, (cableRows.get(key) || 0) + 1);
+  });
+  const cableQuantityTotal = [...cableRows.values()].reduce((total, value) => total + value, 0);
+  return {
+    deviceRows: arrayOf(root.devices).length,
+    rackRows: arrayOf(root.racks).length,
+    ledScreenRows: arrayOf(root.ledSurfaces).length,
+    cableRows: cableRows.size,
+    cableQuantityTotal
+  };
+}
+
+function arrayOf(value) {
+  return Array.isArray(value) ? value : [];
 }
 
 function validationSummary(label, result) {

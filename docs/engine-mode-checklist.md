@@ -1,25 +1,25 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
-Iteration 31 brings cable-hop / wire-crossing visuals into the Engine Editor
-canvas. Engine cable hops are runtime-only geometry calculated from sampled
-wire polylines, using a spatial grid to avoid naive all-wire pair scans. The
-same deterministic rule as Legacy is used: the later wire in scene draw order
-hops over the earlier wire. During active object drags, affected wires use
-simplified live geometry and hops are finalized after the drop dirty update.
-During route-point drags, the affected wire keeps the previous hop map and
-finalizes after release. Iteration 31 keeps the Iteration 30.3 low-zoom detail hit-test
-threshold, jump-node selection behavior, Iteration 30 canvas interaction
-polish, Iteration 29 wire/object parity work, Iteration 28 connector feedback,
-and Iteration 27.5 loading gate intact.
-The legacy production SVG editor remains available as a safe fallback behind
-explicit URL flags. Export, viewer, and report rendering still use the existing
-production paths; those migrations are intentionally deferred.
+Iteration 32 audits the boundary between the default Engine Editor and the
+existing save, report, PDF, hosted publish, and standalone technician viewer
+paths. Engine editing writes through to the production project data model, and
+those downstream outputs still read from `projectSnapshotData()`.
 
-Current visible build label: `Iteration 31`.
+This is a compatibility-hardening pass, not a renderer migration. The existing
+viewer/export/report/PDF code paths stay in place. Engine cable-hop geometry is
+runtime-only and is not saved into `.avd` or JSON project data. The exported
+viewer and PDF drawing still use the existing production/export rendering paths,
+so small visual differences from the Engine canvas are expected until those
+outputs are migrated deliberately.
+
+The legacy production SVG editor remains available as a safe fallback behind
+explicit URL flags.
+
+Current visible build label: `Iteration 32`.
 The app top bar must show one of these labels:
 
-- `Iteration 31 — Engine Editor — iteration31`
-- `Iteration 31 — Legacy Editor — iteration31`
+- `Iteration 32 — Engine Editor — iteration32`
+- `Iteration 32 — Legacy Editor — iteration32`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -28,20 +28,20 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration31`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration31`.
+   `index.html?v=iteration32`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration32`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration31`.
+   `index.html?engineDefaultTest=1&v=iteration32`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration31`.
+   `index.html?legacy=1&v=iteration32`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration31`.
+   `index.html?engine=0&v=iteration32`.
 7. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration31`.
+   `index.html?engine=1&debugLoad=1&v=iteration32`.
 8. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration31`.
+   `index.html?engine=1&loadDelay=1500&v=iteration32`.
 9. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration31`.
+   `index.html?engine=1&debugHud=1&v=iteration32`.
 10. Confirm the top bar build label matches the mode you intended to test.
 11. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.
@@ -58,9 +58,9 @@ Git commit as the final source of truth when reviewing a pushed change.
 18. The validation script now includes a long mixed undo/redo chain. Confirm the
    JSON output contains a `longChain` section and all `checks` are `ok: true`.
 19. Compare Engine and Legacy connector behavior with the same project:
-   `index.html?v=iteration31` beside
-   `index.html?legacy=1&v=iteration31`.
-20. In `index.html?engine=1&debugHud=1&v=iteration31`, confirm the HUD
+   `index.html?v=iteration32` beside
+   `index.html?legacy=1&v=iteration32`.
+20. In `index.html?engine=1&debugHud=1&v=iteration32`, confirm the HUD
    `load phase`, `load ready`, `wire paths`, `connector overlay`, and
    `connector tooltips` rows update.
 21. Hover and select wires in Engine mode. Confirm hover/selection feedback is
@@ -92,7 +92,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 32. Start a wire from a normal connector and hover/drop on a jump node. Confirm
    the jump endpoint can still act as the wire target without leaving a stale
    connector selection overlay.
-33. Open `index.html?engine=1&debugHud=1&debugLayers=1&v=iteration31`, drag
+33. Open `index.html?engine=1&debugHud=1&debugLayers=1&v=iteration32`, drag
    a connected jump node with its connected wire selected, and confirm no stale
    selected or hovered wire remains at the original jump-node position.
 34. In the debug layer panel for that same drag, confirm the connected wire has
@@ -113,8 +113,8 @@ Git commit as the final source of truth when reviewing a pushed change.
 39. With the expanded engine HUD open, confirm `device labels hidden` and
    `device labels truncated` update as zoom changes.
 40. Compare cable crossings in Engine and Legacy with the same project:
-    `index.html?v=iteration31` beside
-    `index.html?legacy=1&v=iteration31`.
+    `index.html?v=iteration32` beside
+    `index.html?legacy=1&v=iteration32`.
 41. In Engine, inspect Bezier, custom-routed, orthogonal/custom-corner, and
     jump-node-connected wire crossings. Confirm hops are visible and stable
     after pan/zoom.
@@ -123,9 +123,32 @@ Git commit as the final source of truth when reviewing a pushed change.
     return after drop.
 43. Drag a route point near a crossing. Confirm the wire remains editable while
     moving and cable hops finalize after release.
-44. Open `index.html?engine=1&debugHud=1&v=iteration31` and confirm the HUD
+44. Open `index.html?engine=1&debugHud=1&v=iteration32` and confirm the HUD
     rows `cable hops`, `cable hop calc`, `cable hop candidates`, and
     `cable hop dirty` update.
+
+## Iteration 32 Focus
+
+- Save, Save As, standalone HTML export, hosted publish, editor report, and PDF
+  report still use `projectSnapshotData()` as the compatibility boundary.
+- Engine runtime-only fields such as cable-hop maps, drag sessions, selection
+  sets, WebGL buffers, and texture/cache fields must not appear in saved,
+  exported, or published project payloads.
+- The validation script now checks duplicate IDs, orphan connection endpoints,
+  finite custom route points, compact viewer template coverage, report cable
+  quantity totals, and runtime-field leakage on each command round trip.
+- Standalone HTML export and hosted publish still compact the device library to
+  templates used by placed devices and rack devices, then inline required image
+  assets for viewer portability.
+- PDF export still snapshots the production SVG canvas through
+  `wirechartSvgMarkup(..., { forceLight: true })`. This preserves the current
+  PDF pipeline while the Engine renderer remains focused on interactive editing.
+- The hosted `viewer.html` page is still a password gate and iframe wrapper. It
+  does not contain the production renderer itself; it loads the generated
+  standalone HTML returned by the publish API.
+- If a project edited in Engine mode opens correctly in Legacy mode and the
+  validation script reports no compatibility leaks, downstream output data is
+  considered safe for this iteration.
 
 ## Iteration 31 Focus
 
