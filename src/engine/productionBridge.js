@@ -1839,6 +1839,37 @@ class ProductionEngineBridge {
     };
   }
 
+  canvasClientRect() {
+    if (!this.canvas) return null;
+    const rect = this.canvas.getBoundingClientRect();
+    return {
+      left: rect.left,
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      width: rect.width,
+      height: rect.height
+    };
+  }
+
+  clientPointInsideCanvas(clientX, clientY) {
+    const rect = this.canvasClientRect();
+    return Boolean(rect)
+      && clientX >= rect.left
+      && clientX <= rect.right
+      && clientY >= rect.top
+      && clientY <= rect.bottom;
+  }
+
+  clientPointToWorld(clientX, clientY) {
+    const rect = this.canvasClientRect();
+    if (!rect) return null;
+    return screenToWorld(this.camera, {
+      x: clientX - rect.left,
+      y: clientY - rect.top
+    });
+  }
+
   hitToleranceWorld(screenPixels = 10) {
     return screenPixels / Math.max(this.camera.zoom, 0.001);
   }

@@ -4,12 +4,13 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 35`
+- Current build label: `Iteration 35.1`
 
-Iteration 35 restores Device Library drag/drop for normal devices, project
-custom devices, and paired-device entries in the Engine Editor. Viewer/PDF/report
-visual migration remains paused while the remaining Legacy functional gaps are
-worked through.
+Iteration 35.1 fixes the real Device Library drag/drop target for default
+Engine Editor sessions. Iteration 35 restored the create-device command path,
+but the real pointer drop workflow still depended on hidden Legacy SVG canvas
+coordinates. Viewer/PDF/report visual migration remains paused while the
+remaining Legacy functional gaps are worked through.
 
 ## Executive Summary
 
@@ -47,9 +48,10 @@ mutation:
 - Rack library drops use `startRackLibraryDrag(...)` and
   `addRackInstanceToCanvas(...)`.
 
-Iteration 35 keeps the Legacy drag ghost, canvas hit-test, `getCanvasPoint(...)`
-coordinate conversion, non-overlap placement, and hydration semantics, then
-routes successful Engine-mode device drops through
+Iteration 35.1 keeps the Legacy drag ghost, non-overlap placement, and
+hydration semantics, but tests real drops against the active Engine canvas and
+converts client coordinates through the Engine camera before routing successful
+Engine-mode device drops through
 `ProductionEngineBridge.createDeviceFromLibraryDrop(...)` or
 `createDevicesFromLibraryDrop(...)`.
 
@@ -102,7 +104,7 @@ PD geometry, and special template behaviours.
 
 | Feature / workflow | Legacy behaviour at `8301fbf` | Current Engine behaviour | Status | Legacy code locations | Engine code locations | Data structures involved | Save/load impact | Undo/redo impact | Report/export/viewer impact | Risk | Restore in | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Device library drag/drop | Library cards start a pointer drag, convert pointer to canvas coordinates, hydrate a device, avoid overlaps, push undo, append to `state.devices`, select, render. | Engine now reuses the Legacy preparation path and commits the hydrated instance through `CreateDeviceCommand`. | covered | `renderDeviceLibrary`, `startLibraryDrag`, `moveLibraryGhost`, `finishLibraryDrag`, `prepareDeviceInstanceFromTemplate`, `addDeviceInstanceFromTemplate` | `ProductionEngineBridge.createDeviceFromLibraryDrop`, `ProjectMutationAdapter.restoreDeviceInstance`, `SceneGraph.insertDevice`, `WebglGraphRenderer.appendDevice` | `deviceLibrary`, `state.devices`, template overrides, connector overrides | New device persists as production `devices[]` entry | One undo removes it; redo restores same data/ID | Reports/export/viewer see placed devices through production data | medium | 35 | Browser smoke still needed for every library type, but command/save path is validated. |
+| Device library drag/drop | Library cards start a pointer drag, convert pointer to canvas coordinates, hydrate a device, avoid overlaps, push undo, append to `state.devices`, select, render. | Engine now uses the active Engine canvas as the real drop target, converts through the Engine camera, and commits the hydrated instance through `CreateDeviceCommand`. | covered | `renderDeviceLibrary`, `startLibraryDrag`, `moveLibraryGhost`, `finishLibraryDrag`, `prepareDeviceInstanceFromTemplate`, `addDeviceInstanceFromTemplate` | `ProductionEngineBridge.clientPointToWorld`, `ProductionEngineBridge.createDeviceFromLibraryDrop`, `ProjectMutationAdapter.restoreDeviceInstance`, `SceneGraph.insertDevice`, `WebglGraphRenderer.appendDevice` | `deviceLibrary`, `state.devices`, template overrides, connector overrides | New device persists as production `devices[]` entry | One undo removes it; redo restores same data/ID | Reports/export/viewer see placed devices through production data | medium | 35.1 | Real browser smoke required because Iteration 35 command tests did not exercise the hidden-SVG versus Engine-canvas drop target. |
 | Device pairs | Legacy pair library entry drops two hydrated devices with `DEVICE_PAIR_GAP`, non-overlap search, multi-selection, one undo snapshot. | Engine now prepares both instances through Legacy pair placement and commits them as one `CreateDevicesCommand`. | covered | `deviceLibraryEntries`, `pairedTemplateFor`, `prepareDevicePairInstances`, `addDevicePairInstances` | `ProductionEngineBridge.createDevicesFromLibraryDrop` | two `devices[]` instances, pair metadata in templates | Saves as two real devices | One group undo | Reports count two devices | medium | 35 | Does not create a linking wire; same as requested Legacy behaviour. |
 | Project custom device drag/drop | Edited project devices appear in Project Custom Devices, can be dragged as `templateOverride` copies or clicked to frame. | Engine now preserves `templateOverride` and custom display name when dropped through the create-device command. | covered | `renderProjectCustomDevices`, `startProjectCustomDeviceDrag`, `selectAndFrameDevice`, `finishLibraryDrag` | `ProductionEngineBridge.createDeviceFromLibraryDrop`, `normalizeAvDesignerDevice` | `instance.templateOverride`, `instance.name` | Preserves override in production data | One undo for created copy | Export can include compact template override | medium | 35 | Click-to-frame remains the existing selector behaviour. |
 | Rack library drag/drop | Rack entries drop a rack instance with copied member devices, internal connections, exposed ports, route-point shifts, and rack bounds. | Engine can load many project objects, but rack library creation is not an Engine command. | missing | `renderRackLibraryList`, `startRackLibraryDrag`, `addRackInstanceToCanvas` | no Engine rack-create command | `state.racks`, rack member `devices[]`, `internalConnections`, exposed ports | Must persist rack instance and internal data | One undo | Viewer/report depend on production state | high | 42 | Depends on rack parity work. |
@@ -563,9 +565,9 @@ Run these after each parity iteration:
 2. `node scripts/engine-real-project-validation.mjs "/path/to/real-project.avd"`
 3. `git diff --check`
 4. Browser smoke:
-   - `index.html?v=iteration35`
-   - `index.html?legacy=1&v=iteration35`
-   - `index.html?engine=1&debugHud=1&v=iteration35`
+   - `index.html?v=iteration35-1`
+   - `index.html?legacy=1&v=iteration35-1`
+   - `index.html?engine=1&debugHud=1&v=iteration35-1`
 5. Manual create/edit/save/reload:
    - drag device from library
    - create compatible wire

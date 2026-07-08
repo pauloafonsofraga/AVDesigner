@@ -4455,8 +4455,8 @@
   </div>
 
   <script>
-    const APP_ITERATION = "35";
-    const APP_BUILD_ID = "iteration35";
+    const APP_ITERATION = "35.1";
+    const APP_BUILD_ID = "iteration35-1";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const SVG_NS = "http://www.w3.org/2000/svg";
     const DEVICE_WIDTH = 380;
@@ -34595,6 +34595,22 @@
       return plainPoint(point.matrixTransform(canvas.getScreenCTM().inverse()));
     }
 
+    function canvasDropTargetForEvent(event) {
+      const engineBridge = activeEngineBridge();
+      const rect = engineBridge?.canvasClientRect?.() || canvas.getBoundingClientRect();
+      const isOverCanvas = event.clientX >= rect.left
+        && event.clientX <= rect.right
+        && event.clientY >= rect.top
+        && event.clientY <= rect.bottom;
+      return { engineBridge, rect, isOverCanvas };
+    }
+
+    function canvasDropPointForEvent(event, engineBridge = activeEngineBridge()) {
+      const enginePoint = engineBridge?.clientPointToWorld?.(event.clientX, event.clientY);
+      if (enginePoint) return plainPoint(enginePoint);
+      return getCanvasPoint(event);
+    }
+
     function isTextEditingTarget(target = document.activeElement) {
       if (!target) return false;
       const tag = target.tagName;
@@ -43639,7 +43655,7 @@
       };
       moveLibraryGhost(event);
       document.addEventListener("pointermove", moveLibraryGhost);
-      document.addEventListener("pointerup", finishLibraryDrag, { once: true });
+      document.addEventListener("pointerup", finishLibraryDrag, { once: true, capture: true });
     }
 
     function deviceLibraryReorderKey(template) {
@@ -43754,12 +43770,10 @@
       document.removeEventListener("pointermove", moveLibraryGhost);
       if (!libraryDrag) return;
       const template = libraryDrag.templateOverride || templateById(libraryDrag.templateId);
-      const rect = canvas.getBoundingClientRect();
-      const isOverCanvas = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+      const { engineBridge, isOverCanvas } = canvasDropTargetForEvent(event);
       libraryDrag.ghost.remove();
       if (template && isOverCanvas && libraryDrag.moved) {
-        const point = getCanvasPoint(event);
-        const engineBridge = activeEngineBridge();
+        const point = canvasDropPointForEvent(event, engineBridge);
         if (engineBridge) {
           if (libraryDrag.pairTemplateId) {
             const instances = prepareDevicePairInstances(libraryDrag.templateId, libraryDrag.pairTemplateId, point.x, point.y);
@@ -49784,8 +49798,8 @@
       const templateId = event.dataTransfer.getData("application/x-av-device");
       const template = templateById(templateId);
       if (!template) return;
-      const point = getCanvasPoint(event);
       const engineBridge = activeEngineBridge();
+      const point = canvasDropPointForEvent(event, engineBridge);
       if (engineBridge) {
         const instance = prepareDeviceInstanceFromTemplate(template, point.x - template.width / 2, point.y - template.height / 2, { templateId });
         if (instance && engineBridge.createDeviceFromLibraryDrop?.(instance)) {
