@@ -152,6 +152,14 @@ class ProductionEngineBridge {
     this.hud?.setMetric(name, value);
   }
 
+  emitLibraryDragDiagnostic(step, details = {}) {
+    try {
+      this.api.onLibraryDragDiagnostic?.({ step, details });
+    } catch (error) {
+      console.warn("[avdesigner-library-drag] diagnostic callback failed", error);
+    }
+  }
+
   canUndoEngineCommand() {
     return this.ready && this.commandIndex > 0;
   }
@@ -1506,6 +1514,11 @@ class ProductionEngineBridge {
         reason: "engine not ready",
         ready: this.ready
       });
+      this.emitLibraryDragDiagnostic("create-device command failure", {
+        reason: "engine not ready",
+        ready: this.ready,
+        before: this.sceneCounts()
+      });
       return false;
     }
     const commitStart = performance.now();
@@ -1517,11 +1530,22 @@ class ProductionEngineBridge {
       ready: this.ready,
       before: this.sceneCounts()
     });
+    this.emitLibraryDragDiagnostic("create-device command received", {
+      count: rawDevices.length,
+      ids,
+      ready: this.ready,
+      before: this.sceneCounts()
+    });
     if (!rawDevices.length || ids.length !== rawDevices.length) {
       this.showError("Dropped device data is incomplete.");
       console.info("[avdesigner-library-drag] create-device command failure", {
         reason: "incomplete device data",
         ids
+      });
+      this.emitLibraryDragDiagnostic("create-device command failure", {
+        reason: "incomplete device data",
+        ids,
+        before: this.sceneCounts()
       });
       return false;
     }
@@ -1531,6 +1555,11 @@ class ProductionEngineBridge {
       console.info("[avdesigner-library-drag] create-device command failure", {
         reason: "duplicate id",
         duplicateId
+      });
+      this.emitLibraryDragDiagnostic("create-device command failure", {
+        reason: "duplicate id",
+        duplicateId,
+        before: this.sceneCounts()
       });
       return false;
     }
@@ -1544,7 +1573,14 @@ class ProductionEngineBridge {
       if (result.device) created.push(result.device);
       mutationMs += result.mutationMs || 0;
     });
-    if (!created.length) return false;
+    if (!created.length) {
+      this.emitLibraryDragDiagnostic("create-device command failure", {
+        reason: "restore produced no devices",
+        ids,
+        before: this.sceneCounts()
+      });
+      return false;
+    }
     if (created.length === 1) this.scene.selectOnly(created[0].id);
     else this.scene.selectMany(created.map(device => device.id));
     this.recordCommand(createDevicesCommand(rawDevices, firstIndex));
@@ -1561,9 +1597,26 @@ class ProductionEngineBridge {
       errors: validation.errors,
       warnings: validation.warnings
     });
+    this.emitLibraryDragDiagnostic("validation result", {
+      ok: validation.ok,
+      summary: validation.summary,
+      counts: validation.counts,
+      errors: validation.errors,
+      warnings: validation.warnings,
+      after: this.sceneCounts()
+    });
     console.info("[avdesigner-library-drag] selected new device", {
       createdIds: created.map(device => device.id),
       selectedIds: [...this.scene.selectedIds],
+      after: this.sceneCounts()
+    });
+    this.emitLibraryDragDiagnostic("selected new device", {
+      createdIds: created.map(device => device.id),
+      selectedIds: [...this.scene.selectedIds],
+      after: this.sceneCounts()
+    });
+    this.emitLibraryDragDiagnostic("create-device command success", {
+      createdIds: created.map(device => device.id),
       after: this.sceneCounts()
     });
     this.scheduleRender();
@@ -1583,6 +1636,11 @@ class ProductionEngineBridge {
     console.info("[avdesigner-library-drag] renderer insert called", {
       deviceId: device.id,
       dirtyStats
+    });
+    this.emitLibraryDragDiagnostic("renderer insert called", {
+      deviceId: device.id,
+      dirtyStats,
+      after: this.sceneCounts()
     });
     this.lastDirtyDeviceIds = new Set([device.id]);
     this.lastDirtyWireIds = new Set();

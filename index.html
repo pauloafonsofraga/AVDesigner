@@ -2042,6 +2042,104 @@
       box-shadow: 0 14px 34px rgba(0, 0, 0, .38);
     }
 
+    .library-drag-debug-panel {
+      position: fixed;
+      right: 14px;
+      bottom: 14px;
+      z-index: 2200;
+      width: min(440px, calc(100vw - 28px));
+      max-height: min(76vh, 780px);
+      overflow: auto;
+      padding: 12px;
+      border: 1px solid rgba(50, 182, 255, .72);
+      border-radius: 10px;
+      background: rgba(15, 22, 30, .96);
+      color: #edf2f7;
+      box-shadow: 0 18px 60px rgba(0, 0, 0, .45);
+      font-size: 11px;
+      pointer-events: auto;
+    }
+
+    .library-drag-debug-panel h2 {
+      margin: 0 0 8px;
+      font-size: 12px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #32b6ff;
+    }
+
+    .library-drag-debug-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .library-drag-debug-actions button {
+      border: 1px solid rgba(50, 182, 255, .52);
+      border-radius: 7px;
+      background: rgba(50, 182, 255, .16);
+      color: #edf2f7;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 6px 8px;
+      cursor: pointer;
+    }
+
+    .library-drag-debug-grid {
+      display: grid;
+      grid-template-columns: minmax(132px, .9fr) minmax(0, 1fr);
+      gap: 4px 8px;
+      padding: 8px 0;
+      border-top: 1px solid rgba(148, 163, 184, .18);
+    }
+
+    .library-drag-debug-label {
+      color: #9fb0c3;
+      font-weight: 800;
+    }
+
+    .library-drag-debug-value {
+      color: #f8fbff;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      overflow-wrap: anywhere;
+    }
+
+    .library-drag-debug-ok {
+      color: #7ee787;
+    }
+
+    .library-drag-debug-bad {
+      color: #ff7b72;
+    }
+
+    .library-drag-debug-log {
+      max-height: 210px;
+      overflow: auto;
+      margin-top: 8px;
+      padding: 8px;
+      border: 1px solid rgba(148, 163, 184, .2);
+      border-radius: 8px;
+      background: rgba(5, 9, 14, .42);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      line-height: 1.35;
+      white-space: pre-wrap;
+    }
+
+    .library-drag-debug-log-row {
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(148, 163, 184, .12);
+    }
+
+    .library-drag-debug-log-row:last-child {
+      border-bottom: 0;
+    }
+
+    .library-drag-debug-log-row strong {
+      color: #32b6ff;
+    }
+
     .drag-ghost strong {
       display: block;
       margin-bottom: 2px;
@@ -4455,9 +4553,11 @@
   </div>
 
   <script>
-    const APP_ITERATION = "35.2";
-    const APP_BUILD_ID = "iteration35-2";
+    const APP_ITERATION = "35.3";
+    const APP_BUILD_ID = "iteration35-3";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
+    const INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
+    const DEBUG_LIBRARY_DRAG_ENABLED = INITIAL_URL_PARAMS.get("debugLibraryDrag") === "1";
     const SVG_NS = "http://www.w3.org/2000/svg";
     const DEVICE_WIDTH = 380;
     const ADAPTER_WIDTH = 190;
@@ -33153,6 +33253,43 @@
     let ledConnectorSelection = [];
     let hoverConnectorSelection = null;
     let libraryDrag = null;
+    const LIBRARY_DRAG_DEBUG_MAX_EVENTS = 50;
+    const libraryDragDebug = {
+      overlay: null,
+      grid: null,
+      log: null,
+      copyButton: null,
+      events: [],
+      seq: 0,
+      snapshot: {},
+      state: {
+        pointerDown: false,
+        sessionActive: false,
+        draggedName: "",
+        draggedTemplateId: "",
+        draggedType: "",
+        paired: null,
+        payloadValid: null,
+        lastScreenX: null,
+        lastScreenY: null,
+        dragPreviewActive: false,
+        dropInsideEngineCanvas: null,
+        worldX: null,
+        worldY: null,
+        panZoom: "",
+        createCommandCalled: false,
+        createCommandResult: "",
+        failureReason: "",
+        createdIds: [],
+        productionBefore: null,
+        productionAfter: null,
+        sceneBefore: null,
+        sceneAfter: null,
+        rendererInsertCalled: false,
+        selectionSet: false,
+        validationAfterCreate: ""
+      }
+    };
     let selectedDeviceType = "";
     let deviceTypeOpenGroups = new Set(DEVICE_TYPE_TREE.filter(group => !group.leaf).map(group => group.group));
     let panState = null;
@@ -34595,14 +34732,32 @@
       return plainPoint(point.matrixTransform(canvas.getScreenCTM().inverse()));
     }
 
+    function clientRectContainsPoint(rect, clientX, clientY) {
+      return Boolean(rect)
+        && clientX >= rect.left
+        && clientX <= rect.right
+        && clientY >= rect.top
+        && clientY <= rect.bottom;
+    }
+
     function canvasDropTargetForEvent(event) {
       const engineBridge = activeEngineBridge();
-      const rect = engineBridge?.canvasClientRect?.() || canvas.getBoundingClientRect();
-      const isOverCanvas = event.clientX >= rect.left
-        && event.clientX <= rect.right
-        && event.clientY >= rect.top
-        && event.clientY <= rect.bottom;
-      return { engineBridge, rect, isOverCanvas };
+      const engineRect = engineBridge?.canvasClientRect?.() || null;
+      const legacyRect = canvas?.getBoundingClientRect?.() || null;
+      const isOverEngineCanvas = clientRectContainsPoint(engineRect, event.clientX, event.clientY);
+      const isOverLegacyCanvas = clientRectContainsPoint(legacyRect, event.clientX, event.clientY);
+      const rect = engineBridge && engineRect ? engineRect : legacyRect;
+      const isOverCanvas = engineBridge ? isOverEngineCanvas : isOverLegacyCanvas;
+      return {
+        engineBridge,
+        rect,
+        engineRect,
+        legacyRect,
+        isOverCanvas,
+        isOverEngineCanvas,
+        isOverLegacyCanvas,
+        topmost: shortElementDescriptor(document.elementFromPoint(event.clientX, event.clientY))
+      };
     }
 
     function canvasDropPointForEvent(event, engineBridge = activeEngineBridge()) {
@@ -34620,6 +34775,7 @@
         ...details
       };
       console.info(`[avdesigner-library-drag] ${step}`, payload);
+      recordLibraryDragDebugEvent(step, payload);
       engineBridge?.setDiagnosticMetric?.("library drag", step);
       if (payload.templateName) engineBridge?.setDiagnosticMetric?.("library template", payload.templateName);
       if (payload.sceneObjects != null) engineBridge?.setDiagnosticMetric?.("library scene objects", payload.sceneObjects);
@@ -34630,8 +34786,350 @@
       return engineBridge?.sceneCounts?.() || {
         sceneObjects: state.devices.length + state.ledSurfaces.length + state.jumpNodes.length,
         productionObjects: state.devices.length,
+        sceneWires: state.connections.length,
+        productionWires: state.connections.length,
         wires: state.connections.length
       };
+    }
+
+    function libraryDragDebugYesNo(value) {
+      if (value === true) return "yes";
+      if (value === false) return "no";
+      return "-";
+    }
+
+    function libraryDragDebugClass(value) {
+      if (value === true) return "library-drag-debug-ok";
+      if (value === false) return "library-drag-debug-bad";
+      return "";
+    }
+
+    function shortElementDescriptor(element) {
+      if (!element) return "-";
+      const tag = String(element.tagName || element.nodeName || "element").toLowerCase();
+      const id = element.id ? `#${element.id}` : "";
+      const className = typeof element.className === "string"
+        ? element.className.trim().split(/\s+/).slice(0, 3).filter(Boolean).map(name => `.${name}`).join("")
+        : "";
+      const dataset = element.dataset?.templateId
+        ? `[template=${element.dataset.templateId}]`
+        : element.dataset?.engineDeviceId
+          ? `[engine-device=${element.dataset.engineDeviceId}]`
+          : "";
+      return `${tag}${id}${className}${dataset}`;
+    }
+
+    function rectSummary(rect) {
+      if (!rect) return "-";
+      return `${Math.round(rect.left)},${Math.round(rect.top)} ${Math.round(rect.width)}x${Math.round(rect.height)}`;
+    }
+
+    function libraryDragUrlModeLabel() {
+      if (legacyEditorRequestedByUrl()) return "legacy=1";
+      if (engineDefaultTestRequestedByUrl()) return "engineDefaultTest=1";
+      if (explicitEngineRequestedByUrl()) return "engine=1";
+      return "default";
+    }
+
+    function libraryDragDebugPointerTarget() {
+      const x = libraryDragDebug.state.lastScreenX;
+      const y = libraryDragDebug.state.lastScreenY;
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return {
+        overEngineCanvas: false,
+        overLegacyCanvas: false,
+        activeCanvasBounds: "-",
+        topmost: "-",
+        panZoom: libraryDragDebug.state.panZoom || "-"
+      };
+      const engineBridge = activeEngineBridge();
+      const engineRect = engineBridge?.canvasClientRect?.() || null;
+      const legacyRect = canvas?.getBoundingClientRect?.() || null;
+      return {
+        overEngineCanvas: clientRectContainsPoint(engineRect, x, y),
+        overLegacyCanvas: clientRectContainsPoint(legacyRect, x, y),
+        activeCanvasBounds: rectSummary(engineBridge ? engineRect : legacyRect),
+        topmost: shortElementDescriptor(document.elementFromPoint(x, y)),
+        panZoom: engineBridge
+          ? `engine ${Math.round(engineBridge.camera?.x || 0)},${Math.round(engineBridge.camera?.y || 0)} z${Math.round((engineBridge.camera?.zoom || 1) * 100)}%`
+          : `legacy ${Math.round(canvasView.x)},${Math.round(canvasView.y)} z${Math.round(canvasView.zoom * 100)}%`
+      };
+    }
+
+    function libraryDragDebugSnapshot(extra = {}) {
+      const engineBridge = activeEngineBridge();
+      const mountedBridge = window.avDesignerEngineBridge || null;
+      const counts = libraryDragSceneCounts(engineBridge);
+      const pointer = libraryDragDebugPointerTarget();
+      const debugState = libraryDragDebug.state;
+      const snapshot = {
+        build: document.getElementById("appBuildLabel")?.textContent || `${APP_BUILD_LABEL} — ${appRuntimeModeLabel()} — ${APP_BUILD_ID}`,
+        urlMode: libraryDragUrlModeLabel(),
+        engineActive: Boolean(engineBridge),
+        legacyActive: !engineEditorRequestedByUrl(),
+        bridgeMounted: Boolean(mountedBridge),
+        engineReady: engineBridge?.isReady?.() ?? mountedBridge?.isReady?.() ?? null,
+        loadingGateActive: Boolean(experimentalEngineRendererRequested() && (!engineBridge || engineBridge?.isReady?.() === false)),
+        objectCount: counts.sceneObjects ?? counts.productionObjects ?? 0,
+        wireCount: counts.sceneWires ?? counts.productionWires ?? counts.wires ?? 0,
+        pointerDown: Boolean(debugState.pointerDown || libraryDrag),
+        sessionActive: Boolean(libraryDrag),
+        draggedName: debugState.draggedName || libraryDrag?.name || libraryDrag?.pairName || "-",
+        draggedTemplateId: debugState.draggedTemplateId || libraryDrag?.templateId || "-",
+        draggedType: debugState.draggedType || "-",
+        paired: debugState.paired,
+        payloadValid: debugState.payloadValid,
+        lastScreen: Number.isFinite(debugState.lastScreenX) && Number.isFinite(debugState.lastScreenY)
+          ? `${Math.round(debugState.lastScreenX)}, ${Math.round(debugState.lastScreenY)}`
+          : "-",
+        dragPreviewActive: Boolean(debugState.dragPreviewActive || (libraryDrag?.moved && !libraryDrag?.ghost?.classList?.contains("hidden"))),
+        overEngineCanvas: pointer.overEngineCanvas,
+        overLegacyCanvas: pointer.overLegacyCanvas,
+        activeCanvasBounds: pointer.activeCanvasBounds,
+        topmost: pointer.topmost,
+        dropInsideEngineCanvas: debugState.dropInsideEngineCanvas,
+        worldPosition: Number.isFinite(debugState.worldX) && Number.isFinite(debugState.worldY)
+          ? `${Math.round(debugState.worldX)}, ${Math.round(debugState.worldY)}`
+          : "-",
+        panZoom: debugState.panZoom || pointer.panZoom,
+        createCommandCalled: debugState.createCommandCalled,
+        createCommandResult: debugState.createCommandResult || "-",
+        failureReason: debugState.failureReason || "-",
+        createdIds: debugState.createdIds?.length ? debugState.createdIds.join(", ") : "-",
+        productionCount: `${debugState.productionBefore ?? "-"} -> ${debugState.productionAfter ?? counts.productionObjects ?? "-"}`,
+        sceneCount: `${debugState.sceneBefore ?? "-"} -> ${debugState.sceneAfter ?? counts.sceneObjects ?? "-"}`,
+        rendererInsertCalled: debugState.rendererInsertCalled,
+        selectionSet: debugState.selectionSet,
+        validationAfterCreate: debugState.validationAfterCreate || "-",
+        ...extra
+      };
+      libraryDragDebug.snapshot = snapshot;
+      window.__avDesignerLibraryDragDebug = {
+        snapshot,
+        events: libraryDragDebug.events.slice()
+      };
+      return snapshot;
+    }
+
+    function ensureLibraryDragDebugOverlay() {
+      if (!DEBUG_LIBRARY_DRAG_ENABLED) return null;
+      if (libraryDragDebug.overlay) return libraryDragDebug.overlay;
+      const panel = document.createElement("aside");
+      panel.className = "library-drag-debug-panel";
+      panel.innerHTML = `
+        <div class="library-drag-debug-actions">
+          <h2>Library Drag Debug</h2>
+          <button type="button" data-copy-drag-debug>Copy drag diagnostics</button>
+        </div>
+        <div class="library-drag-debug-grid" data-library-drag-debug-grid></div>
+        <div class="library-drag-debug-log" data-library-drag-debug-log></div>
+      `;
+      document.body.appendChild(panel);
+      libraryDragDebug.overlay = panel;
+      libraryDragDebug.grid = panel.querySelector("[data-library-drag-debug-grid]");
+      libraryDragDebug.log = panel.querySelector("[data-library-drag-debug-log]");
+      libraryDragDebug.copyButton = panel.querySelector("[data-copy-drag-debug]");
+      libraryDragDebug.copyButton?.addEventListener("click", copyLibraryDragDiagnostics);
+      return panel;
+    }
+
+    function updateLibraryDragDebug(extra = {}) {
+      if (!DEBUG_LIBRARY_DRAG_ENABLED) return;
+      ensureLibraryDragDebugOverlay();
+      const snapshot = libraryDragDebugSnapshot(extra);
+      const rows = [
+        ["Build", snapshot.build],
+        ["URL mode", snapshot.urlMode],
+        ["Engine active", snapshot.engineActive],
+        ["Legacy active", snapshot.legacyActive],
+        ["Bridge mounted", snapshot.bridgeMounted],
+        ["Engine ready", snapshot.engineReady],
+        ["Loading gate", snapshot.loadingGateActive],
+        ["Objects / wires", `${snapshot.objectCount} / ${snapshot.wireCount}`],
+        ["Pointer down", snapshot.pointerDown],
+        ["Drag session", snapshot.sessionActive],
+        ["Dragged name", snapshot.draggedName],
+        ["Template ID", snapshot.draggedTemplateId],
+        ["Item type", snapshot.draggedType],
+        ["Paired", snapshot.paired],
+        ["Payload valid", snapshot.payloadValid],
+        ["Last screen", snapshot.lastScreen],
+        ["Drag preview", snapshot.dragPreviewActive],
+        ["Over Engine canvas", snapshot.overEngineCanvas],
+        ["Over Legacy canvas", snapshot.overLegacyCanvas],
+        ["Active bounds", snapshot.activeCanvasBounds],
+        ["Topmost", snapshot.topmost],
+        ["Drop inside Engine", snapshot.dropInsideEngineCanvas],
+        ["World position", snapshot.worldPosition],
+        ["Pan/zoom", snapshot.panZoom],
+        ["Create called", snapshot.createCommandCalled],
+        ["Create result", snapshot.createCommandResult],
+        ["Failure reason", snapshot.failureReason],
+        ["Created IDs", snapshot.createdIds],
+        ["Prod count", snapshot.productionCount],
+        ["Scene count", snapshot.sceneCount],
+        ["Renderer insert", snapshot.rendererInsertCalled],
+        ["Selection set", snapshot.selectionSet],
+        ["Validation", snapshot.validationAfterCreate]
+      ];
+      libraryDragDebug.grid.innerHTML = rows.map(([label, value]) => {
+        const isBool = value === true || value === false || value === null;
+        const display = isBool ? libraryDragDebugYesNo(value) : String(value ?? "-");
+        const cssClass = isBool ? libraryDragDebugClass(value) : "";
+        return `<div class="library-drag-debug-label">${escapeHtml(label)}</div><div class="library-drag-debug-value ${cssClass}">${escapeHtml(display)}</div>`;
+      }).join("");
+      libraryDragDebug.log.innerHTML = libraryDragDebug.events.slice(-LIBRARY_DRAG_DEBUG_MAX_EVENTS).map(event => {
+        const details = Object.entries(event.details || {})
+          .filter(([key]) => !["step"].includes(key))
+          .slice(0, 6)
+          .map(([key, value]) => `${key}=${formatLibraryDragDebugValue(value)}`)
+          .join(" ");
+        return `<div class="library-drag-debug-log-row"><strong>${event.seq}. ${escapeHtml(event.step)}</strong><br>${escapeHtml(details)}</div>`;
+      }).join("") || "No drag events yet.";
+    }
+
+    function formatLibraryDragDebugValue(value) {
+      if (Array.isArray(value)) return `[${value.map(item => typeof item === "object" ? JSON.stringify(item) : String(item)).join(",")}]`;
+      if (value && typeof value === "object") {
+        if ("left" in value && "top" in value && "width" in value) return rectSummary(value);
+        try {
+          return JSON.stringify(value);
+        } catch (error) {
+          return String(value);
+        }
+      }
+      return String(value ?? "-");
+    }
+
+    function updateLibraryDragDebugState(step, details = {}) {
+      const debugState = libraryDragDebug.state;
+      if (details.screenX != null) debugState.lastScreenX = Number(details.screenX);
+      if (details.screenY != null) debugState.lastScreenY = Number(details.screenY);
+      if (details.templateName) debugState.draggedName = String(details.templateName);
+      if (details.templateId) debugState.draggedTemplateId = String(details.templateId);
+      if (details.createdIds) debugState.createdIds = Array.isArray(details.createdIds) ? details.createdIds.map(String) : [];
+      if (details.sceneObjects != null) debugState.sceneAfter = details.sceneObjects;
+      if (details.productionObjects != null) debugState.productionAfter = details.productionObjects;
+      if (details.before?.sceneObjects != null) debugState.sceneBefore = details.before.sceneObjects;
+      if (details.before?.productionObjects != null) debugState.productionBefore = details.before.productionObjects;
+      if (details.after?.sceneObjects != null) debugState.sceneAfter = details.after.sceneObjects;
+      if (details.after?.productionObjects != null) debugState.productionAfter = details.after.productionObjects;
+      if (details.dropWorldX != null) debugState.worldX = Number(details.dropWorldX);
+      if (details.dropWorldY != null) debugState.worldY = Number(details.dropWorldY);
+      if (details.reason) debugState.failureReason = String(details.reason);
+      if (details.validationOk != null) debugState.validationAfterCreate = details.validationOk ? "passed" : "failed";
+      if (details.validation?.ok != null) debugState.validationAfterCreate = details.validation.ok ? "passed" : "failed";
+
+      switch (step) {
+        case "library pointerdown":
+          debugState.pointerDown = true;
+          debugState.sessionActive = true;
+          debugState.draggedType = details.paired ? "device pair" : details.custom ? "project custom device" : "device";
+          debugState.paired = Boolean(details.paired);
+          debugState.payloadValid = Boolean(details.templateId || details.templateName);
+          debugState.createCommandCalled = false;
+          debugState.createCommandResult = "";
+          debugState.failureReason = "";
+          debugState.createdIds = [];
+          debugState.rendererInsertCalled = false;
+          debugState.selectionSet = false;
+          debugState.validationAfterCreate = "";
+          debugState.productionBefore = null;
+          debugState.productionAfter = null;
+          debugState.sceneBefore = null;
+          debugState.sceneAfter = null;
+          break;
+        case "library drag start":
+          debugState.dragPreviewActive = true;
+          debugState.payloadValid = Boolean(details.payload?.templateId || details.templateId);
+          break;
+        case "pointermove":
+          debugState.dragPreviewActive = Boolean(details.dragPreviewActive);
+          break;
+        case "document pointerup while library dragging":
+          debugState.dropInsideEngineCanvas = details.engineActive ? Boolean(details.isOverCanvas) : false;
+          debugState.sceneBefore = details.sceneObjects ?? debugState.sceneBefore;
+          debugState.productionBefore = details.productionObjects ?? debugState.productionBefore;
+          break;
+        case "canvas drop received":
+          debugState.dropInsideEngineCanvas = details.engineActive ? true : debugState.dropInsideEngineCanvas;
+          debugState.panZoom = details.panZoom || debugState.panZoom;
+          break;
+        case "create-device command called":
+        case "create-device command received":
+          debugState.createCommandCalled = true;
+          debugState.createCommandResult = "pending";
+          break;
+        case "create-device command success":
+          debugState.createCommandResult = "success";
+          debugState.failureReason = "";
+          break;
+        case "create-device command failure":
+          debugState.createCommandResult = "failure";
+          debugState.failureReason = String(details.reason || details.error || debugState.failureReason || "unknown");
+          break;
+        case "renderer insert called":
+          debugState.rendererInsertCalled = true;
+          break;
+        case "selected new device":
+          debugState.selectionSet = true;
+          break;
+        case "validation result":
+          debugState.validationAfterCreate = details.ok ? "passed" : "failed";
+          break;
+        default:
+          if (step.includes("cancelled") || step.includes("finished")) {
+            debugState.sessionActive = false;
+            debugState.pointerDown = false;
+            debugState.dragPreviewActive = false;
+          }
+          break;
+      }
+    }
+
+    function recordLibraryDragDebugEvent(step, details = {}) {
+      if (!DEBUG_LIBRARY_DRAG_ENABLED) return;
+      try {
+        updateLibraryDragDebugState(step, details);
+        let safeDetails = {};
+        try {
+          safeDetails = JSON.parse(JSON.stringify(details, (_key, value) => {
+            if (typeof Element !== "undefined" && value instanceof Element) return shortElementDescriptor(value);
+            if (typeof DOMRect !== "undefined" && value instanceof DOMRect) return rectSummary(value);
+            return value;
+          }));
+        } catch (error) {
+          safeDetails = {
+            diagnosticSerializationError: error?.message || String(error),
+            summary: formatLibraryDragDebugValue(details)
+          };
+        }
+        libraryDragDebug.seq += 1;
+        libraryDragDebug.events.push({
+          seq: libraryDragDebug.seq,
+          at: new Date().toISOString(),
+          step,
+          details: safeDetails
+        });
+        if (libraryDragDebug.events.length > LIBRARY_DRAG_DEBUG_MAX_EVENTS) {
+          libraryDragDebug.events.splice(0, libraryDragDebug.events.length - LIBRARY_DRAG_DEBUG_MAX_EVENTS);
+        }
+        updateLibraryDragDebug();
+      } catch (error) {
+        console.warn("[avdesigner-library-drag] debug overlay update failed", error);
+      }
+    }
+
+    async function copyLibraryDragDiagnostics() {
+      const payload = JSON.stringify({
+        snapshot: libraryDragDebugSnapshot(),
+        events: libraryDragDebug.events
+      }, null, 2);
+      try {
+        await navigator.clipboard.writeText(payload);
+        setStatus("Library drag diagnostics copied.");
+      } catch (error) {
+        window.prompt("Copy drag diagnostics", payload);
+      }
     }
 
     function isTextEditingTarget(target = document.activeElement) {
@@ -43700,6 +44198,9 @@
         templateName: options.pairName || options.name || template.name,
         paired: Boolean(options.pairTemplateId),
         pairTemplateId: options.pairTemplateId || "",
+        custom: Boolean(options.templateOverride),
+        category: template.category || "",
+        model: template.model || "",
         pointerId: event.pointerId,
         screenX: Math.round(event.clientX),
         screenY: Math.round(event.clientY)
@@ -43873,6 +44374,22 @@
       const distance = Math.hypot(event.clientX - libraryDrag.startX, event.clientY - libraryDrag.startY);
       if (distance > 5) libraryDrag.moved = true;
       libraryDrag.ghost.classList.toggle("hidden", !libraryDrag.moved);
+      if (DEBUG_LIBRARY_DRAG_ENABLED) {
+        const target = canvasDropTargetForEvent(event);
+        recordLibraryDragDebugEvent("pointermove", {
+          templateId: libraryDrag.templateId,
+          templateName: libraryDrag.pairName || libraryDrag.name || "",
+          screenX: Math.round(event.clientX),
+          screenY: Math.round(event.clientY),
+          moved: Boolean(libraryDrag.moved),
+          dragPreviewActive: Boolean(libraryDrag.moved && !libraryDrag.ghost.classList.contains("hidden")),
+          isOverCanvas: target.isOverCanvas,
+          isOverEngineCanvas: target.isOverEngineCanvas,
+          isOverLegacyCanvas: target.isOverLegacyCanvas,
+          topmost: target.topmost,
+          activeCanvasBounds: rectSummary(target.rect)
+        });
+      }
       if (!libraryDrag.moved) return;
       event.preventDefault();
       libraryDrag.ghost.style.left = `${event.clientX}px`;
@@ -43910,6 +44427,9 @@
                 height: Math.round(target.rect.height)
               }
               : null,
+            isOverEngineCanvas: target.isOverEngineCanvas,
+            isOverLegacyCanvas: target.isOverLegacyCanvas,
+            topmost: target.topmost,
             screenX: Math.round(event.clientX),
             screenY: Math.round(event.clientY)
           }
@@ -43925,18 +44445,27 @@
       event.stopPropagation();
       const drag = libraryDrag;
       const template = drag.templateOverride || templateById(drag.templateId);
-      const { engineBridge, isOverCanvas } = canvasDropTargetForEvent(event);
+      const { engineBridge, isOverCanvas, isOverEngineCanvas, isOverLegacyCanvas, rect, topmost } = canvasDropTargetForEvent(event);
       const sceneBefore = libraryDragSceneCounts(engineBridge);
       logLibraryDragStep("document pointerup while library dragging", {
         templateId: drag.templateId,
         templateName: drag.pairName || drag.name || template?.name || "",
         moved: Boolean(drag.moved),
         isOverCanvas,
+        isOverEngineCanvas,
+        isOverLegacyCanvas,
+        canvasRect: rectSummary(rect),
+        topmost,
         screenX: Math.round(event.clientX),
         screenY: Math.round(event.clientY),
         ...sceneBefore
       });
       clearLibraryDragSession("finished", { log: false });
+      recordLibraryDragDebugEvent("library drag finished", {
+        templateId: drag.templateId,
+        templateName: drag.pairName || drag.name || template?.name || "",
+        pointerId: drag.pointerId
+      });
       if (template && isOverCanvas && drag.moved) {
         const point = canvasDropPointForEvent(event, engineBridge);
         logLibraryDragStep("canvas drop received", {
@@ -43944,6 +44473,9 @@
           templateName: drag.pairName || drag.name || template.name,
           dropWorldX: Math.round(point.x),
           dropWorldY: Math.round(point.y),
+          panZoom: engineBridge
+            ? `engine ${Math.round(engineBridge.camera?.x || 0)},${Math.round(engineBridge.camera?.y || 0)} z${Math.round((engineBridge.camera?.zoom || 1) * 100)}%`
+            : `legacy ${Math.round(canvasView.x)},${Math.round(canvasView.y)} z${Math.round(canvasView.zoom * 100)}%`,
           engineReady: engineBridge?.isReady?.() ?? null
         });
         if (engineBridge) {
@@ -55344,6 +55876,7 @@ fit();
       const label = document.getElementById("appBuildLabel");
       if (!label) return;
       label.textContent = `${APP_BUILD_LABEL} — ${appRuntimeModeLabel()} — ${APP_BUILD_ID}`;
+      updateLibraryDragDebug();
     }
 
     function syncProductionSelectionFromEngine(selection = {}) {
@@ -55446,6 +55979,9 @@ fit();
             onEngineHistoryChange: () => {
               updateUndoRedoButtons();
             },
+            onLibraryDragDiagnostic: ({ step, details }) => {
+              recordLibraryDragDebugEvent(step, details || {});
+            },
             onExit: () => {
               render();
               setStatus(statusSummary());
@@ -55458,6 +55994,7 @@ fit();
           setStatus(`${activeMode} active. Use the toolbar mode switch to reload the legacy editor if needed.`);
           updateEngineBetaControl();
           updateAppBuildLabel();
+          updateLibraryDragDebug();
         })
         .catch(error => {
           console.error("[engine-bridge] Could not start experimental renderer.", error);
@@ -55465,6 +56002,7 @@ fit();
           showEngineFailureFallback(error);
           updateEngineBetaControl();
           updateAppBuildLabel();
+          updateLibraryDragDebug({ engineStartError: error?.message || String(error) });
         });
     }
 
@@ -55500,6 +56038,8 @@ fit();
     updateProjectNameControl();
     updateEngineBetaControl();
     updateAppBuildLabel();
+    ensureLibraryDragDebugOverlay();
+    updateLibraryDragDebug();
     window.addEventListener("resize", updateCanvasView);
     render();
     startExperimentalEngineRenderer();
