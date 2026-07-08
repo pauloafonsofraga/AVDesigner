@@ -4,13 +4,11 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 35.3`
+- Current build label: `Iteration 36`
 
-Iteration 35.3 adds a visible `debugLibraryDrag=1` diagnostic overlay for the
-real Device Library drag/drop path in default Engine Editor sessions. Iteration
-35.2 fixed the active Engine canvas drop target, and Iteration 35 restored the
-create-device command path. Viewer/PDF/report visual migration remains paused
-while the remaining Legacy functional gaps are worked through.
+Iteration 36 restores Legacy connector compatibility rules in Engine wire
+creation. Viewer/PDF/report visual migration remains paused while the remaining
+Legacy functional gaps are worked through.
 
 ## Executive Summary
 
@@ -24,11 +22,10 @@ single-file editor:
 
 1. Rack library creation is still Legacy-only; normal Device Library drops now
    work in Engine mode through a create-device command.
-2. Engine wire creation does not reuse Legacy connector compatibility rules.
-3. Endpoint rewire is not yet restored in Engine mode.
-4. Modular card/chassis, faceplate, power-distro, and rack-builder behaviours
+2. Endpoint rewire is not yet restored in Engine mode.
+3. Modular card/chassis, faceplate, power-distro, and rack-builder behaviours
    are mostly normalized for display, but not fully controlled by Engine.
-5. Context-menu/action parity is only partially delegated back to Legacy menus.
+4. Context-menu/action parity is only partially delegated back to Legacy menus.
 
 ## Root Causes Of The Known Blockers
 
@@ -435,15 +432,21 @@ Validation:
 
 Extract Legacy connector compatibility into a shared data-only module.
 
-Scope:
+Implemented scope:
 
 - effective connector type
 - dead cage blocking
 - CAT/USB family compatibility
 - paired network/two-way direction exceptions
 - input/output blocking
-- occupancy checks
 - hover validity and commit validity use the same rule
+- same connector blocking
+- active transceiver module type mapping for SFP/SFP+/QSFP cages
+
+Still intentionally out of scope:
+
+- endpoint rewire flow
+- connector occupancy policy
 
 Validation:
 

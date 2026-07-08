@@ -1,3 +1,8 @@
+import {
+  effectiveConnectorTypeForEngine,
+  isEngineDeadCageConnector
+} from "./connectorCompatibility.js";
+
 const SIZE_PRESETS = {
   small: { deviceCount: 100, wireCount: 300 },
   medium: { deviceCount: 1000, wireCount: 5000 },
@@ -435,7 +440,15 @@ function normalizeConnector(connector, index, deviceWidth, nodeColorByType) {
     direction,
     side: direction === "input" ? "left" : direction === "output" ? "right" : localX <= deviceWidth / 2 ? "left" : "right",
     cardSlotId: connector.cardSlotId || "",
+    cardTypeId: connector.cardTypeId || "",
+    sourceConnectorId: connector.sourceConnectorId || "",
     generatedFromCard: Boolean(connector.generatedFromCard),
+    installedModuleType: String(connector.installedModuleType || ""),
+    fiberMode: String(connector.fiberMode || ""),
+    customColor: String(connector.customColor || ""),
+    nameText: String(connector.nameText || ""),
+    customText: String(connector.customText || ""),
+    resolutionFrameRate: String(connector.resolutionFrameRate || ""),
     x: localX,
     y: localY,
     color: connectorColor(connector, nodeColorByType),
@@ -444,9 +457,15 @@ function normalizeConnector(connector, index, deviceWidth, nodeColorByType) {
 }
 
 function connectorColor(connector, nodeColorByType) {
+  if (isEngineDeadCageConnector(connector)) return "#778492";
   if (connector.customColor) return connector.customColor;
   const type = String(connector.type || "");
-  return nodeColorByType.get(type) || NODE_TYPE_FALLBACKS.get(type) || "#32b6ff";
+  const activeType = effectiveConnectorTypeForEngine(connector) || type;
+  return nodeColorByType.get(activeType)
+    || NODE_TYPE_FALLBACKS.get(activeType)
+    || nodeColorByType.get(type)
+    || NODE_TYPE_FALLBACKS.get(type)
+    || "#32b6ff";
 }
 
 function normalizeJumpNodes(jumpNodes) {

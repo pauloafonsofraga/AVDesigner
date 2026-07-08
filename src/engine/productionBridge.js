@@ -1,4 +1,5 @@
 import { DragSession } from "./dragSession.js";
+import { engineCompatibilitySummary } from "./connectorCompatibility.js";
 import {
   hitTestConnector,
   hitTestDevice,
@@ -65,6 +66,8 @@ class ProductionEngineBridge {
     this.lastDirtyDeviceIds = new Set();
     this.lastDirtyWireIds = new Set();
     this.debugLayerMode = engineLayerDebugEnabled();
+    this.debugCompatibility = engineCompatibilityDebugEnabled();
+    this.lastCompatibilityTargetKey = "";
     this.renderOptions = {
       labels: true,
       wires: true,
@@ -563,6 +566,8 @@ class ProductionEngineBridge {
       };
       this.wireCreate.pointerWorld = world;
       this.wireCreate.target = connectorHit.connector;
+      this.wireCreate.compatibility = this.currentWireCompatibility();
+      this.recordCompatibilityHoverDiagnostic(this.wireCreate.compatibility);
       this.updateInteractionHud("wire-create", connectorHit);
       this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
       this.scheduleRender();
@@ -837,8 +842,10 @@ class ProductionEngineBridge {
       from: connectorHit,
       pointerWorld: { ...worldPoint },
       target: null,
+      compatibility: null,
       color: connectorHit.connector.color || "#32b6ff"
     };
+    this.lastCompatibilityTargetKey = "";
     this.canvas.classList.add("dragging", "wire-creating");
     this.updateCanvasCursor();
   }
@@ -847,7 +854,9 @@ class ProductionEngineBridge {
     const commitStart = performance.now();
     const source = this.wireCreate?.from;
     const target = this.wireCreate?.target;
+    const compatibility = source && target ? engineCompatibilitySummary(source, target) : null;
     this.wireCreate = null;
+    this.lastCompatibilityTargetKey = "";
     this.canvas.classList.remove("dragging", "wire-creating");
     this.clearHoverState("wire-create-complete", { render: false });
     this.updateCanvasCursor();
@@ -855,8 +864,10 @@ class ProductionEngineBridge {
       this.updateInteractionHud("idle");
       return;
     }
-    if (source.device.id === target.device.id && source.connector.id === target.connector.id) {
-      this.updateInteractionHud("idle");
+    if (!compatibility?.valid) {
+      this.hud.setMetric("wire target", compatibility?.reason || "invalid target");
+      this.recordCompatibilityDiagnostic("wire-create rejected", compatibility, source, target);
+      this.updateInteractionHud("wire-create rejected");
       return;
     }
     const wire = this.scene.addWire({
@@ -865,7 +876,7 @@ class ProductionEngineBridge {
       toDeviceId: target.device.id,
       toConnectorId: target.connector.id,
       color: source.connector.color || target.connector.color || "#32b6ff",
-      cableType: source.connector.type || target.connector.type || "Engine Test Cable"
+      cableType: compatibility.sourceType || source.connector.type || target.connector.type || "Engine Test Cable"
     });
     if (!wire) {
       this.updateInteractionHud("wire-create failed");
@@ -885,6 +896,7 @@ class ProductionEngineBridge {
     this.recordDirtyVisualMetrics(dirtyStats, "create wire");
     this.markCommitted("create wire", mutationMs);
     this.recordCommand(createWireCommand(cloneWire(wire), connectionData));
+    this.recordCompatibilityDiagnostic("wire-created", compatibility, source, target);
     this.updateSelectionHud();
     this.updateInteractionHud("wire-created");
     this.hud.setMetric("create wire commit", `${(performance.now() - commitStart).toFixed(2)} ms`);
@@ -1104,9 +1116,8 @@ class ProductionEngineBridge {
   }
 
   interactionRenderState() {
-    const wireTargetValid = this.wireCreate?.target
-      ? !sameConnectorHit(this.wireCreate.from, this.wireCreate.target)
-      : false;
+    const compatibility = this.currentWireCompatibility();
+    const wireTargetValid = this.wireCreate?.target ? compatibility.valid : false;
     const tempWire = this.wireCreate
       ? {
         from: this.wireCreate.from.point,
@@ -1115,7 +1126,8 @@ class ProductionEngineBridge {
         sourceHit: this.wireCreate.from,
         targetHit: this.wireCreate.target,
         targetPoint: this.wireCreate.target?.point || null,
-        validTarget: wireTargetValid
+        validTarget: wireTargetValid,
+        targetError: compatibility.reason || ""
       }
       : null;
     return {
@@ -1164,16 +1176,50 @@ class ProductionEngineBridge {
   }
 
   updateInteractionHud(mode = "idle", hit = null) {
+    const compatibility = this.currentWireCompatibility();
     this.hud.setMetric("hovered device", this.hoverState.device ? deviceSummary(this.hoverState.device) : "-");
     this.hud.setMetric("hovered connector", this.hoverState.connector ? connectorSummary(this.hoverState.connector) : "-");
     this.hud.setMetric("hovered wire", this.hoverState.wire ? wireSummary(this.hoverState.wire.wire) : "-");
     this.hud.setMetric("hovered route point", this.hoverState.routePoint ? `${this.hoverState.routePoint.wire.id}:${this.hoverState.routePoint.pointIndex}` : "-");
     this.hud.setMetric("interaction mode", mode);
     this.hud.setMetric("wire creation", this.wireCreate ? wireCreateSummary(this.wireCreate) : "-");
-    this.hud.setMetric("wire target", this.wireCreate?.target ? (sameConnectorHit(this.wireCreate.from, this.wireCreate.target) ? "invalid: same connector" : "valid target") : "-");
+    this.hud.setMetric("wire target", this.wireCreate?.target ? (compatibility.valid ? `valid: ${compatibility.rule}` : `invalid: ${compatibility.reason}`) : "-");
+    if (this.debugCompatibility) {
+      this.hud.setMetric("compatibility types", this.wireCreate?.target ? `${compatibility.sourceType || "-"} -> ${compatibility.targetType || "-"}` : "-");
+      this.hud.setMetric("compatibility rule", this.wireCreate?.target ? compatibility.rule : "-");
+    }
     this.hud.setMetric("selected connector", [...this.scene.selectedConnectorKeys][0] || "-");
     this.hud.setMetric("hit candidates", hit?.candidates ?? this.hoverState.candidateCount ?? 0);
     this.hud.setMetric("hitTest", `${(hit?.ms ?? this.hoverState.hitMs ?? 0).toFixed(3)} ms`);
+  }
+
+  currentWireCompatibility() {
+    if (!this.wireCreate?.from || !this.wireCreate?.target) {
+      return { valid: false, rule: "no-target", reason: "", sourceType: "", targetType: "" };
+    }
+    return engineCompatibilitySummary(this.wireCreate.from, this.wireCreate.target);
+  }
+
+  recordCompatibilityHoverDiagnostic(summary) {
+    if (!this.debugCompatibility || !this.wireCreate?.target || !summary) return;
+    const targetKey = `${this.wireCreate.target.device?.id || ""}:${this.wireCreate.target.connector?.id || ""}:${summary.rule}:${summary.reason}`;
+    if (targetKey === this.lastCompatibilityTargetKey) return;
+    this.lastCompatibilityTargetKey = targetKey;
+    this.recordCompatibilityDiagnostic("wire-hover", summary, this.wireCreate.from, this.wireCreate.target);
+  }
+
+  recordCompatibilityDiagnostic(step, summary, source, target) {
+    if (!this.debugCompatibility || !summary) return;
+    console.info("[engine-compatibility]", {
+      step,
+      valid: summary.valid,
+      rule: summary.rule,
+      reason: summary.reason,
+      source: source ? connectorSummary(source) : "",
+      target: target ? connectorSummary(target) : "",
+      sourceType: summary.sourceType,
+      targetType: summary.targetType
+    });
   }
 
   updateHud({ sceneBuildMs = null, staticStats = null, mode = "ready" } = {}) {
@@ -2674,6 +2720,11 @@ function engineLayerDebugShowProductionSvg() {
 function engineDebugHudEnabled() {
   const params = new URLSearchParams(window.location.search);
   return params.get("debugHud") === "1" || params.get("debugLayers") === "1";
+}
+
+function engineCompatibilityDebugEnabled() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("debugCompatibility") === "1" || params.get("debugHud") === "1";
 }
 
 function engineLayerDebugRenderOptions(enabled) {

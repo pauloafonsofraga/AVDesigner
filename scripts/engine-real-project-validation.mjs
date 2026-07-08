@@ -11,6 +11,7 @@ import { DragSession } from "../src/engine/dragSession.js";
 import { validateEngineScene } from "../src/engine/sceneValidation.js";
 import { calculateCableHops, applyCableHopsToPolyline } from "../src/engine/cableHops.js";
 import { wirePathStatsForWires } from "../src/engine/wirePath.js";
+import { engineCompatibilitySummary } from "../src/engine/connectorCompatibility.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturePath = path.resolve(__dirname, "../fixtures/engine-parity-project.avd");
@@ -379,7 +380,7 @@ function buildCreateWireCommand(harness) {
         toDeviceId: pair.toDevice.id,
         toConnectorId: pair.toConnector.id,
         color: pair.fromConnector.color || pair.toConnector.color || "#32b6ff",
-        cableType: pair.fromConnector.type || pair.toConnector.type || "Engine Validation Cable"
+        cableType: pair.compatibility?.sourceType || pair.fromConnector.type || pair.toConnector.type || "Engine Validation Cable"
       });
       assert.ok(wire, "created wire missing");
       harness.mutations.commitCreatedWire(harness.scene, wire);
@@ -586,13 +587,22 @@ function assertUnrelatedWiresUnchanged(before, after, changedWireIds, label) {
 }
 
 function findConnectablePair(scene) {
-  const fromDevice = scene.devices.find(device => device.connectors.some(connector => connector.direction !== "input"));
-  if (!fromDevice) return null;
-  const fromConnector = fromDevice.connectors.find(connector => connector.direction !== "input");
-  const toDevice = scene.devices.find(device => device.id !== fromDevice.id && device.connectors.some(connector => connector.direction !== "output"));
-  if (!toDevice) return null;
-  const toConnector = toDevice.connectors.find(connector => connector.direction !== "output");
-  return { fromDevice, fromConnector, toDevice, toConnector };
+  for (const fromDevice of scene.devices) {
+    for (const fromConnector of arrayOf(fromDevice.connectors)) {
+      for (const toDevice of scene.devices) {
+        if (toDevice.id === fromDevice.id) continue;
+        for (const toConnector of arrayOf(toDevice.connectors)) {
+          const compatibility = engineCompatibilitySummary(
+            { device: fromDevice, connector: fromConnector },
+            { device: toDevice, connector: toConnector }
+          );
+          if (!compatibility.valid) continue;
+          return { fromDevice, fromConnector, toDevice, toConnector, compatibility };
+        }
+      }
+    }
+  }
+  return null;
 }
 
 function skippedCommand(name, reason) {
