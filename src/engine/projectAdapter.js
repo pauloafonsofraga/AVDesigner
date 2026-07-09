@@ -556,7 +556,7 @@ function normalizeProjectWire(wire, index, context) {
   if (!from || !to || !context.deviceIds.has(from.deviceId) || !context.deviceIds.has(to.deviceId)) return null;
   const cableType = String(wire.cableType || wire.type || "");
   const fiberMode = String(wire.fiberMode || "");
-  const usesOrthogonalRoute = context.wireMode === "orthogonal" && Array.isArray(wire.orthogonalRoutePoints);
+  const usesOrthogonalRoute = Array.isArray(wire.orthogonalRoutePoints);
   const routePoints = normalizeRoutePoints(usesOrthogonalRoute ? wire.orthogonalRoutePoints : wire.routePoints);
   return {
     id: String(wire.id || `project-wire-${index}`),

@@ -128,7 +128,7 @@ function validateRoutePointParity(sceneWires, productionConnections, wireMode, e
     }
     const productionPoints = routePointsFromConnection(connection, wireMode);
     const scenePoints = routePointsFromWire(wire);
-    const productionRouteStyle = wireMode === "orthogonal" && Array.isArray(connection?.orthogonalRoutePoints)
+    const productionRouteStyle = Array.isArray(connection?.orthogonalRoutePoints)
       ? "orthogonal"
       : productionPoints.length ? "custom" : "bezier";
     const sceneRouteStyle = wire?.routeStyle === "orthogonal"
@@ -168,7 +168,12 @@ function checkDuplicates(ids, label, errors) {
 }
 
 function routePointsFromConnection(connection, wireMode = "bezier") {
-  return ((wireMode === "orthogonal" ? connection?.orthogonalRoutePoints : connection?.routePoints) || [])
+  const points = Array.isArray(connection?.orthogonalRoutePoints)
+    ? connection.orthogonalRoutePoints
+    : wireMode === "orthogonal"
+      ? connection?.orthogonalRoutePoints
+      : connection?.routePoints;
+  return (points || [])
     .map(point => ({ x: Number(point.x), y: Number(point.y) }))
     .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y));
 }

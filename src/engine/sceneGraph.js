@@ -1,4 +1,10 @@
 import { SpatialIndex } from "./spatialIndex.js";
+import {
+  moveOrthogonalRoutePoint,
+  orthogonalWirePoints,
+  routePointsForMovedEndpoints,
+  shiftRoutePoints
+} from "./orthogonalRouting.js";
 import { wirePolylineFromPoints } from "./wirePath.js";
 
 export class SceneGraph {
@@ -225,7 +231,7 @@ export class SceneGraph {
         });
       });
     });
-    this.refreshWireSpatialIndexes(affectedWireIds);
+    this.refreshWireIndexes(affectedWireIds);
   }
 
   refreshWireSpatialIndexes(wireIds = []) {
@@ -380,8 +386,35 @@ export class SceneGraph {
       this.dirtyDevices.add(deviceId);
       movedDeviceIds.push(deviceId);
     });
+    this.moveRoutePointsWithMovedObjects(movedDeviceIds, dx, dy, [...affectedWireIds]);
     affectedWireIds.forEach(wireId => this.dirtyWires.add(wireId));
     this.refreshMovedDeviceIndexes(movedDeviceIds, [...affectedWireIds]);
+  }
+
+  moveRoutePointsWithMovedObjects(movedObjectIds, dx, dy, wireIds = []) {
+    if (!movedObjectIds?.length || !wireIds?.length) return;
+    const movedIds = new Set(movedObjectIds.map(id => String(id || "")));
+    wireIds.forEach(wireId => {
+      const wire = this.getWire(wireId);
+      if (!wire?.routePoints?.length) return;
+      const fromMoved = movedIds.has(this.wireEndpointOwnerId(wire, "from"));
+      const toMoved = movedIds.has(this.wireEndpointOwnerId(wire, "to"));
+      if (!fromMoved && !toMoved) return;
+      if (fromMoved && toMoved) {
+        wire.routePoints = shiftRoutePoints(wire.routePoints, dx, dy);
+      } else if (wire.routeStyle === "orthogonal") {
+        wire.routePoints = routePointsForMovedEndpoints({
+          routePoints: wire.routePoints,
+          from: this.endpointForWire(wire, "from"),
+          to: this.endpointForWire(wire, "to"),
+          fromMoved,
+          toMoved,
+          dx,
+          dy
+        });
+      }
+      this.dirtyWires.add(wire.id);
+    });
   }
 
   insertDevice(deviceData) {
@@ -433,7 +466,7 @@ export class SceneGraph {
       const moved = moveOrthogonalRoutePoint({
         routePoints: wire.routePoints,
         pointIndex,
-        desiredPoint: { x, y },
+        nextPoint: { x, y },
         from: this.endpointForWire(wire, "from"),
         to: this.endpointForWire(wire, "to")
       });
@@ -629,11 +662,23 @@ export class SceneGraph {
   wirePoints(wire, offsetMap = null) {
     const from = this.endpointForWire(wire, "from", offsetMap);
     const to = this.endpointForWire(wire, "to", offsetMap);
+    const fromOffset = this.endpointOffsetForWire(wire, "from", offsetMap);
+    const toOffset = this.endpointOffsetForWire(wire, "to", offsetMap);
     const routeOffset = this.routePointOffsetForWire(wire, offsetMap);
     const routePoints = (wire.routePoints || []).map(point => ({
       x: point.x + routeOffset.dx,
       y: point.y + routeOffset.dy
     }));
+    if (wire.routeStyle === "orthogonal") {
+      const sameRouteOffset = Math.abs(routeOffset.dx) > 0.001 || Math.abs(routeOffset.dy) > 0.001;
+      return orthogonalWirePoints({
+        from,
+        to,
+        routePoints,
+        fromMoved: offsetHasMovement(fromOffset) && !sameRouteOffset,
+        toMoved: offsetHasMovement(toOffset) && !sameRouteOffset
+      });
+    }
     return [from, ...routePoints, to];
   }
 
@@ -643,12 +688,19 @@ export class SceneGraph {
 
   routePointOffsetForWire(wire, offsetMap = null) {
     if (!offsetMap || !wire.routePoints?.length) return { dx: 0, dy: 0 };
-    const fromOffset = offsetMap.get(wire.fromDeviceId);
-    const toOffset = offsetMap.get(wire.toDeviceId);
+    const fromOffset = this.endpointOffsetForWire(wire, "from", offsetMap);
+    const toOffset = this.endpointOffsetForWire(wire, "to", offsetMap);
     if (!fromOffset || !toOffset) return { dx: 0, dy: 0 };
     const sameDx = Math.abs((fromOffset.dx || 0) - (toOffset.dx || 0)) < 0.001;
     const sameDy = Math.abs((fromOffset.dy || 0) - (toOffset.dy || 0)) < 0.001;
     return sameDx && sameDy ? { dx: fromOffset.dx || 0, dy: fromOffset.dy || 0 } : { dx: 0, dy: 0 };
+  }
+
+  endpointOffsetForWire(wire, end, offsetMap = null) {
+    if (!offsetMap) return null;
+    const ownerId = this.wireEndpointOwnerId(wire, end);
+    if (!ownerId) return null;
+    return offsetMap.get(ownerId) || null;
   }
 
   bounds() {
@@ -689,142 +741,6 @@ export function routePointKey(wireId, pointIndex) {
   return `${wireId}:${pointIndex}`;
 }
 
-const ORTHOGONAL_WIRE_SPACING = 15;
-
-// Keep 90-degree route handles orthogonal by repairing adjacent bends as the
-// user drags, matching the legacy SVG editor's corner editing behavior.
-function moveOrthogonalRoutePoint({ routePoints = [], pointIndex = 0, desiredPoint, from, to }) {
-  const original = (routePoints || []).map(point => ({
-    x: Math.round(Number(point?.x) || 0),
-    y: Math.round(Number(point?.y) || 0)
-  }));
-  if (!original[pointIndex] || !from || !to) return { routePoints: original, pointIndex };
-  const desired = {
-    x: Math.round(Number(desiredPoint?.x) || 0),
-    y: Math.round(Number(desiredPoint?.y) || 0)
-  };
-  const full = [
-    { x: Math.round(Number(from.x) || 0), y: Math.round(Number(from.y) || 0) },
-    ...original.map(point => ({ ...point })),
-    { x: Math.round(Number(to.x) || 0), y: Math.round(Number(to.y) || 0) }
-  ];
-  const fullIndex = pointIndex + 1;
-  const previous = full[fullIndex - 1];
-  const current = full[fullIndex];
-  const next = full[fullIndex + 1];
-  if (!previous || !current || !next) return { routePoints: original, pointIndex };
-  const previousSegment = inferredOrthogonalSegment(previous, current);
-  const nextSegment = inferredOrthogonalSegment(current, next);
-
-  if (previousSegment.orientation === nextSegment.orientation) {
-    const nextIsEndpoint = fullIndex + 1 === full.length - 1;
-    if (nextIsEndpoint) {
-      if (previousSegment.orientation === "h") {
-        const direction = next.x >= desired.x ? 1 : -1;
-        const offset = Math.max(1, Math.min(ORTHOGONAL_WIRE_SPACING * 2, Math.abs(next.x - desired.x) / 2));
-        const returnX = Math.round(desired.x + direction * offset);
-        return {
-          routePoints: [
-            ...original.slice(0, pointIndex),
-            { x: desired.x, y: previous.y },
-            { x: desired.x, y: desired.y },
-            { x: returnX, y: desired.y },
-            { x: returnX, y: next.y },
-            ...original.slice(pointIndex + 1)
-          ],
-          pointIndex: pointIndex + 1
-        };
-      }
-      const direction = next.y >= desired.y ? 1 : -1;
-      const offset = Math.max(1, Math.min(ORTHOGONAL_WIRE_SPACING * 2, Math.abs(next.y - desired.y) / 2));
-      const returnY = Math.round(desired.y + direction * offset);
-      return {
-        routePoints: [
-          ...original.slice(0, pointIndex),
-          { x: previous.x, y: desired.y },
-          { x: desired.x, y: desired.y },
-          { x: desired.x, y: returnY },
-          { x: next.x, y: returnY },
-          ...original.slice(pointIndex + 1)
-        ],
-        pointIndex: pointIndex + 1
-      };
-    }
-    const replacement = previousSegment.orientation === "h"
-      ? [
-          { x: desired.x, y: previous.y },
-          { x: desired.x, y: desired.y },
-          { x: next.x, y: desired.y }
-        ]
-      : [
-          { x: previous.x, y: desired.y },
-          { x: desired.x, y: desired.y },
-          { x: desired.x, y: next.y }
-        ];
-    return {
-      routePoints: [
-        ...original.slice(0, pointIndex),
-        ...replacement,
-        ...original.slice(pointIndex + 1)
-      ],
-      pointIndex: pointIndex + 1
-    };
-  }
-
-  const nextFull = full.map(point => ({ ...point }));
-  const isRoutePointIndex = index => index > 0 && index < nextFull.length - 1;
-  const setPointCoord = (index, coord, value) => {
-    if (isRoutePointIndex(index)) nextFull[index][coord] = Math.round(value);
-  };
-  nextFull[fullIndex] = { ...desired };
-
-  const alignPrevious = () => {
-    if (previousSegment.orientation === "h") {
-      if (isRoutePointIndex(fullIndex - 1)) setPointCoord(fullIndex - 1, "y", nextFull[fullIndex].y);
-      else nextFull[fullIndex].y = nextFull[fullIndex - 1].y;
-    } else {
-      if (isRoutePointIndex(fullIndex - 1)) setPointCoord(fullIndex - 1, "x", nextFull[fullIndex].x);
-      else nextFull[fullIndex].x = nextFull[fullIndex - 1].x;
-    }
-  };
-  const alignNext = () => {
-    if (nextSegment.orientation === "h") {
-      if (isRoutePointIndex(fullIndex + 1)) setPointCoord(fullIndex + 1, "y", nextFull[fullIndex].y);
-      else nextFull[fullIndex].y = nextFull[fullIndex + 1].y;
-    } else {
-      if (isRoutePointIndex(fullIndex + 1)) setPointCoord(fullIndex + 1, "x", nextFull[fullIndex].x);
-      else nextFull[fullIndex].x = nextFull[fullIndex + 1].x;
-    }
-  };
-  alignPrevious();
-  alignNext();
-  alignPrevious();
-  return {
-    routePoints: nextFull.slice(1, -1).map(point => ({ x: Math.round(point.x), y: Math.round(point.y) })),
-    pointIndex
-  };
-}
-
-function inferredOrthogonalSegment(a, b) {
-  const segment = orthogonalSegment(a, b);
-  if (segment) return segment;
-  return Math.abs((b?.x || 0) - (a?.x || 0)) >= Math.abs((b?.y || 0) - (a?.y || 0))
-    ? { orientation: "h" }
-    : { orientation: "v" };
-}
-
-function orthogonalSegment(a, b) {
-  if (sameOrthogonalPoint(a, b)) return null;
-  if (Math.abs(a.y - b.y) < 0.01) return { orientation: "h" };
-  if (Math.abs(a.x - b.x) < 0.01) return { orientation: "v" };
-  return null;
-}
-
-function sameOrthogonalPoint(a, b) {
-  return Math.abs((a?.x || 0) - (b?.x || 0)) < 0.01
-    && Math.abs((a?.y || 0) - (b?.y || 0)) < 0.01;
-}
-
 function centeredBounds(point, size) {
   return {
     x: point.x - size / 2,
@@ -832,6 +748,10 @@ function centeredBounds(point, size) {
     width: size,
     height: size
   };
+}
+
+function offsetHasMovement(offset) {
+  return Boolean(offset) && (Math.abs(offset.dx || 0) > 0.001 || Math.abs(offset.dy || 0) > 0.001);
 }
 
 function inflateBounds(bounds, amount) {

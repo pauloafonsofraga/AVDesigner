@@ -16,6 +16,7 @@ import { WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
 import { PerfHud } from "./perfHud.js";
 import { validateEngineScene } from "./sceneValidation.js";
+import { buildPreviewOrthogonalInteriorPoints } from "./orthogonalRouting.js";
 
 const BRIDGE_VERSION = "production-bridge-1";
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -70,6 +71,7 @@ class ProductionEngineBridge {
     this.lastDirtyWireIds = new Set();
     this.debugLayerMode = engineLayerDebugEnabled();
     this.debugCompatibility = engineCompatibilityDebugEnabled();
+    this.debugRouting = engineRoutingDebugEnabled();
     this.lastCompatibilityTargetKey = "";
     this.renderOptions = {
       labels: true,
@@ -866,7 +868,8 @@ class ProductionEngineBridge {
     return {
       routeStyle: "orthogonal",
       routePoints: normalizeRoutePointsForBridge(
-        typeof window !== "undefined" ? window.__avDesignerWireRouting?.orthogonalInteriorPoints?.(from, to) : []
+        (typeof window !== "undefined" ? window.__avDesignerWireRouting?.orthogonalInteriorPoints?.(from, to) : null)
+          || buildPreviewOrthogonalInteriorPoints(from, to)
       )
     };
   }
@@ -975,6 +978,7 @@ class ProductionEngineBridge {
       const startPosition = this.dragSession.startPositions.get(id);
       return startPosition ? { id, x: startPosition.x, y: startPosition.y } : null;
     }).filter(Boolean);
+    const beforeRouteStates = captureWireRouteStates(this.scene, affectedWireIds);
     // Commit once at pointer-up. During pointermove the engine renders with a
     // transient DragSession offset so the real production data stays untouched
     // and existing save/load/report code only sees finalized edits.
@@ -983,8 +987,11 @@ class ProductionEngineBridge {
       const device = this.scene.getDevice(id);
       return device ? { id, x: device.x, y: device.y } : null;
     }).filter(Boolean);
+    const afterRouteStates = captureWireRouteStates(this.scene, affectedWireIds);
     this.beginProductionCommit(`move ${selectedIds.length} object${selectedIds.length === 1 ? "" : "s"}`);
-    const mutationMs = this.mutations?.commitDevicePositions(this.scene, selectedIds) || 0;
+    const deviceMutationMs = this.mutations?.commitDevicePositions(this.scene, selectedIds) || 0;
+    const routeMutationMs = this.commitWireRouteStates(afterRouteStates);
+    const mutationMs = deviceMutationMs + routeMutationMs;
     const dirtyStats = this.renderer.updateDirty(this.scene, {
       deviceIds: selectedIds,
       wireIds: affectedWireIds
@@ -1015,7 +1022,7 @@ class ProductionEngineBridge {
         : ""
     );
     this.markCommitted(`move ${selectedIds.length} object${selectedIds.length === 1 ? "" : "s"}`, mutationMs, { commitMs });
-    this.recordCommand(moveDevicesCommand(beforePositions, afterPositions, affectedWireIds));
+    this.recordCommand(moveDevicesCommand(beforePositions, afterPositions, beforeRouteStates, afterRouteStates));
     this.updateSelectionHud();
     this.updateInteractionHud("idle");
   }
@@ -1207,8 +1214,33 @@ class ProductionEngineBridge {
       routePointKeys: [...this.scene.selectedRoutePointKeys],
       devices: selectedDeviceObjects
     });
+    this.updateRoutingDebugHud();
     this.updateStatusPanel("selection");
     this.renderEngineInspector();
+  }
+
+  updateRoutingDebugHud() {
+    if (!this.debugRouting && !this.debugLayerMode) return;
+    const selectedWireId = [...this.scene.selectedWireIds][0] || "";
+    const selectedRoutePointKey = [...this.scene.selectedRoutePointKeys][0] || "";
+    const routeWireId = selectedWireId || (selectedRoutePointKey ? selectedRoutePointKey.split(":")[0] : "");
+    const wire = routeWireId ? this.scene.getWire(routeWireId) : null;
+    if (!wire) {
+      this.hud.setMetric("route debug wire", "-");
+      return;
+    }
+    const from = this.scene.endpointForWire(wire, "from");
+    const to = this.scene.endpointForWire(wire, "to");
+    const rendered = this.scene.wireRenderPolyline(wire);
+    const routePoints = wire.routePoints || [];
+    const fromOwner = this.scene.wireEndpointDebug(wire, "from");
+    const toOwner = this.scene.wireEndpointDebug(wire, "to");
+    const hopCount = this.renderer?.cableHopMap?.get(wire.id)?.length || 0;
+    this.hud.setMetric("route debug wire", `${wire.id} / ${wire.routeStyle || "bezier"}`);
+    this.hud.setMetric("route points", `${routePoints.length} stored / ${Math.max(0, rendered.length - 1)} segments`);
+    this.hud.setMetric("route endpoints", `${roundForUi(from.x)},${roundForUi(from.y)} -> ${roundForUi(to.x)},${roundForUi(to.y)}`);
+    this.hud.setMetric("route owners", `${fromOwner?.ownerId || "-"} -> ${toOwner?.ownerId || "-"}`);
+    this.hud.setMetric("route hops", hopCount);
   }
 
   updateInteractionHud(mode = "idle", hit = null) {
@@ -1672,7 +1704,7 @@ class ProductionEngineBridge {
     this.scheduleRender();
   }
 
-  applyDevicePositions(positions = []) {
+  applyDevicePositions(positions = [], routeStates = []) {
     const ids = [];
     positions.forEach(position => {
       const device = this.scene.getDevice(position.id);
@@ -1682,9 +1714,13 @@ class ProductionEngineBridge {
       this.scene.dirtyDevices.add(position.id);
       ids.push(position.id);
     });
-    const affectedWireIds = [...this.scene.affectedWireIdsForDevices(ids)];
+    const routeWireIds = this.applyWireRouteStates(routeStates, { refreshIndexes: false });
+    const affectedWireIds = uniqueItems([...this.scene.affectedWireIdsForDevices(ids), ...routeWireIds]);
     this.scene.refreshMovedDeviceIndexes(ids, affectedWireIds);
-    const mutationMs = this.mutations?.commitDevicePositions(this.scene, ids) || 0;
+    if (routeWireIds.length) this.scene.refreshWireIndexes(routeWireIds);
+    const deviceMutationMs = this.mutations?.commitDevicePositions(this.scene, ids) || 0;
+    const routeMutationMs = this.commitWireRouteStates(routeStates);
+    const mutationMs = deviceMutationMs + routeMutationMs;
     const dirtyStats = this.renderer.updateDirty(this.scene, { deviceIds: ids, wireIds: affectedWireIds });
     this.lastDirtyDeviceIds = new Set(ids);
     this.lastDirtyWireIds = new Set(affectedWireIds);
@@ -1695,6 +1731,31 @@ class ProductionEngineBridge {
     this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
     this.recordDirtyVisualMetrics(dirtyStats, "position apply");
     return { mutationMs, dirtyStats };
+  }
+
+  applyWireRouteStates(routeStates = [], { refreshIndexes = true } = {}) {
+    const ids = [];
+    (routeStates || []).forEach(state => {
+      const wire = this.scene.getWire(state.id);
+      if (!wire) return;
+      wire.routeStyle = state.routeStyle || (state.routePoints?.length ? "custom" : "bezier");
+      wire.routePoints = cloneRoutePoints(state.routePoints);
+      this.scene.dirtyWires.add(wire.id);
+      ids.push(wire.id);
+    });
+    if (refreshIndexes && ids.length) this.scene.refreshWireIndexes(ids);
+    return ids;
+  }
+
+  commitWireRouteStates(routeStates = []) {
+    let mutationMs = 0;
+    (routeStates || []).forEach(state => {
+      const wire = this.scene.getWire(state.id);
+      if (!wire) return;
+      if (!wire.routePoints?.length && wire.routeStyle !== "orthogonal") return;
+      mutationMs += this.mutations?.commitRoutePoints(this.scene, wire.id) || 0;
+    });
+    return mutationMs;
   }
 
   applyRoutePoints(wireId, points = []) {
@@ -2892,6 +2953,11 @@ function engineCompatibilityDebugEnabled() {
   return params.get("debugCompatibility") === "1" || params.get("debugHud") === "1";
 }
 
+function engineRoutingDebugEnabled() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("debugRouting") === "1" || params.get("debugHud") === "1";
+}
+
 function engineLayerDebugRenderOptions(enabled) {
   if (!enabled) return { debugLayers: false };
   const params = new URLSearchParams(window.location.search);
@@ -3027,12 +3093,15 @@ function wireCreateSummary(state) {
   return `${source} -> ${target}`;
 }
 
-function moveDevicesCommand(beforePositions, afterPositions) {
+function moveDevicesCommand(beforePositions, afterPositions, beforeRouteStates = [], afterRouteStates = []) {
   return {
     type: `MoveDevicesCommand (${afterPositions.length})`,
-    affectedIds: afterPositions.map(item => item.id),
-    undo: bridge => bridge.applyDevicePositions(beforePositions),
-    redo: bridge => bridge.applyDevicePositions(afterPositions)
+    affectedIds: uniqueItems([
+      ...afterPositions.map(item => item.id),
+      ...afterRouteStates.map(item => item.id)
+    ]),
+    undo: bridge => bridge.applyDevicePositions(beforePositions, beforeRouteStates),
+    redo: bridge => bridge.applyDevicePositions(afterPositions, afterRouteStates)
   };
 }
 
@@ -3205,6 +3274,18 @@ function isAdditiveSelectionModifier(event) {
 
 function cloneRoutePoints(points = []) {
   return (points || []).map(point => ({ x: Number(point.x) || 0, y: Number(point.y) || 0 }));
+}
+
+function captureWireRouteStates(scene, wireIds = []) {
+  return uniqueItems(wireIds).map(wireId => {
+    const wire = scene.getWire(wireId);
+    if (!wire) return null;
+    return {
+      id: wire.id,
+      routeStyle: wire.routeStyle || (wire.routePoints?.length ? "custom" : "bezier"),
+      routePoints: cloneRoutePoints(wire.routePoints)
+    };
+  }).filter(Boolean);
 }
 
 function normalizeRoutePointsForBridge(points = []) {

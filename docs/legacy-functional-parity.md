@@ -4,12 +4,15 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 37`
+- Current build label: `Iteration 37.1`
 
-Iteration 37 restores Legacy connector compatibility rules in Engine wire
+Iteration 37.1 builds on Iteration 37, which restored Legacy connector compatibility rules in Engine wire
 creation, including installed SFP/SFP+/QSFP modules, SFP/QSFP fiber-mode family
 compatibility, RJ45 module CAT behaviour, Legacy fiber cable colors, and the
-project-level Bezier vs 90-degree wire routing mode. Viewer/PDF/report visual
+project-level Bezier vs 90-degree wire routing mode. Iteration 37.1 deepens the
+Engine orthogonal route editing path by porting Legacy endpoint-stub repair,
+route-point repair, moved-endpoint repair, and move-command route-state sync.
+Viewer/PDF/report visual
 migration remains paused while the remaining Legacy functional gaps are worked
 through.
 
@@ -42,6 +45,12 @@ In Legacy, switching to 90-degree mode freezes existing connections into
 Legacy preview-route helper for live wire creation, writes new 90-degree wires
 back to `orthogonalRoutePoints`, and syncs route changes when the toolbar mode
 changes.
+
+Iteration 37.1 adds a shared Engine `orthogonalRouting` helper so route-point
+drag, device/jump-node/LED-surface drag, multi-drag, undo/redo, and production
+write-through all use the same Legacy-style 90-degree repair rules. Saved wires
+with `orthogonalRoutePoints` load as orthogonal wires even if the current toolbar
+mode is Bezier.
 
 Existing custom routed wires keep their stored points. Save/load format remains
 unchanged.
