@@ -800,7 +800,8 @@ class EnginePrototype {
     if (this.routePointDrag) {
       const start = performance.now();
       const world = screenToWorld(this.camera, point);
-      this.scene.moveRoutePoint(this.routePointDrag.wireId, this.routePointDrag.pointIndex, world.x, world.y, { refreshIndexes: false });
+      const moved = this.scene.moveRoutePoint(this.routePointDrag.wireId, this.routePointDrag.pointIndex, world.x, world.y, { refreshIndexes: false });
+      if (moved?.moved) this.routePointDrag.pointIndex = moved.pointIndex;
       const dirtyStats = this.renderer.updateDirty(this.scene, {
         wireIds: [this.routePointDrag.wireId],
         refreshCableHops: false
