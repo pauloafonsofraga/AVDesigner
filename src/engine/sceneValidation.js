@@ -46,7 +46,7 @@ export function validateEngineScene(scene, projectData = null) {
 
   sceneWires.forEach(wire => validateWire(scene, wire, errors, warnings, counts));
   validateSelection(scene, errors);
-  validateRoutePointParity(sceneWires, productionConnections, errors, warnings, counts);
+  validateRoutePointParity(sceneWires, productionConnections, root.wireMode === "orthogonal" ? "orthogonal" : "bezier", errors, warnings, counts);
 
   const durationMs = performance.now() - start;
   return {
@@ -117,7 +117,7 @@ function validateSelection(scene, errors) {
   });
 }
 
-function validateRoutePointParity(sceneWires, productionConnections, errors, warnings, counts) {
+function validateRoutePointParity(sceneWires, productionConnections, wireMode, errors, warnings, counts) {
   if (!productionConnections.length) return;
   const connectionById = new Map(productionConnections.map(connection => [String(connection.id || ""), connection]));
   sceneWires.forEach(wire => {
@@ -126,8 +126,18 @@ function validateRoutePointParity(sceneWires, productionConnections, errors, war
       warnings.push(`Scene wire ${wire.id} has no matching production connection ${wire.sourceId || wire.id}.`);
       return;
     }
-    const productionPoints = routePointsFromConnection(connection);
+    const productionPoints = routePointsFromConnection(connection, wireMode);
     const scenePoints = routePointsFromWire(wire);
+    const productionRouteStyle = wireMode === "orthogonal" && Array.isArray(connection?.orthogonalRoutePoints)
+      ? "orthogonal"
+      : productionPoints.length ? "custom" : "bezier";
+    const sceneRouteStyle = wire?.routeStyle === "orthogonal"
+      ? "orthogonal"
+      : scenePoints.length ? "custom" : "bezier";
+    if (productionRouteStyle !== sceneRouteStyle) {
+      counts.routePointMismatches += 1;
+      errors.push(`Wire ${wire.id} route style ${sceneRouteStyle} does not match production ${productionRouteStyle}.`);
+    }
     if (productionPoints.length !== scenePoints.length) {
       counts.routePointMismatches += 1;
       errors.push(`Wire ${wire.id} route point count ${scenePoints.length} does not match production count ${productionPoints.length}.`);
@@ -157,8 +167,8 @@ function checkDuplicates(ids, label, errors) {
   return duplicates;
 }
 
-function routePointsFromConnection(connection) {
-  return (connection?.routePoints || connection?.orthogonalRoutePoints || [])
+function routePointsFromConnection(connection, wireMode = "bezier") {
+  return ((wireMode === "orthogonal" ? connection?.orthogonalRoutePoints : connection?.routePoints) || [])
     .map(point => ({ x: Number(point.x), y: Number(point.y) }))
     .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y));
 }

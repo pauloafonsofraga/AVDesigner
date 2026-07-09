@@ -155,11 +155,15 @@ export class ProjectMutationAdapter {
     if (!wire) return 0;
     const sourceId = String(wire.sourceId || wire.id);
     const entry = this.connectionById.get(sourceId) || this.ensureConnection(scene, wire);
-    const routeKey = Array.isArray(entry.item.orthogonalRoutePoints) ? "orthogonalRoutePoints" : "routePoints";
+    const routeKey = wire.routeStyle === "orthogonal" || Array.isArray(entry.item.orthogonalRoutePoints)
+      ? "orthogonalRoutePoints"
+      : "routePoints";
     entry.item[routeKey] = (wire.routePoints || []).map(point => ({
       x: roundNumber(point.x),
       y: roundNumber(point.y)
     }));
+    if (routeKey === "orthogonalRoutePoints") delete entry.item.routePoints;
+    else delete entry.item.orthogonalRoutePoints;
     this.editedRoutePointCount += 1;
     this.record("edit route point", performance.now() - start, `connections[${entry.index}].${routeKey}`, {
       wireId,
@@ -415,7 +419,7 @@ function rawConnectionFromSceneWireData(sceneData, wire) {
     },
     notes: "",
     fiberMode: wire.fiberMode || "",
-    routePoints: (wire.routePoints || []).map(point => ({ x: roundNumber(point.x), y: roundNumber(point.y) }))
+    ...routeFieldsFromWire(wire)
   };
 }
 
@@ -429,8 +433,18 @@ function rawConnectionFromWire(scene, wire, id) {
     to: endpointToProject(scene, wire.toDeviceId, wire.toConnectorId),
     notes: "",
     fiberMode: wire.fiberMode || "",
-    routePoints: (wire.routePoints || []).map(point => ({ x: roundNumber(point.x), y: roundNumber(point.y) }))
+    ...routeFieldsFromWire(wire)
   };
+}
+
+function routeFieldsFromWire(wire) {
+  const points = (wire.routePoints || []).map(point => ({
+    x: roundNumber(point.x),
+    y: roundNumber(point.y)
+  }));
+  return wire.routeStyle === "orthogonal"
+    ? { orthogonalRoutePoints: points }
+    : { routePoints: points };
 }
 
 function endpointToProject(scene, deviceId, connectorId) {

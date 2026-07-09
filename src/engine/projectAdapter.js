@@ -175,6 +175,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
   const jumpDevices = normalizeJumpNodes(root.jumpNodes || []);
   const surfaceDevices = normalizeLedSurfaces(root.ledSurfaces || []);
   const surfaceConnectionOrder = buildSurfaceConnectionOrder(root.connections || []);
+  const wireMode = root.wireMode === "orthogonal" ? "orthogonal" : "bezier";
   surfaceDevices.forEach(surface => {
     surface.portCount = Math.max(surface.portCount || 1, surfaceConnectionOrder.get(surface.id)?.length || 1);
   });
@@ -195,6 +196,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
       jumpNodeIds,
       surfaceIds,
       surfaceConnectionOrder,
+      wireMode,
       nodeColorByType
     });
     if (!normalized) skipped.wires += 1;
@@ -554,7 +556,7 @@ function normalizeProjectWire(wire, index, context) {
   if (!from || !to || !context.deviceIds.has(from.deviceId) || !context.deviceIds.has(to.deviceId)) return null;
   const cableType = String(wire.cableType || wire.type || "");
   const fiberMode = String(wire.fiberMode || "");
-  const usesOrthogonalRoute = Array.isArray(wire.orthogonalRoutePoints);
+  const usesOrthogonalRoute = context.wireMode === "orthogonal" && Array.isArray(wire.orthogonalRoutePoints);
   const routePoints = normalizeRoutePoints(usesOrthogonalRoute ? wire.orthogonalRoutePoints : wire.routePoints);
   return {
     id: String(wire.id || `project-wire-${index}`),

@@ -853,6 +853,23 @@ class ProductionEngineBridge {
     this.updateCanvasCursor();
   }
 
+  currentWireRouteMode() {
+    const mode = typeof window !== "undefined" ? window.__avDesignerWireRouting?.mode?.() : "";
+    return mode === "orthogonal" ? "orthogonal" : "bezier";
+  }
+
+  wireRouteForEndpoints(from, to) {
+    if (this.currentWireRouteMode() !== "orthogonal") {
+      return { routeStyle: "bezier", routePoints: [] };
+    }
+    return {
+      routeStyle: "orthogonal",
+      routePoints: normalizeRoutePointsForBridge(
+        typeof window !== "undefined" ? window.__avDesignerWireRouting?.orthogonalInteriorPoints?.(from, to) : []
+      )
+    };
+  }
+
   completeWireCreate() {
     const commitStart = performance.now();
     const source = this.wireCreate?.from;
@@ -880,6 +897,7 @@ class ProductionEngineBridge {
       || source.connector.color
       || target.connector.color
       || "#32b6ff";
+    const route = this.wireRouteForEndpoints(source.point, target.point);
     const wire = this.scene.addWire({
       fromDeviceId: source.device.id,
       fromConnectorId: source.connector.id,
@@ -887,7 +905,9 @@ class ProductionEngineBridge {
       toConnectorId: target.connector.id,
       color: wireColor,
       cableType,
-      fiberMode
+      fiberMode,
+      routeStyle: route.routeStyle,
+      routePoints: route.routePoints
     });
     if (!wire) {
       this.updateInteractionHud("wire-create failed");
@@ -1129,11 +1149,15 @@ class ProductionEngineBridge {
   interactionRenderState() {
     const compatibility = this.currentWireCompatibility();
     const wireTargetValid = this.wireCreate?.target ? compatibility.valid : false;
+    const tempTo = this.wireCreate?.target?.point || this.wireCreate?.pointerWorld;
+    const tempRoute = this.wireCreate ? this.wireRouteForEndpoints(this.wireCreate.from.point, tempTo) : null;
     const tempWire = this.wireCreate
       ? {
         from: this.wireCreate.from.point,
-        to: this.wireCreate.target?.point || this.wireCreate.pointerWorld,
+        to: tempTo,
         color: this.wireCreate.color,
+        routeStyle: tempRoute.routeStyle,
+        routePoints: tempRoute.routePoints,
         sourceHit: this.wireCreate.from,
         targetHit: this.wireCreate.target,
         targetPoint: this.wireCreate.target?.point || null,
@@ -1382,6 +1406,10 @@ class ProductionEngineBridge {
     if (wireData.fiberMode !== undefined) wire.fiberMode = String(wireData.fiberMode || "");
     if (wireData.label !== undefined) wire.label = String(wireData.label || wire.cableType || wire.id);
     if (wireData.length !== undefined) wire.length = String(wireData.length || "");
+    if (wireData.routeStyle !== undefined || wireData.routePoints !== undefined) {
+      wire.routePoints = normalizeRoutePointsForBridge(wireData.routePoints);
+      wire.routeStyle = wireData.routeStyle === "orthogonal" ? "orthogonal" : wire.routePoints.length ? "custom" : "bezier";
+    }
     if (wireData.color !== undefined) {
       wire.color = String(wireData.color || "");
     } else {
@@ -3145,6 +3173,7 @@ function cloneWire(wire) {
     toSide: wire.toSide,
     fromPortIndex: wire.fromPortIndex,
     toPortIndex: wire.toPortIndex,
+    routeStyle: wire.routeStyle,
     routePoints: cloneRoutePoints(wire.routePoints),
     fromUsesRealConnector: wire.fromUsesRealConnector,
     toUsesRealConnector: wire.toUsesRealConnector,
@@ -3175,6 +3204,12 @@ function isAdditiveSelectionModifier(event) {
 
 function cloneRoutePoints(points = []) {
   return (points || []).map(point => ({ x: Number(point.x) || 0, y: Number(point.y) || 0 }));
+}
+
+function normalizeRoutePointsForBridge(points = []) {
+  return (points || [])
+    .map(point => ({ x: Number(point?.x), y: Number(point?.y) }))
+    .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y));
 }
 
 function endpointLabel(scene, deviceId, connectorId) {

@@ -1275,9 +1275,13 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
   }
 
   if (interaction.tempWire?.from && interaction.tempWire?.to) {
+    const tempRoutePoints = Array.isArray(interaction.tempWire.routePoints) ? interaction.tempWire.routePoints : [];
     pushPolyline(
       vertices,
-      wirePolylineFromPoints({ routeStyle: "bezier", routePoints: [] }, [interaction.tempWire.from, interaction.tempWire.to]),
+      wirePolylineFromPoints(
+        { routeStyle: interaction.tempWire.routeStyle || "bezier", routePoints: tempRoutePoints },
+        [interaction.tempWire.from, ...tempRoutePoints, interaction.tempWire.to]
+      ),
       3.4,
       interaction.tempWire.color || "#32b6ff"
     );

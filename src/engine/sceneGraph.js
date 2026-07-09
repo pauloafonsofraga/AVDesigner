@@ -436,7 +436,17 @@ export class SceneGraph {
     return true;
   }
 
-  addWire({ fromDeviceId, fromConnectorId, toDeviceId, toConnectorId, color = "#32b6ff", cableType = "Test Cable", fiberMode = "" }) {
+  addWire({
+    fromDeviceId,
+    fromConnectorId,
+    toDeviceId,
+    toConnectorId,
+    color = "#32b6ff",
+    cableType = "Test Cable",
+    fiberMode = "",
+    routeStyle = "bezier",
+    routePoints = []
+  }) {
     const fromDevice = this.getDevice(fromDeviceId);
     const toDevice = this.getDevice(toDeviceId);
     const fromConnector = this.getConnector(fromDeviceId, fromConnectorId);
@@ -457,6 +467,8 @@ export class SceneGraph {
       color,
       cableType,
       fiberMode,
+      routeStyle,
+      routePoints,
       label: `${fromConnector.label || fromConnector.type || "Connector"} to ${toConnector.label || toConnector.type || "Connector"}`
     });
     this.wires.push(wire);
