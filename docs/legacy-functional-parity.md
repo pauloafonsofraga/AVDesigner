@@ -4,14 +4,16 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 37.1`
+- Current build label: `Iteration 37.2`
 
-Iteration 37.1 builds on Iteration 37, which restored Legacy connector compatibility rules in Engine wire
+Iteration 37.2 builds on Iteration 37, which restored Legacy connector compatibility rules in Engine wire
 creation, including installed SFP/SFP+/QSFP modules, SFP/QSFP fiber-mode family
 compatibility, RJ45 module CAT behaviour, Legacy fiber cable colors, and the
-project-level Bezier vs 90-degree wire routing mode. Iteration 37.1 deepens the
+project-level Bezier vs 90-degree wire routing mode. Iteration 37.1 deepened the
 Engine orthogonal route editing path by porting Legacy endpoint-stub repair,
 route-point repair, moved-endpoint repair, and move-command route-state sync.
+Iteration 37.2 restores the Legacy direct segment-drag interaction for
+orthogonal middle doglegs.
 Viewer/PDF/report visual
 migration remains paused while the remaining Legacy functional gaps are worked
 through.
@@ -51,6 +53,12 @@ drag, device/jump-node/LED-surface drag, multi-drag, undo/redo, and production
 write-through all use the same Legacy-style 90-degree repair rules. Saved wires
 with `orthogonalRoutePoints` load as orthogonal wires even if the current toolbar
 mode is Bezier.
+
+Iteration 37.2 adds direct segment dragging for Engine orthogonal wires. The
+Engine hit-test path can now distinguish a selected route-point handle from a
+middle vertical/horizontal segment. Dragging that segment moves the two adjacent
+interior route points together on the constrained axis while endpoint-attached
+stubs remain protected, matching the Legacy `startWireSegmentDrag(...)` rule.
 
 Existing custom routed wires keep their stored points. Save/load format remains
 unchanged.

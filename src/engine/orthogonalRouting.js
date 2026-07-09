@@ -265,6 +265,59 @@ export function orthogonalWirePoints({ from, to, routePoints = [], fromMoved = f
   return ensureOrthogonalFullPath([from, ...interior, to]);
 }
 
+export function orthogonalRouteSegmentInfo({ routePoints = [], segmentIndex = -1, from, to } = {}) {
+  const full = orthogonalWirePoints({ from, to, routePoints });
+  const index = Math.floor(Number(segmentIndex));
+  const a = full[index];
+  const b = full[index + 1];
+  const orientation = a && b ? segmentOrientation(a, b) : null;
+  const endpointStub = index <= 0 || index >= full.length - 2;
+  if (!a || !b || !orientation) {
+    return { draggable: false, reason: "not-orthogonal", segmentIndex: index, full };
+  }
+  if (endpointStub) {
+    return { draggable: false, reason: "endpoint-stub", segmentIndex: index, orientation, full, a, b };
+  }
+  return {
+    draggable: true,
+    reason: "",
+    segmentIndex: index,
+    orientation,
+    fixed: orientation === "h" ? routeCoord(a.y) : routeCoord(a.x),
+    min: orientation === "h" ? Math.min(routeCoord(a.x), routeCoord(b.x)) : Math.min(routeCoord(a.y), routeCoord(b.y)),
+    max: orientation === "h" ? Math.max(routeCoord(a.x), routeCoord(b.x)) : Math.max(routeCoord(a.y), routeCoord(b.y)),
+    full,
+    a,
+    b
+  };
+}
+
+export function moveOrthogonalRouteSegment({ routePoints = [], segmentIndex = -1, fixed, from, to } = {}) {
+  const info = orthogonalRouteSegmentInfo({ routePoints, segmentIndex, from, to });
+  if (!info.draggable) return { ...info, routePoints, moved: false };
+  const nextFixed = routeCoord(fixed);
+  const updated = info.full.map(point => ({ ...point }));
+  if (info.orientation === "h") {
+    updated[info.segmentIndex].y = nextFixed;
+    updated[info.segmentIndex + 1].y = nextFixed;
+  } else {
+    updated[info.segmentIndex].x = nextFixed;
+    updated[info.segmentIndex + 1].x = nextFixed;
+  }
+  const nextRoutePoints = storableOrthogonalInteriorPoints(updated.slice(1, -1), from, to);
+  return {
+    ...orthogonalRouteSegmentInfo({
+      routePoints: nextRoutePoints,
+      segmentIndex: info.segmentIndex,
+      from,
+      to
+    }),
+    routePoints: nextRoutePoints,
+    fixed: nextFixed,
+    moved: true
+  };
+}
+
 export function shiftRoutePoints(routePoints = [], dx = 0, dy = 0) {
   return routePoints.map((point) => ({
     x: routeCoord(point.x + dx),

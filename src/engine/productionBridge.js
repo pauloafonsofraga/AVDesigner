@@ -58,6 +58,7 @@ class ProductionEngineBridge {
     this.pendingDrag = null;
     this.panState = null;
     this.routePointDrag = null;
+    this.wireSegmentDrag = null;
     this.wireCreate = null;
     this.marqueeState = null;
     this.marqueeElement = null;
@@ -451,6 +452,12 @@ class ProductionEngineBridge {
 
     const wireHit = hitTestWire(this.scene, world, tolerance);
     if (wireHit.wire) {
+      if (!additiveSelection && this.beginWireSegmentDrag(wireHit, point, world)) {
+        this.updateSelectionHud();
+        this.updateInteractionHud("wire-segment-drag", wireHit);
+        this.scheduleRender();
+        return;
+      }
       this.clearHoverState("wire-select", { render: false });
       if (additiveSelection) this.scene.toggleWireSelection(wireHit.wire.wire.id);
       else this.scene.selectWireOnly(wireHit.wire.wire.id);
@@ -499,7 +506,7 @@ class ProductionEngineBridge {
     }
     event.preventDefault();
     event.stopPropagation();
-    if (this.dragSession || this.pendingDrag || this.panState || this.routePointDrag || this.wireCreate || this.marqueeState) {
+    if (this.dragSession || this.pendingDrag || this.panState || this.routePointDrag || this.wireSegmentDrag || this.wireCreate || this.marqueeState) {
       this.cancelActiveInteraction("context-menu", { updateHud: false });
     }
     const target = this.contextMenuTarget(event);
@@ -551,6 +558,37 @@ class ProductionEngineBridge {
       this.lastDirtyWireIds = new Set([this.routePointDrag.wireId]);
       this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
       this.renderer.setRenderOptions(this.renderOptions);
+      this.hud.setMetric("dragDraw", `${(performance.now() - start).toFixed(3)} ms`);
+      this.hud.setMetric("dirty counts", `${dirtyStats.dirtyDevices} dev / ${dirtyStats.dirtyWires} wires`);
+      this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
+      this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
+      this.scheduleRender();
+      return;
+    }
+    if (this.wireSegmentDrag) {
+      const start = performance.now();
+      const world = screenToWorld(this.camera, point);
+      const delta = this.wireSegmentDrag.orientation === "h"
+        ? world.y - this.wireSegmentDrag.startWorld.y
+        : world.x - this.wireSegmentDrag.startWorld.x;
+      const moved = this.scene.moveOrthogonalSegment(
+        this.wireSegmentDrag.wireId,
+        this.wireSegmentDrag.segmentIndex,
+        this.wireSegmentDrag.originalFixed + delta,
+        { refreshIndexes: false }
+      );
+      if (moved?.moved) {
+        this.wireSegmentDrag.moved = true;
+        this.wireSegmentDrag.currentFixed = moved.fixed;
+      }
+      const dirtyStats = this.renderer.updateDirty(this.scene, {
+        wireIds: [this.wireSegmentDrag.wireId],
+        refreshCableHops: false
+      });
+      this.lastDirtyWireIds = new Set([this.wireSegmentDrag.wireId]);
+      this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+      this.renderer.setRenderOptions(this.renderOptions);
+      this.hud.setMetric("segment drag", wireSegmentDragSummary(this.wireSegmentDrag));
       this.hud.setMetric("dragDraw", `${(performance.now() - start).toFixed(3)} ms`);
       this.hud.setMetric("dirty counts", `${dirtyStats.dirtyDevices} dev / ${dirtyStats.dirtyWires} wires`);
       this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
@@ -643,6 +681,28 @@ class ProductionEngineBridge {
       this.updateInteractionHud("idle");
       this.hud.setMetric("route point commit", `${(performance.now() - commitStart).toFixed(2)} ms`);
     }
+    if (this.wireSegmentDrag) {
+      const commitStart = performance.now();
+      const { wireId, beforePoints, moved } = this.wireSegmentDrag;
+      if (moved) {
+        this.scene.refreshWireIndexes([wireId]);
+        const afterPoints = cloneRoutePoints(this.scene.getWire(wireId)?.routePoints || []);
+        this.beginProductionCommit("wire segment");
+        const mutationMs = this.mutations?.commitRoutePoints(this.scene, wireId) || 0;
+        const dirtyStats = this.renderer.updateDirty(this.scene, { wireIds: [wireId] });
+        this.lastDirtyWireIds = new Set([wireId]);
+        this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+        this.renderer.setRenderOptions(this.renderOptions);
+        this.recordDirtyVisualMetrics(dirtyStats, "wire segment final");
+        this.markCommitted("wire segment", mutationMs);
+        this.recordCommand(wireSegmentCommand(wireId, beforePoints, afterPoints));
+        this.hud.setMetric("wire segment commit", `${(performance.now() - commitStart).toFixed(2)} ms`);
+      }
+      this.wireSegmentDrag = null;
+      this.canvas.classList.remove("dragging");
+      this.updateCanvasCursor();
+      this.updateInteractionHud("idle");
+    }
     if (this.wireCreate) this.completeWireCreate();
     if (this.marqueeState) this.completeMarquee();
     if (this.pendingDrag) {
@@ -667,7 +727,7 @@ class ProductionEngineBridge {
   }
 
   handleLostPointerCapture() {
-    if (!this.dragSession && !this.pendingDrag && !this.panState && !this.routePointDrag && !this.wireCreate && !this.marqueeState) return;
+    if (!this.dragSession && !this.pendingDrag && !this.panState && !this.routePointDrag && !this.wireSegmentDrag && !this.wireCreate && !this.marqueeState) return;
     this.cancelActiveInteraction("lost-pointer-capture");
     this.scheduleRender();
   }
@@ -700,7 +760,7 @@ class ProductionEngineBridge {
       return;
     }
     if (event.key !== "Escape") return;
-    if (this.wireCreate || this.routePointDrag || this.marqueeState || this.dragSession || this.pendingDrag || this.panState) {
+    if (this.wireCreate || this.routePointDrag || this.wireSegmentDrag || this.marqueeState || this.dragSession || this.pendingDrag || this.panState) {
       consumeEngineShortcut(event);
       this.cancelActiveInteraction("cancelled");
       this.scheduleRender();
@@ -841,6 +901,32 @@ class ProductionEngineBridge {
     };
     this.canvas.classList.add("dragging");
     this.updateCanvasCursor();
+  }
+
+  beginWireSegmentDrag(wireHit, screenPoint, worldPoint) {
+    const wire = wireHit?.wire;
+    if (!wire || wire.routeStyle !== "orthogonal") return false;
+    const info = this.scene.orthogonalSegmentInfo(wire.id, wireHit.segmentIndex);
+    this.hud?.setMetric("segment hit", info.draggable
+      ? `${wire.id}:${info.segmentIndex} ${info.orientation}`
+      : `${wire.id}:${wireHit.segmentIndex} blocked ${info.reason || "unknown"}`);
+    if (!info.draggable) return false;
+    this.clearHoverState("wire-segment-drag", { render: false });
+    this.scene.selectWireOnly(wire.id);
+    this.wireSegmentDrag = {
+      wireId: wire.id,
+      segmentIndex: info.segmentIndex,
+      orientation: info.orientation,
+      startScreen: { ...screenPoint },
+      startWorld: { ...worldPoint },
+      originalFixed: info.fixed,
+      currentFixed: info.fixed,
+      beforePoints: cloneRoutePoints(wire.routePoints),
+      moved: false
+    };
+    this.canvas.classList.add("dragging");
+    this.updateCanvasCursor();
+    return true;
   }
 
   beginWireCreate(connectorHit, worldPoint) {
@@ -1028,6 +1114,7 @@ class ProductionEngineBridge {
   }
 
   cancelActiveInteraction(reason = "cancelled", { updateHud = true } = {}) {
+    this.cancelWireSegmentDrag(reason);
     this.pendingDrag = null;
     this.dragSession = null;
     this.panState = null;
@@ -1038,6 +1125,30 @@ class ProductionEngineBridge {
     this.clearHoverState(reason, { render: false });
     this.updateCanvasCursor();
     if (updateHud) this.updateInteractionHud(reason);
+  }
+
+  cancelWireSegmentDrag(reason = "cancelled") {
+    const drag = this.wireSegmentDrag;
+    if (!drag) return false;
+    if (drag.moved) {
+      const wire = this.scene.getWire(drag.wireId);
+      if (wire) {
+        wire.routePoints = cloneRoutePoints(drag.beforePoints);
+        this.scene.dirtyWires.add(wire.id);
+        this.scene.refreshWireIndexes([wire.id]);
+        const dirtyStats = this.renderer.updateDirty(this.scene, {
+          wireIds: [wire.id],
+          refreshCableHops: false
+        });
+        this.lastDirtyWireIds = new Set([wire.id]);
+        this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+        this.renderer.setRenderOptions(this.renderOptions);
+        this.hud?.setMetric("segment cancel", `${reason} reverted ${wire.id}`);
+        this.hud?.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+      }
+    }
+    this.wireSegmentDrag = null;
+    return true;
   }
 
   updateHover(world, screenPoint = null) {
@@ -1223,7 +1334,7 @@ class ProductionEngineBridge {
     if (!this.debugRouting && !this.debugLayerMode) return;
     const selectedWireId = [...this.scene.selectedWireIds][0] || "";
     const selectedRoutePointKey = [...this.scene.selectedRoutePointKeys][0] || "";
-    const routeWireId = selectedWireId || (selectedRoutePointKey ? selectedRoutePointKey.split(":")[0] : "");
+    const routeWireId = this.wireSegmentDrag?.wireId || selectedWireId || (selectedRoutePointKey ? selectedRoutePointKey.split(":")[0] : "");
     const wire = routeWireId ? this.scene.getWire(routeWireId) : null;
     if (!wire) {
       this.hud.setMetric("route debug wire", "-");
@@ -1241,6 +1352,19 @@ class ProductionEngineBridge {
     this.hud.setMetric("route endpoints", `${roundForUi(from.x)},${roundForUi(from.y)} -> ${roundForUi(to.x)},${roundForUi(to.y)}`);
     this.hud.setMetric("route owners", `${fromOwner?.ownerId || "-"} -> ${toOwner?.ownerId || "-"}`);
     this.hud.setMetric("route hops", hopCount);
+    const hoveredSegment = this.hoverState.wire?.wire?.id === wire.id ? this.hoverState.wire : null;
+    const segmentInfo = this.wireSegmentDrag
+      ? this.scene.orthogonalSegmentInfo(wire.id, this.wireSegmentDrag.segmentIndex)
+      : hoveredSegment
+        ? this.scene.orthogonalSegmentInfo(wire.id, hoveredSegment.segmentIndex)
+        : null;
+    this.hud.setMetric("route segment", segmentInfo
+      ? `${segmentInfo.segmentIndex} ${segmentInfo.orientation || "-"} ${segmentInfo.draggable ? "draggable" : `blocked:${segmentInfo.reason || "-"}`}`
+      : "-");
+    this.hud.setMetric("route segment drag", this.wireSegmentDrag ? wireSegmentDragSummary(this.wireSegmentDrag) : "-");
+    this.hud.setMetric("route segment points", this.wireSegmentDrag
+      ? `before ${formatRoutePointsForHud(this.wireSegmentDrag.beforePoints)} / now ${formatRoutePointsForHud(wire.routePoints)}`
+      : "-");
   }
 
   updateInteractionHud(mode = "idle", hit = null) {
@@ -1248,9 +1372,11 @@ class ProductionEngineBridge {
     this.hud.setMetric("hovered device", this.hoverState.device ? deviceSummary(this.hoverState.device) : "-");
     this.hud.setMetric("hovered connector", this.hoverState.connector ? connectorSummary(this.hoverState.connector) : "-");
     this.hud.setMetric("hovered wire", this.hoverState.wire ? wireSummary(this.hoverState.wire.wire) : "-");
+    this.hud.setMetric("hovered segment", this.hoverState.wire ? wireSegmentHitSummary(this.scene, this.hoverState.wire) : "-");
     this.hud.setMetric("hovered route point", this.hoverState.routePoint ? `${this.hoverState.routePoint.wire.id}:${this.hoverState.routePoint.pointIndex}` : "-");
     this.hud.setMetric("interaction mode", mode);
     this.hud.setMetric("wire creation", this.wireCreate ? wireCreateSummary(this.wireCreate) : "-");
+    this.hud.setMetric("segment drag", this.wireSegmentDrag ? wireSegmentDragSummary(this.wireSegmentDrag) : "-");
     this.hud.setMetric("wire target", this.wireCreate?.target ? (compatibility.valid ? `valid: ${compatibility.rule}` : `invalid: ${compatibility.reason}`) : "-");
     if (this.debugCompatibility) {
       this.hud.setMetric("compatibility types", this.wireCreate?.target ? `${compatibility.rawSourceType || "-"}(${compatibility.sourceType || "-"}) -> ${compatibility.rawTargetType || "-"}(${compatibility.targetType || "-"})` : "-");
@@ -2109,7 +2235,7 @@ class ProductionEngineBridge {
       this.setEngineWarning("validation", "Validation skipped while the engine is loading.");
       return;
     }
-    if (this.dragSession || this.pendingDrag || this.routePointDrag || this.wireCreate || this.marqueeState) {
+    if (this.dragSession || this.pendingDrag || this.routePointDrag || this.wireSegmentDrag || this.wireCreate || this.marqueeState) {
       this.setEngineWarning("validation", "Validation skipped during active interaction.");
       return;
     }
@@ -2301,7 +2427,7 @@ class ProductionEngineBridge {
     if (!this.ready) {
       cursor = "wait";
       cursorState = "loading";
-    } else if (this.panState || this.dragSession || this.routePointDrag) {
+    } else if (this.panState || this.dragSession || this.routePointDrag || this.wireSegmentDrag) {
       cursor = "grabbing";
       cursorState = this.panState ? "panning" : "dragging";
     } else if (this.wireCreate || this.hoverState.connector || this.marqueeState) {
@@ -3093,6 +3219,26 @@ function wireCreateSummary(state) {
   return `${source} -> ${target}`;
 }
 
+function wireSegmentHitSummary(scene, hit) {
+  if (!hit?.wire) return "-";
+  const info = scene?.orthogonalSegmentInfo?.(hit.wire.id, hit.segmentIndex);
+  if (!info || hit.wire.routeStyle !== "orthogonal") return `${hit.wire.id}:${hit.segmentIndex} bezier/custom`;
+  return `${hit.wire.id}:${info.segmentIndex} ${info.orientation || "-"} ${info.draggable ? "drag" : `blocked ${info.reason || "-"}`}`;
+}
+
+function wireSegmentDragSummary(drag) {
+  if (!drag) return "-";
+  const axis = drag.orientation === "h" ? "Y" : "X";
+  const fixed = Number.isFinite(Number(drag.currentFixed)) ? Number(drag.currentFixed).toFixed(0) : "-";
+  return `${drag.wireId}:${drag.segmentIndex} ${drag.orientation} axis ${axis} fixed ${fixed}${drag.moved ? " moved" : ""}`;
+}
+
+function formatRoutePointsForHud(points = []) {
+  const list = (points || []).slice(0, 6).map(point => `${roundForUi(point.x)},${roundForUi(point.y)}`);
+  const suffix = (points || []).length > list.length ? ` +${(points || []).length - list.length}` : "";
+  return `[${list.join(" | ")}${suffix}]`;
+}
+
 function moveDevicesCommand(beforePositions, afterPositions, beforeRouteStates = [], afterRouteStates = []) {
   return {
     type: `MoveDevicesCommand (${afterPositions.length})`,
@@ -3108,6 +3254,15 @@ function moveDevicesCommand(beforePositions, afterPositions, beforeRouteStates =
 function routePointCommand(wireId, beforePoints, afterPoints) {
   return {
     type: "MoveRoutePointCommand",
+    affectedIds: [wireId],
+    undo: bridge => bridge.applyRoutePoints(wireId, beforePoints),
+    redo: bridge => bridge.applyRoutePoints(wireId, afterPoints)
+  };
+}
+
+function wireSegmentCommand(wireId, beforePoints, afterPoints) {
+  return {
+    type: "MoveWireSegmentCommand",
     affectedIds: [wireId],
     undo: bridge => bridge.applyRoutePoints(wireId, beforePoints),
     redo: bridge => bridge.applyRoutePoints(wireId, afterPoints)

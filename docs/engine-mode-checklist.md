@@ -1,9 +1,9 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
-Iteration 37.1 keeps the Iteration 36.1 Legacy connector compatibility rules,
+Iteration 37.2 keeps the Iteration 36.1 Legacy connector compatibility rules,
 the Iteration 36.3 installed SFP/SFP+/QSFP module scene sync, restores
 Legacy SFP/QSFP fiber module compatibility plus fiber cable colors, and
-deepens the Legacy Bezier vs 90-degree wire routing port in the Engine Editor.
+restores Legacy orthogonal segment dragging in the Engine Editor.
 Viewer, PDF, and report visual migration remains paused. The current
 functional audit lives in
 [`docs/legacy-functional-parity.md`](legacy-functional-parity.md) and uses
@@ -30,6 +30,11 @@ drag, multi-drag, undo/redo, and production write-through, orthogonal wires now
 preserve horizontal connector exits and keep stored handles in
 `orthogonalRoutePoints`.
 
+Iteration 37.2 adds the Legacy direct segment-drag interaction for 90-degree
+wires. Route-point handles still have priority, endpoint-attached stubs remain
+protected, and dragging a middle vertical or horizontal segment moves its two
+adjacent interior route points together on the constrained axis.
+
 This is a narrow output-renderer pass, not a full viewer rewrite. The exported
 standalone HTML viewer now embeds Engine-style wire path and cable-hop geometry
 helpers for Bezier, custom-routed, and orthogonal/custom-corner wires. Cable-hop
@@ -39,11 +44,11 @@ PDF and report drawing paths are deliberately unchanged.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags.
 
-Current visible build label: `Iteration 37.1`.
+Current visible build label: `Iteration 37.2`.
 The app top bar must show one of these labels:
 
-- `Iteration 37.1 — Engine Editor — iteration37-1`
-- `Iteration 37.1 — Legacy Editor — iteration37-1`
+- `Iteration 37.2 — Engine Editor — iteration37-2`
+- `Iteration 37.2 — Legacy Editor — iteration37-2`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -52,30 +57,30 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration37-1`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration37-1`.
+   `index.html?v=iteration37-2`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration37-2`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration37-1`.
+   `index.html?engineDefaultTest=1&v=iteration37-2`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration37-1`.
+   `index.html?legacy=1&v=iteration37-2`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration37-1`.
+   `index.html?engine=0&v=iteration37-2`.
 7. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration37-1`.
+   `index.html?engine=1&debugLoad=1&v=iteration37-2`.
 8. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration37-1`.
+   `index.html?engine=1&loadDelay=1500&v=iteration37-2`.
 9. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration37-1`.
+   `index.html?engine=1&debugHud=1&v=iteration37-2`.
 10. Open the Device Library drag/drop debug overlay:
-   `index.html?debugLibraryDrag=1&v=iteration37-1`.
+   `index.html?debugLibraryDrag=1&v=iteration37-2`.
 11. Open the explicit Engine drag/drop debug overlay:
-   `index.html?engine=1&debugLibraryDrag=1&v=iteration37-1`.
+   `index.html?engine=1&debugLibraryDrag=1&v=iteration37-2`.
 12. Open the Legacy drag/drop debug overlay:
-   `index.html?legacy=1&debugLibraryDrag=1&v=iteration37-1`.
+   `index.html?legacy=1&debugLibraryDrag=1&v=iteration37-2`.
 13. Open compatibility diagnostics while drawing wires:
-    `index.html?engine=1&debugCompatibility=1&v=iteration37-1`.
+    `index.html?engine=1&debugCompatibility=1&v=iteration37-2`.
 14. Open routing diagnostics while selecting or editing orthogonal wires:
-    `index.html?engine=1&debugHud=1&debugRouting=1&v=iteration37-1`.
+    `index.html?engine=1&debugHud=1&debugRouting=1&v=iteration37-2`.
 15. Confirm the top bar build label matches the mode you intended to test.
 16. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.
@@ -94,9 +99,9 @@ Git commit as the final source of truth when reviewing a pushed change.
 24. The validation script now includes a long mixed undo/redo chain. Confirm the
    JSON output contains a `longChain` section and all `checks` are `ok: true`.
 25. Compare Engine and Legacy connector behavior with the same project:
-   `index.html?v=iteration37-1` beside
-   `index.html?legacy=1&v=iteration37-1`.
-25. In `index.html?engine=1&debugHud=1&v=iteration37-1`, confirm the HUD
+   `index.html?v=iteration37-2` beside
+   `index.html?legacy=1&v=iteration37-2`.
+25. In `index.html?engine=1&debugHud=1&v=iteration37-2`, confirm the HUD
    `load phase`, `load ready`, `wire paths`, `connector overlay`, and
    `connector tooltips` rows update.
 26. Hover and select wires in Engine mode. Confirm hover/selection feedback is
@@ -128,7 +133,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 37. Start a wire from a normal connector and hover/drop on a jump node. Confirm
    the jump endpoint can still act as the wire target without leaving a stale
    connector selection overlay.
-38. Open `index.html?engine=1&debugHud=1&debugLayers=1&v=iteration37-1`, drag
+38. Open `index.html?engine=1&debugHud=1&debugLayers=1&v=iteration37-2`, drag
    a connected jump node with its connected wire selected, and confirm no stale
    selected or hovered wire remains at the original jump-node position.
 39. In the debug layer panel for that same drag, confirm the connected wire has
@@ -149,8 +154,8 @@ Git commit as the final source of truth when reviewing a pushed change.
 44. With the expanded engine HUD open, confirm `device labels hidden` and
    `device labels truncated` update as zoom changes.
 45. Compare cable crossings in Engine and Legacy with the same project:
-    `index.html?v=iteration37-1` beside
-    `index.html?legacy=1&v=iteration37-1`.
+    `index.html?v=iteration37-2` beside
+    `index.html?legacy=1&v=iteration37-2`.
 46. In Engine, inspect Bezier, custom-routed, orthogonal/custom-corner, and
     jump-node-connected wire crossings. Confirm hops are visible and stable
     after pan/zoom.
@@ -159,30 +164,55 @@ Git commit as the final source of truth when reviewing a pushed change.
     return after drop.
 48. Drag a route point near a crossing. Confirm the wire remains editable while
     moving and cable hops finalize after release.
-49. Open `index.html?engine=1&debugHud=1&v=iteration37-1` and confirm the HUD
+49. Open `index.html?engine=1&debugHud=1&v=iteration37-2` and confirm the HUD
     rows `cable hops`, `cable hop calc`, `cable hop candidates`, and
     `cable hop dirty` update.
+50. Open `index.html?engine=1&debugHud=1&debugRouting=1&v=iteration37-2`,
+    create or load a 90-degree wire, and press-drag the middle vertical dogleg
+    segment directly. Confirm the segment moves left/right, both adjacent
+    orange corner handles move together, connector endpoint stubs stay locked
+    to the connector Y positions, and no diagonal spans appear.
+51. Repeat with a middle horizontal segment and confirm it moves only up/down.
+52. Try dragging the first and last endpoint-attached stubs. Confirm they do
+    not start segment drag and only select the wire. The HUD `route segment`
+    row should report `blocked:endpoint-stub`.
+53. Drop a moved segment, undo, redo, save, and reload. Confirm the same
+    `orthogonalRoutePoints` are restored and the route remains 90-degree.
 
-50. Run the fixture validation and confirm the JSON output includes
+54. Run the fixture validation and confirm the JSON output includes
     `outputVisual` rows for `initial`, `final`, and `chain final redo state`.
-51. Run the real-project validation and confirm each `outputVisual` row reports
+55. Run the real-project validation and confirm each `outputVisual` row reports
     finite base polylines, finite hopped polylines, and `deterministic: true`.
-52. Drag a normal device from the Device Library into the Engine Editor canvas.
+56. Drag a normal device from the Device Library into the Engine Editor canvas.
     Confirm it appears under the cursor, is selected, has connectors, can move
     immediately, and Validate Engine Scene still passes.
-53. Drag a project custom device or paired device entry if available. Confirm
+57. Drag a project custom device or paired device entry if available. Confirm
     the Engine Editor creates the expected one or two placed device instances
     as one selection and one undoable command.
-54. Undo and redo the created device. Confirm undo removes it, redo restores
+58. Undo and redo the created device. Confirm undo removes it, redo restores
     the same device ID/data, the viewport does not move, and the device remains
     save/reload compatible.
-55. Repeat a Device Library drag/drop in `index.html?legacy=1&v=iteration37-1`
+59. Repeat a Device Library drag/drop in `index.html?legacy=1&v=iteration37-2`
     to confirm Legacy fallback behaviour is unchanged.
-56. Export a standalone HTML viewer from an Engine-edited project. Confirm
+60. Export a standalone HTML viewer from an Engine-edited project. Confirm
     Bezier wires, custom-routed wires, orthogonal/custom-corner wires, cable
     hops, wire labels, and jump-node z-order look closer to the Engine Editor.
-57. Export a PDF report from the same project. Confirm the PDF still opens and
+61. Export a PDF report from the same project. Confirm the PDF still opens and
     uses the previous PDF path; Iteration 35 does not migrate PDF rendering.
+
+## Iteration 37.2 Focus
+
+- Engine orthogonal wire hit-testing now promotes draggable middle segments to
+  a segment-drag interaction instead of only selecting the wire.
+- Segment drag moves the two adjacent stored interior route points together on
+  one constrained axis: vertical doglegs move left/right and horizontal middle
+  spans move up/down.
+- Endpoint-attached stubs are protected with the same Legacy rule and remain
+  locked to connector positions.
+- Segment drops write through to production route data as one command,
+  preserving save/load, undo/redo, and custom route state.
+- `debugHud=1&debugRouting=1` exposes hovered segment state, active segment
+  drag axis/fixed value, and before/current route point lists.
 
 ## Iteration 37.1 Focus
 

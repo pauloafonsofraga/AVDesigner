@@ -1,6 +1,8 @@
 import { SpatialIndex } from "./spatialIndex.js";
 import {
+  moveOrthogonalRouteSegment,
   moveOrthogonalRoutePoint,
+  orthogonalRouteSegmentInfo,
   orthogonalWirePoints,
   routePointsForMovedEndpoints,
   shiftRoutePoints
@@ -484,6 +486,38 @@ export class SceneGraph {
     this.dirtyWires.add(wireId);
     if (refreshIndexes) this.refreshWireIndexes([wireId]);
     return { moved: true, pointIndex };
+  }
+
+  orthogonalSegmentInfo(wireId, segmentIndex) {
+    const wire = this.getWire(wireId);
+    if (!wire || wire.routeStyle !== "orthogonal") {
+      return { draggable: false, reason: "not-orthogonal", segmentIndex };
+    }
+    return orthogonalRouteSegmentInfo({
+      routePoints: wire.routePoints,
+      segmentIndex,
+      from: this.endpointForWire(wire, "from"),
+      to: this.endpointForWire(wire, "to")
+    });
+  }
+
+  moveOrthogonalSegment(wireId, segmentIndex, fixed, { refreshIndexes = true } = {}) {
+    const wire = this.getWire(wireId);
+    if (!wire || wire.routeStyle !== "orthogonal") {
+      return { moved: false, reason: "not-orthogonal", segmentIndex };
+    }
+    const moved = moveOrthogonalRouteSegment({
+      routePoints: wire.routePoints,
+      segmentIndex,
+      fixed,
+      from: this.endpointForWire(wire, "from"),
+      to: this.endpointForWire(wire, "to")
+    });
+    if (!moved?.moved) return moved;
+    wire.routePoints = moved.routePoints;
+    this.dirtyWires.add(wireId);
+    if (refreshIndexes) this.refreshWireIndexes([wireId]);
+    return moved;
   }
 
   addWire({
