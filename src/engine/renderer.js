@@ -1270,6 +1270,10 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
   (interaction.selectedRoutePoints || new Set()).forEach(key => {
     if (activeRoutePointKey && String(key).split(":")[0] === interaction.activeWireEdit?.wireId) return;
     const [wireId, indexText] = String(key).split(":");
+    if (dragSession?.affectedWireIds?.has(wireId)) {
+      stats.suppressedAffectedWireOverlays += 1;
+      return;
+    }
     const wire = scene.getWire(wireId);
     const point = wire?.routePoints?.[Number(indexText)];
     if (point) pushRoutePointHighlight(vertices, point, 9, "#ff7904");
@@ -1279,8 +1283,13 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
     const point = scene.getWire(wireId)?.routePoints?.[Number(indexText)];
     if (point) pushRoutePointHighlight(vertices, point, 9, "#ff7904");
   }
+  const routePointWireId = interaction.hoveredRoutePoint?.wire?.id;
   const routePoint = interaction.hoveredRoutePoint?.point;
-  if (routePoint) pushRoutePointHighlight(vertices, routePoint, 8, "#ffffff");
+  if (routePoint && !dragSession?.affectedWireIds?.has(routePointWireId)) {
+    pushRoutePointHighlight(vertices, routePoint, 8, "#ffffff");
+  } else if (routePoint) {
+    stats.suppressedAffectedWireOverlays += 1;
+  }
 
   (interaction.selectedConnectors || new Set()).forEach(key => {
     const [deviceId, connectorId] = String(key).split(":");

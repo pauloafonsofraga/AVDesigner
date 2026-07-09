@@ -413,9 +413,9 @@ class ProductionEngineBridge {
     if (routeHit.routePoint) {
       this.clearHoverState("route-point-select", { render: false });
       this.scene.selectRoutePointOnly(routeHit.routePoint.wire.id, routeHit.routePoint.pointIndex);
-      this.beginRoutePointDrag(routeHit.routePoint);
+      const dragMode = this.beginRoutePointDrag(routeHit.routePoint, point, world);
       this.updateSelectionHud();
-      this.updateInteractionHud("route-point-drag", routeHit);
+      this.updateInteractionHud(dragMode === "segment" ? "wire-segment-drag" : "route-point-drag", routeHit);
       this.scheduleRender();
       return;
     }
@@ -893,7 +893,23 @@ class ProductionEngineBridge {
     this.updateLayerDebugPanel();
   }
 
-  beginRoutePointDrag(routePoint) {
+  orthogonalSegmentForRoutePoint(routePoint) {
+    if (!routePoint?.wire || routePoint.wire.routeStyle !== "orthogonal") return null;
+    const fullIndex = Number(routePoint.pointIndex) + 1;
+    const candidates = [fullIndex - 1, fullIndex].filter(index => Number.isFinite(index) && index >= 0);
+    for (const segmentIndex of candidates) {
+      const info = this.scene.orthogonalSegmentInfo(routePoint.wire.id, segmentIndex);
+      if (info.draggable) return info.segmentIndex;
+    }
+    return null;
+  }
+
+  beginRoutePointDrag(routePoint, screenPoint = null, worldPoint = null) {
+    const segmentIndex = this.orthogonalSegmentForRoutePoint(routePoint);
+    if (segmentIndex !== null && screenPoint && worldPoint) {
+      const started = this.beginWireSegmentDrag({ wire: { wire: routePoint.wire, segmentIndex } }, screenPoint, worldPoint);
+      if (started) return "segment";
+    }
     this.routePointDrag = {
       wireId: routePoint.wire.id,
       pointIndex: routePoint.pointIndex,
@@ -901,6 +917,7 @@ class ProductionEngineBridge {
     };
     this.canvas.classList.add("dragging");
     this.updateCanvasCursor();
+    return "point";
   }
 
   beginWireSegmentDrag(wireHit, screenPoint, worldPoint) {
