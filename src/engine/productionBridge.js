@@ -904,12 +904,16 @@ class ProductionEngineBridge {
   }
 
   beginWireSegmentDrag(wireHit, screenPoint, worldPoint) {
-    const wire = wireHit?.wire;
+    const hit = wireHit?.wire?.wire ? wireHit.wire : wireHit;
+    const wire = hit?.wire || wireHit?.wire;
+    const segmentIndex = Number.isFinite(Number(hit?.segmentIndex))
+      ? Number(hit.segmentIndex)
+      : Number(wireHit?.segmentIndex);
     if (!wire || wire.routeStyle !== "orthogonal") return false;
-    const info = this.scene.orthogonalSegmentInfo(wire.id, wireHit.segmentIndex);
+    const info = this.scene.orthogonalSegmentInfo(wire.id, segmentIndex);
     this.hud?.setMetric("segment hit", info.draggable
       ? `${wire.id}:${info.segmentIndex} ${info.orientation}`
-      : `${wire.id}:${wireHit.segmentIndex} blocked ${info.reason || "unknown"}`);
+      : `${wire.id}:${segmentIndex} blocked ${info.reason || "unknown"}`);
     if (!info.draggable) return false;
     this.clearHoverState("wire-segment-drag", { render: false });
     this.scene.selectWireOnly(wire.id);
@@ -1288,7 +1292,7 @@ class ProductionEngineBridge {
       hoveredConnector: this.hoverState.connector,
       hoveredDevice: this.hoverState.device,
       hoveredWire: this.hoverState.wire,
-      hoveredRoutePoint: this.hoverState.routePoint,
+      hoveredRoutePoint: this.routePointDrag ? null : this.hoverState.routePoint,
       hoverScreenPoint: this.hoverState.screenPoint,
       selectedConnectors: this.scene.selectedConnectorKeys,
       selectedRoutePoints: this.scene.selectedRoutePointKeys,
