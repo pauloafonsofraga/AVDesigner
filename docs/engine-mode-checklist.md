@@ -1,7 +1,8 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
-Iteration 36.1 restores Legacy connector compatibility rules for Engine wire
-creation while viewer/PDF/report visual migration remains paused. The current
+Iteration 36.2 keeps the Iteration 36.1 Legacy connector compatibility rules and
+fixes installed SFP/SFP+/QSFP module state inside the Engine scene graph. Viewer,
+PDF, and report visual migration remains paused. The current
 functional audit lives in
 [`docs/legacy-functional-parity.md`](legacy-functional-parity.md) and uses
 Legacy commit `8301fbf23c82f3e3f2496cb90234019c7bf47958` as the source of
@@ -23,11 +24,11 @@ PDF and report drawing paths are deliberately unchanged.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags.
 
-Current visible build label: `Iteration 36.1`.
+Current visible build label: `Iteration 36.2`.
 The app top bar must show one of these labels:
 
-- `Iteration 36.1 — Engine Editor — iteration36-1`
-- `Iteration 36.1 — Legacy Editor — iteration36-1`
+- `Iteration 36.2 — Engine Editor — iteration36-2`
+- `Iteration 36.2 — Legacy Editor — iteration36-2`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -36,28 +37,28 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration36-1`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration36-1`.
+   `index.html?v=iteration36-2`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration36-2`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration36-1`.
+   `index.html?engineDefaultTest=1&v=iteration36-2`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration36-1`.
+   `index.html?legacy=1&v=iteration36-2`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration36-1`.
+   `index.html?engine=0&v=iteration36-2`.
 7. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration36-1`.
+   `index.html?engine=1&debugLoad=1&v=iteration36-2`.
 8. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration36-1`.
+   `index.html?engine=1&loadDelay=1500&v=iteration36-2`.
 9. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration36-1`.
+   `index.html?engine=1&debugHud=1&v=iteration36-2`.
 10. Open the Device Library drag/drop debug overlay:
-   `index.html?debugLibraryDrag=1&v=iteration36-1`.
+   `index.html?debugLibraryDrag=1&v=iteration36-2`.
 11. Open the explicit Engine drag/drop debug overlay:
-   `index.html?engine=1&debugLibraryDrag=1&v=iteration36-1`.
+   `index.html?engine=1&debugLibraryDrag=1&v=iteration36-2`.
 12. Open the Legacy drag/drop debug overlay:
-   `index.html?legacy=1&debugLibraryDrag=1&v=iteration36-1`.
+   `index.html?legacy=1&debugLibraryDrag=1&v=iteration36-2`.
 13. Open compatibility diagnostics while drawing wires:
-    `index.html?engine=1&debugCompatibility=1&v=iteration36-1`.
+    `index.html?engine=1&debugCompatibility=1&v=iteration36-2`.
 14. Confirm the top bar build label matches the mode you intended to test.
 15. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.
@@ -76,9 +77,9 @@ Git commit as the final source of truth when reviewing a pushed change.
 23. The validation script now includes a long mixed undo/redo chain. Confirm the
    JSON output contains a `longChain` section and all `checks` are `ok: true`.
 24. Compare Engine and Legacy connector behavior with the same project:
-   `index.html?v=iteration36-1` beside
-   `index.html?legacy=1&v=iteration36-1`.
-25. In `index.html?engine=1&debugHud=1&v=iteration36-1`, confirm the HUD
+   `index.html?v=iteration36-2` beside
+   `index.html?legacy=1&v=iteration36-2`.
+25. In `index.html?engine=1&debugHud=1&v=iteration36-2`, confirm the HUD
    `load phase`, `load ready`, `wire paths`, `connector overlay`, and
    `connector tooltips` rows update.
 21. Hover and select wires in Engine mode. Confirm hover/selection feedback is
@@ -110,7 +111,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 32. Start a wire from a normal connector and hover/drop on a jump node. Confirm
    the jump endpoint can still act as the wire target without leaving a stale
    connector selection overlay.
-33. Open `index.html?engine=1&debugHud=1&debugLayers=1&v=iteration36-1`, drag
+33. Open `index.html?engine=1&debugHud=1&debugLayers=1&v=iteration36-2`, drag
    a connected jump node with its connected wire selected, and confirm no stale
    selected or hovered wire remains at the original jump-node position.
 34. In the debug layer panel for that same drag, confirm the connected wire has
@@ -131,8 +132,8 @@ Git commit as the final source of truth when reviewing a pushed change.
 39. With the expanded engine HUD open, confirm `device labels hidden` and
    `device labels truncated` update as zoom changes.
 40. Compare cable crossings in Engine and Legacy with the same project:
-    `index.html?v=iteration36-1` beside
-    `index.html?legacy=1&v=iteration36-1`.
+    `index.html?v=iteration36-2` beside
+    `index.html?legacy=1&v=iteration36-2`.
 41. In Engine, inspect Bezier, custom-routed, orthogonal/custom-corner, and
     jump-node-connected wire crossings. Confirm hops are visible and stable
     after pan/zoom.
@@ -141,7 +142,7 @@ Git commit as the final source of truth when reviewing a pushed change.
     return after drop.
 43. Drag a route point near a crossing. Confirm the wire remains editable while
     moving and cable hops finalize after release.
-44. Open `index.html?engine=1&debugHud=1&v=iteration36-1` and confirm the HUD
+44. Open `index.html?engine=1&debugHud=1&v=iteration36-2` and confirm the HUD
     rows `cable hops`, `cable hop calc`, `cable hop candidates`, and
     `cable hop dirty` update.
 
@@ -158,7 +159,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 49. Undo and redo the created device. Confirm undo removes it, redo restores
     the same device ID/data, the viewport does not move, and the device remains
     save/reload compatible.
-50. Repeat a Device Library drag/drop in `index.html?legacy=1&v=iteration36-1`
+50. Repeat a Device Library drag/drop in `index.html?legacy=1&v=iteration36-2`
     to confirm Legacy fallback behaviour is unchanged.
 51. Export a standalone HTML viewer from an Engine-edited project. Confirm
     Bezier wires, custom-routed wires, orthogonal/custom-corner wires, cable
@@ -166,7 +167,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 52. Export a PDF report from the same project. Confirm the PDF still opens and
     uses the previous PDF path; Iteration 35 does not migrate PDF rendering.
 
-## Iteration 36.1 Focus
+## Iteration 36.2 Focus
 
 - Engine wire creation now uses a shared data-only connector compatibility
   helper based on Legacy commit `8301fbf23c82f3e3f2496cb90234019c7bf47958`.
@@ -180,6 +181,9 @@ Git commit as the final source of truth when reviewing a pushed change.
   empty cages remain invalid, installed LC modules expose `fiber-lc`, installed
   MPO modules expose `fiber-mpo`, RJ45 modules expose the CAT family, and
   incompatible installed modules remain rejected.
+- Iteration 36.2 preserves that installed module metadata through
+  `SceneGraph.setData()` and syncs connector inspector module/fiber changes into
+  the active Engine scene without a full scene reload.
 - `debugHud=1` or `debugCompatibility=1` exposes compatibility rule/type
   diagnostics while drawing a new wire, including raw cage type, installed
   module id/name/type/value, effective connector type, direction, rule, and

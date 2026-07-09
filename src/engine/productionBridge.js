@@ -1313,6 +1313,65 @@ class ProductionEngineBridge {
     this.hud?.setMetric("undo redo", `${this.commandIndex} undo / ${this.commandHistory.length - this.commandIndex} redo`);
   }
 
+  syncConnectorFromProduction(deviceId, connectorId, connectorData = {}) {
+    if (!this.ready) return false;
+    const sourceDeviceId = String(deviceId || "");
+    const sourceConnectorId = String(connectorId || "");
+    const device = this.scene.getDevice(sourceDeviceId)
+      || this.scene.devices.find(item => String(item.sourceId || item.id) === sourceDeviceId);
+    if (!device || !sourceConnectorId) {
+      this.hud?.setMetric("connector sync", `missing ${sourceDeviceId}:${sourceConnectorId}`);
+      return false;
+    }
+    const updated = this.scene.updateConnector(device.id, sourceConnectorId, connectorData);
+    if (!updated) {
+      this.hud?.setMetric("connector sync", `not found ${sourceDeviceId}:${sourceConnectorId}`);
+      return false;
+    }
+    const affectedWireIds = [...this.scene.affectedWireIdsForObjects([device.id])];
+    const dirtyStats = this.renderer.updateDirty(this.scene, {
+      deviceIds: [device.id],
+      wireIds: affectedWireIds,
+      refreshCableHops: false
+    });
+    this.lastDirtyDeviceIds = new Set([device.id]);
+    this.lastDirtyWireIds = new Set(affectedWireIds);
+    this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.hud?.setMetric("connector sync", `${sourceDeviceId}:${sourceConnectorId}`);
+    this.hud?.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+    this.updateSelectionHud();
+    this.updateInteractionHud("connector-sync");
+    this.scheduleRender();
+    return true;
+  }
+
+  removeWiresFromProduction(wireIds = []) {
+    if (!this.ready) return 0;
+    const removedIds = [...new Set((wireIds || []).map(id => String(id || "")).filter(Boolean))];
+    const removedEngineIds = [];
+    let removed = 0;
+    removedIds.forEach(wireId => {
+      const wire = this.scene.getWire(wireId) || this.scene.wires.find(item => String(item.sourceId || item.id) === wireId);
+      if (!wire) return;
+      removedEngineIds.push(wire.id);
+      this.scene.deleteWire(wire.id);
+      removed += 1;
+    });
+    if (!removed) return 0;
+    const dirtyStats = this.renderer.updateDirty(this.scene, { wireIds: removedEngineIds });
+    this.lastDirtyWireIds = new Set(removedEngineIds);
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.hud?.setMetric("connector sync removed wires", removed);
+    this.hud?.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+    this.updateSelectionHud();
+    this.updateInteractionHud("connector-sync-remove-wires");
+    this.scheduleRender();
+    return removed;
+  }
+
   notifyHistoryChange(reason = "") {
     this.api.onEngineHistoryChange?.(this.engineHistoryState(reason));
   }

@@ -507,6 +507,29 @@ export class SceneGraph {
     return connectorId ? device?.connectorsById.get(connectorId) || null : null;
   }
 
+  updateConnector(deviceId, connectorId, patch = {}) {
+    const device = this.getDevice(deviceId);
+    const connector = connectorId ? device?.connectorsById.get(connectorId) : null;
+    if (!device || !connector) return null;
+    // Keep connector metadata updates in-place. Hit-test payloads and selected
+    // connector records hold references to this object, so replacing it would
+    // leave stale SFP/module state in the interaction path.
+    const merged = normalizeConnector({ ...connector, ...patch, id: connector.id }, 0);
+    Object.assign(connector, merged);
+    device.connectorsById.set(connector.id, connector);
+    const point = this.connectorWorldPoint(device, connector);
+    const key = connectorKey(device.id, connector.id);
+    this.connectorIndex.update(key, centeredBounds(point, device.kind === "jump" ? 42 : 24), {
+      id: key,
+      bounds: centeredBounds(point, device.kind === "jump" ? 42 : 24),
+      device,
+      connector,
+      point
+    });
+    this.dirtyDevices.add(device.id);
+    return connector;
+  }
+
   connectorWorldPoint(device, connector) {
     return {
       x: device.x + (Number(connector.x) || 0),
@@ -788,7 +811,19 @@ function normalizeConnector(connector, index) {
     direction: connector.direction || "io",
     side: connector.side || (connector.direction === "input" ? "left" : connector.direction === "output" ? "right" : "center"),
     cardSlotId: connector.cardSlotId || "",
+    cardTypeId: connector.cardTypeId || "",
+    sourceConnectorId: connector.sourceConnectorId || "",
     generatedFromCard: Boolean(connector.generatedFromCard),
+    installedModuleType: connector.installedModuleType || "",
+    installedModuleId: connector.installedModuleId || "",
+    installedModuleName: connector.installedModuleName || "",
+    installedModuleActiveType: connector.installedModuleActiveType || "",
+    installedModuleEffectiveType: connector.installedModuleEffectiveType || "",
+    fiberMode: connector.fiberMode || "",
+    customColor: connector.customColor || "",
+    nameText: connector.nameText || "",
+    customText: connector.customText || "",
+    resolutionFrameRate: connector.resolutionFrameRate || "",
     x: Number.isFinite(x) ? x : 0,
     y: Number.isFinite(y) ? y : 0,
     color: connector.color || "#32b6ff",

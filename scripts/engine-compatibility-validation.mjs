@@ -8,6 +8,8 @@ import {
   installedModuleDetailsForEngine,
   isEngineDeadCageConnector
 } from "../src/engine/connectorCompatibility.js";
+import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
+import { SceneGraph } from "../src/engine/sceneGraph.js";
 
 const cases = [];
 
@@ -146,6 +148,46 @@ expectValid(
 
 assert.equal(areEngineConnectorTypesCompatible(hdmiOut.connector, hdmiIn.connector), true, "same type compatibility");
 assert.equal(areEngineConnectorTypesCompatible(hdmiOut.connector, lcCage.connector), false, "different families incompatible");
+
+const normalizedCageProject = normalizeAvDesignerProject({
+  projectName: "SFP scene preservation test",
+  deviceLibrary: [{
+    id: "sfp-template",
+    name: "SFP Test Device",
+    width: 180,
+    height: 96,
+    connectors: [{
+      id: "sfp-port",
+      label: "SFP+ Cage",
+      type: "sfp-plus-cage",
+      direction: "output",
+      x: 180,
+      y: 48,
+      installedModuleType: ""
+    }]
+  }],
+  devices: [{
+    instanceId: "sfp-device",
+    templateId: "sfp-template",
+    name: "SFP Device",
+    x: 0,
+    y: 0,
+    connectorOverrides: {
+      "sfp-port": {
+        installedModuleType: "lc-multimode",
+        fiberMode: "om4"
+      }
+    }
+  }],
+  connections: []
+}, { dataSource: "compatibility test", sourceName: "SFP scene preservation" });
+const scene = new SceneGraph();
+scene.setData(normalizedCageProject);
+const sceneConnector = scene.getConnector("sfp-device", "sfp-port");
+assert.equal(sceneConnector.installedModuleType, "lc-multimode", "SceneGraph preserves installed SFP module type");
+assert.equal(sceneConnector.fiberMode, "om4", "SceneGraph preserves installed SFP fiber mode");
+assert.equal(effectiveConnectorTypeForEngine(sceneConnector), "fiber-lc", "SceneGraph connector resolves installed SFP module");
+assert.equal(isEngineDeadCageConnector(sceneConnector), false, "SceneGraph installed SFP cage is not dead");
 
 console.log(JSON.stringify({
   ok: true,
