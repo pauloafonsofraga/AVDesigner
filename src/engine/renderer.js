@@ -780,7 +780,10 @@ export class WebglGraphRenderer {
         });
         (options.selectedWireIds || new Set()).forEach(id => {
           const wire = scene.getWire(id);
-          if (wire && renderOptions.wires) pushWireSelection(liveVertices, scene, wire, null, renderOptions, this.cableHopMap);
+          if (wire && renderOptions.wires) {
+            pushWireSelection(liveVertices, scene, wire, null, renderOptions, this.cableHopMap);
+            if (renderOptions.routePoints) pushWireRoutePointHandles(liveVertices, scene, wire, null);
+          }
         });
         if (hoveredWireId && !(options.selectedWireIds || new Set()).has(hoveredWireId)) {
           const wire = scene.getWire(hoveredWireId);
@@ -1514,14 +1517,16 @@ function pushWire(vertices, scene, wire, offsets, width, color, options = DEFAUL
     ? basePoints
     : applyCableHopsToPolyline(basePoints, cableHopMap?.get(wire.id));
   pushPolyline(vertices, points, width, color);
-  if (options.routePoints && wire.routePoints?.length) {
-    const routeOffset = scene.routePointOffsetForWire(wire, offsets);
-    wire.routePoints.forEach(point => {
-      const center = { x: point.x + routeOffset.dx, y: point.y + routeOffset.dy };
-      pushCircle(vertices, center, 5, ROUTE_POINT_COLOR);
-      pushCircleOutline(vertices, center, 7, 1.8, "#ffffff");
-    });
-  }
+}
+
+function pushWireRoutePointHandles(vertices, scene, wire, offsets, fill = ROUTE_POINT_COLOR) {
+  if (!wire?.routePoints?.length) return;
+  const routeOffset = scene.routePointOffsetForWire(wire, offsets);
+  wire.routePoints.forEach(point => {
+    const center = { x: point.x + routeOffset.dx, y: point.y + routeOffset.dy };
+    pushCircle(vertices, center, 5, fill);
+    pushCircleOutline(vertices, center, 7, 1.8, "#ffffff");
+  });
 }
 
 function pushPolyline(vertices, points, width, color) {

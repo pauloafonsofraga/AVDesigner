@@ -408,7 +408,7 @@ class ProductionEngineBridge {
 
     const shouldHitDetails = this.shouldHitTestDetailTargets();
     const routeHit = shouldHitDetails && this.renderOptions.routePoints
-      ? hitTestRoutePoint(this.scene, world, tolerance * 1.2)
+      ? this.hitTestEditableRoutePoint(world, tolerance * 1.2)
       : { routePoint: null, candidates: 0, ms: 0 };
     if (routeHit.routePoint) {
       this.clearHoverState("route-point-select", { render: false });
@@ -869,6 +869,12 @@ class ProductionEngineBridge {
 
   beginDrag(worldPoint, selectedIds = this.scene.selectedIds) {
     const start = performance.now();
+    const clearedWireEditSelection = this.scene.selectedWireIds.size
+      || this.scene.selectedConnectorKeys.size
+      || this.scene.selectedRoutePointKeys.size;
+    this.scene.selectedWireIds.clear();
+    this.scene.selectedConnectorKeys.clear();
+    this.scene.selectedRoutePointKeys.clear();
     this.dragSession = new DragSession({
       scene: this.scene,
       selectedIds,
@@ -879,6 +885,7 @@ class ProductionEngineBridge {
     this.hud.setMetric("affectedLookup", `${this.dragSession.affectedWireLookupMs.toFixed(3)} ms`);
     this.canvas.classList.add("dragging");
     this.updateCanvasCursor();
+    if (clearedWireEditSelection) this.updateSelectionHud();
     this.captureDebugDragTrace();
     this.scheduleRender();
   }
@@ -902,6 +909,25 @@ class ProductionEngineBridge {
       if (info.draggable) return info.segmentIndex;
     }
     return null;
+  }
+
+  routePointHandleIsEditable(routePoint) {
+    if (!routePoint?.wire) return false;
+    const wireId = routePoint.wire.id;
+    const pointKey = `${wireId}:${routePoint.pointIndex}`;
+    return this.scene.selectedWireIds.has(wireId)
+      || this.scene.selectedRoutePointKeys.has(pointKey)
+      || this.routePointDrag?.wireId === wireId
+      || this.wireSegmentDrag?.wireId === wireId;
+  }
+
+  hitTestEditableRoutePoint(world, tolerance) {
+    const hit = hitTestRoutePoint(this.scene, world, tolerance);
+    if (!hit.routePoint || this.routePointHandleIsEditable(hit.routePoint)) return hit;
+    return {
+      ...hit,
+      routePoint: null
+    };
   }
 
   beginRoutePointDrag(routePoint, screenPoint = null, worldPoint = null) {
@@ -1176,7 +1202,7 @@ class ProductionEngineBridge {
     const tolerance = this.hitToleranceWorld();
     const shouldHitDetails = this.shouldHitTestDetailTargets();
     const routeHit = shouldHitDetails && this.renderOptions.routePoints
-      ? hitTestRoutePoint(this.scene, world, tolerance * 1.2)
+      ? this.hitTestEditableRoutePoint(world, tolerance * 1.2)
       : { routePoint: null, candidates: 0, ms: 0 };
     let connectorHit = routeHit.routePoint
       ? { connector: null, candidates: 0, ms: 0 }
@@ -1235,7 +1261,7 @@ class ProductionEngineBridge {
     const tolerance = this.hitToleranceWorld();
     const shouldHitDetails = this.shouldHitTestDetailTargets();
     if (shouldHitDetails && this.renderOptions.routePoints) {
-      const routeHit = hitTestRoutePoint(this.scene, world, tolerance * 1.2);
+      const routeHit = this.hitTestEditableRoutePoint(world, tolerance * 1.2);
       if (routeHit.routePoint) {
         const wire = routeHit.routePoint.wire;
         return {
