@@ -678,13 +678,16 @@ export class WebglGraphRenderer {
     const interaction = options.interactionState || {};
     const selectedWireIds = options.selectedWireIds || new Set();
     const hoveredWireId = interaction.hoveredWire?.wire?.id || interaction.hoveredWireId || "";
+    const activeWireEdit = interaction.activeWireEdit || null;
+    const staticSuppressedWireIds = new Set(dragSession?.affectedWireIds || []);
+    if (activeWireEdit?.wireId) staticSuppressedWireIds.add(activeWireEdit.wireId);
     let sectionStart = performance.now();
     this.drawGrid(camera);
     frameStats.gridMs = performance.now() - sectionStart;
     const layerTrace = this.beginLayerTrace(scene, dragSession, renderOptions, { selectedWireIds, hoveredWireId });
     if (renderOptions.wires && !renderOptions.hideStaticWires) {
       sectionStart = performance.now();
-      this.drawStaticWires(dragSession, layerTrace);
+      this.drawStaticWires(dragSession, layerTrace, staticSuppressedWireIds);
       frameStats.staticWireMs = performance.now() - sectionStart;
     } else {
       this.recordAffectedWires(layerTrace, "staticWireLayer", renderOptions.wires ? "hidden" : "disabled");
@@ -748,6 +751,16 @@ export class WebglGraphRenderer {
       });
       frameStats.selectedObjectOverlayMs = performance.now() - objectOverlayStart;
       frameStats.selectedObjects = dragSession.selectedIds.length;
+    } else if (activeWireEdit?.wireId && renderOptions.wires) {
+      // Route-point and orthogonal-segment edits mutate one wire's route
+      // geometry live. Draw that wire from current scene data while suppressing
+      // its cached static range so old route handles cannot ghost until drop.
+      const wire = scene.getWire(activeWireEdit.wireId);
+      if (wire) {
+        pushWire(liveVertices, scene, wire, null, WIRE_BASE_WIDTH, wireColor(wire, renderOptions), renderOptions, null);
+        this.recordWireLayer(layerTrace, wire.id, "liveRouteEditWireOverlay", "drawn-editing");
+        frameStats.affectedWires = 1;
+      }
     } else if (dragSession) {
       this.recordAffectedWires(layerTrace, "liveDragWireOverlay", "hidden");
       this.recordSelectedObjects(layerTrace, "liveDragObjectOverlay", "hidden");
@@ -984,16 +997,17 @@ export class WebglGraphRenderer {
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
   }
 
-  drawStaticWires(dragSession = null, layerTrace = null) {
-    if (!dragSession?.affectedWireIds?.size) {
+  drawStaticWires(dragSession = null, layerTrace = null, suppressedWireIds = dragSession?.affectedWireIds || new Set()) {
+    const suppressIds = suppressedWireIds || new Set();
+    if (!suppressIds.size) {
       this.drawBuffer(this.staticWireBuffer, this.staticWireVertexCount);
       return;
     }
-    const skippedRanges = [...dragSession.affectedWireIds]
+    const skippedRanges = [...suppressIds]
       .map(id => this.wireRangeMap.get(id))
       .filter(Boolean)
       .sort((a, b) => a.offset - b.offset);
-    dragSession.affectedWireIds.forEach(id => {
+    suppressIds.forEach(id => {
       this.recordWireLayer(layerTrace, id, "staticWireLayer", this.wireRangeMap.has(id) ? "skipped" : "no-range");
     });
     this.drawBufferExceptRanges(this.staticWireBuffer, this.staticWireVertexCount, skippedRanges);
@@ -1250,12 +1264,21 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
   } else if (hoveredWireId && dragSession?.affectedWireIds?.has(hoveredWireId)) {
     stats.suppressedAffectedWireOverlays += 1;
   }
+  const activeRoutePointKey = interaction.activeWireEdit?.mode === "route-point"
+    ? `${interaction.activeWireEdit.wireId}:${interaction.activeWireEdit.pointIndex}`
+    : "";
   (interaction.selectedRoutePoints || new Set()).forEach(key => {
+    if (activeRoutePointKey && String(key).split(":")[0] === interaction.activeWireEdit?.wireId) return;
     const [wireId, indexText] = String(key).split(":");
     const wire = scene.getWire(wireId);
     const point = wire?.routePoints?.[Number(indexText)];
     if (point) pushRoutePointHighlight(vertices, point, 9, "#ff7904");
   });
+  if (activeRoutePointKey) {
+    const [wireId, indexText] = activeRoutePointKey.split(":");
+    const point = scene.getWire(wireId)?.routePoints?.[Number(indexText)];
+    if (point) pushRoutePointHighlight(vertices, point, 9, "#ff7904");
+  }
   const routePoint = interaction.hoveredRoutePoint?.point;
   if (routePoint) pushRoutePointHighlight(vertices, routePoint, 8, "#ffffff");
 

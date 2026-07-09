@@ -1293,6 +1293,11 @@ class ProductionEngineBridge {
       hoveredDevice: this.hoverState.device,
       hoveredWire: this.hoverState.wire,
       hoveredRoutePoint: this.routePointDrag ? null : this.hoverState.routePoint,
+      activeWireEdit: this.routePointDrag
+        ? { mode: "route-point", wireId: this.routePointDrag.wireId, pointIndex: this.routePointDrag.pointIndex }
+        : this.wireSegmentDrag
+          ? { mode: "wire-segment", wireId: this.wireSegmentDrag.wireId, segmentIndex: this.wireSegmentDrag.segmentIndex }
+          : null,
       hoverScreenPoint: this.hoverState.screenPoint,
       selectedConnectors: this.scene.selectedConnectorKeys,
       selectedRoutePoints: this.scene.selectedRoutePointKeys,
