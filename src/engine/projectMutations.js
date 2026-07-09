@@ -389,6 +389,10 @@ function rawDeviceFromSceneDevice(device) {
         x: roundNumber(connector.x),
         y: roundNumber(connector.y),
         customColor: connector.color || "",
+        fiberMode: connector.fiberMode || "",
+        installedModuleType: connector.installedModuleType || "",
+        installedModuleId: connector.installedModuleId || "",
+        installedModuleName: connector.installedModuleName || "",
         empty: false
       }))
     }
@@ -410,6 +414,7 @@ function rawConnectionFromSceneWireData(sceneData, wire) {
       connectorId: wire.toConnectorId
     },
     notes: "",
+    fiberMode: wire.fiberMode || "",
     routePoints: (wire.routePoints || []).map(point => ({ x: roundNumber(point.x), y: roundNumber(point.y) }))
   };
 }
@@ -423,6 +428,7 @@ function rawConnectionFromWire(scene, wire, id) {
     from: endpointToProject(scene, wire.fromDeviceId, wire.fromConnectorId),
     to: endpointToProject(scene, wire.toDeviceId, wire.toConnectorId),
     notes: "",
+    fiberMode: wire.fiberMode || "",
     routePoints: (wire.routePoints || []).map(point => ({ x: roundNumber(point.x), y: roundNumber(point.y) }))
   };
 }

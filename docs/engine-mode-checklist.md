@@ -1,7 +1,8 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
-Iteration 36.2 keeps the Iteration 36.1 Legacy connector compatibility rules and
-fixes installed SFP/SFP+/QSFP module state inside the Engine scene graph. Viewer,
+Iteration 36.3 keeps the Iteration 36.1 Legacy connector compatibility rules,
+the Iteration 36.3 installed SFP/SFP+/QSFP module scene sync, and restores
+Legacy SFP/QSFP fiber module compatibility plus fiber cable colors. Viewer,
 PDF, and report visual migration remains paused. The current
 functional audit lives in
 [`docs/legacy-functional-parity.md`](legacy-functional-parity.md) and uses
@@ -24,11 +25,11 @@ PDF and report drawing paths are deliberately unchanged.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags.
 
-Current visible build label: `Iteration 36.2`.
+Current visible build label: `Iteration 36.3`.
 The app top bar must show one of these labels:
 
-- `Iteration 36.2 — Engine Editor — iteration36-2`
-- `Iteration 36.2 — Legacy Editor — iteration36-2`
+- `Iteration 36.3 — Engine Editor — iteration36-3`
+- `Iteration 36.3 — Legacy Editor — iteration36-3`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -37,28 +38,28 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration36-2`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration36-2`.
+   `index.html?v=iteration36-3`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration36-3`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration36-2`.
+   `index.html?engineDefaultTest=1&v=iteration36-3`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration36-2`.
+   `index.html?legacy=1&v=iteration36-3`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration36-2`.
+   `index.html?engine=0&v=iteration36-3`.
 7. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration36-2`.
+   `index.html?engine=1&debugLoad=1&v=iteration36-3`.
 8. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration36-2`.
+   `index.html?engine=1&loadDelay=1500&v=iteration36-3`.
 9. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration36-2`.
+   `index.html?engine=1&debugHud=1&v=iteration36-3`.
 10. Open the Device Library drag/drop debug overlay:
-   `index.html?debugLibraryDrag=1&v=iteration36-2`.
+   `index.html?debugLibraryDrag=1&v=iteration36-3`.
 11. Open the explicit Engine drag/drop debug overlay:
-   `index.html?engine=1&debugLibraryDrag=1&v=iteration36-2`.
+   `index.html?engine=1&debugLibraryDrag=1&v=iteration36-3`.
 12. Open the Legacy drag/drop debug overlay:
-   `index.html?legacy=1&debugLibraryDrag=1&v=iteration36-2`.
+   `index.html?legacy=1&debugLibraryDrag=1&v=iteration36-3`.
 13. Open compatibility diagnostics while drawing wires:
-    `index.html?engine=1&debugCompatibility=1&v=iteration36-2`.
+    `index.html?engine=1&debugCompatibility=1&v=iteration36-3`.
 14. Confirm the top bar build label matches the mode you intended to test.
 15. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.
@@ -77,97 +78,97 @@ Git commit as the final source of truth when reviewing a pushed change.
 23. The validation script now includes a long mixed undo/redo chain. Confirm the
    JSON output contains a `longChain` section and all `checks` are `ok: true`.
 24. Compare Engine and Legacy connector behavior with the same project:
-   `index.html?v=iteration36-2` beside
-   `index.html?legacy=1&v=iteration36-2`.
-25. In `index.html?engine=1&debugHud=1&v=iteration36-2`, confirm the HUD
+   `index.html?v=iteration36-3` beside
+   `index.html?legacy=1&v=iteration36-3`.
+25. In `index.html?engine=1&debugHud=1&v=iteration36-3`, confirm the HUD
    `load phase`, `load ready`, `wire paths`, `connector overlay`, and
    `connector tooltips` rows update.
-21. Hover and select wires in Engine mode. Confirm hover/selection feedback is
+26. Hover and select wires in Engine mode. Confirm hover/selection feedback is
    visibly distinct, selected/hovered labels appear, route-point handles are
    round orange controls, and labels do not block wire selection.
-22. Hover connectors in Engine mode. Confirm the cursor changes to a crosshair,
+27. Hover connectors in Engine mode. Confirm the cursor changes to a crosshair,
    circular connector hover feedback appears, and a small tooltip follows the
    hovered connector.
-23. Click a connector. Confirm the inspector shows connector details, selected
+28. Click a connector. Confirm the inspector shows connector details, selected
    connector state is orange, and selecting a device or wire clears connector
    selection.
-24. Start a wire from a connector. Confirm the source connector highlights blue,
+29. Start a wire from a connector. Confirm the source connector highlights blue,
    valid target connectors highlight green, and dropping back on the same
    connector is treated as invalid.
-25. Create a new wire, then click empty canvas. Confirm the wire deselects and
+30. Create a new wire, then click empty canvas. Confirm the wire deselects and
    loses the orange selected glow.
-26. Create another new wire, then select an existing wire, device, and connector
+31. Create another new wire, then select an existing wire, device, and connector
    in turn. Confirm only the actual current selection is highlighted.
-27. Delete, undo, and redo a newly created wire. Confirm the restored/redone wire
+32. Delete, undo, and redo a newly created wire. Confirm the restored/redone wire
    can still be selected and deselected normally.
-28. Hover normal devices, jump nodes, LED surfaces, and adapters. Confirm a
+33. Hover normal devices, jump nodes, LED surfaces, and adapters. Confirm a
    lightweight blue object outline appears without texture rebuilds.
-29. Select one object and several objects. Confirm selected objects use the
+34. Select one object and several objects. Confirm selected objects use the
    orange multi-layer outline and selected labels stay readable.
-30. Zoom out below the detail threshold and hover a device. Confirm the fast
+35. Zoom out below the detail threshold and hover a device. Confirm the fast
    black hover tooltip follows the pointer and does not block selection.
-31. Hover and click jump nodes. Confirm the jump node renders as one circular
+36. Hover and click jump nodes. Confirm the jump node renders as one circular
    object, not a square body plus separate selected connector ring.
-32. Start a wire from a normal connector and hover/drop on a jump node. Confirm
+37. Start a wire from a normal connector and hover/drop on a jump node. Confirm
    the jump endpoint can still act as the wire target without leaving a stale
    connector selection overlay.
-33. Open `index.html?engine=1&debugHud=1&debugLayers=1&v=iteration36-2`, drag
+38. Open `index.html?engine=1&debugHud=1&debugLayers=1&v=iteration36-3`, drag
    a connected jump node with its connected wire selected, and confirm no stale
    selected or hovered wire remains at the original jump-node position.
-34. In the debug layer panel for that same drag, confirm the connected wire has
+39. In the debug layer panel for that same drag, confirm the connected wire has
    `staticWireLayer: skipped`, `selectedWireOverlay: suppressed-affected` when
    selected, `hoverWireOverlay: suppressed-affected` when hovered,
    `liveDragWireOverlay: drawn-moving-selected` or `drawn-moving-hover`, and
    endpoint owner details that resolve the jump endpoint to the jump object.
-35. Drag a normal connected device and a multi-selection with connected wires.
+40. Drag a normal connected device and a multi-selection with connected wires.
    Confirm those wires still follow live and do not leave static ghosts.
-36. Select an idle wire connected to a jump node. Confirm the selected orange
+41. Select an idle wire connected to a jump node. Confirm the selected orange
    wire emphasis remains visible but does not cover the jump-node body, ring,
    or readable label. Repeat after pan/zoom and with hovered wire emphasis.
-37. Zoom out on devices with long names. Confirm device labels are clipped or
+42. Zoom out on devices with long names. Confirm device labels are clipped or
    truncated inside their device bounds, then hidden when the device is too
    small to hold readable text.
-38. At low zoom, hover a device with a hidden/truncated label. Confirm the fast
+43. At low zoom, hover a device with a hidden/truncated label. Confirm the fast
    black hover tooltip still shows the full device name.
-39. With the expanded engine HUD open, confirm `device labels hidden` and
+44. With the expanded engine HUD open, confirm `device labels hidden` and
    `device labels truncated` update as zoom changes.
-40. Compare cable crossings in Engine and Legacy with the same project:
-    `index.html?v=iteration36-2` beside
-    `index.html?legacy=1&v=iteration36-2`.
-41. In Engine, inspect Bezier, custom-routed, orthogonal/custom-corner, and
+45. Compare cable crossings in Engine and Legacy with the same project:
+    `index.html?v=iteration36-3` beside
+    `index.html?legacy=1&v=iteration36-3`.
+46. In Engine, inspect Bezier, custom-routed, orthogonal/custom-corner, and
     jump-node-connected wire crossings. Confirm hops are visible and stable
     after pan/zoom.
-42. Drag a connected device or jump node through a dense crossing area. Confirm
+47. Drag a connected device or jump node through a dense crossing area. Confirm
     affected moving wires draw once, without stale hop marks, and final hops
     return after drop.
-43. Drag a route point near a crossing. Confirm the wire remains editable while
+48. Drag a route point near a crossing. Confirm the wire remains editable while
     moving and cable hops finalize after release.
-44. Open `index.html?engine=1&debugHud=1&v=iteration36-2` and confirm the HUD
+49. Open `index.html?engine=1&debugHud=1&v=iteration36-3` and confirm the HUD
     rows `cable hops`, `cable hop calc`, `cable hop candidates`, and
     `cable hop dirty` update.
 
-45. Run the fixture validation and confirm the JSON output includes
+50. Run the fixture validation and confirm the JSON output includes
     `outputVisual` rows for `initial`, `final`, and `chain final redo state`.
-46. Run the real-project validation and confirm each `outputVisual` row reports
+51. Run the real-project validation and confirm each `outputVisual` row reports
     finite base polylines, finite hopped polylines, and `deterministic: true`.
-47. Drag a normal device from the Device Library into the Engine Editor canvas.
+52. Drag a normal device from the Device Library into the Engine Editor canvas.
     Confirm it appears under the cursor, is selected, has connectors, can move
     immediately, and Validate Engine Scene still passes.
-48. Drag a project custom device or paired device entry if available. Confirm
+53. Drag a project custom device or paired device entry if available. Confirm
     the Engine Editor creates the expected one or two placed device instances
     as one selection and one undoable command.
-49. Undo and redo the created device. Confirm undo removes it, redo restores
+54. Undo and redo the created device. Confirm undo removes it, redo restores
     the same device ID/data, the viewport does not move, and the device remains
     save/reload compatible.
-50. Repeat a Device Library drag/drop in `index.html?legacy=1&v=iteration36-2`
+55. Repeat a Device Library drag/drop in `index.html?legacy=1&v=iteration36-3`
     to confirm Legacy fallback behaviour is unchanged.
-51. Export a standalone HTML viewer from an Engine-edited project. Confirm
+56. Export a standalone HTML viewer from an Engine-edited project. Confirm
     Bezier wires, custom-routed wires, orthogonal/custom-corner wires, cable
     hops, wire labels, and jump-node z-order look closer to the Engine Editor.
-52. Export a PDF report from the same project. Confirm the PDF still opens and
+57. Export a PDF report from the same project. Confirm the PDF still opens and
     uses the previous PDF path; Iteration 35 does not migrate PDF rendering.
 
-## Iteration 36.2 Focus
+## Iteration 36.3 Focus
 
 - Engine wire creation now uses a shared data-only connector compatibility
   helper based on Legacy commit `8301fbf23c82f3e3f2496cb90234019c7bf47958`.
@@ -181,9 +182,17 @@ Git commit as the final source of truth when reviewing a pushed change.
   empty cages remain invalid, installed LC modules expose `fiber-lc`, installed
   MPO modules expose `fiber-mpo`, RJ45 modules expose the CAT family, and
   incompatible installed modules remain rejected.
-- Iteration 36.2 preserves that installed module metadata through
+- Iteration 36.3 preserves that installed module metadata through
   `SceneGraph.setData()` and syncs connector inspector module/fiber changes into
   the active Engine scene without a full scene reload.
+- Iteration 36.3 restores Legacy fiber-mode semantics for SFP/SFP+/QSFP modules:
+  empty cages remain invalid, LC singlemode cages only connect to singlemode LC
+  endpoints, LC multimode cages only connect to multimode LC endpoints, RJ45 SFP
+  modules behave as CAT/network, and QSFP MPO modules connect only to MPO fiber.
+- Iteration 36.3 also carries `fiberMode` through Engine wire creation,
+  production mutation write-through, save/load normalization, undo/redo command
+  data, and debug compatibility diagnostics. Fiber wire colors use the Legacy
+  mapping: OS1/OS2 yellow, OM1/OM2 orange, OM3 aqua, OM4 violet, and OM5 lime.
 - `debugHud=1` or `debugCompatibility=1` exposes compatibility rule/type
   diagnostics while drawing a new wire, including raw cage type, installed
   module id/name/type/value, effective connector type, direction, rule, and

@@ -1,5 +1,6 @@
 import {
   effectiveConnectorTypeForEngine,
+  engineWireColorForCable,
   isEngineDeadCageConnector
 } from "./connectorCompatibility.js";
 
@@ -552,6 +553,7 @@ function normalizeProjectWire(wire, index, context) {
   const to = normalizeEndpoint(wire.to || { deviceId: wire.toDeviceId }, "to", wire, context);
   if (!from || !to || !context.deviceIds.has(from.deviceId) || !context.deviceIds.has(to.deviceId)) return null;
   const cableType = String(wire.cableType || wire.type || "");
+  const fiberMode = String(wire.fiberMode || "");
   const usesOrthogonalRoute = Array.isArray(wire.orthogonalRoutePoints);
   const routePoints = normalizeRoutePoints(usesOrthogonalRoute ? wire.orthogonalRoutePoints : wire.routePoints);
   return {
@@ -572,10 +574,15 @@ function normalizeProjectWire(wire, index, context) {
     toUsesRealConnector: Boolean(to.usesRealConnector),
     usesRealConnectorEndpoints: Boolean(from.usesRealConnector && to.usesRealConnector),
     hasFallbackEndpoint: Boolean(!from.usesRealConnector || !to.usesRealConnector),
-    color: wire.customColor || context.nodeColorByType.get(cableType) || WIRE_COLORS[index % WIRE_COLORS.length],
+    color: engineWireColorForCable(
+      cableType,
+      fiberMode,
+      wire.customColor || context.nodeColorByType.get(cableType) || WIRE_COLORS[index % WIRE_COLORS.length]
+    ),
     label: wire.label || cableType || `Wire ${index + 1}`,
     length: wire.length || wire.cableLength || "",
-    cableType
+    cableType,
+    fiberMode
   };
 }
 

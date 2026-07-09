@@ -1,5 +1,8 @@
 import { DragSession } from "./dragSession.js";
-import { engineCompatibilitySummary } from "./connectorCompatibility.js";
+import {
+  engineCompatibilitySummary,
+  engineWireColorForCable
+} from "./connectorCompatibility.js";
 import {
   hitTestConnector,
   hitTestDevice,
@@ -870,13 +873,21 @@ class ProductionEngineBridge {
       this.updateInteractionHud("wire-create rejected");
       return;
     }
+    const cableType = compatibility.sourceType || source.connector.type || target.connector.type || "Engine Test Cable";
+    const fiberMode = compatibility.defaultFiberMode || "";
+    const wireColor = compatibility.resolvedWireColor
+      || engineWireColorForCable(cableType, fiberMode, source.connector.color || target.connector.color || "#32b6ff")
+      || source.connector.color
+      || target.connector.color
+      || "#32b6ff";
     const wire = this.scene.addWire({
       fromDeviceId: source.device.id,
       fromConnectorId: source.connector.id,
       toDeviceId: target.device.id,
       toConnectorId: target.connector.id,
-      color: source.connector.color || target.connector.color || "#32b6ff",
-      cableType: compatibility.sourceType || source.connector.type || target.connector.type || "Engine Test Cable"
+      color: wireColor,
+      cableType,
+      fiberMode
     });
     if (!wire) {
       this.updateInteractionHud("wire-create failed");
@@ -1188,6 +1199,8 @@ class ProductionEngineBridge {
       this.hud.setMetric("compatibility types", this.wireCreate?.target ? `${compatibility.rawSourceType || "-"}(${compatibility.sourceType || "-"}) -> ${compatibility.rawTargetType || "-"}(${compatibility.targetType || "-"})` : "-");
       this.hud.setMetric("compatibility rule", this.wireCreate?.target ? compatibility.rule : "-");
       this.hud.setMetric("compatibility modules", this.wireCreate?.target ? `${compatibility.sourceInstalledModuleRaw || "-"} -> ${compatibility.targetInstalledModuleRaw || "-"}` : "-");
+      this.hud.setMetric("compatibility fiber", this.wireCreate?.target ? `${compatibility.sourceFiberMode || "-"} -> ${compatibility.targetFiberMode || "-"} / ${compatibility.defaultFiberMode || "-"}` : "-");
+      this.hud.setMetric("compatibility color", this.wireCreate?.target ? compatibility.resolvedWireColor || "-" : "-");
     }
     this.hud.setMetric("selected connector", [...this.scene.selectedConnectorKeys][0] || "-");
     this.hud.setMetric("hit candidates", hit?.candidates ?? this.hoverState.candidateCount ?? 0);
@@ -1233,11 +1246,20 @@ class ProductionEngineBridge {
       sourceInstalledModuleType: summary.sourceInstalledModuleType,
       sourceInstalledModuleRaw: summary.sourceInstalledModuleRaw,
       sourceInstalledModuleActiveType: summary.sourceInstalledModuleActiveType,
+      sourceInstalledModuleFiberMode: summary.sourceInstalledModuleFiberMode,
+      sourceFiberMode: summary.sourceFiberMode,
+      sourceFiberFamily: summary.sourceFiberFamily,
       targetInstalledModuleId: summary.targetInstalledModuleId,
       targetInstalledModuleName: summary.targetInstalledModuleName,
       targetInstalledModuleType: summary.targetInstalledModuleType,
       targetInstalledModuleRaw: summary.targetInstalledModuleRaw,
-      targetInstalledModuleActiveType: summary.targetInstalledModuleActiveType
+      targetInstalledModuleActiveType: summary.targetInstalledModuleActiveType,
+      targetInstalledModuleFiberMode: summary.targetInstalledModuleFiberMode,
+      targetFiberMode: summary.targetFiberMode,
+      targetFiberFamily: summary.targetFiberFamily,
+      allowedFiberModes: summary.allowedFiberModes,
+      defaultFiberMode: summary.defaultFiberMode,
+      resolvedWireColor: summary.resolvedWireColor
     });
   }
 
@@ -1343,6 +1365,42 @@ class ProductionEngineBridge {
     this.hud?.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
     this.updateSelectionHud();
     this.updateInteractionHud("connector-sync");
+    this.scheduleRender();
+    return true;
+  }
+
+  syncWireFromProduction(wireId, wireData = {}) {
+    if (!this.ready) return false;
+    const sourceWireId = String(wireId || "");
+    const wire = this.scene.getWire(sourceWireId)
+      || this.scene.wires.find(item => String(item.sourceId || item.id) === sourceWireId);
+    if (!wire) {
+      this.hud?.setMetric("wire sync", `missing ${sourceWireId}`);
+      return false;
+    }
+    if (wireData.cableType !== undefined) wire.cableType = String(wireData.cableType || "");
+    if (wireData.fiberMode !== undefined) wire.fiberMode = String(wireData.fiberMode || "");
+    if (wireData.label !== undefined) wire.label = String(wireData.label || wire.cableType || wire.id);
+    if (wireData.length !== undefined) wire.length = String(wireData.length || "");
+    if (wireData.color !== undefined) {
+      wire.color = String(wireData.color || "");
+    } else {
+      const nextColor = engineWireColorForCable(wire.cableType, wire.fiberMode, wire.color || "#32b6ff");
+      if (nextColor) wire.color = nextColor;
+    }
+    this.scene.dirtyWires.add(wire.id);
+    this.scene.refreshWireIndexes([wire.id]);
+    const dirtyStats = this.renderer.updateDirty(this.scene, {
+      wireIds: [wire.id],
+      refreshCableHops: false
+    });
+    this.lastDirtyWireIds = new Set([wire.id]);
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.hud?.setMetric("wire sync", sourceWireId);
+    this.hud?.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+    this.updateSelectionHud();
+    this.updateInteractionHud("wire-sync");
     this.scheduleRender();
     return true;
   }
@@ -3094,7 +3152,8 @@ function cloneWire(wire) {
     hasFallbackEndpoint: wire.hasFallbackEndpoint,
     color: wire.color,
     label: wire.label,
-    cableType: wire.cableType
+    cableType: wire.cableType,
+    fiberMode: wire.fiberMode
   } : null;
 }
 

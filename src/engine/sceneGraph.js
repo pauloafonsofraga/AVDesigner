@@ -436,7 +436,7 @@ export class SceneGraph {
     return true;
   }
 
-  addWire({ fromDeviceId, fromConnectorId, toDeviceId, toConnectorId, color = "#32b6ff", cableType = "Test Cable" }) {
+  addWire({ fromDeviceId, fromConnectorId, toDeviceId, toConnectorId, color = "#32b6ff", cableType = "Test Cable", fiberMode = "" }) {
     const fromDevice = this.getDevice(fromDeviceId);
     const toDevice = this.getDevice(toDeviceId);
     const fromConnector = this.getConnector(fromDeviceId, fromConnectorId);
@@ -456,6 +456,7 @@ export class SceneGraph {
       hasFallbackEndpoint: false,
       color,
       cableType,
+      fiberMode,
       label: `${fromConnector.label || fromConnector.type || "Connector"} to ${toConnector.label || toConnector.type || "Connector"}`
     });
     this.wires.push(wire);
@@ -796,7 +797,8 @@ function normalizeWire(wire) {
     color: wire.color || "#32b6ff",
     label: wire.label || wire.cableType || String(wire.id),
     length: wire.length || "",
-    cableType: wire.cableType || ""
+    cableType: wire.cableType || "",
+    fiberMode: wire.fiberMode || ""
   };
 }
 

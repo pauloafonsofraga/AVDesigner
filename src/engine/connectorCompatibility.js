@@ -1,16 +1,18 @@
 const CAGE_CONNECTOR_TYPES = new Set(["sfp-cage", "sfp-plus-cage", "qsfp-cage"]);
 const CAT_CONNECTOR_TYPES = new Set(["cat5e", "cat6", "cat6a", "ethercon", "ethernet"]);
 const USB_CONNECTOR_TYPES = new Set(["usb-a", "usb-b", "usb-c"]);
-const PAIRED_NETWORK_TYPES = new Set([
-  "cat5e",
-  "cat6",
-  "cat6a",
-  "ethercon",
-  "sfp-cage",
-  "sfp-plus-cage",
-  "qsfp-cage",
-  "ethernet"
-]);
+export const ENGINE_FIBER_CABLE_TYPES = new Set(["fiber-lc", "fiber-sc", "fiber-st", "fiber-mpo", "opticalcon", "fiberfox"]);
+export const ENGINE_DEFAULT_FIBER_MODE = "single-mode";
+export const ENGINE_FIBER_MODE_OPTIONS = [
+  { value: "single-mode", label: "Single-Mode (OS1/OS2)", color: "#FFFF00", family: "single-mode" },
+  { value: "om1-om2", label: "Multimode (OM1/OM2)", color: "#F47C20", family: "multimode" },
+  { value: "om3", label: "Multimode (OM3)", color: "#14DDE0", family: "multimode" },
+  { value: "om4", label: "Multimode (OM4)", color: "#EC2CB9", family: "multimode" },
+  { value: "om5", label: "Multimode (OM5)", color: "#66FF33", family: "multimode" }
+];
+
+const ENGINE_FIBER_MODE_BY_VALUE = new Map(ENGINE_FIBER_MODE_OPTIONS.map(option => [option.value, option]));
+const ENGINE_MULTIMODE_FIBER_MODES = new Set(["om1-om2", "om3", "om4", "om5"]);
 
 const TRANSCEIVER_MODULE_ACTIVE_TYPES = new Map([
   ["", ""],
@@ -189,15 +191,25 @@ export function installedModuleDetailsForEngine(connector) {
     module?.effectiveType,
     module?.connectorType
   );
+  const directFiberMode = firstText(
+    connector?.installedModuleFiberMode,
+    connector?.moduleFiberMode,
+    connector?.transceiverModuleFiberMode,
+    module?.fiberMode
+  );
   const rawValue = firstText(type, id, name);
   const effectiveType = activeTypeForModuleValue(directActiveType) || activeTypeForModuleValue(rawValue);
+  const fiberMode = normalizeEngineFiberMode(directFiberMode)
+    || inferFiberModeFromModuleValue(firstText(directFiberMode, type, id, name, directActiveType));
   return {
     id,
     name,
     type,
     rawValue,
     activeType: directActiveType,
-    effectiveType
+    effectiveType,
+    fiberMode,
+    fiberFamily: engineFiberModeFamily(fiberMode)
   };
 }
 
@@ -205,7 +217,7 @@ export function areEngineConnectorTypesCompatible(source, target) {
   const sourceType = effectiveConnectorTypeForEngine(source);
   const targetType = effectiveConnectorTypeForEngine(target);
   if (!sourceType || !targetType) return false;
-  if (sourceType === targetType) return true;
+  if (sourceType === targetType) return engineFiberModesCompatible(source, target, sourceType, targetType);
   if (CAT_CONNECTOR_TYPES.has(sourceType) && CAT_CONNECTOR_TYPES.has(targetType)) return true;
   return USB_CONNECTOR_TYPES.has(sourceType) && USB_CONNECTOR_TYPES.has(targetType);
 }
@@ -226,6 +238,17 @@ export function engineCompatibilitySummary(sourceHit, targetHit) {
   }
   if ((isEngineCageConnector(source) && !sourceType) || (isEngineCageConnector(target) && !targetType)) {
     return result(false, "inactive-cage-module", "Installed transceiver/module does not expose a supported connector type.", sourceType, targetType, source, target);
+  }
+  if (sourceType === targetType && !engineFiberModesCompatible(source, target, sourceType, targetType)) {
+    return result(
+      false,
+      "fiber-mode-mismatch",
+      `${typeDisplayName(sourceType)} fiber modules must use the same fiber family.`,
+      sourceType,
+      targetType,
+      source,
+      target
+    );
   }
   if (!areEngineConnectorTypesCompatible(source, target)) {
     return result(
@@ -258,13 +281,92 @@ export function engineConnectionError(sourceHit, targetHit) {
   return summary.valid ? "" : summary.reason;
 }
 
+export function isEngineFiberCableType(type) {
+  return ENGINE_FIBER_CABLE_TYPES.has(String(type || "").trim());
+}
+
+export function normalizeEngineFiberMode(mode) {
+  const text = String(mode || "").trim().toLowerCase();
+  if (!text) return "";
+  if (ENGINE_FIBER_MODE_BY_VALUE.has(text)) return text;
+  const key = moduleKey(text);
+  if (!key) return "";
+  if (key === "singlemode" || key === "single" || key === "os1" || key === "os2" || key === "os1os2") return "single-mode";
+  if (key === "om1" || key === "om2" || key === "om1om2") return "om1-om2";
+  if (ENGINE_FIBER_MODE_BY_VALUE.has(key)) return key;
+  if (key.includes("os1") || key.includes("os2") || key.includes("singlemode") || key.includes("lcsm")) return "single-mode";
+  if (key.includes("om5")) return "om5";
+  if (key.includes("om4")) return "om4";
+  if (key.includes("om3")) return "om3";
+  if (key.includes("om2") || key.includes("om1")) return "om1-om2";
+  if (key.includes("multimode") || key.includes("lcmm") || key.endsWith("mm")) return "om4";
+  return "";
+}
+
+export function engineFiberModeOption(mode) {
+  return ENGINE_FIBER_MODE_BY_VALUE.get(normalizeEngineFiberMode(mode) || ENGINE_DEFAULT_FIBER_MODE)
+    || ENGINE_FIBER_MODE_BY_VALUE.get(ENGINE_DEFAULT_FIBER_MODE)
+    || ENGINE_FIBER_MODE_OPTIONS[0];
+}
+
+export function engineFiberModeColor(mode) {
+  return engineFiberModeOption(mode).color;
+}
+
+export function engineFiberModeFamily(mode) {
+  const normalized = normalizeEngineFiberMode(mode);
+  if (!normalized) return "";
+  if (normalized === "single-mode") return "single-mode";
+  return ENGINE_MULTIMODE_FIBER_MODES.has(normalized) ? "multimode" : "";
+}
+
+export function engineConnectorFiberMode(connector) {
+  const explicit = normalizeEngineFiberMode(firstText(connector?.fiberMode, connector?.fiberType));
+  if (explicit) return explicit;
+  const details = installedModuleDetailsForEngine(connector);
+  if (details.fiberMode) return details.fiberMode;
+  const activeType = effectiveConnectorTypeForEngine(connector);
+  return isEngineFiberCableType(activeType) ? ENGINE_DEFAULT_FIBER_MODE : "";
+}
+
+export function engineConnectorFiberFamily(connector) {
+  return engineFiberModeFamily(engineConnectorFiberMode(connector));
+}
+
+export function engineAllowedFiberModesForCompatibility(source, target, sourceType = effectiveConnectorTypeForEngine(source), targetType = effectiveConnectorTypeForEngine(target)) {
+  if (!isEngineFiberCableType(sourceType) || !isEngineFiberCableType(targetType)) return [];
+  if (sourceType !== targetType) return [];
+  if (!engineFiberModesCompatible(source, target, sourceType, targetType)) return [];
+  const sourceFamily = engineConnectorFiberFamily(source);
+  const targetFamily = engineConnectorFiberFamily(target);
+  const family = sourceFamily || targetFamily || "single-mode";
+  return ENGINE_FIBER_MODE_OPTIONS
+    .filter(option => option.family === family)
+    .map(option => option.value);
+}
+
+export function engineDefaultFiberModeForCompatibility(source, target, sourceType = effectiveConnectorTypeForEngine(source), targetType = effectiveConnectorTypeForEngine(target)) {
+  const allowedModes = engineAllowedFiberModesForCompatibility(source, target, sourceType, targetType);
+  if (!allowedModes.length) return "";
+  const sourceMode = engineConnectorFiberMode(source);
+  const targetMode = engineConnectorFiberMode(target);
+  if (allowedModes.includes(sourceMode)) return sourceMode;
+  if (allowedModes.includes(targetMode)) return targetMode;
+  return allowedModes[0] || "";
+}
+
+export function engineWireColorForCable(cableType, fiberMode, fallback = "") {
+  if (isEngineFiberCableType(cableType)) return engineFiberModeColor(fiberMode || ENGINE_DEFAULT_FIBER_MODE);
+  return fallback || "";
+}
+
 export function sameEngineConnectorHit(a, b) {
   if (!a || !b) return false;
   return a.device?.id === b.device?.id && a.connector?.id === b.connector?.id;
 }
 
 function isPairedNetworkConnector(connector) {
-  return PAIRED_NETWORK_TYPES.has(connectorType(connector));
+  return CAT_CONNECTOR_TYPES.has(effectiveConnectorTypeForEngine(connector));
 }
 
 function isTwoWayConnector(connector) {
@@ -297,6 +399,28 @@ function activeTypeForModuleValue(value) {
   return TRANSCEIVER_MODULE_ACTIVE_TYPES.get(key) || "";
 }
 
+function inferFiberModeFromModuleValue(value) {
+  const key = moduleKey(value);
+  if (!key) return "";
+  if (key.includes("os1") || key.includes("os2") || key.includes("singlemode") || key.includes("lcsm")) return "single-mode";
+  if (key.includes("om5")) return "om5";
+  if (key.includes("om4")) return "om4";
+  if (key.includes("om3")) return "om3";
+  if (key.includes("om2") || key.includes("om1")) return "om1-om2";
+  if (key.includes("multimode") || key.includes("lcmm") || key.endsWith("mm")) return "om4";
+  if (key.includes("mpo")) return "single-mode";
+  return "";
+}
+
+function engineFiberModesCompatible(source, target, sourceType, targetType) {
+  if (!isEngineFiberCableType(sourceType) || !isEngineFiberCableType(targetType)) return true;
+  if (sourceType !== targetType) return true;
+  const sourceFamily = engineConnectorFiberFamily(source);
+  const targetFamily = engineConnectorFiberFamily(target);
+  if (!sourceFamily || !targetFamily) return true;
+  return sourceFamily === targetFamily;
+}
+
 function isEmptyModuleValue(value) {
   const key = moduleKey(value);
   return !key || key === "empty" || key === "none" || key === "nomodule";
@@ -321,6 +445,9 @@ function firstText(...values) {
 function result(valid, rule, reason, sourceType, targetType, source = null, target = null) {
   const sourceModule = installedModuleDetailsForEngine(source);
   const targetModule = installedModuleDetailsForEngine(target);
+  const allowedFiberModes = valid ? engineAllowedFiberModesForCompatibility(source, target, sourceType, targetType) : [];
+  const defaultFiberMode = valid ? engineDefaultFiberModeForCompatibility(source, target, sourceType, targetType) : "";
+  const selectedCableType = sourceType || targetType || "";
   return {
     valid,
     rule,
@@ -340,10 +467,21 @@ function result(valid, rule, reason, sourceType, targetType, source = null, targ
     sourceInstalledModuleType: sourceModule.type,
     sourceInstalledModuleRaw: sourceModule.rawValue,
     sourceInstalledModuleActiveType: sourceModule.activeType,
+    sourceInstalledModuleFiberMode: sourceModule.fiberMode,
+    sourceFiberMode: engineConnectorFiberMode(source),
+    sourceFiberFamily: engineConnectorFiberFamily(source),
     targetInstalledModuleId: targetModule.id,
     targetInstalledModuleName: targetModule.name,
     targetInstalledModuleType: targetModule.type,
     targetInstalledModuleRaw: targetModule.rawValue,
-    targetInstalledModuleActiveType: targetModule.activeType
+    targetInstalledModuleActiveType: targetModule.activeType,
+    targetInstalledModuleFiberMode: targetModule.fiberMode,
+    targetFiberMode: engineConnectorFiberMode(target),
+    targetFiberFamily: engineConnectorFiberFamily(target),
+    allowedFiberModes,
+    allowedFiberModeLabels: allowedFiberModes.map(mode => engineFiberModeOption(mode).label),
+    defaultFiberMode,
+    selectedCableType,
+    resolvedWireColor: engineWireColorForCable(selectedCableType, defaultFiberMode)
   };
 }

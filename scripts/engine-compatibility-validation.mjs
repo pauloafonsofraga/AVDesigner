@@ -2,9 +2,13 @@ import assert from "node:assert/strict";
 
 import {
   areEngineConnectorTypesCompatible,
+  ENGINE_FIBER_MODE_OPTIONS,
   effectiveConnectorTypeForEngine,
+  engineAllowedFiberModesForCompatibility,
   engineCompatibilitySummary,
   engineConnectionError,
+  engineFiberModeColor,
+  engineWireColorForCable,
   installedModuleDetailsForEngine,
   isEngineDeadCageConnector
 } from "../src/engine/connectorCompatibility.js";
@@ -93,6 +97,10 @@ const objectLcCage = hit("Cage E", {
   installedModule: { id: "module-lc-mm", label: "LC Multimode", activeType: "fiber-lc" }
 });
 const qsfpMpoCage = hit("Cage F", { id: "qsfp-f", type: "qsfp-cage", direction: "output", installedModuleType: "QSFP MPO Fiber" });
+const lcSingleCageA = hit("Single Cage A", { id: "sfp-single-a", type: "sfp-plus-cage", direction: "output", installedModuleType: "lc-singlemode" });
+const lcSingleCageB = hit("Single Cage B", { id: "sfp-single-b", type: "sfp-plus-cage", direction: "input", installedModuleType: "LC Singlemode OS2" });
+const lcMultiCageA = hit("Multi Cage A", { id: "sfp-multi-a", type: "sfp-plus-cage", direction: "output", installedModuleType: "lc-multimode" });
+const lcMultiCageB = hit("Multi Cage B", { id: "sfp-multi-b", type: "sfp-plus-cage", direction: "input", installedModuleType: "LC Multimode OM3" });
 
 assert.equal(isEngineDeadCageConnector(emptyCage.connector), true, "empty cage should be dead");
 assert.equal(effectiveConnectorTypeForEngine(emptyCage.connector), "", "empty cage has no effective type");
@@ -104,6 +112,7 @@ assert.equal(effectiveConnectorTypeForEngine(qsfpMpoCage.connector), "fiber-mpo"
 assert.equal(installedModuleDetailsForEngine(objectLcCage.connector).id, "module-lc-mm", "module details report id");
 assert.equal(installedModuleDetailsForEngine(objectLcCage.connector).name, "LC Multimode", "module details report name");
 assert.equal(installedModuleDetailsForEngine(objectLcCage.connector).effectiveType, "fiber-lc", "module details report effective type");
+assert.equal(installedModuleDetailsForEngine(objectLcCage.connector).fiberMode, "om4", "module details report fiber mode");
 {
   const summary = engineCompatibilitySummary(labelLcCage, objectLcCage);
   assert.equal(summary.sourceEffectiveType, "fiber-lc", "summary reports source effective type");
@@ -118,15 +127,18 @@ expectInvalid("empty cage to installed LC cage cannot connect", emptyCage, label
 expectValid(
   "active LC cage connects as Fiber LC",
   lcCage,
-  hit("Fiber Device", { id: "lc-in", type: "fiber-lc", direction: "input", label: "Fiber LC" }),
+  hit("Fiber Device", { id: "lc-in", type: "fiber-lc", direction: "input", label: "Fiber LC", fiberMode: "om4" }),
   "two-way"
 );
 expectValid(
   "installed LC cage connects to installed LC cage",
   labelLcCage,
   objectLcCage,
-  "paired-network"
+  "two-way"
 );
+expectValid("singlemode LC cage connects to singlemode LC cage", lcSingleCageA, lcSingleCageB, "two-way");
+expectValid("multimode LC cage connects to multimode LC cage", lcMultiCageA, lcMultiCageB, "two-way");
+expectInvalid("singlemode LC cage rejects multimode LC cage", lcSingleCageA, lcMultiCageA, "fiber-mode-mismatch");
 expectInvalid(
   "installed LC cage rejects incompatible installed RJ45 cage",
   labelLcCage,
@@ -145,6 +157,36 @@ expectValid(
   hit("Switch", { id: "cat5e-in", type: "cat5e", direction: "input", label: "CAT5E" }),
   "paired-network"
 );
+expectInvalid(
+  "RJ45 cage rejects fiber",
+  rj45Cage,
+  hit("Fiber Device", { id: "lc-rj45-reject", type: "fiber-lc", direction: "input", label: "Fiber LC", fiberMode: "single-mode" }),
+  "type-mismatch"
+);
+expectInvalid(
+  "QSFP MPO cage rejects LC fiber",
+  qsfpMpoCage,
+  hit("Fiber LC Device", { id: "lc-qsfp-reject", type: "fiber-lc", direction: "input", label: "Fiber LC", fiberMode: "single-mode" }),
+  "type-mismatch"
+);
+
+assert.deepEqual(
+  engineAllowedFiberModesForCompatibility(lcSingleCageA.connector, lcSingleCageB.connector),
+  ["single-mode"],
+  "singlemode LC cages should only allow single-mode fiber options"
+);
+assert.deepEqual(
+  engineAllowedFiberModesForCompatibility(lcMultiCageA.connector, lcMultiCageB.connector),
+  ["om1-om2", "om3", "om4", "om5"],
+  "multimode LC cages should allow multimode fiber options"
+);
+assert.equal(engineFiberModeColor("single-mode"), "#FFFF00", "single-mode color matches Legacy");
+assert.equal(engineFiberModeColor("om1-om2"), "#F47C20", "OM1/OM2 color matches Legacy");
+assert.equal(engineFiberModeColor("om3"), "#14DDE0", "OM3 color matches Legacy");
+assert.equal(engineFiberModeColor("om4"), "#EC2CB9", "OM4 color matches Legacy");
+assert.equal(engineFiberModeColor("om5"), "#66FF33", "OM5 color matches Legacy");
+assert.equal(engineWireColorForCable("fiber-lc", "om4"), "#EC2CB9", "fiber wire color follows selected mode");
+assert.equal(ENGINE_FIBER_MODE_OPTIONS.length, 5, "Legacy fiber mode list is complete");
 
 assert.equal(areEngineConnectorTypesCompatible(hdmiOut.connector, hdmiIn.connector), true, "same type compatibility");
 assert.equal(areEngineConnectorTypesCompatible(hdmiOut.connector, lcCage.connector), false, "different families incompatible");
