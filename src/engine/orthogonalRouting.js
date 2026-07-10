@@ -1,4 +1,6 @@
+export const ORTHOGONAL_WIRE_SPACING = 15;
 export const ORTHOGONAL_EXIT_OFFSET = 33;
+export const ORTHOGONAL_WIRE_SNAP_STEPS = [10, 15, 20, 25, 30];
 
 function routeCoord(value) {
   return Math.round(Number(value) || 0);
@@ -20,6 +22,20 @@ function segmentOrientation(a, b) {
   if (routeCoord(a?.y) === routeCoord(b?.y)) return "h";
   if (routeCoord(a?.x) === routeCoord(b?.x)) return "v";
   return null;
+}
+
+function orthogonalSegmentFromPoints(a, b, metadata = {}) {
+  const orientation = segmentOrientation(a, b);
+  if (!orientation) return null;
+  return {
+    ...metadata,
+    orientation,
+    fixed: orientation === "h" ? routeCoord(a.y) : routeCoord(a.x),
+    min: orientation === "h" ? Math.min(routeCoord(a.x), routeCoord(b.x)) : Math.min(routeCoord(a.y), routeCoord(b.y)),
+    max: orientation === "h" ? Math.max(routeCoord(a.x), routeCoord(b.x)) : Math.max(routeCoord(a.y), routeCoord(b.y)),
+    a: routePoint(a),
+    b: routePoint(b),
+  };
 }
 
 function inferredSegmentOrientation(a, b) {
@@ -270,7 +286,8 @@ export function orthogonalRouteSegmentInfo({ routePoints = [], segmentIndex = -1
   const index = Math.floor(Number(segmentIndex));
   const a = full[index];
   const b = full[index + 1];
-  const orientation = a && b ? segmentOrientation(a, b) : null;
+  const segment = a && b ? orthogonalSegmentFromPoints(a, b) : null;
+  const orientation = segment?.orientation || null;
   const endpointStub = index <= 0 || index >= full.length - 2;
   if (!a || !b || !orientation) {
     return { draggable: false, reason: "not-orthogonal", segmentIndex: index, full };
@@ -279,16 +296,135 @@ export function orthogonalRouteSegmentInfo({ routePoints = [], segmentIndex = -1
     return { draggable: false, reason: "endpoint-stub", segmentIndex: index, orientation, full, a, b };
   }
   return {
+    ...segment,
     draggable: true,
     reason: "",
     segmentIndex: index,
-    orientation,
-    fixed: orientation === "h" ? routeCoord(a.y) : routeCoord(a.x),
-    min: orientation === "h" ? Math.min(routeCoord(a.x), routeCoord(b.x)) : Math.min(routeCoord(a.y), routeCoord(b.y)),
-    max: orientation === "h" ? Math.max(routeCoord(a.x), routeCoord(b.x)) : Math.max(routeCoord(a.y), routeCoord(b.y)),
     full,
-    a,
-    b
+  };
+}
+
+export function orthogonalRouteSegmentsForWire({ wireId, routePoints = [], from, to } = {}) {
+  const full = orthogonalWirePoints({ from, to, routePoints });
+  const segments = [];
+  for (let index = 0; index < full.length - 1; index += 1) {
+    const segment = orthogonalSegmentFromPoints(full[index], full[index + 1], {
+      wireId,
+      segmentIndex: index,
+    });
+    if (segment) segments.push(segment);
+  }
+  return segments;
+}
+
+function rangesOverlap(aMin, aMax, bMin, bMax) {
+  return Math.max(aMin, bMin) < Math.min(aMax, bMax);
+}
+
+export function snapOrthogonalSegmentFixed({
+  segment,
+  fixedValue,
+  segmentIndex = null,
+  wireId = "",
+  targets = [],
+  endpointTargets = [],
+  zoom = 1,
+  enabled = true,
+} = {}) {
+  const nextFixed = routeCoord(fixedValue);
+  if (!enabled || !segment?.orientation) {
+    return {
+      value: nextFixed,
+      guides: null,
+      snapped: false,
+      spacing: 0,
+      source: enabled ? "none" : "disabled",
+      before: nextFixed,
+      after: nextFixed,
+    };
+  }
+  const threshold = 6 / Math.max(0.05, Number(zoom) || 1);
+  let best = null;
+  const considerCandidate = ({ candidate, guides = null, spacing = 0, source = "segment", target = null }) => {
+    const value = routeCoord(candidate);
+    const diff = Math.abs(nextFixed - value);
+    if (diff > threshold || (best && diff >= best.diff)) return;
+    best = { diff, value, guides, spacing, source, target };
+  };
+
+  endpointTargets.forEach((candidate) => {
+    considerCandidate({
+      candidate,
+      spacing: 0,
+      source: "endpoint",
+      guides: segment.orientation === "h" ? { y: routeCoord(candidate) } : { x: routeCoord(candidate) },
+    });
+  });
+
+  targets.forEach((target) => {
+    if (!target || target.orientation !== segment.orientation) return;
+    if (target.wireId === wireId && target.segmentIndex === segmentIndex) return;
+    if (!rangesOverlap(segment.min, segment.max, target.min, target.max)) return;
+    [0, ...ORTHOGONAL_WIRE_SNAP_STEPS].forEach((distance) => {
+      const signs = distance === 0 ? [0] : [-1, 1];
+      signs.forEach((sign) => {
+        const candidate = routeCoord(target.fixed + distance * sign);
+        const overlapMin = Math.max(segment.min, target.min);
+        const overlapMax = Math.min(segment.max, target.max);
+        const mid = routeCoord((overlapMin + overlapMax) / 2);
+        considerCandidate({
+          candidate,
+          spacing: distance,
+          source: distance ? "spacing" : "parallel",
+          target,
+          guides: segment.orientation === "h"
+            ? {
+                y: candidate,
+                measure: distance ? {
+                  axis: "y",
+                  x: mid,
+                  y1: target.fixed,
+                  y2: candidate,
+                  distance,
+                } : null,
+              }
+            : {
+                x: candidate,
+                measure: distance ? {
+                  axis: "x",
+                  y: mid,
+                  x1: target.fixed,
+                  x2: candidate,
+                  distance,
+                } : null,
+              },
+        });
+      });
+    });
+  });
+
+  if (!best) {
+    return {
+      value: nextFixed,
+      guides: null,
+      snapped: false,
+      spacing: 0,
+      source: "none",
+      before: nextFixed,
+      after: nextFixed,
+    };
+  }
+  return {
+    value: best.value,
+    guides: best.guides,
+    snapped: true,
+    spacing: best.spacing,
+    source: best.source,
+    targetWireId: best.target?.wireId || "",
+    targetSegmentIndex: best.target?.segmentIndex ?? null,
+    before: nextFixed,
+    after: best.value,
+    diff: best.diff,
   };
 }
 

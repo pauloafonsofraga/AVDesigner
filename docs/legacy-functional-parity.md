@@ -4,16 +4,17 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 37.2`
+- Current build label: `Iteration 37.3`
 
-Iteration 37.2 builds on Iteration 37, which restored Legacy connector compatibility rules in Engine wire
+Iteration 37.3 builds on Iteration 37, which restored Legacy connector compatibility rules in Engine wire
 creation, including installed SFP/SFP+/QSFP modules, SFP/QSFP fiber-mode family
 compatibility, RJ45 module CAT behaviour, Legacy fiber cable colors, and the
 project-level Bezier vs 90-degree wire routing mode. Iteration 37.1 deepened the
 Engine orthogonal route editing path by porting Legacy endpoint-stub repair,
 route-point repair, moved-endpoint repair, and move-command route-state sync.
 Iteration 37.2 restores the Legacy direct segment-drag interaction for
-orthogonal middle doglegs.
+orthogonal middle doglegs. Iteration 37.3 restores the Legacy spacing/snap pass
+used while dragging those doglegs.
 Viewer/PDF/report visual
 migration remains paused while the remaining Legacy functional gaps are worked
 through.
@@ -59,6 +60,14 @@ Engine hit-test path can now distinguish a selected route-point handle from a
 middle vertical/horizontal segment. Dragging that segment moves the two adjacent
 interior route points together on the constrained axis while endpoint-attached
 stubs remain protected, matching the Legacy `startWireSegmentDrag(...)` rule.
+
+Iteration 37.3 ports the Legacy temporary spacing/snap helpers:
+`ORTHOGONAL_WIRE_SPACING = 15`, `WIRE_SEGMENT_SNAP_STEPS = [10, 15, 20, 25, 30]`,
+`wireSegmentSnapTargetsForDrag(...)`, and `wireSegmentSnap(...)`. Legacy did not
+store a per-wire spacing value or expose a separate spacing UI; it used the
+global Object Snapping toggle during segment drag and saved the resulting
+coordinates in route points. Engine now follows that same approach for 90-degree
+segments only.
 
 Existing custom routed wires keep their stored points. Save/load format remains
 unchanged.
@@ -151,6 +160,7 @@ PD geometry, and special template behaviours.
 | Connector compatibility | Exact type match, CAT-family match, USB-family match, cage active module type, dead-cage blocking, input/output blocking, paired network and two-way exceptions. | Engine create path uses the shared compatibility helper for hover and commit. | covered | `effectiveConnectorType`, `areConnectorTypesCompatible`, `connectionError`, `isDeadCageConnector`, `isTwoWayConnector`, `isPairedNetworkConnector` | `src/engine/connectorCompatibility.js`, `ProductionEngineBridge.completeWireCreate`, `SceneGraph.addWire` | connector `type`, `direction`, `installedModuleType`, fiber mode, cable type metadata | Engine-created connections save through production data | One undo per created wire | Reports/export read the production connection data | medium | 36.3 | Iteration 37 restores SFP/QSFP fiber-family compatibility and fiber colors. Endpoint rewire remains Iteration 37 scope. |
 | Wire hover target feedback | Preview highlights only compatible, unoccupied targets and shows blocked states/status text. | Engine has connector hover and create feedback, but not full Legacy compatibility validity. | partial | `updateHoverConnector`, `renderPreviewWires`, `connectionError` | `ProductionEngineBridge.handlePointerMove`, `beginWireCreate`, `completeWireCreate` | same as connector compatibility | none unless committed | none | visual only | high | 36 | Should call the same shared rule used on commit. |
 | Wire creation | Legacy creates production connection with ordered endpoints, cable type, custom color, fiber mode, signal index, notes, optional orthogonal frozen route. | Engine creates scene wire and writes a production connection, but ordering/metadata/compatibility are thinner. | partial | `startConnection`, `finishConnection`, `createConnectionBetween`, `freezeOrthogonalRouteFromPreview` | `ProductionEngineBridge.beginWireCreate`, `completeWireCreate`, `ProjectMutationAdapter.commitCreatedWire` | `state.connections`, endpoint refs, cable metadata | Saves because Engine writes production connection | One Engine undo command | Outputs read production data | high | 36-37 | Keep existing fast command path, add Legacy metadata/rules. |
+| 90-degree segment spacing/snap | Legacy has no separate spacing UI. During Object Snapping, `wireSegmentSnapTargetsForDrag` caches other wire segments and `wireSegmentSnap` snaps a dragged dogleg/middle segment to endpoints or parallel lanes at `[10, 15, 20, 25, 30]`px offsets from `ORTHOGONAL_WIRE_SPACING = 15`. | Engine now uses shared `orthogonalRouting` helpers to cache snap targets once per segment drag, snap the proposed fixed X/Y coordinate, then persist only the resulting route point coordinates. | covered | `ORTHOGONAL_WIRE_SPACING`, `WIRE_SEGMENT_SNAP_STEPS`, `connectionRouteSegments`, `wireSegmentSnapTargetsForDrag`, `wireSegmentSnap`, `startWireSegmentDrag` | `src/engine/orthogonalRouting.js`, `SceneGraph.orthogonalSegmentSnapTargetsForDrag`, `SceneGraph.snapOrthogonalSegment`, `ProductionEngineBridge.beginWireSegmentDrag` | `wire.routePoints`, production `orthogonalRoutePoints`, global Object Snapping toggle | Coordinates persist through normal route points; no runtime snap cache is saved | One segment drag command; undo/redo restores route points and viewport stays stable | Outputs read saved route coordinates; no output renderer migration needed | medium | 37.3 | User examples mentioned 5/10/15, but Legacy source of truth is 10/15/20/25/30. |
 | Endpoint rewire | Clicking an occupied device node detaches one endpoint, stores original connection, previews from fixed endpoint, then preserves original connection metadata on successful reattach or restores on failure. | Engine has create/delete/edit commands, but endpoint rewire parity is not implemented. | missing | `startConnection`, `restoreRewireConnection`, `preserveConnectionWithNewEndpoints`, `createConnectionBetween` | no dedicated rewire command | original connection object, changed endpoint only | Should preserve route points and metadata | One undo for endpoint move | Outputs should see same connection ID | high | 37 | Must not regress custom route-point preservation. |
 | Jump-node wire creation | Legacy supports device-to-jump and jump-to-device, portal cable type inference, source/destination ordering, one-connection occupancy, and jump info boxes. | Engine maps jump nodes and supports loaded jump-connected wires visually; full create/reconnect compatibility is partial. | partial | `createConnectionToJump`, `createConnectionFromJumpToDevice`, `portalCableTypeForJumpNode` | Engine jump nodes in `projectAdapter`, `sceneGraph`, `ProductionEngineBridge.completeWireCreate` | `state.jumpNodes`, `connections.from/to.jumpNodeId` | Must save endpoint form unchanged | One undo | Viewer depends on jump endpoint data | high | 37 | Keep recent jump-node z-order and ghost fixes intact. |
 | LED surface connection | Legacy supports LED signal multi-select, LED screen power/signal types, signal ordering, and processor registration. | Engine maps LED surfaces and virtual ports, but creation parity is not fully audited/migrated. | partial | `createConnectionToLedSurface`, LED connector selection helpers | `projectAdapter` LED surface mapping, scene validation virtual ports | `ledSurfaces[]`, `connections.to.surfaceId` | Saves through production state | Needs grouped undo for multi-connect | Reports count screens/pixels | high | 38 | Important for real projects with processors/screens. |

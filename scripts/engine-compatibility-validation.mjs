@@ -14,6 +14,11 @@ import {
 } from "../src/engine/connectorCompatibility.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
+import {
+  ORTHOGONAL_WIRE_SNAP_STEPS,
+  ORTHOGONAL_WIRE_SPACING,
+  snapOrthogonalSegmentFixed
+} from "../src/engine/orthogonalRouting.js";
 
 const cases = [];
 
@@ -230,6 +235,47 @@ assert.equal(sceneConnector.installedModuleType, "lc-multimode", "SceneGraph pre
 assert.equal(sceneConnector.fiberMode, "om4", "SceneGraph preserves installed SFP fiber mode");
 assert.equal(effectiveConnectorTypeForEngine(sceneConnector), "fiber-lc", "SceneGraph connector resolves installed SFP module");
 assert.equal(isEngineDeadCageConnector(sceneConnector), false, "SceneGraph installed SFP cage is not dead");
+
+assert.equal(ORTHOGONAL_WIRE_SPACING, 15, "Legacy orthogonal default spacing is 15px");
+assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segment snap steps are preserved");
+{
+  const snap = snapOrthogonalSegmentFixed({
+    segment: { orientation: "v", fixed: 114.2, min: 0, max: 200 },
+    fixedValue: 114.2,
+    wireId: "moving",
+    segmentIndex: 2,
+    targets: [{ wireId: "target", segmentIndex: 1, orientation: "v", fixed: 100, min: -20, max: 220 }],
+    zoom: 1,
+    enabled: true
+  });
+  assert.equal(snap.snapped, true, "vertical dogleg snaps to parallel spacing lane");
+  assert.equal(snap.value, 115, "vertical dogleg snaps to target + 15px");
+  assert.equal(snap.spacing, 15, "snap reports 15px spacing");
+  assert.equal(snap.source, "spacing", "snap source reports spacing");
+}
+{
+  const snap = snapOrthogonalSegmentFixed({
+    segment: { orientation: "h", fixed: 297, min: 0, max: 200 },
+    fixedValue: 297,
+    targets: [],
+    endpointTargets: [300],
+    zoom: 1,
+    enabled: true
+  });
+  assert.equal(snap.value, 300, "horizontal segment snaps to endpoint Y");
+  assert.equal(snap.source, "endpoint", "endpoint snap source is reported");
+}
+{
+  const snap = snapOrthogonalSegmentFixed({
+    segment: { orientation: "v", fixed: 114.2, min: 0, max: 200 },
+    fixedValue: 114.2,
+    targets: [{ wireId: "target", segmentIndex: 1, orientation: "v", fixed: 100, min: -20, max: 220 }],
+    zoom: 1,
+    enabled: false
+  });
+  assert.equal(snap.snapped, false, "disabled object snapping leaves fixed value alone");
+  assert.equal(snap.value, 114, "disabled snap still stores routed integer coordinates");
+}
 
 console.log(JSON.stringify({
   ok: true,

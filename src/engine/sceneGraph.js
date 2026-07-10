@@ -2,9 +2,11 @@ import { SpatialIndex } from "./spatialIndex.js";
 import {
   moveOrthogonalRouteSegment,
   moveOrthogonalRoutePoint,
+  orthogonalRouteSegmentsForWire,
   orthogonalRouteSegmentInfo,
   orthogonalWirePoints,
   routePointsForMovedEndpoints,
+  snapOrthogonalSegmentFixed,
   shiftRoutePoints
 } from "./orthogonalRouting.js";
 import { wirePolylineFromPoints } from "./wirePath.js";
@@ -498,6 +500,47 @@ export class SceneGraph {
       segmentIndex,
       from: this.endpointForWire(wire, "from"),
       to: this.endpointForWire(wire, "to")
+    });
+  }
+
+  orthogonalSegmentSnapTargetsForDrag(wireId) {
+    const targets = [];
+    this.wires.forEach((wire) => {
+      if (!wire || wire.id === wireId || wire.routeStyle !== "orthogonal") return;
+      targets.push(...orthogonalRouteSegmentsForWire({
+        wireId: wire.id,
+        routePoints: wire.routePoints,
+        from: this.endpointForWire(wire, "from"),
+        to: this.endpointForWire(wire, "to"),
+      }));
+    });
+    return targets;
+  }
+
+  snapOrthogonalSegment(wireId, segmentIndex, fixed, { snapTargets = null, zoom = 1, enabled = true } = {}) {
+    const wire = this.getWire(wireId);
+    const info = this.orthogonalSegmentInfo(wireId, segmentIndex);
+    if (!wire || !info?.draggable) {
+      return {
+        value: fixed,
+        snapped: false,
+        source: info?.reason || "not-draggable",
+        before: fixed,
+        after: fixed,
+      };
+    }
+    const from = this.endpointForWire(wire, "from");
+    const to = this.endpointForWire(wire, "to");
+    const endpointTargets = [from, to].map((endpoint) => info.orientation === "h" ? endpoint.y : endpoint.x);
+    return snapOrthogonalSegmentFixed({
+      segment: { ...info, fixed },
+      fixedValue: fixed,
+      segmentIndex: info.segmentIndex,
+      wireId,
+      targets: Array.isArray(snapTargets) ? snapTargets : this.orthogonalSegmentSnapTargetsForDrag(wireId),
+      endpointTargets,
+      zoom,
+      enabled,
     });
   }
 
