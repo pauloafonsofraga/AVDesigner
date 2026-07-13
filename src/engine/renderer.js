@@ -63,7 +63,8 @@ function defaultLabelStats() {
     connectorTooltips: 0,
     objectHoverTooltips: 0,
     deviceLabelsHidden: 0,
-    deviceLabelsTruncated: 0
+    deviceLabelsTruncated: 0,
+    snapMeasureLabels: 0
   };
 }
 
@@ -655,6 +656,8 @@ export class WebglGraphRenderer {
       wirePreviewDrawn: 0,
       suppressedAffectedWireOverlays: 0,
       suppressedHoveredWireOverlays: 0,
+      snapGuides: 0,
+      snapMeasureLabels: 0,
       jumpForegroundNodes: 0,
       textureBuilds: 0,
       textureRebuilds: 0,
@@ -805,13 +808,16 @@ export class WebglGraphRenderer {
     }
     const interactionStart = performance.now();
     const interactionStats = pushInteractionOverlay(liveVertices, scene, interaction, renderOptions, dragSession, {
-      suppressHoveredWire: !dragSession
+      suppressHoveredWire: !dragSession,
+      camera,
+      resolution: this.resolution,
     });
     frameStats.interactionOverlayMs = performance.now() - interactionStart;
     frameStats.connectorOverlayCount = interactionStats.connectorOverlayCount || 0;
     frameStats.wirePreviewDrawn = interactionStats.wirePreviewDrawn || 0;
     frameStats.suppressedAffectedWireOverlays = interactionStats.suppressedAffectedWireOverlays || 0;
     frameStats.suppressedHoveredWireOverlays = interactionStats.suppressedHoveredWireOverlays || 0;
+    frameStats.snapGuides = interactionStats.snapGuides || 0;
     frameStats.liveBuildMs = performance.now() - liveBuildStart;
     sectionStart = performance.now();
     this.liveVertexCount = upload(gl, this.liveBuffer, liveVertices);
@@ -827,6 +833,7 @@ export class WebglGraphRenderer {
     frameStats.routePointHandles = this.lastLabelStats.routePointHandles || 0;
     frameStats.connectorTooltips = this.lastLabelStats.connectorTooltips || 0;
     frameStats.objectHoverTooltips = this.lastLabelStats.objectHoverTooltips || 0;
+    frameStats.snapMeasureLabels = this.lastLabelStats.snapMeasureLabels || 0;
     const textureAfter = this.textureCache.stats();
     frameStats.textureBuilds = textureAfter.builds - textureBefore.builds;
     frameStats.textureRebuilds = textureAfter.rebuilds - textureBefore.rebuilds;
@@ -943,6 +950,9 @@ export class WebglGraphRenderer {
         this.recordWireLayer(options.layerTrace, wire.id, "labelLayer", moving ? "drawn-moving" : "drawn");
       });
     }
+    const snapMeasureLabels = options.interactionState?.snapGuides?.measure && drawSnapMeasurementLabel(ctx, options.interactionState.snapGuides.measure, camera)
+      ? 1
+      : 0;
     let connectorTooltipCount = 0;
     const connectorTooltipEntries = connectorTooltipCandidates(scene, options.interactionState || {});
     connectorTooltipEntries.forEach(entry => {
@@ -965,7 +975,8 @@ export class WebglGraphRenderer {
       connectorTooltips: connectorTooltipCount,
       objectHoverTooltips: objectHoverTooltipCount,
       deviceLabelsHidden,
-      deviceLabelsTruncated
+      deviceLabelsTruncated,
+      snapMeasureLabels
     };
   }
 
@@ -1255,7 +1266,8 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
     connectorOverlayCount: 0,
     wirePreviewDrawn: 0,
     suppressedAffectedWireOverlays: 0,
-    suppressedHoveredWireOverlays: 0
+    suppressedHoveredWireOverlays: 0,
+    snapGuides: 0
   };
   const wireCreateActive = Boolean(interaction.tempWire);
   const hoveredWireId = interaction.hoveredWire?.wire?.id || interaction.hoveredWireId;
@@ -1338,6 +1350,7 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
   if (interaction.marquee) {
     pushBoxOutline(vertices, interaction.marquee, 2.4, "rgba(50, 182, 255, .92)");
   }
+  stats.snapGuides = pushSnapGuides(vertices, interaction.snapGuides, overlayOptions.camera, overlayOptions.resolution);
   return stats;
 }
 
@@ -1387,6 +1400,45 @@ function pushBoxOutline(vertices, rect, width, color) {
   pushLine(vertices, { x: rect.x + rect.width, y: rect.y }, { x: rect.x + rect.width, y: rect.y + rect.height }, width, color);
   pushLine(vertices, { x: rect.x + rect.width, y: rect.y + rect.height }, { x: rect.x, y: rect.y + rect.height }, width, color);
   pushLine(vertices, { x: rect.x, y: rect.y + rect.height }, { x: rect.x, y: rect.y }, width, color);
+}
+
+function pushSnapGuides(vertices, guides, camera, resolution) {
+  if (!guides || !camera || !resolution) return 0;
+  const view = {
+    x: camera.x,
+    y: camera.y,
+    width: resolution.width / camera.zoom,
+    height: resolution.height / camera.zoom
+  };
+  const width = Math.max(1.2, 2.4 / Math.max(0.05, camera.zoom));
+  const guideColor = "rgba(50, 182, 255, .92)";
+  const measureColor = "rgba(50, 182, 255, .82)";
+  let count = 0;
+  if (Number.isFinite(Number(guides.x))) {
+    const x = Number(guides.x);
+    pushLine(vertices, { x, y: view.y }, { x, y: view.y + view.height }, width, guideColor);
+    count += 1;
+  }
+  if (Number.isFinite(Number(guides.y))) {
+    const y = Number(guides.y);
+    pushLine(vertices, { x: view.x, y }, { x: view.x + view.width, y }, width, guideColor);
+    count += 1;
+  }
+  const measure = guides.measure;
+  if (measure?.axis === "y") {
+    const tick = 14 / Math.max(0.05, camera.zoom);
+    pushLine(vertices, { x: measure.x, y: measure.y1 }, { x: measure.x, y: measure.y2 }, width, measureColor);
+    pushLine(vertices, { x: measure.x - tick, y: measure.y1 }, { x: measure.x + tick, y: measure.y1 }, width, measureColor);
+    pushLine(vertices, { x: measure.x - tick, y: measure.y2 }, { x: measure.x + tick, y: measure.y2 }, width, measureColor);
+    count += 3;
+  } else if (measure?.axis === "x") {
+    const tick = 14 / Math.max(0.05, camera.zoom);
+    pushLine(vertices, { x: measure.x1, y: measure.y }, { x: measure.x2, y: measure.y }, width, measureColor);
+    pushLine(vertices, { x: measure.x1, y: measure.y - tick }, { x: measure.x1, y: measure.y + tick }, width, measureColor);
+    pushLine(vertices, { x: measure.x2, y: measure.y - tick }, { x: measure.x2, y: measure.y + tick }, width, measureColor);
+    count += 3;
+  }
+  return count;
 }
 
 function pushDevice(vertices, device, offsets = null, selected = false, options = DEFAULT_RENDER_OPTIONS) {
@@ -1654,6 +1706,39 @@ function drawWireLabel(ctx, scene, wire, camera, offsets, text) {
   ctx.strokeText(text, 0, -8 * Math.max(1, Math.sqrt(camera.zoom)));
   ctx.fillText(text, 0, -8 * Math.max(1, Math.sqrt(camera.zoom)));
   ctx.restore();
+}
+
+function drawSnapMeasurementLabel(ctx, measure, camera) {
+  if (!measure?.axis || !camera) return false;
+  const world = measure.axis === "x"
+    ? {
+        x: (Number(measure.x1) + Number(measure.x2)) / 2,
+        y: Number(measure.y),
+        offsetX: 0,
+        offsetY: -18
+      }
+    : {
+        x: Number(measure.x),
+        y: (Number(measure.y1) + Number(measure.y2)) / 2,
+        offsetX: -24,
+        offsetY: 0
+      };
+  if (!Number.isFinite(world.x) || !Number.isFinite(world.y)) return false;
+  const text = `${measure.distance}px`;
+  const x = (world.x - camera.x) * camera.zoom + world.offsetX;
+  const y = (world.y - camera.y) * camera.zoom + world.offsetY;
+  ctx.save();
+  ctx.font = "800 13px system-ui, -apple-system, Segoe UI, sans-serif";
+  ctx.textAlign = measure.axis === "x" ? "center" : "right";
+  ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "rgba(3, 8, 12, .86)";
+  ctx.lineWidth = 4;
+  ctx.fillStyle = "#32b6ff";
+  ctx.strokeText(text, x, y);
+  ctx.fillText(text, x, y);
+  ctx.restore();
+  return true;
 }
 
 function labelPlacementForPolyline(points = []) {

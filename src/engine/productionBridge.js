@@ -18,6 +18,7 @@ import { PerfHud } from "./perfHud.js";
 import { validateEngineScene } from "./sceneValidation.js";
 import {
   buildPreviewOrthogonalInteriorPoints,
+  orthogonalRouteDiagnostics,
   ORTHOGONAL_WIRE_SNAP_STEPS,
   ORTHOGONAL_WIRE_SPACING,
 } from "./orthogonalRouting.js";
@@ -600,7 +601,22 @@ class ProductionEngineBridge {
       if (moved?.moved) {
         this.wireSegmentDrag.moved = true;
         this.wireSegmentDrag.currentFixed = moved.fixed;
-        this.wireSegmentDrag.lastSnap = snap;
+        this.wireSegmentDrag.endpointClearance = moved.endpointClearance || null;
+        if (moved.endpointClearance?.adjusted) {
+          const guideAxis = this.wireSegmentDrag.orientation === "h" ? "y" : "x";
+          this.wireSegmentDrag.lastSnap = {
+            ...snap,
+            after: moved.fixed,
+            endpointClearance: moved.endpointClearance,
+            guides: {
+              ...(snap.guides || {}),
+              [guideAxis]: moved.fixed,
+              measure: null
+            }
+          };
+        } else {
+          this.wireSegmentDrag.lastSnap = snap;
+        }
       }
       const dirtyStats = this.renderer.updateDirty(this.scene, {
         wireIds: [this.wireSegmentDrag.wireId],
@@ -1380,6 +1396,7 @@ class ProductionEngineBridge {
         : this.wireSegmentDrag
           ? { mode: "wire-segment", wireId: this.wireSegmentDrag.wireId, segmentIndex: this.wireSegmentDrag.segmentIndex }
           : null,
+      snapGuides: this.wireSegmentDrag?.lastSnap?.guides || null,
       hoverScreenPoint: this.hoverState.screenPoint,
       selectedConnectors: this.scene.selectedConnectorKeys,
       selectedRoutePoints: this.scene.selectedRoutePointKeys,
@@ -1434,6 +1451,9 @@ class ProductionEngineBridge {
     const from = this.scene.endpointForWire(wire, "from");
     const to = this.scene.endpointForWire(wire, "to");
     const rendered = this.scene.wireRenderPolyline(wire);
+    const diagnostics = wire.routeStyle === "orthogonal"
+      ? orthogonalRouteDiagnostics({ routePoints: wire.routePoints || [], from, to })
+      : null;
     const routePoints = wire.routePoints || [];
     const fromOwner = this.scene.wireEndpointDebug(wire, "from");
     const toOwner = this.scene.wireEndpointDebug(wire, "to");
@@ -1457,6 +1477,15 @@ class ProductionEngineBridge {
     this.hud.setMetric("route segment points", this.wireSegmentDrag
       ? `before ${formatRoutePointsForHud(this.wireSegmentDrag.beforePoints)} / now ${formatRoutePointsForHud(wire.routePoints)}`
       : "-");
+    this.hud.setMetric("route normalized", diagnostics ? formatRoutePointsForHud(diagnostics.normalized) : "-");
+    this.hud.setMetric("route orthogonal", diagnostics ? `${diagnostics.allOrthogonal ? "yes" : "no"} / diagonals ${diagnostics.diagonalSegments}` : "-");
+    this.hud.setMetric("route editable", diagnostics ? `${diagnostics.remainsEditable ? "yes" : "no"} / segments ${diagnostics.editableSegments.length}` : "-");
+    this.hud.setMetric("route cleanup", diagnostics ? `${diagnostics.cleanupRemovedPoints} removed` : "-");
+    this.hud.setMetric("endpoint clearance", diagnostics
+      ? `from ${diagnostics.endpointClearance.from ?? "-"} / to ${diagnostics.endpointClearance.to ?? "-"} / min ${diagnostics.endpointClearance.minimum}`
+      : "-");
+    this.hud.setMetric("snap candidates", this.wireSegmentDrag ? `${this.wireSegmentDrag.snapTargets?.length || 0}` : "-");
+    this.hud.setMetric("snap helper", this.wireSegmentDrag?.lastSnap?.guides ? "active" : "no");
   }
 
   updateInteractionHud(mode = "idle", hit = null) {
@@ -2570,6 +2599,7 @@ class ProductionEngineBridge {
       this.hud.setMetric("selection overlay", `${(frameStats.selectionOverlayMs || 0).toFixed(2)} ms`);
       this.hud.setMetric("interaction overlay", `${(frameStats.interactionOverlayMs || 0).toFixed(2)} ms`);
       this.hud.setMetric("connector overlay", `${frameStats.connectorOverlayCount || 0} nodes / ${frameStats.wirePreviewDrawn ? "preview" : "idle"}`);
+      this.hud.setMetric("snap overlay", `${frameStats.snapGuides || 0} guides / ${frameStats.snapMeasureLabels || 0} labels`);
       this.hud.setMetric("affected wire overlay suppress", `${frameStats.suppressedAffectedWireOverlays || 0}`);
       this.hud.setMetric("label draw", `${(frameStats.labelMs || 0).toFixed(2)} ms`);
       const labelStats = this.renderer.labelStats();
@@ -3337,7 +3367,8 @@ function wireSegmentSnapSummary(drag) {
   const before = Number.isFinite(Number(snap.before)) ? Number(snap.before).toFixed(0) : "-";
   const after = Number.isFinite(Number(snap.after)) ? Number(snap.after).toFixed(0) : "-";
   const target = snap.targetWireId ? ` / target ${snap.targetWireId}:${snap.targetSegmentIndex}` : "";
-  return `${state} ${before}->${after}${target}`;
+  const clearance = snap.endpointClearance?.adjusted || drag.endpointClearance?.adjusted ? " / clearance" : "";
+  return `${state} ${before}->${after}${target}${clearance}`;
 }
 
 function formatRoutePointsForHud(points = []) {

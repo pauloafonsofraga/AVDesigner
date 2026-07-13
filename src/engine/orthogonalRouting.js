@@ -321,6 +321,49 @@ function rangesOverlap(aMin, aMax, bMin, bMax) {
   return Math.max(aMin, bMin) < Math.min(aMax, bMax);
 }
 
+function adjacentEndpointClearance({ info, fixed, from, to } = {}) {
+  if (!info?.draggable || info.orientation !== "v") {
+    return {
+      value: routeCoord(fixed),
+      adjusted: false,
+      adjustments: [],
+    };
+  }
+  let value = routeCoord(fixed);
+  const adjustments = [];
+  const applyEndpoint = (endpoint, side, label) => {
+    if (!endpoint || !Number.isFinite(Number(endpoint.x)) || !side) return;
+    const endpointX = routeCoord(endpoint.x);
+    const minimum = endpointX + Math.sign(side) * ORTHOGONAL_EXIT_OFFSET;
+    if (side > 0 && value < minimum) {
+      adjustments.push({ label, endpointX, side, from: value, to: minimum });
+      value = minimum;
+    } else if (side < 0 && value > minimum) {
+      adjustments.push({ label, endpointX, side, from: value, to: minimum });
+      value = minimum;
+    }
+  };
+
+  // The first and last editable vertical doglegs sit next to endpoint stubs.
+  // If they are allowed to collapse onto the connector x-coordinate, the
+  // cleaned route becomes an endpoint stub and the next edit has nothing useful
+  // to grab. Legacy avoided this during a drag by using drag-start geometry; the
+  // engine additionally keeps a minimum exit clearance in the committed route.
+  if (info.segmentIndex <= 1) {
+    const side = info.fixed >= routeCoord(from?.x) ? 1 : -1;
+    applyEndpoint(from, side, "from");
+  }
+  if (info.segmentIndex >= (info.full?.length || 0) - 3) {
+    const side = info.fixed >= routeCoord(to?.x) ? 1 : -1;
+    applyEndpoint(to, side, "to");
+  }
+  return {
+    value,
+    adjusted: adjustments.length > 0,
+    adjustments,
+  };
+}
+
 export function snapOrthogonalSegmentFixed({
   segment,
   fixedValue,
@@ -431,7 +474,8 @@ export function snapOrthogonalSegmentFixed({
 export function moveOrthogonalRouteSegment({ routePoints = [], segmentIndex = -1, fixed, from, to } = {}) {
   const info = orthogonalRouteSegmentInfo({ routePoints, segmentIndex, from, to });
   if (!info.draggable) return { ...info, routePoints, moved: false };
-  const nextFixed = routeCoord(fixed);
+  const clearance = adjacentEndpointClearance({ info, fixed, from, to });
+  const nextFixed = clearance.value;
   const updated = info.full.map(point => ({ ...point }));
   if (info.orientation === "h") {
     updated[info.segmentIndex].y = nextFixed;
@@ -450,6 +494,7 @@ export function moveOrthogonalRouteSegment({ routePoints = [], segmentIndex = -1
     }),
     routePoints: nextRoutePoints,
     fixed: nextFixed,
+    endpointClearance: clearance,
     moved: true
   };
 }
@@ -569,5 +614,56 @@ export function moveOrthogonalRoutePoint({ routePoints = [], pointIndex = 0, nex
   return {
     routePoints: updated.slice(1, Math.max(1, updated.length - 1)),
     pointIndex: Math.max(0, nextFullIndex - 1),
+  };
+}
+
+export function orthogonalRouteDiagnostics({ routePoints = [], from, to } = {}) {
+  const raw = routePointsWithoutCollinearCollapse(routePoints);
+  const normalized = normalizeOrthogonalRoutePoints(routePoints);
+  const full = orthogonalWirePoints({ from, to, routePoints });
+  const segments = [];
+  let diagonalSegments = 0;
+  for (let index = 0; index < full.length - 1; index += 1) {
+    const segment = orthogonalSegmentFromPoints(full[index], full[index + 1], { segmentIndex: index });
+    if (segment) {
+      segments.push({
+        segmentIndex: index,
+        orientation: segment.orientation,
+        fixed: segment.fixed,
+        min: segment.min,
+        max: segment.max,
+        a: segment.a,
+        b: segment.b,
+      });
+    } else if (!sameOrthogonalPoint(full[index], full[index + 1])) {
+      diagonalSegments += 1;
+    }
+  }
+  const editableSegments = segments.filter(segment =>
+    segment.segmentIndex > 0 && segment.segmentIndex < full.length - 2
+  );
+  const cleanupRemovedPoints = Math.max(0, raw.length - normalized.length);
+  const fromClearance = segments[0]?.orientation === "h"
+    ? Math.abs(routeCoord(segments[0].b?.x) - routeCoord(from?.x))
+    : null;
+  const lastSegment = segments[segments.length - 1];
+  const toClearance = lastSegment?.orientation === "h"
+    ? Math.abs(routeCoord(lastSegment.a?.x) - routeCoord(to?.x))
+    : null;
+  return {
+    raw,
+    normalized,
+    full,
+    segments,
+    editableSegments,
+    allOrthogonal: diagonalSegments === 0,
+    diagonalSegments,
+    cleanupRemovedPoints,
+    remainsEditable: editableSegments.length > 0 || normalized.length === 0,
+    endpointClearance: {
+      from: Number.isFinite(fromClearance) ? fromClearance : null,
+      to: Number.isFinite(toClearance) ? toClearance : null,
+      minimum: ORTHOGONAL_EXIT_OFFSET,
+    },
   };
 }

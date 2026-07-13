@@ -15,8 +15,10 @@ import {
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 import {
+  ORTHOGONAL_EXIT_OFFSET,
   ORTHOGONAL_WIRE_SNAP_STEPS,
   ORTHOGONAL_WIRE_SPACING,
+  orthogonalRouteDiagnostics,
   snapOrthogonalSegmentFixed
 } from "../src/engine/orthogonalRouting.js";
 
@@ -319,6 +321,9 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
     refreshIndexes: false
   });
   assert.equal(collapsed.moved, true, "orthogonal segment can be dragged onto endpoint lane");
+  assert.equal(collapsed.fixed, outputX + ORTHOGONAL_EXIT_OFFSET, "endpoint-adjacent dogleg keeps Legacy exit clearance");
+  assert.equal(collapsed.endpointClearance.adjusted, true, "endpoint clearance reports the prevented collapse");
+  assert.equal(dragScene.orthogonalSegmentInfo("orthogonal-wire", 1).draggable, true, "dogleg remains editable after touching endpoint clearance");
   const recovered = dragScene.moveOrthogonalSegment("orthogonal-wire", 1, 260, {
     sourceRoutePoints: originalRoutePoints,
     refreshIndexes: false
@@ -326,6 +331,13 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
   assert.equal(recovered.moved, true, "stable drag-start route keeps segment movable after endpoint contact");
   assert.equal(recovered.fixed, 260, "segment recovers from endpoint contact to requested fixed coordinate");
   assert.equal(dragScene.getWire("orthogonal-wire").routePoints.some(point => point.x === 260), true, "recovered route stores moved dogleg coordinate");
+  const diagnostics = orthogonalRouteDiagnostics({
+    routePoints: dragScene.getWire("orthogonal-wire").routePoints,
+    from: dragScene.endpointForWire(dragScene.getWire("orthogonal-wire"), "from"),
+    to: dragScene.endpointForWire(dragScene.getWire("orthogonal-wire"), "to")
+  });
+  assert.equal(diagnostics.allOrthogonal, true, "diagnostics confirms recovered route is orthogonal");
+  assert.equal(diagnostics.remainsEditable, true, "diagnostics confirms recovered route remains editable");
 }
 
 console.log(JSON.stringify({

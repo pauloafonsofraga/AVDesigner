@@ -4,9 +4,9 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 37.3`
+- Current build label: `Iteration 37.5`
 
-Iteration 37.3 builds on Iteration 37, which restored Legacy connector compatibility rules in Engine wire
+Iteration 37.5 builds on Iteration 37, which restored Legacy connector compatibility rules in Engine wire
 creation, including installed SFP/SFP+/QSFP modules, SFP/QSFP fiber-mode family
 compatibility, RJ45 module CAT behaviour, Legacy fiber cable colors, and the
 project-level Bezier vs 90-degree wire routing mode. Iteration 37.1 deepened the
@@ -14,7 +14,11 @@ Engine orthogonal route editing path by porting Legacy endpoint-stub repair,
 route-point repair, moved-endpoint repair, and move-command route-state sync.
 Iteration 37.2 restores the Legacy direct segment-drag interaction for
 orthogonal middle doglegs. Iteration 37.3 restores the Legacy spacing/snap pass
-used while dragging those doglegs.
+used while dragging those doglegs. Iteration 37.5 completes the deep Legacy
+audit for 90-degree wires and tightens Engine segment editing so endpoint-
+adjacent doglegs cannot collapse into uneditable endpoint stubs, snap guides are
+rendered during segment drags, and `debugRouting=1` exposes route normalization,
+snap, cleanup, orthogonality, and endpoint-clearance diagnostics.
 Viewer/PDF/report visual
 migration remains paused while the remaining Legacy functional gaps are worked
 through.
@@ -68,6 +72,44 @@ store a per-wire spacing value or expose a separate spacing UI; it used the
 global Object Snapping toggle during segment drag and saved the resulting
 coordinates in route points. Engine now follows that same approach for 90-degree
 segments only.
+
+Iteration 37.5 audited the complete Legacy orthogonal block in commit
+`8301fbf`:
+
+- initial route creation: `previewOrthogonalWirePoints(...)`,
+  `freezeOrthogonalRouteFromPreview(...)`, `freezeOrthogonalRoute(...)`,
+  `orthogonalRoutePoints(...)`, `findOrthogonalGridRoute(...)`, and
+  `fallbackOrthogonalRoute(...)`
+- rendering and labels: `routeForConnection(...)`, `manualRouteForConnection(...)`,
+  `pointsToPath(...)`, `labelPlacementForRoute(...)`, and
+  `wireLabelTransform(...)`
+- cleanup and stored route state: `cleanRoutePoints(...)`,
+  `routePointsWithoutCollinearCollapse(...)`,
+  `compactExcessOrthogonalRouteRuns(...)`, `normalizedWireRoutePoints(...)`,
+  `setWireRoutePoints(...)`, and `storeCleanRoutePoints(...)`
+- route-point/corner editing: `moveOrthogonalCornerPoints(...)`,
+  `startWireCornerDrag(...)`, and the `wireCornerDrag` pointermove block
+- segment editing: `connectionRouteSegments(...)`,
+  `wireSegmentSnapTargetsForDrag(...)`, `wireSegmentSnap(...)`,
+  `startWireSegmentDrag(...)`, and the `wireSegmentDrag` pointermove/pointerup
+  blocks
+- moved endpoint repair: `repairMovedEndpointOrthogonalRoute(...)`,
+  `repairOrthogonalRouteForMovedEndpoint(...)`,
+  `repairOrthogonalRoutesForMovedSelections(...)`, and
+  `moveWireRoutePointsWithSelection(...)`
+- visual helper: `setSnapGuides(...)`, `clearSnapGuides(...)`,
+  `renderSnapGuides(...)`, and `renderSnapMeasurement(...)`
+
+Legacy segment dragging computes every pointer frame from the drag-start
+`wireSegmentDrag.routePoints`, not from the already-mutated live route. That is
+why a segment can be pushed near an endpoint and then pulled back without being
+reclassified as an endpoint stub mid-drag. Engine now follows that stable-start
+geometry rule and also enforces endpoint exit clearance for first/last editable
+vertical doglegs before committing the route. This keeps the dogleg visible and
+movable instead of saving a collapsed one-point route. The exact Legacy snap
+values are `[0, 10, 15, 20, 25, 30]`: `0` aligns parallel segments directly, and
+the listed offsets create fixed spacing lanes. There is no `5px` wire segment
+snap step in the audited Legacy commit.
 
 Existing custom routed wires keep their stored points. Save/load format remains
 unchanged.
