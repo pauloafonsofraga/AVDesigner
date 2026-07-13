@@ -4,7 +4,7 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 37.5`
+- Current build label: `Iteration 37.6`
 
 Iteration 37.5 builds on Iteration 37, which restored Legacy connector compatibility rules in Engine wire
 creation, including installed SFP/SFP+/QSFP modules, SFP/QSFP fiber-mode family
@@ -14,11 +14,16 @@ Engine orthogonal route editing path by porting Legacy endpoint-stub repair,
 route-point repair, moved-endpoint repair, and move-command route-state sync.
 Iteration 37.2 restores the Legacy direct segment-drag interaction for
 orthogonal middle doglegs. Iteration 37.3 restores the Legacy spacing/snap pass
-used while dragging those doglegs. Iteration 37.5 completes the deep Legacy
-audit for 90-degree wires and tightens Engine segment editing so endpoint-
-adjacent doglegs cannot collapse into uneditable endpoint stubs, snap guides are
-rendered during segment drags, and `debugRouting=1` exposes route normalization,
-snap, cleanup, orthogonality, and endpoint-clearance diagnostics.
+used while dragging those doglegs. Iteration 37.5 completed the deep Legacy
+audit for 90-degree wires and tightened Engine segment editing so endpoint-
+adjacent doglegs cannot collapse into uneditable endpoint stubs. Iteration 37.6
+ports the remaining fragile parts of the Legacy orthogonal route model: short
+overlapping/collinear route runs are no longer aggressively simplified,
+moved-endpoint repair now works on the stored interior route points like Legacy,
+and endpoint-adjacent doglegs can cross to the opposite side of a connector
+without becoming trapped. Snap guides are rendered during segment drags, and
+`debugRouting=1` exposes route normalization, snap, cleanup, orthogonality, and
+endpoint-clearance diagnostics.
 Viewer/PDF/report visual
 migration remains paused while the remaining Legacy functional gaps are worked
 through.
@@ -110,6 +115,20 @@ movable instead of saving a collapsed one-point route. The exact Legacy snap
 values are `[0, 10, 15, 20, 25, 30]`: `0` aligns parallel segments directly, and
 the listed offsets create fixed spacing lanes. There is no `5px` wire segment
 snap step in the audited Legacy commit.
+
+Iteration 37.6 makes the Engine helper match the more conservative Legacy
+cleanup and repair rules. Legacy `compactExcessOrthogonalRouteRuns(...)` only
+collapses a straight run when it grows beyond four points; shorter straight or
+overlapping runs are intentionally preserved because they may be user-created
+corners/doglegs. Engine previously compacted any run of three collinear points,
+which could erase meaningful handles after device movement or segment edits.
+Legacy `repairMovedEndpointOrthogonalRoute(...)` repairs the stored interior
+route points directly, then calls `storableRoutePointsWithoutCollinearCollapse`.
+Engine now follows that same path instead of repairing a pre-normalized full
+endpoint path. The endpoint-clearance guard still prevents first/last editable
+vertical doglegs from collapsing into the connector, but it now derives the
+clearance side from the proposed dragged coordinate, so dragging through the
+connector dead-zone snaps to the opposite side instead of getting stuck.
 
 Existing custom routed wires keep their stored points. Save/load format remains
 unchanged.

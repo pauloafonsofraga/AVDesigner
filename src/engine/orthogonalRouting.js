@@ -129,32 +129,38 @@ export function compactExcessOrthogonalRouteRuns(points = []) {
   const result = [];
   let index = 0;
   while (index < cleaned.length) {
-    result.push(cleaned[index]);
-    const vertical = index + 2 < cleaned.length &&
-      routeCoord(cleaned[index].x) === routeCoord(cleaned[index + 1].x) &&
-      routeCoord(cleaned[index + 1].x) === routeCoord(cleaned[index + 2].x);
-    const horizontal = index + 2 < cleaned.length &&
-      routeCoord(cleaned[index].y) === routeCoord(cleaned[index + 1].y) &&
-      routeCoord(cleaned[index + 1].y) === routeCoord(cleaned[index + 2].y);
-    if (!vertical && !horizontal) {
+    const current = cleaned[index];
+    const next = cleaned[index + 1];
+    if (!next) {
+      result.push(current);
+      break;
+    }
+    const alignedX = routeCoord(current.x) === routeCoord(next.x);
+    const alignedY = routeCoord(current.y) === routeCoord(next.y);
+    if (!alignedX && !alignedY) {
+      result.push(current);
       index += 1;
       continue;
     }
-    const anchor = vertical ? "x" : "y";
+    const axis = alignedX ? "x" : "y";
     let runEnd = index + 1;
     while (
       runEnd + 1 < cleaned.length &&
-      routeCoord(cleaned[runEnd][anchor]) === routeCoord(cleaned[runEnd + 1][anchor])
+      routeCoord(cleaned[runEnd + 1][axis]) === routeCoord(current[axis])
     ) {
       runEnd += 1;
     }
-    if (runEnd > index + 1) {
-      const last = cleaned[runEnd];
-      if (!sameOrthogonalPoint(result[result.length - 1], last)) result.push(last);
-      index = runEnd + 1;
-      continue;
+    const run = cleaned.slice(index, runEnd + 1);
+    // Legacy only compacts truly excessive straight runs. Short overlapping or
+    // collinear runs often encode user-created editable doglegs, so removing
+    // their middle points is what made Engine 90-degree wires lose useful
+    // corners during device moves and segment edits.
+    if (run.length > 4) {
+      result.push(run[0], run[run.length - 1]);
+    } else {
+      result.push(...run);
     }
-    index += 1;
+    index = runEnd + 1;
   }
   return routePointsWithoutCollinearCollapse(result);
 }
@@ -185,77 +191,107 @@ export function buildPreviewOrthogonalInteriorPoints(from, to) {
 
 function endpointStubX(endpoint, reference, fallback) {
   const endpointX = routeCoord(endpoint?.x);
-  const referenceX = routeCoord(reference?.x);
-  const fallbackX = routeCoord(fallback ?? endpointX);
-  if (referenceX > endpointX) return Math.max(fallbackX, endpointX + ORTHOGONAL_EXIT_OFFSET);
-  if (referenceX < endpointX) return Math.min(fallbackX, endpointX - ORTHOGONAL_EXIT_OFFSET);
-  return fallbackX;
+  const referenceX = Number(reference?.x);
+  let candidate = Number.isFinite(referenceX) ? routeCoord(referenceX) : endpointX;
+  let direction = Math.sign(candidate - endpointX);
+  const fallbackX = Number(fallback?.x);
+  if (!direction && Number.isFinite(fallbackX)) direction = Math.sign(routeCoord(fallbackX) - endpointX);
+  if (!direction) direction = 1;
+  if (Math.abs(candidate - endpointX) < ORTHOGONAL_EXIT_OFFSET) {
+    candidate = routeCoord(endpointX + direction * ORTHOGONAL_EXIT_OFFSET);
+  }
+  return candidate;
 }
 
 function compressLeadingEndpointStub(points) {
-  if (points.length < 4) return points;
-  const start = points[0];
-  const stub = points[1];
-  const next = points[2];
-  if (routeCoord(start.y) !== routeCoord(stub.y)) return points;
-  if (routeCoord(stub.x) !== routeCoord(next.x)) return points;
-  if (points.length >= 4 && routeCoord(next.y) === routeCoord(points[3].y)) {
-    return [start, { x: stub.x, y: routeCoord(points[3].y) }, ...points.slice(3)];
+  while (
+    points.length >= 3 &&
+    routeCoord(points[0].x) === routeCoord(points[1].x) &&
+    routeCoord(points[1].x) === routeCoord(points[2].x)
+  ) {
+    points.splice(1, 1);
   }
-  return points;
 }
 
 function compressTrailingEndpointStub(points) {
-  if (points.length < 4) return points;
-  const endIndex = points.length - 1;
-  const end = points[endIndex];
-  const stub = points[endIndex - 1];
-  const prev = points[endIndex - 2];
-  if (routeCoord(end.y) !== routeCoord(stub.y)) return points;
-  if (routeCoord(stub.x) !== routeCoord(prev.x)) return points;
-  if (endIndex - 3 >= 0 && routeCoord(prev.y) === routeCoord(points[endIndex - 3].y)) {
-    return [...points.slice(0, endIndex - 2), { x: stub.x, y: routeCoord(points[endIndex - 3].y) }, stub, end];
+  while (points.length >= 3) {
+    const a = points[points.length - 3];
+    const b = points[points.length - 2];
+    const c = points[points.length - 1];
+    if (routeCoord(a.x) !== routeCoord(b.x) || routeCoord(b.x) !== routeCoord(c.x)) break;
+    points.splice(points.length - 2, 1);
   }
-  return points;
 }
 
 function ensureHorizontalFromEndpoint(points, endpoint, farEndpoint) {
-  if (points.length < 2) return points;
-  const next = points[1] || endpoint;
-  const stubX = endpointStubX(endpoint, farEndpoint, next.x);
-  let updated = [{ ...points[0] }, { x: stubX, y: routeCoord(points[0].y) }, ...points.slice(2)];
-  if (updated.length >= 3 && routeCoord(updated[2].x) !== routeCoord(stubX)) {
-    updated.splice(2, 0, { x: stubX, y: routeCoord(updated[2].y) });
-  } else if (updated.length === 2) {
-    updated.push({ x: stubX, y: routeCoord(farEndpoint?.y ?? updated[1].y) });
+  if (!points.length || !endpoint) return;
+  const endpointY = routeCoord(endpoint.y);
+  const first = points[0];
+  const second = points[1] || farEndpoint;
+  const hasStubPair = points[1] && routeCoord(points[1].x) === routeCoord(first.x);
+  if (hasStubPair) {
+    const stubX = endpointStubX(endpoint, points[1], farEndpoint);
+    first.x = stubX;
+    first.y = endpointY;
+    points[1].x = stubX;
+    compressLeadingEndpointStub(points);
+    return;
   }
-  return compressLeadingEndpointStub(updated);
+  const firstNeedsStub = routeCoord(first.y) !== endpointY;
+  const firstTooClose = Math.abs(routeCoord(first.x) - routeCoord(endpoint.x)) < ORTHOGONAL_EXIT_OFFSET;
+  if (!firstNeedsStub && !firstTooClose) return;
+  const stubX = endpointStubX(endpoint, first, second);
+  if (firstNeedsStub) {
+    first.x = stubX;
+    points.unshift({ x: stubX, y: endpointY });
+    compressLeadingEndpointStub(points);
+    return;
+  }
+  const segment = points[1] ? { orientation: inferredSegmentOrientation(first, points[1]) } : null;
+  first.x = stubX;
+  first.y = endpointY;
+  if (segment?.orientation === "v") points[1].x = stubX;
+  compressLeadingEndpointStub(points);
 }
 
 function ensureHorizontalToEndpoint(points, endpoint, farEndpoint) {
-  if (points.length < 2) return points;
-  const endIndex = points.length - 1;
-  const prev = points[endIndex - 1] || endpoint;
-  const stubX = endpointStubX(endpoint, farEndpoint, prev.x);
-  let updated = [...points.slice(0, endIndex - 1), { x: stubX, y: routeCoord(points[endIndex].y) }, { ...points[endIndex] }];
-  const stubIndex = updated.length - 2;
-  if (stubIndex > 0 && routeCoord(updated[stubIndex - 1].x) !== routeCoord(stubX)) {
-    updated.splice(stubIndex, 0, { x: stubX, y: routeCoord(updated[stubIndex - 1].y) });
-  } else if (updated.length === 2) {
-    updated.unshift({ x: stubX, y: routeCoord(farEndpoint?.y ?? updated[0].y) });
+  if (!points.length || !endpoint) return;
+  const endpointY = routeCoord(endpoint.y);
+  const lastIndex = points.length - 1;
+  const last = points[lastIndex];
+  const previous = points[lastIndex - 1] || farEndpoint;
+  const hasStubPair = points[lastIndex - 1] && routeCoord(points[lastIndex - 1].x) === routeCoord(last.x);
+  if (hasStubPair) {
+    const stubX = endpointStubX(endpoint, points[lastIndex - 1], farEndpoint);
+    last.x = stubX;
+    last.y = endpointY;
+    points[lastIndex - 1].x = stubX;
+    compressTrailingEndpointStub(points);
+    return;
   }
-  return compressTrailingEndpointStub(updated);
+  const lastNeedsStub = routeCoord(last.y) !== endpointY;
+  const lastTooClose = Math.abs(routeCoord(last.x) - routeCoord(endpoint.x)) < ORTHOGONAL_EXIT_OFFSET;
+  if (!lastNeedsStub && !lastTooClose) return;
+  const stubX = endpointStubX(endpoint, last, previous);
+  if (lastNeedsStub) {
+    last.x = stubX;
+    points.push({ x: stubX, y: endpointY });
+    compressTrailingEndpointStub(points);
+    return;
+  }
+  const segment = points[lastIndex - 1] ? { orientation: inferredSegmentOrientation(points[lastIndex - 1], last) } : null;
+  last.x = stubX;
+  last.y = endpointY;
+  if (segment?.orientation === "v") points[lastIndex - 1].x = stubX;
+  compressTrailingEndpointStub(points);
 }
 
 export function repairMovedEndpointOrthogonalRoute(routePoints = [], from, to, fromMoved, toMoved) {
-  let next = routePointsWithoutCollinearCollapse([from, ...routePoints, to]);
-  if (next.length < 2) return [];
-  if (fromMoved === toMoved) {
-    return storableOrthogonalInteriorPoints(next.slice(1, -1), from, to);
-  }
-  if (fromMoved) next = ensureHorizontalFromEndpoint(next, from, to);
-  if (toMoved) next = ensureHorizontalToEndpoint(next, to, from);
-  return storableOrthogonalInteriorPoints(next.slice(1, -1), from, to);
+  const next = routePointsWithoutCollinearCollapse(routePoints);
+  if (!next.length || fromMoved === toMoved) return next;
+  if (fromMoved) ensureHorizontalFromEndpoint(next, from, to);
+  if (toMoved) ensureHorizontalToEndpoint(next, to, from);
+  return storableRoutePointsWithoutCollinearCollapse(next, from, to);
 }
 
 export function routePointsForMovedEndpoints({ routePoints = [], from, to, fromMoved = false, toMoved = false, dx = 0, dy = 0 }) {
@@ -331,9 +367,11 @@ function adjacentEndpointClearance({ info, fixed, from, to } = {}) {
   }
   let value = routeCoord(fixed);
   const adjustments = [];
-  const applyEndpoint = (endpoint, side, label) => {
-    if (!endpoint || !Number.isFinite(Number(endpoint.x)) || !side) return;
+  const applyEndpoint = (endpoint, originalSide, label) => {
+    if (!endpoint || !Number.isFinite(Number(endpoint.x))) return;
     const endpointX = routeCoord(endpoint.x);
+    let side = Math.sign(value - endpointX);
+    if (!side) side = Math.sign(originalSide) || 1;
     const minimum = endpointX + Math.sign(side) * ORTHOGONAL_EXIT_OFFSET;
     if (side > 0 && value < minimum) {
       adjustments.push({ label, endpointX, side, from: value, to: minimum });

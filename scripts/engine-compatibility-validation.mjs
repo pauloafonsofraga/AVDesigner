@@ -18,7 +18,9 @@ import {
   ORTHOGONAL_EXIT_OFFSET,
   ORTHOGONAL_WIRE_SNAP_STEPS,
   ORTHOGONAL_WIRE_SPACING,
+  compactExcessOrthogonalRouteRuns,
   orthogonalRouteDiagnostics,
+  routePointsForMovedEndpoints,
   snapOrthogonalSegmentFixed
 } from "../src/engine/orthogonalRouting.js";
 
@@ -338,6 +340,61 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
   });
   assert.equal(diagnostics.allOrthogonal, true, "diagnostics confirms recovered route is orthogonal");
   assert.equal(diagnostics.remainsEditable, true, "diagnostics confirms recovered route remains editable");
+
+  const crossed = dragScene.moveOrthogonalSegment("orthogonal-wire", 1, outputX - 10, {
+    sourceRoutePoints: originalRoutePoints,
+    refreshIndexes: false
+  });
+  assert.equal(crossed.moved, true, "endpoint-adjacent dogleg can be pulled past the connector instead of getting stuck");
+  assert.equal(crossed.fixed, outputX - ORTHOGONAL_EXIT_OFFSET, "opposite-side pull keeps clearance on the opposite side");
+  assert.equal(crossed.endpointClearance.adjusted, true, "opposite-side endpoint clearance is reported");
+}
+{
+  const shortOverlap = compactExcessOrthogonalRouteRuns([
+    { x: 0, y: 0 },
+    { x: 50, y: 0 },
+    { x: 100, y: 0 },
+    { x: 150, y: 0 }
+  ]);
+  assert.deepEqual(shortOverlap, [
+    { x: 0, y: 0 },
+    { x: 50, y: 0 },
+    { x: 100, y: 0 },
+    { x: 150, y: 0 }
+  ], "short overlapping/collinear route runs keep meaningful editable points");
+  const longRun = compactExcessOrthogonalRouteRuns([
+    { x: 0, y: 0 },
+    { x: 50, y: 0 },
+    { x: 100, y: 0 },
+    { x: 150, y: 0 },
+    { x: 200, y: 0 }
+  ]);
+  assert.deepEqual(longRun, [
+    { x: 0, y: 0 },
+    { x: 200, y: 0 }
+  ], "only excessive straight route runs are compacted like Legacy");
+}
+{
+  const repaired = routePointsForMovedEndpoints({
+    routePoints: [
+      { x: 200, y: 50 },
+      { x: 200, y: 180 },
+      { x: 320, y: 180 },
+      { x: 320, y: 150 }
+    ],
+    from: { x: 150, y: 80 },
+    to: { x: 400, y: 150 },
+    fromMoved: true,
+    toMoved: false
+  });
+  assert.equal(repaired.some(point => point.x === 320 && point.y === 180), true, "one-endpoint repair preserves middle dogleg user shape");
+  const repairedDiagnostics = orthogonalRouteDiagnostics({
+    routePoints: repaired,
+    from: { x: 150, y: 80 },
+    to: { x: 400, y: 150 }
+  });
+  assert.equal(repairedDiagnostics.allOrthogonal, true, "one-endpoint repair remains orthogonal");
+  assert.equal(repairedDiagnostics.remainsEditable, true, "one-endpoint repair remains editable");
 }
 
 console.log(JSON.stringify({
