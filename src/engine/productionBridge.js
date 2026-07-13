@@ -753,8 +753,11 @@ class ProductionEngineBridge {
     }
     if (this.wireSegmentDrag) {
       const commitStart = performance.now();
-      const { wireId, beforePoints, moved } = this.wireSegmentDrag;
+      const { wireId, beforePoints, moved, lastSnap } = this.wireSegmentDrag;
       if (moved) {
+        const cleanup = lastSnap?.snapped
+          ? this.scene.finalizeSnappedOrthogonalSegment(wireId, { refreshIndexes: false })
+          : { changed: false, removed: 0 };
         this.scene.refreshWireIndexes([wireId]);
         const afterPoints = cloneRoutePoints(this.scene.getWire(wireId)?.routePoints || []);
         this.beginProductionCommit("wire segment");
@@ -766,6 +769,9 @@ class ProductionEngineBridge {
         this.recordDirtyVisualMetrics(dirtyStats, "wire segment final");
         this.markCommitted("wire segment", mutationMs);
         this.recordCommand(wireSegmentCommand(wireId, beforePoints, afterPoints));
+        this.hud.setMetric("segment cleanup", cleanup.removed
+          ? `${cleanup.removed} redundant corner${cleanup.removed === 1 ? "" : "s"} removed`
+          : "none");
         this.hud.setMetric("wire segment commit", `${(performance.now() - commitStart).toFixed(2)} ms`);
       }
       this.wireSegmentDrag = null;

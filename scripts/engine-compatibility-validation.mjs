@@ -417,6 +417,69 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
   ], "only excessive straight route runs are compacted like Legacy");
 }
 {
+  const snapCleanupScene = new SceneGraph();
+  snapCleanupScene.setData({
+    devices: [
+      {
+        id: "snap-tx",
+        label: "TX",
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+        connectors: [{ id: "out", label: "OUT", side: "right", direction: "output", x: 100, y: 50 }]
+      },
+      {
+        id: "snap-rx",
+        label: "RX",
+        x: 400,
+        y: 100,
+        width: 100,
+        height: 100,
+        connectors: [{ id: "in", label: "IN", side: "left", direction: "input", x: 0, y: 50 }]
+      }
+    ],
+    wires: [{
+      id: "snapped-corner-wire",
+      fromDeviceId: "snap-tx",
+      fromConnectorId: "out",
+      toDeviceId: "snap-rx",
+      toConnectorId: "in",
+      routeStyle: "orthogonal",
+      routePoints: [
+        { x: 180, y: 50 },
+        { x: 180, y: 100 },
+        { x: 300, y: 100 },
+        { x: 300, y: 150 }
+      ],
+      color: "#ff0",
+      cableType: "HDMI"
+    }]
+  });
+  const snappedWire = snapCleanupScene.getWire("snapped-corner-wire");
+  const dragStartPoints = snappedWire.routePoints.map(point => ({ ...point }));
+  const moved = snapCleanupScene.moveOrthogonalSegment("snapped-corner-wire", 2, 50, {
+    refreshIndexes: false,
+    sourceRoutePoints: dragStartPoints
+  });
+  assert.equal(moved.moved, true, "orthogonal custom segment reaches its straight-line snap coordinate");
+  const beforeCleanupCount = snappedWire.routePoints.length;
+  const cleanup = snapCleanupScene.finalizeSnappedOrthogonalSegment("snapped-corner-wire", { refreshIndexes: false });
+  assert.equal(cleanup.changed, true, "snapped straight orthogonal segment triggers release cleanup");
+  assert.ok(cleanup.removed > 0, "snapped straight orthogonal segment removes its redundant custom corner");
+  assert.ok(snappedWire.routePoints.length < beforeCleanupCount, "snapped wire stores fewer route points after release cleanup");
+  assert.deepEqual(
+    dragStartPoints,
+    [
+      { x: 180, y: 50 },
+      { x: 180, y: 100 },
+      { x: 300, y: 100 },
+      { x: 300, y: 150 }
+    ],
+    "snapped segment cleanup preserves the immutable undo route"
+  );
+}
+{
   const repaired = routePointsForMovedEndpoints({
     routePoints: [
       { x: 200, y: 50 },

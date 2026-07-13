@@ -1,5 +1,6 @@
 import { SpatialIndex } from "./spatialIndex.js";
 import {
+  cleanOrthogonalRoutePoints,
   moveOrthogonalRouteSegment,
   moveOrthogonalRoutePoint,
   orthogonalRouteSegmentsForWire,
@@ -591,6 +592,28 @@ export class SceneGraph {
     this.dirtyWires.add(wireId);
     if (refreshIndexes) this.refreshWireIndexes([wireId]);
     return moved;
+  }
+
+  finalizeSnappedOrthogonalSegment(wireId, { refreshIndexes = true } = {}) {
+    const wire = this.getWire(wireId);
+    if (!wire || wire.routeStyle !== "orthogonal") {
+      return { changed: false, removed: 0, reason: "not-orthogonal" };
+    }
+    const from = this.endpointForWire(wire, "from");
+    const to = this.endpointForWire(wire, "to");
+    const beforeCount = wire.routePoints.length;
+    const cleanedFullRoute = cleanOrthogonalRoutePoints([from, ...wire.routePoints, to]);
+    const routePoints = cleanedFullRoute.slice(1, Math.max(1, cleanedFullRoute.length - 1));
+    const removed = Math.max(0, beforeCount - routePoints.length);
+    if (!removed) return { changed: false, removed: 0, routePoints: wire.routePoints };
+
+    // Live segment dragging keeps redundant points so its segment indices stay
+    // stable. Once a snap has completed, collinear points no longer describe a
+    // corner and can be removed safely, matching the Legacy release behavior.
+    wire.routePoints = routePoints;
+    this.dirtyWires.add(wireId);
+    if (refreshIndexes) this.refreshWireIndexes([wireId]);
+    return { changed: true, removed, routePoints };
   }
 
   addWire({
