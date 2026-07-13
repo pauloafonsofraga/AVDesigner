@@ -462,14 +462,25 @@ export class SceneGraph {
     return device;
   }
 
-  moveRoutePoint(wireId, pointIndex, x, y, { refreshIndexes = true } = {}) {
+  moveRoutePoint(wireId, pointIndex, x, y, {
+    refreshIndexes = true,
+    sourceRoutePoints = null,
+    sourcePointIndex = null,
+  } = {}) {
     const wire = this.getWire(wireId);
-    const point = wire?.routePoints?.[pointIndex];
+    const routePoints = Array.isArray(sourceRoutePoints) ? sourceRoutePoints : wire?.routePoints;
+    const editPointIndex = Number.isFinite(Number(sourcePointIndex))
+      ? Number(sourcePointIndex)
+      : pointIndex;
+    const point = routePoints?.[editPointIndex];
     if (!point) return { moved: false, pointIndex };
     if (wire.routeStyle === "orthogonal") {
       const moved = moveOrthogonalRoutePoint({
-        routePoints: wire.routePoints,
-        pointIndex,
+        // Corner movement is calculated from the immutable drag-start route.
+        // Re-feeding the already-mutated live route changes point identity and
+        // eventually produces the diagonal/ghost behavior seen in Iteration 37.
+        routePoints,
+        pointIndex: editPointIndex,
         nextPoint: { x, y },
         from: this.endpointForWire(wire, "from"),
         to: this.endpointForWire(wire, "to")

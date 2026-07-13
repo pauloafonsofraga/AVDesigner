@@ -18,6 +18,7 @@ import { PerfHud } from "./perfHud.js";
 import { validateEngineScene } from "./sceneValidation.js";
 import {
   buildPreviewOrthogonalInteriorPoints,
+  createOrthogonalRouteModel,
   orthogonalRouteDiagnostics,
   ORTHOGONAL_WIRE_SNAP_STEPS,
   ORTHOGONAL_WIRE_SPACING,
@@ -78,6 +79,7 @@ class ProductionEngineBridge {
     this.debugLayerMode = engineLayerDebugEnabled();
     this.debugCompatibility = engineCompatibilityDebugEnabled();
     this.debugRouting = engineRoutingDebugEnabled();
+    this.orthogonalTest = engineOrthogonalTestEnabled();
     this.lastCompatibilityTargetKey = "";
     this.renderOptions = {
       labels: true,
@@ -283,6 +285,10 @@ class ProductionEngineBridge {
         <button type="button" data-engine-action="redo">Redo Engine Edit</button>
         <button type="button" data-engine-action="delete-wire">Delete Selected Wire</button>
         <button type="button" data-engine-action="validate">Validate Engine Scene</button>
+        ${this.orthogonalTest ? `
+          <button type="button" data-engine-action="select-orthogonal">Select First 90 DEG Wire</button>
+          <button type="button" data-engine-action="copy-routing">Copy Routing Diagnostics</button>
+        ` : ""}
       </div>
       <div class="engine-bridge-inspector"></div>
       <div class="engine-bridge-validation hidden"></div>
@@ -334,6 +340,8 @@ class ProductionEngineBridge {
     this.engineRoot.querySelector("[data-engine-action='redo']")?.addEventListener("click", () => this.redoEngineCommand());
     this.engineRoot.querySelector("[data-engine-action='delete-wire']")?.addEventListener("click", () => this.deleteSelectedWires());
     this.engineRoot.querySelector("[data-engine-action='validate']")?.addEventListener("click", () => this.runSceneValidation());
+    this.engineRoot.querySelector("[data-engine-action='select-orthogonal']")?.addEventListener("click", () => this.selectFirstOrthogonalWire());
+    this.engineRoot.querySelector("[data-engine-action='copy-routing']")?.addEventListener("click", () => this.copyRoutingDiagnostics());
     if (this.debugLayerMode && engineLayerDebugShowProductionSvg()) {
       this.container.classList.add("engine-bridge-show-production-svg");
     }
@@ -554,8 +562,21 @@ class ProductionEngineBridge {
     if (this.routePointDrag) {
       const start = performance.now();
       const world = screenToWorld(this.camera, point);
-      const moved = this.scene.moveRoutePoint(this.routePointDrag.wireId, this.routePointDrag.pointIndex, world.x, world.y, { refreshIndexes: false });
-      if (moved?.moved) this.routePointDrag.pointIndex = moved.pointIndex;
+      const moved = this.scene.moveRoutePoint(
+        this.routePointDrag.wireId,
+        this.routePointDrag.pointIndex,
+        world.x,
+        world.y,
+        {
+          refreshIndexes: false,
+          sourceRoutePoints: this.routePointDrag.beforePoints,
+          sourcePointIndex: this.routePointDrag.sourcePointIndex,
+        }
+      );
+      if (moved?.moved) {
+        this.routePointDrag.moved = true;
+        this.routePointDrag.pointIndex = moved.pointIndex;
+      }
       const dirtyStats = this.renderer.updateDirty(this.scene, {
         wireIds: [this.routePointDrag.wireId],
         refreshCableHops: false
@@ -567,6 +588,7 @@ class ProductionEngineBridge {
       this.hud.setMetric("dirty counts", `${dirtyStats.dirtyDevices} dev / ${dirtyStats.dirtyWires} wires`);
       this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
       this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
+      this.updateRoutingDebugHud();
       this.scheduleRender();
       return;
     }
@@ -631,6 +653,7 @@ class ProductionEngineBridge {
       this.hud.setMetric("dirty counts", `${dirtyStats.dirtyDevices} dev / ${dirtyStats.dirtyWires} wires`);
       this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
       this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
+      this.updateRoutingDebugHud();
       this.scheduleRender();
       return;
     }
@@ -701,18 +724,20 @@ class ProductionEngineBridge {
     }
     if (this.routePointDrag) {
       const commitStart = performance.now();
-      const { wireId, beforePoints } = this.routePointDrag;
-      this.scene.refreshWireIndexes([wireId]);
-      const afterPoints = cloneRoutePoints(this.scene.getWire(wireId)?.routePoints || []);
-      this.beginProductionCommit("route point");
-      const mutationMs = this.mutations?.commitRoutePoints(this.scene, wireId) || 0;
-      const dirtyStats = this.renderer.updateDirty(this.scene, { wireIds: [wireId] });
-      this.lastDirtyWireIds = new Set([wireId]);
-      this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
-      this.renderer.setRenderOptions(this.renderOptions);
-      this.recordDirtyVisualMetrics(dirtyStats, "route point final");
-      this.markCommitted("route point", mutationMs);
-      this.recordCommand(routePointCommand(wireId, beforePoints, afterPoints));
+      const { wireId, beforePoints, moved } = this.routePointDrag;
+      if (moved) {
+        this.scene.refreshWireIndexes([wireId]);
+        const afterPoints = cloneRoutePoints(this.scene.getWire(wireId)?.routePoints || []);
+        this.beginProductionCommit("route point");
+        const mutationMs = this.mutations?.commitRoutePoints(this.scene, wireId) || 0;
+        const dirtyStats = this.renderer.updateDirty(this.scene, { wireIds: [wireId] });
+        this.lastDirtyWireIds = new Set([wireId]);
+        this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+        this.renderer.setRenderOptions(this.renderOptions);
+        this.recordDirtyVisualMetrics(dirtyStats, "route point final");
+        this.markCommitted("route point", mutationMs);
+        this.recordCommand(routePointCommand(wireId, beforePoints, afterPoints));
+      }
       this.routePointDrag = null;
       this.canvas.classList.remove("dragging");
       this.updateCanvasCursor();
@@ -938,17 +963,6 @@ class ProductionEngineBridge {
     this.updateLayerDebugPanel();
   }
 
-  orthogonalSegmentForRoutePoint(routePoint) {
-    if (!routePoint?.wire || routePoint.wire.routeStyle !== "orthogonal") return null;
-    const fullIndex = Number(routePoint.pointIndex) + 1;
-    const candidates = [fullIndex - 1, fullIndex].filter(index => Number.isFinite(index) && index >= 0);
-    for (const segmentIndex of candidates) {
-      const info = this.scene.orthogonalSegmentInfo(routePoint.wire.id, segmentIndex);
-      if (info.draggable) return info.segmentIndex;
-    }
-    return null;
-  }
-
   routePointHandleIsEditable(routePoint) {
     if (!routePoint?.wire) return false;
     const wireId = routePoint.wire.id;
@@ -969,15 +983,14 @@ class ProductionEngineBridge {
   }
 
   beginRoutePointDrag(routePoint, screenPoint = null, worldPoint = null) {
-    const segmentIndex = this.orthogonalSegmentForRoutePoint(routePoint);
-    if (segmentIndex !== null && screenPoint && worldPoint) {
-      const started = this.beginWireSegmentDrag({ wire: { wire: routePoint.wire, segmentIndex } }, screenPoint, worldPoint);
-      if (started) return "segment";
-    }
     this.routePointDrag = {
       wireId: routePoint.wire.id,
+      sourcePointIndex: routePoint.pointIndex,
       pointIndex: routePoint.pointIndex,
-      beforePoints: cloneRoutePoints(routePoint.wire.routePoints)
+      beforePoints: cloneRoutePoints(routePoint.wire.routePoints),
+      startScreen: screenPoint ? { ...screenPoint } : null,
+      startWorld: worldPoint ? { ...worldPoint } : null,
+      moved: false,
     };
     this.canvas.classList.add("dragging");
     this.updateCanvasCursor();
@@ -1217,16 +1230,40 @@ class ProductionEngineBridge {
 
   cancelActiveInteraction(reason = "cancelled", { updateHud = true } = {}) {
     this.cancelWireSegmentDrag(reason);
+    this.cancelRoutePointDrag(reason);
     this.pendingDrag = null;
     this.dragSession = null;
     this.panState = null;
-    this.routePointDrag = null;
     this.wireCreate = null;
     this.cancelMarquee(reason, { updateCursor: false, render: false });
     this.canvas?.classList.remove("dragging", "panning", "wire-creating");
     this.clearHoverState(reason, { render: false });
     this.updateCanvasCursor();
     if (updateHud) this.updateInteractionHud(reason);
+  }
+
+  cancelRoutePointDrag(reason = "cancelled") {
+    const drag = this.routePointDrag;
+    if (!drag) return false;
+    if (drag.moved) {
+      const wire = this.scene.getWire(drag.wireId);
+      if (wire) {
+        wire.routePoints = cloneRoutePoints(drag.beforePoints);
+        this.scene.dirtyWires.add(wire.id);
+        this.scene.refreshWireIndexes([wire.id]);
+        const dirtyStats = this.renderer.updateDirty(this.scene, {
+          wireIds: [wire.id],
+          refreshCableHops: false,
+        });
+        this.lastDirtyWireIds = new Set([wire.id]);
+        this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+        this.renderer.setRenderOptions(this.renderOptions);
+        this.hud?.setMetric("route point cancel", `${reason} reverted ${wire.id}`);
+        this.hud?.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+      }
+    }
+    this.routePointDrag = null;
+    return true;
   }
 
   cancelWireSegmentDrag(reason = "cancelled") {
@@ -1442,7 +1479,10 @@ class ProductionEngineBridge {
     if (!this.debugRouting && !this.debugLayerMode) return;
     const selectedWireId = [...this.scene.selectedWireIds][0] || "";
     const selectedRoutePointKey = [...this.scene.selectedRoutePointKeys][0] || "";
-    const routeWireId = this.wireSegmentDrag?.wireId || selectedWireId || (selectedRoutePointKey ? selectedRoutePointKey.split(":")[0] : "");
+    const routeWireId = this.wireSegmentDrag?.wireId
+      || this.routePointDrag?.wireId
+      || selectedWireId
+      || (selectedRoutePointKey ? selectedRoutePointKey.split(":")[0] : "");
     const wire = routeWireId ? this.scene.getWire(routeWireId) : null;
     if (!wire) {
       this.hud.setMetric("route debug wire", "-");
@@ -1454,15 +1494,32 @@ class ProductionEngineBridge {
     const diagnostics = wire.routeStyle === "orthogonal"
       ? orthogonalRouteDiagnostics({ routePoints: wire.routePoints || [], from, to })
       : null;
+    const routeModel = wire.routeStyle === "orthogonal"
+      ? createOrthogonalRouteModel({ routePoints: wire.routePoints || [], from, to })
+      : null;
     const routePoints = wire.routePoints || [];
     const fromOwner = this.scene.wireEndpointDebug(wire, "from");
     const toOwner = this.scene.wireEndpointDebug(wire, "to");
     const hopCount = this.renderer?.cableHopMap?.get(wire.id)?.length || 0;
+    const endpointOwnerIds = new Set([fromOwner?.ownerId, toOwner?.ownerId].filter(Boolean));
+    const overlappingDeviceIds = this.scene.devices
+      .filter(device => !endpointOwnerIds.has(device.id) && polylineIntersectsDevice(rendered, device))
+      .map(device => device.id);
+    const productionConnection = this.mutations?.connectionDataForWire(wire.sourceId || wire.id);
+    const productionRoutePoints = productionConnection?.orthogonalRoutePoints || productionConnection?.routePoints || [];
     this.hud.setMetric("route debug wire", `${wire.id} / ${wire.routeStyle || "bezier"}`);
     this.hud.setMetric("route points", `${routePoints.length} stored / ${Math.max(0, rendered.length - 1)} segments`);
     this.hud.setMetric("route endpoints", `${roundForUi(from.x)},${roundForUi(from.y)} -> ${roundForUi(to.x)},${roundForUi(to.y)}`);
     this.hud.setMetric("route owners", `${fromOwner?.ownerId || "-"} -> ${toOwner?.ownerId || "-"}`);
     this.hud.setMetric("route hops", hopCount);
+    this.hud.setMetric("route edit type", this.wireSegmentDrag
+      ? "dogleg segment"
+      : this.routePointDrag
+        ? "corner handle"
+        : "idle");
+    this.hud.setMetric("hovered handle index", this.hoverState.routePoint?.wire?.id === wire.id
+      ? this.hoverState.routePoint.pointIndex
+      : "-");
     const hoveredSegment = this.hoverState.wire?.wire?.id === wire.id ? this.hoverState.wire : null;
     const segmentInfo = this.wireSegmentDrag
       ? this.scene.orthogonalSegmentInfo(wire.id, this.wireSegmentDrag.segmentIndex)
@@ -1477,15 +1534,86 @@ class ProductionEngineBridge {
     this.hud.setMetric("route segment points", this.wireSegmentDrag
       ? `before ${formatRoutePointsForHud(this.wireSegmentDrag.beforePoints)} / now ${formatRoutePointsForHud(wire.routePoints)}`
       : "-");
+    this.hud.setMetric("route raw", formatRoutePointsForHud(routePoints));
     this.hud.setMetric("route normalized", diagnostics ? formatRoutePointsForHud(diagnostics.normalized) : "-");
     this.hud.setMetric("route orthogonal", diagnostics ? `${diagnostics.allOrthogonal ? "yes" : "no"} / diagonals ${diagnostics.diagonalSegments}` : "-");
     this.hud.setMetric("route editable", diagnostics ? `${diagnostics.remainsEditable ? "yes" : "no"} / segments ${diagnostics.editableSegments.length}` : "-");
     this.hud.setMetric("route cleanup", diagnostics ? `${diagnostics.cleanupRemovedPoints} removed` : "-");
+    this.hud.setMetric("route device overlap", overlappingDeviceIds.length
+      ? `yes: ${overlappingDeviceIds.slice(0, 4).join(",")}${overlappingDeviceIds.length > 4 ? "..." : ""}`
+      : "no");
     this.hud.setMetric("endpoint clearance", diagnostics
       ? `from ${diagnostics.endpointClearance.from ?? "-"} / to ${diagnostics.endpointClearance.to ?? "-"} / min ${diagnostics.endpointClearance.minimum}`
       : "-");
     this.hud.setMetric("snap candidates", this.wireSegmentDrag ? `${this.wireSegmentDrag.snapTargets?.length || 0}` : "-");
+    this.hud.setMetric("snap chosen", this.wireSegmentDrag?.lastSnap
+      ? `${this.wireSegmentDrag.lastSnap.source || "none"} / ${this.wireSegmentDrag.lastSnap.spacing ?? 0}px / ${this.wireSegmentDrag.lastSnap.after ?? this.wireSegmentDrag.currentFixed}`
+      : "-");
     this.hud.setMetric("snap helper", this.wireSegmentDrag?.lastSnap?.guides ? "active" : "no");
+    this.hud.setMetric("route model", routeModel
+      ? `${routeModel.diagnostics().protectedStubCount} protected / ${routeModel.diagnostics().editableDoglegCount} doglegs / ${routeModel.diagnostics().cornerCount} corners`
+      : "-");
+    this.hud.setMetric("route before edit", this.routePointDrag
+      ? formatRoutePointsForHud(this.routePointDrag.beforePoints)
+      : this.wireSegmentDrag
+        ? formatRoutePointsForHud(this.wireSegmentDrag.beforePoints)
+        : "-");
+    this.hud.setMetric("route after edit", formatRoutePointsForHud(routePoints));
+    this.hud.setMetric("renderer path points", formatRoutePointsForHud(rendered));
+    this.hud.setMetric("production route points", formatRoutePointsForHud(productionRoutePoints));
+    this.hud.setMetric("orthogonal test", this.orthogonalTest ? "active - real pointer path" : "off");
+  }
+
+  selectFirstOrthogonalWire() {
+    const wire = this.scene.wires.find(candidate => candidate.routeStyle === "orthogonal");
+    if (!wire) {
+      this.updateInteractionHud("orthogonal-test-no-wire");
+      this.hud?.setMetric("orthogonal test", "no 90 DEG wire in project");
+      return;
+    }
+    this.scene.selectWireOnly(wire.id);
+    this.updateSelectionHud();
+    this.updateInteractionHud("orthogonal-test-selected");
+    this.scheduleRender();
+  }
+
+  copyRoutingDiagnostics() {
+    const wireId = this.wireSegmentDrag?.wireId
+      || this.routePointDrag?.wireId
+      || [...this.scene.selectedWireIds][0];
+    const wire = wireId ? this.scene.getWire(wireId) : null;
+    if (!wire) {
+      this.hud?.setMetric("orthogonal test", "select a wire first");
+      return;
+    }
+    const from = this.scene.endpointForWire(wire, "from");
+    const to = this.scene.endpointForWire(wire, "to");
+    const payload = {
+      wireId: wire.id,
+      sourceId: wire.sourceId || wire.id,
+      routeStyle: wire.routeStyle,
+      routePoints: cloneRoutePoints(wire.routePoints),
+      renderedPoints: cloneRoutePoints(this.scene.wireRenderPolyline(wire)),
+      diagnostics: wire.routeStyle === "orthogonal"
+        ? orthogonalRouteDiagnostics({ routePoints: wire.routePoints, from, to })
+        : null,
+      productionConnection: this.mutations?.connectionDataForWire(wire.sourceId || wire.id),
+      activeEdit: this.wireSegmentDrag
+        ? { type: "dogleg", segmentIndex: this.wireSegmentDrag.segmentIndex, snap: this.wireSegmentDrag.lastSnap }
+        : this.routePointDrag
+          ? { type: "corner", pointIndex: this.routePointDrag.pointIndex }
+          : null,
+    };
+    const text = JSON.stringify(payload, null, 2);
+    const copyPromise = navigator.clipboard?.writeText?.(text);
+    if (copyPromise) copyPromise.then(() => {
+      this.hud?.setMetric("orthogonal test", `copied ${wire.id}`);
+    }).catch(() => {
+      console.info("[engine-routing] diagnostics", payload);
+      this.hud?.setMetric("orthogonal test", `logged ${wire.id}`);
+    });
+    else this.hud?.setMetric("orthogonal test", `logged ${wire.id}`);
+    console.info("[engine-routing] diagnostics", payload);
   }
 
   updateInteractionHud(mode = "idle", hit = null) {
@@ -3193,7 +3321,7 @@ function engineLayerDebugShowProductionSvg() {
 
 function engineDebugHudEnabled() {
   const params = new URLSearchParams(window.location.search);
-  return params.get("debugHud") === "1" || params.get("debugLayers") === "1";
+  return params.get("debugHud") === "1" || params.get("debugLayers") === "1" || params.get("orthogonalTest") === "1";
 }
 
 function engineCompatibilityDebugEnabled() {
@@ -3204,6 +3332,10 @@ function engineCompatibilityDebugEnabled() {
 function engineRoutingDebugEnabled() {
   const params = new URLSearchParams(window.location.search);
   return params.get("debugRouting") === "1" || params.get("debugHud") === "1";
+}
+
+function engineOrthogonalTestEnabled() {
+  return new URLSearchParams(window.location.search).get("orthogonalTest") === "1";
 }
 
 function engineLayerDebugRenderOptions(enabled) {
@@ -3375,6 +3507,25 @@ function formatRoutePointsForHud(points = []) {
   const list = (points || []).slice(0, 6).map(point => `${roundForUi(point.x)},${roundForUi(point.y)}`);
   const suffix = (points || []).length > list.length ? ` +${(points || []).length - list.length}` : "";
   return `[${list.join(" | ")}${suffix}]`;
+}
+
+function polylineIntersectsDevice(points = [], device = null) {
+  if (!device || points.length < 2) return false;
+  const left = Number(device.x);
+  const top = Number(device.y);
+  const right = left + Number(device.width);
+  const bottom = top + Number(device.height);
+  if (![left, top, right, bottom].every(Number.isFinite)) return false;
+  for (let index = 1; index < points.length; index += 1) {
+    const a = points[index - 1];
+    const b = points[index];
+    if (a.x === b.x) {
+      if (a.x > left && a.x < right && Math.max(a.y, b.y) > top && Math.min(a.y, b.y) < bottom) return true;
+    } else if (a.y === b.y) {
+      if (a.y > top && a.y < bottom && Math.max(a.x, b.x) > left && Math.min(a.x, b.x) < right) return true;
+    }
+  }
+  return false;
 }
 
 function moveDevicesCommand(beforePositions, afterPositions, beforeRouteStates = [], afterRouteStates = []) {

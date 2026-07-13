@@ -19,6 +19,8 @@ import {
   ORTHOGONAL_WIRE_SNAP_STEPS,
   ORTHOGONAL_WIRE_SPACING,
   compactExcessOrthogonalRouteRuns,
+  createOrthogonalRouteModel,
+  moveOrthogonalRoutePoint,
   orthogonalRouteDiagnostics,
   routePointsForMovedEndpoints,
   snapOrthogonalSegmentFixed
@@ -242,6 +244,40 @@ assert.equal(isEngineDeadCageConnector(sceneConnector), false, "SceneGraph insta
 
 assert.equal(ORTHOGONAL_WIRE_SPACING, 15, "Legacy orthogonal default spacing is 15px");
 assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segment snap steps are preserved");
+{
+  const from = { x: 100, y: 50 };
+  const to = { x: 500, y: 250 };
+  const routePoints = [
+    { x: 150, y: 50 },
+    { x: 150, y: 120 },
+    { x: 300, y: 120 },
+    { x: 300, y: 200 },
+    { x: 450, y: 200 },
+    { x: 450, y: 250 },
+  ];
+  const model = createOrthogonalRouteModel({ from, to, routePoints });
+  assert.equal(model.segments[0].protected, true, "source endpoint stub is protected");
+  assert.equal(model.segments.at(-1).protected, true, "target endpoint stub is protected");
+  assert.equal(model.segments[3].orientation, "v", "middle dogleg orientation is explicit");
+  assert.equal(model.segments[3].draggable, true, "middle dogleg is directly draggable");
+  const dogleg = model.moveSegment(3, 360);
+  assert.equal(dogleg.routePoints.length, routePoints.length, "dogleg drag preserves route point identity/count");
+  assert.deepEqual(dogleg.routePoints.slice(2, 4), [
+    { x: 360, y: 120 },
+    { x: 360, y: 200 },
+  ], "vertical dogleg drag moves both adjacent corners together");
+  const corner = moveOrthogonalRoutePoint({
+    from,
+    to,
+    routePoints,
+    pointIndex: 2,
+    nextPoint: { x: 340, y: 160 },
+  });
+  const cornerDiagnostics = orthogonalRouteDiagnostics({ from, to, routePoints: corner.routePoints });
+  assert.equal(cornerDiagnostics.allOrthogonal, true, "corner drag cannot create diagonal route spans");
+  assert.equal(corner.routePoints[0].y, from.y, "corner drag preserves source connector stub Y");
+  assert.equal(corner.routePoints.at(-1).y, to.y, "corner drag preserves target connector stub Y");
+}
 {
   const snap = snapOrthogonalSegmentFixed({
     segment: { orientation: "v", fixed: 114.2, min: 0, max: 200 },

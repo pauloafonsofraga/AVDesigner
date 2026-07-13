@@ -317,40 +317,131 @@ export function orthogonalWirePoints({ from, to, routePoints = [], fromMoved = f
   return ensureOrthogonalFullPath([from, ...interior, to]);
 }
 
+// One immutable route model owns the geometry used by rendering, hit-testing,
+// dogleg dragging, and corner dragging. A drag always starts from one model and
+// produces a new list of stored interior points; it never normalizes an already
+// mutated frame. This is the key distinction between a yEd-style route and a
+// loose collection of independently moving points.
+export class OrthogonalRouteModel {
+  constructor({ routePoints = [], from, to } = {}) {
+    this.from = routePoint(from);
+    this.to = routePoint(to);
+    const stored = normalizeOrthogonalRoutePoints(routePoints);
+    this.fullPoints = stored.length
+      ? ensureOrthogonalFullPath([this.from, ...stored, this.to])
+      : buildPreviewOrthogonalWirePoints(this.from, this.to);
+    this.routePoints = this.fullPoints.slice(1, -1).map(routePoint);
+    this.segments = this.fullPoints.slice(0, -1).map((point, segmentIndex) => {
+      const segment = orthogonalSegmentFromPoints(point, this.fullPoints[segmentIndex + 1], { segmentIndex });
+      if (!segment) {
+        return {
+          segmentIndex,
+          orientation: null,
+          draggable: false,
+          protected: false,
+          reason: "not-orthogonal",
+          a: routePoint(point),
+          b: routePoint(this.fullPoints[segmentIndex + 1]),
+        };
+      }
+      const protectedStub = segmentIndex === 0 || segmentIndex === this.fullPoints.length - 2;
+      return {
+        ...segment,
+        draggable: !protectedStub,
+        protected: protectedStub,
+        reason: protectedStub ? "endpoint-stub" : "",
+      };
+    });
+    this.corners = this.routePoints.map((point, pointIndex) => ({
+      pointIndex,
+      fullIndex: pointIndex + 1,
+      point: routePoint(point),
+      previousOrientation: this.segments[pointIndex]?.orientation || null,
+      nextOrientation: this.segments[pointIndex + 1]?.orientation || null,
+    }));
+  }
+
+  segmentInfo(segmentIndex) {
+    const index = Math.floor(Number(segmentIndex));
+    const segment = this.segments[index];
+    if (!segment) {
+      return {
+        draggable: false,
+        protected: false,
+        reason: "not-orthogonal",
+        segmentIndex: index,
+        full: this.fullPoints.map(routePoint),
+      };
+    }
+    return {
+      ...segment,
+      full: this.fullPoints.map(routePoint),
+    };
+  }
+
+  moveSegment(segmentIndex, fixed) {
+    const info = this.segmentInfo(segmentIndex);
+    if (!info.draggable) return { ...info, routePoints: this.routePoints.map(routePoint), moved: false };
+    const clearance = adjacentEndpointClearance({ info, fixed, from: this.from, to: this.to });
+    const nextFixed = clearance.value;
+    const updated = this.fullPoints.map(routePoint);
+    if (info.orientation === "h") {
+      updated[info.segmentIndex].y = nextFixed;
+      updated[info.segmentIndex + 1].y = nextFixed;
+    } else {
+      updated[info.segmentIndex].x = nextFixed;
+      updated[info.segmentIndex + 1].x = nextFixed;
+    }
+    // Do not collapse collinear or overlapping spans during a live edit. Those
+    // points encode the selected dogleg and must keep stable indices until the
+    // user explicitly resets/deletes the route.
+    const nextRoutePoints = updated.slice(1, -1).map(routePoint);
+    const nextModel = new OrthogonalRouteModel({
+      routePoints: nextRoutePoints,
+      from: this.from,
+      to: this.to,
+    });
+    return {
+      ...nextModel.segmentInfo(info.segmentIndex),
+      routePoints: nextRoutePoints,
+      fixed: nextFixed,
+      endpointClearance: clearance,
+      moved: true,
+    };
+  }
+
+  moveCorner(pointIndex, nextPoint) {
+    return moveOrthogonalCornerPoints({
+      routePoints: this.routePoints,
+      pointIndex,
+      nextPoint,
+      from: this.from,
+      to: this.to,
+    });
+  }
+
+  diagnostics() {
+    return {
+      protectedStubCount: this.segments.filter(segment => segment.protected).length,
+      editableDoglegCount: this.segments.filter(segment => segment.draggable).length,
+      cornerCount: this.corners.length,
+      allOrthogonal: this.segments.every(segment => Boolean(segment.orientation)),
+    };
+  }
+}
+
+export function createOrthogonalRouteModel(options = {}) {
+  return new OrthogonalRouteModel(options);
+}
+
 export function orthogonalRouteSegmentInfo({ routePoints = [], segmentIndex = -1, from, to } = {}) {
-  const full = orthogonalWirePoints({ from, to, routePoints });
-  const index = Math.floor(Number(segmentIndex));
-  const a = full[index];
-  const b = full[index + 1];
-  const segment = a && b ? orthogonalSegmentFromPoints(a, b) : null;
-  const orientation = segment?.orientation || null;
-  const endpointStub = index <= 0 || index >= full.length - 2;
-  if (!a || !b || !orientation) {
-    return { draggable: false, reason: "not-orthogonal", segmentIndex: index, full };
-  }
-  if (endpointStub) {
-    return { draggable: false, reason: "endpoint-stub", segmentIndex: index, orientation, full, a, b };
-  }
-  return {
-    ...segment,
-    draggable: true,
-    reason: "",
-    segmentIndex: index,
-    full,
-  };
+  return createOrthogonalRouteModel({ routePoints, from, to }).segmentInfo(segmentIndex);
 }
 
 export function orthogonalRouteSegmentsForWire({ wireId, routePoints = [], from, to } = {}) {
-  const full = orthogonalWirePoints({ from, to, routePoints });
-  const segments = [];
-  for (let index = 0; index < full.length - 1; index += 1) {
-    const segment = orthogonalSegmentFromPoints(full[index], full[index + 1], {
-      wireId,
-      segmentIndex: index,
-    });
-    if (segment) segments.push(segment);
-  }
-  return segments;
+  return createOrthogonalRouteModel({ routePoints, from, to }).segments
+    .filter(segment => segment.orientation)
+    .map(segment => ({ ...segment, wireId }));
 }
 
 function rangesOverlap(aMin, aMax, bMin, bMax) {
@@ -510,31 +601,7 @@ export function snapOrthogonalSegmentFixed({
 }
 
 export function moveOrthogonalRouteSegment({ routePoints = [], segmentIndex = -1, fixed, from, to } = {}) {
-  const info = orthogonalRouteSegmentInfo({ routePoints, segmentIndex, from, to });
-  if (!info.draggable) return { ...info, routePoints, moved: false };
-  const clearance = adjacentEndpointClearance({ info, fixed, from, to });
-  const nextFixed = clearance.value;
-  const updated = info.full.map(point => ({ ...point }));
-  if (info.orientation === "h") {
-    updated[info.segmentIndex].y = nextFixed;
-    updated[info.segmentIndex + 1].y = nextFixed;
-  } else {
-    updated[info.segmentIndex].x = nextFixed;
-    updated[info.segmentIndex + 1].x = nextFixed;
-  }
-  const nextRoutePoints = storableOrthogonalInteriorPoints(updated.slice(1, -1), from, to);
-  return {
-    ...orthogonalRouteSegmentInfo({
-      routePoints: nextRoutePoints,
-      segmentIndex: info.segmentIndex,
-      from,
-      to
-    }),
-    routePoints: nextRoutePoints,
-    fixed: nextFixed,
-    endpointClearance: clearance,
-    moved: true
-  };
+  return createOrthogonalRouteModel({ routePoints, from, to }).moveSegment(segmentIndex, fixed);
 }
 
 export function shiftRoutePoints(routePoints = [], dx = 0, dy = 0) {
@@ -544,7 +611,7 @@ export function shiftRoutePoints(routePoints = [], dx = 0, dy = 0) {
   }));
 }
 
-export function moveOrthogonalRoutePoint({ routePoints = [], pointIndex = 0, nextPoint, from, to } = {}) {
+function moveOrthogonalCornerPoints({ routePoints = [], pointIndex = 0, nextPoint, from, to } = {}) {
   const full = ensureOrthogonalFullPath([from, ...routePoints, to]);
   const fullIndex = pointIndex + 1;
   if (fullIndex <= 0 || fullIndex >= full.length - 1) {
@@ -653,6 +720,10 @@ export function moveOrthogonalRoutePoint({ routePoints = [], pointIndex = 0, nex
     routePoints: updated.slice(1, Math.max(1, updated.length - 1)),
     pointIndex: Math.max(0, nextFullIndex - 1),
   };
+}
+
+export function moveOrthogonalRoutePoint(options = {}) {
+  return createOrthogonalRouteModel(options).moveCorner(options.pointIndex, options.nextPoint);
 }
 
 export function orthogonalRouteDiagnostics({ routePoints = [], from, to } = {}) {

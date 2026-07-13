@@ -4,7 +4,7 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 37.6`
+- Current build label: `Iteration 37.7`
 
 Iteration 37.5 builds on Iteration 37, which restored Legacy connector compatibility rules in Engine wire
 creation, including installed SFP/SFP+/QSFP modules, SFP/QSFP fiber-mode family
@@ -24,6 +24,13 @@ and endpoint-adjacent doglegs can cross to the opposite side of a connector
 without becoming trapped. Snap guides are rendered during segment drags, and
 `debugRouting=1` exposes route normalization, snap, cleanup, orthogonality, and
 endpoint-clearance diagnostics.
+Iteration 37.7 replaces the Engine's loose point-edit interaction with one
+shared `OrthogonalRouteModel`. The model owns protected endpoint stubs,
+editable interior segments, corner identity, orientation, and the route used by
+rendering/hit-testing. Clicking an orange handle now enters a true corner drag;
+grabbing an interior wire segment enters a dogleg drag. Both use immutable
+pointer-down route geometry, while save/load continues to use the existing
+`orthogonalRoutePoints` field.
 Viewer/PDF/report visual
 migration remains paused while the remaining Legacy functional gaps are worked
 through.
@@ -132,6 +139,15 @@ connector dead-zone snaps to the opposite side instead of getting stuck.
 
 Existing custom routed wires keep their stored points. Save/load format remains
 unchanged.
+
+Iteration 37.7 also exposes the real browser path through
+`debugHud=1&debugRouting=1&orthogonalTest=1`. The HUD reports raw, normalized,
+rendered, and production route points; active corner-versus-dogleg editing;
+hovered indices; snap candidates and chosen spacing; and whether the blue guide
+is active. The test toolbar can select the first 90-degree wire and copy the
+current routing diagnostics. The blue helper remains runtime-only and is drawn
+from `wireSegmentDrag.lastSnap.guides`; it is never serialized or included in
+viewer/report output.
 
 ## Root Causes Of The Known Blockers
 
