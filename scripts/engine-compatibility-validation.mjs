@@ -276,6 +276,57 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
   assert.equal(snap.snapped, false, "disabled object snapping leaves fixed value alone");
   assert.equal(snap.value, 114, "disabled snap still stores routed integer coordinates");
 }
+{
+  const dragScene = new SceneGraph();
+  dragScene.setData({
+    devices: [
+      {
+        id: "tx",
+        label: "TX",
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+        connectors: [{ id: "out", label: "OUT", side: "right", direction: "output", x: 100, y: 50 }]
+      },
+      {
+        id: "rx",
+        label: "RX",
+        x: 400,
+        y: 100,
+        width: 100,
+        height: 100,
+        connectors: [{ id: "in", label: "IN", side: "left", direction: "input", x: 0, y: 50 }]
+      }
+    ],
+    wires: [{
+      id: "orthogonal-wire",
+      fromDeviceId: "tx",
+      fromConnectorId: "out",
+      toDeviceId: "rx",
+      toConnectorId: "in",
+      routeStyle: "orthogonal",
+      routePoints: [{ x: 200, y: 50 }, { x: 200, y: 150 }],
+      color: "#ff0",
+      cableType: "HDMI"
+    }]
+  });
+  const wire = dragScene.getWire("orthogonal-wire");
+  const originalRoutePoints = wire.routePoints.map(point => ({ ...point }));
+  const outputX = dragScene.endpointForWire(wire, "from").x;
+  const collapsed = dragScene.moveOrthogonalSegment("orthogonal-wire", 1, outputX, {
+    sourceRoutePoints: originalRoutePoints,
+    refreshIndexes: false
+  });
+  assert.equal(collapsed.moved, true, "orthogonal segment can be dragged onto endpoint lane");
+  const recovered = dragScene.moveOrthogonalSegment("orthogonal-wire", 1, 260, {
+    sourceRoutePoints: originalRoutePoints,
+    refreshIndexes: false
+  });
+  assert.equal(recovered.moved, true, "stable drag-start route keeps segment movable after endpoint contact");
+  assert.equal(recovered.fixed, 260, "segment recovers from endpoint contact to requested fixed coordinate");
+  assert.equal(dragScene.getWire("orthogonal-wire").routePoints.some(point => point.x === 260), true, "recovered route stores moved dogleg coordinate");
+}
 
 console.log(JSON.stringify({
   ok: true,

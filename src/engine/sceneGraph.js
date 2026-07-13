@@ -517,9 +517,15 @@ export class SceneGraph {
     return targets;
   }
 
-  snapOrthogonalSegment(wireId, segmentIndex, fixed, { snapTargets = null, zoom = 1, enabled = true } = {}) {
+  snapOrthogonalSegment(wireId, segmentIndex, fixed, {
+    snapTargets = null,
+    zoom = 1,
+    enabled = true,
+    segmentInfo = null,
+    endpointTargets = null,
+  } = {}) {
     const wire = this.getWire(wireId);
-    const info = this.orthogonalSegmentInfo(wireId, segmentIndex);
+    const info = segmentInfo || this.orthogonalSegmentInfo(wireId, segmentIndex);
     if (!wire || !info?.draggable) {
       return {
         value: fixed,
@@ -531,26 +537,31 @@ export class SceneGraph {
     }
     const from = this.endpointForWire(wire, "from");
     const to = this.endpointForWire(wire, "to");
-    const endpointTargets = [from, to].map((endpoint) => info.orientation === "h" ? endpoint.y : endpoint.x);
     return snapOrthogonalSegmentFixed({
       segment: { ...info, fixed },
       fixedValue: fixed,
       segmentIndex: info.segmentIndex,
       wireId,
       targets: Array.isArray(snapTargets) ? snapTargets : this.orthogonalSegmentSnapTargetsForDrag(wireId),
-      endpointTargets,
+      endpointTargets: Array.isArray(endpointTargets)
+        ? endpointTargets
+        : [from, to].map((endpoint) => info.orientation === "h" ? endpoint.y : endpoint.x),
       zoom,
       enabled,
     });
   }
 
-  moveOrthogonalSegment(wireId, segmentIndex, fixed, { refreshIndexes = true } = {}) {
+  moveOrthogonalSegment(wireId, segmentIndex, fixed, { refreshIndexes = true, sourceRoutePoints = null } = {}) {
     const wire = this.getWire(wireId);
     if (!wire || wire.routeStyle !== "orthogonal") {
       return { moved: false, reason: "not-orthogonal", segmentIndex };
     }
     const moved = moveOrthogonalRouteSegment({
-      routePoints: wire.routePoints,
+      // Segment dragging must be calculated from the route captured at drag-start.
+      // If we use the already-mutated live route, collinear cleanup can collapse a
+      // dogleg onto an endpoint and make the next pointer frame think the segment
+      // is now an endpoint stub. Legacy always drags from stable start geometry.
+      routePoints: Array.isArray(sourceRoutePoints) ? sourceRoutePoints : wire.routePoints,
       segmentIndex,
       fixed,
       from: this.endpointForWire(wire, "from"),

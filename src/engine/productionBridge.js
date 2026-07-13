@@ -584,13 +584,18 @@ class ProductionEngineBridge {
           snapTargets: this.wireSegmentDrag.snapTargets,
           zoom: this.camera.zoom,
           enabled: this.objectSnappingEnabled(),
+          segmentInfo: this.wireSegmentDrag.segmentInfo,
+          endpointTargets: this.wireSegmentDrag.endpointTargets,
         }
       );
       const moved = this.scene.moveOrthogonalSegment(
         this.wireSegmentDrag.wireId,
         this.wireSegmentDrag.segmentIndex,
         snap.value,
-        { refreshIndexes: false }
+        {
+          refreshIndexes: false,
+          sourceRoutePoints: this.wireSegmentDrag.beforePoints,
+        }
       );
       if (moved?.moved) {
         this.wireSegmentDrag.moved = true;
@@ -985,6 +990,14 @@ class ProductionEngineBridge {
       startWorld: { ...worldPoint },
       originalFixed: info.fixed,
       currentFixed: info.fixed,
+      segmentInfo: {
+        ...info,
+        full: Array.isArray(info.full) ? info.full.map(point => ({ ...point })) : [],
+        a: info.a ? { ...info.a } : null,
+        b: info.b ? { ...info.b } : null,
+      },
+      endpointTargets: [this.scene.endpointForWire(wire, "from"), this.scene.endpointForWire(wire, "to")]
+        .map(endpoint => info.orientation === "h" ? endpoint.y : endpoint.x),
       snapTargets: this.scene.orthogonalSegmentSnapTargetsForDrag(wire.id),
       lastSnap: null,
       beforePoints: cloneRoutePoints(wire.routePoints),
