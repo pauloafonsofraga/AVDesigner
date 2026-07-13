@@ -494,8 +494,16 @@ export class SceneGraph {
       }
       return { moved: true, pointIndex: moved.pointIndex };
     }
-    point.x = x;
-    point.y = y;
+    // Bezier/custom drags use the immutable drag-start points as their source.
+    // Never mutate that snapshot: it is also the undo "before" state. Replace
+    // the live route with a moved clone, matching the orthogonal branch above.
+    const nextRoutePoints = routePoints.map(routePoint => ({ ...routePoint }));
+    nextRoutePoints[editPointIndex] = {
+      ...nextRoutePoints[editPointIndex],
+      x,
+      y,
+    };
+    wire.routePoints = nextRoutePoints;
     this.dirtyWires.add(wireId);
     if (refreshIndexes) this.refreshWireIndexes([wireId]);
     return { moved: true, pointIndex };

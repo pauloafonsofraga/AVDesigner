@@ -487,6 +487,60 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
 }
 
 {
+  const dragScene = new SceneGraph();
+  dragScene.setData({
+    devices: [
+      {
+        id: "bezier-tx",
+        label: "TX",
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+        connectors: [{ id: "out", label: "OUT", side: "right", direction: "output", x: 100, y: 50 }]
+      },
+      {
+        id: "bezier-rx",
+        label: "RX",
+        x: 400,
+        y: 100,
+        width: 100,
+        height: 100,
+        connectors: [{ id: "in", label: "IN", side: "left", direction: "input", x: 0, y: 50 }]
+      }
+    ],
+    wires: [{
+      id: "bezier-route-drag",
+      fromDeviceId: "bezier-tx",
+      fromConnectorId: "out",
+      toDeviceId: "bezier-rx",
+      toConnectorId: "in",
+      routeStyle: "custom",
+      routePoints: [{ x: 100, y: 20 }, { x: 200, y: 80 }],
+      color: "#ff0",
+      cableType: "HDMI"
+    }]
+  });
+  const beforePoints = dragScene.getWire("bezier-route-drag").routePoints.map(point => ({ ...point }));
+  const moved = dragScene.moveRoutePoint("bezier-route-drag", 0, 140, 65, {
+    refreshIndexes: false,
+    sourceRoutePoints: beforePoints,
+    sourcePointIndex: 0
+  });
+  assert.equal(moved.moved, true, "Bezier custom corner drag reports a live move");
+  assert.deepEqual(
+    dragScene.getWire("bezier-route-drag").routePoints,
+    [{ x: 140, y: 65 }, { x: 200, y: 80 }],
+    "Bezier custom corner drag updates the live wire route"
+  );
+  assert.deepEqual(
+    beforePoints,
+    [{ x: 100, y: 20 }, { x: 200, y: 80 }],
+    "Bezier custom corner drag preserves the immutable undo snapshot"
+  );
+}
+
+{
   const from = { x: 100, y: 100 };
   const to = { x: 500, y: 300 };
   const wire = { id: "orthogonal-route-edit", routeStyle: "orthogonal", routePoints: [] };
