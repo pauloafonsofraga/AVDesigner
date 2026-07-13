@@ -23,6 +23,13 @@ import {
   ORTHOGONAL_WIRE_SNAP_STEPS,
   ORTHOGONAL_WIRE_SPACING,
 } from "./orthogonalRouting.js";
+import {
+  addWireRoutePoint,
+  removeWireRoutePoint,
+  resetWireRoute,
+  wireRouteState,
+  wireRouteStatesEqual
+} from "./wireRouteEditing.js";
 
 const BRIDGE_VERSION = "production-bridge-1";
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -1356,11 +1363,14 @@ class ProductionEngineBridge {
       const routeHit = this.hitTestEditableRoutePoint(world, tolerance * 1.2);
       if (routeHit.routePoint) {
         const wire = routeHit.routePoint.wire;
+        const point = wire.routePoints?.[routeHit.routePoint.pointIndex];
         return {
           type: "wire-corner",
           wireId: wire.sourceId || wire.id,
           engineWireId: wire.id,
-          pointIndex: routeHit.routePoint.pointIndex
+          pointIndex: routeHit.routePoint.pointIndex,
+          clickedWorld: { ...world },
+          nearestPoint: point ? { ...point } : { ...world }
         };
       }
     }
@@ -1380,10 +1390,18 @@ class ProductionEngineBridge {
     const wireHit = hitTestWire(this.scene, world, tolerance);
     if (wireHit.wire) {
       const wire = wireHit.wire.wire;
+      const renderedPoints = this.scene.wireRenderPolyline(wire);
+      const segment = renderedPoints.slice(wireHit.wire.segmentIndex, wireHit.wire.segmentIndex + 2);
       return {
         type: "wire",
         wireId: wire.sourceId || wire.id,
-        engineWireId: wire.id
+        engineWireId: wire.id,
+        clickedWorld: { ...world },
+        nearestPoint: wireHit.wire.point ? { ...wireHit.wire.point } : { ...world },
+        segmentIndex: wireHit.wire.segmentIndex,
+        segmentOrientation: wire.routeStyle === "orthogonal"
+          ? segmentOrientationLabel(segment[0], segment[1])
+          : "curve"
       };
     }
     const deviceHit = hitTestDevice(this.scene, world);
@@ -2127,7 +2145,6 @@ class ProductionEngineBridge {
     (routeStates || []).forEach(state => {
       const wire = this.scene.getWire(state.id);
       if (!wire) return;
-      if (!wire.routePoints?.length && wire.routeStyle !== "orthogonal") return;
       mutationMs += this.mutations?.commitRoutePoints(this.scene, wire.id) || 0;
     });
     return mutationMs;
@@ -2147,6 +2164,132 @@ class ProductionEngineBridge {
     this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
     this.recordDirtyVisualMetrics(dirtyStats, "route point");
     return { mutationMs, dirtyStats };
+  }
+
+  applyWireRouteState(routeState = {}) {
+    const ids = this.applyWireRouteStates([routeState]);
+    if (!ids.length) return { mutationMs: 0 };
+    const mutationMs = this.commitWireRouteStates([routeState]);
+    const dirtyStats = this.renderer.updateDirty(this.scene, {
+      wireIds: ids,
+      refreshCableHops: false
+    });
+    this.lastDirtyWireIds = new Set(ids);
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.recordDirtyVisualMetrics(dirtyStats, "wire route action");
+    this.scheduleRender();
+    return { mutationMs, dirtyStats };
+  }
+
+  createWireRoutePoint(sourceWireId, context = {}) {
+    const wire = this.resolveWire(sourceWireId, context.engineWireId);
+    if (!wire) return false;
+    const before = wireRouteState(wire);
+    const renderedPoints = this.scene.wireRenderPolyline(wire);
+    const nearest = context.nearestPoint || context.point || context.clickedWorld;
+    const after = addWireRoutePoint({
+      wire,
+      from: this.scene.endpointForWire(wire, "from"),
+      to: this.scene.endpointForWire(wire, "to"),
+      renderedPoints,
+      nearestPoint: nearest,
+      segmentIndex: context.segmentIndex
+    });
+    return this.commitWireRouteAction("AddRoutePointCommand", [before], [after], {
+      action: "add",
+      wire,
+      clickedWorld: context.clickedWorld,
+      nearestPoint: nearest,
+      segmentIndex: context.segmentIndex,
+      segmentOrientation: context.segmentOrientation,
+      insertedIndex: insertedRoutePointIndex(before, after)
+    });
+  }
+
+  deleteWireRoutePoint(sourceWireId, pointIndex, context = {}) {
+    const wire = this.resolveWire(sourceWireId, context.engineWireId);
+    if (!wire) return false;
+    const before = wireRouteState(wire);
+    const after = removeWireRoutePoint({
+      wire,
+      from: this.scene.endpointForWire(wire, "from"),
+      to: this.scene.endpointForWire(wire, "to"),
+      pointIndex
+    });
+    return this.commitWireRouteAction("RemoveRoutePointCommand", [before], [after], {
+      action: "remove",
+      wire,
+      removedIndex: Number(pointIndex)
+    });
+  }
+
+  resetWireRoutePoints(sourceWireIds = []) {
+    const wires = [...new Set(sourceWireIds.map(String))]
+      .map(sourceId => this.resolveWire(sourceId))
+      .filter(Boolean)
+      .filter(wire => wire.routePoints?.length);
+    if (!wires.length) return false;
+    const before = wires.map(wireRouteState);
+    const after = wires.map(wire => resetWireRoute(wire, {
+      from: this.scene.endpointForWire(wire, "from"),
+      to: this.scene.endpointForWire(wire, "to")
+    }));
+    return this.commitWireRouteAction("ResetWireRouteCommand", before, after, {
+      action: "reset",
+      wire: wires[0]
+    });
+  }
+
+  resolveWire(sourceWireId, engineWireId = "") {
+    const engineId = String(engineWireId || "");
+    const sourceId = String(sourceWireId || "");
+    return this.scene.getWire(engineId || sourceId)
+      || this.scene.wires.find(wire => String(wire.sourceId || wire.id) === sourceId)
+      || null;
+  }
+
+  commitWireRouteAction(commandType, beforeStates, afterStates, diagnostics = {}) {
+    const changed = afterStates.some((state, index) => !wireRouteStatesEqual(beforeStates[index], state));
+    if (!changed) return false;
+    const ids = afterStates.map(state => state.id);
+    this.beginProductionCommit(commandType);
+    this.applyWireRouteStates(afterStates);
+    const mutationMs = this.commitWireRouteStates(afterStates);
+    const dirtyStats = this.renderer.updateDirty(this.scene, {
+      wireIds: ids,
+      refreshCableHops: false
+    });
+    this.lastDirtyWireIds = new Set(ids);
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.scene.selectWireOnly(ids[0]);
+    this.recordDirtyVisualMetrics(dirtyStats, "wire route action");
+    this.markCommitted(commandType, mutationMs);
+    this.recordCommand(wireRouteActionCommand(commandType, beforeStates, afterStates));
+    this.recordRouteContextDiagnostics(commandType, beforeStates, afterStates, diagnostics);
+    this.updateSelectionHud();
+    this.updateInteractionHud(`route-${diagnostics.action || "edit"}`);
+    this.scheduleRender();
+    return true;
+  }
+
+  recordRouteContextDiagnostics(commandType, beforeStates, afterStates, diagnostics = {}) {
+    const wire = this.scene.getWire(diagnostics.wire?.id || afterStates[0]?.id);
+    const from = wire ? this.scene.endpointForWire(wire, "from") : null;
+    const to = wire ? this.scene.endpointForWire(wire, "to") : null;
+    const validity = wire?.routeStyle === "orthogonal"
+      ? orthogonalRouteDiagnostics({ routePoints: wire.routePoints, from, to })
+      : null;
+    this.hud?.setMetric("context route target", `${wire?.id || "-"} / ${diagnostics.action || "-"}`);
+    this.hud?.setMetric("context route click", formatPointForHud(diagnostics.clickedWorld));
+    this.hud?.setMetric("context route nearest", formatPointForHud(diagnostics.nearestPoint));
+    this.hud?.setMetric("context route segment", `${diagnostics.segmentIndex ?? "-"} ${diagnostics.segmentOrientation || "-"}`);
+    this.hud?.setMetric("context route index", `insert ${diagnostics.insertedIndex ?? "-"} / remove ${diagnostics.removedIndex ?? "-"}`);
+    this.hud?.setMetric("context route command", commandType);
+    this.hud?.setMetric("context route points", `${beforeStates.reduce(pointTotal, 0)} -> ${afterStates.reduce(pointTotal, 0)}`);
+    this.hud?.setMetric("context route valid", validity ? (validity.allOrthogonal ? "yes" : `no (${validity.diagonalSegments})`) : "bezier");
+    this.hud?.setMetric("context route handles", wire?.routePoints?.length || 0);
   }
 
   createDeviceFromLibraryDrop(deviceData) {
@@ -3556,6 +3699,63 @@ function wireSegmentCommand(wireId, beforePoints, afterPoints) {
     undo: bridge => bridge.applyRoutePoints(wireId, beforePoints),
     redo: bridge => bridge.applyRoutePoints(wireId, afterPoints)
   };
+}
+
+function wireRouteActionCommand(type, beforeStates, afterStates) {
+  const before = beforeStates.map(cloneWireRouteState);
+  const after = afterStates.map(cloneWireRouteState);
+  return {
+    type,
+    affectedIds: after.map(state => state.id),
+    undo: bridge => applyWireRouteActionStates(bridge, before),
+    redo: bridge => applyWireRouteActionStates(bridge, after)
+  };
+}
+
+function applyWireRouteActionStates(bridge, states) {
+  let mutationMs = 0;
+  let dirtyStats = null;
+  states.forEach(state => {
+    const result = bridge.applyWireRouteState(state);
+    mutationMs += result.mutationMs || 0;
+    dirtyStats = result.dirtyStats || dirtyStats;
+  });
+  return { mutationMs, dirtyStats };
+}
+
+function cloneWireRouteState(state = {}) {
+  return {
+    id: String(state.id || ""),
+    routeStyle: state.routeStyle || "bezier",
+    routePoints: cloneRoutePoints(state.routePoints)
+  };
+}
+
+function insertedRoutePointIndex(before, after) {
+  if (!before || !after || after.routePoints.length <= before.routePoints.length) return -1;
+  for (let index = 0; index < after.routePoints.length; index += 1) {
+    const beforePoint = before.routePoints[index];
+    const afterPoint = after.routePoints[index];
+    if (!beforePoint || beforePoint.x !== afterPoint.x || beforePoint.y !== afterPoint.y) return index;
+  }
+  return after.routePoints.length - 1;
+}
+
+function segmentOrientationLabel(a, b) {
+  if (!a || !b) return "-";
+  if (Math.abs(a.y - b.y) < 0.01) return "horizontal";
+  if (Math.abs(a.x - b.x) < 0.01) return "vertical";
+  return "curve";
+}
+
+function formatPointForHud(point) {
+  return Number.isFinite(Number(point?.x)) && Number.isFinite(Number(point?.y))
+    ? `${roundForUi(point.x)},${roundForUi(point.y)}`
+    : "-";
+}
+
+function pointTotal(total, state) {
+  return total + (state?.routePoints?.length || 0);
 }
 
 function createDevicesCommand(deviceList = [], firstIndex = null) {

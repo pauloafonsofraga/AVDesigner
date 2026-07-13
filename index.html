@@ -3847,7 +3847,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 37.7 — Engine Editor — iteration37-7</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 37.8 — Engine Editor — iteration37-8</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -4553,8 +4553,8 @@
   </div>
 
   <script>
-    const APP_ITERATION = "37.7";
-    const APP_BUILD_ID = "iteration37-7";
+    const APP_ITERATION = "37.8";
+    const APP_BUILD_ID = "iteration37-8";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
     const DEBUG_LIBRARY_DRAG_ENABLED = INITIAL_URL_PARAMS.get("debugLibraryDrag") === "1";
@@ -50538,11 +50538,32 @@
           x: Number(deviceContextMenu.dataset.wireX),
           y: Number(deviceContextMenu.dataset.wireY)
         };
+        const engineRouteContext = {
+          engineWireId: deviceContextMenu.dataset.engineWireId || "",
+          nearestPoint: point,
+          clickedWorld: {
+            x: Number(deviceContextMenu.dataset.wireClickX),
+            y: Number(deviceContextMenu.dataset.wireClickY)
+          },
+          segmentIndex: Number(deviceContextMenu.dataset.wireSegmentIndex),
+          segmentOrientation: deviceContextMenu.dataset.wireSegmentOrientation || ""
+        };
+        const engineBridge = window.avDesignerEngineBridge;
+        const useEngineRouteActions = Boolean(engineBridge?.createWireRoutePoint);
         event.stopPropagation();
         hideDeviceContextMenu();
-        if (wireAction === "corner" && Number.isFinite(point.x) && Number.isFinite(point.y)) createWireCornerAt(wireId, point);
-        if (wireAction === "delete-corner" && Number.isInteger(cornerIndex)) deleteWireCorner(wireId, cornerIndex);
-        if (wireAction === "reset") resetWireRoutes(wireIds);
+        if (wireAction === "corner" && Number.isFinite(point.x) && Number.isFinite(point.y)) {
+          if (useEngineRouteActions) engineBridge.createWireRoutePoint(wireId, engineRouteContext);
+          else createWireCornerAt(wireId, point);
+        }
+        if (wireAction === "delete-corner" && Number.isInteger(cornerIndex)) {
+          if (useEngineRouteActions) engineBridge.deleteWireRoutePoint(wireId, cornerIndex, engineRouteContext);
+          else deleteWireCorner(wireId, cornerIndex);
+        }
+        if (wireAction === "reset") {
+          if (useEngineRouteActions) engineBridge.resetWireRoutePoints(wireIds);
+          else resetWireRoutes(wireIds);
+        }
         if (wireAction === "select-same") selectWiresOfSameType(wireId);
         return;
       }
@@ -50998,7 +51019,7 @@
       setStatus(`${copy.name} added to the device library.`);
     }
 
-    function showWireContextMenu(event, connectionId) {
+    function showWireContextMenu(event, connectionId, engineRouteContext = null) {
       const connection = state.connections.find(item => item.id === connectionId);
       if (!connection) return;
       const ids = wireContextSelectionIds(connectionId);
@@ -51008,13 +51029,24 @@
         <button type="button" data-wire-menu="select-same">Select All Wires of Same Type</button>
         <button type="button" ${hasRoutes ? "" : "disabled"} data-wire-menu="reset">Reset Wire Route${ids.length > 1 ? "s" : ""}</button>
       `;
-      const point = getCanvasPoint(event);
+      const point = engineRouteContext?.nearestPoint || getCanvasPoint(event);
       deviceContextMenu.style.left = `${event.clientX}px`;
       deviceContextMenu.style.top = `${event.clientY}px`;
       deviceContextMenu.dataset.wireId = connectionId;
       deviceContextMenu.dataset.wireIds = ids.join(",");
       deviceContextMenu.dataset.wireX = String(point.x);
       deviceContextMenu.dataset.wireY = String(point.y);
+      if (engineRouteContext?.engineWireId) deviceContextMenu.dataset.engineWireId = engineRouteContext.engineWireId;
+      if (Number.isFinite(Number(engineRouteContext?.segmentIndex))) {
+        deviceContextMenu.dataset.wireSegmentIndex = String(engineRouteContext.segmentIndex);
+      }
+      if (engineRouteContext?.segmentOrientation) {
+        deviceContextMenu.dataset.wireSegmentOrientation = engineRouteContext.segmentOrientation;
+      }
+      if (engineRouteContext?.clickedWorld) {
+        deviceContextMenu.dataset.wireClickX = String(engineRouteContext.clickedWorld.x);
+        deviceContextMenu.dataset.wireClickY = String(engineRouteContext.clickedWorld.y);
+      }
       delete deviceContextMenu.dataset.instanceId;
       delete deviceContextMenu.dataset.titleBlockId;
       delete deviceContextMenu.dataset.templateId;
@@ -51023,7 +51055,7 @@
       deviceContextMenu.classList.remove("hidden");
     }
 
-    function showWireCornerContextMenu(event, connectionId, cornerIndex) {
+    function showWireCornerContextMenu(event, connectionId, cornerIndex, engineRouteContext = null) {
       const connection = state.connections.find(item => item.id === connectionId);
       if (!connection || !normalizedWireRoutePoints(connection)[cornerIndex]) return;
       selectWiresFast({ type: "wire", id: connectionId });
@@ -51036,6 +51068,7 @@
       deviceContextMenu.dataset.wireId = connectionId;
       deviceContextMenu.dataset.wireIds = connectionId;
       deviceContextMenu.dataset.cornerIndex = String(cornerIndex);
+      if (engineRouteContext?.engineWireId) deviceContextMenu.dataset.engineWireId = engineRouteContext.engineWireId;
       delete deviceContextMenu.dataset.instanceId;
       delete deviceContextMenu.dataset.titleBlockId;
       delete deviceContextMenu.dataset.templateId;
@@ -51056,6 +51089,11 @@
       delete deviceContextMenu.dataset.wireIds;
       delete deviceContextMenu.dataset.wireX;
       delete deviceContextMenu.dataset.wireY;
+      delete deviceContextMenu.dataset.wireClickX;
+      delete deviceContextMenu.dataset.wireClickY;
+      delete deviceContextMenu.dataset.wireSegmentIndex;
+      delete deviceContextMenu.dataset.wireSegmentOrientation;
+      delete deviceContextMenu.dataset.engineWireId;
       delete deviceContextMenu.dataset.cornerIndex;
       delete deviceContextMenu.dataset.rackId;
       delete deviceContextMenu.dataset.rackBuilderRackId;
@@ -56070,11 +56108,11 @@ fit();
                 return;
               }
               if (target.type === "wire") {
-                showWireContextMenu(event, target.wireId);
+                showWireContextMenu(event, target.wireId, target);
                 return;
               }
               if (target.type === "wire-corner") {
-                showWireCornerContextMenu(event, target.wireId, target.pointIndex);
+                showWireCornerContextMenu(event, target.wireId, target.pointIndex, target);
                 return;
               }
             },

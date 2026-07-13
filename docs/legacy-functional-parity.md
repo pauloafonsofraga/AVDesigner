@@ -4,7 +4,7 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 37.7`
+- Current build label: `Iteration 37.8`
 
 Iteration 37.5 builds on Iteration 37, which restored Legacy connector compatibility rules in Engine wire
 creation, including installed SFP/SFP+/QSFP modules, SFP/QSFP fiber-mode family
@@ -31,6 +31,19 @@ rendering/hit-testing. Clicking an orange handle now enters a true corner drag;
 grabbing an interior wire segment enters a dogleg drag. Both use immutable
 pointer-down route geometry, while save/load continues to use the existing
 `orthogonalRoutePoints` field.
+Iteration 37.8 restores the Legacy custom-route context-menu workflow through
+the Engine bridge. The audited functions are `showWireContextMenu`,
+`showWireCornerContextMenu`, `createWireCornerAt`, `deleteWireCorner`,
+`resetWireRoutes`, `routePointInsertIndex`, and `routePointInsertion`. Wire-body
+menus again provide `Create Corner`, `Select All Wires of Same Type`, and
+`Reset Wire Route(s)`; route-handle menus provide `Delete Corner` and
+`Reset Wire Route`. Bezier clicks are projected onto the sampled path and
+stored in `routePoints`. Orthogonal clicks materialize the automatic dogleg if
+needed, insert the single Legacy projected point in segment order, and use the
+shared route model to retain horizontal/vertical geometry in
+`orthogonalRoutePoints`. Add, remove, and reset are incremental one-step Engine
+commands and preserve the selected wire, endpoint identity, and existing save
+format.
 Viewer/PDF/report visual
 migration remains paused while the remaining Legacy functional gaps are worked
 through.
@@ -50,7 +63,8 @@ single-file editor:
 2. Endpoint rewire is not yet restored in Engine mode.
 3. Modular card/chassis, faceplate, power-distro, and rack-builder behaviours
    are mostly normalized for display, but not fully controlled by Engine.
-4. Context-menu/action parity is only partially delegated back to Legacy menus.
+4. Custom wire route actions are restored, but broader device/connector menu
+   parity is still only partially delegated back to Legacy menus.
 
 ### Bezier / 90-Degree Wire Routing Mode Is Restored
 

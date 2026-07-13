@@ -25,6 +25,12 @@ import {
   routePointsForMovedEndpoints,
   snapOrthogonalSegmentFixed
 } from "../src/engine/orthogonalRouting.js";
+import {
+  addWireRoutePoint,
+  removeWireRoutePoint,
+  resetWireRoute,
+  wireRouteStatesEqual
+} from "../src/engine/wireRouteEditing.js";
 
 const cases = [];
 
@@ -431,6 +437,91 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
   });
   assert.equal(repairedDiagnostics.allOrthogonal, true, "one-endpoint repair remains orthogonal");
   assert.equal(repairedDiagnostics.remainsEditable, true, "one-endpoint repair remains editable");
+}
+
+{
+  const wire = { id: "bezier-route-edit", routeStyle: "bezier", routePoints: [] };
+  const added = addWireRoutePoint({
+    wire,
+    from: { x: 0, y: 0 },
+    to: { x: 300, y: 100 },
+    renderedPoints: [{ x: 0, y: 0 }, { x: 150, y: 50 }, { x: 300, y: 100 }],
+    nearestPoint: { x: 149.6, y: 50.4 },
+    segmentIndex: 0
+  });
+  assert.equal(added.routeStyle, "custom", "Bezier Create Corner changes wire to custom route");
+  assert.deepEqual(added.routePoints, [{ x: 150, y: 50 }], "Bezier Create Corner stores projected rounded point");
+  const removed = removeWireRoutePoint({
+    wire: added,
+    from: { x: 0, y: 0 },
+    to: { x: 300, y: 100 },
+    pointIndex: 0
+  });
+  assert.equal(removed.routeStyle, "bezier", "deleting last Bezier corner restores automatic Bezier route");
+  assert.deepEqual(removed.routePoints, [], "deleting last Bezier corner clears stored points");
+  assert.equal(wireRouteStatesEqual(removed, resetWireRoute(added, { from: { x: 0, y: 0 }, to: { x: 300, y: 100 } })), true, "Bezier delete-last and reset produce same automatic route state");
+
+  const ordered = addWireRoutePoint({
+    wire: {
+      id: "bezier-route-order",
+      routeStyle: "custom",
+      routePoints: [{ x: 100, y: 20 }, { x: 200, y: 80 }]
+    },
+    from: { x: 0, y: 0 },
+    to: { x: 300, y: 100 },
+    renderedPoints: [
+      { x: 0, y: 0 },
+      { x: 100, y: 20 },
+      { x: 150, y: 50 },
+      { x: 200, y: 80 },
+      { x: 300, y: 100 }
+    ],
+    nearestPoint: { x: 150, y: 50 },
+    segmentIndex: 2
+  });
+  assert.deepEqual(ordered.routePoints, [
+    { x: 100, y: 20 },
+    { x: 150, y: 50 },
+    { x: 200, y: 80 }
+  ], "Bezier Create Corner inserts between existing points in rendered-path order");
+}
+
+{
+  const from = { x: 100, y: 100 };
+  const to = { x: 500, y: 300 };
+  const wire = { id: "orthogonal-route-edit", routeStyle: "orthogonal", routePoints: [] };
+  const added = addWireRoutePoint({
+    wire,
+    from,
+    to,
+    renderedPoints: [{ x: 100, y: 100 }, { x: 300, y: 100 }, { x: 300, y: 300 }, { x: 500, y: 300 }],
+    nearestPoint: { x: 300, y: 180 },
+    segmentIndex: 1
+  });
+  assert.equal(added.routeStyle, "orthogonal", "orthogonal Create Corner preserves routing mode");
+  assert.equal(added.routePoints.some(point => point.x === 300 && point.y === 180), true, "orthogonal Create Corner inserts projected point on selected segment");
+  const addedDiagnostics = orthogonalRouteDiagnostics({ routePoints: added.routePoints, from, to });
+  assert.equal(addedDiagnostics.allOrthogonal, true, "orthogonal Create Corner remains strictly horizontal/vertical");
+  const insertedIndex = added.routePoints.findIndex(point => point.x === 300 && point.y === 180);
+  const removed = removeWireRoutePoint({ wire: added, from, to, pointIndex: insertedIndex });
+  const removedDiagnostics = orthogonalRouteDiagnostics({ routePoints: removed.routePoints, from, to });
+  assert.equal(removedDiagnostics.allOrthogonal, true, "orthogonal Delete Corner reconnects with valid 90-degree geometry");
+  const reset = resetWireRoute(added, { from, to });
+  assert.equal(reset.routeStyle, "orthogonal", "orthogonal reset preserves 90-degree mode");
+  assert.equal(reset.routePoints.length > 0, true, "orthogonal reset materializes the automatic editable dogleg like Legacy");
+  const resetDiagnostics = orthogonalRouteDiagnostics({ routePoints: reset.routePoints, from, to });
+  assert.equal(resetDiagnostics.allOrthogonal, true, "orthogonal reset dogleg remains strictly horizontal/vertical");
+
+  const horizontalAdded = addWireRoutePoint({
+    wire,
+    from,
+    to,
+    renderedPoints: [{ x: 100, y: 100 }, { x: 300, y: 100 }, { x: 300, y: 300 }, { x: 500, y: 300 }],
+    nearestPoint: { x: 180, y: 100 },
+    segmentIndex: 0
+  });
+  assert.equal(horizontalAdded.routePoints.some(point => point.x === 180 && point.y === 100), true, "orthogonal Create Corner supports a horizontal segment");
+  assert.equal(orthogonalRouteDiagnostics({ routePoints: horizontalAdded.routePoints, from, to }).allOrthogonal, true, "horizontal orthogonal insertion remains strictly horizontal/vertical");
 }
 
 console.log(JSON.stringify({
