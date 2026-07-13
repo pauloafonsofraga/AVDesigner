@@ -480,6 +480,81 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
   );
 }
 {
+  const verticalSnapCleanupScene = new SceneGraph();
+  verticalSnapCleanupScene.setData({
+    devices: [
+      {
+        id: "vertical-snap-tx",
+        label: "TX",
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+        connectors: [{ id: "out", label: "OUT", side: "right", direction: "output", x: 100, y: 50 }]
+      },
+      {
+        id: "vertical-snap-rx",
+        label: "RX",
+        x: 400,
+        y: 0,
+        width: 100,
+        height: 100,
+        connectors: [{ id: "in", label: "IN", side: "left", direction: "input", x: 0, y: 50 }]
+      }
+    ],
+    wires: [{
+      id: "vertical-snapped-corner-wire",
+      fromDeviceId: "vertical-snap-tx",
+      fromConnectorId: "out",
+      toDeviceId: "vertical-snap-rx",
+      toConnectorId: "in",
+      routeStyle: "orthogonal",
+      routePoints: [
+        { x: 180, y: 50 },
+        { x: 180, y: 100 },
+        { x: 240, y: 100 },
+        { x: 240, y: 50 }
+      ],
+      color: "#ff0",
+      cableType: "HDMI"
+    }]
+  });
+  const verticalWire = verticalSnapCleanupScene.getWire("vertical-snapped-corner-wire");
+  const dragStartPoints = verticalWire.routePoints.map(point => ({ ...point }));
+  const segmentInfo = verticalSnapCleanupScene.orthogonalSegmentInfo(verticalWire.id, 3);
+  assert.equal(segmentInfo.orientation, "v", "vertical cleanup regression targets a vertical segment");
+  const snap = verticalSnapCleanupScene.snapOrthogonalSegment(verticalWire.id, 3, 181, {
+    segmentInfo,
+    snapTargets: verticalSnapCleanupScene.orthogonalSegmentSnapTargetsForDrag(verticalWire.id),
+    zoom: 1,
+    enabled: true
+  });
+  assert.equal(snap.snapped, true, "vertical dogleg snaps to its parallel same-wire segment");
+  assert.equal(snap.value, 180, "vertical dogleg snaps to the exact straight-line X coordinate");
+  assert.equal(snap.targetWireId, verticalWire.id, "vertical straightening identifies its same-wire target");
+  assert.equal(snap.spacing, 0, "same-wire vertical straightening does not apply a spacing lane");
+  const moved = verticalSnapCleanupScene.moveOrthogonalSegment(verticalWire.id, 3, snap.value, {
+    refreshIndexes: false,
+    sourceRoutePoints: dragStartPoints
+  });
+  assert.equal(moved.moved, true, "vertical custom segment reaches its straight-line snap coordinate");
+  const beforeCleanupCount = verticalWire.routePoints.length;
+  const cleanup = verticalSnapCleanupScene.finalizeSnappedOrthogonalSegment(verticalWire.id, { refreshIndexes: false });
+  assert.equal(cleanup.changed, true, "snapped straight vertical segment triggers release cleanup");
+  assert.ok(cleanup.removed > 0, "snapped straight vertical segment removes its redundant custom corner");
+  assert.ok(verticalWire.routePoints.length < beforeCleanupCount, "vertical snapped wire stores fewer route points after release cleanup");
+  assert.deepEqual(
+    dragStartPoints,
+    [
+      { x: 180, y: 50 },
+      { x: 180, y: 100 },
+      { x: 240, y: 100 },
+      { x: 240, y: 50 }
+    ],
+    "vertical snapped segment cleanup preserves the immutable undo route"
+  );
+}
+{
   const repaired = routePointsForMovedEndpoints({
     routePoints: [
       { x: 200, y: 50 },

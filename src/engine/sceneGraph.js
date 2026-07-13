@@ -526,7 +526,7 @@ export class SceneGraph {
   orthogonalSegmentSnapTargetsForDrag(wireId) {
     const targets = [];
     this.wires.forEach((wire) => {
-      if (!wire || wire.id === wireId || wire.routeStyle !== "orthogonal") return;
+      if (!wire || wire.routeStyle !== "orthogonal") return;
       targets.push(...orthogonalRouteSegmentsForWire({
         wireId: wire.id,
         routePoints: wire.routePoints,

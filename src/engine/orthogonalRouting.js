@@ -537,7 +537,11 @@ export function snapOrthogonalSegmentFixed({
     if (!target || target.orientation !== segment.orientation) return;
     if (target.wireId === wireId && target.segmentIndex === segmentIndex) return;
     if (!rangesOverlap(segment.min, segment.max, target.min, target.max)) return;
-    [0, ...ORTHOGONAL_WIRE_SNAP_STEPS].forEach((distance) => {
+    // A segment may align with another parallel run from its own wire to
+    // collapse a redundant dogleg. Same-wire targets only use exact alignment;
+    // spacing lanes are meaningful between separate wires.
+    const distances = target.wireId === wireId ? [0] : [0, ...ORTHOGONAL_WIRE_SNAP_STEPS];
+    distances.forEach((distance) => {
       const signs = distance === 0 ? [0] : [-1, 1];
       signs.forEach((sign) => {
         const candidate = routeCoord(target.fixed + distance * sign);
