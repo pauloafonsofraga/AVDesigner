@@ -7,8 +7,8 @@ import {
 } from "./cableHops.js";
 import { wirePathStatsForWires, wirePolylineFromPoints } from "./wirePath.js";
 
-const DEVICE_FILL = "#182531";
-const DEVICE_SELECTED = "#ff7904";
+const DEVICE_FILL = "#171d24";
+const DEVICE_SELECTED = "#fb7904";
 const DEVICE_HOVER = "#32b6ff";
 const PORT_COLOR = "#32b6ff";
 const WIRE_FALLBACK = "#32b6ff";
@@ -23,6 +23,8 @@ const WIRE_LABEL_ZOOM_THRESHOLD = 0.55;
 const DEVICE_HOVER_TOOLTIP_ZOOM_THRESHOLD = 0.55;
 const CONNECTOR_RADIUS = 7;
 const JUMP_CONNECTOR_RADIUS = 12;
+const LEGACY_DEVICE_RADIUS = 8;
+const LEGACY_ADAPTER_RADIUS = 6;
 
 const DEFAULT_RENDER_OPTIONS = {
   labels: true,
@@ -770,11 +772,16 @@ export class WebglGraphRenderer {
       dragSession.selectedIds.forEach(id => {
         const device = scene.getDevice(id);
         if (!device) return;
-        // While dragging, the live overlay owns the selected object body. The
-        // static and texture layers deliberately skip selected objects so there
-        // is no old-position ghost, while the overlay can update every rAF.
-        pushDevice(liveVertices, device, offsets, true, renderOptions);
-        this.recordObjectLayer(layerTrace, id, "liveDragObjectOverlay", "drawn-moving-body");
+        // While dragging, textured devices keep their cached visual and move as
+        // texture quads. The live overlay only draws selection affordances, so
+        // we do not reintroduce the old square fallback body during drag.
+        if (deviceUsesTextureLayer(device, renderOptions) && this.textureCache.getEntry(id)?.texture) {
+          pushSelectionOutline(liveVertices, device, offsets);
+          this.recordObjectLayer(layerTrace, id, "liveDragObjectOverlay", "drawn-moving-outline");
+        } else {
+          pushDevice(liveVertices, device, offsets, true, renderOptions);
+          this.recordObjectLayer(layerTrace, id, "liveDragObjectOverlay", "drawn-moving-body");
+        }
       });
       frameStats.selectedObjectOverlayMs = performance.now() - objectOverlayStart;
       frameStats.selectedObjects = dragSession.selectedIds.length;
@@ -1116,7 +1123,8 @@ export class WebglGraphRenderer {
     let quads = 0;
     const draggedTextureIds = new Set();
 
-    const addDevice = (device, reason = "drawn") => {
+    const dragOffsets = dragSession?.offsetMap() || null;
+    const addDevice = (device, reason = "drawn", offsets = null) => {
       if (!deviceVisible(device, renderOptions)) return;
       if (device.kind === "jump") {
         // Jump nodes are drawn by the live/static geometry path only. The
@@ -1132,7 +1140,7 @@ export class WebglGraphRenderer {
         return;
       }
       const vertices = groups.get(entry.texture) || [];
-      pushTextureQuad(vertices, device, null);
+      pushTextureQuad(vertices, device, offsets);
       groups.set(entry.texture, vertices);
       quads += 1;
       if (selected.has(device.id)) draggedTextureIds.add(device.id);
@@ -1146,6 +1154,13 @@ export class WebglGraphRenderer {
       }
       addDevice(device);
     });
+    if (dragSession) {
+      dragSession.selectedIds.forEach(id => {
+        const device = scene.getDevice(id);
+        if (!device || device.kind === "jump") return;
+        addDevice(device, "drawn-moving-texture", dragOffsets);
+      });
+    }
 
     gl.useProgram(this.textureProgram);
     gl.uniform4f(this.textureViewLocation, camera.x, camera.y, this.resolution.width / camera.zoom, this.resolution.height / camera.zoom);
@@ -1433,6 +1448,41 @@ function pushBoxOutline(vertices, rect, width, color) {
   pushLine(vertices, { x: rect.x, y: rect.y + rect.height }, { x: rect.x, y: rect.y }, width, color);
 }
 
+function pushRoundedBoxOutline(vertices, rect, radius, width, color) {
+  const r = Math.max(0, Math.min(radius, rect.width / 2, rect.height / 2));
+  if (r <= 0.25) {
+    pushBoxOutline(vertices, rect, width, color);
+    return;
+  }
+  const x = rect.x;
+  const y = rect.y;
+  const x2 = rect.x + rect.width;
+  const y2 = rect.y + rect.height;
+  const steps = 5;
+  const points = [];
+  const addPoint = (px, py) => points.push({ x: px, y: py });
+  const addArc = (cx, cy, start, end) => {
+    for (let index = 0; index <= steps; index += 1) {
+      const t = index / steps;
+      const angle = start + (end - start) * t;
+      addPoint(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
+    }
+  };
+  addPoint(x + r, y);
+  addPoint(x2 - r, y);
+  addArc(x2 - r, y + r, -Math.PI / 2, 0);
+  addPoint(x2, y2 - r);
+  addArc(x2 - r, y2 - r, 0, Math.PI / 2);
+  addPoint(x + r, y2);
+  addArc(x + r, y2 - r, Math.PI / 2, Math.PI);
+  addPoint(x, y + r);
+  addArc(x + r, y + r, Math.PI, Math.PI * 1.5);
+  for (let index = 0; index < points.length - 1; index += 1) {
+    pushLine(vertices, points[index], points[index + 1], width, color);
+  }
+  pushLine(vertices, points[points.length - 1], points[0], width, color);
+}
+
 function pushSnapGuides(vertices, guides, camera, resolution) {
   if (!guides || !camera || !resolution) return 0;
   const view = {
@@ -1541,9 +1591,9 @@ function connectorVisualRadius(device = {}) {
 
 function pushSelectionOutline(vertices, device, offsets = null) {
   pushObjectOutline(vertices, device, offsets, [
-    { expand: 15, width: 11, color: "rgba(255,121,4,.13)" },
-    { expand: 11, width: 6.5, color: "rgba(255,121,4,.32)" },
-    { expand: 7, width: 2.8, color: DEVICE_SELECTED }
+    { expand: 11, width: 12, color: "rgba(251,121,4,.14)" },
+    { expand: 8, width: 7, color: "rgba(251,121,4,.32)" },
+    { expand: 0, width: 3, color: DEVICE_SELECTED }
   ]);
 }
 
@@ -1574,7 +1624,8 @@ function pushObjectOutline(vertices, device, offsets = null, layers = []) {
       width: device.width + layer.expand * 2,
       height: device.height + layer.expand * 2
     };
-    pushBoxOutline(vertices, rect, layer.width, layer.color);
+    const radius = (device.kind === "adapter" ? LEGACY_ADAPTER_RADIUS : LEGACY_DEVICE_RADIUS) + layer.expand;
+    pushRoundedBoxOutline(vertices, rect, radius, layer.width, layer.color);
   });
 }
 
@@ -1665,6 +1716,7 @@ function pushTextureQuad(vertices, device, offsets = null) {
 
 function verticesForDevice(device, offsets = null, options = DEFAULT_RENDER_OPTIONS) {
   const vertices = [];
+  if (deviceUsesTextureLayer(device, options)) return vertices;
   pushDevice(vertices, device, offsets, false, options);
   return vertices;
 }
@@ -1900,7 +1952,7 @@ function drawDeviceLabel(ctx, device, camera, offsets = null, tone = "normal") {
   // Legacy device bodies already include their title inside the cached texture.
   // Drawing the label again in the label canvas produces the duplicated E2 name
   // seen in Iteration 40, so only non-textured special objects keep overlay text.
-  if (device.kind !== "jump") return { drawn: false, hidden: true, truncated: false };
+  if (device.kind !== "jump" && device.kind !== "adapter") return { drawn: false, hidden: true, truncated: false };
   const offset = offsets?.get(device.id);
   const x = (device.x + (offset?.dx || 0) - camera.x) * camera.zoom;
   const y = (device.y + (offset?.dy || 0) - camera.y) * camera.zoom;
@@ -1928,6 +1980,21 @@ function drawDeviceLabel(ctx, device, camera, offsets = null, tone = "normal") {
     const labelY = y + screenHeight / 2 + 1;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
+    ctx.strokeText(text, labelX, labelY);
+    ctx.fillText(text, labelX, labelY);
+    ctx.restore();
+    return { drawn: true, hidden: false, truncated: false };
+  }
+  if (device.kind === "adapter") {
+    const labelSize = Math.max(5, 13 * camera.zoom * toneBoost);
+    const labelX = x + screenWidth / 2;
+    const labelY = y - 5 * camera.zoom;
+    ctx.font = `900 ${labelSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    ctx.lineWidth = Math.max(2, 4 * camera.zoom);
+    ctx.strokeStyle = "rgba(0,0,0,.85)";
+    ctx.fillStyle = "#f7fafc";
     ctx.strokeText(text, labelX, labelY);
     ctx.fillText(text, labelX, labelY);
     ctx.restore();
@@ -2076,9 +2143,20 @@ function subUpload(gl, buffer, floatOffset, vertices) {
 }
 
 function deviceVisible(device, options = DEFAULT_RENDER_OPTIONS) {
+  if (!device) return false;
   if (device.kind === "jump" && !options.jumpNodes) return false;
   if (device.kind === "surface" && (!options.ledSurfaces || options.hideSurfaces)) return false;
   return true;
+}
+
+function deviceUsesTextureLayer(device, options = DEFAULT_RENDER_OPTIONS) {
+  return Boolean(
+    device
+    && device.kind !== "jump"
+    && options.textureCacheEnabled !== false
+    && options.texturedDevices !== false
+    && options.hideTextureLayer !== true
+  );
 }
 
 function wireColor(wire, options = DEFAULT_RENDER_OPTIONS) {

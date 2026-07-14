@@ -4,7 +4,7 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 40.1`
+- Current build label: `Iteration 40.2`
 
 Iteration 39 adds a separate Legacy interface and visual fidelity audit in
 [`docs/legacy-interface-parity.md`](legacy-interface-parity.md). This document
@@ -12,7 +12,7 @@ continues to track functional parity and data/command behavior, while the new
 audit tracks device visuals, faceplates, cards, connectors, inspectors, panels,
 and remaining Legacy UI surfaces.
 
-Iteration 40.1 implements the first post-audit modular-device visual pass in the
+Iteration 40.2 implements the first post-audit modular-device visual pass in the
 Engine texture path. It keeps functional command behaviour unchanged while
 preserving installed card IDs, per-slot overrides, card caption colors, card
 lane geometry, connector field values, and faceplate placement metadata through
@@ -694,9 +694,11 @@ Validation:
 - Engine and Legacy fallback still open.
 - Existing functional validation still passes.
 
-### Iteration 40.1 — Modular Cards / Chassis Visual Parity
+### Iteration 40.2 — Modular Cards / Chassis Visual Parity
 
-Restore card-heavy device confidence before broad visual polish.
+Restore card-heavy device confidence before broad visual polish, then tighten
+the cached Engine body so it matches the Legacy rounded shell instead of
+showing mixed square/rounded layers.
 
 Scope:
 
@@ -705,12 +707,20 @@ Scope:
 - Real faceplate PNGs draw in cached Engine textures with Legacy placement.
 - Installed card caption colors and compact connector fields draw in the
   cached device texture.
+- Cached device textures use sharper quality settings without rebuilding on
+  pan, zoom, drag, selection, or wire edits.
+- Textured devices no longer draw a static square WebGL body underneath the
+  rounded cached texture.
+- Selection and hover overlays use rounded Legacy-style outlines.
+- Adapter/breakout devices draw their dashed transparent body, outside label,
+  and internal fan-out wiring in the Engine path.
 - Per-slot connector overrides remain independent.
 - Device Editor Apply refreshes only affected Engine visuals.
 
 Validation:
 
 - E2-style device with multiple cards.
+- Adapter/breakout device with one input and several outputs.
 - Change installed card, apply library, Engine canvas updates.
 - Save/reload and Legacy opens correctly.
 - Moving/selecting/panning/zooming does not rebuild the modular texture.
@@ -766,10 +776,10 @@ Run these after each parity iteration:
 2. `node scripts/engine-real-project-validation.mjs "/path/to/real-project.avd"`
 3. `git diff --check`
 4. Browser smoke:
-   - `index.html?v=iteration40-1`
-   - `index.html?legacy=1&v=iteration40-1`
-   - `index.html?engine=1&debugHud=1&v=iteration40-1`
-   - `index.html?debugLibraryDrag=1&v=iteration40-1`
+   - `index.html?v=iteration40-2`
+   - `index.html?legacy=1&v=iteration40-2`
+   - `index.html?engine=1&debugHud=1&v=iteration40-2`
+   - `index.html?debugLibraryDrag=1&v=iteration40-2`
 5. Manual create/edit/save/reload:
    - drag device from library
    - create compatible wire

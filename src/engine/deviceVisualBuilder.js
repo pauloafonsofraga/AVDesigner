@@ -1,10 +1,15 @@
 const QUALITY_PRESETS = {
-  low: { label: "Low", scale: 1, maxSide: 512 },
-  medium: { label: "Medium", scale: 1.65, maxSide: 1024 },
-  high: { label: "High", scale: 2.35, maxSide: 1536 }
+  low: { label: "Low", scale: 1.4, maxSide: 1024 },
+  medium: { label: "Medium", scale: 2.35, maxSide: 2048 },
+  high: { label: "High", scale: 3.25, maxSide: 4096 }
 };
 
 const DEFAULT_QUALITY = "medium";
+const LEGACY_DEVICE_BODY = "#171d24";
+const LEGACY_DEVICE_FACE = "#26313d";
+const LEGACY_DEVICE_BORDER = "#ffffff";
+const LEGACY_ADAPTER_FILL = "rgba(50, 182, 255, .08)";
+const LEGACY_ADAPTER_STROKE = "rgba(50, 182, 255, .72)";
 const FACE_MARGIN = 12;
 const FACE_TOP_Y = 38;
 const FACE_HEIGHT = 78;
@@ -89,7 +94,7 @@ export function deviceVisualCacheKey(device, options = {}) {
     ].join(":"))
     .join("|");
   return [
-    "device-card-v4",
+    "device-card-v5",
     visualKind,
     width,
     height,
@@ -137,7 +142,7 @@ export function buildDeviceVisual(device, options = {}) {
   ctx.scale(ratio, ratio);
   ctx.clearRect(0, 0, width, height);
   ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = quality.mode === "high" ? "high" : "medium";
+  ctx.imageSmoothingQuality = "high";
   drawDeviceVisual(ctx, device, width, height, options);
   return {
     canvas,
@@ -190,10 +195,10 @@ function drawRackDeviceVisual(ctx, device, width, height, options) {
   const pad = FACE_MARGIN;
 
   roundRect(ctx, 0, 0, width, height, radius);
-  ctx.fillStyle = device.color || "#182531";
+  ctx.fillStyle = LEGACY_DEVICE_BODY;
   ctx.fill();
   ctx.lineWidth = 2;
-  ctx.strokeStyle = "#dbe7f3";
+  ctx.strokeStyle = LEGACY_DEVICE_BORDER;
   ctx.stroke();
 
   drawDeviceHeader(ctx, device, width, pad, detailed);
@@ -216,23 +221,10 @@ function drawDeviceHeader(ctx, device, width, pad, detailed) {
   const title = textureTitle(device);
   ctx.save();
   drawFittedText(ctx, title, 20, 22, width - 40, 15.4, {
-    weight: 700,
+    weight: 900,
     fill: "#ffffff",
     baseline: "alphabetic"
   });
-
-  if (detailed) {
-    const parts = [device.brand || device.visual?.brand, device.model || device.visual?.model, device.category || device.visual?.category]
-      .map(value => String(value || "").trim())
-      .filter(Boolean);
-    if (parts.length) {
-      drawFittedText(ctx, parts.join(" / "), 20, 34, width - 40, 8.5, {
-        weight: 700,
-        fill: "#b8c7d7",
-        baseline: "alphabetic"
-      });
-    }
-  }
   ctx.restore();
 }
 
@@ -256,7 +248,7 @@ function drawFaceplate(ctx, device, visual, width, height, pad, detailed) {
     }
   } else {
     roundRect(ctx, x, y, w, h, 5);
-    ctx.fillStyle = "#243443";
+    ctx.fillStyle = LEGACY_DEVICE_FACE;
     ctx.fill();
     const displayWidth = Math.min(w * 0.22, 94);
     roundRect(ctx, x + pad * 0.75, y + h * 0.22, displayWidth, Math.max(9, h * 0.26), 3);
@@ -465,25 +457,86 @@ function drawConnectorBands(ctx, device, width, height, startY) {
 }
 
 function drawAdapterVisual(ctx, device, width, height, options) {
-  const radius = Math.min(18, Math.max(8, Math.min(width, height) * 0.09));
+  const radius = 6;
+  ctx.save();
   roundRect(ctx, 0, 0, width, height, radius);
-  ctx.fillStyle = "rgba(21, 43, 56, .78)";
+  ctx.fillStyle = LEGACY_ADAPTER_FILL;
   ctx.fill();
-  ctx.strokeStyle = "rgb(50, 182, 255)";
-  ctx.lineWidth = Math.max(3, Math.min(width, height) * 0.02);
-  ctx.setLineDash([18, 13]);
+  ctx.strokeStyle = LEGACY_ADAPTER_STROKE;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([7, 5]);
   ctx.stroke();
   ctx.setLineDash([]);
-  const title = textureTitle(device);
-  drawFittedText(ctx, title, 8, Math.max(4, height * 0.08), width - 16, Math.max(11, height * 0.17), {
-    weight: 900,
-    fill: "#ffffff",
-    stroke: "rgba(0,0,0,.74)",
-    strokeWidth: 2.5,
-    align: "center",
-    baseline: "top"
-  });
+  ctx.restore();
+
+  drawAdapterInternalWires(ctx, device);
   if (options.connectorMarkers !== false) drawConnectorMarkers(ctx, device, width, height, options);
+}
+
+function drawAdapterInternalWires(ctx, device) {
+  const pairs = adapterInternalWirePairs(device.connectors || []);
+  if (!pairs.length) return;
+  ctx.save();
+  ctx.lineWidth = 3;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.globalAlpha = 0.95;
+  pairs.forEach(pair => {
+    const gradient = ctx.createLinearGradient(pair.input.x, pair.input.y, pair.output.x, pair.output.y);
+    const inputColor = connectorColor(pair.input);
+    const outputColor = connectorColor(pair.output);
+    gradient.addColorStop(0, inputColor);
+    gradient.addColorStop(0.25, inputColor);
+    gradient.addColorStop(0.75, outputColor);
+    gradient.addColorStop(1, outputColor);
+    ctx.strokeStyle = gradient;
+    ctx.beginPath();
+    adapterInternalWirePath(ctx, pair.input, pair.output);
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+
+function adapterInternalWirePairs(connectors) {
+  const usable = connectors
+    .filter(connector => connector && !connector.empty && (connector.type || connector.label || connector.nameText))
+    .slice();
+  const inputs = usable
+    .filter(connector => connector.direction === "input" || connector.side === "left" || Number(connector.x || 0) <= 1)
+    .sort((a, b) => Number(a.y || 0) - Number(b.y || 0));
+  const outputs = usable
+    .filter(connector => connector.direction === "output" || connector.side === "right")
+    .sort((a, b) => Number(a.y || 0) - Number(b.y || 0));
+  if (!inputs.length || !outputs.length) return [];
+  const pairs = [];
+  if (inputs.length === 1) {
+    outputs.forEach(output => pairs.push({ input: inputs[0], output }));
+    return pairs;
+  }
+  if (outputs.length === 1) {
+    inputs.forEach(input => pairs.push({ input, output: outputs[0] }));
+    return pairs;
+  }
+  const max = Math.max(inputs.length, outputs.length);
+  for (let index = 0; index < max; index += 1) {
+    const inputIndex = Math.round((index / Math.max(1, max - 1)) * (inputs.length - 1));
+    const outputIndex = Math.round((index / Math.max(1, max - 1)) * (outputs.length - 1));
+    pairs.push({ input: inputs[inputIndex], output: outputs[outputIndex] });
+  }
+  return pairs;
+}
+
+function adapterInternalWirePath(ctx, input, output) {
+  const start = { x: Number(input.x || 0), y: Number(input.y || 0) };
+  const end = { x: Number(output.x || 0), y: Number(output.y || 0) };
+  const dir = end.x >= start.x ? 1 : -1;
+  const dx = Math.max(36, Math.abs(end.x - start.x) * 0.42);
+  ctx.moveTo(start.x, start.y);
+  ctx.bezierCurveTo(start.x + dx * dir, start.y, end.x - dx * dir, end.y, end.x, end.y);
+}
+
+function connectorColor(connector) {
+  return String(connector?.color || "rgb(50, 182, 255)").trim();
 }
 
 function drawJumpVisual(ctx, device, width, height) {
