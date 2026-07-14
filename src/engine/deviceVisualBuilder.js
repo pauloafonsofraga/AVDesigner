@@ -1,7 +1,7 @@
 const QUALITY_PRESETS = {
-  low: { label: "Low", scale: 1.75, maxSide: 1536 },
-  medium: { label: "Medium", scale: 3.5, maxSide: 4096 },
-  high: { label: "High", scale: 4.5, maxSide: 6144 }
+  low: { label: "Low", scale: 2, maxSide: 2048, maxPixels: 12_000_000 },
+  medium: { label: "Medium", scale: 4, maxSide: 8192, maxPixels: 48_000_000 },
+  high: { label: "High", scale: 5, maxSide: 12288, maxPixels: 72_000_000 }
 };
 
 const DEFAULT_QUALITY = "medium";
@@ -94,12 +94,16 @@ export function deviceVisualCacheKey(device, options = {}) {
     ].join(":"))
     .join("|");
   return [
-    "device-card-v6",
+    "device-card-v7",
     visualKind,
     width,
     height,
     color,
     quality.mode,
+    quality.scale,
+    quality.maxSide,
+    quality.maxPixels,
+    options.gpuMaxTextureSide || "",
     quality.highDpi ? "hidpi" : "1x",
     options.simplifiedCards ? "simplified" : "standard",
     options.detailedDeviceTextures === false ? "basic" : "detailed",
@@ -131,11 +135,9 @@ export function buildDeviceVisual(device, options = {}) {
   const width = Math.max(1, Math.round(device.width || 1));
   const height = Math.max(1, Math.round(device.height || 1));
   const quality = textureQuality(options);
-  const maxTextureSide = effectiveTextureMaxSide(device, quality, options);
-  const ratio = Math.max(0.1, Math.min(
-    quality.scale,
-    maxTextureSide / Math.max(width, height, 1)
-  ));
+  const limits = effectiveTextureLimits(device, quality, options);
+  const scalePlan = textureScaleForSize(width, height, quality, limits);
+  const ratio = scalePlan.ratio;
   const canvas = createCanvas(Math.max(1, Math.ceil(width * ratio)), Math.max(1, Math.ceil(height * ratio)));
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Could not create device visual canvas context.");
@@ -144,6 +146,20 @@ export function buildDeviceVisual(device, options = {}) {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
   drawDeviceVisual(ctx, device, width, height, options);
+  const buildMs = performance.now() - start;
+  const diagnostics = deviceVisualDiagnostics(device, {
+    logicalWidth: width,
+    logicalHeight: height,
+    textureWidth: canvas.width,
+    textureHeight: canvas.height,
+    pixelRatio: ratio,
+    quality,
+    limits,
+    scalePlan,
+    buildMs,
+    smoothingEnabled: ctx.imageSmoothingEnabled,
+    smoothingQuality: ctx.imageSmoothingQuality
+  });
   return {
     canvas,
     width: canvas.width,
@@ -152,8 +168,10 @@ export function buildDeviceVisual(device, options = {}) {
     cssHeight: height,
     pixelRatio: ratio,
     qualityMode: quality.mode,
-    maxTextureSide,
-    buildMs: performance.now() - start,
+    maxTextureSide: limits.maxSide,
+    maxTexturePixels: limits.maxPixels,
+    buildMs,
+    diagnostics,
     fallback: false
   };
 }
@@ -167,7 +185,8 @@ export function textureQuality(options = {}) {
     ...preset,
     mode,
     highDpi,
-    scale: highDpi ? preset.scale : 1
+    scale: highDpi ? preset.scale : 1,
+    maxPixels: preset.maxPixels || preset.maxSide * preset.maxSide
   };
 }
 
@@ -691,12 +710,124 @@ function visualDeviceKind(device) {
   return device.kind || "device";
 }
 
-function effectiveTextureMaxSide(device, quality, options = {}) {
+function effectiveTextureLimits(device, quality, options = {}) {
   const gpuMax = Number(options.gpuMaxTextureSide) || Infinity;
+  // Modular chassis such as E2 are very tall. Iteration 40.4 keeps their
+  // logical geometry unchanged but lets the cached texture use more physical
+  // pixels when the GPU allows it, so zooming does not magnify a small bitmap.
   const modularTarget = device?.visual?.hasSwappableCards
-    ? Math.max(quality.maxSide, 8192)
+    ? Math.max(quality.maxSide, 16384)
     : quality.maxSide;
-  return Math.max(1, Math.min(modularTarget, gpuMax));
+  const optionMaxPixels = Number(options.maxTexturePixels);
+  const maxPixels = Number.isFinite(optionMaxPixels) && optionMaxPixels > 0
+    ? optionMaxPixels
+    : quality.maxPixels || quality.maxSide * quality.maxSide;
+  return {
+    maxSide: Math.max(1, Math.min(modularTarget, gpuMax)),
+    maxPixels: Math.max(1, maxPixels),
+    gpuMaxSide: Number.isFinite(gpuMax) ? gpuMax : 0,
+    requestedMaxSide: quality.maxSide,
+    modularMaxSide: modularTarget
+  };
+}
+
+function textureScaleForSize(width, height, quality, limits) {
+  const maxDimension = Math.max(width, height, 1);
+  const logicalPixels = Math.max(1, width * height);
+  const requestedScale = Math.max(0.1, Number(quality.scale) || 1);
+  const sideScale = limits.maxSide / maxDimension;
+  const pixelScale = Math.sqrt(limits.maxPixels / logicalPixels);
+  const ratio = Math.max(0.1, Math.min(requestedScale, sideScale, pixelScale));
+  const limiters = [];
+  if (ratio < requestedScale - 0.001) {
+    if (sideScale <= pixelScale + 0.001 && sideScale <= requestedScale + 0.001) limiters.push("max-side");
+    if (pixelScale <= sideScale + 0.001 && pixelScale <= requestedScale + 0.001) limiters.push("max-pixels");
+  }
+  if (!limiters.length) limiters.push("quality");
+  return {
+    ratio,
+    requestedScale,
+    sideScale,
+    pixelScale,
+    limitedBy: limiters.join("+")
+  };
+}
+
+function deviceVisualDiagnostics(device, render) {
+  const face = faceplateDiagnostics(device, render.logicalWidth);
+  const texturePixels = render.textureWidth * render.textureHeight;
+  return {
+    deviceId: device?.id || "",
+    templateId: device?.templateId || device?.visual?.templateId || "",
+    name: textureTitle(device),
+    kind: visualDeviceKind(device),
+    logicalWidth: render.logicalWidth,
+    logicalHeight: render.logicalHeight,
+    textureWidth: render.textureWidth,
+    textureHeight: render.textureHeight,
+    texturePixels,
+    estimatedBytes: texturePixels * 4,
+    pixelRatio: render.pixelRatio,
+    requestedScale: render.scalePlan.requestedScale,
+    sideScale: render.scalePlan.sideScale,
+    pixelScale: render.scalePlan.pixelScale,
+    limitedBy: render.scalePlan.limitedBy,
+    qualityMode: render.quality.mode,
+    maxTextureSide: render.limits.maxSide,
+    maxTexturePixels: render.limits.maxPixels,
+    gpuMaxTextureSide: render.limits.gpuMaxSide,
+    requestedMaxTextureSide: render.limits.requestedMaxSide,
+    modularMaxTextureSide: render.limits.modularMaxSide,
+    smoothingEnabled: Boolean(render.smoothingEnabled),
+    smoothingQuality: render.smoothingQuality || "",
+    minFilter: "LINEAR",
+    magFilter: "LINEAR",
+    buildMs: render.buildMs,
+    face
+  };
+}
+
+function faceplateDiagnostics(device, logicalWidth) {
+  const visual = device?.visual || {};
+  const source = String(visual.faceImage || "").trim();
+  const hasFaceImage = Boolean(visual.hasFaceImage && source);
+  const faceBounds = legacyFaceBounds(visual, logicalWidth);
+  const diagnostics = {
+    hasFaceImage,
+    source,
+    state: hasFaceImage ? "loading" : "none",
+    declaredNaturalWidth: Number(visual.faceImageNaturalWidth) || 0,
+    declaredNaturalHeight: Number(visual.faceImageNaturalHeight) || 0,
+    imageNaturalWidth: 0,
+    imageNaturalHeight: 0,
+    boundsX: faceBounds.x,
+    boundsY: faceBounds.y,
+    boundsWidth: faceBounds.width,
+    boundsHeight: faceBounds.height,
+    placementX: 0,
+    placementY: 0,
+    placementWidth: 0,
+    placementHeight: 0,
+    sourcePixelsPerDisplayedLogicalPixel: 0
+  };
+  if (!hasFaceImage) return diagnostics;
+  const image = cachedImage(source);
+  if (image?.complete && image.naturalWidth > 0) {
+    const placement = legacyFaceImagePlacement(visual, logicalWidth, image);
+    diagnostics.state = "loaded";
+    diagnostics.imageNaturalWidth = image.naturalWidth || 0;
+    diagnostics.imageNaturalHeight = image.naturalHeight || 0;
+    diagnostics.placementX = placement.x;
+    diagnostics.placementY = placement.y;
+    diagnostics.placementWidth = placement.width;
+    diagnostics.placementHeight = placement.height;
+    diagnostics.sourcePixelsPerDisplayedLogicalPixel = placement.width
+      ? (image.naturalWidth || diagnostics.declaredNaturalWidth || 0) / placement.width
+      : 0;
+  } else if (image) {
+    diagnostics.state = "loading";
+  }
+  return diagnostics;
 }
 
 function textureTitle(device) {

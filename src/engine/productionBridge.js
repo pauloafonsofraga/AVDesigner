@@ -1999,6 +1999,7 @@ class ProductionEngineBridge {
     this.hud.setMetric("texture builds", `${textureStats.builds} build / ${textureStats.rebuilds} rebuild`);
     this.hud.setMetric("texture cache", `${textureStats.hits} hit / ${textureStats.misses} miss / ${textureStats.sharedHits} shared`);
     this.hud.setMetric("texture drag rebuilds", 0);
+    if (engineDeviceTextureDebugEnabled()) this.updateDeviceTextureDebugHud(textureStats);
     this.hud.setMetric("undo redo", `${this.commandIndex} undo / ${this.commandHistory.length - this.commandIndex} redo`);
     this.hud.setMetric("last command", this.lastMutationType);
     this.hud.setMetric("gpu update", staticStats ? "full static upload" : "ready");
@@ -2006,6 +2007,68 @@ class ProductionEngineBridge {
     this.hud.setMetric("benchmark", mode);
     this.updateSelectionHud();
     this.updateInteractionHud(mode);
+  }
+
+  updateDeviceTextureDebugHud(textureStats = {}) {
+    const diagnostic = textureStats.maxTextureDiagnostics || textureStats.lastTextureDiagnostics;
+    if (!diagnostic) {
+      this.hud.setMetric("texture debug target", "-");
+      this.hud.setMetric("texture debug logical", "-");
+      this.hud.setMetric("texture debug physical", "-");
+      this.hud.setMetric("texture debug scale", "-");
+      this.hud.setMetric("texture debug limits", "-");
+      this.hud.setMetric("texture debug source", "-");
+      this.hud.setMetric("texture debug filters", "-");
+      this.hud.setMetric("texture debug cache", "-");
+      return;
+    }
+    const dpr = typeof window !== "undefined" ? Number(window.devicePixelRatio) || 1 : 1;
+    const zoom = Number(this.camera?.zoom) || 1;
+    const displayedPhysicalScale = zoom * dpr;
+    const textureScale = Number(diagnostic.pixelRatio) || 1;
+    const magnification = displayedPhysicalScale / Math.max(0.001, textureScale);
+    const displayedWidth = (Number(diagnostic.logicalWidth) || 0) * displayedPhysicalScale;
+    const displayedHeight = (Number(diagnostic.logicalHeight) || 0) * displayedPhysicalScale;
+    const face = diagnostic.face || {};
+    const sourceDims = face.hasFaceImage
+      ? `${face.imageNaturalWidth || face.declaredNaturalWidth || 0} x ${face.imageNaturalHeight || face.declaredNaturalHeight || 0}`
+      : "no face image";
+    const sourceName = face.source ? shortHudPath(face.source) : "";
+    const placementDims = face.hasFaceImage
+      ? `${roundForHud(face.placementWidth)} x ${roundForHud(face.placementHeight)} logical`
+      : "-";
+    this.hud.setMetric(
+      "texture debug target",
+      `${diagnostic.deviceId || diagnostic.templateId || diagnostic.name || "-"} / ${diagnostic.name || "-"}`
+    );
+    this.hud.setMetric(
+      "texture debug logical",
+      `${diagnostic.logicalWidth} x ${diagnostic.logicalHeight} logical / face ${placementDims}`
+    );
+    this.hud.setMetric(
+      "texture debug physical",
+      `${diagnostic.textureWidth} x ${diagnostic.textureHeight} px / screen ${roundForHud(displayedWidth)} x ${roundForHud(displayedHeight)} / ${formatHudBytes(diagnostic.estimatedBytes)}`
+    );
+    this.hud.setMetric(
+      "texture debug scale",
+      `tex ${roundForHud(textureScale)}x / screen ${roundForHud(displayedPhysicalScale)}x / mag ${roundForHud(magnification)}x`
+    );
+    this.hud.setMetric(
+      "texture debug limits",
+      `${diagnostic.qualityMode} limited by ${diagnostic.limitedBy}; side ${diagnostic.maxTextureSide}; gpu ${diagnostic.gpuMaxTextureSide || "-"}; budget ${formatHudBytes((diagnostic.maxTexturePixels || 0) * 4)}`
+    );
+    this.hud.setMetric(
+      "texture debug source",
+      `${sourceDims}; ${sourceName}; state ${face.state || "-"}; src/logical ${roundForHud(face.sourcePixelsPerDisplayedLogicalPixel)}`
+    );
+    this.hud.setMetric(
+      "texture debug filters",
+      `smooth ${diagnostic.smoothingEnabled ? "on" : "off"} ${diagnostic.smoothingQuality || ""}; GL ${diagnostic.minFilter}/${diagnostic.magFilter}`
+    );
+    this.hud.setMetric(
+      "texture debug cache",
+      `${textureStats.lastTextureCacheEvent || "-"} / ${textureStats.lastInvalidationReason || "-"} / build ${roundForHud(diagnostic.buildMs)} ms`
+    );
   }
 
   updateStatusPanel(reason = "") {
@@ -3734,7 +3797,9 @@ function engineDebugLoadDelayMs() {
 
 function engineLayerDebugEnabled() {
   const params = new URLSearchParams(window.location.search);
-  return params.get("debugLayers") === "1" || params.get("debugDeviceVisual") === "1";
+  return params.get("debugLayers") === "1"
+    || params.get("debugDeviceVisual") === "1"
+    || params.get("debugDeviceTexture") === "1";
 }
 
 function engineLayerDebugShowProductionSvg() {
@@ -3746,8 +3811,13 @@ function engineDebugHudEnabled() {
   return params.get("debugHud") === "1"
     || params.get("debugLayers") === "1"
     || params.get("debugDeviceVisual") === "1"
+    || params.get("debugDeviceTexture") === "1"
     || params.get("debugRewire") === "1"
     || params.get("orthogonalTest") === "1";
+}
+
+function engineDeviceTextureDebugEnabled() {
+  return new URLSearchParams(window.location.search).get("debugDeviceTexture") === "1";
 }
 
 function engineCompatibilityDebugEnabled() {
@@ -4278,6 +4348,29 @@ function detailsMarkup(rows) {
 function roundForUi(value) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.round(number * 10) / 10 : 0;
+}
+
+function roundForHud(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "-";
+  if (Math.abs(number) >= 100) return number.toFixed(0);
+  if (Math.abs(number) >= 10) return number.toFixed(1);
+  return number.toFixed(2);
+}
+
+function formatHudBytes(bytes) {
+  const value = Number(bytes) || 0;
+  if (value <= 0) return "0 MB";
+  const mb = value / (1024 * 1024);
+  if (mb < 1024) return `${mb.toFixed(mb < 10 ? 2 : 1)} MB`;
+  return `${(mb / 1024).toFixed(2)} GB`;
+}
+
+function shortHudPath(value) {
+  const text = String(value || "");
+  if (!text) return "";
+  const parts = text.split(/[\\/]/).filter(Boolean);
+  return parts.slice(-2).join("/");
 }
 
 function escapeHtml(value) {

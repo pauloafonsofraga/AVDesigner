@@ -24,6 +24,10 @@ const EMPTY_STATS = {
   maxTextureSize: "0 x 0",
   maxTexturePixels: 0,
   maxTextureSide: 0,
+  maxTextureDiagnostics: null,
+  lastTextureDiagnostics: null,
+  lastTextureCacheEvent: "-",
+  maxTexturePixelsBudget: 0,
   lastBuildMs: 0,
   lastUploadMs: 0,
   lastPrepareMs: 0,
@@ -84,6 +88,8 @@ export class TextureCache {
     const existing = this.entriesByDeviceId.get(device.id);
     if (existing && existing.key === key && existing.record?.texture) {
       this.statsData.hits += 1;
+      this.statsData.lastTextureDiagnostics = existing.record.diagnostics || existing.diagnostics || null;
+      this.statsData.lastTextureCacheEvent = "hit";
       return existing;
     }
 
@@ -100,6 +106,8 @@ export class TextureCache {
       this.entriesByDeviceId.set(device.id, entry);
       this.statsData.hits += 1;
       this.statsData.sharedHits += 1;
+      this.statsData.lastTextureDiagnostics = shared.diagnostics || null;
+      this.statsData.lastTextureCacheEvent = "shared-hit";
       this.refreshCounts();
       return entry;
     }
@@ -130,6 +138,7 @@ export class TextureCache {
       uploadMs,
       fallback: Boolean(visual.fallback),
       qualityMode: visual.qualityMode || this.statsData.qualityMode,
+      diagnostics: visual.diagnostics || null,
       lastBuiltAt: performance.now(),
       refCount: 0
     };
@@ -138,6 +147,8 @@ export class TextureCache {
     this.statsData.lastBuildMs = buildMs;
     this.statsData.lastUploadMs = uploadMs;
     this.statsData.lastInvalidationReason = reason;
+    this.statsData.lastTextureDiagnostics = record.diagnostics;
+    this.statsData.lastTextureCacheEvent = "miss";
     const entry = this.createEntry(device, key, record, reason, true);
     this.entriesByDeviceId.set(device.id, entry);
     this.refreshCounts();
@@ -200,6 +211,7 @@ export class TextureCache {
       cssHeight: record.cssHeight,
       texture: record.texture,
       record,
+      diagnostics: record.diagnostics,
       visualSources: deviceVisualSources(device),
       lastBuiltAt: record.lastBuiltAt,
       buildMs: record.buildMs,
@@ -220,6 +232,7 @@ export class TextureCache {
     let maxPixels = 0;
     let scaleTotal = 0;
     let scaleCount = 0;
+    let maxDiagnostic = null;
     this.texturesByKey.forEach(record => {
       memoryBytes += Math.max(1, record.width) * Math.max(1, record.height) * 4;
       if (record.fallback) fallbackCount += 1;
@@ -227,7 +240,11 @@ export class TextureCache {
       totalHeight += record.height;
       maxWidth = Math.max(maxWidth, record.width);
       maxHeight = Math.max(maxHeight, record.height);
-      maxPixels = Math.max(maxPixels, record.width * record.height);
+      const pixels = record.width * record.height;
+      if (pixels > maxPixels) {
+        maxPixels = pixels;
+        maxDiagnostic = record.diagnostics || null;
+      }
       if (record.pixelRatio) {
         scaleTotal += record.pixelRatio;
         scaleCount += 1;
@@ -244,6 +261,7 @@ export class TextureCache {
       : "0 x 0";
     this.statsData.maxTextureSize = this.texturesByKey.size ? `${maxWidth} x ${maxHeight}` : "0 x 0";
     this.statsData.maxTexturePixels = maxPixels;
+    this.statsData.maxTextureDiagnostics = maxDiagnostic;
     this.statsData.textureScale = scaleCount ? scaleTotal / scaleCount : this.statsData.textureScale || 1;
   }
 }
@@ -252,6 +270,9 @@ function textureModeSignature(options = {}) {
   const quality = textureQuality(options);
   return [
     quality.mode,
+    quality.scale,
+    quality.maxSide,
+    quality.maxPixels,
     quality.highDpi ? "hidpi" : "1x",
     options.simplifiedCards ? "simplified" : "standard",
     options.detailedDeviceTextures === false ? "basic" : "detailed",
@@ -264,6 +285,7 @@ function applyQualityStats(stats, options = {}) {
   stats.qualityMode = quality.mode;
   stats.textureScale = quality.scale;
   stats.maxTextureSide = quality.maxSide;
+  stats.maxTexturePixelsBudget = quality.maxPixels;
 }
 
 function uploadTexture(gl, source) {

@@ -4,7 +4,7 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 40.3`
+- Current build label: `Iteration 40.4`
 
 Iteration 39 adds a separate Legacy interface and visual fidelity audit in
 [`docs/legacy-interface-parity.md`](legacy-interface-parity.md). This document
@@ -20,11 +20,15 @@ normalization. The renderer then bakes those details into cached device
 textures and invalidates only affected device textures when a faceplate image
 finishes loading or a device visual key changes.
 
-Iteration 40.3 keeps the same data path but fixes the remaining visual
+Iteration 40.3 kept the same data path but fixed the remaining visual
 regressions from screenshot comparison: adapter/breakout templates using
 `objectType: "adapter"` normalize as Engine adapters, connector circles and
 connector labels draw in live world-space layers instead of the clipped device
 texture, and selected devices use a soft Legacy-style glow layer.
+
+Iteration 40.4 does not change command/data behavior. It only improves the
+cached device texture resolution budget for tall modular chassis and adds
+`debugDeviceTexture=1` diagnostics for the Engine texture pipeline.
 
 Iteration 37.5 builds on Iteration 37, which restored Legacy connector compatibility rules in Engine wire
 creation, including installed SFP/SFP+/QSFP modules, SFP/QSFP fiber-mode family
