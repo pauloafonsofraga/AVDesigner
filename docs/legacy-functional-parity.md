@@ -4,7 +4,13 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 38`
+- Current build label: `Iteration 39`
+
+Iteration 39 adds a separate Legacy interface and visual fidelity audit in
+[`docs/legacy-interface-parity.md`](legacy-interface-parity.md). This document
+continues to track functional parity and data/command behavior, while the new
+audit tracks device visuals, faceplates, cards, connectors, inspectors, panels,
+and remaining Legacy UI surfaces.
 
 Iteration 37.5 builds on Iteration 37, which restored Legacy connector compatibility rules in Engine wire
 creation, including installed SFP/SFP+/QSFP modules, SFP/QSFP fiber-mode family
@@ -58,6 +64,10 @@ Legacy connection record for undo/redo.
 Viewer/PDF/report visual
 migration remains paused while the remaining Legacy functional gaps are worked
 through.
+
+Iteration 39 is intentionally documentation-first. It does not migrate any
+remaining Legacy UI systems; it maps those systems, their code anchors, their
+Engine ownership class, and the recommended follow-up iteration order.
 
 ## Executive Summary
 
@@ -656,41 +666,27 @@ Validation:
 - Change installed card, apply library, Engine canvas updates.
 - Save/reload and Legacy opens correctly.
 
-### Iteration 39 — Faceplates, Project Custom Devices, Adapters
+### Iteration 39 — Interface / Visual Fidelity Audit
 
-Complete custom visual creation/editing parity.
-
-Scope:
-
-- Faceplate replace/delete/resize updates Engine textures.
-- Project custom devices remain available and draggable.
-- Adapter/breakout compact visuals and internal wiring survive Engine edits.
-
-Validation:
-
-- Small adapter/breakout device.
-- Large image faceplate.
-- Deleted faceplate.
-- Project custom device drag/drop.
-
-### Iteration 40 — PD / Power Distro Parity
-
-Restore special power-device rules in Engine workflows.
+Map the remaining Legacy UI and visual systems before restoring them.
 
 Scope:
 
-- PD generated SVG plug layout.
-- Manual plug positions.
-- Powerlock special visual/compatibility treatment.
-- Power connector validation.
+- Create the interface parity matrix in
+  [`docs/legacy-interface-parity.md`](legacy-interface-parity.md).
+- Identify Legacy and Engine code anchors for device visuals, faceplates,
+  cards, connectors, inspectors, PD devices, adapters, racks, context menus,
+  panels, reports, and exports.
+- Classify each area by data, renderer, inspector, undo/redo, save/load, and
+  report/export risk.
 
 Validation:
 
-- PD with generated faceplate.
-- Manual plug move saved/reloaded.
-- Powerlock wire/node color parity.
+- Build label says Iteration 39.
+- Engine and Legacy fallback still open.
+- Existing functional validation still passes.
 
-### Iteration 41 — Context Menu And Canvas Actions
+### Iteration 40 — Context Menu And Canvas Actions
 
 Audit and restore every right-click action under Engine.
 
@@ -707,27 +703,47 @@ Validation:
 - Each action updates production data and Engine scene once.
 - Undo/redo works.
 
-### Iteration 42 — Rack Builder And Internal Wires
+### Iteration 41 — Modular Cards / Chassis Visual Parity
 
-Restore rack creation/internal-wire special cases.
+Restore card-heavy device confidence before broad visual polish.
 
 Scope:
 
-- Rack library drag/drop.
-- Rack internal wire create/rewire/route.
-- Exposed rack ports.
-- Show/hide internal wiring in Engine and viewer data.
+- Generated card connector IDs and positions remain stable.
+- Card labels/bands match Legacy enough for E2-style devices.
+- Per-slot connector overrides remain independent.
+- Device Editor Apply refreshes only affected Engine visuals.
 
 Validation:
 
-- Build rack.
-- Place rack.
-- Edit rack from canvas.
-- Internal wires persist and export safely.
+- E2-style device with multiple cards.
+- Change installed card, apply library, Engine canvas updates.
+- Save/reload and Legacy opens correctly.
 
-### Iteration 43+ — Resume Output Migration
+### Iteration 42 — Faceplates And Project Custom Devices
 
-Only after the above functional parity passes should viewer/PDF/report visual
+Complete custom faceplate and user-created device visual parity.
+
+Scope:
+
+- Real faceplate PNGs render inside Engine textures.
+- Faceplate replace/delete/resize updates only affected textures.
+- Project custom devices remain available, draggable, and visually accurate.
+
+Validation:
+
+- Small adapter/breakout device.
+- Large image faceplate.
+- Deleted faceplate.
+- Project custom device drag/drop.
+
+### Iteration 43+ — Continue Interface Roadmap
+
+Follow the detailed order in
+[`docs/legacy-interface-parity.md`](legacy-interface-parity.md): connector/node
+visuals, inspector parity, adapter/breakout internal wiring, PD/power visuals,
+LED/title surfaces, racks, matrix UI, toolbar polish, then output migration.
+Only after editor visual parity is stable should viewer/PDF/report visual
 migration resume.
 
 ## Validation TODOs
@@ -738,10 +754,10 @@ Run these after each parity iteration:
 2. `node scripts/engine-real-project-validation.mjs "/path/to/real-project.avd"`
 3. `git diff --check`
 4. Browser smoke:
-   - `index.html?v=iteration35-3`
-   - `index.html?legacy=1&v=iteration35-3`
-   - `index.html?engine=1&debugHud=1&v=iteration35-3`
-   - `index.html?debugLibraryDrag=1&v=iteration35-3`
+   - `index.html?v=iteration39`
+   - `index.html?legacy=1&v=iteration39`
+   - `index.html?engine=1&debugHud=1&v=iteration39`
+   - `index.html?debugLibraryDrag=1&v=iteration39`
 5. Manual create/edit/save/reload:
    - drag device from library
    - create compatible wire
