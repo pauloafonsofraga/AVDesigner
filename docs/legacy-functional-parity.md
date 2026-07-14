@@ -4,7 +4,7 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 40`
+- Current build label: `Iteration 40.1`
 
 Iteration 39 adds a separate Legacy interface and visual fidelity audit in
 [`docs/legacy-interface-parity.md`](legacy-interface-parity.md). This document
@@ -12,7 +12,7 @@ continues to track functional parity and data/command behavior, while the new
 audit tracks device visuals, faceplates, cards, connectors, inspectors, panels,
 and remaining Legacy UI surfaces.
 
-Iteration 40 implements the first post-audit modular-device visual pass in the
+Iteration 40.1 implements the first post-audit modular-device visual pass in the
 Engine texture path. It keeps functional command behaviour unchanged while
 preserving installed card IDs, per-slot overrides, card caption colors, card
 lane geometry, connector field values, and faceplate placement metadata through
@@ -694,7 +694,7 @@ Validation:
 - Engine and Legacy fallback still open.
 - Existing functional validation still passes.
 
-### Iteration 40 — Modular Cards / Chassis Visual Parity
+### Iteration 40.1 — Modular Cards / Chassis Visual Parity
 
 Restore card-heavy device confidence before broad visual polish.
 
@@ -766,10 +766,10 @@ Run these after each parity iteration:
 2. `node scripts/engine-real-project-validation.mjs "/path/to/real-project.avd"`
 3. `git diff --check`
 4. Browser smoke:
-   - `index.html?v=iteration40`
-   - `index.html?legacy=1&v=iteration40`
-   - `index.html?engine=1&debugHud=1&v=iteration40`
-   - `index.html?debugLibraryDrag=1&v=iteration40`
+   - `index.html?v=iteration40-1`
+   - `index.html?legacy=1&v=iteration40-1`
+   - `index.html?engine=1&debugHud=1&v=iteration40-1`
+   - `index.html?debugLibraryDrag=1&v=iteration40-1`
 5. Manual create/edit/save/reload:
    - drag device from library
    - create compatible wire

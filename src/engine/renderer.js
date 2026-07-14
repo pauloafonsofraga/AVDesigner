@@ -1897,6 +1897,10 @@ function drawConnectorTooltip(ctx, entry, camera, offsets = null) {
 }
 
 function drawDeviceLabel(ctx, device, camera, offsets = null, tone = "normal") {
+  // Legacy device bodies already include their title inside the cached texture.
+  // Drawing the label again in the label canvas produces the duplicated E2 name
+  // seen in Iteration 40, so only non-textured special objects keep overlay text.
+  if (device.kind !== "jump") return { drawn: false, hidden: true, truncated: false };
   const offset = offsets?.get(device.id);
   const x = (device.x + (offset?.dx || 0) - camera.x) * camera.zoom;
   const y = (device.y + (offset?.dy || 0) - camera.y) * camera.zoom;

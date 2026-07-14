@@ -9,6 +9,7 @@ const FACE_MARGIN = 12;
 const FACE_TOP_Y = 38;
 const FACE_HEIGHT = 78;
 const FACE_IMAGE_PADDING = 8;
+const SLOT_HEIGHT = 54;
 
 const IMAGE_CACHE = new Map();
 let assetReadyCallback = null;
@@ -24,9 +25,9 @@ export function deviceVisualCacheKey(device, options = {}) {
   const color = String(device.color || "").trim();
   const quality = textureQuality(options);
   const visual = device.visual || {};
-  // This key describes only stable visual appearance. It intentionally avoids
-  // instance labels/positions so thousands of identical placed devices can
-  // share one GPU texture and keep pan/zoom/drag work cheap.
+  // This key describes stable visual appearance. It intentionally avoids
+  // positions so pan/zoom/drag work stays cheap, but it includes the displayed
+  // device title because Legacy renders that title inside the device body.
   const title = textureTitle(device);
   // Faceplate data URLs can be huge; hash them so the key stays small while
   // still invalidating when the actual visual source changes.
@@ -88,7 +89,7 @@ export function deviceVisualCacheKey(device, options = {}) {
     ].join(":"))
     .join("|");
   return [
-    "device-card-v3",
+    "device-card-v4",
     visualKind,
     width,
     height,
@@ -185,19 +186,18 @@ function drawDeviceVisual(ctx, device, width, height, options) {
 function drawRackDeviceVisual(ctx, device, width, height, options) {
   const visual = device.visual || {};
   const detailed = options.detailedDeviceTextures !== false;
-  const radius = Math.min(12, Math.max(5, Math.min(width, height) * 0.055));
-  const pad = Math.max(8, Math.min(width, height) * 0.045);
-  const headerHeight = Math.max(22, Math.min(42, height * 0.12));
+  const radius = 8;
+  const pad = FACE_MARGIN;
 
   roundRect(ctx, 0, 0, width, height, radius);
   ctx.fillStyle = device.color || "#182531";
   ctx.fill();
-  ctx.lineWidth = Math.max(2, Math.min(width, height) * 0.01);
+  ctx.lineWidth = 2;
   ctx.strokeStyle = "#dbe7f3";
   ctx.stroke();
 
-  drawDeviceHeader(ctx, device, width, headerHeight, pad, detailed);
-  const face = drawFaceplate(ctx, device, visual, width, height, headerHeight, pad, detailed);
+  drawDeviceHeader(ctx, device, width, pad, detailed);
+  const face = drawFaceplate(ctx, device, visual, width, height, pad, detailed);
 
   if (detailed && visual.visualCards?.length && !options.simplifiedCards) {
     drawCardAreas(ctx, visual.visualCards, width, height, pad);
@@ -205,24 +205,20 @@ function drawRackDeviceVisual(ctx, device, width, height, options) {
     drawConnectorBands(ctx, device, width, height, face.bottom + 12);
   }
 
-  if (visual.isLedProcessor) drawDeviceTag(ctx, "LED PROCESSOR", width - pad, headerHeight + 6, "#ff99cc", "right");
-  if (visual.isPowerDistro) drawDeviceTag(ctx, "POWER DISTRO", width - pad, headerHeight + 22, "#e53935", "right");
-  if (visual.isMatrixRouter) drawDeviceTag(ctx, "MATRIX", width - pad, headerHeight + 38, "#32b6ff", "right");
+  if (visual.isLedProcessor) drawDeviceTag(ctx, "LED PROCESSOR", width - pad, 24, "#ff99cc", "right");
+  if (visual.isPowerDistro) drawDeviceTag(ctx, "POWER DISTRO", width - pad, 40, "#e53935", "right");
+  if (visual.isMatrixRouter) drawDeviceTag(ctx, "MATRIX", width - pad, 56, "#32b6ff", "right");
 
   if (options.connectorMarkers !== false) drawConnectorMarkers(ctx, device, width, height, options);
 }
 
-function drawDeviceHeader(ctx, device, width, headerHeight, pad, detailed) {
+function drawDeviceHeader(ctx, device, width, pad, detailed) {
   const title = textureTitle(device);
   ctx.save();
-  ctx.fillStyle = "rgba(8, 12, 18, .28)";
-  ctx.fillRect(1, 1, width - 2, headerHeight);
-  drawFittedText(ctx, title, pad, Math.max(5, headerHeight * 0.2), width - pad * 2, Math.max(11, headerHeight * 0.58), {
-    weight: 800,
+  drawFittedText(ctx, title, 20, 22, width - 40, 15.4, {
+    weight: 700,
     fill: "#ffffff",
-    stroke: "rgba(0,0,0,.7)",
-    strokeWidth: 2.4,
-    baseline: "top"
+    baseline: "alphabetic"
   });
 
   if (detailed) {
@@ -230,47 +226,38 @@ function drawDeviceHeader(ctx, device, width, headerHeight, pad, detailed) {
       .map(value => String(value || "").trim())
       .filter(Boolean);
     if (parts.length) {
-      drawFittedText(ctx, parts.join(" / "), pad, headerHeight - 10, width - pad * 2, 7.5, {
+      drawFittedText(ctx, parts.join(" / "), 20, 34, width - 40, 8.5, {
         weight: 700,
         fill: "#b8c7d7",
-        baseline: "top"
+        baseline: "alphabetic"
       });
     }
   }
   ctx.restore();
 }
 
-function drawFaceplate(ctx, device, visual, width, height, headerHeight, pad, detailed) {
-  if (visual.faceplateDeleted) return { x: pad, y: headerHeight + pad, width: width - pad * 2, height: 0, bottom: headerHeight + pad };
+function drawFaceplate(ctx, device, visual, width, height, pad, detailed) {
+  if (visual.faceplateDeleted) return { x: pad, y: FACE_TOP_Y, width: width - pad * 2, height: 0, bottom: FACE_TOP_Y };
   const faceBounds = legacyFaceBounds(visual, width);
   const x = visual.hasFaceImage ? faceBounds.x : pad;
-  const y = visual.hasFaceImage ? faceBounds.y : headerHeight + Math.max(5, pad * 0.65);
+  const y = visual.hasFaceImage ? faceBounds.y : FACE_TOP_Y;
   const w = visual.hasFaceImage ? faceBounds.width : Math.max(1, width - pad * 2);
   const h = visual.hasFaceImage
     ? faceBounds.height
-    : Math.min(height * 0.34, Math.max(24, height * 0.22));
-
-  roundRect(ctx, x, y, w, h, Math.min(8, pad));
-  const gradient = ctx.createLinearGradient(x, y, x + w, y + h);
-  gradient.addColorStop(0, visual.hasFaceImage ? "#2f3f4d" : "#243443");
-  gradient.addColorStop(0.55, visual.hasFaceImage ? "#18222c" : "#263746");
-  gradient.addColorStop(1, visual.hasFaceImage ? "#4a5660" : "#1d2a36");
-  ctx.fillStyle = gradient;
-  ctx.fill();
+    : FACE_HEIGHT;
 
   if (visual.hasFaceImage) {
     const image = cachedImage(visual.faceImage);
     if (image?.complete && image.naturalWidth > 0) {
       const placement = legacyFaceImagePlacement(visual, width, image);
-      ctx.save();
-      roundRect(ctx, x, y, w, h, Math.min(8, pad));
-      ctx.clip();
       ctx.drawImage(image, placement.x, placement.y, placement.width, placement.height);
-      ctx.restore();
     } else {
       drawFaceplateLoadingPlaceholder(ctx, visual, x, y, w, h);
     }
   } else {
+    roundRect(ctx, x, y, w, h, 5);
+    ctx.fillStyle = "#243443";
+    ctx.fill();
     const displayWidth = Math.min(w * 0.22, 94);
     roundRect(ctx, x + pad * 0.75, y + h * 0.22, displayWidth, Math.max(9, h * 0.26), 3);
     ctx.fillStyle = "#7bcac1";
@@ -286,24 +273,21 @@ function drawFaceplate(ctx, device, visual, width, height, headerHeight, pad, de
     }
   }
 
-  if (detailed && visual.hasThumbnailImage) {
-    drawDeviceTag(ctx, "THUMB", x + w - 8, y + h - 8, "#7bcac1", "right");
-  }
   return { x, y, width: w, height: h, bottom: y + h };
 }
 
 function drawCardAreas(ctx, cards, width, height, pad) {
-  cards.forEach((card, index) => {
+  cards.forEach(card => {
     const x = clamp(card.x, pad, Math.max(pad, width - pad - 24));
     const y = clamp(card.y, pad, Math.max(pad, height - pad - 24));
     const w = Math.min(Math.max(24, card.width), Math.max(24, width - x - pad));
     const h = Math.min(Math.max(18, card.height), Math.max(18, height - y - pad));
     roundRect(ctx, x, y, w, h, 6);
-    ctx.fillStyle = index % 2 ? "rgba(36, 70, 88, .64)" : "rgba(25, 58, 76, .66)";
+    ctx.fillStyle = "rgba(50,182,255,.06)";
     ctx.fill();
-    ctx.setLineDash([6, 5]);
-    ctx.strokeStyle = "rgba(50, 182, 255, .58)";
-    ctx.lineWidth = 1.4;
+    ctx.setLineDash([5, 4]);
+    ctx.strokeStyle = "rgba(50,182,255,.38)";
+    ctx.lineWidth = 1;
     ctx.stroke();
     ctx.setLineDash([]);
     drawCardCaption(ctx, card);
@@ -333,8 +317,8 @@ function drawFaceplateLoadingPlaceholder(ctx, visual, x, y, w, h) {
 
 function drawCardCaption(ctx, card) {
   const text = String(card.name || "Empty").trim() || "Empty";
-  const maxWidth = Math.max(44, Number(card.width) - 12);
-  let fontSize = Math.min(16, 54 * 0.62);
+  const maxWidth = Math.max(64, Number(card.width) - 12);
+  let fontSize = Math.min(16, SLOT_HEIGHT * 0.62);
   const estimatedWidth = estimateTextWidth(text, fontSize, 800) + 18;
   if (estimatedWidth > maxWidth) {
     fontSize = Math.max(8, fontSize * ((maxWidth - 14) / Math.max(1, estimatedWidth)));
@@ -353,7 +337,7 @@ function drawCardCaption(ctx, card) {
     weight: 800,
     fill: normalizeColor(card.captionTextColor, "#32b6ff"),
     stroke: "rgba(0,0,0,.92)",
-    strokeWidth: 4.4,
+    strokeWidth: 5,
     align: "center",
     baseline: "middle"
   });
@@ -363,54 +347,75 @@ function drawCardCaption(ctx, card) {
 function drawCardConnectorFields(ctx, card, deviceWidth) {
   const connectors = Array.isArray(card.connectors) ? card.connectors : [];
   if (!connectors.length) return;
-  const boxHeight = 13;
-  const gap = Math.max(2, Math.min(4, Number(card.width) * 0.025));
-  const boxWidth = Math.max(24, Math.min(43, (Number(card.width) - 28) / 3));
-  const topInset = Number(card.y) + 22;
-  const bottomLimit = Number(card.y) + Number(card.height) - 8;
   connectors.forEach(connector => {
     const fields = connectorInfoFields(connector);
     if (!fields.length) return;
-    const rowY = clamp(Number(connector.y) || Number(card.slotY) || 0, topInset, bottomLimit);
-    const valueY = rowY - boxHeight * 0.34;
-    const titleY = valueY - boxHeight * 0.52;
-    const isInput = connector.direction === "input";
-    const startX = isInput
-      ? Number(card.x) + 18
-      : Number(card.x) + Number(card.width) - 18;
+    const rowY = Number(connector.y) || Number(card.slotY) || 0;
     fields.forEach((field, index) => {
-      const x = isInput
-        ? startX + index * (boxWidth + gap)
-        : startX - (index + 1) * boxWidth - index * gap;
-      roundRect(ctx, x, valueY - boxHeight / 2, boxWidth, boxHeight, 3);
-      ctx.fillStyle = "rgba(17, 28, 39, .78)";
-      ctx.fill();
-      ctx.strokeStyle = "rgba(205, 221, 235, .78)";
-      ctx.lineWidth = 0.9;
-      ctx.stroke();
-      drawFittedText(ctx, field.title, x, titleY, boxWidth, 5.5, {
-        weight: 800,
-        fill: "#32b6ff",
-        stroke: "rgba(0,0,0,.78)",
-        strokeWidth: 1,
-        align: "center",
-        baseline: "middle"
-      });
-      drawFittedText(ctx, field.value || "", x + 2, valueY + 1.2, boxWidth - 4, 5.6, {
-        weight: 800,
-        fill: "#ffffff",
-        align: "center",
-        baseline: "middle"
-      });
+      drawInfoBox(ctx, connector, field.title, field.value, index, rowY);
     });
   });
 }
 
+function drawInfoBox(ctx, connector, title, value, index, rowY) {
+  if (!value) return;
+  const scale = 1;
+  const boxWidth = 44 * scale;
+  const boxHeight = 15.5 * scale;
+  const slotStep = 48 * scale;
+  const sideOffset = 18 * scale;
+  const x = connector.direction === "input"
+    ? connector.x + sideOffset + index * slotStep
+    : connector.x - sideOffset - boxWidth - index * slotStep;
+  const y = rowY - boxHeight / 2;
+  roundRect(ctx, x, y, boxWidth, boxHeight, 4 * scale);
+  ctx.fillStyle = "rgba(0,0,0,.08)";
+  ctx.fill();
+  ctx.strokeStyle = "#9aa2aa";
+  ctx.lineWidth = 1.1 * scale;
+  ctx.stroke();
+  drawInfoBoxText(ctx, x, y, boxWidth, boxHeight, scale, title, value);
+}
+
+function drawInfoBoxText(ctx, x, y, width, height, scale, title, text) {
+  const labelFontSize = 5.1 * scale;
+  const valueFontSize = 4.65 * scale;
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+  ctx.font = `800 ${labelFontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.strokeStyle = "#18202a";
+  ctx.lineWidth = 3.5 * scale;
+  ctx.fillStyle = "#28bdfd";
+  ctx.strokeText(title, x + width / 2, y);
+  ctx.fillText(title, x + width / 2, y);
+
+  const lines = wrapInfoBoxLines(text, Math.max(8, width - 7 * scale), valueFontSize, 2);
+  const lineHeight = valueFontSize * 1.12;
+  const startY = y + height / 2 + 3.3 * scale - (lines.length - 1) * lineHeight / 2;
+  ctx.font = `700 ${valueFontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.strokeStyle = "transparent";
+  ctx.lineWidth = 0;
+  ctx.fillStyle = "#edf2f7";
+  lines.forEach((line, index) => {
+    ctx.fillText(line || " ", x + width / 2, startY + index * lineHeight);
+  });
+  ctx.restore();
+}
+
 function connectorInfoFields(connector) {
+  if (connector?.faceplateSide) return [];
+  if (connector?.type === "led-signal") {
+    return [{
+      title: connectorFieldTitle(connector, "customText", "Panel Coordinates"),
+      value: connector.customText || ""
+    }];
+  }
   const fields = [
     {
       title: connectorFieldTitle(connector, "nameText", "Name"),
-      value: connector.nameText || connector.label || ""
+      value: connector.nameText || ""
     }
   ];
   if (connector.resolutionFrameRate || isVideoLikeConnector(connector)) {
@@ -533,10 +538,11 @@ function drawConnectorMarkers(ctx, device, width, height, options) {
     ? device.connectors
     : fallbackConnectors(device, width, height);
   const canLabel = options.detailedDeviceTextures !== false && (connectors.length <= 48 || height / Math.max(1, connectors.length) > 14);
+  const cardsById = new Map((device.visual?.visualCards || []).map(card => [card.id, card]));
   connectors.forEach(connector => {
     const px = connector.x ?? (connector.side === "right" ? width : 0);
     const py = connector.y ?? height / 2;
-    const radius = device.kind === "jump" ? 10 : Math.max(4, Math.min(8, Math.min(width, height) * 0.032));
+    const radius = device.kind === "jump" ? 10 : 7;
     ctx.beginPath();
     ctx.arc(px, py, radius, 0, Math.PI * 2);
     ctx.fillStyle = options.connectorColors === false ? "rgb(50, 182, 255)" : connector.color || "rgb(50, 182, 255)";
@@ -545,14 +551,17 @@ function drawConnectorMarkers(ctx, device, width, height, options) {
     ctx.strokeStyle = "#ffffff";
     ctx.stroke();
     if (canLabel && connector.label) {
-      const text = String(connector.label || connector.type || "").slice(0, 18);
-      const alignLeft = px < width / 2;
-      const tx = alignLeft ? px + radius + 3 : px - radius - 3;
-      drawFittedText(ctx, text, alignLeft ? tx : tx - 56, py + radius * 0.75, 56, Math.max(6, radius * 0.82), {
+      const card = connector.cardSlotId ? cardsById.get(connector.cardSlotId) : null;
+      const text = String(connector.nameText || connector.label || connector.type || "").slice(0, 22);
+      const alignLeft = connector.direction === "input" || px < width / 2;
+      const labelX = card
+        ? alignLeft ? Number(card.x) + 8 : Number(card.x) + Number(card.width) - 8
+        : alignLeft ? px + 16 : px - 16;
+      drawFittedText(ctx, text, alignLeft ? labelX : labelX - 84, py + 18, 84, 9, {
         weight: 800,
         fill: "#f8fbff",
         stroke: "rgba(0,0,0,.82)",
-        strokeWidth: 1.8,
+        strokeWidth: 3,
         align: alignLeft ? "left" : "right",
         baseline: "top"
       });
@@ -627,7 +636,7 @@ function visualDeviceKind(device) {
 function effectiveTextureMaxSide(device, quality, options = {}) {
   const gpuMax = Number(options.gpuMaxTextureSide) || Infinity;
   const modularTarget = device?.visual?.hasSwappableCards
-    ? Math.max(quality.maxSide, 4096)
+    ? Math.max(quality.maxSide, 8192)
     : quality.maxSide;
   return Math.max(1, Math.min(modularTarget, gpuMax));
 }
@@ -638,7 +647,9 @@ function textureTitle(device) {
     return String(device.label || visual.displayName || visual.templateName || device.kind || "Object").trim();
   }
   return String(
-    visual.templateName
+    device.label
+    || visual.displayName
+    || visual.templateName
     || visual.model
     || device.model
     || visual.category
@@ -739,6 +750,27 @@ function legacyFaceImagePlacement(visual, width, image) {
     width: imageWidth,
     height: imageHeight
   };
+}
+
+function wrapInfoBoxLines(text, maxWidth, fontSize, maxLines = 2) {
+  const value = String(text || "");
+  if (!value.trim()) return [""];
+  const measure = candidate => estimateTextWidth(candidate, fontSize, 700);
+  const words = value.split(/\s+/).filter(Boolean);
+  const lines = [];
+  let current = "";
+  words.forEach(word => {
+    const candidate = current ? `${current} ${word}` : word;
+    if (measure(candidate) <= maxWidth || !current) {
+      current = candidate;
+    } else {
+      lines.push(current);
+      current = word;
+    }
+  });
+  if (current) lines.push(current);
+  if (!lines.length) lines.push(value);
+  return lines.slice(0, maxLines);
 }
 
 function visualSourceKey(value) {
