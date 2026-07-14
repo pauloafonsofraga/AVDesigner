@@ -172,6 +172,32 @@ export class ProjectMutationAdapter {
     return this.lastMutation.durationMs;
   }
 
+  commitRewiredWire(scene, wireId, connectionState = null) {
+    const start = performance.now();
+    const wire = scene.getWire(wireId);
+    if (!wire) return 0;
+    const sourceId = String(wire.sourceId || wire.id);
+    const entry = this.connectionById.get(sourceId) || this.ensureConnection(scene, wire);
+    if (connectionState) {
+      // Undo/redo restores the complete Legacy connection record in place. The
+      // object identity stays stable for production code while every custom
+      // metadata field remains byte-for-byte represented in project data.
+      const restored = deepClone(connectionState);
+      Object.keys(entry.item).forEach(key => delete entry.item[key]);
+      Object.assign(entry.item, restored);
+    } else {
+      // A normal endpoint rewire changes only from/to. Cable type, length,
+      // fiber mode, notes, labels, custom colors, and route arrays stay intact.
+      entry.item.from = endpointToProject(scene, wire.fromDeviceId, wire.fromConnectorId);
+      entry.item.to = endpointToProject(scene, wire.toDeviceId, wire.toConnectorId);
+    }
+    this.record("rewire endpoint", performance.now() - start, `connections[${entry.index}].from/to`, {
+      wireId,
+      connectionId: entry.item.id,
+    });
+    return this.lastMutation.durationMs;
+  }
+
   deleteWire(wireId) {
     const start = performance.now();
     const entry = this.connectionById.get(String(wireId));

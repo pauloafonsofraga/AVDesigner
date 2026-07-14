@@ -120,6 +120,68 @@ export class SceneGraph {
     });
   }
 
+  removeWireEndpointIndexes(wire) {
+    if (!wire?.id) return;
+    ["from", "to"].forEach(end => {
+      const key = this.wireEndpointConnectorKey(wire, end);
+      const connectorWires = key ? this.wireIdsByConnectorKey.get(key) : null;
+      connectorWires?.delete(wire.id);
+      if (connectorWires && connectorWires.size === 0) this.wireIdsByConnectorKey.delete(key);
+
+      const ownerId = this.wireEndpointOwnerId(wire, end);
+      const ownerWires = ownerId ? this.wireIdsByDeviceId.get(ownerId) : null;
+      ownerWires?.delete(wire.id);
+      if (ownerWires && ownerWires.size === 0) this.wireIdsByDeviceId.delete(ownerId);
+    });
+  }
+
+  wireEndpointAtConnector(deviceId, connectorId) {
+    const key = connectorKey(deviceId, connectorId);
+    const wireId = [...(this.wireIdsByConnectorKey.get(key) || [])][0];
+    const wire = wireId ? this.getWire(wireId) : null;
+    if (!wire) return null;
+    const end = this.wireEndpointConnectorKey(wire, "from") === key ? "from" : "to";
+    const otherEnd = end === "from" ? "to" : "from";
+    return { wire, wireId: wire.id, end, otherEnd, key };
+  }
+
+  connectorWireIds(deviceId, connectorId) {
+    return new Set(this.wireIdsByConnectorKey.get(connectorKey(deviceId, connectorId)) || []);
+  }
+
+  applyWireState(wireId, state = {}) {
+    const wire = this.getWire(wireId);
+    if (!wire) return null;
+    this.removeWireEndpointIndexes(wire);
+    const normalized = normalizeWire({ ...wire, ...state, id: wire.id });
+    Object.keys(wire).forEach(key => delete wire[key]);
+    Object.assign(wire, normalized);
+    this.addWireEndpointIndexes(wire);
+    this.dirtyWires.add(wire.id);
+    this.refreshWireIndexes([wire.id]);
+    return wire;
+  }
+
+  rewireWireEndpoint(wireId, end, targetDeviceId, targetConnectorId) {
+    const wire = this.getWire(wireId);
+    const targetDevice = this.getDevice(targetDeviceId);
+    const targetConnector = this.getConnector(targetDeviceId, targetConnectorId);
+    if (!wire || !targetDevice || !targetConnector || !["from", "to"].includes(end)) return null;
+    const endpointPrefix = end === "from" ? "from" : "to";
+    const next = {
+      [`${endpointPrefix}DeviceId`]: targetDevice.id,
+      [`${endpointPrefix}ConnectorId`]: targetConnector.id,
+      [`${endpointPrefix}Side`]: targetConnector.side || (end === "from" ? "right" : "left"),
+      [`${endpointPrefix}PortIndex`]: Math.max(0, targetDevice.connectors.indexOf(targetConnector)),
+      [`${endpointPrefix}UsesRealConnector`]: true,
+    };
+    const updated = this.applyWireState(wireId, next);
+    if (!updated) return null;
+    updated.usesRealConnectorEndpoints = Boolean(updated.fromUsesRealConnector && updated.toUsesRealConnector);
+    updated.hasFallbackEndpoint = !updated.usesRealConnectorEndpoints;
+    return updated;
+  }
+
   wireEndpointConnectorKey(wire, end) {
     const deviceId = end === "from" ? wire.fromDeviceId : wire.toDeviceId;
     const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;

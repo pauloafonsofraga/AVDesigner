@@ -4,7 +4,7 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 37.8`
+- Current build label: `Iteration 38`
 
 Iteration 37.5 builds on Iteration 37, which restored Legacy connector compatibility rules in Engine wire
 creation, including installed SFP/SFP+/QSFP modules, SFP/QSFP fiber-mode family
@@ -44,6 +44,17 @@ shared route model to retain horizontal/vertical geometry in
 `orthogonalRoutePoints`. Add, remove, and reset are incremental one-step Engine
 commands and preserve the selected wire, endpoint identity, and existing save
 format.
+Iteration 38 restores the Legacy occupied-connector rewire workflow. The
+audited Legacy functions are `startConnection`, `connectionForEndpoint`,
+`restoreRewireConnection`, `preserveConnectionWithNewEndpoints`,
+`finishConnection`, `createConnectionBetween`, `createConnectionToJump`, and
+`createConnectionFromJumpToDevice`. Grabbing an occupied connector now keeps
+the opposite endpoint fixed, suppresses the old wire in every Engine render
+layer, and shows one live preview. A valid drop mutates only the matching
+`from` or `to` endpoint on the existing wire. Empty canvas, incompatible
+targets, Escape, pointer cancellation, and lost capture leave the original
+connection unchanged. One `MoveWireEndpointCommand` restores the exact raw
+Legacy connection record for undo/redo.
 Viewer/PDF/report visual
 migration remains paused while the remaining Legacy functional gaps are worked
 through.
@@ -60,7 +71,8 @@ single-file editor:
 
 1. Rack library creation is still Legacy-only; normal Device Library drops now
    work in Engine mode through a create-device command.
-2. Endpoint rewire is not yet restored in Engine mode.
+2. Endpoint rewire is restored; modular card/chassis editing remains the next
+   major Engine workflow gap.
 3. Modular card/chassis, faceplate, power-distro, and rack-builder behaviours
    are mostly normalized for display, but not fully controlled by Engine.
 4. Custom wire route actions are restored, but broader device/connector menu
@@ -248,7 +260,7 @@ PD geometry, and special template behaviours.
 | Device pairs | Legacy pair library entry drops two hydrated devices with `DEVICE_PAIR_GAP`, non-overlap search, multi-selection, one undo snapshot. | Engine now prepares both instances through Legacy pair placement and commits them as one `CreateDevicesCommand`. | covered | `deviceLibraryEntries`, `pairedTemplateFor`, `prepareDevicePairInstances`, `addDevicePairInstances` | `ProductionEngineBridge.createDevicesFromLibraryDrop` | two `devices[]` instances, pair metadata in templates | Saves as two real devices | One group undo | Reports count two devices | medium | 35 | Does not create a linking wire; same as requested Legacy behaviour. |
 | Project custom device drag/drop | Edited project devices appear in Project Custom Devices, can be dragged as `templateOverride` copies or clicked to frame. | Engine now preserves `templateOverride` and custom display name when dropped through the create-device command. | covered | `renderProjectCustomDevices`, `startProjectCustomDeviceDrag`, `selectAndFrameDevice`, `finishLibraryDrag` | `ProductionEngineBridge.createDeviceFromLibraryDrop`, `normalizeAvDesignerDevice` | `instance.templateOverride`, `instance.name` | Preserves override in production data | One undo for created copy | Export can include compact template override | medium | 35 | Click-to-frame remains the existing selector behaviour. |
 | Rack library drag/drop | Rack entries drop a rack instance with copied member devices, internal connections, exposed ports, route-point shifts, and rack bounds. | Engine can load many project objects, but rack library creation is not an Engine command. | missing | `renderRackLibraryList`, `startRackLibraryDrag`, `addRackInstanceToCanvas` | no Engine rack-create command | `state.racks`, rack member `devices[]`, `internalConnections`, exposed ports | Must persist rack instance and internal data | One undo | Viewer/report depend on production state | high | 42 | Depends on rack parity work. |
-| Connector compatibility | Exact type match, CAT-family match, USB-family match, cage active module type, dead-cage blocking, input/output blocking, paired network and two-way exceptions. | Engine create path uses the shared compatibility helper for hover and commit. | covered | `effectiveConnectorType`, `areConnectorTypesCompatible`, `connectionError`, `isDeadCageConnector`, `isTwoWayConnector`, `isPairedNetworkConnector` | `src/engine/connectorCompatibility.js`, `ProductionEngineBridge.completeWireCreate`, `SceneGraph.addWire` | connector `type`, `direction`, `installedModuleType`, fiber mode, cable type metadata | Engine-created connections save through production data | One undo per created wire | Reports/export read the production connection data | medium | 36.3 | Iteration 37 restores SFP/QSFP fiber-family compatibility and fiber colors. Endpoint rewire remains Iteration 37 scope. |
+| Connector compatibility | Exact type match, CAT-family match, USB-family match, cage active module type, dead-cage blocking, input/output blocking, paired network and two-way exceptions. | Engine create and rewire paths use the shared compatibility helper for hover and commit. | covered | `effectiveConnectorType`, `areConnectorTypesCompatible`, `connectionError`, `isDeadCageConnector`, `isTwoWayConnector`, `isPairedNetworkConnector` | `src/engine/connectorCompatibility.js`, `ProductionEngineBridge.completeWireCreate`, `ProductionEngineBridge.completeWireRewire`, `SceneGraph.addWire` | connector `type`, `direction`, `installedModuleType`, fiber mode, cable type metadata | Engine-created and rewired connections save through production data | One undo per created wire or endpoint rewire | Reports/export read the production connection data | medium | 38 | Iteration 38 reuses the same compatibility rules for endpoint rewiring, including jump portals. |
 | Wire hover target feedback | Preview highlights only compatible, unoccupied targets and shows blocked states/status text. | Engine has connector hover and create feedback, but not full Legacy compatibility validity. | partial | `updateHoverConnector`, `renderPreviewWires`, `connectionError` | `ProductionEngineBridge.handlePointerMove`, `beginWireCreate`, `completeWireCreate` | same as connector compatibility | none unless committed | none | visual only | high | 36 | Should call the same shared rule used on commit. |
 | Wire creation | Legacy creates production connection with ordered endpoints, cable type, custom color, fiber mode, signal index, notes, optional orthogonal frozen route. | Engine creates scene wire and writes a production connection, but ordering/metadata/compatibility are thinner. | partial | `startConnection`, `finishConnection`, `createConnectionBetween`, `freezeOrthogonalRouteFromPreview` | `ProductionEngineBridge.beginWireCreate`, `completeWireCreate`, `ProjectMutationAdapter.commitCreatedWire` | `state.connections`, endpoint refs, cable metadata | Saves because Engine writes production connection | One Engine undo command | Outputs read production data | high | 36-37 | Keep existing fast command path, add Legacy metadata/rules. |
 | 90-degree segment spacing/snap | Legacy has no separate spacing UI. During Object Snapping, `wireSegmentSnapTargetsForDrag` caches other wire segments and `wireSegmentSnap` snaps a dragged dogleg/middle segment to endpoints or parallel lanes at `[10, 15, 20, 25, 30]`px offsets from `ORTHOGONAL_WIRE_SPACING = 15`. | Engine now uses shared `orthogonalRouting` helpers to cache snap targets once per segment drag, snap the proposed fixed X/Y coordinate, then persist only the resulting route point coordinates. | covered | `ORTHOGONAL_WIRE_SPACING`, `WIRE_SEGMENT_SNAP_STEPS`, `connectionRouteSegments`, `wireSegmentSnapTargetsForDrag`, `wireSegmentSnap`, `startWireSegmentDrag` | `src/engine/orthogonalRouting.js`, `SceneGraph.orthogonalSegmentSnapTargetsForDrag`, `SceneGraph.snapOrthogonalSegment`, `ProductionEngineBridge.beginWireSegmentDrag` | `wire.routePoints`, production `orthogonalRoutePoints`, global Object Snapping toggle | Coordinates persist through normal route points; no runtime snap cache is saved | One segment drag command; undo/redo restores route points and viewport stays stable | Outputs read saved route coordinates; no output renderer migration needed | medium | 37.3 | User examples mentioned 5/10/15, but Legacy source of truth is 10/15/20/25/30. |
@@ -262,7 +274,7 @@ PD geometry, and special template behaviours.
 | Adapter/breakout devices | Legacy has special compact dashed rendering, no node fields, internal gradient wires, and special internal multi-connection rules. | Engine can normalize adapter visual metadata; full internal adapter wiring/editing parity not audited/migrated. | partial | `isAdapterTemplate`, `drawDeviceBody`, adapter internal wire helpers | `projectAdapter.isAdapterBreakout`, `deviceVisualBuilder` | adapter template flag, connector list, internal wires | Must preserve adapter flag and internal links | Needs adapter edit undo | Reports list as devices/adapters | medium | 39 | Keep for compact conversion devices. |
 | Power distro plug layout | Legacy has PD flag, SVG plug assets, power plug layout, manual snapping/overlap warning, faceplate height rules, powerlock special full-width behaviour. | Engine marks power-distro visuals and colors, but PD editor/layout behaviour remains production-owned. | partial | `POWER_PLUG_TYPES`, `powerPlugLayout`, `drawPowerDistroFaceplate`, `startEditorPowerPlugDrag` | `projectAdapter.isPowerDistro`, `deviceVisualBuilder` | `template.isPowerDistro`, connector `powerPlug`, plug SVG metadata | Existing data saves; Engine not editing plug layout | Template-level undo needed | PDF/viewer use production render paths | high | 40 | Needs careful parity because PD devices are visually distinct. |
 | Power connector/cable colors | Legacy supports power cable families and Powerlock multicolor segments. | Engine has power/multicolor render support from previous passes, but compatibility rules are not restored. | partial | `colorSegmentsForConnector`, `connectionColorSegments`, `POWER_PLUG_TYPE_IDS` | engine color/render helpers, `projectAdapter` connector colors | cable type metadata | Color does not affect save except custom colors | none | Legend/report color consistency | medium | 40 | Split visual parity from connection validity. |
-| SFP/QSFP cages | Legacy treats cages as dead until an installed module provides the active connector type. LC singlemode and LC multimode are separate fiber families; RJ45 modules behave as CAT; QSFP MPO behaves as MPO fiber. | Engine now enforces dead-cage/module rules, LC single/multi family compatibility, RJ45 CAT compatibility, and QSFP MPO type compatibility. | covered | `isCageConnector`, `isDeadCageConnector`, `activeTypeForCageConnector`, `effectiveConnectorType`, `FIBER_MODE_OPTIONS` | `src/engine/connectorCompatibility.js`, `projectAdapter`, `projectMutations`, `SceneGraph`, `ProductionEngineBridge` | `connector.installedModuleType`, `connector.fiberMode`, `connection.fiberMode` | Fiber mode/color survives Engine creation and save/load | Undo/redo keeps fiber mode through command clone data | Outputs inherit production `connection.fiberMode` | medium | 36.3 | Endpoint rewire for existing SFP wires is still separate Iteration 37 scope. |
+| SFP/QSFP cages | Legacy treats cages as dead until an installed module provides the active connector type. LC singlemode and LC multimode are separate fiber families; RJ45 modules behave as CAT; QSFP MPO behaves as MPO fiber. | Engine enforces dead-cage/module rules, LC single/multi family compatibility, RJ45 CAT compatibility, and QSFP MPO type compatibility during create and rewire. | covered | `isCageConnector`, `isDeadCageConnector`, `activeTypeForCageConnector`, `effectiveConnectorType`, `FIBER_MODE_OPTIONS` | `src/engine/connectorCompatibility.js`, `projectAdapter`, `projectMutations`, `SceneGraph`, `ProductionEngineBridge` | `connector.installedModuleType`, `connector.fiberMode`, `connection.fiberMode` | Fiber mode/color survives Engine creation, rewire, and save/load | Undo/redo keeps fiber mode through exact connection-state restoration | Outputs inherit production `connection.fiberMode` | medium | 38 | Existing SFP/QSFP wires can now be reassigned without changing cable metadata. |
 | Device context menu | Legacy right-click device opens edit, matrix routing, duplicate, lock/unlock, delete. | Engine context hit-test delegates device target back to Legacy `showDeviceContextMenu(...)`. | partial | `showDeviceContextMenu` | `ProductionEngineBridge.handleContextMenu`, `index.html onEngineContextMenu` | selected device ID/source ID | Actions mutate production state | Depends on Legacy undo | Outputs read production state | medium | 41 | Delegation exists; each action still needs Engine scene refresh audit. |
 | Wire context menu | Legacy wire menu supports create corner, select same type, length/notes via inspector, reset/delete routes, delete. | Engine delegates wire and wire-corner targets to Legacy menus, but action refresh/parity needs audit. | partial | `showWireContextMenu`, `showWireCornerContextMenu`, `createWireCornerAt`, `resetWireRoutes` | `ProductionEngineBridge.handleContextMenu`, `onEngineContextMenu` | connection route points | Route changes must write production and Engine scene | Needs one undo per action | Viewer/export uses routes | medium | 41 | Recent Engine route-point visuals should stay. |
 | Empty-canvas context menu | Legacy has canvas-level actions where applicable. | Engine empty context currently clears selection and forwards `target: null`; no full menu parity. | missing | empty-canvas/context helpers in Legacy menu code | `ProductionEngineBridge.handleContextMenu` | selected state | depends on action | depends on action | depends on action | low | 41 | Lower priority than device/wire actions. |
@@ -601,24 +613,31 @@ Validation:
 - installed LC cages reject incompatible RJ45/CAT module cages.
 - two outputs invalid unless two-way/paired exception applies.
 
-### Iteration 37 — Endpoint Rewire Parity
+### Iteration 38 — Endpoint Rewire Parity
 
-Restore occupied-node click/reassign behaviour.
+Occupied-node click/reassign behaviour is restored.
 
 Scope:
 
-- Detach one endpoint of an existing wire.
+- Grab an occupied connector to detach one endpoint while the other remains fixed.
 - Preserve original wire ID and metadata.
 - Preserve custom route points unless explicitly reset.
 - Restore original connection on cancel/invalid drop.
 - One undo step.
+- Reuse shared connector compatibility, including active SFP/QSFP modules and
+  fiber families.
+- Treat jump nodes as portals using the existing wire cable type while still
+  enforcing one-wire occupancy.
 
 Validation:
 
-- Rewire one endpoint.
-- Rewire with custom route points.
-- Cancel rewire.
-- Undo/redo rewire.
+- Source and destination rewire preserve ID and raw metadata.
+- Bezier custom points remain stored unchanged.
+- Orthogonal interior doglegs remain stored unchanged; endpoint-adjacent
+  rendering is repaired by `orthogonalWirePoints`.
+- Cancel/invalid drop does not mutate the scene or production project.
+- Undo/redo restores the complete before/after connection record.
+- Save/reload retains the new endpoint and original routes.
 
 ### Iteration 38 — Modular Cards / Chassis Functional Parity
 

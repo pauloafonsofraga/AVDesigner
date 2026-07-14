@@ -1,5 +1,6 @@
 import { DragSession } from "./dragSession.js";
 import {
+  engineCompatibilityHitForWireEndpoint,
   engineCompatibilitySummary,
   engineWireColorForCable
 } from "./connectorCompatibility.js";
@@ -19,6 +20,7 @@ import { validateEngineScene } from "./sceneValidation.js";
 import {
   buildPreviewOrthogonalInteriorPoints,
   createOrthogonalRouteModel,
+  orthogonalWirePoints,
   orthogonalRouteDiagnostics,
   ORTHOGONAL_WIRE_SNAP_STEPS,
   ORTHOGONAL_WIRE_SPACING,
@@ -86,6 +88,7 @@ class ProductionEngineBridge {
     this.debugLayerMode = engineLayerDebugEnabled();
     this.debugCompatibility = engineCompatibilityDebugEnabled();
     this.debugRouting = engineRoutingDebugEnabled();
+    this.debugRewire = engineRewireDebugEnabled();
     this.orthogonalTest = engineOrthogonalTestEnabled();
     this.lastCompatibilityTargetKey = "";
     this.renderOptions = {
@@ -444,6 +447,18 @@ class ProductionEngineBridge {
       ? hitTestConnector(this.scene, world, this.connectorHitToleranceWorld())
       : { connector: null, candidates: 0, ms: 0 };
     if (connectorHit.connector) {
+      const connectedEndpoint = this.scene.wireEndpointAtConnector(
+        connectorHit.connector.device.id,
+        connectorHit.connector.connector.id
+      );
+      if (connectedEndpoint) {
+        this.clearHoverState("wire-rewire-start", { render: false });
+        this.beginWireRewire(connectorHit.connector, connectedEndpoint, world);
+        this.updateSelectionHud();
+        this.updateInteractionHud("wire-rewire", connectorHit);
+        this.scheduleRender();
+        return;
+      }
       if (isJumpConnectorHit(connectorHit.connector)) {
         const jumpDevice = connectorHit.connector.device;
         const wasSelected = this.scene.selectedIds.has(jumpDevice.id);
@@ -1070,6 +1085,52 @@ class ProductionEngineBridge {
     this.updateCanvasCursor();
   }
 
+  beginWireRewire(detachedHit, endpoint, worldPoint) {
+    const wire = endpoint?.wire;
+    if (!wire) return false;
+    const fixedEnd = endpoint.otherEnd;
+    const fixedDeviceId = fixedEnd === "from" ? wire.fromDeviceId : wire.toDeviceId;
+    const fixedConnectorId = fixedEnd === "from" ? wire.fromConnectorId : wire.toConnectorId;
+    const fixedDevice = this.scene.getDevice(fixedDeviceId);
+    const fixedConnector = this.scene.getConnector(fixedDeviceId, fixedConnectorId);
+    if (!fixedDevice || !fixedConnector) return false;
+    const fixedHit = {
+      key: `${fixedDevice.id}:${fixedConnector.id}`,
+      device: fixedDevice,
+      connector: fixedConnector,
+      point: this.scene.connectorWorldPoint(fixedDevice, fixedConnector),
+    };
+    const previousSelection = {
+      devices: [...this.scene.selectedIds],
+      wires: [...this.scene.selectedWireIds],
+      connectors: [...this.scene.selectedConnectorKeys],
+      routePoints: [...this.scene.selectedRoutePointKeys],
+    };
+    this.scene.clearSelection();
+    this.wireCreate = {
+      from: fixedHit,
+      pointerWorld: { ...worldPoint },
+      target: null,
+      compatibility: null,
+      color: wire.color || detachedHit.connector.color || "#32b6ff",
+      rewire: {
+        wireId: wire.id,
+        detachedSide: endpoint.end,
+        detachedHit,
+        fixedHit,
+        originalWire: cloneWire(wire),
+        originalConnection: this.mutations?.connectionDataForWire(wire.sourceId || wire.id),
+        previousSelection,
+        oldConnectorWireCount: this.scene.connectorWireIds(detachedHit.device.id, detachedHit.connector.id).size,
+      }
+    };
+    this.lastCompatibilityTargetKey = "";
+    this.canvas.classList.add("dragging", "wire-creating", "wire-rewiring");
+    this.updateCanvasCursor();
+    this.recordRewireDiagnostic("start");
+    return true;
+  }
+
   currentWireRouteMode() {
     const mode = typeof window !== "undefined" ? window.__avDesignerWireRouting?.mode?.() : "";
     return mode === "orthogonal" ? "orthogonal" : "bezier";
@@ -1089,6 +1150,10 @@ class ProductionEngineBridge {
   }
 
   completeWireCreate() {
+    if (this.wireCreate?.rewire) {
+      this.completeWireRewire();
+      return;
+    }
     const commitStart = performance.now();
     const source = this.wireCreate?.from;
     const target = this.wireCreate?.target;
@@ -1149,6 +1214,92 @@ class ProductionEngineBridge {
     this.updateSelectionHud();
     this.updateInteractionHud("wire-created");
     this.hud.setMetric("create wire commit", `${(performance.now() - commitStart).toFixed(2)} ms`);
+  }
+
+  completeWireRewire() {
+    const commitStart = performance.now();
+    const state = this.wireCreate;
+    const rewire = state?.rewire;
+    const target = state?.target;
+    const compatibility = this.currentWireCompatibility();
+    const rejectionReason = this.wireRewireRejectionReason(target, compatibility);
+    if (!rewire || !target || rejectionReason) {
+      this.recordRewireDiagnostic("cancel", { rejectionReason: rejectionReason || "empty canvas" });
+      this.finishWireInteraction({ restoreSelection: true, reason: "wire-rewire-cancelled" });
+      this.updateSelectionHud();
+      this.updateInteractionHud("wire-rewire-cancelled");
+      return;
+    }
+
+    const wire = this.scene.getWire(rewire.wireId);
+    if (!wire) {
+      this.finishWireInteraction({ restoreSelection: true, reason: "wire-rewire-missing" });
+      return;
+    }
+    const beforeWire = cloneWire(wire);
+    const beforeConnection = rewire.originalConnection || this.mutations?.connectionDataForWire(wire.sourceId || wire.id);
+    this.beginProductionCommit("rewire endpoint");
+    const updated = this.scene.rewireWireEndpoint(
+      wire.id,
+      rewire.detachedSide,
+      target.device.id,
+      target.connector.id
+    );
+    if (!updated) {
+      this.finishWireInteraction({ restoreSelection: true, reason: "wire-rewire-failed" });
+      return;
+    }
+    const mutationMs = this.mutations?.commitRewiredWire(this.scene, updated.id) || 0;
+    const afterWire = cloneWire(updated);
+    const afterConnection = this.mutations?.connectionDataForWire(updated.sourceId || updated.id);
+    const dirtyStats = this.renderer.updateDirty(this.scene, { wireIds: [updated.id] });
+    this.lastDirtyWireIds = new Set([updated.id]);
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.recordRewireDiagnostic("commit", {
+      compatibility,
+      beforeWire,
+      afterWire,
+      dirtyMs: dirtyStats.totalMs,
+      newConnectorWireCount: this.scene.connectorWireIds(target.device.id, target.connector.id).size,
+    });
+    this.finishWireInteraction({ selectWireId: updated.id, reason: "wire-rewired" });
+    this.recordCommand(moveWireEndpointCommand(beforeWire, afterWire, beforeConnection, afterConnection));
+    this.markCommitted("rewire endpoint", mutationMs);
+    this.updateSelectionHud();
+    this.updateInteractionHud("wire-rewired");
+    this.hud.setMetric("rewire commit", `${(performance.now() - commitStart).toFixed(2)} ms`);
+  }
+
+  finishWireInteraction({ restoreSelection = false, selectWireId = "", reason = "idle" } = {}) {
+    const previousSelection = this.wireCreate?.rewire?.previousSelection;
+    this.wireCreate = null;
+    this.lastCompatibilityTargetKey = "";
+    this.canvas.classList.remove("dragging", "wire-creating", "wire-rewiring");
+    this.clearHoverState(reason, { render: false });
+    if (restoreSelection && previousSelection) this.restoreEngineSelection(previousSelection);
+    else if (selectWireId) this.scene.selectWireOnly(selectWireId);
+    this.updateCanvasCursor();
+  }
+
+  restoreEngineSelection(selection = {}) {
+    this.scene.clearSelection();
+    (selection.devices || []).forEach(id => this.scene.selectedIds.add(id));
+    (selection.wires || []).forEach(id => this.scene.selectedWireIds.add(id));
+    (selection.connectors || []).forEach(key => this.scene.selectedConnectorKeys.add(key));
+    (selection.routePoints || []).forEach(key => this.scene.selectedRoutePointKeys.add(key));
+  }
+
+  wireRewireRejectionReason(target, compatibility = this.currentWireCompatibility()) {
+    const rewire = this.wireCreate?.rewire;
+    if (!rewire || !target) return target ? "" : "No target connector.";
+    if (target.device.id === rewire.detachedHit.device.id && target.connector.id === rewire.detachedHit.connector.id) {
+      return "Choose a different connector.";
+    }
+    if (!compatibility?.valid) return compatibility?.reason || "Incompatible connector.";
+    const occupiedByOtherWire = [...this.scene.connectorWireIds(target.device.id, target.connector.id)]
+      .some(wireId => wireId !== rewire.wireId);
+    return occupiedByOtherWire ? "Target connector is already connected." : "";
   }
 
   completeMarquee() {
@@ -1247,7 +1398,12 @@ class ProductionEngineBridge {
     this.pendingDrag = null;
     this.dragSession = null;
     this.panState = null;
-    this.wireCreate = null;
+    if (this.wireCreate?.rewire) {
+      this.recordRewireDiagnostic("cancel", { rejectionReason: reason });
+      this.finishWireInteraction({ restoreSelection: true, reason });
+    } else {
+      this.wireCreate = null;
+    }
     this.cancelMarquee(reason, { updateCursor: false, render: false });
     this.canvas?.classList.remove("dragging", "panning", "wire-creating");
     this.clearHoverState(reason, { render: false });
@@ -1430,21 +1586,31 @@ class ProductionEngineBridge {
 
   interactionRenderState() {
     const compatibility = this.currentWireCompatibility();
-    const wireTargetValid = this.wireCreate?.target ? compatibility.valid : false;
+    const rejectionReason = this.wireCreate?.rewire
+      ? this.wireRewireRejectionReason(this.wireCreate.target, compatibility)
+      : compatibility.reason;
+    const wireTargetValid = this.wireCreate?.target ? compatibility.valid && !rejectionReason : false;
     const tempTo = this.wireCreate?.target?.point || this.wireCreate?.pointerWorld;
-    const tempRoute = this.wireCreate ? this.wireRouteForEndpoints(this.wireCreate.from.point, tempTo) : null;
+    const rewire = this.wireCreate?.rewire;
+    const previewFrom = rewire?.detachedSide === "from" ? tempTo : this.wireCreate?.from?.point;
+    const previewTo = rewire?.detachedSide === "from" ? this.wireCreate?.from?.point : tempTo;
+    const tempRoute = this.wireCreate
+      ? rewire
+        ? rewirePreviewRoute(rewire.originalWire, previewFrom, previewTo, rewire.detachedSide)
+        : this.wireRouteForEndpoints(previewFrom, previewTo)
+      : null;
     const tempWire = this.wireCreate
       ? {
-        from: this.wireCreate.from.point,
-        to: tempTo,
+        from: previewFrom,
+        to: previewTo,
         color: this.wireCreate.color,
         routeStyle: tempRoute.routeStyle,
         routePoints: tempRoute.routePoints,
-        sourceHit: this.wireCreate.from,
+        sourceHit: rewire?.detachedSide === "from" ? this.wireCreate.target : this.wireCreate.from,
         targetHit: this.wireCreate.target,
         targetPoint: this.wireCreate.target?.point || null,
         validTarget: wireTargetValid,
-        targetError: compatibility.reason || ""
+        targetError: rejectionReason || ""
       }
       : null;
     return {
@@ -1461,6 +1627,7 @@ class ProductionEngineBridge {
       hoverScreenPoint: this.hoverState.screenPoint,
       selectedConnectors: this.scene.selectedConnectorKeys,
       selectedRoutePoints: this.scene.selectedRoutePointKeys,
+      suppressedWireIds: rewire ? new Set([rewire.wireId]) : new Set(),
       tempWire,
       marquee: this.marqueeState?.active ? normalizedWorldRect(this.marqueeState.startWorld, this.marqueeState.currentWorld) : null
     };
@@ -1642,6 +1809,9 @@ class ProductionEngineBridge {
 
   updateInteractionHud(mode = "idle", hit = null) {
     const compatibility = this.currentWireCompatibility();
+    const rewireReason = this.wireCreate?.rewire
+      ? this.wireRewireRejectionReason(this.wireCreate.target, compatibility)
+      : "";
     this.hud.setMetric("hovered device", this.hoverState.device ? deviceSummary(this.hoverState.device) : "-");
     this.hud.setMetric("hovered connector", this.hoverState.connector ? connectorSummary(this.hoverState.connector) : "-");
     this.hud.setMetric("hovered wire", this.hoverState.wire ? wireSummary(this.hoverState.wire.wire) : "-");
@@ -1650,7 +1820,20 @@ class ProductionEngineBridge {
     this.hud.setMetric("interaction mode", mode);
     this.hud.setMetric("wire creation", this.wireCreate ? wireCreateSummary(this.wireCreate) : "-");
     this.hud.setMetric("segment drag", this.wireSegmentDrag ? wireSegmentDragSummary(this.wireSegmentDrag) : "-");
-    this.hud.setMetric("wire target", this.wireCreate?.target ? (compatibility.valid ? `valid: ${compatibility.rule}` : `invalid: ${compatibility.reason}`) : "-");
+    this.hud.setMetric("wire target", this.wireCreate?.target
+      ? compatibility.valid && !rewireReason
+        ? `valid: ${compatibility.rule}`
+        : `invalid: ${rewireReason || compatibility.reason}`
+      : "-");
+    if (this.debugRewire) {
+      const rewire = this.wireCreate?.rewire;
+      this.hud.setMetric("rewire wire", rewire?.wireId || "-");
+      this.hud.setMetric("rewire endpoint", rewire?.detachedSide || "-");
+      this.hud.setMetric("rewire original", rewire ? connectorSummary(rewire.detachedHit) : "-");
+      this.hud.setMetric("rewire candidate", this.wireCreate?.target ? connectorSummary(this.wireCreate.target) : "-");
+      this.hud.setMetric("rewire status", rewire ? (rewireReason || compatibility.rule || "moving") : "-");
+      this.hud.setMetric("rewire route", rewire ? formatRoutePointsForHud(rewire.originalWire?.routePoints) : "-");
+    }
     if (this.debugCompatibility) {
       this.hud.setMetric("compatibility types", this.wireCreate?.target ? `${compatibility.rawSourceType || "-"}(${compatibility.sourceType || "-"}) -> ${compatibility.rawTargetType || "-"}(${compatibility.targetType || "-"})` : "-");
       this.hud.setMetric("compatibility rule", this.wireCreate?.target ? compatibility.rule : "-");
@@ -1666,6 +1849,15 @@ class ProductionEngineBridge {
   currentWireCompatibility() {
     if (!this.wireCreate?.from || !this.wireCreate?.target) {
       return { valid: false, rule: "no-target", reason: "", sourceType: "", targetType: "" };
+    }
+    const rewire = this.wireCreate.rewire;
+    if (rewire) {
+      const sourceHit = rewire.detachedSide === "from" ? this.wireCreate.target : this.wireCreate.from;
+      const targetHit = rewire.detachedSide === "from" ? this.wireCreate.from : this.wireCreate.target;
+      return engineCompatibilitySummary(
+        engineCompatibilityHitForWireEndpoint(sourceHit, rewire.originalWire, "from"),
+        engineCompatibilityHitForWireEndpoint(targetHit, rewire.originalWire, "to")
+      );
     }
     return engineCompatibilitySummary(this.wireCreate.from, this.wireCreate.target);
   }
@@ -1716,6 +1908,51 @@ class ProductionEngineBridge {
       allowedFiberModes: summary.allowedFiberModes,
       defaultFiberMode: summary.defaultFiberMode,
       resolvedWireColor: summary.resolvedWireColor
+    });
+  }
+
+  recordRewireDiagnostic(step, extra = {}) {
+    if (!this.debugRewire) return;
+    const state = this.wireCreate;
+    const rewire = state?.rewire;
+    const compatibility = extra.compatibility || this.currentWireCompatibility();
+    const route = rewire && state
+      ? rewirePreviewRoute(
+        rewire.originalWire,
+        rewire.detachedSide === "from" ? (state.target?.point || state.pointerWorld) : rewire.fixedHit.point,
+        rewire.detachedSide === "from" ? rewire.fixedHit.point : (state.target?.point || state.pointerWorld),
+        rewire.detachedSide
+      )
+      : null;
+    console.info("[engine-rewire]", {
+      step,
+      wireId: rewire?.wireId || extra.afterWire?.id || "",
+      endpoint: rewire?.detachedSide || "",
+      originalConnectorId: rewire?.detachedHit?.connector?.id || "",
+      candidateConnectorId: state?.target?.connector?.id || "",
+      candidateOwner: state?.target?.device?.id || "",
+      sourceType: compatibility?.sourceType || "",
+      targetType: compatibility?.targetType || "",
+      valid: Boolean(compatibility?.valid) && !extra.rejectionReason,
+      rejectionReason: extra.rejectionReason || compatibility?.reason || "",
+      originalRoutePoints: cloneRoutePoints(rewire?.originalWire?.routePoints || extra.beforeWire?.routePoints),
+      previewRoutePoints: cloneRoutePoints(route?.routePoints),
+      committedRoutePoints: cloneRoutePoints(extra.afterWire?.routePoints),
+      oldConnectorWireCount: rewire?.oldConnectorWireCount ?? null,
+      newConnectorWireCount: extra.newConnectorWireCount ?? null,
+      fixedEndpoint: rewire?.fixedHit?.point || null,
+      movingEndpoint: state?.target?.point || state?.pointerWorld || null,
+      routeRemainsOrthogonal: extra.afterWire?.routeStyle === "orthogonal"
+        ? orthogonalRouteDiagnostics({
+          routePoints: extra.afterWire.routePoints,
+          from: this.scene.endpointForWire(extra.afterWire, "from"),
+          to: this.scene.endpointForWire(extra.afterWire, "to")
+        }).allOrthogonal
+        : null,
+      routeMetadataPreserved: extra.beforeWire && extra.afterWire
+        ? JSON.stringify(extra.beforeWire.routePoints) === JSON.stringify(extra.afterWire.routePoints)
+        : null,
+      ...extra,
     });
   }
 
@@ -2169,6 +2406,21 @@ class ProductionEngineBridge {
     this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
     this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
     this.recordDirtyVisualMetrics(dirtyStats, "route point");
+    return { mutationMs, dirtyStats };
+  }
+
+  applyWireRewireState(wireState, connectionState) {
+    if (!wireState?.id) return { mutationMs: 0 };
+    const wire = this.scene.applyWireState(wireState.id, wireState);
+    if (!wire) return { mutationMs: 0 };
+    const mutationMs = this.mutations?.commitRewiredWire(this.scene, wire.id, connectionState) || 0;
+    const dirtyStats = this.renderer.updateDirty(this.scene, { wireIds: [wire.id] });
+    this.scene.selectWireOnly(wire.id);
+    this.lastDirtyWireIds = new Set([wire.id]);
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+    this.recordDirtyVisualMetrics(dirtyStats, "rewire apply");
     return { mutationMs, dirtyStats };
   }
 
@@ -3470,7 +3722,10 @@ function engineLayerDebugShowProductionSvg() {
 
 function engineDebugHudEnabled() {
   const params = new URLSearchParams(window.location.search);
-  return params.get("debugHud") === "1" || params.get("debugLayers") === "1" || params.get("orthogonalTest") === "1";
+  return params.get("debugHud") === "1"
+    || params.get("debugLayers") === "1"
+    || params.get("debugRewire") === "1"
+    || params.get("orthogonalTest") === "1";
 }
 
 function engineCompatibilityDebugEnabled() {
@@ -3481,6 +3736,11 @@ function engineCompatibilityDebugEnabled() {
 function engineRoutingDebugEnabled() {
   const params = new URLSearchParams(window.location.search);
   return params.get("debugRouting") === "1" || params.get("debugHud") === "1";
+}
+
+function engineRewireDebugEnabled() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("debugRewire") === "1" || params.get("debugHud") === "1";
 }
 
 function engineOrthogonalTestEnabled() {
@@ -3707,6 +3967,19 @@ function wireSegmentCommand(wireId, beforePoints, afterPoints) {
   };
 }
 
+function moveWireEndpointCommand(beforeWire, afterWire, beforeConnection, afterConnection) {
+  const before = cloneWire(beforeWire);
+  const after = cloneWire(afterWire);
+  const beforeRaw = deepClone(beforeConnection);
+  const afterRaw = deepClone(afterConnection);
+  return {
+    type: "MoveWireEndpointCommand",
+    affectedIds: [after.id],
+    undo: bridge => bridge.applyWireRewireState(before, beforeRaw),
+    redo: bridge => bridge.applyWireRewireState(after, afterRaw),
+  };
+}
+
 function wireRouteActionCommand(type, beforeStates, afterStates) {
   const before = beforeStates.map(cloneWireRouteState);
   const after = afterStates.map(cloneWireRouteState);
@@ -3902,8 +4175,29 @@ function cloneWire(wire) {
     color: wire.color,
     label: wire.label,
     cableType: wire.cableType,
-    fiberMode: wire.fiberMode
+    fiberMode: wire.fiberMode,
+    length: wire.length,
   } : null;
+}
+
+function rewirePreviewRoute(originalWire, from, to, detachedSide) {
+  if (originalWire?.routeStyle !== "orthogonal") {
+    return {
+      routeStyle: originalWire?.routeStyle || "bezier",
+      routePoints: cloneRoutePoints(originalWire?.routePoints),
+    };
+  }
+  const full = orthogonalWirePoints({
+    from,
+    to,
+    routePoints: cloneRoutePoints(originalWire.routePoints),
+    fromMoved: detachedSide === "from",
+    toMoved: detachedSide === "to",
+  });
+  return {
+    routeStyle: "orthogonal",
+    routePoints: full.slice(1, -1),
+  };
 }
 
 function emptyHoverState() {

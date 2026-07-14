@@ -276,6 +276,27 @@ export function engineCompatibilitySummary(sourceHit, targetHit) {
   return result(true, "directional", "", sourceType, targetType, source, target);
 }
 
+export function engineCompatibilityHitForWireEndpoint(hit, wire, end) {
+  if (!hit || !wire || !["from", "to"].includes(end)) return hit;
+  const isJump = hit.device?.kind === "jump"
+    || hit.device?.sourceKind === "jumpNode"
+    || connectorType(hit.connector) === "jump";
+  if (!isJump) return hit;
+
+  // A jump node is a portal, not a cable family. During endpoint rewiring,
+  // validate its exposed side as the existing wire's cable type so the shared
+  // connector compatibility rules still guard the real endpoint.
+  return {
+    ...hit,
+    connector: {
+      ...hit.connector,
+      type: wire.cableType || "misc",
+      direction: end === "from" ? "output" : "input",
+      fiberMode: wire.fiberMode || hit.connector?.fiberMode || "",
+    }
+  };
+}
+
 export function engineConnectionError(sourceHit, targetHit) {
   const summary = engineCompatibilitySummary(sourceHit, targetHit);
   return summary.valid ? "" : summary.reason;

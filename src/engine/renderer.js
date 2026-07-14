@@ -684,6 +684,7 @@ export class WebglGraphRenderer {
     const activeWireEdit = interaction.activeWireEdit || null;
     const staticSuppressedWireIds = new Set(dragSession?.affectedWireIds || []);
     if (activeWireEdit?.wireId) staticSuppressedWireIds.add(activeWireEdit.wireId);
+    (interaction.suppressedWireIds || []).forEach(wireId => staticSuppressedWireIds.add(wireId));
     let sectionStart = performance.now();
     this.drawGrid(camera);
     frameStats.gridMs = performance.now() - sectionStart;
@@ -782,13 +783,14 @@ export class WebglGraphRenderer {
           if (device) pushSelectionOutline(liveVertices, device, null);
         });
         (options.selectedWireIds || new Set()).forEach(id => {
+          if (staticSuppressedWireIds.has(id)) return;
           const wire = scene.getWire(id);
           if (wire && renderOptions.wires) {
             pushWireSelection(liveVertices, scene, wire, null, renderOptions, this.cableHopMap);
             if (renderOptions.routePoints) pushWireRoutePointHandles(liveVertices, scene, wire, null);
           }
         });
-        if (hoveredWireId && !(options.selectedWireIds || new Set()).has(hoveredWireId)) {
+        if (hoveredWireId && !staticSuppressedWireIds.has(hoveredWireId) && !(options.selectedWireIds || new Set()).has(hoveredWireId)) {
           const wire = scene.getWire(hoveredWireId);
           if (wire && renderOptions.wires) pushWireHover(liveVertices, scene, wire, null, renderOptions, this.cableHopMap);
         }
@@ -940,6 +942,7 @@ export class WebglGraphRenderer {
         if (wire) wireCandidates.set(id, wire);
       });
       wireCandidates.forEach(wire => {
+        if ((options.interactionState?.suppressedWireIds || new Set()).has(wire.id)) return;
         const selected = selectedWireIds.has(wire.id);
         const hovered = hoveredWireId === wire.id;
         const caption = wireCaption(scene, wire, selected || hovered);
@@ -1270,8 +1273,9 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
     snapGuides: 0
   };
   const wireCreateActive = Boolean(interaction.tempWire);
+  const suppressedWireIds = interaction.suppressedWireIds || new Set();
   const hoveredWireId = interaction.hoveredWire?.wire?.id || interaction.hoveredWireId;
-  if (hoveredWireId && overlayOptions.suppressHoveredWire) {
+  if (hoveredWireId && (overlayOptions.suppressHoveredWire || suppressedWireIds.has(hoveredWireId))) {
     stats.suppressedHoveredWireOverlays += 1;
   } else if (hoveredWireId && renderOptions.wires && !dragSession?.affectedWireIds?.has(hoveredWireId)) {
     const wire = scene.getWire(hoveredWireId);
@@ -1285,6 +1289,10 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
   (interaction.selectedRoutePoints || new Set()).forEach(key => {
     if (activeRoutePointKey && String(key).split(":")[0] === interaction.activeWireEdit?.wireId) return;
     const [wireId, indexText] = String(key).split(":");
+    if (suppressedWireIds.has(wireId)) {
+      stats.suppressedAffectedWireOverlays += 1;
+      return;
+    }
     if (dragSession?.affectedWireIds?.has(wireId)) {
       stats.suppressedAffectedWireOverlays += 1;
       return;
@@ -1293,14 +1301,14 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
     const point = wire?.routePoints?.[Number(indexText)];
     if (point) pushRoutePointHighlight(vertices, point, 9, "#ff7904");
   });
-  if (activeRoutePointKey) {
+  if (activeRoutePointKey && !suppressedWireIds.has(activeRoutePointKey.split(":")[0])) {
     const [wireId, indexText] = activeRoutePointKey.split(":");
     const point = scene.getWire(wireId)?.routePoints?.[Number(indexText)];
     if (point) pushRoutePointHighlight(vertices, point, 9, "#ff7904");
   }
   const routePointWireId = interaction.hoveredRoutePoint?.wire?.id;
   const routePoint = interaction.hoveredRoutePoint?.point;
-  if (routePoint && !dragSession?.affectedWireIds?.has(routePointWireId)) {
+  if (routePoint && !suppressedWireIds.has(routePointWireId) && !dragSession?.affectedWireIds?.has(routePointWireId)) {
     pushRoutePointHighlight(vertices, routePoint, 8, "#ffffff");
   } else if (routePoint) {
     stats.suppressedAffectedWireOverlays += 1;
