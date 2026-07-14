@@ -1,7 +1,7 @@
 const QUALITY_PRESETS = {
-  low: { label: "Low", scale: 1.4, maxSide: 1024 },
-  medium: { label: "Medium", scale: 2.35, maxSide: 2048 },
-  high: { label: "High", scale: 3.25, maxSide: 4096 }
+  low: { label: "Low", scale: 1.75, maxSide: 1536 },
+  medium: { label: "Medium", scale: 3.5, maxSide: 4096 },
+  high: { label: "High", scale: 4.5, maxSide: 6144 }
 };
 
 const DEFAULT_QUALITY = "medium";
@@ -94,7 +94,7 @@ export function deviceVisualCacheKey(device, options = {}) {
     ].join(":"))
     .join("|");
   return [
-    "device-card-v5",
+    "device-card-v6",
     visualKind,
     width,
     height,
@@ -214,7 +214,10 @@ function drawRackDeviceVisual(ctx, device, width, height, options) {
   if (visual.isPowerDistro) drawDeviceTag(ctx, "POWER DISTRO", width - pad, 40, "#e53935", "right");
   if (visual.isMatrixRouter) drawDeviceTag(ctx, "MATRIX", width - pad, 56, "#32b6ff", "right");
 
-  if (options.connectorMarkers !== false) drawConnectorMarkers(ctx, device, width, height, options);
+  // Connector nodes are intentionally not baked into cached device textures.
+  // Legacy draws them after the device body so the full circle can extend past
+  // the shell; baking them here clips the outer half at the texture bounds.
+  if (options.connectorMarkers === "baked") drawConnectorMarkers(ctx, device, width, height, options);
 }
 
 function drawDeviceHeader(ctx, device, width, pad, detailed) {
@@ -470,7 +473,9 @@ function drawAdapterVisual(ctx, device, width, height, options) {
   ctx.restore();
 
   drawAdapterInternalWires(ctx, device);
-  if (options.connectorMarkers !== false) drawConnectorMarkers(ctx, device, width, height, options);
+  // Breakout connector nodes are also live overlay geometry; only the dashed
+  // boundary and internal fan-out lines belong in the cached texture.
+  if (options.connectorMarkers === "baked") drawConnectorMarkers(ctx, device, width, height, options);
 }
 
 function drawAdapterInternalWires(ctx, device) {

@@ -4,7 +4,7 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 40.2`
+- Current build label: `Iteration 40.3`
 
 Iteration 39 adds a separate Legacy interface and visual fidelity audit in
 [`docs/legacy-interface-parity.md`](legacy-interface-parity.md). This document
@@ -19,6 +19,12 @@ lane geometry, connector field values, and faceplate placement metadata through
 normalization. The renderer then bakes those details into cached device
 textures and invalidates only affected device textures when a faceplate image
 finishes loading or a device visual key changes.
+
+Iteration 40.3 keeps the same data path but fixes the remaining visual
+regressions from screenshot comparison: adapter/breakout templates using
+`objectType: "adapter"` normalize as Engine adapters, connector circles and
+connector labels draw in live world-space layers instead of the clipped device
+texture, and selected devices use a soft Legacy-style glow layer.
 
 Iteration 37.5 builds on Iteration 37, which restored Legacy connector compatibility rules in Engine wire
 creation, including installed SFP/SFP+/QSFP modules, SFP/QSFP fiber-mode family
@@ -723,6 +729,28 @@ Validation:
 - Adapter/breakout device with one input and several outputs.
 - Change installed card, apply library, Engine canvas updates.
 - Save/reload and Legacy opens correctly.
+
+### Iteration 40.3 — Connector / Glow / Breakout Visual Correction
+
+Correct the visible differences between Legacy selected devices and the Engine
+cached texture path while keeping the command/data behaviour unchanged.
+
+Scope:
+
+- Connector circles are no longer baked into device textures.
+- Connector labels draw beside the live connector circles.
+- Selected-device glow uses a soft texture layer instead of hard repeated
+  outline rectangles.
+- Adapter/breakout classification matches Legacy for `objectType: "adapter"`.
+- Texture cache key is bumped so older soft textures are not reused.
+
+Validation:
+
+- E2-style selected device: one soft glow, full connector circles, no clipped
+  half-nodes.
+- PTZ/power breakout: dashed transparent body, outside title, internal fan-out.
+- Wire routing, endpoint rewiring, SFP compatibility, save/load, viewer/PDF,
+  and report paths unchanged.
 - Moving/selecting/panning/zooming does not rebuild the modular texture.
 
 ### Iteration 41 — Context Menu And Canvas Actions

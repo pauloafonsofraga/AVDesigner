@@ -313,11 +313,12 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
     .map((connector, connectorIndex) => normalizeConnector(connector, connectorIndex, width, nodeColorByType))
     .filter(Boolean);
   const visual = normalizeDeviceVisualMetadata(template, instance, width, height);
+  const isAdapter = isAdapterTemplateForEngine(template);
   return {
     id,
     sourceKind: "device",
     sourceId: id,
-    kind: template.isAdapterBreakout ? "adapter" : "device",
+    kind: isAdapter ? "adapter" : "device",
     x: finiteNumber(instance.x, 0),
     y: finiteNumber(instance.y, 0),
     width,
@@ -326,7 +327,7 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
     labelMapped: Boolean(instance.name || template.name || template.model),
     usesRealSize: Boolean(widthSource && heightSource),
     usesFallbackSize: !(widthSource && heightSource),
-    color: template.isAdapterBreakout ? "rgba(24,37,49,.34)" : "#182531",
+    color: isAdapter ? "rgba(24,37,49,.34)" : "#182531",
     connectors,
     portCount: Math.max(1, connectors.length || 4),
     templateId: template.id || templateId || "",
@@ -335,6 +336,10 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
     category: visual.category,
     visual
   };
+}
+
+function isAdapterTemplateForEngine(template = {}) {
+  return template?.objectType === "adapter" || template?.isAdapterBreakout === true;
 }
 
 function normalizeDeviceVisualMetadata(template = {}, instance = {}, width = DEFAULT_DEVICE_WIDTH, height = DEFAULT_DEVICE_HEIGHT) {
@@ -365,7 +370,7 @@ function normalizeDeviceVisualMetadata(template = {}, instance = {}, width = DEF
     isLedProcessor: Boolean(template.isLedProcessor),
     isPowerDistro: Boolean(template.isPowerDistro),
     isMatrixRouter: Boolean(template.isMatrixRouter),
-    isAdapterBreakout: Boolean(template.isAdapterBreakout || template.objectType === "adapter"),
+    isAdapterBreakout: isAdapterTemplateForEngine(template),
     visualCards: normalizeVisualCards(template, width, height)
   };
 }

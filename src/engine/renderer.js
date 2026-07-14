@@ -61,6 +61,7 @@ function defaultLabelStats() {
   return {
     devices: 0,
     wires: 0,
+    connectorLabels: 0,
     routePointHandles: 0,
     connectorTooltips: 0,
     objectHoverTooltips: 0,
@@ -89,6 +90,7 @@ export class WebglGraphRenderer {
     this.liveBuffer = this.gl.createBuffer();
     this.gridBuffer = this.gl.createBuffer();
     this.textureBuffer = this.gl.createBuffer();
+    this.glowBuffer = this.gl.createBuffer();
     this.staticWireVertexCount = 0;
     this.staticDeviceVertexCount = 0;
     this.liveVertexCount = 0;
@@ -117,6 +119,7 @@ export class WebglGraphRenderer {
     this.textureCache = new TextureCache(this.gl, {
       onAssetReady: event => this.handleTextureAssetReady(event)
     });
+    this.glowTextureCache = new Map();
     this.program = createProgram(this.gl, vertexSource, fragmentSource);
     this.positionLocation = this.gl.getAttribLocation(this.program, "a_position");
     this.colorLocation = this.gl.getAttribLocation(this.program, "a_color");
@@ -246,8 +249,16 @@ export class WebglGraphRenderer {
 
   clearTextureCache() {
     this.textureCache.clear();
+    this.clearGlowTextureCache();
     this.lastTextureStats = this.textureCache.stats();
     return this.lastTextureStats;
+  }
+
+  clearGlowTextureCache() {
+    this.glowTextureCache.forEach(entry => {
+      if (entry.texture) this.gl.deleteTexture(entry.texture);
+    });
+    this.glowTextureCache.clear();
   }
 
   textureStats() {
@@ -665,6 +676,7 @@ export class WebglGraphRenderer {
       liveDrawMs: 0,
       affectedWireOverlayMs: 0,
       selectedObjectOverlayMs: 0,
+      objectGlowMs: 0,
       selectionOverlayMs: 0,
       interactionOverlayMs: 0,
       labelMs: 0,
@@ -672,11 +684,13 @@ export class WebglGraphRenderer {
       selectedObjects: 0,
       wireLabels: 0,
       deviceLabels: 0,
+      connectorLabels: 0,
       routePointHandles: 0,
       connectorTooltips: 0,
       objectHoverTooltips: 0,
       objectHoverOverlays: 0,
       objectHoverOverlayMs: 0,
+      connectorNodeMs: 0,
       connectorOverlayCount: 0,
       wirePreviewDrawn: 0,
       suppressedAffectedWireOverlays: 0,
@@ -731,6 +745,9 @@ export class WebglGraphRenderer {
       this.recordSelectedObjects(layerTrace, "staticDeviceLayer", "hidden");
     }
     frameStats.staticDeviceMs = performance.now() - sectionStart;
+    sectionStart = performance.now();
+    this.drawObjectGlows(scene, camera, renderOptions, dragSession, options, layerTrace);
+    frameStats.objectGlowMs = performance.now() - sectionStart;
     sectionStart = performance.now();
     this.drawTextureDevices(scene, camera, renderOptions, dragSession, layerTrace);
     frameStats.textureDrawMs = performance.now() - sectionStart;
@@ -838,6 +855,10 @@ export class WebglGraphRenderer {
       }
       frameStats.selectionOverlayMs = performance.now() - selectionStart;
     }
+    sectionStart = performance.now();
+    const baseConnectorCount = pushVisibleConnectorNodes(liveVertices, scene, camera, this.resolution, renderOptions, dragSession, layerTrace, this);
+    frameStats.connectorNodeMs = performance.now() - sectionStart;
+    frameStats.connectorOverlayCount += baseConnectorCount;
     const interactionStart = performance.now();
     const interactionStats = pushInteractionOverlay(liveVertices, scene, interaction, renderOptions, dragSession, {
       suppressHoveredWire: !dragSession,
@@ -845,7 +866,7 @@ export class WebglGraphRenderer {
       resolution: this.resolution,
     });
     frameStats.interactionOverlayMs = performance.now() - interactionStart;
-    frameStats.connectorOverlayCount = interactionStats.connectorOverlayCount || 0;
+    frameStats.connectorOverlayCount += interactionStats.connectorOverlayCount || 0;
     frameStats.wirePreviewDrawn = interactionStats.wirePreviewDrawn || 0;
     frameStats.suppressedAffectedWireOverlays = interactionStats.suppressedAffectedWireOverlays || 0;
     frameStats.suppressedHoveredWireOverlays = interactionStats.suppressedHoveredWireOverlays || 0;
@@ -862,6 +883,7 @@ export class WebglGraphRenderer {
     frameStats.labelMs = performance.now() - sectionStart;
     frameStats.wireLabels = this.lastLabelStats.wires || 0;
     frameStats.deviceLabels = this.lastLabelStats.devices || 0;
+    frameStats.connectorLabels = this.lastLabelStats.connectorLabels || 0;
     frameStats.routePointHandles = this.lastLabelStats.routePointHandles || 0;
     frameStats.connectorTooltips = this.lastLabelStats.connectorTooltips || 0;
     frameStats.objectHoverTooltips = this.lastLabelStats.objectHoverTooltips || 0;
@@ -983,6 +1005,16 @@ export class WebglGraphRenderer {
         this.recordWireLayer(options.layerTrace, wire.id, "labelLayer", moving ? "drawn-moving" : "drawn");
       });
     }
+    const connectorLabelCount = drawVisibleConnectorLabels(
+      ctx,
+      scene,
+      camera,
+      renderOptions,
+      dragSession,
+      this.resolution,
+      options.layerTrace,
+      this
+    );
     const snapMeasureLabels = options.interactionState?.snapGuides?.measure && drawSnapMeasurementLabel(ctx, options.interactionState.snapGuides.measure, camera)
       ? 1
       : 0;
@@ -1004,6 +1036,7 @@ export class WebglGraphRenderer {
     this.lastLabelStats = {
       devices: deviceLabelCount,
       wires: wireLabelCount,
+      connectorLabels: connectorLabelCount,
       routePointHandles: countRoutePointHandles(scene, options.selectedWireIds, options.interactionState),
       connectorTooltips: connectorTooltipCount,
       objectHoverTooltips: objectHoverTooltipCount,
@@ -1190,6 +1223,86 @@ export class WebglGraphRenderer {
       lodSkipped: 0
     };
     return draggedTextureIds;
+  }
+
+  drawObjectGlows(scene, camera, renderOptions, dragSession = null, drawOptions = {}, layerTrace = null) {
+    if (renderOptions.hideSelectionOverlay) return;
+    const selectedIds = dragSession
+      ? new Set(dragSession.selectedIds || [])
+      : new Set(drawOptions.selectedIds || []);
+    const hoveredDevice = drawOptions.interactionState?.hoveredDevice?.device || drawOptions.interactionState?.hoveredDevice || null;
+    const dragOffsets = dragSession?.offsetMap() || null;
+    const groups = new Map();
+    const addGlow = (device, mode) => {
+      if (!device || device.kind === "jump" || !deviceVisible(device, renderOptions)) return;
+      const entry = this.ensureGlowTexture(device, mode);
+      if (!entry?.texture) return;
+      const offset = dragOffsets?.get(device.id);
+      const x = device.x + (offset?.dx || 0) - entry.padding;
+      const y = device.y + (offset?.dy || 0) - entry.padding;
+      const vertices = groups.get(entry.texture) || [];
+      pushTextureRect(vertices, x, y, device.width + entry.padding * 2, device.height + entry.padding * 2);
+      groups.set(entry.texture, vertices);
+      this.recordObjectLayer(
+        layerTrace,
+        device.id,
+        mode === "selected" ? "selectedGlowLayer" : "hoverGlowLayer",
+        "drawn-soft-texture"
+      );
+    };
+    selectedIds.forEach(id => addGlow(scene.getDevice(id), "selected"));
+    if (hoveredDevice && !selectedIds.has(hoveredDevice.id)) addGlow(hoveredDevice, "hover");
+    if (!groups.size) return;
+
+    const gl = this.gl;
+    gl.useProgram(this.textureProgram);
+    gl.uniform4f(this.textureViewLocation, camera.x, camera.y, this.resolution.width / camera.zoom, this.resolution.height / camera.zoom);
+    gl.uniform1i(this.textureSamplerLocation, 0);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.glowBuffer);
+    gl.enableVertexAttribArray(this.texturePositionLocation);
+    gl.vertexAttribPointer(this.texturePositionLocation, 2, gl.FLOAT, false, 4 * 4, 0);
+    gl.enableVertexAttribArray(this.textureCoordLocation);
+    gl.vertexAttribPointer(this.textureCoordLocation, 2, gl.FLOAT, false, 4 * 4, 2 * 4);
+    groups.forEach((vertices, texture) => {
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STREAM_DRAW);
+      gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 4);
+    });
+    gl.useProgram(this.program);
+    gl.uniform4f(this.viewLocation, camera.x, camera.y, this.resolution.width / camera.zoom, this.resolution.height / camera.zoom);
+  }
+
+  ensureGlowTexture(device, mode = "selected") {
+    const width = Math.max(1, Math.round(device.width || 1));
+    const height = Math.max(1, Math.round(device.height || 1));
+    const radius = device.kind === "adapter" ? LEGACY_ADAPTER_RADIUS : LEGACY_DEVICE_RADIUS;
+    const padding = mode === "selected" ? 36 : 24;
+    const key = `${mode}:${width}:${height}:${radius}:${padding}`;
+    const existing = this.glowTextureCache.get(key);
+    if (existing?.texture) return existing;
+
+    const ratio = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
+    const canvas = createRenderCanvas(
+      Math.ceil((width + padding * 2) * ratio),
+      Math.ceil((height + padding * 2) * ratio)
+    );
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.scale(ratio, ratio);
+    ctx.clearRect(0, 0, width + padding * 2, height + padding * 2);
+    ctx.lineJoin = "round";
+    if (mode === "selected") {
+      drawGlowStroke(ctx, padding, padding, width, height, radius, 3, "rgba(251,121,4,.95)", 9, "rgba(251,121,4,.52)");
+      drawGlowStroke(ctx, padding, padding, width, height, radius, 3, "rgba(251,121,4,.55)", 22, "rgba(251,121,4,.16)");
+    } else {
+      drawGlowStroke(ctx, padding, padding, width, height, radius, 2, "rgba(50,182,255,.70)", 13, "rgba(50,182,255,.20)");
+    }
+
+    const texture = uploadOverlayTexture(this.gl, canvas);
+    const entry = { texture, width: canvas.width, height: canvas.height, padding };
+    this.glowTextureCache.set(key, entry);
+    return entry;
   }
 
   beginLayerTrace(scene, dragSession = null, renderOptions = this.renderOptions, traceOptions = {}) {
@@ -1429,6 +1542,38 @@ function pushJumpNodeForeground(vertices, scene, camera, resolution, {
   return count;
 }
 
+function pushVisibleConnectorNodes(vertices, scene, camera, resolution, renderOptions = DEFAULT_RENDER_OPTIONS, dragSession = null, layerTrace = null, renderer = null) {
+  if (!renderOptions.connectorMarkers) return 0;
+  const offsets = dragSession?.offsetMap() || null;
+  const selectedIds = new Set(dragSession?.selectedIds || []);
+  const drawn = new Set();
+  let count = 0;
+  const drawDeviceConnectors = (device, reason) => {
+    if (!device || drawn.has(device.id)) return;
+    if (!deviceVisible(device, renderOptions) || !deviceUsesTextureLayer(device, renderOptions)) return;
+    if (device.kind === "jump") return;
+    const offset = offsets?.get(device.id);
+    const baseX = device.x + (offset?.dx || 0);
+    const baseY = device.y + (offset?.dy || 0);
+    deviceConnectorsForRender(device).forEach(connector => {
+      const point = {
+        x: baseX + connectorRenderX(connector, device),
+        y: baseY + connectorRenderY(connector, device)
+      };
+      pushConnectorNode(vertices, point, connector, device, renderOptions);
+      count += 1;
+    });
+    drawn.add(device.id);
+    renderer?.recordObjectLayer?.(layerTrace, device.id, "connectorNodeLayer", reason);
+  };
+  visibleDevices(scene, camera, resolution).forEach(device => {
+    if (selectedIds.has(device.id)) return;
+    drawDeviceConnectors(device, "drawn-live");
+  });
+  selectedIds.forEach(id => drawDeviceConnectors(scene.getDevice(id), "drawn-moving-live"));
+  return count;
+}
+
 function pushConnectorHighlight(vertices, point, size, color, mode = "hover") {
   const glowColor = mode === "invalid" ? "rgba(255,79,95,.2)" : mode === "selected" ? "rgba(255,121,4,.2)" : "rgba(50,182,255,.18)";
   pushCircle(vertices, point, size + 8, glowColor, 22);
@@ -1589,19 +1734,51 @@ function connectorVisualRadius(device = {}) {
   return device?.kind === "jump" ? JUMP_CONNECTOR_RADIUS : CONNECTOR_RADIUS;
 }
 
+function deviceConnectorsForRender(device = {}) {
+  if (Array.isArray(device.connectors) && device.connectors.length) return device.connectors;
+  const portCount = Math.max(0, Math.floor(Number(device.portCount || 0)));
+  const connectors = [];
+  for (let index = 0; index < portCount; index += 1) {
+    const y = (device.height || 0) * ((index + 1) / (portCount + 1));
+    connectors.push({
+      id: `fallback-in-${index}`,
+      side: "left",
+      x: 0,
+      y,
+      color: PORT_COLOR,
+      type: "Connector"
+    });
+    connectors.push({
+      id: `fallback-out-${index}`,
+      side: "right",
+      x: device.width || 0,
+      y,
+      color: PORT_COLOR,
+      type: "Connector"
+    });
+  }
+  return connectors;
+}
+
+function connectorRenderX(connector = {}, device = {}) {
+  if (Number.isFinite(Number(connector.x))) return Number(connector.x);
+  return connector.side === "right" ? (device.width || 0) : 0;
+}
+
+function connectorRenderY(connector = {}, device = {}) {
+  if (Number.isFinite(Number(connector.y))) return Number(connector.y);
+  return (device.height || 0) / 2;
+}
+
 function pushSelectionOutline(vertices, device, offsets = null) {
   pushObjectOutline(vertices, device, offsets, [
-    { expand: 11, width: 12, color: "rgba(251,121,4,.14)" },
-    { expand: 8, width: 7, color: "rgba(251,121,4,.32)" },
-    { expand: 0, width: 3, color: DEVICE_SELECTED }
+    { expand: 3, width: 2.2, color: "rgba(251,121,4,.88)" }
   ]);
 }
 
 function pushHoverOutline(vertices, device, offsets = null) {
   pushObjectOutline(vertices, device, offsets, [
-    { expand: 12, width: 8, color: "rgba(50,182,255,.12)" },
-    { expand: 8, width: 4.2, color: "rgba(50,182,255,.38)" },
-    { expand: 5, width: 1.8, color: DEVICE_HOVER }
+    { expand: 4, width: 1.8, color: DEVICE_HOVER }
   ]);
 }
 
@@ -1702,8 +1879,12 @@ function pushTextureQuad(vertices, device, offsets = null) {
   const offset = offsets?.get(device.id);
   const x = device.x + (offset?.dx || 0);
   const y = device.y + (offset?.dy || 0);
-  const x2 = x + device.width;
-  const y2 = y + device.height;
+  pushTextureRect(vertices, x, y, device.width, device.height);
+}
+
+function pushTextureRect(vertices, x, y, width, height) {
+  const x2 = x + width;
+  const y2 = y + height;
   vertices.push(
     x, y, 0, 0,
     x2, y, 1, 0,
@@ -1767,6 +1948,63 @@ function deviceLabel(device) {
 
 function connectorLabel(connector, fallback = "") {
   return String(connector?.label || connector?.name || connector?.type || fallback || "").trim();
+}
+
+function drawVisibleConnectorLabels(ctx, scene, camera, renderOptions = DEFAULT_RENDER_OPTIONS, dragSession = null, resolution = { width: 0, height: 0 }, layerTrace = null, renderer = null) {
+  if (!renderOptions.connectorMarkers || renderOptions.hideLabels || camera.zoom < 0.08) return 0;
+  const offsets = dragSession?.offsetMap() || null;
+  const selectedIds = new Set(dragSession?.selectedIds || []);
+  const drawn = new Set();
+  const drawDeviceConnectors = (device, reason) => {
+    if (!device || drawn.has(device.id)) return 0;
+    if (!deviceVisible(device, renderOptions) || !deviceUsesTextureLayer(device, renderOptions)) return 0;
+    if (device.kind === "jump") return 0;
+    const offset = offsets?.get(device.id);
+    const baseX = device.x + (offset?.dx || 0);
+    const baseY = device.y + (offset?.dy || 0);
+    let count = 0;
+    deviceConnectorsForRender(device).forEach(connector => {
+      const text = connectorLabel(connector);
+      if (!text) return;
+      drawConnectorWorldLabel(ctx, {
+        x: baseX + connectorRenderX(connector, device),
+        y: baseY + connectorRenderY(connector, device)
+      }, connector, text, camera);
+      count += 1;
+    });
+    drawn.add(device.id);
+    renderer?.recordObjectLayer?.(layerTrace, device.id, "connectorLabelLayer", reason);
+    return count;
+  };
+  let total = 0;
+  visibleDevices(scene, camera, resolution).forEach(device => {
+    if (selectedIds.has(device.id)) return;
+    total += drawDeviceConnectors(device, "drawn-live");
+  });
+  selectedIds.forEach(id => {
+    total += drawDeviceConnectors(scene.getDevice(id), "drawn-moving-live");
+  });
+  return total;
+}
+
+function drawConnectorWorldLabel(ctx, point, connector = {}, text = "", camera) {
+  const side = connector.side === "right" ? "right" : "left";
+  const anchorX = point.x + (side === "right" ? -17 : 17);
+  const anchorY = point.y + 18;
+  const x = (anchorX - camera.x) * camera.zoom;
+  const y = (anchorY - camera.y) * camera.zoom;
+  const size = Math.max(7, Math.min(14, 9 * Math.sqrt(camera.zoom)));
+  ctx.save();
+  ctx.font = `800 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.textAlign = side === "right" ? "right" : "left";
+  ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "rgba(0,0,0,.84)";
+  ctx.lineWidth = Math.max(2.4, size * 0.34);
+  ctx.fillStyle = "#ffffff";
+  ctx.strokeText(text, x, y);
+  ctx.fillText(text, x, y);
+  ctx.restore();
 }
 
 function drawWireLabel(ctx, scene, wire, camera, offsets, text) {
@@ -2140,6 +2378,56 @@ function uploadArray(gl, buffer, vertices) {
 function subUpload(gl, buffer, floatOffset, vertices) {
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.bufferSubData(gl.ARRAY_BUFFER, floatOffset * 4, new Float32Array(vertices));
+}
+
+function createRenderCanvas(width, height) {
+  if (typeof OffscreenCanvas !== "undefined") return new OffscreenCanvas(width, height);
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  return canvas;
+}
+
+function drawGlowStroke(ctx, x, y, width, height, radius, lineWidth, shadowColor, shadowBlur, strokeColor) {
+  ctx.save();
+  ctx.shadowColor = shadowColor;
+  ctx.shadowBlur = shadowBlur;
+  ctx.lineWidth = lineWidth;
+  ctx.strokeStyle = strokeColor;
+  roundedRectPath(ctx, x, y, width, height, radius);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function roundedRectPath(ctx, x, y, width, height, radius) {
+  const r = Math.max(0, Math.min(radius, width / 2, height / 2));
+  ctx.beginPath();
+  if (typeof ctx.roundRect === "function") {
+    ctx.roundRect(x, y, width, height, r);
+    return;
+  }
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function uploadOverlayTexture(gl, source) {
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+  return texture;
 }
 
 function deviceVisible(device, options = DEFAULT_RENDER_OPTIONS) {

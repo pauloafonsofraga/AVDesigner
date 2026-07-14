@@ -3144,14 +3144,16 @@ class ProductionEngineBridge {
       this.hud.setMetric("wire paths", `${wirePathStats.bezier || 0} bezier / ${wirePathStats.custom || 0} custom / ${wirePathStats.orthogonal || 0} orthogonal`);
       this.updateCableHopHud();
       this.hud.setMetric("selection overlay", `${(frameStats.selectionOverlayMs || 0).toFixed(2)} ms`);
+      this.hud.setMetric("object glow", `${(frameStats.objectGlowMs || 0).toFixed(2)} ms`);
       this.hud.setMetric("interaction overlay", `${(frameStats.interactionOverlayMs || 0).toFixed(2)} ms`);
-      this.hud.setMetric("connector overlay", `${frameStats.connectorOverlayCount || 0} nodes / ${frameStats.wirePreviewDrawn ? "preview" : "idle"}`);
+      this.hud.setMetric("connector overlay", `${frameStats.connectorOverlayCount || 0} nodes / ${(frameStats.connectorNodeMs || 0).toFixed(2)} ms / ${frameStats.wirePreviewDrawn ? "preview" : "idle"}`);
       this.hud.setMetric("snap overlay", `${frameStats.snapGuides || 0} guides / ${frameStats.snapMeasureLabels || 0} labels`);
       this.hud.setMetric("affected wire overlay suppress", `${frameStats.suppressedAffectedWireOverlays || 0}`);
       this.hud.setMetric("label draw", `${(frameStats.labelMs || 0).toFixed(2)} ms`);
       const labelStats = this.renderer.labelStats();
       this.hud.setMetric("wire labels", `${labelStats.wires || 0}`);
       this.hud.setMetric("device labels", `${labelStats.devices || 0}`);
+      this.hud.setMetric("connector labels", `${labelStats.connectorLabels || 0}`);
       this.hud.setMetric("device labels hidden", `${labelStats.deviceLabelsHidden || 0}`);
       this.hud.setMetric("device labels truncated", `${labelStats.deviceLabelsTruncated || 0}`);
       this.hud.setMetric("object hover overlay", `${(frameStats.objectHoverOverlayMs || 0).toFixed(2)} ms / ${frameStats.objectHoverOverlays || 0}`);
@@ -3731,7 +3733,8 @@ function engineDebugLoadDelayMs() {
 }
 
 function engineLayerDebugEnabled() {
-  return new URLSearchParams(window.location.search).get("debugLayers") === "1";
+  const params = new URLSearchParams(window.location.search);
+  return params.get("debugLayers") === "1" || params.get("debugDeviceVisual") === "1";
 }
 
 function engineLayerDebugShowProductionSvg() {
@@ -3742,6 +3745,7 @@ function engineDebugHudEnabled() {
   const params = new URLSearchParams(window.location.search);
   return params.get("debugHud") === "1"
     || params.get("debugLayers") === "1"
+    || params.get("debugDeviceVisual") === "1"
     || params.get("debugRewire") === "1"
     || params.get("orthogonalTest") === "1";
 }

@@ -4,7 +4,7 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 40.2`
+- Current build label: `Iteration 40.3`
 - Scope: interface and visual fidelity only. Functional wire parity is tracked in
   [`docs/legacy-functional-parity.md`](legacy-functional-parity.md).
 
@@ -14,6 +14,11 @@ removes the stale square WebGL body layer behind rounded device textures,
 restores Legacy dark shell/faceplate colors, moves selected textured devices as
 textures during drag, and restores adapter/breakout dashed bodies plus internal
 fan-out wiring in the cached texture path.
+
+Iteration 40.3 corrects the remaining screenshot-level parity gaps: selected
+device glow is now a soft Legacy-style glow layer, connector markers and labels
+are live overlays so they are not clipped by texture bounds, and adapter
+classification matches the Legacy `objectType: "adapter"` rule.
 
 Iteration 39 was deliberately an audit pass. It did not migrate reports,
 exports, the standalone viewer, or the remaining Legacy editors. The goal is to
