@@ -1019,8 +1019,11 @@ function normalizeVisualMetadata(visual = {}) {
     faceplateDeleted: Boolean(visual.faceplateDeleted),
     faceImageNaturalWidth: Number(visual.faceImageNaturalWidth) || 0,
     faceImageNaturalHeight: Number(visual.faceImageNaturalHeight) || 0,
+    faceImageScale: Number(visual.faceImageScale) || 1,
     faceImageScaleX: Number(visual.faceImageScaleX) || 1,
     faceImageScaleY: Number(visual.faceImageScaleY) || 1,
+    faceImageOffsetX: Number(visual.faceImageOffsetX) || 0,
+    faceImageOffsetY: Number(visual.faceImageOffsetY) || 0,
     hasSwappableCards: Boolean(visual.hasSwappableCards),
     isLedProcessor: Boolean(visual.isLedProcessor),
     isPowerDistro: Boolean(visual.isPowerDistro),
@@ -1038,13 +1041,55 @@ function normalizeVisualCard(card, index) {
     id: String(card.id || `visual-card-${index}`),
     name: card.name || "",
     slotName: card.slotName || "",
+    installedCardTypeId: card.installedCardTypeId || "",
+    cardTypeId: card.cardTypeId || "",
     type: card.type || "",
+    kind: card.kind || card.direction || "io",
     x: Number(card.x) || 0,
     y: Number(card.y) || 0,
     width: Math.max(1, Number(card.width) || 1),
     height: Math.max(1, Number(card.height) || 1),
+    textX: Number(card.textX) || 0,
+    captionX: Number(card.captionX) || Number(card.textX) || 0,
+    captionY: Number(card.captionY) || 0,
+    slotY: Number(card.slotY) || 0,
+    rowCount: Math.max(0, Number(card.rowCount) || 0),
+    laneCount: Math.max(0, Number(card.laneCount) || 0),
     connectorCount: Math.max(0, Number(card.connectorCount) || 0),
-    direction: card.direction || "io"
+    inputCount: Math.max(0, Number(card.inputCount) || 0),
+    outputCount: Math.max(0, Number(card.outputCount) || 0),
+    direction: card.direction || "io",
+    captionTextColor: card.captionTextColor || "#32b6ff",
+    captionBackgroundColor: card.captionBackgroundColor || "#17212b",
+    connectors: Array.isArray(card.connectors)
+      ? card.connectors.map(normalizeVisualCardConnector).filter(Boolean)
+      : []
+  };
+}
+
+function normalizeVisualCardConnector(connector, index) {
+  if (!connector || typeof connector !== "object") return null;
+  return {
+    id: String(connector.id || `card-connector-${index}`),
+    sourceConnectorId: String(connector.sourceConnectorId || ""),
+    cardSlotId: String(connector.cardSlotId || ""),
+    cardTypeId: String(connector.cardTypeId || ""),
+    generatedFromCard: Boolean(connector.generatedFromCard),
+    type: String(connector.type || ""),
+    label: String(connector.label || connector.nameText || connector.type || ""),
+    direction: connector.direction === "input" ? "input" : "output",
+    x: Number(connector.x) || 0,
+    y: Number(connector.y) || 0,
+    rowIndex: Math.max(0, Number(connector.rowIndex) || 0),
+    nameText: String(connector.nameText || ""),
+    customText: String(connector.customText || ""),
+    resolutionFrameRate: String(connector.resolutionFrameRate || ""),
+    nameTextCaption: String(connector.nameTextCaption || ""),
+    resolutionFrameRateCaption: String(connector.resolutionFrameRateCaption || ""),
+    customTextCaption: String(connector.customTextCaption || ""),
+    customColor: String(connector.customColor || ""),
+    fiberMode: String(connector.fiberMode || ""),
+    installedModuleType: String(connector.installedModuleType || "")
   };
 }
 

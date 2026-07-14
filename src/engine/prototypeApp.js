@@ -95,7 +95,7 @@ class EnginePrototype {
       highlightReal: false,
       highlightRouted: false,
       textureCacheEnabled: true,
-      simplifiedCards: true,
+      simplifiedCards: false,
       texturedDevices: true,
       textureQuality: this.textureQualitySelect?.value || "medium",
       highDpiTextures: true,

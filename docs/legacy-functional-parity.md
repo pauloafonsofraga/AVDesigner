@@ -4,13 +4,21 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 39`
+- Current build label: `Iteration 40`
 
 Iteration 39 adds a separate Legacy interface and visual fidelity audit in
 [`docs/legacy-interface-parity.md`](legacy-interface-parity.md). This document
 continues to track functional parity and data/command behavior, while the new
 audit tracks device visuals, faceplates, cards, connectors, inspectors, panels,
 and remaining Legacy UI surfaces.
+
+Iteration 40 implements the first post-audit modular-device visual pass in the
+Engine texture path. It keeps functional command behaviour unchanged while
+preserving installed card IDs, per-slot overrides, card caption colors, card
+lane geometry, connector field values, and faceplate placement metadata through
+normalization. The renderer then bakes those details into cached device
+textures and invalidates only affected device textures when a faceplate image
+finishes loading or a device visual key changes.
 
 Iteration 37.5 builds on Iteration 37, which restored Legacy connector compatibility rules in Engine wire
 creation, including installed SFP/SFP+/QSFP modules, SFP/QSFP fiber-mode family
@@ -686,7 +694,28 @@ Validation:
 - Engine and Legacy fallback still open.
 - Existing functional validation still passes.
 
-### Iteration 40 — Context Menu And Canvas Actions
+### Iteration 40 — Modular Cards / Chassis Visual Parity
+
+Restore card-heavy device confidence before broad visual polish.
+
+Scope:
+
+- Generated card connector IDs and positions remain stable.
+- Card labels/bands match Legacy enough for E2-style devices.
+- Real faceplate PNGs draw in cached Engine textures with Legacy placement.
+- Installed card caption colors and compact connector fields draw in the
+  cached device texture.
+- Per-slot connector overrides remain independent.
+- Device Editor Apply refreshes only affected Engine visuals.
+
+Validation:
+
+- E2-style device with multiple cards.
+- Change installed card, apply library, Engine canvas updates.
+- Save/reload and Legacy opens correctly.
+- Moving/selecting/panning/zooming does not rebuild the modular texture.
+
+### Iteration 41 — Context Menu And Canvas Actions
 
 Audit and restore every right-click action under Engine.
 
@@ -702,23 +731,6 @@ Validation:
 
 - Each action updates production data and Engine scene once.
 - Undo/redo works.
-
-### Iteration 41 — Modular Cards / Chassis Visual Parity
-
-Restore card-heavy device confidence before broad visual polish.
-
-Scope:
-
-- Generated card connector IDs and positions remain stable.
-- Card labels/bands match Legacy enough for E2-style devices.
-- Per-slot connector overrides remain independent.
-- Device Editor Apply refreshes only affected Engine visuals.
-
-Validation:
-
-- E2-style device with multiple cards.
-- Change installed card, apply library, Engine canvas updates.
-- Save/reload and Legacy opens correctly.
 
 ### Iteration 42 — Faceplates And Project Custom Devices
 
@@ -754,10 +766,10 @@ Run these after each parity iteration:
 2. `node scripts/engine-real-project-validation.mjs "/path/to/real-project.avd"`
 3. `git diff --check`
 4. Browser smoke:
-   - `index.html?v=iteration39`
-   - `index.html?legacy=1&v=iteration39`
-   - `index.html?engine=1&debugHud=1&v=iteration39`
-   - `index.html?debugLibraryDrag=1&v=iteration39`
+   - `index.html?v=iteration40`
+   - `index.html?legacy=1&v=iteration40`
+   - `index.html?engine=1&debugHud=1&v=iteration40`
+   - `index.html?debugLibraryDrag=1&v=iteration40`
 5. Manual create/edit/save/reload:
    - drag device from library
    - create compatible wire

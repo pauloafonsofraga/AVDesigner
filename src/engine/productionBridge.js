@@ -103,7 +103,7 @@ class ProductionEngineBridge {
       highlightReal: false,
       highlightRouted: false,
       textureCacheEnabled: true,
-      simplifiedCards: true,
+      simplifiedCards: false,
       texturedDevices: true,
       textureQuality: "medium",
       highDpiTextures: true,
@@ -130,7 +130,9 @@ class ProductionEngineBridge {
     if (!this.container) throw new Error("Production engine bridge could not find #canvasWrap.");
     injectBridgeStyles();
     this.mountUi();
-    this.renderer = new WebglGraphRenderer(this.canvas, this.labelCanvas);
+    this.renderer = new WebglGraphRenderer(this.canvas, this.labelCanvas, {
+      onTextureAssetReady: () => this.scheduleRender()
+    });
     this.renderer.setRenderOptions(this.renderOptions);
     this.hud = new PerfHud(this.debugPanel);
     this.bindEvents();

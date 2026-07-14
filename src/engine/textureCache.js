@@ -1,4 +1,10 @@
-import { buildDeviceVisual, deviceVisualCacheKey, textureQuality } from "./deviceVisualBuilder.js";
+import {
+  buildDeviceVisual,
+  deviceVisualCacheKey,
+  deviceVisualSources,
+  setDeviceVisualAssetReadyCallback,
+  textureQuality
+} from "./deviceVisualBuilder.js";
 
 const EMPTY_STATS = {
   enabled: false,
@@ -27,11 +33,14 @@ const EMPTY_STATS = {
 };
 
 export class TextureCache {
-  constructor(gl) {
+  constructor(gl, options = {}) {
     this.gl = gl;
+    this.onAssetReady = typeof options.onAssetReady === "function" ? options.onAssetReady : null;
+    this.maxTextureSide = Number(gl.getParameter(gl.MAX_TEXTURE_SIZE)) || 4096;
     this.entriesByDeviceId = new Map();
     this.texturesByKey = new Map();
     this.statsData = { ...EMPTY_STATS };
+    setDeviceVisualAssetReadyCallback(source => this.invalidateByVisualSource(source, "visual asset loaded"));
   }
 
   prepareDevices(devices, options = {}) {
@@ -69,8 +78,9 @@ export class TextureCache {
   }
 
   ensureDeviceTexture(device, options = {}, reason = "ensure") {
-    applyQualityStats(this.statsData, options);
-    const key = deviceVisualCacheKey(device, options);
+    const buildOptions = { ...options, gpuMaxTextureSide: this.maxTextureSide };
+    applyQualityStats(this.statsData, buildOptions);
+    const key = deviceVisualCacheKey(device, buildOptions);
     const existing = this.entriesByDeviceId.get(device.id);
     if (existing && existing.key === key && existing.record?.texture) {
       this.statsData.hits += 1;
@@ -98,7 +108,7 @@ export class TextureCache {
     const buildStart = performance.now();
     let visual;
     try {
-      visual = buildDeviceVisual(device, options);
+      visual = buildDeviceVisual(device, buildOptions);
     } catch (error) {
       console.warn("[engine] device texture build failed", { deviceId: device.id, error });
       visual = buildFallbackVisual(device);
@@ -146,6 +156,25 @@ export class TextureCache {
     this.refreshCounts();
   }
 
+  invalidateByVisualSource(source, reason = "visual asset changed") {
+    const src = String(source || "").trim();
+    if (!src) return [];
+    const affected = [];
+    this.entriesByDeviceId.forEach((entry, deviceId) => {
+      if (entry.visualSources?.includes(src)) {
+        this.entriesByDeviceId.delete(deviceId);
+        affected.push(deviceId);
+      }
+    });
+    if (affected.length) {
+      this.statsData.rebuilds += affected.length;
+      this.statsData.lastInvalidationReason = reason;
+      this.refreshCounts();
+      this.onAssetReady?.({ source: src, deviceIds: affected, reason });
+    }
+    return affected;
+  }
+
   clear() {
     this.texturesByKey.forEach(record => {
       if (record.texture) this.gl.deleteTexture(record.texture);
@@ -171,6 +200,7 @@ export class TextureCache {
       cssHeight: record.cssHeight,
       texture: record.texture,
       record,
+      visualSources: deviceVisualSources(device),
       lastBuiltAt: record.lastBuiltAt,
       buildMs: record.buildMs,
       uploadMs: record.uploadMs,

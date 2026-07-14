@@ -23,8 +23,23 @@ const WIRE_COLORS = [
 const DEFAULT_DEVICE_WIDTH = 122;
 const DEFAULT_DEVICE_HEIGHT = 58;
 const SLOT_HEIGHT = 54;
+const LEGACY_DEVICE_WIDTH = 380;
 const JUMP_NODE_SIZE = 44;
 const SURFACE_FALLBACK_HEIGHT = 120;
+const CARD_SLOT_OVERRIDE_FIELDS = [
+  "nameText",
+  "nameCustom",
+  "resolutionFrameRate",
+  "customText",
+  "nameTextCaption",
+  "resolutionFrameRateCaption",
+  "customTextCaption",
+  "includeInMatrix",
+  "matrixPortTouched",
+  "fiberMode",
+  "customColor",
+  "installedModuleType"
+];
 const NODE_TYPE_FALLBACKS = new Map([
   ["sdi", "#006b3f"],
   ["hdmi", "#ffd600"],
@@ -341,8 +356,11 @@ function normalizeDeviceVisualMetadata(template = {}, instance = {}, width = DEF
     faceplateDeleted: Boolean(template.faceplateDeleted),
     faceImageNaturalWidth: positiveNumber(template.faceImageNaturalWidth),
     faceImageNaturalHeight: positiveNumber(template.faceImageNaturalHeight),
+    faceImageScale: positiveNumber(template.faceImageScale) || 1,
     faceImageScaleX: positiveNumber(template.faceImageScaleX) || positiveNumber(template.faceImageScale) || 1,
     faceImageScaleY: positiveNumber(template.faceImageScaleY) || positiveNumber(template.faceImageScale) || 1,
+    faceImageOffsetX: finiteNumber(template.faceImageOffsetX, 0),
+    faceImageOffsetY: finiteNumber(template.faceImageOffsetY, 0),
     hasSwappableCards: Boolean(template.hasSwappableCards),
     isLedProcessor: Boolean(template.isLedProcessor),
     isPowerDistro: Boolean(template.isPowerDistro),
@@ -356,26 +374,66 @@ function normalizeVisualCards(template = {}, width = DEFAULT_DEVICE_WIDTH, heigh
   if (!Array.isArray(template.cardSlots) || !Array.isArray(template.cardTypes)) return [];
   return template.cardSlots.map((slot, index) => {
     const card = template.cardTypes.find(item => item.id === slot.installedCardTypeId) || null;
-    const connectorCount = Array.isArray(card?.connectors)
-      ? card.connectors.filter(connector => !connector.empty && connector.type).length
-      : 0;
-    const slotX = finiteNumber(slot.x, Number.NaN);
-    const slotY = finiteNumber(slot.y, Number.NaN);
-    const slotWidth = positiveNumber(slot.width);
-    const slotHeight = positiveNumber(slot.height);
-    const defaultWidth = Math.max(44, width - 28);
-    const defaultHeight = Math.max(SLOT_HEIGHT * 1.25, SLOT_HEIGHT + Math.ceil(connectorCount / 2) * SLOT_HEIGHT);
+    const rawConnectors = Array.isArray(card?.connectors)
+      ? card.connectors.filter(connector => !connector.empty && connector.type)
+      : [];
+    const connectorCount = rawConnectors.length;
+    const rowCount = cardSlotRowCount(card);
+    const laneCount = Math.max(2, rowCount + 2);
+    const band = cardBandGeometry(width, slot, card);
+    const sideCounts = { input: 0, output: 0 };
+    const connectors = rawConnectors.map((connector, connectorIndex) => {
+      const merged = mergeCardConnectorForSlot(slot, connector);
+      const direction = merged.direction === "input" ? "input" : "output";
+      const rowIndex = sideCounts[direction]++;
+      return {
+        id: `${slot.id || `slot-${index}`}__${connector.id || `connector-${connectorIndex}`}`,
+        sourceConnectorId: String(connector.id || `connector-${connectorIndex}`),
+        cardSlotId: String(slot.id || `visual-card-${index}`),
+        cardTypeId: String(card?.id || ""),
+        generatedFromCard: true,
+        type: String(merged.type || ""),
+        label: String(merged.nameText || merged.label || merged.type || card?.name || "Card connector").trim(),
+        direction,
+        x: direction === "input" ? 0 : width,
+        y: finiteNumber(slot.y, 0) + SLOT_HEIGHT + rowIndex * SLOT_HEIGHT,
+        rowIndex,
+        nameText: String(merged.nameText || ""),
+        customText: String(merged.customText || ""),
+        resolutionFrameRate: String(merged.resolutionFrameRate || ""),
+        nameTextCaption: String(merged.nameTextCaption || ""),
+        resolutionFrameRateCaption: String(merged.resolutionFrameRateCaption || ""),
+        customTextCaption: String(merged.customTextCaption || ""),
+        customColor: String(merged.customColor || ""),
+        fiberMode: String(merged.fiberMode || ""),
+        installedModuleType: String(merged.installedModuleType || "")
+      };
+    });
     return {
       id: String(slot.id || `visual-card-${index}`),
       name: String(card?.name || slot.name || slot.label || `Card ${index + 1}`).trim(),
       slotName: String(slot.name || slot.label || "").trim(),
+      installedCardTypeId: String(slot.installedCardTypeId || ""),
+      cardTypeId: String(card?.id || ""),
       type: String(card?.type || card?.direction || "").trim(),
-      x: Number.isFinite(slotX) ? slotX : 14,
-      y: Number.isFinite(slotY) ? slotY : 78 + index * (defaultHeight + 14),
-      width: slotWidth || defaultWidth,
-      height: slotHeight || defaultHeight,
+      kind: String(card?.kind || card?.direction || "io").trim() || "io",
+      x: band.x,
+      y: band.y,
+      width: band.width,
+      height: band.height,
+      textX: band.textX,
+      captionX: band.textX,
+      captionY: finiteNumber(slot.y, 0) + 3,
+      slotY: finiteNumber(slot.y, 0),
+      rowCount,
+      laneCount,
       connectorCount,
-      direction: card?.direction || slot.direction || "io"
+      inputCount: connectors.filter(connector => connector.direction === "input").length,
+      outputCount: connectors.filter(connector => connector.direction === "output").length,
+      direction: card?.direction || slot.direction || "io",
+      captionTextColor: String(card?.captionTextColor || "#32b6ff"),
+      captionBackgroundColor: String(card?.captionBackgroundColor || "#17212b"),
+      connectors
     };
   }).filter(card => card.name || card.connectorCount || card.width || card.height);
 }
@@ -398,8 +456,7 @@ function generatedCardConnectors(template) {
     card.connectors
       .filter(connector => !connector.empty && connector.type)
       .forEach(connector => {
-        const override = slot.connectorOverrides?.[connector.id] || {};
-        const merged = { ...connector, ...override };
+        const merged = mergeCardConnectorForSlot(slot, connector);
         const side = merged.direction === "input" ? "input" : "output";
         const slotIndex = sideCounts[side]++;
         connectors.push({
@@ -409,7 +466,7 @@ function generatedCardConnectors(template) {
           cardSlotId: slot.id,
           cardTypeId: card.id,
           generatedFromCard: true,
-          label: merged.label || card.name || merged.type || "Card connector",
+          label: merged.nameText || merged.label || merged.type || card.name || "Card connector",
           direction: side,
           x: side === "input" ? 0 : positiveNumber(template.width) || DEFAULT_DEVICE_WIDTH,
           y: finiteNumber(slot.y, 0) + SLOT_HEIGHT + slotIndex * SLOT_HEIGHT
@@ -455,10 +512,65 @@ function normalizeConnector(connector, index, deviceWidth, nodeColorByType) {
     nameText: String(connector.nameText || ""),
     customText: String(connector.customText || ""),
     resolutionFrameRate: String(connector.resolutionFrameRate || ""),
+    nameTextCaption: String(connector.nameTextCaption || ""),
+    resolutionFrameRateCaption: String(connector.resolutionFrameRateCaption || ""),
+    customTextCaption: String(connector.customTextCaption || ""),
     x: localX,
     y: localY,
     color: connectorColor(connector, nodeColorByType),
     colorMapped
+  };
+}
+
+function mergeCardConnectorForSlot(slot = {}, connector = {}) {
+  const override = slot.connectorOverrides?.[connector.id] || {};
+  const merged = { ...connector };
+  CARD_SLOT_OVERRIDE_FIELDS.forEach(field => {
+    if (Object.prototype.hasOwnProperty.call(override, field)) merged[field] = override[field];
+  });
+  return merged;
+}
+
+function cardSlotRowCount(card) {
+  const connectors = Array.isArray(card?.connectors)
+    ? card.connectors.filter(connector => !connector.empty && connector.type)
+    : [];
+  if (!connectors.length) return 1;
+  const inputCount = connectors.filter(connector => connector.direction === "input").length;
+  const outputCount = connectors.filter(connector => connector.direction !== "input").length;
+  return Math.max(1, inputCount, outputCount);
+}
+
+function cardBandGeometry(width, slot, card) {
+  const scale = Math.max(0.35, width / LEGACY_DEVICE_WIDTH);
+  const kind = String(card?.kind || card?.direction || "io").toLowerCase();
+  const lanes = cardSlotRowCount(card) + 2;
+  const y = finiteNumber(slot?.y, 0) - SLOT_HEIGHT / 2;
+  const height = Math.max(SLOT_HEIGHT * 2, lanes * SLOT_HEIGHT);
+  if (kind === "input") {
+    return {
+      x: 10 * scale,
+      y,
+      width: Math.max(24, width / 2 - 16 * scale),
+      height,
+      textX: width / 4
+    };
+  }
+  if (kind === "output") {
+    return {
+      x: width / 2 + 6 * scale,
+      y,
+      width: Math.max(24, width / 2 - 16 * scale),
+      height,
+      textX: width * 0.75
+    };
+  }
+  return {
+    x: 10 * scale,
+    y,
+    width: Math.max(24, width - 20 * scale),
+    height,
+    textX: width / 2
   };
 }
 

@@ -36,7 +36,7 @@ const DEFAULT_RENDER_OPTIONS = {
   highlightReal: false,
   highlightRouted: false,
   textureCacheEnabled: true,
-  simplifiedCards: true,
+  simplifiedCards: false,
   texturedDevices: true,
   textureQuality: "medium",
   highDpiTextures: true,
@@ -69,9 +69,10 @@ function defaultLabelStats() {
 }
 
 export class WebglGraphRenderer {
-  constructor(canvas, labelCanvas = null) {
+  constructor(canvas, labelCanvas = null, options = {}) {
     this.canvas = canvas;
     this.labelCanvas = labelCanvas;
+    this.onTextureAssetReady = typeof options.onTextureAssetReady === "function" ? options.onTextureAssetReady : null;
     this.labelContext = labelCanvas?.getContext("2d") || null;
     this.gl = canvas.getContext("webgl2", {
       alpha: false,
@@ -110,7 +111,10 @@ export class WebglGraphRenderer {
     this.lastCableHopStats = emptyCableHopStats({ mode: "not-calculated" });
     this.lastLayerTrace = null;
     this.lastActiveLayerTrace = null;
-    this.textureCache = new TextureCache(this.gl);
+    this.textureScene = null;
+    this.textureCache = new TextureCache(this.gl, {
+      onAssetReady: event => this.handleTextureAssetReady(event)
+    });
     this.program = createProgram(this.gl, vertexSource, fragmentSource);
     this.positionLocation = this.gl.getAttribLocation(this.program, "a_position");
     this.colorLocation = this.gl.getAttribLocation(this.program, "a_color");
@@ -153,6 +157,7 @@ export class WebglGraphRenderer {
 
   setStaticScene(scene) {
     const start = performance.now();
+    this.textureScene = scene;
     this.wireVertexMap.clear();
     this.deviceVertexMap.clear();
     this.wireRangeMap.clear();
@@ -200,12 +205,26 @@ export class WebglGraphRenderer {
     // Texture creation is explicit and cache-key driven. Draw, pan, zoom,
     // selection, drag, and wire updates must reuse cached textures and should
     // not call this path implicitly.
+    this.textureScene = scene;
     const stats = this.textureCache.prepareDevices(scene.devices, {
       ...this.renderOptions,
       invalidationReason: reason
     });
     this.lastTextureStats = stats;
     return stats;
+  }
+
+  handleTextureAssetReady(event) {
+    const scene = this.textureScene;
+    if (!scene || !Array.isArray(event?.deviceIds) || !event.deviceIds.length) return;
+    event.deviceIds.forEach(deviceId => {
+      const device = scene.getDevice?.(deviceId);
+      if (device && device.kind !== "jump") {
+        this.textureCache.ensureDeviceTexture(device, this.renderOptions, event.reason || "visual asset loaded");
+      }
+    });
+    this.lastTextureStats = this.textureCache.stats();
+    this.onTextureAssetReady?.(event);
   }
 
   rebuildVisibleTextures(scene, camera) {
@@ -361,6 +380,7 @@ export class WebglGraphRenderer {
 
   updateDirty(scene, { deviceIds = [], wireIds = [], refreshCableHops = true } = {}) {
     const start = performance.now();
+    this.textureScene = scene;
     const geometryStart = performance.now();
     const effectiveWireIds = new Set(wireIds);
     let cableHopMapForDirtyWires = this.cableHopMap;
@@ -393,6 +413,9 @@ export class WebglGraphRenderer {
     let rangeUploadMs = 0;
     deviceIds.forEach(id => {
       const device = scene.getDevice(id);
+      if (device && device.kind !== "jump") {
+        this.textureCache.ensureDeviceTexture(device, this.renderOptions, "dirty device visual");
+      }
       const next = device ? verticesForDevice(device, null, this.renderOptions) : [];
       const range = this.deviceRangeMap.get(id);
       if (!device) {

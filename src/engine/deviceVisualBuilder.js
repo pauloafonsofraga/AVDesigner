@@ -5,6 +5,17 @@ const QUALITY_PRESETS = {
 };
 
 const DEFAULT_QUALITY = "medium";
+const FACE_MARGIN = 12;
+const FACE_TOP_Y = 38;
+const FACE_HEIGHT = 78;
+const FACE_IMAGE_PADDING = 8;
+
+const IMAGE_CACHE = new Map();
+let assetReadyCallback = null;
+
+export function setDeviceVisualAssetReadyCallback(callback) {
+  assetReadyCallback = typeof callback === "function" ? callback : null;
+}
 
 export function deviceVisualCacheKey(device, options = {}) {
   const visualKind = visualDeviceKind(device);
@@ -19,7 +30,9 @@ export function deviceVisualCacheKey(device, options = {}) {
   const title = textureTitle(device);
   // Faceplate data URLs can be huge; hash them so the key stays small while
   // still invalidating when the actual visual source changes.
-  const faceKey = visual.hasFaceImage ? visualSourceKey(visual.faceImage || "face") : "";
+  const faceKey = visual.hasFaceImage
+    ? `${visualSourceKey(visual.faceImage || "face")}:${deviceVisualAssetRevision(visual.faceImage)}`
+    : "";
   const connectorShape = (device.connectors || [])
     .map(connector => [
       Math.round(connector.x || 0),
@@ -28,22 +41,54 @@ export function deviceVisualCacheKey(device, options = {}) {
       connector.direction || "",
       connector.type || connector.plug || "",
       connector.label || "",
+      connector.nameText || "",
+      connector.resolutionFrameRate || "",
+      connector.customText || "",
+      connector.nameTextCaption || "",
+      connector.resolutionFrameRateCaption || "",
+      connector.customTextCaption || "",
       options.connectorColors ? connector.color || "" : ""
     ].join(":"))
     .join("|");
   const cardShape = (visual.visualCards || [])
     .map(card => [
+      card.id || "",
+      card.installedCardTypeId || "",
+      card.cardTypeId || "",
       Math.round(card.x || 0),
       Math.round(card.y || 0),
       Math.round(card.width || 0),
       Math.round(card.height || 0),
+      Math.round(card.captionX || card.textX || 0),
+      Math.round(card.captionY || card.slotY || 0),
       card.name || "",
+      card.kind || "",
       card.direction || "",
-      card.connectorCount || 0
+      card.captionTextColor || "",
+      card.captionBackgroundColor || "",
+      card.rowCount || 0,
+      card.laneCount || 0,
+      card.connectorCount || 0,
+      (card.connectors || []).map(connector => [
+        connector.id || "",
+        connector.type || "",
+        connector.direction || "",
+        Math.round(connector.y || 0),
+        connector.label || "",
+        connector.nameText || "",
+        connector.resolutionFrameRate || "",
+        connector.customText || "",
+        connector.nameTextCaption || "",
+        connector.resolutionFrameRateCaption || "",
+        connector.customTextCaption || "",
+        connector.customColor || "",
+        connector.fiberMode || "",
+        connector.installedModuleType || ""
+      ].join(",")).join("/")
     ].join(":"))
     .join("|");
   return [
-    "device-card-v2",
+    "device-card-v3",
     visualKind,
     width,
     height,
@@ -58,6 +103,13 @@ export function deviceVisualCacheKey(device, options = {}) {
     device.category || visual.category || "",
     faceKey,
     visual.faceplateDeleted ? "face-deleted" : "",
+    visual.faceImageNaturalWidth || 0,
+    visual.faceImageNaturalHeight || 0,
+    visual.faceImageScale || 1,
+    visual.faceImageScaleX || 1,
+    visual.faceImageScaleY || 1,
+    visual.faceImageOffsetX || 0,
+    visual.faceImageOffsetY || 0,
     visual.hasSwappableCards ? "cards" : "",
     visual.isLedProcessor ? "led-processor" : "",
     visual.isPowerDistro ? "pd" : "",
@@ -73,9 +125,10 @@ export function buildDeviceVisual(device, options = {}) {
   const width = Math.max(1, Math.round(device.width || 1));
   const height = Math.max(1, Math.round(device.height || 1));
   const quality = textureQuality(options);
+  const maxTextureSide = effectiveTextureMaxSide(device, quality, options);
   const ratio = Math.max(0.1, Math.min(
     quality.scale,
-    quality.maxSide / Math.max(width, height, 1)
+    maxTextureSide / Math.max(width, height, 1)
   ));
   const canvas = createCanvas(Math.max(1, Math.ceil(width * ratio)), Math.max(1, Math.ceil(height * ratio)));
   const ctx = canvas.getContext("2d");
@@ -93,7 +146,7 @@ export function buildDeviceVisual(device, options = {}) {
     cssHeight: height,
     pixelRatio: ratio,
     qualityMode: quality.mode,
-    maxTextureSide: quality.maxSide,
+    maxTextureSide,
     buildMs: performance.now() - start,
     fallback: false
   };
@@ -189,17 +242,13 @@ function drawDeviceHeader(ctx, device, width, headerHeight, pad, detailed) {
 
 function drawFaceplate(ctx, device, visual, width, height, headerHeight, pad, detailed) {
   if (visual.faceplateDeleted) return { x: pad, y: headerHeight + pad, width: width - pad * 2, height: 0, bottom: headerHeight + pad };
-  const naturalRatio = visual.faceImageNaturalWidth && visual.faceImageNaturalHeight
-    ? visual.faceImageNaturalHeight / visual.faceImageNaturalWidth
-    : 0.22;
-  const scaledRatio = naturalRatio * (Number(visual.faceImageScaleY) || 1);
-  const faceHeight = visual.hasFaceImage
-    ? Math.min(height * 0.42, Math.max(24, (width - pad * 2) * scaledRatio))
+  const faceBounds = legacyFaceBounds(visual, width);
+  const x = visual.hasFaceImage ? faceBounds.x : pad;
+  const y = visual.hasFaceImage ? faceBounds.y : headerHeight + Math.max(5, pad * 0.65);
+  const w = visual.hasFaceImage ? faceBounds.width : Math.max(1, width - pad * 2);
+  const h = visual.hasFaceImage
+    ? faceBounds.height
     : Math.min(height * 0.34, Math.max(24, height * 0.22));
-  const x = pad;
-  const y = headerHeight + Math.max(5, pad * 0.65);
-  const w = Math.max(1, width - pad * 2);
-  const h = Math.max(1, faceHeight);
 
   roundRect(ctx, x, y, w, h, Math.min(8, pad));
   const gradient = ctx.createLinearGradient(x, y, x + w, y + h);
@@ -210,23 +259,17 @@ function drawFaceplate(ctx, device, visual, width, height, headerHeight, pad, de
   ctx.fill();
 
   if (visual.hasFaceImage) {
-    ctx.save();
-    ctx.globalAlpha = 0.9;
-    ctx.strokeStyle = "rgba(255,255,255,.16)";
-    ctx.lineWidth = Math.max(1, h * 0.018);
-    for (let yy = y + h * 0.22; yy < y + h; yy += Math.max(8, h * 0.18)) {
-      ctx.beginPath();
-      ctx.moveTo(x + w * 0.05, yy);
-      ctx.lineTo(x + w * 0.95, yy);
-      ctx.stroke();
+    const image = cachedImage(visual.faceImage);
+    if (image?.complete && image.naturalWidth > 0) {
+      const placement = legacyFaceImagePlacement(visual, width, image);
+      ctx.save();
+      roundRect(ctx, x, y, w, h, Math.min(8, pad));
+      ctx.clip();
+      ctx.drawImage(image, placement.x, placement.y, placement.width, placement.height);
+      ctx.restore();
+    } else {
+      drawFaceplateLoadingPlaceholder(ctx, visual, x, y, w, h);
     }
-    ctx.globalAlpha = 1;
-    drawFittedText(ctx, basename(visual.faceImage), x + w * 0.06, y + h * 0.62, w * 0.88, Math.max(7, h * 0.18), {
-      weight: 800,
-      fill: "#d7e6f5",
-      align: "center"
-    });
-    ctx.restore();
   } else {
     const displayWidth = Math.min(w * 0.22, 94);
     roundRect(ctx, x + pad * 0.75, y + h * 0.22, displayWidth, Math.max(9, h * 0.26), 3);
@@ -263,16 +306,135 @@ function drawCardAreas(ctx, cards, width, height, pad) {
     ctx.lineWidth = 1.4;
     ctx.stroke();
     ctx.setLineDash([]);
-    drawFittedText(ctx, card.name || "Card", x + 8, y + 7, w - 16, Math.min(16, Math.max(8, h * 0.13)), {
-      weight: 900,
-      fill: "#ffffff",
-      stroke: "rgba(0,0,0,.75)",
-      strokeWidth: 2.2,
-      align: "center",
-      baseline: "top"
-    });
-    if (card.connectorCount) drawDeviceTag(ctx, `${card.connectorCount} ports`, x + w - 7, y + h - 7, "#32b6ff", "right");
+    drawCardCaption(ctx, card);
+    drawCardConnectorFields(ctx, card, width);
   });
+}
+
+function drawFaceplateLoadingPlaceholder(ctx, visual, x, y, w, h) {
+  ctx.save();
+  ctx.globalAlpha = 0.9;
+  ctx.strokeStyle = "rgba(255,255,255,.16)";
+  ctx.lineWidth = Math.max(1, h * 0.018);
+  for (let yy = y + h * 0.22; yy < y + h; yy += Math.max(8, h * 0.18)) {
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.05, yy);
+    ctx.lineTo(x + w * 0.95, yy);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  drawFittedText(ctx, basename(visual.faceImage), x + w * 0.06, y + h * 0.62, w * 0.88, Math.max(7, h * 0.18), {
+    weight: 800,
+    fill: "#d7e6f5",
+    align: "center"
+  });
+  ctx.restore();
+}
+
+function drawCardCaption(ctx, card) {
+  const text = String(card.name || "Empty").trim() || "Empty";
+  const maxWidth = Math.max(44, Number(card.width) - 12);
+  let fontSize = Math.min(16, 54 * 0.62);
+  const estimatedWidth = estimateTextWidth(text, fontSize, 800) + 18;
+  if (estimatedWidth > maxWidth) {
+    fontSize = Math.max(8, fontSize * ((maxWidth - 14) / Math.max(1, estimatedWidth)));
+  }
+  const barHeight = Math.max(18, fontSize + 8);
+  const barWidth = maxWidth;
+  const x = (Number(card.captionX) || Number(card.textX) || (Number(card.x) + Number(card.width) / 2)) - barWidth / 2;
+  const y = (Number(card.captionY) || Number(card.slotY) || Number(card.y) + 18) - fontSize + 1;
+  ctx.save();
+  roundRect(ctx, x, y, barWidth, barHeight, 4);
+  ctx.fillStyle = normalizeColor(card.captionBackgroundColor, "#17212b");
+  ctx.globalAlpha = 0.92;
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  drawFittedText(ctx, text, x + 5, y + barHeight / 2 + fontSize * 0.35, barWidth - 10, fontSize, {
+    weight: 800,
+    fill: normalizeColor(card.captionTextColor, "#32b6ff"),
+    stroke: "rgba(0,0,0,.92)",
+    strokeWidth: 4.4,
+    align: "center",
+    baseline: "middle"
+  });
+  ctx.restore();
+}
+
+function drawCardConnectorFields(ctx, card, deviceWidth) {
+  const connectors = Array.isArray(card.connectors) ? card.connectors : [];
+  if (!connectors.length) return;
+  const boxHeight = 13;
+  const gap = Math.max(2, Math.min(4, Number(card.width) * 0.025));
+  const boxWidth = Math.max(24, Math.min(43, (Number(card.width) - 28) / 3));
+  const topInset = Number(card.y) + 22;
+  const bottomLimit = Number(card.y) + Number(card.height) - 8;
+  connectors.forEach(connector => {
+    const fields = connectorInfoFields(connector);
+    if (!fields.length) return;
+    const rowY = clamp(Number(connector.y) || Number(card.slotY) || 0, topInset, bottomLimit);
+    const valueY = rowY - boxHeight * 0.34;
+    const titleY = valueY - boxHeight * 0.52;
+    const isInput = connector.direction === "input";
+    const startX = isInput
+      ? Number(card.x) + 18
+      : Number(card.x) + Number(card.width) - 18;
+    fields.forEach((field, index) => {
+      const x = isInput
+        ? startX + index * (boxWidth + gap)
+        : startX - (index + 1) * boxWidth - index * gap;
+      roundRect(ctx, x, valueY - boxHeight / 2, boxWidth, boxHeight, 3);
+      ctx.fillStyle = "rgba(17, 28, 39, .78)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(205, 221, 235, .78)";
+      ctx.lineWidth = 0.9;
+      ctx.stroke();
+      drawFittedText(ctx, field.title, x, titleY, boxWidth, 5.5, {
+        weight: 800,
+        fill: "#32b6ff",
+        stroke: "rgba(0,0,0,.78)",
+        strokeWidth: 1,
+        align: "center",
+        baseline: "middle"
+      });
+      drawFittedText(ctx, field.value || "", x + 2, valueY + 1.2, boxWidth - 4, 5.6, {
+        weight: 800,
+        fill: "#ffffff",
+        align: "center",
+        baseline: "middle"
+      });
+    });
+  });
+}
+
+function connectorInfoFields(connector) {
+  const fields = [
+    {
+      title: connectorFieldTitle(connector, "nameText", "Name"),
+      value: connector.nameText || connector.label || ""
+    }
+  ];
+  if (connector.resolutionFrameRate || isVideoLikeConnector(connector)) {
+    fields.push({
+      title: connectorFieldTitle(connector, "resolutionFrameRate", "Resolution"),
+      value: connector.resolutionFrameRate || ""
+    });
+  }
+  fields.push({
+    title: connectorFieldTitle(connector, "customText", "Custom"),
+    value: connector.customText || ""
+  });
+  return fields.slice(0, 3);
+}
+
+function connectorFieldTitle(connector, field, fallback) {
+  if (field === "nameText" && connector.nameTextCaption) return connector.nameTextCaption;
+  if (field === "resolutionFrameRate" && connector.resolutionFrameRateCaption) return connector.resolutionFrameRateCaption;
+  if (field === "customText" && connector.customTextCaption) return connector.customTextCaption;
+  return fallback;
+}
+
+function isVideoLikeConnector(connector) {
+  return /hdmi|sdi|display|dvi|dp|video|cxp/i.test(String(connector.type || connector.label || ""));
 }
 
 function drawConnectorBands(ctx, device, width, height, startY) {
@@ -462,6 +624,14 @@ function visualDeviceKind(device) {
   return device.kind || "device";
 }
 
+function effectiveTextureMaxSide(device, quality, options = {}) {
+  const gpuMax = Number(options.gpuMaxTextureSide) || Infinity;
+  const modularTarget = device?.visual?.hasSwappableCards
+    ? Math.max(quality.maxSide, 4096)
+    : quality.maxSide;
+  return Math.max(1, Math.min(modularTarget, gpuMax));
+}
+
 function textureTitle(device) {
   const visual = device.visual || {};
   if (device.kind === "jump" || device.kind === "surface" || device.kind === "adapter") {
@@ -482,6 +652,95 @@ function basename(path) {
   return value.length > 34 ? `${value.slice(0, 31)}...` : value;
 }
 
+export function deviceVisualSources(device) {
+  const visual = device?.visual || {};
+  return [visual.faceImage, visual.thumbnailImage]
+    .map(value => String(value || "").trim())
+    .filter(Boolean);
+}
+
+export function deviceVisualAssetRevision(source) {
+  const entry = IMAGE_CACHE.get(String(source || ""));
+  return entry?.revision || 0;
+}
+
+function cachedImage(source) {
+  const src = String(source || "").trim();
+  if (!src || typeof Image === "undefined") return null;
+  const existing = IMAGE_CACHE.get(src);
+  if (existing) return existing.image;
+  const image = new Image();
+  const entry = {
+    image,
+    state: "loading",
+    revision: 0
+  };
+  IMAGE_CACHE.set(src, entry);
+  image.onload = () => {
+    entry.state = "loaded";
+    entry.revision += 1;
+    assetReadyCallback?.(src);
+  };
+  image.onerror = () => {
+    entry.state = "error";
+    entry.revision += 1;
+    assetReadyCallback?.(src);
+  };
+  image.src = src;
+  return image;
+}
+
+function legacyFaceBounds(visual, width) {
+  const faceHeight = legacyFaceHeight(visual, width);
+  return {
+    x: FACE_MARGIN,
+    y: FACE_TOP_Y,
+    width: Math.max(1, width - FACE_MARGIN * 2),
+    height: faceHeight
+  };
+}
+
+function legacyFaceHeight(visual, width) {
+  if (visual?.faceplateDeleted && !visual?.faceImage) return 0;
+  if (!visual?.hasFaceImage && !visual?.faceImage) return FACE_HEIGHT;
+  const naturalWidth = Number(visual.faceImageNaturalWidth);
+  const naturalHeight = Number(visual.faceImageNaturalHeight);
+  const availableWidth = Math.max(1, width - FACE_MARGIN * 2);
+  const aspectHeight = naturalWidth && naturalHeight
+    ? Math.max(24, Math.round(availableWidth * naturalHeight / naturalWidth))
+    : FACE_HEIGHT;
+  const scaleY = clamp(Number(visual.faceImageScaleY) || Number(visual.faceImageScale) || 1, 0.2, 6);
+  return Math.max(24, Math.round(aspectHeight * scaleY));
+}
+
+function legacyFaceImagePlacement(visual, width, image) {
+  const faceHeight = legacyFaceHeight(visual, width);
+  const pad = Math.min(FACE_IMAGE_PADDING, Math.max(0, faceHeight / 2 - 1));
+  const inner = {
+    x: FACE_MARGIN + pad,
+    y: FACE_TOP_Y + pad,
+    width: Math.max(1, width - FACE_MARGIN * 2 - pad * 2),
+    height: Math.max(1, faceHeight - pad * 2)
+  };
+  const naturalWidth = Number(visual.faceImageNaturalWidth) || image?.naturalWidth || 0;
+  const naturalHeight = Number(visual.faceImageNaturalHeight) || image?.naturalHeight || 0;
+  if (!naturalWidth || !naturalHeight) return inner;
+  const fitScale = inner.width / naturalWidth;
+  const legacyScale = clamp(Number(visual.faceImageScale) || 1, 0.2, 6);
+  const imageScaleX = clamp(Number(visual.faceImageScaleX) || legacyScale, 0.2, 6);
+  const imageScaleY = clamp(Number(visual.faceImageScaleY) || legacyScale, 0.2, 6);
+  const imageWidth = Math.min(inner.width, naturalWidth * fitScale * imageScaleX);
+  const imageHeight = Math.min(inner.height, naturalHeight * fitScale * imageScaleY);
+  const requestedX = inner.x + (inner.width - imageWidth) / 2 + (Number(visual.faceImageOffsetX) || 0);
+  const requestedY = inner.y + (inner.height - imageHeight) / 2 + (Number(visual.faceImageOffsetY) || 0);
+  return {
+    x: clamp(requestedX, inner.x, inner.x + inner.width - imageWidth),
+    y: clamp(requestedY, inner.y, inner.y + inner.height - imageHeight),
+    width: imageWidth,
+    height: imageHeight
+  };
+}
+
 function visualSourceKey(value) {
   const text = String(value || "");
   if (text.length < 120) return text;
@@ -499,6 +758,15 @@ function hashString(value) {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, Number(value) || 0));
+}
+
+function normalizeColor(value, fallback) {
+  const text = String(value || "").trim();
+  return text || fallback;
+}
+
+function estimateTextWidth(text, fontSize, weight = 700) {
+  return String(text || "").length * fontSize * (weight >= 800 ? 0.62 : 0.56);
 }
 
 function roundRect(ctx, x, y, width, height, radius) {
