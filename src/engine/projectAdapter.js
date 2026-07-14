@@ -57,6 +57,7 @@ const NODE_TYPE_FALLBACKS = new Map([
   ["fiber-mpo", "#ffff00"],
   ["powerlock", "#2aa657"]
 ]);
+const ADAPTER_BREAKOUT_CATEGORY_RE = /\bAdapters?\s*\/\s*Breakouts?\b/i;
 
 export function syntheticPreset(name) {
   return SIZE_PRESETS[name] || SIZE_PRESETS.small;
@@ -339,15 +340,24 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
 }
 
 function isAdapterTemplateForEngine(template = {}) {
-  return template?.objectType === "adapter" || template?.isAdapterBreakout === true;
+  return template?.objectType === "adapter"
+    || template?.isAdapterBreakout === true
+    // Legacy stores the adapter/breakout branch as a structured category in
+    // some built-in/project libraries. Preserve that data signal so Engine does
+    // not send adapter templates through the normal device renderer.
+    || ADAPTER_BREAKOUT_CATEGORY_RE.test(String(template?.category || template?.type || template?.section || ""));
 }
 
 function normalizeDeviceVisualMetadata(template = {}, instance = {}, width = DEFAULT_DEVICE_WIDTH, height = DEFAULT_DEVICE_HEIGHT) {
   const brand = String(instance.brand || template.brand || "").trim();
   const model = String(instance.model || template.model || "").trim();
   const category = String(template.category || template.type || template.section || "").trim();
-  const faceImage = String(template.faceImage || "").trim();
+  const faceImage = String(instance.faceImage || template.faceImage || "").trim();
   const thumbnailImage = String(template.thumbnailImage || "").trim();
+  const faceImageScale = firstPositive(instance.faceImageScale, instance.faceplateScale, template.faceImageScale, template.faceplateScale) || 1;
+  const faceImageScaleX = firstPositive(instance.faceImageScaleX, instance.faceplateScaleX, template.faceImageScaleX, template.faceplateScaleX) || faceImageScale;
+  const faceImageScaleY = firstPositive(instance.faceImageScaleY, instance.faceplateScaleY, template.faceImageScaleY, template.faceplateScaleY) || faceImageScale;
+  const isAdapter = isAdapterTemplateForEngine(template);
   return {
     brand,
     model,
@@ -358,20 +368,35 @@ function normalizeDeviceVisualMetadata(template = {}, instance = {}, width = DEF
     thumbnailImage,
     hasFaceImage: Boolean(faceImage),
     hasThumbnailImage: Boolean(thumbnailImage),
-    faceplateDeleted: Boolean(template.faceplateDeleted),
-    faceImageNaturalWidth: positiveNumber(template.faceImageNaturalWidth),
-    faceImageNaturalHeight: positiveNumber(template.faceImageNaturalHeight),
-    faceImageScale: positiveNumber(template.faceImageScale) || 1,
-    faceImageScaleX: positiveNumber(template.faceImageScaleX) || positiveNumber(template.faceImageScale) || 1,
-    faceImageScaleY: positiveNumber(template.faceImageScaleY) || positiveNumber(template.faceImageScale) || 1,
-    faceImageOffsetX: finiteNumber(template.faceImageOffsetX, 0),
-    faceImageOffsetY: finiteNumber(template.faceImageOffsetY, 0),
+    faceplateDeleted: Boolean(instance.faceplateDeleted || template.faceplateDeleted),
+    faceImageNaturalWidth: firstPositive(instance.faceImageNaturalWidth, instance.faceplateNaturalWidth, template.faceImageNaturalWidth, template.faceplateNaturalWidth),
+    faceImageNaturalHeight: firstPositive(instance.faceImageNaturalHeight, instance.faceplateNaturalHeight, template.faceImageNaturalHeight, template.faceplateNaturalHeight),
+    faceImageScale,
+    faceImageScaleX,
+    faceImageScaleY,
+    faceImageOffsetX: finiteNumber(instance.faceImageOffsetX ?? instance.faceplateOffsetX ?? template.faceImageOffsetX ?? template.faceplateOffsetX, 0),
+    faceImageOffsetY: finiteNumber(instance.faceImageOffsetY ?? instance.faceplateOffsetY ?? template.faceImageOffsetY ?? template.faceplateOffsetY, 0),
     hasSwappableCards: Boolean(template.hasSwappableCards),
     isLedProcessor: Boolean(template.isLedProcessor),
     isPowerDistro: Boolean(template.isPowerDistro),
     isMatrixRouter: Boolean(template.isMatrixRouter),
-    isAdapterBreakout: isAdapterTemplateForEngine(template),
+    isAdapterBreakout: isAdapter,
+    adapterClassification: adapterClassificationForEngine(template, isAdapter),
     visualCards: normalizeVisualCards(template, width, height)
+  };
+}
+
+function adapterClassificationForEngine(template = {}, isAdapter = false) {
+  const category = String(template?.category || template?.type || template?.section || "").trim();
+  const legacyFlag = template?.objectType === "adapter" || template?.isAdapterBreakout === true;
+  const categoryMatch = ADAPTER_BREAKOUT_CATEGORY_RE.test(category);
+  return {
+    isAdapter,
+    legacyFlag,
+    categoryMatch,
+    objectType: String(template?.objectType || ""),
+    isAdapterBreakout: template?.isAdapterBreakout === true,
+    category
   };
 }
 
@@ -762,4 +787,12 @@ function finiteNumber(value, fallback) {
 function positiveNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : 0;
+}
+
+function firstPositive(...values) {
+  for (const value of values) {
+    const number = positiveNumber(value);
+    if (number) return number;
+  }
+  return 0;
 }

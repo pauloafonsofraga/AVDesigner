@@ -4,7 +4,7 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 40.4`
+- Current build label: `Iteration 40.5`
 - Scope: interface and visual fidelity only. Functional wire parity is tracked in
   [`docs/legacy-functional-parity.md`](legacy-functional-parity.md).
 
@@ -25,6 +25,12 @@ device textures. It raises the safe texture budget for tall modular chassis and
 adds `debugDeviceTexture=1` HUD diagnostics for source image size, logical size,
 physical texture size, DPR/zoom magnification, WebGL filtering, cache
 hit/miss/rebuild reason, build time, and estimated GPU memory.
+
+Iteration 40.5 keeps the 40.4 texture budget and corrects the remaining
+screenshot-level device parity gaps: faceplate scale/offset aliases now survive
+Engine normalization, selected-device glow is a live layered overlay rather
+than baked texture state, and adapter/breakout templates are classified through
+Legacy adapter flags plus structured adapter/breakout categories.
 
 Iteration 39 was deliberately an audit pass. It did not migrate reports,
 exports, the standalone viewer, or the remaining Legacy editors. The goal is to

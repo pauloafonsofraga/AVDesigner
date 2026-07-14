@@ -1293,8 +1293,9 @@ export class WebglGraphRenderer {
     ctx.clearRect(0, 0, width + padding * 2, height + padding * 2);
     ctx.lineJoin = "round";
     if (mode === "selected") {
-      drawGlowStroke(ctx, padding, padding, width, height, radius, 3, "rgba(251,121,4,.95)", 9, "rgba(251,121,4,.52)");
-      drawGlowStroke(ctx, padding, padding, width, height, radius, 3, "rgba(251,121,4,.55)", 22, "rgba(251,121,4,.16)");
+      drawGlowStroke(ctx, padding, padding, width, height, radius, 5, "rgba(251,121,4,.95)", 8, "rgba(251,121,4,.50)");
+      drawGlowStroke(ctx, padding, padding, width, height, radius, 4, "rgba(251,121,4,.72)", 18, "rgba(251,121,4,.24)");
+      drawGlowStroke(ctx, padding, padding, width, height, radius, 2, "rgba(251,121,4,.90)", 3, "rgba(251,121,4,.72)");
     } else {
       drawGlowStroke(ctx, padding, padding, width, height, radius, 2, "rgba(50,182,255,.70)", 13, "rgba(50,182,255,.20)");
     }
@@ -1772,7 +1773,12 @@ function connectorRenderY(connector = {}, device = {}) {
 
 function pushSelectionOutline(vertices, device, offsets = null) {
   pushObjectOutline(vertices, device, offsets, [
-    { expand: 3, width: 2.2, color: "rgba(251,121,4,.88)" }
+    // Keep this as live geometry instead of baking it into the cached device
+    // texture. Selection, drag, and multi-select can then change without
+    // invalidating the high-resolution device snapshot.
+    { expand: 10, width: 7.5, color: "rgba(251,121,4,.12)" },
+    { expand: 6, width: 5, color: "rgba(251,121,4,.28)" },
+    { expand: 3, width: 2.6, color: "rgba(251,121,4,.92)" }
   ]);
 }
 

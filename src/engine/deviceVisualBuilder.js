@@ -523,31 +523,34 @@ function drawAdapterInternalWires(ctx, device) {
 
 function adapterInternalWirePairs(connectors) {
   const usable = connectors
-    .filter(connector => connector && !connector.empty && (connector.type || connector.label || connector.nameText))
+    .filter(connector => connector && !connector.empty && connector.type)
     .slice();
   const inputs = usable
-    .filter(connector => connector.direction === "input" || connector.side === "left" || Number(connector.x || 0) <= 1)
+    .filter(connector => connector.direction === "input")
     .sort((a, b) => Number(a.y || 0) - Number(b.y || 0));
   const outputs = usable
-    .filter(connector => connector.direction === "output" || connector.side === "right")
+    .filter(connector => connector.direction !== "input")
     .sort((a, b) => Number(a.y || 0) - Number(b.y || 0));
   if (!inputs.length || !outputs.length) return [];
-  const pairs = [];
   if (inputs.length === 1) {
-    outputs.forEach(output => pairs.push({ input: inputs[0], output }));
-    return pairs;
+    return outputs.map(output => ({ input: inputs[0], output }));
   }
   if (outputs.length === 1) {
-    inputs.forEach(input => pairs.push({ input, output: outputs[0] }));
-    return pairs;
+    return inputs.map(input => ({ input, output: outputs[0] }));
   }
-  const max = Math.max(inputs.length, outputs.length);
-  for (let index = 0; index < max; index += 1) {
-    const inputIndex = Math.round((index / Math.max(1, max - 1)) * (inputs.length - 1));
-    const outputIndex = Math.round((index / Math.max(1, max - 1)) * (outputs.length - 1));
-    pairs.push({ input: inputs[inputIndex], output: outputs[outputIndex] });
+  if (inputs.length < outputs.length) {
+    return outputs.map((output, index) => ({
+      input: inputs[Math.min(inputs.length - 1, Math.floor(index * inputs.length / outputs.length))],
+      output
+    }));
   }
-  return pairs;
+  if (outputs.length < inputs.length) {
+    return inputs.map((input, index) => ({
+      input,
+      output: outputs[Math.min(outputs.length - 1, Math.floor(index * outputs.length / inputs.length))]
+    }));
+  }
+  return inputs.map((input, index) => ({ input, output: outputs[index] }));
 }
 
 function adapterInternalWirePath(ctx, input, output) {
@@ -755,6 +758,7 @@ function textureScaleForSize(width, height, quality, limits) {
 
 function deviceVisualDiagnostics(device, render) {
   const face = faceplateDiagnostics(device, render.logicalWidth);
+  const adapter = adapterDiagnostics(device);
   const texturePixels = render.textureWidth * render.textureHeight;
   return {
     deviceId: device?.id || "",
@@ -783,7 +787,8 @@ function deviceVisualDiagnostics(device, render) {
     minFilter: "LINEAR",
     magFilter: "LINEAR",
     buildMs: render.buildMs,
-    face
+    face,
+    adapter
   };
 }
 
@@ -804,6 +809,29 @@ function faceplateDiagnostics(device, logicalWidth) {
     boundsY: faceBounds.y,
     boundsWidth: faceBounds.width,
     boundsHeight: faceBounds.height,
+    availableFaceplateX: faceBounds.x,
+    availableFaceplateY: faceBounds.y,
+    availableFaceplateWidth: faceBounds.width,
+    availableFaceplateHeight: faceBounds.height,
+    legacyX: 0,
+    legacyY: 0,
+    legacyWidth: 0,
+    legacyHeight: 0,
+    engineX: 0,
+    engineY: 0,
+    engineWidth: 0,
+    engineHeight: 0,
+    faceImageScale: Number(visual.faceImageScale) || 1,
+    faceImageScaleX: Number(visual.faceImageScaleX) || Number(visual.faceImageScale) || 1,
+    faceImageScaleY: Number(visual.faceImageScaleY) || Number(visual.faceImageScale) || 1,
+    faceImageOffsetX: Number(visual.faceImageOffsetX) || 0,
+    faceImageOffsetY: Number(visual.faceImageOffsetY) || 0,
+    xScale: 0,
+    yScale: 0,
+    aspectBefore: 0,
+    aspectAfter: 0,
+    aspectPreserved: false,
+    placementMode: "none",
     placementX: 0,
     placementY: 0,
     placementWidth: 0,
@@ -814,13 +842,35 @@ function faceplateDiagnostics(device, logicalWidth) {
   const image = cachedImage(source);
   if (image?.complete && image.naturalWidth > 0) {
     const placement = legacyFaceImagePlacement(visual, logicalWidth, image);
+    const naturalWidth = image.naturalWidth || diagnostics.declaredNaturalWidth || 0;
+    const naturalHeight = image.naturalHeight || diagnostics.declaredNaturalHeight || 0;
+    const aspectBefore = naturalHeight ? naturalWidth / naturalHeight : 0;
+    const aspectAfter = placement.height ? placement.width / placement.height : 0;
     diagnostics.state = "loaded";
-    diagnostics.imageNaturalWidth = image.naturalWidth || 0;
-    diagnostics.imageNaturalHeight = image.naturalHeight || 0;
+    diagnostics.imageNaturalWidth = naturalWidth;
+    diagnostics.imageNaturalHeight = naturalHeight;
+    diagnostics.legacyX = placement.x;
+    diagnostics.legacyY = placement.y;
+    diagnostics.legacyWidth = placement.width;
+    diagnostics.legacyHeight = placement.height;
+    diagnostics.engineX = placement.x;
+    diagnostics.engineY = placement.y;
+    diagnostics.engineWidth = placement.width;
+    diagnostics.engineHeight = placement.height;
     diagnostics.placementX = placement.x;
     diagnostics.placementY = placement.y;
     diagnostics.placementWidth = placement.width;
     diagnostics.placementHeight = placement.height;
+    diagnostics.xScale = naturalWidth ? placement.width / naturalWidth : 0;
+    diagnostics.yScale = naturalHeight ? placement.height / naturalHeight : 0;
+    diagnostics.aspectBefore = aspectBefore;
+    diagnostics.aspectAfter = aspectAfter;
+    diagnostics.aspectPreserved = aspectBefore > 0 && aspectAfter > 0 && Math.abs(aspectBefore - aspectAfter) <= 0.02;
+    diagnostics.placementMode = diagnostics.faceImageScaleX !== diagnostics.faceImageScaleY
+      ? "legacy-scaled-explicit-xy"
+      : diagnostics.faceImageScaleX !== 1 || diagnostics.faceImageOffsetX || diagnostics.faceImageOffsetY
+        ? "legacy-scaled-or-offset"
+        : "legacy-contained";
     diagnostics.sourcePixelsPerDisplayedLogicalPixel = placement.width
       ? (image.naturalWidth || diagnostics.declaredNaturalWidth || 0) / placement.width
       : 0;
@@ -828,6 +878,26 @@ function faceplateDiagnostics(device, logicalWidth) {
     diagnostics.state = "loading";
   }
   return diagnostics;
+}
+
+function adapterDiagnostics(device) {
+  const classification = device?.visual?.adapterClassification || null;
+  const connectors = Array.isArray(device?.connectors) ? device.connectors : [];
+  const pairs = device?.kind === "adapter" ? adapterInternalWirePairs(connectors) : [];
+  return {
+    isAdapter: device?.kind === "adapter",
+    engineKind: device?.kind || "",
+    templateId: device?.templateId || "",
+    templateName: device?.visual?.templateName || "",
+    instanceName: device?.label || device?.visual?.displayName || "",
+    legacyClassification: classification,
+    visualKind: visualDeviceKind(device || {}),
+    connectorCount: connectors.length,
+    inputConnectorCount: connectors.filter(connector => connector.direction === "input").length,
+    outputConnectorCount: connectors.filter(connector => connector.direction !== "input").length,
+    internalMappingCount: pairs.length,
+    rendererHelper: device?.kind === "adapter" ? "drawAdapterVisual" : "drawRackDeviceVisual"
+  };
 }
 
 function textureTitle(device) {
@@ -909,7 +979,7 @@ function legacyFaceHeight(visual, width) {
   const aspectHeight = naturalWidth && naturalHeight
     ? Math.max(24, Math.round(availableWidth * naturalHeight / naturalWidth))
     : FACE_HEIGHT;
-  const scaleY = clamp(Number(visual.faceImageScaleY) || Number(visual.faceImageScale) || 1, 0.2, 6);
+  const scaleY = clamp(Number(visual.faceImageScaleY) || Number(visual.faceplateScaleY) || Number(visual.faceImageScale) || Number(visual.faceplateScale) || 1, 0.2, 6);
   return Math.max(24, Math.round(aspectHeight * scaleY));
 }
 
@@ -926,13 +996,13 @@ function legacyFaceImagePlacement(visual, width, image) {
   const naturalHeight = Number(visual.faceImageNaturalHeight) || image?.naturalHeight || 0;
   if (!naturalWidth || !naturalHeight) return inner;
   const fitScale = inner.width / naturalWidth;
-  const legacyScale = clamp(Number(visual.faceImageScale) || 1, 0.2, 6);
-  const imageScaleX = clamp(Number(visual.faceImageScaleX) || legacyScale, 0.2, 6);
-  const imageScaleY = clamp(Number(visual.faceImageScaleY) || legacyScale, 0.2, 6);
+  const legacyScale = clamp(Number(visual.faceImageScale) || Number(visual.faceplateScale) || 1, 0.2, 6);
+  const imageScaleX = clamp(Number(visual.faceImageScaleX) || Number(visual.faceplateScaleX) || legacyScale, 0.2, 6);
+  const imageScaleY = clamp(Number(visual.faceImageScaleY) || Number(visual.faceplateScaleY) || legacyScale, 0.2, 6);
   const imageWidth = Math.min(inner.width, naturalWidth * fitScale * imageScaleX);
   const imageHeight = Math.min(inner.height, naturalHeight * fitScale * imageScaleY);
-  const requestedX = inner.x + (inner.width - imageWidth) / 2 + (Number(visual.faceImageOffsetX) || 0);
-  const requestedY = inner.y + (inner.height - imageHeight) / 2 + (Number(visual.faceImageOffsetY) || 0);
+  const requestedX = inner.x + (inner.width - imageWidth) / 2 + (Number(visual.faceImageOffsetX ?? visual.faceplateOffsetX) || 0);
+  const requestedY = inner.y + (inner.height - imageHeight) / 2 + (Number(visual.faceImageOffsetY ?? visual.faceplateOffsetY) || 0);
   return {
     x: clamp(requestedX, inner.x, inner.x + inner.width - imageWidth),
     y: clamp(requestedY, inner.y, inner.y + inner.height - imageHeight),

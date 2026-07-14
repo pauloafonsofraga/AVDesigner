@@ -1006,6 +1006,7 @@ function normalizeDevice(device) {
 
 function normalizeVisualMetadata(visual = {}) {
   if (!visual || typeof visual !== "object") return {};
+  const faceImageScale = Number(visual.faceImageScale) || Number(visual.faceplateScale) || 1;
   return {
     brand: visual.brand || "",
     model: visual.model || "",
@@ -1017,21 +1018,34 @@ function normalizeVisualMetadata(visual = {}) {
     hasFaceImage: Boolean(visual.hasFaceImage || visual.faceImage),
     hasThumbnailImage: Boolean(visual.hasThumbnailImage || visual.thumbnailImage),
     faceplateDeleted: Boolean(visual.faceplateDeleted),
-    faceImageNaturalWidth: Number(visual.faceImageNaturalWidth) || 0,
-    faceImageNaturalHeight: Number(visual.faceImageNaturalHeight) || 0,
-    faceImageScale: Number(visual.faceImageScale) || 1,
-    faceImageScaleX: Number(visual.faceImageScaleX) || 1,
-    faceImageScaleY: Number(visual.faceImageScaleY) || 1,
-    faceImageOffsetX: Number(visual.faceImageOffsetX) || 0,
-    faceImageOffsetY: Number(visual.faceImageOffsetY) || 0,
+    faceImageNaturalWidth: Number(visual.faceImageNaturalWidth) || Number(visual.faceplateNaturalWidth) || 0,
+    faceImageNaturalHeight: Number(visual.faceImageNaturalHeight) || Number(visual.faceplateNaturalHeight) || 0,
+    faceImageScale,
+    faceImageScaleX: Number(visual.faceImageScaleX) || Number(visual.faceplateScaleX) || faceImageScale,
+    faceImageScaleY: Number(visual.faceImageScaleY) || Number(visual.faceplateScaleY) || faceImageScale,
+    faceImageOffsetX: Number(visual.faceImageOffsetX ?? visual.faceplateOffsetX) || 0,
+    faceImageOffsetY: Number(visual.faceImageOffsetY ?? visual.faceplateOffsetY) || 0,
     hasSwappableCards: Boolean(visual.hasSwappableCards),
     isLedProcessor: Boolean(visual.isLedProcessor),
     isPowerDistro: Boolean(visual.isPowerDistro),
     isMatrixRouter: Boolean(visual.isMatrixRouter),
     isAdapterBreakout: Boolean(visual.isAdapterBreakout),
+    adapterClassification: normalizeAdapterClassification(visual.adapterClassification),
     visualCards: Array.isArray(visual.visualCards)
       ? visual.visualCards.map(normalizeVisualCard).filter(Boolean)
       : []
+  };
+}
+
+function normalizeAdapterClassification(value = {}) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    isAdapter: Boolean(value.isAdapter),
+    legacyFlag: Boolean(value.legacyFlag),
+    categoryMatch: Boolean(value.categoryMatch),
+    objectType: String(value.objectType || ""),
+    isAdapterBreakout: Boolean(value.isAdapterBreakout),
+    category: String(value.category || "")
   };
 }
 
