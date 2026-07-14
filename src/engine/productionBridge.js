@@ -1236,6 +1236,14 @@ class ProductionEngineBridge {
       this.finishWireInteraction({ restoreSelection: true, reason: "wire-rewire-missing" });
       return;
     }
+    if (this.isOriginalRewireTarget(target)) {
+      this.recordRewireDiagnostic("return-original", { compatibility });
+      this.finishWireInteraction({ selectWireId: wire.id, reason: "wire-rewire-return-original" });
+      this.updateSelectionHud();
+      this.updateInteractionHud("wire-rewire-return-original");
+      this.hud.setMetric("rewire commit", `no-op ${(performance.now() - commitStart).toFixed(2)} ms`);
+      return;
+    }
     const beforeWire = cloneWire(wire);
     const beforeConnection = rewire.originalConnection || this.mutations?.connectionDataForWire(wire.sourceId || wire.id);
     this.beginProductionCommit("rewire endpoint");
@@ -1293,13 +1301,21 @@ class ProductionEngineBridge {
   wireRewireRejectionReason(target, compatibility = this.currentWireCompatibility()) {
     const rewire = this.wireCreate?.rewire;
     if (!rewire || !target) return target ? "" : "No target connector.";
-    if (target.device.id === rewire.detachedHit.device.id && target.connector.id === rewire.detachedHit.connector.id) {
-      return "Choose a different connector.";
-    }
+    if (this.isOriginalRewireTarget(target)) return "";
     if (!compatibility?.valid) return compatibility?.reason || "Incompatible connector.";
     const occupiedByOtherWire = [...this.scene.connectorWireIds(target.device.id, target.connector.id)]
       .some(wireId => wireId !== rewire.wireId);
     return occupiedByOtherWire ? "Target connector is already connected." : "";
+  }
+
+  isOriginalRewireTarget(target) {
+    const rewire = this.wireCreate?.rewire;
+    return Boolean(
+      rewire
+      && target
+      && target.device?.id === rewire.detachedHit?.device?.id
+      && target.connector?.id === rewire.detachedHit?.connector?.id
+    );
   }
 
   completeMarquee() {
