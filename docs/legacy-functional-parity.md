@@ -4,7 +4,7 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 42`
+- Current build label: `Iteration 42.1`
 
 Iteration 39 adds a separate Legacy interface and visual fidelity audit in
 [`docs/legacy-interface-parity.md`](legacy-interface-parity.md). This document
@@ -46,13 +46,15 @@ without calling the old full project restore path, and the Engine scene swaps
 only affected device connector models plus affected wires before invalidating
 their cached textures.
 
-Iteration 42 restores Project Custom Devices as project-level custom templates.
-Create New Device, duplicate-to-custom, edit, delete, and Project Custom
-Devices drag/drop remain production UI workflows, while Engine consumes the
-resulting template data for new canvas instances. Editing a custom template
-updates the Project Custom Devices entry and its visual revision for future
-drops only; existing placed instances keep their saved override snapshot and
-are not silently mutated.
+Iteration 42.1 corrects the Project Custom Devices workflow. Create New Device
+and main-library context duplication now remain Master Device Library workflows.
+Project Custom Devices are created only from the canvas context-menu **Duplicate
+Device** action on an already placed device. That action copies the placed
+device's effective current template into a project-scoped custom template, while
+the source placed instance and source master template remain unchanged. Editing
+a custom template updates the Project Custom Devices entry and its visual
+revision for future drops only; existing placed instances keep their saved
+override snapshot and are not silently mutated.
 
 Iteration 37.5 builds on Iteration 37, which restored Legacy connector compatibility rules in Engine wire
 creation, including installed SFP/SFP+/QSFP modules, SFP/QSFP fiber-mode family
@@ -798,7 +800,7 @@ Validation:
 - Each action updates production data and Engine scene once.
 - Undo/redo works.
 
-### Iteration 42 — Faceplates And Project Custom Devices
+### Iteration 42.1 — Faceplates And Project Custom Devices
 
 Complete custom faceplate and user-created device template parity.
 
@@ -806,11 +808,15 @@ Scope:
 
 - Real faceplate PNGs render inside Engine textures.
 - Faceplate replace/delete/resize updates only affected textures.
-- Create New Device creates a project custom template, not an auto-placed
-  instance.
-- Built-in devices can be duplicated into Project Custom Devices.
+- Create New Device creates a main Master Device Library template, not a
+  project custom entry and not an auto-placed instance.
+- Main-library context duplication creates another main-library template.
+- Canvas device context-menu **Duplicate Device** creates the Project Custom
+  Device copy from the placed instance's effective template/configuration.
 - Project custom templates can be edited, duplicated, deleted safely, searched,
   and dragged to the Engine canvas.
+- Source master templates and source placed devices remain unchanged by Project
+  Custom creation/edit/delete.
 - Editing a project custom template updates future drops only; existing placed
   instances remain unchanged.
 - Project custom visual revisions invalidate stale future texture-cache entries

@@ -717,21 +717,44 @@ function validateProjectCustomDeviceFixture() {
       height: 42
     }]
   };
+  const masterTemplate = stableClone(template);
+  masterTemplate.id = "master-validation-device";
+  masterTemplate.name = "Validation Master Device";
+  masterTemplate.model = "Master Workflow";
+  delete masterTemplate.projectCustomDevice;
+  delete masterTemplate.isProjectCustomDevice;
+  delete masterTemplate.projectCustomRevision;
+  delete masterTemplate.visualRevision;
   const project = {
     version: 1,
     projectName: "Project Custom Device Fixture",
-    deviceLibrary: [stableClone(template)],
-    devices: [{
-      instanceId: "dev-project-custom-validation",
-      templateId: template.id,
-      x: 100,
-      y: 200,
-      name: "Placed Validation Custom"
-    }],
+    deviceLibrary: [stableClone(masterTemplate), stableClone(template)],
+    devices: [
+      {
+        instanceId: "dev-master-validation",
+        templateId: masterTemplate.id,
+        x: 40,
+        y: 80,
+        name: "Placed Validation Master"
+      },
+      {
+        instanceId: "dev-project-custom-validation",
+        templateId: template.id,
+        x: 100,
+        y: 200,
+        name: "Placed Validation Custom"
+      }
+    ],
     connections: []
   };
   const harness = time("custom fixture harness build", () => createHarness(JSON.stringify(project), "project custom fixture"));
+  const masterDevice = harness.scene.getDevice("dev-master-validation");
   const device = harness.scene.getDevice("dev-project-custom-validation");
+  check("project custom fixture master device stays in master library", () => {
+    assert.ok(masterDevice, "expected placed master device in scene");
+    assert.equal(Boolean(masterDevice.visual.isProjectCustomDevice), false);
+    assert.equal(masterDevice.visual.projectCustomRevision || "", "");
+  });
   check("project custom fixture device exists", () => {
     assert.ok(device, "expected placed custom device in scene");
   });
@@ -753,6 +776,7 @@ function validateProjectCustomDeviceFixture() {
     assert.ok(device.visual.visualCards.some(card => card.installedCardTypeId === "validation-card"), "missing visual card metadata");
   });
 
+  const sourceSnapshot = JSON.stringify({ template, device: project.devices[1] });
   const duplicate = stableClone(template);
   duplicate.id = "project-custom-validation-device-copy";
   duplicate.name = "Validation Custom Device Copy";
@@ -769,10 +793,13 @@ function validateProjectCustomDeviceFixture() {
   check("project custom fixture duplicate uses unique ids", () => {
     assert.equal(new Set(duplicateIds).size, duplicateIds.length);
   });
+  check("project custom fixture duplicate does not mutate source template or placed instance", () => {
+    assert.equal(JSON.stringify({ template, device: project.devices[1] }), sourceSnapshot);
+  });
 
   const snapshotProject = stableClone(project);
-  snapshotProject.deviceLibrary = [];
-  snapshotProject.devices[0].templateOverride = stableClone(template);
+  snapshotProject.deviceLibrary = [stableClone(masterTemplate)];
+  snapshotProject.devices[1].templateOverride = stableClone(template);
   const snapshotHarness = time("custom fixture deleted-template harness build", () => createHarness(JSON.stringify(snapshotProject), "project custom deleted-template fixture"));
   const snapshotDevice = snapshotHarness.scene.getDevice("dev-project-custom-validation");
   check("project custom fixture survives deleted source with instance snapshot", () => {
@@ -782,6 +809,7 @@ function validateProjectCustomDeviceFixture() {
   });
 
   return {
+    masterTemplateId: masterTemplate.id,
     templateId: template.id,
     devices: sceneCounts(harness.scene).devices,
     connectors: device.connectors.length,
