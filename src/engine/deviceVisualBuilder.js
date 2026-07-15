@@ -264,7 +264,11 @@ function drawFaceplate(ctx, device, visual, width, height, pad, detailed) {
     const image = cachedImage(visual.faceImage);
     if (image?.complete && image.naturalWidth > 0) {
       const placement = legacyFaceImagePlacement(visual, width, image);
-      ctx.drawImage(image, placement.x, placement.y, placement.width, placement.height);
+      // Legacy renders faceplates as SVG images with
+      // preserveAspectRatio="xMidYMid meet". Canvas drawImage would otherwise
+      // stretch the bitmap into the placement box and distort ports/logos.
+      const imageRect = preserveAspectRatioMeetRect(placement, image.naturalWidth, image.naturalHeight);
+      ctx.drawImage(image, imageRect.x, imageRect.y, imageRect.width, imageRect.height);
     } else {
       drawFaceplateLoadingPlaceholder(ctx, visual, x, y, w, h);
     }
@@ -845,7 +849,8 @@ function faceplateDiagnostics(device, logicalWidth) {
     const naturalWidth = image.naturalWidth || diagnostics.declaredNaturalWidth || 0;
     const naturalHeight = image.naturalHeight || diagnostics.declaredNaturalHeight || 0;
     const aspectBefore = naturalHeight ? naturalWidth / naturalHeight : 0;
-    const aspectAfter = placement.height ? placement.width / placement.height : 0;
+    const engineRect = preserveAspectRatioMeetRect(placement, naturalWidth, naturalHeight);
+    const aspectAfter = engineRect.height ? engineRect.width / engineRect.height : 0;
     diagnostics.state = "loaded";
     diagnostics.imageNaturalWidth = naturalWidth;
     diagnostics.imageNaturalHeight = naturalHeight;
@@ -853,26 +858,26 @@ function faceplateDiagnostics(device, logicalWidth) {
     diagnostics.legacyY = placement.y;
     diagnostics.legacyWidth = placement.width;
     diagnostics.legacyHeight = placement.height;
-    diagnostics.engineX = placement.x;
-    diagnostics.engineY = placement.y;
-    diagnostics.engineWidth = placement.width;
-    diagnostics.engineHeight = placement.height;
+    diagnostics.engineX = engineRect.x;
+    diagnostics.engineY = engineRect.y;
+    diagnostics.engineWidth = engineRect.width;
+    diagnostics.engineHeight = engineRect.height;
     diagnostics.placementX = placement.x;
     diagnostics.placementY = placement.y;
     diagnostics.placementWidth = placement.width;
     diagnostics.placementHeight = placement.height;
-    diagnostics.xScale = naturalWidth ? placement.width / naturalWidth : 0;
-    diagnostics.yScale = naturalHeight ? placement.height / naturalHeight : 0;
+    diagnostics.xScale = naturalWidth ? engineRect.width / naturalWidth : 0;
+    diagnostics.yScale = naturalHeight ? engineRect.height / naturalHeight : 0;
     diagnostics.aspectBefore = aspectBefore;
     diagnostics.aspectAfter = aspectAfter;
     diagnostics.aspectPreserved = aspectBefore > 0 && aspectAfter > 0 && Math.abs(aspectBefore - aspectAfter) <= 0.02;
     diagnostics.placementMode = diagnostics.faceImageScaleX !== diagnostics.faceImageScaleY
-      ? "legacy-scaled-explicit-xy"
+      ? "legacy-box-explicit-xy-preserve-aspect"
       : diagnostics.faceImageScaleX !== 1 || diagnostics.faceImageOffsetX || diagnostics.faceImageOffsetY
-        ? "legacy-scaled-or-offset"
-        : "legacy-contained";
-    diagnostics.sourcePixelsPerDisplayedLogicalPixel = placement.width
-      ? (image.naturalWidth || diagnostics.declaredNaturalWidth || 0) / placement.width
+        ? "legacy-scaled-or-offset-preserve-aspect"
+        : "legacy-contained-preserve-aspect";
+    diagnostics.sourcePixelsPerDisplayedLogicalPixel = engineRect.width
+      ? (image.naturalWidth || diagnostics.declaredNaturalWidth || 0) / engineRect.width
       : 0;
   } else if (image) {
     diagnostics.state = "loading";
@@ -1008,6 +1013,24 @@ function legacyFaceImagePlacement(visual, width, image) {
     y: clamp(requestedY, inner.y, inner.y + inner.height - imageHeight),
     width: imageWidth,
     height: imageHeight
+  };
+}
+
+function preserveAspectRatioMeetRect(box, naturalWidth, naturalHeight) {
+  const x = Number(box?.x) || 0;
+  const y = Number(box?.y) || 0;
+  const width = Math.max(1, Number(box?.width) || 1);
+  const height = Math.max(1, Number(box?.height) || 1);
+  const sourceWidth = Math.max(1, Number(naturalWidth) || width);
+  const sourceHeight = Math.max(1, Number(naturalHeight) || height);
+  const scale = Math.min(width / sourceWidth, height / sourceHeight);
+  const drawWidth = Math.max(1, sourceWidth * scale);
+  const drawHeight = Math.max(1, sourceHeight * scale);
+  return {
+    x: x + (width - drawWidth) / 2,
+    y: y + (height - drawHeight) / 2,
+    width: drawWidth,
+    height: drawHeight
   };
 }
 

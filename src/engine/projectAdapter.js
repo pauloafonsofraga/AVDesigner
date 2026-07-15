@@ -24,6 +24,7 @@ const DEFAULT_DEVICE_WIDTH = 122;
 const DEFAULT_DEVICE_HEIGHT = 58;
 const SLOT_HEIGHT = 54;
 const LEGACY_DEVICE_WIDTH = 380;
+const LEGACY_ADAPTER_WIDTH = 190;
 const JUMP_NODE_SIZE = 44;
 const SURFACE_FALLBACK_HEIGHT = 120;
 const CARD_SLOT_OVERRIDE_FIELDS = [
@@ -299,11 +300,20 @@ function collectNodeColors(root, data) {
 
 function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
   const templateId = instance.templateId || instance.deviceId || instance.template || instance.id;
-  const template = instance.templateOverride
+  const resolvedTemplate = instance.templateOverride
     || templates.get(templateId)
     || templates.get(instance.templateName)
-    || {};
-  const widthSource = positiveNumber(instance.width) || positiveNumber(template.width);
+    || null;
+  // Project custom devices and adapter/breakout objects can exist only on the
+  // placed instance after save/load. Falling back to an empty template loses
+  // connector definitions, adapter flags, and faceplate data, which makes the
+  // Engine invent a normal generic device. Use the instance as the template
+  // source in that case; explicit instance fields still override below.
+  const template = resolvedTemplate || instance || {};
+  const isAdapter = isAdapterTemplateForEngine(template, instance);
+  const widthSource = isAdapter
+    ? LEGACY_ADAPTER_WIDTH
+    : positiveNumber(instance.width) || positiveNumber(template.width);
   const heightSource = positiveNumber(instance.height) || positiveNumber(template.height);
   const width = widthSource || DEFAULT_DEVICE_WIDTH;
   const height = heightSource || DEFAULT_DEVICE_HEIGHT;
@@ -311,10 +321,9 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
   const label = instance.name || template.name || template.model || `Device ${index + 1}`;
   const connectors = effectiveConnectorsForTemplate(template)
     .map(connector => applyInstanceConnectorOverride(instance, connector))
-    .map((connector, connectorIndex) => normalizeConnector(connector, connectorIndex, width, nodeColorByType))
+    .map((connector, connectorIndex) => normalizeConnector(connector, connectorIndex, width, nodeColorByType, { isAdapter }))
     .filter(Boolean);
   const visual = normalizeDeviceVisualMetadata(template, instance, width, height);
-  const isAdapter = isAdapterTemplateForEngine(template);
   return {
     id,
     sourceKind: "device",
@@ -339,25 +348,32 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
   };
 }
 
-function isAdapterTemplateForEngine(template = {}) {
+function isAdapterTemplateForEngine(template = {}, instance = {}) {
+  return isAdapterTemplateLikeForEngine(template, instance);
+}
+
+function isAdapterTemplateLikeForEngine(template = {}, instance = {}) {
   return template?.objectType === "adapter"
+    || instance?.objectType === "adapter"
     || template?.isAdapterBreakout === true
+    || instance?.isAdapterBreakout === true
     // Legacy stores the adapter/breakout branch as a structured category in
     // some built-in/project libraries. Preserve that data signal so Engine does
     // not send adapter templates through the normal device renderer.
-    || ADAPTER_BREAKOUT_CATEGORY_RE.test(String(template?.category || template?.type || template?.section || ""));
+    || ADAPTER_BREAKOUT_CATEGORY_RE.test(String(template?.category || template?.type || template?.section || ""))
+    || ADAPTER_BREAKOUT_CATEGORY_RE.test(String(instance?.category || instance?.type || instance?.section || ""));
 }
 
 function normalizeDeviceVisualMetadata(template = {}, instance = {}, width = DEFAULT_DEVICE_WIDTH, height = DEFAULT_DEVICE_HEIGHT) {
   const brand = String(instance.brand || template.brand || "").trim();
   const model = String(instance.model || template.model || "").trim();
-  const category = String(template.category || template.type || template.section || "").trim();
+  const category = String(instance.category || template.category || template.type || template.section || "").trim();
   const faceImage = String(instance.faceImage || template.faceImage || "").trim();
   const thumbnailImage = String(template.thumbnailImage || "").trim();
   const faceImageScale = firstPositive(instance.faceImageScale, instance.faceplateScale, template.faceImageScale, template.faceplateScale) || 1;
   const faceImageScaleX = firstPositive(instance.faceImageScaleX, instance.faceplateScaleX, template.faceImageScaleX, template.faceplateScaleX) || faceImageScale;
   const faceImageScaleY = firstPositive(instance.faceImageScaleY, instance.faceplateScaleY, template.faceImageScaleY, template.faceplateScaleY) || faceImageScale;
-  const isAdapter = isAdapterTemplateForEngine(template);
+  const isAdapter = isAdapterTemplateLikeForEngine(template, instance);
   return {
     brand,
     model,
@@ -381,21 +397,24 @@ function normalizeDeviceVisualMetadata(template = {}, instance = {}, width = DEF
     isPowerDistro: Boolean(template.isPowerDistro),
     isMatrixRouter: Boolean(template.isMatrixRouter),
     isAdapterBreakout: isAdapter,
-    adapterClassification: adapterClassificationForEngine(template, isAdapter),
+    adapterClassification: adapterClassificationForEngine(template, instance, isAdapter),
     visualCards: normalizeVisualCards(template, width, height)
   };
 }
 
-function adapterClassificationForEngine(template = {}, isAdapter = false) {
-  const category = String(template?.category || template?.type || template?.section || "").trim();
-  const legacyFlag = template?.objectType === "adapter" || template?.isAdapterBreakout === true;
+function adapterClassificationForEngine(template = {}, instance = {}, isAdapter = false) {
+  const category = String(instance?.category || template?.category || template?.type || template?.section || "").trim();
+  const legacyFlag = template?.objectType === "adapter"
+    || instance?.objectType === "adapter"
+    || template?.isAdapterBreakout === true
+    || instance?.isAdapterBreakout === true;
   const categoryMatch = ADAPTER_BREAKOUT_CATEGORY_RE.test(category);
   return {
     isAdapter,
     legacyFlag,
     categoryMatch,
-    objectType: String(template?.objectType || ""),
-    isAdapterBreakout: template?.isAdapterBreakout === true,
+    objectType: String(instance?.objectType || template?.objectType || ""),
+    isAdapterBreakout: template?.isAdapterBreakout === true || instance?.isAdapterBreakout === true,
     category
   };
 }
@@ -512,21 +531,30 @@ function applyInstanceConnectorOverride(instance, connector) {
   return override ? { ...connector, ...override } : connector;
 }
 
-function normalizeConnector(connector, index, deviceWidth, nodeColorByType) {
+function normalizeConnector(connector, index, deviceWidth, nodeColorByType, options = {}) {
   if (!connector || connector.empty || !connector.type) return null;
   const direction = connector.direction === "input" ? "input" : connector.direction === "output" ? "output" : "io";
-  const localX = Number.isFinite(Number(connector.x))
-    ? Number(connector.x)
-    : direction === "input" ? 0 : deviceWidth;
+  // Legacy adapters always pin connector centers to the compact adapter edges.
+  // Old project files can still carry a normal-device width on adapter
+  // connectors; accepting that value sends nodes far outside the dashed shell.
+  const localX = options.isAdapter && direction !== "io"
+    ? (direction === "input" ? 0 : deviceWidth)
+    : Number.isFinite(Number(connector.x))
+      ? Number(connector.x)
+      : direction === "input" ? 0 : deviceWidth;
   const localY = Number.isFinite(Number(connector.y))
     ? Number(connector.y)
     : 34 + index * 18;
   const type = String(connector.type || "");
+  const rawLabel = String(connector.nameText || connector.label || "").trim();
+  const label = rawLabel && !/^connector$/i.test(rawLabel)
+    ? rawLabel
+    : type || `Connector ${index + 1}`;
   const colorMapped = Boolean(connector.customColor || nodeColorByType.has(type) || NODE_TYPE_FALLBACKS.has(type));
   return {
     id: String(connector.id || `connector-${index}`),
     type,
-    label: connector.nameText || connector.label || connector.type || `Connector ${index + 1}`,
+    label,
     direction,
     side: direction === "input" ? "left" : direction === "output" ? "right" : localX <= deviceWidth / 2 ? "left" : "right",
     cardSlotId: connector.cardSlotId || "",

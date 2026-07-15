@@ -1594,6 +1594,35 @@ function pushBoxOutline(vertices, rect, width, color) {
   pushLine(vertices, { x: rect.x, y: rect.y + rect.height }, { x: rect.x, y: rect.y }, width, color);
 }
 
+function pushDashedBoxOutline(vertices, rect, width, color, dash = 8, gap = 5) {
+  pushDashedLine(vertices, { x: rect.x, y: rect.y }, { x: rect.x + rect.width, y: rect.y }, width, color, dash, gap);
+  pushDashedLine(vertices, { x: rect.x + rect.width, y: rect.y }, { x: rect.x + rect.width, y: rect.y + rect.height }, width, color, dash, gap);
+  pushDashedLine(vertices, { x: rect.x + rect.width, y: rect.y + rect.height }, { x: rect.x, y: rect.y + rect.height }, width, color, dash, gap);
+  pushDashedLine(vertices, { x: rect.x, y: rect.y + rect.height }, { x: rect.x, y: rect.y }, width, color, dash, gap);
+}
+
+function pushDashedLine(vertices, from, to, width, color, dash = 8, gap = 5) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const length = Math.hypot(dx, dy);
+  if (!length) return;
+  const ux = dx / length;
+  const uy = dy / length;
+  const step = Math.max(1, dash + gap);
+  for (let cursor = 0; cursor < length; cursor += step) {
+    const start = cursor;
+    const end = Math.min(length, cursor + dash);
+    if (end <= start) continue;
+    pushLine(
+      vertices,
+      { x: from.x + ux * start, y: from.y + uy * start },
+      { x: from.x + ux * end, y: from.y + uy * end },
+      width,
+      color
+    );
+  }
+}
+
 function pushRoundedBoxOutline(vertices, rect, radius, width, color) {
   const r = Math.max(0, Math.min(radius, rect.width / 2, rect.height / 2));
   if (r <= 0.25) {
@@ -1679,17 +1708,18 @@ function pushDevice(vertices, device, offsets = null, selected = false, options 
     return;
   }
   if (selected) pushSelectionOutline(vertices, device, offsets);
+  if (device.kind === "adapter") {
+    // Fallback geometry must still look like a Legacy adapter/breakout. Do
+    // not draw the normal solid device body here; texture misses/loading would
+    // otherwise flash a completely different object type.
+    pushRect(vertices, x, y, device.width, device.height, "rgba(50, 182, 255, .08)");
+    pushDashedBoxOutline(vertices, { x, y, width: device.width, height: device.height }, 3, "#32b6ff", 9, 6);
+    return;
+  }
   const fill = device.kind === "surface"
       ? "rgba(75, 75, 75, .72)"
       : device.color || DEVICE_FILL;
   pushRect(vertices, x, y, device.width, device.height, fill);
-  if (device.kind === "adapter") {
-    pushLine(vertices, { x, y }, { x: x + device.width, y }, 3, "#32b6ff");
-    pushLine(vertices, { x: x + device.width, y }, { x: x + device.width, y: y + device.height }, 3, "#32b6ff");
-    pushLine(vertices, { x: x + device.width, y: y + device.height }, { x, y: y + device.height }, 3, "#32b6ff");
-    pushLine(vertices, { x, y: y + device.height }, { x, y }, 3, "#32b6ff");
-    return;
-  }
   pushLine(vertices, { x, y }, { x: x + device.width, y }, 2.2, "#dbe7f3");
   pushLine(vertices, { x: x + device.width, y }, { x: x + device.width, y: y + device.height }, 2.2, "#dbe7f3");
   pushLine(vertices, { x: x + device.width, y: y + device.height }, { x, y: y + device.height }, 2.2, "#dbe7f3");
