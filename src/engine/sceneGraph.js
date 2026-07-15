@@ -505,6 +505,42 @@ export class SceneGraph {
     return device;
   }
 
+  replaceDevice(deviceData) {
+    const device = normalizeDevice(deviceData);
+    if (!device.id) return null;
+    if (!this.devicesById.has(device.id)) return this.insertDevice(device);
+    const index = this.devices.findIndex(item => item.id === device.id);
+    if (index < 0) return null;
+
+    // Card/module edits can change the connector set without moving the device.
+    // Keep this scoped to the edited object so the Engine does not rebuild the
+    // whole scene just because generated card connectors changed.
+    (this.connectorKeysByOwnerId.get(device.id) || new Set()).forEach(key => {
+      this.connectorOwnerByKey.delete(key);
+      this.connectorIndex.delete(key);
+      this.selectedConnectorKeys.delete(key);
+    });
+    this.connectorKeysByOwnerId.delete(device.id);
+    this.devices[index] = device;
+    this.devicesById.set(device.id, device);
+    (device.connectors || []).forEach(connector => this.addConnectorOwner(device.id, connector.id));
+    this.spatialIndex.update(device.id, deviceBounds(device), { id: device.id, bounds: deviceBounds(device), device });
+    (device.connectors || []).forEach(connector => {
+      const point = this.connectorWorldPoint(device, connector);
+      this.connectorIndex.insert(connectorKey(device.id, connector.id), centeredBounds(point, device.kind === "jump" ? 42 : 24), {
+        id: connectorKey(device.id, connector.id),
+        bounds: centeredBounds(point, device.kind === "jump" ? 42 : 24),
+        device,
+        connector,
+        point
+      });
+    });
+    this.rebuildWireIndex();
+    this.dirtyDevices.add(device.id);
+    this.dirtyTextures.add(device.id);
+    return device;
+  }
+
   deleteDevice(deviceId) {
     const id = String(deviceId || "");
     const device = this.devicesById.get(id);

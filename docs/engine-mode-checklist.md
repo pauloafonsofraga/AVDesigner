@@ -1,5 +1,11 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
+Iteration 41 restores the Legacy modular chassis/card editing apply workflow in
+the default Engine Editor. The Device Editor remains the production DOM modal,
+but Apply now records one Engine command, warns before removing wires attached
+to generated card connectors that no longer exist, and refreshes only affected
+scene devices/wires plus their cached textures.
+
 Iteration 40.10 fixes the remaining Engine device visual parity gaps after the
 high-resolution texture pass: PNG faceplates now keep the Legacy scale/offset
 metadata through normalization, selected devices use a live layered orange glow
@@ -82,11 +88,11 @@ PDF and report drawing paths are deliberately unchanged.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags.
 
-Current visible build label: `Iteration 40.10`.
+Current visible build label: `Iteration 41`.
 The app top bar must show one of these labels:
 
-- `Iteration 40.10 — Engine Editor — iteration40-10`
-- `Iteration 40.10 — Legacy Editor — iteration40-10`
+- `Iteration 41 — Engine Editor — iteration41`
+- `Iteration 41 — Legacy Editor — iteration41`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -95,34 +101,34 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration40-10`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration40-10`.
+   `index.html?v=iteration41`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration41`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration40-10`.
+   `index.html?engineDefaultTest=1&v=iteration41`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration40-10`.
+   `index.html?legacy=1&v=iteration41`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration40-10`.
+   `index.html?engine=0&v=iteration41`.
 7. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration40-10`.
+   `index.html?engine=1&debugLoad=1&v=iteration41`.
 8. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration40-10`.
+   `index.html?engine=1&loadDelay=1500&v=iteration41`.
 9. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration40-10`.
+   `index.html?engine=1&debugHud=1&v=iteration41`.
 9a. Open the device visual diagnostic HUD/layer view:
-   `index.html?engine=1&debugDeviceVisual=1&v=iteration40-10`.
+   `index.html?engine=1&debugDeviceVisual=1&v=iteration41`.
 10. Open the Device Library drag/drop debug overlay:
-   `index.html?debugLibraryDrag=1&v=iteration40-10`.
+   `index.html?debugLibraryDrag=1&v=iteration41`.
 11. Open the explicit Engine drag/drop debug overlay:
-   `index.html?engine=1&debugLibraryDrag=1&v=iteration40-10`.
+   `index.html?engine=1&debugLibraryDrag=1&v=iteration41`.
 12. Open the Legacy drag/drop debug overlay:
-   `index.html?legacy=1&debugLibraryDrag=1&v=iteration40-10`.
+   `index.html?legacy=1&debugLibraryDrag=1&v=iteration41`.
 13. Open compatibility diagnostics while drawing wires:
-    `index.html?engine=1&debugCompatibility=1&v=iteration40-10`.
+    `index.html?engine=1&debugCompatibility=1&v=iteration41`.
 14. Open routing diagnostics while selecting or editing orthogonal wires:
-    `index.html?engine=1&debugHud=1&debugRouting=1&v=iteration40-10`.
+    `index.html?engine=1&debugHud=1&debugRouting=1&v=iteration41`.
 15. Open endpoint-rewire diagnostics:
-    `index.html?engine=1&debugRewire=1&debugRouting=1&v=iteration40-10`.
+    `index.html?engine=1&debugRewire=1&debugRouting=1&v=iteration41`.
 16. Confirm the top bar build label matches the mode you intended to test.
 16. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.
@@ -141,9 +147,9 @@ Git commit as the final source of truth when reviewing a pushed change.
 24. The validation script now includes a long mixed undo/redo chain. Confirm the
    JSON output contains a `longChain` section and all `checks` are `ok: true`.
 25. Compare Engine and Legacy connector behavior with the same project:
-   `index.html?v=iteration40-10` beside
-   `index.html?legacy=1&v=iteration40-10`.
-25. In `index.html?engine=1&debugHud=1&v=iteration40-10`, confirm the HUD
+   `index.html?v=iteration41` beside
+   `index.html?legacy=1&v=iteration41`.
+25. In `index.html?engine=1&debugHud=1&v=iteration41`, confirm the HUD
    `load phase`, `load ready`, `wire paths`, `connector overlay`, and
    `connector tooltips` rows update.
 26. Hover and select wires in Engine mode. Confirm hover/selection feedback is

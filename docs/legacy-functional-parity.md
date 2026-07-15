@@ -4,7 +4,7 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 40.5`
+- Current build label: `Iteration 41`
 
 Iteration 39 adds a separate Legacy interface and visual fidelity audit in
 [`docs/legacy-interface-parity.md`](legacy-interface-parity.md). This document
@@ -35,6 +35,16 @@ faceplate placement metadata through the Engine visual path, strengthens the
 live selected-device glow, and maps adapter/breakout library categories back to
 the compact adapter renderer without changing save/load, commands, reports, or
 viewer output.
+
+Iteration 41 restores the Legacy modular chassis/card editing workflow while
+keeping the Device Editor modal as the source-of-truth DOM UI. Applying a
+device/card edit now captures a narrow before/after snapshot for the device
+library, placed devices, and wires, warns before removing connections attached
+to generated card connectors that no longer exist, and records one
+`DeviceEditorApplyCommand` in Engine mode. Undo/redo restores those snapshots
+without calling the old full project restore path, and the Engine scene swaps
+only affected device connector models plus affected wires before invalidating
+their cached textures.
 
 Iteration 37.5 builds on Iteration 37, which restored Legacy connector compatibility rules in Engine wire
 creation, including installed SFP/SFP+/QSFP modules, SFP/QSFP fiber-mode family
@@ -105,8 +115,8 @@ single-file editor:
 
 1. Rack library creation is still Legacy-only; normal Device Library drops now
    work in Engine mode through a create-device command.
-2. Endpoint rewire is restored; modular card/chassis editing remains the next
-   major Engine workflow gap.
+2. Endpoint rewire and modular card/chassis apply are restored; remaining card
+   work is visual polish and broader edge-case testing.
 3. Modular card/chassis, faceplate, power-distro, and rack-builder behaviours
    are mostly normalized for display, but not fully controlled by Engine.
 4. Custom wire route actions are restored, but broader device/connector menu

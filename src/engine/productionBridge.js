@@ -2208,6 +2208,120 @@ class ProductionEngineBridge {
     return removed;
   }
 
+  commitDeviceEditorApplyFromProduction(payload = {}) {
+    if (!this.ready) {
+      this.hud?.setMetric("blocked command", "device editor apply while loading");
+      return false;
+    }
+    const command = deviceEditorApplyCommand(payload);
+    const result = this.applyDeviceEditorSnapshot(payload.after, payload);
+    this.recordCommand(command);
+    this.markCommitted(command.type, result.mutationMs || 0, {
+      command: command.type,
+      deviceEditor: true
+    });
+    this.updateSelectionHud();
+    this.updateInteractionHud("device-editor-apply");
+    return true;
+  }
+
+  applyDeviceEditorSnapshot(snapshot = {}, context = {}) {
+    const start = performance.now();
+    this.api.restoreDeviceEditorSnapshot?.(deepClone(snapshot));
+    const rawProject = this.api.getProjectData?.();
+    const normalized = normalizeProductionProject(rawProject, "device editor apply");
+    this.mutations = new ProjectMutationAdapter({ projectData: rawProject }, { cloneProjectData: false });
+    const patchStats = this.applyDeviceEditorScenePatch(normalized, context);
+    const mutationMs = performance.now() - start;
+    this.mutations?.record?.("device editor apply", mutationMs, "deviceLibrary/devices/connections", {
+      affectedDeviceIds: patchStats.affectedDeviceIds,
+      affectedWireIds: patchStats.affectedWireIds
+    });
+    this.hud?.setMetric("device editor patch", `${mutationMs.toFixed(2)} ms`);
+    this.hud?.setMetric("device editor dirty", `${patchStats.affectedDeviceIds.length} devices / ${patchStats.affectedWireIds.length} wires`);
+    this.updateStatusPanel("device editor apply");
+    this.renderEngineInspector();
+    this.scheduleRender();
+    return { mutationMs, dirtyStats: patchStats.dirtyStats };
+  }
+
+  applyDeviceEditorScenePatch(normalized = {}, context = {}) {
+    const normalizedDevicesById = new Map((normalized.devices || []).map(device => [String(device.id), device]));
+    const normalizedWiresById = new Map((normalized.wires || []).map(wire => [String(wire.id), wire]));
+    const affectedDeviceIds = new Set((context.affectedDeviceIds || []).map(id => String(id || "")).filter(Boolean));
+    const affectedWireIds = new Set((context.affectedWireIds || []).map(id => String(id || "")).filter(Boolean));
+
+    this.scene.wires.forEach(wire => {
+      if (
+        affectedDeviceIds.has(this.scene.wireEndpointOwnerId(wire, "from")) ||
+        affectedDeviceIds.has(this.scene.wireEndpointOwnerId(wire, "to")) ||
+        affectedDeviceIds.has(wire.fromDeviceId) ||
+        affectedDeviceIds.has(wire.toDeviceId)
+      ) {
+        affectedWireIds.add(wire.id);
+        if (wire.sourceId) affectedWireIds.add(String(wire.sourceId));
+      }
+    });
+
+    (normalized.wires || []).forEach(wire => {
+      if (affectedDeviceIds.has(wire.fromDeviceId) || affectedDeviceIds.has(wire.toDeviceId)) {
+        affectedWireIds.add(wire.id);
+        if (wire.sourceId) affectedWireIds.add(String(wire.sourceId));
+      }
+    });
+
+    affectedDeviceIds.forEach(deviceId => {
+      const nextDevice = normalizedDevicesById.get(deviceId);
+      if (nextDevice) this.scene.replaceDevice(nextDevice);
+      else this.scene.deleteDevice(deviceId);
+    });
+
+    const changedWireIds = new Set();
+    const shouldTouchWire = wire => {
+      if (!wire) return false;
+      return affectedWireIds.has(wire.id)
+        || affectedWireIds.has(String(wire.sourceId || ""))
+        || affectedDeviceIds.has(wire.fromDeviceId)
+        || affectedDeviceIds.has(wire.toDeviceId);
+    };
+
+    this.scene.wires.slice().forEach(wire => {
+      if (!shouldTouchWire(wire)) return;
+      const nextWire = normalizedWiresById.get(wire.id) || normalizedWiresById.get(String(wire.sourceId || ""));
+      if (!nextWire) {
+        this.scene.deleteWire(wire.id);
+        changedWireIds.add(wire.id);
+      }
+    });
+
+    (normalized.wires || []).forEach(wire => {
+      if (!shouldTouchWire(wire)) return;
+      if (this.scene.getWire(wire.id)) this.scene.applyWireState(wire.id, wire);
+      else this.scene.insertWire(wire);
+      changedWireIds.add(wire.id);
+    });
+
+    const dirtyDeviceIds = [...affectedDeviceIds];
+    const dirtyWireIds = [...new Set([...affectedWireIds, ...changedWireIds])];
+    this.scene.refreshWireIndexes(dirtyWireIds);
+    const dirtyStats = this.renderer.updateDirty(this.scene, {
+      deviceIds: dirtyDeviceIds,
+      wireIds: dirtyWireIds,
+      refreshCableHops: false
+    });
+    this.lastDirtyDeviceIds = new Set(dirtyDeviceIds);
+    this.lastDirtyWireIds = new Set(dirtyWireIds);
+    this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.recordDirtyVisualMetrics(dirtyStats, "device editor apply");
+    return {
+      affectedDeviceIds: dirtyDeviceIds,
+      affectedWireIds: dirtyWireIds,
+      dirtyStats
+    };
+  }
+
   notifyHistoryChange(reason = "") {
     this.api.onEngineHistoryChange?.(this.engineHistoryState(reason));
   }
@@ -4069,6 +4183,21 @@ function moveWireEndpointCommand(beforeWire, afterWire, beforeConnection, afterC
     affectedIds: [after.id],
     undo: bridge => bridge.applyWireRewireState(before, beforeRaw),
     redo: bridge => bridge.applyWireRewireState(after, afterRaw),
+  };
+}
+
+function deviceEditorApplyCommand(payload = {}) {
+  const before = deepClone(payload.before || {});
+  const after = deepClone(payload.after || {});
+  const affectedIds = uniqueItems([
+    ...(payload.affectedDeviceIds || []),
+    ...(payload.affectedWireIds || [])
+  ]);
+  return {
+    type: "DeviceEditorApplyCommand",
+    affectedIds,
+    undo: bridge => bridge.applyDeviceEditorSnapshot(before, payload),
+    redo: bridge => bridge.applyDeviceEditorSnapshot(after, payload)
   };
 }
 
