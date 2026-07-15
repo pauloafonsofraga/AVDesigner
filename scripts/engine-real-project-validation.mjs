@@ -107,6 +107,7 @@ runCommandCycle(initialHarness, buildDeleteWireCommand(initialHarness));
 
 const longChainHarness = time("long-chain harness build", () => createHarness(rawText, `${projectPath} long-chain`));
 const longChain = runLongUndoRedoChain(longChainHarness);
+const customDeviceFixture = validateProjectCustomDeviceFixture();
 
 const finalValidation = validateAndRoundTrip(initialHarness, "final");
 check("final engine scene validates", () => {
@@ -136,6 +137,7 @@ const summary = {
   roundTrips,
   compatibility: compatibilityResults,
   outputVisual: outputVisualResults,
+  customDeviceFixture,
   standaloneViewerSource,
   timingsMs: Object.fromEntries(Object.entries(timings).map(([key, value]) => [key, round(value)])),
   checks,
@@ -644,6 +646,148 @@ function validateOutputCompatibility(harness, label) {
   if (OUTPUT_VISUAL_CHECK_LABELS.has(label)) {
     validateOutputVisualHelpers(harness, label);
   }
+}
+
+function validateProjectCustomDeviceFixture() {
+  const pngDataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAFgwJ/l83RsgAAAABJRU5ErkJggg==";
+  const template = {
+    id: "project-custom-validation-device",
+    name: "Validation Custom Device",
+    brand: "Video Core",
+    model: "PNG Workflow",
+    category: "Misc.",
+    projectCustomDevice: true,
+    isProjectCustomDevice: true,
+    projectCustomRevision: "fixture-rev-a",
+    visualRevision: "fixture-rev-a",
+    width: 260,
+    height: 150,
+    faceImage: pngDataUrl,
+    faceImageNaturalWidth: 100,
+    faceImageNaturalHeight: 50,
+    faceImageScale: 0.6,
+    faceImageScaleX: 0.7,
+    faceImageScaleY: 0.5,
+    faceImageOffsetX: 12,
+    faceImageOffsetY: -4,
+    connectors: [
+      {
+        id: "custom-hdmi-in",
+        type: "hdmi",
+        direction: "input",
+        side: "left",
+        x: 0,
+        y: 74,
+        label: "HDMI",
+        nameText: "IN 1",
+        resolutionFrameRate: "4K",
+        customText: "fixture"
+      },
+      {
+        id: "custom-sdi-out",
+        type: "sdi",
+        direction: "output",
+        side: "right",
+        x: 260,
+        y: 74,
+        label: "SDI",
+        nameText: "OUT 1"
+      }
+    ],
+    cardTypes: [{
+      id: "validation-card",
+      name: "Validation Card",
+      type: "output",
+      captionBackgroundColor: "#2f86c9",
+      captionTextColor: "#ffffff",
+      connectors: [{
+        id: "validation-card-out",
+        type: "hdmi",
+        direction: "output",
+        label: "HDMI"
+      }]
+    }],
+    cardSlots: [{
+      id: "validation-slot",
+      name: "Slot A",
+      installedCardTypeId: "validation-card",
+      x: 14,
+      y: 96,
+      width: 104,
+      height: 42
+    }]
+  };
+  const project = {
+    version: 1,
+    projectName: "Project Custom Device Fixture",
+    deviceLibrary: [stableClone(template)],
+    devices: [{
+      instanceId: "dev-project-custom-validation",
+      templateId: template.id,
+      x: 100,
+      y: 200,
+      name: "Placed Validation Custom"
+    }],
+    connections: []
+  };
+  const harness = time("custom fixture harness build", () => createHarness(JSON.stringify(project), "project custom fixture"));
+  const device = harness.scene.getDevice("dev-project-custom-validation");
+  check("project custom fixture device exists", () => {
+    assert.ok(device, "expected placed custom device in scene");
+  });
+  check("project custom fixture preserves PNG metadata", () => {
+    assert.equal(device.visual.isProjectCustomDevice, true);
+    assert.equal(device.visual.projectCustomRevision, "fixture-rev-a");
+    assert.equal(device.visual.visualRevision, "fixture-rev-a");
+    assert.equal(device.visual.faceImage, pngDataUrl);
+    assert.equal(device.visual.faceImageNaturalWidth, 100);
+    assert.equal(device.visual.faceImageNaturalHeight, 50);
+    assert.equal(device.visual.faceImageScaleX, 0.7);
+    assert.equal(device.visual.faceImageScaleY, 0.5);
+    assert.equal(device.visual.faceImageOffsetX, 12);
+    assert.equal(device.visual.faceImageOffsetY, -4);
+  });
+  check("project custom fixture preserves connectors and generated cards", () => {
+    assert.ok(device.connectorsById.has("custom-hdmi-in"), "missing source connector");
+    assert.ok(device.connectorsById.has("custom-sdi-out"), "missing target connector");
+    assert.ok(device.visual.visualCards.some(card => card.installedCardTypeId === "validation-card"), "missing visual card metadata");
+  });
+
+  const duplicate = stableClone(template);
+  duplicate.id = "project-custom-validation-device-copy";
+  duplicate.name = "Validation Custom Device Copy";
+  duplicate.projectCustomRevision = "fixture-rev-b";
+  duplicate.visualRevision = "fixture-rev-b";
+  duplicate.connectors = duplicate.connectors.map((connector, index) => ({
+    ...connector,
+    id: `${connector.id}-copy-${index + 1}`
+  }));
+  const duplicateIds = [template, duplicate].flatMap(item => [
+    item.id,
+    ...arrayOf(item.connectors).map(connector => `${item.id}:${connector.id}`)
+  ]);
+  check("project custom fixture duplicate uses unique ids", () => {
+    assert.equal(new Set(duplicateIds).size, duplicateIds.length);
+  });
+
+  const snapshotProject = stableClone(project);
+  snapshotProject.deviceLibrary = [];
+  snapshotProject.devices[0].templateOverride = stableClone(template);
+  const snapshotHarness = time("custom fixture deleted-template harness build", () => createHarness(JSON.stringify(snapshotProject), "project custom deleted-template fixture"));
+  const snapshotDevice = snapshotHarness.scene.getDevice("dev-project-custom-validation");
+  check("project custom fixture survives deleted source with instance snapshot", () => {
+    assert.ok(snapshotDevice, "expected snapshot custom device in scene");
+    assert.equal(snapshotDevice.visual.faceImageNaturalWidth, 100);
+    assert.ok(snapshotDevice.connectorsById.has("custom-hdmi-in"), "snapshot lost connector");
+  });
+
+  return {
+    templateId: template.id,
+    devices: sceneCounts(harness.scene).devices,
+    connectors: device.connectors.length,
+    duplicateTemplateId: duplicate.id,
+    snapshotSurvivesDeletedTemplate: Boolean(snapshotDevice)
+  };
 }
 
 function validateStandaloneViewerSource() {

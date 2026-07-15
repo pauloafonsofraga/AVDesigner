@@ -39,6 +39,13 @@ export function deviceVisualCacheKey(device, options = {}) {
   const faceKey = visual.hasFaceImage
     ? `${visualSourceKey(visual.faceImage || "face")}:${deviceVisualAssetRevision(visual.faceImage)}`
     : "";
+  const templateRevision = String(
+    visual.projectCustomRevision
+    || visual.visualRevision
+    || device.projectCustomRevision
+    || device.visualRevision
+    || ""
+  ).trim();
   const connectorShape = (device.connectors || [])
     .map(connector => [
       Math.round(connector.x || 0),
@@ -108,6 +115,7 @@ export function deviceVisualCacheKey(device, options = {}) {
     options.simplifiedCards ? "simplified" : "standard",
     options.detailedDeviceTextures === false ? "basic" : "detailed",
     title,
+    templateRevision,
     device.brand || visual.brand || "",
     device.model || visual.model || "",
     device.category || visual.category || "",

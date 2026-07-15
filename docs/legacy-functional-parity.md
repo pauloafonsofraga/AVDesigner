@@ -4,7 +4,7 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 41`
+- Current build label: `Iteration 42`
 
 Iteration 39 adds a separate Legacy interface and visual fidelity audit in
 [`docs/legacy-interface-parity.md`](legacy-interface-parity.md). This document
@@ -45,6 +45,14 @@ to generated card connectors that no longer exist, and records one
 without calling the old full project restore path, and the Engine scene swaps
 only affected device connector models plus affected wires before invalidating
 their cached textures.
+
+Iteration 42 restores Project Custom Devices as project-level custom templates.
+Create New Device, duplicate-to-custom, edit, delete, and Project Custom
+Devices drag/drop remain production UI workflows, while Engine consumes the
+resulting template data for new canvas instances. Editing a custom template
+updates the Project Custom Devices entry and its visual revision for future
+drops only; existing placed instances keep their saved override snapshot and
+are not silently mutated.
 
 Iteration 37.5 builds on Iteration 37, which restored Legacy connector compatibility rules in Engine wire
 creation, including installed SFP/SFP+/QSFP modules, SFP/QSFP fiber-mode family
@@ -302,7 +310,7 @@ PD geometry, and special template behaviours.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Device library drag/drop | Library cards start a pointer drag, convert pointer to canvas coordinates, hydrate a device, avoid overlaps, push undo, append to `state.devices`, select, render. | Engine now uses the active Engine canvas as the real drop target, converts through the Engine camera, commits the hydrated instance through `CreateDeviceCommand`, and can expose a live `debugLibraryDrag=1` overlay for the real pointer workflow. | covered | `renderDeviceLibrary`, `startLibraryDrag`, `moveLibraryGhost`, `finishLibraryDrag`, `prepareDeviceInstanceFromTemplate`, `addDeviceInstanceFromTemplate` | `ProductionEngineBridge.clientPointToWorld`, `ProductionEngineBridge.createDeviceFromLibraryDrop`, `ProjectMutationAdapter.restoreDeviceInstance`, `SceneGraph.insertDevice`, `WebglGraphRenderer.appendDevice` | `deviceLibrary`, `state.devices`, template overrides, connector overrides | New device persists as production `devices[]` entry | One undo removes it; redo restores same data/ID | Reports/export/viewer see placed devices through production data | medium | 35.3 | If manual drops fail, open `index.html?debugLibraryDrag=1&v=iteration35-3` and copy diagnostics. |
 | Device pairs | Legacy pair library entry drops two hydrated devices with `DEVICE_PAIR_GAP`, non-overlap search, multi-selection, one undo snapshot. | Engine now prepares both instances through Legacy pair placement and commits them as one `CreateDevicesCommand`. | covered | `deviceLibraryEntries`, `pairedTemplateFor`, `prepareDevicePairInstances`, `addDevicePairInstances` | `ProductionEngineBridge.createDevicesFromLibraryDrop` | two `devices[]` instances, pair metadata in templates | Saves as two real devices | One group undo | Reports count two devices | medium | 35 | Does not create a linking wire; same as requested Legacy behaviour. |
-| Project custom device drag/drop | Edited project devices appear in Project Custom Devices, can be dragged as `templateOverride` copies or clicked to frame. | Engine now preserves `templateOverride` and custom display name when dropped through the create-device command. | covered | `renderProjectCustomDevices`, `startProjectCustomDeviceDrag`, `selectAndFrameDevice`, `finishLibraryDrag` | `ProductionEngineBridge.createDeviceFromLibraryDrop`, `normalizeAvDesignerDevice` | `instance.templateOverride`, `instance.name` | Preserves override in production data | One undo for created copy | Export can include compact template override | medium | 35 | Click-to-frame remains the existing selector behaviour. |
+| Project custom device drag/drop | Edited project devices appear in Project Custom Devices, can be dragged as `templateOverride` copies or clicked to frame. | Project Custom Devices now lists project custom templates, and dragging one creates a new Engine device with a fresh `templateOverride` snapshot from the current template data. | covered | `renderProjectCustomDevices`, `startProjectCustomDeviceDrag`, `selectAndFrameDevice`, `finishLibraryDrag` | `startProjectCustomTemplateDrag`, `ProductionEngineBridge.createDeviceFromLibraryDrop`, `normalizeAvDesignerDevice` | `deviceLibrary` custom templates, `instance.templateOverride`, `instance.name`, `projectCustomRevision` | Preserves override in production data; save/reload restores both template and placed snapshot | One undo for created copy | Export can include compact template override | medium | 42 | Editing a custom template intentionally does not update already placed/wired instances. Drag a new copy to use the edited version. |
 | Rack library drag/drop | Rack entries drop a rack instance with copied member devices, internal connections, exposed ports, route-point shifts, and rack bounds. | Engine can load many project objects, but rack library creation is not an Engine command. | missing | `renderRackLibraryList`, `startRackLibraryDrag`, `addRackInstanceToCanvas` | no Engine rack-create command | `state.racks`, rack member `devices[]`, `internalConnections`, exposed ports | Must persist rack instance and internal data | One undo | Viewer/report depend on production state | high | 42 | Depends on rack parity work. |
 | Connector compatibility | Exact type match, CAT-family match, USB-family match, cage active module type, dead-cage blocking, input/output blocking, paired network and two-way exceptions. | Engine create and rewire paths use the shared compatibility helper for hover and commit. | covered | `effectiveConnectorType`, `areConnectorTypesCompatible`, `connectionError`, `isDeadCageConnector`, `isTwoWayConnector`, `isPairedNetworkConnector` | `src/engine/connectorCompatibility.js`, `ProductionEngineBridge.completeWireCreate`, `ProductionEngineBridge.completeWireRewire`, `SceneGraph.addWire` | connector `type`, `direction`, `installedModuleType`, fiber mode, cable type metadata | Engine-created and rewired connections save through production data | One undo per created wire or endpoint rewire | Reports/export read the production connection data | medium | 38 | Iteration 38 reuses the same compatibility rules for endpoint rewiring, including jump portals. |
 | Wire hover target feedback | Preview highlights only compatible, unoccupied targets and shows blocked states/status text. | Engine has connector hover and create feedback, but not full Legacy compatibility validity. | partial | `updateHoverConnector`, `renderPreviewWires`, `connectionError` | `ProductionEngineBridge.handlePointerMove`, `beginWireCreate`, `completeWireCreate` | same as connector compatibility | none unless committed | none | visual only | high | 36 | Should call the same shared rule used on commit. |
@@ -314,7 +322,7 @@ PD geometry, and special template behaviours.
 | Modular card generated connectors | Legacy combines chassis connectors and generated card connectors from `cardSlots`, `cardTypes`, per-slot overrides, and slot Y positions. | Engine normalizes generated card connectors for loaded templates, but Engine editing is not the owner of card changes. | partial | `generatedCardConnectors`, `effectiveTemplateConnectors`, `connectorById`, `connectorOverride` | `projectAdapter.generatedCardConnectors`, `effectiveConnectorsForTemplate`, `SceneGraph.normalizeDevice` | `template.cardSlots`, `template.cardTypes`, `slot.connectorOverrides` | Existing data saves; new Engine card edits not migrated | Needs template-level undo | Reports/export need generated connectors | high | 38 | Loaded E2-style devices rely on this. |
 | Card/chassis editor workflows | Legacy Device Editor can add/reorder/delete slots/cards, assign cards, edit card connector fields, show card bands/captions, and apply library changes. | Engine is not the Device Editor; existing modal remains production/Legacy implementation. Engine canvas must stay in sync when those edits apply. | partial | `renderDeviceEditorPreview`, `renderCardEditorPreview`, editor slot/node drag functions | Bridge refresh path only | templates, project custom devices, connector overrides | Applying library can change many devices | Undo path production-owned | Outputs read final production templates | high | 38 | Decide whether to keep editor Legacy-owned but refresh Engine safely. |
 | Faceplate visuals | Legacy draws custom face images, deleted faceplates, default faceplates, faceplate resize, adapter mode, and card bands. | Engine visual builder reads face image metadata and card visuals for fast rendering; not all editing paths are Engine commands. | partial | `drawDeviceBody`, `renderDeviceEditorPreview`, faceplate placement helpers | `projectAdapter.normalizeVisualMetadata`, `deviceVisualBuilder.js`, `renderer.js` | `faceImage`, natural size, scale, placement, deleted flag | Existing data should save | Editing undo production-owned | Viewer/PDF currently use production output | medium | 39 | Rendering is closer than editing parity. |
-| Project custom device visuals | Legacy creates project-specific template overrides and shows them in Project Custom Devices. | Engine renders loaded custom devices but lacks create/duplicate/drop workflow parity. | partial | `templateForInstance`, `renderProjectCustomDevices`, `duplicateLibraryDevice` | project adapter visual normalization | `templateOverride`, image assets | Critical for user-created devices | Needs create/duplicate undo | Export compacts templates | high | 39 | Closely linked to device library drop. |
+| Project custom device visuals | Legacy creates project-specific template overrides and shows them in Project Custom Devices. | Engine renders loaded custom devices and consumes restored custom-template create/duplicate/edit/delete workflows. Future drops use the latest template revision; existing placed instances remain snapshot-based. | covered | `templateForInstance`, `renderProjectCustomDevices`, `duplicateLibraryDevice` | project adapter visual normalization, `deviceVisualCacheKey`, `renderProjectCustomDevices` in `index.html` | `templateOverride`, image assets, faceplate scale/offset/deleted fields, cards, connectors, `visualRevision` | Critical for user-created devices; custom templates and snapshots persist | Template edit/delete use production history scope; placed creation is Engine undoable | Export compacts templates | high | 42 | Texture cache keys include visual revision so edited custom templates do not reuse stale cached visuals. |
 | Adapter/breakout devices | Legacy has special compact dashed rendering, no node fields, internal gradient wires, and special internal multi-connection rules. | Engine can normalize adapter visual metadata; full internal adapter wiring/editing parity not audited/migrated. | partial | `isAdapterTemplate`, `drawDeviceBody`, adapter internal wire helpers | `projectAdapter.isAdapterBreakout`, `deviceVisualBuilder` | adapter template flag, connector list, internal wires | Must preserve adapter flag and internal links | Needs adapter edit undo | Reports list as devices/adapters | medium | 39 | Keep for compact conversion devices. |
 | Power distro plug layout | Legacy has PD flag, SVG plug assets, power plug layout, manual snapping/overlap warning, faceplate height rules, powerlock special full-width behaviour. | Engine marks power-distro visuals and colors, but PD editor/layout behaviour remains production-owned. | partial | `POWER_PLUG_TYPES`, `powerPlugLayout`, `drawPowerDistroFaceplate`, `startEditorPowerPlugDrag` | `projectAdapter.isPowerDistro`, `deviceVisualBuilder` | `template.isPowerDistro`, connector `powerPlug`, plug SVG metadata | Existing data saves; Engine not editing plug layout | Template-level undo needed | PDF/viewer use production render paths | high | 40 | Needs careful parity because PD devices are visually distinct. |
 | Power connector/cable colors | Legacy supports power cable families and Powerlock multicolor segments. | Engine has power/multicolor render support from previous passes, but compatibility rules are not restored. | partial | `colorSegmentsForConnector`, `connectionColorSegments`, `POWER_PLUG_TYPE_IDS` | engine color/render helpers, `projectAdapter` connector colors | cable type metadata | Color does not affect save except custom colors | none | Legend/report color consistency | medium | 40 | Split visual parity from connection validity. |
@@ -792,13 +800,21 @@ Validation:
 
 ### Iteration 42 — Faceplates And Project Custom Devices
 
-Complete custom faceplate and user-created device visual parity.
+Complete custom faceplate and user-created device template parity.
 
 Scope:
 
 - Real faceplate PNGs render inside Engine textures.
 - Faceplate replace/delete/resize updates only affected textures.
-- Project custom devices remain available, draggable, and visually accurate.
+- Create New Device creates a project custom template, not an auto-placed
+  instance.
+- Built-in devices can be duplicated into Project Custom Devices.
+- Project custom templates can be edited, duplicated, deleted safely, searched,
+  and dragged to the Engine canvas.
+- Editing a project custom template updates future drops only; existing placed
+  instances remain unchanged.
+- Project custom visual revisions invalidate stale future texture-cache entries
+  without rebuilding unchanged placed snapshots.
 
 Validation:
 
@@ -806,6 +822,8 @@ Validation:
 - Large image faceplate.
 - Deleted faceplate.
 - Project custom device drag/drop.
+- Duplicate custom template with unique template/connector IDs.
+- Deleted source template with a placed `templateOverride` snapshot.
 
 ### Iteration 43+ — Continue Interface Roadmap
 

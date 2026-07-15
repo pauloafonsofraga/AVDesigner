@@ -3847,7 +3847,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 40.10 — Engine Editor — iteration40-10</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 42 — Engine Editor — iteration42</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -4553,8 +4553,8 @@
   </div>
 
   <script>
-    const APP_ITERATION = "41";
-    const APP_BUILD_ID = "iteration41";
+    const APP_ITERATION = "42";
+    const APP_BUILD_ID = "iteration42";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
     const DEBUG_LIBRARY_DRAG_ENABLED = INITIAL_URL_PARAMS.get("debugLibraryDrag") === "1";
@@ -33175,16 +33175,67 @@
     ];
 
     const builtInDeviceLibrary = structuredClone(deviceLibrary);
+    const PROJECT_CUSTOM_DEVICE_FLAG = "projectCustomDevice";
+    let projectCustomTemplateRevisionCounter = 1;
+
+    function isProjectCustomDeviceTemplate(template) {
+      return template?.[PROJECT_CUSTOM_DEVICE_FLAG] === true || template?.isProjectCustomDevice === true;
+    }
+
+    function libraryDeviceTemplates(library = deviceLibrary) {
+      return (Array.isArray(library) ? library : []).filter(template => !isProjectCustomDeviceTemplate(template));
+    }
+
+    function projectCustomDeviceTemplates(library = deviceLibrary) {
+      return (Array.isArray(library) ? library : []).filter(isProjectCustomDeviceTemplate);
+    }
+
+    function nextProjectCustomRevision() {
+      projectCustomTemplateRevisionCounter += 1;
+      return `pcd-${Date.now().toString(36)}-${projectCustomTemplateRevisionCounter}`;
+    }
+
+    function markProjectCustomDeviceTemplate(template, options = {}) {
+      if (!template) return null;
+      template[PROJECT_CUSTOM_DEVICE_FLAG] = true;
+      template.isProjectCustomDevice = true;
+      template.favorite = false;
+      if (options.touchRevision !== false || !template.projectCustomRevision) {
+        template.projectCustomRevision = nextProjectCustomRevision();
+        template.visualRevision = template.projectCustomRevision;
+      }
+      template.visualRevision = template.visualRevision || template.projectCustomRevision;
+      return template;
+    }
+
+    function normalizeProjectCustomTemplates(library = deviceLibrary) {
+      (Array.isArray(library) ? library : []).forEach(template => {
+        if (isProjectCustomDeviceTemplate(template)) markProjectCustomDeviceTemplate(template, { touchRevision: false });
+      });
+      return library;
+    }
+
+    function uniqueDeviceTemplateId(base, library = deviceLibrary, preserveId = "") {
+      const existing = new Set((library || [])
+        .map(template => template?.id)
+        .filter(Boolean)
+        .filter(id => id !== preserveId));
+      const seed = slugify(base || "custom-device") || "custom-device";
+      let id = seed;
+      let suffix = 2;
+      while (existing.has(id)) id = `${seed}-${suffix++}`;
+      return id;
+    }
 
     function mergeLoadedDeviceLibrary(loadedLibrary) {
-      const loaded = Array.isArray(loadedLibrary) ? structuredClone(loadedLibrary).filter(Boolean) : [];
+      const loaded = normalizeProjectCustomTemplates(Array.isArray(loadedLibrary) ? structuredClone(loadedLibrary).filter(Boolean) : []);
       const loadedIds = new Set(loaded.map(template => template?.id).filter(Boolean));
-      return [
+      return normalizeProjectCustomTemplates([
         ...loaded,
         ...builtInDeviceLibrary
           .filter(template => template?.id && !loadedIds.has(template.id))
           .map(template => structuredClone(template))
-      ];
+      ]);
     }
 
     const state = {
@@ -33325,6 +33376,8 @@
     let editorMode = "library";
     let editorInstanceId = null;
     let editorInstanceName = "";
+    let editorProjectTemplateId = "";
+    let editorProjectSourceInstanceId = "";
     let editorDeviceFilter = "";
     let editorRackFilter = "";
     let editorRackIndex = 0;
@@ -37902,7 +37955,10 @@
     function openDeviceEditor() {
       editorMode = "library";
       editorInstanceId = null;
-      editorDraft = structuredClone(deviceLibrary);
+      editorInstanceName = "";
+      editorProjectTemplateId = "";
+      editorProjectSourceInstanceId = "";
+      editorDraft = structuredClone(libraryDeviceTemplates());
       editorIndex = 0;
       clearEditorNodeSelection();
       editorSelectedFaceplate = false;
@@ -37923,6 +37979,11 @@
     }
 
     function openDeviceEditorForTemplate(templateId) {
+      const existing = templateById(templateId);
+      if (isProjectCustomDeviceTemplate(existing)) {
+        openDeviceEditorForProjectTemplate(templateId);
+        return;
+      }
       openDeviceEditor();
       const index = editorDraft.findIndex(template => template.id === templateId);
       if (index >= 0) {
@@ -37932,14 +37993,84 @@
     }
 
     function openDeviceEditorWithNewDevice() {
-      openDeviceEditor();
-      editorDraft.push(createBlankDeviceTemplate());
-      editorIndex = editorDraft.length - 1;
-      editorDeviceFilter = "";
-      renderDeviceEditor();
+      const draft = createProjectCustomDraftFromTemplate(createBlankDeviceTemplate(), {
+        name: "New Project Device"
+      });
+      openDeviceEditorForProjectTemplateDraft(draft, "project-template-create");
     }
 
     function openDeviceEditorForInstance(instanceId) {
+      const instance = instanceById(instanceId);
+      const template = templateForInstance(instance);
+      if (!instance || !template) return;
+      if (isProjectCustomDeviceTemplate(templateById(instance.templateId))) {
+        openDeviceEditorForProjectTemplate(instance.templateId);
+        return;
+      }
+      const draft = createProjectCustomDraftFromTemplate(template, {
+        name: instance.name || template.name || "Custom Device",
+        sourceInstanceId: instanceId
+      });
+      if (Number.isFinite(Number(instance.powerWatts))) draft.powerWatts = normalizedPowerWatts(instance.powerWatts);
+      if (instance.powerUnit) draft.powerUnit = normalizePowerUnit(instance.powerUnit);
+      openDeviceEditorForProjectTemplateDraft(draft, "project-template-create", { sourceInstanceId: instanceId });
+    }
+
+    function openDeviceEditorForProjectTemplate(templateId) {
+      const template = projectCustomTemplateById(templateId);
+      if (!template) return;
+      openDeviceEditorForProjectTemplateDraft(structuredClone(template), "project-template-edit", { templateId });
+    }
+
+    function openDeviceEditorForProjectTemplateDraft(draft, mode, options = {}) {
+      editorMode = mode;
+      editorInstanceId = null;
+      editorInstanceName = "";
+      editorProjectTemplateId = options.templateId || draft?.id || "";
+      editorProjectSourceInstanceId = options.sourceInstanceId || "";
+      editorDraft = [structuredClone(draft || createProjectCustomDraftFromTemplate(createBlankDeviceTemplate()))];
+      editorIndex = 0;
+      clearEditorNodeSelection();
+      editorSelectedFaceplate = false;
+      editorSelectedPowerPlugIds.clear();
+      editorPowerPlugMarquee = null;
+      editorConnectorSnapGuide = null;
+      editorPreviewZoom = 1;
+      editorPreviewPan = { x: 0, y: 0 };
+      editorActiveTab = "device";
+      editorDeviceFilter = "";
+      editorRackFilter = "";
+      editorRackIndex = 0;
+      editorCardIndex = 0;
+      editorSlotIndex = 0;
+      editorSelectedCardNodeIndex = null;
+      renderDeviceEditor();
+      deviceEditorModal.classList.remove("hidden");
+    }
+
+    function createProjectCustomDraftFromTemplate(source, options = {}) {
+      const draft = structuredClone(source || createBlankDeviceTemplate());
+      draft.name = options.name || draft.name || "Project Custom Device";
+      draft.model = draft.model || draft.name;
+      draft.id = uniqueDeviceTemplateId(`project-custom-${draft.name || "device"}`, deviceLibrary);
+      draft.favorite = false;
+      draft.isPartOfPair = false;
+      draft.pairedTemplateId = "";
+      draft.pairPlaceFirst = false;
+      markProjectCustomDeviceTemplate(draft);
+      validateDraftDefaults(draft);
+      return draft;
+    }
+
+    function projectCustomTemplateById(templateId) {
+      return projectCustomDeviceTemplates().find(template => template.id === templateId) || null;
+    }
+
+    function isProjectTemplateEditorMode() {
+      return String(editorMode || "").startsWith("project-template");
+    }
+
+    function openDeviceEditorForCanvasInstanceLegacy(instanceId) {
       const instance = instanceById(instanceId);
       const template = templateForInstance(instance);
       if (!instance || !template) return;
@@ -37993,8 +38124,8 @@
       if (!endpoint.deviceId) return false;
       const instance = devices.find(device => device.instanceId === endpoint.deviceId);
       if (!instance) return false;
-      if (!templateByIdInLibrary(instance.templateId, library)) return false;
       const template = templateForInstanceInLibrary(instance, library);
+      if (!template) return false;
       return connectorIdSetForTemplate(template).has(endpoint.connectorId);
     }
 
@@ -38007,7 +38138,7 @@
     }
 
     function invalidConnectionsAfterLibraryDeviceEdit(nextLibrary) {
-      const nextDevices = state.devices.filter(instance => templateByIdInLibrary(instance.templateId, nextLibrary));
+      const nextDevices = state.devices.filter(instance => instance.templateOverride || templateByIdInLibrary(instance.templateId, nextLibrary));
       return state.connections.filter(connection => (
         !connectionEndpointExistsInDeviceSet(connection.from, nextDevices, nextLibrary)
         || !connectionEndpointExistsInDeviceSet(connection.to, nextDevices, nextLibrary)
@@ -38032,9 +38163,12 @@
       if (Array.isArray(snapshot.deviceLibrary)) deviceLibrary = structuredClone(snapshot.deviceLibrary);
       if (Array.isArray(snapshot.devices)) state.devices = structuredClone(snapshot.devices);
       if (Array.isArray(snapshot.connections)) state.connections = structuredClone(snapshot.connections);
+      normalizeProjectCustomTemplates(deviceLibrary);
       state.devices.forEach(hydrateDeviceInstance);
       syncIdCounter();
       renderDeviceLibrary();
+      renderProjectCustomDevices();
+      renderRackBuilderSources();
       renderCableLegend();
       renderInspector();
     }
@@ -38117,7 +38251,33 @@
           render();
           return;
         }
-        const nextLibrary = structuredClone(editorDraft);
+        if (isProjectTemplateEditorMode()) {
+          const editedTemplate = structuredClone(editorDraft[editorIndex]);
+          if (!editedTemplate) throw new Error("No project custom device is selected.");
+          editedTemplate.id = editorMode === "project-template-edit"
+            ? (editorProjectTemplateId || editedTemplate.id)
+            : uniqueDeviceTemplateId(editedTemplate.id || editedTemplate.name || "project-custom-device", deviceLibrary);
+          markProjectCustomDeviceTemplate(editedTemplate);
+          validateDeviceTemplate(editedTemplate);
+          pushUndo();
+          const existingIndex = deviceLibrary.findIndex(template => template.id === editedTemplate.id);
+          if (existingIndex >= 0) deviceLibrary.splice(existingIndex, 1, editedTemplate);
+          else deviceLibrary.push(editedTemplate);
+          normalizeProjectCustomTemplates(deviceLibrary);
+          closeDeviceEditor();
+          renderProjectCustomDevices();
+          renderDeviceLibrary();
+          renderRackBuilderSources();
+          renderInspector();
+          updateUndoRedoButtons();
+          setStatus(`${editedTemplate.name || "Project custom device"} saved to Project Custom Devices.`);
+          return;
+        }
+        const projectTemplates = projectCustomDeviceTemplates().map(template => structuredClone(template));
+        const nextLibrary = normalizeProjectCustomTemplates([
+          ...structuredClone(editorDraft),
+          ...projectTemplates
+        ]);
         if (!Array.isArray(nextLibrary)) throw new Error("Device library must be an array.");
         enforceDevicePairFirstChoice(nextLibrary);
         nextLibrary.forEach(validateDeviceTemplate);
@@ -38125,8 +38285,8 @@
         if (!confirmDeviceEditorWireRemoval(invalidConnections)) return;
         const beforeSnapshot = deviceEditorEngineSnapshot();
         pushUndo();
-        deviceLibrary = nextLibrary;
-        state.devices = state.devices.filter(instance => templateById(instance.templateId));
+        deviceLibrary = normalizeProjectCustomTemplates(nextLibrary);
+        state.devices = state.devices.filter(instance => instance.templateOverride || templateById(instance.templateId));
         state.connections = state.connections.filter(connection => {
           return connectionEndpointStillExists(connection.from) && connectionEndpointStillExists(connection.to);
         });
@@ -38135,6 +38295,8 @@
         const affectedDeviceIds = affectedDeviceIdsForLibraryApply(beforeSnapshot.devices, afterSnapshot.devices, beforeSnapshot.deviceLibrary, afterSnapshot.deviceLibrary);
         closeDeviceEditor();
         renderDeviceLibrary();
+        renderProjectCustomDevices();
+        renderRackBuilderSources();
         if (commitDeviceEditorApplyToEngineBridge(beforeSnapshot, afterSnapshot, affectedDeviceIds)) return;
         render();
       } catch (error) {
@@ -38204,17 +38366,18 @@
 
     function renderEditorDeviceList() {
       if (!editorDeviceList) return;
-      if (editorDeviceBrowserTitle) editorDeviceBrowserTitle.textContent = "Known Devices";
+      const singleTemplateMode = editorMode === "instance" || isProjectTemplateEditorMode();
+      if (editorDeviceBrowserTitle) editorDeviceBrowserTitle.textContent = isProjectTemplateEditorMode() ? "Project Custom Device" : "Known Devices";
       if (editorDeviceSearch) editorDeviceSearch.placeholder = "Search devices";
       if (editorDeviceSearch && editorDeviceSearch.value !== editorDeviceFilter) editorDeviceSearch.value = editorDeviceFilter;
       const entries = filteredEditorDeviceEntries();
       editorDeviceList.innerHTML = entries.map(({ device, index }) => {
         const active = index === editorIndex ? " active" : "";
-        const disabled = editorMode === "instance" ? " disabled" : "";
+        const disabled = singleTemplateMode ? " disabled" : "";
         const category = device.category || "Custom";
         const brand = device.brand || "No brand";
         return `
-          <div class="editor-device-item${active}${disabled}" data-editor-device-index="${index}" role="button" tabindex="${editorMode === "instance" ? "-1" : "0"}">
+          <div class="editor-device-item${active}${disabled}" data-editor-device-index="${index}" role="button" tabindex="${singleTemplateMode ? "-1" : "0"}">
             ${editorDeviceThumbHtml(device)}
             <div class="editor-device-copy">
               <strong>${escapeHtml(device.name || device.id || "Custom Device")}</strong>
@@ -38241,6 +38404,12 @@
       syncEditorFieldsToDraft();
       const source = currentEditorTemplate();
       if (!source) return;
+      if (isProjectTemplateEditorMode()) {
+        const copy = duplicateDeviceTemplateForCollection(source, deviceLibrary, { projectCustom: true });
+        openDeviceEditorForProjectTemplateDraft(copy, "project-template-create");
+        setStatus(`${copy.name} ready as a duplicated Project Custom Device.`);
+        return;
+      }
       const copy = duplicateDeviceTemplateForCollection(source, editorDraft);
       editorDraft.splice(editorIndex + 1, 0, copy);
       editorIndex += 1;
@@ -38251,9 +38420,15 @@
     }
 
     function deleteCurrentEditorDevice() {
-      if (editorMode === "instance" || editorDraft.length <= 1) return;
+      if (editorMode === "instance") return;
       const source = currentEditorTemplate();
       if (!source) return;
+      if (isProjectTemplateEditorMode()) {
+        if (editorMode === "project-template-edit") deleteProjectCustomDeviceTemplate(source.id, { closeEditor: true });
+        else closeDeviceEditor();
+        return;
+      }
+      if (editorDraft.length <= 1) return;
       const deletedId = source.id;
       const deletedName = source.name || "Device";
       editorDraft.splice(editorIndex, 1);
@@ -38402,14 +38577,20 @@
 
     function rackBuilderSourceItems() {
       const filter = String(rackBuilderSourceFilter || "").trim().toLowerCase();
-      const libraryItems = deviceLibrary.map(template => ({
+      const libraryItems = libraryDeviceTemplates().map(template => ({
         kind: "library",
         id: template.id,
         template,
         name: template.name
       }));
-      const customItems = state.devices
-        .filter(instance => instance.templateOverride)
+      const customTemplateItems = projectCustomDeviceTemplates().map(template => ({
+        kind: "project-template",
+        id: template.id,
+        template,
+        name: template.name || "Project Custom Device"
+      }));
+      const customInstanceItems = state.devices
+        .filter(instance => instance.templateOverride && !projectCustomTemplateById(instance.templateId))
         .map(instance => ({
           kind: "project",
           id: instance.instanceId,
@@ -38417,6 +38598,7 @@
           name: instance.name || templateForInstance(instance)?.name || "Custom Device"
         }))
         .filter(item => item.template);
+      const customItems = [...customTemplateItems, ...customInstanceItems];
       const matches = item => {
         const template = item.template;
         const haystack = `${item.name || ""} ${template?.name || ""} ${template?.brand || ""} ${template?.category || ""} ${template?.model || ""}`.toLowerCase();
@@ -38521,6 +38703,15 @@
           templateId: instance.templateId || template.id,
           templateOverride: structuredClone(template),
           name: instance.name || template.name
+        } : null;
+      }
+      if (kind === "project-template") {
+        const template = projectCustomTemplateById(id);
+        return template ? {
+          template,
+          templateId: template.id,
+          templateOverride: structuredClone(template),
+          name: template.name || "Project Custom Device"
         } : null;
       }
       return null;
@@ -39928,9 +40119,10 @@
       editorSlotIndex = clamp(editorSlotIndex, 0, Math.max(0, template.cardSlots.length - 1));
       renderEditorDeviceList();
       renderEditorRackControls();
-      if (newDeviceTemplateButton) newDeviceTemplateButton.disabled = editorMode === "instance";
+      const projectTemplateMode = isProjectTemplateEditorMode();
+      if (newDeviceTemplateButton) newDeviceTemplateButton.disabled = false;
       if (duplicateEditorDeviceButton) duplicateEditorDeviceButton.disabled = editorMode === "instance" || !template;
-      if (deleteEditorDeviceButton) deleteEditorDeviceButton.disabled = editorMode === "instance" || editorDraft.length <= 1;
+      if (deleteEditorDeviceButton) deleteEditorDeviceButton.disabled = editorMode === "instance" || (!projectTemplateMode && editorDraft.length <= 1);
       updateDeviceEditorTitle(template);
       editorDeviceName.value = editorMode === "instance" ? (editorInstanceName || template.name || "") : (template.name || "");
       editorDeviceBrand.value = template.brand || "";
@@ -41084,9 +41276,13 @@
     function updateDeviceEditorTitle(template = currentEditorTemplate()) {
       const modalTitle = document.querySelector("#deviceEditorModal .modal-title");
       if (!modalTitle) return;
-      modalTitle.textContent = editorMode === "instance"
-        ? `Edit Canvas Device - ${editorInstanceName || template?.name || "Custom Device"}`
-        : "Device Editor";
+      if (editorMode === "instance") {
+        modalTitle.textContent = `Edit Canvas Device - ${editorInstanceName || template?.name || "Custom Device"}`;
+      } else if (isProjectTemplateEditorMode()) {
+        modalTitle.textContent = `${editorMode === "project-template-edit" ? "Edit" : "Create"} Project Custom Device - ${template?.name || "Custom Device"}`;
+      } else {
+        modalTitle.textContent = "Device Editor";
+      }
     }
 
     function syncEditorFieldsToDraft() {
@@ -41098,8 +41294,9 @@
         updateDeviceEditorTitle(template);
       } else {
         template.name = editorDeviceName.value.trim() || "Custom Device";
-        template.id = previousId || slugify(template.name);
+        template.id = previousId || uniqueDeviceTemplateId(template.name, deviceLibrary);
         template.model = template.name;
+        if (isProjectTemplateEditorMode()) markProjectCustomDeviceTemplate(template, { touchRevision: false });
       }
       template.brand = editorDeviceBrand.value.trim();
       template.category = editorDeviceCategory.value.trim() || "Misc.";
@@ -44165,8 +44362,9 @@
       const entries = [];
       const seenPairs = new Set();
       const pairedIds = new Set();
-      deviceLibrary.forEach(device => {
-        const paired = pairedTemplateFor(device, deviceLibrary);
+      const libraryTemplates = libraryDeviceTemplates();
+      libraryTemplates.forEach(device => {
+        const paired = pairedTemplateFor(device, libraryTemplates);
         if (!paired) return;
         const key = devicePairKey(device, paired);
         if (seenPairs.has(key)) return;
@@ -44177,7 +44375,7 @@
         pairedIds.add(second.id);
         entries.push({ kind: "pair", first, second, key });
       });
-      deviceLibrary.forEach(device => {
+      libraryTemplates.forEach(device => {
         if (!pairedIds.has(device.id)) entries.push({ kind: "device", device });
       });
       return entries;
@@ -44214,38 +44412,65 @@
     function renderProjectCustomDevices() {
       if (!customDeviceList) return;
       const filter = customDeviceSearch.value.trim().toLowerCase();
-      const customDevices = state.devices.filter(instance => instance.templateOverride);
+      const customTemplates = projectCustomDeviceTemplates().map(template => ({
+        kind: "template",
+        id: template.id,
+        template,
+        name: template.name || "Project Custom Device"
+      }));
+      const templateIds = new Set(customTemplates.map(item => item.id));
+      const legacyCustomDevices = state.devices
+        .filter(instance => instance.templateOverride && !templateIds.has(instance.templateId))
+        .map(instance => ({
+          kind: "legacy-instance",
+          id: instance.instanceId,
+          instance,
+          template: templateForInstance(instance),
+          name: instance.name || templateForInstance(instance)?.name || "Custom Device"
+        }))
+        .filter(item => item.template);
+      const entries = [...customTemplates, ...legacyCustomDevices];
       customDeviceList.innerHTML = "";
-      customDevices
-        .filter(instance => {
-          const template = templateForInstance(instance);
-          const haystack = `${instance.name || ""} ${template?.name || ""} ${template?.category || ""} ${template?.model || ""}`.toLowerCase();
+      entries
+        .filter(entry => {
+          const template = entry.template;
+          const haystack = `${entry.name || ""} ${template?.name || ""} ${template?.brand || ""} ${template?.category || ""} ${template?.model || ""}`.toLowerCase();
           return haystack.includes(filter);
         })
-        .forEach(instance => {
-          const template = templateForInstance(instance);
+        .forEach(entry => {
+          const template = entry.template;
           const item = document.createElement("div");
           item.className = "library-device project-device";
-          item.dataset.instanceId = instance.instanceId;
+          if (entry.kind === "template") item.dataset.projectTemplateId = entry.id;
+          else item.dataset.instanceId = entry.id;
           const thumb = deviceThumbnailMarkup(template);
           item.classList.toggle("no-thumb", !thumb);
           item.innerHTML = `
             ${thumb}
             <div>
-              <h3>${escapeHtml(instance.name || template?.name || "Custom Device")}</h3>
+              <h3>${escapeHtml(entry.name || template?.name || "Custom Device")}</h3>
               <p>${escapeHtml(template?.category || "Custom")} / ${escapeHtml(template?.model || template?.name || "Custom")}</p>
             </div>
           `;
-          item.addEventListener("pointerdown", event => startProjectCustomDeviceDrag(event, instance.instanceId));
-          item.addEventListener("click", () => selectAndFrameDevice(instance.instanceId));
-          item.addEventListener("contextmenu", event => {
-            event.preventDefault();
-            showDeviceContextMenu(event, instance.instanceId);
-          });
+          if (entry.kind === "template") {
+            item.addEventListener("pointerdown", event => startProjectCustomTemplateDrag(event, entry.id));
+            item.addEventListener("click", () => openDeviceEditorForProjectTemplate(entry.id));
+            item.addEventListener("contextmenu", event => {
+              event.preventDefault();
+              showProjectCustomDeviceContextMenu(event, entry.id);
+            });
+          } else {
+            item.addEventListener("pointerdown", event => startProjectCustomDeviceDrag(event, entry.id));
+            item.addEventListener("click", () => selectAndFrameDevice(entry.id));
+            item.addEventListener("contextmenu", event => {
+              event.preventDefault();
+              showDeviceContextMenu(event, entry.id);
+            });
+          }
           customDeviceList.appendChild(item);
         });
       if (!customDeviceList.children.length) {
-        customDeviceList.innerHTML = `<div class="placeholder" style="padding:12px;">Edited project devices will appear here.</div>`;
+        customDeviceList.innerHTML = `<div class="placeholder" style="padding:12px;">Project custom devices will appear here.</div>`;
       }
     }
 
@@ -44271,6 +44496,18 @@
         templateOverride: structuredClone(template),
         name: instance.name || template.name,
         clickAction: () => selectAndFrameDevice(instanceId),
+        custom: true
+      });
+    }
+
+    function startProjectCustomTemplateDrag(event, templateId) {
+      if (event.button !== 0) return;
+      const template = projectCustomTemplateById(templateId);
+      if (!template) return;
+      startLibraryDrag(event, template.id, {
+        templateOverride: structuredClone(template),
+        name: template.name || "Project Custom Device",
+        clickAction: () => openDeviceEditorForProjectTemplate(template.id),
         custom: true
       });
     }
@@ -50628,6 +50865,16 @@
     });
 
     deviceContextMenu.addEventListener("click", event => {
+      const projectCustomAction = event.target.closest("[data-project-custom-device-menu]")?.dataset.projectCustomDeviceMenu;
+      const projectCustomTemplateId = deviceContextMenu.dataset.projectCustomTemplateId;
+      if (projectCustomAction && projectCustomTemplateId) {
+        event.stopPropagation();
+        hideDeviceContextMenu();
+        if (projectCustomAction === "edit") openDeviceEditorForProjectTemplate(projectCustomTemplateId);
+        if (projectCustomAction === "duplicate") duplicateProjectCustomDeviceTemplate(projectCustomTemplateId);
+        if (projectCustomAction === "delete") deleteProjectCustomDeviceTemplate(projectCustomTemplateId);
+        return;
+      }
       const templateAction = event.target.closest("[data-library-device-menu]")?.dataset.libraryDeviceMenu;
       const templateId = deviceContextMenu.dataset.templateId;
       if (templateAction && templateId) {
@@ -50951,6 +51198,7 @@
       deviceContextMenu.style.left = `${event.clientX}px`;
       deviceContextMenu.style.top = `${event.clientY}px`;
       deviceContextMenu.dataset.instanceId = instanceId;
+      delete deviceContextMenu.dataset.projectCustomTemplateId;
       delete deviceContextMenu.dataset.titleBlockId;
       delete deviceContextMenu.dataset.rackId;
       delete deviceContextMenu.dataset.templateId;
@@ -50979,6 +51227,7 @@
       deviceContextMenu.style.left = `${event.clientX}px`;
       deviceContextMenu.style.top = `${event.clientY}px`;
       deviceContextMenu.dataset.rackId = rackId;
+      delete deviceContextMenu.dataset.projectCustomTemplateId;
       delete deviceContextMenu.dataset.instanceId;
       delete deviceContextMenu.dataset.titleBlockId;
       delete deviceContextMenu.dataset.ledSurfaceId;
@@ -51012,6 +51261,7 @@
       deviceContextMenu.dataset.rackBuilderRackId = rackId;
       deviceContextMenu.dataset.rackBuilderDeviceId = deviceId;
       deviceContextMenu.dataset.rackBuilderConnectorId = connectorId;
+      delete deviceContextMenu.dataset.projectCustomTemplateId;
       delete deviceContextMenu.dataset.instanceId;
       delete deviceContextMenu.dataset.rackId;
       delete deviceContextMenu.dataset.titleBlockId;
@@ -51036,6 +51286,7 @@
       deviceContextMenu.dataset.rackBuilderWireId = wireId;
       deviceContextMenu.dataset.rackBuilderWireX = String(point.x);
       deviceContextMenu.dataset.rackBuilderWireY = String(point.y);
+      delete deviceContextMenu.dataset.projectCustomTemplateId;
       delete deviceContextMenu.dataset.instanceId;
       delete deviceContextMenu.dataset.rackId;
       delete deviceContextMenu.dataset.titleBlockId;
@@ -51062,6 +51313,7 @@
       deviceContextMenu.dataset.rackBuilderWireRackId = rackId;
       deviceContextMenu.dataset.rackBuilderWireId = wireId;
       deviceContextMenu.dataset.cornerIndex = String(cornerIndex);
+      delete deviceContextMenu.dataset.projectCustomTemplateId;
       delete deviceContextMenu.dataset.instanceId;
       delete deviceContextMenu.dataset.rackId;
       delete deviceContextMenu.dataset.titleBlockId;
@@ -51085,6 +51337,7 @@
       deviceContextMenu.style.left = `${event.clientX}px`;
       deviceContextMenu.style.top = `${event.clientY}px`;
       deviceContextMenu.dataset.titleBlockId = blockId;
+      delete deviceContextMenu.dataset.projectCustomTemplateId;
       delete deviceContextMenu.dataset.instanceId;
       delete deviceContextMenu.dataset.rackId;
       delete deviceContextMenu.dataset.templateId;
@@ -51102,6 +51355,7 @@
       deviceContextMenu.style.left = `${event.clientX}px`;
       deviceContextMenu.style.top = `${event.clientY}px`;
       deviceContextMenu.dataset.ledSurfaceId = surfaceId;
+      delete deviceContextMenu.dataset.projectCustomTemplateId;
       delete deviceContextMenu.dataset.instanceId;
       delete deviceContextMenu.dataset.titleBlockId;
       delete deviceContextMenu.dataset.templateId;
@@ -51120,6 +51374,7 @@
       deviceContextMenu.style.left = `${event.clientX}px`;
       deviceContextMenu.style.top = `${event.clientY}px`;
       deviceContextMenu.dataset.templateId = templateId;
+      delete deviceContextMenu.dataset.projectCustomTemplateId;
       delete deviceContextMenu.dataset.instanceId;
       delete deviceContextMenu.dataset.titleBlockId;
       delete deviceContextMenu.dataset.rackId;
@@ -51128,24 +51383,47 @@
       deviceContextMenu.classList.remove("hidden");
     }
 
-    function duplicateDeviceTemplateForCollection(source, collection) {
+    function showProjectCustomDeviceContextMenu(event, templateId) {
+      if (!projectCustomTemplateById(templateId)) return;
+      deviceContextMenu.innerHTML = `
+        <button type="button" data-project-custom-device-menu="edit">Edit in Device Editor</button>
+        <button type="button" data-project-custom-device-menu="duplicate">Duplicate the Device</button>
+        <button type="button" class="danger" data-project-custom-device-menu="delete">Delete</button>
+      `;
+      deviceContextMenu.style.left = `${event.clientX}px`;
+      deviceContextMenu.style.top = `${event.clientY}px`;
+      deviceContextMenu.dataset.projectCustomTemplateId = templateId;
+      delete deviceContextMenu.dataset.templateId;
+      delete deviceContextMenu.dataset.instanceId;
+      delete deviceContextMenu.dataset.titleBlockId;
+      delete deviceContextMenu.dataset.rackId;
+      delete deviceContextMenu.dataset.wireId;
+      delete deviceContextMenu.dataset.wireIds;
+      deviceContextMenu.classList.remove("hidden");
+    }
+
+    function duplicateDeviceTemplateForCollection(source, collection, options = {}) {
       const copy = structuredClone(source);
       const baseName = source.name || "Device";
       const existingNames = new Set((collection || []).map(template => template.name));
       let nextName = `${baseName} Copy`;
       let suffix = 2;
       while (existingNames.has(nextName)) nextName = `${baseName} Copy ${suffix++}`;
-      const existingIds = new Set((collection || []).map(template => template.id));
-      const idBase = `custom-device-${slugify(nextName) || Date.now().toString(36)}`;
-      let nextIdValue = idBase;
-      suffix = 2;
-      while (existingIds.has(nextIdValue)) nextIdValue = `${idBase}-${suffix++}`;
+      const idBase = `${options.projectCustom ? "project-custom" : "custom-device"}-${slugify(nextName) || Date.now().toString(36)}`;
+      const nextIdValue = uniqueDeviceTemplateId(idBase, collection || deviceLibrary);
       copy.id = nextIdValue;
       copy.name = nextName;
+      copy.model = copy.model || nextName;
       copy.favorite = false;
       copy.isPartOfPair = false;
       copy.pairedTemplateId = "";
       copy.pairPlaceFirst = false;
+      if (options.projectCustom) markProjectCustomDeviceTemplate(copy);
+      else {
+        delete copy[PROJECT_CUSTOM_DEVICE_FLAG];
+        delete copy.isProjectCustomDevice;
+        delete copy.projectCustomRevision;
+      }
       validateDraftDefaults(copy);
       return copy;
     }
@@ -51153,11 +51431,47 @@
     function duplicateLibraryDevice(templateId) {
       const source = templateById(templateId);
       if (!source) return;
-      const copy = duplicateDeviceTemplateForCollection(source, deviceLibrary);
+      const copy = duplicateDeviceTemplateForCollection(source, deviceLibrary, { projectCustom: true });
+      pushUndo();
       deviceLibrary.push(copy);
-      selectedDeviceType = copy.category || "";
+      normalizeProjectCustomTemplates(deviceLibrary);
+      renderProjectCustomDevices();
       renderDeviceLibrary();
-      setStatus(`${copy.name} added to the device library.`);
+      renderRackBuilderSources();
+      updateUndoRedoButtons();
+      setStatus(`${copy.name} added to Project Custom Devices.`);
+    }
+
+    function duplicateProjectCustomDeviceTemplate(templateId) {
+      const source = projectCustomTemplateById(templateId);
+      if (!source) return;
+      const copy = duplicateDeviceTemplateForCollection(source, deviceLibrary, { projectCustom: true });
+      pushUndo();
+      deviceLibrary.push(copy);
+      normalizeProjectCustomTemplates(deviceLibrary);
+      renderProjectCustomDevices();
+      renderRackBuilderSources();
+      updateUndoRedoButtons();
+      setStatus(`${copy.name} added to Project Custom Devices.`);
+    }
+
+    function deleteProjectCustomDeviceTemplate(templateId, options = {}) {
+      const template = projectCustomTemplateById(templateId);
+      if (!template) return;
+      const blockingInstances = state.devices.filter(instance => instance.templateId === templateId && !instance.templateOverride);
+      if (blockingInstances.length) {
+        alert("This project custom device is used by placed devices that do not contain their own snapshot. Delete those instances or duplicate the template first.");
+        return;
+      }
+      if (options.confirm !== false && !confirm(`Delete "${template.name || "Project Custom Device"}" from Project Custom Devices? Placed canvas copies with their own snapshot will remain unchanged.`)) return;
+      pushUndo();
+      deviceLibrary = deviceLibrary.filter(item => item.id !== templateId);
+      renderProjectCustomDevices();
+      renderDeviceLibrary();
+      renderRackBuilderSources();
+      updateUndoRedoButtons();
+      if (options.closeEditor) closeDeviceEditor();
+      setStatus(`${template.name || "Project Custom Device"} deleted from Project Custom Devices.`);
     }
 
     function showWireContextMenu(event, connectionId, engineRouteContext = null) {
@@ -51189,6 +51503,7 @@
         deviceContextMenu.dataset.wireClickY = String(engineRouteContext.clickedWorld.y);
       }
       delete deviceContextMenu.dataset.instanceId;
+      delete deviceContextMenu.dataset.projectCustomTemplateId;
       delete deviceContextMenu.dataset.titleBlockId;
       delete deviceContextMenu.dataset.templateId;
       delete deviceContextMenu.dataset.rackId;
@@ -51211,6 +51526,7 @@
       deviceContextMenu.dataset.cornerIndex = String(cornerIndex);
       if (engineRouteContext?.engineWireId) deviceContextMenu.dataset.engineWireId = engineRouteContext.engineWireId;
       delete deviceContextMenu.dataset.instanceId;
+      delete deviceContextMenu.dataset.projectCustomTemplateId;
       delete deviceContextMenu.dataset.titleBlockId;
       delete deviceContextMenu.dataset.templateId;
       delete deviceContextMenu.dataset.rackId;
@@ -51225,6 +51541,7 @@
       delete deviceContextMenu.dataset.instanceId;
       delete deviceContextMenu.dataset.titleBlockId;
       delete deviceContextMenu.dataset.ledSurfaceId;
+      delete deviceContextMenu.dataset.projectCustomTemplateId;
       delete deviceContextMenu.dataset.templateId;
       delete deviceContextMenu.dataset.wireId;
       delete deviceContextMenu.dataset.wireIds;
@@ -55013,7 +55330,7 @@ fit();
       renderEditorDeviceList();
     });
     function selectEditorDeviceIndex(index) {
-      if (editorMode === "instance") return;
+      if (editorMode === "instance" || isProjectTemplateEditorMode()) return;
       syncEditorFieldsToDraft();
       editorIndex = clamp(Number(index) || 0, 0, Math.max(0, editorDraft.length - 1));
       clearEditorNodeSelection();
@@ -55281,12 +55598,7 @@ fit();
     editorPairTemplate.addEventListener("change", applyPairEditorSettings);
     editorPairPlaceFirst.addEventListener("change", applyPairEditorSettings);
     newDeviceTemplateButton.addEventListener("click", () => {
-      syncEditorFieldsToDraft();
-      editorDraft.push(createBlankDeviceTemplate());
-      editorIndex = editorDraft.length - 1;
-      editorDeviceFilter = "";
-      resetEditorDeviceSelections();
-      renderDeviceEditor();
+      openDeviceEditorWithNewDevice();
     });
     duplicateEditorDeviceButton.addEventListener("click", duplicateCurrentEditorDevice);
     deleteEditorDeviceButton.addEventListener("click", deleteCurrentEditorDevice);

@@ -389,6 +389,17 @@ function normalizeDeviceVisualMetadata(template = {}, instance = {}, width = DEF
   const faceImageScaleX = firstPositive(instance.faceImageScaleX, instance.faceplateScaleX, template.faceImageScaleX, template.faceplateScaleX) || faceImageScale;
   const faceImageScaleY = firstPositive(instance.faceImageScaleY, instance.faceplateScaleY, template.faceImageScaleY, template.faceplateScaleY) || faceImageScale;
   const isAdapter = isAdapterTemplateLikeForEngine(template, instance);
+  const projectCustomRevision = String(
+    instance.projectCustomRevision
+    || instance.visualRevision
+    || template.projectCustomRevision
+    || template.visualRevision
+    || ""
+  ).trim();
+  const isProjectCustomDevice = template.projectCustomDevice === true
+    || template.isProjectCustomDevice === true
+    || instance.projectCustomDevice === true
+    || instance.isProjectCustomDevice === true;
   return {
     brand,
     model,
@@ -413,6 +424,9 @@ function normalizeDeviceVisualMetadata(template = {}, instance = {}, width = DEF
     isMatrixRouter: Boolean(template.isMatrixRouter),
     isAdapterBreakout: isAdapter,
     adapterClassification: adapterClassificationForEngine(template, instance, isAdapter),
+    projectCustomRevision,
+    visualRevision: String(instance.visualRevision || template.visualRevision || projectCustomRevision || "").trim(),
+    isProjectCustomDevice,
     visualCards: normalizeVisualCards(template, width, height)
   };
 }

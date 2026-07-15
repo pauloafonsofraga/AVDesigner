@@ -1069,6 +1069,9 @@ function normalizeVisualMetadata(visual = {}) {
     isMatrixRouter: Boolean(visual.isMatrixRouter),
     isAdapterBreakout: Boolean(visual.isAdapterBreakout),
     adapterClassification: normalizeAdapterClassification(visual.adapterClassification),
+    projectCustomRevision: String(visual.projectCustomRevision || "").trim(),
+    visualRevision: String(visual.visualRevision || visual.projectCustomRevision || "").trim(),
+    isProjectCustomDevice: Boolean(visual.isProjectCustomDevice),
     visualCards: Array.isArray(visual.visualCards)
       ? visual.visualCards.map(normalizeVisualCard).filter(Boolean)
       : []
