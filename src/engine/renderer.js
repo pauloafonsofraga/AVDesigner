@@ -1277,7 +1277,7 @@ export class WebglGraphRenderer {
     const width = Math.max(1, Math.round(device.width || 1));
     const height = Math.max(1, Math.round(device.height || 1));
     const radius = device.kind === "adapter" ? LEGACY_ADAPTER_RADIUS : LEGACY_DEVICE_RADIUS;
-    const padding = mode === "selected" ? 36 : 24;
+    const padding = mode === "selected" ? 68 : 34;
     const key = `${mode}:${width}:${height}:${radius}:${padding}`;
     const existing = this.glowTextureCache.get(key);
     if (existing?.texture) return existing;
@@ -1293,11 +1293,31 @@ export class WebglGraphRenderer {
     ctx.clearRect(0, 0, width + padding * 2, height + padding * 2);
     ctx.lineJoin = "round";
     if (mode === "selected") {
-      drawGlowStroke(ctx, padding, padding, width, height, radius, 5, "rgba(251,121,4,.95)", 8, "rgba(251,121,4,.50)");
-      drawGlowStroke(ctx, padding, padding, width, height, radius, 4, "rgba(251,121,4,.72)", 18, "rgba(251,121,4,.24)");
-      drawGlowStroke(ctx, padding, padding, width, height, radius, 2, "rgba(251,121,4,.90)", 3, "rgba(251,121,4,.72)");
+      drawSoftRoundedGlow(ctx, padding, padding, width, height, radius, {
+        color: [251, 121, 4],
+        spread: 58,
+        layers: 44,
+        innerAlpha: 0.18,
+        outerAlpha: 0.008,
+        lineWidth: 4.8
+      });
+      drawSoftRoundedGlow(ctx, padding, padding, width, height, radius, {
+        color: [251, 121, 4],
+        spread: 20,
+        layers: 18,
+        innerAlpha: 0.20,
+        outerAlpha: 0.015,
+        lineWidth: 3.2
+      });
     } else {
-      drawGlowStroke(ctx, padding, padding, width, height, radius, 2, "rgba(50,182,255,.70)", 13, "rgba(50,182,255,.20)");
+      drawSoftRoundedGlow(ctx, padding, padding, width, height, radius, {
+        color: [50, 182, 255],
+        spread: 26,
+        layers: 22,
+        innerAlpha: 0.16,
+        outerAlpha: 0.008,
+        lineWidth: 2.8
+      });
     }
 
     const texture = uploadOverlayTexture(this.gl, canvas);
@@ -1807,9 +1827,10 @@ function pushSelectionOutline(vertices, device, offsets = null) {
     // Keep this as live geometry instead of baking it into the cached device
     // texture. Selection, drag, and multi-select can then change without
     // invalidating the high-resolution device snapshot.
-    { expand: 10, width: 7.5, color: "rgba(251,121,4,.12)" },
-    { expand: 6, width: 5, color: "rgba(251,121,4,.28)" },
-    { expand: 3, width: 2.6, color: "rgba(251,121,4,.92)" }
+    // The broad soft bloom is cached in drawObjectGlows(); this pass is only
+    // the crisp near-edge rim so selected objects do not show stacked bands.
+    { expand: 3, width: 2.2, color: "rgba(251,121,4,.88)" },
+    { expand: 5.2, width: 1.2, color: "rgba(251,121,4,.34)" }
   ]);
 }
 
@@ -2519,14 +2540,39 @@ function createRenderCanvas(width, height) {
   return canvas;
 }
 
-function drawGlowStroke(ctx, x, y, width, height, radius, lineWidth, shadowColor, shadowBlur, strokeColor) {
+function drawSoftRoundedGlow(ctx, x, y, width, height, radius, {
+  color = [251, 121, 4],
+  spread = 48,
+  layers = 36,
+  innerAlpha = 0.18,
+  outerAlpha = 0.01,
+  lineWidth = 4
+} = {}) {
+  const [red, green, blue] = color;
+  const layerCount = Math.max(1, Math.floor(layers));
   ctx.save();
-  ctx.shadowColor = shadowColor;
-  ctx.shadowBlur = shadowBlur;
-  ctx.lineWidth = lineWidth;
-  ctx.strokeStyle = strokeColor;
-  roundedRectPath(ctx, x, y, width, height, radius);
-  ctx.stroke();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  // Cached glow textures should read like a bloom, not like separate outlines.
+  // A squared falloff gives a strong near-edge orange and a long soft tail.
+  for (let index = layerCount; index >= 1; index -= 1) {
+    const t = index / layerCount;
+    const expand = spread * t;
+    const falloff = (1 - t) * (1 - t);
+    const alpha = outerAlpha + (innerAlpha - outerAlpha) * falloff;
+    ctx.lineWidth = lineWidth + expand * 1.12;
+    ctx.strokeStyle = `rgba(${red},${green},${blue},${alpha})`;
+    roundedRectPath(
+      ctx,
+      x - expand * 0.5,
+      y - expand * 0.5,
+      width + expand,
+      height + expand,
+      radius + expand * 0.5
+    );
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
