@@ -25,6 +25,9 @@ const DEFAULT_DEVICE_HEIGHT = 58;
 const SLOT_HEIGHT = 54;
 const LEGACY_DEVICE_WIDTH = 380;
 const LEGACY_ADAPTER_WIDTH = 190;
+const LEGACY_ADAPTER_NODE_EDGE_PADDING = 16;
+const LEGACY_ADAPTER_NODE_RADIUS = 7;
+const LEGACY_ADAPTER_MIN_HEIGHT = LEGACY_ADAPTER_NODE_EDGE_PADDING + LEGACY_ADAPTER_NODE_RADIUS * 2 + LEGACY_ADAPTER_NODE_EDGE_PADDING;
 const JUMP_NODE_SIZE = 44;
 const SURFACE_FALLBACK_HEIGHT = 120;
 const CARD_SLOT_OVERRIDE_FIELDS = [
@@ -58,7 +61,7 @@ const NODE_TYPE_FALLBACKS = new Map([
   ["fiber-mpo", "#ffff00"],
   ["powerlock", "#2aa657"]
 ]);
-const ADAPTER_BREAKOUT_CATEGORY_RE = /\bAdapters?\s*\/\s*Breakouts?\b/i;
+const ADAPTER_BREAKOUT_CATEGORY_RE = /\b(?:adapters?|breakouts?)\b/i;
 
 export function syntheticPreset(name) {
   return SIZE_PRESETS[name] || SIZE_PRESETS.small;
@@ -311,16 +314,19 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
   // source in that case; explicit instance fields still override below.
   const template = resolvedTemplate || instance || {};
   const isAdapter = isAdapterTemplateForEngine(template, instance);
+  const rawConnectors = effectiveConnectorsForTemplate(template)
+    .map(connector => applyInstanceConnectorOverride(instance, connector));
   const widthSource = isAdapter
     ? LEGACY_ADAPTER_WIDTH
     : positiveNumber(instance.width) || positiveNumber(template.width);
   const heightSource = positiveNumber(instance.height) || positiveNumber(template.height);
   const width = widthSource || DEFAULT_DEVICE_WIDTH;
-  const height = heightSource || DEFAULT_DEVICE_HEIGHT;
+  const height = isAdapter
+    ? adapterHeightForConnectors(rawConnectors, heightSource)
+    : heightSource || DEFAULT_DEVICE_HEIGHT;
   const id = String(instance.instanceId || instance.id || `project-device-${index}`);
   const label = instance.name || template.name || template.model || `Device ${index + 1}`;
-  const connectors = effectiveConnectorsForTemplate(template)
-    .map(connector => applyInstanceConnectorOverride(instance, connector))
+  const connectors = rawConnectors
     .map((connector, connectorIndex) => normalizeConnector(connector, connectorIndex, width, nodeColorByType, { isAdapter }))
     .filter(Boolean);
   const visual = normalizeDeviceVisualMetadata(template, instance, width, height);
@@ -356,12 +362,21 @@ function isAdapterTemplateLikeForEngine(template = {}, instance = {}) {
   return template?.objectType === "adapter"
     || instance?.objectType === "adapter"
     || template?.isAdapterBreakout === true
-    || instance?.isAdapterBreakout === true
-    // Legacy stores the adapter/breakout branch as a structured category in
-    // some built-in/project libraries. Preserve that data signal so Engine does
-    // not send adapter templates through the normal device renderer.
-    || ADAPTER_BREAKOUT_CATEGORY_RE.test(String(template?.category || template?.type || template?.section || ""))
-    || ADAPTER_BREAKOUT_CATEGORY_RE.test(String(instance?.category || instance?.type || instance?.section || ""));
+    || instance?.isAdapterBreakout === true;
+}
+
+function adapterHeightForConnectors(connectors = [], explicitHeight = 0) {
+  const usable = (Array.isArray(connectors) ? connectors : [])
+    .filter(connector => connector && !connector.empty && connector.type);
+  const maxConnectorY = usable.reduce((max, connector) => {
+    const y = Number(connector.y);
+    return Number.isFinite(y) ? Math.max(max, y) : max;
+  }, LEGACY_ADAPTER_NODE_EDGE_PADDING + LEGACY_ADAPTER_NODE_RADIUS);
+  return Math.max(
+    LEGACY_ADAPTER_MIN_HEIGHT,
+    positiveNumber(explicitHeight) || 0,
+    Math.ceil(maxConnectorY + LEGACY_ADAPTER_NODE_RADIUS + LEGACY_ADAPTER_NODE_EDGE_PADDING)
+  );
 }
 
 function normalizeDeviceVisualMetadata(template = {}, instance = {}, width = DEFAULT_DEVICE_WIDTH, height = DEFAULT_DEVICE_HEIGHT) {

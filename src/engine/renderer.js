@@ -1713,6 +1713,7 @@ function pushDevice(vertices, device, offsets = null, selected = false, options 
     // not draw the normal solid device body here; texture misses/loading would
     // otherwise flash a completely different object type.
     pushRect(vertices, x, y, device.width, device.height, "rgba(50, 182, 255, .08)");
+    pushAdapterFallbackInternalWires(vertices, device, x, y);
     pushDashedBoxOutline(vertices, { x, y, width: device.width, height: device.height }, 3, "#32b6ff", 9, 6);
     return;
   }
@@ -1830,6 +1831,18 @@ function pushObjectOutline(vertices, device, offsets = null, layers = []) {
     });
     return;
   }
+  if (device.kind === "adapter") {
+    layers.forEach(layer => {
+      const rect = {
+        x: x - layer.expand,
+        y: y - layer.expand,
+        width: device.width + layer.expand * 2,
+        height: device.height + layer.expand * 2
+      };
+      pushDashedBoxOutline(vertices, rect, layer.width, layer.color, 9, 6);
+    });
+    return;
+  }
   layers.forEach(layer => {
     const rect = {
       x: x - layer.expand,
@@ -1840,6 +1853,88 @@ function pushObjectOutline(vertices, device, offsets = null, layers = []) {
     const radius = (device.kind === "adapter" ? LEGACY_ADAPTER_RADIUS : LEGACY_DEVICE_RADIUS) + layer.expand;
     pushRoundedBoxOutline(vertices, rect, radius, layer.width, layer.color);
   });
+}
+
+function pushAdapterFallbackInternalWires(vertices, device, baseX, baseY) {
+  const pairs = adapterInternalWirePairs(deviceConnectorsForRender(device));
+  pairs.forEach(pair => {
+    pushAdapterFallbackWire(vertices, pair.input, pair.output, baseX, baseY);
+  });
+}
+
+function adapterInternalWirePairs(connectors = []) {
+  const usable = (Array.isArray(connectors) ? connectors : [])
+    .filter(connector => connector && connector.type);
+  const inputs = usable
+    .filter(connector => connector.direction === "input")
+    .sort((a, b) => Number(a.y || 0) - Number(b.y || 0));
+  const outputs = usable
+    .filter(connector => connector.direction !== "input")
+    .sort((a, b) => Number(a.y || 0) - Number(b.y || 0));
+  if (!inputs.length || !outputs.length) return [];
+  if (inputs.length === 1) return outputs.map(output => ({ input: inputs[0], output }));
+  if (outputs.length === 1) return inputs.map(input => ({ input, output: outputs[0] }));
+  if (inputs.length < outputs.length) {
+    return outputs.map((output, index) => ({
+      input: inputs[Math.min(inputs.length - 1, Math.floor(index * inputs.length / outputs.length))],
+      output
+    }));
+  }
+  if (outputs.length < inputs.length) {
+    return inputs.map((input, index) => ({
+      input,
+      output: outputs[Math.min(outputs.length - 1, Math.floor(index * outputs.length / inputs.length))]
+    }));
+  }
+  return inputs.map((input, index) => ({ input, output: outputs[index] }));
+}
+
+function pushAdapterFallbackWire(vertices, input, output, baseX, baseY) {
+  const start = {
+    x: baseX + connectorRenderX(input),
+    y: baseY + connectorRenderY(input)
+  };
+  const end = {
+    x: baseX + connectorRenderX(output),
+    y: baseY + connectorRenderY(output)
+  };
+  const dir = end.x >= start.x ? 1 : -1;
+  const dx = Math.max(36, Math.abs(end.x - start.x) * 0.42);
+  const c1 = { x: start.x + dx * dir, y: start.y };
+  const c2 = { x: end.x - dx * dir, y: end.y };
+  const inputColor = parseColor(input.color || PORT_COLOR);
+  const outputColor = parseColor(output.color || PORT_COLOR);
+  let previous = start;
+  const steps = 24;
+  for (let index = 1; index <= steps; index += 1) {
+    const t = index / steps;
+    const next = cubicPoint(start, c1, c2, end, t);
+    const color = colorAtAdapterWireStop(inputColor, outputColor, t);
+    pushLine(vertices, previous, next, 3, color);
+    previous = next;
+  }
+}
+
+function cubicPoint(a, b, c, d, t) {
+  const mt = 1 - t;
+  const mt2 = mt * mt;
+  const t2 = t * t;
+  return {
+    x: a.x * mt2 * mt + 3 * b.x * mt2 * t + 3 * c.x * mt * t2 + d.x * t2 * t,
+    y: a.y * mt2 * mt + 3 * b.y * mt2 * t + 3 * c.y * mt * t2 + d.y * t2 * t
+  };
+}
+
+function colorAtAdapterWireStop(inputColor, outputColor, t) {
+  if (t <= 0.25) return inputColor;
+  if (t >= 0.75) return outputColor;
+  const amount = (t - 0.25) / 0.5;
+  return [
+    inputColor[0] + (outputColor[0] - inputColor[0]) * amount,
+    inputColor[1] + (outputColor[1] - inputColor[1]) * amount,
+    inputColor[2] + (outputColor[2] - inputColor[2]) * amount,
+    inputColor[3] + (outputColor[3] - inputColor[3]) * amount
+  ];
 }
 
 function pushWireSelection(vertices, scene, wire, offsets, options = DEFAULT_RENDER_OPTIONS, cableHopMap = options.cableHopMap) {

@@ -979,11 +979,13 @@ function normalizeDevice(device) {
   const connectors = (Array.isArray(device.connectors) ? device.connectors : [])
     .map((connector, index) => normalizeConnector(connector, index))
     .filter(Boolean);
+  const visual = normalizeVisualMetadata(device.visual);
+  const kind = device.kind || (visual.isAdapterBreakout ? "adapter" : "device");
   return {
     id: String(device.id),
     sourceKind: device.sourceKind || "",
     sourceId: device.sourceId || device.id || "",
-    kind: device.kind || "device",
+    kind,
     x: Number(device.x) || 0,
     y: Number(device.y) || 0,
     width: Math.max(40, Number(device.width) || 120),
@@ -997,7 +999,7 @@ function normalizeDevice(device) {
     model: device.model || device.visual?.model || "",
     category: device.category || device.visual?.category || "",
     templateId: device.templateId || "",
-    visual: normalizeVisualMetadata(device.visual),
+    visual,
     connectors,
     connectorsById: new Map(connectors.map(connector => [connector.id, connector])),
     portCount: Math.max(1, Number(device.portCount) || connectors.length || 4)
