@@ -1277,7 +1277,7 @@ export class WebglGraphRenderer {
     const width = Math.max(1, Math.round(device.width || 1));
     const height = Math.max(1, Math.round(device.height || 1));
     const radius = device.kind === "adapter" ? LEGACY_ADAPTER_RADIUS : LEGACY_DEVICE_RADIUS;
-    const padding = mode === "selected" ? 68 : 34;
+    const padding = mode === "selected" ? 48 : 34;
     const key = `${mode}:${width}:${height}:${radius}:${padding}`;
     const existing = this.glowTextureCache.get(key);
     if (existing?.texture) return existing;
@@ -1295,19 +1295,19 @@ export class WebglGraphRenderer {
     if (mode === "selected") {
       drawSoftRoundedGlow(ctx, padding, padding, width, height, radius, {
         color: [251, 121, 4],
-        spread: 58,
+        spread: 41,
         layers: 44,
-        innerAlpha: 0.18,
-        outerAlpha: 0.008,
-        lineWidth: 4.8
+        innerAlpha: 0.126,
+        outerAlpha: 0.006,
+        lineWidth: 3.4
       });
       drawSoftRoundedGlow(ctx, padding, padding, width, height, radius, {
         color: [251, 121, 4],
-        spread: 20,
+        spread: 14,
         layers: 18,
-        innerAlpha: 0.20,
-        outerAlpha: 0.015,
-        lineWidth: 3.2
+        innerAlpha: 0.14,
+        outerAlpha: 0.011,
+        lineWidth: 2.2
       });
     } else {
       drawSoftRoundedGlow(ctx, padding, padding, width, height, radius, {
@@ -1829,8 +1829,8 @@ function pushSelectionOutline(vertices, device, offsets = null) {
     // invalidating the high-resolution device snapshot.
     // The broad soft bloom is cached in drawObjectGlows(); this pass is only
     // the crisp near-edge rim so selected objects do not show stacked bands.
-    { expand: 3, width: 2.2, color: "rgba(251,121,4,.88)" },
-    { expand: 5.2, width: 1.2, color: "rgba(251,121,4,.34)" }
+    { expand: 2.1, width: 1.5, color: "rgba(251,121,4,.62)" },
+    { expand: 3.6, width: 0.85, color: "rgba(251,121,4,.24)" }
   ]);
 }
 
