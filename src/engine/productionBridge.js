@@ -2923,7 +2923,21 @@ class ProductionEngineBridge {
   removeCreatedDevice(deviceId) {
     const id = String(deviceId || "");
     const device = this.scene.getDevice(id);
+    if (!device || !isEngineDeletableDevice(device)) {
+      this.customDeviceDiagnostic("delete skipped non-instance target", {
+        requestedId: id,
+        reason: device ? "not placed device" : "missing scene device"
+      });
+      return { mutationMs: 0, deviceData: null, index: -1 };
+    }
     const sourceId = String(device?.sourceId || id);
+    if (!sourceId || !this.mutations?.deviceById?.has(sourceId)) {
+      this.customDeviceDiagnostic("delete skipped missing production instance", {
+        requestedId: id,
+        sourceId
+      });
+      return { mutationMs: 0, deviceData: null, index: -1 };
+    }
     const mutationResult = this.mutations?.removeDeviceInstance(sourceId) || { mutationMs: 0, deviceData: null, index: -1 };
     const removed = this.scene.deleteDevice(id);
     if (!removed) return { mutationMs: mutationResult.mutationMs || 0, deviceData: mutationResult.deviceData, index: mutationResult.index };
@@ -4036,7 +4050,7 @@ function engineRewireDebugEnabled() {
 
 function engineCustomDevicesDebugEnabled() {
   const params = new URLSearchParams(window.location.search);
-  return params.get("debugCustomDevices") === "1" || params.get("debugLibraryDrag") === "1";
+  return params.get("debugCustomDevices") === "1" || params.get("debugLibraryDrag") === "1" || params.get("debugCustomIdentity") === "1";
 }
 
 function engineOrthogonalTestEnabled() {

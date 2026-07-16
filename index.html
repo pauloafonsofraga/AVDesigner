@@ -2042,7 +2042,8 @@
       box-shadow: 0 14px 34px rgba(0, 0, 0, .38);
     }
 
-    .library-drag-debug-panel {
+    .library-drag-debug-panel,
+    .custom-identity-debug-panel {
       position: fixed;
       right: 14px;
       bottom: 14px;
@@ -2060,7 +2061,15 @@
       pointer-events: auto;
     }
 
-    .library-drag-debug-panel h2 {
+    .custom-identity-debug-panel {
+      left: auto;
+      right: 14px;
+      width: min(560px, calc(100vw - 28px));
+      max-height: min(36vh, 360px);
+    }
+
+    .library-drag-debug-panel h2,
+    .custom-identity-debug-panel h2 {
       margin: 0 0 8px;
       font-size: 12px;
       letter-spacing: .08em;
@@ -2068,7 +2077,8 @@
       color: #32b6ff;
     }
 
-    .library-drag-debug-actions {
+    .library-drag-debug-actions,
+    .custom-identity-debug-actions {
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -2076,7 +2086,8 @@
       margin-bottom: 10px;
     }
 
-    .library-drag-debug-actions button {
+    .library-drag-debug-actions button,
+    .custom-identity-debug-actions button {
       border: 1px solid rgba(50, 182, 255, .52);
       border-radius: 7px;
       background: rgba(50, 182, 255, .16);
@@ -2087,12 +2098,36 @@
       cursor: pointer;
     }
 
-    .library-drag-debug-grid {
+    .library-drag-debug-grid,
+    .custom-identity-debug-grid {
       display: grid;
       grid-template-columns: minmax(132px, .9fr) minmax(0, 1fr);
       gap: 4px 8px;
       padding: 8px 0;
       border-top: 1px solid rgba(148, 163, 184, .18);
+    }
+
+    .custom-identity-debug-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 10px;
+    }
+
+    .custom-identity-debug-table th,
+    .custom-identity-debug-table td {
+      border-top: 1px solid rgba(148, 163, 184, .18);
+      padding: 4px 5px;
+      text-align: left;
+      vertical-align: top;
+      word-break: break-word;
+    }
+
+    .custom-identity-debug-table th {
+      color: #32b6ff;
+      font-size: 9px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
     }
 
     .library-drag-debug-label {
@@ -3847,7 +3882,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 42.2 — Engine Editor — iteration42-2</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 42.3 — Engine Editor — iteration42-3</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -4553,12 +4588,13 @@
   </div>
 
   <script>
-    const APP_ITERATION = "42.2";
-    const APP_BUILD_ID = "iteration42-2";
+    const APP_ITERATION = "42.3";
+    const APP_BUILD_ID = "iteration42-3";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
     const DEBUG_LIBRARY_DRAG_ENABLED = INITIAL_URL_PARAMS.get("debugLibraryDrag") === "1";
     const DEBUG_CUSTOM_DEVICES_ENABLED = INITIAL_URL_PARAMS.get("debugCustomDevices") === "1";
+    const DEBUG_CUSTOM_IDENTITY_ENABLED = INITIAL_URL_PARAMS.get("debugCustomIdentity") === "1";
     const SVG_NS = "http://www.w3.org/2000/svg";
     const DEVICE_WIDTH = 380;
     const ADAPTER_WIDTH = 190;
@@ -63416,6 +63452,27 @@
         validationAfterCreate: ""
       }
     };
+    const customIdentityDebug = {
+      overlay: null,
+      grid: null,
+      table: null,
+      copyButton: null,
+      seq: 0,
+      events: [],
+      duplicateInvocationCount: 0,
+      listClickCount: 0,
+      lastContextMenuAction: "-",
+      lastCreatedRecords: [],
+      lastDeviceEditorOpenReason: "-",
+      lastDeviceEditorOpenDetails: null,
+      lastDeleteTargets: [],
+      lastDeleteRemoved: [],
+      lastCustomDragState: "-",
+      lastCustomDropState: "-",
+      lastSuppressionState: "-",
+      lastCopyDiagnostic: null,
+      lastSelectedSnapshot: null
+    };
     let selectedDeviceType = "";
     let deviceTypeOpenGroups = new Set(DEVICE_TYPE_TREE.filter(group => !group.leaf).map(group => group.group));
     let panState = null;
@@ -65195,6 +65252,223 @@
         }
       }
       return String(value ?? "-");
+    }
+
+    function customIdentityDebugEnabled() {
+      return DEBUG_CUSTOM_IDENTITY_ENABLED;
+    }
+
+    function formatCustomIdentityValue(value) {
+      if (Array.isArray(value)) return value.length ? value.map(item => typeof item === "object" ? JSON.stringify(item) : String(item)).join(", ") : "-";
+      if (value && typeof value === "object") {
+        try {
+          return JSON.stringify(value);
+        } catch (error) {
+          return String(value);
+        }
+      }
+      return String(value ?? "-");
+    }
+
+    function selectedCustomIdentityObjects() {
+      const ids = new Set();
+      if (state.selected?.type === "device" && state.selected.id) ids.add(String(state.selected.id));
+      if (state.selected?.type === "multi") {
+        (state.selected.items || [])
+          .filter(item => item?.type === "device" && item.id)
+          .forEach(item => ids.add(String(item.id)));
+      }
+      const bridge = activeEngineBridge();
+      bridge?.scene?.selectedIds?.forEach?.(id => {
+        const device = bridge.scene.getDevice(id);
+        if (device?.sourceKind === "device") ids.add(String(device.sourceId || id));
+      });
+      return [...ids];
+    }
+
+    function customIdentityScenePresence(instanceId) {
+      const bridge = activeEngineBridge();
+      if (!bridge?.scene) return "-";
+      const id = String(instanceId || "");
+      if (bridge.scene.getDevice(id)) return "yes";
+      let found = false;
+      bridge.scene.devices?.forEach?.(device => {
+        if (String(device?.sourceId || "") === id) found = true;
+      });
+      return found ? "yes" : "no";
+    }
+
+    function customIdentityRelatedRecords() {
+      const selectedIds = selectedCustomIdentityObjects();
+      const selectedInstances = selectedIds.map(id => instanceById(id)).filter(Boolean);
+      const selectedTemplateIds = new Set(selectedInstances.map(instance => instance.templateId).filter(Boolean).map(String));
+      const selectedNames = new Set(selectedInstances.map(instance => String(instance.name || "").toLowerCase()).filter(Boolean));
+      const selectedCoords = new Set(selectedInstances.map(instance => `${Math.round(Number(instance.x) || 0)},${Math.round(Number(instance.y) || 0)}`));
+      const rows = [];
+      deviceLibrary.forEach(template => {
+        const nameMatch = selectedNames.has(String(template.name || "").toLowerCase());
+        if (!selectedTemplateIds.has(String(template.id || "")) && !nameMatch) return;
+        rows.push({
+          type: isProjectCustomDeviceTemplate(template) ? "project-template" : "master-template",
+          id: template.id || "",
+          name: template.name || "",
+          sourceTemplateId: "",
+          coords: "-",
+          projectCustom: isProjectCustomDeviceTemplate(template) ? "yes" : "no",
+          scene: "-",
+          production: "yes"
+        });
+      });
+      state.devices.forEach(instance => {
+        const coordKey = `${Math.round(Number(instance.x) || 0)},${Math.round(Number(instance.y) || 0)}`;
+        const related = selectedIds.includes(String(instance.instanceId || ""))
+          || selectedTemplateIds.has(String(instance.templateId || ""))
+          || selectedNames.has(String(instance.name || "").toLowerCase())
+          || selectedCoords.has(coordKey);
+        if (!related) return;
+        const template = templateForInstance(instance);
+        rows.push({
+          type: "placed-instance",
+          id: instance.instanceId || "",
+          name: instance.name || template?.name || "",
+          sourceTemplateId: instance.templateId || "",
+          coords: `${Math.round(Number(instance.x) || 0)}, ${Math.round(Number(instance.y) || 0)}`,
+          projectCustom: isProjectCustomDeviceTemplate(templateById(instance.templateId)) ? "yes" : (instance.templateOverride ? "snapshot" : "no"),
+          scene: customIdentityScenePresence(instance.instanceId),
+          production: instanceById(instance.instanceId) ? "yes" : "no"
+        });
+      });
+      return rows;
+    }
+
+    function customIdentitySnapshot(extra = {}) {
+      const selectedIds = selectedCustomIdentityObjects();
+      const selectedInstances = selectedIds.map(id => instanceById(id)).filter(Boolean);
+      const selectedTemplateIds = selectedInstances.map(instance => instance.templateId).filter(Boolean);
+      const selectedProjectTemplateIds = selectedTemplateIds.filter(id => isProjectCustomDeviceTemplate(templateById(id)));
+      const duplicateIds = new Map();
+      state.devices.forEach(instance => {
+        const key = `${Math.round(Number(instance.x) || 0)},${Math.round(Number(instance.y) || 0)}|${instance.templateId || ""}|${String(instance.name || "").toLowerCase()}`;
+        const list = duplicateIds.get(key) || [];
+        list.push(instance.instanceId);
+        duplicateIds.set(key, list);
+      });
+      const overlapping = [...duplicateIds.values()].filter(list => list.length > 1);
+      const snapshot = {
+        masterTemplateCount: libraryDeviceTemplates().length,
+        projectCustomTemplateCount: projectCustomDeviceTemplates().length,
+        placedInstanceCount: state.devices.length,
+        selectedIds,
+        selectedTypes: selectedInstances.length ? selectedInstances.map(() => "device") : [state.selected?.type || "-"],
+        selectedInstanceIds: selectedInstances.map(instance => instance.instanceId),
+        selectedTemplateIds,
+        selectedProjectTemplateIds,
+        lastContextMenuAction: customIdentityDebug.lastContextMenuAction,
+        duplicateInvocationCount: customIdentityDebug.duplicateInvocationCount,
+        lastCreatedRecords: customIdentityDebug.lastCreatedRecords,
+        lastDeviceEditorOpenReason: customIdentityDebug.lastDeviceEditorOpenReason,
+        lastDeleteTargets: customIdentityDebug.lastDeleteTargets,
+        lastDeleteRemoved: customIdentityDebug.lastDeleteRemoved,
+        listClickCount: customIdentityDebug.listClickCount,
+        customDragState: customIdentityDebug.lastCustomDragState,
+        customDropState: customIdentityDebug.lastCustomDropState,
+        suppressionState: customIdentityDebug.lastSuppressionState,
+        copyDiagnostic: customIdentityDebug.lastCopyDiagnostic,
+        overlappingInstanceGroups: overlapping,
+        relatedRecords: customIdentityRelatedRecords(),
+        ...extra
+      };
+      window.__avDesignerCustomIdentityDebug = {
+        snapshot,
+        events: customIdentityDebug.events.slice()
+      };
+      return snapshot;
+    }
+
+    function ensureCustomIdentityDebugOverlay() {
+      if (!customIdentityDebugEnabled()) return null;
+      if (customIdentityDebug.overlay) return customIdentityDebug.overlay;
+      const panel = document.createElement("aside");
+      panel.className = "custom-identity-debug-panel";
+      panel.innerHTML = `
+        <div class="custom-identity-debug-actions">
+          <h2>Custom Identity Debug</h2>
+          <button type="button" data-copy-custom-identity-debug>Copy diagnostics</button>
+        </div>
+        <div class="custom-identity-debug-grid" data-custom-identity-debug-grid></div>
+        <table class="custom-identity-debug-table">
+          <thead><tr><th>Record</th><th>ID</th><th>Name</th><th>Template</th><th>Coords</th><th>Custom</th><th>Scene</th><th>Prod</th></tr></thead>
+          <tbody data-custom-identity-debug-table></tbody>
+        </table>
+      `;
+      document.body.appendChild(panel);
+      customIdentityDebug.overlay = panel;
+      customIdentityDebug.grid = panel.querySelector("[data-custom-identity-debug-grid]");
+      customIdentityDebug.table = panel.querySelector("[data-custom-identity-debug-table]");
+      customIdentityDebug.copyButton = panel.querySelector("[data-copy-custom-identity-debug]");
+      customIdentityDebug.copyButton?.addEventListener("click", () => {
+        navigator.clipboard?.writeText(JSON.stringify(window.__avDesignerCustomIdentityDebug || customIdentitySnapshot(), null, 2));
+      });
+      return panel;
+    }
+
+    function updateCustomIdentityDebug(extra = {}) {
+      if (!customIdentityDebugEnabled()) return;
+      ensureCustomIdentityDebugOverlay();
+      const snapshot = customIdentitySnapshot(extra);
+      const rows = [
+        ["Master templates", snapshot.masterTemplateCount],
+        ["Project custom templates", snapshot.projectCustomTemplateCount],
+        ["Placed instances", snapshot.placedInstanceCount],
+        ["Selected IDs", snapshot.selectedIds],
+        ["Selected types", snapshot.selectedTypes],
+        ["Selected instanceId", snapshot.selectedInstanceIds],
+        ["Selected templateId", snapshot.selectedTemplateIds],
+        ["Selected custom template", snapshot.selectedProjectTemplateIds],
+        ["Last context action", snapshot.lastContextMenuAction],
+        ["Duplicate calls", snapshot.duplicateInvocationCount],
+        ["Created last action", snapshot.lastCreatedRecords],
+        ["Editor open reason", snapshot.lastDeviceEditorOpenReason],
+        ["Delete targets", snapshot.lastDeleteTargets],
+        ["Delete removed", snapshot.lastDeleteRemoved],
+        ["List click count", snapshot.listClickCount],
+        ["Custom drag", snapshot.customDragState],
+        ["Custom drop", snapshot.customDropState],
+        ["Click suppression", snapshot.suppressionState],
+        ["Copy diagnostics", snapshot.copyDiagnostic],
+        ["Overlapping groups", snapshot.overlappingInstanceGroups]
+      ];
+      customIdentityDebug.grid.innerHTML = rows.map(([label, value]) => (
+        `<div class="library-drag-debug-label">${escapeHtml(label)}</div><div class="library-drag-debug-value">${escapeHtml(formatCustomIdentityValue(value))}</div>`
+      )).join("");
+      customIdentityDebug.table.innerHTML = (snapshot.relatedRecords || []).map(record => `
+        <tr>
+          <td>${escapeHtml(record.type)}</td>
+          <td>${escapeHtml(record.id)}</td>
+          <td>${escapeHtml(record.name)}</td>
+          <td>${escapeHtml(record.sourceTemplateId)}</td>
+          <td>${escapeHtml(record.coords)}</td>
+          <td>${escapeHtml(record.projectCustom)}</td>
+          <td>${escapeHtml(record.scene)}</td>
+          <td>${escapeHtml(record.production)}</td>
+        </tr>
+      `).join("") || `<tr><td colspan="8">No selected/related device records.</td></tr>`;
+    }
+
+    function recordCustomIdentity(step, details = {}) {
+      if (!customIdentityDebugEnabled()) return;
+      customIdentityDebug.seq += 1;
+      const event = { seq: customIdentityDebug.seq, step, details, at: Math.round(performance.now()) };
+      customIdentityDebug.events.push(event);
+      if (customIdentityDebug.events.length > 80) customIdentityDebug.events.shift();
+      console.info(`[avdesigner-custom-identity] ${step}`, details);
+      updateCustomIdentityDebug({ lastEvent: step });
+    }
+
+    function recordDeviceEditorOpen(reason, details = {}) {
+      customIdentityDebug.lastDeviceEditorOpenReason = reason || "-";
+      customIdentityDebug.lastDeviceEditorOpenDetails = details || null;
+      recordCustomIdentity("device editor open", { reason, ...details });
     }
 
     function updateLibraryDragDebugState(step, details = {}) {
@@ -68031,7 +68305,9 @@
       return null;
     }
 
-    function openDeviceEditor() {
+    function openDeviceEditor(options = {}) {
+      const reason = typeof options === "string" ? options : (options.reason || "device-editor-open");
+      recordDeviceEditorOpen(reason, typeof options === "object" ? options.details || {} : {});
       editorMode = "library";
       editorInstanceId = null;
       editorInstanceName = "";
@@ -68063,7 +68339,7 @@
         openDeviceEditorForProjectTemplate(templateId);
         return;
       }
-      openDeviceEditor();
+      openDeviceEditor({ reason: "master-device-edit", details: { templateId } });
       const index = editorDraft.findIndex(template => template.id === templateId);
       if (index >= 0) {
         editorIndex = index;
@@ -68072,7 +68348,7 @@
     }
 
     function openDeviceEditorWithNewDevice() {
-      openDeviceEditor();
+      openDeviceEditor({ reason: "create-new-device" });
       editorDraft.push(createBlankDeviceTemplate());
       editorIndex = editorDraft.length - 1;
       editorDeviceFilter = "";
@@ -68087,10 +68363,17 @@
     function openDeviceEditorForProjectTemplate(templateId) {
       const template = projectCustomTemplateById(templateId);
       if (!template) return;
-      openDeviceEditorForProjectTemplateDraft(structuredClone(template), "project-template-edit", { templateId });
+      openDeviceEditorForProjectTemplateDraft(structuredClone(template), "project-template-edit", {
+        templateId,
+        reason: "explicit-project-custom-edit"
+      });
     }
 
     function openDeviceEditorForProjectTemplateDraft(draft, mode, options = {}) {
+      recordDeviceEditorOpen(options.reason || mode || "project-template-edit", {
+        templateId: options.templateId || draft?.id || "",
+        mode
+      });
       editorMode = mode;
       editorInstanceId = null;
       editorInstanceName = "";
@@ -68142,6 +68425,10 @@
       const instance = instanceById(instanceId);
       const template = templateForInstance(instance);
       if (!instance || !template) return;
+      recordDeviceEditorOpen("canvas-device-edit", {
+        instanceId,
+        templateId: instance.templateId || ""
+      });
       editorMode = "instance";
       editorInstanceId = instanceId;
       editorDraft = [structuredClone(template)];
@@ -74487,8 +74774,12 @@
         name: template.name || "Project Custom Device"
       }));
       const templateIds = new Set(customTemplates.map(item => item.id));
+      // Legacy fallback rows are only for old project files whose placed
+      // instances have a private snapshot but no corresponding library
+      // template. Normal master-library instances may also carry a temporary
+      // Engine snapshot; those must not become Project Custom list entries.
       const legacyCustomDevices = state.devices
-        .filter(instance => instance.templateOverride && !templateIds.has(instance.templateId))
+        .filter(instance => instance.templateOverride && !templateIds.has(instance.templateId) && !templateById(instance.templateId))
         .map(instance => ({
           kind: "legacy-instance",
           id: instance.instanceId,
@@ -74523,17 +74814,31 @@
           if (entry.kind === "template") {
             item.addEventListener("pointerdown", event => startProjectCustomTemplateDrag(event, entry.id));
             item.addEventListener("click", event => {
+              customIdentityDebug.listClickCount += 1;
               if (consumeProjectCustomDeviceClickSuppression(event, entry.id, "template")) return;
-              openDeviceEditorForProjectTemplate(entry.id);
+              recordCustomIdentity("project custom row click", {
+                kind: "template",
+                id: entry.id,
+                editorOpen: false
+              });
+              updateCustomIdentityDebug();
             });
             item.addEventListener("contextmenu", event => {
               event.preventDefault();
+              customIdentityDebug.lastContextMenuAction = "project-custom-template-context";
+              recordCustomIdentity("project custom context menu", { templateId: entry.id });
               showProjectCustomDeviceContextMenu(event, entry.id);
             });
           } else {
             item.addEventListener("pointerdown", event => startProjectCustomDeviceDrag(event, entry.id));
             item.addEventListener("click", event => {
+              customIdentityDebug.listClickCount += 1;
               if (consumeProjectCustomDeviceClickSuppression(event, entry.id, "instance")) return;
+              recordCustomIdentity("project custom legacy instance row click", {
+                kind: "legacy-instance",
+                id: entry.id,
+                editorOpen: false
+              });
               selectAndFrameDevice(entry.id);
             });
             item.addEventListener("contextmenu", event => {
@@ -74546,10 +74851,15 @@
       if (!customDeviceList.children.length) {
         customDeviceList.innerHTML = `<div class="placeholder" style="padding:12px;">Project custom devices will appear here.</div>`;
       }
+      recordCustomIdentity("project custom list rendered", {
+        customTemplates: customTemplates.length,
+        legacySnapshotRows: legacyCustomDevices.length,
+        entries: entries.length
+      });
     }
 
     function customDeviceDiagnosticsEnabled() {
-      return DEBUG_CUSTOM_DEVICES_ENABLED || DEBUG_LIBRARY_DRAG_ENABLED;
+      return DEBUG_CUSTOM_DEVICES_ENABLED || DEBUG_LIBRARY_DRAG_ENABLED || DEBUG_CUSTOM_IDENTITY_ENABLED;
     }
 
     function logCustomDeviceDiagnostic(step, details = {}) {
@@ -74562,6 +74872,7 @@
       console.info(`[avdesigner-custom-devices] ${step}`, payload);
       recordLibraryDragDebugEvent(`custom ${step}`, payload);
       activeEngineBridge()?.setDiagnosticMetric?.("custom devices", step);
+      recordCustomIdentity(step, payload);
     }
 
     function suppressProjectCustomDeviceClickAfterDrag(drag, reason = "drag") {
@@ -74572,6 +74883,7 @@
         until: performance.now() + 700,
         reason
       };
+      customIdentityDebug.lastSuppressionState = `${reason}: ${projectCustomDragClickSuppression.templateId || projectCustomDragClickSuppression.sourceId || "-"}`;
       logCustomDeviceDiagnostic("suppress follow-up click", {
         reason,
         templateId: projectCustomDragClickSuppression.templateId,
@@ -74601,7 +74913,9 @@
         kind,
         reason: projectCustomDragClickSuppression.reason
       });
+      customIdentityDebug.lastSuppressionState = `consumed ${kind} ${targetId || "-"}`;
       projectCustomDragClickSuppression = { templateId: "", sourceId: "", until: 0, reason: "" };
+      updateCustomIdentityDebug();
       return true;
     }
 
@@ -74623,6 +74937,12 @@
       const instance = instanceById(instanceId);
       const template = templateForInstance(instance);
       if (!instance || !template) return;
+      customIdentityDebug.lastCustomDragState = `pending legacy instance ${instanceId}`;
+      recordCustomIdentity("project custom legacy instance drag pointerdown", {
+        instanceId,
+        templateId: instance.templateId || "",
+        name: instance.name || template.name || ""
+      });
       startLibraryDrag(event, instance.templateId || template.id, {
         templateOverride: structuredClone(template),
         name: instance.name || template.name,
@@ -74636,10 +74956,14 @@
       if (event.button !== 0) return;
       const template = projectCustomTemplateById(templateId);
       if (!template) return;
+      customIdentityDebug.lastCustomDragState = `pending template ${template.id}`;
+      recordCustomIdentity("project custom template drag pointerdown", {
+        templateId: template.id,
+        name: template.name || ""
+      });
       startLibraryDrag(event, template.id, {
         templateOverride: structuredClone(template),
         name: template.name || "Project Custom Device",
-        clickAction: () => openDeviceEditorForProjectTemplate(template.id),
         sourceId: template.id,
         custom: true
       });
@@ -74663,6 +74987,16 @@
       const source = projectCustomSourceTemplateForInstance(instance);
       if (!instance || !source) return null;
       const now = performance.now();
+      const beforeTemplates = projectCustomDeviceTemplates().map(template => template.id);
+      const beforeInstances = state.devices.map(device => device.instanceId);
+      customIdentityDebug.duplicateInvocationCount += 1;
+      customIdentityDebug.lastContextMenuAction = "canvas duplicate device";
+      recordCustomIdentity("canvas duplicate requested", {
+        instanceId,
+        sourceTemplateId: instance.templateId || "",
+        beforeTemplateCount: beforeTemplates.length,
+        beforeInstanceCount: beforeInstances.length
+      });
       if (canvasDuplicateDeviceGuard.instanceId === instanceId && now - canvasDuplicateDeviceGuard.at < 350) {
         logCustomDeviceDiagnostic("duplicate canvas request skipped", {
           instanceId,
@@ -74681,11 +75015,22 @@
       renderRackBuilderSources();
       renderInspector();
       updateUndoRedoButtons();
+      customIdentityDebug.lastCreatedRecords = [{
+        type: "project-template",
+        id: copy.id,
+        name: copy.name || "",
+        sourceInstanceId: instanceId,
+        sourceTemplateId: instance.templateId || ""
+      }];
       logCustomDeviceDiagnostic("canvas duplicate created project custom device", {
         instanceId,
         customTemplateId: copy.id,
         beforeCount,
-        afterCount: projectCustomDeviceTemplates().length
+        afterCount: projectCustomDeviceTemplates().length,
+        beforeInstanceCount: beforeInstances.length,
+        afterInstanceCount: state.devices.length,
+        newTemplateIds: projectCustomDeviceTemplates().map(template => template.id).filter(id => !beforeTemplates.includes(id)),
+        newInstanceIds: state.devices.map(device => device.instanceId).filter(id => !beforeInstances.includes(id))
       });
       setStatus(`${copy.name || "Project Custom Device"} added to Project Custom Devices.`);
       return copy;
@@ -75128,7 +75473,7 @@
           let success = false;
           if (drag.pairTemplateId) {
             const instances = prepareDevicePairInstances(drag.templateId, drag.pairTemplateId, point.x, point.y, {
-              includeTemplateOverrides: true
+              includeTemplateOverrides: Boolean(drag.templateOverride)
             });
             createdIds = instances?.map(instance => instance.instanceId).filter(Boolean) || [];
             logLibraryDragStep("create-device command called", {
@@ -75144,9 +75489,10 @@
           } else {
             const instance = prepareDeviceInstanceFromTemplate(template, point.x - template.width / 2, point.y - template.height / 2, {
               templateId: drag.templateId,
-              // Engine receives the new instance before a fresh project-library
-              // snapshot is guaranteed, so carry the template visual metadata.
-              templateOverride: structuredClone(drag.templateOverride || template),
+              // Only Project Custom/legacy snapshot drags carry template visual
+              // metadata. Master-library drops must remain pure template
+              // references so they do not appear as Project Custom rows.
+              templateOverride: drag.templateOverride ? structuredClone(drag.templateOverride) : null,
               name: drag.name
             });
             createdIds = instance?.instanceId ? [instance.instanceId] : [];
@@ -75168,6 +75514,10 @@
             ...libraryDragSceneCounts(engineBridge)
           }, { status: true });
           if (drag.custom) {
+            customIdentityDebug.lastCustomDropState = success ? `created ${createdIds.join(", ") || "-"}` : "engine drop failed";
+            customIdentityDebug.lastCreatedRecords = success
+              ? createdIds.map(id => ({ type: "placed-instance", id, sourceTemplateId: drag.templateId || "", sourceId: drag.sourceId || "" }))
+              : [];
             logCustomDeviceDiagnostic(success ? "project custom dropped on engine canvas" : "project custom engine drop failed", {
               templateId: drag.templateId,
               sourceId: drag.sourceId,
@@ -75193,6 +75543,7 @@
             productionObjects: state.devices.length
           }, { status: true });
           if (drag.custom) {
+            customIdentityDebug.lastCustomDropState = `legacy drop from ${drag.sourceId || drag.templateId || "-"}`;
             logCustomDeviceDiagnostic("project custom dropped on legacy canvas", {
               templateId: drag.templateId,
               sourceId: drag.sourceId,
@@ -81069,6 +81420,14 @@
     });
 
     document.addEventListener("click", event => {
+      const projectItem = event.target.closest?.(".library-device.project-device");
+      if (!projectItem) return;
+      const id = projectItem.dataset.projectTemplateId || projectItem.dataset.instanceId || "";
+      const kind = projectItem.dataset.projectTemplateId ? "template" : "instance";
+      consumeProjectCustomDeviceClickSuppression(event, id, kind);
+    }, true);
+
+    document.addEventListener("click", event => {
       if (!event.target.closest("#deviceContextMenu")) hideDeviceContextMenu();
     });
 
@@ -81078,6 +81437,11 @@
       if (projectCustomAction && projectCustomTemplateId) {
         event.stopPropagation();
         hideDeviceContextMenu();
+        customIdentityDebug.lastContextMenuAction = `project custom ${projectCustomAction}`;
+        recordCustomIdentity("project custom menu action", {
+          action: projectCustomAction,
+          templateId: projectCustomTemplateId
+        });
         if (projectCustomAction === "edit") openDeviceEditorForProjectTemplate(projectCustomTemplateId);
         if (projectCustomAction === "duplicate") duplicateProjectCustomDeviceTemplate(projectCustomTemplateId);
         if (projectCustomAction === "delete") deleteProjectCustomDeviceTemplate(projectCustomTemplateId);
@@ -81228,6 +81592,12 @@
       if (!action || !instance) return;
       event.stopPropagation();
       hideDeviceContextMenu();
+      customIdentityDebug.lastContextMenuAction = `canvas ${action}`;
+      recordCustomIdentity("canvas device context action", {
+        action,
+        instanceId,
+        templateId: instance.templateId || ""
+      });
       if (action === "edit") openDeviceEditorForInstance(instanceId);
       if (action === "matrix") openMatrixRoutingModal(instanceId);
       if (action === "duplicate") {
@@ -81238,8 +81608,11 @@
         render();
       }
       if (action === "delete") {
+        customIdentityDebug.lastDeleteTargets = [instanceId];
         state.selected = { type: "device", id: instanceId };
         deleteSelection();
+        customIdentityDebug.lastDeleteRemoved = [instanceId].filter(id => !instanceById(id));
+        updateCustomIdentityDebug();
       }
     });
 
@@ -81256,12 +81629,10 @@
       const engineBridge = activeEngineBridge();
       const point = canvasDropPointForEvent(event, engineBridge);
       if (engineBridge) {
+        const projectCustomTemplate = isProjectCustomDeviceTemplate(template);
         const instance = prepareDeviceInstanceFromTemplate(template, point.x - template.width / 2, point.y - template.height / 2, {
           templateId,
-          // Native HTML5 drops use the same Engine handoff as pointer drags:
-          // include full template metadata so adapter/breakout devices do not
-          // normalize as tiny generic devices.
-          templateOverride: structuredClone(template)
+          templateOverride: projectCustomTemplate ? structuredClone(template) : null
         });
         if (instance && engineBridge.createDeviceFromLibraryDrop?.(instance)) {
           emptyHint.classList.add("hidden");
@@ -81620,6 +81991,15 @@
         delete copy.projectCustomRevision;
       }
       validateDraftDefaults(copy);
+      customIdentityDebug.lastCopyDiagnostic = {
+        sourceId: source.id || "",
+        sourceName: source.name || "",
+        createdId: copy.id || "",
+        createdName: copy.name || "",
+        projectCustom: Boolean(options.projectCustom),
+        collectionSizeBefore: Array.isArray(collection) ? collection.length : 0
+      };
+      recordCustomIdentity("duplicate template for collection", customIdentityDebug.lastCopyDiagnostic);
       return copy;
     }
 
@@ -81765,6 +82145,16 @@
       }
       if (!selection) return;
       recordDebug(`delete ${selection.type}`);
+      const beforeCustomTemplateCount = projectCustomDeviceTemplates().length;
+      const beforeInstanceIds = new Set(state.devices.map(device => device.instanceId));
+      customIdentityDebug.lastDeleteTargets = selection.type === "multi"
+        ? (selection.items || []).filter(item => item?.type === "device").map(item => item.id)
+        : (selection.type === "device" ? [selection.id] : []);
+      recordCustomIdentity("legacy delete selection start", {
+        selection,
+        beforeCustomTemplateCount,
+        beforePlacedInstances: beforeInstanceIds.size
+      });
       if (selection.type === "rack") {
         deleteRackFromCanvas(selection.id);
         return;
@@ -81808,6 +82198,13 @@
       }
       state.selected = null;
       render();
+      customIdentityDebug.lastDeleteRemoved = [...beforeInstanceIds].filter(id => !instanceById(id));
+      recordCustomIdentity("legacy delete selection complete", {
+        removedInstanceIds: customIdentityDebug.lastDeleteRemoved,
+        beforeCustomTemplateCount,
+        afterCustomTemplateCount: projectCustomDeviceTemplates().length,
+        afterPlacedInstances: state.devices.length
+      });
     }
 
     function deleteLedConnectorSelectionConnections() {

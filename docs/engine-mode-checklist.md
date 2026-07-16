@@ -1,15 +1,17 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
-Iteration 42.2 adds the July 2026 built-in device library update on top of the
-Iteration 42.1 Project Custom Devices correction while keeping the Device Editor
-as the production DOM modal. Create New Device remains a Master Device Library
-workflow: applying it creates a reusable main-library template and does not
-populate Project Custom Devices. Project Custom Devices are created only from
-the canvas device context-menu action **Duplicate Device**, which copies the
-placed device's effective current template into a project-scoped custom
-template. Editing a custom template updates the Project Custom Devices entry
-and future drops only; already placed instances and source master templates stay
-unchanged by design.
+Iteration 42.3 fixes Project Custom Device identity collisions found in the real
+browser workflow. Master templates, Project Custom templates, and placed canvas
+instances must remain separate records: canvas selection/delete operates on
+placed instance IDs, Project Custom list rows are reusable templates, and normal
+Master Library drops must not create hidden Project Custom snapshot rows.
+Create New Device remains a Master Device Library workflow: applying it creates
+a reusable main-library template and does not populate Project Custom Devices.
+Project Custom Devices are created only from the canvas device context-menu
+action **Duplicate Device**, which copies the placed device's effective current
+template into a project-scoped custom template. Editing a custom template
+updates the Project Custom Devices entry and future drops only; already placed
+instances and source master templates stay unchanged by design.
 
 Iteration 41 restores the Legacy modular chassis/card editing apply workflow in
 the default Engine Editor. The Device Editor remains the production DOM modal,
@@ -99,11 +101,11 @@ PDF and report drawing paths are deliberately unchanged.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags.
 
-Current visible build label: `Iteration 42.2`.
+Current visible build label: `Iteration 42.3`.
 The app top bar must show one of these labels:
 
-- `Iteration 42.2 — Engine Editor — iteration42-2`
-- `Iteration 42.2 — Legacy Editor — iteration42-2`
+- `Iteration 42.3 — Engine Editor — iteration42-3`
+- `Iteration 42.3 — Legacy Editor — iteration42-3`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -112,40 +114,42 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration42-2`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration42-2`.
+   `index.html?v=iteration42-3`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration42-3`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration42-2`.
+   `index.html?engineDefaultTest=1&v=iteration42-3`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration42-2`.
+   `index.html?legacy=1&v=iteration42-3`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration42-2`.
+   `index.html?engine=0&v=iteration42-3`.
 7. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration42-2`.
+   `index.html?engine=1&debugLoad=1&v=iteration42-3`.
 8. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration42-2`.
+   `index.html?engine=1&loadDelay=1500&v=iteration42-3`.
 9. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration42-2`.
+   `index.html?engine=1&debugHud=1&v=iteration42-3`.
 9a. Open the device visual diagnostic HUD/layer view:
-   `index.html?engine=1&debugDeviceVisual=1&v=iteration42-2`.
+   `index.html?engine=1&debugDeviceVisual=1&v=iteration42-3`.
 10. Open the Device Library drag/drop debug overlay:
-   `index.html?debugLibraryDrag=1&v=iteration42-2`.
+   `index.html?debugLibraryDrag=1&v=iteration42-3`.
 11. Open the explicit Engine drag/drop debug overlay:
-   `index.html?engine=1&debugLibraryDrag=1&v=iteration42-2`.
+   `index.html?engine=1&debugLibraryDrag=1&v=iteration42-3`.
 12. Open the Legacy drag/drop debug overlay:
-   `index.html?legacy=1&debugLibraryDrag=1&v=iteration42-2`.
+   `index.html?legacy=1&debugLibraryDrag=1&v=iteration42-3`.
 13. Open compatibility diagnostics while drawing wires:
-    `index.html?engine=1&debugCompatibility=1&v=iteration42-2`.
+    `index.html?engine=1&debugCompatibility=1&v=iteration42-3`.
 14. Open routing diagnostics while selecting or editing orthogonal wires:
-    `index.html?engine=1&debugHud=1&debugRouting=1&v=iteration42-2`.
+    `index.html?engine=1&debugHud=1&debugRouting=1&v=iteration42-3`.
 15. Open endpoint-rewire diagnostics:
-    `index.html?engine=1&debugRewire=1&debugRouting=1&v=iteration42-2`.
+    `index.html?engine=1&debugRewire=1&debugRouting=1&v=iteration42-3`.
+15a. Open the Project Custom identity overlay:
+    `index.html?engine=1&debugCustomIdentity=1&v=iteration42-3`.
 16. Confirm the top bar build label matches the mode you intended to test.
 16. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.
 17. Disable engine temporarily by using `legacy=1` or `engine=0`.
 
-## Iteration 42.2 Workflow Checks
+## Iteration 42.3 Workflow Checks
 
 - **Create New Device -> Master Device Library:** click Create New Device,
   build/apply a test device, confirm it appears in the main Device Library tree,
@@ -170,8 +174,15 @@ Git commit as the final source of truth when reviewing a pushed change.
   the source master template or the source placed canvas device. New drops from
   Project Custom Devices use the edited custom template snapshot.
 - **Custom-device diagnostics:** when needed, open
-  `index.html?debugCustomDevices=1&v=iteration42-2` to show custom duplicate,
+  `index.html?debugCustomDevices=1&v=iteration42-3` to show custom duplicate,
   drag-threshold, click-suppression, drop, and delete diagnostics.
+- **Custom identity diagnostics:** open
+  `index.html?engine=1&debugCustomIdentity=1&v=iteration42-3`, then perform the
+  real browser workflow. Canvas **Duplicate Device** must add exactly one
+  Project Custom template and zero placed instances. Dragging that Project
+  Custom row to the canvas must add exactly one placed instance and zero
+  templates. Deleting the placed instance must remove only the placed instance;
+  the Project Custom template count must not decrease.
 18. Load a real `.avd` or `.json` project.
 19. During project loading, confirm the Engine Editor loading overlay appears,
    shortcut/delete/drag interaction is blocked, and the overlay hides only after
@@ -186,9 +197,9 @@ Git commit as the final source of truth when reviewing a pushed change.
 24. The validation script now includes a long mixed undo/redo chain. Confirm the
    JSON output contains a `longChain` section and all `checks` are `ok: true`.
 25. Compare Engine and Legacy connector behavior with the same project:
-   `index.html?v=iteration42-2` beside
-   `index.html?legacy=1&v=iteration42-2`.
-25. In `index.html?engine=1&debugHud=1&v=iteration42-2`, confirm the HUD
+   `index.html?v=iteration42-3` beside
+   `index.html?legacy=1&v=iteration42-3`.
+25. In `index.html?engine=1&debugHud=1&v=iteration42-3`, confirm the HUD
    `load phase`, `load ready`, `wire paths`, `connector overlay`, and
    `connector tooltips` rows update.
 26. Hover and select wires in Engine mode. Confirm hover/selection feedback is
