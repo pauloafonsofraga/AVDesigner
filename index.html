@@ -2068,6 +2068,21 @@
       max-height: min(36vh, 360px);
     }
 
+    .custom-identity-debug-panel.is-minimized {
+      width: min(260px, calc(100vw - 28px));
+      max-height: none;
+      overflow: hidden;
+    }
+
+    .custom-identity-debug-panel.is-minimized .custom-identity-debug-actions {
+      margin-bottom: 0;
+    }
+
+    .custom-identity-debug-panel.is-minimized .custom-identity-debug-grid,
+    .custom-identity-debug-panel.is-minimized .custom-identity-debug-table {
+      display: none;
+    }
+
     .library-drag-debug-panel h2,
     .custom-identity-debug-panel h2 {
       margin: 0 0 8px;
@@ -2084,6 +2099,14 @@
       align-items: center;
       gap: 8px;
       margin-bottom: 10px;
+    }
+
+    .custom-identity-debug-action-buttons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
     }
 
     .library-drag-debug-actions button,
@@ -63457,6 +63480,8 @@
       grid: null,
       table: null,
       copyButton: null,
+      minimizeButton: null,
+      minimized: false,
       seq: 0,
       events: [],
       duplicateInvocationCount: 0,
@@ -65393,7 +65418,10 @@
       panel.innerHTML = `
         <div class="custom-identity-debug-actions">
           <h2>Custom Identity Debug</h2>
-          <button type="button" data-copy-custom-identity-debug>Copy diagnostics</button>
+          <div class="custom-identity-debug-action-buttons">
+            <button type="button" data-toggle-custom-identity-debug aria-expanded="true">Minimize</button>
+            <button type="button" data-copy-custom-identity-debug>Copy diagnostics</button>
+          </div>
         </div>
         <div class="custom-identity-debug-grid" data-custom-identity-debug-grid></div>
         <table class="custom-identity-debug-table">
@@ -65406,10 +65434,25 @@
       customIdentityDebug.grid = panel.querySelector("[data-custom-identity-debug-grid]");
       customIdentityDebug.table = panel.querySelector("[data-custom-identity-debug-table]");
       customIdentityDebug.copyButton = panel.querySelector("[data-copy-custom-identity-debug]");
+      customIdentityDebug.minimizeButton = panel.querySelector("[data-toggle-custom-identity-debug]");
+      customIdentityDebug.minimizeButton?.addEventListener("click", () => {
+        setCustomIdentityDebugMinimized(!customIdentityDebug.minimized);
+      });
       customIdentityDebug.copyButton?.addEventListener("click", () => {
         navigator.clipboard?.writeText(JSON.stringify(window.__avDesignerCustomIdentityDebug || customIdentitySnapshot(), null, 2));
       });
       return panel;
+    }
+
+    function setCustomIdentityDebugMinimized(minimized) {
+      customIdentityDebug.minimized = Boolean(minimized);
+      const panel = ensureCustomIdentityDebugOverlay();
+      if (!panel) return;
+      panel.classList.toggle("is-minimized", customIdentityDebug.minimized);
+      if (customIdentityDebug.minimizeButton) {
+        customIdentityDebug.minimizeButton.textContent = customIdentityDebug.minimized ? "Expand" : "Minimize";
+        customIdentityDebug.minimizeButton.setAttribute("aria-expanded", customIdentityDebug.minimized ? "false" : "true");
+      }
     }
 
     function updateCustomIdentityDebug(extra = {}) {
