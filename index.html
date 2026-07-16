@@ -84148,6 +84148,37 @@
       }));
     }
 
+    function ensureWireVisualsInPrintableSvg(svgNode) {
+      const groups = [...svgNode.querySelectorAll("[data-wire-id]")];
+      if (!groups.length || !state.connections.length) return;
+      const groupById = new Map(groups.map(group => [group.getAttribute("data-wire-id"), group]));
+      const routeContext = state.wireMode === "orthogonal" ? createOrthogonalRouteContext() : null;
+      const routeMap = new Map();
+      const orderedConnections = routeContext ? [...state.connections].sort(compareConnectionsForRouting) : state.connections;
+      orderedConnections.forEach(connection => {
+        const route = routeForConnection(connection, routeContext);
+        routeMap.set(connection.id, route);
+        if (routeContext) registerOrthogonalRoute(routeContext, route.points);
+      });
+      const hopMap = state.cableHops ? buildCableHopPathMap(routeMap, canvasDetailScale()) : new Map();
+      state.connections.forEach(connection => {
+        const group = groupById.get(connection.id);
+        if (!group || group.querySelector(".wire")) return;
+        const route = routeMap.get(connection.id);
+        if (!route?.d) return;
+
+        // The editor can render wire strokes in WebGL for speed; PDF export clones SVG only,
+        // so re-create SVG strokes in the clone before removing hit targets.
+        const fragment = document.createDocumentFragment();
+        const lines = appendWireVisuals(fragment, hopMap.get(connection.id) || route.d, connection, cableDirection(connection.cableType));
+        const anchor = group.querySelector(".wire-hit,.wire-label,.wire-route-handle") || group.firstChild;
+        lines.forEach(line => {
+          if (anchor) group.insertBefore(line, anchor);
+          else group.appendChild(line);
+        });
+      });
+    }
+
     function forceLightPrintableSvg(svgNode) {
       svgNode.classList.remove("dark-mode");
       svgNode.classList.add("print-light");
@@ -84202,6 +84233,7 @@
         element.classList.remove("device-selected", "wire-selected", "area-selected", "comment-selected", "title-block-selected", "led-surface-selected", "node-selected");
       });
       await embedImageAssetsInSvg(clone, powerPlugAssets);
+      ensureWireVisualsInPrintableSvg(clone);
       if (options.forceLight) forceLightPrintableSvg(clone);
       const style = document.createElementNS(SVG_NS, "style");
       style.textContent = wirechartSvgStyle();
