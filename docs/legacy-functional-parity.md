@@ -4,7 +4,7 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 42.1`
+- Current build label: `Iteration 42.2`
 
 Iteration 39 adds a separate Legacy interface and visual fidelity audit in
 [`docs/legacy-interface-parity.md`](legacy-interface-parity.md). This document
@@ -45,6 +45,9 @@ to generated card connectors that no longer exist, and records one
 without calling the old full project restore path, and the Engine scene swaps
 only affected device connector models plus affected wires before invalidating
 their cached textures.
+
+Iteration 42.2 adds the July 2026 built-in device library update without
+changing save/load format or the Legacy/Engine editing contract.
 
 Iteration 42.1 corrects the Project Custom Devices workflow. Create New Device
 and main-library context duplication now remain Master Device Library workflows.

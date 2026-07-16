@@ -4,9 +4,12 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 42.1`
+- Current build label: `Iteration 42.2`
 - Scope: interface and visual fidelity only. Functional wire parity is tracked in
   [`docs/legacy-functional-parity.md`](legacy-functional-parity.md).
+
+Iteration 42.2 adds the July 2026 built-in device library update. It does not
+change the Legacy/Engine interface ownership split.
 
 Iteration 42.1 restores the Legacy separation between the Master Device Library
 and Project Custom Devices. The Device Editor remains Legacy/DOM-owned. Create
