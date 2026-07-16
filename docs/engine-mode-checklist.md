@@ -145,23 +145,33 @@ Git commit as the final source of truth when reviewing a pushed change.
    using the same control in legacy mode.
 17. Disable engine temporarily by using `legacy=1` or `engine=0`.
 
-## Iteration 42.1 Workflow Checks
+## Iteration 42.2 Workflow Checks
 
 - **Create New Device -> Master Device Library:** click Create New Device,
   build/apply a test device, confirm it appears in the main Device Library tree,
   and confirm the Project Custom Devices pane does not gain an entry from that
   creation alone.
-- **Library Duplicate -> Master Device Library:** right-click a main-library
-  device and choose Duplicate the Device. The copy should remain in the main
-  Device Library, not Project Custom Devices.
+- **Main-library context menu:** right-click a main-library device and confirm
+  the menu offers only `Edit in Device Editor`. `Duplicate the Device` must not
+  appear here; Master Library duplication remains inside Device Editor only.
 - **Canvas Duplicate Device -> Project Custom Devices:** place a device on the
   canvas, right-click that placed device, and choose Duplicate Device. The
   source canvas device should remain unchanged, no second canvas instance should
   be inserted automatically, and a new searchable/editable/draggable entry
   should appear under Project Custom Devices.
+- **Project Custom drag/drop:** drag that Project Custom Devices entry to the
+  canvas. It should create one selected placed instance at the drop point and
+  must not open Device Editor after the drop.
+- **Engine Delete/Backspace selected devices:** select one or more normal,
+  modular, or custom-device instances and press Delete or Backspace. The selected
+  devices plus connected wires should be deleted in one undo step; undo/redo
+  should restore exact device/wire IDs, routes, metadata, and selection sanity.
 - **Isolation:** editing or deleting the Project Custom entry must not mutate
   the source master template or the source placed canvas device. New drops from
   Project Custom Devices use the edited custom template snapshot.
+- **Custom-device diagnostics:** when needed, open
+  `index.html?debugCustomDevices=1&v=iteration42-2` to show custom duplicate,
+  drag-threshold, click-suppression, drop, and delete diagnostics.
 18. Load a real `.avd` or `.json` project.
 19. During project loading, confirm the Engine Editor loading overlay appears,
    shortcut/delete/drag interaction is blocked, and the overlay hides only after

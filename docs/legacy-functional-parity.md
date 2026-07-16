@@ -49,15 +49,20 @@ their cached textures.
 Iteration 42.2 adds the July 2026 built-in device library update without
 changing save/load format or the Legacy/Engine editing contract.
 
-Iteration 42.1 corrects the Project Custom Devices workflow. Create New Device
-and main-library context duplication now remain Master Device Library workflows.
-Project Custom Devices are created only from the canvas context-menu **Duplicate
+Iteration 42.2 corrects the Project Custom Devices workflow. Create New Device
+and Device Editor duplication remain Master Device Library workflows; the
+main-library right-click menu no longer exposes `Duplicate the Device`. Project
+Custom Devices are created only from the canvas context-menu **Duplicate
 Device** action on an already placed device. That action copies the placed
-device's effective current template into a project-scoped custom template, while
-the source placed instance and source master template remain unchanged. Editing
-a custom template updates the Project Custom Devices entry and its visual
-revision for future drops only; existing placed instances keep their saved
-override snapshot and are not silently mutated.
+device's effective current template into exactly one project-scoped custom
+template, while the source placed instance and source master template remain
+unchanged. Project Custom drag/drop suppresses the follow-up click event so a
+drop creates one selected canvas instance without opening Device Editor. Engine
+Delete/Backspace deletes selected placed devices and connected wires in one
+undoable command; deleting a placed custom instance does not delete its template.
+Editing a custom template updates the Project Custom Devices entry and its
+visual revision for future drops only; existing placed instances keep their
+saved override snapshot and are not silently mutated.
 
 Iteration 37.5 builds on Iteration 37, which restored Legacy connector compatibility rules in Engine wire
 creation, including installed SFP/SFP+/QSFP modules, SFP/QSFP fiber-mode family
@@ -556,7 +561,7 @@ Legacy source locations:
 - `showRackContextMenu(...)` around line 48115
 - `showLedSurfaceContextMenu(...)` around line 48241
 - `showLibraryDeviceContextMenu(...)` around line 48259
-- `duplicateLibraryDevice(...)` around line 48298
+- Device Editor duplicate controls for Master Library template duplication
 - `showWireContextMenu(...)` around line 48308
 - `showWireCornerContextMenu(...)` around line 48333
 - `deleteSelection(...)` around line 48378
@@ -803,7 +808,7 @@ Validation:
 - Each action updates production data and Engine scene once.
 - Undo/redo works.
 
-### Iteration 42.1 — Faceplates And Project Custom Devices
+### Iteration 42.2 — Faceplates, Project Custom Devices, And Device Deletion
 
 Complete custom faceplate and user-created device template parity.
 
@@ -813,13 +818,23 @@ Scope:
 - Faceplate replace/delete/resize updates only affected textures.
 - Create New Device creates a main Master Device Library template, not a
   project custom entry and not an auto-placed instance.
-- Main-library context duplication creates another main-library template.
+- Main-library context menus no longer expose `Duplicate the Device`; Master
+  Library duplication stays inside Device Editor.
 - Canvas device context-menu **Duplicate Device** creates the Project Custom
-  Device copy from the placed instance's effective template/configuration.
+  Device copy from the placed instance's effective template/configuration,
+  exactly once per user action and without placing another canvas instance.
 - Project custom templates can be edited, duplicated, deleted safely, searched,
   and dragged to the Engine canvas.
+- Dragging a Project Custom Device to the Engine canvas suppresses the follow-up
+  click/edit event, creates one selected placed instance, and does not open
+  Device Editor.
+- Engine Delete/Backspace deletes selected normal/modular/custom placed devices
+  and their connected wires in one command, with focus exclusions for text-entry
+  controls.
 - Source master templates and source placed devices remain unchanged by Project
   Custom creation/edit/delete.
+- Deleting a placed custom-device instance does not delete the Project Custom
+  Device template.
 - Editing a project custom template updates future drops only; existing placed
   instances remain unchanged.
 - Project custom visual revisions invalidate stale future texture-cache entries
@@ -831,6 +846,11 @@ Validation:
 - Large image faceplate.
 - Deleted faceplate.
 - Project custom device drag/drop.
+- Canvas Duplicate Device creates one Project Custom Devices entry and no extra
+  canvas instance.
+- Delete/Backspace selected placed devices with and without connected wires.
+- Undo/redo restores deleted devices and wires with original IDs, routes, and
+  metadata.
 - Duplicate custom template with unique template/connector IDs.
 - Deleted source template with a placed `templateOverride` snapshot.
 

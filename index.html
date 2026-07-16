@@ -4558,6 +4558,7 @@
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
     const DEBUG_LIBRARY_DRAG_ENABLED = INITIAL_URL_PARAMS.get("debugLibraryDrag") === "1";
+    const DEBUG_CUSTOM_DEVICES_ENABLED = INITIAL_URL_PARAMS.get("debugCustomDevices") === "1";
     const SVG_NS = "http://www.w3.org/2000/svg";
     const DEVICE_WIDTH = 380;
     const ADAPTER_WIDTH = 190;
@@ -63376,6 +63377,8 @@
     let ledConnectorSelection = [];
     let hoverConnectorSelection = null;
     let libraryDrag = null;
+    let projectCustomDragClickSuppression = { templateId: "", sourceId: "", until: 0, reason: "" };
+    let canvasDuplicateDeviceGuard = { instanceId: "", resultId: "", at: 0 };
     const LIBRARY_DRAG_DEBUG_MAX_EVENTS = 50;
     const libraryDragDebug = {
       overlay: null,
@@ -64994,6 +64997,10 @@
       return "";
     }
 
+    function libraryDragDebugEnabled() {
+      return DEBUG_LIBRARY_DRAG_ENABLED || DEBUG_CUSTOM_DEVICES_ENABLED;
+    }
+
     function shortElementDescriptor(element) {
       if (!element) return "-";
       const tag = String(element.tagName || element.nodeName || "element").toLowerCase();
@@ -65101,7 +65108,7 @@
     }
 
     function ensureLibraryDragDebugOverlay() {
-      if (!DEBUG_LIBRARY_DRAG_ENABLED) return null;
+      if (!libraryDragDebugEnabled()) return null;
       if (libraryDragDebug.overlay) return libraryDragDebug.overlay;
       const panel = document.createElement("aside");
       panel.className = "library-drag-debug-panel";
@@ -65123,7 +65130,7 @@
     }
 
     function updateLibraryDragDebug(extra = {}) {
-      if (!DEBUG_LIBRARY_DRAG_ENABLED) return;
+      if (!libraryDragDebugEnabled()) return;
       ensureLibraryDragDebugOverlay();
       const snapshot = libraryDragDebugSnapshot(extra);
       const rows = [
@@ -65277,7 +65284,7 @@
     }
 
     function recordLibraryDragDebugEvent(step, details = {}) {
-      if (!DEBUG_LIBRARY_DRAG_ENABLED) return;
+      if (!libraryDragDebugEnabled()) return;
       try {
         updateLibraryDragDebugState(step, details);
         let safeDetails = {};
@@ -74515,14 +74522,20 @@
           `;
           if (entry.kind === "template") {
             item.addEventListener("pointerdown", event => startProjectCustomTemplateDrag(event, entry.id));
-            item.addEventListener("click", () => openDeviceEditorForProjectTemplate(entry.id));
+            item.addEventListener("click", event => {
+              if (consumeProjectCustomDeviceClickSuppression(event, entry.id, "template")) return;
+              openDeviceEditorForProjectTemplate(entry.id);
+            });
             item.addEventListener("contextmenu", event => {
               event.preventDefault();
               showProjectCustomDeviceContextMenu(event, entry.id);
             });
           } else {
             item.addEventListener("pointerdown", event => startProjectCustomDeviceDrag(event, entry.id));
-            item.addEventListener("click", () => selectAndFrameDevice(entry.id));
+            item.addEventListener("click", event => {
+              if (consumeProjectCustomDeviceClickSuppression(event, entry.id, "instance")) return;
+              selectAndFrameDevice(entry.id);
+            });
             item.addEventListener("contextmenu", event => {
               event.preventDefault();
               showDeviceContextMenu(event, entry.id);
@@ -74533,6 +74546,63 @@
       if (!customDeviceList.children.length) {
         customDeviceList.innerHTML = `<div class="placeholder" style="padding:12px;">Project custom devices will appear here.</div>`;
       }
+    }
+
+    function customDeviceDiagnosticsEnabled() {
+      return DEBUG_CUSTOM_DEVICES_ENABLED || DEBUG_LIBRARY_DRAG_ENABLED;
+    }
+
+    function logCustomDeviceDiagnostic(step, details = {}) {
+      if (!customDeviceDiagnosticsEnabled()) return;
+      const payload = {
+        step,
+        projectCustomCount: projectCustomDeviceTemplates().length,
+        ...details
+      };
+      console.info(`[avdesigner-custom-devices] ${step}`, payload);
+      recordLibraryDragDebugEvent(`custom ${step}`, payload);
+      activeEngineBridge()?.setDiagnosticMetric?.("custom devices", step);
+    }
+
+    function suppressProjectCustomDeviceClickAfterDrag(drag, reason = "drag") {
+      if (!drag?.custom) return;
+      projectCustomDragClickSuppression = {
+        templateId: String(drag.templateId || ""),
+        sourceId: String(drag.sourceId || ""),
+        until: performance.now() + 700,
+        reason
+      };
+      logCustomDeviceDiagnostic("suppress follow-up click", {
+        reason,
+        templateId: projectCustomDragClickSuppression.templateId,
+        sourceId: projectCustomDragClickSuppression.sourceId
+      });
+      window.setTimeout(() => {
+        if (performance.now() >= projectCustomDragClickSuppression.until) {
+          projectCustomDragClickSuppression = { templateId: "", sourceId: "", until: 0, reason: "" };
+        }
+      }, 750);
+    }
+
+    function consumeProjectCustomDeviceClickSuppression(event, id, kind = "template") {
+      const now = performance.now();
+      const targetId = String(id || "");
+      const active = projectCustomDragClickSuppression.until > now;
+      const matches = active && (
+        !targetId
+        || targetId === projectCustomDragClickSuppression.templateId
+        || targetId === projectCustomDragClickSuppression.sourceId
+      );
+      if (!matches) return false;
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      logCustomDeviceDiagnostic("suppressed click after drag", {
+        id: targetId,
+        kind,
+        reason: projectCustomDragClickSuppression.reason
+      });
+      projectCustomDragClickSuppression = { templateId: "", sourceId: "", until: 0, reason: "" };
+      return true;
     }
 
     function selectAndFrameDevice(instanceId) {
@@ -74557,6 +74627,7 @@
         templateOverride: structuredClone(template),
         name: instance.name || template.name,
         clickAction: () => selectAndFrameDevice(instanceId),
+        sourceId: instanceId,
         custom: true
       });
     }
@@ -74569,6 +74640,7 @@
         templateOverride: structuredClone(template),
         name: template.name || "Project Custom Device",
         clickAction: () => openDeviceEditorForProjectTemplate(template.id),
+        sourceId: template.id,
         custom: true
       });
     }
@@ -74590,14 +74662,31 @@
       const instance = instanceById(instanceId);
       const source = projectCustomSourceTemplateForInstance(instance);
       if (!instance || !source) return null;
+      const now = performance.now();
+      if (canvasDuplicateDeviceGuard.instanceId === instanceId && now - canvasDuplicateDeviceGuard.at < 350) {
+        logCustomDeviceDiagnostic("duplicate canvas request skipped", {
+          instanceId,
+          existingCustomTemplateId: canvasDuplicateDeviceGuard.resultId
+        });
+        return canvasDuplicateDeviceGuard.resultId ? projectCustomTemplateById(canvasDuplicateDeviceGuard.resultId) : null;
+      }
+      const beforeCount = projectCustomDeviceTemplates().length;
+      canvasDuplicateDeviceGuard = { instanceId, resultId: "", at: now };
       const copy = duplicateDeviceTemplateForCollection(source, deviceLibrary, { projectCustom: true });
       pushUndo();
       deviceLibrary.push(copy);
+      canvasDuplicateDeviceGuard = { instanceId, resultId: copy.id, at: performance.now() };
       normalizeProjectCustomTemplates(deviceLibrary);
       renderProjectCustomDevices();
       renderRackBuilderSources();
       renderInspector();
       updateUndoRedoButtons();
+      logCustomDeviceDiagnostic("canvas duplicate created project custom device", {
+        instanceId,
+        customTemplateId: copy.id,
+        beforeCount,
+        afterCount: projectCustomDeviceTemplates().length
+      });
       setStatus(`${copy.name || "Project Custom Device"} added to Project Custom Devices.`);
       return copy;
     }
@@ -74713,6 +74802,8 @@
         templateOverride: options.templateOverride ? structuredClone(options.templateOverride) : null,
         name: options.name || template.name,
         clickAction: options.clickAction || null,
+        sourceId: options.sourceId || templateId,
+        custom: Boolean(options.custom || options.templateOverride),
         ghost,
         pointerId: event.pointerId,
         sourceElement,
@@ -74740,7 +74831,7 @@
         templateName: options.pairName || options.name || template.name,
         paired: Boolean(options.pairTemplateId),
         pairTemplateId: options.pairTemplateId || "",
-        custom: Boolean(options.templateOverride),
+        custom: Boolean(options.custom || options.templateOverride),
         category: template.category || "",
         model: template.model || "",
         pointerId: event.pointerId,
@@ -74801,6 +74892,7 @@
       if (!libraryDrag) return;
       if (event?.pointerId != null && libraryDrag.pointerId != null && event.pointerId !== libraryDrag.pointerId) return;
       event?.preventDefault?.();
+      if (libraryDrag.custom && libraryDrag.moved) suppressProjectCustomDeviceClickAfterDrag(libraryDrag, "cancel");
       clearLibraryDragSession("cancelled", { status: true });
     }
 
@@ -74808,6 +74900,7 @@
       if (!libraryDrag || event.key !== "Escape") return;
       event.preventDefault();
       event.stopPropagation();
+      if (libraryDrag.custom && libraryDrag.moved) suppressProjectCustomDeviceClickAfterDrag(libraryDrag, "escape");
       clearLibraryDragSession("cancelled by escape", { status: true });
     }
 
@@ -74914,9 +75007,18 @@
       libraryDrag.lastClientX = event.clientX;
       libraryDrag.lastClientY = event.clientY;
       const distance = Math.hypot(event.clientX - libraryDrag.startX, event.clientY - libraryDrag.startY);
-      if (distance > 5) libraryDrag.moved = true;
+      if (distance > 5 && !libraryDrag.moved) {
+        libraryDrag.moved = true;
+        if (libraryDrag.custom) {
+          logCustomDeviceDiagnostic("drag threshold crossed", {
+            templateId: libraryDrag.templateId,
+            sourceId: libraryDrag.sourceId,
+            distance: Math.round(distance)
+          });
+        }
+      }
       libraryDrag.ghost.classList.toggle("hidden", !libraryDrag.moved);
-      if (DEBUG_LIBRARY_DRAG_ENABLED) {
+      if (libraryDragDebugEnabled()) {
         const target = canvasDropTargetForEvent(event);
         recordLibraryDragDebugEvent("pointermove", {
           templateId: libraryDrag.templateId,
@@ -74942,7 +75044,7 @@
           templateId: libraryDrag.templateId,
           templateName: libraryDrag.pairName || libraryDrag.name || template?.name || "",
           paired: Boolean(libraryDrag.pairTemplateId),
-          custom: Boolean(libraryDrag.templateOverride),
+          custom: Boolean(libraryDrag.custom || libraryDrag.templateOverride),
           payload: {
             templateId: libraryDrag.templateId,
             pairTemplateId: libraryDrag.pairTemplateId || "",
@@ -75002,6 +75104,7 @@
         screenY: Math.round(event.clientY),
         ...sceneBefore
       });
+      if (drag.custom && drag.moved) suppressProjectCustomDeviceClickAfterDrag(drag, isOverCanvas ? "drop" : "drop-outside-canvas");
       clearLibraryDragSession("finished", { log: false });
       recordLibraryDragDebugEvent("library drag finished", {
         templateId: drag.templateId,
@@ -75064,6 +75167,13 @@
             createdIds,
             ...libraryDragSceneCounts(engineBridge)
           }, { status: true });
+          if (drag.custom) {
+            logCustomDeviceDiagnostic(success ? "project custom dropped on engine canvas" : "project custom engine drop failed", {
+              templateId: drag.templateId,
+              sourceId: drag.sourceId,
+              createdIds
+            });
+          }
         } else if (drag.pairTemplateId) {
           addDevicePairInstances(drag.templateId, drag.pairTemplateId, point.x, point.y);
           logLibraryDragStep("legacy device pair created", {
@@ -75082,8 +75192,16 @@
             templateName: drag.name || template.name,
             productionObjects: state.devices.length
           }, { status: true });
+          if (drag.custom) {
+            logCustomDeviceDiagnostic("project custom dropped on legacy canvas", {
+              templateId: drag.templateId,
+              sourceId: drag.sourceId,
+              productionObjects: state.devices.length
+            });
+          }
         }
       } else if (drag.clickAction && !drag.moved) {
+        if (drag.custom) suppressProjectCustomDeviceClickAfterDrag(drag, "click-action");
         drag.clickAction();
       } else if (template && drag.moved && !drag.templateOverride && selectedDeviceType !== "__racks") {
         const target = libraryReorderTargetAt(event.clientX, event.clientY) || {
@@ -80971,7 +81089,6 @@
         event.stopPropagation();
         hideDeviceContextMenu();
         if (templateAction === "edit") openDeviceEditorForTemplate(templateId);
-        if (templateAction === "duplicate") duplicateLibraryDevice(templateId);
         return;
       }
       const titleBlockAction = event.target.closest("[data-title-block-menu]")?.dataset.titleBlockMenu;
@@ -81448,7 +81565,6 @@
       if (!templateById(templateId)) return;
       deviceContextMenu.innerHTML = `
         <button type="button" data-library-device-menu="edit">Edit in Device Editor</button>
-        <button type="button" data-library-device-menu="duplicate">Duplicate the Device</button>
       `;
       deviceContextMenu.style.left = `${event.clientX}px`;
       deviceContextMenu.style.top = `${event.clientY}px`;

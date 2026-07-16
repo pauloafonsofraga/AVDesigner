@@ -89,6 +89,7 @@ class ProductionEngineBridge {
     this.debugCompatibility = engineCompatibilityDebugEnabled();
     this.debugRouting = engineRoutingDebugEnabled();
     this.debugRewire = engineRewireDebugEnabled();
+    this.debugCustomDevices = engineCustomDevicesDebugEnabled();
     this.orthogonalTest = engineOrthogonalTestEnabled();
     this.lastCompatibilityTargetKey = "";
     this.renderOptions = {
@@ -186,6 +187,18 @@ class ProductionEngineBridge {
     } catch (error) {
       console.warn("[avdesigner-library-drag] diagnostic callback failed", error);
     }
+  }
+
+  customDeviceDiagnostic(step, details = {}) {
+    if (!this.debugCustomDevices) return;
+    const payload = {
+      step,
+      ...details,
+      counts: this.sceneCounts()
+    };
+    console.info(`[avdesigner-engine-custom-devices] ${step}`, payload);
+    this.emitLibraryDragDiagnostic(`custom ${step}`, payload);
+    this.hud?.setMetric("custom devices", step);
   }
 
   canUndoEngineCommand() {
@@ -838,7 +851,15 @@ class ProductionEngineBridge {
       if (this.scene.selectedWireIds.size) {
         consumeEngineShortcut(event);
         this.deleteSelectedWires();
+        return;
       }
+      const selectedDeviceIds = this.selectedDeletableDeviceIds();
+      if (selectedDeviceIds.length) {
+        consumeEngineShortcut(event);
+        this.deleteSelectedDevices(selectedDeviceIds);
+        return;
+      }
+      consumeEngineShortcut(event);
       return;
     }
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
@@ -2955,6 +2976,70 @@ class ProductionEngineBridge {
     return { mutationMs, dirtyStats, wireData, connectionData };
   }
 
+  selectedDeletableDeviceIds() {
+    return [...this.scene.selectedIds]
+      .filter(id => isEngineDeletableDevice(this.scene.getDevice(id)));
+  }
+
+  deleteSelectedDevices(deviceIds = this.selectedDeletableDeviceIds()) {
+    if (!this.ready) {
+      this.hud?.setMetric("blocked command", "delete devices while loading");
+      return;
+    }
+    const ids = uniqueItems((deviceIds || []).map(id => String(id || "")).filter(Boolean))
+      .filter(id => isEngineDeletableDevice(this.scene.getDevice(id)));
+    if (!ids.length) return;
+    const commitStart = performance.now();
+    const selectionBefore = captureEngineSelection(this.scene);
+    const connectedWireIds = uniqueItems([...this.scene.affectedWireIdsForObjects(ids)]);
+    this.customDeviceDiagnostic("delete selected devices start", {
+      deviceIds: ids,
+      connectedWireIds
+    });
+    this.beginProductionCommit(`delete ${ids.length} device${ids.length === 1 ? "" : "s"}`);
+    const deletedWires = [];
+    const deletedDevices = [];
+    let mutationMs = 0;
+    connectedWireIds.forEach(wireId => {
+      const result = this.removeWire(wireId);
+      mutationMs += result.mutationMs || 0;
+      if (result.wireData && result.connectionData) deletedWires.push({
+        wireData: result.wireData,
+        connectionData: result.connectionData
+      });
+    });
+    // Remove later-indexed project devices first so captured indexes can be
+    // restored exactly during undo without shifting lower entries.
+    const deleteOrder = ids
+      .map(id => ({ id, index: this.mutations?.deviceById?.get(String(this.scene.getDevice(id)?.sourceId || id))?.index ?? -1 }))
+      .sort((a, b) => b.index - a.index)
+      .map(item => item.id);
+    deleteOrder.forEach(deviceId => {
+      const result = this.removeCreatedDevice(deviceId);
+      mutationMs += result.mutationMs || 0;
+      if (result.deviceData) deletedDevices.push({
+        engineId: deviceId,
+        deviceData: result.deviceData,
+        index: result.index
+      });
+    });
+    if (!deletedDevices.length && !deletedWires.length) return;
+    this.scene.clearSelection();
+    this.recordCommand(deleteDevicesCommand(deletedDevices, deletedWires, selectionBefore));
+    this.markCommitted(`delete ${deletedDevices.length} device${deletedDevices.length === 1 ? "" : "s"}`, mutationMs, {
+      deletedDeviceCount: deletedDevices.length,
+      deletedWireCount: deletedWires.length
+    });
+    this.updateSelectionHud();
+    this.updateInteractionHud("device-delete");
+    this.hud.setMetric("delete device commit", `${(performance.now() - commitStart).toFixed(2)} ms`);
+    this.customDeviceDiagnostic("delete selected devices complete", {
+      deletedDeviceIds: deletedDevices.map(item => item.engineId),
+      deletedWireIds: deletedWires.map(item => item.wireData?.id).filter(Boolean)
+    });
+    this.scheduleRender();
+  }
+
   deleteSelectedWires() {
     if (!this.ready) {
       this.hud?.setMetric("blocked command", "delete while loading");
@@ -3949,6 +4034,11 @@ function engineRewireDebugEnabled() {
   return params.get("debugRewire") === "1" || params.get("debugHud") === "1";
 }
 
+function engineCustomDevicesDebugEnabled() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("debugCustomDevices") === "1" || params.get("debugLibraryDrag") === "1";
+}
+
 function engineOrthogonalTestEnabled() {
   return new URLSearchParams(window.location.search).get("orthogonalTest") === "1";
 }
@@ -4025,6 +4115,22 @@ function screenRectFromPoints(a, b) {
 
 function uniqueItems(items = []) {
   return [...new Set(items)];
+}
+
+function captureEngineSelection(scene) {
+  return {
+    devices: [...(scene?.selectedIds || [])],
+    wires: [...(scene?.selectedWireIds || [])],
+    connectors: [...(scene?.selectedConnectorKeys || [])],
+    routePoints: [...(scene?.selectedRoutePointKeys || [])]
+  };
+}
+
+function isEngineDeletableDevice(device) {
+  if (!device) return false;
+  if (device.kind === "jump" || device.kind === "surface") return false;
+  if (device.sourceKind === "jumpNode" || device.sourceKind === "ledSurface") return false;
+  return device.sourceKind === "device" || device.kind === "device" || device.kind === "adapter";
 }
 
 function isMarqueeSelectableDevice(device) {
@@ -4321,6 +4427,62 @@ function deleteWiresCommand(deleted = []) {
   };
 }
 
+function deleteDevicesCommand(deletedDevices = [], deletedWires = [], selectionBefore = {}) {
+  const devices = (deletedDevices || [])
+    .map(item => ({
+      engineId: String(item?.engineId || item?.deviceData?.instanceId || item?.deviceData?.id || ""),
+      index: Number.isInteger(item?.index) ? item.index : null,
+      deviceData: deepClone(item?.deviceData)
+    }))
+    .filter(item => item.engineId && item.deviceData);
+  const wires = (deletedWires || [])
+    .map(item => ({
+      wireData: deepClone(item?.wireData),
+      connectionData: deepClone(item?.connectionData)
+    }))
+    .filter(item => item.wireData && item.connectionData);
+  const restoredSelection = deepClone(selectionBefore || {});
+  return {
+    type: `DeleteDevicesCommand (${devices.length})`,
+    affectedIds: uniqueItems([
+      ...devices.map(item => item.engineId),
+      ...wires.map(item => item.wireData?.id).filter(Boolean)
+    ]),
+    undo: bridge => {
+      let mutationMs = 0;
+      devices
+        .slice()
+        .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+        .forEach(item => {
+          const result = bridge.restoreCreatedDevice(item.deviceData, item.index, { select: false, recordMetric: false });
+          mutationMs += result.mutationMs || 0;
+        });
+      wires.forEach(item => {
+        const result = bridge.restoreWire(item.wireData, item.connectionData);
+        mutationMs += result.mutationMs || 0;
+      });
+      bridge.restoreEngineSelection(restoredSelection);
+      return { mutationMs };
+    },
+    redo: bridge => {
+      let mutationMs = 0;
+      wires.forEach(item => {
+        const result = bridge.removeWire(item.wireData?.id);
+        mutationMs += result.mutationMs || 0;
+      });
+      devices
+        .slice()
+        .sort((a, b) => (b.index ?? 0) - (a.index ?? 0))
+        .forEach(item => {
+          const result = bridge.removeCreatedDevice(item.engineId);
+          mutationMs += result.mutationMs || 0;
+        });
+      bridge.scene.clearSelection();
+      return { mutationMs };
+    }
+  };
+}
+
 function consumeEngineShortcut(event) {
   event.preventDefault();
   event.stopPropagation();
@@ -4363,6 +4525,10 @@ function commandTargetMs(command) {
   if (type.includes("MoveRoutePoint")) return 100;
   if (type.includes("CreateWire") || type.includes("DeleteWire")) return 300;
   if (type.includes("CreateDevice")) return 300;
+  if (type.includes("DeleteDevices")) {
+    const count = Number(command?.affectedIds?.length) || 1;
+    return count > 1 ? 300 : 100;
+  }
   if (type.includes("MoveDevices")) {
     const count = Number(command?.affectedIds?.length) || 1;
     return count > 1 ? 300 : 100;

@@ -104,6 +104,7 @@ runCommandCycle(initialHarness, buildRoutePointMoveCommand(initialHarness));
 runCommandCycle(initialHarness, buildCreateDeviceCommand(initialHarness));
 runCommandCycle(initialHarness, buildCreateWireCommand(initialHarness));
 runCommandCycle(initialHarness, buildDeleteWireCommand(initialHarness));
+runCommandCycle(initialHarness, buildDeleteDeviceCommand(initialHarness));
 
 const longChainHarness = time("long-chain harness build", () => createHarness(rawText, `${projectPath} long-chain`));
 const longChain = runLongUndoRedoChain(longChainHarness);
@@ -146,7 +147,8 @@ const summary = {
     multiMoveUnder300ms: commandUnder("20-device move", 300),
     routePointUnder100ms: commandUnder("route point move", 100),
     createWireUnder100ms: commandUnder("create wire", 100),
-    deleteWireUnder100ms: commandUnder("delete wire", 100)
+    deleteWireUnder100ms: commandUnder("delete wire", 100),
+    deleteDeviceUnder300ms: commandUnder("delete device", 300)
   }
 };
 
@@ -247,7 +249,8 @@ function runLongUndoRedoChain(harness) {
     buildRoutePointMoveCommand,
     buildCreateDeviceCommand,
     buildCreateWireCommand,
-    buildDeleteWireCommand
+    buildDeleteWireCommand,
+    buildDeleteDeviceCommand
   ];
 
   commandBuilders.forEach(builder => {
@@ -485,6 +488,76 @@ function buildDeleteWireCommand(harness) {
     },
     assertRedo: (before, after) => {
       assert.equal(after.wires.has(wireData.id), false, "redo did not delete original wire id");
+    }
+  };
+}
+
+function buildDeleteDeviceCommand(harness) {
+  const candidates = harness.scene.devices
+    .filter(item => (item.kind === "device" || item.kind === "adapter") && harness.mutations.deviceById.has(String(item.sourceId || item.id)));
+  const device = candidates.find(item => harness.scene.affectedWireIdsForObjects([item.id]).size)
+    || candidates[0];
+  if (!device) return skippedCommand("delete device", "no production-backed device");
+  const sourceId = String(device.sourceId || device.id);
+  const entry = harness.mutations.deviceById.get(sourceId);
+  if (!entry) return skippedCommand("delete device", "no production device entry");
+  const deviceData = stableClone(entry.item);
+  const deviceIndex = entry.index;
+  const connectedWireIds = [...harness.scene.affectedWireIdsForObjects([device.id])];
+  const connectedWires = connectedWireIds
+    .map(wireId => {
+      const wire = harness.scene.getWire(wireId);
+      const connectionData = harness.mutations.connectionDataForWire(wire?.sourceId || wireId);
+      return wire && connectionData
+        ? { wireData: cloneWire(wire), connectionData: stableClone(connectionData) }
+        : null;
+    })
+    .filter(Boolean);
+  const affectedWireIds = connectedWires.map(item => item.wireData.id);
+  return {
+    name: "delete device",
+    tested: true,
+    affectedIds: [device.id, ...affectedWireIds],
+    execute: () => {
+      connectedWires.forEach(item => {
+        harness.scene.deleteWire(item.wireData.id);
+        harness.mutations.deleteWire(item.connectionData.id);
+      });
+      const removed = harness.scene.deleteDevice(device.id);
+      const mutation = harness.mutations.removeDeviceInstance(sourceId);
+      assert.ok(removed, `failed to delete validation device ${device.id}`);
+      assert.ok(mutation.deviceData, `failed to remove production device ${sourceId}`);
+      return { deviceData, deviceIndex, connectedWires };
+    },
+    undo: () => {
+      restoreValidationDevice(harness, deviceData, deviceIndex);
+      connectedWires.forEach(item => {
+        harness.scene.insertWire(item.wireData);
+        harness.mutations.restoreWire(item.connectionData);
+      });
+    },
+    redo: () => {
+      connectedWires.forEach(item => {
+        harness.scene.deleteWire(item.wireData.id);
+        harness.mutations.deleteWire(item.connectionData.id);
+      });
+      removeValidationDevice(harness, device.id);
+    },
+    assertExecute: (before, after) => {
+      assert.equal(after.devices.size, before.devices.size - 1);
+      assert.equal(after.devices.has(device.id), false, "deleted device still in scene");
+      connectedWires.forEach(item => {
+        assert.equal(after.wires.has(item.wireData.id), false, `connected wire ${item.wireData.id} still in scene`);
+        assert.equal(after.productionConnections.has(item.connectionData.id), false, `connected connection ${item.connectionData.id} still in production data`);
+      });
+      assertUnrelatedDevicesUnchanged(before, after, new Set([device.id]), "delete device");
+      assertUnrelatedWiresUnchanged(before, after, new Set(affectedWireIds), "delete device");
+    },
+    assertRedo: (before, after) => {
+      assert.equal(after.devices.has(device.id), false, "redo did not delete original device id");
+      affectedWireIds.forEach(wireId => {
+        assert.equal(after.wires.has(wireId), false, `redo did not delete connected wire ${wireId}`);
+      });
     }
   };
 }
