@@ -75042,16 +75042,29 @@
       const sourceHeight = Number(sourceTemplate?.height || template.height || 190);
       const targetX = Math.round((Number(sourceInstance.x) || 0) + Math.min(72, Math.max(36, sourceWidth * 0.12)));
       const targetY = Math.round((Number(sourceInstance.y) || 0) + Math.min(72, Math.max(36, sourceHeight * 0.12)));
-      const instance = prepareDeviceInstanceFromTemplate(template, targetX, targetY, {
+      const instance = hydrateDeviceInstance({
+        instanceId: nextId("dev"),
         templateId: template.id,
         templateOverride: structuredClone(template),
-        name: template.name
+        name: template.name,
+        x: targetX,
+        y: targetY,
+        notes: ""
       });
-      if (!instance) return null;
+      // Canvas Duplicate Device must always create a physical canvas instance.
+      // Prefer a clear nearby spot, but fall back to the visible offset instead
+      // of dropping the placement when a dense project has no clean space.
+      const position = findNonOverlappingPosition(instance, targetX, targetY);
+      if (position) {
+        instance.x = position.x;
+        instance.y = position.y;
+      }
       const engineBridge = activeEngineBridge();
       if (engineBridge) {
         const created = engineBridge.createDeviceFromLibraryDrop?.(instance);
         if (!created) return null;
+        state.selected = { type: "device", id: instance.instanceId };
+        renderInspector();
         emptyHint.classList.add("hidden");
         return instance;
       }
