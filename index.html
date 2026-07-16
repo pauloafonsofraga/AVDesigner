@@ -3882,7 +3882,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 42.3 — Engine Editor — iteration42-3</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 42.4 — Engine Editor — iteration42-4</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -4588,8 +4588,8 @@
   </div>
 
   <script>
-    const APP_ITERATION = "42.3";
-    const APP_BUILD_ID = "iteration42-3";
+    const APP_ITERATION = "42.4";
+    const APP_BUILD_ID = "iteration42-4";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
     const DEBUG_LIBRARY_DRAG_ENABLED = INITIAL_URL_PARAMS.get("debugLibraryDrag") === "1";
@@ -74982,6 +74982,43 @@
       return source;
     }
 
+    function projectCustomPlacedInstancesForTemplate(templateId) {
+      const id = String(templateId || "");
+      if (!id) return [];
+      return state.devices.filter(instance => (
+        String(instance?.templateId || "") === id
+        || String(instance?.templateOverride?.id || "") === id
+      ));
+    }
+
+    function placeProjectCustomDuplicateOnCanvas(sourceInstance, template) {
+      if (!sourceInstance || !template) return null;
+      const sourceTemplate = templateForInstance(sourceInstance);
+      const sourceWidth = Number(sourceTemplate?.width || template.width || DEVICE_WIDTH);
+      const sourceHeight = Number(sourceTemplate?.height || template.height || 190);
+      const targetX = Math.round((Number(sourceInstance.x) || 0) + Math.min(72, Math.max(36, sourceWidth * 0.12)));
+      const targetY = Math.round((Number(sourceInstance.y) || 0) + Math.min(72, Math.max(36, sourceHeight * 0.12)));
+      const instance = prepareDeviceInstanceFromTemplate(template, targetX, targetY, {
+        templateId: template.id,
+        templateOverride: structuredClone(template),
+        name: template.name
+      });
+      if (!instance) return null;
+      const engineBridge = activeEngineBridge();
+      if (engineBridge) {
+        const created = engineBridge.createDeviceFromLibraryDrop?.(instance);
+        if (!created) return null;
+        emptyHint.classList.add("hidden");
+        return instance;
+      }
+      state.devices.push(instance);
+      state.selected = { type: "device", id: instance.instanceId };
+      renderDeviceInstancesById([instance.instanceId]);
+      renderInspector();
+      emptyHint.classList.add("hidden");
+      return instance;
+    }
+
     function createProjectCustomDeviceFromCanvasInstance(instanceId) {
       const instance = instanceById(instanceId);
       const source = projectCustomSourceTemplateForInstance(instance);
@@ -75009,6 +75046,7 @@
       const copy = duplicateDeviceTemplateForCollection(source, deviceLibrary, { projectCustom: true });
       pushUndo();
       deviceLibrary.push(copy);
+      const placedCopy = placeProjectCustomDuplicateOnCanvas(instance, copy);
       canvasDuplicateDeviceGuard = { instanceId, resultId: copy.id, at: performance.now() };
       normalizeProjectCustomTemplates(deviceLibrary);
       renderProjectCustomDevices();
@@ -75022,9 +75060,18 @@
         sourceInstanceId: instanceId,
         sourceTemplateId: instance.templateId || ""
       }];
+      if (placedCopy?.instanceId) {
+        customIdentityDebug.lastCreatedRecords.push({
+          type: "placed-instance",
+          id: placedCopy.instanceId,
+          sourceTemplateId: copy.id,
+          sourceInstanceId: instanceId
+        });
+      }
       logCustomDeviceDiagnostic("canvas duplicate created project custom device", {
         instanceId,
         customTemplateId: copy.id,
+        placedInstanceId: placedCopy?.instanceId || "",
         beforeCount,
         afterCount: projectCustomDeviceTemplates().length,
         beforeInstanceCount: beforeInstances.length,
@@ -75032,7 +75079,9 @@
         newTemplateIds: projectCustomDeviceTemplates().map(template => template.id).filter(id => !beforeTemplates.includes(id)),
         newInstanceIds: state.devices.map(device => device.instanceId).filter(id => !beforeInstances.includes(id))
       });
-      setStatus(`${copy.name || "Project Custom Device"} added to Project Custom Devices.`);
+      setStatus(placedCopy
+        ? `${copy.name || "Project Custom Device"} added to Project Custom Devices and placed on the canvas.`
+        : `${copy.name || "Project Custom Device"} added to Project Custom Devices, but no clear canvas space was available for the copy.`);
       return copy;
     }
 
@@ -82032,20 +82081,39 @@
     function deleteProjectCustomDeviceTemplate(templateId, options = {}) {
       const template = projectCustomTemplateById(templateId);
       if (!template) return;
-      const blockingInstances = state.devices.filter(instance => instance.templateId === templateId && !instance.templateOverride);
-      if (blockingInstances.length) {
-        alert("This project custom device is used by placed devices that do not contain their own snapshot. Delete those instances or duplicate the template first.");
-        return;
+      const placedInstances = projectCustomPlacedInstancesForTemplate(templateId);
+      if (options.confirm !== false) {
+        const countText = placedInstances.length
+          ? ` This will also remove ${placedInstances.length} placed canvas instance${placedInstances.length === 1 ? "" : "s"} of this custom device.`
+          : "";
+        if (!confirm(`Delete "${template.name || "Project Custom Device"}" from Project Custom Devices?${countText}`)) return;
       }
-      if (options.confirm !== false && !confirm(`Delete "${template.name || "Project Custom Device"}" from Project Custom Devices? Placed canvas copies with their own snapshot will remain unchanged.`)) return;
       pushUndo();
+      const placedIds = placedInstances.map(instance => instance.instanceId).filter(Boolean);
+      const engineBridge = activeEngineBridge();
+      if (placedIds.length) {
+        if (engineBridge?.deleteSelectedDevices) {
+          engineBridge.deleteSelectedDevices(placedIds);
+        } else {
+          deleteSelectedItems(placedIds.map(id => ({ type: "device", id })));
+        }
+        state.selected = null;
+      }
       deviceLibrary = deviceLibrary.filter(item => item.id !== templateId);
+      customIdentityDebug.lastDeleteTargets = placedIds;
+      customIdentityDebug.lastDeleteRemoved = placedIds.filter(id => !instanceById(id));
+      recordCustomIdentity("project custom template deleted", {
+        templateId,
+        removedInstanceIds: customIdentityDebug.lastDeleteRemoved
+      });
       renderProjectCustomDevices();
       renderDeviceLibrary();
       renderRackBuilderSources();
+      renderInspector();
+      if (!engineBridge) render();
       updateUndoRedoButtons();
       if (options.closeEditor) closeDeviceEditor();
-      setStatus(`${template.name || "Project Custom Device"} deleted from Project Custom Devices.`);
+      setStatus(`${template.name || "Project Custom Device"} deleted from Project Custom Devices${placedIds.length ? ` with ${placedIds.length} canvas instance${placedIds.length === 1 ? "" : "s"}` : ""}.`);
     }
 
     function showWireContextMenu(event, connectionId, engineRouteContext = null) {
@@ -83610,9 +83678,11 @@
         value => { instance.name = value; },
         value => {
           const nextName = String(value || "").trim() || template.name || "Device";
-          if (!instance.templateOverride) instance.templateOverride = structuredClone(template);
+          // Canvas instance names are instance-level metadata. Do not create or
+          // rename templateOverride here; that snapshot is what distinguishes
+          // real Project Custom Devices from ordinary placed master devices.
           instance.name = nextName;
-          if (instance.templateOverride) instance.templateOverride.name = nextName;
+          activeEngineBridge()?.syncDeviceFromProduction?.(instance.instanceId, { name: nextName });
           renderProjectCustomDevices();
           render();
         }

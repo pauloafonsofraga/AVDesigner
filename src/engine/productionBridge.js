@@ -2164,6 +2164,45 @@ class ProductionEngineBridge {
     return true;
   }
 
+  syncDeviceFromProduction(deviceId, deviceData = {}) {
+    if (!this.ready) return false;
+    const sourceDeviceId = String(deviceId || "");
+    const device = this.scene.getDevice(sourceDeviceId)
+      || this.scene.devices.find(item => String(item.sourceId || item.id) === sourceDeviceId);
+    if (!device) {
+      this.hud?.setMetric("device sync", `missing ${sourceDeviceId}`);
+      return false;
+    }
+    if (deviceData.name !== undefined) {
+      const nextName = String(deviceData.name || device.label || device.id);
+      device.label = nextName;
+      device.visual = {
+        ...(device.visual || {}),
+        displayName: nextName
+      };
+      device.labelMapped = true;
+    }
+    this.scene.dirtyDevices.add(device.id);
+    this.scene.dirtyTextures.add(device.id);
+    const affectedWireIds = [...this.scene.affectedWireIdsForObjects([device.id])];
+    const dirtyStats = this.renderer.updateDirty(this.scene, {
+      deviceIds: [device.id],
+      wireIds: affectedWireIds,
+      refreshCableHops: false
+    });
+    this.lastDirtyDeviceIds = new Set([device.id]);
+    this.lastDirtyWireIds = new Set(affectedWireIds);
+    this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.hud?.setMetric("device sync", sourceDeviceId);
+    this.hud?.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+    this.updateSelectionHud();
+    this.updateInteractionHud("device-sync");
+    this.scheduleRender();
+    return true;
+  }
+
   syncWireFromProduction(wireId, wireData = {}) {
     if (!this.ready) return false;
     const sourceWireId = String(wireId || "");
