@@ -69043,17 +69043,7 @@
         template,
         name: template.name || "Project Custom Device"
       }));
-      const customTemplateIds = new Set(customTemplateItems.map(item => item.id));
-      const customInstanceItems = state.devices
-        .filter(instance => isLegacyProjectCustomSnapshotInstance(instance, customTemplateIds))
-        .map(instance => ({
-          kind: "project",
-          id: instance.instanceId,
-          template: templateForInstance(instance),
-          name: instance.name || templateForInstance(instance)?.name || "Custom Device"
-        }))
-        .filter(item => item.template);
-      const customItems = [...customTemplateItems, ...customInstanceItems];
+      const customItems = customTemplateItems;
       const matches = item => {
         const template = item.template;
         const haystack = `${item.name || ""} ${template?.name || ""} ${template?.brand || ""} ${template?.category || ""} ${template?.model || ""}`.toLowerCase();
@@ -74873,22 +74863,11 @@
         template,
         name: template.name || "Project Custom Device"
       }));
-      const templateIds = new Set(customTemplates.map(item => item.id));
-      // Legacy fallback rows are only for old project files whose placed
-      // instances have a private snapshot but no corresponding library
-      // template. Normal master-library instances may also carry a temporary
-      // Engine snapshot; those must not become Project Custom list entries.
-      const legacyCustomDevices = state.devices
-        .filter(instance => isLegacyProjectCustomSnapshotInstance(instance, templateIds))
-        .map(instance => ({
-          kind: "legacy-instance",
-          id: instance.instanceId,
-          instance,
-          template: templateForInstance(instance),
-          name: instance.name || templateForInstance(instance)?.name || "Custom Device"
-        }))
-        .filter(item => item.template);
-      const entries = [...customTemplates, ...legacyCustomDevices];
+      // Project Custom Devices is a template library. Placed canvas instances
+      // may carry templateOverride snapshots for rendering/editing, but those
+      // snapshots must not become library rows when the inspector renames an
+      // instance.
+      const entries = customTemplates;
       customDeviceList.innerHTML = "";
       entries
         .filter(entry => {
@@ -74953,7 +74932,7 @@
       }
       recordCustomIdentity("project custom list rendered", {
         customTemplates: customTemplates.length,
-        legacySnapshotRows: legacyCustomDevices.length,
+        legacySnapshotRows: 0,
         entries: entries.length
       });
     }
