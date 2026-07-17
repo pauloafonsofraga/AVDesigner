@@ -75061,6 +75061,58 @@
       return source;
     }
 
+    function projectCustomSourceTemplateForCanvasRename(instance, nextName) {
+      const template = templateForInstance(instance);
+      if (!instance || !template) return null;
+      const source = structuredClone(template);
+      const previousName = source.name || template.name || instance.name || "";
+      source.name = nextName || previousName || "Project Custom Device";
+      if (!source.model || source.model === previousName) source.model = source.name;
+      source.favorite = false;
+      if (Number.isFinite(Number(instance.powerWatts))) source.powerWatts = normalizedPowerWatts(instance.powerWatts);
+      else delete source.powerWatts;
+      if (instance.powerUnit) source.powerUnit = normalizePowerUnit(instance.powerUnit);
+      else delete source.powerUnit;
+      return source;
+    }
+
+    function commitCanvasDeviceInspectorName(instance, nextName) {
+      const template = templateForInstance(instance);
+      if (!instance || !template) return;
+      const normalizedName = String(nextName || "").trim() || template.name || "Device";
+      const currentTemplateName = String(template.name || "").trim();
+      if (normalizedName === currentTemplateName) {
+        instance.name = normalizedName;
+        activeEngineBridge()?.syncDeviceFromProduction?.(instance.instanceId, { name: normalizedName });
+        renderProjectCustomDevices();
+        render();
+        return;
+      }
+
+      const source = projectCustomSourceTemplateForCanvasRename(instance, normalizedName);
+      if (!source) return;
+      const beforeSnapshot = deviceEditorEngineSnapshot();
+      pushUndo();
+      const customTemplate = projectCustomTemplateFromEditedLibraryTemplate(source, deviceLibrary);
+      customTemplate.name = normalizedName;
+      if (!customTemplate.model || customTemplate.model === currentTemplateName) customTemplate.model = normalizedName;
+      deviceLibrary.push(customTemplate);
+      normalizeProjectCustomTemplates(deviceLibrary);
+      instance.templateId = customTemplate.id;
+      instance.templateOverride = structuredClone(customTemplate);
+      instance.name = normalizedName;
+      hydrateDeviceInstance(instance);
+      const afterSnapshot = deviceEditorEngineSnapshot();
+      const bridgeHandled = commitDeviceEditorApplyToEngineBridge(beforeSnapshot, afterSnapshot, [instance.instanceId]);
+      renderDeviceLibrary();
+      renderProjectCustomDevices();
+      renderRackBuilderSources();
+      renderInspector();
+      updateUndoRedoButtons();
+      if (!bridgeHandled) render();
+      setStatus(`${normalizedName} added to Project Custom Devices.`);
+    }
+
     function projectCustomPlacedInstancesForTemplate(templateId) {
       const id = String(templateId || "");
       if (!id) return [];
@@ -83770,13 +83822,7 @@
         value => { instance.name = value; },
         value => {
           const nextName = String(value || "").trim() || template.name || "Device";
-          // Canvas instance names are instance-level metadata. Do not create or
-          // rename templateOverride here; that snapshot is what distinguishes
-          // real Project Custom Devices from ordinary placed master devices.
-          instance.name = nextName;
-          activeEngineBridge()?.syncDeviceFromProduction?.(instance.instanceId, { name: nextName });
-          renderProjectCustomDevices();
-          render();
+          commitCanvasDeviceInspectorName(instance, nextName);
         }
       );
       document.getElementById("deviceNotes").addEventListener("input", event => {
