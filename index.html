@@ -63378,6 +63378,7 @@
       if (templateId && projectTemplateIds.has(templateId)) return false;
       if (overrideId && projectTemplateIds.has(overrideId)) return false;
       if (templateId && templateById(templateId)) return false;
+      if (overrideId && templateById(overrideId)) return false;
       const customIdPattern = /^(project-custom|pcd)-/i;
       return isProjectCustomDeviceTemplate(instance.templateOverride)
         || instance.projectCustomDevice === true
@@ -69042,8 +69043,9 @@
         template,
         name: template.name || "Project Custom Device"
       }));
+      const customTemplateIds = new Set(customTemplateItems.map(item => item.id));
       const customInstanceItems = state.devices
-        .filter(instance => instance.templateOverride && !projectCustomTemplateById(instance.templateId))
+        .filter(instance => isLegacyProjectCustomSnapshotInstance(instance, customTemplateIds))
         .map(instance => ({
           kind: "project",
           id: instance.instanceId,
