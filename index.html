@@ -63348,6 +63348,44 @@
       return library;
     }
 
+    function templateForLibraryComparison(template) {
+      const copy = structuredClone(template || {});
+      delete copy[PROJECT_CUSTOM_DEVICE_FLAG];
+      delete copy.isProjectCustomDevice;
+      delete copy.projectCustomRevision;
+      return copy;
+    }
+
+    function libraryTemplatesEquivalent(a, b) {
+      return JSON.stringify(templateForLibraryComparison(a)) === JSON.stringify(templateForLibraryComparison(b));
+    }
+
+    function projectCustomTemplateFromEditedLibraryTemplate(template, library = deviceLibrary) {
+      const copy = structuredClone(template || createBlankDeviceTemplate());
+      copy.name = copy.name || "Project Custom Device";
+      copy.model = copy.model || copy.name;
+      copy.id = uniqueDeviceTemplateId(`project-custom-${slugify(copy.name) || "device"}`, library);
+      copy.favorite = false;
+      markProjectCustomDeviceTemplate(copy);
+      validateDraftDefaults(copy);
+      return copy;
+    }
+
+    function isLegacyProjectCustomSnapshotInstance(instance, projectTemplateIds = new Set()) {
+      if (!instance?.templateOverride) return false;
+      const templateId = String(instance.templateId || "");
+      const overrideId = String(instance.templateOverride?.id || "");
+      if (templateId && projectTemplateIds.has(templateId)) return false;
+      if (overrideId && projectTemplateIds.has(overrideId)) return false;
+      if (templateId && templateById(templateId)) return false;
+      const customIdPattern = /^(project-custom|pcd)-/i;
+      return isProjectCustomDeviceTemplate(instance.templateOverride)
+        || instance.projectCustomDevice === true
+        || instance.isProjectCustomDevice === true
+        || customIdPattern.test(templateId)
+        || customIdPattern.test(overrideId);
+    }
+
     function uniqueDeviceTemplateId(base, library = deviceLibrary, preserveId = "") {
       const existing = new Set((library || [])
         .map(template => template?.id)
@@ -68672,32 +68710,48 @@
           setStatus(`${editedTemplate.name || "Project custom device"} saved to Project Custom Devices.`);
           return;
         }
-        const projectTemplates = projectCustomDeviceTemplates().map(template => structuredClone(template));
-        const nextLibrary = normalizeProjectCustomTemplates([
-          ...structuredClone(editorDraft),
-          ...projectTemplates
-        ]);
-        if (!Array.isArray(nextLibrary)) throw new Error("Device library must be an array.");
-        enforceDevicePairFirstChoice(nextLibrary);
-        nextLibrary.forEach(validateDeviceTemplate);
-        const invalidConnections = invalidConnectionsAfterLibraryDeviceEdit(nextLibrary);
-        if (!confirmDeviceEditorWireRemoval(invalidConnections)) return;
+        const editedTemplates = structuredClone(editorDraft);
+        if (!Array.isArray(editedTemplates)) throw new Error("Device library must be an array.");
+        enforceDevicePairFirstChoice(editedTemplates);
+        editedTemplates.forEach(validateDeviceTemplate);
+        const masterById = new Map(libraryDeviceTemplates(deviceLibrary).map(template => [template.id, template]));
+        const changedTemplates = editedTemplates
+          .filter(template => {
+            const original = masterById.get(template.id);
+            return !original || !libraryTemplatesEquivalent(original, template);
+          });
+        const projectCustomCopies = [];
+        changedTemplates.forEach(template => {
+          projectCustomCopies.push(projectCustomTemplateFromEditedLibraryTemplate(template, [
+            ...deviceLibrary,
+            ...projectCustomCopies
+          ]));
+        });
+        if (!projectCustomCopies.length) {
+          closeDeviceEditor();
+          setStatus("No master device changes to save as Project Custom Devices.");
+          return;
+        }
         const beforeSnapshot = deviceEditorEngineSnapshot();
         pushUndo();
-        deviceLibrary = normalizeProjectCustomTemplates(nextLibrary);
-        state.devices = state.devices.filter(instance => instance.templateOverride || templateById(instance.templateId));
-        state.connections = state.connections.filter(connection => {
-          return connectionEndpointStillExists(connection.from) && connectionEndpointStillExists(connection.to);
-        });
-        state.devices.forEach(hydrateDeviceInstance);
+        deviceLibrary = normalizeProjectCustomTemplates([
+          ...deviceLibrary,
+          ...projectCustomCopies
+        ]);
         const afterSnapshot = deviceEditorEngineSnapshot();
-        const affectedDeviceIds = affectedDeviceIdsForLibraryApply(beforeSnapshot.devices, afterSnapshot.devices, beforeSnapshot.deviceLibrary, afterSnapshot.deviceLibrary);
         closeDeviceEditor();
         renderDeviceLibrary();
         renderProjectCustomDevices();
         renderRackBuilderSources();
-        if (commitDeviceEditorApplyToEngineBridge(beforeSnapshot, afterSnapshot, affectedDeviceIds)) return;
+        renderInspector();
+        updateUndoRedoButtons();
+        const statusText = `${pluralCount(projectCustomCopies.length, "edited device")} saved to Project Custom Devices. Master library devices were left unchanged.`;
+        if (commitDeviceEditorApplyToEngineBridge(beforeSnapshot, afterSnapshot, [])) {
+          setStatus(statusText);
+          return;
+        }
         render();
+        setStatus(statusText);
       } catch (error) {
         alert(`Device library could not be applied: ${error.message}`);
       }
@@ -74823,7 +74877,7 @@
       // template. Normal master-library instances may also carry a temporary
       // Engine snapshot; those must not become Project Custom list entries.
       const legacyCustomDevices = state.devices
-        .filter(instance => instance.templateOverride && !templateIds.has(instance.templateId) && !templateById(instance.templateId))
+        .filter(instance => isLegacyProjectCustomSnapshotInstance(instance, templateIds))
         .map(instance => ({
           kind: "legacy-instance",
           id: instance.instanceId,
