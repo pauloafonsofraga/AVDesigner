@@ -1774,12 +1774,42 @@ function pushJumpNode(vertices, center, radius) {
 function pushConnectorNode(vertices, point, connector = {}, device = {}, options = DEFAULT_RENDER_OPTIONS) {
   const radius = connectorVisualRadius(device);
   const fill = options.connectorColors ? connector.color || PORT_COLOR : PORT_COLOR;
+  const segments = options.connectorColors && Array.isArray(connector.colorSegments)
+    ? connector.colorSegments.filter(Boolean)
+    : null;
   // Legacy connectors are visible circular nodes with a white rim and larger
   // transparent hit area. The hit area remains in the scene spatial index; this
   // WebGL geometry only draws the visible marker and never affects hit testing.
   pushCircle(vertices, point, radius + 2, "#ffffff", 20);
-  pushCircle(vertices, point, radius, fill, 20);
+  if (segments?.length > 1) pushSegmentedCircle(vertices, point, radius, segments);
+  else pushCircle(vertices, point, radius, fill, 20);
   pushCircleOutline(vertices, point, radius + 2.4, 1.1, "rgba(0,0,0,.45)", 20);
+}
+
+function pushSegmentedCircle(vertices, point, radius, colors) {
+  const usable = colors.map(color => String(color || "").trim()).filter(Boolean);
+  if (usable.length <= 1) {
+    pushCircle(vertices, point, radius, usable[0] || PORT_COLOR, 20);
+    return;
+  }
+  const totalWidth = radius * 2;
+  const segmentWidth = totalWidth / usable.length;
+  usable.forEach((color, index) => {
+    const x1 = point.x - radius + index * segmentWidth;
+    const x2 = index === usable.length - 1 ? point.x + radius : x1 + segmentWidth;
+    const stripCount = Math.max(2, Math.ceil((x2 - x1) / 1.35));
+    const stripWidth = (x2 - x1) / stripCount;
+    for (let strip = 0; strip < stripCount; strip += 1) {
+      const sx1 = x1 + strip * stripWidth;
+      const sx2 = strip === stripCount - 1 ? x2 : sx1 + stripWidth;
+      const cx = (sx1 + sx2) / 2;
+      const dx = Math.max(-radius, Math.min(radius, cx - point.x));
+      const halfHeight = Math.sqrt(Math.max(0, radius * radius - dx * dx));
+      if (halfHeight <= 0) continue;
+      pushRect(vertices, sx1, point.y - halfHeight, sx2 - sx1, halfHeight * 2, color);
+    }
+  });
+  pushCircleOutline(vertices, point, radius, 0.9, "rgba(0,0,0,.18)", 24);
 }
 
 function connectorVisualRadius(device = {}) {
@@ -2099,7 +2129,7 @@ function deviceLabel(device) {
 }
 
 function connectorLabel(connector, fallback = "") {
-  return String(connector?.label || connector?.name || connector?.type || fallback || "").trim();
+  return String(connector?.displayLabel || connector?.label || connector?.nameText || connector?.name || connector?.effectiveType || connector?.type || fallback || "").trim();
 }
 
 function drawVisibleConnectorLabels(ctx, scene, camera, renderOptions = DEFAULT_RENDER_OPTIONS, dragSession = null, resolution = { width: 0, height: 0 }, layerTrace = null, renderer = null) {
@@ -2303,7 +2333,14 @@ function drawConnectorTooltip(ctx, entry, camera, offsets = null) {
   const x = (entry.point.x + offset.dx - camera.x) * camera.zoom;
   const y = (entry.point.y + offset.dy - camera.y) * camera.zoom;
   const name = connectorLabel(entry.connector, entry.connector?.id || "Connector");
-  const type = String(entry.connector?.type || entry.connector?.direction || "").trim();
+  const rawType = String(entry.connector?.type || entry.connector?.direction || "").trim();
+  const effectiveType = String(entry.connector?.effectiveType || "").trim();
+  const module = String(entry.connector?.installedModuleLabel || "").trim();
+  const type = module && module !== name
+    ? module
+    : effectiveType && effectiveType !== rawType
+      ? `${rawType} -> ${effectiveType}`
+      : rawType;
   const device = deviceLabel(entry.device);
   const line = [name, type && type !== name ? type : ""].filter(Boolean).join(" / ");
   const text = [device, line].filter(Boolean).join(" - ");

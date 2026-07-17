@@ -1,6 +1,13 @@
 const CAGE_CONNECTOR_TYPES = new Set(["sfp-cage", "sfp-plus-cage", "qsfp-cage"]);
 const CAT_CONNECTOR_TYPES = new Set(["cat5e", "cat6", "cat6a", "ethercon", "ethernet"]);
 const USB_CONNECTOR_TYPES = new Set(["usb-a", "usb-b", "usb-c"]);
+const ENGINE_POWERLOCK_SEGMENT_COLORS = ["#03E300", "#2A7FFF", "#A05A2C", "#4A4A4A", "#999999"];
+const ENGINE_SIGNAL_LINE_COLORS = [
+  "#ff99cc", "#ffff99", "#ffcc99", "#ccffcc",
+  "#ccffff", "#99ccff", "#cc99ff", "#ffff00",
+  "#00ff00", "#00ffff", "#ff00ff", "#00ccff",
+  "#ff6600", "#33cccc", "#3366ff", "#f0f0f0"
+];
 export const ENGINE_FIBER_CABLE_TYPES = new Set(["fiber-lc", "fiber-sc", "fiber-st", "fiber-mpo", "opticalcon", "fiberfox"]);
 export const ENGINE_DEFAULT_FIBER_MODE = "single-mode";
 export const ENGINE_FIBER_MODE_OPTIONS = [
@@ -13,6 +20,82 @@ export const ENGINE_FIBER_MODE_OPTIONS = [
 
 const ENGINE_FIBER_MODE_BY_VALUE = new Map(ENGINE_FIBER_MODE_OPTIONS.map(option => [option.value, option]));
 const ENGINE_MULTIMODE_FIBER_MODES = new Set(["om1-om2", "om3", "om4", "om5"]);
+export const ENGINE_CONNECTOR_TYPE_COLORS = new Map([
+  ["iec", "#D7262D"],
+  ["uk-13a", "#DB2C32"],
+  ["schuko", "#DF3238"],
+  ["edison", "#E3383E"],
+  ["powercon", "#C91F26"],
+  ["powercon-true1", "#B71C1C"],
+  ["16a-cee", "#D92A30"],
+  ["32a-cee", "#D02228"],
+  ["63a-cee", "#C51F25"],
+  ["125a-cee", "#BA1C22"],
+  ["socapex", "#AD171D"],
+  ["harting", "#A1141A"],
+  ["powerlock", ENGINE_POWERLOCK_SEGMENT_COLORS[0]],
+  ["nema", "#E13A40"],
+  ["16a-1ph-110v", "#DC2E34"],
+  ["16a-1ph", "#D92A30"],
+  ["32a-1ph-110v", "#D4252B"],
+  ["32a-1ph", "#D02228"],
+  ["16a-3ph", "#CC2027"],
+  ["32a-3ph", "#C81D25"],
+  ["63a-3ph", "#C01820"],
+  ["125a-3ph", "#B3131A"],
+  ["sdi", "#0B6B3A"],
+  ["bnc", "#B88A1A"],
+  ["dvi", "#00E676"],
+  ["display-port", "#3D5AFE"],
+  ["mini-display-port", "#6C7DFF"],
+  ["hdmi", "#FFD600"],
+  ["vga", "#FF1744"],
+  ["xlr-3pin", "#AB47BC"],
+  ["xlr-5pin", "#7B1FA2"],
+  ["trs-ts", "#4CAF50"],
+  ["rca", "#81C784"],
+  ["aes", "#26A69A"],
+  ["midi", "#7CB342"],
+  ["mini-din-6pin", "#9CCC65"],
+  ["ca-com", "#FF6FB1"],
+  ["domm", "#4F46E5"],
+  ["speakon-nl2", "#00838F"],
+  ["speakon-nl4", "#00ACC1"],
+  ["speakon-nl8", "#4DD0E1"],
+  ["dmx-3pin", "#00695C"],
+  ["dmx-5pin", "#009688"],
+  ["fiber-lc", "#FFFF00"],
+  ["fiber-sc", "#FFFF00"],
+  ["fiber-st", "#FFFF00"],
+  ["fiber-mpo", "#FFFF00"],
+  ["opticalcon", "#FFFF00"],
+  ["fiberfox", "#FFFF00"],
+  ["qsfp", "#FFFF00"],
+  ["cxp", "#2FAE5B"],
+  ["cat5e", "#6B7280"],
+  ["cat6", "#CFD8DC"],
+  ["cat6a", "#90A4AE"],
+  ["ethercon", "#32B6FF"],
+  ["ethernet", "#32B6FF"],
+  ["sfp-cage", "#7FA0B8"],
+  ["sfp-plus-cage", "#678ACF"],
+  ["qsfp-cage", "#A8B6C8"],
+  ["rs-422", "#607D8B"],
+  ["led-signal", "#ff99cc"],
+  ["usb-a", "#4E342E"],
+  ["usb-b", "#6D4C41"],
+  ["usb-c", "#8D6E63"],
+  ["misc", "#37474F"],
+  ["xlr", "#AB47BC"],
+  ["jack", "#4CAF50"],
+  ["phono", "#81C784"],
+  ["speakon", "#00ACC1"],
+  ["usb", "#4E342E"]
+]);
+const ENGINE_RESOLUTION_FIELD_TYPES = new Set([
+  "sdi", "bnc", "dvi", "display-port", "mini-display-port", "hdmi", "vga",
+  "fiber-lc", "fiber-st", "fiber-sc", "fiber-mpo"
+]);
 
 const TRANSCEIVER_MODULE_ACTIVE_TYPES = new Map([
   ["", ""],
@@ -135,6 +218,10 @@ const CONNECTOR_LABELS = new Map([
   ["32a-3ph", "32A 3ph"],
   ["63a-3ph", "63A 3ph"],
   ["125a-3ph", "125A 3ph"]
+]);
+
+const CONNECTOR_TYPE_SEGMENTS = new Map([
+  ["powerlock", ENGINE_POWERLOCK_SEGMENT_COLORS]
 ]);
 
 export function isEngineCageConnector(connector) {
@@ -381,6 +468,119 @@ export function engineWireColorForCable(cableType, fiberMode, fallback = "") {
   return fallback || "";
 }
 
+export function engineSignalLineColor(index) {
+  const safeIndex = Math.max(1, Number(index) || 1);
+  return ENGINE_SIGNAL_LINE_COLORS[(safeIndex - 1) % ENGINE_SIGNAL_LINE_COLORS.length];
+}
+
+export function engineConnectorColor(connector, nodeColorByType = new Map()) {
+  if (!connector) return "#32B6FF";
+  if (connector.type === "led-signal") return engineSignalLineColor(connector.signalIndex);
+  if (isEngineDeadCageConnector(connector)) return "#778492";
+  const rawType = connectorType(connector);
+  const activeType = effectiveConnectorTypeForEngine(connector) || rawType;
+  if (isEngineFiberCableType(activeType)) return engineFiberModeColor(engineConnectorFiberMode(connector));
+  if (activeType === "misc" && connector.customColor) return String(connector.customColor).trim();
+  return nodeColorByType.get(activeType)
+    || ENGINE_CONNECTOR_TYPE_COLORS.get(activeType)
+    || nodeColorByType.get(rawType)
+    || ENGINE_CONNECTOR_TYPE_COLORS.get(rawType)
+    || String(connector.customColor || "").trim()
+    || "#32B6FF";
+}
+
+export function engineConnectorColorSegments(connector) {
+  if (!connector || isEngineDeadCageConnector(connector)) return null;
+  const activeType = effectiveConnectorTypeForEngine(connector) || connectorType(connector);
+  if (connector.customColor || connector.type === "led-signal" || isEngineFiberCableType(activeType)) return null;
+  const segments = CONNECTOR_TYPE_SEGMENTS.get(activeType);
+  return segments ? segments.slice() : null;
+}
+
+export function engineConnectorDisplayLabel(connector, fallback = "") {
+  if (!connector) return fallback || "";
+  const named = firstUsableLabel(
+    connector.name,
+    connector.displayName,
+    connector.displayLabel,
+    connector.nameText
+  );
+  if (named) return named;
+  if (isEngineCageConnector(connector)) {
+    const cageLabel = typeDisplayName(connectorType(connector));
+    const module = installedModuleDetailsForEngine(connector);
+    return module.effectiveType ? `${cageLabel} / ${moduleLabel(module)}` : `${cageLabel} Empty`;
+  }
+  if (connector.generatedByEthernetSwitch) {
+    const switchLabel = firstUsableLabel(connector.label);
+    if (switchLabel) return switchLabel;
+  }
+  const labelled = firstUsableLabel(connector.label, connector.alias);
+  if (labelled) return labelled;
+  const activeType = effectiveConnectorTypeForEngine(connector) || connectorType(connector);
+  return typeDisplayName(activeType) || fallback || "";
+}
+
+export function engineConnectorLabelSource(connector) {
+  if (!connector) return "fallback";
+  if (firstUsableLabel(connector.name, connector.displayName, connector.displayLabel)) return "explicit";
+  if (firstUsableLabel(connector.nameText)) return "nameText";
+  if (isEngineCageConnector(connector)) return "installedModule";
+  if (firstUsableLabel(connector.label, connector.alias)) return "label";
+  return "type";
+}
+
+export function engineConnectorFieldTitle(connector, field) {
+  if (field === "nameText" && connector?.nameTextCaption) return connector.nameTextCaption;
+  if (field === "resolutionFrameRate" && connector?.resolutionFrameRateCaption) return connector.resolutionFrameRateCaption;
+  if (field === "customText" && connector?.customTextCaption) return connector.customTextCaption;
+  if (field === "resolutionFrameRate" && isPairedNetworkConnector(connector)) return "Address";
+  if (field === "resolutionFrameRate") return "Resolution";
+  if (field === "nameText") return "Name";
+  if (field === "customText" && connector?.type === "led-signal") return "Panel Coordinates";
+  return "Custom";
+}
+
+export function engineUsesResolutionField(connector) {
+  const activeType = effectiveConnectorTypeForEngine(connector) || connectorType(connector);
+  return ENGINE_RESOLUTION_FIELD_TYPES.has(activeType)
+    || isPairedNetworkConnector(connector)
+    || Boolean(connector?.resolutionFrameRate);
+}
+
+export function engineConnectorInfoFields(connector) {
+  if (connector?.faceplateSide) return [];
+  if (connector?.type === "led-signal") {
+    return [{
+      field: "customText",
+      title: engineConnectorFieldTitle(connector, "customText"),
+      text: connector.customText || "",
+      value: connector.customText || ""
+    }];
+  }
+  const fields = [{
+    field: "nameText",
+    title: engineConnectorFieldTitle(connector, "nameText"),
+    text: connector?.nameText || "",
+    value: connector?.nameText || ""
+  }];
+  if (engineUsesResolutionField(connector)) {
+    fields.push({
+      field: "resolutionFrameRate",
+      title: engineConnectorFieldTitle(connector, "resolutionFrameRate"),
+      text: connector?.resolutionFrameRate || "",
+      value: connector?.resolutionFrameRate || ""
+    });
+  }
+  fields.push({
+    field: "customText",
+    title: engineConnectorFieldTitle(connector, "customText"),
+    text: connector?.customText || "",
+    value: connector?.customText || ""
+  });
+  return fields;
+}
+
 export function sameEngineConnectorHit(a, b) {
   if (!a || !b) return false;
   return a.device?.id === b.device?.id && a.connector?.id === b.connector?.id;
@@ -461,6 +661,26 @@ function firstText(...values) {
     if (text) return text;
   }
   return "";
+}
+
+function firstUsableLabel(...values) {
+  for (const value of values) {
+    const text = String(value ?? "").trim();
+    if (text && !/^connector$/i.test(text)) return text;
+  }
+  return "";
+}
+
+function moduleLabel(module) {
+  if (module.name) return module.name;
+  if (module.type) {
+    const key = moduleKey(module.type);
+    if (key.includes("singlemode")) return "LC Singlemode";
+    if (key.includes("multimode")) return "LC Multimode";
+    if (key.includes("rj45")) return "RJ45 Ethernet";
+    if (key.includes("mpo")) return "MPO Fiber";
+  }
+  return typeDisplayName(module.effectiveType) || module.rawValue || "Module";
 }
 
 function result(valid, rule, reason, sourceType, targetType, source = null, target = null) {

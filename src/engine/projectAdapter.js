@@ -1,7 +1,15 @@
 import {
+  ENGINE_CONNECTOR_TYPE_COLORS,
   effectiveConnectorTypeForEngine,
+  engineConnectorColor,
+  engineConnectorColorSegments,
+  engineConnectorDisplayLabel,
+  engineConnectorFiberFamily,
+  engineConnectorFiberMode,
+  engineConnectorInfoFields,
+  engineConnectorLabelSource,
   engineWireColorForCable,
-  isEngineDeadCageConnector
+  installedModuleDetailsForEngine
 } from "./connectorCompatibility.js";
 
 const SIZE_PRESETS = {
@@ -44,23 +52,7 @@ const CARD_SLOT_OVERRIDE_FIELDS = [
   "customColor",
   "installedModuleType"
 ];
-const NODE_TYPE_FALLBACKS = new Map([
-  ["sdi", "#006b3f"],
-  ["hdmi", "#ffd600"],
-  ["display-port", "#aa00ff"],
-  ["dvi", "#00e676"],
-  ["ethernet", "#32b6ff"],
-  ["ethercon", "#32b6ff"],
-  ["cat5e", "#eceff1"],
-  ["cat6", "#cfd8dc"],
-  ["cat6a", "#90a4ae"],
-  ["led-signal", "#ff99cc"],
-  ["fiber-lc", "#ffff00"],
-  ["fiber-sc", "#ffff00"],
-  ["fiber-st", "#ffff00"],
-  ["fiber-mpo", "#ffff00"],
-  ["powerlock", "#2aa657"]
-]);
+const NODE_TYPE_FALLBACKS = ENGINE_CONNECTOR_TYPE_COLORS;
 const ADAPTER_BREAKOUT_CATEGORY_RE = /\b(?:adapters?|breakouts?)\b/i;
 
 export function syntheticPreset(name) {
@@ -329,7 +321,7 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
   const connectors = rawConnectors
     .map((connector, connectorIndex) => normalizeConnector(connector, connectorIndex, width, nodeColorByType, { isAdapter }))
     .filter(Boolean);
-  const visual = normalizeDeviceVisualMetadata(template, instance, width, height);
+  const visual = normalizeDeviceVisualMetadata(template, instance, width, height, nodeColorByType);
   return {
     id,
     sourceKind: "device",
@@ -379,7 +371,13 @@ function adapterHeightForConnectors(connectors = [], explicitHeight = 0) {
   );
 }
 
-function normalizeDeviceVisualMetadata(template = {}, instance = {}, width = DEFAULT_DEVICE_WIDTH, height = DEFAULT_DEVICE_HEIGHT) {
+function normalizeDeviceVisualMetadata(
+  template = {},
+  instance = {},
+  width = DEFAULT_DEVICE_WIDTH,
+  height = DEFAULT_DEVICE_HEIGHT,
+  nodeColorByType = NODE_TYPE_FALLBACKS
+) {
   const brand = String(instance.brand || template.brand || "").trim();
   const model = String(instance.model || template.model || "").trim();
   const category = String(instance.category || template.category || template.type || template.section || "").trim();
@@ -427,7 +425,7 @@ function normalizeDeviceVisualMetadata(template = {}, instance = {}, width = DEF
     projectCustomRevision,
     visualRevision: String(instance.visualRevision || template.visualRevision || projectCustomRevision || "").trim(),
     isProjectCustomDevice,
-    visualCards: normalizeVisualCards(template, width, height)
+    visualCards: normalizeVisualCards(template, width, height, nodeColorByType)
   };
 }
 
@@ -448,7 +446,12 @@ function adapterClassificationForEngine(template = {}, instance = {}, isAdapter 
   };
 }
 
-function normalizeVisualCards(template = {}, width = DEFAULT_DEVICE_WIDTH, height = DEFAULT_DEVICE_HEIGHT) {
+function normalizeVisualCards(
+  template = {},
+  width = DEFAULT_DEVICE_WIDTH,
+  height = DEFAULT_DEVICE_HEIGHT,
+  nodeColorByType = NODE_TYPE_FALLBACKS
+) {
   if (!Array.isArray(template.cardSlots) || !Array.isArray(template.cardTypes)) return [];
   return template.cardSlots.map((slot, index) => {
     const card = template.cardTypes.find(item => item.id === slot.installedCardTypeId) || null;
@@ -464,14 +467,16 @@ function normalizeVisualCards(template = {}, width = DEFAULT_DEVICE_WIDTH, heigh
       const merged = mergeCardConnectorForSlot(slot, connector);
       const direction = merged.direction === "input" ? "input" : "output";
       const rowIndex = sideCounts[direction]++;
+      const visualConnector = normalizeConnectorVisualMetadata(merged, nodeColorByType);
       return {
+        ...visualConnector,
         id: `${slot.id || `slot-${index}`}__${connector.id || `connector-${connectorIndex}`}`,
         sourceConnectorId: String(connector.id || `connector-${connectorIndex}`),
         cardSlotId: String(slot.id || `visual-card-${index}`),
         cardTypeId: String(card?.id || ""),
         generatedFromCard: true,
         type: String(merged.type || ""),
-        label: String(merged.nameText || merged.label || merged.type || card?.name || "Card connector").trim(),
+        label: visualConnector.displayLabel || String(merged.nameText || merged.label || merged.type || card?.name || "Card connector").trim(),
         direction,
         x: direction === "input" ? 0 : width,
         y: finiteNumber(slot.y, 0) + SLOT_HEIGHT + rowIndex * SLOT_HEIGHT,
@@ -484,7 +489,10 @@ function normalizeVisualCards(template = {}, width = DEFAULT_DEVICE_WIDTH, heigh
         customTextCaption: String(merged.customTextCaption || ""),
         customColor: String(merged.customColor || ""),
         fiberMode: String(merged.fiberMode || ""),
-        installedModuleType: String(merged.installedModuleType || "")
+        installedModuleType: String(merged.installedModuleType || ""),
+        installedModuleId: String(merged.installedModuleId || merged.installedModule?.id || merged.installedModule?.value || ""),
+        installedModuleName: String(merged.installedModuleName || merged.installedModule?.name || merged.installedModule?.label || ""),
+        installedModuleActiveType: String(merged.installedModuleActiveType || merged.installedModule?.activeType || merged.installedModule?.effectiveType || merged.installedModule?.connectorType || "")
       };
     });
     return {
@@ -575,15 +583,22 @@ function normalizeConnector(connector, index, deviceWidth, nodeColorByType, opti
     ? Number(connector.y)
     : 34 + index * 18;
   const type = String(connector.type || "");
-  const rawLabel = String(connector.nameText || connector.label || "").trim();
-  const label = rawLabel && !/^connector$/i.test(rawLabel)
-    ? rawLabel
-    : type || `Connector ${index + 1}`;
-  const colorMapped = Boolean(connector.customColor || nodeColorByType.has(type) || NODE_TYPE_FALLBACKS.has(type));
+  const visualConnector = normalizeConnectorVisualMetadata(connector, nodeColorByType, `Connector ${index + 1}`);
+  const label = visualConnector.displayLabel || type || `Connector ${index + 1}`;
+  const activeType = visualConnector.effectiveType || type;
+  const colorMapped = Boolean(
+    connector.customColor
+    || nodeColorByType.has(activeType)
+    || nodeColorByType.has(type)
+    || NODE_TYPE_FALLBACKS.has(activeType)
+    || NODE_TYPE_FALLBACKS.has(type)
+  );
   return {
+    ...visualConnector,
     id: String(connector.id || `connector-${index}`),
     type,
     label,
+    displayLabel: label,
     direction,
     side: direction === "input" ? "left" : direction === "output" ? "right" : localX <= deviceWidth / 2 ? "left" : "right",
     cardSlotId: connector.cardSlotId || "",
@@ -594,7 +609,7 @@ function normalizeConnector(connector, index, deviceWidth, nodeColorByType, opti
     installedModuleId: String(connector.installedModuleId || connector.installedModule?.id || connector.installedModule?.value || ""),
     installedModuleName: String(connector.installedModuleName || connector.installedModule?.name || connector.installedModule?.label || ""),
     installedModuleActiveType: String(connector.installedModuleActiveType || connector.installedModule?.activeType || connector.installedModule?.effectiveType || connector.installedModule?.connectorType || ""),
-    fiberMode: String(connector.fiberMode || ""),
+    fiberMode: visualConnector.fiberMode || String(connector.fiberMode || ""),
     customColor: String(connector.customColor || ""),
     nameText: String(connector.nameText || ""),
     customText: String(connector.customText || ""),
@@ -604,8 +619,30 @@ function normalizeConnector(connector, index, deviceWidth, nodeColorByType, opti
     customTextCaption: String(connector.customTextCaption || ""),
     x: localX,
     y: localY,
-    color: connectorColor(connector, nodeColorByType),
+    color: visualConnector.color,
     colorMapped
+  };
+}
+
+function normalizeConnectorVisualMetadata(connector = {}, nodeColorByType = NODE_TYPE_FALLBACKS, fallback = "") {
+  const moduleDetails = installedModuleDetailsForEngine(connector);
+  const effectiveType = effectiveConnectorTypeForEngine(connector) || String(connector.type || "");
+  const displayLabel = engineConnectorDisplayLabel(connector, fallback || effectiveType);
+  return {
+    effectiveType,
+    displayLabel,
+    labelSource: engineConnectorLabelSource(connector),
+    color: engineConnectorColor(connector, nodeColorByType),
+    colorSegments: engineConnectorColorSegments(connector),
+    installedModuleEffectiveType: String(moduleDetails.effectiveType || ""),
+    installedModuleFiberMode: String(moduleDetails.fiberMode || ""),
+    installedModuleFiberFamily: String(moduleDetails.fiberFamily || ""),
+    installedModuleLabel: displayLabel,
+    fiberMode: engineConnectorFiberMode(connector) || String(connector.fiberMode || ""),
+    fiberFamily: engineConnectorFiberFamily(connector),
+    signalIndex: Number(connector.signalIndex) || 0,
+    faceplateSide: Boolean(connector.faceplateSide),
+    infoFields: engineConnectorInfoFields(connector)
   };
 }
 
@@ -659,18 +696,6 @@ function cardBandGeometry(width, slot, card) {
     height,
     textX: width / 2
   };
-}
-
-function connectorColor(connector, nodeColorByType) {
-  if (isEngineDeadCageConnector(connector)) return "#778492";
-  if (connector.customColor) return connector.customColor;
-  const type = String(connector.type || "");
-  const activeType = effectiveConnectorTypeForEngine(connector) || type;
-  return nodeColorByType.get(activeType)
-    || NODE_TYPE_FALLBACKS.get(activeType)
-    || nodeColorByType.get(type)
-    || NODE_TYPE_FALLBACKS.get(type)
-    || "#32b6ff";
 }
 
 function normalizeJumpNodes(jumpNodes) {

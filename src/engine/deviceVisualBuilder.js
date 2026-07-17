@@ -1,3 +1,5 @@
+import { engineConnectorInfoFields } from "./connectorCompatibility.js";
+
 const QUALITY_PRESETS = {
   low: { label: "Low", scale: 2, maxSide: 2048, maxPixels: 12_000_000 },
   medium: { label: "Medium", scale: 4, maxSide: 8192, maxPixels: 48_000_000 },
@@ -60,6 +62,16 @@ export function deviceVisualCacheKey(device, options = {}) {
       connector.nameTextCaption || "",
       connector.resolutionFrameRateCaption || "",
       connector.customTextCaption || "",
+      connector.displayLabel || "",
+      connector.effectiveType || "",
+      connector.labelSource || "",
+      connector.installedModuleEffectiveType || "",
+      connector.installedModuleFiberMode || "",
+      connector.installedModuleFiberFamily || "",
+      connector.installedModuleLabel || "",
+      connector.fiberFamily || "",
+      Array.isArray(connector.colorSegments) ? connector.colorSegments.join(",") : "",
+      Array.isArray(connector.infoFields) ? connector.infoFields.map(field => `${field.title || ""}=${field.value || field.text || ""}`).join(",") : "",
       options.connectorColors ? connector.color || "" : ""
     ].join(":"))
     .join("|");
@@ -88,6 +100,9 @@ export function deviceVisualCacheKey(device, options = {}) {
         connector.direction || "",
         Math.round(connector.y || 0),
         connector.label || "",
+        connector.displayLabel || "",
+        connector.effectiveType || "",
+        connector.labelSource || "",
         connector.nameText || "",
         connector.resolutionFrameRate || "",
         connector.customText || "",
@@ -96,7 +111,14 @@ export function deviceVisualCacheKey(device, options = {}) {
         connector.customTextCaption || "",
         connector.customColor || "",
         connector.fiberMode || "",
-        connector.installedModuleType || ""
+        connector.fiberFamily || "",
+        connector.installedModuleType || "",
+        connector.installedModuleEffectiveType || "",
+        connector.installedModuleFiberMode || "",
+        connector.installedModuleFiberFamily || "",
+        connector.installedModuleLabel || "",
+        Array.isArray(connector.colorSegments) ? connector.colorSegments.join(",") : "",
+        Array.isArray(connector.infoFields) ? connector.infoFields.map(field => `${field.title || ""}=${field.value || field.text || ""}`).join(",") : ""
       ].join(",")).join("/")
     ].join(":"))
     .join("|");
@@ -374,7 +396,9 @@ function drawCardConnectorFields(ctx, card, deviceWidth) {
   const connectors = Array.isArray(card.connectors) ? card.connectors : [];
   if (!connectors.length) return;
   connectors.forEach(connector => {
-    const fields = connectorInfoFields(connector);
+    const fields = connector.infoFields?.length
+      ? connector.infoFields
+      : engineConnectorInfoFields(connector);
     if (!fields.length) return;
     const rowY = Number(connector.y) || Number(card.slotY) || 0;
     fields.forEach((field, index) => {

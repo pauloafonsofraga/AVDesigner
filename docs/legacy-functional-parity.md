@@ -854,7 +854,24 @@ Validation:
 - Duplicate custom template with unique template/connector IDs.
 - Deleted source template with a placed `templateOverride` snapshot.
 
-### Iteration 43+ — Continue Interface Roadmap
+### Iteration 43 — Connector Visual Metadata Parity
+
+Connector compatibility remains production-compatible, while Engine visuals now
+reuse a shared connector metadata helper for:
+
+- installed SFP/SFP+/QSFP cage display labels and effective active connector
+  types;
+- fiber mode colors for LC/SC/ST/MPO/OpticalCon/FiberFox connector nodes;
+- Powerlock multi-color connector segments;
+- Legacy node-field captions and values for cached card/device textures;
+- live connector labels and tooltips that prefer field names before raw cable
+  type fallback.
+
+Deliberately unchanged: Node Builder UI, Device Editor UI, Inspector command
+parity, Power Distro generated faceplate editing, Rack Builder, Matrix Routing,
+PDF/viewer/report rendering, and save/load format.
+
+### Iteration 44+ — Continue Interface Roadmap
 
 Follow the detailed order in
 [`docs/legacy-interface-parity.md`](legacy-interface-parity.md): connector/node

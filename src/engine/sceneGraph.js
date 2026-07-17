@@ -1131,7 +1131,10 @@ function normalizeVisualCardConnector(connector, index) {
     cardTypeId: String(connector.cardTypeId || ""),
     generatedFromCard: Boolean(connector.generatedFromCard),
     type: String(connector.type || ""),
-    label: String(connector.label || connector.nameText || connector.type || ""),
+    effectiveType: String(connector.effectiveType || connector.type || ""),
+    label: String(connector.label || connector.displayLabel || connector.nameText || connector.type || ""),
+    displayLabel: String(connector.displayLabel || connector.label || connector.nameText || connector.type || ""),
+    labelSource: String(connector.labelSource || ""),
     direction: connector.direction === "input" ? "input" : "output",
     x: Number(connector.x) || 0,
     y: Number(connector.y) || 0,
@@ -1144,7 +1147,20 @@ function normalizeVisualCardConnector(connector, index) {
     customTextCaption: String(connector.customTextCaption || ""),
     customColor: String(connector.customColor || ""),
     fiberMode: String(connector.fiberMode || ""),
-    installedModuleType: String(connector.installedModuleType || "")
+    fiberFamily: String(connector.fiberFamily || ""),
+    installedModuleType: String(connector.installedModuleType || ""),
+    installedModuleId: String(connector.installedModuleId || ""),
+    installedModuleName: String(connector.installedModuleName || ""),
+    installedModuleActiveType: String(connector.installedModuleActiveType || ""),
+    installedModuleEffectiveType: String(connector.installedModuleEffectiveType || ""),
+    installedModuleFiberMode: String(connector.installedModuleFiberMode || ""),
+    installedModuleFiberFamily: String(connector.installedModuleFiberFamily || ""),
+    installedModuleLabel: String(connector.installedModuleLabel || ""),
+    signalIndex: Number(connector.signalIndex) || 0,
+    faceplateSide: Boolean(connector.faceplateSide),
+    color: connector.color || "#32b6ff",
+    colorSegments: cloneColorSegments(connector.colorSegments),
+    infoFields: cloneInfoFields(connector.infoFields)
   };
 }
 
@@ -1193,19 +1209,50 @@ function normalizeConnector(connector, index) {
     cardTypeId: connector.cardTypeId || "",
     sourceConnectorId: connector.sourceConnectorId || "",
     generatedFromCard: Boolean(connector.generatedFromCard),
+    effectiveType: connector.effectiveType || connector.type || "",
+    displayLabel: connector.displayLabel || connector.label || connector.nameText || connector.type || "",
+    labelSource: connector.labelSource || "",
     installedModuleType: connector.installedModuleType || "",
     installedModuleId: connector.installedModuleId || "",
     installedModuleName: connector.installedModuleName || "",
     installedModuleActiveType: connector.installedModuleActiveType || "",
     installedModuleEffectiveType: connector.installedModuleEffectiveType || "",
+    installedModuleFiberMode: connector.installedModuleFiberMode || "",
+    installedModuleFiberFamily: connector.installedModuleFiberFamily || "",
+    installedModuleLabel: connector.installedModuleLabel || "",
     fiberMode: connector.fiberMode || "",
+    fiberFamily: connector.fiberFamily || "",
     customColor: connector.customColor || "",
     nameText: connector.nameText || "",
     customText: connector.customText || "",
     resolutionFrameRate: connector.resolutionFrameRate || "",
+    nameTextCaption: connector.nameTextCaption || "",
+    resolutionFrameRateCaption: connector.resolutionFrameRateCaption || "",
+    customTextCaption: connector.customTextCaption || "",
+    signalIndex: Number(connector.signalIndex) || 0,
+    faceplateSide: Boolean(connector.faceplateSide),
+    colorSegments: cloneColorSegments(connector.colorSegments),
+    infoFields: cloneInfoFields(connector.infoFields),
     x: Number.isFinite(x) ? x : 0,
     y: Number.isFinite(y) ? y : 0,
     color: connector.color || "#32b6ff",
     colorMapped: Boolean(connector.colorMapped)
   };
+}
+
+function cloneColorSegments(segments) {
+  return Array.isArray(segments)
+    ? segments.map(segment => String(segment || "").trim()).filter(Boolean)
+    : null;
+}
+
+function cloneInfoFields(fields) {
+  return Array.isArray(fields)
+    ? fields.map(field => ({
+      field: String(field.field || ""),
+      title: String(field.title || ""),
+      text: String(field.text ?? field.value ?? ""),
+      value: String(field.value ?? field.text ?? "")
+    })).filter(field => field.title || field.value || field.text)
+    : [];
 }

@@ -1,5 +1,14 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
+Iteration 43 restores Legacy connector visual metadata in the Engine path.
+SFP/SFP+/QSFP installed module labels, effective active connector types,
+fiber-mode connector colors, Powerlock segmented connector nodes, and Legacy
+node-field captions now flow through project adaptation, scene graph
+normalization, cached device textures, and live connector overlays. Keep testing
+with `index.html?v=iteration43`, `index.html?engine=1&debugHud=1&v=iteration43`,
+and `index.html?legacy=1&v=iteration43` when comparing current Engine against
+Legacy fallback.
+
 Iteration 42.4 fixes Project Custom Device identity collisions found in the real
 browser workflow. Master templates, Project Custom templates, and placed canvas
 instances must remain separate records: canvas selection/delete operates on
@@ -929,6 +938,7 @@ Git commit as the final source of truth when reviewing a pushed change.
 | multi-device selection | Marquee/keyboard selection selects several objects. | Engine marquee selects multiple objects. | partial | Manual smoke and drag session checks. | medium | Advanced production selection gestures need broader manual coverage. |
 | wire selection | Click wire selects it for inspector/delete. | Engine wire hit-test selects wire. | covered | Manual smoke and validation script delete cycle. | medium | Dense projects still need UX tuning, but data path is covered. |
 | connector selection | Click connector selects connector / starts wire draw with circular node feedback. | Engine connector hit-test selects connector, starts wire create, shows circular overlay feedback, and updates the temporary inspector. | covered | Manual Engine vs Legacy connector compare plus HUD connector metrics. | medium | Deeper cable-type compatibility feedback remains future work. |
+| connector visual metadata | Legacy canvas uses effective connector type, installed SFP module labels, fiber mode colors, Powerlock segments, and custom node-field captions. | Engine connector objects now preserve display label, effective type, installed module metadata, fiber mode/family, info fields, and color segments for cached textures and live overlays. | partial | Engine vs Legacy compare with E2/SFP/Powerlock devices plus fixture/real validation. | medium | Inspector command parity, Node Builder UI, and output rendering are deliberately unchanged. |
 | device move | Drag updates device and connected wires. | Drag session commits one position update. | covered | Validation script single move execute/undo/redo. | low | No texture rebuild should happen for position-only move. |
 | multi-device move | Selected group moves together. | One drag session and one mutation for selected group. | covered | Validation script 20-device move execute/undo/redo. | medium | Visual/manual stress remains useful on very large projects. |
 | route point move | Custom route points can move and save. | Route point command writes back to production connection. | covered | Validation script route point move execute/undo/redo. | medium | Custom corner geometry is preserved as data points. |

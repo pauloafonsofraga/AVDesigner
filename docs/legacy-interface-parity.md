@@ -160,6 +160,13 @@ visual and inspector fidelity: connector fields, zoom simplification,
 Powerlock/fiber colors, SFP/QSFP active module labels, and field hover/magnify
 rules.
 
+Iteration 43 restores the shared Legacy connector visual metadata path for the
+Engine renderer: effective SFP/QSFP module labels, fiber-mode connector colors,
+custom node-field captions, card-mounted connector fields, and Powerlock
+multi-color connector segments now flow through project adaptation, scene graph
+normalization, cached device textures, and live connector overlays. Node Builder
+and Device Editor UI remain DOM-owned.
+
 ### Phase 5 - Editable Fields
 
 Node fields should not become a new canvas DOM layer unless required. Prefer
