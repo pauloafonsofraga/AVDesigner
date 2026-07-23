@@ -63341,6 +63341,14 @@
       return template;
     }
 
+    function markMasterDeviceTemplate(template) {
+      if (!template) return null;
+      delete template[PROJECT_CUSTOM_DEVICE_FLAG];
+      delete template.isProjectCustomDevice;
+      delete template.projectCustomRevision;
+      return template;
+    }
+
     function normalizeProjectCustomTemplates(library = deviceLibrary) {
       (Array.isArray(library) ? library : []).forEach(template => {
         if (isProjectCustomDeviceTemplate(template)) markProjectCustomDeviceTemplate(template, { touchRevision: false });
@@ -68431,12 +68439,30 @@
     }
 
     function openDeviceEditorWithNewDevice() {
-      const blank = createProjectCustomDraftFromTemplate(createBlankDeviceTemplate(), {
-        name: "Custom Device"
-      });
-      openDeviceEditorForProjectTemplateDraft(blank, "project-template-create", {
-        reason: "create-new-project-custom-device"
-      });
+      recordDeviceEditorOpen("create-new-master-device", {});
+      editorMode = "master-create";
+      editorInstanceId = null;
+      editorInstanceName = "";
+      editorProjectTemplateId = "";
+      editorProjectSourceInstanceId = "";
+      editorDraft = [markMasterDeviceTemplate(createBlankDeviceTemplate())];
+      editorIndex = 0;
+      clearEditorNodeSelection();
+      editorSelectedFaceplate = false;
+      editorSelectedPowerPlugIds.clear();
+      editorPowerPlugMarquee = null;
+      editorConnectorSnapGuide = null;
+      editorPreviewZoom = 1;
+      editorPreviewPan = { x: 0, y: 0 };
+      editorActiveTab = "device";
+      editorDeviceFilter = "";
+      editorRackFilter = "";
+      editorRackIndex = 0;
+      editorCardIndex = 0;
+      editorSlotIndex = 0;
+      editorSelectedCardNodeIndex = null;
+      renderDeviceEditor();
+      deviceEditorModal.classList.remove("hidden");
     }
 
     function openDeviceEditorForInstance(instanceId) {
@@ -68689,6 +68715,32 @@
           render();
           return;
         }
+        if (editorMode === "master-create") {
+          const editedTemplate = markMasterDeviceTemplate(structuredClone(editorDraft[editorIndex]));
+          if (!editedTemplate) throw new Error("No new master device is selected.");
+          editedTemplate.name = editedTemplate.name || "Custom Device";
+          editedTemplate.model = editedTemplate.model || editedTemplate.name;
+          editedTemplate.id = uniqueDeviceTemplateId(editedTemplate.id || editedTemplate.name || "custom-device", deviceLibrary);
+          validateDeviceTemplate(editedTemplate);
+          const beforeSnapshot = deviceEditorEngineSnapshot();
+          pushUndo();
+          deviceLibrary.push(editedTemplate);
+          const afterSnapshot = deviceEditorEngineSnapshot();
+          closeDeviceEditor();
+          renderDeviceLibrary();
+          renderProjectCustomDevices();
+          renderRackBuilderSources();
+          renderInspector();
+          updateUndoRedoButtons();
+          const statusText = `${editedTemplate.name || "Custom Device"} saved to the master device list.`;
+          if (commitDeviceEditorApplyToEngineBridge(beforeSnapshot, afterSnapshot, [])) {
+            setStatus(statusText);
+            return;
+          }
+          render();
+          setStatus(statusText);
+          return;
+        }
         if (isProjectTemplateEditorMode()) {
           const editedTemplate = structuredClone(editorDraft[editorIndex]);
           if (!editedTemplate) throw new Error("No project custom device is selected.");
@@ -68820,8 +68872,15 @@
 
     function renderEditorDeviceList() {
       if (!editorDeviceList) return;
-      const singleTemplateMode = editorMode === "instance" || isProjectTemplateEditorMode();
-      if (editorDeviceBrowserTitle) editorDeviceBrowserTitle.textContent = isProjectTemplateEditorMode() ? "Project Custom Device" : "Known Devices";
+      const masterCreateMode = editorMode === "master-create";
+      const singleTemplateMode = editorMode === "instance" || masterCreateMode || isProjectTemplateEditorMode();
+      if (editorDeviceBrowserTitle) {
+        editorDeviceBrowserTitle.textContent = masterCreateMode
+          ? "New Master Device"
+          : isProjectTemplateEditorMode()
+            ? "Project Custom Device"
+            : "Known Devices";
+      }
       if (editorDeviceSearch) editorDeviceSearch.placeholder = "Search devices";
       if (editorDeviceSearch && editorDeviceSearch.value !== editorDeviceFilter) editorDeviceSearch.value = editorDeviceFilter;
       const entries = filteredEditorDeviceEntries();
@@ -70566,8 +70625,8 @@
       renderEditorRackControls();
       const projectTemplateMode = isProjectTemplateEditorMode();
       if (newDeviceTemplateButton) newDeviceTemplateButton.disabled = false;
-      if (duplicateEditorDeviceButton) duplicateEditorDeviceButton.disabled = editorMode === "instance" || !template;
-      if (deleteEditorDeviceButton) deleteEditorDeviceButton.disabled = editorMode === "instance" || (!projectTemplateMode && editorDraft.length <= 1);
+      if (duplicateEditorDeviceButton) duplicateEditorDeviceButton.disabled = editorMode === "instance" || editorMode === "master-create" || !template;
+      if (deleteEditorDeviceButton) deleteEditorDeviceButton.disabled = editorMode === "instance" || editorMode === "master-create" || (!projectTemplateMode && editorDraft.length <= 1);
       updateDeviceEditorTitle(template);
       editorDeviceName.value = editorMode === "instance" ? (editorInstanceName || template.name || "") : (template.name || "");
       editorDeviceBrand.value = template.brand || "";
@@ -71723,6 +71782,8 @@
       if (!modalTitle) return;
       if (editorMode === "instance") {
         modalTitle.textContent = `Edit Canvas Device - ${editorInstanceName || template?.name || "Custom Device"}`;
+      } else if (editorMode === "master-create") {
+        modalTitle.textContent = `Create Master Device - ${template?.name || "Custom Device"}`;
       } else if (isProjectTemplateEditorMode()) {
         modalTitle.textContent = `${editorMode === "project-template-edit" ? "Edit" : "Create"} Project Custom Device - ${template?.name || "Custom Device"}`;
       } else {
