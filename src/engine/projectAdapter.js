@@ -9,6 +9,7 @@ import {
   engineConnectorInfoFields,
   engineConnectorLabelSource,
   engineWireColorForCable,
+  engineWireColorSegmentsForCable,
   installedModuleDetailsForEngine
 } from "./connectorCompatibility.js";
 
@@ -805,6 +806,7 @@ function normalizeProjectWire(wire, index, context) {
       fiberMode,
       wire.customColor || context.nodeColorByType.get(cableType) || WIRE_COLORS[index % WIRE_COLORS.length]
     ),
+    colorSegments: engineWireColorSegmentsForCable(cableType),
     label: wire.label || cableType || `Wire ${index + 1}`,
     length: wire.length || wire.cableLength || "",
     cableType,

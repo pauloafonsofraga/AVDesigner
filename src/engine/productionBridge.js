@@ -2,7 +2,8 @@ import { DragSession } from "./dragSession.js";
 import {
   engineCompatibilityHitForWireEndpoint,
   engineCompatibilitySummary,
-  engineWireColorForCable
+  engineWireColorForCable,
+  engineWireColorSegmentsForCable
 } from "./connectorCompatibility.js";
 import {
   hitTestConnector,
@@ -1210,6 +1211,7 @@ class ProductionEngineBridge {
       toDeviceId: target.device.id,
       toConnectorId: target.connector.id,
       color: wireColor,
+      colorSegments: engineWireColorSegmentsForCable(cableType),
       cableType,
       fiberMode,
       routeStyle: route.routeStyle,
@@ -2226,6 +2228,7 @@ class ProductionEngineBridge {
       const nextColor = engineWireColorForCable(wire.cableType, wire.fiberMode, wire.color || "#32b6ff");
       if (nextColor) wire.color = nextColor;
     }
+    wire.colorSegments = engineWireColorSegmentsForCable(wire.cableType) || [];
     this.scene.dirtyWires.add(wire.id);
     this.scene.refreshWireIndexes([wire.id]);
     const dirtyStats = this.renderer.updateDirty(this.scene, {
@@ -4613,6 +4616,7 @@ function cloneWire(wire) {
     usesRealConnectorEndpoints: wire.usesRealConnectorEndpoints,
     hasFallbackEndpoint: wire.hasFallbackEndpoint,
     color: wire.color,
+    colorSegments: Array.isArray(wire.colorSegments) ? wire.colorSegments.slice() : [],
     label: wire.label,
     cableType: wire.cableType,
     fiberMode: wire.fiberMode,

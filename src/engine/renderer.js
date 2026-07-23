@@ -1989,14 +1989,14 @@ function colorAtAdapterWireStop(inputColor, outputColor, t) {
 }
 
 function pushWireSelection(vertices, scene, wire, offsets, options = DEFAULT_RENDER_OPTIONS, cableHopMap = options.cableHopMap) {
-  const drawOptions = { ...options, routePoints: false };
+  const drawOptions = { ...options, routePoints: false, wireColorSegments: false };
   pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 11, "rgba(255,121,4,.18)", drawOptions, cableHopMap);
   pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 6, "rgba(255,121,4,.36)", drawOptions, cableHopMap);
   pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 1.5, "rgba(255,121,4,.82)", drawOptions, cableHopMap);
 }
 
 function pushWireHover(vertices, scene, wire, offsets, options = DEFAULT_RENDER_OPTIONS, cableHopMap = options.cableHopMap) {
-  const drawOptions = { ...options, routePoints: false };
+  const drawOptions = { ...options, routePoints: false, wireColorSegments: false };
   pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 8, "rgba(255,255,255,.22)", drawOptions, cableHopMap);
   pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 3, "rgba(50,182,255,.72)", drawOptions, cableHopMap);
 }
@@ -2009,7 +2009,11 @@ function pushWire(vertices, scene, wire, offsets, width, color, options = DEFAUL
   const points = offsets || options.cableHops === false
     ? basePoints
     : applyCableHopsToPolyline(basePoints, cableHopMap?.get(wire.id));
-  pushPolyline(vertices, points, width, color);
+  if (options.wireColorSegments === false) {
+    pushPolyline(vertices, points, width, color);
+    return;
+  }
+  pushWireColorSegments(vertices, points, width, wire, color);
 }
 
 function pushWireRoutePointHandles(vertices, scene, wire, offsets, fill = ROUTE_POINT_COLOR) {
@@ -2026,6 +2030,68 @@ function pushPolyline(vertices, points, width, color) {
   for (let index = 1; index < points.length; index += 1) {
     pushLine(vertices, points[index - 1], points[index], width, color);
   }
+}
+
+function pushWireColorSegments(vertices, points, width, wire, fallbackColor) {
+  const colors = Array.isArray(wire?.colorSegments)
+    ? wire.colorSegments.filter(Boolean)
+    : [];
+  if (colors.length < 2) {
+    pushPolyline(vertices, points, width, fallbackColor);
+    return;
+  }
+  colors.forEach((color, index) => {
+    const segment = polylineSlice(points, index / colors.length, (index + 1) / colors.length);
+    pushPolyline(vertices, segment, width, color);
+  });
+}
+
+function polylineLength(points) {
+  let length = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    length += Math.hypot(points[index].x - points[index - 1].x, points[index].y - points[index - 1].y);
+  }
+  return length;
+}
+
+function polylinePointAtDistance(points, targetDistance) {
+  let walked = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    const from = points[index - 1];
+    const to = points[index];
+    const segmentLength = Math.hypot(to.x - from.x, to.y - from.y);
+    if (!segmentLength) continue;
+    if (walked + segmentLength >= targetDistance) {
+      const ratio = Math.max(0, Math.min(1, (targetDistance - walked) / segmentLength));
+      return {
+        x: from.x + (to.x - from.x) * ratio,
+        y: from.y + (to.y - from.y) * ratio
+      };
+    }
+    walked += segmentLength;
+  }
+  return points[points.length - 1] || { x: 0, y: 0 };
+}
+
+function polylineSlice(points, startFraction, endFraction) {
+  if (!points?.length || points.length < 2) return [];
+  const totalLength = polylineLength(points);
+  if (!totalLength) return [];
+  const startDistance = Math.max(0, Math.min(1, startFraction)) * totalLength;
+  const endDistance = Math.max(0, Math.min(1, endFraction)) * totalLength;
+  if (endDistance <= startDistance) return [];
+  const sliced = [polylinePointAtDistance(points, startDistance)];
+  let walked = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    const to = points[index];
+    const from = points[index - 1];
+    const segmentLength = Math.hypot(to.x - from.x, to.y - from.y);
+    const nextWalked = walked + segmentLength;
+    if (segmentLength && nextWalked > startDistance && nextWalked < endDistance) sliced.push(to);
+    walked = nextWalked;
+  }
+  sliced.push(polylinePointAtDistance(points, endDistance));
+  return sliced;
 }
 
 function pushCircle(vertices, point, radius, colorValue, segments = 18) {

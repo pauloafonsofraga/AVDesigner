@@ -68431,12 +68431,12 @@
     }
 
     function openDeviceEditorWithNewDevice() {
-      openDeviceEditor({ reason: "create-new-device" });
-      editorDraft.push(createBlankDeviceTemplate());
-      editorIndex = editorDraft.length - 1;
-      editorDeviceFilter = "";
-      resetEditorDeviceSelections();
-      renderDeviceEditor();
+      const blank = createProjectCustomDraftFromTemplate(createBlankDeviceTemplate(), {
+        name: "Custom Device"
+      });
+      openDeviceEditorForProjectTemplateDraft(blank, "project-template-create", {
+        reason: "create-new-project-custom-device"
+      });
     }
 
     function openDeviceEditorForInstance(instanceId) {

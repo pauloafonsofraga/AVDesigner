@@ -468,6 +468,14 @@ export function engineWireColorForCable(cableType, fiberMode, fallback = "") {
   return fallback || "";
 }
 
+export function engineWireColorSegmentsForCable(cableType) {
+  const type = typeof cableType === "string"
+    ? moduleKey(cableType)
+    : connectorType(cableType);
+  const segments = CONNECTOR_TYPE_SEGMENTS.get(type);
+  return Array.isArray(segments) ? segments.slice() : null;
+}
+
 export function engineSignalLineColor(index) {
   const safeIndex = Math.max(1, Number(index) || 1);
   return ENGINE_SIGNAL_LINE_COLORS[(safeIndex - 1) % ENGINE_SIGNAL_LINE_COLORS.length];
