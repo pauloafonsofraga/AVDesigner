@@ -1,3 +1,5 @@
+import { engineWireColorSegmentsForCable } from "./connectorCompatibility.js";
+
 const ENGINE_EXPORT_FORMAT = "av-designer-engine-prototype";
 
 export class ProjectMutationAdapter {
@@ -434,7 +436,7 @@ function rawConnectionFromSceneWireData(sceneData, wire) {
     id: String(wire.sourceId || wire.id),
     label: wire.label || wire.cableType || "Engine Test Cable",
     cableType: wire.cableType || "Engine Test Cable",
-    customColor: wire.color || "",
+    customColor: customColorForProjectWire(wire),
     from: {
       deviceId: wire.fromDeviceId,
       connectorId: wire.fromConnectorId
@@ -454,13 +456,20 @@ function rawConnectionFromWire(scene, wire, id) {
     id,
     label: wire.label || wire.cableType || "Engine Test Cable",
     cableType: wire.cableType || "Engine Test Cable",
-    customColor: wire.color || "",
+    customColor: customColorForProjectWire(wire),
     from: endpointToProject(scene, wire.fromDeviceId, wire.fromConnectorId),
     to: endpointToProject(scene, wire.toDeviceId, wire.toConnectorId),
     notes: "",
     fiberMode: wire.fiberMode || "",
     ...routeFieldsFromWire(wire)
   };
+}
+
+function customColorForProjectWire(wire) {
+  // Segmented cable types, such as PowerLock, must not be persisted as a single
+  // customColor. Legacy/export renderers treat customColor as an override.
+  const segments = engineWireColorSegmentsForCable(wire?.cableType);
+  return Array.isArray(segments) && segments.length > 1 ? "" : (wire?.color || "");
 }
 
 function routeFieldsFromWire(wire) {

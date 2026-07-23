@@ -67020,8 +67020,12 @@
     }
 
     function colorSegmentsForConnection(connection) {
-      if (!connection || connection.customColor || connection.cableType === "led-signal" || isFiberCableType(connection.cableType)) return null;
-      return colorSegmentsForType(connection.cableType);
+      if (!connection || connection.cableType === "led-signal" || isFiberCableType(connection.cableType)) return null;
+      const segments = colorSegmentsForType(connection.cableType);
+      // Segmented cable types, such as PowerLock, still render as segments even
+      // if an older project file contains a stale single-color customColor.
+      if (segments) return segments;
+      return null;
     }
 
     function colorForConnector(connector, instanceId = "") {
