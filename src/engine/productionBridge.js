@@ -104,6 +104,7 @@ class ProductionEngineBridge {
     this.lastCursorState = "";
     this.lastDirtyDeviceIds = new Set();
     this.lastDirtyWireIds = new Set();
+    this.inspectorWirePreviewBaselines = new Map();
     this.debugLayerMode = engineLayerDebugEnabled();
     this.debugCompatibility = engineCompatibilityDebugEnabled();
     this.debugRouting = engineRoutingDebugEnabled();
@@ -183,6 +184,12 @@ class ProductionEngineBridge {
 
   isReady() {
     return this.ready;
+  }
+
+  objectPositionForInspector(objectId) {
+    const device = this.resolveDeviceBySourceId(objectId);
+    if (!device) return null;
+    return engineInspectorPositionForDevice(device);
   }
 
   sceneCounts() {
@@ -2349,6 +2356,18 @@ class ProductionEngineBridge {
     return true;
   }
 
+  commitObjectPositionFieldFromInspector(objectId, key, value) {
+    const current = this.objectPositionForInspector(objectId);
+    if (!current || !["x", "y"].includes(key)) return false;
+    const nextValue = Number(value);
+    if (!Number.isFinite(nextValue)) return false;
+    return this.commitObjectPositionFromInspector(
+      objectId,
+      key === "x" ? nextValue : current.x,
+      key === "y" ? nextValue : current.y
+    );
+  }
+
   commitConnectorInspectorFields(deviceId, connectorId, fields = {}) {
     if (!this.ready) return false;
     const device = this.resolveDeviceBySourceId(deviceId);
@@ -2432,9 +2451,13 @@ class ProductionEngineBridge {
     if (!this.ready) return false;
     const wire = this.resolveWire(wireId);
     if (!wire) return false;
-    const before = captureWireInspectorFields(wire, fields);
+    const before = this.consumeWireInspectorPreviewBaseline(wire, fields)
+      || captureWireInspectorFields(wire, fields);
     const after = sanitizeWireInspectorFields(fields);
-    if (!inspectorFieldsChanged(before?.fields || {}, after)) return false;
+    if (!inspectorFieldsChanged(before?.fields || {}, after)) {
+      this.clearWireInspectorPreviewBaseline(wire, fields);
+      return false;
+    }
     this.beginProductionCommit("inspector wire fields");
     const result = this.applyWireInspectorFields(wire.id, after);
     this.recordCommand(wireInspectorFieldsCommand(wire.sourceId || wire.id, before, after));
@@ -2442,6 +2465,27 @@ class ProductionEngineBridge {
       inspectorFieldEdit: true,
       wireId: wire.id
     });
+    return true;
+  }
+
+  previewWireInspectorFields(wireId, fields = {}) {
+    if (!this.ready) return false;
+    const wire = this.resolveWire(wireId);
+    if (!wire) return false;
+    return this.applyWireInspectorPreview(wire, fields);
+  }
+
+  previewMultiWireInspectorFields(wireIds = [], fields = {}) {
+    if (!this.ready) return false;
+    let previewed = 0;
+    uniqueItems(wireIds)
+      .map(id => this.resolveWire(id))
+      .filter(Boolean)
+      .forEach(wire => {
+        if (this.applyWireInspectorPreview(wire, fields, { render: false })) previewed += 1;
+      });
+    if (!previewed) return false;
+    this.scheduleRender();
     return true;
   }
 
@@ -2454,7 +2498,9 @@ class ProductionEngineBridge {
     if (!ids.length) return false;
     const wiresById = new Map(wires.map(wire => [wire.id, wire]));
     const before = ids.map(id => {
-      const captured = captureWireInspectorFields(wiresById.get(id), fields);
+      const wire = wiresById.get(id);
+      const captured = this.consumeWireInspectorPreviewBaseline(wire, fields)
+        || captureWireInspectorFields(wire, fields);
       return captured ? { ...captured, wireId: captured.sourceId || captured.wireId } : null;
     }).filter(Boolean);
     const after = ids.map(id => {
@@ -2479,6 +2525,71 @@ class ProductionEngineBridge {
       wireCount: ids.length
     });
     return true;
+  }
+
+  applyWireInspectorPreview(wire, fields = {}, options = {}) {
+    const patch = sanitizeWireInspectorFields(fields);
+    if (!wire || !Object.keys(patch).length) return false;
+    this.ensureWireInspectorPreviewBaseline(wire, patch);
+    Object.assign(wire, patch);
+    if (patch.fiberMode !== undefined || patch.cableType !== undefined || patch.customColor !== undefined) {
+      wire.color = engineWireColorForCable(wire.cableType, wire.fiberMode, wire.color || "#32b6ff");
+      wire.colorSegments = engineWireColorSegmentsForCable(wire.cableType) || [];
+    }
+    this.scene.dirtyWires.add(wire.id);
+    this.scene.refreshWireIndexes([wire.id]);
+    this.hud?.setMetric("inspector preview", `wire ${wire.id}`);
+    if (options.render !== false) this.scheduleRender();
+    return true;
+  }
+
+  ensureWireInspectorPreviewBaseline(wire, fields = {}) {
+    const sourceId = String(wire?.sourceId || wire?.id || "");
+    if (!sourceId) return;
+    const requestedKeys = Object.keys(sanitizeWireInspectorFields(fields));
+    if (!requestedKeys.length) return;
+    const baseline = this.inspectorWirePreviewBaselines.get(sourceId) || {};
+    requestedKeys.forEach(key => {
+      if (Object.prototype.hasOwnProperty.call(baseline, key)) return;
+      baseline[key] = key === "hideLabel" ? Boolean(wire.hideLabel) : String(wire[key] ?? "");
+    });
+    this.inspectorWirePreviewBaselines.set(sourceId, baseline);
+  }
+
+  consumeWireInspectorPreviewBaseline(wire, fields = {}) {
+    const sourceId = String(wire?.sourceId || wire?.id || "");
+    if (!sourceId) return null;
+    const requestedKeys = Object.keys(sanitizeWireInspectorFields(fields));
+    if (!requestedKeys.length) return null;
+    const baseline = this.inspectorWirePreviewBaselines.get(sourceId);
+    if (!baseline) return null;
+    const captured = {};
+    requestedKeys.forEach(key => {
+      if (Object.prototype.hasOwnProperty.call(baseline, key)) {
+        captured[key] = baseline[key];
+        delete baseline[key];
+      } else {
+        captured[key] = key === "hideLabel" ? Boolean(wire.hideLabel) : String(wire[key] ?? "");
+      }
+    });
+    if (Object.keys(baseline).length) this.inspectorWirePreviewBaselines.set(sourceId, baseline);
+    else this.inspectorWirePreviewBaselines.delete(sourceId);
+    return { wireId: wire.id, sourceId, fields: captured };
+  }
+
+  clearWireInspectorPreviewBaseline(wire, fields = {}) {
+    const sourceId = String(wire?.sourceId || wire?.id || "");
+    if (!sourceId) return;
+    const requestedKeys = Object.keys(sanitizeWireInspectorFields(fields));
+    if (!requestedKeys.length) {
+      this.inspectorWirePreviewBaselines.delete(sourceId);
+      return;
+    }
+    const baseline = this.inspectorWirePreviewBaselines.get(sourceId);
+    if (!baseline) return;
+    requestedKeys.forEach(key => delete baseline[key]);
+    if (Object.keys(baseline).length) this.inspectorWirePreviewBaselines.set(sourceId, baseline);
+    else this.inspectorWirePreviewBaselines.delete(sourceId);
   }
 
   applyWireInspectorFields(wireId, fields = {}, options = {}) {
@@ -5011,6 +5122,19 @@ function captureDevicePosition(device) {
     x: Number(device.x) || 0,
     y: Number(device.y) || 0
   } : null;
+}
+
+function engineInspectorPositionForDevice(device) {
+  if (!device) return null;
+  const x = Number(device.x) || 0;
+  const y = Number(device.y) || 0;
+  if (device.kind === "jump") {
+    return {
+      x: x + (Number(device.width) || 0) / 2,
+      y: y + (Number(device.height) || 0) / 2
+    };
+  }
+  return { x, y };
 }
 
 function sanitizeObjectInspectorFields(fields = {}) {

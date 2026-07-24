@@ -83975,19 +83975,26 @@
         const base = control.dataset.baseValue ?? current;
         const next = parsePositionValue(control.value, base, current);
         const engineBridge = activeEngineBridge();
-        const bridgeHandled = engineBridge && movedSelection && ["device", "led-surface", "jump-node"].includes(movedSelection.type)
-          ? engineBridge.commitObjectPositionFromInspector?.(
-            movedSelection.id,
-            key === "x" ? next : Number(object.x) || 0,
-            key === "y" ? next : Number(object.y) || 0
-          )
+        const bridgeEligible = Boolean(engineBridge && movedSelection && ["device", "led-surface", "jump-node"].includes(movedSelection.type));
+        const bridgeHandled = bridgeEligible
+          ? engineBridge.commitObjectPositionFieldFromInspector?.(movedSelection.id, key, next)
           : false;
-        if (!bridgeHandled) {
+        if (bridgeHandled) {
+          const bridgePosition = engineBridge.objectPositionForInspector?.(movedSelection.id);
+          if (bridgePosition) {
+            object.x = bridgePosition.x;
+            object.y = bridgePosition.y;
+          } else {
+            object[key] = next;
+          }
+        } else if (!bridgeEligible) {
           object[key] = next;
           if (movedSelection) repairOrthogonalRoutesForMovedSelections([movedSelection]);
           renderCanvasOnly();
         }
-        const committedValue = bridgeHandled ? next : (Number(object[key]) || next);
+        const committedValue = bridgeHandled
+          ? Number(engineBridge.objectPositionForInspector?.(movedSelection.id)?.[key]) || next
+          : (Number(object[key]) || next);
         control.value = Math.round(committedValue);
         control.dataset.baseValue = committedValue;
         control.dataset.lastCommittedText = control.value;
@@ -84390,10 +84397,10 @@
       bindDeferredCanvasTextCommit(
         document.getElementById("wireLabel"),
         value => {
-          if (!activeEngineBridge()) {
-            connection.label = value;
-            renderCanvasOnly();
-          }
+          const engineBridge = activeEngineBridge();
+          if (engineBridge?.previewWireInspectorFields?.(connectionId, { label: value })) return;
+          connection.label = value;
+          renderCanvasOnly();
         },
         value => {
           const engineBridge = activeEngineBridge();
@@ -84405,7 +84412,10 @@
       bindDeferredCanvasTextCommit(
         document.getElementById("wireLength"),
         value => {
-          if (!activeEngineBridge()) connection.length = value;
+          const engineBridge = activeEngineBridge();
+          if (engineBridge?.previewWireInspectorFields?.(connectionId, { length: value })) return;
+          connection.length = value;
+          renderCanvasOnly();
         },
         value => {
           const engineBridge = activeEngineBridge();
@@ -84474,11 +84484,12 @@
       bindDeferredCanvasTextCommit(
         document.getElementById("multiWireLength"),
         value => {
-          if (!activeEngineBridge()) {
-            wires.forEach(connection => {
-              connection.length = value;
-            });
-          }
+          const engineBridge = activeEngineBridge();
+          if (engineBridge?.previewMultiWireInspectorFields?.(wires.map(connection => connection.id), { length: value })) return;
+          wires.forEach(connection => {
+            connection.length = value;
+          });
+          renderCanvasOnly();
         },
         value => {
           const engineBridge = activeEngineBridge();
