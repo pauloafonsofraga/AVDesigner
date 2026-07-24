@@ -83987,8 +83987,9 @@
           if (movedSelection) repairOrthogonalRoutesForMovedSelections([movedSelection]);
           renderCanvasOnly();
         }
-        control.value = Math.round(Number(object[key]) || next);
-        control.dataset.baseValue = Number(object[key]) || next;
+        const committedValue = bridgeHandled ? next : (Number(object[key]) || next);
+        control.value = Math.round(committedValue);
+        control.dataset.baseValue = committedValue;
         control.dataset.lastCommittedText = control.value;
       };
       control.addEventListener("change", commit);
@@ -87475,7 +87476,9 @@ fit();
 
     function syncProductionSelectionFromEngine(selection = {}) {
       const selectedDevices = selection.devices || [];
-      const selectedWires = selection.wireIds || [];
+      const selectedWires = selection.wires?.length
+        ? selection.wires.map(wire => wire.sourceId || wire.id).filter(Boolean)
+        : selection.wireIds || [];
       const selectedConnectors = selection.connectorKeys || [];
       if (selectedDevices.length === 1 && !selectedWires.length && !selectedConnectors.length) {
         const device = selectedDevices[0];
@@ -87493,6 +87496,19 @@ fit();
         const connection = state.connections.find(item => item.id === selectedWires[0]);
         if (connection) {
           state.selected = { type: "wire", id: connection.id };
+          renderInspector();
+        }
+        return;
+      }
+      if (selectedWires.length > 1 && !selectedDevices.length && !selectedConnectors.length) {
+        const connectionIds = selectedWires
+          .map(id => state.connections.find(item => item.id === id)?.id)
+          .filter(Boolean);
+        if (connectionIds.length) {
+          state.selected = {
+            type: "multi",
+            items: connectionIds.map(id => ({ type: "wire", id }))
+          };
           renderInspector();
         }
         return;

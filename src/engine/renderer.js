@@ -2174,7 +2174,9 @@ function packVertexMap(map) {
 }
 
 function wireCaption(scene, wire, full = false) {
-  const cable = String(wire.cableType || wire.label || "Wire").trim();
+  const cableType = String(wire.cableType || "").trim();
+  const customLabel = String(wire.label || "").trim();
+  const cable = customLabel && customLabel !== cableType ? customLabel : cableType || customLabel || "Wire";
   const length = String(wire.length || "").trim();
   if (!full) return [cable, length].filter(Boolean).join(" - ");
   const fromDevice = scene.getDevice(wire.fromDeviceId);

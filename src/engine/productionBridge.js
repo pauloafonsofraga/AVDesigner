@@ -1713,9 +1713,18 @@ class ProductionEngineBridge {
         sourceKind: device.sourceKind || device.kind || "device",
         kind: device.kind || "device"
       }));
+    const selectedWireObjects = [...this.scene.selectedWireIds]
+      .map(id => this.scene.getWire(id))
+      .filter(Boolean)
+      .map(wire => ({
+        id: wire.id,
+        sourceId: wire.sourceId || wire.id,
+        sourceKind: wire.sourceKind || "connection"
+      }));
     this.api.onEngineSelection?.({
       deviceIds: [...this.scene.selectedIds],
       wireIds: [...this.scene.selectedWireIds],
+      wires: selectedWireObjects,
       connectorKeys: [...this.scene.selectedConnectorKeys],
       routePointKeys: [...this.scene.selectedRoutePointKeys],
       devices: selectedDeviceObjects
@@ -2394,7 +2403,7 @@ class ProductionEngineBridge {
         wire.fiberMode = patch.fiberMode || ENGINE_DEFAULT_FIBER_MODE;
         wire.color = engineWireColorForCable(wire.cableType, wire.fiberMode, wire.color || "#32b6ff");
         wire.colorSegments = engineWireColorSegmentsForCable(wire.cableType) || [];
-        this.mutations?.updateWireFields(wire.id, { fiberMode: wire.fiberMode });
+        this.mutations?.updateWireFields(wire.sourceId || wire.id, { fiberMode: wire.fiberMode });
       }
       this.scene.dirtyWires.add(wire.id);
     });
@@ -2421,14 +2430,14 @@ class ProductionEngineBridge {
 
   commitWireInspectorFields(wireId, fields = {}) {
     if (!this.ready) return false;
-    const wire = this.scene.getWire(String(wireId || ""));
+    const wire = this.resolveWire(wireId);
     if (!wire) return false;
     const before = captureWireInspectorFields(wire, fields);
     const after = sanitizeWireInspectorFields(fields);
-    if (!inspectorFieldsChanged(before, after)) return false;
+    if (!inspectorFieldsChanged(before?.fields || {}, after)) return false;
     this.beginProductionCommit("inspector wire fields");
     const result = this.applyWireInspectorFields(wire.id, after);
-    this.recordCommand(wireInspectorFieldsCommand(wire.id, before, after));
+    this.recordCommand(wireInspectorFieldsCommand(wire.sourceId || wire.id, before, after));
     this.markCommitted("inspector wire fields", result.mutationMs || 0, {
       inspectorFieldEdit: true,
       wireId: wire.id
@@ -2438,10 +2447,20 @@ class ProductionEngineBridge {
 
   commitMultiWireInspectorFields(wireIds = [], fields = {}) {
     if (!this.ready) return false;
-    const ids = uniqueItems(wireIds).filter(id => this.scene.getWire(id));
+    const wires = uniqueItems(wireIds)
+      .map(id => this.resolveWire(id))
+      .filter(Boolean);
+    const ids = uniqueItems(wires.map(wire => wire.id));
     if (!ids.length) return false;
-    const before = ids.map(id => captureWireInspectorFields(this.scene.getWire(id), fields)).filter(Boolean);
-    const after = ids.map(id => ({ wireId: id, fields: sanitizeWireInspectorFields(fields) }));
+    const wiresById = new Map(wires.map(wire => [wire.id, wire]));
+    const before = ids.map(id => {
+      const captured = captureWireInspectorFields(wiresById.get(id), fields);
+      return captured ? { ...captured, wireId: captured.sourceId || captured.wireId } : null;
+    }).filter(Boolean);
+    const after = ids.map(id => {
+      const wire = wiresById.get(id);
+      return { wireId: wire?.sourceId || id, fields: sanitizeWireInspectorFields(fields) };
+    });
     const changed = before.some(item => {
       const next = after.find(candidate => candidate.wireId === item.wireId);
       return next && inspectorFieldsChanged(item.fields, next.fields);
@@ -2463,9 +2482,10 @@ class ProductionEngineBridge {
   }
 
   applyWireInspectorFields(wireId, fields = {}, options = {}) {
-    const wire = this.scene.getWire(String(wireId || ""));
+    const wire = this.resolveWire(wireId);
     if (!wire) return { mutationMs: 0 };
     const patch = sanitizeWireInspectorFields(fields);
+    const sourceId = String(wire.sourceId || wire.id);
     Object.assign(wire, patch);
     if (patch.fiberMode !== undefined || patch.cableType !== undefined || patch.customColor !== undefined) {
       wire.color = engineWireColorForCable(wire.cableType, wire.fiberMode, wire.color || "#32b6ff");
@@ -2473,7 +2493,7 @@ class ProductionEngineBridge {
     }
     this.scene.dirtyWires.add(wire.id);
     this.scene.refreshWireIndexes([wire.id]);
-    const mutationMs = this.mutations?.updateWireFields(wire.id, patch) || 0;
+    const mutationMs = this.mutations?.updateWireFields(sourceId, patch) || 0;
     if (patch.fiberMode !== undefined && isEngineFiberCableType(wire.cableType)) {
       [
         [wire.fromDeviceId, wire.fromConnectorId],
@@ -2483,7 +2503,8 @@ class ProductionEngineBridge {
         if (!connector) return;
         const connectorPatch = normalizeConnectorInspectorPatch(connector, { fiberMode: wire.fiberMode || ENGINE_DEFAULT_FIBER_MODE });
         this.scene.updateConnector(deviceId, connectorId, connectorPatch);
-        this.mutations?.updateConnectorFields(deviceId, connectorId, connectorPatch);
+        const endpointDevice = this.scene.getDevice(deviceId);
+        this.mutations?.updateConnectorFields(endpointDevice?.sourceId || deviceId, connectorId, connectorPatch);
         this.scene.dirtyDevices.add(deviceId);
         this.scene.dirtyTextures.add(deviceId);
       });
@@ -2518,7 +2539,7 @@ class ProductionEngineBridge {
     const removedEngineIds = [];
     let removed = 0;
     removedIds.forEach(wireId => {
-      const wire = this.scene.getWire(wireId) || this.scene.wires.find(item => String(item.sourceId || item.id) === wireId);
+      const wire = this.resolveWire(wireId);
       if (!wire) return;
       removedEngineIds.push(wire.id);
       this.scene.deleteWire(wire.id);
@@ -3282,10 +3303,10 @@ class ProductionEngineBridge {
   }
 
   removeWire(wireId) {
-    const wire = this.scene.getWire(wireId);
+    const wire = this.resolveWire(wireId);
     const connectionData = this.mutations?.connectionDataForWire(wire?.sourceId || wireId);
     const wireData = wire ? cloneWire(wire) : null;
-    const removed = this.scene.deleteWire(wireId);
+    const removed = wire ? this.scene.deleteWire(wire.id) : null;
     if (!removed) return { mutationMs: 0, wireData, connectionData };
     const mutationMs = this.mutations?.deleteWire(removed.sourceId || removed.id) || 0;
     const dirtyStats = this.renderer.updateDirty(this.scene, { wireIds: [removed.id] });
@@ -4637,8 +4658,8 @@ function connectorInspectorFieldsCommand(deviceId, beforeStates, afterStates, re
 
 function wireInspectorFieldsCommand(wireId, beforeFields, afterFields) {
   const id = String(wireId || "");
-  const before = sanitizeWireInspectorFields(beforeFields);
-  const after = sanitizeWireInspectorFields(afterFields);
+  const before = sanitizeWireInspectorFields(beforeFields?.fields || beforeFields);
+  const after = sanitizeWireInspectorFields(afterFields?.fields || afterFields);
   return {
     type: "InspectorWireFieldsCommand",
     affectedIds: [id],
@@ -4649,11 +4670,11 @@ function wireInspectorFieldsCommand(wireId, beforeFields, afterFields) {
 
 function multiWireInspectorFieldsCommand(beforeStates, afterStates) {
   const before = (beforeStates || []).map(state => ({
-    wireId: String(state?.wireId || ""),
+    wireId: String(state?.sourceId || state?.wireId || ""),
     fields: sanitizeWireInspectorFields(state?.fields || {})
   })).filter(state => state.wireId);
   const after = (afterStates || []).map(state => ({
-    wireId: String(state?.wireId || ""),
+    wireId: String(state?.sourceId || state?.wireId || ""),
     fields: sanitizeWireInspectorFields(state?.fields || {})
   })).filter(state => state.wireId);
   return {
@@ -5169,7 +5190,7 @@ function captureWireInspectorFields(wire, fields = {}) {
   keys.forEach(key => {
     captured[key] = key === "hideLabel" ? Boolean(wire.hideLabel) : String(wire[key] ?? "");
   });
-  return { wireId: wire.id, fields: captured };
+  return { wireId: wire.id, sourceId: wire.sourceId || wire.id, fields: captured };
 }
 
 function inspectorFieldsChanged(before = {}, after = {}) {

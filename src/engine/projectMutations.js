@@ -168,7 +168,16 @@ export class ProjectMutationAdapter {
       "installedModuleId",
       "installedModuleName",
       "installedModuleActiveType",
+      "installedModuleEffectiveType",
+      "installedModuleFiberMode",
+      "installedModuleFiberFamily",
       "fiberMode",
+      "fiberFamily",
+      "effectiveType",
+      "displayLabel",
+      "label",
+      "color",
+      "colorSegments",
       "customColor"
     ]);
     if (!entry.item.connectorOverrides || typeof entry.item.connectorOverrides !== "object") {
@@ -178,6 +187,10 @@ export class ProjectMutationAdapter {
     const override = entry.item.connectorOverrides[id];
     Object.entries(fields || {}).forEach(([key, value]) => {
       if (!allowed.has(key)) return;
+      if (key === "colorSegments") {
+        override[key] = Array.isArray(value) ? value.map(color => String(color || "")).filter(Boolean) : [];
+        return;
+      }
       override[key] = String(value ?? "");
     });
     this.record("inspector connector fields", performance.now() - start, `${sourceId}:${id}`, {
