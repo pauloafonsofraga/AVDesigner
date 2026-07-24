@@ -2915,6 +2915,7 @@ class ProductionEngineBridge {
       this.hud?.setMetric("blocked command", "undo while loading");
       return false;
     }
+    this.api.onEngineBeforeHistoryReplay?.({ direction: "undo" });
     if (this.commandIndex <= 0) return false;
     this.replayEngineCommand("undo", this.commandHistory[this.commandIndex - 1], () => {
       this.commandIndex -= 1;
@@ -2928,6 +2929,7 @@ class ProductionEngineBridge {
       this.hud?.setMetric("blocked command", "redo while loading");
       return false;
     }
+    this.api.onEngineBeforeHistoryReplay?.({ direction: "redo" });
     if (this.commandIndex >= this.commandHistory.length) return false;
     this.replayEngineCommand("redo", this.commandHistory[this.commandIndex], () => {
       const result = this.commandHistory[this.commandIndex]?.redo(this) || {};

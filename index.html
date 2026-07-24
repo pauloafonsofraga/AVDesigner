@@ -87618,6 +87618,9 @@ fit();
               setStatus(`Experimental engine committed: ${type}. ${statusSummary()}`);
               console.info("[engine-bridge] production data mutated", { type, mutationStats });
             },
+            onEngineBeforeHistoryReplay: () => {
+              flushPendingInspectorCommit();
+            },
             onEngineHistoryChange: () => {
               updateUndoRedoButtons();
             },
