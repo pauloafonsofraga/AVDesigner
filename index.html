@@ -65003,9 +65003,17 @@
       return bridge.isActive() ? bridge : null;
     }
 
+    function flushPendingInspectorCommit() {
+      const active = document.activeElement;
+      if (active && typeof active.__avDesignerCommitPending === "function") {
+        active.__avDesignerCommitPending();
+      }
+    }
+
     function undoAction() {
       const engineBridge = activeEngineBridge();
       if (engineBridge) {
+        flushPendingInspectorCommit();
         engineBridge.undoEngineCommand?.();
         updateUndoRedoButtons();
         return;
@@ -65023,6 +65031,7 @@
     function redoAction() {
       const engineBridge = activeEngineBridge();
       if (engineBridge) {
+        flushPendingInspectorCommit();
         engineBridge.redoEngineCommand?.();
         updateUndoRedoButtons();
         return;
@@ -83969,9 +83978,16 @@
     function bindPositionOperatorInput(controlId, object, key, movedSelection = null) {
       const control = document.getElementById(controlId);
       if (!control) return;
+      const currentValue = () => {
+        const engineBridge = activeEngineBridge();
+        const enginePosition = engineBridge && movedSelection
+          ? engineBridge.objectPositionForInspector?.(movedSelection.id)
+          : null;
+        return Number(enginePosition?.[key] ?? object[key]) || 0;
+      };
       const commit = () => {
         if (control.value === control.dataset.lastCommittedText) return;
-        const current = Number(object[key]) || 0;
+        const current = currentValue();
         const base = control.dataset.baseValue ?? current;
         const next = parsePositionValue(control.value, base, current);
         const engineBridge = activeEngineBridge();
@@ -83999,9 +84015,10 @@
         control.dataset.baseValue = committedValue;
         control.dataset.lastCommittedText = control.value;
       };
+      control.__avDesignerCommitPending = commit;
       control.addEventListener("change", commit);
       control.addEventListener("focus", () => {
-        control.dataset.baseValue = Number(object[key]) || 0;
+        control.dataset.baseValue = currentValue();
         control.dataset.lastCommittedText = control.value;
         setTimeout(() => control.select(), 0);
       });
@@ -84328,6 +84345,7 @@
         committedValue = value;
         onCommit(value);
       };
+      control.__avDesignerCommitPending = commit;
       control.addEventListener("input", event => {
         onInput(event.target.value);
       });
@@ -84351,6 +84369,7 @@
         committedValue = value;
         onCommit(value);
       };
+      control.__avDesignerCommitPending = commit;
       control.addEventListener("input", event => {
         onInput(event.target.value);
       });
