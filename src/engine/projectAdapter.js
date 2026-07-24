@@ -604,6 +604,7 @@ function normalizeConnector(connector, index, deviceWidth, nodeColorByType, opti
     side: direction === "input" ? "left" : direction === "output" ? "right" : localX <= deviceWidth / 2 ? "left" : "right",
     cardSlotId: connector.cardSlotId || "",
     cardTypeId: connector.cardTypeId || "",
+    pairedConnectorId: String(connector.pairedConnectorId || ""),
     sourceConnectorId: connector.sourceConnectorId || "",
     generatedFromCard: Boolean(connector.generatedFromCard),
     installedModuleType: String(connector.installedModuleType || ""),
@@ -809,6 +810,7 @@ function normalizeProjectWire(wire, index, context) {
     colorSegments: engineWireColorSegmentsForCable(cableType),
     label: wire.label || cableType || `Wire ${index + 1}`,
     length: wire.length || wire.cableLength || "",
+    hideLabel: Boolean(wire.hideLabel),
     cableType,
     fiberMode
   };

@@ -111,6 +111,112 @@ export class ProjectMutationAdapter {
     return this.lastMutation.durationMs;
   }
 
+  updateObjectFields(objectId, fields = {}) {
+    const start = performance.now();
+    const sourceId = String(objectId || "");
+    const entry = this.deviceById.get(sourceId)
+      || this.jumpNodeById.get(sourceId)
+      || this.surfaceById.get(sourceId);
+    if (!entry?.item) return 0;
+    const allowed = new Set([
+      "name",
+      "label",
+      "notes",
+      "x",
+      "y",
+      "width",
+      "height",
+      "locked",
+      "powerWatts",
+      "powerUnit",
+      "showInternalWiring"
+    ]);
+    Object.entries(fields || {}).forEach(([key, value]) => {
+      if (!allowed.has(key)) return;
+      if (["x", "y", "width", "height", "powerWatts"].includes(key)) {
+        const numeric = Number(value);
+        if (Number.isFinite(numeric)) entry.item[key] = roundNumber(numeric);
+        return;
+      }
+      if (["locked", "showInternalWiring"].includes(key)) {
+        entry.item[key] = Boolean(value);
+        return;
+      }
+      entry.item[key] = String(value ?? "");
+    });
+    this.record("inspector object fields", performance.now() - start, `${sourceId}`, {
+      objectId: sourceId,
+      fields: Object.keys(fields || {})
+    });
+    return this.lastMutation.durationMs;
+  }
+
+  updateConnectorFields(deviceId, connectorId, fields = {}) {
+    const start = performance.now();
+    const sourceId = String(deviceId || "");
+    const id = String(connectorId || "");
+    const entry = this.deviceById.get(sourceId);
+    if (!entry?.item || !id) return 0;
+    const allowed = new Set([
+      "nameText",
+      "customText",
+      "resolutionFrameRate",
+      "nameTextCaption",
+      "resolutionFrameRateCaption",
+      "customTextCaption",
+      "installedModuleType",
+      "installedModuleId",
+      "installedModuleName",
+      "installedModuleActiveType",
+      "fiberMode",
+      "customColor"
+    ]);
+    if (!entry.item.connectorOverrides || typeof entry.item.connectorOverrides !== "object") {
+      entry.item.connectorOverrides = {};
+    }
+    if (!entry.item.connectorOverrides[id]) entry.item.connectorOverrides[id] = {};
+    const override = entry.item.connectorOverrides[id];
+    Object.entries(fields || {}).forEach(([key, value]) => {
+      if (!allowed.has(key)) return;
+      override[key] = String(value ?? "");
+    });
+    this.record("inspector connector fields", performance.now() - start, `${sourceId}:${id}`, {
+      deviceId: sourceId,
+      connectorId: id,
+      fields: Object.keys(fields || {})
+    });
+    return this.lastMutation.durationMs;
+  }
+
+  updateWireFields(wireId, fields = {}) {
+    const start = performance.now();
+    const id = String(wireId || "");
+    const entry = this.connectionById.get(id);
+    if (!entry?.item) return 0;
+    const allowed = new Set([
+      "label",
+      "length",
+      "notes",
+      "hideLabel",
+      "fiberMode",
+      "cableType",
+      "customColor"
+    ]);
+    Object.entries(fields || {}).forEach(([key, value]) => {
+      if (!allowed.has(key)) return;
+      if (key === "hideLabel") {
+        entry.item[key] = Boolean(value);
+        return;
+      }
+      entry.item[key] = String(value ?? "");
+    });
+    this.record("inspector wire fields", performance.now() - start, `connections[${entry.index}]`, {
+      wireId: id,
+      fields: Object.keys(fields || {})
+    });
+    return this.lastMutation.durationMs;
+  }
+
   writeDevicePosition(device) {
     const sourceId = String(device.sourceId || device.id);
     if (device.sourceKind === "jumpNode" || device.kind === "jump") {
@@ -447,6 +553,7 @@ function rawConnectionFromSceneWireData(sceneData, wire) {
     },
     notes: "",
     fiberMode: wire.fiberMode || "",
+    hideLabel: Boolean(wire.hideLabel),
     ...routeFieldsFromWire(wire)
   };
 }
@@ -461,6 +568,7 @@ function rawConnectionFromWire(scene, wire, id) {
     to: endpointToProject(scene, wire.toDeviceId, wire.toConnectorId),
     notes: "",
     fiberMode: wire.fiberMode || "",
+    hideLabel: Boolean(wire.hideLabel),
     ...routeFieldsFromWire(wire)
   };
 }

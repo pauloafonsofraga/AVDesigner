@@ -994,6 +994,7 @@ export class WebglGraphRenderer {
         if (wire) wireCandidates.set(id, wire);
       });
       wireCandidates.forEach(wire => {
+        if (wire.hideLabel) return;
         if ((options.interactionState?.suppressedWireIds || new Set()).has(wire.id)) return;
         const selected = selectedWireIds.has(wire.id);
         const hovered = hoveredWireId === wire.id;

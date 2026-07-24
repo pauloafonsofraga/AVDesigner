@@ -1,5 +1,15 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
+Iteration 44 restores the main Legacy Inspector as the Engine command control
+surface. Engine selection still drives the existing DOM inspector, but device
+notes/position, connector module/fiber fields, wire label/length/notes/hide
+label/fiber fields, and multi-wire length/notes now commit through explicit
+Engine commands. These field edits write through to the production project data
+model, refresh only affected devices/wires where possible, and are undo/redo
+aware. Test current builds with `index.html?v=iteration44`,
+`index.html?engine=1&debugHud=1&v=iteration44`, and
+`index.html?legacy=1&v=iteration44`.
+
 Iteration 43 restores Legacy connector visual metadata in the Engine path.
 SFP/SFP+/QSFP installed module labels, effective active connector types,
 fiber-mode connector colors, Powerlock segmented connector nodes, and Legacy

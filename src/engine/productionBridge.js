@@ -1,9 +1,20 @@
 import { DragSession } from "./dragSession.js";
 import {
+  ENGINE_DEFAULT_FIBER_MODE,
+  effectiveConnectorTypeForEngine,
   engineCompatibilityHitForWireEndpoint,
   engineCompatibilitySummary,
+  engineConnectorColor,
+  engineConnectorColorSegments,
+  engineConnectorDisplayLabel,
+  engineConnectorFiberFamily,
+  engineConnectorFiberMode,
+  engineFiberModeOption,
   engineWireColorForCable,
-  engineWireColorSegmentsForCable
+  engineWireColorSegmentsForCable,
+  installedModuleDetailsForEngine,
+  isEngineCageConnector,
+  isEngineFiberCableType
 } from "./connectorCompatibility.js";
 import {
   hitTestConnector,
@@ -36,6 +47,13 @@ import {
 
 const BRIDGE_VERSION = "production-bridge-1";
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
+const ENGINE_TRANSCEIVER_MODULE_OPTIONS = [
+  { value: "", label: "Empty", activeType: "", fiberMode: "" },
+  { value: "lc-singlemode", label: "LC Singlemode", activeType: "fiber-lc", fiberMode: "single-mode" },
+  { value: "lc-multimode", label: "LC Multimode", activeType: "fiber-lc", fiberMode: "om4" },
+  { value: "rj45-ethernet", label: "RJ45 Ethernet", activeType: "cat6a", fiberMode: "" },
+  { value: "mpo-fiber", label: "MPO Fiber", activeType: "fiber-mpo", fiberMode: "single-mode", qsfpOnly: true }
+];
 
 export function createProductionEngineBridge(api = {}) {
   const bridge = new ProductionEngineBridge(api);
@@ -2205,6 +2223,13 @@ class ProductionEngineBridge {
     return true;
   }
 
+  resolveDeviceBySourceId(deviceId) {
+    const sourceDeviceId = String(deviceId || "");
+    return this.scene.getDevice(sourceDeviceId)
+      || this.scene.devices.find(item => String(item.sourceId || item.id) === sourceDeviceId)
+      || null;
+  }
+
   syncWireFromProduction(wireId, wireData = {}) {
     if (!this.ready) return false;
     const sourceWireId = String(wireId || "");
@@ -2218,6 +2243,7 @@ class ProductionEngineBridge {
     if (wireData.fiberMode !== undefined) wire.fiberMode = String(wireData.fiberMode || "");
     if (wireData.label !== undefined) wire.label = String(wireData.label || wire.cableType || wire.id);
     if (wireData.length !== undefined) wire.length = String(wireData.length || "");
+    if (wireData.hideLabel !== undefined) wire.hideLabel = Boolean(wireData.hideLabel);
     if (wireData.routeStyle !== undefined || wireData.routePoints !== undefined) {
       wire.routePoints = normalizeRoutePointsForBridge(wireData.routePoints);
       wire.routeStyle = wireData.routeStyle === "orthogonal" ? "orthogonal" : wire.routePoints.length ? "custom" : "bezier";
@@ -2244,6 +2270,246 @@ class ProductionEngineBridge {
     this.updateInteractionHud("wire-sync");
     this.scheduleRender();
     return true;
+  }
+
+  commitObjectInspectorFields(objectId, fields = {}) {
+    if (!this.ready) return false;
+    const device = this.resolveDeviceBySourceId(objectId);
+    if (!device) return false;
+    const before = captureObjectInspectorFields(device, fields);
+    const after = sanitizeObjectInspectorFields(fields);
+    if (!inspectorFieldsChanged(before, after)) return false;
+    this.beginProductionCommit("inspector object fields");
+    const result = this.applyObjectInspectorFields(device.sourceId || device.id, after);
+    this.recordCommand(objectInspectorFieldsCommand(device.sourceId || device.id, before, after));
+    this.markCommitted("inspector object fields", result.mutationMs || 0, {
+      inspectorFieldEdit: true,
+      objectId: device.sourceId || device.id
+    });
+    return true;
+  }
+
+  applyObjectInspectorFields(objectId, fields = {}) {
+    const device = this.resolveDeviceBySourceId(objectId);
+    if (!device) return { mutationMs: 0 };
+    const sourceId = String(device.sourceId || device.id);
+    applyObjectFieldsToSceneDevice(device, fields);
+    const mutationMs = this.mutations?.updateObjectFields(sourceId, fields) || 0;
+    this.scene.dirtyDevices.add(device.id);
+    this.scene.dirtyTextures.add(device.id);
+    const affectedWireIds = [...this.scene.affectedWireIdsForDevices([device.id])];
+    const dirtyStats = this.renderer.updateDirty(this.scene, {
+      deviceIds: [device.id],
+      wireIds: affectedWireIds,
+      refreshCableHops: false
+    });
+    this.lastDirtyDeviceIds = new Set([device.id]);
+    this.lastDirtyWireIds = new Set(affectedWireIds);
+    this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.hud?.setMetric("inspector edit", `object ${sourceId}`);
+    this.hud?.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+    this.recordDirtyVisualMetrics(dirtyStats, "inspector object");
+    this.updateSelectionHud();
+    this.scheduleRender();
+    return { mutationMs, dirtyStats };
+  }
+
+  commitObjectPositionFromInspector(objectId, x, y) {
+    if (!this.ready) return false;
+    const device = this.resolveDeviceBySourceId(objectId);
+    if (!device) return false;
+    const nextX = Number(x);
+    const nextY = Number(y);
+    if (!Number.isFinite(nextX) || !Number.isFinite(nextY)) return false;
+    const before = [captureDevicePosition(device)].filter(Boolean);
+    const afterPosition = {
+      id: device.id,
+      x: device.kind === "jump" ? nextX - device.width / 2 : nextX,
+      y: device.kind === "jump" ? nextY - device.height / 2 : nextY
+    };
+    if (!before.length || (before[0].x === afterPosition.x && before[0].y === afterPosition.y)) return false;
+    this.beginProductionCommit("inspector position");
+    const result = this.applyDevicePositions([afterPosition], []);
+    this.recordCommand(moveDevicesCommand(before, [afterPosition], [], []));
+    this.markCommitted("inspector position", result.mutationMs || 0, {
+      inspectorFieldEdit: true,
+      objectId: device.sourceId || device.id
+    });
+    return true;
+  }
+
+  commitConnectorInspectorFields(deviceId, connectorId, fields = {}) {
+    if (!this.ready) return false;
+    const device = this.resolveDeviceBySourceId(deviceId);
+    const connector = device ? this.scene.getConnector(device.id, connectorId) : null;
+    if (!device || !connector) return false;
+    const affectedConnectorIds = connectorIdsForInspectorEdit(connector, fields);
+    const before = affectedConnectorIds.map(id => captureConnectorInspectorFields(this.scene.getConnector(device.id, id), fields)).filter(Boolean);
+    const afterFieldsByConnector = new Map();
+    affectedConnectorIds.forEach(id => {
+      const current = this.scene.getConnector(device.id, id);
+      if (!current) return;
+      afterFieldsByConnector.set(id, normalizeConnectorInspectorPatch(current, fields));
+    });
+    const after = [...afterFieldsByConnector.entries()].map(([id, fieldPatch]) => ({ connectorId: id, fields: fieldPatch }));
+    if (!before.length || !after.length || !connectorInspectorStatesChanged(before, after)) return false;
+    const removed = fields.installedModuleType !== undefined
+      ? captureWiresForConnectors(this, device.id, affectedConnectorIds)
+      : [];
+    this.beginProductionCommit("inspector connector fields");
+    let mutationMs = 0;
+    after.forEach(item => {
+      mutationMs += this.applyConnectorInspectorFields(device.sourceId || device.id, item.connectorId, item.fields, { select: false }).mutationMs || 0;
+    });
+    removed.forEach(item => {
+      const result = this.removeWire(item.wireData?.id);
+      mutationMs += result.mutationMs || 0;
+    });
+    this.scene.selectedConnectorKeys = new Set([`${device.id}:${connectorId}`]);
+    this.updateSelectionHud();
+    this.recordCommand(connectorInspectorFieldsCommand(device.sourceId || device.id, before, after, removed));
+    this.markCommitted("inspector connector fields", mutationMs, {
+      inspectorFieldEdit: true,
+      connectorId
+    });
+    return true;
+  }
+
+  applyConnectorInspectorFields(deviceId, connectorId, fields = {}, options = {}) {
+    const device = this.resolveDeviceBySourceId(deviceId);
+    if (!device) return { mutationMs: 0 };
+    const current = this.scene.getConnector(device.id, connectorId);
+    if (!current) return { mutationMs: 0 };
+    const patch = normalizeConnectorInspectorPatch(current, fields);
+    const updated = this.scene.updateConnector(device.id, connectorId, patch);
+    if (!updated) return { mutationMs: 0 };
+    const mutationMs = this.mutations?.updateConnectorFields(device.sourceId || device.id, connectorId, patch) || 0;
+    const affectedWireIds = [...this.scene.connectorWireIds(device.id, connectorId)];
+    affectedWireIds.forEach(wireId => {
+      const wire = this.scene.getWire(wireId);
+      if (!wire) return;
+      if (isEngineFiberCableType(wire.cableType) && patch.fiberMode !== undefined) {
+        wire.fiberMode = patch.fiberMode || ENGINE_DEFAULT_FIBER_MODE;
+        wire.color = engineWireColorForCable(wire.cableType, wire.fiberMode, wire.color || "#32b6ff");
+        wire.colorSegments = engineWireColorSegmentsForCable(wire.cableType) || [];
+        this.mutations?.updateWireFields(wire.id, { fiberMode: wire.fiberMode });
+      }
+      this.scene.dirtyWires.add(wire.id);
+    });
+    const dirtyStats = this.renderer.updateDirty(this.scene, {
+      deviceIds: [device.id],
+      wireIds: affectedWireIds,
+      refreshCableHops: false
+    });
+    this.lastDirtyDeviceIds = new Set([device.id]);
+    this.lastDirtyWireIds = new Set(affectedWireIds);
+    this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    if (options.select !== false) {
+      this.scene.selectedConnectorKeys = new Set([`${device.id}:${connectorId}`]);
+      this.updateSelectionHud();
+    }
+    this.hud?.setMetric("inspector edit", `connector ${device.sourceId || device.id}:${connectorId}`);
+    this.hud?.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+    this.recordDirtyVisualMetrics(dirtyStats, "inspector connector");
+    this.scheduleRender();
+    return { mutationMs, dirtyStats };
+  }
+
+  commitWireInspectorFields(wireId, fields = {}) {
+    if (!this.ready) return false;
+    const wire = this.scene.getWire(String(wireId || ""));
+    if (!wire) return false;
+    const before = captureWireInspectorFields(wire, fields);
+    const after = sanitizeWireInspectorFields(fields);
+    if (!inspectorFieldsChanged(before, after)) return false;
+    this.beginProductionCommit("inspector wire fields");
+    const result = this.applyWireInspectorFields(wire.id, after);
+    this.recordCommand(wireInspectorFieldsCommand(wire.id, before, after));
+    this.markCommitted("inspector wire fields", result.mutationMs || 0, {
+      inspectorFieldEdit: true,
+      wireId: wire.id
+    });
+    return true;
+  }
+
+  commitMultiWireInspectorFields(wireIds = [], fields = {}) {
+    if (!this.ready) return false;
+    const ids = uniqueItems(wireIds).filter(id => this.scene.getWire(id));
+    if (!ids.length) return false;
+    const before = ids.map(id => captureWireInspectorFields(this.scene.getWire(id), fields)).filter(Boolean);
+    const after = ids.map(id => ({ wireId: id, fields: sanitizeWireInspectorFields(fields) }));
+    const changed = before.some(item => {
+      const next = after.find(candidate => candidate.wireId === item.wireId);
+      return next && inspectorFieldsChanged(item.fields, next.fields);
+    });
+    if (!changed) return false;
+    this.beginProductionCommit("inspector multi-wire fields");
+    let mutationMs = 0;
+    after.forEach(item => {
+      mutationMs += this.applyWireInspectorFields(item.wireId, item.fields, { select: false }).mutationMs || 0;
+    });
+    this.scene.selectedWireIds = new Set(ids);
+    this.updateSelectionHud();
+    this.recordCommand(multiWireInspectorFieldsCommand(before, after));
+    this.markCommitted("inspector multi-wire fields", mutationMs, {
+      inspectorFieldEdit: true,
+      wireCount: ids.length
+    });
+    return true;
+  }
+
+  applyWireInspectorFields(wireId, fields = {}, options = {}) {
+    const wire = this.scene.getWire(String(wireId || ""));
+    if (!wire) return { mutationMs: 0 };
+    const patch = sanitizeWireInspectorFields(fields);
+    Object.assign(wire, patch);
+    if (patch.fiberMode !== undefined || patch.cableType !== undefined || patch.customColor !== undefined) {
+      wire.color = engineWireColorForCable(wire.cableType, wire.fiberMode, wire.color || "#32b6ff");
+      wire.colorSegments = engineWireColorSegmentsForCable(wire.cableType) || [];
+    }
+    this.scene.dirtyWires.add(wire.id);
+    this.scene.refreshWireIndexes([wire.id]);
+    const mutationMs = this.mutations?.updateWireFields(wire.id, patch) || 0;
+    if (patch.fiberMode !== undefined && isEngineFiberCableType(wire.cableType)) {
+      [
+        [wire.fromDeviceId, wire.fromConnectorId],
+        [wire.toDeviceId, wire.toConnectorId]
+      ].forEach(([deviceId, connectorId]) => {
+        const connector = this.scene.getConnector(deviceId, connectorId);
+        if (!connector) return;
+        const connectorPatch = normalizeConnectorInspectorPatch(connector, { fiberMode: wire.fiberMode || ENGINE_DEFAULT_FIBER_MODE });
+        this.scene.updateConnector(deviceId, connectorId, connectorPatch);
+        this.mutations?.updateConnectorFields(deviceId, connectorId, connectorPatch);
+        this.scene.dirtyDevices.add(deviceId);
+        this.scene.dirtyTextures.add(deviceId);
+      });
+    }
+    const dirtyDeviceIds = patch.fiberMode !== undefined
+      ? uniqueItems([wire.fromDeviceId, wire.toDeviceId].filter(Boolean))
+      : [];
+    const dirtyStats = this.renderer.updateDirty(this.scene, {
+      deviceIds: dirtyDeviceIds,
+      wireIds: [wire.id],
+      refreshCableHops: false
+    });
+    this.lastDirtyDeviceIds = new Set(dirtyDeviceIds);
+    this.lastDirtyWireIds = new Set([wire.id]);
+    this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    if (options.select !== false) {
+      this.scene.selectWireOnly(wire.id);
+      this.updateSelectionHud();
+    }
+    this.hud?.setMetric("inspector edit", `wire ${wire.id}`);
+    this.hud?.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+    this.recordDirtyVisualMetrics(dirtyStats, "inspector wire");
+    this.scheduleRender();
+    return { mutationMs, dirtyStats };
   }
 
   removeWiresFromProduction(wireIds = []) {
@@ -4317,6 +4583,99 @@ function moveDevicesCommand(beforePositions, afterPositions, beforeRouteStates =
   };
 }
 
+function objectInspectorFieldsCommand(objectId, beforeFields, afterFields) {
+  const id = String(objectId || "");
+  const before = sanitizeObjectInspectorFields(beforeFields);
+  const after = sanitizeObjectInspectorFields(afterFields);
+  return {
+    type: "InspectorObjectFieldsCommand",
+    affectedIds: [id],
+    undo: bridge => bridge.applyObjectInspectorFields(id, before),
+    redo: bridge => bridge.applyObjectInspectorFields(id, after)
+  };
+}
+
+function connectorInspectorFieldsCommand(deviceId, beforeStates, afterStates, removedWires = []) {
+  const id = String(deviceId || "");
+  const before = (beforeStates || []).map(state => ({
+    connectorId: String(state?.connectorId || ""),
+    fields: sanitizeConnectorInspectorFields(state?.fields || {})
+  })).filter(state => state.connectorId);
+  const after = (afterStates || []).map(state => ({
+    connectorId: String(state?.connectorId || ""),
+    fields: sanitizeConnectorInspectorFields(state?.fields || {})
+  })).filter(state => state.connectorId);
+  const removed = (removedWires || []).map(item => ({
+    wireData: deepClone(item?.wireData),
+    connectionData: deepClone(item?.connectionData)
+  })).filter(item => item.wireData && item.connectionData);
+  return {
+    type: "InspectorConnectorFieldsCommand",
+    affectedIds: uniqueItems([id, ...before.map(item => item.connectorId), ...removed.map(item => item.wireData?.id).filter(Boolean)]),
+    undo: bridge => {
+      let mutationMs = 0;
+      before.forEach(item => {
+        mutationMs += bridge.applyConnectorInspectorFields(id, item.connectorId, item.fields, { select: false }).mutationMs || 0;
+      });
+      removed.forEach(item => {
+        mutationMs += bridge.restoreWire(item.wireData, item.connectionData).mutationMs || 0;
+      });
+      return { mutationMs };
+    },
+    redo: bridge => {
+      let mutationMs = 0;
+      after.forEach(item => {
+        mutationMs += bridge.applyConnectorInspectorFields(id, item.connectorId, item.fields, { select: false }).mutationMs || 0;
+      });
+      removed.forEach(item => {
+        mutationMs += bridge.removeWire(item.wireData?.id).mutationMs || 0;
+      });
+      return { mutationMs };
+    }
+  };
+}
+
+function wireInspectorFieldsCommand(wireId, beforeFields, afterFields) {
+  const id = String(wireId || "");
+  const before = sanitizeWireInspectorFields(beforeFields);
+  const after = sanitizeWireInspectorFields(afterFields);
+  return {
+    type: "InspectorWireFieldsCommand",
+    affectedIds: [id],
+    undo: bridge => bridge.applyWireInspectorFields(id, before),
+    redo: bridge => bridge.applyWireInspectorFields(id, after)
+  };
+}
+
+function multiWireInspectorFieldsCommand(beforeStates, afterStates) {
+  const before = (beforeStates || []).map(state => ({
+    wireId: String(state?.wireId || ""),
+    fields: sanitizeWireInspectorFields(state?.fields || {})
+  })).filter(state => state.wireId);
+  const after = (afterStates || []).map(state => ({
+    wireId: String(state?.wireId || ""),
+    fields: sanitizeWireInspectorFields(state?.fields || {})
+  })).filter(state => state.wireId);
+  return {
+    type: `InspectorMultiWireFieldsCommand (${after.length})`,
+    affectedIds: uniqueItems(after.map(state => state.wireId)),
+    undo: bridge => {
+      let mutationMs = 0;
+      before.forEach(state => {
+        mutationMs += bridge.applyWireInspectorFields(state.wireId, state.fields, { select: false }).mutationMs || 0;
+      });
+      return { mutationMs };
+    },
+    redo: bridge => {
+      let mutationMs = 0;
+      after.forEach(state => {
+        mutationMs += bridge.applyWireInspectorFields(state.wireId, state.fields, { select: false }).mutationMs || 0;
+      });
+      return { mutationMs };
+    }
+  };
+}
+
 function routePointCommand(wireId, beforePoints, afterPoints) {
   return {
     type: "MoveRoutePointCommand",
@@ -4621,7 +4980,219 @@ function cloneWire(wire) {
     cableType: wire.cableType,
     fiberMode: wire.fiberMode,
     length: wire.length,
+    hideLabel: Boolean(wire.hideLabel),
   } : null;
+}
+
+function captureDevicePosition(device) {
+  return device ? {
+    id: device.id,
+    x: Number(device.x) || 0,
+    y: Number(device.y) || 0
+  } : null;
+}
+
+function sanitizeObjectInspectorFields(fields = {}) {
+  const allowed = new Set(["name", "label", "notes", "locked", "powerWatts", "powerUnit", "showInternalWiring"]);
+  const sanitized = {};
+  Object.entries(fields || {}).forEach(([key, value]) => {
+    if (!allowed.has(key)) return;
+    if (["locked", "showInternalWiring"].includes(key)) sanitized[key] = Boolean(value);
+    else if (key === "powerWatts") {
+      const numeric = Number(value);
+      if (Number.isFinite(numeric)) sanitized[key] = numeric;
+    } else sanitized[key] = String(value ?? "");
+  });
+  return sanitized;
+}
+
+function captureObjectInspectorFields(device, fields = {}) {
+  const keys = Object.keys(sanitizeObjectInspectorFields(fields));
+  const captured = {};
+  keys.forEach(key => {
+    if (key === "name" || key === "label") captured[key] = device.label || device.visual?.displayName || "";
+    else captured[key] = device[key] ?? "";
+  });
+  return captured;
+}
+
+function applyObjectFieldsToSceneDevice(device, fields = {}) {
+  const sanitized = sanitizeObjectInspectorFields(fields);
+  if (sanitized.name !== undefined || sanitized.label !== undefined) {
+    const nextName = sanitized.name ?? sanitized.label;
+    device.label = String(nextName || device.label || device.id);
+    device.visual = {
+      ...(device.visual || {}),
+      displayName: device.label
+    };
+    device.labelMapped = true;
+  }
+  if (sanitized.notes !== undefined) device.notes = sanitized.notes;
+  if (sanitized.locked !== undefined) device.locked = sanitized.locked;
+  if (sanitized.powerWatts !== undefined) device.powerWatts = sanitized.powerWatts;
+  if (sanitized.powerUnit !== undefined) device.powerUnit = sanitized.powerUnit;
+  if (sanitized.showInternalWiring !== undefined) device.showInternalWiring = sanitized.showInternalWiring;
+}
+
+function sanitizeConnectorInspectorFields(fields = {}) {
+  const allowed = new Set([
+    "nameText",
+    "customText",
+    "resolutionFrameRate",
+    "nameTextCaption",
+    "resolutionFrameRateCaption",
+    "customTextCaption",
+    "installedModuleType",
+    "installedModuleId",
+    "installedModuleName",
+    "installedModuleActiveType",
+    "installedModuleEffectiveType",
+    "installedModuleFiberMode",
+    "installedModuleFiberFamily",
+    "fiberMode",
+    "customColor",
+    "effectiveType",
+    "displayLabel",
+    "label",
+    "color",
+    "fiberFamily"
+  ]);
+  const sanitized = {};
+  Object.entries(fields || {}).forEach(([key, value]) => {
+    if (!allowed.has(key)) return;
+    if (key === "colorSegments") return;
+    sanitized[key] = String(value ?? "");
+  });
+  if (Array.isArray(fields.colorSegments)) sanitized.colorSegments = fields.colorSegments.map(color => String(color || "")).filter(Boolean);
+  return sanitized;
+}
+
+function moduleOptionForConnector(connector, value) {
+  const requested = String(value || "");
+  const isQsfp = String(connector?.type || "").toLowerCase() === "qsfp-cage";
+  return ENGINE_TRANSCEIVER_MODULE_OPTIONS
+    .filter(option => !option.qsfpOnly || isQsfp)
+    .find(option => option.value === requested)
+    || ENGINE_TRANSCEIVER_MODULE_OPTIONS[0];
+}
+
+function normalizeConnectorInspectorPatch(connector, fields = {}) {
+  let patch = sanitizeConnectorInspectorFields(fields);
+  if (fields.installedModuleType !== undefined && isEngineCageConnector(connector)) {
+    const option = moduleOptionForConnector(connector, fields.installedModuleType);
+    patch = {
+      ...patch,
+      installedModuleType: option.value,
+      installedModuleId: option.value,
+      installedModuleName: option.label,
+      installedModuleActiveType: option.activeType || "",
+      installedModuleEffectiveType: option.activeType || "",
+      installedModuleFiberMode: option.fiberMode || "",
+      installedModuleFiberFamily: option.fiberMode ? engineFiberModeOption(option.fiberMode).family || "" : "",
+      fiberMode: option.fiberMode || ""
+    };
+  }
+  if (fields.fiberMode !== undefined) patch.fiberMode = String(fields.fiberMode || ENGINE_DEFAULT_FIBER_MODE);
+  const merged = { ...connector, ...patch };
+  const moduleDetails = installedModuleDetailsForEngine(merged);
+  const effectiveType = effectiveConnectorTypeForEngine(merged);
+  patch.effectiveType = effectiveType || "";
+  patch.installedModuleEffectiveType = moduleDetails.effectiveType || patch.installedModuleEffectiveType || "";
+  patch.installedModuleFiberMode = moduleDetails.fiberMode || patch.installedModuleFiberMode || "";
+  patch.installedModuleFiberFamily = moduleDetails.fiberFamily || patch.installedModuleFiberFamily || "";
+  patch.fiberMode = engineConnectorFiberMode(merged) || patch.fiberMode || "";
+  patch.fiberFamily = engineConnectorFiberFamily(merged) || "";
+  patch.displayLabel = engineConnectorDisplayLabel(merged, patch.nameText || connector.nameText || effectiveType || connector.type || "");
+  patch.label = patch.nameText || connector.nameText || patch.displayLabel || connector.label || "";
+  patch.color = engineConnectorColor(merged);
+  patch.colorSegments = engineConnectorColorSegments(merged) || [];
+  return patch;
+}
+
+function connectorIdsForInspectorEdit(connector, fields = {}) {
+  const ids = [String(connector?.id || "")].filter(Boolean);
+  if (fields.installedModuleType !== undefined && connector?.pairedConnectorId) ids.push(String(connector.pairedConnectorId));
+  return uniqueItems(ids);
+}
+
+function captureConnectorInspectorFields(connector, requestedFields = {}) {
+  if (!connector?.id) return null;
+  const keys = new Set(Object.keys(normalizeConnectorInspectorPatch(connector, requestedFields)));
+  if (requestedFields.installedModuleType !== undefined) {
+    [
+      "installedModuleType",
+      "installedModuleId",
+      "installedModuleName",
+      "installedModuleActiveType",
+      "installedModuleEffectiveType",
+      "installedModuleFiberMode",
+      "installedModuleFiberFamily",
+      "fiberMode",
+      "effectiveType",
+      "displayLabel",
+      "label",
+      "color",
+      "fiberFamily"
+    ].forEach(key => keys.add(key));
+  }
+  const fields = {};
+  keys.forEach(key => {
+    if (key === "colorSegments") fields[key] = Array.isArray(connector.colorSegments) ? connector.colorSegments.slice() : [];
+    else fields[key] = connector[key] ?? "";
+  });
+  return { connectorId: connector.id, fields };
+}
+
+function connectorInspectorStatesChanged(beforeStates = [], afterStates = []) {
+  if (beforeStates.length !== afterStates.length) return true;
+  return beforeStates.some(before => {
+    const after = afterStates.find(item => item.connectorId === before.connectorId);
+    return !after || inspectorFieldsChanged(before.fields, after.fields);
+  });
+}
+
+function sanitizeWireInspectorFields(fields = {}) {
+  const allowed = new Set(["label", "length", "notes", "hideLabel", "fiberMode", "cableType", "customColor"]);
+  const sanitized = {};
+  Object.entries(fields || {}).forEach(([key, value]) => {
+    if (!allowed.has(key)) return;
+    if (key === "hideLabel") sanitized[key] = Boolean(value);
+    else sanitized[key] = String(value ?? "");
+  });
+  return sanitized;
+}
+
+function captureWireInspectorFields(wire, fields = {}) {
+  if (!wire?.id) return null;
+  const keys = Object.keys(sanitizeWireInspectorFields(fields));
+  const captured = {};
+  keys.forEach(key => {
+    captured[key] = key === "hideLabel" ? Boolean(wire.hideLabel) : String(wire[key] ?? "");
+  });
+  return { wireId: wire.id, fields: captured };
+}
+
+function inspectorFieldsChanged(before = {}, after = {}) {
+  const beforeKeys = Object.keys(before || {});
+  const afterKeys = Object.keys(after || {});
+  if (beforeKeys.length !== afterKeys.length) return true;
+  return afterKeys.some(key => {
+    const a = before?.[key];
+    const b = after?.[key];
+    if (Array.isArray(a) || Array.isArray(b)) return JSON.stringify(a || []) !== JSON.stringify(b || []);
+    return a !== b;
+  });
+}
+
+function captureWiresForConnectors(bridge, deviceId, connectorIds = []) {
+  const wireIds = uniqueItems(connectorIds.flatMap(connectorId => [...bridge.scene.connectorWireIds(deviceId, connectorId)]));
+  return wireIds.map(wireId => {
+    const wire = bridge.scene.getWire(wireId);
+    return wire ? {
+      wireData: cloneWire(wire),
+      connectionData: bridge.mutations?.connectionDataForWire(wire.id)
+    } : null;
+  }).filter(item => item?.wireData && item?.connectionData);
 }
 
 function rewirePreviewRoute(originalWire, from, to, detachedSide) {

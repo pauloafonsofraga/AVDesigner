@@ -1210,6 +1210,7 @@ function normalizeConnector(connector, index) {
     side: connector.side || (connector.direction === "input" ? "left" : connector.direction === "output" ? "right" : "center"),
     cardSlotId: connector.cardSlotId || "",
     cardTypeId: connector.cardTypeId || "",
+    pairedConnectorId: connector.pairedConnectorId || "",
     sourceConnectorId: connector.sourceConnectorId || "",
     generatedFromCard: Boolean(connector.generatedFromCard),
     effectiveType: connector.effectiveType || connector.type || "",

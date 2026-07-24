@@ -3906,7 +3906,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 43 — Engine Editor — iteration43</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 44 — Engine Editor — iteration44</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -4612,8 +4612,8 @@
   </div>
 
   <script>
-    const APP_ITERATION = "43";
-    const APP_BUILD_ID = "iteration43";
+    const APP_ITERATION = "44";
+    const APP_BUILD_ID = "iteration44";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
     const DEBUG_LIBRARY_DRAG_ENABLED = INITIAL_URL_PARAMS.get("debugLibraryDrag") === "1";
@@ -64676,6 +64676,7 @@
           side: connector.direction === "input" ? "left" : connector.direction === "output" ? "right" : "center",
           cardSlotId: connector.cardSlotId || "",
           cardTypeId: connector.cardTypeId || "",
+          pairedConnectorId: connector.pairedConnectorId || "",
           sourceConnectorId: connector.sourceConnectorId || "",
           generatedFromCard: Boolean(connector.generatedFromCard),
           installedModuleType: connector.installedModuleType || "",
@@ -64704,6 +64705,7 @@
         color: colorForConnection(connection),
         label: connection.label || "",
         length: connection.length || "",
+        hideLabel: Boolean(connection.hideLabel),
         routeStyle: usesOrthogonalRoute ? "orthogonal" : (routePoints?.length ? "custom" : "bezier"),
         routePoints
       });
@@ -83890,9 +83892,17 @@
           commitCanvasDeviceInspectorName(instance, nextName);
         }
       );
-      document.getElementById("deviceNotes").addEventListener("input", event => {
-        instance.notes = event.target.value;
-      });
+      bindDeferredCanvasTextareaCommit(
+        document.getElementById("deviceNotes"),
+        value => {
+          if (!activeEngineBridge()) instance.notes = value;
+        },
+        value => {
+          const engineBridge = activeEngineBridge();
+          if (engineBridge?.commitObjectInspectorFields?.(instance.instanceId, { notes: value })) return;
+          instance.notes = value;
+        }
+      );
       if (template.isMatrixRouter) bindMatrixRoutingInspector(instance);
       document.getElementById("deviceTechSpecsButton").addEventListener("click", () => openDeviceTechSpecs(template, instance));
       document.getElementById("editCanvasDevice").addEventListener("click", () => openDeviceEditorForInstance(instanceId));
@@ -83963,12 +83973,23 @@
         if (control.value === control.dataset.lastCommittedText) return;
         const current = Number(object[key]) || 0;
         const base = control.dataset.baseValue ?? current;
-        object[key] = parsePositionValue(control.value, base, current);
-        control.value = Math.round(object[key]);
-        control.dataset.baseValue = object[key];
+        const next = parsePositionValue(control.value, base, current);
+        const engineBridge = activeEngineBridge();
+        const bridgeHandled = engineBridge && movedSelection && ["device", "led-surface", "jump-node"].includes(movedSelection.type)
+          ? engineBridge.commitObjectPositionFromInspector?.(
+            movedSelection.id,
+            key === "x" ? next : Number(object.x) || 0,
+            key === "y" ? next : Number(object.y) || 0
+          )
+          : false;
+        if (!bridgeHandled) {
+          object[key] = next;
+          if (movedSelection) repairOrthogonalRoutesForMovedSelections([movedSelection]);
+          renderCanvasOnly();
+        }
+        control.value = Math.round(Number(object[key]) || next);
+        control.dataset.baseValue = Number(object[key]) || next;
         control.dataset.lastCommittedText = control.value;
-        if (movedSelection) repairOrthogonalRoutesForMovedSelections([movedSelection]);
-        renderCanvasOnly();
       };
       control.addEventListener("change", commit);
       control.addEventListener("focus", () => {
@@ -84261,6 +84282,8 @@
       const moduleControl = document.getElementById("connectorModule");
       if (moduleControl) {
         moduleControl.addEventListener("change", event => {
+          const engineBridge = activeEngineBridge();
+          if (engineBridge?.commitConnectorInspectorFields?.(deviceId, connectorId, { installedModuleType: event.target.value })) return;
           const sync = setConnectorModuleForEndpoint(deviceId, connectorId, event.target.value);
           syncEngineConnectorsFromProduction(deviceId, sync.affectedConnectorIds, sync.removedConnectionIds);
           render();
@@ -84270,6 +84293,8 @@
       if (fiberModeControl) {
         fiberModeControl.addEventListener("change", event => {
           const nextMode = event.target.value || DEFAULT_FIBER_MODE;
+          const engineBridge = activeEngineBridge();
+          if (engineBridge?.commitConnectorInspectorFields?.(deviceId, connectorId, { fiberMode: nextMode })) return;
           setFiberModeForEndpoint({ deviceId, connectorId }, nextMode);
           state.connections.forEach(connection => {
             const fromMatches = connection.from?.deviceId === deviceId && connection.from?.connectorId === connectorId;
@@ -84308,6 +84333,23 @@
       });
     }
 
+    function bindDeferredCanvasTextareaCommit(control, onInput, onCommit) {
+      if (!control) return;
+      let committedValue = control.value;
+      const commit = () => {
+        const value = control.value;
+        onInput(value);
+        if (value === committedValue) return;
+        committedValue = value;
+        onCommit(value);
+      };
+      control.addEventListener("input", event => {
+        onInput(event.target.value);
+      });
+      control.addEventListener("change", commit);
+      control.addEventListener("blur", commit);
+    }
+
     function renderWireInspector(connectionId) {
       const connection = state.connections.find(item => item.id === connectionId);
       if (!connection) return;
@@ -84344,26 +84386,58 @@
         <button class="danger-button" id="deleteSelected" type="button">Delete Wire</button>
       `;
       document.getElementById("playWireTrace").addEventListener("click", () => playWireTrace(connectionId));
-      document.getElementById("wireLabel").addEventListener("input", event => {
-        connection.label = event.target.value;
-        renderCanvasOnly();
-      });
+      bindDeferredCanvasTextCommit(
+        document.getElementById("wireLabel"),
+        value => {
+          if (!activeEngineBridge()) {
+            connection.label = value;
+            renderCanvasOnly();
+          }
+        },
+        value => {
+          const engineBridge = activeEngineBridge();
+          if (engineBridge?.commitWireInspectorFields?.(connectionId, { label: value })) return;
+          connection.label = value;
+          renderCanvasOnly();
+        }
+      );
       bindDeferredCanvasTextCommit(
         document.getElementById("wireLength"),
-        value => { connection.length = value; },
-        () => renderCanvasOnly()
+        value => {
+          if (!activeEngineBridge()) connection.length = value;
+        },
+        value => {
+          const engineBridge = activeEngineBridge();
+          if (engineBridge?.commitWireInspectorFields?.(connectionId, { length: value })) return;
+          connection.length = value;
+          renderCanvasOnly();
+        }
       );
       document.getElementById("wireHideLabel").addEventListener("change", event => {
-        connection.hideLabel = event.target.checked;
+        const nextHidden = event.target.checked;
+        const engineBridge = activeEngineBridge();
+        if (engineBridge?.commitWireInspectorFields?.(connectionId, { hideLabel: nextHidden })) return;
+        connection.hideLabel = nextHidden;
         renderCanvasOnly();
       });
-      document.getElementById("wireNotes").addEventListener("input", event => {
-        connection.notes = event.target.value;
-      });
+      bindDeferredCanvasTextareaCommit(
+        document.getElementById("wireNotes"),
+        value => {
+          if (!activeEngineBridge()) connection.notes = value;
+        },
+        value => {
+          const engineBridge = activeEngineBridge();
+          if (engineBridge?.commitWireInspectorFields?.(connectionId, { notes: value })) return;
+          connection.notes = value;
+        }
+      );
       const fiberModeControl = document.getElementById("wireFiberMode");
       if (fiberModeControl) {
         fiberModeControl.addEventListener("change", event => {
-          setFiberModeForConnection(connection, event.target.value || DEFAULT_FIBER_MODE);
+          const nextMode = event.target.value || DEFAULT_FIBER_MODE;
+          const engineBridge = activeEngineBridge();
+          if (engineBridge?.commitWireInspectorFields?.(connectionId, { fiberMode: nextMode })) return;
+          setFiberModeForConnection(connection, nextMode);
           syncEngineWireFromProduction(connection);
           renderCanvasOnly();
         });
@@ -84399,17 +84473,38 @@
       bindDeferredCanvasTextCommit(
         document.getElementById("multiWireLength"),
         value => {
+          if (!activeEngineBridge()) {
+            wires.forEach(connection => {
+              connection.length = value;
+            });
+          }
+        },
+        value => {
+          const engineBridge = activeEngineBridge();
+          if (engineBridge?.commitMultiWireInspectorFields?.(wires.map(connection => connection.id), { length: value })) return;
           wires.forEach(connection => {
             connection.length = value;
           });
-        },
-        () => renderCanvasOnly()
+          renderCanvasOnly();
+        }
       );
-      document.getElementById("multiWireNotes").addEventListener("input", event => {
-        wires.forEach(connection => {
-          connection.notes = event.target.value;
-        });
-      });
+      bindDeferredCanvasTextareaCommit(
+        document.getElementById("multiWireNotes"),
+        value => {
+          if (!activeEngineBridge()) {
+            wires.forEach(connection => {
+              connection.notes = value;
+            });
+          }
+        },
+        value => {
+          const engineBridge = activeEngineBridge();
+          if (engineBridge?.commitMultiWireInspectorFields?.(wires.map(connection => connection.id), { notes: value })) return;
+          wires.forEach(connection => {
+            connection.notes = value;
+          });
+        }
+      );
       document.getElementById("resetMultiWireRoutes").addEventListener("click", () => resetWireRoutes(connectionIds));
     }
 
