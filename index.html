@@ -83953,16 +83953,8 @@
 
     function parsePositionValue(value, baseValue, fallbackValue) {
       const fallback = Number.isFinite(Number(fallbackValue)) ? Number(fallbackValue) : 0;
-      const base = Number.isFinite(Number(baseValue)) ? Number(baseValue) : fallback;
       const text = String(value).trim().replace(",", ".");
       if (!text) return Math.round(fallback);
-
-      const relative = text.match(/^([+-])\s*(\d+(?:\.\d+)?)$/);
-      if (relative) {
-        const amount = Number(relative[2]);
-        if (relative[1] === "-" && base < 0) return Math.round(base + amount);
-        return Math.round(relative[1] === "-" ? base - amount : base + amount);
-      }
 
       const expression = text.match(/^(-?\d+(?:\.\d+)?)\s*([+-])\s*(\d+(?:\.\d+)?)$/);
       if (expression) {
@@ -84008,9 +84000,13 @@
           if (movedSelection) repairOrthogonalRoutesForMovedSelections([movedSelection]);
           renderCanvasOnly();
         }
+        const numericValue = value => {
+          const parsed = Number(value);
+          return Number.isFinite(parsed) ? parsed : next;
+        };
         const committedValue = bridgeHandled
-          ? Number(engineBridge.objectPositionForInspector?.(movedSelection.id)?.[key]) || next
-          : (Number(object[key]) || next);
+          ? numericValue(engineBridge.objectPositionForInspector?.(movedSelection.id)?.[key])
+          : numericValue(object[key]);
         control.value = Math.round(committedValue);
         control.dataset.baseValue = committedValue;
         control.dataset.lastCommittedText = control.value;

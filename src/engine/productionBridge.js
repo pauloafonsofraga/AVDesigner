@@ -2353,6 +2353,7 @@ class ProductionEngineBridge {
       inspectorFieldEdit: true,
       objectId: device.sourceId || device.id
     });
+    this.scheduleRender();
     return true;
   }
 
