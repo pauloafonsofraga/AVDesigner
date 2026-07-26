@@ -1,4 +1,9 @@
 import { engineWireColorSegmentsForCable } from "./connectorCompatibility.js";
+import {
+  canonicalEngineObjectKind,
+  isCanvasObjectKind,
+  isLedSurfaceKind
+} from "./canvasObjectKinds.js";
 
 const ENGINE_EXPORT_FORMAT = "av-designer-engine-prototype";
 
@@ -40,6 +45,10 @@ export class ProjectMutationAdapter {
     if (!Array.isArray(this.root.connections)) this.root.connections = [];
     if (!Array.isArray(this.root.jumpNodes)) this.root.jumpNodes = [];
     if (!Array.isArray(this.root.ledSurfaces)) this.root.ledSurfaces = [];
+    if (!Array.isArray(this.root.imageObjects)) this.root.imageObjects = [];
+    if (!Array.isArray(this.root.areas)) this.root.areas = [];
+    if (!Array.isArray(this.root.comments)) this.root.comments = [];
+    if (!Array.isArray(this.root.titleBlocks)) this.root.titleBlocks = [];
 
     this.deviceById = new Map();
     this.root.devices.forEach((device, index) => {
@@ -58,6 +67,11 @@ export class ProjectMutationAdapter {
       const id = surface.id;
       if (id) this.surfaceById.set(String(id), { item: surface, index });
     });
+
+    this.imageObjectById = indexedObjectMap(this.root.imageObjects);
+    this.areaById = indexedObjectMap(this.root.areas);
+    this.commentById = indexedObjectMap(this.root.comments);
+    this.titleBlockById = indexedObjectMap(this.root.titleBlocks);
 
     this.connectionById = new Map();
     this.root.connections.forEach((connection, index) => {
@@ -116,7 +130,11 @@ export class ProjectMutationAdapter {
     const sourceId = String(objectId || "");
     const entry = this.deviceById.get(sourceId)
       || this.jumpNodeById.get(sourceId)
-      || this.surfaceById.get(sourceId);
+      || this.surfaceById.get(sourceId)
+      || this.imageObjectById.get(sourceId)
+      || this.areaById.get(sourceId)
+      || this.commentById.get(sourceId)
+      || this.titleBlockById.get(sourceId);
     if (!entry?.item) return 0;
     const allowed = new Set([
       "name",
@@ -129,7 +147,13 @@ export class ProjectMutationAdapter {
       "locked",
       "powerWatts",
       "powerUnit",
-      "showInternalWiring"
+      "showInternalWiring",
+      "title",
+      "text",
+      "backgroundColor",
+      "textColor",
+      "leaderColor",
+      "opacity"
     ]);
     Object.entries(fields || {}).forEach(([key, value]) => {
       if (!allowed.has(key)) return;
@@ -238,13 +262,16 @@ export class ProjectMutationAdapter {
       entry.item.y = device.y + device.height / 2;
       return { ok: true, path: `jumpNodes[${entry.index}].x/y` };
     }
-    if (device.sourceKind === "ledSurface" || device.kind === "surface") {
+    if (device.sourceKind === "ledSurface" || isLedSurfaceKind(device)) {
       const entry = this.surfaceById.get(sourceId) || this.ensureLedSurface(device);
       entry.item.x = device.x;
       entry.item.y = device.y;
       entry.item.width = device.width;
       entry.item.height = device.height;
       return { ok: true, path: `ledSurfaces[${entry.index}].x/y` };
+    }
+    if (isCanvasObjectKind(device)) {
+      return this.writeCanvasObjectPosition(device);
     }
     const entry = this.deviceById.get(sourceId) || this.ensureDevice(device);
     entry.item.x = device.x;
@@ -380,6 +407,48 @@ export class ProjectMutationAdapter {
     };
   }
 
+  removeSceneObject(device) {
+    const start = performance.now();
+    const sourceId = String(device?.sourceId || device?.id || "");
+    const kind = canonicalEngineObjectKind(device);
+    const collection = this.sceneObjectCollection(kind);
+    const map = this.sceneObjectMap(kind);
+    const entry = map?.get(sourceId);
+    if (!collection || !entry) return { mutationMs: 0, objectData: null, objectKind: kind, index: -1 };
+    const [removed] = collection.splice(entry.index, 1);
+    this.rebuildIndexes();
+    this.record(`delete ${kind}`, performance.now() - start, `${collectionPathForKind(kind)}[${entry.index}]`, {
+      objectId: sourceId,
+      objectKind: kind
+    });
+    return {
+      mutationMs: this.lastMutation.durationMs,
+      objectData: deepClone(removed),
+      objectKind: kind,
+      index: entry.index
+    };
+  }
+
+  restoreSceneObject(kind, objectData, index = null) {
+    const start = performance.now();
+    const canonical = canonicalEngineObjectKind(kind);
+    const collection = this.sceneObjectCollection(canonical);
+    const map = this.sceneObjectMap(canonical);
+    const id = String(objectData?.id || "");
+    if (!collection || !id || map?.has(id)) return { mutationMs: 0, index: -1 };
+    const item = deepClone(objectData);
+    const targetIndex = Number.isInteger(index)
+      ? Math.max(0, Math.min(index, collection.length))
+      : collection.length;
+    collection.splice(targetIndex, 0, item);
+    this.rebuildIndexes();
+    this.record(`restore ${canonical}`, performance.now() - start, `${collectionPathForKind(canonical)}[${targetIndex}]`, {
+      objectId: id,
+      objectKind: canonical
+    });
+    return { mutationMs: this.lastMutation.durationMs, index: targetIndex };
+  }
+
   restoreDeviceInstance(deviceData, index = null) {
     return this.insertDeviceInstance(deviceData, {
       index,
@@ -467,6 +536,115 @@ export class ProjectMutationAdapter {
     this.root.ledSurfaces.push(item);
     const entry = { item, index: this.root.ledSurfaces.length - 1 };
     this.surfaceById.set(item.id, entry);
+    return entry;
+  }
+
+  writeCanvasObjectPosition(device) {
+    const sourceId = String(device.sourceId || device.id);
+    const kind = canonicalEngineObjectKind(device);
+    if (kind === "image-object") {
+      const entry = this.imageObjectById.get(sourceId) || this.ensureImageObject(device);
+      writeRectToItem(entry.item, device);
+      return { ok: true, path: `imageObjects[${entry.index}].x/y` };
+    }
+    if (kind === "area") {
+      const entry = this.areaById.get(sourceId) || this.ensureArea(device);
+      writeRectToItem(entry.item, device);
+      return { ok: true, path: `areas[${entry.index}].x/y` };
+    }
+    if (kind === "comment") {
+      const entry = this.commentById.get(sourceId) || this.ensureComment(device);
+      writeCommentPosition(entry.item, device);
+      return { ok: true, path: `comments[${entry.index}].x/y` };
+    }
+    if (kind === "title-block") {
+      const entry = this.titleBlockById.get(sourceId) || this.ensureTitleBlock(device);
+      writeRectToItem(entry.item, device);
+      return { ok: true, path: `titleBlocks[${entry.index}].x/y` };
+    }
+    return { ok: false, path: "-" };
+  }
+
+  sceneObjectCollection(kind) {
+    const canonical = canonicalEngineObjectKind(kind);
+    if (canonical === "led-surface") return this.root.ledSurfaces;
+    if (canonical === "image-object") return this.root.imageObjects;
+    if (canonical === "area") return this.root.areas;
+    if (canonical === "comment") return this.root.comments;
+    if (canonical === "title-block") return this.root.titleBlocks;
+    return null;
+  }
+
+  sceneObjectMap(kind) {
+    const canonical = canonicalEngineObjectKind(kind);
+    if (canonical === "led-surface") return this.surfaceById;
+    if (canonical === "image-object") return this.imageObjectById;
+    if (canonical === "area") return this.areaById;
+    if (canonical === "comment") return this.commentById;
+    if (canonical === "title-block") return this.titleBlockById;
+    return null;
+  }
+
+  ensureImageObject(device) {
+    const item = {
+      id: String(device.sourceId || device.id),
+      x: device.x,
+      y: device.y,
+      width: device.width,
+      height: device.height,
+      name: device.label || "Image",
+      image: device.visual?.image || ""
+    };
+    this.root.imageObjects.push(item);
+    const entry = { item, index: this.root.imageObjects.length - 1 };
+    this.imageObjectById.set(item.id, entry);
+    return entry;
+  }
+
+  ensureArea(device) {
+    const item = {
+      id: String(device.sourceId || device.id),
+      x: device.x,
+      y: device.y,
+      width: device.width,
+      height: device.height,
+      name: device.label || "Area / Room",
+      backgroundColor: device.visual?.backgroundColor || device.color || "#223544"
+    };
+    this.root.areas.push(item);
+    const entry = { item, index: this.root.areas.length - 1 };
+    this.areaById.set(item.id, entry);
+    return entry;
+  }
+
+  ensureComment(device) {
+    const item = {
+      id: String(device.sourceId || device.id),
+      x: device.x,
+      y: device.y,
+      width: device.width,
+      height: device.height,
+      title: device.visual?.title || device.label || "Comment",
+      text: device.visual?.text || ""
+    };
+    this.root.comments.push(item);
+    const entry = { item, index: this.root.comments.length - 1 };
+    this.commentById.set(item.id, entry);
+    return entry;
+  }
+
+  ensureTitleBlock(device) {
+    const item = {
+      id: String(device.sourceId || device.id),
+      x: device.x,
+      y: device.y,
+      width: device.width,
+      height: device.height,
+      fields: { ...(device.visual?.fields || {}) }
+    };
+    this.root.titleBlocks.push(item);
+    const entry = { item, index: this.root.titleBlocks.length - 1 };
+    this.titleBlockById.set(item.id, entry);
     return entry;
   }
 
@@ -607,11 +785,55 @@ function endpointToProject(scene, deviceId, connectorId) {
   const device = scene.getDevice(deviceId);
   const sourceId = String(device?.sourceId || deviceId || "");
   if (device?.sourceKind === "jumpNode" || device?.kind === "jump") return { jumpNodeId: sourceId };
-  if (device?.sourceKind === "ledSurface" || device?.kind === "surface") return { surfaceId: sourceId };
+  if (isLedSurfaceKind(device)) return { surfaceId: sourceId };
   return {
     deviceId: sourceId,
     connectorId: connectorId || ""
   };
+}
+
+function indexedObjectMap(items = []) {
+  const map = new Map();
+  (items || []).forEach((item, index) => {
+    const id = item?.id;
+    if (id) map.set(String(id), { item, index });
+  });
+  return map;
+}
+
+function collectionPathForKind(kind) {
+  const canonical = canonicalEngineObjectKind(kind);
+  if (canonical === "led-surface") return "ledSurfaces";
+  if (canonical === "image-object") return "imageObjects";
+  if (canonical === "area") return "areas";
+  if (canonical === "comment") return "comments";
+  if (canonical === "title-block") return "titleBlocks";
+  return "devices";
+}
+
+function writeRectToItem(item, device) {
+  item.x = roundNumber(device.x);
+  item.y = roundNumber(device.y);
+  item.width = roundNumber(device.width);
+  item.height = roundNumber(device.height);
+}
+
+function writeCommentPosition(item, device) {
+  const visual = device.visual || {};
+  const box = visual.box && typeof visual.box === "object"
+    ? visual.box
+    : { x: 0, y: 0, width: device.width, height: device.height };
+  const anchor = visual.anchor && typeof visual.anchor === "object"
+    ? visual.anchor
+    : null;
+  item.x = roundNumber(device.x + Number(box.x || 0));
+  item.y = roundNumber(device.y + Number(box.y || 0));
+  item.width = roundNumber(Number(box.width) || device.width);
+  item.height = roundNumber(Number(box.height) || device.height);
+  if (anchor) {
+    item.anchorX = roundNumber(device.x + Number(anchor.x || 0));
+    item.anchorY = roundNumber(device.y + Number(anchor.y || 0));
+  }
 }
 
 function validateJson(json) {

@@ -28,6 +28,10 @@ import {
   powerPlugDisplaySize,
   powerPlugImageForConnector
 } from "./powerDistroModel.js";
+import {
+  canvasObjectRenderPriority,
+  canonicalEngineObjectKind
+} from "./canvasObjectKinds.js";
 
 const SIZE_PRESETS = {
   small: { deviceCount: 100, wireCount: 300 },
@@ -51,6 +55,8 @@ const SLOT_HEIGHT = 54;
 const LEGACY_DEVICE_WIDTH = 380;
 const JUMP_NODE_SIZE = 44;
 const SURFACE_FALLBACK_HEIGHT = 120;
+const TITLE_BLOCK_BASE_WIDTH = 760;
+const TITLE_BLOCK_BASE_HEIGHT = 112;
 const CARD_SLOT_OVERRIDE_FIELDS = [
   "nameText",
   "nameCustom",
@@ -196,14 +202,26 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
   const nodeColorByType = collectNodeColors(root, data);
   const rawDevices = Array.isArray(root.devices) ? root.devices : [];
   const devices = rawDevices.map((device, index) => normalizeProjectDevice(device, index, templates, nodeColorByType));
+  const areaDevices = normalizeAreas(root.areas || []);
+  const imageDevices = normalizeImageObjects(root.imageObjects || root.images || []);
   const jumpDevices = normalizeJumpNodes(root.jumpNodes || []);
   const surfaceDevices = normalizeLedSurfaces(root.ledSurfaces || []);
+  const titleBlockDevices = normalizeTitleBlocks(root.titleBlocks || []);
+  const commentDevices = normalizeComments(root.comments || []);
   const surfaceConnectionOrder = buildSurfaceConnectionOrder(root.connections || []);
   const wireMode = root.wireMode === "orthogonal" ? "orthogonal" : "bezier";
   surfaceDevices.forEach(surface => {
     surface.portCount = Math.max(surface.portCount || 1, surfaceConnectionOrder.get(surface.id)?.length || 1);
   });
-  const allDevices = [...devices, ...jumpDevices, ...surfaceDevices];
+  const allDevices = [
+    ...areaDevices,
+    ...imageDevices,
+    ...surfaceDevices,
+    ...devices,
+    ...jumpDevices,
+    ...titleBlockDevices,
+    ...commentDevices
+  ].sort((a, b) => canvasObjectRenderPriority(a) - canvasObjectRenderPriority(b));
   const jumpNodeIds = new Set(jumpDevices.map(device => device.id));
   const surfaceIds = new Set(surfaceDevices.map(device => device.id));
   const deviceIds = new Set(allDevices.map(device => device.id));
@@ -256,6 +274,10 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
       realDevices: devices.length,
       jumpNodes: jumpDevices.length,
       ledSurfaces: surfaceDevices.length,
+      imageObjects: imageDevices.length,
+      areas: areaDevices.length,
+      comments: commentDevices.length,
+      titleBlocks: titleBlockDevices.length,
       projectName: root.projectName || data?.projectName || "",
       projectRootKind: data?.state ? "state" : data?.project ? "project" : "root",
       fullProjectAdapter: true,
@@ -270,6 +292,16 @@ export function normalizeAvDesignerDevice(data, instance, index = 0) {
   const templates = collectTemplates(root, data);
   const nodeColorByType = collectNodeColors(root, data);
   return normalizeProjectDevice(instance, index, templates, nodeColorByType);
+}
+
+export function normalizeEngineCanvasObject(kind, item, index = 0) {
+  const canonical = canonicalEngineObjectKind(kind);
+  if (canonical === "led-surface") return normalizeLedSurfaces([item])[0] || null;
+  if (canonical === "image-object") return normalizeImageObjects([item])[0] || null;
+  if (canonical === "area") return normalizeAreas([item])[0] || null;
+  if (canonical === "comment") return normalizeComments([item])[0] || null;
+  if (canonical === "title-block") return normalizeTitleBlocks([item])[0] || null;
+  return null;
 }
 
 function collectTemplates(root, data) {
@@ -758,11 +790,14 @@ function normalizeLedSurfaces(surfaces) {
   return surfaces.map((surface, index) => {
     const width = positiveNumber(surface.width) || positiveNumber(surface.naturalWidth) || 360;
     const height = positiveNumber(surface.height) || positiveNumber(surface.naturalHeight) || SURFACE_FALLBACK_HEIGHT;
+    const id = String(surface.id || `led-${index}`);
+    const naturalWidth = positiveNumber(surface.naturalWidth) || positiveNumber(surface.imageNaturalWidth);
+    const naturalHeight = positiveNumber(surface.naturalHeight) || positiveNumber(surface.imageNaturalHeight);
     return {
-      id: String(surface.id || `led-${index}`),
+      id,
       sourceKind: "ledSurface",
-      sourceId: String(surface.id || `led-${index}`),
-      kind: "surface",
+      sourceId: id,
+      kind: "led-surface",
       x: finiteNumber(surface.x, 0),
       y: finiteNumber(surface.y, 0),
       width,
@@ -772,8 +807,165 @@ function normalizeLedSurfaces(surfaces) {
       usesRealSize: Boolean(positiveNumber(surface.width) && positiveNumber(surface.height)),
       usesFallbackSize: !(positiveNumber(surface.width) && positiveNumber(surface.height)),
       color: "rgba(70, 70, 70, .65)",
+      visual: {
+        objectKind: "led-surface",
+        image: String(surface.image || surface.src || surface.href || "").trim(),
+        naturalWidth,
+        naturalHeight,
+        pixelWidth: positiveNumber(surface.pixelWidth) || positiveNumber(surface.pixelsWide) || positiveNumber(surface.resolutionWidth),
+        pixelHeight: positiveNumber(surface.pixelHeight) || positiveNumber(surface.pixelsHigh) || positiveNumber(surface.resolutionHeight),
+        physicalWidth: positiveNumber(surface.physicalWidth) || positiveNumber(surface.metersWide),
+        physicalHeight: positiveNumber(surface.physicalHeight) || positiveNumber(surface.metersHigh),
+        opacity: finiteNumber(surface.opacity, 1)
+      },
       connectors: [],
       portCount: Math.max(1, Number(surface.signalSlots) || 1)
+    };
+  });
+}
+
+function normalizeImageObjects(images) {
+  if (!Array.isArray(images)) return [];
+  return images.map((image, index) => {
+    const id = String(image.id || `image-${index}`);
+    const width = positiveNumber(image.width) || positiveNumber(image.naturalWidth) || 240;
+    const height = positiveNumber(image.height) || positiveNumber(image.naturalHeight) || 135;
+    return {
+      id,
+      sourceKind: "imageObject",
+      sourceId: id,
+      kind: "image-object",
+      x: finiteNumber(image.x, 0),
+      y: finiteNumber(image.y, 0),
+      width,
+      height,
+      label: image.name || image.label || `Image ${index + 1}`,
+      labelMapped: Boolean(image.name || image.label),
+      usesRealSize: Boolean(positiveNumber(image.width) && positiveNumber(image.height)),
+      usesFallbackSize: !(positiveNumber(image.width) && positiveNumber(image.height)),
+      color: "rgba(18, 28, 38, .72)",
+      visual: {
+        objectKind: "image-object",
+        image: String(image.image || image.src || image.href || "").trim(),
+        naturalWidth: positiveNumber(image.naturalWidth) || positiveNumber(image.imageNaturalWidth),
+        naturalHeight: positiveNumber(image.naturalHeight) || positiveNumber(image.imageNaturalHeight),
+        opacity: finiteNumber(image.opacity, 1)
+      },
+      connectors: [],
+      portCount: 0
+    };
+  });
+}
+
+function normalizeAreas(areas) {
+  if (!Array.isArray(areas)) return [];
+  return areas.map((area, index) => {
+    const id = String(area.id || `area-${index}`);
+    const width = positiveNumber(area.width) || 360;
+    const height = positiveNumber(area.height) || 220;
+    return {
+      id,
+      sourceKind: "area",
+      sourceId: id,
+      kind: "area",
+      x: finiteNumber(area.x, 0),
+      y: finiteNumber(area.y, 0),
+      width,
+      height,
+      label: area.name || "Area / Room",
+      notes: String(area.notes || ""),
+      locked: Boolean(area.locked),
+      labelMapped: Boolean(area.name),
+      usesRealSize: true,
+      usesFallbackSize: false,
+      color: area.backgroundColor || "#223544",
+      visual: {
+        objectKind: "area",
+        backgroundColor: area.backgroundColor || "#223544",
+        opacity: finiteNumber(area.opacity, 0.32),
+        textSize: positiveNumber(area.textSize) || 33
+      },
+      connectors: [],
+      portCount: 0
+    };
+  });
+}
+
+function normalizeComments(comments) {
+  if (!Array.isArray(comments)) return [];
+  return comments.map((comment, index) => {
+    const id = String(comment.id || `comment-${index}`);
+    const rawBox = {
+      x: finiteNumber(comment.x, 0),
+      y: finiteNumber(comment.y, 0),
+      width: positiveNumber(comment.width) || 180,
+      height: positiveNumber(comment.height) || 82
+    };
+    const anchor = normalizeCommentAnchor(comment, rawBox);
+    const leaderEnd = commentLeaderEnd(rawBox, anchor);
+    const bounds = unionBounds([rawBox, centeredObjectBounds(anchor, 8), centeredObjectBounds(leaderEnd, 8)]);
+    const padding = 18;
+    return {
+      id,
+      sourceKind: "comment",
+      sourceId: id,
+      kind: "comment",
+      x: bounds.x - padding,
+      y: bounds.y - padding,
+      width: bounds.width + padding * 2,
+      height: bounds.height + padding * 2,
+      label: comment.title || "Comment",
+      notes: String(comment.text || ""),
+      labelMapped: Boolean(comment.title),
+      usesRealSize: true,
+      usesFallbackSize: false,
+      color: comment.backgroundColor || "#18202a",
+      visual: {
+        objectKind: "comment",
+        title: comment.title || "Comment",
+        text: comment.text || "Double-click to edit",
+        textColor: comment.textColor || "#edf2f7",
+        backgroundColor: comment.backgroundColor || "rgba(8,13,20,.96)",
+        leaderColor: comment.leaderColor || "#28bdfd",
+        textSize: positiveNumber(comment.textSize) || 12,
+        box: offsetRect(rawBox, bounds.x - padding, bounds.y - padding),
+        anchor: offsetPoint(anchor, bounds.x - padding, bounds.y - padding),
+        leaderEnd: offsetPoint(leaderEnd, bounds.x - padding, bounds.y - padding)
+      },
+      connectors: [],
+      portCount: 0
+    };
+  });
+}
+
+function normalizeTitleBlocks(blocks) {
+  if (!Array.isArray(blocks)) return [];
+  return blocks.map((block, index) => {
+    const id = String(block.id || `title-block-${index}`);
+    const scale = titleBlockScale(block);
+    const width = positiveNumber(block.width) || TITLE_BLOCK_BASE_WIDTH * scale;
+    const height = positiveNumber(block.height) || TITLE_BLOCK_BASE_HEIGHT * scale;
+    return {
+      id,
+      sourceKind: "titleBlock",
+      sourceId: id,
+      kind: "title-block",
+      x: finiteNumber(block.x, 0),
+      y: finiteNumber(block.y, 0),
+      width,
+      height,
+      label: titleBlockValue(block, "title") || "Video Wirechart",
+      labelMapped: Boolean(titleBlockValue(block, "title")),
+      usesRealSize: true,
+      usesFallbackSize: false,
+      color: "rgba(15, 24, 32, .72)",
+      visual: {
+        objectKind: "title-block",
+        fields: deepClone(block.fields || {}),
+        logo: String(block.logo || block.companyLogo || "").trim()
+      },
+      connectors: [],
+      portCount: 0
     };
   });
 }
@@ -900,4 +1092,74 @@ function firstPositive(...values) {
     if (number) return number;
   }
   return 0;
+}
+
+function normalizeCommentAnchor(comment, box) {
+  if (comment?.anchor && Number.isFinite(Number(comment.anchor.x)) && Number.isFinite(Number(comment.anchor.y))) {
+    return { x: Number(comment.anchor.x), y: Number(comment.anchor.y) };
+  }
+  if (Number.isFinite(Number(comment?.anchorX)) && Number.isFinite(Number(comment?.anchorY))) {
+    return { x: Number(comment.anchorX), y: Number(comment.anchorY) };
+  }
+  return { x: box.x + box.width + 72, y: box.y - 32 };
+}
+
+function commentLeaderEnd(box, anchor) {
+  const left = box.x;
+  const right = box.x + box.width;
+  const top = box.y;
+  const bottom = box.y + box.height;
+  const clampedY = Math.max(top + 10, Math.min(bottom - 10, anchor.y));
+  const clampedX = Math.max(left + 10, Math.min(right - 10, anchor.x));
+  if (anchor.x < left) return { x: left, y: clampedY };
+  if (anchor.x > right) return { x: right, y: clampedY };
+  if (anchor.y < top) return { x: clampedX, y: top };
+  return { x: clampedX, y: bottom };
+}
+
+function centeredObjectBounds(point, size) {
+  const value = Math.max(1, Number(size) || 1);
+  return {
+    x: Number(point?.x) - value / 2,
+    y: Number(point?.y) - value / 2,
+    width: value,
+    height: value
+  };
+}
+
+function unionBounds(rects) {
+  const valid = (rects || []).filter(rect => rect && Number.isFinite(rect.x) && Number.isFinite(rect.y));
+  if (!valid.length) return { x: 0, y: 0, width: 1, height: 1 };
+  const x1 = Math.min(...valid.map(rect => rect.x));
+  const y1 = Math.min(...valid.map(rect => rect.y));
+  const x2 = Math.max(...valid.map(rect => rect.x + Math.max(1, rect.width || 1)));
+  const y2 = Math.max(...valid.map(rect => rect.y + Math.max(1, rect.height || 1)));
+  return { x: x1, y: y1, width: x2 - x1, height: y2 - y1 };
+}
+
+function offsetRect(rect, originX, originY) {
+  return {
+    x: rect.x - originX,
+    y: rect.y - originY,
+    width: rect.width,
+    height: rect.height
+  };
+}
+
+function offsetPoint(point, originX, originY) {
+  return {
+    x: point.x - originX,
+    y: point.y - originY
+  };
+}
+
+function titleBlockScale(block) {
+  const widthScale = positiveNumber(block?.width) / TITLE_BLOCK_BASE_WIDTH;
+  const heightScale = positiveNumber(block?.height) / TITLE_BLOCK_BASE_HEIGHT;
+  return Math.max(0.34, widthScale || heightScale || 1);
+}
+
+function titleBlockValue(block, key) {
+  const fields = block?.fields && typeof block.fields === "object" ? block.fields : {};
+  return String(fields[key] ?? block?.[key] ?? "").trim();
 }

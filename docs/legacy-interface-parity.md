@@ -241,6 +241,26 @@ Toolbar/panel polish should wait until core object visuals are stable. The
 current production toolbar is acceptable as a control shell while the Engine
 owns canvas editing.
 
+### Phase 11 - Canvas Objects
+
+Iteration 47 restores the main non-device canvas object path in Engine mode.
+The audited Legacy functions were `renderLedSurfaces(...)`,
+`showLedSurfaceContextMenu(...)`, `useLedSurfaceImageSize(...)`,
+`renderAreas(...)`, `renderComments(...)`, `commentLeaderEnd(...)`,
+`renderTitleBlocks(...)`, `titleBlockScale(...)`, and `drawTitleBlock(...)`.
+
+Engine now normalizes these objects as explicit canvas-object kinds instead of
+passing them through normal device, adapter, or Power Distro rendering:
+`led-surface`, `image-object`, `area`, `comment`, and `title-block`.
+Areas render behind wires/devices, LED/image objects preserve image aspect
+behavior, comments keep their leader geometry, and title blocks use the
+existing field/grid/logo layout with proportional scaling.
+
+Still delegated: the DOM inspector/editor forms, image-file picking, PDF/viewer
+output parity, and a first-class Legacy image-object inspector. Engine sync
+updates the affected object texture only; movement, selection, hover, pan, and
+zoom do not invalidate canvas-object textures.
+
 ## Engine Ownership Roadmap
 
 | Recommended iteration | Focus | Reason |

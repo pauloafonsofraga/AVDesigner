@@ -4612,8 +4612,8 @@
   </div>
 
   <script>
-    const APP_ITERATION = "46";
-    const APP_BUILD_ID = "iteration46";
+    const APP_ITERATION = "47";
+    const APP_BUILD_ID = "iteration47";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
     const DEBUG_LIBRARY_DRAG_ENABLED = INITIAL_URL_PARAMS.get("debugLibraryDrag") === "1";
@@ -67753,7 +67753,7 @@
         pushUndo();
         block.fields = { ...defaultTitleBlockData(), ...titleBlockDraft };
         closeTitleBlockEditor();
-        render();
+        syncCanvasObjectVisual("title-block", block.id, block, { fullLegacyRender: true });
         return;
       }
       const placementDraft = { ...titleBlockDraft };
@@ -72058,6 +72058,7 @@
           surface.height = Math.round(naturalHeight);
           state.selected = { type: "led-surface", id: surface.id };
           render();
+          activeEngineBridge()?.syncCanvasObjectFromProduction?.("led-surface", surface.id, surface);
         } catch (error) {
           alert("The replacement LED screen PNG could not be loaded.");
         }
@@ -72091,6 +72092,7 @@
       surface.height = Math.round(naturalHeight);
       state.selected = { type: "led-surface", id: surface.id };
       render();
+      activeEngineBridge()?.syncCanvasObjectFromProduction?.("led-surface", surface.id, surface);
     }
 
     const FACE_IMAGE_PADDING = 8;
@@ -76234,6 +76236,14 @@
         setStatus(statusSummary());
         updateDebugPanel("renderCanvas");
       }
+    }
+
+    function syncCanvasObjectVisual(kind, id, object, options = {}) {
+      const engineBridge = activeEngineBridge();
+      if (engineBridge?.syncCanvasObjectFromProduction?.(kind, id, object)) return true;
+      if (options.fullLegacyRender) render();
+      else renderCanvasOnly();
+      return false;
     }
 
     function connectionIdsFromResult(result) {
@@ -80618,7 +80628,7 @@
       }
       control.remove();
       commentEditor = null;
-      if (save) render();
+      if (save && comment) syncCanvasObjectVisual("comment", comment.id, comment, { fullLegacyRender: true });
     }
 
     function editAreaName(areaId) {
@@ -80660,7 +80670,7 @@
       }
       control.remove();
       areaEditor = null;
-      if (save) render();
+      if (save && area) syncCanvasObjectVisual("area", area.id, area, { fullLegacyRender: true });
     }
 
     function scheduleInlineEditorClose(event) {
@@ -82432,6 +82442,22 @@
         return;
       }
       if (!selection) return;
+      const engineBridge = activeEngineBridge();
+      if (engineBridge) {
+        const selectedItems = selection.type === "multi" ? (selection.items || []) : [selection];
+        const hasEngineWires = selectedItems.some(item => item?.type === "wire");
+        const hasEngineObjects = selectedItems.some(item => [
+          "device",
+          "led-surface",
+          "image-object",
+          "area",
+          "comment",
+          "title-block"
+        ].includes(item?.type));
+        if (hasEngineWires) engineBridge.deleteSelectedWires?.();
+        if (hasEngineObjects) engineBridge.deleteSelectedDevices?.();
+        if (hasEngineWires || hasEngineObjects) return;
+      }
       recordDebug(`delete ${selection.type}`);
       const beforeCustomTemplateCount = projectCustomDeviceTemplates().length;
       const beforeInstanceIds = new Set(state.devices.map(device => device.instanceId));
@@ -83983,7 +84009,15 @@
         const base = control.dataset.baseValue ?? current;
         const next = parsePositionValue(control.value, base, current);
         const engineBridge = activeEngineBridge();
-        const bridgeEligible = Boolean(engineBridge && movedSelection && ["device", "led-surface", "jump-node"].includes(movedSelection.type));
+        const bridgeEligible = Boolean(engineBridge && movedSelection && [
+          "device",
+          "led-surface",
+          "image-object",
+          "area",
+          "comment",
+          "title-block",
+          "jump-node"
+        ].includes(movedSelection.type));
         const bridgeHandled = bridgeEligible
           ? engineBridge.commitObjectPositionFieldFromInspector?.(movedSelection.id, key, next)
           : false;
@@ -84115,24 +84149,24 @@
       recordDebug("render comment inspector");
       document.getElementById("commentTitleInput").addEventListener("input", event => {
         comment.title = event.target.value;
-        renderCanvasOnly();
+        syncCanvasObjectVisual("comment", comment.id, comment);
       });
-      bindPositionInputs("comment", comment);
+      bindPositionInputs("comment", comment, { type: "comment", id: comment.id });
       bindLiveColor("commentTextColor", value => {
         comment.textColor = value;
-        renderCanvasOnly();
+        syncCanvasObjectVisual("comment", comment.id, comment);
       });
       bindLiveColor("commentBackgroundColor", value => {
         comment.backgroundColor = value;
-        renderCanvasOnly();
+        syncCanvasObjectVisual("comment", comment.id, comment);
       });
       bindLiveColor("commentLeaderColor", value => {
         comment.leaderColor = value;
-        renderCanvasOnly();
+        syncCanvasObjectVisual("comment", comment.id, comment);
       });
       bindIntegerCommitInput("commentTextSize", 7, 150, comment.textSize || 12, value => {
         comment.textSize = value;
-        renderCanvasOnly();
+        syncCanvasObjectVisual("comment", comment.id, comment);
       });
       document.getElementById("deleteSelected").addEventListener("click", () => {
         recordDebug("delete comment click");
@@ -84185,20 +84219,20 @@
       `;
       document.getElementById("areaNameInput").addEventListener("input", event => {
         area.name = event.target.value;
-        renderCanvasOnly();
+        syncCanvasObjectVisual("area", area.id, area);
       });
-      bindPositionInputs("area", area);
+      bindPositionInputs("area", area, { type: "area", id: area.id });
       document.getElementById("areaLockInput").addEventListener("change", event => {
         area.locked = event.target.checked;
-        render();
+        syncCanvasObjectVisual("area", area.id, area, { fullLegacyRender: true });
       });
       bindLiveColor("areaBackgroundColor", value => {
         area.backgroundColor = value;
-        renderCanvasOnly();
+        syncCanvasObjectVisual("area", area.id, area);
       });
       bindIntegerCommitInput("areaTextSize", 12, 150, area.textSize || 33, value => {
         area.textSize = value;
-        renderCanvasOnly();
+        syncCanvasObjectVisual("area", area.id, area);
       });
       document.getElementById("deleteSelected").addEventListener("click", () => {
         state.selected = { type: "area", id: areaId };
@@ -84220,7 +84254,7 @@
         <button class="tool-button" id="editTitleBlock" type="button">Edit Title Block</button>
         <button class="danger-button" id="deleteSelected" type="button">Delete Title Block</button>
       `;
-      bindPositionInputs("titleBlock", block);
+      bindPositionInputs("titleBlock", block, { type: "title-block", id: block.id });
       document.getElementById("editTitleBlock").addEventListener("click", () => openTitleBlockEditor(blockId));
       document.getElementById("deleteSelected").addEventListener("click", () => {
         state.selected = { type: "title-block", id: blockId };
@@ -87506,15 +87540,18 @@ fit();
         ? selection.wires.map(wire => wire.sourceId || wire.id).filter(Boolean)
         : selection.wireIds || [];
       const selectedConnectors = selection.connectorKeys || [];
+      const selectionTypeForEngineDevice = device => {
+        if (device.kind === "surface" || device.kind === "led-surface" || device.sourceKind === "ledSurface") return "led-surface";
+        if (device.kind === "image-object" || device.sourceKind === "imageObject") return "image-object";
+        if (device.kind === "area" || device.sourceKind === "area") return "area";
+        if (device.kind === "comment" || device.sourceKind === "comment") return "comment";
+        if (device.kind === "title-block" || device.sourceKind === "titleBlock") return "title-block";
+        if (device.kind === "jump" || device.sourceKind === "jumpNode") return "jump-node";
+        return "device";
+      };
       if (selectedDevices.length === 1 && !selectedWires.length && !selectedConnectors.length) {
         const device = selectedDevices[0];
-        if (device.kind === "surface" || device.sourceKind === "ledSurface") {
-          state.selected = { type: "led-surface", id: device.sourceId };
-        } else if (device.kind === "jump" || device.sourceKind === "jumpNode") {
-          state.selected = { type: "jump-node", id: device.sourceId };
-        } else {
-          state.selected = { type: "device", id: device.sourceId };
-        }
+        state.selected = { type: selectionTypeForEngineDevice(device), id: device.sourceId };
         renderInspector();
         return;
       }
@@ -87551,11 +87588,7 @@ fit();
         state.selected = {
           type: "multi",
           items: selectedDevices.map(device => ({
-            type: device.kind === "surface" || device.sourceKind === "ledSurface"
-              ? "led-surface"
-              : device.kind === "jump" || device.sourceKind === "jumpNode"
-                ? "jump-node"
-                : "device",
+            type: selectionTypeForEngineDevice(device),
             id: device.sourceId
           }))
         };
@@ -87592,6 +87625,10 @@ fit();
               }
               if (target.type === "led-surface") {
                 showLedSurfaceContextMenu(event, target.sourceId);
+                return;
+              }
+              if (target.type === "title-block") {
+                showTitleBlockContextMenu(event, target.sourceId);
                 return;
               }
               if (target.type === "wire") {

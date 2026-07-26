@@ -1,3 +1,5 @@
+import { isCanvasObjectKind, isLedSurfaceKind } from "./canvasObjectKinds.js";
+
 export function validateEngineScene(scene, projectData = null) {
   const start = performance.now();
   const errors = [];
@@ -6,18 +8,32 @@ export function validateEngineScene(scene, projectData = null) {
   const productionDevices = Array.isArray(root.devices) ? root.devices : [];
   const productionJumpNodes = Array.isArray(root.jumpNodes) ? root.jumpNodes : [];
   const productionSurfaces = Array.isArray(root.ledSurfaces) ? root.ledSurfaces : [];
+  const productionImages = Array.isArray(root.imageObjects) ? root.imageObjects : [];
+  const productionAreas = Array.isArray(root.areas) ? root.areas : [];
+  const productionComments = Array.isArray(root.comments) ? root.comments : [];
+  const productionTitleBlocks = Array.isArray(root.titleBlocks) ? root.titleBlocks : [];
   const productionConnections = Array.isArray(root.connections) ? root.connections : [];
   const sceneDevices = Array.isArray(scene?.devices) ? scene.devices : [];
   const sceneWires = Array.isArray(scene?.wires) ? scene.wires : [];
-  const productionObjectCount = productionDevices.length + productionJumpNodes.length + productionSurfaces.length;
+  const productionObjectCount = productionDevices.length
+    + productionJumpNodes.length
+    + productionSurfaces.length
+    + productionImages.length
+    + productionAreas.length
+    + productionComments.length
+    + productionTitleBlocks.length;
   const skippedWires = Number(scene?.meta?.skippedWires) || 0;
   const counts = {
     productionObjects: productionObjectCount,
     productionConnections: productionConnections.length,
     objects: sceneDevices.length,
-    devices: sceneDevices.filter(device => device.kind !== "jump" && device.kind !== "surface").length,
+    devices: sceneDevices.filter(device => device.kind !== "jump" && !isCanvasObjectKind(device)).length,
     jumpNodes: sceneDevices.filter(device => device.kind === "jump").length,
-    ledSurfaces: sceneDevices.filter(device => device.kind === "surface").length,
+    ledSurfaces: sceneDevices.filter(device => isLedSurfaceKind(device)).length,
+    imageObjects: sceneDevices.filter(device => device.kind === "image-object").length,
+    areas: sceneDevices.filter(device => device.kind === "area").length,
+    comments: sceneDevices.filter(device => device.kind === "comment").length,
+    titleBlocks: sceneDevices.filter(device => device.kind === "title-block").length,
     wires: sceneWires.length,
     routedWires: sceneWires.filter(wire => wire.routePoints?.length).length,
     routePoints: sceneWires.reduce((total, wire) => total + (wire.routePoints?.length || 0), 0),
@@ -96,7 +112,7 @@ function validateWire(scene, wire, errors, warnings, counts) {
 }
 
 function isVirtualSurfacePort(device, connectorId) {
-  return device?.kind === "surface" && String(connectorId || "").startsWith("surface-port-");
+  return isLedSurfaceKind(device) && String(connectorId || "").startsWith("surface-port-");
 }
 
 function validateSelection(scene, errors) {

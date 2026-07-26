@@ -23,12 +23,22 @@ import {
   hitTestWire,
   screenToWorld
 } from "./hitTest.js";
-import { normalizeAvDesignerDevice, normalizeAvDesignerProject } from "./projectAdapter.js";
+import {
+  normalizeAvDesignerDevice,
+  normalizeAvDesignerProject,
+  normalizeEngineCanvasObject
+} from "./projectAdapter.js";
 import { ProjectMutationAdapter } from "./projectMutations.js";
 import { WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
 import { PerfHud } from "./perfHud.js";
 import { validateEngineScene } from "./sceneValidation.js";
+import {
+  canonicalEngineObjectKind,
+  engineContextTargetType,
+  isCanvasObjectKind,
+  isJumpNodeKind
+} from "./canvasObjectKinds.js";
 import {
   buildPreviewOrthogonalInteriorPoints,
   createOrthogonalRouteModel,
@@ -94,6 +104,7 @@ class ProductionEngineBridge {
     this.routePointDrag = null;
     this.wireSegmentDrag = null;
     this.wireCreate = null;
+    this.resizeSession = null;
     this.marqueeState = null;
     this.marqueeElement = null;
     this.ctrlLeftClickContextMenuSuppression = null;
@@ -110,6 +121,7 @@ class ProductionEngineBridge {
     this.debugRouting = engineRoutingDebugEnabled();
     this.debugRewire = engineRewireDebugEnabled();
     this.debugCustomDevices = engineCustomDevicesDebugEnabled();
+    this.debugCanvasObjects = engineCanvasObjectsDebugEnabled();
     this.orthogonalTest = engineOrthogonalTestEnabled();
     this.lastCompatibilityTargetKey = "";
     this.renderOptions = {
@@ -227,6 +239,41 @@ class ProductionEngineBridge {
     this.hud?.setMetric("custom devices", step);
   }
 
+  logCanvasObjectDiagnostics(step, normalized = null) {
+    if (!this.debugCanvasObjects) return;
+    const canvasObjects = (this.scene.devices || []).filter(device => isCanvasObjectKind(device));
+    const counts = this.scene.adapterStats?.() || {};
+    const payload = {
+      step,
+      counts: {
+        ledSurfaces: counts.ledSurfaces || 0,
+        imageObjects: counts.imageObjects || 0,
+        areas: counts.areas || 0,
+        comments: counts.comments || 0,
+        titleBlocks: counts.titleBlocks || 0,
+        totalCanvasObjects: canvasObjects.length
+      },
+      normalizedMeta: {
+        dataSource: normalized?.meta?.dataSource,
+        sourceName: normalized?.meta?.sourceName,
+        adapterMs: normalized?.meta?.adapterMs
+      },
+      samples: canvasObjects.slice(0, 8).map(device => ({
+        id: device.id,
+        sourceId: device.sourceId,
+        kind: device.kind,
+        sourceKind: device.sourceKind,
+        x: device.x,
+        y: device.y,
+        width: device.width,
+        height: device.height,
+        connectors: device.connectors?.length || 0
+      }))
+    };
+    console.info("[engine-canvas-objects]", payload);
+    this.hud?.setMetric("canvas objects", `${payload.counts.totalCanvasObjects}`);
+  }
+
   canUndoEngineCommand() {
     return this.ready && this.commandIndex > 0;
   }
@@ -272,6 +319,7 @@ class ProductionEngineBridge {
       // points only. Pan, zoom, hover, and drag frames must keep using cached
       // engine buffers/textures and must not re-adapt the whole production app.
       this.scene.setData(normalized);
+      this.logCanvasObjectDiagnostics("refresh", normalized);
       this.mutations = new ProjectMutationAdapter(normalized, { cloneProjectData: false });
       this.commandHistory = [];
       this.commandIndex = 0;
@@ -471,6 +519,17 @@ class ProductionEngineBridge {
     const additiveSelection = isAdditiveSelectionModifier(event);
 
     const shouldHitDetails = this.shouldHitTestDetailTargets();
+    const resizeHit = this.hitTestCanvasObjectResizeHandle(world);
+    if (resizeHit) {
+      this.clearHoverState("canvas-object-resize", { render: false });
+      this.scene.selectOnly(resizeHit.device.id);
+      this.beginCanvasObjectResize(resizeHit, point, world);
+      this.updateSelectionHud();
+      this.updateInteractionHud("canvas-object-resize", resizeHit);
+      this.scheduleRender();
+      return;
+    }
+
     const routeHit = shouldHitDetails && this.renderOptions.routePoints
       ? this.hitTestEditableRoutePoint(world, tolerance * 1.2)
       : { routePoint: null, candidates: 0, ms: 0 };
@@ -582,7 +641,7 @@ class ProductionEngineBridge {
     }
     event.preventDefault();
     event.stopPropagation();
-    if (this.dragSession || this.pendingDrag || this.panState || this.routePointDrag || this.wireSegmentDrag || this.wireCreate || this.marqueeState) {
+    if (this.dragSession || this.pendingDrag || this.panState || this.routePointDrag || this.wireSegmentDrag || this.wireCreate || this.resizeSession || this.marqueeState) {
       this.cancelActiveInteraction("context-menu", { updateHud: false });
     }
     const target = this.contextMenuTarget(event);
@@ -618,6 +677,14 @@ class ProductionEngineBridge {
       this.camera.x = this.panState.startCamera.x - dx;
       this.camera.y = this.panState.startCamera.y - dy;
       this.clearHoverState("panning", { render: false });
+      this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
+      this.scheduleRender();
+      return;
+    }
+    if (this.resizeSession) {
+      const start = performance.now();
+      this.updateCanvasObjectResize(screenToWorld(this.camera, point));
+      this.hud.setMetric("resizeDraw", `${(performance.now() - start).toFixed(3)} ms`);
       this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
       this.scheduleRender();
       return;
@@ -785,6 +852,9 @@ class ProductionEngineBridge {
       this.canvas.classList.remove("panning");
       this.updateCanvasCursor();
     }
+    if (this.resizeSession) {
+      this.completeCanvasObjectResize();
+    }
     if (this.routePointDrag) {
       const commitStart = performance.now();
       const { wireId, beforePoints, moved } = this.routePointDrag;
@@ -859,7 +929,7 @@ class ProductionEngineBridge {
   }
 
   handleLostPointerCapture() {
-    if (!this.dragSession && !this.pendingDrag && !this.panState && !this.routePointDrag && !this.wireSegmentDrag && !this.wireCreate && !this.marqueeState) return;
+    if (!this.dragSession && !this.pendingDrag && !this.panState && !this.routePointDrag && !this.wireSegmentDrag && !this.wireCreate && !this.resizeSession && !this.marqueeState) return;
     this.cancelActiveInteraction("lost-pointer-capture");
     this.scheduleRender();
   }
@@ -900,7 +970,7 @@ class ProductionEngineBridge {
       return;
     }
     if (event.key !== "Escape") return;
-    if (this.wireCreate || this.routePointDrag || this.wireSegmentDrag || this.marqueeState || this.dragSession || this.pendingDrag || this.panState) {
+    if (this.wireCreate || this.resizeSession || this.routePointDrag || this.wireSegmentDrag || this.marqueeState || this.dragSession || this.pendingDrag || this.panState) {
       consumeEngineShortcut(event);
       this.cancelActiveInteraction("cancelled");
       this.scheduleRender();
@@ -1028,6 +1098,118 @@ class ProductionEngineBridge {
     if (clearedWireEditSelection) this.updateSelectionHud();
     this.captureDebugDragTrace();
     this.scheduleRender();
+  }
+
+  hitTestCanvasObjectResizeHandle(world) {
+    if (!world || !this.scene.selectedIds.size) return null;
+    const tolerance = this.hitToleranceWorld(14);
+    const selectedIds = [...this.scene.selectedIds].reverse();
+    let best = null;
+    selectedIds.forEach(id => {
+      const device = this.scene.getDevice(id);
+      if (!device || !isCanvasObjectKind(device)) return;
+      canvasObjectResizeHandles(device).forEach(handle => {
+        const dx = world.x - handle.x;
+        const dy = world.y - handle.y;
+        const distance = Math.hypot(dx, dy);
+        if (distance > tolerance) return;
+        if (!best || distance < best.distance) {
+          best = { device, handle: handle.handle, point: { x: handle.x, y: handle.y }, distance };
+        }
+      });
+    });
+    return best;
+  }
+
+  beginCanvasObjectResize(hit, screenPoint, worldPoint) {
+    const device = hit?.device;
+    if (!device || !isCanvasObjectKind(device)) return false;
+    const before = canvasObjectGeometryState(device);
+    const fixed = oppositeResizeAnchor(before, hit.handle);
+    this.resizeSession = {
+      deviceId: device.id,
+      kind: device.kind,
+      handle: hit.handle,
+      fixed,
+      startScreen: screenPoint ? { ...screenPoint } : null,
+      startWorld: worldPoint ? { ...worldPoint } : null,
+      before,
+      affectedWireIds: [...this.scene.affectedWireIdsForObjects([device.id])],
+      aspectLocked: device.kind === "title-block",
+      aspect: before.width / Math.max(1, before.height),
+      minSize: canvasObjectMinSize(device),
+      moved: false
+    };
+    this.canvas.classList.add("dragging", "resizing");
+    this.updateCanvasCursor();
+    return true;
+  }
+
+  updateCanvasObjectResize(worldPoint) {
+    const session = this.resizeSession;
+    if (!session || !worldPoint) return false;
+    const rect = resizeRectForPointer(session, worldPoint);
+    const moved = this.scene.resizeCanvasObject(session.deviceId, rect, { refreshIndexes: false });
+    if (moved?.moved) session.moved = true;
+    const dirtyStats = this.renderer.updateDirty(this.scene, {
+      deviceIds: [session.deviceId],
+      wireIds: session.affectedWireIds,
+      refreshCableHops: false
+    });
+    this.lastDirtyDeviceIds = new Set([session.deviceId]);
+    this.lastDirtyWireIds = new Set(session.affectedWireIds);
+    this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.recordDirtyVisualMetrics(dirtyStats, "canvas object resize");
+    this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+    this.hud.setMetric("dirty counts", `${dirtyStats.dirtyDevices} dev / ${dirtyStats.dirtyWires} wires`);
+    return true;
+  }
+
+  completeCanvasObjectResize() {
+    const session = this.resizeSession;
+    if (!session) return false;
+    const start = performance.now();
+    const device = this.scene.getDevice(session.deviceId);
+    if (!device || !session.moved) {
+      this.cancelCanvasObjectResize("resize noop");
+      return false;
+    }
+    const after = canvasObjectGeometryState(device);
+    this.scene.refreshMovedDeviceIndexes([session.deviceId], session.affectedWireIds);
+    this.beginProductionCommit(`resize ${session.kind}`);
+    const mutationMs = this.mutations?.commitDevicePositions(this.scene, [session.deviceId]) || 0;
+    const dirtyStats = this.renderer.updateDirty(this.scene, {
+      deviceIds: [session.deviceId],
+      wireIds: session.affectedWireIds
+    });
+    this.lastDirtyDeviceIds = new Set([session.deviceId]);
+    this.lastDirtyWireIds = new Set(session.affectedWireIds);
+    this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.resizeSession = null;
+    this.canvas.classList.remove("dragging", "resizing");
+    this.clearHoverState("resize-complete", { render: false });
+    this.updateCanvasCursor();
+    this.recordDirtyVisualMetrics(dirtyStats, "resize final");
+    this.markCommitted(`resize ${after.kind}`, mutationMs);
+    this.recordCommand(resizeCanvasObjectCommand(session.before, after));
+    this.updateSelectionHud();
+    this.updateInteractionHud("idle");
+    this.hud.setMetric("resize commit", `${(performance.now() - start).toFixed(2)} ms`);
+    return true;
+  }
+
+  cancelCanvasObjectResize(reason = "cancelled") {
+    const session = this.resizeSession;
+    if (!session) return false;
+    this.applyCanvasObjectGeometry(session.before, { commit: false, label: `resize cancel ${reason}` });
+    this.resizeSession = null;
+    this.canvas?.classList.remove("dragging", "resizing");
+    this.updateCanvasCursor();
+    return true;
   }
 
   captureDebugDragTrace() {
@@ -1478,6 +1660,7 @@ class ProductionEngineBridge {
   }
 
   cancelActiveInteraction(reason = "cancelled", { updateHud = true } = {}) {
+    this.cancelCanvasObjectResize(reason);
     this.cancelWireSegmentDrag(reason);
     this.cancelRoutePointDrag(reason);
     this.pendingDrag = null;
@@ -1490,7 +1673,7 @@ class ProductionEngineBridge {
       this.wireCreate = null;
     }
     this.cancelMarquee(reason, { updateCursor: false, render: false });
-    this.canvas?.classList.remove("dragging", "panning", "wire-creating");
+    this.canvas?.classList.remove("dragging", "panning", "wire-creating", "resizing");
     this.clearHoverState(reason, { render: false });
     this.updateCanvasCursor();
     if (updateHud) this.updateInteractionHud(reason);
@@ -1657,13 +1840,8 @@ class ProductionEngineBridge {
 
   contextMenuObjectTarget(device) {
     if (!device) return null;
-    const sourceKind = device.sourceKind || device.kind || "device";
     return {
-      type: sourceKind === "ledSurface" || device.kind === "surface"
-        ? "led-surface"
-        : sourceKind === "jumpNode" || device.kind === "jump"
-          ? "jump-node"
-          : "device",
+      type: engineContextTargetType(device),
       sourceId: device.sourceId || device.id,
       engineDeviceId: device.id
     };
@@ -2286,6 +2464,44 @@ class ProductionEngineBridge {
     this.hud?.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
     this.updateSelectionHud();
     this.updateInteractionHud("device-sync");
+    this.scheduleRender();
+    return true;
+  }
+
+  syncCanvasObjectFromProduction(kind, objectId, objectData = null) {
+    if (!this.ready) return false;
+    const objectKind = canonicalEngineObjectKind(kind);
+    if (!isCanvasObjectKind(objectKind)) return false;
+    const sourceId = String(objectId || objectData?.id || "");
+    const entry = objectData
+      ? { item: objectData, index: 0 }
+      : this.mutations?.sceneObjectMap?.(objectKind)?.get(sourceId);
+    if (!sourceId || !entry?.item) {
+      this.hud?.setMetric("canvas object sync", `missing ${objectKind}:${sourceId}`);
+      return false;
+    }
+    const previous = this.resolveDeviceBySourceId(sourceId);
+    const normalized = normalizeEngineCanvasObject(objectKind, entry.item, entry.index);
+    if (!normalized) return false;
+    const device = previous
+      ? this.scene.replaceDevice({ ...normalized, id: previous.id })
+      : this.scene.insertDevice(normalized);
+    if (!device) return false;
+    const affectedWireIds = [...this.scene.affectedWireIdsForObjects([device.id])];
+    const dirtyStats = this.renderer.updateDirty(this.scene, {
+      deviceIds: [device.id],
+      wireIds: affectedWireIds,
+      refreshCableHops: false
+    });
+    this.lastDirtyDeviceIds = new Set([device.id]);
+    this.lastDirtyWireIds = new Set(affectedWireIds);
+    this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.hud?.setMetric("canvas object sync", `${objectKind}:${sourceId}`);
+    this.hud?.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+    this.updateSelectionHud();
+    this.updateInteractionHud("canvas-object-sync");
     this.scheduleRender();
     return true;
   }
@@ -3079,6 +3295,48 @@ class ProductionEngineBridge {
     return { mutationMs, dirtyStats };
   }
 
+  applyCanvasObjectGeometry(state = {}, { commit = true, label = "canvas object geometry" } = {}) {
+    const id = String(state?.id || "");
+    const device = this.scene.getDevice(id);
+    if (!device || !isCanvasObjectKind(device)) return { mutationMs: 0 };
+    device.x = Number(state.x) || 0;
+    device.y = Number(state.y) || 0;
+    device.width = Math.max(12, Number(state.width) || device.width || 12);
+    device.height = Math.max(12, Number(state.height) || device.height || 12);
+    if (state.visual && typeof state.visual === "object") {
+      device.visual = deepClone(state.visual);
+    } else {
+      device.visual = {
+        ...(device.visual || {}),
+        width: device.width,
+        height: device.height
+      };
+    }
+    this.scene.dirtyDevices.add(id);
+    this.scene.dirtyTextures.add(id);
+    const affectedWireIds = [...this.scene.affectedWireIdsForObjects([id])];
+    affectedWireIds.forEach(wireId => this.scene.dirtyWires.add(wireId));
+    this.scene.refreshMovedDeviceIndexes([id], affectedWireIds);
+    const mutationMs = commit ? this.mutations?.commitDevicePositions(this.scene, [id]) || 0 : 0;
+    const dirtyStats = this.renderer.updateDirty(this.scene, {
+      deviceIds: [id],
+      wireIds: affectedWireIds,
+      refreshCableHops: commit
+    });
+    this.lastDirtyDeviceIds = new Set([id]);
+    this.lastDirtyWireIds = new Set(affectedWireIds);
+    this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+    this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
+    this.recordDirtyVisualMetrics(dirtyStats, label);
+    this.updateSelectionHud();
+    this.updateInteractionHud(label);
+    this.scheduleRender();
+    return { mutationMs, dirtyStats };
+  }
+
   applyWireRouteStates(routeStates = [], { refreshIndexes = true } = {}) {
     const ids = [];
     (routeStates || []).forEach(state => {
@@ -3382,6 +3640,10 @@ class ProductionEngineBridge {
   }
 
   restoreCreatedDevice(deviceData, index = null, { select = true, recordMetric = true } = {}) {
+    const objectKind = String(deviceData?.__engineObjectKind || "");
+    if (objectKind) {
+      return this.restoreCreatedSceneObject(objectKind, deviceData.data || deviceData.objectData, index, { select, recordMetric });
+    }
     const id = String(deviceData?.instanceId || deviceData?.id || "");
     if (!id) return { mutationMs: 0, device: null };
     if (this.scene.getDevice(id)) return { mutationMs: 0, device: this.scene.getDevice(id) };
@@ -3414,6 +3676,30 @@ class ProductionEngineBridge {
     return { mutationMs: mutationResult.mutationMs || 0, dirtyStats, device };
   }
 
+  restoreCreatedSceneObject(kind, objectData, index = null, { select = true, recordMetric = true } = {}) {
+    const objectKind = canonicalEngineObjectKind(kind);
+    const id = String(objectData?.id || "");
+    if (!objectKind || !id) return { mutationMs: 0, device: null };
+    if (this.scene.getDevice(id)) return { mutationMs: 0, device: this.scene.getDevice(id) };
+    const mutationResult = this.mutations?.restoreSceneObject(objectKind, objectData, index) || { mutationMs: 0 };
+    const normalized = normalizeEngineCanvasObject(objectKind, objectData, Number.isInteger(index) ? index : 0);
+    const device = this.scene.insertDevice(normalized);
+    if (!device) return { mutationMs: mutationResult.mutationMs || 0, device: null };
+    const dirtyStats = this.renderer.appendDevice(this.scene, device.id);
+    this.lastDirtyDeviceIds = new Set([device.id]);
+    this.lastDirtyWireIds = new Set();
+    this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    if (select) this.scene.selectOnly(device.id);
+    if (recordMetric) {
+      this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+      this.hud.setMetric("gpu update", "canvas object restore");
+      this.recordDirtyVisualMetrics(dirtyStats, `restore ${objectKind}`);
+    }
+    return { mutationMs: mutationResult.mutationMs || 0, dirtyStats, device };
+  }
+
   removeCreatedDevice(deviceId) {
     const id = String(deviceId || "");
     const device = this.scene.getDevice(id);
@@ -3423,6 +3709,38 @@ class ProductionEngineBridge {
         reason: device ? "not placed device" : "missing scene device"
       });
       return { mutationMs: 0, deviceData: null, index: -1 };
+    }
+    if (isCanvasObjectKind(device)) {
+      const mutationResult = this.mutations?.removeSceneObject(device) || {
+        mutationMs: 0,
+        objectData: null,
+        objectKind: canonicalEngineObjectKind(device),
+        index: -1
+      };
+      const removed = this.scene.deleteDevice(id);
+      if (!removed) {
+        return {
+          mutationMs: mutationResult.mutationMs || 0,
+          deviceData: sceneObjectUndoPayload(mutationResult.objectKind, mutationResult.objectData),
+          index: mutationResult.index
+        };
+      }
+      const dirtyStats = this.renderer.removeDevice(this.scene, id);
+      this.lastDirtyDeviceIds = new Set([id]);
+      this.lastDirtyWireIds = new Set();
+      this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+      this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+      this.renderer.setRenderOptions(this.renderOptions);
+      this.scene.clearSelection();
+      this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+      this.hud.setMetric("gpu update", "canvas object remove");
+      this.recordDirtyVisualMetrics(dirtyStats, `remove ${mutationResult.objectKind}`);
+      return {
+        mutationMs: mutationResult.mutationMs || 0,
+        dirtyStats,
+        deviceData: sceneObjectUndoPayload(mutationResult.objectKind, mutationResult.objectData),
+        index: mutationResult.index
+      };
     }
     const sourceId = String(device?.sourceId || id);
     if (!sourceId || !this.mutations?.deviceById?.has(sourceId)) {
@@ -3451,6 +3769,16 @@ class ProductionEngineBridge {
       deviceData: mutationResult.deviceData,
       index: mutationResult.index
     };
+  }
+
+  productionIndexForSceneObject(device) {
+    if (!device) return -1;
+    if (isCanvasObjectKind(device)) {
+      const sourceId = String(device.sourceId || device.id);
+      const kind = canonicalEngineObjectKind(device);
+      return this.mutations?.sceneObjectMap?.(kind)?.get(sourceId)?.index ?? -1;
+    }
+    return this.mutations?.deviceById?.get(String(device.sourceId || device.id))?.index ?? -1;
   }
 
   restoreWire(wireData, connectionData) {
@@ -3519,7 +3847,7 @@ class ProductionEngineBridge {
     // Remove later-indexed project devices first so captured indexes can be
     // restored exactly during undo without shifting lower entries.
     const deleteOrder = ids
-      .map(id => ({ id, index: this.mutations?.deviceById?.get(String(this.scene.getDevice(id)?.sourceId || id))?.index ?? -1 }))
+      .map(id => ({ id, index: this.productionIndexForSceneObject(this.scene.getDevice(id)) }))
       .sort((a, b) => b.index - a.index)
       .map(item => item.id);
     deleteOrder.forEach(deviceId => {
@@ -3865,6 +4193,9 @@ class ProductionEngineBridge {
     if (!this.ready) {
       cursor = "wait";
       cursorState = "loading";
+    } else if (this.resizeSession) {
+      cursor = resizeCursorForHandle(this.resizeSession.handle);
+      cursorState = "resizing";
     } else if (this.panState || this.dragSession || this.routePointDrag || this.wireSegmentDrag) {
       cursor = "grabbing";
       cursorState = this.panState ? "panning" : "dragging";
@@ -4521,6 +4852,7 @@ function engineDebugHudEnabled() {
     || params.get("debugDeviceTexture") === "1"
     || params.get("debugPowerDistro") === "1"
     || params.get("debugRewire") === "1"
+    || params.get("debugCanvasObjects") === "1"
     || params.get("orthogonalTest") === "1";
 }
 
@@ -4553,8 +4885,85 @@ function engineCustomDevicesDebugEnabled() {
   return params.get("debugCustomDevices") === "1" || params.get("debugLibraryDrag") === "1" || params.get("debugCustomIdentity") === "1";
 }
 
+function engineCanvasObjectsDebugEnabled() {
+  return new URLSearchParams(window.location.search).get("debugCanvasObjects") === "1";
+}
+
 function engineOrthogonalTestEnabled() {
   return new URLSearchParams(window.location.search).get("orthogonalTest") === "1";
+}
+
+function canvasObjectResizeHandles(device) {
+  if (!device) return [];
+  const left = Number(device.x) || 0;
+  const top = Number(device.y) || 0;
+  const right = left + (Number(device.width) || 0);
+  const bottom = top + (Number(device.height) || 0);
+  return [
+    { handle: "nw", x: left, y: top },
+    { handle: "ne", x: right, y: top },
+    { handle: "sw", x: left, y: bottom },
+    { handle: "se", x: right, y: bottom }
+  ];
+}
+
+function canvasObjectGeometryState(device) {
+  return {
+    id: String(device?.id || ""),
+    kind: canonicalEngineObjectKind(device),
+    x: Number(device?.x) || 0,
+    y: Number(device?.y) || 0,
+    width: Math.max(12, Number(device?.width) || 12),
+    height: Math.max(12, Number(device?.height) || 12),
+    visual: deepClone(device?.visual || {})
+  };
+}
+
+function oppositeResizeAnchor(rect, handle) {
+  const left = Number(rect.x) || 0;
+  const top = Number(rect.y) || 0;
+  const right = left + (Number(rect.width) || 0);
+  const bottom = top + (Number(rect.height) || 0);
+  if (handle === "nw") return { x: right, y: bottom };
+  if (handle === "ne") return { x: left, y: bottom };
+  if (handle === "sw") return { x: right, y: top };
+  return { x: left, y: top };
+}
+
+function canvasObjectMinSize(device) {
+  if (device?.kind === "title-block") return { width: 120, height: 18 };
+  if (device?.kind === "comment") return { width: 72, height: 38 };
+  if (device?.kind === "area") return { width: 80, height: 48 };
+  return { width: 24, height: 24 };
+}
+
+function resizeRectForPointer(session, worldPoint) {
+  const handle = session.handle || "se";
+  const fixed = session.fixed || { x: session.before.x, y: session.before.y };
+  const min = session.minSize || { width: 12, height: 12 };
+  const west = handle.includes("w");
+  const north = handle.includes("n");
+  let width = west ? fixed.x - worldPoint.x : worldPoint.x - fixed.x;
+  let height = north ? fixed.y - worldPoint.y : worldPoint.y - fixed.y;
+  width = Math.max(min.width, width);
+  height = Math.max(min.height, height);
+  if (session.aspectLocked) {
+    const before = session.before || { width, height };
+    const minScale = Math.max(min.width / Math.max(1, before.width), min.height / Math.max(1, before.height));
+    const scale = Math.max(width / Math.max(1, before.width), height / Math.max(1, before.height), minScale);
+    width = Math.max(min.width, before.width * scale);
+    height = Math.max(min.height, before.height * scale);
+  }
+  return {
+    x: west ? fixed.x - width : fixed.x,
+    y: north ? fixed.y - height : fixed.y,
+    width,
+    height
+  };
+}
+
+function resizeCursorForHandle(handle) {
+  return handle === "nw" || handle === "se" ? "nwse-resize" : "nesw-resize";
 }
 
 function engineLayerDebugRenderOptions(enabled) {
@@ -4642,8 +5051,8 @@ function captureEngineSelection(scene) {
 
 function isEngineDeletableDevice(device) {
   if (!device) return false;
-  if (device.kind === "jump" || device.kind === "surface") return false;
-  if (device.sourceKind === "jumpNode" || device.sourceKind === "ledSurface") return false;
+  if (isJumpNodeKind(device)) return false;
+  if (isCanvasObjectKind(device)) return true;
   return device.sourceKind === "device"
     || device.kind === "device"
     || device.kind === "adapter"
@@ -4652,14 +5061,11 @@ function isEngineDeletableDevice(device) {
 
 function isMarqueeSelectableDevice(device) {
   if (!device) return false;
+  if (isCanvasObjectKind(device) || isJumpNodeKind(device)) return true;
   return device.kind === "device"
     || device.kind === "adapter"
     || device.kind === "power-distro"
-    || device.kind === "surface"
-    || device.kind === "jump"
-    || device.sourceKind === "device"
-    || device.sourceKind === "ledSurface"
-    || device.sourceKind === "jumpNode";
+    || device.sourceKind === "device";
 }
 
 function clamp(value, min, max) {
@@ -4776,6 +5182,16 @@ function moveDevicesCommand(beforePositions, afterPositions, beforeRouteStates =
     ]),
     undo: bridge => bridge.applyDevicePositions(beforePositions, beforeRouteStates),
     redo: bridge => bridge.applyDevicePositions(afterPositions, afterRouteStates)
+  };
+}
+
+function resizeCanvasObjectCommand(beforeState, afterState) {
+  const id = String(afterState?.id || beforeState?.id || "");
+  return {
+    type: `ResizeCanvasObjectCommand (${afterState?.kind || beforeState?.kind || "object"})`,
+    affectedIds: [id].filter(Boolean),
+    undo: bridge => bridge.applyCanvasObjectGeometry(beforeState, { label: "undo resize canvas object" }),
+    redo: bridge => bridge.applyCanvasObjectGeometry(afterState, { label: "redo resize canvas object" })
   };
 }
 
@@ -5149,6 +5565,14 @@ function commandTargetMs(command) {
 
 function deepClone(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
+}
+
+function sceneObjectUndoPayload(kind, objectData) {
+  if (!objectData) return null;
+  return {
+    __engineObjectKind: canonicalEngineObjectKind(kind),
+    data: deepClone(objectData)
+  };
 }
 
 function cloneWire(wire) {

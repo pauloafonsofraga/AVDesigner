@@ -934,6 +934,38 @@ Deliberately unchanged: DOM Power Distro editor internals, manual plug drag
 inside the editor, destructive wired-outlet prompts, Rack Builder, Matrix
 Routing, PDF/viewer/report output rendering, and project save format.
 
+### Iteration 47 — LED, Image, Area, Comment, And Title-Block Objects
+
+Engine mode now treats the main non-device canvas objects as their own scene
+objects instead of normal devices:
+
+- `led-surface` preserves loaded PNG/image href, natural image size,
+  configured object size, physical/pixel metadata, and virtual surface ports;
+- `image-object` is normalized separately for future first-class image surface
+  support;
+- `area` renders as a low-priority background object behind wires and devices,
+  with fill, opacity, and caption metadata;
+- `comment` keeps its text box, anchor, leader endpoint, title/body text,
+  colors, and text-size metadata;
+- `title-block` keeps the Legacy title-block grid, fields, logo, and
+  proportional scale data.
+
+The Engine bridge can now sync a single canvas object from production after
+Legacy DOM UI actions such as LED image replacement, `Use image size`, comment
+edits, area edits, and title-block edits. Delete selection in Engine mode also
+routes these objects through Engine commands so the scene graph, texture cache,
+selection, and production project data stay aligned.
+
+Texture invalidation remains object-scoped: object visual edits invalidate only
+that object texture, while position-only changes, pan, zoom, hover, and
+selection stay on the live overlay path. Resize handles are rendered as live
+selection overlays rather than baked into object textures.
+
+Deliberately unchanged: viewer/PDF/report output rendering, Rack Builder,
+Matrix Routing, DOM editor controls, and project save format. Image objects are
+supported in the Engine data path, but the current Legacy UI still does not
+expose a standalone image-object inspector.
+
 ### Iteration 46+ — Continue Interface Roadmap
 
 Follow the detailed order in

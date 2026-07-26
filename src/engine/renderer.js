@@ -10,6 +10,7 @@ import {
   adapterInternalBezierGeometry,
   adapterInternalWirePairs
 } from "./adapterMapping.js";
+import { isCanvasObjectKind, isLedSurfaceKind } from "./canvasObjectKinds.js";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -732,6 +733,9 @@ export class WebglGraphRenderer {
     this.drawGrid(camera);
     frameStats.gridMs = performance.now() - sectionStart;
     const layerTrace = this.beginLayerTrace(scene, dragSession, renderOptions, { selectedWireIds, hoveredWireId });
+    sectionStart = performance.now();
+    this.drawTextureDevices(scene, camera, renderOptions, dragSession, layerTrace, device => device.kind === "area");
+    frameStats.backgroundObjectMs = performance.now() - sectionStart;
     if (renderOptions.wires && !renderOptions.hideStaticWires) {
       sectionStart = performance.now();
       this.drawStaticWires(dragSession, layerTrace, staticSuppressedWireIds);
@@ -753,7 +757,7 @@ export class WebglGraphRenderer {
     this.drawObjectGlows(scene, camera, renderOptions, dragSession, options, layerTrace);
     frameStats.objectGlowMs = performance.now() - sectionStart;
     sectionStart = performance.now();
-    this.drawTextureDevices(scene, camera, renderOptions, dragSession, layerTrace);
+    this.drawTextureDevices(scene, camera, renderOptions, dragSession, layerTrace, device => device.kind !== "area");
     frameStats.textureDrawMs = performance.now() - sectionStart;
     const liveVertices = [];
     const liveBuildStart = performance.now();
@@ -1142,7 +1146,7 @@ export class WebglGraphRenderer {
     }
   }
 
-  drawTextureDevices(scene, camera, renderOptions, dragSession = null, layerTrace = null) {
+  drawTextureDevices(scene, camera, renderOptions, dragSession = null, layerTrace = null, deviceFilter = null) {
     const start = performance.now();
     if (renderOptions.hideTextureLayer || !renderOptions.textureCacheEnabled || !renderOptions.texturedDevices) {
       this.lastTextureDrawStats = { drawMs: 0, drawCalls: 0, quads: 0, missing: 0, lodSkipped: 0 };
@@ -1186,6 +1190,7 @@ export class WebglGraphRenderer {
     };
 
     visibleDevices(scene, camera, this.resolution).forEach(device => {
+      if (deviceFilter && !deviceFilter(device)) return;
       if (selected.has(device.id)) {
         this.recordObjectLayer(layerTrace, device.id, "textureLayer", "skipped-during-drag");
         return;
@@ -1196,6 +1201,7 @@ export class WebglGraphRenderer {
       dragSession.selectedIds.forEach(id => {
         const device = scene.getDevice(id);
         if (!device || device.kind === "jump") return;
+        if (deviceFilter && !deviceFilter(device)) return;
         addDevice(device, "drawn-moving-texture", dragOffsets);
       });
     }
@@ -1742,7 +1748,7 @@ function pushDevice(vertices, device, offsets = null, selected = false, options 
     pushDashedBoxOutline(vertices, { x, y, width: device.width, height: device.height }, 3, "#32b6ff", 9, 6);
     return;
   }
-  const fill = device.kind === "surface"
+  const fill = isLedSurfaceKind(device)
       ? "rgba(75, 75, 75, .72)"
       : device.color || DEVICE_FILL;
   pushRect(vertices, x, y, device.width, device.height, fill);
@@ -1867,6 +1873,9 @@ function pushSelectionOutline(vertices, device, offsets = null) {
     { expand: 2.1, width: 1.5, color: "rgba(251,121,4,.62)" },
     { expand: 3.6, width: 0.85, color: "rgba(251,121,4,.24)" }
   ]);
+  if (isCanvasObjectKind(device)) {
+    pushCanvasObjectResizeHandles(vertices, device, offsets);
+  }
 }
 
 function pushHoverOutline(vertices, device, offsets = null) {
@@ -1908,6 +1917,23 @@ function pushObjectOutline(vertices, device, offsets = null, layers = []) {
     };
     const radius = (device.kind === "adapter" ? LEGACY_ADAPTER_RADIUS : LEGACY_DEVICE_RADIUS) + layer.expand;
     pushRoundedBoxOutline(vertices, rect, radius, layer.width, layer.color);
+  });
+}
+
+function pushCanvasObjectResizeHandles(vertices, device, offsets = null) {
+  const offset = offsets?.get(device.id);
+  const x = device.x + (offset?.dx || 0);
+  const y = device.y + (offset?.dy || 0);
+  const width = device.width || 0;
+  const height = device.height || 0;
+  [
+    { x, y },
+    { x: x + width, y },
+    { x: x + width, y: y + height },
+    { x, y: y + height }
+  ].forEach(point => {
+    pushCircle(vertices, point, 6, "rgba(251,121,4,.95)", 18);
+    pushCircleOutline(vertices, point, 7.5, 1.5, "#ffffff", 18);
   });
 }
 
@@ -2682,7 +2708,7 @@ function uploadOverlayTexture(gl, source) {
 function deviceVisible(device, options = DEFAULT_RENDER_OPTIONS) {
   if (!device) return false;
   if (device.kind === "jump" && !options.jumpNodes) return false;
-  if (device.kind === "surface" && (!options.ledSurfaces || options.hideSurfaces)) return false;
+  if (isLedSurfaceKind(device) && (!options.ledSurfaces || options.hideSurfaces)) return false;
   return true;
 }
 

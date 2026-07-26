@@ -12,6 +12,11 @@ import {
 } from "./orthogonalRouting.js";
 import { wirePolylineFromPoints } from "./wirePath.js";
 import { adapterMappingForDevice } from "./adapterMapping.js";
+import {
+  canonicalEngineObjectKind,
+  isCanvasObjectKind,
+  isLedSurfaceKind
+} from "./canvasObjectKinds.js";
 
 export class SceneGraph {
   constructor() {
@@ -74,7 +79,11 @@ export class SceneGraph {
       adapterFanOutDevices: adapterMappings.filter(mapping => mapping.fanDirection.includes("fan-out")).length,
       adapterFanInDevices: adapterMappings.filter(mapping => mapping.fanDirection.includes("fan-in")).length,
       jumpNodes: this.devices.filter(device => device.kind === "jump").length,
-      ledSurfaces: this.devices.filter(device => device.kind === "surface").length,
+      ledSurfaces: this.devices.filter(device => isLedSurfaceKind(device)).length,
+      imageObjects: this.devices.filter(device => device.kind === "image-object").length,
+      areas: this.devices.filter(device => device.kind === "area").length,
+      comments: this.devices.filter(device => device.kind === "comment").length,
+      titleBlocks: this.devices.filter(device => device.kind === "title-block").length,
       devicesUsingRealSize: this.devices.filter(device => device.usesRealSize).length,
       devicesUsingFallbackSize: this.devices.filter(device => device.usesFallbackSize).length,
       connectorColorsMapped: this.devices.reduce((total, device) => (
@@ -466,6 +475,36 @@ export class SceneGraph {
     this.moveRoutePointsWithMovedObjects(movedDeviceIds, dx, dy, [...affectedWireIds]);
     affectedWireIds.forEach(wireId => this.dirtyWires.add(wireId));
     this.refreshMovedDeviceIndexes(movedDeviceIds, [...affectedWireIds]);
+  }
+
+  resizeCanvasObject(deviceId, rect = {}, { refreshIndexes = true } = {}) {
+    const device = this.getDevice(deviceId);
+    if (!device || !isCanvasObjectKind(device)) return { moved: false, affectedWireIds: [] };
+    const next = normalizeCanvasObjectRect(rect, device);
+    const changed = Math.abs(device.x - next.x) > 0.001
+      || Math.abs(device.y - next.y) > 0.001
+      || Math.abs(device.width - next.width) > 0.001
+      || Math.abs(device.height - next.height) > 0.001;
+    if (!changed) return { moved: false, affectedWireIds: [] };
+    const oldRect = { x: device.x, y: device.y, width: device.width, height: device.height };
+    const affectedWireIds = this.affectedWireIdsForObjects([device.id]);
+    device.x = next.x;
+    device.y = next.y;
+    device.width = next.width;
+    device.height = next.height;
+    device.visual = {
+      ...(device.visual || {}),
+      width: next.width,
+      height: next.height
+    };
+    if (device.kind === "comment") {
+      scaleCommentVisualGeometry(device, oldRect, next);
+    }
+    this.dirtyDevices.add(device.id);
+    this.dirtyTextures.add(device.id);
+    affectedWireIds.forEach(wireId => this.dirtyWires.add(wireId));
+    if (refreshIndexes) this.refreshMovedDeviceIndexes([device.id], [...affectedWireIds]);
+    return { moved: true, affectedWireIds: [...affectedWireIds] };
   }
 
   moveRoutePointsWithMovedObjects(movedObjectIds, dx, dy, wireIds = []) {
@@ -1028,7 +1067,11 @@ function normalizeDevice(device) {
     .map((connector, index) => normalizeConnector(connector, index))
     .filter(Boolean);
   const visual = normalizeVisualMetadata(device.visual);
-  const kind = device.kind || (visual.isAdapterBreakout ? "adapter" : visual.isPowerDistro ? "power-distro" : "device");
+  const kind = canonicalEngineObjectKind(
+    device.kind || (visual.isAdapterBreakout ? "adapter" : visual.isPowerDistro ? "power-distro" : "device"),
+    device.sourceKind
+  );
+  const canvasObject = isCanvasObjectKind(kind);
   return {
     id: String(device.id),
     sourceKind: device.sourceKind || "",
@@ -1055,7 +1098,9 @@ function normalizeDevice(device) {
     visual,
     connectors,
     connectorsById: new Map(connectors.map(connector => [connector.id, connector])),
-    portCount: Math.max(1, Number(device.portCount) || connectors.length || 4)
+    portCount: canvasObject
+      ? Math.max(0, Number(device.portCount) || connectors.length || 0)
+      : Math.max(1, Number(device.portCount) || connectors.length || 4)
   };
 }
 
@@ -1091,10 +1136,82 @@ function normalizeVisualMetadata(visual = {}) {
     projectCustomRevision: String(visual.projectCustomRevision || "").trim(),
     visualRevision: String(visual.visualRevision || visual.projectCustomRevision || "").trim(),
     isProjectCustomDevice: Boolean(visual.isProjectCustomDevice),
+    objectKind: canonicalEngineObjectKind(visual.objectKind || ""),
+    image: visual.image || "",
+    naturalWidth: Number(visual.naturalWidth) || 0,
+    naturalHeight: Number(visual.naturalHeight) || 0,
+    pixelWidth: Number(visual.pixelWidth) || 0,
+    pixelHeight: Number(visual.pixelHeight) || 0,
+    physicalWidth: Number(visual.physicalWidth) || 0,
+    physicalHeight: Number(visual.physicalHeight) || 0,
+    opacity: Number.isFinite(Number(visual.opacity)) ? Number(visual.opacity) : 1,
+    backgroundColor: visual.backgroundColor || "",
+    textColor: visual.textColor || "",
+    leaderColor: visual.leaderColor || "",
+    title: visual.title || "",
+    text: visual.text || "",
+    textSize: Number(visual.textSize) || 0,
+    box: normalizeVisualRect(visual.box),
+    anchor: normalizeVisualPoint(visual.anchor),
+    leaderEnd: normalizeVisualPoint(visual.leaderEnd),
+    fields: visual.fields && typeof visual.fields === "object" ? { ...visual.fields } : {},
+    logo: visual.logo || "",
     visualCards: Array.isArray(visual.visualCards)
       ? visual.visualCards.map(normalizeVisualCard).filter(Boolean)
       : []
   };
+}
+
+function normalizeVisualRect(rect) {
+  if (!rect || typeof rect !== "object") return null;
+  return {
+    x: Number(rect.x) || 0,
+    y: Number(rect.y) || 0,
+    width: Math.max(1, Number(rect.width) || 1),
+    height: Math.max(1, Number(rect.height) || 1)
+  };
+}
+
+function normalizeVisualPoint(point) {
+  if (!point || typeof point !== "object") return null;
+  return {
+    x: Number(point.x) || 0,
+    y: Number(point.y) || 0
+  };
+}
+
+function normalizeCanvasObjectRect(rect, fallback) {
+  const x = Number.isFinite(Number(rect.x)) ? Number(rect.x) : Number(fallback?.x) || 0;
+  const y = Number.isFinite(Number(rect.y)) ? Number(rect.y) : Number(fallback?.y) || 0;
+  const width = Math.max(12, Number.isFinite(Number(rect.width)) ? Number(rect.width) : Number(fallback?.width) || 12);
+  const height = Math.max(12, Number.isFinite(Number(rect.height)) ? Number(rect.height) : Number(fallback?.height) || 12);
+  return { x, y, width, height };
+}
+
+function scaleCommentVisualGeometry(device, oldRect, nextRect) {
+  const visual = device.visual || {};
+  const sx = oldRect.width ? nextRect.width / oldRect.width : 1;
+  const sy = oldRect.height ? nextRect.height / oldRect.height : 1;
+  if (visual.box) {
+    visual.box = {
+      x: Number(visual.box.x || 0) * sx,
+      y: Number(visual.box.y || 0) * sy,
+      width: Math.max(12, Number(visual.box.width || oldRect.width) * sx),
+      height: Math.max(12, Number(visual.box.height || oldRect.height) * sy)
+    };
+  }
+  if (visual.anchor) {
+    visual.anchor = {
+      x: Number(visual.anchor.x || 0) * sx,
+      y: Number(visual.anchor.y || 0) * sy
+    };
+  }
+  if (visual.leaderEnd) {
+    visual.leaderEnd = {
+      x: Number(visual.leaderEnd.x || 0) * sx,
+      y: Number(visual.leaderEnd.y || 0) * sy
+    };
+  }
 }
 
 function normalizeAdapterClassification(value = {}) {

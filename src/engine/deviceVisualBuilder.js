@@ -9,6 +9,11 @@ import {
   powerDistroVisualForDevice,
   powerPlugAssetsForDevice
 } from "./powerDistroModel.js";
+import {
+  canonicalEngineObjectKind,
+  isCanvasObjectKind,
+  isLedSurfaceKind
+} from "./canvasObjectKinds.js";
 
 const QUALITY_PRESETS = {
   low: { label: "Low", scale: 2, maxSide: 2048, maxPixels: 12_000_000 },
@@ -27,6 +32,8 @@ const FACE_TOP_Y = 38;
 const FACE_HEIGHT = 78;
 const FACE_IMAGE_PADDING = 8;
 const SLOT_HEIGHT = 54;
+const TITLE_BLOCK_BASE_WIDTH = 760;
+const TITLE_BLOCK_BASE_HEIGHT = 112;
 
 const IMAGE_CACHE = new Map();
 let assetReadyCallback = null;
@@ -162,6 +169,32 @@ export function deviceVisualCacheKey(device, options = {}) {
       ].join(",")).join("/")
     ].join(":"))
     .join("|");
+  const canvasObjectShape = isCanvasObjectKind(device)
+    ? [
+      canonicalEngineObjectKind(device),
+      visual.image || "",
+      deviceVisualAssetRevision(visual.image),
+      visual.naturalWidth || 0,
+      visual.naturalHeight || 0,
+      visual.pixelWidth || 0,
+      visual.pixelHeight || 0,
+      visual.physicalWidth || 0,
+      visual.physicalHeight || 0,
+      visual.opacity ?? "",
+      visual.backgroundColor || "",
+      visual.textColor || "",
+      visual.leaderColor || "",
+      visual.title || "",
+      visual.text || "",
+      visual.textSize || "",
+      visual.box ? `${Math.round(visual.box.x || 0)},${Math.round(visual.box.y || 0)},${Math.round(visual.box.width || 0)},${Math.round(visual.box.height || 0)}` : "",
+      visual.anchor ? `${Math.round(visual.anchor.x || 0)},${Math.round(visual.anchor.y || 0)}` : "",
+      visual.leaderEnd ? `${Math.round(visual.leaderEnd.x || 0)},${Math.round(visual.leaderEnd.y || 0)}` : "",
+      JSON.stringify(visual.fields || {}),
+      visual.logo || "",
+      deviceVisualAssetRevision(visual.logo)
+    ].join("|")
+    : "";
   return [
     "device-card-v7",
     visualKind,
@@ -197,7 +230,8 @@ export function deviceVisualCacheKey(device, options = {}) {
     visual.isMatrixRouter ? "matrix" : "",
     device.portCount || 0,
     connectorShape,
-    cardShape
+    cardShape,
+    canvasObjectShape
   ].join(";");
 }
 
@@ -267,8 +301,24 @@ function drawDeviceVisual(ctx, device, width, height, options) {
     drawJumpVisual(ctx, device, width, height);
     return;
   }
-  if (kind === "surface") {
+  if (isLedSurfaceKind(device)) {
     drawSurfaceVisual(ctx, device, width, height);
+    return;
+  }
+  if (kind === "image-object") {
+    drawImageObjectVisual(ctx, device, width, height);
+    return;
+  }
+  if (kind === "area") {
+    drawAreaVisual(ctx, device, width, height);
+    return;
+  }
+  if (kind === "comment") {
+    drawCommentVisual(ctx, device, width, height);
+    return;
+  }
+  if (kind === "title-block") {
+    drawTitleBlockVisual(ctx, device, width, height);
     return;
   }
   if (kind === "adapter") {
@@ -674,6 +724,23 @@ function drawJumpVisual(ctx, device, width, height) {
 }
 
 function drawSurfaceVisual(ctx, device, width, height) {
+  const visual = device.visual || {};
+  const image = cachedImage(visual.image);
+  if (image?.complete && image.naturalWidth > 0) {
+    ctx.save();
+    ctx.globalAlpha = clamp(Number(visual.opacity), 0, 1) || 1;
+    const rect = preserveAspectRatioMeetRect({ x: 0, y: 0, width, height }, image.naturalWidth, image.naturalHeight);
+    ctx.drawImage(image, rect.x, rect.y, rect.width, rect.height);
+    ctx.restore();
+  } else {
+    drawLedSurfacePlaceholder(ctx, device, width, height);
+  }
+  ctx.strokeStyle = "rgba(255, 121, 4, .92)";
+  ctx.lineWidth = Math.max(1.5, Math.min(width, height) * 0.006);
+  ctx.strokeRect(0, 0, width, height);
+}
+
+function drawLedSurfacePlaceholder(ctx, device, width, height) {
   ctx.fillStyle = "#0a0c0d";
   ctx.fillRect(0, 0, width, height);
   const tile = Math.max(8, Math.min(26, Math.min(width, height) / 18));
@@ -683,16 +750,185 @@ function drawSurfaceVisual(ctx, device, width, height) {
       ctx.fillRect(x, y, tile, tile);
     }
   }
-  ctx.strokeStyle = "rgb(255, 121, 4)";
-  ctx.lineWidth = Math.max(2, Math.min(width, height) * 0.01);
-  ctx.strokeRect(0, 0, width, height);
-  drawFittedText(ctx, textureTitle(device), 12, height * 0.44, width - 24, Math.max(18, Math.min(52, height * 0.18)), {
+  const text = surfaceText(device);
+  drawFittedText(ctx, text, 12, height * 0.52, width - 24, Math.max(18, Math.min(52, height * 0.18)), {
     weight: 800,
     fill: "#89c43e",
     stroke: "rgba(0,0,0,.45)",
     strokeWidth: 2.2,
     align: "center"
   });
+}
+
+function surfaceText(device) {
+  const visual = device.visual || {};
+  const px = visual.pixelWidth && visual.pixelHeight ? `${visual.pixelWidth} x ${visual.pixelHeight}` : "";
+  const physical = visual.physicalWidth && visual.physicalHeight ? `${visual.physicalWidth}m x ${visual.physicalHeight}m` : "";
+  return [textureTitle(device), physical, px].filter(Boolean).join(" - ") || "LED Screen";
+}
+
+function drawImageObjectVisual(ctx, device, width, height) {
+  const visual = device.visual || {};
+  const image = cachedImage(visual.image);
+  if (image?.complete && image.naturalWidth > 0) {
+    ctx.save();
+    ctx.globalAlpha = clamp(Number(visual.opacity), 0, 1) || 1;
+    const rect = preserveAspectRatioMeetRect({ x: 0, y: 0, width, height }, image.naturalWidth, image.naturalHeight);
+    ctx.drawImage(image, rect.x, rect.y, rect.width, rect.height);
+    ctx.restore();
+    return;
+  }
+  roundRect(ctx, 0, 0, width, height, 5);
+  ctx.fillStyle = "rgba(18, 28, 38, .72)";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(50, 182, 255, .42)";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  drawFittedText(ctx, textureTitle(device), 10, height / 2, width - 20, Math.max(12, Math.min(28, height * 0.2)), {
+    weight: 800,
+    fill: "#d7e6f5",
+    align: "center",
+    baseline: "middle"
+  });
+}
+
+function drawAreaVisual(ctx, device, width, height) {
+  const visual = device.visual || {};
+  ctx.save();
+  roundRect(ctx, 0, 0, width, height, 8);
+  ctx.globalAlpha = clamp(Number(visual.opacity), 0.05, 1) || 0.32;
+  ctx.fillStyle = normalizeColor(visual.backgroundColor || device.color, "#223544");
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = "rgba(50, 182, 255, .36)";
+  ctx.lineWidth = Math.max(1, Math.min(width, height) * 0.006);
+  ctx.stroke();
+  drawFittedText(ctx, textureTitle(device), 18, Math.max(34, height * 0.12), width - 36, Math.max(14, Math.min(48, Number(visual.textSize) || 33)), {
+    weight: 900,
+    fill: "#32b6ff",
+    stroke: "rgba(0,0,0,.72)",
+    strokeWidth: 3.5,
+    align: "left"
+  });
+  ctx.restore();
+}
+
+function drawCommentVisual(ctx, device, width, height) {
+  const visual = device.visual || {};
+  const box = visual.box || { x: 0, y: 0, width, height };
+  const anchor = visual.anchor || { x: width, y: 0 };
+  const leaderEnd = visual.leaderEnd || { x: box.x + box.width, y: box.y + box.height / 2 };
+  ctx.save();
+  ctx.strokeStyle = visual.leaderColor || "#28bdfd";
+  ctx.lineWidth = 2.4;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(anchor.x, anchor.y);
+  ctx.lineTo(leaderEnd.x, leaderEnd.y);
+  ctx.stroke();
+
+  roundRect(ctx, box.x, box.y, box.width, box.height, 4);
+  ctx.fillStyle = visual.backgroundColor || "rgba(8,13,20,.96)";
+  ctx.fill();
+  ctx.strokeStyle = "#9aa2aa";
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+
+  const titleSize = Math.max(10, Math.min(18, (Number(visual.textSize) || 12) * 1.05));
+  drawFittedText(ctx, visual.title || textureTitle(device), box.x, box.y - 4, box.width, titleSize, {
+    weight: 900,
+    fill: "#32b6ff",
+    stroke: "#18202a",
+    strokeWidth: 3.2,
+    align: "center"
+  });
+  drawWrappedText(ctx, visual.text || "Double-click to edit", box.x + 10, box.y + 18, box.width - 20, box.height - 24, {
+    size: Number(visual.textSize) || 12,
+    fill: visual.textColor || "#edf2f7",
+    weight: 700
+  });
+  ctx.restore();
+}
+
+function drawTitleBlockVisual(ctx, device, width, height) {
+  const scale = Math.max(0.05, Math.min(width / TITLE_BLOCK_BASE_WIDTH, height / TITLE_BLOCK_BASE_HEIGHT));
+  const xOffset = (width - TITLE_BLOCK_BASE_WIDTH * scale) / 2;
+  const yOffset = (height - TITLE_BLOCK_BASE_HEIGHT * scale) / 2;
+  const fields = device.visual?.fields || {};
+  ctx.save();
+  ctx.translate(xOffset, yOffset);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = "rgba(15, 24, 32, .74)";
+  ctx.fillRect(0, 0, TITLE_BLOCK_BASE_WIDTH, TITLE_BLOCK_BASE_HEIGHT);
+  ctx.strokeStyle = "#9aa2aa";
+  ctx.lineWidth = 1.2;
+  ctx.strokeRect(0, 0, TITLE_BLOCK_BASE_WIDTH, TITLE_BLOCK_BASE_HEIGHT);
+  const columns = [0, 150, 300, 450, 610, TITLE_BLOCK_BASE_WIDTH];
+  const rows = [0, 56, TITLE_BLOCK_BASE_HEIGHT];
+  columns.slice(1, -1).forEach(x => {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, TITLE_BLOCK_BASE_HEIGHT);
+    ctx.stroke();
+  });
+  rows.slice(1, -1).forEach(y => {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(TITLE_BLOCK_BASE_WIDTH, y);
+    ctx.stroke();
+  });
+  drawTitleBlockCell(ctx, 8, 22, "Client:", fields.client);
+  drawTitleBlockCell(ctx, 8, 78, "Revision:", fields.revision);
+  drawTitleBlockCell(ctx, 158, 22, "Project:", fields.project);
+  drawTitleBlockCell(ctx, 158, 78, "Location:", fields.location);
+  drawTitleBlockCell(ctx, 308, 22, "Title:", fields.title || "Video Wirechart");
+  drawTitleBlockCell(ctx, 308, 78, "Job ID:", fields.jobId);
+  drawTitleBlockCell(ctx, 458, 16, "Event Date:", fields.eventDate);
+  drawTitleBlockCell(ctx, 458, 40, "Drawing Date:", fields.drawingDate);
+  drawTitleBlockCell(ctx, 458, 68, "Acc Manager:", fields.accountManager);
+  drawTitleBlockCell(ctx, 458, 92, "Approved By:", fields.approvedBy);
+  drawFittedText(ctx, fields.logoText || "Company Logo", 622, 58, 126, 13, {
+    weight: 700,
+    fill: "#d7e6f5",
+    align: "center",
+    baseline: "middle"
+  });
+  ctx.restore();
+}
+
+function drawTitleBlockCell(ctx, x, y, label, value) {
+  ctx.font = "700 6px system-ui, -apple-system, Segoe UI, sans-serif";
+  ctx.fillStyle = "#d7e6f5";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, x, y);
+  ctx.font = "800 7px system-ui, -apple-system, Segoe UI, sans-serif";
+  ctx.fillText(String(value || ""), x + 46, y);
+}
+
+function drawWrappedText(ctx, text, x, y, maxWidth, maxHeight, options = {}) {
+  const size = Math.max(7, Number(options.size) || 12);
+  const lineHeight = size * 1.25;
+  const words = String(text || "").split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = "";
+  ctx.save();
+  ctx.font = `${options.weight || 700} ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  words.forEach(word => {
+    const candidate = line ? `${line} ${word}` : word;
+    if (ctx.measureText(candidate).width <= maxWidth || !line) {
+      line = candidate;
+    } else {
+      lines.push(line);
+      line = word;
+    }
+  });
+  if (line) lines.push(line);
+  ctx.fillStyle = options.fill || "#edf2f7";
+  ctx.textBaseline = "top";
+  lines.slice(0, Math.max(1, Math.floor(maxHeight / lineHeight))).forEach((textLine, index) => {
+    ctx.fillText(textLine, x, y + index * lineHeight);
+  });
+  ctx.restore();
 }
 
 function drawConnectorMarkers(ctx, device, width, height, options) {
@@ -792,7 +1028,7 @@ function drawFittedText(ctx, text, x, y, maxWidth, maxSize, options = {}) {
 }
 
 function visualDeviceKind(device) {
-  return device.kind || "device";
+  return canonicalEngineObjectKind(device);
 }
 
 function effectiveTextureLimits(device, quality, options = {}) {
@@ -991,7 +1227,7 @@ function adapterDiagnostics(device) {
 
 function textureTitle(device) {
   const visual = device.visual || {};
-  if (device.kind === "jump" || device.kind === "surface" || device.kind === "adapter") {
+  if (device.kind === "jump" || isCanvasObjectKind(device) || device.kind === "adapter") {
     return String(device.label || visual.displayName || visual.templateName || device.kind || "Object").trim();
   }
   return String(
@@ -1013,7 +1249,7 @@ function basename(path) {
 
 export function deviceVisualSources(device) {
   const visual = device?.visual || {};
-  return [visual.faceImage, visual.thumbnailImage, ...powerPlugAssetsForDevice(device)]
+  return [visual.faceImage, visual.thumbnailImage, visual.image, visual.logo, ...powerPlugAssetsForDevice(device)]
     .map(value => String(value || "").trim())
     .filter(Boolean);
 }
