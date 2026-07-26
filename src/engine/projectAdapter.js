@@ -343,7 +343,7 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
     labelMapped: Boolean(instance.name || template.name || template.model),
     usesRealSize: Boolean(widthSource && heightSource),
     usesFallbackSize: !(widthSource && heightSource),
-    color: isAdapter ? "rgba(24,37,49,.34)" : "#182531",
+    color: isAdapter ? "#18222b" : "#182531",
     connectors,
     portCount: Math.max(1, connectors.length || 4),
     templateId: template.id || templateId || "",
