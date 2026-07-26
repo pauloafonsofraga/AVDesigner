@@ -12,6 +12,13 @@ import {
   engineWireColorSegmentsForCable,
   installedModuleDetailsForEngine
 } from "./connectorCompatibility.js";
+import {
+  LEGACY_ADAPTER_WIDTH,
+  adapterClassificationForEngine,
+  adapterHeightForConnectors,
+  adapterMappingForDevice,
+  isAdapterTemplateLikeForEngine
+} from "./adapterMapping.js";
 
 const SIZE_PRESETS = {
   small: { deviceCount: 100, wireCount: 300 },
@@ -33,10 +40,6 @@ const DEFAULT_DEVICE_WIDTH = 122;
 const DEFAULT_DEVICE_HEIGHT = 58;
 const SLOT_HEIGHT = 54;
 const LEGACY_DEVICE_WIDTH = 380;
-const LEGACY_ADAPTER_WIDTH = 190;
-const LEGACY_ADAPTER_NODE_EDGE_PADDING = 16;
-const LEGACY_ADAPTER_NODE_RADIUS = 7;
-const LEGACY_ADAPTER_MIN_HEIGHT = LEGACY_ADAPTER_NODE_EDGE_PADDING + LEGACY_ADAPTER_NODE_RADIUS * 2 + LEGACY_ADAPTER_NODE_EDGE_PADDING;
 const JUMP_NODE_SIZE = 44;
 const SURFACE_FALLBACK_HEIGHT = 120;
 const CARD_SLOT_OVERRIDE_FIELDS = [
@@ -54,7 +57,6 @@ const CARD_SLOT_OVERRIDE_FIELDS = [
   "installedModuleType"
 ];
 const NODE_TYPE_FALLBACKS = ENGINE_CONNECTOR_TYPE_COLORS;
-const ADAPTER_BREAKOUT_CATEGORY_RE = /\b(?:adapters?|breakouts?)\b/i;
 
 export function syntheticPreset(name) {
   return SIZE_PRESETS[name] || SIZE_PRESETS.small;
@@ -323,7 +325,7 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
     .map((connector, connectorIndex) => normalizeConnector(connector, connectorIndex, width, nodeColorByType, { isAdapter }))
     .filter(Boolean);
   const visual = normalizeDeviceVisualMetadata(template, instance, width, height, nodeColorByType);
-  return {
+  const normalized = {
     id,
     sourceKind: "device",
     sourceId: id,
@@ -350,31 +352,22 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
     category: visual.category,
     visual
   };
+  if (isAdapter) {
+    const mapping = adapterMappingForDevice(normalized);
+    normalized.visual.adapterMapping = adapterMappingSummary(mapping);
+    normalized.connectors.forEach(connector => {
+      connector.adapterRole = connector.direction === "input" ? "source" : "destination";
+      connector.adapterBranchCount = mapping.branches.filter(branch => (
+        branch.inputId === connector.id || branch.outputId === connector.id
+      )).length;
+      connector.adapterMultipleExternalConnections = mapping.multipleExternalConnections;
+    });
+  }
+  return normalized;
 }
 
 function isAdapterTemplateForEngine(template = {}, instance = {}) {
   return isAdapterTemplateLikeForEngine(template, instance);
-}
-
-function isAdapterTemplateLikeForEngine(template = {}, instance = {}) {
-  return template?.objectType === "adapter"
-    || instance?.objectType === "adapter"
-    || template?.isAdapterBreakout === true
-    || instance?.isAdapterBreakout === true;
-}
-
-function adapterHeightForConnectors(connectors = [], explicitHeight = 0) {
-  const usable = (Array.isArray(connectors) ? connectors : [])
-    .filter(connector => connector && !connector.empty && connector.type);
-  const maxConnectorY = usable.reduce((max, connector) => {
-    const y = Number(connector.y);
-    return Number.isFinite(y) ? Math.max(max, y) : max;
-  }, LEGACY_ADAPTER_NODE_EDGE_PADDING + LEGACY_ADAPTER_NODE_RADIUS);
-  return Math.max(
-    LEGACY_ADAPTER_MIN_HEIGHT,
-    positiveNumber(explicitHeight) || 0,
-    Math.ceil(maxConnectorY + LEGACY_ADAPTER_NODE_RADIUS + LEGACY_ADAPTER_NODE_EDGE_PADDING)
-  );
 }
 
 function normalizeDeviceVisualMetadata(
@@ -435,20 +428,18 @@ function normalizeDeviceVisualMetadata(
   };
 }
 
-function adapterClassificationForEngine(template = {}, instance = {}, isAdapter = false) {
-  const category = String(instance?.category || template?.category || template?.type || template?.section || "").trim();
-  const legacyFlag = template?.objectType === "adapter"
-    || instance?.objectType === "adapter"
-    || template?.isAdapterBreakout === true
-    || instance?.isAdapterBreakout === true;
-  const categoryMatch = ADAPTER_BREAKOUT_CATEGORY_RE.test(category);
+function adapterMappingSummary(mapping = {}) {
   return {
-    isAdapter,
-    legacyFlag,
-    categoryMatch,
-    objectType: String(instance?.objectType || template?.objectType || ""),
-    isAdapterBreakout: template?.isAdapterBreakout === true || instance?.isAdapterBreakout === true,
-    category
+    fanDirection: String(mapping.fanDirection || ""),
+    sourceConnectorIds: (mapping.sources || []).map(connector => String(connector.id || "")),
+    destinationConnectorIds: (mapping.destinations || []).map(connector => String(connector.id || "")),
+    branches: (mapping.branches || []).map(branch => ({
+      inputId: branch.inputId,
+      outputId: branch.outputId
+    })),
+    branchCount: Number(mapping.branchCount) || 0,
+    multipleInternalBranches: Boolean(mapping.multipleInternalBranches),
+    multipleExternalConnections: Boolean(mapping.multipleExternalConnections)
   };
 }
 

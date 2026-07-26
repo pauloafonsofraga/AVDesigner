@@ -1206,7 +1206,7 @@ class ProductionEngineBridge {
     const commitStart = performance.now();
     const source = this.wireCreate?.from;
     const target = this.wireCreate?.target;
-    const compatibility = source && target ? engineCompatibilitySummary(source, target) : null;
+    const compatibility = source && target ? this.currentWireCompatibility() : null;
     this.wireCreate = null;
     this.lastCompatibilityTargetKey = "";
     this.canvas.classList.remove("dragging", "wire-creating");
@@ -1356,6 +1356,25 @@ class ProductionEngineBridge {
     const occupiedByOtherWire = [...this.scene.connectorWireIds(target.device.id, target.connector.id)]
       .some(wireId => wireId !== rewire.wireId);
     return occupiedByOtherWire ? "Target connector is already connected." : "";
+  }
+
+  wireCreateEndpointRejectionReason(source, target) {
+    return this.connectorExternalConnectionRejectionReason(source, "Source")
+      || this.connectorExternalConnectionRejectionReason(target, "Target");
+  }
+
+  connectorExternalConnectionRejectionReason(hit, label = "Connector") {
+    if (!hit?.device?.id || !hit?.connector?.id) return "";
+    if (this.connectorAllowsAdditionalExternalWire(hit)) return "";
+    const connectedCount = this.scene.connectorWireIds(hit.device.id, hit.connector.id).size;
+    return connectedCount > 0 ? `${label} connector is already connected.` : "";
+  }
+
+  connectorAllowsAdditionalExternalWire(hit) {
+    return Boolean(
+      hit?.connector?.adapterMultipleExternalConnections
+      || hit?.device?.visual?.adapterMapping?.multipleExternalConnections
+    );
   }
 
   isOriginalRewireTarget(target) {
@@ -1934,7 +1953,13 @@ class ProductionEngineBridge {
         engineCompatibilityHitForWireEndpoint(targetHit, rewire.originalWire, "to")
       );
     }
-    return engineCompatibilitySummary(this.wireCreate.from, this.wireCreate.target);
+    const summary = engineCompatibilitySummary(this.wireCreate.from, this.wireCreate.target);
+    const occupancyReason = summary.valid
+      ? this.wireCreateEndpointRejectionReason(this.wireCreate.from, this.wireCreate.target)
+      : "";
+    return occupancyReason
+      ? { ...summary, valid: false, rule: "connector-occupied", reason: occupancyReason }
+      : summary;
   }
 
   recordCompatibilityHoverDiagnostic(summary) {

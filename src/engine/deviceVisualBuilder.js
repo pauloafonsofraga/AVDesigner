@@ -1,4 +1,9 @@
 import { engineConnectorInfoFields } from "./connectorCompatibility.js";
+import {
+  adapterColorStops,
+  adapterInternalWirePairs,
+  traceAdapterInternalWirePath
+} from "./adapterMapping.js";
 
 const QUALITY_PRESETS = {
   low: { label: "Low", scale: 2, maxSide: 2048, maxPixels: 12_000_000 },
@@ -545,57 +550,15 @@ function drawAdapterInternalWires(ctx, device) {
     const gradient = ctx.createLinearGradient(pair.input.x, pair.input.y, pair.output.x, pair.output.y);
     const inputColor = connectorColor(pair.input);
     const outputColor = connectorColor(pair.output);
-    gradient.addColorStop(0, inputColor);
-    gradient.addColorStop(0.25, inputColor);
-    gradient.addColorStop(0.75, outputColor);
-    gradient.addColorStop(1, outputColor);
+    adapterColorStops(inputColor, outputColor).forEach(stop => {
+      gradient.addColorStop(stop.offset, stop.color);
+    });
     ctx.strokeStyle = gradient;
     ctx.beginPath();
-    adapterInternalWirePath(ctx, pair.input, pair.output);
+    traceAdapterInternalWirePath(ctx, pair.input, pair.output);
     ctx.stroke();
   });
   ctx.restore();
-}
-
-function adapterInternalWirePairs(connectors) {
-  const usable = connectors
-    .filter(connector => connector && !connector.empty && connector.type)
-    .slice();
-  const inputs = usable
-    .filter(connector => connector.direction === "input")
-    .sort((a, b) => Number(a.y || 0) - Number(b.y || 0));
-  const outputs = usable
-    .filter(connector => connector.direction !== "input")
-    .sort((a, b) => Number(a.y || 0) - Number(b.y || 0));
-  if (!inputs.length || !outputs.length) return [];
-  if (inputs.length === 1) {
-    return outputs.map(output => ({ input: inputs[0], output }));
-  }
-  if (outputs.length === 1) {
-    return inputs.map(input => ({ input, output: outputs[0] }));
-  }
-  if (inputs.length < outputs.length) {
-    return outputs.map((output, index) => ({
-      input: inputs[Math.min(inputs.length - 1, Math.floor(index * inputs.length / outputs.length))],
-      output
-    }));
-  }
-  if (outputs.length < inputs.length) {
-    return inputs.map((input, index) => ({
-      input,
-      output: outputs[Math.min(outputs.length - 1, Math.floor(index * outputs.length / inputs.length))]
-    }));
-  }
-  return inputs.map((input, index) => ({ input, output: outputs[index] }));
-}
-
-function adapterInternalWirePath(ctx, input, output) {
-  const start = { x: Number(input.x || 0), y: Number(input.y || 0) };
-  const end = { x: Number(output.x || 0), y: Number(output.y || 0) };
-  const dir = end.x >= start.x ? 1 : -1;
-  const dx = Math.max(36, Math.abs(end.x - start.x) * 0.42);
-  ctx.moveTo(start.x, start.y);
-  ctx.bezierCurveTo(start.x + dx * dir, start.y, end.x - dx * dir, end.y, end.x, end.y);
 }
 
 function connectorColor(connector) {
@@ -920,7 +883,8 @@ function faceplateDiagnostics(device, logicalWidth) {
 function adapterDiagnostics(device) {
   const classification = device?.visual?.adapterClassification || null;
   const connectors = Array.isArray(device?.connectors) ? device.connectors : [];
-  const pairs = device?.kind === "adapter" ? adapterInternalWirePairs(connectors) : [];
+  const mapping = device?.visual?.adapterMapping || null;
+  const pairs = device?.kind === "adapter" && !mapping ? adapterInternalWirePairs(connectors) : [];
   return {
     isAdapter: device?.kind === "adapter",
     engineKind: device?.kind || "",
@@ -932,7 +896,10 @@ function adapterDiagnostics(device) {
     connectorCount: connectors.length,
     inputConnectorCount: connectors.filter(connector => connector.direction === "input").length,
     outputConnectorCount: connectors.filter(connector => connector.direction !== "input").length,
-    internalMappingCount: pairs.length,
+    internalMappingCount: mapping?.branchCount ?? pairs.length,
+    fanDirection: mapping?.fanDirection || "",
+    sourceConnectorIds: mapping?.sourceConnectorIds || [],
+    destinationConnectorIds: mapping?.destinationConnectorIds || [],
     rendererHelper: device?.kind === "adapter" ? "drawAdapterVisual" : "drawRackDeviceVisual"
   };
 }

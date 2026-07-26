@@ -6,6 +6,10 @@ import {
   emptyCableHopStats
 } from "./cableHops.js";
 import { wirePathStatsForWires, wirePolylineFromPoints } from "./wirePath.js";
+import {
+  adapterInternalBezierGeometry,
+  adapterInternalWirePairs
+} from "./adapterMapping.js";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -1914,46 +1918,8 @@ function pushAdapterFallbackInternalWires(vertices, device, baseX, baseY) {
   });
 }
 
-function adapterInternalWirePairs(connectors = []) {
-  const usable = (Array.isArray(connectors) ? connectors : [])
-    .filter(connector => connector && connector.type);
-  const inputs = usable
-    .filter(connector => connector.direction === "input")
-    .sort((a, b) => Number(a.y || 0) - Number(b.y || 0));
-  const outputs = usable
-    .filter(connector => connector.direction !== "input")
-    .sort((a, b) => Number(a.y || 0) - Number(b.y || 0));
-  if (!inputs.length || !outputs.length) return [];
-  if (inputs.length === 1) return outputs.map(output => ({ input: inputs[0], output }));
-  if (outputs.length === 1) return inputs.map(input => ({ input, output: outputs[0] }));
-  if (inputs.length < outputs.length) {
-    return outputs.map((output, index) => ({
-      input: inputs[Math.min(inputs.length - 1, Math.floor(index * inputs.length / outputs.length))],
-      output
-    }));
-  }
-  if (outputs.length < inputs.length) {
-    return inputs.map((input, index) => ({
-      input,
-      output: outputs[Math.min(outputs.length - 1, Math.floor(index * outputs.length / inputs.length))]
-    }));
-  }
-  return inputs.map((input, index) => ({ input, output: outputs[index] }));
-}
-
 function pushAdapterFallbackWire(vertices, input, output, baseX, baseY) {
-  const start = {
-    x: baseX + connectorRenderX(input),
-    y: baseY + connectorRenderY(input)
-  };
-  const end = {
-    x: baseX + connectorRenderX(output),
-    y: baseY + connectorRenderY(output)
-  };
-  const dir = end.x >= start.x ? 1 : -1;
-  const dx = Math.max(36, Math.abs(end.x - start.x) * 0.42);
-  const c1 = { x: start.x + dx * dir, y: start.y };
-  const c2 = { x: end.x - dx * dir, y: end.y };
+  const { start, c1, c2, end } = adapterInternalBezierGeometry(input, output, baseX, baseY);
   const inputColor = parseColor(input.color || PORT_COLOR);
   const outputColor = parseColor(output.color || PORT_COLOR);
   let previous = start;

@@ -12,6 +12,7 @@ import { validateEngineScene } from "../src/engine/sceneValidation.js";
 import { calculateCableHops, applyCableHopsToPolyline } from "../src/engine/cableHops.js";
 import { wirePathStatsForWires } from "../src/engine/wirePath.js";
 import { engineCompatibilitySummary } from "../src/engine/connectorCompatibility.js";
+import { adapterMappingForDevice } from "../src/engine/adapterMapping.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturePath = path.resolve(__dirname, "../fixtures/engine-parity-project.avd");
@@ -109,6 +110,7 @@ runCommandCycle(initialHarness, buildDeleteDeviceCommand(initialHarness));
 const longChainHarness = time("long-chain harness build", () => createHarness(rawText, `${projectPath} long-chain`));
 const longChain = runLongUndoRedoChain(longChainHarness);
 const customDeviceFixture = validateProjectCustomDeviceFixture();
+const adapterBreakoutFixture = validateAdapterBreakoutFixture();
 
 const finalValidation = validateAndRoundTrip(initialHarness, "final");
 check("final engine scene validates", () => {
@@ -139,6 +141,7 @@ const summary = {
   compatibility: compatibilityResults,
   outputVisual: outputVisualResults,
   customDeviceFixture,
+  adapterBreakoutFixture,
   standaloneViewerSource,
   timingsMs: Object.fromEntries(Object.entries(timings).map(([key, value]) => [key, round(value)])),
   checks,
@@ -888,6 +891,125 @@ function validateProjectCustomDeviceFixture() {
     connectors: device.connectors.length,
     duplicateTemplateId: duplicate.id,
     snapshotSurvivesDeletedTemplate: Boolean(snapshotDevice)
+  };
+}
+
+function validateAdapterBreakoutFixture() {
+  const template = {
+    id: "adapter-breakout-validation",
+    name: "Validation Breakout",
+    objectType: "adapter",
+    isAdapterBreakout: true,
+    category: "Adapters and Breakouts",
+    width: 430,
+    height: 260,
+    connectors: [
+      {
+        id: "breakout-source",
+        type: "usb-c",
+        direction: "input",
+        side: "left",
+        x: 0,
+        y: 44,
+        label: "USB-C"
+      },
+      {
+        id: "breakout-hdmi-a",
+        type: "hdmi",
+        direction: "output",
+        side: "right",
+        x: 190,
+        y: 23,
+        label: "HDMI A"
+      },
+      {
+        id: "breakout-hdmi-b",
+        type: "hdmi",
+        direction: "output",
+        side: "right",
+        x: 190,
+        y: 64,
+        label: "HDMI B"
+      },
+      {
+        id: "breakout-dp",
+        type: "display-port",
+        direction: "output",
+        side: "right",
+        x: 190,
+        y: 105,
+        label: "DisplayPort"
+      }
+    ]
+  };
+  const project = {
+    version: 1,
+    projectName: "Adapter Breakout Fixture",
+    deviceLibrary: [stableClone(template)],
+    devices: [{
+      instanceId: "adapter-breakout-instance",
+      templateId: template.id,
+      x: 25,
+      y: 45,
+      name: "Validation Breakout Instance"
+    }],
+    connections: []
+  };
+  const harness = time("adapter breakout fixture harness build", () => createHarness(JSON.stringify(project), "adapter breakout fixture"));
+  const device = harness.scene.getDevice("adapter-breakout-instance");
+  const mapping = adapterMappingForDevice(device);
+  check("adapter breakout fixture normalizes as adapter kind", () => {
+    assert.ok(device, "expected adapter breakout device in scene");
+    assert.equal(device.kind, "adapter");
+    assert.equal(device.width, 190);
+    assert.equal(device.visual.isAdapterBreakout, true);
+  });
+  check("adapter breakout fixture derives legacy fan-out mapping", () => {
+    assert.equal(mapping.fanDirection, "fan-out");
+    assert.equal(mapping.sources.length, 1);
+    assert.equal(mapping.destinations.length, 3);
+    assert.equal(mapping.branchCount, 3);
+    assert.deepEqual(mapping.branches.map(branch => branch.inputId), [
+      "breakout-source",
+      "breakout-source",
+      "breakout-source"
+    ]);
+    assert.deepEqual(mapping.branches.map(branch => branch.outputId), [
+      "breakout-hdmi-a",
+      "breakout-hdmi-b",
+      "breakout-dp"
+    ]);
+  });
+  check("adapter breakout fixture annotates connector branch roles", () => {
+    const source = device.connectorsById.get("breakout-source");
+    const output = device.connectorsById.get("breakout-hdmi-a");
+    assert.equal(source.adapterRole, "source");
+    assert.equal(source.adapterBranchCount, 3);
+    assert.equal(source.adapterMultipleExternalConnections, false);
+    assert.equal(output.adapterRole, "destination");
+    assert.equal(output.adapterBranchCount, 1);
+    assert.equal(output.adapterMultipleExternalConnections, false);
+  });
+  check("adapter breakout fixture stores compact visual mapping metadata", () => {
+    assert.equal(device.visual.adapterMapping.branchCount, 3);
+    assert.equal(device.visual.adapterMapping.multipleInternalBranches, true);
+    assert.equal(device.visual.adapterMapping.multipleExternalConnections, false);
+  });
+  check("adapter breakout fixture exposes adapter scene stats", () => {
+    const stats = harness.scene.adapterStats();
+    assert.equal(stats.adapterDevices, 1);
+    assert.equal(stats.adapterInternalBranches, 3);
+    assert.equal(stats.adapterFanOutDevices, 1);
+  });
+
+  return {
+    templateId: template.id,
+    kind: device.kind,
+    width: device.width,
+    height: device.height,
+    fanDirection: mapping.fanDirection,
+    branches: mapping.branchCount,
+    externalMultiConnectionAllowed: mapping.multipleExternalConnections
   };
 }
 

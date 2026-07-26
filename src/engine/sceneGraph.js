@@ -11,6 +11,7 @@ import {
   shiftRoutePoints
 } from "./orthogonalRouting.js";
 import { wirePolylineFromPoints } from "./wirePath.js";
+import { adapterMappingForDevice } from "./adapterMapping.js";
 
 export class SceneGraph {
   constructor() {
@@ -58,11 +59,17 @@ export class SceneGraph {
     const routedWires = this.wires.filter(wire => wire.routePoints.length).length;
     const realEndpointWires = this.wires.filter(wire => wire.usesRealConnectorEndpoints).length;
     const fallbackEndpointWires = this.wires.filter(wire => wire.hasFallbackEndpoint).length;
+    const adapterDevices = this.devices.filter(device => device.kind === "adapter");
+    const adapterMappings = adapterDevices.map(device => adapterMappingForDevice(device));
     return {
       connectorCount,
       routedWires,
       realEndpointWires,
       fallbackEndpointWires,
+      adapterDevices: adapterDevices.length,
+      adapterInternalBranches: adapterMappings.reduce((total, mapping) => total + mapping.branchCount, 0),
+      adapterFanOutDevices: adapterMappings.filter(mapping => mapping.fanDirection.includes("fan-out")).length,
+      adapterFanInDevices: adapterMappings.filter(mapping => mapping.fanDirection.includes("fan-in")).length,
       jumpNodes: this.devices.filter(device => device.kind === "jump").length,
       ledSurfaces: this.devices.filter(device => device.kind === "surface").length,
       devicesUsingRealSize: this.devices.filter(device => device.usesRealSize).length,
@@ -1076,6 +1083,7 @@ function normalizeVisualMetadata(visual = {}) {
     isMatrixRouter: Boolean(visual.isMatrixRouter),
     isAdapterBreakout: Boolean(visual.isAdapterBreakout),
     adapterClassification: normalizeAdapterClassification(visual.adapterClassification),
+    adapterMapping: normalizeAdapterMapping(visual.adapterMapping),
     projectCustomRevision: String(visual.projectCustomRevision || "").trim(),
     visualRevision: String(visual.visualRevision || visual.projectCustomRevision || "").trim(),
     isProjectCustomDevice: Boolean(visual.isProjectCustomDevice),
@@ -1094,6 +1102,24 @@ function normalizeAdapterClassification(value = {}) {
     objectType: String(value.objectType || ""),
     isAdapterBreakout: Boolean(value.isAdapterBreakout),
     category: String(value.category || "")
+  };
+}
+
+function normalizeAdapterMapping(value = {}) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    fanDirection: String(value.fanDirection || ""),
+    sourceConnectorIds: (Array.isArray(value.sourceConnectorIds) ? value.sourceConnectorIds : []).map(String),
+    destinationConnectorIds: (Array.isArray(value.destinationConnectorIds) ? value.destinationConnectorIds : []).map(String),
+    branches: (Array.isArray(value.branches) ? value.branches : [])
+      .map(branch => ({
+        inputId: String(branch?.inputId || ""),
+        outputId: String(branch?.outputId || "")
+      }))
+      .filter(branch => branch.inputId && branch.outputId),
+    branchCount: Math.max(0, Number(value.branchCount) || 0),
+    multipleInternalBranches: Boolean(value.multipleInternalBranches),
+    multipleExternalConnections: Boolean(value.multipleExternalConnections)
   };
 }
 
@@ -1240,6 +1266,9 @@ function normalizeConnector(connector, index) {
     customTextCaption: connector.customTextCaption || "",
     signalIndex: Number(connector.signalIndex) || 0,
     faceplateSide: Boolean(connector.faceplateSide),
+    adapterRole: String(connector.adapterRole || ""),
+    adapterBranchCount: Math.max(0, Number(connector.adapterBranchCount) || 0),
+    adapterMultipleExternalConnections: Boolean(connector.adapterMultipleExternalConnections),
     colorSegments: cloneColorSegments(connector.colorSegments),
     infoFields: cloneInfoFields(connector.infoFields),
     x: Number.isFinite(x) ? x : 0,

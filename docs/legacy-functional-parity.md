@@ -4,7 +4,15 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 42.2`
+- Current build label: `Iteration 45`
+
+Iteration 45 restores the Legacy adapter/breakout internal mapping path in the
+Engine canvas. A shared `src/engine/adapterMapping.js` helper now derives
+source connectors, destination connectors, fan-out/fan-in branches, gradient
+endpoints, connector branch metadata, and scene validation stats. Internal
+adapter links remain visual derived branches and are not exported as duplicate
+reportable project cables; real external connector sockets keep the Legacy
+single-cable guard.
 
 Iteration 39 adds a separate Legacy interface and visual fidelity audit in
 [`docs/legacy-interface-parity.md`](legacy-interface-parity.md). This document
@@ -871,14 +879,32 @@ Deliberately unchanged: Node Builder UI, Device Editor UI, Inspector command
 parity, Power Distro generated faceplate editing, Rack Builder, Matrix Routing,
 PDF/viewer/report rendering, and save/load format.
 
-### Iteration 44+ — Continue Interface Roadmap
+### Iteration 45 — Adapter / Breakout Internal Wiring
+
+Adapter/breakout devices now use one Engine helper for Legacy-style derived
+internal mapping:
+
+- one input to many outputs maps as fan-out;
+- many inputs to one output maps as fan-in;
+- unequal sides distribute in Legacy connector order;
+- equal sides map one-to-one;
+- internal visual branches fade from source connector color to destination
+  connector color between the 25% and 75% path marks;
+- connector metadata records source/destination roles and branch counts;
+- external project sockets remain single-use unless a future Legacy flag
+  explicitly permits multiple external reportable wires.
+
+Deliberately unchanged: the project save format, reports/viewer/PDF visuals,
+Power Distro generated faceplates, Rack Builder, Matrix Routing, and the DOM
+Device Editor controls.
+
+### Iteration 45+ — Continue Interface Roadmap
 
 Follow the detailed order in
-[`docs/legacy-interface-parity.md`](legacy-interface-parity.md): connector/node
-visuals, inspector parity, adapter/breakout internal wiring, PD/power visuals,
-LED/title surfaces, racks, matrix UI, toolbar polish, then output migration.
-Only after editor visual parity is stable should viewer/PDF/report visual
-migration resume.
+[`docs/legacy-interface-parity.md`](legacy-interface-parity.md): PD/power
+visuals, LED/title surfaces, racks, matrix UI, toolbar polish, then output
+migration. Only after editor visual parity is stable should viewer/PDF/report
+visual migration resume.
 
 ## Validation TODOs
 
