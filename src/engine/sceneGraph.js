@@ -60,6 +60,7 @@ export class SceneGraph {
     const realEndpointWires = this.wires.filter(wire => wire.usesRealConnectorEndpoints).length;
     const fallbackEndpointWires = this.wires.filter(wire => wire.hasFallbackEndpoint).length;
     const adapterDevices = this.devices.filter(device => device.kind === "adapter");
+    const powerDistroDevices = this.devices.filter(device => device.kind === "power-distro");
     const adapterMappings = adapterDevices.map(device => adapterMappingForDevice(device));
     return {
       connectorCount,
@@ -67,6 +68,8 @@ export class SceneGraph {
       realEndpointWires,
       fallbackEndpointWires,
       adapterDevices: adapterDevices.length,
+      powerDistroDevices: powerDistroDevices.length,
+      powerDistroPlugs: powerDistroDevices.reduce((total, device) => total + (device.visual?.powerDistro?.plugEntries?.length || 0), 0),
       adapterInternalBranches: adapterMappings.reduce((total, mapping) => total + mapping.branchCount, 0),
       adapterFanOutDevices: adapterMappings.filter(mapping => mapping.fanDirection.includes("fan-out")).length,
       adapterFanInDevices: adapterMappings.filter(mapping => mapping.fanDirection.includes("fan-in")).length,
@@ -1025,7 +1028,7 @@ function normalizeDevice(device) {
     .map((connector, index) => normalizeConnector(connector, index))
     .filter(Boolean);
   const visual = normalizeVisualMetadata(device.visual);
-  const kind = device.kind || (visual.isAdapterBreakout ? "adapter" : "device");
+  const kind = device.kind || (visual.isAdapterBreakout ? "adapter" : visual.isPowerDistro ? "power-distro" : "device");
   return {
     id: String(device.id),
     sourceKind: device.sourceKind || "",
@@ -1084,6 +1087,7 @@ function normalizeVisualMetadata(visual = {}) {
     isAdapterBreakout: Boolean(visual.isAdapterBreakout),
     adapterClassification: normalizeAdapterClassification(visual.adapterClassification),
     adapterMapping: normalizeAdapterMapping(visual.adapterMapping),
+    powerDistro: normalizePowerDistroMetadata(visual.powerDistro),
     projectCustomRevision: String(visual.projectCustomRevision || "").trim(),
     visualRevision: String(visual.visualRevision || visual.projectCustomRevision || "").trim(),
     isProjectCustomDevice: Boolean(visual.isProjectCustomDevice),
@@ -1120,6 +1124,52 @@ function normalizeAdapterMapping(value = {}) {
     branchCount: Math.max(0, Number(value.branchCount) || 0),
     multipleInternalBranches: Boolean(value.multipleInternalBranches),
     multipleExternalConnections: Boolean(value.multipleExternalConnections)
+  };
+}
+
+function normalizePowerDistroMetadata(value = {}) {
+  if (!value || typeof value !== "object") return null;
+  const faceRect = value.faceRect && typeof value.faceRect === "object"
+    ? {
+      x: Number(value.faceRect.x) || 0,
+      y: Number(value.faceRect.y) || 0,
+      width: Math.max(1, Number(value.faceRect.width) || 1),
+      height: Math.max(1, Number(value.faceRect.height) || 1)
+    }
+    : null;
+  const plugEntries = Array.isArray(value.plugEntries)
+    ? value.plugEntries.map((entry, index) => ({
+      connectorId: String(entry?.connectorId || `plug-${index}`),
+      connectorType: String(entry?.connectorType || ""),
+      connectorLabel: String(entry?.connectorLabel || ""),
+      direction: entry?.direction === "input" ? "input" : "output",
+      href: String(entry?.href || ""),
+      x: Number(entry?.x) || 0,
+      y: Number(entry?.y) || 0,
+      cx: Number(entry?.cx) || 0,
+      cy: Number(entry?.cy) || 0,
+      width: Math.max(1, Number(entry?.width) || 1),
+      height: Math.max(1, Number(entry?.height) || 1),
+      powerlock: Boolean(entry?.powerlock),
+      manual: Boolean(entry?.manual),
+      order: Number(entry?.order) || 999,
+      crop: entry?.crop && typeof entry.crop === "object" ? { ...entry.crop } : null
+    })).filter(entry => entry.href)
+    : [];
+  return {
+    isPowerDistro: Boolean(value.isPowerDistro),
+    subtype: String(value.subtype || ""),
+    faceY: Number(value.faceY) || faceRect?.y || 0,
+    faceHeight: Number(value.faceHeight) || faceRect?.height || 0,
+    faceRect,
+    plugEntries,
+    plugCount: Math.max(0, Number(value.plugCount) || plugEntries.length),
+    inputCount: Math.max(0, Number(value.inputCount) || 0),
+    outputCount: Math.max(0, Number(value.outputCount) || 0),
+    powerlockCount: Math.max(0, Number(value.powerlockCount) || 0),
+    connectorCount: Math.max(0, Number(value.connectorCount) || 0),
+    assetBase: String(value.assetBase || ""),
+    source: String(value.source || "")
   };
 }
 
@@ -1269,12 +1319,38 @@ function normalizeConnector(connector, index) {
     adapterRole: String(connector.adapterRole || ""),
     adapterBranchCount: Math.max(0, Number(connector.adapterBranchCount) || 0),
     adapterMultipleExternalConnections: Boolean(connector.adapterMultipleExternalConnections),
+    powerPlug: normalizePowerPlugPlacement(connector.powerPlug),
+    powerPlugAsset: String(connector.powerPlugAsset || ""),
+    powerPlugSize: normalizePowerPlugSize(connector.powerPlugSize),
+    powerDistroRole: String(connector.powerDistroRole || ""),
     colorSegments: cloneColorSegments(connector.colorSegments),
     infoFields: cloneInfoFields(connector.infoFields),
     x: Number.isFinite(x) ? x : 0,
     y: Number.isFinite(y) ? y : 0,
     color: connector.color || "#32b6ff",
     colorMapped: Boolean(connector.colorMapped)
+  };
+}
+
+function normalizePowerPlugPlacement(value) {
+  if (!value || typeof value !== "object") return null;
+  const x = Number(value.x);
+  const y = Number(value.y);
+  return {
+    manual: Boolean(value.manual),
+    x: Number.isFinite(x) ? x : 0,
+    y: Number.isFinite(y) ? y : 0
+  };
+}
+
+function normalizePowerPlugSize(value) {
+  if (!value || typeof value !== "object") return null;
+  const width = Number(value.width);
+  const height = Number(value.height);
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
+  return {
+    width: Math.max(1, width),
+    height: Math.max(1, height)
   };
 }
 

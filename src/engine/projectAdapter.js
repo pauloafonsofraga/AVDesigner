@@ -19,6 +19,15 @@ import {
   adapterMappingForDevice,
   isAdapterTemplateLikeForEngine
 } from "./adapterMapping.js";
+import {
+  isPowerDistroTemplateForEngine,
+  isPowerPlugConnector,
+  normalizePowerDistroForEngine,
+  normalizePowerPlugPlacement,
+  powerDistroRequiredHeight,
+  powerPlugDisplaySize,
+  powerPlugImageForConnector
+} from "./powerDistroModel.js";
 
 const SIZE_PRESETS = {
   small: { deviceCount: 100, wireCount: 300 },
@@ -309,6 +318,7 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
   // source in that case; explicit instance fields still override below.
   const template = resolvedTemplate || instance || {};
   const isAdapter = isAdapterTemplateForEngine(template, instance);
+  const isPowerDistro = !isAdapter && isPowerDistroTemplateForEngine(template, instance);
   const rawConnectors = effectiveConnectorsForTemplate(template)
     .map(connector => applyInstanceConnectorOverride(instance, connector));
   const widthSource = isAdapter
@@ -316,7 +326,7 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
     : positiveNumber(instance.width) || positiveNumber(template.width);
   const heightSource = positiveNumber(instance.height) || positiveNumber(template.height);
   const width = widthSource || DEFAULT_DEVICE_WIDTH;
-  const height = isAdapter
+  let height = isAdapter
     ? adapterHeightForConnectors(rawConnectors, heightSource)
     : heightSource || DEFAULT_DEVICE_HEIGHT;
   const id = String(instance.instanceId || instance.id || `project-device-${index}`);
@@ -325,11 +335,17 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
     .map((connector, connectorIndex) => normalizeConnector(connector, connectorIndex, width, nodeColorByType, { isAdapter }))
     .filter(Boolean);
   const visual = normalizeDeviceVisualMetadata(template, instance, width, height, nodeColorByType);
+  const powerDistro = isPowerDistro
+    ? normalizePowerDistroForEngine({ template, instance, width, connectors })
+    : null;
+  visual.isPowerDistro = isPowerDistro;
+  visual.powerDistro = powerDistro;
+  if (powerDistro) height = powerDistroRequiredHeight(powerDistro, connectors, height);
   const normalized = {
     id,
     sourceKind: "device",
     sourceId: id,
-    kind: isAdapter ? "adapter" : "device",
+    kind: isAdapter ? "adapter" : isPowerDistro ? "power-distro" : "device",
     x: finiteNumber(instance.x, 0),
     y: finiteNumber(instance.y, 0),
     width,
@@ -417,7 +433,7 @@ function normalizeDeviceVisualMetadata(
     faceImageOffsetY: finiteNumber(instance.faceImageOffsetY ?? instance.faceplateOffsetY ?? template.faceImageOffsetY ?? template.faceplateOffsetY, 0),
     hasSwappableCards: Boolean(template.hasSwappableCards),
     isLedProcessor: Boolean(template.isLedProcessor),
-    isPowerDistro: Boolean(template.isPowerDistro),
+    isPowerDistro: Boolean(template.isPowerDistro || instance.isPowerDistro),
     isMatrixRouter: Boolean(template.isMatrixRouter),
     isAdapterBreakout: isAdapter,
     adapterClassification: adapterClassificationForEngine(template, instance, isAdapter),
@@ -583,6 +599,9 @@ function normalizeConnector(connector, index, deviceWidth, nodeColorByType, opti
   const visualConnector = normalizeConnectorVisualMetadata(connector, nodeColorByType, `Connector ${index + 1}`);
   const label = visualConnector.displayLabel || type || `Connector ${index + 1}`;
   const activeType = visualConnector.effectiveType || type;
+  const powerPlug = normalizePowerPlugPlacement(connector.powerPlug);
+  const powerPlugAsset = powerPlugImageForConnector(connector);
+  const powerPlugSize = powerPlugAsset ? powerPlugDisplaySize(connector) : null;
   const colorMapped = Boolean(
     connector.customColor
     || nodeColorByType.has(activeType)
@@ -603,6 +622,10 @@ function normalizeConnector(connector, index, deviceWidth, nodeColorByType, opti
     pairedConnectorId: String(connector.pairedConnectorId || ""),
     sourceConnectorId: connector.sourceConnectorId || "",
     generatedFromCard: Boolean(connector.generatedFromCard),
+    powerPlug,
+    powerPlugAsset,
+    powerPlugSize,
+    powerDistroRole: isPowerPlugConnector(connector) ? "power-plug" : "",
     installedModuleType: String(connector.installedModuleType || ""),
     installedModuleId: String(connector.installedModuleId || connector.installedModule?.id || connector.installedModule?.value || ""),
     installedModuleName: String(connector.installedModuleName || connector.installedModule?.name || connector.installedModule?.label || ""),

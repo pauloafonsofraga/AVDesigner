@@ -13,6 +13,7 @@ import { calculateCableHops, applyCableHopsToPolyline } from "../src/engine/cabl
 import { wirePathStatsForWires } from "../src/engine/wirePath.js";
 import { engineCompatibilitySummary } from "../src/engine/connectorCompatibility.js";
 import { adapterMappingForDevice } from "../src/engine/adapterMapping.js";
+import { powerPlugAssetsForDevice } from "../src/engine/powerDistroModel.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturePath = path.resolve(__dirname, "../fixtures/engine-parity-project.avd");
@@ -111,6 +112,7 @@ const longChainHarness = time("long-chain harness build", () => createHarness(ra
 const longChain = runLongUndoRedoChain(longChainHarness);
 const customDeviceFixture = validateProjectCustomDeviceFixture();
 const adapterBreakoutFixture = validateAdapterBreakoutFixture();
+const powerDistroFixture = validatePowerDistroFixture();
 
 const finalValidation = validateAndRoundTrip(initialHarness, "final");
 check("final engine scene validates", () => {
@@ -142,6 +144,7 @@ const summary = {
   outputVisual: outputVisualResults,
   customDeviceFixture,
   adapterBreakoutFixture,
+  powerDistroFixture,
   standaloneViewerSource,
   timingsMs: Object.fromEntries(Object.entries(timings).map(([key, value]) => [key, round(value)])),
   checks,
@@ -497,7 +500,7 @@ function buildDeleteWireCommand(harness) {
 
 function buildDeleteDeviceCommand(harness) {
   const candidates = harness.scene.devices
-    .filter(item => (item.kind === "device" || item.kind === "adapter") && harness.mutations.deviceById.has(String(item.sourceId || item.id)));
+    .filter(item => (item.kind === "device" || item.kind === "adapter" || item.kind === "power-distro") && harness.mutations.deviceById.has(String(item.sourceId || item.id)));
   const device = candidates.find(item => harness.scene.affectedWireIdsForObjects([item.id]).size)
     || candidates[0];
   if (!device) return skippedCommand("delete device", "no production-backed device");
@@ -1010,6 +1013,126 @@ function validateAdapterBreakoutFixture() {
     fanDirection: mapping.fanDirection,
     branches: mapping.branchCount,
     externalMultiConnectionAllowed: mapping.multipleExternalConnections
+  };
+}
+
+function validatePowerDistroFixture() {
+  const template = {
+    id: "power-distro-validation",
+    name: "Validation Power Distro",
+    category: "Power Distros",
+    isPowerDistro: true,
+    width: 380,
+    height: 320,
+    connectors: [
+      {
+        id: "pd-input-powercon",
+        type: "powercon",
+        direction: "input",
+        side: "left",
+        x: 0,
+        y: 210,
+        label: "powerCON"
+      },
+      {
+        id: "pd-output-16a",
+        type: "16a-1ph",
+        direction: "output",
+        side: "right",
+        x: 380,
+        y: 150,
+        label: "16A 1ph"
+      },
+      {
+        id: "pd-output-schuko",
+        type: "schuko",
+        direction: "output",
+        side: "right",
+        x: 380,
+        y: 190,
+        label: "Schuko"
+      },
+      {
+        id: "pd-output-powerlock",
+        type: "powerlock",
+        direction: "output",
+        side: "right",
+        x: 380,
+        y: 250,
+        label: "PowerLock"
+      }
+    ]
+  };
+  const project = {
+    version: 1,
+    projectName: "Power Distro Fixture",
+    deviceLibrary: [stableClone(template)],
+    devices: [{
+      instanceId: "power-distro-instance",
+      templateId: template.id,
+      x: 60,
+      y: 75,
+      name: "Validation Power Distro Instance"
+    }],
+    connections: []
+  };
+  const harness = time("power distro fixture harness build", () => createHarness(JSON.stringify(project), "power distro fixture"));
+  const device = harness.scene.getDevice("power-distro-instance");
+  const model = device?.visual?.powerDistro;
+  const plugAssets = powerPlugAssetsForDevice(device);
+  check("power distro fixture normalizes as power-distro kind", () => {
+    assert.ok(device, "expected power distro device in scene");
+    assert.equal(device.kind, "power-distro");
+    assert.equal(device.visual.isPowerDistro, true);
+    assert.equal(model?.source, "legacy-power-plug-layout");
+  });
+  check("power distro fixture preserves plug asset metadata", () => {
+    assert.ok(plugAssets.includes("Nodes/PowerPlugs/powerCON_Blue.svg"), "missing powerCON input asset");
+    assert.ok(plugAssets.includes("Nodes/PowerPlugs/16-1ph.svg"), "missing 16A output asset");
+    assert.ok(plugAssets.includes("Nodes/PowerPlugs/Schuko.svg"), "missing Schuko asset");
+    assert.ok(plugAssets.includes("Nodes/PowerPlugs/Powelock source.svg"), "missing Powerlock output asset");
+    assert.equal(model.plugEntries.length, 4);
+  });
+  check("power distro fixture has finite aligned generated geometry", () => {
+    assert.ok(Number.isFinite(model.faceRect.x));
+    assert.ok(Number.isFinite(model.faceRect.y));
+    assert.ok(Number.isFinite(model.faceRect.width));
+    assert.ok(Number.isFinite(model.faceRect.height));
+    model.plugEntries.forEach(entry => {
+      assert.ok(Number.isFinite(entry.cx), `bad cx for ${entry.connectorId}`);
+      assert.ok(Number.isFinite(entry.cy), `bad cy for ${entry.connectorId}`);
+      assert.ok(entry.width > 0 && entry.height > 0, `bad size for ${entry.connectorId}`);
+    });
+  });
+  check("power distro fixture connector identities remain stable and unique", () => {
+    const connectorIds = device.connectors.map(connector => connector.id);
+    assert.equal(new Set(connectorIds).size, connectorIds.length);
+    assert.ok(device.connectorsById.get("pd-input-powercon")?.powerPlugAsset.endsWith("powerCON_Blue.svg"));
+    assert.ok(device.connectorsById.get("pd-output-powerlock")?.powerPlugAsset.endsWith("Powelock source.svg"));
+    assert.equal(device.connectorsById.get("pd-output-powerlock")?.powerDistroRole, "power-plug");
+  });
+
+  const roundTripHarness = time("power distro fixture round-trip harness build", () => createHarness(JSON.stringify(stableClone(project)), "power distro fixture round trip"));
+  const roundTripDevice = roundTripHarness.scene.getDevice("power-distro-instance");
+  check("power distro fixture save/reload preserves generated layout", () => {
+    assert.equal(roundTripDevice.kind, "power-distro");
+    assert.equal(roundTripDevice.visual.powerDistro.plugEntries.length, 4);
+    assert.deepEqual(
+      roundTripDevice.visual.powerDistro.plugEntries.map(entry => entry.connectorId),
+      model.plugEntries.map(entry => entry.connectorId)
+    );
+  });
+
+  return {
+    templateId: template.id,
+    kind: device.kind,
+    width: device.width,
+    height: device.height,
+    plugCount: model.plugEntries.length,
+    inputCount: model.inputCount,
+    outputCount: model.outputCount,
+    powerlockCount: model.powerlockCount,
+    assets: plugAssets
   };
 }
 

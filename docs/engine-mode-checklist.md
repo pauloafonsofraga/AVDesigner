@@ -1,14 +1,14 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
-Iteration 45 restores the Legacy adapter/breakout internal mapping path in the
-Engine canvas. Breakout devices now use one shared `adapterMapping.js` helper
-for compact dimensions, source/destination connector grouping, fan-out/fan-in
-branches, gradient endpoints, connector branch metadata, and validation stats.
-Those internal branches remain visual adapter links, not duplicate reportable
-project cables. Test current builds with `index.html?v=iteration45`,
-`index.html?engine=1&debugHud=1&v=iteration45`,
-`index.html?engine=1&debugDeviceVisual=1&v=iteration45`, and
-`index.html?legacy=1&v=iteration45`.
+Iteration 46 restores the Legacy Power Distribution generated faceplate render
+path in the Engine canvas. Power Distro devices now normalize as a dedicated
+`power-distro` kind, derive runtime plug placement from
+`src/engine/powerDistroModel.js`, and draw the real Legacy SVG plug/socket
+assets from `Nodes/PowerPlugs/` into cached device textures. Test current
+builds with `index.html?v=iteration46`,
+`index.html?engine=1&debugHud=1&v=iteration46`,
+`index.html?engine=1&debugHud=1&debugPowerDistro=1&v=iteration46`, and
+`index.html?legacy=1&v=iteration46`.
 
 Iteration 44 restores the main Legacy Inspector as the Engine command control
 surface. Engine selection still drives the existing DOM inspector, but device
@@ -130,11 +130,11 @@ PDF and report drawing paths are deliberately unchanged.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags.
 
-Current visible build label: `Iteration 45`.
+Current visible build label: `Iteration 46`.
 The app top bar must show one of these labels:
 
-- `Iteration 45 — Engine Editor — iteration45`
-- `Iteration 45 — Legacy Editor — iteration45`
+- `Iteration 46 — Engine Editor — iteration46`
+- `Iteration 46 — Legacy Editor — iteration46`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -143,36 +143,38 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration45`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration45`.
+   `index.html?v=iteration46`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration46`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration45`.
+   `index.html?engineDefaultTest=1&v=iteration46`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration45`.
+   `index.html?legacy=1&v=iteration46`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration45`.
+   `index.html?engine=0&v=iteration46`.
 7. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration45`.
+   `index.html?engine=1&debugLoad=1&v=iteration46`.
 8. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration45`.
+   `index.html?engine=1&loadDelay=1500&v=iteration46`.
 9. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration45`.
+   `index.html?engine=1&debugHud=1&v=iteration46`.
 9a. Open the device visual diagnostic HUD/layer view:
-   `index.html?engine=1&debugDeviceVisual=1&v=iteration45`.
+   `index.html?engine=1&debugDeviceVisual=1&v=iteration46`.
+9b. Open the Power Distro diagnostic HUD:
+   `index.html?engine=1&debugHud=1&debugPowerDistro=1&v=iteration46`.
 10. Open the Device Library drag/drop debug overlay:
-   `index.html?debugLibraryDrag=1&v=iteration45`.
+   `index.html?debugLibraryDrag=1&v=iteration46`.
 11. Open the explicit Engine drag/drop debug overlay:
-   `index.html?engine=1&debugLibraryDrag=1&v=iteration45`.
+   `index.html?engine=1&debugLibraryDrag=1&v=iteration46`.
 12. Open the Legacy drag/drop debug overlay:
-   `index.html?legacy=1&debugLibraryDrag=1&v=iteration45`.
+   `index.html?legacy=1&debugLibraryDrag=1&v=iteration46`.
 13. Open compatibility diagnostics while drawing wires:
-    `index.html?engine=1&debugCompatibility=1&v=iteration45`.
+    `index.html?engine=1&debugCompatibility=1&v=iteration46`.
 14. Open routing diagnostics while selecting or editing orthogonal wires:
-    `index.html?engine=1&debugHud=1&debugRouting=1&v=iteration45`.
+    `index.html?engine=1&debugHud=1&debugRouting=1&v=iteration46`.
 15. Open endpoint-rewire diagnostics:
-    `index.html?engine=1&debugRewire=1&debugRouting=1&v=iteration45`.
+    `index.html?engine=1&debugRewire=1&debugRouting=1&v=iteration46`.
 15a. Open the Project Custom identity overlay:
-    `index.html?engine=1&debugCustomIdentity=1&v=iteration45`.
+    `index.html?engine=1&debugCustomIdentity=1&v=iteration46`.
 16. Confirm the top bar build label matches the mode you intended to test.
 16. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.
@@ -198,26 +200,6 @@ Git commit as the final source of truth when reviewing a pushed change.
 - **Project Custom row delete:** right-click the Project Custom Devices row and
   delete it. The row should disappear, and every placed canvas instance that uses
   that custom template should be removed from the canvas.
-
-## Iteration 45 Adapter / Breakout Checks
-
-- **Compact adapter visual:** place or open an Adapter/Breakout device and
-  confirm it renders as a dashed compact box, not a normal device shell.
-- **Internal fan-out/fan-in:** use a breakout with one input and multiple
-  outputs. The internal lines should appear inside the dashed body and fade
-  from source connector color to destination connector color.
-- **No duplicate report cables:** internal adapter lines should not appear as
-  normal project wires in the report/cable count.
-- **External sockets remain single-use:** connecting a normal project cable to
-  an already connected adapter socket should be rejected unless a future Legacy
-  flag explicitly allows that connector to carry multiple external project
-  wires.
-- **Validation:** run `node scripts/engine-real-project-validation.mjs --fixture`
-  and check the `adapterBreakoutFixture` summary for `fanDirection: "fan-out"`
-  and `branches: 3`.
-- **Canvas instance delete only:** select a placed device on the canvas and press
-  Delete or Backspace. Only the selected canvas instance should be removed; the
-  Project Custom Devices row and the Master Device Library entry must remain.
 - **Canvas rename stays instance-only:** rename a placed master or custom device
   from the inspector. The canvas label should update, but no new Project Custom
   Devices row should be created by the rename.
@@ -239,6 +221,51 @@ Git commit as the final source of truth when reviewing a pushed change.
   zero additional templates. Deleting a placed instance must remove only the
   placed instance; deleting the Project Custom row must remove the template and
   all of its placed canvas instances.
+
+## Iteration 45 Adapter / Breakout Checks
+
+- **Compact adapter visual:** place or open an Adapter/Breakout device and
+  confirm it renders as a dashed compact box, not a normal device shell.
+- **Internal fan-out/fan-in:** use a breakout with one input and multiple
+  outputs. The internal lines should appear inside the dashed body and fade
+  from source connector color to destination connector color.
+- **No duplicate report cables:** internal adapter lines should not appear as
+  normal project wires in the report/cable count.
+- **External sockets remain single-use:** connecting a normal project cable to
+  an already connected adapter socket should be rejected unless a future Legacy
+  flag explicitly allows that connector to carry multiple external project
+  wires.
+- **Validation:** run `node scripts/engine-real-project-validation.mjs --fixture`
+  and check the `adapterBreakoutFixture` summary for `fanDirection: "fan-out"`
+  and `branches: 3`.
+- **Canvas instance delete only:** select a placed device on the canvas and press
+  Delete or Backspace. Only the selected canvas instance should be removed; the
+  Project Custom Devices row and the Master Device Library entry must remain.
+
+## Iteration 46 Power Distro Checks
+
+- **Generated faceplate:** place a Power Distro and confirm the faceplate shows
+  real plug/socket SVG artwork rather than a generic `POWER DISTRO` label or
+  placeholder dots.
+- **Legacy comparison:** open the same template in
+  `index.html?legacy=1&v=iteration46` and compare plug order, asset sizes,
+  margins, Powerlock placement, and connector-circle alignment.
+- **Diagnostics:** open
+  `index.html?engine=1&debugHud=1&debugPowerDistro=1&v=iteration46`; the HUD
+  should show `power distro count`, `power distro model`, face rect, and plug
+  count values when a PD is present/selected.
+- **Supported SVG assets:** verify available PD templates use the expected
+  `Nodes/PowerPlugs/` artwork for NEMA, 13A-UK, Schuko, powerCON, True1,
+  CEE 1ph/3ph variants, Socapex, Harting, and Powerlock source/drain.
+- **Selection/delete:** select, marquee-select, delete, undo, and redo a placed
+  Power Distro. It should behave like a placed device, and decorative plug
+  artwork should not become separately selectable.
+- **Save/reload:** save a project containing a PD, reload it in Engine, then
+  open it with `index.html?legacy=1&v=iteration46`. Classification, connectors,
+  wires, and plug layout data should survive.
+- **Validation:** run `node scripts/engine-real-project-validation.mjs --fixture`
+  and check the Power Distro fixture rows for kind, asset metadata, finite
+  geometry, stable connector IDs, and round-trip preservation.
 18. Load a real `.avd` or `.json` project.
 19. During project loading, confirm the Engine Editor loading overlay appears,
    shortcut/delete/drag interaction is blocked, and the overlay hides only after

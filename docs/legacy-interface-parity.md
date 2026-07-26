@@ -4,9 +4,16 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 45`
+- Current build label: `Iteration 46`
 - Scope: interface and visual fidelity only. Functional wire parity is tracked in
   [`docs/legacy-functional-parity.md`](legacy-functional-parity.md).
+
+Iteration 46 restores the Engine runtime path for Legacy Power Distribution
+generated faceplates. Power Distro classification now survives normalization as
+a dedicated `power-distro` kind, generated plug geometry is normalized through
+`src/engine/powerDistroModel.js`, and cached device textures draw the real
+Legacy SVG plug/socket assets from `Nodes/PowerPlugs/` while connector circles
+remain live overlays.
 
 Iteration 45 keeps the compact adapter/breakout visual path and removes the
 remaining scattered internal-wiring logic. Engine cached textures and fallback
@@ -69,9 +76,9 @@ migration iterations.
 | Status | Count | Meaning |
 | --- | ---: | --- |
 | complete | 2 | Engine behavior is close enough to Legacy for this audit phase. |
-| partial | 17 | Engine has some data/render support, but not full Legacy fidelity. |
+| partial | 18 | Engine has some data/render support, but not full Legacy fidelity. |
 | delegated | 7 | Production/Legacy UI still owns the workflow while Engine syncs data. |
-| missing | 2 | Engine does not yet render or control the Legacy surface. |
+| missing | 1 | Engine does not yet render or control the Legacy surface. |
 | blocked | 0 | No item is blocked; several are intentionally deferred. |
 
 ## Engine Ownership Classes
@@ -101,7 +108,7 @@ migration iterations.
 | Connector info boxes and editable node fields | Name/resolution/custom boxes draw near connectors, shrink/magnify, can be edited in Device Editor. | Engine shows limited/simplified labels; production editor still owns field editing. | partial | `connectorInfoFields`, `renderConnectorInspector` at `8301fbf:index.html:41639`, `50170` | Metadata normalization in `sceneGraph.js`; overlay/labels in `renderer.js` | `nameText`, `resolutionFrameRate`, `customText`, field captions | High when zoomed in on card-heavy devices. | Inspector can show connector details; inline edit not Engine-owned. | Field edits should invalidate only affected device texture. | Compatible. | Exports need same field visibility later. | high | 44 | Do after cards and faceplates because it depends on final connector placement. |
 | Adapter/breakout visual | Transparent/dashed compact device with name outside, no node fields, internal wiring, multi-connection breakout rules. | Engine draws the compact dashed transparent cached body, keeps the label outside as a live overlay, and preserves adapter interaction. | partial | `isAdapterTemplate`, `drawDeviceBody` at Legacy commit; adapter code in production `index.html` | `drawAdapterVisual` and `drawAdapterInternalWires` in `src/engine/deviceVisualBuilder.js`; adapter label overlay in `src/engine/renderer.js`; adapter normalization in `projectAdapter.js`; shared mapping in `src/engine/adapterMapping.js` | `isAdapterBreakout`, compact dimensions, connectors, internal wires | Medium: simple but visually distinctive. | Device Editor toggle remains production UI. | Internal branches are derived visual links; real project endpoints remain single-use external sockets. | Compatible. | PDF/export adapter styling still needs output-path parity later. | medium | 45 | Engine no longer reuses the full device body for adapters. |
 | Adapter internal gradient wiring | Internal cable fades from input color to output color and supports breakout fan-out. | Engine derives input/output pairs from adapter connectors and draws internal Bezier fan-out/fan-in wires with input-to-output gradients inside the cached texture and WebGL fallback geometry. | partial | Legacy adapter drawing in `drawDeviceBody` and production helper blocks | `adapterInternalWirePairs`, `adapterInternalBezierGeometry`, `traceAdapterInternalWirePath`, and `adapterColorStops` in `src/engine/adapterMapping.js`; `drawAdapterInternalWires` in `src/engine/deviceVisualBuilder.js`; fallback wire geometry in `src/engine/renderer.js` | connector direction/side, connector colors, mapping branch metadata | Medium. | No current Engine editing UI. | Needs undo only if user can edit internal mapping. | Save format remains unchanged. | Reports count adapter device and external cables only. | medium | 45 | Output/viewer/PDF adapter rendering remains a separate parity pass. |
-| Power Distro generated faceplate | PD faceplate uses plug SVGs, drag/marquee movement, collision warning, powerlock special layout. | Production device editor and output paths own most PD layout; Engine visual texture is simplified. | missing | `powerPlugImageForConnector`, `powerPlugLayout`, `drawPowerDistroFaceplate` at `8301fbf:index.html:39237`, `39364`, `39734` | PD metadata passes through `projectAdapter.js`; no full Engine plug renderer | `isPowerDistro`, `powerPlug`, `powerDistroFaceHeight`, `powerDistroFaceY`, plug asset IDs | Very high for PD devices. | PD editor remains Legacy. | Plug movement/template edits remain production-side. | Fields preserved if not touched. | PDF/viewer PD visuals remain separate risk. | high | 46 | Needs SVG/image asset loading into textures and transparent PDF strategy later. |
+| Power Distro generated faceplate | PD faceplate uses plug SVGs, drag/marquee movement, collision warning, powerlock special layout. | Engine now preserves `isPowerDistro` as `power-distro`, normalizes Legacy plug layout at runtime, and renders generated faceplates with real plug SVG assets in cached textures. The DOM editor and output paths remain Legacy-owned. | partial | `POWER_PLUG_TYPES`, `powerPlugImageForConnector`, `powerPlugDisplaySize`, `powerDistroAutoFaceHeight`, `powerDistroFaceRect`, `sortedPowerPlugConnectors`, `powerPlugLayout`, `drawPowerDistroFaceplate`, `drawPowerPlugImage` at `8301fbf:index.html` | `src/engine/powerDistroModel.js`; `normalizeProjectDevice` in `src/engine/projectAdapter.js`; `normalizeVisualMetadata` in `src/engine/sceneGraph.js`; `drawPowerDistroFaceplate` in `src/engine/deviceVisualBuilder.js`; `debugPowerDistro` HUD in `src/engine/productionBridge.js` | `isPowerDistro`, connector `powerPlug`, manual plug `x/y`, plug SVG asset IDs, faceplate min-height fields, connector IDs | High: generated faceplate texture depends on SVG asset decoding and targeted invalidation. | PD editor remains Legacy/DOM-owned. | Plug movement/template edits remain production-side; Engine consumes applied template data. | Existing fields preserved; runtime model is not saved. | PDF/viewer PD visuals remain separate risk. | high | 46 | Engine renderer uses Legacy plug assets and layout geometry; editor preview/output parity still need a later focused pass. |
 | Powerlock multicolor nodes and wires | Powerlock uses multiple phase colors, not one green fallback. | Engine connector/cable helpers support multicolor in main canvas; editor/outputs need audit. | partial | Power connector color helpers in Legacy `index.html`; `drawDeviceBody` | `src/engine/connectorCompatibility.js`, renderer wire/color helpers, `deviceVisualBuilder.js` markers | connector type, multicolor swatch metadata | Medium. | Inspector/report swatches should stay consistent. | No special undo. | Compatible. | Report/export color swatches need later output pass. | medium | 43 | Do together with connector-marker fidelity. |
 | LED surfaces and image surfaces | LED grids/images can render PNGs, pixels, labels, right-click actions like Use image size. | Engine renders surfaces as simplified visuals; output/editor parity is partial. | partial | LED surface render/context helpers including `showLedSurfaceContextMenu` at `8301fbf:index.html:48241` | `drawSurfaceVisual` in `deviceVisualBuilder.js`; scene objects in `sceneGraph.js` | led surface bounds, image payload, pixels, labels | Medium-high for large projects. | Inspector remains production. | Resize/move commands are Engine if on canvas. | Compatible. | Reports count LED screens and pixels; PDF/viewer separate. | medium | 47 | Real image fidelity matters for client drawings. |
 | Jump nodes | Special portal node, radial colors, source/destination boxes, selection, rewire limitations. | Engine visual and movement mostly restored; user noted jump nodes still not fully implemented. | partial | Jump node drawing and context helpers in Legacy `index.html` | `drawJumpVisual`, jump owner resolution in `sceneGraph.js`, bridge rewire paths | jump IDs, endpoint ownership, paired jump IDs, connector IDs | Medium. | Inspector still production/partial. | Move/selection commands work; some portal rewiring remains deferred. | Compatible. | Viewer jump behavior must remain aligned. | medium | 44 | Do not expand before endpoint and ownership edge cases are closed. |
@@ -193,10 +200,27 @@ commands.
 
 ### Phase 7 - Power Distro And Power Visuals
 
-PD faceplates need a dedicated pass because they combine SVG/image assets,
-manual layout, collision warnings, Powerlock rules, and report/export concerns.
-They should not be folded into generic faceplate work beyond the image-loading
-infrastructure.
+Iteration 46 ports the main Legacy generated-faceplate data path into a
+dedicated runtime helper instead of scattering PD checks across render files.
+The audited Legacy functions were `POWER_PLUG_TYPES`,
+`powerPlugImageForConnector(...)`, `powerPlugCanExistOnSide(...)`,
+`powerPlugDisplaySize(...)`, `powerPlugSortValue(...)`,
+`sortedPowerPlugConnectors(...)`, `powerDistroManualPlugHeight(...)`,
+`powerDistroAutoFaceHeight(...)`, `powerDistroFaceRect(...)`,
+`powerPlugLayout(...)`, `drawPowerPlugImage(...)`, and
+`drawPowerDistroFaceplate(...)`.
+
+The Engine model remains runtime-only: it reads `template.isPowerDistro`,
+connector `powerPlug` metadata, manual plug positions, connector direction, and
+stable connector IDs, then derives plug entries with asset href, display size,
+center, faceplate rect, and required device height. It uses the exact Legacy
+SVG assets under `Nodes/PowerPlugs/`, including NEMA, 13A-UK, Schuko,
+powerCON Blue/White, powerCON True1 Male/Female, CEE 16/32/63/125 variants,
+Socapex, Harting, and Powerlock source/drain.
+
+Still delegated: the DOM Power Distro editor controls, destructive wired-outlet
+confirmation, manual plug drag UI, PDF/viewer rendering, and report-specific
+power connector presentation.
 
 ### Phase 8 - Adapters And Breakouts
 

@@ -2082,6 +2082,7 @@ class ProductionEngineBridge {
     this.hud.setMetric("texture cache", `${textureStats.hits} hit / ${textureStats.misses} miss / ${textureStats.sharedHits} shared`);
     this.hud.setMetric("texture drag rebuilds", 0);
     if (engineDeviceTextureDebugEnabled()) this.updateDeviceTextureDebugHud(textureStats);
+    if (enginePowerDistroDebugEnabled()) this.updatePowerDistroDebugHud(textureStats, adapterStats);
     this.hud.setMetric("undo redo", `${this.commandIndex} undo / ${this.commandHistory.length - this.commandIndex} redo`);
     this.hud.setMetric("last command", this.lastMutationType);
     this.hud.setMetric("gpu update", staticStats ? "full static upload" : "ready");
@@ -2150,6 +2151,31 @@ class ProductionEngineBridge {
     this.hud.setMetric(
       "texture debug cache",
       `${textureStats.lastTextureCacheEvent || "-"} / ${textureStats.lastInvalidationReason || "-"} / build ${roundForHud(diagnostic.buildMs)} ms`
+    );
+  }
+
+  updatePowerDistroDebugHud(textureStats = {}, adapterStats = {}) {
+    const diagnostic = textureStats.maxTextureDiagnostics || textureStats.lastTextureDiagnostics;
+    const powerDistro = diagnostic?.powerDistro || {};
+    this.hud.setMetric("power distro count", `${adapterStats.powerDistroDevices || 0} devices / ${adapterStats.powerDistroPlugs || 0} plugs`);
+    this.hud.setMetric("power distro target", powerDistro.isPowerDistro ? `${diagnostic.deviceId || "-"} / ${diagnostic.name || "-"}` : "-");
+    this.hud.setMetric(
+      "power distro model",
+      powerDistro.isPowerDistro
+        ? `${powerDistro.rendererHelper || "-"} / ${powerDistro.modelSource || "-"}`
+        : "-"
+    );
+    this.hud.setMetric(
+      "power distro face",
+      powerDistro.isPowerDistro
+        ? `${roundForHud(powerDistro.faceX)},${roundForHud(powerDistro.faceY)} ${roundForHud(powerDistro.faceWidth)} x ${roundForHud(powerDistro.faceHeight)}`
+        : "-"
+    );
+    this.hud.setMetric(
+      "power distro plugs",
+      powerDistro.isPowerDistro
+        ? `${powerDistro.inputCount || 0} in / ${powerDistro.outputCount || 0} out / ${powerDistro.powerlockCount || 0} powerlock / ${powerDistro.plugCount || 0} drawn`
+        : "-"
     );
   }
 
@@ -4493,12 +4519,18 @@ function engineDebugHudEnabled() {
     || params.get("debugLayers") === "1"
     || params.get("debugDeviceVisual") === "1"
     || params.get("debugDeviceTexture") === "1"
+    || params.get("debugPowerDistro") === "1"
     || params.get("debugRewire") === "1"
     || params.get("orthogonalTest") === "1";
 }
 
 function engineDeviceTextureDebugEnabled() {
   return new URLSearchParams(window.location.search).get("debugDeviceTexture") === "1";
+}
+
+function enginePowerDistroDebugEnabled() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("debugPowerDistro") === "1" || params.get("debugDeviceTexture") === "1";
 }
 
 function engineCompatibilityDebugEnabled() {
@@ -4612,13 +4644,17 @@ function isEngineDeletableDevice(device) {
   if (!device) return false;
   if (device.kind === "jump" || device.kind === "surface") return false;
   if (device.sourceKind === "jumpNode" || device.sourceKind === "ledSurface") return false;
-  return device.sourceKind === "device" || device.kind === "device" || device.kind === "adapter";
+  return device.sourceKind === "device"
+    || device.kind === "device"
+    || device.kind === "adapter"
+    || device.kind === "power-distro";
 }
 
 function isMarqueeSelectableDevice(device) {
   if (!device) return false;
   return device.kind === "device"
     || device.kind === "adapter"
+    || device.kind === "power-distro"
     || device.kind === "surface"
     || device.kind === "jump"
     || device.sourceKind === "device"

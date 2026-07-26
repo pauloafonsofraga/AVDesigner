@@ -4,7 +4,13 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 45`
+- Current build label: `Iteration 46`
+
+Iteration 46 restores the Legacy Power Distribution generated faceplate render
+path in the default Engine Editor. Power Distro templates are normalized as a
+dedicated `power-distro` kind, generated plug geometry is derived through
+`src/engine/powerDistroModel.js`, and Engine cached device textures use the
+real Legacy SVG plug/socket artwork from `Nodes/PowerPlugs/`.
 
 Iteration 45 restores the Legacy adapter/breakout internal mapping path in the
 Engine canvas. A shared `src/engine/adapterMapping.js` helper now derives
@@ -342,7 +348,7 @@ PD geometry, and special template behaviours.
 | Faceplate visuals | Legacy draws custom face images, deleted faceplates, default faceplates, faceplate resize, adapter mode, and card bands. | Engine visual builder reads face image metadata and card visuals for fast rendering; not all editing paths are Engine commands. | partial | `drawDeviceBody`, `renderDeviceEditorPreview`, faceplate placement helpers | `projectAdapter.normalizeVisualMetadata`, `deviceVisualBuilder.js`, `renderer.js` | `faceImage`, natural size, scale, placement, deleted flag | Existing data should save | Editing undo production-owned | Viewer/PDF currently use production output | medium | 39 | Rendering is closer than editing parity. |
 | Project custom device visuals | Legacy creates project-specific template overrides and shows them in Project Custom Devices. | Engine renders loaded custom devices and consumes restored custom-template create/duplicate/edit/delete workflows. Future drops use the latest template revision; existing placed instances remain snapshot-based. | covered | `templateForInstance`, `renderProjectCustomDevices`, `duplicateLibraryDevice` | project adapter visual normalization, `deviceVisualCacheKey`, `renderProjectCustomDevices` in `index.html` | `templateOverride`, image assets, faceplate scale/offset/deleted fields, cards, connectors, `visualRevision` | Critical for user-created devices; custom templates and snapshots persist | Template edit/delete use production history scope; placed creation is Engine undoable | Export compacts templates | high | 42 | Texture cache keys include visual revision so edited custom templates do not reuse stale cached visuals. |
 | Adapter/breakout devices | Legacy has special compact dashed rendering, no node fields, internal gradient wires, and special internal multi-connection rules. | Engine can normalize adapter visual metadata; full internal adapter wiring/editing parity not audited/migrated. | partial | `isAdapterTemplate`, `drawDeviceBody`, adapter internal wire helpers | `projectAdapter.isAdapterBreakout`, `deviceVisualBuilder` | adapter template flag, connector list, internal wires | Must preserve adapter flag and internal links | Needs adapter edit undo | Reports list as devices/adapters | medium | 39 | Keep for compact conversion devices. |
-| Power distro plug layout | Legacy has PD flag, SVG plug assets, power plug layout, manual snapping/overlap warning, faceplate height rules, powerlock special full-width behaviour. | Engine marks power-distro visuals and colors, but PD editor/layout behaviour remains production-owned. | partial | `POWER_PLUG_TYPES`, `powerPlugLayout`, `drawPowerDistroFaceplate`, `startEditorPowerPlugDrag` | `projectAdapter.isPowerDistro`, `deviceVisualBuilder` | `template.isPowerDistro`, connector `powerPlug`, plug SVG metadata | Existing data saves; Engine not editing plug layout | Template-level undo needed | PDF/viewer use production render paths | high | 40 | Needs careful parity because PD devices are visually distinct. |
+| Power distro plug layout | Legacy has PD flag, SVG plug assets, power plug layout, manual snapping/overlap warning, faceplate height rules, powerlock special full-width behaviour. | Engine now classifies PDs as `power-distro`, derives runtime plug layout from Legacy fields, preserves plug asset metadata, expands required height from generated plug bounds, and renders the generated faceplate into cached textures. The DOM editor/layout editing remains production-owned. | partial | `POWER_PLUG_TYPES`, `powerPlugMeta`, `powerPlugImageForConnector`, `powerPlugDisplaySize`, `powerDistroAutoFaceHeight`, `powerDistroFaceRect`, `sortedPowerPlugConnectors`, `powerPlugLayout`, `drawPowerDistroFaceplate`, `startEditorPowerPlugDrag` | `src/engine/powerDistroModel.js`, `projectAdapter.normalizeProjectDevice`, `sceneGraph.normalizeDevice`, `deviceVisualBuilder.drawPowerDistroFaceplate`, `productionBridge.updatePowerDistroDebugHud` | `template.isPowerDistro`, connector `powerPlug`, manual plug `x/y`, direction, connector IDs, plug SVG metadata | Existing data saves; runtime model and asset cache are not saved | Template-level edits stay production-owned; placed deletion/undo treats PD as a normal placed device | PDF/viewer use production render paths | high | 46 | Engine canvas no longer falls back to generic/simplified PD visuals, but editor preview/output parity remains a separate risk. |
 | Power connector/cable colors | Legacy supports power cable families and Powerlock multicolor segments. | Engine has power/multicolor render support from previous passes, but compatibility rules are not restored. | partial | `colorSegmentsForConnector`, `connectionColorSegments`, `POWER_PLUG_TYPE_IDS` | engine color/render helpers, `projectAdapter` connector colors | cable type metadata | Color does not affect save except custom colors | none | Legend/report color consistency | medium | 40 | Split visual parity from connection validity. |
 | SFP/QSFP cages | Legacy treats cages as dead until an installed module provides the active connector type. LC singlemode and LC multimode are separate fiber families; RJ45 modules behave as CAT; QSFP MPO behaves as MPO fiber. | Engine enforces dead-cage/module rules, LC single/multi family compatibility, RJ45 CAT compatibility, and QSFP MPO type compatibility during create and rewire. | covered | `isCageConnector`, `isDeadCageConnector`, `activeTypeForCageConnector`, `effectiveConnectorType`, `FIBER_MODE_OPTIONS` | `src/engine/connectorCompatibility.js`, `projectAdapter`, `projectMutations`, `SceneGraph`, `ProductionEngineBridge` | `connector.installedModuleType`, `connector.fiberMode`, `connection.fiberMode` | Fiber mode/color survives Engine creation, rewire, and save/load | Undo/redo keeps fiber mode through exact connection-state restoration | Outputs inherit production `connection.fiberMode` | medium | 38 | Existing SFP/QSFP wires can now be reassigned without changing cable metadata. |
 | Device context menu | Legacy right-click device opens edit, matrix routing, duplicate, lock/unlock, delete. | Engine context hit-test delegates device target back to Legacy `showDeviceContextMenu(...)`. | partial | `showDeviceContextMenu` | `ProductionEngineBridge.handleContextMenu`, `index.html onEngineContextMenu` | selected device ID/source ID | Actions mutate production state | Depends on Legacy undo | Outputs read production state | medium | 41 | Delegation exists; each action still needs Engine scene refresh audit. |
@@ -557,9 +563,15 @@ Legacy behaviour:
 
 Current Engine:
 
-- Reads `isPowerDistro` and connector colors.
-- Can render existing devices through normalized visuals.
-- Does not own the PD plug layout/edit workflow.
+- Reads `isPowerDistro`, connector `powerPlug`, manual plug positions,
+  connector direction, stable connector IDs, and plug asset metadata.
+- Normalizes runtime-only `visual.powerDistro` data through
+  `src/engine/powerDistroModel.js`.
+- Renders generated PD faceplates with Legacy plug SVG assets in cached Engine
+  textures.
+- Treats PD instances as selectable/marquee-selectable/deletable placed
+  devices.
+- Does not own the DOM PD plug layout/edit workflow.
 
 ### G. Right-Click / Context / Action Parity
 
@@ -898,11 +910,35 @@ Deliberately unchanged: the project save format, reports/viewer/PDF visuals,
 Power Distro generated faceplates, Rack Builder, Matrix Routing, and the DOM
 Device Editor controls.
 
-### Iteration 45+ — Continue Interface Roadmap
+### Iteration 46 — Power Distro Generated Faceplates
+
+Power Distribution devices now have a dedicated Engine normalization and
+rendering path:
+
+- classification is preserved as `kind: "power-distro"` from structured
+  `template.isPowerDistro`/instance metadata, not from display name;
+- Legacy plug geometry is mirrored from `POWER_PLUG_TYPES`,
+  `powerPlugDisplaySize`, `sortedPowerPlugConnectors`,
+  `powerDistroFaceRect`, and `powerPlugLayout`;
+- plug artwork uses the real `Nodes/PowerPlugs/` SVG assets for NEMA, 13A-UK,
+  Schuko, powerCON, True1, CEE 1ph/3ph variants, Socapex, Harting, and
+  Powerlock source/drain;
+- connector IDs stay the original connector IDs, while generated plug entries
+  are runtime-only and not saved;
+- cached textures are invalidated only by visual metadata changes through the
+  device visual cache key, not by movement/selection/hover/pan/zoom;
+- `debugPowerDistro=1` adds HUD lines for the target kind, generated model,
+  face rect, and plug counts.
+
+Deliberately unchanged: DOM Power Distro editor internals, manual plug drag
+inside the editor, destructive wired-outlet prompts, Rack Builder, Matrix
+Routing, PDF/viewer/report output rendering, and project save format.
+
+### Iteration 46+ — Continue Interface Roadmap
 
 Follow the detailed order in
 [`docs/legacy-interface-parity.md`](legacy-interface-parity.md): PD/power
-visuals, LED/title surfaces, racks, matrix UI, toolbar polish, then output
+editor preview edge cases, LED/title surfaces, racks, matrix UI, toolbar polish, then output
 migration. Only after editor visual parity is stable should viewer/PDF/report
 visual migration resume.
 

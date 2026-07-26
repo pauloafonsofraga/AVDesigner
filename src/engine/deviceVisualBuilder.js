@@ -4,6 +4,11 @@ import {
   adapterInternalWirePairs,
   traceAdapterInternalWirePath
 } from "./adapterMapping.js";
+import {
+  powerDistroDiagnostics,
+  powerDistroVisualForDevice,
+  powerPlugAssetsForDevice
+} from "./powerDistroModel.js";
 
 const QUALITY_PRESETS = {
   low: { label: "Low", scale: 2, maxSide: 2048, maxPixels: 12_000_000 },
@@ -75,11 +80,41 @@ export function deviceVisualCacheKey(device, options = {}) {
       connector.installedModuleFiberFamily || "",
       connector.installedModuleLabel || "",
       connector.fiberFamily || "",
+      connector.powerPlugAsset || "",
+      connector.powerDistroRole || "",
+      connector.powerPlugSize ? `${Math.round(connector.powerPlugSize.width || 0)}x${Math.round(connector.powerPlugSize.height || 0)}` : "",
       Array.isArray(connector.colorSegments) ? connector.colorSegments.join(",") : "",
       Array.isArray(connector.infoFields) ? connector.infoFields.map(field => `${field.title || ""}=${field.value || field.text || ""}`).join(",") : "",
       options.connectorColors ? connector.color || "" : ""
     ].join(":"))
     .join("|");
+  const powerDistroShape = visual.powerDistro
+    ? [
+      visual.powerDistro.source || "",
+      visual.powerDistro.subtype || "",
+      visual.powerDistro.faceRect
+        ? [
+          Math.round(visual.powerDistro.faceRect.x || 0),
+          Math.round(visual.powerDistro.faceRect.y || 0),
+          Math.round(visual.powerDistro.faceRect.width || 0),
+          Math.round(visual.powerDistro.faceRect.height || 0)
+        ].join(",")
+        : "",
+      (visual.powerDistro.plugEntries || []).map(entry => [
+        entry.connectorId || "",
+        entry.connectorType || "",
+        entry.direction || "",
+        entry.href || "",
+        Math.round(entry.x || 0),
+        Math.round(entry.y || 0),
+        Math.round(entry.width || 0),
+        Math.round(entry.height || 0),
+        entry.powerlock ? "powerlock" : "",
+        entry.manual ? "manual" : "",
+        deviceVisualAssetRevision(entry.href)
+      ].join(",")).join("/")
+    ].join("|")
+    : "";
   const cardShape = (visual.visualCards || [])
     .map(card => [
       card.id || "",
@@ -158,6 +193,7 @@ export function deviceVisualCacheKey(device, options = {}) {
     visual.hasSwappableCards ? "cards" : "",
     visual.isLedProcessor ? "led-processor" : "",
     visual.isPowerDistro ? "pd" : "",
+    powerDistroShape,
     visual.isMatrixRouter ? "matrix" : "",
     device.portCount || 0,
     connectorShape,
@@ -256,7 +292,8 @@ function drawRackDeviceVisual(ctx, device, width, height, options) {
   ctx.stroke();
 
   drawDeviceHeader(ctx, device, width, pad, detailed);
-  const face = drawFaceplate(ctx, device, visual, width, height, pad, detailed);
+  const face = drawPowerDistroFaceplate(ctx, device, visual, width, height, detailed)
+    || drawFaceplate(ctx, device, visual, width, height, pad, detailed);
 
   if (detailed && visual.visualCards?.length && !options.simplifiedCards) {
     drawCardAreas(ctx, visual.visualCards, width, height, pad);
@@ -265,7 +302,6 @@ function drawRackDeviceVisual(ctx, device, width, height, options) {
   }
 
   if (visual.isLedProcessor) drawDeviceTag(ctx, "LED PROCESSOR", width - pad, 24, "#ff99cc", "right");
-  if (visual.isPowerDistro) drawDeviceTag(ctx, "POWER DISTRO", width - pad, 40, "#e53935", "right");
   if (visual.isMatrixRouter) drawDeviceTag(ctx, "MATRIX", width - pad, 56, "#32b6ff", "right");
 
   // Connector nodes are intentionally not baked into cached device textures.
@@ -282,6 +318,53 @@ function drawDeviceHeader(ctx, device, width, pad, detailed) {
     fill: "#ffffff",
     baseline: "alphabetic"
   });
+  ctx.restore();
+}
+
+function drawPowerDistroFaceplate(ctx, device, visual, width, height, detailed) {
+  const model = powerDistroVisualForDevice(device);
+  if (!visual?.isPowerDistro || visual.hasFaceImage || visual.faceplateDeleted || !model?.faceRect) return null;
+  const rect = model.faceRect;
+  const x = clamp(rect.x, FACE_MARGIN, Math.max(FACE_MARGIN, width - FACE_MARGIN - 1));
+  const y = clamp(rect.y, FACE_TOP_Y, Math.max(FACE_TOP_Y, height - FACE_MARGIN - 1));
+  const w = Math.min(Math.max(1, rect.width), Math.max(1, width - x - FACE_MARGIN));
+  const h = Math.min(Math.max(1, rect.height), Math.max(1, height - y - FACE_MARGIN));
+
+  ctx.save();
+  roundRect(ctx, x, y, w, h, 5);
+  ctx.fillStyle = LEGACY_DEVICE_FACE;
+  ctx.fill();
+  ctx.strokeStyle = "rgba(50, 182, 255, .18)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  const entries = Array.isArray(model.plugEntries) ? model.plugEntries : [];
+  entries.forEach(entry => drawPowerPlugCanvasImage(ctx, entry, { detailed }));
+  ctx.restore();
+
+  return { x, y, width: w, height: h, bottom: y + h };
+}
+
+function drawPowerPlugCanvasImage(ctx, entry, options = {}) {
+  const href = String(entry?.href || "").trim();
+  if (!href) return;
+  const width = Math.max(1, Number(entry.width) || 1);
+  const height = Math.max(1, Number(entry.height) || 1);
+  const x = Number(entry.x) || 0;
+  const y = Number(entry.y) || 0;
+  const image = cachedImage(href);
+  if (image?.complete && image.naturalWidth > 0) {
+    const drawRect = preserveAspectRatioMeetRect({ x, y, width, height }, image.naturalWidth, image.naturalHeight);
+    ctx.drawImage(image, drawRect.x, drawRect.y, drawRect.width, drawRect.height);
+    return;
+  }
+  if (options.detailed === false) return;
+  ctx.save();
+  ctx.globalAlpha = 0.34;
+  roundRect(ctx, x, y, width, height, Math.min(6, Math.min(width, height) / 4));
+  ctx.strokeStyle = "#d7e6f5";
+  ctx.lineWidth = 1;
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -758,6 +841,7 @@ function textureScaleForSize(width, height, quality, limits) {
 function deviceVisualDiagnostics(device, render) {
   const face = faceplateDiagnostics(device, render.logicalWidth);
   const adapter = adapterDiagnostics(device);
+  const powerDistro = powerDistroDiagnostics(device);
   const texturePixels = render.textureWidth * render.textureHeight;
   return {
     deviceId: device?.id || "",
@@ -787,7 +871,8 @@ function deviceVisualDiagnostics(device, render) {
     magFilter: "LINEAR",
     buildMs: render.buildMs,
     face,
-    adapter
+    adapter,
+    powerDistro
   };
 }
 
@@ -928,7 +1013,7 @@ function basename(path) {
 
 export function deviceVisualSources(device) {
   const visual = device?.visual || {};
-  return [visual.faceImage, visual.thumbnailImage]
+  return [visual.faceImage, visual.thumbnailImage, ...powerPlugAssetsForDevice(device)]
     .map(value => String(value || "").trim())
     .filter(Boolean);
 }
