@@ -211,7 +211,11 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
   const surfaceConnectionOrder = buildSurfaceConnectionOrder(root.connections || []);
   const wireMode = root.wireMode === "orthogonal" ? "orthogonal" : "bezier";
   surfaceDevices.forEach(surface => {
-    surface.portCount = Math.max(surface.portCount || 1, surfaceConnectionOrder.get(surface.id)?.length || 1);
+    // Legacy LED PNG surfaces do not expose visible connector nodes. Wires use
+    // virtual left-edge landing points calculated from connected wire order, so
+    // keep portCount at 0 to prevent generic fallback connector rows.
+    surface.visual.connectionCount = surfaceConnectionOrder.get(surface.id)?.length || 0;
+    surface.portCount = 0;
   });
   const allDevices = [
     ...areaDevices,
@@ -812,6 +816,7 @@ function normalizeLedSurfaces(surfaces) {
         image: String(surface.image || surface.src || surface.href || "").trim(),
         naturalWidth,
         naturalHeight,
+        signalSlots: Math.max(0, Number(surface.signalSlots) || 0),
         pixelWidth: positiveNumber(surface.pixelWidth) || positiveNumber(surface.pixelsWide) || positiveNumber(surface.resolutionWidth),
         pixelHeight: positiveNumber(surface.pixelHeight) || positiveNumber(surface.pixelsHigh) || positiveNumber(surface.resolutionHeight),
         physicalWidth: positiveNumber(surface.physicalWidth) || positiveNumber(surface.metersWide),
@@ -819,7 +824,7 @@ function normalizeLedSurfaces(surfaces) {
         opacity: finiteNumber(surface.opacity, 1)
       },
       connectors: [],
-      portCount: Math.max(1, Number(surface.signalSlots) || 1)
+      portCount: 0
     };
   });
 }
@@ -1023,7 +1028,8 @@ function normalizeProjectWire(wire, index, context) {
     length: wire.length || wire.cableLength || "",
     hideLabel: Boolean(wire.hideLabel),
     cableType,
-    fiberMode
+    fiberMode,
+    signalIndex: Number(wire.signalIndex) || 0
   };
 }
 
@@ -1062,7 +1068,7 @@ function normalizeEndpoint(endpoint, end, wire, context) {
       connectorId: `surface-port-${wire.id || portIndex}`,
       side: "left",
       portIndex,
-      usesRealConnector: true
+      usesRealConnector: false
     };
   }
   return null;

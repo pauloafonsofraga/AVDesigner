@@ -900,6 +900,9 @@ export class SceneGraph {
     const device = this.getDevice(deviceId);
     if (!device) return { x: 0, y: 0 };
     const pos = this.positionForDevice(device, offsetMap);
+    if (isLedSurfaceKind(device)) {
+      return this.rawEndpointForLedSurface(wire, device, pos);
+    }
     const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
     const connector = connectorId ? device.connectorsById.get(connectorId) : null;
     if (connector) {
@@ -918,11 +921,43 @@ export class SceneGraph {
     };
   }
 
+  rawEndpointForLedSurface(wire, device, pos) {
+    // Legacy LED PNG surfaces never draw real connector nodes. Their wires land
+    // on virtual points distributed on the image's left edge by connection
+    // order, keeping the image clean while still giving each wire a stable end.
+    const orderedWires = this.orderedLedSurfaceWires(device.id);
+    const count = Math.max(1, orderedWires.length);
+    const index = Math.max(0, orderedWires.findIndex(candidate => candidate.id === wire.id));
+    return {
+      x: pos.x,
+      y: pos.y + device.height * ((index + 0.5) / count)
+    };
+  }
+
+  orderedLedSurfaceWires(surfaceId) {
+    return this.wires
+      .map((wire, index) => ({ wire, index }))
+      .filter(item => item.wire.fromDeviceId === surfaceId || item.wire.toDeviceId === surfaceId)
+      .sort((a, b) => {
+        const aLed = a.wire.cableType === "led-signal" ? 0 : 1;
+        const bLed = b.wire.cableType === "led-signal" ? 0 : 1;
+        if (aLed !== bLed) return aLed - bLed;
+        const signalDelta = (Number(a.wire.signalIndex) || 0) - (Number(b.wire.signalIndex) || 0);
+        if (signalDelta) return signalDelta;
+        const aPort = a.wire.fromDeviceId === surfaceId ? a.wire.fromPortIndex : a.wire.toPortIndex;
+        const bPort = b.wire.fromDeviceId === surfaceId ? b.wire.fromPortIndex : b.wire.toPortIndex;
+        const portDelta = (Number(aPort) || 0) - (Number(bPort) || 0);
+        return portDelta || a.index - b.index;
+      })
+      .map(item => item.wire);
+  }
+
   visibleEndpoint(wire, end, point, otherPoint) {
     const deviceId = end === "from" ? wire.fromDeviceId : wire.toDeviceId;
     const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
     const side = end === "from" ? wire.fromSide : wire.toSide;
     const device = this.getDevice(deviceId);
+    if (isLedSurfaceKind(device)) return point;
     const connector = connectorId ? device?.connectorsById.get(connectorId) : null;
     const radius = device?.kind === "jump" ? 22 : 6;
     const connectorSide = connector?.side || side;
@@ -1392,7 +1427,8 @@ function normalizeWire(wire) {
     label: wire.label || wire.cableType || String(wire.id),
     length: wire.length || "",
     cableType: wire.cableType || "",
-    fiberMode: wire.fiberMode || ""
+    fiberMode: wire.fiberMode || "",
+    signalIndex: Number(wire.signalIndex) || 0
   };
 }
 

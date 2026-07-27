@@ -716,6 +716,78 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
   assert.equal(orthogonalRouteDiagnostics({ routePoints: horizontalAdded.routePoints, from, to }).allOrthogonal, true, "horizontal orthogonal insertion remains strictly horizontal/vertical");
 }
 
+{
+  const normalizedLedProject = normalizeAvDesignerProject({
+    ledSurfaces: [{
+      id: "led-grid",
+      name: "LED Grid",
+      x: 1000,
+      y: 200,
+      width: 500,
+      height: 250,
+      signalSlots: 20,
+      image: "data:image/png;base64,test"
+    }]
+  });
+  const normalizedSurface = normalizedLedProject.devices.find(device => device.id === "led-grid");
+  assert.equal(normalizedSurface.kind, "led-surface", "LED PNG import normalizes as a LED surface");
+  assert.equal(normalizedSurface.connectors.length, 0, "LED PNG import exposes no visible connectors");
+  assert.equal(normalizedSurface.portCount, 0, "LED PNG import does not advertise fallback ports");
+  assert.equal(normalizedSurface.visual.signalSlots, 20, "LED PNG import preserves signal slot metadata");
+
+  const ledScene = new SceneGraph();
+  ledScene.setData({
+    devices: [
+      {
+        id: "source",
+        kind: "device",
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 60,
+        connectors: [{ id: "out", type: "led-signal", label: "OUT", side: "right", direction: "output", x: 100, y: 30 }]
+      },
+      normalizedSurface
+    ],
+    wires: [
+      {
+        id: "led-wire-a",
+        fromDeviceId: "source",
+        fromConnectorId: "out",
+        toDeviceId: "led-grid",
+        toConnectorId: "surface-port-led-wire-a",
+        toSide: "left",
+        toPortIndex: 0,
+        cableType: "led-signal",
+        signalIndex: 1
+      },
+      {
+        id: "led-wire-b",
+        fromDeviceId: "source",
+        fromConnectorId: "out",
+        toDeviceId: "led-grid",
+        toConnectorId: "surface-port-led-wire-b",
+        toSide: "left",
+        toPortIndex: 1,
+        cableType: "led-signal",
+        signalIndex: 2
+      }
+    ]
+  });
+  const ledWireA = ledScene.getWire("led-wire-a");
+  const ledWireB = ledScene.getWire("led-wire-b");
+  assert.deepEqual(
+    ledScene.endpointForWire(ledWireA, "to"),
+    { x: 1000, y: 262.5 },
+    "LED PNG wire A lands on the Legacy left-edge virtual point"
+  );
+  assert.deepEqual(
+    ledScene.endpointForWire(ledWireB, "to"),
+    { x: 1000, y: 387.5 },
+    "LED PNG wire B lands on the Legacy left-edge virtual point"
+  );
+}
+
 console.log(JSON.stringify({
   ok: true,
   cases,
