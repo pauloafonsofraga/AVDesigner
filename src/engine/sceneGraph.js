@@ -17,6 +17,11 @@ import {
   isCanvasObjectKind,
   isLedSurfaceKind
 } from "./canvasObjectKinds.js";
+import {
+  compareLedSurfaceConnections,
+  pointForLedSurface,
+  wireEndpointSurfaceId
+} from "./ledSurfaceModel.js";
 
 export class SceneGraph {
   constructor() {
@@ -44,9 +49,12 @@ export class SceneGraph {
 
   setData({ devices = [], wires = [], meta = {} }) {
     this.devices = devices.map(normalizeDevice);
-    this.wires = wires.map(normalizeWire).filter(wire => wire.fromDeviceId && wire.toDeviceId);
     this.meta = meta || {};
     this.devicesById = new Map(this.devices.map(device => [device.id, device]));
+    this.wires = wires.map(normalizeWire).filter(wire => (
+      this.devicesById.has(this.wireEndpointObjectId(wire, "from"))
+      && this.devicesById.has(this.wireEndpointObjectId(wire, "to"))
+    ));
     this.wiresById = new Map(this.wires.map(wire => [wire.id, wire]));
     this.selectedIds.clear();
     this.selectedWireIds.clear();
@@ -185,44 +193,77 @@ export class SceneGraph {
     const wire = this.getWire(wireId);
     const targetDevice = this.getDevice(targetDeviceId);
     const targetConnector = this.getConnector(targetDeviceId, targetConnectorId);
-    if (!wire || !targetDevice || !targetConnector || !["from", "to"].includes(end)) return null;
+    if (!wire || !targetDevice || !["from", "to"].includes(end)) return null;
     const endpointPrefix = end === "from" ? "from" : "to";
-    const next = {
-      [`${endpointPrefix}DeviceId`]: targetDevice.id,
-      [`${endpointPrefix}ConnectorId`]: targetConnector.id,
-      [`${endpointPrefix}Side`]: targetConnector.side || (end === "from" ? "right" : "left"),
-      [`${endpointPrefix}PortIndex`]: Math.max(0, targetDevice.connectors.indexOf(targetConnector)),
-      [`${endpointPrefix}UsesRealConnector`]: true,
-    };
+    const next = isLedSurfaceKind(targetDevice)
+      ? {
+        [`${endpointPrefix}DeviceId`]: "",
+        [`${endpointPrefix}SurfaceId`]: targetDevice.id,
+        [`${endpointPrefix}ConnectorId`]: "",
+        [`${endpointPrefix}Side`]: "left",
+        [`${endpointPrefix}PortIndex`]: this.nextLedSurfacePortIndex(targetDevice.id),
+        [`${endpointPrefix}UsesRealConnector`]: false,
+      }
+      : targetConnector
+        ? {
+          [`${endpointPrefix}DeviceId`]: targetDevice.id,
+          [`${endpointPrefix}SurfaceId`]: "",
+          [`${endpointPrefix}ConnectorId`]: targetConnector.id,
+          [`${endpointPrefix}Side`]: targetConnector.side || (end === "from" ? "right" : "left"),
+          [`${endpointPrefix}PortIndex`]: Math.max(0, targetDevice.connectors.indexOf(targetConnector)),
+          [`${endpointPrefix}UsesRealConnector`]: true,
+        }
+        : null;
+    if (!next) return null;
     const updated = this.applyWireState(wireId, next);
     if (!updated) return null;
     updated.usesRealConnectorEndpoints = Boolean(updated.fromUsesRealConnector && updated.toUsesRealConnector);
-    updated.hasFallbackEndpoint = !updated.usesRealConnectorEndpoints;
+    updated.hasFallbackEndpoint = Boolean(
+      (updated.fromDeviceId && !updated.fromUsesRealConnector)
+      || (updated.toDeviceId && !updated.toUsesRealConnector)
+    );
     return updated;
   }
 
   wireEndpointConnectorKey(wire, end) {
+    if (this.wireEndpointSurfaceId(wire, end)) return "";
     const deviceId = end === "from" ? wire.fromDeviceId : wire.toDeviceId;
     const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
     return deviceId && connectorId ? connectorKey(deviceId, connectorId) : "";
   }
 
   wireEndpointOwnerId(wire, end) {
+    const surfaceId = this.wireEndpointSurfaceId(wire, end);
+    if (surfaceId && this.devicesById.has(surfaceId)) return surfaceId;
     const deviceId = end === "from" ? wire.fromDeviceId : wire.toDeviceId;
     if (!deviceId) return "";
     const key = this.wireEndpointConnectorKey(wire, end);
     return this.connectorOwnerByKey.get(key) || (this.devicesById.has(deviceId) ? deviceId : "");
   }
 
+  wireEndpointSurfaceId(wire, end) {
+    return wireEndpointSurfaceId(wire, end);
+  }
+
+  wireEndpointObjectId(wire, end) {
+    return this.wireEndpointSurfaceId(wire, end) || (end === "from" ? wire.fromDeviceId : wire.toDeviceId);
+  }
+
+  nextLedSurfacePortIndex(surfaceId) {
+    return this.orderedLedSurfaceWires(surfaceId).length;
+  }
+
   wireEndpointDebug(wire, end) {
     if (!wire) return null;
     const deviceId = end === "from" ? wire.fromDeviceId : wire.toDeviceId;
+    const surfaceId = this.wireEndpointSurfaceId(wire, end);
     const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
     const key = this.wireEndpointConnectorKey(wire, end);
     const ownerId = this.wireEndpointOwnerId(wire, end);
     const owner = ownerId ? this.getDevice(ownerId) : null;
     return {
       deviceId,
+      surfaceId,
       connectorId,
       connectorKey: key,
       ownerId,
@@ -766,8 +807,10 @@ export class SceneGraph {
   addWire({
     fromDeviceId,
     fromConnectorId,
+    fromSurfaceId,
     toDeviceId,
     toConnectorId,
+    toSurfaceId,
     color = "#32b6ff",
     colorSegments = null,
     cableType = "Test Cable",
@@ -775,22 +818,24 @@ export class SceneGraph {
     routeStyle = "bezier",
     routePoints = []
   }) {
-    const fromDevice = this.getDevice(fromDeviceId);
-    const toDevice = this.getDevice(toDeviceId);
-    const fromConnector = this.getConnector(fromDeviceId, fromConnectorId);
-    const toConnector = this.getConnector(toDeviceId, toConnectorId);
-    if (!fromDevice || !toDevice || !fromConnector || !toConnector) return null;
+    const fromEndpoint = this.resolveAddWireEndpoint("from", { deviceId: fromDeviceId, connectorId: fromConnectorId, surfaceId: fromSurfaceId });
+    const toEndpoint = this.resolveAddWireEndpoint("to", { deviceId: toDeviceId, connectorId: toConnectorId, surfaceId: toSurfaceId });
+    if (!fromEndpoint || !toEndpoint) return null;
     const wire = normalizeWire({
       id: this.nextWireId(),
-      fromDeviceId,
-      toDeviceId,
-      fromConnectorId,
-      toConnectorId,
-      fromSide: fromConnector.side || "right",
-      toSide: toConnector.side || "left",
-      fromUsesRealConnector: true,
-      toUsesRealConnector: true,
-      usesRealConnectorEndpoints: true,
+      fromDeviceId: fromEndpoint.deviceId,
+      toDeviceId: toEndpoint.deviceId,
+      fromSurfaceId: fromEndpoint.surfaceId,
+      toSurfaceId: toEndpoint.surfaceId,
+      fromConnectorId: fromEndpoint.connectorId,
+      toConnectorId: toEndpoint.connectorId,
+      fromSide: fromEndpoint.side,
+      toSide: toEndpoint.side,
+      fromPortIndex: fromEndpoint.portIndex,
+      toPortIndex: toEndpoint.portIndex,
+      fromUsesRealConnector: fromEndpoint.usesRealConnector,
+      toUsesRealConnector: toEndpoint.usesRealConnector,
+      usesRealConnectorEndpoints: Boolean(fromEndpoint.usesRealConnector && toEndpoint.usesRealConnector),
       hasFallbackEndpoint: false,
       color,
       colorSegments,
@@ -798,7 +843,7 @@ export class SceneGraph {
       fiberMode,
       routeStyle,
       routePoints,
-      label: `${fromConnector.label || fromConnector.type || "Connector"} to ${toConnector.label || toConnector.type || "Connector"}`
+      label: `${fromEndpoint.label || "Connector"} to ${toEndpoint.label || "LED Screen"}`
     });
     this.wires.push(wire);
     this.wiresById.set(wire.id, wire);
@@ -808,9 +853,46 @@ export class SceneGraph {
     return wire;
   }
 
+  resolveAddWireEndpoint(end, endpoint = {}) {
+    const surfaceId = endpoint.surfaceId ? String(endpoint.surfaceId) : "";
+    if (surfaceId) {
+      const surface = this.getDevice(surfaceId);
+      if (!surface || !isLedSurfaceKind(surface)) return null;
+      return {
+        deviceId: "",
+        surfaceId,
+        connectorId: "",
+        side: "left",
+        portIndex: this.nextLedSurfacePortIndex(surfaceId),
+        usesRealConnector: false,
+        label: surface.label || "LED Screen"
+      };
+    }
+    const deviceId = endpoint.deviceId ? String(endpoint.deviceId) : "";
+    const connectorId = endpoint.connectorId ? String(endpoint.connectorId) : "";
+    const device = this.getDevice(deviceId);
+    const connector = this.getConnector(deviceId, connectorId);
+    if (!device || !connector) return null;
+    return {
+      deviceId,
+      surfaceId: "",
+      connectorId,
+      side: connector.side || (end === "from" ? "right" : "left"),
+      portIndex: Math.max(0, device.connectors.indexOf(connector)),
+      usesRealConnector: true,
+      label: connector.label || connector.type || "Connector"
+    };
+  }
+
   insertWire(wireData) {
     const wire = normalizeWire(wireData);
-    if (!wire.fromDeviceId || !wire.toDeviceId || this.wiresById.has(wire.id)) return null;
+    if (
+      !this.wireEndpointObjectId(wire, "from")
+      || !this.wireEndpointObjectId(wire, "to")
+      || !this.devicesById.has(this.wireEndpointObjectId(wire, "from"))
+      || !this.devicesById.has(this.wireEndpointObjectId(wire, "to"))
+      || this.wiresById.has(wire.id)
+    ) return null;
     this.wires.push(wire);
     this.wiresById.set(wire.id, wire);
     this.addWireEndpointIndexes(wire);
@@ -896,6 +978,12 @@ export class SceneGraph {
   }
 
   rawEndpointForWire(wire, end, offsetMap = null) {
+    const surfaceId = this.wireEndpointSurfaceId(wire, end);
+    if (surfaceId) {
+      const surface = this.getDevice(surfaceId);
+      if (!surface) return { x: 0, y: 0 };
+      return this.rawEndpointForLedSurface(wire, surface, this.positionForDevice(surface, offsetMap));
+    }
     const deviceId = end === "from" ? wire.fromDeviceId : wire.toDeviceId;
     const device = this.getDevice(deviceId);
     if (!device) return { x: 0, y: 0 };
@@ -922,37 +1010,21 @@ export class SceneGraph {
   }
 
   rawEndpointForLedSurface(wire, device, pos) {
-    // Legacy LED PNG surfaces never draw real connector nodes. Their wires land
-    // on virtual points distributed on the image's left edge by connection
-    // order, keeping the image clean while still giving each wire a stable end.
     const orderedWires = this.orderedLedSurfaceWires(device.id);
-    const count = Math.max(1, orderedWires.length);
-    const index = Math.max(0, orderedWires.findIndex(candidate => candidate.id === wire.id));
-    return {
-      x: pos.x,
-      y: pos.y + device.height * ((index + 0.5) / count)
-    };
+    return pointForLedSurface({ ...device, x: pos.x, y: pos.y }, wire, orderedWires);
   }
 
   orderedLedSurfaceWires(surfaceId) {
+    const surface = this.getDevice(surfaceId) || { id: surfaceId };
     return this.wires
       .map((wire, index) => ({ wire, index }))
-      .filter(item => item.wire.fromDeviceId === surfaceId || item.wire.toDeviceId === surfaceId)
-      .sort((a, b) => {
-        const aLed = a.wire.cableType === "led-signal" ? 0 : 1;
-        const bLed = b.wire.cableType === "led-signal" ? 0 : 1;
-        if (aLed !== bLed) return aLed - bLed;
-        const signalDelta = (Number(a.wire.signalIndex) || 0) - (Number(b.wire.signalIndex) || 0);
-        if (signalDelta) return signalDelta;
-        const aPort = a.wire.fromDeviceId === surfaceId ? a.wire.fromPortIndex : a.wire.toPortIndex;
-        const bPort = b.wire.fromDeviceId === surfaceId ? b.wire.fromPortIndex : b.wire.toPortIndex;
-        const portDelta = (Number(aPort) || 0) - (Number(bPort) || 0);
-        return portDelta || a.index - b.index;
-      })
+      .filter(item => this.wireEndpointSurfaceId(item.wire, "from") === surfaceId || this.wireEndpointSurfaceId(item.wire, "to") === surfaceId)
+      .sort((a, b) => compareLedSurfaceConnections(a, b, surface))
       .map(item => item.wire);
   }
 
   visibleEndpoint(wire, end, point, otherPoint) {
+    if (this.wireEndpointSurfaceId(wire, end)) return point;
     const deviceId = end === "from" ? wire.fromDeviceId : wire.toDeviceId;
     const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
     const side = end === "from" ? wire.fromSide : wire.toSide;
@@ -1098,15 +1170,17 @@ function pointsBounds(points) {
 }
 
 function normalizeDevice(device) {
-  const connectors = (Array.isArray(device.connectors) ? device.connectors : [])
-    .map((connector, index) => normalizeConnector(connector, index))
-    .filter(Boolean);
   const visual = normalizeVisualMetadata(device.visual);
   const kind = canonicalEngineObjectKind(
     device.kind || (visual.isAdapterBreakout ? "adapter" : visual.isPowerDistro ? "power-distro" : "device"),
     device.sourceKind
   );
   const canvasObject = isCanvasObjectKind(kind);
+  const connectors = isLedSurfaceKind({ kind, sourceKind: device.sourceKind, visual })
+    ? []
+    : (Array.isArray(device.connectors) ? device.connectors : [])
+      .map((connector, index) => normalizeConnector(connector, index))
+      .filter(Boolean);
   return {
     id: String(device.id),
     sourceKind: device.sourceKind || "",
@@ -1133,9 +1207,11 @@ function normalizeDevice(device) {
     visual,
     connectors,
     connectorsById: new Map(connectors.map(connector => [connector.id, connector])),
-    portCount: canvasObject
-      ? Math.max(0, Number(device.portCount) || connectors.length || 0)
-      : Math.max(1, Number(device.portCount) || connectors.length || 4)
+    portCount: isLedSurfaceKind({ kind, sourceKind: device.sourceKind })
+      ? 0
+      : canvasObject
+        ? Math.max(0, Number(device.portCount) || connectors.length || 0)
+        : Math.max(1, Number(device.portCount) || connectors.length || 4)
   };
 }
 
@@ -1406,6 +1482,8 @@ function normalizeWire(wire) {
     sourceId: wire.sourceId || wire.id || "",
     fromDeviceId: wire.fromDeviceId ? String(wire.fromDeviceId) : "",
     toDeviceId: wire.toDeviceId ? String(wire.toDeviceId) : "",
+    fromSurfaceId: wire.fromSurfaceId ? String(wire.fromSurfaceId) : "",
+    toSurfaceId: wire.toSurfaceId ? String(wire.toSurfaceId) : "",
     fromConnectorId: wire.fromConnectorId ? String(wire.fromConnectorId) : "",
     toConnectorId: wire.toConnectorId ? String(wire.toConnectorId) : "",
     fromSide: wire.fromSide || "right",

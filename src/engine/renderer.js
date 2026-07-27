@@ -1507,7 +1507,7 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
       stats.connectorOverlayCount += 1;
     }
   });
-  if (interaction.hoveredConnector?.point && (wireCreateActive || !isJumpConnectorHit(interaction.hoveredConnector))) {
+  if (interaction.hoveredConnector?.point && !interaction.hoveredConnector.virtualSurfaceTarget && (wireCreateActive || !isJumpConnectorHit(interaction.hoveredConnector))) {
     pushConnectorHighlight(vertices, interaction.hoveredConnector.point, connectorVisualRadius(interaction.hoveredConnector.device) + 4, "#32b6ff", "hover");
     stats.connectorOverlayCount += 1;
   }
@@ -1525,7 +1525,7 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
     );
     pushConnectorHighlight(vertices, interaction.tempWire.from, connectorVisualRadius(interaction.tempWire.sourceHit?.device) + 5, "#32b6ff", "source");
     stats.connectorOverlayCount += 1;
-    if (interaction.tempWire.targetPoint) {
+    if (interaction.tempWire.targetPoint && !interaction.tempWire.targetHit?.virtualSurfaceTarget) {
       pushConnectorHighlight(
         vertices,
         interaction.tempWire.targetPoint,
@@ -2175,16 +2175,16 @@ function wireCaption(scene, wire, full = false) {
   const cable = customLabel && customLabel !== cableType ? customLabel : cableType || customLabel || "Wire";
   const length = String(wire.length || "").trim();
   if (!full) return [cable, length].filter(Boolean).join(" - ");
-  const fromDevice = scene.getDevice(wire.fromDeviceId);
-  const toDevice = scene.getDevice(wire.toDeviceId);
-  const fromConnector = fromDevice?.connectorsById?.get(wire.fromConnectorId);
-  const toConnector = toDevice?.connectorsById?.get(wire.toConnectorId);
+  const fromDevice = scene.getDevice(wire.fromSurfaceId || wire.fromDeviceId);
+  const toDevice = scene.getDevice(wire.toSurfaceId || wire.toDeviceId);
+  const fromConnector = wire.fromSurfaceId ? null : fromDevice?.connectorsById?.get(wire.fromConnectorId);
+  const toConnector = wire.toSurfaceId ? null : toDevice?.connectorsById?.get(wire.toConnectorId);
   return [
     cable,
     deviceLabel(fromDevice),
-    connectorLabel(fromConnector, wire.fromConnectorId),
+    connectorLabel(fromConnector, wire.fromSurfaceId ? "LED Screen" : wire.fromConnectorId),
     deviceLabel(toDevice),
-    connectorLabel(toConnector, wire.toConnectorId),
+    connectorLabel(toConnector, wire.toSurfaceId ? "LED Screen" : wire.toConnectorId),
     length
   ].filter(Boolean).join(" - ");
 }

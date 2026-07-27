@@ -76,43 +76,45 @@ export function validateEngineScene(scene, projectData = null) {
 }
 
 function validateWire(scene, wire, errors, warnings, counts) {
-  const fromDevice = scene?.getDevice?.(wire.fromDeviceId);
-  const toDevice = scene?.getDevice?.(wire.toDeviceId);
+  const fromObjectId = wire.fromSurfaceId || wire.fromDeviceId;
+  const toObjectId = wire.toSurfaceId || wire.toDeviceId;
+  const fromDevice = scene?.getDevice?.(fromObjectId);
+  const toDevice = scene?.getDevice?.(toObjectId);
   let hasMissingEndpoint = false;
   if (!fromDevice) {
     hasMissingEndpoint = true;
-    errors.push(`Wire ${wire.id} has missing source object ${wire.fromDeviceId}.`);
+    errors.push(`Wire ${wire.id} has missing source object ${fromObjectId}.`);
   }
   if (!toDevice) {
     hasMissingEndpoint = true;
-    errors.push(`Wire ${wire.id} has missing destination object ${wire.toDeviceId}.`);
+    errors.push(`Wire ${wire.id} has missing destination object ${toObjectId}.`);
   }
   if (hasMissingEndpoint) counts.orphanWires += 1;
-  const fromConnector = scene?.getConnector?.(wire.fromDeviceId, wire.fromConnectorId);
-  const toConnector = scene?.getConnector?.(wire.toDeviceId, wire.toConnectorId);
+  const fromConnector = wire.fromSurfaceId ? null : scene?.getConnector?.(wire.fromDeviceId, wire.fromConnectorId);
+  const toConnector = wire.toSurfaceId ? null : scene?.getConnector?.(wire.toDeviceId, wire.toConnectorId);
+  if (wire.fromSurfaceId && wire.fromConnectorId) {
+    counts.invalidConnectorReferences += 1;
+    errors.push(`Wire ${wire.id} LED source surface endpoint must not use connector ${wire.fromConnectorId}.`);
+  }
+  if (wire.toSurfaceId && wire.toConnectorId) {
+    counts.invalidConnectorReferences += 1;
+    errors.push(`Wire ${wire.id} LED destination surface endpoint must not use connector ${wire.toConnectorId}.`);
+  }
   if (wire.fromConnectorId && !fromConnector) {
     const message = `Wire ${wire.id} has missing source connector ${wire.fromDeviceId}:${wire.fromConnectorId}.`;
-    if (!isVirtualSurfacePort(fromDevice, wire.fromConnectorId)) {
-      counts.invalidConnectorReferences += 1;
-      (wire.fromUsesRealConnector || wire.usesRealConnectorEndpoints ? errors : warnings).push(message);
-    }
+    counts.invalidConnectorReferences += 1;
+    (wire.fromUsesRealConnector || wire.usesRealConnectorEndpoints ? errors : warnings).push(message);
   }
   if (wire.toConnectorId && !toConnector) {
     const message = `Wire ${wire.id} has missing destination connector ${wire.toDeviceId}:${wire.toConnectorId}.`;
-    if (!isVirtualSurfacePort(toDevice, wire.toConnectorId)) {
-      counts.invalidConnectorReferences += 1;
-      (wire.toUsesRealConnector || wire.usesRealConnectorEndpoints ? errors : warnings).push(message);
-    }
+    counts.invalidConnectorReferences += 1;
+    (wire.toUsesRealConnector || wire.usesRealConnectorEndpoints ? errors : warnings).push(message);
   }
   (wire.routePoints || []).forEach((point, index) => {
     if (!Number.isFinite(Number(point.x)) || !Number.isFinite(Number(point.y))) {
       errors.push(`Wire ${wire.id} route point ${index} has invalid coordinates.`);
     }
   });
-}
-
-function isVirtualSurfacePort(device, connectorId) {
-  return isLedSurfaceKind(device) && String(connectorId || "").startsWith("surface-port-");
 }
 
 function validateSelection(scene, errors) {

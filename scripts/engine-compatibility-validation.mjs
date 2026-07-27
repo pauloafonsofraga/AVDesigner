@@ -754,8 +754,7 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
         id: "led-wire-a",
         fromDeviceId: "source",
         fromConnectorId: "out",
-        toDeviceId: "led-grid",
-        toConnectorId: "surface-port-led-wire-a",
+        toSurfaceId: "led-grid",
         toSide: "left",
         toPortIndex: 0,
         cableType: "led-signal",
@@ -765,8 +764,7 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
         id: "led-wire-b",
         fromDeviceId: "source",
         fromConnectorId: "out",
-        toDeviceId: "led-grid",
-        toConnectorId: "surface-port-led-wire-b",
+        toSurfaceId: "led-grid",
         toSide: "left",
         toPortIndex: 1,
         cableType: "led-signal",
@@ -776,6 +774,10 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
   });
   const ledWireA = ledScene.getWire("led-wire-a");
   const ledWireB = ledScene.getWire("led-wire-b");
+  assert.equal(ledWireA.toSurfaceId, "led-grid", "LED PNG wire A uses canonical surface endpoint");
+  assert.equal(ledWireA.toConnectorId, "", "LED PNG wire A has no fake surface connector");
+  assert.equal(ledWireB.toSurfaceId, "led-grid", "LED PNG wire B uses canonical surface endpoint");
+  assert.equal(ledWireB.toConnectorId, "", "LED PNG wire B has no fake surface connector");
   assert.deepEqual(
     ledScene.endpointForWire(ledWireA, "to"),
     { x: 1000, y: 262.5 },
@@ -786,6 +788,35 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
     { x: 1000, y: 387.5 },
     "LED PNG wire B lands on the Legacy left-edge virtual point"
   );
+
+  const repairedLedProject = normalizeAvDesignerProject({
+    ledSurfaces: normalizedLedProject.projectData?.ledSurfaces || [{
+      id: "led-grid",
+      name: "LED Grid",
+      x: 1000,
+      y: 200,
+      width: 500,
+      height: 250,
+      signalSlots: 20,
+      image: "data:image/png;base64,test"
+    }],
+    devices: [{
+      instanceId: "source",
+      name: "LED Processor",
+      x: 0,
+      y: 0,
+      connectors: [{ id: "out", type: "led-signal", label: "OUT", side: "right", direction: "output", x: 100, y: 30 }]
+    }],
+    connections: [{
+      id: "legacy-repair-wire",
+      from: { deviceId: "source", connectorId: "out" },
+      to: { deviceId: "led-grid", connectorId: "surface-port-3" },
+      cableType: "led-signal"
+    }]
+  });
+  const repairedWire = repairedLedProject.wires.find(wire => wire.id === "legacy-repair-wire");
+  assert.equal(repairedWire.toSurfaceId, "led-grid", "Engine repairs old fake LED surface connector endpoints");
+  assert.equal(repairedWire.toConnectorId, "", "Engine strips fake surface-port connector during repair");
 }
 
 console.log(JSON.stringify({

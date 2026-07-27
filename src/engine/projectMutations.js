@@ -336,8 +336,8 @@ export class ProjectMutationAdapter {
     } else {
       // A normal endpoint rewire changes only from/to. Cable type, length,
       // fiber mode, notes, labels, custom colors, and route arrays stay intact.
-      entry.item.from = endpointToProject(scene, wire.fromDeviceId, wire.fromConnectorId);
-      entry.item.to = endpointToProject(scene, wire.toDeviceId, wire.toConnectorId);
+      entry.item.from = endpointToProject(scene, wire, "from");
+      entry.item.to = endpointToProject(scene, wire, "to");
     }
     this.record("rewire endpoint", performance.now() - start, `connections[${entry.index}].from/to`, {
       wireId,
@@ -734,14 +734,8 @@ function rawConnectionFromSceneWireData(sceneData, wire) {
     label: wire.label || wire.cableType || "Engine Test Cable",
     cableType: wire.cableType || "Engine Test Cable",
     customColor: customColorForProjectWire(wire),
-    from: {
-      deviceId: wire.fromDeviceId,
-      connectorId: wire.fromConnectorId
-    },
-    to: {
-      deviceId: wire.toDeviceId,
-      connectorId: wire.toConnectorId
-    },
+    from: endpointToProjectFromSceneData(sceneData, wire, "from"),
+    to: endpointToProjectFromSceneData(sceneData, wire, "to"),
     notes: "",
     fiberMode: wire.fiberMode || "",
     hideLabel: Boolean(wire.hideLabel),
@@ -755,8 +749,8 @@ function rawConnectionFromWire(scene, wire, id) {
     label: wire.label || wire.cableType || "Engine Test Cable",
     cableType: wire.cableType || "Engine Test Cable",
     customColor: customColorForProjectWire(wire),
-    from: endpointToProject(scene, wire.fromDeviceId, wire.fromConnectorId),
-    to: endpointToProject(scene, wire.toDeviceId, wire.toConnectorId),
+    from: endpointToProject(scene, wire, "from"),
+    to: endpointToProject(scene, wire, "to"),
     notes: "",
     fiberMode: wire.fiberMode || "",
     hideLabel: Boolean(wire.hideLabel),
@@ -781,8 +775,35 @@ function routeFieldsFromWire(wire) {
     : { routePoints: points };
 }
 
-function endpointToProject(scene, deviceId, connectorId) {
+function endpointToProject(scene, wire, end) {
+  const surfaceId = String(end === "from" ? wire.fromSurfaceId || "" : wire.toSurfaceId || "").trim();
+  if (surfaceId) {
+    const surface = scene.getDevice(surfaceId);
+    return { surfaceId: String(surface?.sourceId || surfaceId) };
+  }
+  const deviceId = end === "from" ? wire.fromDeviceId : wire.toDeviceId;
+  const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
   const device = scene.getDevice(deviceId);
+  const sourceId = String(device?.sourceId || deviceId || "");
+  if (device?.sourceKind === "jumpNode" || device?.kind === "jump") return { jumpNodeId: sourceId };
+  // Compatibility fallback for older in-memory wires. New Engine LED surface
+  // wires use fromSurfaceId/toSurfaceId and never persist fake surface ports.
+  if (isLedSurfaceKind(device)) return { surfaceId: sourceId };
+  return {
+    deviceId: sourceId,
+    connectorId: connectorId || ""
+  };
+}
+
+function endpointToProjectFromSceneData(sceneData, wire, end) {
+  const surfaceId = String(end === "from" ? wire.fromSurfaceId || "" : wire.toSurfaceId || "").trim();
+  if (surfaceId) {
+    const surface = (sceneData.devices || []).find(device => String(device?.id || "") === surfaceId);
+    return { surfaceId: String(surface?.sourceId || surfaceId) };
+  }
+  const deviceId = end === "from" ? wire.fromDeviceId : wire.toDeviceId;
+  const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
+  const device = (sceneData.devices || []).find(item => String(item?.id || "") === String(deviceId || ""));
   const sourceId = String(device?.sourceId || deviceId || "");
   if (device?.sourceKind === "jumpNode" || device?.kind === "jump") return { jumpNodeId: sourceId };
   if (isLedSurfaceKind(device)) return { surfaceId: sourceId };

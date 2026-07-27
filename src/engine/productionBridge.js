@@ -37,8 +37,10 @@ import {
   canonicalEngineObjectKind,
   engineContextTargetType,
   isCanvasObjectKind,
-  isJumpNodeKind
+  isJumpNodeKind,
+  isLedSurfaceKind
 } from "./canvasObjectKinds.js";
+import { isLedSurfaceCompatibleCableType } from "./ledSurfaceModel.js";
 import {
   buildPreviewOrthogonalInteriorPoints,
   createOrthogonalRouteModel,
@@ -792,18 +794,22 @@ class ProductionEngineBridge {
       const connectorHit = this.shouldHitTestDetailTargets({ includeActiveWireCreate: true })
         ? hitTestConnector(this.scene, world, this.connectorHitToleranceWorld())
         : { connector: null, candidates: 0, ms: 0 };
+      const surfaceHit = connectorHit.connector
+        ? { target: null, candidates: 0, ms: 0 }
+        : hitTestLedSurfaceTarget(this.scene, world, this.wireCreate.from);
+      const targetHit = connectorHit.connector || surfaceHit.target;
       this.hoverState = {
         ...emptyHoverState(),
-        connector: connectorHit.connector,
+        connector: targetHit,
         screenPoint: point,
-        hitMs: connectorHit.ms,
-        candidateCount: connectorHit.candidates
+        hitMs: connectorHit.ms + surfaceHit.ms,
+        candidateCount: connectorHit.candidates + surfaceHit.candidates
       };
       this.wireCreate.pointerWorld = world;
-      this.wireCreate.target = connectorHit.connector;
+      this.wireCreate.target = targetHit;
       this.wireCreate.compatibility = this.currentWireCompatibility();
       this.recordCompatibilityHoverDiagnostic(this.wireCreate.compatibility);
-      this.updateInteractionHud("wire-create", connectorHit);
+      this.updateInteractionHud("wire-create", { ...connectorHit, connector: targetHit });
       this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
       this.scheduleRender();
       return;
@@ -1320,17 +1326,8 @@ class ProductionEngineBridge {
     const wire = endpoint?.wire;
     if (!wire) return false;
     const fixedEnd = endpoint.otherEnd;
-    const fixedDeviceId = fixedEnd === "from" ? wire.fromDeviceId : wire.toDeviceId;
-    const fixedConnectorId = fixedEnd === "from" ? wire.fromConnectorId : wire.toConnectorId;
-    const fixedDevice = this.scene.getDevice(fixedDeviceId);
-    const fixedConnector = this.scene.getConnector(fixedDeviceId, fixedConnectorId);
-    if (!fixedDevice || !fixedConnector) return false;
-    const fixedHit = {
-      key: `${fixedDevice.id}:${fixedConnector.id}`,
-      device: fixedDevice,
-      connector: fixedConnector,
-      point: this.scene.connectorWorldPoint(fixedDevice, fixedConnector),
-    };
+    const fixedHit = hitForSceneWireEndpoint(this.scene, wire, fixedEnd);
+    if (!fixedHit) return false;
     const previousSelection = {
       devices: [...this.scene.selectedIds],
       wires: [...this.scene.selectedWireIds],
@@ -1413,10 +1410,8 @@ class ProductionEngineBridge {
       || "#32b6ff";
     const route = this.wireRouteForEndpoints(source.point, target.point);
     const wire = this.scene.addWire({
-      fromDeviceId: source.device.id,
-      fromConnectorId: source.connector.id,
-      toDeviceId: target.device.id,
-      toConnectorId: target.connector.id,
+      ...wireEndpointPayloadForHit(source, "from"),
+      ...wireEndpointPayloadForHit(target, "to"),
       color: wireColor,
       colorSegments: engineWireColorSegmentsForCable(cableType),
       cableType,
@@ -1483,7 +1478,7 @@ class ProductionEngineBridge {
       wire.id,
       rewire.detachedSide,
       target.device.id,
-      target.connector.id
+      target.connector?.id || ""
     );
     if (!updated) {
       this.finishWireInteraction({ restoreSelection: true, reason: "wire-rewire-failed" });
@@ -1501,7 +1496,7 @@ class ProductionEngineBridge {
       beforeWire,
       afterWire,
       dirtyMs: dirtyStats.totalMs,
-      newConnectorWireCount: this.scene.connectorWireIds(target.device.id, target.connector.id).size,
+      newConnectorWireCount: target.virtualSurfaceTarget ? 0 : this.scene.connectorWireIds(target.device.id, target.connector.id).size,
     });
     this.finishWireInteraction({ selectWireId: updated.id, reason: "wire-rewired" });
     this.recordCommand(moveWireEndpointCommand(beforeWire, afterWire, beforeConnection, afterConnection));
@@ -1535,6 +1530,7 @@ class ProductionEngineBridge {
     if (!rewire || !target) return target ? "" : "No target connector.";
     if (this.isOriginalRewireTarget(target)) return "";
     if (!compatibility?.valid) return compatibility?.reason || "Incompatible connector.";
+    if (target.virtualSurfaceTarget) return "";
     const occupiedByOtherWire = [...this.scene.connectorWireIds(target.device.id, target.connector.id)]
       .some(wireId => wireId !== rewire.wireId);
     return occupiedByOtherWire ? "Target connector is already connected." : "";
@@ -1546,6 +1542,7 @@ class ProductionEngineBridge {
   }
 
   connectorExternalConnectionRejectionReason(hit, label = "Connector") {
+    if (hit?.virtualSurfaceTarget) return "";
     if (!hit?.device?.id || !hit?.connector?.id) return "";
     if (this.connectorAllowsAdditionalExternalWire(hit)) return "";
     const connectedCount = this.scene.connectorWireIds(hit.device.id, hit.connector.id).size;
@@ -5094,13 +5091,101 @@ function deviceSummary(device) {
   return `${device.label || device.id}${device.kind === "jump" ? " (jump)" : ""}`;
 }
 
+function hitTestLedSurfaceTarget(scene, worldPoint, sourceHit) {
+  const start = performance.now();
+  const hits = scene?.spatialIndex?.queryPoint?.(worldPoint) || [];
+  let target = null;
+  for (let index = hits.length - 1; index >= 0; index -= 1) {
+    const device = hits[index]?.payload?.device;
+    if (!isLedSurfaceKind(device)) continue;
+    target = ledSurfaceVirtualHit(device, worldPoint, sourceHit);
+    if (target) break;
+  }
+  return {
+    target,
+    candidates: hits.length,
+    ms: performance.now() - start
+  };
+}
+
+function ledSurfaceVirtualHit(surface, worldPoint, sourceHit = null, wire = null, end = "to") {
+  if (!surface || !isLedSurfaceKind(surface)) return null;
+  const sourceConnector = sourceHit?.connector || null;
+  const sourceType = effectiveConnectorTypeForEngine(sourceConnector)
+    || String(sourceConnector?.effectiveType || sourceConnector?.type || wire?.cableType || "").trim();
+  if (!isLedSurfaceCompatibleCableType(sourceType)) return null;
+  const sourceFiberMode = sourceConnector?.fiberMode || sourceConnector?.installedModuleFiberMode || wire?.fiberMode || "";
+  const y = clamp(Number(worldPoint?.y), surface.y, surface.y + surface.height);
+  const point = { x: surface.x, y };
+  const connector = {
+    id: "",
+    virtual: true,
+    type: sourceType,
+    effectiveType: sourceType,
+    displayLabel: surface.label || "LED Screen",
+    label: surface.label || "LED Screen",
+    direction: end === "from" ? "output" : "input",
+    side: "left",
+    x: 0,
+    y: y - surface.y,
+    color: sourceConnector?.color || wire?.color || engineWireColorForCable(sourceType, sourceFiberMode, "#32b6ff"),
+    colorSegments: sourceConnector?.colorSegments || wire?.colorSegments || [],
+    fiberMode: sourceFiberMode,
+  };
+  return {
+    key: `led-surface:${surface.id}`,
+    kind: "led-surface-target",
+    virtualSurfaceTarget: true,
+    device: surface,
+    connector,
+    point,
+    distance: 0
+  };
+}
+
+function hitForSceneWireEndpoint(scene, wire, end) {
+  const surfaceId = scene?.wireEndpointSurfaceId?.(wire, end) || "";
+  if (surfaceId) {
+    const surface = scene.getDevice(surfaceId);
+    return ledSurfaceVirtualHit(surface, scene.endpointForWire(wire, end), null, wire, end);
+  }
+  const deviceId = end === "from" ? wire.fromDeviceId : wire.toDeviceId;
+  const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
+  const device = scene.getDevice(deviceId);
+  const connector = scene.getConnector(deviceId, connectorId);
+  if (!device || !connector) return null;
+  return {
+    key: `${device.id}:${connector.id}`,
+    device,
+    connector,
+    point: scene.connectorWorldPoint(device, connector),
+  };
+}
+
+function wireEndpointPayloadForHit(hit, end) {
+  const prefix = end === "from" ? "from" : "to";
+  if (hit?.virtualSurfaceTarget || isLedSurfaceKind(hit?.device)) {
+    return {
+      [`${prefix}SurfaceId`]: hit.device.id
+    };
+  }
+  return {
+    [`${prefix}DeviceId`]: hit?.device?.id || "",
+    [`${prefix}ConnectorId`]: hit?.connector?.id || ""
+  };
+}
+
 function connectorSummary(hit) {
   if (!hit) return "-";
+  if (hit.virtualSurfaceTarget) return `${hit.device.label || hit.device.id} / LED surface`;
   return `${hit.device.label || hit.device.id} / ${hit.connector.label || hit.connector.id}`;
 }
 
 function sameConnectorHit(a, b) {
   if (!a || !b) return false;
+  if (a.virtualSurfaceTarget || b.virtualSurfaceTarget) {
+    return Boolean(a.virtualSurfaceTarget && b.virtualSurfaceTarget && a.device?.id === b.device?.id);
+  }
   return a.device?.id === b.device?.id && a.connector?.id === b.connector?.id;
 }
 

@@ -32,6 +32,11 @@ import {
   canvasObjectRenderPriority,
   canonicalEngineObjectKind
 } from "./canvasObjectKinds.js";
+import {
+  compareLedSurfaceConnections,
+  endpointSurfaceId,
+  ledSurfaceIdForConnection
+} from "./ledSurfaceModel.js";
 
 const SIZE_PRESETS = {
   small: { deviceCount: 100, wireCount: 300 },
@@ -208,7 +213,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
   const surfaceDevices = normalizeLedSurfaces(root.ledSurfaces || []);
   const titleBlockDevices = normalizeTitleBlocks(root.titleBlocks || []);
   const commentDevices = normalizeComments(root.comments || []);
-  const surfaceConnectionOrder = buildSurfaceConnectionOrder(root.connections || []);
+  const surfaceConnectionOrder = buildSurfaceConnectionOrder(root.connections || [], root.ledSurfaces || []);
   const wireMode = root.wireMode === "orthogonal" ? "orthogonal" : "bezier";
   surfaceDevices.forEach(surface => {
     // Legacy LED PNG surfaces do not expose visible connector nodes. Wires use
@@ -975,39 +980,49 @@ function normalizeTitleBlocks(blocks) {
   });
 }
 
-function buildSurfaceConnectionOrder(connections) {
+function buildSurfaceConnectionOrder(connections, surfaces = []) {
   const map = new Map();
+  const surfaceById = new Map((surfaces || []).map(surface => [String(surface?.id || ""), surface]));
   connections.forEach((connection, index) => {
-    const surfaceId = connection.to?.surfaceId || connection.from?.surfaceId;
+    const surfaceId = ledSurfaceIdForConnection(connection);
     if (!surfaceId) return;
     if (!map.has(surfaceId)) map.set(surfaceId, []);
     map.get(surfaceId).push({ id: connection.id || `surface-wire-${index}`, connection, index });
   });
-  map.forEach(list => {
-    list.sort((a, b) => {
-      const signalDelta = (Number(a.connection.signalIndex) || 0) - (Number(b.connection.signalIndex) || 0);
-      return signalDelta || a.index - b.index;
-    });
+  map.forEach((list, surfaceId) => {
+    list.sort((a, b) => compareLedSurfaceConnections(a, b, surfaceById.get(surfaceId) || { id: surfaceId }));
   });
   return map;
 }
 
 function normalizeProjectWire(wire, index, context) {
-  const from = normalizeEndpoint(wire.from || { deviceId: wire.fromDeviceId }, "from", wire, context);
-  const to = normalizeEndpoint(wire.to || { deviceId: wire.toDeviceId }, "to", wire, context);
-  if (!from || !to || !context.deviceIds.has(from.deviceId) || !context.deviceIds.has(to.deviceId)) return null;
+  const from = normalizeEndpoint(wire.from || {
+    deviceId: wire.fromDeviceId,
+    surfaceId: wire.fromSurfaceId,
+    connectorId: wire.fromConnectorId
+  }, "from", wire, context);
+  const to = normalizeEndpoint(wire.to || {
+    deviceId: wire.toDeviceId,
+    surfaceId: wire.toSurfaceId,
+    connectorId: wire.toConnectorId
+  }, "to", wire, context);
+  if (!from || !to || !endpointExists(from, context) || !endpointExists(to, context)) return null;
   const cableType = String(wire.cableType || wire.type || "");
   const fiberMode = String(wire.fiberMode || "");
   const usesOrthogonalRoute = Array.isArray(wire.orthogonalRoutePoints);
   const routePoints = normalizeRoutePoints(usesOrthogonalRoute ? wire.orthogonalRoutePoints : wire.routePoints);
+  const fromFallback = Boolean(from.deviceId && !from.usesRealConnector);
+  const toFallback = Boolean(to.deviceId && !to.usesRealConnector);
   return {
     id: String(wire.id || `project-wire-${index}`),
     sourceKind: "connection",
     sourceId: String(wire.id || `project-wire-${index}`),
-    fromDeviceId: from.deviceId,
-    toDeviceId: to.deviceId,
-    fromConnectorId: from.connectorId,
-    toConnectorId: to.connectorId,
+    fromDeviceId: from.deviceId || "",
+    toDeviceId: to.deviceId || "",
+    fromSurfaceId: from.surfaceId || "",
+    toSurfaceId: to.surfaceId || "",
+    fromConnectorId: from.connectorId || "",
+    toConnectorId: to.connectorId || "",
     fromSide: from.side,
     toSide: to.side,
     fromPortIndex: from.portIndex ?? index % 4,
@@ -1017,7 +1032,7 @@ function normalizeProjectWire(wire, index, context) {
     fromUsesRealConnector: Boolean(from.usesRealConnector),
     toUsesRealConnector: Boolean(to.usesRealConnector),
     usesRealConnectorEndpoints: Boolean(from.usesRealConnector && to.usesRealConnector),
-    hasFallbackEndpoint: Boolean(!from.usesRealConnector || !to.usesRealConnector),
+    hasFallbackEndpoint: Boolean(fromFallback || toFallback),
     color: engineWireColorForCable(
       cableType,
       fiberMode,
@@ -1039,9 +1054,19 @@ function deepClone(value) {
 
 function normalizeEndpoint(endpoint, end, wire, context) {
   if (!endpoint) return null;
+  const directSurfaceId = endpointSurfaceId(endpoint);
+  if (directSurfaceId && context.surfaceIds.has(directSurfaceId)) {
+    return normalizeSurfaceEndpoint(directSurfaceId, wire, context);
+  }
   if (endpoint.deviceId) {
     const deviceId = String(endpoint.deviceId);
     const connectorId = String(endpoint.connectorId || "");
+    if (context.surfaceIds.has(deviceId) || connectorId.startsWith("surface-port-")) {
+      // Compatibility repair for early Engine builds that serialized LED
+      // surfaces as fake device connector endpoints. From here onward the scene
+      // keeps the canonical Legacy endpoint shape: `{ surfaceId }`.
+      return context.surfaceIds.has(deviceId) ? normalizeSurfaceEndpoint(deviceId, wire, context) : null;
+    }
     const connectorIds = context.connectorIdsByDevice.get(deviceId);
     return {
       deviceId,
@@ -1059,19 +1084,24 @@ function normalizeEndpoint(endpoint, end, wire, context) {
       usesRealConnector: true
     };
   }
-  if (endpoint.surfaceId && context.surfaceIds.has(String(endpoint.surfaceId))) {
-    const surfaceId = String(endpoint.surfaceId);
-    const ordered = context.surfaceConnectionOrder.get(surfaceId) || [];
-    const portIndex = Math.max(0, ordered.findIndex(item => String(item.id) === String(wire.id)));
-    return {
-      deviceId: surfaceId,
-      connectorId: `surface-port-${wire.id || portIndex}`,
-      side: "left",
-      portIndex,
-      usesRealConnector: false
-    };
-  }
   return null;
+}
+
+function normalizeSurfaceEndpoint(surfaceId, wire, context) {
+  const ordered = context.surfaceConnectionOrder.get(surfaceId) || [];
+  const portIndex = Math.max(0, ordered.findIndex(item => String(item.id) === String(wire.id)));
+  return {
+    surfaceId,
+    connectorId: "",
+    side: "left",
+    portIndex,
+    usesRealConnector: false
+  };
+}
+
+function endpointExists(endpoint, context) {
+  if (endpoint.surfaceId) return context.surfaceIds.has(endpoint.surfaceId);
+  return endpoint.deviceId && context.deviceIds.has(endpoint.deviceId);
 }
 
 function normalizeRoutePoints(points) {
