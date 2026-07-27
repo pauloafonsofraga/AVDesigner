@@ -2468,13 +2468,19 @@ class ProductionEngineBridge {
     return true;
   }
 
-  syncCanvasObjectFromProduction(kind, objectId, objectData = null) {
+  syncCanvasObjectFromProduction(kind, objectId, objectData = null, options = {}) {
     if (!this.ready) return false;
     const objectKind = canonicalEngineObjectKind(kind);
     if (!isCanvasObjectKind(objectKind)) return false;
     const sourceId = String(objectId || objectData?.id || "");
+    if (objectData && options.refreshMutationIndexes) this.mutations?.rebuildIndexes?.();
     const entry = objectData
-      ? { item: objectData, index: 0 }
+      ? {
+          item: objectData,
+          index: Number.isInteger(options.index)
+            ? options.index
+            : (this.mutations?.sceneObjectMap?.(objectKind)?.get(sourceId)?.index ?? 0)
+        }
       : this.mutations?.sceneObjectMap?.(objectKind)?.get(sourceId);
     if (!sourceId || !entry?.item) {
       this.hud?.setMetric("canvas object sync", `missing ${objectKind}:${sourceId}`);
@@ -2488,16 +2494,27 @@ class ProductionEngineBridge {
       : this.scene.insertDevice(normalized);
     if (!device) return false;
     const affectedWireIds = [...this.scene.affectedWireIdsForObjects([device.id])];
-    const dirtyStats = this.renderer.updateDirty(this.scene, {
-      deviceIds: [device.id],
-      wireIds: affectedWireIds,
-      refreshCableHops: false
-    });
+    const dirtyStats = previous
+      ? this.renderer.updateDirty(this.scene, {
+          deviceIds: [device.id],
+          wireIds: affectedWireIds,
+          refreshCableHops: false
+        })
+      : this.renderer.appendDevice(this.scene, device.id);
     this.lastDirtyDeviceIds = new Set([device.id]);
     this.lastDirtyWireIds = new Set(affectedWireIds);
     this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
     this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
     this.renderer.setRenderOptions(this.renderOptions);
+    if (options.select) this.scene.selectOnly(device.id);
+    // Legacy UI creates some canvas objects directly; record the matching
+    // Engine command after syncing so undo removes the same project object.
+    if (!previous && options.recordCreateCommand) {
+      this.recordCommand(createDevicesCommand(
+        [sceneObjectUndoPayload(objectKind, entry.item)],
+        Number.isInteger(entry.index) ? entry.index : null
+      ));
+    }
     this.hud?.setMetric("canvas object sync", `${objectKind}:${sourceId}`);
     this.hud?.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
     this.updateSelectionHud();
@@ -5393,7 +5410,12 @@ function pointTotal(total, state) {
 
 function createDevicesCommand(deviceList = [], firstIndex = null) {
   const rawDevices = (deviceList || []).map(deepClone).filter(Boolean);
-  const ids = rawDevices.map(device => String(device?.instanceId || device?.id || "")).filter(Boolean);
+  const ids = rawDevices
+    .map(device => {
+      if (device?.__engineObjectKind) return String(device.data?.id || device.objectData?.id || "");
+      return String(device?.instanceId || device?.id || "");
+    })
+    .filter(Boolean);
   return {
     type: rawDevices.length === 1 ? "CreateDeviceCommand" : `CreateDevicesCommand (${rawDevices.length})`,
     affectedIds: ids,

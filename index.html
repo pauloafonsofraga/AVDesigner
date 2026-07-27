@@ -72030,9 +72030,16 @@
             signalSlots: 20
           };
           pushUndo();
+          const insertedIndex = state.ledSurfaces.length;
           state.ledSurfaces.push(surface);
           state.selected = { type: "led-surface", id: surface.id };
           render();
+          activeEngineBridge()?.syncCanvasObjectFromProduction?.("led-surface", surface.id, surface, {
+            recordCreateCommand: true,
+            refreshMutationIndexes: true,
+            select: true,
+            index: insertedIndex
+          });
         } catch (error) {
           alert("The LED screen PNG could not be loaded.");
         }
