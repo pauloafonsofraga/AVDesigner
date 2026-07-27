@@ -1583,7 +1583,7 @@ function pushVisibleConnectorNodes(vertices, scene, camera, resolution, renderOp
   const drawDeviceConnectors = (device, reason) => {
     if (!device || drawn.has(device.id)) return;
     if (!deviceVisible(device, renderOptions) || !deviceUsesTextureLayer(device, renderOptions)) return;
-    if (device.kind === "jump") return;
+    if (device.kind === "jump" || isLedSurfaceKind(device)) return;
     const offset = offsets?.get(device.id);
     const baseX = device.x + (offset?.dx || 0);
     const baseY = device.y + (offset?.dy || 0);
@@ -1756,6 +1756,7 @@ function pushDevice(vertices, device, offsets = null, selected = false, options 
   pushLine(vertices, { x: x + device.width, y }, { x: x + device.width, y: y + device.height }, 2.2, "#dbe7f3");
   pushLine(vertices, { x: x + device.width, y: y + device.height }, { x, y: y + device.height }, 2.2, "#dbe7f3");
   pushLine(vertices, { x, y: y + device.height }, { x, y }, 2.2, "#dbe7f3");
+  if (isLedSurfaceKind(device)) return;
   if (options.connectorMarkers && device.connectors?.length) {
     device.connectors.forEach(connector => {
       const px = x + connector.x;
@@ -1828,6 +1829,9 @@ function connectorVisualRadius(device = {}) {
 }
 
 function deviceConnectorsForRender(device = {}) {
+  // LED surfaces use synthetic left-side endpoint positions for wire geometry,
+  // but Legacy never shows those as visible connector nodes or labels.
+  if (isLedSurfaceKind(device)) return [];
   if (Array.isArray(device.connectors) && device.connectors.length) return device.connectors;
   const portCount = Math.max(0, Math.floor(Number(device.portCount || 0)));
   const connectors = [];
@@ -2201,7 +2205,7 @@ function drawVisibleConnectorLabels(ctx, scene, camera, renderOptions = DEFAULT_
   const drawDeviceConnectors = (device, reason) => {
     if (!device || drawn.has(device.id)) return 0;
     if (!deviceVisible(device, renderOptions) || !deviceUsesTextureLayer(device, renderOptions)) return 0;
-    if (device.kind === "jump") return 0;
+    if (device.kind === "jump" || isLedSurfaceKind(device)) return 0;
     const offset = offsets?.get(device.id);
     const baseX = device.x + (offset?.dx || 0);
     const baseY = device.y + (offset?.dy || 0);
