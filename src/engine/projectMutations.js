@@ -338,6 +338,9 @@ export class ProjectMutationAdapter {
       // fiber mode, notes, labels, custom colors, and route arrays stay intact.
       entry.item.from = endpointToProject(scene, wire, "from");
       entry.item.to = endpointToProject(scene, wire, "to");
+      const signalIndex = Number(wire.signalIndex) || 0;
+      if (signalIndex > 0) entry.item.signalIndex = signalIndex;
+      else delete entry.item.signalIndex;
     }
     this.record("rewire endpoint", performance.now() - start, `connections[${entry.index}].from/to`, {
       wireId,
@@ -729,7 +732,7 @@ function rawDeviceFromSceneDevice(device) {
 }
 
 function rawConnectionFromSceneWireData(sceneData, wire) {
-  return {
+  const connection = {
     id: String(wire.sourceId || wire.id),
     label: wire.label || wire.cableType || "Engine Test Cable",
     cableType: wire.cableType || "Engine Test Cable",
@@ -741,10 +744,13 @@ function rawConnectionFromSceneWireData(sceneData, wire) {
     hideLabel: Boolean(wire.hideLabel),
     ...routeFieldsFromWire(wire)
   };
+  const signalIndex = Number(wire.signalIndex) || 0;
+  if (signalIndex > 0) connection.signalIndex = signalIndex;
+  return connection;
 }
 
 function rawConnectionFromWire(scene, wire, id) {
-  return {
+  const connection = {
     id,
     label: wire.label || wire.cableType || "Engine Test Cable",
     cableType: wire.cableType || "Engine Test Cable",
@@ -756,6 +762,9 @@ function rawConnectionFromWire(scene, wire, id) {
     hideLabel: Boolean(wire.hideLabel),
     ...routeFieldsFromWire(wire)
   };
+  const signalIndex = Number(wire.signalIndex) || 0;
+  if (signalIndex > 0) connection.signalIndex = signalIndex;
+  return connection;
 }
 
 function customColorForProjectWire(wire) {

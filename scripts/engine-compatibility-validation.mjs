@@ -788,6 +788,23 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
     { x: 1000, y: 387.5 },
     "LED PNG wire B lands on the Legacy left-edge virtual point"
   );
+  const ledWireC = ledScene.addWire({
+    fromDeviceId: "source",
+    fromConnectorId: "out",
+    toSurfaceId: "led-grid",
+    cableType: "led-signal",
+    signalIndex: 16
+  });
+  assert.deepEqual(
+    ledScene.orderedLedSurfaceWires("led-grid").map(wire => wire.signalIndex),
+    [1, 2, 16],
+    "LED PNG virtual endpoints keep signal-index ordering when a later signal is added"
+  );
+  assert.deepEqual(
+    new Set(ledScene.expandLedSurfaceDependentWireIds([ledWireC.id])),
+    new Set(["led-wire-a", "led-wire-b", ledWireC.id]),
+    "Dirtying one LED PNG wire expands to all sibling wires on that surface"
+  );
 
   const repairedLedProject = normalizeAvDesignerProject({
     ledSurfaces: normalizedLedProject.projectData?.ledSurfaces || [{

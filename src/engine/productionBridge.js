@@ -1416,6 +1416,7 @@ class ProductionEngineBridge {
       colorSegments: engineWireColorSegmentsForCable(cableType),
       cableType,
       fiberMode,
+      signalIndex: signalIndexForLedSurfaceWireHits(source, target),
       routeStyle: route.routeStyle,
       routePoints: route.routePoints
     });
@@ -1426,15 +1427,14 @@ class ProductionEngineBridge {
     this.beginProductionCommit("create wire");
     const mutationMs = this.mutations?.commitCreatedWire(this.scene, wire) || 0;
     const connectionData = this.mutations?.connectionDataForWire(wire.sourceId || wire.id);
-    const dirtyStats = this.renderer.appendWire(this.scene, wire.id);
+    const dirtyStats = this.refreshWireVisuals([wire.id], {
+      appendWireId: wire.id,
+      reason: "create wire"
+    });
     this.scene.selectWireOnly(wire.id);
-    this.lastDirtyWireIds = new Set([wire.id]);
-    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
-    this.renderer.setRenderOptions(this.renderOptions);
     this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
     this.hud.setMetric("dirty counts", `${dirtyStats.dirtyDevices} dev / ${dirtyStats.dirtyWires} wires`);
     this.hud.setMetric("gpu update", dirtyStats.appended ? "append wire buffer" : "bufferSubData ranges");
-    this.recordDirtyVisualMetrics(dirtyStats, "create wire");
     this.markCommitted("create wire", mutationMs);
     this.recordCommand(createWireCommand(cloneWire(wire), connectionData));
     this.recordCompatibilityDiagnostic("wire-created", compatibility, source, target);
@@ -1472,9 +1472,10 @@ class ProductionEngineBridge {
       return;
     }
     const beforeWire = cloneWire(wire);
+    const beforeLedSurfaceIds = this.scene.ledSurfaceIdsForWire(beforeWire);
     const beforeConnection = rewire.originalConnection || this.mutations?.connectionDataForWire(wire.sourceId || wire.id);
     this.beginProductionCommit("rewire endpoint");
-    const updated = this.scene.rewireWireEndpoint(
+    let updated = this.scene.rewireWireEndpoint(
       wire.id,
       rewire.detachedSide,
       target.device.id,
@@ -1484,13 +1485,17 @@ class ProductionEngineBridge {
       this.finishWireInteraction({ restoreSelection: true, reason: "wire-rewire-failed" });
       return;
     }
+    const nextSignalIndex = signalIndexForLedSurfaceSceneWire(this.scene, updated, target);
+    if (this.scene.ledSurfaceIdsForWire(updated).length && nextSignalIndex !== updated.signalIndex) {
+      updated = this.scene.applyWireState(updated.id, { signalIndex: nextSignalIndex }) || updated;
+    }
     const mutationMs = this.mutations?.commitRewiredWire(this.scene, updated.id) || 0;
     const afterWire = cloneWire(updated);
     const afterConnection = this.mutations?.connectionDataForWire(updated.sourceId || updated.id);
-    const dirtyStats = this.renderer.updateDirty(this.scene, { wireIds: [updated.id] });
-    this.lastDirtyWireIds = new Set([updated.id]);
-    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
-    this.renderer.setRenderOptions(this.renderOptions);
+    const dirtyStats = this.refreshWireVisuals([updated.id], {
+      extraLedSurfaceIds: beforeLedSurfaceIds,
+      reason: "rewire endpoint"
+    });
     this.recordRewireDiagnostic("commit", {
       compatibility,
       beforeWire,
@@ -3393,16 +3398,17 @@ class ProductionEngineBridge {
 
   applyWireRewireState(wireState, connectionState) {
     if (!wireState?.id) return { mutationMs: 0 };
+    const beforeWire = this.scene.getWire(wireState.id);
+    const beforeLedSurfaceIds = this.scene.ledSurfaceIdsForWire(beforeWire);
     const wire = this.scene.applyWireState(wireState.id, wireState);
     if (!wire) return { mutationMs: 0 };
     const mutationMs = this.mutations?.commitRewiredWire(this.scene, wire.id, connectionState) || 0;
-    const dirtyStats = this.renderer.updateDirty(this.scene, { wireIds: [wire.id] });
+    const dirtyStats = this.refreshWireVisuals([wire.id], {
+      extraLedSurfaceIds: beforeLedSurfaceIds,
+      reason: "rewire apply"
+    });
     this.scene.selectWireOnly(wire.id);
-    this.lastDirtyWireIds = new Set([wire.id]);
-    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
-    this.renderer.setRenderOptions(this.renderOptions);
     this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
-    this.recordDirtyVisualMetrics(dirtyStats, "rewire apply");
     return { mutationMs, dirtyStats };
   }
 
@@ -3795,17 +3801,50 @@ class ProductionEngineBridge {
     return this.mutations?.deviceById?.get(String(device.sourceId || device.id))?.index ?? -1;
   }
 
+  refreshWireVisuals(wireIds = [], {
+    appendWireId = "",
+    extraLedSurfaceIds = [],
+    reason = "wire update",
+    refreshCableHops = true
+  } = {}) {
+    const requestedWireIds = uniqueItems((wireIds || []).map(id => String(id || "")).filter(Boolean));
+    const dirtyWireIds = this.scene.expandLedSurfaceDependentWireIds(requestedWireIds, extraLedSurfaceIds);
+    this.scene.refreshWireIndexes(dirtyWireIds);
+
+    let dirtyStats = null;
+    if (appendWireId) {
+      dirtyStats = this.renderer.appendWire(this.scene, appendWireId);
+      const siblingWireIds = dirtyWireIds.filter(id => id !== appendWireId && this.scene.getWire(id));
+      if (siblingWireIds.length) {
+        dirtyStats = this.renderer.updateDirty(this.scene, {
+          wireIds: siblingWireIds,
+          refreshCableHops
+        });
+      }
+    } else {
+      dirtyStats = this.renderer.updateDirty(this.scene, {
+        wireIds: dirtyWireIds,
+        refreshCableHops
+      });
+    }
+
+    this.lastDirtyWireIds = new Set(dirtyWireIds);
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    this.recordDirtyVisualMetrics(dirtyStats, reason);
+    return dirtyStats;
+  }
+
   restoreWire(wireData, connectionData) {
     const wire = this.scene.insertWire(wireData);
     if (!wire) return { mutationMs: 0 };
     const mutationMs = this.mutations?.restoreWire(connectionData) || 0;
-    const dirtyStats = this.renderer.appendWire(this.scene, wire.id);
+    const dirtyStats = this.refreshWireVisuals([wire.id], {
+      appendWireId: wire.id,
+      reason: "restore wire"
+    });
     this.scene.selectWireOnly(wire.id);
-    this.lastDirtyWireIds = new Set([wire.id]);
-    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
-    this.renderer.setRenderOptions(this.renderOptions);
     this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
-    this.recordDirtyVisualMetrics(dirtyStats, "restore wire");
     return { mutationMs, dirtyStats };
   }
 
@@ -3813,16 +3852,16 @@ class ProductionEngineBridge {
     const wire = this.resolveWire(wireId);
     const connectionData = this.mutations?.connectionDataForWire(wire?.sourceId || wireId);
     const wireData = wire ? cloneWire(wire) : null;
+    const ledSurfaceIds = this.scene.ledSurfaceIdsForWire(wireData);
     const removed = wire ? this.scene.deleteWire(wire.id) : null;
     if (!removed) return { mutationMs: 0, wireData, connectionData };
     const mutationMs = this.mutations?.deleteWire(removed.sourceId || removed.id) || 0;
-    const dirtyStats = this.renderer.updateDirty(this.scene, { wireIds: [removed.id] });
-    this.lastDirtyWireIds = new Set([removed.id]);
-    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
-    this.renderer.setRenderOptions(this.renderOptions);
+    const dirtyStats = this.refreshWireVisuals([removed.id], {
+      extraLedSurfaceIds: ledSurfaceIds,
+      reason: "remove wire"
+    });
     this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
     this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
-    this.recordDirtyVisualMetrics(dirtyStats, "remove wire");
     return { mutationMs, dirtyStats, wireData, connectionData };
   }
 
@@ -5160,6 +5199,57 @@ function hitForSceneWireEndpoint(scene, wire, end) {
     connector,
     point: scene.connectorWorldPoint(device, connector),
   };
+}
+
+function signalIndexForLedSurfaceWireHits(sourceHit, targetHit) {
+  const sourceIsSurface = Boolean(sourceHit?.virtualSurfaceTarget || isLedSurfaceKind(sourceHit?.device));
+  const targetIsSurface = Boolean(targetHit?.virtualSurfaceTarget || isLedSurfaceKind(targetHit?.device));
+  if (!sourceIsSurface && !targetIsSurface) return 0;
+  return signalIndexFromHit(sourceIsSurface ? targetHit : sourceHit);
+}
+
+function signalIndexForLedSurfaceSceneWire(scene, wire, targetHit = null) {
+  if (!scene?.ledSurfaceIdsForWire?.(wire)?.length) return 0;
+  const targetSignalIndex = signalIndexFromHit(targetHit);
+  if (targetSignalIndex) return targetSignalIndex;
+  const sourceSignalIndex = signalIndexFromSceneWireEndpoint(scene, wire, "from");
+  if (sourceSignalIndex) return sourceSignalIndex;
+  return signalIndexFromSceneWireEndpoint(scene, wire, "to");
+}
+
+function signalIndexFromSceneWireEndpoint(scene, wire, end) {
+  if (scene?.wireEndpointSurfaceId?.(wire, end)) return 0;
+  const deviceId = end === "from" ? wire?.fromDeviceId : wire?.toDeviceId;
+  const connectorId = end === "from" ? wire?.fromConnectorId : wire?.toConnectorId;
+  return signalIndexFromConnector(scene?.getConnector?.(deviceId, connectorId));
+}
+
+function signalIndexFromHit(hit) {
+  if (hit?.virtualSurfaceTarget || isLedSurfaceKind(hit?.device)) return 0;
+  return signalIndexFromConnector(hit?.connector);
+}
+
+function signalIndexFromConnector(connector = {}) {
+  const direct = Number(connector?.signalIndex ?? connector?.ledSignalIndex);
+  if (Number.isFinite(direct) && direct > 0) return direct;
+  const parsed = firstIntegerInText(
+    connector?.label,
+    connector?.nameText,
+    connector?.displayLabel,
+    connector?.id
+  );
+  if (parsed) return parsed;
+  const portIndex = Number(connector?.portIndex);
+  return Number.isFinite(portIndex) && portIndex >= 0 ? portIndex + 1 : 0;
+}
+
+function firstIntegerInText(...values) {
+  for (const value of values) {
+    const match = String(value || "").match(/\d+/);
+    const number = match ? Number(match[0]) : 0;
+    if (Number.isFinite(number) && number > 0) return number;
+  }
+  return 0;
 }
 
 function wireEndpointPayloadForHit(hit, end) {

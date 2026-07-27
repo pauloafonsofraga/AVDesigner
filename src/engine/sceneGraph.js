@@ -245,6 +245,27 @@ export class SceneGraph {
     return wireEndpointSurfaceId(wire, end);
   }
 
+  ledSurfaceIdsForWire(wire) {
+    if (!wire) return [];
+    return uniqueItems([
+      this.wireEndpointSurfaceId(wire, "from"),
+      this.wireEndpointSurfaceId(wire, "to")
+    ].filter(Boolean));
+  }
+
+  expandLedSurfaceDependentWireIds(wireIds = [], extraSurfaceIds = []) {
+    const result = new Set((wireIds || []).map(id => String(id || "")).filter(Boolean));
+    const surfaceIds = new Set((extraSurfaceIds || []).map(id => String(id || "")).filter(Boolean));
+    result.forEach(wireId => {
+      const wire = this.getWire(wireId);
+      this.ledSurfaceIdsForWire(wire).forEach(surfaceId => surfaceIds.add(surfaceId));
+    });
+    surfaceIds.forEach(surfaceId => {
+      (this.wireIdsByDeviceId.get(surfaceId) || []).forEach(wireId => result.add(wireId));
+    });
+    return [...result];
+  }
+
   wireEndpointObjectId(wire, end) {
     return this.wireEndpointSurfaceId(wire, end) || (end === "from" ? wire.fromDeviceId : wire.toDeviceId);
   }
@@ -816,7 +837,8 @@ export class SceneGraph {
     cableType = "Test Cable",
     fiberMode = "",
     routeStyle = "bezier",
-    routePoints = []
+    routePoints = [],
+    signalIndex = 0
   }) {
     const fromEndpoint = this.resolveAddWireEndpoint("from", { deviceId: fromDeviceId, connectorId: fromConnectorId, surfaceId: fromSurfaceId });
     const toEndpoint = this.resolveAddWireEndpoint("to", { deviceId: toDeviceId, connectorId: toConnectorId, surfaceId: toSurfaceId });
@@ -841,6 +863,7 @@ export class SceneGraph {
       colorSegments,
       cableType,
       fiberMode,
+      signalIndex,
       routeStyle,
       routePoints,
       label: `${fromEndpoint.label || "Connector"} to ${toEndpoint.label || "LED Screen"}`
@@ -1600,4 +1623,8 @@ function cloneInfoFields(fields) {
       value: String(field.value ?? field.text ?? "")
     })).filter(field => field.title || field.value || field.text)
     : [];
+}
+
+function uniqueItems(items = []) {
+  return [...new Set(items)];
 }
