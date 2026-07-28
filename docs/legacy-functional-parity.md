@@ -4,7 +4,15 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 46`
+- Current build label: `Iteration 48`
+
+Iteration 48 restores the Rack Builder data split in the Engine path. Rack
+definitions still own rack-local devices, internal connections, and rack-local
+route points. A placed rack owns a hidden rack instance record plus child canvas
+device instances with `rackId` and `sourceRackDeviceId`; that explicit mapping
+drives group selection/movement, context-menu routing, placed-rack deletion,
+and the transformed internal wiring overlay. Internal rack wires remain derived
+visuals and are not written into the normal `connections` array.
 
 Iteration 46 restores the Legacy Power Distribution generated faceplate render
 path in the default Engine Editor. Power Distro templates are normalized as a

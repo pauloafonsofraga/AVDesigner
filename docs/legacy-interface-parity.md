@@ -4,9 +4,16 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 46`
+- Current build label: `Iteration 48`
 - Scope: interface and visual fidelity only. Functional wire parity is tracked in
   [`docs/legacy-functional-parity.md`](legacy-functional-parity.md).
+
+Iteration 48 keeps the Rack Builder modal as a DOM/Legacy-owned interface, but
+restores its visible bridge into the Engine canvas. Placed racks are displayed
+as real child-device visuals instead of a synthetic rack bitmap; selecting any
+child selects the placed rack group, context menus target the rack, and the
+optional internal wiring overlay uses derived non-selectable Engine wires
+transformed from the rack definition.
 
 Iteration 46 restores the Engine runtime path for Legacy Power Distribution
 generated faceplates. Power Distro classification now survives normalization as

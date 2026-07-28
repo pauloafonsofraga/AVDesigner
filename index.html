@@ -3906,7 +3906,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 46 — Engine Editor — iteration46</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 48 — Engine Editor — iteration48</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -4612,8 +4612,8 @@
   </div>
 
   <script>
-    const APP_ITERATION = "47";
-    const APP_BUILD_ID = "iteration47";
+    const APP_ITERATION = "48";
+    const APP_BUILD_ID = "iteration48";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
     const DEBUG_LIBRARY_DRAG_ENABLED = INITIAL_URL_PARAMS.get("debugLibraryDrag") === "1";
@@ -65003,6 +65003,13 @@
       return bridge.isActive() ? bridge : null;
     }
 
+    function refreshActiveEngineBridge(reason, options = {}) {
+      const bridge = activeEngineBridge();
+      if (!bridge?.refreshFromProduction) return null;
+      bridge.refreshFromProduction(reason, { preserveViewport: true, ...options });
+      return bridge;
+    }
+
     function flushPendingInspectorCommit() {
       const active = document.activeElement;
       if (active && typeof active.__avDesignerCommitPending === "function") {
@@ -75974,6 +75981,8 @@
         });
       state.selected = { type: "multi", items: [...idMap.values()].map(id => ({ type: "device", id })) };
       render();
+      const engineBridge = refreshActiveEngineBridge("rack placed", { preserveViewport: true });
+      engineBridge?.selectRack?.(newRack.id);
       setStatus(`${rackName(sourceRack)} added to the canvas.`);
     }
 
@@ -81815,6 +81824,7 @@
           if (rack) {
             rack.showInternalWiring = !rack.showInternalWiring;
             render();
+            refreshActiveEngineBridge("rack internal wiring toggled");
           }
         }
         if (rackAction === "lock") {
@@ -81822,6 +81832,7 @@
           if (rack) {
             rack.locked = !rack.locked;
             render();
+            refreshActiveEngineBridge("rack lock toggled");
           }
         }
         if (rackAction === "delete") deleteRackFromCanvas(rackId);
@@ -82594,6 +82605,7 @@
       }
       state.selected = null;
       render();
+      refreshActiveEngineBridge("rack deleted");
     }
 
     function select(selection) {
@@ -87547,6 +87559,17 @@ fit();
         ? selection.wires.map(wire => wire.sourceId || wire.id).filter(Boolean)
         : selection.wireIds || [];
       const selectedConnectors = selection.connectorKeys || [];
+      const selectedRackId = (() => {
+        const rackIds = [...new Set(selectedDevices.map(device => String(device.rackId || "")).filter(Boolean))];
+        if (rackIds.length !== 1 || selectedWires.length || selectedConnectors.length) return "";
+        const rackId = rackIds[0];
+        const rackChildIds = state.devices
+          .filter(instance => instance.rackId === rackId)
+          .map(instance => instance.instanceId);
+        if (!rackChildIds.length) return "";
+        const selectedIds = new Set(selectedDevices.map(device => String(device.sourceId || device.id || "")));
+        return rackChildIds.every(id => selectedIds.has(id)) ? rackId : "";
+      })();
       const selectionTypeForEngineDevice = device => {
         if (device.kind === "surface" || device.kind === "led-surface" || device.sourceKind === "ledSurface") return "led-surface";
         if (device.kind === "image-object" || device.sourceKind === "imageObject") return "image-object";
@@ -87556,6 +87579,11 @@ fit();
         if (device.kind === "jump" || device.sourceKind === "jumpNode") return "jump-node";
         return "device";
       };
+      if (selectedRackId) {
+        state.selected = { type: "rack", id: selectedRackId };
+        renderInspector();
+        return;
+      }
       if (selectedDevices.length === 1 && !selectedWires.length && !selectedConnectors.length) {
         const device = selectedDevices[0];
         state.selected = { type: selectionTypeForEngineDevice(device), id: device.sourceId };
@@ -87628,6 +87656,10 @@ fit();
               if (!target) return;
               if (target.type === "device") {
                 showDeviceContextMenu(event, target.sourceId);
+                return;
+              }
+              if (target.type === "rack") {
+                showRackContextMenu(event, target.rackId || target.sourceId);
                 return;
               }
               if (target.type === "led-surface") {

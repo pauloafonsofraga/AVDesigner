@@ -234,13 +234,14 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
   const jumpNodeIds = new Set(jumpDevices.map(device => device.id));
   const surfaceIds = new Set(surfaceDevices.map(device => device.id));
   const deviceIds = new Set(allDevices.map(device => device.id));
+  const normalizedDeviceById = new Map(allDevices.map(device => [device.id, device]));
   const connectorIdsByDevice = new Map(allDevices.map(device => [
     device.id,
     new Set((device.connectors || []).map(connector => connector.id))
   ]));
   const rawConnections = Array.isArray(root.connections) ? root.connections : [];
   const skipped = { wires: 0, devices: 0 };
-  const wires = rawConnections.map((wire, index) => {
+  const projectWires = rawConnections.map((wire, index) => {
     const normalized = normalizeProjectWire(wire, index, {
       deviceIds,
       connectorIdsByDevice,
@@ -253,6 +254,18 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
     if (!normalized) skipped.wires += 1;
     return normalized;
   }).filter(Boolean);
+  const rackInternalWires = normalizeRackInternalWires(root, {
+    templates,
+    nodeColorByType,
+    deviceIds,
+    connectorIdsByDevice,
+    normalizedDeviceById,
+    jumpNodeIds,
+    surfaceIds,
+    surfaceConnectionOrder,
+    wireMode
+  });
+  const wires = [...projectWires, ...rackInternalWires];
   if (!allDevices.length) return generateSyntheticProject(SIZE_PRESETS.small);
   const adapterMs = performance.now() - adapterStart;
   const connectorCount = allDevices.reduce((total, device) => total + (device.connectors?.length || 0), 0);
@@ -266,7 +279,8 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
     connectorColorsMapped: allDevices.reduce((total, device) => (
       total + (device.connectors || []).filter(connector => connector.colorMapped).length
     ), 0),
-    labelsMapped: allDevices.filter(device => device.labelMapped).length
+    labelsMapped: allDevices.filter(device => device.labelMapped).length,
+    rackInternalWires: rackInternalWires.length
   };
   return {
     devices: allDevices,
@@ -291,6 +305,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
       projectRootKind: data?.state ? "state" : data?.project ? "project" : "root",
       fullProjectAdapter: true,
       cableHops: root.cableHops !== false && data?.cableHops !== false,
+      rackInternalWires: rackInternalWires.length,
       ...stats
     }
   };
@@ -387,6 +402,8 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
     sourceKind: "device",
     sourceId: id,
     kind: isAdapter ? "adapter" : isPowerDistro ? "power-distro" : "device",
+    rackId: String(instance.rackId || ""),
+    sourceRackDeviceId: String(instance.sourceRackDeviceId || ""),
     x: finiteNumber(instance.x, 0),
     y: finiteNumber(instance.y, 0),
     width,
@@ -1046,6 +1063,81 @@ function normalizeProjectWire(wire, index, context) {
     fiberMode,
     signalIndex: Number(wire.signalIndex) || 0
   };
+}
+
+function normalizeRackInternalWires(root, context) {
+  const racks = Array.isArray(root.racks) ? root.racks : [];
+  if (!racks.length) return [];
+  const rackById = new Map(racks.map(rack => [String(rack?.id || ""), rack]).filter(([id]) => id));
+  const rawDevicesById = new Map((root.devices || [])
+    .map(device => [String(device?.instanceId || device?.id || ""), device])
+    .filter(([id]) => id));
+  const wires = [];
+  racks.forEach(rack => {
+    if (!rack?.showInternalWiring) return;
+    const rackId = String(rack.id || "");
+    if (!rackId) return;
+    const sourceRack = rack.sourceRackId ? (rackById.get(String(rack.sourceRackId)) || rack) : rack;
+    const internalConnections = Array.isArray(sourceRack?.internalConnections)
+      ? sourceRack.internalConnections
+      : Array.isArray(rack.internalConnections) ? rack.internalConnections : [];
+    if (!internalConnections.length) return;
+    const sourceMap = { ...(rack.sourceDeviceMap || {}) };
+    rawDevicesById.forEach(device => {
+      if (String(device?.rackId || "") !== rackId) return;
+      const sourceId = String(device?.sourceRackDeviceId || "");
+      const canvasId = String(device?.instanceId || device?.id || "");
+      if (sourceId && canvasId) sourceMap[sourceId] = canvasId;
+    });
+    internalConnections.forEach((connection, index) => {
+      const fromDeviceId = String(connection?.from?.deviceId || "");
+      const toDeviceId = String(connection?.to?.deviceId || "");
+      const fromCanvasId = String(sourceMap[fromDeviceId] || "");
+      const toCanvasId = String(sourceMap[toDeviceId] || "");
+      if (!fromCanvasId || !toCanvasId) return;
+      const wire = normalizeProjectWire({
+        ...connection,
+        id: `rack-internal-${rackId}-${connection.id || index}`,
+        from: {
+          deviceId: fromCanvasId,
+          connectorId: connection.from?.connectorId || ""
+        },
+        to: {
+          deviceId: toCanvasId,
+          connectorId: connection.to?.connectorId || ""
+        },
+        routePoints: transformedRackRoutePointsForEngine(connection, rack, sourceRack, sourceMap, context),
+        orthogonalRoutePoints: Array.isArray(connection.orthogonalRoutePoints)
+          ? transformedRackRoutePointsForEngine(connection, rack, sourceRack, sourceMap, context, "orthogonalRoutePoints")
+          : undefined
+      }, wires.length, context);
+      if (!wire) return;
+      wire.sourceKind = "rackInternalConnection";
+      wire.sourceId = wire.id;
+      wire.rackId = rackId;
+      wire.internalRackWire = true;
+      wire.selectable = false;
+      wires.push(wire);
+    });
+  });
+  return wires;
+}
+
+function transformedRackRoutePointsForEngine(connection, rack, sourceRack, sourceMap, context, key = "") {
+  const routeKey = key || (Array.isArray(connection?.orthogonalRoutePoints) ? "orthogonalRoutePoints" : "routePoints");
+  const routePoints = normalizeRoutePoints(connection?.[routeKey]);
+  if (!routePoints.length) return [];
+  const sourceDeviceId = String(connection?.from?.deviceId || "");
+  const canvasDeviceId = String(sourceMap?.[sourceDeviceId] || "");
+  const sourceDevice = (sourceRack?.devices || []).find(device => String(device?.instanceId || device?.id || "") === sourceDeviceId);
+  const canvasDevice = context.normalizedDeviceById?.get(canvasDeviceId);
+  if (!sourceDevice || !canvasDevice) return routePoints;
+  const dx = canvasDevice.x - finiteNumber(sourceDevice.x, 0);
+  const dy = canvasDevice.y - finiteNumber(sourceDevice.y, 0);
+  return routePoints.map(point => ({
+    x: Math.round(point.x + dx),
+    y: Math.round(point.y + dy)
+  }));
 }
 
 function deepClone(value) {

@@ -124,6 +124,7 @@ class ProductionEngineBridge {
     this.debugRewire = engineRewireDebugEnabled();
     this.debugCustomDevices = engineCustomDevicesDebugEnabled();
     this.debugCanvasObjects = engineCanvasObjectsDebugEnabled();
+    this.debugRackBuilder = engineRackBuilderDebugEnabled();
     this.orthogonalTest = engineOrthogonalTestEnabled();
     this.lastCompatibilityTargetKey = "";
     this.renderOptions = {
@@ -200,6 +201,15 @@ class ProductionEngineBridge {
     return this.ready;
   }
 
+  selectRack(rackId) {
+    if (!rackId) return false;
+    this.scene.selectRackOnly(rackId);
+    this.updateSelectionHud();
+    this.updateRackBuilderDebugHud("selectRack API");
+    this.scheduleRender();
+    return this.scene.rackSelectionComplete(rackId);
+  }
+
   objectPositionForInspector(objectId) {
     const device = this.resolveDeviceBySourceId(objectId);
     if (!device) return null;
@@ -212,6 +222,8 @@ class ProductionEngineBridge {
       sceneWires: this.scene.wires.length,
       productionObjects: this.api.getProjectData?.()?.devices?.length ?? null,
       productionWires: this.api.getProjectData?.()?.connections?.length ?? null,
+      placedRacks: this.scene.rackDeviceIdsByRackId?.size || 0,
+      rackChildDevices: this.scene.rackIdByDeviceId?.size || 0,
       selectedObjects: this.scene.selectedIds.size,
       selectedWires: this.scene.selectedWireIds.size
     };
@@ -295,11 +307,13 @@ class ProductionEngineBridge {
     };
   }
 
-  refreshFromProduction(reason = "manual refresh") {
+  refreshFromProduction(reason = "manual refresh", options = {}) {
     if (this.viewportReplayGuard) {
       this.recordBlockedViewportMutation("refreshFromProduction", { reason });
       return;
     }
+    const preserveViewport = options?.preserveViewport === true;
+    const beforeCamera = preserveViewport ? cloneCamera(this.camera) : null;
     this.clearLoadingReadyTimer();
     this.setLoading(true, `Loading Engine Editor: ${reason}`);
     const loadStart = performance.now();
@@ -330,7 +344,8 @@ class ProductionEngineBridge {
       const sceneBuildMs = performance.now() - start;
       this.setLoadingPhase("Preparing WebGL buffers...");
       const staticStats = this.renderer.setStaticScene(this.scene);
-      this.fitView();
+      if (preserveViewport && beforeCamera) this.camera = beforeCamera;
+      else this.fitView();
       this.setLoadingPhase("Preparing wire paths and labels...");
       this.updateHud({
         sceneBuildMs,
@@ -338,6 +353,7 @@ class ProductionEngineBridge {
         mode: `scene refresh: ${reason}`
       });
       this.updateStatusPanel(reason);
+      this.updateRackBuilderDebugHud(reason);
       this.notifyHistoryChange(reason);
       this.renderEngineInspector();
       this.showError("");
@@ -349,6 +365,22 @@ class ProductionEngineBridge {
       this.showError(error?.stack || error?.message || String(error));
       throw error;
     }
+  }
+
+  updateRackBuilderDebugHud(reason = "rack debug") {
+    if (!this.debugRackBuilder) return;
+    const rackIds = [...(this.scene.rackDeviceIdsByRackId?.keys?.() || [])];
+    this.hud?.setMetric("rack debug", reason);
+    this.hud?.setMetric("placed racks", rackIds.length);
+    this.hud?.setMetric("rack child devices", this.scene.rackIdByDeviceId?.size || 0);
+    this.hud?.setMetric("selected rack", this.selectedRackIds().join(", ") || "-");
+    console.info("[engine-rack-builder]", {
+      reason,
+      placedRacks: rackIds.length,
+      rackChildDevices: this.scene.rackIdByDeviceId?.size || 0,
+      selectedRackIds: this.selectedRackIds(),
+      counts: this.sceneCounts()
+    });
   }
 
   beginProjectLoad(message = "Loading project file...") {
@@ -613,18 +645,24 @@ class ProductionEngineBridge {
       this.scheduleRender();
       return;
     }
-    const wasSelected = this.scene.selectedIds.has(deviceHit.device.id);
+    const rackId = this.scene.deviceRackId(deviceHit.device);
+    const wasSelected = rackId
+      ? this.scene.rackSelectionComplete(rackId)
+      : this.scene.selectedIds.has(deviceHit.device.id);
     this.clearHoverState("device-select", { render: false });
     if (additiveSelection) {
-      this.scene.toggleSelection(deviceHit.device.id);
+      if (rackId) this.scene.toggleRackSelection(rackId);
+      else this.scene.toggleSelection(deviceHit.device.id);
       this.updateSelectionHud();
-      this.updateInteractionHud("selection-toggle", deviceHit);
+      this.updateInteractionHud(rackId ? "rack-selection-toggle" : "selection-toggle", deviceHit);
       this.scheduleRender();
       return;
     } else if (!wasSelected) {
-      this.scene.selectOnly(deviceHit.device.id);
+      if (rackId) this.scene.selectRackOnly(rackId);
+      else this.scene.selectOnly(deviceHit.device.id);
     }
     this.updateSelectionHud();
+    if (rackId) this.updateRackBuilderDebugHud("rack selected");
     this.beginPendingDrag(point, world);
   }
 
@@ -660,8 +698,13 @@ class ProductionEngineBridge {
       this.scene.selectWireOnly(target.engineWireId || target.wireId);
     } else if (target.type === "connector") {
       this.scene.selectConnectorOnly(target.engineDeviceId, target.connectorId);
+    } else if (target.type === "rack" && target.rackId) {
+      this.scene.selectRackOnly(target.rackId);
     } else if (target.engineDeviceId) {
-      this.scene.selectOnly(target.engineDeviceId);
+      const device = this.scene.getDevice(target.engineDeviceId);
+      const rackId = this.scene.deviceRackId(device);
+      if (rackId) this.scene.selectRackOnly(rackId);
+      else this.scene.selectOnly(target.engineDeviceId);
     }
     this.updateSelectionHud();
     this.updateInteractionHud(`context-${target.type}`);
@@ -1589,10 +1632,12 @@ class ProductionEngineBridge {
       .filter(isMarqueeSelectableDevice)
       .map(device => device.id)
       .filter(Boolean));
-    if (state.additive) this.scene.toggleMany(ids);
-    else this.scene.selectMany(ids);
-    this.hud.setMetric("marquee", `${ids.length} object${ids.length === 1 ? "" : "s"}${state.additive ? " toggled" : ""}`);
+    const expandedIds = this.scene.expandRackSelectionIds(ids);
+    if (state.additive) this.scene.toggleMany(expandedIds);
+    else this.scene.selectMany(expandedIds);
+    this.hud.setMetric("marquee", `${expandedIds.length} object${expandedIds.length === 1 ? "" : "s"}${state.additive ? " toggled" : ""}`);
     this.updateSelectionHud();
+    this.updateRackBuilderDebugHud("marquee rack selection");
     this.updateInteractionHud("marquee-select");
     this.updateCanvasCursor();
   }
@@ -1844,6 +1889,15 @@ class ProductionEngineBridge {
 
   contextMenuObjectTarget(device) {
     if (!device) return null;
+    const rackId = this.scene.deviceRackId(device);
+    if (rackId) {
+      return {
+        type: "rack",
+        rackId,
+        sourceId: rackId,
+        engineDeviceId: device.id
+      };
+    }
     return {
       type: engineContextTargetType(device),
       sourceId: device.sourceId || device.id,
@@ -1919,7 +1973,8 @@ class ProductionEngineBridge {
         id: device.id,
         sourceId: device.sourceId || device.id,
         sourceKind: device.sourceKind || device.kind || "device",
-        kind: device.kind || "device"
+        kind: device.kind || "device",
+        rackId: device.rackId || ""
       }));
     const selectedWireObjects = [...this.scene.selectedWireIds]
       .map(id => this.scene.getWire(id))
@@ -3376,7 +3431,7 @@ class ProductionEngineBridge {
     let mutationMs = 0;
     (routeStates || []).forEach(state => {
       const wire = this.scene.getWire(state.id);
-      if (!wire) return;
+      if (!wire || isEngineInternalRackWire(wire)) return;
       mutationMs += this.mutations?.commitRoutePoints(this.scene, wire.id) || 0;
     });
     return mutationMs;
@@ -3840,24 +3895,30 @@ class ProductionEngineBridge {
   restoreWire(wireData, connectionData) {
     const wire = this.scene.insertWire(wireData);
     if (!wire) return { mutationMs: 0 };
-    const mutationMs = this.mutations?.restoreWire(connectionData) || 0;
+    const mutationMs = isEngineInternalRackWire(wireData)
+      ? 0
+      : this.mutations?.restoreWire(connectionData) || 0;
     const dirtyStats = this.refreshWireVisuals([wire.id], {
       appendWireId: wire.id,
       reason: "restore wire"
     });
-    this.scene.selectWireOnly(wire.id);
+    if (wire.selectable !== false) this.scene.selectWireOnly(wire.id);
     this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
     return { mutationMs, dirtyStats };
   }
 
   removeWire(wireId) {
     const wire = this.resolveWire(wireId);
-    const connectionData = this.mutations?.connectionDataForWire(wire?.sourceId || wireId);
     const wireData = wire ? cloneWire(wire) : null;
+    const connectionData = isEngineInternalRackWire(wireData)
+      ? internalRackWireConnectionMarker(wireData)
+      : this.mutations?.connectionDataForWire(wire?.sourceId || wireId);
     const ledSurfaceIds = this.scene.ledSurfaceIdsForWire(wireData);
     const removed = wire ? this.scene.deleteWire(wire.id) : null;
     if (!removed) return { mutationMs: 0, wireData, connectionData };
-    const mutationMs = this.mutations?.deleteWire(removed.sourceId || removed.id) || 0;
+    const mutationMs = isEngineInternalRackWire(removed)
+      ? 0
+      : this.mutations?.deleteWire(removed.sourceId || removed.id) || 0;
     const dirtyStats = this.refreshWireVisuals([removed.id], {
       extraLedSurfaceIds: ledSurfaceIds,
       reason: "remove wire"
@@ -3872,12 +3933,31 @@ class ProductionEngineBridge {
       .filter(id => isEngineDeletableDevice(this.scene.getDevice(id)));
   }
 
+  selectedRackIds() {
+    const ids = new Set();
+    [...this.scene.selectedIds].forEach(deviceId => {
+      const rackId = this.scene.deviceRackId(deviceId);
+      if (rackId && this.scene.rackSelectionComplete(rackId)) ids.add(rackId);
+    });
+    return [...ids];
+  }
+
   deleteSelectedDevices(deviceIds = this.selectedDeletableDeviceIds()) {
     if (!this.ready) {
       this.hud?.setMetric("blocked command", "delete devices while loading");
       return;
     }
-    const ids = uniqueItems((deviceIds || []).map(id => String(id || "")).filter(Boolean))
+    const requestedIds = uniqueItems((deviceIds || []).map(id => String(id || "")).filter(Boolean));
+    const requestedSet = new Set(requestedIds);
+    const completeRackIds = this.selectedRackIds()
+      .filter(rackId => this.scene.rackChildIds(rackId).every(id => requestedSet.has(id)));
+    if (completeRackIds.length && requestedIds.length === uniqueItems(completeRackIds.flatMap(rackId => this.scene.rackChildIds(rackId))).length) {
+      this.deleteSelectedRackInstances(completeRackIds);
+      return;
+    }
+    const rackChildIds = new Set(completeRackIds.flatMap(rackId => this.scene.rackChildIds(rackId)));
+    const ids = requestedIds
+      .filter(id => !rackChildIds.has(id))
       .filter(id => isEngineDeletableDevice(this.scene.getDevice(id)));
     if (!ids.length) return;
     const commitStart = performance.now();
@@ -3894,7 +3974,7 @@ class ProductionEngineBridge {
     connectedWireIds.forEach(wireId => {
       const result = this.removeWire(wireId);
       mutationMs += result.mutationMs || 0;
-      if (result.wireData && result.connectionData) deletedWires.push({
+      if (result.wireData && result.connectionData && !result.connectionData.__engineInternalRackWire) deletedWires.push({
         wireData: result.wireData,
         connectionData: result.connectionData
       });
@@ -3928,6 +4008,62 @@ class ProductionEngineBridge {
       deletedDeviceIds: deletedDevices.map(item => item.engineId),
       deletedWireIds: deletedWires.map(item => item.wireData?.id).filter(Boolean)
     });
+    this.scheduleRender();
+  }
+
+  deleteSelectedRackInstances(rackIds = []) {
+    const ids = uniqueItems((rackIds || []).map(id => String(id || "")).filter(Boolean));
+    if (!ids.length) return;
+    const commitStart = performance.now();
+    const selectionBefore = captureEngineSelection(this.scene);
+    const childIds = uniqueItems(ids.flatMap(rackId => this.scene.rackChildIds(rackId)));
+    if (!childIds.length) return;
+    const connectedWireIds = uniqueItems([...this.scene.affectedWireIdsForObjects(childIds)]);
+    this.beginProductionCommit(`delete ${ids.length} rack${ids.length === 1 ? "" : "s"}`);
+    const deletedWires = [];
+    const deletedDevices = [];
+    const deletedRacks = [];
+    let mutationMs = 0;
+    connectedWireIds.forEach(wireId => {
+      const result = this.removeWire(wireId);
+      mutationMs += result.mutationMs || 0;
+      if (result.wireData && result.connectionData && !result.connectionData.__engineInternalRackWire) deletedWires.push({
+        wireData: result.wireData,
+        connectionData: result.connectionData
+      });
+    });
+    const deleteOrder = childIds
+      .map(id => ({ id, index: this.productionIndexForSceneObject(this.scene.getDevice(id)) }))
+      .sort((a, b) => b.index - a.index)
+      .map(item => item.id);
+    deleteOrder.forEach(deviceId => {
+      const result = this.removeCreatedDevice(deviceId);
+      mutationMs += result.mutationMs || 0;
+      if (result.deviceData) deletedDevices.push({
+        engineId: deviceId,
+        deviceData: result.deviceData,
+        index: result.index
+      });
+    });
+    ids.forEach(rackId => {
+      const result = this.mutations?.removeRackRecord(rackId) || { mutationMs: 0 };
+      mutationMs += result.mutationMs || 0;
+      if (result.rackData) deletedRacks.push({
+        rackData: result.rackData,
+        index: result.index
+      });
+    });
+    this.scene.clearSelection();
+    this.recordCommand(deleteRackInstancesCommand(deletedRacks, deletedDevices, deletedWires, selectionBefore));
+    this.markCommitted(`delete ${deletedRacks.length} rack${deletedRacks.length === 1 ? "" : "s"}`, mutationMs, {
+      deletedRackCount: deletedRacks.length,
+      deletedDeviceCount: deletedDevices.length,
+      deletedWireCount: deletedWires.length
+    });
+    this.updateSelectionHud();
+    this.updateInteractionHud("rack-delete");
+    this.updateRackBuilderDebugHud("rack delete");
+    this.hud.setMetric("delete rack commit", `${(performance.now() - commitStart).toFixed(2)} ms`);
     this.scheduleRender();
   }
 
@@ -4908,6 +5044,7 @@ function engineDebugHudEnabled() {
     || params.get("debugPowerDistro") === "1"
     || params.get("debugRewire") === "1"
     || params.get("debugCanvasObjects") === "1"
+    || params.get("debugRackBuilder") === "1"
     || params.get("orthogonalTest") === "1";
 }
 
@@ -4942,6 +5079,10 @@ function engineCustomDevicesDebugEnabled() {
 
 function engineCanvasObjectsDebugEnabled() {
   return new URLSearchParams(window.location.search).get("debugCanvasObjects") === "1";
+}
+
+function engineRackBuilderDebugEnabled() {
+  return new URLSearchParams(window.location.search).get("debugRackBuilder") === "1";
 }
 
 function engineOrthogonalTestEnabled() {
@@ -5744,6 +5885,51 @@ function deleteDevicesCommand(deletedDevices = [], deletedWires = [], selectionB
   };
 }
 
+function deleteRackInstancesCommand(deletedRacks = [], deletedDevices = [], deletedWires = [], selectionBefore = {}) {
+  const racks = (deletedRacks || [])
+    .map(item => ({
+      index: Number.isInteger(item?.index) ? item.index : null,
+      rackData: deepClone(item?.rackData)
+    }))
+    .filter(item => item.rackData?.id);
+  const baseCommand = deleteDevicesCommand(deletedDevices, deletedWires, selectionBefore);
+  return {
+    type: `DeleteRackInstancesCommand (${racks.length})`,
+    affectedIds: uniqueItems([
+      ...racks.map(item => item.rackData?.id),
+      ...(baseCommand.affectedIds || [])
+    ].filter(Boolean)),
+    undo: bridge => {
+      let mutationMs = 0;
+      racks
+        .slice()
+        .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+        .forEach(item => {
+          const result = bridge.mutations?.restoreRackRecord(item.rackData, item.index) || {};
+          mutationMs += result.mutationMs || 0;
+        });
+      const result = baseCommand.undo(bridge) || {};
+      mutationMs += result.mutationMs || 0;
+      bridge.updateRackBuilderDebugHud?.("undo rack delete");
+      return { mutationMs };
+    },
+    redo: bridge => {
+      let mutationMs = 0;
+      const result = baseCommand.redo(bridge) || {};
+      mutationMs += result.mutationMs || 0;
+      racks
+        .slice()
+        .sort((a, b) => (b.index ?? 0) - (a.index ?? 0))
+        .forEach(item => {
+          const result = bridge.mutations?.removeRackRecord(item.rackData?.id) || {};
+          mutationMs += result.mutationMs || 0;
+        });
+      bridge.updateRackBuilderDebugHud?.("redo rack delete");
+      return { mutationMs };
+    }
+  };
+}
+
 function consumeEngineShortcut(event) {
   event.preventDefault();
   event.stopPropagation();
@@ -5786,6 +5972,7 @@ function commandTargetMs(command) {
   if (type.includes("MoveRoutePoint")) return 100;
   if (type.includes("CreateWire") || type.includes("DeleteWire")) return 300;
   if (type.includes("CreateDevice")) return 300;
+  if (type.includes("DeleteRackInstances")) return 300;
   if (type.includes("DeleteDevices")) {
     const count = Number(command?.affectedIds?.length) || 1;
     return count > 1 ? 300 : 100;
@@ -5814,8 +6001,13 @@ function cloneWire(wire) {
     id: wire.id,
     sourceKind: wire.sourceKind,
     sourceId: wire.sourceId,
+    rackId: wire.rackId || "",
+    internalRackWire: Boolean(wire.internalRackWire),
+    selectable: wire.selectable === false ? false : true,
     fromDeviceId: wire.fromDeviceId,
     toDeviceId: wire.toDeviceId,
+    fromSurfaceId: wire.fromSurfaceId,
+    toSurfaceId: wire.toSurfaceId,
     fromConnectorId: wire.fromConnectorId,
     toConnectorId: wire.toConnectorId,
     fromSide: wire.fromSide,
@@ -6105,13 +6297,25 @@ function cloneRoutePoints(points = []) {
 function captureWireRouteStates(scene, wireIds = []) {
   return uniqueItems(wireIds).map(wireId => {
     const wire = scene.getWire(wireId);
-    if (!wire) return null;
+    if (!wire || isEngineInternalRackWire(wire)) return null;
     return {
       id: wire.id,
       routeStyle: wire.routeStyle || (wire.routePoints?.length ? "custom" : "bezier"),
       routePoints: cloneRoutePoints(wire.routePoints)
     };
   }).filter(Boolean);
+}
+
+function isEngineInternalRackWire(wire) {
+  return Boolean(wire?.internalRackWire || wire?.sourceKind === "rackInternalConnection");
+}
+
+function internalRackWireConnectionMarker(wire) {
+  return {
+    __engineInternalRackWire: true,
+    id: String(wire?.id || ""),
+    rackId: String(wire?.rackId || "")
+  };
 }
 
 function normalizeRoutePointsForBridge(points = []) {

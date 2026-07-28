@@ -34,6 +34,8 @@ export class SceneGraph {
     this.connectorOwnerByKey = new Map();
     this.connectorKeysByOwnerId = new Map();
     this.wireIdsByConnectorKey = new Map();
+    this.rackDeviceIdsByRackId = new Map();
+    this.rackIdByDeviceId = new Map();
     this.selectedIds = new Set();
     this.dirtyDevices = new Set();
     this.dirtyWires = new Set();
@@ -56,6 +58,7 @@ export class SceneGraph {
       && this.devicesById.has(this.wireEndpointObjectId(wire, "to"))
     ));
     this.wiresById = new Map(this.wires.map(wire => [wire.id, wire]));
+    this.rebuildRackIndex();
     this.selectedIds.clear();
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
@@ -89,6 +92,8 @@ export class SceneGraph {
       jumpNodes: this.devices.filter(device => device.kind === "jump").length,
       ledSurfaces: this.devices.filter(device => isLedSurfaceKind(device)).length,
       imageObjects: this.devices.filter(device => device.kind === "image-object").length,
+      rackChildDevices: this.rackIdByDeviceId.size,
+      placedRacks: this.rackDeviceIdsByRackId.size,
       areas: this.devices.filter(device => device.kind === "area").length,
       comments: this.devices.filter(device => device.kind === "comment").length,
       titleBlocks: this.devices.filter(device => device.kind === "title-block").length,
@@ -99,6 +104,61 @@ export class SceneGraph {
       ), 0),
       labelsMapped: this.devices.filter(device => device.labelMapped).length
     };
+  }
+
+  rebuildRackIndex() {
+    this.rackDeviceIdsByRackId.clear();
+    this.rackIdByDeviceId.clear();
+    this.devices.forEach(device => {
+      const rackId = String(device.rackId || "");
+      if (!rackId) return;
+      this.rackIdByDeviceId.set(device.id, rackId);
+      if (!this.rackDeviceIdsByRackId.has(rackId)) this.rackDeviceIdsByRackId.set(rackId, []);
+      this.rackDeviceIdsByRackId.get(rackId).push(device.id);
+    });
+  }
+
+  deviceRackId(deviceOrId) {
+    const id = typeof deviceOrId === "string" ? deviceOrId : deviceOrId?.id;
+    if (!id) return "";
+    return this.rackIdByDeviceId.get(id) || String((typeof deviceOrId === "object" && deviceOrId?.rackId) || "");
+  }
+
+  rackChildIds(rackId) {
+    return [...(this.rackDeviceIdsByRackId.get(String(rackId || "")) || [])];
+  }
+
+  rackSelectionComplete(rackId) {
+    const childIds = this.rackChildIds(rackId);
+    return Boolean(childIds.length) && childIds.every(id => this.selectedIds.has(id));
+  }
+
+  expandRackSelectionIds(ids = []) {
+    const expanded = new Set();
+    (ids || []).forEach(rawId => {
+      const id = String(rawId || "");
+      const rackId = this.deviceRackId(id);
+      if (rackId) this.rackChildIds(rackId).forEach(childId => expanded.add(childId));
+      else if (this.devicesById.has(id)) expanded.add(id);
+    });
+    return [...expanded];
+  }
+
+  selectRackOnly(rackId) {
+    this.selectMany(this.rackChildIds(rackId));
+  }
+
+  toggleRackSelection(rackId) {
+    const childIds = this.rackChildIds(rackId);
+    this.selectedWireIds.clear();
+    this.selectedConnectorKeys.clear();
+    this.selectedRoutePointKeys.clear();
+    if (!childIds.length) return;
+    const selected = childIds.every(id => this.selectedIds.has(id));
+    childIds.forEach(id => {
+      if (selected) this.selectedIds.delete(id);
+      else this.selectedIds.add(id);
+    });
   }
 
   rebuildWireIndex() {
@@ -338,6 +398,7 @@ export class SceneGraph {
   rebuildRoutePointIndex() {
     const items = [];
     this.wires.forEach(wire => {
+      if (wire.selectable === false) return;
       (wire.routePoints || []).forEach((point, index) => {
         items.push({
           id: routePointKey(wire.id, index),
@@ -402,6 +463,7 @@ export class SceneGraph {
         if (String(key).startsWith(`${wireId}:`)) this.routePointIndex.delete(key);
       });
       const wire = this.getWire(wireId);
+      if (wire?.selectable === false) return;
       (wire?.routePoints || []).forEach((point, index) => {
         this.routePointIndex.insert(routePointKey(wire.id, index), centeredBounds(point, 24), {
           id: routePointKey(wire.id, index),
@@ -613,6 +675,7 @@ export class SceneGraph {
       });
     });
     this.dirtyDevices.add(device.id);
+    this.rebuildRackIndex();
     return device;
   }
 
@@ -649,6 +712,7 @@ export class SceneGraph {
     this.rebuildWireIndex();
     this.dirtyDevices.add(device.id);
     this.dirtyTextures.add(device.id);
+    this.rebuildRackIndex();
     return device;
   }
 
@@ -669,6 +733,7 @@ export class SceneGraph {
     this.connectorKeysByOwnerId.delete(id);
     this.wireIdsByDeviceId.delete(id);
     this.dirtyDevices.add(id);
+    this.rebuildRackIndex();
     return device;
   }
 
@@ -1209,6 +1274,8 @@ function normalizeDevice(device) {
     sourceKind: device.sourceKind || "",
     sourceId: device.sourceId || device.id || "",
     kind,
+    rackId: String(device.rackId || ""),
+    sourceRackDeviceId: String(device.sourceRackDeviceId || ""),
     x: Number(device.x) || 0,
     y: Number(device.y) || 0,
     width: Math.max(40, Number(device.width) || 120),
@@ -1503,6 +1570,9 @@ function normalizeWire(wire) {
     id: String(wire.id),
     sourceKind: wire.sourceKind || "",
     sourceId: wire.sourceId || wire.id || "",
+    rackId: wire.rackId ? String(wire.rackId) : "",
+    internalRackWire: Boolean(wire.internalRackWire),
+    selectable: wire.selectable === false ? false : true,
     fromDeviceId: wire.fromDeviceId ? String(wire.fromDeviceId) : "",
     toDeviceId: wire.toDeviceId ? String(wire.toDeviceId) : "",
     fromSurfaceId: wire.fromSurfaceId ? String(wire.fromSurfaceId) : "",
@@ -1527,6 +1597,7 @@ function normalizeWire(wire) {
     colorSegments: cloneColorSegments(wire.colorSegments),
     label: wire.label || wire.cableType || String(wire.id),
     length: wire.length || "",
+    hideLabel: Boolean(wire.hideLabel),
     cableType: wire.cableType || "",
     fiberMode: wire.fiberMode || "",
     signalIndex: Number(wire.signalIndex) || 0

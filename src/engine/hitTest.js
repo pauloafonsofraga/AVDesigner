@@ -77,7 +77,7 @@ export function hitTestWire(scene, worldPoint, tolerance = 8) {
   let bestDistance = Infinity;
   candidates.forEach(item => {
     const wire = item.payload?.wire || item.wire;
-    if (!wire) return;
+    if (!wire || wire.selectable === false) return;
     const result = distanceToPolyline(scene.wireRenderPolyline(wire), worldPoint);
     if (result.distance <= tolerance && result.distance < bestDistance) {
       bestDistance = result.distance;

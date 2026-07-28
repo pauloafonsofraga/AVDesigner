@@ -49,6 +49,7 @@ export class ProjectMutationAdapter {
     if (!Array.isArray(this.root.areas)) this.root.areas = [];
     if (!Array.isArray(this.root.comments)) this.root.comments = [];
     if (!Array.isArray(this.root.titleBlocks)) this.root.titleBlocks = [];
+    if (!Array.isArray(this.root.racks)) this.root.racks = [];
 
     this.deviceById = new Map();
     this.root.devices.forEach((device, index) => {
@@ -72,6 +73,7 @@ export class ProjectMutationAdapter {
     this.areaById = indexedObjectMap(this.root.areas);
     this.commentById = indexedObjectMap(this.root.comments);
     this.titleBlockById = indexedObjectMap(this.root.titleBlocks);
+    this.rackById = indexedObjectMap(this.root.racks);
 
     this.connectionById = new Map();
     this.root.connections.forEach((connection, index) => {
@@ -457,6 +459,43 @@ export class ProjectMutationAdapter {
       index,
       type: "restore device"
     });
+  }
+
+  rackDataFor(rackId) {
+    const entry = this.rackById.get(String(rackId || ""));
+    return entry?.item ? {
+      rackData: deepClone(entry.item),
+      index: entry.index
+    } : null;
+  }
+
+  removeRackRecord(rackId) {
+    const start = performance.now();
+    const id = String(rackId || "");
+    const entry = this.rackById.get(id);
+    if (!entry) return { mutationMs: 0, rackData: null, index: -1 };
+    const [removed] = this.root.racks.splice(entry.index, 1);
+    this.rebuildIndexes();
+    this.record("delete rack record", performance.now() - start, `racks[${entry.index}]`, { rackId: id });
+    return {
+      mutationMs: this.lastMutation.durationMs,
+      rackData: deepClone(removed),
+      index: entry.index
+    };
+  }
+
+  restoreRackRecord(rackData, index = null) {
+    const start = performance.now();
+    const id = String(rackData?.id || "");
+    if (!id || this.rackById.has(id)) return { mutationMs: 0, index: -1 };
+    const item = deepClone(rackData);
+    const targetIndex = Number.isInteger(index)
+      ? Math.max(0, Math.min(index, this.root.racks.length))
+      : this.root.racks.length;
+    this.root.racks.splice(targetIndex, 0, item);
+    this.rebuildIndexes();
+    this.record("restore rack record", performance.now() - start, `racks[${targetIndex}]`, { rackId: id });
+    return { mutationMs: this.lastMutation.durationMs, index: targetIndex };
   }
 
   exportJson({ pretty = true } = {}) {
