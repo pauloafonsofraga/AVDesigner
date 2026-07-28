@@ -1132,6 +1132,7 @@ class ProductionEngineBridge {
     if (!device || !isCanvasObjectKind(device)) return false;
     const before = canvasObjectGeometryState(device);
     const fixed = oppositeResizeAnchor(before, hit.handle);
+    const aspect = canvasObjectResizeAspect(device, before);
     this.resizeSession = {
       deviceId: device.id,
       kind: device.kind,
@@ -1141,8 +1142,9 @@ class ProductionEngineBridge {
       startWorld: worldPoint ? { ...worldPoint } : null,
       before,
       affectedWireIds: [...this.scene.affectedWireIdsForObjects([device.id])],
-      aspectLocked: device.kind === "title-block",
-      aspect: before.width / Math.max(1, before.height),
+      aspectLocked: device.kind === "title-block" || isLedSurfaceKind(device),
+      aspect,
+      aspectMode: isLedSurfaceKind(device) ? "contain" : "scale",
       minSize: canvasObjectMinSize(device),
       moved: false
     };
@@ -4990,6 +4992,16 @@ function canvasObjectMinSize(device) {
   return { width: 24, height: 24 };
 }
 
+function canvasObjectResizeAspect(device, before) {
+  if (isLedSurfaceKind(device)) {
+    const visual = device.visual || {};
+    const naturalWidth = Number(visual.naturalWidth) || Number(visual.imageNaturalWidth) || 0;
+    const naturalHeight = Number(visual.naturalHeight) || Number(visual.imageNaturalHeight) || 0;
+    if (naturalWidth > 0 && naturalHeight > 0) return naturalWidth / naturalHeight;
+  }
+  return Math.max(0.001, (Number(before?.width) || 1) / Math.max(1, Number(before?.height) || 1));
+}
+
 function resizeRectForPointer(session, worldPoint) {
   const handle = session.handle || "se";
   const fixed = session.fixed || { x: session.before.x, y: session.before.y };
@@ -5001,11 +5013,16 @@ function resizeRectForPointer(session, worldPoint) {
   width = Math.max(min.width, width);
   height = Math.max(min.height, height);
   if (session.aspectLocked) {
-    const before = session.before || { width, height };
-    const minScale = Math.max(min.width / Math.max(1, before.width), min.height / Math.max(1, before.height));
-    const scale = Math.max(width / Math.max(1, before.width), height / Math.max(1, before.height), minScale);
-    width = Math.max(min.width, before.width * scale);
-    height = Math.max(min.height, before.height * scale);
+    const aspect = Number(session.aspect) > 0 ? Number(session.aspect) : width / Math.max(1, height);
+    if (session.aspectMode === "contain") {
+      ({ width, height } = fitAspectInside(width, height, aspect, min));
+    } else {
+      const before = session.before || { width, height };
+      const minScale = Math.max(min.width / Math.max(1, before.width), min.height / Math.max(1, before.height));
+      const scale = Math.max(width / Math.max(1, before.width), height / Math.max(1, before.height), minScale);
+      width = Math.max(min.width, before.width * scale);
+      height = Math.max(min.height, before.height * scale);
+    }
   }
   return {
     x: west ? fixed.x - width : fixed.x,
@@ -5013,6 +5030,26 @@ function resizeRectForPointer(session, worldPoint) {
     width,
     height
   };
+}
+
+function fitAspectInside(width, height, aspect, min = { width: 12, height: 12 }) {
+  let nextWidth = Math.max(Number(min.width) || 12, Number(width) || 12);
+  let nextHeight = Math.max(Number(min.height) || 12, Number(height) || 12);
+  const safeAspect = Number(aspect) > 0 ? Number(aspect) : nextWidth / Math.max(1, nextHeight);
+  if (nextWidth / Math.max(1, nextHeight) > safeAspect) {
+    nextWidth = nextHeight * safeAspect;
+  } else {
+    nextHeight = nextWidth / safeAspect;
+  }
+  if (nextWidth < min.width) {
+    nextWidth = min.width;
+    nextHeight = nextWidth / safeAspect;
+  }
+  if (nextHeight < min.height) {
+    nextHeight = min.height;
+    nextWidth = nextHeight * safeAspect;
+  }
+  return { width: nextWidth, height: nextHeight };
 }
 
 function resizeCursorForHandle(handle) {
