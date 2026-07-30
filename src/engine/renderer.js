@@ -30,6 +30,10 @@ const CONNECTOR_RADIUS = 7;
 const JUMP_CONNECTOR_RADIUS = 12;
 const LEGACY_DEVICE_RADIUS = 8;
 const LEGACY_ADAPTER_RADIUS = 6;
+const RACK_FRAME_FILL = "rgba(50, 182, 255, 0.045)";
+const RACK_FRAME_STROKE = "rgba(50, 182, 255, 0.74)";
+const RACK_LABEL_COLOR = "#32b6ff";
+const RACK_FRAME_RADIUS = 12;
 
 const DEFAULT_RENDER_OPTIONS = {
   labels: true,
@@ -65,6 +69,7 @@ const DEFAULT_RENDER_OPTIONS = {
 function defaultLabelStats() {
   return {
     devices: 0,
+    racks: 0,
     wires: 0,
     connectorLabels: 0,
     routePointHandles: 0,
@@ -675,6 +680,7 @@ export class WebglGraphRenderer {
       gridMs: 0,
       staticWireMs: 0,
       staticDeviceMs: 0,
+      rackFrameMs: 0,
       textureDrawMs: 0,
       liveBuildMs: 0,
       liveUploadMs: 0,
@@ -687,8 +693,10 @@ export class WebglGraphRenderer {
       labelMs: 0,
       affectedWires: 0,
       selectedObjects: 0,
+      rackFrames: 0,
       wireLabels: 0,
       deviceLabels: 0,
+      rackLabels: 0,
       connectorLabels: 0,
       routePointHandles: 0,
       connectorTooltips: 0,
@@ -736,6 +744,9 @@ export class WebglGraphRenderer {
     sectionStart = performance.now();
     this.drawTextureDevices(scene, camera, renderOptions, dragSession, layerTrace, device => device.kind === "area");
     frameStats.backgroundObjectMs = performance.now() - sectionStart;
+    sectionStart = performance.now();
+    frameStats.rackFrames = this.drawRackFrames(scene, camera, renderOptions, dragSession, options, layerTrace);
+    frameStats.rackFrameMs = performance.now() - sectionStart;
     if (renderOptions.wires && !renderOptions.hideStaticWires) {
       sectionStart = performance.now();
       this.drawStaticWires(dragSession, layerTrace, staticSuppressedWireIds);
@@ -891,6 +902,7 @@ export class WebglGraphRenderer {
     frameStats.labelMs = performance.now() - sectionStart;
     frameStats.wireLabels = this.lastLabelStats.wires || 0;
     frameStats.deviceLabels = this.lastLabelStats.devices || 0;
+    frameStats.rackLabels = this.lastLabelStats.racks || 0;
     frameStats.connectorLabels = this.lastLabelStats.connectorLabels || 0;
     frameStats.routePointHandles = this.lastLabelStats.routePointHandles || 0;
     frameStats.connectorTooltips = this.lastLabelStats.connectorTooltips || 0;
@@ -930,9 +942,15 @@ export class WebglGraphRenderer {
     const dragSession = options.dragSession || null;
     const offsets = dragSession?.offsetMap();
     const selectedIds = options.selectedIds || new Set();
+    const selectedRackIds = new Set(options.selectedRackIds || []);
     const hoveredDevice = options.interactionState?.hoveredDevice?.device || options.interactionState?.hoveredDevice || null;
     const hoveredDeviceId = hoveredDevice?.id || "";
     const drawn = new Set();
+    let rackLabelCount = 0;
+    visibleRacks(scene, camera, this.resolution).forEach(rack => {
+      const offset = rackDragOffset(rack, offsets);
+      if (drawRackLabel(ctx, rack, camera, offset, selectedRackIds.has(rack.id))) rackLabelCount += 1;
+    });
     let deviceLabelCount = 0;
     let deviceLabelsHidden = 0;
     let deviceLabelsTruncated = 0;
@@ -1044,6 +1062,7 @@ export class WebglGraphRenderer {
     }
     this.lastLabelStats = {
       devices: deviceLabelCount,
+      racks: rackLabelCount,
       wires: wireLabelCount,
       connectorLabels: connectorLabelCount,
       routePointHandles: countRoutePointHandles(scene, options.selectedWireIds, options.interactionState),
@@ -1072,6 +1091,36 @@ export class WebglGraphRenderer {
     }
     this.gridVertexCount = upload(this.gl, this.gridBuffer, vertices);
     this.drawBuffer(this.gridBuffer, this.gridVertexCount);
+  }
+
+  drawRackFrames(scene, camera, renderOptions, dragSession = null, drawOptions = {}, layerTrace = null) {
+    if (renderOptions.hideStaticObjects) return 0;
+    const vertices = [];
+    const selectedRackIds = new Set(drawOptions.selectedRackIds || []);
+    const dragOffsets = dragSession?.offsetMap() || null;
+    const racks = visibleRacks(scene, camera, this.resolution);
+    racks.forEach(rack => {
+      if (!rack?.bounds) return;
+      const offset = rackDragOffset(rack, dragOffsets);
+      const rect = {
+        x: rack.bounds.x + offset.dx,
+        y: rack.bounds.y + offset.dy,
+        width: rack.bounds.width,
+        height: rack.bounds.height
+      };
+      pushRoundedRect(vertices, rect, RACK_FRAME_RADIUS, RACK_FRAME_FILL);
+      pushDashedRoundedBoxOutline(vertices, rect, RACK_FRAME_RADIUS, 2, RACK_FRAME_STROKE, 10, 7);
+      if (selectedRackIds.has(rack.id)) {
+        pushDashedRoundedBoxOutline(vertices, inflateRect(rect, 4), RACK_FRAME_RADIUS + 4, 4, "rgba(251,121,4,.22)", 10, 7);
+        pushDashedRoundedBoxOutline(vertices, inflateRect(rect, 2), RACK_FRAME_RADIUS + 2, 3, "rgba(251,121,4,.72)", 10, 7);
+      }
+      (rack.childDeviceIds || []).forEach(childId => {
+        this.recordObjectLayer(layerTrace, childId, "rackFrameLayer", selectedRackIds.has(rack.id) ? "drawn-selected-rack" : "drawn-rack");
+      });
+    });
+    const count = vertices.length ? upload(this.gl, this.liveBuffer, vertices) : 0;
+    this.drawBuffer(this.liveBuffer, count);
+    return racks.length;
   }
 
   drawBuffer(buffer, vertexCount) {
@@ -1447,6 +1496,29 @@ function visibleDevices(scene, camera, resolution) {
   return hits.length ? hits : scene.devices;
 }
 
+function visibleRacks(scene, camera, resolution) {
+  if (!scene?.racks?.length) return [];
+  const view = {
+    x: camera.x,
+    y: camera.y,
+    width: resolution.width / camera.zoom,
+    height: resolution.height / camera.zoom
+  };
+  const hits = scene.rackIndex?.queryRect?.(view)
+    .map(item => item.payload?.rack || item.rack)
+    .filter(Boolean);
+  return hits?.length ? hits : [];
+}
+
+function rackDragOffset(rack, offsetMap = null) {
+  if (!rack?.childDeviceIds?.length || !offsetMap) return { dx: 0, dy: 0 };
+  for (const childId of rack.childDeviceIds) {
+    const offset = offsetMap.get(childId);
+    if (offset) return offset;
+  }
+  return { dx: 0, dy: 0 };
+}
+
 function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions = DEFAULT_RENDER_OPTIONS, dragSession = null, overlayOptions = {}) {
   const stats = {
     connectorOverlayCount: 0,
@@ -1625,11 +1697,65 @@ function pushBoxOutline(vertices, rect, width, color) {
   pushLine(vertices, { x: rect.x, y: rect.y + rect.height }, { x: rect.x, y: rect.y }, width, color);
 }
 
+function pushRoundedRect(vertices, rect, radius, color) {
+  const r = Math.max(0, Math.min(radius, rect.width / 2, rect.height / 2));
+  if (r <= 0.25) {
+    pushRect(vertices, rect.x, rect.y, rect.width, rect.height, color);
+    return;
+  }
+  pushRect(vertices, rect.x + r, rect.y, Math.max(0, rect.width - r * 2), rect.height, color);
+  pushRect(vertices, rect.x, rect.y + r, rect.width, Math.max(0, rect.height - r * 2), color);
+  pushCircle(vertices, { x: rect.x + r, y: rect.y + r }, r, color, 16);
+  pushCircle(vertices, { x: rect.x + rect.width - r, y: rect.y + r }, r, color, 16);
+  pushCircle(vertices, { x: rect.x + rect.width - r, y: rect.y + rect.height - r }, r, color, 16);
+  pushCircle(vertices, { x: rect.x + r, y: rect.y + rect.height - r }, r, color, 16);
+}
+
 function pushDashedBoxOutline(vertices, rect, width, color, dash = 8, gap = 5) {
   pushDashedLine(vertices, { x: rect.x, y: rect.y }, { x: rect.x + rect.width, y: rect.y }, width, color, dash, gap);
   pushDashedLine(vertices, { x: rect.x + rect.width, y: rect.y }, { x: rect.x + rect.width, y: rect.y + rect.height }, width, color, dash, gap);
   pushDashedLine(vertices, { x: rect.x + rect.width, y: rect.y + rect.height }, { x: rect.x, y: rect.y + rect.height }, width, color, dash, gap);
   pushDashedLine(vertices, { x: rect.x, y: rect.y + rect.height }, { x: rect.x, y: rect.y }, width, color, dash, gap);
+}
+
+function pushDashedRoundedBoxOutline(vertices, rect, radius, width, color, dash = 8, gap = 5) {
+  const points = roundedRectPolyline(rect, radius, 6);
+  for (let index = 1; index < points.length; index += 1) {
+    pushDashedLine(vertices, points[index - 1], points[index], width, color, dash, gap);
+  }
+}
+
+function roundedRectPolyline(rect, radius, steps = 6) {
+  const r = Math.max(0, Math.min(radius, rect.width / 2, rect.height / 2));
+  if (r <= 0.25) {
+    return [
+      { x: rect.x, y: rect.y },
+      { x: rect.x + rect.width, y: rect.y },
+      { x: rect.x + rect.width, y: rect.y + rect.height },
+      { x: rect.x, y: rect.y + rect.height },
+      { x: rect.x, y: rect.y }
+    ];
+  }
+  const points = [];
+  const addPoint = (x, y) => points.push({ x, y });
+  const addArc = (cx, cy, start, end) => {
+    for (let index = 0; index <= steps; index += 1) {
+      const t = index / steps;
+      const angle = start + (end - start) * t;
+      addPoint(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
+    }
+  };
+  addPoint(rect.x + r, rect.y);
+  addPoint(rect.x + rect.width - r, rect.y);
+  addArc(rect.x + rect.width - r, rect.y + r, -Math.PI / 2, 0);
+  addPoint(rect.x + rect.width, rect.y + rect.height - r);
+  addArc(rect.x + rect.width - r, rect.y + rect.height - r, 0, Math.PI / 2);
+  addPoint(rect.x + r, rect.y + rect.height);
+  addArc(rect.x + r, rect.y + rect.height - r, Math.PI / 2, Math.PI);
+  addPoint(rect.x, rect.y + r);
+  addArc(rect.x + r, rect.y + r, Math.PI, Math.PI * 1.5);
+  points.push({ ...points[0] });
+  return points;
 }
 
 function pushDashedLine(vertices, from, to, width, color, dash = 8, gap = 5) {
@@ -2140,6 +2266,16 @@ function pushTextureRect(vertices, x, y, width, height) {
   );
 }
 
+function inflateRect(rect, amount) {
+  const value = Number(amount) || 0;
+  return {
+    x: rect.x - value,
+    y: rect.y - value,
+    width: rect.width + value * 2,
+    height: rect.height + value * 2
+  };
+}
+
 function verticesForDevice(device, offsets = null, options = DEFAULT_RENDER_OPTIONS) {
   const vertices = [];
   if (deviceUsesTextureLayer(device, options)) return vertices;
@@ -2581,6 +2717,29 @@ function drawObjectHoverTooltip(ctx, device, camera, offsets = null, screenPoint
   ctx.textBaseline = "middle";
   ctx.textAlign = "left";
   ctx.fillText(text, boxX + paddingX, boxY + height / 2, width - paddingX * 2);
+  ctx.restore();
+  return true;
+}
+
+function drawRackLabel(ctx, rack, camera, offset = { dx: 0, dy: 0 }, selected = false) {
+  const bounds = rack?.bounds;
+  const text = String(rack?.name || "Rack").trim();
+  if (!bounds || !text || camera.zoom < 0.08) return false;
+  const x = (bounds.x + offset.dx + 16 - camera.x) * camera.zoom;
+  const y = (bounds.y + offset.dy + 24 - camera.y) * camera.zoom;
+  const size = Math.max(8, 16 * camera.zoom);
+  ctx.save();
+  ctx.font = `900 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+  ctx.shadowColor = selected ? "rgba(251,121,4,.55)" : "transparent";
+  ctx.shadowBlur = selected ? 9 : 0;
+  ctx.strokeStyle = "rgba(0,0,0,.82)";
+  ctx.lineWidth = Math.max(2.8, size * 0.32);
+  ctx.fillStyle = RACK_LABEL_COLOR;
+  ctx.strokeText(text, x, y);
+  ctx.fillText(text, x, y);
   ctx.restore();
   return true;
 }

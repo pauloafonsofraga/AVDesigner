@@ -27,9 +27,11 @@ export class SceneGraph {
   constructor() {
     this.devices = [];
     this.wires = [];
+    this.racks = [];
     this.meta = {};
     this.devicesById = new Map();
     this.wiresById = new Map();
+    this.racksById = new Map();
     this.wireIdsByDeviceId = new Map();
     this.connectorOwnerByKey = new Map();
     this.connectorKeysByOwnerId = new Map();
@@ -37,10 +39,12 @@ export class SceneGraph {
     this.rackDeviceIdsByRackId = new Map();
     this.rackIdByDeviceId = new Map();
     this.selectedIds = new Set();
+    this.selectedRackIds = new Set();
     this.dirtyDevices = new Set();
     this.dirtyWires = new Set();
     this.dirtyTextures = new Set();
     this.spatialIndex = new SpatialIndex();
+    this.rackIndex = new SpatialIndex(420);
     this.connectorIndex = new SpatialIndex(96);
     this.wireIndex = new SpatialIndex(420);
     this.routePointIndex = new SpatialIndex(96);
@@ -49,8 +53,9 @@ export class SceneGraph {
     this.selectedRoutePointKeys = new Set();
   }
 
-  setData({ devices = [], wires = [], meta = {} }) {
+  setData({ devices = [], wires = [], racks = [], meta = {} }) {
     this.devices = devices.map(normalizeDevice);
+    this.racks = racks.map(normalizeRack).filter(Boolean);
     this.meta = meta || {};
     this.devicesById = new Map(this.devices.map(device => [device.id, device]));
     this.wires = wires.map(normalizeWire).filter(wire => (
@@ -60,6 +65,7 @@ export class SceneGraph {
     this.wiresById = new Map(this.wires.map(wire => [wire.id, wire]));
     this.rebuildRackIndex();
     this.selectedIds.clear();
+    this.selectedRackIds.clear();
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
@@ -93,7 +99,7 @@ export class SceneGraph {
       ledSurfaces: this.devices.filter(device => isLedSurfaceKind(device)).length,
       imageObjects: this.devices.filter(device => device.kind === "image-object").length,
       rackChildDevices: this.rackIdByDeviceId.size,
-      placedRacks: this.rackDeviceIdsByRackId.size,
+      placedRacks: this.racks.length,
       areas: this.devices.filter(device => device.kind === "area").length,
       comments: this.devices.filter(device => device.kind === "comment").length,
       titleBlocks: this.devices.filter(device => device.kind === "title-block").length,
@@ -116,6 +122,70 @@ export class SceneGraph {
       if (!this.rackDeviceIdsByRackId.has(rackId)) this.rackDeviceIdsByRackId.set(rackId, []);
       this.rackDeviceIdsByRackId.get(rackId).push(device.id);
     });
+    const normalizedRacks = [];
+    const seenRackIds = new Set();
+    this.racks.forEach(rack => {
+      const childDeviceIds = uniqueItems([
+        ...(rack.childDeviceIds || []),
+        ...Object.values(rack.sourceDeviceMap || {}).map(id => String(id || "")),
+        ...(this.rackDeviceIdsByRackId.get(rack.id) || [])
+      ]).filter(id => this.devicesById.has(id));
+      if (!rack.id || !childDeviceIds.length) return;
+      const bounds = rackBoundsForChildIds(childDeviceIds, this.devicesById, 34);
+      const boundsFinite = finiteBounds(bounds);
+      const nextRack = {
+        ...rack,
+        childDeviceIds,
+        bounds,
+        boundsFinite,
+        childCount: childDeviceIds.length,
+        diagnostics: {
+          id: rack.id,
+          childCount: childDeviceIds.length,
+          bounds,
+          boundsFinite,
+          inSpatialIndex: boundsFinite
+        }
+      };
+      normalizedRacks.push(nextRack);
+      seenRackIds.add(nextRack.id);
+    });
+    this.rackDeviceIdsByRackId.forEach((childDeviceIds, rackId) => {
+      if (seenRackIds.has(rackId) || !childDeviceIds.length) return;
+      const bounds = rackBoundsForChildIds(childDeviceIds, this.devicesById, 34);
+      const boundsFinite = finiteBounds(bounds);
+      normalizedRacks.push({
+        id: rackId,
+        sourceRackId: "",
+        name: "Rack",
+        canvasInstance: true,
+        hidden: true,
+        locked: false,
+        showInternalWiring: false,
+        sourceDeviceMap: {},
+        internalConnections: [],
+        exposedPorts: [],
+        childDeviceIds: [...childDeviceIds],
+        bounds,
+        boundsFinite,
+        childCount: childDeviceIds.length,
+        synthetic: true,
+        diagnostics: {
+          id: rackId,
+          childCount: childDeviceIds.length,
+          bounds,
+          boundsFinite,
+          inSpatialIndex: boundsFinite,
+          synthetic: true
+        }
+      });
+    });
+    this.racks = normalizedRacks;
+    this.racksById = new Map(this.racks.map(rack => [rack.id, rack]));
+    this.selectedRackIds.forEach(rackId => {
+      if (!this.racksById.has(rackId)) this.selectedRackIds.delete(rackId);
+    });
+    this.rebuildRackSpatialIndex();
   }
 
   deviceRackId(deviceOrId) {
@@ -125,7 +195,22 @@ export class SceneGraph {
   }
 
   rackChildIds(rackId) {
-    return [...(this.rackDeviceIdsByRackId.get(String(rackId || "")) || [])];
+    const id = String(rackId || "");
+    const rack = this.racksById.get(id);
+    if (rack?.childDeviceIds?.length) return [...rack.childDeviceIds];
+    return [...(this.rackDeviceIdsByRackId.get(id) || [])];
+  }
+
+  getRack(rackId) {
+    return this.racksById.get(String(rackId || "")) || null;
+  }
+
+  rackBounds(rackId) {
+    return this.getRack(rackId)?.bounds || null;
+  }
+
+  isRackSelected(rackId) {
+    return this.selectedRackIds.has(String(rackId || ""));
   }
 
   rackSelectionComplete(rackId) {
@@ -145,20 +230,30 @@ export class SceneGraph {
   }
 
   selectRackOnly(rackId) {
-    this.selectMany(this.rackChildIds(rackId));
+    const id = String(rackId || "");
+    const childIds = this.rackChildIds(id);
+    this.selectedIds = new Set(childIds.filter(childId => this.devicesById.has(childId)));
+    this.selectedRackIds.clear();
+    if (this.racksById.has(id)) this.selectedRackIds.add(id);
+    this.selectedWireIds.clear();
+    this.selectedConnectorKeys.clear();
+    this.selectedRoutePointKeys.clear();
   }
 
   toggleRackSelection(rackId) {
+    const id = String(rackId || "");
     const childIds = this.rackChildIds(rackId);
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
     if (!childIds.length) return;
-    const selected = childIds.every(id => this.selectedIds.has(id));
-    childIds.forEach(id => {
-      if (selected) this.selectedIds.delete(id);
-      else this.selectedIds.add(id);
+    const selected = this.selectedRackIds.has(id);
+    childIds.forEach(childId => {
+      if (selected) this.selectedIds.delete(childId);
+      else this.selectedIds.add(childId);
     });
+    if (selected) this.selectedRackIds.delete(id);
+    else if (this.racksById.has(id)) this.selectedRackIds.add(id);
   }
 
   rebuildWireIndex() {
@@ -364,9 +459,21 @@ export class SceneGraph {
 
   rebuildSpatialIndexes() {
     this.rebuildSpatialIndex();
+    this.rebuildRackSpatialIndex();
     this.rebuildConnectorIndex();
     this.rebuildWireSpatialIndex();
     this.rebuildRoutePointIndex();
+  }
+
+  rebuildRackSpatialIndex() {
+    const items = this.racks
+      .filter(rack => rack.boundsFinite !== false && rack.bounds)
+      .map(rack => ({
+        id: rack.id,
+        bounds: rack.bounds,
+        rack
+      }));
+    this.rackIndex.rebuild(items);
   }
 
   rebuildConnectorIndex() {
@@ -441,6 +548,7 @@ export class SceneGraph {
       });
     });
     this.refreshWireIndexes(affectedWireIds);
+    this.rebuildRackIndex();
   }
 
   refreshWireSpatialIndexes(wireIds = []) {
@@ -486,6 +594,7 @@ export class SceneGraph {
 
   selectOnly(id) {
     this.selectedIds.clear();
+    this.selectedRackIds.clear();
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
@@ -493,6 +602,7 @@ export class SceneGraph {
   }
 
   toggleSelection(id) {
+    this.selectedRackIds.clear();
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
@@ -501,6 +611,7 @@ export class SceneGraph {
   }
 
   toggleMany(ids) {
+    this.selectedRackIds.clear();
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
@@ -512,6 +623,7 @@ export class SceneGraph {
 
   selectMany(ids) {
     this.selectedIds = new Set(ids.filter(id => this.devicesById.has(id)));
+    this.selectedRackIds.clear();
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
@@ -519,6 +631,7 @@ export class SceneGraph {
 
   selectWireOnly(id) {
     this.selectedIds.clear();
+    this.selectedRackIds.clear();
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
@@ -527,6 +640,7 @@ export class SceneGraph {
 
   toggleWireSelection(id) {
     this.selectedIds.clear();
+    this.selectedRackIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
     if (this.selectedWireIds.has(id)) this.selectedWireIds.delete(id);
@@ -535,6 +649,7 @@ export class SceneGraph {
 
   selectConnectorOnly(deviceId, connectorId) {
     this.selectedIds.clear();
+    this.selectedRackIds.clear();
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
@@ -544,6 +659,7 @@ export class SceneGraph {
 
   selectRoutePointOnly(wireId, pointIndex) {
     this.selectedIds.clear();
+    this.selectedRackIds.clear();
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
@@ -553,6 +669,7 @@ export class SceneGraph {
 
   clearSelection() {
     this.selectedIds.clear();
+    this.selectedRackIds.clear();
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
@@ -1305,6 +1422,27 @@ function normalizeDevice(device) {
   };
 }
 
+function normalizeRack(rack) {
+  if (!rack || typeof rack !== "object") return null;
+  const id = String(rack.id || "").trim();
+  if (!id) return null;
+  return {
+    id,
+    sourceRackId: String(rack.sourceRackId || "").trim(),
+    name: String(rack.name || rack.label || "Rack"),
+    canvasInstance: rack.canvasInstance !== false,
+    hidden: rack.hidden === true,
+    locked: Boolean(rack.locked),
+    showInternalWiring: Boolean(rack.showInternalWiring),
+    sourceDeviceMap: clonePlainObject(rack.sourceDeviceMap),
+    internalConnections: Array.isArray(rack.internalConnections) ? cloneJson(rack.internalConnections) : [],
+    exposedPorts: Array.isArray(rack.exposedPorts) ? cloneJson(rack.exposedPorts) : [],
+    childDeviceIds: Array.isArray(rack.childDeviceIds)
+      ? uniqueItems(rack.childDeviceIds.map(childId => String(childId || "")).filter(Boolean))
+      : []
+  };
+}
+
 function normalizeVisualMetadata(visual = {}) {
   if (!visual || typeof visual !== "object") return {};
   const faceImageScale = Number(visual.faceImageScale) || Number(visual.faceplateScale) || 1;
@@ -1694,6 +1832,50 @@ function cloneInfoFields(fields) {
       value: String(field.value ?? field.text ?? "")
     })).filter(field => field.title || field.value || field.text)
     : [];
+}
+
+function clonePlainObject(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const output = {};
+  Object.entries(value).forEach(([key, item]) => {
+    const cleanKey = String(key || "");
+    const cleanValue = String(item || "");
+    if (cleanKey && cleanValue) output[cleanKey] = cleanValue;
+  });
+  return output;
+}
+
+function cloneJson(value) {
+  return value == null ? value : JSON.parse(JSON.stringify(value));
+}
+
+function rackBoundsForChildIds(childDeviceIds, devicesById, padding = 34) {
+  const rects = (childDeviceIds || [])
+    .map(id => devicesById.get(id))
+    .filter(Boolean)
+    .map(device => deviceBounds(device))
+    .filter(finiteBounds);
+  if (!rects.length) return null;
+  const minX = Math.min(...rects.map(rect => rect.x));
+  const minY = Math.min(...rects.map(rect => rect.y));
+  const maxX = Math.max(...rects.map(rect => rect.x + rect.width));
+  const maxY = Math.max(...rects.map(rect => rect.y + rect.height));
+  return {
+    x: minX - padding,
+    y: minY - padding,
+    width: Math.max(1, maxX - minX + padding * 2),
+    height: Math.max(1, maxY - minY + padding * 2)
+  };
+}
+
+function finiteBounds(bounds) {
+  return Boolean(bounds)
+    && Number.isFinite(Number(bounds.x))
+    && Number.isFinite(Number(bounds.y))
+    && Number.isFinite(Number(bounds.width))
+    && Number.isFinite(Number(bounds.height))
+    && Number(bounds.width) > 0
+    && Number(bounds.height) > 0;
 }
 
 function uniqueItems(items = []) {

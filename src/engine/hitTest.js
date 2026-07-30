@@ -23,6 +23,24 @@ export function hitTestDevice(scene, worldPoint, predicate = null) {
   };
 }
 
+export function hitTestRack(scene, worldPoint) {
+  const start = performance.now();
+  const hits = scene.rackIndex?.queryPoint?.(worldPoint) || [];
+  let result = null;
+  for (let index = hits.length - 1; index >= 0; index -= 1) {
+    const rack = hits[index]?.payload?.rack || hits[index]?.rack;
+    if (rack) {
+      result = rack;
+      break;
+    }
+  }
+  return {
+    rack: result,
+    candidates: hits.length,
+    ms: performance.now() - start
+  };
+}
+
 export function hitTestConnector(scene, worldPoint, tolerance = 10) {
   const start = performance.now();
   const candidates = scene.connectorIndex.queryRect(toleranceRect(worldPoint, tolerance));

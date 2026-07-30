@@ -3906,7 +3906,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 48 — Engine Editor — iteration48</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 48.1 — Engine Editor — iteration48-1</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -4612,8 +4612,8 @@
   </div>
 
   <script>
-    const APP_ITERATION = "48";
-    const APP_BUILD_ID = "iteration48";
+    const APP_ITERATION = "48.1";
+    const APP_BUILD_ID = "iteration48-1";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
     const DEBUG_LIBRARY_DRAG_ENABLED = INITIAL_URL_PARAMS.get("debugLibraryDrag") === "1";
@@ -87555,6 +87555,9 @@ fit();
 
     function syncProductionSelectionFromEngine(selection = {}) {
       const selectedDevices = selection.devices || [];
+      const explicitRackIds = [...new Set((selection.racks || selection.rackIds || [])
+        .map(id => String(id || ""))
+        .filter(id => rackById(id)))];
       const selectedWires = selection.wires?.length
         ? selection.wires.map(wire => wire.sourceId || wire.id).filter(Boolean)
         : selection.wireIds || [];
@@ -87579,6 +87582,11 @@ fit();
         if (device.kind === "jump" || device.sourceKind === "jumpNode") return "jump-node";
         return "device";
       };
+      if (explicitRackIds.length === 1 && !selectedWires.length && !selectedConnectors.length) {
+        state.selected = { type: "rack", id: explicitRackIds[0] };
+        renderInspector();
+        return;
+      }
       if (selectedRackId) {
         state.selected = { type: "rack", id: selectedRackId };
         renderInspector();

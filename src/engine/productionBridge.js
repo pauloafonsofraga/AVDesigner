@@ -16,13 +16,7 @@ import {
   isEngineCageConnector,
   isEngineFiberCableType
 } from "./connectorCompatibility.js";
-import {
-  hitTestConnector,
-  hitTestDevice,
-  hitTestRoutePoint,
-  hitTestWire,
-  screenToWorld
-} from "./hitTest.js";
+import * as HitTest from "./hitTest.js";
 import {
   normalizeAvDesignerDevice,
   normalizeAvDesignerProject,
@@ -57,6 +51,21 @@ import {
   wireRouteStatesEqual
 } from "./wireRouteEditing.js";
 
+const {
+  hitTestConnector,
+  hitTestDevice,
+  hitTestRoutePoint,
+  hitTestWire,
+  screenToWorld
+} = HitTest;
+
+// Keep Engine startup tolerant of a stale browser-cached hitTest.js module while
+// Iteration 48.1 is in active testing. Named imports fail at module-load time if
+// a browser has the previous helper cached, so rack hit testing falls back here.
+const hitTestRack = typeof HitTest.hitTestRack === "function"
+  ? HitTest.hitTestRack
+  : fallbackHitTestRack;
+
 const BRIDGE_VERSION = "production-bridge-1";
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
 const ENGINE_TRANSCEIVER_MODULE_OPTIONS = [
@@ -66,6 +75,24 @@ const ENGINE_TRANSCEIVER_MODULE_OPTIONS = [
   { value: "rj45-ethernet", label: "RJ45 Ethernet", activeType: "cat6a", fiberMode: "" },
   { value: "mpo-fiber", label: "MPO Fiber", activeType: "fiber-mpo", fiberMode: "single-mode", qsfpOnly: true }
 ];
+
+function fallbackHitTestRack(scene, worldPoint) {
+  const start = performance.now();
+  const hits = scene?.rackIndex?.queryPoint?.(worldPoint) || [];
+  let result = null;
+  for (let index = hits.length - 1; index >= 0; index -= 1) {
+    const rack = hits[index]?.payload?.rack || hits[index]?.rack;
+    if (rack) {
+      result = rack;
+      break;
+    }
+  }
+  return {
+    rack: result,
+    candidates: hits.length,
+    ms: performance.now() - start
+  };
+}
 
 export function createProductionEngineBridge(api = {}) {
   const bridge = new ProductionEngineBridge(api);
@@ -202,12 +229,12 @@ class ProductionEngineBridge {
   }
 
   selectRack(rackId) {
-    if (!rackId) return false;
+    if (!rackId || !this.scene.getRack(rackId)) return false;
     this.scene.selectRackOnly(rackId);
     this.updateSelectionHud();
     this.updateRackBuilderDebugHud("selectRack API");
     this.scheduleRender();
-    return this.scene.rackSelectionComplete(rackId);
+    return this.scene.isRackSelected(rackId);
   }
 
   objectPositionForInspector(objectId) {
@@ -222,9 +249,10 @@ class ProductionEngineBridge {
       sceneWires: this.scene.wires.length,
       productionObjects: this.api.getProjectData?.()?.devices?.length ?? null,
       productionWires: this.api.getProjectData?.()?.connections?.length ?? null,
-      placedRacks: this.scene.rackDeviceIdsByRackId?.size || 0,
+      placedRacks: this.scene.racks?.length || 0,
       rackChildDevices: this.scene.rackIdByDeviceId?.size || 0,
       selectedObjects: this.scene.selectedIds.size,
+      selectedRacks: this.scene.selectedRackIds.size,
       selectedWires: this.scene.selectedWireIds.size
     };
   }
@@ -369,7 +397,8 @@ class ProductionEngineBridge {
 
   updateRackBuilderDebugHud(reason = "rack debug") {
     if (!this.debugRackBuilder) return;
-    const rackIds = [...(this.scene.rackDeviceIdsByRackId?.keys?.() || [])];
+    const racks = this.scene.racks || [];
+    const rackIds = racks.map(rack => rack.id);
     this.hud?.setMetric("rack debug", reason);
     this.hud?.setMetric("placed racks", rackIds.length);
     this.hud?.setMetric("rack child devices", this.scene.rackIdByDeviceId?.size || 0);
@@ -379,8 +408,29 @@ class ProductionEngineBridge {
       placedRacks: rackIds.length,
       rackChildDevices: this.scene.rackIdByDeviceId?.size || 0,
       selectedRackIds: this.selectedRackIds(),
+      rackDiagnostics: racks.slice(0, 10).map(rack => rack.diagnostics || {
+        id: rack.id,
+        childCount: rack.childDeviceIds?.length || 0,
+        bounds: rack.bounds
+      }),
       counts: this.sceneCounts()
     });
+  }
+
+  recordRackCanvasDiagnostic(step, details = {}) {
+    if (!this.debugRackBuilder) return;
+    const rackId = String(details.rackId || "");
+    const rack = rackId ? this.scene.getRack(rackId) : null;
+    const payload = {
+      step,
+      ...details,
+      rackResolved: Boolean(rack),
+      rackBounds: rack?.bounds || null,
+      rackChildIds: rack ? this.scene.rackChildIds(rack.id) : [],
+      counts: this.sceneCounts()
+    };
+    console.info(`[engine-rack-canvas] ${step}`, payload);
+    this.hud?.setMetric("rack canvas", step);
   }
 
   beginProjectLoad(message = "Loading project file...") {
@@ -638,6 +688,34 @@ class ProductionEngineBridge {
 
     const deviceHit = hitTestDevice(this.scene, world);
     if (!deviceHit.device) {
+      const rackHit = hitTestRack(this.scene, world);
+      if (rackHit.rack) {
+        this.clearHoverState("rack-frame-select", { render: false });
+        const rack = rackHit.rack;
+        const wasSelected = this.scene.isRackSelected(rack.id);
+        if (additiveSelection) {
+          this.scene.toggleRackSelection(rack.id);
+          this.recordRackCanvasDiagnostic("toggle rack from frame", {
+            rackId: rack.id,
+            chosenAction: "select rack",
+            hitCandidates: rackHit.candidates
+          });
+          this.updateSelectionHud();
+          this.updateInteractionHud("rack-selection-toggle", rackHit);
+          this.scheduleRender();
+          return;
+        }
+        if (!wasSelected) this.scene.selectRackOnly(rack.id);
+        this.recordRackCanvasDiagnostic("select rack from frame", {
+          rackId: rack.id,
+          chosenAction: "start rack drag",
+          hitCandidates: rackHit.candidates
+        });
+        this.updateSelectionHud();
+        this.updateRackBuilderDebugHud("rack frame selected");
+        this.beginPendingDrag(point, world);
+        return;
+      }
       this.clearHoverState("empty-canvas", { render: false });
       if (!additiveSelection) this.scene.clearSelection();
       this.beginMarquee(point, world, additiveSelection);
@@ -646,23 +724,37 @@ class ProductionEngineBridge {
       return;
     }
     const rackId = this.scene.deviceRackId(deviceHit.device);
-    const wasSelected = rackId
-      ? this.scene.rackSelectionComplete(rackId)
+    const rack = rackId ? this.scene.getRack(rackId) : null;
+    const actionableRackId = rack?.id || "";
+    const wasSelected = actionableRackId
+      ? this.scene.isRackSelected(actionableRackId)
       : this.scene.selectedIds.has(deviceHit.device.id);
     this.clearHoverState("device-select", { render: false });
     if (additiveSelection) {
-      if (rackId) this.scene.toggleRackSelection(rackId);
+      if (actionableRackId) this.scene.toggleRackSelection(actionableRackId);
       else this.scene.toggleSelection(deviceHit.device.id);
+      if (rackId) this.recordRackCanvasDiagnostic("toggle child device rack selection", {
+        engineChildId: deviceHit.device.id,
+        productionChildId: deviceHit.device.sourceId || deviceHit.device.id,
+        rackId,
+        chosenAction: actionableRackId ? "select rack" : "select child fallback"
+      });
       this.updateSelectionHud();
-      this.updateInteractionHud(rackId ? "rack-selection-toggle" : "selection-toggle", deviceHit);
+      this.updateInteractionHud(actionableRackId ? "rack-selection-toggle" : "selection-toggle", deviceHit);
       this.scheduleRender();
       return;
     } else if (!wasSelected) {
-      if (rackId) this.scene.selectRackOnly(rackId);
+      if (actionableRackId) this.scene.selectRackOnly(actionableRackId);
       else this.scene.selectOnly(deviceHit.device.id);
     }
+    if (rackId) this.recordRackCanvasDiagnostic("child device pointerdown", {
+      engineChildId: deviceHit.device.id,
+      productionChildId: deviceHit.device.sourceId || deviceHit.device.id,
+      rackId,
+      chosenAction: actionableRackId ? "start rack drag" : "start child drag fallback"
+    });
     this.updateSelectionHud();
-    if (rackId) this.updateRackBuilderDebugHud("rack selected");
+    if (actionableRackId) this.updateRackBuilderDebugHud("rack selected");
     this.beginPendingDrag(point, world);
   }
 
@@ -1569,6 +1661,14 @@ class ProductionEngineBridge {
 
   restoreEngineSelection(selection = {}) {
     this.scene.clearSelection();
+    (selection.racks || []).forEach(rackId => {
+      const rack = this.scene.getRack(rackId);
+      if (!rack) return;
+      this.scene.selectedRackIds.add(rack.id);
+      this.scene.rackChildIds(rack.id).forEach(childId => {
+        if (this.scene.devicesById.has(childId)) this.scene.selectedIds.add(childId);
+      });
+    });
     (selection.devices || []).forEach(id => this.scene.selectedIds.add(id));
     (selection.wires || []).forEach(id => this.scene.selectedWireIds.add(id));
     (selection.connectors || []).forEach(key => this.scene.selectedConnectorKeys.add(key));
@@ -1632,10 +1732,29 @@ class ProductionEngineBridge {
       .filter(isMarqueeSelectableDevice)
       .map(device => device.id)
       .filter(Boolean));
-    const expandedIds = this.scene.expandRackSelectionIds(ids);
-    if (state.additive) this.scene.toggleMany(expandedIds);
-    else this.scene.selectMany(expandedIds);
-    this.hud.setMetric("marquee", `${expandedIds.length} object${expandedIds.length === 1 ? "" : "s"}${state.additive ? " toggled" : ""}`);
+    const rackFrameIds = uniqueItems((this.scene.rackIndex?.queryRect?.(rect) || [])
+      .map(item => item.payload?.rack?.id || item.rack?.id || "")
+      .filter(Boolean));
+    const rackIds = uniqueItems([
+      ...rackFrameIds,
+      ...ids.map(id => this.scene.deviceRackId(id)).filter(rackId => this.scene.getRack(rackId))
+    ]);
+    const expandedIds = uniqueItems([
+      ...this.scene.expandRackSelectionIds(ids),
+      ...rackIds.flatMap(rackId => this.scene.rackChildIds(rackId))
+    ]);
+    if (state.additive) {
+      const selectedBefore = new Set(this.scene.selectedRackIds || []);
+      this.scene.toggleMany(expandedIds);
+      rackIds.forEach(rackId => {
+        if (selectedBefore.has(rackId)) this.scene.selectedRackIds.delete(rackId);
+        else this.scene.selectedRackIds.add(rackId);
+      });
+    } else {
+      this.scene.selectMany(expandedIds);
+      rackIds.forEach(rackId => this.scene.selectedRackIds.add(rackId));
+    }
+    this.hud.setMetric("marquee", `${expandedIds.length} object${expandedIds.length === 1 ? "" : "s"} / ${rackIds.length} rack${rackIds.length === 1 ? "" : "s"}${state.additive ? " toggled" : ""}`);
     this.updateSelectionHud();
     this.updateRackBuilderDebugHud("marquee rack selection");
     this.updateInteractionHud("marquee-select");
@@ -1827,6 +1946,7 @@ class ProductionEngineBridge {
   hasSelection() {
     return Boolean(
       this.scene.selectedIds.size
+      || this.scene.selectedRackIds.size
       || this.scene.selectedWireIds.size
       || this.scene.selectedConnectorKeys.size
       || this.scene.selectedRoutePointKeys.size
@@ -1884,13 +2004,34 @@ class ProductionEngineBridge {
       };
     }
     const deviceHit = hitTestDevice(this.scene, world);
-    return deviceHit.device ? this.contextMenuObjectTarget(deviceHit.device) : null;
+    if (deviceHit.device) return this.contextMenuObjectTarget(deviceHit.device);
+    const rackHit = hitTestRack(this.scene, world);
+    if (rackHit.rack) {
+      this.recordRackCanvasDiagnostic("context rack frame", {
+        rackId: rackHit.rack.id,
+        chosenAction: "open rack context menu",
+        hitCandidates: rackHit.candidates
+      });
+      return {
+        type: "rack",
+        rackId: rackHit.rack.id,
+        sourceId: rackHit.rack.id
+      };
+    }
+    return null;
   }
 
   contextMenuObjectTarget(device) {
     if (!device) return null;
     const rackId = this.scene.deviceRackId(device);
-    if (rackId) {
+    const rack = rackId ? this.scene.getRack(rackId) : null;
+    if (rack) {
+      this.recordRackCanvasDiagnostic("context child device", {
+        engineChildId: device.id,
+        productionChildId: device.sourceId || device.id,
+        rackId,
+        chosenAction: "open rack context menu"
+      });
       return {
         type: "rack",
         rackId,
@@ -1956,11 +2097,13 @@ class ProductionEngineBridge {
 
   updateSelectionHud() {
     const selectedDevices = this.scene.selectedIds.size;
+    const selectedRacks = this.scene.selectedRackIds.size;
     const selectedWires = this.scene.selectedWireIds.size;
     const selectedRoutePoints = this.scene.selectedRoutePointKeys.size;
     const selectedConnectors = this.scene.selectedConnectorKeys.size;
-    const selectedTotal = selectedDevices + selectedWires + selectedRoutePoints + selectedConnectors;
+    const selectedTotal = selectedDevices + selectedRacks + selectedWires + selectedRoutePoints + selectedConnectors;
     this.hud.setSceneStats({ selected: selectedTotal });
+    this.hud.setMetric("selected racks", selectedRacks);
     this.hud.setMetric("selected devices", selectedDevices);
     this.hud.setMetric("selected wires", selectedWires);
     this.hud.setMetric("selected connectors", selectedConnectors);
@@ -1986,6 +2129,7 @@ class ProductionEngineBridge {
       }));
     this.api.onEngineSelection?.({
       deviceIds: [...this.scene.selectedIds],
+      rackIds: [...this.scene.selectedRackIds],
       wireIds: [...this.scene.selectedWireIds],
       wires: selectedWireObjects,
       connectorKeys: [...this.scene.selectedConnectorKeys],
@@ -3133,13 +3277,29 @@ class ProductionEngineBridge {
 
   renderEngineInspector() {
     if (!this.inspectorPanel) return;
+    const selectedRacks = [...this.scene.selectedRackIds].map(id => this.scene.getRack(id)).filter(Boolean);
     const selectedDevices = [...this.scene.selectedIds].map(id => this.scene.getDevice(id)).filter(Boolean);
     const selectedWires = [...this.scene.selectedWireIds].map(id => this.scene.getWire(id)).filter(Boolean);
     const selectedRoutePoints = [...this.scene.selectedRoutePointKeys];
     const selectedConnectors = [...this.scene.selectedConnectorKeys]
       .map(key => connectorSelectionDetails(this.scene, key))
       .filter(Boolean);
-    if (selectedDevices.length === 1 && !selectedWires.length && !selectedRoutePoints.length && !selectedConnectors.length) {
+    if (selectedRacks.length === 1 && !selectedWires.length && !selectedRoutePoints.length && !selectedConnectors.length) {
+      const rack = selectedRacks[0];
+      this.inspectorPanel.innerHTML = `
+        <h3>Engine Inspector</h3>
+        ${detailsMarkup([
+          ["Type", "Rack"],
+          ["Rack ID", rack.id],
+          ["Name", rack.name || "Rack"],
+          ["Children", rack.childDeviceIds?.length || this.scene.rackChildIds(rack.id).length],
+          ["Internal Wiring", rack.showInternalWiring ? "Shown" : "Hidden"],
+          ["Bounds", rack.bounds ? `${roundForUi(rack.bounds.x)}, ${roundForUi(rack.bounds.y)} / ${roundForUi(rack.bounds.width)} x ${roundForUi(rack.bounds.height)}` : "-"]
+        ])}
+      `;
+      return;
+    }
+    if (selectedDevices.length === 1 && !selectedRacks.length && !selectedWires.length && !selectedRoutePoints.length && !selectedConnectors.length) {
       const device = selectedDevices[0];
       const connectedWireCount = this.scene.affectedWireIdsForDevices([device.id]).size;
       this.inspectorPanel.innerHTML = `
@@ -3156,7 +3316,7 @@ class ProductionEngineBridge {
       `;
       return;
     }
-    if (selectedWires.length === 1 && !selectedDevices.length && !selectedRoutePoints.length && !selectedConnectors.length) {
+    if (selectedWires.length === 1 && !selectedRacks.length && !selectedDevices.length && !selectedRoutePoints.length && !selectedConnectors.length) {
       const wire = selectedWires[0];
       this.inspectorPanel.innerHTML = `
         <h3>Engine Inspector</h3>
@@ -3184,7 +3344,7 @@ class ProductionEngineBridge {
       `;
       return;
     }
-    if (selectedConnectors.length === 1 && !selectedDevices.length && !selectedWires.length && !selectedRoutePoints.length) {
+    if (selectedConnectors.length === 1 && !selectedRacks.length && !selectedDevices.length && !selectedWires.length && !selectedRoutePoints.length) {
       const selected = selectedConnectors[0];
       this.inspectorPanel.innerHTML = `
         <h3>Engine Inspector</h3>
@@ -3201,10 +3361,11 @@ class ProductionEngineBridge {
       `;
       return;
     }
-    if (selectedDevices.length || selectedWires.length || selectedRoutePoints.length || selectedConnectors.length) {
+    if (selectedRacks.length || selectedDevices.length || selectedWires.length || selectedRoutePoints.length || selectedConnectors.length) {
       this.inspectorPanel.innerHTML = `
         <h3>Engine Inspector</h3>
         ${detailsMarkup([
+          ["Racks", selectedRacks.length],
           ["Devices", selectedDevices.length],
           ["Wires", selectedWires.length],
           ["Connectors", selectedConnectors.length],
@@ -3934,7 +4095,7 @@ class ProductionEngineBridge {
   }
 
   selectedRackIds() {
-    const ids = new Set();
+    const ids = new Set([...(this.scene.selectedRackIds || [])]);
     [...this.scene.selectedIds].forEach(deviceId => {
       const rackId = this.scene.deviceRackId(deviceId);
       if (rackId && this.scene.rackSelectionComplete(rackId)) ids.add(rackId);
@@ -3948,6 +4109,12 @@ class ProductionEngineBridge {
       return;
     }
     const requestedIds = uniqueItems((deviceIds || []).map(id => String(id || "")).filter(Boolean));
+    const explicitRackIds = [...(this.scene.selectedRackIds || [])]
+      .filter(rackId => this.scene.getRack(rackId));
+    if (explicitRackIds.length) {
+      this.deleteSelectedRackInstances(explicitRackIds);
+      return;
+    }
     const requestedSet = new Set(requestedIds);
     const completeRackIds = this.selectedRackIds()
       .filter(rackId => this.scene.rackChildIds(rackId).every(id => requestedSet.has(id)));
@@ -4421,6 +4588,7 @@ class ProductionEngineBridge {
       this.renderFrame = null;
       const renderMs = this.renderer.draw(this.scene, this.camera, {
         selectedIds: this.scene.selectedIds,
+        selectedRackIds: this.scene.selectedRackIds,
         selectedWireIds: this.scene.selectedWireIds,
         dragSession: this.dragSession,
         interactionState: this.interactionRenderState(),
@@ -4435,6 +4603,7 @@ class ProductionEngineBridge {
       const wirePathStats = this.renderer.wirePathStats();
       this.hud.setMetric("wire paths", `${wirePathStats.bezier || 0} bezier / ${wirePathStats.custom || 0} custom / ${wirePathStats.orthogonal || 0} orthogonal`);
       this.updateCableHopHud();
+      this.hud.setMetric("rack frames", `${frameStats.rackFrames || 0} / ${(frameStats.rackFrameMs || 0).toFixed(2)} ms`);
       this.hud.setMetric("selection overlay", `${(frameStats.selectionOverlayMs || 0).toFixed(2)} ms`);
       this.hud.setMetric("object glow", `${(frameStats.objectGlowMs || 0).toFixed(2)} ms`);
       this.hud.setMetric("interaction overlay", `${(frameStats.interactionOverlayMs || 0).toFixed(2)} ms`);
@@ -4444,6 +4613,7 @@ class ProductionEngineBridge {
       this.hud.setMetric("label draw", `${(frameStats.labelMs || 0).toFixed(2)} ms`);
       const labelStats = this.renderer.labelStats();
       this.hud.setMetric("wire labels", `${labelStats.wires || 0}`);
+      this.hud.setMetric("rack labels", `${labelStats.racks || 0}`);
       this.hud.setMetric("device labels", `${labelStats.devices || 0}`);
       this.hud.setMetric("connector labels", `${labelStats.connectorLabels || 0}`);
       this.hud.setMetric("device labels hidden", `${labelStats.deviceLabelsHidden || 0}`);
@@ -5273,6 +5443,7 @@ function uniqueItems(items = []) {
 
 function captureEngineSelection(scene) {
   return {
+    racks: [...(scene?.selectedRackIds || [])],
     devices: [...(scene?.selectedIds || [])],
     wires: [...(scene?.selectedWireIds || [])],
     connectors: [...(scene?.selectedConnectorKeys || [])],

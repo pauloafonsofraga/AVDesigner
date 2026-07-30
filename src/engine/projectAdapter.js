@@ -235,6 +235,8 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
   const surfaceIds = new Set(surfaceDevices.map(device => device.id));
   const deviceIds = new Set(allDevices.map(device => device.id));
   const normalizedDeviceById = new Map(allDevices.map(device => [device.id, device]));
+  const placedRacks = normalizePlacedRacks(root, { normalizedDeviceById });
+  const placedRackIds = new Set(placedRacks.map(rack => rack.id));
   const connectorIdsByDevice = new Map(allDevices.map(device => [
     device.id,
     new Set((device.connectors || []).map(connector => connector.id))
@@ -263,7 +265,8 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
     jumpNodeIds,
     surfaceIds,
     surfaceConnectionOrder,
-    wireMode
+    wireMode,
+    placedRackIds
   });
   const wires = [...projectWires, ...rackInternalWires];
   if (!allDevices.length) return generateSyntheticProject(SIZE_PRESETS.small);
@@ -274,6 +277,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
     routedWires: wires.filter(wire => wire.routePoints?.length).length,
     realEndpointWires: wires.filter(wire => wire.usesRealConnectorEndpoints).length,
     fallbackEndpointWires: wires.filter(wire => wire.hasFallbackEndpoint).length,
+    placedRacks: placedRacks.length,
     devicesUsingRealSize: allDevices.filter(device => device.usesRealSize).length,
     devicesUsingFallbackSize: allDevices.filter(device => device.usesFallbackSize).length,
     connectorColorsMapped: allDevices.reduce((total, device) => (
@@ -285,6 +289,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
   return {
     devices: allDevices,
     wires,
+    racks: placedRacks,
     // Keep an untouched copy beside the render graph. The mutation adapter is
     // the only prototype module allowed to write back into this project copy.
     projectData: deepClone(data),
@@ -306,6 +311,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
       fullProjectAdapter: true,
       cableHops: root.cableHops !== false && data?.cableHops !== false,
       rackInternalWires: rackInternalWires.length,
+      placedRacks: placedRacks.length,
       ...stats
     }
   };
@@ -1065,6 +1071,47 @@ function normalizeProjectWire(wire, index, context) {
   };
 }
 
+function normalizePlacedRacks(root, context = {}) {
+  const racks = Array.isArray(root.racks) ? root.racks : [];
+  if (!racks.length) return [];
+  const rawDevicesById = new Map((root.devices || [])
+    .map(device => [String(device?.instanceId || device?.id || ""), device])
+    .filter(([id]) => id));
+  return racks
+    .filter(isPlacedRackRecord)
+    .map((rack, index) => {
+      const id = String(rack?.id || `placed-rack-${index}`);
+      const sourceDeviceMap = cloneStringMap(rack?.sourceDeviceMap);
+      const childDeviceIds = uniqueItems([
+        ...Object.values(sourceDeviceMap),
+        ...[...rawDevicesById.values()]
+          .filter(device => String(device?.rackId || "") === id)
+          .map(device => String(device?.instanceId || device?.id || ""))
+      ]).filter(childId => context.normalizedDeviceById?.has(childId));
+      if (!childDeviceIds.length) return null;
+      return {
+        id,
+        sourceRackId: String(rack?.sourceRackId || ""),
+        name: String(rack?.name || rack?.label || "Rack"),
+        canvasInstance: true,
+        hidden: rack?.hidden === true,
+        locked: Boolean(rack?.locked),
+        showInternalWiring: Boolean(rack?.showInternalWiring),
+        sourceDeviceMap,
+        internalConnections: Array.isArray(rack?.internalConnections) ? deepClone(rack.internalConnections) : [],
+        exposedPorts: Array.isArray(rack?.exposedPorts) ? deepClone(rack.exposedPorts) : [],
+        childDeviceIds
+      };
+    })
+    .filter(Boolean);
+}
+
+function isPlacedRackRecord(rack) {
+  if (!rack || typeof rack !== "object") return false;
+  if (rack.canvasInstance === true) return true;
+  return Boolean(rack.hidden === true && rack.sourceRackId);
+}
+
 function normalizeRackInternalWires(root, context) {
   const racks = Array.isArray(root.racks) ? root.racks : [];
   if (!racks.length) return [];
@@ -1074,8 +1121,9 @@ function normalizeRackInternalWires(root, context) {
     .filter(([id]) => id));
   const wires = [];
   racks.forEach(rack => {
+    const rackId = String(rack?.id || "");
+    if (context.placedRackIds?.size && !context.placedRackIds.has(rackId)) return;
     if (!rack?.showInternalWiring) return;
-    const rackId = String(rack.id || "");
     if (!rackId) return;
     const sourceRack = rack.sourceRackId ? (rackById.get(String(rack.sourceRackId)) || rack) : rack;
     const internalConnections = Array.isArray(sourceRack?.internalConnections)
@@ -1142,6 +1190,21 @@ function transformedRackRoutePointsForEngine(connection, rack, sourceRack, sourc
 
 function deepClone(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
+}
+
+function cloneStringMap(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const output = {};
+  Object.entries(value).forEach(([key, item]) => {
+    const cleanKey = String(key || "");
+    const cleanValue = String(item || "");
+    if (cleanKey && cleanValue) output[cleanKey] = cleanValue;
+  });
+  return output;
+}
+
+function uniqueItems(items = []) {
+  return [...new Set(items)];
 }
 
 function normalizeEndpoint(endpoint, end, wire, context) {
