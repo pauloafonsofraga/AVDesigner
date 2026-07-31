@@ -4,6 +4,7 @@ const MANUAL_SEGMENT_STEPS = 14;
 // Keep wire sampling deterministic so dragging/moving wires changes vertex
 // positions, not buffer sizes, while matching the legacy Bezier control rule.
 export function wireRenderKind(wire = {}) {
+  if (wire.internalRackWire || wire.sourceKind === "rackInternalConnection") return "orthogonal";
   if (wire.routeStyle === "orthogonal") return "orthogonal";
   return wire.routePoints?.length ? "custom" : "bezier";
 }

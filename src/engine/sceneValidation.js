@@ -94,9 +94,9 @@ function validateRackCanvasParity(scene, errors, counts) {
     counts.rackHiddenChildConnectors += diagnostic.hiddenChildConnectors || 0;
     counts.rackHiddenExternalWires += diagnostic.hiddenExternalWires || 0;
     counts.rackBezierInternalWires += diagnostic.bezierInternalWires || 0;
-    if (diagnostic.connectorHitTargets !== diagnostic.visibleConnectorOverlays) {
+    if (diagnostic.connectorHitTargets !== diagnostic.resolvedExposedConnectors) {
       counts.rackConnectorHitTargetMismatches += 1;
-      errors.push(`Rack ${rack.id} has ${diagnostic.visibleConnectorOverlays} visible exposed connector(s) but ${diagnostic.connectorHitTargets} connector hit target(s).`);
+      errors.push(`Rack ${rack.id} has ${diagnostic.resolvedExposedConnectors} selectable exposed connector(s) but ${diagnostic.connectorHitTargets} connector hit target(s).`);
     }
     (diagnostic.unresolvedExposureKeys || []).forEach(key => {
       errors.push(`Rack ${rack.id} exposed port ${key} does not resolve to a placed child connector.`);

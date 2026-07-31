@@ -238,7 +238,18 @@ export class SceneGraph {
     if (!connector) return false;
     if (!device.rackId) return connector.hiddenOnCanvas !== true;
     const rack = this.getRack(device.rackId);
-    return isRackChildConnectorExposedOnCanvas(device, connector, rack);
+    return isRackChildConnectorExposedOnCanvas(device, connector, rack) || rack?.showInternalWiring === true;
+  }
+
+  // Rack child connectors can be rendered as reference-only ports when internal
+  // wiring is shown. Keep hit-testing/selectability scoped to exposed rack ports.
+  isConnectorSelectableOnCanvas(deviceOrId, connectorOrId) {
+    const device = typeof deviceOrId === "string" ? this.getDevice(deviceOrId) : deviceOrId;
+    if (!device) return false;
+    const connector = typeof connectorOrId === "string" ? device.connectorsById?.get(connectorOrId) : connectorOrId;
+    if (!connector) return false;
+    if (!device.rackId) return connector.hiddenOnCanvas !== true && connector.referenceOnlyOnCanvas !== true;
+    return isRackChildConnectorExposedOnCanvas(device, connector, this.getRack(device.rackId));
   }
 
   visibleConnectorsForDevice(deviceOrId) {
@@ -267,8 +278,8 @@ export class SceneGraph {
         const key = this.rackExposedPortKeyForChildConnector(device, connector);
         if (this.isConnectorVisibleOnCanvas(device, connector)) {
           visibleConnectors += 1;
-          if (key) resolvedKeys.add(key);
         }
+        if (key && exposedKeys.has(key)) resolvedKeys.add(key);
         const indexKey = connectorKey(device.id, connector.id);
         if (this.connectorIndex.items.has(indexKey)) hitTargets += 1;
         const connectorWireIds = this.connectorWireIds(device.id, connector.id);
@@ -295,6 +306,7 @@ export class SceneGraph {
       resolvedExposedConnectors: resolvedKeys.size,
       visibleConnectorOverlays: visibleConnectors,
       connectorHitTargets: hitTargets,
+      referenceOnlyConnectors: Math.max(0, visibleConnectors - hitTargets),
       hiddenChildConnectors: Math.max(0, totalChildConnectors - visibleConnectors),
       unresolvedExposureKeys: exposedPorts
         .map(port => port.key)
@@ -319,10 +331,14 @@ export class SceneGraph {
         const key = definitionDeviceId && connector.id
           ? rackExposedPortKey(definitionDeviceId, connector.id)
           : "";
-        const visible = !rack || exposedKeys.has(key);
+        const exposed = Boolean(rack && exposedKeys.has(key));
+        const visible = !rack || exposed || rack.showInternalWiring === true;
+        const selectable = !rack || exposed;
         connector.rackDefinitionDeviceId = definitionDeviceId;
         connector.rackExposedPortKey = key;
-        connector.rackExposedOnCanvas = Boolean(rack && visible);
+        connector.rackExposedOnCanvas = exposed;
+        connector.rackSelectableOnCanvas = selectable;
+        connector.referenceOnlyOnCanvas = visible && !selectable;
         connector.hiddenOnCanvas = !visible;
       };
       (device.connectors || []).forEach(applyConnectorVisibility);
@@ -334,6 +350,8 @@ export class SceneGraph {
             connector.rackDefinitionDeviceId = sourceConnector.rackDefinitionDeviceId || definitionDeviceId;
             connector.rackExposedPortKey = sourceConnector.rackExposedPortKey || "";
             connector.rackExposedOnCanvas = sourceConnector.rackExposedOnCanvas === true;
+            connector.rackSelectableOnCanvas = sourceConnector.rackSelectableOnCanvas === true;
+            connector.referenceOnlyOnCanvas = sourceConnector.referenceOnlyOnCanvas === true;
             connector.hiddenOnCanvas = sourceConnector.hiddenOnCanvas === true;
           } else {
             applyConnectorVisibility(connector);
@@ -614,7 +632,7 @@ export class SceneGraph {
     const items = [];
     this.devices.forEach(device => {
       device.connectors.forEach(connector => {
-        if (!this.isConnectorVisibleOnCanvas(device, connector)) return;
+        if (!this.isConnectorSelectableOnCanvas(device, connector)) return;
         const point = this.connectorWorldPoint(device, connector);
         items.push({
           id: connectorKey(device.id, connector.id),
@@ -673,7 +691,7 @@ export class SceneGraph {
       this.spatialIndex.update(deviceId, deviceBounds(device), { id: device.id, bounds: deviceBounds(device), device });
       device.connectors.forEach(connector => {
         const key = connectorKey(device.id, connector.id);
-        if (!this.isConnectorVisibleOnCanvas(device, connector)) {
+        if (!this.isConnectorSelectableOnCanvas(device, connector)) {
           this.connectorIndex.delete(key);
           return;
         }
@@ -923,7 +941,7 @@ export class SceneGraph {
     this.spatialIndex.insert(device.id, deviceBounds(device), { id: device.id, bounds: deviceBounds(device), device });
     this.rebuildRackIndex();
     (device.connectors || []).forEach(connector => {
-      if (!this.isConnectorVisibleOnCanvas(device, connector)) return;
+      if (!this.isConnectorSelectableOnCanvas(device, connector)) return;
       const point = this.connectorWorldPoint(device, connector);
       this.connectorIndex.insert(connectorKey(device.id, connector.id), centeredBounds(point, device.kind === "jump" ? 42 : 24), {
         id: connectorKey(device.id, connector.id),
@@ -959,7 +977,7 @@ export class SceneGraph {
     this.spatialIndex.update(device.id, deviceBounds(device), { id: device.id, bounds: deviceBounds(device), device });
     this.rebuildRackIndex();
     (device.connectors || []).forEach(connector => {
-      if (!this.isConnectorVisibleOnCanvas(device, connector)) return;
+      if (!this.isConnectorSelectableOnCanvas(device, connector)) return;
       const point = this.connectorWorldPoint(device, connector);
       this.connectorIndex.insert(connectorKey(device.id, connector.id), centeredBounds(point, device.kind === "jump" ? 42 : 24), {
         id: connectorKey(device.id, connector.id),
@@ -1291,7 +1309,7 @@ export class SceneGraph {
     const point = this.connectorWorldPoint(device, connector);
     const key = connectorKey(device.id, connector.id);
     this.applyRackConnectorVisibility();
-    if (!this.isConnectorVisibleOnCanvas(device, connector)) {
+    if (!this.isConnectorSelectableOnCanvas(device, connector)) {
       this.connectorIndex.delete(key);
       this.dirtyDevices.add(device.id);
       return connector;
@@ -1408,7 +1426,7 @@ export class SceneGraph {
       x: point.x + routeOffset.dx,
       y: point.y + routeOffset.dy
     }));
-    if (wire.routeStyle === "orthogonal") {
+    if (wire.internalRackWire || wire.sourceKind === "rackInternalConnection" || wire.routeStyle === "orthogonal") {
       const sameRouteOffset = Math.abs(routeOffset.dx) > 0.001 || Math.abs(routeOffset.dy) > 0.001;
       return orthogonalWirePoints({
         from,
