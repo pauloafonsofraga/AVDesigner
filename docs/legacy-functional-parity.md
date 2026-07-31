@@ -4,7 +4,13 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 48`
+- Current build label: `Iteration 48.2`
+
+Iteration 48.2 restores the Legacy exposed-rack-port contract in the Engine
+path. Placed rack child connectors are main-canvas endpoints only when their
+rack definition exposes `{ id, deviceId, connectorId, name, type, direction }`;
+hidden child connectors are excluded from hit-testing, and rack-internal
+definition wires are always normalized as orthogonal derived wires.
 
 Iteration 48 restores the Rack Builder data split in the Engine path. Rack
 definitions still own rack-local devices, internal connections, and rack-local

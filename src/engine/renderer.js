@@ -1884,7 +1884,7 @@ function pushDevice(vertices, device, offsets = null, selected = false, options 
   pushLine(vertices, { x, y: y + device.height }, { x, y }, 2.2, "#dbe7f3");
   if (isLedSurfaceKind(device)) return;
   if (options.connectorMarkers && device.connectors?.length) {
-    device.connectors.forEach(connector => {
+    deviceConnectorsForRender(device).forEach(connector => {
       const px = x + connector.x;
       const py = y + connector.y;
       pushConnectorNode(vertices, { x: px, y: py }, connector, device, options);
@@ -1958,7 +1958,9 @@ function deviceConnectorsForRender(device = {}) {
   // LED surfaces use synthetic left-side endpoint positions for wire geometry,
   // but Legacy never shows those as visible connector nodes or labels.
   if (isLedSurfaceKind(device)) return [];
-  if (Array.isArray(device.connectors) && device.connectors.length) return device.connectors;
+  if (Array.isArray(device.connectors) && device.connectors.length) {
+    return device.connectors.filter(connector => connector?.hiddenOnCanvas !== true);
+  }
   const portCount = Math.max(0, Math.floor(Number(device.portCount || 0)));
   const connectors = [];
   for (let index = 0; index < portCount; index += 1) {

@@ -403,15 +403,27 @@ class ProductionEngineBridge {
     this.hud?.setMetric("placed racks", rackIds.length);
     this.hud?.setMetric("rack child devices", this.scene.rackIdByDeviceId?.size || 0);
     this.hud?.setMetric("selected rack", this.selectedRackIds().join(", ") || "-");
+    const selectedRackDiagnostics = this.selectedRackIds()
+      .map(rackId => this.scene.rackConnectorDiagnostics?.(rackId))
+      .filter(Boolean);
+    const firstRackDiagnostic = selectedRackDiagnostics[0] || (racks[0] ? this.scene.rackConnectorDiagnostics?.(racks[0].id) : null);
+    if (firstRackDiagnostic) {
+      this.hud?.setMetric("rack exposed", `${firstRackDiagnostic.resolvedExposedConnectors}/${firstRackDiagnostic.totalChildConnectors}`);
+      this.hud?.setMetric("rack hit targets", firstRackDiagnostic.connectorHitTargets);
+      this.hud?.setMetric("rack hidden ext wires", firstRackDiagnostic.hiddenExternalWires);
+      this.hud?.setMetric("rack internal bezier", firstRackDiagnostic.bezierInternalWires);
+    }
     console.info("[engine-rack-builder]", {
       reason,
       placedRacks: rackIds.length,
       rackChildDevices: this.scene.rackIdByDeviceId?.size || 0,
       selectedRackIds: this.selectedRackIds(),
+      selectedRackDiagnostics,
       rackDiagnostics: racks.slice(0, 10).map(rack => rack.diagnostics || {
         id: rack.id,
         childCount: rack.childDeviceIds?.length || 0,
-        bounds: rack.bounds
+        bounds: rack.bounds,
+        connectors: this.scene.rackConnectorDiagnostics?.(rack.id)
       }),
       counts: this.sceneCounts()
     });
@@ -426,6 +438,7 @@ class ProductionEngineBridge {
       ...details,
       rackResolved: Boolean(rack),
       rackBounds: rack?.bounds || null,
+      rackConnectorDiagnostics: rack ? this.scene.rackConnectorDiagnostics?.(rack.id) : null,
       rackChildIds: rack ? this.scene.rackChildIds(rack.id) : [],
       counts: this.sceneCounts()
     };
@@ -3293,6 +3306,8 @@ class ProductionEngineBridge {
           ["Rack ID", rack.id],
           ["Name", rack.name || "Rack"],
           ["Children", rack.childDeviceIds?.length || this.scene.rackChildIds(rack.id).length],
+          ["Exposed Ports", this.scene.rackConnectorDiagnostics?.(rack.id)?.resolvedExposedConnectors ?? "-"],
+          ["Internal Wires", this.scene.rackConnectorDiagnostics?.(rack.id)?.internalWireCount ?? "-"],
           ["Internal Wiring", rack.showInternalWiring ? "Shown" : "Hidden"],
           ["Bounds", rack.bounds ? `${roundForUi(rack.bounds.x)}, ${roundForUi(rack.bounds.y)} / ${roundForUi(rack.bounds.width)} x ${roundForUi(rack.bounds.height)}` : "-"]
         ])}

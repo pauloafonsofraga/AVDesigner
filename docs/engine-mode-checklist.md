@@ -1,5 +1,13 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
+Iteration 48.2 restores the placed-rack exposed-port contract. Rack child
+connectors on the main canvas are visible, clickable, and hit-testable only
+when they are explicitly exposed rack ports; hidden child connectors are
+excluded from the Engine connector index instead of being drawn invisibly.
+Rack-internal derived wires are forced through the orthogonal router regardless
+of the project-wide wire mode, and `debugRackBuilder=1` reports exposed-port,
+hit-target, and internal-wire diagnostics.
+
 Iteration 48.1 rebuilds placed racks as first-class Engine canvas objects.
 Rack definitions remain owned by the existing DOM Rack Builder, while placed
 rack instances now normalize into dedicated runtime records with grouped child
@@ -142,11 +150,11 @@ PDF and report drawing paths are deliberately unchanged.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags.
 
-Current visible build label: `Iteration 48.1`.
+Current visible build label: `Iteration 48.2`.
 The app top bar must show one of these labels:
 
-- `Iteration 48.1 — Engine Editor — iteration48-1`
-- `Iteration 48.1 — Legacy Editor — iteration48-1`
+- `Iteration 48.2 — Engine Editor — iteration48-2`
+- `Iteration 48.2 — Legacy Editor — iteration48-2`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -155,47 +163,47 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration48-1`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration48-1`.
+   `index.html?v=iteration48-2`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration48-2`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration48-1`.
+   `index.html?engineDefaultTest=1&v=iteration48-2`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration48-1`.
+   `index.html?legacy=1&v=iteration48-2`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration48-1`.
+   `index.html?engine=0&v=iteration48-2`.
 7. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration48-1`.
+   `index.html?engine=1&debugLoad=1&v=iteration48-2`.
 8. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration48-1`.
+   `index.html?engine=1&loadDelay=1500&v=iteration48-2`.
 9. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration48-1`.
+   `index.html?engine=1&debugHud=1&v=iteration48-2`.
 9a. Open the device visual diagnostic HUD/layer view:
-   `index.html?engine=1&debugDeviceVisual=1&v=iteration48-1`.
+   `index.html?engine=1&debugDeviceVisual=1&v=iteration48-2`.
 9b. Open the Power Distro diagnostic HUD:
-   `index.html?engine=1&debugHud=1&debugPowerDistro=1&v=iteration48-1`.
+   `index.html?engine=1&debugHud=1&debugPowerDistro=1&v=iteration48-2`.
 9c. Open the Rack Builder diagnostic HUD:
-   `index.html?engine=1&debugHud=1&debugRackBuilder=1&v=iteration48-1`.
+   `index.html?engine=1&debugHud=1&debugRackBuilder=1&v=iteration48-2`.
 10. Open the Device Library drag/drop debug overlay:
-   `index.html?debugLibraryDrag=1&v=iteration48-1`.
+   `index.html?debugLibraryDrag=1&v=iteration48-2`.
 11. Open the explicit Engine drag/drop debug overlay:
-   `index.html?engine=1&debugLibraryDrag=1&v=iteration48-1`.
+   `index.html?engine=1&debugLibraryDrag=1&v=iteration48-2`.
 12. Open the Legacy drag/drop debug overlay:
-   `index.html?legacy=1&debugLibraryDrag=1&v=iteration48-1`.
+   `index.html?legacy=1&debugLibraryDrag=1&v=iteration48-2`.
 13. Open compatibility diagnostics while drawing wires:
-    `index.html?engine=1&debugCompatibility=1&v=iteration48-1`.
+    `index.html?engine=1&debugCompatibility=1&v=iteration48-2`.
 14. Open routing diagnostics while selecting or editing orthogonal wires:
-    `index.html?engine=1&debugHud=1&debugRouting=1&v=iteration48-1`.
+    `index.html?engine=1&debugHud=1&debugRouting=1&v=iteration48-2`.
 15. Open endpoint-rewire diagnostics:
-    `index.html?engine=1&debugRewire=1&debugRouting=1&v=iteration48-1`.
+    `index.html?engine=1&debugRewire=1&debugRouting=1&v=iteration48-2`.
 15a. Open the Project Custom identity overlay:
-    `index.html?engine=1&debugCustomIdentity=1&v=iteration48-1`.
+    `index.html?engine=1&debugCustomIdentity=1&v=iteration48-2`.
 16. Confirm the top bar build label matches the mode you intended to test.
 16. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.
 
-## Iteration 48.1 Rack Builder Checks
+## Iteration 48.2 Rack Builder Checks
 
-1. Open `index.html?engine=1&debugHud=1&debugRackBuilder=1&v=iteration48-1`.
+1. Open `index.html?engine=1&debugHud=1&debugRackBuilder=1&v=iteration48-2`.
 2. Open Rack Builder, create or select a rack, add devices, add internal
    connections, and place the rack on the main canvas.
 3. Click any placed child device; the whole placed rack should select as one
@@ -205,9 +213,13 @@ Git commit as the final source of truth when reviewing a pushed change.
 5. Right-click the placed rack and toggle Show/Hide Internal Rack Wiring; the
    derived internal wires should appear/disappear without creating normal
    project cables.
-6. Connect an external wire to a real child-device connector, then save/reload
-   and verify the external cable endpoint remains valid.
-7. Delete a placed rack, undo, and redo. The source Rack Builder definition
+6. Expose one rack port and connect an external wire to it. Hidden child
+   connectors from the same rack must not draw, hit-test, or accept external
+   wire connections on the main canvas.
+7. Toggle Show Internal Rack Wiring while the project wire mode is Bezier; the
+   rack-internal overlay must still render as 90-degree orthogonal lines.
+8. Save/reload and verify the external cable endpoint remains valid.
+9. Delete a placed rack, undo, and redo. The source Rack Builder definition
    must remain, and undo must restore the same rack ID, child device IDs, and
    external wire routes.
 17. Disable engine temporarily by using `legacy=1` or `engine=0`.

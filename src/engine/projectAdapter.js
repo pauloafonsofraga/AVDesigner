@@ -1165,6 +1165,10 @@ function normalizeRackInternalWires(root, context) {
       wire.rackId = rackId;
       wire.internalRackWire = true;
       wire.selectable = false;
+      // Rack-internal wires are derived canvas visuals. Legacy always draws
+      // them through the rack gutter/lane orthogonal router, regardless of the
+      // project-wide Bezier/90-degree wire mode.
+      wire.routeStyle = "orthogonal";
       wires.push(wire);
     });
   });

@@ -81,6 +81,8 @@ export function deviceVisualCacheKey(device, options = {}) {
       connector.customTextCaption || "",
       connector.displayLabel || "",
       connector.effectiveType || "",
+      connector.hiddenOnCanvas ? "hidden" : "visible",
+      connector.rackExposedPortKey || "",
       connector.labelSource || "",
       connector.installedModuleEffectiveType || "",
       connector.installedModuleFiberMode || "",
@@ -149,6 +151,8 @@ export function deviceVisualCacheKey(device, options = {}) {
         connector.label || "",
         connector.displayLabel || "",
         connector.effectiveType || "",
+        connector.hiddenOnCanvas ? "hidden" : "visible",
+        connector.rackExposedPortKey || "",
         connector.labelSource || "",
         connector.nameText || "",
         connector.resolutionFrameRate || "",
@@ -531,7 +535,9 @@ function drawCardCaption(ctx, card) {
 }
 
 function drawCardConnectorFields(ctx, card, deviceWidth) {
-  const connectors = Array.isArray(card.connectors) ? card.connectors : [];
+  const connectors = Array.isArray(card.connectors)
+    ? card.connectors.filter(connector => connector?.hiddenOnCanvas !== true)
+    : [];
   if (!connectors.length) return;
   connectors.forEach(connector => {
     const fields = connector.infoFields?.length
@@ -631,7 +637,7 @@ function isVideoLikeConnector(connector) {
 }
 
 function drawConnectorBands(ctx, device, width, height, startY) {
-  const groups = groupConnectors(device.connectors || []);
+  const groups = groupConnectors((device.connectors || []).filter(connector => connector?.hiddenOnCanvas !== true));
   ctx.save();
   ctx.globalAlpha = 0.36;
   ctx.setLineDash([9, 8]);

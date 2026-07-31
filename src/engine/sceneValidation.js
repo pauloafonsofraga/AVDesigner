@@ -46,7 +46,14 @@ export function validateEngineScene(scene, projectData = null) {
     duplicateWireIds: 0,
     orphanWires: 0,
     invalidConnectorReferences: 0,
-    routePointMismatches: 0
+    routePointMismatches: 0,
+    rackExposedPortRecords: 0,
+    rackResolvedExposedPorts: 0,
+    rackHiddenChildConnectors: 0,
+    rackHiddenExternalWires: 0,
+    rackBezierInternalWires: 0,
+    rackConnectorHitTargetMismatches: 0,
+    rackInternalNonOrthogonalSegments: 0
   };
 
   counts.duplicateObjectIds = checkDuplicates(sceneDevices.map(device => device.id), "object", errors);
@@ -63,6 +70,7 @@ export function validateEngineScene(scene, projectData = null) {
   sceneWires.forEach(wire => validateWire(scene, wire, errors, warnings, counts));
   validateSelection(scene, errors);
   validateRoutePointParity(sceneWires, productionConnections, root.wireMode === "orthogonal" ? "orthogonal" : "bezier", errors, warnings, counts);
+  validateRackCanvasParity(scene, errors, counts);
 
   const durationMs = performance.now() - start;
   return {
@@ -73,6 +81,54 @@ export function validateEngineScene(scene, projectData = null) {
     warnings,
     summary: `${errors.length ? "failed" : "passed"} in ${durationMs.toFixed(1)} ms`
   };
+}
+
+function validateRackCanvasParity(scene, errors, counts) {
+  const racks = Array.isArray(scene?.racks) ? scene.racks : [];
+  if (!racks.length) return;
+  racks.forEach(rack => {
+    const diagnostic = scene?.rackConnectorDiagnostics?.(rack.id);
+    if (!diagnostic) return;
+    counts.rackExposedPortRecords += diagnostic.exposedPortRecords || 0;
+    counts.rackResolvedExposedPorts += diagnostic.resolvedExposedConnectors || 0;
+    counts.rackHiddenChildConnectors += diagnostic.hiddenChildConnectors || 0;
+    counts.rackHiddenExternalWires += diagnostic.hiddenExternalWires || 0;
+    counts.rackBezierInternalWires += diagnostic.bezierInternalWires || 0;
+    if (diagnostic.connectorHitTargets !== diagnostic.visibleConnectorOverlays) {
+      counts.rackConnectorHitTargetMismatches += 1;
+      errors.push(`Rack ${rack.id} has ${diagnostic.visibleConnectorOverlays} visible exposed connector(s) but ${diagnostic.connectorHitTargets} connector hit target(s).`);
+    }
+    (diagnostic.unresolvedExposureKeys || []).forEach(key => {
+      errors.push(`Rack ${rack.id} exposed port ${key} does not resolve to a placed child connector.`);
+    });
+    if (diagnostic.bezierInternalWires > 0) {
+      errors.push(`Rack ${rack.id} has ${diagnostic.bezierInternalWires} internal wire(s) not forced to orthogonal routing.`);
+    }
+    if (diagnostic.hiddenExternalWires > 0) {
+      errors.push(`Rack ${rack.id} has ${diagnostic.hiddenExternalWires} external wire(s) attached to hidden child connector(s).`);
+    }
+  });
+  (Array.isArray(scene?.wires) ? scene.wires : [])
+    .filter(wire => wire.internalRackWire)
+    .forEach(wire => {
+      if (wire.routeStyle !== "orthogonal") {
+        counts.rackInternalNonOrthogonalSegments += 1;
+        errors.push(`Rack internal wire ${wire.id} is ${wire.routeStyle || "bezier"} instead of orthogonal.`);
+        return;
+      }
+      const points = scene?.wirePoints?.(wire) || [];
+      for (let index = 1; index < points.length; index += 1) {
+        const previous = points[index - 1];
+        const current = points[index];
+        const horizontal = nearlyEqual(previous.y, current.y);
+        const vertical = nearlyEqual(previous.x, current.x);
+        if (!horizontal && !vertical) {
+          counts.rackInternalNonOrthogonalSegments += 1;
+          errors.push(`Rack internal wire ${wire.id} segment ${index - 1} is not horizontal or vertical.`);
+          break;
+        }
+      }
+    });
 }
 
 function validateWire(scene, wire, errors, warnings, counts) {

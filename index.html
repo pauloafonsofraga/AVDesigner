@@ -4612,8 +4612,8 @@
   </div>
 
   <script>
-    const APP_ITERATION = "48.1";
-    const APP_BUILD_ID = "iteration48-1";
+    const APP_ITERATION = "48.2";
+    const APP_BUILD_ID = "iteration48-2";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
     const DEBUG_LIBRARY_DRAG_ENABLED = INITIAL_URL_PARAMS.get("debugLibraryDrag") === "1";
@@ -81827,14 +81827,6 @@
             refreshActiveEngineBridge("rack internal wiring toggled");
           }
         }
-        if (rackAction === "lock") {
-          const rack = rackById(rackId);
-          if (rack) {
-            rack.locked = !rack.locked;
-            render();
-            refreshActiveEngineBridge("rack lock toggled");
-          }
-        }
         if (rackAction === "delete") deleteRackFromCanvas(rackId);
         return;
       }
@@ -82085,7 +82077,6 @@
       deviceContextMenu.innerHTML = `
         <button type="button" data-rack-menu="edit">Edit in Rack Builder</button>
         <button type="button" data-rack-menu="toggle-wiring">${rack.showInternalWiring ? "Hide Internal Rack Wiring" : "Show Internal Rack Wiring"}</button>
-        <button type="button" data-rack-menu="lock">${rack.locked ? "Unlock" : "Lock"}</button>
         <button type="button" class="danger" data-rack-menu="delete">Delete Rack</button>
       `;
       deviceContextMenu.style.left = `${event.clientX}px`;
@@ -83752,18 +83743,11 @@
         <div class="field">
           <label class="checkbox-row"><input id="rackShowInternalWiring" type="checkbox" ${rack.showInternalWiring ? "checked" : ""}> Show Internal Rack Wiring</label>
         </div>
-        <div class="field">
-          <label class="checkbox-row"><input id="rackLockInput" type="checkbox" ${rack.locked ? "checked" : ""}> Lock</label>
-        </div>
         <button class="tool-button" id="editRackBuilder" type="button">Edit in Rack Builder</button>
         <button class="danger-button" id="deleteSelected" type="button">Delete Rack</button>
       `;
       document.getElementById("rackShowInternalWiring").addEventListener("change", event => {
         rack.showInternalWiring = event.target.checked;
-        renderCanvasOnly();
-      });
-      document.getElementById("rackLockInput").addEventListener("change", event => {
-        rack.locked = event.target.checked;
         renderCanvasOnly();
       });
       document.getElementById("editRackBuilder").addEventListener("click", () => openRackBuilderForRack(rackId));

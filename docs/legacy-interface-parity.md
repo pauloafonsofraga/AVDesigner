@@ -4,9 +4,15 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 48`
+- Current build label: `Iteration 48.2`
 - Scope: interface and visual fidelity only. Functional wire parity is tracked in
   [`docs/legacy-functional-parity.md`](legacy-functional-parity.md).
+
+Iteration 48.2 tightens placed-rack canvas parity: only explicitly exposed rack
+ports are rendered and hit-testable on the main canvas, rack-internal derived
+wires are forced through the orthogonal router regardless of the project-wide
+wire mode, and placed-rack Lock/Unlock controls are removed from the rack
+Inspector/context menu while saved lock metadata remains preserved.
 
 Iteration 48 keeps the Rack Builder modal as a DOM/Legacy-owned interface, but
 restores its visible bridge into the Engine canvas. Placed racks are displayed
