@@ -1852,12 +1852,13 @@ function normalizeVisualCardConnector(connector, index) {
 }
 
 function normalizeWire(wire) {
+  const internalRackWire = Boolean(wire.internalRackWire);
   return {
     id: String(wire.id),
     sourceKind: wire.sourceKind || "",
     sourceId: wire.sourceId || wire.id || "",
     rackId: wire.rackId ? String(wire.rackId) : "",
-    internalRackWire: Boolean(wire.internalRackWire),
+    internalRackWire,
     selectable: wire.selectable === false ? false : true,
     fromDeviceId: wire.fromDeviceId ? String(wire.fromDeviceId) : "",
     toDeviceId: wire.toDeviceId ? String(wire.toDeviceId) : "",
@@ -1874,7 +1875,9 @@ function normalizeWire(wire) {
         .map(point => ({ x: Number(point.x), y: Number(point.y) }))
         .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y))
       : [],
-    routeStyle: wire.routeStyle === "orthogonal" ? "orthogonal" : wire.routePoints?.length ? "custom" : "bezier",
+    // Rack-internal wires must keep Legacy's fixed 90-degree visual contract
+    // even if older/imported data still carries a Bezier/custom route flag.
+    routeStyle: internalRackWire ? "orthogonal" : wire.routeStyle === "orthogonal" ? "orthogonal" : wire.routePoints?.length ? "custom" : "bezier",
     fromUsesRealConnector: Boolean(wire.fromUsesRealConnector),
     toUsesRealConnector: Boolean(wire.toUsesRealConnector),
     usesRealConnectorEndpoints: Boolean(wire.usesRealConnectorEndpoints),
