@@ -6,6 +6,7 @@ import {
 } from "../src/engine/connectorCompatibility.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
+import { rackExposedPortKey } from "../src/engine/rackPorts.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 
 const project = fixtureProject();
@@ -85,6 +86,34 @@ const sdiIn = hit(scene, "device-e", "sdi-in-1");
 assert.equal(engineCompatibilitySummary(hdmiOut, hdmiIn).valid, true, "HDMI rewire target is valid");
 assert.equal(engineCompatibilitySummary(hdmiOut, sdiIn).valid, false, "HDMI to SDI rewire is rejected");
 assert.equal(engineCompatibilitySummary(hdmiOut, hdmiOut).rule, "same-connector", "same connector is rejected");
+
+const rackScene = rackPortFixtureScene();
+const exposedKey = rackExposedPortKey("rack-template-input", "rack-input-1");
+const rackDiagnostic = rackScene.rackConnectorDiagnostics("rack-1");
+assert.equal(rackDiagnostic.resolvedExposedConnectors, 1, "rack fixture resolves exposed rack port");
+assert.equal(rackDiagnostic.connectorHitTargets, 1, "only exposed rack port is selectable");
+assert.equal(rackDiagnostic.referenceOnlyConnectors > 0, true, "internal-only ports remain reference-only");
+assert.equal(rackScene.connectorWireIds("rack-child-input", "rack-input-1").size, 1, "internal rack wire indexes the exposed child connector");
+assert.equal(rackScene.connectorExternalWireIds("rack-child-input", "rack-input-1").size, 0, "internal rack wire does not occupy the external rack port");
+assert.equal(rackScene.wireEndpointAtConnector("rack-child-input", "rack-input-1"), null, "internal rack wire is not grabbed from the external rack port");
+assert.equal(
+  rackScene.isConnectorSelectableOnCanvas("rack-child-input", "rack-input-1"),
+  true,
+  `exposed rack port ${exposedKey} is a canvas-selectable endpoint`
+);
+const externalRackWire = rackScene.addWire({
+  fromDeviceId: "external-source",
+  fromConnectorId: "external-out",
+  toDeviceId: "rack-child-input",
+  toConnectorId: "rack-input-1",
+  cableType: "hdmi",
+  color: "#ffe000"
+});
+assert.ok(externalRackWire, "external wire can be created on an exposed rack port with an internal wire");
+assert.equal(rackScene.connectorWireIds("rack-child-input", "rack-input-1").size, 2, "internal and external wires can coexist at the exposed rack port");
+assert.equal(rackScene.connectorExternalWireIds("rack-child-input", "rack-input-1").size, 1, "only the external canvas wire counts as external occupancy");
+assert.equal(rackScene.wireEndpointAtConnector("rack-child-input", "rack-input-1")?.wireId, externalRackWire.id, "clicking exposed rack port resolves the external wire");
+assert.equal(rackScene.wireEndpointAtConnector("rack-child-input", "rack-input-1")?.end, "to", "external rack-port endpoint keeps the correct side");
 
 const saved = mutations.exportJson({ pretty: false });
 const reloadedData = normalizeAvDesignerProject(JSON.parse(saved), {
@@ -184,6 +213,81 @@ function fixtureProject() {
       },
     ],
   };
+}
+
+function rackPortFixtureScene() {
+  const rackScene = new SceneGraph();
+  rackScene.setData({
+    devices: [
+      {
+        id: "external-source",
+        label: "External Source",
+        width: 180,
+        height: 120,
+        x: -260,
+        y: 0,
+        connectors: [
+          connector("external-out", "hdmi", "output", 180, 60),
+        ],
+      },
+      {
+        id: "rack-child-input",
+        sourceRackDeviceId: "rack-template-input",
+        rackId: "rack-1",
+        label: "Rack Child Input",
+        width: 180,
+        height: 120,
+        x: 0,
+        y: 0,
+        connectors: [
+          connector("rack-input-1", "hdmi", "input", 0, 60),
+          connector("rack-hidden-input", "hdmi", "input", 0, 92),
+        ],
+      },
+      {
+        id: "rack-child-output",
+        sourceRackDeviceId: "rack-template-output",
+        rackId: "rack-1",
+        label: "Rack Child Output",
+        width: 180,
+        height: 120,
+        x: 320,
+        y: 0,
+        connectors: [
+          connector("rack-output-1", "hdmi", "output", 180, 60),
+        ],
+      },
+    ],
+    racks: [
+      {
+        id: "rack-1",
+        name: "Rack 1",
+        showInternalWiring: true,
+        sourceDeviceMap: {
+          "rack-template-input": "rack-child-input",
+          "rack-template-output": "rack-child-output",
+        },
+        childDeviceIds: ["rack-child-input", "rack-child-output"],
+        exposedPorts: [
+          { deviceId: "rack-template-input", connectorId: "rack-input-1" },
+        ],
+      },
+    ],
+    wires: [
+      {
+        id: "rack-internal-wire",
+        internalRackWire: true,
+        rackId: "rack-1",
+        cableType: "hdmi",
+        fromDeviceId: "rack-child-output",
+        fromConnectorId: "rack-output-1",
+        toDeviceId: "rack-child-input",
+        toConnectorId: "rack-input-1",
+        routeStyle: "orthogonal",
+      },
+    ],
+  });
+  return rackScene;
 }
 
 function connector(id, type, direction, x, y) {

@@ -471,7 +471,20 @@ export class SceneGraph {
 
   wireEndpointAtConnector(deviceId, connectorId) {
     const key = connectorKey(deviceId, connectorId);
-    const wireId = [...(this.wireIdsByConnectorKey.get(key) || [])][0];
+    const wireIds = [...(this.wireIdsByConnectorKey.get(key) || [])];
+    const device = this.getDevice(deviceId);
+    const connector = this.getConnector(deviceId, connectorId);
+    const isRackCanvasPort = Boolean(
+      device?.rackId
+      && connector
+      && this.isConnectorSelectableOnCanvas(device, connector)
+    );
+    // Exposed rack ports are the rack's outside-facing sockets. They can share
+    // the same child connector as an internal rack wire, but canvas interaction
+    // must only grab the external wire so internal wiring stays protected.
+    const wireId = isRackCanvasPort
+      ? wireIds.find(id => !this.getWire(id)?.internalRackWire)
+      : wireIds[0];
     const wire = wireId ? this.getWire(wireId) : null;
     if (!wire) return null;
     const end = this.wireEndpointConnectorKey(wire, "from") === key ? "from" : "to";
@@ -481,6 +494,13 @@ export class SceneGraph {
 
   connectorWireIds(deviceId, connectorId) {
     return new Set(this.wireIdsByConnectorKey.get(connectorKey(deviceId, connectorId)) || []);
+  }
+
+  connectorExternalWireIds(deviceId, connectorId) {
+    return new Set(
+      [...this.connectorWireIds(deviceId, connectorId)]
+        .filter(wireId => !this.getWire(wireId)?.internalRackWire)
+    );
   }
 
   applyWireState(wireId, state = {}) {

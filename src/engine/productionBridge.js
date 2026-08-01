@@ -1499,7 +1499,7 @@ class ProductionEngineBridge {
         originalWire: cloneWire(wire),
         originalConnection: this.mutations?.connectionDataForWire(wire.sourceId || wire.id),
         previousSelection,
-        oldConnectorWireCount: this.scene.connectorWireIds(detachedHit.device.id, detachedHit.connector.id).size,
+        oldConnectorWireCount: this.scene.connectorExternalWireIds(detachedHit.device.id, detachedHit.connector.id).size,
       }
     };
     this.lastCompatibilityTargetKey = "";
@@ -1651,7 +1651,7 @@ class ProductionEngineBridge {
       beforeWire,
       afterWire,
       dirtyMs: dirtyStats.totalMs,
-      newConnectorWireCount: target.virtualSurfaceTarget ? 0 : this.scene.connectorWireIds(target.device.id, target.connector.id).size,
+      newConnectorWireCount: target.virtualSurfaceTarget ? 0 : this.scene.connectorExternalWireIds(target.device.id, target.connector.id).size,
     });
     this.finishWireInteraction({ selectWireId: updated.id, reason: "wire-rewired" });
     this.recordCommand(moveWireEndpointCommand(beforeWire, afterWire, beforeConnection, afterConnection));
@@ -1694,7 +1694,7 @@ class ProductionEngineBridge {
     if (this.isOriginalRewireTarget(target)) return "";
     if (!compatibility?.valid) return compatibility?.reason || "Incompatible connector.";
     if (target.virtualSurfaceTarget) return "";
-    const occupiedByOtherWire = [...this.scene.connectorWireIds(target.device.id, target.connector.id)]
+    const occupiedByOtherWire = [...this.scene.connectorExternalWireIds(target.device.id, target.connector.id)]
       .some(wireId => wireId !== rewire.wireId);
     return occupiedByOtherWire ? "Target connector is already connected." : "";
   }
@@ -1708,7 +1708,7 @@ class ProductionEngineBridge {
     if (hit?.virtualSurfaceTarget) return "";
     if (!hit?.device?.id || !hit?.connector?.id) return "";
     if (this.connectorAllowsAdditionalExternalWire(hit)) return "";
-    const connectedCount = this.scene.connectorWireIds(hit.device.id, hit.connector.id).size;
+    const connectedCount = this.scene.connectorExternalWireIds(hit.device.id, hit.connector.id).size;
     return connectedCount > 0 ? `${label} connector is already connected.` : "";
   }
 
