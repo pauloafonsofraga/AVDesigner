@@ -4,7 +4,18 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 48.2`
+- Current build label: `Iteration 49`
+
+Iteration 49 restores Matrix Routing as an Engine-owned logical state path.
+Legacy marks matrix-capable templates with `isMatrixRouter`, enumerates eligible
+input/output connectors through `effectiveTemplateConnectors` and
+`connectorIncludedInMatrix`, stores routes as
+`instance.matrixRoutes = { [outputConnectorId]: inputConnectorId }`, and treats
+crosspoints as internal logical routes rather than canvas cables. Engine now
+normalizes the same route object, uses one `MatrixRoutingCommand` per modal
+change, writes through to production data without a full render, preserves
+modal scroll/focus on undo/redo refresh, and validates route parity during
+fixture and real-project validation.
 
 Iteration 48.2 restores the Legacy exposed-rack-port contract in the Engine
 path. Placed rack child connectors are main-canvas endpoints only when their
@@ -369,7 +380,7 @@ PD geometry, and special template behaviours.
 | Wire context menu | Legacy wire menu supports create corner, select same type, length/notes via inspector, reset/delete routes, delete. | Engine delegates wire and wire-corner targets to Legacy menus, but action refresh/parity needs audit. | partial | `showWireContextMenu`, `showWireCornerContextMenu`, `createWireCornerAt`, `resetWireRoutes` | `ProductionEngineBridge.handleContextMenu`, `onEngineContextMenu` | connection route points | Route changes must write production and Engine scene | Needs one undo per action | Viewer/export uses routes | medium | 41 | Recent Engine route-point visuals should stay. |
 | Empty-canvas context menu | Legacy has canvas-level actions where applicable. | Engine empty context currently clears selection and forwards `target: null`; no full menu parity. | missing | empty-canvas/context helpers in Legacy menu code | `ProductionEngineBridge.handleContextMenu` | selected state | depends on action | depends on action | depends on action | low | 41 | Lower priority than device/wire actions. |
 | Rack builder/internal wires | Legacy has rack builder, rack internal 90-degree routes, route-point/segment dragging, exposed ports, show internal wiring, rack context menu. | Engine maps racks/internal data enough for project validation/visual survival, but the rack builder itself remains production-owned. | partial | `renderRackBuilder`, `createRackInternalConnection`, `rackInternalWireRoute`, `startRackBuilderWireSegmentDrag`, `showRackContextMenu` | `projectAdapter`, `sceneGraph`, Engine context delegation | `state.racks`, `internalConnections`, exposed ports | Must preserve rack data | Production-owned currently | Viewer can show rack internals via production paths | high | 42 | Needs its own focused iteration. |
-| Matrix routing | Legacy conditionally exposes matrix routing menu and matrix routing modal. | Engine context delegates matrix device menu back to Legacy device menu if target maps correctly. | partial | `showDeviceContextMenu`, matrix routing modal functions | Engine context delegation only | matrix routing fields | Existing data saved by Legacy | Production-owned | Reports may include matrix data later | medium | 41 | Audit after generic context parity. |
+| Matrix routing | Legacy conditionally exposes matrix routing menu and matrix routing modal; one output routes to one input, one input can feed many outputs, and routes are stored as `instance.matrixRoutes`. | Engine still uses the DOM modal, but route state/mutations are Engine-owned and command-based. | covered | `showDeviceContextMenu`, `matrixEndpointsForTemplate`, `ensureMatrixRoutes`, `bindMatrixRoutingInspector`, `matrixRoutingMarkup`, `matrixRoutesForReport` | `src/engine/matrixRouting.js`, `ProductionEngineBridge.commitMatrixRoute/applyMatrixRoutes`, `MatrixRoutingCommand`, matrix validation in `sceneValidation.js` | `template.isMatrixRouter`, connector `includeInMatrix`, `matrixPortTouched`, `matrixRoutes` | Same Legacy format saved; invalid references normalized | Engine undo/redo command, one step per matrix edit | Reports read production `matrixRoutes`; no canvas wires created | medium | 49 | DOM modal is intentionally retained; matrix edits should not trigger texture, wire, or full scene rebuilds. |
 | Reports/export/viewer | Legacy output paths read production project data and SVG helpers. | Engine writes through to production data; output migration is paused. | partial / not intended yet | `projectSnapshotData`, `buildStandaloneHtml`, `wirechartSvgMarkup`, report renderers | Engine mutation adapter write-through | production `.avd` / JSON shape | Must remain unchanged | Not command-owned | Critical downstream path | high | after 42 | Do not resume output migration until functional parity blockers are fixed. |
 
 ## Detailed Legacy Code Path Notes

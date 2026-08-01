@@ -28,6 +28,10 @@ import {
   rackDefinitionDeviceIdForChild,
   rackExposedPortKey
 } from "./rackPorts.js";
+import {
+  connectorIncludedInMatrixForEngine,
+  normalizeMatrixRoutesForDevice
+} from "./matrixRouting.js";
 
 export class SceneGraph {
   constructor() {
@@ -1572,7 +1576,7 @@ function normalizeDevice(device) {
     : (Array.isArray(device.connectors) ? device.connectors : [])
       .map((connector, index) => normalizeConnector(connector, index))
       .filter(Boolean);
-  return {
+  const normalized = {
     id: String(device.id),
     sourceKind: device.sourceKind || "",
     sourceId: device.sourceId || device.id || "",
@@ -1600,12 +1604,15 @@ function normalizeDevice(device) {
     visual,
     connectors,
     connectorsById: new Map(connectors.map(connector => [connector.id, connector])),
+    matrixRoutes: {},
     portCount: isLedSurfaceKind({ kind, sourceKind: device.sourceKind })
       ? 0
       : canvasObject
         ? Math.max(0, Number(device.portCount) || connectors.length || 0)
         : Math.max(1, Number(device.portCount) || connectors.length || 4)
   };
+  normalized.matrixRoutes = normalizeMatrixRoutesForDevice(normalized, device.matrixRoutes);
+  return normalized;
 }
 
 function normalizeRack(rack) {
@@ -1966,6 +1973,8 @@ function normalizeConnector(connector, index) {
     nameTextCaption: connector.nameTextCaption || "",
     resolutionFrameRateCaption: connector.resolutionFrameRateCaption || "",
     customTextCaption: connector.customTextCaption || "",
+    includeInMatrix: connectorIncludedInMatrixForEngine(connector),
+    matrixPortTouched: connector.matrixPortTouched === true,
     signalIndex: Number(connector.signalIndex) || 0,
     faceplateSide: Boolean(connector.faceplateSide),
     adapterRole: String(connector.adapterRole || ""),

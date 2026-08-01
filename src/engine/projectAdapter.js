@@ -37,6 +37,10 @@ import {
   endpointSurfaceId,
   ledSurfaceIdForConnection
 } from "./ledSurfaceModel.js";
+import {
+  connectorIncludedInMatrixForEngine,
+  normalizeMatrixRoutesForDevice
+} from "./matrixRouting.js";
 
 const SIZE_PRESETS = {
   small: { deviceCount: 100, wireCount: 300 },
@@ -430,8 +434,14 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
     brand: visual.brand,
     model: visual.model,
     category: visual.category,
-    visual
+    visual,
+    matrixRoutes: {}
   };
+  // Matrix routing keeps the Legacy storage shape: instance.matrixRoutes is an
+  // object keyed by output connector id with the selected input connector id as
+  // the value. Normalize it after connectors are resolved so deleted/renamed
+  // connector IDs cannot survive in the Engine scene.
+  normalized.matrixRoutes = normalizeMatrixRoutesForDevice(normalized, instance.matrixRoutes);
   if (isAdapter) {
     const mapping = adapterMappingForDevice(normalized);
     normalized.visual.adapterMapping = adapterMappingSummary(mapping);
@@ -702,6 +712,8 @@ function normalizeConnector(connector, index, deviceWidth, nodeColorByType, opti
     nameTextCaption: String(connector.nameTextCaption || ""),
     resolutionFrameRateCaption: String(connector.resolutionFrameRateCaption || ""),
     customTextCaption: String(connector.customTextCaption || ""),
+    includeInMatrix: connectorIncludedInMatrixForEngine(connector),
+    matrixPortTouched: connector.matrixPortTouched === true,
     x: localX,
     y: localY,
     color: visualConnector.color,

@@ -4,6 +4,7 @@ import {
   isCanvasObjectKind,
   isLedSurfaceKind
 } from "./canvasObjectKinds.js";
+import { cloneMatrixRoutes } from "./matrixRouting.js";
 
 const ENGINE_EXPORT_FORMAT = "av-designer-engine-prototype";
 
@@ -223,6 +224,19 @@ export class ProjectMutationAdapter {
       deviceId: sourceId,
       connectorId: id,
       fields: Object.keys(fields || {})
+    });
+    return this.lastMutation.durationMs;
+  }
+
+  updateMatrixRoutes(deviceId, routes = {}) {
+    const start = performance.now();
+    const sourceId = String(deviceId || "");
+    const entry = this.deviceById.get(sourceId);
+    if (!entry?.item) return 0;
+    entry.item.matrixRoutes = cloneMatrixRoutes(routes);
+    this.record("matrix routing", performance.now() - start, `devices[${entry.index}].matrixRoutes`, {
+      deviceId: sourceId,
+      routes: Object.keys(entry.item.matrixRoutes).length
     });
     return this.lastMutation.durationMs;
   }

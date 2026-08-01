@@ -50,6 +50,14 @@ import {
   wireRouteState,
   wireRouteStatesEqual
 } from "./wireRouteEditing.js";
+import {
+  cloneMatrixRoutes,
+  matrixEndpointsForEngineDevice,
+  matrixRouteDiagnosticsForDevice,
+  matrixRoutesEqual,
+  normalizeMatrixRoutesForDevice,
+  setMatrixRouteForDevice
+} from "./matrixRouting.js";
 
 const {
   hitTestConnector,
@@ -152,8 +160,11 @@ class ProductionEngineBridge {
     this.debugCustomDevices = engineCustomDevicesDebugEnabled();
     this.debugCanvasObjects = engineCanvasObjectsDebugEnabled();
     this.debugRackBuilder = engineRackBuilderDebugEnabled();
+    this.debugMatrix = engineMatrixDebugEnabled();
     this.orthogonalTest = engineOrthogonalTestEnabled();
     this.lastCompatibilityTargetKey = "";
+    this.matrixModalRenderCount = 0;
+    this.lastMatrixCommand = null;
     this.renderOptions = {
       labels: true,
       wires: true,
@@ -382,6 +393,7 @@ class ProductionEngineBridge {
       });
       this.updateStatusPanel(reason);
       this.updateRackBuilderDebugHud(reason);
+      this.updateMatrixDebugHud(reason);
       this.notifyHistoryChange(reason);
       this.renderEngineInspector();
       this.showError("");
@@ -427,6 +439,45 @@ class ProductionEngineBridge {
       }),
       counts: this.sceneCounts()
     });
+  }
+
+  updateMatrixDebugHud(reason = "matrix debug") {
+    if (!this.debugMatrix) return;
+    const selectedMatrix = [...(this.scene.selectedIds || [])]
+      .map(id => this.scene.getDevice(id))
+      .find(device => device?.visual?.isMatrixRouter);
+    const device = selectedMatrix || this.scene.devices.find(item => item.visual?.isMatrixRouter);
+    this.hud?.setMetric("matrix debug", reason);
+    if (!device) {
+      this.hud?.setMetric("matrix device", "-");
+      this.hud?.setMetric("matrix ports", "0 x 0");
+      this.hud?.setMetric("matrix routes", "0");
+      return;
+    }
+    const diagnostics = matrixRouteDiagnosticsForDevice(device);
+    this.hud?.setMetric("matrix device", String(device.sourceId || device.id));
+    this.hud?.setMetric("matrix name", device.name || device.visual?.name || "-");
+    this.hud?.setMetric("matrix source", "template.isMatrixRouter");
+    this.hud?.setMetric("matrix ports", `${diagnostics.outputs} outputs x ${diagnostics.inputs} inputs`);
+    this.hud?.setMetric("matrix cells", diagnostics.crosspoints);
+    this.hud?.setMetric("matrix routes", `${diagnostics.assignedRoutes} active`);
+    this.hud?.setMetric("matrix invalid", diagnostics.invalidRoutes);
+    this.hud?.setMetric("matrix duplicate keys", 0);
+    this.hud?.setMetric("matrix modal renders", this.matrixModalRenderCount);
+    this.hud?.setMetric("matrix full rebuilds", 0);
+    const last = this.lastMatrixCommand;
+    this.hud?.setMetric("matrix last command", last
+      ? `${last.outputId || "-"} <- ${last.inputId || "Unassigned"}`
+      : "-");
+    this.hud?.setMetric("matrix conflict", last?.conflictInputId || "-");
+  }
+
+  recordMatrixModalRender(details = {}) {
+    this.matrixModalRenderCount += 1;
+    if (!this.debugMatrix) return;
+    this.hud?.setMetric("matrix modal renders", this.matrixModalRenderCount);
+    this.hud?.setMetric("matrix modal cells", Number(details.inputCount || 0) * Number(details.outputCount || 0));
+    this.updateMatrixDebugHud(`modal ${details.deviceId || ""}`.trim());
   }
 
   recordRackCanvasDiagnostic(step, details = {}) {
@@ -2948,6 +2999,71 @@ class ProductionEngineBridge {
     return { mutationMs, dirtyStats };
   }
 
+  matrixStateForDevice(deviceId) {
+    const device = this.resolveDeviceBySourceId(deviceId);
+    if (!device?.visual?.isMatrixRouter) return null;
+    const { inputs, outputs } = matrixEndpointsForEngineDevice(device);
+    const routes = normalizeMatrixRoutesForDevice(device, device.matrixRoutes);
+    return {
+      deviceId: device.sourceId || device.id,
+      engineDeviceId: device.id,
+      inputs,
+      outputs,
+      routes,
+      diagnostics: matrixRouteDiagnosticsForDevice({ ...device, matrixRoutes: routes })
+    };
+  }
+
+  commitMatrixRoute(deviceId, outputId, inputId, options = {}) {
+    if (!this.ready) return false;
+    const device = this.resolveDeviceBySourceId(deviceId);
+    if (!device?.visual?.isMatrixRouter) return false;
+    const sourceId = String(device.sourceId || device.id);
+    const before = cloneMatrixRoutes(device.matrixRoutes);
+    const after = setMatrixRouteForDevice(device, outputId, inputId, {
+      toggle: options.toggle === true
+    });
+    if (matrixRoutesEqual(before, after)) return false;
+    this.lastMatrixCommand = {
+      deviceId: sourceId,
+      inputId: String(inputId || ""),
+      outputId: String(outputId || ""),
+      conflictInputId: before[String(outputId || "")] && before[String(outputId || "")] !== String(inputId || "")
+        ? before[String(outputId || "")]
+        : "",
+      activeRoutes: Object.keys(after).length
+    };
+    // Matrix routes are logical state only: changing them should not rebuild
+    // device textures, recalculate wires, or call the Legacy full renderer.
+    this.beginProductionCommit("matrix routing");
+    const result = this.applyMatrixRoutes(sourceId, after, { select: true });
+    this.recordCommand(matrixRoutingCommand(sourceId, before, after));
+    this.markCommitted("matrix routing", result.mutationMs || 0, {
+      matrixDeviceId: sourceId,
+      matrixRoutes: Object.keys(after).length
+    });
+    return true;
+  }
+
+  applyMatrixRoutes(deviceId, routes = {}, options = {}) {
+    const device = this.resolveDeviceBySourceId(deviceId);
+    if (!device?.visual?.isMatrixRouter) return { mutationMs: 0 };
+    const sourceId = String(device.sourceId || device.id);
+    const normalized = normalizeMatrixRoutesForDevice({ ...device, matrixRoutes: routes }, routes);
+    device.matrixRoutes = normalized;
+    const mutationMs = this.mutations?.updateMatrixRoutes(sourceId, normalized) || 0;
+    if (options.select !== false) this.scene.selectOnly(device.id);
+    const diagnostics = matrixRouteDiagnosticsForDevice(device);
+    this.hud?.setMetric("matrix routes", `${diagnostics.assignedRoutes}/${diagnostics.outputs}`);
+    this.hud?.setMetric("matrix crosspoints", `${diagnostics.crosspoints}`);
+    this.hud?.setMetric("matrix invalid", `${diagnostics.invalidRoutes}`);
+    this.updateMatrixDebugHud("matrix route apply");
+    this.updateSelectionHud();
+    this.renderEngineInspector();
+    this.scheduleRender();
+    return { mutationMs, diagnostics };
+  }
+
   commitWireInspectorFields(wireId, fields = {}) {
     if (!this.ready) return false;
     const wire = this.resolveWire(wireId);
@@ -3317,6 +3433,9 @@ class ProductionEngineBridge {
     if (selectedDevices.length === 1 && !selectedRacks.length && !selectedWires.length && !selectedRoutePoints.length && !selectedConnectors.length) {
       const device = selectedDevices[0];
       const connectedWireCount = this.scene.affectedWireIdsForDevices([device.id]).size;
+      const matrixDiagnostics = device.visual?.isMatrixRouter
+        ? matrixRouteDiagnosticsForDevice(device)
+        : null;
       this.inspectorPanel.innerHTML = `
         <h3>Engine Inspector</h3>
         ${detailsMarkup([
@@ -3326,7 +3445,12 @@ class ProductionEngineBridge {
           ["Position", `${roundForUi(device.x)}, ${roundForUi(device.y)}`],
           ["Size", `${roundForUi(device.width)} x ${roundForUi(device.height)}`],
           ["Connectors", device.connectors.length],
-          ["Connected Wires", connectedWireCount]
+          ["Connected Wires", connectedWireCount],
+          ...(matrixDiagnostics ? [
+            ["Matrix Ports", `${matrixDiagnostics.outputs} outputs x ${matrixDiagnostics.inputs} inputs`],
+            ["Matrix Routes", `${matrixDiagnostics.assignedRoutes} assigned`],
+            ["Matrix Invalid", matrixDiagnostics.invalidRoutes]
+          ] : [])
         ])}
       `;
       return;
@@ -5227,6 +5351,7 @@ function engineDebugHudEnabled() {
     || params.get("debugDeviceVisual") === "1"
     || params.get("debugDeviceTexture") === "1"
     || params.get("debugPowerDistro") === "1"
+    || params.get("debugMatrix") === "1"
     || params.get("debugRewire") === "1"
     || params.get("debugCanvasObjects") === "1"
     || params.get("debugRackBuilder") === "1"
@@ -5268,6 +5393,10 @@ function engineCanvasObjectsDebugEnabled() {
 
 function engineRackBuilderDebugEnabled() {
   return new URLSearchParams(window.location.search).get("debugRackBuilder") === "1";
+}
+
+function engineMatrixDebugEnabled() {
+  return new URLSearchParams(window.location.search).get("debugMatrix") === "1";
 }
 
 function engineOrthogonalTestEnabled() {
@@ -5800,6 +5929,18 @@ function connectorInspectorFieldsCommand(deviceId, beforeStates, afterStates, re
       });
       return { mutationMs };
     }
+  };
+}
+
+function matrixRoutingCommand(deviceId, beforeRoutes, afterRoutes) {
+  const id = String(deviceId || "");
+  const before = cloneMatrixRoutes(beforeRoutes);
+  const after = cloneMatrixRoutes(afterRoutes);
+  return {
+    type: "MatrixRoutingCommand",
+    affectedIds: [id],
+    undo: bridge => bridge.applyMatrixRoutes(id, before, { select: false }),
+    redo: bridge => bridge.applyMatrixRoutes(id, after, { select: false })
   };
 }
 

@@ -1,4 +1,9 @@
 import { isCanvasObjectKind, isLedSurfaceKind } from "./canvasObjectKinds.js";
+import {
+  matrixCrosspointKey,
+  matrixRouteDiagnosticsForDevice,
+  normalizeMatrixRoutesForDevice
+} from "./matrixRouting.js";
 
 export function validateEngineScene(scene, projectData = null) {
   const start = performance.now();
@@ -53,7 +58,14 @@ export function validateEngineScene(scene, projectData = null) {
     rackHiddenExternalWires: 0,
     rackBezierInternalWires: 0,
     rackConnectorHitTargetMismatches: 0,
-    rackInternalNonOrthogonalSegments: 0
+    rackInternalNonOrthogonalSegments: 0,
+    matrixDevices: 0,
+    matrixInputs: 0,
+    matrixOutputs: 0,
+    matrixCrosspoints: 0,
+    matrixAssignedRoutes: 0,
+    matrixInvalidRoutes: 0,
+    matrixRouteMismatches: 0
   };
 
   counts.duplicateObjectIds = checkDuplicates(sceneDevices.map(device => device.id), "object", errors);
@@ -71,6 +83,7 @@ export function validateEngineScene(scene, projectData = null) {
   validateSelection(scene, errors);
   validateRoutePointParity(sceneWires, productionConnections, root.wireMode === "orthogonal" ? "orthogonal" : "bezier", errors, warnings, counts);
   validateRackCanvasParity(scene, errors, counts);
+  validateMatrixRoutingParity(scene, productionDevices, errors, warnings, counts);
 
   const durationMs = performance.now() - start;
   return {
@@ -81,6 +94,52 @@ export function validateEngineScene(scene, projectData = null) {
     warnings,
     summary: `${errors.length ? "failed" : "passed"} in ${durationMs.toFixed(1)} ms`
   };
+}
+
+function validateMatrixRoutingParity(scene, productionDevices, errors, warnings, counts) {
+  const productionById = new Map((productionDevices || [])
+    .map(device => [String(device?.instanceId || device?.id || device?.deviceId || ""), device])
+    .filter(([id]) => id));
+  (Array.isArray(scene?.devices) ? scene.devices : [])
+    .filter(device => device?.visual?.isMatrixRouter)
+    .forEach(device => {
+      const diagnostics = matrixRouteDiagnosticsForDevice(device);
+      counts.matrixDevices += 1;
+      counts.matrixInputs += diagnostics.inputs;
+      counts.matrixOutputs += diagnostics.outputs;
+      counts.matrixCrosspoints += diagnostics.crosspoints;
+      counts.matrixAssignedRoutes += diagnostics.assignedRoutes;
+      counts.matrixInvalidRoutes += diagnostics.invalidRoutes;
+      if (diagnostics.invalidRoutes > 0) {
+        errors.push(`Matrix device ${device.sourceId || device.id} has ${diagnostics.invalidRoutes} invalid route reference(s).`);
+      }
+      const productionDevice = productionById.get(String(device.sourceId || device.id));
+      if (!productionDevice) return;
+      const productionRoutes = productionDevice.matrixRoutes && typeof productionDevice.matrixRoutes === "object" && !Array.isArray(productionDevice.matrixRoutes)
+        ? productionDevice.matrixRoutes
+        : {};
+      const normalizedProductionRoutes = normalizeMatrixRoutesForDevice(device, productionRoutes);
+      const sceneRoutes = normalizeMatrixRoutesForDevice(device, device.matrixRoutes);
+      const productionKeys = Object.keys(productionRoutes);
+      if (productionKeys.length !== Object.keys(normalizedProductionRoutes).length) {
+        const invalidCount = productionKeys.length - Object.keys(normalizedProductionRoutes).length;
+        counts.matrixInvalidRoutes += invalidCount;
+        warnings.push(`Production matrix device ${device.sourceId || device.id} has ${invalidCount} stale route reference(s) that Engine will ignore.`);
+      }
+      if (!routesEqual(sceneRoutes, normalizedProductionRoutes)) {
+        counts.matrixRouteMismatches += 1;
+        errors.push(`Matrix device ${device.sourceId || device.id} route state differs from production data.`);
+      }
+      const routeKeys = new Set();
+      Object.entries(sceneRoutes).forEach(([outputId, inputId]) => {
+        const routeKey = matrixCrosspointKey(device.sourceId || device.id, inputId, outputId);
+        if (routeKeys.has(routeKey)) {
+          counts.matrixRouteMismatches += 1;
+          errors.push(`Matrix device ${device.sourceId || device.id} has duplicate route key ${routeKey}.`);
+        }
+        routeKeys.add(routeKey);
+      });
+    });
 }
 
 function validateRackCanvasParity(scene, errors, counts) {
@@ -239,6 +298,16 @@ function checkDuplicates(ids, label, errors) {
     seen.add(id);
   });
   return duplicates;
+}
+
+function routesEqual(a, b) {
+  const left = a && typeof a === "object" && !Array.isArray(a) ? a : {};
+  const right = b && typeof b === "object" && !Array.isArray(b) ? b : {};
+  const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+  for (const key of keys) {
+    if (String(left[key] || "") !== String(right[key] || "")) return false;
+  }
+  return true;
 }
 
 function routePointsFromConnection(connection, wireMode = "bezier") {

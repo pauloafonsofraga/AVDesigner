@@ -3906,7 +3906,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 48.1 — Engine Editor — iteration48-1</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 49 — Engine Editor — iteration49</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -4612,8 +4612,8 @@
   </div>
 
   <script>
-    const APP_ITERATION = "48.2";
-    const APP_BUILD_ID = "iteration48-2";
+    const APP_ITERATION = "49";
+    const APP_BUILD_ID = "iteration49";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
     const DEBUG_LIBRARY_DRAG_ENABLED = INITIAL_URL_PARAMS.get("debugLibraryDrag") === "1";
@@ -83503,6 +83503,14 @@
       return parts.join(" / ");
     }
 
+    function matrixCrosspointKey(matrixDeviceId, inputConnectorId, outputConnectorId) {
+      return [
+        String(matrixDeviceId || ""),
+        String(inputConnectorId || ""),
+        String(outputConnectorId || "")
+      ].join("::");
+    }
+
     function matrixEndpointsForTemplate(template) {
       if (!template?.isMatrixRouter) return { inputs: [], outputs: [] };
       const connectors = effectiveTemplateConnectors(template)
@@ -83611,7 +83619,8 @@
                   <th title="${escapeAttr(output.name)}">${escapeHtml(output.name)}</th>
                   ${inputs.map(input => {
                     const active = routes[output.id] === input.id;
-                    return `<td><button class="matrix-cell${active ? " active" : ""}" type="button" title="${escapeAttr(`${output.name} from ${input.name}`)}" data-matrix-output="${escapeAttr(output.id)}" data-matrix-input="${escapeAttr(input.id)}">${active ? "Selected" : "Set"}</button></td>`;
+                    const routeKey = matrixCrosspointKey(instance.instanceId, input.id, output.id);
+                    return `<td><button class="matrix-cell${active ? " active" : ""}" type="button" title="${escapeAttr(`${output.name} from ${input.name}`)}" data-matrix-key="${escapeAttr(routeKey)}" data-matrix-output="${escapeAttr(output.id)}" data-matrix-input="${escapeAttr(input.id)}">${active ? "Selected" : "Set"}</button></td>`;
                   }).join("")}
                 </tr>
               `).join("")}
@@ -83647,12 +83656,20 @@
     function bindMatrixRoutingInspector(instance, root = inspectorBody, options = {}) {
       const rerender = () => {
         if (typeof options.rerender === "function") options.rerender();
+        else if (activeEngineBridge()) renderInspector();
         else render();
       };
       root.querySelectorAll("[data-matrix-output-select]").forEach(select => {
         select.addEventListener("change", event => {
           event.stopPropagation();
           const outputId = select.dataset.matrixOutputSelect;
+          const engineBridge = activeEngineBridge();
+          if (engineBridge) {
+            const changed = engineBridge.commitMatrixRoute?.(instance.instanceId, outputId, select.value || "", { toggle: false });
+            state.selected = { type: "device", id: instance.instanceId };
+            if (!changed) rerender();
+            return;
+          }
           pushUndo();
           const routes = ensureMatrixRoutes(instance);
           if (select.value) routes[outputId] = select.value;
@@ -83669,6 +83686,13 @@
           const outputId = button.dataset.matrixOutput;
           const inputId = button.dataset.matrixInput;
           if (!outputId || !inputId) return;
+          const engineBridge = activeEngineBridge();
+          if (engineBridge) {
+            const changed = engineBridge.commitMatrixRoute?.(instance.instanceId, outputId, inputId, { toggle: true });
+            state.selected = { type: "device", id: instance.instanceId };
+            if (!changed) rerender();
+            return;
+          }
           pushUndo();
           const routes = ensureMatrixRoutes(instance);
           if (routes[outputId] === inputId) delete routes[outputId];
@@ -83688,6 +83712,10 @@
 
     function renderMatrixRoutingModalBody() {
       if (!matrixRoutingModalBody) return;
+      const previousScrollTop = matrixRoutingModalBody.scrollTop || 0;
+      const active = document.activeElement;
+      const focusedMatrixOutput = active?.getAttribute?.("data-matrix-output-select") || "";
+      const focusedMatrixInput = active?.getAttribute?.("data-matrix-input") || "";
       const instance = instanceById(matrixRoutingModalDeviceId);
       const template = templateForInstance(instance);
       if (!instance || template?.isMatrixRouter !== true) {
@@ -83703,10 +83731,25 @@
       });
       bindMatrixRoutingInspector(instance, matrixRoutingModalBody, {
         rerender: () => {
-          render();
+          if (!activeEngineBridge()) render();
           renderMatrixRoutingModalBody();
         }
       });
+      activeEngineBridge()?.recordMatrixModalRender?.({
+        deviceId: instance.instanceId,
+        inputCount: inputs.length,
+        outputCount: outputs.length
+      });
+      matrixRoutingModalBody.scrollTop = previousScrollTop;
+      if (focusedMatrixOutput) {
+        [...matrixRoutingModalBody.querySelectorAll("[data-matrix-output-select]")]
+          .find(element => element.dataset.matrixOutputSelect === focusedMatrixOutput)
+          ?.focus?.();
+      } else if (focusedMatrixInput) {
+        [...matrixRoutingModalBody.querySelectorAll("[data-matrix-input]")]
+          .find(element => element.dataset.matrixInput === focusedMatrixInput)
+          ?.focus?.();
+      }
     }
 
     function openMatrixRoutingModal(instanceId) {
@@ -87678,6 +87721,9 @@ fit();
             onEngineCommit: ({ type, mutationStats }) => {
               renderCableLegend();
               renderInspector();
+              if (matrixRoutingModal && !matrixRoutingModal.classList.contains("hidden")) {
+                renderMatrixRoutingModalBody();
+              }
               updateUndoRedoButtons();
               setStatus(`Experimental engine committed: ${type}. ${statusSummary()}`);
               console.info("[engine-bridge] production data mutated", { type, mutationStats });

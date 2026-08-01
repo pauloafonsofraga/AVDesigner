@@ -1,5 +1,18 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
+Iteration 49 restores the Legacy Matrix Routing workflow in the Engine Editor.
+Matrix-capable devices still use the Legacy `template.isMatrixRouter` flag,
+eligible input/output ports are derived from the shared connector eligibility
+rules, and routes remain serialized as
+`instance.matrixRoutes = { [outputConnectorId]: inputConnectorId }`. The DOM
+Matrix Routing modal is intentionally retained, but in Engine mode its select
+menus and crosspoint cells dispatch `MatrixRoutingCommand`s through the Engine
+bridge. A matrix edit updates production data, undo/redo state, the inspector,
+and the open modal without rebuilding device textures or project wires. Use
+`debugMatrix=1` with the Engine HUD to inspect matrix device ID, route counts,
+invalid routes, modal render count, last command, and the full-scene rebuild
+guardrail.
+
 Iteration 48.2 restores the placed-rack exposed-port contract. Rack child
 connectors on the main canvas are visible, clickable, and hit-testable only
 when they are explicitly exposed rack ports; hidden child connectors are
@@ -150,11 +163,11 @@ PDF and report drawing paths are deliberately unchanged.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags.
 
-Current visible build label: `Iteration 48.2`.
+Current visible build label: `Iteration 49`.
 The app top bar must show one of these labels:
 
-- `Iteration 48.2 — Engine Editor — iteration48-2`
-- `Iteration 48.2 — Legacy Editor — iteration48-2`
+- `Iteration 49 — Engine Editor — iteration49`
+- `Iteration 49 — Legacy Editor — iteration49`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -163,47 +176,49 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration48-2`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration48-2`.
+   `index.html?v=iteration49`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration49`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration48-2`.
+   `index.html?engineDefaultTest=1&v=iteration49`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration48-2`.
+   `index.html?legacy=1&v=iteration49`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration48-2`.
+   `index.html?engine=0&v=iteration49`.
 7. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration48-2`.
+   `index.html?engine=1&debugLoad=1&v=iteration49`.
 8. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration48-2`.
+   `index.html?engine=1&loadDelay=1500&v=iteration49`.
 9. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration48-2`.
+   `index.html?engine=1&debugHud=1&v=iteration49`.
 9a. Open the device visual diagnostic HUD/layer view:
-   `index.html?engine=1&debugDeviceVisual=1&v=iteration48-2`.
+   `index.html?engine=1&debugDeviceVisual=1&v=iteration49`.
 9b. Open the Power Distro diagnostic HUD:
-   `index.html?engine=1&debugHud=1&debugPowerDistro=1&v=iteration48-2`.
+   `index.html?engine=1&debugHud=1&debugPowerDistro=1&v=iteration49`.
 9c. Open the Rack Builder diagnostic HUD:
-   `index.html?engine=1&debugHud=1&debugRackBuilder=1&v=iteration48-2`.
+   `index.html?engine=1&debugHud=1&debugRackBuilder=1&v=iteration49`.
+9d. Open the Matrix Routing diagnostic HUD:
+   `index.html?engine=1&debugHud=1&debugMatrix=1&v=iteration49`.
 10. Open the Device Library drag/drop debug overlay:
-   `index.html?debugLibraryDrag=1&v=iteration48-2`.
+   `index.html?debugLibraryDrag=1&v=iteration49`.
 11. Open the explicit Engine drag/drop debug overlay:
-   `index.html?engine=1&debugLibraryDrag=1&v=iteration48-2`.
+   `index.html?engine=1&debugLibraryDrag=1&v=iteration49`.
 12. Open the Legacy drag/drop debug overlay:
-   `index.html?legacy=1&debugLibraryDrag=1&v=iteration48-2`.
+   `index.html?legacy=1&debugLibraryDrag=1&v=iteration49`.
 13. Open compatibility diagnostics while drawing wires:
-    `index.html?engine=1&debugCompatibility=1&v=iteration48-2`.
+    `index.html?engine=1&debugCompatibility=1&v=iteration49`.
 14. Open routing diagnostics while selecting or editing orthogonal wires:
-    `index.html?engine=1&debugHud=1&debugRouting=1&v=iteration48-2`.
+    `index.html?engine=1&debugHud=1&debugRouting=1&v=iteration49`.
 15. Open endpoint-rewire diagnostics:
-    `index.html?engine=1&debugRewire=1&debugRouting=1&v=iteration48-2`.
+    `index.html?engine=1&debugRewire=1&debugRouting=1&v=iteration49`.
 15a. Open the Project Custom identity overlay:
-    `index.html?engine=1&debugCustomIdentity=1&v=iteration48-2`.
+    `index.html?engine=1&debugCustomIdentity=1&v=iteration49`.
 16. Confirm the top bar build label matches the mode you intended to test.
-16. Switch from engine to legacy with the toolbar mode switch; switch back by
+17. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.
 
 ## Iteration 48.2 Rack Builder Checks
 
-1. Open `index.html?engine=1&debugHud=1&debugRackBuilder=1&v=iteration48-2`.
+1. Open `index.html?engine=1&debugHud=1&debugRackBuilder=1&v=iteration49`.
 2. Open Rack Builder, create or select a rack, add devices, add internal
    connections, and place the rack on the main canvas.
 3. Click any placed child device; the whole placed rack should select as one
@@ -222,7 +237,25 @@ Git commit as the final source of truth when reviewing a pushed change.
 9. Delete a placed rack, undo, and redo. The source Rack Builder definition
    must remain, and undo must restore the same rack ID, child device IDs, and
    external wire routes.
-17. Disable engine temporarily by using `legacy=1` or `engine=0`.
+10. Disable engine temporarily by using `legacy=1` or `engine=0`.
+
+## Iteration 49 Matrix Routing Checks
+
+1. Open `index.html?engine=1&debugHud=1&debugMatrix=1&v=iteration49`.
+2. Load or place a device whose template has `isMatrixRouter: true`, such as an
+   E2-style matrix/router device.
+3. Right-click the device and choose **Edit Matrix Routing**.
+4. Change an output select and click a crosspoint cell. The active cell should
+   switch immediately, the modal should keep its scroll/focus, and the HUD
+   `matrix full rebuilds` metric should remain `0`.
+5. Undo and redo with the modal still open. The grid and route table should
+   update immediately and the viewport should not move.
+6. Save, reload, and reopen Matrix Routing. Routes should persist by connector
+   IDs, and connector renames should only change labels.
+7. Open `index.html?legacy=1&v=iteration49` with the same saved file and confirm
+   the Legacy modal reads the same `matrixRoutes`.
+8. Confirm no normal canvas wires are created by matrix route changes.
+9. Disable engine temporarily by using `legacy=1` or `engine=0`.
 
 ## Iteration 42.4 Workflow Checks
 

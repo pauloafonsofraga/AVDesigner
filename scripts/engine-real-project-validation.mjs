@@ -14,6 +14,12 @@ import { wirePathStatsForWires } from "../src/engine/wirePath.js";
 import { engineCompatibilitySummary } from "../src/engine/connectorCompatibility.js";
 import { adapterMappingForDevice } from "../src/engine/adapterMapping.js";
 import { powerPlugAssetsForDevice } from "../src/engine/powerDistroModel.js";
+import {
+  matrixEndpointsForEngineDevice,
+  matrixRoutesEqual as routesEqual,
+  normalizeMatrixRoutesForDevice,
+  setMatrixRouteForDevice
+} from "../src/engine/matrixRouting.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturePath = path.resolve(__dirname, "../fixtures/engine-parity-project.avd");
@@ -107,12 +113,14 @@ runCommandCycle(initialHarness, buildCreateDeviceCommand(initialHarness));
 runCommandCycle(initialHarness, buildCreateWireCommand(initialHarness));
 runCommandCycle(initialHarness, buildDeleteWireCommand(initialHarness));
 runCommandCycle(initialHarness, buildDeleteDeviceCommand(initialHarness));
+runCommandCycle(initialHarness, buildMatrixRoutingCommand(initialHarness));
 
 const longChainHarness = time("long-chain harness build", () => createHarness(rawText, `${projectPath} long-chain`));
 const longChain = runLongUndoRedoChain(longChainHarness);
 const customDeviceFixture = validateProjectCustomDeviceFixture();
 const adapterBreakoutFixture = validateAdapterBreakoutFixture();
 const powerDistroFixture = validatePowerDistroFixture();
+const matrixRoutingFixture = validateMatrixRoutingFixture();
 
 const finalValidation = validateAndRoundTrip(initialHarness, "final");
 check("final engine scene validates", () => {
@@ -145,6 +153,7 @@ const summary = {
   customDeviceFixture,
   adapterBreakoutFixture,
   powerDistroFixture,
+  matrixRoutingFixture,
   standaloneViewerSource,
   timingsMs: Object.fromEntries(Object.entries(timings).map(([key, value]) => [key, round(value)])),
   checks,
@@ -154,7 +163,8 @@ const summary = {
     routePointUnder100ms: commandUnder("route point move", 100),
     createWireUnder100ms: commandUnder("create wire", 100),
     deleteWireUnder100ms: commandUnder("delete wire", 100),
-    deleteDeviceUnder300ms: commandUnder("delete device", 300)
+    deleteDeviceUnder300ms: commandUnder("delete device", 300),
+    matrixRoutingUnder100ms: commandUnder("matrix routing", 100)
   }
 };
 
@@ -568,6 +578,36 @@ function buildDeleteDeviceCommand(harness) {
   };
 }
 
+function buildMatrixRoutingCommand(harness) {
+  const device = harness.scene.devices.find(item => item.visual?.isMatrixRouter);
+  if (!device) return skippedCommand("matrix routing", "no matrix-capable device");
+  const endpoints = matrixEndpointsForEngineDevice(device);
+  if (!endpoints.inputs.length || !endpoints.outputs.length) return skippedCommand("matrix routing", "matrix device has no eligible input/output pair");
+  const sourceId = String(device.sourceId || device.id);
+  const outputId = endpoints.outputs[0].id;
+  const current = normalizeMatrixRoutesForDevice(device, device.matrixRoutes);
+  const replacementInput = endpoints.inputs.find(input => current[outputId] !== input.id) || endpoints.inputs[0];
+  const beforeRoutes = { ...current };
+  let afterRoutes = setMatrixRouteForDevice({ ...device, matrixRoutes: beforeRoutes }, outputId, replacementInput.id);
+  if (routesEqual(beforeRoutes, afterRoutes)) {
+    afterRoutes = setMatrixRouteForDevice({ ...device, matrixRoutes: beforeRoutes }, outputId, "", { toggle: false });
+  }
+  if (routesEqual(beforeRoutes, afterRoutes)) return skippedCommand("matrix routing", "route state already matches only possible change");
+  return {
+    name: "matrix routing",
+    tested: true,
+    affectedIds: [device.id],
+    execute: () => applyMatrixRoutes(harness, sourceId, afterRoutes),
+    undo: () => applyMatrixRoutes(harness, sourceId, beforeRoutes),
+    redo: () => applyMatrixRoutes(harness, sourceId, afterRoutes),
+    assertExecute: (before, after) => {
+      assert.notDeepEqual(after.matrixRoutes.get(device.id), before.matrixRoutes.get(device.id), "matrix routing: route state did not change");
+      assertUnrelatedDevicesUnchanged(before, after, new Set(), "matrix routing");
+      assertUnrelatedWiresUnchanged(before, after, new Set(), "matrix routing");
+    }
+  };
+}
+
 function restoreValidationDevice(harness, deviceData, index) {
   const normalized = normalizeAvDesignerDevice(harness.mutations.project, deviceData, index);
   const mutation = harness.mutations.restoreDeviceInstance(deviceData, index);
@@ -609,8 +649,21 @@ function applyRoutePoints(harness, wireId, points = []) {
   return { mutationMs, wireId };
 }
 
+function applyMatrixRoutes(harness, deviceId, routes = {}) {
+  const device = harness.scene.getDevice(deviceId)
+    || harness.scene.devices.find(item => String(item.sourceId || item.id) === String(deviceId || ""));
+  assert.ok(device, `missing matrix device ${deviceId}`);
+  const normalized = normalizeMatrixRoutesForDevice(device, routes);
+  device.matrixRoutes = normalized;
+  const mutationMs = harness.mutations.updateMatrixRoutes(device.sourceId || device.id, normalized);
+  return { mutationMs, routes: normalized };
+}
+
 function snapshotState(harness) {
   const root = projectRoot(harness.mutations.project);
+  const matrixDevicesBySourceId = new Map(harness.scene.devices
+    .filter(device => device.visual?.isMatrixRouter)
+    .map(device => [String(device.sourceId || device.id), device]));
   return {
     devices: new Map(harness.scene.devices.map(device => [
       device.id,
@@ -623,6 +676,21 @@ function snapshotState(harness) {
     ])),
     wires: new Map(harness.scene.wires.map(wire => [wire.id, snapshotWire(wire)])),
     productionConnections: new Map((root.connections || []).map(connection => [String(connection.id), stableClone(connection)])),
+    matrixRoutes: new Map(harness.scene.devices
+      .filter(device => device.visual?.isMatrixRouter)
+      .map(device => [device.id, normalizeMatrixRoutesForDevice(device, device.matrixRoutes)])),
+    productionMatrixRoutes: new Map((root.devices || [])
+      .filter(device => device.matrixRoutes && typeof device.matrixRoutes === "object")
+      .map(device => {
+        const id = String(device.instanceId || device.id || device.deviceId || "");
+        const engineDevice = matrixDevicesBySourceId.get(id);
+        return [
+          id,
+          engineDevice
+            ? normalizeMatrixRoutesForDevice(engineDevice, device.matrixRoutes)
+            : stableClone(device.matrixRoutes)
+        ];
+      })),
     counts: {
       devices: harness.scene.devices.length,
       wires: harness.scene.wires.length,
@@ -650,6 +718,8 @@ function assertSnapshotsEqual(actual, expected, label) {
   assert.deepEqual(actual.devices, expected.devices, `${label}: device snapshot mismatch`);
   assert.deepEqual(actual.wires, expected.wires, `${label}: wire snapshot mismatch`);
   assert.deepEqual(actual.productionConnections, expected.productionConnections, `${label}: production connection snapshot mismatch`);
+  assert.deepEqual(actual.matrixRoutes, expected.matrixRoutes, `${label}: matrix route snapshot mismatch`);
+  assert.deepEqual(actual.productionMatrixRoutes, expected.productionMatrixRoutes, `${label}: production matrix route snapshot mismatch`);
   assert.deepEqual(actual.counts, expected.counts, `${label}: count snapshot mismatch`);
 }
 
@@ -1136,6 +1206,172 @@ function validatePowerDistroFixture() {
   };
 }
 
+function validateMatrixRoutingFixture() {
+  const template = {
+    id: "matrix-routing-validation",
+    name: "Validation Matrix",
+    brand: "Video Core",
+    model: "Matrix Routing Fixture",
+    category: "Matrixes",
+    isMatrixRouter: true,
+    width: 320,
+    height: 220,
+    connectors: [
+      {
+        id: "hdmi-in-1",
+        type: "hdmi",
+        direction: "input",
+        side: "left",
+        x: 0,
+        y: 56,
+        label: "HDMI",
+        nameText: "IN 1",
+        includeInMatrix: true
+      },
+      {
+        id: "hdmi-in-2",
+        type: "hdmi",
+        direction: "input",
+        side: "left",
+        x: 0,
+        y: 96,
+        label: "HDMI",
+        nameText: "IN 2",
+        includeInMatrix: true
+      },
+      {
+        id: "lan",
+        type: "cat6",
+        direction: "input",
+        side: "left",
+        x: 0,
+        y: 144,
+        label: "LAN",
+        nameText: "LAN"
+      },
+      {
+        id: "hdmi-out-1",
+        type: "hdmi",
+        direction: "output",
+        side: "right",
+        x: 320,
+        y: 56,
+        label: "HDMI",
+        nameText: "OUT 1",
+        includeInMatrix: true
+      },
+      {
+        id: "hdmi-out-2",
+        type: "hdmi",
+        direction: "output",
+        side: "right",
+        x: 320,
+        y: 96,
+        label: "HDMI",
+        nameText: "OUT 2",
+        includeInMatrix: true
+      }
+    ]
+  };
+  const project = {
+    version: 1,
+    projectName: "Matrix Routing Fixture",
+    deviceLibrary: [stableClone(template)],
+    devices: [
+      {
+        instanceId: "matrix-routing-a",
+        templateId: template.id,
+        x: 40,
+        y: 60,
+        name: "Validation Matrix A",
+        matrixRoutes: {
+          "hdmi-out-1": "hdmi-in-1",
+          "missing-output": "hdmi-in-1"
+        }
+      },
+      {
+        instanceId: "matrix-routing-b",
+        templateId: template.id,
+        x: 440,
+        y: 60,
+        name: "Validation Matrix B",
+        matrixRoutes: {
+          "hdmi-out-2": "hdmi-in-2"
+        }
+      }
+    ],
+    connections: []
+  };
+  const harness = time("matrix routing fixture harness build", () => createHarness(JSON.stringify(project), "matrix routing fixture"));
+  const root = projectRoot(harness.mutations.project);
+  const deviceA = harness.scene.getDevice("matrix-routing-a");
+  const deviceB = harness.scene.getDevice("matrix-routing-b");
+  const endpoints = matrixEndpointsForEngineDevice(deviceA);
+
+  check("matrix routing fixture detects matrix-capable device", () => {
+    assert.ok(deviceA, "expected first matrix device");
+    assert.ok(deviceB, "expected second matrix device");
+    assert.equal(deviceA.visual.isMatrixRouter, true);
+  });
+  check("matrix routing fixture enumerates only eligible matrix ports", () => {
+    assert.deepEqual(endpoints.inputs.map(input => input.id), ["hdmi-in-1", "hdmi-in-2"]);
+    assert.deepEqual(endpoints.outputs.map(output => output.id), ["hdmi-out-1", "hdmi-out-2"]);
+    assert.equal(endpoints.inputs.some(input => input.id === "lan"), false);
+  });
+  check("matrix routing fixture normalizes invalid route references", () => {
+    assert.deepEqual(normalizeMatrixRoutesForDevice(deviceA, deviceA.matrixRoutes), {
+      "hdmi-out-1": "hdmi-in-1"
+    });
+  });
+
+  const sharedInputRoutes = setMatrixRouteForDevice(deviceA, "hdmi-out-2", "hdmi-in-1");
+  check("matrix routing fixture allows one input to feed multiple outputs", () => {
+    assert.deepEqual(sharedInputRoutes, {
+      "hdmi-out-1": "hdmi-in-1",
+      "hdmi-out-2": "hdmi-in-1"
+    });
+  });
+  const replacedRoutes = setMatrixRouteForDevice({ ...deviceA, matrixRoutes: sharedInputRoutes }, "hdmi-out-1", "hdmi-in-2");
+  check("matrix routing fixture replaces the route for one output", () => {
+    assert.deepEqual(replacedRoutes, {
+      "hdmi-out-1": "hdmi-in-2",
+      "hdmi-out-2": "hdmi-in-1"
+    });
+  });
+  const toggledRoutes = setMatrixRouteForDevice({ ...deviceA, matrixRoutes: replacedRoutes }, "hdmi-out-1", "hdmi-in-2", { toggle: true });
+  check("matrix routing fixture toggles an active crosspoint off", () => {
+    assert.deepEqual(toggledRoutes, {
+      "hdmi-out-2": "hdmi-in-1"
+    });
+  });
+
+  applyMatrixRoutes(harness, deviceA.sourceId || deviceA.id, replacedRoutes);
+  const refreshedDeviceA = harness.scene.getDevice("matrix-routing-a");
+  const refreshedDeviceB = harness.scene.getDevice("matrix-routing-b");
+  check("matrix routing fixture writes routes through to production data", () => {
+    const productionDeviceA = root.devices.find(item => item.instanceId === "matrix-routing-a");
+    assert.deepEqual(productionDeviceA.matrixRoutes, replacedRoutes);
+    assert.deepEqual(refreshedDeviceA.matrixRoutes, replacedRoutes);
+  });
+  check("matrix routing fixture keeps multiple matrix devices independent", () => {
+    assert.deepEqual(refreshedDeviceB.matrixRoutes, {
+      "hdmi-out-2": "hdmi-in-2"
+    });
+  });
+  runCommandCycle(harness, buildMatrixRoutingCommand(harness));
+  validateAndRoundTrip(harness, "matrix routing fixture");
+
+  return {
+    templateId: template.id,
+    matrixDevices: 2,
+    inputs: endpoints.inputs.length,
+    outputs: endpoints.outputs.length,
+    crosspoints: endpoints.inputs.length * endpoints.outputs.length,
+    assignedRoutes: Object.keys(refreshedDeviceA.matrixRoutes).length,
+    independentRouteCount: Object.keys(refreshedDeviceB.matrixRoutes).length
+  };
+}
+
 function validateStandaloneViewerSource() {
   const indexPath = path.resolve(__dirname, "../index.html");
   const source = time("standalone viewer source read", () => fs.readFileSync(indexPath, "utf8"));
@@ -1452,7 +1688,7 @@ function validationSummary(label, result) {
 }
 
 function commandUnder(name, maxMs) {
-  const result = commandResults.find(item => item.name === name);
+  const result = commandResults.find(item => item.name === name && item.tested);
   if (!result?.tested) return false;
   return Math.max(result.timings.execute || 0, result.timings.undo || 0, result.timings.redo || 0) <= maxMs;
 }
