@@ -4,9 +4,32 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 49`
+- Current build label: `Iteration 50`
 - Scope: interface and visual fidelity only. Functional wire parity is tracked in
   [`docs/legacy-functional-parity.md`](legacy-functional-parity.md).
+
+Iteration 50 treats the editor shell as a stable DOM layer wrapped around the
+Engine canvas. The Engine does not own normal menus, side panels, toolbar
+buttons, file pickers, or modal layout. Instead, shell actions now flow through
+a small `editorActions` facade where practical, and `debugShell=1` exposes the
+active tool, focus, open modal/menu/context/tooltip, side-panel dimensions,
+active tabs, canvas CSS/buffer size, DPR/zoom, grid/snap, dirty/history state,
+last action, shortcut, panel action, and shell-triggered full-scene rebuild
+count. The expected shell-triggered full-scene rebuild count is `0`.
+
+## Iteration 50 Editor Shell Parity Inventory
+
+| Shell area | Legacy source of truth | Engine Editor expectation | Diagnostics |
+| --- | --- | --- | --- |
+| Top toolbar | DOM toolbar in `index.html` | Buttons remain DOM controls; canvas-mutating actions route through Engine where already supported. | `debugShell=1` reports last editor action and shortcut. |
+| Zoom controls | DOM buttons/readout | Compact zoom controls update the active canvas view without rebuilding shell or device textures. | Shell panel reports zoom, canvas CSS size, and buffer size. |
+| Grid/snap/wire/hop toggles | Project UI state | Toggles preserve current project state and update Engine render state through existing bridge paths. | Shell panel reports grid/snap; HUD reports shell action. |
+| Left Device Library tree/list | DOM list and resize handles | Search, category expand/collapse, custom devices, and library drag/drop remain DOM-owned. | Shell panel reports selected library category and left widths. |
+| Right Inspector | DOM inspector | Engine selection continues to hydrate the existing inspector; editor shell does not replace it. | Shell panel reports right width and focused element. |
+| Device/Node/Rack editors | DOM modals | Existing modal workflows remain source of truth; Engine receives committed project mutations only. | Shell panel reports active modal and editor tab. |
+| Menus/tooltips | DOM context menus/tooltips | Escape closes visible menus/modals; Engine context hits still delegate to Legacy menus. | Shell panel reports open menu/context/tooltip. |
+| Keyboard shortcuts | Existing global key handler | Undo/redo/delete/copy/paste preserve Engine command routing in Engine mode and Legacy behavior in Legacy mode. | Shell panel reports last shortcut. |
+| Responsive shell layout | Existing CSS panes/modals | Side panel resize/collapse and modal stacking must not force an Engine full-scene rebuild. | Shell rebuild counter should remain `0`. |
 
 Iteration 49 restores the Legacy Matrix Routing modal as a DOM interface while
 moving crosspoint state and mutations into the Engine command/write-through

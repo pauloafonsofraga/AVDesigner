@@ -161,6 +161,8 @@ class ProductionEngineBridge {
     this.debugCanvasObjects = engineCanvasObjectsDebugEnabled();
     this.debugRackBuilder = engineRackBuilderDebugEnabled();
     this.debugMatrix = engineMatrixDebugEnabled();
+    this.debugShell = engineShellDebugEnabled();
+    this.shellDiagnostics = {};
     this.orthogonalTest = engineOrthogonalTestEnabled();
     this.lastCompatibilityTargetKey = "";
     this.matrixModalRenderCount = 0;
@@ -270,6 +272,28 @@ class ProductionEngineBridge {
 
   setDiagnosticMetric(name, value) {
     this.hud?.setMetric(name, value);
+  }
+
+  recordShellDiagnostic(snapshot = {}) {
+    this.shellDiagnostics = { ...this.shellDiagnostics, ...snapshot };
+    if (!this.debugShell && !engineDebugHudEnabled()) return;
+    const overlays = `modal ${snapshot.openModal || "-"} / menu ${snapshot.openMenu || "-"} / ctx ${snapshot.openContextMenu || "-"} / tip ${snapshot.visibleTooltip || "-"}`;
+    const panels = `L ${snapshot.leftWidth || "-"}${snapshot.leftCollapsed ? " collapsed" : ""} / R ${snapshot.rightWidth || "-"}${snapshot.rightCollapsed ? " collapsed" : ""}`;
+    this.hud?.setMetric("shell active tool", snapshot.activeTool || "-");
+    this.hud?.setMetric("shell focus", snapshot.focusedElement || "-");
+    this.hud?.setMetric("shell overlays", overlays);
+    this.hud?.setMetric("shell panels", panels);
+    this.hud?.setMetric("shell tabs", Array.isArray(snapshot.activeTabs) ? snapshot.activeTabs.join(" / ") : snapshot.activeTabs || "-");
+    this.hud?.setMetric("shell canvas", `${snapshot.canvasCssSize || "-"} / ${snapshot.canvasBufferSize || "-"}`);
+    this.hud?.setMetric("shell dpr / zoom", `${snapshot.dpr || "-"} / ${snapshot.zoom || "-"}`);
+    this.hud?.setMetric("shell grid / snap", `${snapshot.grid ? "grid" : "no-grid"} / ${snapshot.snap ? "snap" : "no-snap"}`);
+    this.hud?.setMetric("shell dirty", snapshot.dirty ? "yes" : "no");
+    this.hud?.setMetric("shell history", `undo ${snapshot.undo ? "yes" : "no"} / redo ${snapshot.redo ? "yes" : "no"}`);
+    this.hud?.setMetric("shell resize count", snapshot.resizeCount ?? "-");
+    this.hud?.setMetric("shell full rebuilds", snapshot.fullSceneRebuildsFromShell ?? "-");
+    this.hud?.setMetric("shell last action", snapshot.lastAction || "-");
+    this.hud?.setMetric("shell shortcut", snapshot.lastKeyboardShortcut || "-");
+    this.hud?.setMetric("shell panel action", snapshot.lastPanelAction || "-");
   }
 
   emitLibraryDragDiagnostic(step, details = {}) {
@@ -5347,6 +5371,7 @@ function engineLayerDebugShowProductionSvg() {
 function engineDebugHudEnabled() {
   const params = new URLSearchParams(window.location.search);
   return params.get("debugHud") === "1"
+    || params.get("debugShell") === "1"
     || params.get("debugLayers") === "1"
     || params.get("debugDeviceVisual") === "1"
     || params.get("debugDeviceTexture") === "1"
@@ -5356,6 +5381,10 @@ function engineDebugHudEnabled() {
     || params.get("debugCanvasObjects") === "1"
     || params.get("debugRackBuilder") === "1"
     || params.get("orthogonalTest") === "1";
+}
+
+function engineShellDebugEnabled() {
+  return new URLSearchParams(window.location.search).get("debugShell") === "1";
 }
 
 function engineDeviceTextureDebugEnabled() {

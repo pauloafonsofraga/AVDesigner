@@ -4,7 +4,15 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 49`
+- Current build label: `Iteration 50`
+
+Iteration 50 is a shell-layer parity pass. Toolbar state, side-panel widths,
+active editor tabs, open menus/modals, focus, and diagnostic HUD state are
+editor runtime state only; they are not new project save data and should not
+change `.avd` or JSON project compatibility. Canvas-mutating toolbar and
+shortcut actions continue to call existing Engine/Legacy command paths, while
+`debugShell=1` verifies shell interactions do not cause full Engine scene
+rebuilds.
 
 Iteration 49 restores Matrix Routing as an Engine-owned logical state path.
 Legacy marks matrix-capable templates with `isMatrixRouter`, enumerates eligible

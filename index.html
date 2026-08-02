@@ -2043,6 +2043,7 @@
     }
 
     .library-drag-debug-panel,
+    .shell-debug-panel,
     .custom-identity-debug-panel {
       position: fixed;
       right: 14px;
@@ -2059,6 +2060,18 @@
       box-shadow: 0 18px 60px rgba(0, 0, 0, .45);
       font-size: 11px;
       pointer-events: auto;
+    }
+
+    .shell-debug-panel {
+      left: 14px;
+      right: auto;
+      width: min(500px, calc(100vw - 28px));
+      max-height: min(58vh, 680px);
+      border-color: rgba(255, 121, 4, .72);
+    }
+
+    .shell-debug-panel.minimized .shell-debug-grid {
+      display: none;
     }
 
     .custom-identity-debug-panel {
@@ -2085,6 +2098,7 @@
     }
 
     .library-drag-debug-panel h2,
+    .shell-debug-panel h2,
     .custom-identity-debug-panel h2 {
       margin: 0 0 8px;
       font-size: 12px;
@@ -2093,7 +2107,12 @@
       color: #32b6ff;
     }
 
+    .shell-debug-panel h2 {
+      color: #fb7904;
+    }
+
     .library-drag-debug-actions,
+    .shell-debug-actions,
     .custom-identity-debug-actions {
       display: flex;
       justify-content: space-between;
@@ -2111,6 +2130,7 @@
     }
 
     .library-drag-debug-actions button,
+    .shell-debug-actions button,
     .custom-identity-debug-actions button {
       border: 1px solid rgba(50, 182, 255, .52);
       border-radius: 7px;
@@ -2122,7 +2142,13 @@
       cursor: pointer;
     }
 
+    .shell-debug-actions button {
+      border-color: rgba(255, 121, 4, .52);
+      background: rgba(255, 121, 4, .16);
+    }
+
     .library-drag-debug-grid,
+    .shell-debug-grid,
     .custom-identity-debug-grid {
       display: grid;
       grid-template-columns: minmax(132px, .9fr) minmax(0, 1fr);
@@ -2154,12 +2180,14 @@
       text-transform: uppercase;
     }
 
-    .library-drag-debug-label {
+    .library-drag-debug-label,
+    .shell-debug-label {
       color: #9fb0c3;
       font-weight: 800;
     }
 
-    .library-drag-debug-value {
+    .library-drag-debug-value,
+    .shell-debug-value {
       color: #f8fbff;
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       overflow-wrap: anywhere;
@@ -3906,7 +3934,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 49 — Engine Editor — iteration49</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 50 — Engine Editor — iteration50</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -4612,13 +4640,14 @@
   </div>
 
   <script>
-    const APP_ITERATION = "49";
-    const APP_BUILD_ID = "iteration49";
+    const APP_ITERATION = "50";
+    const APP_BUILD_ID = "iteration50";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
     const DEBUG_LIBRARY_DRAG_ENABLED = INITIAL_URL_PARAMS.get("debugLibraryDrag") === "1";
     const DEBUG_CUSTOM_DEVICES_ENABLED = INITIAL_URL_PARAMS.get("debugCustomDevices") === "1";
     const DEBUG_CUSTOM_IDENTITY_ENABLED = INITIAL_URL_PARAMS.get("debugCustomIdentity") === "1";
+    const DEBUG_SHELL_ENABLED = INITIAL_URL_PARAMS.get("debugShell") === "1";
     const SVG_NS = "http://www.w3.org/2000/svg";
     const DEVICE_WIDTH = 380;
     const ADAPTER_WIDTH = 190;
@@ -63546,6 +63575,24 @@
       lastCopyDiagnostic: null,
       lastSelectedSnapshot: null
     };
+    const shellDebug = {
+      overlay: null,
+      grid: null,
+      minimizeButton: null,
+      minimized: false,
+      updateFrame: null,
+      resizeObserver: null,
+      resizeCount: 0,
+      listenerCount: 0,
+      fullSceneRebuildsFromShell: 0,
+      lastAction: "-",
+      lastKeyboardShortcut: "-",
+      lastPanelAction: "-",
+      lastFocusedElement: "-",
+      lastPointerTarget: "-",
+      lastStatus: "-",
+      snapshot: null
+    };
     let selectedDeviceType = "";
     let deviceTypeOpenGroups = new Set(DEVICE_TYPE_TREE.filter(group => !group.leaf).map(group => group.group));
     let panState = null;
@@ -65060,10 +65107,12 @@
       if (engineBridge) {
         if (undo) undo.disabled = !engineBridge.canUndoEngineCommand?.();
         if (redo) redo.disabled = !engineBridge.canRedoEngineCommand?.();
+        updateShellDebug({ lastPanelAction: "undo/redo state" });
         return;
       }
       if (undo) undo.disabled = undoStack.length === 0;
       if (redo) redo.disabled = redoStack.length === 0;
+      updateShellDebug({ lastPanelAction: "undo/redo state" });
     }
 
     function getCanvasPoint(evt) {
@@ -65343,6 +65392,355 @@
         }
       }
       return String(value ?? "-");
+    }
+
+    function shellDebugEnabled() {
+      return DEBUG_SHELL_ENABLED;
+    }
+
+    function shellDebugYesNo(value) {
+      if (value === true) return "yes";
+      if (value === false) return "no";
+      return "-";
+    }
+
+    function shellDebugBoolClass(value) {
+      if (value === true) return "good";
+      if (value === false) return "bad";
+      return "";
+    }
+
+    function formatShellDebugValue(value) {
+      if (Array.isArray(value)) return value.length ? value.join(", ") : "-";
+      if (value && typeof value === "object") {
+        try {
+          return JSON.stringify(value);
+        } catch (error) {
+          return String(value);
+        }
+      }
+      return String(value ?? "-");
+    }
+
+    function shellElementLabel(element) {
+      if (!element) return "-";
+      const id = element.id ? `#${element.id}` : "";
+      const dataLabel = element.dataset?.editorTab || element.dataset?.deviceType || element.dataset?.action || element.dataset?.nodeType || "";
+      const aria = element.getAttribute?.("aria-label") || element.getAttribute?.("title") || "";
+      const text = (element.innerText || element.textContent || "").trim().replace(/\s+/g, " ").slice(0, 60);
+      return `${element.tagName?.toLowerCase?.() || "node"}${id}${dataLabel ? ` [${dataLabel}]` : ""}${aria ? ` ${aria}` : text ? ` ${text}` : ""}`.trim();
+    }
+
+    function isShellElementVisible(element) {
+      if (!element) return false;
+      if (element.classList?.contains("hidden")) return false;
+      if (element.hidden) return false;
+      const style = element.style || {};
+      if (style.display === "none" || style.visibility === "hidden") return false;
+      return true;
+    }
+
+    function firstVisibleShellElement(items) {
+      for (const item of items) {
+        const element = typeof item.selector === "string" ? document.querySelector(item.selector) : item.element;
+        if (isShellElementVisible(element)) return item.label;
+      }
+      return "-";
+    }
+
+    function currentShellModeLabel() {
+      const engineBridge = activeEngineBridge();
+      if (engineBridge) return ENGINE_DEFAULT_TEST_ENABLED ? "Engine Default Test" : "Engine Editor";
+      return "Legacy Editor";
+    }
+
+    function currentShellActiveTool() {
+      if (connectState) return "Wire connect";
+      if (commentToolActive) return "Comment";
+      if (areaToolActive) return "Area";
+      if (jumpNodeToolActive) return "Jump node";
+      if (panState?.active) return "Pan";
+      if (libraryResizeDrag) return "Resize left panel";
+      if (deviceTreeResizeDrag) return "Resize device tree";
+      if (libraryDrag?.active) return "Library drag";
+      if (rackLibraryDrag?.active) return "Rack library drag";
+      if (editorNodeDrag?.active) return "Device editor node drag";
+      if (editorPowerPlugDrag?.active) return "PD plug drag";
+      if (rackBuilderPreviewPanState?.active) return "Rack preview pan";
+      if (rackBuilderConnectState) return "Rack wire connect";
+      if (matrixRoutingModalDeviceId) return "Matrix routing";
+      if (state.selected?.type) return `Select: ${state.selected.type}`;
+      return "Select";
+    }
+
+    function openShellModalSummary() {
+      return firstVisibleShellElement([
+        { label: "Device Editor", element: deviceEditorModal },
+        { label: "Node Builder", element: nodeBuilderModal },
+        { label: "Rack Builder", element: rackBuilderModal },
+        { label: "Matrix Routing", element: matrixRoutingModal },
+        { label: "Title Block", element: titleBlockModal },
+        { label: "Device Tech Specs", element: deviceTechSpecsModal },
+        { label: "Publish", element: publishProjectModal },
+        { label: "Report", selector: "#editorReportBackdrop" },
+        { label: "Report", selector: "#reportBackdrop" }
+      ]);
+    }
+
+    function openShellMenuSummary() {
+      return firstVisibleShellElement([
+        { label: "Device context", element: deviceContextMenu },
+        { label: "Canvas context", selector: "#canvasContextMenu" },
+        { label: "Wire context", selector: "#wireContextMenu" },
+        { label: "Library context", selector: "#libraryContextMenu" },
+        { label: "Rack context", selector: "#rackContextMenu" },
+        { label: "Any context menu", selector: ".context-menu:not(.hidden)" },
+        { label: "Dropdown", selector: ".dropdown-menu:not(.hidden)" }
+      ]);
+    }
+
+    function visibleShellTooltipSummary() {
+      return firstVisibleShellElement([
+        { label: "Device hover", selector: ".device-hover-tooltip.visible" },
+        { label: "Tooltip", selector: "[role='tooltip']:not(.hidden)" },
+        { label: "Tooltip", selector: ".tooltip:not(.hidden)" }
+      ]);
+    }
+
+    function shellPanelState() {
+      const leftRect = libraryPanel?.getBoundingClientRect?.();
+      const rightPanel = document.querySelector(".panel.inspector");
+      const rightRect = rightPanel?.getBoundingClientRect?.();
+      return {
+        leftWidth: leftRect ? Math.round(leftRect.width) : "-",
+        rightWidth: rightRect ? Math.round(rightRect.width) : "-",
+        leftCollapsed: !!(libraryPanel?.classList?.contains("hidden") || document.body.classList.contains("library-collapsed")),
+        rightCollapsed: !!(rightPanel?.classList?.contains("hidden") || document.body.classList.contains("inspector-collapsed"))
+      };
+    }
+
+    function shellActiveTabsSummary() {
+      const tabs = [];
+      if (selectedDeviceType) tabs.push(`Device Library: ${selectedDeviceType}`);
+      else tabs.push("Device Library: All");
+      if (!deviceEditorModal?.classList.contains("hidden")) tabs.push(`Device Editor: ${editorActiveTab || "device"}`);
+      if (!nodeBuilderModal?.classList.contains("hidden")) tabs.push(`Node Builder: ${nodeBuilderSelectedType || "-"}`);
+      if (!rackBuilderModal?.classList.contains("hidden")) tabs.push("Rack Builder");
+      return tabs;
+    }
+
+    function shellCanvasSizeSummary() {
+      const engineBridge = activeEngineBridge();
+      const engineRect = engineBridge?.canvasClientRect?.();
+      const legacyRect = canvasWrap?.getBoundingClientRect?.();
+      const rect = engineRect || legacyRect;
+      const css = rect ? `${Math.round(rect.width)} x ${Math.round(rect.height)}` : "-";
+      const buffer = webglCanvas ? `${webglCanvas.width || 0} x ${webglCanvas.height || 0}` : "-";
+      return { css, buffer };
+    }
+
+    function shellHistoryState() {
+      const bridge = activeEngineBridge();
+      if (bridge) {
+        return {
+          undo: !!bridge.canUndoEngineCommand?.(),
+          redo: !!bridge.canRedoEngineCommand?.()
+        };
+      }
+      return {
+        undo: undoStack.length > 0,
+        redo: redoStack.length > 0
+      };
+    }
+
+    function formatShellShortcut(event) {
+      const parts = [];
+      if (event.metaKey) parts.push("Cmd");
+      if (event.ctrlKey) parts.push("Ctrl");
+      if (event.altKey) parts.push("Alt");
+      if (event.shiftKey) parts.push("Shift");
+      parts.push(event.key?.length === 1 ? event.key.toUpperCase() : event.key || "Key");
+      return parts.join("+");
+    }
+
+    function shellDebugSnapshot(extra = {}) {
+      const panel = shellPanelState();
+      const canvasSize = shellCanvasSizeSummary();
+      const history = shellHistoryState();
+      const mode = currentShellModeLabel();
+      const tabs = shellActiveTabsSummary();
+      const snapshot = {
+        build: `${APP_BUILD_LABEL} — ${mode} — ${APP_BUILD_ID}`,
+        mode,
+        activeTool: currentShellActiveTool(),
+        focusedElement: shellDebug.lastFocusedElement || shellElementLabel(document.activeElement),
+        pointerTarget: shellDebug.lastPointerTarget,
+        openModal: openShellModalSummary(),
+        openMenu: openShellMenuSummary(),
+        openContextMenu: openShellMenuSummary(),
+        visibleTooltip: visibleShellTooltipSummary(),
+        leftWidth: panel.leftWidth,
+        rightWidth: panel.rightWidth,
+        leftCollapsed: panel.leftCollapsed,
+        rightCollapsed: panel.rightCollapsed,
+        activeTabs: tabs,
+        canvasCssSize: canvasSize.css,
+        canvasBufferSize: canvasSize.buffer,
+        dpr: Number(window.devicePixelRatio || 1).toFixed(2),
+        zoom: `${Math.round(canvasView.zoom * 100)}%`,
+        grid: !!state.gridVisible,
+        snap: !!state.objectSnapping,
+        dirty: !!(history.undo || activeEngineBridge()?.canUndoEngineCommand?.()),
+        undo: history.undo,
+        redo: history.redo,
+        listenerCount: shellDebug.listenerCount,
+        resizeCount: shellDebug.resizeCount,
+        fullSceneRebuildsFromShell: shellDebug.fullSceneRebuildsFromShell,
+        lastAction: shellDebug.lastAction,
+        lastKeyboardShortcut: shellDebug.lastKeyboardShortcut,
+        lastPanelAction: shellDebug.lastPanelAction,
+        lastStatus: shellDebug.lastStatus,
+        ...extra
+      };
+      shellDebug.snapshot = snapshot;
+      window.__avDesignerShellDebug = snapshot;
+      activeEngineBridge()?.recordShellDiagnostic?.(snapshot);
+      return snapshot;
+    }
+
+    function ensureShellDebugPanel() {
+      if (shellDebug.overlay) return shellDebug.overlay;
+      const panel = document.createElement("aside");
+      panel.id = "shellDebugPanel";
+      panel.className = "shell-debug-panel";
+      panel.innerHTML = `
+        <div class="shell-debug-actions">
+          <h2>Shell Debug</h2>
+          <button type="button" data-shell-debug-minimize>Minimize</button>
+        </div>
+        <div class="shell-debug-grid" data-shell-debug-grid></div>
+      `;
+      shellDebug.grid = panel.querySelector("[data-shell-debug-grid]");
+      shellDebug.minimizeButton = panel.querySelector("[data-shell-debug-minimize]");
+      shellDebug.minimizeButton?.addEventListener("click", () => {
+        shellDebug.minimized = !shellDebug.minimized;
+        panel.classList.toggle("minimized", shellDebug.minimized);
+        shellDebug.minimizeButton.textContent = shellDebug.minimized ? "Restore" : "Minimize";
+      });
+      document.body.appendChild(panel);
+      shellDebug.overlay = panel;
+      return panel;
+    }
+
+    function renderShellDebug(extra = {}) {
+      if (!shellDebugEnabled()) return;
+      ensureShellDebugPanel();
+      const snapshot = shellDebugSnapshot(extra);
+      const rows = [
+        ["Build", snapshot.build],
+        ["Mode", snapshot.mode],
+        ["Active tool", snapshot.activeTool],
+        ["Focused", snapshot.focusedElement],
+        ["Pointer target", snapshot.pointerTarget],
+        ["Open modal", snapshot.openModal],
+        ["Open menu", snapshot.openMenu],
+        ["Context menu", snapshot.openContextMenu],
+        ["Tooltip", snapshot.visibleTooltip],
+        ["Left width", snapshot.leftWidth],
+        ["Right width", snapshot.rightWidth],
+        ["Left collapsed", snapshot.leftCollapsed],
+        ["Right collapsed", snapshot.rightCollapsed],
+        ["Active tabs", snapshot.activeTabs],
+        ["Canvas CSS", snapshot.canvasCssSize],
+        ["Canvas buffer", snapshot.canvasBufferSize],
+        ["DPR", snapshot.dpr],
+        ["Zoom", snapshot.zoom],
+        ["Grid", snapshot.grid],
+        ["Snap", snapshot.snap],
+        ["Dirty", snapshot.dirty],
+        ["Undo", snapshot.undo],
+        ["Redo", snapshot.redo],
+        ["Listener count", snapshot.listenerCount],
+        ["Resize count", snapshot.resizeCount],
+        ["Shell rebuilds", snapshot.fullSceneRebuildsFromShell],
+        ["Last action", snapshot.lastAction],
+        ["Last shortcut", snapshot.lastKeyboardShortcut],
+        ["Last panel", snapshot.lastPanelAction],
+        ["Last status", snapshot.lastStatus]
+      ];
+      shellDebug.grid.innerHTML = rows.map(([label, value]) => {
+        const isBool = value === true || value === false || value === null;
+        const display = isBool ? shellDebugYesNo(value) : formatShellDebugValue(value);
+        const cssClass = isBool ? shellDebugBoolClass(value) : "";
+        return `<div class="shell-debug-label">${escapeHtml(label)}</div><div class="shell-debug-value ${cssClass}">${escapeHtml(display)}</div>`;
+      }).join("");
+    }
+
+    function updateShellDebug(extra = {}) {
+      if (!shellDebugEnabled()) return;
+      shellDebug.pendingExtra = { ...(shellDebug.pendingExtra || {}), ...extra };
+      if (shellDebug.updateFrame) return;
+      shellDebug.updateFrame = requestAnimationFrame(() => {
+        shellDebug.updateFrame = null;
+        const pending = shellDebug.pendingExtra || {};
+        shellDebug.pendingExtra = {};
+        renderShellDebug(pending);
+      });
+    }
+
+    function recordShellAction(action, details = "") {
+      shellDebug.lastAction = details ? `${action}: ${details}` : action;
+      activeEngineBridge()?.setDiagnosticMetric?.("shell last action", shellDebug.lastAction);
+      updateShellDebug();
+    }
+
+    function recordShellPanelAction(action, details = "") {
+      shellDebug.lastPanelAction = details ? `${action}: ${details}` : action;
+      activeEngineBridge()?.setDiagnosticMetric?.("shell panel action", shellDebug.lastPanelAction);
+      updateShellDebug();
+    }
+
+    function recordShellShortcut(shortcut) {
+      shellDebug.lastKeyboardShortcut = shortcut;
+      activeEngineBridge()?.setDiagnosticMetric?.("shell shortcut", shortcut);
+      updateShellDebug();
+    }
+
+    function setupShellDebugObservers() {
+      if (!shellDebugEnabled() || shellDebug.observersAttached) return;
+      shellDebug.observersAttached = true;
+      ensureShellDebugPanel();
+      const focusListener = event => {
+        shellDebug.lastFocusedElement = shellElementLabel(event.target);
+        updateShellDebug({ lastPanelAction: "focus" });
+      };
+      const pointerListener = event => {
+        shellDebug.lastPointerTarget = shellElementLabel(event.target);
+        updateShellDebug({ lastPanelAction: event.type });
+      };
+      const keyListener = event => {
+        recordShellShortcut(formatShellShortcut(event));
+      };
+      document.addEventListener("focusin", focusListener, true);
+      document.addEventListener("pointerdown", pointerListener, true);
+      document.addEventListener("click", pointerListener, true);
+      document.addEventListener("keydown", keyListener, true);
+      shellDebug.listenerCount += 4;
+      if ("ResizeObserver" in window) {
+        shellDebug.resizeObserver = new ResizeObserver(() => {
+          shellDebug.resizeCount += 1;
+          updateShellDebug({ lastPanelAction: "resize observer" });
+        });
+        [canvasWrap, libraryPanel, document.querySelector(".panel.inspector"), deviceLibrarySection, deviceList, customDeviceList]
+          .filter(Boolean)
+          .forEach(element => shellDebug.resizeObserver.observe(element));
+      }
+      window.addEventListener("resize", () => {
+        shellDebug.resizeCount += 1;
+        updateShellDebug({ lastPanelAction: "window resize" });
+      });
+      shellDebug.listenerCount += 1;
+      updateShellDebug({ lastPanelAction: "shell debug ready" });
     }
 
     function customIdentityDebugEnabled() {
@@ -66543,6 +66941,7 @@
       } else {
         scheduleWebglDraw();
       }
+      updateShellDebug({ lastPanelAction: "canvas view" });
     }
 
     function buildWebglStaticSceneParts(scene) {
@@ -68256,6 +68655,101 @@
       renderCanvasOnly();
     }
 
+    const editorActions = {
+      zoomOut() {
+        recordShellAction("zoom out");
+        setZoom(canvasView.zoom / 1.2);
+      },
+      zoomIn() {
+        recordShellAction("zoom in");
+        setZoom(canvasView.zoom * 1.2);
+      },
+      fitView() {
+        recordShellAction("fit view");
+        zoomToFit();
+      },
+      undo() {
+        recordShellAction("undo");
+        undoAction();
+      },
+      redo() {
+        recordShellAction("redo");
+        redoAction();
+      },
+      toggleDarkMode() {
+        recordShellAction("toggle dark mode", String(!state.darkMode));
+        setDarkMode(!state.darkMode);
+      },
+      toggleGrid() {
+        recordShellAction("toggle grid", String(!state.gridVisible));
+        pushUndo();
+        setGridVisible(!state.gridVisible);
+      },
+      toggleSnap() {
+        recordShellAction("toggle snap", String(!state.objectSnapping));
+        pushUndo();
+        setObjectSnapping(!state.objectSnapping);
+      },
+      toggleWireMode() {
+        recordShellAction("toggle wire mode", state.wireMode === "orthogonal" ? "bezier" : "orthogonal");
+        pushUndo();
+        setWireMode(state.wireMode === "orthogonal" ? "bezier" : "orthogonal");
+        render();
+      },
+      toggleCableHops() {
+        recordShellAction("toggle cable hops", String(!state.cableHops));
+        pushUndo();
+        setCableHops(!state.cableHops);
+        render();
+      },
+      toggleVoltage() {
+        recordShellAction("toggle voltage", currentPowerVoltage() === 220 ? "110" : "220");
+        pushUndo();
+        setProjectVoltage(currentPowerVoltage() === 220 ? 110 : 220);
+      },
+      openDeviceEditor() {
+        recordShellAction("open device editor");
+        openDeviceEditor();
+      },
+      openNodeBuilder() {
+        recordShellAction("open node builder");
+        openNodeBuilder();
+      },
+      openRackBuilder() {
+        recordShellAction("open rack builder");
+        openRackBuilder();
+      },
+      importLedGrid() {
+        recordShellAction("import LED grid");
+        ledGridInput?.click();
+      },
+      openReport() {
+        recordShellAction("open report");
+        openEditorReport();
+      },
+      exportPdf() {
+        recordShellAction("export PDF");
+        exportPdfReport();
+      },
+      saveProject() {
+        recordShellAction("save project");
+        saveProject();
+      },
+      saveProjectAs() {
+        recordShellAction("save project as");
+        saveProjectAs();
+      },
+      deleteSelection() {
+        recordShellAction("delete selection");
+        deleteSelection();
+      }
+    };
+
+    function refreshToolbarState() {
+      updateUndoRedoButtons();
+      updateShellDebug({ lastPanelAction: "toolbar state refresh" });
+    }
+
     function normalizePowerVoltage(value) {
       const voltage = Number(value);
       return POWER_VOLTAGE_OPTIONS.has(voltage) ? voltage : DEFAULT_POWER_VOLTAGE;
@@ -68297,6 +68791,8 @@
 
     function setStatus(message) {
       statusText.textContent = message;
+      shellDebug.lastStatus = String(message || "-");
+      recordShellPanelAction("status", shellDebug.lastStatus);
     }
 
     function projectDisplayName() {
@@ -86210,20 +86706,22 @@ fit();
       if (!group) return;
       if (details.open) deviceTypeOpenGroups.add(group);
       else deviceTypeOpenGroups.delete(group);
+      recordShellPanelAction("device tree toggle", `${group} ${details.open ? "open" : "closed"}`);
     }, true);
     deviceTypeTree.addEventListener("click", event => {
       const button = event.target.closest("[data-device-type]");
       if (!button) return;
       selectedDeviceType = button.dataset.deviceType || "";
+      recordShellPanelAction("device tree select", selectedDeviceType || "All");
       renderDeviceLibrary();
     });
     customDeviceSearch.addEventListener("input", renderProjectCustomDevices);
-    document.getElementById("zoomOut").addEventListener("click", () => setZoom(canvasView.zoom / 1.2));
-    document.getElementById("zoomIn").addEventListener("click", () => setZoom(canvasView.zoom * 1.2));
-    document.getElementById("zoomFit").addEventListener("click", zoomToFit);
-    document.getElementById("undoAction").addEventListener("click", undoAction);
-    document.getElementById("redoAction").addEventListener("click", redoAction);
-    nodeBuilderButton.addEventListener("click", openNodeBuilder);
+    document.getElementById("zoomOut").addEventListener("click", editorActions.zoomOut);
+    document.getElementById("zoomIn").addEventListener("click", editorActions.zoomIn);
+    document.getElementById("zoomFit").addEventListener("click", editorActions.fitView);
+    document.getElementById("undoAction").addEventListener("click", editorActions.undo);
+    document.getElementById("redoAction").addEventListener("click", editorActions.redo);
+    nodeBuilderButton.addEventListener("click", editorActions.openNodeBuilder);
     document.getElementById("closeNodeBuilder").addEventListener("click", closeNodeBuilder);
     document.getElementById("applyNodeBuilder").addEventListener("click", () => {
       refreshNodeLibraryViews();
@@ -86334,31 +86832,14 @@ fit();
       item.classList.remove("drag-over");
       moveNodeType(movingType, item.dataset.nodeType);
     });
-    darkModeToggle.addEventListener("click", () => setDarkMode(!state.darkMode));
-    gridToggle.addEventListener("click", () => {
-      pushUndo();
-      setGridVisible(!state.gridVisible);
-    });
-    objectSnappingToggle.addEventListener("click", () => {
-      pushUndo();
-      setObjectSnapping(!state.objectSnapping);
-    });
-    wireModeToggle.addEventListener("click", () => {
-      pushUndo();
-      setWireMode(state.wireMode === "orthogonal" ? "bezier" : "orthogonal");
-      render();
-    });
-    cableHopsToggle.addEventListener("click", () => {
-      pushUndo();
-      setCableHops(!state.cableHops);
-      render();
-    });
-    voltageToggle.addEventListener("click", () => {
-      pushUndo();
-      setProjectVoltage(currentPowerVoltage() === 220 ? 110 : 220);
-    });
-    document.getElementById("deviceEditorButton").addEventListener("click", openDeviceEditor);
-    rackBuilderButton.addEventListener("click", openRackBuilder);
+    darkModeToggle.addEventListener("click", editorActions.toggleDarkMode);
+    gridToggle.addEventListener("click", editorActions.toggleGrid);
+    objectSnappingToggle.addEventListener("click", editorActions.toggleSnap);
+    wireModeToggle.addEventListener("click", editorActions.toggleWireMode);
+    cableHopsToggle.addEventListener("click", editorActions.toggleCableHops);
+    voltageToggle.addEventListener("click", editorActions.toggleVoltage);
+    document.getElementById("deviceEditorButton").addEventListener("click", editorActions.openDeviceEditor);
+    rackBuilderButton.addEventListener("click", editorActions.openRackBuilder);
     document.getElementById("closeRackBuilder").addEventListener("click", closeRackBuilder);
     document.getElementById("applyRackBuilder").addEventListener("click", closeRackBuilder);
     closeMatrixRouting?.addEventListener("click", closeMatrixRoutingModal);
@@ -86376,11 +86857,23 @@ fit();
     rackBuilderZoomIn?.addEventListener("click", () => setRackBuilderPreviewZoom(rackBuilderPreviewZoom * 1.2));
     rackBuilderZoomFit?.addEventListener("click", fitRackBuilderPreview);
     document.getElementById("addLibraryDevice").addEventListener("click", openDeviceEditorWithNewDevice);
-    document.getElementById("importLedGrid").addEventListener("click", () => ledGridInput.click());
-    document.getElementById("commentTool").addEventListener("click", toggleCommentTool);
-    document.getElementById("areaTool").addEventListener("click", toggleAreaTool);
-    jumpNodeTool?.addEventListener("click", toggleJumpNodeTool);
-    document.getElementById("titleBlockButton").addEventListener("click", () => openTitleBlockEditor());
+    document.getElementById("importLedGrid").addEventListener("click", editorActions.importLedGrid);
+    document.getElementById("commentTool").addEventListener("click", () => {
+      recordShellAction("toggle comment tool");
+      toggleCommentTool();
+    });
+    document.getElementById("areaTool").addEventListener("click", () => {
+      recordShellAction("toggle area tool");
+      toggleAreaTool();
+    });
+    jumpNodeTool?.addEventListener("click", () => {
+      recordShellAction("toggle jump node tool");
+      toggleJumpNodeTool();
+    });
+    document.getElementById("titleBlockButton").addEventListener("click", () => {
+      recordShellAction("open title block editor");
+      openTitleBlockEditor();
+    });
     document.getElementById("closeTitleBlockEditor").addEventListener("click", closeTitleBlockEditor);
     saveTitleBlockButton.addEventListener("click", saveTitleBlockFromEditor);
     document.querySelectorAll("[data-title-field]").forEach(input => {
@@ -86411,6 +86904,7 @@ fit();
       if (!tab) return;
       if (tab.disabled || tab.getAttribute("aria-disabled") === "true") return;
       editorActiveTab = tab.dataset.editorTab;
+      recordShellPanelAction("device editor tab", editorActiveTab);
       editorSelectedCardNodeIndex = null;
       renderEditorTabs();
       try {
@@ -86527,6 +87021,7 @@ fit();
       const row = event.target.closest("[data-rack-index]");
       if (!row) return;
       editorRackIndex = clamp(Number(row.dataset.rackIndex) || 0, 0, Math.max(0, userRacks().length - 1));
+      recordShellPanelAction("rack builder rack select", String(editorRackIndex + 1));
       rackBuilderSelectedDeviceIds.clear();
       rackBuilderMarquee = null;
       rackBuilderDropPreviewRect = null;
@@ -87280,14 +87775,20 @@ fit();
       state.projectName = event.target.value;
       updateProjectNameControl(false);
     });
-    document.getElementById("saveProject").addEventListener("click", saveProject);
-    document.getElementById("saveProjectAs").addEventListener("click", saveProjectAs);
+    document.getElementById("saveProject").addEventListener("click", editorActions.saveProject);
+    document.getElementById("saveProjectAs").addEventListener("click", editorActions.saveProjectAs);
     document.getElementById("engineBetaToggle")?.addEventListener("click", () => {
       switchEngineEditorMode(!engineEditorRequestedByUrl());
     });
-    document.getElementById("loadProject").addEventListener("click", openProjectFile);
-    document.getElementById("exportHtml").addEventListener("click", exportHtml);
-    projectReportButton?.addEventListener("click", openEditorReport);
+    document.getElementById("loadProject").addEventListener("click", () => {
+      recordShellAction("load project");
+      openProjectFile();
+    });
+    document.getElementById("exportHtml").addEventListener("click", () => {
+      recordShellAction("export HTML");
+      exportHtml();
+    });
+    projectReportButton?.addEventListener("click", editorActions.openReport);
     document.getElementById("publishProjectButton").addEventListener("click", openPublishProjectModal);
     document.getElementById("closePublishProject").addEventListener("click", closePublishProjectModal);
     document.getElementById("cancelPublishProject").addEventListener("click", closePublishProjectModal);
@@ -87306,8 +87807,11 @@ fit();
     publishProjectModal.addEventListener("click", event => {
       if (event.target === publishProjectModal) closePublishProjectModal();
     });
-    document.getElementById("exportPdf").addEventListener("click", exportPdfReport);
-    document.getElementById("newProject").addEventListener("click", newProject);
+    document.getElementById("exportPdf").addEventListener("click", editorActions.exportPdf);
+    document.getElementById("newProject").addEventListener("click", () => {
+      recordShellAction("new project");
+      newProject();
+    });
     document.addEventListener("pointerdown", scheduleInlineEditorClose, true);
     fileInput.addEventListener("change", event => {
       const [file] = event.target.files;
@@ -87445,13 +87949,13 @@ fit();
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
         event.preventDefault();
-        if (event.shiftKey) redoAction();
-        else undoAction();
+        if (event.shiftKey) editorActions.redo();
+        else editorActions.undo();
         return;
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "y") {
         event.preventDefault();
-        redoAction();
+        editorActions.redo();
         return;
       }
       if (event.key === "Escape" && commentToolActive) {
@@ -87482,7 +87986,7 @@ fit();
       }
       if (event.key === "Delete" || event.key === "Backspace") {
         event.preventDefault();
-        deleteSelection();
+        editorActions.deleteSelection();
       }
     });
 
@@ -87578,6 +88082,7 @@ fit();
       if (!label) return;
       label.textContent = `${APP_BUILD_LABEL} — ${appRuntimeModeLabel()} — ${APP_BUILD_ID}`;
       updateLibraryDragDebug();
+      updateShellDebug({ lastPanelAction: "build label" });
     }
 
     function syncProductionSelectionFromEngine(selection = {}) {
@@ -87726,6 +88231,7 @@ fit();
               }
               updateUndoRedoButtons();
               setStatus(`Experimental engine committed: ${type}. ${statusSummary()}`);
+              recordShellAction("engine commit", type);
               console.info("[engine-bridge] production data mutated", { type, mutationStats });
             },
             onEngineBeforeHistoryReplay: () => {
@@ -87750,6 +88256,7 @@ fit();
           updateEngineBetaControl();
           updateAppBuildLabel();
           updateLibraryDragDebug();
+          updateShellDebug({ lastPanelAction: "engine bridge mounted" });
         })
         .catch(error => {
           console.error("[engine-bridge] Could not start experimental renderer.", error);
@@ -87758,6 +88265,7 @@ fit();
           updateEngineBetaControl();
           updateAppBuildLabel();
           updateLibraryDragDebug({ engineStartError: error?.message || String(error) });
+          updateShellDebug({ lastPanelAction: "engine bridge failed" });
         });
     }
 
@@ -87793,8 +88301,10 @@ fit();
     updateProjectNameControl();
     updateEngineBetaControl();
     updateAppBuildLabel();
+    setupShellDebugObservers();
     ensureLibraryDragDebugOverlay();
     updateLibraryDragDebug();
+    updateShellDebug({ lastPanelAction: "startup" });
     window.addEventListener("resize", updateCanvasView);
     render();
     startExperimentalEngineRenderer();
