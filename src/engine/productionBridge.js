@@ -4687,6 +4687,31 @@ class ProductionEngineBridge {
     return true;
   }
 
+  centerDeviceInView(sourceDeviceId, options = {}) {
+    if (!this.ready) return false;
+    const sourceId = String(sourceDeviceId || "");
+    const device = this.scene.getDevice(sourceId)
+      || this.scene.devices.find(item => String(item.sourceId || item.id) === sourceId);
+    if (!device) return false;
+    const rect = this.canvas.getBoundingClientRect();
+    const zoom = Math.max(Number(this.camera.zoom) || 1, 0.001);
+    const width = Number(device.width) || 1;
+    const height = Number(device.height) || 1;
+    this.cancelMarquee("center device", { updateCursor: false, render: false });
+    this.clearHoverState("center-device", { render: false });
+    if (options.select !== false) {
+      if (device.rackId) this.scene.selectRackOnly(device.rackId);
+      else this.scene.selectOnly(device.id);
+      this.updateSelectionHud();
+    }
+    this.camera.x = (Number(device.x) || 0) + width / 2 - rect.width / zoom / 2;
+    this.camera.y = (Number(device.y) || 0) + height / 2 - rect.height / zoom / 2;
+    this.hud?.setMetric("center device", device.name || device.sourceId || device.id);
+    this.notifyViewportChange("center-device");
+    this.scheduleRender();
+    return true;
+  }
+
   getZoom() {
     return this.camera.zoom;
   }

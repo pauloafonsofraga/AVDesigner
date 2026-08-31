@@ -69123,6 +69123,19 @@
       return copy;
     }
 
+    function createProjectCustomTemplateCopyForCanvasPlacement(sourceTemplate) {
+      if (!sourceTemplate) return null;
+      const copy = duplicateDeviceTemplateForCollection(sourceTemplate, deviceLibrary, { projectCustom: true });
+      deviceLibrary.push(copy);
+      normalizeProjectCustomTemplates(deviceLibrary);
+      recordCustomIdentity("project custom canvas drop created copied template", {
+        sourceTemplateId: sourceTemplate.id || "",
+        customTemplateId: copy.id || "",
+        name: copy.name || ""
+      });
+      return copy;
+    }
+
     function removeProjectCustomTemplatesInPlace(templateIds = []) {
       const ids = new Set((templateIds || []).map(id => String(id || "")).filter(Boolean));
       if (!ids.size) return;
@@ -69135,6 +69148,17 @@
 
     function canvasDropTemplatePayload(template, drag = {}) {
       if (!template) return null;
+      if (drag.duplicateOnCanvasDrop && isProjectCustomDeviceTemplate(template)) {
+        const customTemplate = createProjectCustomTemplateCopyForCanvasPlacement(template);
+        if (!customTemplate) return null;
+        return {
+          template: customTemplate,
+          templateId: customTemplate.id,
+          templateOverride: structuredClone(customTemplate),
+          name: customTemplate.name,
+          createdTemplateIds: [customTemplate.id]
+        };
+      }
       if (drag.custom || drag.templateOverride || isProjectCustomDeviceTemplate(template)) {
         return {
           template,
@@ -75668,6 +75692,7 @@
                 id: entry.id,
                 editorOpen: false
               });
+              selectAndFrameProjectCustomTemplate(entry.id);
               updateCustomIdentityDebug();
             });
             item.addEventListener("contextmenu", event => {
@@ -75769,6 +75794,13 @@
     function selectAndFrameDevice(instanceId) {
       const instance = instanceById(instanceId);
       if (!instance) return;
+      const engineBridge = activeEngineBridge();
+      if (engineBridge?.centerDeviceInView?.(instanceId)) {
+        state.selected = instance.rackId ? { type: "rack", id: instance.rackId } : { type: "device", id: instanceId };
+        renderInspector();
+        setStatus(`${instance.name || templateForInstance(instance)?.name || "Device"} centered.`);
+        return;
+      }
       const rect = instance.rackId ? rackBounds(instance.rackId) : deviceRect(instance);
       if (instance.rackId) selectRack(instance.rackId);
       else state.selected = { type: "device", id: instanceId };
@@ -75777,6 +75809,18 @@
       canvasView.y = Math.round(rect.y + rect.height / 2 - view.height / 2);
       updateCanvasView();
       render();
+    }
+
+    function selectAndFrameProjectCustomTemplate(templateId) {
+      const template = projectCustomTemplateById(templateId);
+      const placedInstances = projectCustomPlacedInstancesForTemplate(templateId);
+      if (!template || !placedInstances.length) {
+        setStatus(`${template?.name || "Project Custom Device"} has no placed canvas copy yet.`);
+        return;
+      }
+      const selectedId = state.selected?.type === "device" ? state.selected.id : "";
+      const instance = placedInstances.find(item => item.instanceId === selectedId) || placedInstances[placedInstances.length - 1];
+      selectAndFrameDevice(instance.instanceId);
     }
 
     function startProjectCustomDeviceDrag(event, instanceId) {
@@ -75811,8 +75855,10 @@
       startLibraryDrag(event, template.id, {
         templateOverride: structuredClone(template),
         name: template.name || "Project Custom Device",
+        clickAction: () => selectAndFrameProjectCustomTemplate(template.id),
         sourceId: template.id,
-        custom: true
+        custom: true,
+        duplicateOnCanvasDrop: true
       });
     }
 
@@ -76135,6 +76181,7 @@
         clickAction: options.clickAction || null,
         sourceId: options.sourceId || templateId,
         custom: Boolean(options.custom || options.templateOverride),
+        duplicateOnCanvasDrop: options.duplicateOnCanvasDrop === true,
         ghost,
         pointerId: event.pointerId,
         sourceElement,
@@ -76163,6 +76210,7 @@
         paired: Boolean(options.pairTemplateId),
         pairTemplateId: options.pairTemplateId || "",
         custom: Boolean(options.custom || options.templateOverride),
+        duplicateOnCanvasDrop: options.duplicateOnCanvasDrop === true,
         category: template.category || "",
         model: template.model || "",
         pointerId: event.pointerId,
