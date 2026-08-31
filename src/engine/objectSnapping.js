@@ -1,4 +1,5 @@
 import { deviceBounds } from "./sceneGraph.js";
+import { SpatialIndex } from "./spatialIndex.js";
 
 const SNAP_SPACING_STEPS = [50, 100, 150, 200, 250, 300, 350, 400, 450, 500];
 const SNAP_MAX_SPACING_STEP = Math.max(...SNAP_SPACING_STEPS);
@@ -136,11 +137,36 @@ export class ObjectSnapSession {
     this.scene = scene;
     this.selectedIds = new Set((selectedIds || []).map(id => String(id || "")).filter(Boolean));
     this.startRect = rectFromDevices(scene, [...this.selectedIds]);
+    // Snapping must be independent from the live render/spatial indexes.
+    // Build one immutable target index when the drag starts, then reuse it for
+    // every pointer frame. This matches the Legacy snap-session behavior and
+    // prevents viewport/render refreshes from making snapping appear to vanish.
+    this.targets = this.buildTargets();
+    this.targetCount = this.targets.length;
+    this.targetIndex = new SpatialIndex(scene.spatialIndex?.cellSize || 360);
+    this.targetIndex.rebuild(this.targets);
     this.lastRaw = null;
     this.lastZoom = 1;
     this.lastAxisLock = null;
     this.lastEnabled = true;
     this.lastResult = null;
+  }
+
+  buildTargets() {
+    if (!this.scene?.devices?.length) return [];
+    return this.scene.devices
+      .map(device => {
+        if (!device?.id || this.selectedIds.has(String(device.id)) || device.visible === false) return null;
+        const bounds = deviceBounds(device);
+        if (!bounds || !Number.isFinite(bounds.x) || !Number.isFinite(bounds.y)) return null;
+        if (!Number.isFinite(bounds.width) || !Number.isFinite(bounds.height) || bounds.width <= 0 || bounds.height <= 0) return null;
+        return {
+          id: String(device.id),
+          bounds,
+          device
+        };
+      })
+      .filter(Boolean);
   }
 
   snap({ dx = 0, dy = 0, zoom = 1, axisLock = null, enabled = true } = {}) {
@@ -277,10 +303,11 @@ export class ObjectSnapSession {
     const alignmentPadding = Math.max(80, 18 / Math.max(zoom, 0.01));
     const spacingPadding = zoom >= SNAP_SPACING_MIN_ZOOM ? SNAP_QUERY_PADDING + 18 / Math.max(zoom, 0.01) : 0;
     const queryRect = inflateRect(rect, Math.max(alignmentPadding, spacingPadding));
-    return this.scene.spatialIndex.queryRect(queryRect)
+    return this.targetIndex.queryRect(queryRect)
       .filter(item => {
         if (!item?.id || this.selectedIds.has(String(item.id))) return false;
-        const device = item.payload?.device || this.scene.getDevice(item.id);
+        const target = item.payload || item;
+        const device = target.device || this.scene.getDevice(item.id);
         if (!device || device.visible === false) return false;
         return item.bounds && rectsIntersect(queryRect, item.bounds);
       });

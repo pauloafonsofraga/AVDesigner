@@ -76,8 +76,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing Engine canvas snapping.
-const BRIDGE_VERSION = "production-bridge-snapping";
-const BRIDGE_FEATURE_LABEL = "snap: engine-canvas-snapping";
+const BRIDGE_VERSION = "production-bridge-snapping-v2";
+const BRIDGE_FEATURE_LABEL = "snap: engine-canvas-snapping-v2";
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
 const ENGINE_MIN_ZOOM = 0.03;
 const ENGINE_MAX_ZOOM = 8;
@@ -1117,11 +1117,14 @@ class ProductionEngineBridge {
         axisLockRequested: Boolean(event.shiftKey)
       });
       this.captureDebugDragTrace();
+      const snapEnabled = this.objectSnappingEnabled();
       this.hud.setMetric(
         "object snap",
-        this.dragSession.snapGuides
-          ? `${this.dragSession.snapCandidateCount} candidates / ${this.dragSession.snapMs.toFixed(3)} ms`
-          : `${this.dragSession.snapCandidateCount} candidates / none`
+        snapEnabled
+          ? this.dragSession.snapGuides
+            ? `${this.dragSession.snapCandidateCount}/${this.dragSession.snapTargetCount} candidates / ${this.dragSession.snapMs.toFixed(3)} ms`
+            : `${this.dragSession.snapCandidateCount}/${this.dragSession.snapTargetCount} candidates / none`
+          : "off"
       );
       this.hud.setMetric("dragDraw", `${(performance.now() - start).toFixed(3)} ms`);
       this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
@@ -1385,7 +1388,7 @@ class ProductionEngineBridge {
     const totalMs = performance.now() - start;
     this.hud.setMetric("dragStart", `${totalMs.toFixed(2)} ms`);
     this.hud.setMetric("affectedLookup", `${this.dragSession.affectedWireLookupMs.toFixed(3)} ms`);
-    this.hud.setMetric("object snap", this.objectSnappingEnabled() ? "ready" : "off");
+    this.hud.setMetric("object snap", this.objectSnappingEnabled() ? `${this.dragSession.snapTargetCount} targets ready` : "off");
     this.canvas.classList.add("dragging");
     this.updateCanvasCursor();
     if (clearedWireEditSelection) this.updateSelectionHud();

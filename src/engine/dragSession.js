@@ -12,8 +12,10 @@ export class DragSession {
     this.axisLock = null;
     this.snapGuides = null;
     this.snapCandidateCount = 0;
+    this.snapTargetCount = 0;
     this.snapMs = 0;
     this.snapSession = enableSnapping ? new ObjectSnapSession({ scene, selectedIds: this.selectedIds }) : null;
+    this.snapTargetCount = this.snapSession?.targetCount || 0;
     this.startPositions = new Map();
     this.offsets = new Map();
     this.selectedIds.forEach(id => {

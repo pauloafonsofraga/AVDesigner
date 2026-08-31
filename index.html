@@ -4641,7 +4641,7 @@
 
   <script>
     const APP_ITERATION = "51";
-    const APP_BUILD_ID = "iteration51-engine-canvas-snapping";
+    const APP_BUILD_ID = "iteration51-engine-canvas-snapping-v2";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const CANVAS_MIN_ZOOM = 0.03;
     const CANVAS_MAX_ZOOM = 8;
@@ -68668,7 +68668,8 @@
     function setObjectSnapping(enabled) {
       state.objectSnapping = enabled;
       objectSnappingToggle.setAttribute("aria-pressed", String(enabled));
-      objectSnappingToggle.querySelector("span").textContent = "SNAP";
+      objectSnappingToggle.querySelector("span").textContent = enabled ? "SNAP ON" : "SNAP OFF";
+      objectSnappingToggle.title = enabled ? "Object snapping is on" : "Object snapping is off";
       if (!enabled) clearSnapGuides();
     }
 
