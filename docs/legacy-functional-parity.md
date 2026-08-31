@@ -4,7 +4,17 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 50`
+- Current build label: `Iteration 51`
+
+Iteration 51 starts the output-pipeline parity path without changing the
+project save format. Editor reports, PDF export, self-contained HTML export,
+and hosted viewer publish now capture one canonical runtime output snapshot
+containing project data, export bounds, report data, connector/rack/internal
+wire diagnostics, asset counts, warnings, and timings. Report tables read the
+snapshot's report data. PDF wirechart drawing still deliberately uses the
+existing Legacy SVG clone path until full visual parity is proven; the output
+architecture and remaining gap are tracked in
+[`docs/engine-output-pipeline.md`](engine-output-pipeline.md).
 
 Iteration 50 is a shell-layer parity pass. Toolbar state, side-panel widths,
 active editor tabs, open menus/modals, focus, and diagnostic HUD state are

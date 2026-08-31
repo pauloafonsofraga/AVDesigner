@@ -4,9 +4,16 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 50`
+- Current build label: `Iteration 51`
 - Scope: interface and visual fidelity only. Functional wire parity is tracked in
   [`docs/legacy-functional-parity.md`](legacy-functional-parity.md).
+
+Iteration 51 adds the first output-pipeline parity shell: editor reports, PDF
+export, self-contained HTML export, and hosted viewer publish now pass through
+a canonical output snapshot with `debugOutput=1` diagnostics. This does not
+change normal editor shell ownership, and it does not yet replace the PDF
+wirechart's Legacy SVG clone renderer. The output architecture notes live in
+[`docs/engine-output-pipeline.md`](engine-output-pipeline.md).
 
 Iteration 50 treats the editor shell as a stable DOM layer wrapped around the
 Engine canvas. The Engine does not own normal menus, side panels, toolbar

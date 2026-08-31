@@ -1,5 +1,16 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
+Iteration 51 starts the output-pipeline parity work by adding a canonical
+runtime output snapshot in front of editor reports, PDF export, self-contained
+HTML export, and hosted viewer publish. The snapshot captures project data,
+export bounds, report data, connector/rack/internal-wire diagnostics, asset
+counts, warnings, and timing metadata without changing the `.avd` save format.
+Use `debugOutput=1` to show the Output Debug panel in the editor; exported
+viewers can also show embedded snapshot metadata with `?debugOutput=1`.
+PDF drawing deliberately still uses the existing Legacy SVG clone path until
+full visual parity is proven. See
+[`docs/engine-output-pipeline.md`](engine-output-pipeline.md).
+
 Iteration 50 restores the editor shell as an explicit, diagnosable DOM layer
 around the Engine canvas. The toolbar, left Device Library/Project Custom
 panes, right Inspector, modal/editors, top status line, zoom controls, and
@@ -172,11 +183,11 @@ PDF and report drawing paths are deliberately unchanged.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags.
 
-Current visible build label: `Iteration 50`.
+Current visible build label: `Iteration 51`.
 The app top bar must show one of these labels:
 
-- `Iteration 50 — Engine Editor — iteration50`
-- `Iteration 50 — Legacy Editor — iteration50`
+- `Iteration 51 — Engine Editor — iteration51`
+- `Iteration 51 — Legacy Editor — iteration51`
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -185,46 +196,50 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration50`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration50`.
+   `index.html?v=iteration51`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration51`.
 4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration50`.
+   `index.html?engineDefaultTest=1&v=iteration51`.
 5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration50`.
+   `index.html?legacy=1&v=iteration51`.
 6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration50`.
+   `index.html?engine=0&v=iteration51`.
 7. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration50`.
+   `index.html?engine=1&debugLoad=1&v=iteration51`.
 8. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration50`.
+   `index.html?engine=1&loadDelay=1500&v=iteration51`.
 9. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration50`.
+   `index.html?engine=1&debugHud=1&v=iteration51`.
 9a. Open shell diagnostics with the Engine HUD:
-   `index.html?engine=1&debugHud=1&debugShell=1&v=iteration50`.
+   `index.html?engine=1&debugHud=1&debugShell=1&v=iteration51`.
 9b. Open shell diagnostics in Legacy fallback:
-   `index.html?legacy=1&debugShell=1&v=iteration50`.
-9c. Open the device visual diagnostic HUD/layer view:
-   `index.html?engine=1&debugDeviceVisual=1&v=iteration50`.
-9d. Open the Power Distro diagnostic HUD:
-   `index.html?engine=1&debugHud=1&debugPowerDistro=1&v=iteration50`.
-9e. Open the Rack Builder diagnostic HUD:
-   `index.html?engine=1&debugHud=1&debugRackBuilder=1&v=iteration50`.
-9f. Open the Matrix Routing diagnostic HUD:
-   `index.html?engine=1&debugHud=1&debugMatrix=1&v=iteration50`.
+   `index.html?legacy=1&debugShell=1&v=iteration51`.
+9c. Open output diagnostics in the default engine editor:
+   `index.html?debugOutput=1&v=iteration51`.
+9d. Open output diagnostics in Legacy fallback:
+   `index.html?legacy=1&debugOutput=1&v=iteration51`.
+9e. Open the device visual diagnostic HUD/layer view:
+   `index.html?engine=1&debugDeviceVisual=1&v=iteration51`.
+9f. Open the Power Distro diagnostic HUD:
+   `index.html?engine=1&debugHud=1&debugPowerDistro=1&v=iteration51`.
+9g. Open the Rack Builder diagnostic HUD:
+   `index.html?engine=1&debugHud=1&debugRackBuilder=1&v=iteration51`.
+9h. Open the Matrix Routing diagnostic HUD:
+   `index.html?engine=1&debugHud=1&debugMatrix=1&v=iteration51`.
 10. Open the Device Library drag/drop debug overlay:
-   `index.html?debugLibraryDrag=1&v=iteration50`.
+   `index.html?debugLibraryDrag=1&v=iteration51`.
 11. Open the explicit Engine drag/drop debug overlay:
-   `index.html?engine=1&debugLibraryDrag=1&v=iteration50`.
+   `index.html?engine=1&debugLibraryDrag=1&v=iteration51`.
 12. Open the Legacy drag/drop debug overlay:
-   `index.html?legacy=1&debugLibraryDrag=1&v=iteration50`.
+   `index.html?legacy=1&debugLibraryDrag=1&v=iteration51`.
 13. Open compatibility diagnostics while drawing wires:
-    `index.html?engine=1&debugCompatibility=1&v=iteration50`.
+    `index.html?engine=1&debugCompatibility=1&v=iteration51`.
 14. Open routing diagnostics while selecting or editing orthogonal wires:
-    `index.html?engine=1&debugHud=1&debugRouting=1&v=iteration50`.
+    `index.html?engine=1&debugHud=1&debugRouting=1&v=iteration51`.
 15. Open endpoint-rewire diagnostics:
-    `index.html?engine=1&debugRewire=1&debugRouting=1&v=iteration50`.
+    `index.html?engine=1&debugRewire=1&debugRouting=1&v=iteration51`.
 15a. Open the Project Custom identity overlay:
-    `index.html?engine=1&debugCustomIdentity=1&v=iteration50`.
+    `index.html?engine=1&debugCustomIdentity=1&v=iteration51`.
 16. Confirm the top bar build label matches the mode you intended to test.
 17. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.

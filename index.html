@@ -3934,7 +3934,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 50 — Engine Editor — iteration50</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 51 — Engine Editor — iteration51</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -4640,14 +4640,15 @@
   </div>
 
   <script>
-    const APP_ITERATION = "50";
-    const APP_BUILD_ID = "iteration50";
+    const APP_ITERATION = "51";
+    const APP_BUILD_ID = "iteration51";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
     const DEBUG_LIBRARY_DRAG_ENABLED = INITIAL_URL_PARAMS.get("debugLibraryDrag") === "1";
     const DEBUG_CUSTOM_DEVICES_ENABLED = INITIAL_URL_PARAMS.get("debugCustomDevices") === "1";
     const DEBUG_CUSTOM_IDENTITY_ENABLED = INITIAL_URL_PARAMS.get("debugCustomIdentity") === "1";
     const DEBUG_SHELL_ENABLED = INITIAL_URL_PARAMS.get("debugShell") === "1";
+    const OUTPUT_DEBUG_ENABLED = INITIAL_URL_PARAMS.get("debugOutput") === "1";
     const SVG_NS = "http://www.w3.org/2000/svg";
     const DEVICE_WIDTH = 380;
     const ADAPTER_WIDTH = 190;
@@ -85432,6 +85433,359 @@
       };
     }
 
+    const OUTPUT_SNAPSHOT_VERSION = 1;
+    const outputDebugState = {
+      snapshotCount: 0,
+      lastSnapshot: null,
+      timings: {},
+      warnings: []
+    };
+
+    function outputNow() {
+      return typeof performance !== "undefined" && performance.now ? performance.now() : Date.now();
+    }
+
+    function cloneForOutput(value) {
+      if (typeof structuredClone === "function") {
+        try {
+          return structuredClone(value);
+        } catch (error) {
+          // JSON clone is enough for the runtime project snapshot and keeps this path browser-safe.
+        }
+      }
+      return value == null ? value : JSON.parse(JSON.stringify(value));
+    }
+
+    function finiteOutputNumber(value, fallback = 0) {
+      const number = Number(value);
+      return Number.isFinite(number) ? number : fallback;
+    }
+
+    function normalizeOutputRect(rect) {
+      if (!rect) return null;
+      const x = finiteOutputNumber(rect.x, NaN);
+      const y = finiteOutputNumber(rect.y, NaN);
+      const width = finiteOutputNumber(rect.width, NaN);
+      const height = finiteOutputNumber(rect.height, NaN);
+      if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) return null;
+      return { x, y, width, height };
+    }
+
+    function outputTemplateForInstance(data, instance) {
+      return reportTemplateForInstance(data, instance);
+    }
+
+    function outputResolvedConnector(instance, connector) {
+      if (!connector) return null;
+      const override = instance?.connectorOverrides?.[connector.id];
+      return override && typeof override === "object" ? { ...connector, ...override } : connector;
+    }
+
+    function outputRackDefinitionDeviceId(rack, instance) {
+      if (!rack || !instance) return instance?.instanceId || "";
+      if (instance.sourceRackDeviceId) return instance.sourceRackDeviceId;
+      const match = Object.entries(rack.sourceDeviceMap || {}).find(([, canvasId]) => canvasId === instance.instanceId);
+      return match?.[0] || instance.instanceId;
+    }
+
+    function outputRackConnectorState(data, instance, connector) {
+      if (!instance?.rackId || !connector) return { visible: true, selectable: true, exposed: false, rackInternal: false };
+      const racks = new Map((data.racks || []).map(rack => [rack.id, rack]));
+      const canvasRack = racks.get(instance.rackId);
+      const sourceRack = canvasRack?.sourceRackId ? (racks.get(canvasRack.sourceRackId) || canvasRack) : canvasRack;
+      const definitionDeviceId = outputRackDefinitionDeviceId(canvasRack, instance);
+      const exposed = Boolean((sourceRack?.exposedPorts || []).find(port => {
+        return port.deviceId === definitionDeviceId && port.connectorId === connector.id;
+      }));
+      const rackInternal = Boolean((sourceRack?.internalConnections || []).find(connection => {
+        return (connection.from?.deviceId === definitionDeviceId && connection.from?.connectorId === connector.id)
+          || (connection.to?.deviceId === definitionDeviceId && connection.to?.connectorId === connector.id);
+      }));
+      return {
+        visible: exposed || Boolean(canvasRack?.showInternalWiring && rackInternal),
+        selectable: exposed,
+        exposed,
+        rackInternal
+      };
+    }
+
+    function outputConnectorRecordsForData(data) {
+      const records = [];
+      (data.devices || []).forEach(instance => {
+        const template = outputTemplateForInstance(data, instance);
+        effectiveTemplateConnectors(template)
+          .map(connector => outputResolvedConnector(instance, connector))
+          .filter(connector => connector && !connector.empty && connector.id)
+          .forEach(connector => {
+            const rackState = outputRackConnectorState(data, instance, connector);
+            records.push({
+              deviceId: instance.instanceId,
+              connectorId: connector.id,
+              rackId: instance.rackId || "",
+              type: connector.type || "",
+              direction: connector.direction || "",
+              name: connector.nameText || connector.label || connectorTypeLabel(connector),
+              x: finiteOutputNumber(instance.x) + finiteOutputNumber(connector.x),
+              y: finiteOutputNumber(instance.y) + finiteOutputNumber(connector.y),
+              visible: rackState.visible,
+              selectable: rackState.selectable,
+              exposedRackPort: rackState.exposed,
+              rackInternal: rackState.rackInternal
+            });
+          });
+      });
+      return records;
+    }
+
+    function outputRackInternalWireRecords(data) {
+      return (data.racks || []).flatMap(rack => {
+        const sourceRack = rack?.sourceRackId
+          ? ((data.racks || []).find(item => item.id === rack.sourceRackId) || rack)
+          : rack;
+        return (sourceRack?.internalConnections || []).map(connection => ({
+          rackId: rack.id,
+          sourceRackId: sourceRack.id,
+          wireId: connection.id,
+          cableType: connection.cableType || "",
+          routeStyle: "orthogonal",
+          visible: rack.showInternalWiring === true,
+          selectable: false
+        }));
+      });
+    }
+
+    function outputEndpointKey(endpoint) {
+      if (!endpoint) return "";
+      if (endpoint.deviceId) return `device:${endpoint.deviceId}:${endpoint.connectorId || ""}`;
+      if (endpoint.surfaceId) return `surface:${endpoint.surfaceId}`;
+      if (endpoint.jumpNodeId) return `jump:${endpoint.jumpNodeId}`;
+      return JSON.stringify(endpoint);
+    }
+
+    function outputEndpointResolves(endpoint, data, connectorKeys) {
+      if (!endpoint) return false;
+      if (endpoint.deviceId) return connectorKeys.has(`${endpoint.deviceId}:${endpoint.connectorId || ""}`);
+      if (endpoint.surfaceId) return (data.ledSurfaces || []).some(surface => surface.id === endpoint.surfaceId);
+      if (endpoint.jumpNodeId) return (data.jumpNodes || []).some(node => node.id === endpoint.jumpNodeId);
+      return false;
+    }
+
+    function outputImageRecords(data = {}) {
+      if (Array.isArray(data.imageObjects) && data.imageObjects.length) return data.imageObjects;
+      if (Array.isArray(data.images)) return data.images;
+      return [];
+    }
+
+    function outputAssetDiagnostics(data) {
+      const assets = [];
+      const add = (owner, source) => {
+        const value = String(source || "").trim();
+        if (!value) return;
+        assets.push({ owner, source: value });
+      };
+      (data.deviceLibrary || []).forEach(template => {
+        add(`template:${template.id}:faceImage`, template.faceImage);
+        add(`template:${template.id}:thumbnailImage`, template.thumbnailImage);
+      });
+      (data.devices || []).forEach(instance => {
+        add(`device:${instance.instanceId}:faceImage`, instance.templateOverride?.faceImage);
+        add(`device:${instance.instanceId}:thumbnailImage`, instance.templateOverride?.thumbnailImage);
+      });
+      (data.racks || []).forEach(rack => {
+        (rack.devices || []).forEach(instance => {
+          add(`rack:${rack.id}:device:${instance.instanceId}:faceImage`, instance.templateOverride?.faceImage);
+          add(`rack:${rack.id}:device:${instance.instanceId}:thumbnailImage`, instance.templateOverride?.thumbnailImage);
+        });
+      });
+      (data.ledSurfaces || []).forEach(surface => add(`led:${surface.id}:image`, surface.image));
+      outputImageRecords(data).forEach(image => add(`image:${image.id || image.name || "object"}:image`, image.image || image.src || image.url));
+      (data.titleBlocks || []).forEach(block => add(`title:${block.id}:companyLogo`, block.fields?.companyLogo));
+      add("report:logo", data.logoSrc);
+      return {
+        total: assets.length,
+        inlineDataUrls: assets.filter(asset => isImageDataUrl(asset.source)).length,
+        blobUrls: assets.filter(asset => asset.source.startsWith("blob:")).length,
+        externalOrRelative: assets.filter(asset => !isImageDataUrl(asset.source) && !asset.source.startsWith("blob:")).length,
+        assets
+      };
+    }
+
+    function outputSnapshotWarnings(data, bounds, connectors, rackInternalWires) {
+      const warnings = [];
+      if (!normalizeOutputRect(bounds)) warnings.push("Output bounds are empty or non-finite.");
+      const wireIds = new Set();
+      (data.connections || []).forEach(connection => {
+        if (!connection?.id) warnings.push("A project cable is missing an id.");
+        else if (wireIds.has(connection.id)) warnings.push(`Duplicate project cable id: ${connection.id}`);
+        else wireIds.add(connection.id);
+      });
+      const connectorKeys = new Set(connectors.map(connector => `${connector.deviceId}:${connector.connectorId}`));
+      (data.connections || []).forEach(connection => {
+        if (!outputEndpointResolves(connection.from, data, connectorKeys)) warnings.push(`Cable ${connection.id || "(missing id)"} has an unresolved source endpoint.`);
+        if (!outputEndpointResolves(connection.to, data, connectorKeys)) warnings.push(`Cable ${connection.id || "(missing id)"} has an unresolved destination endpoint.`);
+      });
+      const ledSyntheticConnectors = connectors.filter(connector => connector.surfaceId);
+      if (ledSyntheticConnectors.length) warnings.push("LED surfaces exposed synthetic connector records; expected zero visible LED connector nodes.");
+      if (rackInternalWires.some(wire => wire.routeStyle !== "orthogonal")) warnings.push("Rack internal output wires must be orthogonal.");
+      return warnings;
+    }
+
+    function outputSnapshotViewerMetadata(snapshot) {
+      return {
+        version: snapshot.version,
+        createdAt: snapshot.createdAt,
+        buildLabel: `${APP_BUILD_LABEL} — ${appRuntimeModeLabel()} — ${APP_BUILD_ID}`,
+        source: snapshot.metadata?.source || "",
+        bounds: snapshot.bounds,
+        diagnostics: {
+          counts: snapshot.diagnostics?.counts || {},
+          timings: snapshot.diagnostics?.timings || {},
+          warnings: snapshot.diagnostics?.warnings || []
+        }
+      };
+    }
+
+    function refreshOutputSnapshotAssetDiagnostics(snapshot, data) {
+      if (!snapshot?.diagnostics) return;
+      const assets = outputAssetDiagnostics(data);
+      snapshot.diagnostics.assetsAfterInline = assets;
+      snapshot.diagnostics.counts.assets = assets.total;
+      snapshot.diagnostics.counts.inlineAssets = assets.inlineDataUrls;
+      snapshot.diagnostics.counts.externalAssets = assets.externalOrRelative;
+      snapshot.diagnostics.counts.blobAssets = assets.blobUrls;
+      if (outputDebugState.lastSnapshot === snapshot) renderOutputDebugPanel();
+    }
+
+    function ensureOutputDebugPanel() {
+      if (!OUTPUT_DEBUG_ENABLED) return null;
+      let panel = document.getElementById("outputDebugPanel");
+      if (panel) return panel;
+      panel = document.createElement("section");
+      panel.id = "outputDebugPanel";
+      panel.setAttribute("aria-label", "Output pipeline diagnostics");
+      panel.style.cssText = [
+        "position:fixed",
+        "left:12px",
+        "bottom:12px",
+        "z-index:12000",
+        "max-width:430px",
+        "max-height:46vh",
+        "overflow:auto",
+        "padding:10px 12px",
+        "border:1px solid rgba(50,182,255,.45)",
+        "border-radius:8px",
+        "background:rgba(15,22,30,.94)",
+        "color:#edf2f7",
+        "font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace",
+        "box-shadow:0 12px 40px rgba(0,0,0,.35)"
+      ].join(";");
+      document.body.appendChild(panel);
+      return panel;
+    }
+
+    function renderOutputDebugPanel() {
+      const panel = ensureOutputDebugPanel();
+      if (!panel) return;
+      const snapshot = outputDebugState.lastSnapshot;
+      const diagnostics = snapshot?.diagnostics || {};
+      const counts = diagnostics.counts || {};
+      const timings = { ...(diagnostics.timings || {}), ...(outputDebugState.timings || {}) };
+      const bounds = snapshot?.bounds;
+      const warnings = [...(diagnostics.warnings || []), ...(outputDebugState.warnings || [])].slice(-8);
+      const formatMs = value => Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}ms` : "-";
+      panel.innerHTML = `
+        <strong>Output Debug - ${escapeHtml(APP_BUILD_LABEL)}</strong><br>
+        mode: ${escapeHtml(String(snapshot?.metadata?.mode || "idle"))}<br>
+        runtime: ${escapeHtml(appRuntimeModeLabel())}<br>
+        snapshots: ${outputDebugState.snapshotCount}<br>
+        bounds: ${bounds ? `${Math.round(bounds.x)}, ${Math.round(bounds.y)}, ${Math.round(bounds.width)} x ${Math.round(bounds.height)}` : "none"}<br>
+        devices: ${counts.devices || 0} / connectors: ${counts.connectors || 0} / wires: ${counts.wires || 0}<br>
+        racks: ${counts.racks || 0} / rack internal: ${counts.rackInternalWires || 0} / exposed ports: ${counts.exposedRackPorts || 0}<br>
+        led: ${counts.ledSurfaces || 0} / images: ${counts.images || 0} / areas: ${counts.areas || 0} / comments: ${counts.comments || 0} / titles: ${counts.titleBlocks || 0} / jumps: ${counts.jumpNodes || 0}<br>
+        assets: ${counts.assets || 0} total, ${counts.inlineAssets || 0} inline, ${counts.externalAssets || 0} external<br>
+        timings: snapshot ${formatMs(timings.snapshotMs)} / report ${formatMs(timings.reportMs)} / bounds ${formatMs(timings.boundsMs)} / inline ${formatMs(timings.inlineAssetsMs)} / svg ${formatMs(timings.drawingSvgMs)} / html ${formatMs(timings.htmlMs)} / pdf ${formatMs(timings.pdfMs)}<br>
+        dependency: PDF drawing still uses Legacy SVG clone<br>
+        warnings: ${warnings.length ? `<br>${warnings.map(warning => `- ${escapeHtml(warning)}`).join("<br>")}` : "none"}
+      `;
+    }
+
+    function recordOutputTiming(mode, updates = {}) {
+      if (!OUTPUT_DEBUG_ENABLED) return;
+      Object.assign(outputDebugState.timings, updates);
+      if (mode && outputDebugState.lastSnapshot?.metadata) outputDebugState.lastSnapshot.metadata.mode = mode;
+      renderOutputDebugPanel();
+      console.info("[output]", mode || "timing", updates);
+    }
+
+    function buildCanonicalOutputSnapshot(options = {}) {
+      const started = outputNow();
+      const source = options.projectData || projectSnapshotData();
+      const data = options.clone === false ? source : cloneForOutput(source);
+      const boundsStart = outputNow();
+      const bounds = normalizeOutputRect(options.bounds || wirechartExportBounds());
+      const boundsMs = outputNow() - boundsStart;
+      const reportStart = outputNow();
+      const reportData = options.reportData || buildProjectReport(data);
+      const reportMs = outputNow() - reportStart;
+      const connectors = outputConnectorRecordsForData(data);
+      const rackInternalWires = outputRackInternalWireRecords(data);
+      const assets = outputAssetDiagnostics(data);
+      const warnings = outputSnapshotWarnings(data, bounds, connectors, rackInternalWires);
+      const diagnostics = {
+        connectors,
+        rackInternalWires,
+        assets,
+        warnings,
+        timings: {
+          boundsMs,
+          reportMs
+        },
+        counts: {
+          devices: (data.devices || []).length,
+          adapters: (data.devices || []).filter(instance => isAdapterTemplate(outputTemplateForInstance(data, instance))).length,
+          wires: (data.connections || []).length,
+          connectors: connectors.length,
+          visibleConnectors: connectors.filter(connector => connector.visible).length,
+          selectableConnectors: connectors.filter(connector => connector.selectable).length,
+          exposedRackPorts: connectors.filter(connector => connector.exposedRackPort).length,
+          rackInternalWires: rackInternalWires.length,
+          jumpNodes: (data.jumpNodes || []).length,
+          ledSurfaces: (data.ledSurfaces || []).length,
+          images: outputImageRecords(data).length,
+          areas: (data.areas || []).length,
+          comments: (data.comments || []).length,
+          titleBlocks: (data.titleBlocks || []).length,
+          racks: (data.racks || []).length,
+          assets: assets.total,
+          inlineAssets: assets.inlineDataUrls,
+          externalAssets: assets.externalOrRelative,
+          blobAssets: assets.blobUrls
+        }
+      };
+      const snapshot = {
+        version: OUTPUT_SNAPSHOT_VERSION,
+        createdAt: new Date().toISOString(),
+        bounds,
+        projectData: data,
+        reportData,
+        metadata: {
+          mode: options.mode || "snapshot",
+          source: appRuntimeModeLabel(),
+          buildLabel: `${APP_BUILD_LABEL} — ${appRuntimeModeLabel()} — ${APP_BUILD_ID}`,
+          drawingDependency: "legacy-svg-clone"
+        },
+        diagnostics
+      };
+      diagnostics.timings.snapshotMs = outputNow() - started;
+      outputDebugState.snapshotCount += 1;
+      outputDebugState.lastSnapshot = snapshot;
+      outputDebugState.warnings = warnings;
+      renderOutputDebugPanel();
+      if (OUTPUT_DEBUG_ENABLED) console.info("[output] snapshot", snapshot);
+      window.avDesignerLastOutputSnapshot = snapshot;
+      return snapshot;
+    }
+
     function reportTableHtml(columns, rows, emptyText) {
       if (!rows.length) return `<p class="report-empty">${escapeHtml(emptyText)}</p>`;
       return `
@@ -85704,8 +86058,12 @@
     }
 
     async function wirechartSvgMarkup(powerPlugAssets = {}, options = {}) {
-      const bounds = wirechartExportBounds();
+      const started = outputNow();
+      const bounds = normalizeOutputRect(options.outputSnapshot?.bounds || wirechartExportBounds());
       if (!bounds) return "";
+      // Iteration 51 keeps the proven Legacy SVG clone for PDF visual output, but the
+      // caller now supplies a canonical output snapshot so bounds/report data are not
+      // coupled to viewport, selection, hover, or Engine debug rendering state.
       const clone = canvas.cloneNode(true);
       clone.removeAttribute("id");
       clone.setAttribute("xmlns", SVG_NS);
@@ -85730,6 +86088,9 @@
       background.setAttribute("fill", "#f7f9fb");
       const defs = clone.querySelector("defs");
       clone.insertBefore(background, defs ? defs.nextSibling : clone.firstChild);
+      recordOutputTiming(options.outputSnapshot?.metadata?.mode || "wirechart-svg", {
+        drawingSvgMs: outputNow() - started
+      });
       return new XMLSerializer().serializeToString(clone);
     }
 
@@ -85901,7 +86262,9 @@ document.addEventListener("click", function(event) {
     }
 
     function openEditorReport() {
-      const report = buildProjectReport();
+      const started = outputNow();
+      const snapshot = buildCanonicalOutputSnapshot({ mode: "editor-report" });
+      const report = snapshot.reportData;
       const popup = window.open("", "_blank");
       if (!popup) {
         alert("Please allow pop-ups to open the project report.");
@@ -85910,10 +86273,15 @@ document.addEventListener("click", function(event) {
       popup.document.open();
       popup.document.write(buildEditorReportHtml(report));
       popup.document.close();
+      recordOutputTiming("editor-report", {
+        reportWindowMs: outputNow() - started
+      });
     }
 
     async function exportPdfReport() {
-      const report = buildProjectReport();
+      const started = outputNow();
+      const snapshot = buildCanonicalOutputSnapshot({ mode: "pdf-report" });
+      const report = snapshot.reportData;
       const popup = window.open("", "_blank");
       if (!popup) {
         alert("Please allow pop-ups to create the PDF report.");
@@ -85926,10 +86294,16 @@ document.addEventListener("click", function(event) {
         logoSourceForReport(),
         powerPlugAssetPayload()
       ]);
-      const drawingSvg = await wirechartSvgMarkup(powerPlugAssets, { forceLight: true });
+      recordOutputTiming("pdf-report", {
+        pdfAssetMs: outputNow() - started
+      });
+      const drawingSvg = await wirechartSvgMarkup(powerPlugAssets, { forceLight: true, outputSnapshot: snapshot });
       popup.document.open();
       popup.document.write(buildPrintableReportHtml(report, drawingSvg, logoSrc));
       popup.document.close();
+      recordOutputTiming("pdf-report", {
+        pdfMs: outputNow() - started
+      });
     }
 
     function projectJsonPayload() {
@@ -86115,16 +86489,29 @@ document.addEventListener("click", function(event) {
     }
 
     async function exportHtml() {
-      const data = compactProjectDataForViewer(projectSnapshotData());
+      const started = outputNow();
+      const compactData = compactProjectDataForViewer(projectSnapshotData());
       const [logoSrc, powerPlugAssets] = await Promise.all([
         logoSourceForReport(),
         powerPlugAssetPayload()
       ]);
-      data.logoSrc = logoSrc;
-      data.powerPlugAssets = powerPlugAssets;
+      compactData.logoSrc = logoSrc;
+      compactData.powerPlugAssets = powerPlugAssets;
+      const snapshot = buildCanonicalOutputSnapshot({ mode: "standalone-viewer", projectData: compactData });
+      const data = snapshot.projectData;
+      const inlineStart = outputNow();
       await inlineProjectImageAssets(data, { stripThumbnails: true });
-      data.report = buildProjectReport(data);
+      recordOutputTiming("standalone-viewer", {
+        inlineAssetsMs: outputNow() - inlineStart
+      });
+      refreshOutputSnapshotAssetDiagnostics(snapshot, data);
+      data.report = snapshot.reportData;
+      data.outputSnapshotMeta = outputSnapshotViewerMetadata(snapshot);
       const html = buildStandaloneHtml(data);
+      recordOutputTiming("standalone-viewer", {
+        htmlMs: outputNow() - started,
+        htmlBytes: html.length
+      });
       downloadBlob(html, `${projectFileBaseName()}-interactive.html`, "text/html");
     }
 
@@ -86182,16 +86569,25 @@ document.addEventListener("click", function(event) {
       publishProjectResult?.classList.add("hidden");
       setPublishStatus("Preparing project data...");
       try {
-        const data = compactProjectDataForViewer(projectSnapshotData());
-        data.projectName = title;
+        const compactData = compactProjectDataForViewer(projectSnapshotData());
+        compactData.projectName = title;
         const [logoSrc, powerPlugAssets] = await Promise.all([
           logoSourceForReport(),
           powerPlugAssetPayload()
         ]);
-        data.logoSrc = logoSrc;
-        data.powerPlugAssets = powerPlugAssets;
+        compactData.logoSrc = logoSrc;
+        compactData.powerPlugAssets = powerPlugAssets;
+        const snapshot = buildCanonicalOutputSnapshot({ mode: "hosted-viewer", projectData: compactData });
+        const data = snapshot.projectData;
+        data.projectName = title;
+        const inlineStart = outputNow();
         await inlineProjectImageAssets(data, { stripThumbnails: true });
-        data.report = buildProjectReport(data);
+        recordOutputTiming("hosted-viewer", {
+          inlineAssetsMs: outputNow() - inlineStart
+        });
+        refreshOutputSnapshotAssetDiagnostics(snapshot, data);
+        data.report = snapshot.reportData;
+        data.outputSnapshotMeta = outputSnapshotViewerMetadata(snapshot);
         const html = buildStandaloneHtml(data);
         const projectJson = JSON.stringify(data);
         const id = randomPublishId(title);
@@ -86288,6 +86684,11 @@ ${wirechartSvgStyle()}
 <div class="report-backdrop hidden" id="reportBackdrop"><section class="report-dialog" role="dialog" aria-modal="true" aria-labelledby="reportTitle"><div class="report-head"><div class="report-title" style="display:flex;align-items:center;gap:10px"><img class="report-logo" src="${escapeAttr(data.logoSrc || "VideoCoreLogo.png")}" alt="Video Core" style="width:34px;height:34px;object-fit:contain"><h2 id="reportTitle">Project Report</h2></div><button class="tool-button" id="closeReport" type="button">Close</button></div><div class="report-body" id="reportContent"></div></section></div>
 <script>
 const data=${serialized};
+const outputSnapshotMeta=data.outputSnapshotMeta||null;
+const viewerOutputDebugEnabled=new URLSearchParams(window.location.search).get("debugOutput")==="1";
+if(outputSnapshotMeta){console.info("[viewer-output] snapshot",outputSnapshotMeta)}
+function viewerDebugEscape(value){return String(value==null?"":value).replace(/[&<>"']/g,ch=>ch==="&"?"&amp;":ch==="<"?"&lt;":ch===">"?"&gt;":ch===String.fromCharCode(34)?"&quot;":"&#39;")}
+function renderViewerOutputDebug(){if(!viewerOutputDebugEnabled||!outputSnapshotMeta)return;const panel=document.createElement("section");panel.style.cssText="position:fixed;left:12px;bottom:12px;z-index:1000;max-width:360px;max-height:42vh;overflow:auto;padding:9px 11px;border:1px solid rgba(50,182,255,.45);border-radius:8px;background:rgba(15,22,30,.94);color:#edf2f7;font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;box-shadow:0 12px 40px rgba(0,0,0,.35)";const counts=outputSnapshotMeta.diagnostics&&outputSnapshotMeta.diagnostics.counts||{},warnings=outputSnapshotMeta.diagnostics&&outputSnapshotMeta.diagnostics.warnings||[];panel.innerHTML="<strong>Viewer Output Snapshot</strong><br>build: "+viewerDebugEscape(outputSnapshotMeta.buildLabel||"-")+"<br>devices: "+viewerDebugEscape(counts.devices||0)+" / connectors: "+viewerDebugEscape(counts.connectors||0)+" / wires: "+viewerDebugEscape(counts.wires||0)+"<br>racks: "+viewerDebugEscape(counts.racks||0)+" / rack internal: "+viewerDebugEscape(counts.rackInternalWires||0)+"<br>led: "+viewerDebugEscape(counts.ledSurfaces||0)+" / images: "+viewerDebugEscape(counts.images||0)+" / jumps: "+viewerDebugEscape(counts.jumpNodes||0)+"<br>warnings: "+(warnings.length?warnings.map(viewerDebugEscape).join("<br>- "):"none");document.body.appendChild(panel)}
 const cableTypes=${cablePayload};
 const fiberColors=${fiberPayload};
 const fiberTypes=new Set(${fiberTypesPayload});
@@ -86636,6 +87037,7 @@ syncMobileViewerLayout();
 updateViewerDrawerButtons();
 updateView();
 fit();
+renderViewerOutputDebug();
 <\/script>
 </body>
 </html>`;
