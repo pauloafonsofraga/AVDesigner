@@ -14,10 +14,11 @@ full visual parity is proven. See
 Engine canvas object snapping is restored in the drag-session path, not the
 renderer. During object or group drag the Engine computes one selected bounding
 box, queries the existing spatial index for nearby static objects, applies
-Legacy-style edge/center alignment plus 50px spacing-step snaps, and forwards
-only the resulting guide lines to the interaction overlay. Shift axis-lock is
-applied before snapping, and real object positions still commit only on
-pointer-up.
+Legacy-style edge alignment plus 50px spacing-step snaps, and forwards only the
+resulting guide lines to the interaction overlay. Shift axis-lock is applied
+before snapping, and real object positions still commit only on pointer-up.
+The build label/cache key for this pass is
+`iteration51-engine-canvas-snapping`.
 
 Iteration 50 restores the editor shell as an explicit, diagnosable DOM layer
 around the Engine canvas. The toolbar, left Device Library/Project Custom
