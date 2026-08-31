@@ -86,6 +86,23 @@ const ENGINE_TRANSCEIVER_MODULE_OPTIONS = [
   { value: "mpo-fiber", label: "MPO Fiber", activeType: "fiber-mpo", fiberMode: "single-mode", qsfpOnly: true }
 ];
 
+function isApplePointerPlatform() {
+  const nav = globalThis.navigator || {};
+  const platform = [
+    nav.userAgentData?.platform,
+    nav.platform,
+    nav.userAgent
+  ].filter(Boolean).join(" ");
+  return /\b(Mac|iPhone|iPad|iPod)\b/i.test(platform);
+}
+
+function engineWheelZoomModifierActive(event) {
+  // Chrome/macOS can synthesize wheel events with ctrlKey for gesture input.
+  // AV Designer uses Option/Alt + wheel on Mac and Ctrl + wheel on Windows/Linux
+  // so plain wheel/trackpad movement cannot accidentally become canvas zoom.
+  return Boolean(event?.altKey || (!isApplePointerPlatform() && event?.ctrlKey));
+}
+
 function fallbackHitTestRack(scene, worldPoint) {
   const start = performance.now();
   const hits = scene?.rackIndex?.queryPoint?.(worldPoint) || [];
@@ -666,7 +683,7 @@ class ProductionEngineBridge {
     event.stopImmediatePropagation?.();
     const point = this.eventPoint(event);
     this.cancelMarquee("wheel", { updateCursor: false, render: false });
-    if (event.altKey || event.ctrlKey) {
+    if (engineWheelZoomModifierActive(event)) {
       const factor = Math.exp(-event.deltaY * 0.0015);
       this.zoomAtCanvasPoint(this.camera.zoom * factor, point, "wheel-zoom");
       return;

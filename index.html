@@ -4651,6 +4651,11 @@
     const DEBUG_CUSTOM_IDENTITY_ENABLED = INITIAL_URL_PARAMS.get("debugCustomIdentity") === "1";
     const DEBUG_SHELL_ENABLED = INITIAL_URL_PARAMS.get("debugShell") === "1";
     const OUTPUT_DEBUG_ENABLED = INITIAL_URL_PARAMS.get("debugOutput") === "1";
+    const IS_APPLE_POINTER_PLATFORM = /\b(Mac|iPhone|iPad|iPod)\b/i.test([
+      navigator.userAgentData?.platform,
+      navigator.platform,
+      navigator.userAgent
+    ].filter(Boolean).join(" "));
     const SVG_NS = "http://www.w3.org/2000/svg";
     const DEVICE_WIDTH = 380;
     const ADAPTER_WIDTH = 190;
@@ -65074,6 +65079,13 @@
       setZoomReadoutValue(engineZoom != null && Number.isFinite(Number(engineZoom)) ? engineZoom : canvasView.zoom);
     }
 
+    function canvasWheelZoomModifierActive(event) {
+      // Match the engine rule: Option/Alt + wheel on Mac, Ctrl + wheel on
+      // Windows/Linux. macOS/Chrome may synthesize ctrlKey for gesture input,
+      // so treating Ctrl as zoom on Mac makes normal wheel gestures feel broken.
+      return Boolean(event?.altKey || (!IS_APPLE_POINTER_PLATFORM && event?.ctrlKey));
+    }
+
     function refreshActiveEngineBridge(reason, options = {}) {
       const bridge = activeEngineBridge();
       if (!bridge?.refreshFromProduction) return null;
@@ -88301,10 +88313,19 @@ renderViewerOutputDebug();
       ledGridInput.value = "";
     });
     canvasWrap.addEventListener("wheel", event => {
-      if (event.defaultPrevented || activeEngineBridge()) return;
-      const isMacZoom = event.altKey;
-      const isWindowsZoom = event.ctrlKey;
-      if (!isMacZoom && !isWindowsZoom) {
+      if (event.defaultPrevented) return;
+      const engineBridge = engineViewportBridge();
+      if (engineBridge) {
+        if (typeof engineBridge.handleWheel === "function") {
+          engineBridge.handleWheel(event);
+        } else {
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation?.();
+        }
+        return;
+      }
+      if (!canvasWheelZoomModifierActive(event)) {
         if (!event.deltaX && !event.deltaY) return;
         event.preventDefault();
         beginLiveZoom();
@@ -88664,8 +88685,17 @@ renderViewerOutputDebug();
             restoreDeviceEditorSnapshot: restoreDeviceEditorEngineSnapshot,
             getObjectSnapping: () => state.objectSnapping !== false,
             onEngineSelection: syncProductionSelectionFromEngine,
-            onEngineViewportChange: ({ zoom }) => {
-              if (Number.isFinite(Number(zoom))) setZoomReadoutValue(zoom);
+            onEngineViewportChange: ({ x, y, zoom }) => {
+              const nextZoom = Number(zoom);
+              const nextX = Number(x);
+              const nextY = Number(y);
+              // Keep the shell viewport mirror aligned with the Engine camera.
+              // Toolbar buttons, status text, and legacy fallbacks should observe
+              // the active engine zoom instead of a stale canvasView value.
+              if (Number.isFinite(nextZoom)) canvasView.zoom = nextZoom;
+              if (Number.isFinite(nextX)) canvasView.x = nextX;
+              if (Number.isFinite(nextY)) canvasView.y = nextY;
+              if (Number.isFinite(nextZoom)) setZoomReadoutValue(nextZoom);
             },
             onEngineContextMenu: ({ event, target }) => {
               hideDeviceContextMenu();
