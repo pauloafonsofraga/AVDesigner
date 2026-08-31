@@ -76,6 +76,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 const BRIDGE_VERSION = "production-bridge-1";
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
+const ENGINE_MIN_ZOOM = 0.03;
+const ENGINE_MAX_ZOOM = 8;
 const ENGINE_TRANSCEIVER_MODULE_OPTIONS = [
   { value: "", label: "Empty", activeType: "", fiberMode: "" },
   { value: "lc-singlemode", label: "LC Singlemode", activeType: "fiber-lc", fiberMode: "single-mode" },
@@ -409,6 +411,7 @@ class ProductionEngineBridge {
       const staticStats = this.renderer.setStaticScene(this.scene);
       if (preserveViewport && beforeCamera) this.camera = beforeCamera;
       else this.fitView();
+      this.notifyViewportChange(preserveViewport ? "scene-refresh-preserved" : "scene-refresh-fit");
       this.setLoadingPhase("Preparing wire paths and labels...");
       this.updateHud({
         sceneBuildMs,
@@ -660,14 +663,40 @@ class ProductionEngineBridge {
     }
     event.preventDefault();
     const point = this.eventPoint(event);
-    this.cancelMarquee("zoom", { updateCursor: false, render: false });
+    this.cancelMarquee("wheel", { updateCursor: false, render: false });
+    if (event.altKey || event.ctrlKey) {
+      const factor = Math.exp(-event.deltaY * 0.0015);
+      this.zoomAtCanvasPoint(this.camera.zoom * factor, point, "wheel-zoom");
+      return;
+    }
+    const zoom = Math.max(this.camera.zoom, ENGINE_MIN_ZOOM);
+    this.camera.x += event.deltaX / zoom;
+    this.camera.y += event.deltaY / zoom;
+    this.clearHoverState("wheel-pan", { render: false });
+    this.notifyViewportChange("wheel-pan");
+    this.scheduleRender();
+  }
+
+  zoomAtCanvasPoint(nextZoom, point, reason = "zoom") {
+    if (!this.canvas || !point) return false;
     const before = screenToWorld(this.camera, point);
-    const factor = Math.exp(-event.deltaY * 0.0015);
-    this.camera.zoom = clamp(this.camera.zoom * factor, 0.03, 8);
+    this.camera.zoom = clamp(nextZoom, ENGINE_MIN_ZOOM, ENGINE_MAX_ZOOM);
     this.camera.x = before.x - point.x / this.camera.zoom;
     this.camera.y = before.y - point.y / this.camera.zoom;
-    this.clearHoverState("zoom", { render: false });
+    this.clearHoverState(reason, { render: false });
+    this.notifyViewportChange(reason);
     this.scheduleRender();
+    return true;
+  }
+
+  zoomBy(factor) {
+    if (!this.ready || !this.canvas) return false;
+    const rect = this.canvas.getBoundingClientRect();
+    this.cancelMarquee("toolbar zoom", { updateCursor: false, render: false });
+    return this.zoomAtCanvasPoint(this.camera.zoom * (Number(factor) || 1), {
+      x: rect.width / 2,
+      y: rect.height / 2
+    }, "toolbar-zoom");
   }
 
   handlePointerDown(event) {
@@ -4624,9 +4653,38 @@ class ProductionEngineBridge {
     const padding = 120;
     const zoomX = rect.width / Math.max(1, bounds.width + padding * 2);
     const zoomY = rect.height / Math.max(1, bounds.height + padding * 2);
-    this.camera.zoom = clamp(Math.min(zoomX, zoomY), 0.04, 4);
+    this.camera.zoom = clamp(Math.min(zoomX, zoomY), ENGINE_MIN_ZOOM, ENGINE_MAX_ZOOM);
     this.camera.x = bounds.x + bounds.width / 2 - rect.width / this.camera.zoom / 2;
     this.camera.y = bounds.y + bounds.height / 2 - rect.height / this.camera.zoom / 2;
+  }
+
+  fitToView() {
+    if (!this.ready) return false;
+    this.cancelMarquee("toolbar fit", { updateCursor: false, render: false });
+    this.fitView();
+    this.clearHoverState("toolbar-fit", { render: false });
+    this.notifyViewportChange("toolbar-fit");
+    this.scheduleRender();
+    return true;
+  }
+
+  getZoom() {
+    return this.camera.zoom;
+  }
+
+  notifyViewportChange(reason = "viewport") {
+    this.hud?.setMetric("camera zoom", `${Math.round(this.camera.zoom * 100)}%`);
+    if (typeof this.api.onEngineViewportChange !== "function") return;
+    try {
+      this.api.onEngineViewportChange({
+        x: this.camera.x,
+        y: this.camera.y,
+        zoom: this.camera.zoom,
+        reason
+      });
+    } catch (error) {
+      console.warn("[engine-bridge] viewport callback failed", error);
+    }
   }
 
   eventPoint(event) {

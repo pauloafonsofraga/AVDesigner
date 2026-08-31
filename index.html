@@ -4643,6 +4643,8 @@
     const APP_ITERATION = "51";
     const APP_BUILD_ID = "iteration51";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
+    const CANVAS_MIN_ZOOM = 0.03;
+    const CANVAS_MAX_ZOOM = 8;
     const INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
     const DEBUG_LIBRARY_DRAG_ENABLED = INITIAL_URL_PARAMS.get("debugLibraryDrag") === "1";
     const DEBUG_CUSTOM_DEVICES_ENABLED = INITIAL_URL_PARAMS.get("debugCustomDevices") === "1";
@@ -65051,6 +65053,20 @@
       return bridge.isActive() ? bridge : null;
     }
 
+    function setZoomReadoutValue(zoom) {
+      if (!zoomReadout) return;
+      const value = zoom == null ? NaN : Number(zoom);
+      zoomReadout.textContent = `${Math.round((Number.isFinite(value) ? value : 1) * 100)}%`;
+    }
+
+    function refreshToolbarZoomReadout() {
+      const engineBridge = activeEngineBridge();
+      const engineZoom = engineBridge && typeof engineBridge.getZoom === "function"
+        ? engineBridge.getZoom()
+        : null;
+      setZoomReadoutValue(engineZoom != null && Number.isFinite(Number(engineZoom)) ? engineZoom : canvasView.zoom);
+    }
+
     function refreshActiveEngineBridge(reason, options = {}) {
       const bridge = activeEngineBridge();
       if (!bridge?.refreshFromProduction) return null;
@@ -67348,7 +67364,7 @@
       const beforeX = canvasView.x + localX / canvasView.zoom;
       const beforeY = canvasView.y + localY / canvasView.zoom;
       beginLiveZoom();
-      canvasView.zoom = Math.min(2.5, Math.max(0.1, nextZoom));
+      canvasView.zoom = Math.min(CANVAS_MAX_ZOOM, Math.max(CANVAS_MIN_ZOOM, nextZoom));
       canvasView.x = beforeX - localX / canvasView.zoom;
       canvasView.y = beforeY - localY / canvasView.zoom;
       updateCanvasView({ deferSvgViewBox: true });
@@ -68515,7 +68531,7 @@
         }
         canvas.setAttribute("viewBox", `${canvasView.x} ${canvasView.y} ${width} ${height}`);
       }
-      zoomReadout.textContent = `${Math.round(canvasView.zoom * 100)}%`;
+      refreshToolbarZoomReadout();
       if (!options.deferSvgViewBox) renderSnapGuides();
       if (options.deferSvgViewBox) {
         scheduleWebglCameraDraw({ skipGrid: true });
@@ -68552,7 +68568,7 @@
         y: canvasView.y + oldHeight / 2
       };
       beginLiveZoom();
-      canvasView.zoom = Math.min(2.5, Math.max(0.1, nextZoom));
+      canvasView.zoom = Math.min(CANVAS_MAX_ZOOM, Math.max(CANVAS_MIN_ZOOM, nextZoom));
       const newWidth = rect.width / canvasView.zoom;
       const newHeight = rect.height / canvasView.zoom;
       canvasView.x = center.x - newWidth / 2;
@@ -68592,7 +68608,7 @@
       const padding = 30;
       const width = Math.max(1, maxX - minX);
       const height = Math.max(1, maxY - minY);
-      const nextZoom = Math.min(2.5, Math.max(0.1, Math.min(
+      const nextZoom = Math.min(CANVAS_MAX_ZOOM, Math.max(CANVAS_MIN_ZOOM, Math.min(
         wrap.width / (width + padding * 2),
         wrap.height / (height + padding * 2)
       )));
@@ -68659,14 +68675,32 @@
     const editorActions = {
       zoomOut() {
         recordShellAction("zoom out");
+        const engineBridge = activeEngineBridge();
+        if (engineBridge && typeof engineBridge.zoomBy === "function") {
+          engineBridge.zoomBy(1 / 1.2);
+          refreshToolbarZoomReadout();
+          return;
+        }
         setZoom(canvasView.zoom / 1.2);
       },
       zoomIn() {
         recordShellAction("zoom in");
+        const engineBridge = activeEngineBridge();
+        if (engineBridge && typeof engineBridge.zoomBy === "function") {
+          engineBridge.zoomBy(1.2);
+          refreshToolbarZoomReadout();
+          return;
+        }
         setZoom(canvasView.zoom * 1.2);
       },
       fitView() {
         recordShellAction("fit view");
+        const engineBridge = activeEngineBridge();
+        if (engineBridge && typeof engineBridge.fitToView === "function") {
+          engineBridge.fitToView();
+          refreshToolbarZoomReadout();
+          return;
+        }
         zoomToFit();
       },
       undo() {
@@ -86894,11 +86928,11 @@ function commentBoundsExport(c){const end=commentLeaderEnd(c),x1=Math.min(c.anch
 function jumpNodeBoundsExport(node){return{x:node.x-120,y:node.y-60,width:240,height:120}}
 function svgPoint(evt){const p=svg.createSVGPoint();p.x=evt.clientX;p.y=evt.clientY;return p.matrixTransform(svg.getScreenCTM().inverse())}
 function scheduleRender(delay=90){clearTimeout(renderTimer);renderTimer=setTimeout(()=>{renderTimer=null;render()},delay)}
-function zoomAt(nextZoom,clientX,clientY){const before=svgPoint({clientX,clientY});view.zoom=Math.min(3,Math.max(.1,nextZoom));updateView();const after=svgPoint({clientX,clientY});view.x+=before.x-after.x;view.y+=before.y-after.y;updateView();scheduleRender()}
+function zoomAt(nextZoom,clientX,clientY){const before=svgPoint({clientX,clientY});view.zoom=Math.min(8,Math.max(.03,nextZoom));updateView();const after=svgPoint({clientX,clientY});view.x+=before.x-after.x;view.y+=before.y-after.y;updateView();scheduleRender()}
 function titleBlockScaleExport(b){const ws=Number(b&&b.width)?Number(b.width)/760:null,hs=Number(b&&b.height)?Number(b.height)/112:null,stored=Math.max(ws||0,hs||0),s=Math.max(.34,stored||1);return Number.isFinite(s)?s:1}
 function titleBlockSizeExport(b){const s=titleBlockScaleExport(b);return{width:760*s,height:112*s}}
 function allBounds(){const bounds=[];(data.areas||[]).forEach(a=>bounds.push({x:a.x,y:a.y,width:a.width,height:a.height}));(data.ledSurfaces||[]).forEach(su=>bounds.push({x:su.x,y:su.y,width:su.width,height:su.height}));(data.devices||[]).forEach(inst=>{const t=templateForInstance(inst);bounds.push({x:inst.x,y:inst.y,width:t.width||DEVICE_WIDTH,height:t.height||190})});(data.jumpNodes||[]).forEach(node=>bounds.push({x:node.x-36,y:node.y-36,width:72,height:72}));(data.racks||[]).forEach(r=>{const b=rackBounds(r.id);if(b)bounds.push(b)});(data.connections||[]).filter(w=>isSelfPatch(w)||manualRoutePoints(w).length).forEach(w=>{if(manualRoutePoints(w).length){const pts=routePointsForWire(w,wireEndpoints(w));const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);bounds.push({x:Math.min(...xs)-24,y:Math.min(...ys)-24,width:Math.max(...xs)-Math.min(...xs)+48,height:Math.max(...ys)-Math.min(...ys)+48});return}const inst=instanceById(w.from.deviceId),t=templateForInstance(inst),i=Math.max(0,selfPatchIndex(w));if(inst&&t){const extra=70+i*28;bounds.push({x:inst.x-extra,y:inst.y-extra,width:(t.width||DEVICE_WIDTH)+extra*2,height:(t.height||190)+extra*2})}});(data.comments||[]).forEach(c=>bounds.push({x:Math.min(c.anchor.x,c.x),y:Math.min(c.anchor.y,c.y-18),width:Math.abs(c.anchor.x-c.x)+(c.width||180),height:Math.abs(c.anchor.y-c.y)+(c.height||82)+18}));(data.titleBlocks||[]).forEach(b=>{const size=titleBlockSizeExport(b);bounds.push({x:b.x,y:b.y,width:size.width,height:size.height})});return bounds}
-function fit(){const bounds=allBounds();const rect=svg.getBoundingClientRect();if(!bounds.length){view={x:0,y:0,zoom:1};updateView();return}const minX=Math.min(...bounds.map(b=>b.x)),minY=Math.min(...bounds.map(b=>b.y)),maxX=Math.max(...bounds.map(b=>b.x+b.width)),maxY=Math.max(...bounds.map(b=>b.y+b.height));const pad=80,w=Math.max(1,maxX-minX),h=Math.max(1,maxY-minY);view.zoom=Math.min(2.5,Math.max(.1,Math.min(rect.width/(w+pad*2),rect.height/(h+pad*2))));view.x=minX+w/2-rect.width/view.zoom/2;view.y=minY+h/2-rect.height/view.zoom/2;updateView();render()}
+function fit(){const bounds=allBounds();const rect=svg.getBoundingClientRect();if(!bounds.length){view={x:0,y:0,zoom:1};updateView();return}const minX=Math.min(...bounds.map(b=>b.x)),minY=Math.min(...bounds.map(b=>b.y)),maxX=Math.max(...bounds.map(b=>b.x+b.width)),maxY=Math.max(...bounds.map(b=>b.y+b.height));const pad=80,w=Math.max(1,maxX-minX),h=Math.max(1,maxY-minY);view.zoom=Math.min(8,Math.max(.03,Math.min(rect.width/(w+pad*2),rect.height/(h+pad*2))));view.x=minX+w/2-rect.width/view.zoom/2;view.y=minY+h/2-rect.height/view.zoom/2;updateView();render()}
 function centerPoint(x,y){const rect=svg.getBoundingClientRect();view.x=x-rect.width/view.zoom/2;view.y=y-rect.height/view.zoom/2;updateView();render()}
 function select(next){if(Date.now()<suppressSelectionUntil)return;selected=next;render()}
 function isSelected(type,id){if(!selected)return false;if(type==="wire"&&selected.type==="multi-wire")return(selected.ids||[]).includes(id);return selected.type===type&&selected.id===id}
@@ -88593,6 +88627,9 @@ renderViewerOutputDebug();
             restoreDeviceEditorSnapshot: restoreDeviceEditorEngineSnapshot,
             getObjectSnapping: () => state.objectSnapping !== false,
             onEngineSelection: syncProductionSelectionFromEngine,
+            onEngineViewportChange: ({ zoom }) => {
+              if (Number.isFinite(Number(zoom))) setZoomReadoutValue(zoom);
+            },
             onEngineContextMenu: ({ event, target }) => {
               hideDeviceContextMenu();
               if (!target) return;
