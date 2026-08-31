@@ -98,9 +98,9 @@ function isApplePointerPlatform() {
 
 function engineWheelZoomModifierActive(event) {
   // Chrome/macOS can synthesize wheel events with ctrlKey for gesture input.
-  // AV Designer uses Option/Alt + wheel on Mac and Ctrl + wheel on Windows/Linux
+  // AV Designer uses Command + wheel on Apple platforms and Ctrl + wheel elsewhere
   // so plain wheel/trackpad movement cannot accidentally become canvas zoom.
-  return Boolean(event?.altKey || (!isApplePointerPlatform() && event?.ctrlKey));
+  return Boolean(isApplePointerPlatform() ? event?.metaKey : event?.ctrlKey);
 }
 
 function fallbackHitTestRack(scene, worldPoint) {

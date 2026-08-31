@@ -4641,7 +4641,7 @@
 
   <script>
     const APP_ITERATION = "51";
-    const APP_BUILD_ID = "iteration51-zoom-cachefix";
+    const APP_BUILD_ID = "iteration51-command-zoom-custom-drop";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const CANVAS_MIN_ZOOM = 0.03;
     const CANVAS_MAX_ZOOM = 8;
@@ -65080,10 +65080,10 @@
     }
 
     function canvasWheelZoomModifierActive(event) {
-      // Match the engine rule: Option/Alt + wheel on Mac, Ctrl + wheel on
-      // Windows/Linux. macOS/Chrome may synthesize ctrlKey for gesture input,
-      // so treating Ctrl as zoom on Mac makes normal wheel gestures feel broken.
-      return Boolean(event?.altKey || (!IS_APPLE_POINTER_PLATFORM && event?.ctrlKey));
+      // Match the engine rule: Command + wheel on Apple platforms, Ctrl + wheel
+      // elsewhere. Chrome/macOS can synthesize ctrlKey for gesture input, so
+      // treating Ctrl as zoom on Mac makes normal wheel gestures feel broken.
+      return Boolean(IS_APPLE_POINTER_PLATFORM ? event?.metaKey : event?.ctrlKey);
     }
 
     function refreshActiveEngineBridge(reason, options = {}) {
@@ -69098,6 +69098,86 @@
       return projectCustomDeviceTemplates().find(template => template.id === templateId) || null;
     }
 
+    function projectCustomTemplateRecordForInstance(instance) {
+      if (!instance) return null;
+      return projectCustomTemplateById(instance.templateId)
+        || projectCustomTemplateById(instance.templateOverride?.id)
+        || null;
+    }
+
+    function createProjectCustomTemplateForMasterCanvasPlacement(sourceTemplate, options = {}) {
+      if (!sourceTemplate) return null;
+      const copy = projectCustomTemplateFromEditedLibraryTemplate(sourceTemplate, deviceLibrary);
+      const sourceName = String(options.name || sourceTemplate.name || copy.name || "Project Custom Device").trim() || "Project Custom Device";
+      copy.name = sourceName;
+      if (!copy.model) copy.model = sourceTemplate.model || sourceName;
+      copy.favorite = false;
+      markProjectCustomDeviceTemplate(copy);
+      deviceLibrary.push(copy);
+      normalizeProjectCustomTemplates(deviceLibrary);
+      recordCustomIdentity("master canvas drop created project custom template", {
+        sourceTemplateId: sourceTemplate.id || "",
+        customTemplateId: copy.id || "",
+        name: copy.name || ""
+      });
+      return copy;
+    }
+
+    function removeProjectCustomTemplatesInPlace(templateIds = []) {
+      const ids = new Set((templateIds || []).map(id => String(id || "")).filter(Boolean));
+      if (!ids.size) return;
+      for (let index = deviceLibrary.length - 1; index >= 0; index -= 1) {
+        if (ids.has(String(deviceLibrary[index]?.id || "")) && isProjectCustomDeviceTemplate(deviceLibrary[index])) {
+          deviceLibrary.splice(index, 1);
+        }
+      }
+    }
+
+    function canvasDropTemplatePayload(template, drag = {}) {
+      if (!template) return null;
+      if (drag.custom || drag.templateOverride || isProjectCustomDeviceTemplate(template)) {
+        return {
+          template,
+          templateId: drag.templateId || template.id,
+          templateOverride: structuredClone(template),
+          name: drag.name || template.name,
+          createdTemplateIds: []
+        };
+      }
+      const customTemplate = createProjectCustomTemplateForMasterCanvasPlacement(template, { name: drag.name || template.name });
+      if (!customTemplate) return null;
+      return {
+        template: customTemplate,
+        templateId: customTemplate.id,
+        templateOverride: structuredClone(customTemplate),
+        name: customTemplate.name,
+        createdTemplateIds: [customTemplate.id]
+      };
+    }
+
+    function canvasDropPairTemplatePayload(firstTemplateId, secondTemplateId) {
+      const firstTemplate = templateById(firstTemplateId);
+      const secondTemplate = templateById(secondTemplateId);
+      if (!firstTemplate || !secondTemplate) return null;
+      const firstCustom = createProjectCustomTemplateForMasterCanvasPlacement(firstTemplate);
+      const secondCustom = createProjectCustomTemplateForMasterCanvasPlacement(secondTemplate);
+      if (!firstCustom || !secondCustom) {
+        removeProjectCustomTemplatesInPlace([firstCustom?.id, secondCustom?.id]);
+        return null;
+      }
+      return {
+        firstTemplateId: firstCustom.id,
+        secondTemplateId: secondCustom.id,
+        createdTemplateIds: [firstCustom.id, secondCustom.id]
+      };
+    }
+
+    function refreshProjectCustomPlacementViews() {
+      renderProjectCustomDevices();
+      renderRackBuilderSources();
+      updateCustomIdentityDebug();
+    }
+
     function isProjectTemplateEditorMode() {
       return String(editorMode || "").startsWith("project-template");
     }
@@ -69277,9 +69357,24 @@
           const normalizedName = editorInstanceName.trim() || editedTemplate.name || instance.name || "Custom Device";
           const sourceTemplateName = String(sourceTemplate?.name || "").trim();
           const shouldCreateProjectCustomFromRename = normalizedName !== sourceTemplateName;
+          const ownedProjectTemplate = projectCustomTemplateRecordForInstance(instance);
           delete instance.powerWatts;
           delete instance.powerUnit;
-          if (shouldCreateProjectCustomFromRename) {
+          if (ownedProjectTemplate) {
+            const previousName = ownedProjectTemplate.name || sourceTemplateName;
+            editedTemplate.id = ownedProjectTemplate.id;
+            editedTemplate.name = normalizedName;
+            if (!editedTemplate.model || editedTemplate.model === previousName || editedTemplate.model === sourceTemplateName) {
+              editedTemplate.model = normalizedName;
+            }
+            markProjectCustomDeviceTemplate(editedTemplate);
+            const existingIndex = deviceLibrary.findIndex(template => template.id === ownedProjectTemplate.id);
+            if (existingIndex >= 0) deviceLibrary.splice(existingIndex, 1, editedTemplate);
+            else deviceLibrary.push(editedTemplate);
+            normalizeProjectCustomTemplates(deviceLibrary);
+            instance.templateId = editedTemplate.id;
+            instance.templateOverride = structuredClone(editedTemplate);
+          } else if (shouldCreateProjectCustomFromRename) {
             const customSource = structuredClone(editedTemplate);
             customSource.name = normalizedName;
             if (!customSource.model || customSource.model === sourceTemplateName) customSource.model = normalizedName;
@@ -69305,9 +69400,11 @@
           renderProjectCustomDevices();
           renderRackBuilderSources();
           renderInspector();
-          const statusText = shouldCreateProjectCustomFromRename
-            ? `${normalizedName} added to Project Custom Devices.`
-            : `${normalizedName} updated on the canvas.`;
+          const statusText = ownedProjectTemplate
+            ? `${normalizedName} updated in Project Custom Devices.`
+            : shouldCreateProjectCustomFromRename
+              ? `${normalizedName} added to Project Custom Devices.`
+              : `${normalizedName} updated on the canvas.`;
           if (commitDeviceEditorApplyToEngineBridge(beforeSnapshot, afterSnapshot, [instance.instanceId])) {
             setStatus(statusText);
             return;
@@ -75752,6 +75849,31 @@
       if (!instance || !template) return;
       const normalizedName = String(nextName || "").trim() || template.name || "Device";
       const currentTemplateName = String(template.name || "").trim();
+      const ownedProjectTemplate = projectCustomTemplateRecordForInstance(instance);
+      if (ownedProjectTemplate) {
+        const beforeSnapshot = deviceEditorEngineSnapshot();
+        const previousName = ownedProjectTemplate.name || currentTemplateName;
+        pushUndo();
+        ownedProjectTemplate.name = normalizedName;
+        if (!ownedProjectTemplate.model || ownedProjectTemplate.model === previousName || ownedProjectTemplate.model === currentTemplateName) {
+          ownedProjectTemplate.model = normalizedName;
+        }
+        markProjectCustomDeviceTemplate(ownedProjectTemplate);
+        instance.templateId = ownedProjectTemplate.id;
+        instance.templateOverride = structuredClone(ownedProjectTemplate);
+        instance.name = normalizedName;
+        hydrateDeviceInstance(instance);
+        const afterSnapshot = deviceEditorEngineSnapshot();
+        const bridgeHandled = commitDeviceEditorApplyToEngineBridge(beforeSnapshot, afterSnapshot, [instance.instanceId]);
+        renderDeviceLibrary();
+        renderProjectCustomDevices();
+        renderRackBuilderSources();
+        renderInspector();
+        updateUndoRedoButtons();
+        if (!bridgeHandled) render();
+        setStatus(`${normalizedName} updated in Project Custom Devices.`);
+        return;
+      }
       if (normalizedName === currentTemplateName) {
         instance.name = normalizedName;
         activeEngineBridge()?.syncDeviceFromProduction?.(instance.instanceId, { name: normalizedName });
@@ -76335,10 +76457,15 @@
         if (engineBridge) {
           let createdIds = [];
           let success = false;
+          let createdCustomTemplateIds = [];
           if (drag.pairTemplateId) {
-            const instances = prepareDevicePairInstances(drag.templateId, drag.pairTemplateId, point.x, point.y, {
-              includeTemplateOverrides: Boolean(drag.templateOverride)
-            });
+            const pairPayload = canvasDropPairTemplatePayload(drag.templateId, drag.pairTemplateId);
+            createdCustomTemplateIds = pairPayload?.createdTemplateIds || [];
+            const instances = pairPayload
+              ? prepareDevicePairInstances(pairPayload.firstTemplateId, pairPayload.secondTemplateId, point.x, point.y, {
+                includeTemplateOverrides: true
+              })
+              : null;
             createdIds = instances?.map(instance => instance.instanceId).filter(Boolean) || [];
             logLibraryDragStep("create-device command called", {
               templateId: drag.templateId,
@@ -76351,14 +76478,15 @@
               emptyHint.classList.add("hidden");
             }
           } else {
-            const instance = prepareDeviceInstanceFromTemplate(template, point.x - template.width / 2, point.y - template.height / 2, {
-              templateId: drag.templateId,
-              // Only Project Custom/legacy snapshot drags carry template visual
-              // metadata. Master-library drops must remain pure template
-              // references so they do not appear as Project Custom rows.
-              templateOverride: drag.templateOverride ? structuredClone(drag.templateOverride) : null,
-              name: drag.name
-            });
+            const placement = canvasDropTemplatePayload(template, drag);
+            createdCustomTemplateIds = placement?.createdTemplateIds || [];
+            const instance = placement
+              ? prepareDeviceInstanceFromTemplate(placement.template, point.x - placement.template.width / 2, point.y - placement.template.height / 2, {
+                templateId: placement.templateId,
+                templateOverride: placement.templateOverride,
+                name: placement.name
+              })
+              : null;
             createdIds = instance?.instanceId ? [instance.instanceId] : [];
             logLibraryDragStep("create-device command called", {
               templateId: drag.templateId,
@@ -76370,6 +76498,12 @@
               success = true;
               emptyHint.classList.add("hidden");
             }
+          }
+          if (!success && createdCustomTemplateIds.length) {
+            removeProjectCustomTemplatesInPlace(createdCustomTemplateIds);
+          }
+          if (success && createdCustomTemplateIds.length) {
+            refreshProjectCustomPlacementViews();
           }
           logLibraryDragStep(success ? "create-device command success" : "create-device command failure", {
             templateId: drag.templateId,
@@ -76389,18 +76523,29 @@
             });
           }
         } else if (drag.pairTemplateId) {
-          addDevicePairInstances(drag.templateId, drag.pairTemplateId, point.x, point.y);
+          const pairPayload = canvasDropPairTemplatePayload(drag.templateId, drag.pairTemplateId);
+          if (pairPayload) {
+            const beforeCount = state.devices.length;
+            addDevicePairInstances(pairPayload.firstTemplateId, pairPayload.secondTemplateId, point.x, point.y);
+            if (state.devices.length === beforeCount) removeProjectCustomTemplatesInPlace(pairPayload.createdTemplateIds);
+            else refreshProjectCustomPlacementViews();
+          }
           logLibraryDragStep("legacy device pair created", {
             templateId: drag.templateId,
             templateName: drag.pairName || drag.name || template.name,
             productionObjects: state.devices.length
           }, { status: true });
         } else {
-          addDeviceInstanceFromTemplate(template, point.x - template.width / 2, point.y - template.height / 2, {
-            templateId: drag.templateId,
-            templateOverride: drag.templateOverride ? structuredClone(drag.templateOverride) : null,
-            name: drag.name
-          });
+          const placement = canvasDropTemplatePayload(template, drag);
+          const placed = placement
+            ? addDeviceInstanceFromTemplate(placement.template, point.x - placement.template.width / 2, point.y - placement.template.height / 2, {
+              templateId: placement.templateId,
+              templateOverride: placement.templateOverride,
+              name: placement.name
+            })
+            : null;
+          if (!placed) removeProjectCustomTemplatesInPlace(placement?.createdTemplateIds || []);
+          else if (placement?.createdTemplateIds?.length) refreshProjectCustomPlacementViews();
           logLibraryDragStep("legacy device created", {
             templateId: drag.templateId,
             templateName: drag.name || template.name,
@@ -82496,24 +82641,45 @@
       if (!template) return;
       const engineBridge = activeEngineBridge();
       const point = canvasDropPointForEvent(event, engineBridge);
+      const placement = canvasDropTemplatePayload(template, { custom: isProjectCustomDeviceTemplate(template) });
+      if (!placement) return;
       if (engineBridge) {
-        const projectCustomTemplate = isProjectCustomDeviceTemplate(template);
-        const instance = prepareDeviceInstanceFromTemplate(template, point.x - template.width / 2, point.y - template.height / 2, {
-          templateId,
-          templateOverride: projectCustomTemplate ? structuredClone(template) : null
+        const instance = prepareDeviceInstanceFromTemplate(placement.template, point.x - placement.template.width / 2, point.y - placement.template.height / 2, {
+          templateId: placement.templateId,
+          templateOverride: placement.templateOverride,
+          name: placement.name
         });
         if (instance && engineBridge.createDeviceFromLibraryDrop?.(instance)) {
           emptyHint.classList.add("hidden");
+          if (placement.createdTemplateIds.length) refreshProjectCustomPlacementViews();
+        } else {
+          removeProjectCustomTemplatesInPlace(placement.createdTemplateIds);
         }
         return;
       }
-      addDeviceInstance(templateId, point.x - template.width / 2, point.y - template.height / 2);
+      const placed = addDeviceInstanceFromTemplate(placement.template, point.x - placement.template.width / 2, point.y - placement.template.height / 2, {
+        templateId: placement.templateId,
+        templateOverride: placement.templateOverride,
+        name: placement.name
+      });
+      if (!placed) removeProjectCustomTemplatesInPlace(placement.createdTemplateIds);
+      else if (placement.createdTemplateIds.length) refreshProjectCustomPlacementViews();
     });
 
     function addDeviceInstance(templateId, x, y) {
       const template = templateById(templateId);
       if (!template) return;
-      addDeviceInstanceFromTemplate(template, x, y, { templateId });
+      const placement = canvasDropTemplatePayload(template, { custom: isProjectCustomDeviceTemplate(template) });
+      const placed = placement
+        ? addDeviceInstanceFromTemplate(placement.template, x, y, {
+          templateId: placement.templateId,
+          templateOverride: placement.templateOverride,
+          name: placement.name
+        })
+        : null;
+      if (!placed) removeProjectCustomTemplatesInPlace(placement?.createdTemplateIds || []);
+      else if (placement?.createdTemplateIds?.length) refreshProjectCustomPlacementViews();
+      return placed;
     }
 
     function prepareDevicePairInstances(firstTemplateId, secondTemplateId, centerX, centerY, options = {}) {
@@ -82606,7 +82772,7 @@
 
     function addDeviceInstanceFromTemplate(template, x, y, options = {}) {
       const instance = prepareDeviceInstanceFromTemplate(template, x, y, options);
-      if (!instance) return;
+      if (!instance) return null;
       pushUndo();
       state.devices.push(instance);
       state.selected = { type: "device", id: instance.instanceId };
@@ -82614,6 +82780,7 @@
       renderInspector();
       updateUndoRedoButtons();
       emptyHint.classList.add("hidden");
+      return instance;
     }
 
     function showDeviceContextMenu(event, instanceId) {
@@ -82839,9 +83006,9 @@
       const copy = structuredClone(source);
       const baseName = source.name || "Device";
       const existingNames = new Set((collection || []).map(template => template.name));
-      let nextName = `${baseName} Copy`;
+      let nextName = `${baseName} (copy)`;
       let suffix = 2;
-      while (existingNames.has(nextName)) nextName = `${baseName} Copy ${suffix++}`;
+      while (existingNames.has(nextName)) nextName = `${baseName} (copy ${suffix++})`;
       const idBase = `${options.projectCustom ? "project-custom" : "custom-device"}-${slugify(nextName) || Date.now().toString(36)}`;
       const nextIdValue = uniqueDeviceTemplateId(idBase, collection || deviceLibrary);
       copy.id = nextIdValue;
