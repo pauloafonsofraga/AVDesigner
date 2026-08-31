@@ -1107,8 +1107,18 @@ class ProductionEngineBridge {
     }
     if (this.dragSession) {
       const start = performance.now();
-      this.dragSession.update(screenToWorld(this.camera, point));
+      this.dragSession.update(screenToWorld(this.camera, point), {
+        camera: this.camera,
+        snappingEnabled: this.objectSnappingEnabled(),
+        axisLockRequested: Boolean(event.shiftKey)
+      });
       this.captureDebugDragTrace();
+      this.hud.setMetric(
+        "object snap",
+        this.dragSession.snapGuides
+          ? `${this.dragSession.snapCandidateCount} candidates / ${this.dragSession.snapMs.toFixed(3)} ms`
+          : `${this.dragSession.snapCandidateCount} candidates / none`
+      );
       this.hud.setMetric("dragDraw", `${(performance.now() - start).toFixed(3)} ms`);
       this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
       this.scheduleRender();
@@ -1365,11 +1375,13 @@ class ProductionEngineBridge {
     this.dragSession = new DragSession({
       scene: this.scene,
       selectedIds,
-      startWorld: worldPoint
+      startWorld: worldPoint,
+      enableSnapping: true
     });
     const totalMs = performance.now() - start;
     this.hud.setMetric("dragStart", `${totalMs.toFixed(2)} ms`);
     this.hud.setMetric("affectedLookup", `${this.dragSession.affectedWireLookupMs.toFixed(3)} ms`);
+    this.hud.setMetric("object snap", this.objectSnappingEnabled() ? "ready" : "off");
     this.canvas.classList.add("dragging");
     this.updateCanvasCursor();
     if (clearedWireEditSelection) this.updateSelectionHud();
@@ -1906,6 +1918,7 @@ class ProductionEngineBridge {
       this.clearHoverState("drag-cancel", { render: false });
       this.updateCanvasCursor();
       this.updateInteractionHud("idle");
+      this.scheduleRender();
       return;
     }
     const selectedIds = [...this.dragSession.selectedIds];
@@ -2221,7 +2234,7 @@ class ProductionEngineBridge {
         : this.wireSegmentDrag
           ? { mode: "wire-segment", wireId: this.wireSegmentDrag.wireId, segmentIndex: this.wireSegmentDrag.segmentIndex }
           : null,
-      snapGuides: this.wireSegmentDrag?.lastSnap?.guides || null,
+      snapGuides: this.dragSession?.snapGuides || this.wireSegmentDrag?.lastSnap?.guides || null,
       hoverScreenPoint: this.hoverState.screenPoint,
       selectedConnectors: this.scene.selectedConnectorKeys,
       selectedRoutePoints: this.scene.selectedRoutePointKeys,
