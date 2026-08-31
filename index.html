@@ -4641,7 +4641,7 @@
 
   <script>
     const APP_ITERATION = "51";
-    const APP_BUILD_ID = "iteration51";
+    const APP_BUILD_ID = "iteration51-zoom-cachefix";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const CANVAS_MIN_ZOOM = 0.03;
     const CANVAS_MAX_ZOOM = 8;
@@ -88579,6 +88579,12 @@ renderViewerOutputDebug();
       updateShellDebug({ lastPanelAction: "build label" });
     }
 
+    function engineImportUrl(path) {
+      const url = new URL(path, window.location.href);
+      url.searchParams.set("v", INITIAL_URL_PARAMS.get("v") || APP_BUILD_ID);
+      return url.href;
+    }
+
     function syncProductionSelectionFromEngine(selection = {}) {
       const selectedDevices = selection.devices || [];
       const explicitRackIds = [...new Set((selection.racks || selection.rackIds || [])
@@ -88672,12 +88678,14 @@ renderViewerOutputDebug();
 
     function startExperimentalEngineRenderer() {
       if (!experimentalEngineRendererRequested()) return;
+      const productionBridgeUrl = engineImportUrl("./src/engine/productionBridge.js");
       console.info("[engine-bridge] Requested experimental engine renderer.", {
         mode: appRuntimeModeLabel(),
         iteration: APP_ITERATION,
-        build: APP_BUILD_ID
+        build: APP_BUILD_ID,
+        moduleUrl: productionBridgeUrl
       });
-      import("./src/engine/productionBridge.js")
+      import(productionBridgeUrl)
         .then(module => {
           window.avDesignerEngineBridge = module.createProductionEngineBridge({
             canvasWrap,
