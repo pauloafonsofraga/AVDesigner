@@ -662,6 +662,8 @@ class ProductionEngineBridge {
       return;
     }
     event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation?.();
     const point = this.eventPoint(event);
     this.cancelMarquee("wheel", { updateCursor: false, render: false });
     if (event.altKey || event.ctrlKey) {
@@ -4799,6 +4801,7 @@ class ProductionEngineBridge {
   blockInteraction(event, reason = "loading") {
     event?.preventDefault?.();
     event?.stopPropagation?.();
+    event?.stopImmediatePropagation?.();
     this.hud?.setMetric("blocked interaction", reason);
   }
 

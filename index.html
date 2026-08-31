@@ -65053,6 +65053,13 @@
       return bridge.isActive() ? bridge : null;
     }
 
+    function engineViewportBridge() {
+      const bridge = activeEngineBridge();
+      if (bridge) return bridge;
+      const mounted = window.avDesignerEngineBridge;
+      return experimentalEngineRendererRequested() && mounted ? mounted : null;
+    }
+
     function setZoomReadoutValue(zoom) {
       if (!zoomReadout) return;
       const value = zoom == null ? NaN : Number(zoom);
@@ -65060,7 +65067,7 @@
     }
 
     function refreshToolbarZoomReadout() {
-      const engineBridge = activeEngineBridge();
+      const engineBridge = engineViewportBridge();
       const engineZoom = engineBridge && typeof engineBridge.getZoom === "function"
         ? engineBridge.getZoom()
         : null;
@@ -68675,9 +68682,9 @@
     const editorActions = {
       zoomOut() {
         recordShellAction("zoom out");
-        const engineBridge = activeEngineBridge();
+        const engineBridge = engineViewportBridge();
         if (engineBridge && typeof engineBridge.zoomBy === "function") {
-          engineBridge.zoomBy(1 / 1.2);
+          if (!engineBridge.zoomBy(1 / 1.2)) setStatus("Engine zoom is not available until the editor finishes loading.");
           refreshToolbarZoomReadout();
           return;
         }
@@ -68685,9 +68692,9 @@
       },
       zoomIn() {
         recordShellAction("zoom in");
-        const engineBridge = activeEngineBridge();
+        const engineBridge = engineViewportBridge();
         if (engineBridge && typeof engineBridge.zoomBy === "function") {
-          engineBridge.zoomBy(1.2);
+          if (!engineBridge.zoomBy(1.2)) setStatus("Engine zoom is not available until the editor finishes loading.");
           refreshToolbarZoomReadout();
           return;
         }
@@ -68695,9 +68702,9 @@
       },
       fitView() {
         recordShellAction("fit view");
-        const engineBridge = activeEngineBridge();
+        const engineBridge = engineViewportBridge();
         if (engineBridge && typeof engineBridge.fitToView === "function") {
-          engineBridge.fitToView();
+          if (!engineBridge.fitToView()) setStatus("Engine fit is not available until the editor finishes loading.");
           refreshToolbarZoomReadout();
           return;
         }
@@ -69247,6 +69254,7 @@
         if (editorMode === "instance") {
           const instance = instanceById(editorInstanceId);
           if (!instance) throw new Error("The device instance being edited is no longer on the canvas.");
+          const sourceTemplate = templateForInstance(instance);
           const editedTemplate = structuredClone(editorDraft[editorIndex]);
           validateDeviceTemplate(editedTemplate);
           const invalidConnections = invalidConnectionsAfterInstanceDeviceEdit(instance.instanceId, editedTemplate);
@@ -69254,18 +69262,46 @@
           const beforeSnapshot = deviceEditorEngineSnapshot();
           pushUndo();
           syncEditorRackToInstance();
-          instance.name = editorInstanceName.trim() || editedTemplate.name || instance.name || "Custom Device";
+          const normalizedName = editorInstanceName.trim() || editedTemplate.name || instance.name || "Custom Device";
+          const sourceTemplateName = String(sourceTemplate?.name || "").trim();
+          const shouldCreateProjectCustomFromRename = normalizedName !== sourceTemplateName;
           delete instance.powerWatts;
           delete instance.powerUnit;
-          instance.templateOverride = editedTemplate;
+          if (shouldCreateProjectCustomFromRename) {
+            const customSource = structuredClone(editedTemplate);
+            customSource.name = normalizedName;
+            if (!customSource.model || customSource.model === sourceTemplateName) customSource.model = normalizedName;
+            customSource.favorite = false;
+            const customTemplate = projectCustomTemplateFromEditedLibraryTemplate(customSource, deviceLibrary);
+            customTemplate.name = normalizedName;
+            if (!customTemplate.model || customTemplate.model === sourceTemplateName) customTemplate.model = normalizedName;
+            deviceLibrary.push(customTemplate);
+            normalizeProjectCustomTemplates(deviceLibrary);
+            instance.templateId = customTemplate.id;
+            instance.templateOverride = structuredClone(customTemplate);
+          } else {
+            instance.templateOverride = editedTemplate;
+          }
+          instance.name = normalizedName;
           hydrateDeviceInstance(instance);
           state.connections = state.connections.filter(connection => {
             return connectionEndpointStillExists(connection.from) && connectionEndpointStillExists(connection.to);
           });
           const afterSnapshot = deviceEditorEngineSnapshot();
           closeDeviceEditor();
-          if (commitDeviceEditorApplyToEngineBridge(beforeSnapshot, afterSnapshot, [instance.instanceId])) return;
+          renderDeviceLibrary();
+          renderProjectCustomDevices();
+          renderRackBuilderSources();
+          renderInspector();
+          const statusText = shouldCreateProjectCustomFromRename
+            ? `${normalizedName} added to Project Custom Devices.`
+            : `${normalizedName} updated on the canvas.`;
+          if (commitDeviceEditorApplyToEngineBridge(beforeSnapshot, afterSnapshot, [instance.instanceId])) {
+            setStatus(statusText);
+            return;
+          }
           render();
+          setStatus(statusText);
           return;
         }
         if (editorMode === "master-create") {
@@ -88265,6 +88301,7 @@ renderViewerOutputDebug();
       ledGridInput.value = "";
     });
     canvasWrap.addEventListener("wheel", event => {
+      if (event.defaultPrevented || activeEngineBridge()) return;
       const isMacZoom = event.altKey;
       const isWindowsZoom = event.ctrlKey;
       if (!isMacZoom && !isWindowsZoom) {
