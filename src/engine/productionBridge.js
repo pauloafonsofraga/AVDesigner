@@ -74,7 +74,10 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   ? HitTest.hitTestRack
   : fallbackHitTestRack;
 
-const BRIDGE_VERSION = "production-bridge-1";
+// Keep this visible in the Engine HUD so browser-cache and deployed-build
+// confusion is obvious while testing Engine canvas snapping.
+const BRIDGE_VERSION = "production-bridge-snapping";
+const BRIDGE_FEATURE_LABEL = "snap: engine-canvas-snapping";
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
 const ENGINE_MIN_ZOOM = 0.03;
 const ENGINE_MAX_ZOOM = 8;
@@ -566,6 +569,7 @@ class ProductionEngineBridge {
         <strong>Engine Editor Active</strong>
         <span>branch: engine-prototype</span>
         <span>${BRIDGE_VERSION}</span>
+        <span>${BRIDGE_FEATURE_LABEL}</span>
         <button type="button" data-engine-action="refresh">Refresh</button>
         <button type="button" data-engine-action="toggle-hud">HUD</button>
         <button type="button" data-engine-action="exit">Use Legacy Editor</button>
