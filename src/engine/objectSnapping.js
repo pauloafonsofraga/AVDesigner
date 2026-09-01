@@ -172,6 +172,12 @@ function cloneSnapResult(result) {
 
 function shouldReuseSnapResult(session, dx, dy, zoom, axisLock, enabled) {
   if (!session.lastRaw || !session.lastResult) return false;
+  // Reuse only free-drag/unsnapped results. Cached active snap decisions can
+  // make the dragged object feel detached from the pointer because the snapped
+  // delta is intentionally different from the raw mouse delta. Active snapping
+  // is still cheap enough to recalculate against the frozen drag-start target
+  // list every frame, and doing so keeps movement visually live.
+  if (session.lastResult.snapped) return false;
   const threshold = SNAP_MIN_RECALC_DELTA / Math.max(zoom, 0.01);
   return enabled === session.lastEnabled
     && axisLock === session.lastAxisLock
