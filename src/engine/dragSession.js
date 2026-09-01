@@ -16,6 +16,7 @@ export class DragSession {
     this.snapMs = 0;
     this.snapSession = enableSnapping ? new ObjectSnapSession({ scene, selectedIds: this.selectedIds }) : null;
     this.snapTargetCount = this.snapSession?.targetCount || 0;
+    this.snapDiagnostics = this.snapSession?.diagnostics?.() || null;
     this.startPositions = new Map();
     this.offsets = new Map();
     this.selectedIds.forEach(id => {
@@ -52,6 +53,7 @@ export class DragSession {
       this.snapGuides = null;
       this.snapCandidateCount = 0;
     }
+    this.snapDiagnostics = this.snapSession?.diagnostics?.() || null;
     this.dx = nextDx;
     this.dy = nextDy;
     this.offsets.forEach(offset => {

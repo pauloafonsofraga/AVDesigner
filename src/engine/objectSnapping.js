@@ -7,15 +7,37 @@ const SNAP_QUERY_PADDING = SNAP_MAX_SPACING_STEP + 140;
 const SNAP_MIN_RECALC_DELTA = 4;
 const SNAP_SPACING_MIN_ZOOM = 0.35;
 
-function rectFromDevices(scene, ids = []) {
+function snapTargetId(kind, id) {
+  return `${kind}:${String(id || "")}`;
+}
+
+function cloneRect(bounds) {
+  if (!bounds) return null;
+  const x = Number(bounds.x);
+  const y = Number(bounds.y);
+  const width = Number(bounds.width);
+  const height = Number(bounds.height);
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(width) || !Number.isFinite(height)) return null;
+  if (width <= 0 || height <= 0) return null;
+  return { x, y, width, height };
+}
+
+function objectBoundsForId(scene, id) {
+  const device = scene?.getDevice?.(id);
+  if (device && device.visible !== false) return cloneRect(deviceBounds(device));
+  const rack = scene?.getRack?.(id);
+  if (rack && !rack.hidden && rack.boundsFinite !== false) return cloneRect(rack.bounds);
+  return null;
+}
+
+function rectFromSceneObjects(scene, ids = []) {
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
   let maxY = -Infinity;
   ids.forEach(id => {
-    const device = scene.getDevice(id);
-    if (!device) return;
-    const bounds = deviceBounds(device);
+    const bounds = objectBoundsForId(scene, id);
+    if (!bounds) return;
     minX = Math.min(minX, bounds.x);
     minY = Math.min(minY, bounds.y);
     maxX = Math.max(maxX, bounds.x + bounds.width);
@@ -136,7 +158,7 @@ export class ObjectSnapSession {
   constructor({ scene, selectedIds = [] }) {
     this.scene = scene;
     this.selectedIds = new Set((selectedIds || []).map(id => String(id || "")).filter(Boolean));
-    this.startRect = rectFromDevices(scene, [...this.selectedIds]);
+    this.startRect = rectFromSceneObjects(scene, [...this.selectedIds]);
     // Snapping must be independent from the live render/spatial indexes.
     // Build one immutable target index when the drag starts, then reuse it for
     // every pointer frame. This matches the Legacy snap-session behavior and
@@ -145,6 +167,8 @@ export class ObjectSnapSession {
     this.targetCount = this.targets.length;
     this.targetIndex = new SpatialIndex(scene.spatialIndex?.cellSize || 360);
     this.targetIndex.rebuild(this.targets);
+    this.lastCandidateSource = "none";
+    this.lastStartRectReady = Boolean(this.startRect);
     this.lastRaw = null;
     this.lastZoom = 1;
     this.lastAxisLock = null;
@@ -153,20 +177,73 @@ export class ObjectSnapSession {
   }
 
   buildTargets() {
-    if (!this.scene?.devices?.length) return [];
-    return this.scene.devices
-      .map(device => {
-        if (!device?.id || this.selectedIds.has(String(device.id)) || device.visible === false) return null;
-        const bounds = deviceBounds(device);
-        if (!bounds || !Number.isFinite(bounds.x) || !Number.isFinite(bounds.y)) return null;
-        if (!Number.isFinite(bounds.width) || !Number.isFinite(bounds.height) || bounds.width <= 0 || bounds.height <= 0) return null;
-        return {
-          id: String(device.id),
-          bounds,
-          device
-        };
-      })
-      .filter(Boolean);
+    if (!this.scene) return [];
+    const targets = [];
+    const addTarget = (kind, id, bounds, payload = {}) => {
+      const targetId = snapTargetId(kind, id);
+      const rect = cloneRect(bounds);
+      if (!id || this.selectedIds.has(String(id)) || this.selectedIds.has(targetId)) return;
+      if (!rect) return;
+      targets.push({
+        id: targetId,
+        sourceId: String(id),
+        kind,
+        // Keep target bounds immutable for the whole drag. This mirrors the
+        // orthogonal wire segment snap path, which captures snap candidates at
+        // drag start instead of consulting live render/layout state per frame.
+        bounds: rect,
+        ...payload
+      });
+    };
+    (this.scene.devices || []).forEach(device => {
+      if (!device?.id || device.visible === false) return;
+      addTarget("device", device.id, deviceBounds(device));
+    });
+    // Racks are selectable/movable as grouped canvas objects but are not stored
+    // in scene.devices. Legacy object snapping included every canvas object
+    // type, so the engine snap session must include rack frames as separate
+    // immutable drag-start targets as well.
+    (this.scene.racks || []).forEach(rack => {
+      if (!rack?.id || rack.hidden || rack.boundsFinite === false || !rack.bounds) return;
+      const childIds = new Set(rack.childDeviceIds || []);
+      const selectedRackChild = [...this.selectedIds].some(id => childIds.has(id));
+      if (selectedRackChild) return;
+      addTarget("rack", rack.id, rack.bounds);
+    });
+    return targets;
+  }
+
+  normalizeTargetIndexItem(item) {
+    if (!item?.bounds) return null;
+    const target = item.payload || item;
+    const kind = target.kind || item.kind || "";
+    const sourceId = target.sourceId || item.sourceId || String(item.id || "").replace(/^[^:]+:/, "");
+    const bounds = cloneRect(item.bounds);
+    if (!bounds) return null;
+    return {
+      ...target,
+      id: String(item.id || target.id || snapTargetId(kind || "target", sourceId)),
+      sourceId,
+      kind,
+      bounds
+    };
+  }
+
+  filterTargetsInRect(queryRect) {
+    return this.targets.filter(target => {
+      if (!target?.bounds) return false;
+      return rectsIntersect(queryRect, target.bounds);
+    });
+  }
+
+  diagnostics() {
+    return {
+      startRectReady: this.lastStartRectReady,
+      targetCount: this.targetCount,
+      candidateSource: this.lastCandidateSource,
+      lastCandidateCount: this.lastResult?.candidateCount || 0,
+      lastSnapped: Boolean(this.lastResult?.snapped),
+    };
   }
 
   snap({ dx = 0, dy = 0, zoom = 1, axisLock = null, enabled = true } = {}) {
@@ -303,14 +380,25 @@ export class ObjectSnapSession {
     const alignmentPadding = Math.max(80, 18 / Math.max(zoom, 0.01));
     const spacingPadding = zoom >= SNAP_SPACING_MIN_ZOOM ? SNAP_QUERY_PADDING + 18 / Math.max(zoom, 0.01) : 0;
     const queryRect = inflateRect(rect, Math.max(alignmentPadding, spacingPadding));
-    return this.targetIndex.queryRect(queryRect)
-      .filter(item => {
-        if (!item?.id || this.selectedIds.has(String(item.id))) return false;
-        const target = item.payload || item;
-        const device = target.device || this.scene.getDevice(item.id);
-        if (!device || device.visible === false) return false;
-        return item.bounds && rectsIntersect(queryRect, item.bounds);
-      });
+    // Keep the captured drag-start target array as the source of truth. This is
+    // intentionally the same architecture as orthogonal wire segment snapping:
+    // build stable candidates once, then evaluate those stable candidates while
+    // the pointer moves. The spatial index can miss in edge cases if it is cold
+    // or stale, but the frozen target list must never miss.
+    const directTargets = this.filterTargetsInRect(queryRect);
+    const indexed = this.targetIndex.queryRect(queryRect)
+      .map(item => this.normalizeTargetIndexItem(item))
+      .filter(Boolean);
+    if (!indexed.length) {
+      this.lastCandidateSource = directTargets.length ? "array" : "none";
+      return directTargets;
+    }
+    if (indexed.length === directTargets.length) {
+      this.lastCandidateSource = "index+array";
+      return directTargets;
+    }
+    this.lastCandidateSource = "array-authoritative";
+    return directTargets;
   }
 
   remember(dx, dy, zoom, axisLock, enabled, result) {

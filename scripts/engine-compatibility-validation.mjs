@@ -31,6 +31,7 @@ import {
   resetWireRoute,
   wireRouteStatesEqual
 } from "../src/engine/wireRouteEditing.js";
+import { DragSession } from "../src/engine/dragSession.js";
 
 const cases = [];
 
@@ -321,6 +322,83 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
   });
   assert.equal(snap.snapped, false, "disabled object snapping leaves fixed value alone");
   assert.equal(snap.value, 114, "disabled snap still stores routed integer coordinates");
+}
+{
+  const objectSnapScene = new SceneGraph();
+  objectSnapScene.setData({
+    devices: [
+      {
+        id: "snap-moving",
+        label: "Moving Device",
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+        connectors: []
+      },
+      {
+        id: "snap-target",
+        label: "Target Device",
+        x: 250,
+        y: 0,
+        width: 100,
+        height: 100,
+        connectors: []
+      }
+    ],
+    wires: []
+  });
+  const drag = new DragSession({
+    scene: objectSnapScene,
+    selectedIds: ["snap-moving"],
+    startWorld: { x: 0, y: 0 },
+    enableSnapping: true
+  });
+  drag.update({ x: 144, y: 0 }, { camera: { zoom: 1 }, snappingEnabled: true });
+  assert.equal(drag.dx, 150, "engine object drag snaps moving right edge to target left edge");
+  assert.equal(drag.snapGuides.x, 250, "engine object drag exposes the vertical snap guide");
+  assert.equal(drag.snapCandidateCount, 1, "engine object drag reports the target candidate");
+  assert.equal(drag.snapDiagnostics?.lastSnapped, true, "engine object drag diagnostics report snapped state");
+  drag.snapSession.targetIndex.clear();
+  drag.update({ x: 148, y: 0 }, { camera: { zoom: 1 }, snappingEnabled: true });
+  assert.equal(drag.dx, 150, "engine object drag still snaps when the target spatial index is cold");
+  assert.equal(drag.snapDiagnostics?.candidateSource, "array", "engine object drag can use frozen drag-start candidates without the index");
+}
+{
+  const objectSpacingScene = new SceneGraph();
+  objectSpacingScene.setData({
+    devices: [
+      {
+        id: "spacing-moving",
+        label: "Moving Device",
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+        connectors: []
+      },
+      {
+        id: "spacing-target",
+        label: "Target Device",
+        x: 0,
+        y: 200,
+        width: 100,
+        height: 100,
+        connectors: []
+      }
+    ],
+    wires: []
+  });
+  const drag = new DragSession({
+    scene: objectSpacingScene,
+    selectedIds: ["spacing-moving"],
+    startWorld: { x: 0, y: 0 },
+    enableSnapping: true
+  });
+  drag.update({ x: 0, y: 349 }, { camera: { zoom: 1 }, snappingEnabled: true });
+  assert.equal(drag.dy, 350, "engine object drag snaps to the 50px vertical spacing lane");
+  assert.equal(drag.snapGuides.measure?.axis, "y", "engine spacing snap exposes a measurement guide");
+  assert.equal(drag.snapGuides.measure?.distance, 50, "engine spacing snap reports the snapped spacing distance");
 }
 {
   const dragScene = new SceneGraph();

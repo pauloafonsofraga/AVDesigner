@@ -308,6 +308,16 @@
       background: #ff6b00;
     }
 
+    #objectSnappingToggle[aria-pressed="true"] {
+      background: #32b6ff;
+      color: #06111c;
+    }
+
+    #objectSnappingToggle[aria-pressed="false"] {
+      background: #5f6c7b;
+      color: #edf4fb;
+    }
+
     .theme-switch.has-icon[aria-pressed="false"] {
       padding: 0;
     }
@@ -4641,7 +4651,7 @@
 
   <script>
     const APP_ITERATION = "51";
-    const APP_BUILD_ID = "iteration51-engine-canvas-snapping-v2";
+    const APP_BUILD_ID = "iteration51-engine-canvas-snapping-v5";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const CANVAS_MIN_ZOOM = 0.03;
     const CANVAS_MAX_ZOOM = 8;
@@ -88797,7 +88807,14 @@ renderViewerOutputDebug();
 
     function engineImportUrl(path) {
       const url = new URL(path, window.location.href);
-      url.searchParams.set("v", INITIAL_URL_PARAMS.get("v") || APP_BUILD_ID);
+      const pageVersion = INITIAL_URL_PARAMS.get("v") || "";
+      // Engine modules must follow the app build. Otherwise an old test URL like
+      // ?v=iteration51-engine-canvas-snapping can keep importing stale modules
+      // even after the shell HTML has updated.
+      url.searchParams.set("v", APP_BUILD_ID);
+      if (pageVersion && pageVersion !== APP_BUILD_ID) {
+        url.searchParams.set("pageV", pageVersion);
+      }
       return url.href;
     }
 

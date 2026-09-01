@@ -76,8 +76,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing Engine canvas snapping.
-const BRIDGE_VERSION = "production-bridge-snapping-v2";
-const BRIDGE_FEATURE_LABEL = "snap: engine-canvas-snapping-v2";
+const BRIDGE_VERSION = "production-bridge-snapping-v5";
+const BRIDGE_FEATURE_LABEL = "snap: array-authoritative-v5";
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
 const ENGINE_MIN_ZOOM = 0.03;
 const ENGINE_MAX_ZOOM = 8;
@@ -1120,11 +1120,7 @@ class ProductionEngineBridge {
       const snapEnabled = this.objectSnappingEnabled();
       this.hud.setMetric(
         "object snap",
-        snapEnabled
-          ? this.dragSession.snapGuides
-            ? `${this.dragSession.snapCandidateCount}/${this.dragSession.snapTargetCount} candidates / ${this.dragSession.snapMs.toFixed(3)} ms`
-            : `${this.dragSession.snapCandidateCount}/${this.dragSession.snapTargetCount} candidates / none`
-          : "off"
+        snapEnabled ? this.objectSnapHudText(this.dragSession) : "SNAP OFF"
       );
       this.hud.setMetric("dragDraw", `${(performance.now() - start).toFixed(3)} ms`);
       this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
@@ -1388,7 +1384,7 @@ class ProductionEngineBridge {
     const totalMs = performance.now() - start;
     this.hud.setMetric("dragStart", `${totalMs.toFixed(2)} ms`);
     this.hud.setMetric("affectedLookup", `${this.dragSession.affectedWireLookupMs.toFixed(3)} ms`);
-    this.hud.setMetric("object snap", this.objectSnappingEnabled() ? `${this.dragSession.snapTargetCount} targets ready` : "off");
+    this.hud.setMetric("object snap", this.objectSnappingEnabled() ? this.objectSnapHudText(this.dragSession) : "SNAP OFF");
     this.canvas.classList.add("dragging");
     this.updateCanvasCursor();
     if (clearedWireEditSelection) this.updateSelectionHud();
@@ -1599,6 +1595,15 @@ class ProductionEngineBridge {
       return this.api.getObjectSnapping() !== false;
     }
     return true;
+  }
+
+  objectSnapHudText(dragSession = this.dragSession) {
+    if (!dragSession) return "idle";
+    const diagnostics = dragSession.snapDiagnostics || {};
+    const ready = diagnostics.startRectReady === false ? "no moving rect" : "ready";
+    const source = diagnostics.candidateSource || "none";
+    const snapped = diagnostics.lastSnapped ? "SNAPPED" : "free";
+    return `${snapped} / ${ready} / ${dragSession.snapCandidateCount}/${dragSession.snapTargetCount} candidates / ${source} / ${dragSession.snapMs.toFixed(3)} ms`;
   }
 
   beginWireCreate(connectorHit, worldPoint) {
