@@ -1,12 +1,18 @@
 import { ObjectSnapSession } from "./objectSnapping.js";
 
 export class DragSession {
-  constructor({ scene, selectedIds, startWorld, enableSnapping = false }) {
+  constructor({ scene, selectedIds, startWorld, startPoint = null, startClient = null, enableSnapping = false, snapMode = "full" }) {
     this.scene = scene;
     this.selectedIds = [...selectedIds];
     this.startWorld = { ...startWorld };
+    this.startPoint = startPoint ? { ...startPoint } : null;
+    this.startClient = startClient ? { ...startClient } : null;
+    this.lastWorldPoint = { ...startWorld };
+    this.snapMode = snapMode || "full";
     this.rawDx = 0;
     this.rawDy = 0;
+    this.preSnapDx = 0;
+    this.preSnapDy = 0;
     this.dx = 0;
     this.dy = 0;
     this.axisLock = null;
@@ -29,19 +35,24 @@ export class DragSession {
     this.affectedWireLookupMs = performance.now() - lookupStart;
   }
 
-  update(worldPoint, { camera = null, snappingEnabled = true, axisLockRequested = false } = {}) {
+  update(worldPoint, { camera = null, snappingEnabled = true, axisLockRequested = false, snapMode = this.snapMode } = {}) {
+    this.lastWorldPoint = { ...worldPoint };
     this.rawDx = worldPoint.x - this.startWorld.x;
     this.rawDy = worldPoint.y - this.startWorld.y;
     const axisLock = this.resolveAxisLock(axisLockRequested);
     let nextDx = axisLock === "y" ? 0 : this.rawDx;
     let nextDy = axisLock === "x" ? 0 : this.rawDy;
+    this.preSnapDx = nextDx;
+    this.preSnapDy = nextDy;
+    this.snapMode = snapMode || "full";
     const snapStart = performance.now();
     const snapped = this.snapSession?.snap({
       dx: nextDx,
       dy: nextDy,
       zoom: camera?.zoom || 1,
       axisLock,
-      enabled: snappingEnabled
+      enabled: snappingEnabled,
+      mode: this.snapMode
     });
     this.snapMs = performance.now() - snapStart;
     if (snapped) {

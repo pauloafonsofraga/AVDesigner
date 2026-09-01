@@ -159,6 +159,10 @@ function targetAnchors(rect, axis) {
   return [rect.y, rect.y + rect.height];
 }
 
+function spacingLockKey(axis, targetId, direction, distance) {
+  return `${axis}:${targetId}:${direction}:${distance}`;
+}
+
 function cloneSnapResult(result) {
   return {
     dx: result.dx,
@@ -170,6 +174,8 @@ function cloneSnapResult(result) {
       ...result.debug,
       bestX: result.debug.bestX ? { ...result.debug.bestX } : null,
       bestY: result.debug.bestY ? { ...result.debug.bestY } : null,
+      initialSpacingLocks: result.debug.initialSpacingLocks || 0,
+      suppressedInitialSpacing: result.debug.suppressedInitialSpacing || 0,
     } : null
   };
 }
@@ -184,8 +190,14 @@ function snapDebugSummary(snap) {
     delta: Number(snap.delta || 0),
     guide: snap.guide ?? null,
     targetId: snap.targetId || null,
-    targetKind: snap.targetKind || null
+    targetKind: snap.targetKind || null,
+    distance: Number.isFinite(Number(snap.distance)) ? Number(snap.distance) : null
   };
+}
+
+function normalizeSnapMode(mode) {
+  const value = String(mode || "full").toLowerCase();
+  return ["off", "raw", "edge", "spacing", "full"].includes(value) ? value : "full";
 }
 
 export class ObjectSnapSession {
@@ -209,6 +221,8 @@ export class ObjectSnapSession {
     this.lastEnabled = true;
     this.lastResult = null;
     this.snapFrame = 0;
+    this.initialSpacingLocks = null;
+    this.suppressedInitialSpacingFrameCount = 0;
   }
 
   buildTargets() {
@@ -282,9 +296,11 @@ export class ObjectSnapSession {
     };
   }
 
-  snap({ dx = 0, dy = 0, zoom = 1, axisLock = null, enabled = true } = {}) {
+  snap({ dx = 0, dy = 0, zoom = 1, axisLock = null, enabled = true, mode = "full" } = {}) {
     this.snapFrame += 1;
-    if (!this.startRect || !enabled) {
+    this.suppressedInitialSpacingFrameCount = 0;
+    const snapMode = normalizeSnapMode(mode);
+    if (!this.startRect || !enabled || snapMode === "off" || snapMode === "raw") {
       return this.remember(dx, dy, zoom, axisLock, enabled, {
         dx,
         dy,
@@ -293,7 +309,8 @@ export class ObjectSnapSession {
         candidateCount: 0,
         debug: {
           frame: this.snapFrame,
-          enabled,
+          enabled: enabled && snapMode !== "off",
+          mode: snapMode,
           startRectReady: Boolean(this.startRect),
           zoom,
           axisLock,
@@ -303,12 +320,14 @@ export class ObjectSnapSession {
           finalDy: dy,
           correctionX: 0,
           correctionY: 0,
-          candidateSource: "none",
+          candidateSource: snapMode === "raw" ? "raw-bypass" : "none",
           candidateCount: 0,
           bestX: null,
           bestY: null,
           guideCount: 0,
-          measurement: null
+          measurement: null,
+          initialSpacingLocks: this.initialSpacingLocks?.size || 0,
+          suppressedInitialSpacing: 0
         }
       });
     }
@@ -322,7 +341,11 @@ export class ObjectSnapSession {
     const threshold = 10 / Math.max(zoom, 0.01);
     const spacingThreshold = 12 / Math.max(zoom, 0.01);
     const overlapTolerance = 28 / Math.max(zoom, 0.01);
-    const spacingEnabled = zoom >= SNAP_SPACING_MIN_ZOOM;
+    const edgeEnabled = snapMode !== "spacing";
+    const spacingEnabled = snapMode !== "edge" && zoom >= SNAP_SPACING_MIN_ZOOM;
+    if (spacingEnabled) {
+      this.ensureInitialSpacingLocks(spacingThreshold, overlapTolerance);
+    }
     const allowX = axisLock !== "y";
     const allowY = axisLock !== "x";
     let bestX = null;
@@ -331,7 +354,7 @@ export class ObjectSnapSession {
     candidates.forEach(target => {
       const targetRect = target.bounds;
       if (!targetRect) return;
-      if (allowX) {
+      if (edgeEnabled && allowX) {
         movementAnchors(rawRect, "x").forEach(edge => {
           targetAnchors(targetRect, "x").forEach(targetValue => {
             const diff = Math.abs(edge.value - targetValue);
@@ -350,7 +373,7 @@ export class ObjectSnapSession {
           });
         });
       }
-      if (allowY) {
+      if (edgeEnabled && allowY) {
         movementAnchors(rawRect, "y").forEach(edge => {
           targetAnchors(targetRect, "y").forEach(targetValue => {
             const diff = Math.abs(edge.value - targetValue);
@@ -379,13 +402,16 @@ export class ObjectSnapSession {
         SNAP_SPACING_STEPS.forEach(distance => {
           const belowY = targetRect.y + targetRect.height + distance;
           const belowDiff = Math.abs(rawRect.y - belowY);
-          if (belowDiff <= spacingThreshold && (!bestY || belowDiff < bestY.diff)) {
+          const belowKey = spacingLockKey("y", target.id, "below", distance);
+          const belowSuppressed = this.initialSpacingLockSuppresses(belowKey, belowDiff, spacingThreshold);
+          if (!belowSuppressed && belowDiff <= spacingThreshold && (!bestY || belowDiff < bestY.diff)) {
             bestY = {
               axis: "y",
               source: "spacing",
               diff: belowDiff,
               delta: belowY - rawRect.y,
               guide: null,
+              distance,
               targetId: target.id,
               targetKind: target.kind || null,
               measureFactory: snappedRect => verticalSpacingMeasure(targetRect, snappedRect, distance, "below", zoom)
@@ -393,13 +419,16 @@ export class ObjectSnapSession {
           }
           const aboveY = targetRect.y - distance - rawRect.height;
           const aboveDiff = Math.abs(rawRect.y - aboveY);
-          if (aboveDiff <= spacingThreshold && (!bestY || aboveDiff < bestY.diff)) {
+          const aboveKey = spacingLockKey("y", target.id, "above", distance);
+          const aboveSuppressed = this.initialSpacingLockSuppresses(aboveKey, aboveDiff, spacingThreshold);
+          if (!aboveSuppressed && aboveDiff <= spacingThreshold && (!bestY || aboveDiff < bestY.diff)) {
             bestY = {
               axis: "y",
               source: "spacing",
               diff: aboveDiff,
               delta: aboveY - rawRect.y,
               guide: null,
+              distance,
               targetId: target.id,
               targetKind: target.kind || null,
               measureFactory: snappedRect => verticalSpacingMeasure(targetRect, snappedRect, distance, "above", zoom)
@@ -417,13 +446,16 @@ export class ObjectSnapSession {
         SNAP_SPACING_STEPS.forEach(distance => {
           const rightX = targetRect.x + targetRect.width + distance;
           const rightDiff = Math.abs(rawRect.x - rightX);
-          if (rightDiff <= spacingThreshold && (!bestX || rightDiff < bestX.diff)) {
+          const rightKey = spacingLockKey("x", target.id, "right", distance);
+          const rightSuppressed = this.initialSpacingLockSuppresses(rightKey, rightDiff, spacingThreshold);
+          if (!rightSuppressed && rightDiff <= spacingThreshold && (!bestX || rightDiff < bestX.diff)) {
             bestX = {
               axis: "x",
               source: "spacing",
               diff: rightDiff,
               delta: rightX - rawRect.x,
               guide: null,
+              distance,
               targetId: target.id,
               targetKind: target.kind || null,
               measureFactory: snappedRect => horizontalSpacingMeasure(targetRect, snappedRect, distance, "right", zoom)
@@ -431,13 +463,16 @@ export class ObjectSnapSession {
           }
           const leftX = targetRect.x - distance - rawRect.width;
           const leftDiff = Math.abs(rawRect.x - leftX);
-          if (leftDiff <= spacingThreshold && (!bestX || leftDiff < bestX.diff)) {
+          const leftKey = spacingLockKey("x", target.id, "left", distance);
+          const leftSuppressed = this.initialSpacingLockSuppresses(leftKey, leftDiff, spacingThreshold);
+          if (!leftSuppressed && leftDiff <= spacingThreshold && (!bestX || leftDiff < bestX.diff)) {
             bestX = {
               axis: "x",
               source: "spacing",
               diff: leftDiff,
               delta: leftX - rawRect.x,
               guide: null,
+              distance,
               targetId: target.id,
               targetKind: target.kind || null,
               measureFactory: snappedRect => horizontalSpacingMeasure(targetRect, snappedRect, distance, "left", zoom)
@@ -472,6 +507,7 @@ export class ObjectSnapSession {
       debug: {
         frame: this.snapFrame,
         enabled,
+        mode: snapMode,
         startRectReady: true,
         zoom,
         axisLock,
@@ -486,9 +522,73 @@ export class ObjectSnapSession {
         bestX: snapDebugSummary(bestX),
         bestY: snapDebugSummary(bestY),
         guideCount,
-        measurement: measure ? `${measure.axis}:${measure.distance}` : null
+        measurement: measure ? `${measure.axis}:${measure.distance}` : null,
+        initialSpacingLocks: this.initialSpacingLocks?.size || 0,
+        suppressedInitialSpacing: this.suppressedInitialSpacingFrameCount
       }
     });
+  }
+
+  ensureInitialSpacingLocks(spacingThreshold, overlapTolerance) {
+    if (this.initialSpacingLocks) return;
+    this.initialSpacingLocks = new Set();
+    if (!this.startRect) return;
+    const movingRect = this.startRect;
+    this.targets.forEach(target => {
+      const targetRect = target.bounds;
+      if (!targetRect) return;
+      if (rangesOverlapOrNearlyOverlap(
+        movingRect.x,
+        movingRect.x + movingRect.width,
+        targetRect.x,
+        targetRect.x + targetRect.width,
+        overlapTolerance
+      )) {
+        SNAP_SPACING_STEPS.forEach(distance => {
+          const belowY = targetRect.y + targetRect.height + distance;
+          if (Math.abs(movingRect.y - belowY) <= spacingThreshold) {
+            this.initialSpacingLocks.add(spacingLockKey("y", target.id, "below", distance));
+          }
+          const aboveY = targetRect.y - distance - movingRect.height;
+          if (Math.abs(movingRect.y - aboveY) <= spacingThreshold) {
+            this.initialSpacingLocks.add(spacingLockKey("y", target.id, "above", distance));
+          }
+        });
+      }
+      if (rangesOverlapOrNearlyOverlap(
+        movingRect.y,
+        movingRect.y + movingRect.height,
+        targetRect.y,
+        targetRect.y + targetRect.height,
+        overlapTolerance
+      )) {
+        SNAP_SPACING_STEPS.forEach(distance => {
+          const rightX = targetRect.x + targetRect.width + distance;
+          if (Math.abs(movingRect.x - rightX) <= spacingThreshold) {
+            this.initialSpacingLocks.add(spacingLockKey("x", target.id, "right", distance));
+          }
+          const leftX = targetRect.x - distance - movingRect.width;
+          if (Math.abs(movingRect.x - leftX) <= spacingThreshold) {
+            this.initialSpacingLocks.add(spacingLockKey("x", target.id, "left", distance));
+          }
+        });
+      }
+    });
+  }
+
+  initialSpacingLockSuppresses(key, diff, spacingThreshold) {
+    if (!this.initialSpacingLocks?.has(key)) return false;
+    // If a drag starts inside an existing spacing relationship, that initial
+    // relationship must not keep pulling the object back to its old position.
+    // Release it once the pointer has clearly left the spacing window; after
+    // that, moving back into the same distance can snap normally again.
+    const releaseThreshold = spacingThreshold * 1.5;
+    if (diff > releaseThreshold) {
+      this.initialSpacingLocks.delete(key);
+      return false;
+    }
+    this.suppressedInitialSpacingFrameCount += 1;
+    return true;
   }
 
   nearbyTargets(rect, zoom) {

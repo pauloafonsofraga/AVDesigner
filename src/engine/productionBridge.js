@@ -76,8 +76,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing Engine canvas snapping.
-const BRIDGE_VERSION = "production-bridge-snapping-v11";
-const BRIDGE_FEATURE_LABEL = "snap: legacy-pointer-locked-v11";
+const BRIDGE_VERSION = "production-bridge-snapping-trace-v12";
+const BRIDGE_FEATURE_LABEL = "snap: traceable-pointer-pipeline-v12";
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
 const ENGINE_MIN_ZOOM = 0.03;
 const ENGINE_MAX_ZOOM = 8;
@@ -182,6 +182,8 @@ class ProductionEngineBridge {
     this.debugCustomDevices = engineCustomDevicesDebugEnabled();
     this.debugCanvasObjects = engineCanvasObjectsDebugEnabled();
     this.debugObjectSnapping = engineObjectSnappingDebugEnabled();
+    this.debugSnapMode = engineDebugSnapMode();
+    this.snapTraceFrame = 0;
     this.debugRackBuilder = engineRackBuilderDebugEnabled();
     this.debugMatrix = engineMatrixDebugEnabled();
     this.debugShell = engineShellDebugEnabled();
@@ -209,6 +211,7 @@ class ProductionEngineBridge {
       detailedDeviceTextures: true,
       lodMode: true,
       mutationDebug: true,
+      snapDebugEnabled: this.debugObjectSnapping,
       ...engineLayerDebugRenderOptions(this.debugLayerMode),
       dirtyDeviceIds: this.lastDirtyDeviceIds,
       dirtyWireIds: this.lastDirtyWireIds
@@ -234,6 +237,13 @@ class ProductionEngineBridge {
     });
     this.renderer.setRenderOptions(this.renderOptions);
     this.hud = new PerfHud(this.debugPanel);
+    if (this.debugObjectSnapping) {
+      ensureSnapTraceBuffer({
+        bridgeVersion: BRIDGE_VERSION,
+        feature: BRIDGE_FEATURE_LABEL,
+        snapMode: this.debugSnapMode
+      });
+    }
     this.bindEvents();
     this.refreshFromProduction("initial production state");
     this.started = true;
@@ -242,6 +252,12 @@ class ProductionEngineBridge {
       renderer: "WebGL2 engine",
       activation: engineActivationSource()
     });
+  }
+
+  snapTrace() {
+    return typeof window !== "undefined"
+      ? window.__AVD_SNAP_TRACE__ || null
+      : null;
   }
 
   destroy({ restoreProduction = true } = {}) {
@@ -581,6 +597,7 @@ class ProductionEngineBridge {
         <button type="button" data-engine-action="redo">Redo Engine Edit</button>
         <button type="button" data-engine-action="delete-wire">Delete Selected Wire</button>
         <button type="button" data-engine-action="validate">Validate Engine Scene</button>
+        ${this.debugObjectSnapping ? `<button type="button" data-engine-action="snap-test-scene">Setup Snap Test</button>` : ""}
         ${this.orthogonalTest ? `
           <button type="button" data-engine-action="select-orthogonal">Select First 90 DEG Wire</button>
           <button type="button" data-engine-action="copy-routing">Copy Routing Diagnostics</button>
@@ -636,6 +653,7 @@ class ProductionEngineBridge {
     this.engineRoot.querySelector("[data-engine-action='redo']")?.addEventListener("click", () => this.redoEngineCommand());
     this.engineRoot.querySelector("[data-engine-action='delete-wire']")?.addEventListener("click", () => this.deleteSelectedWires());
     this.engineRoot.querySelector("[data-engine-action='validate']")?.addEventListener("click", () => this.runSceneValidation());
+    this.engineRoot.querySelector("[data-engine-action='snap-test-scene']")?.addEventListener("click", () => this.createSnapDebugScene());
     this.engineRoot.querySelector("[data-engine-action='select-orthogonal']")?.addEventListener("click", () => this.selectFirstOrthogonalWire());
     this.engineRoot.querySelector("[data-engine-action='copy-routing']")?.addEventListener("click", () => this.copyRoutingDiagnostics());
     if (this.debugLayerMode && engineLayerDebugShowProductionSvg()) {
@@ -798,7 +816,7 @@ class ProductionEngineBridge {
         if (!wasSelected) this.scene.selectOnly(jumpDevice.id);
         this.updateSelectionHud();
         this.updateInteractionHud("jump-select", { ...connectorHit, device: jumpDevice });
-        this.beginPendingDrag(point, world);
+        this.beginPendingDrag(point, world, event);
         return;
       }
       this.clearHoverState("wire-create-start", { render: false });
@@ -854,7 +872,7 @@ class ProductionEngineBridge {
         });
         this.updateSelectionHud();
         this.updateRackBuilderDebugHud("rack frame selected");
-        this.beginPendingDrag(point, world);
+        this.beginPendingDrag(point, world, event);
         return;
       }
       this.clearHoverState("empty-canvas", { render: false });
@@ -896,7 +914,7 @@ class ProductionEngineBridge {
     });
     this.updateSelectionHud();
     if (actionableRackId) this.updateRackBuilderDebugHud("rack selected");
-    this.beginPendingDrag(point, world);
+    this.beginPendingDrag(point, world, event);
   }
 
   handleContextMenu(event) {
@@ -1108,15 +1126,21 @@ class ProductionEngineBridge {
       // threshold is crossed do we create the transient drag offset map.
       const pending = this.pendingDrag;
       this.pendingDrag = null;
-      this.beginDrag(pending.startWorld, pending.selectedIds);
+      this.beginDrag(pending.startWorld, pending.selectedIds, {
+        startPoint: pending.startPoint,
+        startClient: pending.startClient
+      });
     }
     if (this.dragSession) {
       const start = performance.now();
-      this.dragSession.update(screenToWorld(this.camera, point), {
+      const world = screenToWorld(this.camera, point);
+      this.dragSession.update(world, {
         camera: this.camera,
         snappingEnabled: this.objectSnappingEnabled(),
-        axisLockRequested: Boolean(event.shiftKey)
+        axisLockRequested: Boolean(event.shiftKey),
+        snapMode: this.debugSnapMode
       });
+      this.captureSnapTraceFrame(event, point, world);
       this.captureDebugDragTrace();
       const snapEnabled = this.objectSnappingEnabled();
       this.hud.setMetric(
@@ -1355,12 +1379,16 @@ class ProductionEngineBridge {
     }
   }
 
-  beginPendingDrag(point, worldPoint) {
+  beginPendingDrag(point, worldPoint, event = null) {
     const selectedIds = [...this.scene.selectedIds];
     if (!selectedIds.length) return;
     this.pendingDrag = {
       startPoint: { ...point },
       startWorld: { ...worldPoint },
+      startClient: {
+        clientX: Number.isFinite(Number(event?.clientX)) ? Number(event.clientX) : point.x,
+        clientY: Number.isFinite(Number(event?.clientY)) ? Number(event.clientY) : point.y
+      },
       selectedIds
     };
     this.hud.setMetric("drag pending", `${selectedIds.length} object${selectedIds.length === 1 ? "" : "s"}`);
@@ -1369,7 +1397,7 @@ class ProductionEngineBridge {
     this.scheduleRender();
   }
 
-  beginDrag(worldPoint, selectedIds = this.scene.selectedIds) {
+  beginDrag(worldPoint, selectedIds = this.scene.selectedIds, meta = {}) {
     const start = performance.now();
     const clearedWireEditSelection = this.scene.selectedWireIds.size
       || this.scene.selectedConnectorKeys.size
@@ -1381,7 +1409,10 @@ class ProductionEngineBridge {
       scene: this.scene,
       selectedIds,
       startWorld: worldPoint,
-      enableSnapping: true
+      startPoint: meta.startPoint || null,
+      startClient: meta.startClient || null,
+      enableSnapping: true,
+      snapMode: this.debugSnapMode
     });
     const totalMs = performance.now() - start;
     this.hud.setMetric("dragStart", `${totalMs.toFixed(2)} ms`);
@@ -1519,6 +1550,121 @@ class ProductionEngineBridge {
     this.updateLayerDebugPanel();
   }
 
+  snapDebugVisualState() {
+    if (!this.debugObjectSnapping || !this.dragSession?.snapSession?.startRect) return null;
+    const startRect = this.dragSession.snapSession.startRect;
+    return {
+      pointerWorld: this.dragSession.lastWorldPoint ? { ...this.dragSession.lastWorldPoint } : null,
+      rawRect: offsetDebugRect(startRect, this.dragSession.preSnapDx, this.dragSession.preSnapDy),
+      finalRect: offsetDebugRect(startRect, this.dragSession.dx, this.dragSession.dy)
+    };
+  }
+
+  captureSnapTraceFrame(event, point, worldPoint) {
+    if (!this.debugObjectSnapping || !this.dragSession) return null;
+    const trace = ensureSnapTraceBuffer({
+      bridgeVersion: BRIDGE_VERSION,
+      feature: BRIDGE_FEATURE_LABEL,
+      snapMode: this.debugSnapMode
+    });
+    const dragSession = this.dragSession;
+    const firstId = dragSession.selectedIds[0] || "";
+    const device = firstId ? this.scene.getDevice(firstId) : null;
+    const startPosition = firstId ? dragSession.startPositions.get(firstId) : null;
+    const offset = firstId ? dragSession.offsetMap().get(firstId) : null;
+    const snapDebug = dragSession.snapDiagnostics?.debug || {};
+    const guides = dragSession.snapGuides || null;
+    const predictedWorld = startPosition && offset
+      ? { x: startPosition.x + offset.dx, y: startPosition.y + offset.dy }
+      : null;
+    const predictedScreen = predictedWorld ? worldToScreen(this.camera, predictedWorld) : null;
+    const measure = guides?.measure || null;
+    const bestX = snapDebug.bestX || null;
+    const bestY = snapDebug.bestY || null;
+    const entry = {
+      frame: ++this.snapTraceFrame,
+      timestamp: performance.now(),
+      pointer: {
+        clientX: Number.isFinite(Number(event?.clientX)) ? Number(event.clientX) : null,
+        clientY: Number.isFinite(Number(event?.clientY)) ? Number(event.clientY) : null,
+        canvasX: Number(point?.x || 0),
+        canvasY: Number(point?.y || 0),
+        worldX: Number(worldPoint?.x || 0),
+        worldY: Number(worldPoint?.y || 0)
+      },
+      dragStart: {
+        clientX: dragSession.startClient?.clientX ?? null,
+        clientY: dragSession.startClient?.clientY ?? null,
+        worldX: Number(dragSession.startWorld?.x || 0),
+        worldY: Number(dragSession.startWorld?.y || 0)
+      },
+      drag: {
+        rawDx: Number(dragSession.rawDx || 0),
+        rawDy: Number(dragSession.rawDy || 0),
+        axisLock: dragSession.axisLock || null,
+        preSnapDx: Number(dragSession.preSnapDx || 0),
+        preSnapDy: Number(dragSession.preSnapDy || 0)
+      },
+      snap: {
+        enabled: this.objectSnappingEnabled(),
+        mode: this.debugSnapMode,
+        candidateCount: Number(dragSession.snapCandidateCount || 0),
+        targetCount: Number(dragSession.snapTargetCount || 0),
+        xActive: Boolean(bestX),
+        yActive: Boolean(bestY),
+        xSource: bestX?.source || null,
+        ySource: bestY?.source || null,
+        xTargetId: bestX?.targetId || null,
+        yTargetId: bestY?.targetId || null,
+        xDiff: bestX?.diff ?? null,
+        yDiff: bestY?.diff ?? null,
+        correctionX: Number(snapDebug.correctionX || 0),
+        correctionY: Number(snapDebug.correctionY || 0),
+        spacingDistanceX: bestX?.source === "spacing" ? bestX.distance : null,
+        spacingDistanceY: bestY?.source === "spacing" ? bestY.distance : null,
+        initialSpacingLocks: Number(snapDebug.initialSpacingLocks || 0),
+        suppressedInitialSpacing: Number(snapDebug.suppressedInitialSpacing || 0)
+      },
+      result: {
+        finalDx: Number(dragSession.dx || 0),
+        finalDy: Number(dragSession.dy || 0)
+      },
+      render: {
+        selectedId: firstId,
+        offsetDx: Number(offset?.dx || 0),
+        offsetDy: Number(offset?.dy || 0),
+        objectWorldX: Number(device?.x || startPosition?.x || 0),
+        objectWorldY: Number(device?.y || startPosition?.y || 0),
+        predictedRenderedWorldX: predictedWorld?.x ?? null,
+        predictedRenderedWorldY: predictedWorld?.y ?? null,
+        predictedRenderedScreenX: predictedScreen?.x ?? null,
+        predictedRenderedScreenY: predictedScreen?.y ?? null
+      },
+      guides: {
+        count: (guides?.edgeX ? 1 : 0)
+          + (guides?.edgeY ? 1 : 0)
+          + (guides?.measure ? 1 : 0)
+          + (Number.isFinite(Number(guides?.x)) && !guides?.edgeX ? 1 : 0)
+          + (Number.isFinite(Number(guides?.y)) && !guides?.edgeY ? 1 : 0),
+        x: guides?.edgeX?.x ?? guides?.x ?? null,
+        y: guides?.edgeY?.y ?? guides?.y ?? null,
+        measure: measure ? {
+          axis: measure.axis || null,
+          distance: measure.distance ?? null,
+          x: measure.x ?? null,
+          y: measure.y ?? null,
+          x1: measure.x1 ?? null,
+          x2: measure.x2 ?? null,
+          y1: measure.y1 ?? null,
+          y2: measure.y2 ?? null
+        } : null
+      }
+    };
+    trace.push(entry);
+    this.hud?.setMetric("snap trace", `${trace.frames.length}/${trace.max} frames / ${this.debugSnapMode}`);
+    return entry;
+  }
+
   routePointHandleIsEditable(routePoint) {
     if (!routePoint?.wire) return false;
     const wireId = routePoint.wire.id;
@@ -1594,6 +1740,7 @@ class ProductionEngineBridge {
   }
 
   objectSnappingEnabled() {
+    if (this.debugSnapMode === "off") return false;
     if (typeof this.api.getObjectSnapping === "function") {
       return this.api.getObjectSnapping() !== false;
     }
@@ -1608,7 +1755,7 @@ class ProductionEngineBridge {
     const snapped = diagnostics.lastSnapped ? "SNAPPED" : "free";
     const debug = diagnostics.debug;
     if (this.debugObjectSnapping && debug) {
-      return `${snapped} / ${ready} / raw ${formatSnapNumber(debug.rawDx)},${formatSnapNumber(debug.rawDy)} -> ${formatSnapNumber(debug.finalDx)},${formatSnapNumber(debug.finalDy)} / ${dragSession.snapCandidateCount}/${dragSession.snapTargetCount} candidates / ${source} / ${dragSession.snapMs.toFixed(3)} ms`;
+      return `${this.debugSnapMode} / ${snapped} / ${ready} / raw ${formatSnapNumber(debug.rawDx)},${formatSnapNumber(debug.rawDy)} -> ${formatSnapNumber(debug.finalDx)},${formatSnapNumber(debug.finalDy)} / ${dragSession.snapCandidateCount}/${dragSession.snapTargetCount} candidates / ${source} / ${dragSession.snapMs.toFixed(3)} ms`;
     }
     return `${snapped} / ${ready} / ${dragSession.snapCandidateCount}/${dragSession.snapTargetCount} candidates / ${source} / ${dragSession.snapMs.toFixed(3)} ms`;
   }
@@ -1616,6 +1763,7 @@ class ProductionEngineBridge {
   updateObjectSnapDebugHud() {
     if (!this.debugObjectSnapping || !this.hud) return;
     const debug = this.dragSession?.snapDiagnostics?.debug;
+    this.hud.setMetric("snap mode", this.debugSnapMode);
     if (!debug) {
       this.hud.setMetric("snap raw", "-");
       this.hud.setMetric("snap final", "-");
@@ -2275,6 +2423,7 @@ class ProductionEngineBridge {
           ? { mode: "wire-segment", wireId: this.wireSegmentDrag.wireId, segmentIndex: this.wireSegmentDrag.segmentIndex }
           : null,
       snapGuides: this.dragSession?.snapGuides || this.wireSegmentDrag?.lastSnap?.guides || null,
+      snapDebugVisual: this.snapDebugVisualState(),
       hoverScreenPoint: this.hoverState.screenPoint,
       selectedConnectors: this.scene.selectedConnectorKeys,
       selectedRoutePoints: this.scene.selectedRoutePointKeys,
@@ -4141,6 +4290,78 @@ class ProductionEngineBridge {
     return true;
   }
 
+  createSnapDebugScene() {
+    if (!this.debugObjectSnapping || !this.ready) return false;
+    const rect = this.canvasClientRect();
+    if (!rect) return false;
+    const width = 260;
+    const height = 170;
+    const gap = 320;
+    const anchor = this.clientPointToWorld(
+      rect.left + rect.width * 0.36,
+      rect.top + rect.height * 0.36
+    ) || { x: this.camera.x + 180 / Math.max(this.camera.zoom, 0.001), y: this.camera.y + 180 / Math.max(this.camera.zoom, 0.001) };
+    const idSuffix = Math.round(performance.now()).toString(36);
+    const template = {
+      id: `debug-snap-template-${idSuffix}`,
+      name: "Snap Test Device",
+      model: "SNAP-RECT",
+      category: "Matrixes",
+      width,
+      height,
+      connectors: []
+    };
+    const first = {
+      instanceId: `debug-snap-a-${idSuffix}`,
+      templateId: template.id,
+      templateOverride: deepClone(template),
+      name: "Snap A",
+      x: Math.round(anchor.x - width / 2),
+      y: Math.round(anchor.y - height / 2),
+      notes: ""
+    };
+    const second = {
+      instanceId: `debug-snap-b-${idSuffix}`,
+      templateId: template.id,
+      templateOverride: deepClone(template),
+      name: "Snap B",
+      x: first.x + gap,
+      y: first.y,
+      notes: ""
+    };
+    const created = this.createDevicesFromLibraryDrop([first, second]);
+    if (!created) return false;
+    this.scene.selectOnly(first.instanceId);
+    this.updateSelectionHud();
+    this.renderEngineInspector();
+    this.scheduleRender();
+    const centerWorld = {
+      x: first.x + width / 2,
+      y: first.y + height / 2
+    };
+    const centerScreen = worldToScreen(this.camera, centerWorld);
+    writeSnapTestSceneDomSnapshot({
+      mode: this.debugSnapMode,
+      firstId: first.instanceId,
+      secondId: second.instanceId,
+      firstRect: { x: first.x, y: first.y, width, height },
+      secondRect: { x: second.x, y: second.y, width, height },
+      firstCenterWorld: centerWorld,
+      firstCenterScreen: {
+        x: centerScreen.x + rect.left,
+        y: centerScreen.y + rect.top
+      },
+      canvasRect: rect,
+      camera: {
+        x: this.camera.x,
+        y: this.camera.y,
+        zoom: this.camera.zoom
+      }
+    });
+    this.hud?.setMetric("snap test scene", `${first.instanceId} / ${second.instanceId}`);
+    return true;
+  }
+
   restoreCreatedDevice(deviceData, index = null, { select = true, recordMetric = true } = {}) {
     const objectKind = String(deviceData?.__engineObjectKind || "");
     if (objectKind) {
@@ -5578,8 +5799,12 @@ function engineCanvasObjectsDebugEnabled() {
 }
 
 function engineObjectSnappingDebugEnabled() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get("debugObjectSnapping") === "1" || params.get("debugHud") === "1";
+  return new URLSearchParams(window.location.search).get("debugObjectSnapping") === "1";
+}
+
+function engineDebugSnapMode() {
+  const value = String(new URLSearchParams(window.location.search).get("debugSnapMode") || "full").toLowerCase();
+  return ["off", "raw", "edge", "spacing", "full"].includes(value) ? value : "full";
 }
 
 function engineRackBuilderDebugEnabled() {
@@ -5600,6 +5825,90 @@ function formatSnapNumber(value) {
   if (Math.abs(number) >= 1000) return number.toFixed(0);
   if (Math.abs(number) >= 100) return number.toFixed(1);
   return number.toFixed(2);
+}
+
+function offsetDebugRect(rect, dx = 0, dy = 0) {
+  if (!rect) return null;
+  return {
+    x: Number(rect.x || 0) + Number(dx || 0),
+    y: Number(rect.y || 0) + Number(dy || 0),
+    width: Number(rect.width || 0),
+    height: Number(rect.height || 0)
+  };
+}
+
+function worldToScreen(camera, point) {
+  return {
+    x: (Number(point?.x || 0) - Number(camera?.x || 0)) * Number(camera?.zoom || 1),
+    y: (Number(point?.y || 0) - Number(camera?.y || 0)) * Number(camera?.zoom || 1)
+  };
+}
+
+function ensureSnapTraceBuffer(meta = {}) {
+  if (typeof window === "undefined") return null;
+  const max = 500;
+  const existing = window.__AVD_SNAP_TRACE__;
+  if (existing && Array.isArray(existing.frames) && typeof existing.push === "function") {
+    existing.max = max;
+    existing.meta = { ...(existing.meta || {}), ...meta };
+    writeSnapTraceDomSnapshot(existing);
+    return existing;
+  }
+  const buffer = {
+    max,
+    meta: { ...meta },
+    frames: [],
+    push(entry) {
+      this.frames.push(entry);
+      if (this.frames.length > this.max) this.frames.splice(0, this.frames.length - this.max);
+      window.__AVD_SNAP_LAST__ = entry;
+      writeSnapTraceDomSnapshot(this);
+      return entry;
+    },
+    clear() {
+      this.frames.length = 0;
+      window.__AVD_SNAP_LAST__ = null;
+      writeSnapTraceDomSnapshot(this);
+    },
+    last(count = 1) {
+      return this.frames.slice(Math.max(0, this.frames.length - Math.max(1, Number(count) || 1)));
+    }
+  };
+  window.__AVD_SNAP_TRACE__ = buffer;
+  window.__AVD_SNAP_LAST__ = null;
+  writeSnapTraceDomSnapshot(buffer);
+  return buffer;
+}
+
+function writeSnapTraceDomSnapshot(buffer) {
+  if (typeof document === "undefined" || !buffer) return;
+  let element = document.getElementById("engineSnapTraceDump");
+  if (!element) {
+    element = document.createElement("script");
+    element.id = "engineSnapTraceDump";
+    element.type = "application/json";
+    element.dataset.debugOnly = "true";
+    document.body.appendChild(element);
+  }
+  element.textContent = JSON.stringify({
+    max: buffer.max,
+    meta: buffer.meta || {},
+    frames: buffer.frames || [],
+    last: window.__AVD_SNAP_LAST__ || null
+  });
+}
+
+function writeSnapTestSceneDomSnapshot(snapshot) {
+  if (typeof document === "undefined" || !snapshot) return;
+  let element = document.getElementById("engineSnapTestSceneDump");
+  if (!element) {
+    element = document.createElement("script");
+    element.id = "engineSnapTestSceneDump";
+    element.type = "application/json";
+    element.dataset.debugOnly = "true";
+    document.body.appendChild(element);
+  }
+  element.textContent = JSON.stringify(snapshot);
 }
 
 function snapDebugText(snap) {

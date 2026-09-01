@@ -61,6 +61,7 @@ const DEFAULT_RENDER_OPTIONS = {
   hideLabels: false,
   hideSurfaces: false,
   hideSelectionOverlay: false,
+  snapDebugEnabled: false,
   cableHops: true,
   dirtyDeviceIds: new Set(),
   dirtyWireIds: new Set()
@@ -709,6 +710,7 @@ export class WebglGraphRenderer {
       suppressedAffectedWireOverlays: 0,
       suppressedHoveredWireOverlays: 0,
       snapGuides: 0,
+      snapDebugVisuals: 0,
       snapMeasureLabels: 0,
       jumpForegroundNodes: 0,
       textureBuilds: 0,
@@ -890,6 +892,7 @@ export class WebglGraphRenderer {
     frameStats.suppressedAffectedWireOverlays = interactionStats.suppressedAffectedWireOverlays || 0;
     frameStats.suppressedHoveredWireOverlays = interactionStats.suppressedHoveredWireOverlays || 0;
     frameStats.snapGuides = interactionStats.snapGuides || 0;
+    frameStats.snapDebugVisuals = interactionStats.snapDebugVisuals || 0;
     frameStats.liveBuildMs = performance.now() - liveBuildStart;
     sectionStart = performance.now();
     this.liveVertexCount = upload(gl, this.liveBuffer, liveVertices);
@@ -1525,7 +1528,8 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
     wirePreviewDrawn: 0,
     suppressedAffectedWireOverlays: 0,
     suppressedHoveredWireOverlays: 0,
-    snapGuides: 0
+    snapGuides: 0,
+    snapDebugVisuals: 0
   };
   const wireCreateActive = Boolean(interaction.tempWire);
   const suppressedWireIds = interaction.suppressedWireIds || new Set();
@@ -1614,6 +1618,9 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
     pushBoxOutline(vertices, interaction.marquee, 2.4, "rgba(50, 182, 255, .92)");
   }
   stats.snapGuides = pushSnapGuides(vertices, interaction.snapGuides, overlayOptions.camera, overlayOptions.resolution);
+  if (renderOptions.snapDebugEnabled) {
+    stats.snapDebugVisuals = pushSnapDebugVisual(vertices, interaction.snapDebugVisual, overlayOptions.camera);
+  }
   return stats;
 }
 
@@ -1882,6 +1889,41 @@ function pushSnapGuides(vertices, guides, camera, resolution) {
     pushLine(vertices, { x: measure.x1, y: measure.y - tick }, { x: measure.x1, y: measure.y + tick }, width, measureColor);
     pushLine(vertices, { x: measure.x2, y: measure.y - tick }, { x: measure.x2, y: measure.y + tick }, width, measureColor);
     count += 3;
+  }
+  return count;
+}
+
+function pushSnapDebugVisual(vertices, visual, camera) {
+  if (!visual || !camera) return 0;
+  const zoom = Math.max(0.05, Number(camera.zoom) || 1);
+  let count = 0;
+  const outlineWidth = Math.max(1.2, 2 / zoom);
+  if (visual.rawRect) {
+    pushDashedBoxOutline(vertices, visual.rawRect, outlineWidth, "rgba(255,255,255,.72)", 10 / zoom, 6 / zoom);
+    count += 1;
+  }
+  if (visual.finalRect) {
+    pushBoxOutline(vertices, visual.finalRect, Math.max(1.6, 2.8 / zoom), "rgba(255,121,4,.95)");
+    count += 1;
+  }
+  if (visual.pointerWorld) {
+    const radius = Math.max(5, 7 / zoom);
+    pushCircleOutline(vertices, visual.pointerWorld, radius, Math.max(1.4, 2.2 / zoom), "rgba(50,182,255,.95)", 18);
+    pushLine(
+      vertices,
+      { x: visual.pointerWorld.x - radius * 1.55, y: visual.pointerWorld.y },
+      { x: visual.pointerWorld.x + radius * 1.55, y: visual.pointerWorld.y },
+      Math.max(1, 1.4 / zoom),
+      "rgba(50,182,255,.72)"
+    );
+    pushLine(
+      vertices,
+      { x: visual.pointerWorld.x, y: visual.pointerWorld.y - radius * 1.55 },
+      { x: visual.pointerWorld.x, y: visual.pointerWorld.y + radius * 1.55 },
+      Math.max(1, 1.4 / zoom),
+      "rgba(50,182,255,.72)"
+    );
+    count += 1;
   }
   return count;
 }
