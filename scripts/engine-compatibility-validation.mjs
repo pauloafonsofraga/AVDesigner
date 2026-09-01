@@ -366,8 +366,8 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
   assert.equal(drag.snapDiagnostics?.lastSnapped, true, "engine object drag diagnostics report snapped state");
   drag.snapSession.targetIndex.clear();
   drag.update({ x: 147, y: 2 }, { camera: { zoom: 1 }, snappingEnabled: true });
-  assert.equal(drag.dx, 150, "engine object drag cache keeps the snapped X edge locked");
-  assert.equal(drag.dy, 2, "engine object drag cache keeps the free Y axis live");
+  assert.equal(drag.dx, 150, "engine object drag keeps the snapped X edge locked");
+  assert.equal(drag.dy, 2, "engine object drag keeps the free Y axis live");
   assert.equal(
     drag.snapDiagnostics?.candidateSource,
     "array",
@@ -381,6 +381,20 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
   drag.update({ x: 152, y: 0 }, { camera: { zoom: 1 }, snappingEnabled: true });
   assert.equal(drag.dx, 150, "engine object drag still snaps when the target spatial index is cold");
   assert.equal(drag.snapDiagnostics?.candidateSource, "array", "engine object drag can use frozen drag-start candidates without the index");
+
+  drag.update({ x: 180, y: 44 }, { camera: { zoom: 1 }, snappingEnabled: true });
+  assert.equal(drag.dx, 180, "engine object drag releases X snap when the pointer leaves snap range");
+  assert.equal(drag.dy, 44, "engine object drag follows raw Y after snap release");
+  assert.equal(drag.snapGuides, null, "engine object drag clears edge guides after snap release");
+
+  drag.update({ x: 25, y: 66 }, { camera: { zoom: 1 }, snappingEnabled: true });
+  assert.equal(drag.dx, 25, "engine object drag keeps X live when only Y can snap");
+  assert.equal(drag.dy, 70, "engine object drag snaps the moving bottom edge to target top edge");
+  assert.deepEqual(
+    drag.snapGuides.edgeY,
+    { side: "bottom", y: 170, x1: 25, x2: 125 },
+    "engine object drag exposes the aligned moving horizontal edge"
+  );
 }
 {
   const lowZoomScene = new SceneGraph();
@@ -415,8 +429,8 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
   });
   drag.update({ x: 0, y: 0 }, { camera: { zoom: 0.1 }, snappingEnabled: true });
   drag.update({ x: 20, y: 12 }, { camera: { zoom: 0.1 }, snappingEnabled: true });
-  assert.equal(drag.dx, 20, "low-zoom object drag follows mouse while reusing an unsnapped result");
-  assert.equal(drag.dy, 12, "low-zoom object drag follows mouse Y while reusing an unsnapped result");
+  assert.equal(drag.dx, 20, "low-zoom object drag follows mouse without a stale unsnapped cache");
+  assert.equal(drag.dy, 12, "low-zoom object drag follows mouse Y without a stale unsnapped cache");
   assert.equal(drag.snapGuides, null, "low-zoom free drag does not invent stale snap guides");
 }
 {

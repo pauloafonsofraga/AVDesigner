@@ -4,10 +4,6 @@ import { SpatialIndex } from "./spatialIndex.js";
 const SNAP_SPACING_STEPS = [50, 100, 150, 200, 250, 300, 350, 400, 450, 500];
 const SNAP_MAX_SPACING_STEP = Math.max(...SNAP_SPACING_STEPS);
 const SNAP_QUERY_PADDING = SNAP_MAX_SPACING_STEP + 140;
-const SNAP_MIN_RECALC_DELTA = 4;
-const SNAP_MIN_ACTIVE_CORRECTION_SCREEN_PX = 0.35;
-const SNAP_MAX_ACTIVE_CORRECTION_SCREEN_PX = 6;
-const SNAP_DIRECTION_BIAS = 1.25;
 // Spacing guides need to remain useful farther out than detail labels. This
 // threshold is intentionally lower than the old 35% cutoff so the pixel spacing
 // indicator appears at roughly twice the previous zoomed-out range.
@@ -121,48 +117,6 @@ function snapEdgeGuides(snappedRect, bestX, bestY) {
   };
 }
 
-function snapCorrectionMagnitude(snap, zoom) {
-  if (!snap) return 0;
-  return Math.abs(Number(snap.diff ?? snap.delta) || 0) * Math.max(zoom, 0.01);
-}
-
-function snapIsActive(snap, zoom) {
-  return Boolean(snap) && snapCorrectionMagnitude(snap, zoom) >= SNAP_MIN_ACTIVE_CORRECTION_SCREEN_PX;
-}
-
-function snapWithinActiveWindow(snap, zoom) {
-  if (!snap) return null;
-  // The candidate search can look a little farther out so nearby alignments are
-  // not missed, but the drag delta should only be corrected by a tiny screen
-  // distance. Otherwise the engine overlay visibly detaches from the pointer.
-  return snapCorrectionMagnitude(snap, zoom) <= SNAP_MAX_ACTIVE_CORRECTION_SCREEN_PX ? snap : null;
-}
-
-function resolvePrimarySnap(bestX, bestY, dx, dy, zoom) {
-  if (!bestX && !bestY) return { bestX: null, bestY: null };
-  if (!bestX) return { bestX: null, bestY };
-  if (!bestY) return { bestX, bestY: null };
-
-  const xActive = snapIsActive(bestX, zoom);
-  const yActive = snapIsActive(bestY, zoom);
-  if (xActive && !yActive) return { bestX, bestY: null };
-  if (yActive && !xActive) return { bestX: null, bestY };
-
-  const absDx = Math.abs(dx);
-  const absDy = Math.abs(dy);
-  // Canvas object snapping must not pin the dragged object to a two-axis
-  // crosshair. Legacy's DOM path made that less obvious because the object
-  // itself was mutated each frame; in the engine path the selected object is a
-  // transient texture offset, so two independent corrections feel like the
-  // pointer has lost the object. Prefer the dominant movement axis and fall
-  // back to the closest guide when movement is diagonal.
-  if (absDx > absDy * SNAP_DIRECTION_BIAS) return { bestX, bestY: null };
-  if (absDy > absDx * SNAP_DIRECTION_BIAS) return { bestX: null, bestY };
-  return bestX.diff <= bestY.diff
-    ? { bestX, bestY: null }
-    : { bestX: null, bestY };
-}
-
 function verticalSpacingMeasure(targetRect, movingRect, distance, direction, zoom) {
   const detailScale = 1 / Math.max(0.05, zoom);
   const guideX = Math.min(targetRect.x, movingRect.x) - 40 * detailScale;
@@ -211,56 +165,27 @@ function cloneSnapResult(result) {
     dy: result.dy,
     guides: cloneGuides(result.guides),
     snapped: Boolean(result.snapped),
-    candidateCount: result.candidateCount || 0
+    candidateCount: result.candidateCount || 0,
+    debug: result.debug ? {
+      ...result.debug,
+      bestX: result.debug.bestX ? { ...result.debug.bestX } : null,
+      bestY: result.debug.bestY ? { ...result.debug.bestY } : null,
+    } : null
   };
 }
 
-function shouldReuseSnapResult(session, dx, dy, zoom, axisLock, enabled) {
-  if (!session.lastRaw || !session.lastResult) return false;
-  // Reuse only free-drag/unsnapped results. Cached active snap decisions can
-  // make the dragged object feel detached from the pointer because the snapped
-  // delta is intentionally different from the raw mouse delta. Active snapping
-  // is still cheap enough to recalculate against the frozen drag-start target
-  // list every frame, and doing so keeps movement visually live.
-  if (session.lastResult.snapped) return false;
-  const threshold = SNAP_MIN_RECALC_DELTA / Math.max(zoom, 0.01);
-  return enabled === session.lastEnabled
-    && axisLock === session.lastAxisLock
-    && Math.abs(dx - session.lastRaw.dx) < threshold
-    && Math.abs(dy - session.lastRaw.dy) < threshold
-    && Math.abs(zoom - session.lastZoom) < 0.001;
-}
-
-function reusedSnapResultForCurrentDelta(session, dx, dy) {
-  const result = cloneSnapResult(session.lastResult);
-  // Reusing a previous snap decision must never reuse an old free-drag delta.
-  // At low zoom, the recalculation threshold represents several world pixels;
-  // returning the previous dx/dy here makes the object visibly stick instead
-  // of following the mouse. When no guide is active, always pass through the
-  // current pointer delta. When a guide is active, only lock the guided axis.
-  if (!result.snapped) {
-    result.dx = dx;
-    result.dy = dy;
-    result.guides = null;
-    return result;
-  }
-  const guides = result.guides || {};
-  const locksX = guides.x != null || guides.measure?.axis === "x";
-  const locksY = guides.y != null || guides.measure?.axis === "y";
-  if (!locksX) result.dx = dx;
-  if (!locksY) result.dy = dy;
-  if (result.guides && session.startRect) {
-    const rect = offsetRect(session.startRect, result.dx, result.dy);
-    if (result.guides.edgeX) {
-      result.guides.edgeX.y1 = rect.y;
-      result.guides.edgeX.y2 = rect.y + rect.height;
-    }
-    if (result.guides.edgeY) {
-      result.guides.edgeY.x1 = rect.x;
-      result.guides.edgeY.x2 = rect.x + rect.width;
-    }
-  }
-  return result;
+function snapDebugSummary(snap) {
+  if (!snap) return null;
+  return {
+    axis: snap.axis || null,
+    source: snap.source || null,
+    side: snap.side || null,
+    diff: Number(snap.diff || 0),
+    delta: Number(snap.delta || 0),
+    guide: snap.guide ?? null,
+    targetId: snap.targetId || null,
+    targetKind: snap.targetKind || null
+  };
 }
 
 export class ObjectSnapSession {
@@ -283,6 +208,7 @@ export class ObjectSnapSession {
     this.lastAxisLock = null;
     this.lastEnabled = true;
     this.lastResult = null;
+    this.snapFrame = 0;
   }
 
   buildTargets() {
@@ -352,23 +278,45 @@ export class ObjectSnapSession {
       candidateSource: this.lastCandidateSource,
       lastCandidateCount: this.lastResult?.candidateCount || 0,
       lastSnapped: Boolean(this.lastResult?.snapped),
+      debug: this.lastResult?.debug ? { ...this.lastResult.debug } : null,
     };
   }
 
   snap({ dx = 0, dy = 0, zoom = 1, axisLock = null, enabled = true } = {}) {
+    this.snapFrame += 1;
     if (!this.startRect || !enabled) {
       return this.remember(dx, dy, zoom, axisLock, enabled, {
         dx,
         dy,
         guides: null,
         snapped: false,
-        candidateCount: 0
+        candidateCount: 0,
+        debug: {
+          frame: this.snapFrame,
+          enabled,
+          startRectReady: Boolean(this.startRect),
+          zoom,
+          axisLock,
+          rawDx: dx,
+          rawDy: dy,
+          finalDx: dx,
+          finalDy: dy,
+          correctionX: 0,
+          correctionY: 0,
+          candidateSource: "none",
+          candidateCount: 0,
+          bestX: null,
+          bestY: null,
+          guideCount: 0,
+          measurement: null
+        }
       });
     }
-    if (shouldReuseSnapResult(this, dx, dy, zoom, axisLock, enabled)) {
-      return reusedSnapResultForCurrentDelta(this, dx, dy);
-    }
 
+    // Legacy object snapping is pointer-locked: every frame starts from the
+    // current raw drag delta, evaluates immutable drag-start targets, and then
+    // applies only this frame's X/Y corrections. Never reuse an old snapped
+    // delta here, or the Engine object can visibly detach from the mouse.
     const rawRect = offsetRect(this.startRect, dx, dy);
     const candidates = this.nearbyTargets(rawRect, zoom);
     const threshold = 10 / Math.max(zoom, 0.01);
@@ -388,7 +336,16 @@ export class ObjectSnapSession {
           targetAnchors(targetRect, "x").forEach(targetValue => {
             const diff = Math.abs(edge.value - targetValue);
             if (diff <= threshold && (!bestX || diff < bestX.diff)) {
-              bestX = { diff, delta: targetValue - edge.value, guide: targetValue, side: edge.side };
+              bestX = {
+                axis: "x",
+                source: "edge",
+                diff,
+                delta: targetValue - edge.value,
+                guide: targetValue,
+                side: edge.side,
+                targetId: target.id,
+                targetKind: target.kind || null
+              };
             }
           });
         });
@@ -398,7 +355,16 @@ export class ObjectSnapSession {
           targetAnchors(targetRect, "y").forEach(targetValue => {
             const diff = Math.abs(edge.value - targetValue);
             if (diff <= threshold && (!bestY || diff < bestY.diff)) {
-              bestY = { diff, delta: targetValue - edge.value, guide: targetValue, side: edge.side };
+              bestY = {
+                axis: "y",
+                source: "edge",
+                diff,
+                delta: targetValue - edge.value,
+                guide: targetValue,
+                side: edge.side,
+                targetId: target.id,
+                targetKind: target.kind || null
+              };
             }
           });
         });
@@ -415,9 +381,13 @@ export class ObjectSnapSession {
           const belowDiff = Math.abs(rawRect.y - belowY);
           if (belowDiff <= spacingThreshold && (!bestY || belowDiff < bestY.diff)) {
             bestY = {
+              axis: "y",
+              source: "spacing",
               diff: belowDiff,
               delta: belowY - rawRect.y,
               guide: null,
+              targetId: target.id,
+              targetKind: target.kind || null,
               measureFactory: snappedRect => verticalSpacingMeasure(targetRect, snappedRect, distance, "below", zoom)
             };
           }
@@ -425,9 +395,13 @@ export class ObjectSnapSession {
           const aboveDiff = Math.abs(rawRect.y - aboveY);
           if (aboveDiff <= spacingThreshold && (!bestY || aboveDiff < bestY.diff)) {
             bestY = {
+              axis: "y",
+              source: "spacing",
               diff: aboveDiff,
               delta: aboveY - rawRect.y,
               guide: null,
+              targetId: target.id,
+              targetKind: target.kind || null,
               measureFactory: snappedRect => verticalSpacingMeasure(targetRect, snappedRect, distance, "above", zoom)
             };
           }
@@ -445,9 +419,13 @@ export class ObjectSnapSession {
           const rightDiff = Math.abs(rawRect.x - rightX);
           if (rightDiff <= spacingThreshold && (!bestX || rightDiff < bestX.diff)) {
             bestX = {
+              axis: "x",
+              source: "spacing",
               diff: rightDiff,
               delta: rightX - rawRect.x,
               guide: null,
+              targetId: target.id,
+              targetKind: target.kind || null,
               measureFactory: snappedRect => horizontalSpacingMeasure(targetRect, snappedRect, distance, "right", zoom)
             };
           }
@@ -455,9 +433,13 @@ export class ObjectSnapSession {
           const leftDiff = Math.abs(rawRect.x - leftX);
           if (leftDiff <= spacingThreshold && (!bestX || leftDiff < bestX.diff)) {
             bestX = {
+              axis: "x",
+              source: "spacing",
               diff: leftDiff,
               delta: leftX - rawRect.x,
               guide: null,
+              targetId: target.id,
+              targetKind: target.kind || null,
               measureFactory: snappedRect => horizontalSpacingMeasure(targetRect, snappedRect, distance, "left", zoom)
             };
           }
@@ -465,19 +447,15 @@ export class ObjectSnapSession {
       }
     });
 
-    bestX = snapWithinActiveWindow(bestX, zoom);
-    bestY = snapWithinActiveWindow(bestY, zoom);
-
-    const primary = resolvePrimarySnap(bestX, bestY, dx, dy, zoom);
-    bestX = primary.bestX;
-    bestY = primary.bestY;
-
     const snappedDx = dx + (bestX?.delta || 0);
     const snappedDy = dy + (bestY?.delta || 0);
     const snappedRect = offsetRect(this.startRect, snappedDx, snappedDy);
     const measure = bestY?.measureFactory?.(snappedRect) || bestX?.measureFactory?.(snappedRect) || null;
     const hasSnap = Boolean(bestX || bestY);
     const edgeGuides = snapEdgeGuides(snappedRect, bestX, bestY);
+    const guideCount = (edgeGuides.edgeX ? 1 : 0)
+      + (edgeGuides.edgeY ? 1 : 0)
+      + (measure ? 1 : 0);
     return this.remember(dx, dy, zoom, axisLock, enabled, {
       dx: snappedDx,
       dy: snappedDy,
@@ -490,7 +468,26 @@ export class ObjectSnapSession {
           }
         : null,
       snapped: hasSnap,
-      candidateCount: candidates.length
+      candidateCount: candidates.length,
+      debug: {
+        frame: this.snapFrame,
+        enabled,
+        startRectReady: true,
+        zoom,
+        axisLock,
+        rawDx: dx,
+        rawDy: dy,
+        finalDx: snappedDx,
+        finalDy: snappedDy,
+        correctionX: snappedDx - dx,
+        correctionY: snappedDy - dy,
+        candidateSource: this.lastCandidateSource,
+        candidateCount: candidates.length,
+        bestX: snapDebugSummary(bestX),
+        bestY: snapDebugSummary(bestY),
+        guideCount,
+        measurement: measure ? `${measure.axis}:${measure.distance}` : null
+      }
     });
   }
 

@@ -18,7 +18,7 @@ Legacy-style edge alignment plus 50px spacing-step snaps, and forwards only the
 resulting guide lines to the interaction overlay. Shift axis-lock is applied
 before snapping, and real object positions still commit only on pointer-up.
 The build label/cache key for this pass is
-`iteration51-engine-canvas-snapping-v8`.
+`iteration51-1-engine-object-snapping-v11`.
 
 Iteration 50 restores the editor shell as an explicit, diagnosable DOM layer
 around the Engine canvas. The toolbar, left Device Library/Project Custom
@@ -192,14 +192,14 @@ PDF and report drawing paths are deliberately unchanged.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags.
 
-Current visible build label: `Iteration 51`.
+Current visible build label: `Iteration 51.1`.
 The app top bar must show one of these labels:
 
-- `Iteration 51 — Engine Editor — iteration51-engine-canvas-snapping-v8`
-- `Iteration 51 — Legacy Editor — iteration51-engine-canvas-snapping-v8`
+- `Iteration 51.1 — Engine Editor — iteration51-1-engine-object-snapping-v11`
+- `Iteration 51.1 — Legacy Editor — iteration51-1-engine-object-snapping-v11`
 
 The Engine HUD badge for this pass must also show
-`production-bridge-snapping-v8` and `snap: dashed-edge-guides-v8`. If either
+`production-bridge-snapping-v11` and `snap: legacy-pointer-locked-v11`. If either
 label still shows `production-bridge-1`, the browser or deployment is serving a
 stale Engine module.
 
@@ -207,13 +207,12 @@ Engine module imports now use `APP_BUILD_ID` as their own cache key. A stale
 page URL with an older `v=` value should no longer force the Engine to import
 older JavaScript modules.
 
-Engine object snapping now draws dashed alignment guides only along the moving
-edge that is actually snapping, rather than drawing full-canvas crosshairs.
-Pixel spacing measurements remain enabled down to roughly twice the previous
-outer zoom range.
-Active snap decisions are recalculated on every drag frame; only unsnapped
-free-drag frames reuse the cached snap result, so the dragged object should not
-stick to an old mouse position while a guide is active.
+Engine object snapping now uses the Legacy pointer-locked snap contract again:
+drag-start target geometry is cached, but the active snap winners and final
+drag delta are recalculated from the current pointer position on every drag
+frame. Dashed alignment guides are drawn only along the moving edge that is
+actually snapping, and pixel spacing measurements remain enabled down to
+roughly twice the previous outer zoom range.
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -222,52 +221,54 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration51-engine-canvas-snapping-v8`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration51-engine-canvas-snapping-v8`.
-4. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration51-engine-canvas-snapping-v8`.
-5. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration51-engine-canvas-snapping-v8`.
-6. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration51-engine-canvas-snapping-v8`.
-7. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration51-engine-canvas-snapping-v8`.
-8. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration51-engine-canvas-snapping-v8`.
-9. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration51-engine-canvas-snapping-v8`.
-9a. Open shell diagnostics with the Engine HUD:
-   `index.html?engine=1&debugHud=1&debugShell=1&v=iteration51-engine-canvas-snapping-v8`.
-9b. Open shell diagnostics in Legacy fallback:
-   `index.html?legacy=1&debugShell=1&v=iteration51-engine-canvas-snapping-v8`.
-9c. Open output diagnostics in the default engine editor:
-   `index.html?debugOutput=1&v=iteration51-engine-canvas-snapping-v8`.
-9d. Open output diagnostics in Legacy fallback:
-   `index.html?legacy=1&debugOutput=1&v=iteration51-engine-canvas-snapping-v8`.
-9e. Open the device visual diagnostic HUD/layer view:
-   `index.html?engine=1&debugDeviceVisual=1&v=iteration51-engine-canvas-snapping-v8`.
-9f. Open the Power Distro diagnostic HUD:
-   `index.html?engine=1&debugHud=1&debugPowerDistro=1&v=iteration51-engine-canvas-snapping-v8`.
-9g. Open the Rack Builder diagnostic HUD:
-   `index.html?engine=1&debugHud=1&debugRackBuilder=1&v=iteration51-engine-canvas-snapping-v8`.
-9h. Open the Matrix Routing diagnostic HUD:
-   `index.html?engine=1&debugHud=1&debugMatrix=1&v=iteration51-engine-canvas-snapping-v8`.
-10. Open the Device Library drag/drop debug overlay:
-   `index.html?debugLibraryDrag=1&v=iteration51-engine-canvas-snapping-v8`.
-11. Open the explicit Engine drag/drop debug overlay:
-   `index.html?engine=1&debugLibraryDrag=1&v=iteration51-engine-canvas-snapping-v8`.
-12. Open the Legacy drag/drop debug overlay:
-   `index.html?legacy=1&debugLibraryDrag=1&v=iteration51-engine-canvas-snapping-v8`.
-13. Open compatibility diagnostics while drawing wires:
-    `index.html?engine=1&debugCompatibility=1&v=iteration51-engine-canvas-snapping-v8`.
-14. Open routing diagnostics while selecting or editing orthogonal wires:
-    `index.html?engine=1&debugHud=1&debugRouting=1&v=iteration51-engine-canvas-snapping-v8`.
-15. Open endpoint-rewire diagnostics:
-    `index.html?engine=1&debugRewire=1&debugRouting=1&v=iteration51-engine-canvas-snapping-v8`.
-15a. Open the Project Custom identity overlay:
-    `index.html?engine=1&debugCustomIdentity=1&v=iteration51-engine-canvas-snapping-v8`.
-16. Confirm the top bar build label matches the mode you intended to test.
-17. Switch from engine to legacy with the toolbar mode switch; switch back by
+   `index.html?v=iteration51-1-engine-object-snapping-v11`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration51-1-engine-object-snapping-v11`.
+4. Open the snapping debug HUD:
+   `index.html?engine=1&debugObjectSnapping=1&v=iteration51-1-engine-object-snapping-v11`.
+5. Open the compatibility default-test alias:
+   `index.html?engineDefaultTest=1&v=iteration51-1-engine-object-snapping-v11`.
+6. Open the legacy editor fallback:
+   `index.html?legacy=1&v=iteration51-1-engine-object-snapping-v11`.
+7. Open the alternate legacy fallback:
+   `index.html?engine=0&v=iteration51-1-engine-object-snapping-v11`.
+8. Open the debug loading guard:
+   `index.html?engine=1&debugLoad=1&v=iteration51-1-engine-object-snapping-v11`.
+9. Open a timed loading guard:
+   `index.html?engine=1&loadDelay=1500&v=iteration51-1-engine-object-snapping-v11`.
+10. Open the expanded engine HUD:
+   `index.html?engine=1&debugHud=1&v=iteration51-1-engine-object-snapping-v11`.
+11. Open shell diagnostics with the Engine HUD:
+   `index.html?engine=1&debugHud=1&debugShell=1&v=iteration51-1-engine-object-snapping-v11`.
+12. Open shell diagnostics in Legacy fallback:
+   `index.html?legacy=1&debugShell=1&v=iteration51-1-engine-object-snapping-v11`.
+13. Open output diagnostics in the default engine editor:
+   `index.html?debugOutput=1&v=iteration51-1-engine-object-snapping-v11`.
+14. Open output diagnostics in Legacy fallback:
+   `index.html?legacy=1&debugOutput=1&v=iteration51-1-engine-object-snapping-v11`.
+15. Open the device visual diagnostic HUD/layer view:
+   `index.html?engine=1&debugDeviceVisual=1&v=iteration51-1-engine-object-snapping-v11`.
+16. Open the Power Distro diagnostic HUD:
+   `index.html?engine=1&debugHud=1&debugPowerDistro=1&v=iteration51-1-engine-object-snapping-v11`.
+17. Open the Rack Builder diagnostic HUD:
+   `index.html?engine=1&debugHud=1&debugRackBuilder=1&v=iteration51-1-engine-object-snapping-v11`.
+18. Open the Matrix Routing diagnostic HUD:
+   `index.html?engine=1&debugHud=1&debugMatrix=1&v=iteration51-1-engine-object-snapping-v11`.
+19. Open the Device Library drag/drop debug overlay:
+   `index.html?debugLibraryDrag=1&v=iteration51-1-engine-object-snapping-v11`.
+20. Open the explicit Engine drag/drop debug overlay:
+   `index.html?engine=1&debugLibraryDrag=1&v=iteration51-1-engine-object-snapping-v11`.
+21. Open the Legacy drag/drop debug overlay:
+   `index.html?legacy=1&debugLibraryDrag=1&v=iteration51-1-engine-object-snapping-v11`.
+22. Open compatibility diagnostics while drawing wires:
+    `index.html?engine=1&debugCompatibility=1&v=iteration51-1-engine-object-snapping-v11`.
+23. Open routing diagnostics while selecting or editing orthogonal wires:
+    `index.html?engine=1&debugHud=1&debugRouting=1&v=iteration51-1-engine-object-snapping-v11`.
+24. Open endpoint-rewire diagnostics:
+    `index.html?engine=1&debugRewire=1&debugRouting=1&v=iteration51-1-engine-object-snapping-v11`.
+25. Open the Project Custom identity overlay:
+    `index.html?engine=1&debugCustomIdentity=1&v=iteration51-1-engine-object-snapping-v11`.
+26. Confirm the top bar build label matches the mode you intended to test.
+27. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.
 
 ## Iteration 50 Shell Diagnostics

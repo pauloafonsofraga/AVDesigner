@@ -4,7 +4,7 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 51`
+- Current build label: `Iteration 51.1`
 - Scope: interface and visual fidelity only. Functional wire parity is tracked in
   [`docs/legacy-functional-parity.md`](legacy-functional-parity.md).
 
@@ -14,6 +14,11 @@ a canonical output snapshot with `debugOutput=1` diagnostics. This does not
 change normal editor shell ownership, and it does not yet replace the PDF
 wirechart's Legacy SVG clone renderer. The output architecture notes live in
 [`docs/engine-output-pipeline.md`](engine-output-pipeline.md).
+
+Iteration 51.1 restores the Legacy canvas object snapping feel in the Engine
+editor: dashed guides are tied to the moving edge, spacing measurements remain
+available farther out, and the dragged object follows the current pointer
+delta even while a snap guide is active.
 
 Iteration 50 treats the editor shell as a stable DOM layer wrapped around the
 Engine canvas. The Engine does not own normal menus, side panels, toolbar

@@ -4,7 +4,7 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 51`
+- Current build label: `Iteration 51.1`
 
 Iteration 51 starts the output-pipeline parity path without changing the
 project save format. Editor reports, PDF export, self-contained HTML export,
@@ -15,6 +15,12 @@ snapshot's report data. PDF wirechart drawing still deliberately uses the
 existing Legacy SVG clone path until full visual parity is proven; the output
 architecture and remaining gap are tracked in
 [`docs/engine-output-pipeline.md`](engine-output-pipeline.md).
+
+Iteration 51.1 restores the Legacy pointer-locked canvas object snapping path
+after the Engine-specific correction window made dragged objects feel detached
+from the mouse. The snap target set is still cached at drag start, while active
+edge/spacing snap winners are recalculated from the current pointer delta on
+each drag frame.
 
 Iteration 50 is a shell-layer parity pass. Toolbar state, side-panel widths,
 active editor tabs, open menus/modals, focus, and diagnostic HUD state are
