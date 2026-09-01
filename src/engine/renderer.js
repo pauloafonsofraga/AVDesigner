@@ -12,7 +12,7 @@ import {
 } from "./adapterMapping.js";
 import { isCanvasObjectKind, isLedSurfaceKind } from "./canvasObjectKinds.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-runtime-guide-v13";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-snap-data-only-v14";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -63,6 +63,8 @@ const DEFAULT_RENDER_OPTIONS = {
   hideLabels: false,
   hideSurfaces: false,
   hideSelectionOverlay: false,
+  // On-canvas raw/final snap geometry is developer-only. Normal
+  // debugObjectSnapping=1 keeps HUD/trace data but must not draw these shapes.
   snapDebugEnabled: false,
   cableHops: true,
   dirtyDeviceIds: new Set(),

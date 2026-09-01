@@ -76,9 +76,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing Engine canvas snapping.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-runtime-guide-v13";
-export const ENGINE_BRIDGE_VERSION = "production-bridge-runtime-guide-v13";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "snap: runtime-fingerprint-and-local-guides-v13";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-snap-data-only-v14";
+export const ENGINE_BRIDGE_VERSION = "production-bridge-snap-data-only-v14";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "snap: data-diagnostics-only-v14";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -193,6 +193,7 @@ class ProductionEngineBridge {
     this.debugCustomDevices = engineCustomDevicesDebugEnabled();
     this.debugCanvasObjects = engineCanvasObjectsDebugEnabled();
     this.debugObjectSnapping = engineObjectSnappingDebugEnabled();
+    this.debugSnapVisual = engineSnapVisualDebugEnabled();
     this.debugSnapMode = engineDebugSnapMode();
     this.snapTraceFrame = 0;
     this.debugRackBuilder = engineRackBuilderDebugEnabled();
@@ -222,7 +223,7 @@ class ProductionEngineBridge {
       detailedDeviceTextures: true,
       lodMode: true,
       mutationDebug: true,
-      snapDebugEnabled: this.debugObjectSnapping,
+      snapDebugEnabled: this.debugSnapVisual,
       ...engineLayerDebugRenderOptions(this.debugLayerMode),
       dirtyDeviceIds: this.lastDirtyDeviceIds,
       dirtyWireIds: this.lastDirtyWireIds
@@ -1562,7 +1563,7 @@ class ProductionEngineBridge {
   }
 
   snapDebugVisualState() {
-    if (!this.debugObjectSnapping || !this.dragSession?.snapSession?.startRect) return null;
+    if (!this.debugSnapVisual || !this.dragSession?.snapSession?.startRect) return null;
     const startRect = this.dragSession.snapSession.startRect;
     return {
       pointerWorld: this.dragSession.lastWorldPoint ? { ...this.dragSession.lastWorldPoint } : null,
@@ -5777,6 +5778,7 @@ function engineDebugHudEnabled() {
     || params.get("debugRewire") === "1"
     || params.get("debugCanvasObjects") === "1"
     || params.get("debugObjectSnapping") === "1"
+    || params.get("debugSnapVisual") === "1"
     || params.get("debugRackBuilder") === "1"
     || params.get("orthogonalTest") === "1";
 }
@@ -5820,6 +5822,11 @@ function engineCanvasObjectsDebugEnabled() {
 
 function engineObjectSnappingDebugEnabled() {
   return new URLSearchParams(window.location.search).get("debugObjectSnapping") === "1";
+}
+
+function engineSnapVisualDebugEnabled() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("debugObjectSnapping") === "1" && params.get("debugSnapVisual") === "1";
 }
 
 function engineDebugSnapMode() {

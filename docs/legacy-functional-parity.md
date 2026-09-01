@@ -4,7 +4,7 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 51.1`
+- Current build label: `Iteration 51.4`
 
 Iteration 51 starts the output-pipeline parity path without changing the
 project save format. Editor reports, PDF export, self-contained HTML export,
