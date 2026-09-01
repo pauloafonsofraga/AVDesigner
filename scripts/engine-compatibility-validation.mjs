@@ -340,7 +340,7 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
         id: "snap-target",
         label: "Target Device",
         x: 250,
-        y: 0,
+        y: 170,
         width: 100,
         height: 100,
         connectors: []
@@ -357,10 +357,23 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
   drag.update({ x: 144, y: 0 }, { camera: { zoom: 1 }, snappingEnabled: true });
   assert.equal(drag.dx, 150, "engine object drag snaps moving right edge to target left edge");
   assert.equal(drag.snapGuides.x, 250, "engine object drag exposes the vertical snap guide");
+  assert.deepEqual(
+    drag.snapGuides.edgeX,
+    { side: "right", x: 250, y1: 0, y2: 100 },
+    "engine object drag exposes the aligned moving edge instead of requiring a full crosshair"
+  );
   assert.equal(drag.snapCandidateCount, 1, "engine object drag reports the target candidate");
   assert.equal(drag.snapDiagnostics?.lastSnapped, true, "engine object drag diagnostics report snapped state");
+  drag.update({ x: 147, y: 2 }, { camera: { zoom: 1 }, snappingEnabled: true });
+  assert.equal(drag.dx, 150, "engine object drag cache keeps the snapped X edge locked");
+  assert.equal(drag.dy, 2, "engine object drag cache keeps the free Y axis live");
+  assert.deepEqual(
+    drag.snapGuides.edgeX,
+    { side: "right", x: 250, y1: 2, y2: 102 },
+    "engine object drag cached edge guide follows the free drag axis"
+  );
   drag.snapSession.targetIndex.clear();
-  drag.update({ x: 148, y: 0 }, { camera: { zoom: 1 }, snappingEnabled: true });
+  drag.update({ x: 152, y: 0 }, { camera: { zoom: 1 }, snappingEnabled: true });
   assert.equal(drag.dx, 150, "engine object drag still snaps when the target spatial index is cold");
   assert.equal(drag.snapDiagnostics?.candidateSource, "array", "engine object drag can use frozen drag-start candidates without the index");
 }
@@ -436,6 +449,16 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
   assert.equal(drag.dy, 350, "engine object drag snaps to the 50px vertical spacing lane");
   assert.equal(drag.snapGuides.measure?.axis, "y", "engine spacing snap exposes a measurement guide");
   assert.equal(drag.snapGuides.measure?.distance, 50, "engine spacing snap reports the snapped spacing distance");
+
+  const outerZoomDrag = new DragSession({
+    scene: objectSpacingScene,
+    selectedIds: ["spacing-moving"],
+    startWorld: { x: 0, y: 0 },
+    enableSnapping: true
+  });
+  outerZoomDrag.update({ x: 0, y: 349 }, { camera: { zoom: 0.2 }, snappingEnabled: true });
+  assert.equal(outerZoomDrag.dy, 350, "engine spacing guide remains active at the wider outer zoom range");
+  assert.equal(outerZoomDrag.snapGuides.measure?.distance, 50, "outer zoom spacing snap still reports its pixel distance");
 }
 {
   const dragScene = new SceneGraph();

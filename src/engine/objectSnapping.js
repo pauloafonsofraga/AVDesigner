@@ -5,7 +5,10 @@ const SNAP_SPACING_STEPS = [50, 100, 150, 200, 250, 300, 350, 400, 450, 500];
 const SNAP_MAX_SPACING_STEP = Math.max(...SNAP_SPACING_STEPS);
 const SNAP_QUERY_PADDING = SNAP_MAX_SPACING_STEP + 140;
 const SNAP_MIN_RECALC_DELTA = 4;
-const SNAP_SPACING_MIN_ZOOM = 0.35;
+// Spacing guides need to remain useful farther out than detail labels. This
+// threshold is intentionally lower than the old 35% cutoff so the pixel spacing
+// indicator appears at roughly twice the previous zoomed-out range.
+const SNAP_SPACING_MIN_ZOOM = 0.18;
 
 function snapTargetId(kind, id) {
   return `${kind}:${String(id || "")}`;
@@ -88,7 +91,30 @@ function cloneGuides(guides) {
   return {
     x: guides.x ?? null,
     y: guides.y ?? null,
+    edgeX: guides.edgeX ? { ...guides.edgeX } : null,
+    edgeY: guides.edgeY ? { ...guides.edgeY } : null,
     measure: guides.measure ? { ...guides.measure } : null
+  };
+}
+
+function snapEdgeGuides(snappedRect, bestX, bestY) {
+  return {
+    edgeX: bestX?.guide != null
+      ? {
+          side: bestX.side || null,
+          x: bestX.guide,
+          y1: snappedRect.y,
+          y2: snappedRect.y + snappedRect.height
+        }
+      : null,
+    edgeY: bestY?.guide != null
+      ? {
+          side: bestY.side || null,
+          y: bestY.guide,
+          x1: snappedRect.x,
+          x2: snappedRect.x + snappedRect.width
+        }
+      : null
   };
 }
 
@@ -172,6 +198,17 @@ function reusedSnapResultForCurrentDelta(session, dx, dy) {
   const locksY = guides.y != null || guides.measure?.axis === "y";
   if (!locksX) result.dx = dx;
   if (!locksY) result.dy = dy;
+  if (result.guides && session.startRect) {
+    const rect = offsetRect(session.startRect, result.dx, result.dy);
+    if (result.guides.edgeX) {
+      result.guides.edgeX.y1 = rect.y;
+      result.guides.edgeX.y2 = rect.y + rect.height;
+    }
+    if (result.guides.edgeY) {
+      result.guides.edgeY.x1 = rect.x;
+      result.guides.edgeY.x2 = rect.x + rect.width;
+    }
+  }
   return result;
 }
 
@@ -300,7 +337,7 @@ export class ObjectSnapSession {
           targetAnchors(targetRect, "x").forEach(targetValue => {
             const diff = Math.abs(edge.value - targetValue);
             if (diff <= threshold && (!bestX || diff < bestX.diff)) {
-              bestX = { diff, delta: targetValue - edge.value, guide: targetValue };
+              bestX = { diff, delta: targetValue - edge.value, guide: targetValue, side: edge.side };
             }
           });
         });
@@ -310,7 +347,7 @@ export class ObjectSnapSession {
           targetAnchors(targetRect, "y").forEach(targetValue => {
             const diff = Math.abs(edge.value - targetValue);
             if (diff <= threshold && (!bestY || diff < bestY.diff)) {
-              bestY = { diff, delta: targetValue - edge.value, guide: targetValue };
+              bestY = { diff, delta: targetValue - edge.value, guide: targetValue, side: edge.side };
             }
           });
         });
@@ -382,6 +419,7 @@ export class ObjectSnapSession {
     const snappedRect = offsetRect(this.startRect, snappedDx, snappedDy);
     const measure = bestY?.measureFactory?.(snappedRect) || bestX?.measureFactory?.(snappedRect) || null;
     const hasSnap = Boolean(bestX || bestY);
+    const edgeGuides = snapEdgeGuides(snappedRect, bestX, bestY);
     return this.remember(dx, dy, zoom, axisLock, enabled, {
       dx: snappedDx,
       dy: snappedDy,
@@ -389,6 +427,7 @@ export class ObjectSnapSession {
         ? {
             x: bestX?.guide ?? null,
             y: bestY?.guide ?? null,
+            ...edgeGuides,
             measure
           }
         : null,

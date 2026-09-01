@@ -1826,15 +1826,47 @@ function pushSnapGuides(vertices, guides, camera, resolution) {
   const width = Math.max(1.2, 2.4 / Math.max(0.05, camera.zoom));
   const guideColor = "rgba(50, 182, 255, .92)";
   const measureColor = "rgba(50, 182, 255, .82)";
+  const guideDash = 14 / Math.max(0.05, camera.zoom);
+  const guideGap = 8 / Math.max(0.05, camera.zoom);
   let count = 0;
-  if (Number.isFinite(Number(guides.x))) {
+  if (guides.edgeX
+    && Number.isFinite(Number(guides.edgeX.x))
+    && Number.isFinite(Number(guides.edgeX.y1))
+    && Number.isFinite(Number(guides.edgeX.y2))) {
+    const edge = guides.edgeX;
+    pushDashedLine(
+      vertices,
+      { x: Number(edge.x), y: Number(edge.y1) },
+      { x: Number(edge.x), y: Number(edge.y2) },
+      width,
+      guideColor,
+      guideDash,
+      guideGap
+    );
+    count += 1;
+  } else if (Number.isFinite(Number(guides.x))) {
     const x = Number(guides.x);
-    pushLine(vertices, { x, y: view.y }, { x, y: view.y + view.height }, width, guideColor);
+    pushDashedLine(vertices, { x, y: view.y }, { x, y: view.y + view.height }, width, guideColor, guideDash, guideGap);
     count += 1;
   }
-  if (Number.isFinite(Number(guides.y))) {
+  if (guides.edgeY
+    && Number.isFinite(Number(guides.edgeY.y))
+    && Number.isFinite(Number(guides.edgeY.x1))
+    && Number.isFinite(Number(guides.edgeY.x2))) {
+    const edge = guides.edgeY;
+    pushDashedLine(
+      vertices,
+      { x: Number(edge.x1), y: Number(edge.y) },
+      { x: Number(edge.x2), y: Number(edge.y) },
+      width,
+      guideColor,
+      guideDash,
+      guideGap
+    );
+    count += 1;
+  } else if (Number.isFinite(Number(guides.y))) {
     const y = Number(guides.y);
-    pushLine(vertices, { x: view.x, y }, { x: view.x + view.width, y }, width, guideColor);
+    pushDashedLine(vertices, { x: view.x, y }, { x: view.x + view.width, y }, width, guideColor, guideDash, guideGap);
     count += 1;
   }
   const measure = guides.measure;
