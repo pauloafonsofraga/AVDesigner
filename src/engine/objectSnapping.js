@@ -5,6 +5,9 @@ const SNAP_SPACING_STEPS = [50, 100, 150, 200, 250, 300, 350, 400, 450, 500];
 const SNAP_MAX_SPACING_STEP = Math.max(...SNAP_SPACING_STEPS);
 const SNAP_QUERY_PADDING = SNAP_MAX_SPACING_STEP + 140;
 const SNAP_MIN_RECALC_DELTA = 4;
+const SNAP_MIN_ACTIVE_CORRECTION_SCREEN_PX = 0.35;
+const SNAP_MAX_ACTIVE_CORRECTION_SCREEN_PX = 6;
+const SNAP_DIRECTION_BIAS = 1.25;
 // Spacing guides need to remain useful farther out than detail labels. This
 // threshold is intentionally lower than the old 35% cutoff so the pixel spacing
 // indicator appears at roughly twice the previous zoomed-out range.
@@ -116,6 +119,48 @@ function snapEdgeGuides(snappedRect, bestX, bestY) {
         }
       : null
   };
+}
+
+function snapCorrectionMagnitude(snap, zoom) {
+  if (!snap) return 0;
+  return Math.abs(Number(snap.diff ?? snap.delta) || 0) * Math.max(zoom, 0.01);
+}
+
+function snapIsActive(snap, zoom) {
+  return Boolean(snap) && snapCorrectionMagnitude(snap, zoom) >= SNAP_MIN_ACTIVE_CORRECTION_SCREEN_PX;
+}
+
+function snapWithinActiveWindow(snap, zoom) {
+  if (!snap) return null;
+  // The candidate search can look a little farther out so nearby alignments are
+  // not missed, but the drag delta should only be corrected by a tiny screen
+  // distance. Otherwise the engine overlay visibly detaches from the pointer.
+  return snapCorrectionMagnitude(snap, zoom) <= SNAP_MAX_ACTIVE_CORRECTION_SCREEN_PX ? snap : null;
+}
+
+function resolvePrimarySnap(bestX, bestY, dx, dy, zoom) {
+  if (!bestX && !bestY) return { bestX: null, bestY: null };
+  if (!bestX) return { bestX: null, bestY };
+  if (!bestY) return { bestX, bestY: null };
+
+  const xActive = snapIsActive(bestX, zoom);
+  const yActive = snapIsActive(bestY, zoom);
+  if (xActive && !yActive) return { bestX, bestY: null };
+  if (yActive && !xActive) return { bestX: null, bestY };
+
+  const absDx = Math.abs(dx);
+  const absDy = Math.abs(dy);
+  // Canvas object snapping must not pin the dragged object to a two-axis
+  // crosshair. Legacy's DOM path made that less obvious because the object
+  // itself was mutated each frame; in the engine path the selected object is a
+  // transient texture offset, so two independent corrections feel like the
+  // pointer has lost the object. Prefer the dominant movement axis and fall
+  // back to the closest guide when movement is diagonal.
+  if (absDx > absDy * SNAP_DIRECTION_BIAS) return { bestX, bestY: null };
+  if (absDy > absDx * SNAP_DIRECTION_BIAS) return { bestX: null, bestY };
+  return bestX.diff <= bestY.diff
+    ? { bestX, bestY: null }
+    : { bestX: null, bestY };
 }
 
 function verticalSpacingMeasure(targetRect, movingRect, distance, direction, zoom) {
@@ -419,6 +464,13 @@ export class ObjectSnapSession {
         });
       }
     });
+
+    bestX = snapWithinActiveWindow(bestX, zoom);
+    bestY = snapWithinActiveWindow(bestY, zoom);
+
+    const primary = resolvePrimarySnap(bestX, bestY, dx, dy, zoom);
+    bestX = primary.bestX;
+    bestY = primary.bestY;
 
     const snappedDx = dx + (bestX?.delta || 0);
     const snappedDy = dy + (bestY?.delta || 0);

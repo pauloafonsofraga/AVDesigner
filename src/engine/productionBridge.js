@@ -76,8 +76,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing Engine canvas snapping.
-const BRIDGE_VERSION = "production-bridge-snapping-v8";
-const BRIDGE_FEATURE_LABEL = "snap: dashed-edge-guides-v8";
+const BRIDGE_VERSION = "production-bridge-snapping-v10";
+const BRIDGE_FEATURE_LABEL = "snap: tight-edge-guides-v10";
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
 const ENGINE_MIN_ZOOM = 0.03;
 const ENGINE_MAX_ZOOM = 8;
