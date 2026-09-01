@@ -154,6 +154,27 @@ function shouldReuseSnapResult(session, dx, dy, zoom, axisLock, enabled) {
     && Math.abs(zoom - session.lastZoom) < 0.001;
 }
 
+function reusedSnapResultForCurrentDelta(session, dx, dy) {
+  const result = cloneSnapResult(session.lastResult);
+  // Reusing a previous snap decision must never reuse an old free-drag delta.
+  // At low zoom, the recalculation threshold represents several world pixels;
+  // returning the previous dx/dy here makes the object visibly stick instead
+  // of following the mouse. When no guide is active, always pass through the
+  // current pointer delta. When a guide is active, only lock the guided axis.
+  if (!result.snapped) {
+    result.dx = dx;
+    result.dy = dy;
+    result.guides = null;
+    return result;
+  }
+  const guides = result.guides || {};
+  const locksX = guides.x != null || guides.measure?.axis === "x";
+  const locksY = guides.y != null || guides.measure?.axis === "y";
+  if (!locksX) result.dx = dx;
+  if (!locksY) result.dy = dy;
+  return result;
+}
+
 export class ObjectSnapSession {
   constructor({ scene, selectedIds = [] }) {
     this.scene = scene;
@@ -257,7 +278,7 @@ export class ObjectSnapSession {
       });
     }
     if (shouldReuseSnapResult(this, dx, dy, zoom, axisLock, enabled)) {
-      return cloneSnapResult(this.lastResult);
+      return reusedSnapResultForCurrentDelta(this, dx, dy);
     }
 
     const rawRect = offsetRect(this.startRect, dx, dy);

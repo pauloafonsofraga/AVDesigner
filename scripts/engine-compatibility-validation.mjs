@@ -365,6 +365,43 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
   assert.equal(drag.snapDiagnostics?.candidateSource, "array", "engine object drag can use frozen drag-start candidates without the index");
 }
 {
+  const lowZoomScene = new SceneGraph();
+  lowZoomScene.setData({
+    devices: [
+      {
+        id: "low-zoom-moving",
+        label: "Moving Device",
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+        connectors: []
+      },
+      {
+        id: "low-zoom-target",
+        label: "Distant Target",
+        x: 2000,
+        y: 0,
+        width: 100,
+        height: 100,
+        connectors: []
+      }
+    ],
+    wires: []
+  });
+  const drag = new DragSession({
+    scene: lowZoomScene,
+    selectedIds: ["low-zoom-moving"],
+    startWorld: { x: 0, y: 0 },
+    enableSnapping: true
+  });
+  drag.update({ x: 0, y: 0 }, { camera: { zoom: 0.1 }, snappingEnabled: true });
+  drag.update({ x: 20, y: 12 }, { camera: { zoom: 0.1 }, snappingEnabled: true });
+  assert.equal(drag.dx, 20, "low-zoom object drag follows mouse while reusing an unsnapped result");
+  assert.equal(drag.dy, 12, "low-zoom object drag follows mouse Y while reusing an unsnapped result");
+  assert.equal(drag.snapGuides, null, "low-zoom free drag does not invent stale snap guides");
+}
+{
   const objectSpacingScene = new SceneGraph();
   objectSpacingScene.setData({
     devices: [
