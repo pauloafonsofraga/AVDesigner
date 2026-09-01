@@ -1,6 +1,8 @@
 import { deviceBounds } from "./sceneGraph.js";
 import { SpatialIndex } from "./spatialIndex.js";
 
+export const OBJECT_SNAPPING_MODULE_FINGERPRINT = "object-snapping-runtime-guide-v13";
+
 const SNAP_SPACING_STEPS = [50, 100, 150, 200, 250, 300, 350, 400, 450, 500];
 const SNAP_MAX_SPACING_STEP = Math.max(...SNAP_SPACING_STEPS);
 const SNAP_QUERY_PADDING = SNAP_MAX_SPACING_STEP + 140;
@@ -90,6 +92,7 @@ function cloneGuides(guides) {
   return {
     x: guides.x ?? null,
     y: guides.y ?? null,
+    allowViewportFallback: guides.allowViewportFallback ?? null,
     edgeX: guides.edgeX ? { ...guides.edgeX } : null,
     edgeY: guides.edgeY ? { ...guides.edgeY } : null,
     measure: guides.measure ? { ...guides.measure } : null
@@ -97,21 +100,31 @@ function cloneGuides(guides) {
 }
 
 function snapEdgeGuides(snappedRect, bestX, bestY) {
+  const xTargetRect = bestX?.source === "edge" ? cloneRect(bestX.targetRect) : null;
+  const yTargetRect = bestY?.source === "edge" ? cloneRect(bestY.targetRect) : null;
   return {
-    edgeX: bestX?.guide != null
+    edgeX: bestX?.source === "edge" && bestX?.guide != null
       ? {
           side: bestX.side || null,
           x: bestX.guide,
-          y1: snappedRect.y,
-          y2: snappedRect.y + snappedRect.height
+          y1: xTargetRect
+            ? Math.min(snappedRect.y, xTargetRect.y)
+            : snappedRect.y,
+          y2: xTargetRect
+            ? Math.max(snappedRect.y + snappedRect.height, xTargetRect.y + xTargetRect.height)
+            : snappedRect.y + snappedRect.height
         }
       : null,
-    edgeY: bestY?.guide != null
+    edgeY: bestY?.source === "edge" && bestY?.guide != null
       ? {
           side: bestY.side || null,
           y: bestY.guide,
-          x1: snappedRect.x,
-          x2: snappedRect.x + snappedRect.width
+          x1: yTargetRect
+            ? Math.min(snappedRect.x, yTargetRect.x)
+            : snappedRect.x,
+          x2: yTargetRect
+            ? Math.max(snappedRect.x + snappedRect.width, yTargetRect.x + yTargetRect.width)
+            : snappedRect.x + snappedRect.width
         }
       : null
   };
@@ -191,6 +204,7 @@ function snapDebugSummary(snap) {
     guide: snap.guide ?? null,
     targetId: snap.targetId || null,
     targetKind: snap.targetKind || null,
+    targetRect: cloneRect(snap.targetRect),
     distance: Number.isFinite(Number(snap.distance)) ? Number(snap.distance) : null
   };
 }
@@ -367,7 +381,8 @@ export class ObjectSnapSession {
                 guide: targetValue,
                 side: edge.side,
                 targetId: target.id,
-                targetKind: target.kind || null
+                targetKind: target.kind || null,
+                targetRect
               };
             }
           });
@@ -386,7 +401,8 @@ export class ObjectSnapSession {
                 guide: targetValue,
                 side: edge.side,
                 targetId: target.id,
-                targetKind: target.kind || null
+                targetKind: target.kind || null,
+                targetRect
               };
             }
           });
@@ -414,6 +430,7 @@ export class ObjectSnapSession {
               distance,
               targetId: target.id,
               targetKind: target.kind || null,
+              targetRect,
               measureFactory: snappedRect => verticalSpacingMeasure(targetRect, snappedRect, distance, "below", zoom)
             };
           }
@@ -431,6 +448,7 @@ export class ObjectSnapSession {
               distance,
               targetId: target.id,
               targetKind: target.kind || null,
+              targetRect,
               measureFactory: snappedRect => verticalSpacingMeasure(targetRect, snappedRect, distance, "above", zoom)
             };
           }
@@ -458,6 +476,7 @@ export class ObjectSnapSession {
               distance,
               targetId: target.id,
               targetKind: target.kind || null,
+              targetRect,
               measureFactory: snappedRect => horizontalSpacingMeasure(targetRect, snappedRect, distance, "right", zoom)
             };
           }
@@ -475,6 +494,7 @@ export class ObjectSnapSession {
               distance,
               targetId: target.id,
               targetKind: target.kind || null,
+              targetRect,
               measureFactory: snappedRect => horizontalSpacingMeasure(targetRect, snappedRect, distance, "left", zoom)
             };
           }
@@ -488,20 +508,26 @@ export class ObjectSnapSession {
     const measure = bestY?.measureFactory?.(snappedRect) || bestX?.measureFactory?.(snappedRect) || null;
     const hasSnap = Boolean(bestX || bestY);
     const edgeGuides = snapEdgeGuides(snappedRect, bestX, bestY);
+    // Object snapping owns local edge guides and spacing rulers. It must not
+    // leak raw guides.x/y fallback coordinates into the renderer, because those
+    // fallback guides are full-viewport legacy guides and can appear displaced
+    // when a spacing snap has no real edge alignment.
+    const guides = hasSnap
+      ? {
+          x: null,
+          y: null,
+          allowViewportFallback: false,
+          ...edgeGuides,
+          measure
+        }
+      : null;
     const guideCount = (edgeGuides.edgeX ? 1 : 0)
       + (edgeGuides.edgeY ? 1 : 0)
       + (measure ? 1 : 0);
     return this.remember(dx, dy, zoom, axisLock, enabled, {
       dx: snappedDx,
       dy: snappedDy,
-      guides: hasSnap
-        ? {
-            x: bestX?.guide ?? null,
-            y: bestY?.guide ?? null,
-            ...edgeGuides,
-            measure
-          }
-        : null,
+      guides,
       snapped: hasSnap,
       candidateCount: candidates.length,
       debug: {
@@ -513,6 +539,9 @@ export class ObjectSnapSession {
         axisLock,
         rawDx: dx,
         rawDy: dy,
+        startRect: cloneRect(this.startRect),
+        rawRect: cloneRect(rawRect),
+        snappedRect: cloneRect(snappedRect),
         finalDx: snappedDx,
         finalDy: snappedDy,
         correctionX: snappedDx - dx,
@@ -521,6 +550,7 @@ export class ObjectSnapSession {
         candidateCount: candidates.length,
         bestX: snapDebugSummary(bestX),
         bestY: snapDebugSummary(bestY),
+        guides: cloneGuides(guides),
         guideCount,
         measurement: measure ? `${measure.axis}:${measure.distance}` : null,
         initialSpacingLocks: this.initialSpacingLocks?.size || 0,

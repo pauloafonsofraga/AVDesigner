@@ -356,11 +356,13 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
   });
   drag.update({ x: 144, y: 0 }, { camera: { zoom: 1 }, snappingEnabled: true });
   assert.equal(drag.dx, 150, "engine object drag snaps moving right edge to target left edge");
-  assert.equal(drag.snapGuides.x, 250, "engine object drag exposes the vertical snap guide");
+  assert.equal(drag.snapGuides.x, null, "engine object drag suppresses legacy full-viewport x guide fallback");
+  assert.equal(drag.snapGuides.y, null, "engine object drag suppresses legacy full-viewport y guide fallback");
+  assert.equal(drag.snapGuides.allowViewportFallback, false, "engine object drag opts out of full-viewport guide fallback");
   assert.deepEqual(
     drag.snapGuides.edgeX,
-    { side: "right", x: 250, y1: 0, y2: 100 },
-    "engine object drag exposes the aligned moving edge instead of requiring a full crosshair"
+    { side: "right", x: 250, y1: 0, y2: 270 },
+    "engine object drag exposes a local edge guide spanning moving and target geometry"
   );
   assert.equal(drag.snapCandidateCount, 1, "engine object drag reports the target candidate");
   assert.equal(drag.snapDiagnostics?.lastSnapped, true, "engine object drag diagnostics report snapped state");
@@ -375,8 +377,8 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
   );
   assert.deepEqual(
     drag.snapGuides.edgeX,
-    { side: "right", x: 250, y1: 2, y2: 102 },
-    "engine object drag cached edge guide follows the free drag axis"
+    { side: "right", x: 250, y1: 2, y2: 270 },
+    "engine object drag cached edge guide follows the free drag axis and still spans target geometry"
   );
   drag.update({ x: 152, y: 0 }, { camera: { zoom: 1 }, snappingEnabled: true });
   assert.equal(drag.dx, 150, "engine object drag still snaps when the target spatial index is cold");
@@ -392,8 +394,8 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
   assert.equal(drag.dy, 70, "engine object drag snaps the moving bottom edge to target top edge");
   assert.deepEqual(
     drag.snapGuides.edgeY,
-    { side: "bottom", y: 170, x1: 25, x2: 125 },
-    "engine object drag exposes the aligned moving horizontal edge"
+    { side: "bottom", y: 170, x1: 25, x2: 350 },
+    "engine object drag exposes a local horizontal edge guide spanning moving and target geometry"
   );
 }
 {

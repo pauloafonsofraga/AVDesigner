@@ -76,11 +76,22 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing Engine canvas snapping.
-const BRIDGE_VERSION = "production-bridge-snapping-trace-v12";
-const BRIDGE_FEATURE_LABEL = "snap: traceable-pointer-pipeline-v12";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-runtime-guide-v13";
+export const ENGINE_BRIDGE_VERSION = "production-bridge-runtime-guide-v13";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "snap: runtime-fingerprint-and-local-guides-v13";
+const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
+const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
 const ENGINE_MIN_ZOOM = 0.03;
 const ENGINE_MAX_ZOOM = 8;
+
+function isEngineGuideCoordinate(value) {
+  return value !== null
+    && value !== undefined
+    && value !== ""
+    && Number.isFinite(Number(value));
+}
+
 const ENGINE_TRANSCEIVER_MODULE_OPTIONS = [
   { value: "", label: "Empty", activeType: "", fiberMode: "" },
   { value: "lc-singlemode", label: "LC Singlemode", activeType: "fiber-lc", fiberMode: "single-mode" },
@@ -1622,6 +1633,12 @@ class ProductionEngineBridge {
         correctionY: Number(snapDebug.correctionY || 0),
         spacingDistanceX: bestX?.source === "spacing" ? bestX.distance : null,
         spacingDistanceY: bestY?.source === "spacing" ? bestY.distance : null,
+        startRect: snapDebug.startRect || null,
+        rawRect: snapDebug.rawRect || null,
+        snappedRect: snapDebug.snappedRect || null,
+        xTargetRect: bestX?.targetRect || null,
+        yTargetRect: bestY?.targetRect || null,
+        rawGuides: snapDebug.guides || null,
         initialSpacingLocks: Number(snapDebug.initialSpacingLocks || 0),
         suppressedInitialSpacing: Number(snapDebug.suppressedInitialSpacing || 0)
       },
@@ -1644,10 +1661,13 @@ class ProductionEngineBridge {
         count: (guides?.edgeX ? 1 : 0)
           + (guides?.edgeY ? 1 : 0)
           + (guides?.measure ? 1 : 0)
-          + (Number.isFinite(Number(guides?.x)) && !guides?.edgeX ? 1 : 0)
-          + (Number.isFinite(Number(guides?.y)) && !guides?.edgeY ? 1 : 0),
-        x: guides?.edgeX?.x ?? guides?.x ?? null,
-        y: guides?.edgeY?.y ?? guides?.y ?? null,
+          + (isEngineGuideCoordinate(guides?.x) && !guides?.edgeX ? 1 : 0)
+          + (isEngineGuideCoordinate(guides?.y) && !guides?.edgeY ? 1 : 0),
+        allowViewportFallback: guides?.allowViewportFallback ?? null,
+        x: isEngineGuideCoordinate(guides?.x) ? guides.x : null,
+        y: isEngineGuideCoordinate(guides?.y) ? guides.y : null,
+        edgeX: guides?.edgeX ? { ...guides.edgeX } : null,
+        edgeY: guides?.edgeY ? { ...guides.edgeY } : null,
         measure: measure ? {
           axis: measure.axis || null,
           distance: measure.distance ?? null,

@@ -1,5 +1,7 @@
 import { ObjectSnapSession } from "./objectSnapping.js";
 
+export const DRAG_SESSION_MODULE_FINGERPRINT = "drag-session-runtime-guide-v13";
+
 export class DragSession {
   constructor({ scene, selectedIds, startWorld, startPoint = null, startClient = null, enableSnapping = false, snapMode = "full" }) {
     this.scene = scene;

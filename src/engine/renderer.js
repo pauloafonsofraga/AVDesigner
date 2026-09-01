@@ -12,6 +12,8 @@ import {
 } from "./adapterMapping.js";
 import { isCanvasObjectKind, isLedSurfaceKind } from "./canvasObjectKinds.js";
 
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-runtime-guide-v13";
+
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
 const DEVICE_HOVER = "#32b6ff";
@@ -1824,6 +1826,11 @@ function pushRoundedBoxOutline(vertices, rect, radius, width, color) {
 
 function pushSnapGuides(vertices, guides, camera, resolution) {
   if (!guides || !camera || !resolution) return 0;
+  const allowViewportFallback = guides.allowViewportFallback !== false;
+  const isGuideCoordinate = value => value !== null
+    && value !== undefined
+    && value !== ""
+    && Number.isFinite(Number(value));
   const view = {
     x: camera.x,
     y: camera.y,
@@ -1851,7 +1858,7 @@ function pushSnapGuides(vertices, guides, camera, resolution) {
       guideGap
     );
     count += 1;
-  } else if (Number.isFinite(Number(guides.x))) {
+  } else if (allowViewportFallback && isGuideCoordinate(guides.x)) {
     const x = Number(guides.x);
     pushDashedLine(vertices, { x, y: view.y }, { x, y: view.y + view.height }, width, guideColor, guideDash, guideGap);
     count += 1;
@@ -1871,7 +1878,7 @@ function pushSnapGuides(vertices, guides, camera, resolution) {
       guideGap
     );
     count += 1;
-  } else if (Number.isFinite(Number(guides.y))) {
+  } else if (allowViewportFallback && isGuideCoordinate(guides.y)) {
     const y = Number(guides.y);
     pushDashedLine(vertices, { x: view.x, y }, { x: view.x + view.width, y }, width, guideColor, guideDash, guideGap);
     count += 1;

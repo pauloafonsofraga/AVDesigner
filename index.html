@@ -174,6 +174,77 @@
       color: #d6e0ea;
     }
 
+    .runtime-diagnostics-panel {
+      position: fixed;
+      left: 12px;
+      bottom: 12px;
+      z-index: 16000;
+      width: min(560px, calc(100vw - 24px));
+      max-height: min(46vh, 460px);
+      overflow: auto;
+      padding: 10px 12px;
+      border: 1px solid rgba(50, 182, 255, .45);
+      border-radius: 8px;
+      background: rgba(16, 23, 31, .96);
+      box-shadow: 0 18px 42px rgba(0, 0, 0, .35);
+      color: #eaf2fb;
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .runtime-diagnostics-panel h3 {
+      margin: 0 0 8px;
+      color: #32b6ff;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .runtime-diagnostics-panel dl {
+      display: grid;
+      grid-template-columns: minmax(130px, auto) minmax(0, 1fr);
+      gap: 4px 10px;
+      margin: 0;
+    }
+
+    .runtime-diagnostics-panel dt {
+      color: #9fb0c2;
+      font-weight: 800;
+    }
+
+    .runtime-diagnostics-panel dd {
+      min-width: 0;
+      margin: 0;
+      overflow-wrap: anywhere;
+      color: #f4f7fb;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    .runtime-diagnostics-panel .runtime-file-list {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, .12);
+    }
+
+    .runtime-diagnostics-panel .runtime-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .runtime-diagnostics-panel button {
+      height: 24px;
+      padding: 0 8px;
+      border: 1px solid rgba(50, 182, 255, .5);
+      border-radius: 6px;
+      background: rgba(50, 182, 255, .12);
+      color: #eaf2fb;
+      font-size: 10px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
     body.dark-mode .project-name-control input {
       background: #151a20;
       color: var(--ink);
@@ -3944,7 +4015,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 51.1 — Engine Editor — iteration51-1-engine-object-snapping-v11</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 51.3 — Engine Editor — iteration51-3-runtime-snap-guide-v13</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -4650,9 +4721,11 @@
   </div>
 
   <script>
-    const APP_ITERATION = "51.2";
-    const APP_BUILD_ID = "iteration51-2-engine-object-snapping-trace-fix-v12";
+    const APP_ITERATION = "51.3";
+    const APP_BUILD_ID = "iteration51-3-runtime-snap-guide-v13";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
+    const APP_SOURCE_BRANCH = "engine-prototype";
+    const APP_SOURCE_BASE_COMMIT = "5f086f0+";
     const CANVAS_MIN_ZOOM = 0.03;
     const CANVAS_MAX_ZOOM = 8;
     const INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
@@ -88818,6 +88891,245 @@ renderViewerOutputDebug();
       return url.href;
     }
 
+    function runtimeDebugEnabled() {
+      return INITIAL_URL_PARAMS.get("debugRuntime") === "1";
+    }
+
+    function inferDeploymentSource() {
+      const host = window.location.hostname || "";
+      if (!host || host === "localhost" || host === "127.0.0.1") return "localhost";
+      if (host.includes("vercel.app") || host.includes("videocore.net")) return "vercel/static";
+      if (window.location.protocol === "file:") return "file";
+      return host;
+    }
+
+    function runtimeFileUrl(path) {
+      if (path === "index.html") {
+        const url = new URL(window.location.href);
+        url.hash = "";
+        return url.href;
+      }
+      return engineImportUrl(path);
+    }
+
+    async function runtimeTextHash(text) {
+      const value = String(text || "");
+      if (window.crypto?.subtle && window.TextEncoder) {
+        const bytes = new TextEncoder().encode(value);
+        const digest = await crypto.subtle.digest("SHA-256", bytes);
+        return Array.from(new Uint8Array(digest))
+          .map(byte => byte.toString(16).padStart(2, "0"))
+          .join("");
+      }
+      let hash = 2166136261;
+      for (let index = 0; index < value.length; index += 1) {
+        hash ^= value.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+      }
+      return `fnv-${(hash >>> 0).toString(16).padStart(8, "0")}`;
+    }
+
+    function shortRuntimeHash(hash) {
+      return hash ? String(hash).slice(0, 16) : "";
+    }
+
+    async function fetchRuntimeIdentity(name, url) {
+      const started = performance.now();
+      try {
+        const response = await fetch(url, { cache: "no-store" });
+        const text = await response.text();
+        const hash = await runtimeTextHash(text);
+        return {
+          name,
+          url,
+          responseUrl: response.url,
+          ok: response.ok,
+          status: response.status,
+          length: text.length,
+          sha256: hash,
+          shortHash: shortRuntimeHash(hash),
+          appBuildPresent: text.includes(APP_BUILD_ID),
+          acceptedBuildPresent: text.includes(APP_BUILD_ID)
+            || text.includes("production-bridge-runtime-guide-v13")
+            || text.includes("object-snapping-runtime-guide-v13")
+            || text.includes("drag-session-runtime-guide-v13")
+            || text.includes("renderer-runtime-guide-v13"),
+          lastModified: response.headers.get("last-modified") || "",
+          etag: response.headers.get("etag") || "",
+          vercelCache: response.headers.get("x-vercel-cache") || "",
+          vercelId: response.headers.get("x-vercel-id") || "",
+          durationMs: performance.now() - started
+        };
+      } catch (error) {
+        return {
+          name,
+          url,
+          ok: false,
+          status: 0,
+          error: error?.message || String(error),
+          durationMs: performance.now() - started
+        };
+      }
+    }
+
+    async function fetchRuntimeBuildInfo() {
+      const url = new URL("/api/build-info", window.location.origin).href;
+      try {
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) {
+          return {
+            ok: false,
+            status: response.status,
+            url
+          };
+        }
+        return {
+          ok: true,
+          status: response.status,
+          url,
+          ...(await response.json())
+        };
+      } catch (error) {
+        return {
+          ok: false,
+          status: 0,
+          url,
+          error: error?.message || String(error)
+        };
+      }
+    }
+
+    function runtimeRow(label, value) {
+      return `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value ?? "")}</dd>`;
+    }
+
+    function writeRuntimeFingerprintDump(fingerprint) {
+      let dump = document.getElementById("avDesignerRuntimeFingerprintDump");
+      if (!dump) {
+        dump = document.createElement("script");
+        dump.id = "avDesignerRuntimeFingerprintDump";
+        dump.type = "application/json";
+        document.body.appendChild(dump);
+      }
+      dump.textContent = JSON.stringify(fingerprint, null, 2);
+    }
+
+    function renderRuntimeDiagnostics(fingerprint) {
+      if (!runtimeDebugEnabled()) return;
+      window.__AVD_RUNTIME_FINGERPRINT__ = fingerprint;
+      writeRuntimeFingerprintDump(fingerprint);
+      let panel = document.getElementById("runtimeDiagnosticsPanel");
+      if (!panel) {
+        panel = document.createElement("section");
+        panel.id = "runtimeDiagnosticsPanel";
+        panel.className = "runtime-diagnostics-panel";
+        panel.setAttribute("aria-label", "AV Designer runtime diagnostics");
+        document.body.appendChild(panel);
+      }
+      const files = fingerprint.files || {};
+      const fileRows = Object.values(files).map(file => {
+        const status = file.ok ? `${file.status} / ${file.shortHash}` : `${file.status || "ERR"} / ${file.error || "failed"}`;
+        const cacheInfo = [file.vercelCache, file.lastModified].filter(Boolean).join(" / ");
+        return runtimeRow(file.name, `${status}${cacheInfo ? ` / ${cacheInfo}` : ""}`);
+      }).join("");
+      panel.innerHTML = `
+        <h3>Runtime Fingerprint</h3>
+        <dl>
+          ${runtimeRow("App build", fingerprint.appBuildId)}
+          ${runtimeRow("Mode", fingerprint.runtimeMode)}
+          ${runtimeRow("Source branch", fingerprint.gitBranch || fingerprint.sourceBranch)}
+          ${runtimeRow("Git commit", fingerprint.gitCommit || fingerprint.sourceBaseCommit)}
+          ${runtimeRow("Deployment", fingerprint.deploymentSource)}
+          ${runtimeRow("Bridge version", fingerprint.bridgeVersion || "not mounted")}
+          ${runtimeRow("Loaded module", fingerprint.loadedModuleFingerprint || "not mounted")}
+          ${runtimeRow("Href", fingerprint.href)}
+          ${runtimeRow("Origin", fingerprint.origin)}
+        </dl>
+        <div class="runtime-file-list">
+          <dl>${fileRows}</dl>
+        </div>
+        <div class="runtime-actions">
+          <button type="button" data-runtime-action="refresh">Refresh Runtime</button>
+          <button type="button" data-runtime-action="copy">Copy JSON</button>
+        </div>
+      `;
+      panel.querySelector('[data-runtime-action="refresh"]')?.addEventListener("click", () => {
+        refreshRuntimeDiagnostics({ phase: "manual-refresh" });
+      });
+      panel.querySelector('[data-runtime-action="copy"]')?.addEventListener("click", () => {
+        navigator.clipboard?.writeText(JSON.stringify(window.__AVD_RUNTIME_FINGERPRINT__ || fingerprint, null, 2));
+      });
+    }
+
+    async function collectRuntimeFingerprint(extra = {}) {
+      const buildInfoPromise = fetchRuntimeBuildInfo();
+      const filePromises = {
+        indexHtml: fetchRuntimeIdentity("index.html", runtimeFileUrl("index.html")),
+        productionBridge: fetchRuntimeIdentity("productionBridge.js", runtimeFileUrl("./src/engine/productionBridge.js")),
+        objectSnapping: fetchRuntimeIdentity("objectSnapping.js", runtimeFileUrl("./src/engine/objectSnapping.js")),
+        dragSession: fetchRuntimeIdentity("dragSession.js", runtimeFileUrl("./src/engine/dragSession.js")),
+        renderer: fetchRuntimeIdentity("renderer.js", runtimeFileUrl("./src/engine/renderer.js"))
+      };
+      const [buildInfo, indexHtml, productionBridge, objectSnapping, dragSession, renderer] = await Promise.all([
+        buildInfoPromise,
+        filePromises.indexHtml,
+        filePromises.productionBridge,
+        filePromises.objectSnapping,
+        filePromises.dragSession,
+        filePromises.renderer
+      ]);
+      const engineRuntimeExports = window.__AVD_ENGINE_RUNTIME_EXPORTS__ || {};
+      const fingerprint = {
+        appBuildId: APP_BUILD_ID,
+        appIteration: APP_ITERATION,
+        runtimeMode: appRuntimeModeLabel(),
+        sourceBranch: APP_SOURCE_BRANCH,
+        sourceBaseCommit: APP_SOURCE_BASE_COMMIT,
+        gitCommit: buildInfo.gitCommit || buildInfo.commit || "",
+        gitBranch: buildInfo.gitBranch || buildInfo.branch || "",
+        deploymentSource: buildInfo.deploymentSource || inferDeploymentSource(),
+        loadedModuleFingerprint: engineRuntimeExports.productionBridgeFingerprint || engineRuntimeExports.loadedModuleFingerprint || "",
+        bridgeVersion: engineRuntimeExports.bridgeVersion || "",
+        bridgeFeature: engineRuntimeExports.bridgeFeature || "",
+        href: window.location.href,
+        origin: window.location.origin,
+        generatedAt: new Date().toISOString(),
+        buildInfo,
+        files: {
+          indexHtml,
+          productionBridge,
+          objectSnapping,
+          dragSession,
+          renderer
+        },
+        ...extra
+      };
+      renderRuntimeDiagnostics(fingerprint);
+      console.info("[runtime-fingerprint]", fingerprint);
+      return fingerprint;
+    }
+
+    function refreshRuntimeDiagnostics(extra = {}) {
+      if (!runtimeDebugEnabled()) return Promise.resolve(null);
+      return collectRuntimeFingerprint(extra).catch(error => {
+        const fingerprint = {
+          appBuildId: APP_BUILD_ID,
+          appIteration: APP_ITERATION,
+          runtimeMode: appRuntimeModeLabel(),
+          sourceBranch: APP_SOURCE_BRANCH,
+          sourceBaseCommit: APP_SOURCE_BASE_COMMIT,
+          deploymentSource: inferDeploymentSource(),
+          href: window.location.href,
+          origin: window.location.origin,
+          error: error?.message || String(error),
+          ...extra
+        };
+        renderRuntimeDiagnostics(fingerprint);
+        console.error("[runtime-fingerprint] failed", error);
+        return fingerprint;
+      });
+    }
+
     function syncProductionSelectionFromEngine(selection = {}) {
       const selectedDevices = selection.devices || [];
       const explicitRackIds = [...new Set((selection.racks || selection.rackIds || [])
@@ -88920,6 +89232,11 @@ renderViewerOutputDebug();
       });
       import(productionBridgeUrl)
         .then(module => {
+          window.__AVD_ENGINE_RUNTIME_EXPORTS__ = {
+            productionBridgeFingerprint: module.ENGINE_PRODUCTION_BRIDGE_FINGERPRINT || "",
+            bridgeVersion: module.ENGINE_BRIDGE_VERSION || "",
+            bridgeFeature: module.ENGINE_BRIDGE_FEATURE_LABEL || ""
+          };
           window.avDesignerEngineBridge = module.createProductionEngineBridge({
             canvasWrap,
             getProjectData: projectSnapshotData,
@@ -89004,6 +89321,7 @@ renderViewerOutputDebug();
           updateAppBuildLabel();
           updateLibraryDragDebug();
           updateShellDebug({ lastPanelAction: "engine bridge mounted" });
+          refreshRuntimeDiagnostics({ phase: "engine-bridge-mounted" });
         })
         .catch(error => {
           console.error("[engine-bridge] Could not start experimental renderer.", error);
@@ -89013,6 +89331,7 @@ renderViewerOutputDebug();
           updateAppBuildLabel();
           updateLibraryDragDebug({ engineStartError: error?.message || String(error) });
           updateShellDebug({ lastPanelAction: "engine bridge failed" });
+          refreshRuntimeDiagnostics({ phase: "engine-bridge-failed", engineStartError: error?.message || String(error) });
         });
     }
 
@@ -89048,6 +89367,7 @@ renderViewerOutputDebug();
     updateProjectNameControl();
     updateEngineBetaControl();
     updateAppBuildLabel();
+    refreshRuntimeDiagnostics({ phase: "startup" });
     setupShellDebugObservers();
     ensureLibraryDragDebugOverlay();
     updateLibraryDragDebug();
