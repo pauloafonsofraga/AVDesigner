@@ -18,7 +18,11 @@ Legacy-style edge alignment plus 50px spacing-step snaps, and forwards only the
 resulting guide lines to the interaction overlay. Shift axis-lock is applied
 before snapping, and real object positions still commit only on pointer-up.
 The build label/cache key for this pass is
-`iteration51-4-snap-data-only-v14`.
+`iteration51-5-grid-toggle-v15`.
+
+Iteration 51.5 also routes the shell Show Grid button into the Engine renderer.
+The Legacy CSS grid and the WebGL grid should now hide/show together without a
+scene rebuild.
 
 Iteration 50 restores the editor shell as an explicit, diagnosable DOM layer
 around the Engine canvas. The toolbar, left Device Library/Project Custom
@@ -192,14 +196,14 @@ PDF and report drawing paths are deliberately unchanged.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags.
 
-Current visible build label: `Iteration 51.4`.
+Current visible build label: `Iteration 51.5`.
 The app top bar must show one of these labels:
 
-- `Iteration 51.4 — Engine Editor — iteration51-4-snap-data-only-v14`
-- `Iteration 51.4 — Legacy Editor — iteration51-4-snap-data-only-v14`
+- `Iteration 51.5 — Engine Editor — iteration51-5-grid-toggle-v15`
+- `Iteration 51.5 — Legacy Editor — iteration51-5-grid-toggle-v15`
 
 The Engine HUD badge for this pass must also show
-`production-bridge-snap-data-only-v14` and `snap: data-diagnostics-only-v14`. If either
+`production-bridge-grid-toggle-v15` and `grid-toggle-sync-v15`. If either
 label still shows `production-bridge-1`, the browser or deployment is serving a
 stale Engine module.
 
@@ -214,7 +218,7 @@ frame. Dashed alignment guides are drawn only along the moving edge that is
 actually snapping, and pixel spacing measurements remain enabled down to
 roughly twice the previous outer zoom range.
 
-Iteration 51.4 keeps `debugObjectSnapping=1` as data diagnostics only. It
+Iteration 51.5 keeps `debugObjectSnapping=1` as data diagnostics only. It
 continues to expose snap HUD values, trace records, and
 `window.__AVD_SNAP_TRACE__`, but it no longer draws the temporary raw/final
 device rectangles or pointer crosshair on the canvas. Use
@@ -228,52 +232,52 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration51-4-snap-data-only-v14`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration51-4-snap-data-only-v14`.
+   `index.html?v=iteration51-5-grid-toggle-v15`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration51-5-grid-toggle-v15`.
 4. Open the snapping debug HUD:
-   `index.html?engine=1&debugObjectSnapping=1&v=iteration51-4-snap-data-only-v14`.
+   `index.html?engine=1&debugObjectSnapping=1&v=iteration51-5-grid-toggle-v15`.
 5. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration51-4-snap-data-only-v14`.
+   `index.html?engineDefaultTest=1&v=iteration51-5-grid-toggle-v15`.
 6. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration51-4-snap-data-only-v14`.
+   `index.html?legacy=1&v=iteration51-5-grid-toggle-v15`.
 7. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration51-4-snap-data-only-v14`.
+   `index.html?engine=0&v=iteration51-5-grid-toggle-v15`.
 8. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration51-4-snap-data-only-v14`.
+   `index.html?engine=1&debugLoad=1&v=iteration51-5-grid-toggle-v15`.
 9. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration51-4-snap-data-only-v14`.
+   `index.html?engine=1&loadDelay=1500&v=iteration51-5-grid-toggle-v15`.
 10. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration51-4-snap-data-only-v14`.
+   `index.html?engine=1&debugHud=1&v=iteration51-5-grid-toggle-v15`.
 11. Open shell diagnostics with the Engine HUD:
-   `index.html?engine=1&debugHud=1&debugShell=1&v=iteration51-4-snap-data-only-v14`.
+   `index.html?engine=1&debugHud=1&debugShell=1&v=iteration51-5-grid-toggle-v15`.
 12. Open shell diagnostics in Legacy fallback:
-   `index.html?legacy=1&debugShell=1&v=iteration51-4-snap-data-only-v14`.
+   `index.html?legacy=1&debugShell=1&v=iteration51-5-grid-toggle-v15`.
 13. Open output diagnostics in the default engine editor:
-   `index.html?debugOutput=1&v=iteration51-4-snap-data-only-v14`.
+   `index.html?debugOutput=1&v=iteration51-5-grid-toggle-v15`.
 14. Open output diagnostics in Legacy fallback:
-   `index.html?legacy=1&debugOutput=1&v=iteration51-4-snap-data-only-v14`.
+   `index.html?legacy=1&debugOutput=1&v=iteration51-5-grid-toggle-v15`.
 15. Open the device visual diagnostic HUD/layer view:
-   `index.html?engine=1&debugDeviceVisual=1&v=iteration51-4-snap-data-only-v14`.
+   `index.html?engine=1&debugDeviceVisual=1&v=iteration51-5-grid-toggle-v15`.
 16. Open the Power Distro diagnostic HUD:
-   `index.html?engine=1&debugHud=1&debugPowerDistro=1&v=iteration51-4-snap-data-only-v14`.
+   `index.html?engine=1&debugHud=1&debugPowerDistro=1&v=iteration51-5-grid-toggle-v15`.
 17. Open the Rack Builder diagnostic HUD:
-   `index.html?engine=1&debugHud=1&debugRackBuilder=1&v=iteration51-4-snap-data-only-v14`.
+   `index.html?engine=1&debugHud=1&debugRackBuilder=1&v=iteration51-5-grid-toggle-v15`.
 18. Open the Matrix Routing diagnostic HUD:
-   `index.html?engine=1&debugHud=1&debugMatrix=1&v=iteration51-4-snap-data-only-v14`.
+   `index.html?engine=1&debugHud=1&debugMatrix=1&v=iteration51-5-grid-toggle-v15`.
 19. Open the Device Library drag/drop debug overlay:
-   `index.html?debugLibraryDrag=1&v=iteration51-4-snap-data-only-v14`.
+   `index.html?debugLibraryDrag=1&v=iteration51-5-grid-toggle-v15`.
 20. Open the explicit Engine drag/drop debug overlay:
-   `index.html?engine=1&debugLibraryDrag=1&v=iteration51-4-snap-data-only-v14`.
+   `index.html?engine=1&debugLibraryDrag=1&v=iteration51-5-grid-toggle-v15`.
 21. Open the Legacy drag/drop debug overlay:
-   `index.html?legacy=1&debugLibraryDrag=1&v=iteration51-4-snap-data-only-v14`.
+   `index.html?legacy=1&debugLibraryDrag=1&v=iteration51-5-grid-toggle-v15`.
 22. Open compatibility diagnostics while drawing wires:
-    `index.html?engine=1&debugCompatibility=1&v=iteration51-4-snap-data-only-v14`.
+    `index.html?engine=1&debugCompatibility=1&v=iteration51-5-grid-toggle-v15`.
 23. Open routing diagnostics while selecting or editing orthogonal wires:
-    `index.html?engine=1&debugHud=1&debugRouting=1&v=iteration51-4-snap-data-only-v14`.
+    `index.html?engine=1&debugHud=1&debugRouting=1&v=iteration51-5-grid-toggle-v15`.
 24. Open endpoint-rewire diagnostics:
-    `index.html?engine=1&debugRewire=1&debugRouting=1&v=iteration51-4-snap-data-only-v14`.
+    `index.html?engine=1&debugRewire=1&debugRouting=1&v=iteration51-5-grid-toggle-v15`.
 25. Open the Project Custom identity overlay:
-    `index.html?engine=1&debugCustomIdentity=1&v=iteration51-4-snap-data-only-v14`.
+    `index.html?engine=1&debugCustomIdentity=1&v=iteration51-5-grid-toggle-v15`.
 26. Confirm the top bar build label matches the mode you intended to test.
 27. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.

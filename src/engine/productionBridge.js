@@ -75,10 +75,10 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
-// confusion is obvious while testing Engine canvas snapping.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-snap-data-only-v14";
-export const ENGINE_BRIDGE_VERSION = "production-bridge-snap-data-only-v14";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "snap: data-diagnostics-only-v14";
+// confusion is obvious while testing shell-to-Engine toolbar state.
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-grid-toggle-v15";
+export const ENGINE_BRIDGE_VERSION = "production-bridge-grid-toggle-v15";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "grid-toggle-sync-v15";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -205,6 +205,7 @@ class ProductionEngineBridge {
     this.matrixModalRenderCount = 0;
     this.lastMatrixCommand = null;
     this.renderOptions = {
+      gridVisible: api.getGridVisible?.() !== false,
       labels: true,
       wires: true,
       connectorMarkers: true,
@@ -325,6 +326,16 @@ class ProductionEngineBridge {
     this.hud?.setMetric(name, value);
   }
 
+  setGridVisible(enabled, options = {}) {
+    const nextVisible = enabled !== false;
+    if (this.renderOptions.gridVisible === nextVisible) return true;
+    this.renderOptions.gridVisible = nextVisible;
+    this.renderer?.setRenderOptions(this.renderOptions);
+    this.hud?.setMetric("shell grid / snap", `${nextVisible ? "grid" : "no-grid"} / ${this.api.getObjectSnapping?.() === false ? "no-snap" : "snap"}`);
+    if (options.render !== false) this.scheduleRender();
+    return true;
+  }
+
   recordShellDiagnostic(snapshot = {}) {
     this.shellDiagnostics = { ...this.shellDiagnostics, ...snapshot };
     if (!this.debugShell && !engineDebugHudEnabled()) return;
@@ -434,6 +445,7 @@ class ProductionEngineBridge {
     try {
       this.setLoadingPhase("Reading project data...");
       const rawProject = this.api.getProjectData?.();
+      this.setGridVisible(rawProject?.gridVisible !== false, { render: false });
       this.setLoadingPhase("Normalizing project...");
       const normalized = normalizeProductionProject(rawProject, reason);
       this.setLoadingPhase("Finalizing interaction state...");

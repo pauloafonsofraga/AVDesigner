@@ -12,7 +12,7 @@ import {
 } from "./adapterMapping.js";
 import { isCanvasObjectKind, isLedSurfaceKind } from "./canvasObjectKinds.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-snap-data-only-v14";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-grid-toggle-v15";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -38,6 +38,9 @@ const RACK_LABEL_COLOR = "#32b6ff";
 const RACK_FRAME_RADIUS = 12;
 
 const DEFAULT_RENDER_OPTIONS = {
+  // Toolbar grid state lives in the production shell. Engine mode hides the
+  // shell SVG/CSS grid, so WebGL must receive and honor the same visibility.
+  gridVisible: true,
   labels: true,
   wires: true,
   connectorMarkers: true,
@@ -744,7 +747,7 @@ export class WebglGraphRenderer {
     if (activeWireEdit?.wireId) staticSuppressedWireIds.add(activeWireEdit.wireId);
     (interaction.suppressedWireIds || []).forEach(wireId => staticSuppressedWireIds.add(wireId));
     let sectionStart = performance.now();
-    this.drawGrid(camera);
+    if (renderOptions.gridVisible !== false) this.drawGrid(camera);
     frameStats.gridMs = performance.now() - sectionStart;
     const layerTrace = this.beginLayerTrace(scene, dragSession, renderOptions, { selectedWireIds, hoveredWireId });
     sectionStart = performance.now();
