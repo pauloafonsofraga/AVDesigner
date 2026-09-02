@@ -4721,8 +4721,8 @@
   </div>
 
   <script>
-    const APP_ITERATION = "51.8";
-    const APP_BUILD_ID = "iteration51-8-project-devices-placement-v18";
+    const APP_ITERATION = "51.9";
+    const APP_BUILD_ID = "iteration51-9-duplicate-lock-v19";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "2edc063+";
@@ -80158,27 +80158,23 @@
 
     function placeProjectCustomDuplicateOnCanvas(sourceInstance, template) {
       if (!sourceInstance || !template) return null;
-      const sourceTemplate = templateForInstance(sourceInstance);
-      const sourceWidth = Number(sourceTemplate?.width || template.width || DEVICE_WIDTH);
-      const sourceHeight = Number(sourceTemplate?.height || template.height || 190);
-      const targetX = Math.round((Number(sourceInstance.x) || 0) + Math.min(72, Math.max(36, sourceWidth * 0.12)));
-      const targetY = Math.round((Number(sourceInstance.y) || 0) + Math.min(72, Math.max(36, sourceHeight * 0.12)));
+      const targetX = Math.round((Number(sourceInstance.x) || 0) + 32);
+      const targetY = Math.round((Number(sourceInstance.y) || 0) + 32);
       const instance = hydrateDeviceInstance({
-        instanceId: nextId("dev"),
+        ...structuredClone(sourceInstance),
         templateId: template.id,
         templateOverride: structuredClone(template),
+        instanceId: nextId("dev"),
         name: template.name,
         x: targetX,
-        y: targetY,
-        notes: ""
+        y: targetY
       });
-      const position = findNonOverlappingPosition(instance, targetX, targetY);
-      if (!position) return null;
-      instance.x = position.x;
-      instance.y = position.y;
       const engineBridge = activeEngineBridge();
       if (engineBridge) {
-        const created = engineBridge.createDeviceFromLibraryDrop?.(instance);
+        const created = engineBridge.createDeviceFromLibraryDrop?.(instance, {
+          placementMode: "duplicate",
+          sourceDeviceId: sourceInstance.instanceId || sourceInstance.id || ""
+        });
         if (!created) return null;
         state.selected = { type: "device", id: instance.instanceId };
         renderInspector();
@@ -80230,7 +80226,7 @@
         renderRackBuilderSources();
         renderInspector();
         updateUndoRedoButtons();
-        setStatus(`${copy.name || "Project Device"} could not be duplicated because no clear nearby canvas space was available.`);
+        setStatus(`${copy.name || "Project Device"} could not be duplicated because the duplicate would collide with another device beyond its source.`);
         return null;
       }
       canvasDuplicateDeviceGuard = { instanceId, resultId: copy.id, at: performance.now() };
@@ -86865,8 +86861,15 @@
         createProjectCustomDeviceFromCanvasInstance(instanceId);
       }
       if (action === "lock") {
-        instance.locked = !instance.locked;
-        render();
+        const engineBridge = activeEngineBridge();
+        if (engineBridge?.setProjectDeviceLocked) {
+          engineBridge.setProjectDeviceLocked(instanceId, !instance.locked);
+        } else {
+          pushUndo();
+          instance.locked = !instance.locked;
+          render();
+          updateUndoRedoButtons();
+        }
       }
       if (action === "delete") {
         customIdentityDebug.lastDeleteTargets = [instanceId];

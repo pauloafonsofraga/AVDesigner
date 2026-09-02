@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   DEVICE_PLACEMENT_GAP,
   DevicePlacementSession,
+  duplicatePlacementCollisionSummary,
   findNonOverlappingGroupDelta,
   isPhysicalPlacementDevice,
   placementCollisionSummary,
@@ -76,6 +77,25 @@ test("existing overlaps can be moved apart but not made worse", () => {
   assert.ok(worse.dx <= 0, `expected move toward overlap to be rejected, got ${worse.dx}`);
 });
 
+test("duplicate-style complete overlap can be dragged clear then no longer overlaps", () => {
+  const graph = scene([
+    device("moving", 0, 0, 100, 100),
+    device("fixed", 0, 0, 100, 100)
+  ]);
+  const session = new DevicePlacementSession({ scene: graph, selectedIds: ["moving"] });
+
+  const outward = session.resolve({ rawDx: -20, rawDy: 0, snappedDx: -20, snappedDy: 0 });
+  assert.equal(outward.dx, -20);
+  assert.equal(outward.diagnostics.movementReducingOverlap, true);
+
+  const clear = session.resolve({ rawDx: -(100 + DEVICE_PLACEMENT_GAP), rawDy: 0, snappedDx: -(100 + DEVICE_PLACEMENT_GAP), snappedDy: 0 });
+  assert.equal(clear.dx, -(100 + DEVICE_PLACEMENT_GAP));
+  assert.equal(clear.diagnostics.overlapAmount, 0);
+
+  const backIntoOverlap = session.resolve({ rawDx: -90, rawDy: 0, snappedDx: -90, snappedDy: 0 });
+  assert.ok(backIntoOverlap.dx <= -(100 + DEVICE_PLACEMENT_GAP) + 0.1, `expected separated duplicate to stay clear, got ${backIntoOverlap.dx}`);
+});
+
 test("partial overlap improvement becomes the new drag ceiling", () => {
   const graph = scene([
     device("moving", 0, 0, 100, 100),
@@ -108,4 +128,40 @@ test("library placement finds a nearby non-overlapping group offset", () => {
   const movedRect = placementRectForDevice({ ...candidate, x: candidate.x + result.dx, y: candidate.y + result.dy });
   const summary = placementCollisionSummary(graph, [movedRect], { excludeIds: ["new"] });
   assert.equal(summary.valid, true);
+});
+
+test("duplicate placement permits intentional source overlap only", () => {
+  const source = device("source", 0, 0, 100, 100);
+  const copy = device("copy", 0, 0, 100, 100);
+  const graph = scene([source]);
+
+  const normal = placementCollisionSummary(graph, [placementRectForDevice(copy)], { excludeIds: ["copy"] });
+  assert.equal(normal.valid, false);
+
+  const duplicate = duplicatePlacementCollisionSummary(graph, copy, source);
+  assert.equal(duplicate.valid, true);
+  assert.equal(duplicate.duplicateOverlapExceptionActive, true);
+  assert.deepEqual(duplicate.initialOverlapIds, ["source"]);
+});
+
+test("duplicate placement still blocks unrelated collisions", () => {
+  const source = device("source", 0, 0, 100, 100);
+  const fixed = device("fixed", 130, 0, 100, 100);
+  const copy = device("copy", 50, 0, 100, 100);
+  const graph = scene([source, fixed]);
+
+  const duplicate = duplicatePlacementCollisionSummary(graph, copy, source);
+  assert.equal(duplicate.valid, false);
+  assert.deepEqual(duplicate.collidingIds, ["fixed"]);
+});
+
+test("duplicate placement tolerates old source overlap when it is not worse", () => {
+  const source = device("source", 0, 0, 100, 100);
+  const fixed = device("fixed", 50, 0, 100, 100);
+  const copy = device("copy", 0, 0, 100, 100);
+  const graph = scene([source, fixed]);
+
+  const duplicate = duplicatePlacementCollisionSummary(graph, copy, source);
+  assert.equal(duplicate.valid, true);
+  assert.equal(duplicate.sourceBaselineOverlapArea > 0, true);
 });

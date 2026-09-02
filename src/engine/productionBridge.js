@@ -61,6 +61,7 @@ import {
 import { legacyConnectorHitRadius } from "./legacyZoomDetail.js";
 import {
   DEVICE_PLACEMENT_FEATURE_LABEL,
+  duplicatePlacementCollisionSummary,
   findNonOverlappingGroupDelta,
   placementCollisionSummary,
   placementRectForDevice
@@ -83,9 +84,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-project-devices-v18";
-export const ENGINE_BRIDGE_VERSION = "production-bridge-project-devices-v18";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "project-devices-placement-v18";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-duplicate-lock-v19";
+export const ENGINE_BRIDGE_VERSION = "production-bridge-duplicate-lock-v19";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "duplicate-lock-v19";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -214,6 +215,7 @@ class ProductionEngineBridge {
     this.orthogonalTest = engineOrthogonalTestEnabled();
     this.lastPlacementDiagnostics = null;
     this.lastProjectDevicesAction = "-";
+    this.lastLockAction = "-";
     this.lastCompatibilityTargetKey = "";
     this.matrixModalRenderCount = 0;
     this.lastMatrixCommand = null;
@@ -356,23 +358,35 @@ class ProductionEngineBridge {
     this.hud?.setMetric("Project Devices orphan", `${Math.max(0, projectDeviceCount - sceneDeviceCount)} orphan / ${Math.max(0, sceneDeviceCount - projectDeviceCount)} missing`);
     this.hud?.setMetric("Project Devices action", this.lastProjectDevicesAction || "-");
     if (!diagnostics) {
+      this.hud?.setMetric("placement mode", "-");
       this.hud?.setMetric("placement ids", "-");
       this.hud?.setMetric("placement dx", "-");
       this.hud?.setMetric("placement candidates", "-");
       this.hud?.setMetric("placement colliding", "-");
       this.hud?.setMetric("placement snap", "-");
       this.hud?.setMetric("placement search", "-");
+      this.hud?.setMetric("placement overlap", "-");
+      this.hud?.setMetric("duplicate exception", "-");
+      this.hud?.setMetric("lock action", this.lastLockAction || "-");
+      this.hud?.setMetric("locked ids", "-");
       return;
     }
+    this.hud?.setMetric("placement mode", diagnostics.placementMode || diagnostics.action || "-");
     this.hud?.setMetric("placement ids", `${diagnostics.movingIds?.length || 0} moving`);
     this.hud?.setMetric("placement dx", `${formatPlacementNumber(diagnostics.rawDx)},${formatPlacementNumber(diagnostics.rawDy)} -> ${formatPlacementNumber(diagnostics.finalDx)},${formatPlacementNumber(diagnostics.finalDy)}`);
     this.hud?.setMetric("placement candidates", diagnostics.candidateCount || 0);
     this.hud?.setMetric("placement colliding", (diagnostics.collidingIds || []).join(", ") || "-");
     this.hud?.setMetric("placement snap", diagnostics.snapRejected ? "snap rejected" : diagnostics.snapActive ? "snap ok" : "free");
     this.hud?.setMetric("placement search", `${diagnostics.searchAttempts || 0} attempts / overlap ${formatPlacementNumber(diagnostics.overlapAmount || 0)} / allowed ${formatPlacementNumber(diagnostics.allowedOverlap || 0)}`);
+    this.hud?.setMetric("placement overlap", `initial ${formatPlacementNumber(diagnostics.initialOverlapArea || 0)} / current ${formatPlacementNumber(diagnostics.currentOverlapArea ?? diagnostics.overlapAmount ?? 0)} / reducing ${diagnostics.movementReducingOverlap ? "yes" : "no"}`);
+    this.hud?.setMetric("duplicate exception", diagnostics.duplicateOverlapExceptionActive
+      ? `yes / source ${diagnostics.duplicateSourceId || "-"} / ids ${(diagnostics.initialOverlapIds || []).join(", ") || "-"}`
+      : "no");
+    this.hud?.setMetric("lock action", diagnostics.lockAction || this.lastLockAction || "-");
+    this.hud?.setMetric("locked ids", (diagnostics.lockedIds || []).join(", ") || "-");
   }
 
-  resolveLibraryDropPlacement(rawDevices = [], firstIndex = null) {
+  resolveLibraryDropPlacement(rawDevices = [], firstIndex = null, options = {}) {
     const projectData = this.mutations?.project || this.api.getProjectData?.();
     const previewDevices = (rawDevices || [])
       .map((rawDevice, offset) => {
@@ -384,6 +398,12 @@ class ProductionEngineBridge {
         return normalizeAvDesignerDevice(projectData, rawDevice, index);
       })
       .filter(Boolean);
+    if (options.placementMode === "duplicate") {
+      const sourceDevice = this.scene.getDevice(options.sourceDeviceId);
+      const summary = duplicatePlacementCollisionSummary(this.scene, previewDevices[0], sourceDevice);
+      const diagnostics = placementDiagnosticsForCommand(previewDevices, { found: summary.valid, dx: 0, dy: 0, attempts: 0, summary }, "duplicate");
+      return { ok: summary.valid, diagnostics };
+    }
     const placement = findNonOverlappingGroupDelta(this.scene, previewDevices);
     const diagnostics = placementDiagnosticsForCommand(previewDevices, placement, "library drop");
     if (placement.found) {
@@ -1523,8 +1543,23 @@ class ProductionEngineBridge {
   }
 
   beginPendingDrag(point, worldPoint, event = null) {
-    const selectedIds = [...this.scene.selectedIds];
-    if (!selectedIds.length) return;
+    const requestedIds = [...this.scene.selectedIds];
+    if (!requestedIds.length) return;
+    const selectedIds = this.draggableSelectedIds(requestedIds);
+    if (!selectedIds.length) {
+      this.lastLockAction = `movement rejected ${requestedIds.length} locked`;
+      this.recordLockedPlacementDiagnostics("locked movement rejected", requestedIds);
+      this.updatePlacementDebugHud("locked movement rejected");
+      this.hud.setMetric("drag pending", "blocked by lock");
+      this.updateInteractionHud("locked");
+      this.updateCanvasCursor();
+      this.scheduleRender();
+      return;
+    }
+    if (selectedIds.length !== requestedIds.length) {
+      this.lastLockAction = `movement filtered ${requestedIds.length - selectedIds.length} locked`;
+      this.recordLockedPlacementDiagnostics("locked selection filtered", requestedIds.filter(id => !selectedIds.includes(id)));
+    }
     this.pendingDrag = {
       startPoint: { ...point },
       startWorld: { ...worldPoint },
@@ -1542,6 +1577,18 @@ class ProductionEngineBridge {
 
   beginDrag(worldPoint, selectedIds = this.scene.selectedIds, meta = {}) {
     const start = performance.now();
+    const requestedIds = [...selectedIds];
+    const draggableIds = this.draggableSelectedIds(requestedIds);
+    if (!draggableIds.length) {
+      this.lastLockAction = `drag rejected ${requestedIds.length} locked`;
+      this.recordLockedPlacementDiagnostics("locked drag rejected", requestedIds);
+      this.updatePlacementDebugHud("locked drag rejected");
+      this.hud.setMetric("dragStart", "blocked by lock");
+      this.canvas.classList.remove("dragging");
+      this.updateCanvasCursor();
+      this.scheduleRender();
+      return;
+    }
     const clearedWireEditSelection = this.scene.selectedWireIds.size
       || this.scene.selectedConnectorKeys.size
       || this.scene.selectedRoutePointKeys.size;
@@ -1550,7 +1597,7 @@ class ProductionEngineBridge {
     this.scene.selectedRoutePointKeys.clear();
     this.dragSession = new DragSession({
       scene: this.scene,
-      selectedIds,
+      selectedIds: draggableIds,
       startWorld: worldPoint,
       startPoint: meta.startPoint || null,
       startClient: meta.startClient || null,
@@ -1568,6 +1615,58 @@ class ProductionEngineBridge {
     if (clearedWireEditSelection) this.updateSelectionHud();
     this.captureDebugDragTrace();
     this.scheduleRender();
+  }
+
+  draggableSelectedIds(ids = []) {
+    return uniqueItems([...ids].map(id => String(id || "")).filter(Boolean))
+      .filter(id => {
+        const device = this.scene.getDevice(id);
+        return Boolean(device && !this.deviceMovementLocked(device));
+      });
+  }
+
+  deviceMovementLocked(device) {
+    if (!device) return false;
+    if (device.locked) return true;
+    const rackId = this.scene.deviceRackId(device);
+    return Boolean(rackId && this.scene.getRack(rackId)?.locked);
+  }
+
+  recordLockedPlacementDiagnostics(action, ids = []) {
+    const lockedIds = uniqueItems((ids || [])
+      .map(id => String(id || ""))
+      .filter(id => {
+        const device = this.scene.getDevice(id);
+        return Boolean(device && this.deviceMovementLocked(device));
+      }));
+    this.lastPlacementDiagnostics = {
+      feature: DEVICE_PLACEMENT_FEATURE_LABEL,
+      placementMode: "lock",
+      lockAction: action,
+      lockedIds,
+      movingIds: [],
+      initialOverlapIds: [],
+      initialOverlapArea: 0,
+      rawDx: 0,
+      rawDy: 0,
+      snappedDx: 0,
+      snappedDy: 0,
+      finalDx: 0,
+      finalDy: 0,
+      candidateCount: 0,
+      collidingIds: [],
+      collisionCount: 0,
+      overlapAmount: 0,
+      allowedOverlap: 0,
+      currentOverlapArea: 0,
+      candidateOverlapArea: 0,
+      movementReducingOverlap: false,
+      duplicateOverlapExceptionActive: false,
+      snapActive: false,
+      snapRejected: false,
+      searchAttempts: 0
+    };
+    this.lastLockAction = action;
   }
 
   hitTestCanvasObjectResizeHandle(world) {
@@ -3357,10 +3456,45 @@ class ProductionEngineBridge {
     return { mutationMs, dirtyStats };
   }
 
+  setProjectDeviceLocked(objectId, locked) {
+    if (!this.ready) return false;
+    const device = this.resolveDeviceBySourceId(objectId);
+    if (!device) return false;
+    const id = String(device.sourceId || device.id);
+    const beforeLocked = Boolean(device.locked);
+    const afterLocked = Boolean(locked);
+    this.lastLockAction = `${afterLocked ? "lock" : "unlock"} ${id}`;
+    if (beforeLocked === afterLocked) {
+      this.recordLockedPlacementDiagnostics("lock unchanged", [device.id]);
+      this.updatePlacementDebugHud("lock unchanged");
+      this.scheduleRender();
+      return true;
+    }
+    this.beginProductionCommit(`${afterLocked ? "lock" : "unlock"} device`);
+    const result = this.applyObjectInspectorFields(id, { locked: afterLocked });
+    this.recordCommand(lockDeviceCommand(id, beforeLocked, afterLocked));
+    this.markCommitted(`${afterLocked ? "lock" : "unlock"} device`, result.mutationMs || 0, {
+      objectId: id,
+      lockState: afterLocked
+    });
+    this.recordLockedPlacementDiagnostics(afterLocked ? "lock" : "unlock", [device.id]);
+    this.updatePlacementDebugHud(afterLocked ? "device locked" : "device unlocked");
+    return true;
+  }
+
   commitObjectPositionFromInspector(objectId, x, y) {
     if (!this.ready) return false;
     const device = this.resolveDeviceBySourceId(objectId);
     if (!device) return false;
+    if (this.deviceMovementLocked(device)) {
+      this.lastLockAction = `blocked inspector move ${device.sourceId || device.id}`;
+      this.recordLockedPlacementDiagnostics("locked inspector movement rejected", [device.id]);
+      this.updatePlacementDebugHud("locked inspector move rejected");
+      this.hud?.setMetric("inspector position", "blocked by lock");
+      this.showError("That device is locked.");
+      this.scheduleRender();
+      return false;
+    }
     const nextX = Number(x);
     const nextY = Number(y);
     if (!Number.isFinite(nextX) || !Number.isFinite(nextY)) return false;
@@ -4378,11 +4512,11 @@ class ProductionEngineBridge {
     this.hud?.setMetric("context route handles", wire?.routePoints?.length || 0);
   }
 
-  createDeviceFromLibraryDrop(deviceData) {
-    return this.createDevicesFromLibraryDrop([deviceData]);
+  createDeviceFromLibraryDrop(deviceData, options = {}) {
+    return this.createDevicesFromLibraryDrop([deviceData], options);
   }
 
-  createDevicesFromLibraryDrop(deviceList = []) {
+  createDevicesFromLibraryDrop(deviceList = [], options = {}) {
     if (!this.ready) {
       this.hud?.setMetric("blocked command", "create device while loading");
       this.showError("Engine Editor is still loading. Try dropping the device again when it is ready.");
@@ -4400,15 +4534,20 @@ class ProductionEngineBridge {
     const commitStart = performance.now();
     const rawDevices = (deviceList || []).map(deepClone).filter(Boolean);
     const ids = rawDevices.map(device => String(device?.instanceId || device?.id || "")).filter(Boolean);
+    const placementMode = String(options.placementMode || "library drop");
     console.info("[avdesigner-library-drag] create-device command received", {
       count: rawDevices.length,
       ids,
+      placementMode,
+      sourceDeviceId: options.sourceDeviceId || "",
       ready: this.ready,
       before: this.sceneCounts()
     });
     this.emitLibraryDragDiagnostic("create-device command received", {
       count: rawDevices.length,
       ids,
+      placementMode,
+      sourceDeviceId: options.sourceDeviceId || "",
       ready: this.ready,
       before: this.sceneCounts()
     });
@@ -4440,19 +4579,23 @@ class ProductionEngineBridge {
       return false;
     }
     const firstIndex = this.mutations?.root?.devices?.length ?? null;
-    const placement = this.resolveLibraryDropPlacement(rawDevices, firstIndex);
+    const placement = this.resolveLibraryDropPlacement(rawDevices, firstIndex, options);
     this.lastPlacementDiagnostics = placement.diagnostics;
-    this.updatePlacementDebugHud(placement.ok ? "library drop" : "library drop blocked");
+    this.updatePlacementDebugHud(placement.ok ? placementMode : `${placementMode} blocked`);
     if (!placement.ok) {
-      this.showError("No clear space for that device here.");
+      this.showError(options.placementMode === "duplicate"
+        ? "That duplicate would overlap another device beyond its source."
+        : "No clear space for that device here.");
       console.info("[avdesigner-library-drag] create-device command failure", {
         reason: "placement collision",
         ids,
+        placementMode,
         diagnostics: placement.diagnostics
       });
       this.emitLibraryDragDiagnostic("create-device command failure", {
         reason: "placement collision",
         ids,
+        placementMode,
         diagnostics: placement.diagnostics,
         before: this.sceneCounts()
       });
@@ -6681,6 +6824,16 @@ function objectInspectorFieldsCommand(objectId, beforeFields, afterFields) {
   };
 }
 
+function lockDeviceCommand(objectId, beforeLocked, afterLocked) {
+  const id = String(objectId || "");
+  return {
+    type: afterLocked ? "LockDeviceCommand" : "UnlockDeviceCommand",
+    affectedIds: [id],
+    undo: bridge => bridge.applyObjectInspectorFields(id, { locked: Boolean(beforeLocked) }),
+    redo: bridge => bridge.applyObjectInspectorFields(id, { locked: Boolean(afterLocked) })
+  };
+}
+
 function connectorInspectorFieldsCommand(deviceId, beforeStates, afterStates, removedWires = []) {
   const id = String(deviceId || "");
   const before = (beforeStates || []).map(state => ({
@@ -7088,6 +7241,7 @@ function commandTargetMs(command) {
   if (type.includes("MoveRoutePoint")) return 100;
   if (type.includes("CreateWire") || type.includes("DeleteWire")) return 300;
   if (type.includes("CreateDevice")) return 300;
+  if (type.includes("LockDevice") || type.includes("UnlockDevice")) return 100;
   if (type.includes("DeleteRackInstances")) return 300;
   if (type.includes("DeleteDevices")) {
     const count = Number(command?.affectedIds?.length) || 1;
@@ -7136,7 +7290,12 @@ function placementDiagnosticsForCommand(devices = [], placement = {}, action = "
   return {
     feature: DEVICE_PLACEMENT_FEATURE_LABEL,
     action,
+    placementMode: summary.placementMode || action,
+    duplicateOverlapExceptionActive: Boolean(summary.duplicateOverlapExceptionActive),
+    duplicateSourceId: summary.duplicateSourceId || "",
     movingIds: (devices || []).map(device => String(device?.id || "")).filter(Boolean),
+    initialOverlapIds: summary.initialOverlapIds || [],
+    initialOverlapArea: summary.initialOverlapArea || 0,
     rawDx: 0,
     rawDy: 0,
     snappedDx: Number(placement?.dx) || 0,
@@ -7148,6 +7307,9 @@ function placementDiagnosticsForCommand(devices = [], placement = {}, action = "
     collisionCount: summary.collisionCount || 0,
     overlapAmount: summary.overlapAmount || 0,
     allowedOverlap: summary.allowedOverlap || 0,
+    currentOverlapArea: summary.currentOverlapArea ?? summary.overlapAmount ?? 0,
+    candidateOverlapArea: summary.candidateOverlapArea ?? summary.overlapAmount ?? 0,
+    movementReducingOverlap: Boolean(summary.movementReducingOverlap),
     snapActive: false,
     snapRejected: false,
     searchAttempts: Number(placement?.attempts) || 0

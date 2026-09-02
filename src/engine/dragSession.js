@@ -1,7 +1,7 @@
 import { ObjectSnapSession } from "./objectSnapping.js";
 import { DevicePlacementSession } from "./devicePlacement.js";
 
-export const DRAG_SESSION_MODULE_FINGERPRINT = "drag-session-placement-v18";
+export const DRAG_SESSION_MODULE_FINGERPRINT = "drag-session-duplicate-lock-v19";
 
 export class DragSession {
   constructor({ scene, selectedIds, startWorld, startPoint = null, startClient = null, enableSnapping = false, snapMode = "full" }) {

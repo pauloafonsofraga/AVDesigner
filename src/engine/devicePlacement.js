@@ -6,7 +6,7 @@ import {
 } from "./canvasObjectKinds.js";
 import { deviceBounds } from "./sceneGraph.js";
 
-export const DEVICE_PLACEMENT_FEATURE_LABEL = "project-devices-placement-v18";
+export const DEVICE_PLACEMENT_FEATURE_LABEL = "duplicate-lock-v19";
 export const DEVICE_PLACEMENT_GAP = 12;
 export const DEVICE_PLACEMENT_STEP = 28;
 
@@ -97,6 +97,48 @@ export function placementCollisionSummary(scene, rects = [], options = {}) {
   };
 }
 
+export function duplicatePlacementCollisionSummary(scene, duplicateDevice, sourceDevice) {
+  const duplicateId = String(duplicateDevice?.id || "");
+  const sourceId = String(sourceDevice?.id || "");
+  const duplicateRect = placementRectForDevice(duplicateDevice);
+  const sourceRect = placementRectForDevice(sourceDevice);
+  if (!duplicateRect) {
+    return duplicatePlacementResult({
+      valid: true,
+      duplicateId,
+      sourceId,
+      sourceOverlapAmount: 0,
+      sourceOverlapIds: [],
+      candidateCount: 0,
+      invalidDetails: [],
+      duplicateDetails: [],
+      sourceBaselineDetails: []
+    });
+  }
+
+  const excludeDuplicateAndSource = new Set([duplicateId, sourceId].filter(Boolean));
+  const duplicateDetails = placementOverlapDetails(scene, duplicateRect, excludeDuplicateAndSource);
+  const sourceBaselineDetails = sourceRect
+    ? placementOverlapDetails(scene, sourceRect, excludeDuplicateAndSource)
+    : [];
+  const sourceAllowance = new Map(sourceBaselineDetails.map(item => [item.id, item.overlapAmount]));
+  const invalidDetails = duplicateDetails.filter(item => item.overlapAmount > (sourceAllowance.get(item.id) || 0) + EPSILON);
+  const sourceOverlapAmount = sourceRect && placementRectsOverlap(duplicateRect, sourceRect)
+    ? placementOverlapAmount(duplicateRect, sourceRect)
+    : 0;
+  return duplicatePlacementResult({
+    valid: !invalidDetails.length,
+    duplicateId,
+    sourceId,
+    sourceOverlapAmount,
+    sourceOverlapIds: sourceOverlapAmount > EPSILON && sourceId ? [sourceId] : [],
+    candidateCount: duplicateDetails.length + (sourceOverlapAmount > EPSILON ? 1 : 0),
+    invalidDetails,
+    duplicateDetails,
+    sourceBaselineDetails
+  });
+}
+
 export class DevicePlacementSession {
   constructor({ scene, selectedIds = [] } = {}) {
     this.scene = scene;
@@ -104,6 +146,8 @@ export class DevicePlacementSession {
     this.devices = [...this.selectedIds].map(id => scene?.getDevice?.(id)).filter(isPhysicalPlacementDevice);
     this.excludeIds = new Set(this.devices.map(device => String(device.id || "")));
     const baseline = this.summaryForDelta(0, 0, Number.POSITIVE_INFINITY);
+    this.initialOverlapIds = baseline.collidingIds || [];
+    this.initialOverlapArea = baseline.overlapAmount || 0;
     this.allowedOverlap = baseline.overlapAmount || 0;
     this.lastValidDx = 0;
     this.lastValidDy = 0;
@@ -224,6 +268,7 @@ export class DevicePlacementSession {
     this.lastValidDx = details.finalDx;
     this.lastValidDy = details.finalDy;
     const overlapAmount = details.summary?.overlapAmount || 0;
+    const previousOverlap = this.lastSummary?.overlapAmount ?? this.initialOverlapArea ?? 0;
     // Old projects may already contain overlapping devices. During a drag we
     // allow movement that improves that state, but once the overlap decreases
     // we treat the improved amount as the new ceiling so dragging cannot slide
@@ -232,7 +277,7 @@ export class DevicePlacementSession {
     if (overlapAmount <= EPSILON) this.allowedOverlap = 0;
     else this.allowedOverlap = Math.min(this.allowedOverlap, overlapAmount);
     this.lastSummary = details.summary;
-    this.lastDiagnostics = this.diagnostics(details);
+    this.lastDiagnostics = this.diagnostics({ ...details, previousOverlap });
     return { dx: details.finalDx, dy: details.finalDy, diagnostics: this.lastDiagnostics };
   }
 
@@ -246,11 +291,17 @@ export class DevicePlacementSession {
     snapActive = false,
     snapRejected = false,
     searchAttempts = 0,
-    summary = null
+    summary = null,
+    previousOverlap = this.lastSummary?.overlapAmount ?? this.initialOverlapArea ?? 0
   } = {}) {
+    const overlapAmount = summary?.overlapAmount || 0;
     return {
       feature: DEVICE_PLACEMENT_FEATURE_LABEL,
+      placementMode: "drag",
+      duplicateOverlapExceptionActive: false,
       movingIds: [...this.excludeIds],
+      initialOverlapIds: this.initialOverlapIds || [],
+      initialOverlapArea: this.initialOverlapArea || 0,
       rawDx,
       rawDy,
       snappedDx,
@@ -260,8 +311,11 @@ export class DevicePlacementSession {
       candidateCount: summary?.candidateCount || 0,
       collidingIds: summary?.collidingIds || [],
       collisionCount: summary?.collisionCount || 0,
-      overlapAmount: summary?.overlapAmount || 0,
+      overlapAmount,
       allowedOverlap: summary?.allowedOverlap || this.allowedOverlap || 0,
+      currentOverlapArea: overlapAmount,
+      candidateOverlapArea: overlapAmount,
+      movementReducingOverlap: overlapAmount < previousOverlap - EPSILON,
       snapActive: Boolean(snapActive),
       snapRejected: Boolean(snapRejected),
       searchAttempts
@@ -326,11 +380,72 @@ function expandedSearchAttempts(maxRadius) {
   return attempts;
 }
 
+function duplicatePlacementResult({
+  valid,
+  duplicateId,
+  sourceId,
+  sourceOverlapAmount,
+  sourceOverlapIds,
+  candidateCount,
+  invalidDetails,
+  duplicateDetails,
+  sourceBaselineDetails
+}) {
+  const invalidOverlapArea = invalidDetails.reduce((total, item) => total + item.overlapAmount, 0);
+  const duplicateOverlapArea = duplicateDetails.reduce((total, item) => total + item.overlapAmount, 0);
+  const sourceBaselineOverlapArea = sourceBaselineDetails.reduce((total, item) => total + item.overlapAmount, 0);
+  return {
+    valid: Boolean(valid),
+    candidateCount,
+    collidingIds: invalidDetails.map(item => item.id),
+    collisionCount: invalidDetails.length,
+    overlapAmount: invalidOverlapArea,
+    allowedOverlap: sourceOverlapAmount + sourceBaselineOverlapArea,
+    placementMode: "duplicate",
+    duplicateOverlapExceptionActive: true,
+    duplicateId,
+    duplicateSourceId: sourceId,
+    movingIds: [duplicateId].filter(Boolean),
+    initialOverlapIds: sourceOverlapIds,
+    initialOverlapArea: sourceOverlapAmount,
+    sourceOverlapAmount,
+    sourceBaselineOverlapArea,
+    currentOverlapArea: sourceOverlapAmount + duplicateOverlapArea,
+    candidateOverlapArea: duplicateOverlapArea,
+    invalidOverlapArea,
+    movementReducingOverlap: false,
+    snapActive: false,
+    snapRejected: false,
+    searchAttempts: 0
+  };
+}
+
 function placementCandidatesForRect(scene, rect) {
   const inflated = inflateRect(rect, DEVICE_PLACEMENT_GAP);
   const indexed = scene?.spatialIndex?.queryRect?.(inflated);
   if (Array.isArray(indexed)) return indexed;
   return Array.isArray(scene?.devices) ? scene.devices : [];
+}
+
+function placementOverlapDetails(scene, rect, excludeIds = []) {
+  const excluded = normalizeExcludeIds(excludeIds);
+  const details = [];
+  const candidates = placementCandidatesForRect(scene, rect);
+  const seen = new Set();
+  candidates.forEach(candidate => {
+    const device = candidateDevice(candidate);
+    if (!device || !isPhysicalPlacementDevice(device)) return;
+    const id = String(device.id || "");
+    if (!id || excluded.has(id) || seen.has(id)) return;
+    seen.add(id);
+    const otherRect = placementRectForDevice(device);
+    if (!otherRect || !placementRectsOverlap(rect, otherRect)) return;
+    details.push({
+      id,
+      overlapAmount: placementOverlapAmount(rect, otherRect)
+    });
+  });
+  return details;
 }
 
 function candidateDevice(candidate) {
