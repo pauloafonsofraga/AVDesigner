@@ -32,6 +32,14 @@ import {
   wireRouteStatesEqual
 } from "../src/engine/wireRouteEditing.js";
 import { DragSession } from "../src/engine/dragSession.js";
+import {
+  legacyCanvasDetailScale,
+  legacyConnectorHitRadius,
+  legacyConnectorInfoBoxMode,
+  legacyConnectorLabelMetrics,
+  legacyConnectorRadius,
+  legacyConnectorStrokeWidth
+} from "../src/engine/legacyZoomDetail.js";
 
 const cases = [];
 
@@ -205,6 +213,21 @@ assert.equal(engineFiberModeColor("om4"), "#EC2CB9", "OM4 color matches Legacy")
 assert.equal(engineFiberModeColor("om5"), "#66FF33", "OM5 color matches Legacy");
 assert.equal(engineWireColorForCable("fiber-lc", "om4"), "#EC2CB9", "fiber wire color follows selected mode");
 assert.equal(ENGINE_FIBER_MODE_OPTIONS.length, 5, "Legacy fiber mode list is complete");
+
+assert.equal(legacyCanvasDetailScale(1), 1, "Legacy detail scale is neutral at 100%");
+assert.equal(legacyCanvasDetailScale(0.5), 2, "Legacy detail scale doubles at 50%");
+assert.equal(legacyCanvasDetailScale(1 / 2.25), 2.25, "Legacy detail scale caps at 225%");
+assert.equal(legacyCanvasDetailScale(0.3), 2.25, "Legacy detail scale stays capped past 225%");
+assert.equal(legacyCanvasDetailScale(2.5), 1, "Legacy detail scale does not shrink above 100%");
+assert.equal(legacyConnectorRadius(0.5), 14, "Connector radius inverse-scales at 50%");
+assert.equal(legacyConnectorStrokeWidth(0.5), 4, "Connector rim inverse-scales at 50%");
+assert.equal(legacyConnectorHitRadius(0.5), 30, "Connector hit radius inverse-scales at 50%");
+assert.equal(legacyConnectorInfoBoxMode(1), "full", "Info boxes are full near 100%");
+assert.equal(legacyConnectorInfoBoxMode(0.84), "compact", "Info boxes compact once they would overlap");
+assert.equal(legacyConnectorInfoBoxMode(0.2), "hidden", "Info boxes hide at 20%");
+assert.equal(legacyConnectorInfoBoxMode(0.19), "hidden", "Info boxes remain hidden below 20%");
+assert.equal(legacyConnectorLabelMetrics(0.5).screenFontSize, 9, "Connector labels hold Legacy screen size at 50%");
+assert.equal(legacyConnectorLabelMetrics(2.5).screenFontSize, 22.5, "Connector labels scale normally when zoomed in");
 
 assert.equal(areEngineConnectorTypesCompatible(hdmiOut.connector, hdmiIn.connector), true, "same type compatibility");
 assert.equal(areEngineConnectorTypesCompatible(hdmiOut.connector, lcCage.connector), false, "different families incompatible");

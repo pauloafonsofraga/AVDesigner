@@ -4015,7 +4015,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 51.5 — Engine Editor — iteration51-5-grid-toggle-v15</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 51.6 — Engine Editor — iteration51-6-legacy-zoom-detail-v16</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -4721,11 +4721,11 @@
   </div>
 
   <script>
-    const APP_ITERATION = "51.5";
-    const APP_BUILD_ID = "iteration51-5-grid-toggle-v15";
+    const APP_ITERATION = "51.6";
+    const APP_BUILD_ID = "iteration51-6-legacy-zoom-detail-v16";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const APP_SOURCE_BRANCH = "engine-prototype";
-    const APP_SOURCE_BASE_COMMIT = "b22ba04+";
+    const APP_SOURCE_BASE_COMMIT = "2edc063+";
     const CANVAS_MIN_ZOOM = 0.03;
     const CANVAS_MAX_ZOOM = 8;
     const INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
@@ -93038,6 +93038,9 @@ renderViewerOutputDebug();
           shortHash: shortRuntimeHash(hash),
           appBuildPresent: text.includes(APP_BUILD_ID),
           acceptedBuildPresent: text.includes(APP_BUILD_ID)
+            || text.includes("production-bridge-legacy-zoom-detail-v16")
+            || text.includes("legacy-zoom-detail-v16")
+            || text.includes("renderer-legacy-zoom-detail-v16")
             || text.includes("production-bridge-grid-toggle-v15")
             || text.includes("grid-toggle-sync-v15")
             || text.includes("renderer-grid-toggle-v15")

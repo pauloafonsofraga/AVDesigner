@@ -73,12 +73,6 @@ export function deviceVisualCacheKey(device, options = {}) {
       connector.direction || "",
       connector.type || connector.plug || "",
       connector.label || "",
-      connector.nameText || "",
-      connector.resolutionFrameRate || "",
-      connector.customText || "",
-      connector.nameTextCaption || "",
-      connector.resolutionFrameRateCaption || "",
-      connector.customTextCaption || "",
       connector.displayLabel || "",
       connector.effectiveType || "",
       connector.hiddenOnCanvas ? "hidden" : "visible",
@@ -93,7 +87,6 @@ export function deviceVisualCacheKey(device, options = {}) {
       connector.powerDistroRole || "",
       connector.powerPlugSize ? `${Math.round(connector.powerPlugSize.width || 0)}x${Math.round(connector.powerPlugSize.height || 0)}` : "",
       Array.isArray(connector.colorSegments) ? connector.colorSegments.join(",") : "",
-      Array.isArray(connector.infoFields) ? connector.infoFields.map(field => `${field.title || ""}=${field.value || field.text || ""}`).join(",") : "",
       options.connectorColors ? connector.color || "" : ""
     ].join(":"))
     .join("|");
@@ -154,12 +147,6 @@ export function deviceVisualCacheKey(device, options = {}) {
         connector.hiddenOnCanvas ? "hidden" : "visible",
         connector.rackExposedPortKey || "",
         connector.labelSource || "",
-        connector.nameText || "",
-        connector.resolutionFrameRate || "",
-        connector.customText || "",
-        connector.nameTextCaption || "",
-        connector.resolutionFrameRateCaption || "",
-        connector.customTextCaption || "",
         connector.customColor || "",
         connector.fiberMode || "",
         connector.fiberFamily || "",
@@ -168,8 +155,7 @@ export function deviceVisualCacheKey(device, options = {}) {
         connector.installedModuleFiberMode || "",
         connector.installedModuleFiberFamily || "",
         connector.installedModuleLabel || "",
-        Array.isArray(connector.colorSegments) ? connector.colorSegments.join(",") : "",
-        Array.isArray(connector.infoFields) ? connector.infoFields.map(field => `${field.title || ""}=${field.value || field.text || ""}`).join(",") : ""
+        Array.isArray(connector.colorSegments) ? connector.colorSegments.join(",") : ""
       ].join(",")).join("/")
     ].join(":"))
     .join("|");
@@ -200,7 +186,7 @@ export function deviceVisualCacheKey(device, options = {}) {
     ].join("|")
     : "";
   return [
-    "device-card-v7",
+    "device-card-v8-live-fields",
     visualKind,
     width,
     height,
@@ -481,7 +467,8 @@ function drawCardAreas(ctx, cards, width, height, pad) {
     ctx.stroke();
     ctx.setLineDash([]);
     drawCardCaption(ctx, card);
-    drawCardConnectorFields(ctx, card, width);
+    // Connector info boxes are drawn live by renderer.js so they can inverse
+    // scale with zoom and magnify on hover without rebuilding device textures.
   });
 }
 

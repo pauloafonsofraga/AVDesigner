@@ -58,6 +58,7 @@ import {
   normalizeMatrixRoutesForDevice,
   setMatrixRouteForDevice
 } from "./matrixRouting.js";
+import { legacyConnectorHitRadius } from "./legacyZoomDetail.js";
 
 const {
   hitTestConnector,
@@ -76,9 +77,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-grid-toggle-v15";
-export const ENGINE_BRIDGE_VERSION = "production-bridge-grid-toggle-v15";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "grid-toggle-sync-v15";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-legacy-zoom-detail-v16";
+export const ENGINE_BRIDGE_VERSION = "production-bridge-legacy-zoom-detail-v16";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "legacy-zoom-detail-v16";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -193,6 +194,7 @@ class ProductionEngineBridge {
     this.debugCustomDevices = engineCustomDevicesDebugEnabled();
     this.debugCanvasObjects = engineCanvasObjectsDebugEnabled();
     this.debugObjectSnapping = engineObjectSnappingDebugEnabled();
+    this.debugZoomDetail = engineZoomDetailDebugEnabled();
     this.debugSnapVisual = engineSnapVisualDebugEnabled();
     this.debugSnapMode = engineDebugSnapMode();
     this.snapTraceFrame = 0;
@@ -810,9 +812,7 @@ class ProductionEngineBridge {
       return;
     }
 
-    const connectorHit = shouldHitDetails
-      ? hitTestConnector(this.scene, world, this.connectorHitToleranceWorld())
-      : { connector: null, candidates: 0, ms: 0 };
+    const connectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld());
     if (connectorHit.connector) {
       const connectedEndpoint = this.scene.wireEndpointAtConnector(
         connectorHit.connector.device.id,
@@ -1109,9 +1109,7 @@ class ProductionEngineBridge {
     }
     if (this.wireCreate) {
       const world = screenToWorld(this.camera, point);
-      const connectorHit = this.shouldHitTestDetailTargets({ includeActiveWireCreate: true })
-        ? hitTestConnector(this.scene, world, this.connectorHitToleranceWorld())
-        : { connector: null, candidates: 0, ms: 0 };
+      const connectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld());
       const surfaceHit = connectorHit.connector
         ? { target: null, candidates: 0, ms: 0 }
         : hitTestLedSurfaceTarget(this.scene, world, this.wireCreate.from);
@@ -2267,15 +2265,27 @@ class ProductionEngineBridge {
 
   updateHover(world, screenPoint = null) {
     const tolerance = this.hitToleranceWorld();
+    const infoBoxHit = screenPoint ? this.renderer?.hitTestConnectorInfoBox?.(screenPoint) : null;
+    if (infoBoxHit) {
+      this.hoverState = {
+        ...emptyHoverState(),
+        infoBox: infoBoxHit,
+        screenPoint,
+        candidateCount: 1,
+        hitMs: 0
+      };
+      this.updateCanvasCursor();
+      this.updateInteractionHud("connector-info-hover", { candidates: 1, ms: 0 });
+      this.scheduleRender();
+      return;
+    }
     const shouldHitDetails = this.shouldHitTestDetailTargets();
     const routeHit = shouldHitDetails && this.renderOptions.routePoints
       ? this.hitTestEditableRoutePoint(world, tolerance * 1.2)
       : { routePoint: null, candidates: 0, ms: 0 };
     let connectorHit = routeHit.routePoint
       ? { connector: null, candidates: 0, ms: 0 }
-      : shouldHitDetails
-        ? hitTestConnector(this.scene, world, this.connectorHitToleranceWorld())
-        : { connector: null, candidates: 0, ms: 0 };
+      : hitTestConnector(this.scene, world, this.connectorHitToleranceWorld());
     if (!this.wireCreate && isJumpConnectorHit(connectorHit.connector)) {
       connectorHit = { connector: null, candidates: connectorHit.candidates, ms: connectorHit.ms };
     }
@@ -2290,6 +2300,7 @@ class ProductionEngineBridge {
       connector: connectorHit.connector,
       wire: wireHit.wire,
       routePoint: routeHit.routePoint,
+      infoBox: null,
       screenPoint,
       candidateCount: routeHit.candidates + connectorHit.candidates + wireHit.candidates,
       hitMs: routeHit.ms + connectorHit.ms + wireHit.ms + deviceHit.ms
@@ -2310,7 +2321,7 @@ class ProductionEngineBridge {
   }
 
   hasHoverState() {
-    return Boolean(this.hoverState.device || this.hoverState.connector || this.hoverState.wire || this.hoverState.routePoint);
+    return Boolean(this.hoverState.device || this.hoverState.connector || this.hoverState.wire || this.hoverState.routePoint || this.hoverState.infoBox);
   }
 
   hasSelection() {
@@ -2343,9 +2354,7 @@ class ProductionEngineBridge {
         };
       }
     }
-    const connectorHit = shouldHitDetails
-      ? hitTestConnector(this.scene, world, this.connectorHitToleranceWorld())
-      : { connector: null, candidates: 0, ms: 0 };
+    const connectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld());
     if (connectorHit.connector) {
       const device = connectorHit.connector.device;
       if (isJumpConnectorHit(connectorHit.connector)) return this.contextMenuObjectTarget(device);
@@ -2447,6 +2456,7 @@ class ProductionEngineBridge {
       : null;
     return {
       hoveredConnector: this.hoverState.connector,
+      hoveredInfoBox: this.hoverState.infoBox,
       hoveredDevice: this.hoverState.device,
       hoveredWire: this.hoverState.wire,
       hoveredRoutePoint: this.routePointDrag ? null : this.hoverState.routePoint,
@@ -2660,6 +2670,7 @@ class ProductionEngineBridge {
       : "";
     this.hud.setMetric("hovered device", this.hoverState.device ? deviceSummary(this.hoverState.device) : "-");
     this.hud.setMetric("hovered connector", this.hoverState.connector ? connectorSummary(this.hoverState.connector) : "-");
+    this.hud.setMetric("hovered info box", this.hoverState.infoBox ? `${this.hoverState.infoBox.connectorId || "-"}:${this.hoverState.infoBox.field || "-"}` : "-");
     this.hud.setMetric("hovered wire", this.hoverState.wire ? wireSummary(this.hoverState.wire.wire) : "-");
     this.hud.setMetric("hovered segment", this.hoverState.wire ? wireSegmentHitSummary(this.scene, this.hoverState.wire) : "-");
     this.hud.setMetric("hovered route point", this.hoverState.routePoint ? `${this.hoverState.routePoint.wire.id}:${this.hoverState.routePoint.pointIndex}` : "-");
@@ -5081,8 +5092,8 @@ class ProductionEngineBridge {
     return screenPixels / Math.max(this.camera.zoom, 0.001);
   }
 
-  connectorHitToleranceWorld(screenPixels = 17) {
-    return this.hitToleranceWorld(screenPixels);
+  connectorHitToleranceWorld() {
+    return legacyConnectorHitRadius(this.camera.zoom);
   }
 
   shouldHitTestDetailTargets({ includeActiveWireCreate = false } = {}) {
@@ -5132,6 +5143,9 @@ class ProductionEngineBridge {
     } else if (this.wireCreate || this.hoverState.connector || this.marqueeState) {
       cursor = "crosshair";
       cursorState = this.wireCreate ? "wire-create" : this.marqueeState ? "marquee" : "connector";
+    } else if (this.hoverState.infoBox) {
+      cursor = "";
+      cursorState = "connector-info";
     } else if (this.pendingDrag || this.hoverState.routePoint || this.hoverState.device) {
       cursor = "grab";
       cursorState = this.pendingDrag ? "pending-drag" : this.hoverState.routePoint ? "route-point" : "object";
@@ -5191,6 +5205,9 @@ class ProductionEngineBridge {
       this.hud.setMetric("connector labels", `${labelStats.connectorLabels || 0}`);
       this.hud.setMetric("device labels hidden", `${labelStats.deviceLabelsHidden || 0}`);
       this.hud.setMetric("device labels truncated", `${labelStats.deviceLabelsTruncated || 0}`);
+      this.hud.setMetric("connector info boxes", `${labelStats.connectorInfoBoxes || 0}`);
+      this.hud.setMetric("compact info boxes", `${labelStats.compactConnectorInfoBoxes || 0}`);
+      this.hud.setMetric("magnified info boxes", `${labelStats.magnifiedConnectorInfoBoxes || 0}`);
       this.hud.setMetric("object hover overlay", `${(frameStats.objectHoverOverlayMs || 0).toFixed(2)} ms / ${frameStats.objectHoverOverlays || 0}`);
       this.hud.setMetric("object hover tooltip", `${labelStats.objectHoverTooltips || 0}`);
       this.hud.setMetric("connector tooltips", `${labelStats.connectorTooltips || 0}`);
@@ -5216,9 +5233,24 @@ class ProductionEngineBridge {
       );
       const textures = this.renderer.textureStats();
       this.hud.setMetric("texture draw", `${textures.drawMs.toFixed(2)} ms / ${textures.quads} quads`);
+      this.updateZoomDetailDebugHud();
       this.updateLayerDebugPanel();
       this.resolvePendingReadyAfterRender();
     });
+  }
+
+  updateZoomDetailDebugHud() {
+    if (!this.debugZoomDetail) return;
+    const stats = this.renderer.zoomDetailStats?.() || {};
+    this.hud.setMetric("zoom detail zoom", Number(stats.zoom || this.camera.zoom).toFixed(3));
+    this.hud.setMetric("zoom detail scale", Number(stats.detailScale || 1).toFixed(3));
+    this.hud.setMetric("connector radius", `${Number(stats.connectorRadiusWorld || 0).toFixed(2)} world / ${Number(stats.connectorRadiusScreen || 0).toFixed(2)} px`);
+    this.hud.setMetric("connector hit radius", `${Number(stats.connectorHitRadiusWorld || this.connectorHitToleranceWorld()).toFixed(2)} world / ${Number(stats.connectorHitRadiusScreen || 0).toFixed(2)} px`);
+    this.hud.setMetric("connector label font", `${Number(stats.connectorLabelFontWorld || 0).toFixed(2)} world / ${Number(stats.connectorLabelFontScreen || 0).toFixed(2)} px`);
+    this.hud.setMetric("info box mode", stats.infoBoxMode || "-");
+    this.hud.setMetric("info box counts", `${stats.visibleInfoBoxes || 0} visible / ${stats.compactInfoBoxes || 0} compact`);
+    this.hud.setMetric("magnified field", stats.magnifiedField || "-");
+    this.hud.setMetric("texture rebuild zoom frame", `${stats.textureRebuildsThisFrame || 0}`);
   }
 
   updateLayerDebugPanel() {
@@ -5792,6 +5824,7 @@ function engineDebugHudEnabled() {
     || params.get("debugObjectSnapping") === "1"
     || params.get("debugSnapVisual") === "1"
     || params.get("debugRackBuilder") === "1"
+    || params.get("debugZoomDetail") === "1"
     || params.get("orthogonalTest") === "1";
 }
 
@@ -5834,6 +5867,10 @@ function engineCanvasObjectsDebugEnabled() {
 
 function engineObjectSnappingDebugEnabled() {
   return new URLSearchParams(window.location.search).get("debugObjectSnapping") === "1";
+}
+
+function engineZoomDetailDebugEnabled() {
+  return new URLSearchParams(window.location.search).get("debugZoomDetail") === "1";
 }
 
 function engineSnapVisualDebugEnabled() {
@@ -7160,6 +7197,7 @@ function emptyHoverState() {
     connector: null,
     wire: null,
     routePoint: null,
+    infoBox: null,
     screenPoint: null,
     candidateCount: 0,
     hitMs: 0

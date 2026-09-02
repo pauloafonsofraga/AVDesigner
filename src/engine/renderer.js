@@ -11,8 +11,20 @@ import {
   adapterInternalWirePairs
 } from "./adapterMapping.js";
 import { isCanvasObjectKind, isLedSurfaceKind } from "./canvasObjectKinds.js";
+import { engineConnectorInfoFields } from "./connectorCompatibility.js";
+import {
+  INFO_BOX_COMPACT_SCALE,
+  INFO_BOX_MAGNIFIED_ZOOM,
+  INFO_BOX_MAGNIFY_ZOOM,
+  legacyCanvasDetailScale,
+  legacyConnectorHitRadius,
+  legacyConnectorInfoBoxMode,
+  legacyConnectorLabelMetrics,
+  legacyConnectorRadius,
+  legacyConnectorStrokeWidth
+} from "./legacyZoomDetail.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-grid-toggle-v15";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-legacy-zoom-detail-v16";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -82,6 +94,9 @@ function defaultLabelStats() {
     connectorLabels: 0,
     routePointHandles: 0,
     connectorTooltips: 0,
+    connectorInfoBoxes: 0,
+    compactConnectorInfoBoxes: 0,
+    magnifiedConnectorInfoBoxes: 0,
     objectHoverTooltips: 0,
     deviceLabelsHidden: 0,
     deviceLabelsTruncated: 0,
@@ -128,6 +143,8 @@ export class WebglGraphRenderer {
     this.lastTextureDrawStats = null;
     this.lastFrameStats = null;
     this.lastLabelStats = defaultLabelStats();
+    this.lastConnectorInfoBoxHitRects = [];
+    this.lastZoomDetailStats = {};
     this.lastWirePathStats = { bezier: 0, custom: 0, orthogonal: 0 };
     this.cableHopMap = new Map();
     this.lastCableHopStats = emptyCableHopStats({ mode: "not-calculated" });
@@ -150,6 +167,28 @@ export class WebglGraphRenderer {
     this.resolution = { width: 1, height: 1 };
     this.gl.enable(this.gl.BLEND);
     this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+  }
+
+  hitTestConnectorInfoBox(screenPoint) {
+    if (!screenPoint || !this.lastConnectorInfoBoxHitRects?.length) return null;
+    for (let index = this.lastConnectorInfoBoxHitRects.length - 1; index >= 0; index -= 1) {
+      const hit = this.lastConnectorInfoBoxHitRects[index];
+      const rect = hit?.hitRect || hit?.rect;
+      if (!rect) continue;
+      if (
+        screenPoint.x >= rect.x
+        && screenPoint.x <= rect.x + rect.width
+        && screenPoint.y >= rect.y
+        && screenPoint.y <= rect.y + rect.height
+      ) {
+        return hit;
+      }
+    }
+    return null;
+  }
+
+  zoomDetailStats() {
+    return this.lastZoomDetailStats || {};
   }
 
   setRenderOptions(options = {}) {
@@ -914,6 +953,9 @@ export class WebglGraphRenderer {
     frameStats.deviceLabels = this.lastLabelStats.devices || 0;
     frameStats.rackLabels = this.lastLabelStats.racks || 0;
     frameStats.connectorLabels = this.lastLabelStats.connectorLabels || 0;
+    frameStats.connectorInfoBoxes = this.lastLabelStats.connectorInfoBoxes || 0;
+    frameStats.compactConnectorInfoBoxes = this.lastLabelStats.compactConnectorInfoBoxes || 0;
+    frameStats.magnifiedConnectorInfoBoxes = this.lastLabelStats.magnifiedConnectorInfoBoxes || 0;
     frameStats.routePointHandles = this.lastLabelStats.routePointHandles || 0;
     frameStats.connectorTooltips = this.lastLabelStats.connectorTooltips || 0;
     frameStats.objectHoverTooltips = this.lastLabelStats.objectHoverTooltips || 0;
@@ -924,6 +966,10 @@ export class WebglGraphRenderer {
     frameStats.textureRebuildMs = frameStats.textureBuilds || frameStats.textureRebuilds
       ? (textureAfter.lastBuildMs || 0) + (textureAfter.lastUploadMs || 0)
       : 0;
+    this.lastZoomDetailStats = {
+      ...(this.lastZoomDetailStats || {}),
+      textureRebuildsThisFrame: (frameStats.textureBuilds || 0) + (frameStats.textureRebuilds || 0)
+    };
     frameStats.totalMs = performance.now() - start;
     this.lastFrameStats = frameStats;
     this.lastLayerTrace = layerTrace;
@@ -940,6 +986,8 @@ export class WebglGraphRenderer {
     ctx.clearRect(0, 0, this.resolution.width, this.resolution.height);
     const renderOptions = options.renderOptions || this.renderOptions;
     this.lastLabelStats = defaultLabelStats();
+    this.lastConnectorInfoBoxHitRects = [];
+    this.lastZoomDetailStats = zoomDetailStatsForCamera(camera, 0, 0, null, 0);
     if (!renderOptions.labels || renderOptions.hideLabels) return;
     if (camera.zoom < 0.08) return;
     const view = {
@@ -1052,19 +1100,32 @@ export class WebglGraphRenderer {
       options.layerTrace,
       this
     );
+    const infoBoxStats = drawVisibleConnectorInfoBoxes(
+      ctx,
+      scene,
+      camera,
+      renderOptions,
+      dragSession,
+      this.resolution,
+      options.interactionState || {},
+      this
+    );
     const snapMeasureLabels = options.interactionState?.snapGuides?.measure && drawSnapMeasurementLabel(ctx, options.interactionState.snapGuides.measure, camera)
       ? 1
       : 0;
     let connectorTooltipCount = 0;
-    const connectorTooltipEntries = connectorTooltipCandidates(scene, options.interactionState || {});
-    connectorTooltipEntries.forEach(entry => {
-      drawConnectorTooltip(ctx, entry, camera, offsets);
-      connectorTooltipCount += 1;
-    });
+    if (!options.interactionState?.hoveredInfoBox) {
+      const connectorTooltipEntries = connectorTooltipCandidates(scene, options.interactionState || {});
+      connectorTooltipEntries.forEach(entry => {
+        drawConnectorTooltip(ctx, entry, camera, offsets);
+        connectorTooltipCount += 1;
+      });
+    }
     let objectHoverTooltipCount = 0;
     if (
       hoveredDevice
       && !dragSession
+      && !options.interactionState?.hoveredInfoBox
       && camera.zoom < DEVICE_HOVER_TOOLTIP_ZOOM_THRESHOLD
       && drawObjectHoverTooltip(ctx, hoveredDevice, camera, offsets, options.interactionState?.hoverScreenPoint, this.resolution)
     ) {
@@ -1075,6 +1136,9 @@ export class WebglGraphRenderer {
       racks: rackLabelCount,
       wires: wireLabelCount,
       connectorLabels: connectorLabelCount,
+      connectorInfoBoxes: infoBoxStats.visible,
+      compactConnectorInfoBoxes: infoBoxStats.compact,
+      magnifiedConnectorInfoBoxes: infoBoxStats.magnified,
       routePointHandles: countRoutePointHandles(scene, options.selectedWireIds, options.interactionState),
       connectorTooltips: connectorTooltipCount,
       objectHoverTooltips: objectHoverTooltipCount,
@@ -1586,12 +1650,12 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
     const connector = device?.connectorsById.get(connectorId);
     if (device && connector) {
       if (isJumpConnectorHit({ device, connector })) return;
-      pushConnectorHighlight(vertices, scene.connectorWorldPoint(device, connector), connectorVisualRadius(device) + 5, "#ff7904", "selected");
+      pushConnectorHighlight(vertices, scene.connectorWorldPoint(device, connector), connectorVisualRadius(device, overlayOptions.camera) + 5, "#ff7904", "selected");
       stats.connectorOverlayCount += 1;
     }
   });
   if (interaction.hoveredConnector?.point && !interaction.hoveredConnector.virtualSurfaceTarget && (wireCreateActive || !isJumpConnectorHit(interaction.hoveredConnector))) {
-    pushConnectorHighlight(vertices, interaction.hoveredConnector.point, connectorVisualRadius(interaction.hoveredConnector.device) + 4, "#32b6ff", "hover");
+    pushConnectorHighlight(vertices, interaction.hoveredConnector.point, connectorVisualRadius(interaction.hoveredConnector.device, overlayOptions.camera) + 4, "#32b6ff", "hover");
     stats.connectorOverlayCount += 1;
   }
 
@@ -1606,13 +1670,13 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
       3.4,
       interaction.tempWire.color || "#32b6ff"
     );
-    pushConnectorHighlight(vertices, interaction.tempWire.from, connectorVisualRadius(interaction.tempWire.sourceHit?.device) + 5, "#32b6ff", "source");
+    pushConnectorHighlight(vertices, interaction.tempWire.from, connectorVisualRadius(interaction.tempWire.sourceHit?.device, overlayOptions.camera) + 5, "#32b6ff", "source");
     stats.connectorOverlayCount += 1;
     if (interaction.tempWire.targetPoint && !interaction.tempWire.targetHit?.virtualSurfaceTarget) {
       pushConnectorHighlight(
         vertices,
         interaction.tempWire.targetPoint,
-        connectorVisualRadius(interaction.tempWire.targetHit?.device) + 5,
+        connectorVisualRadius(interaction.tempWire.targetHit?.device, overlayOptions.camera) + 5,
         interaction.tempWire.validTarget ? "#30d158" : "#ff4f5f",
         interaction.tempWire.validTarget ? "target" : "invalid"
       );
@@ -1678,7 +1742,7 @@ function pushVisibleConnectorNodes(vertices, scene, camera, resolution, renderOp
         x: baseX + connectorRenderX(connector, device),
         y: baseY + connectorRenderY(connector, device)
       };
-      pushConnectorNode(vertices, point, connector, device, renderOptions);
+      pushConnectorNode(vertices, point, connector, device, renderOptions, camera);
       count += 1;
     });
     drawn.add(device.id);
@@ -1995,8 +2059,9 @@ function pushJumpNode(vertices, center, radius) {
   pushCircleOutline(vertices, center, radius + 5.5, 1.2, "rgba(255,255,255,.72)", 34);
 }
 
-function pushConnectorNode(vertices, point, connector = {}, device = {}, options = DEFAULT_RENDER_OPTIONS) {
-  const radius = connectorVisualRadius(device);
+function pushConnectorNode(vertices, point, connector = {}, device = {}, options = DEFAULT_RENDER_OPTIONS, camera = null) {
+  const radius = connectorVisualRadius(device, camera);
+  const strokeWidth = connectorVisualStrokeWidth(device, camera);
   const fill = options.connectorColors ? connector.color || PORT_COLOR : PORT_COLOR;
   const segments = options.connectorColors && Array.isArray(connector.colorSegments)
     ? connector.colorSegments.filter(Boolean)
@@ -2004,10 +2069,10 @@ function pushConnectorNode(vertices, point, connector = {}, device = {}, options
   // Legacy connectors are visible circular nodes with a white rim and larger
   // transparent hit area. The hit area remains in the scene spatial index; this
   // WebGL geometry only draws the visible marker and never affects hit testing.
-  pushCircle(vertices, point, radius + 2, "#ffffff", 20);
+  pushCircle(vertices, point, radius + strokeWidth, "#ffffff", 20);
   if (segments?.length > 1) pushSegmentedCircle(vertices, point, radius, segments);
   else pushCircle(vertices, point, radius, fill, 20);
-  pushCircleOutline(vertices, point, radius + 2.4, 1.1, "rgba(0,0,0,.45)", 20);
+  pushCircleOutline(vertices, point, radius + strokeWidth * 1.2, Math.max(1.1, strokeWidth * 0.55), "rgba(0,0,0,.45)", 20);
 }
 
 function pushSegmentedCircle(vertices, point, radius, colors) {
@@ -2036,8 +2101,12 @@ function pushSegmentedCircle(vertices, point, radius, colors) {
   pushCircleOutline(vertices, point, radius, 0.9, "rgba(0,0,0,.18)", 24);
 }
 
-function connectorVisualRadius(device = {}) {
-  return device?.kind === "jump" ? JUMP_CONNECTOR_RADIUS : CONNECTOR_RADIUS;
+function connectorVisualRadius(device = {}, camera = null) {
+  return device?.kind === "jump" ? JUMP_CONNECTOR_RADIUS : legacyConnectorRadius(camera?.zoom || 1, CONNECTOR_RADIUS);
+}
+
+function connectorVisualStrokeWidth(device = {}, camera = null) {
+  return device?.kind === "jump" ? 2 : legacyConnectorStrokeWidth(camera?.zoom || 1);
 }
 
 function deviceConnectorsForRender(device = {}) {
@@ -2460,11 +2529,12 @@ function drawVisibleConnectorLabels(ctx, scene, camera, renderOptions = DEFAULT_
 
 function drawConnectorWorldLabel(ctx, point, connector = {}, text = "", camera) {
   const side = connector.side === "right" ? "right" : "left";
-  const anchorX = point.x + (side === "right" ? -17 : 17);
-  const anchorY = point.y + 18;
+  const metrics = legacyConnectorLabelMetrics(camera.zoom);
+  const anchorX = point.x + (side === "right" ? -metrics.offsetX : metrics.offsetX);
+  const anchorY = point.y + metrics.offsetY;
   const x = (anchorX - camera.x) * camera.zoom;
   const y = (anchorY - camera.y) * camera.zoom;
-  const size = Math.max(7, Math.min(14, 9 * Math.sqrt(camera.zoom)));
+  const size = metrics.screenFontSize;
   ctx.save();
   ctx.font = `800 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
   ctx.textAlign = side === "right" ? "right" : "left";
@@ -2476,6 +2546,279 @@ function drawConnectorWorldLabel(ctx, point, connector = {}, text = "", camera) 
   ctx.strokeText(text, x, y);
   ctx.fillText(text, x, y);
   ctx.restore();
+}
+
+function drawVisibleConnectorInfoBoxes(ctx, scene, camera, renderOptions = DEFAULT_RENDER_OPTIONS, dragSession = null, resolution = { width: 0, height: 0 }, interaction = {}, renderer = null) {
+  const stats = { visible: 0, compact: 0, magnified: 0 };
+  const mode = legacyConnectorInfoBoxMode(camera.zoom);
+  const hitRects = [];
+  if (!renderOptions.connectorMarkers || renderOptions.hideLabels || mode === "hidden") {
+    if (renderer) {
+      renderer.lastConnectorInfoBoxHitRects = hitRects;
+      renderer.lastZoomDetailStats = zoomDetailStatsForCamera(camera, 0, 0, null, 0);
+    }
+    return stats;
+  }
+  const offsets = dragSession?.offsetMap() || null;
+  const selectedIds = new Set(dragSession?.selectedIds || []);
+  const drawn = new Set();
+  const hoveredKey = interaction.hoveredInfoBox?.key || "";
+  const hoverEligible = camera.zoom <= INFO_BOX_MAGNIFY_ZOOM && camera.zoom > 0.20;
+  let hoveredEntry = null;
+  const entries = [];
+  const collectDeviceInfoBoxes = (device) => {
+    if (!device || drawn.has(device.id)) return;
+    if (!deviceVisible(device, renderOptions) || !deviceUsesTextureLayer(device, renderOptions)) return;
+    if (device.kind === "jump" || device.kind === "adapter" || isLedSurfaceKind(device)) return;
+    const offset = offsets?.get(device.id);
+    const baseX = device.x + (offset?.dx || 0);
+    const baseY = device.y + (offset?.dy || 0);
+    deviceConnectorsForRender(device).forEach(connector => {
+      const fields = engineConnectorInfoFields(connector)
+        .filter(field => String(field?.value ?? field?.text ?? "").trim());
+      if (!fields.length) return;
+      const point = {
+        x: baseX + connectorRenderX(connector, device),
+        y: baseY + connectorRenderY(connector, device)
+      };
+      fields.forEach((field, index) => {
+        entries.push({
+          key: connectorInfoBoxKey(device, connector, field, index),
+          deviceId: device.id,
+          connectorId: connector.id,
+          field: field.field || `field-${index}`,
+          title: String(field.title || ""),
+          value: String(field.value ?? field.text ?? ""),
+          point,
+          connector,
+          index
+        });
+      });
+    });
+    drawn.add(device.id);
+  };
+  visibleDevices(scene, camera, resolution).forEach(device => {
+    if (selectedIds.has(device.id)) return;
+    collectDeviceInfoBoxes(device);
+  });
+  selectedIds.forEach(id => collectDeviceInfoBoxes(scene.getDevice(id)));
+  entries.forEach(entry => {
+    const hovered = hoverEligible && entry.key === hoveredKey;
+    const drawResult = drawConnectorInfoBox(ctx, entry, camera, mode, hovered);
+    if (!drawResult) return;
+    stats.visible += 1;
+    if (mode === "compact") stats.compact += 1;
+    hitRects.push({
+      ...entry,
+      mode,
+      rect: drawResult.rect,
+      hitRect: drawResult.hitRect || drawResult.rect
+    });
+    if (hovered) hoveredEntry = entry;
+  });
+  if (hoveredEntry) {
+    const magnified = drawConnectorInfoBox(ctx, hoveredEntry, camera, "full", false, {
+      forceScale: INFO_BOX_MAGNIFIED_ZOOM / Math.max(0.001, camera.zoom),
+      clampToResolution: resolution
+    });
+    if (magnified) {
+      stats.magnified = 1;
+      const index = hitRects.findIndex(hit => hit.key === hoveredEntry.key);
+      const hit = {
+        ...hoveredEntry,
+        mode: "magnified",
+        rect: magnified.rect,
+        hitRect: magnified.rect
+      };
+      if (index >= 0) hitRects[index] = { ...hitRects[index], hitRect: magnified.rect };
+      else hitRects.push(hit);
+    }
+  }
+  if (renderer) {
+    renderer.lastConnectorInfoBoxHitRects = hitRects;
+    renderer.lastZoomDetailStats = zoomDetailStatsForCamera(camera, stats.visible, stats.compact, hoveredEntry, stats.magnified);
+  }
+  return stats;
+}
+
+function connectorInfoBoxKey(device, connector, field, index) {
+  return `${device?.id || ""}:${connector?.id || ""}:${field?.field || index}`;
+}
+
+function drawConnectorInfoBox(ctx, entry, camera, mode, hovered = false, options = {}) {
+  const forcedScale = Number(options.forceScale);
+  const detailScale = legacyCanvasDetailScale(camera.zoom);
+  const boxScale = Number.isFinite(forcedScale) && forcedScale > 0
+    ? forcedScale
+    : mode === "compact"
+      ? INFO_BOX_COMPACT_SCALE
+      : detailScale;
+  const worldRect = connectorInfoBoxWorldRect(entry.point, entry.connector, entry.index, boxScale);
+  let rect = worldRectToScreenRect(worldRect, camera);
+  if (options.clampToResolution) rect = clampScreenRect(rect, options.clampToResolution, 8);
+  const screenScale = boxScale * Math.max(0.001, camera.zoom);
+  const compact = mode === "compact" && !Number.isFinite(forcedScale);
+  drawScreenInfoBox(ctx, rect, screenScale, entry.title, entry.value, {
+    compact,
+    hovered
+  });
+  return { rect, hitRect: rect };
+}
+
+function connectorInfoBoxWorldRect(point, connector, index, scale) {
+  const width = 44 * scale;
+  const height = 15.5 * scale;
+  const slotStep = 48 * scale;
+  const sideOffset = 18 * scale;
+  const side = connectorInfoBoxSide(connector);
+  return {
+    x: side === "right"
+      ? point.x + sideOffset + index * slotStep
+      : point.x - sideOffset - width - index * slotStep,
+    y: point.y - height / 2,
+    width,
+    height
+  };
+}
+
+function connectorInfoBoxSide(connector = {}) {
+  if (connector.direction === "input") return "right";
+  if (connector.direction === "output") return "left";
+  return connector.side === "right" ? "left" : "right";
+}
+
+function worldRectToScreenRect(rect, camera) {
+  return {
+    x: (rect.x - camera.x) * camera.zoom,
+    y: (rect.y - camera.y) * camera.zoom,
+    width: rect.width * camera.zoom,
+    height: rect.height * camera.zoom
+  };
+}
+
+function clampScreenRect(rect, resolution = { width: 0, height: 0 }, margin = 8) {
+  const maxX = Math.max(margin, Number(resolution.width || 0) - rect.width - margin);
+  const maxY = Math.max(margin, Number(resolution.height || 0) - rect.height - margin);
+  return {
+    ...rect,
+    x: Math.min(maxX, Math.max(margin, rect.x)),
+    y: Math.min(maxY, Math.max(margin, rect.y))
+  };
+}
+
+function drawScreenInfoBox(ctx, rect, scale, title, value, options = {}) {
+  const compact = Boolean(options.compact);
+  const radius = Math.max(3, 4 * scale);
+  ctx.save();
+  labelRoundRect(ctx, rect.x, rect.y, rect.width, rect.height, radius);
+  ctx.fillStyle = compact ? "rgba(13, 22, 31, .36)" : "rgba(13, 22, 31, .72)";
+  ctx.fill();
+  ctx.strokeStyle = compact ? "rgba(154, 162, 170, .82)" : "rgba(154, 162, 170, .96)";
+  ctx.lineWidth = Math.max(0.9, 1.1 * scale);
+  ctx.stroke();
+  if (!compact) drawScreenInfoBoxText(ctx, rect, scale, title, value);
+  ctx.restore();
+}
+
+function drawScreenInfoBoxText(ctx, rect, scale, title, value) {
+  const labelFontSize = 5.1 * scale;
+  const valueFontSize = 4.65 * scale;
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+  ctx.font = `800 ${labelFontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.strokeStyle = "#18202a";
+  ctx.lineWidth = Math.max(1.4, 3.5 * scale);
+  ctx.fillStyle = "#28bdfd";
+  const titleY = rect.y + Math.max(labelFontSize * 0.2, 0);
+  ctx.strokeText(title, rect.x + rect.width / 2, titleY);
+  ctx.fillText(title, rect.x + rect.width / 2, titleY);
+
+  const lines = wrapScreenInfoBoxLines(ctx, value, Math.max(8, rect.width - 7 * scale), valueFontSize, 2);
+  const lineHeight = valueFontSize * 1.12;
+  const startY = rect.y + rect.height / 2 + 3.3 * scale - (lines.length - 1) * lineHeight / 2;
+  ctx.font = `700 ${valueFontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.strokeStyle = "transparent";
+  ctx.lineWidth = 0;
+  ctx.fillStyle = "#edf2f7";
+  lines.forEach((line, index) => {
+    ctx.fillText(line || " ", rect.x + rect.width / 2, startY + index * lineHeight);
+  });
+  ctx.restore();
+}
+
+function wrapScreenInfoBoxLines(ctx, text, maxWidth, fontSize, maxLines = 2) {
+  const words = String(text || "").split(/\s+/).filter(Boolean);
+  if (!words.length) return [""];
+  const lines = [];
+  let line = "";
+  words.forEach(word => {
+    const candidate = line ? `${line} ${word}` : word;
+    if (ctx.measureText(candidate).width <= maxWidth || !line) {
+      line = candidate;
+    } else {
+      lines.push(line);
+      line = word;
+    }
+  });
+  if (line) lines.push(line);
+  if (lines.length <= maxLines) return lines;
+  const kept = lines.slice(0, maxLines);
+  kept[maxLines - 1] = fitScreenText(ctx, kept[maxLines - 1], maxWidth, "...");
+  return kept;
+}
+
+function fitScreenText(ctx, text, maxWidth, suffix = "...") {
+  const value = String(text || "");
+  if (ctx.measureText(value).width <= maxWidth) return value;
+  let low = 0;
+  let high = value.length;
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    const candidate = value.slice(0, mid).trimEnd() + suffix;
+    if (ctx.measureText(candidate).width <= maxWidth) low = mid;
+    else high = mid - 1;
+  }
+  return value.slice(0, low).trimEnd() + suffix;
+}
+
+function labelRoundRect(ctx, x, y, width, height, radius) {
+  const r = Math.max(0, Math.min(radius, Math.abs(width) / 2, Math.abs(height) / 2));
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function zoomDetailStatsForCamera(camera, visibleInfoBoxes = 0, compactInfoBoxes = 0, hoveredInfoBox = null, magnifiedInfoBoxes = 0) {
+  const zoom = Number(camera?.zoom) || 1;
+  const detailScale = legacyCanvasDetailScale(zoom);
+  const connectorRadiusWorld = legacyConnectorRadius(zoom);
+  const connectorHitRadiusWorld = legacyConnectorHitRadius(zoom);
+  const labelMetrics = legacyConnectorLabelMetrics(zoom);
+  return {
+    zoom,
+    detailScale,
+    connectorRadiusWorld,
+    connectorRadiusScreen: connectorRadiusWorld * zoom,
+    connectorHitRadiusWorld,
+    connectorHitRadiusScreen: connectorHitRadiusWorld * zoom,
+    connectorLabelFontWorld: labelMetrics.screenFontSize / Math.max(0.001, zoom),
+    connectorLabelFontScreen: labelMetrics.screenFontSize,
+    infoBoxMode: legacyConnectorInfoBoxMode(zoom),
+    visibleInfoBoxes,
+    compactInfoBoxes,
+    magnifiedField: hoveredInfoBox?.key || "",
+    magnifiedInfoBoxes
+  };
 }
 
 function drawWireLabel(ctx, scene, wire, camera, offsets, text) {
