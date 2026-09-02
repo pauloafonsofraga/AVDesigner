@@ -20,11 +20,13 @@ import {
   legacyConnectorHitRadius,
   legacyConnectorInfoBoxMode,
   legacyConnectorLabelMetrics,
+  legacyMagnifiedInfoBoxScreenRect,
   legacyConnectorRadius,
-  legacyConnectorStrokeWidth
+  legacyConnectorStrokeWidth,
+  pointInScreenRect
 } from "./legacyZoomDetail.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-legacy-zoom-detail-v16";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-info-hover-v17";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -171,17 +173,28 @@ export class WebglGraphRenderer {
 
   hitTestConnectorInfoBox(screenPoint) {
     if (!screenPoint || !this.lastConnectorInfoBoxHitRects?.length) return null;
+    // Source fields keep first priority so adjacent fields can be hovered
+    // directly even when the previous field's magnified preview overlaps them.
     for (let index = this.lastConnectorInfoBoxHitRects.length - 1; index >= 0; index -= 1) {
       const hit = this.lastConnectorInfoBoxHitRects[index];
-      const rect = hit?.hitRect || hit?.rect;
-      if (!rect) continue;
-      if (
-        screenPoint.x >= rect.x
-        && screenPoint.x <= rect.x + rect.width
-        && screenPoint.y >= rect.y
-        && screenPoint.y <= rect.y + rect.height
-      ) {
-        return hit;
+      if (pointInScreenRect(screenPoint, hit?.sourceRect || hit?.rect)) {
+        return {
+          ...hit,
+          hitRegion: "source",
+          pointerInsideSource: true,
+          pointerInsidePreview: pointInScreenRect(screenPoint, hit?.previewRect)
+        };
+      }
+    }
+    for (let index = this.lastConnectorInfoBoxHitRects.length - 1; index >= 0; index -= 1) {
+      const hit = this.lastConnectorInfoBoxHitRects[index];
+      if (pointInScreenRect(screenPoint, hit?.previewRect)) {
+        return {
+          ...hit,
+          hitRegion: "preview",
+          pointerInsideSource: pointInScreenRect(screenPoint, hit?.sourceRect || hit?.rect),
+          pointerInsidePreview: true
+        };
       }
     }
     return null;
@@ -2608,35 +2621,60 @@ function drawVisibleConnectorInfoBoxes(ctx, scene, camera, renderOptions = DEFAU
     if (!drawResult) return;
     stats.visible += 1;
     if (mode === "compact") stats.compact += 1;
+    // The source rect is the real displayed field and must remain a stable
+    // hover target; magnified previews are added as a second region.
     hitRects.push({
       ...entry,
       mode,
       rect: drawResult.rect,
-      hitRect: drawResult.hitRect || drawResult.rect
+      sourceRect: drawResult.rect,
+      previewRect: null,
+      unclampedPreviewRect: null,
+      previewClamped: false
     });
     if (hovered) hoveredEntry = entry;
   });
   if (hoveredEntry) {
-    const magnified = drawConnectorInfoBox(ctx, hoveredEntry, camera, "full", false, {
-      forceScale: INFO_BOX_MAGNIFIED_ZOOM / Math.max(0.001, camera.zoom),
-      clampToResolution: resolution
-    });
+    const index = hitRects.findIndex(hit => hit.key === hoveredEntry.key);
+    const sourceRect = index >= 0 ? hitRects[index].sourceRect : null;
+    const magnified = drawMagnifiedConnectorInfoBox(ctx, hoveredEntry, sourceRect, resolution);
     if (magnified) {
       stats.magnified = 1;
-      const index = hitRects.findIndex(hit => hit.key === hoveredEntry.key);
-      const hit = {
-        ...hoveredEntry,
-        mode: "magnified",
-        rect: magnified.rect,
-        hitRect: magnified.rect
-      };
-      if (index >= 0) hitRects[index] = { ...hitRects[index], hitRect: magnified.rect };
-      else hitRects.push(hit);
+      if (index >= 0) {
+        hitRects[index] = {
+          ...hitRects[index],
+          previewRect: magnified.rect,
+          unclampedPreviewRect: magnified.unclampedRect,
+          previewClamped: magnified.clamped
+        };
+      } else {
+        hitRects.push({
+          ...hoveredEntry,
+          mode,
+          rect: magnified.sourceRect,
+          sourceRect: magnified.sourceRect,
+          previewRect: magnified.rect,
+          unclampedPreviewRect: magnified.unclampedRect,
+          previewClamped: magnified.clamped
+        });
+      }
     }
   }
   if (renderer) {
     renderer.lastConnectorInfoBoxHitRects = hitRects;
-    renderer.lastZoomDetailStats = zoomDetailStatsForCamera(camera, stats.visible, stats.compact, hoveredEntry, stats.magnified);
+    const storedHoveredHit = hoveredEntry
+      ? hitRects.find(hit => hit.key === hoveredEntry.key) || null
+      : null;
+    const hoveredHit = storedHoveredHit
+      ? {
+        ...storedHoveredHit,
+        hitRegion: interaction.hoveredInfoBox?.hitRegion || storedHoveredHit.hitRegion || ""
+      }
+      : null;
+    renderer.lastZoomDetailStats = zoomDetailStatsForCamera(camera, stats.visible, stats.compact, hoveredEntry, stats.magnified, {
+      hoveredHit,
+      pointer: interaction.hoverScreenPoint || null
+    });
   }
   return stats;
 }
@@ -2663,6 +2701,20 @@ function drawConnectorInfoBox(ctx, entry, camera, mode, hovered = false, options
     hovered
   });
   return { rect, hitRect: rect };
+}
+
+function drawMagnifiedConnectorInfoBox(ctx, entry, sourceRect, resolution = { width: 0, height: 0 }) {
+  if (!sourceRect) return null;
+  const magnified = legacyMagnifiedInfoBoxScreenRect(sourceRect, resolution, 8);
+  if (!magnified) return null;
+  drawScreenInfoBox(ctx, magnified.rect, INFO_BOX_MAGNIFIED_ZOOM, entry.title, entry.value, {
+    compact: false,
+    hovered: true
+  });
+  return {
+    ...magnified,
+    sourceRect
+  };
 }
 
 function connectorInfoBoxWorldRect(point, connector, index, scale) {
@@ -2798,12 +2850,16 @@ function labelRoundRect(ctx, x, y, width, height, radius) {
   ctx.closePath();
 }
 
-function zoomDetailStatsForCamera(camera, visibleInfoBoxes = 0, compactInfoBoxes = 0, hoveredInfoBox = null, magnifiedInfoBoxes = 0) {
+function zoomDetailStatsForCamera(camera, visibleInfoBoxes = 0, compactInfoBoxes = 0, hoveredInfoBox = null, magnifiedInfoBoxes = 0, diagnostics = {}) {
   const zoom = Number(camera?.zoom) || 1;
   const detailScale = legacyCanvasDetailScale(zoom);
   const connectorRadiusWorld = legacyConnectorRadius(zoom);
   const connectorHitRadiusWorld = legacyConnectorHitRadius(zoom);
   const labelMetrics = legacyConnectorLabelMetrics(zoom);
+  const hoveredHit = diagnostics.hoveredHit || null;
+  const pointer = diagnostics.pointer || null;
+  const sourceRect = hoveredHit?.sourceRect || null;
+  const previewRect = hoveredHit?.previewRect || null;
   return {
     zoom,
     detailScale,
@@ -2817,7 +2873,16 @@ function zoomDetailStatsForCamera(camera, visibleInfoBoxes = 0, compactInfoBoxes
     visibleInfoBoxes,
     compactInfoBoxes,
     magnifiedField: hoveredInfoBox?.key || "",
-    magnifiedInfoBoxes
+    magnifiedInfoBoxes,
+    hoveredFieldMode: hoveredHit?.mode || "",
+    hoveredFieldHitRegion: hoveredHit?.hitRegion || "",
+    hoveredFieldSourceRect: sourceRect,
+    hoveredFieldPreviewRect: previewRect,
+    hoveredFieldUnclampedPreviewRect: hoveredHit?.unclampedPreviewRect || null,
+    hoveredFieldPreviewClamped: Boolean(hoveredHit?.previewClamped),
+    hoveredFieldPointer: pointer,
+    hoveredFieldPointerInsideSource: pointInScreenRect(pointer, sourceRect),
+    hoveredFieldPointerInsidePreview: pointInScreenRect(pointer, previewRect)
   };
 }
 

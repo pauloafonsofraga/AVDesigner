@@ -33,12 +33,15 @@ import {
 } from "../src/engine/wireRouteEditing.js";
 import { DragSession } from "../src/engine/dragSession.js";
 import {
+  INFO_BOX_MAGNIFIED_ZOOM,
   legacyCanvasDetailScale,
   legacyConnectorHitRadius,
   legacyConnectorInfoBoxMode,
   legacyConnectorLabelMetrics,
+  legacyMagnifiedInfoBoxScreenRect,
   legacyConnectorRadius,
-  legacyConnectorStrokeWidth
+  legacyConnectorStrokeWidth,
+  pointInScreenRect
 } from "../src/engine/legacyZoomDetail.js";
 
 const cases = [];
@@ -228,6 +231,31 @@ assert.equal(legacyConnectorInfoBoxMode(0.2), "hidden", "Info boxes hide at 20%"
 assert.equal(legacyConnectorInfoBoxMode(0.19), "hidden", "Info boxes remain hidden below 20%");
 assert.equal(legacyConnectorLabelMetrics(0.5).screenFontSize, 9, "Connector labels hold Legacy screen size at 50%");
 assert.equal(legacyConnectorLabelMetrics(2.5).screenFontSize, 22.5, "Connector labels scale normally when zoomed in");
+{
+  const sourceRects = [
+    { x: 120, y: 90, width: 44, height: 15.5 },
+    { x: 168, y: 90, width: 44, height: 15.5 },
+    { x: 216, y: 90, width: 44, height: 15.5 }
+  ];
+  sourceRects.forEach((sourceRect, index) => {
+    const preview = legacyMagnifiedInfoBoxScreenRect(sourceRect, { width: 1200, height: 800 });
+    const sourceCenter = { x: sourceRect.x + sourceRect.width / 2, y: sourceRect.y + sourceRect.height / 2 };
+    const previewCenter = { x: preview.rect.x + preview.rect.width / 2, y: preview.rect.y + preview.rect.height / 2 };
+    assert.equal(preview.rect.width, 44 * INFO_BOX_MAGNIFIED_ZOOM, `magnified field ${index} keeps Legacy preview width`);
+    assert.equal(preview.rect.height, 15.5 * INFO_BOX_MAGNIFIED_ZOOM, `magnified field ${index} keeps Legacy preview height`);
+    assert.equal(Math.abs(previewCenter.x - sourceCenter.x) < 0.001, true, `magnified field ${index} anchors to source X centre`);
+    assert.equal(Math.abs(previewCenter.y - sourceCenter.y) < 0.001, true, `magnified field ${index} anchors to source Y centre`);
+    assert.equal(pointInScreenRect(sourceCenter, sourceRect), true, `source centre hits source field ${index}`);
+    assert.equal(pointInScreenRect(sourceCenter, preview.rect), true, `source centre hits magnified preview ${index}`);
+  });
+  const edgeSource = { x: 2, y: 1, width: 22, height: 10 };
+  const clamped = legacyMagnifiedInfoBoxScreenRect(edgeSource, { width: 130, height: 64 });
+  assert.equal(clamped.clamped, true, "magnified preview clamps near viewport edges");
+  assert.equal(clamped.rect.width, 44 * INFO_BOX_MAGNIFIED_ZOOM, "clamping preserves preview width");
+  assert.equal(clamped.rect.height, 15.5 * INFO_BOX_MAGNIFIED_ZOOM, "clamping preserves preview height");
+  assert.equal(clamped.rect.x, 8, "clamping translates preview to the left margin");
+  assert.equal(clamped.rect.y, 8, "clamping translates preview to the top margin");
+}
 
 assert.equal(areEngineConnectorTypesCompatible(hdmiOut.connector, hdmiIn.connector), true, "same type compatibility");
 assert.equal(areEngineConnectorTypesCompatible(hdmiOut.connector, lcCage.connector), false, "different families incompatible");

@@ -4015,7 +4015,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 51.6 — Engine Editor — iteration51-6-legacy-zoom-detail-v16</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 51.7 — Engine Editor — iteration51-7-info-field-hover-v17</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -4721,8 +4721,8 @@
   </div>
 
   <script>
-    const APP_ITERATION = "51.6";
-    const APP_BUILD_ID = "iteration51-6-legacy-zoom-detail-v16";
+    const APP_ITERATION = "51.7";
+    const APP_BUILD_ID = "iteration51-7-info-field-hover-v17";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "2edc063+";
@@ -93038,6 +93038,9 @@ renderViewerOutputDebug();
           shortHash: shortRuntimeHash(hash),
           appBuildPresent: text.includes(APP_BUILD_ID),
           acceptedBuildPresent: text.includes(APP_BUILD_ID)
+            || text.includes("production-bridge-info-hover-v17")
+            || text.includes("info-field-hover-v17")
+            || text.includes("renderer-info-hover-v17")
             || text.includes("production-bridge-legacy-zoom-detail-v16")
             || text.includes("legacy-zoom-detail-v16")
             || text.includes("renderer-legacy-zoom-detail-v16")

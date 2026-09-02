@@ -41,3 +41,37 @@ export function legacyConnectorInfoBoxMode(zoom) {
   if (!Number.isFinite(value) || value <= INFO_BOX_HIDE_ZOOM) return "hidden";
   return legacyCanvasDetailScale(value) >= INFO_BOX_COMPACT_SCALE ? "compact" : "full";
 }
+
+export function pointInScreenRect(point, rect) {
+  if (!point || !rect) return false;
+  return point.x >= rect.x
+    && point.x <= rect.x + rect.width
+    && point.y >= rect.y
+    && point.y <= rect.y + rect.height;
+}
+
+export function legacyMagnifiedInfoBoxScreenRect(sourceRect, resolution = { width: 0, height: 0 }, margin = 8) {
+  if (!sourceRect) return null;
+  const width = 44 * INFO_BOX_MAGNIFIED_ZOOM;
+  const height = 15.5 * INFO_BOX_MAGNIFIED_ZOOM;
+  const centerX = Number(sourceRect.x || 0) + Number(sourceRect.width || 0) / 2;
+  const centerY = Number(sourceRect.y || 0) + Number(sourceRect.height || 0) / 2;
+  const unclampedRect = {
+    x: centerX - width / 2,
+    y: centerY - height / 2,
+    width,
+    height
+  };
+  const maxX = Math.max(margin, Number(resolution.width || 0) - width - margin);
+  const maxY = Math.max(margin, Number(resolution.height || 0) - height - margin);
+  const rect = {
+    ...unclampedRect,
+    x: Math.min(maxX, Math.max(margin, unclampedRect.x)),
+    y: Math.min(maxY, Math.max(margin, unclampedRect.y))
+  };
+  return {
+    rect,
+    unclampedRect,
+    clamped: rect.x !== unclampedRect.x || rect.y !== unclampedRect.y
+  };
+}

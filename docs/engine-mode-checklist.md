@@ -18,7 +18,7 @@ Legacy-style edge alignment plus 50px spacing-step snaps, and forwards only the
 resulting guide lines to the interaction overlay. Shift axis-lock is applied
 before snapping, and real object positions still commit only on pointer-up.
 The build label/cache key for this pass is
-`iteration51-6-legacy-zoom-detail-v16`.
+`iteration51-7-info-field-hover-v17`.
 
 Iteration 51.5 also routes the shell Show Grid button into the Engine renderer.
 The Legacy CSS grid and the WebGL grid should now hide/show together without a
@@ -33,6 +33,13 @@ are drawn as live zoom-sensitive overlays using `legacyCanvasDetailScale(zoom)
 = clamp(1 / zoom, 1, 2.25)`. Use `debugZoomDetail=1` with the Engine HUD to
 inspect detail scale, connector radius, hit radius, label size, info-box mode,
 visible info boxes, magnified field, and per-frame texture rebuilds.
+
+Iteration 51.7 keeps the Iteration 51.6 zoom-detail model and fixes connector
+information-field hover ownership. Normal source field rectangles stay active
+while a magnified preview is visible, the preview is anchored from the source
+field's screen-space centre, and `debugZoomDetail=1` now reports source rect,
+preview rect, pointer position, inside-source/inside-preview booleans, hover
+owner, and hover transition count.
 
 Iteration 50 restores the editor shell as an explicit, diagnosable DOM layer
 around the Engine canvas. The toolbar, left Device Library/Project Custom
@@ -206,15 +213,15 @@ PDF and report drawing paths are deliberately unchanged.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags.
 
-Current visible build label: `Iteration 51.6`.
+Current visible build label: `Iteration 51.7`.
 The app top bar must show one of these labels:
 
-- `Iteration 51.6 — Engine Editor — iteration51-6-legacy-zoom-detail-v16`
-- `Iteration 51.6 — Legacy Editor — iteration51-6-legacy-zoom-detail-v16`
+- `Iteration 51.7 — Engine Editor — iteration51-7-info-field-hover-v17`
+- `Iteration 51.7 — Legacy Editor — iteration51-7-info-field-hover-v17`
 
 The Engine HUD badge for this pass must also show
-`production-bridge-legacy-zoom-detail-v16` and
-`legacy-zoom-detail-v16`. If either
+`production-bridge-info-hover-v17` and
+`info-field-hover-v17`. If either
 label still shows `production-bridge-1`, the browser or deployment is serving a
 stale Engine module.
 
@@ -236,10 +243,11 @@ device rectangles or pointer crosshair on the canvas. Use
 `debugObjectSnapping=1&debugSnapVisual=1` only when deliberately inspecting
 those developer-only visual diagnostics.
 
-Iteration 51.6 keeps `debugZoomDetail=1` as connector zoom diagnostics only.
-It must not rebuild device textures while zooming; the HUD value "texture
-rebuilds this frame" should stay at `0` during a pure zoom sweep after initial
-asset loading has settled.
+Iteration 51.7 keeps `debugZoomDetail=1` as connector zoom diagnostics only.
+Hovering connector info fields must not rebuild device textures, mutate project
+data, or change selection; the HUD value "texture rebuilds this frame" should
+stay at `0` during a pure zoom or field-hover sweep after initial asset loading
+has settled.
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
@@ -248,54 +256,54 @@ Git commit as the final source of truth when reviewing a pushed change.
 
 1. Open the default engine editor: `index.html`.
 2. Open the default engine editor with cache busting:
-   `index.html?v=iteration51-6-legacy-zoom-detail-v16`.
-3. Open the explicit engine editor: `index.html?engine=1&v=iteration51-6-legacy-zoom-detail-v16`.
+   `index.html?v=iteration51-7-info-field-hover-v17`.
+3. Open the explicit engine editor: `index.html?engine=1&v=iteration51-7-info-field-hover-v17`.
 4. Open the snapping debug HUD:
-   `index.html?engine=1&debugObjectSnapping=1&v=iteration51-6-legacy-zoom-detail-v16`.
+   `index.html?engine=1&debugObjectSnapping=1&v=iteration51-7-info-field-hover-v17`.
 5. Open the compatibility default-test alias:
-   `index.html?engineDefaultTest=1&v=iteration51-6-legacy-zoom-detail-v16`.
+   `index.html?engineDefaultTest=1&v=iteration51-7-info-field-hover-v17`.
 6. Open the legacy editor fallback:
-   `index.html?legacy=1&v=iteration51-6-legacy-zoom-detail-v16`.
+   `index.html?legacy=1&v=iteration51-7-info-field-hover-v17`.
 7. Open the alternate legacy fallback:
-   `index.html?engine=0&v=iteration51-6-legacy-zoom-detail-v16`.
+   `index.html?engine=0&v=iteration51-7-info-field-hover-v17`.
 8. Open the debug loading guard:
-   `index.html?engine=1&debugLoad=1&v=iteration51-6-legacy-zoom-detail-v16`.
+   `index.html?engine=1&debugLoad=1&v=iteration51-7-info-field-hover-v17`.
 9. Open a timed loading guard:
-   `index.html?engine=1&loadDelay=1500&v=iteration51-6-legacy-zoom-detail-v16`.
+   `index.html?engine=1&loadDelay=1500&v=iteration51-7-info-field-hover-v17`.
 10. Open the expanded engine HUD:
-   `index.html?engine=1&debugHud=1&v=iteration51-6-legacy-zoom-detail-v16`.
+   `index.html?engine=1&debugHud=1&v=iteration51-7-info-field-hover-v17`.
 11. Open shell diagnostics with the Engine HUD:
-   `index.html?engine=1&debugHud=1&debugShell=1&v=iteration51-6-legacy-zoom-detail-v16`.
+   `index.html?engine=1&debugHud=1&debugShell=1&v=iteration51-7-info-field-hover-v17`.
 12. Open shell diagnostics in Legacy fallback:
-   `index.html?legacy=1&debugShell=1&v=iteration51-6-legacy-zoom-detail-v16`.
+   `index.html?legacy=1&debugShell=1&v=iteration51-7-info-field-hover-v17`.
 13. Open output diagnostics in the default engine editor:
-   `index.html?debugOutput=1&v=iteration51-6-legacy-zoom-detail-v16`.
+   `index.html?debugOutput=1&v=iteration51-7-info-field-hover-v17`.
 14. Open output diagnostics in Legacy fallback:
-   `index.html?legacy=1&debugOutput=1&v=iteration51-6-legacy-zoom-detail-v16`.
+   `index.html?legacy=1&debugOutput=1&v=iteration51-7-info-field-hover-v17`.
 15. Open the device visual diagnostic HUD/layer view:
-   `index.html?engine=1&debugDeviceVisual=1&v=iteration51-6-legacy-zoom-detail-v16`.
+   `index.html?engine=1&debugDeviceVisual=1&v=iteration51-7-info-field-hover-v17`.
 16. Open the Power Distro diagnostic HUD:
-   `index.html?engine=1&debugHud=1&debugPowerDistro=1&v=iteration51-6-legacy-zoom-detail-v16`.
+   `index.html?engine=1&debugHud=1&debugPowerDistro=1&v=iteration51-7-info-field-hover-v17`.
 17. Open the Rack Builder diagnostic HUD:
-   `index.html?engine=1&debugHud=1&debugRackBuilder=1&v=iteration51-6-legacy-zoom-detail-v16`.
+   `index.html?engine=1&debugHud=1&debugRackBuilder=1&v=iteration51-7-info-field-hover-v17`.
 18. Open the Matrix Routing diagnostic HUD:
-   `index.html?engine=1&debugHud=1&debugMatrix=1&v=iteration51-6-legacy-zoom-detail-v16`.
+   `index.html?engine=1&debugHud=1&debugMatrix=1&v=iteration51-7-info-field-hover-v17`.
 19. Open the Device Library drag/drop debug overlay:
-   `index.html?debugLibraryDrag=1&v=iteration51-6-legacy-zoom-detail-v16`.
+   `index.html?debugLibraryDrag=1&v=iteration51-7-info-field-hover-v17`.
 20. Open the explicit Engine drag/drop debug overlay:
-   `index.html?engine=1&debugLibraryDrag=1&v=iteration51-6-legacy-zoom-detail-v16`.
+   `index.html?engine=1&debugLibraryDrag=1&v=iteration51-7-info-field-hover-v17`.
 21. Open the Legacy drag/drop debug overlay:
-   `index.html?legacy=1&debugLibraryDrag=1&v=iteration51-6-legacy-zoom-detail-v16`.
+   `index.html?legacy=1&debugLibraryDrag=1&v=iteration51-7-info-field-hover-v17`.
 22. Open compatibility diagnostics while drawing wires:
-    `index.html?engine=1&debugCompatibility=1&v=iteration51-6-legacy-zoom-detail-v16`.
+    `index.html?engine=1&debugCompatibility=1&v=iteration51-7-info-field-hover-v17`.
 23. Open routing diagnostics while selecting or editing orthogonal wires:
-    `index.html?engine=1&debugHud=1&debugRouting=1&v=iteration51-6-legacy-zoom-detail-v16`.
+    `index.html?engine=1&debugHud=1&debugRouting=1&v=iteration51-7-info-field-hover-v17`.
 24. Open endpoint-rewire diagnostics:
-    `index.html?engine=1&debugRewire=1&debugRouting=1&v=iteration51-6-legacy-zoom-detail-v16`.
+    `index.html?engine=1&debugRewire=1&debugRouting=1&v=iteration51-7-info-field-hover-v17`.
 25. Open the Project Custom identity overlay:
-    `index.html?engine=1&debugCustomIdentity=1&v=iteration51-6-legacy-zoom-detail-v16`.
+    `index.html?engine=1&debugCustomIdentity=1&v=iteration51-7-info-field-hover-v17`.
 26. Open connector zoom-detail diagnostics:
-    `index.html?engine=1&debugHud=1&debugZoomDetail=1&v=iteration51-6-legacy-zoom-detail-v16`.
+    `index.html?engine=1&debugHud=1&debugZoomDetail=1&v=iteration51-7-info-field-hover-v17`.
 27. Confirm the top bar build label matches the mode you intended to test.
 28. Switch from engine to legacy with the toolbar mode switch; switch back by
    using the same control in legacy mode.

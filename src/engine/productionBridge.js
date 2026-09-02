@@ -77,9 +77,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-legacy-zoom-detail-v16";
-export const ENGINE_BRIDGE_VERSION = "production-bridge-legacy-zoom-detail-v16";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "legacy-zoom-detail-v16";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-info-hover-v17";
+export const ENGINE_BRIDGE_VERSION = "production-bridge-info-hover-v17";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "info-field-hover-v17";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -183,6 +183,8 @@ class ProductionEngineBridge {
     this.ready = false;
     this.hoverState = emptyHoverState();
     this.hoverCleanupCount = 0;
+    this.hoverTransitionCount = 0;
+    this.lastHoverOwnerKey = "none";
     this.lastCursorState = "";
     this.lastDirtyDeviceIds = new Set();
     this.lastDirtyWireIds = new Set();
@@ -1114,13 +1116,13 @@ class ProductionEngineBridge {
         ? { target: null, candidates: 0, ms: 0 }
         : hitTestLedSurfaceTarget(this.scene, world, this.wireCreate.from);
       const targetHit = connectorHit.connector || surfaceHit.target;
-      this.hoverState = {
+      this.setHoverState({
         ...emptyHoverState(),
         connector: targetHit,
         screenPoint: point,
         hitMs: connectorHit.ms + surfaceHit.ms,
         candidateCount: connectorHit.candidates + surfaceHit.candidates
-      };
+      }, "wire-create");
       this.wireCreate.pointerWorld = world;
       this.wireCreate.target = targetHit;
       this.wireCreate.compatibility = this.currentWireCompatibility();
@@ -2263,17 +2265,43 @@ class ProductionEngineBridge {
     return true;
   }
 
+  hoverOwnerKey(state = this.hoverState) {
+    if (!state) return "none";
+    if (state.infoBox?.key) return `info-box:${state.infoBox.key}`;
+    if (state.routePoint?.wire?.id) return `route-point:${state.routePoint.wire.id}:${state.routePoint.pointIndex}`;
+    if (state.connector?.device?.id && state.connector?.connector?.id) {
+      return `connector:${state.connector.device.id}:${state.connector.connector.id}`;
+    }
+    if (state.wire?.wire?.id) return `wire:${state.wire.wire.id}`;
+    if (state.device?.id) return `device:${state.device.id}`;
+    return "none";
+  }
+
+  setHoverState(nextState, reason = "hover") {
+    const state = nextState || emptyHoverState();
+    const nextOwner = this.hoverOwnerKey(state);
+    const previousOwner = this.lastHoverOwnerKey || this.hoverOwnerKey();
+    this.hoverState = state;
+    if (nextOwner !== previousOwner) {
+      this.hoverTransitionCount += 1;
+      this.hud?.setMetric("hover transition", `${this.hoverTransitionCount} ${previousOwner} -> ${nextOwner} (${reason})`);
+    }
+    this.lastHoverOwnerKey = nextOwner;
+    this.hud?.setMetric("hover owner", nextOwner);
+    return state;
+  }
+
   updateHover(world, screenPoint = null) {
     const tolerance = this.hitToleranceWorld();
     const infoBoxHit = screenPoint ? this.renderer?.hitTestConnectorInfoBox?.(screenPoint) : null;
     if (infoBoxHit) {
-      this.hoverState = {
+      this.setHoverState({
         ...emptyHoverState(),
         infoBox: infoBoxHit,
         screenPoint,
         candidateCount: 1,
         hitMs: 0
-      };
+      }, "connector-info-hover");
       this.updateCanvasCursor();
       this.updateInteractionHud("connector-info-hover", { candidates: 1, ms: 0 });
       this.scheduleRender();
@@ -2295,7 +2323,7 @@ class ProductionEngineBridge {
     const deviceHit = routeHit.routePoint || connectorHit.connector || wireHit.wire
       ? { device: null, ms: 0 }
       : hitTestDevice(this.scene, world);
-    this.hoverState = {
+    this.setHoverState({
       device: deviceHit.device,
       connector: connectorHit.connector,
       wire: wireHit.wire,
@@ -2304,7 +2332,7 @@ class ProductionEngineBridge {
       screenPoint,
       candidateCount: routeHit.candidates + connectorHit.candidates + wireHit.candidates,
       hitMs: routeHit.ms + connectorHit.ms + wireHit.ms + deviceHit.ms
-    };
+    }, "hover");
     this.updateCanvasCursor();
     this.updateInteractionHud("hover");
     this.scheduleRender();
@@ -2312,7 +2340,7 @@ class ProductionEngineBridge {
 
   clearHoverState(reason = "clear", { render = false } = {}) {
     if (!this.hasHoverState()) return false;
-    this.hoverState = emptyHoverState();
+    this.setHoverState(emptyHoverState(), reason);
     this.hoverCleanupCount += 1;
     this.hud?.setMetric("hover cleanup", `${this.hoverCleanupCount} (${reason})`);
     this.updateCanvasCursor();
@@ -5250,6 +5278,17 @@ class ProductionEngineBridge {
     this.hud.setMetric("info box mode", stats.infoBoxMode || "-");
     this.hud.setMetric("info box counts", `${stats.visibleInfoBoxes || 0} visible / ${stats.compactInfoBoxes || 0} compact`);
     this.hud.setMetric("magnified field", stats.magnifiedField || "-");
+    this.hud.setMetric("field mode", [stats.hoveredFieldMode, stats.hoveredFieldHitRegion].filter(Boolean).join(" / ") || "-");
+    this.hud.setMetric("field source rect", formatDebugScreenRect(stats.hoveredFieldSourceRect));
+    this.hud.setMetric("field preview rect", formatDebugScreenRect(stats.hoveredFieldPreviewRect));
+    this.hud.setMetric("field preview unclamped", formatDebugScreenRect(stats.hoveredFieldUnclampedPreviewRect));
+    this.hud.setMetric("field preview clamped", stats.hoveredFieldPreviewClamped ? "yes" : "no");
+    this.hud.setMetric("field pointer", formatDebugScreenPoint(stats.hoveredFieldPointer));
+    this.hud.setMetric("field inside source", stats.hoveredFieldPointerInsideSource ? "yes" : "no");
+    this.hud.setMetric("field inside preview", stats.hoveredFieldPointerInsidePreview ? "yes" : "no");
+    this.hud.setMetric("hover owner", this.hoverOwnerKey());
+    this.hud.setMetric("hover device id", this.hoverState.device?.id || "-");
+    this.hud.setMetric("selected device id", [...(this.scene?.selectedIds || [])].join(", ") || "-");
     this.hud.setMetric("texture rebuild zoom frame", `${stats.textureRebuildsThisFrame || 0}`);
   }
 
@@ -7189,6 +7228,24 @@ function rewirePreviewRoute(originalWire, from, to, detachedSide) {
     routeStyle: "orthogonal",
     routePoints: full.slice(1, -1),
   };
+}
+
+function formatDebugScreenRect(rect) {
+  if (!rect) return "-";
+  const x = Number(rect.x);
+  const y = Number(rect.y);
+  const width = Number(rect.width);
+  const height = Number(rect.height);
+  if (![x, y, width, height].every(Number.isFinite)) return "-";
+  return `${x.toFixed(1)}, ${y.toFixed(1)}, ${width.toFixed(1)} x ${height.toFixed(1)}`;
+}
+
+function formatDebugScreenPoint(point) {
+  if (!point) return "-";
+  const x = Number(point.x);
+  const y = Number(point.y);
+  if (![x, y].every(Number.isFinite)) return "-";
+  return `${x.toFixed(1)}, ${y.toFixed(1)}`;
 }
 
 function emptyHoverState() {
