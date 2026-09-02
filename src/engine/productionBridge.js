@@ -59,6 +59,12 @@ import {
   setMatrixRouteForDevice
 } from "./matrixRouting.js";
 import { legacyConnectorHitRadius } from "./legacyZoomDetail.js";
+import {
+  DEVICE_PLACEMENT_FEATURE_LABEL,
+  findNonOverlappingGroupDelta,
+  placementCollisionSummary,
+  placementRectForDevice
+} from "./devicePlacement.js";
 
 const {
   hitTestConnector,
@@ -77,9 +83,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-info-hover-v17";
-export const ENGINE_BRIDGE_VERSION = "production-bridge-info-hover-v17";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "info-field-hover-v17";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-project-devices-v18";
+export const ENGINE_BRIDGE_VERSION = "production-bridge-project-devices-v18";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "project-devices-placement-v18";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -196,6 +202,7 @@ class ProductionEngineBridge {
     this.debugCustomDevices = engineCustomDevicesDebugEnabled();
     this.debugCanvasObjects = engineCanvasObjectsDebugEnabled();
     this.debugObjectSnapping = engineObjectSnappingDebugEnabled();
+    this.debugPlacement = enginePlacementDebugEnabled();
     this.debugZoomDetail = engineZoomDetailDebugEnabled();
     this.debugSnapVisual = engineSnapVisualDebugEnabled();
     this.debugSnapMode = engineDebugSnapMode();
@@ -205,6 +212,8 @@ class ProductionEngineBridge {
     this.debugShell = engineShellDebugEnabled();
     this.shellDiagnostics = {};
     this.orthogonalTest = engineOrthogonalTestEnabled();
+    this.lastPlacementDiagnostics = null;
+    this.lastProjectDevicesAction = "-";
     this.lastCompatibilityTargetKey = "";
     this.matrixModalRenderCount = 0;
     this.lastMatrixCommand = null;
@@ -328,6 +337,115 @@ class ProductionEngineBridge {
 
   setDiagnosticMetric(name, value) {
     this.hud?.setMetric(name, value);
+  }
+
+  recordProjectDevicesAction(action, diagnostics = null) {
+    this.lastProjectDevicesAction = action || "-";
+    if (diagnostics) this.lastPlacementDiagnostics = diagnostics;
+    this.updatePlacementDebugHud(action || "project devices");
+  }
+
+  updatePlacementDebugHud(reason = "") {
+    if (!this.debugPlacement && !engineDebugHudEnabled()) return;
+    const diagnostics = this.dragSession?.placementDiagnostics || this.lastPlacementDiagnostics;
+    const projectData = this.api.getProjectData?.();
+    const projectDeviceCount = projectDevicesEntryCount(projectData);
+    const sceneDeviceCount = sceneProjectDeviceCount(this.scene);
+    this.hud?.setMetric("placement", `${DEVICE_PLACEMENT_FEATURE_LABEL}${reason ? ` / ${reason}` : ""}`);
+    this.hud?.setMetric("Project Devices", `${projectDeviceCount} rows / ${sceneDeviceCount} scene`);
+    this.hud?.setMetric("Project Devices orphan", `${Math.max(0, projectDeviceCount - sceneDeviceCount)} orphan / ${Math.max(0, sceneDeviceCount - projectDeviceCount)} missing`);
+    this.hud?.setMetric("Project Devices action", this.lastProjectDevicesAction || "-");
+    if (!diagnostics) {
+      this.hud?.setMetric("placement ids", "-");
+      this.hud?.setMetric("placement dx", "-");
+      this.hud?.setMetric("placement candidates", "-");
+      this.hud?.setMetric("placement colliding", "-");
+      this.hud?.setMetric("placement snap", "-");
+      this.hud?.setMetric("placement search", "-");
+      return;
+    }
+    this.hud?.setMetric("placement ids", `${diagnostics.movingIds?.length || 0} moving`);
+    this.hud?.setMetric("placement dx", `${formatPlacementNumber(diagnostics.rawDx)},${formatPlacementNumber(diagnostics.rawDy)} -> ${formatPlacementNumber(diagnostics.finalDx)},${formatPlacementNumber(diagnostics.finalDy)}`);
+    this.hud?.setMetric("placement candidates", diagnostics.candidateCount || 0);
+    this.hud?.setMetric("placement colliding", (diagnostics.collidingIds || []).join(", ") || "-");
+    this.hud?.setMetric("placement snap", diagnostics.snapRejected ? "snap rejected" : diagnostics.snapActive ? "snap ok" : "free");
+    this.hud?.setMetric("placement search", `${diagnostics.searchAttempts || 0} attempts / overlap ${formatPlacementNumber(diagnostics.overlapAmount || 0)} / allowed ${formatPlacementNumber(diagnostics.allowedOverlap || 0)}`);
+  }
+
+  resolveLibraryDropPlacement(rawDevices = [], firstIndex = null) {
+    const projectData = this.mutations?.project || this.api.getProjectData?.();
+    const previewDevices = (rawDevices || [])
+      .map((rawDevice, offset) => {
+        const index = Number.isInteger(firstIndex) ? firstIndex + offset : offset;
+        const objectKind = rawDevice?.__engineObjectKind;
+        if (objectKind) {
+          return normalizeEngineCanvasObject(objectKind, rawDevice.data || rawDevice.objectData, index);
+        }
+        return normalizeAvDesignerDevice(projectData, rawDevice, index);
+      })
+      .filter(Boolean);
+    const placement = findNonOverlappingGroupDelta(this.scene, previewDevices);
+    const diagnostics = placementDiagnosticsForCommand(previewDevices, placement, "library drop");
+    if (placement.found) {
+      rawDevices.forEach(rawDevice => applyPlacementDeltaToRawDevice(rawDevice, placement.dx, placement.dy));
+    }
+    return { ok: placement.found, diagnostics, placement };
+  }
+
+  validateObjectPlacementCommand(device, afterPosition, reason = "position") {
+    const dx = Number(afterPosition?.x) - Number(device?.x);
+    const dy = Number(afterPosition?.y) - Number(device?.y);
+    const movingId = String(device?.id || "");
+    const beforeRect = placementRectForDevice(device);
+    const afterRect = placementRectForDevice({ ...device, x: afterPosition?.x, y: afterPosition?.y });
+    if (!beforeRect || !afterRect || !Number.isFinite(dx) || !Number.isFinite(dy)) {
+      return {
+        valid: true,
+        diagnostics: placementDiagnosticsForCommand(
+          [device].filter(Boolean),
+          {
+            found: true,
+            dx: Number.isFinite(dx) ? dx : 0,
+            dy: Number.isFinite(dy) ? dy : 0,
+            attempts: 0,
+            summary: { valid: true, candidateCount: 0, collidingIds: [], collisionCount: 0, overlapAmount: 0, allowedOverlap: 0 }
+          },
+          reason
+        )
+      };
+    }
+    const excludeIds = [movingId];
+    const beforeSummary = placementCollisionSummary(this.scene, [beforeRect], {
+      excludeIds,
+      allowedOverlap: 0
+    });
+    const allowedOverlap = beforeSummary.overlapAmount || 0;
+    const afterSummary = placementCollisionSummary(this.scene, [afterRect], {
+      excludeIds,
+      allowedOverlap
+    });
+    return {
+      valid: afterSummary.valid,
+      diagnostics: {
+        feature: DEVICE_PLACEMENT_FEATURE_LABEL,
+        action: reason,
+        movingIds: [movingId].filter(Boolean),
+        rawDx: dx,
+        rawDy: dy,
+        snappedDx: dx,
+        snappedDy: dy,
+        finalDx: afterSummary.valid ? dx : 0,
+        finalDy: afterSummary.valid ? dy : 0,
+        candidateCount: afterSummary.candidateCount || 0,
+        collidingIds: afterSummary.collidingIds || [],
+        collisionCount: afterSummary.collisionCount || 0,
+        overlapAmount: afterSummary.overlapAmount || 0,
+        allowedOverlap,
+        snapActive: false,
+        snapRejected: false,
+        searchAttempts: 0
+      }
+    };
   }
 
   setGridVisible(enabled, options = {}) {
@@ -1172,6 +1290,7 @@ class ProductionEngineBridge {
         snapEnabled ? this.objectSnapHudText(this.dragSession) : "SNAP OFF"
       );
       this.updateObjectSnapDebugHud();
+      this.updatePlacementDebugHud("drag move");
       this.hud.setMetric("dragDraw", `${(performance.now() - start).toFixed(3)} ms`);
       this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
       this.scheduleRender();
@@ -1443,6 +1562,7 @@ class ProductionEngineBridge {
     this.hud.setMetric("affectedLookup", `${this.dragSession.affectedWireLookupMs.toFixed(3)} ms`);
     this.hud.setMetric("object snap", this.objectSnappingEnabled() ? this.objectSnapHudText(this.dragSession) : "SNAP OFF");
     this.updateObjectSnapDebugHud();
+    this.updatePlacementDebugHud("drag start");
     this.canvas.classList.add("dragging");
     this.updateCanvasCursor();
     if (clearedWireEditSelection) this.updateSelectionHud();
@@ -2134,11 +2254,13 @@ class ProductionEngineBridge {
     const start = performance.now();
     if (!this.dragSession) return;
     if (Math.abs(this.dragSession.dx) < 0.0001 && Math.abs(this.dragSession.dy) < 0.0001) {
+      this.lastPlacementDiagnostics = this.dragSession.placementDiagnostics || this.lastPlacementDiagnostics;
       this.dragSession = null;
       this.canvas.classList.remove("dragging");
       this.clearHoverState("drag-cancel", { render: false });
       this.updateCanvasCursor();
       this.updateInteractionHud("idle");
+      this.updatePlacementDebugHud("drag cancel");
       this.scheduleRender();
       return;
     }
@@ -2149,6 +2271,7 @@ class ProductionEngineBridge {
       return startPosition ? { id, x: startPosition.x, y: startPosition.y } : null;
     }).filter(Boolean);
     const beforeRouteStates = captureWireRouteStates(this.scene, affectedWireIds);
+    this.lastPlacementDiagnostics = this.dragSession.placementDiagnostics || this.lastPlacementDiagnostics;
     // Commit once at pointer-up. During pointermove the engine renders with a
     // transient DragSession offset so the real production data stays untouched
     // and existing save/load/report code only sees finalized edits.
@@ -2181,6 +2304,7 @@ class ProductionEngineBridge {
     this.hud.setMetric("gpu update", dirtyStats.fallbackRebuild ? "fallback full rebuild" : "bufferSubData ranges");
     this.hud.setMetric("full rebuilds", dirtyStats.fullRebuildCount);
     this.hud.setMetric("range updates", dirtyStats.rangeUpdateCount);
+    this.updatePlacementDebugHud("drag complete");
     this.recordDirtyVisualMetrics(dirtyStats, "drop");
     const releaseMs = performance.now() - start;
     const releaseTargetMs = selectedIds.length > 1 ? 300 : 100;
@@ -2202,6 +2326,9 @@ class ProductionEngineBridge {
     this.cancelWireSegmentDrag(reason);
     this.cancelRoutePointDrag(reason);
     this.pendingDrag = null;
+    if (this.dragSession?.placementDiagnostics) {
+      this.lastPlacementDiagnostics = this.dragSession.placementDiagnostics;
+    }
     this.dragSession = null;
     this.panState = null;
     if (this.wireCreate?.rewire) {
@@ -2215,6 +2342,7 @@ class ProductionEngineBridge {
     this.clearHoverState(reason, { render: false });
     this.updateCanvasCursor();
     if (updateHud) this.updateInteractionHud(reason);
+    this.updatePlacementDebugHud(`cancel ${reason}`);
   }
 
   cancelRoutePointDrag(reason = "cancelled") {
@@ -3243,6 +3371,15 @@ class ProductionEngineBridge {
       y: device.kind === "jump" ? nextY - device.height / 2 : nextY
     };
     if (!before.length || (before[0].x === afterPosition.x && before[0].y === afterPosition.y)) return false;
+    const placement = this.validateObjectPlacementCommand(device, afterPosition, "inspector position");
+    this.lastPlacementDiagnostics = placement.diagnostics;
+    this.updatePlacementDebugHud(placement.valid ? "inspector position" : "inspector blocked");
+    if (!placement.valid) {
+      this.hud?.setMetric("inspector position", "blocked by placement");
+      this.showError("That position would overlap another device.");
+      this.scheduleRender();
+      return false;
+    }
     this.beginProductionCommit("inspector position");
     const result = this.applyDevicePositions([afterPosition], []);
     this.recordCommand(moveDevicesCommand(before, [afterPosition], [], []));
@@ -4303,6 +4440,24 @@ class ProductionEngineBridge {
       return false;
     }
     const firstIndex = this.mutations?.root?.devices?.length ?? null;
+    const placement = this.resolveLibraryDropPlacement(rawDevices, firstIndex);
+    this.lastPlacementDiagnostics = placement.diagnostics;
+    this.updatePlacementDebugHud(placement.ok ? "library drop" : "library drop blocked");
+    if (!placement.ok) {
+      this.showError("No clear space for that device here.");
+      console.info("[avdesigner-library-drag] create-device command failure", {
+        reason: "placement collision",
+        ids,
+        diagnostics: placement.diagnostics
+      });
+      this.emitLibraryDragDiagnostic("create-device command failure", {
+        reason: "placement collision",
+        ids,
+        diagnostics: placement.diagnostics,
+        before: this.sceneCounts()
+      });
+      return false;
+    }
     this.beginProductionCommit(`create ${rawDevices.length} device${rawDevices.length === 1 ? "" : "s"}`);
     const created = [];
     let mutationMs = 0;
@@ -5861,6 +6016,7 @@ function engineDebugHudEnabled() {
     || params.get("debugRewire") === "1"
     || params.get("debugCanvasObjects") === "1"
     || params.get("debugObjectSnapping") === "1"
+    || params.get("debugPlacement") === "1"
     || params.get("debugSnapVisual") === "1"
     || params.get("debugRackBuilder") === "1"
     || params.get("debugZoomDetail") === "1"
@@ -5906,6 +6062,10 @@ function engineCanvasObjectsDebugEnabled() {
 
 function engineObjectSnappingDebugEnabled() {
   return new URLSearchParams(window.location.search).get("debugObjectSnapping") === "1";
+}
+
+function enginePlacementDebugEnabled() {
+  return new URLSearchParams(window.location.search).get("debugPlacement") === "1";
 }
 
 function engineZoomDetailDebugEnabled() {
@@ -6942,6 +7102,64 @@ function commandTargetMs(command) {
 
 function deepClone(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
+}
+
+function formatPlacementNumber(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "-";
+  if (Math.abs(number) >= 1000) return number.toFixed(0);
+  if (Math.abs(number) >= 100) return number.toFixed(1);
+  return number.toFixed(2);
+}
+
+function projectDevicesEntryCount(projectData) {
+  return projectDeviceRowsFromProject(projectData).length;
+}
+
+function projectDeviceRowsFromProject(projectData) {
+  const root = projectData?.state || projectData?.project || projectData || {};
+  return (Array.isArray(root.devices) ? root.devices : []).filter(projectDeviceInstanceEligible);
+}
+
+function projectDeviceInstanceEligible(instance) {
+  return Boolean(instance && (instance.instanceId || instance.id) && !instance.rackId);
+}
+
+function sceneProjectDeviceCount(scene) {
+  return (Array.isArray(scene?.devices) ? scene.devices : [])
+    .filter(device => !device?.rackId && placementRectForDevice(device))
+    .length;
+}
+
+function placementDiagnosticsForCommand(devices = [], placement = {}, action = "placement") {
+  const summary = placement?.summary || {};
+  return {
+    feature: DEVICE_PLACEMENT_FEATURE_LABEL,
+    action,
+    movingIds: (devices || []).map(device => String(device?.id || "")).filter(Boolean),
+    rawDx: 0,
+    rawDy: 0,
+    snappedDx: Number(placement?.dx) || 0,
+    snappedDy: Number(placement?.dy) || 0,
+    finalDx: Number(placement?.dx) || 0,
+    finalDy: Number(placement?.dy) || 0,
+    candidateCount: summary.candidateCount || 0,
+    collidingIds: summary.collidingIds || [],
+    collisionCount: summary.collisionCount || 0,
+    overlapAmount: summary.overlapAmount || 0,
+    allowedOverlap: summary.allowedOverlap || 0,
+    snapActive: false,
+    snapRejected: false,
+    searchAttempts: Number(placement?.attempts) || 0
+  };
+}
+
+function applyPlacementDeltaToRawDevice(deviceData, dx = 0, dy = 0) {
+  if (!deviceData || (!dx && !dy)) return;
+  if (Number.isFinite(Number(deviceData.x))) deviceData.x = Number(deviceData.x) + dx;
+  if (Number.isFinite(Number(deviceData.y))) deviceData.y = Number(deviceData.y) + dy;
+  if (deviceData.data) applyPlacementDeltaToRawDevice(deviceData.data, dx, dy);
+  if (deviceData.objectData) applyPlacementDeltaToRawDevice(deviceData.objectData, dx, dy);
 }
 
 function sceneObjectUndoPayload(kind, objectData) {

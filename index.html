@@ -807,11 +807,11 @@
     }
 
     .library-device.project-device {
-      cursor: grab;
+      cursor: pointer;
     }
 
     .library-device.project-device:active {
-      cursor: grabbing;
+      cursor: pointer;
     }
 
     body.dark-mode .library-device,
@@ -4161,12 +4161,12 @@
       <div class="library-resize" id="libraryResize" aria-hidden="true"></div>
       <section class="library-section">
         <div class="panel-header">
-          <h1 class="panel-title">Project Custom Devices</h1>
+          <h1 class="panel-title">Project Devices</h1>
           <div class="search-wrap">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path fill="currentColor" d="M9.6 4a5.6 5.6 0 0 1 4.45 9l4.48 4.47-1.06 1.06L13 14.05A5.6 5.6 0 1 1 9.6 4Zm0 1.5a4.1 4.1 0 1 0 0 8.2 4.1 4.1 0 0 0 0-8.2Z"/>
             </svg>
-            <input class="search" id="customDeviceSearch" type="search" placeholder="Search custom devices">
+            <input class="search" id="customDeviceSearch" type="search" placeholder="Search project devices">
           </div>
         </div>
         <div class="device-list" id="customDeviceList"></div>
@@ -4538,7 +4538,7 @@
               <div class="editor-device-list" id="rackBuilderDefaultDevices"></div>
             </div>
             <div class="rack-source-list-block">
-              <div class="rack-source-heading">Project Custom Devices</div>
+              <div class="rack-source-heading">Project Devices</div>
               <div class="editor-device-list" id="rackBuilderCustomDevices"></div>
             </div>
           </aside>
@@ -4721,8 +4721,8 @@
   </div>
 
   <script>
-    const APP_ITERATION = "51.7";
-    const APP_BUILD_ID = "iteration51-7-info-field-hover-v17";
+    const APP_ITERATION = "51.8";
+    const APP_BUILD_ID = "iteration51-8-project-devices-placement-v18";
     const APP_BUILD_LABEL = `Iteration ${APP_ITERATION}`;
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "2edc063+";
@@ -73597,9 +73597,9 @@
           renderRackBuilderSources();
           renderInspector();
           const statusText = ownedProjectTemplate
-            ? `${normalizedName} updated in Project Custom Devices.`
+            ? `${normalizedName} updated in Project Devices.`
             : shouldCreateProjectCustomFromRename
-              ? `${normalizedName} added to Project Custom Devices.`
+              ? `${normalizedName} added to Project Devices.`
               : `${normalizedName} updated on the canvas.`;
           if (commitDeviceEditorApplyToEngineBridge(beforeSnapshot, afterSnapshot, [instance.instanceId])) {
             setStatus(statusText);
@@ -73654,7 +73654,7 @@
           renderRackBuilderSources();
           renderInspector();
           updateUndoRedoButtons();
-          setStatus(`${editedTemplate.name || "Project custom device"} saved to Project Custom Devices.`);
+          setStatus(`${editedTemplate.name || "Project device"} saved to Project Devices.`);
           return;
         }
         const editedTemplates = structuredClone(editorDraft);
@@ -73676,7 +73676,7 @@
         });
         if (!projectCustomCopies.length) {
           closeDeviceEditor();
-          setStatus("No master device changes to save as Project Custom Devices.");
+          setStatus("No master device changes to save as Project Devices.");
           return;
         }
         const beforeSnapshot = deviceEditorEngineSnapshot();
@@ -73692,7 +73692,7 @@
         renderRackBuilderSources();
         renderInspector();
         updateUndoRedoButtons();
-        const statusText = `${pluralCount(projectCustomCopies.length, "edited device")} saved to Project Custom Devices. Master library devices were left unchanged.`;
+        const statusText = `${pluralCount(projectCustomCopies.length, "edited device")} saved to Project Devices. Master library devices were left unchanged.`;
         if (commitDeviceEditorApplyToEngineBridge(beforeSnapshot, afterSnapshot, [])) {
           setStatus(statusText);
           return;
@@ -74018,7 +74018,7 @@
       rackBuilderDefaultDevices.innerHTML = items.library.map(rackSourceDeviceItemHtml).join("")
         || `<div class="placeholder" style="padding:14px;">No default devices found.</div>`;
       rackBuilderCustomDevices.innerHTML = items.custom.map(rackSourceDeviceItemHtml).join("")
-        || `<div class="placeholder" style="padding:14px;">No project custom devices found.</div>`;
+        || `<div class="placeholder" style="padding:14px;">No project devices found.</div>`;
     }
 
     function rackPreviewPoint(event) {
@@ -79818,88 +79818,111 @@
       });
     }
 
+    function projectDeviceListInstances() {
+      return state.devices.filter(instance => {
+        if (!instance?.instanceId || instance.rackId) return false;
+        return Boolean(templateForInstance(instance));
+      });
+    }
+
     function renderProjectCustomDevices() {
       if (!customDeviceList) return;
       const filter = customDeviceSearch.value.trim().toLowerCase();
-      const customTemplates = projectCustomDeviceTemplates().map(template => ({
-        kind: "template",
-        id: template.id,
-        template,
-        name: template.name || "Project Custom Device"
-      }));
-      // Project Custom Devices is a template library. Placed canvas instances
-      // may carry templateOverride snapshots for rendering/editing, but those
-      // snapshots must not become library rows when the inspector renames an
-      // instance.
-      const entries = customTemplates;
+      // "Project Devices" is now an instance registry/navigation list. The
+      // persisted projectCustom* template schema remains untouched for old files
+      // and undo/save compatibility, but the visible sidebar rows come directly
+      // from placed canvas devices.
+      const entries = projectDeviceListInstances().map(instance => {
+        const template = templateForInstance(instance);
+        return {
+          id: instance.instanceId,
+          instance,
+          template,
+          name: instance.name || template?.name || "Project Device"
+        };
+      });
       customDeviceList.innerHTML = "";
       entries
         .filter(entry => {
           const template = entry.template;
-          const haystack = `${entry.name || ""} ${template?.name || ""} ${template?.brand || ""} ${template?.category || ""} ${template?.model || ""}`.toLowerCase();
+          const haystack = [
+            entry.name,
+            template?.name,
+            template?.brand,
+            template?.category,
+            template?.model,
+            entry.instance?.templateId
+          ].join(" ").toLowerCase();
           return haystack.includes(filter);
         })
         .forEach(entry => {
           const template = entry.template;
           const item = document.createElement("div");
           item.className = "library-device project-device";
-          if (entry.kind === "template") item.dataset.projectTemplateId = entry.id;
-          else item.dataset.instanceId = entry.id;
+          item.dataset.instanceId = entry.id;
+          item.draggable = false;
+          item.tabIndex = 0;
+          item.setAttribute("role", "button");
+          item.setAttribute("aria-label", `Select ${entry.name || "project device"} on canvas`);
           const thumb = deviceThumbnailMarkup(template);
           item.classList.toggle("no-thumb", !thumb);
           item.innerHTML = `
             ${thumb}
             <div>
-              <h3>${escapeHtml(entry.name || template?.name || "Custom Device")}</h3>
-              <p>${escapeHtml(template?.category || "Custom")} / ${escapeHtml(template?.model || template?.name || "Custom")}</p>
+              <h3>${escapeHtml(entry.name || "Project Device")}</h3>
+              <p>${escapeHtml(template?.category || "Device")} / ${escapeHtml(template?.model || template?.name || "Device")}</p>
             </div>
           `;
-          if (entry.kind === "template") {
-            item.addEventListener("pointerdown", event => startProjectCustomTemplateDrag(event, entry.id));
-            item.addEventListener("click", event => {
-              customIdentityDebug.listClickCount += 1;
-              if (consumeProjectCustomDeviceClickSuppression(event, entry.id, "template")) return;
-              recordCustomIdentity("project custom row click", {
-                kind: "template",
-                id: entry.id,
-                editorOpen: false
-              });
-              selectAndFrameProjectCustomTemplate(entry.id);
-              updateCustomIdentityDebug();
+          item.addEventListener("dragstart", event => {
+            event.preventDefault();
+            event.stopPropagation();
+          });
+          item.addEventListener("pointerdown", event => {
+            if (event.button !== 0) return;
+            customIdentityDebug.lastCustomDragState = `project device navigation ${entry.id}`;
+            recordCustomIdentity("project device row pointerdown", {
+              instanceId: entry.id,
+              templateId: entry.instance?.templateId || ""
             });
-            item.addEventListener("contextmenu", event => {
-              event.preventDefault();
-              customIdentityDebug.lastContextMenuAction = "project-custom-template-context";
-              recordCustomIdentity("project custom context menu", { templateId: entry.id });
-              showProjectCustomDeviceContextMenu(event, entry.id);
+          });
+          item.addEventListener("click", event => {
+            customIdentityDebug.listClickCount += 1;
+            recordCustomIdentity("project device row click", {
+              instanceId: entry.id,
+              editorOpen: false
             });
-          } else {
-            item.addEventListener("pointerdown", event => startProjectCustomDeviceDrag(event, entry.id));
-            item.addEventListener("click", event => {
-              customIdentityDebug.listClickCount += 1;
-              if (consumeProjectCustomDeviceClickSuppression(event, entry.id, "instance")) return;
-              recordCustomIdentity("project custom legacy instance row click", {
-                kind: "legacy-instance",
-                id: entry.id,
-                editorOpen: false
-              });
-              selectAndFrameDevice(entry.id);
+            activeEngineBridge()?.recordProjectDevicesAction?.(`select ${entry.id}`);
+            selectAndFrameDevice(entry.id);
+            updateCustomIdentityDebug();
+          });
+          item.addEventListener("keydown", event => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            activeEngineBridge()?.recordProjectDevicesAction?.(`select ${entry.id}`);
+            selectAndFrameDevice(entry.id);
+            updateCustomIdentityDebug();
+          });
+          item.addEventListener("contextmenu", event => {
+            event.preventDefault();
+            customIdentityDebug.lastContextMenuAction = "project-device-context";
+            recordCustomIdentity("project device context menu", {
+              instanceId: entry.id,
+              templateId: entry.instance?.templateId || ""
             });
-            item.addEventListener("contextmenu", event => {
-              event.preventDefault();
-              showDeviceContextMenu(event, entry.id);
-            });
-          }
+            activeEngineBridge()?.recordProjectDevicesAction?.(`context ${entry.id}`);
+            showDeviceContextMenu(event, entry.id);
+          });
           customDeviceList.appendChild(item);
         });
       if (!customDeviceList.children.length) {
-        customDeviceList.innerHTML = `<div class="placeholder" style="padding:12px;">Project custom devices will appear here.</div>`;
+        customDeviceList.innerHTML = `<div class="placeholder" style="padding:12px;">Project devices will appear here.</div>`;
       }
-      recordCustomIdentity("project custom list rendered", {
-        customTemplates: customTemplates.length,
-        legacySnapshotRows: 0,
-        entries: entries.length
+      recordCustomIdentity("project devices list rendered", {
+        entries: entries.length,
+        canvasInstances: projectDeviceListInstances().length,
+        legacyProjectCustomTemplates: projectCustomDeviceTemplates().length
       });
+      activeEngineBridge()?.recordProjectDevicesAction?.(`list ${entries.length}`);
     }
 
     function customDeviceDiagnosticsEnabled() {
@@ -80089,7 +80112,7 @@
         renderInspector();
         updateUndoRedoButtons();
         if (!bridgeHandled) render();
-        setStatus(`${normalizedName} updated in Project Custom Devices.`);
+        setStatus(`${normalizedName} updated in Project Devices.`);
         return;
       }
       if (normalizedName === currentTemplateName) {
@@ -80121,7 +80144,7 @@
       renderInspector();
       updateUndoRedoButtons();
       if (!bridgeHandled) render();
-      setStatus(`${normalizedName} added to Project Custom Devices.`);
+      setStatus(`${normalizedName} added to Project Devices.`);
     }
 
     function projectCustomPlacedInstancesForTemplate(templateId) {
@@ -80149,14 +80172,10 @@
         y: targetY,
         notes: ""
       });
-      // Canvas Duplicate Device must always create a physical canvas instance.
-      // Prefer a clear nearby spot, but fall back to the visible offset instead
-      // of dropping the placement when a dense project has no clean space.
       const position = findNonOverlappingPosition(instance, targetX, targetY);
-      if (position) {
-        instance.x = position.x;
-        instance.y = position.y;
-      }
+      if (!position) return null;
+      instance.x = position.x;
+      instance.y = position.y;
       const engineBridge = activeEngineBridge();
       if (engineBridge) {
         const created = engineBridge.createDeviceFromLibraryDrop?.(instance);
@@ -80202,6 +80221,18 @@
       pushUndo();
       deviceLibrary.push(copy);
       const placedCopy = placeProjectCustomDuplicateOnCanvas(instance, copy);
+      if (!placedCopy) {
+        removeProjectCustomTemplatesInPlace([copy.id]);
+        normalizeProjectCustomTemplates(deviceLibrary);
+        canvasDuplicateDeviceGuard = { instanceId, resultId: "", at: performance.now() };
+        renderDeviceLibrary();
+        renderProjectCustomDevices();
+        renderRackBuilderSources();
+        renderInspector();
+        updateUndoRedoButtons();
+        setStatus(`${copy.name || "Project Device"} could not be duplicated because no clear nearby canvas space was available.`);
+        return null;
+      }
       canvasDuplicateDeviceGuard = { instanceId, resultId: copy.id, at: performance.now() };
       normalizeProjectCustomTemplates(deviceLibrary);
       renderProjectCustomDevices();
@@ -80234,9 +80265,7 @@
         newTemplateIds: projectCustomDeviceTemplates().map(template => template.id).filter(id => !beforeTemplates.includes(id)),
         newInstanceIds: state.devices.map(device => device.instanceId).filter(id => !beforeInstances.includes(id))
       });
-      setStatus(placedCopy
-        ? `${copy.name || "Project Custom Device"} added to Project Custom Devices and placed on the canvas.`
-        : `${copy.name || "Project Custom Device"} added to Project Custom Devices, but no clear canvas space was available for the copy.`);
+      setStatus(`${copy.name || "Project Device"} added to Project Devices and placed on the canvas.`);
       return copy;
     }
 
@@ -86661,9 +86690,8 @@
     document.addEventListener("click", event => {
       const projectItem = event.target.closest?.(".library-device.project-device");
       if (!projectItem) return;
-      const id = projectItem.dataset.projectTemplateId || projectItem.dataset.instanceId || "";
-      const kind = projectItem.dataset.projectTemplateId ? "template" : "instance";
-      consumeProjectCustomDeviceClickSuppression(event, id, kind);
+      const id = projectItem.dataset.projectTemplateId || "";
+      if (id) consumeProjectCustomDeviceClickSuppression(event, id, "template");
     }, true);
 
     document.addEventListener("click", event => {
@@ -86962,6 +86990,7 @@
         ]
       };
       renderDeviceInstancesById([first.instanceId, second.instanceId]);
+      renderProjectCustomDevices();
       renderInspector();
       updateUndoRedoButtons();
       emptyHint.classList.add("hidden");
@@ -86997,6 +87026,7 @@
       state.devices.push(instance);
       state.selected = { type: "device", id: instance.instanceId };
       renderDeviceInstancesById([instance.instanceId]);
+      renderProjectCustomDevices();
       renderInspector();
       updateUndoRedoButtons();
       emptyHint.classList.add("hidden");
@@ -87280,7 +87310,7 @@
       renderProjectCustomDevices();
       renderRackBuilderSources();
       updateUndoRedoButtons();
-      setStatus(`${copy.name} added to Project Custom Devices.`);
+      setStatus(`${copy.name} added to Project Devices.`);
     }
 
     function deleteProjectCustomDeviceTemplate(templateId, options = {}) {
@@ -87291,7 +87321,7 @@
         const countText = placedInstances.length
           ? ` This will also remove ${placedInstances.length} placed canvas instance${placedInstances.length === 1 ? "" : "s"} of this custom device.`
           : "";
-        if (!confirm(`Delete "${template.name || "Project Custom Device"}" from Project Custom Devices?${countText}`)) return;
+        if (!confirm(`Delete "${template.name || "Project Device"}" from Project Devices?${countText}`)) return;
       }
       pushUndo();
       const placedIds = placedInstances.map(instance => instance.instanceId).filter(Boolean);
@@ -87318,7 +87348,7 @@
       if (!engineBridge) render();
       updateUndoRedoButtons();
       if (options.closeEditor) closeDeviceEditor();
-      setStatus(`${template.name || "Project Custom Device"} deleted from Project Custom Devices${placedIds.length ? ` with ${placedIds.length} canvas instance${placedIds.length === 1 ? "" : "s"}` : ""}.`);
+      setStatus(`${template.name || "Project Device"} deleted from Project Devices${placedIds.length ? ` with ${placedIds.length} canvas instance${placedIds.length === 1 ? "" : "s"}` : ""}.`);
     }
 
     function showWireContextMenu(event, connectionId, engineRouteContext = null) {
@@ -93389,6 +93419,7 @@ renderViewerOutputDebug();
             },
             onEngineCommit: ({ type, mutationStats }) => {
               renderCableLegend();
+              renderProjectCustomDevices();
               renderInspector();
               if (matrixRoutingModal && !matrixRoutingModal.classList.contains("hidden")) {
                 renderMatrixRoutingModalBody();

@@ -1,6 +1,7 @@
 import { ObjectSnapSession } from "./objectSnapping.js";
+import { DevicePlacementSession } from "./devicePlacement.js";
 
-export const DRAG_SESSION_MODULE_FINGERPRINT = "drag-session-runtime-guide-v13";
+export const DRAG_SESSION_MODULE_FINGERPRINT = "drag-session-placement-v18";
 
 export class DragSession {
   constructor({ scene, selectedIds, startWorld, startPoint = null, startClient = null, enableSnapping = false, snapMode = "full" }) {
@@ -25,6 +26,11 @@ export class DragSession {
     this.snapSession = enableSnapping ? new ObjectSnapSession({ scene, selectedIds: this.selectedIds }) : null;
     this.snapTargetCount = this.snapSession?.targetCount || 0;
     this.snapDiagnostics = this.snapSession?.diagnostics?.() || null;
+    // Keep physical device no-overlap validation in the same drag session as
+    // snapping. The order is pointer proposal -> snap proposal -> placement
+    // validation, so a snap guide can never force a device into an overlap.
+    this.placementSession = new DevicePlacementSession({ scene, selectedIds: this.selectedIds });
+    this.placementDiagnostics = this.placementSession.lastDiagnostics;
     this.startPositions = new Map();
     this.offsets = new Map();
     this.selectedIds.forEach(id => {
@@ -67,6 +73,21 @@ export class DragSession {
       this.snapCandidateCount = 0;
     }
     this.snapDiagnostics = this.snapSession?.diagnostics?.() || null;
+    const placement = this.placementSession?.resolve({
+      rawDx: this.preSnapDx,
+      rawDy: this.preSnapDy,
+      snappedDx: nextDx,
+      snappedDy: nextDy,
+      snapActive: Boolean(snapped)
+    });
+    if (placement) {
+      nextDx = placement.dx;
+      nextDy = placement.dy;
+      this.placementDiagnostics = placement.diagnostics;
+      if (placement.diagnostics?.snapRejected) {
+        this.snapGuides = null;
+      }
+    }
     this.dx = nextDx;
     this.dy = nextDy;
     this.offsets.forEach(offset => {

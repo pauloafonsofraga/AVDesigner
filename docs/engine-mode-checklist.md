@@ -41,6 +41,16 @@ field's screen-space centre, and `debugZoomDetail=1` now reports source rect,
 preview rect, pointer position, inside-source/inside-preview booleans, hover
 owner, and hover transition count.
 
+Iteration 51.8 changes the visible **Project Custom Devices** sidebar into
+**Project Devices**. The internal `projectCustom*` data names remain for save
+compatibility, but the sidebar now lists placed canvas device instances,
+left-clicks frame the real instance without changing zoom, and rows are no
+longer a drag/drop source. Master Device Library remains the normal creation
+source. The Engine drag/drop path also restores Legacy no-overlap placement for
+physical devices only, with 12px gap semantics, selected-group exclusion,
+snap rejection when a guide would cause a collision, and opt-in
+`debugPlacement=1` HUD diagnostics.
+
 Iteration 50 restores the editor shell as an explicit, diagnosable DOM layer
 around the Engine canvas. The toolbar, left Device Library/Project Custom
 panes, right Inspector, modal/editors, top status line, zoom controls, and
@@ -213,15 +223,15 @@ PDF and report drawing paths are deliberately unchanged.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags.
 
-Current visible build label: `Iteration 51.7`.
+Current visible build label: `Iteration 51.8`.
 The app top bar must show one of these labels:
 
-- `Iteration 51.7 — Engine Editor — iteration51-7-info-field-hover-v17`
-- `Iteration 51.7 — Legacy Editor — iteration51-7-info-field-hover-v17`
+- `Iteration 51.8 — Engine Editor — iteration51-8-project-devices-placement-v18`
+- `Iteration 51.8 — Legacy Editor — iteration51-8-project-devices-placement-v18`
 
 The Engine HUD badge for this pass must also show
-`production-bridge-info-hover-v17` and
-`info-field-hover-v17`. If either
+`production-bridge-project-devices-v18` and
+`project-devices-placement-v18`. If either
 label still shows `production-bridge-1`, the browser or deployment is serving a
 stale Engine module.
 
@@ -248,6 +258,14 @@ Hovering connector info fields must not rebuild device textures, mutate project
 data, or change selection; the HUD value "texture rebuilds this frame" should
 stay at `0` during a pure zoom or field-hover sweep after initial asset loading
 has settled.
+
+Iteration 51.8 adds `debugPlacement=1` for Project Devices and placement
+diagnostics. Use it to confirm Project Devices row count matches placed canvas
+instances, dragged physical devices are blocked before overlap, master-library
+drops search for nearby clear space, selected devices are excluded from
+colliding with each other, and non-physical canvas objects such as LED surfaces,
+jump nodes, areas, comments, title blocks, and image objects are ignored by the
+device-placement validator.
 
 The commit/build identity is a static standalone HTML label, so use the actual
 Git commit as the final source of truth when reviewing a pushed change.
