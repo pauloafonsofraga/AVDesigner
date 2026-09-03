@@ -77610,6 +77610,7 @@
     let editorFaceplatePreviewEnabled = false;
     let editorSelectedNodeIndex = null;
     let editorSelectedNodeIds = new Set();
+    let connectorInspectorAuxiliaryRefreshDepth = 0;
     let editorSelectedCardNodeIndex = null;
     let editorActiveTab = "device";
     let editorCardIndex = 0;
@@ -83930,6 +83931,18 @@
       }
     }
 
+    function renderConnectorInspectorAuxiliaryPanels() {
+      if (connectorInspectorAuxiliaryRefreshDepth) return;
+      connectorInspectorAuxiliaryRefreshDepth += 1;
+      try {
+        renderEditorDeviceList();
+        renderConnectorRelationshipsPanel();
+        renderDeviceAuthoringDebugPanel();
+      } finally {
+        connectorInspectorAuxiliaryRefreshDepth -= 1;
+      }
+    }
+
     function resetEditorDeviceSelections() {
       clearEditorNodeSelection();
       editorSelectedFaceplate = false;
@@ -86276,7 +86289,7 @@
       syncEditorNodeSelection(template);
       if (!template || editorActiveTab !== "connectors") {
         selectedConnectorSettings.innerHTML = `<div class="connector-inspector-empty">Open the Connectors tab to edit connector properties.</div>`;
-        renderDeviceAuthoringDebugPanel();
+        renderConnectorInspectorAuxiliaryPanels();
         return;
       }
       const selectedIds = editorSelectedConnectorIds(template);
@@ -86287,7 +86300,7 @@
             Shift-click or marquee-select multiple connectors to create a relationship.
           </div>
         `;
-        renderDeviceAuthoringDebugPanel();
+        renderConnectorInspectorAuxiliaryPanels();
         return;
       }
       if (selectedIds.length > 1) {
@@ -86298,7 +86311,7 @@
             ${selectedConnectorListHtml(template, selectedIds)}
           </div>
         `;
-        renderDeviceAuthoringDebugPanel();
+        renderConnectorInspectorAuxiliaryPanels();
         return;
       }
       const connectorId = selectedIds[0];
@@ -86306,7 +86319,7 @@
       const connector = template.connectors?.[connectorIndex];
       if (!connector) {
         selectedConnectorSettings.innerHTML = `<div class="connector-inspector-empty">Select a connector to edit its properties.</div>`;
-        renderDeviceAuthoringDebugPanel();
+        renderConnectorInspectorAuxiliaryPanels();
         return;
       }
       ensureConnectorV2Defaults(template, connector, connectorIndex);
@@ -86503,7 +86516,7 @@
         renderDeviceEditorPreview();
         renderDeviceAuthoringDebugPanel();
       });
-      renderDeviceAuthoringDebugPanel();
+      renderConnectorInspectorAuxiliaryPanels();
     }
 
     function createCardType(template, name = "New Card") {
