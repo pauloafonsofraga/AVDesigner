@@ -1121,7 +1121,8 @@
       margin-bottom: 13px;
     }
 
-    .field label {
+    .field > label,
+    .field > span {
       display: block;
       margin-bottom: 5px;
       color: #556171;
@@ -1131,7 +1132,8 @@
       letter-spacing: .05em;
     }
 
-    body.dark-mode .field label,
+    body.dark-mode .field > label,
+    body.dark-mode .field > span,
     body.dark-mode .details dt {
       color: #c4ceda;
     }
@@ -2434,7 +2436,7 @@
     .device-editor {
       min-height: 0;
       display: grid;
-      grid-template-columns: minmax(172px, 13.5%) minmax(0, 1fr);
+      grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
       gap: 0;
     }
 
@@ -2449,6 +2451,158 @@
       font-size: 13px;
       line-height: 1.45;
       overflow: hidden;
+    }
+
+    .connector-inspector-sidebar {
+      grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+      padding: 14px 12px;
+    }
+
+    .connector-inspector-target {
+      padding: 9px 10px;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      background: rgba(50, 182, 255, .06);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.35;
+    }
+
+    .connector-inspector-target strong,
+    .connector-inspector-title {
+      display: block;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .connector-inspector-panel {
+      min-height: 0;
+      overflow: auto;
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      padding-right: 2px;
+    }
+
+    .connector-inspector-empty,
+    .connector-inspector-section {
+      padding: 10px;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      background: rgba(17, 22, 27, .04);
+    }
+
+    body.dark-mode .connector-inspector-empty,
+    body.dark-mode .connector-inspector-section {
+      background: rgba(255,255,255,.035);
+    }
+
+    .connector-inspector-empty {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+      line-height: 1.45;
+    }
+
+    .connector-inspector-heading {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 950;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .connector-inspector-list {
+      display: grid;
+      gap: 5px;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .compact-field-grid {
+      display: grid;
+      gap: 9px;
+    }
+
+    .compact-choice-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .compact-choice {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .compact-choice input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .compact-choice span {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 48px;
+      min-height: 26px;
+      padding: 4px 9px;
+      border: 1px solid var(--panel-border);
+      border-radius: 999px;
+      background: rgba(148, 163, 184, .16);
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 900;
+      line-height: 1;
+      text-transform: uppercase;
+      transition: border-color .14s ease, background .14s ease, color .14s ease, box-shadow .14s ease;
+    }
+
+    .compact-choice input:checked + span {
+      border-color: rgb(50, 182, 255);
+      background: rgb(50, 182, 255);
+      color: #07131f;
+      box-shadow: 0 0 0 3px rgba(50, 182, 255, .14);
+    }
+
+    .compact-choice input:disabled + span {
+      opacity: .42;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .relationship-toggle-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      min-height: 34px;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .relationship-toggle-row .feature-toggle span {
+      min-width: 70px;
+    }
+
+    .relationship-status {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+      line-height: 1.35;
     }
 
     .editor-device-list {
@@ -4037,7 +4191,7 @@
     }
 
     .selected-connector-settings {
-      margin-top: 10px;
+      margin-top: 0;
     }
 
     .connector-relationship-summary {
@@ -4060,7 +4214,7 @@
     }
 
     .connector-relationship-row {
-      grid-template-columns: minmax(128px, .75fr) minmax(160px, 1fr) minmax(160px, 1fr) auto;
+      grid-template-columns: 1fr;
       align-items: end;
     }
 
@@ -4332,19 +4486,21 @@
         <button class="tool-button" id="closeDeviceEditor" type="button">Close</button>
       </div>
       <div class="device-editor">
-        <aside class="device-editor-browser">
-          <div class="panel-title" id="editorDeviceBrowserTitle">Known Devices</div>
-          <div class="node-search">
-            <input id="editorDeviceSearch" type="search" placeholder="Search devices">
+        <aside class="device-editor-browser connector-inspector-sidebar">
+          <div class="panel-title" id="editorDeviceBrowserTitle">Connector Inspector</div>
+          <div class="connector-inspector-target" id="editorTargetSummary"></div>
+          <div class="connector-inspector-panel" id="connectorInspectorPanel">
+            <div class="selected-connector-settings" id="selectedConnectorSettings"></div>
+            <div id="connectorRelationshipsPanel"></div>
           </div>
-          <div class="editor-device-list" id="editorDeviceList"></div>
+          <input id="editorDeviceSearch" class="hidden" type="search" tabindex="-1" aria-hidden="true">
+          <div class="editor-device-list hidden" id="editorDeviceList" aria-hidden="true"></div>
         </aside>
         <div class="device-editor-main">
           <div class="editor-tabs" id="editorTabs" aria-label="Device editor sections">
             <button class="editor-tab active" data-editor-tab="device" type="button">Device</button>
             <button class="editor-tab" data-editor-tab="faceplate" type="button">Faceplate</button>
             <button class="editor-tab" data-editor-tab="connectors" type="button">Connectors</button>
-            <button class="editor-tab" data-editor-tab="relationships" type="button">Relationships</button>
             <button class="editor-tab" data-editor-tab="cards" type="button">Cards</button>
             <button class="editor-tab" data-editor-tab="slots" type="button">Slots</button>
             <button class="editor-tab" data-editor-tab="defaults" type="button">Defaults</button>
@@ -4460,12 +4616,6 @@
                 <button class="primary-button" id="addInputNode" type="button">Add Input Slot</button>
                 <button class="primary-button" id="addOutputNode" type="button">Add Output Slot</button>
               </div>
-              <div class="selected-connector-settings" id="selectedConnectorSettings"></div>
-            </section>
-
-            <section class="editor-panel" data-editor-panel="relationships">
-              <p class="editor-panel-note">Connector relationships describe mirrored anchors, shared connector groups, and through/loop visuals without creating real external cables.</p>
-              <div id="connectorRelationshipsPanel"></div>
             </section>
 
             <section class="editor-panel" data-editor-panel="cards">
@@ -4800,9 +4950,9 @@
   </div>
 
   <script>
-    const APP_ITERATION = "52";
-    const APP_BUILD_ID = "iteration52-engine-device-authoring-v2";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Engine Device Authoring V2`;
+    const APP_ITERATION = "52.1";
+    const APP_BUILD_ID = "iteration52-1-device-editor-connector-ux";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Device Editor Connector UX`;
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "2edc063+";
     const CANVAS_MIN_ZOOM = 0.03;
@@ -77590,6 +77740,7 @@
     const editorDeviceSearch = document.getElementById("editorDeviceSearch");
     const editorDeviceList = document.getElementById("editorDeviceList");
     const editorDeviceBrowserTitle = document.getElementById("editorDeviceBrowserTitle");
+    const editorTargetSummary = document.getElementById("editorTargetSummary");
     const newDeviceTemplateButton = document.getElementById("newDeviceTemplate");
     const duplicateEditorDeviceButton = document.getElementById("duplicateEditorDevice");
     const deleteEditorDeviceButton = document.getElementById("deleteEditorDevice");
@@ -83748,34 +83899,35 @@
     }
 
     function renderEditorDeviceList() {
-      if (!editorDeviceList) return;
+      const template = currentEditorTemplate();
+      const selectedCount = editorSelectedConnectorIds(template).length;
       const masterCreateMode = editorMode === "master-create";
-      const singleTemplateMode = editorMode === "instance" || masterCreateMode || isProjectTemplateEditorMode();
-      if (editorDeviceBrowserTitle) {
-        editorDeviceBrowserTitle.textContent = masterCreateMode
-          ? "New Master Device"
-          : isProjectTemplateEditorMode()
-            ? "Project Custom Device"
-            : "Known Devices";
-      }
-      if (editorDeviceSearch) editorDeviceSearch.placeholder = "Search devices";
-      if (editorDeviceSearch && editorDeviceSearch.value !== editorDeviceFilter) editorDeviceSearch.value = editorDeviceFilter;
-      const entries = filteredEditorDeviceEntries();
-      editorDeviceList.innerHTML = entries.map(({ device, index }) => {
-        const active = index === editorIndex ? " active" : "";
-        const disabled = singleTemplateMode ? " disabled" : "";
-        const category = device.category || "Custom";
-        const brand = device.brand || "No brand";
-        return `
-          <div class="editor-device-item${active}${disabled}" data-editor-device-index="${index}" role="button" tabindex="${singleTemplateMode ? "-1" : "0"}">
-            ${editorDeviceThumbHtml(device)}
-            <div class="editor-device-copy">
-              <strong>${escapeHtml(device.name || device.id || "Custom Device")}</strong>
-              <span>${escapeHtml(brand)} / ${escapeHtml(category)}</span>
-            </div>
-          </div>
+      if (editorDeviceBrowserTitle) editorDeviceBrowserTitle.textContent = "Connector Inspector";
+      if (editorTargetSummary) {
+        const target = editorMode === "instance"
+          ? `Canvas Device${editorInstanceId ? ` / ${editorInstanceId}` : ""}`
+          : masterCreateMode
+            ? "New Master Device"
+            : isProjectTemplateEditorMode()
+              ? "Project Custom Device"
+              : "Master Device";
+        editorTargetSummary.innerHTML = `
+          <strong>${escapeHtml(template?.name || "Device")}</strong>
+          <span>${escapeHtml(target)}</span><br>
+          <span>${selectedCount ? `${selectedCount} connector${selectedCount === 1 ? "" : "s"} selected` : "No connector selected"}</span>
         `;
-      }).join("") || `<div class="placeholder" style="padding:14px;">No devices found.</div>`;
+      }
+      if (editorDeviceSearch) {
+        editorDeviceSearch.value = "";
+        editorDeviceSearch.classList.add("hidden");
+        editorDeviceSearch.setAttribute("aria-hidden", "true");
+        editorDeviceSearch.tabIndex = -1;
+      }
+      if (editorDeviceList) {
+        editorDeviceList.innerHTML = "";
+        editorDeviceList.classList.add("hidden");
+        editorDeviceList.setAttribute("aria-hidden", "true");
+      }
     }
 
     function resetEditorDeviceSelections() {
@@ -85562,7 +85714,7 @@
     function renderEditorTabs() {
       const template = currentEditorTemplate();
       const disabledTabs = new Set(isAdapterTemplate(template) ? ["faceplate", "cards", "slots"] : []);
-      if (disabledTabs.has(editorActiveTab)) editorActiveTab = "connectors";
+      if (editorActiveTab === "relationships" || disabledTabs.has(editorActiveTab)) editorActiveTab = "connectors";
       document.querySelectorAll("[data-editor-tab]").forEach(tab => {
         const disabled = disabledTabs.has(tab.dataset.editorTab);
         tab.disabled = disabled;
@@ -85752,8 +85904,141 @@
       return id;
     }
 
+    function relationshipMembersEqual(relationship, ids = []) {
+      const members = uniqueEditorRelationshipMembers(relationship?.members || []);
+      const selected = uniqueEditorRelationshipMembers(ids);
+      return members.length === selected.length && members.every(id => selected.includes(id));
+    }
+
+    function findExactEditorRelationship(template, type, ids = []) {
+      const normalizedType = normalizeEditorRelationshipType(type);
+      return (template?.connectorRelationships || []).find(relationship => {
+        return relationship.type === normalizedType && relationshipMembersEqual(relationship, ids);
+      }) || null;
+    }
+
+    function findEditorRelationshipsTouchingSelection(template, type, ids = []) {
+      const selected = new Set(uniqueEditorRelationshipMembers(ids));
+      if (!selected.size) return [];
+      const normalizedType = normalizeEditorRelationshipType(type);
+      return (template?.connectorRelationships || []).filter(relationship => {
+        if (relationship.type !== normalizedType) return false;
+        return uniqueEditorRelationshipMembers(relationship.members || []).some(id => selected.has(id));
+      });
+    }
+
+    function findPartialEditorExclusiveRelationships(template, ids = []) {
+      return findEditorRelationshipsTouchingSelection(template, "exclusive", ids)
+        .filter(relationship => !relationshipMembersEqual(relationship, ids));
+    }
+
+    function editorConnectorById(template, connectorId) {
+      return (template?.connectors || []).find(connector => connector.id === connectorId) || null;
+    }
+
+    function editorRelationshipMemberLabels(template, ids = []) {
+      return uniqueEditorRelationshipMembers(ids).map(id => {
+        const connector = editorConnectorById(template, id);
+        return connector ? editorConnectorLabelForRelationship(connector) : id;
+      });
+    }
+
+    function selectedConnectorListHtml(template, ids = []) {
+      const labels = editorRelationshipMemberLabels(template, ids);
+      if (!labels.length) return "";
+      return `<div class="connector-inspector-list">${labels.map(label => `<span>${escapeHtml(label)}</span>`).join("")}</div>`;
+    }
+
+    function editorThroughEndpointsForSelection(template, ids = []) {
+      const members = uniqueEditorRelationshipMembers(ids).slice(0, 2);
+      const [firstId, secondId] = members;
+      const first = editorConnectorById(template, firstId);
+      const second = editorConnectorById(template, secondId);
+      const firstDirection = normalizeEditorSignalDirection(first?.signalDirection, first?.direction);
+      const secondDirection = normalizeEditorSignalDirection(second?.signalDirection, second?.direction);
+      if (firstDirection === "input" && secondDirection === "output") {
+        return { sourceConnectorId: firstId, targetConnectorId: secondId };
+      }
+      if (secondDirection === "input" && firstDirection === "output") {
+        return { sourceConnectorId: secondId, targetConnectorId: firstId };
+      }
+      return { sourceConnectorId: firstId || "", targetConnectorId: secondId || "" };
+    }
+
+    function editorThroughDirectionLabel(template, relationshipOrIds = []) {
+      const endpoints = Array.isArray(relationshipOrIds)
+        ? editorThroughEndpointsForSelection(template, relationshipOrIds)
+        : {
+          sourceConnectorId: relationshipOrIds?.sourceConnectorId || relationshipOrIds?.members?.[0] || "",
+          targetConnectorId: relationshipOrIds?.targetConnectorId || relationshipOrIds?.members?.[1] || ""
+        };
+      const from = editorConnectorById(template, endpoints.sourceConnectorId);
+      const to = editorConnectorById(template, endpoints.targetConnectorId);
+      return `${from ? editorConnectorLabelForRelationship(from) : "Connector"} -> ${to ? editorConnectorLabelForRelationship(to) : "Connector"}`;
+    }
+
+    function upsertExclusiveRelationshipForSelection(template, ids = [], label = "") {
+      const members = uniqueEditorRelationshipMembers(ids);
+      if (members.length < 2) return null;
+      const exact = findExactEditorRelationship(template, "exclusive", members);
+      if (exact) {
+        if (label) exact.label = label;
+        return exact;
+      }
+      if (findPartialEditorExclusiveRelationships(template, members).length) return null;
+      const relationship = {
+        id: uniqueEditorRelationshipId(template, "exclusive"),
+        type: "exclusive",
+        label: label || "Shared bus",
+        members,
+        sourceConnectorId: members[0],
+        targetConnectorId: members[1],
+        maxActive: 1
+      };
+      template.connectorRelationships = Array.isArray(template.connectorRelationships) ? template.connectorRelationships : [];
+      template.connectorRelationships.push(relationship);
+      return relationship;
+    }
+
+    function upsertThroughRelationshipForSelection(template, ids = []) {
+      const members = uniqueEditorRelationshipMembers(ids).slice(0, 2);
+      if (members.length !== 2) return null;
+      const exact = findExactEditorRelationship(template, "through", members);
+      if (exact) return exact;
+      const endpoints = editorThroughEndpointsForSelection(template, members);
+      const relationship = {
+        id: uniqueEditorRelationshipId(template, "through"),
+        type: "through",
+        label: "",
+        members,
+        sourceConnectorId: endpoints.sourceConnectorId,
+        targetConnectorId: endpoints.targetConnectorId,
+        maxActive: members.length
+      };
+      template.connectorRelationships = Array.isArray(template.connectorRelationships) ? template.connectorRelationships : [];
+      template.connectorRelationships.push(relationship);
+      return relationship;
+    }
+
+    function removeEditorRelationship(template, relationshipId) {
+      if (!template || !relationshipId) return;
+      template.connectorRelationships = (template.connectorRelationships || [])
+        .filter(relationship => relationship.id !== relationshipId);
+    }
+
+    function reverseEditorThroughRelationship(template, relationshipId) {
+      const relationship = (template?.connectorRelationships || []).find(item => item.id === relationshipId && item.type === "through");
+      if (!relationship) return;
+      const source = relationship.sourceConnectorId || relationship.members?.[0] || "";
+      relationship.sourceConnectorId = relationship.targetConnectorId || relationship.members?.[1] || "";
+      relationship.targetConnectorId = source;
+      relationship.members = uniqueEditorRelationshipMembers([relationship.sourceConnectorId, relationship.targetConnectorId]);
+    }
+
     function commitConnectorRelationshipChanges(template) {
       normalizeEditorConnectorRelationships(template);
+      renderEditorDeviceList();
+      renderSelectedConnectorSettings();
       renderConnectorRelationshipsPanel();
       renderDeviceEditorPreview();
       renderDeviceAuthoringDebugPanel();
@@ -85784,98 +86069,104 @@
           connector.displaySide = "both";
           ensureConnectorV2Defaults(template, connector, connectors.indexOf(connector));
         });
+        commitConnectorRelationshipChanges(template);
+        return;
       }
       const members = selectedIds.length >= 2
         ? selectedIds
         : connectors.filter(connector => !connector.empty && connector.type).slice(0, 2).map(connector => connector.id);
-      if (members.length < 2) return;
-      const relationship = {
-        id: uniqueEditorRelationshipId(template, type),
-        type,
-        label: type === "exclusive" ? "Shared bus" : "",
-        members,
-        sourceConnectorId: members[0],
-        targetConnectorId: members[1],
-        maxActive: type === "exclusive" ? 1 : members.length
-      };
-      template.connectorRelationships = Array.isArray(template.connectorRelationships) ? template.connectorRelationships : [];
-      template.connectorRelationships.push(relationship);
+      if (type === "exclusive") upsertExclusiveRelationshipForSelection(template, members);
+      if (type === "through") upsertThroughRelationshipForSelection(template, members);
       commitConnectorRelationshipChanges(template);
     }
 
     function renderConnectorRelationshipsPanel() {
       if (!connectorRelationshipsPanel) return;
       const template = currentEditorTemplate();
-      if (!template) {
+      if (!template || editorActiveTab !== "connectors") {
         connectorRelationshipsPanel.innerHTML = "";
         return;
       }
       ensureDeviceDefinitionV2(template);
-      const connectors = (template.connectors || []).filter(connector => connector.id && !connector.empty && connector.type);
-      const selectedCount = selectedEditorConnectorIds(template).length;
+      const rawSelectedIds = editorSelectedConnectorIds(template);
+      const selectedIds = selectedEditorConnectorIds(template);
       const validation = validateEditorConnectorTopology(template);
       const validationLines = [
         ...(validation.errors || []).map(error => `<div class="error-message">${escapeHtml(error)}</div>`),
         ...(validation.warnings || []).map(warning => `<div class="field-hint">${escapeHtml(warning)}</div>`)
       ].join("");
-      if (!connectors.length) {
-        connectorRelationshipsPanel.innerHTML = `<div class="modular-disabled">Add at least two connectors before creating topology relationships.</div>`;
+      if (!rawSelectedIds.length) {
+        connectorRelationshipsPanel.innerHTML = "";
         return;
       }
-      const connectorOptions = connectors.map(connector => {
-        return `<option value="${escapeAttr(connector.id)}">${escapeHtml(editorConnectorLabelForRelationship(connector))}</option>`;
-      }).join("");
-      const relationshipRows = (template.connectorRelationships || []).map(relationship => {
-        const memberChecks = connectors.map(connector => `
-          <label class="checkbox-row">
-            <input type="checkbox" data-relationship-member="${escapeAttr(relationship.id)}" value="${escapeAttr(connector.id)}" ${(relationship.members || []).includes(connector.id) ? "checked" : ""}>
-            ${escapeHtml(editorConnectorLabelForRelationship(connector))}
-          </label>
-        `).join("");
-        const throughFields = relationship.type === "through" ? `
-          <div class="editor-grid">
-            <div class="field">
-              <label>From Connector</label>
-              <select data-relationship-source="${escapeAttr(relationship.id)}">
-                ${connectorOptions.replace(`value="${escapeAttr(relationship.sourceConnectorId)}"`, `value="${escapeAttr(relationship.sourceConnectorId)}" selected`)}
-              </select>
-            </div>
-            <div class="field">
-              <label>To Connector</label>
-              <select data-relationship-target="${escapeAttr(relationship.id)}">
-                ${connectorOptions.replace(`value="${escapeAttr(relationship.targetConnectorId)}"`, `value="${escapeAttr(relationship.targetConnectorId)}" selected`)}
-              </select>
-            </div>
-          </div>
-        ` : "";
-        return `
-          <div class="editor-row connector-relationship-row connector-relationship-${escapeAttr(relationship.type)}">
-            <div class="editor-row-heading">${escapeHtml(relationshipTypeLabel(relationship.type))}</div>
-            <div class="editor-grid">
-              <div class="field">
-                <label>Label</label>
-                <input data-relationship-label="${escapeAttr(relationship.id)}" value="${escapeAttr(relationship.label || "")}" placeholder="${escapeAttr(relationshipTypeLabel(relationship.type))}">
-              </div>
-              <div class="field">
-                <label>&nbsp;</label>
-                <button class="danger-mini" data-delete-relationship="${escapeAttr(relationship.id)}" type="button">Delete</button>
-              </div>
-            </div>
-            ${throughFields}
-            <div class="field-hint">${relationship.type === "exclusive" ? "Only one connector in this group can have an external cable active." : "Select the connectors that participate in this relationship."}</div>
-            <div class="connector-relationship-members">${memberChecks}</div>
+      if (rawSelectedIds.length === 1) {
+        const memberships = [
+          ...findEditorRelationshipsTouchingSelection(template, "exclusive", selectedIds),
+          ...findEditorRelationshipsTouchingSelection(template, "through", selectedIds)
+        ];
+        const membershipLines = memberships.length
+          ? memberships.map(relationship => {
+            const label = relationship.type === "through"
+              ? editorThroughDirectionLabel(template, relationship)
+              : relationship.label || "Shared bus";
+            return `<span>${escapeHtml(relationshipTypeLabel(relationship.type))}: ${escapeHtml(label)}</span>`;
+          }).join("")
+          : `<span>No relationship assigned.</span>`;
+        connectorRelationshipsPanel.innerHTML = `
+          <div class="connector-inspector-section">
+            <h4 class="connector-inspector-heading">Relationship</h4>
+            <div class="relationship-status">Shift-click or marquee-select another connector to create a Shared Bus or Through / Loop relationship.</div>
+            <div class="connector-inspector-list">${membershipLines}</div>
+            ${validationLines}
           </div>
         `;
-      }).join("") || `<div class="modular-disabled">Select two or more connectors in the preview, then create a relationship.</div>`;
+        return;
+      }
+      const exactExclusive = findExactEditorRelationship(template, "exclusive", selectedIds);
+      const partialExclusive = findPartialEditorExclusiveRelationships(template, selectedIds);
+      const exactThrough = selectedIds.length === 2 ? findExactEditorRelationship(template, "through", selectedIds) : null;
+      const sharedDisabled = selectedIds.length < 2 || (!exactExclusive && partialExclusive.length > 0);
+      const throughDisabled = selectedIds.length !== 2;
+      const partialMessage = partialExclusive.length
+        ? `<div class="relationship-status error-message">Some selected connectors already belong to ${escapeHtml(partialExclusive.map(relationship => relationship.label || "Shared bus").join(", "))}. Select the exact group to edit it.</div>`
+        : "";
+      const busName = exactExclusive ? `
+        <label class="field">
+          <span>Bus Name</span>
+          <input data-relationship-label="${escapeAttr(exactExclusive.id)}" value="${escapeAttr(exactExclusive.label || "")}" placeholder="Shared bus">
+        </label>
+      ` : "";
+      const throughDirection = selectedIds.length === 2
+        ? editorThroughDirectionLabel(template, exactThrough || selectedIds)
+        : "Select exactly two active connectors.";
       connectorRelationshipsPanel.innerHTML = `
-        <div class="slot-actions">
-          <button class="primary-button" data-relationship-action="mirrored" type="button" ${selectedCount < 1 ? "disabled" : ""}>Mirror Selected</button>
-          <button class="primary-button" data-relationship-action="exclusive" type="button" ${selectedCount < 2 ? "disabled" : ""}>Exclusive Group</button>
-          <button class="primary-button" data-relationship-action="through" type="button" ${selectedCount < 2 ? "disabled" : ""}>Through / Loop</button>
+        <div class="connector-inspector-section">
+          <h4 class="connector-inspector-heading">${escapeHtml(rawSelectedIds.length)} Connectors Selected</h4>
+          ${selectedConnectorListHtml(template, rawSelectedIds)}
         </div>
-        <div class="field-hint">Selected connectors: ${selectedCount}. Relationship state is derived from live cables, not saved as a second state layer.</div>
-        ${validationLines}
-        ${relationshipRows}
+        <div class="connector-inspector-section">
+          <h4 class="connector-inspector-heading">Relationship</h4>
+          <div class="relationship-toggle-row">
+            <span>Shared Bus</span>
+            <label class="feature-toggle">
+              <input data-relationship-toggle="exclusive" type="checkbox" ${exactExclusive ? "checked" : ""} ${sharedDisabled ? "disabled" : ""}>
+              <span>${exactExclusive ? "On" : "Off"}</span>
+            </label>
+          </div>
+          <div class="relationship-status">Available for two or more active connectors. It creates one exclusive shared-bus group.</div>
+          ${partialMessage}
+          ${busName}
+          <div class="relationship-toggle-row">
+            <span>Through / Loop</span>
+            <label class="feature-toggle">
+              <input data-relationship-toggle="through" type="checkbox" ${exactThrough ? "checked" : ""} ${throughDisabled ? "disabled" : ""}>
+              <span>${exactThrough ? "On" : "Off"}</span>
+            </label>
+          </div>
+          <div class="relationship-status">${escapeHtml(throughDirection)}</div>
+          ${exactThrough ? `<button class="tool-button" data-relationship-reverse="${escapeAttr(exactThrough.id)}" type="button">Reverse</button>` : ""}
+          ${validationLines}
+        </div>
       `;
     }
 
@@ -85906,6 +86197,13 @@
       const validation = validateEditorConnectorTopology(template, relationships);
       const selectedIds = editorSelectedConnectorIds(template);
       const selectedConnector = connectors[editorSelectedNodeIndex] || null;
+      const activeSelectedIds = selectedEditorConnectorIds(template);
+      const activeBus = findExactEditorRelationship(template, "exclusive", activeSelectedIds)
+        || findEditorRelationshipsTouchingSelection(template, "exclusive", activeSelectedIds)[0]
+        || null;
+      const activeThrough = activeSelectedIds.length === 2
+        ? findExactEditorRelationship(template, "through", activeSelectedIds)
+        : findEditorRelationshipsTouchingSelection(template, "through", activeSelectedIds)[0] || null;
       const relationshipSummary = ["mirrored", "exclusive", "through"]
         .map(type => `${type}:${relationships.filter(relationship => relationship.type === type).length}`)
         .join(" / ");
@@ -85928,8 +86226,13 @@
         activeConnectors: activeConnectors.length,
         anchors: anchorCount,
         relationships: relationshipSummary,
+        selectionMode: selectedIds.length > 1 ? "multi" : selectedIds.length === 1 ? "single" : "none",
         selectedConnectors: selectedIds,
         selectedConnector: selectedConnector ? editorConnectorLabelForRelationship(selectedConnector) : "none",
+        selectedDisplaySide: selectedConnector ? normalizeEditorDisplaySide(selectedConnector.displaySide, selectedConnector.direction, selectedConnector.x, width) : "-",
+        selectedSignalDirection: selectedConnector ? normalizeEditorSignalDirection(selectedConnector.signalDirection, selectedConnector.direction) : "-",
+        activeBus: activeBus ? `${activeBus.label || "Shared bus"} (${uniqueEditorRelationshipMembers(activeBus.members).join(", ")})` : "none",
+        activeThrough: activeThrough ? editorThroughDirectionLabel(template, activeThrough) : "none",
         topologyErrors: validation.errors || [],
         topologyWarnings: validation.warnings || [],
         fullSceneRebuildsFromShell: shellDebug.fullSceneRebuildsFromShell,
@@ -85945,8 +86248,12 @@
         ["Active Tab", snapshot.activeTab],
         ["Connectors", `${snapshot.activeConnectors} active / ${snapshot.connectors} total`],
         ["Visual Anchors", snapshot.anchors],
+        ["Selection Mode", snapshot.selectionMode],
         ["Selected", snapshot.selectedConnectors.length ? snapshot.selectedConnectors.join(", ") : "none"],
         ["Selected Label", snapshot.selectedConnector],
+        ["Display / Signal", `${snapshot.selectedDisplaySide} / ${snapshot.selectedSignalDirection}`],
+        ["Active Bus", snapshot.activeBus],
+        ["Active Through", snapshot.activeThrough],
         ["Relationships", snapshot.relationships],
         ["Topology", `${snapshot.topologyErrors.length} errors / ${snapshot.topologyWarnings.length} warnings`],
         ["Engine Bridge", snapshot.engineBridgeActive ? "active" : "inactive"],
@@ -85967,62 +86274,145 @@
       if (!selectedConnectorSettings) return;
       const template = currentEditorTemplate();
       syncEditorNodeSelection(template);
-      const connector = template?.connectors?.[editorSelectedNodeIndex];
+      if (!template || editorActiveTab !== "connectors") {
+        selectedConnectorSettings.innerHTML = `<div class="connector-inspector-empty">Open the Connectors tab to edit connector properties.</div>`;
+        renderDeviceAuthoringDebugPanel();
+        return;
+      }
+      const selectedIds = editorSelectedConnectorIds(template);
+      if (!selectedIds.length) {
+        selectedConnectorSettings.innerHTML = `
+          <div class="connector-inspector-empty">
+            Select a connector to edit its properties.<br>
+            Shift-click or marquee-select multiple connectors to create a relationship.
+          </div>
+        `;
+        renderDeviceAuthoringDebugPanel();
+        return;
+      }
+      if (selectedIds.length > 1) {
+        selectedConnectorSettings.innerHTML = `
+          <div class="connector-inspector-section">
+            <h4 class="connector-inspector-heading">${escapeHtml(selectedIds.length)} Connectors Selected</h4>
+            <div class="relationship-status">Use the relationship controls below to create or edit topology for this exact selection.</div>
+            ${selectedConnectorListHtml(template, selectedIds)}
+          </div>
+        `;
+        renderDeviceAuthoringDebugPanel();
+        return;
+      }
+      const connectorId = selectedIds[0];
+      const connectorIndex = (template.connectors || []).findIndex(item => item.id === connectorId);
+      const connector = template.connectors?.[connectorIndex];
       if (!connector) {
-        selectedConnectorSettings.innerHTML = template?.isMatrixRouter === true
-          ? `<div class="modular-disabled">Select a connector in the preview to edit matrix routing eligibility.</div>`
-          : "";
+        selectedConnectorSettings.innerHTML = `<div class="connector-inspector-empty">Select a connector to edit its properties.</div>`;
         renderDeviceAuthoringDebugPanel();
         return;
       }
-      if (connector.empty || !connector.type) {
-        selectedConnectorSettings.innerHTML = template?.isMatrixRouter === true
-          ? `<div class="modular-disabled">Drop a node type into the selected slot before matrix routing options are available.</div>`
-          : "";
-        renderDeviceAuthoringDebugPanel();
-        return;
-      }
-      ensureConnectorV2Defaults(template, connector, editorSelectedNodeIndex);
-      const moduleSection = isCageConnector(connector) ? transceiverModuleSelectHtml("selectedConnectorModule", connector) : "";
+      ensureConnectorV2Defaults(template, connector, connectorIndex);
+      const displaySide = normalizeEditorDisplaySide(connector.displaySide, connector.direction, connector.x, deviceTemplateWidth(template));
+      const signalDirection = normalizeEditorSignalDirection(connector.signalDirection, connector.direction);
+      const fields = connector.empty || !connector.type ? [] : connectorInfoFields(connector);
+      const fieldSection = fields.length ? `
+        <div class="connector-inspector-section">
+          <h4 class="connector-inspector-heading">Fields</h4>
+          <div class="compact-field-grid">
+            ${fields.map(item => `
+              <label class="field">
+                <span>${escapeHtml(item.title)}</span>
+                <input data-selected-connector-field="${escapeAttr(item.field)}" value="${escapeAttr(item.text || "")}">
+              </label>
+            `).join("")}
+          </div>
+        </div>
+      ` : "";
+      const moduleSection = isCageConnector(connector) ? `
+        <div class="connector-inspector-section">
+          <h4 class="connector-inspector-heading">Module</h4>
+          ${transceiverModuleSelectHtml("selectedConnectorModule", connector)}
+        </div>
+      ` : "";
+      const fiberSection = isFiberCableType(effectiveConnectorType(connector) || connector.type) ? `
+        <div class="connector-inspector-section">
+          <h4 class="connector-inspector-heading">Fiber</h4>
+          ${fiberModeSelectHtml("selectedConnectorFiberMode", connector.fiberMode || activeFiberModeForCageConnector(connector) || DEFAULT_FIBER_MODE, fiberModeOptionsForCageConnector(connector))}
+        </div>
+      ` : "";
+      const miscSection = (effectiveConnectorType(connector) || connector.type) === "misc" ? `
+        <div class="connector-inspector-section">
+          <h4 class="connector-inspector-heading">Color</h4>
+          <label class="field">
+            <span>Custom Color</span>
+            <input id="selectedConnectorCustomColor" type="color" value="${escapeAttr(normalizeColor(connector.customColor || cableTypes.misc.color))}">
+          </label>
+        </div>
+      ` : "";
       const matrixSection = template?.isMatrixRouter === true ? `
-        <label class="checkbox-row">
-          <input id="selectedConnectorMatrixPort" type="checkbox" ${connectorIncludedInMatrix(connector) ? "checked" : ""}>
-          Matrix Port
-        </label>
-        <div class="field-hint">Only checked input/output ports appear in the matrix routing table and reports.</div>
+        <div class="connector-inspector-section">
+          <h4 class="connector-inspector-heading">Matrix</h4>
+          <label class="checkbox-row">
+            <input id="selectedConnectorMatrixPort" type="checkbox" ${connectorIncludedInMatrix(connector) ? "checked" : ""} ${connector.empty || !connector.type ? "disabled" : ""}>
+            Matrix Port
+          </label>
+          <div class="field-hint">Only checked input/output ports appear in the matrix routing table and reports.</div>
+        </div>
+      ` : "";
+      const powerSection = isPowerPlugConnector(connector) ? `
+        <div class="connector-inspector-section">
+          <h4 class="connector-inspector-heading">Power</h4>
+          <div class="relationship-status">${escapeHtml(connectorTypeLabel(connector) || "Power connector")} faceplate symbol follows this connector's type and side.</div>
+        </div>
       ` : "";
       selectedConnectorSettings.innerHTML = `
-        <div class="editor-row">
-          <div class="editor-row-heading" style="--chip-color:${escapeAttr(colorForConnector(connector))}">
-            ${escapeHtml(editorConnectorLabelForRelationship(connector))}
+        <div class="connector-inspector-section">
+          <h4 class="connector-inspector-heading">Selected Connector</h4>
+          <div class="connector-inspector-title" style="--chip-color:${escapeAttr(colorForConnector(connector))}">
+            ${escapeHtml(editorConnectorLabelForRelationship(connector) || "Connector")}
           </div>
-          <div class="editor-grid">
-            <div class="field">
-              <label for="selectedConnectorPhysicalType">Physical Connector</label>
+          <div class="compact-field-grid">
+            <label class="field">
+              <span>Physical Connector</span>
               <select id="selectedConnectorPhysicalType">${connectorTypeSelectOptions(connector.physicalType || connector.type)}</select>
+            </label>
+            <div class="field">
+              <label>Placement</label>
+              <div class="compact-choice-group">
+                ${[
+                  ["left", "Left"],
+                  ["right", "Right"],
+                  ["both", "Both"]
+                ].map(([value, label]) => `
+                  <label class="compact-choice">
+                    <input name="selectedConnectorDisplaySide" data-connector-display-side="${escapeAttr(value)}" type="radio" ${displaySide === value ? "checked" : ""}>
+                    <span>${escapeHtml(label)}</span>
+                  </label>
+                `).join("")}
+              </div>
             </div>
             <div class="field">
-              <label for="selectedConnectorSignalDirection">Signal Behaviour</label>
-              <select id="selectedConnectorSignalDirection">
-                <option value="standard" ${connector.signalDirection === "standard" ? "selected" : ""}>Standard</option>
-                <option value="input" ${connector.signalDirection === "input" ? "selected" : ""}>Input</option>
-                <option value="output" ${connector.signalDirection === "output" ? "selected" : ""}>Output</option>
-                <option value="bidirectional" ${connector.signalDirection === "bidirectional" ? "selected" : ""}>Bidirectional</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="selectedConnectorDisplaySide">Display Side</label>
-              <select id="selectedConnectorDisplaySide">
-                <option value="left" ${connector.displaySide === "left" ? "selected" : ""}>Left</option>
-                <option value="right" ${connector.displaySide === "right" ? "selected" : ""}>Right</option>
-                <option value="both" ${connector.displaySide === "both" ? "selected" : ""}>Both</option>
-              </select>
+              <label>Direction</label>
+              <div class="compact-choice-group">
+                ${[
+                  ["standard", "Standard"],
+                  ["input", "Input"],
+                  ["output", "Output"],
+                  ["bidirectional", "Bi-dir"]
+                ].map(([value, label]) => `
+                  <label class="compact-choice">
+                    <input name="selectedConnectorSignalDirection" data-connector-signal-direction="${escapeAttr(value)}" type="radio" ${signalDirection === value ? "checked" : ""}>
+                    <span>${escapeHtml(label)}</span>
+                  </label>
+                `).join("")}
+              </div>
             </div>
           </div>
-          <div class="field-hint">Physical connector type, signal behaviour, and visual side are stored separately in the V2 device definition.</div>
-          ${moduleSection}
-          ${matrixSection}
         </div>
+        ${fieldSection}
+        ${moduleSection}
+        ${fiberSection}
+        ${miscSection}
+        ${matrixSection}
+        ${powerSection}
       `;
       const physicalTypeControl = selectedConnectorSettings.querySelector("#selectedConnectorPhysicalType");
       physicalTypeControl?.addEventListener("change", event => {
@@ -86035,39 +86425,73 @@
         connector.customColor = nextType === "misc" ? (connector.customColor || cableTypes.misc.color) : "";
         connector.installedModuleType = cageConnectorTypes.has(nextType) ? (connector.installedModuleType || "") : "";
         connector.fiberMode = isFiberCableType(effectiveConnectorType(connector) || nextType) ? (connector.fiberMode || activeFiberModeForCageConnector(connector) || DEFAULT_FIBER_MODE) : "";
-        ensureConnectorV2Defaults(template, connector, editorSelectedNodeIndex, { typeChanged: true });
+        ensureConnectorV2Defaults(template, connector, connectorIndex, { typeChanged: true });
         resetMatrixPortDefault(connector);
-        renderSelectedConnectorSettings();
-        renderConnectorRelationshipsPanel();
-        renderDeviceEditorPreview();
-        renderDeviceAuthoringDebugPanel();
-      });
-      const signalControl = selectedConnectorSettings.querySelector("#selectedConnectorSignalDirection");
-      signalControl?.addEventListener("change", event => {
-        connector.signalDirection = normalizeEditorSignalDirection(event.target.value, connector.direction);
-        ensureConnectorV2Defaults(template, connector, editorSelectedNodeIndex);
         normalizeConnectorRows(template);
         renderSelectedConnectorSettings();
         renderConnectorRelationshipsPanel();
         renderDeviceEditorPreview();
         renderDeviceAuthoringDebugPanel();
       });
-      const displayControl = selectedConnectorSettings.querySelector("#selectedConnectorDisplaySide");
-      displayControl?.addEventListener("change", event => {
-        connector.displaySide = normalizeEditorDisplaySide(event.target.value, connector.direction, connector.x, deviceTemplateWidth(template));
-        ensureConnectorV2Defaults(template, connector, editorSelectedNodeIndex);
-        normalizeConnectorRows(template);
-        renderSelectedConnectorSettings();
-        renderConnectorRelationshipsPanel();
-        renderDeviceEditorPreview();
-        renderDeviceAuthoringDebugPanel();
+      selectedConnectorSettings.querySelectorAll("[data-connector-signal-direction]").forEach(control => {
+        control.addEventListener("change", event => {
+          if (!event.target.checked) return;
+          connector.signalDirection = normalizeEditorSignalDirection(event.target.dataset.connectorSignalDirection, connector.direction);
+          ensureConnectorV2Defaults(template, connector, connectorIndex);
+          normalizeConnectorRows(template);
+          renderSelectedConnectorSettings();
+          renderConnectorRelationshipsPanel();
+          renderDeviceEditorPreview();
+          renderDeviceAuthoringDebugPanel();
+        });
+      });
+      selectedConnectorSettings.querySelectorAll("[data-connector-display-side]").forEach(control => {
+        control.addEventListener("change", event => {
+          if (!event.target.checked) return;
+          connector.displaySide = normalizeEditorDisplaySide(event.target.dataset.connectorDisplaySide, connector.direction, connector.x, deviceTemplateWidth(template));
+          ensureConnectorV2Defaults(template, connector, connectorIndex);
+          normalizeConnectorRows(template);
+          normalizeEditorConnectorRelationships(template);
+          renderSelectedConnectorSettings();
+          renderConnectorRelationshipsPanel();
+          renderDeviceEditorPreview();
+          renderDeviceAuthoringDebugPanel();
+        });
+      });
+      selectedConnectorSettings.querySelectorAll("[data-selected-connector-field]").forEach(control => {
+        control.addEventListener("input", event => {
+          const field = event.target.dataset.selectedConnectorField || "";
+          if (!field) return;
+          connector[field] = event.target.value;
+          if (field === "nameText") connector.nameCustom = true;
+          syncPairedNetworkPairFields(template, connector);
+          renderEditorDeviceList();
+          renderDeviceEditorPreview();
+          renderDeviceAuthoringDebugPanel();
+        });
       });
       const moduleControl = selectedConnectorSettings.querySelector("#selectedConnectorModule");
       moduleControl?.addEventListener("change", event => {
-        applyTransceiverModule(connector, event.target.value);
-        ensureConnectorV2Defaults(template, connector, editorSelectedNodeIndex);
+        setTemplateConnectorModule(template, connector, event.target.value);
+        ensureConnectorV2Defaults(template, connector, connectorIndex);
         renderSelectedConnectorSettings();
         renderConnectorRelationshipsPanel();
+        renderDeviceEditorPreview();
+        renderDeviceAuthoringDebugPanel();
+      });
+      const fiberModeControl = selectedConnectorSettings.querySelector("#selectedConnectorFiberMode");
+      fiberModeControl?.addEventListener("change", event => {
+        connector.fiberMode = event.target.value || DEFAULT_FIBER_MODE;
+        syncPairedNetworkPairFields(template, connector);
+        normalizeConnectorRows(template);
+        renderSelectedConnectorSettings();
+        renderConnectorRelationshipsPanel();
+        renderDeviceEditorPreview();
+        renderDeviceAuthoringDebugPanel();
+      });
+      const customColorControl = selectedConnectorSettings.querySelector("#selectedConnectorCustomColor");
+      customColorControl?.addEventListener("input", event => {
+        connector.customColor = event.target.value || cableTypes.misc.color;
         renderDeviceEditorPreview();
         renderDeviceAuthoringDebugPanel();
       });
@@ -86999,13 +87423,13 @@
       const modalTitle = document.querySelector("#deviceEditorModal .modal-title");
       if (!modalTitle) return;
       if (editorMode === "instance") {
-        modalTitle.textContent = `Edit Canvas Device - ${editorInstanceName || template?.name || "Custom Device"}`;
+        modalTitle.textContent = `Device Editor - Project Device: ${editorInstanceName || template?.name || "Custom Device"}`;
       } else if (editorMode === "master-create") {
-        modalTitle.textContent = `Create Master Device - ${template?.name || "Custom Device"}`;
+        modalTitle.textContent = `Device Editor - New Master Device: ${template?.name || "Custom Device"}`;
       } else if (isProjectTemplateEditorMode()) {
-        modalTitle.textContent = `${editorMode === "project-template-edit" ? "Edit" : "Create"} Project Custom Device - ${template?.name || "Custom Device"}`;
+        modalTitle.textContent = `Device Editor - Project Custom Device: ${template?.name || "Custom Device"}`;
       } else {
-        modalTitle.textContent = "Device Editor";
+        modalTitle.textContent = `Device Editor - ${template?.name || "Master Device"}`;
       }
     }
 
@@ -88653,9 +89077,11 @@
       if (!template) return;
       normalizeEditorConnectorRelationships(template);
       const connectorById = new Map((template.connectors || []).map(connector => [connector.id, connector]));
+      const selectedIds = new Set(editorSelectedConnectorIds(template));
       (template.connectors || []).forEach(connector => {
         const points = editorConnectorAnchorPoints(template, connector, previewPositions);
         if (points.length < 2) return;
+        const opacity = selectedIds.has(connector.id) ? .42 : .18;
         for (let index = 1; index < points.length; index += 1) {
           parent.appendChild(createSvg("line", {
             x1: points[0].x,
@@ -88665,7 +89091,7 @@
             stroke: "#32b6ff",
             "stroke-width": 1.6,
             "stroke-dasharray": "6 5",
-            opacity: .72,
+            opacity,
             "pointer-events": "none"
           }));
         }
@@ -88708,6 +89134,7 @@
           const to = firstEditorConnectorAnchorPoint(template, connectorById.get(relationship.targetConnectorId || relationship.members?.[1]), previewPositions);
           drawEditorRelationshipArrow(parent, from, to, "#32b6ff");
         } else if (relationship.type === "mirrored" && points.length >= 2) {
+          const relationshipSelected = uniqueEditorRelationshipMembers(relationship.members).some(id => selectedIds.has(id));
           for (let index = 1; index < points.length; index += 1) {
             parent.appendChild(createSvg("line", {
               x1: points[0].x,
@@ -88717,7 +89144,7 @@
               stroke: "#32b6ff",
               "stroke-width": 1.8,
               "stroke-dasharray": "7 5",
-              opacity: .78,
+              opacity: relationshipSelected ? .42 : .18,
               "pointer-events": "none"
             }));
           }
@@ -102321,6 +102748,14 @@ renderViewerOutputDebug();
       renderDeviceAuthoringDebugPanel();
     });
     connectorRelationshipsPanel?.addEventListener("click", event => {
+      const reverseButton = event.target.closest("[data-relationship-reverse]");
+      if (reverseButton) {
+        const template = currentEditorTemplate();
+        if (!template) return;
+        reverseEditorThroughRelationship(template, reverseButton.dataset.relationshipReverse || "");
+        commitConnectorRelationshipChanges(template);
+        return;
+      }
       const action = event.target.closest("[data-relationship-action]")?.dataset.relationshipAction;
       if (action) {
         addConnectorRelationship(action);
@@ -102342,12 +102777,32 @@ renderViewerOutputDebug();
       if (!relationship) return;
       relationship.label = labelInput.value;
       normalizeEditorConnectorRelationships(template);
+      renderEditorDeviceList();
       renderDeviceEditorPreview();
       renderDeviceAuthoringDebugPanel();
     });
     connectorRelationshipsPanel?.addEventListener("change", event => {
       const template = currentEditorTemplate();
       if (!template) return;
+      const toggle = event.target.closest("[data-relationship-toggle]");
+      if (toggle) {
+        const selectedIds = selectedEditorConnectorIds(template);
+        const type = toggle.dataset.relationshipToggle;
+        if (type === "exclusive") {
+          const exact = findExactEditorRelationship(template, "exclusive", selectedIds);
+          if (toggle.checked && !exact) upsertExclusiveRelationshipForSelection(template, selectedIds);
+          if (!toggle.checked && exact) removeEditorRelationship(template, exact.id);
+          commitConnectorRelationshipChanges(template);
+          return;
+        }
+        if (type === "through") {
+          const exact = findExactEditorRelationship(template, "through", selectedIds);
+          if (toggle.checked && !exact) upsertThroughRelationshipForSelection(template, selectedIds);
+          if (!toggle.checked && exact) removeEditorRelationship(template, exact.id);
+          commitConnectorRelationshipChanges(template);
+          return;
+        }
+      }
       const source = event.target.closest("[data-relationship-source]");
       const target = event.target.closest("[data-relationship-target]");
       const member = event.target.closest("[data-relationship-member]");
@@ -102376,6 +102831,7 @@ renderViewerOutputDebug();
       commitConnectorRelationshipChanges(template);
     });
     editorDeviceSearch.addEventListener("input", event => {
+      if (editorDeviceSearch.classList.contains("hidden")) return;
       editorDeviceFilter = event.target.value;
       renderEditorDeviceList();
     });
@@ -102395,6 +102851,7 @@ renderViewerOutputDebug();
       requestAnimationFrame(() => requestAnimationFrame(fitDeviceEditorPreview));
     }
     editorDeviceList.addEventListener("click", event => {
+      if (editorDeviceList.classList.contains("hidden")) return;
       const rackDevice = event.target.closest("[data-rack-device-id]");
       if (rackDevice) {
         selectAndFrameDevice(rackDevice.dataset.rackDeviceId);
@@ -102405,6 +102862,7 @@ renderViewerOutputDebug();
       selectEditorDeviceIndex(item.dataset.editorDeviceIndex);
     });
     editorDeviceList.addEventListener("keydown", event => {
+      if (editorDeviceList.classList.contains("hidden")) return;
       if (event.key !== "Enter" && event.key !== " ") return;
       const rackDevice = event.target.closest("[data-rack-device-id]");
       if (rackDevice) {

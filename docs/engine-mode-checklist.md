@@ -1,5 +1,22 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
+Iteration 52.1 compacts the Device Editor connector workflow. The old visible
+Relationships tab is removed, the editor-internal device chooser is replaced
+by a left-side Connector Inspector, and connector properties plus Shared Bus /
+Through relationship controls now live in the Connectors tab using the existing
+click, Shift-click, Cmd/Ctrl-click, and marquee connector selection. The right
+node palette stays unchanged. Relationship storage remains the Iteration 52 V2
+schema; the UI no longer exposes raw connector IDs. Test with
+`index.html?v=iteration52-1-device-editor-connector-ux`,
+`index.html?engine=1&debugHud=1&debugDeviceAuthoring=1&v=iteration52-1-device-editor-connector-ux`,
+and `index.html?legacy=1&v=iteration52-1-device-editor-connector-ux`.
+At roughly 1920x1080, open Device Editor > Connectors and confirm the
+Relationships tab is absent, the left Connector Inspector is present, the
+large top property form is gone, the preview has more vertical room, Placement
+and Direction are mutually exclusive compact controls, Shared Bus works with
+marquee selection, Through / Loop works with Shift-click selection, Reverse
+updates the same relation, and multi-anchor dashed lines are subtle when idle.
+
 Iteration 51 starts the output-pipeline parity work by adding a canonical
 runtime output snapshot in front of editor reports, PDF export, self-contained
 HTML export, and hosted viewer publish. The snapshot captures project data,
