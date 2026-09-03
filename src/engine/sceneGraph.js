@@ -32,6 +32,18 @@ import {
   connectorIncludedInMatrixForEngine,
   normalizeMatrixRoutesForDevice
 } from "./matrixRouting.js";
+import {
+  DEVICE_DEFINITION_SCHEMA_VERSION,
+  connectorAnchorById,
+  connectorAnchorIndexKey,
+  connectorVisualAnchors,
+  deviceDefinitionVersion,
+  normalizeConnectorRelationships,
+  normalizeConnectorTopology,
+  primaryAnchorForConnector,
+  signalDirectionToLegacyDirection,
+  validateConnectorTopology
+} from "./deviceDefinitionV2.js";
 
 export class SceneGraph {
   constructor() {
@@ -285,7 +297,11 @@ export class SceneGraph {
         }
         if (key && exposedKeys.has(key)) resolvedKeys.add(key);
         const indexKey = connectorKey(device.id, connector.id);
-        if (this.connectorIndex.items.has(indexKey)) hitTargets += 1;
+        const hasConnectorHitTarget = this.connectorIndex.items.has(indexKey)
+          || connectorVisualAnchors(connector, device).some(anchor => (
+            this.connectorIndex.items.has(connectorAnchorIndexKey(device.id, connector.id, anchor.id))
+          ));
+        if (hasConnectorHitTarget) hitTargets += 1;
         const connectorWireIds = this.connectorWireIds(device.id, connector.id);
         const externalWireIds = [...connectorWireIds].filter(wireId => !this.getWire(wireId)?.internalRackWire);
         if (key && exposedKeys.has(key)) {
@@ -520,17 +536,21 @@ export class SceneGraph {
     return wire;
   }
 
-  rewireWireEndpoint(wireId, end, targetDeviceId, targetConnectorId) {
+  rewireWireEndpoint(wireId, end, targetDeviceId, targetConnectorId, targetAnchorId = "") {
     const wire = this.getWire(wireId);
     const targetDevice = this.getDevice(targetDeviceId);
     const targetConnector = this.getConnector(targetDeviceId, targetConnectorId);
     if (!wire || !targetDevice || !["from", "to"].includes(end)) return null;
     const endpointPrefix = end === "from" ? "from" : "to";
+    const targetAnchor = targetConnector
+      ? connectorAnchorById(targetConnector, targetAnchorId || targetConnector.primaryAnchorId || "", targetDevice)
+      : null;
     const next = isLedSurfaceKind(targetDevice)
       ? {
         [`${endpointPrefix}DeviceId`]: "",
         [`${endpointPrefix}SurfaceId`]: targetDevice.id,
         [`${endpointPrefix}ConnectorId`]: "",
+        [`${endpointPrefix}AnchorId`]: "",
         [`${endpointPrefix}Side`]: "left",
         [`${endpointPrefix}PortIndex`]: this.nextLedSurfacePortIndex(targetDevice.id),
         [`${endpointPrefix}UsesRealConnector`]: false,
@@ -540,7 +560,8 @@ export class SceneGraph {
           [`${endpointPrefix}DeviceId`]: targetDevice.id,
           [`${endpointPrefix}SurfaceId`]: "",
           [`${endpointPrefix}ConnectorId`]: targetConnector.id,
-          [`${endpointPrefix}Side`]: targetConnector.side || (end === "from" ? "right" : "left"),
+          [`${endpointPrefix}AnchorId`]: targetAnchor?.id || "",
+          [`${endpointPrefix}Side`]: targetAnchor?.side || targetConnector.side || (end === "from" ? "right" : "left"),
           [`${endpointPrefix}PortIndex`]: Math.max(0, targetDevice.connectors.indexOf(targetConnector)),
           [`${endpointPrefix}UsesRealConnector`]: true,
         }
@@ -657,17 +678,49 @@ export class SceneGraph {
     this.devices.forEach(device => {
       device.connectors.forEach(connector => {
         if (!this.isConnectorSelectableOnCanvas(device, connector)) return;
-        const point = this.connectorWorldPoint(device, connector);
-        items.push({
-          id: connectorKey(device.id, connector.id),
-          bounds: centeredBounds(point, device.kind === "jump" ? 42 : 24),
-          device,
-          connector,
-          point
-        });
+        items.push(...this.connectorIndexEntries(device, connector));
       });
     });
     this.connectorIndex.rebuild(items);
+  }
+
+  connectorIndexEntries(device, connector) {
+    const anchors = connectorVisualAnchors(connector, device);
+    const logicalKey = connectorKey(device.id, connector.id);
+    return anchors.map(anchor => {
+      const point = this.connectorAnchorWorldPoint(device, connector, anchor.id);
+      const id = connectorAnchorIndexKey(device.id, connector.id, anchor.id);
+      return {
+        id,
+        bounds: centeredBounds(point, device.kind === "jump" ? 42 : 24),
+        device,
+        connector,
+        anchor,
+        anchorId: anchor.id,
+        anchorKey: id,
+        logicalKey,
+        point
+      };
+    });
+  }
+
+  removeConnectorIndexEntries(deviceId, connectorId = "") {
+    const logicalKey = connectorKey(deviceId, connectorId);
+    this.connectorIndex.delete(logicalKey);
+    const prefix = `${logicalKey}:`;
+    const keys = Array.from(this.connectorIndex.items?.keys?.() || []);
+    keys.forEach(key => {
+      if (String(key).startsWith(prefix)) this.connectorIndex.delete(key);
+    });
+    this.selectedConnectorKeys.delete(logicalKey);
+  }
+
+  upsertConnectorIndexEntries(device, connector) {
+    this.removeConnectorIndexEntries(device.id, connector.id);
+    if (!this.isConnectorSelectableOnCanvas(device, connector)) return;
+    this.connectorIndexEntries(device, connector).forEach(entry => {
+      this.connectorIndex.insert(entry.id, entry.bounds, entry);
+    });
   }
 
   rebuildWireSpatialIndex() {
@@ -713,21 +766,7 @@ export class SceneGraph {
         return;
       }
       this.spatialIndex.update(deviceId, deviceBounds(device), { id: device.id, bounds: deviceBounds(device), device });
-      device.connectors.forEach(connector => {
-        const key = connectorKey(device.id, connector.id);
-        if (!this.isConnectorSelectableOnCanvas(device, connector)) {
-          this.connectorIndex.delete(key);
-          return;
-        }
-        const point = this.connectorWorldPoint(device, connector);
-        this.connectorIndex.update(key, centeredBounds(point, device.kind === "jump" ? 42 : 24), {
-          id: key,
-          bounds: centeredBounds(point, device.kind === "jump" ? 42 : 24),
-          device,
-          connector,
-          point
-        });
-      });
+      device.connectors.forEach(connector => this.upsertConnectorIndexEntries(device, connector));
     });
     this.refreshWireIndexes(affectedWireIds);
     this.rebuildRackIndex();
@@ -964,17 +1003,7 @@ export class SceneGraph {
     (device.connectors || []).forEach(connector => this.addConnectorOwner(device.id, connector.id));
     this.spatialIndex.insert(device.id, deviceBounds(device), { id: device.id, bounds: deviceBounds(device), device });
     this.rebuildRackIndex();
-    (device.connectors || []).forEach(connector => {
-      if (!this.isConnectorSelectableOnCanvas(device, connector)) return;
-      const point = this.connectorWorldPoint(device, connector);
-      this.connectorIndex.insert(connectorKey(device.id, connector.id), centeredBounds(point, device.kind === "jump" ? 42 : 24), {
-        id: connectorKey(device.id, connector.id),
-        bounds: centeredBounds(point, device.kind === "jump" ? 42 : 24),
-        device,
-        connector,
-        point
-      });
-    });
+    (device.connectors || []).forEach(connector => this.upsertConnectorIndexEntries(device, connector));
     this.dirtyDevices.add(device.id);
     return device;
   }
@@ -991,8 +1020,7 @@ export class SceneGraph {
     // whole scene just because generated card connectors changed.
     (this.connectorKeysByOwnerId.get(device.id) || new Set()).forEach(key => {
       this.connectorOwnerByKey.delete(key);
-      this.connectorIndex.delete(key);
-      this.selectedConnectorKeys.delete(key);
+      this.removeConnectorIndexEntries(device.id, key.split(":")[1] || "");
     });
     this.connectorKeysByOwnerId.delete(device.id);
     this.devices[index] = device;
@@ -1000,17 +1028,7 @@ export class SceneGraph {
     (device.connectors || []).forEach(connector => this.addConnectorOwner(device.id, connector.id));
     this.spatialIndex.update(device.id, deviceBounds(device), { id: device.id, bounds: deviceBounds(device), device });
     this.rebuildRackIndex();
-    (device.connectors || []).forEach(connector => {
-      if (!this.isConnectorSelectableOnCanvas(device, connector)) return;
-      const point = this.connectorWorldPoint(device, connector);
-      this.connectorIndex.insert(connectorKey(device.id, connector.id), centeredBounds(point, device.kind === "jump" ? 42 : 24), {
-        id: connectorKey(device.id, connector.id),
-        bounds: centeredBounds(point, device.kind === "jump" ? 42 : 24),
-        device,
-        connector,
-        point
-      });
-    });
+    (device.connectors || []).forEach(connector => this.upsertConnectorIndexEntries(device, connector));
     this.rebuildWireIndex();
     this.dirtyDevices.add(device.id);
     this.dirtyTextures.add(device.id);
@@ -1027,7 +1045,7 @@ export class SceneGraph {
     this.spatialIndex.delete(id);
     (this.connectorKeysByOwnerId.get(id) || new Set()).forEach(key => {
       this.connectorOwnerByKey.delete(key);
-      this.connectorIndex.delete(key);
+      this.removeConnectorIndexEntries(id, key.split(":")[1] || "");
       this.wireIdsByConnectorKey.delete(key);
       this.selectedConnectorKeys.delete(key);
     });
@@ -1194,9 +1212,11 @@ export class SceneGraph {
   addWire({
     fromDeviceId,
     fromConnectorId,
+    fromAnchorId = "",
     fromSurfaceId,
     toDeviceId,
     toConnectorId,
+    toAnchorId = "",
     toSurfaceId,
     color = "#32b6ff",
     colorSegments = null,
@@ -1206,8 +1226,8 @@ export class SceneGraph {
     routePoints = [],
     signalIndex = 0
   }) {
-    const fromEndpoint = this.resolveAddWireEndpoint("from", { deviceId: fromDeviceId, connectorId: fromConnectorId, surfaceId: fromSurfaceId });
-    const toEndpoint = this.resolveAddWireEndpoint("to", { deviceId: toDeviceId, connectorId: toConnectorId, surfaceId: toSurfaceId });
+    const fromEndpoint = this.resolveAddWireEndpoint("from", { deviceId: fromDeviceId, connectorId: fromConnectorId, anchorId: fromAnchorId, surfaceId: fromSurfaceId });
+    const toEndpoint = this.resolveAddWireEndpoint("to", { deviceId: toDeviceId, connectorId: toConnectorId, anchorId: toAnchorId, surfaceId: toSurfaceId });
     if (!fromEndpoint || !toEndpoint) return null;
     const wire = normalizeWire({
       id: this.nextWireId(),
@@ -1217,6 +1237,8 @@ export class SceneGraph {
       toSurfaceId: toEndpoint.surfaceId,
       fromConnectorId: fromEndpoint.connectorId,
       toConnectorId: toEndpoint.connectorId,
+      fromAnchorId: fromEndpoint.anchorId,
+      toAnchorId: toEndpoint.anchorId,
       fromSide: fromEndpoint.side,
       toSide: toEndpoint.side,
       fromPortIndex: fromEndpoint.portIndex,
@@ -1251,6 +1273,7 @@ export class SceneGraph {
         deviceId: "",
         surfaceId,
         connectorId: "",
+        anchorId: "",
         side: "left",
         portIndex: this.nextLedSurfacePortIndex(surfaceId),
         usesRealConnector: false,
@@ -1262,11 +1285,13 @@ export class SceneGraph {
     const device = this.getDevice(deviceId);
     const connector = this.getConnector(deviceId, connectorId);
     if (!device || !connector) return null;
+    const anchor = connectorAnchorById(connector, endpoint.anchorId || connector.primaryAnchorId || "", device);
     return {
       deviceId,
       surfaceId: "",
       connectorId,
-      side: connector.side || (end === "from" ? "right" : "left"),
+      anchorId: anchor?.id || "",
+      side: anchor?.side || connector.side || (end === "from" ? "right" : "left"),
       portIndex: Math.max(0, device.connectors.indexOf(connector)),
       usesRealConnector: true,
       label: connector.label || connector.type || "Connector"
@@ -1327,32 +1352,31 @@ export class SceneGraph {
     // Keep connector metadata updates in-place. Hit-test payloads and selected
     // connector records hold references to this object, so replacing it would
     // leave stale SFP/module state in the interaction path.
-    const merged = normalizeConnector({ ...connector, ...patch, id: connector.id }, 0);
+    const merged = normalizeConnector({ ...connector, ...patch, id: connector.id }, 0, device.width, {
+      forceV2: deviceDefinitionVersion(device) >= DEVICE_DEFINITION_SCHEMA_VERSION
+    });
     Object.assign(connector, merged);
     device.connectorsById.set(connector.id, connector);
-    const point = this.connectorWorldPoint(device, connector);
-    const key = connectorKey(device.id, connector.id);
     this.applyRackConnectorVisibility();
     if (!this.isConnectorSelectableOnCanvas(device, connector)) {
-      this.connectorIndex.delete(key);
+      this.removeConnectorIndexEntries(device.id, connector.id);
       this.dirtyDevices.add(device.id);
       return connector;
     }
-    this.connectorIndex.update(key, centeredBounds(point, device.kind === "jump" ? 42 : 24), {
-      id: key,
-      bounds: centeredBounds(point, device.kind === "jump" ? 42 : 24),
-      device,
-      connector,
-      point
-    });
+    this.upsertConnectorIndexEntries(device, connector);
     this.dirtyDevices.add(device.id);
     return connector;
   }
 
   connectorWorldPoint(device, connector) {
+    return this.connectorAnchorWorldPoint(device, connector, connector?.primaryAnchorId || "");
+  }
+
+  connectorAnchorWorldPoint(device, connector, anchorId = "") {
+    const anchor = connectorAnchorById(connector, anchorId || connector?.primaryAnchorId || "", device);
     return {
-      x: device.x + (Number(connector.x) || 0),
-      y: device.y + (Number(connector.y) || 0)
+      x: device.x + (Number(anchor?.x ?? connector?.x) || 0),
+      y: device.y + (Number(anchor?.y ?? connector?.y) || 0)
     };
   }
 
@@ -1387,11 +1411,13 @@ export class SceneGraph {
       return this.rawEndpointForLedSurface(wire, device, pos);
     }
     const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
+    const anchorId = end === "from" ? wire.fromAnchorId : wire.toAnchorId;
     const connector = connectorId ? device.connectorsById.get(connectorId) : null;
     if (connector) {
+      const anchor = connectorAnchorById(connector, anchorId || connector.primaryAnchorId || "", device);
       return {
-        x: pos.x + connector.x,
-        y: pos.y + connector.y
+        x: pos.x + (Number(anchor?.x ?? connector.x) || 0),
+        y: pos.y + (Number(anchor?.y ?? connector.y) || 0)
       };
     }
     const side = end === "from" ? wire.fromSide : wire.toSide;
@@ -1423,11 +1449,13 @@ export class SceneGraph {
     const deviceId = end === "from" ? wire.fromDeviceId : wire.toDeviceId;
     const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
     const side = end === "from" ? wire.fromSide : wire.toSide;
+    const anchorId = end === "from" ? wire.fromAnchorId : wire.toAnchorId;
     const device = this.getDevice(deviceId);
     if (isLedSurfaceKind(device)) return point;
     const connector = connectorId ? device?.connectorsById.get(connectorId) : null;
     const radius = device?.kind === "jump" ? 22 : 6;
-    const connectorSide = connector?.side || side;
+    const anchor = connector ? connectorAnchorById(connector, anchorId || connector.primaryAnchorId || "", device) : null;
+    const connectorSide = anchor?.side || connector?.side || side;
     if (connectorSide === "left") return { x: point.x - radius, y: point.y };
     if (connectorSide === "right") return { x: point.x + radius, y: point.y };
     if (!otherPoint) return point;
@@ -1571,13 +1599,24 @@ function normalizeDevice(device) {
     device.sourceKind
   );
   const canvasObject = isCanvasObjectKind(kind);
+  const width = Math.max(40, Number(device.width) || 120);
+  const height = Math.max(28, Number(device.height) || 58);
+  const schemaVersion = deviceDefinitionVersion(device);
   const connectors = isLedSurfaceKind({ kind, sourceKind: device.sourceKind, visual })
     ? []
     : (Array.isArray(device.connectors) ? device.connectors : [])
-      .map((connector, index) => normalizeConnector(connector, index))
+      .map((connector, index) => normalizeConnector(connector, index, width, {
+        forceV2: schemaVersion >= DEVICE_DEFINITION_SCHEMA_VERSION
+      }))
       .filter(Boolean);
+  const connectorRelationships = normalizeConnectorRelationships(
+    device.connectorRelationships || device.connectorTopology?.relationships,
+    connectors
+  );
+  const connectorTopologyValidation = validateConnectorTopology(connectors, connectorRelationships);
   const normalized = {
     id: String(device.id),
+    schemaVersion,
     sourceKind: device.sourceKind || "",
     sourceId: device.sourceId || device.id || "",
     kind,
@@ -1585,8 +1624,8 @@ function normalizeDevice(device) {
     sourceRackDeviceId: String(device.sourceRackDeviceId || ""),
     x: Number(device.x) || 0,
     y: Number(device.y) || 0,
-    width: Math.max(40, Number(device.width) || 120),
-    height: Math.max(28, Number(device.height) || 58),
+    width,
+    height,
     label: device.label || device.name || String(device.id),
     notes: String(device.notes || ""),
     locked: Boolean(device.locked),
@@ -1603,6 +1642,12 @@ function normalizeDevice(device) {
     templateId: device.templateId || "",
     visual,
     connectors,
+    connectorRelationships,
+    connectorTopology: {
+      schemaVersion: DEVICE_DEFINITION_SCHEMA_VERSION,
+      relationships: connectorRelationships,
+      validation: connectorTopologyValidation
+    },
     connectorsById: new Map(connectors.map(connector => [connector.id, connector])),
     matrixRoutes: {},
     portCount: isLedSurfaceKind({ kind, sourceKind: device.sourceKind })
@@ -1911,6 +1956,8 @@ function normalizeWire(wire) {
     toSurfaceId: wire.toSurfaceId ? String(wire.toSurfaceId) : "",
     fromConnectorId: wire.fromConnectorId ? String(wire.fromConnectorId) : "",
     toConnectorId: wire.toConnectorId ? String(wire.toConnectorId) : "",
+    fromAnchorId: wire.fromAnchorId ? String(wire.fromAnchorId) : "",
+    toAnchorId: wire.toAnchorId ? String(wire.toAnchorId) : "",
     fromSide: wire.fromSide || "right",
     toSide: wire.toSide || "left",
     fromPortIndex: Math.max(0, Number(wire.fromPortIndex) || 0),
@@ -1938,16 +1985,35 @@ function normalizeWire(wire) {
   };
 }
 
-function normalizeConnector(connector, index) {
+function normalizeConnector(connector, index, deviceWidth = 0, options = {}) {
   if (!connector) return null;
   const x = Number(connector.x);
   const y = Number(connector.y);
+  const localX = Number.isFinite(x) ? x : connector.direction === "input" ? 0 : connector.direction === "output" ? deviceWidth : 0;
+  const localY = Number.isFinite(y) ? y : 0;
+  const topology = normalizeConnectorTopology({ ...connector, x: localX, y: localY }, {
+    deviceWidth,
+    index,
+    forceV2: options.forceV2
+  });
+  const primaryAnchor = primaryAnchorForConnector(topology, deviceWidth);
+  const direction = signalDirectionToLegacyDirection(topology.signalDirection, connector.direction || "io");
   return {
     id: String(connector.id || `connector-${index}`),
+    schemaVersion: topology.schemaVersion,
     type: connector.type || "",
+    physicalType: topology.physicalType,
+    connectorType: topology.connectorType,
+    signalDirection: topology.signalDirection,
+    displaySide: topology.displaySide,
+    anchors: topology.anchors,
+    primaryAnchorId: topology.primaryAnchorId,
+    moduleCapability: topology.moduleCapability,
+    fiberCapability: topology.fiberCapability,
+    powerMetadata: topology.powerMetadata,
     label: connector.label || connector.nameText || connector.type || `Connector ${index + 1}`,
-    direction: connector.direction || "io",
-    side: connector.side || (connector.direction === "input" ? "left" : connector.direction === "output" ? "right" : "center"),
+    direction,
+    side: primaryAnchor?.side || connector.side || (direction === "input" ? "left" : direction === "output" ? "right" : "center"),
     cardSlotId: connector.cardSlotId || "",
     cardTypeId: connector.cardTypeId || "",
     pairedConnectorId: connector.pairedConnectorId || "",
@@ -1986,8 +2052,8 @@ function normalizeConnector(connector, index) {
     powerDistroRole: String(connector.powerDistroRole || ""),
     colorSegments: cloneColorSegments(connector.colorSegments),
     infoFields: cloneInfoFields(connector.infoFields),
-    x: Number.isFinite(x) ? x : 0,
-    y: Number.isFinite(y) ? y : 0,
+    x: Number.isFinite(Number(primaryAnchor?.x)) ? Number(primaryAnchor.x) : localX,
+    y: Number.isFinite(Number(primaryAnchor?.y)) ? Number(primaryAnchor.y) : localY,
     color: connector.color || "#32b6ff",
     colorMapped: Boolean(connector.colorMapped)
   };

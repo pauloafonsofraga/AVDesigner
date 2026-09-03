@@ -66,6 +66,7 @@ import {
   placementCollisionSummary,
   placementRectForDevice
 } from "./devicePlacement.js";
+import { exclusiveConnectionRejectionReason } from "./deviceDefinitionV2.js";
 
 const {
   hitTestConnector,
@@ -2204,7 +2205,8 @@ class ProductionEngineBridge {
       wire.id,
       rewire.detachedSide,
       target.device.id,
-      target.connector?.id || ""
+      target.connector?.id || "",
+      target.anchorId || target.anchor?.id || ""
     );
     if (!updated) {
       this.finishWireInteraction({ restoreSelection: true, reason: "wire-rewire-failed" });
@@ -2271,7 +2273,8 @@ class ProductionEngineBridge {
     if (target.virtualSurfaceTarget) return "";
     const occupiedByOtherWire = [...this.scene.connectorExternalWireIds(target.device.id, target.connector.id)]
       .some(wireId => wireId !== rewire.wireId);
-    return occupiedByOtherWire ? "Target connector is already connected." : "";
+    if (occupiedByOtherWire) return "Target connector is already connected.";
+    return exclusiveConnectionRejectionReason(this.scene, target, rewire.wireId);
   }
 
   wireCreateEndpointRejectionReason(source, target) {
@@ -2283,6 +2286,8 @@ class ProductionEngineBridge {
     if (hit?.virtualSurfaceTarget) return "";
     if (!hit?.device?.id || !hit?.connector?.id) return "";
     if (this.connectorAllowsAdditionalExternalWire(hit)) return "";
+    const exclusiveReason = exclusiveConnectionRejectionReason(this.scene, hit);
+    if (exclusiveReason) return exclusiveReason;
     const connectedCount = this.scene.connectorExternalWireIds(hit.device.id, hit.connector.id).size;
     return connectedCount > 0 ? `${label} connector is already connected.` : "";
   }
@@ -6618,11 +6623,15 @@ function hitForSceneWireEndpoint(scene, wire, end) {
   const device = scene.getDevice(deviceId);
   const connector = scene.getConnector(deviceId, connectorId);
   if (!device || !connector) return null;
+  const anchorId = end === "from" ? wire.fromAnchorId : wire.toAnchorId;
   return {
     key: `${device.id}:${connector.id}`,
     device,
     connector,
-    point: scene.connectorWorldPoint(device, connector),
+    anchorId: anchorId || connector.primaryAnchorId || "",
+    point: typeof scene.connectorAnchorWorldPoint === "function"
+      ? scene.connectorAnchorWorldPoint(device, connector, anchorId || connector.primaryAnchorId || "")
+      : scene.connectorWorldPoint(device, connector),
   };
 }
 
@@ -6686,7 +6695,8 @@ function wireEndpointPayloadForHit(hit, end) {
   }
   return {
     [`${prefix}DeviceId`]: hit?.device?.id || "",
-    [`${prefix}ConnectorId`]: hit?.connector?.id || ""
+    [`${prefix}ConnectorId`]: hit?.connector?.id || "",
+    [`${prefix}AnchorId`]: hit?.anchorId || hit?.anchor?.id || ""
   };
 }
 
@@ -7346,6 +7356,8 @@ function cloneWire(wire) {
     toSurfaceId: wire.toSurfaceId,
     fromConnectorId: wire.fromConnectorId,
     toConnectorId: wire.toConnectorId,
+    fromAnchorId: wire.fromAnchorId || "",
+    toAnchorId: wire.toAnchorId || "",
     fromSide: wire.fromSide,
     toSide: wire.toSide,
     fromPortIndex: wire.fromPortIndex,

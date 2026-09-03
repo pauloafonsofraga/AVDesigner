@@ -1,3 +1,9 @@
+import {
+  isConnectorExplicitlyBidirectional,
+  isV2Connector,
+  V2_SUGGESTED_BIDIRECTIONAL_TYPES
+} from "./deviceDefinitionV2.js";
+
 const CAGE_CONNECTOR_TYPES = new Set(["sfp-cage", "sfp-plus-cage", "qsfp-cage"]);
 const CAT_CONNECTOR_TYPES = new Set(["cat5e", "cat6", "cat6a", "ethercon", "ethernet"]);
 const USB_CONNECTOR_TYPES = new Set(["usb-a", "usb-b", "usb-c"]);
@@ -542,7 +548,7 @@ export function engineConnectorFieldTitle(connector, field) {
   if (field === "nameText" && connector?.nameTextCaption) return connector.nameTextCaption;
   if (field === "resolutionFrameRate" && connector?.resolutionFrameRateCaption) return connector.resolutionFrameRateCaption;
   if (field === "customText" && connector?.customTextCaption) return connector.customTextCaption;
-  if (field === "resolutionFrameRate" && isPairedNetworkConnector(connector)) return "Address";
+  if (field === "resolutionFrameRate" && (isPairedNetworkConnector(connector) || isNetworkStyleV2Connector(connector))) return "Address";
   if (field === "resolutionFrameRate") return "Resolution";
   if (field === "nameText") return "Name";
   if (field === "customText" && connector?.type === "led-signal") return "Panel Coordinates";
@@ -553,6 +559,7 @@ export function engineUsesResolutionField(connector) {
   const activeType = effectiveConnectorTypeForEngine(connector) || connectorType(connector);
   return ENGINE_RESOLUTION_FIELD_TYPES.has(activeType)
     || isPairedNetworkConnector(connector)
+    || isNetworkStyleV2Connector(connector)
     || Boolean(connector?.resolutionFrameRate);
 }
 
@@ -595,10 +602,18 @@ export function sameEngineConnectorHit(a, b) {
 }
 
 function isPairedNetworkConnector(connector) {
+  if (isV2Connector(connector)) return false;
   return CAT_CONNECTOR_TYPES.has(effectiveConnectorTypeForEngine(connector));
 }
 
+function isNetworkStyleV2Connector(connector) {
+  if (!isV2Connector(connector)) return false;
+  return V2_SUGGESTED_BIDIRECTIONAL_TYPES.has(effectiveConnectorTypeForEngine(connector));
+}
+
 function isTwoWayConnector(connector) {
+  if (isConnectorExplicitlyBidirectional(connector)) return true;
+  if (isV2Connector(connector)) return false;
   return TWO_WAY_TYPES.has(effectiveConnectorTypeForEngine(connector));
 }
 

@@ -47,15 +47,29 @@ export function hitTestConnector(scene, worldPoint, tolerance = 10) {
   let best = null;
   let bestDistance = Infinity;
   candidates.forEach(item => {
-    const point = item.payload?.point || item.point;
-    const connector = item.payload?.connector || item.connector;
-    const device = item.payload?.device || item.device;
+    const payload = item.payload || item;
+    const point = payload.point || item.point;
+    const connector = payload.connector || item.connector;
+    const device = payload.device || item.device;
     if (!point || !connector || !device) return;
     const distance = Math.hypot(point.x - worldPoint.x, point.y - worldPoint.y);
     const radius = device.kind === "jump" ? tolerance * 1.9 : tolerance;
     if (distance <= radius && distance < bestDistance) {
       bestDistance = distance;
-      best = { device, connector, point, distance, key: `${device.id}:${connector.id}` };
+      const anchor = payload.anchor || null;
+      const anchorId = String(payload.anchorId || anchor?.id || "");
+      const logicalKey = payload.logicalKey || `${device.id}:${connector.id}`;
+      best = {
+        device,
+        connector,
+        anchor,
+        anchorId,
+        anchorKey: payload.anchorKey || item.id || "",
+        logicalKey,
+        point,
+        distance,
+        key: logicalKey
+      };
     }
   });
   return {

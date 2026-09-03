@@ -4,6 +4,12 @@ import {
   matrixRouteDiagnosticsForDevice,
   normalizeMatrixRoutesForDevice
 } from "./matrixRouting.js";
+import {
+  connectorVisualAnchors,
+  isV2Connector,
+  normalizeConnectorRelationships,
+  validateConnectorTopology
+} from "./deviceDefinitionV2.js";
 
 export function validateEngineScene(scene, projectData = null) {
   const start = performance.now();
@@ -65,7 +71,14 @@ export function validateEngineScene(scene, projectData = null) {
     matrixCrosspoints: 0,
     matrixAssignedRoutes: 0,
     matrixInvalidRoutes: 0,
-    matrixRouteMismatches: 0
+    matrixRouteMismatches: 0,
+    v2Devices: 0,
+    v2Connectors: 0,
+    connectorAnchors: 0,
+    connectorRelationships: 0,
+    connectorTopologyErrors: 0,
+    connectorTopologyWarnings: 0,
+    wireAnchorMismatches: 0
   };
 
   counts.duplicateObjectIds = checkDuplicates(sceneDevices.map(device => device.id), "object", errors);
@@ -79,6 +92,7 @@ export function validateEngineScene(scene, projectData = null) {
   }
   if (skippedWires) warnings.push(`${skippedWires} production wire(s) were skipped by the project adapter.`);
 
+  validateConnectorTopologies(sceneDevices, errors, warnings, counts);
   sceneWires.forEach(wire => validateWire(scene, wire, errors, warnings, counts));
   validateSelection(scene, errors);
   validateRoutePointParity(sceneWires, productionConnections, root.wireMode === "orthogonal" ? "orthogonal" : "bezier", errors, warnings, counts);
@@ -94,6 +108,35 @@ export function validateEngineScene(scene, projectData = null) {
     warnings,
     summary: `${errors.length ? "failed" : "passed"} in ${durationMs.toFixed(1)} ms`
   };
+}
+
+function validateConnectorTopologies(sceneDevices, errors, warnings, counts) {
+  (sceneDevices || []).forEach(device => {
+    const connectors = Array.isArray(device?.connectors) ? device.connectors : [];
+    const relationships = normalizeConnectorRelationships(
+      device?.connectorRelationships || device?.connectorTopology?.relationships,
+      connectors
+    );
+    const hasV2Topology = Number(device?.schemaVersion || 0) >= 2
+      || connectors.some(connector => isV2Connector(connector))
+      || relationships.length > 0;
+    if (!hasV2Topology) return;
+    counts.v2Devices += 1;
+    counts.v2Connectors += connectors.filter(connector => isV2Connector(connector)).length;
+    counts.connectorAnchors += connectors.reduce((total, connector) => (
+      total + (Array.isArray(connector?.anchors) ? connector.anchors.length : 0)
+    ), 0);
+    counts.connectorRelationships += relationships.length;
+    const validation = validateConnectorTopology(connectors, relationships);
+    validation.errors.forEach(message => {
+      counts.connectorTopologyErrors += 1;
+      errors.push(`Device ${device.id} topology: ${message}`);
+    });
+    validation.warnings.forEach(message => {
+      counts.connectorTopologyWarnings += 1;
+      warnings.push(`Device ${device.id} topology: ${message}`);
+    });
+  });
 }
 
 function validateMatrixRoutingParity(scene, productionDevices, errors, warnings, counts) {
@@ -225,11 +268,23 @@ function validateWire(scene, wire, errors, warnings, counts) {
     counts.invalidConnectorReferences += 1;
     (wire.toUsesRealConnector || wire.usesRealConnectorEndpoints ? errors : warnings).push(message);
   }
+  if (wire.fromAnchorId && fromConnector && !connectorHasExactAnchor(fromConnector, wire.fromAnchorId, fromDevice)) {
+    counts.wireAnchorMismatches += 1;
+    errors.push(`Wire ${wire.id} has missing source anchor ${wire.fromDeviceId}:${wire.fromConnectorId}:${wire.fromAnchorId}.`);
+  }
+  if (wire.toAnchorId && toConnector && !connectorHasExactAnchor(toConnector, wire.toAnchorId, toDevice)) {
+    counts.wireAnchorMismatches += 1;
+    errors.push(`Wire ${wire.id} has missing destination anchor ${wire.toDeviceId}:${wire.toConnectorId}:${wire.toAnchorId}.`);
+  }
   (wire.routePoints || []).forEach((point, index) => {
     if (!Number.isFinite(Number(point.x)) || !Number.isFinite(Number(point.y))) {
       errors.push(`Wire ${wire.id} route point ${index} has invalid coordinates.`);
     }
   });
+}
+
+function connectorHasExactAnchor(connector, anchorId, device) {
+  return connectorVisualAnchors(connector, device).some(anchor => anchor.id === String(anchorId || ""));
 }
 
 function validateSelection(scene, errors) {

@@ -41,6 +41,17 @@ import {
   connectorIncludedInMatrixForEngine,
   normalizeMatrixRoutesForDevice
 } from "./matrixRouting.js";
+import {
+  DEVICE_DEFINITION_SCHEMA_VERSION,
+  deviceDefinitionVersion,
+  isDeviceDefinitionV2,
+  connectorAnchorById,
+  normalizeConnectorRelationships,
+  normalizeConnectorTopology,
+  primaryAnchorForConnector,
+  signalDirectionToLegacyDirection,
+  validateConnectorTopology
+} from "./deviceDefinitionV2.js";
 
 const SIZE_PRESETS = {
   small: { deviceCount: 100, wireCount: 300 },
@@ -78,7 +89,17 @@ const CARD_SLOT_OVERRIDE_FIELDS = [
   "matrixPortTouched",
   "fiberMode",
   "customColor",
-  "installedModuleType"
+  "installedModuleType",
+  "schemaVersion",
+  "physicalType",
+  "connectorType",
+  "signalDirection",
+  "displaySide",
+  "anchors",
+  "primaryAnchorId",
+  "moduleCapability",
+  "fiberCapability",
+  "powerMetadata"
 ];
 const NODE_TYPE_FALLBACKS = ENGINE_CONNECTOR_TYPE_COLORS;
 
@@ -251,6 +272,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
     const normalized = normalizeProjectWire(wire, index, {
       deviceIds,
       connectorIdsByDevice,
+      normalizedDeviceById,
       jumpNodeIds,
       surfaceIds,
       surfaceConnectionOrder,
@@ -385,6 +407,10 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
   const template = resolvedTemplate || instance || {};
   const isAdapter = isAdapterTemplateForEngine(template, instance);
   const isPowerDistro = !isAdapter && isPowerDistroTemplateForEngine(template, instance);
+  const schemaVersion = Math.max(
+    deviceDefinitionVersion(template),
+    deviceDefinitionVersion(instance)
+  );
   const rawConnectors = effectiveConnectorsForTemplate(template)
     .map(connector => applyInstanceConnectorOverride(instance, connector));
   const widthSource = isAdapter
@@ -398,8 +424,19 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
   const id = String(instance.instanceId || instance.id || `project-device-${index}`);
   const label = instance.name || template.name || template.model || `Device ${index + 1}`;
   const connectors = rawConnectors
-    .map((connector, connectorIndex) => normalizeConnector(connector, connectorIndex, width, nodeColorByType, { isAdapter }))
+    .map((connector, connectorIndex) => normalizeConnector(connector, connectorIndex, width, nodeColorByType, {
+      isAdapter,
+      forceV2: schemaVersion >= DEVICE_DEFINITION_SCHEMA_VERSION
+    }))
     .filter(Boolean);
+  const connectorRelationships = normalizeConnectorRelationships(
+    instance.connectorRelationships
+      || instance.connectorTopology?.relationships
+      || template.connectorRelationships
+      || template.connectorTopology?.relationships,
+    connectors
+  );
+  const connectorTopologyValidation = validateConnectorTopology(connectors, connectorRelationships);
   const visual = normalizeDeviceVisualMetadata(template, instance, width, height, nodeColorByType);
   const powerDistro = isPowerDistro
     ? normalizePowerDistroForEngine({ template, instance, width, connectors })
@@ -429,6 +466,13 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
     usesFallbackSize: !(widthSource && heightSource),
     color: isAdapter ? "#18222b" : "#182531",
     connectors,
+    schemaVersion,
+    connectorRelationships,
+    connectorTopology: {
+      schemaVersion,
+      relationships: connectorRelationships,
+      validation: connectorTopologyValidation
+    },
     portCount: Math.max(1, connectors.length || 4),
     templateId: template.id || templateId || "",
     brand: visual.brand,
@@ -657,19 +701,27 @@ function applyInstanceConnectorOverride(instance, connector) {
 
 function normalizeConnector(connector, index, deviceWidth, nodeColorByType, options = {}) {
   if (!connector || connector.empty || !connector.type) return null;
-  const direction = connector.direction === "input" ? "input" : connector.direction === "output" ? "output" : "io";
+  const legacyDirection = connector.direction === "input" ? "input" : connector.direction === "output" ? "output" : "io";
   // Legacy adapters always pin connector centers to the compact adapter edges.
   // Old project files can still carry a normal-device width on adapter
   // connectors; accepting that value sends nodes far outside the dashed shell.
-  const localX = options.isAdapter && direction !== "io"
-    ? (direction === "input" ? 0 : deviceWidth)
+  const localX = options.isAdapter && legacyDirection !== "io"
+    ? (legacyDirection === "input" ? 0 : deviceWidth)
     : Number.isFinite(Number(connector.x))
       ? Number(connector.x)
-      : direction === "input" ? 0 : deviceWidth;
+      : legacyDirection === "input" ? 0 : deviceWidth;
   const localY = Number.isFinite(Number(connector.y))
     ? Number(connector.y)
     : 34 + index * 18;
   const type = String(connector.type || "");
+  const connectorWithFallbackPosition = { ...connector, x: localX, y: localY };
+  const topology = normalizeConnectorTopology(connectorWithFallbackPosition, {
+    deviceWidth,
+    index,
+    forceV2: options.forceV2
+  });
+  const primaryAnchor = primaryAnchorForConnector(topology, deviceWidth);
+  const direction = signalDirectionToLegacyDirection(topology.signalDirection, legacyDirection);
   const visualConnector = normalizeConnectorVisualMetadata(connector, nodeColorByType, `Connector ${index + 1}`);
   const label = visualConnector.displayLabel || type || `Connector ${index + 1}`;
   const activeType = visualConnector.effectiveType || type;
@@ -686,11 +738,21 @@ function normalizeConnector(connector, index, deviceWidth, nodeColorByType, opti
   return {
     ...visualConnector,
     id: String(connector.id || `connector-${index}`),
+    schemaVersion: topology.schemaVersion,
     type,
+    physicalType: topology.physicalType,
+    connectorType: topology.connectorType,
+    signalDirection: topology.signalDirection,
+    displaySide: topology.displaySide,
+    anchors: topology.anchors,
+    primaryAnchorId: topology.primaryAnchorId,
+    moduleCapability: topology.moduleCapability,
+    fiberCapability: topology.fiberCapability,
+    powerMetadata: topology.powerMetadata,
     label,
     displayLabel: label,
     direction,
-    side: direction === "input" ? "left" : direction === "output" ? "right" : localX <= deviceWidth / 2 ? "left" : "right",
+    side: primaryAnchor?.side || (direction === "input" ? "left" : direction === "output" ? "right" : localX <= deviceWidth / 2 ? "left" : "right"),
     cardSlotId: connector.cardSlotId || "",
     cardTypeId: connector.cardTypeId || "",
     pairedConnectorId: String(connector.pairedConnectorId || ""),
@@ -714,8 +776,8 @@ function normalizeConnector(connector, index, deviceWidth, nodeColorByType, opti
     customTextCaption: String(connector.customTextCaption || ""),
     includeInMatrix: connectorIncludedInMatrixForEngine(connector),
     matrixPortTouched: connector.matrixPortTouched === true,
-    x: localX,
-    y: localY,
+    x: Number.isFinite(Number(primaryAnchor?.x)) ? Number(primaryAnchor.x) : localX,
+    y: Number.isFinite(Number(primaryAnchor?.y)) ? Number(primaryAnchor.y) : localY,
     color: visualConnector.color,
     colorMapped
   };
@@ -1034,12 +1096,14 @@ function normalizeProjectWire(wire, index, context) {
   const from = normalizeEndpoint(wire.from || {
     deviceId: wire.fromDeviceId,
     surfaceId: wire.fromSurfaceId,
-    connectorId: wire.fromConnectorId
+    connectorId: wire.fromConnectorId,
+    anchorId: wire.fromAnchorId
   }, "from", wire, context);
   const to = normalizeEndpoint(wire.to || {
     deviceId: wire.toDeviceId,
     surfaceId: wire.toSurfaceId,
-    connectorId: wire.toConnectorId
+    connectorId: wire.toConnectorId,
+    anchorId: wire.toAnchorId
   }, "to", wire, context);
   if (!from || !to || !endpointExists(from, context) || !endpointExists(to, context)) return null;
   const cableType = String(wire.cableType || wire.type || "");
@@ -1058,6 +1122,8 @@ function normalizeProjectWire(wire, index, context) {
     toSurfaceId: to.surfaceId || "",
     fromConnectorId: from.connectorId || "",
     toConnectorId: to.connectorId || "",
+    fromAnchorId: from.anchorId || "",
+    toAnchorId: to.anchorId || "",
     fromSide: from.side,
     toSide: to.side,
     fromPortIndex: from.portIndex ?? index % 4,
@@ -1160,11 +1226,13 @@ function normalizeRackInternalWires(root, context) {
         id: `rack-internal-${rackId}-${connection.id || index}`,
         from: {
           deviceId: fromCanvasId,
-          connectorId: connection.from?.connectorId || ""
+          connectorId: connection.from?.connectorId || "",
+          anchorId: connection.from?.anchorId || connection.fromAnchorId || ""
         },
         to: {
           deviceId: toCanvasId,
-          connectorId: connection.to?.connectorId || ""
+          connectorId: connection.to?.connectorId || "",
+          anchorId: connection.to?.anchorId || connection.toAnchorId || ""
         },
         routePoints: transformedRackRoutePointsForEngine(connection, rack, sourceRack, sourceMap, context),
         orthogonalRoutePoints: Array.isArray(connection.orthogonalRoutePoints)
@@ -1232,6 +1300,7 @@ function normalizeEndpoint(endpoint, end, wire, context) {
   if (endpoint.deviceId) {
     const deviceId = String(endpoint.deviceId);
     const connectorId = String(endpoint.connectorId || "");
+    const anchorId = String(endpoint.anchorId || (end === "from" ? wire.fromAnchorId : wire.toAnchorId) || "");
     if (context.surfaceIds.has(deviceId) || connectorId.startsWith("surface-port-")) {
       // Compatibility repair for early Engine builds that serialized LED
       // surfaces as fake device connector endpoints. From here onward the scene
@@ -1239,10 +1308,14 @@ function normalizeEndpoint(endpoint, end, wire, context) {
       return context.surfaceIds.has(deviceId) ? normalizeSurfaceEndpoint(deviceId, wire, context) : null;
     }
     const connectorIds = context.connectorIdsByDevice.get(deviceId);
+    const device = context.normalizedDeviceById?.get(deviceId) || null;
+    const connector = device?.connectorsById?.get(connectorId) || device?.connectors?.find(item => item.id === connectorId) || null;
+    const anchor = connector ? connectorAnchorById(connector, anchorId, device) : null;
     return {
       deviceId,
       connectorId,
-      side: end === "from" ? "right" : "left",
+      anchorId: anchor?.id || anchorId,
+      side: anchor?.side || (end === "from" ? "right" : "left"),
       usesRealConnector: Boolean(connectorId && connectorIds?.has(connectorId))
     };
   }

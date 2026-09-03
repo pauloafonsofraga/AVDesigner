@@ -845,16 +845,19 @@ function endpointToProject(scene, wire, end) {
   }
   const deviceId = end === "from" ? wire.fromDeviceId : wire.toDeviceId;
   const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
+  const anchorId = end === "from" ? wire.fromAnchorId : wire.toAnchorId;
   const device = scene.getDevice(deviceId);
   const sourceId = String(device?.sourceId || deviceId || "");
   if (device?.sourceKind === "jumpNode" || device?.kind === "jump") return { jumpNodeId: sourceId };
   // Compatibility fallback for older in-memory wires. New Engine LED surface
   // wires use fromSurfaceId/toSurfaceId and never persist fake surface ports.
   if (isLedSurfaceKind(device)) return { surfaceId: sourceId };
-  return {
+  const endpoint = {
     deviceId: sourceId,
     connectorId: connectorId || ""
   };
+  if (anchorId) endpoint.anchorId = String(anchorId);
+  return endpoint;
 }
 
 function endpointToProjectFromSceneData(sceneData, wire, end) {
@@ -865,14 +868,17 @@ function endpointToProjectFromSceneData(sceneData, wire, end) {
   }
   const deviceId = end === "from" ? wire.fromDeviceId : wire.toDeviceId;
   const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
+  const anchorId = end === "from" ? wire.fromAnchorId : wire.toAnchorId;
   const device = (sceneData.devices || []).find(item => String(item?.id || "") === String(deviceId || ""));
   const sourceId = String(device?.sourceId || deviceId || "");
   if (device?.sourceKind === "jumpNode" || device?.kind === "jump") return { jumpNodeId: sourceId };
   if (isLedSurfaceKind(device)) return { surfaceId: sourceId };
-  return {
+  const endpoint = {
     deviceId: sourceId,
     connectorId: connectorId || ""
   };
+  if (anchorId) endpoint.anchorId = String(anchorId);
+  return endpoint;
 }
 
 function indexedObjectMap(items = []) {
