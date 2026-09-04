@@ -2436,7 +2436,7 @@
     .device-editor {
       min-height: 0;
       display: grid;
-      grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr);
       gap: 0;
     }
 
@@ -2446,7 +2446,7 @@
       grid-template-rows: auto auto minmax(0, 1fr);
       gap: 10px;
       padding: 16px;
-      border-right: 1px solid var(--panel-border);
+      border-left: 1px solid var(--panel-border);
       color: var(--muted);
       font-size: 13px;
       line-height: 1.45;
@@ -2456,6 +2456,7 @@
     .connector-inspector-sidebar {
       grid-template-rows: auto auto minmax(0, 1fr) auto auto;
       padding: 14px 12px;
+      order: 1;
     }
 
     .connector-inspector-target {
@@ -3230,12 +3231,12 @@
     .editor-workspace {
       min-height: 0;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(255px, 300px);
+      grid-template-columns: minmax(235px, 280px) minmax(0, 1fr) minmax(260px, 300px);
       gap: 10px;
     }
 
     .editor-workspace.node-library-hidden {
-      grid-template-columns: minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
     }
 
     .device-tech-specs-panel {
@@ -3300,6 +3301,7 @@
       border-radius: 8px;
       background: rgba(50, 182, 255, .04);
       overflow: hidden;
+      order: -1;
     }
 
     .editor-node-library.hidden {
@@ -3566,13 +3568,12 @@
 
       .device-editor {
         grid-template-columns: 1fr;
-        grid-template-rows: auto minmax(0, 1fr);
       }
 
       .device-editor-browser {
         max-height: 190px;
-        border-right: 0;
-        border-bottom: 1px solid var(--panel-border);
+        border-left: 0;
+        border-top: 1px solid var(--panel-border);
       }
 
       .device-editor-main {
@@ -3584,6 +3585,11 @@
       }
 
       .editor-workspace {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(180px, 24%) minmax(320px, 1fr) minmax(180px, 28%);
+      }
+
+      .editor-workspace.node-library-hidden {
         grid-template-columns: 1fr;
         grid-template-rows: minmax(320px, 1fr) minmax(180px, 32%);
       }
@@ -4486,16 +4492,6 @@
         <button class="tool-button" id="closeDeviceEditor" type="button">Close</button>
       </div>
       <div class="device-editor">
-        <aside class="device-editor-browser connector-inspector-sidebar">
-          <div class="panel-title" id="editorDeviceBrowserTitle">Connector Inspector</div>
-          <div class="connector-inspector-target" id="editorTargetSummary"></div>
-          <div class="connector-inspector-panel" id="connectorInspectorPanel">
-            <div class="selected-connector-settings" id="selectedConnectorSettings"></div>
-            <div id="connectorRelationshipsPanel"></div>
-          </div>
-          <input id="editorDeviceSearch" class="hidden" type="search" tabindex="-1" aria-hidden="true">
-          <div class="editor-device-list hidden" id="editorDeviceList" aria-hidden="true"></div>
-        </aside>
         <div class="device-editor-main">
           <div class="editor-tabs" id="editorTabs" aria-label="Device editor sections">
             <button class="editor-tab active" data-editor-tab="device" type="button">Device</button>
@@ -4730,6 +4726,16 @@
               </div>
               <div class="node-palette" id="nodePalette"></div>
             </aside>
+            <aside class="device-editor-browser connector-inspector-sidebar">
+              <div class="panel-title" id="editorDeviceBrowserTitle">Connector Inspector</div>
+              <div class="connector-inspector-target" id="editorTargetSummary"></div>
+              <div class="connector-inspector-panel" id="connectorInspectorPanel">
+                <div class="selected-connector-settings" id="selectedConnectorSettings"></div>
+                <div id="connectorRelationshipsPanel"></div>
+              </div>
+              <input id="editorDeviceSearch" class="hidden" type="search" tabindex="-1" aria-hidden="true">
+              <div class="editor-device-list hidden" id="editorDeviceList" aria-hidden="true"></div>
+            </aside>
           </div>
           <div class="device-tech-specs-panel" id="editorDeviceTechSpecsPanel">
             <div class="field">
@@ -4950,9 +4956,9 @@
   </div>
 
   <script>
-    const APP_ITERATION = "52.1";
-    const APP_BUILD_ID = "iteration52-1-device-editor-connector-ux";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Device Editor Connector UX`;
+    const APP_ITERATION = "52.2";
+    const APP_BUILD_ID = "iteration52-2-connector-relationship-layout";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Connector Relationship Layout`;
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "2edc063+";
     const CANVAS_MIN_ZOOM = 0.03;
@@ -81735,6 +81741,89 @@
       return name && name !== type ? `${name} / ${type}` : type;
     }
 
+    function editorSharedRelationshipMembers(template, relationship) {
+      return uniqueEditorRelationshipMembers(relationship?.members || [])
+        .map(connectorId => editorConnectorById(template, connectorId))
+        .filter(connector => connector && !connector.empty && connector.type);
+    }
+
+    function editorActiveSharedBusRelationships(template) {
+      return (template?.connectorRelationships || [])
+        .filter(relationship => relationship.type === "exclusive")
+        .map(relationship => ({ relationship, members: editorSharedRelationshipMembers(template, relationship) }))
+        .filter(entry => entry.members.length >= 2);
+    }
+
+    function editorSharedRelationshipMap(template) {
+      const map = new Map();
+      editorActiveSharedBusRelationships(template).forEach(({ relationship, members }) => {
+        members.forEach(connector => map.set(connector.id, relationship));
+      });
+      return map;
+    }
+
+    function editorSharedRelationshipForConnector(template, connectorId) {
+      return editorSharedRelationshipMap(template).get(connectorId) || null;
+    }
+
+    function editorSharedRelationshipDisplayLabel(template, relationship) {
+      const labels = [];
+      editorSharedRelationshipMembers(template, relationship).forEach(connector => {
+        const label = connectorTypeLabel(connector) || connector.type || "Connector";
+        if (label && !labels.includes(label)) labels.push(label);
+      });
+      return labels.join(" / ") || relationship?.label || "Shared bus";
+    }
+
+    function applyEditorSharedRelationshipDisplayPositions(template, positions = new Map()) {
+      const result = new Map(positions);
+      if (!template || isAdapterTemplate(template)) return result;
+      const draggingIds = new Set(editorDragConnectorIds(template));
+      const startY = connectorStartYForTemplate(template);
+      const maxY = Math.max(startY, (Number(template.height) || deviceHeightForSlotCounts(template)) - DEVICE_BOTTOM_PAD);
+      const compactGap = 24;
+      editorActiveSharedBusRelationships(template).forEach(({ relationship, members }) => {
+        if (members.some(connector => draggingIds.has(connector.id))) return;
+        const primarySides = members.map(connector => editorPrimaryAnchorSide(connector));
+        const leftCount = primarySides.filter(side => side !== "right").length;
+        const dominantSide = leftCount >= members.length / 2 ? "left" : "right";
+        if (!primarySides.every(side => side === dominantSide)) return;
+        const ordered = [...members].sort((a, b) => {
+          const rawAy = result.get(a.id) ?? Number(a.y);
+          const rawBy = result.get(b.id) ?? Number(b.y);
+          const ay = Number.isFinite(Number(rawAy)) ? Number(rawAy) : startY;
+          const by = Number.isFinite(Number(rawBy)) ? Number(rawBy) : startY;
+          return ay - by;
+        });
+        const sourceYs = ordered.map(connector => {
+          const rawY = result.get(connector.id) ?? Number(connector.y);
+          return Number.isFinite(Number(rawY)) ? Number(rawY) : startY;
+        });
+        const averageY = sourceYs.reduce((total, y) => total + y, 0) / sourceYs.length;
+        const groupHeight = (ordered.length - 1) * compactGap;
+        const firstY = clamp(averageY - groupHeight / 2, startY, Math.max(startY, maxY - groupHeight));
+        ordered.forEach((connector, index) => {
+          result.set(connector.id, firstY + index * compactGap);
+        });
+      });
+      return result;
+    }
+
+    function propagateEditorSharedRelationshipField(template, connector, field, options = {}) {
+      if (!template || !connector || !field) return;
+      const relationship = editorSharedRelationshipForConnector(template, connector.id);
+      if (!relationship) return;
+      const key = options.editingCaption ? options.captionKey : field;
+      if (!key) return;
+      const value = connector[key] || "";
+      editorSharedRelationshipMembers(template, relationship).forEach(member => {
+        if (member.id === connector.id) return;
+        member[key] = value;
+        if (key === "nameText") member.nameCustom = true;
+        syncPairedNetworkPairFields(template, member);
+      });
+    }
+
     function normalizeEditorRelationshipType(value = "") {
       const raw = String(value || "").trim().toLowerCase();
       if (raw === "exclusive-shared-bus" || raw === "shared-bus" || raw === "exclusive-shared") return "exclusive";
@@ -87233,19 +87322,19 @@
 
     function editorPreviewPositions(template) {
       const map = new Map();
-      if (!editorNodeDrag) return map;
+      if (!editorNodeDrag) return applyEditorSharedRelationshipDisplayPositions(template, map);
       const draggedIds = editorDragConnectorIds(template);
-      if (!draggedIds.length) return map;
+      if (!draggedIds.length) return applyEditorSharedRelationshipDisplayPositions(template, map);
       const selected = new Set(draggedIds);
       const dragged = template.connectors.find(connector => connector.id === editorNodeDrag.connectorId);
-      if (!dragged) return map;
+      if (!dragged) return applyEditorSharedRelationshipDisplayPositions(template, map);
       if (draggedIds.length === 1 && isAdapterCenterDropTarget(template, dragged, editorNodeDrag.currentY)) {
         map.set(dragged.id, adapterCenterY(template));
-        return map;
+        return applyEditorSharedRelationshipDisplayPositions(template, map);
       }
       if (draggedIds.length === 1 && isFaceplateSideDropTarget(template, editorNodeDrag.currentY)) {
         map.set(dragged.id, faceplateSideConnectorY(template));
-        return map;
+        return applyEditorSharedRelationshipDisplayPositions(template, map);
       }
       const startY = connectorStartYForTemplate(template);
       const deltaY = Number(editorNodeDrag.deltaY) || 0;
@@ -87273,7 +87362,7 @@
           map.set(connector.id, editorDragStartY(connector) + deltaY);
         });
       });
-      return map;
+      return applyEditorSharedRelationshipDisplayPositions(template, map);
     }
 
     function commitEditorNodeDrag(template) {
@@ -88426,9 +88515,10 @@
         bottom: marqueeRect.bottom + 2
       };
       const nextIds = options.baseIds ? new Set(options.baseIds) : new Set();
+      const previewPositions = editorPreviewPositions(template);
       template.connectors.forEach(connector => {
         const x = Number(connector.x) || 0;
-        const y = Number(connector.y) || 0;
+        const y = Number(previewPositions.get(connector.id) ?? connector.y) || 0;
         const radius = 13;
         const connectorRect = {
           left: x - radius,
@@ -88682,6 +88772,7 @@
       if (!isAdapterTemplate(template)) drawEditorCardSlotBands(deviceEditorPreview, template);
       if (isAdapterTemplate(template)) drawAdapterInternalWires(deviceEditorPreview, template);
       const previewPositions = editorPreviewPositions(template);
+      const sharedRelationshipMap = editorSharedRelationshipMap(template);
       drawEditorConnectorRelationships(deviceEditorPreview, template, previewPositions);
       drawEditorEthernetPairLines(deviceEditorPreview, template);
       drawEditorConnectorSnapGuide(deviceEditorPreview, template);
@@ -88691,6 +88782,7 @@
         const displayConnector = { ...connector, y: displayY };
         const isDragging = editorNodeDragIncludes(connector);
         const isSelected = editorSelectedNodeIds.has(connector.id) || editorSelectedNodeIndex === index;
+        const groupedSharedBus = sharedRelationshipMap.has(connector.id) && !connector.empty && !isAdapterTemplate(template);
         const anchors = isEditorV2ConnectorCandidate(displayConnector)
           ? editorConnectorAnchors(displayConnector, width)
           : [editorPrimaryAnchor(displayConnector, width)];
@@ -88726,19 +88818,21 @@
           } else {
             drawEditorConnectorNode(g, anchorConnector, anchorConnector.x, anchorConnector.y);
           }
-          const label = createSvg("text", {
-            x: anchorConnector.direction === "input" ? anchorConnector.x + 22 : anchorConnector.x - 22,
-            y: anchorConnector.y + 22,
-            fill: state.darkMode ? "#edf2f7" : "#1f2a36",
-            "font-size": 8.5,
-            "text-anchor": "middle",
-            "paint-order": "stroke",
-            stroke: "rgba(0,0,0,.75)",
-            "stroke-width": 3
-          });
-          label.textContent = connector.empty ? "Drop node" : connectorTypeLabel(connector);
-          g.appendChild(label);
-          if (!connector.empty && !isAdapterTemplate(template)) {
+          if (!groupedSharedBus) {
+            const label = createSvg("text", {
+              x: anchorConnector.direction === "input" ? anchorConnector.x + 22 : anchorConnector.x - 22,
+              y: anchorConnector.y + 22,
+              fill: state.darkMode ? "#edf2f7" : "#1f2a36",
+              "font-size": 8.5,
+              "text-anchor": "middle",
+              "paint-order": "stroke",
+              stroke: "rgba(0,0,0,.75)",
+              "stroke-width": 3
+            });
+            label.textContent = connector.empty ? "Drop node" : connectorTypeLabel(connector);
+            g.appendChild(label);
+          }
+          if (!connector.empty && !isAdapterTemplate(template) && !groupedSharedBus) {
             const fields = connectorInfoFields(connector);
             addVisibleInfoBoxes(g, anchorConnector, fields, true);
             if (connector.type === "misc" && isPrimaryAnchor) {
@@ -88784,6 +88878,7 @@
           deviceEditorPreview.appendChild(g);
         });
       });
+      drawEditorSharedRelationshipFields(deviceEditorPreview, template, previewPositions);
       drawEditorNodeMarquee(deviceEditorPreview);
       generatedCardConnectors(template).forEach(connector => {
         const band = cardBandGeometry(template, template.cardSlots.find(slot => slot.id === connector.cardSlotId) || {});
@@ -89084,6 +89179,55 @@
         opacity: .82,
         "pointer-events": "none"
       }));
+    }
+
+    function drawEditorSharedRelationshipFields(parent, template, previewPositions = new Map()) {
+      if (!template || isAdapterTemplate(template)) return;
+      const width = deviceTemplateWidth(template);
+      editorActiveSharedBusRelationships(template).forEach(({ relationship, members }) => {
+        const points = members
+          .map(connector => firstEditorConnectorAnchorPoint(template, connector, previewPositions))
+          .filter(Boolean);
+        if (points.length < 2) return;
+        const leftCount = points.filter(point => point.anchor.side !== "right").length;
+        const side = leftCount >= points.length / 2 ? "input" : "output";
+        const connectorX = side === "input" ? 0 : width;
+        const minY = Math.min(...points.map(point => point.y));
+        const maxY = Math.max(...points.map(point => point.y));
+        const centerY = (minY + maxY) / 2;
+        const representative = members[0];
+        const representativeIndex = template.connectors.indexOf(representative);
+        if (representativeIndex < 0) return;
+        const combinedLabel = editorSharedRelationshipDisplayLabel(template, relationship);
+        const labelWidth = Math.min(width * .28, Math.max(36, combinedLabel.length * 5.7));
+        const group = createSvg("g", {
+          class: "editor-shared-connector-fields",
+          "data-editor-node": representativeIndex,
+          "data-editor-shared-relationship-id": relationship.id
+        });
+        const label = createSvg("text", {
+          x: side === "input" ? connectorX + 18 : connectorX - 18,
+          y: centerY + 4,
+          fill: state.darkMode ? "#edf2f7" : "#1f2a36",
+          "font-size": 9.5,
+          "font-weight": 900,
+          "text-anchor": side === "input" ? "start" : "end",
+          "paint-order": "stroke",
+          stroke: "rgba(0,0,0,.82)",
+          "stroke-width": 3,
+          "pointer-events": "none"
+        });
+        label.textContent = combinedLabel;
+        group.appendChild(label);
+        const fieldAnchor = {
+          ...representative,
+          direction: side,
+          x: side === "input" ? connectorX + labelWidth + 14 : connectorX - labelWidth - 14,
+          y: centerY
+        };
+        addVisibleInfoBoxes(group, fieldAnchor, connectorInfoFields(representative), true);
+        parent.appendChild(group);
+      });
     }
 
     function drawEditorConnectorRelationships(parent, template, previewPositions = new Map()) {
@@ -89525,9 +89669,13 @@
       renderSelectedConnectorSettings();
       const point = getEditorPreviewPoint(event);
       const connectorIds = editorSelectedConnectorIds(template, { includePaired: true });
+      const displayPositions = editorPreviewPositions(template);
+      const primaryDisplayY = displayPositions.get(connector.id) ?? connector.y;
       const starts = new Map(connectorIds.map(id => {
         const item = template.connectors.find(candidate => candidate.id === id);
-        return item ? [id, { y: Number(item.y) || connectorStartYForTemplate(template) }] : null;
+        if (!item) return null;
+        const displayY = displayPositions.get(item.id) ?? item.y;
+        return [id, { y: Number(displayY) || connectorStartYForTemplate(template) }];
       }).filter(Boolean));
       editorNodeDrag = {
         pointerId: event.pointerId,
@@ -89536,8 +89684,8 @@
         connectorIds,
         starts,
         side: connectorSideKey(connector),
-        offsetY: point.y - connector.y,
-        currentY: connector.y,
+        offsetY: point.y - primaryDisplayY,
+        currentY: primaryDisplayY,
         deltaY: 0,
         moved: false
       };
@@ -90081,9 +90229,11 @@
         const editorNode = parent.getAttribute("data-editor-node");
         const cardSlotId = parent.getAttribute("data-editor-card-slot-id");
         const cardConnectorId = parent.getAttribute("data-editor-card-connector-id");
+        const sharedRelationshipId = parent.getAttribute("data-editor-shared-relationship-id");
         if (editorNode !== null) box.setAttribute("data-editor-node", editorNode);
         if (cardSlotId) box.setAttribute("data-editor-card-slot-id", cardSlotId);
         if (cardConnectorId) box.setAttribute("data-editor-card-connector-id", cardConnectorId);
+        if (sharedRelationshipId) box.setAttribute("data-editor-shared-relationship-id", sharedRelationshipId);
         box.setAttribute("style", "cursor:text");
       }
       const rect = createSvg("rect", {
@@ -90454,7 +90604,10 @@
               if (field === "nameText") connector.nameCustom = true;
             }
             const template = currentEditorTemplate();
-            if (template) syncPairedNetworkPairFields(template, connector);
+            if (template) {
+              syncPairedNetworkPairFields(template, connector);
+              propagateEditorSharedRelationshipField(template, connector, field, { editingCaption, captionKey });
+            }
           }
         }
         foreign.remove();
