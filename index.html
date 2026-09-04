@@ -4956,9 +4956,9 @@
   </div>
 
   <script>
-    const APP_ITERATION = "52.3";
-    const APP_BUILD_ID = "iteration52-3-connector-relationship-visuals";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Connector Relationship Visuals`;
+    const APP_ITERATION = "52.4";
+    const APP_BUILD_ID = "iteration52-4-connector-relationship-arrows";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Connector Relationship Arrows`;
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "2edc063+";
     const CANVAS_MIN_ZOOM = 0.03;
@@ -4990,6 +4990,11 @@
     const CONNECTOR_START_Y = FACE_TOP_Y + FACE_HEIGHT + 36;
     const SLOT_HEIGHT = 54;
     const DEVICE_BOTTOM_PAD = 22;
+    const EDITOR_SHARED_BUS_MAX_MEMBERS = 4;
+    const EDITOR_INFO_BOX_WIDTH = 44;
+    const EDITOR_INFO_BOX_HEIGHT = 15.5;
+    const EDITOR_INFO_BOX_STEP = 48;
+    const EDITOR_INFO_BOX_SIDE_OFFSET = 18;
     const INFO_BOX_COMPACT_SCALE = 1.18;
     const INFO_BOX_MAGNIFY_ZOOM = 1.18;
     const INFO_BOX_HIDE_ZOOM = 0.2;
@@ -81751,7 +81756,7 @@
       return (template?.connectorRelationships || [])
         .filter(relationship => relationship.type === "exclusive")
         .map(relationship => ({ relationship, members: editorSharedRelationshipMembers(template, relationship) }))
-        .filter(entry => entry.members.length >= 2);
+        .filter(entry => entry.members.length >= 2 && entry.members.length <= EDITOR_SHARED_BUS_MAX_MEMBERS);
     }
 
     function editorSharedRelationshipMap(template) {
@@ -81776,9 +81781,8 @@
     }
 
     function editorSharedRelationshipVisualSpan(memberCount) {
-      const count = Math.max(2, Number(memberCount) || 2);
-      const normalIntervals = Math.max(1, Math.ceil((count - 1) / 2));
-      return normalIntervals * SLOT_HEIGHT;
+      const count = Math.max(2, Math.min(EDITOR_SHARED_BUS_MAX_MEMBERS, Number(memberCount) || 2));
+      return count > 1 ? SLOT_HEIGHT : 0;
     }
 
     function applyEditorSharedRelationshipDisplayPositions(template, positions = new Map()) {
@@ -86088,6 +86092,7 @@
     function upsertExclusiveRelationshipForSelection(template, ids = [], label = "") {
       const members = uniqueEditorRelationshipMembers(ids);
       if (members.length < 2) return null;
+      if (members.length > EDITOR_SHARED_BUS_MAX_MEMBERS) return null;
       const exact = findExactEditorRelationship(template, "exclusive", members);
       if (exact) {
         if (label) exact.label = label;
@@ -86183,6 +86188,10 @@
       const members = selectedIds.length >= 2
         ? selectedIds
         : connectors.filter(connector => !connector.empty && connector.type).slice(0, 2).map(connector => connector.id);
+      if (type === "exclusive" && members.length > EDITOR_SHARED_BUS_MAX_MEMBERS) {
+        renderConnectorRelationshipsPanel();
+        return;
+      }
       if (type === "exclusive") upsertExclusiveRelationshipForSelection(template, members);
       if (type === "through") upsertThroughRelationshipForSelection(template, members);
       commitConnectorRelationshipChanges(template);
@@ -86233,8 +86242,12 @@
       const exactExclusive = findExactEditorRelationship(template, "exclusive", selectedIds);
       const partialExclusive = findPartialEditorExclusiveRelationships(template, selectedIds);
       const exactThrough = selectedIds.length === 2 ? findExactEditorRelationship(template, "through", selectedIds) : null;
-      const sharedDisabled = selectedIds.length < 2 || (!exactExclusive && partialExclusive.length > 0);
+      const sharedTooLarge = selectedIds.length > EDITOR_SHARED_BUS_MAX_MEMBERS;
+      const sharedDisabled = selectedIds.length < 2 || sharedTooLarge || (!exactExclusive && partialExclusive.length > 0);
       const throughDisabled = selectedIds.length !== 2;
+      const sharedStatus = sharedTooLarge
+        ? `Shared Bus supports up to ${EDITOR_SHARED_BUS_MAX_MEMBERS} connectors for now.`
+        : `Available for two to ${EDITOR_SHARED_BUS_MAX_MEMBERS} active connectors. It creates one exclusive shared-bus group.`;
       const partialMessage = partialExclusive.length
         ? `<div class="relationship-status error-message">Some selected connectors already belong to ${escapeHtml(partialExclusive.map(relationship => relationship.label || "Shared bus").join(", "))}. Select the exact group to edit it.</div>`
         : "";
@@ -86261,7 +86274,7 @@
               <span>${exactExclusive ? "On" : "Off"}</span>
             </label>
           </div>
-          <div class="relationship-status">Available for two or more active connectors. It creates one exclusive shared-bus group.</div>
+          <div class="relationship-status">${escapeHtml(sharedStatus)}</div>
           ${partialMessage}
           ${busName}
           <div class="relationship-toggle-row">
@@ -89159,8 +89172,51 @@
         || null;
     }
 
-    function drawEditorRelationshipArrow(parent, from, to, color = "#32b6ff") {
-      if (!from || !to) return;
+    function editorRelationshipFieldBounds(point) {
+      if (!point?.connector || point.connector.empty || !point.connector.type) return null;
+      const fields = connectorInfoFields(point.connector).filter(Boolean);
+      if (!fields.length) return null;
+      const side = point.anchor?.side === "right" ? "right" : "left";
+      const count = fields.length;
+      const top = point.y - EDITOR_INFO_BOX_HEIGHT / 2;
+      const bottom = point.y + EDITOR_INFO_BOX_HEIGHT / 2;
+      if (side === "right") {
+        return {
+          left: point.x - EDITOR_INFO_BOX_SIDE_OFFSET - EDITOR_INFO_BOX_WIDTH - (count - 1) * EDITOR_INFO_BOX_STEP,
+          right: point.x - EDITOR_INFO_BOX_SIDE_OFFSET,
+          top,
+          bottom
+        };
+      }
+      return {
+        left: point.x + EDITOR_INFO_BOX_SIDE_OFFSET,
+        right: point.x + EDITOR_INFO_BOX_SIDE_OFFSET + EDITOR_INFO_BOX_WIDTH + (count - 1) * EDITOR_INFO_BOX_STEP,
+        top,
+        bottom
+      };
+    }
+
+    function editorRelationshipArrowEndpoint(point, other, isStart) {
+      const bounds = editorRelationshipFieldBounds(point);
+      const otherX = Number(other?.x);
+      const towardRight = Number.isFinite(otherX) ? otherX >= point.x : true;
+      if (bounds) {
+        // Through/Loop arrows live in the open channel between editable field
+        // groups, so the arrow does not visually run through user input boxes.
+        const gap = isStart ? 5 : 8;
+        return {
+          x: towardRight ? bounds.right + gap : bounds.left - gap,
+          y: point.y
+        };
+      }
+      const inset = isStart ? 12 : 18;
+      return {
+        x: point.x + (towardRight ? inset : -inset),
+        y: point.y
+      };
+    }
+
+    function fallbackEditorRelationshipArrowEndpoints(from, to) {
       const dx = to.x - from.x;
       const dy = to.y - from.y;
       const distance = Math.hypot(dx, dy);
@@ -89169,33 +89225,58 @@
       const startInset = 12;
       const endInset = 18;
       const canInset = distance > startInset + endInset + 8;
-      const start = canInset
-        ? { x: from.x + unitX * startInset, y: from.y + unitY * startInset }
-        : from;
-      const end = canInset
-        ? { x: to.x - unitX * endInset, y: to.y - unitY * endInset }
-        : to;
+      return {
+        start: canInset
+          ? { x: from.x + unitX * startInset, y: from.y + unitY * startInset }
+          : { x: from.x, y: from.y },
+        end: canInset
+          ? { x: to.x - unitX * endInset, y: to.y - unitY * endInset }
+          : { x: to.x, y: to.y }
+      };
+    }
+
+    function drawEditorRelationshipArrow(parent, from, to, color = "#32b6ff") {
+      if (!from || !to) return;
+      const fallback = fallbackEditorRelationshipArrowEndpoints(from, to);
+      let start = editorRelationshipArrowEndpoint(from, to, true);
+      let end = editorRelationshipArrowEndpoint(to, from, false);
+      const adjustedDx = end.x - start.x;
+      const adjustedDy = end.y - start.y;
+      const sourceDx = to.x - from.x;
+      const mostlyHorizontal = Math.abs(sourceDx) >= Math.abs(to.y - from.y);
+      const reversedHorizontal = mostlyHorizontal && Math.sign(adjustedDx || sourceDx) !== Math.sign(sourceDx || adjustedDx);
+      if (Math.hypot(adjustedDx, adjustedDy) < 14 || reversedHorizontal) {
+        start = fallback.start;
+        end = fallback.end;
+      }
       parent.appendChild(createSvg("line", {
         x1: start.x,
         y1: start.y,
         x2: end.x,
         y2: end.y,
         stroke: color,
-        "stroke-width": 2.2,
+        "stroke-width": 2.4,
         "stroke-linecap": "round",
         opacity: .82,
         "pointer-events": "none"
       }));
       const angle = Math.atan2(end.y - start.y, end.x - start.x);
       const size = 8.5;
-      const arrow = [
-        [end.x, end.y],
-        [end.x - Math.cos(angle - Math.PI / 6) * size, end.y - Math.sin(angle - Math.PI / 6) * size],
-        [end.x - Math.cos(angle + Math.PI / 6) * size, end.y - Math.sin(angle + Math.PI / 6) * size]
-      ].map(point => point.join(",")).join(" ");
-      parent.appendChild(createSvg("polygon", {
-        points: arrow,
-        fill: color,
+      const left = {
+        x: end.x - Math.cos(angle - Math.PI / 6) * size,
+        y: end.y - Math.sin(angle - Math.PI / 6) * size
+      };
+      const right = {
+        x: end.x - Math.cos(angle + Math.PI / 6) * size,
+        y: end.y - Math.sin(angle + Math.PI / 6) * size
+      };
+      parent.appendChild(createSvg("path", {
+        d: `M ${left.x} ${left.y} L ${end.x} ${end.y} L ${right.x} ${right.y}`,
+        fill: "none",
+        stroke: color,
+        "stroke-width": 2.4,
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
         opacity: .82,
         "pointer-events": "none"
       }));
@@ -89219,9 +89300,8 @@
         const representativeIndex = template.connectors.indexOf(representative);
         if (representativeIndex < 0) return;
         const combinedLabel = editorSharedRelationshipDisplayLabel(template, relationship);
-        const labelWidth = Math.min(width * .35, Math.max(42, combinedLabel.length * 6));
         const labelOffset = 24;
-        const fieldOffset = labelOffset + labelWidth + 28;
+        const fieldOffset = 40;
         const group = createSvg("g", {
           class: "editor-shared-connector-fields",
           "data-editor-node": representativeIndex,
@@ -89229,14 +89309,14 @@
         });
         const label = createSvg("text", {
           x: side === "input" ? connectorX + labelOffset : connectorX - labelOffset,
-          y: centerY + 10,
+          y: centerY + 34,
           fill: state.darkMode ? "#edf2f7" : "#1f2a36",
-          "font-size": 9.5,
+          "font-size": 12,
           "font-weight": 900,
           "text-anchor": side === "input" ? "start" : "end",
           "paint-order": "stroke",
           stroke: "rgba(0,0,0,.82)",
-          "stroke-width": 3,
+          "stroke-width": 4,
           "pointer-events": "none"
         });
         label.textContent = combinedLabel;
@@ -90235,10 +90315,10 @@
       const zoom = Math.max(Number(canvasView?.zoom) || 1, 0.01);
       const canMagnify = !editable && zoom <= INFO_BOX_MAGNIFY_ZOOM && zoom > INFO_BOX_HIDE_ZOOM;
       const boxScale = compact ? INFO_BOX_COMPACT_SCALE : scale;
-      const width = 44 * boxScale;
-      const height = 15.5 * boxScale;
-      const slotStep = 48 * boxScale;
-      const sideOffset = 18 * boxScale;
+      const width = EDITOR_INFO_BOX_WIDTH * boxScale;
+      const height = EDITOR_INFO_BOX_HEIGHT * boxScale;
+      const slotStep = EDITOR_INFO_BOX_STEP * boxScale;
+      const sideOffset = EDITOR_INFO_BOX_SIDE_OFFSET * boxScale;
       const x = connector.direction === "input"
         ? connector.x + sideOffset + index * slotStep
         : connector.x - sideOffset - width - index * slotStep;
@@ -90319,10 +90399,10 @@
       fields
         .filter(field => field.text)
         .forEach((field, index) => {
-          const width = 44 * scale;
-          const height = 15.5 * scale;
-          const slotStep = 48 * scale;
-          const sideOffset = 18 * scale;
+          const width = EDITOR_INFO_BOX_WIDTH * scale;
+          const height = EDITOR_INFO_BOX_HEIGHT * scale;
+          const slotStep = EDITOR_INFO_BOX_STEP * scale;
+          const sideOffset = EDITOR_INFO_BOX_SIDE_OFFSET * scale;
           const x = connector.direction === "input"
             ? connector.x + sideOffset + index * slotStep
             : connector.x - sideOffset - width - index * slotStep;
@@ -102978,6 +103058,10 @@ renderViewerOutputDebug();
         const type = toggle.dataset.relationshipToggle;
         if (type === "exclusive") {
           const exact = findExactEditorRelationship(template, "exclusive", selectedIds);
+          if (toggle.checked && selectedIds.length > EDITOR_SHARED_BUS_MAX_MEMBERS) {
+            renderConnectorRelationshipsPanel();
+            return;
+          }
           if (toggle.checked && !exact) upsertExclusiveRelationshipForSelection(template, selectedIds);
           if (!toggle.checked && exact) removeEditorRelationship(template, exact.id);
           commitConnectorRelationshipChanges(template);
