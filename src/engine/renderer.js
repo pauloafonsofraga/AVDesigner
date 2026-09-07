@@ -11,7 +11,17 @@ import {
   adapterInternalWirePairs
 } from "./adapterMapping.js";
 import { isCanvasObjectKind, isLedSurfaceKind } from "./canvasObjectKinds.js";
-import { engineConnectorInfoFields } from "./connectorCompatibility.js";
+import {
+  engineConnectorInfoFields,
+  engineConnectorTypeDisplayName
+} from "./connectorCompatibility.js";
+import {
+  SHARED_BUS_LABEL_OFFSET,
+  SHARED_BUS_LABEL_Y_OFFSET,
+  SHARED_BUS_NODE_LINE_INSET,
+  connectorDisplayAnchors,
+  createConnectorDisplayLayout
+} from "./connectorDisplayLayout.js";
 import {
   INFO_BOX_COMPACT_SCALE,
   INFO_BOX_MAGNIFIED_ZOOM,
@@ -32,7 +42,7 @@ import {
   normalizeConnectorRelationships
 } from "./deviceDefinitionV2.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-device-topology-v1";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-shared-bus-display-v2";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -1672,10 +1682,11 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
     const connector = device?.connectorsById.get(connectorId);
     if (device && connector) {
       if (isJumpConnectorHit({ device, connector })) return;
-      connectorVisualAnchors(connector, device).forEach(anchor => {
+      const displayLayout = connectorDisplayLayoutForRender(scene, device);
+      connectorDisplayAnchors(device, connector, displayLayout).forEach(anchor => {
         pushConnectorHighlight(
           vertices,
-          scene.connectorAnchorWorldPoint(device, connector, anchor.id),
+          scene.connectorAnchorWorldPoint(device, connector, anchor.id, displayLayout),
           connectorVisualRadius(device, overlayOptions.camera) + 5,
           "#ff7904",
           "selected"
@@ -1767,8 +1778,9 @@ function pushVisibleConnectorRelationshipVisuals(vertices, scene, camera, resolu
     const offset = offsets?.get(device.id);
     const baseX = device.x + (offset?.dx || 0);
     const baseY = device.y + (offset?.dy || 0);
-    count += pushConnectorMultiAnchorRelationships(vertices, scene, device, baseX, baseY);
-    count += pushExplicitConnectorRelationships(vertices, scene, device, baseX, baseY);
+    const displayLayout = connectorDisplayLayoutForRender(scene, device);
+    count += pushConnectorMultiAnchorRelationships(vertices, scene, device, baseX, baseY, displayLayout);
+    count += pushExplicitConnectorRelationships(vertices, scene, device, baseX, baseY, displayLayout);
     drawn.add(device.id);
     renderer?.recordObjectLayer?.(layerTrace, device.id, "connectorRelationshipLayer", reason);
   };
@@ -1780,10 +1792,10 @@ function pushVisibleConnectorRelationshipVisuals(vertices, scene, camera, resolu
   return count;
 }
 
-function pushConnectorMultiAnchorRelationships(vertices, scene, device, baseX, baseY) {
+function pushConnectorMultiAnchorRelationships(vertices, scene, device, baseX, baseY, displayLayout = null) {
   let count = 0;
   deviceConnectorsForRender(device).forEach(connector => {
-    const anchors = connectorVisualAnchors(connector, device);
+    const anchors = connectorDisplayAnchors(device, connector, displayLayout);
     if (anchors.length < 2) return;
     const state = connectorRelationshipState(device, connector.id, scene);
     const opacity = state.occupied ? 0.10 : 0.18;
@@ -1804,7 +1816,7 @@ function pushConnectorMultiAnchorRelationships(vertices, scene, device, baseX, b
   return count;
 }
 
-function pushExplicitConnectorRelationships(vertices, scene, device, baseX, baseY) {
+function pushExplicitConnectorRelationships(vertices, scene, device, baseX, baseY, displayLayout = null) {
   const relationships = normalizeConnectorRelationships(
     device.connectorRelationships || device.connectorTopology?.relationships,
     device.connectors || []
@@ -1813,47 +1825,114 @@ function pushExplicitConnectorRelationships(vertices, scene, device, baseX, base
   let count = 0;
   relationships.forEach(relationship => {
     if (relationship.type === "exclusive") {
-      count += pushExclusiveConnectorRail(vertices, scene, device, relationship, baseX, baseY);
+      const sharedLayout = displayLayout?.groups?.find(group => group.relationshipId === relationship.id);
+      if (sharedLayout) count += pushSharedBusConnectorLines(vertices, sharedLayout, baseX, baseY);
     } else if (relationship.type === "through") {
-      count += pushThroughConnectorArrow(vertices, device, relationship, baseX, baseY);
+      count += pushThroughConnectorArrow(vertices, device, relationship, baseX, baseY, displayLayout);
     }
   });
   return count;
 }
 
-function pushExclusiveConnectorRail(vertices, scene, device, relationship, baseX, baseY) {
-  const points = relationship.members
-    .map(connectorId => device.connectorsById?.get(connectorId) || device.connectors?.find(connector => connector.id === connectorId))
-    .filter(Boolean)
-    .map(connector => ({
-      connector,
-      point: connectorAnchorRenderPoint(baseX, baseY, connector, primaryAnchorForRender(connector, device), device)
-    }))
-    .sort((a, b) => a.point.y - b.point.y);
-  if (points.length < 2) return 0;
-  const leftSide = points.reduce((total, entry) => total + entry.point.x, 0) / points.length < baseX + (device.width || 0) / 2;
-  const railX = leftSide
-    ? Math.min(...points.map(entry => entry.point.x)) - 16
-    : Math.max(...points.map(entry => entry.point.x)) + 16;
-  const state = connectorRelationshipState(device, points[0].connector.id, scene);
-  const color = state.activeExclusiveMemberId ? "rgba(50,182,255,.22)" : "rgba(50,182,255,.28)";
-  const width = 1.7;
-  pushLine(vertices, { x: railX, y: points[0].point.y }, { x: railX, y: points[points.length - 1].point.y }, width, color);
-  points.forEach(entry => {
-    pushLine(vertices, { x: railX, y: entry.point.y }, entry.point, width, color);
+function pushSharedBusConnectorLines(vertices, layout, baseX, baseY) {
+  if (!layout?.points?.length) return 0;
+  const nodeInset = layout.side === "input" ? SHARED_BUS_NODE_LINE_INSET : -SHARED_BUS_NODE_LINE_INSET;
+  const junction = {
+    x: baseX + layout.fieldJunctionX,
+    y: baseY + layout.centerY
+  };
+  layout.points.forEach(point => {
+    pushLine(
+      vertices,
+      {
+        x: baseX + point.x + nodeInset,
+        y: baseY + point.y
+      },
+      junction,
+      2.1,
+      "rgba(50,182,255,.86)"
+    );
   });
-  return 1;
+  return layout.points.length;
 }
 
-function pushThroughConnectorArrow(vertices, device, relationship, baseX, baseY) {
+function pushThroughConnectorArrow(vertices, device, relationship, baseX, baseY, displayLayout = null) {
   const source = device.connectorsById?.get(relationship.sourceConnectorId);
   const target = device.connectorsById?.get(relationship.targetConnectorId);
   if (!source || !target || source.id === target.id) return 0;
-  const from = connectorAnchorRenderPoint(baseX, baseY, source, primaryAnchorForRender(source, device), device);
-  const to = connectorAnchorRenderPoint(baseX, baseY, target, primaryAnchorForRender(target, device), device);
-  pushLine(vertices, from, to, 1.6, "rgba(255,255,255,.26)");
-  pushSmallArrowHead(vertices, from, to, "rgba(255,255,255,.34)");
+  const from = connectorAnchorRenderPoint(baseX, baseY, source, primaryAnchorForRender(source, device, displayLayout), device);
+  const to = connectorAnchorRenderPoint(baseX, baseY, target, primaryAnchorForRender(target, device, displayLayout), device);
+  let start = connectorRelationshipArrowEndpoint(from, source, to, true);
+  let end = connectorRelationshipArrowEndpoint(to, target, from, false);
+  const fallback = fallbackConnectorRelationshipArrowEndpoints(from, to);
+  const adjustedDx = end.x - start.x;
+  const adjustedDy = end.y - start.y;
+  const sourceDx = to.x - from.x;
+  const mostlyHorizontal = Math.abs(sourceDx) >= Math.abs(to.y - from.y);
+  const reversedHorizontal = mostlyHorizontal && Math.sign(adjustedDx || sourceDx) !== Math.sign(sourceDx || adjustedDx);
+  if (Math.hypot(adjustedDx, adjustedDy) < 14 || reversedHorizontal) {
+    start = fallback.start;
+    end = fallback.end;
+  }
+  pushLine(vertices, start, end, 2.4, "rgba(50,182,255,.82)");
+  pushSmallArrowHead(vertices, start, end, "rgba(50,182,255,.82)");
   return 1;
+}
+
+function connectorRelationshipArrowEndpoint(point, connector, other, isStart) {
+  const bounds = connectorRelationshipFieldBounds(point, connector);
+  const towardRight = Number(other?.x) >= Number(point?.x);
+  if (bounds) {
+    const gap = isStart ? 5 : 8;
+    return {
+      x: towardRight ? bounds.x + bounds.width + gap : bounds.x - gap,
+      y: point.y
+    };
+  }
+  const inset = isStart ? 12 : 18;
+  return {
+    x: point.x + (towardRight ? inset : -inset),
+    y: point.y
+  };
+}
+
+function connectorRelationshipFieldBounds(point, connector) {
+  if (!point || !connector) return null;
+  const fields = engineConnectorInfoFields(connector);
+  if (!fields.length) return null;
+  const rects = fields.map((field, index) => connectorInfoBoxWorldRect(point, connector, index, 1));
+  return rects.reduce((bounds, rect) => {
+    if (!bounds) return { ...rect };
+    const x1 = Math.min(bounds.x, rect.x);
+    const y1 = Math.min(bounds.y, rect.y);
+    const x2 = Math.max(bounds.x + bounds.width, rect.x + rect.width);
+    const y2 = Math.max(bounds.y + bounds.height, rect.y + rect.height);
+    return {
+      x: x1,
+      y: y1,
+      width: x2 - x1,
+      height: y2 - y1
+    };
+  }, null);
+}
+
+function fallbackConnectorRelationshipArrowEndpoints(from, to) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const distance = Math.hypot(dx, dy);
+  const unitX = distance > 0 ? dx / distance : 0;
+  const unitY = distance > 0 ? dy / distance : 0;
+  const startInset = 12;
+  const endInset = 18;
+  const canInset = distance > startInset + endInset + 8;
+  return {
+    start: canInset
+      ? { x: from.x + unitX * startInset, y: from.y + unitY * startInset }
+      : { x: from.x, y: from.y },
+    end: canInset
+      ? { x: to.x - unitX * endInset, y: to.y - unitY * endInset }
+      : { x: to.x, y: to.y }
+  };
 }
 
 function pushSmallArrowHead(vertices, from, to, color) {
@@ -1894,8 +1973,9 @@ function pushVisibleConnectorNodes(vertices, scene, camera, resolution, renderOp
     const offset = offsets?.get(device.id);
     const baseX = device.x + (offset?.dx || 0);
     const baseY = device.y + (offset?.dy || 0);
+    const displayLayout = connectorDisplayLayoutForRender(scene, device);
     deviceConnectorsForRender(device).forEach(connector => {
-      connectorVisualAnchors(connector, device).forEach(anchor => {
+      connectorDisplayAnchors(device, connector, displayLayout).forEach(anchor => {
         const opacity = connectorAnchorRenderOpacity(scene, device, connector, anchor);
         const point = connectorAnchorRenderPoint(baseX, baseY, connector, anchor, device);
         pushConnectorNode(vertices, point, { ...connector, side: anchor.side, __renderOpacity: opacity }, device, renderOptions, camera);
@@ -1913,10 +1993,11 @@ function pushVisibleConnectorNodes(vertices, scene, camera, resolution, renderOp
   return count;
 }
 
-function primaryAnchorForRender(connector = {}, device = {}) {
-  return connectorVisualAnchors(connector, device)
+function primaryAnchorForRender(connector = {}, device = {}, displayLayout = null) {
+  const anchors = connectorDisplayAnchors(device, connector, displayLayout);
+  return anchors
     .find(anchor => anchor.id === connector.primaryAnchorId)
-    || connectorVisualAnchors(connector, device)[0]
+    || anchors[0]
     || { id: "", side: connector.side || "left", x: connectorRenderX(connector, device), y: connectorRenderY(connector, device) };
 }
 
@@ -2306,6 +2387,11 @@ function connectorVisualRadius(device = {}, camera = null) {
 
 function connectorVisualStrokeWidth(device = {}, camera = null) {
   return device?.kind === "jump" ? 2 : legacyConnectorStrokeWidth(camera?.zoom || 1);
+}
+
+function connectorDisplayLayoutForRender(scene, device) {
+  return scene?.connectorDisplayLayoutForDevice?.(device)
+    || createConnectorDisplayLayout(device, deviceConnectorsForRender(device));
 }
 
 function deviceConnectorsForRender(device = {}) {
@@ -2701,11 +2787,13 @@ function drawVisibleConnectorLabels(ctx, scene, camera, renderOptions = DEFAULT_
     const offset = offsets?.get(device.id);
     const baseX = device.x + (offset?.dx || 0);
     const baseY = device.y + (offset?.dy || 0);
+    const displayLayout = connectorDisplayLayoutForRender(scene, device);
     let count = 0;
     deviceConnectorsForRender(device).forEach(connector => {
+      if (displayLayout.byConnectorId.has(connector.id)) return;
       const text = connectorLabel(connector);
       if (!text) return;
-      connectorVisualAnchors(connector, device).forEach(anchor => {
+      connectorDisplayAnchors(device, connector, displayLayout).forEach(anchor => {
         const renderConnector = {
           ...connector,
           side: anchor.side,
@@ -2720,6 +2808,9 @@ function drawVisibleConnectorLabels(ctx, scene, camera, renderOptions = DEFAULT_
         }, renderConnector, text, camera);
         count += 1;
       });
+    });
+    displayLayout.groups.forEach(layout => {
+      if (drawSharedBusConnectorWorldLabel(ctx, layout, baseX, baseY, camera)) count += 1;
     });
     drawn.add(device.id);
     renderer?.recordObjectLayer?.(layerTrace, device.id, "connectorLabelLayer", reason);
@@ -2758,6 +2849,39 @@ function drawConnectorWorldLabel(ctx, point, connector = {}, text = "", camera) 
   ctx.restore();
 }
 
+function drawSharedBusConnectorWorldLabel(ctx, layout, baseX, baseY, camera) {
+  const text = sharedBusConnectorLabel(layout);
+  if (!text) return false;
+  const side = layout.side === "output" ? "right" : "left";
+  const worldX = baseX + layout.connectorX + (side === "right" ? -SHARED_BUS_LABEL_OFFSET : SHARED_BUS_LABEL_OFFSET);
+  const worldY = baseY + layout.centerY + SHARED_BUS_LABEL_Y_OFFSET;
+  const x = (worldX - camera.x) * camera.zoom;
+  const y = (worldY - camera.y) * camera.zoom;
+  const metrics = legacyConnectorLabelMetrics(camera.zoom);
+  const size = Math.max(9, metrics.screenFontSize);
+  ctx.save();
+  ctx.font = `900 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.textAlign = side === "right" ? "right" : "left";
+  ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "rgba(0,0,0,.84)";
+  ctx.lineWidth = Math.max(2.8, size * 0.34);
+  ctx.fillStyle = "#ffffff";
+  ctx.strokeText(text, x, y);
+  ctx.fillText(text, x, y);
+  ctx.restore();
+  return true;
+}
+
+function sharedBusConnectorLabel(layout) {
+  const labels = [];
+  (layout?.members || []).forEach(connector => {
+    const label = engineConnectorTypeDisplayName(connector, connector?.type || connector?.label || "Connector");
+    if (label && !labels.includes(label)) labels.push(label);
+  });
+  return labels.join(" / ") || String(layout?.relationship?.label || "Shared bus").trim();
+}
+
 function drawVisibleConnectorInfoBoxes(ctx, scene, camera, renderOptions = DEFAULT_RENDER_OPTIONS, dragSession = null, resolution = { width: 0, height: 0 }, interaction = {}, renderer = null) {
   const stats = { visible: 0, compact: 0, magnified: 0 };
   const mode = legacyConnectorInfoBoxMode(camera.zoom);
@@ -2783,11 +2907,13 @@ function drawVisibleConnectorInfoBoxes(ctx, scene, camera, renderOptions = DEFAU
     const offset = offsets?.get(device.id);
     const baseX = device.x + (offset?.dx || 0);
     const baseY = device.y + (offset?.dy || 0);
+    const displayLayout = connectorDisplayLayoutForRender(scene, device);
     deviceConnectorsForRender(device).forEach(connector => {
+      if (displayLayout.byConnectorId.has(connector.id)) return;
       const fields = engineConnectorInfoFields(connector)
         .filter(field => String(field?.value ?? field?.text ?? "").trim());
       if (!fields.length) return;
-      connectorVisualAnchors(connector, device).forEach(anchor => {
+      connectorDisplayAnchors(device, connector, displayLayout).forEach(anchor => {
         const renderConnector = {
           ...connector,
           side: anchor.side,
@@ -2813,6 +2939,38 @@ function drawVisibleConnectorInfoBoxes(ctx, scene, camera, renderOptions = DEFAU
             connector: renderConnector,
             index
           });
+        });
+      });
+    });
+    displayLayout.groups.forEach(layout => {
+      const representative = layout.representative;
+      if (!representative) return;
+      const renderConnector = {
+        ...representative,
+        direction: layout.side,
+        side: layout.side === "output" ? "right" : "left",
+        x: layout.fieldAnchorX,
+        y: layout.centerY,
+        __anchorId: `shared-bus-${layout.relationshipId || representative.id || "group"}`,
+        __sharedBusRelationshipId: layout.relationshipId || "",
+        __renderOpacity: 1
+      };
+      const point = {
+        x: baseX + layout.fieldAnchorX,
+        y: baseY + layout.centerY
+      };
+      engineConnectorInfoFields(representative).forEach((field, index) => {
+        entries.push({
+          key: connectorInfoBoxKey(device, renderConnector, field, index),
+          deviceId: device.id,
+          connectorId: representative.id,
+          anchorId: renderConnector.__anchorId,
+          field: field.field || `field-${index}`,
+          title: String(field.title || ""),
+          value: String(field.value ?? field.text ?? ""),
+          point,
+          connector: renderConnector,
+          index
         });
       });
     });

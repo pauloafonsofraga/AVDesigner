@@ -200,6 +200,20 @@ const CONNECTOR_LABELS = new Map([
   ["vga", "VGA"],
   ["cxp", "CXP"],
   ["rs-422", "RS-422"],
+  ["xlr-3pin", "XLR 3-pin"],
+  ["xlr-5pin", "XLR 5-pin"],
+  ["trs-ts", "TRS/TS"],
+  ["rca", "RCA"],
+  ["aes", "AES"],
+  ["midi", "MIDI"],
+  ["mini-din-6pin", "Mini-DIN 6-pin"],
+  ["ca-com", "CA-COM"],
+  ["domm", "DOMM"],
+  ["speakon-nl2", "speakON NL2"],
+  ["speakon-nl4", "speakON NL4"],
+  ["speakon-nl8", "speakON NL8"],
+  ["dmx-3pin", "DMX 3-pin"],
+  ["dmx-5pin", "DMX 5-pin"],
   ["misc", "Misc."],
   ["jump", "Jump Node"],
   ["iec", "IEC"],
@@ -533,6 +547,13 @@ export function engineConnectorDisplayLabel(connector, fallback = "") {
   if (labelled) return labelled;
   const activeType = effectiveConnectorTypeForEngine(connector) || connectorType(connector);
   return typeDisplayName(activeType) || fallback || "";
+}
+
+export function engineConnectorTypeDisplayName(connectorOrType, fallback = "") {
+  const type = typeof connectorOrType === "string"
+    ? String(connectorOrType || "").trim()
+    : effectiveConnectorTypeForEngine(connectorOrType) || connectorType(connectorOrType);
+  return typeDisplayName(type) || fallback || "";
 }
 
 export function engineConnectorLabelSource(connector) {

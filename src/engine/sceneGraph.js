@@ -33,8 +33,12 @@ import {
   normalizeMatrixRoutesForDevice
 } from "./matrixRouting.js";
 import {
+  connectorDisplayAnchorById,
+  connectorDisplayAnchors,
+  createConnectorDisplayLayout
+} from "./connectorDisplayLayout.js";
+import {
   DEVICE_DEFINITION_SCHEMA_VERSION,
-  connectorAnchorById,
   connectorAnchorIndexKey,
   connectorVisualAnchors,
   deviceDefinitionVersion,
@@ -73,6 +77,7 @@ export class SceneGraph {
     this.selectedWireIds = new Set();
     this.selectedConnectorKeys = new Set();
     this.selectedRoutePointKeys = new Set();
+    this.connectorDisplayLayoutByDeviceId = new Map();
   }
 
   setData({ devices = [], wires = [], racks = [], meta = {} }) {
@@ -80,6 +85,7 @@ export class SceneGraph {
     this.racks = racks.map(normalizeRack).filter(Boolean);
     this.meta = meta || {};
     this.devicesById = new Map(this.devices.map(device => [device.id, device]));
+    this.connectorDisplayLayoutByDeviceId.clear();
     this.wires = wires.map(normalizeWire).filter(wire => (
       this.devicesById.has(this.wireEndpointObjectId(wire, "from"))
       && this.devicesById.has(this.wireEndpointObjectId(wire, "to"))
@@ -379,6 +385,7 @@ export class SceneGraph {
         });
       });
     });
+    this.connectorDisplayLayoutByDeviceId.clear();
   }
 
   isRackSelected(rackId) {
@@ -542,8 +549,9 @@ export class SceneGraph {
     const targetConnector = this.getConnector(targetDeviceId, targetConnectorId);
     if (!wire || !targetDevice || !["from", "to"].includes(end)) return null;
     const endpointPrefix = end === "from" ? "from" : "to";
+    const targetLayout = targetDevice ? this.connectorDisplayLayoutForDevice(targetDevice) : null;
     const targetAnchor = targetConnector
-      ? connectorAnchorById(targetConnector, targetAnchorId || targetConnector.primaryAnchorId || "", targetDevice)
+      ? connectorDisplayAnchorById(targetDevice, targetConnector, targetAnchorId || targetConnector.primaryAnchorId || "", targetLayout)
       : null;
     const next = isLedSurfaceKind(targetDevice)
       ? {
@@ -676,19 +684,21 @@ export class SceneGraph {
   rebuildConnectorIndex() {
     const items = [];
     this.devices.forEach(device => {
+      const displayLayout = this.connectorDisplayLayoutForDevice(device);
       device.connectors.forEach(connector => {
         if (!this.isConnectorSelectableOnCanvas(device, connector)) return;
-        items.push(...this.connectorIndexEntries(device, connector));
+        items.push(...this.connectorIndexEntries(device, connector, displayLayout));
       });
     });
     this.connectorIndex.rebuild(items);
   }
 
-  connectorIndexEntries(device, connector) {
-    const anchors = connectorVisualAnchors(connector, device);
+  connectorIndexEntries(device, connector, displayLayout = null) {
+    const layout = displayLayout || this.connectorDisplayLayoutForDevice(device);
+    const anchors = connectorDisplayAnchors(device, connector, layout);
     const logicalKey = connectorKey(device.id, connector.id);
     return anchors.map(anchor => {
-      const point = this.connectorAnchorWorldPoint(device, connector, anchor.id);
+      const point = this.connectorAnchorWorldPoint(device, connector, anchor.id, layout);
       const id = connectorAnchorIndexKey(device.id, connector.id, anchor.id);
       return {
         id,
@@ -721,6 +731,28 @@ export class SceneGraph {
     this.connectorIndexEntries(device, connector).forEach(entry => {
       this.connectorIndex.insert(entry.id, entry.bounds, entry);
     });
+  }
+
+  refreshDeviceConnectorIndexEntries(device) {
+    if (!device) return;
+    this.connectorDisplayLayoutByDeviceId.delete(device.id);
+    const displayLayout = this.connectorDisplayLayoutForDevice(device);
+    device.connectors.forEach(connector => {
+      this.removeConnectorIndexEntries(device.id, connector.id);
+      if (!this.isConnectorSelectableOnCanvas(device, connector)) return;
+      this.connectorIndexEntries(device, connector, displayLayout).forEach(entry => {
+        this.connectorIndex.insert(entry.id, entry.bounds, entry);
+      });
+    });
+  }
+
+  connectorDisplayLayoutForDevice(device) {
+    if (!device?.id) return createConnectorDisplayLayout(device);
+    const cached = this.connectorDisplayLayoutByDeviceId.get(device.id);
+    if (cached?.device === device) return cached.layout;
+    const layout = createConnectorDisplayLayout(device, device.connectors);
+    this.connectorDisplayLayoutByDeviceId.set(device.id, { device, layout });
+    return layout;
   }
 
   rebuildWireSpatialIndex() {
@@ -763,10 +795,11 @@ export class SceneGraph {
       const device = this.getDevice(deviceId);
       if (!device) {
         this.spatialIndex.delete(deviceId);
+        this.connectorDisplayLayoutByDeviceId.delete(deviceId);
         return;
       }
       this.spatialIndex.update(deviceId, deviceBounds(device), { id: device.id, bounds: deviceBounds(device), device });
-      device.connectors.forEach(connector => this.upsertConnectorIndexEntries(device, connector));
+      this.refreshDeviceConnectorIndexEntries(device);
     });
     this.refreshWireIndexes(affectedWireIds);
     this.rebuildRackIndex();
@@ -1003,7 +1036,7 @@ export class SceneGraph {
     (device.connectors || []).forEach(connector => this.addConnectorOwner(device.id, connector.id));
     this.spatialIndex.insert(device.id, deviceBounds(device), { id: device.id, bounds: deviceBounds(device), device });
     this.rebuildRackIndex();
-    (device.connectors || []).forEach(connector => this.upsertConnectorIndexEntries(device, connector));
+    this.refreshDeviceConnectorIndexEntries(device);
     this.dirtyDevices.add(device.id);
     return device;
   }
@@ -1025,10 +1058,11 @@ export class SceneGraph {
     this.connectorKeysByOwnerId.delete(device.id);
     this.devices[index] = device;
     this.devicesById.set(device.id, device);
+    this.connectorDisplayLayoutByDeviceId.delete(device.id);
     (device.connectors || []).forEach(connector => this.addConnectorOwner(device.id, connector.id));
     this.spatialIndex.update(device.id, deviceBounds(device), { id: device.id, bounds: deviceBounds(device), device });
     this.rebuildRackIndex();
-    (device.connectors || []).forEach(connector => this.upsertConnectorIndexEntries(device, connector));
+    this.refreshDeviceConnectorIndexEntries(device);
     this.rebuildWireIndex();
     this.dirtyDevices.add(device.id);
     this.dirtyTextures.add(device.id);
@@ -1041,6 +1075,7 @@ export class SceneGraph {
     if (!device) return null;
     this.devices = this.devices.filter(item => item.id !== id);
     this.devicesById.delete(id);
+    this.connectorDisplayLayoutByDeviceId.delete(id);
     this.selectedIds.delete(id);
     this.spatialIndex.delete(id);
     (this.connectorKeysByOwnerId.get(id) || new Set()).forEach(key => {
@@ -1285,7 +1320,8 @@ export class SceneGraph {
     const device = this.getDevice(deviceId);
     const connector = this.getConnector(deviceId, connectorId);
     if (!device || !connector) return null;
-    const anchor = connectorAnchorById(connector, endpoint.anchorId || connector.primaryAnchorId || "", device);
+    const layout = this.connectorDisplayLayoutForDevice(device);
+    const anchor = connectorDisplayAnchorById(device, connector, endpoint.anchorId || connector.primaryAnchorId || "", layout);
     return {
       deviceId,
       surfaceId: "",
@@ -1358,12 +1394,7 @@ export class SceneGraph {
     Object.assign(connector, merged);
     device.connectorsById.set(connector.id, connector);
     this.applyRackConnectorVisibility();
-    if (!this.isConnectorSelectableOnCanvas(device, connector)) {
-      this.removeConnectorIndexEntries(device.id, connector.id);
-      this.dirtyDevices.add(device.id);
-      return connector;
-    }
-    this.upsertConnectorIndexEntries(device, connector);
+    this.refreshDeviceConnectorIndexEntries(device);
     this.dirtyDevices.add(device.id);
     return connector;
   }
@@ -1372,8 +1403,9 @@ export class SceneGraph {
     return this.connectorAnchorWorldPoint(device, connector, connector?.primaryAnchorId || "");
   }
 
-  connectorAnchorWorldPoint(device, connector, anchorId = "") {
-    const anchor = connectorAnchorById(connector, anchorId || connector?.primaryAnchorId || "", device);
+  connectorAnchorWorldPoint(device, connector, anchorId = "", displayLayout = null) {
+    const layout = displayLayout || this.connectorDisplayLayoutForDevice(device);
+    const anchor = connectorDisplayAnchorById(device, connector, anchorId || connector?.primaryAnchorId || "", layout);
     return {
       x: device.x + (Number(anchor?.x ?? connector?.x) || 0),
       y: device.y + (Number(anchor?.y ?? connector?.y) || 0)
@@ -1414,7 +1446,8 @@ export class SceneGraph {
     const anchorId = end === "from" ? wire.fromAnchorId : wire.toAnchorId;
     const connector = connectorId ? device.connectorsById.get(connectorId) : null;
     if (connector) {
-      const anchor = connectorAnchorById(connector, anchorId || connector.primaryAnchorId || "", device);
+      const layout = this.connectorDisplayLayoutForDevice(device);
+      const anchor = connectorDisplayAnchorById(device, connector, anchorId || connector.primaryAnchorId || "", layout);
       return {
         x: pos.x + (Number(anchor?.x ?? connector.x) || 0),
         y: pos.y + (Number(anchor?.y ?? connector.y) || 0)
@@ -1454,7 +1487,8 @@ export class SceneGraph {
     if (isLedSurfaceKind(device)) return point;
     const connector = connectorId ? device?.connectorsById.get(connectorId) : null;
     const radius = device?.kind === "jump" ? 22 : 6;
-    const anchor = connector ? connectorAnchorById(connector, anchorId || connector.primaryAnchorId || "", device) : null;
+    const layout = connector ? this.connectorDisplayLayoutForDevice(device) : null;
+    const anchor = connector ? connectorDisplayAnchorById(device, connector, anchorId || connector.primaryAnchorId || "", layout) : null;
     const connectorSide = anchor?.side || connector?.side || side;
     if (connectorSide === "left") return { x: point.x - radius, y: point.y };
     if (connectorSide === "right") return { x: point.x + radius, y: point.y };
