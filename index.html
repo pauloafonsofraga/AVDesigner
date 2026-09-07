@@ -4956,9 +4956,9 @@
   </div>
 
   <script>
-    const APP_ITERATION = "52.4";
-    const APP_BUILD_ID = "iteration52-4-connector-relationship-arrows";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Connector Relationship Arrows`;
+    const APP_ITERATION = "52.5";
+    const APP_BUILD_ID = "iteration52-5-shared-bus-packing";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Shared Bus Packing`;
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "2edc063+";
     const CANVAS_MIN_ZOOM = 0.03;
@@ -4995,6 +4995,10 @@
     const EDITOR_INFO_BOX_HEIGHT = 15.5;
     const EDITOR_INFO_BOX_STEP = 48;
     const EDITOR_INFO_BOX_SIDE_OFFSET = 18;
+    const EDITOR_SHARED_BUS_FIELD_ANCHOR_OFFSET = 8;
+    const EDITOR_SHARED_BUS_NODE_LINE_INSET = 10;
+    const EDITOR_SHARED_BUS_LABEL_OFFSET = 8;
+    const EDITOR_SHARED_BUS_LABEL_Y_OFFSET = 35;
     const INFO_BOX_COMPACT_SCALE = 1.18;
     const INFO_BOX_MAGNIFY_ZOOM = 1.18;
     const INFO_BOX_HIDE_ZOOM = 0.2;
@@ -89282,52 +89286,94 @@
       }));
     }
 
+    function editorSharedRelationshipLayout(template, relationship, members, previewPositions = new Map()) {
+      if (!template || !relationship || !Array.isArray(members) || members.length < 2) return null;
+      const width = deviceTemplateWidth(template);
+      const points = members
+        .map(connector => firstEditorConnectorAnchorPoint(template, connector, previewPositions))
+        .filter(Boolean);
+      if (points.length < 2) return null;
+      const leftCount = points.filter(point => point.anchor.side !== "right").length;
+      const side = leftCount >= points.length / 2 ? "input" : "output";
+      const connectorX = side === "input" ? 0 : width;
+      const minY = Math.min(...points.map(point => point.y));
+      const maxY = Math.max(...points.map(point => point.y));
+      const centerY = (minY + maxY) / 2;
+      const representative = members[0];
+      const representativeIndex = template.connectors.indexOf(representative);
+      if (representativeIndex < 0) return null;
+      const fieldAnchorX = side === "input"
+        ? connectorX + EDITOR_SHARED_BUS_FIELD_ANCHOR_OFFSET
+        : connectorX - EDITOR_SHARED_BUS_FIELD_ANCHOR_OFFSET;
+      const fieldJunctionX = side === "input"
+        ? fieldAnchorX + EDITOR_INFO_BOX_SIDE_OFFSET
+        : fieldAnchorX - EDITOR_INFO_BOX_SIDE_OFFSET;
+      return {
+        side,
+        connectorX,
+        points,
+        minY,
+        maxY,
+        centerY,
+        representative,
+        representativeIndex,
+        combinedLabel: editorSharedRelationshipDisplayLabel(template, relationship),
+        fieldAnchorX,
+        fieldJunctionX
+      };
+    }
+
+    function drawEditorSharedRelationshipLines(parent, layout, color = "#32b6ff") {
+      if (!layout || !layout.points?.length) return;
+      const nodeInset = layout.side === "input" ? EDITOR_SHARED_BUS_NODE_LINE_INSET : -EDITOR_SHARED_BUS_NODE_LINE_INSET;
+      layout.points.forEach(point => {
+        parent.appendChild(createSvg("line", {
+          x1: point.x + nodeInset,
+          y1: point.y,
+          x2: layout.fieldJunctionX,
+          y2: layout.centerY,
+          stroke: color,
+          "stroke-width": 2.1,
+          "stroke-linecap": "round",
+          opacity: .86,
+          "pointer-events": "none"
+        }));
+      });
+    }
+
     function drawEditorSharedRelationshipFields(parent, template, previewPositions = new Map()) {
       if (!template || isAdapterTemplate(template)) return;
-      const width = deviceTemplateWidth(template);
       editorActiveSharedBusRelationships(template).forEach(({ relationship, members }) => {
-        const points = members
-          .map(connector => firstEditorConnectorAnchorPoint(template, connector, previewPositions))
-          .filter(Boolean);
-        if (points.length < 2) return;
-        const leftCount = points.filter(point => point.anchor.side !== "right").length;
-        const side = leftCount >= points.length / 2 ? "input" : "output";
-        const connectorX = side === "input" ? 0 : width;
-        const minY = Math.min(...points.map(point => point.y));
-        const maxY = Math.max(...points.map(point => point.y));
-        const centerY = (minY + maxY) / 2;
-        const representative = members[0];
-        const representativeIndex = template.connectors.indexOf(representative);
-        if (representativeIndex < 0) return;
-        const combinedLabel = editorSharedRelationshipDisplayLabel(template, relationship);
-        const labelOffset = 24;
-        const fieldOffset = 40;
+        const layout = editorSharedRelationshipLayout(template, relationship, members, previewPositions);
+        if (!layout) return;
         const group = createSvg("g", {
           class: "editor-shared-connector-fields",
-          "data-editor-node": representativeIndex,
+          "data-editor-node": layout.representativeIndex,
           "data-editor-shared-relationship-id": relationship.id
         });
         const label = createSvg("text", {
-          x: side === "input" ? connectorX + labelOffset : connectorX - labelOffset,
-          y: centerY + 34,
+          x: layout.side === "input"
+            ? layout.connectorX + EDITOR_SHARED_BUS_LABEL_OFFSET
+            : layout.connectorX - EDITOR_SHARED_BUS_LABEL_OFFSET,
+          y: layout.centerY + EDITOR_SHARED_BUS_LABEL_Y_OFFSET,
           fill: state.darkMode ? "#edf2f7" : "#1f2a36",
           "font-size": 12,
           "font-weight": 900,
-          "text-anchor": side === "input" ? "start" : "end",
+          "text-anchor": layout.side === "input" ? "start" : "end",
           "paint-order": "stroke",
           stroke: "rgba(0,0,0,.82)",
           "stroke-width": 4,
           "pointer-events": "none"
         });
-        label.textContent = combinedLabel;
+        label.textContent = layout.combinedLabel;
         group.appendChild(label);
         const fieldAnchor = {
-          ...representative,
-          direction: side,
-          x: side === "input" ? connectorX + fieldOffset : connectorX - fieldOffset,
-          y: centerY
+          ...layout.representative,
+          direction: layout.side,
+          x: layout.fieldAnchorX,
+          y: layout.centerY
         };
-        addVisibleInfoBoxes(group, fieldAnchor, connectorInfoFields(representative), true);
+        addVisibleInfoBoxes(group, fieldAnchor, connectorInfoFields(layout.representative), true);
         parent.appendChild(group);
       });
     }
@@ -89360,34 +89406,10 @@
           .map(connectorId => firstEditorConnectorAnchorPoint(template, connectorById.get(connectorId), previewPositions))
           .filter(Boolean);
         if (relationship.type === "exclusive" && points.length >= 2) {
-          const leftCount = points.filter(point => point.anchor.side !== "right").length;
-          const railX = leftCount >= points.length / 2
-            ? Math.min(...points.map(point => point.x)) + 18
-            : Math.max(...points.map(point => point.x)) - 18;
-          const minY = Math.min(...points.map(point => point.y));
-          const maxY = Math.max(...points.map(point => point.y));
-          parent.appendChild(createSvg("path", {
-            d: `M ${railX} ${minY} L ${railX} ${maxY}`,
-            stroke: "#ff7904",
-            "stroke-width": 2.4,
-            "stroke-linecap": "round",
-            fill: "none",
-            opacity: .8,
-            "pointer-events": "none"
-          }));
-          points.forEach(point => {
-            parent.appendChild(createSvg("line", {
-              x1: point.x,
-              y1: point.y,
-              x2: railX,
-              y2: point.y,
-              stroke: "#ff7904",
-              "stroke-width": 1.6,
-              "stroke-dasharray": "4 4",
-              opacity: .72,
-              "pointer-events": "none"
-            }));
-          });
+          const members = editorSharedRelationshipMembers(template, relationship);
+          if (members.length > EDITOR_SHARED_BUS_MAX_MEMBERS) return;
+          const layout = editorSharedRelationshipLayout(template, relationship, members, previewPositions);
+          drawEditorSharedRelationshipLines(parent, layout);
         } else if (relationship.type === "through") {
           const from = firstEditorConnectorAnchorPoint(template, connectorById.get(relationship.sourceConnectorId || relationship.members?.[0]), previewPositions);
           const to = firstEditorConnectorAnchorPoint(template, connectorById.get(relationship.targetConnectorId || relationship.members?.[1]), previewPositions);
