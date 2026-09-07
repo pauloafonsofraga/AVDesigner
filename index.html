@@ -4956,9 +4956,9 @@
   </div>
 
   <script>
-    const APP_ITERATION = "52.5";
-    const APP_BUILD_ID = "iteration52-5-shared-bus-packing";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Shared Bus Packing`;
+    const APP_ITERATION = "52.6";
+    const APP_BUILD_ID = "iteration52-6-shared-bus-anchor-packing";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Shared Bus Anchor Packing`;
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "2edc063+";
     const CANVAS_MIN_ZOOM = 0.03;
@@ -81786,7 +81786,7 @@
 
     function editorSharedRelationshipVisualSpan(memberCount) {
       const count = Math.max(2, Math.min(EDITOR_SHARED_BUS_MAX_MEMBERS, Number(memberCount) || 2));
-      return count > 1 ? SLOT_HEIGHT : 0;
+      return Math.min(SLOT_HEIGHT, Math.max(18, (count - 1) * 18));
     }
 
     function applyEditorSharedRelationshipDisplayPositions(template, positions = new Map()) {
@@ -88806,9 +88806,7 @@
         const isDragging = editorNodeDragIncludes(connector);
         const isSelected = editorSelectedNodeIds.has(connector.id) || editorSelectedNodeIndex === index;
         const groupedSharedBus = sharedRelationshipMap.has(connector.id) && !connector.empty && !isAdapterTemplate(template);
-        const anchors = isEditorV2ConnectorCandidate(displayConnector)
-          ? editorConnectorAnchors(displayConnector, width)
-          : [editorPrimaryAnchor(displayConnector, width)];
+        const anchors = editorDisplayAnchorsForConnector(displayConnector, width, displayY);
         anchors.forEach((anchor, anchorIndex) => {
           const anchorConnector = editorAnchorConnector(displayConnector, anchor);
           const isPrimaryAnchor = anchor.id === displayConnector.primaryAnchorId || anchorIndex === 0;
@@ -89152,14 +89150,24 @@
       };
     }
 
+    function editorDisplayAnchorsForConnector(connector, width = DEVICE_WIDTH, displayY = connector?.y) {
+      const anchors = isEditorV2ConnectorCandidate(connector)
+        ? editorConnectorAnchors(connector, width)
+        : [editorPrimaryAnchor(connector, width)];
+      const y = Number(displayY);
+      if (!Number.isFinite(y)) return anchors;
+      // V2 connectors store anchor.y separately from connector.y. Shared-bus
+      // preview packing is display-only, so override anchor.y here without
+      // mutating saved connector topology or row spacing.
+      return anchors.map(anchor => ({ ...anchor, y }));
+    }
+
     function editorConnectorAnchorPoints(template, connector, previewPositions = new Map()) {
       if (!connector) return [];
       const width = deviceTemplateWidth(template);
       const displayY = previewPositions.get(connector.id) ?? connector.y;
       const displayConnector = { ...connector, y: displayY };
-      const anchors = isEditorV2ConnectorCandidate(displayConnector)
-        ? editorConnectorAnchors(displayConnector, width)
-        : [editorPrimaryAnchor(displayConnector, width)];
+      const anchors = editorDisplayAnchorsForConnector(displayConnector, width, displayY);
       return anchors.map(anchor => ({
         connector: displayConnector,
         anchor,
