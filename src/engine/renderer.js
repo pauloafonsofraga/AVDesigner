@@ -67,7 +67,7 @@ const RACK_FRAME_STROKE = "rgba(50, 182, 255, 0.74)";
 const RACK_LABEL_COLOR = "#32b6ff";
 const RACK_FRAME_RADIUS = 12;
 
-const DEFAULT_RENDER_OPTIONS = {
+export const DEFAULT_RENDER_OPTIONS = {
   // Toolbar grid state lives in the production shell. Engine mode hides the
   // shell SVG/CSS grid, so WebGL must receive and honor the same visibility.
   gridVisible: true,
@@ -126,6 +126,7 @@ export class WebglGraphRenderer {
   constructor(canvas, labelCanvas = null, options = {}) {
     this.canvas = canvas;
     this.labelCanvas = labelCanvas;
+    this.disposed = false;
     this.onTextureAssetReady = typeof options.onTextureAssetReady === "function" ? options.onTextureAssetReady : null;
     this.labelContext = labelCanvas?.getContext("2d") || null;
     this.gl = canvas.getContext("webgl2", {
@@ -230,6 +231,7 @@ export class WebglGraphRenderer {
   }
 
   resize() {
+    if (this.disposed || !this.gl) return;
     const rect = this.canvas.getBoundingClientRect();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const width = Math.max(1, Math.floor(rect.width * dpr));
@@ -247,6 +249,7 @@ export class WebglGraphRenderer {
   }
 
   setStaticScene(scene) {
+    if (this.disposed || !this.gl) return { disposed: true };
     const start = performance.now();
     this.textureScene = scene;
     this.wireVertexMap.clear();
@@ -293,6 +296,7 @@ export class WebglGraphRenderer {
   }
 
   prepareTextures(scene, reason = "prepare") {
+    if (this.disposed || !this.textureCache) return { disposed: true };
     // Texture creation is explicit and cache-key driven. Draw, pan, zoom,
     // selection, drag, and wire updates must reuse cached textures and should
     // not call this path implicitly.
@@ -306,6 +310,7 @@ export class WebglGraphRenderer {
   }
 
   handleTextureAssetReady(event) {
+    if (this.disposed) return;
     const scene = this.textureScene;
     if (!scene || !Array.isArray(event?.deviceIds) || !event.deviceIds.length) return;
     event.deviceIds.forEach(deviceId => {
@@ -319,6 +324,7 @@ export class WebglGraphRenderer {
   }
 
   rebuildVisibleTextures(scene, camera) {
+    if (this.disposed || !this.textureCache) return { disposed: true };
     const start = performance.now();
     this.resize();
     const visible = visibleDevices(scene, camera, this.resolution);
@@ -334,6 +340,7 @@ export class WebglGraphRenderer {
   }
 
   clearTextureCache() {
+    if (this.disposed || !this.textureCache) return { disposed: true };
     this.textureCache.clear();
     this.clearGlowTextureCache();
     this.lastTextureStats = this.textureCache.stats();
@@ -341,10 +348,46 @@ export class WebglGraphRenderer {
   }
 
   clearGlowTextureCache() {
+    const gl = this.gl;
     this.glowTextureCache.forEach(entry => {
-      if (entry.texture) this.gl.deleteTexture(entry.texture);
+      if (entry.texture && gl?.deleteTexture) gl.deleteTexture(entry.texture);
     });
     this.glowTextureCache.clear();
+  }
+
+  dispose() {
+    if (this.disposed) return;
+    const gl = this.gl;
+    this.disposed = true;
+    this.textureCache?.dispose?.();
+    this.clearGlowTextureCache();
+    [
+      this.staticWireBuffer,
+      this.staticDeviceBuffer,
+      this.liveBuffer,
+      this.gridBuffer,
+      this.textureBuffer,
+      this.glowBuffer
+    ].forEach(buffer => {
+      if (buffer && gl?.deleteBuffer) gl.deleteBuffer(buffer);
+    });
+    [this.program, this.textureProgram].forEach(program => {
+      if (program && gl?.deleteProgram) gl.deleteProgram(program);
+    });
+    this.staticWireBuffer = null;
+    this.staticDeviceBuffer = null;
+    this.liveBuffer = null;
+    this.gridBuffer = null;
+    this.textureBuffer = null;
+    this.glowBuffer = null;
+    this.program = null;
+    this.textureProgram = null;
+    this.textureScene = null;
+    this.onTextureAssetReady = null;
+    this.labelContext = null;
+    this.gl = null;
+    this.canvas = null;
+    this.labelCanvas = null;
   }
 
   textureStats() {
@@ -478,6 +521,7 @@ export class WebglGraphRenderer {
   }
 
   updateDirty(scene, { deviceIds = [], wireIds = [], refreshCableHops = true } = {}) {
+    if (this.disposed || !this.gl) return { disposed: true };
     const start = performance.now();
     this.textureScene = scene;
     const geometryStart = performance.now();
@@ -750,6 +794,10 @@ export class WebglGraphRenderer {
   }
 
   draw(scene, camera, options = {}) {
+    if (this.disposed || !this.gl) {
+      this.lastFrameStats = { totalMs: 0, disposed: true };
+      return this.lastFrameStats;
+    }
     const start = performance.now();
     const frameStats = {
       totalMs: 0,

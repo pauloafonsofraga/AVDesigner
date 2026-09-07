@@ -36,10 +36,41 @@ const TITLE_BLOCK_BASE_WIDTH = 760;
 const TITLE_BLOCK_BASE_HEIGHT = 112;
 
 const IMAGE_CACHE = new Map();
-let assetReadyCallback = null;
+const assetReadySubscribers = new Set();
+let legacyAssetReadyUnsubscribe = null;
+
+export function subscribeDeviceVisualAssetReady(callback) {
+  if (typeof callback !== "function") return () => {};
+  assetReadySubscribers.add(callback);
+  return () => {
+    assetReadySubscribers.delete(callback);
+  };
+}
+
+export function deviceVisualAssetReadySubscriberCount() {
+  return assetReadySubscribers.size;
+}
 
 export function setDeviceVisualAssetReadyCallback(callback) {
-  assetReadyCallback = typeof callback === "function" ? callback : null;
+  if (legacyAssetReadyUnsubscribe) {
+    legacyAssetReadyUnsubscribe();
+    legacyAssetReadyUnsubscribe = null;
+  }
+  if (typeof callback === "function") {
+    legacyAssetReadyUnsubscribe = subscribeDeviceVisualAssetReady(callback);
+  }
+}
+
+export function notifyDeviceVisualAssetReady(source) {
+  const src = String(source || "").trim();
+  if (!src) return;
+  [...assetReadySubscribers].forEach(callback => {
+    try {
+      callback(src);
+    } catch (error) {
+      console.warn("[engine] device visual asset-ready subscriber failed", { source: src, error });
+    }
+  });
 }
 
 export function deviceVisualCacheKey(device, options = {}) {
@@ -1267,12 +1298,12 @@ function cachedImage(source) {
   image.onload = () => {
     entry.state = "loaded";
     entry.revision += 1;
-    assetReadyCallback?.(src);
+    notifyDeviceVisualAssetReady(src);
   };
   image.onerror = () => {
     entry.state = "error";
     entry.revision += 1;
-    assetReadyCallback?.(src);
+    notifyDeviceVisualAssetReady(src);
   };
   image.src = src;
   return image;

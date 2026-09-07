@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Engine Preview Harness</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1218;
+      --panel: #17202a;
+      --panel-soft: #202c38;
+      --line: rgba(255, 255, 255, .16);
+      --text: #edf2f7;
+      --muted: #a7b2c1;
+      --accent: #32b6ff;
+      --orange: #fb7904;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      border-right: 1px solid var(--line);
+      background: #111922;
+      padding: 18px;
+    }
+
+    h1,
+    h2 {
+      margin: 0;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      font-size: 18px;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    h2 {
+      font-size: 12px;
+      margin-top: 20px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .fixture-list,
+    .actions {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    button {
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel-soft);
+      color: var(--text);
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    button:hover,
+    button.active {
+      border-color: var(--accent);
+      color: #ffffff;
+    }
+
+    main {
+      display: grid;
+      grid-template-rows: minmax(380px, 1fr) 260px;
+      gap: 12px;
+      padding: 16px;
+      min-width: 0;
+    }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(320px, 1fr));
+      gap: 12px;
+      min-height: 0;
+    }
+
+    .preview-panel,
+    .diagnostics {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--panel);
+    }
+
+    .preview-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 38px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .preview-host {
+      height: calc(100% - 38px);
+      min-height: 342px;
+    }
+
+    .engine-preview-surface {
+      background:
+        linear-gradient(rgba(255, 255, 255, .05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, .05) 1px, transparent 1px),
+        #0c1218;
+      background-size: 56px 56px;
+    }
+
+    .diagnostics {
+      padding: 12px;
+      white-space: pre-wrap;
+      overflow: auto;
+      font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #cbd5e1;
+    }
+
+    .status {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <h1>Engine Preview</h1>
+      <div class="status" id="buildStatus"></div>
+      <h2>Fixtures</h2>
+      <div class="fixture-list" id="fixtureList"></div>
+      <h2>Actions</h2>
+      <div class="actions">
+        <button id="fitButton" type="button">Fit</button>
+        <button id="replaceButton" type="button">Replace Device</button>
+        <button id="lifecycleButton" type="button">Lifecycle x20</button>
+      </div>
+      <div class="status" id="actionStatus"></div>
+    </aside>
+    <main>
+      <section class="preview-grid">
+        <div class="preview-panel">
+          <div class="preview-heading">
+            <span>Renderer Baseline</span>
+            <span id="baselineStatus"></span>
+          </div>
+          <div class="preview-host" id="baselineHost"></div>
+        </div>
+        <div class="preview-panel">
+          <div class="preview-heading">
+            <span>Preview Surface</span>
+            <span id="previewStatus"></span>
+          </div>
+          <div class="preview-host" id="previewHost"></div>
+        </div>
+      </section>
+      <pre class="diagnostics" id="diagnostics"></pre>
+    </main>
+  </div>
+
+  <script type="module">
+    import {
+      ENGINE_PREVIEW_BUILD_ID,
+      EnginePreviewSurface,
+      enginePreviewDiagnostics
+    } from "./src/engine/enginePreview.js";
+    import {
+      enginePreviewFixtureDefinitions,
+      enginePreviewFixtureScene
+    } from "./src/engine/enginePreviewFixtures.js";
+
+    const debugEnginePreview = new URLSearchParams(window.location.search).get("debugEnginePreview") === "1";
+    const fixtureList = document.getElementById("fixtureList");
+    const diagnostics = document.getElementById("diagnostics");
+    const actionStatus = document.getElementById("actionStatus");
+    const baselineStatus = document.getElementById("baselineStatus");
+    const previewStatus = document.getElementById("previewStatus");
+    document.getElementById("buildStatus").textContent = ENGINE_PREVIEW_BUILD_ID;
+
+    const fixtures = enginePreviewFixtureDefinitions();
+    let activeFixtureId = fixtures[0]?.id || "";
+    const baseline = new EnginePreviewSurface(document.getElementById("baselineHost"), {
+      scene: enginePreviewFixtureScene(activeFixtureId)
+    });
+    const preview = new EnginePreviewSurface(document.getElementById("previewHost"), {
+      scene: enginePreviewFixtureScene(activeFixtureId)
+    });
+
+    fixtureList.replaceChildren(...fixtures.map(fixture => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = fixture.label;
+      button.dataset.fixtureId = fixture.id;
+      button.addEventListener("click", () => setFixture(fixture.id));
+      return button;
+    }));
+
+    function setFixture(id) {
+      activeFixtureId = id;
+      const scene = enginePreviewFixtureScene(id);
+      baseline.setSceneData(scene);
+      preview.setSceneData(scene);
+      refreshFixtureButtons();
+      updateDiagnostics();
+    }
+
+    function refreshFixtureButtons() {
+      fixtureList.querySelectorAll("button").forEach(button => {
+        button.classList.toggle("active", button.dataset.fixtureId === activeFixtureId);
+      });
+      const fixture = fixtures.find(item => item.id === activeFixtureId);
+      actionStatus.textContent = fixture ? fixture.label : "";
+    }
+
+    function updateDiagnostics() {
+      baselineStatus.textContent = `${baseline.scene.devices.length} devices`;
+      previewStatus.textContent = `${preview.scene.devices.length} devices`;
+      diagnostics.textContent = JSON.stringify({
+        activeFixtureId,
+        baseline: enginePreviewDiagnostics(baseline),
+        preview: enginePreviewDiagnostics(preview)
+      }, null, 2);
+    }
+
+    function fitSurfaces() {
+      baseline.fitToContent();
+      preview.fitToContent();
+      baseline.render();
+      preview.render();
+      updateDiagnostics();
+    }
+
+    function replaceActiveDevice() {
+      const fixture = fixtures.find(item => item.id === activeFixtureId);
+      if (!fixture) return;
+      const updated = {
+        ...fixture,
+        instance: {
+          ...fixture.instance,
+          instanceId: fixture.instance.instanceId,
+          name: `${fixture.instance.name || fixture.template.name} Updated`
+        }
+      };
+      baseline.replaceDevice(updated);
+      preview.replaceDevice(updated);
+      updateDiagnostics();
+    }
+
+    async function runLifecycleTest(count = 20) {
+      const host = document.createElement("div");
+      Object.assign(host.style, {
+        position: "fixed",
+        left: "-2000px",
+        top: "0",
+        width: "360px",
+        height: "240px"
+      });
+      document.body.appendChild(host);
+      for (let index = 0; index < count; index += 1) {
+        const surface = new EnginePreviewSurface(host, {
+          scene: enginePreviewFixtureScene(fixtures[index % fixtures.length].id)
+        });
+        await nextFrame();
+        surface.dispose();
+      }
+      host.remove();
+      updateDiagnostics();
+      return enginePreviewDiagnostics(preview);
+    }
+
+    function nextFrame() {
+      return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    }
+
+    document.getElementById("fitButton").addEventListener("click", fitSurfaces);
+    document.getElementById("replaceButton").addEventListener("click", replaceActiveDevice);
+    document.getElementById("lifecycleButton").addEventListener("click", async () => {
+      actionStatus.textContent = "Running lifecycle test...";
+      await runLifecycleTest(20);
+      actionStatus.textContent = "Lifecycle test complete.";
+    });
+
+    window.addEventListener("resize", () => {
+      baseline.resize();
+      preview.resize();
+      updateDiagnostics();
+    });
+
+    window.enginePreviewHarness = {
+      baseline,
+      preview,
+      fixtures,
+      setFixture,
+      fitSurfaces,
+      replaceActiveDevice,
+      runLifecycleTest,
+      diagnostics: () => ({
+        baseline: enginePreviewDiagnostics(baseline),
+        preview: enginePreviewDiagnostics(preview)
+      })
+    };
+
+    if (debugEnginePreview) {
+      window.__enginePreviewDebug = {
+        buildId: ENGINE_PREVIEW_BUILD_ID,
+        diagnostics: () => window.enginePreviewHarness.diagnostics(),
+        activeFixture: () => activeFixtureId
+      };
+    }
+
+    refreshFixtureButtons();
+    updateDiagnostics();
+  </script>
+</body>
+</html>

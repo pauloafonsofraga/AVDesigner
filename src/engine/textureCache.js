@@ -2,7 +2,7 @@ import {
   buildDeviceVisual,
   deviceVisualCacheKey,
   deviceVisualSources,
-  setDeviceVisualAssetReadyCallback,
+  subscribeDeviceVisualAssetReady,
   textureQuality
 } from "./deviceVisualBuilder.js";
 
@@ -33,21 +33,30 @@ const EMPTY_STATS = {
   lastPrepareMs: 0,
   lastPreparedDevices: 0,
   lastInvalidationReason: "-",
-  modeSignature: ""
+  modeSignature: "",
+  disposed: false
 };
 
 export class TextureCache {
   constructor(gl, options = {}) {
     this.gl = gl;
     this.onAssetReady = typeof options.onAssetReady === "function" ? options.onAssetReady : null;
-    this.maxTextureSide = Number(gl.getParameter(gl.MAX_TEXTURE_SIZE)) || 4096;
+    this.disposed = false;
+    this.maxTextureSide = Number(gl?.getParameter?.(gl.MAX_TEXTURE_SIZE)) || 4096;
     this.entriesByDeviceId = new Map();
     this.texturesByKey = new Map();
     this.statsData = { ...EMPTY_STATS };
-    setDeviceVisualAssetReadyCallback(source => this.invalidateByVisualSource(source, "visual asset loaded"));
+    this.unsubscribeAssetReady = subscribeDeviceVisualAssetReady(source => {
+      if (!this.disposed) this.invalidateByVisualSource(source, "visual asset loaded");
+    });
   }
 
   prepareDevices(devices, options = {}) {
+    if (this.disposed || !this.gl) {
+      this.statsData.enabled = false;
+      this.statsData.disposed = true;
+      return this.stats();
+    }
     if (!options.textureCacheEnabled) {
       this.statsData.enabled = false;
       return this.stats();
@@ -82,6 +91,7 @@ export class TextureCache {
   }
 
   ensureDeviceTexture(device, options = {}, reason = "ensure") {
+    if (this.disposed || !this.gl || !device) return null;
     const buildOptions = { ...options, gpuMaxTextureSide: this.maxTextureSide };
     applyQualityStats(this.statsData, buildOptions);
     const key = deviceVisualCacheKey(device, buildOptions);
@@ -160,6 +170,7 @@ export class TextureCache {
   }
 
   invalidateDevice(deviceId, reason = "manual") {
+    if (this.disposed) return;
     const entry = this.entriesByDeviceId.get(deviceId);
     if (!entry) return;
     this.entriesByDeviceId.delete(deviceId);
@@ -168,6 +179,7 @@ export class TextureCache {
   }
 
   invalidateByVisualSource(source, reason = "visual asset changed") {
+    if (this.disposed) return [];
     const src = String(source || "").trim();
     if (!src) return [];
     const affected = [];
@@ -187,17 +199,29 @@ export class TextureCache {
   }
 
   clear() {
+    const gl = this.gl;
     this.texturesByKey.forEach(record => {
-      if (record.texture) this.gl.deleteTexture(record.texture);
+      if (record.texture && gl?.deleteTexture) gl.deleteTexture(record.texture);
     });
     this.entriesByDeviceId.clear();
     this.texturesByKey.clear();
-    this.statsData = { ...EMPTY_STATS, enabled: this.statsData.enabled };
+    this.statsData = { ...EMPTY_STATS, enabled: this.statsData.enabled, disposed: this.disposed };
+  }
+
+  dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.unsubscribeAssetReady?.();
+    this.unsubscribeAssetReady = null;
+    this.clear();
+    this.onAssetReady = null;
+    this.gl = null;
+    this.statsData.disposed = true;
   }
 
   stats() {
     this.refreshCounts();
-    return { ...this.statsData };
+    return { ...this.statsData, disposed: this.disposed };
   }
 
   createEntry(device, key, record, reason, builtNow) {
