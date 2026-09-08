@@ -16,7 +16,7 @@ import { normalizeAvDesignerDevice } from "./projectAdapter.js";
 import { DEFAULT_RENDER_OPTIONS, WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
 
-export const ENGINE_PREVIEW_BUILD_ID = "iteration53-2-rack-builder-engine-preview";
+export const ENGINE_PREVIEW_BUILD_ID = "iteration53-3-remaining-editor-engine-previews";
 
 const ACTIVE_PREVIEW_SURFACES = new Set();
 
@@ -196,6 +196,7 @@ export function enginePreviewDiagnostics(surface = null) {
     buildId: ENGINE_PREVIEW_BUILD_ID,
     lifecycle: { ...ENGINE_PREVIEW_LIFECYCLE, activePreviewSurfaces: ACTIVE_PREVIEW_SURFACES.size },
     assetReadySubscribers: deviceVisualAssetReadySubscriberCount(),
+    owners: activePreviewOwnerRows(),
     surface: surface?.diagnostics?.() || null
   };
 }
@@ -211,6 +212,7 @@ export class EnginePreviewSurface {
       y: finiteNumber(options.camera?.y, 0),
       zoom: positiveNumber(options.camera?.zoom) || 1
     };
+    this.owner = String(options.owner || options.previewOwner || "preview");
     this.renderOptions = previewRenderOptions(options.renderOptions || {});
     this.pendingFrame = 0;
     this.disposed = false;
@@ -224,6 +226,7 @@ export class EnginePreviewSurface {
       }
     });
     this.renderer.setRenderOptions(this.renderOptions);
+    this.dom.root.dataset.enginePreviewOwner = this.owner;
     ENGINE_PREVIEW_LIFECYCLE.created += 1;
     ENGINE_PREVIEW_LIFECYCLE.glContextsCreated += 1;
     ACTIVE_PREVIEW_SURFACES.add(this);
@@ -505,6 +508,7 @@ export class EnginePreviewSurface {
     return {
       buildId: ENGINE_PREVIEW_BUILD_ID,
       disposed: this.disposed,
+      owner: this.owner,
       surfaceId: this.dom.root.dataset.enginePreviewSurfaceId || "",
       devices: devices.length,
       wires: this.scene.wires?.length || 0,
@@ -544,6 +548,24 @@ export class EnginePreviewSurface {
     ENGINE_PREVIEW_LIFECYCLE.glContextsDisposed += 1;
     ENGINE_PREVIEW_LIFECYCLE.activePreviewSurfaces = ACTIVE_PREVIEW_SURFACES.size;
   }
+}
+
+function activePreviewOwnerRows() {
+  const rows = new Map();
+  ACTIVE_PREVIEW_SURFACES.forEach(surface => {
+    if (!surface || surface.disposed) return;
+    const owner = surface.owner || "preview";
+    const current = rows.get(owner) || {
+      owner,
+      source: "EnginePreviewSurface",
+      surfaces: 0,
+      engineVisuals: true,
+      legacyActualDraws: 0
+    };
+    current.surfaces += 1;
+    rows.set(owner, current);
+  });
+  return [...rows.values()];
 }
 
 function normalizePreviewDeviceInput(item, index) {

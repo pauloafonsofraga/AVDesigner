@@ -3720,7 +3720,12 @@
         border-top: 1px solid var(--panel-border);
       }
 
+      .node-preview-layout {
+        grid-template-columns: 1fr;
+      }
+
       .node-crop-layout {
+        display: grid;
         grid-template-columns: 1fr;
       }
 
@@ -3884,12 +3889,16 @@
       pointer-events: none;
     }
 
-    .node-crop-layout {
+    .node-preview-layout {
       display: grid;
-      grid-template-columns: 220px minmax(0, 1fr);
+      grid-template-columns: 220px minmax(0, 1fr) minmax(240px, 340px);
       gap: 16px;
       margin-top: 18px;
       align-items: start;
+    }
+
+    .node-crop-layout {
+      display: contents;
     }
 
     .node-crop-preview {
@@ -3923,6 +3932,45 @@
       gap: 12px;
     }
 
+    .node-appearance-panel {
+      min-width: 0;
+      display: grid;
+      gap: 8px;
+    }
+
+    .node-preview-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--muted);
+      font: 800 11px/1 Inter, system-ui, sans-serif;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .node-canvas-appearance-preview {
+      position: relative;
+      min-height: 220px;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      background: #101820;
+      overflow: hidden;
+    }
+
+    .node-canvas-appearance-preview .engine-preview-surface {
+      position: absolute !important;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .node-canvas-appearance-preview .engine-preview-webgl,
+    .node-canvas-appearance-preview .engine-preview-labels,
+    .node-canvas-appearance-preview .engine-preview-authoring-overlay {
+      pointer-events: none;
+    }
+
     .title-block-modal {
       width: min(1220px, 85vw);
       height: min(650px, 85vh);
@@ -3951,6 +3999,7 @@
     }
 
     .title-block-preview {
+      position: relative;
       min-height: 260px;
       border: 1px solid var(--panel-border);
       border-radius: 8px;
@@ -3966,6 +4015,31 @@
       width: 100%;
       height: 100%;
       display: block;
+    }
+
+    .title-block-preview.engine-preview-mode .engine-preview-surface {
+      position: absolute !important;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .title-block-preview.engine-preview-mode .engine-preview-webgl,
+    .title-block-preview.engine-preview-mode .engine-preview-labels {
+      pointer-events: none;
+    }
+
+    .title-block-preview.engine-preview-mode .engine-preview-authoring-overlay {
+      pointer-events: none !important;
+      z-index: 3;
+    }
+
+    .title-block-preview.engine-preview-mode #titleBlockPreview {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      background: transparent;
+      pointer-events: none;
     }
 
     .slot-actions {
@@ -4983,24 +5057,31 @@
               <input id="nodeBuilderThumbnail" type="file" accept="image/png,image/jpeg,image/bmp,.bmp">
             </div>
           </div>
-          <div class="node-crop-layout">
-            <div class="node-crop-preview">
-              <canvas id="nodeThumbnailCanvas" width="100" height="100"></canvas>
+          <div class="node-preview-layout">
+            <div class="node-crop-layout">
+              <div class="node-crop-preview">
+                <canvas id="nodeThumbnailCanvas" width="100" height="100"></canvas>
+              </div>
+              <div class="node-crop-controls">
+                <div class="node-preview-label">Thumbnail Crop</div>
+                <div class="field">
+                  <label for="nodeCropZoom">Crop Zoom</label>
+                  <input id="nodeCropZoom" type="range" min="1" max="4" step=".01" value="1">
+                </div>
+                <div class="field">
+                  <label for="nodeCropX">Crop X</label>
+                  <input id="nodeCropX" type="range" min="-100" max="100" step="1" value="0">
+                </div>
+                <div class="field">
+                  <label for="nodeCropY">Crop Y</label>
+                  <input id="nodeCropY" type="range" min="-100" max="100" step="1" value="0">
+                </div>
+                <p class="editor-panel-note">Thumbnails are stored as 100 x 100 PNGs in the node JSON. Default placeholders use <code>Nodes/Thumbnails/blank.png</code>.</p>
+              </div>
             </div>
-            <div class="node-crop-controls">
-              <div class="field">
-                <label for="nodeCropZoom">Crop Zoom</label>
-                <input id="nodeCropZoom" type="range" min="1" max="4" step=".01" value="1">
-              </div>
-              <div class="field">
-                <label for="nodeCropX">Crop X</label>
-                <input id="nodeCropX" type="range" min="-100" max="100" step="1" value="0">
-              </div>
-              <div class="field">
-                <label for="nodeCropY">Crop Y</label>
-                <input id="nodeCropY" type="range" min="-100" max="100" step="1" value="0">
-              </div>
-              <p class="editor-panel-note">Thumbnails are stored as 100 x 100 PNGs in the node JSON. Default placeholders use <code>Nodes/Thumbnails/blank.png</code>.</p>
+            <div class="node-appearance-panel">
+              <div class="node-preview-label">Canvas Appearance</div>
+              <div class="node-canvas-appearance-preview" id="nodeCanvasAppearancePreview"></div>
             </div>
           </div>
         </section>
@@ -5062,11 +5143,11 @@
   </div>
 
   <script>
-    const APP_ITERATION = "53.2";
-    const APP_BUILD_ID = "iteration53-2-rack-builder-engine-preview";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Rack Builder Engine Preview`;
+    const APP_ITERATION = "53.3";
+    const APP_BUILD_ID = "iteration53-3-remaining-editor-engine-previews";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Remaining Editor Engine Previews`;
     const APP_SOURCE_BRANCH = "engine-prototype";
-    const APP_SOURCE_BASE_COMMIT = "2edc063+";
+    const APP_SOURCE_BASE_COMMIT = "5bd382dd2d2ef06133060462cb8b8770204ceefc+";
     const CANVAS_MIN_ZOOM = 0.03;
     const CANVAS_MAX_ZOOM = 8;
     const INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
@@ -5076,8 +5157,13 @@
     const DEBUG_SHELL_ENABLED = INITIAL_URL_PARAMS.get("debugShell") === "1";
     const OUTPUT_DEBUG_ENABLED = INITIAL_URL_PARAMS.get("debugOutput") === "1";
     const DEBUG_DEVICE_AUTHORING_ENABLED = INITIAL_URL_PARAMS.get("debugDeviceAuthoring") === "1";
+    const DEBUG_ENGINE_PREVIEW_ENABLED = INITIAL_URL_PARAMS.get("debugEnginePreview") === "1";
     const DEBUG_RACK_BUILDER_ENABLED = INITIAL_URL_PARAMS.get("debugRackBuilder") === "1"
-      || INITIAL_URL_PARAMS.get("debugEnginePreview") === "1";
+      || DEBUG_ENGINE_PREVIEW_ENABLED;
+    const DEBUG_NODE_BUILDER_PREVIEW_ENABLED = INITIAL_URL_PARAMS.get("debugNodeBuilder") === "1"
+      || DEBUG_ENGINE_PREVIEW_ENABLED;
+    const DEBUG_TITLE_BLOCK_PREVIEW_ENABLED = INITIAL_URL_PARAMS.get("debugTitleBlock") === "1"
+      || DEBUG_ENGINE_PREVIEW_ENABLED;
     const IS_APPLE_POINTER_PLATFORM = /\b(Mac|iPhone|iPad|iPod)\b/i.test([
       navigator.userAgentData?.platform,
       navigator.platform,
@@ -77739,6 +77825,23 @@
     let rackBuilderEnginePreviewFullSceneReplacements = 0;
     let rackBuilderEnginePreviewIncrementalDeviceReplacements = 0;
     let rackBuilderEnginePreviewCameraActions = 0;
+    let nodeBuilderPreviewAdapterModule = null;
+    let nodeBuilderPreviewAdapterModulePromise = null;
+    let nodeBuilderEnginePreviewSurface = null;
+    let nodeBuilderEnginePreviewSynced = false;
+    let nodeBuilderEnginePreviewFullSceneReplacements = 0;
+    let nodeBuilderEnginePreviewDeviceReplacements = 0;
+    let nodeBuilderEnginePreviewLegacyVisualDraws = 0;
+    let titleBlockPreviewAdapterModule = null;
+    let titleBlockPreviewAdapterModulePromise = null;
+    let titleBlockEnginePreviewSurface = null;
+    let titleBlockEnginePreviewHost = null;
+    let titleBlockEnginePreviewSvgHome = null;
+    let titleBlockEnginePreviewSvgNextSibling = null;
+    let titleBlockEnginePreviewSynced = false;
+    let titleBlockEnginePreviewFullSceneReplacements = 0;
+    let titleBlockEnginePreviewDeviceReplacements = 0;
+    let titleBlockEnginePreviewLegacyVisualDraws = 0;
     let editorFaceplatePreviewZoom = 1;
     let editorFaceplatePreviewPan = { x: 0, y: 0 };
     let editorFaceplatePreviewWidth = 320;
@@ -77964,6 +78067,7 @@
     const nodeBuilderVideo = document.getElementById("nodeBuilderVideo");
     const nodeBuilderBidirectional = document.getElementById("nodeBuilderBidirectional");
     const nodeBuilderThumbnail = document.getElementById("nodeBuilderThumbnail");
+    const nodeCanvasAppearancePreview = document.getElementById("nodeCanvasAppearancePreview");
     const jumpNodeTool = document.getElementById("jumpNodeTool");
     const resetNodeTypeButton = document.getElementById("resetNodeType");
     const deleteNodeTypeButton = document.getElementById("deleteNodeType");
@@ -82430,6 +82534,7 @@
         deleteNodeTypeButton.disabled = !canDelete;
         deleteNodeTypeButton.classList.toggle("hidden", !canDelete);
       }
+      renderNodeBuilderCanvasAppearancePreview({ fit: true });
     }
 
     function renderNodeBuilderForm() {
@@ -82440,18 +82545,24 @@
     function openNodeBuilder() {
       ensureNodeLibraryDefaults();
       if (!nodeBuilderSelectedType) nodeBuilderSelectedType = orderedNodeEntries()[0]?.[0] || "";
-      renderNodeBuilderForm();
       nodeBuilderModal.classList.remove("hidden");
+      renderNodeBuilderForm();
+      loadNodeBuilderEnginePreviewModules().then(() => {
+        if (!nodeBuilderModalOpen()) return;
+        renderNodeBuilderCanvasAppearancePreview({ fullScene: true, fit: true });
+      });
     }
 
     function closeNodeBuilder() {
       nodeBuilderModal.classList.add("hidden");
+      disposeNodeBuilderEnginePreviewSurface();
     }
 
     function refreshNodeLibraryViews() {
       ensureNodeLibraryDefaults();
       saveNodeLibraryPreference();
       renderNodeBuilderList();
+      renderNodeBuilderCanvasAppearancePreview();
       renderNodePalette();
       renderDeviceEditorPreview();
       render();
@@ -82482,6 +82593,7 @@
       saveNodeLibraryPreference();
       renderNodeBuilderForm();
       renderNodePalette();
+      renderNodeBuilderCanvasAppearancePreview({ fit: true });
     }
 
     function resetSelectedNodeType() {
@@ -82527,6 +82639,7 @@
       saveNodeLibraryPreference();
       renderNodeBuilderForm();
       renderNodePalette();
+      renderNodeBuilderCanvasAppearancePreview({ fit: true });
       renderDeviceEditorPreview();
       render();
     }
@@ -82554,6 +82667,7 @@
         id: key,
         label: cableTypes[key].label,
         color: cableTypes[key].color,
+        colors: Array.isArray(cableTypes[key].colors) ? cableTypes[key].colors.slice() : [],
         direction: cableTypes[key].direction,
         thumbnail: cableTypes[key].thumbnail || DEFAULT_NODE_THUMBNAIL,
         tags: normalizeNodeTags(cableTypes[key].tags),
@@ -82577,6 +82691,9 @@
           id,
           label: node.label || cableTypes[id]?.label || id,
           color: normalizeColor(node.color || cableTypes[id]?.color || "#37474F"),
+          colors: Array.isArray(node.colors) && node.colors.length
+            ? node.colors.map(color => normalizeColor(color || "#37474F"))
+            : (Array.isArray(cableTypes[id]?.colors) ? cableTypes[id].colors.slice() : []),
           direction: node.direction === "two-way" ? "two-way" : "one-way",
           thumbnail: node.thumbnail || cableTypes[id]?.thumbnail || DEFAULT_NODE_THUMBNAIL,
           tags: normalizeNodeTags(node.tags?.length ? node.tags : cableTypes[id]?.tags || DEFAULT_NODE_TAGS[id] || []),
@@ -82702,12 +82819,17 @@
       document.querySelectorAll("[data-title-field]").forEach(input => {
         input.value = titleBlockDraft[input.dataset.titleField] || "";
       });
-      renderTitleBlockPreview();
       titleBlockModal.classList.remove("hidden");
+      renderTitleBlockPreview({ fullScene: true, fit: true });
+      loadTitleBlockEnginePreviewModules().then(() => {
+        if (!titleBlockModalOpen()) return;
+        renderTitleBlockPreview({ fullScene: true, fit: true });
+      });
     }
 
     function closeTitleBlockEditor() {
       titleBlockModal.classList.add("hidden");
+      disposeTitleBlockEnginePreviewSurface();
       titleBlockEditingId = null;
       titleBlockDraft = null;
     }
@@ -82719,9 +82841,15 @@
       });
     }
 
-    function renderTitleBlockPreview() {
+    function renderTitleBlockPreview(options = {}) {
       if (!titleBlockPreview) return;
       syncTitleBlockDraftFromForm();
+      if (titleBlockUsesEnginePreview()) {
+        titleBlockPreview.innerHTML = "";
+        syncTitleBlockEnginePreview(options);
+        return;
+      }
+      titleBlockEnginePreviewLegacyVisualDraws += 1;
       titleBlockPreview.innerHTML = "";
       titleBlockPreview.setAttribute("viewBox", `0 0 ${TITLE_BLOCK_WIDTH} ${TITLE_BLOCK_HEIGHT}`);
       const previewBlock = {
@@ -84451,6 +84579,7 @@
       }
       if (!rackBuilderEnginePreviewSurface) {
         rackBuilderEnginePreviewSurface = new editorEnginePreviewModule.EnginePreviewSurface(host, {
+          owner: "rack-builder",
           fit: false,
           renderOptions: {
             gridVisible: false,
@@ -87076,6 +87205,7 @@
         previewTextureRebuilds: previewTextureStats.rebuilds ?? previewTextureStats.invalidated ?? 0,
         previewDeviceReplacements: previewDiagnostics?.lifecycle?.incrementalDeviceReplacements ?? 0,
         previewAssetSubscribers: previewDiagnostics?.assetReadySubscribers ?? 0,
+        previewOwners: previewDiagnostics?.owners || [],
         authoringOverlayDraws: editorEnginePreviewOverlayDraws,
         fullSceneRebuildsFromShell: shellDebug.fullSceneRebuildsFromShell,
         engineBridgeActive: Boolean(activeEngineBridge())
@@ -87107,6 +87237,7 @@
         ["Texture Rebuilds", snapshot.previewTextureRebuilds],
         ["Device Replacements", snapshot.previewDeviceReplacements],
         ["Asset Subscribers", snapshot.previewAssetSubscribers],
+        ["Preview Owners", snapshot.previewOwners.map(row => `${row.owner}:${row.surfaces}`).join(" / ") || "none"],
         ["Overlay Draws", snapshot.authoringOverlayDraws],
         ["Engine Bridge", snapshot.engineBridgeActive ? "active" : "inactive"],
         ["Shell Rebuilds", snapshot.fullSceneRebuildsFromShell]
@@ -88251,6 +88382,14 @@
       return engineEditorRequestedByUrl();
     }
 
+    function nodeBuilderUsesEnginePreview() {
+      return engineEditorRequestedByUrl();
+    }
+
+    function titleBlockUsesEnginePreview() {
+      return engineEditorRequestedByUrl();
+    }
+
     function loadRackBuilderEnginePreviewModules() {
       if (!rackBuilderUsesEnginePreview()) return Promise.resolve(null);
       const previewPromise = loadSharedEnginePreviewModule("Rack Builder Engine preview");
@@ -88271,6 +88410,52 @@
       return Promise.all([previewPromise, rackBuilderPreviewAdapterModulePromise])
         .then(([previewModule, rackModule]) => (
           previewModule && rackModule ? { previewModule, rackModule } : null
+        ));
+    }
+
+    function loadNodeBuilderEnginePreviewModules() {
+      if (!nodeBuilderUsesEnginePreview()) return Promise.resolve(null);
+      const previewPromise = loadSharedEnginePreviewModule("Node Builder Engine preview");
+      if (!nodeBuilderPreviewAdapterModulePromise) {
+        const moduleUrl = engineImportUrl("./src/engine/nodePreview.js");
+        nodeBuilderPreviewAdapterModulePromise = import(moduleUrl)
+          .then(module => {
+            nodeBuilderPreviewAdapterModule = module;
+            return module;
+          })
+          .catch(error => {
+            console.error("Node Builder preview adapter failed to load", error);
+            nodeBuilderPreviewAdapterModulePromise = null;
+            setStatus("Node Builder preview adapter failed to load.");
+            return null;
+          });
+      }
+      return Promise.all([previewPromise, nodeBuilderPreviewAdapterModulePromise])
+        .then(([previewModule, nodeModule]) => (
+          previewModule && nodeModule ? { previewModule, nodeModule } : null
+        ));
+    }
+
+    function loadTitleBlockEnginePreviewModules() {
+      if (!titleBlockUsesEnginePreview()) return Promise.resolve(null);
+      const previewPromise = loadSharedEnginePreviewModule("Title Block Engine preview");
+      if (!titleBlockPreviewAdapterModulePromise) {
+        const moduleUrl = engineImportUrl("./src/engine/titleBlockPreview.js");
+        titleBlockPreviewAdapterModulePromise = import(moduleUrl)
+          .then(module => {
+            titleBlockPreviewAdapterModule = module;
+            return module;
+          })
+          .catch(error => {
+            console.error("Title Block preview adapter failed to load", error);
+            titleBlockPreviewAdapterModulePromise = null;
+            setStatus("Title Block preview adapter failed to load.");
+            return null;
+          });
+      }
+      return Promise.all([previewPromise, titleBlockPreviewAdapterModulePromise])
+        .then(([previewModule, titleModule]) => (
+          previewModule && titleModule ? { previewModule, titleModule } : null
         ));
     }
 
@@ -88295,6 +88480,7 @@
       }
       if (!editorEnginePreviewSurface) {
         editorEnginePreviewSurface = new editorEnginePreviewModule.EnginePreviewSurface(host, {
+          owner: "device-editor",
           fit: false,
           renderOptions: {
             gridVisible: false,
@@ -88461,6 +88647,270 @@
       }
       syncDeviceEditorEngineOverlayViewBox();
       return device;
+    }
+
+    function nodeBuilderModalOpen() {
+      return Boolean(nodeBuilderModal && !nodeBuilderModal.classList.contains("hidden"));
+    }
+
+    function titleBlockModalOpen() {
+      return Boolean(titleBlockModal && !titleBlockModal.classList.contains("hidden"));
+    }
+
+    function ensureNodeBuilderEnginePreviewSurface() {
+      if (!nodeBuilderUsesEnginePreview() || !nodeCanvasAppearancePreview || !nodeBuilderModalOpen()) return null;
+      if (!editorEnginePreviewModule?.EnginePreviewSurface || !nodeBuilderPreviewAdapterModule?.createNodeBuilderPreviewScene) {
+        loadNodeBuilderEnginePreviewModules().then(() => {
+          if (!nodeBuilderModalOpen()) return;
+          renderNodeBuilderCanvasAppearancePreview({ fullScene: true, fit: true });
+        });
+        return null;
+      }
+      if (!nodeBuilderEnginePreviewSurface) {
+        nodeBuilderEnginePreviewSurface = new editorEnginePreviewModule.EnginePreviewSurface(nodeCanvasAppearancePreview, {
+          owner: "node-builder",
+          fit: false,
+          renderOptions: {
+            gridVisible: false,
+            wires: false,
+            labels: true,
+            connectorMarkers: true,
+            connectorColors: true,
+            texturedDevices: true,
+            detailedDeviceTextures: true,
+            cableHops: false
+          }
+        });
+        nodeBuilderEnginePreviewSynced = false;
+      } else {
+        nodeBuilderEnginePreviewSurface.mount(nodeCanvasAppearancePreview);
+      }
+      return nodeBuilderEnginePreviewSurface;
+    }
+
+    function disposeNodeBuilderEnginePreviewSurface() {
+      nodeBuilderEnginePreviewSurface?.dispose?.();
+      nodeBuilderEnginePreviewSurface = null;
+      nodeBuilderEnginePreviewSynced = false;
+      nodeBuilderEnginePreviewFullSceneReplacements = 0;
+      nodeBuilderEnginePreviewDeviceReplacements = 0;
+      nodeBuilderEnginePreviewLegacyVisualDraws = 0;
+    }
+
+    function syncNodeBuilderEnginePreview(options = {}) {
+      const surface = ensureNodeBuilderEnginePreviewSurface();
+      if (!surface) return null;
+      const type = selectedNodeType();
+      if (!type || !nodeBuilderPreviewAdapterModule?.createNodeBuilderPreviewScene) {
+        surface.setSceneData({ devices: [], wires: [], racks: [], meta: { source: "node-builder-empty", buildId: APP_BUILD_ID } }, { fit: false });
+        nodeBuilderEnginePreviewSynced = false;
+        updateNodeBuilderEnginePreviewDebug(null);
+        return null;
+      }
+      const sceneData = nodeBuilderPreviewAdapterModule.createNodeBuilderPreviewScene({
+        typeId: nodeBuilderSelectedType,
+        connectorType: type,
+        nodeLibrary: serializeNodeLibrary()
+      });
+      if (!nodeBuilderEnginePreviewSynced || options.fullScene) {
+        surface.setSceneData(sceneData, { fit: options.fit === true });
+        nodeBuilderEnginePreviewFullSceneReplacements += 1;
+        nodeBuilderEnginePreviewSynced = true;
+      } else {
+        surface.replaceSceneItems({ devices: sceneData.devices, wires: [] }, {
+          render: false,
+          refreshTexture: false,
+          refreshCableHops: false
+        });
+        nodeBuilderEnginePreviewDeviceReplacements += sceneData.devices.length;
+        if (options.fit === true) surface.fitToContent({ padding: 28 });
+        surface.render();
+      }
+      updateNodeBuilderEnginePreviewDebug(sceneData);
+      return sceneData;
+    }
+
+    function renderNodeBuilderCanvasAppearancePreview(options = {}) {
+      if (!nodeBuilderUsesEnginePreview()) return;
+      const surface = ensureNodeBuilderEnginePreviewSurface();
+      if (!surface) {
+        return;
+      }
+      syncNodeBuilderEnginePreview(options);
+    }
+
+    function updateNodeBuilderEnginePreviewDebug(sceneData) {
+      if (!DEBUG_NODE_BUILDER_PREVIEW_ENABLED) return;
+      const diagnostics = editorEnginePreviewModule?.enginePreviewDiagnostics
+        ? editorEnginePreviewModule.enginePreviewDiagnostics(nodeBuilderEnginePreviewSurface)
+        : null;
+      const summary = sceneData?.meta?.nodeBuilderPreview
+        || nodeBuilderPreviewAdapterModule?.nodeBuilderPreviewSummary?.(nodeBuilderEnginePreviewSurface?.scene)
+        || null;
+      const textureStats = diagnostics?.surface?.textureStats || {};
+      const snapshot = {
+        build: `${APP_BUILD_LABEL} — ${APP_BUILD_ID}`,
+        previewSource: nodeBuilderUsesEnginePreview() ? "EnginePreviewSurface" : "legacy/dom",
+        selectedConnectorType: nodeBuilderSelectedType || "",
+        effectiveType: summary?.effectiveType || "",
+        label: summary?.label || "",
+        color: summary?.color || "",
+        colorSegments: summary?.colorSegments || [],
+        fiberMode: summary?.fiberMode || "",
+        previewSurfaceActive: Boolean(nodeBuilderEnginePreviewSurface && !nodeBuilderEnginePreviewSurface.disposed),
+        textureBuilds: textureStats.builds || 0,
+        textureRebuilds: textureStats.rebuilds || 0,
+        fullSceneReplacements: nodeBuilderEnginePreviewFullSceneReplacements,
+        incrementalDeviceReplacements: nodeBuilderEnginePreviewDeviceReplacements,
+        legacyCanvasAppearanceDraws: nodeBuilderEnginePreviewLegacyVisualDraws,
+        ownership: diagnostics?.owners || []
+      };
+      window.__avDesignerNodeBuilderPreviewDebug = snapshot;
+      console.info("[node-builder-preview]", snapshot);
+    }
+
+    function titleBlockPreviewContainer() {
+      return titleBlockPreview?.closest?.(".title-block-preview") || titleBlockPreview?.parentElement || null;
+    }
+
+    function ensureTitleBlockEnginePreviewSurface() {
+      if (!titleBlockUsesEnginePreview() || !titleBlockPreview || !titleBlockModalOpen()) return null;
+      if (!editorEnginePreviewModule?.EnginePreviewSurface || !titleBlockPreviewAdapterModule?.createTitleBlockPreviewScene) {
+        loadTitleBlockEnginePreviewModules().then(() => {
+          if (!titleBlockModalOpen()) return;
+          renderTitleBlockPreview({ fullScene: true, fit: true });
+        });
+        return null;
+      }
+      const host = titleBlockPreviewContainer();
+      if (!host) return null;
+      if (!titleBlockEnginePreviewSvgHome) {
+        titleBlockEnginePreviewSvgHome = titleBlockPreview.parentElement;
+        titleBlockEnginePreviewSvgNextSibling = titleBlockPreview.nextSibling;
+      }
+      if (!titleBlockEnginePreviewSurface) {
+        titleBlockEnginePreviewSurface = new editorEnginePreviewModule.EnginePreviewSurface(host, {
+          owner: "title-block",
+          fit: false,
+          renderOptions: {
+            gridVisible: false,
+            wires: false,
+            labels: false,
+            connectorMarkers: false,
+            connectorColors: true,
+            texturedDevices: true,
+            detailedDeviceTextures: true,
+            cableHops: false
+          }
+        });
+        titleBlockEnginePreviewSynced = false;
+      } else {
+        titleBlockEnginePreviewSurface.mount(host);
+      }
+      titleBlockEnginePreviewHost = host;
+      host.classList.add("engine-preview-mode");
+      Object.assign(titleBlockEnginePreviewSurface.dom.root.style, {
+        position: "absolute",
+        inset: "0",
+        width: "100%",
+        height: "100%"
+      });
+      const overlay = titleBlockEnginePreviewSurface.authoringOverlay?.() || titleBlockEnginePreviewSurface.dom.overlay;
+      if (overlay && titleBlockPreview.parentElement !== overlay) overlay.appendChild(titleBlockPreview);
+      titleBlockPreview.classList.add("engine-preview-authoring-svg");
+      return titleBlockEnginePreviewSurface;
+    }
+
+    function disposeTitleBlockEnginePreviewSurface() {
+      const svg = titleBlockPreview;
+      if (svg && titleBlockEnginePreviewSvgHome && svg.parentElement !== titleBlockEnginePreviewSvgHome) {
+        if (titleBlockEnginePreviewSvgNextSibling?.parentElement === titleBlockEnginePreviewSvgHome) {
+          titleBlockEnginePreviewSvgHome.insertBefore(svg, titleBlockEnginePreviewSvgNextSibling);
+        } else {
+          titleBlockEnginePreviewSvgHome.appendChild(svg);
+        }
+      }
+      svg?.classList.remove("engine-preview-authoring-svg");
+      titleBlockEnginePreviewHost?.classList.remove("engine-preview-mode");
+      titleBlockEnginePreviewSurface?.dispose?.();
+      titleBlockEnginePreviewSurface = null;
+      titleBlockEnginePreviewHost = null;
+      titleBlockEnginePreviewSynced = false;
+      titleBlockEnginePreviewFullSceneReplacements = 0;
+      titleBlockEnginePreviewDeviceReplacements = 0;
+      titleBlockEnginePreviewLegacyVisualDraws = 0;
+    }
+
+    function titleBlockPreviewSourceBlock() {
+      const editingBlock = titleBlockEditingId ? titleBlockById(titleBlockEditingId) : null;
+      return {
+        ...(editingBlock || {}),
+        id: "title-block-editor-preview",
+        x: 0,
+        y: 0,
+        width: editingBlock?.width || TITLE_BLOCK_WIDTH,
+        height: editingBlock?.height || TITLE_BLOCK_HEIGHT,
+        fields: { ...defaultTitleBlockData(), ...(titleBlockDraft || {}) },
+        logo: titleBlockDraft?.companyLogo || editingBlock?.logo || editingBlock?.companyLogo || editingBlock?.fields?.companyLogo || "",
+        companyLogo: titleBlockDraft?.companyLogo || editingBlock?.companyLogo || editingBlock?.fields?.companyLogo || ""
+      };
+    }
+
+    function syncTitleBlockEnginePreview(options = {}) {
+      const surface = ensureTitleBlockEnginePreviewSurface();
+      if (!surface || !titleBlockPreviewAdapterModule?.createTitleBlockPreviewScene) return null;
+      const sourceBlock = titleBlockPreviewSourceBlock();
+      const sceneData = titleBlockPreviewAdapterModule.createTitleBlockPreviewScene({
+        block: sourceBlock,
+        fields: sourceBlock.fields,
+        width: sourceBlock.width,
+        height: sourceBlock.height,
+        logo: sourceBlock.logo
+      });
+      if (!titleBlockEnginePreviewSynced || options.fullScene) {
+        surface.setSceneData(sceneData, { fit: options.fit === true });
+        titleBlockEnginePreviewFullSceneReplacements += 1;
+        titleBlockEnginePreviewSynced = true;
+      } else {
+        surface.replaceSceneItems({ devices: sceneData.devices, wires: [] }, {
+          render: false,
+          refreshTexture: true,
+          refreshCableHops: false
+        });
+        titleBlockEnginePreviewDeviceReplacements += sceneData.devices.length;
+        if (options.fit === true) surface.fitToContent({ padding: 34 });
+        surface.render();
+      }
+      updateTitleBlockEnginePreviewDebug(sceneData);
+      return sceneData;
+    }
+
+    function updateTitleBlockEnginePreviewDebug(sceneData) {
+      if (!DEBUG_TITLE_BLOCK_PREVIEW_ENABLED) return;
+      const diagnostics = editorEnginePreviewModule?.enginePreviewDiagnostics
+        ? editorEnginePreviewModule.enginePreviewDiagnostics(titleBlockEnginePreviewSurface)
+        : null;
+      const summary = sceneData?.meta?.titleBlockPreview
+        || titleBlockPreviewAdapterModule?.titleBlockPreviewSummary?.(titleBlockEnginePreviewSurface?.scene)
+        || null;
+      const textureStats = diagnostics?.surface?.textureStats || {};
+      const snapshot = {
+        build: `${APP_BUILD_LABEL} — ${APP_BUILD_ID}`,
+        previewSource: titleBlockUsesEnginePreview() ? "EnginePreviewSurface" : "legacy/svg",
+        width: summary?.width || 0,
+        height: summary?.height || 0,
+        title: summary?.title || "",
+        hasLogo: Boolean(summary?.logo),
+        previewSurfaceActive: Boolean(titleBlockEnginePreviewSurface && !titleBlockEnginePreviewSurface.disposed),
+        textureBuilds: textureStats.builds || 0,
+        textureRebuilds: textureStats.rebuilds || 0,
+        fullSceneReplacements: titleBlockEnginePreviewFullSceneReplacements,
+        incrementalDeviceReplacements: titleBlockEnginePreviewDeviceReplacements,
+        legacyActualDraws: titleBlockEnginePreviewLegacyVisualDraws,
+        ownership: diagnostics?.owners || []
+      };
+      window.__avDesignerTitleBlockPreviewDebug = snapshot;
+      console.info("[title-block-preview]", snapshot);
     }
 
     function deviceEditorEnginePreviewScreenPoint(event) {
@@ -104329,7 +104779,7 @@ renderViewerOutputDebug();
     document.getElementById("closeTitleBlockEditor").addEventListener("click", closeTitleBlockEditor);
     saveTitleBlockButton.addEventListener("click", saveTitleBlockFromEditor);
     document.querySelectorAll("[data-title-field]").forEach(input => {
-      input.addEventListener("input", renderTitleBlockPreview);
+      input.addEventListener("input", () => renderTitleBlockPreview());
     });
     document.getElementById("titleCompanyLogo").addEventListener("change", event => {
       const [file] = event.target.files;
@@ -105722,7 +106172,7 @@ renderViewerOutputDebug();
     }
 
     function runtimeDebugEnabled() {
-      return INITIAL_URL_PARAMS.get("debugRuntime") === "1";
+      return INITIAL_URL_PARAMS.get("debugRuntime") === "1" || DEBUG_ENGINE_PREVIEW_ENABLED;
     }
 
     function inferDeploymentSource() {
@@ -105873,6 +106323,11 @@ renderViewerOutputDebug();
         const cacheInfo = [file.vercelCache, file.lastModified].filter(Boolean).join(" / ");
         return runtimeRow(file.name, `${status}${cacheInfo ? ` / ${cacheInfo}` : ""}`);
       }).join("");
+      const previewOwnerRows = (fingerprint.previewOwners || []).map(row => {
+        const label = row.owner || "preview";
+        const value = `${row.source || "EnginePreviewSurface"} / ${row.surfaces || 0} surface${row.surfaces === 1 ? "" : "s"} / visuals ${row.engineVisuals ? "engine" : "legacy"} / legacy draws ${row.legacyActualDraws || 0}`;
+        return runtimeRow(label, value);
+      }).join("");
       panel.innerHTML = `
         <h3>Runtime Fingerprint</h3>
         <dl>
@@ -105886,6 +106341,7 @@ renderViewerOutputDebug();
           ${runtimeRow("Href", fingerprint.href)}
           ${runtimeRow("Origin", fingerprint.origin)}
         </dl>
+        ${previewOwnerRows ? `<div class="runtime-file-list"><dl>${previewOwnerRows}</dl></div>` : ""}
         <div class="runtime-file-list">
           <dl>${fileRows}</dl>
         </div>
@@ -105920,6 +106376,9 @@ renderViewerOutputDebug();
         filePromises.renderer
       ]);
       const engineRuntimeExports = window.__AVD_ENGINE_RUNTIME_EXPORTS__ || {};
+      const previewDiagnostics = editorEnginePreviewModule?.enginePreviewDiagnostics
+        ? editorEnginePreviewModule.enginePreviewDiagnostics()
+        : null;
       const fingerprint = {
         appBuildId: APP_BUILD_ID,
         appIteration: APP_ITERATION,
@@ -105936,6 +106395,9 @@ renderViewerOutputDebug();
         origin: window.location.origin,
         generatedAt: new Date().toISOString(),
         buildInfo,
+        previewOwners: previewDiagnostics?.owners || [],
+        previewLifecycle: previewDiagnostics?.lifecycle || null,
+        previewAssetSubscribers: previewDiagnostics?.assetReadySubscribers ?? null,
         files: {
           indexHtml,
           productionBridge,
@@ -106217,9 +106679,18 @@ renderViewerOutputDebug();
     updateShellDebug({ lastPanelAction: "startup" });
     window.addEventListener("resize", updateCanvasView);
     window.addEventListener("resize", () => {
-      if (!rackBuilderUsesEnginePreview() || !rackBuilderEnginePreviewSurface || !rackBuilderModalOpen()) return;
-      rackBuilderEnginePreviewSurface.resize({ fit: false });
-      renderRackBuilderPreview({ cameraOnly: true });
+      if (rackBuilderUsesEnginePreview() && rackBuilderEnginePreviewSurface && rackBuilderModalOpen()) {
+        rackBuilderEnginePreviewSurface.resize({ fit: false });
+        renderRackBuilderPreview({ cameraOnly: true });
+      }
+      if (nodeBuilderUsesEnginePreview() && nodeBuilderEnginePreviewSurface && nodeBuilderModalOpen()) {
+        nodeBuilderEnginePreviewSurface.resize({ fit: false });
+        renderNodeBuilderCanvasAppearancePreview();
+      }
+      if (titleBlockUsesEnginePreview() && titleBlockEnginePreviewSurface && titleBlockModalOpen()) {
+        titleBlockEnginePreviewSurface.resize({ fit: false });
+        renderTitleBlockPreview();
+      }
     });
     render();
     startExperimentalEngineRenderer();

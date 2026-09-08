@@ -885,6 +885,7 @@ function drawTitleBlockVisual(ctx, device, width, height) {
   const xOffset = (width - TITLE_BLOCK_BASE_WIDTH * scale) / 2;
   const yOffset = (height - TITLE_BLOCK_BASE_HEIGHT * scale) / 2;
   const fields = device.visual?.fields || {};
+  const logoSource = String(device.visual?.logo || fields.companyLogo || "").trim();
   ctx.save();
   ctx.translate(xOffset, yOffset);
   ctx.scale(scale, scale);
@@ -917,12 +918,19 @@ function drawTitleBlockVisual(ctx, device, width, height) {
   drawTitleBlockCell(ctx, 458, 40, "Drawing Date:", fields.drawingDate);
   drawTitleBlockCell(ctx, 458, 68, "Acc Manager:", fields.accountManager);
   drawTitleBlockCell(ctx, 458, 92, "Approved By:", fields.approvedBy);
-  drawFittedText(ctx, fields.logoText || "Company Logo", 622, 58, 126, 13, {
-    weight: 700,
-    fill: "#d7e6f5",
-    align: "center",
-    baseline: "middle"
-  });
+  const logoBox = { x: 622, y: 14, width: 126, height: 84 };
+  const logoImage = logoSource ? cachedImage(logoSource) : null;
+  if (logoImage?.complete && logoImage.naturalWidth > 0) {
+    const logoRect = preserveAspectRatioMeetRect(logoBox, logoImage.naturalWidth, logoImage.naturalHeight);
+    ctx.drawImage(logoImage, logoRect.x, logoRect.y, logoRect.width, logoRect.height);
+  } else {
+    drawFittedText(ctx, fields.logoText || "Company Logo", logoBox.x + logoBox.width / 2, 58, logoBox.width, 13, {
+      weight: 700,
+      fill: "#d7e6f5",
+      align: "center",
+      baseline: "middle"
+    });
+  }
   ctx.restore();
 }
 

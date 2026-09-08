@@ -1052,6 +1052,8 @@ function normalizeTitleBlocks(blocks) {
     const scale = titleBlockScale(block);
     const width = positiveNumber(block.width) || TITLE_BLOCK_BASE_WIDTH * scale;
     const height = positiveNumber(block.height) || TITLE_BLOCK_BASE_HEIGHT * scale;
+    const fields = deepClone(block.fields || {});
+    const logo = String(block.logo || block.companyLogo || fields.companyLogo || "").trim();
     return {
       id,
       sourceKind: "titleBlock",
@@ -1068,8 +1070,8 @@ function normalizeTitleBlocks(blocks) {
       color: "rgba(15, 24, 32, .72)",
       visual: {
         objectKind: "title-block",
-        fields: deepClone(block.fields || {}),
-        logo: String(block.logo || block.companyLogo || "").trim()
+        fields,
+        logo
       },
       connectors: [],
       portCount: 0
