@@ -3162,6 +3162,57 @@
       display: block;
     }
 
+    .editor-preview.engine-preview-mode .engine-preview-surface {
+      position: absolute !important;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .editor-preview.engine-preview-mode .engine-preview-webgl,
+    .editor-preview.engine-preview-mode .engine-preview-labels {
+      pointer-events: none;
+    }
+
+    .editor-preview.engine-preview-mode .engine-preview-authoring-overlay {
+      pointer-events: auto !important;
+      z-index: 3;
+    }
+
+    .editor-preview.engine-preview-mode #deviceEditorPreview {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      background: transparent;
+      pointer-events: all;
+    }
+
+    .editor-engine-hit {
+      fill: transparent;
+      stroke: transparent;
+      pointer-events: all;
+    }
+
+    .editor-engine-node-selection {
+      fill: rgba(50, 182, 255, .08);
+      stroke: rgb(50, 182, 255);
+      stroke-width: 2.2;
+      stroke-dasharray: 4 3;
+      vector-effect: non-scaling-stroke;
+      pointer-events: none;
+      filter: drop-shadow(0 0 6px rgba(50, 182, 255, .6));
+    }
+
+    .editor-engine-face-selection,
+    .editor-engine-card-slot-selection {
+      fill: rgba(50, 182, 255, .06);
+      stroke: rgb(50, 182, 255);
+      stroke-width: 1.8;
+      stroke-dasharray: 5 4;
+      vector-effect: non-scaling-stroke;
+      pointer-events: all;
+    }
+
     .editor-device-body {
       pointer-events: all;
     }
@@ -4956,9 +5007,9 @@
   </div>
 
   <script>
-    const APP_ITERATION = "53.0";
-    const APP_BUILD_ID = "iteration53-0-shared-engine-preview-foundation";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Shared Engine Preview Foundation`;
+    const APP_ITERATION = "53.1";
+    const APP_BUILD_ID = "iteration53-1-device-editor-engine-preview";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Device Editor Engine Preview`;
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "2edc063+";
     const CANVAS_MIN_ZOOM = 0.03;
@@ -77604,6 +77655,17 @@
     let editorIndex = 0;
     let editorPreviewZoom = 1;
     let editorPreviewPan = { x: 0, y: 0 };
+    let editorEnginePreviewSurface = null;
+    let editorEnginePreviewModule = null;
+    let editorEnginePreviewModulePromise = null;
+    let editorEnginePreviewHost = null;
+    let editorEnginePreviewSvgHome = null;
+    let editorEnginePreviewSvgNextSibling = null;
+    let editorEnginePreviewDraftSynced = false;
+    let editorEnginePreviewFitPending = false;
+    let editorEnginePreviewLastDeviceId = "";
+    let editorEnginePreviewLegacyVisualDraws = 0;
+    let editorEnginePreviewOverlayDraws = 0;
     let editorFaceplatePreviewZoom = 1;
     let editorFaceplatePreviewPan = { x: 0, y: 0 };
     let editorFaceplatePreviewWidth = 320;
@@ -83404,6 +83466,7 @@
       editorSelectedCardNodeIndex = null;
       renderDeviceEditor();
       deviceEditorModal.classList.remove("hidden");
+      scheduleDeviceEditorEnginePreviewOpenFit();
     }
 
     function openDeviceEditorForTemplate(templateId) {
@@ -83445,6 +83508,7 @@
       editorSelectedCardNodeIndex = null;
       renderDeviceEditor();
       deviceEditorModal.classList.remove("hidden");
+      scheduleDeviceEditorEnginePreviewOpenFit();
     }
 
     function openDeviceEditorForInstance(instanceId) {
@@ -83488,6 +83552,7 @@
       editorSelectedCardNodeIndex = null;
       renderDeviceEditor();
       deviceEditorModal.classList.remove("hidden");
+      scheduleDeviceEditorEnginePreviewOpenFit();
     }
 
     function createProjectCustomDraftFromTemplate(source, options = {}) {
@@ -83647,9 +83712,11 @@
       editorSelectedCardNodeIndex = null;
       renderDeviceEditor();
       deviceEditorModal.classList.remove("hidden");
+      scheduleDeviceEditorEnginePreviewOpenFit();
     }
 
     function closeDeviceEditor() {
+      disposeDeviceEditorEnginePreviewSurface();
       deviceEditorModal.classList.add("hidden");
     }
 
@@ -86337,6 +86404,10 @@
         : isProjectTemplateEditorMode()
           ? `Project custom ${editorProjectTemplateId || "-"}`
           : "Master library";
+      const previewDiagnostics = deviceEditorUsesEnginePreview() && editorEnginePreviewModule?.enginePreviewDiagnostics
+        ? editorEnginePreviewModule.enginePreviewDiagnostics(editorEnginePreviewSurface)
+        : null;
+      const previewTextureStats = previewDiagnostics?.surface?.textureStats || {};
       const snapshot = {
         build: `${APP_BUILD_LABEL} — ${APP_BUILD_ID}`,
         runtime: appRuntimeModeLabel(),
@@ -86360,6 +86431,16 @@
         activeThrough: activeThrough ? editorThroughDirectionLabel(template, activeThrough) : "none",
         topologyErrors: validation.errors || [],
         topologyWarnings: validation.warnings || [],
+        previewSource: deviceEditorUsesEnginePreview() ? "EnginePreviewSurface" : "legacy/svg",
+        legacyActualDeviceVisualDraws: deviceEditorUsesEnginePreview() ? 0 : editorEnginePreviewLegacyVisualDraws,
+        activePreviewSurfaces: previewDiagnostics?.lifecycle?.activePreviewSurfaces ?? 0,
+        previewFullSceneReplacements: previewDiagnostics?.lifecycle?.fullSceneReplacements ?? 0,
+        enginePreviewFrames: previewDiagnostics?.lifecycle?.renderedFrames ?? 0,
+        previewTextureBuilds: previewTextureStats.builds ?? previewTextureStats.created ?? 0,
+        previewTextureRebuilds: previewTextureStats.rebuilds ?? previewTextureStats.invalidated ?? 0,
+        previewDeviceReplacements: previewDiagnostics?.lifecycle?.incrementalDeviceReplacements ?? 0,
+        previewAssetSubscribers: previewDiagnostics?.assetReadySubscribers ?? 0,
+        authoringOverlayDraws: editorEnginePreviewOverlayDraws,
         fullSceneRebuildsFromShell: shellDebug.fullSceneRebuildsFromShell,
         engineBridgeActive: Boolean(activeEngineBridge())
       };
@@ -86381,6 +86462,16 @@
         ["Active Through", snapshot.activeThrough],
         ["Relationships", snapshot.relationships],
         ["Topology", `${snapshot.topologyErrors.length} errors / ${snapshot.topologyWarnings.length} warnings`],
+        ["Preview Source", snapshot.previewSource],
+        ["Legacy Draws", snapshot.legacyActualDeviceVisualDraws],
+        ["Active Preview Surfaces", snapshot.activePreviewSurfaces],
+        ["Full Scene Replacements", snapshot.previewFullSceneReplacements],
+        ["Preview Frames", snapshot.enginePreviewFrames],
+        ["Texture Builds", snapshot.previewTextureBuilds],
+        ["Texture Rebuilds", snapshot.previewTextureRebuilds],
+        ["Device Replacements", snapshot.previewDeviceReplacements],
+        ["Asset Subscribers", snapshot.previewAssetSubscribers],
+        ["Overlay Draws", snapshot.authoringOverlayDraws],
         ["Engine Bridge", snapshot.engineBridgeActive ? "active" : "inactive"],
         ["Shell Rebuilds", snapshot.fullSceneRebuildsFromShell]
       ];
@@ -87489,6 +87580,534 @@
       return editorDraft[editorIndex];
     }
 
+    const DEVICE_EDITOR_ENGINE_PREVIEW_DEVICE_ID = "device-editor-preview-device";
+
+    function deviceEditorUsesEnginePreview() {
+      return engineEditorRequestedByUrl();
+    }
+
+    function loadDeviceEditorEnginePreviewModule() {
+      if (!deviceEditorUsesEnginePreview()) return Promise.resolve(null);
+      if (editorEnginePreviewModule) return Promise.resolve(editorEnginePreviewModule);
+      if (!editorEnginePreviewModulePromise) {
+        const moduleUrl = engineImportUrl("./src/engine/enginePreview.js");
+        editorEnginePreviewModulePromise = import(moduleUrl)
+          .then(module => {
+            editorEnginePreviewModule = module;
+            return module;
+          })
+          .catch(error => {
+            console.error("Device Editor Engine preview failed to load", error);
+            editorEnginePreviewModulePromise = null;
+            setStatus("Device Editor Engine preview failed to load.");
+            return null;
+          });
+      }
+      return editorEnginePreviewModulePromise;
+    }
+
+    function deviceEditorPreviewContainer() {
+      return deviceEditorPreview?.closest?.(".editor-preview") || deviceEditorPreview?.parentElement || null;
+    }
+
+    function ensureDeviceEditorEnginePreviewSurface() {
+      if (!deviceEditorUsesEnginePreview() || !deviceEditorPreview) return null;
+      if (!editorEnginePreviewModule?.EnginePreviewSurface) {
+        loadDeviceEditorEnginePreviewModule().then(module => {
+          if (!module || deviceEditorModal?.classList.contains("hidden")) return;
+          renderDeviceEditorPreview();
+        });
+        return null;
+      }
+      const host = deviceEditorPreviewContainer();
+      if (!host) return null;
+      if (!editorEnginePreviewSvgHome) {
+        editorEnginePreviewSvgHome = deviceEditorPreview.parentElement;
+        editorEnginePreviewSvgNextSibling = deviceEditorPreview.nextSibling;
+      }
+      if (!editorEnginePreviewSurface) {
+        editorEnginePreviewSurface = new editorEnginePreviewModule.EnginePreviewSurface(host, {
+          fit: false,
+          renderOptions: {
+            gridVisible: false,
+            wires: false,
+            labels: true,
+            connectorMarkers: true,
+            connectorColors: true,
+            texturedDevices: true,
+            detailedDeviceTextures: true,
+            cableHops: false
+          }
+        });
+        editorEnginePreviewDraftSynced = false;
+      } else {
+        editorEnginePreviewSurface.mount(host);
+      }
+      editorEnginePreviewHost = host;
+      host.classList.add("engine-preview-mode");
+      Object.assign(editorEnginePreviewSurface.dom.root.style, {
+        position: "absolute",
+        inset: "0",
+        width: "100%",
+        height: "100%"
+      });
+      const overlay = editorEnginePreviewSurface.authoringOverlay?.() || editorEnginePreviewSurface.dom.overlay;
+      if (overlay && deviceEditorPreview.parentElement !== overlay) overlay.appendChild(deviceEditorPreview);
+      if (overlay) overlay.style.pointerEvents = "auto";
+      deviceEditorPreview.classList.add("engine-preview-authoring-svg");
+      return editorEnginePreviewSurface;
+    }
+
+    function disposeDeviceEditorEnginePreviewSurface() {
+      const svg = deviceEditorPreview;
+      if (svg && editorEnginePreviewSvgHome && svg.parentElement !== editorEnginePreviewSvgHome) {
+        if (editorEnginePreviewSvgNextSibling?.parentElement === editorEnginePreviewSvgHome) {
+          editorEnginePreviewSvgHome.insertBefore(svg, editorEnginePreviewSvgNextSibling);
+        } else {
+          editorEnginePreviewSvgHome.appendChild(svg);
+        }
+      }
+      svg?.classList.remove("engine-preview-authoring-svg");
+      editorEnginePreviewHost?.classList.remove("engine-preview-mode");
+      editorEnginePreviewSurface?.dispose?.();
+      editorEnginePreviewSurface = null;
+      editorEnginePreviewHost = null;
+      editorEnginePreviewDraftSynced = false;
+      editorEnginePreviewFitPending = false;
+      editorEnginePreviewLastDeviceId = "";
+      editorEnginePreviewLegacyVisualDraws = 0;
+      editorEnginePreviewOverlayDraws = 0;
+    }
+
+    function scheduleDeviceEditorEnginePreviewOpenFit() {
+      if (!deviceEditorUsesEnginePreview()) return;
+      editorEnginePreviewFitPending = true;
+      loadDeviceEditorEnginePreviewModule().then(() => {
+        requestAnimationFrame(() => {
+          if (deviceEditorModal?.classList.contains("hidden")) return;
+          editorEnginePreviewFitPending = true;
+          renderDeviceEditorPreview();
+        });
+      });
+    }
+
+    function editorPreviewDeviceName(template) {
+      return editorMode === "instance"
+        ? (editorInstanceName || template?.name || "Custom Device")
+        : (template?.name || "Custom Device");
+    }
+
+    function setConnectorPreviewY(connector, y) {
+      if (!connector || !Number.isFinite(Number(y))) return;
+      connector.y = Number(y);
+      if (Array.isArray(connector.anchors)) {
+        connector.anchors = connector.anchors.map(anchor => ({ ...anchor, y: Number(y) }));
+      }
+    }
+
+    function editorEnginePreviewTemplateClone(template) {
+      const draft = structuredClone(template);
+      draft.width = deviceTemplateWidth(template);
+      draft.height = Number(template.height) || deviceHeightForSlotCounts(template);
+      draft.name = editorPreviewDeviceName(template);
+      validateDraftDefaults(draft);
+      if (editorNodeDrag) {
+        const positions = editorPreviewPositions(template);
+        (draft.connectors || []).forEach(connector => {
+          if (positions.has(connector.id)) setConnectorPreviewY(connector, positions.get(connector.id));
+        });
+      }
+      if (editorCardSlotDrag && Array.isArray(draft.cardSlots)) {
+        draft.cardSlots.forEach(slot => {
+          const source = (template.cardSlots || []).find(item => item.id === slot.id);
+          if (source) slot.y = cardSlotDisplayY(source);
+        });
+      }
+      return draft;
+    }
+
+    function editorEnginePreviewPayload(template) {
+      const draft = editorEnginePreviewTemplateClone(template);
+      return {
+        template: draft,
+        projectData: {
+          state: {
+            deviceLibrary: [draft],
+            nodeLibrary: serializeNodeLibrary()
+          }
+        },
+        instance: {
+          instanceId: DEVICE_EDITOR_ENGINE_PREVIEW_DEVICE_ID,
+          id: DEVICE_EDITOR_ENGINE_PREVIEW_DEVICE_ID,
+          templateId: draft.id,
+          templateOverride: draft,
+          name: editorPreviewDeviceName(template),
+          x: 0,
+          y: 0
+        }
+      };
+    }
+
+    function syncDeviceEditorEngineOverlayViewBox() {
+      const surface = editorEnginePreviewSurface;
+      if (!surface || !deviceEditorPreview) return;
+      const rect = surface.dom.root.getBoundingClientRect();
+      const zoom = Math.max(.0001, Number(surface.camera.zoom) || 1);
+      const width = Math.max(1, rect.width || surface.renderer?.resolution?.width || DEVICE_WIDTH);
+      const height = Math.max(1, rect.height || surface.renderer?.resolution?.height || 190);
+      deviceEditorPreview.setAttribute("viewBox", `${surface.camera.x} ${surface.camera.y} ${width / zoom} ${height / zoom}`);
+      editorPreviewZoom = zoom;
+      editorPreviewPan = { x: surface.camera.x, y: surface.camera.y };
+    }
+
+    function syncDeviceEditorEnginePreview(template, options = {}) {
+      const surface = ensureDeviceEditorEnginePreviewSurface();
+      if (!surface || !template) return null;
+      const module = editorEnginePreviewModule;
+      if (!module?.createPreviewDeviceFromDraft) return null;
+      const payload = editorEnginePreviewPayload(template);
+      const device = module.createPreviewDeviceFromDraft(payload, 0);
+      const visual = device?.visual || {};
+      const canSkipTextureRefresh = options.refreshTexture === false
+        && device?.kind !== "adapter"
+        && !visual.isPowerDistro
+        && !visual.hasSwappableCards
+        && !visual.visualCards?.length;
+      editorEnginePreviewLastDeviceId = device?.id || DEVICE_EDITOR_ENGINE_PREVIEW_DEVICE_ID;
+      if (!editorEnginePreviewDraftSynced || options.fullScene) {
+        surface.setSceneData({
+          devices: [device],
+          wires: [],
+          racks: [],
+          meta: {
+            source: "device-editor-draft",
+            activeTab: editorActiveTab,
+            buildId: APP_BUILD_ID
+          }
+        }, { fit: options.fit === true });
+        editorEnginePreviewDraftSynced = true;
+      } else {
+        surface.replaceDevice(device, { render: false, refreshTexture: !canSkipTextureRefresh });
+        if (options.fit === true) surface.fitToContent({ padding: 34 });
+        surface.render();
+      }
+      syncDeviceEditorEngineOverlayViewBox();
+      return device;
+    }
+
+    function deviceEditorEnginePreviewScreenPoint(event) {
+      const rect = editorEnginePreviewSurface?.dom.root.getBoundingClientRect();
+      if (!rect) return null;
+      return {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top
+      };
+    }
+
+    function deviceEditorEngineConnectorEntries(template = currentEditorTemplate()) {
+      const surface = editorEnginePreviewSurface;
+      const deviceId = editorEnginePreviewLastDeviceId || DEVICE_EDITOR_ENGINE_PREVIEW_DEVICE_ID;
+      const entries = surface?.connectorEntries?.(deviceId) || [];
+      if (!entries.length || !template) return entries;
+      const draftConnectorIds = new Set((template.connectors || []).map(connector => connector.id));
+      return entries.filter(entry => draftConnectorIds.has(entry.connector?.id));
+    }
+
+    function deviceEditorEngineConnectorEntriesById(template = currentEditorTemplate()) {
+      const map = new Map();
+      deviceEditorEngineConnectorEntries(template).forEach(entry => {
+        const id = entry.connector?.id;
+        if (!id) return;
+        if (!map.has(id)) map.set(id, []);
+        map.get(id).push(entry);
+      });
+      return map;
+    }
+
+    function editorEngineConnectorIndexFromEvent(event) {
+      if (!deviceEditorUsesEnginePreview() || !editorEnginePreviewSurface) return -1;
+      const screenPoint = deviceEditorEnginePreviewScreenPoint(event);
+      const hit = screenPoint ? editorEnginePreviewSurface.hitTestConnector(screenPoint, 18).connector : null;
+      const connectorId = hit?.connector?.id || "";
+      if (!connectorId) return -1;
+      const template = currentEditorTemplate();
+      return (template?.connectors || []).findIndex(connector => connector.id === connectorId);
+    }
+
+    function editorNodeTargetIndexFromEvent(event) {
+      if (deviceEditorUsesEnginePreview()) {
+        const engineIndex = editorEngineConnectorIndexFromEvent(event);
+        if (engineIndex >= 0) return engineIndex;
+      }
+      const node = event.target.closest?.("[data-editor-node]");
+      if (node) return Number(node.dataset.editorNode);
+      return -1;
+    }
+
+    function drawEditorEngineSelectionHalo(parent, x, y, active = false) {
+      parent.appendChild(createSvg("circle", {
+        class: "editor-engine-node-selection",
+        cx: x,
+        cy: y,
+        r: active ? 15 : 12
+      }));
+    }
+
+    function drawEditorEngineRemoveButton(parent, connector, index, point) {
+      if (!connector || !point || editorSelectedNodeIndex !== index) return;
+      const side = point.side === "right" || connectorSideKey(connector) === "output" ? "output" : "input";
+      const removeX = side === "input" ? point.x + 18 : point.x - 18;
+      const remove = createSvg("g", {
+        class: "editor-remove-node",
+        "data-editor-remove-node": index
+      });
+      remove.appendChild(createSvg("circle", {
+        cx: removeX,
+        cy: point.y - 20,
+        r: 7,
+        fill: "#d83b3b",
+        stroke: "#fff",
+        "stroke-width": 1.5
+      }));
+      remove.appendChild(createSvg("line", {
+        x1: removeX - 3.5,
+        y1: point.y - 20,
+        x2: removeX + 3.5,
+        y2: point.y - 20,
+        stroke: "#fff",
+        "stroke-width": 2,
+        "stroke-linecap": "round"
+      }));
+      parent.appendChild(remove);
+    }
+
+    function drawEditorEngineMiscSwatch(parent, connector, index, point) {
+      if (!connector || connector.type !== "misc" || !point || editorSelectedNodeIndex !== index) return;
+      const side = point.side === "right" || connectorSideKey(connector) === "output" ? "output" : "input";
+      const swatchX = side === "input" ? point.x + 18 : point.x - 30;
+      parent.appendChild(createSvg("rect", {
+        class: "misc-color-swatch",
+        "data-editor-misc-color": index,
+        x: swatchX,
+        y: point.y - 29,
+        width: 12,
+        height: 12,
+        rx: 3,
+        fill: colorForConnector(connector)
+      }));
+    }
+
+    function drawEditorEngineConnectorOverlay(parent, template) {
+      if (editorActiveTab !== "connectors") return;
+      const width = deviceTemplateWidth(template);
+      const entriesById = deviceEditorEngineConnectorEntriesById(template);
+      const previewPositions = editorPreviewPositions(template);
+      template.connectors.forEach((connector, index) => {
+        const selected = editorSelectedNodeIds.has(connector.id) || editorSelectedNodeIndex === index;
+        const engineEntries = connector.empty ? [] : entriesById.get(connector.id) || [];
+        const points = engineEntries.length
+          ? engineEntries.map(entry => ({
+              x: entry.local.x,
+              y: entry.local.y,
+              side: entry.anchor?.side || entry.connector?.side || connectorSideKey(connector),
+              anchorId: entry.anchorId || ""
+            }))
+          : editorConnectorAnchorPoints(template, connector, previewPositions).map(point => ({
+              x: point.x,
+              y: point.y,
+              side: point.anchor?.side || connectorSideKey(connector),
+              anchorId: point.anchor?.id || ""
+            }));
+        points.forEach((point, anchorIndex) => {
+          const g = createSvg("g", {
+            class: `editor-node ${connector.empty ? "editor-slot-empty" : ""} ${selected ? "editor-node-selected" : ""}`,
+            "data-editor-node": index,
+            "data-editor-anchor-id": point.anchorId || ""
+          });
+          g.appendChild(createSvg("circle", {
+            class: "editor-engine-hit",
+            cx: point.x,
+            cy: point.y,
+            r: 19
+          }));
+          if (connector.empty) {
+            g.appendChild(createSvg("circle", {
+              class: "editor-slot-shape",
+              cx: point.x,
+              cy: point.y,
+              r: 7,
+              fill: "rgba(40,189,253,.12)",
+              stroke: "#28bdfd",
+              "stroke-dasharray": "3 2",
+              "stroke-width": 2
+            }));
+            const label = createSvg("text", {
+              x: point.side === "right" ? point.x - 22 : point.x + 22,
+              y: point.y + 22,
+              fill: state.darkMode ? "#edf2f7" : "#1f2a36",
+              "font-size": 8.5,
+              "text-anchor": point.side === "right" ? "end" : "start",
+              "paint-order": "stroke",
+              stroke: "rgba(0,0,0,.75)",
+              "stroke-width": 3
+            });
+            label.textContent = "Drop node";
+            g.appendChild(label);
+          }
+          if (selected && !connector.empty) drawEditorEngineSelectionHalo(g, point.x, point.y, anchorIndex === 0);
+          parent.appendChild(g);
+          if (anchorIndex === 0) {
+            drawEditorEngineRemoveButton(parent, connector, index, point);
+            drawEditorEngineMiscSwatch(parent, connector, index, point);
+          }
+        });
+      });
+      drawEditorConnectorSnapGuide(parent, template);
+      drawEditorNodeMarquee(parent);
+    }
+
+    function drawEditorEngineFaceplateOverlay(parent, template, previewDevice = null) {
+      if (editorActiveTab !== "faceplate" && editorActiveTab !== "device") return;
+      if (template?.faceImage) {
+        const face = editorEnginePreviewModule?.previewFaceImagePlacement?.(previewDevice)
+          || faceImagePlacement(template, deviceTemplateWidth(template), Number(template.height) || deviceHeightForSlotCounts(template));
+        drawEditorFaceImageResizeTool(parent, template, face);
+        return;
+      }
+      if (template?.isPowerDistro && !template.faceImage && !template.faceplateDeleted) {
+        const rect = powerDistroFaceRect(template);
+        parent.appendChild(createSvg("rect", {
+          class: `editor-engine-face-selection ${editorSelectedFaceplate ? "editor-faceplate-selected" : ""}`,
+          "data-editor-faceplate": "true",
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height,
+          rx: 5
+        }));
+      }
+    }
+
+    function drawEditorEnginePowerPlugOverlay(parent, template) {
+      if (!template?.isPowerDistro || template.faceImage || template.faceplateDeleted) return;
+      const overlappingPlugIds = powerPlugOverlapIds(powerPlugLayout(template));
+      powerPlugLayout(template).forEach(entry => {
+        const selected = editorSelectedPowerPlugIds.has(entry.connector.id);
+        const g = createSvg("g", {
+          class: `power-plug-editor ${selected ? "power-plug-selected" : ""}`,
+          "data-editor-power-plug-id": entry.connector.id
+        });
+        g.appendChild(createSvg("rect", {
+          class: "power-plug-hit",
+          x: entry.x - 5,
+          y: entry.y - 5,
+          width: entry.width + 10,
+          height: entry.height + 10,
+          rx: 5
+        }));
+        if (overlappingPlugIds.has(entry.connector.id)) {
+          g.appendChild(createSvg("rect", {
+            class: "power-plug-warning-outline",
+            x: entry.x - 3,
+            y: entry.y - 3,
+            width: entry.width + 6,
+            height: entry.height + 6,
+            rx: 4
+          }));
+        }
+        if (selected) {
+          g.appendChild(createSvg("rect", {
+            class: "power-plug-selection-outline",
+            x: entry.x - 6,
+            y: entry.y - 6,
+            width: entry.width + 12,
+            height: entry.height + 12,
+            rx: 5
+          }));
+        }
+        parent.appendChild(g);
+      });
+      drawEditorPowerPlugGuides(parent, template);
+      drawEditorPowerPlugMarquee(parent);
+    }
+
+    function drawEditorEngineCardSlotOverlay(parent, template) {
+      if (editorActiveTab !== "slots" || !template?.hasSwappableCards) return;
+      (template.cardSlots || []).forEach((slot, index) => {
+        const band = cardBandGeometry(template, slot);
+        const selected = editorSlotIndex === index || editorCardSlotDrag?.slotId === slot.id;
+        parent.appendChild(createSvg("rect", {
+          class: `editor-engine-card-slot-selection ${selected ? "editor-faceplate-selected" : ""}`,
+          "data-editor-card-slot": index,
+          x: band.x,
+          y: band.y,
+          width: band.width,
+          height: band.height,
+          rx: 6
+        }));
+        if (selected) {
+          const removeX = band.x + band.width - 11;
+          const removeY = band.y + 11;
+          const remove = createSvg("g", {
+            class: "editor-remove-card-slot",
+            "data-editor-remove-card-slot": index
+          });
+          remove.appendChild(createSvg("circle", {
+            cx: removeX,
+            cy: removeY,
+            r: 7,
+            fill: "#d83b3b",
+            stroke: "#fff",
+            "stroke-width": 1.5
+          }));
+          remove.appendChild(createSvg("line", {
+            x1: removeX - 3.5,
+            y1: removeY,
+            x2: removeX + 3.5,
+            y2: removeY,
+            stroke: "#fff",
+            "stroke-width": 2,
+            "stroke-linecap": "round"
+          }));
+          parent.appendChild(remove);
+        }
+      });
+    }
+
+    function renderDeviceEditorEnginePreview(template) {
+      validateDraftDefaults(template);
+      if (!template.isPowerDistro || template.faceImage || template.faceplateDeleted) {
+        editorSelectedFaceplate = false;
+        editorSelectedPowerPlugIds.clear();
+        editorPowerPlugMarquee = null;
+      }
+      updateEditorFaceplatePreviewControls(template);
+      const previewDevice = syncDeviceEditorEnginePreview(template, {
+        fit: !editorEnginePreviewDraftSynced || editorEnginePreviewFitPending,
+        refreshTexture: editorNodeDrag ? false : true
+      });
+      editorEnginePreviewFitPending = false;
+      deviceEditorPreview.innerHTML = "";
+      syncDeviceEditorEngineOverlayViewBox();
+      deviceEditorPreview.appendChild(createSvg("rect", {
+        class: "editor-engine-hit",
+        "data-editor-device-body": "true",
+        x: 0,
+        y: 0,
+        width: deviceTemplateWidth(template),
+        height: Number(template.height) || deviceHeightForSlotCounts(template),
+        rx: isAdapterTemplate(template) ? 6 : 8
+      }));
+      drawEditorEngineFaceplateOverlay(deviceEditorPreview, template, previewDevice);
+      drawEditorEnginePowerPlugOverlay(deviceEditorPreview, template);
+      drawEditorEngineCardSlotOverlay(deviceEditorPreview, template);
+      drawEditorEngineConnectorOverlay(deviceEditorPreview, template);
+      drawEditorResizeHandles(deviceEditorPreview, template, deviceTemplateWidth(template), Number(template.height) || deviceHeightForSlotCounts(template));
+      editorEnginePreviewOverlayDraws += 1;
+      renderEditorFaceplatePreview(template);
+      renderDeviceAuthoringDebugPanel();
+    }
+
     function editorPreviewContentSize() {
       const template = currentEditorTemplate();
       if (!template) return { width: DEVICE_WIDTH, height: 190 };
@@ -87509,6 +88128,22 @@
 
     function fitDeviceEditorPreview() {
       if (!deviceEditorPreview) return;
+      if (deviceEditorUsesEnginePreview()) {
+        const surface = ensureDeviceEditorEnginePreviewSurface();
+        if (!surface) {
+          editorEnginePreviewFitPending = true;
+          loadDeviceEditorEnginePreviewModule().then(() => {
+            editorEnginePreviewFitPending = true;
+            renderDeviceEditorPreview();
+          });
+          return;
+        }
+        surface.fitToContent({ padding: 34 });
+        surface.render();
+        syncDeviceEditorEngineOverlayViewBox();
+        renderDeviceAuthoringDebugPanel();
+        return;
+      }
       const rect = deviceEditorPreview.getBoundingClientRect();
       const size = editorPreviewContentSize();
       if (!rect.width || !rect.height || !size.width || !size.height) {
@@ -88480,6 +89115,7 @@
     }
 
     function canShowEditorFaceplatePreview(template) {
+      if (deviceEditorUsesEnginePreview()) return false;
       return editorActiveTab !== "cards" && template?.isPowerDistro === true && !template.faceImage && !template.faceplateDeleted;
     }
 
@@ -88538,6 +89174,19 @@
         bottom: marqueeRect.bottom + 2
       };
       const nextIds = options.baseIds ? new Set(options.baseIds) : new Set();
+      if (deviceEditorUsesEnginePreview() && editorEnginePreviewSurface) {
+        const entriesById = deviceEditorEngineConnectorEntriesById(template);
+        template.connectors.forEach(connector => {
+          const entries = entriesById.get(connector.id) || [];
+          const points = entries.length
+            ? entries.map(entry => entry.local)
+            : editorConnectorAnchorPoints(template, connector, editorPreviewPositions(template));
+          if (points.some(point => rectContainsPoint(paddedRect, point))) nextIds.add(connector.id);
+        });
+        editorSelectedNodeIds = nextIds;
+        syncEditorNodeSelection(template);
+        return;
+      }
       const previewPositions = editorPreviewPositions(template);
       template.connectors.forEach(connector => {
         const x = Number(connector.x) || 0;
@@ -88742,6 +89391,11 @@
         renderRackBuilderPreview();
         return;
       }
+      if (deviceEditorUsesEnginePreview()) {
+        renderDeviceEditorEnginePreview(template);
+        return;
+      }
+      editorEnginePreviewLegacyVisualDraws += 1;
       if (editorActiveTab === "cards") {
         updateEditorFaceplatePreviewControls(template);
         renderCardEditorPreview();
@@ -89565,6 +90219,13 @@
 
     function getEditorPreviewPoint(event) {
       const svg = editorInteractionSvg || editorSvgForEvent(event);
+      if (deviceEditorUsesEnginePreview() && svg === deviceEditorPreview && editorEnginePreviewSurface) {
+        const screenPoint = deviceEditorEnginePreviewScreenPoint(event);
+        const localPoint = screenPoint
+          ? editorEnginePreviewSurface.screenToDeviceLocal(editorEnginePreviewLastDeviceId || DEVICE_EDITOR_ENGINE_PREVIEW_DEVICE_ID, screenPoint)
+          : null;
+        if (localPoint) return plainPoint(localPoint);
+      }
       const point = svg.createSVGPoint();
       point.x = event.clientX;
       point.y = event.clientY;
@@ -89776,10 +90437,8 @@
       if (startEditorCardSlotDrag(event)) return;
       if (startEditorFaceplateMarquee(event)) return;
       if (startEditorNodeMarquee(event)) return;
-      const node = event.target.closest("[data-editor-node]");
-      if (!node) return;
       const template = currentEditorTemplate();
-      const index = Number(node.dataset.editorNode);
+      const index = editorNodeTargetIndexFromEvent(event);
       const connector = template?.connectors[index];
       if (!connector) return;
       event.preventDefault();
@@ -103181,10 +103840,14 @@ renderViewerOutputDebug();
       control.addEventListener("input", () => {
         syncEditorFieldsToDraft();
         renderEditorDeviceList();
+        renderDeviceEditorPreview();
+        renderDeviceAuthoringDebugPanel();
       });
       control.addEventListener("change", () => {
         syncEditorFieldsToDraft();
         renderEditorDeviceList();
+        renderDeviceEditorPreview();
+        renderDeviceAuthoringDebugPanel();
       });
     });
     editorAdapterBreakout?.addEventListener("change", () => {
@@ -103732,8 +104395,8 @@ renderViewerOutputDebug();
         event.dataTransfer.dropEffect = "copy";
         return;
       }
-      const target = event.target.closest("[data-editor-node]");
-      if (!target || editorActiveTab !== "connectors") {
+      const targetIndex = editorNodeTargetIndexFromEvent(event);
+      if ((!Number.isFinite(targetIndex) || targetIndex < 0) || editorActiveTab !== "connectors") {
         const template = currentEditorTemplate();
         const hasNodeType = Array.from(event.dataTransfer.types || []).includes("application/x-av-node-type");
         if (template && isAdapterTemplate(template) && editorActiveTab === "connectors" && hasNodeType) {
@@ -103758,15 +104421,15 @@ renderViewerOutputDebug();
         installCardInSlot(Number(cardSlot.dataset.editorCardSlot), event.dataTransfer.getData("application/x-av-card-type"));
         return;
       }
-      const target = event.target.closest("[data-editor-node]");
-      if (!target || editorActiveTab !== "connectors") {
+      const targetIndex = editorNodeTargetIndexFromEvent(event);
+      if ((!Number.isFinite(targetIndex) || targetIndex < 0) || editorActiveTab !== "connectors") {
         if (editorActiveTab === "connectors" && editorDropPointCreatesAdapterNode(event)) {
           event.preventDefault();
         }
         return;
       }
       event.preventDefault();
-      fillEditorSlot(Number(target.dataset.editorNode), event.dataTransfer.getData("application/x-av-node-type"));
+      fillEditorSlot(targetIndex, event.dataTransfer.getData("application/x-av-node-type"));
     });
     function bindEditorInteractionSvg(svg) {
       if (!svg) return;
@@ -103838,11 +104501,36 @@ renderViewerOutputDebug();
       updateMiscConnectorColor(event.target.value);
       miscColorTargetIndex = null;
     });
+    function zoomDeviceEditorEnginePreview(factor, event = null) {
+      const surface = ensureDeviceEditorEnginePreviewSurface();
+      if (!surface) return;
+      const rect = surface.dom.root.getBoundingClientRect();
+      const center = event
+        ? { x: event.clientX - rect.left, y: event.clientY - rect.top }
+        : { x: rect.width / 2, y: rect.height / 2 };
+      const before = surface.screenToWorld(center);
+      const nextZoom = Math.min(8, Math.max(.08, (Number(surface.camera.zoom) || 1) * factor));
+      surface.setCamera({
+        zoom: nextZoom,
+        x: before.x - center.x / nextZoom,
+        y: before.y - center.y / nextZoom
+      }, { render: false });
+      surface.render();
+      syncDeviceEditorEngineOverlayViewBox();
+    }
     document.getElementById("editorZoomOut").addEventListener("click", () => {
+      if (deviceEditorUsesEnginePreview()) {
+        zoomDeviceEditorEnginePreview(1 / 1.2);
+        return;
+      }
       editorPreviewZoom = Math.max(.08, editorPreviewZoom / 1.2);
       renderDeviceEditorPreview();
     });
     document.getElementById("editorZoomIn").addEventListener("click", () => {
+      if (deviceEditorUsesEnginePreview()) {
+        zoomDeviceEditorEnginePreview(1.2);
+        return;
+      }
       editorPreviewZoom = Math.min(8, editorPreviewZoom * 1.2);
       renderDeviceEditorPreview();
     });
@@ -103857,6 +104545,10 @@ renderViewerOutputDebug();
     });
 
     function zoomEditorPreviewSvg(svg, factor) {
+      if (svg === deviceEditorPreview && deviceEditorUsesEnginePreview()) {
+        zoomDeviceEditorEnginePreview(factor);
+        return;
+      }
       if (svg === deviceEditorFaceplatePreview) {
         editorFaceplatePreviewZoom = Math.min(8, Math.max(.08, editorFaceplatePreviewZoom * factor));
       } else {
@@ -103876,7 +104568,7 @@ renderViewerOutputDebug();
         lastY: event.clientY
       };
       svg.setPointerCapture(event.pointerId);
-      svg.parentElement.classList.add("panning");
+      (deviceEditorUsesEnginePreview() && svg === deviceEditorPreview ? editorEnginePreviewHost : svg.parentElement)?.classList.add("panning");
     }
 
     function moveEditorPreviewPan(event) {
@@ -103886,6 +104578,16 @@ renderViewerOutputDebug();
       if (editorPreviewPanState.svg === deviceEditorFaceplatePreview) {
         editorFaceplatePreviewPan.x -= dx * EDITOR_PREVIEW_PAN_SPEED / editorFaceplatePreviewZoom;
         editorFaceplatePreviewPan.y -= dy * EDITOR_PREVIEW_PAN_SPEED / editorFaceplatePreviewZoom;
+      } else if (deviceEditorUsesEnginePreview() && editorEnginePreviewSurface) {
+        const zoom = Math.max(.0001, Number(editorEnginePreviewSurface.camera.zoom) || 1);
+        editorEnginePreviewSurface.camera.x -= dx * EDITOR_PREVIEW_PAN_SPEED / zoom;
+        editorEnginePreviewSurface.camera.y -= dy * EDITOR_PREVIEW_PAN_SPEED / zoom;
+        editorEnginePreviewSurface.render();
+        syncDeviceEditorEngineOverlayViewBox();
+        editorPreviewPanState.lastX = event.clientX;
+        editorPreviewPanState.lastY = event.clientY;
+        renderDeviceAuthoringDebugPanel();
+        return;
       } else {
         editorPreviewPan.x -= dx * EDITOR_PREVIEW_PAN_SPEED / editorPreviewZoom;
         editorPreviewPan.y -= dy * EDITOR_PREVIEW_PAN_SPEED / editorPreviewZoom;
@@ -103902,7 +104604,7 @@ renderViewerOutputDebug();
       if (event?.pointerId !== undefined && svg.hasPointerCapture(event.pointerId)) {
         svg.releasePointerCapture(event.pointerId);
       }
-      svg.parentElement.classList.remove("panning");
+      (deviceEditorUsesEnginePreview() && svg === deviceEditorPreview ? editorEnginePreviewHost : svg.parentElement)?.classList.remove("panning");
       editorPreviewPanState = null;
     }
 
@@ -103911,7 +104613,11 @@ renderViewerOutputDebug();
       svg.addEventListener("wheel", event => {
         if (!event.ctrlKey && !event.altKey) return;
         event.preventDefault();
-        zoomEditorPreviewSvg(svg, event.deltaY < 0 ? 1.12 : 1 / 1.12);
+        if (svg === deviceEditorPreview && deviceEditorUsesEnginePreview()) {
+          zoomDeviceEditorEnginePreview(event.deltaY < 0 ? 1.12 : 1 / 1.12, event);
+        } else {
+          zoomEditorPreviewSvg(svg, event.deltaY < 0 ? 1.12 : 1 / 1.12);
+        }
       }, { passive: false });
       svg.addEventListener("pointerdown", startEditorPreviewPan);
       svg.addEventListener("pointermove", moveEditorPreviewPan);

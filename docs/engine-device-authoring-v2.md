@@ -1,10 +1,10 @@
 # Engine Device Authoring V2
 
-Build: `Iteration 52 — Engine Device Authoring V2 — iteration52-engine-device-authoring-v2`
+Build: `Iteration 53.1 — Device Editor Engine Preview — iteration53-1-device-editor-engine-preview`
 
 ## Scope
 
-Iteration 52 moves normal device authoring toward the Engine model without replacing the production output pipeline. The DOM modal still owns forms, tabs, inputs, dropdowns, and buttons. The Engine-facing draft model owns connector identity, connector topology, validation, and preview/runtime geometry.
+Iteration 52 moved normal device authoring toward the Engine model without replacing the production output pipeline. Iteration 53.1 moves the Engine-mode Device Editor visual preview onto the shared Engine renderer. The DOM modal still owns forms, tabs, inputs, dropdowns, buttons, and authoring overlays. The Engine-facing draft model owns connector identity, connector topology, validation, preview normalization, and runtime geometry.
 
 This is intentionally not a visual redesign. The goal is that new and newly edited devices can be authored as V2 definitions, used on the Engine canvas, saved, and loaded without depending on Legacy-only connector pairing hacks.
 
@@ -25,19 +25,19 @@ This is intentionally not a visual redesign. The goal is that new and newly edit
 | Multi-anchor connector | Not a first-class data model; simulated with paired connectors. | Scene graph, renderer, labels, info boxes, hit testing, and endpoint serialization accept `anchorId`. | Authoring defaults both-side bidirectional connectors to left/right anchors. | Added. |
 | Endpoint anchor persistence | Older wires only stored device + connector. | Engine endpoints support optional `anchorId` and deterministic fallback. | New V2 endpoints can remember which visual anchor was used. | Added. |
 | Mirrored visual relation | Dashed relation line between fake paired nodes. | Engine renders dashed multi-anchor relation and fades unused anchor when the logical connector is occupied elsewhere. | Relationship panel can create mirrored relationships and/or set connector display to both. | Added. |
-| Exclusive shared bus | Previously handled ad hoc in device-specific notes or manual user discipline. | Engine topology can compute an active exclusive member from live external wires and reject siblings. | Relationships tab creates `exclusive` groups with `maxActive: 1`. | Added first version. |
-| Through / loop relation | Usually drawn manually or implied by labels. | Engine renders subtle internal arrow and keeps both connectors externally wireable. | Relationships tab creates `through` relation with source and target dropdowns. | Added first version. |
+| Exclusive shared bus | Previously handled ad hoc in device-specific notes or manual user discipline. | Engine topology computes packed display anchors, shared-bus rail/field placement, and active exclusive members from live external wires. | Connectors tab edits `exclusive` groups; the preview uses Engine-rendered shared-bus geometry while the DOM inspector owns controls. | Migrated preview. |
+| Through / loop relation | Usually drawn manually or implied by labels. | Engine renders the internal through arrow and keeps both connectors externally wireable. | Connectors tab edits `through` relations; the preview uses the Engine arrow while the DOM inspector owns controls. | Migrated preview. |
 | Relationship validation | Legacy checks were scattered around specific features. | Engine module validates connector IDs, duplicate IDs, group membership, missing references, and through self-links. | Apply path validates topology before commit. | Added. |
 | Runtime relationship state | Some visual availability was stored or implied by pair flags. | Engine derives occupancy from live wires. | Authoring saves only topology, not derived faded/active state. | Redesigned. |
 | Connector hover priority | Legacy SVG hit targets handled most hover/selection. | Engine hit-test returns connector/anchor payloads before device fallback. | Authoring preview uses connector selection first, then device preview. | Retained. |
 | SFP/QSFP modules | Legacy dropdowns on connector records. | Engine compatibility supports cages, installed modules, active connector type, and fiber modes. | Selected connector settings reuse the module dropdown and V2 normalization. | Migrated. |
 | Fiber mode | Legacy connector field affected fiber colors. | Engine compatibility and renderer use fiber mode/family colors. | Existing fiber controls remain tied to effective connector type. | Retained. |
 | Matrix flag | Legacy checkbox per connector/card connector. | Engine routing reads `includeInMatrix` and matrix touched state. | Selected connector settings show matrix checkbox only for matrix devices. | Retained. |
-| Cards and slots | Legacy generated card connectors and per-slot overrides. | Engine runtime already renders generated connectors and card bands. | Card connector normalization now carries V2 connector/topology fields in slot overrides. | Partially migrated; full visual workflow remains existing DOM. |
+| Cards and slots | Legacy generated card connectors and per-slot overrides. | Engine runtime renders generated connectors, card bands, and card captions. | Card connector normalization carries V2 connector/topology fields in slot overrides; Engine-mode Device Editor preview uses Engine visuals and keeps slot/drop/selection controls in the overlay. | Migrated preview. |
 | Connector relationships inside cards | Legacy had no coherent general topology model for cards. | Engine can normalize generated card connectors with stable IDs. | Slot overrides now preserve V2 fields, allowing relationship data to survive where generated IDs are stable. | Foundation added; needs browser fixture hardening. |
-| Faceplates | Legacy import/scale/position behavior. | Engine uses faceplate data for canvas visuals. | Existing faceplate tab remains; V2 draft keeps visual data. | Retained. |
-| Power distro plugs | Legacy special generated faceplate/plug logic. | Engine can render generated PD plug visuals. | Power metadata fields are reserved in V2 connector schema; current PD authoring UI remains. | Retained/delegated. |
-| Adapter/breakout | Legacy special compact object with internal wiring. | Engine runtime supports compact adapter visuals and internal mapping. | Existing adapter toggle remains; V2 connectors normalize without changing adapter workflow. | Retained. |
+| Faceplates | Legacy import/scale/position behavior. | Engine uses faceplate data for canvas visuals. | Existing faceplate controls remain; Engine-mode Device Editor preview uses Engine-rendered shell/image/scale/offset with shared faceplate geometry for overlay handles. | Migrated preview. |
+| Power distro plugs | Legacy special generated faceplate/plug logic. | Engine renders generated PD plug visuals and Powerlock color behavior. | Power metadata fields are reserved in V2 connector schema; Engine-mode preview renders actual PD visuals while the existing plug authoring UI remains overlay-owned. | Migrated preview. |
+| Adapter/breakout | Legacy special compact object with internal wiring. | Engine runtime supports compact adapter visuals and internal mapping. | Existing adapter toggle remains; Engine-mode preview renders the adapter shell/connectors/internal paths through Engine. | Migrated preview. |
 | Racks | Separate rack builder, exposed rack ports, internal wiring. | Engine supports rack canvas objects and exposed ports. | Not part of Device Editor V2 migration. | Deliberately not changed. |
 | Reports/export/viewer | Legacy-oriented output pipeline. | Engine commits still write compatible project data. | V2 topology is preserved in project/template snapshots but visual output parity is not migrated here. | Deliberately deferred. |
 
@@ -132,6 +132,7 @@ DOM responsibilities:
 - Modal shell, tabs, inputs, dropdowns, buttons, lists, and debug panels.
 - User text entry and simple form state.
 - Calling draft normalization/validation before apply.
+- Authoring-only overlay controls: empty slot targets, connector selection halos, marquee rectangles, faceplate resize handles, card/slot outlines, Power Distro plug handles, and drop targets.
 
 Engine draft responsibilities:
 
@@ -143,9 +144,13 @@ Engine draft responsibilities:
 
 Shared preview/runtime responsibilities:
 
+- In Engine mode, the Device Editor preview uses one persistent `EnginePreviewSurface` per editor session.
+- Draft devices are cloned through `createPreviewDeviceFromDraft(...)` and `normalizeAvDesignerDevice(...)`, preserving connector/card/relationship IDs for authoring selection state.
+- Device body, title, faceplate, installed cards, generated connectors, connector labels, info fields, Both-side dashed relations, exclusive shared-bus visuals, through arrows, Power Distro visuals, and adapter internals are rendered by `WebglGraphRenderer` and the Engine label layer.
 - Connector anchors use the same coordinate model as the Engine canvas.
 - Relationship visuals are drawn from normalized topology: dashed multi-anchor line, exclusive bus rail, and through arrow.
 - Availability/fading is derived from current external wiring and not saved.
+- Legacy mode keeps the existing SVG preview path.
 
 Apply path:
 
@@ -156,7 +161,7 @@ Apply path:
 
 ## Diagnostics
 
-Use `debugDeviceAuthoring=1` for browser checks. The first version should confirm:
+Use `debugDeviceAuthoring=1` for browser checks. The Device Editor debug panel should confirm:
 
 - draft schema version
 - connector count
@@ -165,6 +170,14 @@ Use `debugDeviceAuthoring=1` for browser checks. The first version should confir
 - topology errors/warnings
 - selected connector
 - relationship render source
+- preview source (`EnginePreviewSurface` or `legacy/svg`)
+- active preview surface count
+- full scene replacement count
+- incremental device replacement count
+- rendered preview frame count
+- texture build/rebuild counts
+- asset subscriber count
+- authoring overlay draw count
 
 ## Known Remaining Differences
 
@@ -172,3 +185,4 @@ Use `debugDeviceAuthoring=1` for browser checks. The first version should confir
 - Full PDF/viewer visual migration for V2 topology is deferred.
 - Card relationship authoring is structurally supported, but fixture hardening for complex card-generated connector relationships remains a follow-up.
 - Power Distro authoring still uses the existing special workflow; V2 reserves power metadata without rewriting that UI.
+- Rack Builder, Node Builder/crop previews, and Title Block/minor previews are not migrated by 53.1.

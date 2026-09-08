@@ -1,17 +1,22 @@
 import { adapterMappingForDevice } from "./adapterMapping.js";
-import { createConnectorDisplayLayout } from "./connectorDisplayLayout.js";
+import { connectorDisplayAnchors, createConnectorDisplayLayout } from "./connectorDisplayLayout.js";
 import { normalizeConnectorRelationships } from "./deviceDefinitionV2.js";
 import {
   deviceVisualAssetReadySubscriberCount,
   deviceVisualCacheKey
 } from "./deviceVisualBuilder.js";
+import {
+  legacyFaceBounds,
+  legacyFaceHeight,
+  legacyFaceImagePlacement
+} from "./faceplateGeometry.js";
 import { hitTestConnector, hitTestDevice, screenToWorld } from "./hitTest.js";
 import { powerDistroDiagnostics } from "./powerDistroModel.js";
 import { normalizeAvDesignerDevice } from "./projectAdapter.js";
 import { DEFAULT_RENDER_OPTIONS, WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
 
-export const ENGINE_PREVIEW_BUILD_ID = "iteration53-0-shared-engine-preview-foundation";
+export const ENGINE_PREVIEW_BUILD_ID = "iteration53-1-device-editor-engine-preview";
 
 const ACTIVE_PREVIEW_SURFACES = new Set();
 
@@ -161,6 +166,18 @@ export function previewDeviceVisualKey(device, renderOptions = {}) {
   return deviceVisualCacheKey(device, previewRenderOptions(renderOptions));
 }
 
+export function previewFaceBounds(device = {}) {
+  return legacyFaceBounds(device.visual || device, Math.max(1, Number(device.width) || 1));
+}
+
+export function previewFaceHeight(device = {}) {
+  return legacyFaceHeight(device.visual || device, Math.max(1, Number(device.width) || 1));
+}
+
+export function previewFaceImagePlacement(device = {}, image = null) {
+  return legacyFaceImagePlacement(device.visual || device, Math.max(1, Number(device.width) || 1), image);
+}
+
 export function previewConnectorLayoutStats(device = {}) {
   const relationships = normalizeConnectorRelationships(
     device.connectorRelationships || device.connectorTopology?.relationships,
@@ -214,6 +231,29 @@ export class EnginePreviewSurface {
     this.setSceneData(options.scene || { devices: [], wires: [], racks: [], meta: {} }, { fit: options.fit !== false });
   }
 
+  mount(container) {
+    if (this.disposed || !container) return this.dom.root;
+    if (this.dom.root.parentElement !== container) container.appendChild(this.dom.root);
+    this.container = container;
+    this.resize({ fit: false });
+    return this.dom.root;
+  }
+
+  authoringOverlay() {
+    return this.dom.overlay;
+  }
+
+  setCamera(camera = {}, { render = true } = {}) {
+    if (this.disposed) return this.camera;
+    this.camera = {
+      x: finiteNumber(camera.x, this.camera.x),
+      y: finiteNumber(camera.y, this.camera.y),
+      zoom: positiveNumber(camera.zoom) || this.camera.zoom
+    };
+    if (render) this.render();
+    return this.camera;
+  }
+
   setSceneData(sceneData = {}, { fit = true } = {}) {
     if (this.disposed) return null;
     const normalized = normalizePreviewSceneData(sceneData);
@@ -231,7 +271,7 @@ export class EnginePreviewSurface {
     return device;
   }
 
-  replaceDevice(deviceOrDraft = {}, { render = true } = {}) {
+  replaceDevice(deviceOrDraft = {}, { render = true, refreshTexture = true } = {}) {
     if (this.disposed) return null;
     const device = normalizePreviewDeviceInput(deviceOrDraft, this.scene.devices.length);
     if (!device) return null;
@@ -239,6 +279,7 @@ export class EnginePreviewSurface {
     this.lastDirtyStats = this.renderer.updateDirty(this.scene, {
       deviceIds: [device.id],
       wireIds: [],
+      refreshDeviceTextures: refreshTexture !== false,
       refreshCableHops: false
     });
     ENGINE_PREVIEW_LIFECYCLE.incrementalDeviceReplacements += 1;
@@ -278,6 +319,37 @@ export class EnginePreviewSurface {
   screenToDeviceLocal(deviceId, point) {
     const device = this.scene.getDevice(deviceId);
     return device ? screenToDeviceLocalPoint(this.camera, device, point) : null;
+  }
+
+  connectorEntries(deviceId = "") {
+    if (this.disposed) return [];
+    const devices = deviceId
+      ? [this.scene.getDevice(deviceId)].filter(Boolean)
+      : this.scene.devices;
+    const entries = [];
+    devices.forEach(device => {
+      const displayLayout = this.scene.connectorDisplayLayoutForDevice(device);
+      (device.connectors || []).forEach(connector => {
+        connectorDisplayAnchors(device, connector, displayLayout).forEach(anchor => {
+          const world = this.scene.connectorAnchorWorldPoint(device, connector, anchor.id, displayLayout);
+          entries.push({
+            device,
+            connector,
+            anchor,
+            anchorId: anchor.id || "",
+            logicalKey: `${device.id}:${connector.id}`,
+            anchorKey: `${device.id}:${connector.id}:${anchor.id || "primary"}`,
+            local: {
+              x: Number(anchor.x ?? connector.x) || 0,
+              y: Number(anchor.y ?? connector.y) || 0
+            },
+            world,
+            screen: this.worldToScreen(world)
+          });
+        });
+      });
+    });
+    return entries;
   }
 
   hitTestConnector(screenPoint, tolerancePx = 12) {

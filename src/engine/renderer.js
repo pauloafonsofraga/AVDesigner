@@ -520,7 +520,12 @@ export class WebglGraphRenderer {
     return trace;
   }
 
-  updateDirty(scene, { deviceIds = [], wireIds = [], refreshCableHops = true } = {}) {
+  updateDirty(scene, {
+    deviceIds = [],
+    wireIds = [],
+    refreshCableHops = true,
+    refreshDeviceTextures = true
+  } = {}) {
     if (this.disposed || !this.gl) return { disposed: true };
     const start = performance.now();
     this.textureScene = scene;
@@ -556,7 +561,7 @@ export class WebglGraphRenderer {
     let rangeUploadMs = 0;
     deviceIds.forEach(id => {
       const device = scene.getDevice(id);
-      if (device && device.kind !== "jump") {
+      if (refreshDeviceTextures && device && device.kind !== "jump") {
         this.textureCache.ensureDeviceTexture(device, this.renderOptions, "dirty device visual");
       }
       const next = device ? verticesForDevice(device, null, this.renderOptions) : [];

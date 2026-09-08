@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { createConnectorDisplayLayout } from "../src/engine/connectorDisplayLayout.js";
+import { connectorDisplayAnchors, createConnectorDisplayLayout } from "../src/engine/connectorDisplayLayout.js";
 import {
   deviceVisualAssetReadySubscriberCount,
   notifyDeviceVisualAssetReady,
@@ -33,6 +33,8 @@ const results = {
   transformParity: null,
   assetSubscriberLifecycle: null,
   projectCustomDraft: null,
+  editorPreviewIdentity: null,
+  bothAnchorHitMapping: null,
   sceneInput: []
 };
 
@@ -111,6 +113,40 @@ results.projectCustomDraft = {
   id: projectCustomDraft.id,
   isProjectCustomDevice: projectCustomDraft.visual.isProjectCustomDevice,
   relationships: projectCustomDraft.connectorRelationships.length
+};
+
+const editorPreviewFixture = fixtures.find(fixture => fixture.id === "v2-both-side")
+  || fixtures.find(fixture => fixture.template?.connectors?.some(connector => connector.displaySide === "both" || connector.anchorMode === "both"));
+assert.ok(editorPreviewFixture, "Missing both-side fixture for editor preview identity.");
+const editorPreviewDevice = createPreviewDeviceFromDraft({
+  ...editorPreviewFixture,
+  instance: {
+    ...editorPreviewFixture.instance,
+    instanceId: "device-editor-preview-device"
+  }
+}, 0);
+const sourceConnectorIds = (editorPreviewFixture.template.connectors || [])
+  .filter(connector => !connector.empty)
+  .map(connector => connector.id);
+const previewConnectorIds = editorPreviewDevice.connectors.map(connector => connector.id);
+sourceConnectorIds.forEach(id => {
+  assert.ok(previewConnectorIds.includes(id), `Editor preview should preserve connector id ${id}`);
+});
+results.editorPreviewIdentity = {
+  previewId: editorPreviewDevice.id,
+  sourceConnectorIds,
+  previewConnectorIds
+};
+
+const bothConnector = editorPreviewDevice.connectors.find(connector => connector.displaySide === "both" || (connector.anchors || []).length > 1);
+assert.ok(bothConnector, "Both-side fixture should include one logical connector with two displayed anchors.");
+const bothLayout = createConnectorDisplayLayout(editorPreviewDevice);
+const bothAnchors = connectorDisplayAnchors(editorPreviewDevice, bothConnector, bothLayout);
+assert.equal(bothAnchors.length, 2, "Both-side connector should expose two displayed anchors.");
+assert.equal(new Set(bothAnchors.map(anchor => anchor.connectorId || bothConnector.id)).size, 1, "Both anchors should map to one logical connector id.");
+results.bothAnchorHitMapping = {
+  connectorId: bothConnector.id,
+  anchors: bothAnchors.map(anchor => ({ id: anchor.id, side: anchor.side, x: anchor.x, y: anchor.y }))
 };
 
 const camera = fitCameraToBounds({ x: 100, y: 200, width: 500, height: 300 }, 1000, 700, 50);

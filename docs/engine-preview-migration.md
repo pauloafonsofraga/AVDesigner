@@ -1,8 +1,10 @@
 # Engine Preview Migration
 
-Build: `iteration53-0-shared-engine-preview-foundation`
+Build: `iteration53-1-device-editor-engine-preview`
 
-Iteration 53.0 introduces the reusable preview foundation only. Existing visible editor previews stay on their current SVG/DOM implementations until the follow-up migration iterations.
+Iteration 53.1 migrates the Engine-mode Device Editor preview onto the shared Engine preview foundation introduced in 53.0. In Engine mode, the center preview uses `EnginePreviewSurface`, `SceneGraph`, `WebglGraphRenderer`, `TextureCache`, and the normal device visual pipeline. The Device Editor SVG/DOM layer is now reserved for authoring affordances such as hit targets, selections, empty slots, resize handles, guides, and marquees.
+
+Legacy mode (`?legacy=1`) continues to use the existing SVG Device Editor preview.
 
 ## Preview Foundation Contract
 
@@ -20,14 +22,14 @@ The shared preview surface lives in `src/engine/enginePreview.js`.
 
 | Surface | Current DOM | Current renderer/path | Migration notes |
 | --- | --- | --- | --- |
-| Device Editor main preview | `#deviceEditorPreview` | `renderDeviceEditorPreview()` rebuilds SVG nodes, faceplate, body, relationships, fields, marquee, and resize handles | 53.1 should mount `EnginePreviewSurface` behind the editor authoring overlay. Keep edit handles and inline fields in the overlay layer. |
-| Device Editor connector preview | `#deviceEditorPreview` | `drawEditorConnectorRelationships()`, `drawEditorSharedRelationshipFields()`, connector SVG groups, editor hit handlers | Use Engine preview for device texture, connector labels, V2 both-side anchors, shared-bus packing, through arrows, and adapter internals. Keep connector drag/drop and field controls in the authoring overlay. |
-| Device Editor faceplate preview | `#deviceEditorFaceplatePreview` in `#editorFaceplatePreviewWrap` | `renderEditorFaceplatePreview()` and power-plug guide/resize SVG helpers | Use Engine preview when the faceplate is just a visual surface; retain direct authoring handles for image/power-plug resize and crop controls. |
-| Device Editor card preview | `#deviceEditorPreview` | `renderCardEditorPreview()` uses SVG card bands and connector rows | Normalize a synthetic modular device/card draft through the preview adapter. Keep card-slot editing controls in overlay DOM. |
-| Device Editor slots preview | `#deviceEditorPreview` | `drawEditorCardSlotBands()`, generated card connector rendering | Engine preview can show installed-card visuals. Slot selection, resize, and drop state should remain overlay-owned. |
-| Device Editor defaults tab preview | `#deviceEditorPreview` | Shares `renderDeviceEditorPreview()` | Use the same draft preview as the device/connectors tab, but preserve Defaults save semantics separately from Project Custom semantics. |
-| Power Distribution editor preview | `#deviceEditorPreview` and `#deviceEditorFaceplatePreview` | `drawPowerDistroFaceplate()`, `drawEditorPowerPlugGuides()`, `drawEditorPowerPlugMarquee()` | Engine preview should render generated power-plug faceplates. Manual plug drag/resize handles remain overlay-owned. |
-| Adapter / Breakout editor preview | `#deviceEditorPreview` | `isAdapterTemplate()`, `drawAdapterInternalWires()`, adapter body styling | Engine preview should render the dashed legacy adapter shell and internal fan-in/fan-out wiring from `adapterMapping`. |
+| Device Editor main preview | `#deviceEditorPreview` inside `.engine-preview-authoring-overlay` | `renderDeviceEditorPreview()` now coordinates a persistent `EnginePreviewSurface` in Engine mode | Migrated. Device body, title, faceplate, connector labels, fields, relationships, power distro visuals, adapter internals, and cards come from Engine. The SVG layer draws authoring controls only. |
+| Device Editor connector preview | `#deviceEditorPreview` | Engine connector geometry from `connectorDisplayLayout` and `EnginePreviewSurface.connectorEntries()`; authoring hit/selection overlay remains SVG | Migrated. Click, Shift-click, marquee, connector drag, empty slots, and node drop target the Engine-rendered connector anchors. Both-side anchors map to one logical connector. |
+| Device Editor faceplate preview | `#deviceEditorPreview` | Engine device texture plus shared faceplate geometry helpers from `faceplateGeometry.js` / `deviceVisualBuilder.js` | Migrated. Actual shell/image/scale/offset are Engine-rendered; resize and movement handles are authoring overlay. The older `#deviceEditorFaceplatePreview` path is not used for Engine visual output. |
+| Device Editor card preview | `#deviceEditorPreview` | Engine device/card texture and generated connector rendering | Migrated. Authoring overlays remain for selection and slot/card controls. |
+| Device Editor slots preview | `#deviceEditorPreview` | Engine installed-card visual with overlay slot boundaries and drop targets | Migrated. Empty authoring slots remain overlay-only and are not production device visuals. |
+| Device Editor defaults tab preview | `#deviceEditorPreview` | Same persistent Device Editor `EnginePreviewSurface` | Migrated. Defaults semantics remain separate from visual rendering. |
+| Power Distribution editor preview | `#deviceEditorPreview` | Engine generated power distro faceplate and plug visuals | Migrated. Plug selection, guides, marquee, and drag handles remain overlay-only. |
+| Adapter / Breakout editor preview | `#deviceEditorPreview` | Engine adapter rendering from `adapterMapping` and the normal visual builder | Migrated. Dashed shell, compact adapter body, and internal fan-in/fan-out paths come from Engine. |
 | Rack Builder preview | `#rackBuilderPreview` | `renderRackBuilderPreview()`, `drawRackPreviewDevice()`, `renderRackBuilderInternalWires()`, rack pan/zoom and drag/drop handlers | 53.x follow-up should render rack contents through the shared Engine surface while keeping rack authoring selection, expose-port toggles, and drag handles in the overlay. |
 | Rack internal wire preview | `#rackBuilderPreview` | `renderRackBuilderPreviewWire()` and internal connection SVG paths | Use Engine scene data with rack-internal wires forced orthogonal by `SceneGraph`/wire normalization. |
 | Node Builder crop preview | `.node-crop-preview` | Inline DOM/CSS sample and crop controls | This is a node asset authoring surface, not a full device scene. It may stay DOM based unless connector glyph rendering is centralized later. |
@@ -62,7 +64,7 @@ The renderer owns visual parity. Editors own authoring affordances.
 
 ## Diagnostics
 
-The shared foundation reports diagnostics through `enginePreviewDiagnostics(surface)` and the debug harness. The report includes:
+The shared foundation reports diagnostics through `enginePreviewDiagnostics(surface)`, the debug harness, and the Engine-mode Device Editor debug panel. The report includes:
 
 - Active preview surface count.
 - Created/disposed preview counts.
@@ -70,8 +72,16 @@ The shared foundation reports diagnostics through `enginePreviewDiagnostics(surf
 - Asset-ready subscriber count.
 - Camera, viewport, DPR.
 - Texture stats.
+- Full scene replacement count.
+- Incremental device replacement count.
+- Rendered preview frame count.
+- Device Editor preview source.
+- Device Editor legacy actual-device visual draw count.
+- Device Editor authoring overlay draw count.
 - Shared-bus layout stats.
 - Adapter and Power Distribution diagnostics.
+
+In Engine mode, the Device Editor preview source should read `EnginePreviewSurface` and the legacy actual-device visual draw count should remain `0` for Device, Connectors, Faceplate, Cards, Slots, Defaults, Power Distro, and Adapter/Breakout previews.
 
 ## Migration Guardrails
 
@@ -80,3 +90,12 @@ The shared foundation reports diagnostics through `enginePreviewDiagnostics(surf
 - Normalize draft devices through `normalizeAvDesignerDevice(...)` so master drafts and Project Custom drafts follow the same rules as placed canvas devices.
 - Keep authoring-only UI in the overlay layer.
 - Always dispose preview surfaces when an editor modal/page is destroyed or remounted.
+
+## Remaining Preview Migrations
+
+The remaining shared-preview migrations are deliberately outside 53.1:
+
+- Rack Builder preview and rack-internal wire authoring.
+- Node Builder/crop previews and small connector catalogue previews.
+- Title Block and other minor object previews.
+- Export/report/viewer rendering paths.
