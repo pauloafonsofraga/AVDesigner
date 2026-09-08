@@ -10,13 +10,13 @@ import {
   legacyFaceHeight,
   legacyFaceImagePlacement
 } from "./faceplateGeometry.js";
-import { hitTestConnector, hitTestDevice, screenToWorld } from "./hitTest.js";
+import { distanceToPolyline, hitTestConnector, hitTestDevice, hitTestWire, screenToWorld } from "./hitTest.js";
 import { powerDistroDiagnostics } from "./powerDistroModel.js";
 import { normalizeAvDesignerDevice } from "./projectAdapter.js";
 import { DEFAULT_RENDER_OPTIONS, WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
 
-export const ENGINE_PREVIEW_BUILD_ID = "iteration53-1-device-editor-engine-preview";
+export const ENGINE_PREVIEW_BUILD_ID = "iteration53-2-rack-builder-engine-preview";
 
 const ACTIVE_PREVIEW_SURFACES = new Set();
 
@@ -321,8 +321,11 @@ export class EnginePreviewSurface {
     return device ? screenToDeviceLocalPoint(this.camera, device, point) : null;
   }
 
-  connectorEntries(deviceId = "") {
+  connectorEntries(deviceId = "", options = {}) {
     if (this.disposed) return [];
+    const includeHidden = options.includeHidden === true;
+    const includeReferenceOnly = options.includeReferenceOnly === true;
+    const predicate = typeof options.predicate === "function" ? options.predicate : null;
     const devices = deviceId
       ? [this.scene.getDevice(deviceId)].filter(Boolean)
       : this.scene.devices;
@@ -330,6 +333,9 @@ export class EnginePreviewSurface {
     devices.forEach(device => {
       const displayLayout = this.scene.connectorDisplayLayoutForDevice(device);
       (device.connectors || []).forEach(connector => {
+        if (!includeHidden && connector.hiddenOnCanvas === true) return;
+        if (!includeReferenceOnly && connector.referenceOnlyOnCanvas === true) return;
+        if (predicate && !predicate({ device, connector })) return;
         connectorDisplayAnchors(device, connector, displayLayout).forEach(anchor => {
           const world = this.scene.connectorAnchorWorldPoint(device, connector, anchor.id, displayLayout);
           entries.push({
@@ -352,13 +358,115 @@ export class EnginePreviewSurface {
     return entries;
   }
 
-  hitTestConnector(screenPoint, tolerancePx = 12) {
+  hitTestConnector(screenPoint, tolerancePx = 12, options = {}) {
+    if (options.includeReferenceOnly || options.includeHidden || typeof options.predicate === "function") {
+      return this.hitTestConnectorEntries(screenPoint, tolerancePx, options);
+    }
     const worldPoint = this.screenToWorld(screenPoint);
     return hitTestConnector(this.scene, worldPoint, Math.max(1, tolerancePx / Math.max(0.0001, this.camera.zoom)));
   }
 
+  hitTestConnectorEntries(screenPoint, tolerancePx = 12, options = {}) {
+    const start = performance.now();
+    const worldPoint = this.screenToWorld(screenPoint);
+    const tolerance = Math.max(1, tolerancePx / Math.max(0.0001, this.camera.zoom));
+    let best = null;
+    let bestDistance = Infinity;
+    const entries = this.connectorEntries(options.deviceId || "", options);
+    entries.forEach(entry => {
+      if (!entry?.world || !entry.connector || !entry.device) return;
+      const distance = Math.hypot(entry.world.x - worldPoint.x, entry.world.y - worldPoint.y);
+      const radius = entry.device.kind === "jump" ? tolerance * 1.9 : tolerance;
+      if (distance <= radius && distance < bestDistance) {
+        bestDistance = distance;
+        best = {
+          device: entry.device,
+          connector: entry.connector,
+          anchor: entry.anchor,
+          anchorId: entry.anchorId,
+          anchorKey: entry.anchorKey,
+          logicalKey: entry.logicalKey,
+          point: entry.world,
+          distance,
+          key: entry.logicalKey,
+          entry
+        };
+      }
+    });
+    return {
+      connector: best,
+      candidates: entries.length,
+      ms: performance.now() - start
+    };
+  }
+
   hitTestDevice(screenPoint, predicate = null) {
     return hitTestDevice(this.scene, this.screenToWorld(screenPoint), predicate);
+  }
+
+  hitTestWire(screenPoint, tolerancePx = 8, predicate = null) {
+    const worldPoint = this.screenToWorld(screenPoint);
+    const tolerance = Math.max(1, tolerancePx / Math.max(0.0001, this.camera.zoom));
+    if (!predicate) return hitTestWire(this.scene, worldPoint, tolerance);
+    const start = performance.now();
+    const candidates = this.scene.wireIndex.queryRect({
+      x: worldPoint.x - tolerance,
+      y: worldPoint.y - tolerance,
+      width: tolerance * 2,
+      height: tolerance * 2
+    });
+    let best = null;
+    let bestDistance = Infinity;
+    candidates.forEach(item => {
+      const wire = item.payload?.wire || item.wire;
+      if (!wire || !predicate(wire)) return;
+      const pathHit = distanceToPolyline(this.scene.wireRenderPolyline(wire), worldPoint);
+      if (pathHit.distance <= tolerance && pathHit.distance < bestDistance) {
+        bestDistance = pathHit.distance;
+        best = {
+          wire,
+          distance: pathHit.distance,
+          segmentIndex: pathHit.segmentIndex,
+          point: pathHit.point
+        };
+      }
+    });
+    return {
+      wire: best,
+      candidates: candidates.length,
+      ms: performance.now() - start
+    };
+  }
+
+  replaceSceneItems({ devices = [], wires = [] } = {}, { render = true, refreshTexture = true, refreshCableHops = false } = {}) {
+    if (this.disposed) return null;
+    const deviceIds = [];
+    const wireIds = [];
+    (devices || []).forEach((item, index) => {
+      const device = normalizePreviewDeviceInput(item, index);
+      if (!device?.id) return;
+      this.scene.replaceDevice(device);
+      deviceIds.push(device.id);
+    });
+    (wires || []).forEach(wire => {
+      if (!wire?.id) return;
+      if (this.scene.getWire(wire.id)) this.scene.applyWireState(wire.id, wire);
+      else this.scene.insertWire(wire);
+      wireIds.push(wire.id);
+    });
+    this.lastDirtyStats = this.renderer.updateDirty(this.scene, {
+      deviceIds,
+      wireIds,
+      refreshDeviceTextures: refreshTexture !== false,
+      refreshCableHops: refreshCableHops !== false
+    });
+    if (deviceIds.length) ENGINE_PREVIEW_LIFECYCLE.incrementalDeviceReplacements += deviceIds.length;
+    if (render) this.render();
+    return {
+      devices: deviceIds,
+      wires: wireIds,
+      stats: this.lastDirtyStats
+    };
   }
 
   resize({ fit = false } = {}) {

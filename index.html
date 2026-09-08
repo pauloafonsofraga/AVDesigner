@@ -2945,6 +2945,7 @@
     }
 
     .rack-builder-preview-wrap {
+      position: relative;
       min-height: 0;
       border: 1px solid var(--panel-border);
       border-radius: 8px;
@@ -2959,6 +2960,60 @@
       width: 100%;
       height: 100%;
       display: block;
+    }
+
+    .rack-builder-preview-wrap.engine-preview-mode .engine-preview-surface {
+      position: absolute !important;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .rack-builder-preview-wrap.engine-preview-mode .engine-preview-webgl,
+    .rack-builder-preview-wrap.engine-preview-mode .engine-preview-labels {
+      pointer-events: none;
+    }
+
+    .rack-builder-preview-wrap.engine-preview-mode .engine-preview-authoring-overlay {
+      pointer-events: auto !important;
+      z-index: 3;
+    }
+
+    .rack-builder-preview-wrap.engine-preview-mode #rackBuilderPreview {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      background: transparent;
+      pointer-events: all;
+    }
+
+    .rack-engine-hit {
+      fill: transparent;
+      stroke: transparent;
+      pointer-events: all;
+    }
+
+    .rack-engine-selection-outline {
+      fill: rgba(251, 121, 4, .08);
+      stroke: #fb7904;
+      stroke-width: 2.4;
+      stroke-dasharray: 10 6;
+      vector-effect: non-scaling-stroke;
+      pointer-events: none;
+      filter:
+        drop-shadow(0 0 8px rgba(251, 121, 4, .84))
+        drop-shadow(0 0 18px rgba(251, 121, 4, .45));
+    }
+
+    .rack-engine-node-selection {
+      fill: none;
+      stroke: #fb7904;
+      stroke-width: 2.8;
+      vector-effect: non-scaling-stroke;
+      pointer-events: none;
+      filter:
+        drop-shadow(0 0 7px rgba(251, 121, 4, .85))
+        drop-shadow(0 0 14px rgba(251, 121, 4, .55));
     }
 
     .editor-panel-note {
@@ -5007,9 +5062,9 @@
   </div>
 
   <script>
-    const APP_ITERATION = "53.1";
-    const APP_BUILD_ID = "iteration53-1-device-editor-engine-preview";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Device Editor Engine Preview`;
+    const APP_ITERATION = "53.2";
+    const APP_BUILD_ID = "iteration53-2-rack-builder-engine-preview";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Rack Builder Engine Preview`;
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "2edc063+";
     const CANVAS_MIN_ZOOM = 0.03;
@@ -5021,6 +5076,8 @@
     const DEBUG_SHELL_ENABLED = INITIAL_URL_PARAMS.get("debugShell") === "1";
     const OUTPUT_DEBUG_ENABLED = INITIAL_URL_PARAMS.get("debugOutput") === "1";
     const DEBUG_DEVICE_AUTHORING_ENABLED = INITIAL_URL_PARAMS.get("debugDeviceAuthoring") === "1";
+    const DEBUG_RACK_BUILDER_ENABLED = INITIAL_URL_PARAMS.get("debugRackBuilder") === "1"
+      || INITIAL_URL_PARAMS.get("debugEnginePreview") === "1";
     const IS_APPLE_POINTER_PLATFORM = /\b(Mac|iPhone|iPad|iPod)\b/i.test([
       navigator.userAgentData?.platform,
       navigator.platform,
@@ -77666,6 +77723,22 @@
     let editorEnginePreviewLastDeviceId = "";
     let editorEnginePreviewLegacyVisualDraws = 0;
     let editorEnginePreviewOverlayDraws = 0;
+    let rackBuilderPreviewAdapterModule = null;
+    let rackBuilderPreviewAdapterModulePromise = null;
+    let rackBuilderEnginePreviewSurface = null;
+    let rackBuilderEnginePreviewHost = null;
+    let rackBuilderEnginePreviewSvgHome = null;
+    let rackBuilderEnginePreviewSvgNextSibling = null;
+    let rackBuilderEnginePreviewSynced = false;
+    let rackBuilderEnginePreviewFitPending = false;
+    let rackBuilderEnginePreviewSignature = "";
+    let rackBuilderEnginePreviewLastSceneData = null;
+    let rackBuilderEnginePreviewMapping = null;
+    let rackBuilderEnginePreviewLegacyVisualDraws = 0;
+    let rackBuilderEnginePreviewOverlayDraws = 0;
+    let rackBuilderEnginePreviewFullSceneReplacements = 0;
+    let rackBuilderEnginePreviewIncrementalDeviceReplacements = 0;
+    let rackBuilderEnginePreviewCameraActions = 0;
     let editorFaceplatePreviewZoom = 1;
     let editorFaceplatePreviewPan = { x: 0, y: 0 };
     let editorFaceplatePreviewWidth = 320;
@@ -78415,6 +78488,10 @@
     }
 
     function rackPointForConnector(rack, deviceId, connectorId) {
+      if (rackBuilderUsesEnginePreview() && rackBuilderEnginePreviewSurface) {
+        const entry = rackBuilderEngineConnectorEntry(rack, deviceId, connectorId);
+        if (entry?.world) return { x: entry.world.x, y: entry.world.y };
+      }
       const instance = rackDefinitionInstanceById(rack, deviceId);
       const connector = rackConnectorById(rack, deviceId, connectorId);
       if (!instance || !connector) return { x: 0, y: 0 };
@@ -84244,13 +84321,22 @@
       rackBuilderSnapGuides = null;
       rackBuilderDropPreviewRect = null;
       rackBuilderMarquee = null;
-      renderRackBuilder();
       rackBuilderModal.classList.remove("hidden");
+      rackBuilderEnginePreviewFitPending = true;
+      renderRackBuilder();
+      if (rackBuilderUsesEnginePreview()) {
+        loadRackBuilderEnginePreviewModules().then(() => {
+          if (!rackBuilderModalOpen()) return;
+          rackBuilderEnginePreviewFitPending = true;
+          renderRackBuilderPreview({ fullScene: true, fit: true });
+        });
+      }
     }
 
     function closeRackBuilder() {
       syncCanvasRackInstancesFromDefinitions();
       rackBuilderModal.classList.add("hidden");
+      disposeRackBuilderEnginePreviewSurface();
       renderDeviceLibrary();
       render();
     }
@@ -84339,7 +84425,466 @@
         || `<div class="placeholder" style="padding:14px;">No project devices found.</div>`;
     }
 
+    function rackBuilderPreviewContainer() {
+      return rackBuilderPreview?.closest?.(".rack-builder-preview-wrap") || rackBuilderPreview?.parentElement || null;
+    }
+
+    function rackBuilderModalOpen() {
+      return Boolean(rackBuilderModal && !rackBuilderModal.classList.contains("hidden"));
+    }
+
+    function ensureRackBuilderEnginePreviewSurface() {
+      if (!rackBuilderUsesEnginePreview() || !rackBuilderPreview || !rackBuilderModalOpen()) return null;
+      if (!editorEnginePreviewModule?.EnginePreviewSurface || !rackBuilderPreviewAdapterModule?.createRackPreviewScene) {
+        loadRackBuilderEnginePreviewModules().then(() => {
+          if (!rackBuilderModalOpen()) return;
+          rackBuilderEnginePreviewFitPending = true;
+          renderRackBuilderPreview({ fullScene: true, fit: true });
+        });
+        return null;
+      }
+      const host = rackBuilderPreviewContainer();
+      if (!host) return null;
+      if (!rackBuilderEnginePreviewSvgHome) {
+        rackBuilderEnginePreviewSvgHome = rackBuilderPreview.parentElement;
+        rackBuilderEnginePreviewSvgNextSibling = rackBuilderPreview.nextSibling;
+      }
+      if (!rackBuilderEnginePreviewSurface) {
+        rackBuilderEnginePreviewSurface = new editorEnginePreviewModule.EnginePreviewSurface(host, {
+          fit: false,
+          renderOptions: {
+            gridVisible: false,
+            wires: true,
+            labels: true,
+            connectorMarkers: true,
+            connectorColors: true,
+            texturedDevices: true,
+            detailedDeviceTextures: true,
+            cableHops: false,
+            routePoints: false,
+            jumpNodes: false
+          }
+        });
+        rackBuilderEnginePreviewSynced = false;
+      } else {
+        rackBuilderEnginePreviewSurface.mount(host);
+      }
+      rackBuilderEnginePreviewHost = host;
+      host.classList.add("engine-preview-mode");
+      Object.assign(rackBuilderEnginePreviewSurface.dom.root.style, {
+        position: "absolute",
+        inset: "0",
+        width: "100%",
+        height: "100%"
+      });
+      const overlay = rackBuilderEnginePreviewSurface.authoringOverlay?.() || rackBuilderEnginePreviewSurface.dom.overlay;
+      if (overlay && rackBuilderPreview.parentElement !== overlay) overlay.appendChild(rackBuilderPreview);
+      if (overlay) overlay.style.pointerEvents = "auto";
+      rackBuilderPreview.classList.add("engine-preview-authoring-svg");
+      return rackBuilderEnginePreviewSurface;
+    }
+
+    function disposeRackBuilderEnginePreviewSurface() {
+      const svg = rackBuilderPreview;
+      if (svg && rackBuilderEnginePreviewSvgHome && svg.parentElement !== rackBuilderEnginePreviewSvgHome) {
+        if (rackBuilderEnginePreviewSvgNextSibling?.parentElement === rackBuilderEnginePreviewSvgHome) {
+          rackBuilderEnginePreviewSvgHome.insertBefore(svg, rackBuilderEnginePreviewSvgNextSibling);
+        } else {
+          rackBuilderEnginePreviewSvgHome.appendChild(svg);
+        }
+      }
+      svg?.classList.remove("engine-preview-authoring-svg");
+      rackBuilderEnginePreviewHost?.classList.remove("engine-preview-mode");
+      rackBuilderEnginePreviewSurface?.dispose?.();
+      rackBuilderEnginePreviewSurface = null;
+      rackBuilderEnginePreviewHost = null;
+      rackBuilderEnginePreviewSynced = false;
+      rackBuilderEnginePreviewFitPending = false;
+      rackBuilderEnginePreviewSignature = "";
+      rackBuilderEnginePreviewLastSceneData = null;
+      rackBuilderEnginePreviewMapping = null;
+      rackBuilderEnginePreviewLegacyVisualDraws = 0;
+      rackBuilderEnginePreviewOverlayDraws = 0;
+      rackBuilderEnginePreviewFullSceneReplacements = 0;
+      rackBuilderEnginePreviewIncrementalDeviceReplacements = 0;
+      rackBuilderEnginePreviewCameraActions = 0;
+    }
+
+    function rackBuilderEngineScreenPoint(event) {
+      const rect = rackBuilderEnginePreviewSurface?.dom.root.getBoundingClientRect();
+      if (!rect) return null;
+      return {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top
+      };
+    }
+
+    function syncRackBuilderEngineCameraState(surface = rackBuilderEnginePreviewSurface) {
+      if (!surface) return;
+      rackBuilderPreviewZoom = Math.max(.0001, Number(surface.camera.zoom) || 1);
+      rackBuilderPreviewPan = {
+        x: Number(surface.camera.x) || 0,
+        y: Number(surface.camera.y) || 0
+      };
+    }
+
+    function syncRackBuilderEngineOverlayViewBox() {
+      const surface = rackBuilderEnginePreviewSurface;
+      if (!surface || !rackBuilderPreview) return;
+      const rect = surface.dom.root.getBoundingClientRect();
+      const zoom = Math.max(.0001, Number(surface.camera.zoom) || 1);
+      const width = Math.max(1, rect.width || surface.renderer?.resolution?.width || 1400);
+      const height = Math.max(1, rect.height || surface.renderer?.resolution?.height || 900);
+      rackBuilderPreview.setAttribute("viewBox", `${surface.camera.x} ${surface.camera.y} ${width / zoom} ${height / zoom}`);
+      syncRackBuilderEngineCameraState(surface);
+    }
+
+    function rackBuilderEngineSceneOptions(rack) {
+      return {
+        rack,
+        deviceLibrary,
+        nodeLibrary: serializeNodeLibrary(),
+        wireMode: "orthogonal"
+      };
+    }
+
+    function rackBuilderEngineSourceIdForPreviewDevice(previewDeviceId) {
+      return rackBuilderEnginePreviewMapping?.sourceIdByChildId?.[previewDeviceId]
+        || rackBuilderEnginePreviewMapping?.sourceIdByPreviewId?.[previewDeviceId]
+        || rackBuilderEnginePreviewLastSceneData?.meta?.rackPreview?.sourceIdByChildId?.[previewDeviceId]
+        || "";
+    }
+
+    function rackBuilderEnginePreviewIdForDefinition(definitionDeviceId) {
+      return rackBuilderEnginePreviewMapping?.childIdBySourceId?.[definitionDeviceId]
+        || rackBuilderEnginePreviewLastSceneData?.meta?.rackPreview?.childIdBySourceId?.[definitionDeviceId]
+        || "";
+    }
+
+    function rackBuilderEngineWireIdForConnection(connectionId) {
+      return rackBuilderEnginePreviewMapping?.internalWireIdByConnectionId?.[connectionId]
+        || rackBuilderEnginePreviewLastSceneData?.meta?.rackPreview?.internalWireIdByConnectionId?.[connectionId]
+        || "";
+    }
+
+    function rackBuilderEngineConnectionIdForWire(wireId) {
+      return rackBuilderEnginePreviewMapping?.connectionIdByInternalWireId?.[wireId]
+        || rackBuilderEnginePreviewLastSceneData?.meta?.rackPreview?.connectionIdByInternalWireId?.[wireId]
+        || "";
+    }
+
+    function rackBuilderEngineDeviceHitFromEvent(event) {
+      if (!rackBuilderUsesEnginePreview() || !rackBuilderEnginePreviewSurface) return null;
+      const screenPoint = rackBuilderEngineScreenPoint(event);
+      if (!screenPoint) return null;
+      const previewRackId = rackBuilderEnginePreviewMapping?.previewRackId || "";
+      const hit = rackBuilderEnginePreviewSurface.hitTestDevice(screenPoint, device => {
+        return !previewRackId || device.rackId === previewRackId;
+      }).device;
+      if (!hit) return null;
+      const definitionDeviceId = rackBuilderEngineSourceIdForPreviewDevice(hit.id) || hit.sourceRackDeviceId || "";
+      return definitionDeviceId ? { device: hit, definitionDeviceId } : null;
+    }
+
+    function rackBuilderEngineConnectorEntries(rack = selectedEditorRack()) {
+      if (!rackBuilderEnginePreviewSurface || !rack) return [];
+      const entries = rackBuilderEnginePreviewSurface.connectorEntries("", {
+        includeReferenceOnly: true,
+        includeHidden: false,
+        predicate: ({ device, connector }) => {
+          return Boolean(device?.rackId && connector?.id);
+        }
+      });
+      return entries.map(entry => ({
+        ...entry,
+        definitionDeviceId: rackBuilderEngineSourceIdForPreviewDevice(entry.device?.id)
+      })).filter(entry => entry.definitionDeviceId);
+    }
+
+    function rackBuilderEngineConnectorEntry(rack, deviceId, connectorId) {
+      return rackBuilderEngineConnectorEntries(rack).find(entry => {
+        return entry.definitionDeviceId === deviceId && entry.connector?.id === connectorId;
+      }) || null;
+    }
+
+    function rackBuilderEngineConnectorHitFromEvent(event) {
+      if (!rackBuilderUsesEnginePreview() || !rackBuilderEnginePreviewSurface) return null;
+      const screenPoint = rackBuilderEngineScreenPoint(event);
+      if (!screenPoint) return null;
+      const hit = rackBuilderEnginePreviewSurface.hitTestConnector(screenPoint, 18, {
+        includeReferenceOnly: true,
+        includeHidden: false,
+        predicate: ({ device, connector }) => Boolean(device?.rackId && connector?.id)
+      }).connector;
+      if (!hit) return null;
+      const definitionDeviceId = rackBuilderEngineSourceIdForPreviewDevice(hit.device?.id) || hit.device?.sourceRackDeviceId || "";
+      const connectorId = hit.connector?.id || "";
+      if (!definitionDeviceId || !connectorId) return null;
+      return {
+        deviceId: definitionDeviceId,
+        connectorId,
+        anchorId: hit.anchorId || "",
+        point: hit.point,
+        connector: hit.connector,
+        hit
+      };
+    }
+
+    function rackBuilderEngineInternalWireHitFromEvent(event) {
+      if (!rackBuilderUsesEnginePreview() || !rackBuilderEnginePreviewSurface) return null;
+      const screenPoint = rackBuilderEngineScreenPoint(event);
+      if (!screenPoint) return null;
+      const result = rackBuilderEnginePreviewSurface.hitTestWire(screenPoint, 10, wire => wire.internalRackWire === true);
+      const wire = result?.wire?.wire || null;
+      if (!wire) return null;
+      const connectionId = rackBuilderEngineConnectionIdForWire(wire.id);
+      return connectionId ? { wire, connectionId, hit: result.wire } : null;
+    }
+
+    function syncRackBuilderEnginePreview(rack, options = {}) {
+      const surface = ensureRackBuilderEnginePreviewSurface();
+      if (!surface) return null;
+      if (!rack) {
+        if (rackBuilderEnginePreviewSynced || rackBuilderEnginePreviewLastSceneData?.devices?.length) {
+          surface.setSceneData({ devices: [], wires: [], racks: [], meta: { source: "rack-builder-empty", buildId: APP_BUILD_ID } }, { fit: false });
+        }
+        rackBuilderEnginePreviewSynced = false;
+        rackBuilderEnginePreviewLastSceneData = null;
+        rackBuilderEnginePreviewMapping = null;
+        syncRackBuilderEngineOverlayViewBox();
+        return null;
+      }
+      if (options.cameraOnly || options.overlayOnly) {
+        syncRackBuilderEngineOverlayViewBox();
+        return rackBuilderEnginePreviewLastSceneData;
+      }
+
+      const sceneData = rackBuilderPreviewAdapterModule.createRackPreviewScene(rackBuilderEngineSceneOptions(rack));
+      const mapping = sceneData.meta?.rackPreview || {};
+      const signature = String(mapping.structuralSignature || "");
+      const dirtyDefinitionDeviceIds = new Set(Array.from(options.dirtyDefinitionDeviceIds || []).map(id => String(id || "")).filter(Boolean));
+      const dirtyConnectionIds = new Set(Array.from(options.dirtyConnectionIds || []).map(id => String(id || "")).filter(Boolean));
+      const fullScene = options.fullScene === true
+        || !rackBuilderEnginePreviewSynced
+        || signature !== rackBuilderEnginePreviewSignature;
+
+      rackBuilderEnginePreviewLastSceneData = sceneData;
+      rackBuilderEnginePreviewMapping = mapping;
+
+      if (fullScene) {
+        surface.setSceneData(sceneData, { fit: options.fit === true || rackBuilderEnginePreviewFitPending });
+        rackBuilderEnginePreviewFullSceneReplacements += 1;
+        rackBuilderEnginePreviewSynced = true;
+        rackBuilderEnginePreviewSignature = signature;
+      } else if (dirtyDefinitionDeviceIds.size || dirtyConnectionIds.size) {
+        const previewDeviceIds = new Set(Array.from(dirtyDefinitionDeviceIds)
+          .map(id => mapping.childIdBySourceId?.[id])
+          .filter(Boolean));
+        const devices = sceneData.devices.filter(device => previewDeviceIds.has(device.id));
+        const dirtyWireIds = new Set(Array.from(dirtyConnectionIds)
+          .map(id => mapping.internalWireIdByConnectionId?.[id])
+          .filter(Boolean));
+        sceneData.wires.forEach(wire => {
+          if (previewDeviceIds.has(wire.fromDeviceId) || previewDeviceIds.has(wire.toDeviceId)) dirtyWireIds.add(wire.id);
+        });
+        const wires = sceneData.wires.filter(wire => dirtyWireIds.has(wire.id));
+        surface.replaceSceneItems({ devices, wires }, {
+          render: false,
+          refreshTexture: options.refreshTexture !== false,
+          refreshCableHops: false
+        });
+        rackBuilderEnginePreviewIncrementalDeviceReplacements += devices.length;
+        if (options.fit === true || rackBuilderEnginePreviewFitPending) surface.fitToContent({ padding: 72 });
+        surface.render();
+      } else if (options.fit === true || rackBuilderEnginePreviewFitPending) {
+        surface.fitToContent({ padding: 72 });
+        surface.render();
+      } else {
+        surface.render();
+      }
+
+      rackBuilderEnginePreviewFitPending = false;
+      syncRackBuilderEngineOverlayViewBox();
+      updateRackBuilderEnginePreviewDebug(rack);
+      return sceneData;
+    }
+
+    function drawRackBuilderEngineMessage(text) {
+      const view = rackPreviewViewBox();
+      const label = createSvg("text", {
+        x: view.x + view.width / 2,
+        y: view.y + view.height / 2,
+        fill: "#a7b2c1",
+        "font-size": 22 / Math.max(rackBuilderPreviewZoom, .25),
+        "font-weight": 900,
+        "text-anchor": "middle"
+      });
+      label.textContent = text;
+      rackBuilderPreview.appendChild(label);
+    }
+
+    function drawRackBuilderEngineDeviceOverlay(rack) {
+      rackDefinitionDevices(rack?.id).forEach(instance => {
+        const previewId = rackBuilderEnginePreviewIdForDefinition(instance.instanceId);
+        const device = previewId ? rackBuilderEnginePreviewSurface?.scene.getDevice(previewId) : null;
+        const rect = device ? {
+          x: device.x,
+          y: device.y,
+          width: device.width,
+          height: device.height
+        } : rackBuilderDeviceRect(instance);
+        if (!rect) return;
+        rackBuilderPreview.appendChild(createSvg("rect", {
+          class: "rack-engine-hit",
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height,
+          rx: 8,
+          "data-rack-preview-device-id": instance.instanceId
+        }));
+        if (!rackBuilderSelectedDeviceIds.has(instance.instanceId)) return;
+        rackBuilderPreview.appendChild(createSvg("rect", {
+          class: "rack-engine-selection-outline",
+          x: rect.x - 4,
+          y: rect.y - 4,
+          width: rect.width + 8,
+          height: rect.height + 8,
+          rx: 10
+        }));
+      });
+    }
+
+    function drawRackBuilderEngineConnectorOverlay(rack) {
+      const hitRadius = 18 / Math.max(rackBuilderPreviewZoom, .25);
+      const haloRadius = 13 / Math.max(rackBuilderPreviewZoom, .25);
+      rackBuilderEngineConnectorEntries(rack).forEach(entry => {
+        const deviceId = entry.definitionDeviceId;
+        const connectorId = entry.connector?.id || "";
+        if (!deviceId || !connectorId) return;
+        const exposed = isRackDefinitionConnectorExposed(rack, deviceId, connectorId);
+        const connected = rackConnectionForEndpoint(rack, deviceId, connectorId);
+        const hovered = rackBuilderHoverConnector?.deviceId === deviceId && rackBuilderHoverConnector?.connectorId === connectorId;
+        const selectedConnector = rackBuilderSelectedConnector?.deviceId === deviceId && rackBuilderSelectedConnector?.connectorId === connectorId;
+        const group = createSvg("g", {
+          class: `rack-preview-connector${exposed ? " rack-preview-connector-exposed" : ""}${connected ? " rack-preview-connector-wired" : ""}${hovered ? " node-hover-target" : ""}${selectedConnector ? " rack-preview-connector-selected" : ""}`,
+          "data-rack-preview-connector-device-id": deviceId,
+          "data-rack-preview-connector-id": connectorId,
+          "data-rack-preview-anchor-id": entry.anchorId || ""
+        });
+        group.appendChild(createSvg("circle", {
+          class: "rack-engine-hit",
+          cx: entry.world.x,
+          cy: entry.world.y,
+          r: hitRadius
+        }));
+        if (exposed) {
+          group.appendChild(createSvg("circle", {
+            class: "rack-exposed-port-ring",
+            cx: entry.world.x,
+            cy: entry.world.y,
+            r: haloRadius
+          }));
+        }
+        if (hovered || selectedConnector) {
+          group.appendChild(createSvg("circle", {
+            class: "rack-engine-node-selection",
+            cx: entry.world.x,
+            cy: entry.world.y,
+            r: haloRadius + 2 / Math.max(rackBuilderPreviewZoom, .25)
+          }));
+        }
+        group.addEventListener("pointerdown", event => startRackBuilderConnection(event, deviceId, connectorId));
+        group.addEventListener("contextmenu", event => showRackBuilderConnectorContextMenu(event, rack?.id, deviceId, connectorId));
+        rackBuilderPreview.appendChild(group);
+      });
+    }
+
+    function drawRackBuilderEngineInternalWireHandles(rack) {
+      rackInternalConnections(rack).forEach(connection => {
+        if (rackBuilderSelectedWireId !== connection.id) return;
+        const route = rackInternalWireRoute(rack, connection);
+        drawRackBuilderWireSegmentHandles(rack, connection, route);
+      });
+    }
+
+    function drawRackBuilderEngineOverlay(rack) {
+      if (!rackBuilderPreview) return;
+      rackBuilderPreview.innerHTML = "";
+      syncRackBuilderEngineOverlayViewBox();
+      if (!rack) {
+        drawRackBuilderEngineMessage("Create a rack to start.");
+        updateRackBuilderEnginePreviewDebug(rack);
+        return;
+      }
+      pruneRackBuilderSelection(rack);
+      if (!rackDefinitionDevices(rack.id).length) {
+        drawRackBuilderEngineMessage("Drag devices here.");
+      }
+      drawRackBuilderEngineDeviceOverlay(rack);
+      drawRackBuilderEngineConnectorOverlay(rack);
+      renderRackBuilderPreviewWire(rack);
+      drawRackBuilderEngineInternalWireHandles(rack);
+      drawRackBuilderOverlapWarnings(rack);
+      drawRackBuilderSnapGuides();
+      drawRackBuilderMarquee();
+      rackBuilderEnginePreviewOverlayDraws += 1;
+      updateRackBuilderEnginePreviewDebug(rack);
+    }
+
+    function renderRackBuilderEnginePreview(options = {}) {
+      if (!rackBuilderPreview || !rackBuilderModalOpen()) return;
+      const rack = selectedEditorRack();
+      const surface = ensureRackBuilderEnginePreviewSurface();
+      if (!surface) {
+        rackBuilderPreview.innerHTML = "";
+        setRackBuilderPreviewViewBox();
+        drawRackBuilderEngineMessage("Loading Rack Builder preview...");
+        return;
+      }
+      syncRackBuilderEnginePreview(rack, options);
+      drawRackBuilderEngineOverlay(rack);
+    }
+
+    function updateRackBuilderEnginePreviewDebug(rack) {
+      if (!DEBUG_RACK_BUILDER_ENABLED) return;
+      const diagnostics = editorEnginePreviewModule?.enginePreviewDiagnostics
+        ? editorEnginePreviewModule.enginePreviewDiagnostics(rackBuilderEnginePreviewSurface)
+        : null;
+      const meta = rackBuilderEnginePreviewLastSceneData?.meta?.rackPreview || {};
+      const surfaceDiagnostics = diagnostics?.surface || {};
+      const textureStats = surfaceDiagnostics.textureStats || {};
+      const snapshot = {
+        build: `${APP_BUILD_LABEL} — ${APP_BUILD_ID}`,
+        previewSource: rackBuilderUsesEnginePreview() ? "EnginePreviewSurface" : "legacy/svg",
+        rackDraftId: rack?.id || "",
+        rackDraftChildCount: rackDefinitionDevices(rack?.id).length,
+        enginePreviewChildCount: meta.enginePreviewChildCount || surfaceDiagnostics.devices || 0,
+        rackRecordCount: meta.rackRecordCount || surfaceDiagnostics.racks || 0,
+        internalRackConnectionCount: rackInternalConnections(rack).length,
+        enginePreviewInternalWireCount: meta.enginePreviewInternalWireCount || surfaceDiagnostics.wires || 0,
+        exposedPortCount: rackExposedPorts(rack).length,
+        authorableConnectorCount: rackBuilderEngineConnectorEntries(rack).length,
+        engineConnectorHitTargets: rackBuilderEnginePreviewSurface?.scene?.rackConnectorDiagnostics?.(meta.previewRackId)?.connectorHitTargets ?? 0,
+        camera: surfaceDiagnostics.camera || rackBuilderEnginePreviewSurface?.camera || null,
+        viewport: surfaceDiagnostics.viewport || null,
+        textureBuilds: textureStats.builds || 0,
+        textureRebuilds: textureStats.rebuilds || 0,
+        fullSceneReplacements: rackBuilderEnginePreviewFullSceneReplacements,
+        incrementalDeviceReplacements: rackBuilderEnginePreviewIncrementalDeviceReplacements,
+        cameraActions: rackBuilderEnginePreviewCameraActions,
+        legacyCommittedRackVisualDraws: rackBuilderEnginePreviewLegacyVisualDraws,
+        authoringOverlayDraws: rackBuilderEnginePreviewOverlayDraws
+      };
+      window.__avDesignerRackBuilderDebug = snapshot;
+      if (DEBUG_RACK_BUILDER_ENABLED) console.info("[rack-builder-preview]", snapshot);
+    }
+
     function rackPreviewPoint(event) {
+      if (rackBuilderUsesEnginePreview() && rackBuilderEnginePreviewSurface) {
+        const screenPoint = rackBuilderEngineScreenPoint(event);
+        if (screenPoint) return plainPoint(rackBuilderEnginePreviewSurface.screenToWorld(screenPoint));
+      }
       const point = rackBuilderPreview.createSVGPoint();
       point.x = event.clientX;
       point.y = event.clientY;
@@ -84356,6 +84901,16 @@
     }
 
     function rackPreviewViewBox() {
+      if (rackBuilderUsesEnginePreview() && rackBuilderEnginePreviewSurface) {
+        const rect = rackBuilderEnginePreviewSurface.dom.root.getBoundingClientRect();
+        const zoom = Math.max(.0001, Number(rackBuilderEnginePreviewSurface.camera.zoom) || 1);
+        return {
+          x: rackBuilderEnginePreviewSurface.camera.x,
+          y: rackBuilderEnginePreviewSurface.camera.y,
+          width: Math.max(1, rect.width || 1400) / zoom,
+          height: Math.max(1, rect.height || 900) / zoom
+        };
+      }
       const base = rackPreviewBaseSize();
       return {
         x: rackBuilderPreviewPan.x,
@@ -84367,11 +84922,38 @@
 
     function setRackBuilderPreviewViewBox() {
       if (!rackBuilderPreview) return;
+      if (rackBuilderUsesEnginePreview() && rackBuilderEnginePreviewSurface) {
+        syncRackBuilderEngineOverlayViewBox();
+        return;
+      }
       const view = rackPreviewViewBox();
       rackBuilderPreview.setAttribute("viewBox", `${view.x} ${view.y} ${view.width} ${view.height}`);
     }
 
     function setRackBuilderPreviewZoom(nextZoom, anchorEvent = null) {
+      if (rackBuilderUsesEnginePreview() && rackBuilderEnginePreviewSurface) {
+        const surface = rackBuilderEnginePreviewSurface;
+        const view = rackPreviewViewBox();
+        const before = anchorEvent ? rackPreviewPoint(anchorEvent) : {
+          x: view.x + view.width / 2,
+          y: view.y + view.height / 2
+        };
+        const zoom = clamp(nextZoom, .25, 6);
+        const rect = surface.dom.root.getBoundingClientRect();
+        const nextCamera = {
+          x: anchorEvent
+            ? before.x - ((anchorEvent.clientX - rect.left) / zoom)
+            : before.x - Math.max(1, rect.width || 1400) / zoom / 2,
+          y: anchorEvent
+            ? before.y - ((anchorEvent.clientY - rect.top) / zoom)
+            : before.y - Math.max(1, rect.height || 900) / zoom / 2,
+          zoom
+        };
+        surface.setCamera(nextCamera, { render: true });
+        rackBuilderEnginePreviewCameraActions += 1;
+        renderRackBuilderPreview({ cameraOnly: true });
+        return;
+      }
       const oldView = rackPreviewViewBox();
       const before = anchorEvent ? rackPreviewPoint(anchorEvent) : {
         x: oldView.x + oldView.width / 2,
@@ -84392,6 +84974,21 @@
     }
 
     function fitRackBuilderPreview() {
+      if (rackBuilderUsesEnginePreview()) {
+        const surface = ensureRackBuilderEnginePreviewSurface();
+        if (!surface) {
+          rackBuilderEnginePreviewFitPending = true;
+          loadRackBuilderEnginePreviewModules().then(() => {
+            if (!rackBuilderModalOpen()) return;
+            renderRackBuilderPreview({ fullScene: true, fit: true });
+          });
+          return;
+        }
+        syncRackBuilderEnginePreview(selectedEditorRack(), { fit: true });
+        rackBuilderEnginePreviewCameraActions += 1;
+        drawRackBuilderEngineOverlay(selectedEditorRack());
+        return;
+      }
       const rack = selectedEditorRack();
       const bounds = rackBuilderBounds(rack) || { x: 0, y: 0, width: 760, height: 460 };
       const base = rackPreviewBaseSize();
@@ -84458,7 +85055,7 @@
       if (!rack || !source || !rackBuilderPointerOverPreview(event)) {
         rackBuilderSnapGuides = null;
         rackBuilderDropPreviewRect = null;
-        renderRackBuilderPreview();
+        renderRackBuilderPreview({ overlayOnly: true });
         return;
       }
       const point = rackPreviewPoint(event);
@@ -84473,7 +85070,7 @@
       const snapped = snapRackBuilderDevice(rack, instance, instance.x, instance.y);
       rackBuilderSnapGuides = snapped.guides;
       rackBuilderDropPreviewRect = snapped.rect;
-      renderRackBuilderPreview();
+      renderRackBuilderPreview({ overlayOnly: true });
     }
 
     function moveRackBuilderSourceGhost(event) {
@@ -84498,7 +85095,7 @@
       rackBuilderSourceDrag = null;
       rackBuilderSnapGuides = null;
       rackBuilderDropPreviewRect = null;
-      renderRackBuilderPreview();
+      renderRackBuilderPreview({ overlayOnly: true });
     }
 
     function startRackBuilderSourceDrag(event) {
@@ -84660,7 +85257,7 @@
     function setRackBuilderSelection(ids = []) {
       rackBuilderSelectedDeviceIds = new Set(ids);
       rackBuilderSelectedWireId = "";
-      renderRackBuilderPreview();
+      renderRackBuilderPreview({ overlayOnly: true });
     }
 
     function rackBuilderSelectedDevices(rack) {
@@ -85104,7 +85701,7 @@
       rackBuilderSelectedWireId = connectionId;
       rackBuilderSelectedDeviceIds.clear();
       rackBuilderPreview.setPointerCapture(event.pointerId);
-      renderRackBuilderPreview();
+      renderRackBuilderPreview({ overlayOnly: true });
     }
 
     function moveRackBuilderWireSegmentDrag(event) {
@@ -85145,7 +85742,7 @@
       setRackWireRoutePoints(connection, nextRoutePoints);
       rackBuilderWireSegmentDrag.moved = true;
       rackBuilderSnapGuides = snap.guides;
-      renderRackBuilderPreview();
+      renderRackBuilderPreview({ dirtyConnectionIds: [connection.id], refreshTexture: false });
     }
 
     function stopRackBuilderWireSegmentDrag(event) {
@@ -85158,7 +85755,7 @@
       rackBuilderWireSegmentDrag = null;
       rackBuilderSnapGuides = null;
       if (moved) renderRackBuilder();
-      else renderRackBuilderPreview();
+      else renderRackBuilderPreview({ overlayOnly: true });
       renderCanvasOnly();
     }
 
@@ -85181,7 +85778,7 @@
       rackBuilderSelectedDeviceIds.clear();
       rackBuilderSelectedConnector = null;
       rackBuilderPreview.setPointerCapture(event.pointerId);
-      renderRackBuilderPreview();
+      renderRackBuilderPreview({ overlayOnly: true });
     }
 
     function moveRackBuilderWireCornerDrag(event) {
@@ -85198,7 +85795,7 @@
       rackBuilderWireCornerDrag.cornerIndex = moved.cornerIndex;
       setRackWireRoutePoints(connection, moved.routePoints);
       rackBuilderWireCornerDrag.moved = true;
-      renderRackBuilderPreview();
+      renderRackBuilderPreview({ dirtyConnectionIds: [connection.id], refreshTexture: false });
     }
 
     function stopRackBuilderWireCornerDrag(event) {
@@ -85215,7 +85812,7 @@
       const moved = rackBuilderWireCornerDrag.moved;
       rackBuilderWireCornerDrag = null;
       if (moved) renderRackBuilder();
-      else renderRackBuilderPreview();
+      else renderRackBuilderPreview({ overlayOnly: true });
       renderCanvasOnly();
     }
 
@@ -85315,6 +85912,10 @@
     }
 
     function drawRackPreviewDevice(instance, targetSvg = rackBuilderPreview) {
+      if (rackBuilderUsesEnginePreview()) {
+        rackBuilderEnginePreviewLegacyVisualDraws += 1;
+        return;
+      }
       const template = templateForInstance(instance);
       if (!template || !targetSvg) return;
       const rack = selectedEditorRack();
@@ -85384,8 +85985,12 @@
       targetSvg.appendChild(group);
     }
 
-    function renderRackBuilderPreview() {
+    function renderRackBuilderPreview(options = {}) {
       if (!rackBuilderPreview) return;
+      if (rackBuilderUsesEnginePreview() && rackBuilderModalOpen()) {
+        renderRackBuilderEnginePreview(options);
+        return;
+      }
       rackBuilderPreview.innerHTML = "";
       setRackBuilderPreviewViewBox();
       const rack = selectedEditorRack();
@@ -85458,7 +86063,7 @@
         rackBuilderConnectState = null;
         rackBuilderHoverConnector = null;
         setStatus("Exposed rack ports are external only.");
-        renderRackBuilderPreview();
+        renderRackBuilderPreview({ overlayOnly: true });
         return;
       }
       const existing = rackConnectionForEndpoint(rack, deviceId, connectorId);
@@ -85499,7 +86104,7 @@
       }
       rackBuilderHoverConnector = null;
       rackBuilderPreview.setPointerCapture(event.pointerId);
-      renderRackBuilderPreview();
+      renderRackBuilderPreview(existing ? { fullScene: true } : { overlayOnly: true });
     }
 
     function moveRackBuilderConnection(event) {
@@ -85507,13 +86112,14 @@
       event.preventDefault();
       event.stopPropagation();
       rackBuilderConnectState.current = rackPreviewPoint(event);
-      const target = document.elementFromPoint(event.clientX, event.clientY);
+      const engineHit = rackBuilderUsesEnginePreview() ? rackBuilderEngineConnectorHitFromEvent(event) : null;
+      const target = engineHit ? null : document.elementFromPoint(event.clientX, event.clientY);
       const connectorGroup = target?.closest?.("[data-rack-preview-connector-id]");
       const rack = selectedEditorRack();
       rackBuilderHoverConnector = null;
-      if (rack && connectorGroup) {
-        const deviceId = connectorGroup.dataset.rackPreviewConnectorDeviceId;
-        const connectorId = connectorGroup.dataset.rackPreviewConnectorId;
+      if (rack && (engineHit || connectorGroup)) {
+        const deviceId = engineHit?.deviceId || connectorGroup.dataset.rackPreviewConnectorDeviceId;
+        const connectorId = engineHit?.connectorId || connectorGroup.dataset.rackPreviewConnectorId;
         if (!(deviceId === rackBuilderConnectState.deviceId && connectorId === rackBuilderConnectState.connectorId)) {
           const source = rackConnectorById(rack, rackBuilderConnectState.deviceId, rackBuilderConnectState.connectorId);
           const targetConnector = rackConnectorById(rack, deviceId, connectorId);
@@ -85527,7 +86133,7 @@
           }
         }
       }
-      renderRackBuilderPreview();
+      renderRackBuilderPreview({ overlayOnly: true });
     }
 
     function finishRackBuilderConnection(event) {
@@ -85536,25 +86142,26 @@
       event.stopPropagation();
       const activeConnectState = rackBuilderConnectState;
       const rack = rackById(activeConnectState.rackId);
-      const target = document.elementFromPoint(event.clientX, event.clientY);
+      const engineHit = rackBuilderUsesEnginePreview() ? rackBuilderEngineConnectorHitFromEvent(event) : null;
+      const target = engineHit ? null : document.elementFromPoint(event.clientX, event.clientY);
       const connectorGroup = target?.closest?.("[data-rack-preview-connector-id]");
       const sourceDeviceId = activeConnectState.deviceId;
       const sourceConnectorId = activeConnectState.connectorId;
       if (rackBuilderPreview.hasPointerCapture(event.pointerId)) rackBuilderPreview.releasePointerCapture(event.pointerId);
-      if (!rack || !connectorGroup) {
+      if (!rack || (!engineHit && !connectorGroup)) {
         restoreRackInternalRewireConnection(activeConnectState);
         rackBuilderConnectState = null;
         rackBuilderHoverConnector = null;
-        renderRackBuilderPreview();
+        renderRackBuilderPreview({ fullScene: true });
         return;
       }
-      const targetDeviceId = connectorGroup.dataset.rackPreviewConnectorDeviceId;
-      const targetConnectorId = connectorGroup.dataset.rackPreviewConnectorId;
+      const targetDeviceId = engineHit?.deviceId || connectorGroup.dataset.rackPreviewConnectorDeviceId;
+      const targetConnectorId = engineHit?.connectorId || connectorGroup.dataset.rackPreviewConnectorId;
       const releasedOnStart = targetDeviceId === sourceDeviceId && targetConnectorId === sourceConnectorId;
       if (releasedOnStart && !activeConnectState.rewire) {
         rackBuilderConnectState = null;
         rackBuilderHoverConnector = null;
-        renderRackBuilderPreview();
+        renderRackBuilderPreview({ overlayOnly: true });
         return;
       }
       const created = createRackInternalConnection(rack, sourceDeviceId, sourceConnectorId, targetDeviceId, targetConnectorId);
@@ -85631,11 +86238,14 @@
 
     function startRackBuilderDeviceDrag(event) {
       if (event.button !== 0) return;
-      if (rackBuilderConnectState || rackBuilderWireSegmentDrag || rackBuilderWireCornerDrag || event.target.closest("[data-rack-preview-connector-id]")) return;
-      const deviceEl = event.target.closest("[data-rack-preview-device-id]");
-      if (!deviceEl) return;
+      const engineConnectorHit = rackBuilderUsesEnginePreview() ? rackBuilderEngineConnectorHitFromEvent(event) : null;
+      if (rackBuilderConnectState || rackBuilderWireSegmentDrag || rackBuilderWireCornerDrag || event.target.closest("[data-rack-preview-connector-id]") || engineConnectorHit) return;
+      const engineDeviceHit = rackBuilderUsesEnginePreview() ? rackBuilderEngineDeviceHitFromEvent(event) : null;
+      const deviceEl = engineDeviceHit ? null : event.target.closest("[data-rack-preview-device-id]");
+      if (!engineDeviceHit && !deviceEl) return;
       const rack = selectedEditorRack();
-      const instance = rackDefinitionDevices(rack?.id).find(item => item.instanceId === deviceEl.dataset.rackPreviewDeviceId);
+      const targetDeviceId = engineDeviceHit?.definitionDeviceId || deviceEl?.dataset.rackPreviewDeviceId || "";
+      const instance = rackDefinitionDevices(rack?.id).find(item => item.instanceId === targetDeviceId);
       if (!rack || !instance) return;
       event.preventDefault();
       event.stopPropagation();
@@ -85664,7 +86274,7 @@
         moved: false
       };
       rackBuilderPreview.setPointerCapture(event.pointerId);
-      renderRackBuilderPreview();
+      renderRackBuilderPreview({ overlayOnly: true });
     }
 
     function moveRackBuilderDevice(event) {
@@ -85690,7 +86300,7 @@
       moveRackBuilderInternalWireRoutePoints(rack, movingIds, dx, dy, rackBuilderDeviceDrag.wireRouteStarts);
       rackBuilderSnapGuides = snapped.guides;
       rackBuilderDeviceDrag.moved = true;
-      renderRackBuilderPreview();
+      renderRackBuilderPreview({ dirtyDefinitionDeviceIds: movingIds, refreshTexture: false });
     }
 
     function stopRackBuilderDeviceDrag(event) {
@@ -85704,9 +86314,20 @@
 
     function startRackBuilderMarquee(event) {
       if (event.button !== 0 || rackBuilderConnectState || rackBuilderDeviceDrag || rackBuilderWireSegmentDrag || rackBuilderWireCornerDrag || rackBuilderPreviewPanState) return;
-      if (event.target.closest("[data-rack-preview-device-id]")) return;
+      const engineDeviceHit = rackBuilderUsesEnginePreview() ? rackBuilderEngineDeviceHitFromEvent(event) : null;
+      if (event.target.closest("[data-rack-preview-device-id]") || engineDeviceHit) return;
       const rack = selectedEditorRack();
       if (!rack) return;
+      const engineWireHit = rackBuilderUsesEnginePreview() ? rackBuilderEngineInternalWireHitFromEvent(event) : null;
+      if (engineWireHit) {
+        event.preventDefault();
+        event.stopPropagation();
+        rackBuilderSelectedWireId = engineWireHit.connectionId;
+        rackBuilderSelectedDeviceIds.clear();
+        rackBuilderSelectedConnector = null;
+        renderRackBuilderPreview({ overlayOnly: true });
+        return;
+      }
       event.preventDefault();
       event.stopPropagation();
       const point = rackPreviewPoint(event);
@@ -85720,7 +86341,7 @@
       rackBuilderSelectedWireId = "";
       rackBuilderSelectedConnector = null;
       rackBuilderPreview.setPointerCapture(event.pointerId);
-      renderRackBuilderPreview();
+      renderRackBuilderPreview({ overlayOnly: true });
     }
 
     function moveRackBuilderMarquee(event) {
@@ -85733,7 +86354,7 @@
       if (rackBuilderMarquee.moved) {
         selectRackBuilderDevicesInRect(rack, normalizedRect(rackBuilderMarquee.start, point));
       }
-      renderRackBuilderPreview();
+      renderRackBuilderPreview({ overlayOnly: true });
     }
 
     function stopRackBuilderMarquee(event) {
@@ -85745,7 +86366,7 @@
         rackBuilderSelectedDeviceIds.clear();
         rackBuilderSelectedWireId = "";
       }
-      renderRackBuilderPreview();
+      renderRackBuilderPreview({ overlayOnly: true });
     }
 
     function deleteSelectedRackBuilderRack() {
@@ -85783,7 +86404,8 @@
       rackBuilderPreviewPanState = {
         pointerId: event.pointerId,
         lastX: event.clientX,
-        lastY: event.clientY
+        lastY: event.clientY,
+        active: true
       };
       rackBuilderPreview.setPointerCapture(event.pointerId);
       rackBuilderPreview.parentElement?.classList.add("panning");
@@ -85793,6 +86415,20 @@
       if (!rackBuilderPreviewPanState || event.pointerId !== rackBuilderPreviewPanState.pointerId) return;
       const dx = event.clientX - rackBuilderPreviewPanState.lastX;
       const dy = event.clientY - rackBuilderPreviewPanState.lastY;
+      if (rackBuilderUsesEnginePreview() && rackBuilderEnginePreviewSurface) {
+        const surface = rackBuilderEnginePreviewSurface;
+        const zoom = Math.max(.0001, Number(surface.camera.zoom) || 1);
+        surface.setCamera({
+          x: (Number(surface.camera.x) || 0) - dx / zoom,
+          y: (Number(surface.camera.y) || 0) - dy / zoom,
+          zoom
+        }, { render: true });
+        rackBuilderEnginePreviewCameraActions += 1;
+        rackBuilderPreviewPanState.lastX = event.clientX;
+        rackBuilderPreviewPanState.lastY = event.clientY;
+        renderRackBuilderPreview({ cameraOnly: true });
+        return;
+      }
       rackBuilderPreviewPan.x -= dx / Math.max(rackBuilderPreviewZoom, .25);
       rackBuilderPreviewPan.y -= dy / Math.max(rackBuilderPreviewZoom, .25);
       rackBuilderPreviewPanState.lastX = event.clientX;
@@ -87586,8 +88222,8 @@
       return engineEditorRequestedByUrl();
     }
 
-    function loadDeviceEditorEnginePreviewModule() {
-      if (!deviceEditorUsesEnginePreview()) return Promise.resolve(null);
+    function loadSharedEnginePreviewModule(statusLabel = "Engine preview") {
+      if (!engineEditorRequestedByUrl()) return Promise.resolve(null);
       if (editorEnginePreviewModule) return Promise.resolve(editorEnginePreviewModule);
       if (!editorEnginePreviewModulePromise) {
         const moduleUrl = engineImportUrl("./src/engine/enginePreview.js");
@@ -87597,13 +88233,45 @@
             return module;
           })
           .catch(error => {
-            console.error("Device Editor Engine preview failed to load", error);
+            console.error(`${statusLabel} failed to load`, error);
             editorEnginePreviewModulePromise = null;
-            setStatus("Device Editor Engine preview failed to load.");
+            setStatus(`${statusLabel} failed to load.`);
             return null;
           });
       }
       return editorEnginePreviewModulePromise;
+    }
+
+    function loadDeviceEditorEnginePreviewModule() {
+      if (!deviceEditorUsesEnginePreview()) return Promise.resolve(null);
+      return loadSharedEnginePreviewModule("Device Editor Engine preview");
+    }
+
+    function rackBuilderUsesEnginePreview() {
+      return engineEditorRequestedByUrl();
+    }
+
+    function loadRackBuilderEnginePreviewModules() {
+      if (!rackBuilderUsesEnginePreview()) return Promise.resolve(null);
+      const previewPromise = loadSharedEnginePreviewModule("Rack Builder Engine preview");
+      if (!rackBuilderPreviewAdapterModulePromise) {
+        const moduleUrl = engineImportUrl("./src/engine/rackPreview.js");
+        rackBuilderPreviewAdapterModulePromise = import(moduleUrl)
+          .then(module => {
+            rackBuilderPreviewAdapterModule = module;
+            return module;
+          })
+          .catch(error => {
+            console.error("Rack Builder preview adapter failed to load", error);
+            rackBuilderPreviewAdapterModulePromise = null;
+            setStatus("Rack Builder preview adapter failed to load.");
+            return null;
+          });
+      }
+      return Promise.all([previewPromise, rackBuilderPreviewAdapterModulePromise])
+        .then(([previewModule, rackModule]) => (
+          previewModule && rackModule ? { previewModule, rackModule } : null
+        ));
     }
 
     function deviceEditorPreviewContainer() {
@@ -99037,7 +99705,7 @@
       const connection = rackInternalConnectionById(rack, wireId);
       if (!rack || !connection || !normalizedRackWireRoutePoints(connection)[cornerIndex]) return;
       rackBuilderSelectedWireId = wireId;
-      renderRackBuilderPreview();
+      renderRackBuilderPreview({ overlayOnly: true });
       deviceContextMenu.innerHTML = `
         <button type="button" class="danger" data-rack-builder-wire-menu="delete-corner">Delete Corner</button>
         <button type="button" data-rack-builder-wire-menu="reset">Reset Wire Route</button>
@@ -103954,7 +104622,7 @@ renderViewerOutputDebug();
         rackBuilderDragSource = null;
         rackBuilderSnapGuides = null;
         rackBuilderDropPreviewRect = null;
-        renderRackBuilderPreview();
+        renderRackBuilderPreview({ overlayOnly: true });
       });
     });
     rackBuilderPreview.addEventListener("dragover", event => {
@@ -103975,7 +104643,7 @@ renderViewerOutputDebug();
       const snapped = snapRackBuilderDevice(rack, instance, instance.x, instance.y);
       rackBuilderSnapGuides = snapped.guides;
       rackBuilderDropPreviewRect = snapped.rect;
-      renderRackBuilderPreview();
+      renderRackBuilderPreview({ overlayOnly: true });
     });
     rackBuilderPreview.addEventListener("drop", event => {
       event.preventDefault();
@@ -103995,7 +104663,28 @@ renderViewerOutputDebug();
       if (rackBuilderPreview.contains(event.relatedTarget)) return;
       rackBuilderSnapGuides = null;
       rackBuilderDropPreviewRect = null;
-      renderRackBuilderPreview();
+      renderRackBuilderPreview({ overlayOnly: true });
+    });
+    rackBuilderPreview.addEventListener("contextmenu", event => {
+      if (!rackBuilderUsesEnginePreview() || !rackBuilderModalOpen()) return;
+      const rack = selectedEditorRack();
+      if (!rack) return;
+      const connectorHit = rackBuilderEngineConnectorHitFromEvent(event);
+      if (connectorHit) {
+        event.preventDefault();
+        event.stopPropagation();
+        showRackBuilderConnectorContextMenu(event, rack.id, connectorHit.deviceId, connectorHit.connectorId);
+        return;
+      }
+      const wireHit = rackBuilderEngineInternalWireHitFromEvent(event);
+      if (!wireHit) return;
+      event.preventDefault();
+      event.stopPropagation();
+      rackBuilderSelectedWireId = wireHit.connectionId;
+      rackBuilderSelectedDeviceIds.clear();
+      rackBuilderSelectedConnector = null;
+      renderRackBuilderPreview({ overlayOnly: true });
+      showRackInternalWireContextMenu(event, rack.id, wireHit.connectionId);
     });
     rackBuilderPreview.addEventListener("pointerdown", startRackBuilderDeviceDrag);
     rackBuilderPreview.addEventListener("pointerdown", startRackBuilderPreviewPan);
@@ -104869,7 +105558,7 @@ renderViewerOutputDebug();
         rackBuilderMarquee = null;
         rackBuilderWireSegmentDrag = null;
         rackBuilderWireCornerDrag = null;
-        renderRackBuilderPreview();
+        renderRackBuilderPreview({ overlayOnly: true });
         return;
       }
       if (rackBuilderOpen && (event.key === "Delete" || event.key === "Backspace")) {
@@ -105527,6 +106216,11 @@ renderViewerOutputDebug();
     updateLibraryDragDebug();
     updateShellDebug({ lastPanelAction: "startup" });
     window.addEventListener("resize", updateCanvasView);
+    window.addEventListener("resize", () => {
+      if (!rackBuilderUsesEnginePreview() || !rackBuilderEnginePreviewSurface || !rackBuilderModalOpen()) return;
+      rackBuilderEnginePreviewSurface.resize({ fit: false });
+      renderRackBuilderPreview({ cameraOnly: true });
+    });
     render();
     startExperimentalEngineRenderer();
   </script>
