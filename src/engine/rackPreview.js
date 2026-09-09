@@ -1,6 +1,6 @@
 import { normalizeAvDesignerProject } from "./projectAdapter.js";
 
-export const RACK_PREVIEW_BUILD_ID = "iteration53-4-preview-parity-cleanup";
+export const RACK_PREVIEW_BUILD_ID = "iteration53-4-1-preview-verification";
 export const RACK_PREVIEW_DEFAULT_RACK_ID = "rack-builder-preview-rack";
 
 export function createRackPreviewScene({

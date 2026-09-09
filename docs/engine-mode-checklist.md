@@ -240,18 +240,18 @@ PDF and report drawing paths are deliberately unchanged.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags.
 
-Current visible build label: `Iteration 53.4 — Preview Parity & Cleanup`.
+Current visible build label: `Iteration 53.4.1 — Preview Verification`.
 The app top bar must show one of these labels:
 
-- `Iteration 53.4 — Preview Parity & Cleanup — Engine Editor — iteration53-4-preview-parity-cleanup`
-- `Iteration 53.4 — Preview Parity & Cleanup — Legacy Editor — iteration53-4-preview-parity-cleanup`
+- `Iteration 53.4.1 — Preview Verification — Engine Editor — iteration53-4-1-preview-verification`
+- `Iteration 53.4.1 — Preview Verification — Legacy Editor — iteration53-4-1-preview-verification`
 
 The Engine HUD badge for this pass must also show
-`iteration53-4-preview-parity-cleanup`. If the top bar or diagnostics show an
+`iteration53-4-1-preview-verification`. If the top bar or diagnostics show an
 older build ID such as `iteration51-8-project-devices-placement-v18`, the
 browser or deployment is serving stale code.
 
-Engine module imports now use `APP_BUILD_ID` plus the 53.4
+Engine module imports now use `APP_BUILD_ID` plus the 53.4.1
 `APP_MODULE_CACHE_ID` as their cache key. A stale page URL with an older `v=`
 value should no longer force the Engine to import older JavaScript modules.
 

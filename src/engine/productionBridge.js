@@ -85,9 +85,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration53-4-preview-parity-cleanup";
-export const ENGINE_BRIDGE_VERSION = "iteration53-4-preview-parity-cleanup";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "preview-parity-cleanup";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration53-4-1-preview-verification";
+export const ENGINE_BRIDGE_VERSION = "iteration53-4-1-preview-verification";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "preview-verification";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;

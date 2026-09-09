@@ -1,6 +1,6 @@
 import { normalizeEngineCanvasObject } from "./projectAdapter.js";
 
-export const TITLE_BLOCK_PREVIEW_BUILD_ID = "iteration53-4-preview-parity-cleanup";
+export const TITLE_BLOCK_PREVIEW_BUILD_ID = "iteration53-4-1-preview-verification";
 export const TITLE_BLOCK_PREVIEW_ID = "title-block-editor-preview";
 export const TITLE_BLOCK_PREVIEW_BASE_WIDTH = 760;
 export const TITLE_BLOCK_PREVIEW_BASE_HEIGHT = 112;

@@ -4427,7 +4427,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 53.4 — Preview Parity &amp; Cleanup — iteration53-4-preview-parity-cleanup</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 53.4.1 — Preview Verification — iteration53-4-1-preview-verification</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5143,12 +5143,12 @@
   </div>
 
   <script>
-    const APP_ITERATION = "53.4";
-    const APP_BUILD_ID = "iteration53-4-preview-parity-cleanup";
-    const APP_MODULE_CACHE_ID = "iteration53-4-preview-parity-cleanup-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Preview Parity & Cleanup`;
+    const APP_ITERATION = "53.4.1";
+    const APP_BUILD_ID = "iteration53-4-1-preview-verification";
+    const APP_MODULE_CACHE_ID = "iteration53-4-1-preview-verification-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Preview Verification`;
     const APP_SOURCE_BRANCH = "engine-prototype";
-    const APP_SOURCE_BASE_COMMIT = "c81e0227fa21f72244002532b16aaea93afbf7e6";
+    const APP_SOURCE_BASE_COMMIT = "4358a836d3cb42516aac8a825efc504b8234ab28";
     const CANVAS_MIN_ZOOM = 0.03;
     const CANVAS_MAX_ZOOM = 8;
     const INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
@@ -77832,7 +77832,6 @@
     let nodeBuilderEnginePreviewSynced = false;
     let nodeBuilderEnginePreviewFullSceneReplacements = 0;
     let nodeBuilderEnginePreviewDeviceReplacements = 0;
-    let nodeBuilderEnginePreviewLegacyVisualDraws = 0;
     let titleBlockPreviewAdapterModule = null;
     let titleBlockPreviewAdapterModulePromise = null;
     let titleBlockEnginePreviewSurface = null;
@@ -87198,7 +87197,7 @@
         topologyErrors: validation.errors || [],
         topologyWarnings: validation.warnings || [],
         previewSource: deviceEditorUsesEnginePreview() ? "EnginePreviewSurface" : "legacy/svg",
-        legacyActualDeviceVisualDraws: deviceEditorUsesEnginePreview() ? 0 : editorEnginePreviewLegacyVisualDraws,
+        legacyActualDeviceVisualDraws: editorEnginePreviewLegacyVisualDraws,
         activePreviewSurfaces: previewDiagnostics?.lifecycle?.activePreviewSurfaces ?? 0,
         previewFullSceneReplacements: previewDiagnostics?.lifecycle?.fullSceneReplacements ?? 0,
         enginePreviewFrames: previewDiagnostics?.lifecycle?.renderedFrames ?? 0,
@@ -88695,7 +88694,6 @@
       nodeBuilderEnginePreviewSynced = false;
       nodeBuilderEnginePreviewFullSceneReplacements = 0;
       nodeBuilderEnginePreviewDeviceReplacements = 0;
-      nodeBuilderEnginePreviewLegacyVisualDraws = 0;
     }
 
     function syncNodeBuilderEnginePreview(options = {}) {
@@ -88763,7 +88761,7 @@
         textureRebuilds: textureStats.rebuilds || 0,
         fullSceneReplacements: nodeBuilderEnginePreviewFullSceneReplacements,
         incrementalDeviceReplacements: nodeBuilderEnginePreviewDeviceReplacements,
-        legacyCanvasAppearanceDraws: nodeBuilderEnginePreviewLegacyVisualDraws,
+        legacyProductionRenderer: nodeBuilderUsesEnginePreview() ? "none" : "legacy/dom",
         ownership: diagnostics?.owners || []
       };
       window.__avDesignerNodeBuilderPreviewDebug = snapshot;
@@ -106329,7 +106327,7 @@ renderViewerOutputDebug();
       }).join("");
       const previewOwnerRows = (fingerprint.previewOwners || []).map(row => {
         const label = row.owner || "preview";
-        const value = `${row.source || "EnginePreviewSurface"} / ${row.surfaces || 0} surface${row.surfaces === 1 ? "" : "s"} / visuals ${row.engineVisuals ? "engine" : "legacy"} / legacy draws ${row.legacyActualDraws || 0}`;
+        const value = `${row.source || "EnginePreviewSurface"} / ${row.surfaces || 0} surface${row.surfaces === 1 ? "" : "s"} / visuals ${row.engineVisuals ? "engine" : "legacy"}`;
         return runtimeRow(label, value);
       }).join("");
       panel.innerHTML = `

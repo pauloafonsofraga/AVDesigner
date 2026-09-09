@@ -14,15 +14,18 @@ const baseFields = {
   client: "Video Core",
   project: "Engine Preview Migration",
   title: "Title Block Parity",
-  jobId: "53.4",
+  jobId: "53.4.1",
   revision: "A",
   location: "Dubai",
   eventDate: "2026-09-08",
   drawingDate: "2026-09-08",
   accountManager: "AV",
   approvedBy: "PF",
-  companyLogo: "data:image/png;base64,preview-logo"
+  companyLogo: ""
 };
+
+const logoA = "data:image/png;base64,preview-logo-a-wide";
+const logoB = "data:image/png;base64,preview-logo-b-tall";
 
 const draft = createTitleBlockPreviewDraft({
   block: {
@@ -40,7 +43,7 @@ assert.equal(draft.x, 0, "editor preview draft is isolated from production x");
 assert.equal(draft.y, 0, "editor preview draft is isolated from production y");
 assert.equal(draft.width, 940, "editor preview draft preserves source width");
 assert.equal(draft.height, 148, "editor preview draft preserves source height");
-assert.equal(draft.logo, baseFields.companyLogo, "editor preview draft promotes companyLogo into logo");
+assert.equal(draft.logo, "", "editor preview draft supports no-logo state");
 
 const scene = createTitleBlockPreviewScene({
   block: draft,
@@ -61,7 +64,7 @@ const productionDevice = normalizeEngineCanvasObject("title-block", draft, 0);
 assert.deepEqual(previewDevice, productionDevice, "editor preview normalization matches production title-block normalization");
 assert.equal(previewDevice.kind, "title-block", "preview object is an Engine title-block");
 assert.equal(previewDevice.visual.objectKind, "title-block", "preview visual stays on title-block visual path");
-assert.equal(previewDevice.visual.logo, baseFields.companyLogo, "preview visual keeps logo source");
+assert.equal(previewDevice.visual.logo, "", "preview visual keeps no-logo state");
 assert.deepEqual(previewDevice.visual.fields, baseFields, "preview visual keeps all title-block fields");
 
 const changedScene = createTitleBlockPreviewScene({
@@ -77,6 +80,70 @@ const baseKey = deviceVisualCacheKey(previewDevice);
 const changedKey = deviceVisualCacheKey(changedScene.devices[0]);
 assert.notEqual(baseKey, changedKey, "live title-block field changes invalidate the Engine device visual");
 
+const logoAScene = createTitleBlockPreviewScene({
+  block: {
+    ...draft,
+    fields: {
+      ...draft.fields,
+      companyLogo: logoA
+    },
+    logo: logoA,
+    companyLogo: logoA
+  },
+  logo: logoA
+});
+const logoBScene = createTitleBlockPreviewScene({
+  block: {
+    ...draft,
+    fields: {
+      ...draft.fields,
+      companyLogo: logoB
+    },
+    logo: logoB,
+    companyLogo: logoB
+  },
+  logo: logoB
+});
+const noLogoKey = deviceVisualCacheKey(previewDevice);
+const logoAKey = deviceVisualCacheKey(logoAScene.devices[0]);
+const logoBKey = deviceVisualCacheKey(logoBScene.devices[0]);
+assert.notEqual(noLogoKey, logoAKey, "adding a title-block logo invalidates the Engine device visual");
+assert.notEqual(logoAKey, logoBKey, "changing the title-block logo invalidates the Engine device visual");
+assert.equal(logoAScene.devices[0].visual.logo, logoA, "logo A is promoted into production visual data");
+assert.equal(logoBScene.devices[0].visual.logo, logoB, "logo B is promoted into production visual data");
+
+const savedProjectSnapshot = JSON.parse(JSON.stringify({
+  titleBlocks: [{
+    id: "saved-title-block",
+    x: 320,
+    y: 440,
+    width: draft.width,
+    height: draft.height,
+    fields: {
+      ...draft.fields,
+      companyLogo: logoB
+    },
+    logo: logoB,
+    companyLogo: logoB
+  }]
+}));
+const reloadedBlock = savedProjectSnapshot.titleBlocks[0];
+const reloadedPreview = createTitleBlockPreviewScene({
+  block: reloadedBlock,
+  fields: reloadedBlock.fields,
+  width: reloadedBlock.width,
+  height: reloadedBlock.height,
+  logo: reloadedBlock.logo
+});
+const reloadedProduction = normalizeEngineCanvasObject("title-block", {
+  ...reloadedBlock,
+  id: TITLE_BLOCK_PREVIEW_ID,
+  x: 0,
+  y: 0
+}, 0);
+assert.deepEqual(reloadedPreview.devices[0], reloadedProduction, "save/reload title-block data normalizes identically for preview and production");
+assert.equal(reloadedPreview.devices[0].visual.logo, logoB, "save/reload retains the changed title-block logo");
+
 const summary = titleBlockPreviewSummary(scene, draft);
 assert.equal(summary.source, "EnginePreviewSurface", "summary reports Engine preview source");
 assert.equal(summary.productionVisual, true, "summary reports production visual");
@@ -87,7 +154,7 @@ assert.equal(summary.height, draft.height, "summary reports height");
 assert.equal(summary.title, baseFields.title, "summary reports title field");
 assert.equal(summary.client, baseFields.client, "summary reports client field");
 assert.equal(summary.project, baseFields.project, "summary reports project field");
-assert.equal(summary.logo, baseFields.companyLogo, "summary reports logo source");
+assert.equal(summary.logo, "", "summary reports no-logo source");
 
 console.info("Title Block preview validation passed", {
   buildId: TITLE_BLOCK_PREVIEW_BUILD_ID,
@@ -96,6 +163,9 @@ console.info("Title Block preview validation passed", {
   width: previewDevice.width,
   height: previewDevice.height,
   visualKeyChanged: baseKey !== changedKey,
+  logoAddedKeyChanged: noLogoKey !== logoAKey,
+  logoReplacementKeyChanged: logoAKey !== logoBKey,
+  saveReloadLogo: reloadedPreview.devices[0].visual.logo === logoB,
   title: summary.title,
-  logo: Boolean(summary.logo)
+  logo: Boolean(logoB)
 });

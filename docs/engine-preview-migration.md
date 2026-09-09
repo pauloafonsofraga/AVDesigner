@@ -1,8 +1,8 @@
 # Engine Preview Migration
 
-Build: `iteration53-4-preview-parity-cleanup`
+Build: `iteration53-4-1-preview-verification`
 
-Iteration 53.4 is the final preview-migration audit. Persistent Engine-mode production-appearance editor previews now route through the shared Engine renderer stack: `EnginePreviewSurface`, `SceneGraph`, `WebglGraphRenderer`, `TextureCache`, `projectAdapter`, `deviceVisualBuilder`, `connectorDisplayLayout`, `faceplateGeometry`, `rackPreview`, `nodePreview`, and `titleBlockPreview`.
+Iteration 53.4.1 is the final corrective verification pass after the 53.4 preview-migration audit. Persistent Engine-mode production-appearance editor previews now route through the shared Engine renderer stack: `EnginePreviewSurface`, `SceneGraph`, `WebglGraphRenderer`, `TextureCache`, `projectAdapter`, `deviceVisualBuilder`, `connectorDisplayLayout`, `faceplateGeometry`, `rackPreview`, `nodePreview`, and `titleBlockPreview`.
 
 Legacy mode (`?legacy=1`) keeps the old SVG/DOM preview renderers. SVG/DOM also remains correct for authoring overlays, crop tools, transient canvas previews, and output/report/viewer paths. The migration target is production artwork inside persistent Engine-mode editor previews, not every visual DOM element in the app.
 
@@ -14,6 +14,7 @@ Legacy mode (`?legacy=1`) keeps the old SVG/DOM preview renderers. SVG/DOM also 
 | Device Editor connectors | `SceneGraph` connector layout and `WebglGraphRenderer` live connector/label layers. | SVG connector hit circles, remove button, misc swatch, selected-node halo, empty slot targets. | Legacy SVG connector drawing in `renderDeviceEditorPreview(...)`. | No production duplicate; overlays derive from `EnginePreviewSurface.connectorEntries(...)` where available. |
 | Faceplate | `deviceVisualBuilder.drawFaceplate(...)` and `faceplateGeometry.js` inside the Engine texture. | Face image resize handles, Power Distro faceplate resize handles, power plug marquee. | Legacy SVG image/default/Power Distro faceplate branch. | Separate `renderEditorFaceplatePreview(...)` is disabled in Engine mode by `canShowEditorFaceplatePreview(...)`. |
 | Cards | `deviceVisualBuilder.drawCardAreas(...)` plus Engine live connector labels/fields. | Slot hit rectangles, remove controls, drop targets, selected slot affordance. | Legacy SVG card/slot preview branches. | No Engine-mode duplicate for card production body; Card Editor single-card authoring preview remains Legacy UI. |
+| Card Editor single-card authoring schematic | Not a production-appearance preview. Cards explicitly do not have faceplates and become production nodes only when installed in a chassis slot. | `renderCardEditorPreview(...)` exposes connector placement, empty slots, remove controls, card direction, and caption authoring. | Same SVG authoring schematic. | Kept intentionally as authoring-only; installed-card production appearance is already rendered by the Device Editor Engine preview and main canvas. |
 | Slots | Engine device texture reflects slot/card band geometry through normalized visual cards. | Empty slot/drop targets and slot resize/reorder controls. | Legacy SVG slot/card branch. | No Engine-mode duplicate for the full device preview. |
 | Power Distro | `powerDistroModel.js` and `deviceVisualBuilder.drawPowerDistroFaceplate(...)` render plug assets in the Engine texture. | Plug drag targets, faceplate resize handles, plug marquee and guides. | Legacy SVG `drawPowerDistroFaceplate(...)` for `?legacy=1`, thumbnails, and output clones. | No Engine-mode hidden production faceplate; overlay only remains. |
 | Adapter / Breakout | `adapterMapping.js` and `deviceVisualBuilder.drawAdapterVisual(...)` render shell and internal gradient branches. | Connector hit/selection overlay. | Legacy SVG adapter branch and output/export clone helpers. | No Engine-mode duplicate; editor overlay does not redraw the adapter body/internal paths. |
@@ -62,17 +63,25 @@ Output/report/viewer = separate output pipeline
 - `node-builder`
 - `title-block`
 
-For those surfaces, Engine-mode production visuals should report `EnginePreviewSurface`. Legacy production draw counters should remain `0` in Engine mode for Device Editor, Faceplate, Connectors, Cards, Slots, Power Distro, Adapter/Breakout, Rack Builder committed visuals, Node Builder Canvas Appearance, and Title Block.
+For those surfaces, Engine-mode production visuals should report `EnginePreviewSurface`. Generic owner rows intentionally report only generic registry facts: owner, source, active surface count, and whether the visual is Engine-owned. They do not report `legacyActualDraws`, because that value belongs to editor-specific counters. Device Editor, Rack Builder, and Title Block debug panels continue to expose their real legacy production draw counters, and those counters should remain `0` in Engine mode. Node Builder Canvas Appearance has no alternate Engine-mode production renderer, so its debug state reports that the legacy production renderer is `none`.
 
 `scripts/preview-ownership-validation.mjs` verifies:
 
-- all current preview build IDs equal `iteration53-4-preview-parity-cleanup`;
-- Engine dynamic imports carry the 53.4 module cache key while preserving the visible build ID;
+- all current preview build IDs equal `iteration53-4-1-preview-verification`;
+- Engine dynamic imports carry the 53.4.1 module cache key while preserving the visible build ID;
 - the final ownership map includes all four persistent Engine preview owners;
 - Node crop, transient canvas previews, output/report/viewer paths, and Legacy mode are explicitly excluded;
 - Engine branches in `index.html` return before Legacy production drawing;
 - Device Editor faceplate side-preview is disabled in Engine mode;
-- Node Builder Canvas Appearance has no retained Engine-mode legacy production draw counter.
+- Node Builder Canvas Appearance declares no Engine-mode legacy production renderer;
+- Card Editor single-card preview is classified as an authoring schematic, not an unresolved production preview.
+
+## 53.4.1 Verification
+
+- Generic preview diagnostics no longer publish a fake hard-coded `legacyActualDraws: 0`; real legacy draw counters remain in Device Editor, Rack Builder, and Title Block debug snapshots.
+- Browser-host zoom-equivalent screenshots were exercised at approximately 80%, 100%, and 125% during the verification pass using CDP device metrics after this host blocked automated Chrome page-zoom shortcuts/extensions.
+- Title Block logo rendering was verified with no-logo, logo A, logo B replacement, cache-key invalidation, and save/reload normalization parity.
+- Card Editor was inspected and classified as an authoring-only schematic. It is intentionally kept as SVG/DOM because it edits reusable connector groups, while installed-card production appearance is already Engine-rendered in Device Editor and on the canvas.
 
 ## Parity Coverage
 

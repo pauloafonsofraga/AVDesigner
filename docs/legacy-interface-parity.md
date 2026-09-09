@@ -4,7 +4,7 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 53.4 — Preview Parity & Cleanup`
+- Current build label: `Iteration 53.4.1 — Preview Verification`
 - Scope: interface and visual fidelity only. Functional wire parity is tracked in
   [`docs/legacy-functional-parity.md`](legacy-functional-parity.md).
 
@@ -15,7 +15,9 @@ change normal editor shell ownership, and it does not yet replace the PDF
 wirechart's Legacy SVG clone renderer. The output architecture notes live in
 [`docs/engine-output-pipeline.md`](engine-output-pipeline.md).
 
-Iteration 53.4 finalizes persistent Engine-mode production preview ownership:
+Iteration 53.4 finalizes persistent Engine-mode production preview ownership,
+and Iteration 53.4.1 verifies the diagnostics/browser zoom/logo/Card Editor
+classification without changing that architecture:
 Device Editor, Rack Builder, Node Builder Canvas Appearance, and Title Block
 Editor all render committed preview artwork through `EnginePreviewSurface` and
 the shared Engine visual stack. Legacy `?legacy=1`, authoring overlays, node

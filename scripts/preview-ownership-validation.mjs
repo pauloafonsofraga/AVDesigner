@@ -11,21 +11,28 @@ import { RACK_PREVIEW_BUILD_ID } from "../src/engine/rackPreview.js";
 import { NODE_PREVIEW_BUILD_ID } from "../src/engine/nodePreview.js";
 import { TITLE_BLOCK_PREVIEW_BUILD_ID } from "../src/engine/titleBlockPreview.js";
 
-const EXPECTED_BUILD_ID = "iteration53-4-preview-parity-cleanup";
+const EXPECTED_BUILD_ID = "iteration53-4-1-preview-verification";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
+const enginePreviewSource = readFileSync(resolve(repoRoot, "src/engine/enginePreview.js"), "utf8");
+const previewMigrationDoc = readFileSync(resolve(repoRoot, "docs/engine-preview-migration.md"), "utf8");
 
 assert.equal(ENGINE_PREVIEW_BUILD_ID, EXPECTED_BUILD_ID, "shared preview build id");
 assert.equal(RACK_PREVIEW_BUILD_ID, EXPECTED_BUILD_ID, "rack preview build id");
 assert.equal(NODE_PREVIEW_BUILD_ID, EXPECTED_BUILD_ID, "node preview build id");
 assert.equal(TITLE_BLOCK_PREVIEW_BUILD_ID, EXPECTED_BUILD_ID, "title-block preview build id");
 
-assert.ok(indexHtml.includes('const APP_ITERATION = "53.4";'), "app iteration should be 53.4");
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${EXPECTED_BUILD_ID}";`), "app build id should match 53.4");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration53-4-preview-parity-cleanup-modules";'), "module cache key should match 53.4");
+assert.ok(indexHtml.includes('const APP_ITERATION = "53.4.1";'), "app iteration should be 53.4.1");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${EXPECTED_BUILD_ID}";`), "app build id should match 53.4.1");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration53-4-1-preview-verification-modules";'), "module cache key should match 53.4.1");
 assert.ok(indexHtml.includes('url.searchParams.set("module", APP_MODULE_CACHE_ID);'), "engine imports should carry the module cache key");
-assert.ok(indexHtml.includes("Preview Parity & Cleanup"), "app build label should name 53.4");
+assert.ok(indexHtml.includes("Preview Verification"), "app build label should name 53.4.1");
+
+assert.ok(!enginePreviewSource.includes("legacyActualDraws"), "generic shared preview diagnostics must not publish fake legacy draw counters");
+assert.ok(!indexHtml.includes("legacy draws ${row."), "runtime owner rows must not render fake generic legacy draw counters");
+assert.ok(indexHtml.includes("legacyActualDeviceVisualDraws: editorEnginePreviewLegacyVisualDraws"), "Device Editor debug must read the real legacy draw counter");
+assert.ok(indexHtml.includes('legacyProductionRenderer: nodeBuilderUsesEnginePreview() ? "none" : "legacy/dom"'), "Node Builder must declare that no Engine-mode legacy production renderer exists");
 
 const ownership = enginePreviewOwnershipAudit();
 assert.equal(ownership.buildId, EXPECTED_BUILD_ID, "ownership audit build id");
@@ -88,6 +95,12 @@ const rackLegacyDevice = functionSource("drawRackPreviewDevice");
 assert.ok(
   rackLegacyDevice.includes("if (rackBuilderUsesEnginePreview())") && rackLegacyDevice.includes("rackBuilderEnginePreviewLegacyVisualDraws += 1;"),
   "Rack legacy device drawing should retain the Engine-mode tripwire"
+);
+
+assert.ok(
+  previewMigrationDoc.includes("Card Editor single-card authoring schematic")
+    && /not a production-appearance preview/i.test(previewMigrationDoc),
+  "Card Editor preview should be documented as authoring-only, not unresolved production preview work"
 );
 
 console.info("Preview ownership validation passed", {

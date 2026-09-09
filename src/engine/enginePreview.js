@@ -16,7 +16,7 @@ import { normalizeAvDesignerDevice } from "./projectAdapter.js";
 import { DEFAULT_RENDER_OPTIONS, WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
 
-export const ENGINE_PREVIEW_BUILD_ID = "iteration53-4-preview-parity-cleanup";
+export const ENGINE_PREVIEW_BUILD_ID = "iteration53-4-1-preview-verification";
 
 export const ENGINE_PREVIEW_OWNERSHIP = Object.freeze([
   ownershipRow("device-editor", {
@@ -622,8 +622,7 @@ function activePreviewOwnerRows() {
       owner,
       source: "EnginePreviewSurface",
       surfaces: 0,
-      engineVisuals: true,
-      legacyActualDraws: 0
+      engineVisuals: true
     };
     current.surfaces += 1;
     rows.set(owner, current);
