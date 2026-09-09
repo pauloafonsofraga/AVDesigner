@@ -1,133 +1,110 @@
 # Engine Preview Migration
 
-Build: `iteration53-3-remaining-editor-engine-previews`
+Build: `iteration53-4-preview-parity-cleanup`
 
-Iterations 53.1 and 53.2 migrate Engine-mode Device Editor and Rack Builder previews onto the shared Engine preview foundation introduced in 53.0. Iteration 53.3 audits the remaining persistent editor previews and migrates the remaining production-appearance previews. In Engine mode, production preview visuals use `EnginePreviewSurface`, `SceneGraph`, `WebglGraphRenderer`, `TextureCache`, and the normal device/canvas-object visual pipeline. SVG/DOM layers remain reserved for authoring affordances such as hit targets, selections, temporary drag/wire previews, empty slots, resize handles, guides, crop controls, and marquees.
+Iteration 53.4 is the final preview-migration audit. Persistent Engine-mode production-appearance editor previews now route through the shared Engine renderer stack: `EnginePreviewSurface`, `SceneGraph`, `WebglGraphRenderer`, `TextureCache`, `projectAdapter`, `deviceVisualBuilder`, `connectorDisplayLayout`, `faceplateGeometry`, `rackPreview`, `nodePreview`, and `titleBlockPreview`.
 
-Legacy mode (`?legacy=1`) continues to use the existing SVG/DOM editor previews.
+Legacy mode (`?legacy=1`) keeps the old SVG/DOM preview renderers. SVG/DOM also remains correct for authoring overlays, crop tools, transient canvas previews, and output/report/viewer paths. The migration target is production artwork inside persistent Engine-mode editor previews, not every visual DOM element in the app.
 
-## Preview Foundation Contract
+## Final Ownership Matrix
 
-The shared preview surface lives in `src/engine/enginePreview.js`.
+| Surface | Engine-mode production visual | Engine-mode authoring overlay | Legacy-mode visual | Current duplicate/dead code |
+| ------- | ----------------------------- | ----------------------------- | ------------------ | --------------------------- |
+| Device Editor device body | `EnginePreviewSurface` renders a draft normalized by `createPreviewDeviceFromDraft(...)` and `normalizeAvDesignerDevice(...)`. | `#deviceEditorPreview` is mounted inside `.engine-preview-authoring-overlay` for body hit target, selection, resize, marquee, and drag handles. | `renderDeviceEditorPreview(...)` SVG branch when `?legacy=1`. | No Engine-mode duplicate: Engine branch returns before `editorEnginePreviewLegacyVisualDraws += 1`. |
+| Device Editor connectors | `SceneGraph` connector layout and `WebglGraphRenderer` live connector/label layers. | SVG connector hit circles, remove button, misc swatch, selected-node halo, empty slot targets. | Legacy SVG connector drawing in `renderDeviceEditorPreview(...)`. | No production duplicate; overlays derive from `EnginePreviewSurface.connectorEntries(...)` where available. |
+| Faceplate | `deviceVisualBuilder.drawFaceplate(...)` and `faceplateGeometry.js` inside the Engine texture. | Face image resize handles, Power Distro faceplate resize handles, power plug marquee. | Legacy SVG image/default/Power Distro faceplate branch. | Separate `renderEditorFaceplatePreview(...)` is disabled in Engine mode by `canShowEditorFaceplatePreview(...)`. |
+| Cards | `deviceVisualBuilder.drawCardAreas(...)` plus Engine live connector labels/fields. | Slot hit rectangles, remove controls, drop targets, selected slot affordance. | Legacy SVG card/slot preview branches. | No Engine-mode duplicate for card production body; Card Editor single-card authoring preview remains Legacy UI. |
+| Slots | Engine device texture reflects slot/card band geometry through normalized visual cards. | Empty slot/drop targets and slot resize/reorder controls. | Legacy SVG slot/card branch. | No Engine-mode duplicate for the full device preview. |
+| Power Distro | `powerDistroModel.js` and `deviceVisualBuilder.drawPowerDistroFaceplate(...)` render plug assets in the Engine texture. | Plug drag targets, faceplate resize handles, plug marquee and guides. | Legacy SVG `drawPowerDistroFaceplate(...)` for `?legacy=1`, thumbnails, and output clones. | No Engine-mode hidden production faceplate; overlay only remains. |
+| Adapter / Breakout | `adapterMapping.js` and `deviceVisualBuilder.drawAdapterVisual(...)` render shell and internal gradient branches. | Connector hit/selection overlay. | Legacy SVG adapter branch and output/export clone helpers. | No Engine-mode duplicate; editor overlay does not redraw the adapter body/internal paths. |
+| Rack Builder | `EnginePreviewSurface` renders `createRackPreviewScene(...)` normalized through `normalizeAvDesignerProject(...)`. | SVG device hit rectangles, connector exposure rings, route handles, drop ghost, snap guides, marquee. | Legacy SVG Rack Builder branch. | No Engine-mode duplicate: `renderRackBuilderPreview(...)` returns before `renderRackBuilderInternalWires(...)` and `drawRackPreviewDevice(...)`; `drawRackPreviewDevice(...)` retains a diagnostic tripwire. |
+| Rack internal wires | Engine rack-internal wires normalized as `internalRackWire` and forced orthogonal in `SceneGraph`. | Selected route segment/corner handles and temporary rack wire preview. | `renderRackBuilderInternalWires(...)` in Legacy mode. | No committed Engine-mode SVG wire duplicate; `renderRackBuilderPreviewWire(...)` is transient authoring only. |
+| Node Builder crop | Not an Engine production visual. | DOM crop canvas and controls author catalogue thumbnail pixels. | Same DOM crop UI. | Intentionally excluded from preview migration. |
+| Node Builder Canvas Appearance | `src/engine/nodePreview.js` builds one synthetic Engine device and renders it with `EnginePreviewSurface`. | None beyond the preview host itself. | No persistent production fallback in Engine mode. | No duplicate production renderer. |
+| Title Block | `src/engine/titleBlockPreview.js` normalizes a draft with `normalizeEngineCanvasObject("title-block", ...)` and renders with `EnginePreviewSurface`. | DOM form/file controls; SVG host remains fallback/overlay target. | `drawTitleBlock(...)` SVG branch when `?legacy=1`. | No Engine-mode duplicate: Engine branch clears the SVG and returns before `titleBlockEnginePreviewLegacyVisualDraws += 1`. |
+| Transient canvas previews | Not persistent production previews. | `#previewWire`, `#previewMultiWires`, `#previewCommentLine`, `#previewAreaRect`, `#previewTitleBlockRect`. | Same transient interaction surfaces. | Intentionally untouched. |
+| Output/report/viewer paths | Out of scope for Iteration 53.4. | Output-specific controls remain production DOM. | Existing output/SVG clone renderers remain. | Intentionally untouched; no output migration in 53.4. |
 
-- Owns a private `SceneGraph`.
-- Renders through `WebglGraphRenderer` with its own WebGL canvas and 2D label canvas.
-- Uses `TextureCache`, `deviceVisualBuilder`, `deviceDefinitionV2`, `powerDistroModel`, `adapterMapping`, and `connectorDisplayLayout` through the same normalization/rendering path as the canvas.
-- Accepts generic scene data: `{ devices, wires, racks, meta }`.
-- Accepts draft devices and normalizes them via `normalizeAvDesignerDevice(...)`.
-- Does not instantiate `ProductionEngineBridge`.
-- Exposes full scene replacement, incremental `SceneGraph.replaceDevice(...)`, camera fit, coordinate transforms, connector/device hit testing, diagnostics, and `dispose()`.
+## Old Preview Helper Classification
 
-## Preview Surface Inventory
+| Category | Meaning | Current helpers |
+| --- | --- | --- |
+| A | Still required by Legacy mode | Legacy branches in `renderDeviceEditorPreview(...)`, `renderRackBuilderPreview(...)`, `renderTitleBlockPreview(...)`, `renderCardEditorPreview(...)`, `drawRackPreviewDevice(...)`, `renderRackBuilderInternalWires(...)`, `drawEditorConnectorRelationships(...)`, `drawEditorSharedRelationshipFields(...)`, `drawAdapterInternalWires(...)`, and `drawPowerDistroFaceplate(...)`. |
+| B | Still required as Engine authoring overlay | `drawEditorEngineFaceplateOverlay(...)`, `drawEditorEnginePowerPlugOverlay(...)`, `drawEditorEngineCardSlotOverlay(...)`, `drawEditorEngineConnectorOverlay(...)`, `drawRackBuilderEngineDeviceOverlay(...)`, `drawRackBuilderEngineConnectorOverlay(...)`, `drawRackBuilderEngineInternalWireHandles(...)`, `renderRackBuilderPreviewWire(...)`, marquee/snap/resize helpers, and Node crop controls. |
+| C | Shared helper still required by both | `connectorDisplayLayout.js`, `deviceDefinitionV2.js`, `faceplateGeometry.js`, `adapterMapping.js`, `powerDistroModel.js`, `projectAdapter.js`, `sceneGraph.js`, `deviceVisualBuilder.js`, `renderer.js`, and `textureCache.js`. |
+| D | Dead/unreachable after Engine preview migration | No safe deletion candidates were found in 53.4. Former duplicate paths are either Legacy-only, authoring overlays, shared helpers, transient previews, or output/report/viewer code. |
 
-| Preview | Purpose | Current renderer | Production visual? | Engine migration needed? | 53.3 action |
-| --- | --- | --- | --- | --- | --- |
-| Device Editor main/device appearance | Production appearance | `EnginePreviewSurface` in Engine mode; SVG in Legacy mode | Yes | No | Protect with regression smoke. |
-| Device Editor connectors/fields/relationships | Production appearance plus authoring overlay | Engine connector geometry and labels; SVG hit targets/handles | Yes | No | Protect connector hit testing and Both-side anchors. |
-| Device Editor faceplate preview | Production appearance plus crop/resize authoring overlay | Engine device texture and faceplate geometry | Yes | No | Protect async faceplate invalidation. |
-| Device Editor card/slot/defaults previews | Production appearance plus authoring overlay | Engine device/card texture; SVG empty slots/drop targets | Yes | No | Protect card and slot interaction overlays. |
-| Power Distribution editor preview | Production appearance plus authoring overlay | Engine generated power-distro texture and plug assets | Yes | No | Protect generated plug visuals. |
-| Adapter / Breakout editor preview | Production appearance | Engine adapter visual builder and `adapterMapping` | Yes | No | Protect special adapter rendering. |
-| Rack Builder preview | Production appearance plus authoring overlay | `EnginePreviewSurface` via `src/engine/rackPreview.js`; SVG overlay | Yes | No | Protect child/internal-wire/exposed-port parity. |
-| Rack internal wires | Production appearance plus route authoring overlay | Engine rack-internal wires; SVG route handles | Yes | No | Protect orthogonal internal routing. |
-| Node Builder thumbnail crop | Authoring-only | DOM/CSS crop panel and `#nodeThumbnailCanvas` | No | No | Keep as crop/asset authoring UI. |
-| Node Builder catalogue rows/cards | Catalogue thumbnail/list UI | DOM `.node-library-item`, `.node-chip`, thumbnail `<img>` | No | No | Keep as searchable/reorderable catalogue UI. |
-| Node Builder connector swatch/color chip | Catalogue metadata display | DOM gradient from `cableTypeSwatchValue(...)` | No | No | Keep as compact metadata UI. |
-| Node Builder uploaded connector artwork thumbnail | Catalogue asset preview | `#nodeThumbnailCanvas` and list `<img>` | No | No | Keep separate from Engine connector rendering. |
-| Node Builder canvas appearance sample | Production appearance | `EnginePreviewSurface` via `src/engine/nodePreview.js` | Yes | No | Migrated in 53.3 with compact synthetic Engine device preview and one real connector. |
-| Title Block editor preview | Production appearance | `EnginePreviewSurface` via `src/engine/titleBlockPreview.js`; SVG in Legacy mode | Yes | No | Migrated in 53.3 using `normalizeEngineCanvasObject("title-block", ...)`. |
-| Title Block logo/file input thumbnail behavior | Form/media authoring | DOM file input; title-block draft fields | No by itself | No | Preserve as form state feeding the Engine preview. |
-| Canvas wire placement preview | Transient interaction | `#previewWire`, `#previewMultiWires` SVG paths | No | No | Leave untouched. |
-| Canvas comment placement preview | Transient interaction | `#previewCommentLine` SVG leader | No | No | Leave untouched. |
-| Canvas area placement preview | Transient interaction | `#previewAreaRect` SVG rectangle | No | No | Leave untouched. |
-| Canvas title-block placement preview | Transient interaction | `#previewTitleBlockRect` SVG rectangle | No | No | Leave untouched. |
-| Report/export/viewer previews and clones | Output/report | Output snapshot/SVG clone paths | No for editor preview scope | No | Leave untouched. |
+## Final Architecture
 
-## Layer Model
+```text
+                         SHARED ENGINE RENDERER
+                                  |
+              +-------------------+--------------------+
+              |                   |                    |
+              v                   v                    v
+         Main Canvas        Device Editor        Rack Builder
+                                  |
+                     +------------+------------+
+                     v                         v
+              Node Appearance            Title Block
 
-Each shared preview surface creates:
+DOM/SVG overlays = authoring controls only
+Legacy SVG previews = ?legacy=1 compatibility only
+Output/report/viewer = separate output pipeline
+```
 
-- `.engine-preview-webgl`: WebGL device/wire/rack texture and geometry layer.
-- `.engine-preview-labels`: 2D label/info-box layer owned by `WebglGraphRenderer`.
-- `.engine-preview-authoring-overlay`: DOM overlay reserved for editor-specific controls, drag targets, resize handles, and text inputs.
+## Diagnostics And Guardrails
 
-The renderer owns visual parity. Editors own authoring affordances.
+`enginePreviewDiagnostics(surface)` now exposes a final ownership audit with the supported persistent Engine preview owners:
 
-## Fixture Coverage
+- `device-editor`
+- `rack-builder`
+- `node-builder`
+- `title-block`
+
+For those surfaces, Engine-mode production visuals should report `EnginePreviewSurface`. Legacy production draw counters should remain `0` in Engine mode for Device Editor, Faceplate, Connectors, Cards, Slots, Power Distro, Adapter/Breakout, Rack Builder committed visuals, Node Builder Canvas Appearance, and Title Block.
+
+`scripts/preview-ownership-validation.mjs` verifies:
+
+- all current preview build IDs equal `iteration53-4-preview-parity-cleanup`;
+- Engine dynamic imports carry the 53.4 module cache key while preserving the visible build ID;
+- the final ownership map includes all four persistent Engine preview owners;
+- Node crop, transient canvas previews, output/report/viewer paths, and Legacy mode are explicitly excluded;
+- Engine branches in `index.html` return before Legacy production drawing;
+- Device Editor faceplate side-preview is disabled in Engine mode;
+- Node Builder Canvas Appearance has no retained Engine-mode legacy production draw counter.
+
+## Parity Coverage
 
 `engine-preview-harness.html` and `src/engine/enginePreviewFixtures.js` cover:
 
-- Normal device with PNG faceplate.
-- V2 connector displayed on both sides.
-- Shared-bus connectors packed by `connectorDisplayLayout`.
-- Through/loop connector relationship.
-- Modular chassis with installed card connectors.
-- Power Distribution generated faceplate/plugs.
-- Adapter / Breakout internal wiring.
+- normal PNG faceplate device;
+- V2 connector displayed on both sides;
+- shared-bus connectors with 2, 3, and 4 member packing;
+- Through/Loop relationship arrow geometry;
+- modular chassis with installed-card connectors;
+- Power Distribution generated faceplate/plugs;
+- Adapter / Breakout compact shell and internal wiring.
 
-## Diagnostics
+`scripts/rack-preview-validation.mjs` verifies Rack Builder preview vs placed-rack translation, exposed rack ports, internal rack wires, and forced orthogonal routing. `scripts/node-preview-validation.mjs` verifies representative connector types, SFP/QSFP effective modules, fiber mode, and PowerLock segmented colors. `scripts/title-block-preview-validation.mjs` verifies Title Block preview normalization and visual cache-key invalidation, including logo fields.
 
-The shared foundation reports diagnostics through `enginePreviewDiagnostics(surface)`, the debug harness, and the Engine-mode Device Editor debug panel. The report includes:
+## Performance Baseline
 
-- Active preview surface count.
-- Created/disposed preview counts.
-- GL context create/dispose counts.
-- Asset-ready subscriber count.
-- Camera, viewport, DPR.
-- Texture stats.
-- Full scene replacement count.
-- Incremental device replacement count.
-- Rendered preview frame count.
-- Device Editor and Rack Builder preview sources.
-- Active preview owner rows (`device-editor`, `rack-builder`, `node-builder`, `title-block`).
-- Device Editor and Rack Builder legacy actual-device visual draw counts.
-- Device Editor and Rack Builder authoring overlay draw counts.
-- Shared-bus layout stats.
-- Adapter and Power Distribution diagnostics.
+- Camera-only pan/zoom/Fit/resize use `EnginePreviewSurface.setCamera(...)`, `fitToContent(...)`, and `resize(...)`; they do not call `setSceneData(...)`, do not create new GL contexts, and do not rebuild textures solely due to camera changes.
+- Device Editor connector drag refreshes the current preview device without refreshing the texture while the node is moving.
+- Rack child drag updates only dirty preview children and affected internal rack wires when the structural signature is unchanged.
+- Node type switching keeps one `node-builder` surface and replaces one synthetic preview device.
+- Title Block typing keeps one `title-block` surface and replaces the title-block object texture only when field/logo data changes.
 
-In Engine mode, Device Editor, Rack Builder, Node Builder Canvas Appearance, and Title Block preview sources should read `EnginePreviewSurface`. The legacy actual-device visual draw count should remain `0` for Device, Connectors, Faceplate, Cards, Slots, Defaults, Power Distro, Adapter/Breakout, Rack Builder committed visuals, Node Builder Canvas Appearance, and Title Block committed visuals.
+## Intentionally Non-Engine Preview Surfaces
 
-## Rack Builder Preview Adapter
+The following remain intentionally outside persistent Engine production preview ownership:
 
-`src/engine/rackPreview.js` converts the selected rack draft into a temporary Engine scene:
+- Node Builder thumbnail crop canvas.
+- Main-canvas transient placement previews: `#previewWire`, `#previewMultiWires`, `#previewCommentLine`, `#previewAreaRect`, `#previewTitleBlockRect`.
+- Output/report/viewer renderers and SVG clone paths.
+- Legacy `?legacy=1` editor previews.
 
-- Each rack definition child keeps a stable `sourceRackDeviceId` and receives a deterministic preview child ID from the rack ID and child ID. Array order is not part of identity.
-- The temporary placed rack uses `canvasInstance: true`, `hidden: true`, `showInternalWiring: true`, and `sourceDeviceMap` so the same rack frame, connector visibility, and internal wire normalization path is used by preview and placed canvas racks.
-- Internal rack connections become Engine rack-internal wires and are forced orthogonal. Pan, zoom, and Fit update only the preview camera.
-- Device drags update only affected preview children and connected rack-internal wires. Selection, hover, drop ghost, snap guide, marquee, and temporary wire drawing update only the SVG authoring overlay.
-- Inside Rack Builder, internal-only connectors are visible and authorable. After placement, only connectors marked as exposed rack ports are selectable externally; internal-only connectors remain reference-only when internal wiring is shown.
+## Final Status
 
-## Node Builder Preview Adapter
-
-`src/engine/nodePreview.js` converts the selected connector catalogue draft into a temporary Engine scene:
-
-- The Node Builder remains the global connector catalogue/editor. It owns connector labels, colors, segmented colors, thumbnails, direction metadata, video flag metadata, and catalogue ordering.
-- The thumbnail crop panel remains a DOM/canvas authoring tool. It decides which pixels of uploaded artwork become the catalogue thumbnail; it is not an alternate production connector renderer.
-- The Canvas Appearance panel creates one synthetic neutral device with one representative connector attached to a real device edge. That synthetic device is isolated to the preview scene and never mutates the project canvas, Project Devices, wires, or the master device list.
-- The synthetic device is normalized through `normalizeAvDesignerDevice(...)` and rendered by `EnginePreviewSurface`, so connector color, segmented Powerlock rendering, SFP/QSFP effective types, fiber-mode color, radius, stroke, labels, and info fields use the production Engine path.
-- The modal creates one preview surface per open session. Selecting another connector type or editing its color/name/metadata replaces the preview device inside the same surface; closing, cancelling, or applying disposes the surface.
-
-## Title Block Preview Adapter
-
-`src/engine/titleBlockPreview.js` converts the editor draft into a temporary Engine title-block object:
-
-- The draft is normalized through `normalizeEngineCanvasObject("title-block", ...)`.
-- The visual layers are rendered by `EnginePreviewSurface` through the same title-block path used by the canvas.
-- Form controls and file inputs remain DOM. The old `#titleBlockPreview` SVG is retained as an authoring overlay/fallback and as the Legacy-mode preview target.
-- The transient placement rectangle `#previewTitleBlockRect` remains untouched because it is an interaction preview, not a persistent editor production visual.
-
-## Migration Guardrails
-
-- Do not construct `ProductionEngineBridge` inside any editor preview.
-- Do not duplicate legacy drawing logic into new preview surfaces.
-- Normalize draft devices through `normalizeAvDesignerDevice(...)` so master drafts and Project Custom drafts follow the same rules as placed canvas devices.
-- Keep authoring-only UI in the overlay layer.
-- Always dispose preview surfaces when an editor modal/page is destroyed or remounted.
-
-## Remaining Preview Work
-
-After 53.3, the remaining preview work is 53.4 cleanup/parity audit:
-
-- Remove or isolate dead Legacy preview drawing code that is no longer reachable in Engine mode.
-- Re-audit cross-editor parity after enough hands-on use.
-- Keep output/report/viewer rendering out of this migration unless a separate output-pipeline task requests it.
+PREVIEW MIGRATION COMPLETE for persistent Engine-mode production-appearance editor previews: Device Editor, Rack Builder, Node Builder Canvas Appearance, and Title Block Editor.

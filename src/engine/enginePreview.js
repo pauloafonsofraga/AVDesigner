@@ -16,7 +16,61 @@ import { normalizeAvDesignerDevice } from "./projectAdapter.js";
 import { DEFAULT_RENDER_OPTIONS, WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
 
-export const ENGINE_PREVIEW_BUILD_ID = "iteration53-3-remaining-editor-engine-previews";
+export const ENGINE_PREVIEW_BUILD_ID = "iteration53-4-preview-parity-cleanup";
+
+export const ENGINE_PREVIEW_OWNERSHIP = Object.freeze([
+  ownershipRow("device-editor", {
+    surface: "Device Editor",
+    productionVisual: "EnginePreviewSurface via createPreviewDeviceFromDraft -> normalizeAvDesignerDevice -> SceneGraph -> WebglGraphRenderer",
+    authoringOverlay: "SVG connector hit targets, selection halo, empty slots, faceplate/card/plug resize and marquee controls",
+    legacyVisual: "renderDeviceEditorPreview SVG branch when ?legacy=1",
+    duplicateStatus: "Engine branch returns before legacy production drawing; overlay only remains"
+  }),
+  ownershipRow("rack-builder", {
+    surface: "Rack Builder",
+    productionVisual: "EnginePreviewSurface via createRackPreviewScene -> normalizeAvDesignerProject -> SceneGraph rack/internal-wire paths",
+    authoringOverlay: "SVG rack device hit targets, exposed-port rings, route handles, drop ghost, snap guides, temporary wire and marquee",
+    legacyVisual: "renderRackBuilderPreview SVG branch when ?legacy=1",
+    duplicateStatus: "Engine branch returns before legacy rack device/internal-wire drawing; overlay only remains"
+  }),
+  ownershipRow("node-builder", {
+    surface: "Node Builder Canvas Appearance",
+    productionVisual: "EnginePreviewSurface via createNodeBuilderPreviewScene synthetic normalized device",
+    authoringOverlay: "None for production appearance; crop UI is a separate DOM/canvas authoring tool",
+    legacyVisual: "No Engine-mode production fallback; crop/list thumbnails remain DOM authoring/catalogue surfaces",
+    duplicateStatus: "No alternate production connector renderer in Engine mode"
+  }),
+  ownershipRow("title-block", {
+    surface: "Title Block Editor",
+    productionVisual: "EnginePreviewSurface via createTitleBlockPreviewScene -> normalizeEngineCanvasObject('title-block')",
+    authoringOverlay: "SVG fallback/overlay host plus DOM form/file controls",
+    legacyVisual: "renderTitleBlockPreview SVG branch when ?legacy=1",
+    duplicateStatus: "Engine branch clears legacy SVG and returns before drawTitleBlock"
+  })
+]);
+
+export const ENGINE_PREVIEW_EXCLUDED_SURFACES = Object.freeze([
+  {
+    id: "node-thumbnail-crop",
+    surface: "Node Builder Thumbnail Crop",
+    reason: "asset authoring crop canvas, not production canvas appearance"
+  },
+  {
+    id: "main-canvas-transient-previews",
+    surface: "#previewWire, #previewMultiWires, #previewCommentLine, #previewAreaRect, #previewTitleBlockRect",
+    reason: "temporary interaction previews, not persistent editor production previews"
+  },
+  {
+    id: "output-report-viewer",
+    surface: "PDF/export/report/viewer clone renderers",
+    reason: "separate output architecture intentionally outside Iteration 53.4"
+  },
+  {
+    id: "legacy-mode",
+    surface: "?legacy=1 editor previews",
+    reason: "compatibility fallback intentionally keeps legacy SVG/DOM renderers"
+  }
+]);
 
 const ACTIVE_PREVIEW_SURFACES = new Set();
 
@@ -194,10 +248,19 @@ export function previewConnectorLayoutStats(device = {}) {
 export function enginePreviewDiagnostics(surface = null) {
   return {
     buildId: ENGINE_PREVIEW_BUILD_ID,
+    ownership: enginePreviewOwnershipAudit(),
     lifecycle: { ...ENGINE_PREVIEW_LIFECYCLE, activePreviewSurfaces: ACTIVE_PREVIEW_SURFACES.size },
     assetReadySubscribers: deviceVisualAssetReadySubscriberCount(),
     owners: activePreviewOwnerRows(),
     surface: surface?.diagnostics?.() || null
+  };
+}
+
+export function enginePreviewOwnershipAudit() {
+  return {
+    buildId: ENGINE_PREVIEW_BUILD_ID,
+    requiredOwners: ENGINE_PREVIEW_OWNERSHIP.map(row => ({ ...row })),
+    excludedSurfaces: ENGINE_PREVIEW_EXCLUDED_SURFACES.map(row => ({ ...row }))
   };
 }
 
@@ -566,6 +629,18 @@ function activePreviewOwnerRows() {
     rows.set(owner, current);
   });
   return [...rows.values()];
+}
+
+function ownershipRow(owner, details = {}) {
+  return Object.freeze({
+    owner,
+    source: "EnginePreviewSurface",
+    productionVisual: details.productionVisual || "EnginePreviewSurface",
+    authoringOverlay: details.authoringOverlay || "",
+    legacyVisual: details.legacyVisual || "",
+    duplicateStatus: details.duplicateStatus || "",
+    surface: details.surface || owner
+  });
 }
 
 function normalizePreviewDeviceInput(item, index) {

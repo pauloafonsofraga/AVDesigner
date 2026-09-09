@@ -9,6 +9,7 @@ import {
 import {
   createPreviewDeviceFromDraft,
   deviceLocalToScreenPoint,
+  ENGINE_PREVIEW_BUILD_ID,
   fitCameraToBounds,
   previewConnectorLayoutStats,
   previewDeviceVisualKey,
@@ -26,10 +27,12 @@ import { TextureCache } from "../src/engine/textureCache.js";
 
 const fixtures = enginePreviewFixtureDefinitions();
 const results = {
+  buildId: ENGINE_PREVIEW_BUILD_ID,
   fixtureCount: fixtures.length,
   adapterParity: [],
   cacheKeyParity: [],
   sharedBusParity: null,
+  sharedBusMemberCounts: [],
   transformParity: null,
   assetSubscriberLifecycle: null,
   projectCustomDraft: null,
@@ -89,6 +92,36 @@ results.sharedBusParity = {
   members: layout.groups[0].members.length,
   packedHeight: layout.groups[0].maxY - layout.groups[0].minY
 };
+
+[2, 3, 4].forEach(memberCount => {
+  const connectors = sharedFixture.template.connectors.slice(0, memberCount);
+  const variant = createPreviewDeviceFromDraft({
+    ...sharedFixture,
+    template: {
+      ...sharedFixture.template,
+      id: `${sharedFixture.template.id}-${memberCount}`,
+      connectors,
+      connectorRelationships: [{
+        id: `shared-input-format-${memberCount}`,
+        type: "exclusive",
+        members: connectors.map(connector => connector.id)
+      }]
+    },
+    instance: {
+      ...sharedFixture.instance,
+      instanceId: `preview-shared-bus-${memberCount}`
+    }
+  }, 0);
+  const variantLayout = createConnectorDisplayLayout(variant);
+  assert.equal(variantLayout.groups.length, 1, `${memberCount}-member shared bus should produce one display group.`);
+  assert.equal(variantLayout.groups[0].members.length, memberCount, `${memberCount}-member shared bus member count.`);
+  const packedHeight = variantLayout.groups[0].maxY - variantLayout.groups[0].minY;
+  assert.ok(packedHeight <= 54.01, `${memberCount}-member shared bus must fit into one normal node slot.`);
+  results.sharedBusMemberCounts.push({
+    members: memberCount,
+    packedHeight
+  });
+});
 
 const projectCustomDraft = createPreviewDeviceFromDraft({
   ...sharedFixture,

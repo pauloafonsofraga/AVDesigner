@@ -240,21 +240,27 @@ PDF and report drawing paths are deliberately unchanged.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags.
 
-Current visible build label: `Iteration 51.8`.
+Current visible build label: `Iteration 53.4 — Preview Parity & Cleanup`.
 The app top bar must show one of these labels:
 
-- `Iteration 51.8 — Engine Editor — iteration51-8-project-devices-placement-v18`
-- `Iteration 51.8 — Legacy Editor — iteration51-8-project-devices-placement-v18`
+- `Iteration 53.4 — Preview Parity & Cleanup — Engine Editor — iteration53-4-preview-parity-cleanup`
+- `Iteration 53.4 — Preview Parity & Cleanup — Legacy Editor — iteration53-4-preview-parity-cleanup`
 
 The Engine HUD badge for this pass must also show
-`production-bridge-project-devices-v18` and
-`project-devices-placement-v18`. If either
-label still shows `production-bridge-1`, the browser or deployment is serving a
-stale Engine module.
+`iteration53-4-preview-parity-cleanup`. If the top bar or diagnostics show an
+older build ID such as `iteration51-8-project-devices-placement-v18`, the
+browser or deployment is serving stale code.
 
-Engine module imports now use `APP_BUILD_ID` as their own cache key. A stale
-page URL with an older `v=` value should no longer force the Engine to import
-older JavaScript modules.
+Engine module imports now use `APP_BUILD_ID` plus the 53.4
+`APP_MODULE_CACHE_ID` as their cache key. A stale page URL with an older `v=`
+value should no longer force the Engine to import older JavaScript modules.
+
+Iteration 53.4 finalizes persistent Engine-mode preview ownership. Device
+Editor, Rack Builder, Node Builder Canvas Appearance, and Title Block previews
+must report `EnginePreviewSurface` in diagnostics, with legacy production draw
+counters remaining at `0` in Engine mode. Legacy editor previews, node
+thumbnail crop, transient canvas placement previews, and output/report/viewer
+paths are intentionally excluded from this migration.
 
 Engine object snapping now uses the Legacy pointer-locked snap contract again:
 drag-start target geometry is cached, but the active snap winners and final

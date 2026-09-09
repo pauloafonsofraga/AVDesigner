@@ -4427,7 +4427,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 52 — Engine Device Authoring V2 — iteration52-engine-device-authoring-v2</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 53.4 — Preview Parity &amp; Cleanup — iteration53-4-preview-parity-cleanup</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5143,11 +5143,12 @@
   </div>
 
   <script>
-    const APP_ITERATION = "53.3";
-    const APP_BUILD_ID = "iteration53-3-remaining-editor-engine-previews";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Remaining Editor Engine Previews`;
+    const APP_ITERATION = "53.4";
+    const APP_BUILD_ID = "iteration53-4-preview-parity-cleanup";
+    const APP_MODULE_CACHE_ID = "iteration53-4-preview-parity-cleanup-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Preview Parity & Cleanup`;
     const APP_SOURCE_BRANCH = "engine-prototype";
-    const APP_SOURCE_BASE_COMMIT = "5bd382dd2d2ef06133060462cb8b8770204ceefc+";
+    const APP_SOURCE_BASE_COMMIT = "c81e0227fa21f72244002532b16aaea93afbf7e6";
     const CANVAS_MIN_ZOOM = 0.03;
     const CANVAS_MAX_ZOOM = 8;
     const INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
@@ -106165,6 +106166,7 @@ renderViewerOutputDebug();
       // ?v=iteration51-engine-canvas-snapping can keep importing stale modules
       // even after the shell HTML has updated.
       url.searchParams.set("v", APP_BUILD_ID);
+      url.searchParams.set("module", APP_MODULE_CACHE_ID);
       if (pageVersion && pageVersion !== APP_BUILD_ID) {
         url.searchParams.set("pageV", pageVersion);
       }
@@ -106244,7 +106246,9 @@ renderViewerOutputDebug();
             || text.includes("production-bridge-runtime-guide-v13")
             || text.includes("object-snapping-runtime-guide-v13")
             || text.includes("drag-session-runtime-guide-v13")
-            || text.includes("renderer-runtime-guide-v13"),
+            || text.includes("renderer-runtime-guide-v13")
+            || text.includes("drag-session-duplicate-lock-v19")
+            || text.includes("renderer-shared-bus-display-v2"),
           lastModified: response.headers.get("last-modified") || "",
           etag: response.headers.get("etag") || "",
           vercelCache: response.headers.get("x-vercel-cache") || "",
