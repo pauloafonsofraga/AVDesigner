@@ -85,14 +85,17 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration53-4-1-preview-verification";
-export const ENGINE_BRIDGE_VERSION = "iteration53-4-1-preview-verification";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "preview-verification";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-0-canvas-layout-objects";
+export const ENGINE_BRIDGE_VERSION = "iteration54-0-canvas-layout-objects";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "canvas-layout-objects";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
 const ENGINE_MIN_ZOOM = 0.03;
 const ENGINE_MAX_ZOOM = 8;
+const TITLE_BLOCK_BASE_WIDTH = 760;
+const TITLE_BLOCK_BASE_HEIGHT = 112;
+const TITLE_BLOCK_MIN_SCALE = 0.34;
 
 function isEngineGuideCoordinate(value) {
   return value !== null
@@ -184,6 +187,10 @@ class ProductionEngineBridge {
     this.wireSegmentDrag = null;
     this.wireCreate = null;
     this.resizeSession = null;
+    this.commentBoxDrag = null;
+    this.canvasToolPointerActive = false;
+    this.lastCanvasToolDispatch = null;
+    this.lastCanvasToolCreated = null;
     this.marqueeState = null;
     this.marqueeElement = null;
     this.ctrlLeftClickContextMenuSuppression = null;
@@ -556,6 +563,29 @@ class ProductionEngineBridge {
     this.hud?.setMetric("canvas objects", `${payload.counts.totalCanvasObjects}`);
   }
 
+  updateCanvasObjectDebugHud(step = "canvas-objects") {
+    if (!this.debugCanvasObjects) return;
+    const counts = this.scene.adapterStats?.() || {};
+    const commentDevice = this.lastCanvasToolCreated?.kind === "comment"
+      ? this.resolveDeviceBySourceId(this.lastCanvasToolCreated.id)
+      : null;
+    const commentBox = commentDevice ? worldCommentBoxRect(commentDevice) : null;
+    const commentAnchor = commentDevice ? worldCommentAnchor(commentDevice) : null;
+    const commentLeader = commentDevice ? worldCommentLeaderEnd(commentDevice) : null;
+    this.hud?.setMetric("layout debug", step);
+    this.hud?.setMetric("layout active tool", this.activeCanvasTool() || "none");
+    this.hud?.setMetric("layout phase", this.lastCanvasToolDispatch?.phase || "-");
+    this.hud?.setMetric("layout pointer", formatDebugPoint(this.lastCanvasToolDispatch?.worldPoint));
+    this.hud?.setMetric("layout overlay", this.lastCanvasToolDispatch?.overlay || "-");
+    this.hud?.setMetric("layout last create", this.lastCanvasToolCreated ? `${this.lastCanvasToolCreated.kind}:${this.lastCanvasToolCreated.id}` : "-");
+    this.hud?.setMetric("layout counts", `a${counts.areas || 0} c${counts.comments || 0} t${counts.titleBlocks || 0}`);
+    if (commentDevice) {
+      this.hud?.setMetric("comment box", commentBox ? `${formatDebugPoint(commentBox)} ${Math.round(commentBox.width)}x${Math.round(commentBox.height)}` : "-");
+      this.hud?.setMetric("comment anchor", formatDebugPoint(commentAnchor));
+      this.hud?.setMetric("comment leader", formatDebugPoint(commentLeader));
+    }
+  }
+
   canUndoEngineCommand() {
     return this.ready && this.commandIndex > 0;
   }
@@ -854,6 +884,7 @@ class ProductionEngineBridge {
     this.canvas.addEventListener("pointercancel", event => this.handlePointerCancel(event));
     this.canvas.addEventListener("pointerleave", event => this.handlePointerLeave(event));
     this.canvas.addEventListener("lostpointercapture", event => this.handleLostPointerCapture(event));
+    this.canvas.addEventListener("dblclick", event => this.handleDoubleClick(event));
     this.boundKeyDown = event => this.handleKeyDown(event);
     this.boundResize = () => this.scheduleRender();
     // Engine mode must intercept undo/redo before the production document
@@ -908,12 +939,133 @@ class ProductionEngineBridge {
     }, "toolbar-zoom");
   }
 
+  activeCanvasTool() {
+    try {
+      return String(this.api.getActiveCanvasTool?.() || "");
+    } catch (error) {
+      this.hud?.setMetric("layout tool", "active lookup failed");
+      return "";
+    }
+  }
+
+  dispatchCanvasToolPointerEvent(phase, event, point = null, world = null) {
+    const activeTool = this.activeCanvasTool();
+    if (!activeTool && !this.canvasToolPointerActive) return false;
+    if (phase === "pointerdown" && event.button !== 0) return false;
+    const screenPoint = point || this.eventPoint(event);
+    const worldPoint = world || screenToWorld(this.camera, screenPoint);
+    const payload = {
+      phase,
+      event,
+      activeTool,
+      screenPoint: { ...screenPoint },
+      worldPoint: { ...worldPoint },
+      camera: cloneCamera(this.camera),
+      counts: this.sceneCounts()
+    };
+    let result = null;
+    try {
+      result = this.api.onEngineCanvasToolPointerEvent?.(payload);
+    } catch (error) {
+      console.error("[engine-bridge] layout tool pointer dispatch failed.", error);
+      this.showError(`Canvas tool failed: ${error.message || error}`);
+      return false;
+    }
+    const handled = result === true || result?.handled === true;
+    if (!handled) return false;
+    this.canvasToolPointerActive = Object.prototype.hasOwnProperty.call(result || {}, "keepActive")
+      ? Boolean(result.keepActive)
+      : Boolean(activeTool && phase !== "pointerup" && phase !== "pointercancel");
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation?.();
+    this.lastCanvasToolDispatch = {
+      activeTool,
+      phase,
+      screenPoint: { ...screenPoint },
+      worldPoint: { ...worldPoint },
+      overlay: result?.overlay || "shell"
+    };
+    this.hud?.setMetric("layout tool", `${activeTool || "none"} ${phase}`);
+    this.updateCanvasObjectDebugHud("layout-tool");
+    this.updateInteractionHud(`layout-tool-${activeTool || "none"}`);
+    this.scheduleRender();
+    return true;
+  }
+
+  dispatchCanvasToolKeyEvent(key, event) {
+    const activeTool = this.activeCanvasTool();
+    if (!activeTool) return false;
+    let result = null;
+    try {
+      result = this.api.onEngineCanvasToolKeyEvent?.({
+        key,
+        event,
+        activeTool,
+        camera: cloneCamera(this.camera),
+        counts: this.sceneCounts()
+      });
+    } catch (error) {
+      console.error("[engine-bridge] layout tool key dispatch failed.", error);
+      this.showError(`Canvas tool failed: ${error.message || error}`);
+      return false;
+    }
+    const handled = result === true || result?.handled === true;
+    if (!handled) return false;
+    consumeEngineShortcut(event);
+    this.canvasToolPointerActive = false;
+    this.lastCanvasToolDispatch = {
+      activeTool,
+      phase: `key:${key}`,
+      screenPoint: null,
+      worldPoint: null,
+      overlay: result?.overlay || "shell"
+    };
+    this.hud?.setMetric("layout tool", `${activeTool} key ${key}`);
+    this.updateCanvasObjectDebugHud("layout-tool-key");
+    this.scheduleRender();
+    return true;
+  }
+
+  handleDoubleClick(event) {
+    if (!this.ready) {
+      this.blockInteraction(event, "double-click while loading");
+      return;
+    }
+    const point = this.eventPoint(event);
+    const world = screenToWorld(this.camera, point);
+    const hit = this.hitTestPreciseCanvasObject(world, this.hitToleranceWorld(10), {
+      kinds: ["comment", "area", "title-block"]
+    });
+    if (!hit.device) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation?.();
+    this.scene.selectOnly(hit.device.id);
+    this.updateSelectionHud();
+    this.api.onEngineCanvasObjectDoubleClick?.({
+      kind: hit.device.kind,
+      sourceId: hit.device.sourceId || hit.device.id,
+      engineId: hit.device.id,
+      part: hit.part || "body",
+      worldPoint: { ...world },
+      screenPoint: { ...point },
+      camera: cloneCamera(this.camera)
+    });
+    this.updateInteractionHud(`double-click-${hit.device.kind}`);
+    this.scheduleRender();
+  }
+
   handlePointerDown(event) {
     if (!this.ready) {
       this.blockInteraction(event, "pointerdown while loading");
       return;
     }
     const point = this.eventPoint(event);
+    if (this.dispatchCanvasToolPointerEvent("pointerdown", event, point)) {
+      this.capturePointer(event.pointerId);
+      return;
+    }
     if (event.button === 1 || event.buttons === 4) {
       this.capturePointer(event.pointerId);
       this.cancelMarquee("pan-start", { updateCursor: false, render: false });
@@ -1010,7 +1162,15 @@ class ProductionEngineBridge {
       return;
     }
 
-    const deviceHit = hitTestDevice(this.scene, world);
+    const foregroundObjectHit = this.hitTestPreciseCanvasObject(world, tolerance, {
+      kinds: ["comment", "title-block", "image-object", "led-surface"]
+    });
+    if (foregroundObjectHit.device) {
+      this.handleCanvasObjectPointerDown(foregroundObjectHit, point, world, event, additiveSelection);
+      return;
+    }
+
+    const deviceHit = hitTestDevice(this.scene, world, device => !isCanvasObjectKind(device));
     if (!deviceHit.device) {
       const rackHit = hitTestRack(this.scene, world);
       if (rackHit.rack) {
@@ -1038,6 +1198,11 @@ class ProductionEngineBridge {
         this.updateSelectionHud();
         this.updateRackBuilderDebugHud("rack frame selected");
         this.beginPendingDrag(point, world, event);
+        return;
+      }
+      const areaHit = this.hitTestPreciseCanvasObject(world, tolerance, { kinds: ["area"] });
+      if (areaHit.device) {
+        this.handleCanvasObjectPointerDown(areaHit, point, world, event, additiveSelection);
         return;
       }
       this.clearHoverState("empty-canvas", { render: false });
@@ -1132,6 +1297,10 @@ class ProductionEngineBridge {
     if (!this.ready) return;
     const pointerStart = performance.now();
     const point = this.eventPoint(event);
+    if (this.dispatchCanvasToolPointerEvent("pointermove", event, point)) {
+      this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
+      return;
+    }
     if (this.panState) {
       const dx = (point.x - this.panState.startPoint.x) / this.camera.zoom;
       const dy = (point.y - this.panState.startPoint.y) / this.camera.zoom;
@@ -1146,6 +1315,14 @@ class ProductionEngineBridge {
       const start = performance.now();
       this.updateCanvasObjectResize(screenToWorld(this.camera, point));
       this.hud.setMetric("resizeDraw", `${(performance.now() - start).toFixed(3)} ms`);
+      this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
+      this.scheduleRender();
+      return;
+    }
+    if (this.commentBoxDrag) {
+      const start = performance.now();
+      this.updateCommentBoxDrag(screenToWorld(this.camera, point));
+      this.hud.setMetric("dragDraw", `${(performance.now() - start).toFixed(3)} ms`);
       this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
       this.scheduleRender();
       return;
@@ -1327,6 +1504,11 @@ class ProductionEngineBridge {
       this.releasePointerCapture(event.pointerId);
       return;
     }
+    const point = this.eventPoint(event);
+    if (this.dispatchCanvasToolPointerEvent("pointerup", event, point)) {
+      this.releasePointerCapture(event.pointerId);
+      return;
+    }
     if (this.panState) {
       this.panState = null;
       this.canvas.classList.remove("panning");
@@ -1334,6 +1516,9 @@ class ProductionEngineBridge {
     }
     if (this.resizeSession) {
       this.completeCanvasObjectResize();
+    }
+    if (this.commentBoxDrag) {
+      this.completeCommentBoxDrag();
     }
     if (this.routePointDrag) {
       const commitStart = performance.now();
@@ -1397,6 +1582,8 @@ class ProductionEngineBridge {
   }
 
   handlePointerCancel(event) {
+    const point = this.eventPoint(event);
+    this.dispatchCanvasToolPointerEvent("pointercancel", event, point);
     this.cancelActiveInteraction("pointer-cancel");
     this.releasePointerCapture(event.pointerId);
     this.scheduleRender();
@@ -1409,7 +1596,7 @@ class ProductionEngineBridge {
   }
 
   handleLostPointerCapture() {
-    if (!this.dragSession && !this.pendingDrag && !this.panState && !this.routePointDrag && !this.wireSegmentDrag && !this.wireCreate && !this.resizeSession && !this.marqueeState) return;
+    if (!this.dragSession && !this.pendingDrag && !this.panState && !this.routePointDrag && !this.wireSegmentDrag && !this.wireCreate && !this.resizeSession && !this.commentBoxDrag && !this.marqueeState) return;
     this.cancelActiveInteraction("lost-pointer-capture");
     this.scheduleRender();
   }
@@ -1450,6 +1637,7 @@ class ProductionEngineBridge {
       return;
     }
     if (event.key !== "Escape") return;
+    if (this.dispatchCanvasToolKeyEvent("Escape", event)) return;
     if (this.wireCreate || this.resizeSession || this.routePointDrag || this.wireSegmentDrag || this.marqueeState || this.dragSession || this.pendingDrag || this.panState) {
       consumeEngineShortcut(event);
       this.cancelActiveInteraction("cancelled");
@@ -1576,6 +1764,111 @@ class ProductionEngineBridge {
     this.scheduleRender();
   }
 
+  handleCanvasObjectPointerDown(hit, point, world, event, additiveSelection = false) {
+    const device = hit?.device;
+    if (!device || !isCanvasObjectKind(device)) return false;
+    const wasSelected = this.scene.selectedIds.has(device.id);
+    this.clearHoverState("canvas-object-select", { render: false });
+    if (additiveSelection) {
+      this.scene.toggleSelection(device.id);
+      this.updateSelectionHud();
+      this.updateInteractionHud("canvas-object-selection-toggle", hit);
+      this.scheduleRender();
+      return true;
+    }
+    if (!wasSelected) this.scene.selectOnly(device.id);
+    this.updateSelectionHud();
+    this.updateInteractionHud("canvas-object-select", hit);
+    if (device.kind === "comment") {
+      if (hit.part === "box" && !this.deviceMovementLocked(device)) {
+        this.beginCommentBoxDrag(hit, point, world, event);
+      } else {
+        this.scheduleRender();
+      }
+      return true;
+    }
+    if (!this.deviceMovementLocked(device)) this.beginPendingDrag(point, world, event);
+    else {
+      this.hud?.setMetric("drag pending", "blocked by lock");
+      this.scheduleRender();
+    }
+    return true;
+  }
+
+  beginCommentBoxDrag(hit, screenPoint, worldPoint, event = null) {
+    const device = hit?.device;
+    const sourceId = String(device?.sourceId || device?.id || "");
+    const raw = this.rawSceneObjectSnapshot("comment", sourceId);
+    if (!device || !raw?.objectData) return false;
+    const box = commentRawBox(raw.objectData);
+    this.commentBoxDrag = {
+      deviceId: device.id,
+      sourceId,
+      kind: "comment",
+      beforeRaw: raw.objectData,
+      currentRaw: deepClone(raw.objectData),
+      index: raw.index,
+      offsetX: Number(worldPoint?.x || 0) - box.x,
+      offsetY: Number(worldPoint?.y || 0) - box.y,
+      startScreen: screenPoint ? { ...screenPoint } : null,
+      startWorld: worldPoint ? { ...worldPoint } : null,
+      moved: false
+    };
+    this.canvas.classList.add("dragging");
+    this.updateCanvasCursor();
+    this.scheduleRender();
+    return true;
+  }
+
+  updateCommentBoxDrag(worldPoint) {
+    const session = this.commentBoxDrag;
+    if (!session || !worldPoint) return false;
+    const next = deepClone(session.currentRaw || session.beforeRaw || {});
+    const nextX = Math.round(Number(worldPoint.x || 0) - session.offsetX);
+    const nextY = Math.round(Number(worldPoint.y || 0) - session.offsetY);
+    if (Math.abs((Number(next.x) || 0) - nextX) < 0.001 && Math.abs((Number(next.y) || 0) - nextY) < 0.001) {
+      return false;
+    }
+    next.x = nextX;
+    next.y = nextY;
+    preserveCommentRawAnchor(next, session.beforeRaw);
+    session.currentRaw = next;
+    session.moved = true;
+    this.replaceCanvasObjectSceneFromRaw("comment", next, {
+      index: session.index,
+      mutateProduction: false,
+      select: false,
+      label: "comment box drag"
+    });
+    return true;
+  }
+
+  completeCommentBoxDrag() {
+    const session = this.commentBoxDrag;
+    if (!session) return false;
+    this.commentBoxDrag = null;
+    this.canvas.classList.remove("dragging");
+    this.updateCanvasCursor();
+    if (!session.moved || !rawCanvasObjectsDiffer(session.beforeRaw, session.currentRaw)) {
+      this.replaceCanvasObjectSceneFromRaw("comment", session.beforeRaw, {
+        index: session.index,
+        mutateProduction: false,
+        select: true,
+        label: "comment box drag noop"
+      });
+      this.updateInteractionHud("idle");
+      return false;
+    }
+    this.commitCanvasObjectSnapshot("comment", session.beforeRaw, session.currentRaw, {
+      index: session.index,
+      label: "move comment box",
+      select: true
+    });
+    this.hud?.setMetric("comment anchor", formatDebugPoint(commentRawAnchor(session.currentRaw)));
+    this.updateInteractionHud("idle");
+    return true;
+  }
+
   beginDrag(worldPoint, selectedIds = this.scene.selectedIds, meta = {}) {
     const start = performance.now();
     const requestedIds = [...selectedIds];
@@ -1670,6 +1963,32 @@ class ProductionEngineBridge {
     this.lastLockAction = action;
   }
 
+  hitTestPreciseCanvasObject(world, tolerance = this.hitToleranceWorld(), options = {}) {
+    const allowedKinds = Array.isArray(options.kinds) && options.kinds.length
+      ? new Set(options.kinds.map(kind => canonicalEngineObjectKind(kind)))
+      : null;
+    const start = performance.now();
+    const hits = this.scene?.spatialIndex?.queryPoint?.(world) || [];
+    let result = null;
+    for (let index = hits.length - 1; index >= 0; index -= 1) {
+      const device = hits[index]?.payload?.device;
+      if (!device || !isCanvasObjectKind(device)) continue;
+      const kind = canonicalEngineObjectKind(device);
+      if (allowedKinds && !allowedKinds.has(kind)) continue;
+      const precise = preciseCanvasObjectHit(device, world, tolerance);
+      if (!precise) continue;
+      result = { device, ...precise };
+      break;
+    }
+    return {
+      device: result?.device || null,
+      part: result?.part || "",
+      distance: result?.distance ?? Infinity,
+      candidates: hits.length,
+      ms: performance.now() - start
+    };
+  }
+
   hitTestCanvasObjectResizeHandle(world) {
     if (!world || !this.scene.selectedIds.size) return null;
     const tolerance = this.hitToleranceWorld(14);
@@ -1694,17 +2013,24 @@ class ProductionEngineBridge {
   beginCanvasObjectResize(hit, screenPoint, worldPoint) {
     const device = hit?.device;
     if (!device || !isCanvasObjectKind(device)) return false;
-    const before = canvasObjectGeometryState(device);
+    if (this.deviceMovementLocked(device)) return false;
+    const sourceId = String(device.sourceId || device.id);
+    const raw = device.kind === "comment" ? this.rawSceneObjectSnapshot("comment", sourceId) : null;
+    const before = raw?.objectData ? commentRawBox(raw.objectData) : canvasObjectGeometryState(device);
     const fixed = oppositeResizeAnchor(before, hit.handle);
     const aspect = canvasObjectResizeAspect(device, before);
     this.resizeSession = {
       deviceId: device.id,
       kind: device.kind,
+      sourceId,
       handle: hit.handle,
       fixed,
       startScreen: screenPoint ? { ...screenPoint } : null,
       startWorld: worldPoint ? { ...worldPoint } : null,
       before,
+      beforeRaw: raw?.objectData || null,
+      currentRaw: raw?.objectData ? deepClone(raw.objectData) : null,
+      index: Number.isInteger(raw?.index) ? raw.index : null,
       affectedWireIds: [...this.scene.affectedWireIdsForObjects([device.id])],
       aspectLocked: device.kind === "title-block" || isLedSurfaceKind(device),
       aspect,
@@ -1721,6 +2047,24 @@ class ProductionEngineBridge {
     const session = this.resizeSession;
     if (!session || !worldPoint) return false;
     const rect = resizeRectForPointer(session, worldPoint);
+    if (session.kind === "comment" && session.currentRaw) {
+      const next = deepClone(session.currentRaw);
+      next.x = Math.round(rect.x);
+      next.y = Math.round(rect.y);
+      next.width = Math.max(80, Math.round(rect.width));
+      next.height = Math.max(46, Math.round(rect.height));
+      preserveCommentRawAnchor(next, session.beforeRaw);
+      if (!rawCanvasObjectsDiffer(session.currentRaw, next)) return false;
+      session.currentRaw = next;
+      session.moved = true;
+      const result = this.replaceCanvasObjectSceneFromRaw("comment", next, {
+        index: session.index,
+        mutateProduction: false,
+        select: false,
+        label: "comment resize"
+      });
+      return Boolean(result.device);
+    }
     const moved = this.scene.resizeCanvasObject(session.deviceId, rect, { refreshIndexes: false });
     if (moved?.moved) session.moved = true;
     const dirtyStats = this.renderer.updateDirty(this.scene, {
@@ -1743,6 +2087,29 @@ class ProductionEngineBridge {
     const session = this.resizeSession;
     if (!session) return false;
     const start = performance.now();
+    if (session.kind === "comment" && session.beforeRaw) {
+      this.resizeSession = null;
+      this.canvas.classList.remove("dragging", "resizing");
+      this.clearHoverState("resize-complete", { render: false });
+      this.updateCanvasCursor();
+      if (!session.moved || !rawCanvasObjectsDiffer(session.beforeRaw, session.currentRaw)) {
+        this.replaceCanvasObjectSceneFromRaw("comment", session.beforeRaw, {
+          index: session.index,
+          mutateProduction: false,
+          select: true,
+          label: "resize comment noop"
+        });
+        this.updateInteractionHud("idle");
+        return false;
+      }
+      this.commitCanvasObjectSnapshot("comment", session.beforeRaw, session.currentRaw, {
+        index: session.index,
+        label: "resize comment",
+        select: true
+      });
+      this.hud.setMetric("resize commit", `${(performance.now() - start).toFixed(2)} ms`);
+      return true;
+    }
     const device = this.scene.getDevice(session.deviceId);
     if (!device || !session.moved) {
       this.cancelCanvasObjectResize("resize noop");
@@ -1777,7 +2144,16 @@ class ProductionEngineBridge {
   cancelCanvasObjectResize(reason = "cancelled") {
     const session = this.resizeSession;
     if (!session) return false;
-    this.applyCanvasObjectGeometry(session.before, { commit: false, label: `resize cancel ${reason}` });
+    if (session.kind === "comment" && session.beforeRaw) {
+      this.replaceCanvasObjectSceneFromRaw("comment", session.beforeRaw, {
+        index: session.index,
+        mutateProduction: false,
+        select: true,
+        label: `resize cancel ${reason}`
+      });
+    } else {
+      this.applyCanvasObjectGeometry(session.before, { commit: false, label: `resize cancel ${reason}` });
+    }
     this.resizeSession = null;
     this.canvas?.classList.remove("dragging", "resizing");
     this.updateCanvasCursor();
@@ -2429,6 +2805,15 @@ class ProductionEngineBridge {
     this.cancelCanvasObjectResize(reason);
     this.cancelWireSegmentDrag(reason);
     this.cancelRoutePointDrag(reason);
+    if (this.commentBoxDrag) {
+      this.replaceCanvasObjectSceneFromRaw("comment", this.commentBoxDrag.beforeRaw, {
+        index: this.commentBoxDrag.index,
+        mutateProduction: false,
+        select: true,
+        label: `comment drag cancel ${reason}`
+      });
+      this.commentBoxDrag = null;
+    }
     this.pendingDrag = null;
     if (this.dragSession?.placementDiagnostics) {
       this.lastPlacementDiagnostics = this.dragSession.placementDiagnostics;
@@ -2552,9 +2937,19 @@ class ProductionEngineBridge {
     const wireHit = routeHit.routePoint || connectorHit.connector
       ? { wire: null, candidates: 0, ms: 0 }
       : hitTestWire(this.scene, world, tolerance);
-    const deviceHit = routeHit.routePoint || connectorHit.connector || wireHit.wire
-      ? { device: null, ms: 0 }
-      : hitTestDevice(this.scene, world);
+    let deviceHit = { device: null, ms: 0 };
+    if (!routeHit.routePoint && !connectorHit.connector && !wireHit.wire) {
+      const foregroundObjectHit = this.hitTestPreciseCanvasObject(world, tolerance, {
+        kinds: ["comment", "title-block", "image-object", "led-surface"]
+      });
+      deviceHit = foregroundObjectHit.device
+        ? { device: foregroundObjectHit.device, ms: foregroundObjectHit.ms }
+        : hitTestDevice(this.scene, world, device => !isCanvasObjectKind(device));
+      if (!deviceHit.device) {
+        const areaHit = this.hitTestPreciseCanvasObject(world, tolerance, { kinds: ["area"] });
+        if (areaHit.device) deviceHit = { device: areaHit.device, ms: areaHit.ms };
+      }
+    }
     this.setHoverState({
       device: deviceHit.device,
       connector: connectorHit.connector,
@@ -2642,7 +3037,11 @@ class ProductionEngineBridge {
           : "curve"
       };
     }
-    const deviceHit = hitTestDevice(this.scene, world);
+    const foregroundObjectHit = this.hitTestPreciseCanvasObject(world, tolerance, {
+      kinds: ["comment", "title-block", "image-object", "led-surface"]
+    });
+    if (foregroundObjectHit.device) return this.contextMenuObjectTarget(foregroundObjectHit.device);
+    const deviceHit = hitTestDevice(this.scene, world, device => !isCanvasObjectKind(device));
     if (deviceHit.device) return this.contextMenuObjectTarget(deviceHit.device);
     const rackHit = hitTestRack(this.scene, world);
     if (rackHit.rack) {
@@ -2657,6 +3056,8 @@ class ProductionEngineBridge {
         sourceId: rackHit.rack.id
       };
     }
+    const areaHit = this.hitTestPreciseCanvasObject(world, tolerance, { kinds: ["area"] });
+    if (areaHit.device) return this.contextMenuObjectTarget(areaHit.device);
     return null;
   }
 
@@ -3368,6 +3769,121 @@ class ProductionEngineBridge {
     return true;
   }
 
+  commitCreatedCanvasObject(kind, objectData = {}, options = {}) {
+    if (!this.ready) return false;
+    const objectKind = canonicalEngineObjectKind(kind);
+    const id = String(objectData?.id || "");
+    if (!isCanvasObjectKind(objectKind) || !id) return false;
+    if (this.resolveDeviceBySourceId(id) || this.mutations?.sceneObjectMap?.(objectKind)?.has(id)) {
+      this.hud?.setMetric("canvas object create", `duplicate ${objectKind}:${id}`);
+      return false;
+    }
+    this.beginProductionCommit(`create ${objectKind}`);
+    const result = this.restoreCreatedSceneObject(objectKind, objectData, options.index ?? null, {
+      select: options.select !== false,
+      recordMetric: true
+    });
+    this.lastCanvasToolCreated = { kind: objectKind, id };
+    this.recordCommand(createDevicesCommand(
+      [sceneObjectUndoPayload(objectKind, objectData)],
+      Number.isInteger(result.index) ? result.index : null
+    ));
+    this.markCommitted(`create ${objectKind}`, result.mutationMs || 0, {
+      canvasObjectCreate: true,
+      objectKind,
+      objectId: id
+    });
+    this.updateSelectionHud();
+    this.updateInteractionHud(`create-${objectKind}`);
+    this.updateCanvasObjectDebugHud("create");
+    this.scheduleRender();
+    return true;
+  }
+
+  rawSceneObjectSnapshot(kind, objectId) {
+    const objectKind = canonicalEngineObjectKind(kind);
+    const sourceId = String(objectId || "");
+    const entry = this.mutations?.sceneObjectMap?.(objectKind)?.get(sourceId);
+    if (!entry?.item) return null;
+    return {
+      kind: objectKind,
+      objectData: deepClone(entry.item),
+      index: entry.index
+    };
+  }
+
+  commitCanvasObjectSnapshot(kind, beforeRaw = {}, afterRaw = {}, options = {}) {
+    if (!this.ready) return false;
+    const objectKind = canonicalEngineObjectKind(kind);
+    const id = String(afterRaw?.id || beforeRaw?.id || "");
+    if (!isCanvasObjectKind(objectKind) || !id) return false;
+    if (!rawCanvasObjectsDiffer(beforeRaw, afterRaw)) return false;
+    const index = Number.isInteger(options.index)
+      ? options.index
+      : this.mutations?.sceneObjectMap?.(objectKind)?.get(id)?.index ?? null;
+    this.beginProductionCommit(options.label || `edit ${objectKind}`);
+    const result = this.replaceCanvasObjectSceneFromRaw(objectKind, afterRaw, {
+      index,
+      mutateProduction: true,
+      select: options.select !== false,
+      label: options.label || `edit ${objectKind}`
+    });
+    this.recordCommand(canvasObjectSnapshotCommand(objectKind, beforeRaw, afterRaw, index));
+    this.markCommitted(options.label || `edit ${objectKind}`, result.mutationMs || 0, {
+      canvasObjectSnapshot: true,
+      objectKind,
+      objectId: id
+    });
+    this.updateSelectionHud();
+    this.updateInteractionHud(options.label || `edit-${objectKind}`);
+    this.updateCanvasObjectDebugHud("snapshot");
+    this.scheduleRender();
+    return true;
+  }
+
+  replaceCanvasObjectSceneFromRaw(kind, objectData = {}, options = {}) {
+    const objectKind = canonicalEngineObjectKind(kind);
+    const id = String(objectData?.id || "");
+    if (!isCanvasObjectKind(objectKind) || !id) return { mutationMs: 0, dirtyStats: null, device: null, index: -1 };
+    const index = Number.isInteger(options.index)
+      ? options.index
+      : this.mutations?.sceneObjectMap?.(objectKind)?.get(id)?.index ?? 0;
+    const mutationResult = options.mutateProduction === false
+      ? { mutationMs: 0, index }
+      : this.mutations?.replaceSceneObject(objectKind, objectData, index) || { mutationMs: 0, index };
+    const normalized = normalizeEngineCanvasObject(objectKind, objectData, Number.isInteger(mutationResult.index) ? mutationResult.index : index);
+    if (!normalized) return { mutationMs: mutationResult.mutationMs || 0, dirtyStats: null, device: null, index: mutationResult.index ?? index };
+    const previous = this.resolveDeviceBySourceId(id);
+    const device = previous
+      ? this.scene.replaceDevice({ ...normalized, id: previous.id })
+      : this.scene.insertDevice(normalized);
+    if (!device) return { mutationMs: mutationResult.mutationMs || 0, dirtyStats: null, device: null, index: mutationResult.index ?? index };
+    const affectedWireIds = [...this.scene.affectedWireIdsForObjects([device.id])];
+    const dirtyStats = previous
+      ? this.renderer.updateDirty(this.scene, {
+          deviceIds: [device.id],
+          wireIds: affectedWireIds,
+          refreshCableHops: false
+        })
+      : this.renderer.appendDevice(this.scene, device.id);
+    this.lastDirtyDeviceIds = new Set([device.id]);
+    this.lastDirtyWireIds = new Set(affectedWireIds);
+    this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
+    if (options.select) this.scene.selectOnly(device.id);
+    this.hud?.setMetric("canvas object sync", `${objectKind}:${id}`);
+    this.hud?.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+    this.recordDirtyVisualMetrics(dirtyStats, options.label || `replace ${objectKind}`);
+    this.scheduleRender();
+    return {
+      mutationMs: mutationResult.mutationMs || 0,
+      dirtyStats,
+      device,
+      index: Number.isInteger(mutationResult.index) ? mutationResult.index : index
+    };
+  }
+
   resolveDeviceBySourceId(deviceId) {
     const sourceDeviceId = String(deviceId || "");
     return this.scene.getDevice(sourceDeviceId)
@@ -3503,6 +4019,9 @@ class ProductionEngineBridge {
     const nextX = Number(x);
     const nextY = Number(y);
     if (!Number.isFinite(nextX) || !Number.isFinite(nextY)) return false;
+    if (device.kind === "comment") {
+      return this.commitCommentBoxPositionFromInspector(device, nextX, nextY);
+    }
     const before = [captureDevicePosition(device)].filter(Boolean);
     const afterPosition = {
       id: device.id,
@@ -3540,6 +4059,21 @@ class ProductionEngineBridge {
       key === "x" ? nextValue : current.x,
       key === "y" ? nextValue : current.y
     );
+  }
+
+  commitCommentBoxPositionFromInspector(device, nextX, nextY) {
+    const sourceId = String(device?.sourceId || device?.id || "");
+    const raw = this.rawSceneObjectSnapshot("comment", sourceId);
+    if (!raw?.objectData) return false;
+    const after = deepClone(raw.objectData);
+    after.x = Math.round(nextX);
+    after.y = Math.round(nextY);
+    preserveCommentRawAnchor(after, raw.objectData);
+    return this.commitCanvasObjectSnapshot("comment", raw.objectData, after, {
+      index: raw.index,
+      label: "inspector comment position",
+      select: true
+    });
   }
 
   commitConnectorInspectorFields(deviceId, connectorId, fields = {}) {
@@ -4771,7 +5305,7 @@ class ProductionEngineBridge {
       this.hud.setMetric("gpu update", dirtyStats.appended ? "append device buffer" : "device update");
       this.recordDirtyVisualMetrics(dirtyStats, "restore device");
     }
-    return { mutationMs: mutationResult.mutationMs || 0, dirtyStats, device };
+    return { mutationMs: mutationResult.mutationMs || 0, dirtyStats, device, index: mutationResult.index };
   }
 
   restoreCreatedSceneObject(kind, objectData, index = null, { select = true, recordMetric = true } = {}) {
@@ -4780,7 +5314,7 @@ class ProductionEngineBridge {
     if (!objectKind || !id) return { mutationMs: 0, device: null };
     if (this.scene.getDevice(id)) return { mutationMs: 0, device: this.scene.getDevice(id) };
     const mutationResult = this.mutations?.restoreSceneObject(objectKind, objectData, index) || { mutationMs: 0 };
-    const normalized = normalizeEngineCanvasObject(objectKind, objectData, Number.isInteger(index) ? index : 0);
+    const normalized = normalizeEngineCanvasObject(objectKind, objectData, Number.isInteger(mutationResult.index) ? mutationResult.index : (Number.isInteger(index) ? index : 0));
     const device = this.scene.insertDevice(normalized);
     if (!device) return { mutationMs: mutationResult.mutationMs || 0, device: null };
     const dirtyStats = this.renderer.appendDevice(this.scene, device.id);
@@ -4795,7 +5329,7 @@ class ProductionEngineBridge {
       this.hud.setMetric("gpu update", "canvas object restore");
       this.recordDirtyVisualMetrics(dirtyStats, `restore ${objectKind}`);
     }
-    return { mutationMs: mutationResult.mutationMs || 0, dirtyStats, device };
+    return { mutationMs: mutationResult.mutationMs || 0, dirtyStats, device, index: mutationResult.index };
   }
 
   removeCreatedDevice(deviceId) {
@@ -5419,6 +5953,18 @@ class ProductionEngineBridge {
     });
   }
 
+  screenToWorldPoint(point) {
+    return screenToWorld(this.camera, point || { x: 0, y: 0 });
+  }
+
+  worldToScreenPoint(point) {
+    return worldToScreen(this.camera, point || { x: 0, y: 0 });
+  }
+
+  currentCamera() {
+    return cloneCamera(this.camera);
+  }
+
   hitToleranceWorld(screenPixels = 10) {
     return screenPixels / Math.max(this.camera.zoom, 0.001);
   }
@@ -5468,7 +6014,7 @@ class ProductionEngineBridge {
     } else if (this.resizeSession) {
       cursor = resizeCursorForHandle(this.resizeSession.handle);
       cursorState = "resizing";
-    } else if (this.panState || this.dragSession || this.routePointDrag || this.wireSegmentDrag) {
+    } else if (this.panState || this.dragSession || this.commentBoxDrag || this.routePointDrag || this.wireSegmentDrag) {
       cursor = "grabbing";
       cursorState = this.panState ? "panning" : "dragging";
     } else if (this.wireCreate || this.hoverState.connector || this.marqueeState) {
@@ -6340,12 +6886,132 @@ function snapDebugText(snap) {
   return `${snap.source || "snap"} ${snap.side || snap.axis || "-"} d=${formatSnapNumber(snap.delta)} guide=${guide}`;
 }
 
+function canvasObjectInteractionRect(device) {
+  if (!device) return { x: 0, y: 0, width: 0, height: 0 };
+  if (device.kind === "comment") return worldCommentBoxRect(device);
+  return {
+    x: Number(device.x) || 0,
+    y: Number(device.y) || 0,
+    width: Math.max(0, Number(device.width) || 0),
+    height: Math.max(0, Number(device.height) || 0)
+  };
+}
+
+function worldCommentBoxRect(device) {
+  const visual = device?.visual || {};
+  const box = visual.box && typeof visual.box === "object"
+    ? visual.box
+    : { x: 0, y: 0, width: device?.width || 180, height: device?.height || 82 };
+  return {
+    x: (Number(device?.x) || 0) + (Number(box.x) || 0),
+    y: (Number(device?.y) || 0) + (Number(box.y) || 0),
+    width: Math.max(12, Number(box.width) || 180),
+    height: Math.max(12, Number(box.height) || 82)
+  };
+}
+
+function worldCommentAnchor(device) {
+  const visual = device?.visual || {};
+  const anchor = visual.anchor && typeof visual.anchor === "object"
+    ? visual.anchor
+    : { x: 0, y: 0 };
+  return {
+    x: (Number(device?.x) || 0) + (Number(anchor.x) || 0),
+    y: (Number(device?.y) || 0) + (Number(anchor.y) || 0)
+  };
+}
+
+function worldCommentLeaderEnd(device) {
+  const visual = device?.visual || {};
+  const leaderEnd = visual.leaderEnd && typeof visual.leaderEnd === "object"
+    ? visual.leaderEnd
+    : null;
+  if (leaderEnd) {
+    return {
+      x: (Number(device?.x) || 0) + (Number(leaderEnd.x) || 0),
+      y: (Number(device?.y) || 0) + (Number(leaderEnd.y) || 0)
+    };
+  }
+  const box = worldCommentBoxRect(device);
+  return commentLeaderEndForBox(box, worldCommentAnchor(device));
+}
+
+function preciseCanvasObjectHit(device, world, tolerance = 8) {
+  if (!device || !world) return null;
+  if (device.kind === "comment") {
+    const box = worldCommentBoxRect(device);
+    if (pointInRect(world, box)) return { part: "box", distance: 0 };
+    const leaderDistance = HitTest.distanceToSegment(world, worldCommentAnchor(device), worldCommentLeaderEnd(device));
+    if (leaderDistance.distance <= tolerance) return { part: "leader", distance: leaderDistance.distance };
+    return null;
+  }
+  const rect = canvasObjectInteractionRect(device);
+  return pointInRect(world, rect) ? { part: "body", distance: 0 } : null;
+}
+
+function pointInRect(point, rect) {
+  return Boolean(point && rect)
+    && point.x >= rect.x
+    && point.x <= rect.x + rect.width
+    && point.y >= rect.y
+    && point.y <= rect.y + rect.height;
+}
+
+function commentRawBox(comment = {}) {
+  return {
+    x: Number.isFinite(Number(comment.x)) ? Number(comment.x) : 0,
+    y: Number.isFinite(Number(comment.y)) ? Number(comment.y) : 0,
+    width: Math.max(80, Number.isFinite(Number(comment.width)) ? Number(comment.width) : 180),
+    height: Math.max(46, Number.isFinite(Number(comment.height)) ? Number(comment.height) : 82)
+  };
+}
+
+function commentRawAnchor(comment = {}) {
+  if (comment?.anchor && Number.isFinite(Number(comment.anchor.x)) && Number.isFinite(Number(comment.anchor.y))) {
+    return { x: Number(comment.anchor.x), y: Number(comment.anchor.y) };
+  }
+  if (Number.isFinite(Number(comment?.anchorX)) && Number.isFinite(Number(comment?.anchorY))) {
+    return { x: Number(comment.anchorX), y: Number(comment.anchorY) };
+  }
+  const box = commentRawBox(comment);
+  return { x: box.x + box.width + 72, y: box.y - 32 };
+}
+
+function preserveCommentRawAnchor(target = {}, source = {}) {
+  const anchor = commentRawAnchor(source);
+  if (source?.anchor) {
+    target.anchor = { ...anchor };
+    delete target.anchorX;
+    delete target.anchorY;
+  } else {
+    target.anchorX = anchor.x;
+    target.anchorY = anchor.y;
+    if (target.anchor && !source?.anchor) delete target.anchor;
+  }
+}
+
+function commentLeaderEndForBox(box, anchor) {
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const dx = anchor.x - cx;
+  const dy = anchor.y - cy;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    return { x: dx < 0 ? box.x : box.x + box.width, y: cy };
+  }
+  return { x: cx, y: dy < 0 ? box.y : box.y + box.height };
+}
+
+function rawCanvasObjectsDiffer(beforeRaw, afterRaw) {
+  return JSON.stringify(beforeRaw || null) !== JSON.stringify(afterRaw || null);
+}
+
 function canvasObjectResizeHandles(device) {
   if (!device) return [];
-  const left = Number(device.x) || 0;
-  const top = Number(device.y) || 0;
-  const right = left + (Number(device.width) || 0);
-  const bottom = top + (Number(device.height) || 0);
+  const rect = canvasObjectInteractionRect(device);
+  const left = Number(rect.x) || 0;
+  const top = Number(rect.y) || 0;
+  const right = left + (Number(rect.width) || 0);
+  const bottom = top + (Number(rect.height) || 0);
   return [
     { handle: "nw", x: left, y: top },
     { handle: "ne", x: right, y: top },
@@ -6378,9 +7044,12 @@ function oppositeResizeAnchor(rect, handle) {
 }
 
 function canvasObjectMinSize(device) {
-  if (device?.kind === "title-block") return { width: 120, height: 18 };
-  if (device?.kind === "comment") return { width: 72, height: 38 };
-  if (device?.kind === "area") return { width: 80, height: 48 };
+  if (device?.kind === "title-block") return {
+    width: TITLE_BLOCK_BASE_WIDTH * TITLE_BLOCK_MIN_SCALE,
+    height: TITLE_BLOCK_BASE_HEIGHT * TITLE_BLOCK_MIN_SCALE
+  };
+  if (device?.kind === "comment") return { width: 80, height: 46 };
+  if (device?.kind === "area") return { width: 80, height: 60 };
   return { width: 24, height: 24 };
 }
 
@@ -6819,6 +7488,29 @@ function resizeCanvasObjectCommand(beforeState, afterState) {
     affectedIds: [id].filter(Boolean),
     undo: bridge => bridge.applyCanvasObjectGeometry(beforeState, { label: "undo resize canvas object" }),
     redo: bridge => bridge.applyCanvasObjectGeometry(afterState, { label: "redo resize canvas object" })
+  };
+}
+
+function canvasObjectSnapshotCommand(kind, beforeRaw, afterRaw, index = null) {
+  const objectKind = canonicalEngineObjectKind(kind);
+  const id = String(afterRaw?.id || beforeRaw?.id || "");
+  const before = deepClone(beforeRaw);
+  const after = deepClone(afterRaw);
+  return {
+    type: `CanvasObjectSnapshotCommand (${objectKind})`,
+    affectedIds: [id].filter(Boolean),
+    undo: bridge => bridge.replaceCanvasObjectSceneFromRaw(objectKind, before, {
+      index,
+      mutateProduction: true,
+      select: true,
+      label: `undo ${objectKind}`
+    }),
+    redo: bridge => bridge.replaceCanvasObjectSceneFromRaw(objectKind, after, {
+      index,
+      mutateProduction: true,
+      select: true,
+      label: `redo ${objectKind}`
+    })
   };
 }
 
@@ -7394,6 +8086,13 @@ function engineInspectorPositionForDevice(device) {
     return {
       x: x + (Number(device.width) || 0) / 2,
       y: y + (Number(device.height) || 0) / 2
+    };
+  }
+  if (device.kind === "comment") {
+    const box = device.visual?.box;
+    return {
+      x: x + (Number(box?.x) || 0),
+      y: y + (Number(box?.y) || 0)
     };
   }
   return { x, y };

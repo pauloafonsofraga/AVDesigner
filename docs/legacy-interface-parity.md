@@ -4,9 +4,18 @@ Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 - Current branch audited: `engine-prototype`
-- Current build label: `Iteration 53.4.1 — Preview Verification`
+- Current build label: `Iteration 54.0 — Canvas Layout Objects`
 - Scope: interface and visual fidelity only. Functional wire parity is tracked in
   [`docs/legacy-functional-parity.md`](legacy-functional-parity.md).
+
+Iteration 54.0 restores functional Engine-canvas ownership for Comment
+Callout, Area / Room, and Title Block without re-exposing the Legacy SVG canvas.
+The DOM shell still owns toolbar state, drafts, modal forms, and inline text
+editors, while the Engine bridge forwards active-tool pointer/key/double-click
+events using Engine world coordinates. New layout objects are inserted through
+the existing production arrays and `normalizeEngineCanvasObject(...)`, then
+synced to SceneGraph/WebGL with one command step. The detailed audit is in
+[`docs/canvas-layout-object-parity.md`](canvas-layout-object-parity.md).
 
 Iteration 51 adds the first output-pipeline parity shell: editor reports, PDF
 export, self-contained HTML export, and hosted viewer publish now pass through

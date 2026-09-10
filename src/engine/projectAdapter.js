@@ -1387,16 +1387,14 @@ function normalizeCommentAnchor(comment, box) {
 }
 
 function commentLeaderEnd(box, anchor) {
-  const left = box.x;
-  const right = box.x + box.width;
-  const top = box.y;
-  const bottom = box.y + box.height;
-  const clampedY = Math.max(top + 10, Math.min(bottom - 10, anchor.y));
-  const clampedX = Math.max(left + 10, Math.min(right - 10, anchor.x));
-  if (anchor.x < left) return { x: left, y: clampedY };
-  if (anchor.x > right) return { x: right, y: clampedY };
-  if (anchor.y < top) return { x: clampedX, y: top };
-  return { x: clampedX, y: bottom };
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const dx = anchor.x - cx;
+  const dy = anchor.y - cy;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    return { x: dx < 0 ? box.x : box.x + box.width, y: cy };
+  }
+  return { x: cx, y: dy < 0 ? box.y : box.y + box.height };
 }
 
 function centeredObjectBounds(point, size) {

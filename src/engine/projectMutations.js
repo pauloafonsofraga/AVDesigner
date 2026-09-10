@@ -156,7 +156,8 @@ export class ProjectMutationAdapter {
       "backgroundColor",
       "textColor",
       "leaderColor",
-      "opacity"
+      "opacity",
+      "textSize"
     ]);
     Object.entries(fields || {}).forEach(([key, value]) => {
       if (!allowed.has(key)) return;
@@ -462,6 +463,30 @@ export class ProjectMutationAdapter {
     collection.splice(targetIndex, 0, item);
     this.rebuildIndexes();
     this.record(`restore ${canonical}`, performance.now() - start, `${collectionPathForKind(canonical)}[${targetIndex}]`, {
+      objectId: id,
+      objectKind: canonical
+    });
+    return { mutationMs: this.lastMutation.durationMs, index: targetIndex };
+  }
+
+  replaceSceneObject(kind, objectData, index = null) {
+    const start = performance.now();
+    const canonical = canonicalEngineObjectKind(kind);
+    const collection = this.sceneObjectCollection(canonical);
+    const map = this.sceneObjectMap(canonical);
+    const id = String(objectData?.id || "");
+    if (!collection || !id) return { mutationMs: 0, index: -1 };
+    const item = deepClone(objectData);
+    const existing = map?.get(id);
+    const targetIndex = existing
+      ? existing.index
+      : Number.isInteger(index)
+        ? Math.max(0, Math.min(index, collection.length))
+        : collection.length;
+    if (existing) collection[targetIndex] = item;
+    else collection.splice(targetIndex, 0, item);
+    this.rebuildIndexes();
+    this.record(`replace ${canonical}`, performance.now() - start, `${collectionPathForKind(canonical)}[${targetIndex}]`, {
       objectId: id,
       objectKind: canonical
     });

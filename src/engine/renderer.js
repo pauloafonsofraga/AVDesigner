@@ -2498,7 +2498,7 @@ function pushSelectionOutline(vertices, device, offsets = null) {
     { expand: 2.1, width: 1.5, color: "rgba(251,121,4,.62)" },
     { expand: 3.6, width: 0.85, color: "rgba(251,121,4,.24)" }
   ]);
-  if (isCanvasObjectKind(device)) {
+  if (isCanvasObjectKind(device) && !device.locked) {
     pushCanvasObjectResizeHandles(vertices, device, offsets);
   }
 }
@@ -2510,9 +2510,9 @@ function pushHoverOutline(vertices, device, offsets = null) {
 }
 
 function pushObjectOutline(vertices, device, offsets = null, layers = []) {
-  const offset = offsets?.get(device.id);
-  const x = device.x + (offset?.dx || 0);
-  const y = device.y + (offset?.dy || 0);
+  const outline = canvasObjectSelectionRect(device, offsets);
+  const x = outline.x;
+  const y = outline.y;
   if (device.kind === "jump") {
     const center = { x: x + device.width / 2, y: y + device.height / 2 };
     const radius = Math.max(device.width, device.height) / 2;
@@ -2537,8 +2537,8 @@ function pushObjectOutline(vertices, device, offsets = null, layers = []) {
     const rect = {
       x: x - layer.expand,
       y: y - layer.expand,
-      width: device.width + layer.expand * 2,
-      height: device.height + layer.expand * 2
+      width: outline.width + layer.expand * 2,
+      height: outline.height + layer.expand * 2
     };
     const radius = (device.kind === "adapter" ? LEGACY_ADAPTER_RADIUS : LEGACY_DEVICE_RADIUS) + layer.expand;
     pushRoundedBoxOutline(vertices, rect, radius, layer.width, layer.color);
@@ -2546,11 +2546,11 @@ function pushObjectOutline(vertices, device, offsets = null, layers = []) {
 }
 
 function pushCanvasObjectResizeHandles(vertices, device, offsets = null) {
-  const offset = offsets?.get(device.id);
-  const x = device.x + (offset?.dx || 0);
-  const y = device.y + (offset?.dy || 0);
-  const width = device.width || 0;
-  const height = device.height || 0;
+  const rect = canvasObjectSelectionRect(device, offsets);
+  const x = rect.x;
+  const y = rect.y;
+  const width = rect.width || 0;
+  const height = rect.height || 0;
   [
     { x, y },
     { x: x + width, y },
@@ -2560,6 +2560,27 @@ function pushCanvasObjectResizeHandles(vertices, device, offsets = null) {
     pushCircle(vertices, point, 6, "rgba(251,121,4,.95)", 18);
     pushCircleOutline(vertices, point, 7.5, 1.5, "#ffffff", 18);
   });
+}
+
+function canvasObjectSelectionRect(device, offsets = null) {
+  const offset = offsets?.get(device.id);
+  const baseX = (Number(device?.x) || 0) + (offset?.dx || 0);
+  const baseY = (Number(device?.y) || 0) + (offset?.dy || 0);
+  if (device?.kind === "comment") {
+    const box = device.visual?.box || { x: 0, y: 0, width: device.width || 180, height: device.height || 82 };
+    return {
+      x: baseX + (Number(box.x) || 0),
+      y: baseY + (Number(box.y) || 0),
+      width: Math.max(12, Number(box.width) || 180),
+      height: Math.max(12, Number(box.height) || 82)
+    };
+  }
+  return {
+    x: baseX,
+    y: baseY,
+    width: Math.max(0, Number(device?.width) || 0),
+    height: Math.max(0, Number(device?.height) || 0)
+  };
 }
 
 function pushAdapterFallbackInternalWires(vertices, device, baseX, baseY) {

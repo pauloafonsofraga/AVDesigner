@@ -2011,6 +2011,20 @@
       vector-effect: non-scaling-stroke;
     }
 
+    .engine-layout-tool-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 45;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      pointer-events: none !important;
+    }
+
+    .engine-layout-tool-overlay * {
+      pointer-events: none !important;
+    }
+
     .wire {
       fill: none;
       stroke-width: 5;
@@ -4439,7 +4453,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 53.4.1 — Preview Verification — iteration53-4-1-preview-verification</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.0 — Canvas Layout Objects — iteration54-0-canvas-layout-objects</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5155,12 +5169,12 @@
   </div>
 
   <script>
-    const APP_ITERATION = "53.4.1";
-    const APP_BUILD_ID = "iteration53-4-1-preview-verification";
-    const APP_MODULE_CACHE_ID = "iteration53-4-1-preview-verification-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Preview Verification`;
+    const APP_ITERATION = "54.0";
+    const APP_BUILD_ID = "iteration54-0-canvas-layout-objects";
+    const APP_MODULE_CACHE_ID = "iteration54-0-canvas-layout-objects-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Canvas Layout Objects`;
     const APP_SOURCE_BRANCH = "engine-prototype";
-    const APP_SOURCE_BASE_COMMIT = "4358a836d3cb42516aac8a825efc504b8234ab28";
+    const APP_SOURCE_BASE_COMMIT = "477c6926a840c20c13d4afc15a0f1e64f2e0f678";
     const CANVAS_MIN_ZOOM = 0.03;
     const CANVAS_MAX_ZOOM = 8;
     const INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
@@ -77957,6 +77971,13 @@
     const previewCommentLine = document.getElementById("previewCommentLine");
     const previewAreaRect = document.getElementById("previewAreaRect");
     const previewTitleBlockRect = document.getElementById("previewTitleBlockRect");
+    let engineLayoutToolOverlay = null;
+    let enginePreviewCommentLine = null;
+    let enginePreviewAreaRect = null;
+    let enginePreviewTitleBlockRect = null;
+    let engineLayoutToolCamera = null;
+    let engineLayoutToolLastPointer = null;
+    let engineLayoutToolLastCreated = null;
     const selectionMarquee = document.getElementById("selectionMarquee");
     const debugOutput = document.getElementById("debugOutput");
     const webglCanvas = document.getElementById("webglCanvas");
@@ -82879,6 +82900,18 @@
       if (titleBlockEditingId) {
         const block = titleBlockById(titleBlockEditingId);
         if (!block) return closeTitleBlockEditor();
+        const engineBridge = activeEngineBridge();
+        if (engineBridge?.commitCanvasObjectSnapshot) {
+          const before = structuredClone(block);
+          const after = structuredClone(block);
+          after.fields = { ...defaultTitleBlockData(), ...titleBlockDraft };
+          closeTitleBlockEditor();
+          engineBridge.commitCanvasObjectSnapshot("title-block", before, after, {
+            label: "edit title-block",
+            select: true
+          });
+          return;
+        }
         pushUndo();
         block.fields = { ...defaultTitleBlockData(), ...titleBlockDraft };
         closeTitleBlockEditor();
@@ -82891,10 +82924,28 @@
     }
 
     function startTitleBlockPlacement(draft) {
+      closeCommentEditor(true);
+      closeAreaEditor(true);
+      commentToolActive = false;
+      commentDraft = null;
+      areaToolActive = false;
+      areaDraft = null;
+      if (jumpNodeToolActive) setJumpNodeToolActive(false);
+      previewCommentLine.classList.add("hidden");
+      previewAreaRect.classList.add("hidden");
+      document.getElementById("commentTool")?.classList.remove("active");
+      document.getElementById("areaTool")?.classList.remove("active");
+      canvasWrap.classList.remove("area-drawing");
       titleBlockPlacementDraft = { ...defaultTitleBlockData(), ...(draft || {}) };
-      previewTitleBlockRect.classList.remove("hidden");
-      previewTitleBlockRect.setAttribute("width", TITLE_BLOCK_WIDTH);
-      previewTitleBlockRect.setAttribute("height", TITLE_BLOCK_HEIGHT);
+      if (activeEngineBridge()) {
+        previewTitleBlockRect.classList.add("hidden");
+        ensureEngineLayoutToolOverlay();
+        if (engineLayoutToolLastPointer) updateEngineTitleBlockPlacementPreview(engineLayoutToolLastPointer);
+      } else {
+        previewTitleBlockRect.classList.remove("hidden");
+        previewTitleBlockRect.setAttribute("width", TITLE_BLOCK_WIDTH);
+        previewTitleBlockRect.setAttribute("height", TITLE_BLOCK_HEIGHT);
+      }
       setStatus("Move the mouse and click to place the title block.");
     }
 
@@ -82907,7 +82958,7 @@
       previewTitleBlockRect.setAttribute("height", TITLE_BLOCK_HEIGHT);
     }
 
-    function placeTitleBlockAtPoint(point) {
+    function placeTitleBlockAtPoint(point, options = {}) {
       if (!titleBlockPlacementDraft) return false;
       const rect = {
         x: Math.round(point.x - TITLE_BLOCK_WIDTH / 2),
@@ -82920,12 +82971,17 @@
         setStatus("No clear space for that title block.");
         return true;
       }
-      pushUndo();
       titleBlockDraft = titleBlockPlacementDraft;
       const block = createTitleBlockFromDraft(clearRect.x, clearRect.y);
       titleBlockDraft = null;
       titleBlockPlacementDraft = null;
       previewTitleBlockRect.classList.add("hidden");
+      hideEngineLayoutToolPreview("all");
+      if (options.engine && activeEngineBridge()?.commitCreatedCanvasObject?.("title-block", block, { select: true })) {
+        engineLayoutToolLastCreated = { kind: "title-block", id: block.id };
+        return true;
+      }
+      pushUndo();
       state.titleBlocks.push(block);
       select({ type: "title-block", id: block.id });
       render();
@@ -94234,10 +94290,205 @@
 
     function syncCanvasObjectVisual(kind, id, object, options = {}) {
       const engineBridge = activeEngineBridge();
-      if (engineBridge?.syncCanvasObjectFromProduction?.(kind, id, object)) return true;
+      if (engineBridge?.syncCanvasObjectFromProduction?.(kind, id, object, options)) return true;
       if (options.fullLegacyRender) render();
       else renderCanvasOnly();
       return false;
+    }
+
+    function ensureEngineLayoutToolOverlay() {
+      if (engineLayoutToolOverlay?.isConnected) return engineLayoutToolOverlay;
+      const root = canvasWrap.querySelector(".engine-bridge-root") || canvasWrap;
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("class", "engine-layout-tool-overlay hidden");
+      svg.setAttribute("aria-hidden", "true");
+      svg.innerHTML = `
+        <defs>
+          <marker id="engineLayoutArrowStart" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M 10 0 L 0 5 L 10 10 z" fill="#28bdfd"></path>
+          </marker>
+        </defs>
+        <path class="comment-leader hidden" data-engine-preview="comment"></path>
+        <rect class="area-rect hidden" data-engine-preview="area"></rect>
+        <rect class="title-block-placement hidden" data-engine-preview="title"></rect>
+      `;
+      root.appendChild(svg);
+      engineLayoutToolOverlay = svg;
+      enginePreviewCommentLine = svg.querySelector("[data-engine-preview='comment']");
+      enginePreviewAreaRect = svg.querySelector("[data-engine-preview='area']");
+      enginePreviewTitleBlockRect = svg.querySelector("[data-engine-preview='title']");
+      return svg;
+    }
+
+    function updateEngineLayoutToolOverlayViewport(camera = engineLayoutToolCamera) {
+      if (!camera) return;
+      const overlay = ensureEngineLayoutToolOverlay();
+      const rect = canvasWrap.getBoundingClientRect();
+      const zoom = Math.max(.001, Number(camera.zoom) || canvasView.zoom || 1);
+      const x = Number.isFinite(Number(camera.x)) ? Number(camera.x) : canvasView.x;
+      const y = Number.isFinite(Number(camera.y)) ? Number(camera.y) : canvasView.y;
+      overlay.setAttribute("viewBox", `${x} ${y} ${Math.max(1, rect.width / zoom)} ${Math.max(1, rect.height / zoom)}`);
+      engineLayoutToolCamera = { x, y, zoom };
+    }
+
+    function setEngineLayoutToolOverlayVisible(visible) {
+      const overlay = ensureEngineLayoutToolOverlay();
+      overlay.classList.toggle("hidden", !visible);
+    }
+
+    function hideEngineLayoutToolPreview(kind = "all") {
+      if (!engineLayoutToolOverlay) return;
+      if (kind === "all" || kind === "comment") enginePreviewCommentLine?.classList.add("hidden");
+      if (kind === "all" || kind === "area") enginePreviewAreaRect?.classList.add("hidden");
+      if (kind === "all" || kind === "title-block") enginePreviewTitleBlockRect?.classList.add("hidden");
+      if (kind === "all") setEngineLayoutToolOverlayVisible(false);
+    }
+
+    function updateEngineCommentPreview(point) {
+      if (!commentDraft || !point) return;
+      updateEngineLayoutToolOverlayViewport();
+      setEngineLayoutToolOverlayVisible(true);
+      enginePreviewCommentLine?.classList.remove("hidden");
+      enginePreviewCommentLine?.setAttribute("d", `M ${commentDraft.anchor.x} ${commentDraft.anchor.y} L ${point.x} ${point.y}`);
+      enginePreviewCommentLine?.setAttribute("marker-start", "url(#engineLayoutArrowStart)");
+      enginePreviewCommentLine?.removeAttribute("marker-end");
+      hideEngineLayoutToolPreview("area");
+      hideEngineLayoutToolPreview("title-block");
+    }
+
+    function updateEngineAreaPreview(point) {
+      if (!areaDraft || !point) return;
+      const rect = normalizedRect(areaDraft.start, point);
+      updateEngineLayoutToolOverlayViewport();
+      setEngineLayoutToolOverlayVisible(true);
+      enginePreviewAreaRect?.classList.remove("hidden");
+      enginePreviewAreaRect?.setAttribute("x", rect.x);
+      enginePreviewAreaRect?.setAttribute("y", rect.y);
+      enginePreviewAreaRect?.setAttribute("width", rect.width);
+      enginePreviewAreaRect?.setAttribute("height", rect.height);
+      hideEngineLayoutToolPreview("comment");
+      hideEngineLayoutToolPreview("title-block");
+    }
+
+    function updateEngineTitleBlockPlacementPreview(point) {
+      if (!titleBlockPlacementDraft || !point) return;
+      updateEngineLayoutToolOverlayViewport();
+      setEngineLayoutToolOverlayVisible(true);
+      enginePreviewTitleBlockRect?.classList.remove("hidden");
+      enginePreviewTitleBlockRect?.setAttribute("x", Math.round(point.x - TITLE_BLOCK_WIDTH / 2));
+      enginePreviewTitleBlockRect?.setAttribute("y", Math.round(point.y - TITLE_BLOCK_HEIGHT / 2));
+      enginePreviewTitleBlockRect?.setAttribute("width", TITLE_BLOCK_WIDTH);
+      enginePreviewTitleBlockRect?.setAttribute("height", TITLE_BLOCK_HEIGHT);
+      hideEngineLayoutToolPreview("comment");
+      hideEngineLayoutToolPreview("area");
+    }
+
+    function engineWorldToCanvasWrapPoint(x, y) {
+      const engineBridge = activeEngineBridge();
+      const screenPoint = engineBridge?.worldToScreenPoint?.({ x, y });
+      if (!screenPoint) return svgPointToCanvasWrap(x, y);
+      const canvasRect = engineBridge.canvasClientRect?.() || canvasWrap.getBoundingClientRect();
+      const wrapRect = canvasWrap.getBoundingClientRect();
+      return {
+        x: screenPoint.x + canvasRect.left - wrapRect.left,
+        y: screenPoint.y + canvasRect.top - wrapRect.top
+      };
+    }
+
+    function activeEngineCanvasLayoutTool() {
+      if (titleBlockPlacementDraft) return "title-block";
+      if (commentToolActive) return "comment";
+      if (areaToolActive) return "area";
+      return "";
+    }
+
+    function handleEngineCanvasToolPointerEvent(payload = {}) {
+      const point = payload.worldPoint ? plainPoint(payload.worldPoint) : null;
+      if (payload.camera) updateEngineLayoutToolOverlayViewport(payload.camera);
+      if (point) engineLayoutToolLastPointer = point;
+      const activeTool = activeEngineCanvasLayoutTool();
+      if (!activeTool) {
+        if (payload.phase === "pointerup" || payload.phase === "pointercancel") {
+          return { handled: true, keepActive: false, overlay: "engine-layout-tool" };
+        }
+        return { handled: false };
+      }
+      if (payload.phase === "pointercancel") {
+        cancelEngineCanvasLayoutTool(activeTool);
+        return { handled: true, keepActive: false, overlay: "engine-layout-tool" };
+      }
+      if (payload.phase === "pointerup") {
+        return { handled: true, keepActive: Boolean(activeEngineCanvasLayoutTool()), overlay: "engine-layout-tool" };
+      }
+      if (payload.phase === "pointermove") {
+        if (titleBlockPlacementDraft) updateEngineTitleBlockPlacementPreview(point);
+        if (commentDraft) updateEngineCommentPreview(point);
+        if (areaDraft) updateEngineAreaPreview(point);
+        return { handled: true, keepActive: true, overlay: "engine-layout-tool" };
+      }
+      if (payload.phase !== "pointerdown") return { handled: false };
+      if (titleBlockPlacementDraft) {
+        placeTitleBlockAtPoint(point, { engine: true });
+        return { handled: true, keepActive: false, overlay: "engine-layout-tool" };
+      }
+      if (commentToolActive) {
+        handleCommentToolClick(payload.event || {}, { point, engine: true });
+        return { handled: true, keepActive: Boolean(commentToolActive), overlay: "engine-layout-tool" };
+      }
+      if (areaToolActive) {
+        handleAreaToolClick(payload.event || {}, { point, engine: true });
+        return { handled: true, keepActive: Boolean(areaToolActive), overlay: "engine-layout-tool" };
+      }
+      return { handled: false };
+    }
+
+    function handleEngineCanvasToolKeyEvent(payload = {}) {
+      if (payload.key !== "Escape") return { handled: false };
+      const activeTool = activeEngineCanvasLayoutTool();
+      if (!activeTool) return { handled: false };
+      cancelEngineCanvasLayoutTool(activeTool);
+      return { handled: true, keepActive: false, overlay: "engine-layout-tool" };
+    }
+
+    function cancelEngineCanvasLayoutTool(activeTool = activeEngineCanvasLayoutTool()) {
+      if (activeTool === "comment") {
+        commentDraft = null;
+        commentToolActive = false;
+        document.getElementById("commentTool")?.classList.remove("active");
+      }
+      if (activeTool === "area") {
+        areaDraft = null;
+        areaToolActive = false;
+        document.getElementById("areaTool")?.classList.remove("active");
+        canvasWrap.classList.remove("area-drawing");
+      }
+      if (activeTool === "title-block") {
+        titleBlockPlacementDraft = null;
+      }
+      previewCommentLine.classList.add("hidden");
+      previewAreaRect.classList.add("hidden");
+      previewTitleBlockRect.classList.add("hidden");
+      hideEngineLayoutToolPreview("all");
+      engineLayoutToolLastPointer = null;
+      setStatus("Canvas tool cancelled.");
+    }
+
+    function handleEngineCanvasObjectDoubleClick(payload = {}) {
+      const kind = payload.kind;
+      const sourceId = payload.sourceId;
+      if (kind === "comment") {
+        const comment = state.comments.find(item => item.id === sourceId);
+        if (!comment) return;
+        const point = payload.worldPoint || { x: comment.x, y: comment.y };
+        const titleBandTop = comment.y - 18;
+        const titleBandBottom = comment.y + 10;
+        if (point.y >= titleBandTop && point.y <= titleBandBottom) editCommentTitle(sourceId);
+        else editCommentBody(sourceId);
+        return;
+      }
+      if (kind === "area") {
+        editAreaName(sourceId);
+      }
     }
 
     function connectionIdsFromResult(result) {
@@ -97260,7 +97511,10 @@
       closeAreaEditor(true);
       areaToolActive = false;
       areaDraft = null;
+      titleBlockPlacementDraft = null;
       previewAreaRect.classList.add("hidden");
+      previewTitleBlockRect.classList.add("hidden");
+      hideEngineLayoutToolPreview("all");
       document.getElementById("areaTool").classList.remove("active");
       canvasWrap.classList.remove("area-drawing");
       if (jumpNodeToolActive) setJumpNodeToolActive(false);
@@ -97280,7 +97534,10 @@
       closeAreaEditor(true);
       commentToolActive = false;
       commentDraft = null;
+      titleBlockPlacementDraft = null;
       previewCommentLine.classList.add("hidden");
+      previewTitleBlockRect.classList.add("hidden");
+      hideEngineLayoutToolPreview("all");
       document.getElementById("commentTool").classList.remove("active");
       if (jumpNodeToolActive) setJumpNodeToolActive(false);
       areaToolActive = !areaToolActive;
@@ -97292,20 +97549,23 @@
       recordDebug("toggle area after");
     }
 
-    function handleAreaToolClick(event) {
+    function handleAreaToolClick(event, options = {}) {
       recordDebug(areaDraft ? "area second point" : "area first point", event);
-      const point = getCanvasPoint(event);
+      const point = options.point ? plainPoint(options.point) : getCanvasPoint(event);
       if (!areaDraft) {
         areaDraft = { start: point };
-        previewAreaRect.classList.remove("hidden");
-        previewAreaRect.setAttribute("x", point.x);
-        previewAreaRect.setAttribute("y", point.y);
-        previewAreaRect.setAttribute("width", 1);
-        previewAreaRect.setAttribute("height", 1);
+        if (options.engine) {
+          updateEngineAreaPreview(point);
+        } else {
+          previewAreaRect.classList.remove("hidden");
+          previewAreaRect.setAttribute("x", point.x);
+          previewAreaRect.setAttribute("y", point.y);
+          previewAreaRect.setAttribute("width", 1);
+          previewAreaRect.setAttribute("height", 1);
+        }
         return;
       }
       const rect = normalizedRect(areaDraft.start, point);
-      pushUndo();
       const area = {
         id: nextId("area"),
         name: "Area / Room Name",
@@ -97316,13 +97576,20 @@
         backgroundColor: "#223544",
         locked: false
       };
-      state.areas.push(area);
-      state.selected = { type: "area", id: area.id };
       areaDraft = null;
       areaToolActive = false;
       previewAreaRect.classList.add("hidden");
+      hideEngineLayoutToolPreview("all");
       document.getElementById("areaTool").classList.remove("active");
       canvasWrap.classList.remove("area-drawing");
+      if (options.engine && activeEngineBridge()?.commitCreatedCanvasObject?.("area", area, { select: true })) {
+        engineLayoutToolLastCreated = { kind: "area", id: area.id };
+        setStatus("Area / Room created.");
+        return;
+      }
+      pushUndo();
+      state.areas.push(area);
+      state.selected = { type: "area", id: area.id };
       render();
     }
 
@@ -98481,14 +98748,18 @@
       next();
     }
 
-    function handleCommentToolClick(event) {
+    function handleCommentToolClick(event, options = {}) {
       recordDebug(commentDraft ? "comment second point" : "comment first point", event);
       if (event.button !== undefined && event.button !== 0) return;
-      const point = getCanvasPoint(event);
+      const point = options.point ? plainPoint(options.point) : getCanvasPoint(event);
       if (!commentDraft) {
         commentDraft = { anchor: plainPoint(point) };
-        previewCommentLine.classList.remove("hidden");
-        previewCommentLine.setAttribute("d", `M ${point.x} ${point.y} L ${point.x} ${point.y}`);
+        if (options.engine) {
+          updateEngineCommentPreview(point);
+        } else {
+          previewCommentLine.classList.remove("hidden");
+          previewCommentLine.setAttribute("d", `M ${point.x} ${point.y} L ${point.x} ${point.y}`);
+        }
         return;
       }
       const comment = {
@@ -98504,12 +98775,21 @@
         backgroundColor: state.darkMode ? "#18202a" : "#f4f7fb",
         leaderColor: "#28bdfd"
       };
-      pushUndo();
-      state.comments.push(comment);
       commentDraft = null;
       commentToolActive = false;
       previewCommentLine.classList.add("hidden");
+      hideEngineLayoutToolPreview("all");
       document.getElementById("commentTool").classList.remove("active");
+      if (options.engine && activeEngineBridge()?.commitCreatedCanvasObject?.("comment", comment, { select: true })) {
+        engineLayoutToolLastCreated = { kind: "comment", id: comment.id };
+        suppressCommentEdit = { id: comment.id, until: performance.now() + 700 };
+        closeCommentEditorCreatedByPlacement(comment.id);
+        setStatus("Comment created. Double-click the comment text to edit it.");
+        recordDebug("comment created");
+        return;
+      }
+      pushUndo();
+      state.comments.push(comment);
       state.selected = { type: "comment", id: comment.id };
       suppressCommentEdit = { id: comment.id, until: performance.now() + 700 };
       render();
@@ -98547,8 +98827,8 @@
       if (!comment) return;
       closeCommentEditor(false);
       const sourceBox = editBox || { x: comment.x, y: comment.y, width: comment.width, height: comment.height };
-      const topLeft = svgPointToCanvasWrap(sourceBox.x, sourceBox.y);
-      const bottomRight = svgPointToCanvasWrap(sourceBox.x + sourceBox.width, sourceBox.y + sourceBox.height);
+      const topLeft = engineWorldToCanvasWrapPoint(sourceBox.x, sourceBox.y);
+      const bottomRight = engineWorldToCanvasWrapPoint(sourceBox.x + sourceBox.width, sourceBox.y + sourceBox.height);
       const cssWidth = Math.max(80, bottomRight.x - topLeft.x);
       const cssHeight = Math.max(38, bottomRight.y - topLeft.y);
       const isMagnified = editBox?.magnified === true;
@@ -98576,7 +98856,7 @@
         control.style.fontSize = `${magnifiedFontSize}px`;
       }
       canvasWrap.appendChild(control);
-      commentEditor = { control, commentId, field };
+      commentEditor = { control, commentId, field, before: structCloneComment(comment) };
       control.focus();
       control.select();
       control.addEventListener("keydown", event => {
@@ -98611,10 +98891,28 @@
       if (!commentEditor) return;
       const { control, commentId, field } = commentEditor;
       const comment = state.comments.find(item => item.id === commentId);
-      if (save && comment) {
+      const engineBridge = activeEngineBridge();
+      if (save && comment && engineBridge?.commitCanvasObjectSnapshot) {
+        const before = commentEditor.before || structCloneComment(comment);
+        const after = structCloneComment(comment);
         if (field === "title") {
-          comment.title = control.value.trim() || "Comment";
+          after.title = control.value.trim() || "Comment";
         } else {
+          after.text = control.value;
+          const lineCount = Math.max(1, control.value.split("\n").length);
+          after.height = Math.max(58, 34 + lineCount * 16);
+        }
+        control.remove();
+        commentEditor = null;
+        engineBridge.commitCanvasObjectSnapshot("comment", before, after, {
+          label: `edit comment ${field}`,
+          select: true
+        });
+        return;
+      }
+      if (save && comment) {
+        if (field === "title") comment.title = control.value.trim() || "Comment";
+        else {
           comment.text = control.value;
           const lineCount = Math.max(1, control.value.split("\n").length);
           comment.height = Math.max(58, 34 + lineCount * 16);
@@ -98629,8 +98927,8 @@
       const area = state.areas.find(item => item.id === areaId);
       if (!area) return;
       closeAreaEditor(false);
-      const topLeft = svgPointToCanvasWrap(area.x + 18, area.y + 9);
-      const bottomRight = svgPointToCanvasWrap(area.x + area.width - 18, area.y + 52);
+      const topLeft = engineWorldToCanvasWrapPoint(area.x + 18, area.y + 9);
+      const bottomRight = engineWorldToCanvasWrapPoint(area.x + area.width - 18, area.y + 52);
       const control = document.createElement("input");
       control.className = "comment-editor";
       control.value = area.name || "Area / Room Name";
@@ -98642,7 +98940,7 @@
       control.style.background = area.backgroundColor || "#223544";
       control.style.font = "800 28px/1 Inter, system-ui, sans-serif";
       canvasWrap.appendChild(control);
-      areaEditor = { control, areaId };
+      areaEditor = { control, areaId, before: structuredClone(area) };
       control.focus();
       control.select();
       control.addEventListener("keydown", event => {
@@ -98659,9 +98957,20 @@
       if (!areaEditor) return;
       const { control, areaId } = areaEditor;
       const area = state.areas.find(item => item.id === areaId);
-      if (save && area) {
-        area.name = control.value.trim() || "Area / Room Name";
+      const engineBridge = activeEngineBridge();
+      if (save && area && engineBridge?.commitCanvasObjectSnapshot) {
+        const before = areaEditor.before || structuredClone(area);
+        const after = structuredClone(area);
+        after.name = control.value.trim() || "Area / Room Name";
+        control.remove();
+        areaEditor = null;
+        engineBridge.commitCanvasObjectSnapshot("area", before, after, {
+          label: "edit area name",
+          select: true
+        });
+        return;
       }
+      if (save && area) area.name = control.value.trim() || "Area / Room Name";
       control.remove();
       areaEditor = null;
       if (save && area) syncCanvasObjectVisual("area", area.id, area, { fullLegacyRender: true });
@@ -99116,6 +99425,7 @@
       recordDebug("tool pointerdown", event);
       if (event.button !== 0) return false;
       if (!commentToolActive && !areaToolActive && !jumpNodeToolActive) return false;
+      if (activeEngineBridge() && event.target?.closest?.(".engine-bridge-root")) return false;
       event.stopImmediatePropagation();
       event.stopPropagation();
       event.preventDefault();
@@ -102125,6 +102435,104 @@
       bindPositionOperatorInput(`${prefix}YInput`, object, "y", movedSelection);
     }
 
+    function canvasLayoutObjectById(kind, objectId) {
+      const sourceId = String(objectId || "");
+      if (!sourceId) return null;
+      if (kind === "comment") return state.comments.find(item => item.id === sourceId) || null;
+      if (kind === "area") return state.areas.find(item => item.id === sourceId) || null;
+      if (kind === "title-block") return titleBlockById(sourceId);
+      if (kind === "image-object") return state.imageObjects.find(item => item.id === sourceId) || null;
+      if (kind === "led-surface") return state.ledSurfaces.find(item => item.id === sourceId) || null;
+      return null;
+    }
+
+    function canvasLayoutObjectsDiffer(before, after) {
+      return JSON.stringify(before || {}) !== JSON.stringify(after || {});
+    }
+
+    function commitCanvasLayoutObjectInspectorEdit(kind, objectId, label, mutateAfter, options = {}) {
+      const current = canvasLayoutObjectById(kind, objectId);
+      if (!current || typeof mutateAfter !== "function") return false;
+      const before = structuredClone(current);
+      const after = structuredClone(current);
+      mutateAfter(after);
+      if (!canvasLayoutObjectsDiffer(before, after)) return false;
+      const engineBridge = activeEngineBridge();
+      if (engineBridge?.commitCanvasObjectSnapshot?.(kind, before, after, {
+        label,
+        select: options.select !== false
+      })) {
+        renderInspector();
+        return true;
+      }
+      pushUndo();
+      Object.assign(current, after);
+      syncCanvasObjectVisual(kind, objectId, current, {
+        fullLegacyRender: options.fullLegacyRender === true
+      });
+      renderInspector();
+      return true;
+    }
+
+    function bindCanvasObjectColorCommitInput(controlId, kind, objectId, field, fallback, label) {
+      const control = document.getElementById(controlId);
+      if (!control) return;
+      let before = null;
+      const normalizedFallback = normalizeColor(fallback || "#18202a");
+      const preview = value => {
+        const current = canvasLayoutObjectById(kind, objectId);
+        if (!current) return;
+        if (!before) before = structuredClone(current);
+        const next = structuredClone(before);
+        next[field] = normalizeColor(value || normalizedFallback);
+        const engineBridge = activeEngineBridge();
+        if (engineBridge?.replaceCanvasObjectSceneFromRaw) {
+          engineBridge.replaceCanvasObjectSceneFromRaw(kind, next, {
+            mutateProduction: false,
+            select: true,
+            label: `${label} preview`
+          });
+        }
+      };
+      const commit = () => {
+        const current = canvasLayoutObjectById(kind, objectId);
+        const snapshot = before || (current ? structuredClone(current) : null);
+        before = null;
+        if (!snapshot) return;
+        const after = structuredClone(snapshot);
+        after[field] = normalizeColor(control.value || normalizedFallback);
+        commitCanvasLayoutObjectInspectorEdit(kind, objectId, label, next => {
+          next[field] = after[field];
+        });
+      };
+      control.addEventListener("input", event => preview(event.target.value));
+      control.addEventListener("change", commit);
+      control.addEventListener("click", event => event.stopPropagation());
+      control.addEventListener("pointerdown", event => event.stopPropagation());
+      control.addEventListener("blur", commit);
+    }
+
+    function bindCanvasObjectTextCommitInput(controlId, kind, objectId, field, fallback, label) {
+      const control = document.getElementById(controlId);
+      if (!control) return;
+      const commit = () => {
+        commitCanvasLayoutObjectInspectorEdit(kind, objectId, label, next => {
+          next[field] = control.value || fallback || "";
+        });
+      };
+      control.addEventListener("change", commit);
+      control.addEventListener("click", event => event.stopPropagation());
+      control.addEventListener("pointerdown", event => event.stopPropagation());
+      control.addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          commit();
+          control.blur();
+        }
+      });
+      control.addEventListener("blur", commit);
+    }
+
     function bindIntegerCommitInput(controlId, min, max, fallback, onValue) {
       const control = document.getElementById(controlId);
       if (!control) return;
@@ -102201,26 +102609,15 @@
         <button class="danger-button" id="deleteSelected" type="button">Delete Comment</button>
       `;
       recordDebug("render comment inspector");
-      document.getElementById("commentTitleInput").addEventListener("input", event => {
-        comment.title = event.target.value;
-        syncCanvasObjectVisual("comment", comment.id, comment);
-      });
+      bindCanvasObjectTextCommitInput("commentTitleInput", "comment", comment.id, "title", "Comment", "edit comment title");
       bindPositionInputs("comment", comment, { type: "comment", id: comment.id });
-      bindLiveColor("commentTextColor", value => {
-        comment.textColor = value;
-        syncCanvasObjectVisual("comment", comment.id, comment);
-      });
-      bindLiveColor("commentBackgroundColor", value => {
-        comment.backgroundColor = value;
-        syncCanvasObjectVisual("comment", comment.id, comment);
-      });
-      bindLiveColor("commentLeaderColor", value => {
-        comment.leaderColor = value;
-        syncCanvasObjectVisual("comment", comment.id, comment);
-      });
+      bindCanvasObjectColorCommitInput("commentTextColor", "comment", comment.id, "textColor", state.darkMode ? "#edf2f7" : "#1f2a36", "edit comment text color");
+      bindCanvasObjectColorCommitInput("commentBackgroundColor", "comment", comment.id, "backgroundColor", state.darkMode ? "#18202a" : "#f4f7fb", "edit comment background");
+      bindCanvasObjectColorCommitInput("commentLeaderColor", "comment", comment.id, "leaderColor", "#28bdfd", "edit comment arrow color");
       bindIntegerCommitInput("commentTextSize", 7, 150, comment.textSize || 12, value => {
-        comment.textSize = value;
-        syncCanvasObjectVisual("comment", comment.id, comment);
+        commitCanvasLayoutObjectInspectorEdit("comment", comment.id, "edit comment text size", next => {
+          next.textSize = value;
+        });
       });
       document.getElementById("deleteSelected").addEventListener("click", () => {
         recordDebug("delete comment click");
@@ -102271,22 +102668,18 @@
         </div>
         <button class="danger-button" id="deleteSelected" type="button">Delete Area / Room</button>
       `;
-      document.getElementById("areaNameInput").addEventListener("input", event => {
-        area.name = event.target.value;
-        syncCanvasObjectVisual("area", area.id, area);
-      });
+      bindCanvasObjectTextCommitInput("areaNameInput", "area", area.id, "name", "Area / Room Name", "edit area name");
       bindPositionInputs("area", area, { type: "area", id: area.id });
       document.getElementById("areaLockInput").addEventListener("change", event => {
-        area.locked = event.target.checked;
-        syncCanvasObjectVisual("area", area.id, area, { fullLegacyRender: true });
+        commitCanvasLayoutObjectInspectorEdit("area", area.id, event.target.checked ? "lock area" : "unlock area", next => {
+          next.locked = event.target.checked;
+        }, { fullLegacyRender: true });
       });
-      bindLiveColor("areaBackgroundColor", value => {
-        area.backgroundColor = value;
-        syncCanvasObjectVisual("area", area.id, area);
-      });
+      bindCanvasObjectColorCommitInput("areaBackgroundColor", "area", area.id, "backgroundColor", "#223544", "edit area background");
       bindIntegerCommitInput("areaTextSize", 12, 150, area.textSize || 33, value => {
-        area.textSize = value;
-        syncCanvasObjectVisual("area", area.id, area);
+        commitCanvasLayoutObjectInspectorEdit("area", area.id, "edit area text size", next => {
+          next.textSize = value;
+        });
       });
       document.getElementById("deleteSelected").addEventListener("click", () => {
         state.selected = { type: "area", id: areaId };
@@ -105961,8 +106354,7 @@ renderViewerOutputDebug();
         }
         if (titleBlockPlacementDraft) {
           event.preventDefault();
-          titleBlockPlacementDraft = null;
-          previewTitleBlockRect.classList.add("hidden");
+          cancelEngineCanvasLayoutTool("title-block");
           setStatus(statusSummary());
           return;
         }
@@ -106043,19 +106435,12 @@ renderViewerOutputDebug();
         return;
       }
       if (event.key === "Escape" && commentToolActive) {
-        commentToolActive = false;
-        commentDraft = null;
-        previewCommentLine.classList.add("hidden");
-        document.getElementById("commentTool").classList.remove("active");
+        cancelEngineCanvasLayoutTool("comment");
         setStatus("Comment tool cancelled.");
         return;
       }
       if (event.key === "Escape" && areaToolActive) {
-        areaToolActive = false;
-        areaDraft = null;
-        previewAreaRect.classList.add("hidden");
-        document.getElementById("areaTool").classList.remove("active");
-        canvasWrap.classList.remove("area-drawing");
+        cancelEngineCanvasLayoutTool("area");
         setStatus("Area / Room tool cancelled.");
         return;
       }
@@ -106560,6 +106945,10 @@ renderViewerOutputDebug();
             restoreDeviceEditorSnapshot: restoreDeviceEditorEngineSnapshot,
             getGridVisible: () => state.gridVisible !== false,
             getObjectSnapping: () => state.objectSnapping !== false,
+            getActiveCanvasTool: activeEngineCanvasLayoutTool,
+            onEngineCanvasToolPointerEvent: handleEngineCanvasToolPointerEvent,
+            onEngineCanvasToolKeyEvent: handleEngineCanvasToolKeyEvent,
+            onEngineCanvasObjectDoubleClick: handleEngineCanvasObjectDoubleClick,
             onEngineSelection: syncProductionSelectionFromEngine,
             onEngineViewportChange: ({ x, y, zoom }) => {
               const nextZoom = Number(zoom);
@@ -106572,6 +106961,12 @@ renderViewerOutputDebug();
               if (Number.isFinite(nextX)) canvasView.x = nextX;
               if (Number.isFinite(nextY)) canvasView.y = nextY;
               if (Number.isFinite(nextZoom)) setZoomReadoutValue(nextZoom);
+              updateEngineLayoutToolOverlayViewport({ x: canvasView.x, y: canvasView.y, zoom: canvasView.zoom });
+              if (engineLayoutToolLastPointer) {
+                if (titleBlockPlacementDraft) updateEngineTitleBlockPlacementPreview(engineLayoutToolLastPointer);
+                if (commentDraft) updateEngineCommentPreview(engineLayoutToolLastPointer);
+                if (areaDraft) updateEngineAreaPreview(engineLayoutToolLastPointer);
+              }
             },
             onEngineContextMenu: ({ event, target }) => {
               hideDeviceContextMenu();

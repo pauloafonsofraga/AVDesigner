@@ -11,23 +11,24 @@ import { RACK_PREVIEW_BUILD_ID } from "../src/engine/rackPreview.js";
 import { NODE_PREVIEW_BUILD_ID } from "../src/engine/nodePreview.js";
 import { TITLE_BLOCK_PREVIEW_BUILD_ID } from "../src/engine/titleBlockPreview.js";
 
-const EXPECTED_BUILD_ID = "iteration53-4-1-preview-verification";
+const EXPECTED_PREVIEW_BUILD_ID = "iteration53-4-1-preview-verification";
+const EXPECTED_APP_BUILD_ID = "iteration54-0-canvas-layout-objects";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
 const enginePreviewSource = readFileSync(resolve(repoRoot, "src/engine/enginePreview.js"), "utf8");
 const previewMigrationDoc = readFileSync(resolve(repoRoot, "docs/engine-preview-migration.md"), "utf8");
 
-assert.equal(ENGINE_PREVIEW_BUILD_ID, EXPECTED_BUILD_ID, "shared preview build id");
-assert.equal(RACK_PREVIEW_BUILD_ID, EXPECTED_BUILD_ID, "rack preview build id");
-assert.equal(NODE_PREVIEW_BUILD_ID, EXPECTED_BUILD_ID, "node preview build id");
-assert.equal(TITLE_BLOCK_PREVIEW_BUILD_ID, EXPECTED_BUILD_ID, "title-block preview build id");
+assert.equal(ENGINE_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "shared preview build id");
+assert.equal(RACK_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "rack preview build id");
+assert.equal(NODE_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "node preview build id");
+assert.equal(TITLE_BLOCK_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "title-block preview build id");
 
-assert.ok(indexHtml.includes('const APP_ITERATION = "53.4.1";'), "app iteration should be 53.4.1");
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${EXPECTED_BUILD_ID}";`), "app build id should match 53.4.1");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration53-4-1-preview-verification-modules";'), "module cache key should match 53.4.1");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.0";'), "app iteration should be 54.0");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${EXPECTED_APP_BUILD_ID}";`), "app build id should match 54.0");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-0-canvas-layout-objects-modules";'), "module cache key should match 54.0");
 assert.ok(indexHtml.includes('url.searchParams.set("module", APP_MODULE_CACHE_ID);'), "engine imports should carry the module cache key");
-assert.ok(indexHtml.includes("Preview Verification"), "app build label should name 53.4.1");
+assert.ok(indexHtml.includes("Canvas Layout Objects"), "app build label should name 54.0");
 
 assert.ok(!enginePreviewSource.includes("legacyActualDraws"), "generic shared preview diagnostics must not publish fake legacy draw counters");
 assert.ok(!indexHtml.includes("legacy draws ${row."), "runtime owner rows must not render fake generic legacy draw counters");
@@ -35,7 +36,7 @@ assert.ok(indexHtml.includes("legacyActualDeviceVisualDraws: editorEnginePreview
 assert.ok(indexHtml.includes('legacyProductionRenderer: nodeBuilderUsesEnginePreview() ? "none" : "legacy/dom"'), "Node Builder must declare that no Engine-mode legacy production renderer exists");
 
 const ownership = enginePreviewOwnershipAudit();
-assert.equal(ownership.buildId, EXPECTED_BUILD_ID, "ownership audit build id");
+assert.equal(ownership.buildId, EXPECTED_PREVIEW_BUILD_ID, "ownership audit build id");
 
 const owners = new Map(ownership.requiredOwners.map(row => [row.owner, row]));
 for (const owner of ["device-editor", "rack-builder", "node-builder", "title-block"]) {
@@ -104,7 +105,8 @@ assert.ok(
 );
 
 console.info("Preview ownership validation passed", {
-  buildId: EXPECTED_BUILD_ID,
+  previewBuildId: EXPECTED_PREVIEW_BUILD_ID,
+  appBuildId: EXPECTED_APP_BUILD_ID,
   owners: [...owners.keys()],
   excluded: [...excludedIds]
 });

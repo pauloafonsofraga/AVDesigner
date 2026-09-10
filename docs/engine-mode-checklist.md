@@ -240,20 +240,30 @@ PDF and report drawing paths are deliberately unchanged.
 The legacy production SVG editor remains available as a safe fallback behind
 explicit URL flags.
 
-Current visible build label: `Iteration 53.4.1 — Preview Verification`.
+Current visible build label: `Iteration 54.0 — Canvas Layout Objects`.
 The app top bar must show one of these labels:
 
-- `Iteration 53.4.1 — Preview Verification — Engine Editor — iteration53-4-1-preview-verification`
-- `Iteration 53.4.1 — Preview Verification — Legacy Editor — iteration53-4-1-preview-verification`
+- `Iteration 54.0 — Canvas Layout Objects — Engine Editor — iteration54-0-canvas-layout-objects`
+- `Iteration 54.0 — Canvas Layout Objects — Legacy Editor — iteration54-0-canvas-layout-objects`
 
 The Engine HUD badge for this pass must also show
-`iteration53-4-1-preview-verification`. If the top bar or diagnostics show an
+`iteration54-0-canvas-layout-objects`. If the top bar or diagnostics show an
 older build ID such as `iteration51-8-project-devices-placement-v18`, the
 browser or deployment is serving stale code.
 
-Engine module imports now use `APP_BUILD_ID` plus the 53.4.1
+Engine module imports now use `APP_BUILD_ID` plus the 54.0
 `APP_MODULE_CACHE_ID` as their cache key. A stale page URL with an older `v=`
 value should no longer force the Engine to import older JavaScript modules.
+
+Iteration 54.0 restores the functional canvas layout object workflow in Engine
+mode for Comment Callout, Area / Room, and Title Block. Toolbar tools now enter
+an Engine-aware pointer dispatch before selection, marquee, device drag, wire
+creation, or pan; transient placement geometry is drawn in a lightweight
+non-interactive overlay above the Engine canvas; saved objects still normalize
+through the existing `area`, `comment`, and `title-block` canvas object paths.
+Comment box movement and resize deliberately preserve the raw callout anchor,
+and Area/Title Block creation use targeted Engine commands instead of a full
+legacy render.
 
 Iteration 53.4 finalizes persistent Engine-mode preview ownership. Device
 Editor, Rack Builder, Node Builder Canvas Appearance, and Title Block previews
