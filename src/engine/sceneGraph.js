@@ -48,16 +48,30 @@ import {
   signalDirectionToLegacyDirection,
   validateConnectorTopology
 } from "./deviceDefinitionV2.js";
+import {
+  buildJumpLinkIndexes,
+  invalidJumpLinksForScene,
+  isJumpNodeDevice,
+  jumpNodeRoleColor,
+  JUMP_NODE_ROLE,
+  JUMP_NODE_ROLE_COLORS,
+  normalizeJumpLinks,
+  pairedJumpIdForLink,
+  sceneJumpNodeRole
+} from "./jumpNodeModel.js";
 
 export class SceneGraph {
   constructor() {
     this.devices = [];
     this.wires = [];
     this.racks = [];
+    this.jumpLinks = [];
     this.meta = {};
     this.devicesById = new Map();
     this.wiresById = new Map();
     this.racksById = new Map();
+    this.jumpLinkById = new Map();
+    this.jumpLinkByJumpId = new Map();
     this.wireIdsByDeviceId = new Map();
     this.connectorOwnerByKey = new Map();
     this.connectorKeysByOwnerId = new Map();
@@ -77,10 +91,11 @@ export class SceneGraph {
     this.selectedWireIds = new Set();
     this.selectedConnectorKeys = new Set();
     this.selectedRoutePointKeys = new Set();
+    this.primarySelectedJumpId = "";
     this.connectorDisplayLayoutByDeviceId = new Map();
   }
 
-  setData({ devices = [], wires = [], racks = [], meta = {} }) {
+  setData({ devices = [], wires = [], racks = [], jumpLinks = [], meta = {} }) {
     this.devices = devices.map(normalizeDevice);
     this.racks = racks.map(normalizeRack).filter(Boolean);
     this.meta = meta || {};
@@ -91,6 +106,11 @@ export class SceneGraph {
       && this.devicesById.has(this.wireEndpointObjectId(wire, "to"))
     ));
     this.wiresById = new Map(this.wires.map(wire => [wire.id, wire]));
+    this.jumpLinks = normalizeJumpLinks(jumpLinks, {
+      jumpNodeIds: new Set(this.devices.filter(device => isJumpNodeDevice(device)).map(device => device.id))
+    });
+    this.rebuildJumpLinkIndex();
+    this.refreshJumpNodeRoles();
     this.rebuildRackIndex();
     this.applyRackConnectorVisibility();
     this.selectedIds.clear();
@@ -98,6 +118,7 @@ export class SceneGraph {
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
+    this.primarySelectedJumpId = "";
     this.rebuildWireIndex();
     this.rebuildSpatialIndexes();
     this.dirtyDevices.clear();
@@ -125,6 +146,7 @@ export class SceneGraph {
       adapterFanOutDevices: adapterMappings.filter(mapping => mapping.fanDirection.includes("fan-out")).length,
       adapterFanInDevices: adapterMappings.filter(mapping => mapping.fanDirection.includes("fan-in")).length,
       jumpNodes: this.devices.filter(device => device.kind === "jump").length,
+      jumpLinks: this.jumpLinks.length,
       ledSurfaces: this.devices.filter(device => isLedSurfaceKind(device)).length,
       imageObjects: this.devices.filter(device => device.kind === "image-object").length,
       rackChildDevices: this.rackIdByDeviceId.size,
@@ -139,6 +161,101 @@ export class SceneGraph {
       ), 0),
       labelsMapped: this.devices.filter(device => device.labelMapped).length
     };
+  }
+
+  rebuildJumpLinkIndex() {
+    const indexes = buildJumpLinkIndexes(this.jumpLinks);
+    this.jumpLinkById = indexes.byId;
+    this.jumpLinkByJumpId = indexes.byJumpId;
+    if (indexes.duplicates?.length) {
+      this.meta.jumpLinkIndexWarnings = indexes.duplicates;
+    }
+  }
+
+  jumpLinkForNode(jumpId) {
+    return this.jumpLinkByJumpId.get(String(jumpId || "")) || null;
+  }
+
+  getJumpLink(linkId) {
+    return this.jumpLinkById.get(String(linkId || "")) || null;
+  }
+
+  pairedJumpId(jumpId) {
+    return pairedJumpIdForLink(this.jumpLinkForNode(jumpId), jumpId);
+  }
+
+  jumpNodeRole(jumpId) {
+    return sceneJumpNodeRole(this, jumpId);
+  }
+
+  addJumpLink(linkData = {}) {
+    const normalized = normalizeJumpLinks([linkData], {
+      jumpNodeIds: new Set(this.devices.filter(device => isJumpNodeDevice(device)).map(device => device.id))
+    })[0];
+    if (!normalized) return null;
+    if (this.jumpLinkById.has(normalized.id) || this.jumpLinkByJumpId.has(normalized.outputJumpId) || this.jumpLinkByJumpId.has(normalized.inputJumpId)) {
+      return null;
+    }
+    this.jumpLinks.push(normalized);
+    this.jumpLinkById.set(normalized.id, normalized);
+    this.jumpLinkByJumpId.set(normalized.outputJumpId, normalized);
+    this.jumpLinkByJumpId.set(normalized.inputJumpId, normalized);
+    return normalized;
+  }
+
+  insertJumpLink(linkData = {}, index = null) {
+    const normalized = normalizeJumpLinks([linkData], {
+      jumpNodeIds: new Set(this.devices.filter(device => isJumpNodeDevice(device)).map(device => device.id))
+    })[0];
+    if (!normalized) return null;
+    if (this.jumpLinkById.has(normalized.id) || this.jumpLinkByJumpId.has(normalized.outputJumpId) || this.jumpLinkByJumpId.has(normalized.inputJumpId)) {
+      return null;
+    }
+    const targetIndex = Number.isInteger(index) ? Math.max(0, Math.min(index, this.jumpLinks.length)) : this.jumpLinks.length;
+    this.jumpLinks.splice(targetIndex, 0, normalized);
+    this.rebuildJumpLinkIndex();
+    return normalized;
+  }
+
+  deleteJumpLink(linkId) {
+    const id = String(linkId || "");
+    const index = this.jumpLinks.findIndex(link => link.id === id);
+    if (index < 0) return null;
+    const [removed] = this.jumpLinks.splice(index, 1);
+    this.rebuildJumpLinkIndex();
+    return { link: removed, index };
+  }
+
+  removeInvalidJumpLinksForJumps(jumpIds = []) {
+    const invalid = invalidJumpLinksForScene(this, { jumpIds });
+    return invalid.map(link => this.deleteJumpLink(link.id)).filter(Boolean);
+  }
+
+  refreshJumpNodeRoles(jumpIds = null) {
+    const ids = jumpIds
+      ? new Set((jumpIds || []).map(id => String(id || "")).filter(Boolean))
+      : null;
+    this.devices.forEach(device => {
+      if (!isJumpNodeDevice(device)) return;
+      if (ids && !ids.has(device.id)) return;
+      const roleInfo = sceneJumpNodeRole(this, device.id);
+      const role = roleInfo.role || JUMP_NODE_ROLE.neutral;
+      const color = jumpNodeRoleColor(role);
+      device.visual = {
+        ...(device.visual || {}),
+        jumpRole: role,
+        jumpColor: color,
+        jumpLocalWireId: roleInfo.localWire?.id || "",
+        jumpPairedId: this.pairedJumpId(device.id)
+      };
+      device.color = color;
+      (device.connectors || []).forEach(connector => {
+        connector.label = device.label || connector.label || "Jump";
+        connector.color = color;
+        connector.__jumpRole = role;
+      });
+      this.dirtyDevices.add(device.id);
+    });
   }
 
   rebuildRackIndex() {
@@ -417,6 +534,7 @@ export class SceneGraph {
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
+    this.primarySelectedJumpId = "";
   }
 
   toggleRackSelection(rackId) {
@@ -425,6 +543,7 @@ export class SceneGraph {
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
+    this.primarySelectedJumpId = "";
     if (!childIds.length) return;
     const selected = this.selectedRackIds.has(id);
     childIds.forEach(childId => {
@@ -533,11 +652,13 @@ export class SceneGraph {
   applyWireState(wireId, state = {}) {
     const wire = this.getWire(wireId);
     if (!wire) return null;
+    const affectedJumpIds = this.jumpIdsForWire(wire);
     this.removeWireEndpointIndexes(wire);
     const normalized = normalizeWire({ ...wire, ...state, id: wire.id });
     Object.keys(wire).forEach(key => delete wire[key]);
     Object.assign(wire, normalized);
     this.addWireEndpointIndexes(wire);
+    this.refreshJumpNodeRoles([...new Set([...affectedJumpIds, ...this.jumpIdsForWire(wire)])]);
     this.dirtyWires.add(wire.id);
     this.refreshWireIndexes([wire.id]);
     return wire;
@@ -846,13 +967,36 @@ export class SceneGraph {
     return this.wiresById.get(id) || null;
   }
 
+  jumpIdsForWire(wire) {
+    if (!wire) return [];
+    return ["from", "to"]
+      .map(end => this.wireEndpointObjectId(wire, end))
+      .filter(id => isJumpNodeDevice(this.getDevice(id)));
+  }
+
   selectOnly(id) {
     this.selectedIds.clear();
     this.selectedRackIds.clear();
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
+    this.primarySelectedJumpId = "";
     if (id) this.selectedIds.add(id);
+  }
+
+  selectJumpPairPrimary(jumpId) {
+    const id = String(jumpId || "");
+    this.selectedIds.clear();
+    this.selectedRackIds.clear();
+    this.selectedWireIds.clear();
+    this.selectedConnectorKeys.clear();
+    this.selectedRoutePointKeys.clear();
+    this.primarySelectedJumpId = "";
+    if (!id || !isJumpNodeDevice(this.getDevice(id))) return;
+    this.selectedIds.add(id);
+    this.primarySelectedJumpId = id;
+    const pairedId = this.pairedJumpId(id);
+    if (pairedId && isJumpNodeDevice(this.getDevice(pairedId))) this.selectedIds.add(pairedId);
   }
 
   toggleSelection(id) {
@@ -860,6 +1004,7 @@ export class SceneGraph {
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
+    this.primarySelectedJumpId = "";
     if (this.selectedIds.has(id)) this.selectedIds.delete(id);
     else this.selectedIds.add(id);
   }
@@ -869,6 +1014,7 @@ export class SceneGraph {
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
+    this.primarySelectedJumpId = "";
     ids.filter(id => this.devicesById.has(id)).forEach(id => {
       if (this.selectedIds.has(id)) this.selectedIds.delete(id);
       else this.selectedIds.add(id);
@@ -881,6 +1027,7 @@ export class SceneGraph {
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
+    this.primarySelectedJumpId = "";
   }
 
   selectWireOnly(id) {
@@ -889,6 +1036,7 @@ export class SceneGraph {
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
+    this.primarySelectedJumpId = "";
     if (this.wiresById.has(id)) this.selectedWireIds.add(id);
   }
 
@@ -897,6 +1045,7 @@ export class SceneGraph {
     this.selectedRackIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
+    this.primarySelectedJumpId = "";
     if (this.selectedWireIds.has(id)) this.selectedWireIds.delete(id);
     else if (this.wiresById.has(id)) this.selectedWireIds.add(id);
   }
@@ -907,6 +1056,7 @@ export class SceneGraph {
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
+    this.primarySelectedJumpId = "";
     const key = connectorKey(deviceId, connectorId);
     if (this.getConnector(deviceId, connectorId)) this.selectedConnectorKeys.add(key);
   }
@@ -917,6 +1067,7 @@ export class SceneGraph {
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
+    this.primarySelectedJumpId = "";
     const wire = this.getWire(wireId);
     if (wire?.routePoints?.[pointIndex]) this.selectedRoutePointKeys.add(routePointKey(wireId, pointIndex));
   }
@@ -927,6 +1078,7 @@ export class SceneGraph {
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
+    this.primarySelectedJumpId = "";
   }
 
   affectedWireIdsForDevices(deviceIds) {
@@ -1073,6 +1225,10 @@ export class SceneGraph {
     const id = String(deviceId || "");
     const device = this.devicesById.get(id);
     if (!device) return null;
+    if (isJumpNodeDevice(device)) {
+      const link = this.jumpLinkForNode(id);
+      if (link) this.deleteJumpLink(link.id);
+    }
     this.devices = this.devices.filter(item => item.id !== id);
     this.devicesById.delete(id);
     this.connectorDisplayLayoutByDeviceId.delete(id);
@@ -1294,6 +1450,7 @@ export class SceneGraph {
     this.wires.push(wire);
     this.wiresById.set(wire.id, wire);
     this.addWireEndpointIndexes(wire);
+    this.refreshJumpNodeRoles(this.jumpIdsForWire(wire));
     this.dirtyWires.add(wire.id);
     this.refreshWireIndexes([wire.id]);
     return wire;
@@ -1346,6 +1503,7 @@ export class SceneGraph {
     this.wires.push(wire);
     this.wiresById.set(wire.id, wire);
     this.addWireEndpointIndexes(wire);
+    this.refreshJumpNodeRoles(this.jumpIdsForWire(wire));
     this.dirtyWires.add(wire.id);
     this.refreshWireIndexes([wire.id]);
     return wire;
@@ -1355,6 +1513,7 @@ export class SceneGraph {
     const id = String(wireId || "");
     const wire = this.wiresById.get(id);
     if (!wire) return null;
+    const affectedJumpIds = this.jumpIdsForWire(wire);
     this.wires = this.wires.filter(item => item.id !== id);
     this.wiresById.delete(id);
     this.selectedWireIds.delete(id);
@@ -1363,6 +1522,7 @@ export class SceneGraph {
     });
     this.rebuildWireIndex();
     this.refreshWireIndexes([id]);
+    this.refreshJumpNodeRoles(affectedJumpIds);
     return wire;
   }
 

@@ -4453,7 +4453,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.1.2 — Comment Direct Editing — iteration54-1-2-comment-direct-editing</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.2 — Smart Jump Nodes & Signal Portals — iteration54-2-smart-jump-nodes</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5169,12 +5169,12 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.1.2";
-    const APP_BUILD_ID = "iteration54-1-2-comment-direct-editing";
-    const APP_MODULE_CACHE_ID = "iteration54-1-2-comment-direct-editing-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Comment Direct Editing`;
+    const APP_ITERATION = "54.2";
+    const APP_BUILD_ID = "iteration54-2-smart-jump-nodes";
+    const APP_MODULE_CACHE_ID = "iteration54-2-smart-jump-nodes-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Smart Jump Nodes & Signal Portals`;
     const APP_SOURCE_BRANCH = "engine-prototype";
-    const APP_SOURCE_BASE_COMMIT = "a34ee8775c0775513ced5fa9beb1dd856a285ae5";
+    const APP_SOURCE_BASE_COMMIT = "27cf17e169961c9916a84e14ba36ad897db434c3";
     const CANVAS_MIN_ZOOM = 0.03;
     const CANVAS_MAX_ZOOM = 8;
     const ENGINE_COMMENT_ARROW_LENGTH = 16;
@@ -77683,6 +77683,7 @@
       areas: [],
       racks: [],
       jumpNodes: [],
+      jumpLinks: [],
       comments: [],
       titleBlocks: [],
       connections: [],
@@ -79128,7 +79129,37 @@
       };
     }
 
+    function normalizeJumpRole(direction) {
+      const value = String(direction || "").toLowerCase();
+      if (value === "output" || value === "out" || value === "source") return "output";
+      if (value === "input" || value === "in" || value === "sink") return "input";
+      return "neutral";
+    }
+
+    function jumpRoleColor(role) {
+      if (role === "output") return "#32b6ff";
+      if (role === "input") return "#fb7904";
+      return "#778492";
+    }
+
+    function jumpLinkForJumpNode(jumpNodeId) {
+      const id = String(jumpNodeId || "");
+      const explicit = (state.jumpLinks || []).find(link => link && (link.outputJumpId === id || link.inputJumpId === id));
+      if (explicit) return explicit;
+      const node = jumpNodeById(id);
+      if (!node?.pairId) return null;
+      const pair = state.jumpNodes.find(item => item.pairId === node.pairId && item.id !== node.id);
+      if (!pair) return null;
+      const firstRole = jumpNodeRole(id).role;
+      const secondRole = jumpNodeRole(pair.id).role;
+      if (firstRole === "output" && secondRole === "input") return { id: `legacy-${node.pairId}`, outputJumpId: id, inputJumpId: pair.id };
+      if (firstRole === "input" && secondRole === "output") return { id: `legacy-${node.pairId}`, outputJumpId: pair.id, inputJumpId: id };
+      return null;
+    }
+
     function pairedJumpNode(jumpNodeId) {
+      const link = jumpLinkForJumpNode(jumpNodeId);
+      if (link) return jumpNodeById(link.outputJumpId === jumpNodeId ? link.inputJumpId : link.outputJumpId) || null;
       const node = jumpNodeById(jumpNodeId);
       if (!node?.pairId) return null;
       return state.jumpNodes.find(item => item.pairId === node.pairId && item.id !== node.id) || null;
@@ -79136,7 +79167,11 @@
 
     function connectionForJumpNode(jumpNodeId) {
       const connection = state.connections.find(item => {
-        return item.from?.jumpNodeId === jumpNodeId || item.to?.jumpNodeId === jumpNodeId;
+        const fromJump = item.from?.jumpNodeId === jumpNodeId;
+        const toJump = item.to?.jumpNodeId === jumpNodeId;
+        if (fromJump === toJump) return false;
+        const other = fromJump ? item.to : item.from;
+        return !other?.jumpNodeId;
       });
       if (!connection) return null;
       const side = connection.from?.jumpNodeId === jumpNodeId ? "from" : "to";
@@ -79145,6 +79180,15 @@
         side,
         other: side === "from" ? connection.to : connection.from
       };
+    }
+
+    function jumpNodeRole(jumpNodeId) {
+      const local = connectionForJumpNode(jumpNodeId);
+      const connector = local?.other?.deviceId && local?.other?.connectorId
+        ? connectorById(local.other.deviceId, local.other.connectorId)
+        : null;
+      const role = normalizeJumpRole(connector?.direction);
+      return { role, color: jumpRoleColor(role), local };
     }
 
     function jumpNodeHasConnection(jumpNodeId) {
@@ -79306,6 +79350,7 @@
         areas: state.areas,
         racks: state.racks,
         jumpNodes: state.jumpNodes,
+        jumpLinks: state.jumpLinks,
         comments: state.comments.map(comment => ({
           ...comment,
           anchor: plainPoint(comment.anchor)
@@ -79327,6 +79372,7 @@
       state.areas = structuredClone(snapshot.areas || []);
       state.racks = structuredClone(snapshot.racks || []);
       state.jumpNodes = structuredClone(snapshot.jumpNodes || []);
+      state.jumpLinks = structuredClone(snapshot.jumpLinks || []);
       state.comments = structuredClone(snapshot.comments || []);
       state.titleBlocks = structuredClone(snapshot.titleBlocks || []);
       state.connections = structuredClone(snapshot.connections || []);
@@ -94439,6 +94485,7 @@
       if (titleBlockPlacementDraft) return "title-block";
       if (commentToolActive) return "comment";
       if (areaToolActive) return "area";
+      if (jumpNodeToolActive) return "jump-node";
       return "";
     }
 
@@ -94504,6 +94551,12 @@
       }
       if (activeTool === "title-block") {
         titleBlockPlacementDraft = null;
+      }
+      if (activeTool === "jump-node") {
+        jumpNodeToolActive = false;
+        pendingJumpNodePairId = "";
+        jumpNodeTool?.classList.remove("active");
+        canvasWrap.classList.remove("jump-node-drawing");
       }
       previewCommentLine.classList.add("hidden");
       previewAreaRect.classList.add("hidden");
@@ -95998,14 +96051,15 @@
           class: "jump-node-core",
           cx: node.x,
           cy: node.y,
-          r: JUMP_NODE_RADIUS
+          r: JUMP_NODE_RADIUS,
+          style: `fill:${jumpNodeRole(node.id).color};stroke:${jumpNodeRole(node.id).color}`
         }));
         const label = createSvg("text", {
           class: "jump-node-label",
           x: node.x,
           y: node.y + 3
         });
-        label.textContent = "JUMP";
+        label.textContent = node.label || node.name || "Jump";
         group.appendChild(label);
         drawJumpNodeInfo(group, node);
         group.addEventListener("pointerdown", event => startJumpNodePointerDown(event, node.id));
@@ -98650,6 +98704,7 @@
       if (jumpNodeTool) jumpNodeTool.classList.toggle("active", enabled);
       canvasWrap.classList.toggle("jump-node-drawing", enabled);
       if (enabled) {
+        pendingJumpNodePairId = "";
         commentToolActive = false;
         areaToolActive = false;
         commentDraft = null;
@@ -98658,7 +98713,7 @@
         previewAreaRect.classList.add("hidden");
         document.getElementById("commentTool").classList.remove("active");
         document.getElementById("areaTool").classList.remove("active");
-        setStatus(pendingJumpNodePairId ? "Place the paired jump node." : "Click the canvas to place the first jump node.");
+        setStatus("Click to place Jump Nodes. Press Escape to finish.");
       } else {
         pendingJumpNodePairId = "";
         setStatus(statusSummary());
@@ -98672,25 +98727,15 @@
     function handleJumpNodeToolClick(event) {
       const point = getCanvasPoint(event);
       pushUndo();
-      const pairId = pendingJumpNodePairId || nextId("jump-pair");
-      const isFirst = !pendingJumpNodePairId;
       const node = {
         id: nextId("jump"),
-        pairId,
         x: Math.round(point.x),
         y: Math.round(point.y),
-        label: isFirst ? "Jump A" : "Jump B"
+        label: "Jump"
       };
       state.jumpNodes.push(node);
       select({ type: "jump-node", id: node.id });
-      if (isFirst) {
-        pendingJumpNodePairId = pairId;
-        setStatus("First jump node placed. Click where the paired jump node should live.");
-      } else {
-        pendingJumpNodePairId = "";
-        setJumpNodeToolActive(false);
-        setStatus("Jump node pair placed. Connect into one side, then out of the paired side.");
-      }
+      setStatus("Jump Node placed. Click to place another, or press Escape to finish.");
       render();
     }
 
@@ -98754,7 +98799,11 @@
     function connectionForJumpNodeExcept(jumpNodeId, excludeId) {
       return state.connections.find(connection => {
         if (connection.id === excludeId) return false;
-        return connection.from?.jumpNodeId === jumpNodeId || connection.to?.jumpNodeId === jumpNodeId;
+        const fromJump = connection.from?.jumpNodeId === jumpNodeId;
+        const toJump = connection.to?.jumpNodeId === jumpNodeId;
+        if (fromJump === toJump) return false;
+        const other = fromJump ? connection.to : connection.from;
+        return !other?.jumpNodeId;
       }) || null;
     }
 
@@ -98772,23 +98821,33 @@
 
     function wireTraceSequence(connection) {
       if (!connection) return [];
-      const sequence = [];
       const fromJump = connection.from?.jumpNodeId;
       const toJump = connection.to?.jumpNodeId;
-      if (fromJump) {
-        const pair = pairedJumpNode(fromJump);
-        const prior = pair ? connectionForJumpNodeExcept(pair.id, connection.id) : null;
-        if (prior) sequence.push({ connection: prior, reverse: reverseWireToEndAtJump(prior, pair.id) });
-        sequence.push({ connection, reverse: false });
-        return sequence;
-      }
-      sequence.push({ connection, reverse: false });
-      if (toJump) {
-        const pair = pairedJumpNode(toJump);
-        const next = pair ? connectionForJumpNodeExcept(pair.id, connection.id) : null;
-        if (next) sequence.push({ connection: next, reverse: reverseWireToStartAtJump(next, pair.id) });
-      }
-      return sequence;
+      const jumpId = fromJump || toJump || "";
+      if (!jumpId) return [{ type: "wire", connection, reverse: false }];
+      const link = jumpLinkForJumpNode(jumpId);
+      if (!link) return [{ type: "wire", connection, reverse: false }];
+      const outputWire = connectionForJumpNode(link.outputJumpId)?.connection || null;
+      const inputWire = connectionForJumpNode(link.inputJumpId)?.connection || null;
+      if (!outputWire || !inputWire) return [{ type: "wire", connection, reverse: false }];
+      return [
+        {
+          type: "wire",
+          connection: outputWire,
+          reverse: reverseWireToEndAtJump(outputWire, link.outputJumpId)
+        },
+        {
+          type: "teleport",
+          fromJumpId: link.outputJumpId,
+          toJumpId: link.inputJumpId,
+          jumpLinkId: link.id
+        },
+        {
+          type: "wire",
+          connection: inputWire,
+          reverse: reverseWireToStartAtJump(inputWire, link.inputJumpId)
+        }
+      ];
     }
 
     function focusTraceCamera(point) {
@@ -98864,8 +98923,10 @@
       clearWireTrace();
       const sequence = wireTraceSequence(connection);
       if (!sequence.length) return;
-      const firstRoute = traceRouteForConnection(sequence[0].connection);
-      focusTraceCamera(sequence[0].reverse ? firstRoute.to : firstRoute.from);
+      const firstSegment = sequence.find(segment => segment.type !== "teleport" && segment.connection);
+      if (!firstSegment) return;
+      const firstRoute = traceRouteForConnection(firstSegment.connection);
+      focusTraceCamera(firstSegment.reverse ? firstRoute.to : firstRoute.from);
       renderCanvasOnly();
       const dot = createSvg("circle", {
         class: "wire-trace-dot",
@@ -98881,21 +98942,16 @@
           setTimeout(clearWireTrace, 350);
           return;
         }
-        animateWireTraceSegment(sequence[index++], dot, () => {
-          if (index < sequence.length) {
-            const nextSegment = sequence[index];
-            const jumpId = nextSegment.reverse
-              ? nextSegment.connection.to?.jumpNodeId
-              : nextSegment.connection.from?.jumpNodeId;
-            if (jumpId) {
-              const point = pointForJumpNode(jumpId);
-              dot.setAttribute("cx", point.x);
-              dot.setAttribute("cy", point.y);
-              focusTraceCamera(point);
-            }
-          }
-          setTimeout(next, index < sequence.length ? 180 : 0);
-        });
+        const segment = sequence[index++];
+        if (segment.type === "teleport") {
+          const point = pointForJumpNode(segment.toJumpId);
+          dot.setAttribute("cx", point.x);
+          dot.setAttribute("cy", point.y);
+          focusTraceCamera(point);
+          setTimeout(next, 0);
+          return;
+        }
+        animateWireTraceSegment(segment, dot, () => setTimeout(next, 0));
       }
       next();
     }
@@ -101512,7 +101568,8 @@
         jumpNodes: [],
         comments: [],
         titleBlocks: [],
-        connections: []
+        connections: [],
+        jumpLinks: []
       };
       items.forEach(item => {
         if (item.type === "device") {
@@ -101543,6 +101600,10 @@
       state.connections.forEach(connection => {
         if (!endpointIsInSelection(connection.from, sets) || !endpointIsInSelection(connection.to, sets)) return;
         payload.connections.push(structuredClone(connection));
+      });
+      (state.jumpLinks || []).forEach(link => {
+        if (!sets.jumpNodes.has(link.outputJumpId) || !sets.jumpNodes.has(link.inputJumpId)) return;
+        payload.jumpLinks.push(structuredClone(link));
       });
       return payload;
     }
@@ -101741,6 +101802,16 @@
         offsetRoutePointsForPaste(clone, dx, dy);
         state.connections.push(clone);
       });
+      (payload.jumpLinks || []).forEach(link => {
+        const outputJumpId = maps.jumpNodes.get(link.outputJumpId);
+        const inputJumpId = maps.jumpNodes.get(link.inputJumpId);
+        if (!outputJumpId || !inputJumpId) return;
+        state.jumpLinks.push({
+          id: nextId("jump-link"),
+          outputJumpId,
+          inputJumpId
+        });
+      });
       state.selected = nextSelectionItems.length > 1
         ? { type: "multi", items: nextSelectionItems }
         : nextSelectionItems[0] || null;
@@ -101887,6 +101958,16 @@
         clone.to = to;
         shiftRoutePointsForRackCopy(clone, dx, dy);
         state.connections.push(clone);
+      });
+      (state.jumpLinks || []).slice().forEach(link => {
+        const outputJumpId = maps.jumpNodes.get(link.outputJumpId);
+        const inputJumpId = maps.jumpNodes.get(link.inputJumpId);
+        if (!outputJumpId || !inputJumpId) return;
+        state.jumpLinks.push({
+          id: nextId("jump-link"),
+          outputJumpId,
+          inputJumpId
+        });
       });
       state.selected = nextSelectionItems.length > 1
         ? { type: "multi", items: nextSelectionItems }
@@ -103007,13 +103088,15 @@
       const node = jumpNodeById(jumpNodeId);
       if (!node) return;
       const pair = pairedJumpNode(jumpNodeId);
+      const role = jumpNodeRole(jumpNodeId);
       const localConnection = connectionForJumpNode(jumpNodeId)?.connection || null;
       const seed = portalSeedConnectionForJumpNode(jumpNodeId);
       inspectorBody.innerHTML = `
         <dl class="details">
           <dt>Type</dt><dd>Jump Node</dd>
           <dt>Name</dt><dd>${escapeHtml(node.label || "Jump Node")}</dd>
-          <dt>Pair</dt><dd>${escapeHtml(pair?.label || "Missing")}</dd>
+          <dt>Role</dt><dd>${escapeHtml(role.role === "output" ? "Output" : role.role === "input" ? "Input" : "Neutral")}</dd>
+          <dt>Paired With</dt><dd>${escapeHtml(pair?.label || "Not paired")}</dd>
           <dt>Status</dt><dd>${localConnection ? "Connected" : seed ? "Ready for continuation" : "Waiting for cable"}</dd>
           <dt>Cable</dt><dd>${escapeHtml(seed ? (cableTypes[seed.cableType]?.label || seed.cableType) : "")}</dd>
         </dl>
@@ -103305,6 +103388,7 @@
         areas: state.areas,
         racks: state.racks,
         jumpNodes: state.jumpNodes,
+        jumpLinks: state.jumpLinks,
         comments: state.comments,
         titleBlocks: state.titleBlocks,
         connections: state.connections,
@@ -103870,7 +103954,7 @@
         bounds: ${bounds ? `${Math.round(bounds.x)}, ${Math.round(bounds.y)}, ${Math.round(bounds.width)} x ${Math.round(bounds.height)}` : "none"}<br>
         devices: ${counts.devices || 0} / connectors: ${counts.connectors || 0} / wires: ${counts.wires || 0}<br>
         racks: ${counts.racks || 0} / rack internal: ${counts.rackInternalWires || 0} / exposed ports: ${counts.exposedRackPorts || 0}<br>
-        led: ${counts.ledSurfaces || 0} / images: ${counts.images || 0} / areas: ${counts.areas || 0} / comments: ${counts.comments || 0} / titles: ${counts.titleBlocks || 0} / jumps: ${counts.jumpNodes || 0}<br>
+        led: ${counts.ledSurfaces || 0} / images: ${counts.images || 0} / areas: ${counts.areas || 0} / comments: ${counts.comments || 0} / titles: ${counts.titleBlocks || 0} / jumps: ${counts.jumpNodes || 0} / jump links: ${counts.jumpLinks || 0}<br>
         assets: ${counts.assets || 0} total, ${counts.inlineAssets || 0} inline, ${counts.externalAssets || 0} external<br>
         timings: snapshot ${formatMs(timings.snapshotMs)} / report ${formatMs(timings.reportMs)} / bounds ${formatMs(timings.boundsMs)} / inline ${formatMs(timings.inlineAssetsMs)} / svg ${formatMs(timings.drawingSvgMs)} / html ${formatMs(timings.htmlMs)} / pdf ${formatMs(timings.pdfMs)}<br>
         dependency: PDF drawing still uses Legacy SVG clone<br>
@@ -103919,6 +104003,7 @@
           exposedRackPorts: connectors.filter(connector => connector.exposedRackPort).length,
           rackInternalWires: rackInternalWires.length,
           jumpNodes: (data.jumpNodes || []).length,
+          jumpLinks: (data.jumpLinks || []).length,
           ledSurfaces: (data.ledSurfaces || []).length,
           images: outputImageRecords(data).length,
           areas: (data.areas || []).length,
@@ -104600,6 +104685,7 @@ document.addEventListener("click", function(event) {
           state.areas = Array.isArray(data.areas) ? data.areas : [];
           state.racks = Array.isArray(data.racks) ? data.racks.filter(rack => rack && rack.id) : [];
           state.jumpNodes = Array.isArray(data.jumpNodes) ? data.jumpNodes : [];
+          state.jumpLinks = Array.isArray(data.jumpLinks) ? data.jumpLinks : [];
           state.comments = Array.isArray(data.comments) ? data.comments : [];
           state.titleBlocks = Array.isArray(data.titleBlocks) ? data.titleBlocks : [];
           state.connections = Array.isArray(data.connections) ? data.connections : [];
@@ -104647,6 +104733,7 @@ document.addEventListener("click", function(event) {
         ...state.racks.map(rack => rack.id),
         ...state.jumpNodes.map(node => node.id),
         ...state.jumpNodes.map(node => node.pairId),
+        ...state.jumpLinks.map(link => link.id),
         ...state.comments.map(comment => comment.id),
         ...state.titleBlocks.map(block => block.id),
         ...state.connections.map(connection => connection.id)
@@ -104858,7 +104945,7 @@ const outputSnapshotMeta=data.outputSnapshotMeta||null;
 const viewerOutputDebugEnabled=new URLSearchParams(window.location.search).get("debugOutput")==="1";
 if(outputSnapshotMeta){console.info("[viewer-output] snapshot",outputSnapshotMeta)}
 function viewerDebugEscape(value){return String(value==null?"":value).replace(/[&<>"']/g,ch=>ch==="&"?"&amp;":ch==="<"?"&lt;":ch===">"?"&gt;":ch===String.fromCharCode(34)?"&quot;":"&#39;")}
-function renderViewerOutputDebug(){if(!viewerOutputDebugEnabled||!outputSnapshotMeta)return;const panel=document.createElement("section");panel.style.cssText="position:fixed;left:12px;bottom:12px;z-index:1000;max-width:360px;max-height:42vh;overflow:auto;padding:9px 11px;border:1px solid rgba(50,182,255,.45);border-radius:8px;background:rgba(15,22,30,.94);color:#edf2f7;font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;box-shadow:0 12px 40px rgba(0,0,0,.35)";const counts=outputSnapshotMeta.diagnostics&&outputSnapshotMeta.diagnostics.counts||{},warnings=outputSnapshotMeta.diagnostics&&outputSnapshotMeta.diagnostics.warnings||[];panel.innerHTML="<strong>Viewer Output Snapshot</strong><br>build: "+viewerDebugEscape(outputSnapshotMeta.buildLabel||"-")+"<br>devices: "+viewerDebugEscape(counts.devices||0)+" / connectors: "+viewerDebugEscape(counts.connectors||0)+" / wires: "+viewerDebugEscape(counts.wires||0)+"<br>racks: "+viewerDebugEscape(counts.racks||0)+" / rack internal: "+viewerDebugEscape(counts.rackInternalWires||0)+"<br>led: "+viewerDebugEscape(counts.ledSurfaces||0)+" / images: "+viewerDebugEscape(counts.images||0)+" / jumps: "+viewerDebugEscape(counts.jumpNodes||0)+"<br>warnings: "+(warnings.length?warnings.map(viewerDebugEscape).join("<br>- "):"none");document.body.appendChild(panel)}
+function renderViewerOutputDebug(){if(!viewerOutputDebugEnabled||!outputSnapshotMeta)return;const panel=document.createElement("section");panel.style.cssText="position:fixed;left:12px;bottom:12px;z-index:1000;max-width:360px;max-height:42vh;overflow:auto;padding:9px 11px;border:1px solid rgba(50,182,255,.45);border-radius:8px;background:rgba(15,22,30,.94);color:#edf2f7;font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;box-shadow:0 12px 40px rgba(0,0,0,.35)";const counts=outputSnapshotMeta.diagnostics&&outputSnapshotMeta.diagnostics.counts||{},warnings=outputSnapshotMeta.diagnostics&&outputSnapshotMeta.diagnostics.warnings||[];panel.innerHTML="<strong>Viewer Output Snapshot</strong><br>build: "+viewerDebugEscape(outputSnapshotMeta.buildLabel||"-")+"<br>devices: "+viewerDebugEscape(counts.devices||0)+" / connectors: "+viewerDebugEscape(counts.connectors||0)+" / wires: "+viewerDebugEscape(counts.wires||0)+"<br>racks: "+viewerDebugEscape(counts.racks||0)+" / rack internal: "+viewerDebugEscape(counts.rackInternalWires||0)+"<br>led: "+viewerDebugEscape(counts.ledSurfaces||0)+" / images: "+viewerDebugEscape(counts.images||0)+" / jumps: "+viewerDebugEscape(counts.jumpNodes||0)+" / jump links: "+viewerDebugEscape(counts.jumpLinks||0)+"<br>warnings: "+(warnings.length?warnings.map(viewerDebugEscape).join("<br>- "):"none");document.body.appendChild(panel)}
 const cableTypes=${cablePayload};
 const fiberColors=${fiberPayload};
 const fiberTypes=new Set(${fiberTypesPayload});
@@ -104904,6 +104991,7 @@ const inspectorToggle=document.getElementById("inspectorToggle");
 const topbarToggle=document.getElementById("topbarToggle");
 const mobileViewerQuery=window.matchMedia("(max-width: 900px)");
 let selected=null;
+let hoveredJumpId="";
 let view={x:0,y:0,zoom:1};
 let pan=null;
 let pinch=null;
@@ -104919,8 +105007,12 @@ function instanceById(id){return (data.devices||[]).find(d=>d.instanceId===id)}
 function surfaceById(id){return (data.ledSurfaces||[]).find(d=>d.id===id)}
 function titleBlockById(id){return (data.titleBlocks||[]).find(d=>d.id===id)}
 function jumpNodeById(id){return(data.jumpNodes||[]).find(node=>node.id===id)}
-function pairedJumpNode(id){const node=jumpNodeById(id);return node&&node.pairId?(data.jumpNodes||[]).find(item=>item.pairId===node.pairId&&item.id!==node.id)||null:null}
-function connectionForJumpNode(id){const connection=(data.connections||[]).find(w=>w.from&&w.from.jumpNodeId===id||w.to&&w.to.jumpNodeId===id);if(!connection)return null;const side=connection.from&&connection.from.jumpNodeId===id?"from":"to";return{connection,side,other:side==="from"?connection.to:connection.from}}
+function normalizeJumpRole(direction){const value=String(direction||"").toLowerCase();if(value==="output"||value==="out"||value==="source")return"output";if(value==="input"||value==="in"||value==="sink")return"input";return"neutral"}
+function jumpRoleColor(role){if(role==="output")return"#32b6ff";if(role==="input")return"#fb7904";return"#778492"}
+function jumpLinkForJumpNode(id){const jumpId=String(id||""),explicit=(data.jumpLinks||[]).find(link=>link&&(link.outputJumpId===jumpId||link.inputJumpId===jumpId));if(explicit)return explicit;const node=jumpNodeById(jumpId);if(!node||!node.pairId)return null;const pair=(data.jumpNodes||[]).find(item=>item.pairId===node.pairId&&item.id!==node.id);if(!pair)return null;const firstRole=jumpNodeRole(jumpId).role,secondRole=jumpNodeRole(pair.id).role;if(firstRole==="output"&&secondRole==="input")return{id:"legacy-"+node.pairId,outputJumpId:jumpId,inputJumpId:pair.id};if(firstRole==="input"&&secondRole==="output")return{id:"legacy-"+node.pairId,outputJumpId:pair.id,inputJumpId:jumpId};return null}
+function pairedJumpNode(id){const link=jumpLinkForJumpNode(id);if(link)return jumpNodeById(link.outputJumpId===id?link.inputJumpId:link.outputJumpId)||null;const node=jumpNodeById(id);return node&&node.pairId?(data.jumpNodes||[]).find(item=>item.pairId===node.pairId&&item.id!==node.id)||null:null}
+function connectionForJumpNode(id){const connection=(data.connections||[]).find(w=>{const from=w.from&&w.from.jumpNodeId===id,to=w.to&&w.to.jumpNodeId===id;if(from===to)return false;const other=from?w.to:w.from;return!(other&&other.jumpNodeId)});if(!connection)return null;const side=connection.from&&connection.from.jumpNodeId===id?"from":"to";return{connection,side,other:side==="from"?connection.to:connection.from}}
+function jumpNodeRole(id){const local=connectionForJumpNode(id),conn=local&&local.other&&local.other.deviceId&&local.other.connectorId?connectorById(local.other.deviceId,local.other.connectorId):null,role=normalizeJumpRole(conn&&conn.direction);return{role:role,color:jumpRoleColor(role),local:local}}
 function isAdapterTemplate(template){return !!(template&&(template.objectType==="adapter"||template.isAdapterBreakout===true))}
 function templateForInstance(instance){return instance&&instance.templateOverride?instance.templateOverride:templateById(instance&&instance.templateId)||{name:"Missing Device",model:"",width:DEVICE_WIDTH,height:190,connectors:[]}}
 function normalizedPowerWatts(value){const watts=Number(value);return Number.isFinite(watts)&&watts>0?watts:0}
@@ -105072,7 +105164,7 @@ function fit(){const bounds=allBounds();const rect=svg.getBoundingClientRect();i
 function centerPoint(x,y){const rect=svg.getBoundingClientRect();view.x=x-rect.width/view.zoom/2;view.y=y-rect.height/view.zoom/2;updateView();render()}
 function select(next){if(Date.now()<suppressSelectionUntil)return;selected=next;render()}
 function isSelected(type,id){if(!selected)return false;if(type==="wire"&&selected.type==="multi-wire")return(selected.ids||[]).includes(id);return selected.type===type&&selected.id===id}
-function render(){areasLayer.innerHTML=rackLayer.innerHTML=wireLayer.innerHTML=ledLayer.innerHTML=deviceLayer.innerHTML=jumpLayer.innerHTML=commentLayer.innerHTML="";if(infoBoxHoverLayer)infoBoxHoverLayer.innerHTML="";const viewport=viewerViewport();renderAreas(viewport);renderRacks(viewport);renderWires(viewport);renderLedSurfaces(viewport);renderDevices(viewport);renderJumpNodes(viewport);renderTitleBlocks(viewport);renderComments(viewport);renderInspector()}
+function render(){areasLayer.innerHTML=rackLayer.innerHTML=wireLayer.innerHTML=ledLayer.innerHTML=deviceLayer.innerHTML=jumpLayer.innerHTML=commentLayer.innerHTML="";if(infoBoxHoverLayer)infoBoxHoverLayer.innerHTML="";const viewport=viewerViewport();renderAreas(viewport);renderRacks(viewport);renderWires(viewport);renderLedSurfaces(viewport);renderDevices(viewport);renderJumpLinks(viewport);renderJumpNodes(viewport);renderTitleBlocks(viewport);renderComments(viewport);renderInspector()}
 function renderAreas(viewport){(data.areas||[]).forEach(area=>{if(!visibleExport({x:area.x,y:area.y,width:area.width,height:area.height},viewport))return;const g=s("g",{class:isSelected("area",area.id)?"selected":""});g.appendChild(s("rect",{class:"area-rect",x:area.x,y:area.y,width:area.width,height:area.height,rx:4,fill:area.backgroundColor||"rgba(50,182,255,.10)"}));const text=s("text",{class:"area-label",x:area.x+18,y:area.y+42,style:"font-size:"+(area.textSize||33)+"px"});text.textContent=area.name||"Area / Room Name";g.appendChild(text);g.addEventListener("click",e=>{e.stopPropagation();select({type:"area",id:area.id})});areasLayer.appendChild(g)})}
 function deviceRect(inst){const t=templateForInstance(inst);return inst&&t?{x:inst.x,y:inst.y,width:t.width||DEVICE_WIDTH,height:t.height||190}:null}
 function rackBounds(rackId){const rects=(data.devices||[]).filter(inst=>inst.rackId===rackId).map(deviceRect).filter(Boolean);if(!rects.length)return null;const minX=Math.min(...rects.map(r=>r.x)),minY=Math.min(...rects.map(r=>r.y)),maxX=Math.max(...rects.map(r=>r.x+r.width)),maxY=Math.max(...rects.map(r=>r.y+r.height)),p=34;return{x:minX-p,y:minY-p,width:maxX-minX+p*2,height:maxY-minY+p*2}}
@@ -105094,7 +105186,9 @@ function endpointDeviceName(ep){if(ep&&ep.deviceId){const inst=instanceById(ep.d
 function endpointConnectorName(ep){if(ep&&ep.surfaceId)return"LED Screen";if(ep&&ep.jumpNodeId)return"Portal";const conn=ep&&ep.deviceId?connectorById(ep.deviceId,ep.connectorId):null;return conn&&((conn.nameText||conn.label||connectorLabel(conn)))||"Connector"}
 function jumpNodeInfo(node){const local=connectionForJumpNode(node&&node.id),pair=pairedJumpNode(node&&node.id),pairLocal=pair&&connectionForJumpNode(pair.id);if(local&&local.side==="to"){return{side:"right",text:"to: "+(endpointDeviceName(pairLocal&&pairLocal.other)||"Unassigned")+" - "+(endpointConnectorName(pairLocal&&pairLocal.other)||"Unassigned")}}if(local&&local.side==="from"){return{side:"left",text:"from: "+(endpointDeviceName(pairLocal&&pairLocal.other)||"Unassigned")+" - "+(endpointConnectorName(pairLocal&&pairLocal.other)||"Unassigned")}}if(pairLocal&&pairLocal.side==="to"){return{side:"left",text:"from: "+(endpointDeviceName(pairLocal.other)||"Unassigned")+" - "+(endpointConnectorName(pairLocal.other)||"Unassigned")}}if(pairLocal&&pairLocal.side==="from"){return{side:"right",text:"to: "+(endpointDeviceName(pairLocal.other)||"Unassigned")+" - "+(endpointConnectorName(pairLocal.other)||"Unassigned")}}return{side:"right",text:"to: Unassigned"}}
 function drawJumpNodeInfo(parent,node){const info=jumpNodeInfo(node),height=JUMP_NODE_RADIUS*2,width=Math.max(122,Math.min(240,info.text.length*6+22)),gap=8,x=info.side==="left"?node.x-JUMP_NODE_RADIUS-gap-width:node.x+JUMP_NODE_RADIUS+gap,y=node.y-JUMP_NODE_RADIUS,group=s("g",{class:"jump-node-info"});group.appendChild(s("rect",{x:x,y:y,width:width,height:height,rx:6}));const label=s("text",{x:x+10,y:y+height/2});label.textContent=info.text.length>34?info.text.slice(0,31)+"...":info.text;group.appendChild(label);parent.appendChild(group)}
-function renderJumpNodes(viewport){(data.jumpNodes||[]).forEach(node=>{if(!visibleExport(jumpNodeBoundsExport(node),viewport))return;const local=connectionForJumpNode(node.id),pair=pairedJumpNode(node.id),pairWire=pair&&connectionForJumpNode(pair.id),lit=isSelected("jump-node",node.id)||(selected&&selected.type==="wire"&&(local&&local.connection.id===selected.id||pairWire&&pairWire.connection.id===selected.id)),g=s("g",{class:"jump-node "+(isSelected("jump-node",node.id)?"selected ":"")+(lit?"portal-lit":""),"data-jump-node-id":node.id});g.appendChild(s("circle",{class:"jump-node-hit",cx:node.x,cy:node.y,r:36}));g.appendChild(s("circle",{class:"jump-node-core",cx:node.x,cy:node.y,r:JUMP_NODE_RADIUS}));const label=s("text",{class:"jump-node-label",x:node.x,y:node.y+3});label.textContent="JUMP";g.appendChild(label);drawJumpNodeInfo(g,node);g.addEventListener("click",e=>{e.stopPropagation();select({type:"jump-node",id:node.id})});g.addEventListener("dblclick",e=>{e.stopPropagation();if(pair)jumpEndpoint({jumpNodeId:pair.id})});jumpLayer.appendChild(g)})}
+function jumpLinkSelected(link){if(!link)return false;const ids=[link.outputJumpId,link.inputJumpId];if(hoveredJumpId&&ids.includes(hoveredJumpId))return true;if(selected&&selected.type==="jump-node"&&ids.includes(selected.id))return true;if(selected&&selected.type==="wire"){const w=(data.connections||[]).find(item=>item.id===selected.id);return wireTraceSequence(w).some(item=>item.type==="teleport"&&item.jumpLinkId===link.id)}return false}
+function renderJumpLinks(viewport){(data.jumpLinks||[]).forEach((link,index)=>{if(!link||!jumpLinkSelected(link))return;const out=jumpNodeById(link.outputJumpId),input=jumpNodeById(link.inputJumpId);if(!out||!input)return;const bounds=pointsBoundsExport([{x:out.x,y:out.y},{x:input.x,y:input.y}],90);if(viewport&&!visibleExport(bounds,viewport))return;const id="viewer-jump-link-gradient-"+index+"-"+String(link.id||"").replace(/[^a-zA-Z0-9_-]/g,""),defs=s("defs"),gradient=s("linearGradient",{id:id,gradientUnits:"userSpaceOnUse",x1:out.x,y1:out.y,x2:input.x,y2:input.y});gradient.appendChild(s("stop",{offset:"0%","stop-color":jumpRoleColor("output")}));gradient.appendChild(s("stop",{offset:"100%","stop-color":jumpRoleColor("input")}));defs.appendChild(gradient);jumpLayer.appendChild(defs);jumpLayer.appendChild(s("line",{class:"viewer-jump-link-reveal",x1:out.x,y1:out.y,x2:input.x,y2:input.y,stroke:"url(#"+id+")","stroke-width":selected&&selected.type==="jump-node"?7:5,"stroke-linecap":"round",opacity:(selected&&selected.type==="jump-node") ? .92 : .72,"pointer-events":"none"}))})}
+function renderJumpNodes(viewport){(data.jumpNodes||[]).forEach(node=>{if(!visibleExport(jumpNodeBoundsExport(node),viewport))return;const local=connectionForJumpNode(node.id),pair=pairedJumpNode(node.id),pairWire=pair&&connectionForJumpNode(pair.id),roleInfo=jumpNodeRole(node.id),link=jumpLinkForJumpNode(node.id),pairLit=jumpLinkSelected(link),lit=pairLit||isSelected("jump-node",node.id)||(selected&&selected.type==="wire"&&(local&&local.connection.id===selected.id||pairWire&&pairWire.connection.id===selected.id)),g=s("g",{class:"jump-node "+(isSelected("jump-node",node.id)?"selected ":"")+(lit?"portal-lit":""),"data-jump-node-id":node.id});g.appendChild(s("circle",{class:"jump-node-hit",cx:node.x,cy:node.y,r:36}));g.appendChild(s("circle",{class:"jump-node-core",cx:node.x,cy:node.y,r:JUMP_NODE_RADIUS,style:"fill:"+roleInfo.color+";stroke:"+roleInfo.color}));const label=s("text",{class:"jump-node-label",x:node.x,y:node.y+3});label.textContent=node.label||node.name||"Jump";g.appendChild(label);drawJumpNodeInfo(g,node);g.addEventListener("pointerenter",()=>{hoveredJumpId=node.id;render()});g.addEventListener("pointerleave",()=>{if(hoveredJumpId===node.id){hoveredJumpId="";render()}});g.addEventListener("click",e=>{e.stopPropagation();select({type:"jump-node",id:node.id})});g.addEventListener("dblclick",e=>{e.stopPropagation();if(pair)jumpEndpoint({jumpNodeId:pair.id})});jumpLayer.appendChild(g)})}
 function powerPlugImage(c){const m=powerPlugTypes[c&&c.type];if(!m)return"";const file=c.direction==="input"?m.input:m.output,path=file?POWER_PLUG_ASSET_BASE+file:"";return path?(powerPlugAssets[path]||path):""}
 function powerPlugSize(c){const m=powerPlugTypes[c&&c.type]||{},w=Number(m.width),hgt=Number(m.height);if(Number.isFinite(w)&&w>0&&Number.isFinite(hgt)&&hgt>0)return{width:w,height:hgt};const size=Number(m.size)||58;return{width:size,height:size}}
 function powerStackHeight(list){return(list||[]).reduce((sum,c,i)=>sum+powerPlugSize(c).height+(i?10:0),0)}
@@ -105149,7 +105243,7 @@ if(selected.type==="rack"){const r=rackById(selected.id),source=sourceRackForRac
 if(selected.type==="device"){const inst=instanceById(selected.id),t=templateForInstance(inst);inspect.innerHTML=rows([["Type",deviceTypeInspectorLabel(t)],["Brand",deviceBrandLabel(t)],["Name",inst.name||t.name||"Device"],["Power",formatPowerPair(devicePowerWatts(inst))],["Notes",inst.notes||""]])+'<div class="inspector-actions"><button class="tool-button" id="viewerDeviceTechSpecs" type="button">Device Tech Specs</button></div>'+connectedNodesHtml(inst,t);bindConnectedNodesHtml();const specsButton=document.getElementById("viewerDeviceTechSpecs");if(specsButton)specsButton.onclick=()=>alert((t&&String(t.techSpecs||"").trim())||"No technical specifications are stored for this device yet.");return}
 if(selected.type==="connector"){renderConnectorInspector(selected.deviceId,selected.connectorId);return}
 if(selected.type==="wire"){const w=(data.connections||[]).find(x=>x.id===selected.id);if(!w)return;inspect.innerHTML='<div class="inspector-actions"><button class="tool-button" id="playWireTrace" type="button">▶ Play Wire</button></div>'+rows([["Type","Wire"],["Label",w.label||""],["Length",w.length||""],["Cable",((cableTypes[w.cableType]||{}).label)||w.cableType],["Direction",((cableTypes[w.cableType]||{}).direction)||""],["Fiber Type",fiberTypes.has(w.cableType)?(w.fiberMode||DEFAULT_FIBER_MODE):""],["From",endpointLabel(w.from)],["To",endpointLabel(w.to)],["Notes",w.notes||""]]);document.getElementById("playWireTrace").onclick=()=>playWireTrace(w.id);return}
-if(selected.type==="jump-node"){const node=jumpNodeById(selected.id),pair=pairedJumpNode(selected.id),local=connectionForJumpNode(selected.id),pairWire=pair&&connectionForJumpNode(pair.id);if(!node)return;inspect.innerHTML=rows([["Type","Jump Node"],["Name",node.label||"Jump Node"],["Pair",pair&&pair.label||"Missing"],["Status",local?"Connected":pairWire?"Ready for continuation":"Waiting for cable"],["Cable",local?((cableTypes[local.connection.cableType]||{}).label||local.connection.cableType):pairWire?((cableTypes[pairWire.connection.cableType]||{}).label||pairWire.connection.cableType):""]]);return}
+if(selected.type==="jump-node"){const node=jumpNodeById(selected.id),pair=pairedJumpNode(selected.id),role=jumpNodeRole(selected.id),local=connectionForJumpNode(selected.id),pairWire=pair&&connectionForJumpNode(pair.id);if(!node)return;inspect.innerHTML=rows([["Type","Jump Node"],["Name",node.label||"Jump Node"],["Role",role.role==="output"?"Output":role.role==="input"?"Input":"Neutral"],["Paired With",pair&&pair.label||"Not paired"],["Status",local?"Connected":pairWire?"Ready for continuation":"Waiting for cable"],["Cable",local?((cableTypes[local.connection.cableType]||{}).label||local.connection.cableType):pairWire?((cableTypes[pairWire.connection.cableType]||{}).label||pairWire.connection.cableType):""]]);return}
 if(selected.type==="led-surface"){const su=surfaceById(selected.id);inspect.innerHTML=rows([["Type","LED Screen"],["Name",su.name||""],["Position",Math.round(su.x)+", "+Math.round(su.y)],["Size",Math.round(su.width)+" x "+Math.round(su.height)]]);return}
 if(selected.type==="area"){const a=(data.areas||[]).find(x=>x.id===selected.id);inspect.innerHTML=rows([["Type","Area / Room"],["Name",a.name||""],["Position",Math.round(a.x)+", "+Math.round(a.y)],["Size",Math.round(a.width)+" x "+Math.round(a.height)]]);return}
 if(selected.type==="comment"){const c=(data.comments||[]).find(x=>x.id===selected.id);inspect.innerHTML=rows([["Type","Comment"],["Label",c.title||""],["Text",c.text||""],["Position",Math.round(c.x)+", "+Math.round(c.y)]]);return}
@@ -105160,16 +105254,16 @@ function endpointLabel(ep){if(!ep)return"";if(ep.surfaceId){const su=surfaceById
 function otherEndpoint(w,deviceId,connectorId){const from=w.from&&w.from.deviceId===deviceId&&w.from.connectorId===connectorId;return from?w.to:w.from}
 function jumpConnectedNode(deviceId,connectorId){const w=connectionForEndpoint(deviceId,connectorId);if(w)jumpEndpoint(otherEndpoint(w,deviceId,connectorId))}
 function jumpEndpoint(ep){if(!ep)return;if(ep.surfaceId){const su=surfaceById(ep.surfaceId);if(!su)return;selected={type:"led-surface",id:su.id};centerPoint(su.x+su.width/2,su.y+su.height/2);return}if(ep.jumpNodeId){const node=jumpNodeById(ep.jumpNodeId);if(!node)return;selected={type:"jump-node",id:node.id};centerPoint(node.x,node.y);return}selected={type:"connector",deviceId:ep.deviceId,connectorId:ep.connectorId};const p=pointForConnector(ep.deviceId,ep.connectorId);centerPoint(p.x,p.y)}
-function connectionForJumpNodeExcept(jumpNodeId,excludeId){return(data.connections||[]).find(w=>w.id!==excludeId&&((w.from&&w.from.jumpNodeId===jumpNodeId)||(w.to&&w.to.jumpNodeId===jumpNodeId)))||null}
+function connectionForJumpNodeExcept(jumpNodeId,excludeId){return(data.connections||[]).find(w=>{if(w.id===excludeId)return false;const from=w.from&&w.from.jumpNodeId===jumpNodeId,to=w.to&&w.to.jumpNodeId===jumpNodeId;if(from===to)return false;const other=from?w.to:w.from;return!(other&&other.jumpNodeId)})||null}
 function reverseWireToEndAtJump(w,jumpNodeId){if(w.to&&w.to.jumpNodeId===jumpNodeId)return false;if(w.from&&w.from.jumpNodeId===jumpNodeId)return true;return false}
 function reverseWireToStartAtJump(w,jumpNodeId){if(w.from&&w.from.jumpNodeId===jumpNodeId)return false;if(w.to&&w.to.jumpNodeId===jumpNodeId)return true;return false}
-function wireTraceSequence(w){if(!w)return[];const seq=[];const fromJump=w.from&&w.from.jumpNodeId,toJump=w.to&&w.to.jumpNodeId;if(fromJump){const pair=pairedJumpNode(fromJump),prior=pair&&connectionForJumpNodeExcept(pair.id,w.id);if(prior)seq.push({wire:prior,reverse:reverseWireToEndAtJump(prior,pair.id),portal:true});seq.push({wire:w,reverse:false});return seq}seq.push({wire:w,reverse:false});if(toJump){const pair=pairedJumpNode(toJump),next=pair&&connectionForJumpNodeExcept(pair.id,w.id);if(next)seq.push({wire:next,reverse:reverseWireToStartAtJump(next,pair.id),portal:true})}return seq}
+function wireTraceSequence(w){if(!w)return[];const fromJump=w.from&&w.from.jumpNodeId,toJump=w.to&&w.to.jumpNodeId,jumpId=fromJump||toJump||"";if(!jumpId)return[{type:"wire",wire:w,reverse:false}];const link=jumpLinkForJumpNode(jumpId);if(!link)return[{type:"wire",wire:w,reverse:false}];const outputWire=connectionForJumpNode(link.outputJumpId)&&connectionForJumpNode(link.outputJumpId).connection,inputWire=connectionForJumpNode(link.inputJumpId)&&connectionForJumpNode(link.inputJumpId).connection;if(!outputWire||!inputWire)return[{type:"wire",wire:w,reverse:false}];return[{type:"wire",wire:outputWire,reverse:reverseWireToEndAtJump(outputWire,link.outputJumpId)},{type:"teleport",fromJumpId:link.outputJumpId,toJumpId:link.inputJumpId,jumpLinkId:link.id},{type:"wire",wire:inputWire,reverse:reverseWireToStartAtJump(inputWire,link.inputJumpId)}]}
 function isWireHighlighted(wireId){if(isSelected("wire",wireId))return true;if(!selected||selected.type!=="wire")return false;const selectedWire=(data.connections||[]).find(item=>item.id===selected.id);return wireTraceSequence(selectedWire).some(item=>(item.wire||item).id===wireId)}
 function focusTraceCamera(point){const rect=svg.getBoundingClientRect();view.zoom=1.13;view.x=point.x-rect.width/view.zoom/2;view.y=point.y-rect.height/view.zoom/2;updateView()}
 function clearWireTrace(){if(window.__wireTraceAnimation)cancelAnimationFrame(window.__wireTraceAnimation);window.__wireTraceAnimation=null;svg.querySelectorAll(".wire-trace-path,.wire-trace-dot").forEach(el=>el.remove())}
 function makeTracePath(d){const path=s("path",{class:"wire-trace-path",d:d});wireLayer.appendChild(path);let length=0;try{length=path.getTotalLength()}catch(e){length=0}return{path,length}}
 function animateTraceSegment(segment,dot,done){if(!segment||!segment.wire){done&&done();return}const pts=wireEndpoints(segment.wire),d=pathForConnection(segment.wire,pts),trace=makeTracePath(d);wireLayer.appendChild(dot);if(!trace.length){trace.path.remove();done&&done();return}const duration=Math.max(650,Math.min(4500,trace.length*4.6));let start=0;function step(now){if(!start)start=now;const t=Math.min(1,(now-start)/duration),ease=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2,dist=segment.reverse?trace.length*(1-ease):trace.length*ease,pt=trace.path.getPointAtLength(dist);dot.setAttribute("cx",pt.x);dot.setAttribute("cy",pt.y);focusTraceCamera(pt);if(t<1){window.__wireTraceAnimation=requestAnimationFrame(step);return}trace.path.remove();done&&done()}window.__wireTraceAnimation=requestAnimationFrame(step)}
-function playWireTrace(wireId){const w=(data.connections||[]).find(item=>item.id===wireId);if(!w)return;clearWireTrace();const sequence=wireTraceSequence(w).map(item=>({wire:item.wire||item,reverse:!!item.reverse}));if(!sequence.length)return;const firstPts=wireEndpoints(sequence[0].wire);focusTraceCamera(sequence[0].reverse?firstPts.to:firstPts.from);render();const dot=s("circle",{class:"wire-trace-dot",r:8,fill:"#fb7904",stroke:"#32b6ff","stroke-width":3});wireLayer.appendChild(dot);let index=0;function next(){if(index>=sequence.length){setTimeout(clearWireTrace,350);return}animateTraceSegment(sequence[index++],dot,()=>{if(index<sequence.length){const nextSegment=sequence[index],jumpId=nextSegment.reverse?nextSegment.wire.to&&nextSegment.wire.to.jumpNodeId:nextSegment.wire.from&&nextSegment.wire.from.jumpNodeId;if(jumpId){const p=pointForJumpNode(jumpId);dot.setAttribute("cx",p.x);dot.setAttribute("cy",p.y);focusTraceCamera(p)}}setTimeout(next,index<sequence.length?180:0)})}next()}
+function playWireTrace(wireId){const w=(data.connections||[]).find(item=>item.id===wireId);if(!w)return;clearWireTrace();const sequence=wireTraceSequence(w);if(!sequence.length)return;const first=sequence.find(item=>item.type!=="teleport"&&item.wire);if(!first)return;const firstPts=wireEndpoints(first.wire);focusTraceCamera(first.reverse?firstPts.to:firstPts.from);render();const dot=s("circle",{class:"wire-trace-dot",r:8,fill:"#fb7904",stroke:"#32b6ff","stroke-width":3});wireLayer.appendChild(dot);let index=0;function next(){if(index>=sequence.length){setTimeout(clearWireTrace,350);return}const segment=sequence[index++];if(segment.type==="teleport"){const p=pointForJumpNode(segment.toJumpId);dot.setAttribute("cx",p.x);dot.setAttribute("cy",p.y);focusTraceCamera(p);setTimeout(next,0);return}animateTraceSegment(segment,dot,()=>setTimeout(next,0))}next()}
 function normalizeCableLength(value){const text=String(value||"").trim();if(!text)return"Unspecified";const compact=text.toLowerCase().replace(",",".").replace(/[ \t]+/g," ");const format=(amount,unit)=>{const rounded=Math.round(amount*1000)/1000;const formatted=Number.isInteger(rounded)?String(rounded):String(rounded).replace(/([.][0-9]*?)0+$/,"$1").replace(/[.]$/,"");return formatted+unit};const numberPart="([0-9]+(?:[.][0-9]+)?)";const metric=new RegExp("^"+numberPart+" *(mm|millimeter|millimeters|millimetre|millimetres|cm|centimeter|centimeters|centimetre|centimetres|m|meter|meters|metre|metres|km|kilometer|kilometers|kilometre|kilometres)$").exec(compact);if(metric){const amount=Number(metric[1]),unit=metric[2],meters=unit.startsWith("mm")||unit.startsWith("milli")?amount/1000:unit.startsWith("cm")||unit.startsWith("centi")?amount/100:unit.startsWith("km")||unit.startsWith("kilo")?amount*1000:amount;return format(meters,"m")}const imperial=new RegExp("^"+numberPart+" *(in|inch|inches|"+String.fromCharCode(34)+"|ft|foot|feet|'|yd|yard|yards)$").exec(compact);if(imperial){const amount=Number(imperial[1]),unit=imperial[2],feet=unit==="in"||unit==="inch"||unit==="inches"||unit===String.fromCharCode(34)?amount/12:unit==="yd"||unit==="yard"||unit==="yards"?amount*3:amount;return format(feet,"ft")}return text}
 function reportTable(columns,rows,emptyText){if(!rows||!rows.length)return'<p class="report-empty">'+h(emptyText)+'</p>';return'<table><thead><tr>'+columns.map(c=>'<th>'+h(c.label)+'</th>').join("")+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+columns.map(c=>'<td>'+h(row[c.key]??"")+'</td>').join("")+'</tr>').join("")+'</tbody></table>'}
 function reportCableTable(rows,emptyText){if(!rows||!rows.length)return'<p class="report-empty">'+h(emptyText)+'</p>';return'<table class="report-clickable-table"><thead><tr><th>Qty</th><th>Cable Type</th><th>Length</th></tr></thead><tbody>'+rows.map(row=>'<tr data-report-cable-type="'+h(row.typeId||"")+'" data-report-cable-length="'+h(row.length||"")+'"><td>'+h(row.quantity??"")+'</td><td>'+h(row.type??"")+'</td><td>'+h(row.length??"")+'</td></tr>').join("")+'</tbody></table>'}
@@ -105231,6 +105325,7 @@ renderViewerOutputDebug();
       state.areas = [];
       state.racks = [];
       state.jumpNodes = [];
+      state.jumpLinks = [];
       state.comments = [];
       state.titleBlocks = [];
       state.connections = [];
@@ -106669,6 +106764,11 @@ renderViewerOutputDebug();
         pasteCanvasObjects();
         return;
       }
+      if (mainCanvasShortcutTarget && !event.metaKey && !event.ctrlKey && !event.altKey && shortcutKey === "j") {
+        event.preventDefault();
+        setJumpNodeToolActive(true);
+        return;
+      }
       if (rackBuilderOpen && event.key === "Escape" && (rackBuilderSelectedDeviceIds.size || rackBuilderSelectedWireId)) {
         event.preventDefault();
         rackBuilderSelectedDeviceIds.clear();
@@ -107209,6 +107309,8 @@ renderViewerOutputDebug();
             canvasWrap,
             getProjectData: projectSnapshotData,
             restoreDeviceEditorSnapshot: restoreDeviceEditorEngineSnapshot,
+            nextId,
+            setJumpNodeToolActive,
             getGridVisible: () => state.gridVisible !== false,
             getObjectSnapping: () => state.objectSnapping !== false,
             getActiveCanvasTool: activeEngineCanvasLayoutTool,

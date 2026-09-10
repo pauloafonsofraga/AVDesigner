@@ -5,6 +5,7 @@ import {
   isLedSurfaceKind
 } from "./canvasObjectKinds.js";
 import { cloneMatrixRoutes } from "./matrixRouting.js";
+import { normalizeJumpLinks } from "./jumpNodeModel.js";
 
 const ENGINE_EXPORT_FORMAT = "av-designer-engine-prototype";
 
@@ -45,6 +46,7 @@ export class ProjectMutationAdapter {
     if (!Array.isArray(this.root.devices)) this.root.devices = [];
     if (!Array.isArray(this.root.connections)) this.root.connections = [];
     if (!Array.isArray(this.root.jumpNodes)) this.root.jumpNodes = [];
+    if (!Array.isArray(this.root.jumpLinks)) this.root.jumpLinks = [];
     if (!Array.isArray(this.root.ledSurfaces)) this.root.ledSurfaces = [];
     if (!Array.isArray(this.root.imageObjects)) this.root.imageObjects = [];
     if (!Array.isArray(this.root.areas)) this.root.areas = [];
@@ -62,6 +64,16 @@ export class ProjectMutationAdapter {
     this.root.jumpNodes.forEach((node, index) => {
       const id = node.id;
       if (id) this.jumpNodeById.set(String(id), { item: node, index });
+    });
+
+    this.jumpLinkById = new Map();
+    this.jumpLinkByJumpId = new Map();
+    this.root.jumpLinks.forEach((link, index) => {
+      const id = String(link?.id || "");
+      if (!id) return;
+      this.jumpLinkById.set(id, { item: link, index });
+      if (link.outputJumpId) this.jumpLinkByJumpId.set(String(link.outputJumpId), { item: link, index });
+      if (link.inputJumpId) this.jumpLinkByJumpId.set(String(link.inputJumpId), { item: link, index });
     });
 
     this.surfaceById = new Map();
@@ -170,7 +182,10 @@ export class ProjectMutationAdapter {
         entry.item[key] = Boolean(value);
         return;
       }
-      entry.item[key] = String(value ?? "");
+      const text = String(value ?? "");
+      entry.item[key] = text;
+      if (this.jumpNodeById.get(sourceId) === entry && key === "label") entry.item.name = text;
+      if (this.jumpNodeById.get(sourceId) === entry && key === "name") entry.item.label = text;
     });
     this.record("inspector object fields", performance.now() - start, `${sourceId}`, {
       objectId: sourceId,
@@ -392,6 +407,81 @@ export class ProjectMutationAdapter {
       wireId: connection.id
     });
     return this.lastMutation.durationMs;
+  }
+
+  insertJumpNode(nodeData, { index = null, type = "create jump node" } = {}) {
+    const start = performance.now();
+    const id = String(nodeData?.id || "");
+    if (!id || this.jumpNodeById.has(id)) return { mutationMs: 0, jumpNodeData: null, index: -1 };
+    const item = {
+      ...deepClone(nodeData),
+      id,
+      label: String(nodeData.label || nodeData.name || "Jump")
+    };
+    if (item.name && !item.label) item.label = String(item.name);
+    const targetIndex = Number.isInteger(index)
+      ? Math.max(0, Math.min(index, this.root.jumpNodes.length))
+      : this.root.jumpNodes.length;
+    this.root.jumpNodes.splice(targetIndex, 0, item);
+    this.rebuildIndexes();
+    this.record(type, performance.now() - start, `jumpNodes[${targetIndex}]`, { jumpNodeId: id });
+    return { mutationMs: this.lastMutation.durationMs, jumpNodeData: deepClone(item), index: targetIndex };
+  }
+
+  removeJumpNode(jumpNodeId) {
+    const start = performance.now();
+    const id = String(jumpNodeId || "");
+    const entry = this.jumpNodeById.get(id);
+    if (!entry) return { mutationMs: 0, jumpNodeData: null, index: -1 };
+    const [removed] = this.root.jumpNodes.splice(entry.index, 1);
+    this.root.jumpLinks = this.root.jumpLinks.filter(link => link.outputJumpId !== id && link.inputJumpId !== id);
+    this.rebuildIndexes();
+    this.record("delete jump node", performance.now() - start, `jumpNodes[${entry.index}]`, { jumpNodeId: id });
+    return { mutationMs: this.lastMutation.durationMs, jumpNodeData: deepClone(removed), index: entry.index };
+  }
+
+  jumpNodeDataForId(jumpNodeId) {
+    const entry = this.jumpNodeById.get(String(jumpNodeId || ""));
+    return entry ? deepClone(entry.item) : null;
+  }
+
+  restoreJumpLink(linkData, index = null) {
+    const start = performance.now();
+    const normalized = normalizeJumpLinks([linkData], {
+      jumpNodeIds: new Set(this.root.jumpNodes.map(node => String(node?.id || "")).filter(Boolean))
+    })[0];
+    if (!normalized || this.jumpLinkById.has(normalized.id)) return { mutationMs: 0, linkData: null, index: -1 };
+    if (this.jumpLinkByJumpId.has(normalized.outputJumpId) || this.jumpLinkByJumpId.has(normalized.inputJumpId)) {
+      return { mutationMs: 0, linkData: null, index: -1 };
+    }
+    const targetIndex = Number.isInteger(index)
+      ? Math.max(0, Math.min(index, this.root.jumpLinks.length))
+      : this.root.jumpLinks.length;
+    this.root.jumpLinks.splice(targetIndex, 0, deepClone(normalized));
+    this.rebuildIndexes();
+    this.record("restore jump link", performance.now() - start, `jumpLinks[${targetIndex}]`, { jumpLinkId: normalized.id });
+    return { mutationMs: this.lastMutation.durationMs, linkData: deepClone(normalized), index: targetIndex };
+  }
+
+  removeJumpLink(linkId) {
+    const start = performance.now();
+    const entry = this.jumpLinkById.get(String(linkId || ""));
+    if (!entry) return { mutationMs: 0, linkData: null, index: -1 };
+    const [removed] = this.root.jumpLinks.splice(entry.index, 1);
+    this.rebuildIndexes();
+    this.record("delete jump link", performance.now() - start, `jumpLinks[${entry.index}]`, { jumpLinkId: linkId });
+    return { mutationMs: this.lastMutation.durationMs, linkData: deepClone(removed), index: entry.index };
+  }
+
+  removeJumpLinksForJumpIds(jumpIds = []) {
+    const ids = new Set((jumpIds || []).map(id => String(id || "")).filter(Boolean));
+    if (!ids.size) return [];
+    return this.root.jumpLinks
+      .map((link, index) => ({ link, index }))
+      .filter(entry => ids.has(String(entry.link.outputJumpId || "")) || ids.has(String(entry.link.inputJumpId || "")))
+      .sort((a, b) => b.index - a.index)
+      .map(entry => this.removeJumpLink(entry.link.id))
+      .filter(result => result.linkData);
   }
 
   insertDeviceInstance(deviceData, { index = null, type = "create device" } = {}) {
@@ -768,6 +858,7 @@ function buildProjectFromSceneData(sceneData = {}) {
     devices,
     connections,
     jumpNodes: [],
+    jumpLinks: [],
     ledSurfaces: [],
     nodeLibrary: []
   };

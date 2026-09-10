@@ -42,8 +42,13 @@ import {
   normalizeConnectorRelationships
 } from "./deviceDefinitionV2.js";
 import { commentLeaderGeometry } from "./commentGeometry.js";
+import {
+  JUMP_NODE_ROLE,
+  JUMP_NODE_ROLE_COLORS,
+  jumpNodeRoleColor
+} from "./jumpNodeModel.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-1-2-comment-direct-editing";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-2-smart-jump-nodes";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -992,6 +997,7 @@ export class WebglGraphRenderer {
           const wire = scene.getWire(hoveredWireId);
           if (wire && renderOptions.wires) pushWireHover(liveVertices, scene, wire, null, renderOptions, this.cableHopMap);
         }
+        frameStats.jumpLinkOverlays = pushJumpLinkOverlays(liveVertices, interaction);
         // Jump nodes must stay visually on top of selected/hovered wire
         // emphasis. They are normally part of the static device buffer, so a
         // lightweight foreground pass redraws only visible jump nodes before
@@ -1781,6 +1787,19 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
     stats.wirePreviewDrawn = 1;
   }
 
+  if (interaction.jumpPlacementGhost?.center) {
+    pushJumpNode(
+      vertices,
+      interaction.jumpPlacementGhost.center,
+      interaction.jumpPlacementGhost.radius || 22,
+      {
+        role: interaction.jumpPlacementGhost.role || JUMP_NODE_ROLE.neutral,
+        color: interaction.jumpPlacementGhost.color || JUMP_NODE_ROLE_COLORS.neutral,
+        opacity: interaction.jumpPlacementGhost.opacity ?? 0.5
+      }
+    );
+  }
+
   if (interaction.marquee) {
     pushBoxOutline(vertices, interaction.marquee, 2.4, "rgba(50, 182, 255, .92)");
   }
@@ -1789,6 +1808,33 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
     stats.snapDebugVisuals = pushSnapDebugVisual(vertices, interaction.snapDebugVisual, overlayOptions.camera);
   }
   return stats;
+}
+
+function pushJumpLinkOverlays(vertices, interaction = {}) {
+  let count = 0;
+  const overlays = [
+    ...(Array.isArray(interaction.jumpLinkOverlays) ? interaction.jumpLinkOverlays : []),
+    interaction.jumpLinkPreview
+  ].filter(item => item?.from && item?.to);
+  overlays.forEach(overlay => {
+    const width = overlay.mode === "selected" ? 6.2 : overlay.mode === "preview" ? 5.4 : 4.8;
+    const alpha = overlay.valid === false ? 0.58 : overlay.mode === "hover" ? 0.82 : 0.94;
+    pushGradientLine(
+      vertices,
+      overlay.from,
+      overlay.to,
+      width,
+      overlay.fromColor || JUMP_NODE_ROLE_COLORS.output,
+      overlay.toColor || JUMP_NODE_ROLE_COLORS.input,
+      18,
+      alpha
+    );
+    if (overlay.mode === "selected") {
+      pushGradientLine(vertices, overlay.from, overlay.to, width + 5, "rgba(255,255,255,.18)", "rgba(255,255,255,.18)", 18, 0.65);
+    }
+    count += 1;
+  });
+  return count;
 }
 
 function pushJumpNodeForeground(vertices, scene, camera, resolution, {
@@ -1808,7 +1854,10 @@ function pushJumpNodeForeground(vertices, scene, camera, resolution, {
     pushJumpNode(vertices, {
       x: device.x + device.width / 2,
       y: device.y + device.height / 2
-    }, Math.max(device.width, device.height) / 2);
+    }, Math.max(device.width, device.height) / 2, {
+      role: device.visual?.jumpRole || JUMP_NODE_ROLE.neutral,
+      color: device.visual?.jumpColor || jumpNodeRoleColor(device.visual?.jumpRole)
+    });
     renderer?.recordObjectLayer?.(
       layerTrace,
       device.id,
@@ -2345,7 +2394,10 @@ function pushDevice(vertices, device, offsets = null, selected = false, options 
   const y = device.y + (offset?.dy || 0);
   if (device.kind === "jump") {
     if (selected) pushSelectionOutline(vertices, device, offsets);
-    pushJumpNode(vertices, { x: x + device.width / 2, y: y + device.height / 2 }, Math.max(device.width, device.height) / 2);
+    pushJumpNode(vertices, { x: x + device.width / 2, y: y + device.height / 2 }, Math.max(device.width, device.height) / 2, {
+      role: device.visual?.jumpRole || JUMP_NODE_ROLE.neutral,
+      color: device.visual?.jumpColor || jumpNodeRoleColor(device.visual?.jumpRole)
+    });
     return;
   }
   if (selected) pushSelectionOutline(vertices, device, offsets);
@@ -2382,15 +2434,23 @@ function pushDevice(vertices, device, offsets = null, selected = false, options 
   }
 }
 
-function pushJumpNode(vertices, center, radius) {
+function pushJumpNode(vertices, center, radius, options = {}) {
   // Jump nodes are selectable objects with a synthetic connector endpoint. Draw
   // only one visible node here; connector overlays stay hidden unless an active
   // wire-create interaction is targeting the endpoint.
-  pushCircle(vertices, center, radius + 2.5, "#ff7904", 34);
-  pushCircle(vertices, center, radius, "#0951f5", 34);
-  pushCircle(vertices, center, radius * 0.68, "#32b6ff", 34);
-  pushCircleOutline(vertices, center, radius + 2.5, 2.2, "rgba(9,81,245,.95)", 34);
-  pushCircleOutline(vertices, center, radius + 5.5, 1.2, "rgba(255,255,255,.72)", 34);
+  const role = options.role || JUMP_NODE_ROLE.neutral;
+  const color = options.color || jumpNodeRoleColor(role);
+  const opacity = Math.max(0.08, Math.min(1, Number(options.opacity ?? 1) || 1));
+  const outer = role === JUMP_NODE_ROLE.output
+    ? "rgba(50,182,255,.5)"
+    : role === JUMP_NODE_ROLE.input
+      ? "rgba(251,121,4,.52)"
+      : "rgba(119,132,146,.36)";
+  pushCircle(vertices, center, radius + 2.5, colorWithOpacity(outer, opacity), 34);
+  pushCircle(vertices, center, radius, colorWithOpacity(color, opacity), 34);
+  pushCircle(vertices, center, radius * 0.68, colorWithOpacity(color, Math.min(1, opacity * 1.06)), 34);
+  pushCircleOutline(vertices, center, radius + 2.5, 2.2, colorWithOpacity(color, Math.min(1, opacity * 0.95)), 34);
+  pushCircleOutline(vertices, center, radius + 5.5, 1.2, colorWithOpacity("rgba(255,255,255,.72)", opacity), 34);
 }
 
 function pushConnectorNode(vertices, point, connector = {}, device = {}, options = DEFAULT_RENDER_OPTIONS, camera = null) {
@@ -3599,7 +3659,7 @@ function drawDeviceLabel(ctx, device, camera, offsets = null, tone = "normal") {
   const offset = offsets?.get(device.id);
   const x = (device.x + (offset?.dx || 0) - camera.x) * camera.zoom;
   const y = (device.y + (offset?.dy || 0) - camera.y) * camera.zoom;
-  const text = device.kind === "jump" ? "JUMP" : deviceLabel(device);
+  const text = device.kind === "jump" ? (deviceLabel(device) || "Jump") : deviceLabel(device);
   if (!text) return { drawn: false, hidden: true, truncated: false };
   const screenWidth = Math.max(0, Math.abs((device.width || 0) * camera.zoom));
   const screenHeight = Math.max(0, Math.abs((device.height || 0) * camera.zoom));
@@ -3785,6 +3845,31 @@ function pushLine(vertices, from, to, width, colorValue) {
   pushVertex(vertices, from.x + nx, from.y + ny, color);
   pushVertex(vertices, to.x - nx, to.y - ny, color);
   pushVertex(vertices, from.x - nx, from.y - ny, color);
+}
+
+function pushGradientLine(vertices, from, to, width, startColor, endColor, segments = 16, opacity = 1) {
+  const count = Math.max(2, Number(segments) || 16);
+  const a = colorWithOpacity(startColor, opacity);
+  const b = colorWithOpacity(endColor, opacity);
+  for (let index = 0; index < count; index += 1) {
+    const t0 = index / count;
+    const t1 = (index + 1) / count;
+    const p0 = {
+      x: from.x + (to.x - from.x) * t0,
+      y: from.y + (to.y - from.y) * t0
+    };
+    const p1 = {
+      x: from.x + (to.x - from.x) * t1,
+      y: from.y + (to.y - from.y) * t1
+    };
+    const color = [
+      a[0] + (b[0] - a[0]) * ((t0 + t1) / 2),
+      a[1] + (b[1] - a[1]) * ((t0 + t1) / 2),
+      a[2] + (b[2] - a[2]) * ((t0 + t1) / 2),
+      a[3] + (b[3] - a[3]) * ((t0 + t1) / 2)
+    ];
+    pushLine(vertices, p0, p1, width, color);
+  }
 }
 
 function pushVertex(vertices, x, y, color) {

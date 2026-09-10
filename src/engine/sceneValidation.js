@@ -10,6 +10,7 @@ import {
   normalizeConnectorRelationships,
   validateConnectorTopology
 } from "./deviceDefinitionV2.js";
+import { validateJumpLinks } from "./jumpNodeModel.js";
 
 export function validateEngineScene(scene, projectData = null) {
   const start = performance.now();
@@ -24,6 +25,7 @@ export function validateEngineScene(scene, projectData = null) {
   const productionComments = Array.isArray(root.comments) ? root.comments : [];
   const productionTitleBlocks = Array.isArray(root.titleBlocks) ? root.titleBlocks : [];
   const productionConnections = Array.isArray(root.connections) ? root.connections : [];
+  const productionJumpLinks = Array.isArray(root.jumpLinks) ? root.jumpLinks : [];
   const sceneDevices = Array.isArray(scene?.devices) ? scene.devices : [];
   const sceneWires = Array.isArray(scene?.wires) ? scene.wires : [];
   const productionObjectCount = productionDevices.length
@@ -46,6 +48,8 @@ export function validateEngineScene(scene, projectData = null) {
     comments: sceneDevices.filter(device => device.kind === "comment").length,
     titleBlocks: sceneDevices.filter(device => device.kind === "title-block").length,
     wires: sceneWires.length,
+    jumpLinks: productionJumpLinks.length,
+    invalidJumpLinks: 0,
     routedWires: sceneWires.filter(wire => wire.routePoints?.length).length,
     routePoints: sceneWires.reduce((total, wire) => total + (wire.routePoints?.length || 0), 0),
     selectedObjects: scene?.selectedIds?.size || 0,
@@ -98,6 +102,7 @@ export function validateEngineScene(scene, projectData = null) {
   validateRoutePointParity(sceneWires, productionConnections, root.wireMode === "orthogonal" ? "orthogonal" : "bezier", errors, warnings, counts);
   validateRackCanvasParity(scene, errors, counts);
   validateMatrixRoutingParity(scene, productionDevices, errors, warnings, counts);
+  validateJumpLinkParity(scene, root, warnings, counts);
 
   const durationMs = performance.now() - start;
   return {
@@ -108,6 +113,20 @@ export function validateEngineScene(scene, projectData = null) {
     warnings,
     summary: `${errors.length ? "failed" : "passed"} in ${durationMs.toFixed(1)} ms`
   };
+}
+
+function validateJumpLinkParity(scene, root, warnings, counts) {
+  const validation = validateJumpLinks(root, {
+    getConnector: endpoint => {
+      const deviceId = String(endpoint?.deviceId || endpoint?.instanceId || "");
+      const connectorId = String(endpoint?.connectorId || "");
+      return deviceId && connectorId && typeof scene?.getConnector === "function"
+        ? scene.getConnector(deviceId, connectorId)
+        : null;
+    }
+  });
+  counts.invalidJumpLinks = validation.warnings.length;
+  validation.warnings.forEach(message => warnings.push(`Jump Link: ${message}`));
 }
 
 function validateConnectorTopologies(sceneDevices, errors, warnings, counts) {

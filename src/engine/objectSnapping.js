@@ -215,10 +215,10 @@ function normalizeSnapMode(mode) {
 }
 
 export class ObjectSnapSession {
-  constructor({ scene, selectedIds = [] }) {
+  constructor({ scene, selectedIds = [], startRect = null }) {
     this.scene = scene;
     this.selectedIds = new Set((selectedIds || []).map(id => String(id || "")).filter(Boolean));
-    this.startRect = rectFromSceneObjects(scene, [...this.selectedIds]);
+    this.startRect = cloneRect(startRect) || rectFromSceneObjects(scene, [...this.selectedIds]);
     // Snapping must be independent from the live render/spatial indexes.
     // Build one immutable target index when the drag starts, then reuse it for
     // every pointer frame. This matches the Legacy snap-session behavior and

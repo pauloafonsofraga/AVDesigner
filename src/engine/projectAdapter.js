@@ -57,6 +57,12 @@ import {
   TITLE_BLOCK_BASE_HEIGHT,
   TITLE_BLOCK_BASE_WIDTH
 } from "./titleBlockLayout.js";
+import {
+  deriveLegacyPairJumpLinks,
+  normalizeEngineJumpNode,
+  normalizeJumpLinks,
+  validateJumpLinks
+} from "./jumpNodeModel.js";
 
 const SIZE_PRESETS = {
   small: { deviceCount: 100, wireCount: 300 },
@@ -78,7 +84,6 @@ const DEFAULT_DEVICE_WIDTH = 122;
 const DEFAULT_DEVICE_HEIGHT = 58;
 const SLOT_HEIGHT = 54;
 const LEGACY_DEVICE_WIDTH = 380;
-const JUMP_NODE_SIZE = 44;
 const SURFACE_FALLBACK_HEIGHT = 120;
 const CARD_SLOT_OVERRIDE_FIELDS = [
   "nameText",
@@ -298,6 +303,12 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
     placedRackIds
   });
   const wires = [...projectWires, ...rackInternalWires];
+  const explicitJumpLinks = normalizeJumpLinks(root.jumpLinks || [], { jumpNodeIds });
+  const legacyJumpLinks = explicitJumpLinks.length
+    ? []
+    : deriveLegacyPairJumpLinks(root);
+  const jumpLinks = explicitJumpLinks.length ? explicitJumpLinks : legacyJumpLinks;
+  const jumpLinkDiagnostics = validateJumpLinks({ ...root, jumpLinks });
   if (!allDevices.length) return generateSyntheticProject(SIZE_PRESETS.small);
   const adapterMs = performance.now() - adapterStart;
   const connectorCount = allDevices.reduce((total, device) => total + (device.connectors?.length || 0), 0);
@@ -319,6 +330,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
     devices: allDevices,
     wires,
     racks: placedRacks,
+    jumpLinks,
     // Keep an untouched copy beside the render graph. The mutation adapter is
     // the only prototype module allowed to write back into this project copy.
     projectData: deepClone(data),
@@ -330,6 +342,8 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
       skippedDevices: skipped.devices,
       realDevices: devices.length,
       jumpNodes: jumpDevices.length,
+      jumpLinks: jumpLinks.length,
+      jumpLinkWarnings: jumpLinkDiagnostics.warnings || [],
       ledSurfaces: surfaceDevices.length,
       imageObjects: imageDevices.length,
       areas: areaDevices.length,
@@ -863,34 +877,7 @@ function cardBandGeometry(width, slot, card) {
 function normalizeJumpNodes(jumpNodes) {
   if (!Array.isArray(jumpNodes)) return [];
   return jumpNodes.map((node, index) => {
-    const id = String(node.id || `jump-${index}`);
-    return {
-      id,
-      sourceKind: "jumpNode",
-      sourceId: id,
-      kind: "jump",
-      x: finiteNumber(node.x, 0) - JUMP_NODE_SIZE / 2,
-      y: finiteNumber(node.y, 0) - JUMP_NODE_SIZE / 2,
-      width: JUMP_NODE_SIZE,
-      height: JUMP_NODE_SIZE,
-      label: node.label || "Jump",
-      labelMapped: Boolean(node.label),
-      usesRealSize: true,
-      usesFallbackSize: false,
-      color: "#15344a",
-      connectors: [{
-        id: "jump-center",
-        type: "jump",
-        label: node.label || "Jump",
-        direction: "io",
-        side: "center",
-        x: JUMP_NODE_SIZE / 2,
-        y: JUMP_NODE_SIZE / 2,
-        color: "#ff7904",
-        colorMapped: true
-      }],
-      portCount: 1
-    };
+    return normalizeEngineJumpNode(node, index);
   });
 }
 
