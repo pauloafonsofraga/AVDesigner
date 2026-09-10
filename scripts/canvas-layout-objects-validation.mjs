@@ -24,7 +24,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-1-1-comment-double-click-editing";
+const BUILD_ID = "iteration54-1-2-comment-direct-editing";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -39,10 +39,10 @@ function sourceSlice(source, startNeedle, endNeedle) {
   return source.slice(start, end);
 }
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.1.1");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.1.1";'), "visible iteration should be 54.1.1");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-1-1-comment-double-click-editing-modules";'), "module cache key should bust 54.1.1 modules");
-assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Iteration 54.1.1");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.1.2");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.1.2";'), "visible iteration should be 54.1.2");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-1-2-comment-direct-editing-modules";'), "module cache key should bust 54.1.2 modules");
+assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Iteration 54.1.2");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
 assert.ok(classicScripts.length >= 1, "index.html should contain at least one classic script");
@@ -88,7 +88,7 @@ const rawTitleBlock = {
     client: "AV Designer",
     project: "Canvas Layout Objects",
     title: "Validation Title",
-    revision: "54.1.1",
+    revision: "54.1.2",
     companyLogo: "data:image/png;base64,title-logo"
   }
 };
@@ -289,7 +289,14 @@ assert.ok(indexHtml.includes("onEngineCanvasObjectDoubleClick"), "shell exposes 
 assert.ok(indexHtml.includes("engine-layout-tool-overlay"), "Engine placement previews use a dedicated overlay");
 assert.ok(indexHtml.includes("pointer-events: none"), "Engine placement overlay must not intercept pointer events");
 assert.ok(indexHtml.includes("engine-comment-preview-arrow"), "Engine comment placement preview draws an explicit arrowhead");
-assert.ok(indexHtml.includes(".comment-editor") && indexHtml.includes("z-index: 120"), "inline comment editor is stacked above the Engine canvas");
+assert.ok(indexHtml.includes(".comment-editor") && indexHtml.includes("z-index: 120"), "inline comment editor keeps a local stacking value");
+assert.ok(indexHtml.includes('dump.id = "engineCommentEditDebug"'), "debug-only comment edit DOM state is exposed");
+assert.ok(indexHtml.includes("engineCommentEditorHost().appendChild(control)"), "comment editor mounts through the Engine editor host");
+assert.ok(indexHtml.includes("const loadedProjectSnapshot = projectSnapshotData();"), "project load captures a fresh snapshot before Engine refresh");
+assert.ok(indexHtml.includes('bridge?.refreshFromProduction?.("project loaded", { projectData: loadedProjectSnapshot });'), "project load refreshes Engine from the loaded snapshot");
+assert.ok(bridgeSource.includes("options?.projectData || this.api.getProjectData?.()"), "Engine refresh can consume an explicit project snapshot");
+assert.ok(bridgeSource.includes("engine-bridge-editor-overlay"), "Engine root provides a dedicated editor overlay above canvas layers");
+assert.ok(bridgeSource.includes(".engine-bridge-editor-overlay .comment-editor"), "Engine editor overlay lets active controls receive pointer events");
 assert.ok(indexHtml.includes("commitCanvasLayoutObjectInspectorEdit"), "Comment/Area inspector edits use canvas-object snapshot commands");
 assert.ok(indexHtml.includes("bindCanvasObjectColorCommitInput"), "Comment/Area color inputs commit once through the snapshot path");
 assert.ok(indexHtml.includes("bindCanvasObjectOpacityCommitInput"), "Area opacity uses one snapshot command per slider gesture");
@@ -300,6 +307,7 @@ const engineDoubleClickHandler = sourceSlice(
 );
 assert.ok(engineDoubleClickHandler.includes('if (part === "title")'), "Engine shell routes comment title from payload.part");
 assert.ok(engineDoubleClickHandler.includes('if (part === "body")'), "Engine shell routes comment body from payload.part");
+assert.ok(engineDoubleClickHandler.includes('if (part === "leader" || part === "arrow")'), "Engine shell keeps leader/arrow double-clicks selection-only");
 assert.ok(!engineDoubleClickHandler.includes('part === "body" || part === "box"'), "Engine shell does not keep stale box alias for body editing");
 assert.ok(!engineDoubleClickHandler.includes("titleBand"), "Engine shell removed obsolete Comment Y-band fallback");
 assert.ok(indexHtml.includes("Math.max(80, Math.round(rect.width))"), "area creation enforces 80px minimum width");
@@ -309,8 +317,17 @@ assert.ok(bridgeSource.includes("commentBoxDrag"), "Engine bridge has comment bo
 assert.ok(bridgeSource.includes("commentHitPart"), "comment hit testing uses semantic title/body/leader/arrow geometry");
 assert.ok(bridgeSource.includes('hit.part === "body"'), "Comment body is the draggable comment box part");
 assert.ok(!bridgeSource.includes('hit.part === "box"'), "Engine bridge no longer expects stale box hit part");
-assert.ok(bridgeSource.includes("consumeCanvasObjectPointerDoubleClick"), "Engine bridge recognizes visible pointer double-clicks for canvas comments");
-assert.ok(bridgeSource.includes('"pointer-double-click"'), "Engine bridge reports pointer double-click diagnostics separately from native dblclick");
+assert.ok(bridgeSource.includes("handleCanvasWrapDoubleClick"), "Engine bridge has one canvas wrapper double-click owner");
+assert.ok(bridgeSource.includes('this.container?.addEventListener("dblclick", this.boundCanvasWrapDoubleClick, true)'), "wrapper double-click owner is capture-phase on #canvasWrap");
+assert.ok(bridgeSource.includes("shouldIgnoreCanvasWrapDoubleClick"), "wrapper double-click owner filters UI targets");
+assert.ok(bridgeSource.includes("clientPointInsideCanvas"), "wrapper double-click owner limits hits to the Engine canvas rectangle");
+assert.ok(bridgeSource.includes('"comments"') && bridgeSource.includes('"titleBlocks"') && bridgeSource.includes('"areas"'), "layout-only projects are not normalized as empty Engine scenes");
+assert.ok(!bridgeSource.includes('this.canvas.addEventListener("dblclick"'), "WebGL canvas no longer owns double-click directly");
+assert.ok(!bridgeSource.includes("consumeCanvasObjectPointerDoubleClick"), "custom pointerdown timing double-click recognizer is removed");
+assert.ok(!bridgeSource.includes("lastCanvasObjectPointerDown"), "custom pointerdown double-click state is removed");
+assert.ok(!bridgeSource.includes("suppressNativeCanvasObjectDoubleClickUntil"), "native double-click suppression state is removed");
+assert.ok(!bridgeSource.includes('"pointer-double-click"'), "pointer timing double-click diagnostic route is removed");
+assert.ok(!bridgeSource.includes('part: hit.part || "body"'), "bridge does not fall back from unknown comment parts to body");
 assert.ok(bridgeSource.includes("TITLE_BLOCK_MIN_SCALE = 0.34"), "title-block minimum scale is preserved");
 assert.ok(mutationSource.includes('"textSize"'), "canvas object textSize is mutation-whitelisted");
 

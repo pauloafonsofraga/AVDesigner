@@ -89,9 +89,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-1-1-comment-double-click-editing";
-export const ENGINE_BRIDGE_VERSION = "iteration54-1-1-comment-double-click-editing";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "comment-double-click-editing";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-1-2-comment-direct-editing";
+export const ENGINE_BRIDGE_VERSION = "iteration54-1-2-comment-direct-editing";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "comment-direct-editing";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -192,8 +192,7 @@ class ProductionEngineBridge {
     this.wireCreate = null;
     this.resizeSession = null;
     this.commentBoxDrag = null;
-    this.lastCanvasObjectPointerDown = null;
-    this.suppressNativeCanvasObjectDoubleClickUntil = 0;
+    this.boundCanvasWrapDoubleClick = null;
     this.canvasToolPointerActive = false;
     this.lastCanvasToolDispatch = null;
     this.lastCanvasToolCreated = null;
@@ -309,6 +308,10 @@ class ProductionEngineBridge {
     this.engineRoot = null;
     this.container?.classList.remove("engine-bridge-active");
     this.container?.classList.remove("webgl-engine-active");
+    if (this.boundCanvasWrapDoubleClick) {
+      this.container?.removeEventListener("dblclick", this.boundCanvasWrapDoubleClick, true);
+      this.boundCanvasWrapDoubleClick = null;
+    }
     window.removeEventListener("keydown", this.boundKeyDown, true);
     window.removeEventListener("resize", this.boundResize);
     if (restoreProduction) this.api.onExit?.();
@@ -623,7 +626,7 @@ class ProductionEngineBridge {
     const loadStart = performance.now();
     try {
       this.setLoadingPhase("Reading project data...");
-      const rawProject = this.api.getProjectData?.();
+      const rawProject = options?.projectData || this.api.getProjectData?.();
       this.setGridVisible(rawProject?.gridVisible !== false, { render: false });
       this.setLoadingPhase("Normalizing project...");
       const normalized = normalizeProductionProject(rawProject, reason);
@@ -784,6 +787,7 @@ class ProductionEngineBridge {
     this.engineRoot.innerHTML = `
       <canvas class="engine-bridge-canvas" aria-label="Experimental WebGL engine canvas"></canvas>
       <canvas class="engine-bridge-label-canvas" aria-hidden="true"></canvas>
+      <div class="engine-bridge-editor-overlay" aria-hidden="true"></div>
       <div class="engine-bridge-marquee hidden" aria-hidden="true"></div>
       <div class="engine-bridge-badge">
         <strong>Engine Editor Active</strong>
@@ -890,7 +894,8 @@ class ProductionEngineBridge {
     this.canvas.addEventListener("pointercancel", event => this.handlePointerCancel(event));
     this.canvas.addEventListener("pointerleave", event => this.handlePointerLeave(event));
     this.canvas.addEventListener("lostpointercapture", event => this.handleLostPointerCapture(event));
-    this.canvas.addEventListener("dblclick", event => this.handleDoubleClick(event));
+    this.boundCanvasWrapDoubleClick = event => this.handleCanvasWrapDoubleClick(event);
+    this.container?.addEventListener("dblclick", this.boundCanvasWrapDoubleClick, true);
     this.boundKeyDown = event => this.handleKeyDown(event);
     this.boundResize = () => this.scheduleRender();
     // Engine mode must intercept undo/redo before the production document
@@ -1033,7 +1038,8 @@ class ProductionEngineBridge {
     return true;
   }
 
-  handleDoubleClick(event) {
+  handleCanvasWrapDoubleClick(event) {
+    if (this.shouldIgnoreCanvasWrapDoubleClick(event)) return;
     if (!this.ready) {
       this.blockInteraction(event, "double-click while loading");
       return;
@@ -1047,21 +1053,51 @@ class ProductionEngineBridge {
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation?.();
-    if (performance.now() < this.suppressNativeCanvasObjectDoubleClickUntil) return;
-    this.dispatchCanvasObjectDoubleClick(hit, point, world, "native-dblclick");
+    this.dispatchCanvasObjectDoubleClick(hit, point, world, "canvasWrap-capture");
   }
 
-  dispatchCanvasObjectDoubleClick(hit, point, world, source = "native-dblclick") {
+  shouldIgnoreCanvasWrapDoubleClick(event) {
+    const target = event?.target;
+    const clientX = Number(event?.clientX);
+    const clientY = Number(event?.clientY);
+    if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return true;
+    if (!this.clientPointInsideCanvas(clientX, clientY)) return true;
+    const ignoredTarget = target?.closest?.([
+      "input",
+      "textarea",
+      "select",
+      "button",
+      ".comment-editor",
+      ".engine-bridge-inspector",
+      ".engine-bridge-command-bar",
+      ".engine-bridge-badge",
+      ".engine-bridge-loading",
+      ".engine-bridge-validation",
+      ".engine-bridge-layer-debug",
+      ".engine-bridge-debug",
+      ".modal-backdrop:not(.hidden)",
+      ".context-menu:not(.hidden)",
+      "[role='dialog']",
+      "[role='menu']",
+      ".toolbar",
+      ".topbar"
+    ].join(", "));
+    return Boolean(ignoredTarget);
+  }
+
+  dispatchCanvasObjectDoubleClick(hit, point, world, source = "canvasWrap-capture") {
     if (!hit?.device) return false;
+    const part = String(hit.part || "");
     this.scene.selectOnly(hit.device.id);
     this.updateSelectionHud();
     if (this.debugCanvasObjects && hit.device.kind === "comment") {
       const details = {
-        phase: "bridge",
+        phase: "COMMENT DBLCLICK",
+        owner: source,
         source,
         sourceId: hit.device.sourceId || hit.device.id,
         engineId: hit.device.id,
-        part: hit.part || "",
+        part,
         screenPoint: { ...point },
         worldPoint: { ...world }
       };
@@ -1075,7 +1111,9 @@ class ProductionEngineBridge {
       kind: hit.device.kind,
       sourceId: hit.device.sourceId || hit.device.id,
       engineId: hit.device.id,
-      part: hit.part || "body",
+      part,
+      owner: source,
+      source,
       worldPoint: { ...world },
       screenPoint: { ...point },
       camera: cloneCamera(this.camera)
@@ -1195,7 +1233,6 @@ class ProductionEngineBridge {
       kinds: ["comment", "title-block", "image-object", "led-surface"]
     });
     if (foregroundObjectHit.device) {
-      if (!additiveSelection && this.consumeCanvasObjectPointerDoubleClick(foregroundObjectHit, point, world, event)) return;
       this.handleCanvasObjectPointerDown(foregroundObjectHit, point, world, event, additiveSelection);
       return;
     }
@@ -1232,7 +1269,6 @@ class ProductionEngineBridge {
       }
       const areaHit = this.hitTestPreciseCanvasObject(world, tolerance, { kinds: ["area"] });
       if (areaHit.device) {
-        if (!additiveSelection && this.consumeCanvasObjectPointerDoubleClick(areaHit, point, world, event)) return;
         this.handleCanvasObjectPointerDown(areaHit, point, world, event, additiveSelection);
         return;
       }
@@ -1751,34 +1787,6 @@ class ProductionEngineBridge {
     this.hud?.setMetric("marquee", `cancelled: ${reason}`);
     if (updateCursor) this.updateCanvasCursor();
     if (render) this.scheduleRender();
-    return true;
-  }
-
-  consumeCanvasObjectPointerDoubleClick(hit, point, world, event) {
-    const device = hit?.device;
-    if (!device || !isCanvasObjectKind(device)) return false;
-    const now = Number(event?.timeStamp) || performance.now();
-    const sourceId = String(device.sourceId || device.id || "");
-    const part = String(hit.part || "");
-    const previous = this.lastCanvasObjectPointerDown;
-    this.lastCanvasObjectPointerDown = {
-      sourceId,
-      engineId: String(device.id || ""),
-      kind: String(device.kind || ""),
-      part,
-      x: Number(point?.x) || 0,
-      y: Number(point?.y) || 0,
-      time: now
-    };
-    if (device.kind !== "comment") return false;
-    if (!previous) return false;
-    const elapsed = now - previous.time;
-    const distance = Math.hypot((Number(point?.x) || 0) - previous.x, (Number(point?.y) || 0) - previous.y);
-    const sameComment = previous.sourceId === sourceId && previous.kind === "comment";
-    const sameEditableRegion = previous.part === part || (previous.part === "title" && part === "title") || (previous.part === "body" && part === "body");
-    if (!sameComment || !sameEditableRegion || elapsed < 0 || elapsed > 520 || distance > 9) return false;
-    this.suppressNativeCanvasObjectDoubleClickUntil = performance.now() + 380;
-    this.dispatchCanvasObjectDoubleClick(hit, point, world, "pointer-double-click");
     return true;
   }
 
@@ -6296,7 +6304,17 @@ class ProductionEngineBridge {
 
 function normalizeProductionProject(projectData, reason) {
   const root = projectData?.state || projectData?.project || projectData || {};
-  const hasObjects = ["devices", "jumpNodes", "ledSurfaces"].some(key => Array.isArray(root[key]) && root[key].length);
+  const hasObjects = [
+    "devices",
+    "jumpNodes",
+    "ledSurfaces",
+    "imageObjects",
+    "images",
+    "areas",
+    "comments",
+    "titleBlocks",
+    "racks"
+  ].some(key => Array.isArray(root[key]) && root[key].length);
   if (!hasObjects) {
     return {
       devices: [],
@@ -6361,6 +6379,15 @@ function injectBridgeStyles() {
       display: block;
     }
     .engine-bridge-label-canvas { pointer-events: none; }
+    .engine-bridge-editor-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 8;
+      pointer-events: none;
+    }
+    .engine-bridge-editor-overlay .comment-editor {
+      pointer-events: auto;
+    }
     .engine-bridge-marquee {
       position: absolute;
       z-index: 2;

@@ -4453,7 +4453,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.1.1 — Comment Editing Fix — iteration54-1-1-comment-double-click-editing</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.1.2 — Comment Direct Editing — iteration54-1-2-comment-direct-editing</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5169,12 +5169,12 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.1.1";
-    const APP_BUILD_ID = "iteration54-1-1-comment-double-click-editing";
-    const APP_MODULE_CACHE_ID = "iteration54-1-1-comment-double-click-editing-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Comment Editing Fix`;
+    const APP_ITERATION = "54.1.2";
+    const APP_BUILD_ID = "iteration54-1-2-comment-direct-editing";
+    const APP_MODULE_CACHE_ID = "iteration54-1-2-comment-direct-editing-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Comment Direct Editing`;
     const APP_SOURCE_BRANCH = "engine-prototype";
-    const APP_SOURCE_BASE_COMMIT = "cd6c372430740d2f6c16ce717cfb4d2bab9ecfe9";
+    const APP_SOURCE_BASE_COMMIT = "a34ee8775c0775513ced5fa9beb1dd856a285ae5";
     const CANVAS_MIN_ZOOM = 0.03;
     const CANVAS_MAX_ZOOM = 8;
     const ENGINE_COMMENT_ARROW_LENGTH = 16;
@@ -94522,6 +94522,60 @@
       }
     }
 
+    let engineCommentEditDebugState = {};
+
+    function updateEngineCommentEditDebug(patch = {}) {
+      if (!engineCommentDebugEnabled()) return;
+      engineCommentEditDebugState = {
+        ...engineCommentEditDebugState,
+        ...patch,
+        updatedAt: new Date().toISOString()
+      };
+      let dump = document.getElementById("engineCommentEditDebug");
+      if (!dump) {
+        dump = document.createElement("script");
+        dump.type = "application/json";
+        dump.id = "engineCommentEditDebug";
+        document.body.appendChild(dump);
+      }
+      dump.textContent = JSON.stringify(engineCommentEditDebugState, null, 2);
+    }
+
+    function commentEditorDomState(control) {
+      if (!control) {
+        return {
+          editorMounted: false,
+          editorTopmost: false,
+          editorFocused: false,
+          editorTag: ""
+        };
+      }
+      const rect = control.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const topElement = document.elementFromPoint(centerX, centerY);
+      const style = getComputedStyle(control);
+      return {
+        editorMounted: document.body.contains(control),
+        editorTopmost: topElement === control,
+        editorFocused: control === document.activeElement,
+        editorTag: control.tagName,
+        editorRect: {
+          x: Math.round(rect.x),
+          y: Math.round(rect.y),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height)
+        },
+        topmostTag: topElement?.tagName || "",
+        topmostClass: typeof topElement?.className === "string" ? topElement.className : "",
+        editorVisible: style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0
+      };
+    }
+
+    function engineCommentEditorHost() {
+      return canvasWrap.querySelector(".engine-bridge-editor-overlay") || canvasWrap;
+    }
+
     function logEngineCommentEditorDebug(phase, details = {}) {
       if (!engineCommentDebugEnabled()) return;
       try {
@@ -94540,24 +94594,47 @@
         const part = String(payload.part || "");
         logEngineCommentEditorDebug("shell-dblclick", {
           sourceId,
+          owner: payload.owner || payload.source || "",
           part,
           worldPoint: payload.worldPoint || null,
           screenPoint: payload.screenPoint || null
         });
+        updateEngineCommentEditDebug({
+          eventReceived: true,
+          owner: payload.owner || payload.source || "",
+          source: payload.source || "",
+          commentId: sourceId,
+          part,
+          worldPoint: payload.worldPoint || null,
+          screenPoint: payload.screenPoint || null,
+          editorRequested: "",
+          editorMounted: false,
+          editorTopmost: false,
+          editorFocused: false,
+          editorTag: "",
+          editorVisible: false,
+          editorRect: null,
+          topmostTag: "",
+          topmostClass: ""
+        });
         if (part === "title") {
           logEngineCommentEditorDebug("editor-requested", { sourceId, field: "title" });
+          updateEngineCommentEditDebug({ editorRequested: "title" });
           editCommentTitle(sourceId);
           return;
         }
         if (part === "body") {
           logEngineCommentEditorDebug("editor-requested", { sourceId, field: "text" });
+          updateEngineCommentEditDebug({ editorRequested: "text" });
           editCommentBody(sourceId);
           return;
         }
         if (part === "leader" || part === "arrow") {
           logEngineCommentEditorDebug("non-edit-part", { sourceId, part });
+          updateEngineCommentEditDebug({ editorRequested: "" });
         } else {
           logEngineCommentEditorDebug("unhandled-part", { sourceId, part });
+          updateEngineCommentEditDebug({ editorRequested: "" });
         }
         return;
       }
@@ -98936,22 +99013,35 @@
         const magnifiedFontSize = field === "title" ? 18 : Math.max(14, Math.min(32, (Number(comment.textSize) || 12) * 2.1));
         control.style.fontSize = `${magnifiedFontSize}px`;
       }
-      canvasWrap.appendChild(control);
+      engineCommentEditorHost().appendChild(control);
       commentEditor = { control, commentId, field, before: structCloneComment(comment) };
       control.focus();
       control.select();
+      const domState = commentEditorDomState(control);
       logEngineCommentEditorDebug("editor-opened", {
         commentId,
         field,
         tag: control.tagName,
-        focused: control === document.activeElement,
-        visible: (() => {
-          const rect = control.getBoundingClientRect();
-          const style = getComputedStyle(control);
-          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
-        })()
+        focused: domState.editorFocused,
+        visible: domState.editorVisible,
+        topmost: domState.editorTopmost,
+        topmostTag: domState.topmostTag,
+        topmostClass: domState.topmostClass
+      });
+      updateEngineCommentEditDebug({
+        commentId,
+        part: field === "title" ? "title" : "body",
+        editorRequested: field === "title" ? "title" : "text",
+        ...domState
       });
       control.addEventListener("keydown", event => {
+        if (event.key === "Escape" || event.code === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation?.();
+          closeCommentEditor(false);
+          return;
+        }
         const isEnter = event.key === "Enter" || event.code === "Enter" || event.code === "NumpadEnter";
         if (field === "text" && isEnter && (event.altKey || event.metaKey || event.shiftKey)) {
           event.preventDefault();
@@ -99032,7 +99122,7 @@
       control.style.color = "#32b6ff";
       control.style.background = area.backgroundColor || "#223544";
       control.style.font = "800 28px/1 Inter, system-ui, sans-serif";
-      canvasWrap.appendChild(control);
+      engineCommentEditorHost().appendChild(control);
       areaEditor = { control, areaId, before: structuredClone(area) };
       control.focus();
       control.select();
@@ -104524,11 +104614,12 @@ document.addEventListener("click", function(event) {
           projectFileHandle = options.fileHandle || null;
           projectFileName = options.fileHandle?.name || file?.name || "";
           renderDeviceLibrary();
+          const loadedProjectSnapshot = projectSnapshotData();
           render();
           requestAnimationFrame(zoomToFit);
           bridge?.setLoadingPhase?.("Rebuilding Engine Editor scene...");
           try {
-            bridge?.refreshFromProduction?.("project loaded");
+            bridge?.refreshFromProduction?.("project loaded", { projectData: loadedProjectSnapshot });
           } catch (engineError) {
             console.error("[engine-bridge] Project loaded, but Engine Editor rebuild failed.", engineError);
             setStatus(`Engine editor failed after project load: ${engineError.message || engineError}`);

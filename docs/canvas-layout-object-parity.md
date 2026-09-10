@@ -1,6 +1,6 @@
 # Canvas Layout Object Parity
 
-Build: `iteration54-1-1-comment-double-click-editing`
+Build: `iteration54-1-2-comment-direct-editing`
 
 Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 
@@ -143,3 +143,25 @@ canvases so the focused title input/body textarea is also visibly on top.
 
 Manual browser testing should use the visible build:
 `Iteration 54.1.1 — Comment Editing Fix — iteration54-1-1-comment-double-click-editing`.
+
+## Iteration 54.1.2 Comment Direct Editing
+
+Engine Comment direct editing now has one double-click owner: a capture-phase
+listener on `#canvasWrap`. The WebGL canvas no longer owns a separate native
+`dblclick` listener, and the temporary pointerdown timing recognizer from
+54.1.1 was removed.
+
+The wrapper listener ignores UI/editor targets, requires the click point to be
+inside the Engine canvas client rectangle, converts client coordinates through
+the Engine camera, and forwards the semantic result from `commentHitPart(...)`.
+The shell treats `payload.part` as authoritative: `title` opens the blue-label
+input, `body` opens the body textarea, and `leader`/`arrow` only select the
+Comment.
+
+Comment and area inline controls mount in the Engine editor overlay above the
+WebGL and label canvases. Debug-only diagnostics behind `debugCanvasObjects=1`
+write both readable console messages and a nonvisual JSON node with id
+`engineCommentEditDebug`.
+
+Manual browser testing should use the visible build:
+`Iteration 54.1.2 — Comment Direct Editing — iteration54-1-2-comment-direct-editing`.

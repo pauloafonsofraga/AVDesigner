@@ -43,7 +43,7 @@ import {
 } from "./deviceDefinitionV2.js";
 import { commentLeaderGeometry } from "./commentGeometry.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-1-1-comment-double-click-editing";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-1-2-comment-direct-editing";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
