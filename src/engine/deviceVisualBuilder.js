@@ -22,6 +22,12 @@ import {
   legacyFaceHeight,
   legacyFaceImagePlacement
 } from "./faceplateGeometry.js";
+import { commentLeaderGeometry } from "./commentGeometry.js";
+import {
+  TITLE_BLOCK_BASE_HEIGHT,
+  TITLE_BLOCK_BASE_WIDTH,
+  titleBlockLayout
+} from "./titleBlockLayout.js";
 
 export { legacyFaceBounds, legacyFaceHeight, legacyFaceImagePlacement } from "./faceplateGeometry.js";
 
@@ -38,8 +44,6 @@ const LEGACY_DEVICE_BORDER = "#ffffff";
 const LEGACY_ADAPTER_FILL = "#18222b";
 const LEGACY_ADAPTER_STROKE = "rgba(50, 182, 255, .72)";
 const SLOT_HEIGHT = 54;
-const TITLE_BLOCK_BASE_WIDTH = 760;
-const TITLE_BLOCK_BASE_HEIGHT = 112;
 
 const IMAGE_CACHE = new Map();
 const assetReadySubscribers = new Set();
@@ -223,7 +227,7 @@ export function deviceVisualCacheKey(device, options = {}) {
     ].join("|")
     : "";
   return [
-    "device-card-v8-live-fields",
+    "device-card-v9-comment-arrow-title-logo",
     visualKind,
     width,
     height,
@@ -848,14 +852,24 @@ function drawCommentVisual(ctx, device, width, height) {
   const box = visual.box || { x: 0, y: 0, width, height };
   const anchor = visual.anchor || { x: width, y: 0 };
   const leaderEnd = visual.leaderEnd || { x: box.x + box.width, y: box.y + box.height / 2 };
+  const leader = commentLeaderGeometry({ box, anchor, leaderEnd });
   ctx.save();
   ctx.strokeStyle = visual.leaderColor || "#28bdfd";
   ctx.lineWidth = 2.4;
   ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(anchor.x, anchor.y);
-  ctx.lineTo(leaderEnd.x, leaderEnd.y);
-  ctx.stroke();
+  if (leader.length > 0.5) {
+    ctx.beginPath();
+    ctx.moveTo(leader.leaderStart.x, leader.leaderStart.y);
+    ctx.lineTo(leader.leaderEnd.x, leader.leaderEnd.y);
+    ctx.stroke();
+    ctx.fillStyle = visual.leaderColor || "#28bdfd";
+    ctx.beginPath();
+    ctx.moveTo(leader.arrowTip.x, leader.arrowTip.y);
+    ctx.lineTo(leader.arrowLeft.x, leader.arrowLeft.y);
+    ctx.lineTo(leader.arrowRight.x, leader.arrowRight.y);
+    ctx.closePath();
+    ctx.fill();
+  }
 
   roundRect(ctx, box.x, box.y, box.width, box.height, 4);
   ctx.fillStyle = visual.backgroundColor || "rgba(8,13,20,.96)";
@@ -886,45 +900,50 @@ function drawTitleBlockVisual(ctx, device, width, height) {
   const yOffset = (height - TITLE_BLOCK_BASE_HEIGHT * scale) / 2;
   const fields = device.visual?.fields || {};
   const logoSource = String(device.visual?.logo || fields.companyLogo || "").trim();
+  const layout = titleBlockLayout(TITLE_BLOCK_BASE_WIDTH, TITLE_BLOCK_BASE_HEIGHT);
   ctx.save();
   ctx.translate(xOffset, yOffset);
   ctx.scale(scale, scale);
   ctx.fillStyle = "rgba(15, 24, 32, .74)";
-  ctx.fillRect(0, 0, TITLE_BLOCK_BASE_WIDTH, TITLE_BLOCK_BASE_HEIGHT);
+  ctx.fillRect(layout.outerRect.x, layout.outerRect.y, layout.outerRect.width, layout.outerRect.height);
   ctx.strokeStyle = "#9aa2aa";
   ctx.lineWidth = 1.2;
-  ctx.strokeRect(0, 0, TITLE_BLOCK_BASE_WIDTH, TITLE_BLOCK_BASE_HEIGHT);
-  const columns = [0, 150, 300, 450, 610, TITLE_BLOCK_BASE_WIDTH];
-  const rows = [0, 56, TITLE_BLOCK_BASE_HEIGHT];
-  columns.slice(1, -1).forEach(x => {
+  ctx.strokeRect(layout.outerRect.x, layout.outerRect.y, layout.outerRect.width, layout.outerRect.height);
+  layout.columns.slice(1, -1).forEach(x => {
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, TITLE_BLOCK_BASE_HEIGHT);
     ctx.stroke();
   });
-  rows.slice(1, -1).forEach(y => {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(TITLE_BLOCK_BASE_WIDTH, y);
-    ctx.stroke();
-  });
-  drawTitleBlockCell(ctx, 8, 22, "Client:", fields.client);
-  drawTitleBlockCell(ctx, 8, 78, "Revision:", fields.revision);
-  drawTitleBlockCell(ctx, 158, 22, "Project:", fields.project);
-  drawTitleBlockCell(ctx, 158, 78, "Location:", fields.location);
-  drawTitleBlockCell(ctx, 308, 22, "Title:", fields.title || "Video Wirechart");
-  drawTitleBlockCell(ctx, 308, 78, "Job ID:", fields.jobId);
-  drawTitleBlockCell(ctx, 458, 16, "Event Date:", fields.eventDate);
-  drawTitleBlockCell(ctx, 458, 40, "Drawing Date:", fields.drawingDate);
-  drawTitleBlockCell(ctx, 458, 68, "Acc Manager:", fields.accountManager);
-  drawTitleBlockCell(ctx, 458, 92, "Approved By:", fields.approvedBy);
-  const logoBox = { x: 622, y: 14, width: 126, height: 84 };
+  ctx.beginPath();
+  ctx.moveTo(layout.rowDivider.x1, layout.rowDivider.y1);
+  ctx.lineTo(layout.rowDivider.x2, layout.rowDivider.y2);
+  ctx.stroke();
+  layout.metaDividers
+    .filter(line => Math.abs(line.y1 - layout.half) > 0.01)
+    .forEach(line => {
+      ctx.beginPath();
+      ctx.moveTo(line.x1, line.y1);
+      ctx.lineTo(line.x2, line.y2);
+      ctx.stroke();
+    });
+  drawTitleBlockField(ctx, layout.fields.client, "Client:", fields.client);
+  drawTitleBlockField(ctx, layout.fields.revision, "Revision:", fields.revision);
+  drawTitleBlockField(ctx, layout.fields.project, "Project:", fields.project);
+  drawTitleBlockField(ctx, layout.fields.location, "Location:", fields.location);
+  drawTitleBlockField(ctx, layout.fields.title, "Title:", fields.title || "Video Wirechart");
+  drawTitleBlockField(ctx, layout.fields.jobId, "Job ID:", fields.jobId);
+  drawTitleBlockField(ctx, layout.fields.eventDate, "Event Date:", fields.eventDate, { small: true });
+  drawTitleBlockField(ctx, layout.fields.drawingDate, "Drawing Date:", fields.drawingDate, { small: true });
+  drawTitleBlockField(ctx, layout.fields.accountManager, "Acc Manager:", fields.accountManager, { small: true });
+  drawTitleBlockField(ctx, layout.fields.approvedBy, "Approved By:", fields.approvedBy, { small: true });
+  const logoBox = layout.logoContentRect;
   const logoImage = logoSource ? cachedImage(logoSource) : null;
   if (logoImage?.complete && logoImage.naturalWidth > 0) {
     const logoRect = preserveAspectRatioMeetRect(logoBox, logoImage.naturalWidth, logoImage.naturalHeight);
     ctx.drawImage(logoImage, logoRect.x, logoRect.y, logoRect.width, logoRect.height);
   } else {
-    drawFittedText(ctx, fields.logoText || "Company Logo", logoBox.x + logoBox.width / 2, 58, logoBox.width, 13, {
+    drawFittedText(ctx, fields.logoText || "Company Logo", logoBox.x, layout.logoCell.y + layout.logoCell.height / 2, logoBox.width, 13, {
       weight: 700,
       fill: "#d7e6f5",
       align: "center",
@@ -932,6 +951,11 @@ function drawTitleBlockVisual(ctx, device, width, height) {
     });
   }
   ctx.restore();
+}
+
+function drawTitleBlockField(ctx, rect, label, value, options = {}) {
+  const y = rect.y + rect.height * (options.small ? 0.58 : 0.4);
+  drawTitleBlockCell(ctx, rect.x + 8, y, label, value);
 }
 
 function drawTitleBlockCell(ctx, x, y, label, value) {

@@ -1,6 +1,6 @@
 # Canvas Layout Object Parity
 
-Build: `iteration54-0-canvas-layout-objects`
+Build: `iteration54-1-canvas-layout-visual-corrections`
 
 Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 
@@ -97,3 +97,27 @@ events.
 
 Manual browser testing should use the visible build:
 `Iteration 54.0 — Canvas Layout Objects — iteration54-0-canvas-layout-objects`.
+
+## Iteration 54.1 Visual Corrections
+
+Comment leader geometry now has one committed arrow convention: the anchor is
+the arrow tip, the leader line starts after the arrow base, and selection/hover
+emphasis is drawn as live box plus leader/arrow geometry rather than a rectangle
+around the normalized union bounds.
+
+Comment hit testing now reports semantic parts for title, body, leader, and
+arrow. The body and blue label remain DOM inline editors, but Engine double
+clicks route directly to the matching editor through those hit parts.
+
+Area / Room inspectors include a `5%` to `100%` Background Opacity slider with a
+`32%` default. Slider movement previews the single selected Area immediately and
+commits one snapshot command when the gesture finishes.
+
+Engine Title Block rendering uses a shared layout helper. The right logo region
+is one `112 x 112` square, the middle row divider stops before that square, and
+logo PNGs are aspect-ratio contained within the square padding. The legacy
+source used a `152 x 112` logo column with the divider already stopped before
+it; Iteration 54.1 follows the newer square-cell acceptance invariant.
+
+Manual browser testing should use the visible build:
+`Iteration 54.1 — Canvas Layout Visual Corrections — iteration54-1-canvas-layout-visual-corrections`.

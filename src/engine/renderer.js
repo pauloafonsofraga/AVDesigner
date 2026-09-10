@@ -41,8 +41,9 @@ import {
   isV2Connector,
   normalizeConnectorRelationships
 } from "./deviceDefinitionV2.js";
+import { commentLeaderGeometry } from "./commentGeometry.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-shared-bus-display-v2";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-1-canvas-layout-visual-corrections";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -1454,13 +1455,14 @@ export class WebglGraphRenderer {
     const groups = new Map();
     const addGlow = (device, mode) => {
       if (!device || device.kind === "jump" || !deviceVisible(device, renderOptions)) return;
-      const entry = this.ensureGlowTexture(device, mode);
-      if (!entry?.texture) return;
       const offset = dragOffsets?.get(device.id);
-      const x = device.x + (offset?.dx || 0) - entry.padding;
-      const y = device.y + (offset?.dy || 0) - entry.padding;
+      const glowRect = objectGlowRect(device, offset);
+      const entry = this.ensureGlowTexture(device, mode, glowRect);
+      if (!entry?.texture) return;
+      const x = glowRect.x - entry.padding;
+      const y = glowRect.y - entry.padding;
       const vertices = groups.get(entry.texture) || [];
-      pushTextureRect(vertices, x, y, device.width + entry.padding * 2, device.height + entry.padding * 2);
+      pushTextureRect(vertices, x, y, glowRect.width + entry.padding * 2, glowRect.height + entry.padding * 2);
       groups.set(entry.texture, vertices);
       this.recordObjectLayer(
         layerTrace,
@@ -1492,10 +1494,10 @@ export class WebglGraphRenderer {
     gl.uniform4f(this.viewLocation, camera.x, camera.y, this.resolution.width / camera.zoom, this.resolution.height / camera.zoom);
   }
 
-  ensureGlowTexture(device, mode = "selected") {
-    const width = Math.max(1, Math.round(device.width || 1));
-    const height = Math.max(1, Math.round(device.height || 1));
-    const radius = device.kind === "adapter" ? LEGACY_ADAPTER_RADIUS : LEGACY_DEVICE_RADIUS;
+  ensureGlowTexture(device, mode = "selected", geometry = null) {
+    const width = Math.max(1, Math.round(geometry?.width || device.width || 1));
+    const height = Math.max(1, Math.round(geometry?.height || device.height || 1));
+    const radius = Math.max(0, Math.round(geometry?.radius ?? (device.kind === "adapter" ? LEGACY_ADAPTER_RADIUS : LEGACY_DEVICE_RADIUS)));
     const padding = mode === "selected" ? 48 : 34;
     const key = `${mode}:${width}:${height}:${radius}:${padding}`;
     const existing = this.glowTextureCache.get(key);
@@ -2489,6 +2491,9 @@ function connectorRenderY(connector = {}, device = {}) {
 }
 
 function pushSelectionOutline(vertices, device, offsets = null) {
+  if (device?.kind === "comment") {
+    pushCommentLeaderEmphasis(vertices, device, offsets, "selected");
+  }
   pushObjectOutline(vertices, device, offsets, [
     // Keep this as live geometry instead of baking it into the cached device
     // texture. Selection, drag, and multi-select can then change without
@@ -2504,9 +2509,73 @@ function pushSelectionOutline(vertices, device, offsets = null) {
 }
 
 function pushHoverOutline(vertices, device, offsets = null) {
+  if (device?.kind === "comment") {
+    pushCommentLeaderEmphasis(vertices, device, offsets, "hover");
+  }
   pushObjectOutline(vertices, device, offsets, [
     { expand: 4, width: 1.8, color: DEVICE_HOVER }
   ]);
+}
+
+export function objectGlowRect(device, offset = null) {
+  const baseX = (Number(device?.x) || 0) + (offset?.dx || 0);
+  const baseY = (Number(device?.y) || 0) + (offset?.dy || 0);
+  if (device?.kind === "comment") {
+    const box = device.visual?.box || { x: 0, y: 0, width: device.width || 180, height: device.height || 82 };
+    return {
+      x: baseX + (Number(box.x) || 0),
+      y: baseY + (Number(box.y) || 0),
+      width: Math.max(12, Number(box.width) || 180),
+      height: Math.max(12, Number(box.height) || 82),
+      radius: 5
+    };
+  }
+  return {
+    x: baseX,
+    y: baseY,
+    width: Math.max(1, Number(device?.width) || 1),
+    height: Math.max(1, Number(device?.height) || 1),
+    radius: device?.kind === "adapter" ? LEGACY_ADAPTER_RADIUS : LEGACY_DEVICE_RADIUS
+  };
+}
+
+function commentWorldLeaderGeometry(device, offsets = null) {
+  const offset = offsets?.get(device.id);
+  const baseX = (Number(device?.x) || 0) + (offset?.dx || 0);
+  const baseY = (Number(device?.y) || 0) + (offset?.dy || 0);
+  const visual = device?.visual || {};
+  const localBox = visual.box || { x: 0, y: 0, width: device?.width || 180, height: device?.height || 82 };
+  const localAnchor = visual.anchor || { x: 0, y: 0 };
+  const localLeaderEnd = visual.leaderEnd || null;
+  const box = {
+    x: baseX + (Number(localBox.x) || 0),
+    y: baseY + (Number(localBox.y) || 0),
+    width: Math.max(12, Number(localBox.width) || 180),
+    height: Math.max(12, Number(localBox.height) || 82)
+  };
+  const anchor = {
+    x: baseX + (Number(localAnchor.x) || 0),
+    y: baseY + (Number(localAnchor.y) || 0)
+  };
+  const leaderEnd = localLeaderEnd
+    ? {
+        x: baseX + (Number(localLeaderEnd.x) || 0),
+        y: baseY + (Number(localLeaderEnd.y) || 0)
+      }
+    : null;
+  return commentLeaderGeometry({ box, anchor, leaderEnd });
+}
+
+function pushCommentLeaderEmphasis(vertices, device, offsets = null, mode = "selected") {
+  const geometry = commentWorldLeaderGeometry(device, offsets);
+  if (geometry.length <= 0.5) return;
+  const selected = mode === "selected";
+  const glow = selected ? "rgba(251,121,4,.24)" : "rgba(50,182,255,.18)";
+  const edge = selected ? "rgba(251,121,4,.92)" : "rgba(50,182,255,.88)";
+  pushLine(vertices, geometry.leaderStart, geometry.leaderEnd, selected ? 8 : 6, glow);
+  pushTriangle(vertices, geometry.arrowTip, geometry.arrowLeft, geometry.arrowRight, glow);
+  pushLine(vertices, geometry.leaderStart, geometry.leaderEnd, selected ? 3.2 : 2.6, edge);
+  pushTriangle(vertices, geometry.arrowTip, geometry.arrowLeft, geometry.arrowRight, edge);
 }
 
 function pushObjectOutline(vertices, device, offsets = null, layers = []) {
@@ -2562,7 +2631,7 @@ function pushCanvasObjectResizeHandles(vertices, device, offsets = null) {
   });
 }
 
-function canvasObjectSelectionRect(device, offsets = null) {
+export function canvasObjectSelectionRect(device, offsets = null) {
   const offset = offsets?.get(device.id);
   const baseX = (Number(device?.x) || 0) + (offset?.dx || 0);
   const baseY = (Number(device?.y) || 0) + (offset?.dy || 0);
@@ -2743,6 +2812,13 @@ function pushCircle(vertices, point, radius, colorValue, segments = 18) {
     pushVertex(vertices, point.x + Math.cos(a) * radius, point.y + Math.sin(a) * radius, color);
     pushVertex(vertices, point.x + Math.cos(b) * radius, point.y + Math.sin(b) * radius, color);
   }
+}
+
+function pushTriangle(vertices, a, b, c, colorValue) {
+  const color = parseColor(colorValue);
+  pushVertex(vertices, a.x, a.y, color);
+  pushVertex(vertices, b.x, b.y, color);
+  pushVertex(vertices, c.x, c.y, color);
 }
 
 function pushCircleOutline(vertices, point, radius, width, colorValue, segments = 18) {

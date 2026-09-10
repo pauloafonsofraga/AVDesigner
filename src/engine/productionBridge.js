@@ -67,6 +67,10 @@ import {
   placementRectForDevice
 } from "./devicePlacement.js";
 import { exclusiveConnectionRejectionReason } from "./deviceDefinitionV2.js";
+import {
+  commentHitPart,
+  commentLeaderEnd
+} from "./commentGeometry.js";
 
 const {
   hitTestConnector,
@@ -85,9 +89,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-0-canvas-layout-objects";
-export const ENGINE_BRIDGE_VERSION = "iteration54-0-canvas-layout-objects";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "canvas-layout-objects";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-1-canvas-layout-visual-corrections";
+export const ENGINE_BRIDGE_VERSION = "iteration54-1-canvas-layout-visual-corrections";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "canvas-layout-visual-corrections";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -6933,17 +6937,19 @@ function worldCommentLeaderEnd(device) {
     };
   }
   const box = worldCommentBoxRect(device);
-  return commentLeaderEndForBox(box, worldCommentAnchor(device));
+  return commentLeaderEnd(box, worldCommentAnchor(device));
 }
 
 function preciseCanvasObjectHit(device, world, tolerance = 8) {
   if (!device || !world) return null;
   if (device.kind === "comment") {
     const box = worldCommentBoxRect(device);
-    if (pointInRect(world, box)) return { part: "box", distance: 0 };
-    const leaderDistance = HitTest.distanceToSegment(world, worldCommentAnchor(device), worldCommentLeaderEnd(device));
-    if (leaderDistance.distance <= tolerance) return { part: "leader", distance: leaderDistance.distance };
-    return null;
+    return commentHitPart({
+      box,
+      anchor: worldCommentAnchor(device),
+      leaderEnd: worldCommentLeaderEnd(device),
+      textSize: device.visual?.textSize
+    }, world, tolerance);
   }
   const rect = canvasObjectInteractionRect(device);
   return pointInRect(world, rect) ? { part: "body", distance: 0 } : null;
@@ -6988,17 +6994,6 @@ function preserveCommentRawAnchor(target = {}, source = {}) {
     target.anchorY = anchor.y;
     if (target.anchor && !source?.anchor) delete target.anchor;
   }
-}
-
-function commentLeaderEndForBox(box, anchor) {
-  const cx = box.x + box.width / 2;
-  const cy = box.y + box.height / 2;
-  const dx = anchor.x - cx;
-  const dy = anchor.y - cy;
-  if (Math.abs(dx) > Math.abs(dy)) {
-    return { x: dx < 0 ? box.x : box.x + box.width, y: cy };
-  }
-  return { x: cx, y: dy < 0 ? box.y : box.y + box.height };
 }
 
 function rawCanvasObjectsDiffer(beforeRaw, afterRaw) {

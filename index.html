@@ -4453,7 +4453,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.0 — Canvas Layout Objects — iteration54-0-canvas-layout-objects</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.1 — Canvas Layout Visual Corrections — iteration54-1-canvas-layout-visual-corrections</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5169,14 +5169,17 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.0";
-    const APP_BUILD_ID = "iteration54-0-canvas-layout-objects";
-    const APP_MODULE_CACHE_ID = "iteration54-0-canvas-layout-objects-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Canvas Layout Objects`;
+    const APP_ITERATION = "54.1";
+    const APP_BUILD_ID = "iteration54-1-canvas-layout-visual-corrections";
+    const APP_MODULE_CACHE_ID = "iteration54-1-canvas-layout-visual-corrections-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Canvas Layout Visual Corrections`;
     const APP_SOURCE_BRANCH = "engine-prototype";
-    const APP_SOURCE_BASE_COMMIT = "477c6926a840c20c13d4afc15a0f1e64f2e0f678";
+    const APP_SOURCE_BASE_COMMIT = "5192a218056b5a16c1a5e893fbb03d6c32c63329";
     const CANVAS_MIN_ZOOM = 0.03;
     const CANVAS_MAX_ZOOM = 8;
+    const ENGINE_COMMENT_ARROW_LENGTH = 16;
+    const ENGINE_COMMENT_ARROW_WIDTH = 13;
+    const ENGINE_COMMENT_ARROW_LINE_GAP = 2.5;
     const INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
     const DEBUG_LIBRARY_DRAG_ENABLED = INITIAL_URL_PARAMS.get("debugLibraryDrag") === "1";
     const DEBUG_CUSTOM_DEVICES_ENABLED = INITIAL_URL_PARAMS.get("debugCustomDevices") === "1";
@@ -77973,6 +77976,7 @@
     const previewTitleBlockRect = document.getElementById("previewTitleBlockRect");
     let engineLayoutToolOverlay = null;
     let enginePreviewCommentLine = null;
+    let enginePreviewCommentArrow = null;
     let enginePreviewAreaRect = null;
     let enginePreviewTitleBlockRect = null;
     let engineLayoutToolCamera = null;
@@ -94303,18 +94307,15 @@
       svg.setAttribute("class", "engine-layout-tool-overlay hidden");
       svg.setAttribute("aria-hidden", "true");
       svg.innerHTML = `
-        <defs>
-          <marker id="engineLayoutArrowStart" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-            <path d="M 10 0 L 0 5 L 10 10 z" fill="#28bdfd"></path>
-          </marker>
-        </defs>
-        <path class="comment-leader hidden" data-engine-preview="comment"></path>
+        <path class="comment-leader engine-comment-preview-line hidden" data-engine-preview="comment-line" style="marker-start:none;marker-end:none;"></path>
+        <path class="engine-comment-preview-arrow hidden" data-engine-preview="comment-arrow" style="fill:#28bdfd;stroke:#28bdfd;stroke-linejoin:round;stroke-width:1.4;"></path>
         <rect class="area-rect hidden" data-engine-preview="area"></rect>
         <rect class="title-block-placement hidden" data-engine-preview="title"></rect>
       `;
       root.appendChild(svg);
       engineLayoutToolOverlay = svg;
-      enginePreviewCommentLine = svg.querySelector("[data-engine-preview='comment']");
+      enginePreviewCommentLine = svg.querySelector("[data-engine-preview='comment-line']");
+      enginePreviewCommentArrow = svg.querySelector("[data-engine-preview='comment-arrow']");
       enginePreviewAreaRect = svg.querySelector("[data-engine-preview='area']");
       enginePreviewTitleBlockRect = svg.querySelector("[data-engine-preview='title']");
       return svg;
@@ -94338,20 +94339,59 @@
 
     function hideEngineLayoutToolPreview(kind = "all") {
       if (!engineLayoutToolOverlay) return;
-      if (kind === "all" || kind === "comment") enginePreviewCommentLine?.classList.add("hidden");
+      if (kind === "all" || kind === "comment") {
+        enginePreviewCommentLine?.classList.add("hidden");
+        enginePreviewCommentArrow?.classList.add("hidden");
+      }
       if (kind === "all" || kind === "area") enginePreviewAreaRect?.classList.add("hidden");
       if (kind === "all" || kind === "title-block") enginePreviewTitleBlockRect?.classList.add("hidden");
       if (kind === "all") setEngineLayoutToolOverlayVisible(false);
+    }
+
+    function commentLeaderEndForBox(box, anchor) {
+      const cx = box.x + box.width / 2;
+      const cy = box.y + box.height / 2;
+      const dx = anchor.x - cx;
+      const dy = anchor.y - cy;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        return { x: dx < 0 ? box.x : box.x + box.width, y: cy };
+      }
+      return { x: cx, y: dy < 0 ? box.y : box.y + box.height };
+    }
+
+    function commentPreviewLeaderGeometry(box, anchor) {
+      const end = commentLeaderEndForBox(box, anchor);
+      const dx = end.x - anchor.x;
+      const dy = end.y - anchor.y;
+      const length = Math.hypot(dx, dy);
+      if (!length) return null;
+      const ux = dx / length;
+      const uy = dy / length;
+      const px = -uy;
+      const py = ux;
+      const baseDistance = Math.min(ENGINE_COMMENT_ARROW_LENGTH, Math.max(0, length * .48));
+      const leaderStartDistance = Math.min(length, baseDistance + ENGINE_COMMENT_ARROW_LINE_GAP);
+      const halfWidth = Math.min(ENGINE_COMMENT_ARROW_WIDTH / 2, Math.max(3, length * .28));
+      const base = { x: anchor.x + ux * baseDistance, y: anchor.y + uy * baseDistance };
+      return {
+        leaderStart: { x: anchor.x + ux * leaderStartDistance, y: anchor.y + uy * leaderStartDistance },
+        leaderEnd: end,
+        arrowTip: anchor,
+        arrowLeft: { x: base.x + px * halfWidth, y: base.y + py * halfWidth },
+        arrowRight: { x: base.x - px * halfWidth, y: base.y - py * halfWidth }
+      };
     }
 
     function updateEngineCommentPreview(point) {
       if (!commentDraft || !point) return;
       updateEngineLayoutToolOverlayViewport();
       setEngineLayoutToolOverlayVisible(true);
+      const box = { x: point.x, y: point.y, width: 180, height: 82 };
+      const leader = commentPreviewLeaderGeometry(box, commentDraft.anchor);
       enginePreviewCommentLine?.classList.remove("hidden");
-      enginePreviewCommentLine?.setAttribute("d", `M ${commentDraft.anchor.x} ${commentDraft.anchor.y} L ${point.x} ${point.y}`);
-      enginePreviewCommentLine?.setAttribute("marker-start", "url(#engineLayoutArrowStart)");
-      enginePreviewCommentLine?.removeAttribute("marker-end");
+      enginePreviewCommentArrow?.classList.remove("hidden");
+      enginePreviewCommentLine?.setAttribute("d", leader ? `M ${leader.leaderStart.x} ${leader.leaderStart.y} L ${leader.leaderEnd.x} ${leader.leaderEnd.y}` : "");
+      enginePreviewCommentArrow?.setAttribute("d", leader ? `M ${leader.arrowTip.x} ${leader.arrowTip.y} L ${leader.arrowLeft.x} ${leader.arrowLeft.y} L ${leader.arrowRight.x} ${leader.arrowRight.y} Z` : "");
       hideEngineLayoutToolPreview("area");
       hideEngineLayoutToolPreview("title-block");
     }
@@ -94479,9 +94519,19 @@
       if (kind === "comment") {
         const comment = state.comments.find(item => item.id === sourceId);
         if (!comment) return;
+        const part = String(payload.part || "");
+        if (part === "title") {
+          editCommentTitle(sourceId);
+          return;
+        }
+        if (part === "body" || part === "box") {
+          editCommentBody(sourceId);
+          return;
+        }
+        if (part === "leader" || part === "arrow") return;
         const point = payload.worldPoint || { x: comment.x, y: comment.y };
-        const titleBandTop = comment.y - 18;
-        const titleBandBottom = comment.y + 10;
+        const titleBandTop = comment.y - 24;
+        const titleBandBottom = comment.y + 8;
         if (point.y >= titleBandTop && point.y <= titleBandBottom) editCommentTitle(sourceId);
         else editCommentBody(sourceId);
         return;
@@ -98889,11 +98939,12 @@
 
     function closeCommentEditor(save) {
       if (!commentEditor) return;
-      const { control, commentId, field } = commentEditor;
+      const editor = commentEditor;
+      const { control, commentId, field } = editor;
       const comment = state.comments.find(item => item.id === commentId);
       const engineBridge = activeEngineBridge();
       if (save && comment && engineBridge?.commitCanvasObjectSnapshot) {
-        const before = commentEditor.before || structCloneComment(comment);
+        const before = editor.before || structCloneComment(comment);
         const after = structCloneComment(comment);
         if (field === "title") {
           after.title = control.value.trim() || "Comment";
@@ -98902,8 +98953,8 @@
           const lineCount = Math.max(1, control.value.split("\n").length);
           after.height = Math.max(58, 34 + lineCount * 16);
         }
-        control.remove();
         commentEditor = null;
+        control.remove();
         engineBridge.commitCanvasObjectSnapshot("comment", before, after, {
           label: `edit comment ${field}`,
           select: true
@@ -98918,8 +98969,8 @@
           comment.height = Math.max(58, 34 + lineCount * 16);
         }
       }
-      control.remove();
       commentEditor = null;
+      control.remove();
       if (save && comment) syncCanvasObjectVisual("comment", comment.id, comment, { fullLegacyRender: true });
     }
 
@@ -98955,15 +99006,16 @@
 
     function closeAreaEditor(save) {
       if (!areaEditor) return;
-      const { control, areaId } = areaEditor;
+      const editor = areaEditor;
+      const { control, areaId } = editor;
       const area = state.areas.find(item => item.id === areaId);
       const engineBridge = activeEngineBridge();
       if (save && area && engineBridge?.commitCanvasObjectSnapshot) {
-        const before = areaEditor.before || structuredClone(area);
+        const before = editor.before || structuredClone(area);
         const after = structuredClone(area);
         after.name = control.value.trim() || "Area / Room Name";
-        control.remove();
         areaEditor = null;
+        control.remove();
         engineBridge.commitCanvasObjectSnapshot("area", before, after, {
           label: "edit area name",
           select: true
@@ -98971,8 +99023,8 @@
         return;
       }
       if (save && area) area.name = control.value.trim() || "Area / Room Name";
-      control.remove();
       areaEditor = null;
+      control.remove();
       if (save && area) syncCanvasObjectVisual("area", area.id, area, { fullLegacyRender: true });
     }
 
@@ -102512,6 +102564,82 @@
       control.addEventListener("blur", commit);
     }
 
+    function opacityPercentFromValue(value, fallback = 0.32) {
+      const numeric = Number.isFinite(Number(value)) ? Number(value) : fallback;
+      return Math.round(clamp(numeric * 100, 5, 100));
+    }
+
+    function opacityValueFromPercent(value, fallback = 32) {
+      const percent = Math.round(clamp(Number(value) || fallback, 5, 100));
+      return percent / 100;
+    }
+
+    function bindCanvasObjectOpacityCommitInput(controlId, readoutId, kind, objectId, fallback, label) {
+      const control = document.getElementById(controlId);
+      const readout = document.getElementById(readoutId);
+      if (!control) return;
+      let before = null;
+      const setReadout = () => {
+        if (readout) readout.textContent = `${Math.round(Number(control.value) || opacityPercentFromValue(fallback))}%`;
+      };
+      const captureBefore = () => {
+        if (before) return;
+        const current = canvasLayoutObjectById(kind, objectId);
+        if (current) before = structuredClone(current);
+      };
+      const preview = () => {
+        captureBefore();
+        if (!before) return;
+        const next = structuredClone(before);
+        next.opacity = opacityValueFromPercent(control.value, opacityPercentFromValue(fallback));
+        setReadout();
+        const engineBridge = activeEngineBridge();
+        if (engineBridge?.replaceCanvasObjectSceneFromRaw) {
+          engineBridge.replaceCanvasObjectSceneFromRaw(kind, next, {
+            mutateProduction: false,
+            select: true,
+            label: `${label} preview`
+          });
+        }
+      };
+      const commit = () => {
+        const current = canvasLayoutObjectById(kind, objectId);
+        const snapshot = before || (current ? structuredClone(current) : null);
+        before = null;
+        if (!snapshot) return;
+        const nextOpacity = opacityValueFromPercent(control.value, opacityPercentFromValue(fallback));
+        const nextPercent = Math.round(nextOpacity * 100);
+        if (opacityPercentFromValue(snapshot.opacity, fallback) === nextPercent) {
+          control.value = String(nextPercent);
+          setReadout();
+          return;
+        }
+        control.value = String(Math.round(nextOpacity * 100));
+        setReadout();
+        commitCanvasLayoutObjectInspectorEdit(kind, objectId, label, next => {
+          next.opacity = nextOpacity;
+        });
+      };
+      setReadout();
+      control.addEventListener("input", preview);
+      control.addEventListener("change", commit);
+      control.addEventListener("blur", commit);
+      control.addEventListener("click", event => event.stopPropagation());
+      control.addEventListener("focus", captureBefore);
+      control.addEventListener("pointerdown", event => {
+        event.stopPropagation();
+        captureBefore();
+      });
+      control.addEventListener("pointerup", commit);
+      control.addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          commit();
+          control.blur();
+        }
+      });
+    }
+
     function bindCanvasObjectTextCommitInput(controlId, kind, objectId, field, fallback, label) {
       const control = document.getElementById(controlId);
       if (!control) return;
@@ -102663,6 +102791,10 @@
           <input id="areaBackgroundColor" type="color" value="${escapeAttr(normalizeColor(area.backgroundColor || "#223544"))}">
         </div>
         <div class="field">
+          <label for="areaBackgroundOpacity">Background Opacity <span id="areaBackgroundOpacityReadout">${opacityPercentFromValue(area.opacity, 0.32)}%</span></label>
+          <input id="areaBackgroundOpacity" type="range" min="5" max="100" step="1" value="${opacityPercentFromValue(area.opacity, 0.32)}">
+        </div>
+        <div class="field">
           <label for="areaTextSize">Text Size</label>
           <input id="areaTextSize" type="number" min="12" max="150" step="1" value="${escapeAttr(Math.trunc(area.textSize || 33))}">
         </div>
@@ -102676,6 +102808,7 @@
         }, { fullLegacyRender: true });
       });
       bindCanvasObjectColorCommitInput("areaBackgroundColor", "area", area.id, "backgroundColor", "#223544", "edit area background");
+      bindCanvasObjectOpacityCommitInput("areaBackgroundOpacity", "areaBackgroundOpacityReadout", "area", area.id, 0.32, "edit area opacity");
       bindIntegerCommitInput("areaTextSize", 12, 150, area.textSize || 33, value => {
         commitCanvasLayoutObjectInspectorEdit("area", area.id, "edit area text size", next => {
           next.textSize = value;

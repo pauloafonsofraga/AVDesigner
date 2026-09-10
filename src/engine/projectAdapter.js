@@ -52,6 +52,11 @@ import {
   signalDirectionToLegacyDirection,
   validateConnectorTopology
 } from "./deviceDefinitionV2.js";
+import { commentLeaderEnd } from "./commentGeometry.js";
+import {
+  TITLE_BLOCK_BASE_HEIGHT,
+  TITLE_BLOCK_BASE_WIDTH
+} from "./titleBlockLayout.js";
 
 const SIZE_PRESETS = {
   small: { deviceCount: 100, wireCount: 300 },
@@ -75,8 +80,6 @@ const SLOT_HEIGHT = 54;
 const LEGACY_DEVICE_WIDTH = 380;
 const JUMP_NODE_SIZE = 44;
 const SURFACE_FALLBACK_HEIGHT = 120;
-const TITLE_BLOCK_BASE_WIDTH = 760;
-const TITLE_BLOCK_BASE_HEIGHT = 112;
 const CARD_SLOT_OVERRIDE_FIELDS = [
   "nameText",
   "nameCustom",
@@ -1384,17 +1387,6 @@ function normalizeCommentAnchor(comment, box) {
     return { x: Number(comment.anchorX), y: Number(comment.anchorY) };
   }
   return { x: box.x + box.width + 72, y: box.y - 32 };
-}
-
-function commentLeaderEnd(box, anchor) {
-  const cx = box.x + box.width / 2;
-  const cy = box.y + box.height / 2;
-  const dx = anchor.x - cx;
-  const dy = anchor.y - cy;
-  if (Math.abs(dx) > Math.abs(dy)) {
-    return { x: dx < 0 ? box.x : box.x + box.width, y: cy };
-  }
-  return { x: cx, y: dy < 0 ? box.y : box.y + box.height };
 }
 
 function centeredObjectBounds(point, size) {

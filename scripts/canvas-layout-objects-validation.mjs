@@ -9,18 +9,31 @@ import {
   normalizeEngineCanvasObject
 } from "../src/engine/projectAdapter.js";
 import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
+import {
+  commentHitPart,
+  commentLeaderGeometry
+} from "../src/engine/commentGeometry.js";
+import {
+  canvasObjectSelectionRect,
+  objectGlowRect
+} from "../src/engine/renderer.js";
+import {
+  TITLE_BLOCK_BASE_HEIGHT,
+  TITLE_BLOCK_BASE_WIDTH,
+  titleBlockLayout
+} from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-0-canvas-layout-objects";
+const BUILD_ID = "iteration54-1-canvas-layout-visual-corrections";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
 const bridgeSource = readFileSync(resolve(repoRoot, "src/engine/productionBridge.js"), "utf8");
 const mutationSource = readFileSync(resolve(repoRoot, "src/engine/projectMutations.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.0");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.0";'), "visible iteration should be 54.0");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-0-canvas-layout-objects-modules";'), "module cache key should bust 54.0 modules");
-assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Iteration 54.0");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.1");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.1";'), "visible iteration should be 54.1");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-1-canvas-layout-visual-corrections-modules";'), "module cache key should bust 54.1 modules");
+assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Iteration 54.1");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
 assert.ok(classicScripts.length >= 1, "index.html should contain at least one classic script");
@@ -66,7 +79,7 @@ const rawTitleBlock = {
     client: "AV Designer",
     project: "Canvas Layout Objects",
     title: "Validation Title",
-    revision: "54.0",
+    revision: "54.1",
     companyLogo: "data:image/png;base64,title-logo"
   }
 };
@@ -79,7 +92,19 @@ assert.equal(areaDevice.y, rawArea.y, "area y is raw y");
 assert.equal(areaDevice.width, 80, "area preserves 80px minimum creation width");
 assert.equal(areaDevice.height, 60, "area preserves 60px minimum creation height");
 assert.equal(areaDevice.visual.backgroundColor, "#223544", "area default background is preserved");
+assert.equal(areaDevice.visual.opacity, 0.42, "area explicit opacity survives normalization");
 assert.equal(areaDevice.visual.textSize, 28, "area text size survives normalization");
+
+[
+  [undefined, 0.32],
+  [0.05, 0.05],
+  [0.32, 0.32],
+  [0.75, 0.75],
+  [1, 1]
+].forEach(([opacity, expected]) => {
+  const normalized = normalizeEngineCanvasObject("area", { ...rawArea, id: `area-opacity-${expected}`, opacity }, 0);
+  assert.equal(normalized.visual.opacity, expected, `area opacity ${expected} normalizes numerically`);
+});
 
 const commentDevice = normalizeEngineCanvasObject("comment", rawComment, 1);
 assert.equal(commentDevice.kind, "comment", "comment normalizes as a canvas object");
@@ -90,6 +115,45 @@ assert.deepEqual(
   absolutePoint(commentDevice, commentDevice.visual.leaderEnd),
   legacyLeaderEnd(rawBox(rawComment), rawComment.anchor),
   "comment leader endpoint uses the legacy dominant-side rule"
+);
+const absoluteCommentBox = absoluteRect(commentDevice, commentDevice.visual.box);
+const absoluteCommentAnchor = absolutePoint(commentDevice, commentDevice.visual.anchor);
+const absoluteCommentLeaderEnd = absolutePoint(commentDevice, commentDevice.visual.leaderEnd);
+const leaderGeometry = commentLeaderGeometry({
+  box: absoluteCommentBox,
+  anchor: absoluteCommentAnchor,
+  leaderEnd: absoluteCommentLeaderEnd
+});
+assert.deepEqual(leaderGeometry.arrowTip, rawComment.anchor, "comment arrow tip is the raw anchor");
+assert.notDeepEqual(leaderGeometry.leaderStart, rawComment.anchor, "comment leader line starts after the arrow base");
+assert.ok(distance(rawComment.anchor, leaderGeometry.leaderStart) < distance(rawComment.anchor, leaderGeometry.leaderEnd), "comment leader start lies between anchor and box");
+assert.deepEqual(canvasObjectSelectionRect(commentDevice), absoluteCommentBox, "comment selection rectangle is the box, not union bounds");
+const glowRect = objectGlowRect(commentDevice);
+assert.deepEqual(
+  { x: glowRect.x, y: glowRect.y, width: glowRect.width, height: glowRect.height },
+  absoluteCommentBox,
+  "comment soft glow rectangle is the box, not union bounds"
+);
+assert.notEqual(glowRect.width, commentDevice.width, "comment glow width differs from normalized union width");
+assert.equal(
+  commentHitPart({
+    box: absoluteCommentBox,
+    anchor: absoluteCommentAnchor,
+    leaderEnd: absoluteCommentLeaderEnd,
+    textSize: rawComment.textSize
+  }, { x: absoluteCommentBox.x + absoluteCommentBox.width / 2, y: absoluteCommentBox.y - 8 }, 8)?.part,
+  "title",
+  "comment title hit region resolves as title"
+);
+assert.equal(
+  commentHitPart({
+    box: absoluteCommentBox,
+    anchor: absoluteCommentAnchor,
+    leaderEnd: absoluteCommentLeaderEnd,
+    textSize: rawComment.textSize
+  }, { x: absoluteCommentBox.x + absoluteCommentBox.width / 2, y: absoluteCommentBox.y + absoluteCommentBox.height / 2 }, 8)?.part,
+  "body",
+  "comment body center resolves as body"
 );
 
 const movedComment = {
@@ -111,6 +175,11 @@ assert.equal(titleDevice.kind, "title-block", "title block normalizes as a canva
 assert.equal(titleDevice.width / titleDevice.height, rawTitleBlock.width / rawTitleBlock.height, "title block preserves aspect ratio");
 assert.equal(titleDevice.visual.logo, rawTitleBlock.fields.companyLogo, "title block logo survives normalization");
 assert.equal(titleDevice.visual.fields.title, "Validation Title", "title nested fields survive normalization");
+const titleLayout = titleBlockLayout(TITLE_BLOCK_BASE_WIDTH, TITLE_BLOCK_BASE_HEIGHT);
+assert.equal(titleLayout.logoCell.width, titleLayout.logoCell.height, "title block logo cell is square");
+assert.equal(titleLayout.logoCell.width, TITLE_BLOCK_BASE_HEIGHT, "title block logo square uses block height");
+assert.ok(titleLayout.rowDivider.x2 <= titleLayout.logoCell.x, "title block row divider stops before logo cell");
+assert.ok(titleLayout.logoContentRect.width <= titleLayout.logoCell.width, "title block logo content stays inside square");
 
 const project = {
   devices: [],
@@ -175,13 +244,15 @@ assert.ok(indexHtml.includes("onEngineCanvasToolPointerEvent"), "shell exposes E
 assert.ok(indexHtml.includes("onEngineCanvasObjectDoubleClick"), "shell exposes Engine canvas-object double-click adapter");
 assert.ok(indexHtml.includes("engine-layout-tool-overlay"), "Engine placement previews use a dedicated overlay");
 assert.ok(indexHtml.includes("pointer-events: none"), "Engine placement overlay must not intercept pointer events");
+assert.ok(indexHtml.includes("engine-comment-preview-arrow"), "Engine comment placement preview draws an explicit arrowhead");
 assert.ok(indexHtml.includes("commitCanvasLayoutObjectInspectorEdit"), "Comment/Area inspector edits use canvas-object snapshot commands");
 assert.ok(indexHtml.includes("bindCanvasObjectColorCommitInput"), "Comment/Area color inputs commit once through the snapshot path");
+assert.ok(indexHtml.includes("bindCanvasObjectOpacityCommitInput"), "Area opacity uses one snapshot command per slider gesture");
 assert.ok(indexHtml.includes("Math.max(80, Math.round(rect.width))"), "area creation enforces 80px minimum width");
 assert.ok(indexHtml.includes("Math.max(60, Math.round(rect.height))"), "area creation enforces 60px minimum height");
 assert.ok(indexHtml.includes("width: 180") && indexHtml.includes("height: 82"), "comment creation keeps legacy default size");
 assert.ok(bridgeSource.includes("commentBoxDrag"), "Engine bridge has comment box-specific drag state");
-assert.ok(bridgeSource.includes("pointInRect(world, box)") && bridgeSource.includes("distanceToSegment"), "comment hit testing stays precise");
+assert.ok(bridgeSource.includes("commentHitPart"), "comment hit testing uses semantic title/body/leader/arrow geometry");
 assert.ok(bridgeSource.includes("TITLE_BLOCK_MIN_SCALE = 0.34"), "title-block minimum scale is preserved");
 assert.ok(mutationSource.includes('"textSize"'), "canvas object textSize is mutation-whitelisted");
 
@@ -197,7 +268,9 @@ console.info("Canvas layout object validation passed", {
   title: {
     width: titleDevice.width,
     height: titleDevice.height,
-    ratio: Number((titleDevice.width / titleDevice.height).toFixed(4))
+    ratio: Number((titleDevice.width / titleDevice.height).toFixed(4)),
+    logoCell: titleLayout.logoCell,
+    rowDivider: titleLayout.rowDivider
   },
   roundTripCounts: normalizedRoundTrip.devices.reduce((counts, device) => {
     counts[device.kind] = (counts[device.kind] || 0) + 1;
@@ -239,4 +312,8 @@ function legacyLeaderEnd(box, anchor) {
     return { x: dx < 0 ? box.x : box.x + box.width, y: cy };
   }
   return { x: cx, y: dy < 0 ? box.y : box.y + box.height };
+}
+
+function distance(a, b) {
+  return Number(Math.hypot(a.x - b.x, a.y - b.y).toFixed(6));
 }
