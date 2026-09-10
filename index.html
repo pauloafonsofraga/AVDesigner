@@ -3712,12 +3712,12 @@
 
       .node-builder {
         grid-template-columns: 1fr;
-        grid-template-rows: minmax(0, 1fr) minmax(180px, 34%);
+        grid-template-rows: minmax(180px, 34%) minmax(0, 1fr);
       }
 
       .node-builder-list-panel {
-        border-left: 0;
-        border-top: 1px solid var(--panel-border);
+        border-right: 0;
+        border-bottom: 1px solid var(--panel-border);
       }
 
       .node-preview-layout {
@@ -3767,7 +3767,7 @@
     .node-builder {
       min-height: 0;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(225px, 25.5%);
+      grid-template-columns: minmax(225px, 25.5%) minmax(0, 1fr);
       overflow: hidden;
     }
 
@@ -3777,7 +3777,7 @@
       grid-template-rows: auto auto minmax(0, 1fr);
       gap: 10px;
       padding: 14px;
-      border-left: 1px solid var(--panel-border);
+      border-right: 1px solid var(--panel-border);
       overflow: hidden;
     }
 
@@ -3969,6 +3969,18 @@
     .node-canvas-appearance-preview .engine-preview-labels,
     .node-canvas-appearance-preview .engine-preview-authoring-overlay {
       pointer-events: none;
+    }
+
+    @media (max-width: 1280px), (max-height: 780px) {
+      .node-builder {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(180px, 34%) minmax(0, 1fr);
+      }
+
+      .node-builder-list-panel {
+        border-right: 0;
+        border-bottom: 1px solid var(--panel-border);
+      }
     }
 
     .title-block-modal {
@@ -5030,6 +5042,18 @@
         <button class="tool-button" id="closeNodeBuilder" type="button">Close</button>
       </div>
       <div class="node-builder">
+        <aside class="node-builder-list-panel">
+          <div class="node-builder-actions">
+            <button class="primary-button" id="newNodeType" type="button">New Node</button>
+            <button class="tool-button" id="resetNodeType" type="button">Reset Node</button>
+            <button class="danger-button hidden" id="deleteNodeType" type="button">Delete Node</button>
+            <button class="tool-button" id="exportNodeLibrary" type="button">Export Node JSON</button>
+          </div>
+          <div class="node-search">
+            <input id="nodeBuilderSearch" type="search" placeholder="Search connectors">
+          </div>
+          <div class="node-library-list" id="nodeBuilderList"></div>
+        </aside>
         <section class="node-builder-form">
           <div class="editor-grid">
             <div class="field">
@@ -5085,18 +5109,6 @@
             </div>
           </div>
         </section>
-        <aside class="node-builder-list-panel">
-          <div class="node-builder-actions">
-            <button class="primary-button" id="newNodeType" type="button">New Node</button>
-            <button class="tool-button" id="resetNodeType" type="button">Reset Node</button>
-            <button class="danger-button hidden" id="deleteNodeType" type="button">Delete Node</button>
-            <button class="tool-button" id="exportNodeLibrary" type="button">Export Node JSON</button>
-          </div>
-          <div class="node-search">
-            <input id="nodeBuilderSearch" type="search" placeholder="Search connectors">
-          </div>
-          <div class="node-library-list" id="nodeBuilderList"></div>
-        </aside>
       </div>
       <div class="modal-footer">
         <button class="primary-button" id="applyNodeBuilder" type="button">Apply Node Library</button>
