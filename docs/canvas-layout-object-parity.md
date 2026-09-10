@@ -1,6 +1,6 @@
 # Canvas Layout Object Parity
 
-Build: `iteration54-1-canvas-layout-visual-corrections`
+Build: `iteration54-1-1-comment-double-click-editing`
 
 Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`
 
@@ -121,3 +121,25 @@ it; Iteration 54.1 follows the newer square-cell acceptance invariant.
 
 Manual browser testing should use the visible build:
 `Iteration 54.1 — Canvas Layout Visual Corrections — iteration54-1-canvas-layout-visual-corrections`.
+
+## Iteration 54.1.1 Comment Editing Fix
+
+Engine Comment hit parts are now treated as the single source of truth for
+direct editing. `commentHitPart(...)` returns `title`, `body`, `leader`, or
+`arrow`; the Engine bridge uses `body` for Comment box dragging and forwards
+the exact part to the shell double-click handler.
+
+The shell no longer recalculates a separate Comment title Y band after the
+Engine hit test. Double-clicking `title` opens the blue-label input,
+double-clicking `body` opens the body textarea, and double-clicking `leader` or
+`arrow` only selects the Comment. Debug-only console diagnostics are available
+behind `debugCanvasObjects=1`.
+
+The title hit region is constrained around the visible centered label text
+rather than the full Comment box width.
+
+The inline `.comment-editor` is stacked above the Engine WebGL and label
+canvases so the focused title input/body textarea is also visibly on top.
+
+Manual browser testing should use the visible build:
+`Iteration 54.1.1 — Comment Editing Fix — iteration54-1-1-comment-double-click-editing`.

@@ -11,7 +11,8 @@ import {
 import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
 import {
   commentHitPart,
-  commentLeaderGeometry
+  commentLeaderGeometry,
+  commentTitleHitRect
 } from "../src/engine/commentGeometry.js";
 import {
   canvasObjectSelectionRect,
@@ -23,17 +24,25 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-1-canvas-layout-visual-corrections";
+const BUILD_ID = "iteration54-1-1-comment-double-click-editing";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
 const bridgeSource = readFileSync(resolve(repoRoot, "src/engine/productionBridge.js"), "utf8");
 const mutationSource = readFileSync(resolve(repoRoot, "src/engine/projectMutations.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.1");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.1";'), "visible iteration should be 54.1");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-1-canvas-layout-visual-corrections-modules";'), "module cache key should bust 54.1 modules");
-assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Iteration 54.1");
+function sourceSlice(source, startNeedle, endNeedle) {
+  const start = source.indexOf(startNeedle);
+  assert.ok(start >= 0, `${startNeedle} should exist`);
+  const end = source.indexOf(endNeedle, start + startNeedle.length);
+  assert.ok(end > start, `${endNeedle} should follow ${startNeedle}`);
+  return source.slice(start, end);
+}
+
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.1.1");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.1.1";'), "visible iteration should be 54.1.1");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-1-1-comment-double-click-editing-modules";'), "module cache key should bust 54.1.1 modules");
+assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Iteration 54.1.1");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
 assert.ok(classicScripts.length >= 1, "index.html should contain at least one classic script");
@@ -79,7 +88,7 @@ const rawTitleBlock = {
     client: "AV Designer",
     project: "Canvas Layout Objects",
     title: "Validation Title",
-    revision: "54.1",
+    revision: "54.1.1",
     companyLogo: "data:image/png;base64,title-logo"
   }
 };
@@ -135,25 +144,46 @@ assert.deepEqual(
   "comment soft glow rectangle is the box, not union bounds"
 );
 assert.notEqual(glowRect.width, commentDevice.width, "comment glow width differs from normalized union width");
+const commentHitFixture = {
+  box: absoluteCommentBox,
+  anchor: absoluteCommentAnchor,
+  leaderEnd: absoluteCommentLeaderEnd,
+  textSize: rawComment.textSize,
+  title: rawComment.title
+};
+const titleHitRect = commentTitleHitRect(absoluteCommentBox, rawComment.textSize, rawComment.title);
+assert.ok(titleHitRect.width < absoluteCommentBox.width, "comment title hit region is constrained to visible label width");
 assert.equal(
-  commentHitPart({
-    box: absoluteCommentBox,
-    anchor: absoluteCommentAnchor,
-    leaderEnd: absoluteCommentLeaderEnd,
-    textSize: rawComment.textSize
-  }, { x: absoluteCommentBox.x + absoluteCommentBox.width / 2, y: absoluteCommentBox.y - 8 }, 8)?.part,
+  commentHitPart(commentHitFixture, {
+    x: titleHitRect.x + titleHitRect.width / 2,
+    y: titleHitRect.y + titleHitRect.height / 2
+  }, 8)?.part,
   "title",
   "comment title hit region resolves as title"
 );
 assert.equal(
-  commentHitPart({
-    box: absoluteCommentBox,
-    anchor: absoluteCommentAnchor,
-    leaderEnd: absoluteCommentLeaderEnd,
-    textSize: rawComment.textSize
-  }, { x: absoluteCommentBox.x + absoluteCommentBox.width / 2, y: absoluteCommentBox.y + absoluteCommentBox.height / 2 }, 8)?.part,
+  commentHitPart(commentHitFixture, {
+    x: absoluteCommentBox.x + absoluteCommentBox.width / 2,
+    y: absoluteCommentBox.y + absoluteCommentBox.height / 2
+  }, 8)?.part,
   "body",
   "comment body center resolves as body"
+);
+assert.equal(
+  commentHitPart(commentHitFixture, {
+    x: (leaderGeometry.leaderStart.x + leaderGeometry.leaderEnd.x) / 2,
+    y: (leaderGeometry.leaderStart.y + leaderGeometry.leaderEnd.y) / 2
+  }, 8)?.part,
+  "leader",
+  "comment leader midpoint resolves as leader"
+);
+assert.equal(
+  commentHitPart(commentHitFixture, {
+    x: (leaderGeometry.arrowTip.x + leaderGeometry.arrowBaseCenter.x) / 2,
+    y: (leaderGeometry.arrowTip.y + leaderGeometry.arrowBaseCenter.y) / 2
+  }, 8)?.part,
+  "arrow",
+  "comment arrow shaft resolves as arrow"
 );
 
 const movedComment = {
@@ -238,6 +268,20 @@ assert.equal(normalizedRoundTrip.devices.filter(device => device.kind === "comme
 assert.equal(normalizedRoundTrip.devices.filter(device => device.kind === "title-block").length, 1, "round-trip has one title block");
 assert.deepEqual(roundTrip.comments[1].anchor, rawComment.anchor, "round-trip preserves comment anchor");
 assert.equal(roundTrip.titleBlocks[0].fields.companyLogo, rawTitleBlock.fields.companyLogo, "round-trip preserves title logo field");
+const savedReloadComment = {
+  ...rawComment,
+  id: "comment-save-reload",
+  title: "FOH NOTE",
+  text: "Move rack before doors"
+};
+const savedReloadProject = JSON.parse(JSON.stringify({
+  ...project,
+  comments: [savedReloadComment]
+}));
+const normalizedSavedReload = normalizeAvDesignerProject(savedReloadProject);
+assert.equal(normalizedSavedReload.devices.filter(device => device.kind === "comment").length, 1, "save/reload fixture has one comment");
+assert.equal(savedReloadProject.comments[0].title, "FOH NOTE", "save/reload preserves edited comment title");
+assert.equal(savedReloadProject.comments[0].text, "Move rack before doors", "save/reload preserves edited comment body");
 
 assert.ok(indexHtml.includes("commitCreatedCanvasObject"), "shell uses Engine canvas-object creation command");
 assert.ok(indexHtml.includes("onEngineCanvasToolPointerEvent"), "shell exposes Engine canvas tool pointer adapter");
@@ -245,14 +289,28 @@ assert.ok(indexHtml.includes("onEngineCanvasObjectDoubleClick"), "shell exposes 
 assert.ok(indexHtml.includes("engine-layout-tool-overlay"), "Engine placement previews use a dedicated overlay");
 assert.ok(indexHtml.includes("pointer-events: none"), "Engine placement overlay must not intercept pointer events");
 assert.ok(indexHtml.includes("engine-comment-preview-arrow"), "Engine comment placement preview draws an explicit arrowhead");
+assert.ok(indexHtml.includes(".comment-editor") && indexHtml.includes("z-index: 120"), "inline comment editor is stacked above the Engine canvas");
 assert.ok(indexHtml.includes("commitCanvasLayoutObjectInspectorEdit"), "Comment/Area inspector edits use canvas-object snapshot commands");
 assert.ok(indexHtml.includes("bindCanvasObjectColorCommitInput"), "Comment/Area color inputs commit once through the snapshot path");
 assert.ok(indexHtml.includes("bindCanvasObjectOpacityCommitInput"), "Area opacity uses one snapshot command per slider gesture");
+const engineDoubleClickHandler = sourceSlice(
+  indexHtml,
+  "function handleEngineCanvasObjectDoubleClick",
+  'if (kind === "area")'
+);
+assert.ok(engineDoubleClickHandler.includes('if (part === "title")'), "Engine shell routes comment title from payload.part");
+assert.ok(engineDoubleClickHandler.includes('if (part === "body")'), "Engine shell routes comment body from payload.part");
+assert.ok(!engineDoubleClickHandler.includes('part === "body" || part === "box"'), "Engine shell does not keep stale box alias for body editing");
+assert.ok(!engineDoubleClickHandler.includes("titleBand"), "Engine shell removed obsolete Comment Y-band fallback");
 assert.ok(indexHtml.includes("Math.max(80, Math.round(rect.width))"), "area creation enforces 80px minimum width");
 assert.ok(indexHtml.includes("Math.max(60, Math.round(rect.height))"), "area creation enforces 60px minimum height");
 assert.ok(indexHtml.includes("width: 180") && indexHtml.includes("height: 82"), "comment creation keeps legacy default size");
 assert.ok(bridgeSource.includes("commentBoxDrag"), "Engine bridge has comment box-specific drag state");
 assert.ok(bridgeSource.includes("commentHitPart"), "comment hit testing uses semantic title/body/leader/arrow geometry");
+assert.ok(bridgeSource.includes('hit.part === "body"'), "Comment body is the draggable comment box part");
+assert.ok(!bridgeSource.includes('hit.part === "box"'), "Engine bridge no longer expects stale box hit part");
+assert.ok(bridgeSource.includes("consumeCanvasObjectPointerDoubleClick"), "Engine bridge recognizes visible pointer double-clicks for canvas comments");
+assert.ok(bridgeSource.includes('"pointer-double-click"'), "Engine bridge reports pointer double-click diagnostics separately from native dblclick");
 assert.ok(bridgeSource.includes("TITLE_BLOCK_MIN_SCALE = 0.34"), "title-block minimum scale is preserved");
 assert.ok(mutationSource.includes('"textSize"'), "canvas object textSize is mutation-whitelisted");
 

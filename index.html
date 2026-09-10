@@ -3116,7 +3116,7 @@
 
     .comment-editor {
       position: absolute;
-      z-index: 20;
+      z-index: 120;
       resize: none;
       border: 1px solid var(--select);
       border-radius: 4px;
@@ -4453,7 +4453,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.1 — Canvas Layout Visual Corrections — iteration54-1-canvas-layout-visual-corrections</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.1.1 — Comment Editing Fix — iteration54-1-1-comment-double-click-editing</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5169,12 +5169,12 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.1";
-    const APP_BUILD_ID = "iteration54-1-canvas-layout-visual-corrections";
-    const APP_MODULE_CACHE_ID = "iteration54-1-canvas-layout-visual-corrections-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Canvas Layout Visual Corrections`;
+    const APP_ITERATION = "54.1.1";
+    const APP_BUILD_ID = "iteration54-1-1-comment-double-click-editing";
+    const APP_MODULE_CACHE_ID = "iteration54-1-1-comment-double-click-editing-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Comment Editing Fix`;
     const APP_SOURCE_BRANCH = "engine-prototype";
-    const APP_SOURCE_BASE_COMMIT = "5192a218056b5a16c1a5e893fbb03d6c32c63329";
+    const APP_SOURCE_BASE_COMMIT = "cd6c372430740d2f6c16ce717cfb4d2bab9ecfe9";
     const CANVAS_MIN_ZOOM = 0.03;
     const CANVAS_MAX_ZOOM = 8;
     const ENGINE_COMMENT_ARROW_LENGTH = 16;
@@ -94513,6 +94513,24 @@
       setStatus("Canvas tool cancelled.");
     }
 
+    function engineCommentDebugEnabled() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        return params.get("debugCanvasObjects") === "1" || params.get("debugCanvasObjects") === "true";
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function logEngineCommentEditorDebug(phase, details = {}) {
+      if (!engineCommentDebugEnabled()) return;
+      try {
+        console.info("[engine-comment-editor]", JSON.stringify({ phase, ...details }));
+      } catch (_) {
+        console.info("[engine-comment-editor]", phase);
+      }
+    }
+
     function handleEngineCanvasObjectDoubleClick(payload = {}) {
       const kind = payload.kind;
       const sourceId = payload.sourceId;
@@ -94520,20 +94538,27 @@
         const comment = state.comments.find(item => item.id === sourceId);
         if (!comment) return;
         const part = String(payload.part || "");
+        logEngineCommentEditorDebug("shell-dblclick", {
+          sourceId,
+          part,
+          worldPoint: payload.worldPoint || null,
+          screenPoint: payload.screenPoint || null
+        });
         if (part === "title") {
+          logEngineCommentEditorDebug("editor-requested", { sourceId, field: "title" });
           editCommentTitle(sourceId);
           return;
         }
-        if (part === "body" || part === "box") {
+        if (part === "body") {
+          logEngineCommentEditorDebug("editor-requested", { sourceId, field: "text" });
           editCommentBody(sourceId);
           return;
         }
-        if (part === "leader" || part === "arrow") return;
-        const point = payload.worldPoint || { x: comment.x, y: comment.y };
-        const titleBandTop = comment.y - 24;
-        const titleBandBottom = comment.y + 8;
-        if (point.y >= titleBandTop && point.y <= titleBandBottom) editCommentTitle(sourceId);
-        else editCommentBody(sourceId);
+        if (part === "leader" || part === "arrow") {
+          logEngineCommentEditorDebug("non-edit-part", { sourceId, part });
+        } else {
+          logEngineCommentEditorDebug("unhandled-part", { sourceId, part });
+        }
         return;
       }
       if (kind === "area") {
@@ -98861,14 +98886,20 @@
     }
 
     function editCommentTitle(commentId, editBox = null) {
-      if (isCommentEditSuppressed(commentId)) return;
+      if (isCommentEditSuppressed(commentId)) {
+        logEngineCommentEditorDebug("suppressed", { commentId, field: "title" });
+        return;
+      }
       const comment = state.comments.find(item => item.id === commentId);
       if (!comment) return;
       editCommentTextField(commentId, "title", editBox);
     }
 
     function editCommentBody(commentId, editBox = null) {
-      if (isCommentEditSuppressed(commentId)) return;
+      if (isCommentEditSuppressed(commentId)) {
+        logEngineCommentEditorDebug("suppressed", { commentId, field: "text" });
+        return;
+      }
       editCommentTextField(commentId, "text", editBox);
     }
 
@@ -98909,6 +98940,17 @@
       commentEditor = { control, commentId, field, before: structCloneComment(comment) };
       control.focus();
       control.select();
+      logEngineCommentEditorDebug("editor-opened", {
+        commentId,
+        field,
+        tag: control.tagName,
+        focused: control === document.activeElement,
+        visible: (() => {
+          const rect = control.getBoundingClientRect();
+          const style = getComputedStyle(control);
+          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+        })()
+      });
       control.addEventListener("keydown", event => {
         const isEnter = event.key === "Enter" || event.code === "Enter" || event.code === "NumpadEnter";
         if (field === "text" && isEnter && (event.altKey || event.metaKey || event.shiftKey)) {

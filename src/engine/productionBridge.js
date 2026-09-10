@@ -89,9 +89,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-1-canvas-layout-visual-corrections";
-export const ENGINE_BRIDGE_VERSION = "iteration54-1-canvas-layout-visual-corrections";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "canvas-layout-visual-corrections";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-1-1-comment-double-click-editing";
+export const ENGINE_BRIDGE_VERSION = "iteration54-1-1-comment-double-click-editing";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "comment-double-click-editing";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -192,6 +192,8 @@ class ProductionEngineBridge {
     this.wireCreate = null;
     this.resizeSession = null;
     this.commentBoxDrag = null;
+    this.lastCanvasObjectPointerDown = null;
+    this.suppressNativeCanvasObjectDoubleClickUntil = 0;
     this.canvasToolPointerActive = false;
     this.lastCanvasToolDispatch = null;
     this.lastCanvasToolCreated = null;
@@ -1045,8 +1047,30 @@ class ProductionEngineBridge {
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation?.();
+    if (performance.now() < this.suppressNativeCanvasObjectDoubleClickUntil) return;
+    this.dispatchCanvasObjectDoubleClick(hit, point, world, "native-dblclick");
+  }
+
+  dispatchCanvasObjectDoubleClick(hit, point, world, source = "native-dblclick") {
+    if (!hit?.device) return false;
     this.scene.selectOnly(hit.device.id);
     this.updateSelectionHud();
+    if (this.debugCanvasObjects && hit.device.kind === "comment") {
+      const details = {
+        phase: "bridge",
+        source,
+        sourceId: hit.device.sourceId || hit.device.id,
+        engineId: hit.device.id,
+        part: hit.part || "",
+        screenPoint: { ...point },
+        worldPoint: { ...world }
+      };
+      try {
+        console.info("[engine-comment-dblclick]", JSON.stringify(details));
+      } catch (_) {
+        console.info("[engine-comment-dblclick]", `${details.phase}:${details.source}:${details.part}`);
+      }
+    }
     this.api.onEngineCanvasObjectDoubleClick?.({
       kind: hit.device.kind,
       sourceId: hit.device.sourceId || hit.device.id,
@@ -1058,6 +1082,7 @@ class ProductionEngineBridge {
     });
     this.updateInteractionHud(`double-click-${hit.device.kind}`);
     this.scheduleRender();
+    return true;
   }
 
   handlePointerDown(event) {
@@ -1170,6 +1195,7 @@ class ProductionEngineBridge {
       kinds: ["comment", "title-block", "image-object", "led-surface"]
     });
     if (foregroundObjectHit.device) {
+      if (!additiveSelection && this.consumeCanvasObjectPointerDoubleClick(foregroundObjectHit, point, world, event)) return;
       this.handleCanvasObjectPointerDown(foregroundObjectHit, point, world, event, additiveSelection);
       return;
     }
@@ -1206,6 +1232,7 @@ class ProductionEngineBridge {
       }
       const areaHit = this.hitTestPreciseCanvasObject(world, tolerance, { kinds: ["area"] });
       if (areaHit.device) {
+        if (!additiveSelection && this.consumeCanvasObjectPointerDoubleClick(areaHit, point, world, event)) return;
         this.handleCanvasObjectPointerDown(areaHit, point, world, event, additiveSelection);
         return;
       }
@@ -1727,6 +1754,34 @@ class ProductionEngineBridge {
     return true;
   }
 
+  consumeCanvasObjectPointerDoubleClick(hit, point, world, event) {
+    const device = hit?.device;
+    if (!device || !isCanvasObjectKind(device)) return false;
+    const now = Number(event?.timeStamp) || performance.now();
+    const sourceId = String(device.sourceId || device.id || "");
+    const part = String(hit.part || "");
+    const previous = this.lastCanvasObjectPointerDown;
+    this.lastCanvasObjectPointerDown = {
+      sourceId,
+      engineId: String(device.id || ""),
+      kind: String(device.kind || ""),
+      part,
+      x: Number(point?.x) || 0,
+      y: Number(point?.y) || 0,
+      time: now
+    };
+    if (device.kind !== "comment") return false;
+    if (!previous) return false;
+    const elapsed = now - previous.time;
+    const distance = Math.hypot((Number(point?.x) || 0) - previous.x, (Number(point?.y) || 0) - previous.y);
+    const sameComment = previous.sourceId === sourceId && previous.kind === "comment";
+    const sameEditableRegion = previous.part === part || (previous.part === "title" && part === "title") || (previous.part === "body" && part === "body");
+    if (!sameComment || !sameEditableRegion || elapsed < 0 || elapsed > 520 || distance > 9) return false;
+    this.suppressNativeCanvasObjectDoubleClickUntil = performance.now() + 380;
+    this.dispatchCanvasObjectDoubleClick(hit, point, world, "pointer-double-click");
+    return true;
+  }
+
   capturePointer(pointerId) {
     try {
       this.canvas.setPointerCapture(pointerId);
@@ -1784,7 +1839,7 @@ class ProductionEngineBridge {
     this.updateSelectionHud();
     this.updateInteractionHud("canvas-object-select", hit);
     if (device.kind === "comment") {
-      if (hit.part === "box" && !this.deviceMovementLocked(device)) {
+      if (hit.part === "body" && !this.deviceMovementLocked(device)) {
         this.beginCommentBoxDrag(hit, point, world, event);
       } else {
         this.scheduleRender();
@@ -6948,7 +7003,8 @@ function preciseCanvasObjectHit(device, world, tolerance = 8) {
       box,
       anchor: worldCommentAnchor(device),
       leaderEnd: worldCommentLeaderEnd(device),
-      textSize: device.visual?.textSize
+      textSize: device.visual?.textSize,
+      title: device.visual?.title || device.label || "Comment"
     }, world, tolerance);
   }
   const rect = canvasObjectInteractionRect(device);

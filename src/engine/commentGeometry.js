@@ -77,23 +77,25 @@ export function commentLeaderGeometry({
   };
 }
 
-export function commentTitleHitRect(box = {}, textSize = 12) {
+export function commentTitleHitRect(box = {}, textSize = 12, title = "Comment") {
   const rect = normalizeCommentBox(box);
   const titleSize = Math.max(10, Math.min(18, (Number(textSize) || 12) * 1.05));
-  const height = Math.max(24, titleSize + 14);
+  const label = String(title || "Comment");
+  const estimatedWidth = Math.max(48, Math.min(rect.width, label.length * titleSize * 0.66 + 22));
+  const height = Math.max(20, titleSize + 12);
   return {
-    x: rect.x - 10,
-    y: rect.y - height,
-    width: rect.width + 20,
-    height: height + 8
+    x: rect.x + rect.width / 2 - estimatedWidth / 2,
+    y: rect.y - titleSize - 12,
+    width: estimatedWidth,
+    height: height + 6
   };
 }
 
-export function commentHitPart({ box = {}, anchor = {}, leaderEnd = null, textSize = 12 } = {}, point, tolerance = 8) {
+export function commentHitPart({ box = {}, anchor = {}, leaderEnd = null, textSize = 12, title = "Comment" } = {}, point, tolerance = 8) {
   if (!point) return null;
   const rect = normalizeCommentBox(box);
   const geometry = commentLeaderGeometry({ box: rect, anchor, leaderEnd });
-  if (pointInRect(point, commentTitleHitRect(rect, textSize))) {
+  if (pointInRect(point, commentTitleHitRect(rect, textSize, title))) {
     return { part: "title", distance: 0 };
   }
   if (pointInRect(point, rect)) {
