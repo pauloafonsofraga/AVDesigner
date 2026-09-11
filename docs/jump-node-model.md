@@ -1,6 +1,6 @@
 # Jump Node Model
 
-Build: `iteration54-2-smart-jump-nodes`
+Build: `iteration54-2-1-jump-node-interaction`
 
 ## Current And Legacy Model
 
@@ -80,6 +80,18 @@ During Jump Link creation, hover reveal, or selected-pair reveal, the Engine dra
 Hovering either paired Jump reveals the counterpart and the hidden gradient link without mutating selection. Clicking either paired Jump selects both Jump IDs in `SceneGraph.selectedIds`, stores the clicked member as `primarySelectedJumpId`, and does not select the device-side wires. The Inspector edits only the primary Jump.
 
 Dragging keeps normal Engine object movement semantics. There is no special pair-move command in this iteration.
+
+## Interaction Gesture
+
+The whole visible circular Jump body is the pointer target. Pressing a Jump starts a transient `pendingJumpPress` state instead of immediately choosing selection, movement, or portal creation.
+
+```text
+quick click -> select
+click + move 5 px -> move
+click + hold 250 ms -> create Jump Link
+```
+
+The 5 px movement tolerance is measured in screen pixels so small hand jitter does not cancel a hold at different zoom levels. The 250 ms hold can only enter Jump Link creation when the source Jump has a derived output/input role, has a device-side wire, and is not already paired. Neutral, already-paired, or device-wireless Jump Nodes reject the hold and remain stationary until release. During Jump Link creation, target hit testing also accepts the whole visible Jump circle with a small screen-space tolerance before applying the existing output/input compatibility rules.
 
 ## Inspector
 

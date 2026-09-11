@@ -1,5 +1,15 @@
 export const JUMP_NODE_SIZE = 44;
 export const JUMP_NODE_CONNECTOR_ID = "jump-center";
+export const JUMP_LINK_HOLD_MS = 250;
+export const JUMP_PRESS_MOVE_THRESHOLD_PX = 5;
+
+export const JUMP_PRESS_INTENT = Object.freeze({
+  pending: "pending",
+  select: "select",
+  move: "move",
+  link: "link",
+  rejected: "rejected"
+});
 
 export const JUMP_NODE_ROLE = Object.freeze({
   neutral: "neutral",
@@ -40,6 +50,24 @@ export function jumpNodeRoleColor(role = JUMP_NODE_ROLE.neutral) {
 
 export function jumpNodeRoleLabel(role = JUMP_NODE_ROLE.neutral) {
   return JUMP_NODE_ROLE_LABELS[role] || JUMP_NODE_ROLE_LABELS.neutral;
+}
+
+export function jumpPressIntent({
+  elapsedMs = 0,
+  distancePx = 0,
+  holdMs = JUMP_LINK_HOLD_MS,
+  dragThresholdPx = JUMP_PRESS_MOVE_THRESHOLD_PX,
+  eligible = false,
+  released = false
+} = {}) {
+  const elapsed = Number.isFinite(Number(elapsedMs)) ? Number(elapsedMs) : 0;
+  const distance = Number.isFinite(Number(distancePx)) ? Number(distancePx) : 0;
+  const hold = Math.max(0, Number.isFinite(Number(holdMs)) ? Number(holdMs) : JUMP_LINK_HOLD_MS);
+  const threshold = Math.max(0, Number.isFinite(Number(dragThresholdPx)) ? Number(dragThresholdPx) : JUMP_PRESS_MOVE_THRESHOLD_PX);
+  if (distance >= threshold) return JUMP_PRESS_INTENT.move;
+  if (elapsed >= hold) return eligible ? JUMP_PRESS_INTENT.link : JUMP_PRESS_INTENT.rejected;
+  if (released) return JUMP_PRESS_INTENT.select;
+  return JUMP_PRESS_INTENT.pending;
 }
 
 export function normalizeJumpNodeLabel(node = {}) {
