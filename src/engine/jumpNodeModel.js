@@ -86,16 +86,45 @@ export function jumpPressIntent({
   dragThresholdPx = JUMP_PRESS_MOVE_THRESHOLD_PX,
   canStartLink = false,
   explicitlyMoveArmed = false,
+  pressedJumpSelected = false,
+  selectedCount = 0,
+  multiSelectionMove = false,
   released = false
 } = {}) {
   const distance = Number.isFinite(Number(distancePx)) ? Number(distancePx) : 0;
   const threshold = Math.max(0, Number.isFinite(Number(dragThresholdPx)) ? Number(dragThresholdPx) : JUMP_PRESS_MOVE_THRESHOLD_PX);
+  const selectionCount = Math.max(0, Number.isFinite(Number(selectedCount)) ? Number(selectedCount) : 0);
+  const moveSelectedGroup = Boolean(multiSelectionMove || (pressedJumpSelected && selectionCount > 1));
   if (released && distance < threshold) return JUMP_PRESS_INTENT.select;
   if (distance >= threshold) {
+    if (moveSelectedGroup) return JUMP_PRESS_INTENT.move;
     if (canStartLink && !explicitlyMoveArmed) return JUMP_PRESS_INTENT.link;
     return JUMP_PRESS_INTENT.move;
   }
   return JUMP_PRESS_INTENT.pending;
+}
+
+export function jumpIdleHoverPrecedence({
+  jumpBodyHit = false,
+  connectorHit = false,
+  wireHit = false,
+  routePointHit = false,
+  deviceHit = false,
+  infoBoxHit = false
+} = {}) {
+  if (infoBoxHit) return { owner: "info-box", connectorHoverSuppressedByJump: false, wireHoverSuppressedByJump: false };
+  if (jumpBodyHit) {
+    return {
+      owner: "jump",
+      connectorHoverSuppressedByJump: Boolean(connectorHit),
+      wireHoverSuppressedByJump: Boolean(wireHit)
+    };
+  }
+  if (routePointHit) return { owner: "route-point", connectorHoverSuppressedByJump: false, wireHoverSuppressedByJump: false };
+  if (connectorHit) return { owner: "connector", connectorHoverSuppressedByJump: false, wireHoverSuppressedByJump: false };
+  if (wireHit) return { owner: "wire", connectorHoverSuppressedByJump: false, wireHoverSuppressedByJump: false };
+  if (deviceHit) return { owner: "device", connectorHoverSuppressedByJump: false, wireHoverSuppressedByJump: false };
+  return { owner: "none", connectorHoverSuppressedByJump: false, wireHoverSuppressedByJump: false };
 }
 
 export function normalizeJumpNodeLabel(node = {}) {

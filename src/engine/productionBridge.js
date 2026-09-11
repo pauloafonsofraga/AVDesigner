@@ -81,6 +81,7 @@ import {
   jumpCompatibleHitForDeviceWire,
   jumpLinkBezierPolyline,
   jumpNodeCenter,
+  jumpIdleHoverPrecedence,
   jumpPressIntent,
   jumpNodeRoleColor,
   jumpNodeRoleLabel,
@@ -115,9 +116,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-2-4-jump-legacy-parity-play-wire";
-export const ENGINE_BRIDGE_VERSION = "iteration54-2-4-jump-legacy-parity-play-wire";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-legacy-parity-play-wire";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-2-5-jump-interaction-legacy-actions";
+export const ENGINE_BRIDGE_VERSION = "iteration54-2-5-jump-interaction-legacy-actions";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-interaction-legacy-actions";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -225,6 +226,7 @@ class ProductionEngineBridge {
     this.resizeSession = null;
     this.commentBoxDrag = null;
     this.boundCanvasWrapDoubleClick = null;
+    this.boundInspectorActionClick = null;
     this.canvasToolPointerActive = false;
     this.lastCanvasToolDispatch = null;
     this.lastCanvasToolCreated = null;
@@ -265,6 +267,8 @@ class ProductionEngineBridge {
     this.lastCompatibilityTargetKey = "";
     this.lastPortalCommand = null;
     this.lastPlaybackJumpPath = null;
+    this.lastJumpHoverDiagnostics = jumpHoverDiagnostics();
+    this.jumpActionDiagnostics = jumpActionDiagnostics();
     this.wirePlayback = null;
     this.wirePlaybackFrame = null;
     this.lastPlaybackDiagnostics = null;
@@ -613,10 +617,19 @@ class ProductionEngineBridge {
       : 0;
     const canStartLink = pendingPress
       ? Boolean(pendingPress.canStartLink)
-      : false;
+      : Boolean(this.lastJumpGesture?.canStartLink);
     const explicitlyMoveArmed = pendingPress
       ? this.isJumpMoveArmed(pendingPress.jumpId)
-      : false;
+      : Boolean(this.lastJumpGesture?.explicitlyMoveArmed);
+    const selectedCount = pendingPress?.selectedCount ?? this.lastJumpGesture?.selectedCount ?? this.scene.selectedIds.size;
+    const pressedJumpSelected = pendingPress
+      ? Boolean(pendingPress.pressedJumpSelected)
+      : Boolean(this.lastJumpGesture?.pressedJumpSelected);
+    const multiSelectionMove = pendingPress
+      ? Boolean(pendingPress.multiSelectionMove)
+      : Boolean(this.lastJumpGesture?.multiSelectionMove);
+    const hoverDiagnostics = this.lastJumpHoverDiagnostics || jumpHoverDiagnostics();
+    const actionDiagnostics = this.jumpActionDiagnostics || jumpActionDiagnostics();
     const overlays = this.visibleJumpLinkOverlays();
     const selectedJumpLinkId = this.scene.selectedJumpLinkId || "";
     const pairedHighlightIds = this.pairedJumpHighlightIds(primarySelectedJumpId);
@@ -642,6 +655,12 @@ class ProductionEngineBridge {
       pairedJumpId: primarySelectedJumpId ? this.scene.pairedJumpId(primarySelectedJumpId) : "",
       pairedHighlightedJumpIds: [...pairedHighlightIds],
       selectedJumpLinkId,
+      idleHoverOwner: hoverDiagnostics.idleHoverOwner || this.hoverOwnerKey(),
+      jumpBodyHit: Boolean(hoverDiagnostics.jumpBodyHit),
+      jumpBodyHitId: hoverDiagnostics.jumpBodyHitId || "",
+      connectorHoverSuppressedByJump: Boolean(hoverDiagnostics.connectorHoverSuppressedByJump),
+      wireHoverSuppressedByJump: Boolean(hoverDiagnostics.wireHoverSuppressedByJump),
+      pairedPortalRevealedByHover: Boolean(hoverDiagnostics.pairedPortalRevealedByHover),
       activeJumpLinkCreate: Boolean(this.jumpLinkCreate),
       pairCandidate: this.jumpLinkCreate?.target?.device?.id || "",
       pairRejectionReason: activeCompatibility && !activeCompatibility.valid ? activeCompatibility.reason || activeCompatibility.rule || "" : "",
@@ -650,14 +669,21 @@ class ProductionEngineBridge {
         distancePx: pendingDistancePx,
         canStartLink,
         explicitlyMoveArmed,
+        selectedCount,
+        pressedJumpSelected,
+        multiSelectionMove,
         role: pendingPress.role || JUMP_NODE_ROLE.neutral,
         gestureWinner: pendingPress.gestureWinner || "pending",
         pointerId: pendingPress.pointerId ?? ""
       } : null,
       pendingJumpId: pendingPress?.jumpId || "",
       distancePx: pendingDistancePx,
+      selectedCount,
+      pressedJumpSelected,
+      multiSelectionMove,
       canStartLink,
       explicitlyMoveArmed,
+      moveArmed: explicitlyMoveArmed,
       gestureWinner: pendingPress?.gestureWinner || this.lastJumpGesture?.winner || (this.jumpLinkCreate ? "link" : ""),
       moveArmedJumpId: this.jumpMoveArmedId || "",
       activeJumpPointerId: pendingPress?.pointerId ?? "",
@@ -699,6 +725,17 @@ class ProductionEngineBridge {
       lastPortalCommand: this.lastPortalCommand || null,
       lastPlaybackJumpPath: this.lastPlaybackJumpPath || null,
       lastJumpPairNavigation: this.lastJumpPairNavigation || null,
+      jumpToPairButtonClickCount: actionDiagnostics.jumpToPairButtonClickCount || 0,
+      jumpToPairHandlerCount: actionDiagnostics.jumpToPairHandlerCount || 0,
+      jumpToPairFrom: actionDiagnostics.jumpToPairFrom || "",
+      jumpToPairTo: actionDiagnostics.jumpToPairTo || "",
+      cameraBefore: actionDiagnostics.cameraBefore || null,
+      cameraAfter: actionDiagnostics.cameraAfter || null,
+      playWireButtonClickCount: actionDiagnostics.playWireButtonClickCount || 0,
+      playWireHandlerCount: actionDiagnostics.playWireHandlerCount || 0,
+      playWireStartingWire: actionDiagnostics.playWireStartingWire || "",
+      playWireResolvedSteps: actionDiagnostics.playWireResolvedSteps || [],
+      playWireActive: Boolean(actionDiagnostics.playWireActive),
       playbackDiagnostics: this.lastPlaybackDiagnostics || {
         active: false,
         resolvedSteps: [],
@@ -717,6 +754,8 @@ class ProductionEngineBridge {
     this.hud?.setMetric("jump nodes", `${snapshot.jumpCount} nodes / ${snapshot.jumpLinkCount} links`);
     this.hud?.setMetric("jump roles", `${snapshot.outputCount} out / ${snapshot.inputCount} in / ${snapshot.neutralCount} neutral`);
     this.hud?.setMetric("jump hover/select", `${hoveredJumpId || "-"} / ${primarySelectedJumpId || "-"}`);
+    this.hud?.setMetric("jump hover owner", `${snapshot.idleHoverOwner}${snapshot.jumpBodyHit ? ` / ${snapshot.jumpBodyHitId}` : ""}`);
+    this.hud?.setMetric("jump hover suppress", `connector ${snapshot.connectorHoverSuppressedByJump ? "yes" : "no"} / wire ${snapshot.wireHoverSuppressedByJump ? "yes" : "no"}`);
     this.hud?.setMetric("jump pair highlight", snapshot.pairedHighlightedJumpIds.join(", ") || "-");
     this.hud?.setMetric("selected jump link", selectedJumpLinkId || "-");
     this.hud?.setMetric("jump overlays", `${snapshot.visibleJumpLinkOverlays.length} visible / ${snapshot.hiddenJumpLinks} hidden`);
@@ -725,13 +764,15 @@ class ProductionEngineBridge {
     this.hud?.setMetric("jump info endpoint", connectionInfo?.deviceId ? `${connectionInfo.deviceId}:${connectionInfo.connectorId || "-"}` : "-");
     this.hud?.setMetric("jump portal geometry", visiblePortal ? `${visiblePortal.geometry || "-"} / ${visiblePortal.sampledPointCount || visiblePortal.points?.length || 0} pts` : "-");
     this.hud?.setMetric("jump to pair", this.lastJumpPairNavigation ? `${this.lastJumpPairNavigation.fromJumpId} -> ${this.lastJumpPairNavigation.toJumpId}` : "-");
+    this.hud?.setMetric("jump to pair clicks", `${snapshot.jumpToPairButtonClickCount} button / ${snapshot.jumpToPairHandlerCount} handler`);
     this.hud?.setMetric("playback active", snapshot.playbackDiagnostics.active ? "yes" : "no");
+    this.hud?.setMetric("play wire clicks", `${snapshot.playWireButtonClickCount} button / ${snapshot.playWireHandlerCount} handler`);
     this.hud?.setMetric("playback steps", `${snapshot.playbackDiagnostics.resolvedSteps?.length || 0} / ${snapshot.playbackDiagnostics.stepType || "-"}`);
     this.hud?.setMetric("playback progress", `${Math.round((snapshot.playbackDiagnostics.progress || 0) * 100)}% / teleports ${snapshot.playbackDiagnostics.teleportCount || 0} / raf ${snapshot.playbackDiagnostics.rafActive ? "yes" : "no"}`);
     this.hud?.setMetric("jump pair candidate", snapshot.pairCandidate || "-");
     this.hud?.setMetric("jump pair reject", snapshot.pairRejectionReason || "-");
     this.hud?.setMetric("jump press", pendingPress
-      ? `${pendingPress.jumpId} ${pendingDistancePx.toFixed(1)} px / ${canStartLink ? "can-link" : "no-link"} / ${explicitlyMoveArmed ? "armed" : "unarmed"} / ${pendingPress.gestureWinner || "pending"}`
+      ? `${pendingPress.jumpId} ${pendingDistancePx.toFixed(1)} px / ${canStartLink ? "can-link" : "no-link"} / ${explicitlyMoveArmed ? "armed" : "unarmed"} / ${multiSelectionMove ? "group" : "single"} / ${pendingPress.gestureWinner || "pending"}`
       : this.lastJumpGesture?.winner || "-");
     this.hud?.setMetric("jump move arm", this.jumpMoveArmedId || "-");
     writeJumpNodeDebugSnapshot(snapshot);
@@ -1072,6 +1113,8 @@ class ProductionEngineBridge {
     this.errorPanel = this.engineRoot.querySelector(".engine-bridge-error");
     this.loadingPanel = this.engineRoot.querySelector(".engine-bridge-loading");
     this.layerDebugPanel = this.engineRoot.querySelector(".engine-bridge-layer-debug");
+    this.boundInspectorActionClick = event => this.handleInspectorActionClick(event);
+    this.inspectorPanel?.addEventListener("click", this.boundInspectorActionClick);
     this.engineRoot.querySelector("[data-engine-action='refresh']")?.addEventListener("click", () => this.refreshFromProduction("manual button"));
     this.engineRoot.querySelector("[data-engine-action='exit']")?.addEventListener("click", () => exitEngineMode());
     this.engineRoot.querySelector("[data-engine-action='loading-exit']")?.addEventListener("click", () => exitEngineMode());
@@ -1105,6 +1148,42 @@ class ProductionEngineBridge {
         this.scheduleRender();
       });
     });
+  }
+
+  handleInspectorActionClick(event) {
+    const target = event?.target;
+    const closest = typeof target?.closest === "function"
+      ? selector => target.closest(selector)
+      : () => null;
+    const jumpPairButton = closest("[data-jump-to-pair]");
+    if (jumpPairButton && this.inspectorPanel?.contains(jumpPairButton)) {
+      event.preventDefault();
+      event.stopPropagation();
+      const jumpId = jumpPairButton.getAttribute("data-jump-id") || this.scene.primarySelectedJumpId || "";
+      this.triggerJumpToPairAction(jumpId, { actionSource: "engine-inspector-button" });
+      return;
+    }
+    const playWireButton = closest("[data-play-wire]");
+    if (playWireButton && this.inspectorPanel?.contains(playWireButton)) {
+      event.preventDefault();
+      event.stopPropagation();
+      const wireId = playWireButton.getAttribute("data-wire-id") || [...this.scene.selectedWireIds][0] || "";
+      this.triggerPlayWireAction(wireId, { actionSource: "engine-inspector-button" });
+    }
+  }
+
+  triggerJumpToPairAction(jumpId = "", options = {}) {
+    this.jumpActionDiagnostics.jumpToPairButtonClickCount += 1;
+    const sourceId = String(jumpId || this.scene.primarySelectedJumpId || "");
+    this.jumpActionDiagnostics.jumpToPairFrom = sourceId;
+    return this.jumpToPair(sourceId, { actionSource: options.actionSource || "button" });
+  }
+
+  triggerPlayWireAction(wireId = "", options = {}) {
+    this.jumpActionDiagnostics.playWireButtonClickCount += 1;
+    const sourceWireId = String(wireId || [...this.scene.selectedWireIds][0] || "");
+    this.jumpActionDiagnostics.playWireStartingWire = sourceWireId;
+    return this.playWireTrace(sourceWireId, { actionSource: options.actionSource || "button" });
   }
 
   bindEvents() {
@@ -1440,10 +1519,17 @@ class ProductionEngineBridge {
 
   pairedJumpHighlightIds(primaryJumpId = "") {
     const ids = new Set();
-    const primaryId = String(primaryJumpId || this.scene.primarySelectedJumpId || "");
-    if (!primaryId || !isJumpNodeDevice(this.scene.getDevice(primaryId))) return ids;
-    const pairedId = this.scene.pairedJumpId(primaryId);
-    if (pairedId && isJumpNodeDevice(this.scene.getDevice(pairedId))) ids.add(pairedId);
+    const hoveredDevice = this.hoverState?.device?.device || this.hoverState?.device || null;
+    const baseIds = uniqueItems([
+      primaryJumpId,
+      this.scene.primarySelectedJumpId,
+      isJumpNodeDevice(hoveredDevice) ? hoveredDevice.id : ""
+    ].map(id => String(id || "")).filter(Boolean));
+    baseIds.forEach(id => {
+      if (!isJumpNodeDevice(this.scene.getDevice(id))) return;
+      const pairedId = this.scene.pairedJumpId(id);
+      if (pairedId && isJumpNodeDevice(this.scene.getDevice(pairedId))) ids.add(pairedId);
+    });
     return ids;
   }
 
@@ -1567,7 +1653,7 @@ class ProductionEngineBridge {
     return Math.hypot(dx, dy);
   }
 
-  beginPendingJumpPress(hit, point, worldPoint, event, additiveSelection = false) {
+  beginPendingJumpPress(hit, point, worldPoint, event, additiveSelection = false, options = {}) {
     const connectorHit = hit?.connector || hit;
     const jumpDevice = connectorHit?.device || hit?.device || null;
     if (!jumpDevice || !isJumpNodeDevice(jumpDevice)) return false;
@@ -1575,6 +1661,9 @@ class ProductionEngineBridge {
     const roleInfo = this.scene.jumpNodeRole(jumpDevice.id);
     const startStatus = this.jumpLinkStartStatus(jumpDevice.id);
     const pointerId = event?.pointerId ?? null;
+    const selectedCount = this.scene.selectedIds.size;
+    const pressedJumpSelected = this.scene.selectedIds.has(jumpDevice.id);
+    const multiSelectionMove = pressedJumpSelected && selectedCount > 1;
     const pending = {
       pointerId,
       jumpId: String(jumpDevice.id),
@@ -1588,12 +1677,18 @@ class ProductionEngineBridge {
       explicitlyMoveArmed: this.isJumpMoveArmed(jumpDevice.id),
       rejectionReason: startStatus.reason || "",
       additiveSelection: Boolean(additiveSelection),
-      wasSelected: this.scene.selectedIds.has(jumpDevice.id),
+      shiftRewireCandidate: Boolean(options.shiftRewireCandidate),
+      rewireConnector: options.rewireConnector || null,
+      rewireEndpoint: options.rewireEndpoint || null,
+      wasSelected: pressedJumpSelected,
+      selectedCount,
+      pressedJumpSelected,
+      multiSelectionMove,
       gestureWinner: "pending"
     };
     this.pendingJumpPress = pending;
     this.clearHoverState("jump-press-pending", { render: false });
-    this.hud?.setMetric("jump press", `${pending.jumpId} pending / ${pending.canStartLink ? "can-link" : "no-link"} / ${pending.explicitlyMoveArmed ? "armed" : "unarmed"}`);
+    this.hud?.setMetric("jump press", `${pending.jumpId} pending / ${pending.canStartLink ? "can-link" : "no-link"} / ${pending.explicitlyMoveArmed ? "armed" : "unarmed"} / ${pending.multiSelectionMove ? "group" : "single"}`);
     this.updateJumpNodeDebugSnapshot("jump-press-pending");
     this.updateCanvasCursor();
     this.scheduleRender();
@@ -1613,7 +1708,10 @@ class ProductionEngineBridge {
       jumpId: pending.jumpId,
       distancePx,
       canStartLink: Boolean(pending.canStartLink),
-      explicitlyMoveArmed: Boolean(pending.explicitlyMoveArmed)
+      explicitlyMoveArmed: Boolean(pending.explicitlyMoveArmed),
+      selectedCount: pending.selectedCount || 0,
+      pressedJumpSelected: Boolean(pending.pressedJumpSelected),
+      multiSelectionMove: Boolean(pending.multiSelectionMove)
     };
     if (updateHud) {
       this.hud?.setMetric("jump press", `${winner}: ${pending.jumpId}`);
@@ -1633,12 +1731,23 @@ class ProductionEngineBridge {
     pending.role = status.role || pending.role || JUMP_NODE_ROLE.neutral;
     pending.canStartLink = Boolean(status.valid);
     pending.explicitlyMoveArmed = this.isJumpMoveArmed(pending.jumpId);
+    pending.selectedCount = this.scene.selectedIds.size;
+    pending.pressedJumpSelected = this.scene.selectedIds.has(pending.jumpId);
+    pending.multiSelectionMove = pending.pressedJumpSelected && pending.selectedCount > 1;
     pending.rejectionReason = status.reason || "";
+    if (pending.shiftRewireCandidate && event?.shiftKey && distancePx >= this.jumpPressMoveThresholdPx()) {
+      pending.gestureWinner = "rewire";
+      this.resolvePendingJumpPressAsRewire(event);
+      return "rewire";
+    }
     const intent = jumpPressIntent({
       distancePx,
       dragThresholdPx: this.jumpPressMoveThresholdPx(),
       canStartLink: pending.canStartLink,
-      explicitlyMoveArmed: pending.explicitlyMoveArmed
+      explicitlyMoveArmed: pending.explicitlyMoveArmed,
+      pressedJumpSelected: pending.pressedJumpSelected,
+      selectedCount: pending.selectedCount,
+      multiSelectionMove: pending.multiSelectionMove
     });
     pending.gestureWinner = intent;
     if (intent === "link") {
@@ -1649,9 +1758,26 @@ class ProductionEngineBridge {
       this.resolvePendingJumpPressAsMove(event);
       return "move";
     }
-    this.hud?.setMetric("jump press", `${pending.jumpId} ${distancePx.toFixed(1)} px / pending`);
+    this.hud?.setMetric("jump press", `${pending.jumpId} ${distancePx.toFixed(1)} px / pending${pending.multiSelectionMove ? " / group" : ""}`);
     this.updateJumpNodeDebugSnapshot("jump-press-move");
     return "pending";
+  }
+
+  resolvePendingJumpPressAsRewire(event) {
+    const pending = this.pendingJumpPress;
+    if (!pending) return false;
+    const connector = pending.rewireConnector;
+    const endpoint = pending.rewireEndpoint;
+    const world = pending.lastWorld || pending.startWorld;
+    this.cancelPendingJumpPress("rewire", { updateHud: false, winner: "rewire" });
+    if (!connector || !endpoint) return false;
+    this.clearHoverState("wire-rewire-start", { render: false });
+    const started = this.beginWireRewire(connector, endpoint, world);
+    if (!started) return false;
+    this.updateSelectionHud();
+    this.updateInteractionHud("wire-rewire", { connector });
+    this.scheduleRender();
+    return true;
   }
 
   resolvePendingJumpPressAsLink(event) {
@@ -1683,7 +1809,9 @@ class ProductionEngineBridge {
     const startWorld = pending.startWorld;
     this.cancelPendingJumpPress("move", { updateHud: false, winner: "move" });
     if (!jumpDevice) return false;
-    if (pending.additiveSelection) {
+    if (pending.multiSelectionMove) {
+      // Preserve explicit multi-selection; the normal DragSession will move it.
+    } else if (pending.additiveSelection) {
       if (!this.scene.selectedIds.has(jumpDevice.id)) this.scene.toggleSelection(jumpDevice.id);
     } else if (!this.scene.selectedIds.has(jumpDevice.id) || this.scene.pairedJumpId(jumpDevice.id)) {
       this.scene.selectJumpPairPrimary(jumpDevice.id);
@@ -1710,13 +1838,19 @@ class ProductionEngineBridge {
       distancePx,
       dragThresholdPx: this.jumpPressMoveThresholdPx(),
       canStartLink: pending.canStartLink,
-      explicitlyMoveArmed: pending.explicitlyMoveArmed
+      explicitlyMoveArmed: pending.explicitlyMoveArmed,
+      pressedJumpSelected: pending.pressedJumpSelected,
+      selectedCount: pending.selectedCount,
+      multiSelectionMove: pending.multiSelectionMove
     });
     this.cancelPendingJumpPress("release-select", {
       updateHud: false,
       winner: intent === "select" ? "select" : "move"
     });
-    if (additiveSelection) this.scene.toggleSelection(jumpId);
+    if (pending.multiSelectionMove && !additiveSelection) {
+      // Match normal object behavior: a click on an already-selected member
+      // should not collapse an explicit multi-selection.
+    } else if (additiveSelection) this.scene.toggleSelection(jumpId);
     else this.scene.selectJumpPairPrimary(jumpId);
     if (this.scene.selectedIds.has(jumpId)) this.setJumpMoveArm(jumpId, "jump-click-select", { updateHud: false });
     else this.clearJumpMoveArm("jump-click-deselect", { updateHud: false });
@@ -1976,11 +2110,11 @@ class ProductionEngineBridge {
         JUMP_NODE_CONNECTOR_ID
       );
       if (event.shiftKey && connectedEndpoint) {
-        this.clearHoverState("wire-rewire-start", { render: false });
-        this.beginWireRewire(jumpPressHit.connector, connectedEndpoint, world);
-        this.updateSelectionHud();
-        this.updateInteractionHud("wire-rewire", { ...jumpPressHit, connector: jumpPressHit.connector });
-        this.scheduleRender();
+        this.beginPendingJumpPress(jumpPressHit, point, world, event, additiveSelection, {
+          shiftRewireCandidate: true,
+          rewireConnector: jumpPressHit.connector,
+          rewireEndpoint: connectedEndpoint
+        });
         return;
       }
       if (this.beginPendingJumpPress(jumpPressHit, point, world, event, additiveSelection)) return;
@@ -2021,6 +2155,13 @@ class ProductionEngineBridge {
           },
           device: jumpDevice
         };
+        if (event.shiftKey && connectedEndpoint) {
+          if (this.beginPendingJumpPress(fallbackJumpHit, point, world, event, additiveSelection, {
+            shiftRewireCandidate: true,
+            rewireConnector: connectorHit.connector,
+            rewireEndpoint: connectedEndpoint
+          })) return;
+        }
         if (this.beginPendingJumpPress(fallbackJumpHit, point, world, event, additiveSelection)) return;
       }
       const connectedEndpoint = this.scene.wireEndpointAtConnector(
@@ -2072,7 +2213,7 @@ class ProductionEngineBridge {
       return;
     }
 
-    const deviceHit = hitTestDevice(this.scene, world, device => !isCanvasObjectKind(device));
+    const deviceHit = hitTestDevice(this.scene, world, device => !isCanvasObjectKind(device) && !isJumpNodeDevice(device));
     if (!deviceHit.device) {
       const rackHit = hitTestRack(this.scene, world);
       if (rackHit.rack) {
@@ -3979,6 +4120,9 @@ class ProductionEngineBridge {
     const tolerance = this.hitToleranceWorld();
     const infoBoxHit = screenPoint ? this.renderer?.hitTestConnectorInfoBox?.(screenPoint) : null;
     if (infoBoxHit) {
+      this.lastJumpHoverDiagnostics = jumpHoverDiagnostics({
+        idleHoverOwner: jumpIdleHoverPrecedence({ infoBoxHit: true }).owner
+      });
       this.setHoverState({
         ...emptyHoverState(),
         infoBox: infoBoxHit,
@@ -3988,6 +4132,40 @@ class ProductionEngineBridge {
       }, "connector-info-hover");
       this.updateCanvasCursor();
       this.updateInteractionHud("connector-info-hover", { candidates: 1, ms: 0 });
+      this.scheduleRender();
+      return;
+    }
+    const jumpBodyHit = this.hitTestJumpPressTarget(world);
+    if (jumpBodyHit.device) {
+      let suppressedConnectorHit = { connector: null, candidates: 0, ms: 0 };
+      let suppressedWireHit = { wire: null, candidates: 0, ms: 0 };
+      if (this.debugJumpNodes || engineDebugHudEnabled()) {
+        suppressedConnectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld());
+        suppressedWireHit = hitTestWire(this.scene, world, tolerance);
+      }
+      const hoverOwnership = jumpIdleHoverPrecedence({
+        jumpBodyHit: true,
+        connectorHit: Boolean(suppressedConnectorHit.connector),
+        wireHit: Boolean(suppressedWireHit.wire)
+      });
+      this.lastJumpHoverDiagnostics = jumpHoverDiagnostics({
+        idleHoverOwner: hoverOwnership.owner,
+        jumpBodyHit: true,
+        jumpBodyHitId: jumpBodyHit.device.id,
+        connectorHoverSuppressedByJump: hoverOwnership.connectorHoverSuppressedByJump,
+        wireHoverSuppressedByJump: hoverOwnership.wireHoverSuppressedByJump,
+        pairedPortalRevealedByHover: Boolean(this.scene.jumpLinkForNode(jumpBodyHit.device.id))
+      });
+      this.setHoverState({
+        ...emptyHoverState(),
+        device: jumpBodyHit.device,
+        screenPoint,
+        candidateCount: jumpBodyHit.candidates + suppressedConnectorHit.candidates + suppressedWireHit.candidates,
+        hitMs: jumpBodyHit.ms + suppressedConnectorHit.ms + suppressedWireHit.ms
+      }, "jump-body-hover");
+      this.updateCanvasCursor();
+      this.updateInteractionHud("jump-body-hover", jumpBodyHit);
+      this.updateJumpNodeDebugSnapshot("jump-body-hover");
       this.scheduleRender();
       return;
     }
@@ -4011,13 +4189,13 @@ class ProductionEngineBridge {
       });
       deviceHit = foregroundObjectHit.device
         ? { device: foregroundObjectHit.device, ms: foregroundObjectHit.ms }
-        : hitTestDevice(this.scene, world, device => !isCanvasObjectKind(device));
+        : hitTestDevice(this.scene, world, device => !isCanvasObjectKind(device) && !isJumpNodeDevice(device));
       if (!deviceHit.device) {
         const areaHit = this.hitTestPreciseCanvasObject(world, tolerance, { kinds: ["area"] });
         if (areaHit.device) deviceHit = { device: areaHit.device, ms: areaHit.ms };
       }
     }
-    this.setHoverState({
+    const nextState = {
       device: deviceHit.device,
       connector: connectorHit.connector,
       wire: wireHit.wire,
@@ -4026,7 +4204,16 @@ class ProductionEngineBridge {
       screenPoint,
       candidateCount: routeHit.candidates + connectorHit.candidates + wireHit.candidates,
       hitMs: routeHit.ms + connectorHit.ms + wireHit.ms + deviceHit.ms
-    }, "hover");
+    };
+    this.lastJumpHoverDiagnostics = jumpHoverDiagnostics({
+      idleHoverOwner: jumpIdleHoverPrecedence({
+        routePointHit: Boolean(routeHit.routePoint),
+        connectorHit: Boolean(connectorHit.connector),
+        wireHit: Boolean(wireHit.wire),
+        deviceHit: Boolean(deviceHit.device)
+      }).owner
+    });
+    this.setHoverState(nextState, "hover");
     this.updateCanvasCursor();
     this.updateInteractionHud("hover");
     this.scheduleRender();
@@ -4109,7 +4296,7 @@ class ProductionEngineBridge {
       kinds: ["comment", "title-block", "image-object", "led-surface"]
     });
     if (foregroundObjectHit.device) return this.contextMenuObjectTarget(foregroundObjectHit.device);
-    const deviceHit = hitTestDevice(this.scene, world, device => !isCanvasObjectKind(device));
+    const deviceHit = hitTestDevice(this.scene, world, device => !isCanvasObjectKind(device) && !isJumpNodeDevice(device));
     if (deviceHit.device) return this.contextMenuObjectTarget(deviceHit.device);
     const rackHit = hitTestRack(this.scene, world);
     if (rackHit.rack) {
@@ -4310,12 +4497,21 @@ class ProductionEngineBridge {
     };
   }
 
-  jumpToPair(jumpId) {
+  jumpToPair(jumpId, options = {}) {
     if (!this.ready) return false;
+    this.jumpActionDiagnostics.jumpToPairHandlerCount += 1;
     const sourceId = String(jumpId || this.scene.primarySelectedJumpId || "");
     const pairedId = this.scene.pairedJumpId(sourceId);
     const paired = pairedId ? this.scene.getDevice(pairedId) : null;
-    if (!sourceId || !isJumpNodeDevice(paired)) return false;
+    const cameraBefore = cloneCamera(this.camera);
+    this.jumpActionDiagnostics.jumpToPairFrom = sourceId;
+    this.jumpActionDiagnostics.jumpToPairTo = pairedId || "";
+    this.jumpActionDiagnostics.cameraBefore = cameraBefore;
+    if (!sourceId || !isJumpNodeDevice(paired)) {
+      this.jumpActionDiagnostics.cameraAfter = cloneCamera(this.camera);
+      this.updateJumpNodeDebugSnapshot("jump-to-pair-missing");
+      return false;
+    }
     const beforeZoom = this.camera.zoom;
     const beforeCommandIndex = this.commandIndex;
     this.stopWirePlayback("jump-to-pair", { render: false });
@@ -4323,16 +4519,22 @@ class ProductionEngineBridge {
     this.scene.selectJumpPairPrimary(paired.id);
     const center = this.jumpNodeCenter(paired);
     const cameraResult = this.centerCameraAtWorldPoint(center, "jump-to-pair", { render: false });
+    const cameraAfter = cloneCamera(this.camera);
+    this.jumpActionDiagnostics.jumpToPairTo = paired.id;
+    this.jumpActionDiagnostics.cameraAfter = cameraAfter;
     this.lastJumpPairNavigation = {
       fromJumpId: sourceId,
       toJumpId: paired.id,
       center,
       zoomBefore: beforeZoom,
       zoomAfter: this.camera.zoom,
+      cameraBefore,
+      cameraAfter,
       commandIndexBefore: beforeCommandIndex,
       commandIndexAfter: this.commandIndex,
       screenPoint: cameraResult.screenPoint || null,
-      historyChanged: beforeCommandIndex !== this.commandIndex
+      historyChanged: beforeCommandIndex !== this.commandIndex,
+      actionSource: options.actionSource || "api"
     };
     this.hud?.setMetric("jump to pair", `${sourceId} -> ${paired.id}`);
     this.updateSelectionHud();
@@ -4357,11 +4559,18 @@ class ProductionEngineBridge {
     return { ok: true, screenPoint };
   }
 
-  playWireTrace(wireId) {
+  playWireTrace(wireId, options = {}) {
     if (!this.ready) return false;
+    this.jumpActionDiagnostics.playWireHandlerCount += 1;
+    this.jumpActionDiagnostics.playWireStartingWire = String(wireId || "");
     const sourceWire = this.scene.getWire(wireId)
       || this.scene.wires.find(wire => String(wire.sourceId || "") === String(wireId || ""));
-    if (!sourceWire || sourceWire.selectable === false) return false;
+    if (!sourceWire || sourceWire.selectable === false) {
+      this.jumpActionDiagnostics.playWireResolvedSteps = [];
+      this.jumpActionDiagnostics.playWireActive = false;
+      this.updateJumpNodeDebugSnapshot("play-wire-missing");
+      return false;
+    }
     this.stopWirePlayback("restart", { render: false });
     const plan = this.wirePlaybackPlanForWire(sourceWire);
     if (!plan.steps.length) {
@@ -4371,6 +4580,8 @@ class ProductionEngineBridge {
         startingWireId: sourceWire.id,
         resolvedSteps: []
       };
+      this.jumpActionDiagnostics.playWireResolvedSteps = [];
+      this.jumpActionDiagnostics.playWireActive = false;
       this.hud?.setMetric("play wire", "no playable path");
       this.updateJumpNodeDebugSnapshot("play-wire-empty");
       return false;
@@ -4392,8 +4603,12 @@ class ProductionEngineBridge {
       lastPoints: firstWireStep?.points || [],
       commandIndexAtStart: this.commandIndex,
       mutationCountAtStart: this.mutations?.stats?.().mutationCount || 0,
-      productionDirtyAtStart: this.productionDirty
+      productionDirtyAtStart: this.productionDirty,
+      actionSource: options.actionSource || "api"
     };
+    this.jumpActionDiagnostics.playWireStartingWire = sourceWire.id;
+    this.jumpActionDiagnostics.playWireResolvedSteps = plan.semanticSteps.map(playbackStepSummary);
+    this.jumpActionDiagnostics.playWireActive = true;
     this.lastPlaybackJumpPath = plan.semanticSteps.map(step => step.type === "teleport"
       ? `teleport:${step.fromJumpId}>${step.toJumpId}`
       : `wire:${step.wireId}:${step.reverse ? "r" : "f"}`);
@@ -4594,6 +4809,9 @@ class ProductionEngineBridge {
       dirtyChanged: previous ? previous.productionDirtyAtStart !== this.productionDirty : false,
       rafActive: false
     };
+    this.jumpActionDiagnostics.playWireActive = false;
+    this.jumpActionDiagnostics.playWireStartingWire = previous?.startingWireId || this.jumpActionDiagnostics.playWireStartingWire || "";
+    this.jumpActionDiagnostics.playWireResolvedSteps = this.lastPlaybackDiagnostics.resolvedSteps;
     this.hud?.setMetric("play wire", previous ? `stopped: ${reason}` : "-");
     this.updateJumpNodeDebugSnapshot(`play-wire-${reason}`);
     if (render) this.scheduleRender();
@@ -4617,6 +4835,9 @@ class ProductionEngineBridge {
       mutationCountChanged: state ? state.mutationCountAtStart !== (this.mutations?.stats?.().mutationCount || 0) : false,
       dirtyChanged: state ? state.productionDirtyAtStart !== this.productionDirty : false
     };
+    this.jumpActionDiagnostics.playWireActive = Boolean(state?.active);
+    this.jumpActionDiagnostics.playWireStartingWire = state?.startingWireId || this.jumpActionDiagnostics.playWireStartingWire || "";
+    this.jumpActionDiagnostics.playWireResolvedSteps = this.lastPlaybackDiagnostics.resolvedSteps;
     this.hud?.setMetric("play wire", state?.active
       ? `${this.lastPlaybackDiagnostics.stepType || "step"} ${Math.round(this.lastPlaybackDiagnostics.progress * 100)}%`
       : "-");
@@ -6151,6 +6372,8 @@ class ProductionEngineBridge {
           <span>Name</span>
           <input type="text" data-jump-node-name value="${escapeHtml(primaryJump.label || "Jump")}" autocomplete="off" />
         </label>
+        ${link && paired ? `<button type="button" class="engine-bridge-action" data-jump-to-pair data-jump-id="${escapeHtml(primaryJump.id)}">Jump to Pair</button>` : ""}
+        ${link ? `<button type="button" class="engine-bridge-action" data-jump-disconnect>Disconnect Jump Nodes</button>` : ""}
         ${detailsMarkup([
           ["Type", "Jump Node"],
           ["Role", jumpNodeRoleLabel(roleInfo?.role || JUMP_NODE_ROLE.neutral)],
@@ -6160,8 +6383,6 @@ class ProductionEngineBridge {
           ["Device-side Wire", localWire?.sourceId || localWire?.id || "None"],
           ["Position", `${roundForUi(center?.x)}, ${roundForUi(center?.y)}`]
         ])}
-        ${link && paired ? `<button type="button" class="engine-bridge-action" data-jump-to-pair>Jump to Pair</button>` : ""}
-        ${link ? `<button type="button" class="engine-bridge-action" data-jump-disconnect>Disconnect Jump Nodes</button>` : ""}
       `;
       const input = this.inspectorPanel.querySelector("[data-jump-node-name]");
       if (input) {
@@ -6179,7 +6400,6 @@ class ProductionEngineBridge {
           );
         });
       }
-      this.inspectorPanel.querySelector("[data-jump-to-pair]")?.addEventListener("click", () => this.jumpToPair(primaryJump.id));
       this.inspectorPanel.querySelector("[data-jump-disconnect]")?.addEventListener("click", () => this.disconnectSelectedJumpNodes());
       return;
     }
@@ -6229,7 +6449,7 @@ class ProductionEngineBridge {
       const wire = selectedWires[0];
       this.inspectorPanel.innerHTML = `
         <h3>Engine Inspector</h3>
-        <button type="button" class="engine-bridge-action" data-play-wire>Play Wire</button>
+        <button type="button" class="engine-bridge-action" data-play-wire data-wire-id="${escapeHtml(wire.id)}">Play Wire</button>
         ${detailsMarkup([
           ["Wire ID", wire.sourceId || wire.id],
           ["Cable Type", wire.cableType || wire.label || "-"],
@@ -6238,7 +6458,6 @@ class ProductionEngineBridge {
           ["Route Points", wire.routePoints.length]
         ])}
       `;
-      this.inspectorPanel.querySelector("[data-play-wire]")?.addEventListener("click", () => this.playWireTrace(wire.id));
       return;
     }
     if (selectedRoutePoints.length === 1 && !selectedConnectors.length) {
@@ -10338,6 +10557,35 @@ function emptyHoverState() {
     screenPoint: null,
     candidateCount: 0,
     hitMs: 0
+  };
+}
+
+function jumpHoverDiagnostics(overrides = {}) {
+  return {
+    idleHoverOwner: "none",
+    jumpBodyHit: false,
+    jumpBodyHitId: "",
+    connectorHoverSuppressedByJump: false,
+    wireHoverSuppressedByJump: false,
+    pairedPortalRevealedByHover: false,
+    ...overrides
+  };
+}
+
+function jumpActionDiagnostics(overrides = {}) {
+  return {
+    jumpToPairButtonClickCount: 0,
+    jumpToPairHandlerCount: 0,
+    jumpToPairFrom: "",
+    jumpToPairTo: "",
+    cameraBefore: null,
+    cameraAfter: null,
+    playWireButtonClickCount: 0,
+    playWireHandlerCount: 0,
+    playWireStartingWire: "",
+    playWireResolvedSteps: [],
+    playWireActive: false,
+    ...overrides
   };
 }
 

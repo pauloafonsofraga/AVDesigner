@@ -4453,7 +4453,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.2.4 — Jump Legacy Parity & Play Wire — iteration54-2-4-jump-legacy-parity-play-wire</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.2.5 — Jump Interaction & Legacy Actions — iteration54-2-5-jump-interaction-legacy-actions</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5169,10 +5169,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.2.4";
-    const APP_BUILD_ID = "iteration54-2-4-jump-legacy-parity-play-wire";
-    const APP_MODULE_CACHE_ID = "iteration54-2-4-jump-legacy-parity-play-wire-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Jump Legacy Parity & Play Wire`;
+    const APP_ITERATION = "54.2.5";
+    const APP_BUILD_ID = "iteration54-2-5-jump-interaction-legacy-actions";
+    const APP_MODULE_CACHE_ID = "iteration54-2-5-jump-interaction-legacy-actions-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Jump Interaction & Legacy Actions`;
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "f409d0373f783821e981515da660a2476e661959";
     const CANVAS_MIN_ZOOM = 0.03;
@@ -103103,7 +103103,14 @@
         <button class="tool-button" id="jumpToPair" type="button" ${pair ? "" : "disabled"}>Jump to Pair</button>
         <button class="danger-button" id="deleteSelected" type="button">Delete Jump Node</button>
       `;
-      document.getElementById("jumpToPair")?.addEventListener("click", () => jumpToJumpNodePair(jumpNodeId));
+      document.getElementById("jumpToPair")?.addEventListener("click", () => {
+        const engineBridge = activeEngineBridge();
+        if (engineBridge?.triggerJumpToPairAction) {
+          engineBridge.triggerJumpToPairAction(jumpNodeId, { actionSource: "app-inspector-button" });
+          return;
+        }
+        jumpToJumpNodePair(jumpNodeId);
+      });
       document.getElementById("deleteSelected")?.addEventListener("click", () => {
         state.selected = { type: "jump-node", id: jumpNodeId };
         deleteSelection();
@@ -103237,7 +103244,14 @@
         <button class="tool-button" id="resetWireRoute" type="button" ${normalizedWireRoutePoints(connection).length ? "" : "disabled"}>Reset Wire Route</button>
         <button class="danger-button" id="deleteSelected" type="button">Delete Wire</button>
       `;
-      document.getElementById("playWireTrace").addEventListener("click", () => playWireTrace(connectionId));
+      document.getElementById("playWireTrace").addEventListener("click", () => {
+        const engineBridge = activeEngineBridge();
+        if (engineBridge?.triggerPlayWireAction) {
+          engineBridge.triggerPlayWireAction(connectionId, { actionSource: "app-inspector-button" });
+          return;
+        }
+        playWireTrace(connectionId);
+      });
       bindDeferredCanvasTextCommit(
         document.getElementById("wireLabel"),
         value => {

@@ -14,7 +14,9 @@ import {
   jumpLinkBezierPolyline,
   jumpNodeCenter,
   jumpNodeConnectionInfo,
+  jumpIdleHoverPrecedence,
   jumpNodeLocalCenter,
+  JUMP_NODE_SIZE,
   JUMP_PRESS_MOVE_THRESHOLD_PX,
   JUMP_PRESS_INTENT,
   jumpPressIntent,
@@ -35,7 +37,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-2-4-jump-legacy-parity-play-wire";
+const BUILD_ID = "iteration54-2-5-jump-interaction-legacy-actions";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -44,19 +46,31 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Jump Legacy Parity & Play Wire");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-2-4-jump-legacy-parity-play-wire-modules";'), "module cache key should identify Jump Legacy Parity & Play Wire");
-assert.ok(indexHtml.includes("Jump Legacy Parity & Play Wire"), "visible build label should name Jump Legacy Parity & Play Wire");
-assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Jump Legacy Parity & Play Wire");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "jump-legacy-parity-play-wire"'), "bridge feature label should identify Jump Legacy Parity & Play Wire");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-2-4-jump-legacy-parity-play-wire"), "bridge fingerprint should identify Jump Legacy Parity & Play Wire");
-assert.ok(rendererSource.includes("renderer-iteration54-2-4-jump-legacy-parity-play-wire"), "renderer fingerprint should identify Jump Legacy Parity & Play Wire");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Jump Interaction & Legacy Actions");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-2-5-jump-interaction-legacy-actions-modules";'), "module cache key should identify Jump Interaction & Legacy Actions");
+assert.ok(indexHtml.includes("Jump Interaction & Legacy Actions"), "visible build label should name Jump Interaction & Legacy Actions");
+assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Jump Interaction & Legacy Actions");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "jump-interaction-legacy-actions"'), "bridge feature label should identify Jump Interaction & Legacy Actions");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-2-5-jump-interaction-legacy-actions"), "bridge fingerprint should identify Jump Interaction & Legacy Actions");
+assert.ok(rendererSource.includes("renderer-iteration54-2-4-jump-legacy-parity-play-wire"), "unchanged renderer fingerprint should remain on the last renderer iteration");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");
 assert.ok(rendererSource.includes("pushWirePlaybackOverlay"), "renderer should draw transient Play Wire overlays");
 assert.ok(bridgeSource.includes("jumpToPair("), "Engine bridge should handle Jump to Pair navigation");
 assert.ok(bridgeSource.includes("playWireTrace"), "Engine bridge should expose Play Wire");
 assert.ok(bridgeSource.includes("wirePlaybackOverlayState"), "Engine bridge should expose playback as interaction overlay state");
+assert.ok(bridgeSource.includes("handleInspectorActionClick"), "Engine inspector actions should use persistent delegated click handling");
+assert.ok(bridgeSource.includes("triggerJumpToPairAction"), "Engine bridge should expose one shared Jump to Pair button action");
+assert.ok(bridgeSource.includes("triggerPlayWireAction"), "Engine bridge should expose one shared Play Wire button action");
+assert.ok(indexHtml.includes("triggerJumpToPairAction(jumpNodeId"), "app Inspector Jump to Pair should delegate to the active Engine bridge");
+assert.ok(indexHtml.includes("triggerPlayWireAction(connectionId"), "app Inspector Play Wire should delegate to the active Engine bridge");
+assert.ok(bridgeSource.includes('data-jump-id="${escapeHtml(primaryJump.id)}"'), "Jump to Pair button should carry the active Jump ID");
+assert.ok(bridgeSource.includes('data-wire-id="${escapeHtml(wire.id)}"'), "Play Wire button should carry the active wire ID");
+assert.ok(bridgeSource.includes("idleHoverOwner"), "Jump debug snapshot should expose idle hover ownership");
+assert.ok(bridgeSource.includes("connectorHoverSuppressedByJump"), "Jump debug snapshot should expose connector suppression");
+assert.ok(bridgeSource.includes("wireHoverSuppressedByJump"), "Jump debug snapshot should expose wire suppression");
+assert.ok(bridgeSource.includes("jumpToPairButtonClickCount"), "Jump debug snapshot should expose Jump to Pair button clicks");
+assert.ok(bridgeSource.includes("playWireButtonClickCount"), "Jump debug snapshot should expose Play Wire button clicks");
 assert.ok(wirePlaybackSource.includes("WIRE_PLAYBACK_MIN_MS = 650"), "Play Wire should preserve Legacy minimum timing");
 assert.ok(wirePlaybackSource.includes("WIRE_PLAYBACK_MAX_MS = 4500"), "Play Wire should preserve Legacy maximum timing");
 assert.equal(WIRE_PLAYBACK_COMPLETE_HOLD_MS, 350, "Playback completion hold should be short and self-cleaning");
@@ -68,6 +82,8 @@ assert.equal(JUMP_PRESS_MOVE_THRESHOLD_PX, 5, "Jump press movement tolerance sho
 assert.equal(jumpPressIntent({ distancePx: 0, released: true }), JUMP_PRESS_INTENT.select, "released below threshold should select");
 assert.equal(jumpPressIntent({ distancePx: 5, canStartLink: true, explicitlyMoveArmed: false }), JUMP_PRESS_INTENT.link, "eligible unarmed movement at threshold should link");
 assert.equal(jumpPressIntent({ distancePx: 5, canStartLink: true, explicitlyMoveArmed: true }), JUMP_PRESS_INTENT.move, "eligible armed movement at threshold should move");
+assert.equal(jumpPressIntent({ distancePx: 5, canStartLink: true, pressedJumpSelected: true, selectedCount: 2 }), JUMP_PRESS_INTENT.move, "selected multi Jump drag should move instead of link from pressed A");
+assert.equal(jumpPressIntent({ distancePx: 5, canStartLink: true, multiSelectionMove: true }), JUMP_PRESS_INTENT.move, "selected multi Jump drag should move instead of link from pressed B");
 assert.equal(jumpPressIntent({ distancePx: 5, canStartLink: false, explicitlyMoveArmed: false }), JUMP_PRESS_INTENT.move, "neutral movement at threshold should move");
 assert.equal(jumpPressIntent({ distancePx: 5, canStartLink: false, explicitlyMoveArmed: true }), JUMP_PRESS_INTENT.move, "paired or otherwise ineligible movement at threshold should move");
 assert.equal(jumpPressIntent({ distancePx: 4, canStartLink: true, explicitlyMoveArmed: false }), JUMP_PRESS_INTENT.pending, "below threshold should remain pending until released or dragged");
@@ -154,6 +170,26 @@ assertClosePoint(engineOutputWireEndpoint, engineOutputCenter, "Wire endpoint in
 assertClosePoint(engineInputWireEndpoint, engineInputCenter, "Wire endpoint out of Jump input should match center");
 assert.ok(engineOutputHit, "Jump connector hit index should include the visible center");
 assertClosePoint(engineOutputHit.payload.point, engineOutputCenter, "Jump connector spatial index point should match center");
+
+const jumpRadius = JUMP_NODE_SIZE / 2;
+const wireToJump = [{ x: engineOutputCenter.x - 140, y: engineOutputCenter.y }, engineOutputCenter];
+[
+  { label: "left semicircle", point: { x: engineOutputCenter.x - jumpRadius + 1, y: engineOutputCenter.y } },
+  { label: "center", point: engineOutputCenter },
+  { label: "right semicircle", point: { x: engineOutputCenter.x + jumpRadius - 1, y: engineOutputCenter.y } }
+].forEach(({ label, point }) => {
+  const wireNear = distanceToPolyline(wireToJump, point).distance <= 8;
+  const owner = jumpIdleHoverPrecedence({ jumpBodyHit: true, wireHit: wireNear });
+  assert.equal(owner.owner, "jump", `${label}: Jump body should own idle hover`);
+  assert.equal(owner.wireHoverSuppressedByJump, wireNear, `${label}: physical wire hover is suppressed only when it overlaps the Jump`);
+});
+const outsideWirePoint = { x: engineOutputCenter.x - jumpRadius - 28, y: engineOutputCenter.y };
+assert.equal(distanceToPolyline(wireToJump, outsideWirePoint).distance <= 8, true, "outside point should still be on the physical wire");
+assert.equal(
+  jumpIdleHoverPrecedence({ jumpBodyHit: false, wireHit: true }).owner,
+  "wire",
+  "physical wire should own idle hover outside the Jump circle"
+);
 
 engineScene.selectJumpPairPrimary("engine-jump-output");
 assert.equal(engineScene.selectedIds.has("engine-jump-output"), true, "Selecting a Jump should select the clicked node");
