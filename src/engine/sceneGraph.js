@@ -52,7 +52,9 @@ import {
   buildJumpLinkIndexes,
   invalidJumpLinksForScene,
   isJumpNodeDevice,
+  jumpNodeCenter,
   jumpNodeRoleColor,
+  JUMP_NODE_CONNECTOR_ID,
   JUMP_NODE_ROLE,
   JUMP_NODE_ROLE_COLORS,
   normalizeJumpLinks,
@@ -92,6 +94,7 @@ export class SceneGraph {
     this.selectedConnectorKeys = new Set();
     this.selectedRoutePointKeys = new Set();
     this.primarySelectedJumpId = "";
+    this.selectedJumpLinkId = "";
     this.connectorDisplayLayoutByDeviceId = new Map();
   }
 
@@ -119,6 +122,7 @@ export class SceneGraph {
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
     this.primarySelectedJumpId = "";
+    this.selectedJumpLinkId = "";
     this.rebuildWireIndex();
     this.rebuildSpatialIndexes();
     this.dirtyDevices.clear();
@@ -223,6 +227,7 @@ export class SceneGraph {
     if (index < 0) return null;
     const [removed] = this.jumpLinks.splice(index, 1);
     this.rebuildJumpLinkIndex();
+    if (this.selectedJumpLinkId === id) this.selectedJumpLinkId = "";
     return { link: removed, index };
   }
 
@@ -535,6 +540,7 @@ export class SceneGraph {
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
     this.primarySelectedJumpId = "";
+    this.selectedJumpLinkId = "";
   }
 
   toggleRackSelection(rackId) {
@@ -544,6 +550,7 @@ export class SceneGraph {
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
     this.primarySelectedJumpId = "";
+    this.selectedJumpLinkId = "";
     if (!childIds.length) return;
     const selected = this.selectedRackIds.has(id);
     childIds.forEach(childId => {
@@ -981,6 +988,7 @@ export class SceneGraph {
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
     this.primarySelectedJumpId = "";
+    this.selectedJumpLinkId = "";
     if (id) this.selectedIds.add(id);
   }
 
@@ -992,11 +1000,27 @@ export class SceneGraph {
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
     this.primarySelectedJumpId = "";
+    this.selectedJumpLinkId = "";
     if (!id || !isJumpNodeDevice(this.getDevice(id))) return;
     this.selectedIds.add(id);
     this.primarySelectedJumpId = id;
-    const pairedId = this.pairedJumpId(id);
-    if (pairedId && isJumpNodeDevice(this.getDevice(pairedId))) this.selectedIds.add(pairedId);
+  }
+
+  selectJumpLinkOnly(linkId) {
+    const id = String(linkId || "");
+    this.selectedIds.clear();
+    this.selectedRackIds.clear();
+    this.selectedWireIds.clear();
+    this.selectedConnectorKeys.clear();
+    this.selectedRoutePointKeys.clear();
+    this.primarySelectedJumpId = "";
+    this.selectedJumpLinkId = this.jumpLinkById.has(id) ? id : "";
+  }
+
+  clearSelectedJumpLink() {
+    if (!this.selectedJumpLinkId) return false;
+    this.selectedJumpLinkId = "";
+    return true;
   }
 
   toggleSelection(id) {
@@ -1005,6 +1029,7 @@ export class SceneGraph {
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
     this.primarySelectedJumpId = "";
+    this.selectedJumpLinkId = "";
     if (this.selectedIds.has(id)) this.selectedIds.delete(id);
     else this.selectedIds.add(id);
   }
@@ -1015,6 +1040,7 @@ export class SceneGraph {
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
     this.primarySelectedJumpId = "";
+    this.selectedJumpLinkId = "";
     ids.filter(id => this.devicesById.has(id)).forEach(id => {
       if (this.selectedIds.has(id)) this.selectedIds.delete(id);
       else this.selectedIds.add(id);
@@ -1028,6 +1054,7 @@ export class SceneGraph {
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
     this.primarySelectedJumpId = "";
+    this.selectedJumpLinkId = "";
   }
 
   selectWireOnly(id) {
@@ -1037,6 +1064,7 @@ export class SceneGraph {
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
     this.primarySelectedJumpId = "";
+    this.selectedJumpLinkId = "";
     if (this.wiresById.has(id)) this.selectedWireIds.add(id);
   }
 
@@ -1046,6 +1074,7 @@ export class SceneGraph {
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
     this.primarySelectedJumpId = "";
+    this.selectedJumpLinkId = "";
     if (this.selectedWireIds.has(id)) this.selectedWireIds.delete(id);
     else if (this.wiresById.has(id)) this.selectedWireIds.add(id);
   }
@@ -1057,6 +1086,7 @@ export class SceneGraph {
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
     this.primarySelectedJumpId = "";
+    this.selectedJumpLinkId = "";
     const key = connectorKey(deviceId, connectorId);
     if (this.getConnector(deviceId, connectorId)) this.selectedConnectorKeys.add(key);
   }
@@ -1068,6 +1098,7 @@ export class SceneGraph {
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
     this.primarySelectedJumpId = "";
+    this.selectedJumpLinkId = "";
     const wire = this.getWire(wireId);
     if (wire?.routePoints?.[pointIndex]) this.selectedRoutePointKeys.add(routePointKey(wireId, pointIndex));
   }
@@ -1079,6 +1110,7 @@ export class SceneGraph {
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
     this.primarySelectedJumpId = "";
+    this.selectedJumpLinkId = "";
   }
 
   affectedWireIdsForDevices(deviceIds) {
@@ -1564,6 +1596,9 @@ export class SceneGraph {
   }
 
   connectorAnchorWorldPoint(device, connector, anchorId = "", displayLayout = null) {
+    if (isJumpNodeDevice(device) && String(connector?.id || "") === JUMP_NODE_CONNECTOR_ID) {
+      return jumpNodeCenter(device);
+    }
     const layout = displayLayout || this.connectorDisplayLayoutForDevice(device);
     const anchor = connectorDisplayAnchorById(device, connector, anchorId || connector?.primaryAnchorId || "", layout);
     return {
@@ -1605,6 +1640,9 @@ export class SceneGraph {
     const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
     const anchorId = end === "from" ? wire.fromAnchorId : wire.toAnchorId;
     const connector = connectorId ? device.connectorsById.get(connectorId) : null;
+    if (connector && isJumpNodeDevice(device) && connector.id === JUMP_NODE_CONNECTOR_ID) {
+      return jumpNodeCenter(device, offsetMap?.get(device.id));
+    }
     if (connector) {
       const layout = this.connectorDisplayLayoutForDevice(device);
       const anchor = connectorDisplayAnchorById(device, connector, anchorId || connector.primaryAnchorId || "", layout);
@@ -1645,6 +1683,7 @@ export class SceneGraph {
     const anchorId = end === "from" ? wire.fromAnchorId : wire.toAnchorId;
     const device = this.getDevice(deviceId);
     if (isLedSurfaceKind(device)) return point;
+    if (isJumpNodeDevice(device) && connectorId === JUMP_NODE_CONNECTOR_ID) return point;
     const connector = connectorId ? device?.connectorsById.get(connectorId) : null;
     const radius = device?.kind === "jump" ? 22 : 6;
     const layout = connector ? this.connectorDisplayLayoutForDevice(device) : null;

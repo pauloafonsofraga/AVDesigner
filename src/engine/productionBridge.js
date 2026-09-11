@@ -77,6 +77,8 @@ import {
   invalidJumpLinksForScene,
   isJumpNodeDevice,
   jumpCompatibleHitForDeviceWire,
+  jumpLinkBezierPolyline,
+  jumpNodeCenter,
   jumpPressIntent,
   jumpNodeRoleColor,
   jumpNodeRoleLabel,
@@ -106,9 +108,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-2-2-jump-drag-to-link";
-export const ENGINE_BRIDGE_VERSION = "iteration54-2-2-jump-drag-to-link";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-drag-link-interaction";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-2-3-jump-link-geometry-selection";
+export const ENGINE_BRIDGE_VERSION = "iteration54-2-3-jump-link-geometry-selection";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-link-geometry-selection";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -604,6 +606,16 @@ class ProductionEngineBridge {
       ? this.isJumpMoveArmed(pendingPress.jumpId)
       : false;
     const overlays = this.visibleJumpLinkOverlays();
+    const selectedJumpLinkId = this.scene.selectedJumpLinkId || "";
+    const pairedHighlightIds = this.pairedJumpHighlightIds(primarySelectedJumpId);
+    const geometryJumpId = primarySelectedJumpId
+      || hoveredJumpId
+      || overlays[0]?.outputJumpId
+      || this.scene.devices.find(device => isJumpNodeDevice(device))?.id
+      || "";
+    const geometrySnapshot = this.jumpNodeGeometrySnapshot(geometryJumpId);
+    const selectedOverlay = selectedJumpLinkId ? overlays.find(overlay => overlay.id === selectedJumpLinkId) : null;
+    const visiblePortal = selectedOverlay || overlays[0] || null;
     const snapshot = {
       build: BRIDGE_VERSION,
       reason,
@@ -615,6 +627,8 @@ class ProductionEngineBridge {
       hoveredJumpId,
       primarySelectedJumpId,
       pairedJumpId: primarySelectedJumpId ? this.scene.pairedJumpId(primarySelectedJumpId) : "",
+      pairedHighlightedJumpIds: [...pairedHighlightIds],
+      selectedJumpLinkId,
       activeJumpLinkCreate: Boolean(this.jumpLinkCreate),
       pairCandidate: this.jumpLinkCreate?.target?.device?.id || "",
       pairRejectionReason: activeCompatibility && !activeCompatibility.valid ? activeCompatibility.reason || activeCompatibility.rule || "" : "",
@@ -638,8 +652,17 @@ class ProductionEngineBridge {
         id: overlay.id || "",
         outputJumpId: overlay.outputJumpId || "",
         inputJumpId: overlay.inputJumpId || "",
-        mode: overlay.mode || ""
+        mode: overlay.mode || "",
+        geometry: overlay.geometry || "",
+        sampledPointCount: overlay.sampledPointCount || overlay.points?.length || 0
       })),
+      canonicalGeometry: geometrySnapshot,
+      visiblePortal: visiblePortal ? {
+        id: visiblePortal.id || "",
+        mode: visiblePortal.mode || "",
+        geometry: visiblePortal.geometry || "",
+        sampledPointCount: visiblePortal.sampledPointCount || visiblePortal.points?.length || 0
+      } : null,
       jumpPositions: this.scene.devices
         .filter(device => isJumpNodeDevice(device))
         .slice(0, 12)
@@ -659,7 +682,11 @@ class ProductionEngineBridge {
     this.hud?.setMetric("jump nodes", `${snapshot.jumpCount} nodes / ${snapshot.jumpLinkCount} links`);
     this.hud?.setMetric("jump roles", `${snapshot.outputCount} out / ${snapshot.inputCount} in / ${snapshot.neutralCount} neutral`);
     this.hud?.setMetric("jump hover/select", `${hoveredJumpId || "-"} / ${primarySelectedJumpId || "-"}`);
+    this.hud?.setMetric("jump pair highlight", snapshot.pairedHighlightedJumpIds.join(", ") || "-");
+    this.hud?.setMetric("selected jump link", selectedJumpLinkId || "-");
     this.hud?.setMetric("jump overlays", `${snapshot.visibleJumpLinkOverlays.length} visible / ${snapshot.hiddenJumpLinks} hidden`);
+    this.hud?.setMetric("jump center delta", geometrySnapshot?.centerDelta ? `connector ${formatDebugNumber(geometrySnapshot.centerDelta.connector)} / wire ${formatDebugNumber(geometrySnapshot.centerDelta.wire)}` : "-");
+    this.hud?.setMetric("jump portal geometry", visiblePortal ? `${visiblePortal.geometry || "-"} / ${visiblePortal.sampledPointCount || visiblePortal.points?.length || 0} pts` : "-");
     this.hud?.setMetric("jump pair candidate", snapshot.pairCandidate || "-");
     this.hud?.setMetric("jump pair reject", snapshot.pairRejectionReason || "-");
     this.hud?.setMetric("jump press", pendingPress
@@ -1366,10 +1393,56 @@ class ProductionEngineBridge {
   }
 
   jumpNodeCenter(device) {
-    if (!device) return null;
+    return jumpNodeCenter(device);
+  }
+
+  pairedJumpHighlightIds(primaryJumpId = "") {
+    const ids = new Set();
+    const primaryId = String(primaryJumpId || this.scene.primarySelectedJumpId || "");
+    if (!primaryId || !isJumpNodeDevice(this.scene.getDevice(primaryId))) return ids;
+    const pairedId = this.scene.pairedJumpId(primaryId);
+    if (pairedId && isJumpNodeDevice(this.scene.getDevice(pairedId))) ids.add(pairedId);
+    return ids;
+  }
+
+  jumpNodeGeometrySnapshot(jumpId = "") {
+    const id = String(jumpId || "");
+    const device = id ? this.scene.getDevice(id) : null;
+    if (!isJumpNodeDevice(device)) return null;
+    const center = this.jumpNodeCenter(device);
+    const connector = this.scene.getConnector(id, JUMP_NODE_CONNECTOR_ID);
+    const connectorPoint = connector ? this.scene.connectorWorldPoint(device, connector) : null;
+    const roleInfo = this.scene.jumpNodeRole(id);
+    const wire = roleInfo?.localWire || null;
+    const wireSide = wire && this.scene.wireEndpointObjectId(wire, "from") === id
+      ? "from"
+      : wire && this.scene.wireEndpointObjectId(wire, "to") === id
+        ? "to"
+        : "";
+    const wireEndpoint = wireSide ? this.scene.endpointForWire(wire, wireSide) : null;
+    const connectorDelta = center && connectorPoint ? pointDistance(center, connectorPoint) : null;
+    const wireDelta = center && wireEndpoint ? pointDistance(center, wireEndpoint) : null;
     return {
-      x: Number(device.x || 0) + Number(device.width || JUMP_NODE_SIZE) / 2,
-      y: Number(device.y || 0) + Number(device.height || JUMP_NODE_SIZE) / 2
+      id,
+      rawCenter: {
+        x: Number(device.x || 0) + JUMP_NODE_SIZE / 2,
+        y: Number(device.y || 0) + JUMP_NODE_SIZE / 2
+      },
+      normalizedBounds: {
+        x: Number(device.x || 0),
+        y: Number(device.y || 0),
+        width: Number(device.width || 0),
+        height: Number(device.height || 0)
+      },
+      center,
+      connectorPoint,
+      wireId: wire?.id || "",
+      wireSide,
+      wireEndpoint,
+      centerDelta: {
+        connector: connectorDelta,
+        wire: wireDelta
+      }
     };
   }
 
@@ -1869,6 +1942,17 @@ class ProductionEngineBridge {
         return;
       }
       if (this.beginPendingJumpPress(jumpPressHit, point, world, event, additiveSelection)) return;
+    }
+
+    const jumpLinkHit = this.hitTestVisibleJumpLink(world, 8);
+    if (jumpLinkHit.link) {
+      this.clearJumpMoveArm("jump-link-select", { updateHud: false });
+      this.clearHoverState("jump-link-select", { render: false });
+      this.scene.selectJumpLinkOnly(jumpLinkHit.link.id);
+      this.updateSelectionHud();
+      this.updateInteractionHud("jump-link-select", jumpLinkHit);
+      this.scheduleRender();
+      return;
     }
 
     const connectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld());
@@ -2419,6 +2503,11 @@ class ProductionEngineBridge {
     }
     if (event.key === "Delete" || event.key === "Backspace") {
       this.clearJumpMoveArm("delete-key", { updateHud: false });
+      if (this.scene.selectedJumpLinkId) {
+        consumeEngineShortcut(event);
+        this.deleteSelectedJumpLink();
+        return;
+      }
       if (this.scene.selectedWireIds.size) {
         consumeEngineShortcut(event);
         this.deleteSelectedWires();
@@ -2694,10 +2783,12 @@ class ProductionEngineBridge {
     }
     const clearedWireEditSelection = this.scene.selectedWireIds.size
       || this.scene.selectedConnectorKeys.size
-      || this.scene.selectedRoutePointKeys.size;
+      || this.scene.selectedRoutePointKeys.size
+      || this.scene.selectedJumpLinkId;
     this.scene.selectedWireIds.clear();
     this.scene.selectedConnectorKeys.clear();
     this.scene.selectedRoutePointKeys.clear();
+    this.scene.clearSelectedJumpLink?.();
     this.dragSession = new DragSession({
       scene: this.scene,
       selectedIds: draggableIds,
@@ -3245,6 +3336,7 @@ class ProductionEngineBridge {
       wires: [...this.scene.selectedWireIds],
       connectors: [...this.scene.selectedConnectorKeys],
       routePoints: [...this.scene.selectedRoutePointKeys],
+      jumpLinkId: this.scene.selectedJumpLinkId || ""
     };
     this.clearJumpMoveArm("wire-rewire-start", { updateHud: false });
     this.scene.clearSelection();
@@ -3468,6 +3560,9 @@ class ProductionEngineBridge {
     (selection.wires || []).forEach(id => this.scene.selectedWireIds.add(id));
     (selection.connectors || []).forEach(key => this.scene.selectedConnectorKeys.add(key));
     (selection.routePoints || []).forEach(key => this.scene.selectedRoutePointKeys.add(key));
+    if (selection.jumpLinkId && this.scene.getJumpLink(selection.jumpLinkId)) {
+      this.scene.selectJumpLinkOnly(selection.jumpLinkId);
+    }
   }
 
   wireRewireRejectionReason(target, compatibility = this.currentWireCompatibility()) {
@@ -3818,6 +3913,7 @@ class ProductionEngineBridge {
       || this.scene.selectedWireIds.size
       || this.scene.selectedConnectorKeys.size
       || this.scene.selectedRoutePointKeys.size
+      || this.scene.selectedJumpLinkId
     );
   }
 
@@ -3976,6 +4072,8 @@ class ProductionEngineBridge {
         : null,
       jumpLinkPreview: this.jumpLinkPreviewState(),
       jumpLinkOverlays: this.visibleJumpLinkOverlays(),
+      selectedJumpLinkId: this.scene.selectedJumpLinkId || "",
+      pairedJumpHighlightIds: this.pairedJumpHighlightIds(),
       marquee: this.marqueeState?.active ? normalizedWorldRect(this.marqueeState.startWorld, this.marqueeState.currentWorld) : null
     };
   }
@@ -3989,9 +4087,13 @@ class ProductionEngineBridge {
     const toColor = compatibility.valid
       ? jumpNodeRoleColor(JUMP_NODE_ROLE.input)
       : "rgba(119,132,146,.72)";
+    const points = jumpLinkBezierPolyline(this.jumpLinkCreate.fromPoint, targetPoint);
     return {
       from: { ...this.jumpLinkCreate.fromPoint },
       to: { ...targetPoint },
+      points,
+      geometry: "bezier",
+      sampledPointCount: points.length,
       fromColor,
       toColor,
       valid: Boolean(compatibility.valid),
@@ -4008,25 +4110,63 @@ class ProductionEngineBridge {
       const outputDevice = this.scene.getDevice(link.outputJumpId);
       const inputDevice = this.scene.getDevice(link.inputJumpId);
       if (!outputDevice || !inputDevice) return;
+      const from = this.jumpNodeCenter(outputDevice);
+      const to = this.jumpNodeCenter(inputDevice);
+      const points = jumpLinkBezierPolyline(from, to);
       overlays.set(link.id, {
         id: link.id,
         outputJumpId: link.outputJumpId,
         inputJumpId: link.inputJumpId,
-        from: deviceCenter(outputDevice),
-        to: deviceCenter(inputDevice),
+        from,
+        to,
+        points,
+        geometry: "bezier",
+        sampledPointCount: points.length,
         fromColor: jumpNodeRoleColor(JUMP_NODE_ROLE.output),
         toColor: jumpNodeRoleColor(JUMP_NODE_ROLE.input),
         mode
       });
     };
+    if (this.scene.selectedJumpLinkId) {
+      addLink(this.scene.getJumpLink(this.scene.selectedJumpLinkId), "link-selected");
+    }
     [...this.scene.selectedIds].forEach(id => {
       const device = this.scene.getDevice(id);
       if (!isJumpNodeDevice(device)) return;
-      addLink(this.scene.jumpLinkForNode(id), "selected");
+      addLink(this.scene.jumpLinkForNode(id), "pair-selected");
     });
     const hoveredDevice = this.hoverState.device?.device || this.hoverState.device || this.hoverState.connector?.device || null;
     if (isJumpNodeDevice(hoveredDevice)) addLink(this.scene.jumpLinkForNode(hoveredDevice.id), "hover");
     return [...overlays.values()];
+  }
+
+  hitTestVisibleJumpLink(worldPoint, screenTolerancePx = 8) {
+    const start = performance.now();
+    const tolerance = this.hitToleranceWorld(screenTolerancePx);
+    let best = null;
+    let candidates = 0;
+    this.visibleJumpLinkOverlays().forEach(overlay => {
+      const link = overlay?.id ? this.scene.getJumpLink(overlay.id) : null;
+      const points = Array.isArray(overlay.points) && overlay.points.length > 2
+        ? overlay.points
+        : jumpLinkBezierPolyline(overlay.from, overlay.to);
+      if (!link || points.length < 2) return;
+      candidates += 1;
+      const hit = HitTest.distanceToPolyline(points, worldPoint);
+      if (hit.distance <= tolerance && (!best || hit.distance < best.distance)) {
+        best = { link, overlay, points, distance: hit.distance, point: hit.point, segmentIndex: hit.segmentIndex };
+      }
+    });
+    return {
+      link: best?.link || null,
+      overlay: best?.overlay || null,
+      points: best?.points || [],
+      distance: best?.distance ?? Infinity,
+      point: best?.point || null,
+      segmentIndex: best?.segmentIndex ?? -1,
+      candidates,
+      ms: performance.now() - start
+    };
   }
 
   updateSelectionHud() {
@@ -4035,7 +4175,8 @@ class ProductionEngineBridge {
     const selectedWires = this.scene.selectedWireIds.size;
     const selectedRoutePoints = this.scene.selectedRoutePointKeys.size;
     const selectedConnectors = this.scene.selectedConnectorKeys.size;
-    const selectedTotal = selectedDevices + selectedRacks + selectedWires + selectedRoutePoints + selectedConnectors;
+    const selectedJumpLinks = this.scene.selectedJumpLinkId ? 1 : 0;
+    const selectedTotal = selectedDevices + selectedRacks + selectedWires + selectedRoutePoints + selectedConnectors + selectedJumpLinks;
     this.hud.setSceneStats({ selected: selectedTotal });
     this.hud.setMetric("selected racks", selectedRacks);
     this.hud.setMetric("selected devices", selectedDevices);
@@ -4043,6 +4184,7 @@ class ProductionEngineBridge {
     this.hud.setMetric("selected connectors", selectedConnectors);
     this.hud.setMetric("selected route points", selectedRoutePoints);
     this.hud.setMetric("selected jump nodes", [...this.scene.selectedIds].filter(id => this.scene.getDevice(id)?.kind === "jump").length);
+    this.hud.setMetric("selected jump links", this.scene.selectedJumpLinkId || "-");
     const selectedDeviceObjects = [...this.scene.selectedIds]
       .map(id => this.scene.getDevice(id))
       .filter(Boolean)
@@ -4065,6 +4207,7 @@ class ProductionEngineBridge {
       deviceIds: [...this.scene.selectedIds],
       rackIds: [...this.scene.selectedRackIds],
       wireIds: [...this.scene.selectedWireIds],
+      jumpLinkId: this.scene.selectedJumpLinkId || "",
       wires: selectedWireObjects,
       connectorKeys: [...this.scene.selectedConnectorKeys],
       routePointKeys: [...this.scene.selectedRoutePointKeys],
@@ -5517,6 +5660,24 @@ class ProductionEngineBridge {
     const selectedConnectors = [...this.scene.selectedConnectorKeys]
       .map(key => connectorSelectionDetails(this.scene, key))
       .filter(Boolean);
+    const selectedJumpLink = this.scene.selectedJumpLinkId ? this.scene.getJumpLink(this.scene.selectedJumpLinkId) : null;
+    if (selectedJumpLink && !selectedRacks.length && !selectedDevices.length && !selectedWires.length && !selectedRoutePoints.length && !selectedConnectors.length) {
+      const output = this.scene.getDevice(selectedJumpLink.outputJumpId);
+      const input = this.scene.getDevice(selectedJumpLink.inputJumpId);
+      this.inspectorPanel.innerHTML = `
+        <h3>Engine Inspector</h3>
+        ${detailsMarkup([
+          ["Type", "Jump Link"],
+          ["Link ID", selectedJumpLink.id],
+          ["Output", output ? output.label || output.id : selectedJumpLink.outputJumpId],
+          ["Input", input ? input.label || input.id : selectedJumpLink.inputJumpId],
+          ["Geometry", "Bezier portal"]
+        ])}
+        <button type="button" class="engine-bridge-action" data-jump-disconnect>Disconnect Jump Nodes</button>
+      `;
+      this.inspectorPanel.querySelector("[data-jump-disconnect]")?.addEventListener("click", () => this.disconnectSelectedJumpNodes());
+      return;
+    }
     const primaryJumpId = this.scene.primarySelectedJumpId
       || selectedDevices.find(device => isJumpNodeDevice(device))?.id
       || "";
@@ -5529,6 +5690,7 @@ class ProductionEngineBridge {
       const pairedId = link ? this.scene.pairedJumpId(primaryJump.id) : "";
       const paired = pairedId ? this.scene.getDevice(pairedId) : null;
       const localWire = roleInfo?.localWire || null;
+      const center = this.jumpNodeCenter(primaryJump);
       this.inspectorPanel.innerHTML = `
         <h3>Engine Inspector</h3>
         <label class="engine-bridge-field">
@@ -5541,7 +5703,7 @@ class ProductionEngineBridge {
           ["Color", jumpNodeRoleColor(roleInfo?.role || JUMP_NODE_ROLE.neutral)],
           ["Paired With", paired ? paired.label || paired.id : "Not paired"],
           ["Device-side Wire", localWire?.sourceId || localWire?.id || "None"],
-          ["Position", `${roundForUi(primaryJump.x + primaryJump.width / 2)}, ${roundForUi(primaryJump.y + primaryJump.height / 2)}`]
+          ["Position", `${roundForUi(center?.x)}, ${roundForUi(center?.y)}`]
         ])}
         ${link ? `<button type="button" class="engine-bridge-action" data-jump-disconnect>Disconnect Jump Nodes</button>` : ""}
       `;
@@ -6605,15 +6767,43 @@ class ProductionEngineBridge {
       .map(result => ({ linkData: result.linkData, index: result.index }));
   }
 
+  deleteSelectedJumpLink() {
+    const linkId = this.scene.selectedJumpLinkId || "";
+    const link = linkId ? this.scene.getJumpLink(linkId) : null;
+    if (!link) {
+      this.scene.clearSelectedJumpLink?.();
+      this.updateSelectionHud();
+      this.scheduleRender();
+      return false;
+    }
+    this.beginProductionCommit("delete jump link");
+    const result = this.removeJumpLink(link.id);
+    if (!result.linkData) return false;
+    this.recordCommand(deleteJumpLinkCommand(result.linkData, result.index));
+    this.scene.clearSelectedJumpLink?.();
+    this.markCommitted("delete jump link", result.mutationMs || 0, {
+      jumpLinkDelete: true,
+      jumpLinkId: result.linkData.id
+    });
+    this.updateSelectionHud();
+    this.updateInteractionHud("jump-link-delete");
+    return true;
+  }
+
   disconnectSelectedJumpNodes() {
-    const primaryId = this.scene.primarySelectedJumpId || [...this.scene.selectedIds].find(id => isJumpNodeDevice(this.scene.getDevice(id))) || "";
-    const link = primaryId ? this.scene.jumpLinkForNode(primaryId) : null;
+    const selectedLink = this.scene.selectedJumpLinkId ? this.scene.getJumpLink(this.scene.selectedJumpLinkId) : null;
+    const primaryId = this.scene.primarySelectedJumpId
+      || selectedLink?.outputJumpId
+      || [...this.scene.selectedIds].find(id => isJumpNodeDevice(this.scene.getDevice(id)))
+      || "";
+    const link = selectedLink || (primaryId ? this.scene.jumpLinkForNode(primaryId) : null);
     if (!link) return false;
     this.beginProductionCommit("disconnect jump nodes");
     const result = this.removeJumpLink(link.id);
     if (!result.linkData) return false;
     this.recordCommand(deleteJumpLinkCommand(result.linkData, result.index));
-    this.scene.selectJumpPairPrimary(primaryId);
+    if (selectedLink) this.scene.clearSelection();
+    else this.scene.selectJumpPairPrimary(primaryId);
     this.markCommitted("disconnect jump nodes", result.mutationMs || 0, {
       jumpLinkDelete: true,
       jumpLinkId: result.linkData.id
@@ -8411,7 +8601,8 @@ function captureEngineSelection(scene) {
     devices: [...(scene?.selectedIds || [])],
     wires: [...(scene?.selectedWireIds || [])],
     connectors: [...(scene?.selectedConnectorKeys || [])],
-    routePoints: [...(scene?.selectedRoutePointKeys || [])]
+    routePoints: [...(scene?.selectedRoutePointKeys || [])],
+    jumpLinkId: scene?.selectedJumpLinkId || ""
   };
 }
 
@@ -8957,6 +9148,15 @@ function formatPointForHud(point) {
   return Number.isFinite(Number(point?.x)) && Number.isFinite(Number(point?.y))
     ? `${roundForUi(point.x)},${roundForUi(point.y)}`
     : "-";
+}
+
+function formatDebugNumber(value) {
+  return Number.isFinite(Number(value)) ? Number(value).toFixed(3) : "-";
+}
+
+function pointDistance(a, b) {
+  if (!a || !b) return Infinity;
+  return Math.hypot((Number(a.x) || 0) - (Number(b.x) || 0), (Number(a.y) || 0) - (Number(b.y) || 0));
 }
 
 function deviceCenter(device = {}) {

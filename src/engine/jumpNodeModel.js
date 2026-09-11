@@ -1,5 +1,8 @@
+import { bezierPolyline } from "./wirePath.js";
+
 export const JUMP_NODE_SIZE = 44;
 export const JUMP_NODE_CONNECTOR_ID = "jump-center";
+export const JUMP_LINK_BEZIER_STEPS = 28;
 export const JUMP_PRESS_MOVE_THRESHOLD_PX = 5;
 
 export const JUMP_PRESS_INTENT = Object.freeze({
@@ -33,6 +36,29 @@ export function isJumpNodeDevice(device) {
 
 export function isJumpEndpoint(endpoint = {}) {
   return Boolean(endpoint?.jumpNodeId);
+}
+
+export function jumpNodeLocalCenter(device = {}) {
+  const width = Number.isFinite(Number(device?.width)) ? Number(device.width) : JUMP_NODE_SIZE;
+  const height = Number.isFinite(Number(device?.height)) ? Number(device.height) : JUMP_NODE_SIZE;
+  return {
+    x: width / 2,
+    y: height / 2
+  };
+}
+
+export function jumpNodeCenter(device = {}, offset = null) {
+  if (!device) return null;
+  const center = jumpNodeLocalCenter(device);
+  return {
+    x: finiteNumber(device.x, 0) + center.x + (Number(offset?.dx) || 0),
+    y: finiteNumber(device.y, 0) + center.y + (Number(offset?.dy) || 0)
+  };
+}
+
+export function jumpLinkBezierPolyline(from, to, steps = JUMP_LINK_BEZIER_STEPS) {
+  if (!validPoint(from) || !validPoint(to)) return [];
+  return bezierPolyline(from, to, steps);
 }
 
 export function normalizeJumpNodeDirection(direction = "") {
@@ -100,6 +126,14 @@ export function normalizeEngineJumpNode(node = {}, index = 0) {
       side: "center",
       x: JUMP_NODE_SIZE / 2,
       y: JUMP_NODE_SIZE / 2,
+      primaryAnchorId: JUMP_NODE_CONNECTOR_ID,
+      anchors: [{
+        id: JUMP_NODE_CONNECTOR_ID,
+        side: "center",
+        x: JUMP_NODE_SIZE / 2,
+        y: JUMP_NODE_SIZE / 2,
+        primary: true
+      }],
       color: JUMP_NODE_ROLE_COLORS.neutral,
       colorMapped: true
     }],
@@ -508,4 +542,8 @@ function projectRoot(project) {
 function finiteNumber(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
+}
+
+function validPoint(point = {}) {
+  return Number.isFinite(Number(point?.x)) && Number.isFinite(Number(point?.y));
 }

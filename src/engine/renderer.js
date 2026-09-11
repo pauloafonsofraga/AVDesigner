@@ -45,10 +45,12 @@ import { commentLeaderGeometry } from "./commentGeometry.js";
 import {
   JUMP_NODE_ROLE,
   JUMP_NODE_ROLE_COLORS,
+  jumpLinkBezierPolyline,
+  jumpNodeCenter,
   jumpNodeRoleColor
 } from "./jumpNodeModel.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-2-smart-jump-nodes";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-2-3-jump-link-geometry-selection";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -1004,6 +1006,7 @@ export class WebglGraphRenderer {
         // connector feedback and route-point handles are added.
         frameStats.jumpForegroundNodes = pushJumpNodeForeground(liveVertices, scene, camera, this.resolution, {
           selectedIds: options.selectedIds || new Set(),
+          pairedJumpHighlightIds: interaction.pairedJumpHighlightIds || new Set(),
           hoveredDeviceId: hoveredDevice?.id || "",
           renderOptions,
           layerTrace,
@@ -1817,21 +1820,27 @@ function pushJumpLinkOverlays(vertices, interaction = {}) {
     interaction.jumpLinkPreview
   ].filter(item => item?.from && item?.to);
   overlays.forEach(overlay => {
-    const width = overlay.mode === "selected" ? 6.2 : overlay.mode === "preview" ? 5.4 : 4.8;
-    const alpha = overlay.valid === false ? 0.58 : overlay.mode === "hover" ? 0.82 : 0.94;
-    pushGradientLine(
+    const selected = overlay.mode === "link-selected";
+    const pairSelected = overlay.mode === "pair-selected" || overlay.mode === "selected";
+    const points = Array.isArray(overlay.points) && overlay.points.length > 2
+      ? overlay.points
+      : jumpLinkBezierPolyline(overlay.from, overlay.to);
+    const width = selected ? 6.4 : pairSelected ? 5.9 : overlay.mode === "preview" ? 5.4 : 4.8;
+    const alpha = overlay.valid === false ? 0.58 : selected ? 0.98 : pairSelected ? 0.94 : overlay.mode === "hover" ? 0.82 : 0.9;
+    if (selected) {
+      pushPolyline(vertices, points, width + 11, "rgba(251,121,4,.16)");
+      pushPolyline(vertices, points, width + 6, "rgba(255,255,255,.16)");
+    } else if (pairSelected) {
+      pushPolyline(vertices, points, width + 8, "rgba(251,121,4,.12)");
+    }
+    pushGradientPolyline(
       vertices,
-      overlay.from,
-      overlay.to,
+      points,
       width,
       overlay.fromColor || JUMP_NODE_ROLE_COLORS.output,
       overlay.toColor || JUMP_NODE_ROLE_COLORS.input,
-      18,
       alpha
     );
-    if (overlay.mode === "selected") {
-      pushGradientLine(vertices, overlay.from, overlay.to, width + 5, "rgba(255,255,255,.18)", "rgba(255,255,255,.18)", 18, 0.65);
-    }
     count += 1;
   });
   return count;
@@ -1839,6 +1848,7 @@ function pushJumpLinkOverlays(vertices, interaction = {}) {
 
 function pushJumpNodeForeground(vertices, scene, camera, resolution, {
   selectedIds = new Set(),
+  pairedJumpHighlightIds = new Set(),
   hoveredDeviceId = "",
   renderOptions = DEFAULT_RENDER_OPTIONS,
   layerTrace = null,
@@ -1848,13 +1858,15 @@ function pushJumpNodeForeground(vertices, scene, camera, resolution, {
   visibleDevices(scene, camera, resolution).forEach(device => {
     if (device?.kind !== "jump" || !deviceVisible(device, renderOptions)) return;
     const selected = selectedIds.has(device.id);
+    const paired = pairedJumpHighlightIds.has(device.id);
     const hovered = hoveredDeviceId === device.id;
+    const center = jumpNodeCenter(device);
+    const radius = Math.max(device.width, device.height) / 2;
+    if (selected || paired) pushJumpSelectionGlow(vertices, center, radius, selected ? "selected" : "paired");
     if (selected) pushSelectionOutline(vertices, device, null);
     else if (hovered) pushHoverOutline(vertices, device, null);
-    pushJumpNode(vertices, {
-      x: device.x + device.width / 2,
-      y: device.y + device.height / 2
-    }, Math.max(device.width, device.height) / 2, {
+    else if (paired) pushCircleOutline(vertices, center, radius + 4.2, 1.35, "rgba(251,121,4,.6)", 34);
+    pushJumpNode(vertices, center, radius, {
       role: device.visual?.jumpRole || JUMP_NODE_ROLE.neutral,
       color: device.visual?.jumpColor || jumpNodeRoleColor(device.visual?.jumpRole)
     });
@@ -2393,8 +2405,11 @@ function pushDevice(vertices, device, offsets = null, selected = false, options 
   const x = device.x + (offset?.dx || 0);
   const y = device.y + (offset?.dy || 0);
   if (device.kind === "jump") {
+    const center = jumpNodeCenter(device, offset);
+    const radius = Math.max(device.width, device.height) / 2;
+    if (selected) pushJumpSelectionGlow(vertices, center, radius, "selected");
     if (selected) pushSelectionOutline(vertices, device, offsets);
-    pushJumpNode(vertices, { x: x + device.width / 2, y: y + device.height / 2 }, Math.max(device.width, device.height) / 2, {
+    pushJumpNode(vertices, center || { x: x + device.width / 2, y: y + device.height / 2 }, radius, {
       role: device.visual?.jumpRole || JUMP_NODE_ROLE.neutral,
       color: device.visual?.jumpColor || jumpNodeRoleColor(device.visual?.jumpRole)
     });
@@ -2451,6 +2466,14 @@ function pushJumpNode(vertices, center, radius, options = {}) {
   pushCircle(vertices, center, radius * 0.68, colorWithOpacity(color, Math.min(1, opacity * 1.06)), 34);
   pushCircleOutline(vertices, center, radius + 2.5, 2.2, colorWithOpacity(color, Math.min(1, opacity * 0.95)), 34);
   pushCircleOutline(vertices, center, radius + 5.5, 1.2, colorWithOpacity("rgba(255,255,255,.72)", opacity), 34);
+}
+
+function pushJumpSelectionGlow(vertices, center, radius, mode = "selected") {
+  if (!center) return;
+  const selected = mode === "selected";
+  pushCircle(vertices, center, radius + (selected ? 21 : 15), selected ? "rgba(251,121,4,.055)" : "rgba(251,121,4,.032)", 40);
+  pushCircle(vertices, center, radius + (selected ? 14 : 9), selected ? "rgba(251,121,4,.075)" : "rgba(251,121,4,.045)", 40);
+  pushCircleOutline(vertices, center, radius + (selected ? 7.2 : 5.4), selected ? 2.6 : 1.6, selected ? "rgba(251,121,4,.82)" : "rgba(251,121,4,.46)", 40);
 }
 
 function pushConnectorNode(vertices, point, connector = {}, device = {}, options = DEFAULT_RENDER_OPTIONS, camera = null) {
@@ -3869,6 +3892,33 @@ function pushGradientLine(vertices, from, to, width, startColor, endColor, segme
       a[3] + (b[3] - a[3]) * ((t0 + t1) / 2)
     ];
     pushLine(vertices, p0, p1, width, color);
+  }
+}
+
+function pushGradientPolyline(vertices, points = [], width, startColor, endColor, opacity = 1) {
+  const clean = points.filter(point => Number.isFinite(Number(point?.x)) && Number.isFinite(Number(point?.y)));
+  if (clean.length < 2) return;
+  const lengths = [];
+  let total = 0;
+  for (let index = 1; index < clean.length; index += 1) {
+    const length = Math.hypot(clean[index].x - clean[index - 1].x, clean[index].y - clean[index - 1].y);
+    lengths.push(length);
+    total += length;
+  }
+  const a = colorWithOpacity(startColor, opacity);
+  const b = colorWithOpacity(endColor, opacity);
+  let walked = 0;
+  for (let index = 1; index < clean.length; index += 1) {
+    const length = lengths[index - 1] || 0;
+    const t = total > 0 ? (walked + length / 2) / total : 0;
+    const color = [
+      a[0] + (b[0] - a[0]) * t,
+      a[1] + (b[1] - a[1]) * t,
+      a[2] + (b[2] - a[2]) * t,
+      a[3] + (b[3] - a[3]) * t
+    ];
+    pushLine(vertices, clean[index - 1], clean[index], width, color);
+    walked += length;
   }
 }
 

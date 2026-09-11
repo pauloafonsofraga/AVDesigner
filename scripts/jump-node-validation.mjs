@@ -4,11 +4,16 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { engineCompatibilitySummary } from "../src/engine/connectorCompatibility.js";
+import { distanceToPolyline } from "../src/engine/hitTest.js";
 import {
   deriveLegacyPairJumpLinks,
   invalidJumpLinksForScene,
+  JUMP_NODE_CONNECTOR_ID,
   JUMP_NODE_ROLE,
   JUMP_NODE_ROLE_COLORS,
+  jumpLinkBezierPolyline,
+  jumpNodeCenter,
+  jumpNodeLocalCenter,
   JUMP_PRESS_MOVE_THRESHOLD_PX,
   JUMP_PRESS_INTENT,
   jumpPressIntent,
@@ -21,8 +26,9 @@ import {
   validateJumpLinks
 } from "../src/engine/jumpNodeModel.js";
 import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
+import { SceneGraph } from "../src/engine/sceneGraph.js";
 
-const BUILD_ID = "iteration54-2-2-jump-drag-to-link";
+const BUILD_ID = "iteration54-2-3-jump-link-geometry-selection";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -30,11 +36,12 @@ const bridgeSource = readFileSync(resolve(repoRoot, "src/engine/productionBridge
 const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"), "utf8");
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Jump Drag-to-Link");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-2-2-jump-drag-to-link-modules";'), "module cache key should identify Jump Drag-to-Link");
-assert.ok(indexHtml.includes("Jump Drag-to-Link"), "visible build label should name Jump Drag-to-Link");
-assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Jump Drag-to-Link");
-assert.ok(rendererSource.includes("renderer-iteration54-2-smart-jump-nodes"), "renderer fingerprint should identify Smart Jump Nodes");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Jump Link Geometry & Selection");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-2-3-jump-link-geometry-selection-modules";'), "module cache key should identify Jump Link Geometry & Selection");
+assert.ok(indexHtml.includes("Jump Link Geometry & Selection"), "visible build label should name Jump Link Geometry & Selection");
+assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Jump Link Geometry & Selection");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "jump-link-geometry-selection"'), "bridge feature label should identify Jump Link Geometry & Selection");
+assert.ok(rendererSource.includes("renderer-iteration54-2-3-jump-link-geometry-selection"), "renderer fingerprint should identify Jump Link Geometry & Selection");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.equal(JUMP_PRESS_MOVE_THRESHOLD_PX, 5, "Jump press movement tolerance should be 5 px");
 assert.equal(jumpPressIntent({ distancePx: 0, released: true }), JUMP_PRESS_INTENT.select, "released below threshold should select");
@@ -55,6 +62,84 @@ assert.equal(rawJumpNodeRole(baseProject, "jump-input").role, JUMP_NODE_ROLE.inp
 assert.equal(JUMP_NODE_ROLE_COLORS.output, "#32b6ff", "output Jump color");
 assert.equal(JUMP_NODE_ROLE_COLORS.input, "#fb7904", "input Jump color");
 assert.equal(JUMP_NODE_ROLE_COLORS.neutral, "#778492", "neutral Jump color");
+
+const rawCenteredJump = normalizeEngineJumpNode({ id: "raw-center-jump", x: 400, y: 300, label: "Center" }, 0);
+const rawCenteredConnector = rawCenteredJump.connectors.find(item => item.id === JUMP_NODE_CONNECTOR_ID);
+assert.deepEqual(jumpNodeLocalCenter(rawCenteredJump), { x: 22, y: 22 }, "Jump local center should be the visible node center");
+assert.deepEqual(jumpNodeCenter(rawCenteredJump), { x: 400, y: 300 }, "Jump world center should preserve the raw visible center");
+assert.equal(rawCenteredConnector?.side, "center", "Jump connector should be center-side");
+assert.equal(rawCenteredConnector?.x, 22, "Jump connector x should sit at the center");
+assert.equal(rawCenteredConnector?.y, 22, "Jump connector y should sit at the center");
+assert.equal(rawCenteredConnector?.primaryAnchorId, JUMP_NODE_CONNECTOR_ID, "Jump connector should use its center anchor as primary");
+assert.equal(rawCenteredConnector?.anchors?.[0]?.id, JUMP_NODE_CONNECTOR_ID, "Jump center anchor should be explicit");
+assert.equal(rawCenteredConnector?.anchors?.[0]?.side, "center", "Jump center anchor should be center-side");
+assert.equal(rawCenteredConnector?.anchors?.[0]?.x, 22, "Jump center anchor x should be explicit");
+assert.equal(rawCenteredConnector?.anchors?.[0]?.y, 22, "Jump center anchor y should be explicit");
+
+const engineScene = createEngineScene();
+const engineOutputJump = engineScene.getDevice("engine-jump-output");
+const engineInputJump = engineScene.getDevice("engine-jump-input");
+const engineOutputCenter = jumpNodeCenter(engineOutputJump);
+const engineInputCenter = jumpNodeCenter(engineInputJump);
+const engineOutputConnectorPoint = engineScene.connectorWorldPoint(engineOutputJump, engineScene.getConnector(engineOutputJump.id, JUMP_NODE_CONNECTOR_ID));
+const engineOutputWireEndpoint = engineScene.endpointForWire(engineScene.getWire("engine-wire-output-jump"), "to");
+const engineInputWireEndpoint = engineScene.endpointForWire(engineScene.getWire("engine-wire-jump-input"), "from");
+const engineOutputHit = engineScene.connectorIndex
+  .queryRect({ x: engineOutputCenter.x - 0.5, y: engineOutputCenter.y - 0.5, width: 1, height: 1 })
+  .find(entry => entry.payload?.device?.id === "engine-jump-output" && entry.payload?.connector?.id === JUMP_NODE_CONNECTOR_ID);
+assertClosePoint(engineOutputCenter, { x: 400, y: 300 }, "Engine Jump output center");
+assertClosePoint(engineInputCenter, { x: 680, y: 470 }, "Engine Jump input center");
+assertClosePoint(engineOutputConnectorPoint, engineOutputCenter, "Engine Jump connector hit point should match center");
+assertClosePoint(engineOutputWireEndpoint, engineOutputCenter, "Wire endpoint into Jump output should match center");
+assertClosePoint(engineInputWireEndpoint, engineInputCenter, "Wire endpoint out of Jump input should match center");
+assert.ok(engineOutputHit, "Jump connector hit index should include the visible center");
+assertClosePoint(engineOutputHit.payload.point, engineOutputCenter, "Jump connector spatial index point should match center");
+
+engineScene.selectJumpPairPrimary("engine-jump-output");
+assert.equal(engineScene.selectedIds.has("engine-jump-output"), true, "Selecting a Jump should select the clicked node");
+assert.equal(engineScene.selectedIds.has("engine-jump-input"), false, "Selecting a paired Jump should not select or move the paired node");
+assert.equal(engineScene.pairedJumpId("engine-jump-output"), "engine-jump-input", "Selected Jump should still know its pair");
+const engineInputBeforeMove = jumpNodeCenter(engineInputJump);
+engineScene.moveDevicesBy(["engine-jump-output"], 73, 41);
+assertClosePoint(jumpNodeCenter(engineOutputJump), { x: 473, y: 341 }, "Moving one selected Jump should move that Jump by the drag delta");
+assertClosePoint(jumpNodeCenter(engineInputJump), engineInputBeforeMove, "Moving one selected Jump should not move its paired Jump");
+assertClosePoint(engineScene.endpointForWire(engineScene.getWire("engine-wire-output-jump"), "to"), jumpNodeCenter(engineOutputJump), "Moved Jump wire endpoint should stay centered");
+assertClosePoint(engineScene.connectorWorldPoint(engineOutputJump, engineScene.getConnector(engineOutputJump.id, JUMP_NODE_CONNECTOR_ID)), jumpNodeCenter(engineOutputJump), "Moved Jump connector should stay centered");
+
+engineScene.selectMany(["engine-jump-output", "engine-jump-input"]);
+engineScene.moveDevicesBy([...engineScene.selectedIds], 10, 20);
+assertClosePoint(jumpNodeCenter(engineOutputJump), { x: 483, y: 361 }, "Explicit multi-selection should move the output Jump");
+assertClosePoint(jumpNodeCenter(engineInputJump), { x: 690, y: 490 }, "Explicit multi-selection should move the input Jump");
+
+const portalPoints = jumpLinkBezierPolyline({ x: 400, y: 300 }, { x: 660, y: 470 });
+assert.ok(portalPoints.length > 2, "Jump portal links should use sampled Bezier points");
+assert.equal(portalPoints[0].x, 400, "Bezier portal should start at the output center x");
+assert.equal(portalPoints[0].y, 300, "Bezier portal should start at the output center y");
+assert.equal(portalPoints.at(-1).x, 660, "Bezier portal should end at the input center x");
+assert.equal(portalPoints.at(-1).y, 470, "Bezier portal should end at the input center y");
+assert.ok(portalPoints.some((point, index) => {
+  const t = index / Math.max(1, portalPoints.length - 1);
+  const straightX = 400 + (660 - 400) * t;
+  const straightY = 300 + (470 - 300) * t;
+  return Math.hypot(point.x - straightX, point.y - straightY) > 0.01;
+}), "Bezier portal should visibly curve away from the straight chord");
+const portalHitPoint = portalPoints[Math.floor(portalPoints.length * 0.35)];
+assert.equal(hitJumpLinkFromOverlays([{ id: "engine-jump-link-1", points: portalPoints }], portalHitPoint, 0.01)?.id, "engine-jump-link-1", "Revealed Jump portal should be hit-testable along its Bezier path");
+assert.equal(hitJumpLinkFromOverlays([{ id: "engine-jump-link-1", points: portalPoints }], { x: portalHitPoint.x, y: portalHitPoint.y + 200 }, 5), null, "Far-away points should not hit a Jump portal");
+
+const deleteScene = createEngineScene();
+deleteScene.selectJumpLinkOnly("engine-jump-link-1");
+assert.equal(deleteScene.selectedJumpLinkId, "engine-jump-link-1", "Jump Link should be independently selectable");
+const deletedJumpLink = deleteScene.deleteJumpLink("engine-jump-link-1");
+assert.equal(deletedJumpLink?.link?.id, "engine-jump-link-1", "Deleting a selected Jump Link should remove the portal relationship");
+assert.equal(deleteScene.jumpLinks.length, 0, "Deleting a Jump Link should clear jumpLinks only");
+assert.equal(deleteScene.selectedJumpLinkId, "", "Deleting a selected Jump Link should clear link selection");
+assert.ok(deleteScene.getDevice("engine-jump-output"), "Deleting a Jump Link should leave output Jump Node in the scene");
+assert.ok(deleteScene.getDevice("engine-jump-input"), "Deleting a Jump Link should leave input Jump Node in the scene");
+assert.ok(deleteScene.getWire("engine-wire-output-jump"), "Deleting a Jump Link should leave the incoming visible wire");
+assert.ok(deleteScene.getWire("engine-wire-jump-input"), "Deleting a Jump Link should leave the outgoing visible wire");
+deleteScene.insertJumpLink(deletedJumpLink.link, deletedJumpLink.index);
+assert.equal(deleteScene.getJumpLink("engine-jump-link-1")?.id, "engine-jump-link-1", "Undo-style restore should put the Jump Link back");
 
 expectPair("output + input", createScene({ jumpLinks: [] }), "jump-output", "jump-input", true, "output-input");
 expectPair("output + output", createScene({ jumpLinks: [] }), "jump-output", "jump-output-2", false, "output-output");
@@ -140,6 +225,15 @@ assert.ok(indexHtml.includes("function wireTraceSequence"), "editor/export Play 
 assert.ok(indexHtml.includes("type:\"teleport\"") || indexHtml.includes('type: "teleport"'), "standalone viewer should include teleport playback steps");
 assert.ok(indexHtml.includes("function renderJumpLinks"), "standalone viewer should have a Jump Link reveal layer");
 assert.ok(indexHtml.includes("viewer-jump-link-reveal"), "standalone viewer should keep hidden Jump Link reveal styling addressable");
+assert.ok(indexHtml.includes("viewerBezierPolyline"), "standalone viewer Jump Link reveal should use Bezier geometry");
+assert.ok(indexHtml.includes("pointsToPath(points)"), "standalone viewer Jump Link reveal should render a Bezier path");
+assert.ok(bridgeSource.includes("hitTestVisibleJumpLink"), "Engine bridge should hit-test visible Jump Link overlays");
+assert.ok(bridgeSource.includes("selectedJumpLinkId"), "Engine bridge should preserve independent Jump Link selection");
+assert.ok(bridgeSource.includes("deleteSelectedJumpLink"), "Engine bridge should delete the selected Jump Link relationship");
+assert.ok(bridgeSource.includes("pairedJumpHighlightIds"), "Engine bridge should highlight, not select, the paired Jump Node");
+assert.ok(rendererSource.includes("pushGradientPolyline"), "renderer should draw Jump Link overlays as sampled polylines");
+assert.ok(rendererSource.includes('mode === "link-selected"'), "renderer should distinguish selected Jump Link overlays");
+assert.ok(rendererSource.includes("pushJumpSelectionGlow"), "renderer should give selected Jump Nodes an orange glow");
 
 console.info("Jump Node validation passed", {
   buildId: BUILD_ID,
@@ -243,6 +337,117 @@ function createScene(options = {}) {
       return this.jumpLinks.find(link => link.outputJumpId === id || link.inputJumpId === id) || null;
     }
   };
+}
+
+function createEngineScene() {
+  const scene = new SceneGraph();
+  scene.setData({
+    devices: [
+      engineDevice("engine-source", 180, 260, connector("engine-output-hdmi", "hdmi", "output")),
+      normalizeEngineJumpNode({ id: "engine-jump-output", x: 400, y: 300, label: "Output Jump" }, 0),
+      normalizeEngineJumpNode({ id: "engine-jump-input", x: 680, y: 470, label: "Input Jump" }, 1),
+      engineDevice("engine-destination", 820, 430, connector("engine-input-hdmi", "hdmi", "input"))
+    ],
+    wires: [
+      engineWire("engine-wire-output-jump", {
+        fromDeviceId: "engine-source",
+        fromConnectorId: "engine-output-hdmi",
+        fromAnchorId: "engine-output-hdmi-main",
+        fromSide: "right",
+        toDeviceId: "engine-jump-output",
+        toConnectorId: JUMP_NODE_CONNECTOR_ID,
+        toAnchorId: JUMP_NODE_CONNECTOR_ID,
+        toSide: "center",
+        color: "#32b6ff"
+      }),
+      engineWire("engine-wire-jump-input", {
+        fromDeviceId: "engine-jump-input",
+        fromConnectorId: JUMP_NODE_CONNECTOR_ID,
+        fromAnchorId: JUMP_NODE_CONNECTOR_ID,
+        fromSide: "center",
+        toDeviceId: "engine-destination",
+        toConnectorId: "engine-input-hdmi",
+        toAnchorId: "engine-input-hdmi-main",
+        toSide: "left",
+        color: "#fb7904"
+      })
+    ],
+    jumpLinks: [
+      { id: "engine-jump-link-1", outputJumpId: "engine-jump-output", inputJumpId: "engine-jump-input" }
+    ],
+    racks: []
+  });
+  return scene;
+}
+
+function engineDevice(id, x, y, connectorRecord) {
+  const direction = connectorRecord.direction === "input" ? "input" : "output";
+  const side = direction === "input" ? "left" : "right";
+  return {
+    id,
+    sourceId: id,
+    sourceKind: "device",
+    kind: "device",
+    x,
+    y,
+    width: 120,
+    height: 80,
+    label: id,
+    connectors: [{
+      ...connectorRecord,
+      side,
+      x: side === "left" ? 0 : 120,
+      y: 40,
+      anchors: [{
+        id: `${connectorRecord.id}-main`,
+        side,
+        x: side === "left" ? 0 : 120,
+        y: 40,
+        primary: true
+      }],
+      primaryAnchorId: `${connectorRecord.id}-main`
+    }],
+    portCount: 1
+  };
+}
+
+function engineWire(id, overrides = {}) {
+  return {
+    id,
+    sourceId: id,
+    fromPortIndex: 0,
+    toPortIndex: 0,
+    fromUsesRealConnector: true,
+    toUsesRealConnector: true,
+    usesRealConnectorEndpoints: true,
+    routeStyle: "bezier",
+    routePoints: [],
+    cableType: "hdmi",
+    label: id,
+    ...overrides
+  };
+}
+
+function assertClosePoint(actual, expected, message, tolerance = 0.01) {
+  assert.ok(actual, `${message}: actual point should exist`);
+  assert.ok(expected, `${message}: expected point should exist`);
+  assert.ok(Number.isFinite(Number(actual.x)), `${message}: actual x should be finite`);
+  assert.ok(Number.isFinite(Number(actual.y)), `${message}: actual y should be finite`);
+  assert.ok(Math.abs(Number(actual.x) - Number(expected.x)) <= tolerance, `${message}: x ${actual.x} should be close to ${expected.x}`);
+  assert.ok(Math.abs(Number(actual.y) - Number(expected.y)) <= tolerance, `${message}: y ${actual.y} should be close to ${expected.y}`);
+}
+
+function hitJumpLinkFromOverlays(overlays = [], point = {}, tolerance = 8) {
+  let best = null;
+  overlays.forEach(overlay => {
+    const points = Array.isArray(overlay.points) ? overlay.points : [];
+    if (points.length < 2) return;
+    const hit = distanceToPolyline(points, point);
+    if (hit.distance <= tolerance && (!best || hit.distance < best.distance)) {
+      best = { ...overlay, distance: hit.distance, point: hit.point };
+    }
+  });
+  return best;
 }
 
 function rawDevice(id, connectorRecord) {
