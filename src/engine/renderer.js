@@ -45,12 +45,14 @@ import { commentLeaderGeometry } from "./commentGeometry.js";
 import {
   JUMP_NODE_ROLE,
   JUMP_NODE_ROLE_COLORS,
+  jumpNodeConnectionInfo,
   jumpLinkBezierPolyline,
   jumpNodeCenter,
   jumpNodeRoleColor
 } from "./jumpNodeModel.js";
+import { wirePlaybackEase } from "./wirePlayback.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-2-3-jump-link-geometry-selection";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-2-4-jump-legacy-parity-play-wire";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -123,6 +125,7 @@ function defaultLabelStats() {
     connectorInfoBoxes: 0,
     compactConnectorInfoBoxes: 0,
     magnifiedConnectorInfoBoxes: 0,
+    jumpNodeInfoBoxes: 0,
     objectHoverTooltips: 0,
     deviceLabelsHidden: 0,
     deviceLabelsTruncated: 0,
@@ -844,6 +847,7 @@ export class WebglGraphRenderer {
       connectorOverlayCount: 0,
       connectorRelationships: 0,
       wirePreviewDrawn: 0,
+      wirePlayback: 0,
       suppressedAffectedWireOverlays: 0,
       suppressedHoveredWireOverlays: 0,
       snapGuides: 0,
@@ -1030,6 +1034,7 @@ export class WebglGraphRenderer {
     frameStats.interactionOverlayMs = performance.now() - interactionStart;
     frameStats.connectorOverlayCount += interactionStats.connectorOverlayCount || 0;
     frameStats.wirePreviewDrawn = interactionStats.wirePreviewDrawn || 0;
+    frameStats.wirePlayback = interactionStats.wirePlayback || 0;
     frameStats.suppressedAffectedWireOverlays = interactionStats.suppressedAffectedWireOverlays || 0;
     frameStats.suppressedHoveredWireOverlays = interactionStats.suppressedHoveredWireOverlays || 0;
     frameStats.snapGuides = interactionStats.snapGuides || 0;
@@ -1054,6 +1059,7 @@ export class WebglGraphRenderer {
     frameStats.routePointHandles = this.lastLabelStats.routePointHandles || 0;
     frameStats.connectorTooltips = this.lastLabelStats.connectorTooltips || 0;
     frameStats.objectHoverTooltips = this.lastLabelStats.objectHoverTooltips || 0;
+    frameStats.jumpNodeInfoBoxes = this.lastLabelStats.jumpNodeInfoBoxes || 0;
     frameStats.snapMeasureLabels = this.lastLabelStats.snapMeasureLabels || 0;
     const textureAfter = this.textureCache.stats();
     frameStats.textureBuilds = textureAfter.builds - textureBefore.builds;
@@ -1148,6 +1154,21 @@ export class WebglGraphRenderer {
       trackDeviceLabel(hoveredDevice, selectedIds.has(hoveredDevice.id) ? "selected" : "hover", "drawn-hover");
       drawn.add(hoveredDevice.id);
     }
+    let jumpNodeInfoBoxCount = 0;
+    const jumpInfoCandidates = new Map();
+    visible.forEach(device => {
+      if (device?.kind === "jump") jumpInfoCandidates.set(device.id, device);
+    });
+    selectedIds.forEach(id => {
+      const device = scene.getDevice(id);
+      if (device?.kind === "jump") jumpInfoCandidates.set(device.id, device);
+    });
+    if (hoveredDevice?.kind === "jump") jumpInfoCandidates.set(hoveredDevice.id, hoveredDevice);
+    jumpInfoCandidates.forEach(device => {
+      if (deviceVisible(device, renderOptions) && drawJumpNodeInfoBox(ctx, scene, device, camera, offsets)) {
+        jumpNodeInfoBoxCount += 1;
+      }
+    });
     let wireLabelCount = 0;
     if (renderOptions.wires) {
       const selectedWireIds = options.selectedWireIds || new Set();
@@ -1239,7 +1260,8 @@ export class WebglGraphRenderer {
       objectHoverTooltips: objectHoverTooltipCount,
       deviceLabelsHidden,
       deviceLabelsTruncated,
-      snapMeasureLabels
+      snapMeasureLabels,
+      jumpNodeInfoBoxes: jumpNodeInfoBoxCount
     };
   }
 
@@ -1695,6 +1717,7 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
     wirePreviewDrawn: 0,
     suppressedAffectedWireOverlays: 0,
     suppressedHoveredWireOverlays: 0,
+    wirePlayback: 0,
     snapGuides: 0,
     snapDebugVisuals: 0
   };
@@ -1806,6 +1829,7 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
   if (interaction.marquee) {
     pushBoxOutline(vertices, interaction.marquee, 2.4, "rgba(50, 182, 255, .92)");
   }
+  stats.wirePlayback = pushWirePlaybackOverlay(vertices, interaction.wirePlayback);
   stats.snapGuides = pushSnapGuides(vertices, interaction.snapGuides, overlayOptions.camera, overlayOptions.resolution);
   if (renderOptions.snapDebugEnabled) {
     stats.snapDebugVisuals = pushSnapDebugVisual(vertices, interaction.snapDebugVisual, overlayOptions.camera);
@@ -1844,6 +1868,35 @@ function pushJumpLinkOverlays(vertices, interaction = {}) {
     count += 1;
   });
   return count;
+}
+
+function pushWirePlaybackOverlay(vertices, playback = null) {
+  if (!playback?.active) return 0;
+  const points = Array.isArray(playback.points) ? playback.points.filter(validPoint) : [];
+  let count = 0;
+  let dot = playback.dot && validPoint(playback.dot) ? playback.dot : null;
+  if (points.length >= 2) {
+    const progress = wirePlaybackEase(playback.progress ?? 0);
+    const traveled = polylineSlice(points, 0, progress);
+    dot = dot || polylinePointAtDistance(points, polylineLength(points) * progress);
+    if (traveled.length >= 2) {
+      pushPolyline(vertices, traveled, 17, "rgba(50,182,255,.14)");
+      pushPolyline(vertices, traveled, 11, "rgba(50,182,255,.34)");
+      pushPolyline(vertices, traveled, 7, "rgba(50,182,255,.70)");
+      count += 1;
+    }
+  }
+  if (dot) {
+    pushCircle(vertices, dot, 15, "rgba(50,182,255,.18)", 24);
+    pushCircle(vertices, dot, 8, "#fb7904", 24);
+    pushCircleOutline(vertices, dot, 9.5, 3, "#32b6ff", 24);
+    count += 1;
+  }
+  return count;
+}
+
+function validPoint(point) {
+  return Number.isFinite(Number(point?.x)) && Number.isFinite(Number(point?.y));
 }
 
 function pushJumpNodeForeground(vertices, scene, camera, resolution, {
@@ -3759,6 +3812,45 @@ function drawDeviceLabel(ctx, device, camera, offsets = null, tone = "normal") {
   ctx.fillText(fitted, labelX, labelY);
   ctx.restore();
   return { drawn: true, hidden: false, truncated };
+}
+
+function drawJumpNodeInfoBox(ctx, scene, device, camera, offsets = null) {
+  if (!scene || device?.kind !== "jump" || camera.zoom < 0.08) return false;
+  const info = typeof scene.jumpNodeConnectionInfo === "function"
+    ? scene.jumpNodeConnectionInfo(device.id)
+    : jumpNodeConnectionInfo(scene, device.id);
+  const rawText = String(info?.displayText || info?.text || "").trim();
+  if (!rawText) return false;
+  const text = rawText.length > 34 ? `${rawText.slice(0, 31)}...` : rawText;
+  const offset = offsets?.get(device.id);
+  const center = jumpNodeCenter(device, offset);
+  if (!center) return false;
+  const zoom = Math.max(Number(camera.zoom) || 1, 0.001);
+  const centerX = (center.x - camera.x) * zoom;
+  const centerY = (center.y - camera.y) * zoom;
+  const radius = Math.max(device.width || 44, device.height || 44) * zoom / 2;
+  const legacyScale = Math.max(0.65, Math.min(1.8, zoom));
+  const height = 24 * legacyScale;
+  const width = Math.max(122, Math.min(240, rawText.length * 6 + 22)) * legacyScale;
+  const gap = 8 * legacyScale;
+  const boxX = info.side === "left"
+    ? centerX - radius - gap - width
+    : centerX + radius + gap;
+  const boxY = centerY - height / 2;
+  ctx.save();
+  ctx.fillStyle = "rgba(23,33,43,.92)";
+  ctx.strokeStyle = "rgba(50,182,255,.72)";
+  ctx.lineWidth = Math.max(1, 1.2 * legacyScale);
+  roundedRectPath(ctx, boxX, boxY, width, height, 5 * legacyScale);
+  ctx.fill();
+  ctx.stroke();
+  ctx.font = `800 ${10 * legacyScale}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  ctx.fillStyle = "#edf2f7";
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  ctx.fillText(text, boxX + 10 * legacyScale, boxY + height / 2, width - 20 * legacyScale);
+  ctx.restore();
+  return true;
 }
 
 function fitCanvasText(ctx, text, maxWidth) {

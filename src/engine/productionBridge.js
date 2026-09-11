@@ -60,6 +60,7 @@ import {
   setMatrixRouteForDevice
 } from "./matrixRouting.js";
 import { legacyConnectorHitRadius } from "./legacyZoomDetail.js";
+import { applyCableHopsToPolyline } from "./cableHops.js";
 import {
   DEVICE_PLACEMENT_FEATURE_LABEL,
   duplicatePlacementCollisionSummary,
@@ -76,6 +77,7 @@ import {
   canonicalJumpWireEndpoints,
   invalidJumpLinksForScene,
   isJumpNodeDevice,
+  jumpNodeConnectionInfo,
   jumpCompatibleHitForDeviceWire,
   jumpLinkBezierPolyline,
   jumpNodeCenter,
@@ -88,8 +90,13 @@ import {
   JUMP_NODE_ROLE_COLORS,
   JUMP_NODE_SIZE,
   JUMP_PRESS_MOVE_THRESHOLD_PX,
-  normalizeEngineJumpNode
+  normalizeEngineJumpNode,
+  resolvePlayableSignalPath
 } from "./jumpNodeModel.js";
+import {
+  WIRE_PLAYBACK_COMPLETE_HOLD_MS,
+  wirePlaybackDurationMs
+} from "./wirePlayback.js";
 
 const {
   hitTestConnector,
@@ -108,9 +115,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-2-3-jump-link-geometry-selection";
-export const ENGINE_BRIDGE_VERSION = "iteration54-2-3-jump-link-geometry-selection";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-link-geometry-selection";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-2-4-jump-legacy-parity-play-wire";
+export const ENGINE_BRIDGE_VERSION = "iteration54-2-4-jump-legacy-parity-play-wire";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-legacy-parity-play-wire";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -258,6 +265,10 @@ class ProductionEngineBridge {
     this.lastCompatibilityTargetKey = "";
     this.lastPortalCommand = null;
     this.lastPlaybackJumpPath = null;
+    this.wirePlayback = null;
+    this.wirePlaybackFrame = null;
+    this.lastPlaybackDiagnostics = null;
+    this.lastJumpPairNavigation = null;
     this.matrixModalRenderCount = 0;
     this.lastMatrixCommand = null;
     this.renderOptions = {
@@ -331,6 +342,7 @@ class ProductionEngineBridge {
 
   destroy({ restoreProduction = true } = {}) {
     this.started = false;
+    this.stopWirePlayback("destroy", { render: false });
     this.cancelPendingJumpPress("destroy", { updateHud: false });
     this.jumpLinkCreate = null;
     this.clearJumpMoveArm("destroy", { updateHud: false });
@@ -614,6 +626,7 @@ class ProductionEngineBridge {
       || this.scene.devices.find(device => isJumpNodeDevice(device))?.id
       || "";
     const geometrySnapshot = this.jumpNodeGeometrySnapshot(geometryJumpId);
+    const connectionInfo = geometryJumpId ? jumpNodeConnectionInfo(this.scene, geometryJumpId) : null;
     const selectedOverlay = selectedJumpLinkId ? overlays.find(overlay => overlay.id === selectedJumpLinkId) : null;
     const visiblePortal = selectedOverlay || overlays[0] || null;
     const snapshot = {
@@ -657,6 +670,18 @@ class ProductionEngineBridge {
         sampledPointCount: overlay.sampledPointCount || overlay.points?.length || 0
       })),
       canonicalGeometry: geometrySnapshot,
+      connectionInfo: connectionInfo ? {
+        text: connectionInfo.displayText || connectionInfo.text || "",
+        side: connectionInfo.side || "",
+        realDeviceId: connectionInfo.deviceId || "",
+        realConnectorId: connectionInfo.connectorId || "",
+        effectiveCableType: connectionInfo.cableType || "",
+        fiberMode: connectionInfo.fiberMode || "",
+        wireColorSource: connectionInfo.wireId
+          ? this.scene.getWire(connectionInfo.wireId)?.colorSource || this.scene.getWire(connectionInfo.wireId)?.jumpWireMetadataSource || ""
+          : "",
+        wireId: connectionInfo.wireId || ""
+      } : null,
       visiblePortal: visiblePortal ? {
         id: visiblePortal.id || "",
         mode: visiblePortal.mode || "",
@@ -673,6 +698,16 @@ class ProductionEngineBridge {
       hiddenJumpLinks: Math.max(0, this.scene.jumpLinks.length - overlays.length),
       lastPortalCommand: this.lastPortalCommand || null,
       lastPlaybackJumpPath: this.lastPlaybackJumpPath || null,
+      lastJumpPairNavigation: this.lastJumpPairNavigation || null,
+      playbackDiagnostics: this.lastPlaybackDiagnostics || {
+        active: false,
+        resolvedSteps: [],
+        stepIndex: -1,
+        stepType: "",
+        progress: 0,
+        teleportCount: 0,
+        rafActive: false
+      },
       placement: this.jumpPlacement ? {
         center: this.jumpPlacement.center || null,
         candidateCount: this.jumpPlacement.candidateCount || 0,
@@ -686,7 +721,13 @@ class ProductionEngineBridge {
     this.hud?.setMetric("selected jump link", selectedJumpLinkId || "-");
     this.hud?.setMetric("jump overlays", `${snapshot.visibleJumpLinkOverlays.length} visible / ${snapshot.hiddenJumpLinks} hidden`);
     this.hud?.setMetric("jump center delta", geometrySnapshot?.centerDelta ? `connector ${formatDebugNumber(geometrySnapshot.centerDelta.connector)} / wire ${formatDebugNumber(geometrySnapshot.centerDelta.wire)}` : "-");
+    this.hud?.setMetric("jump info", connectionInfo?.displayText || connectionInfo?.text || "-");
+    this.hud?.setMetric("jump info endpoint", connectionInfo?.deviceId ? `${connectionInfo.deviceId}:${connectionInfo.connectorId || "-"}` : "-");
     this.hud?.setMetric("jump portal geometry", visiblePortal ? `${visiblePortal.geometry || "-"} / ${visiblePortal.sampledPointCount || visiblePortal.points?.length || 0} pts` : "-");
+    this.hud?.setMetric("jump to pair", this.lastJumpPairNavigation ? `${this.lastJumpPairNavigation.fromJumpId} -> ${this.lastJumpPairNavigation.toJumpId}` : "-");
+    this.hud?.setMetric("playback active", snapshot.playbackDiagnostics.active ? "yes" : "no");
+    this.hud?.setMetric("playback steps", `${snapshot.playbackDiagnostics.resolvedSteps?.length || 0} / ${snapshot.playbackDiagnostics.stepType || "-"}`);
+    this.hud?.setMetric("playback progress", `${Math.round((snapshot.playbackDiagnostics.progress || 0) * 100)}% / teleports ${snapshot.playbackDiagnostics.teleportCount || 0} / raf ${snapshot.playbackDiagnostics.rafActive ? "yes" : "no"}`);
     this.hud?.setMetric("jump pair candidate", snapshot.pairCandidate || "-");
     this.hud?.setMetric("jump pair reject", snapshot.pairRejectionReason || "-");
     this.hud?.setMetric("jump press", pendingPress
@@ -810,6 +851,7 @@ class ProductionEngineBridge {
       this.setLoadingPhase("Normalizing project...");
       const normalized = normalizeProductionProject(rawProject, reason);
       this.setLoadingPhase("Finalizing interaction state...");
+      this.stopWirePlayback("scene refresh", { render: false });
       this.cancelActiveInteraction("scene refresh", { updateHud: false });
       this.clearJumpMoveArm("scene refresh", { updateHud: false });
       this.lastDirtyDeviceIds.clear();
@@ -2493,6 +2535,11 @@ class ProductionEngineBridge {
       }
       return;
     }
+    if (event.key === "Escape" && this.wirePlayback?.active) {
+      consumeEngineShortcut(event);
+      this.stopWirePlayback("escape");
+      return;
+    }
     if (!event.metaKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === "j") {
       consumeEngineShortcut(event);
       this.api.setJumpNodeToolActive?.(true);
@@ -3410,21 +3457,20 @@ class ProductionEngineBridge {
     const canonical = canonicalJumpWireEndpoints(source, target);
     const wireSource = canonical.sourceHit;
     const wireTarget = canonical.targetHit;
-    const cableType = compatibility.sourceType || wireSource.connector.type || wireTarget.connector.type || "Engine Test Cable";
-    const fiberMode = compatibility.defaultFiberMode || "";
-    const wireColor = compatibility.resolvedWireColor
-      || engineWireColorForCable(cableType, fiberMode, wireSource.connector.color || wireTarget.connector.color || "#32b6ff")
-      || wireSource.connector.color
-      || wireTarget.connector.color
-      || "#32b6ff";
+    const metadata = this.wireMetadataForHits(wireSource, wireTarget, compatibility);
     const route = this.wireRouteForEndpoints(wireSource.point, wireTarget.point);
     const wire = this.scene.addWire({
       ...wireEndpointPayloadForHit(wireSource, "from"),
       ...wireEndpointPayloadForHit(wireTarget, "to"),
-      color: wireColor,
-      colorSegments: engineWireColorSegmentsForCable(cableType),
-      cableType,
-      fiberMode,
+      color: metadata.color,
+      colorSegments: engineWireColorSegmentsForCable(metadata.cableType),
+      cableType: metadata.cableType,
+      fiberMode: metadata.fiberMode,
+      customColor: metadata.customColor,
+      colorSource: metadata.colorSource,
+      jumpWireMetadataSource: metadata.jumpWireMetadataSource,
+      metadataRepaired: metadata.metadataRepaired,
+      savedCableType: metadata.savedCableType,
       signalIndex: signalIndexForLedSurfaceWireHits(wireSource, wireTarget),
       routeStyle: route.routeStyle,
       routePoints: route.routePoints
@@ -3454,6 +3500,98 @@ class ProductionEngineBridge {
     this.updateSelectionHud();
     this.updateInteractionHud("wire-created");
     this.hud.setMetric("create wire commit", `${(performance.now() - commitStart).toFixed(2)} ms`);
+  }
+
+  wireMetadataForHits(wireSource, wireTarget, compatibility = {}, existingWire = null) {
+    const sourceIsJump = isJumpNodeDevice(wireSource?.device);
+    const targetIsJump = isJumpNodeDevice(wireTarget?.device);
+    const explicitCustomColor = String(existingWire?.customColor || "").trim();
+    if (sourceIsJump !== targetIsJump) {
+      const realHit = sourceIsJump ? wireTarget : wireSource;
+      const connector = realHit?.connector || {};
+      const cableType = effectiveConnectorTypeForEngine(connector)
+        || compatibility.sourceType
+        || compatibility.targetType
+        || connector.type
+        || existingWire?.cableType
+        || "Engine Test Cable";
+      const fiberMode = engineConnectorFiberMode(connector)
+        || compatibility.defaultFiberMode
+        || existingWire?.fiberMode
+        || "";
+      const fallback = explicitCustomColor
+        || connector.color
+        || engineConnectorColor(connector)
+        || "#32b6ff";
+      return {
+        cableType,
+        fiberMode,
+        customColor: explicitCustomColor,
+        color: engineWireColorForCable(cableType, fiberMode, fallback) || fallback,
+        colorSource: explicitCustomColor ? "custom" : "jump-real-connector",
+        jumpWireMetadataSource: explicitCustomColor ? "" : "real-connector",
+        metadataRepaired: Boolean(existingWire),
+        savedCableType: String(existingWire?.savedCableType || existingWire?.cableType || "")
+      };
+    }
+    const cableType = compatibility.sourceType
+      || compatibility.targetType
+      || wireSource?.connector?.type
+      || wireTarget?.connector?.type
+      || existingWire?.cableType
+      || "Engine Test Cable";
+    const fiberMode = compatibility.defaultFiberMode || existingWire?.fiberMode || "";
+    const fallback = explicitCustomColor
+      || compatibility.resolvedWireColor
+      || wireSource?.connector?.color
+      || wireTarget?.connector?.color
+      || "#32b6ff";
+    return {
+      cableType,
+      fiberMode,
+      customColor: explicitCustomColor,
+      color: engineWireColorForCable(cableType, fiberMode, fallback) || fallback,
+      colorSource: explicitCustomColor ? "custom" : compatibility.resolvedWireColor ? "compatibility" : "connector",
+      jumpWireMetadataSource: "",
+      metadataRepaired: false,
+      savedCableType: String(existingWire?.savedCableType || existingWire?.cableType || "")
+    };
+  }
+
+  applyJumpWireMetadataFromScene(wireId, compatibility = {}) {
+    const wire = this.scene.getWire(wireId);
+    if (!wire) return null;
+    const fromHit = this.hitForExistingWireEndpoint(wire, "from");
+    const toHit = this.hitForExistingWireEndpoint(wire, "to");
+    if (!fromHit || !toHit || isJumpNodeDevice(fromHit.device) === isJumpNodeDevice(toHit.device)) return wire;
+    const metadata = this.wireMetadataForHits(fromHit, toHit, compatibility, wire);
+    return this.scene.applyWireState(wire.id, {
+      cableType: metadata.cableType,
+      fiberMode: metadata.fiberMode,
+      color: metadata.color,
+      colorSegments: engineWireColorSegmentsForCable(metadata.cableType),
+      customColor: metadata.customColor,
+      colorSource: metadata.colorSource,
+      jumpWireMetadataSource: metadata.jumpWireMetadataSource,
+      metadataRepaired: metadata.metadataRepaired,
+      savedCableType: metadata.savedCableType
+    }) || wire;
+  }
+
+  hitForExistingWireEndpoint(wire, end) {
+    const deviceId = this.scene.wireEndpointObjectId(wire, end);
+    const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
+    const anchorId = end === "from" ? wire.fromAnchorId : wire.toAnchorId;
+    const device = deviceId ? this.scene.getDevice(deviceId) : null;
+    const connector = device && connectorId ? this.scene.getConnector(device.id, connectorId) : null;
+    if (!device || !connector) return null;
+    return {
+      device,
+      connector,
+      anchorId,
+      anchor: anchorId ? { id: anchorId } : null,
+      point: this.scene.endpointForWire(wire, end)
+    };
   }
 
   completeWireRewire() {
@@ -3503,6 +3641,7 @@ class ProductionEngineBridge {
     if (this.scene.ledSurfaceIdsForWire(updated).length && nextSignalIndex !== updated.signalIndex) {
       updated = this.scene.applyWireState(updated.id, { signalIndex: nextSignalIndex }) || updated;
     }
+    updated = this.applyJumpWireMetadataFromScene(updated.id, compatibility) || updated;
     const mutationMs = this.mutations?.commitRewiredWire(this.scene, updated.id) || 0;
     const afterWire = cloneWire(updated);
     const afterConnection = this.mutations?.connectionDataForWire(updated.sourceId || updated.id);
@@ -3726,6 +3865,7 @@ class ProductionEngineBridge {
   }
 
   cancelActiveInteraction(reason = "cancelled", { updateHud = true } = {}) {
+    this.stopWirePlayback(`interaction ${reason}`, { render: false });
     this.cancelCanvasObjectResize(reason);
     this.cancelWireSegmentDrag(reason);
     this.cancelRoutePointDrag(reason);
@@ -4072,6 +4212,7 @@ class ProductionEngineBridge {
         : null,
       jumpLinkPreview: this.jumpLinkPreviewState(),
       jumpLinkOverlays: this.visibleJumpLinkOverlays(),
+      wirePlayback: this.wirePlaybackOverlayState(),
       selectedJumpLinkId: this.scene.selectedJumpLinkId || "",
       pairedJumpHighlightIds: this.pairedJumpHighlightIds(),
       marquee: this.marqueeState?.active ? normalizedWorldRect(this.marqueeState.startWorld, this.marqueeState.currentWorld) : null
@@ -4167,6 +4308,318 @@ class ProductionEngineBridge {
       candidates,
       ms: performance.now() - start
     };
+  }
+
+  jumpToPair(jumpId) {
+    if (!this.ready) return false;
+    const sourceId = String(jumpId || this.scene.primarySelectedJumpId || "");
+    const pairedId = this.scene.pairedJumpId(sourceId);
+    const paired = pairedId ? this.scene.getDevice(pairedId) : null;
+    if (!sourceId || !isJumpNodeDevice(paired)) return false;
+    const beforeZoom = this.camera.zoom;
+    const beforeCommandIndex = this.commandIndex;
+    this.stopWirePlayback("jump-to-pair", { render: false });
+    this.clearJumpMoveArm("jump-to-pair", { updateHud: false });
+    this.scene.selectJumpPairPrimary(paired.id);
+    const center = this.jumpNodeCenter(paired);
+    const cameraResult = this.centerCameraAtWorldPoint(center, "jump-to-pair", { render: false });
+    this.lastJumpPairNavigation = {
+      fromJumpId: sourceId,
+      toJumpId: paired.id,
+      center,
+      zoomBefore: beforeZoom,
+      zoomAfter: this.camera.zoom,
+      commandIndexBefore: beforeCommandIndex,
+      commandIndexAfter: this.commandIndex,
+      screenPoint: cameraResult.screenPoint || null,
+      historyChanged: beforeCommandIndex !== this.commandIndex
+    };
+    this.hud?.setMetric("jump to pair", `${sourceId} -> ${paired.id}`);
+    this.updateSelectionHud();
+    this.updateInteractionHud("jump-to-pair");
+    this.updateJumpNodeDebugSnapshot("jump-to-pair");
+    this.scheduleRender();
+    return true;
+  }
+
+  centerCameraAtWorldPoint(point, reason = "center-point", { render = true } = {}) {
+    if (!point || !this.canvas) return { ok: false, screenPoint: null };
+    const rect = this.canvas.getBoundingClientRect();
+    const zoom = Math.max(Number(this.camera.zoom) || 1, 0.001);
+    this.camera.x = Number(point.x) - rect.width / zoom / 2;
+    this.camera.y = Number(point.y) - rect.height / zoom / 2;
+    this.notifyViewportChange(reason);
+    const screenPoint = {
+      x: (Number(point.x) - this.camera.x) * zoom,
+      y: (Number(point.y) - this.camera.y) * zoom
+    };
+    if (render) this.scheduleRender();
+    return { ok: true, screenPoint };
+  }
+
+  playWireTrace(wireId) {
+    if (!this.ready) return false;
+    const sourceWire = this.scene.getWire(wireId)
+      || this.scene.wires.find(wire => String(wire.sourceId || "") === String(wireId || ""));
+    if (!sourceWire || sourceWire.selectable === false) return false;
+    this.stopWirePlayback("restart", { render: false });
+    const plan = this.wirePlaybackPlanForWire(sourceWire);
+    if (!plan.steps.length) {
+      this.lastPlaybackDiagnostics = {
+        active: false,
+        reason: "no playable steps",
+        startingWireId: sourceWire.id,
+        resolvedSteps: []
+      };
+      this.hud?.setMetric("play wire", "no playable path");
+      this.updateJumpNodeDebugSnapshot("play-wire-empty");
+      return false;
+    }
+    const firstWireStep = plan.steps.find(step => step.type === "wire");
+    this.wirePlayback = {
+      active: true,
+      id: `wire-playback-${Date.now()}`,
+      startingWireId: sourceWire.id,
+      startingWireSourceId: sourceWire.sourceId || sourceWire.id,
+      semanticSteps: plan.semanticSteps,
+      steps: plan.steps,
+      stepIndex: 0,
+      progress: 0,
+      stepStartedAt: performance.now(),
+      startedAt: performance.now(),
+      teleportCount: 0,
+      lastPoint: firstWireStep?.points?.[0] || null,
+      lastPoints: firstWireStep?.points || [],
+      commandIndexAtStart: this.commandIndex,
+      mutationCountAtStart: this.mutations?.stats?.().mutationCount || 0,
+      productionDirtyAtStart: this.productionDirty
+    };
+    this.lastPlaybackJumpPath = plan.semanticSteps.map(step => step.type === "teleport"
+      ? `teleport:${step.fromJumpId}>${step.toJumpId}`
+      : `wire:${step.wireId}:${step.reverse ? "r" : "f"}`);
+    if (this.wirePlayback.lastPoint) {
+      this.centerCameraAtWorldPoint(this.wirePlayback.lastPoint, "play-wire-start", { render: false });
+    }
+    this.recordWirePlaybackDiagnostics("start");
+    this.scheduleRender();
+    this.requestWirePlaybackFrame();
+    return true;
+  }
+
+  wirePlaybackPlanForWire(sourceWire) {
+    const rawProject = this.mutations?.project || this.api.getProjectData?.() || {};
+    const idsToTry = uniqueItems([sourceWire.sourceId || "", sourceWire.id || ""]).filter(Boolean);
+    let semanticSteps = [];
+    for (const id of idsToTry) {
+      semanticSteps = resolvePlayableSignalPath({
+        startingWireId: id,
+        project: rawProject,
+        getConnector: endpoint => this.connectorForPlaybackEndpoint(endpoint)
+      });
+      if (semanticSteps.length) break;
+    }
+    if (!semanticSteps.length) {
+      semanticSteps = [{ type: "wire", wireId: sourceWire.sourceId || sourceWire.id, reverse: false }];
+    }
+    const steps = semanticSteps.map(step => {
+      if (step.type === "teleport") {
+        const fromDevice = this.scene.getDevice(step.fromJumpId);
+        const toDevice = this.scene.getDevice(step.toJumpId);
+        return {
+          type: "teleport",
+          fromJumpId: step.fromJumpId,
+          toJumpId: step.toJumpId,
+          jumpLinkId: step.jumpLinkId || "",
+          from: this.jumpNodeCenter(fromDevice),
+          to: this.jumpNodeCenter(toDevice),
+          durationMs: 0
+        };
+      }
+      const sceneWire = this.sceneWireForPlaybackId(step.wireId) || sourceWire;
+      const points = this.playbackPointsForWire(sceneWire, step.reverse);
+      return {
+        type: "wire",
+        wireId: sceneWire.id,
+        sourceWireId: step.wireId || sceneWire.sourceId || sceneWire.id,
+        reverse: Boolean(step.reverse),
+        points,
+        color: sceneWire.color || "#32b6ff",
+        durationMs: wirePlaybackDurationMs(points)
+      };
+    }).filter(step => (
+      step.type === "teleport"
+        ? step.from && step.to
+        : step.points?.length >= 2
+    ));
+    return { semanticSteps, steps };
+  }
+
+  sceneWireForPlaybackId(wireId) {
+    const id = String(wireId || "");
+    return this.scene.getWire(id)
+      || this.scene.wires.find(wire => String(wire.sourceId || "") === id)
+      || null;
+  }
+
+  connectorForPlaybackEndpoint(endpoint = {}) {
+    const deviceId = String(endpoint.deviceId || endpoint.instanceId || "");
+    const connectorId = String(endpoint.connectorId || "");
+    if (!deviceId || !connectorId) return null;
+    const device = this.scene.getDevice(deviceId)
+      || this.scene.devices.find(item => String(item.sourceId || item.id) === deviceId);
+    return device?.connectorsById?.get?.(connectorId)
+      || (device?.connectors || []).find(connector => String(connector?.id || "") === connectorId)
+      || null;
+  }
+
+  playbackPointsForWire(wire, reverse = false) {
+    const basePoints = this.scene.wireRenderPolyline(wire);
+    const points = this.renderOptions.cableHops === false
+      ? basePoints
+      : applyCableHopsToPolyline(basePoints, this.renderer?.cableHopMap?.get(wire.id));
+    const clean = points.map(point => ({ x: Number(point.x), y: Number(point.y) }))
+      .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y));
+    return reverse ? clean.reverse() : clean;
+  }
+
+  requestWirePlaybackFrame() {
+    if (!this.wirePlayback?.active || this.wirePlaybackFrame) return;
+    this.wirePlaybackFrame = requestAnimationFrame(now => {
+      this.wirePlaybackFrame = null;
+      this.advanceWirePlayback(now);
+    });
+  }
+
+  advanceWirePlayback(now = performance.now()) {
+    const state = this.wirePlayback;
+    if (!state?.active) return;
+    const step = state.steps[state.stepIndex];
+    if (!step) {
+      if (!state.completedAt) {
+        state.completedAt = now;
+        state.holdUntil = now + WIRE_PLAYBACK_COMPLETE_HOLD_MS;
+        state.progress = 1;
+        this.recordWirePlaybackDiagnostics("complete");
+        this.scheduleRender();
+      }
+      if (now >= state.holdUntil) {
+        this.stopWirePlayback("complete");
+        return;
+      }
+      this.requestWirePlaybackFrame();
+      return;
+    }
+    if (step.type === "teleport") {
+      state.teleportCount += 1;
+      state.lastPoint = step.to;
+      state.lastPoints = [];
+      state.progress = 1;
+      state.stepIndex += 1;
+      state.stepStartedAt = now;
+      this.centerCameraAtWorldPoint(step.to, "play-wire-teleport", { render: false });
+      this.recordWirePlaybackDiagnostics("teleport");
+      this.scheduleRender();
+      this.requestWirePlaybackFrame();
+      return;
+    }
+    const duration = Math.max(1, Number(step.durationMs) || 1);
+    const progress = Math.max(0, Math.min(1, (now - Number(state.stepStartedAt || now)) / duration));
+    state.progress = progress;
+    state.lastPoints = step.points;
+    state.lastPoint = progress >= 1 ? step.points.at(-1) : state.lastPoint;
+    if (progress >= 1) {
+      state.stepIndex += 1;
+      state.stepStartedAt = now;
+    }
+    this.recordWirePlaybackDiagnostics(progress >= 1 ? "step-complete" : "frame");
+    this.scheduleRender();
+    this.requestWirePlaybackFrame();
+  }
+
+  wirePlaybackOverlayState() {
+    const state = this.wirePlayback;
+    if (!state?.active) return null;
+    if (state.completedAt) {
+      return {
+        active: true,
+        stepIndex: state.stepIndex,
+        stepType: "complete",
+        points: state.lastPoints || [],
+        progress: 1,
+        dot: state.lastPoint || null,
+        startingWireId: state.startingWireId
+      };
+    }
+    const step = state.steps[state.stepIndex] || null;
+    if (!step) return null;
+    if (step.type === "teleport") {
+      return {
+        active: true,
+        stepIndex: state.stepIndex,
+        stepType: "teleport",
+        points: [],
+        progress: 1,
+        dot: step.to || state.lastPoint || null,
+        startingWireId: state.startingWireId
+      };
+    }
+    return {
+      active: true,
+      stepIndex: state.stepIndex,
+      stepType: "wire",
+      wireId: step.wireId,
+      points: step.points || [],
+      progress: state.progress || 0,
+      dot: null,
+      color: step.color || "#32b6ff",
+      startingWireId: state.startingWireId
+    };
+  }
+
+  stopWirePlayback(reason = "stop", { render = true } = {}) {
+    if (this.wirePlaybackFrame) {
+      cancelAnimationFrame(this.wirePlaybackFrame);
+      this.wirePlaybackFrame = null;
+    }
+    const previous = this.wirePlayback;
+    this.wirePlayback = null;
+    this.lastPlaybackDiagnostics = {
+      active: false,
+      reason,
+      startingWireId: previous?.startingWireId || "",
+      resolvedSteps: previous?.semanticSteps?.map(playbackStepSummary) || [],
+      teleportCount: previous?.teleportCount || 0,
+      commandIndexChanged: previous ? previous.commandIndexAtStart !== this.commandIndex : false,
+      mutationCountChanged: previous ? previous.mutationCountAtStart !== (this.mutations?.stats?.().mutationCount || 0) : false,
+      dirtyChanged: previous ? previous.productionDirtyAtStart !== this.productionDirty : false,
+      rafActive: false
+    };
+    this.hud?.setMetric("play wire", previous ? `stopped: ${reason}` : "-");
+    this.updateJumpNodeDebugSnapshot(`play-wire-${reason}`);
+    if (render) this.scheduleRender();
+    return Boolean(previous);
+  }
+
+  recordWirePlaybackDiagnostics(reason = "frame") {
+    const state = this.wirePlayback;
+    const step = state?.steps?.[state.stepIndex] || null;
+    this.lastPlaybackDiagnostics = {
+      active: Boolean(state?.active),
+      reason,
+      startingWireId: state?.startingWireId || "",
+      resolvedSteps: state?.semanticSteps?.map(playbackStepSummary) || [],
+      stepIndex: state?.stepIndex ?? -1,
+      stepType: step?.type || (state?.completedAt ? "complete" : ""),
+      progress: state ? Number(state.progress || 0) : 0,
+      teleportCount: state?.teleportCount || 0,
+      rafActive: Boolean(this.wirePlaybackFrame),
+      commandIndexChanged: state ? state.commandIndexAtStart !== this.commandIndex : false,
+      mutationCountChanged: state ? state.mutationCountAtStart !== (this.mutations?.stats?.().mutationCount || 0) : false,
+      dirtyChanged: state ? state.productionDirtyAtStart !== this.productionDirty : false
+    };
+    this.hud?.setMetric("play wire", state?.active
+      ? `${this.lastPlaybackDiagnostics.stepType || "step"} ${Math.round(this.lastPlaybackDiagnostics.progress * 100)}%`
+      : "-");
   }
 
   updateSelectionHud() {
@@ -5691,6 +6144,7 @@ class ProductionEngineBridge {
       const paired = pairedId ? this.scene.getDevice(pairedId) : null;
       const localWire = roleInfo?.localWire || null;
       const center = this.jumpNodeCenter(primaryJump);
+      const info = jumpNodeConnectionInfo(this.scene, primaryJump.id);
       this.inspectorPanel.innerHTML = `
         <h3>Engine Inspector</h3>
         <label class="engine-bridge-field">
@@ -5701,10 +6155,12 @@ class ProductionEngineBridge {
           ["Type", "Jump Node"],
           ["Role", jumpNodeRoleLabel(roleInfo?.role || JUMP_NODE_ROLE.neutral)],
           ["Color", jumpNodeRoleColor(roleInfo?.role || JUMP_NODE_ROLE.neutral)],
+          ["Connection Info", info?.displayText || info?.text || "to: Unassigned"],
           ["Paired With", paired ? paired.label || paired.id : "Not paired"],
           ["Device-side Wire", localWire?.sourceId || localWire?.id || "None"],
           ["Position", `${roundForUi(center?.x)}, ${roundForUi(center?.y)}`]
         ])}
+        ${link && paired ? `<button type="button" class="engine-bridge-action" data-jump-to-pair>Jump to Pair</button>` : ""}
         ${link ? `<button type="button" class="engine-bridge-action" data-jump-disconnect>Disconnect Jump Nodes</button>` : ""}
       `;
       const input = this.inspectorPanel.querySelector("[data-jump-node-name]");
@@ -5723,6 +6179,7 @@ class ProductionEngineBridge {
           );
         });
       }
+      this.inspectorPanel.querySelector("[data-jump-to-pair]")?.addEventListener("click", () => this.jumpToPair(primaryJump.id));
       this.inspectorPanel.querySelector("[data-jump-disconnect]")?.addEventListener("click", () => this.disconnectSelectedJumpNodes());
       return;
     }
@@ -5772,6 +6229,7 @@ class ProductionEngineBridge {
       const wire = selectedWires[0];
       this.inspectorPanel.innerHTML = `
         <h3>Engine Inspector</h3>
+        <button type="button" class="engine-bridge-action" data-play-wire>Play Wire</button>
         ${detailsMarkup([
           ["Wire ID", wire.sourceId || wire.id],
           ["Cable Type", wire.cableType || wire.label || "-"],
@@ -5780,6 +6238,7 @@ class ProductionEngineBridge {
           ["Route Points", wire.routePoints.length]
         ])}
       `;
+      this.inspectorPanel.querySelector("[data-play-wire]")?.addEventListener("click", () => this.playWireTrace(wire.id));
       return;
     }
     if (selectedRoutePoints.length === 1 && !selectedConnectors.length) {
@@ -9927,6 +10386,23 @@ function endpointLabel(scene, deviceId, connectorId) {
     device?.label || device?.sourceId || deviceId || "-",
     connector?.label || connector?.type || connectorId || "-"
   ].filter(Boolean).join(" - ");
+}
+
+function playbackStepSummary(step = {}) {
+  if (!step || typeof step !== "object") return { type: "unknown" };
+  if (step.type === "teleport") {
+    return {
+      type: "teleport",
+      fromJumpId: String(step.fromJumpId || ""),
+      toJumpId: String(step.toJumpId || ""),
+      jumpLinkId: String(step.jumpLinkId || "")
+    };
+  }
+  return {
+    type: "wire",
+    wireId: String(step.wireId || step.id || ""),
+    reverse: Boolean(step.reverse)
+  };
 }
 
 function detailsMarkup(rows) {

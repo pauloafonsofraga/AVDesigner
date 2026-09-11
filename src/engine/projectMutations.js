@@ -940,7 +940,10 @@ function customColorForProjectWire(wire) {
   // Segmented cable types, such as PowerLock, must not be persisted as a single
   // customColor. Legacy/export renderers treat customColor as an override.
   const segments = engineWireColorSegmentsForCable(wire?.cableType);
-  return Array.isArray(segments) && segments.length > 1 ? "" : (wire?.color || "");
+  if (Array.isArray(segments) && segments.length > 1) return "";
+  if (wire?.customColor) return String(wire.customColor);
+  if (wire?.jumpWireMetadataSource === "real-connector") return "";
+  return wire?.color || "";
 }
 
 function routeFieldsFromWire(wire) {

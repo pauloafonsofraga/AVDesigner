@@ -24,7 +24,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-2-3-jump-link-geometry-selection";
+const BUILD_ID = "iteration54-2-4-jump-legacy-parity-play-wire";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -39,10 +39,10 @@ function sourceSlice(source, startNeedle, endNeedle) {
   return source.slice(start, end);
 }
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.2.3");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.2.3";'), "visible iteration should be 54.2.3");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-2-3-jump-link-geometry-selection-modules";'), "module cache key should bust 54.2.3 modules");
-assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Iteration 54.2.3");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.2.4");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.2.4";'), "visible iteration should be 54.2.4");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-2-4-jump-legacy-parity-play-wire-modules";'), "module cache key should bust 54.2.4 modules");
+assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Iteration 54.2.4");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
 assert.ok(classicScripts.length >= 1, "index.html should contain at least one classic script");

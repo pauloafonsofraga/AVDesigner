@@ -13,6 +13,7 @@ import {
   JUMP_NODE_ROLE_COLORS,
   jumpLinkBezierPolyline,
   jumpNodeCenter,
+  jumpNodeConnectionInfo,
   jumpNodeLocalCenter,
   JUMP_PRESS_MOVE_THRESHOLD_PX,
   JUMP_PRESS_INTENT,
@@ -25,24 +26,44 @@ import {
   sceneJumpNodeRole,
   validateJumpLinks
 } from "../src/engine/jumpNodeModel.js";
+import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
+import {
+  WIRE_PLAYBACK_COMPLETE_HOLD_MS,
+  wirePlaybackDurationMs,
+  wirePlaybackEase
+} from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-2-3-jump-link-geometry-selection";
+const BUILD_ID = "iteration54-2-4-jump-legacy-parity-play-wire";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
 const bridgeSource = readFileSync(resolve(repoRoot, "src/engine/productionBridge.js"), "utf8");
 const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"), "utf8");
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
+const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Jump Link Geometry & Selection");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-2-3-jump-link-geometry-selection-modules";'), "module cache key should identify Jump Link Geometry & Selection");
-assert.ok(indexHtml.includes("Jump Link Geometry & Selection"), "visible build label should name Jump Link Geometry & Selection");
-assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Jump Link Geometry & Selection");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "jump-link-geometry-selection"'), "bridge feature label should identify Jump Link Geometry & Selection");
-assert.ok(rendererSource.includes("renderer-iteration54-2-3-jump-link-geometry-selection"), "renderer fingerprint should identify Jump Link Geometry & Selection");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Jump Legacy Parity & Play Wire");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-2-4-jump-legacy-parity-play-wire-modules";'), "module cache key should identify Jump Legacy Parity & Play Wire");
+assert.ok(indexHtml.includes("Jump Legacy Parity & Play Wire"), "visible build label should name Jump Legacy Parity & Play Wire");
+assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Jump Legacy Parity & Play Wire");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "jump-legacy-parity-play-wire"'), "bridge feature label should identify Jump Legacy Parity & Play Wire");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-2-4-jump-legacy-parity-play-wire"), "bridge fingerprint should identify Jump Legacy Parity & Play Wire");
+assert.ok(rendererSource.includes("renderer-iteration54-2-4-jump-legacy-parity-play-wire"), "renderer fingerprint should identify Jump Legacy Parity & Play Wire");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
+assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");
+assert.ok(rendererSource.includes("pushWirePlaybackOverlay"), "renderer should draw transient Play Wire overlays");
+assert.ok(bridgeSource.includes("jumpToPair("), "Engine bridge should handle Jump to Pair navigation");
+assert.ok(bridgeSource.includes("playWireTrace"), "Engine bridge should expose Play Wire");
+assert.ok(bridgeSource.includes("wirePlaybackOverlayState"), "Engine bridge should expose playback as interaction overlay state");
+assert.ok(wirePlaybackSource.includes("WIRE_PLAYBACK_MIN_MS = 650"), "Play Wire should preserve Legacy minimum timing");
+assert.ok(wirePlaybackSource.includes("WIRE_PLAYBACK_MAX_MS = 4500"), "Play Wire should preserve Legacy maximum timing");
+assert.equal(WIRE_PLAYBACK_COMPLETE_HOLD_MS, 350, "Playback completion hold should be short and self-cleaning");
+assert.equal(wirePlaybackDurationMs([{ x: 0, y: 0 }, { x: 10, y: 0 }]), 650, "short wires should use Legacy minimum duration");
+assert.equal(wirePlaybackDurationMs([{ x: 0, y: 0 }, { x: 2000, y: 0 }]), 4500, "long wires should use Legacy maximum duration");
+assert.equal(wirePlaybackEase(0), 0, "playback easing should start at 0");
+assert.equal(wirePlaybackEase(1), 1, "playback easing should end at 1");
 assert.equal(JUMP_PRESS_MOVE_THRESHOLD_PX, 5, "Jump press movement tolerance should be 5 px");
 assert.equal(jumpPressIntent({ distancePx: 0, released: true }), JUMP_PRESS_INTENT.select, "released below threshold should select");
 assert.equal(jumpPressIntent({ distancePx: 5, canStartLink: true, explicitlyMoveArmed: false }), JUMP_PRESS_INTENT.link, "eligible unarmed movement at threshold should link");
@@ -62,6 +83,45 @@ assert.equal(rawJumpNodeRole(baseProject, "jump-input").role, JUMP_NODE_ROLE.inp
 assert.equal(JUMP_NODE_ROLE_COLORS.output, "#32b6ff", "output Jump color");
 assert.equal(JUMP_NODE_ROLE_COLORS.input, "#fb7904", "input Jump color");
 assert.equal(JUMP_NODE_ROLE_COLORS.neutral, "#778492", "neutral Jump color");
+
+assert.deepEqual(jumpNodeConnectionInfo(baseScene, "jump-output"), {
+  side: "right",
+  prefix: "to",
+  text: "to: destination - input-hdmi",
+  displayText: "to: destination - input-hdmi",
+  connected: true,
+  jumpId: "jump-output",
+  pairId: "jump-input",
+  wireId: "wire-jump-input",
+  wireSourceId: "wire-jump-input",
+  localWireSide: "from",
+  deviceId: "destination",
+  deviceName: "destination",
+  connectorId: "input-hdmi",
+  connectorName: "input-hdmi",
+  cableType: "hdmi",
+  fiberMode: ""
+}, "output Jump info should describe the paired downstream endpoint using the exact Legacy formula");
+assert.equal(
+  jumpNodeConnectionInfo(baseScene, "jump-input").displayText,
+  "from: source - output-hdmi",
+  "input Jump info should describe the paired upstream endpoint using the exact Legacy formula"
+);
+assert.equal(
+  jumpNodeConnectionInfo(baseScene, "jump-neutral").displayText,
+  "to: Unassigned",
+  "unconnected Jump info should match the Legacy placeholder"
+);
+const renamedDestination = baseScene.getDevice("destination");
+renamedDestination.label = "Switcher B";
+renamedDestination.connectorsById.get("input-hdmi").nameText = "PGM";
+assert.equal(
+  jumpNodeConnectionInfo(baseScene, "jump-output").displayText,
+  "to: Switcher B - PGM",
+  "derived Jump info should update from scene data without persisted caption state"
+);
+renamedDestination.label = "destination";
+renamedDestination.connectorsById.get("input-hdmi").nameText = "";
 
 const rawCenteredJump = normalizeEngineJumpNode({ id: "raw-center-jump", x: 400, y: 300, label: "Center" }, 0);
 const rawCenteredConnector = rawCenteredJump.connectors.find(item => item.id === JUMP_NODE_CONNECTOR_ID);
@@ -111,6 +171,17 @@ engineScene.moveDevicesBy([...engineScene.selectedIds], 10, 20);
 assertClosePoint(jumpNodeCenter(engineOutputJump), { x: 483, y: 361 }, "Explicit multi-selection should move the output Jump");
 assertClosePoint(jumpNodeCenter(engineInputJump), { x: 690, y: 490 }, "Explicit multi-selection should move the input Jump");
 
+const jumpPairNavigationScene = createEngineScene();
+const navigationLinksBefore = JSON.stringify(jumpPairNavigationScene.jumpLinks);
+jumpPairNavigationScene.selectJumpPairPrimary("engine-jump-output");
+const navigationTarget = jumpPairNavigationScene.pairedJumpId(jumpPairNavigationScene.primarySelectedJumpId);
+jumpPairNavigationScene.selectJumpPairPrimary(navigationTarget);
+assert.equal(jumpPairNavigationScene.primarySelectedJumpId, "engine-jump-input", "Jump to Pair selection should make the paired Jump primary");
+assert.deepEqual([...jumpPairNavigationScene.selectedIds], ["engine-jump-input"], "Jump to Pair selection should leave only the paired Jump selected");
+assert.equal(JSON.stringify(jumpPairNavigationScene.jumpLinks), navigationLinksBefore, "Jump to Pair selection should not mutate Jump Link model data");
+assert.ok(bridgeSource.includes("commandIndexBefore") && bridgeSource.includes("commandIndexAfter"), "Jump to Pair should record command index before/after for no-history diagnostics");
+assert.ok(bridgeSource.includes("centerCameraAtWorldPoint(center, \"jump-to-pair\""), "Jump to Pair should center the paired Jump without changing zoom");
+
 const portalPoints = jumpLinkBezierPolyline({ x: 400, y: 300 }, { x: 660, y: 470 });
 assert.ok(portalPoints.length > 2, "Jump portal links should use sampled Bezier points");
 assert.equal(portalPoints[0].x, 400, "Bezier portal should start at the output center x");
@@ -155,6 +226,39 @@ expectPair("incompatible fiber family", createScene({ sourceType: "fiber-lc", de
 const explicitValidation = validateJumpLinks(baseProject, { compatibilitySummary: engineCompatibilitySummary });
 assert.deepEqual(explicitValidation.warnings, [], "valid project should have no Jump Link warnings");
 
+const fallbackGreyProject = createProject({ sourceType: "sdi", destinationType: "sdi" });
+fallbackGreyProject.connections.forEach(connection => {
+  if (connection.from?.jumpNodeId || connection.to?.jumpNodeId) {
+    connection.cableType = "jump";
+    connection.customColor = "#778492";
+  }
+});
+const repairedGreyScene = normalizeAvDesignerProject(fallbackGreyProject, { dataSource: "validation" });
+const repairedOutputWire = normalizedWire(repairedGreyScene, "wire-output-jump");
+const repairedInputWire = normalizedWire(repairedGreyScene, "wire-jump-input");
+assert.equal(repairedOutputWire.cableType, "sdi", "loaded output-side Jump wire should repair to the real device connector cable family");
+assert.equal(repairedInputWire.cableType, "sdi", "loaded input-side Jump wire should repair to the real device connector cable family");
+assert.equal(repairedOutputWire.color, repairedInputWire.color, "loaded Jump physical wires with the same real connector family should share the same color");
+assert.notEqual(repairedInputWire.color.toLowerCase(), "#778492", "loaded accidental input-side Jump fallback grey should be repaired visually");
+assert.equal(repairedOutputWire.customColor, "", "accidental output-side Jump fallback custom color should be cleared");
+assert.equal(repairedInputWire.customColor, "", "accidental input-side Jump fallback custom color should be cleared");
+assert.equal(repairedOutputWire.jumpWireMetadataSource, "real-connector", "output-side Jump repair should record real connector metadata source");
+assert.equal(repairedInputWire.jumpWireMetadataSource, "real-connector", "input-side Jump repair should record real connector metadata source");
+
+const explicitGreyProject = createProject({ sourceType: "sdi", destinationType: "sdi" });
+explicitGreyProject.connections.forEach(connection => {
+  if (connection.from?.jumpNodeId || connection.to?.jumpNodeId) {
+    connection.cableType = "sdi";
+    connection.customColor = "#777777";
+  }
+});
+const explicitGreyScene = normalizeAvDesignerProject(explicitGreyProject, { dataSource: "validation" });
+const explicitGreyInputWire = normalizedWire(explicitGreyScene, "wire-jump-input");
+assert.equal(explicitGreyInputWire.cableType, "sdi", "explicit custom grey should keep the real cable family");
+assert.equal(explicitGreyInputWire.customColor, "#777777", "explicit custom grey should remain custom");
+assert.equal(explicitGreyInputWire.color, "#777777", "explicit custom grey should remain the visible wire color");
+assert.equal(explicitGreyInputWire.colorSource, "custom", "explicit custom grey should be identified as user-authored color");
+
 const invalidProject = createProject({
   jumpLinks: [
     { id: "dup", outputJumpId: "jump-output", inputJumpId: "jump-input" },
@@ -178,10 +282,24 @@ const normalizedLinks = normalizeJumpLinks([
 ], { jumpNodeIds: new Set(["jump-output", "jump-input", "jump-input-2"]) });
 assert.equal(normalizedLinks.length, 1, "normalization should enforce one link per Jump and reject self-pairs");
 
+const normalWireProject = createProject({
+  connections: [
+    wire("wire-normal", deviceEndpoint("source", "output-hdmi"), deviceEndpoint("destination", "input-hdmi"), "hdmi")
+  ],
+  jumpLinks: []
+});
+const normalPlayback = resolvePlayableSignalPath({ startingWireId: "wire-normal", project: normalWireProject });
+assert.deepEqual(sequenceShape(normalPlayback), ["wire:wire-normal:f"], "Play Wire should keep a normal physical wire as one visible segment");
+
 const playbackFromOutput = resolvePlayableSignalPath({ startingWireId: "wire-output-jump", project: baseProject });
 const playbackFromInput = resolvePlayableSignalPath({ startingWireId: "wire-jump-input", project: baseProject });
 assert.deepEqual(sequenceShape(playbackFromOutput), ["wire:wire-output-jump:f", "teleport:jump-output>jump-input", "wire:wire-jump-input:f"], "Play Wire should resolve output segment through portal");
 assert.deepEqual(sequenceShape(playbackFromInput), sequenceShape(playbackFromOutput), "Play Wire should resolve the same signal chain from either visible segment");
+assert.equal(
+  playbackFromOutput.some(step => step.type === "wire" && step.wireId === "jump-link-1"),
+  false,
+  "Play Wire should not treat a Jump Link as a physical animated cable"
+);
 
 const brokenPlayback = resolvePlayableSignalPath({
   startingWireId: "wire-output-jump",
@@ -258,6 +376,12 @@ function sequenceShape(sequence) {
     if (segment.type === "teleport") return `teleport:${segment.fromJumpId}>${segment.toJumpId}`;
     return `wire:${segment.wireId}:${segment.reverse ? "r" : "f"}`;
   });
+}
+
+function normalizedWire(scene, wireId) {
+  const wire = (scene.wires || []).find(item => String(item.id || item.sourceId || "") === String(wireId || ""));
+  assert.ok(wire, `expected normalized wire ${wireId}`);
+  return wire;
 }
 
 function createProject({

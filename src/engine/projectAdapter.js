@@ -411,8 +411,13 @@ function collectNodeColors(root, data) {
 }
 
 function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
-  const templateId = instance.templateId || instance.deviceId || instance.template || instance.id;
+  const inlineTemplate = instance.template && typeof instance.template === "object" ? instance.template : null;
+  const templateId = instance.templateId
+    || instance.deviceId
+    || (typeof instance.template === "string" ? instance.template : "")
+    || instance.id;
   const resolvedTemplate = instance.templateOverride
+    || inlineTemplate
     || templates.get(templateId)
     || templates.get(instance.templateName)
     || null;
@@ -1098,8 +1103,9 @@ function normalizeProjectWire(wire, index, context) {
     anchorId: wire.toAnchorId
   }, "to", wire, context);
   if (!from || !to || !endpointExists(from, context) || !endpointExists(to, context)) return null;
-  const cableType = String(wire.cableType || wire.type || "");
-  const fiberMode = String(wire.fiberMode || "");
+  const metadata = effectiveJumpDeviceWireMetadata(wire, from, to, context, index);
+  const cableType = metadata.cableType;
+  const fiberMode = metadata.fiberMode;
   const usesOrthogonalRoute = Array.isArray(wire.orthogonalRoutePoints);
   const routePoints = normalizeRoutePoints(usesOrthogonalRoute ? wire.orthogonalRoutePoints : wire.routePoints);
   const fromFallback = Boolean(from.deviceId && !from.usesRealConnector);
@@ -1126,19 +1132,78 @@ function normalizeProjectWire(wire, index, context) {
     toUsesRealConnector: Boolean(to.usesRealConnector),
     usesRealConnectorEndpoints: Boolean(from.usesRealConnector && to.usesRealConnector),
     hasFallbackEndpoint: Boolean(fromFallback || toFallback),
-    color: engineWireColorForCable(
-      cableType,
-      fiberMode,
-      wire.customColor || context.nodeColorByType.get(cableType) || WIRE_COLORS[index % WIRE_COLORS.length]
-    ),
+    color: metadata.color,
     colorSegments: engineWireColorSegmentsForCable(cableType),
     label: wire.label || cableType || `Wire ${index + 1}`,
     length: wire.length || wire.cableLength || "",
     hideLabel: Boolean(wire.hideLabel),
     cableType,
     fiberMode,
-    signalIndex: Number(wire.signalIndex) || 0
+    signalIndex: Number(wire.signalIndex) || 0,
+    customColor: metadata.customColor,
+    colorSource: metadata.colorSource,
+    jumpWireMetadataSource: metadata.jumpWireMetadataSource,
+    metadataRepaired: metadata.metadataRepaired,
+    savedCableType: metadata.savedCableType
   };
+}
+
+function effectiveJumpDeviceWireMetadata(wire, from, to, context, index) {
+  const savedCableType = String(wire.cableType || wire.type || "").trim();
+  const savedFiberMode = String(wire.fiberMode || "").trim();
+  const savedCustomColor = String(wire.customColor || "").trim();
+  const fromJump = isEndpointJumpNode(from, context);
+  const toJump = isEndpointJumpNode(to, context);
+  const realEndpoint = fromJump && !toJump ? to : toJump && !fromJump ? from : null;
+  const realConnector = realEndpoint ? connectorForNormalizedEndpoint(realEndpoint, context) : null;
+  const realCableType = effectiveConnectorTypeForEngine(realConnector) || realConnector?.type || "";
+  const realFiberMode = realConnector ? engineConnectorFiberMode(realConnector) : "";
+  const savedTypeIsPortalFallback = !savedCableType || savedCableType === "jump" || savedCableType === "misc";
+  const accidentalFallbackCustomColor = savedTypeIsPortalFallback && isFallbackJumpColor(savedCustomColor);
+  const shouldRepair = Boolean(realEndpoint && realConnector && realCableType && (savedTypeIsPortalFallback || accidentalFallbackCustomColor));
+  const cableType = shouldRepair ? realCableType : savedCableType;
+  const fiberMode = shouldRepair ? realFiberMode || savedFiberMode : savedFiberMode;
+  const explicitCustomColor = savedCustomColor && !(shouldRepair && accidentalFallbackCustomColor)
+    ? savedCustomColor
+    : "";
+  const fallback = explicitCustomColor
+    || (shouldRepair && realConnector ? engineConnectorColor(realConnector, context.nodeColorByType) : "")
+    || context.nodeColorByType.get(cableType)
+    || WIRE_COLORS[index % WIRE_COLORS.length];
+  const color = engineWireColorForCable(cableType, fiberMode, fallback) || fallback;
+  return {
+    savedCableType,
+    cableType,
+    fiberMode,
+    customColor: explicitCustomColor,
+    color,
+    colorSource: explicitCustomColor
+      ? "custom"
+      : shouldRepair
+        ? "jump-real-connector"
+        : "cable-type",
+    jumpWireMetadataSource: shouldRepair ? "real-connector" : "",
+    metadataRepaired: shouldRepair
+  };
+}
+
+function isEndpointJumpNode(endpoint, context) {
+  return Boolean(endpoint?.deviceId && context.jumpNodeIds?.has?.(String(endpoint.deviceId)));
+}
+
+function connectorForNormalizedEndpoint(endpoint, context) {
+  const device = context.normalizedDeviceById?.get(String(endpoint?.deviceId || ""));
+  const connectorId = String(endpoint?.connectorId || "");
+  if (!device || !connectorId) return null;
+  return device.connectorsById?.get?.(connectorId)
+    || (device.connectors || []).find(connector => String(connector?.id || "") === connectorId)
+    || null;
+}
+
+function isFallbackJumpColor(color) {
+  const value = String(color || "").trim().toLowerCase();
+  if (!value) return false;
+  return new Set(["#37474f", "#778492", "#32b6ff", "rgb(55,71,79)", "rgb(119,132,146)"]).has(value);
 }
 
 function normalizePlacedRacks(root, context = {}) {

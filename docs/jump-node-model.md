@@ -1,6 +1,6 @@
 # Jump Node Model
 
-Build: `iteration54-2-2-jump-drag-to-link`
+Build: `iteration54-2-4-jump-legacy-parity-play-wire`
 
 ## Current And Legacy Model
 
@@ -75,9 +75,36 @@ Normal steady state renders only the two compact Jump Nodes and their visible de
 
 During Jump Link creation, hover reveal, or selected-pair reveal, the Engine draws a live foreground overlay from output Jump center to input Jump center. The overlay is a segmented gradient from `#32b6ff` to `#fb7904`. This special foreground pass applies only to Jump Links; normal wire preview and normal wire z-order are unchanged.
 
+## Legacy Dynamic Info Box
+
+Legacy renders a compact blue Jump info box beside each Jump Node. The editable Jump Node label remains separate from this box.
+
+The derived text is connection-oriented:
+
+```text
+local device output -> Jump A, Jump A paired to Jump B -> device input
+Jump A info: to: downstream device - downstream connector
+Jump B info: from: upstream device - upstream connector
+```
+
+If the Jump has no usable paired/device-side endpoint, the fallback display is `to: Unassigned`. The Engine derives this text live from the current scene graph through `jumpNodeConnectionInfo(scene, jumpId)`, so device renames, connector renames, rewires, deletes, reconnects, and project loads update the box without storing a stale caption or rebuilding a device texture.
+
+## Physical Jump Wire Metadata
+
+A physical wire connected to a Jump Node is still a normal device-side cable segment. The real non-Jump connector is the metadata authority for cable family, effective connector type, fiber mode, and default color.
+
+This is symmetric:
+
+```text
+real output connector -> Jump
+Jump -> real input connector
+```
+
+Both directions use the same real-connector derivation. The synthetic `jump-center` connector exists only as the portal landing point and must not force the visible physical wire to `jump`, `misc`, or fallback grey. Loaded projects with accidental Jump fallback metadata are repaired non-destructively at normalization time when the saved metadata is missing or clearly fallback-generated. Explicit custom wire colors still win.
+
 ## Selection And Hover
 
-Hovering either paired Jump reveals the counterpart and the hidden gradient link without mutating selection. Clicking either paired Jump selects both Jump IDs in `SceneGraph.selectedIds`, stores the clicked member as `primarySelectedJumpId`, and does not select the device-side wires. The Inspector edits only the primary Jump.
+Hovering either paired Jump reveals the counterpart and the hidden gradient link without mutating selection. Clicking either paired Jump selects only that Jump ID in `SceneGraph.selectedIds`, stores the clicked member as `primarySelectedJumpId`, and keeps the paired Jump as a visual highlight rather than a selected object. The Inspector edits only the primary Jump.
 
 Dragging keeps normal Engine object movement semantics. There is no special pair-move command in this iteration.
 
@@ -102,13 +129,19 @@ The Jump Inspector shows:
 Name
 Role
 Color
+Connection Info
 Paired With
 Device-side Wire
 Position
+Jump to Pair
 Disconnect Jump Nodes
 ```
 
-Name edits update the raw `jumpNodes[].label`/`name` data and the synthetic `jump-center` label. Role is read-only. `Disconnect Jump Nodes` removes only the `jumpLinks[]` record; visible device-side wires remain, so derived output/input colors remain.
+Name edits update the raw `jumpNodes[].label`/`name` data and the synthetic `jump-center` label. Role and Connection Info are read-only. `Disconnect Jump Nodes` removes only the `jumpLinks[]` record; visible device-side wires remain, so derived output/input colors remain.
+
+## Jump to Pair Navigation
+
+`Jump to Pair` is a camera and selection action only. It selects the paired Jump as the primary Jump, refreshes the Inspector for that paired Jump, centers the camera on the paired Jump center, and preserves the current zoom. It does not move either Jump, edit the portal, create an undo entry, dirty the project, or arm the special Jump movement gesture.
 
 ## History
 
@@ -118,9 +151,11 @@ Each placement, rename, visible wire creation, Jump Link creation, disconnect, a
 
 Project creation, load, save, export, output snapshots, and hosted publishing carry `jumpLinks[]` beside `jumpNodes[]`. Projects with no `jumpLinks[]` continue to load. Legacy `pairId` records are converted to runtime `jumpLinks[]` only when the paired Jump roles are unambiguous output/input; ambiguous legacy pairs stay as loaded Jump Nodes without silently inventing a portal.
 
-## Play Wire Traversal
+## Play Wire
 
-The existing `Play Wire` controls are unchanged. The path resolver expands either visible segment of a valid paired portal into:
+The Engine wire Inspector exposes `Play Wire` for a single selected physical wire. Playback is transient interaction geometry: it does not edit `connections[]`, `jumpLinks[]`, `jumpNodes[]`, command history, dirty state, selected wire geometry, route points, or device textures.
+
+The path resolver expands either visible segment of a valid paired portal into:
 
 ```js
 [
@@ -130,7 +165,11 @@ The existing `Play Wire` controls are unchanged. The path resolver expands eithe
 ]
 ```
 
-The tracer animates the first visible cable, instantly relocates from output Jump to input Jump, then animates the second visible cable. The hidden Jump Link itself is not animated and adds no physical route length.
+The tracer animates the first visible cable, instantly relocates from output Jump to input Jump, then animates the second visible cable. For ordinary non-Jump wires, the resolver returns one physical wire step.
+
+## Portal Playback Teleport
+
+`jumpLinks[]` is a logical portal relationship, not a physical cable. During Play Wire, the portal step is represented as `teleport`, not as a wire. The Bezier Jump Link reveal remains hidden unless the user is independently hovering/selecting the portal; it is never animated as physical cable playback and adds no route length.
 
 ## HTML Export
 

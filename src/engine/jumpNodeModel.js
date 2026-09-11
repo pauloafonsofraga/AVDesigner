@@ -1,4 +1,9 @@
 import { bezierPolyline } from "./wirePath.js";
+import {
+  effectiveConnectorTypeForEngine,
+  engineConnectorDisplayLabel,
+  engineConnectorFiberMode
+} from "./connectorCompatibility.js";
 
 export const JUMP_NODE_SIZE = 44;
 export const JUMP_NODE_CONNECTOR_ID = "jump-center";
@@ -233,7 +238,9 @@ export function sceneJumpDeviceWire(scene, jumpId = "", { excludeWireId = "" } =
       ? scene.getDevice(otherId)
       : (scene.devices || []).find(device => String(device?.id || "") === otherId);
     if (isJumpNodeDevice(otherDevice)) continue;
-    return { wire, side, otherEnd, otherDeviceId: otherId, otherConnectorId: sceneWireEndpointConnectorId(wire, otherEnd), otherDevice };
+    const otherConnectorId = sceneWireEndpointConnectorId(wire, otherEnd);
+    const otherConnector = getConnectorFromDevice(otherDevice, otherConnectorId);
+    return { wire, side, otherEnd, otherDeviceId: otherId, otherConnectorId, otherDevice, otherConnector };
   }
   return null;
 }
@@ -252,6 +259,51 @@ export function sceneJumpNodeRole(scene, jumpId = "") {
     connector,
     device: local?.otherDevice || null
   };
+}
+
+export function jumpNodeConnectionInfo(scene, jumpId = "") {
+  const id = String(jumpId || "");
+  if (!scene || !id) return unassignedJumpInfo("right", "to", id);
+  const local = sceneJumpDeviceWire(scene, id);
+  const link = typeof scene.jumpLinkForNode === "function" ? scene.jumpLinkForNode(id) : null;
+  const pairId = typeof scene.pairedJumpId === "function"
+    ? scene.pairedJumpId(id)
+    : pairedJumpIdForLink(link, id);
+  const pairLocal = pairId ? sceneJumpDeviceWire(scene, pairId) : null;
+
+  if (local?.side === "to") {
+    return jumpInfoFromLocal(pairLocal, {
+      jumpId: id,
+      pairId,
+      side: "right",
+      prefix: "to"
+    });
+  }
+  if (local?.side === "from") {
+    return jumpInfoFromLocal(pairLocal, {
+      jumpId: id,
+      pairId,
+      side: "left",
+      prefix: "from"
+    });
+  }
+  if (pairLocal?.side === "to") {
+    return jumpInfoFromLocal(pairLocal, {
+      jumpId: id,
+      pairId,
+      side: "left",
+      prefix: "from"
+    });
+  }
+  if (pairLocal?.side === "from") {
+    return jumpInfoFromLocal(pairLocal, {
+      jumpId: id,
+      pairId,
+      side: "right",
+      prefix: "to"
+    });
+  }
+  return unassignedJumpInfo("right", "to", id, pairId);
 }
 
 export function canonicalJumpWireEndpoints(sourceHit, targetHit) {
@@ -487,6 +539,80 @@ function hitFromRole(roleInfo = {}) {
     connector: roleInfo.connector,
     point: { x: 0, y: 0 }
   };
+}
+
+function jumpInfoFromLocal(local, {
+  jumpId = "",
+  pairId = "",
+  side = "right",
+  prefix = "to"
+} = {}) {
+  const deviceName = endpointDeviceName(local);
+  const connectorName = endpointConnectorName(local);
+  const connected = Boolean(local?.otherDevice || local?.otherDeviceId || local?.otherConnector);
+  const text = `${prefix}: ${deviceName || "Unassigned"} - ${connectorName || "Unassigned"}`;
+  const connector = local?.otherConnector || null;
+  return {
+    side,
+    prefix,
+    text,
+    displayText: text,
+    connected,
+    jumpId,
+    pairId,
+    wireId: local?.wire?.id || "",
+    wireSourceId: local?.wire?.sourceId || "",
+    localWireSide: local?.side || "",
+    deviceId: local?.otherDeviceId || "",
+    deviceName: deviceName || "",
+    connectorId: local?.otherConnectorId || "",
+    connectorName: connectorName || "",
+    cableType: effectiveConnectorTypeForEngine(connector) || connector?.type || local?.wire?.cableType || "",
+    fiberMode: engineConnectorFiberMode(connector) || local?.wire?.fiberMode || ""
+  };
+}
+
+function unassignedJumpInfo(side = "right", prefix = "to", jumpId = "", pairId = "") {
+  return {
+    side,
+    prefix,
+    text: `${prefix}: Unassigned`,
+    displayText: `${prefix}: Unassigned`,
+    connected: false,
+    jumpId,
+    pairId,
+    wireId: "",
+    wireSourceId: "",
+    localWireSide: "",
+    deviceId: "",
+    deviceName: "",
+    connectorId: "",
+    connectorName: "",
+    cableType: "",
+    fiberMode: ""
+  };
+}
+
+function endpointDeviceName(local) {
+  const device = local?.otherDevice || null;
+  return String(
+    device?.label
+    || device?.name
+    || device?.sourceId
+    || local?.otherDeviceId
+    || ""
+  ).trim();
+}
+
+function endpointConnectorName(local) {
+  const connector = local?.otherConnector || null;
+  if (connector) {
+    return engineConnectorDisplayLabel(
+      connector,
+      connector.nameText || connector.label || connector.id || connector.type || "Connector"
+    );
+  }
+  return String(local?.otherConnectorId || "Connector").trim();
 }
 
 function invalidPair(rule, reason) {

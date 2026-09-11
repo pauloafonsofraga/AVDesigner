@@ -54,6 +54,7 @@ import {
   isJumpNodeDevice,
   jumpNodeCenter,
   jumpNodeRoleColor,
+  jumpNodeConnectionInfo,
   JUMP_NODE_CONNECTOR_ID,
   JUMP_NODE_ROLE,
   JUMP_NODE_ROLE_COLORS,
@@ -190,6 +191,10 @@ export class SceneGraph {
 
   jumpNodeRole(jumpId) {
     return sceneJumpNodeRole(this, jumpId);
+  }
+
+  jumpNodeConnectionInfo(jumpId) {
+    return jumpNodeConnectionInfo(this, jumpId);
   }
 
   addJumpLink(linkData = {}) {
@@ -1447,7 +1452,12 @@ export class SceneGraph {
     fiberMode = "",
     routeStyle = "bezier",
     routePoints = [],
-    signalIndex = 0
+    signalIndex = 0,
+    customColor = "",
+    colorSource = "",
+    jumpWireMetadataSource = "",
+    metadataRepaired = false,
+    savedCableType = ""
   }) {
     const fromEndpoint = this.resolveAddWireEndpoint("from", { deviceId: fromDeviceId, connectorId: fromConnectorId, anchorId: fromAnchorId, surfaceId: fromSurfaceId });
     const toEndpoint = this.resolveAddWireEndpoint("to", { deviceId: toDeviceId, connectorId: toConnectorId, anchorId: toAnchorId, surfaceId: toSurfaceId });
@@ -1475,6 +1485,11 @@ export class SceneGraph {
       cableType,
       fiberMode,
       signalIndex,
+      customColor,
+      colorSource,
+      jumpWireMetadataSource,
+      metadataRepaired,
+      savedCableType,
       routeStyle,
       routePoints,
       label: `${fromEndpoint.label || "Connector"} to ${toEndpoint.label || "LED Screen"}`
@@ -2214,7 +2229,12 @@ function normalizeWire(wire) {
     hideLabel: Boolean(wire.hideLabel),
     cableType: wire.cableType || "",
     fiberMode: wire.fiberMode || "",
-    signalIndex: Number(wire.signalIndex) || 0
+    signalIndex: Number(wire.signalIndex) || 0,
+    customColor: String(wire.customColor || ""),
+    colorSource: String(wire.colorSource || ""),
+    jumpWireMetadataSource: String(wire.jumpWireMetadataSource || ""),
+    metadataRepaired: Boolean(wire.metadataRepaired),
+    savedCableType: String(wire.savedCableType || "")
   };
 }
 
