@@ -81,7 +81,6 @@ import {
   jumpNodeRoleColor,
   jumpNodeRoleLabel,
   jumpPairCompatibility,
-  JUMP_LINK_HOLD_MS,
   JUMP_NODE_CONNECTOR_ID,
   JUMP_NODE_ROLE,
   JUMP_NODE_ROLE_COLORS,
@@ -107,9 +106,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-2-1-jump-node-interaction";
-export const ENGINE_BRIDGE_VERSION = "iteration54-2-1-jump-node-interaction";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-press-hold-interaction";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-2-2-jump-drag-to-link";
+export const ENGINE_BRIDGE_VERSION = "iteration54-2-2-jump-drag-to-link";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-drag-link-interaction";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -213,6 +212,7 @@ class ProductionEngineBridge {
     this.jumpLinkCreate = null;
     this.pendingJumpPress = null;
     this.lastJumpGesture = null;
+    this.jumpMoveArmedId = "";
     this.resizeSession = null;
     this.commentBoxDrag = null;
     this.boundCanvasWrapDoubleClick = null;
@@ -331,6 +331,7 @@ class ProductionEngineBridge {
     this.started = false;
     this.cancelPendingJumpPress("destroy", { updateHud: false });
     this.jumpLinkCreate = null;
+    this.clearJumpMoveArm("destroy", { updateHud: false });
     this.clearLoadingReadyTimer();
     this.engineRoot?.remove();
     this.engineRoot = null;
@@ -556,6 +557,31 @@ class ProductionEngineBridge {
     this.hud?.setMetric("shell panel action", snapshot.lastPanelAction || "-");
   }
 
+  isJumpMoveArmed(jumpId = "") {
+    return Boolean(this.jumpMoveArmedId && String(this.jumpMoveArmedId) === String(jumpId || ""));
+  }
+
+  setJumpMoveArm(jumpId = "", reason = "jump-click-select", { updateHud = true } = {}) {
+    const id = String(jumpId || "");
+    this.jumpMoveArmedId = id;
+    if (updateHud) {
+      this.hud?.setMetric("jump move arm", id ? `${id} / ${reason}` : "-");
+      this.updateJumpNodeDebugSnapshot(reason);
+    }
+    return id;
+  }
+
+  clearJumpMoveArm(reason = "clear", { updateHud = true } = {}) {
+    if (!this.jumpMoveArmedId) return false;
+    const previous = this.jumpMoveArmedId;
+    this.jumpMoveArmedId = "";
+    if (updateHud) {
+      this.hud?.setMetric("jump move arm", `cleared ${previous} / ${reason}`);
+      this.updateJumpNodeDebugSnapshot(reason);
+    }
+    return true;
+  }
+
   updateJumpNodeDebugSnapshot(reason = "jump debug") {
     if (!this.debugJumpNodes && !engineDebugHudEnabled()) return;
     const counts = this.sceneCounts();
@@ -568,12 +594,15 @@ class ProductionEngineBridge {
       ? this.currentJumpLinkCompatibility(this.jumpLinkCreate.target.device.id)
       : this.jumpLinkCreate?.compatibility || null;
     const pendingPress = this.pendingJumpPress;
-    const pendingElapsedMs = pendingPress
-      ? Math.max(0, performance.now() - pendingPress.startedAt)
-      : 0;
     const pendingDistancePx = pendingPress
       ? this.jumpPressDistancePx(pendingPress.lastScreen)
       : 0;
+    const canStartLink = pendingPress
+      ? Boolean(pendingPress.canStartLink)
+      : false;
+    const explicitlyMoveArmed = pendingPress
+      ? this.isJumpMoveArmed(pendingPress.jumpId)
+      : false;
     const overlays = this.visibleJumpLinkOverlays();
     const snapshot = {
       build: BRIDGE_VERSION,
@@ -591,26 +620,19 @@ class ProductionEngineBridge {
       pairRejectionReason: activeCompatibility && !activeCompatibility.valid ? activeCompatibility.reason || activeCompatibility.rule || "" : "",
       pendingJumpPress: pendingPress ? {
         jumpId: pendingPress.jumpId || "",
-        elapsedMs: pendingElapsedMs,
         distancePx: pendingDistancePx,
-        eligible: Boolean(pendingPress.eligibleForLink),
+        canStartLink,
+        explicitlyMoveArmed,
         role: pendingPress.role || JUMP_NODE_ROLE.neutral,
-        timerArmed: Boolean(pendingPress.holdTimer),
-        timerFired: Boolean(pendingPress.timerFired),
-        holdTriggered: Boolean(pendingPress.holdTriggered),
-        holdRejected: Boolean(pendingPress.holdRejected),
         gestureWinner: pendingPress.gestureWinner || "pending",
         pointerId: pendingPress.pointerId ?? ""
       } : null,
-      pendingJumpPressJumpId: pendingPress?.jumpId || "",
-      pendingJumpPressElapsedMs: pendingElapsedMs,
-      pendingJumpPressDistancePx: pendingDistancePx,
-      pendingJumpPressEligible: Boolean(pendingPress?.eligibleForLink),
-      pendingJumpPressRole: pendingPress?.role || "",
-      pendingJumpPressTimerArmed: Boolean(pendingPress?.holdTimer),
-      pendingJumpPressTimerFired: Boolean(pendingPress?.timerFired),
-      pendingJumpPressHoldTriggered: Boolean(pendingPress?.holdTriggered),
-      jumpGestureWinner: pendingPress?.gestureWinner || this.lastJumpGesture?.winner || (this.jumpLinkCreate ? "link" : ""),
+      pendingJumpId: pendingPress?.jumpId || "",
+      distancePx: pendingDistancePx,
+      canStartLink,
+      explicitlyMoveArmed,
+      gestureWinner: pendingPress?.gestureWinner || this.lastJumpGesture?.winner || (this.jumpLinkCreate ? "link" : ""),
+      moveArmedJumpId: this.jumpMoveArmedId || "",
       activeJumpPointerId: pendingPress?.pointerId ?? "",
       visibleJumpLinkOverlays: overlays.map(overlay => ({
         id: overlay.id || "",
@@ -641,8 +663,9 @@ class ProductionEngineBridge {
     this.hud?.setMetric("jump pair candidate", snapshot.pairCandidate || "-");
     this.hud?.setMetric("jump pair reject", snapshot.pairRejectionReason || "-");
     this.hud?.setMetric("jump press", pendingPress
-      ? `${pendingPress.jumpId} ${Math.round(pendingElapsedMs)} ms / ${pendingDistancePx.toFixed(1)} px / ${pendingPress.gestureWinner || "pending"}`
+      ? `${pendingPress.jumpId} ${pendingDistancePx.toFixed(1)} px / ${canStartLink ? "can-link" : "no-link"} / ${explicitlyMoveArmed ? "armed" : "unarmed"} / ${pendingPress.gestureWinner || "pending"}`
       : this.lastJumpGesture?.winner || "-");
+    this.hud?.setMetric("jump move arm", this.jumpMoveArmedId || "-");
     writeJumpNodeDebugSnapshot(snapshot);
   }
 
@@ -761,6 +784,7 @@ class ProductionEngineBridge {
       const normalized = normalizeProductionProject(rawProject, reason);
       this.setLoadingPhase("Finalizing interaction state...");
       this.cancelActiveInteraction("scene refresh", { updateHud: false });
+      this.clearJumpMoveArm("scene refresh", { updateHud: false });
       this.lastDirtyDeviceIds.clear();
       this.lastDirtyWireIds.clear();
       this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
@@ -1108,6 +1132,7 @@ class ProductionEngineBridge {
         overlay: "engine-jump-node-placement"
       };
       this.hud?.setMetric("layout tool", `jump-node ${phase}`);
+      if (phase === "pointerdown") this.clearJumpMoveArm("jump-placement-tool", { updateHud: false });
       this.updateJumpNodeDebugSnapshot(`layout-tool-${phase}`);
       this.scheduleRender();
       return true;
@@ -1131,6 +1156,7 @@ class ProductionEngineBridge {
     }
     const handled = result === true || result?.handled === true;
     if (!handled) return false;
+    if (phase === "pointerdown") this.clearJumpMoveArm("canvas-tool-pointerdown", { updateHud: false });
     this.canvasToolPointerActive = Object.prototype.hasOwnProperty.call(result || {}, "keepActive")
       ? Boolean(result.keepActive)
       : Boolean(activeTool && phase !== "pointerup" && phase !== "pointercancel");
@@ -1282,6 +1308,7 @@ class ProductionEngineBridge {
     this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
     this.renderer.setRenderOptions(this.renderOptions);
     this.scene.selectJumpPairPrimary(inserted.id);
+    this.clearJumpMoveArm("jump-node-created", { updateHud: false });
     this.recordCommand(createJumpNodeCommand(nodeData, mutationResult.index));
     this.markCommitted("create jump node", mutationResult.mutationMs || 0, {
       jumpNodeCreate: true,
@@ -1296,6 +1323,7 @@ class ProductionEngineBridge {
   cancelJumpPlacement(reason = "cancelled") {
     this.jumpPlacement = null;
     this.canvasToolPointerActive = false;
+    this.clearJumpMoveArm(`jump-placement-${reason}`, { updateHud: false });
     this.hud?.setMetric("jump placement", `cancelled: ${reason}`);
     this.updateJumpNodeDebugSnapshot(`cancel-${reason}`);
   }
@@ -1439,34 +1467,22 @@ class ProductionEngineBridge {
       lastScreen: { ...point },
       startWorld: { ...worldPoint },
       lastWorld: { ...worldPoint },
-      startedAt: performance.now(),
-      holdTimer: null,
-      timerFired: false,
-      holdTriggered: false,
-      holdRejected: false,
       moved: false,
       role: startStatus.role || roleInfo?.role || JUMP_NODE_ROLE.neutral,
-      eligibleForLink: Boolean(startStatus.valid),
+      canStartLink: Boolean(startStatus.valid),
+      explicitlyMoveArmed: this.isJumpMoveArmed(jumpDevice.id),
       rejectionReason: startStatus.reason || "",
       additiveSelection: Boolean(additiveSelection),
       wasSelected: this.scene.selectedIds.has(jumpDevice.id),
       gestureWinner: "pending"
     };
-    pending.holdTimer = window.setTimeout(() => {
-      this.triggerPendingJumpPressHold(pointerId);
-    }, JUMP_LINK_HOLD_MS);
     this.pendingJumpPress = pending;
     this.clearHoverState("jump-press-pending", { render: false });
-    this.hud?.setMetric("jump press", `${pending.jumpId} pending ${JUMP_LINK_HOLD_MS} ms`);
+    this.hud?.setMetric("jump press", `${pending.jumpId} pending / ${pending.canStartLink ? "can-link" : "no-link"} / ${pending.explicitlyMoveArmed ? "armed" : "unarmed"}`);
     this.updateJumpNodeDebugSnapshot("jump-press-pending");
     this.updateCanvasCursor();
     this.scheduleRender();
     return true;
-  }
-
-  clearPendingJumpTimer(pending = this.pendingJumpPress) {
-    if (pending?.holdTimer) window.clearTimeout(pending.holdTimer);
-    if (pending) pending.holdTimer = null;
   }
 
   cancelPendingJumpPress(reason = "cancelled", { updateHud = true, winner = "cancelled" } = {}) {
@@ -1475,14 +1491,14 @@ class ProductionEngineBridge {
     const dx = Number(pending.lastScreen?.x || 0) - Number(pending.startScreen?.x || 0);
     const dy = Number(pending.lastScreen?.y || 0) - Number(pending.startScreen?.y || 0);
     const distancePx = Math.hypot(dx, dy);
-    this.clearPendingJumpTimer(pending);
     this.pendingJumpPress = null;
     this.lastJumpGesture = {
       winner,
       reason,
       jumpId: pending.jumpId,
-      elapsedMs: Math.max(0, performance.now() - pending.startedAt),
-      distancePx
+      distancePx,
+      canStartLink: Boolean(pending.canStartLink),
+      explicitlyMoveArmed: Boolean(pending.explicitlyMoveArmed)
     };
     if (updateHud) {
       this.hud?.setMetric("jump press", `${winner}: ${pending.jumpId}`);
@@ -1498,21 +1514,50 @@ class ProductionEngineBridge {
     pending.lastScreen = { ...point };
     pending.lastWorld = { ...worldPoint };
     const distancePx = this.jumpPressDistancePx(point);
-    const elapsedMs = Math.max(0, performance.now() - pending.startedAt);
+    const status = this.jumpLinkStartStatus(pending.jumpId);
+    pending.role = status.role || pending.role || JUMP_NODE_ROLE.neutral;
+    pending.canStartLink = Boolean(status.valid);
+    pending.explicitlyMoveArmed = this.isJumpMoveArmed(pending.jumpId);
+    pending.rejectionReason = status.reason || "";
     const intent = jumpPressIntent({
-      elapsedMs,
       distancePx,
-      holdMs: JUMP_LINK_HOLD_MS,
       dragThresholdPx: this.jumpPressMoveThresholdPx(),
-      eligible: pending.eligibleForLink
+      canStartLink: pending.canStartLink,
+      explicitlyMoveArmed: pending.explicitlyMoveArmed
     });
-    if (!pending.holdTriggered && !pending.holdRejected && intent === "move") {
+    pending.gestureWinner = intent;
+    if (intent === "link") {
+      this.resolvePendingJumpPressAsLink(event);
+      return "link";
+    }
+    if (intent === "move") {
       this.resolvePendingJumpPressAsMove(event);
       return "move";
     }
-    this.hud?.setMetric("jump press", `${pending.jumpId} ${Math.round(elapsedMs)} ms / ${distancePx.toFixed(1)} px`);
+    this.hud?.setMetric("jump press", `${pending.jumpId} ${distancePx.toFixed(1)} px / pending`);
     this.updateJumpNodeDebugSnapshot("jump-press-move");
     return "pending";
+  }
+
+  resolvePendingJumpPressAsLink(event) {
+    const pending = this.pendingJumpPress;
+    if (!pending) return false;
+    const jumpDevice = this.scene.getDevice(pending.jumpId);
+    const sourceHit = this.jumpConnectorHitForDevice(jumpDevice);
+    const pointerWorld = pending.lastWorld || sourceHit?.point || pending.startWorld;
+    const sourceId = pending.jumpId;
+    this.cancelPendingJumpPress("link", { updateHud: false, winner: "link" });
+    this.clearJumpMoveArm("jump-link-start", { updateHud: false });
+    if (!jumpDevice || !sourceHit) return false;
+    this.clearHoverState("jump-link-start", { render: false });
+    this.beginJumpLinkCreate(sourceHit, pointerWorld);
+    this.updateJumpLinkCreate(pointerWorld);
+    this.updateSelectionHud();
+    this.updateInteractionHud("jump-link-create", { connector: sourceHit, device: jumpDevice });
+    this.hud?.setMetric("jump press", `${sourceId} link`);
+    this.updateJumpNodeDebugSnapshot("jump-press-link-start");
+    this.scheduleRender();
+    return true;
   }
 
   resolvePendingJumpPressAsMove(event) {
@@ -1528,6 +1573,7 @@ class ProductionEngineBridge {
     } else if (!this.scene.selectedIds.has(jumpDevice.id) || this.scene.pairedJumpId(jumpDevice.id)) {
       this.scene.selectJumpPairPrimary(jumpDevice.id);
     }
+    this.setJumpMoveArm(jumpDevice.id, "jump-move-start", { updateHud: false });
     this.updateSelectionHud();
     this.updateInteractionHud("jump-move");
     this.beginPendingDrag(startScreen, startWorld, event);
@@ -1536,80 +1582,33 @@ class ProductionEngineBridge {
     return true;
   }
 
-  triggerPendingJumpPressHold(pointerId) {
-    const pending = this.pendingJumpPress;
-    if (!pending || pending.pointerId !== pointerId) return false;
-    pending.timerFired = true;
-    pending.holdTimer = null;
-    const distancePx = this.jumpPressDistancePx(pending.lastScreen);
-    const status = this.jumpLinkStartStatus(pending.jumpId);
-    pending.role = status.role || pending.role || JUMP_NODE_ROLE.neutral;
-    pending.eligibleForLink = Boolean(status.valid);
-    pending.rejectionReason = status.reason || "";
-    const intent = jumpPressIntent({
-      elapsedMs: JUMP_LINK_HOLD_MS,
-      distancePx,
-      holdMs: JUMP_LINK_HOLD_MS,
-      dragThresholdPx: this.jumpPressMoveThresholdPx(),
-      eligible: status.valid
-    });
-    if (intent === "move") {
-      this.updateJumpNodeDebugSnapshot("jump-press-hold-moved");
-      return false;
-    }
-    pending.holdTriggered = true;
-    if (!status.valid) {
-      pending.holdRejected = true;
-      pending.gestureWinner = "rejected";
-      this.lastJumpGesture = {
-        winner: "rejected",
-        reason: status.reason || "not eligible",
-        jumpId: pending.jumpId,
-        elapsedMs: Math.max(0, performance.now() - pending.startedAt),
-        distancePx
-      };
-      this.hud?.setMetric("jump link", status.reason);
-      this.hud?.setMetric("jump press", `${pending.jumpId} rejected`);
-      this.updateInteractionHud("jump-link-rejected");
-      this.updateJumpNodeDebugSnapshot("jump-press-hold-rejected");
-      this.scheduleRender();
-      return false;
-    }
-    const jumpDevice = this.scene.getDevice(pending.jumpId);
-    const sourceHit = this.jumpConnectorHitForDevice(jumpDevice);
-    const pointerWorld = pending.lastWorld || sourceHit?.point || pending.startWorld;
-    const sourceId = pending.jumpId;
-    this.cancelPendingJumpPress("hold", { updateHud: false, winner: "link" });
-    if (!sourceHit) return false;
-    this.clearHoverState("jump-link-start", { render: false });
-    this.scene.selectJumpPairPrimary(sourceId);
-    this.beginJumpLinkCreate(sourceHit, pointerWorld);
-    this.updateSelectionHud();
-    this.updateInteractionHud("jump-link-create", { connector: sourceHit, device: jumpDevice });
-    this.hud?.setMetric("jump press", `${sourceId} link`);
-    this.updateJumpNodeDebugSnapshot("jump-press-hold-link");
-    this.scheduleRender();
-    return true;
-  }
-
   completePendingJumpPress(point = null, event = null) {
     const pending = this.pendingJumpPress;
     if (!pending) return false;
     if (event && pending.pointerId !== null && pending.pointerId !== event.pointerId) return false;
     if (point) pending.lastScreen = { ...point };
-    const rejected = Boolean(pending.holdRejected);
     const jumpId = pending.jumpId;
     const additiveSelection = pending.additiveSelection;
-    this.cancelPendingJumpPress(rejected ? "release-rejected" : "release-select", {
+    const distancePx = this.jumpPressDistancePx(pending.lastScreen);
+    const intent = jumpPressIntent({
+      released: true,
+      distancePx,
+      dragThresholdPx: this.jumpPressMoveThresholdPx(),
+      canStartLink: pending.canStartLink,
+      explicitlyMoveArmed: pending.explicitlyMoveArmed
+    });
+    this.cancelPendingJumpPress("release-select", {
       updateHud: false,
-      winner: rejected ? "rejected" : "select"
+      winner: intent === "select" ? "select" : "move"
     });
     if (additiveSelection) this.scene.toggleSelection(jumpId);
     else this.scene.selectJumpPairPrimary(jumpId);
+    if (this.scene.selectedIds.has(jumpId)) this.setJumpMoveArm(jumpId, "jump-click-select", { updateHud: false });
+    else this.clearJumpMoveArm("jump-click-deselect", { updateHud: false });
     this.updateSelectionHud();
-    this.updateInteractionHud(rejected ? "jump-link-rejected-select" : "jump-select");
-    this.hud?.setMetric("jump press", `${jumpId} ${rejected ? "rejected" : "select"}`);
-    this.updateJumpNodeDebugSnapshot(rejected ? "jump-press-release-rejected" : "jump-press-release-select");
+    this.updateInteractionHud("jump-select");
+    this.hud?.setMetric("jump press", `${jumpId} select`);
+    this.updateJumpNodeDebugSnapshot("jump-press-release-select");
     this.updateCanvasCursor();
     return true;
   }
@@ -1671,6 +1670,7 @@ class ProductionEngineBridge {
   completeJumpLinkCreate() {
     const state = this.jumpLinkCreate;
     this.jumpLinkCreate = null;
+    this.clearJumpMoveArm("jump-link-complete", { updateHud: false });
     this.canvas.classList.remove("dragging", "wire-creating");
     this.clearHoverState("jump-link-complete", { render: false });
     this.updateCanvasCursor();
@@ -1699,6 +1699,7 @@ class ProductionEngineBridge {
     this.recordCommand(createJumpLinkCommand(sceneLink, mutationResult.index));
     this.lastPortalCommand = { type: "create jump link", ...sceneLink };
     this.scene.selectJumpPairPrimary(state.fromJumpId);
+    this.clearJumpMoveArm("jump-link-created", { updateHud: false });
     this.markCommitted("create jump link", mutationResult.mutationMs || 0, {
       jumpLinkCreate: true,
       jumpLinkId: sceneLink.id
@@ -1811,6 +1812,7 @@ class ProductionEngineBridge {
       return;
     }
     if (event.button === 1 || event.buttons === 4) {
+      this.clearJumpMoveArm("pan-start", { updateHud: false });
       this.capturePointer(event.pointerId);
       this.cancelMarquee("pan-start", { updateCursor: false, render: false });
       this.clearHoverState("pan-start", { render: false });
@@ -1827,6 +1829,7 @@ class ProductionEngineBridge {
     const shouldHitDetails = this.shouldHitTestDetailTargets();
     const resizeHit = this.hitTestCanvasObjectResizeHandle(world);
     if (resizeHit) {
+      this.clearJumpMoveArm("canvas-object-resize", { updateHud: false });
       this.clearHoverState("canvas-object-resize", { render: false });
       this.scene.selectOnly(resizeHit.device.id);
       this.beginCanvasObjectResize(resizeHit, point, world);
@@ -1840,6 +1843,7 @@ class ProductionEngineBridge {
       ? this.hitTestEditableRoutePoint(world, tolerance * 1.2)
       : { routePoint: null, candidates: 0, ms: 0 };
     if (routeHit.routePoint) {
+      this.clearJumpMoveArm("route-point-select", { updateHud: false });
       this.clearHoverState("route-point-select", { render: false });
       this.scene.selectRoutePointOnly(routeHit.routePoint.wire.id, routeHit.routePoint.pointIndex);
       const dragMode = this.beginRoutePointDrag(routeHit.routePoint, point, world);
@@ -1897,6 +1901,7 @@ class ProductionEngineBridge {
         connectorHit.connector.device.id,
         connectorHit.connector.connector.id
       );
+      this.clearJumpMoveArm("connector-pointerdown", { updateHud: false });
       if (connectedEndpoint) {
         this.clearHoverState("wire-rewire-start", { render: false });
         this.beginWireRewire(connectorHit.connector, connectedEndpoint, world);
@@ -1916,6 +1921,7 @@ class ProductionEngineBridge {
 
     const wireHit = hitTestWire(this.scene, world, tolerance);
     if (wireHit.wire) {
+      this.clearJumpMoveArm("wire-pointerdown", { updateHud: false });
       if (!additiveSelection && this.beginWireSegmentDrag(wireHit, point, world)) {
         this.updateSelectionHud();
         this.updateInteractionHud("wire-segment-drag", wireHit);
@@ -1935,6 +1941,7 @@ class ProductionEngineBridge {
       kinds: ["comment", "title-block", "image-object", "led-surface"]
     });
     if (foregroundObjectHit.device) {
+      this.clearJumpMoveArm("canvas-object-pointerdown", { updateHud: false });
       this.handleCanvasObjectPointerDown(foregroundObjectHit, point, world, event, additiveSelection);
       return;
     }
@@ -1943,6 +1950,7 @@ class ProductionEngineBridge {
     if (!deviceHit.device) {
       const rackHit = hitTestRack(this.scene, world);
       if (rackHit.rack) {
+        this.clearJumpMoveArm("rack-pointerdown", { updateHud: false });
         this.clearHoverState("rack-frame-select", { render: false });
         const rack = rackHit.rack;
         const wasSelected = this.scene.isRackSelected(rack.id);
@@ -1971,9 +1979,11 @@ class ProductionEngineBridge {
       }
       const areaHit = this.hitTestPreciseCanvasObject(world, tolerance, { kinds: ["area"] });
       if (areaHit.device) {
+        this.clearJumpMoveArm("area-pointerdown", { updateHud: false });
         this.handleCanvasObjectPointerDown(areaHit, point, world, event, additiveSelection);
         return;
       }
+      this.clearJumpMoveArm("empty-canvas", { updateHud: false });
       this.clearHoverState("empty-canvas", { render: false });
       if (!additiveSelection) this.scene.clearSelection();
       this.beginMarquee(point, world, additiveSelection);
@@ -1987,6 +1997,7 @@ class ProductionEngineBridge {
     const wasSelected = actionableRackId
       ? this.scene.isRackSelected(actionableRackId)
       : this.scene.selectedIds.has(deviceHit.device.id);
+    this.clearJumpMoveArm("device-pointerdown", { updateHud: false });
     this.clearHoverState("device-select", { render: false });
     if (additiveSelection) {
       if (actionableRackId) this.scene.toggleRackSelection(actionableRackId);
@@ -2034,6 +2045,7 @@ class ProductionEngineBridge {
     if (this.dragSession || this.pendingDrag || this.pendingJumpPress || this.jumpLinkCreate || this.panState || this.routePointDrag || this.wireSegmentDrag || this.wireCreate || this.resizeSession || this.marqueeState) {
       this.cancelActiveInteraction("context-menu", { updateHud: false });
     }
+    this.clearJumpMoveArm("context-menu", { updateHud: false });
     const target = this.contextMenuTarget(event);
     this.clearHoverState("context-menu", { render: false });
     if (!target) {
@@ -2406,6 +2418,7 @@ class ProductionEngineBridge {
       return;
     }
     if (event.key === "Delete" || event.key === "Backspace") {
+      this.clearJumpMoveArm("delete-key", { updateHud: false });
       if (this.scene.selectedWireIds.size) {
         consumeEngineShortcut(event);
         this.deleteSelectedWires();
@@ -2432,6 +2445,7 @@ class ProductionEngineBridge {
       return;
     }
     if (event.key !== "Escape") return;
+    this.clearJumpMoveArm("escape", { updateHud: false });
     if (this.dispatchCanvasToolKeyEvent("Escape", event)) return;
     if (this.wireCreate || this.jumpLinkCreate || this.pendingJumpPress || this.resizeSession || this.routePointDrag || this.wireSegmentDrag || this.marqueeState || this.dragSession || this.pendingDrag || this.panState) {
       consumeEngineShortcut(event);
@@ -3207,6 +3221,7 @@ class ProductionEngineBridge {
   }
 
   beginWireCreate(connectorHit, worldPoint) {
+    this.clearJumpMoveArm("wire-create-start", { updateHud: false });
     this.wireCreate = {
       from: connectorHit,
       pointerWorld: { ...worldPoint },
@@ -3231,6 +3246,7 @@ class ProductionEngineBridge {
       connectors: [...this.scene.selectedConnectorKeys],
       routePoints: [...this.scene.selectedRoutePointKeys],
     };
+    this.clearJumpMoveArm("wire-rewire-start", { updateHud: false });
     this.scene.clearSelection();
     this.wireCreate = {
       from: fixedHit,
@@ -3279,6 +3295,7 @@ class ProductionEngineBridge {
       this.completeWireRewire();
       return;
     }
+    this.clearJumpMoveArm("wire-create-complete", { updateHud: false });
     const commitStart = performance.now();
     const source = this.wireCreate?.from;
     const target = this.wireCreate?.target;
@@ -3437,6 +3454,7 @@ class ProductionEngineBridge {
   }
 
   restoreEngineSelection(selection = {}) {
+    this.clearJumpMoveArm("restore-selection", { updateHud: false });
     this.scene.clearSelection();
     (selection.racks || []).forEach(rackId => {
       const rack = this.scene.getRack(rackId);
@@ -7818,7 +7836,10 @@ function injectBridgeStyles() {
       border-radius: 8px;
       background: rgba(15, 24, 32, .84);
       font-size: 11px;
-      pointer-events: auto;
+      pointer-events: none;
+    }
+    .engine-bridge-debug * {
+      pointer-events: none;
     }
     .engine-bridge-debug h2 {
       margin: 0 0 8px;

@@ -1,6 +1,6 @@
 # Jump Node Model
 
-Build: `iteration54-2-1-jump-node-interaction`
+Build: `iteration54-2-2-jump-drag-to-link`
 
 ## Current And Legacy Model
 
@@ -86,12 +86,13 @@ Dragging keeps normal Engine object movement semantics. There is no special pair
 The whole visible circular Jump body is the pointer target. Pressing a Jump starts a transient `pendingJumpPress` state instead of immediately choosing selection, movement, or portal creation.
 
 ```text
-quick click -> select
-click + move 5 px -> move
-click + hold 250 ms -> create Jump Link
+pointerup before 5 px -> select and arm this Jump for movement
+drag beyond 5 px while unarmed and eligible -> create Jump Link
+drag beyond 5 px while explicitly move-armed -> move
+drag beyond 5 px while ineligible for linking -> move
 ```
 
-The 5 px movement tolerance is measured in screen pixels so small hand jitter does not cancel a hold at different zoom levels. The 250 ms hold can only enter Jump Link creation when the source Jump has a derived output/input role, has a device-side wire, and is not already paired. Neutral, already-paired, or device-wireless Jump Nodes reject the hold and remain stationary until release. During Jump Link creation, target hit testing also accepts the whole visible Jump circle with a small screen-space tolerance before applying the existing output/input compatibility rules.
+The 5 px movement tolerance is measured in screen pixels only to distinguish a click from a drag. There is no stationary long-press timer. A Jump becomes move-armed only when the user completes a direct click-release on that Jump; internal SceneGraph selection after wire creation, pair creation, undo/redo, inspector focus, or refresh does not arm movement. During Jump Link creation, target hit testing also accepts the whole visible Jump circle with a small screen-space tolerance before applying the existing output/input compatibility rules.
 
 ## Inspector
 

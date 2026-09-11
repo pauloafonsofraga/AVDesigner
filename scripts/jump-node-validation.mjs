@@ -7,7 +7,6 @@ import { engineCompatibilitySummary } from "../src/engine/connectorCompatibility
 import {
   deriveLegacyPairJumpLinks,
   invalidJumpLinksForScene,
-  JUMP_LINK_HOLD_MS,
   JUMP_NODE_ROLE,
   JUMP_NODE_ROLE_COLORS,
   JUMP_PRESS_MOVE_THRESHOLD_PX,
@@ -23,7 +22,7 @@ import {
 } from "../src/engine/jumpNodeModel.js";
 import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
 
-const BUILD_ID = "iteration54-2-1-jump-node-interaction";
+const BUILD_ID = "iteration54-2-2-jump-drag-to-link";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -31,18 +30,19 @@ const bridgeSource = readFileSync(resolve(repoRoot, "src/engine/productionBridge
 const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"), "utf8");
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Jump Node Interaction");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-2-1-jump-node-interaction-modules";'), "module cache key should identify Jump Node Interaction");
-assert.ok(indexHtml.includes("Jump Node Interaction"), "visible build label should name Jump Node Interaction");
-assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Jump Node Interaction");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Jump Drag-to-Link");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-2-2-jump-drag-to-link-modules";'), "module cache key should identify Jump Drag-to-Link");
+assert.ok(indexHtml.includes("Jump Drag-to-Link"), "visible build label should name Jump Drag-to-Link");
+assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Jump Drag-to-Link");
 assert.ok(rendererSource.includes("renderer-iteration54-2-smart-jump-nodes"), "renderer fingerprint should identify Smart Jump Nodes");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
-assert.equal(JUMP_LINK_HOLD_MS, 250, "Jump Link hold threshold should be 250 ms");
 assert.equal(JUMP_PRESS_MOVE_THRESHOLD_PX, 5, "Jump press movement tolerance should be 5 px");
-assert.equal(jumpPressIntent({ elapsedMs: 30, distancePx: 0, released: true }), JUMP_PRESS_INTENT.select, "quick click should select");
-assert.equal(jumpPressIntent({ elapsedMs: 60, distancePx: 5 }), JUMP_PRESS_INTENT.move, "screen movement at threshold should move");
-assert.equal(jumpPressIntent({ elapsedMs: JUMP_LINK_HOLD_MS, distancePx: 2, eligible: true }), JUMP_PRESS_INTENT.link, "stationary eligible hold should link");
-assert.equal(jumpPressIntent({ elapsedMs: JUMP_LINK_HOLD_MS, distancePx: 2, eligible: false }), JUMP_PRESS_INTENT.rejected, "stationary ineligible hold should reject");
+assert.equal(jumpPressIntent({ distancePx: 0, released: true }), JUMP_PRESS_INTENT.select, "released below threshold should select");
+assert.equal(jumpPressIntent({ distancePx: 5, canStartLink: true, explicitlyMoveArmed: false }), JUMP_PRESS_INTENT.link, "eligible unarmed movement at threshold should link");
+assert.equal(jumpPressIntent({ distancePx: 5, canStartLink: true, explicitlyMoveArmed: true }), JUMP_PRESS_INTENT.move, "eligible armed movement at threshold should move");
+assert.equal(jumpPressIntent({ distancePx: 5, canStartLink: false, explicitlyMoveArmed: false }), JUMP_PRESS_INTENT.move, "neutral movement at threshold should move");
+assert.equal(jumpPressIntent({ distancePx: 5, canStartLink: false, explicitlyMoveArmed: true }), JUMP_PRESS_INTENT.move, "paired or otherwise ineligible movement at threshold should move");
+assert.equal(jumpPressIntent({ distancePx: 4, canStartLink: true, explicitlyMoveArmed: false }), JUMP_PRESS_INTENT.pending, "below threshold should remain pending until released or dragged");
 
 const baseProject = createProject();
 const baseScene = createScene();
