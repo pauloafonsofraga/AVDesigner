@@ -4453,7 +4453,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.2.5 — Jump Interaction & Legacy Actions — iteration54-2-5-jump-interaction-legacy-actions</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.2.5.1 — Jump Node Play Wire Button — iteration54-2-5-1-jump-node-play-wire-button</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5169,10 +5169,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.2.5";
-    const APP_BUILD_ID = "iteration54-2-5-jump-interaction-legacy-actions";
-    const APP_MODULE_CACHE_ID = "iteration54-2-5-jump-interaction-legacy-actions-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Jump Interaction & Legacy Actions`;
+    const APP_ITERATION = "54.2.5.1";
+    const APP_BUILD_ID = "iteration54-2-5-1-jump-node-play-wire-button";
+    const APP_MODULE_CACHE_ID = "iteration54-2-5-1-jump-node-play-wire-button-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Jump Node Play Wire Button`;
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "f409d0373f783821e981515da660a2476e661959";
     const CANVAS_MIN_ZOOM = 0.03;
@@ -103091,6 +103091,7 @@
       const role = jumpNodeRole(jumpNodeId);
       const localConnection = connectionForJumpNode(jumpNodeId)?.connection || null;
       const seed = portalSeedConnectionForJumpNode(jumpNodeId);
+      const playableConnection = localConnection || seed;
       inspectorBody.innerHTML = `
         <dl class="details">
           <dt>Type</dt><dd>Jump Node</dd>
@@ -103101,6 +103102,7 @@
           <dt>Cable</dt><dd>${escapeHtml(seed ? (cableTypes[seed.cableType]?.label || seed.cableType) : "")}</dd>
         </dl>
         <button class="tool-button" id="jumpToPair" type="button" ${pair ? "" : "disabled"}>Jump to Pair</button>
+        ${playableConnection ? `<button class="tool-button" id="jumpPlayWireTrace" type="button">▶ Play Wire</button>` : ""}
         <button class="danger-button" id="deleteSelected" type="button">Delete Jump Node</button>
       `;
       document.getElementById("jumpToPair")?.addEventListener("click", () => {
@@ -103110,6 +103112,14 @@
           return;
         }
         jumpToJumpNodePair(jumpNodeId);
+      });
+      document.getElementById("jumpPlayWireTrace")?.addEventListener("click", () => {
+        const engineBridge = activeEngineBridge();
+        if (engineBridge?.triggerPlayWireAction) {
+          engineBridge.triggerPlayWireAction(playableConnection.id, { actionSource: "app-inspector-jump-button" });
+          return;
+        }
+        playWireTrace(playableConnection.id);
       });
       document.getElementById("deleteSelected")?.addEventListener("click", () => {
         state.selected = { type: "jump-node", id: jumpNodeId };

@@ -37,7 +37,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-2-5-jump-interaction-legacy-actions";
+const BUILD_ID = "iteration54-2-5-1-jump-node-play-wire-button";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -46,12 +46,12 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Jump Interaction & Legacy Actions");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-2-5-jump-interaction-legacy-actions-modules";'), "module cache key should identify Jump Interaction & Legacy Actions");
-assert.ok(indexHtml.includes("Jump Interaction & Legacy Actions"), "visible build label should name Jump Interaction & Legacy Actions");
-assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Jump Interaction & Legacy Actions");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "jump-interaction-legacy-actions"'), "bridge feature label should identify Jump Interaction & Legacy Actions");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-2-5-jump-interaction-legacy-actions"), "bridge fingerprint should identify Jump Interaction & Legacy Actions");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Jump Node Play Wire Button");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-2-5-1-jump-node-play-wire-button-modules";'), "module cache key should identify Jump Node Play Wire Button");
+assert.ok(indexHtml.includes("Jump Node Play Wire Button"), "visible build label should name Jump Node Play Wire Button");
+assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Jump Node Play Wire Button");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "jump-node-play-wire-button"'), "bridge feature label should identify Jump Node Play Wire Button");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-2-5-1-jump-node-play-wire-button"), "bridge fingerprint should identify Jump Node Play Wire Button");
 assert.ok(rendererSource.includes("renderer-iteration54-2-4-jump-legacy-parity-play-wire"), "unchanged renderer fingerprint should remain on the last renderer iteration");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");
@@ -64,8 +64,11 @@ assert.ok(bridgeSource.includes("triggerJumpToPairAction"), "Engine bridge shoul
 assert.ok(bridgeSource.includes("triggerPlayWireAction"), "Engine bridge should expose one shared Play Wire button action");
 assert.ok(indexHtml.includes("triggerJumpToPairAction(jumpNodeId"), "app Inspector Jump to Pair should delegate to the active Engine bridge");
 assert.ok(indexHtml.includes("triggerPlayWireAction(connectionId"), "app Inspector Play Wire should delegate to the active Engine bridge");
+assert.ok(indexHtml.includes("triggerPlayWireAction(playableConnection.id"), "app Jump Inspector Play Wire should delegate to the active Engine bridge");
 assert.ok(bridgeSource.includes('data-jump-id="${escapeHtml(primaryJump.id)}"'), "Jump to Pair button should carry the active Jump ID");
 assert.ok(bridgeSource.includes('data-wire-id="${escapeHtml(wire.id)}"'), "Play Wire button should carry the active wire ID");
+assert.ok(bridgeSource.includes("playableWireForJumpNode(primaryJump.id)"), "Jump inspector should resolve a playable wire for selected Jump Nodes");
+assert.ok(bridgeSource.includes("data-jump-node-play-wire"), "Jump inspector should render an actual Play Wire button");
 assert.ok(bridgeSource.includes("idleHoverOwner"), "Jump debug snapshot should expose idle hover ownership");
 assert.ok(bridgeSource.includes("connectorHoverSuppressedByJump"), "Jump debug snapshot should expose connector suppression");
 assert.ok(bridgeSource.includes("wireHoverSuppressedByJump"), "Jump debug snapshot should expose wire suppression");

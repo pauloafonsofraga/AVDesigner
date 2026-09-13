@@ -116,9 +116,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-2-5-jump-interaction-legacy-actions";
-export const ENGINE_BRIDGE_VERSION = "iteration54-2-5-jump-interaction-legacy-actions";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-interaction-legacy-actions";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-2-5-1-jump-node-play-wire-button";
+export const ENGINE_BRIDGE_VERSION = "iteration54-2-5-1-jump-node-play-wire-button";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-node-play-wire-button";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -4669,6 +4669,17 @@ class ProductionEngineBridge {
     return { semanticSteps, steps };
   }
 
+  playableWireForJumpNode(jumpId = "") {
+    const id = String(jumpId || "");
+    if (!id) return null;
+    const localWire = this.scene.jumpNodeRole(id)?.localWire || null;
+    if (localWire && localWire.selectable !== false) return localWire;
+    const pairedId = this.scene.pairedJumpId(id);
+    const pairedWire = pairedId ? this.scene.jumpNodeRole(pairedId)?.localWire || null : null;
+    if (pairedWire && pairedWire.selectable !== false) return pairedWire;
+    return null;
+  }
+
   sceneWireForPlaybackId(wireId) {
     const id = String(wireId || "");
     return this.scene.getWire(id)
@@ -6364,6 +6375,7 @@ class ProductionEngineBridge {
       const pairedId = link ? this.scene.pairedJumpId(primaryJump.id) : "";
       const paired = pairedId ? this.scene.getDevice(pairedId) : null;
       const localWire = roleInfo?.localWire || null;
+      const playableWire = this.playableWireForJumpNode(primaryJump.id);
       const center = this.jumpNodeCenter(primaryJump);
       const info = jumpNodeConnectionInfo(this.scene, primaryJump.id);
       this.inspectorPanel.innerHTML = `
@@ -6373,6 +6385,7 @@ class ProductionEngineBridge {
           <input type="text" data-jump-node-name value="${escapeHtml(primaryJump.label || "Jump")}" autocomplete="off" />
         </label>
         ${link && paired ? `<button type="button" class="engine-bridge-action" data-jump-to-pair data-jump-id="${escapeHtml(primaryJump.id)}">Jump to Pair</button>` : ""}
+        ${playableWire ? `<button type="button" class="engine-bridge-action" data-play-wire data-jump-node-play-wire data-wire-id="${escapeHtml(playableWire.id)}">Play Wire</button>` : ""}
         ${link ? `<button type="button" class="engine-bridge-action" data-jump-disconnect>Disconnect Jump Nodes</button>` : ""}
         ${detailsMarkup([
           ["Type", "Jump Node"],
@@ -8441,7 +8454,7 @@ function injectBridgeStyles() {
       top: 116px;
       z-index: 3;
       width: 320px;
-      max-height: min(260px, calc(100% - 660px));
+      max-height: min(260px, calc(100% - 140px));
       overflow: auto;
       padding: 10px;
       border: 1px solid rgba(50,182,255,.35);
