@@ -24,7 +24,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-2-5-1-jump-node-play-wire-button";
+const BUILD_ID = "iteration54-2-5-2-jump-internal-play-wire";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -39,10 +39,10 @@ function sourceSlice(source, startNeedle, endNeedle) {
   return source.slice(start, end);
 }
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.2.5.1");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.2.5.1";'), "visible iteration should be 54.2.5.1");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-2-5-1-jump-node-play-wire-button-modules";'), "module cache key should bust 54.2.5.1 modules");
-assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Iteration 54.2.5.1");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.2.5.2");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.2.5.2";'), "visible iteration should be 54.2.5.2");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-2-5-2-jump-internal-play-wire-modules";'), "module cache key should bust 54.2.5.2 modules");
+assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Iteration 54.2.5.2");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
 assert.ok(classicScripts.length >= 1, "index.html should contain at least one classic script");

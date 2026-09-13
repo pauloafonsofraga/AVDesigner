@@ -4453,7 +4453,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.2.5.1 — Jump Node Play Wire Button — iteration54-2-5-1-jump-node-play-wire-button</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.2.5.2 — Jump Internal Play Wire — iteration54-2-5-2-jump-internal-play-wire</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5169,10 +5169,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.2.5.1";
-    const APP_BUILD_ID = "iteration54-2-5-1-jump-node-play-wire-button";
-    const APP_MODULE_CACHE_ID = "iteration54-2-5-1-jump-node-play-wire-button-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Jump Node Play Wire Button`;
+    const APP_ITERATION = "54.2.5.2";
+    const APP_BUILD_ID = "iteration54-2-5-2-jump-internal-play-wire";
+    const APP_MODULE_CACHE_ID = "iteration54-2-5-2-jump-internal-play-wire-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Jump Internal Play Wire`;
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "f409d0373f783821e981515da660a2476e661959";
     const CANVAS_MIN_ZOOM = 0.03;
@@ -98956,6 +98956,48 @@
       next();
     }
 
+    function playJumpNodeInternalWireTrace(jumpNodeId) {
+      const link = jumpLinkForJumpNode(jumpNodeId);
+      if (!link) return;
+      const from = pointForJumpNode(link.outputJumpId);
+      const to = pointForJumpNode(link.inputJumpId);
+      const d = bezierPath(from, to);
+      clearWireTrace();
+      focusTraceCamera(from);
+      renderCanvasOnly();
+      const trace = makeWireTracePath(d);
+      if (!trace.length) {
+        trace.path.remove();
+        return;
+      }
+      const dot = createSvg("circle", {
+        class: "wire-trace-dot",
+        r: 8,
+        fill: "#fb7904",
+        stroke: "#32b6ff",
+        "stroke-width": 3
+      });
+      wiresLayer.appendChild(dot);
+      const duration = Math.max(650, Math.min(4500, trace.length * 4.6));
+      let start = 0;
+      function step(now) {
+        if (!start) start = now;
+        const t = Math.min(1, (now - start) / duration);
+        const eased = t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        const point = trace.path.getPointAtLength(trace.length * eased);
+        dot.setAttribute("cx", point.x);
+        dot.setAttribute("cy", point.y);
+        focusTraceCamera(point);
+        if (t < 1) {
+          wireTraceAnimationFrame = requestAnimationFrame(step);
+          return;
+        }
+        trace.path.remove();
+        setTimeout(clearWireTrace, 350);
+      }
+      wireTraceAnimationFrame = requestAnimationFrame(step);
+    }
+
     function handleCommentToolClick(event, options = {}) {
       recordDebug(commentDraft ? "comment second point" : "comment first point", event);
       if (event.button !== undefined && event.button !== 0) return;
@@ -103091,7 +103133,7 @@
       const role = jumpNodeRole(jumpNodeId);
       const localConnection = connectionForJumpNode(jumpNodeId)?.connection || null;
       const seed = portalSeedConnectionForJumpNode(jumpNodeId);
-      const playableConnection = localConnection || seed;
+      const jumpLink = jumpLinkForJumpNode(jumpNodeId);
       inspectorBody.innerHTML = `
         <dl class="details">
           <dt>Type</dt><dd>Jump Node</dd>
@@ -103102,7 +103144,7 @@
           <dt>Cable</dt><dd>${escapeHtml(seed ? (cableTypes[seed.cableType]?.label || seed.cableType) : "")}</dd>
         </dl>
         <button class="tool-button" id="jumpToPair" type="button" ${pair ? "" : "disabled"}>Jump to Pair</button>
-        ${playableConnection ? `<button class="tool-button" id="jumpPlayWireTrace" type="button">▶ Play Wire</button>` : ""}
+        ${jumpLink && pair ? `<button class="tool-button" id="jumpPlayWireTrace" type="button" data-jump-node-play-wire data-jump-id="${escapeAttr(jumpNodeId)}" data-jump-link-id="${escapeAttr(jumpLink.id)}">▶ Play Wire</button>` : ""}
         <button class="danger-button" id="deleteSelected" type="button">Delete Jump Node</button>
       `;
       document.getElementById("jumpToPair")?.addEventListener("click", () => {
@@ -103115,11 +103157,11 @@
       });
       document.getElementById("jumpPlayWireTrace")?.addEventListener("click", () => {
         const engineBridge = activeEngineBridge();
-        if (engineBridge?.triggerPlayWireAction) {
-          engineBridge.triggerPlayWireAction(playableConnection.id, { actionSource: "app-inspector-jump-button" });
+        if (engineBridge?.triggerJumpNodePlayWireAction) {
+          engineBridge.triggerJumpNodePlayWireAction(jumpNodeId, { actionSource: "app-inspector-jump-button" });
           return;
         }
-        playWireTrace(playableConnection.id);
+        playJumpNodeInternalWireTrace(jumpNodeId);
       });
       document.getElementById("deleteSelected")?.addEventListener("click", () => {
         state.selected = { type: "jump-node", id: jumpNodeId };
@@ -105267,7 +105309,7 @@ if(selected.type==="rack"){const r=rackById(selected.id),source=sourceRackForRac
 if(selected.type==="device"){const inst=instanceById(selected.id),t=templateForInstance(inst);inspect.innerHTML=rows([["Type",deviceTypeInspectorLabel(t)],["Brand",deviceBrandLabel(t)],["Name",inst.name||t.name||"Device"],["Power",formatPowerPair(devicePowerWatts(inst))],["Notes",inst.notes||""]])+'<div class="inspector-actions"><button class="tool-button" id="viewerDeviceTechSpecs" type="button">Device Tech Specs</button></div>'+connectedNodesHtml(inst,t);bindConnectedNodesHtml();const specsButton=document.getElementById("viewerDeviceTechSpecs");if(specsButton)specsButton.onclick=()=>alert((t&&String(t.techSpecs||"").trim())||"No technical specifications are stored for this device yet.");return}
 if(selected.type==="connector"){renderConnectorInspector(selected.deviceId,selected.connectorId);return}
 if(selected.type==="wire"){const w=(data.connections||[]).find(x=>x.id===selected.id);if(!w)return;inspect.innerHTML='<div class="inspector-actions"><button class="tool-button" id="playWireTrace" type="button">▶ Play Wire</button></div>'+rows([["Type","Wire"],["Label",w.label||""],["Length",w.length||""],["Cable",((cableTypes[w.cableType]||{}).label)||w.cableType],["Direction",((cableTypes[w.cableType]||{}).direction)||""],["Fiber Type",fiberTypes.has(w.cableType)?(w.fiberMode||DEFAULT_FIBER_MODE):""],["From",endpointLabel(w.from)],["To",endpointLabel(w.to)],["Notes",w.notes||""]]);document.getElementById("playWireTrace").onclick=()=>playWireTrace(w.id);return}
-if(selected.type==="jump-node"){const node=jumpNodeById(selected.id),pair=pairedJumpNode(selected.id),role=jumpNodeRole(selected.id),local=connectionForJumpNode(selected.id),pairWire=pair&&connectionForJumpNode(pair.id);if(!node)return;inspect.innerHTML=rows([["Type","Jump Node"],["Name",node.label||"Jump Node"],["Role",role.role==="output"?"Output":role.role==="input"?"Input":"Neutral"],["Paired With",pair&&pair.label||"Not paired"],["Status",local?"Connected":pairWire?"Ready for continuation":"Waiting for cable"],["Cable",local?((cableTypes[local.connection.cableType]||{}).label||local.connection.cableType):pairWire?((cableTypes[pairWire.connection.cableType]||{}).label||pairWire.connection.cableType):""]]);return}
+if(selected.type==="jump-node"){const node=jumpNodeById(selected.id),pair=pairedJumpNode(selected.id),role=jumpNodeRole(selected.id),local=connectionForJumpNode(selected.id),pairWire=pair&&connectionForJumpNode(pair.id),link=jumpLinkForJumpNode(selected.id);if(!node)return;inspect.innerHTML=rows([["Type","Jump Node"],["Name",node.label||"Jump Node"],["Role",role.role==="output"?"Output":role.role==="input"?"Input":"Neutral"],["Paired With",pair&&pair.label||"Not paired"],["Status",local?"Connected":pairWire?"Ready for continuation":"Waiting for cable"],["Cable",local?((cableTypes[local.connection.cableType]||{}).label||local.connection.cableType):pairWire?((cableTypes[pairWire.connection.cableType]||{}).label||pairWire.connection.cableType):""]])+(link&&pair?'<div class="inspector-actions"><button class="tool-button" id="jumpPlayWireTrace" type="button">▶ Play Wire</button></div>':"");const playButton=document.getElementById("jumpPlayWireTrace");if(playButton)playButton.onclick=()=>playJumpNodeInternalWireTrace(selected.id);return}
 if(selected.type==="led-surface"){const su=surfaceById(selected.id);inspect.innerHTML=rows([["Type","LED Screen"],["Name",su.name||""],["Position",Math.round(su.x)+", "+Math.round(su.y)],["Size",Math.round(su.width)+" x "+Math.round(su.height)]]);return}
 if(selected.type==="area"){const a=(data.areas||[]).find(x=>x.id===selected.id);inspect.innerHTML=rows([["Type","Area / Room"],["Name",a.name||""],["Position",Math.round(a.x)+", "+Math.round(a.y)],["Size",Math.round(a.width)+" x "+Math.round(a.height)]]);return}
 if(selected.type==="comment"){const c=(data.comments||[]).find(x=>x.id===selected.id);inspect.innerHTML=rows([["Type","Comment"],["Label",c.title||""],["Text",c.text||""],["Position",Math.round(c.x)+", "+Math.round(c.y)]]);return}
@@ -105288,6 +105330,7 @@ function clearWireTrace(){if(window.__wireTraceAnimation)cancelAnimationFrame(wi
 function makeTracePath(d){const path=s("path",{class:"wire-trace-path",d:d});wireLayer.appendChild(path);let length=0;try{length=path.getTotalLength()}catch(e){length=0}return{path,length}}
 function animateTraceSegment(segment,dot,done){if(!segment||!segment.wire){done&&done();return}const pts=wireEndpoints(segment.wire),d=pathForConnection(segment.wire,pts),trace=makeTracePath(d);wireLayer.appendChild(dot);if(!trace.length){trace.path.remove();done&&done();return}const duration=Math.max(650,Math.min(4500,trace.length*4.6));let start=0;function step(now){if(!start)start=now;const t=Math.min(1,(now-start)/duration),ease=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2,dist=segment.reverse?trace.length*(1-ease):trace.length*ease,pt=trace.path.getPointAtLength(dist);dot.setAttribute("cx",pt.x);dot.setAttribute("cy",pt.y);focusTraceCamera(pt);if(t<1){window.__wireTraceAnimation=requestAnimationFrame(step);return}trace.path.remove();done&&done()}window.__wireTraceAnimation=requestAnimationFrame(step)}
 function playWireTrace(wireId){const w=(data.connections||[]).find(item=>item.id===wireId);if(!w)return;clearWireTrace();const sequence=wireTraceSequence(w);if(!sequence.length)return;const first=sequence.find(item=>item.type!=="teleport"&&item.wire);if(!first)return;const firstPts=wireEndpoints(first.wire);focusTraceCamera(first.reverse?firstPts.to:firstPts.from);render();const dot=s("circle",{class:"wire-trace-dot",r:8,fill:"#fb7904",stroke:"#32b6ff","stroke-width":3});wireLayer.appendChild(dot);let index=0;function next(){if(index>=sequence.length){setTimeout(clearWireTrace,350);return}const segment=sequence[index++];if(segment.type==="teleport"){const p=pointForJumpNode(segment.toJumpId);dot.setAttribute("cx",p.x);dot.setAttribute("cy",p.y);focusTraceCamera(p);setTimeout(next,0);return}animateTraceSegment(segment,dot,()=>setTimeout(next,0))}next()}
+function playJumpNodeInternalWireTrace(jumpNodeId){const link=jumpLinkForJumpNode(jumpNodeId);if(!link)return;const from=pointForJumpNode(link.outputJumpId),to=pointForJumpNode(link.inputJumpId),points=viewerBezierPolyline(from,to,VIEWER_BEZIER_STEPS),d=pointsToPath(points);if(!d)return;clearWireTrace();focusTraceCamera(from);render();const trace=makeTracePath(d);if(!trace.length){trace.path.remove();return}const dot=s("circle",{class:"wire-trace-dot",r:8,fill:"#fb7904",stroke:"#32b6ff","stroke-width":3});wireLayer.appendChild(dot);const duration=Math.max(650,Math.min(4500,trace.length*4.6));let start=0;function step(now){if(!start)start=now;const t=Math.min(1,(now-start)/duration),ease=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2,pt=trace.path.getPointAtLength(trace.length*ease);dot.setAttribute("cx",pt.x);dot.setAttribute("cy",pt.y);focusTraceCamera(pt);if(t<1){window.__wireTraceAnimation=requestAnimationFrame(step);return}trace.path.remove();setTimeout(clearWireTrace,350)}window.__wireTraceAnimation=requestAnimationFrame(step)}
 function normalizeCableLength(value){const text=String(value||"").trim();if(!text)return"Unspecified";const compact=text.toLowerCase().replace(",",".").replace(/[ \t]+/g," ");const format=(amount,unit)=>{const rounded=Math.round(amount*1000)/1000;const formatted=Number.isInteger(rounded)?String(rounded):String(rounded).replace(/([.][0-9]*?)0+$/,"$1").replace(/[.]$/,"");return formatted+unit};const numberPart="([0-9]+(?:[.][0-9]+)?)";const metric=new RegExp("^"+numberPart+" *(mm|millimeter|millimeters|millimetre|millimetres|cm|centimeter|centimeters|centimetre|centimetres|m|meter|meters|metre|metres|km|kilometer|kilometers|kilometre|kilometres)$").exec(compact);if(metric){const amount=Number(metric[1]),unit=metric[2],meters=unit.startsWith("mm")||unit.startsWith("milli")?amount/1000:unit.startsWith("cm")||unit.startsWith("centi")?amount/100:unit.startsWith("km")||unit.startsWith("kilo")?amount*1000:amount;return format(meters,"m")}const imperial=new RegExp("^"+numberPart+" *(in|inch|inches|"+String.fromCharCode(34)+"|ft|foot|feet|'|yd|yard|yards)$").exec(compact);if(imperial){const amount=Number(imperial[1]),unit=imperial[2],feet=unit==="in"||unit==="inch"||unit==="inches"||unit===String.fromCharCode(34)?amount/12:unit==="yd"||unit==="yard"||unit==="yards"?amount*3:amount;return format(feet,"ft")}return text}
 function reportTable(columns,rows,emptyText){if(!rows||!rows.length)return'<p class="report-empty">'+h(emptyText)+'</p>';return'<table><thead><tr>'+columns.map(c=>'<th>'+h(c.label)+'</th>').join("")+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+columns.map(c=>'<td>'+h(row[c.key]??"")+'</td>').join("")+'</tr>').join("")+'</tbody></table>'}
 function reportCableTable(rows,emptyText){if(!rows||!rows.length)return'<p class="report-empty">'+h(emptyText)+'</p>';return'<table class="report-clickable-table"><thead><tr><th>Qty</th><th>Cable Type</th><th>Length</th></tr></thead><tbody>'+rows.map(row=>'<tr data-report-cable-type="'+h(row.typeId||"")+'" data-report-cable-length="'+h(row.length||"")+'"><td>'+h(row.quantity??"")+'</td><td>'+h(row.type??"")+'</td><td>'+h(row.length??"")+'</td></tr>').join("")+'</tbody></table>'}
