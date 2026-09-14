@@ -36,6 +36,7 @@ import {
   pointInScreenRect
 } from "./legacyZoomDetail.js";
 import {
+  connectorIsNotWorking,
   connectorRelationshipState,
   connectorVisualAnchors,
   isV2Connector,
@@ -55,7 +56,7 @@ import {
 } from "./jumpNodeModel.js";
 import { wirePlaybackEase } from "./wirePlayback.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-2-5-5-jump-portal-nodes";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-3-connector-operational-status";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -66,6 +67,7 @@ const GRID_MINOR = "rgba(255,255,255,.055)";
 const GRID_MAJOR = "rgba(255,255,255,.12)";
 const ROUTE_POINT_COLOR = "#ff7904";
 const FALLBACK_WIRE_COLOR = "#ff4f5f";
+const CONNECTOR_NOT_WORKING_COLOR = "#ff4f5f";
 const REAL_ENDPOINT_WIRE_COLOR = "#32b6ff";
 const ROUTED_WIRE_COLOR = "#ff7904";
 const WIRE_BASE_WIDTH = 4.6;
@@ -2559,6 +2561,28 @@ function pushConnectorNode(vertices, point, connector = {}, device = {}, options
   if (segments?.length > 1) pushSegmentedCircle(vertices, point, radius, segments, opacity);
   else pushCircle(vertices, point, radius, colorWithOpacity(fill, opacity), 20);
   pushCircleOutline(vertices, point, radius + strokeWidth * 1.2, Math.max(1.1, strokeWidth * 0.55), colorWithOpacity("rgba(0,0,0,.45)", opacity), 20);
+  pushConnectorNotWorkingMark(vertices, point, connector, device, camera);
+}
+
+export function connectorOperationalStatusMarkSegments(point = {}, radius = CONNECTOR_RADIUS) {
+  const x = Number(point.x) || 0;
+  const y = Number(point.y) || 0;
+  const arm = Math.max(7, Number(radius) || CONNECTOR_RADIUS) * 1.28;
+  return [
+    [{ x: x - arm, y: y - arm }, { x: x + arm, y: y + arm }],
+    [{ x: x - arm, y: y + arm }, { x: x + arm, y: y - arm }]
+  ];
+}
+
+function pushConnectorNotWorkingMark(vertices, point, connector = {}, device = {}, camera = null) {
+  if (!connectorIsNotWorking(connector)) return 0;
+  const opacity = Math.max(0.12, Math.min(1, Number(connector.__renderOpacity ?? connector.renderOpacity ?? 1) || 1));
+  const radius = connectorVisualRadius(device, camera);
+  const stroke = Math.max(1.15, connectorVisualStrokeWidth(device, camera) * 0.72);
+  connectorOperationalStatusMarkSegments(point, radius).forEach(([from, to]) => {
+    pushLine(vertices, from, to, stroke, colorWithOpacity(CONNECTOR_NOT_WORKING_COLOR, opacity));
+  });
+  return 2;
 }
 
 function pushSegmentedCircle(vertices, point, radius, colors, opacity = 1) {

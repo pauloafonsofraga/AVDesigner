@@ -894,6 +894,7 @@ function rawDeviceFromSceneDevice(device) {
         installedModuleType: connector.installedModuleType || "",
         installedModuleId: connector.installedModuleId || "",
         installedModuleName: connector.installedModuleName || "",
+        operationalStatus: connector.operationalStatus || "working",
         empty: false
       }))
     }

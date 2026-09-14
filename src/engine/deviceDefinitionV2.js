@@ -15,6 +15,10 @@ export const V2_SUGGESTED_BIDIRECTIONAL_TYPES = new Set([
 ]);
 
 const RELATION_TYPES = new Set(["mirrored", "exclusive", "through"]);
+export const CONNECTOR_OPERATIONAL_STATUS = Object.freeze({
+  working: "working",
+  notWorking: "not-working"
+});
 
 export function deviceDefinitionVersion(definition = {}) {
   const raw = Number(definition?.schemaVersion || definition?.deviceDefinitionVersion || 1);
@@ -29,8 +33,20 @@ export function isDeviceDefinitionV2(definition = {}) {
 
 export function isV2Connector(connector = {}) {
   return Number(connector?.schemaVersion || 0) >= DEVICE_DEFINITION_SCHEMA_VERSION
-    || Boolean(connector?.physicalType || connector?.connectorType || connector?.signalDirection || connector?.displaySide)
+    || Boolean(connector?.physicalType || connector?.connectorType || connector?.signalDirection || connector?.displaySide || connector?.operationalStatus)
     || Array.isArray(connector?.anchors);
+}
+
+export function normalizeConnectorOperationalStatus(value = CONNECTOR_OPERATIONAL_STATUS.working) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw === CONNECTOR_OPERATIONAL_STATUS.notWorking || raw === "not_working" || raw === "not working" || raw === "broken" || raw === "faulty") {
+    return CONNECTOR_OPERATIONAL_STATUS.notWorking;
+  }
+  return CONNECTOR_OPERATIONAL_STATUS.working;
+}
+
+export function connectorIsNotWorking(connector = {}) {
+  return normalizeConnectorOperationalStatus(connector?.operationalStatus) === CONNECTOR_OPERATIONAL_STATUS.notWorking;
 }
 
 export function normalizePhysicalConnectorType(connector = {}) {
@@ -154,6 +170,7 @@ export function normalizeConnectorTopology(connector = {}, options = {}) {
     displaySide,
     anchors,
     primaryAnchorId: primaryAnchor?.id || "",
+    operationalStatus: normalizeConnectorOperationalStatus(connector.operationalStatus),
     moduleCapability: normalizeOptionalObject(connector.moduleCapability),
     fiberCapability: normalizeOptionalObject(connector.fiberCapability),
     powerMetadata: normalizeOptionalObject(connector.powerMetadata)

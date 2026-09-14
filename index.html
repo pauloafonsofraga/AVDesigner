@@ -4453,7 +4453,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.2.5.7 — Playback 100% Zoom — iteration54-2-5-7-playback-100-zoom</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.3 — Connector Operational Status — iteration54-3-connector-operational-status</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5169,10 +5169,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.2.5.7";
-    const APP_BUILD_ID = "iteration54-2-5-7-playback-100-zoom";
-    const APP_MODULE_CACHE_ID = "iteration54-2-5-7-playback-100-zoom-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Playback 100% Zoom`;
+    const APP_ITERATION = "54.3";
+    const APP_BUILD_ID = "iteration54-3-connector-operational-status";
+    const APP_MODULE_CACHE_ID = "iteration54-3-connector-operational-status-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Connector Operational Status`;
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "f409d0373f783821e981515da660a2476e661959";
     const CANVAS_MIN_ZOOM = 0.03;
@@ -78711,6 +78711,7 @@
       "displaySide",
       "anchors",
       "primaryAnchorId",
+      "operationalStatus",
       "infoFields",
       "moduleCapability",
       "fiberCapability",
@@ -81917,8 +81918,18 @@
 
     function isEditorV2ConnectorCandidate(connector = {}) {
       return Number(connector?.schemaVersion || 0) >= EDITOR_DEVICE_DEFINITION_SCHEMA_VERSION
-        || Boolean(connector?.physicalType || connector?.connectorType || connector?.signalDirection || connector?.displaySide)
+        || Boolean(connector?.physicalType || connector?.connectorType || connector?.signalDirection || connector?.displaySide || connector?.operationalStatus)
         || Array.isArray(connector?.anchors);
+    }
+
+    function normalizeEditorConnectorOperationalStatus(value = "working") {
+      const raw = String(value || "").trim().toLowerCase();
+      if (raw === "not-working" || raw === "not_working" || raw === "not working" || raw === "broken" || raw === "faulty") return "not-working";
+      return "working";
+    }
+
+    function editorConnectorIsNotWorking(connector = {}) {
+      return normalizeEditorConnectorOperationalStatus(connector?.operationalStatus) === "not-working";
     }
 
     function normalizeEditorPhysicalConnectorType(connector = {}) {
@@ -82045,6 +82056,7 @@
       const physicalType = normalizeEditorPhysicalConnectorType(connector);
       connector.physicalType = physicalType;
       connector.connectorType = String(connector.connectorType || physicalType || connector.type || "").trim();
+      connector.operationalStatus = normalizeEditorConnectorOperationalStatus(connector.operationalStatus);
       const effectiveType = effectiveConnectorType(connector) || connector.type || physicalType;
       const suggestedBidirectional = EDITOR_V2_SUGGESTED_BIDIRECTIONAL_TYPES.has(effectiveType);
       const wasLegacyPaired = Boolean(connector.pairedConnectorId || connector.networkGroupId || connector.ethernetGroupId);
@@ -87424,6 +87436,15 @@
       const displaySide = normalizeEditorDisplaySide(connector.displaySide, connector.direction, connector.x, deviceTemplateWidth(template));
       const signalDirection = normalizeEditorSignalDirection(connector.signalDirection, connector.direction);
       const fields = connector.empty || !connector.type ? [] : connectorInfoFields(connector);
+      const statusSection = connector.empty || !connector.type ? "" : `
+        <div class="connector-inspector-section">
+          <h4 class="connector-inspector-heading">Status</h4>
+          <label class="checkbox-row">
+            <input id="selectedConnectorNotWorking" type="checkbox" ${editorConnectorIsNotWorking(connector) ? "checked" : ""}>
+            Not working
+          </label>
+        </div>
+      `;
       const fieldSection = fields.length ? `
         <div class="connector-inspector-section">
           <h4 class="connector-inspector-heading">Fields</h4>
@@ -87518,6 +87539,7 @@
             </div>
           </div>
         </div>
+        ${statusSection}
         ${fieldSection}
         ${moduleSection}
         ${fiberSection}
@@ -87542,6 +87564,13 @@
         renderSelectedConnectorSettings();
         renderConnectorRelationshipsPanel();
         renderDeviceEditorPreview();
+        renderDeviceAuthoringDebugPanel();
+      });
+      const notWorkingControl = selectedConnectorSettings.querySelector("#selectedConnectorNotWorking");
+      notWorkingControl?.addEventListener("change", event => {
+        connector.operationalStatus = event.target.checked ? "not-working" : "working";
+        ensureConnectorV2Defaults(template, connector, connectorIndex);
+        renderDeviceEditorPreview({ refreshTexture: false });
         renderDeviceAuthoringDebugPanel();
       });
       selectedConnectorSettings.querySelectorAll("[data-connector-signal-direction]").forEach(control => {
@@ -89319,7 +89348,7 @@
       });
     }
 
-    function renderDeviceEditorEnginePreview(template) {
+    function renderDeviceEditorEnginePreview(template, options = {}) {
       validateDraftDefaults(template);
       if (!template.isPowerDistro || template.faceImage || template.faceplateDeleted) {
         editorSelectedFaceplate = false;
@@ -89329,7 +89358,7 @@
       updateEditorFaceplatePreviewControls(template);
       const previewDevice = syncDeviceEditorEnginePreview(template, {
         fit: !editorEnginePreviewDraftSynced || editorEnginePreviewFitPending,
-        refreshTexture: editorNodeDrag ? false : true
+        refreshTexture: options.refreshTexture === false ? false : editorNodeDrag ? false : true
       });
       editorEnginePreviewFitPending = false;
       deviceEditorPreview.innerHTML = "";
@@ -90629,7 +90658,7 @@
       }
     }
 
-    function renderDeviceEditorPreview() {
+    function renderDeviceEditorPreview(options = {}) {
       const template = currentEditorTemplate();
       if (!template) return;
       if (editorActiveTab === "racks") {
@@ -90637,7 +90666,7 @@
         return;
       }
       if (deviceEditorUsesEnginePreview()) {
-        renderDeviceEditorEnginePreview(template);
+        renderDeviceEditorEnginePreview(template, options);
         return;
       }
       editorEnginePreviewLegacyVisualDraws += 1;
@@ -95957,6 +95986,26 @@
       }));
     }
 
+    function drawConnectorNotWorkingMark(parent, x, y, radius = 7, detailScale = 1) {
+      const arm = Math.max(7, Number(radius) || 7) * 1.28;
+      const strokeWidth = Math.max(1.2, 1.55 * detailScale);
+      [
+        [x - arm, y - arm, x + arm, y + arm],
+        [x - arm, y + arm, x + arm, y - arm]
+      ].forEach(([x1, y1, x2, y2]) => {
+        parent.appendChild(createSvg("line", {
+          x1,
+          y1,
+          x2,
+          y2,
+          stroke: "#ff4f5f",
+          "stroke-width": strokeWidth,
+          "stroke-linecap": "round",
+          "pointer-events": "none"
+        }));
+      });
+    }
+
     function drawConnector(group, instance, connector) {
       const template = templateForInstance(instance);
       const detailScale = canvasDetailScale();
@@ -95990,6 +96039,9 @@
           fill: colorForConnector(connector, instance.instanceId),
           style: `stroke-width:${2 * detailScale}px`
         }));
+      }
+      if (editorConnectorIsNotWorking(connector)) {
+        drawConnectorNotWorkingMark(connectorGroup, connector.x, connector.y, nodeRadius, detailScale);
       }
 
       connectorGroup.appendChild(createSvg("circle", {
@@ -105159,7 +105211,7 @@ function cardBandGeometry(template,slot){const card=cardTypeById(template,slot.i
 function cardCaptionTextColorExport(card){return card&&card.captionTextColor||"#fff"}
 function cardCaptionBackgroundColorExport(card){return card&&card.captionBackgroundColor||"#17212b"}
 function drawCardCaptionExport(parent,text,x,y,card,maxWidth){const width=Math.max(64,Number(maxWidth)||DEVICE_WIDTH-28);let fontSize=Math.min(16,SLOT_HEIGHT*.62);const estimated=estimateTextWidthExport(text,fontSize)+18;if(estimated>width)fontSize=Math.max(8,fontSize*(width-14)/Math.max(1,estimated));const height=Math.max(18,fontSize+8);parent.appendChild(s("rect",{x:x-width/2,y:y-fontSize+1,width,height,rx:4,fill:cardCaptionBackgroundColorExport(card),opacity:.92,"pointer-events":"none"}));const caption=s("text",{x,y,fill:cardCaptionTextColorExport(card),"font-size":fontSize,"font-weight":800,"text-anchor":"middle","paint-order":"stroke fill",stroke:"rgba(0,0,0,.92)","stroke-width":5,"stroke-linejoin":"round","pointer-events":"none"});caption.textContent=text;parent.appendChild(caption)}
-const CARD_SLOT_OVERRIDE_FIELDS=["nameText","nameCustom","resolutionFrameRate","customText","nameTextCaption","resolutionFrameRateCaption","customTextCaption","includeInMatrix","matrixPortTouched","fiberMode","customColor","installedModuleType","schemaVersion","physicalType","connectorType","signalDirection","displaySide","anchors","primaryAnchorId","infoFields","moduleCapability","fiberCapability","powerMetadata"];
+const CARD_SLOT_OVERRIDE_FIELDS=["nameText","nameCustom","resolutionFrameRate","customText","nameTextCaption","resolutionFrameRateCaption","customTextCaption","includeInMatrix","matrixPortTouched","fiberMode","customColor","installedModuleType","schemaVersion","physicalType","connectorType","signalDirection","displaySide","anchors","primaryAnchorId","operationalStatus","infoFields","moduleCapability","fiberCapability","powerMetadata"];
 function hasOwn(o,k){return Object.prototype.hasOwnProperty.call(o||{},k)}
 function generatedCardConnectors(template){if(!template||!template.hasSwappableCards)return[];const list=[];(template.cardSlots||[]).forEach(slot=>{const card=cardTypeById(template,slot.installedCardTypeId);if(!card)return;const counts={input:0,output:0};const overrides=slot.connectorOverrides&&typeof slot.connectorOverrides==="object"?slot.connectorOverrides:{};(card.connectors||[]).filter(c=>!c.empty&&c.type).forEach(conn=>{const merged={...conn};const override=overrides[conn.id]||{};CARD_SLOT_OVERRIDE_FIELDS.forEach(field=>{if(hasOwn(override,field))merged[field]=override[field]});const side=merged.direction==="input"?"input":"output";const idx=counts[side]++;list.push({...merged,id:slot.id+"__"+conn.id,sourceConnectorId:conn.id,cardSlotId:slot.id,cardTypeId:card.id,generatedFromCard:true,label:merged.label||((cableTypes[merged.type]||{}).label)||card.name,direction:side,x:side==="input"?0:DEVICE_WIDTH,y:(Number(slot.y)||CONNECTOR_START_Y)+SLOT_HEIGHT+idx*SLOT_HEIGHT})})});return list}
 function effectiveConnectors(template){return[...((template&&template.connectors)||[]),...generatedCardConnectors(template)]}
@@ -105180,6 +105232,9 @@ function connectionColor(w){if(w.cableType==="led-signal")return signalLineColor
 function connectionColorSegments(w){if(!w||w.customColor||w.cableType==="led-signal"||fiberTypes.has(w.cableType))return null;return cableColorSegments(w.cableType)}
 function connectorColor(connector,deviceId){if(connector.type==="led-signal")return signalLineColor(connector.signalIndex);if(cageTypesStandalone.has(connector.type)&&!connector.installedModuleType)return"#778492";const activeType=activeTypeForConnector(connector)||connector.type;if(fiberTypes.has(activeType))return cableColor(activeType,fiberModeForEndpoint(deviceId,connector.id));if(activeType==="misc"&&connector.customColor)return connector.customColor;return cableColor(activeType)}
 function connectorColorSegments(connector){if(!connector||cageTypesStandalone.has(connector.type)&&!connector.installedModuleType)return null;return cableColorSegments(activeTypeForConnector(connector)||connector.type)}
+function connectorOperationalStatus(connector){const raw=String(connector&&connector.operationalStatus||"working").trim().toLowerCase();return raw==="not-working"||raw==="not_working"||raw==="not working"||raw==="broken"||raw==="faulty"?"not-working":"working"}
+function connectorNotWorking(connector){return connectorOperationalStatus(connector)==="not-working"}
+function drawConnectorNotWorkingMark(g,x,y,r){const arm=Math.max(7,Number(r)||7)*1.28;[[x-arm,y-arm,x+arm,y+arm],[x-arm,y+arm,x+arm,y-arm]].forEach(p=>g.appendChild(s("line",{x1:p[0],y1:p[1],x2:p[2],y2:p[3],stroke:"#ff4f5f","stroke-width":1.55,"stroke-linecap":"round","pointer-events":"none"})))}
 const pairedNetworkTypesStandalone=new Set(["cat5e","cat6","cat6a","ethercon","sfp-cage","sfp-plus-cage","qsfp-cage","ethernet"]);
 const cageTypesStandalone=new Set(["sfp-cage","sfp-plus-cage","qsfp-cage"]);
 function connectorLabel(connector){if(connector&&cageTypesStandalone.has(connector.type)){const cageLabel=(cableTypes[connector.type]||{}).label||connector.type,module=transceiverModuleOption(connector.installedModuleType);return module.activeType?cageLabel+" / "+module.label:cageLabel+" Empty"}if(connector&&connector.generatedByEthernetSwitch&&connector.label)return connector.label;const activeType=activeTypeForConnector(connector)||connector&&connector.type;return activeType?((cableTypes[activeType]||{}).label||activeType):connector&&connector.label||"Connector"}
@@ -105313,7 +105368,7 @@ function drawPowerPlugImage(g,p){const m=powerPlugTypes[p.c&&p.c.type]||{},crop=
 function drawPowerFace(g,t){if(!t||!t.isPowerDistro||t.faceImage||t.faceplateDeleted)return false;const r=powerFaceRect(t);g.appendChild(s("rect",{class:"device-face power-distro-face",x:r.x,y:r.y,width:r.width,height:r.height,rx:5}));powerPlugLayout(t).forEach(p=>drawPowerPlugImage(g,p));return true}
 function drawDevice(g,inst,t){if(isAdapterTemplate(t)){const w=Number(t.width)||ADAPTER_WIDTH,h=Number(t.height)||76;g.appendChild(s("rect",{class:"adapter-outline",width:w,height:h,rx:6,fill:"#32b6ff","fill-opacity":.08,stroke:"#32b6ff","stroke-opacity":.72}));drawAdapterInternalWires(g,t,inst);const label=s("text",{class:"adapter-label",x:w/2,y:-5,"dominant-baseline":"auto"});label.textContent=inst.name||t.name||"Adapter / Breakout";g.appendChild(label);effectiveConnectors(t).filter(c=>!c.empty&&!connectorHidden(inst,c)).forEach(c=>drawConnector(g,inst,c));return}g.appendChild(s("rect",{class:"device-outline",width:t.width||DEVICE_WIDTH,height:t.height||190,rx:8}));if(t.faceImage){const face=facePlacement(t);g.appendChild(s("image",{href:t.faceImage,x:face.x,y:face.y,width:face.width,height:face.height,preserveAspectRatio:"xMidYMid meet"}))}else if(drawPowerFace(g,t)){}else if(!t.faceplateDeleted){g.appendChild(s("rect",{class:"device-face",x:FACE_MARGIN,y:FACE_TOP_Y,width:(t.width||DEVICE_WIDTH)-FACE_MARGIN*2,height:FACE_HEIGHT,rx:5}));g.appendChild(s("rect",{class:"device-screen",x:24,y:FACE_TOP_Y+10,width:76,height:34,rx:4}));[0,1,2,3,4,5].forEach(i=>g.appendChild(s("circle",{cx:128+i*18,cy:FACE_TOP_Y+24,r:3.3,fill:i%2?"#fb7904":"#32b6ff"})))};(t.cardSlots||[]).forEach(slot=>{const card=cardTypeById(t,slot.installedCardTypeId);const band=cardBandGeometry(t,slot);g.appendChild(s("rect",{class:"card-band",x:band.x,y:band.y,width:band.width,height:band.height,rx:6}));drawCardCaptionExport(g,card&&card.name||"Empty",band.textX,(Number(slot.y)||CONNECTOR_START_Y)+3,card,band.width-12)});effectiveConnectors(t).filter(c=>!c.empty&&!connectorHidden(inst,c)).forEach(c=>drawConnector(g,inst,c));const label=s("text",{class:"device-label",x:20,y:22});label.textContent=inst.name||t.name||"Device";g.appendChild(label)}
 function drawSegmentedConnectorNode(g,x,y,r,colors){const clip="connector-node-export-clip-"+clipSeq++,defs=s("defs"),cp=s("clipPath",{id:clip});cp.appendChild(s("circle",{cx:x,cy:y,r:r}));defs.appendChild(cp);g.appendChild(defs);const step=r*2/colors.length;colors.forEach((color,i)=>g.appendChild(s("rect",{x:x-r+i*step,y:y-r,width:step+.5,height:r*2,fill:color,"clip-path":"url(#"+clip+")","pointer-events":"none"})));g.appendChild(s("circle",{class:"connector-node",cx:x,cy:y,r:r,fill:"none"}))}
-function drawConnector(g,inst,c){const detailScale=canvasDetailScale(),selectedNode=selected&&selected.type==="connector"&&selected.deviceId===inst.instanceId&&selected.connectorId===c.id,infoBoxMode=view.zoom<=INFO_BOX_HIDE_ZOOM?"hidden":detailScale>=INFO_BOX_COMPACT_SCALE?"compact":"full",dimmed=connectorDimmed(inst,c);const node=s("g",{class:selectedNode?"selected":"",opacity:dimmed?0.5:1}),segments=connectorColorSegments(c);if(segments)drawSegmentedConnectorNode(node,c.x,c.y,7,segments);else node.appendChild(s("circle",{class:"connector-node",cx:c.x,cy:c.y,r:7,fill:connectorColor(c,inst.instanceId)}));node.appendChild(s("circle",{class:"connector-hit",cx:c.x,cy:c.y,r:17,fill:"transparent",stroke:"transparent"}));const label=s("text",{class:"connector-label",x:c.direction==="input"?c.x+17:c.x-17,y:c.y+20,"text-anchor":c.direction==="input"?"start":"end"});label.textContent=connectorLabel(c);node.appendChild(label);if(!isAdapterTemplate(templateForInstance(inst))&&!c.faceplateSide){const fields=c.type==="led-signal"?[{field:"customText",title:connectorFieldTitle(c,"customText"),text:c.customText}]:[{field:"nameText",title:connectorFieldTitle(c,"nameText"),text:c.nameText},{field:"resolutionFrameRate",title:connectorFieldTitle(c,"resolutionFrameRate"),text:c.resolutionFrameRate},{field:"customText",title:connectorFieldTitle(c,"customText"),text:c.customText}];addVisibleInfoBoxes(node,c,fields,detailScale,infoBoxMode)}node.addEventListener("click",e=>{e.stopPropagation();select({type:"connector",deviceId:inst.instanceId,connectorId:c.id})});node.addEventListener("dblclick",e=>{e.stopPropagation();jumpConnectedNode(inst.instanceId,c.id)});g.appendChild(node)}
+function drawConnector(g,inst,c){const detailScale=canvasDetailScale(),selectedNode=selected&&selected.type==="connector"&&selected.deviceId===inst.instanceId&&selected.connectorId===c.id,infoBoxMode=view.zoom<=INFO_BOX_HIDE_ZOOM?"hidden":detailScale>=INFO_BOX_COMPACT_SCALE?"compact":"full",dimmed=connectorDimmed(inst,c);const node=s("g",{class:selectedNode?"selected":"",opacity:dimmed?0.5:1}),segments=connectorColorSegments(c);if(segments)drawSegmentedConnectorNode(node,c.x,c.y,7,segments);else node.appendChild(s("circle",{class:"connector-node",cx:c.x,cy:c.y,r:7,fill:connectorColor(c,inst.instanceId)}));if(connectorNotWorking(c))drawConnectorNotWorkingMark(node,c.x,c.y,7);node.appendChild(s("circle",{class:"connector-hit",cx:c.x,cy:c.y,r:17,fill:"transparent",stroke:"transparent"}));const label=s("text",{class:"connector-label",x:c.direction==="input"?c.x+17:c.x-17,y:c.y+20,"text-anchor":c.direction==="input"?"start":"end"});label.textContent=connectorLabel(c);node.appendChild(label);if(!isAdapterTemplate(templateForInstance(inst))&&!c.faceplateSide){const fields=c.type==="led-signal"?[{field:"customText",title:connectorFieldTitle(c,"customText"),text:c.customText}]:[{field:"nameText",title:connectorFieldTitle(c,"nameText"),text:c.nameText},{field:"resolutionFrameRate",title:connectorFieldTitle(c,"resolutionFrameRate"),text:c.resolutionFrameRate},{field:"customText",title:connectorFieldTitle(c,"customText"),text:c.customText}];addVisibleInfoBoxes(node,c,fields,detailScale,infoBoxMode)}node.addEventListener("click",e=>{e.stopPropagation();select({type:"connector",deviceId:inst.instanceId,connectorId:c.id})});node.addEventListener("dblclick",e=>{e.stopPropagation();jumpConnectedNode(inst.instanceId,c.id)});g.appendChild(node)}
 function drawWireVisuals(g,d,w,dir){const colors=connectionColorSegments(w);if(!colors){const line=s("path",{class:"wire",d,fill:"none",stroke:connectionColor(w),"marker-end":"url(#arrowEnd)"});if(dir==="two-way")line.setAttribute("marker-start","url(#arrowStart)");g.appendChild(line);return[line]}const len=100/colors.length;return colors.map((color,i)=>{const line=s("path",{class:"wire wire-segmented",d,fill:"none",stroke:color,pathLength:100,"stroke-dasharray":len+" 100","stroke-dashoffset":String(-i*len),"stroke-linecap":"butt"});if(i===colors.length-1)line.setAttribute("marker-end","url(#arrowEnd)");if(dir==="two-way"&&i===0)line.setAttribute("marker-start","url(#arrowStart)");g.appendChild(line);return line})}
 const CABLE_HOP_ENDPOINT_PAD_EXPORT=38,CABLE_HOP_BASE_HALF_EXPORT=15,CABLE_HOP_BASE_HEIGHT_EXPORT=11,CABLE_HOP_GRID_SIZE_EXPORT=180;
 function clampHop(v,min,max){return Math.min(max,Math.max(min,v))}
