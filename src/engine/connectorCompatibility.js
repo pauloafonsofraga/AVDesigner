@@ -1,4 +1,5 @@
 import {
+  connectorIsNotWorking,
   isConnectorExplicitlyBidirectional,
   isV2Connector,
   V2_SUGGESTED_BIDIRECTIONAL_TYPES
@@ -339,6 +340,18 @@ export function engineCompatibilitySummary(sourceHit, targetHit) {
   }
   if (sameEngineConnectorHit(sourceHit, targetHit)) {
     return result(false, "same-connector", "Cannot connect a connector to itself.", sourceType, targetType, source, target);
+  }
+  if (connectorIsNotWorking(source) || connectorIsNotWorking(target)) {
+    const connector = connectorIsNotWorking(source) ? source : target;
+    return result(
+      false,
+      "connector-not-working",
+      `${connectorDisplayName(connector)} is marked not working.`,
+      sourceType,
+      targetType,
+      source,
+      target
+    );
   }
   if (isEngineDeadCageConnector(source) || isEngineDeadCageConnector(target)) {
     return result(false, "dead-cage", "Install a transceiver/module before connecting this cage.", sourceType, targetType, source, target);

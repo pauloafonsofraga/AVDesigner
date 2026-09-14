@@ -56,7 +56,7 @@ import {
 } from "./jumpNodeModel.js";
 import { wirePlaybackEase } from "./wirePlayback.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-3-2-connector-status-hit-targets";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-3-3-connector-status-blocked";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";

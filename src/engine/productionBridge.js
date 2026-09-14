@@ -68,7 +68,10 @@ import {
   placementCollisionSummary,
   placementRectForDevice
 } from "./devicePlacement.js";
-import { exclusiveConnectionRejectionReason } from "./deviceDefinitionV2.js";
+import {
+  connectorIsNotWorking,
+  exclusiveConnectionRejectionReason
+} from "./deviceDefinitionV2.js";
 import {
   commentHitPart,
   commentLeaderEnd
@@ -119,9 +122,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-3-2-connector-status-hit-targets";
-export const ENGINE_BRIDGE_VERSION = "iteration54-3-2-connector-status-hit-targets";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "connector-status-hit-targets";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-3-3-connector-status-blocked";
+export const ENGINE_BRIDGE_VERSION = "iteration54-3-3-connector-status-blocked";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "connector-status-blocked";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -2202,6 +2205,15 @@ class ProductionEngineBridge {
         this.beginWireRewire(connectorHit.connector, connectedEndpoint, world);
         this.updateSelectionHud();
         this.updateInteractionHud("wire-rewire", connectorHit);
+        this.scheduleRender();
+        return;
+      }
+      if (connectorIsNotWorking(connectorHit.connector.connector)) {
+        this.clearHoverState("connector-not-working", { render: false });
+        this.scene.selectConnectorOnly(connectorHit.connector.device.id, connectorHit.connector.connector.id);
+        this.hud?.setMetric("wire target", "Connector is marked not working.");
+        this.updateSelectionHud();
+        this.updateInteractionHud("connector-not-working", connectorHit);
         this.scheduleRender();
         return;
       }
