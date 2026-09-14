@@ -41,7 +41,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-2-5-6-playback-zoom-preservation";
+const BUILD_ID = "iteration54-2-5-7-playback-100-zoom";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -50,12 +50,12 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Playback Zoom Preservation");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-2-5-6-playback-zoom-preservation-modules";'), "module cache key should identify Playback Zoom Preservation");
-assert.ok(indexHtml.includes("Playback Zoom Preservation"), "visible build label should name Playback Zoom Preservation");
-assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Playback Zoom Preservation");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "playback-zoom-preservation"'), "bridge feature label should identify Playback Zoom Preservation");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-2-5-6-playback-zoom-preservation"), "bridge fingerprint should identify Playback Zoom Preservation");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Playback 100% Zoom");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-2-5-7-playback-100-zoom-modules";'), "module cache key should identify Playback 100% Zoom");
+assert.ok(indexHtml.includes("Playback 100% Zoom"), "visible build label should name Playback 100% Zoom");
+assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Playback 100% Zoom");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "playback-100-zoom"'), "bridge feature label should identify Playback 100% Zoom");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-2-5-7-playback-100-zoom"), "bridge fingerprint should identify Playback 100% Zoom");
 assert.ok(rendererSource.includes("renderer-iteration54-2-5-5-jump-portal-nodes"), "renderer fingerprint should remain on Jump Portal Nodes");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");
@@ -85,9 +85,13 @@ assert.ok(bridgeSource.includes("data-jump-link-id"), "Jump inspector Play Wire 
 assert.ok(bridgeSource.includes("data-jump-link-play-cable"), "selected Jump Link inspector should render a Play Cable button");
 assert.ok(bridgeSource.includes(">Play Cable<") || bridgeSource.includes(">Play Cable</button>"), "Engine inspector buttons should be labeled Play Cable");
 assert.ok(indexHtml.includes("▶ Play Cable"), "app and exported viewer inspector buttons should be labeled Play Cable");
-assert.ok(bridgeSource.includes("zoomAtStart"), "Engine Play Cable should preserve the zoom active when playback starts");
-assert.ok(bridgeSource.includes('centerCameraAtWorldPoint(playbackPoint, "play-wire-follow", { render: false, zoom: state.zoomAtStart })'), "Engine Play Cable camera follow should pan at the starting zoom");
-assert.ok(bridgeSource.includes('centerCameraAtWorldPoint(step.to, "play-wire-teleport", { render: false, zoom: state.zoomAtStart })'), "Engine Play Cable teleport follow should pan at the starting zoom");
+assert.ok(bridgeSource.includes("WIRE_PLAYBACK_CAMERA_ZOOM = 1"), "Engine Play Cable should force 100% zoom during playback");
+assert.ok(bridgeSource.includes("playbackZoom"), "Engine Play Cable should store a fixed playback zoom");
+assert.ok(!bridgeSource.includes("zoomAtStart"), "Engine Play Cable should not preserve the starting zoom");
+assert.ok(bridgeSource.includes('centerCameraAtWorldPoint(playbackPoint, "play-wire-follow", { render: false, zoom: state.playbackZoom })'), "Engine Play Cable camera follow should pan at 100% zoom");
+assert.ok(bridgeSource.includes('centerCameraAtWorldPoint(step.to, "play-wire-teleport", { render: false, zoom: state.playbackZoom })'), "Engine Play Cable teleport follow should pan at 100% zoom");
+assert.ok(indexHtml.includes("const zoom = 1;"), "legacy trace camera should force 100% playback zoom");
+assert.ok(indexHtml.includes("zoom=1;view.zoom=zoom"), "exported viewer trace camera should force 100% playback zoom");
 assert.ok(!indexHtml.includes("canvasView.zoom = 1.13;"), "legacy trace camera should not force a playback zoom");
 assert.ok(!indexHtml.includes("view.zoom=1.13"), "exported viewer trace camera should not force a playback zoom");
 assert.ok(indexHtml.includes('selection.type === "jump-link"'), "app side inspector should handle selected Jump Links");

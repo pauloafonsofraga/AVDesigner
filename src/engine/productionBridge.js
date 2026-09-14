@@ -119,14 +119,15 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-2-5-6-playback-zoom-preservation";
-export const ENGINE_BRIDGE_VERSION = "iteration54-2-5-6-playback-zoom-preservation";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "playback-zoom-preservation";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-2-5-7-playback-100-zoom";
+export const ENGINE_BRIDGE_VERSION = "iteration54-2-5-7-playback-100-zoom";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "playback-100-zoom";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
 const ENGINE_MIN_ZOOM = 0.03;
 const ENGINE_MAX_ZOOM = 8;
+const WIRE_PLAYBACK_CAMERA_ZOOM = 1;
 const TITLE_BLOCK_BASE_WIDTH = 760;
 const TITLE_BLOCK_BASE_HEIGHT = 112;
 const TITLE_BLOCK_MIN_SCALE = 0.34;
@@ -4671,12 +4672,7 @@ class ProductionEngineBridge {
       return false;
     }
     const firstWireStep = steps.find(step => step.type !== "teleport");
-    const currentZoom = Number(this.camera.zoom);
-    const zoomAtStart = clamp(
-      Number.isFinite(currentZoom) && currentZoom > 0 ? currentZoom : 1,
-      ENGINE_MIN_ZOOM,
-      ENGINE_MAX_ZOOM
-    );
+    const playbackZoom = clamp(WIRE_PLAYBACK_CAMERA_ZOOM, ENGINE_MIN_ZOOM, ENGINE_MAX_ZOOM);
     this.wirePlayback = {
       active: true,
       id: `wire-playback-${Date.now()}`,
@@ -4689,7 +4685,7 @@ class ProductionEngineBridge {
       stepStartedAt: performance.now(),
       startedAt: performance.now(),
       teleportCount: 0,
-      zoomAtStart,
+      playbackZoom,
       lastPoint: firstWireStep?.points?.[0] || null,
       lastPoints: firstWireStep?.points || [],
       commandIndexAtStart: this.commandIndex,
@@ -4702,7 +4698,7 @@ class ProductionEngineBridge {
     this.jumpActionDiagnostics.playWireActive = true;
     this.lastPlaybackJumpPath = semanticSteps.map(playbackPathLabel);
     if (this.wirePlayback.lastPoint) {
-      this.centerCameraAtWorldPoint(this.wirePlayback.lastPoint, "play-wire-start", { render: false, zoom: this.wirePlayback.zoomAtStart });
+      this.centerCameraAtWorldPoint(this.wirePlayback.lastPoint, "play-wire-start", { render: false, zoom: this.wirePlayback.playbackZoom });
     }
     this.recordWirePlaybackDiagnostics("start");
     this.scheduleRender();
@@ -4865,7 +4861,7 @@ class ProductionEngineBridge {
       state.progress = 1;
       state.stepIndex += 1;
       state.stepStartedAt = now;
-      this.centerCameraAtWorldPoint(step.to, "play-wire-teleport", { render: false, zoom: state.zoomAtStart });
+      this.centerCameraAtWorldPoint(step.to, "play-wire-teleport", { render: false, zoom: state.playbackZoom });
       this.recordWirePlaybackDiagnostics("teleport");
       this.scheduleRender();
       this.requestWirePlaybackFrame();
@@ -4879,7 +4875,7 @@ class ProductionEngineBridge {
     const playbackPoint = polylinePointAtDistance(step.points, polylineLength(step.points) * easedProgress);
     if (playbackPoint) {
       state.lastPoint = playbackPoint;
-      this.centerCameraAtWorldPoint(playbackPoint, "play-wire-follow", { render: false, zoom: state.zoomAtStart });
+      this.centerCameraAtWorldPoint(playbackPoint, "play-wire-follow", { render: false, zoom: state.playbackZoom });
     }
     if (progress >= 1) state.lastPoint = step.points.at(-1) || state.lastPoint;
     if (progress >= 1) {
@@ -4971,7 +4967,7 @@ class ProductionEngineBridge {
       stepType: step?.type || (state?.completedAt ? "complete" : ""),
       progress: state ? Number(state.progress || 0) : 0,
       teleportCount: state?.teleportCount || 0,
-      zoomAtStart: state?.zoomAtStart || null,
+      playbackZoom: state?.playbackZoom || null,
       zoomNow: this.camera.zoom,
       rafActive: Boolean(this.wirePlaybackFrame),
       commandIndexChanged: state ? state.commandIndexAtStart !== this.commandIndex : false,
