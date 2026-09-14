@@ -116,9 +116,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-2-5-2-jump-internal-play-wire";
-export const ENGINE_BRIDGE_VERSION = "iteration54-2-5-2-jump-internal-play-wire";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-internal-play-wire";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-2-5-3-jump-link-play-cable";
+export const ENGINE_BRIDGE_VERSION = "iteration54-2-5-3-jump-link-play-cable";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-link-play-cable";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -766,7 +766,7 @@ class ProductionEngineBridge {
     this.hud?.setMetric("jump to pair", this.lastJumpPairNavigation ? `${this.lastJumpPairNavigation.fromJumpId} -> ${this.lastJumpPairNavigation.toJumpId}` : "-");
     this.hud?.setMetric("jump to pair clicks", `${snapshot.jumpToPairButtonClickCount} button / ${snapshot.jumpToPairHandlerCount} handler`);
     this.hud?.setMetric("playback active", snapshot.playbackDiagnostics.active ? "yes" : "no");
-    this.hud?.setMetric("play wire clicks", `${snapshot.playWireButtonClickCount} button / ${snapshot.playWireHandlerCount} handler`);
+    this.hud?.setMetric("play cable clicks", `${snapshot.playWireButtonClickCount} button / ${snapshot.playWireHandlerCount} handler`);
     this.hud?.setMetric("playback steps", `${snapshot.playbackDiagnostics.resolvedSteps?.length || 0} / ${snapshot.playbackDiagnostics.stepType || "-"}`);
     this.hud?.setMetric("playback progress", `${Math.round((snapshot.playbackDiagnostics.progress || 0) * 100)}% / teleports ${snapshot.playbackDiagnostics.teleportCount || 0} / raf ${snapshot.playbackDiagnostics.rafActive ? "yes" : "no"}`);
     this.hud?.setMetric("jump pair candidate", snapshot.pairCandidate || "-");
@@ -1167,6 +1167,11 @@ class ProductionEngineBridge {
     if (playWireButton && this.inspectorPanel?.contains(playWireButton)) {
       event.preventDefault();
       event.stopPropagation();
+      const jumpLinkId = playWireButton.getAttribute("data-jump-link-id") || "";
+      if (playWireButton.hasAttribute("data-jump-link-play-cable") && jumpLinkId) {
+        this.triggerJumpLinkPlayCableAction(jumpLinkId, { actionSource: "engine-inspector-jump-link-button" });
+        return;
+      }
       const jumpId = playWireButton.getAttribute("data-jump-id") || "";
       if (playWireButton.hasAttribute("data-jump-node-play-wire") && jumpId) {
         this.triggerJumpNodePlayWireAction(jumpId, { actionSource: "engine-inspector-jump-button" });
@@ -1196,6 +1201,13 @@ class ProductionEngineBridge {
     const sourceJumpId = String(jumpId || this.scene.primarySelectedJumpId || "");
     this.jumpActionDiagnostics.playWireStartingWire = sourceJumpId ? `jump:${sourceJumpId}` : "";
     return this.playJumpNodeInternalWireTrace(sourceJumpId, { actionSource: options.actionSource || "button" });
+  }
+
+  triggerJumpLinkPlayCableAction(linkId = "", options = {}) {
+    this.jumpActionDiagnostics.playWireButtonClickCount += 1;
+    const sourceLinkId = String(linkId || this.scene.selectedJumpLinkId || "");
+    this.jumpActionDiagnostics.playWireStartingWire = sourceLinkId ? `jump-link:${sourceLinkId}` : "";
+    return this.playJumpLinkInternalWireTrace(sourceLinkId, { actionSource: options.actionSource || "button" });
   }
 
   bindEvents() {
@@ -4608,6 +4620,21 @@ class ProductionEngineBridge {
     });
   }
 
+  playJumpLinkInternalWireTrace(linkId = "", options = {}) {
+    if (!this.ready) return false;
+    this.jumpActionDiagnostics.playWireHandlerCount += 1;
+    const sourceLinkId = String(linkId || this.scene.selectedJumpLinkId || "");
+    this.jumpActionDiagnostics.playWireStartingWire = sourceLinkId ? `jump-link:${sourceLinkId}` : "";
+    const plan = this.jumpLinkInternalWirePlaybackPlan(sourceLinkId);
+    return this.startWirePlaybackPlan(plan, {
+      startingWireId: plan.startingWireId || (sourceLinkId ? `jump-link:${sourceLinkId}` : ""),
+      startingWireSourceId: plan.startingWireId || (sourceLinkId ? `jump-link:${sourceLinkId}` : ""),
+      actionSource: options.actionSource || "api",
+      emptyDebugReason: "play-jump-link-cable-empty",
+      emptyHudLabel: "no internal jump cable"
+    });
+  }
+
   startWirePlaybackPlan(plan = {}, {
     startingWireId = "",
     startingWireSourceId = "",
@@ -4627,7 +4654,7 @@ class ProductionEngineBridge {
       };
       this.jumpActionDiagnostics.playWireResolvedSteps = [];
       this.jumpActionDiagnostics.playWireActive = false;
-      this.hud?.setMetric("play wire", emptyHudLabel);
+      this.hud?.setMetric("play cable", emptyHudLabel);
       this.updateJumpNodeDebugSnapshot(emptyDebugReason);
       return false;
     }
@@ -4717,6 +4744,16 @@ class ProductionEngineBridge {
     const empty = { startingWireId: id ? `jump:${id}` : "", semanticSteps: [], steps: [] };
     if (!id) return empty;
     const link = this.scene.jumpLinkForNode(id);
+    if (!link?.id) return empty;
+    return this.jumpLinkInternalWirePlaybackPlan(link);
+  }
+
+  jumpLinkInternalWirePlaybackPlan(linkOrId = "") {
+    const link = typeof linkOrId === "object" && linkOrId
+      ? linkOrId
+      : this.scene.getJumpLink(String(linkOrId || ""));
+    const id = String(link?.id || (typeof linkOrId === "string" ? linkOrId : ""));
+    const empty = { startingWireId: id ? `jump-link:${id}` : "", semanticSteps: [], steps: [] };
     if (!link?.id) return empty;
     const outputJump = this.scene.getDevice(link.outputJumpId);
     const inputJump = this.scene.getDevice(link.inputJumpId);
@@ -4891,7 +4928,7 @@ class ProductionEngineBridge {
     this.jumpActionDiagnostics.playWireActive = false;
     this.jumpActionDiagnostics.playWireStartingWire = previous?.startingWireId || this.jumpActionDiagnostics.playWireStartingWire || "";
     this.jumpActionDiagnostics.playWireResolvedSteps = this.lastPlaybackDiagnostics.resolvedSteps;
-    this.hud?.setMetric("play wire", previous ? `stopped: ${reason}` : "-");
+    this.hud?.setMetric("play cable", previous ? `stopped: ${reason}` : "-");
     this.updateJumpNodeDebugSnapshot(`play-wire-${reason}`);
     if (render) this.scheduleRender();
     return Boolean(previous);
@@ -4917,7 +4954,7 @@ class ProductionEngineBridge {
     this.jumpActionDiagnostics.playWireActive = Boolean(state?.active);
     this.jumpActionDiagnostics.playWireStartingWire = state?.startingWireId || this.jumpActionDiagnostics.playWireStartingWire || "";
     this.jumpActionDiagnostics.playWireResolvedSteps = this.lastPlaybackDiagnostics.resolvedSteps;
-    this.hud?.setMetric("play wire", state?.active
+    this.hud?.setMetric("play cable", state?.active
       ? `${this.lastPlaybackDiagnostics.stepType || "step"} ${Math.round(this.lastPlaybackDiagnostics.progress * 100)}%`
       : "-");
   }
@@ -6426,6 +6463,7 @@ class ProductionEngineBridge {
           ["Input", input ? input.label || input.id : selectedJumpLink.inputJumpId],
           ["Geometry", "Bezier portal"]
         ])}
+        <button type="button" class="engine-bridge-action" data-play-wire data-jump-link-play-cable data-jump-link-id="${escapeHtml(selectedJumpLink.id)}">Play Cable</button>
         <button type="button" class="engine-bridge-action" data-jump-disconnect>Disconnect Jump Nodes</button>
       `;
       this.inspectorPanel.querySelector("[data-jump-disconnect]")?.addEventListener("click", () => this.disconnectSelectedJumpNodes());
@@ -6452,7 +6490,7 @@ class ProductionEngineBridge {
           <input type="text" data-jump-node-name value="${escapeHtml(primaryJump.label || "Jump")}" autocomplete="off" />
         </label>
         ${link && paired ? `<button type="button" class="engine-bridge-action" data-jump-to-pair data-jump-id="${escapeHtml(primaryJump.id)}">Jump to Pair</button>` : ""}
-        ${link && paired ? `<button type="button" class="engine-bridge-action" data-play-wire data-jump-node-play-wire data-jump-id="${escapeHtml(primaryJump.id)}" data-jump-link-id="${escapeHtml(link.id)}">Play Wire</button>` : ""}
+        ${link && paired ? `<button type="button" class="engine-bridge-action" data-play-wire data-jump-node-play-wire data-jump-id="${escapeHtml(primaryJump.id)}" data-jump-link-id="${escapeHtml(link.id)}">Play Cable</button>` : ""}
         ${link ? `<button type="button" class="engine-bridge-action" data-jump-disconnect>Disconnect Jump Nodes</button>` : ""}
         ${detailsMarkup([
           ["Type", "Jump Node"],
@@ -6529,7 +6567,7 @@ class ProductionEngineBridge {
       const wire = selectedWires[0];
       this.inspectorPanel.innerHTML = `
         <h3>Engine Inspector</h3>
-        <button type="button" class="engine-bridge-action" data-play-wire data-wire-id="${escapeHtml(wire.id)}">Play Wire</button>
+        <button type="button" class="engine-bridge-action" data-play-wire data-wire-id="${escapeHtml(wire.id)}">Play Cable</button>
         ${detailsMarkup([
           ["Wire ID", wire.sourceId || wire.id],
           ["Cable Type", wire.cableType || wire.label || "-"],
