@@ -43,8 +43,11 @@ import {
 } from "./deviceDefinitionV2.js";
 import { commentLeaderGeometry } from "./commentGeometry.js";
 import {
+  JUMP_NODE_INFO_MIN_ZOOM,
   JUMP_NODE_ROLE,
   JUMP_NODE_ROLE_COLORS,
+  JUMP_NODE_SIZE,
+  JUMP_NODE_VISUAL_SCALE,
   jumpNodeConnectionInfo,
   jumpLinkBezierPolyline,
   jumpNodeCenter,
@@ -52,7 +55,7 @@ import {
 } from "./jumpNodeModel.js";
 import { wirePlaybackEase } from "./wirePlayback.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-2-4-jump-legacy-parity-play-wire";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-2-5-5-jump-portal-nodes";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -1915,10 +1918,11 @@ function pushJumpNodeForeground(vertices, scene, camera, resolution, {
     const hovered = hoveredDeviceId === device.id;
     const center = jumpNodeCenter(device);
     const radius = Math.max(device.width, device.height) / 2;
-    if (selected || paired) pushJumpSelectionGlow(vertices, center, radius, selected ? "selected" : "paired");
+    const visualRadius = jumpNodeVisualRadius(radius);
+    if (selected || paired) pushJumpSelectionGlow(vertices, center, visualRadius, selected ? "selected" : "paired");
     if (selected) pushSelectionOutline(vertices, device, null);
     else if (hovered) pushHoverOutline(vertices, device, null);
-    else if (paired) pushCircleOutline(vertices, center, radius + 4.2, 1.35, "rgba(251,121,4,.6)", 34);
+    else if (paired) pushCircleOutline(vertices, center, visualRadius + 4.2, 1.35, "rgba(251,121,4,.6)", 34);
     pushJumpNode(vertices, center, radius, {
       role: device.visual?.jumpRole || JUMP_NODE_ROLE.neutral,
       color: device.visual?.jumpColor || jumpNodeRoleColor(device.visual?.jumpRole)
@@ -2460,7 +2464,8 @@ function pushDevice(vertices, device, offsets = null, selected = false, options 
   if (device.kind === "jump") {
     const center = jumpNodeCenter(device, offset);
     const radius = Math.max(device.width, device.height) / 2;
-    if (selected) pushJumpSelectionGlow(vertices, center, radius, "selected");
+    const visualRadius = jumpNodeVisualRadius(radius);
+    if (selected) pushJumpSelectionGlow(vertices, center, visualRadius, "selected");
     if (selected) pushSelectionOutline(vertices, device, offsets);
     pushJumpNode(vertices, center || { x: x + device.width / 2, y: y + device.height / 2 }, radius, {
       role: device.visual?.jumpRole || JUMP_NODE_ROLE.neutral,
@@ -2506,19 +2511,29 @@ function pushJumpNode(vertices, center, radius, options = {}) {
   // Jump nodes are selectable objects with a synthetic connector endpoint. Draw
   // only one visible node here; connector overlays stay hidden unless an active
   // wire-create interaction is targeting the endpoint.
+  if (!center) return;
+  const visualRadius = jumpNodeVisualRadius(radius);
   const role = options.role || JUMP_NODE_ROLE.neutral;
   const color = options.color || jumpNodeRoleColor(role);
   const opacity = Math.max(0.08, Math.min(1, Number(options.opacity ?? 1) || 1));
-  const outer = role === JUMP_NODE_ROLE.output
-    ? "rgba(50,182,255,.5)"
+  const glow = role === JUMP_NODE_ROLE.output
+    ? "rgba(50,182,255,.72)"
     : role === JUMP_NODE_ROLE.input
-      ? "rgba(251,121,4,.52)"
-      : "rgba(119,132,146,.36)";
-  pushCircle(vertices, center, radius + 2.5, colorWithOpacity(outer, opacity), 34);
-  pushCircle(vertices, center, radius, colorWithOpacity(color, opacity), 34);
-  pushCircle(vertices, center, radius * 0.68, colorWithOpacity(color, Math.min(1, opacity * 1.06)), 34);
-  pushCircleOutline(vertices, center, radius + 2.5, 2.2, colorWithOpacity(color, Math.min(1, opacity * 0.95)), 34);
-  pushCircleOutline(vertices, center, radius + 5.5, 1.2, colorWithOpacity("rgba(255,255,255,.72)", opacity), 34);
+      ? "rgba(251,121,4,.74)"
+      : "rgba(119,132,146,.54)";
+  const holeRadius = Math.max(3.4, visualRadius * 0.52);
+  pushCircle(vertices, center, visualRadius * 1.62, colorWithOpacity(glow, opacity * 0.12), 40);
+  pushCircle(vertices, center, visualRadius * 1.28, colorWithOpacity(glow, opacity * 0.22), 40);
+  pushCircle(vertices, center, visualRadius + 1.7, colorWithOpacity("rgba(255,255,255,.86)", opacity), 40);
+  pushCircle(vertices, center, visualRadius, colorWithOpacity(color, opacity), 40);
+  pushCircle(vertices, center, holeRadius, colorWithOpacity("#030609", opacity), 40);
+  pushCircleOutline(vertices, center, visualRadius + 2.2, 1.3, colorWithOpacity(color, opacity * 0.82), 40);
+  pushCircleOutline(vertices, center, holeRadius + 0.8, 0.9, colorWithOpacity("rgba(0,0,0,.72)", opacity), 40);
+}
+
+function jumpNodeVisualRadius(radius = JUMP_NODE_SIZE / 2) {
+  const baseRadius = Math.max(1, Number(radius) || JUMP_NODE_SIZE / 2);
+  return Math.max(4, baseRadius * JUMP_NODE_VISUAL_SCALE);
 }
 
 function pushJumpSelectionGlow(vertices, center, radius, mode = "selected") {
@@ -2720,7 +2735,7 @@ function pushObjectOutline(vertices, device, offsets = null, layers = []) {
   const y = outline.y;
   if (device.kind === "jump") {
     const center = { x: x + device.width / 2, y: y + device.height / 2 };
-    const radius = Math.max(device.width, device.height) / 2;
+    const radius = jumpNodeVisualRadius(Math.max(device.width, device.height) / 2);
     layers.forEach(layer => {
       pushCircleOutline(vertices, center, radius + layer.expand, layer.width, layer.color, 34);
     });
@@ -3732,6 +3747,7 @@ function drawDeviceLabel(ctx, device, camera, offsets = null, tone = "normal") {
   // Drawing the label again in the label canvas produces the duplicated E2 name
   // seen in Iteration 40, so only non-textured special objects keep overlay text.
   if (device.kind !== "jump" && device.kind !== "adapter") return { drawn: false, hidden: true, truncated: false };
+  if (device.kind === "jump") return { drawn: false, hidden: true, truncated: false };
   const offset = offsets?.get(device.id);
   const x = (device.x + (offset?.dx || 0) - camera.x) * camera.zoom;
   const y = (device.y + (offset?.dy || 0) - camera.y) * camera.zoom;
@@ -3815,7 +3831,7 @@ function drawDeviceLabel(ctx, device, camera, offsets = null, tone = "normal") {
 }
 
 function drawJumpNodeInfoBox(ctx, scene, device, camera, offsets = null) {
-  if (!scene || device?.kind !== "jump" || camera.zoom < 0.08) return false;
+  if (!scene || device?.kind !== "jump" || camera.zoom <= JUMP_NODE_INFO_MIN_ZOOM) return false;
   const info = typeof scene.jumpNodeConnectionInfo === "function"
     ? scene.jumpNodeConnectionInfo(device.id)
     : jumpNodeConnectionInfo(scene, device.id);
@@ -3828,7 +3844,7 @@ function drawJumpNodeInfoBox(ctx, scene, device, camera, offsets = null) {
   const zoom = Math.max(Number(camera.zoom) || 1, 0.001);
   const centerX = (center.x - camera.x) * zoom;
   const centerY = (center.y - camera.y) * zoom;
-  const radius = Math.max(device.width || 44, device.height || 44) * zoom / 2;
+  const radius = jumpNodeVisualRadius(Math.max(device.width || JUMP_NODE_SIZE, device.height || JUMP_NODE_SIZE) / 2) * zoom;
   const legacyScale = Math.max(0.65, Math.min(1.8, zoom));
   const height = 24 * legacyScale;
   const width = Math.max(122, Math.min(240, rawText.length * 6 + 22)) * legacyScale;

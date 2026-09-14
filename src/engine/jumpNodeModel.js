@@ -6,6 +6,9 @@ import {
 } from "./connectorCompatibility.js";
 
 export const JUMP_NODE_SIZE = 44;
+export const JUMP_NODE_VISUAL_SCALE = 0.4;
+export const JUMP_NODE_VISUAL_RADIUS = JUMP_NODE_SIZE * JUMP_NODE_VISUAL_SCALE / 2;
+export const JUMP_NODE_INFO_MIN_ZOOM = 0.4;
 export const JUMP_NODE_CONNECTOR_ID = "jump-center";
 export const JUMP_LINK_BEZIER_STEPS = 28;
 export const JUMP_PRESS_MOVE_THRESHOLD_PX = 5;

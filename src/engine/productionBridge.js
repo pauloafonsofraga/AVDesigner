@@ -95,7 +95,10 @@ import {
   resolvePlayableSignalPath
 } from "./jumpNodeModel.js";
 import {
+  polylineLength,
+  polylinePointAtDistance,
   WIRE_PLAYBACK_COMPLETE_HOLD_MS,
+  wirePlaybackEase,
   wirePlaybackDurationMs
 } from "./wirePlayback.js";
 
@@ -116,9 +119,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-2-5-4-jump-link-side-inspector";
-export const ENGINE_BRIDGE_VERSION = "iteration54-2-5-4-jump-link-side-inspector";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-link-side-inspector";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-2-5-5-jump-portal-nodes";
+export const ENGINE_BRIDGE_VERSION = "iteration54-2-5-5-jump-portal-nodes";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-portal-nodes";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -4856,7 +4859,13 @@ class ProductionEngineBridge {
     const progress = Math.max(0, Math.min(1, (now - Number(state.stepStartedAt || now)) / duration));
     state.progress = progress;
     state.lastPoints = step.points;
-    state.lastPoint = progress >= 1 ? step.points.at(-1) : state.lastPoint;
+    const easedProgress = wirePlaybackEase(progress);
+    const playbackPoint = polylinePointAtDistance(step.points, polylineLength(step.points) * easedProgress);
+    if (playbackPoint) {
+      state.lastPoint = playbackPoint;
+      this.centerCameraAtWorldPoint(playbackPoint, "play-wire-follow", { render: false });
+    }
+    if (progress >= 1) state.lastPoint = step.points.at(-1) || state.lastPoint;
     if (progress >= 1) {
       state.stepIndex += 1;
       state.stepStartedAt = now;

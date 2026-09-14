@@ -8,9 +8,12 @@ import { distanceToPolyline } from "../src/engine/hitTest.js";
 import {
   deriveLegacyPairJumpLinks,
   invalidJumpLinksForScene,
+  JUMP_NODE_INFO_MIN_ZOOM,
   JUMP_NODE_CONNECTOR_ID,
   JUMP_NODE_ROLE,
   JUMP_NODE_ROLE_COLORS,
+  JUMP_NODE_VISUAL_RADIUS,
+  JUMP_NODE_VISUAL_SCALE,
   jumpLinkBezierPolyline,
   jumpNodeCenter,
   jumpNodeConnectionInfo,
@@ -32,12 +35,13 @@ import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 import {
+  polylinePointAtDistance,
   WIRE_PLAYBACK_COMPLETE_HOLD_MS,
   wirePlaybackDurationMs,
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-2-5-4-jump-link-side-inspector";
+const BUILD_ID = "iteration54-2-5-5-jump-portal-nodes";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -47,12 +51,12 @@ const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Jump Link Side Inspector");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-2-5-4-jump-link-side-inspector-modules";'), "module cache key should identify Jump Link Side Inspector");
-assert.ok(indexHtml.includes("Jump Link Side Inspector"), "visible build label should name Jump Link Side Inspector");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-2-5-5-jump-portal-nodes-modules";'), "module cache key should identify Jump Portal Nodes");
+assert.ok(indexHtml.includes("Jump Portal Nodes"), "visible build label should name Jump Portal Nodes");
 assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Jump Link Side Inspector");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "jump-link-side-inspector"'), "bridge feature label should identify Jump Link Side Inspector");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-2-5-4-jump-link-side-inspector"), "bridge fingerprint should identify Jump Link Side Inspector");
-assert.ok(rendererSource.includes("renderer-iteration54-2-4-jump-legacy-parity-play-wire"), "unchanged renderer fingerprint should remain on the last renderer iteration");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "jump-portal-nodes"'), "bridge feature label should identify Jump Portal Nodes");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-2-5-5-jump-portal-nodes"), "bridge fingerprint should identify Jump Portal Nodes");
+assert.ok(rendererSource.includes("renderer-iteration54-2-5-5-jump-portal-nodes"), "renderer fingerprint should identify Jump Portal Nodes");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");
 assert.ok(rendererSource.includes("pushWirePlaybackOverlay"), "renderer should draw transient Play Wire overlays");
@@ -96,6 +100,9 @@ assert.equal(wirePlaybackDurationMs([{ x: 0, y: 0 }, { x: 10, y: 0 }]), 650, "sh
 assert.equal(wirePlaybackDurationMs([{ x: 0, y: 0 }, { x: 2000, y: 0 }]), 4500, "long wires should use Legacy maximum duration");
 assert.equal(wirePlaybackEase(0), 0, "playback easing should start at 0");
 assert.equal(wirePlaybackEase(1), 1, "playback easing should end at 1");
+assert.deepEqual(polylinePointAtDistance([{ x: 0, y: 0 }, { x: 10, y: 0 }], 4), { x: 4, y: 0 }, "playback camera follow should resolve intermediate dot points");
+assert.ok(bridgeSource.includes("polylinePointAtDistance(step.points, polylineLength(step.points) * easedProgress)"), "Engine playback should compute the same eased dot point the renderer shows");
+assert.ok(bridgeSource.includes('centerCameraAtWorldPoint(playbackPoint, "play-wire-follow"'), "Engine playback should follow the travelling dot every frame");
 assert.equal(JUMP_PRESS_MOVE_THRESHOLD_PX, 5, "Jump press movement tolerance should be 5 px");
 assert.equal(jumpPressIntent({ distancePx: 0, released: true }), JUMP_PRESS_INTENT.select, "released below threshold should select");
 assert.equal(jumpPressIntent({ distancePx: 5, canStartLink: true, explicitlyMoveArmed: false }), JUMP_PRESS_INTENT.link, "eligible unarmed movement at threshold should link");
@@ -117,6 +124,14 @@ assert.equal(rawJumpNodeRole(baseProject, "jump-input").role, JUMP_NODE_ROLE.inp
 assert.equal(JUMP_NODE_ROLE_COLORS.output, "#32b6ff", "output Jump color");
 assert.equal(JUMP_NODE_ROLE_COLORS.input, "#fb7904", "input Jump color");
 assert.equal(JUMP_NODE_ROLE_COLORS.neutral, "#778492", "neutral Jump color");
+assert.equal(JUMP_NODE_VISUAL_SCALE, 0.4, "Jump portals should draw at 40% of the logical hit size");
+assert.equal(JUMP_NODE_VISUAL_RADIUS, JUMP_NODE_SIZE * 0.2, "Jump visible ring radius should be 60% smaller than the old node radius");
+assert.equal(JUMP_NODE_INFO_MIN_ZOOM, 0.4, "Jump info boxes should hide at 40% zoom and below");
+assert.ok(rendererSource.includes("function jumpNodeVisualRadius"), "renderer should separate visible portal size from logical hit size");
+assert.ok(rendererSource.includes("holeRadius"), "renderer should draw Jump portals with a hollow center");
+assert.ok(rendererSource.includes("#030609"), "renderer should fill the Jump portal center as a black hole");
+assert.ok(rendererSource.includes('if (device.kind === "jump") return { drawn: false'), "renderer should not draw the text Jump inside portal nodes");
+assert.ok(rendererSource.includes("camera.zoom <= JUMP_NODE_INFO_MIN_ZOOM"), "renderer should suppress Jump info labels at and below 40% zoom");
 
 assert.deepEqual(jumpNodeConnectionInfo(baseScene, "jump-output"), {
   side: "right",
