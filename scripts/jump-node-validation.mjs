@@ -37,7 +37,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-2-5-3-jump-link-play-cable";
+const BUILD_ID = "iteration54-2-5-4-jump-link-side-inspector";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -46,12 +46,12 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Jump Link Play Cable");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-2-5-3-jump-link-play-cable-modules";'), "module cache key should identify Jump Link Play Cable");
-assert.ok(indexHtml.includes("Jump Link Play Cable"), "visible build label should name Jump Link Play Cable");
-assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Jump Link Play Cable");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "jump-link-play-cable"'), "bridge feature label should identify Jump Link Play Cable");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-2-5-3-jump-link-play-cable"), "bridge fingerprint should identify Jump Link Play Cable");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Jump Link Side Inspector");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-2-5-4-jump-link-side-inspector-modules";'), "module cache key should identify Jump Link Side Inspector");
+assert.ok(indexHtml.includes("Jump Link Side Inspector"), "visible build label should name Jump Link Side Inspector");
+assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Jump Link Side Inspector");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "jump-link-side-inspector"'), "bridge feature label should identify Jump Link Side Inspector");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-2-5-4-jump-link-side-inspector"), "bridge fingerprint should identify Jump Link Side Inspector");
 assert.ok(rendererSource.includes("renderer-iteration54-2-4-jump-legacy-parity-play-wire"), "unchanged renderer fingerprint should remain on the last renderer iteration");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");
@@ -81,6 +81,9 @@ assert.ok(bridgeSource.includes("data-jump-link-id"), "Jump inspector Play Wire 
 assert.ok(bridgeSource.includes("data-jump-link-play-cable"), "selected Jump Link inspector should render a Play Cable button");
 assert.ok(bridgeSource.includes(">Play Cable<") || bridgeSource.includes(">Play Cable</button>"), "Engine inspector buttons should be labeled Play Cable");
 assert.ok(indexHtml.includes("▶ Play Cable"), "app and exported viewer inspector buttons should be labeled Play Cable");
+assert.ok(indexHtml.includes('selection.type === "jump-link"'), "app side inspector should handle selected Jump Links");
+assert.ok(indexHtml.includes("renderJumpLinkInspector"), "app side inspector should render selected Jump Link details");
+assert.ok(indexHtml.includes("triggerJumpLinkPlayCableAction(link.id || jumpLinkId"), "app side Jump Link inspector should delegate Play Cable to the Engine bridge");
 assert.ok(bridgeSource.includes("idleHoverOwner"), "Jump debug snapshot should expose idle hover ownership");
 assert.ok(bridgeSource.includes("connectorHoverSuppressedByJump"), "Jump debug snapshot should expose connector suppression");
 assert.ok(bridgeSource.includes("wireHoverSuppressedByJump"), "Jump debug snapshot should expose wire suppression");
