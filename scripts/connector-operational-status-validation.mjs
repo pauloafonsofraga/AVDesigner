@@ -4,15 +4,18 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { connectorDisplayAnchors, createConnectorDisplayLayout } from "../src/engine/connectorDisplayLayout.js";
+import { engineCompatibilitySummary } from "../src/engine/connectorCompatibility.js";
 import {
   connectorIsNotWorking,
   normalizeConnectorOperationalStatus
 } from "../src/engine/deviceDefinitionV2.js";
 import { createPreviewDeviceFromDraft } from "../src/engine/enginePreview.js";
+import { hitTestConnector } from "../src/engine/hitTest.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { connectorOperationalStatusMarkSegments } from "../src/engine/renderer.js";
+import { SceneGraph } from "../src/engine/sceneGraph.js";
 
-const BUILD_ID = "iteration54-3-1-connector-status-foreground";
+const BUILD_ID = "iteration54-3-2-connector-status-hit-targets";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -22,10 +25,10 @@ const projectAdapterSource = readFileSync(resolve(repoRoot, "src/engine/projectA
 const mutationSource = readFileSync(resolve(repoRoot, "src/engine/projectMutations.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify connector operational status");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-3-1-connector-status-foreground-modules";'), "module cache key should bust 54.3.1 modules");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-3-2-connector-status-hit-targets-modules";'), "module cache key should bust 54.3.2 modules");
 assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "bridge version should identify connector operational status");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "connector-status-foreground"'), "bridge feature label should identify connector status foreground");
-assert.ok(rendererSource.includes("renderer-iteration54-3-1-connector-status-foreground"), "renderer fingerprint should identify connector status foreground");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "connector-status-hit-targets"'), "bridge feature label should identify connector status hit targets");
+assert.ok(rendererSource.includes("renderer-iteration54-3-2-connector-status-hit-targets"), "renderer fingerprint should identify connector status hit targets");
 
 assert.equal(normalizeConnectorOperationalStatus(), "working", "missing connector status should default to working");
 assert.equal(normalizeConnectorOperationalStatus("working"), "working", "working status should remain working");
@@ -60,6 +63,12 @@ const projectData = {
       name: "Device A",
       x: 0,
       y: 0
+    }, {
+      instanceId: "device-b",
+      templateId: template.id,
+      name: "Device B",
+      x: 520,
+      y: 0
     }],
     connections: [{
       id: "connected-to-faulty",
@@ -74,7 +83,9 @@ const projectData = {
 
 const normalized = normalizeAvDesignerProject(projectData);
 const sceneDevice = normalized.devices.find(device => device.id === "device-a");
+const targetDevice = normalized.devices.find(device => device.id === "device-b");
 assert.ok(sceneDevice, "normalized scene should contain fixture device");
+assert.ok(targetDevice, "normalized scene should contain hit-test target device");
 assert.equal(normalized.wires.length, 1, "connected wire should survive faulty connector status");
 assert.equal(sceneDevice.connectors.find(connector => connector.id === "in-a").operationalStatus, "not-working", "ordinary not-working status should survive normalization");
 assert.equal(sceneDevice.connectors.find(connector => connector.id === "out-a").operationalStatus, "working", "working status should survive normalization");
@@ -101,6 +112,34 @@ const notWorkingAnchorCount = sceneDevice.connectors.reduce((total, connector) =
 assert.equal(notWorkingAnchorCount, 4, "ordinary, both-side, and one shared-bus member should produce four marked anchors");
 assert.equal(connectorOperationalStatusMarkSegments({ x: 10, y: 20 }, 7).length, 2, "renderer X helper should draw two crossed segments");
 
+const scene = new SceneGraph();
+scene.setData(normalized);
+const hitSourceDevice = scene.getDevice("device-b");
+const hitSourceConnector = scene.getConnector("device-b", "out-a");
+const hitTargetConnector = scene.getConnector("device-b", "in-a");
+const hitTargetPoint = scene.connectorWorldPoint(hitSourceDevice, hitTargetConnector);
+const hitResult = hitTestConnector(scene, hitTargetPoint, 15);
+assert.equal(hitResult.connector?.device?.id, "device-b", "not-working connector should remain in the canvas hit index");
+assert.equal(hitResult.connector?.connector?.id, "in-a", "not-working connector hit should resolve the faulty plug");
+const compatibility = engineCompatibilitySummary(
+  {
+    device: hitSourceDevice,
+    connector: hitSourceConnector,
+    point: scene.connectorWorldPoint(hitSourceDevice, hitSourceConnector)
+  },
+  hitResult.connector
+);
+assert.equal(compatibility.valid, true, `not-working target should remain wire-compatible: ${compatibility.reason}`);
+const faultyWire = scene.addWire({
+  fromDeviceId: "device-b",
+  fromConnectorId: "out-a",
+  toDeviceId: "device-b",
+  toConnectorId: "in-a",
+  cableType: "hdmi"
+});
+assert.equal(faultyWire?.toConnectorId, "in-a", "scene should allow adding a wire to a not-working connector");
+assert.equal(scene.connectorWireIds("device-b", "in-a").has(faultyWire.id), true, "not-working connector should index newly added wires");
+
 const reloaded = normalizeAvDesignerProject(JSON.parse(JSON.stringify(projectData)));
 const reloadedDevice = reloaded.devices.find(device => device.id === "device-a");
 assert.equal(reloadedDevice.connectors.find(connector => connector.id === "in-a").operationalStatus, "not-working", "save/load JSON cycle should preserve not-working status");
@@ -116,11 +155,13 @@ assert.equal(connectorDisplayAnchors(previewDevice, previewDevice.connectors.fin
 assert.ok(rendererSource.includes("connectorDisplayAnchors(device, connector, displayLayout).forEach(anchor =>"), "renderer should draw connector nodes from display anchors");
 assert.ok(rendererSource.includes("function pushVisibleConnectorNotWorkingMarks"), "renderer should draw status X from a foreground pass");
 assert.ok(rendererSource.includes("const CONNECTOR_NOT_WORKING_COLOR = \"#ff0000\";"), "status X should use full red");
+assert.ok(rendererSource.includes("Math.max(2.2, connectorVisualStrokeWidth(device, camera) * 1.05)"), "status X should be thicker than the original foreground mark");
 assert.ok(rendererSource.indexOf("pushVisibleConnectorNodes(liveVertices") < rendererSource.indexOf("pushInteractionOverlay(liveVertices"), "connector nodes should draw before interaction overlays");
 assert.ok(rendererSource.indexOf("pushInteractionOverlay(liveVertices") < rendererSource.indexOf("pushVisibleConnectorNotWorkingMarks(liveVertices"), "status X marks should draw above connector highlights and node fills");
+assert.ok(readFileSync(resolve(repoRoot, "src/engine/sceneGraph.js"), "utf8").includes("connectorHitBoundsSize(device, connector)"), "not-working marks should enlarge connector hit bounds");
 assert.ok(indexHtml.includes('id="selectedConnectorNotWorking"'), "Device Editor connector inspector should expose Not working checkbox");
 assert.ok(indexHtml.includes('renderDeviceEditorPreview({ refreshTexture: false })'), "status toggle should repaint without refreshing device textures");
-assert.ok(indexHtml.includes("connectorNotWorking(c)") && indexHtml.includes("drawConnectorNotWorkingMark(node,c.x,c.y,7)") && indexHtml.includes('stroke:"#ff0000"'), "standalone viewer should draw faulty connector X marks in full red");
+assert.ok(indexHtml.includes("connectorNotWorking(c)") && indexHtml.includes("drawConnectorNotWorkingMark(node,c.x,c.y,7)") && indexHtml.includes('stroke:"#ff0000"') && indexHtml.includes('"stroke-width":2.35'), "standalone viewer should draw thicker faulty connector X marks in full red");
 assert.ok(projectAdapterSource.includes('"operationalStatus"'), "card slot overrides should carry operational status");
 assert.ok(mutationSource.includes("operationalStatus: connector.operationalStatus || \"working\""), "scene export mutations should preserve operational status");
 
@@ -129,5 +170,7 @@ console.log(JSON.stringify({
   notWorkingAnchorCount,
   sharedBusMarkedMember: "bus-b",
   connectedWireSurvived: normalized.wires.length === 1,
+  faultyConnectorHitTarget: `${hitResult.connector?.device?.id}:${hitResult.connector?.connector?.id}`,
+  faultyConnectorWireCompatible: compatibility.valid,
   viewerExportHook: true
 }, null, 2));

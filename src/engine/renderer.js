@@ -56,7 +56,7 @@ import {
 } from "./jumpNodeModel.js";
 import { wirePlaybackEase } from "./wirePlayback.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-3-1-connector-status-foreground";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-3-2-connector-status-hit-targets";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -2606,7 +2606,7 @@ export function connectorOperationalStatusMarkSegments(point = {}, radius = CONN
 function pushConnectorNotWorkingMark(vertices, point, connector = {}, device = {}, camera = null) {
   if (!connectorIsNotWorking(connector)) return 0;
   const radius = connectorVisualRadius(device, camera);
-  const stroke = Math.max(1.15, connectorVisualStrokeWidth(device, camera) * 0.72);
+  const stroke = Math.max(2.2, connectorVisualStrokeWidth(device, camera) * 1.05);
   connectorOperationalStatusMarkSegments(point, radius).forEach(([from, to]) => {
     pushLine(vertices, from, to, stroke, CONNECTOR_NOT_WORKING_COLOR);
   });

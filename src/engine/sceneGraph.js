@@ -40,6 +40,7 @@ import {
 import {
   DEVICE_DEFINITION_SCHEMA_VERSION,
   connectorAnchorIndexKey,
+  connectorIsNotWorking,
   connectorVisualAnchors,
   deviceDefinitionVersion,
   normalizeConnectorOperationalStatus,
@@ -831,12 +832,13 @@ export class SceneGraph {
     const layout = displayLayout || this.connectorDisplayLayoutForDevice(device);
     const anchors = connectorDisplayAnchors(device, connector, layout);
     const logicalKey = connectorKey(device.id, connector.id);
+    const hitBoundsSize = connectorHitBoundsSize(device, connector);
     return anchors.map(anchor => {
       const point = this.connectorAnchorWorldPoint(device, connector, anchor.id, layout);
       const id = connectorAnchorIndexKey(device.id, connector.id, anchor.id);
       return {
         id,
-        bounds: centeredBounds(point, device.kind === "jump" ? 42 : 24),
+        bounds: centeredBounds(point, hitBoundsSize),
         device,
         connector,
         anchor,
@@ -1806,6 +1808,11 @@ function centeredBounds(point, size) {
     width: size,
     height: size
   };
+}
+
+function connectorHitBoundsSize(device = {}, connector = {}) {
+  const base = device.kind === "jump" ? 42 : 24;
+  return connectorIsNotWorking(connector) ? Math.max(base, 34) : base;
 }
 
 function offsetHasMovement(offset) {
