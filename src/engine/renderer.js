@@ -56,7 +56,7 @@ import {
 } from "./jumpNodeModel.js";
 import { wirePlaybackEase } from "./wirePlayback.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-3-connector-operational-status";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-3-1-connector-status-foreground";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -67,7 +67,7 @@ const GRID_MINOR = "rgba(255,255,255,.055)";
 const GRID_MAJOR = "rgba(255,255,255,.12)";
 const ROUTE_POINT_COLOR = "#ff7904";
 const FALLBACK_WIRE_COLOR = "#ff4f5f";
-const CONNECTOR_NOT_WORKING_COLOR = "#ff4f5f";
+const CONNECTOR_NOT_WORKING_COLOR = "#ff0000";
 const REAL_ENDPOINT_WIRE_COLOR = "#32b6ff";
 const ROUTED_WIRE_COLOR = "#ff7904";
 const WIRE_BASE_WIDTH = 4.6;
@@ -850,6 +850,7 @@ export class WebglGraphRenderer {
       objectHoverOverlayMs: 0,
       connectorNodeMs: 0,
       connectorOverlayCount: 0,
+      connectorNotWorkingMarks: 0,
       connectorRelationships: 0,
       wirePreviewDrawn: 0,
       wirePlayback: 0,
@@ -1036,6 +1037,7 @@ export class WebglGraphRenderer {
       camera,
       resolution: this.resolution,
     });
+    frameStats.connectorNotWorkingMarks = pushVisibleConnectorNotWorkingMarks(liveVertices, scene, camera, this.resolution, renderOptions, dragSession);
     frameStats.interactionOverlayMs = performance.now() - interactionStart;
     frameStats.connectorOverlayCount += interactionStats.connectorOverlayCount || 0;
     frameStats.wirePreviewDrawn = interactionStats.wirePreviewDrawn || 0;
@@ -2168,6 +2170,34 @@ function pushVisibleConnectorNodes(vertices, scene, camera, resolution, renderOp
   return count;
 }
 
+function pushVisibleConnectorNotWorkingMarks(vertices, scene, camera, resolution, renderOptions = DEFAULT_RENDER_OPTIONS, dragSession = null) {
+  if (!renderOptions.connectorMarkers) return 0;
+  const offsets = dragSession?.offsetMap() || null;
+  const selectedIds = new Set(dragSession?.selectedIds || []);
+  const drawn = new Set();
+  let count = 0;
+  const drawDeviceConnectorMarks = device => {
+    if (!device || drawn.has(device.id)) return;
+    if (!deviceVisible(device, renderOptions)) return;
+    if (device.kind === "jump" || isLedSurfaceKind(device)) return;
+    const offset = offsets?.get(device.id);
+    const baseX = device.x + (offset?.dx || 0);
+    const baseY = device.y + (offset?.dy || 0);
+    const displayLayout = connectorDisplayLayoutForRender(scene, device);
+    deviceConnectorsForRender(device).forEach(connector => {
+      if (!connectorIsNotWorking(connector)) return;
+      connectorDisplayAnchors(device, connector, displayLayout).forEach(anchor => {
+        const point = connectorAnchorRenderPoint(baseX, baseY, connector, anchor, device);
+        count += pushConnectorNotWorkingMark(vertices, point, connector, device, camera);
+      });
+    });
+    drawn.add(device.id);
+  };
+  visibleDevices(scene, camera, resolution).forEach(drawDeviceConnectorMarks);
+  selectedIds.forEach(id => drawDeviceConnectorMarks(scene.getDevice(id)));
+  return count;
+}
+
 function primaryAnchorForRender(connector = {}, device = {}, displayLayout = null) {
   const anchors = connectorDisplayAnchors(device, connector, displayLayout);
   return anchors
@@ -2561,7 +2591,6 @@ function pushConnectorNode(vertices, point, connector = {}, device = {}, options
   if (segments?.length > 1) pushSegmentedCircle(vertices, point, radius, segments, opacity);
   else pushCircle(vertices, point, radius, colorWithOpacity(fill, opacity), 20);
   pushCircleOutline(vertices, point, radius + strokeWidth * 1.2, Math.max(1.1, strokeWidth * 0.55), colorWithOpacity("rgba(0,0,0,.45)", opacity), 20);
-  pushConnectorNotWorkingMark(vertices, point, connector, device, camera);
 }
 
 export function connectorOperationalStatusMarkSegments(point = {}, radius = CONNECTOR_RADIUS) {
@@ -2576,11 +2605,10 @@ export function connectorOperationalStatusMarkSegments(point = {}, radius = CONN
 
 function pushConnectorNotWorkingMark(vertices, point, connector = {}, device = {}, camera = null) {
   if (!connectorIsNotWorking(connector)) return 0;
-  const opacity = Math.max(0.12, Math.min(1, Number(connector.__renderOpacity ?? connector.renderOpacity ?? 1) || 1));
   const radius = connectorVisualRadius(device, camera);
   const stroke = Math.max(1.15, connectorVisualStrokeWidth(device, camera) * 0.72);
   connectorOperationalStatusMarkSegments(point, radius).forEach(([from, to]) => {
-    pushLine(vertices, from, to, stroke, colorWithOpacity(CONNECTOR_NOT_WORKING_COLOR, opacity));
+    pushLine(vertices, from, to, stroke, CONNECTOR_NOT_WORKING_COLOR);
   });
   return 2;
 }

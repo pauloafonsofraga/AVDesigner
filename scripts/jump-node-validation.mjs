@@ -41,7 +41,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-3-connector-operational-status";
+const BUILD_ID = "iteration54-3-1-connector-status-foreground";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -50,13 +50,13 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Connector Operational Status");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-3-connector-operational-status-modules";'), "module cache key should identify Connector Operational Status");
-assert.ok(indexHtml.includes("Connector Operational Status"), "visible build label should name Connector Operational Status");
-assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Connector Operational Status");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "connector-operational-status"'), "bridge feature label should identify Connector Operational Status");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-3-connector-operational-status"), "bridge fingerprint should identify Connector Operational Status");
-assert.ok(rendererSource.includes("renderer-iteration54-3-connector-operational-status"), "renderer fingerprint should identify Connector Operational Status");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Connector Status Foreground");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-3-1-connector-status-foreground-modules";'), "module cache key should identify Connector Status Foreground");
+assert.ok(indexHtml.includes("Connector Status Foreground"), "visible build label should name Connector Status Foreground");
+assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Connector Status Foreground");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "connector-status-foreground"'), "bridge feature label should identify Connector Status Foreground");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-3-1-connector-status-foreground"), "bridge fingerprint should identify Connector Status Foreground");
+assert.ok(rendererSource.includes("renderer-iteration54-3-1-connector-status-foreground"), "renderer fingerprint should identify Connector Status Foreground");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");
 assert.ok(rendererSource.includes("pushWirePlaybackOverlay"), "renderer should draw transient Play Wire overlays");

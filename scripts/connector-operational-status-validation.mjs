@@ -12,7 +12,7 @@ import { createPreviewDeviceFromDraft } from "../src/engine/enginePreview.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { connectorOperationalStatusMarkSegments } from "../src/engine/renderer.js";
 
-const BUILD_ID = "iteration54-3-connector-operational-status";
+const BUILD_ID = "iteration54-3-1-connector-status-foreground";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -22,10 +22,10 @@ const projectAdapterSource = readFileSync(resolve(repoRoot, "src/engine/projectA
 const mutationSource = readFileSync(resolve(repoRoot, "src/engine/projectMutations.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify connector operational status");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-3-connector-operational-status-modules";'), "module cache key should bust 54.3 modules");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-3-1-connector-status-foreground-modules";'), "module cache key should bust 54.3.1 modules");
 assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "bridge version should identify connector operational status");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "connector-operational-status"'), "bridge feature label should identify connector operational status");
-assert.ok(rendererSource.includes("renderer-iteration54-3-connector-operational-status"), "renderer fingerprint should identify connector operational status");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "connector-status-foreground"'), "bridge feature label should identify connector status foreground");
+assert.ok(rendererSource.includes("renderer-iteration54-3-1-connector-status-foreground"), "renderer fingerprint should identify connector status foreground");
 
 assert.equal(normalizeConnectorOperationalStatus(), "working", "missing connector status should default to working");
 assert.equal(normalizeConnectorOperationalStatus("working"), "working", "working status should remain working");
@@ -114,10 +114,13 @@ assert.equal(previewDevice.connectors.find(connector => connector.id === "both-a
 assert.equal(connectorDisplayAnchors(previewDevice, previewDevice.connectors.find(connector => connector.id === "both-a")).length, 2, "Device Editor Engine preview should expose both status anchors");
 
 assert.ok(rendererSource.includes("connectorDisplayAnchors(device, connector, displayLayout).forEach(anchor =>"), "renderer should draw connector nodes from display anchors");
-assert.ok(rendererSource.includes("pushConnectorNotWorkingMark(vertices, point, connector, device, camera)"), "renderer should draw status X from shared connector node path");
+assert.ok(rendererSource.includes("function pushVisibleConnectorNotWorkingMarks"), "renderer should draw status X from a foreground pass");
+assert.ok(rendererSource.includes("const CONNECTOR_NOT_WORKING_COLOR = \"#ff0000\";"), "status X should use full red");
+assert.ok(rendererSource.indexOf("pushVisibleConnectorNodes(liveVertices") < rendererSource.indexOf("pushInteractionOverlay(liveVertices"), "connector nodes should draw before interaction overlays");
+assert.ok(rendererSource.indexOf("pushInteractionOverlay(liveVertices") < rendererSource.indexOf("pushVisibleConnectorNotWorkingMarks(liveVertices"), "status X marks should draw above connector highlights and node fills");
 assert.ok(indexHtml.includes('id="selectedConnectorNotWorking"'), "Device Editor connector inspector should expose Not working checkbox");
 assert.ok(indexHtml.includes('renderDeviceEditorPreview({ refreshTexture: false })'), "status toggle should repaint without refreshing device textures");
-assert.ok(indexHtml.includes("connectorNotWorking(c)") && indexHtml.includes("drawConnectorNotWorkingMark(node,c.x,c.y,7)"), "standalone viewer should draw faulty connector X marks");
+assert.ok(indexHtml.includes("connectorNotWorking(c)") && indexHtml.includes("drawConnectorNotWorkingMark(node,c.x,c.y,7)") && indexHtml.includes('stroke:"#ff0000"'), "standalone viewer should draw faulty connector X marks in full red");
 assert.ok(projectAdapterSource.includes('"operationalStatus"'), "card slot overrides should carry operational status");
 assert.ok(mutationSource.includes("operationalStatus: connector.operationalStatus || \"working\""), "scene export mutations should preserve operational status");
 
