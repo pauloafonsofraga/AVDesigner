@@ -119,9 +119,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-2-5-5-jump-portal-nodes";
-export const ENGINE_BRIDGE_VERSION = "iteration54-2-5-5-jump-portal-nodes";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-portal-nodes";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-2-5-6-playback-zoom-preservation";
+export const ENGINE_BRIDGE_VERSION = "iteration54-2-5-6-playback-zoom-preservation";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "playback-zoom-preservation";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -4571,16 +4571,25 @@ class ProductionEngineBridge {
     return true;
   }
 
-  centerCameraAtWorldPoint(point, reason = "center-point", { render = true } = {}) {
+  centerCameraAtWorldPoint(point, reason = "center-point", { render = true, zoom: zoomOverride = null } = {}) {
     if (!point || !this.canvas) return { ok: false, screenPoint: null };
     const rect = this.canvas.getBoundingClientRect();
-    const zoom = Math.max(Number(this.camera.zoom) || 1, 0.001);
-    this.camera.x = Number(point.x) - rect.width / zoom / 2;
-    this.camera.y = Number(point.y) - rect.height / zoom / 2;
+    const requestedZoom = Number(zoomOverride);
+    const currentZoom = Number(this.camera.zoom);
+    const cameraZoom = clamp(
+      Number.isFinite(requestedZoom) && requestedZoom > 0
+        ? requestedZoom
+        : (Number.isFinite(currentZoom) && currentZoom > 0 ? currentZoom : 1),
+      ENGINE_MIN_ZOOM,
+      ENGINE_MAX_ZOOM
+    );
+    this.camera.zoom = cameraZoom;
+    this.camera.x = Number(point.x) - rect.width / cameraZoom / 2;
+    this.camera.y = Number(point.y) - rect.height / cameraZoom / 2;
     this.notifyViewportChange(reason);
     const screenPoint = {
-      x: (Number(point.x) - this.camera.x) * zoom,
-      y: (Number(point.y) - this.camera.y) * zoom
+      x: (Number(point.x) - this.camera.x) * cameraZoom,
+      y: (Number(point.y) - this.camera.y) * cameraZoom
     };
     if (render) this.scheduleRender();
     return { ok: true, screenPoint };
@@ -4662,6 +4671,12 @@ class ProductionEngineBridge {
       return false;
     }
     const firstWireStep = steps.find(step => step.type !== "teleport");
+    const currentZoom = Number(this.camera.zoom);
+    const zoomAtStart = clamp(
+      Number.isFinite(currentZoom) && currentZoom > 0 ? currentZoom : 1,
+      ENGINE_MIN_ZOOM,
+      ENGINE_MAX_ZOOM
+    );
     this.wirePlayback = {
       active: true,
       id: `wire-playback-${Date.now()}`,
@@ -4674,6 +4689,7 @@ class ProductionEngineBridge {
       stepStartedAt: performance.now(),
       startedAt: performance.now(),
       teleportCount: 0,
+      zoomAtStart,
       lastPoint: firstWireStep?.points?.[0] || null,
       lastPoints: firstWireStep?.points || [],
       commandIndexAtStart: this.commandIndex,
@@ -4686,7 +4702,7 @@ class ProductionEngineBridge {
     this.jumpActionDiagnostics.playWireActive = true;
     this.lastPlaybackJumpPath = semanticSteps.map(playbackPathLabel);
     if (this.wirePlayback.lastPoint) {
-      this.centerCameraAtWorldPoint(this.wirePlayback.lastPoint, "play-wire-start", { render: false });
+      this.centerCameraAtWorldPoint(this.wirePlayback.lastPoint, "play-wire-start", { render: false, zoom: this.wirePlayback.zoomAtStart });
     }
     this.recordWirePlaybackDiagnostics("start");
     this.scheduleRender();
@@ -4849,7 +4865,7 @@ class ProductionEngineBridge {
       state.progress = 1;
       state.stepIndex += 1;
       state.stepStartedAt = now;
-      this.centerCameraAtWorldPoint(step.to, "play-wire-teleport", { render: false });
+      this.centerCameraAtWorldPoint(step.to, "play-wire-teleport", { render: false, zoom: state.zoomAtStart });
       this.recordWirePlaybackDiagnostics("teleport");
       this.scheduleRender();
       this.requestWirePlaybackFrame();
@@ -4863,7 +4879,7 @@ class ProductionEngineBridge {
     const playbackPoint = polylinePointAtDistance(step.points, polylineLength(step.points) * easedProgress);
     if (playbackPoint) {
       state.lastPoint = playbackPoint;
-      this.centerCameraAtWorldPoint(playbackPoint, "play-wire-follow", { render: false });
+      this.centerCameraAtWorldPoint(playbackPoint, "play-wire-follow", { render: false, zoom: state.zoomAtStart });
     }
     if (progress >= 1) state.lastPoint = step.points.at(-1) || state.lastPoint;
     if (progress >= 1) {
@@ -4955,6 +4971,8 @@ class ProductionEngineBridge {
       stepType: step?.type || (state?.completedAt ? "complete" : ""),
       progress: state ? Number(state.progress || 0) : 0,
       teleportCount: state?.teleportCount || 0,
+      zoomAtStart: state?.zoomAtStart || null,
+      zoomNow: this.camera.zoom,
       rafActive: Boolean(this.wirePlaybackFrame),
       commandIndexChanged: state ? state.commandIndexAtStart !== this.commandIndex : false,
       mutationCountChanged: state ? state.mutationCountAtStart !== (this.mutations?.stats?.().mutationCount || 0) : false,

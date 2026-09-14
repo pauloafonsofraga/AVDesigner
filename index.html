@@ -4453,7 +4453,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.2.5.5 — Jump Portal Nodes — iteration54-2-5-5-jump-portal-nodes</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.2.5.6 — Playback Zoom Preservation — iteration54-2-5-6-playback-zoom-preservation</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5169,10 +5169,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.2.5.5";
-    const APP_BUILD_ID = "iteration54-2-5-5-jump-portal-nodes";
-    const APP_MODULE_CACHE_ID = "iteration54-2-5-5-jump-portal-nodes-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Jump Portal Nodes`;
+    const APP_ITERATION = "54.2.5.6";
+    const APP_BUILD_ID = "iteration54-2-5-6-playback-zoom-preservation";
+    const APP_MODULE_CACHE_ID = "iteration54-2-5-6-playback-zoom-preservation-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Playback Zoom Preservation`;
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "f409d0373f783821e981515da660a2476e661959";
     const CANVAS_MIN_ZOOM = 0.03;
@@ -98863,9 +98863,10 @@
     function focusTraceCamera(point) {
       const rect = canvasWrap.getBoundingClientRect();
       beginLiveZoom();
-      canvasView.zoom = 1.13;
-      canvasView.x = point.x - Math.max(1, rect.width / canvasView.zoom) / 2;
-      canvasView.y = point.y - Math.max(1, rect.height / canvasView.zoom) / 2;
+      const zoom = Math.min(CANVAS_MAX_ZOOM, Math.max(CANVAS_MIN_ZOOM, Number(canvasView.zoom) || 1));
+      canvasView.zoom = zoom;
+      canvasView.x = point.x - Math.max(1, rect.width / zoom) / 2;
+      canvasView.y = point.y - Math.max(1, rect.height / zoom) / 2;
       updateCanvasView({ deferSvgViewBox: true });
       scheduleZoomCanvasRender();
     }
@@ -105367,7 +105368,7 @@ function reverseWireToEndAtJump(w,jumpNodeId){if(w.to&&w.to.jumpNodeId===jumpNod
 function reverseWireToStartAtJump(w,jumpNodeId){if(w.from&&w.from.jumpNodeId===jumpNodeId)return false;if(w.to&&w.to.jumpNodeId===jumpNodeId)return true;return false}
 function wireTraceSequence(w){if(!w)return[];const fromJump=w.from&&w.from.jumpNodeId,toJump=w.to&&w.to.jumpNodeId,jumpId=fromJump||toJump||"";if(!jumpId)return[{type:"wire",wire:w,reverse:false}];const link=jumpLinkForJumpNode(jumpId);if(!link)return[{type:"wire",wire:w,reverse:false}];const outputWire=connectionForJumpNode(link.outputJumpId)&&connectionForJumpNode(link.outputJumpId).connection,inputWire=connectionForJumpNode(link.inputJumpId)&&connectionForJumpNode(link.inputJumpId).connection;if(!outputWire||!inputWire)return[{type:"wire",wire:w,reverse:false}];return[{type:"wire",wire:outputWire,reverse:reverseWireToEndAtJump(outputWire,link.outputJumpId)},{type:"teleport",fromJumpId:link.outputJumpId,toJumpId:link.inputJumpId,jumpLinkId:link.id},{type:"wire",wire:inputWire,reverse:reverseWireToStartAtJump(inputWire,link.inputJumpId)}]}
 function isWireHighlighted(wireId){if(isSelected("wire",wireId))return true;if(!selected||selected.type!=="wire")return false;const selectedWire=(data.connections||[]).find(item=>item.id===selected.id);return wireTraceSequence(selectedWire).some(item=>(item.wire||item).id===wireId)}
-function focusTraceCamera(point){const rect=svg.getBoundingClientRect();view.zoom=1.13;view.x=point.x-rect.width/view.zoom/2;view.y=point.y-rect.height/view.zoom/2;updateView()}
+function focusTraceCamera(point){const rect=svg.getBoundingClientRect(),zoom=Math.min(8,Math.max(.03,Number(view.zoom)||1));view.zoom=zoom;view.x=point.x-rect.width/zoom/2;view.y=point.y-rect.height/zoom/2;updateView()}
 function clearWireTrace(){if(window.__wireTraceAnimation)cancelAnimationFrame(window.__wireTraceAnimation);window.__wireTraceAnimation=null;svg.querySelectorAll(".wire-trace-path,.wire-trace-dot").forEach(el=>el.remove())}
 function makeTracePath(d){const path=s("path",{class:"wire-trace-path",d:d});wireLayer.appendChild(path);let length=0;try{length=path.getTotalLength()}catch(e){length=0}return{path,length}}
 function animateTraceSegment(segment,dot,done){if(!segment||!segment.wire){done&&done();return}const pts=wireEndpoints(segment.wire),d=pathForConnection(segment.wire,pts),trace=makeTracePath(d);wireLayer.appendChild(dot);if(!trace.length){trace.path.remove();done&&done();return}const duration=Math.max(650,Math.min(4500,trace.length*4.6));let start=0;function step(now){if(!start)start=now;const t=Math.min(1,(now-start)/duration),ease=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2,dist=segment.reverse?trace.length*(1-ease):trace.length*ease,pt=trace.path.getPointAtLength(dist);dot.setAttribute("cx",pt.x);dot.setAttribute("cy",pt.y);focusTraceCamera(pt);if(t<1){window.__wireTraceAnimation=requestAnimationFrame(step);return}trace.path.remove();done&&done()}window.__wireTraceAnimation=requestAnimationFrame(step)}
