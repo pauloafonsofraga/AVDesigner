@@ -38,6 +38,7 @@ const results = {
   projectCustomDraft: null,
   editorPreviewIdentity: null,
   bothAnchorHitMapping: null,
+  fitContain: null,
   sceneInput: []
 };
 
@@ -183,6 +184,14 @@ results.bothAnchorHitMapping = {
 };
 
 const camera = fitCameraToBounds({ x: 100, y: 200, width: 500, height: 300 }, 1000, 700, 50);
+const wideBounds = { x: 10, y: 20, width: 1600, height: 240 };
+const tallBounds = { x: -80, y: 30, width: 220, height: 1500 };
+const wideCamera = fitCameraToBounds(wideBounds, 1000, 700, 50);
+const tallCamera = fitCameraToBounds(tallBounds, 1000, 700, 50);
+assert.ok(close(wideCamera.zoom, 900 / wideBounds.width), "wide fit should be width-limited");
+assert.ok(close(tallCamera.zoom, 600 / tallBounds.height), "tall fit should be height-limited");
+assertContainedCamera("wide", wideCamera, wideBounds, 1000, 700, 50);
+assertContainedCamera("tall", tallCamera, tallBounds, 1000, 700, 50);
 const worldPoint = { x: 250, y: 260 };
 const screenPoint = worldToScreenPoint(camera, worldPoint);
 const restoredWorldPoint = screenToWorldPoint(camera, screenPoint);
@@ -203,6 +212,16 @@ results.transformParity = {
   localRoundTripError: {
     x: restoredLocalPoint.x - localPoint.x,
     y: restoredLocalPoint.y - localPoint.y
+  }
+};
+results.fitContain = {
+  wide: {
+    zoom: wideCamera.zoom,
+    screen: cameraScreenBounds(wideCamera, wideBounds)
+  },
+  tall: {
+    zoom: tallCamera.zoom,
+    screen: cameraScreenBounds(tallCamera, tallBounds)
   }
 };
 
@@ -271,4 +290,22 @@ function fakeGl() {
 
 function close(a, b, tolerance = 0.000001) {
   return Math.abs(a - b) <= tolerance;
+}
+
+function cameraScreenBounds(camera, bounds) {
+  const left = (bounds.x - camera.x) * camera.zoom;
+  const top = (bounds.y - camera.y) * camera.zoom;
+  const right = left + bounds.width * camera.zoom;
+  const bottom = top + bounds.height * camera.zoom;
+  return { left, top, right, bottom, width: right - left, height: bottom - top };
+}
+
+function assertContainedCamera(label, camera, bounds, viewportWidth, viewportHeight, padding) {
+  const screen = cameraScreenBounds(camera, bounds);
+  assert.ok(screen.left >= padding - 0.000001, `${label} fit should leave left padding`);
+  assert.ok(screen.top >= padding - 0.000001, `${label} fit should leave top padding`);
+  assert.ok(screen.right <= viewportWidth - padding + 0.000001, `${label} fit should leave right padding`);
+  assert.ok(screen.bottom <= viewportHeight - padding + 0.000001, `${label} fit should leave bottom padding`);
+  assert.ok(close((screen.left + screen.right) / 2, viewportWidth / 2), `${label} fit should center horizontally`);
+  assert.ok(close((screen.top + screen.bottom) / 2, viewportHeight / 2), `${label} fit should center vertically`);
 }

@@ -320,13 +320,13 @@ export class EnginePreviewSurface {
     return this.camera;
   }
 
-  setSceneData(sceneData = {}, { fit = true } = {}) {
+  setSceneData(sceneData = {}, { fit = true, fitOptions = null } = {}) {
     if (this.disposed) return null;
     const normalized = normalizePreviewSceneData(sceneData);
     this.scene.setData(normalized);
     this.lastSetSceneStats = this.renderer.setStaticScene(this.scene);
     ENGINE_PREVIEW_LIFECYCLE.fullSceneReplacements += 1;
-    if (fit) this.fitToContent();
+    if (fit) this.fitToContent(fitOptions || undefined);
     this.render();
     return normalized;
   }

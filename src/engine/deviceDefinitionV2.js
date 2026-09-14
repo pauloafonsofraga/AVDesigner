@@ -200,6 +200,66 @@ export function primaryAnchorForConnector(connector = {}, deviceOrWidth = 0) {
   return connectorAnchorById(connector, connector.primaryAnchorId || "", deviceOrWidth);
 }
 
+export function normalizeInstalledCardConnectorAnchors(connector = {}, options = {}) {
+  const sourceConnector = options.sourceConnector && typeof options.sourceConnector === "object"
+    ? options.sourceConnector
+    : connector;
+  const deviceWidth = finiteCoordinate(options.deviceWidth, finiteCoordinate(options.installedDeviceWidth, 0));
+  const sourceDeviceWidth = finiteCoordinate(options.sourceDeviceWidth, deviceWidth);
+  const index = finiteCoordinate(options.index, 0);
+  const installedX = finiteCoordinate(options.x, finiteCoordinate(connector.x, 0));
+  const installedY = finiteCoordinate(options.y, finiteCoordinate(connector.y, 0));
+  const sourceSeed = {
+    ...connector,
+    x: finiteCoordinate(options.sourceX, finiteCoordinate(sourceConnector.x, connector.x)),
+    y: finiteCoordinate(options.sourceY, finiteCoordinate(sourceConnector.y, connector.y)),
+    anchors: Array.isArray(connector.anchors) ? connector.anchors : sourceConnector.anchors,
+    primaryAnchorId: connector.primaryAnchorId || sourceConnector.primaryAnchorId || "",
+    displaySide: connector.displaySide || sourceConnector.displaySide || "",
+    direction: connector.direction || sourceConnector.direction || "io",
+    signalDirection: connector.signalDirection || sourceConnector.signalDirection || "",
+  };
+  const sourceTopology = normalizeConnectorTopology(sourceSeed, {
+    deviceWidth: sourceDeviceWidth,
+    index,
+    forceV2: options.forceV2 ?? (isV2Connector(connector) || isV2Connector(sourceConnector))
+  });
+  const sourcePrimary = primaryAnchorForConnector(sourceTopology, sourceDeviceWidth)
+    || sourceTopology.anchors[0]
+    || defaultAnchorForSide(sourceSeed.direction === "output" ? "right" : "left", sourceDeviceWidth, sourceSeed.y);
+  const yDelta = installedY - finiteCoordinate(sourcePrimary.y, sourceSeed.y);
+  const anchors = sourceTopology.anchors.map(anchor => {
+    const side = anchor.side === "right" ? "right" : "left";
+    return {
+      ...anchor,
+      side,
+      x: side === "right" ? deviceWidth : 0,
+      y: finiteCoordinate(anchor.y, sourcePrimary.y) + yDelta
+    };
+  });
+  const primaryAnchorId = sourceTopology.primaryAnchorId || sourcePrimary.id || "";
+  const primaryAnchor = anchors.find(anchor => anchor.id === primaryAnchorId)
+    || anchors.find(anchor => anchor.primary)
+    || anchors[0]
+    || { x: installedX, y: installedY };
+  return {
+    ...connector,
+    schemaVersion: sourceTopology.schemaVersion,
+    physicalType: connector.physicalType || sourceTopology.physicalType,
+    connectorType: connector.connectorType || sourceTopology.connectorType,
+    signalDirection: sourceTopology.signalDirection,
+    displaySide: sourceTopology.displaySide,
+    anchors,
+    primaryAnchorId,
+    operationalStatus: sourceTopology.operationalStatus,
+    moduleCapability: connector.moduleCapability || sourceTopology.moduleCapability,
+    fiberCapability: connector.fiberCapability || sourceTopology.fiberCapability,
+    powerMetadata: connector.powerMetadata || sourceTopology.powerMetadata,
+    x: finiteCoordinate(primaryAnchor.x, installedX),
+    y: finiteCoordinate(primaryAnchor.y, installedY)
+  };
+}
+
 export function normalizeConnectorRelationships(rawRelationships = [], connectors = []) {
   const connectorIds = new Set((connectors || []).map(connector => String(connector?.id || "")).filter(Boolean));
   const relationships = [];
@@ -328,6 +388,11 @@ function normalizeConnectorAnchor(anchor = {}, options = {}) {
     y,
     primary: Boolean(anchor.primary)
   };
+}
+
+function finiteCoordinate(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
 }
 
 function normalizeOptionalObject(value) {

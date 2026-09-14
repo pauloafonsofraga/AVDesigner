@@ -2467,10 +2467,14 @@
       overflow: hidden;
     }
 
+    .device-editor-browser.hidden {
+      display: none !important;
+    }
+
     .connector-inspector-sidebar {
+      grid-area: side;
       grid-template-rows: auto auto minmax(0, 1fr) auto auto;
       padding: 14px 12px;
-      order: 1;
     }
 
     .connector-inspector-target {
@@ -3047,6 +3051,69 @@
       grid-column: 1 / -1;
     }
 
+    .visually-hidden {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      margin: -1px !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+      clip: rect(0 0 0 0) !important;
+      white-space: nowrap !important;
+      border: 0 !important;
+    }
+
+    .editor-device-basics {
+      margin-bottom: 4px;
+    }
+
+    .editor-feature-strip {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 7px;
+      margin: 2px 0 12px;
+    }
+
+    .editor-feature-group {
+      display: inline-flex;
+      flex: 0 1 auto;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      white-space: nowrap;
+    }
+
+    .editor-feature-group-wide {
+      flex-wrap: wrap;
+    }
+
+    .editor-feature-dependent {
+      flex: 0 0 auto;
+      width: auto;
+      min-width: 58px;
+      margin-bottom: 0;
+    }
+
+    .editor-feature-dependent select {
+      width: auto;
+      min-width: 58px;
+    }
+
+    .editor-pair-dependent select {
+      min-width: 156px;
+      max-width: 220px;
+    }
+
+    .editor-feature-separator {
+      flex: 0 0 auto;
+      color: rgba(148, 163, 184, .62);
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1;
+      user-select: none;
+    }
+
     .checkbox-row {
       min-height: 36px;
       display: flex;
@@ -3107,6 +3174,88 @@
 
     .feature-toggle:hover span {
       transform: translateY(-1px);
+    }
+
+    #deviceEditorModal .editor-tab {
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 6px 6px 0 0;
+      font-size: 10.5px;
+      letter-spacing: .02em;
+    }
+
+    #deviceEditorModal .editor-panel .tool-button,
+    #deviceEditorModal .editor-panel .primary-button,
+    #deviceEditorModal .editor-panel .danger-button,
+    #deviceEditorModal .preview-actions .tool-button,
+    #deviceEditorModal .card-chip {
+      height: 28px;
+      min-height: 28px;
+      padding: 0 9px;
+      border-radius: 6px;
+      font-size: 10.5px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    #deviceEditorModal .editor-feature-strip .feature-toggle {
+      min-height: 28px;
+    }
+
+    #deviceEditorModal .editor-feature-strip .feature-toggle span {
+      min-width: 0;
+      min-height: 28px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 10.5px;
+      letter-spacing: .02em;
+    }
+
+    #deviceEditorModal .editor-feature-subtoggle span {
+      background: rgba(148, 163, 184, .16);
+      color: var(--muted);
+    }
+
+    #deviceEditorModal .field input,
+    #deviceEditorModal .field select {
+      height: 28px;
+      padding: 0 8px;
+      font-size: 11px;
+    }
+
+    #deviceEditorModal input[type="file"] {
+      min-height: 28px;
+      height: auto;
+      padding: 2px 8px;
+      font-size: 11px;
+    }
+
+    #deviceEditorModal input[type="file"]::file-selector-button {
+      min-height: 24px;
+      margin: 0 8px 0 0;
+      padding: 0 9px;
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      background: rgba(50, 182, 255, .12);
+      color: var(--ink);
+      cursor: pointer;
+      font: 900 10.5px/1 Inter, system-ui, sans-serif;
+    }
+
+    #deviceEditorModal input[type="file"]::file-selector-button:hover {
+      border-color: rgb(50, 182, 255);
+      background: rgba(50, 182, 255, .2);
+    }
+
+    #deviceEditorModal .tool-button:focus-visible,
+    #deviceEditorModal .primary-button:focus-visible,
+    #deviceEditorModal .danger-button:focus-visible,
+    #deviceEditorModal .editor-tab:focus-visible,
+    #deviceEditorModal .feature-toggle input:focus-visible + span,
+    #deviceEditorModal input[type="file"]:focus-visible,
+    #deviceEditorModal input[type="file"]:focus-visible::file-selector-button {
+      outline: 2px solid rgb(50, 182, 255);
+      outline-offset: 2px;
     }
 
     .tool-button.active {
@@ -3256,6 +3405,19 @@
       pointer-events: all;
     }
 
+    .editor-preview.card-authoring-mode .engine-preview-surface {
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .editor-preview.card-authoring-mode #deviceEditorPreview {
+      position: relative;
+      inset: auto;
+      z-index: 4;
+      background: transparent;
+      pointer-events: all;
+    }
+
     .editor-engine-hit {
       fill: transparent;
       stroke: transparent;
@@ -3352,15 +3514,44 @@
       min-height: 0;
       display: grid;
       grid-template-columns: minmax(235px, 280px) minmax(0, 1fr) minmax(260px, 300px);
+      grid-template-areas: "palette preview side";
       gap: 10px;
     }
 
     .editor-workspace.node-library-hidden {
       grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
+      grid-template-areas: "preview side";
+    }
+
+    .editor-workspace.side-column-hidden {
+      grid-template-columns: minmax(235px, 280px) minmax(0, 1fr);
+      grid-template-areas: "palette preview";
+    }
+
+    .editor-workspace.node-library-hidden.side-column-hidden {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: "preview";
     }
 
     .device-tech-specs-panel {
+      grid-area: side;
       min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 10px;
+      padding: 14px 12px;
+      border-left: 1px solid var(--panel-border);
+      overflow: hidden;
+    }
+
+    .device-tech-specs-panel .field {
+      min-height: 0;
+      margin-bottom: 0;
+    }
+
+    .device-tech-specs-panel textarea {
+      height: 100%;
+      min-height: 210px;
     }
 
     .device-tech-specs-panel.hidden {
@@ -3405,6 +3596,7 @@
     }
 
     .editor-preview-column {
+      grid-area: preview;
       min-height: 0;
       display: grid;
       grid-template-rows: auto minmax(0, 1fr);
@@ -3412,6 +3604,7 @@
     }
 
     .editor-node-library {
+      grid-area: palette;
       min-height: 0;
       display: grid;
       grid-template-rows: auto auto minmax(0, 1fr);
@@ -3421,7 +3614,6 @@
       border-radius: 8px;
       background: rgba(50, 182, 255, .04);
       overflow: hidden;
-      order: -1;
     }
 
     .editor-node-library.hidden {
@@ -3660,11 +3852,6 @@
       border-radius: 3px 999px 999px 3px;
     }
 
-    .slot-drop-active {
-      border-color: var(--select);
-      box-shadow: 0 0 0 2px rgba(50, 182, 255, .22);
-    }
-
     .danger-mini {
       width: 28px;
       height: 28px;
@@ -3706,12 +3893,33 @@
 
       .editor-workspace {
         grid-template-columns: 1fr;
+        grid-template-areas:
+          "palette"
+          "preview"
+          "side";
         grid-template-rows: minmax(180px, 24%) minmax(320px, 1fr) minmax(180px, 28%);
       }
 
       .editor-workspace.node-library-hidden {
         grid-template-columns: 1fr;
+        grid-template-areas:
+          "preview"
+          "side";
         grid-template-rows: minmax(320px, 1fr) minmax(180px, 32%);
+      }
+
+      .editor-workspace.side-column-hidden {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "palette"
+          "preview";
+        grid-template-rows: minmax(180px, 24%) minmax(320px, 1fr);
+      }
+
+      .editor-workspace.node-library-hidden.side-column-hidden {
+        grid-template-columns: 1fr;
+        grid-template-areas: "preview";
+        grid-template-rows: minmax(320px, 1fr);
       }
 
       .editor-preview-grid.faceplate-enabled {
@@ -4453,7 +4661,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.3.3 — Connector Status Blocked — iteration54-3-3-connector-status-blocked</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.3.7 — Device Editor Integration Hardening — iteration54-3-7-device-editor-integration-hardening</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -4704,7 +4912,6 @@
             <button class="editor-tab" data-editor-tab="faceplate" type="button">Faceplate</button>
             <button class="editor-tab" data-editor-tab="connectors" type="button">Connectors</button>
             <button class="editor-tab" data-editor-tab="cards" type="button">Cards</button>
-            <button class="editor-tab" data-editor-tab="slots" type="button">Slots</button>
             <button class="editor-tab" data-editor-tab="defaults" type="button">Defaults</button>
           </div>
 
@@ -4715,7 +4922,7 @@
                 <button class="tool-button" id="duplicateEditorDevice" type="button">Duplicate Device</button>
                 <button class="danger-button" id="deleteEditorDevice" type="button">Delete Device</button>
               </div>
-              <div class="editor-grid">
+              <div class="editor-grid editor-device-basics">
                 <div class="field">
                   <label for="editorDeviceName">Name</label>
                   <input id="editorDeviceName">
@@ -4739,57 +4946,52 @@
                   </div>
                   <div class="field-hint" id="editorPowerEquivalent">0 W / 0 A</div>
                 </div>
-                <div class="field">
-                  <label for="editorAdapterBreakout">Object Type</label>
+              </div>
+              <div class="editor-feature-strip" aria-label="Device feature toggles">
+                <div class="editor-feature-group">
                   <label class="feature-toggle"><input id="editorAdapterBreakout" type="checkbox"><span>Adapter / Breakout</span></label>
                 </div>
-                <div class="field">
-                  <label for="editorHasCards">Swappable Cards</label>
-                  <label class="feature-toggle"><input id="editorHasCards" type="checkbox"><span>Has card slots</span></label>
+                <span class="editor-feature-separator" aria-hidden="true">|</span>
+                <div class="editor-feature-group">
+                  <label class="feature-toggle"><input id="editorHasCards" type="checkbox"><span>Has Card Slots</span></label>
                 </div>
-                <div class="field">
-                  <label for="editorLedProcessor">LED Processor</label>
-                  <label class="feature-toggle"><input id="editorLedProcessor" type="checkbox"><span>Enable LED outputs</span></label>
+                <span class="editor-feature-separator" aria-hidden="true">|</span>
+                <div class="editor-feature-group">
+                  <label class="feature-toggle"><input id="editorLedProcessor" type="checkbox"><span>Is an LED Processor</span></label>
+                  <div class="field editor-feature-dependent">
+                    <label class="visually-hidden" for="editorLedOutputCount">LED output count</label>
+                    <select id="editorLedOutputCount" aria-label="LED output count"></select>
+                  </div>
                 </div>
-                <div class="field">
-                  <label for="editorLedOutputCount">Output Ports</label>
-                  <select id="editorLedOutputCount"></select>
-                </div>
-                <div class="field">
-                  <label for="editorEthernetSwitch">Ethernet Switch</label>
-                  <label class="feature-toggle"><input id="editorEthernetSwitch" type="checkbox"><span>Enable switch ports</span></label>
-                </div>
-                <div class="field">
-                  <label for="editorPowerDistro">Power Distro</label>
-                  <label class="feature-toggle"><input id="editorPowerDistro" type="checkbox"><span>Device is a PD</span></label>
-                </div>
-                <div class="field">
-                  <label for="editorMatrixRouter">Matrix Routing</label>
-                  <label class="feature-toggle"><input id="editorMatrixRouter" type="checkbox"><span>Device is a Matrix</span></label>
-                </div>
-                <div class="field">
-                  <label for="editorPartOfPair">Device Pair</label>
-                  <label class="feature-toggle"><input id="editorPartOfPair" type="checkbox"><span>Part of pair</span></label>
-                </div>
-                <div class="field">
-                  <label for="editorPairTemplate">Pair With</label>
-                  <select id="editorPairTemplate"></select>
-                </div>
-                <div class="field">
-                  <label for="editorPairPlaceFirst">Pair Order</label>
-                  <label class="feature-toggle"><input id="editorPairPlaceFirst" type="checkbox"><span>Place this device first</span></label>
-                </div>
-                <div class="field">
-                  <label for="editorSwitchPortCount">Switch Ports</label>
-                  <select id="editorSwitchPortCount"></select>
-                </div>
-                <div class="field">
-                  <label for="editorSwitchPortType">Port Type</label>
-                  <select id="editorSwitchPortType"></select>
-                </div>
-                <div class="field">
-                  <label>&nbsp;</label>
+                <span class="editor-feature-separator" aria-hidden="true">|</span>
+                <div class="editor-feature-group editor-feature-group-wide">
+                  <label class="feature-toggle"><input id="editorEthernetSwitch" type="checkbox"><span>Is an Ethernet Switch</span></label>
+                  <div class="field editor-feature-dependent">
+                    <label class="visually-hidden" for="editorSwitchPortCount">Switch port count</label>
+                    <select id="editorSwitchPortCount" aria-label="Switch port count"></select>
+                  </div>
+                  <div class="field editor-feature-dependent">
+                    <label class="visually-hidden" for="editorSwitchPortType">Switch port type</label>
+                    <select id="editorSwitchPortType" aria-label="Switch port type"></select>
+                  </div>
                   <button class="primary-button" id="addEthernetSwitchPorts" type="button">Add Ports</button>
+                </div>
+                <span class="editor-feature-separator" aria-hidden="true">|</span>
+                <div class="editor-feature-group">
+                  <label class="feature-toggle"><input id="editorPowerDistro" type="checkbox"><span>Is a PD</span></label>
+                </div>
+                <span class="editor-feature-separator" aria-hidden="true">|</span>
+                <div class="editor-feature-group">
+                  <label class="feature-toggle"><input id="editorMatrixRouter" type="checkbox"><span>Is a Matrix</span></label>
+                </div>
+                <span class="editor-feature-separator" aria-hidden="true">|</span>
+                <div class="editor-feature-group editor-feature-group-wide">
+                  <label class="feature-toggle"><input id="editorPartOfPair" type="checkbox"><span>Part of a Pair</span></label>
+                  <div class="field editor-feature-dependent editor-pair-dependent">
+                    <label class="visually-hidden" for="editorPairTemplate">Pair with device</label>
+                    <select id="editorPairTemplate" aria-label="Pair with device"></select>
+                  </div>
+                  <label class="feature-toggle editor-feature-subtoggle"><input id="editorPairPlaceFirst" type="checkbox"><span>Place This Device First</span></label>
                 </div>
               </div>
             </section>
@@ -4818,10 +5020,22 @@
                 <button class="primary-button" id="addInputNode" type="button">Add Input Slot</button>
                 <button class="primary-button" id="addOutputNode" type="button">Add Output Slot</button>
               </div>
+              <div id="slotsDisabled" class="modular-disabled hidden" style="margin-top:10px;">Turn on Has Card Slots in the Device tab to add, install, and move chassis card slots.</div>
+              <div id="slotsPanelBody" style="margin-top:10px;">
+                <p class="editor-panel-note">Drag an available card into the preview to create and install a slot. Drop onto an existing card band to replace that slot without changing its ID.</p>
+                <div class="slot-actions">
+                  <button class="primary-button" id="addCardSlot" type="button">Add Card Slot</button>
+                </div>
+                <div class="field" style="margin-top:10px;">
+                  <label>Available Cards</label>
+                  <div class="card-chip-list" id="cardPalette"></div>
+                </div>
+                <div class="editor-list" id="cardSlotList" style="margin-top:10px;"></div>
+              </div>
             </section>
 
             <section class="editor-panel" data-editor-panel="cards">
-              <div id="cardsDisabled" class="modular-disabled hidden">Enable Swappable Cards in the Device tab to build reusable card node groups.</div>
+              <div id="cardsDisabled" class="modular-disabled hidden">Turn on Has Card Slots in the Device tab to build reusable card node groups.</div>
               <div id="cardsPanelBody" class="card-editor-layout">
                 <div>
                   <p class="editor-panel-note">Cards are reusable groups of connectors. They do not have faceplates; they become real nodes only when installed into a chassis slot.</p>
@@ -4871,21 +5085,6 @@
                 <div>
                   <div class="editor-list" id="cardConnectorList"></div>
                 </div>
-              </div>
-            </section>
-
-            <section class="editor-panel" data-editor-panel="slots">
-              <div id="slotsDisabled" class="modular-disabled hidden">Enable Swappable Cards in the Device tab to add chassis card slots.</div>
-              <div id="slotsPanelBody">
-                <p class="editor-panel-note">Drag a card chip into a slot to install it. Installed card connectors are shown in the preview and become connectable nodes on the canvas.</p>
-                <div class="slot-actions">
-                  <button class="primary-button" id="addCardSlot" type="button">Add Card Slot</button>
-                </div>
-                <div class="field" style="margin-top:10px;">
-                  <label>Available Cards</label>
-                  <div class="card-chip-list" id="cardPalette"></div>
-                </div>
-                <div class="editor-list" id="cardSlotList" style="margin-top:10px;"></div>
               </div>
             </section>
 
@@ -4942,12 +5141,13 @@
               <input id="editorDeviceSearch" class="hidden" type="search" tabindex="-1" aria-hidden="true">
               <div class="editor-device-list hidden" id="editorDeviceList" aria-hidden="true"></div>
             </aside>
-          </div>
-          <div class="device-tech-specs-panel" id="editorDeviceTechSpecsPanel">
-            <div class="field">
-              <label for="editorDeviceTechSpecs">Technical Specifications</label>
-              <textarea id="editorDeviceTechSpecs" rows="4" placeholder="Manufacturer specs, supported formats, power notes, important limits..."></textarea>
-            </div>
+            <aside class="device-tech-specs-panel hidden" id="editorDeviceTechSpecsPanel">
+              <div class="panel-title">Technical Specifications</div>
+              <div class="field">
+                <label class="visually-hidden" for="editorDeviceTechSpecs">Technical Specifications</label>
+                <textarea id="editorDeviceTechSpecs" rows="4" placeholder="Manufacturer specs, supported formats, power notes, important limits..."></textarea>
+              </div>
+            </aside>
           </div>
           <div class="device-authoring-debug-panel hidden" id="deviceAuthoringDebugPanel" aria-live="polite"></div>
         </div>
@@ -5169,10 +5369,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.3.3";
-    const APP_BUILD_ID = "iteration54-3-3-connector-status-blocked";
-    const APP_MODULE_CACHE_ID = "iteration54-3-3-connector-status-blocked-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Connector Status Blocked`;
+    const APP_ITERATION = "54.3.7";
+    const APP_BUILD_ID = "iteration54-3-7-device-editor-integration-hardening";
+    const APP_MODULE_CACHE_ID = "iteration54-3-7-device-editor-integration-hardening-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Device Editor Integration Hardening`;
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "f409d0373f783821e981515da660a2476e661959";
     const CANVAS_MIN_ZOOM = 0.03;
@@ -78049,6 +78249,7 @@
     const deleteEditorFaceplate = document.getElementById("deleteEditorFaceplate");
     const selectedConnectorSettings = document.getElementById("selectedConnectorSettings");
     const connectorRelationshipsPanel = document.getElementById("connectorRelationshipsPanel");
+    const connectorInspectorSidebar = document.querySelector(".connector-inspector-sidebar");
     const deviceAuthoringDebugPanel = document.getElementById("deviceAuthoringDebugPanel");
     const editorHasCards = document.getElementById("editorHasCards");
     const editorAdapterBreakout = document.getElementById("editorAdapterBreakout");
@@ -78865,12 +79066,44 @@
       normalizeMixedDeviceRows(template);
     }
 
+    function normalizeEditorPlacementSideMask(value = "left") {
+      const raw = String(value || "").trim().toLowerCase();
+      if (raw === "right" || raw === "output") return "right";
+      if (raw === "both" || raw === "full" || raw === "io") return "both";
+      return "left";
+    }
+
+    function editorPlacementSides(mask) {
+      const normalized = normalizeEditorPlacementSideMask(mask);
+      return normalized === "both" ? ["left", "right"] : [normalized];
+    }
+
+    function editorConnectorPlacementSideMask(template, connector) {
+      const width = deviceTemplateWidth(template);
+      if (isEditorV2ConnectorCandidate(connector)) {
+        const anchors = editorConnectorAnchors(connector, width);
+        const hasLeft = anchors.some(anchor => anchor.side !== "right");
+        const hasRight = anchors.some(anchor => anchor.side === "right");
+        if (String(connector.displaySide || "").toLowerCase() === "both" || (hasLeft && hasRight)) return "both";
+        return editorPrimaryAnchorSide(connector) === "right" ? "right" : "left";
+      }
+      return connectorSideKey(connector) === "input" ? "left" : "right";
+    }
+
+    function editorCardPlacementSideMask(template, slot) {
+      const card = cardTypeById(template, slot?.installedCardTypeId);
+      const kind = String(card?.kind || card?.direction || "io").toLowerCase();
+      if (kind === "input") return "left";
+      if (kind === "output") return "right";
+      return "both";
+    }
+
     function rowItemSide(item) {
-      if (item.kind === "connector") return connectorSideKey(item.ref) === "input" ? "input" : "output";
-      const card = cardTypeById(item.template, item.ref.installedCardTypeId);
-      if (card?.kind === "input") return "input";
-      if (card?.kind === "output") return "output";
-      return "full";
+      const mask = item.kind === "connector"
+        ? editorConnectorPlacementSideMask(item.template, item.ref)
+        : editorCardPlacementSideMask(item.template, item.ref);
+      if (mask === "both") return "full";
+      return mask === "right" ? "output" : "input";
     }
 
     function rowItemHeight(template, item) {
@@ -78878,55 +79111,167 @@
       return 1;
     }
 
-    function normalizeMixedDeviceRows(template) {
-      const startY = connectorStartYForTemplate(template);
-      const items = [
-        ...(template.connectors || []).filter(connector => !connector.faceplateSide).map((connector, index) => ({ kind: "connector", ref: connector, index, template })),
-        ...(template.cardSlots || []).map((slot, index) => ({ kind: "card", ref: slot, index, template }))
-      ].sort((a, b) => {
-        const yDelta = (Number(a.ref.y) || CONNECTOR_START_Y) - (Number(b.ref.y) || CONNECTOR_START_Y);
-        if (yDelta) return yDelta;
-        if (a.kind === "connector" && b.kind === "connector") {
-          const aPairedNetwork = isPairedNetworkConnector(a.ref);
-          const bPairedNetwork = isPairedNetworkConnector(b.ref);
-          if (aPairedNetwork !== bPairedNetwork) return aPairedNetwork ? 1 : -1;
-        }
-        if (a.kind !== b.kind) return a.kind === "connector" ? -1 : 1;
-        return a.index - b.index;
+    function editorPlacementItemId(item) {
+      return `${item.kind}:${item.ref?.id || item.index}`;
+    }
+
+    function resolveEditorPlacementItems(items, startY) {
+      const normalized = items.map((item, sourceIndex) => {
+        const y = Number.isFinite(Number(item.requestedY)) ? Number(item.requestedY) : Number(item.ref?.y) || startY;
+        return {
+          ...item,
+          id: editorPlacementItemId(item),
+          sideMask: normalizeEditorPlacementSideMask(item.sideMask),
+          requestedLane: laneIndexForY(y, startY),
+          span: Math.max(1, Math.round(Number(item.span) || 1)),
+          order: Number.isFinite(Number(item.order)) ? Number(item.order) : sourceIndex,
+          sourceIndex
+        };
       });
-      const occupied = { input: [], output: [] };
-      const reserve = (side, start, length) => {
-        for (let index = start; index < start + length; index++) {
-          occupied[side][index] = true;
+      const ordered = [...normalized].sort((a, b) => {
+        const laneDelta = a.requestedLane - b.requestedLane;
+        if (laneDelta) return laneDelta;
+        const orderDelta = a.order - b.order;
+        if (orderDelta) return orderDelta;
+        return a.id.localeCompare(b.id);
+      });
+      const occupied = { left: [], right: [] };
+      const hasCollision = (item, lane) => editorPlacementSides(item.sideMask).some(side => {
+        for (let index = lane; index < lane + item.span; index++) {
+          if (occupied[side][index]) return true;
         }
+        return false;
+      });
+      const reserve = (item, lane) => {
+        editorPlacementSides(item.sideMask).forEach(side => {
+          for (let index = lane; index < lane + item.span; index++) occupied[side][index] = item.id;
+        });
       };
-      const canPlace = (side, start, length) => {
-        for (let index = start; index < start + length; index++) {
-          if (occupied[side][index]) return false;
-        }
-        return true;
+      const resolvedById = new Map();
+      const orderedItems = [];
+      ordered.forEach(item => {
+        let lane = item.requestedLane;
+        while (hasCollision(item, lane)) lane++;
+        const resolved = {
+          ...item,
+          lane,
+          y: laneY(lane, startY),
+          endLane: lane + item.span,
+          bottomY: laneY(lane + item.span, startY)
+        };
+        reserve(resolved, lane);
+        resolvedById.set(resolved.id, resolved);
+        orderedItems.push(resolved);
+      });
+      return {
+        items: normalized.map(item => resolvedById.get(item.id)).filter(Boolean),
+        orderedItems,
+        byId: resolvedById,
+        occupied
       };
-      const findStart = (side, desired, length) => {
-        for (let index = Math.max(0, desired); index < 240; index++) {
-          if (canPlace(side, index, length)) return index;
-        }
-        return Math.max(0, desired);
-      };
-      items.forEach(item => {
-        const side = rowItemSide(item);
-        const height = rowItemHeight(template, item);
-        const desired = laneIndexForY(item.ref.y, startY);
-        if (side === "full") {
-          const start = findStart("input", desired, height);
-          item.ref.y = laneY(start, startY);
-          reserve("input", start, height);
-          reserve("output", start, height);
+    }
+
+    function editorLayoutItems(template, options = {}) {
+      const startY = connectorStartYForTemplate(template);
+      const connectorYOverrides = options.connectorYOverrides instanceof Map ? options.connectorYOverrides : new Map();
+      const cardSlotYOverrides = options.cardSlotYOverrides instanceof Map ? options.cardSlotYOverrides : new Map();
+      const connectors = (template.connectors || [])
+        .filter(connector => !connector.faceplateSide)
+        .map((connector, index) => {
+          const requestedY = connectorYOverrides.has(connector.id)
+            ? connectorYOverrides.get(connector.id)
+            : Number(connector.y) || startY;
+          return {
+            kind: "connector",
+            ref: connector,
+            index,
+            template,
+            requestedY,
+            sideMask: editorConnectorPlacementSideMask(template, connector),
+            span: 1,
+            order: isPairedNetworkConnector(connector) ? 100000 + index : index
+          };
+        });
+      const slotOrderOffset = connectors.length;
+      const cards = (template.cardSlots || []).map((slot, index) => {
+        const requestedY = cardSlotYOverrides.has(slot.id)
+          ? cardSlotYOverrides.get(slot.id)
+          : Number(slot.y) || startY;
+        return {
+          kind: "card",
+          ref: slot,
+          index,
+          template,
+          requestedY,
+          sideMask: editorCardPlacementSideMask(template, slot),
+          span: cardSlotLaneCount(template, slot),
+          order: slotOrderOffset + index
+        };
+      });
+      return [...connectors, ...cards];
+    }
+
+    function resolveEditorModularLayout(template, options = {}) {
+      return resolveEditorPlacementItems(editorLayoutItems(template, options), connectorStartYForTemplate(template));
+    }
+
+    function editorCardSlotDisplayOverrides(template, options = {}) {
+      const startY = connectorStartYForTemplate(template);
+      const overrides = new Map();
+      if (options.useDragPreview !== false && editorCardSlotDrag?.slotId) {
+        overrides.set(editorCardSlotDrag.slotId, Math.max(startY, editorCardSlotDrag.currentY));
+      }
+      return overrides;
+    }
+
+    function editorResolvedCardSlotY(template, slot, options = {}) {
+      const startY = connectorStartYForTemplate(template);
+      const overrides = editorCardSlotDisplayOverrides(template, options);
+      const layout = resolveEditorModularLayout(template, { cardSlotYOverrides: overrides });
+      const resolved = layout.byId.get(`card:${slot?.id}`);
+      return resolved ? resolved.y : Math.max(startY, Number(slot?.y) || startY);
+    }
+
+    function syncEditorConnectorAnchorsToPosition(template, connector) {
+      if (!isEditorV2ConnectorCandidate(connector)) return;
+      const width = deviceTemplateWidth(template);
+      const anchors = editorConnectorAnchors(connector, width);
+      const primary = anchors.find(anchor => anchor.id === connector.primaryAnchorId)
+        || anchors.find(anchor => anchor.primary)
+        || anchors[0];
+      if (!primary) return;
+      const targetY = Number.isFinite(Number(connector.y)) ? Number(connector.y) : Number(primary.y) || connectorStartYForTemplate(template);
+      const yDelta = targetY - (Number.isFinite(Number(primary.y)) ? Number(primary.y) : targetY);
+      connector.anchors = anchors.map(anchor => {
+        const side = anchor.side === "right" ? "right" : "left";
+        return {
+          ...anchor,
+          side,
+          x: side === "right" ? width : 0,
+          y: (Number.isFinite(Number(anchor.y)) ? Number(anchor.y) : targetY) + yDelta
+        };
+      });
+      connector.primaryAnchorId = String(primary.id || connector.primaryAnchorId || connector.anchors[0]?.id || "");
+      const resolvedPrimary = connector.anchors.find(anchor => anchor.id === connector.primaryAnchorId)
+        || connector.anchors.find(anchor => anchor.primary)
+        || connector.anchors[0];
+      if (resolvedPrimary) {
+        connector.x = Number.isFinite(Number(resolvedPrimary.x)) ? Number(resolvedPrimary.x) : connector.x;
+        connector.y = Number.isFinite(Number(resolvedPrimary.y)) ? Number(resolvedPrimary.y) : targetY;
+      }
+    }
+
+    function normalizeMixedDeviceRows(template) {
+      const layout = resolveEditorModularLayout(template, { useDragPreview: false });
+      layout.items.forEach(item => {
+        if (item.kind === "card") {
+          item.ref.y = item.y;
           return;
         }
-        const start = findStart(side, desired, height);
-        item.ref.y = laneY(start, startY);
-        reserve(side, start, height);
-        if (item.kind === "connector") item.ref.x = side === "input" ? 0 : deviceTemplateWidth(template);
+        const side = connectorSideKey(item.ref);
+        item.ref.y = item.y;
+        item.ref.x = side === "input" ? 0 : deviceTemplateWidth(template);
+        syncEditorConnectorAnchorsToPosition(template, item.ref);
       });
     }
 
@@ -78934,14 +79279,18 @@
       ensureModularDefaults(template);
       if (!template.hasSwappableCards) return [];
       const connectors = [];
+      const slotLayout = resolveEditorModularLayout(template, {
+        cardSlotYOverrides: editorCardSlotDisplayOverrides(template)
+      });
       template.cardSlots.forEach(slot => {
         const card = cardTypeById(template, slot.installedCardTypeId);
         if (!card) return;
         const sideCounts = { input: 0, output: 0 };
         card.connectors.filter(connector => !connector.empty && connector.type).forEach(connector => {
           const effectiveConnector = mergedCardConnectorForSlot(template, slot, connector);
-          const side = connector.direction === "input" ? "input" : "output";
+          const side = effectiveConnector.direction === "input" ? "input" : "output";
           const slotIndex = sideCounts[side]++;
+          const resolvedSlotY = slotLayout.byId.get(`card:${slot.id}`)?.y || Math.max(connectorStartYForTemplate(template), Number(slot.y) || connectorStartYForTemplate(template));
           const generatedConnector = {
             ...effectiveConnector,
             id: `${slot.id}__${connector.id}`,
@@ -78952,13 +79301,48 @@
             label: effectiveConnector.label || cableTypes[effectiveConnector.type]?.label || card.name,
             direction: side,
             x: side === "input" ? 0 : deviceTemplateWidth(template),
-            y: cardSlotDisplayY(slot) + SLOT_HEIGHT + slotIndex * SLOT_HEIGHT
+            y: resolvedSlotY + SLOT_HEIGHT + slotIndex * SLOT_HEIGHT
           };
-          ensureConnectorV2Defaults(template, generatedConnector, slotIndex);
+          applyInstalledCardConnectorAnchors(template, generatedConnector, effectiveConnector, slotIndex);
           connectors.push(generatedConnector);
         });
       });
       return connectors;
+    }
+
+    function applyInstalledCardConnectorAnchors(template, generatedConnector, sourceConnector, index = 0) {
+      const width = deviceTemplateWidth(template);
+      const installedY = Number.isFinite(Number(generatedConnector.y)) ? Number(generatedConnector.y) : connectorStartYForTemplate(template);
+      const installedX = Number.isFinite(Number(generatedConnector.x)) ? Number(generatedConnector.x) : generatedConnector.direction === "output" ? width : 0;
+      const sourceAnchors = editorConnectorAnchors(sourceConnector, width);
+      const sourcePrimary = sourceAnchors.find(anchor => anchor.id === sourceConnector.primaryAnchorId)
+        || sourceAnchors.find(anchor => anchor.primary)
+        || sourceAnchors[0]
+        || defaultEditorAnchorForSide(sourceConnector.direction === "output" ? "right" : "left", width, sourceConnector.y);
+      const yDelta = installedY - (Number.isFinite(Number(sourcePrimary.y)) ? Number(sourcePrimary.y) : Number(sourceConnector.y) || installedY);
+      generatedConnector.schemaVersion = EDITOR_DEVICE_DEFINITION_SCHEMA_VERSION;
+      generatedConnector.physicalType = normalizeEditorPhysicalConnectorType(generatedConnector);
+      generatedConnector.connectorType = String(generatedConnector.connectorType || generatedConnector.physicalType || generatedConnector.type || "").trim();
+      generatedConnector.operationalStatus = normalizeEditorConnectorOperationalStatus(generatedConnector.operationalStatus);
+      generatedConnector.signalDirection = normalizeEditorSignalDirection(generatedConnector.signalDirection, generatedConnector.direction);
+      generatedConnector.displaySide = normalizeEditorDisplaySide(generatedConnector.displaySide, generatedConnector.direction, installedX, width);
+      generatedConnector.anchors = sourceAnchors.map(anchor => {
+        const side = anchor.side === "right" ? "right" : "left";
+        return {
+          ...anchor,
+          side,
+          x: side === "right" ? width : 0,
+          y: (Number.isFinite(Number(anchor.y)) ? Number(anchor.y) : Number(sourcePrimary.y) || installedY) + yDelta
+        };
+      });
+      generatedConnector.primaryAnchorId = String(sourcePrimary.id || generatedConnector.primaryAnchorId || generatedConnector.anchors[0]?.id || "");
+      const primary = generatedConnector.anchors.find(anchor => anchor.id === generatedConnector.primaryAnchorId)
+        || generatedConnector.anchors.find(anchor => anchor.primary)
+        || generatedConnector.anchors[0]
+        || { x: installedX, y: installedY };
+      generatedConnector.x = Number.isFinite(Number(primary.x)) ? Number(primary.x) : installedX;
+      generatedConnector.y = Number.isFinite(Number(primary.y)) ? Number(primary.y) : installedY;
+      return generatedConnector;
     }
 
     function effectiveTemplateConnectors(template) {
@@ -79438,6 +79822,10 @@
       // elsewhere. Chrome/macOS can synthesize ctrlKey for gesture input, so
       // treating Ctrl as zoom on Mac makes normal wheel gestures feel broken.
       return Boolean(IS_APPLE_POINTER_PLATFORM ? event?.metaKey : event?.ctrlKey);
+    }
+
+    function editorPreviewWheelZoomModifierActive(event) {
+      return Boolean(IS_APPLE_POINTER_PLATFORM ? event?.altKey : event?.ctrlKey);
     }
 
     function refreshActiveEngineBridge(reason, options = {}) {
@@ -86814,8 +87202,9 @@
 
     function renderEditorTabs() {
       const template = currentEditorTemplate();
-      const disabledTabs = new Set(isAdapterTemplate(template) ? ["faceplate", "cards", "slots"] : []);
-      if (editorActiveTab === "relationships" || disabledTabs.has(editorActiveTab)) editorActiveTab = "connectors";
+      const disabledTabs = new Set(isAdapterTemplate(template) ? ["faceplate", "cards"] : []);
+      const validTabs = new Set([...document.querySelectorAll("[data-editor-tab]")].map(tab => tab.dataset.editorTab));
+      if (!validTabs.has(editorActiveTab) || editorActiveTab === "relationships" || disabledTabs.has(editorActiveTab)) editorActiveTab = "connectors";
       document.querySelectorAll("[data-editor-tab]").forEach(tab => {
         const disabled = disabledTabs.has(tab.dataset.editorTab);
         tab.disabled = disabled;
@@ -86825,9 +87214,18 @@
       document.querySelectorAll("[data-editor-panel]").forEach(panel => {
         panel.classList.toggle("active", panel.dataset.editorPanel === editorActiveTab);
       });
+      const showConnectorInspector = editorActiveTab === "connectors";
+      const showTechSpecs = editorActiveTab === "device";
+      const workspace = deviceEditorPreview?.closest?.(".editor-workspace");
+      connectorInspectorSidebar?.classList.toggle("hidden", !showConnectorInspector);
+      connectorInspectorSidebar?.setAttribute("aria-hidden", showConnectorInspector ? "false" : "true");
       if (editorDeviceTechSpecsPanel) {
-        editorDeviceTechSpecsPanel.classList.toggle("hidden", editorActiveTab !== "device");
+        editorDeviceTechSpecsPanel.classList.toggle("hidden", !showTechSpecs);
+        editorDeviceTechSpecsPanel.setAttribute("aria-hidden", showTechSpecs ? "false" : "true");
       }
+      workspace?.classList.toggle("side-column-hidden", !showConnectorInspector && !showTechSpecs);
+      workspace?.classList.toggle("connector-inspector-active", showConnectorInspector);
+      workspace?.classList.toggle("device-tech-specs-active", showTechSpecs);
     }
 
     function clearEditorNodeSelection() {
@@ -86967,8 +87365,8 @@
       editorSlotIndex = clamp(editorSlotIndex, 0, Math.max(0, template.cardSlots.length - 1));
       template.cardSlots.forEach(slot => ensureCardSlotConnectorOverrides(template, slot));
       cardSlotList.innerHTML = template.cardSlots.length
-        ? `<div class="slot-preview-note">Drag a card from the list above directly into a slot in the preview. Double-click node fields in the preview to edit per-slot connector text.</div>`
-        : `<div class="modular-disabled">Add a card slot, then drag a card chip into the preview.</div>`;
+        ? `<div class="slot-preview-note">${escapeHtml(template.cardSlots.length)} card slot${template.cardSlots.length === 1 ? "" : "s"} in this chassis. Select, drag, replace, or remove slots directly in the preview.</div>`
+        : `<div class="modular-disabled">Drop a card into the preview to create a slot, or use Add Card Slot for an empty slot.</div>`;
     }
 
     function connectorTypeSelectOptions(selectedType = "") {
@@ -87872,15 +88270,26 @@
       return true;
     }
 
-    function addEditorCardSlot() {
+    function addEditorCardSlot(options = {}) {
       const template = currentEditorTemplate();
       if (!template?.hasSwappableCards) return;
+      const settings = options && typeof options === "object" && !("target" in options) ? options : {};
+      const cardTypeId = String(settings.cardTypeId || "");
+      if (cardTypeId && !cardTypeById(template, cardTypeId)) return false;
       const count = template.cardSlots.length + 1;
-      template.cardSlots.push(createCardSlot(template, `Card Slot ${count}`));
+      const slot = createCardSlot(template, `Card Slot ${count}`);
+      const requestedY = Number(settings.y);
+      if (Number.isFinite(requestedY)) {
+        slot.y = Math.max(connectorStartYForTemplate(template), requestedY);
+      }
+      if (cardTypeId) slot.installedCardTypeId = cardTypeId;
+      ensureCardSlotConnectorOverrides(template, slot);
+      template.cardSlots.push(slot);
       editorSlotIndex = template.cardSlots.length - 1;
       normalizeCardSlots(template);
       template.height = deviceHeightForSlotCounts(template);
       renderDeviceEditor();
+      return true;
     }
 
     function removeCardSlot(index) {
@@ -87894,9 +88303,36 @@
     }
 
     function reorderCardSlot(template, slot, y) {
-      slot.y = Math.max(CONNECTOR_START_Y, y);
+      slot.y = Math.max(connectorStartYForTemplate(template), y);
       normalizeMixedDeviceRows(template);
       template.height = deviceHeightForSlotCounts(template);
+    }
+
+    function editorDataTransferHasType(event, type) {
+      return Array.from(event?.dataTransfer?.types || []).includes(type);
+    }
+
+    function editorCardDropTypeId(event) {
+      return String(event?.dataTransfer?.getData("application/x-av-card-type") || "");
+    }
+
+    function editorPreviewCanCreateCardSlotFromDrop(event) {
+      const template = currentEditorTemplate();
+      if (!template?.hasSwappableCards || editorActiveTab !== "connectors") return false;
+      if (!editorDataTransferHasType(event, "application/x-av-card-type")) return false;
+      if (event.target.closest("[data-editor-card-slot], [data-editor-card-slot-id], [data-editor-node], [data-editor-field], [data-editor-misc-color], [data-editor-remove-node], [data-editor-remove-card-slot], [data-card-preview-node]")) return false;
+      const point = getEditorPreviewPoint(event);
+      const width = deviceTemplateWidth(template);
+      const height = Number(template.height) || deviceHeightForSlotCounts(template);
+      const startY = connectorStartYForTemplate(template);
+      return point.x >= 0 && point.x <= width && point.y >= startY - SLOT_HEIGHT / 2 && point.y <= height + SLOT_HEIGHT;
+    }
+
+    function createCardSlotFromPreviewDrop(event, cardTypeId) {
+      const template = currentEditorTemplate();
+      const point = getEditorPreviewPoint(event);
+      if (!template || !cardTypeId || !editorPreviewCanCreateCardSlotFromDrop(event)) return false;
+      return addEditorCardSlot({ cardTypeId, y: point.y });
     }
 
     function captureTemplateConfiguration(template) {
@@ -88171,11 +88607,13 @@
 
     function nextAvailableConnectorY(template, side, excludedConnector = null) {
       const startY = connectorStartYForTemplate(template);
-      const taken = new Set((template.connectors || [])
-        .filter(connector => connector !== excludedConnector && !connector.faceplateSide && connectorSideKey(connector) === side)
-        .map(connector => laneIndexForY(connector.y, startY)));
+      const placementSide = side === "output" || side === "right" ? "right" : "left";
+      const layout = resolveEditorPlacementItems(
+        editorLayoutItems(template, { useDragPreview: false }).filter(item => item.ref !== excludedConnector),
+        startY
+      );
       let lane = 0;
-      while (taken.has(lane)) lane += 1;
+      while (layout.occupied[placementSide]?.[lane]) lane += 1;
       return laneY(lane, startY);
     }
 
@@ -88389,29 +88827,15 @@
       }
       const startY = connectorStartYForTemplate(template);
       const deltaY = Number(editorNodeDrag.deltaY) || 0;
-      ["input", "output"].forEach(side => {
-        const moving = template.connectors
-          .filter(connector => selected.has(connector.id) && connectorSideKey(connector) === side)
-          .sort((a, b) => editorDragStartY(a) - editorDragStartY(b));
-        if (!moving.length) return;
-        const stationary = template.connectors
-          .filter(connector => !selected.has(connector.id) && !connector.faceplateSide && connectorSideKey(connector) === side)
-          .sort((a, b) => (Number(a.y) || startY) - (Number(b.y) || startY));
-        const anchor = moving.find(connector => connector.id === dragged.id) || moving[0];
-        const anchorIndex = Math.max(0, moving.findIndex(connector => connector.id === anchor.id));
-        const targetLane = laneIndexForY(editorDragStartY(anchor) + deltaY, startY);
-        const insertAt = clamp(targetLane - anchorIndex, 0, stationary.length);
-        const ordered = [
-          ...stationary.slice(0, insertAt),
-          ...moving,
-          ...stationary.slice(insertAt)
-        ];
-        ordered.forEach((connector, index) => {
-          map.set(connector.id, laneY(index, startY));
+      const connectorYOverrides = new Map();
+      template.connectors
+        .filter(connector => selected.has(connector.id))
+        .forEach(connector => {
+          connectorYOverrides.set(connector.id, Math.max(startY, editorDragStartY(connector) + deltaY));
         });
-        moving.forEach(connector => {
-          map.set(connector.id, editorDragStartY(connector) + deltaY);
-        });
+      const layout = resolveEditorModularLayout(template, { connectorYOverrides });
+      layout.items.forEach(item => {
+        if (item.kind === "connector") map.set(item.ref.id, item.y);
       });
       return applyEditorSharedRelationshipDisplayPositions(template, map);
     }
@@ -88519,9 +88943,13 @@
 
     const DEVICE_EDITOR_ENGINE_PREVIEW_DEVICE_ID = "device-editor-preview-device";
 
-    function deviceEditorUsesEnginePreview() {
-      return engineEditorRequestedByUrl();
-    }
+	    function deviceEditorUsesEnginePreview() {
+	      return engineEditorRequestedByUrl();
+	    }
+
+	    function deviceEditorActivePreviewUsesEngine() {
+	      return deviceEditorUsesEnginePreview() && editorActiveTab !== "cards";
+	    }
 
     function loadSharedEnginePreviewModule(statusLabel = "Engine preview") {
       if (!engineEditorRequestedByUrl()) return Promise.resolve(null);
@@ -88633,6 +89061,29 @@
       return deviceEditorPreview?.closest?.(".editor-preview") || deviceEditorPreview?.parentElement || null;
     }
 
+    function restoreDeviceEditorPreviewSvgHome() {
+      const svg = deviceEditorPreview;
+      if (!svg || !editorEnginePreviewSvgHome || svg.parentElement === editorEnginePreviewSvgHome) return;
+      if (editorEnginePreviewSvgNextSibling?.parentElement === editorEnginePreviewSvgHome) {
+        editorEnginePreviewSvgHome.insertBefore(svg, editorEnginePreviewSvgNextSibling);
+      } else {
+        editorEnginePreviewSvgHome.appendChild(svg);
+      }
+    }
+
+    function setDeviceEditorCardAuthoringMode(active) {
+      const host = deviceEditorPreviewContainer() || editorEnginePreviewHost;
+      if (active) restoreDeviceEditorPreviewSvgHome();
+      host?.classList.toggle("card-authoring-mode", active);
+      editorEnginePreviewHost?.classList.toggle("card-authoring-mode", active);
+      if (editorEnginePreviewSurface?.dom?.root) {
+        editorEnginePreviewSurface.dom.root.setAttribute("aria-hidden", active ? "true" : "false");
+      }
+      if (!active && editorEnginePreviewSurface?.dom?.root) {
+        editorEnginePreviewSurface.dom.root.style.visibility = "";
+      }
+    }
+
     function ensureDeviceEditorEnginePreviewSurface() {
       if (!deviceEditorUsesEnginePreview() || !deviceEditorPreview) return null;
       if (!editorEnginePreviewModule?.EnginePreviewSurface) {
@@ -88669,6 +89120,7 @@
       }
       editorEnginePreviewHost = host;
       host.classList.add("engine-preview-mode");
+      setDeviceEditorCardAuthoringMode(false);
       Object.assign(editorEnginePreviewSurface.dom.root.style, {
         position: "absolute",
         inset: "0",
@@ -88683,16 +89135,10 @@
     }
 
     function disposeDeviceEditorEnginePreviewSurface() {
-      const svg = deviceEditorPreview;
-      if (svg && editorEnginePreviewSvgHome && svg.parentElement !== editorEnginePreviewSvgHome) {
-        if (editorEnginePreviewSvgNextSibling?.parentElement === editorEnginePreviewSvgHome) {
-          editorEnginePreviewSvgHome.insertBefore(svg, editorEnginePreviewSvgNextSibling);
-        } else {
-          editorEnginePreviewSvgHome.appendChild(svg);
-        }
-      }
-      svg?.classList.remove("engine-preview-authoring-svg");
+      restoreDeviceEditorPreviewSvgHome();
+      deviceEditorPreview?.classList.remove("engine-preview-authoring-svg");
       editorEnginePreviewHost?.classList.remove("engine-preview-mode");
+      editorEnginePreviewHost?.classList.remove("card-authoring-mode");
       editorEnginePreviewSurface?.dispose?.();
       editorEnginePreviewSurface = null;
       editorEnginePreviewHost = null;
@@ -88744,7 +89190,7 @@
       if (editorCardSlotDrag && Array.isArray(draft.cardSlots)) {
         draft.cardSlots.forEach(slot => {
           const source = (template.cardSlots || []).find(item => item.id === slot.id);
-          if (source) slot.y = cardSlotDisplayY(source);
+          if (source) slot.y = cardSlotDisplayY(template, source);
         });
       }
       return draft;
@@ -88798,6 +89244,7 @@
         && !visual.hasSwappableCards
         && !visual.visualCards?.length;
       editorEnginePreviewLastDeviceId = device?.id || DEVICE_EDITOR_ENGINE_PREVIEW_DEVICE_ID;
+      const fitBounds = options.fitBounds || editorActivePreviewBounds(template);
       if (!editorEnginePreviewDraftSynced || options.fullScene) {
         surface.setSceneData({
           devices: [device],
@@ -88808,11 +89255,14 @@
             activeTab: editorActiveTab,
             buildId: APP_BUILD_ID
           }
-        }, { fit: options.fit === true });
+        }, {
+          fit: options.fit === true,
+          fitOptions: { padding: 34, bounds: fitBounds }
+        });
         editorEnginePreviewDraftSynced = true;
       } else {
         surface.replaceDevice(device, { render: false, refreshTexture: !canSkipTextureRefresh });
-        if (options.fit === true) surface.fitToContent({ padding: 34 });
+        if (options.fit === true) surface.fitToContent({ padding: 34, bounds: fitBounds });
         surface.render();
       }
       syncDeviceEditorEngineOverlayViewBox();
@@ -89112,7 +89562,7 @@
     }
 
     function editorEngineConnectorIndexFromEvent(event) {
-      if (!deviceEditorUsesEnginePreview() || !editorEnginePreviewSurface) return -1;
+	      if (!deviceEditorActivePreviewUsesEngine() || !editorEnginePreviewSurface) return -1;
       const screenPoint = deviceEditorEnginePreviewScreenPoint(event);
       const hit = screenPoint ? editorEnginePreviewSurface.hitTestConnector(screenPoint, 18).connector : null;
       const connectorId = hit?.connector?.id || "";
@@ -89122,7 +89572,7 @@
     }
 
     function editorNodeTargetIndexFromEvent(event) {
-      if (deviceEditorUsesEnginePreview()) {
+	      if (deviceEditorActivePreviewUsesEngine()) {
         const engineIndex = editorEngineConnectorIndexFromEvent(event);
         if (engineIndex >= 0) return engineIndex;
       }
@@ -89319,7 +89769,7 @@
     }
 
     function drawEditorEngineCardSlotOverlay(parent, template) {
-      if (editorActiveTab !== "slots" || !template?.hasSwappableCards) return;
+      if (editorActiveTab !== "connectors" || !template?.hasSwappableCards) return;
       (template.cardSlots || []).forEach((slot, index) => {
         const band = cardBandGeometry(template, slot);
         const selected = editorSlotIndex === index || editorCardSlotDrag?.slotId === slot.id;
@@ -89371,6 +89821,7 @@
       updateEditorFaceplatePreviewControls(template);
       const previewDevice = syncDeviceEditorEnginePreview(template, {
         fit: !editorEnginePreviewDraftSynced || editorEnginePreviewFitPending,
+        fitBounds: editorActivePreviewBounds(template),
         refreshTexture: options.refreshTexture === false ? false : editorNodeDrag ? false : true
       });
       editorEnginePreviewFitPending = false;
@@ -89395,27 +89846,83 @@
       renderDeviceAuthoringDebugPanel();
     }
 
+    function normalizeEditorPreviewBounds(bounds, fallback = {}) {
+      const width = Math.max(1, Number(bounds?.width) || Number(fallback.width) || DEVICE_WIDTH);
+      const height = Math.max(1, Number(bounds?.height) || Number(fallback.height) || 190);
+      return {
+        x: Number.isFinite(Number(bounds?.x)) ? Number(bounds.x) : Number(fallback.x) || 0,
+        y: Number.isFinite(Number(bounds?.y)) ? Number(bounds.y) : Number(fallback.y) || 0,
+        width,
+        height
+      };
+    }
+
+    function editorFullDevicePreviewBounds(template = currentEditorTemplate()) {
+      return normalizeEditorPreviewBounds({
+        x: 0,
+        y: 0,
+        width: deviceTemplateWidth(template),
+        height: Number(template?.height) || deviceHeightForSlotCounts(template)
+      });
+    }
+
+    function editorCardPreviewBounds(card = currentEditorCard()) {
+      const inputCount = card?.connectors?.filter(connector => connector.direction === "input").length || 0;
+      const outputCount = card?.connectors?.filter(connector => connector.direction !== "input").length || 0;
+      return normalizeEditorPreviewBounds({
+        x: 0,
+        y: 0,
+        width: DEVICE_WIDTH,
+        height: (Math.max(1, inputCount, outputCount) + 2) * SLOT_HEIGHT
+      });
+    }
+
+    function editorDefaultFaceplateBounds(template = currentEditorTemplate()) {
+      const width = deviceTemplateWidth(template);
+      return normalizeEditorPreviewBounds({
+        x: FACE_MARGIN,
+        y: FACE_TOP_Y,
+        width: Math.max(1, width - FACE_MARGIN * 2),
+        height: faceplateHeightForTemplate(template, width)
+      });
+    }
+
+    function editorFaceplatePreviewBounds(template = currentEditorTemplate()) {
+      const width = deviceTemplateWidth(template);
+      const fullBounds = editorFullDevicePreviewBounds(template);
+      if (!template || isAdapterTemplate(template)) return fullBounds;
+      if (template.faceImage) return normalizeEditorPreviewBounds(faceImagePlacement(template, width, fullBounds.height), fullBounds);
+      if (template.isPowerDistro && !template.faceplateDeleted) return normalizeEditorPreviewBounds(powerDistroFaceRect(template), fullBounds);
+      if (!template.faceplateDeleted) return editorDefaultFaceplateBounds(template);
+      return fullBounds;
+    }
+
+    function editorActivePreviewBounds(template = currentEditorTemplate()) {
+      if (editorActiveTab === "cards") return editorCardPreviewBounds(currentEditorCard());
+      if (editorActiveTab === "faceplate") return editorFaceplatePreviewBounds(template);
+      return editorFullDevicePreviewBounds(template);
+    }
+
+    function editorPreviewFitZoomForBounds(bounds, svgElement = deviceEditorPreview, padding = 34) {
+      const rect = svgElement?.getBoundingClientRect?.();
+      const viewportWidth = Math.max(1, Number(rect?.width) || Math.max(1, bounds.width + padding * 2));
+      const viewportHeight = Math.max(1, Number(rect?.height) || Math.max(1, bounds.height + padding * 2));
+      const availableWidth = Math.max(1, viewportWidth - padding * 2);
+      const availableHeight = Math.max(1, viewportHeight - padding * 2);
+      return clamp(Math.min(availableWidth / bounds.width, availableHeight / bounds.height), .08, 8);
+    }
+
     function editorPreviewContentSize() {
       const template = currentEditorTemplate();
-      if (!template) return { width: DEVICE_WIDTH, height: 190 };
-      if (editorActiveTab === "cards") {
-        const card = currentEditorCard();
-        const inputCount = card?.connectors?.filter(connector => connector.direction === "input").length || 0;
-        const outputCount = card?.connectors?.filter(connector => connector.direction !== "input").length || 0;
-        return {
-          width: DEVICE_WIDTH,
-          height: (Math.max(1, inputCount, outputCount) + 2) * SLOT_HEIGHT
-        };
-      }
-      return {
-        width: deviceTemplateWidth(template),
-        height: Number(template.height) || deviceHeightForSlotCounts(template)
-      };
+      const bounds = editorActivePreviewBounds(template);
+      return { width: bounds.width, height: bounds.height };
     }
 
     function fitDeviceEditorPreview() {
       if (!deviceEditorPreview) return;
-      if (deviceEditorUsesEnginePreview()) {
+      const template = currentEditorTemplate();
+      const bounds = editorActivePreviewBounds(template);
+	      if (deviceEditorActivePreviewUsesEngine()) {
         const surface = ensureDeviceEditorEnginePreviewSurface();
         if (!surface) {
           editorEnginePreviewFitPending = true;
@@ -89425,44 +89932,41 @@
           });
           return;
         }
-        surface.fitToContent({ padding: 34 });
+        surface.fitToContent({ padding: 34, bounds });
         surface.render();
         syncDeviceEditorEngineOverlayViewBox();
         renderDeviceAuthoringDebugPanel();
         return;
       }
       const rect = deviceEditorPreview.getBoundingClientRect();
-      const size = editorPreviewContentSize();
-      if (!rect.width || !rect.height || !size.width || !size.height) {
+      if (!rect.width || !rect.height || !bounds.width || !bounds.height) {
         editorPreviewZoom = 1;
         editorPreviewPan = { x: 0, y: 0 };
         renderDeviceEditorPreview();
         return;
       }
-      editorPreviewZoom = 1;
-      editorPreviewPan = editorPreviewFitPan(size.width, size.height, editorPreviewZoom, deviceEditorPreview);
+      editorPreviewZoom = editorPreviewFitZoomForBounds(bounds, deviceEditorPreview, 34);
+      editorPreviewPan = { x: 0, y: 0 };
       renderDeviceEditorPreview();
     }
 
-    function editorPreviewViewBox(width, height, zoom, pan = { x: 0, y: 0 }, svgElement = deviceEditorPreview) {
-      const pad = 34;
-      const totalWidth = Math.max(1, Number(width) || DEVICE_WIDTH) + pad * 2;
-      const totalHeight = Math.max(1, Number(height) || 190) + pad * 2;
+    function editorPreviewViewBox(width, height, zoom, pan = { x: 0, y: 0 }, svgElement = deviceEditorPreview, bounds = null) {
+      const contentBounds = normalizeEditorPreviewBounds(bounds || { x: 0, y: 0, width, height }, { width, height });
       const safeZoom = Math.max(.08, Number(zoom) || 1);
       const rect = svgElement?.getBoundingClientRect?.();
-      const aspect = rect?.width && rect?.height ? rect.width / rect.height : totalWidth / totalHeight;
-      const viewWidth = totalWidth / safeZoom;
-      const viewHeight = aspect > 0 ? viewWidth / aspect : totalHeight / safeZoom;
-      const viewX = (totalWidth - viewWidth) / 2 - pad + (Number(pan?.x) || 0);
-      const viewY = (totalHeight - viewHeight) / 2 - pad + (Number(pan?.y) || 0);
-      return { viewX, viewY, viewWidth, viewHeight, totalWidth, totalHeight };
-    }
-
-    function editorPreviewFitPan(width, height, zoom = 1, svgElement = deviceEditorPreview) {
-      const box = editorPreviewViewBox(width, height, zoom, { x: 0, y: 0 }, svgElement);
+      const viewportWidth = Math.max(1, Number(rect?.width) || contentBounds.width + 68);
+      const viewportHeight = Math.max(1, Number(rect?.height) || contentBounds.height + 68);
+      const viewWidth = viewportWidth / safeZoom;
+      const viewHeight = viewportHeight / safeZoom;
+      const centerX = contentBounds.x + contentBounds.width / 2 + (Number(pan?.x) || 0);
+      const centerY = contentBounds.y + contentBounds.height / 2 + (Number(pan?.y) || 0);
       return {
-        x: 0,
-        y: box.viewHeight < box.totalHeight ? (box.viewHeight - box.totalHeight) / 2 : 0
+        viewX: centerX - viewWidth / 2,
+        viewY: centerY - viewHeight / 2,
+        viewWidth,
+        viewHeight,
+        totalWidth: contentBounds.width + 68,
+        totalHeight: contentBounds.height + 68
       };
     }
 
@@ -90461,7 +90965,7 @@
         bottom: marqueeRect.bottom + 2
       };
       const nextIds = options.baseIds ? new Set(options.baseIds) : new Set();
-      if (deviceEditorUsesEnginePreview() && editorEnginePreviewSurface) {
+	      if (deviceEditorActivePreviewUsesEngine() && editorEnginePreviewSurface) {
         const entriesById = deviceEditorEngineConnectorEntriesById(template);
         template.connectors.forEach(connector => {
           const entries = entriesById.get(connector.id) || [];
@@ -90678,16 +91182,18 @@
         renderRackBuilderPreview();
         return;
       }
-      if (deviceEditorUsesEnginePreview()) {
-        renderDeviceEditorEnginePreview(template, options);
-        return;
-      }
-      editorEnginePreviewLegacyVisualDraws += 1;
       if (editorActiveTab === "cards") {
+        setDeviceEditorCardAuthoringMode(true);
         updateEditorFaceplatePreviewControls(template);
         renderCardEditorPreview();
         return;
       }
+      setDeviceEditorCardAuthoringMode(false);
+	      if (deviceEditorActivePreviewUsesEngine()) {
+        renderDeviceEditorEnginePreview(template, options);
+        return;
+      }
+      editorEnginePreviewLegacyVisualDraws += 1;
       validateDraftDefaults(template);
       if (!template.isPowerDistro || template.faceImage || template.faceplateDeleted) {
         editorSelectedFaceplate = false;
@@ -90698,7 +91204,7 @@
       deviceEditorPreview.innerHTML = "";
       const width = deviceTemplateWidth(template);
       const height = Number(template.height) || 132;
-      const view = editorPreviewViewBox(width, height, editorPreviewZoom, editorPreviewPan, deviceEditorPreview);
+      const view = editorPreviewViewBox(width, height, editorPreviewZoom, editorPreviewPan, deviceEditorPreview, editorActivePreviewBounds(template));
       deviceEditorPreview.setAttribute("viewBox", `${view.viewX} ${view.viewY} ${view.viewWidth} ${view.viewHeight}`);
       deviceEditorPreview.appendChild(createSvg("rect", {
         class: isAdapterTemplate(template) ? "editor-adapter-body" : "editor-device-body",
@@ -90895,7 +91401,7 @@
       const rows = Math.max(1, inputConnectors.length, outputConnectors.length);
       const width = DEVICE_WIDTH;
       const height = (rows + 2) * SLOT_HEIGHT;
-      const view = editorPreviewViewBox(width, height, editorPreviewZoom, editorPreviewPan, deviceEditorPreview);
+      const view = editorPreviewViewBox(width, height, editorPreviewZoom, editorPreviewPan, deviceEditorPreview, editorCardPreviewBounds(card));
       deviceEditorPreview.setAttribute("viewBox", `${view.viewX} ${view.viewY} ${view.viewWidth} ${view.viewHeight}`);
       const kind = card.kind || "io";
       const band = kind === "input"
@@ -90974,18 +91480,19 @@
       const card = cardTypeById(template, slot.installedCardTypeId);
       const kind = card?.kind || "io";
       const lanes = cardSlotLaneCount(template, slot);
-      const y = cardSlotDisplayY(slot) - SLOT_HEIGHT / 2;
+      const y = cardSlotDisplayY(template, slot) - SLOT_HEIGHT / 2;
       const height = lanes * SLOT_HEIGHT;
       if (kind === "input") return { x: 10, y, width: DEVICE_WIDTH / 2 - 16, height, textX: DEVICE_WIDTH / 4 };
       if (kind === "output") return { x: DEVICE_WIDTH / 2 + 6, y, width: DEVICE_WIDTH / 2 - 16, height, textX: DEVICE_WIDTH * .75 };
       return { x: 10, y, width: DEVICE_WIDTH - 20, height, textX: DEVICE_WIDTH / 2 };
     }
 
-    function cardSlotDisplayY(slot) {
+    function cardSlotDisplayY(template, slot) {
+      const startY = connectorStartYForTemplate(template);
       if (editorCardSlotDrag?.slotId === slot?.id) {
-        return Math.max(CONNECTOR_START_Y, editorCardSlotDrag.currentY);
+        return editorResolvedCardSlotY(template, slot);
       }
-      return Number(slot?.y) || CONNECTOR_START_Y;
+      return Number(slot?.y) || startY;
     }
 
     function displayCardSlotName(slot) {
@@ -91002,7 +91509,8 @@
       template.cardSlots.forEach((slot, index) => {
         const card = cardTypeById(template, slot.installedCardTypeId);
         const band = cardBandGeometry(template, slot);
-        const rectAttrs = options.editor ? {
+        const slotInteractive = options.editor && editorActiveTab === "connectors";
+        const rectAttrs = slotInteractive ? {
           "data-editor-card-slot": index,
           class: editorCardSlotDrag?.slotId === slot.id ? "editor-node-dragging" : ""
         } : {};
@@ -91017,15 +91525,15 @@
           stroke: "rgba(50,182,255,.38)",
           "stroke-width": 1,
           "stroke-dasharray": "5 4",
-          "pointer-events": options.editor ? "all" : "none"
+          "pointer-events": slotInteractive ? "all" : "none"
         }));
         const caption = card?.name || "Empty";
-        drawCardCaption(parent, caption, band.textX, cardSlotDisplayY(slot) + 3, card, {
-          editor: options.editor,
+        drawCardCaption(parent, caption, band.textX, cardSlotDisplayY(template, slot) + 3, card, {
+          editor: slotInteractive,
           slotIndex: index,
           maxWidth: band.width - 12
         });
-        if (options.editor && editorActiveTab === "slots" && editorSlotIndex === index) {
+        if (slotInteractive && editorSlotIndex === index) {
           const removeX = band.x + band.width - 11;
           const removeY = band.y + 11;
           const remove = createSvg("g", {
@@ -91506,7 +92014,7 @@
 
     function getEditorPreviewPoint(event) {
       const svg = editorInteractionSvg || editorSvgForEvent(event);
-      if (deviceEditorUsesEnginePreview() && svg === deviceEditorPreview && editorEnginePreviewSurface) {
+	      if (deviceEditorActivePreviewUsesEngine() && svg === deviceEditorPreview && editorEnginePreviewSurface) {
         const screenPoint = deviceEditorEnginePreviewScreenPoint(event);
         const localPoint = screenPoint
           ? editorEnginePreviewSurface.screenToDeviceLocal(editorEnginePreviewLastDeviceId || DEVICE_EDITOR_ENGINE_PREVIEW_DEVICE_ID, screenPoint)
@@ -91639,7 +92147,7 @@
     }
 
     function startEditorCardSlotDrag(event) {
-      if (event.button !== 0) return false;
+      if (event.button !== 0 || editorActiveTab !== "connectors") return false;
       const slotEl = event.target.closest("[data-editor-card-slot]");
       if (!slotEl) return false;
       const template = currentEditorTemplate();
@@ -92401,21 +92909,12 @@
     }
 
     function nextEditorSlotY(template, direction) {
-      const side = direction === "input" ? "input" : "output";
+      const side = direction === "input" ? "left" : "right";
       const startY = connectorStartYForTemplate(template);
-      const connectorYs = template.connectors
-        .filter(connector => !isPairedNetworkConnector(connector))
-        .filter(connector => connectorSideKey(connector) === side)
-        .map(connector => Number(connector.y) || startY);
-      const cardYs = template.cardSlots.filter(slot => {
-        const cardSide = rowItemSide({ kind: "card", ref: slot, template });
-        return cardSide === "full" || cardSide === side;
-      }).map(slot => {
-        const band = cardBandGeometry(template, slot);
-        return band.y + band.height;
-      });
-      if (!connectorYs.length && !cardYs.length) return startY;
-      return Math.max(startY, ...connectorYs, ...cardYs) + SLOT_HEIGHT;
+      const layout = resolveEditorModularLayout(template, { useDragPreview: false });
+      let lane = 0;
+      while (layout.occupied[side]?.[lane]) lane++;
+      return laneY(lane, startY);
     }
 
     function editorDropPointCreatesAdapterNode(event) {
@@ -105136,6 +105635,7 @@ const POWER_PLUG_ASSET_BASE="${POWER_PLUG_ASSET_BASE}";
 const SVG_NS="http://www.w3.org/2000/svg";
 const DEVICE_WIDTH=${DEVICE_WIDTH};
 const ADAPTER_WIDTH=${ADAPTER_WIDTH};
+const ADAPTER_START_Y=${ADAPTER_START_Y};
 const CONNECTOR_START_Y=${CONNECTOR_START_Y};
 const SLOT_HEIGHT=${SLOT_HEIGHT};
 const FACE_MARGIN=${FACE_MARGIN};
@@ -105223,15 +105723,26 @@ function faceAspectHeight(t){if(t&&t.faceplateDeleted&&!t.faceImage)return 0;if(
 function faceHeight(t){const h=faceAspectHeight(t);if(!t||!t.faceImage)return h;const sy=Math.min(6,Math.max(.2,Number(t.faceImageScaleY)||Number(t.faceImageScale)||1));return Math.max(24,Math.round(h*sy))}
 function facePlacement(t){const width=Number(t&&t.width)||DEVICE_WIDTH,pad=Math.min(8,Math.max(0,faceHeight(t)/2-1)),inner={x:FACE_MARGIN+pad,y:FACE_TOP_Y+pad,width:Math.max(1,width-FACE_MARGIN*2-pad*2),height:Math.max(1,faceHeight(t)-pad*2)};const nw=Number(t&&t.faceImageNaturalWidth),nh=Number(t&&t.faceImageNaturalHeight);if(!nw||!nh)return inner;const fit=inner.width/nw,legacy=Math.min(6,Math.max(.2,Number(t.faceImageScale)||1)),sx=Math.min(6,Math.max(.2,Number(t.faceImageScaleX)||legacy)),sy=Math.min(6,Math.max(.2,Number(t.faceImageScaleY)||legacy)),w=Math.min(inner.width,nw*fit*sx),h=Math.min(inner.height,nh*fit*sy),rx=inner.x+(inner.width-w)/2+(Number(t.faceImageOffsetX)||0),ry=inner.y+(inner.height-h)/2+(Number(t.faceImageOffsetY)||0);return{x:Math.min(Math.max(rx,inner.x),inner.x+inner.width-w),y:Math.min(Math.max(ry,inner.y),inner.y+inner.height-h),width:w,height:h}}
 function cardTypeById(template,id){return (template.cardTypes||[]).find(card=>card.id===id)}
-function cardSlotRowCount(template,slot){const card=cardTypeById(template,slot.installedCardTypeId);if(!card)return 1;const ins=(card.connectors||[]).filter(c=>c.direction==="input"&&!c.empty).length;const outs=(card.connectors||[]).filter(c=>c.direction!=="input"&&!c.empty).length;return Math.max(1,ins,outs)}
+function cardSlotRowCount(template,slot){const card=cardTypeById(template,slot.installedCardTypeId);if(!card)return 1;const connectors=(card.connectors||[]).filter(c=>!c.empty&&c.type);const ins=connectors.filter(c=>c.direction==="input").length;const outs=connectors.filter(c=>c.direction!=="input").length;return Math.max(1,ins,outs)}
 function cardSlotLaneCount(template,slot){return cardSlotRowCount(template,slot)+2}
-function cardBandGeometry(template,slot){const card=cardTypeById(template,slot.installedCardTypeId);const kind=card&&card.kind||"io";const lanes=cardSlotLaneCount(template,slot);const y=(Number(slot.y)||CONNECTOR_START_Y)-SLOT_HEIGHT/2;const height=lanes*SLOT_HEIGHT;if(kind==="input")return{x:10,y,width:DEVICE_WIDTH/2-16,height,textX:DEVICE_WIDTH/4};if(kind==="output")return{x:DEVICE_WIDTH/2+6,y,width:DEVICE_WIDTH/2-16,height,textX:DEVICE_WIDTH*.75};return{x:10,y,width:DEVICE_WIDTH-20,height,textX:DEVICE_WIDTH/2}}
+function exportSideMaskForConnector(connector){const anchors=Array.isArray(connector&&connector.anchors)?connector.anchors:[];const hasLeft=anchors.some(a=>a&&a.side!=="right"),hasRight=anchors.some(a=>a&&a.side==="right");if(connector&&connector.displaySide==="both"||hasLeft&&hasRight)return"both";return connector&&connector.direction==="output"?"right":"left"}
+function exportSideMaskForCard(template,slot){const card=cardTypeById(template,slot.installedCardTypeId),kind=String(card&&card.kind||"io").toLowerCase();if(kind==="input")return"left";if(kind==="output")return"right";return"both"}
+function exportPlacementSides(mask){return mask==="both"?["left","right"]:[mask==="right"?"right":"left"]}
+function exportDeviceWidth(template){return Number(template&&template.width)||DEVICE_WIDTH}
+function exportConnectorStartY(template){if(isAdapterTemplate(template))return ADAPTER_START_Y;if(template&&template.faceplateDeleted&&!template.faceImage)return FACE_MARGIN+32;if(template&&template.isPowerDistro&&!template.faceImage){const rect=powerFaceRect(template);return rect.y+rect.height+36}if(template&&template.faceImage){const face=facePlacement(template);return Math.ceil(face.y+face.height+36)}return FACE_TOP_Y+faceHeight(template)+36}
+function exportLaneIndexForY(template,y){const start=exportConnectorStartY(template),numeric=Number(y);return Math.max(0,Math.round(((Number.isFinite(numeric)?numeric:start)-start)/SLOT_HEIGHT))}
+function exportLaneYForIndex(template,lane){return exportConnectorStartY(template)+Math.max(0,Number(lane)||0)*SLOT_HEIGHT}
+function exportResolveLayout(template){const connectors=((template&&template.connectors)||[]).filter(c=>!c.faceplateSide),slots=((template&&template.cardSlots)||[]),items=[...connectors.map((c,i)=>({id:"connector:"+c.id,kind:"connector",ref:c,requestedY:Number.isFinite(Number(c.y))?Number(c.y):exportConnectorStartY(template),requestedLane:exportLaneIndexForY(template,c.y),span:1,sideMask:exportSideMaskForConnector(c),order:i})),...slots.map((slot,i)=>({id:"card:"+slot.id,kind:"card",ref:slot,requestedY:Number.isFinite(Number(slot.y))?Number(slot.y):exportConnectorStartY(template),requestedLane:exportLaneIndexForY(template,slot.y),span:cardSlotLaneCount(template,slot),sideMask:exportSideMaskForCard(template,slot),order:connectors.length+i}))].sort((a,b)=>a.requestedLane-b.requestedLane||a.order-b.order||String(a.id).localeCompare(String(b.id))),occupied={left:[],right:[]},byId=new Map;items.forEach(item=>{let lane=item.requestedLane;const collides=()=>exportPlacementSides(item.sideMask).some(side=>{for(let i=lane;i<lane+item.span;i++){if(occupied[side][i])return true}return false});while(collides())lane++;const y=item.requestedY+(lane-item.requestedLane)*SLOT_HEIGHT;exportPlacementSides(item.sideMask).forEach(side=>{for(let i=lane;i<lane+item.span;i++)occupied[side][i]=item.id});byId.set(item.id,{...item,lane,y,endLane:lane+item.span})});return{byId,occupied}}
+function resolvedCardSlotY(template,slot){return exportResolveLayout(template).byId.get("card:"+(slot&&slot.id))?.y||Number(slot&&slot.y)||exportConnectorStartY(template)}
+function cardBandGeometry(template,slot){const width=exportDeviceWidth(template),card=cardTypeById(template,slot.installedCardTypeId);const kind=card&&card.kind||"io";const lanes=cardSlotLaneCount(template,slot);const y=resolvedCardSlotY(template,slot)-SLOT_HEIGHT/2;const height=lanes*SLOT_HEIGHT;if(kind==="input")return{x:10,y,width:width/2-16,height,textX:width/4};if(kind==="output")return{x:width/2+6,y,width:width/2-16,height,textX:width*.75};return{x:10,y,width:width-20,height,textX:width/2}}
 function cardCaptionTextColorExport(card){return card&&card.captionTextColor||"#fff"}
 function cardCaptionBackgroundColorExport(card){return card&&card.captionBackgroundColor||"#17212b"}
 function drawCardCaptionExport(parent,text,x,y,card,maxWidth){const width=Math.max(64,Number(maxWidth)||DEVICE_WIDTH-28);let fontSize=Math.min(16,SLOT_HEIGHT*.62);const estimated=estimateTextWidthExport(text,fontSize)+18;if(estimated>width)fontSize=Math.max(8,fontSize*(width-14)/Math.max(1,estimated));const height=Math.max(18,fontSize+8);parent.appendChild(s("rect",{x:x-width/2,y:y-fontSize+1,width,height,rx:4,fill:cardCaptionBackgroundColorExport(card),opacity:.92,"pointer-events":"none"}));const caption=s("text",{x,y,fill:cardCaptionTextColorExport(card),"font-size":fontSize,"font-weight":800,"text-anchor":"middle","paint-order":"stroke fill",stroke:"rgba(0,0,0,.92)","stroke-width":5,"stroke-linejoin":"round","pointer-events":"none"});caption.textContent=text;parent.appendChild(caption)}
 const CARD_SLOT_OVERRIDE_FIELDS=["nameText","nameCustom","resolutionFrameRate","customText","nameTextCaption","resolutionFrameRateCaption","customTextCaption","includeInMatrix","matrixPortTouched","fiberMode","customColor","installedModuleType","schemaVersion","physicalType","connectorType","signalDirection","displaySide","anchors","primaryAnchorId","operationalStatus","infoFields","moduleCapability","fiberCapability","powerMetadata"];
 function hasOwn(o,k){return Object.prototype.hasOwnProperty.call(o||{},k)}
-function generatedCardConnectors(template){if(!template||!template.hasSwappableCards)return[];const list=[];(template.cardSlots||[]).forEach(slot=>{const card=cardTypeById(template,slot.installedCardTypeId);if(!card)return;const counts={input:0,output:0};const overrides=slot.connectorOverrides&&typeof slot.connectorOverrides==="object"?slot.connectorOverrides:{};(card.connectors||[]).filter(c=>!c.empty&&c.type).forEach(conn=>{const merged={...conn};const override=overrides[conn.id]||{};CARD_SLOT_OVERRIDE_FIELDS.forEach(field=>{if(hasOwn(override,field))merged[field]=override[field]});const side=merged.direction==="input"?"input":"output";const idx=counts[side]++;list.push({...merged,id:slot.id+"__"+conn.id,sourceConnectorId:conn.id,cardSlotId:slot.id,cardTypeId:card.id,generatedFromCard:true,label:merged.label||((cableTypes[merged.type]||{}).label)||card.name,direction:side,x:side==="input"?0:DEVICE_WIDTH,y:(Number(slot.y)||CONNECTOR_START_Y)+SLOT_HEIGHT+idx*SLOT_HEIGHT})})});return list}
+function exportDefaultAnchor(template,side,y,id){const width=exportDeviceWidth(template);side=side==="right"?"right":"left";return{id:id||side,side,x:side==="right"?width:0,y}}
+function exportInstalledCardConnector(template,generated,source,index){const width=exportDeviceWidth(template),sourceAnchors=Array.isArray(source.anchors)&&source.anchors.length?source.anchors:[exportDefaultAnchor(template,generated.direction==="output"?"right":"left",Number(source.y)||exportConnectorStartY(template),source.primaryAnchorId||"")];const sourcePrimary=sourceAnchors.find(a=>a.id===source.primaryAnchorId)||sourceAnchors.find(a=>a.primary)||sourceAnchors[0];const installedY=Number(generated.y)||exportConnectorStartY(template),delta=installedY-(Number(sourcePrimary&&sourcePrimary.y)||Number(source.y)||installedY);const anchors=sourceAnchors.map(a=>{const side=a.side==="right"?"right":"left";return{...a,side,x:side==="right"?width:0,y:(Number(a.y)||Number(sourcePrimary&&sourcePrimary.y)||installedY)+delta}});const primaryAnchorId=String(sourcePrimary&&sourcePrimary.id||generated.primaryAnchorId||anchors[0]&&anchors[0].id||"");const primary=anchors.find(a=>a.id===primaryAnchorId)||anchors.find(a=>a.primary)||anchors[0]||{x:generated.x,y:generated.y};return{...generated,schemaVersion:2,displaySide:generated.displaySide||source.displaySide||(generated.direction==="output"?"right":"left"),anchors,primaryAnchorId,x:Number.isFinite(Number(primary.x))?Number(primary.x):generated.x,y:Number.isFinite(Number(primary.y))?Number(primary.y):generated.y,rowIndex:index}}
+function generatedCardConnectors(template){if(!template||!template.hasSwappableCards)return[];const list=[],width=exportDeviceWidth(template);(template.cardSlots||[]).forEach(slot=>{const card=cardTypeById(template,slot.installedCardTypeId);if(!card)return;const counts={input:0,output:0};const overrides=slot.connectorOverrides&&typeof slot.connectorOverrides==="object"?slot.connectorOverrides:{};(card.connectors||[]).filter(c=>!c.empty&&c.type).forEach(conn=>{const merged={...conn};const override=overrides[conn.id]||{};CARD_SLOT_OVERRIDE_FIELDS.forEach(field=>{if(hasOwn(override,field))merged[field]=override[field]});const side=merged.direction==="input"?"input":"output";const idx=counts[side]++;const installed={...merged,id:slot.id+"__"+conn.id,sourceConnectorId:conn.id,cardSlotId:slot.id,cardTypeId:card.id,generatedFromCard:true,label:merged.label||((cableTypes[merged.type]||{}).label)||card.name,direction:side,x:side==="input"?0:width,y:resolvedCardSlotY(template,slot)+SLOT_HEIGHT+idx*SLOT_HEIGHT};list.push(exportInstalledCardConnector(template,installed,merged,idx))})});return list}
 function effectiveConnectors(template){return[...((template&&template.connectors)||[]),...generatedCardConnectors(template)]}
 function adapterInternalWirePairs(template){if(!isAdapterTemplate(template))return[];const connectors=effectiveConnectors(template).filter(c=>c&&!c.empty&&c.type),inputs=connectors.filter(c=>c.direction==="input").sort((a,b)=>(Number(a.y)||0)-(Number(b.y)||0)),outputs=connectors.filter(c=>c.direction!=="input").sort((a,b)=>(Number(a.y)||0)-(Number(b.y)||0));if(!inputs.length||!outputs.length)return[];if(inputs.length===1)return outputs.map(output=>({input:inputs[0],output}));if(outputs.length===1)return inputs.map(input=>({input,output:outputs[0]}));if(inputs.length<outputs.length)return outputs.map((output,index)=>({input:inputs[Math.min(inputs.length-1,Math.floor(index*inputs.length/outputs.length))],output}));if(outputs.length<inputs.length)return inputs.map((input,index)=>({input,output:outputs[Math.min(outputs.length-1,Math.floor(index*outputs.length/inputs.length))]}));return inputs.map((input,index)=>({input,output:outputs[index]}))}
 function adapterInternalWirePath(input,output){const dx=Math.max(80,Math.abs(output.x-input.x)*.45),dir=output.x>=input.x?1:-1;return"M "+input.x+" "+input.y+" C "+(input.x+dx*dir)+" "+input.y+", "+(output.x-dx*dir)+" "+output.y+", "+output.x+" "+output.y}
@@ -105384,7 +105895,7 @@ function clampPowerCenter(t,x,y,w,h){const r=powerFaceRect(t);return{x:Math.min(
 function powerPlugLayout(t){if(!t||!t.isPowerDistro||t.faceImage||t.faceplateDeleted)return[];const r=powerFaceRect(t),out=[],ins=powerPlugConnectors(t,"input",false),outs=powerPlugConnectors(t,"output",false),leftX=r.x+r.width*.25,rightX=r.x+r.width*.75,top=r.y+18;function stack(list,side){let y=top;list.forEach(c=>{const size=powerPlugSize(c),auto={x:side==="input"?leftX:rightX,y:y+size.height/2},p=c.powerPlug&&c.powerPlug.manual?clampPowerCenter(t,c.powerPlug.x,c.powerPlug.y,size.width,size.height):auto;out.push({c,href:powerPlugImage(c),x:p.x-size.width/2,y:p.y-size.height/2,width:size.width,height:size.height,powerlock:false});y+=size.height+10})}stack(ins,"input");stack(outs,"output");let lockY=top+Math.max(powerStackHeight(ins),powerStackHeight(outs))+((ins.length||outs.length)?18:0);[...powerPlugConnectors(t,"input",true),...powerPlugConnectors(t,"output",true)].forEach(c=>{const size=powerPlugSize(c),cy=lockY+size.height/2,p=c.powerPlug&&c.powerPlug.manual?clampPowerCenter(t,c.powerPlug.x,c.powerPlug.y,size.width,size.height):{x:r.x+r.width/2,y:cy};out.push({c,href:powerPlugImage(c),x:p.x-size.width/2,y:p.y-size.height/2,width:size.width,height:size.height,powerlock:true});lockY+=size.height+10});return out}
 function drawPowerPlugImage(g,p){const m=powerPlugTypes[p.c&&p.c.type]||{},crop=m.crop;if(!crop||!crop.viewBox||!crop.box){g.appendChild(s("image",{class:"power-plug-image",href:p.href,x:p.x,y:p.y,width:p.width,height:p.height,preserveAspectRatio:"xMidYMid meet"}));return}const vb=crop.viewBox.map(Number),box=crop.box.map(Number),scale=Math.min(p.width/box[2],p.height/box[3]),cw=box[2]*scale,ch=box[3]*scale,clip="power-plug-export-clip-"+clipSeq++,defs=s("defs"),cp=s("clipPath",{id:clip});cp.appendChild(s("rect",{x:p.x,y:p.y,width:p.width,height:p.height,rx:2}));defs.appendChild(cp);g.appendChild(defs);g.appendChild(s("image",{class:"power-plug-image",href:p.href,x:p.x+(p.width-cw)/2-(box[0]-vb[0])*scale,y:p.y+(p.height-ch)/2-(box[1]-vb[1])*scale,width:vb[2]*scale,height:vb[3]*scale,preserveAspectRatio:"none","clip-path":"url(#"+clip+")"}))}
 function drawPowerFace(g,t){if(!t||!t.isPowerDistro||t.faceImage||t.faceplateDeleted)return false;const r=powerFaceRect(t);g.appendChild(s("rect",{class:"device-face power-distro-face",x:r.x,y:r.y,width:r.width,height:r.height,rx:5}));powerPlugLayout(t).forEach(p=>drawPowerPlugImage(g,p));return true}
-function drawDevice(g,inst,t){if(isAdapterTemplate(t)){const w=Number(t.width)||ADAPTER_WIDTH,h=Number(t.height)||76;g.appendChild(s("rect",{class:"adapter-outline",width:w,height:h,rx:6,fill:"#32b6ff","fill-opacity":.08,stroke:"#32b6ff","stroke-opacity":.72}));drawAdapterInternalWires(g,t,inst);const label=s("text",{class:"adapter-label",x:w/2,y:-5,"dominant-baseline":"auto"});label.textContent=inst.name||t.name||"Adapter / Breakout";g.appendChild(label);effectiveConnectors(t).filter(c=>!c.empty&&!connectorHidden(inst,c)).forEach(c=>drawConnector(g,inst,c));return}g.appendChild(s("rect",{class:"device-outline",width:t.width||DEVICE_WIDTH,height:t.height||190,rx:8}));if(t.faceImage){const face=facePlacement(t);g.appendChild(s("image",{href:t.faceImage,x:face.x,y:face.y,width:face.width,height:face.height,preserveAspectRatio:"xMidYMid meet"}))}else if(drawPowerFace(g,t)){}else if(!t.faceplateDeleted){g.appendChild(s("rect",{class:"device-face",x:FACE_MARGIN,y:FACE_TOP_Y,width:(t.width||DEVICE_WIDTH)-FACE_MARGIN*2,height:FACE_HEIGHT,rx:5}));g.appendChild(s("rect",{class:"device-screen",x:24,y:FACE_TOP_Y+10,width:76,height:34,rx:4}));[0,1,2,3,4,5].forEach(i=>g.appendChild(s("circle",{cx:128+i*18,cy:FACE_TOP_Y+24,r:3.3,fill:i%2?"#fb7904":"#32b6ff"})))};(t.cardSlots||[]).forEach(slot=>{const card=cardTypeById(t,slot.installedCardTypeId);const band=cardBandGeometry(t,slot);g.appendChild(s("rect",{class:"card-band",x:band.x,y:band.y,width:band.width,height:band.height,rx:6}));drawCardCaptionExport(g,card&&card.name||"Empty",band.textX,(Number(slot.y)||CONNECTOR_START_Y)+3,card,band.width-12)});effectiveConnectors(t).filter(c=>!c.empty&&!connectorHidden(inst,c)).forEach(c=>drawConnector(g,inst,c));const label=s("text",{class:"device-label",x:20,y:22});label.textContent=inst.name||t.name||"Device";g.appendChild(label)}
+function drawDevice(g,inst,t){if(isAdapterTemplate(t)){const w=Number(t.width)||ADAPTER_WIDTH,h=Number(t.height)||76;g.appendChild(s("rect",{class:"adapter-outline",width:w,height:h,rx:6,fill:"#32b6ff","fill-opacity":.08,stroke:"#32b6ff","stroke-opacity":.72}));drawAdapterInternalWires(g,t,inst);const label=s("text",{class:"adapter-label",x:w/2,y:-5,"dominant-baseline":"auto"});label.textContent=inst.name||t.name||"Adapter / Breakout";g.appendChild(label);effectiveConnectors(t).filter(c=>!c.empty&&!connectorHidden(inst,c)).forEach(c=>drawConnector(g,inst,c));return}g.appendChild(s("rect",{class:"device-outline",width:t.width||DEVICE_WIDTH,height:t.height||190,rx:8}));if(t.faceImage){const face=facePlacement(t);g.appendChild(s("image",{href:t.faceImage,x:face.x,y:face.y,width:face.width,height:face.height,preserveAspectRatio:"xMidYMid meet"}))}else if(drawPowerFace(g,t)){}else if(!t.faceplateDeleted){g.appendChild(s("rect",{class:"device-face",x:FACE_MARGIN,y:FACE_TOP_Y,width:(t.width||DEVICE_WIDTH)-FACE_MARGIN*2,height:FACE_HEIGHT,rx:5}));g.appendChild(s("rect",{class:"device-screen",x:24,y:FACE_TOP_Y+10,width:76,height:34,rx:4}));[0,1,2,3,4,5].forEach(i=>g.appendChild(s("circle",{cx:128+i*18,cy:FACE_TOP_Y+24,r:3.3,fill:i%2?"#fb7904":"#32b6ff"})))};(t.cardSlots||[]).forEach(slot=>{const card=cardTypeById(t,slot.installedCardTypeId);const band=cardBandGeometry(t,slot);g.appendChild(s("rect",{class:"card-band",x:band.x,y:band.y,width:band.width,height:band.height,rx:6}));drawCardCaptionExport(g,card&&card.name||"Empty",band.textX,resolvedCardSlotY(t,slot)+3,card,band.width-12)});effectiveConnectors(t).filter(c=>!c.empty&&!connectorHidden(inst,c)).forEach(c=>drawConnector(g,inst,c));const label=s("text",{class:"device-label",x:20,y:22});label.textContent=inst.name||t.name||"Device";g.appendChild(label)}
 function drawSegmentedConnectorNode(g,x,y,r,colors){const clip="connector-node-export-clip-"+clipSeq++,defs=s("defs"),cp=s("clipPath",{id:clip});cp.appendChild(s("circle",{cx:x,cy:y,r:r}));defs.appendChild(cp);g.appendChild(defs);const step=r*2/colors.length;colors.forEach((color,i)=>g.appendChild(s("rect",{x:x-r+i*step,y:y-r,width:step+.5,height:r*2,fill:color,"clip-path":"url(#"+clip+")","pointer-events":"none"})));g.appendChild(s("circle",{class:"connector-node",cx:x,cy:y,r:r,fill:"none"}))}
 function drawConnector(g,inst,c){const detailScale=canvasDetailScale(),selectedNode=selected&&selected.type==="connector"&&selected.deviceId===inst.instanceId&&selected.connectorId===c.id,infoBoxMode=view.zoom<=INFO_BOX_HIDE_ZOOM?"hidden":detailScale>=INFO_BOX_COMPACT_SCALE?"compact":"full",dimmed=connectorDimmed(inst,c);const node=s("g",{class:selectedNode?"selected":"",opacity:dimmed?0.5:1}),segments=connectorColorSegments(c);if(segments)drawSegmentedConnectorNode(node,c.x,c.y,7,segments);else node.appendChild(s("circle",{class:"connector-node",cx:c.x,cy:c.y,r:7,fill:connectorColor(c,inst.instanceId)}));if(connectorNotWorking(c))drawConnectorNotWorkingMark(node,c.x,c.y,7);node.appendChild(s("circle",{class:"connector-hit",cx:c.x,cy:c.y,r:17,fill:"transparent",stroke:"transparent"}));const label=s("text",{class:"connector-label",x:c.direction==="input"?c.x+17:c.x-17,y:c.y+20,"text-anchor":c.direction==="input"?"start":"end"});label.textContent=connectorLabel(c);node.appendChild(label);if(!isAdapterTemplate(templateForInstance(inst))&&!c.faceplateSide){const fields=c.type==="led-signal"?[{field:"customText",title:connectorFieldTitle(c,"customText"),text:c.customText}]:[{field:"nameText",title:connectorFieldTitle(c,"nameText"),text:c.nameText},{field:"resolutionFrameRate",title:connectorFieldTitle(c,"resolutionFrameRate"),text:c.resolutionFrameRate},{field:"customText",title:connectorFieldTitle(c,"customText"),text:c.customText}];addVisibleInfoBoxes(node,c,fields,detailScale,infoBoxMode)}node.addEventListener("click",e=>{e.stopPropagation();select({type:"connector",deviceId:inst.instanceId,connectorId:c.id})});node.addEventListener("dblclick",e=>{e.stopPropagation();jumpConnectedNode(inst.instanceId,c.id)});g.appendChild(node)}
 function drawWireVisuals(g,d,w,dir){const colors=connectionColorSegments(w);if(!colors){const line=s("path",{class:"wire",d,fill:"none",stroke:connectionColor(w),"marker-end":"url(#arrowEnd)"});if(dir==="two-way")line.setAttribute("marker-start","url(#arrowStart)");g.appendChild(line);return[line]}const len=100/colors.length;return colors.map((color,i)=>{const line=s("path",{class:"wire wire-segmented",d,fill:"none",stroke:color,pathLength:100,"stroke-dasharray":len+" 100","stroke-dashoffset":String(-i*len),"stroke-linecap":"butt"});if(i===colors.length-1)line.setAttribute("marker-end","url(#arrowEnd)");if(dir==="two-way"&&i===0)line.setAttribute("marker-start","url(#arrowStart)");g.appendChild(line);return line})}
@@ -105749,12 +106260,13 @@ renderViewerOutputDebug();
     document.getElementById("resetDeviceEditor").addEventListener("click", openDeviceEditor);
     document.getElementById("exportDeviceLibrary").addEventListener("click", exportDeviceLibraryJson);
     document.getElementById("applyDeviceEditor").addEventListener("click", applyDeviceEditor);
-    editorTabs.addEventListener("click", event => {
-      const tab = event.target.closest("[data-editor-tab]");
-      if (!tab) return;
-      if (tab.disabled || tab.getAttribute("aria-disabled") === "true") return;
-      editorActiveTab = tab.dataset.editorTab;
-      recordShellPanelAction("device editor tab", editorActiveTab);
+	    editorTabs.addEventListener("click", event => {
+	      const tab = event.target.closest("[data-editor-tab]");
+	      if (!tab) return;
+	      if (tab.disabled || tab.getAttribute("aria-disabled") === "true") return;
+	      const previousTab = editorActiveTab;
+	      editorActiveTab = tab.dataset.editorTab;
+	      recordShellPanelAction("device editor tab", editorActiveTab);
       editorSelectedCardNodeIndex = null;
       renderEditorTabs();
       try {
@@ -105766,10 +106278,17 @@ renderViewerOutputDebug();
       renderRackBuilder();
       renderNodePalette();
       renderSelectedConnectorSettings();
-      renderConnectorRelationshipsPanel();
-      renderDeviceEditorPreview();
-      renderDeviceAuthoringDebugPanel();
-    });
+	      renderConnectorRelationshipsPanel();
+	      renderDeviceEditorPreview();
+	      if (editorActiveTab === "faceplate" && previousTab !== "faceplate") {
+	        requestAnimationFrame(() => {
+	          if (editorActiveTab === "faceplate" && !deviceEditorModal?.classList.contains("hidden")) {
+	            fitDeviceEditorPreview();
+	          }
+	        });
+	      }
+	      renderDeviceAuthoringDebugPanel();
+	    });
     connectorRelationshipsPanel?.addEventListener("click", event => {
       const reverseButton = event.target.closest("[data-relationship-reverse]");
       if (reverseButton) {
@@ -106320,7 +106839,7 @@ renderViewerOutputDebug();
     });
     document.getElementById("addCardInputNode").addEventListener("click", () => addCardConnector("input"));
     document.getElementById("addCardOutputNode").addEventListener("click", () => addCardConnector("output"));
-    document.getElementById("addCardSlot").addEventListener("click", addEditorCardSlot);
+    document.getElementById("addCardSlot").addEventListener("click", () => addEditorCardSlot());
     document.getElementById("resetDeviceDefault").addEventListener("click", () => {
       const template = currentEditorTemplate();
       if (!template?.defaultConfiguration) {
@@ -106380,58 +106899,6 @@ renderViewerOutputDebug();
       event.dataTransfer.setData("application/x-av-card-type", chip.dataset.cardTypeId);
       event.dataTransfer.effectAllowed = "copy";
     });
-    cardSlotList.addEventListener("input", event => {
-      const input = event.target.closest("[data-card-slot-field]");
-      if (!input) return;
-      const template = currentEditorTemplate();
-      const slot = template?.cardSlots?.[Number(input.dataset.cardSlotIndex)];
-      if (!slot) return;
-      if (input.dataset.cardSlotField === "installedCardTypeId") return;
-      slot[input.dataset.cardSlotField] = input.value;
-      normalizeCardSlots(template);
-      template.height = deviceHeightForSlotCounts(template);
-      renderDeviceEditorPreview();
-    });
-    cardSlotList.addEventListener("change", event => {
-      const control = event.target.closest("[data-card-slot-field]");
-      if (!control) return;
-      const template = currentEditorTemplate();
-      const index = Number(control.dataset.cardSlotIndex);
-      const slot = template?.cardSlots?.[index];
-      if (!slot) return;
-      if (control.dataset.cardSlotField === "installedCardTypeId") {
-        installCardInSlot(index, control.value);
-        return;
-      }
-      slot[control.dataset.cardSlotField] = control.value;
-      normalizeCardSlots(template);
-      template.height = deviceHeightForSlotCounts(template);
-      renderCardSlotEditor();
-      renderDeviceEditorPreview();
-    });
-    cardSlotList.addEventListener("click", event => {
-      const button = event.target.closest("[data-remove-card-slot]");
-      if (!button) return;
-      removeCardSlot(Number(button.dataset.removeCardSlot));
-    });
-    cardSlotList.addEventListener("dragover", event => {
-      const row = event.target.closest("[data-card-slot-row]");
-      if (!row) return;
-      event.preventDefault();
-      row.classList.add("slot-drop-active");
-      event.dataTransfer.dropEffect = "copy";
-    });
-    cardSlotList.addEventListener("dragleave", event => {
-      const row = event.target.closest("[data-card-slot-row]");
-      if (row) row.classList.remove("slot-drop-active");
-    });
-    cardSlotList.addEventListener("drop", event => {
-      const row = event.target.closest("[data-card-slot-row]");
-      if (!row) return;
-      event.preventDefault();
-      row.classList.remove("slot-drop-active");
-      installCardInSlot(Number(row.dataset.cardSlotRow), event.dataTransfer.getData("application/x-av-card-type"));
-    });
     nodePalette.addEventListener("dragstart", event => {
       if (!editorNodePaletteActive()) {
         event.preventDefault();
@@ -106477,7 +106944,7 @@ renderViewerOutputDebug();
         return;
       }
       const cardSlot = event.target.closest("[data-editor-card-slot]");
-      if (cardSlot && editorActiveTab === "slots" && Array.from(event.dataTransfer.types).includes("application/x-av-card-type")) {
+      if (editorActiveTab === "connectors" && editorDataTransferHasType(event, "application/x-av-card-type") && (cardSlot || editorPreviewCanCreateCardSlotFromDrop(event))) {
         event.preventDefault();
         event.dataTransfer.dropEffect = "copy";
         return;
@@ -106503,9 +106970,14 @@ renderViewerOutputDebug();
         return;
       }
       const cardSlot = event.target.closest("[data-editor-card-slot]");
-      if (cardSlot && editorActiveTab === "slots" && event.dataTransfer.getData("application/x-av-card-type")) {
+      const cardTypeId = editorCardDropTypeId(event);
+      if (cardSlot && editorActiveTab === "connectors" && cardTypeId) {
         event.preventDefault();
-        installCardInSlot(Number(cardSlot.dataset.editorCardSlot), event.dataTransfer.getData("application/x-av-card-type"));
+        installCardInSlot(Number(cardSlot.dataset.editorCardSlot), cardTypeId);
+        return;
+      }
+      if (editorActiveTab === "connectors" && cardTypeId && createCardSlotFromPreviewDrop(event, cardTypeId)) {
+        event.preventDefault();
         return;
       }
       const targetIndex = editorNodeTargetIndexFromEvent(event);
@@ -106529,7 +107001,7 @@ renderViewerOutputDebug();
     bindEditorInteractionSvg(deviceEditorFaceplatePreview);
     deviceEditorPreview.addEventListener("click", event => {
       const slotRemove = event.target.closest("[data-editor-remove-card-slot]");
-      if (slotRemove && editorActiveTab === "slots") {
+      if (slotRemove && editorActiveTab === "connectors") {
         event.preventDefault();
         event.stopPropagation();
         removeCardSlot(Number(slotRemove.dataset.editorRemoveCardSlot));
@@ -106606,7 +107078,7 @@ renderViewerOutputDebug();
       syncDeviceEditorEngineOverlayViewBox();
     }
     document.getElementById("editorZoomOut").addEventListener("click", () => {
-      if (deviceEditorUsesEnginePreview()) {
+	      if (deviceEditorActivePreviewUsesEngine()) {
         zoomDeviceEditorEnginePreview(1 / 1.2);
         return;
       }
@@ -106614,7 +107086,7 @@ renderViewerOutputDebug();
       renderDeviceEditorPreview();
     });
     document.getElementById("editorZoomIn").addEventListener("click", () => {
-      if (deviceEditorUsesEnginePreview()) {
+	      if (deviceEditorActivePreviewUsesEngine()) {
         zoomDeviceEditorEnginePreview(1.2);
         return;
       }
@@ -106632,7 +107104,7 @@ renderViewerOutputDebug();
     });
 
     function zoomEditorPreviewSvg(svg, factor) {
-      if (svg === deviceEditorPreview && deviceEditorUsesEnginePreview()) {
+	      if (svg === deviceEditorPreview && deviceEditorActivePreviewUsesEngine()) {
         zoomDeviceEditorEnginePreview(factor);
         return;
       }
@@ -106655,7 +107127,7 @@ renderViewerOutputDebug();
         lastY: event.clientY
       };
       svg.setPointerCapture(event.pointerId);
-      (deviceEditorUsesEnginePreview() && svg === deviceEditorPreview ? editorEnginePreviewHost : svg.parentElement)?.classList.add("panning");
+	      (deviceEditorActivePreviewUsesEngine() && svg === deviceEditorPreview ? editorEnginePreviewHost : svg.parentElement)?.classList.add("panning");
     }
 
     function moveEditorPreviewPan(event) {
@@ -106665,7 +107137,7 @@ renderViewerOutputDebug();
       if (editorPreviewPanState.svg === deviceEditorFaceplatePreview) {
         editorFaceplatePreviewPan.x -= dx * EDITOR_PREVIEW_PAN_SPEED / editorFaceplatePreviewZoom;
         editorFaceplatePreviewPan.y -= dy * EDITOR_PREVIEW_PAN_SPEED / editorFaceplatePreviewZoom;
-      } else if (deviceEditorUsesEnginePreview() && editorEnginePreviewSurface) {
+	      } else if (deviceEditorActivePreviewUsesEngine() && editorEnginePreviewSurface) {
         const zoom = Math.max(.0001, Number(editorEnginePreviewSurface.camera.zoom) || 1);
         editorEnginePreviewSurface.camera.x -= dx * EDITOR_PREVIEW_PAN_SPEED / zoom;
         editorEnginePreviewSurface.camera.y -= dy * EDITOR_PREVIEW_PAN_SPEED / zoom;
@@ -106684,28 +107156,28 @@ renderViewerOutputDebug();
       renderDeviceEditorPreview();
     }
 
-    function stopEditorPreviewPan(event) {
-      if (!editorPreviewPanState) return;
-      if (event?.pointerId !== undefined && event.pointerId !== editorPreviewPanState.pointerId) return;
-      const svg = editorPreviewPanState.svg || deviceEditorPreview;
-      if (event?.pointerId !== undefined && svg.hasPointerCapture(event.pointerId)) {
-        svg.releasePointerCapture(event.pointerId);
-      }
-      (deviceEditorUsesEnginePreview() && svg === deviceEditorPreview ? editorEnginePreviewHost : svg.parentElement)?.classList.remove("panning");
-      editorPreviewPanState = null;
-    }
+	    function stopEditorPreviewPan(event) {
+	      if (!editorPreviewPanState) return;
+	      if (event?.pointerId !== undefined && event.pointerId !== editorPreviewPanState.pointerId) return;
+	      const svg = editorPreviewPanState.svg || deviceEditorPreview;
+	      if (event?.pointerId !== undefined && svg.hasPointerCapture(event.pointerId)) {
+	        svg.releasePointerCapture(event.pointerId);
+	      }
+	      (deviceEditorActivePreviewUsesEngine() && svg === deviceEditorPreview ? editorEnginePreviewHost : svg.parentElement)?.classList.remove("panning");
+	      editorPreviewPanState = null;
+	    }
 
-    function bindEditorPreviewNavigation(svg) {
-      if (!svg) return;
-      svg.addEventListener("wheel", event => {
-        if (!event.ctrlKey && !event.altKey) return;
-        event.preventDefault();
-        if (svg === deviceEditorPreview && deviceEditorUsesEnginePreview()) {
-          zoomDeviceEditorEnginePreview(event.deltaY < 0 ? 1.12 : 1 / 1.12, event);
-        } else {
-          zoomEditorPreviewSvg(svg, event.deltaY < 0 ? 1.12 : 1 / 1.12);
-        }
-      }, { passive: false });
+	    function bindEditorPreviewNavigation(svg) {
+	      if (!svg) return;
+	      svg.addEventListener("wheel", event => {
+	        if (!editorPreviewWheelZoomModifierActive(event)) return;
+	        event.preventDefault();
+	        if (svg === deviceEditorPreview && deviceEditorActivePreviewUsesEngine()) {
+	          zoomDeviceEditorEnginePreview(event.deltaY < 0 ? 1.12 : 1 / 1.12, event);
+	        } else {
+	          zoomEditorPreviewSvg(svg, event.deltaY < 0 ? 1.12 : 1 / 1.12);
+	        }
+	      }, { passive: false });
       svg.addEventListener("pointerdown", startEditorPreviewPan);
       svg.addEventListener("pointermove", moveEditorPreviewPan);
       svg.addEventListener("pointerup", stopEditorPreviewPan);

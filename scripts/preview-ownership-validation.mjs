@@ -12,7 +12,7 @@ import { NODE_PREVIEW_BUILD_ID } from "../src/engine/nodePreview.js";
 import { TITLE_BLOCK_PREVIEW_BUILD_ID } from "../src/engine/titleBlockPreview.js";
 
 const EXPECTED_PREVIEW_BUILD_ID = "iteration53-4-1-preview-verification";
-const EXPECTED_APP_BUILD_ID = "iteration54-3-3-connector-status-blocked";
+const EXPECTED_APP_BUILD_ID = "iteration54-3-7-device-editor-integration-hardening";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -24,11 +24,11 @@ assert.equal(RACK_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "rack preview bui
 assert.equal(NODE_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "node preview build id");
 assert.equal(TITLE_BLOCK_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "title-block preview build id");
 
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.3.3";'), "app iteration should be 54.3.3");
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${EXPECTED_APP_BUILD_ID}";`), "app build id should match 54.3.3");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-3-3-connector-status-blocked-modules";'), "module cache key should match 54.3.3");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.3.7";'), "app iteration should be 54.3.7");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${EXPECTED_APP_BUILD_ID}";`), "app build id should match 54.3.7");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-3-7-device-editor-integration-hardening-modules";'), "module cache key should match 54.3.7");
 assert.ok(indexHtml.includes('url.searchParams.set("module", APP_MODULE_CACHE_ID);'), "engine imports should carry the module cache key");
-assert.ok(indexHtml.includes("Connector Status Blocked"), "app build label should name 54.3.3");
+assert.ok(indexHtml.includes("Device Editor Integration Hardening"), "app build label should name 54.3.7");
 
 assert.ok(!enginePreviewSource.includes("legacyActualDraws"), "generic shared preview diagnostics must not publish fake legacy draw counters");
 assert.ok(!indexHtml.includes("legacy draws ${row."), "runtime owner rows must not render fake generic legacy draw counters");
@@ -51,11 +51,31 @@ for (const id of ["node-thumbnail-crop", "main-canvas-transient-previews", "outp
 }
 
 assertFunctionOrder("renderDeviceEditorPreview", [
-  "if (deviceEditorUsesEnginePreview())",
+  'if (editorActiveTab === "cards")',
+  "setDeviceEditorCardAuthoringMode(true);",
+  "renderCardEditorPreview();",
+  "return;",
+  "setDeviceEditorCardAuthoringMode(false);",
+  "if (deviceEditorActivePreviewUsesEngine())",
   "renderDeviceEditorEnginePreview(template, options);",
   "return;",
   "editorEnginePreviewLegacyVisualDraws += 1;"
-], "Device Editor Engine branch must return before legacy production drawing");
+], "Device Editor Cards authoring branch and Engine branch must return before legacy production drawing");
+
+const cardAuthoringMode = functionSource("setDeviceEditorCardAuthoringMode");
+assert.ok(cardAuthoringMode.includes("restoreDeviceEditorPreviewSvgHome()"), "Cards tab should restore the SVG authoring schematic to its normal host");
+assert.ok(indexHtml.includes(".editor-preview.card-authoring-mode .engine-preview-surface"), "Cards tab should hide the Engine preview surface while the authoring schematic is active");
+assert.ok(
+  functionSource("deviceEditorActivePreviewUsesEngine").includes('editorActiveTab !== "cards"'),
+  "Cards tab should not route active preview navigation through the hidden Engine surface"
+);
+
+const editorWheelGate = functionSource("editorPreviewWheelZoomModifierActive");
+assert.ok(editorWheelGate.includes("IS_APPLE_POINTER_PLATFORM ? event?.altKey : event?.ctrlKey"), "Device Editor preview wheel zoom should use Option on Apple and Ctrl elsewhere");
+assert.ok(
+  functionSource("bindEditorPreviewNavigation").includes("if (!editorPreviewWheelZoomModifierActive(event)) return;"),
+  "Device Editor preview wheel handler should use the editor-specific modifier rule"
+);
 
 assertFunctionOrder("renderRackBuilderPreview", [
   "if (rackBuilderUsesEnginePreview() && rackBuilderModalOpen())",

@@ -1,0 +1,312 @@
+{
+  "format": "av-designer-project",
+  "version": 1,
+  "projectName": "Modular Card Placement Integration Fixture",
+  "state": {
+    "projectName": "Modular Card Placement Integration Fixture",
+    "nodeLibrary": [],
+    "deviceLibrary": [
+      {
+        "id": "fixture-tall-modular-chassis",
+        "name": "Tall Modular Chassis",
+        "brand": "Validation",
+        "model": "Tall V2",
+        "category": "Matrixes",
+        "schemaVersion": 2,
+        "deviceDefinitionVersion": 2,
+        "width": 520,
+        "height": 940,
+        "techSpecs": "Fixture technical specifications stay attached through save/load.",
+        "hasSwappableCards": true,
+        "isLedProcessor": true,
+        "ledOutputCount": 8,
+        "isEthernetSwitch": true,
+        "switchPortCount": 8,
+        "switchPortType": "cat6",
+        "isMatrixRouter": true,
+        "isPartOfPair": true,
+        "pairedTemplateId": "fixture-companion-template",
+        "pairPlaceFirst": true,
+        "connectors": [
+          {
+            "id": "fixed-input-row-180",
+            "schemaVersion": 2,
+            "type": "hdmi",
+            "direction": "input",
+            "signalDirection": "input",
+            "displaySide": "left",
+            "primaryAnchorId": "left",
+            "x": 0,
+            "y": 180,
+            "anchors": [{ "id": "left", "side": "left", "x": 0, "y": 180, "primary": true }],
+            "nameText": "FIXED IN"
+          },
+          {
+            "id": "fixed-output-row-180",
+            "schemaVersion": 2,
+            "type": "sdi",
+            "direction": "output",
+            "signalDirection": "output",
+            "displaySide": "right",
+            "primaryAnchorId": "right",
+            "x": 520,
+            "y": 180,
+            "anchors": [{ "id": "right", "side": "right", "x": 520, "y": 180, "primary": true }],
+            "nameText": "FIXED OUT"
+          },
+          {
+            "id": "fixed-both-row-288",
+            "schemaVersion": 2,
+            "type": "cat6",
+            "direction": "io",
+            "signalDirection": "bidirectional",
+            "displaySide": "both",
+            "primaryAnchorId": "left",
+            "x": 0,
+            "y": 288,
+            "anchors": [
+              { "id": "left", "side": "left", "x": 0, "y": 288, "primary": true },
+              { "id": "right", "side": "right", "x": 520, "y": 288 }
+            ],
+            "nameText": "SERVICE"
+          },
+          {
+            "id": "fixed-output-row-342",
+            "schemaVersion": 2,
+            "type": "hdmi",
+            "direction": "output",
+            "signalDirection": "output",
+            "displaySide": "right",
+            "primaryAnchorId": "right",
+            "x": 520,
+            "y": 342,
+            "anchors": [{ "id": "right", "side": "right", "x": 520, "y": 342, "primary": true }],
+            "nameText": "AUX OUT"
+          },
+          {
+            "id": "fixed-input-row-720",
+            "schemaVersion": 2,
+            "type": "cat6",
+            "direction": "input",
+            "signalDirection": "input",
+            "displaySide": "left",
+            "primaryAnchorId": "left",
+            "x": 0,
+            "y": 720,
+            "anchors": [{ "id": "left", "side": "left", "x": 0, "y": 720, "primary": true }],
+            "nameText": "LAN IN"
+          }
+        ],
+        "cardTypes": [
+          {
+            "id": "fixture-v2-io-card",
+            "name": "Fixture V2 I/O Card",
+            "kind": "io",
+            "captionTextColor": "#ffffff",
+            "captionBackgroundColor": "#17212b",
+            "connectors": [
+              {
+                "id": "io-in-a",
+                "schemaVersion": 2,
+                "type": "hdmi",
+                "direction": "input",
+                "signalDirection": "input",
+                "displaySide": "left",
+                "primaryAnchorId": "left",
+                "x": 0,
+                "y": 54,
+                "anchors": [{ "id": "left", "side": "left", "x": 0, "y": 54, "primary": true }],
+                "nameText": "CARD IN A",
+                "includeInMatrix": true
+              },
+              {
+                "id": "io-out-a",
+                "schemaVersion": 2,
+                "type": "sdi",
+                "direction": "output",
+                "signalDirection": "output",
+                "displaySide": "right",
+                "primaryAnchorId": "right",
+                "x": 380,
+                "y": 54,
+                "anchors": [{ "id": "right", "side": "right", "x": 380, "y": 54, "primary": true }],
+                "nameText": "CARD OUT A",
+                "includeInMatrix": true
+              },
+              {
+                "id": "io-both-a",
+                "schemaVersion": 2,
+                "type": "cat6",
+                "direction": "io",
+                "signalDirection": "bidirectional",
+                "displaySide": "both",
+                "primaryAnchorId": "left",
+                "x": 0,
+                "y": 108,
+                "anchors": [
+                  { "id": "left", "side": "left", "x": 0, "y": 108, "primary": true },
+                  { "id": "right", "side": "right", "x": 380, "y": 114 }
+                ],
+                "nameText": "CARD BOTH"
+              },
+              {
+                "id": "io-in-b",
+                "schemaVersion": 2,
+                "type": "dvi",
+                "direction": "input",
+                "signalDirection": "input",
+                "displaySide": "left",
+                "primaryAnchorId": "left",
+                "x": 0,
+                "y": 162,
+                "anchors": [{ "id": "left", "side": "left", "x": 0, "y": 162, "primary": true }],
+                "nameText": "CARD IN B"
+              }
+            ]
+          },
+          {
+            "id": "fixture-output-card",
+            "name": "Fixture Output Card",
+            "kind": "output",
+            "captionTextColor": "#ffffff",
+            "captionBackgroundColor": "#17212b",
+            "connectors": [
+              {
+                "id": "out-a",
+                "schemaVersion": 2,
+                "type": "hdmi",
+                "direction": "output",
+                "signalDirection": "output",
+                "displaySide": "right",
+                "primaryAnchorId": "right",
+                "x": 380,
+                "y": 54,
+                "anchors": [{ "id": "right", "side": "right", "x": 380, "y": 54, "primary": true }],
+                "nameText": "OUT A"
+              },
+              {
+                "id": "out-b",
+                "schemaVersion": 2,
+                "type": "sdi",
+                "direction": "output",
+                "signalDirection": "output",
+                "displaySide": "right",
+                "primaryAnchorId": "right",
+                "x": 380,
+                "y": 108,
+                "anchors": [{ "id": "right", "side": "right", "x": 380, "y": 108, "primary": true }],
+                "nameText": "OUT B"
+              }
+            ]
+          }
+        ],
+        "cardSlots": [
+          {
+            "id": "slot-alpha",
+            "name": "Slot Alpha",
+            "installedCardTypeId": "fixture-v2-io-card",
+            "y": 180,
+            "connectorOverrides": {
+              "io-in-a": {
+                "nameText": "Alpha In Override",
+                "customText": "Slot alpha"
+              }
+            }
+          },
+          {
+            "id": "slot-beta",
+            "name": "Slot Beta",
+            "installedCardTypeId": "fixture-v2-io-card",
+            "y": 396
+          },
+          {
+            "id": "slot-gamma",
+            "name": "Slot Gamma",
+            "installedCardTypeId": "fixture-output-card",
+            "y": 504
+          }
+        ]
+      },
+      {
+        "id": "fixture-source-template",
+        "name": "Fixture Source",
+        "category": "Media Servers / Players",
+        "width": 300,
+        "height": 260,
+        "connectors": [
+          { "id": "source-hdmi-out", "type": "hdmi", "direction": "output", "x": 300, "y": 120, "nameText": "HDMI OUT" },
+          { "id": "source-cat6-out", "type": "cat6", "direction": "output", "x": 300, "y": 174, "nameText": "CAT6 OUT" }
+        ]
+      },
+      {
+        "id": "fixture-display-template",
+        "name": "Fixture Display",
+        "category": "Monitors",
+        "width": 300,
+        "height": 300,
+        "connectors": [
+          { "id": "display-sdi-in", "type": "sdi", "direction": "input", "x": 0, "y": 120, "nameText": "SDI IN" },
+          { "id": "display-hdmi-in", "type": "hdmi", "direction": "input", "x": 0, "y": 174, "nameText": "HDMI IN" },
+          { "id": "display-cat6-in", "type": "cat6", "direction": "input", "x": 0, "y": 228, "nameText": "CAT6 IN" }
+        ]
+      },
+      {
+        "id": "fixture-companion-template",
+        "name": "Fixture Companion",
+        "category": "Matrixes",
+        "width": 300,
+        "height": 220,
+        "connectors": [
+          { "id": "companion-in", "type": "hdmi", "direction": "input", "x": 0, "y": 120, "nameText": "IN" }
+        ]
+      }
+    ],
+    "devices": [
+      {
+        "instanceId": "fixture-source",
+        "templateId": "fixture-source-template",
+        "name": "Fixture Source",
+        "x": 40,
+        "y": 110
+      },
+      {
+        "instanceId": "fixture-modular",
+        "templateId": "fixture-tall-modular-chassis",
+        "name": "Fixture Modular Chassis",
+        "x": 360,
+        "y": 80
+      },
+      {
+        "instanceId": "fixture-display",
+        "templateId": "fixture-display-template",
+        "name": "Fixture Display",
+        "x": 980,
+        "y": 180
+      }
+    ],
+    "connections": [
+      {
+        "id": "fixture-generated-input-wire",
+        "cableType": "hdmi",
+        "label": "Generated input",
+        "from": { "deviceId": "fixture-source", "connectorId": "source-hdmi-out" },
+        "to": { "deviceId": "fixture-modular", "connectorId": "slot-alpha__io-in-a" },
+        "routePoints": [{ "x": 260, "y": 120 }, { "x": 300, "y": 240 }]
+      },
+      {
+        "id": "fixture-generated-output-wire",
+        "cableType": "sdi",
+        "label": "Generated output",
+        "from": { "deviceId": "fixture-modular", "connectorId": "slot-alpha__io-out-a" },
+        "to": { "deviceId": "fixture-display", "connectorId": "display-sdi-in" }
+      },
+      {
+        "id": "fixture-generated-both-wire",
+        "cableType": "cat6",
+        "label": "Generated both-side",
+        "from": { "deviceId": "fixture-source", "connectorId": "source-cat6-out" },
+        "to": { "deviceId": "fixture-modular", "connectorId": "slot-beta__io-both-a" }
+      }
+    ]
+  }
+}

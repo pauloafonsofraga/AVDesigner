@@ -2278,6 +2278,7 @@ function normalizeConnector(connector, index, deviceWidth = 0, options = {}) {
     side: primaryAnchor?.side || connector.side || (direction === "input" ? "left" : direction === "output" ? "right" : "center"),
     cardSlotId: connector.cardSlotId || "",
     cardTypeId: connector.cardTypeId || "",
+    rowIndex: Number.isFinite(Number(connector.rowIndex)) ? Number(connector.rowIndex) : undefined,
     pairedConnectorId: connector.pairedConnectorId || "",
     sourceConnectorId: connector.sourceConnectorId || "",
     generatedFromCard: Boolean(connector.generatedFromCard),

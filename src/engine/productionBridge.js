@@ -122,9 +122,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-3-3-connector-status-blocked";
-export const ENGINE_BRIDGE_VERSION = "iteration54-3-3-connector-status-blocked";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "connector-status-blocked";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-3-7-device-editor-integration-hardening";
+export const ENGINE_BRIDGE_VERSION = "iteration54-3-7-device-editor-integration-hardening";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "device-editor-integration-hardening";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;

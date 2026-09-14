@@ -20,14 +20,17 @@ import {
   normalizeMatrixRoutesForDevice,
   setMatrixRouteForDevice
 } from "../src/engine/matrixRouting.js";
+import { MODULAR_LAYOUT_SLOT_HEIGHT } from "../src/engine/modularDeviceLayout.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const SLOT_HEIGHT = MODULAR_LAYOUT_SLOT_HEIGHT;
 const fixturePath = path.resolve(__dirname, "../fixtures/engine-parity-project.avd");
-const defaultProjectPath = "/Users/paulofraga/Documents/Solas Projects/11765-PWC_GPM 2026_Madinat Arena/11765-pwc-gpm-2026-madinatarena-rev1-0-project.avd";
+const modularPlacementFixturePath = path.resolve(__dirname, "../fixtures/modular-card-placement-project.avd");
 const args = process.argv.slice(2);
 const useFixture = args.includes("--fixture");
 const explicitPath = args.find(arg => !arg.startsWith("--"));
-const projectPath = useFixture ? fixturePath : explicitPath || defaultProjectPath;
+const projectPath = useFixture ? fixturePath : explicitPath || fixturePath;
+const usingRepoFixture = useFixture || !explicitPath;
 
 const timings = {};
 const checks = [];
@@ -121,6 +124,7 @@ const customDeviceFixture = validateProjectCustomDeviceFixture();
 const adapterBreakoutFixture = validateAdapterBreakoutFixture();
 const powerDistroFixture = validatePowerDistroFixture();
 const matrixRoutingFixture = validateMatrixRoutingFixture();
+const modularPlacementFixture = validateModularPlacementProjectFixture();
 
 const finalValidation = validateAndRoundTrip(initialHarness, "final");
 check("final engine scene validates", () => {
@@ -141,7 +145,7 @@ const commandShape = commandResults.reduce((summary, result) => {
 
 const summary = {
   projectPath,
-  fixture: useFixture,
+  fixture: usingRepoFixture,
   initialCounts,
   finalCounts: sceneCounts(initialHarness.scene),
   commandShape,
@@ -154,6 +158,7 @@ const summary = {
   adapterBreakoutFixture,
   powerDistroFixture,
   matrixRoutingFixture,
+  modularPlacementFixture,
   standaloneViewerSource,
   timingsMs: Object.fromEntries(Object.entries(timings).map(([key, value]) => [key, round(value)])),
   checks,
@@ -772,7 +777,7 @@ function sceneCounts(scene) {
 
 function validateOutputCompatibility(harness, label) {
   const root = projectRoot(harness.mutations.project);
-  const compatibility = buildOutputCompatibilitySummary(root);
+  const compatibility = buildOutputCompatibilitySummary(root, harness.scene);
   compatibilityResults.push({ label, ...compatibility });
   check(`${label} export compatibility has no duplicate ids`, () => {
     assert.deepEqual(compatibility.duplicateIds, []);
@@ -1372,6 +1377,117 @@ function validateMatrixRoutingFixture() {
   };
 }
 
+function validateModularPlacementProjectFixture() {
+  const fixtureText = time("modular placement fixture read", () => fs.readFileSync(modularPlacementFixturePath, "utf8"));
+  const raw = JSON.parse(fixtureText);
+  const rawTemplate = raw.state.deviceLibrary.find(item => item.id === "fixture-tall-modular-chassis");
+  const sourceCardSnapshot = JSON.stringify(rawTemplate.cardTypes);
+  time("modular placement source immutability normalize", () => normalizeAvDesignerProject(raw));
+  const harness = time("modular placement fixture harness build", () => createHarness(fixtureText, "modular placement fixture"));
+  const device = harness.scene.getDevice("fixture-modular");
+  const normalizedDevice = harness.normalized.devices.find(item => item.id === "fixture-modular");
+  const expectedSlotY = new Map([
+    ["slot-alpha", 234],
+    ["slot-beta", 558],
+    ["slot-gamma", 774]
+  ]);
+
+  check("modular placement fixture loads repeated V2 card slots", () => {
+    assert.ok(device, "expected fixture modular device");
+    assert.equal(device.visual.visualCards.length, 3);
+    assert.equal(device.visual.visualCards.filter(card => card.cardTypeId === "fixture-v2-io-card").length, 2);
+  });
+  check("modular placement fixture does not mutate source cards while expanding slots", () => {
+    assert.equal(JSON.stringify(rawTemplate.cardTypes), sourceCardSnapshot);
+  });
+  check("modular placement fixture resolves card bands away from fixed row collisions", () => {
+    for (const [slotId, expectedY] of expectedSlotY) {
+      const card = device.visual.visualCards.find(item => item.id === slotId);
+      assert.ok(card, `expected visual card ${slotId}`);
+      assert.equal(card.slotY, expectedY, `${slotId} resolved row`);
+    }
+  });
+  check("modular placement fixture keeps generated connectors aligned with card artwork", () => {
+    normalizedDevice.visual.visualCards.forEach(card => {
+      card.connectors.forEach(visualConnector => {
+        const connector = harness.scene.getConnector("fixture-modular", visualConnector.id);
+        assert.ok(connector, `expected generated connector ${visualConnector.id}`);
+        assert.equal(connector.x, visualConnector.x, `${visualConnector.id} x parity`);
+        assert.equal(connector.y, visualConnector.y, `${visualConnector.id} y parity`);
+        assert.deepEqual(connector.anchors, visualConnector.anchors, `${visualConnector.id} anchor parity`);
+        assert.equal(connector.y, card.slotY + SLOT_HEIGHT + Number(connector.rowIndex || 0) * SLOT_HEIGHT, `${visualConnector.id} row parity`);
+        const primary = connector.anchors.find(anchor => anchor.id === connector.primaryAnchorId) || connector.anchors[0];
+        assert.equal(connector.x, primary.x, `${visualConnector.id} primary anchor x`);
+        assert.equal(connector.y, primary.y, `${visualConnector.id} primary anchor y`);
+      });
+    });
+  });
+  check("modular placement fixture preserves generated connector endpoint wires", () => {
+    assert.equal(harness.scene.meta.skippedWires, 0);
+    assert.ok(harness.scene.getWire("fixture-generated-input-wire"));
+    assert.ok(harness.scene.getWire("fixture-generated-output-wire"));
+    assert.ok(harness.scene.getWire("fixture-generated-both-wire"));
+  });
+  check("modular placement fixture keeps repeated card connector rows distinct", () => {
+    const alpha = harness.scene.getConnector("fixture-modular", "slot-alpha__io-both-a");
+    const beta = harness.scene.getConnector("fixture-modular", "slot-beta__io-both-a");
+    assert.ok(alpha && beta);
+    assert.notEqual(alpha.y, beta.y);
+  });
+
+  validateAndRoundTrip(harness, "modular placement fixture");
+  validateOutputCompatibility(harness, "modular placement fixture");
+
+  const reorderedRaw = JSON.parse(fixtureText);
+  const reorderedTemplate = reorderedRaw.state.deviceLibrary.find(item => item.id === "fixture-tall-modular-chassis");
+  reorderedTemplate.cardSlots.find(slot => slot.id === "slot-alpha").y = 612;
+  reorderedTemplate.cardSlots.find(slot => slot.id === "slot-beta").y = 180;
+  const reorderedHarness = createHarness(JSON.stringify(reorderedRaw), "modular placement fixture reordered");
+  check("modular placement fixture keeps wires after card coordinate reordering", () => {
+    assert.equal(reorderedHarness.scene.meta.skippedWires, 0);
+    assert.deepEqual(
+      reorderedHarness.scene.wires.map(wire => wire.id).sort(),
+      harness.scene.wires.map(wire => wire.id).sort()
+    );
+  });
+
+  const removedRaw = JSON.parse(fixtureText);
+  const removedTemplate = removedRaw.state.deviceLibrary.find(item => item.id === "fixture-tall-modular-chassis");
+  const removedCard = removedTemplate.cardTypes.find(card => card.id === "fixture-v2-io-card");
+  removedCard.connectors = removedCard.connectors.filter(connector => connector.id !== "io-out-a");
+  const removedHarness = createHarness(JSON.stringify(removedRaw), "modular placement fixture removed connector");
+  check("modular placement fixture skips wires only when a stable generated connector ID disappears", () => {
+    assert.ok(removedHarness.scene.meta.skippedWires >= 1);
+    assert.equal(Boolean(removedHarness.scene.getWire("fixture-generated-output-wire")), false);
+    assert.ok(removedHarness.scene.getWire("fixture-generated-input-wire"));
+  });
+
+  check("modular placement fixture preserves technical spec and feature fields", () => {
+    const roundTripTemplate = JSON.parse(JSON.stringify(raw)).state.deviceLibrary.find(item => item.id === "fixture-tall-modular-chassis");
+    [
+      "techSpecs",
+      "hasSwappableCards",
+      "isLedProcessor",
+      "ledOutputCount",
+      "isEthernetSwitch",
+      "switchPortCount",
+      "switchPortType",
+      "isMatrixRouter",
+      "isPartOfPair",
+      "pairedTemplateId",
+      "pairPlaceFirst"
+    ].forEach(key => assert.deepEqual(roundTripTemplate[key], rawTemplate[key], key));
+  });
+
+  return {
+    path: modularPlacementFixturePath,
+    slots: device.visual.visualCards.length,
+    generatedConnectors: device.connectors.filter(connector => connector.generatedFromCard).length,
+    skippedWires: harness.scene.meta.skippedWires,
+    resolvedSlotY: Object.fromEntries([...expectedSlotY])
+  };
+}
+
 function validateStandaloneViewerSource() {
   const indexPath = path.resolve(__dirname, "../index.html");
   const source = time("standalone viewer source read", () => fs.readFileSync(indexPath, "utf8"));
@@ -1383,7 +1499,10 @@ function validateStandaloneViewerSource() {
     "viewerWirePolylineFromPoints",
     "samplePolylineHop",
     "applyCableHopsToPolylineExport",
-    "cableHopPathMap(routes)"
+    "cableHopPathMap(routes)",
+    "exportConnectorStartY(template)",
+    "exportDeviceWidth(template)",
+    "exportInstalledCardConnector(template,installed,merged,idx)"
   ];
   const missingMarkers = expectedMarkers.filter(marker => !viewerSource.includes(marker));
   const helperStart = viewerSource.indexOf("const VIEWER_BEZIER_STEPS");
@@ -1503,12 +1622,12 @@ function finitePolyline(points = []) {
   ));
 }
 
-function buildOutputCompatibilitySummary(root) {
+function buildOutputCompatibilitySummary(root, scene = null) {
   const serializable = stableClone(root);
   return {
     counts: compatibilityCounts(serializable),
     duplicateIds: duplicateProjectIds(serializable),
-    orphanEndpoints: orphanConnectionEndpoints(serializable),
+    orphanEndpoints: orphanConnectionEndpoints(serializable, scene),
     invalidRoutePoints: invalidConnectionRoutePoints(serializable),
     runtimeFields: runtimeOnlyFieldPaths(serializable),
     viewer: compactViewerCompatibility(serializable),
@@ -1554,7 +1673,7 @@ function duplicateProjectIds(root) {
   return duplicates;
 }
 
-function orphanConnectionEndpoints(root) {
+function orphanConnectionEndpoints(root, scene = null) {
   const deviceIds = new Set(arrayOf(root.devices).map(item => String(item.instanceId || item.id || item.deviceId)).filter(Boolean));
   const rackDeviceIds = new Set();
   arrayOf(root.racks).forEach(rack => {
@@ -1565,6 +1684,7 @@ function orphanConnectionEndpoints(root) {
   });
   const surfaceIds = new Set(arrayOf(root.ledSurfaces).map(item => String(item.id)).filter(Boolean));
   const jumpIds = new Set(arrayOf(root.jumpNodes).map(item => String(item.id)).filter(Boolean));
+  const connectorIdsByDevice = normalizedConnectorIdsByDevice(scene);
   const missing = [];
   arrayOf(root.connections).forEach(connection => {
     const endpoints = [
@@ -1582,7 +1702,7 @@ function orphanConnectionEndpoints(root) {
       }]
     ];
     endpoints.forEach(([side, endpoint]) => {
-      if (!endpointExists(endpoint, { deviceIds, rackDeviceIds, surfaceIds, jumpIds })) {
+      if (!endpointExists(endpoint, { deviceIds, rackDeviceIds, surfaceIds, jumpIds, connectorIdsByDevice })) {
         missing.push(`${connection.id || "connection"}:${side}`);
       }
     });
@@ -1597,9 +1717,25 @@ function endpointExists(endpoint, maps) {
   if (endpoint.ledSurfaceId) return maps.surfaceIds.has(String(endpoint.ledSurfaceId));
   if (endpoint.deviceId) {
     const id = String(endpoint.deviceId);
-    return maps.deviceIds.has(id) || maps.rackDeviceIds.has(id);
+    if (!maps.deviceIds.has(id) && !maps.rackDeviceIds.has(id)) return false;
+    const connectorId = String(endpoint.connectorId || "");
+    if (!connectorId) return true;
+    const connectorIds = maps.connectorIdsByDevice?.get?.(id);
+    return connectorIds ? connectorIds.has(connectorId) : true;
   }
   return false;
+}
+
+function normalizedConnectorIdsByDevice(scene) {
+  const map = new Map();
+  if (!scene || !Array.isArray(scene.devices)) return map;
+  scene.devices.forEach(device => {
+    const ids = new Set(arrayOf(device.connectors).map(connector => String(connector?.id || "")).filter(Boolean));
+    if (!ids.size) return;
+    const stableIds = [device.id, device.sourceId, device.instanceId].map(id => String(id || "")).filter(Boolean);
+    stableIds.forEach(id => map.set(id, ids));
+  });
+  return map;
 }
 
 function invalidConnectionRoutePoints(root) {

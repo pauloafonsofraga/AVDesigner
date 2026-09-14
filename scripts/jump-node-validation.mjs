@@ -41,7 +41,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-3-3-connector-status-blocked";
+const BUILD_ID = "iteration54-3-7-device-editor-integration-hardening";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -50,13 +50,13 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Connector Status Blocked");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-3-3-connector-status-blocked-modules";'), "module cache key should identify Connector Status Blocked");
-assert.ok(indexHtml.includes("Connector Status Blocked"), "visible build label should name Connector Status Blocked");
-assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Connector Status Blocked");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "connector-status-blocked"'), "bridge feature label should identify Connector Status Blocked");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-3-3-connector-status-blocked"), "bridge fingerprint should identify Connector Status Blocked");
-assert.ok(rendererSource.includes("renderer-iteration54-3-3-connector-status-blocked"), "renderer fingerprint should identify Connector Status Blocked");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Device Editor Integration Hardening");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-3-7-device-editor-integration-hardening-modules";'), "module cache key should identify Device Editor Integration Hardening");
+assert.ok(indexHtml.includes("Device Editor Integration Hardening"), "visible build label should name Device Editor Integration Hardening");
+assert.ok(bridgeSource.includes(`ENGINE_BRIDGE_VERSION = "${BUILD_ID}"`), "Engine bridge version should identify Device Editor Integration Hardening");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "device-editor-integration-hardening"'), "bridge feature label should identify Device Editor Integration Hardening");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-3-7-device-editor-integration-hardening"), "bridge fingerprint should identify Device Editor Integration Hardening");
+assert.ok(rendererSource.includes("renderer-iteration54-3-7-device-editor-integration-hardening"), "renderer fingerprint should identify Device Editor Integration Hardening");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");
 assert.ok(rendererSource.includes("pushWirePlaybackOverlay"), "renderer should draw transient Play Wire overlays");

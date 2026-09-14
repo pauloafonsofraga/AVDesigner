@@ -15,7 +15,7 @@ Legacy mode (`?legacy=1`) keeps the old SVG/DOM preview renderers. SVG/DOM also 
 | Faceplate | `deviceVisualBuilder.drawFaceplate(...)` and `faceplateGeometry.js` inside the Engine texture. | Face image resize handles, Power Distro faceplate resize handles, power plug marquee. | Legacy SVG image/default/Power Distro faceplate branch. | Separate `renderEditorFaceplatePreview(...)` is disabled in Engine mode by `canShowEditorFaceplatePreview(...)`. |
 | Cards | `deviceVisualBuilder.drawCardAreas(...)` plus Engine live connector labels/fields. | Slot hit rectangles, remove controls, drop targets, selected slot affordance. | Legacy SVG card/slot preview branches. | No Engine-mode duplicate for card production body; Card Editor single-card authoring preview remains Legacy UI. |
 | Card Editor single-card authoring schematic | Not a production-appearance preview. Cards explicitly do not have faceplates and become production nodes only when installed in a chassis slot. | `renderCardEditorPreview(...)` exposes connector placement, empty slots, remove controls, card direction, and caption authoring. | Same SVG authoring schematic. | Kept intentionally as authoring-only; installed-card production appearance is already rendered by the Device Editor Engine preview and main canvas. |
-| Slots | Engine device texture reflects slot/card band geometry through normalized visual cards. | Empty slot/drop targets and slot resize/reorder controls. | Legacy SVG slot/card branch. | No Engine-mode duplicate for the full device preview. |
+| Connectors card-slot authoring | Engine device texture reflects slot/card band geometry through normalized visual cards. | Empty slot/drop targets and slot resize/reorder controls now live in the Connectors tab. | Legacy SVG connector/card-slot branch. | No separate card-slot tab remains; no Engine-mode duplicate for the full device preview. |
 | Power Distro | `powerDistroModel.js` and `deviceVisualBuilder.drawPowerDistroFaceplate(...)` render plug assets in the Engine texture. | Plug drag targets, faceplate resize handles, plug marquee and guides. | Legacy SVG `drawPowerDistroFaceplate(...)` for `?legacy=1`, thumbnails, and output clones. | No Engine-mode hidden production faceplate; overlay only remains. |
 | Adapter / Breakout | `adapterMapping.js` and `deviceVisualBuilder.drawAdapterVisual(...)` render shell and internal gradient branches. | Connector hit/selection overlay. | Legacy SVG adapter branch and output/export clone helpers. | No Engine-mode duplicate; editor overlay does not redraw the adapter body/internal paths. |
 | Rack Builder | `EnginePreviewSurface` renders `createRackPreviewScene(...)` normalized through `normalizeAvDesignerProject(...)`. | SVG device hit rectangles, connector exposure rings, route handles, drop ghost, snap guides, marquee. | Legacy SVG Rack Builder branch. | No Engine-mode duplicate: `renderRackBuilderPreview(...)` returns before `renderRackBuilderInternalWires(...)` and `drawRackPreviewDevice(...)`; `drawRackPreviewDevice(...)` retains a diagnostic tripwire. |
@@ -68,7 +68,7 @@ For those surfaces, Engine-mode production visuals should report `EnginePreviewS
 `scripts/preview-ownership-validation.mjs` verifies:
 
 - all current preview build IDs equal `iteration53-4-1-preview-verification`;
-- Engine dynamic imports carry the 53.4.1 module cache key while preserving the visible build ID;
+- Engine dynamic imports carry the current app module cache key while preserving the shared preview build ID;
 - the final ownership map includes all four persistent Engine preview owners;
 - Node crop, transient canvas previews, output/report/viewer paths, and Legacy mode are explicitly excluded;
 - Engine branches in `index.html` return before Legacy production drawing;
@@ -82,6 +82,7 @@ For those surfaces, Engine-mode production visuals should report `EnginePreviewS
 - Browser-host zoom-equivalent screenshots were exercised at approximately 80%, 100%, and 125% during the verification pass using CDP device metrics after this host blocked automated Chrome page-zoom shortcuts/extensions.
 - Title Block logo rendering was verified with no-logo, logo A, logo B replacement, cache-key invalidation, and save/reload normalization parity.
 - Card Editor was inspected and classified as an authoring-only schematic. It is intentionally kept as SVG/DOM because it edits reusable connector groups, while installed-card production appearance is already Engine-rendered in Device Editor and on the canvas.
+- In Device Editor, the Cards tab enters that authoring-only path before the Engine full-device branch, restores the SVG schematic to its normal host, and hides the shared Engine preview surface. Leaving Cards remounts and synchronizes the same `EnginePreviewSurface` instead of creating a second production preview.
 
 ## Parity Coverage
 

@@ -39,7 +39,7 @@ const rack = {
       label: "Loop to shared bus",
       cableType: "sdi",
       from: { deviceId: "through-child", connectorId: "sdi-loop" },
-      to: { deviceId: "shared-child", connectorId: "shared-sdi" }
+      to: { deviceId: "shared-child", connectorId: "shared-dvi" }
     }
   ],
   exposedPorts: [
