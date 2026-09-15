@@ -1870,6 +1870,9 @@ function normalizeDevice(device) {
     connectors
   );
   const connectorTopologyValidation = validateConnectorTopology(connectors, connectorRelationships);
+  const explicitPortCount = Number.isFinite(Number(device.portCount))
+    ? Math.max(0, Math.floor(Number(device.portCount)))
+    : null;
   const normalized = {
     id: String(device.id),
     schemaVersion,
@@ -1909,8 +1912,8 @@ function normalizeDevice(device) {
     portCount: isLedSurfaceKind({ kind, sourceKind: device.sourceKind })
       ? 0
       : canvasObject
-        ? Math.max(0, Number(device.portCount) || connectors.length || 0)
-        : Math.max(1, Number(device.portCount) || connectors.length || 4)
+        ? (explicitPortCount ?? Math.max(0, connectors.length || 0))
+        : (explicitPortCount ?? Math.max(1, connectors.length || 4))
   };
   normalized.matrixRoutes = normalizeMatrixRoutesForDevice(normalized, device.matrixRoutes);
   return normalized;

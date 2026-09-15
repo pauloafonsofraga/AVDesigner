@@ -111,19 +111,61 @@ function assertNoSideOverlap(layout) {
 test("Device Editor exposes card slot workflow in Connectors instead of a Slots tab", () => {
   const connectorsPanel = editorPanel("connectors");
   const cardsPanel = editorPanel("cards");
+  const toolbarOrder = [
+    'id="addInputNode"',
+    'id="addOutputNode"',
+    'connector-toolbar-separator"',
+    'id="addCardSlot"',
+    'id="cardPalette"'
+  ];
+  const cardToolbarOrder = [
+    'id="editorCardSelect"',
+    'id="newCardType"',
+    'id="duplicateCardType"',
+    'id="deleteCardType"',
+    'connector-toolbar-separator"',
+    'id="addCardInputNode"',
+    'id="addCardOutputNode"'
+  ];
+  let previousToolbarIndex = -1;
+  let previousCardToolbarIndex = -1;
 
   assert.doesNotMatch(INDEX_HTML, /data-editor-tab="slots"/);
   assert.doesNotMatch(INDEX_HTML, /data-editor-panel="slots"/);
   assert.doesNotMatch(INDEX_HTML, /editorActiveTab\s*[!=]==\s*"slots"/);
+  assert.match(connectorsPanel, /connector-authoring-toolbar/);
+  assert.match(connectorsPanel, /connector-card-tools/);
   assert.match(connectorsPanel, /id="addInputNode"/);
   assert.match(connectorsPanel, /id="addOutputNode"/);
   assert.match(connectorsPanel, /id="slotsDisabled"/);
   assert.match(connectorsPanel, /id="addCardSlot"/);
   assert.match(connectorsPanel, /id="cardPalette"/);
   assert.match(connectorsPanel, /id="cardSlotList"/);
+  toolbarOrder.forEach(needle => {
+    const index = connectorsPanel.indexOf(needle, previousToolbarIndex + 1);
+    assert.ok(index >= 0, `${needle} should exist in the Connectors toolbar`);
+    assert.ok(index > previousToolbarIndex, `${needle} should be ordered in the Connectors toolbar`);
+    previousToolbarIndex = index;
+  });
+  assert.match(connectorsPanel, /connector-toolbar-separator[\s\S]*>\|</);
+  assert.doesNotMatch(connectorsPanel, /editor-panel-note/);
+  assert.doesNotMatch(connectorsPanel, /These are fixed chassis connectors|Drag an available card|Drop a card into the preview/);
+  assert.doesNotMatch(connectorsPanel, /<label>Available Cards<\/label>/);
   assert.doesNotMatch(cardsPanel, /id="addCardSlot"|id="cardPalette"|id="cardSlotList"/);
+  assert.match(cardsPanel, /card-editor-toolbar/);
   assert.match(cardsPanel, /id="newCardType"/);
-  assert.match(cardsPanel, /id="cardConnectorList"/);
+  assert.match(cardsPanel, /id="addCardInputNode"/);
+  assert.match(cardsPanel, /id="addCardOutputNode"/);
+  cardToolbarOrder.forEach(needle => {
+    const index = cardsPanel.indexOf(needle, previousCardToolbarIndex + 1);
+    assert.ok(index >= 0, `${needle} should exist in the Cards toolbar`);
+    assert.ok(index > previousCardToolbarIndex, `${needle} should be ordered in the Cards toolbar`);
+    previousCardToolbarIndex = index;
+  });
+  assert.doesNotMatch(cardsPanel, /editor-panel-note/);
+  assert.doesNotMatch(cardsPanel, /id="cardConnectorList"|id="editorCardName"|id="editorCardKind"|id="editorCardCaptionTextColor"|id="editorCardCaptionBackgroundColor"/);
+  assert.match(INDEX_HTML, /id="cardInspectorPanel"/);
+  assert.match(INDEX_HTML, /id="cardConnectorList"/);
 });
 
 test("card type drops create installed preview slots or replace selected bands", () => {

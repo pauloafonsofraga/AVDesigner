@@ -23,6 +23,7 @@ import {
   enginePreviewFixtureScene
 } from "../src/engine/enginePreviewFixtures.js";
 import { normalizeAvDesignerDevice } from "../src/engine/projectAdapter.js";
+import { SceneGraph } from "../src/engine/sceneGraph.js";
 import { TextureCache } from "../src/engine/textureCache.js";
 
 const fixtures = enginePreviewFixtureDefinitions();
@@ -37,6 +38,7 @@ const results = {
   assetSubscriberLifecycle: null,
   projectCustomDraft: null,
   editorPreviewIdentity: null,
+  blankNewDevice: null,
   bothAnchorHitMapping: null,
   fitContain: null,
   sceneInput: []
@@ -170,6 +172,50 @@ results.editorPreviewIdentity = {
   previewId: editorPreviewDevice.id,
   sourceConnectorIds,
   previewConnectorIds
+};
+
+const blankNewDeviceTemplate = {
+  id: "preview-blank-new-device-template",
+  schemaVersion: 2,
+  deviceDefinitionVersion: 2,
+  name: "New Device",
+  model: "CUSTOM",
+  category: "Misc.",
+  width: 380,
+  height: 190,
+  faceplateDeleted: false,
+  connectors: [],
+  hasSwappableCards: false,
+  cardTypes: [],
+  cardSlots: []
+};
+const blankNewDevice = createPreviewDeviceFromDraft({
+  template: blankNewDeviceTemplate,
+  projectData: {
+    state: {
+      deviceLibrary: [blankNewDeviceTemplate],
+      nodeLibrary: []
+    }
+  },
+  instance: {
+    instanceId: "preview-blank-new-device",
+    templateId: blankNewDeviceTemplate.id,
+    name: "New Device",
+    x: 0,
+    y: 0
+  }
+});
+assert.equal(blankNewDevice.label, "New Device", "Blank new device preview should keep the generic name.");
+assert.equal(blankNewDevice.connectors.length, 0, "Blank new device preview should have no connector data.");
+assert.equal(blankNewDevice.portCount, 0, "Blank new device preview should not advertise fallback ports.");
+const blankNewDeviceScene = new SceneGraph();
+blankNewDeviceScene.setData({ devices: [blankNewDevice], wires: [], racks: [], meta: {} });
+assert.equal(blankNewDeviceScene.getDevice("preview-blank-new-device").portCount, 0, "SceneGraph should preserve zero fallback ports for blank new devices.");
+results.blankNewDevice = {
+  id: blankNewDevice.id,
+  label: blankNewDevice.label,
+  connectors: blankNewDevice.connectors.length,
+  portCount: blankNewDevice.portCount
 };
 
 const bothConnector = editorPreviewDevice.connectors.find(connector => connector.displaySide === "both" || (connector.anchors || []).length > 1);

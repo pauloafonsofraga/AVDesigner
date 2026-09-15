@@ -471,6 +471,10 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
   const powerDistro = isPowerDistro
     ? normalizePowerDistroForEngine({ template, instance, width, connectors })
     : null;
+  const hasExplicitConnectorDefinition = Array.isArray(template.connectors)
+    || Array.isArray(instance.connectors)
+    || template.hasSwappableCards === true;
+  const sourcePortCount = explicitPortCount(instance.portCount, template.portCount);
   visual.isPowerDistro = isPowerDistro;
   visual.powerDistro = powerDistro;
   if (powerDistro) height = powerDistroRequiredHeight(powerDistro, connectors, height);
@@ -503,7 +507,7 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
       relationships: connectorRelationships,
       validation: connectorTopologyValidation
     },
-    portCount: Math.max(1, connectors.length || 4),
+    portCount: sourcePortCount ?? (hasExplicitConnectorDefinition ? connectors.length : Math.max(1, connectors.length || 4)),
     templateId: template.id || templateId || "",
     brand: visual.brand,
     model: visual.model,
@@ -1401,6 +1405,14 @@ function finiteNumber(value, fallback) {
 function positiveNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : 0;
+}
+
+function explicitPortCount(...values) {
+  for (const value of values) {
+    const number = Number(value);
+    if (Number.isFinite(number)) return Math.max(0, Math.floor(number));
+  }
+  return null;
 }
 
 function firstPositive(...values) {

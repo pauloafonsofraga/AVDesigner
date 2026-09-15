@@ -12,6 +12,11 @@ function editorPanel(name) {
   return match?.[1] || "";
 }
 
+function deviceFeaturePane() {
+  const match = INDEX_HTML.match(/<aside class="device-feature-pane[^"]*" id="deviceFeaturePane"[\s\S]*?<\/aside>/);
+  return match?.[0] || "";
+}
+
 function functionSource(functionName) {
   const namePattern = functionName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = new RegExp(`function\\s+${namePattern}\\s*\\([^)]*\\)\\s*\\{`).exec(INDEX_HTML);
@@ -84,6 +89,7 @@ function assertCameraContains(camera, bounds, viewportWidth, viewportHeight, pad
 
 test("Device tab uses compact feature groups with dependent controls beside toggles", () => {
   const devicePanel = editorPanel("device");
+  const featurePane = deviceFeaturePane();
   const expectedLabels = [
     "Adapter / Breakout",
     "Has Card Slots",
@@ -94,8 +100,23 @@ test("Device tab uses compact feature groups with dependent controls beside togg
     "Part of a Pair"
   ];
 
-  expectedLabels.forEach(label => assert.match(devicePanel, new RegExp(`>${label}<`), `${label} label`));
-  assert.equal((devicePanel.match(/editor-feature-separator/g) || []).length, 6, "feature groups should be separated");
+  assert.match(devicePanel, /editor-device-command-row/);
+  assertOrder(devicePanel, [
+    "editor-primary-action",
+    "newDeviceTemplate",
+    "duplicateEditorDevice",
+    "deleteEditorDevice",
+    "editor-device-basics",
+    "editorDeviceName",
+    "editorDeviceBrand",
+    "editorDeviceCategory",
+    "editorPowerConsumption"
+  ], "Device actions and basic fields should share the command row");
+  assert.doesNotMatch(devicePanel, /editor-feature-strip/, "feature toggles should live in the left feature pane");
+
+  assert.match(featurePane, /Device Options/);
+  expectedLabels.forEach(label => assert.match(featurePane, new RegExp(`>${label}<`), `${label} label`));
+  assert.equal((featurePane.match(/editor-feature-separator/g) || []).length, 6, "feature groups should be separated");
   assert.doesNotMatch(devicePanel, />Object Type</);
   assert.doesNotMatch(devicePanel, />Swappable Cards</);
   assert.doesNotMatch(devicePanel, />LED Processor</);
@@ -107,16 +128,27 @@ test("Device tab uses compact feature groups with dependent controls beside togg
   assert.doesNotMatch(devicePanel, />Device Pair</);
   assert.doesNotMatch(devicePanel, />Part of pair</);
 
-  assert.match(groupContaining(devicePanel, "editorLedProcessor"), /id="editorLedOutputCount"/);
-  const switchGroup = groupContaining(devicePanel, "editorEthernetSwitch");
+  assert.match(groupContaining(featurePane, "editorLedProcessor"), /id="editorLedOutputCount"/);
+  const switchGroup = groupContaining(featurePane, "editorEthernetSwitch");
   assert.match(switchGroup, /id="editorSwitchPortCount"/);
   assert.match(switchGroup, /id="editorSwitchPortType"/);
   assert.match(switchGroup, /id="addEthernetSwitchPorts"/);
-  const pairGroup = groupContaining(devicePanel, "editorPartOfPair");
+  const pairGroup = groupContaining(featurePane, "editorPartOfPair");
   assert.match(pairGroup, /id="editorPairTemplate"/);
   assert.match(pairGroup, /id="editorPairPlaceFirst"/);
-  assert.match(devicePanel, /class="visually-hidden" for="editorLedOutputCount"/);
-  assert.match(devicePanel, /aria-label="Switch port count"/);
+  assert.match(featurePane, /class="visually-hidden" for="editorLedOutputCount"/);
+  assert.match(featurePane, /aria-label="Switch port count"/);
+});
+
+test("Create New Device starts as a named blank device with no starter connectors", () => {
+  const blankTemplate = functionSource("createBlankDeviceTemplate");
+  assert.match(blankTemplate, /name:\s*"New Device"/);
+  assert.match(blankTemplate, /connectors:\s*\[\]/);
+  assert.match(blankTemplate, /faceplateDeleted:\s*false/);
+
+  const createNewDevice = functionSource("openDeviceEditorWithNewDevice");
+  assert.match(createNewDevice, /markMasterDeviceTemplate\(createBlankDeviceTemplate\(\)\)/);
+  assert.doesNotMatch(createNewDevice, /Custom Device/);
 });
 
 test("Device Editor workspace sidebars are scoped to their tabs", () => {
@@ -125,19 +157,101 @@ test("Device Editor workspace sidebars are scoped to their tabs", () => {
     '<div class="editor-workspace">',
     '<div class="device-authoring-debug-panel hidden"'
   );
+  assert.match(workspaceMarkup, /device-feature-pane hidden/);
   assert.match(workspaceMarkup, /connector-inspector-sidebar/);
+  assert.match(workspaceMarkup, /id="cardInspectorPanel"/);
   assert.match(workspaceMarkup, /device-tech-specs-panel hidden/);
+  assert.ok(workspaceMarkup.indexOf("device-feature-pane") < workspaceMarkup.indexOf("editor-preview-column"), "device options should occupy the left workspace column");
   assert.ok(workspaceMarkup.indexOf("connector-inspector-sidebar") < workspaceMarkup.indexOf("device-tech-specs-panel"), "technical specs should occupy the right column after the inspector");
 
   const renderTabs = functionSource("renderEditorTabs");
-  assert.match(renderTabs, /const showConnectorInspector = editorActiveTab === "connectors";/);
+  assert.match(renderTabs, /const showConnectorInspector = editorActiveTab === "connectors" \|\| editorActiveTab === "cards";/);
+  assert.match(renderTabs, /const showCardInspector = editorActiveTab === "cards";/);
   assert.match(renderTabs, /const showTechSpecs = editorActiveTab === "device";/);
+  assert.match(renderTabs, /const showDeviceFeaturePane = editorDeviceFeaturePaneActive\(\);/);
+  assert.match(renderTabs, /connectorInspectorPanel\?\.classList\.toggle\("hidden", !showConnectorInspector \|\| showCardInspector\);/);
+  assert.match(renderTabs, /cardInspectorPanel\?\.classList\.toggle\("hidden", !showCardInspector\);/);
+  assert.match(renderTabs, /deviceFeaturePane\?\.classList\.toggle\("hidden", !showDeviceFeaturePane\);/);
   assert.match(renderTabs, /workspace\?\.classList\.toggle\("side-column-hidden", !showConnectorInspector && !showTechSpecs\);/);
+  assert.match(renderTabs, /workspace\?\.classList\.toggle\("node-library-hidden", !editorNodePaletteActive\(\) && !showDeviceFeaturePane\);/);
   assert.match(renderTabs, /editorDeviceTechSpecsPanel\.classList\.toggle\("hidden", !showTechSpecs\);/);
 
   const nodePaletteGate = functionSource("editorNodePaletteActive");
   assert.match(nodePaletteGate, /editorActiveTab === "connectors" \|\| editorActiveTab === "cards"/);
+  assert.match(functionSource("editorDeviceFeaturePaneActive"), /editorActiveTab === "device"/);
   assert.match(functionSource("renderNodePalette"), /const active = editorNodePaletteActive\(\);/);
+  assert.match(functionSource("renderNodePalette"), /deviceFeaturePane\.classList\.toggle\("hidden", !featurePaneActive\);/);
+});
+
+test("Cards tab uses compact toolbar and right-side card inspector", () => {
+  const cardsPanel = editorPanel("cards");
+  const workspaceMarkup = sourceSlice(
+    INDEX_HTML,
+    '<div class="editor-workspace">',
+    '<div class="device-authoring-debug-panel hidden"'
+  );
+  const renderCardEditor = functionSource("renderCardEditor");
+  const renderCardConnectorInspector = functionSource("renderCardConnectorInspector");
+  const cardFieldHandler = functionSource("handleCardConnectorFieldChange");
+
+  assert.match(cardsPanel, /card-editor-toolbar/);
+  assertOrder(cardsPanel, [
+    'id="editorCardSelect"',
+    'id="newCardType"',
+    'id="duplicateCardType"',
+    'id="deleteCardType"',
+    'connector-toolbar-separator"',
+    'id="addCardInputNode"',
+    'id="addCardOutputNode"'
+  ], "Cards toolbar should mirror the compact Connectors toolbar");
+  assert.doesNotMatch(cardsPanel, /editor-panel-note|cardConnectorList|editorCardName|editorCardKind|editorCardCaptionTextColor|editorCardCaptionBackgroundColor/);
+  assertOrder(workspaceMarkup, [
+    'id="cardInspectorPanel"',
+    'id="editorCardName"',
+    'id="editorCardKind"',
+    'id="editorCardCaptionTextColor"',
+    'id="editorCardCaptionBackgroundColor"',
+    'id="cardConnectorList"'
+  ], "Card definition fields should live in the right-side card inspector");
+  assert.match(renderCardEditor, /cardConnectorList\.innerHTML = renderCardConnectorInspector\(template, card\);/);
+  assert.doesNotMatch(renderCardEditor, /card-connector-row|data-card-node-row/);
+  assert.match(renderCardConnectorInspector, /Selected Card Connector/);
+  assert.match(renderCardConnectorInspector, /data-card-physical-type/);
+  assert.match(renderCardConnectorInspector, /data-card-field/);
+  assert.match(renderCardConnectorInspector, /Delete Card Connector/);
+  assert.match(cardFieldHandler, /data-card-physical-type/);
+  assert.match(cardFieldHandler, /operationalStatus/);
+});
+
+test("Device Editor modal omits visible helper copy", () => {
+  const modalMarkup = sourceSlice(
+    INDEX_HTML,
+    '<div class="modal-backdrop hidden" id="deviceEditorModal"',
+    '<div class="modal-backdrop hidden" id="rackBuilderModal"'
+  );
+  const renderSelectedConnectorSettings = functionSource("renderSelectedConnectorSettings");
+  const renderCardConnectorInspector = functionSource("renderCardConnectorInspector");
+  const renderConnectorRelationshipsPanel = functionSource("renderConnectorRelationshipsPanel");
+
+  assert.doesNotMatch(modalMarkup, /editor-panel-note/);
+  assert.doesNotMatch(modalMarkup, /Front face images|Turn on Has Card Slots|saved system default|Manufacturer specs|editorPowerEquivalent|0 W \/ 0 A/);
+  assert.doesNotMatch(modalMarkup, /Drag a node type into an empty slot|Drop a card into the preview|Select a connector|Open the Connectors tab/);
+  assert.doesNotMatch(renderSelectedConnectorSettings, /Open the Connectors tab|Select a connector|Shift-click|Use the relationship controls|Only checked input\/output ports|faceplate symbol follows/);
+  assert.doesNotMatch(renderCardConnectorInspector, /No card selected|No card connector selected|No card connectors/);
+  assert.doesNotMatch(renderConnectorRelationshipsPanel, /Shift-click|Available for two|Select exactly two|Select the exact group|No relationship assigned/);
+});
+
+test("Faceplate tab keeps image controls together in one compact row", () => {
+  const faceplatePanel = editorPanel("faceplate");
+
+  assert.match(faceplatePanel, /faceplate-control-row/);
+  assert.match(faceplatePanel, /faceplate-button-row/);
+  assertOrder(faceplatePanel, [
+    'id="editorFaceUpload"',
+    'id="removeEditorFaceImage"',
+    'id="deleteEditorFaceplate"'
+  ], "Faceplate image actions should sit together");
+  assert.doesNotMatch(faceplatePanel, /<label>&nbsp;<\/label>/);
 });
 
 test("Cards tab uses the authoring schematic before the Engine full-device branch", () => {

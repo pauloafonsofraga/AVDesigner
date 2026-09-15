@@ -2505,6 +2505,10 @@
       padding-right: 2px;
     }
 
+    .connector-inspector-panel.hidden {
+      display: none !important;
+    }
+
     .connector-inspector-empty,
     .connector-inspector-section {
       padding: 10px;
@@ -3063,8 +3067,47 @@
       border: 0 !important;
     }
 
+    .editor-device-command-row {
+      display: grid;
+      grid-template-columns: max-content minmax(0, 1fr);
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 0;
+    }
+
     .editor-device-basics {
-      margin-bottom: 4px;
+      grid-template-columns: minmax(160px, 1.1fr) minmax(130px, .85fr) minmax(180px, 1fr) minmax(210px, .95fr);
+      gap: 8px;
+      margin-bottom: 0;
+    }
+
+    .editor-device-basics .field {
+      margin-bottom: 0;
+    }
+
+    .faceplate-control-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .faceplate-upload-field {
+      flex: 0 1 520px;
+      min-width: 260px;
+      margin-bottom: 0;
+    }
+
+    .faceplate-upload-field input {
+      width: 100%;
+    }
+
+    .faceplate-button-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 0;
     }
 
     .editor-feature-strip {
@@ -3533,6 +3576,78 @@
       grid-template-areas: "preview";
     }
 
+    .device-feature-pane {
+      grid-area: palette;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      background: rgba(50, 182, 255, .04);
+      overflow: hidden;
+    }
+
+    .device-feature-pane.hidden {
+      display: none !important;
+    }
+
+    .device-feature-pane .editor-feature-strip {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 1fr;
+      align-content: start;
+      gap: 8px;
+      margin: 0;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
+    .device-feature-pane .editor-feature-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      padding: 8px;
+      border: 1px solid rgba(148, 163, 184, .22);
+      border-radius: 7px;
+      background: rgba(17, 24, 32, .2);
+      white-space: normal;
+    }
+
+    .device-feature-pane .editor-feature-group .feature-toggle {
+      flex: 1 1 100%;
+    }
+
+    .device-feature-pane .editor-feature-group .feature-toggle span {
+      width: 100%;
+      justify-content: flex-start;
+    }
+
+    .device-feature-pane .editor-feature-dependent {
+      flex: 1 1 76px;
+    }
+
+    .device-feature-pane .editor-feature-dependent select {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .device-feature-pane .editor-pair-dependent {
+      flex-basis: 100%;
+    }
+
+    .device-feature-pane .editor-pair-dependent select {
+      width: 100%;
+      max-width: none;
+    }
+
+    .device-feature-pane .editor-feature-separator {
+      display: none;
+    }
+
     .device-tech-specs-panel {
       grid-area: side;
       min-height: 0;
@@ -3632,12 +3747,13 @@
       flex-wrap: wrap;
       gap: 8px;
       align-items: center;
-      margin-bottom: 12px;
+      align-self: end;
+      margin-bottom: 0;
     }
 
     .editor-primary-action .primary-button {
-      min-height: 36px;
-      padding: 0 18px;
+      min-height: 28px;
+      padding: 0 10px;
       font-weight: 900;
     }
 
@@ -3679,10 +3795,31 @@
       padding: 18px;
     }
 
+    .modular-disabled:empty {
+      display: none !important;
+    }
+
     .card-editor-layout {
-      display: grid;
-      grid-template-columns: minmax(250px, .55fr) minmax(340px, 1fr);
-      gap: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .card-editor-toolbar {
+      width: 100%;
+      margin: 0;
+      flex-wrap: wrap;
+    }
+
+    .card-editor-select-field {
+      min-width: 180px;
+      flex: 0 1 240px;
+      margin-bottom: 0;
+    }
+
+    .card-editor-select-field select {
+      height: 28px;
     }
 
     .editor-list {
@@ -3705,18 +3842,6 @@
 
     body.dark-mode .editor-row {
       background: rgba(255,255,255,.035);
-    }
-
-    .card-connector-row {
-      grid-template-columns: minmax(112px, 150px) minmax(78px, 94px) repeat(3, minmax(84px, 1fr)) auto;
-      align-items: end;
-    }
-
-    .card-connector-row .field,
-    .card-connector-row input,
-    .card-connector-row select {
-      min-width: 0;
-      width: 100%;
     }
 
     .matrix-port-row {
@@ -3820,6 +3945,51 @@
       background: rgba(40, 189, 253, .06);
     }
 
+    .connector-authoring-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .connector-slot-actions {
+      width: 100%;
+      flex-wrap: wrap;
+      margin: 0;
+    }
+
+    .connector-card-tools {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .connector-card-tools.hidden {
+      display: none !important;
+    }
+
+    .connector-toolbar-separator {
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 900;
+      line-height: 1;
+      opacity: .75;
+    }
+
+    .connector-card-palette {
+      min-width: 180px;
+      flex: 1 1 240px;
+    }
+
+    .connector-card-palette .card-chip-list {
+      min-height: 28px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+
     .card-chip {
       height: 28px;
       display: inline-flex;
@@ -3837,19 +4007,18 @@
 
     .card-chip::before {
       content: "";
-      width: 10px;
-      height: 10px;
-      border-radius: 3px;
-      border: 1px solid var(--select);
-      background: rgba(50, 182, 255, .32);
-    }
-
-    .card-chip[data-card-kind="input"]::before {
-      border-radius: 999px 3px 3px 999px;
-    }
-
-    .card-chip[data-card-kind="output"]::before {
-      border-radius: 3px 999px 999px 3px;
+      width: 16px;
+      height: 11px;
+      flex: 0 0 16px;
+      border-radius: 2px;
+      border: 1px solid #86efac;
+      background:
+        radial-gradient(circle at 4px 3px, #dcfce7 0 1.2px, transparent 1.35px),
+        radial-gradient(circle at 8px 8px, #dcfce7 0 1.1px, transparent 1.25px),
+        radial-gradient(circle at 12px 4px, #dcfce7 0 1.1px, transparent 1.25px),
+        linear-gradient(90deg, transparent 0 5px, rgba(220,252,231,.58) 5px 6px, transparent 6px 10px, rgba(220,252,231,.58) 10px 11px, transparent 11px),
+        #16a34a;
+      box-shadow: inset 0 0 0 1px rgba(5, 46, 22, .45), 0 1px 4px rgba(0,0,0,.28);
     }
 
     .danger-mini {
@@ -3885,6 +4054,14 @@
 
       .device-editor-main {
         grid-template-rows: auto auto minmax(300px, 1fr);
+      }
+
+      .editor-device-command-row {
+        grid-template-columns: 1fr;
+      }
+
+      .editor-device-basics {
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       }
 
       .card-editor-layout {
@@ -3927,7 +4104,6 @@
         grid-template-rows: minmax(260px, 1fr) minmax(220px, 42%);
       }
 
-      .card-connector-row,
       .card-slot-row {
         grid-template-columns: 1fr 1fr;
       }
@@ -4917,36 +5093,104 @@
 
           <div class="editor-panels">
             <section class="editor-panel active" data-editor-panel="device">
-              <div class="editor-primary-action">
-                <button class="primary-button" id="newDeviceTemplate" type="button">Create New Device</button>
-                <button class="tool-button" id="duplicateEditorDevice" type="button">Duplicate Device</button>
-                <button class="danger-button" id="deleteEditorDevice" type="button">Delete Device</button>
-              </div>
-              <div class="editor-grid editor-device-basics">
-                <div class="field">
-                  <label for="editorDeviceName">Name</label>
-                  <input id="editorDeviceName">
+              <div class="editor-device-command-row">
+                <div class="editor-primary-action">
+                  <button class="primary-button" id="newDeviceTemplate" type="button">Create New Device</button>
+                  <button class="tool-button" id="duplicateEditorDevice" type="button">Duplicate Device</button>
+                  <button class="danger-button" id="deleteEditorDevice" type="button">Delete Device</button>
                 </div>
-                <div class="field">
-                  <label for="editorDeviceBrand">Brand</label>
-                  <input id="editorDeviceBrand">
-                </div>
-                <div class="field">
-                  <label for="editorDeviceCategory">Category</label>
-                  <select id="editorDeviceCategory"></select>
-                </div>
-                <div class="field">
-                  <label for="editorPowerConsumption">Power Consumption</label>
-                  <div class="power-input-row">
-                    <input id="editorPowerConsumption" type="number" min="0" step="0.01" inputmode="decimal">
-                    <div class="unit-toggle" id="editorPowerUnitToggle" role="group" aria-label="Power consumption unit">
-                      <button type="button" data-power-unit="watts">W</button>
-                      <button type="button" data-power-unit="amps">A</button>
+                <div class="editor-grid editor-device-basics">
+                  <div class="field">
+                    <label for="editorDeviceName">Name</label>
+                    <input id="editorDeviceName">
+                  </div>
+                  <div class="field">
+                    <label for="editorDeviceBrand">Brand</label>
+                    <input id="editorDeviceBrand">
+                  </div>
+                  <div class="field">
+                    <label for="editorDeviceCategory">Category</label>
+                    <select id="editorDeviceCategory"></select>
+                  </div>
+                  <div class="field">
+                    <label for="editorPowerConsumption">Power Consumption</label>
+                    <div class="power-input-row">
+                      <input id="editorPowerConsumption" type="number" min="0" step="0.01" inputmode="decimal">
+                      <div class="unit-toggle" id="editorPowerUnitToggle" role="group" aria-label="Power consumption unit">
+                        <button type="button" data-power-unit="watts">W</button>
+                        <button type="button" data-power-unit="amps">A</button>
+                      </div>
                     </div>
                   </div>
-                  <div class="field-hint" id="editorPowerEquivalent">0 W / 0 A</div>
                 </div>
               </div>
+            </section>
+
+            <section class="editor-panel" data-editor-panel="faceplate">
+              <div class="faceplate-control-row">
+                <label class="field faceplate-upload-field">
+                  <span>Front Face</span>
+                  <input id="editorFaceUpload" type="file" accept="image/png,image/jpeg,image/bmp,.bmp">
+                </label>
+                <div class="faceplate-button-row">
+                  <button class="tool-button" id="removeEditorFaceImage" type="button">Remove Custom Faceplate</button>
+                  <button class="tool-button" id="deleteEditorFaceplate" type="button">Delete Faceplate</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="editor-panel" data-editor-panel="connectors">
+              <div class="connector-authoring-toolbar">
+                <div class="slot-actions connector-slot-actions">
+                  <button class="primary-button" id="addInputNode" type="button">Add Input Slot</button>
+                  <button class="primary-button" id="addOutputNode" type="button">Add Output Slot</button>
+                  <div id="slotsPanelBody" class="connector-card-tools">
+                    <span class="connector-toolbar-separator" aria-hidden="true">|</span>
+                    <button class="primary-button" id="addCardSlot" type="button">Add Card Slot</button>
+                    <div class="connector-card-palette">
+                      <span class="visually-hidden" id="cardPaletteLabel">Available Cards</span>
+                      <div class="card-chip-list" id="cardPalette" aria-labelledby="cardPaletteLabel"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div id="slotsDisabled" class="modular-disabled hidden" style="margin-top:10px;"></div>
+              <div class="editor-list hidden" id="cardSlotList" aria-hidden="true"></div>
+            </section>
+
+            <section class="editor-panel" data-editor-panel="cards">
+              <div id="cardsDisabled" class="modular-disabled hidden"></div>
+              <div id="cardsPanelBody" class="card-editor-layout">
+                <div class="slot-actions card-editor-toolbar">
+                  <label class="field card-editor-select-field">
+                    <span class="visually-hidden">Card</span>
+                    <select id="editorCardSelect" aria-label="Card"></select>
+                  </label>
+                  <button class="tool-button" id="newCardType" type="button">New Card</button>
+                  <button class="tool-button" id="duplicateCardType" type="button">Duplicate Card</button>
+                  <button class="danger-button" id="deleteCardType" type="button">Delete Card</button>
+                  <span class="connector-toolbar-separator" aria-hidden="true">|</span>
+                  <button class="primary-button" id="addCardInputNode" type="button">Add Card Input</button>
+                  <button class="primary-button" id="addCardOutputNode" type="button">Add Card Output</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="editor-panel" data-editor-panel="defaults">
+              <div class="editor-grid">
+                <label class="checkbox-row"><input id="markDefaultConfig" type="checkbox"> Mark this configuration as this system default when applying or exporting</label>
+                <div class="field">
+                  <label>&nbsp;</label>
+                  <button class="tool-button" id="resetDeviceDefault" type="button">Reset To Default</button>
+                </div>
+              </div>
+            </section>
+
+          </div>
+
+          <div class="editor-workspace">
+            <aside class="device-feature-pane hidden" id="deviceFeaturePane" aria-hidden="true">
+              <div class="panel-title">Device Options</div>
               <div class="editor-feature-strip" aria-label="Device feature toggles">
                 <div class="editor-feature-group">
                   <label class="feature-toggle"><input id="editorAdapterBreakout" type="checkbox"><span>Adapter / Breakout</span></label>
@@ -4994,114 +5238,7 @@
                   <label class="feature-toggle editor-feature-subtoggle"><input id="editorPairPlaceFirst" type="checkbox"><span>Place This Device First</span></label>
                 </div>
               </div>
-            </section>
-
-            <section class="editor-panel" data-editor-panel="faceplate">
-              <p class="editor-panel-note">Front face images are optional. If none is loaded, AV Designer uses the default Video Core faceplate style.</p>
-              <div class="editor-grid">
-                <div class="field">
-                  <label for="editorFaceUpload">Front Face</label>
-                  <input id="editorFaceUpload" type="file" accept="image/png,image/jpeg,image/bmp,.bmp">
-                </div>
-                <div class="field">
-                  <label>&nbsp;</label>
-                  <button class="tool-button" id="removeEditorFaceImage" type="button">Remove Custom Faceplate</button>
-                </div>
-                <div class="field">
-                  <label>&nbsp;</label>
-                  <button class="tool-button" id="deleteEditorFaceplate" type="button">Delete Faceplate</button>
-                </div>
-              </div>
-            </section>
-
-            <section class="editor-panel" data-editor-panel="connectors">
-              <p class="editor-panel-note">These are fixed chassis connectors. Drag a node type into an empty slot, or drag a new node type onto an existing connector to replace it.</p>
-              <div class="slot-actions">
-                <button class="primary-button" id="addInputNode" type="button">Add Input Slot</button>
-                <button class="primary-button" id="addOutputNode" type="button">Add Output Slot</button>
-              </div>
-              <div id="slotsDisabled" class="modular-disabled hidden" style="margin-top:10px;">Turn on Has Card Slots in the Device tab to add, install, and move chassis card slots.</div>
-              <div id="slotsPanelBody" style="margin-top:10px;">
-                <p class="editor-panel-note">Drag an available card into the preview to create and install a slot. Drop onto an existing card band to replace that slot without changing its ID.</p>
-                <div class="slot-actions">
-                  <button class="primary-button" id="addCardSlot" type="button">Add Card Slot</button>
-                </div>
-                <div class="field" style="margin-top:10px;">
-                  <label>Available Cards</label>
-                  <div class="card-chip-list" id="cardPalette"></div>
-                </div>
-                <div class="editor-list" id="cardSlotList" style="margin-top:10px;"></div>
-              </div>
-            </section>
-
-            <section class="editor-panel" data-editor-panel="cards">
-              <div id="cardsDisabled" class="modular-disabled hidden">Turn on Has Card Slots in the Device tab to build reusable card node groups.</div>
-              <div id="cardsPanelBody" class="card-editor-layout">
-                <div>
-                  <p class="editor-panel-note">Cards are reusable groups of connectors. They do not have faceplates; they become real nodes only when installed into a chassis slot.</p>
-                  <div class="editor-grid">
-                    <div class="field">
-                      <label for="editorCardSelect">Card</label>
-                      <select id="editorCardSelect"></select>
-                    </div>
-                    <div class="field">
-                      <label for="editorCardName">Card Name</label>
-                      <input id="editorCardName">
-                    </div>
-                    <div class="field">
-                      <label for="editorCardCaptionTextColor">Caption Text Color</label>
-                      <input id="editorCardCaptionTextColor" type="color">
-                    </div>
-                    <div class="field">
-                      <label for="editorCardCaptionBackgroundColor">Caption Background Color</label>
-                      <input id="editorCardCaptionBackgroundColor" type="color">
-                    </div>
-                    <div class="field">
-                      <label for="editorCardKind">Card Type</label>
-                      <select id="editorCardKind">
-                        <option value="input">Input card</option>
-                        <option value="output">Output card</option>
-                        <option value="io">Input + Output card</option>
-                      </select>
-                    </div>
-                    <div class="field">
-                      <label>&nbsp;</label>
-                      <button class="tool-button" id="newCardType" type="button">New Card</button>
-                    </div>
-                    <div class="field">
-                      <label>&nbsp;</label>
-                      <button class="tool-button" id="duplicateCardType" type="button">Duplicate Card</button>
-                    </div>
-                    <div class="field">
-                      <label>&nbsp;</label>
-                      <button class="tool-button" id="deleteCardType" type="button">Delete Card</button>
-                    </div>
-                  </div>
-                  <div class="slot-actions" style="margin-top:10px;">
-                    <button class="primary-button" id="addCardInputNode" type="button">Add Card Input</button>
-                    <button class="primary-button" id="addCardOutputNode" type="button">Add Card Output</button>
-                  </div>
-                </div>
-                <div>
-                  <div class="editor-list" id="cardConnectorList"></div>
-                </div>
-              </div>
-            </section>
-
-            <section class="editor-panel" data-editor-panel="defaults">
-              <p class="editor-panel-note">A saved system default is the reset point for this template. Use it for a generic chassis that users can return to after experimenting with card layouts.</p>
-              <div class="editor-grid">
-                <label class="checkbox-row"><input id="markDefaultConfig" type="checkbox"> Mark this configuration as this system default when applying or exporting</label>
-                <div class="field">
-                  <label>&nbsp;</label>
-                  <button class="tool-button" id="resetDeviceDefault" type="button">Reset To Default</button>
-                </div>
-              </div>
-            </section>
-
-          </div>
-
-          <div class="editor-workspace">
+            </aside>
             <div class="editor-preview-column">
               <div class="slot-actions preview-actions">
                 <button class="tool-button" id="editorZoomOut" type="button">Preview -</button>
@@ -5123,9 +5260,6 @@
               </div>
             </div>
             <aside class="editor-node-library">
-              <div class="editor-tools">
-                <span class="placeholder" style="padding:0;">Drag a node type into an empty slot, fixed connector, or card connector row.</span>
-              </div>
               <div class="node-search">
                 <input id="nodePaletteSearch" type="search" placeholder="Search connectors">
               </div>
@@ -5138,6 +5272,34 @@
                 <div class="selected-connector-settings" id="selectedConnectorSettings"></div>
                 <div id="connectorRelationshipsPanel"></div>
               </div>
+              <div class="connector-inspector-panel hidden" id="cardInspectorPanel">
+                <div class="connector-inspector-section">
+                  <h4 class="connector-inspector-heading">Card</h4>
+                  <div class="compact-field-grid">
+                    <label class="field">
+                      <span>Card Name</span>
+                      <input id="editorCardName">
+                    </label>
+                    <label class="field">
+                      <span>Card Type</span>
+                      <select id="editorCardKind">
+                        <option value="input">Input card</option>
+                        <option value="output">Output card</option>
+                        <option value="io">Input + Output card</option>
+                      </select>
+                    </label>
+                    <label class="field">
+                      <span>Caption Text Color</span>
+                      <input id="editorCardCaptionTextColor" type="color">
+                    </label>
+                    <label class="field">
+                      <span>Caption Background Color</span>
+                      <input id="editorCardCaptionBackgroundColor" type="color">
+                    </label>
+                  </div>
+                </div>
+                <div class="selected-card-connector-settings" id="cardConnectorList"></div>
+              </div>
               <input id="editorDeviceSearch" class="hidden" type="search" tabindex="-1" aria-hidden="true">
               <div class="editor-device-list hidden" id="editorDeviceList" aria-hidden="true"></div>
             </aside>
@@ -5145,7 +5307,7 @@
               <div class="panel-title">Technical Specifications</div>
               <div class="field">
                 <label class="visually-hidden" for="editorDeviceTechSpecs">Technical Specifications</label>
-                <textarea id="editorDeviceTechSpecs" rows="4" placeholder="Manufacturer specs, supported formats, power notes, important limits..."></textarea>
+                <textarea id="editorDeviceTechSpecs" rows="4"></textarea>
               </div>
             </aside>
           </div>
@@ -78243,13 +78405,15 @@
     const editorDeviceTechSpecsPanel = document.getElementById("editorDeviceTechSpecsPanel");
     const editorPowerConsumption = document.getElementById("editorPowerConsumption");
     const editorPowerUnitToggle = document.getElementById("editorPowerUnitToggle");
-    const editorPowerEquivalent = document.getElementById("editorPowerEquivalent");
     const editorFaceUpload = document.getElementById("editorFaceUpload");
     const removeEditorFaceImage = document.getElementById("removeEditorFaceImage");
     const deleteEditorFaceplate = document.getElementById("deleteEditorFaceplate");
     const selectedConnectorSettings = document.getElementById("selectedConnectorSettings");
     const connectorRelationshipsPanel = document.getElementById("connectorRelationshipsPanel");
     const connectorInspectorSidebar = document.querySelector(".connector-inspector-sidebar");
+    const connectorInspectorPanel = document.getElementById("connectorInspectorPanel");
+    const cardInspectorPanel = document.getElementById("cardInspectorPanel");
+    const deviceFeaturePane = document.getElementById("deviceFeaturePane");
     const deviceAuthoringDebugPanel = document.getElementById("deviceAuthoringDebugPanel");
     const editorHasCards = document.getElementById("editorHasCards");
     const editorAdapterBreakout = document.getElementById("editorAdapterBreakout");
@@ -82917,15 +83081,24 @@
       return editorActiveTab === "connectors" || editorActiveTab === "cards";
     }
 
+    function editorDeviceFeaturePaneActive() {
+      return editorActiveTab === "device";
+    }
+
     function renderNodePalette() {
       const active = editorNodePaletteActive();
+      const featurePaneActive = editorDeviceFeaturePaneActive();
       const library = nodePalette.closest(".editor-node-library");
       const workspace = library?.closest(".editor-workspace");
       if (library) {
         library.classList.toggle("palette-disabled", !active);
         library.classList.toggle("hidden", !active);
       }
-      if (workspace) workspace.classList.toggle("node-library-hidden", !active);
+      if (deviceFeaturePane) {
+        deviceFeaturePane.classList.toggle("hidden", !featurePaneActive);
+        deviceFeaturePane.setAttribute("aria-hidden", featurePaneActive ? "false" : "true");
+      }
+      if (workspace) workspace.classList.toggle("node-library-hidden", !active && !featurePaneActive);
       nodePaletteSearch.disabled = !active;
       nodePalette.innerHTML = filteredDeviceEditorNodeEntries(nodePaletteFilter)
         .map(([key, type], index) => nodeItemHtml(key, type, index, { draggable: active }))
@@ -84808,9 +84981,8 @@
 
     function renderEditorDeviceList() {
       const template = currentEditorTemplate();
-      const selectedCount = editorSelectedConnectorIds(template).length;
       const masterCreateMode = editorMode === "master-create";
-      if (editorDeviceBrowserTitle) editorDeviceBrowserTitle.textContent = "Connector Inspector";
+      if (editorDeviceBrowserTitle) editorDeviceBrowserTitle.textContent = editorActiveTab === "cards" ? "Card Inspector" : "Connector Inspector";
       if (editorTargetSummary) {
         const target = editorMode === "instance"
           ? `Canvas Device${editorInstanceId ? ` / ${editorInstanceId}` : ""}`
@@ -84819,11 +84991,22 @@
             : isProjectTemplateEditorMode()
               ? "Project Custom Device"
               : "Master Device";
-        editorTargetSummary.innerHTML = `
-          <strong>${escapeHtml(template?.name || "Device")}</strong>
-          <span>${escapeHtml(target)}</span><br>
-          <span>${selectedCount ? `${selectedCount} connector${selectedCount === 1 ? "" : "s"} selected` : "No connector selected"}</span>
-        `;
+        if (editorActiveTab === "cards") {
+          const card = currentEditorCard();
+          const selectedConnector = card?.connectors?.[editorSelectedCardNodeIndex];
+          editorTargetSummary.innerHTML = `
+            <strong>${escapeHtml(card?.name || "Card")}</strong>
+            <span>${escapeHtml(template?.name || "Device")} / ${escapeHtml(card ? cardKindLabel(card) : "Reusable Card")}</span><br>
+            ${selectedConnector ? `<span>${escapeHtml(`${selectedConnector.direction === "input" ? "Input" : "Output"} / ${connectorTypeLabel(selectedConnector) || "Empty connector"}`)}</span>` : ""}
+          `;
+        } else {
+          const selectedCount = editorSelectedConnectorIds(template).length;
+          editorTargetSummary.innerHTML = `
+            <strong>${escapeHtml(template?.name || "Device")}</strong>
+            <span>${escapeHtml(target)}</span><br>
+            ${selectedCount ? `<span>${selectedCount} connector${selectedCount === 1 ? "" : "s"} selected</span>` : ""}
+          `;
+        }
       }
       if (editorDeviceSearch) {
         editorDeviceSearch.value = "";
@@ -87154,7 +87337,6 @@
       const powerUnit = powerUnitFor(template);
       editorPowerConsumption.value = formatPowerNumber(powerValueForUnit(template.powerWatts, powerUnit), 2);
       setPowerUnitToggle(editorPowerUnitToggle, powerUnit);
-      if (editorPowerEquivalent) editorPowerEquivalent.textContent = formatPowerPair(template.powerWatts);
       syncEditorNodeSelection(template);
       const selectedCard = template.cardTypes?.[editorCardIndex];
       if (editorSelectedCardNodeIndex !== null && !selectedCard?.connectors?.[editorSelectedCardNodeIndex]) editorSelectedCardNodeIndex = null;
@@ -87214,16 +87396,26 @@
       document.querySelectorAll("[data-editor-panel]").forEach(panel => {
         panel.classList.toggle("active", panel.dataset.editorPanel === editorActiveTab);
       });
-      const showConnectorInspector = editorActiveTab === "connectors";
+      const showConnectorInspector = editorActiveTab === "connectors" || editorActiveTab === "cards";
+      const showCardInspector = editorActiveTab === "cards";
       const showTechSpecs = editorActiveTab === "device";
+      const showDeviceFeaturePane = editorDeviceFeaturePaneActive();
       const workspace = deviceEditorPreview?.closest?.(".editor-workspace");
       connectorInspectorSidebar?.classList.toggle("hidden", !showConnectorInspector);
       connectorInspectorSidebar?.setAttribute("aria-hidden", showConnectorInspector ? "false" : "true");
+      connectorInspectorPanel?.classList.toggle("hidden", !showConnectorInspector || showCardInspector);
+      connectorInspectorPanel?.setAttribute("aria-hidden", showConnectorInspector && !showCardInspector ? "false" : "true");
+      cardInspectorPanel?.classList.toggle("hidden", !showCardInspector);
+      cardInspectorPanel?.setAttribute("aria-hidden", showCardInspector ? "false" : "true");
+      deviceFeaturePane?.classList.toggle("hidden", !showDeviceFeaturePane);
+      deviceFeaturePane?.setAttribute("aria-hidden", showDeviceFeaturePane ? "false" : "true");
       if (editorDeviceTechSpecsPanel) {
         editorDeviceTechSpecsPanel.classList.toggle("hidden", !showTechSpecs);
         editorDeviceTechSpecsPanel.setAttribute("aria-hidden", showTechSpecs ? "false" : "true");
       }
       workspace?.classList.toggle("side-column-hidden", !showConnectorInspector && !showTechSpecs);
+      workspace?.classList.toggle("node-library-hidden", !editorNodePaletteActive() && !showDeviceFeaturePane);
+      workspace?.classList.toggle("device-feature-pane-active", showDeviceFeaturePane);
       workspace?.classList.toggle("connector-inspector-active", showConnectorInspector);
       workspace?.classList.toggle("device-tech-specs-active", showTechSpecs);
     }
@@ -87286,6 +87478,89 @@
       return [...ids].filter(id => template?.connectors?.some(connector => connector.id === id));
     }
 
+    function renderCardConnectorInspector(template, card) {
+      if (!card) return "";
+      const connectors = card.connectors || [];
+      const connectorIndex = Number.isInteger(editorSelectedCardNodeIndex) ? editorSelectedCardNodeIndex : -1;
+      const connector = connectors[connectorIndex];
+      if (!connector) return "";
+      const typeLabel = connector.type ? (connectorTypeLabel(connector) || connector.type) : "Empty connector";
+      const fields = connector.empty || !connector.type ? [] : connectorInfoFields(connector);
+      const statusSection = connector.empty || !connector.type ? "" : `
+        <div class="connector-inspector-section">
+          <h4 class="connector-inspector-heading">Status</h4>
+          <label class="checkbox-row">
+            <input data-card-field="operationalStatus" data-card-node-index="${connectorIndex}" type="checkbox" ${editorConnectorIsNotWorking(connector) ? "checked" : ""}>
+            Not working
+          </label>
+        </div>
+      `;
+      const fieldSection = fields.length ? `
+        <div class="connector-inspector-section">
+          <h4 class="connector-inspector-heading">Fields</h4>
+          <div class="compact-field-grid">
+            ${fields.map(item => `
+              <label class="field">
+                <span>${escapeHtml(item.title)}</span>
+                <input data-card-field="${escapeAttr(item.field)}" data-card-node-index="${connectorIndex}" value="${escapeAttr(item.text || "")}">
+              </label>
+            `).join("")}
+          </div>
+        </div>
+      ` : "";
+      const moduleSection = isCageConnector(connector) ? `
+        <div class="connector-inspector-section">
+          <h4 class="connector-inspector-heading">Module</h4>
+          ${transceiverModuleSelectHtml("selectedCardConnectorModule", connector).replace("<select", `<select data-card-field="installedModuleType" data-card-node-index="${connectorIndex}"`)}
+        </div>
+      ` : "";
+      const fiberSection = isFiberCableType(effectiveConnectorType(connector) || connector.type) ? `
+        <div class="connector-inspector-section">
+          <h4 class="connector-inspector-heading">Fiber</h4>
+          ${fiberModeSelectHtml("selectedCardConnectorFiberMode", connector.fiberMode || activeFiberModeForCageConnector(connector) || DEFAULT_FIBER_MODE, fiberModeOptionsForCageConnector(connector)).replace("<select", `<select data-card-field="fiberMode" data-card-node-index="${connectorIndex}"`)}
+        </div>
+      ` : "";
+      const miscSection = (effectiveConnectorType(connector) || connector.type) === "misc" ? `
+        <div class="connector-inspector-section">
+          <h4 class="connector-inspector-heading">Color</h4>
+          <label class="field">
+            <span>Custom Color</span>
+            <input data-card-field="customColor" data-card-node-index="${connectorIndex}" type="color" value="${escapeAttr(normalizeColor(connector.customColor || cableTypes.misc.color))}">
+          </label>
+        </div>
+      ` : "";
+      const matrixSection = template?.isMatrixRouter === true ? `
+        <div class="connector-inspector-section">
+          <h4 class="connector-inspector-heading">Matrix</h4>
+          <label class="checkbox-row">
+            <input data-card-field="includeInMatrix" data-card-node-index="${connectorIndex}" type="checkbox" ${connectorIncludedInMatrix(connector) ? "checked" : ""} ${connector.empty || !connector.type ? "disabled" : ""}>
+            Matrix Port
+          </label>
+        </div>
+      ` : "";
+      return `
+        <div class="connector-inspector-section">
+          <h4 class="connector-inspector-heading">Selected Card Connector</h4>
+          <div class="connector-inspector-title" style="--chip-color:${escapeAttr(colorForConnector(connector))}">
+            ${escapeHtml(connector.direction === "input" ? "Input" : "Output")} / ${escapeHtml(typeLabel)}
+          </div>
+          <div class="compact-field-grid">
+            <label class="field">
+              <span>Physical Connector</span>
+              <select data-card-physical-type="${connectorIndex}">${connectorTypeSelectOptions(connector.physicalType || connector.type)}</select>
+            </label>
+          </div>
+        </div>
+        ${statusSection}
+        ${fieldSection}
+        ${moduleSection}
+        ${fiberSection}
+        ${miscSection}
+        ${matrixSection}
+        <button class="danger-button" data-remove-card-node="${connectorIndex}" type="button">Delete Card Connector</button>
+      `;
+    }
+
     function renderCardEditor() {
       const template = currentEditorTemplate();
       if (!template) return;
@@ -87315,37 +87590,7 @@
       editorCardKind.value = card?.kind || "io";
       document.getElementById("addCardInputNode").disabled = card?.kind === "output";
       document.getElementById("addCardOutputNode").disabled = card?.kind === "input";
-      cardConnectorList.innerHTML = card.connectors.length ? card.connectors.map((connector, index) => {
-        const typeLabel = connector.type ? (cableTypes[connector.type]?.label || connector.type) : "Drop node";
-        const matrixField = template.isMatrixRouter === true
-          ? `<label class="checkbox-row matrix-port-row"><input data-card-field="includeInMatrix" data-card-node-index="${index}" type="checkbox" ${connectorIncludedInMatrix(connector) ? "checked" : ""} ${connector.empty || !connector.type ? "disabled" : ""}> Matrix Port</label>`
-          : `<span></span>`;
-        const moduleField = isCageConnector(connector)
-          ? `<label class="field"><span>Installed Module</span><select data-card-field="installedModuleType" data-card-node-index="${index}">
-              ${transceiverModuleOptionsForConnector(connector).map(option => `<option value="${escapeAttr(option.value)}" ${option.value === (connector.installedModuleType || "") ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}
-            </select></label>`
-          : "";
-        const nameField = connector.type === "led-signal"
-          ? `<span></span>`
-          : `<label class="field"><span>${escapeHtml(connectorFieldTitle(connector, "nameText"))}</span><input data-card-field="nameText" data-card-node-index="${index}" value="${escapeAttr(connector.nameText || "")}"></label>`;
-        const fieldTwo = usesResolutionField(connector)
-          ? `<label class="field"><span>${escapeHtml(connectorFieldTitle(connector, "resolutionFrameRate"))}</span><input data-card-field="resolutionFrameRate" data-card-node-index="${index}" value="${escapeAttr(connector.resolutionFrameRate || "")}"></label>`
-          : `<label class="field"><span>${escapeHtml(connectorFieldTitle(connector, "customText"))}</span><input data-card-field="customText" data-card-node-index="${index}" value="${escapeAttr(connector.customText || "")}"></label>`;
-        const fieldThree = usesResolutionField(connector)
-          ? `<label class="field"><span>${escapeHtml(connectorFieldTitle(connector, "customText"))}</span><input data-card-field="customText" data-card-node-index="${index}" value="${escapeAttr(connector.customText || "")}"></label>`
-          : `<span></span>`;
-        return `
-          <div class="editor-row card-connector-row" data-card-node-row="${index}">
-            <div class="editor-row-heading" style="--chip-color:${escapeAttr(colorForConnector(connector))}">${escapeHtml(connector.direction === "input" ? "Input" : "Output")} / ${escapeHtml(typeLabel)}</div>
-            ${matrixField}
-            ${moduleField}
-            ${nameField}
-            ${fieldTwo}
-            ${fieldThree}
-            <button class="danger-mini" data-remove-card-node="${index}" type="button" aria-label="Remove card connector">-</button>
-          </div>
-        `;
-      }).join("") : `<div class="modular-disabled">Add input or output slots, then drag node types into those rows.</div>`;
+      cardConnectorList.innerHTML = renderCardConnectorInspector(template, card);
     }
 
     function renderCardSlotEditor() {
@@ -87361,12 +87606,12 @@
       }
       cardPalette.innerHTML = template.cardTypes.length ? template.cardTypes.map(card => {
         return `<button class="card-chip" draggable="true" data-card-type-id="${escapeAttr(card.id)}" data-card-kind="${escapeAttr(card.kind || "io")}" type="button">${escapeHtml(card.name)} / ${escapeHtml(cardKindLabel(card))}</button>`;
-      }).join("") : `<span class="placeholder" style="padding:0;">Create a card in the Cards tab.</span>`;
+      }).join("") : "";
       editorSlotIndex = clamp(editorSlotIndex, 0, Math.max(0, template.cardSlots.length - 1));
       template.cardSlots.forEach(slot => ensureCardSlotConnectorOverrides(template, slot));
-      cardSlotList.innerHTML = template.cardSlots.length
-        ? `<div class="slot-preview-note">${escapeHtml(template.cardSlots.length)} card slot${template.cardSlots.length === 1 ? "" : "s"} in this chassis. Select, drag, replace, or remove slots directly in the preview.</div>`
-        : `<div class="modular-disabled">Drop a card into the preview to create a slot, or use Add Card Slot for an empty slot.</div>`;
+      cardSlotList.innerHTML = "";
+      cardSlotList.classList.add("hidden");
+      cardSlotList.setAttribute("aria-hidden", "true");
     }
 
     function connectorTypeSelectOptions(selectedType = "") {
@@ -87608,19 +87853,22 @@
           ...findEditorRelationshipsTouchingSelection(template, "exclusive", selectedIds),
           ...findEditorRelationshipsTouchingSelection(template, "through", selectedIds)
         ];
+        if (!memberships.length && !validationLines) {
+          connectorRelationshipsPanel.innerHTML = "";
+          return;
+        }
         const membershipLines = memberships.length
-          ? memberships.map(relationship => {
+          ? `<div class="connector-inspector-list">${memberships.map(relationship => {
             const label = relationship.type === "through"
               ? editorThroughDirectionLabel(template, relationship)
               : relationship.label || "Shared bus";
             return `<span>${escapeHtml(relationshipTypeLabel(relationship.type))}: ${escapeHtml(label)}</span>`;
-          }).join("")
-          : `<span>No relationship assigned.</span>`;
+          }).join("")}</div>`
+          : "";
         connectorRelationshipsPanel.innerHTML = `
           <div class="connector-inspector-section">
             <h4 class="connector-inspector-heading">Relationship</h4>
-            <div class="relationship-status">Shift-click or marquee-select another connector to create a Shared Bus or Through / Loop relationship.</div>
-            <div class="connector-inspector-list">${membershipLines}</div>
+            ${membershipLines}
             ${validationLines}
           </div>
         `;
@@ -87632,21 +87880,15 @@
       const sharedTooLarge = selectedIds.length > EDITOR_SHARED_BUS_MAX_MEMBERS;
       const sharedDisabled = selectedIds.length < 2 || sharedTooLarge || (!exactExclusive && partialExclusive.length > 0);
       const throughDisabled = selectedIds.length !== 2;
-      const sharedStatus = sharedTooLarge
-        ? `Shared Bus supports up to ${EDITOR_SHARED_BUS_MAX_MEMBERS} connectors for now.`
-        : `Available for two to ${EDITOR_SHARED_BUS_MAX_MEMBERS} active connectors. It creates one exclusive shared-bus group.`;
       const partialMessage = partialExclusive.length
-        ? `<div class="relationship-status error-message">Some selected connectors already belong to ${escapeHtml(partialExclusive.map(relationship => relationship.label || "Shared bus").join(", "))}. Select the exact group to edit it.</div>`
+        ? `<div class="relationship-status error-message">Selected connectors already belong to ${escapeHtml(partialExclusive.map(relationship => relationship.label || "Shared bus").join(", "))}.</div>`
         : "";
       const busName = exactExclusive ? `
         <label class="field">
           <span>Bus Name</span>
-          <input data-relationship-label="${escapeAttr(exactExclusive.id)}" value="${escapeAttr(exactExclusive.label || "")}" placeholder="Shared bus">
+          <input data-relationship-label="${escapeAttr(exactExclusive.id)}" value="${escapeAttr(exactExclusive.label || "")}">
         </label>
       ` : "";
-      const throughDirection = selectedIds.length === 2
-        ? editorThroughDirectionLabel(template, exactThrough || selectedIds)
-        : "Select exactly two active connectors.";
       connectorRelationshipsPanel.innerHTML = `
         <div class="connector-inspector-section">
           <h4 class="connector-inspector-heading">${escapeHtml(rawSelectedIds.length)} Connectors Selected</h4>
@@ -87661,7 +87903,6 @@
               <span>${exactExclusive ? "On" : "Off"}</span>
             </label>
           </div>
-          <div class="relationship-status">${escapeHtml(sharedStatus)}</div>
           ${partialMessage}
           ${busName}
           <div class="relationship-toggle-row">
@@ -87671,7 +87912,6 @@
               <span>${exactThrough ? "On" : "Off"}</span>
             </label>
           </div>
-          <div class="relationship-status">${escapeHtml(throughDirection)}</div>
           ${exactThrough ? `<button class="tool-button" data-relationship-reverse="${escapeAttr(exactThrough.id)}" type="button">Reverse</button>` : ""}
           ${validationLines}
         </div>
@@ -87809,18 +88049,13 @@
       const template = currentEditorTemplate();
       syncEditorNodeSelection(template);
       if (!template || editorActiveTab !== "connectors") {
-        selectedConnectorSettings.innerHTML = `<div class="connector-inspector-empty">Open the Connectors tab to edit connector properties.</div>`;
+        selectedConnectorSettings.innerHTML = "";
         renderConnectorInspectorAuxiliaryPanels();
         return;
       }
       const selectedIds = editorSelectedConnectorIds(template);
       if (!selectedIds.length) {
-        selectedConnectorSettings.innerHTML = `
-          <div class="connector-inspector-empty">
-            Select a connector to edit its properties.<br>
-            Shift-click or marquee-select multiple connectors to create a relationship.
-          </div>
-        `;
+        selectedConnectorSettings.innerHTML = "";
         renderConnectorInspectorAuxiliaryPanels();
         return;
       }
@@ -87828,7 +88063,6 @@
         selectedConnectorSettings.innerHTML = `
           <div class="connector-inspector-section">
             <h4 class="connector-inspector-heading">${escapeHtml(selectedIds.length)} Connectors Selected</h4>
-            <div class="relationship-status">Use the relationship controls below to create or edit topology for this exact selection.</div>
             ${selectedConnectorListHtml(template, selectedIds)}
           </div>
         `;
@@ -87839,7 +88073,7 @@
       const connectorIndex = (template.connectors || []).findIndex(item => item.id === connectorId);
       const connector = template.connectors?.[connectorIndex];
       if (!connector) {
-        selectedConnectorSettings.innerHTML = `<div class="connector-inspector-empty">Select a connector to edit its properties.</div>`;
+        selectedConnectorSettings.innerHTML = "";
         renderConnectorInspectorAuxiliaryPanels();
         return;
       }
@@ -87897,15 +88131,9 @@
             <input id="selectedConnectorMatrixPort" type="checkbox" ${connectorIncludedInMatrix(connector) ? "checked" : ""} ${connector.empty || !connector.type ? "disabled" : ""}>
             Matrix Port
           </label>
-          <div class="field-hint">Only checked input/output ports appear in the matrix routing table and reports.</div>
         </div>
       ` : "";
-      const powerSection = isPowerPlugConnector(connector) ? `
-        <div class="connector-inspector-section">
-          <h4 class="connector-inspector-heading">Power</h4>
-          <div class="relationship-status">${escapeHtml(connectorTypeLabel(connector) || "Power connector")} faceplate symbol follows this connector's type and side.</div>
-        </div>
-      ` : "";
+      const powerSection = "";
       selectedConnectorSettings.innerHTML = `
         <div class="connector-inspector-section">
           <h4 class="connector-inspector-heading">Selected Connector</h4>
@@ -88509,7 +88737,7 @@
         id: `custom-device-${Date.now().toString(36)}`,
         schemaVersion: EDITOR_DEVICE_DEFINITION_SCHEMA_VERSION,
         deviceDefinitionVersion: EDITOR_DEVICE_DEFINITION_SCHEMA_VERSION,
-        name: "Custom Device",
+        name: "New Device",
         brand: "",
         category: "Misc.",
         model: "CUSTOM",
@@ -90002,7 +90230,6 @@
       template.techSpecs = editorDeviceTechSpecs?.value || "";
       template.powerUnit = normalizePowerUnit(editorPowerUnitToggle?.dataset?.unit);
       template.powerWatts = powerWattsFromInput(editorPowerConsumption?.value, template.powerUnit);
-      if (editorPowerEquivalent) editorPowerEquivalent.textContent = formatPowerPair(template.powerWatts);
       const wasAdapter = isAdapterTemplate(template);
       template.objectType = editorAdapterBreakout?.checked ? "adapter" : "device";
       template.isAdapterBreakout = template.objectType === "adapter";
@@ -106464,7 +106691,6 @@ renderViewerOutputDebug();
       const currentWatts = normalizedPowerWatts(template.powerWatts);
       template.powerUnit = unit;
       editorPowerConsumption.value = formatPowerNumber(powerValueForUnit(currentWatts, unit), 2);
-      if (editorPowerEquivalent) editorPowerEquivalent.textContent = formatPowerPair(currentWatts);
       renderEditorDeviceList();
     });
     editorRackSearch?.addEventListener("input", event => {
@@ -106781,8 +107007,11 @@ renderViewerOutputDebug();
       const card = currentEditorCard();
       if (!card) return;
       card.name = event.target.value.trim() || "New Card";
+      const selectedOption = editorCardSelect.options?.[editorCardIndex];
+      if (selectedOption) selectedOption.textContent = card.name;
       renderCardSlotEditor();
       renderDeviceEditorPreview();
+      renderEditorDeviceList();
     });
     editorCardCaptionTextColor.addEventListener("input", event => {
       const card = currentEditorCard();
@@ -106857,6 +107086,31 @@ renderViewerOutputDebug();
       renderDeviceEditor();
     });
     function handleCardConnectorFieldChange(event) {
+      const typeControl = event.target.closest("[data-card-physical-type]");
+      if (typeControl) {
+        const template = currentEditorTemplate();
+        const card = currentEditorCard();
+        const connectorIndex = Number(typeControl.dataset.cardPhysicalType);
+        const connector = card?.connectors?.[connectorIndex];
+        if (!template || !card || !connector) return;
+        const nextType = String(typeControl.value || "");
+        const previousType = connector.type || "";
+        connector.type = nextType;
+        connector.physicalType = nextType;
+        connector.connectorType = nextType;
+        connector.empty = !nextType;
+        connector.label = nextType ? (cableTypes[nextType]?.label || nextType) : connector.label;
+        connector.customColor = nextType === "misc" ? (connector.customColor || cableTypes.misc.color) : "";
+        connector.installedModuleType = cageConnectorTypes.has(nextType) && previousType === nextType ? (connector.installedModuleType || "") : "";
+        connector.fiberMode = isFiberCableType(effectiveConnectorType(connector) || nextType) ? (connector.fiberMode || activeFiberModeForCageConnector(connector) || DEFAULT_FIBER_MODE) : "";
+        if (nextType) applyAutomaticConnectorName(card.connectors, connector);
+        normalizeCardConnector(connector, connectorIndex, connector.direction);
+        resetMatrixPortDefault(connector);
+        normalizeCardSlots(template);
+        template.height = deviceHeightForSlotCounts(template);
+        renderDeviceEditor();
+        return;
+      }
       const input = event.target.closest("[data-card-field]");
       if (!input) return;
       const card = currentEditorCard();
@@ -106865,8 +107119,12 @@ renderViewerOutputDebug();
       if (input.dataset.cardField === "includeInMatrix") {
         connector.includeInMatrix = input.checked;
         connector.matrixPortTouched = true;
+      } else if (input.dataset.cardField === "operationalStatus") {
+        connector.operationalStatus = input.checked ? "not-working" : "working";
       } else if (input.dataset.cardField === "installedModuleType") {
         applyTransceiverModule(connector, input.value);
+      } else if (input.dataset.cardField === "fiberMode") {
+        connector.fiberMode = input.value || DEFAULT_FIBER_MODE;
       } else {
         connector[input.dataset.cardField] = input.value;
         if (input.dataset.cardField === "nameText") connector.nameCustom = true;
@@ -106880,18 +107138,6 @@ renderViewerOutputDebug();
       const button = event.target.closest("[data-remove-card-node]");
       if (!button) return;
       removeCardConnector(Number(button.dataset.removeCardNode));
-    });
-    cardConnectorList.addEventListener("dragover", event => {
-      const row = event.target.closest("[data-card-node-row]");
-      if (!row) return;
-      event.preventDefault();
-      event.dataTransfer.dropEffect = "copy";
-    });
-    cardConnectorList.addEventListener("drop", event => {
-      const row = event.target.closest("[data-card-node-row]");
-      if (!row) return;
-      event.preventDefault();
-      fillCardConnector(Number(row.dataset.cardNodeRow), event.dataTransfer.getData("application/x-av-node-type"));
     });
     cardPalette.addEventListener("dragstart", event => {
       const chip = event.target.closest("[data-card-type-id]");
@@ -107019,14 +107265,18 @@ renderViewerOutputDebug();
         event.preventDefault();
         event.stopPropagation();
         editorSelectedCardNodeIndex = Number(cardPreviewNode.dataset.cardPreviewNode);
+        renderCardEditor();
         renderCardEditorPreview();
+        renderEditorDeviceList();
         return;
       }
       if (editorActiveTab === "cards" && editorSelectedCardNodeIndex !== null) {
         event.preventDefault();
         event.stopPropagation();
         editorSelectedCardNodeIndex = null;
+        renderCardEditor();
         renderCardEditorPreview();
+        renderEditorDeviceList();
         return;
       }
       const remove = event.target.closest("[data-editor-remove-node]");

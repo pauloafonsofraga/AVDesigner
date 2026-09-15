@@ -41,6 +41,51 @@ function visualCardById(device, id) {
   return card;
 }
 
+test("explicit blank New Device preview does not synthesize fallback connector nodes", () => {
+  const template = {
+    id: "blank-new-device-template",
+    schemaVersion: 2,
+    deviceDefinitionVersion: 2,
+    name: "New Device",
+    model: "CUSTOM",
+    category: "Misc.",
+    width: 380,
+    height: 190,
+    faceplateDeleted: false,
+    connectors: [],
+    hasSwappableCards: false,
+    cardTypes: [],
+    cardSlots: []
+  };
+  const previewDevice = createPreviewDeviceFromDraft({
+    template,
+    projectData: {
+      state: {
+        deviceLibrary: [template],
+        nodeLibrary: []
+      }
+    },
+    instance: {
+      instanceId: "blank-new-device",
+      templateId: template.id,
+      name: "New Device",
+      x: 0,
+      y: 0
+    }
+  });
+
+  assert.equal(previewDevice.label, "New Device", "blank new device should keep its generic name");
+  assert.equal(previewDevice.connectors.length, 0, "blank new device should not gain real connectors");
+  assert.equal(previewDevice.portCount, 0, "blank new device should not advertise fallback ports");
+
+  const scene = new SceneGraph();
+  scene.setData({ devices: [previewDevice], wires: [], racks: [], meta: {} });
+  const sceneDevice = scene.getDevice("blank-new-device");
+  assert.ok(sceneDevice, "blank new device should enter SceneGraph");
+  assert.equal(sceneDevice.connectors.length, 0, "SceneGraph should preserve the blank connector list");
+  assert.equal(sceneDevice.portCount, 0, "SceneGraph should preserve the zero fallback-port count");
+});
+
 function assertInstalledConnector(device, slotId, sourceConnectorId, expected = {}) {
   const id = `${slotId}__${sourceConnectorId}`;
   const connector = connectorById(device, id);
