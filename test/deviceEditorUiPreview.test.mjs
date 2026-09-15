@@ -277,6 +277,13 @@ test("Matrix routing separates compact inspector routes from full modal crosspoi
   assert.match(matrixCss, /max-width: 360px;/);
   assert.match(matrixCss, /width: min\(85vw, calc\(100vw - 44px\)\);/);
   assert.match(matrixCss, /height: min\(85vh, calc\(100vh - 44px\)\);/);
+  assert.match(matrixCss, /grid-template-rows: auto auto auto minmax\(0, 1fr\);/);
+  assert.match(matrixCss, /\.matrix-routing-modal \.matrix-toolbar \{/);
+  assert.match(matrixCss, /width: min\(420px, 100%\);/);
+  assert.match(matrixCss, /grid-template-columns: repeat\(3, minmax\(260px, 1fr\)\);/);
+  assert.match(matrixCss, /column-gap: 14px;/);
+  assert.match(matrixCss, /grid-template-columns: minmax\(88px, 118px\) minmax\(126px, 220px\);/);
+  assert.match(matrixCss, /height: 100%;/);
   assert.match(INDEX_HTML, /modal: \{ filter: "", routedOnly: false, viewByDeviceId: \{\}, bodyScrollTop: 0, routeScrollTop: 0, gridScrollTop: 0, gridScrollLeft: 0 \}/);
   assert.match(matrixMarkup, /const presentation = options\.presentation === "modal" \? "modal" : "inspector";/);
   assert.match(matrixMarkup, /matrixRoutingViewForInstance\(instance, inputs, outputs, \{ presentation, view: options\.view \}\)/);
