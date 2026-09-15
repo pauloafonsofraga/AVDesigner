@@ -3076,13 +3076,21 @@
     }
 
     .editor-device-basics {
-      grid-template-columns: minmax(160px, 1.1fr) minmax(130px, .85fr) minmax(180px, 1fr) minmax(210px, .95fr);
+      width: min(100%, 984px);
+      grid-template-columns: minmax(170px, 280px) minmax(120px, 220px) minmax(150px, 260px) minmax(132px, 172px);
       gap: 8px;
+      justify-content: start;
+      align-items: end;
       margin-bottom: 0;
     }
 
     .editor-device-basics .field {
       margin-bottom: 0;
+    }
+
+    .editor-device-power-field .power-input-row {
+      grid-template-columns: minmax(48px, 1fr) auto;
+      gap: 6px;
     }
 
     .faceplate-control-row {
@@ -3633,6 +3641,29 @@
     .device-feature-pane .editor-feature-dependent select {
       width: 100%;
       min-width: 0;
+    }
+
+    .device-feature-pane .editor-switch-count-field {
+      flex: 0 0 66px;
+    }
+
+    .device-feature-pane .editor-switch-type-field {
+      flex: 0 0 94px;
+    }
+
+    .device-feature-pane .editor-switch-add-button {
+      flex: 0 0 auto;
+      min-width: 46px;
+    }
+
+    #deviceEditorModal .device-feature-pane .primary-button {
+      height: 28px;
+      min-height: 28px;
+      padding: 0 9px;
+      border-radius: 6px;
+      font-size: 10.5px;
+      font-weight: 900;
+      line-height: 1;
     }
 
     .device-feature-pane .editor-pair-dependent {
@@ -4837,7 +4868,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.3.7 — Device Editor Integration Hardening — iteration54-3-7-device-editor-integration-hardening</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.3.8 — Device Editor Compact Controls — iteration54-3-8-device-editor-compact-controls</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5112,7 +5143,7 @@
                     <label for="editorDeviceCategory">Category</label>
                     <select id="editorDeviceCategory"></select>
                   </div>
-                  <div class="field">
+                  <div class="field editor-device-power-field">
                     <label for="editorPowerConsumption">Power Consumption</label>
                     <div class="power-input-row">
                       <input id="editorPowerConsumption" type="number" min="0" step="0.01" inputmode="decimal">
@@ -5197,7 +5228,7 @@
                 </div>
                 <span class="editor-feature-separator" aria-hidden="true">|</span>
                 <div class="editor-feature-group">
-                  <label class="feature-toggle"><input id="editorHasCards" type="checkbox"><span>Has Card Slots</span></label>
+                  <label class="feature-toggle"><input id="editorHasCards" type="checkbox"><span>HAS SWAPPABLE CARDS</span></label>
                 </div>
                 <span class="editor-feature-separator" aria-hidden="true">|</span>
                 <div class="editor-feature-group">
@@ -5210,15 +5241,15 @@
                 <span class="editor-feature-separator" aria-hidden="true">|</span>
                 <div class="editor-feature-group editor-feature-group-wide">
                   <label class="feature-toggle"><input id="editorEthernetSwitch" type="checkbox"><span>Is an Ethernet Switch</span></label>
-                  <div class="field editor-feature-dependent">
+                  <div class="field editor-feature-dependent editor-switch-count-field">
                     <label class="visually-hidden" for="editorSwitchPortCount">Switch port count</label>
                     <select id="editorSwitchPortCount" aria-label="Switch port count"></select>
                   </div>
-                  <div class="field editor-feature-dependent">
+                  <div class="field editor-feature-dependent editor-switch-type-field">
                     <label class="visually-hidden" for="editorSwitchPortType">Switch port type</label>
                     <select id="editorSwitchPortType" aria-label="Switch port type"></select>
                   </div>
-                  <button class="primary-button" id="addEthernetSwitchPorts" type="button">Add Ports</button>
+                  <button class="primary-button editor-switch-add-button" id="addEthernetSwitchPorts" type="button">Add</button>
                 </div>
                 <span class="editor-feature-separator" aria-hidden="true">|</span>
                 <div class="editor-feature-group">
@@ -5531,10 +5562,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.3.7";
-    const APP_BUILD_ID = "iteration54-3-7-device-editor-integration-hardening";
-    const APP_MODULE_CACHE_ID = "iteration54-3-7-device-editor-integration-hardening-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Device Editor Integration Hardening`;
+    const APP_ITERATION = "54.3.8";
+    const APP_BUILD_ID = "iteration54-3-8-device-editor-compact-controls";
+    const APP_MODULE_CACHE_ID = "iteration54-3-8-device-editor-compact-controls-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Device Editor Compact Controls`;
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "f409d0373f783821e981515da660a2476e661959";
     const CANVAS_MIN_ZOOM = 0.03;
@@ -87384,7 +87415,12 @@
 
     function renderEditorTabs() {
       const template = currentEditorTemplate();
-      const disabledTabs = new Set(isAdapterTemplate(template) ? ["faceplate", "cards"] : []);
+      const disabledTabs = new Set();
+      if (isAdapterTemplate(template)) {
+        disabledTabs.add("faceplate");
+        disabledTabs.add("cards");
+      }
+      if (template?.hasSwappableCards !== true) disabledTabs.add("cards");
       const validTabs = new Set([...document.querySelectorAll("[data-editor-tab]")].map(tab => tab.dataset.editorTab));
       if (!validTabs.has(editorActiveTab) || editorActiveTab === "relationships" || disabledTabs.has(editorActiveTab)) editorActiveTab = "connectors";
       document.querySelectorAll("[data-editor-tab]").forEach(tab => {
@@ -90150,7 +90186,7 @@
       if (!deviceEditorPreview) return;
       const template = currentEditorTemplate();
       const bounds = editorActivePreviewBounds(template);
-	      if (deviceEditorActivePreviewUsesEngine()) {
+      if (deviceEditorActivePreviewUsesEngine()) {
         const surface = ensureDeviceEditorEnginePreviewSurface();
         if (!surface) {
           editorEnginePreviewFitPending = true;
@@ -90176,6 +90212,13 @@
       editorPreviewZoom = editorPreviewFitZoomForBounds(bounds, deviceEditorPreview, 34);
       editorPreviewPan = { x: 0, y: 0 };
       renderDeviceEditorPreview();
+    }
+
+    function scheduleDeviceEditorPreviewFit(tabName = editorActiveTab) {
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (editorActiveTab !== tabName || deviceEditorModal?.classList.contains("hidden")) return;
+        fitDeviceEditorPreview();
+      }));
     }
 
     function editorPreviewViewBox(width, height, zoom, pan = { x: 0, y: 0 }, svgElement = deviceEditorPreview, bounds = null) {
@@ -106487,13 +106530,13 @@ renderViewerOutputDebug();
     document.getElementById("resetDeviceEditor").addEventListener("click", openDeviceEditor);
     document.getElementById("exportDeviceLibrary").addEventListener("click", exportDeviceLibraryJson);
     document.getElementById("applyDeviceEditor").addEventListener("click", applyDeviceEditor);
-	    editorTabs.addEventListener("click", event => {
-	      const tab = event.target.closest("[data-editor-tab]");
-	      if (!tab) return;
-	      if (tab.disabled || tab.getAttribute("aria-disabled") === "true") return;
-	      const previousTab = editorActiveTab;
-	      editorActiveTab = tab.dataset.editorTab;
-	      recordShellPanelAction("device editor tab", editorActiveTab);
+    editorTabs.addEventListener("click", event => {
+      const tab = event.target.closest("[data-editor-tab]");
+      if (!tab) return;
+      if (tab.disabled || tab.getAttribute("aria-disabled") === "true") return;
+      const previousTab = editorActiveTab;
+      editorActiveTab = tab.dataset.editorTab;
+      recordShellPanelAction("device editor tab", editorActiveTab);
       editorSelectedCardNodeIndex = null;
       renderEditorTabs();
       try {
@@ -106505,17 +106548,11 @@ renderViewerOutputDebug();
       renderRackBuilder();
       renderNodePalette();
       renderSelectedConnectorSettings();
-	      renderConnectorRelationshipsPanel();
-	      renderDeviceEditorPreview();
-	      if (editorActiveTab === "faceplate" && previousTab !== "faceplate") {
-	        requestAnimationFrame(() => {
-	          if (editorActiveTab === "faceplate" && !deviceEditorModal?.classList.contains("hidden")) {
-	            fitDeviceEditorPreview();
-	          }
-	        });
-	      }
-	      renderDeviceAuthoringDebugPanel();
-	    });
+      renderConnectorRelationshipsPanel();
+      renderDeviceEditorPreview();
+      if (previousTab !== editorActiveTab) scheduleDeviceEditorPreviewFit(editorActiveTab);
+      renderDeviceAuthoringDebugPanel();
+    });
     connectorRelationshipsPanel?.addEventListener("click", event => {
       const reverseButton = event.target.closest("[data-relationship-reverse]");
       if (reverseButton) {

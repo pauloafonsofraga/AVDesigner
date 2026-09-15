@@ -92,7 +92,7 @@ test("Device tab uses compact feature groups with dependent controls beside togg
   const featurePane = deviceFeaturePane();
   const expectedLabels = [
     "Adapter / Breakout",
-    "Has Card Slots",
+    "HAS SWAPPABLE CARDS",
     "Is an LED Processor",
     "Is an Ethernet Switch",
     "Is a PD",
@@ -101,6 +101,8 @@ test("Device tab uses compact feature groups with dependent controls beside togg
   ];
 
   assert.match(devicePanel, /editor-device-command-row/);
+  assert.match(INDEX_HTML, /grid-template-columns: minmax\(170px, 280px\) minmax\(120px, 220px\) minmax\(150px, 260px\) minmax\(132px, 172px\);/);
+  assert.match(INDEX_HTML, /editor-device-power-field \.power-input-row/);
   assertOrder(devicePanel, [
     "editor-primary-action",
     "newDeviceTemplate",
@@ -133,6 +135,10 @@ test("Device tab uses compact feature groups with dependent controls beside togg
   assert.match(switchGroup, /id="editorSwitchPortCount"/);
   assert.match(switchGroup, /id="editorSwitchPortType"/);
   assert.match(switchGroup, /id="addEthernetSwitchPorts"/);
+  assert.match(switchGroup, />Add<\/button>/);
+  assert.match(switchGroup, /editor-switch-count-field/);
+  assert.match(switchGroup, /editor-switch-type-field/);
+  assert.match(switchGroup, /editor-switch-add-button/);
   const pairGroup = groupContaining(featurePane, "editorPartOfPair");
   assert.match(pairGroup, /id="editorPairTemplate"/);
   assert.match(pairGroup, /id="editorPairPlaceFirst"/);
@@ -168,6 +174,7 @@ test("Device Editor workspace sidebars are scoped to their tabs", () => {
   assert.match(renderTabs, /const showConnectorInspector = editorActiveTab === "connectors" \|\| editorActiveTab === "cards";/);
   assert.match(renderTabs, /const showCardInspector = editorActiveTab === "cards";/);
   assert.match(renderTabs, /const showTechSpecs = editorActiveTab === "device";/);
+  assert.match(renderTabs, /if \(template\?\.hasSwappableCards !== true\) disabledTabs\.add\("cards"\);/);
   assert.match(renderTabs, /const showDeviceFeaturePane = editorDeviceFeaturePaneActive\(\);/);
   assert.match(renderTabs, /connectorInspectorPanel\?\.classList\.toggle\("hidden", !showConnectorInspector \|\| showCardInspector\);/);
   assert.match(renderTabs, /cardInspectorPanel\?\.classList\.toggle\("hidden", !showCardInspector\);/);
@@ -275,7 +282,7 @@ test("Cards tab uses the authoring schematic before the Engine full-device branc
   assert.match(functionSource("disposeDeviceEditorEnginePreviewSurface"), /restoreDeviceEditorPreviewSvgHome\(\);/);
 });
 
-test("Fit uses active bounds and Faceplate auto-fits only when entering the tab", () => {
+test("Fit uses active bounds and tab switches auto-fit the active preview", () => {
   assert.match(ENGINE_PREVIEW_SOURCE, /setSceneData\(sceneData = \{\}, \{ fit = true, fitOptions = null \} = \{\}\)/);
   assert.match(ENGINE_PREVIEW_SOURCE, /if \(fit\) this\.fitToContent\(fitOptions \|\| undefined\);/);
 
@@ -296,10 +303,11 @@ test("Fit uses active bounds and Faceplate auto-fits only when entering the tab"
   assertOrder(tabHandler, [
     "const previousTab = editorActiveTab;",
     "editorActiveTab = tab.dataset.editorTab;",
-    'if (editorActiveTab === "faceplate" && previousTab !== "faceplate")',
-    "requestAnimationFrame(() =>",
-    "fitDeviceEditorPreview();"
-  ], "Faceplate should fit once on tab entry");
+    "renderDeviceEditorPreview();",
+    "if (previousTab !== editorActiveTab) scheduleDeviceEditorPreviewFit(editorActiveTab);"
+  ], "Every tab switch should schedule an active-preview fit after rendering");
+  assert.match(functionSource("scheduleDeviceEditorPreviewFit"), /requestAnimationFrame\(\(\) => requestAnimationFrame\(\(\) =>/);
+  assert.match(functionSource("scheduleDeviceEditorPreviewFit"), /fitDeviceEditorPreview\(\);/);
 });
 
 test("Device Editor preview wheel zoom uses platform-specific modifiers", () => {
