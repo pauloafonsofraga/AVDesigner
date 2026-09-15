@@ -333,8 +333,10 @@ test("Editor preview wheel zoom uses platform-specific modifiers", () => {
   const activePreviewGate = functionSource("deviceEditorActivePreviewUsesEngine");
   assert.match(activePreviewGate, /deviceEditorUsesEnginePreview\(\) && editorActiveTab !== "cards"/);
   assert.match(functionSource("editorPreviewWheelZoomFactor"), /event\?\.deltaY < 0 \? 1\.12 : 1 \/ 1\.12/);
+  assert.match(functionSource("editorPreviewWheelAltModifierActive"), /event\.getModifierState\("Alt"\)/);
+  assert.match(functionSource("editorPreviewWheelAltModifierActive"), /event\?\.altKey === true/);
   const editorGate = functionSource("editorPreviewWheelZoomModifierActive");
-  assert.match(editorGate, /IS_APPLE_POINTER_PLATFORM \? event\?\.altKey : event\?\.ctrlKey/);
+  assert.match(editorGate, /IS_APPLE_POINTER_PLATFORM \? editorPreviewWheelAltModifierActive\(event\) : event\?\.ctrlKey/);
   assert.match(functionSource("zoomEditorPreviewSvg"), /svg === deviceEditorPreview && deviceEditorActivePreviewUsesEngine\(\)/);
   assert.match(functionSource("handleEditorPreviewWheel"), /if \(!editorPreviewWheelZoomModifierActive\(event\)\) return;/);
   assert.match(functionSource("handleEditorPreviewWheel"), /event\.preventDefault\(\);/);

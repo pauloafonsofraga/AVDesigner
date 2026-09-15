@@ -41,7 +41,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-3-13-swappable-card-pcb-icon";
+const BUILD_ID = "iteration54-3-14-editor-preview-alt-zoom";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -50,9 +50,9 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Swappable Card PCB Icon");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-3-13-swappable-card-pcb-icon-modules";'), "module cache key should identify Swappable Card PCB Icon");
-assert.ok(indexHtml.includes("Swappable Card PCB Icon"), "visible build label should name Swappable Card PCB Icon");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Explicit Editor Preview Alt Zoom");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-3-14-editor-preview-alt-zoom-modules";'), "module cache key should identify Explicit Editor Preview Alt Zoom");
+assert.ok(indexHtml.includes("Explicit Editor Preview Alt Zoom"), "visible build label should name Explicit Editor Preview Alt Zoom");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-3-7-device-editor-integration-hardening"'), "Engine bridge version should identify Device Editor Integration Hardening");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "device-editor-integration-hardening"'), "bridge feature label should identify Device Editor Integration Hardening");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-3-7-device-editor-integration-hardening"), "bridge fingerprint should identify Device Editor Integration Hardening");
