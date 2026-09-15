@@ -4876,7 +4876,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.3.10 — Editor Preview Wheel Zoom — iteration54-3-10-editor-preview-wheel-zoom</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.3.11 — Editor Preview Modifier Wheel Zoom — iteration54-3-11-editor-preview-modifier-wheel-zoom</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5570,10 +5570,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.3.10";
-    const APP_BUILD_ID = "iteration54-3-10-editor-preview-wheel-zoom";
-    const APP_MODULE_CACHE_ID = "iteration54-3-10-editor-preview-wheel-zoom-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Editor Preview Wheel Zoom`;
+    const APP_ITERATION = "54.3.11";
+    const APP_BUILD_ID = "iteration54-3-11-editor-preview-modifier-wheel-zoom";
+    const APP_MODULE_CACHE_ID = "iteration54-3-11-editor-preview-modifier-wheel-zoom-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Editor Preview Modifier Wheel Zoom`;
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "f409d0373f783821e981515da660a2476e661959";
     const CANVAS_MIN_ZOOM = 0.03;
@@ -80033,6 +80033,10 @@
       return event?.deltaY < 0 ? 1.12 : 1 / 1.12;
     }
 
+    function editorPreviewWheelZoomModifierActive(event) {
+      return Boolean(IS_APPLE_POINTER_PLATFORM ? event?.altKey : event?.ctrlKey);
+    }
+
     function refreshActiveEngineBridge(reason, options = {}) {
       const bridge = activeEngineBridge();
       if (!bridge?.refreshFromProduction) return null;
@@ -106996,6 +107000,7 @@ renderViewerOutputDebug();
     });
     function handleRackBuilderPreviewWheel(event) {
       if (event.__avDesignerRackBuilderPreviewWheelHandled) return;
+      if (!editorPreviewWheelZoomModifierActive(event)) return;
       event.__avDesignerRackBuilderPreviewWheelHandled = true;
       event.preventDefault();
       event.stopPropagation();
@@ -107558,6 +107563,7 @@ renderViewerOutputDebug();
 
     function handleEditorPreviewWheel(event, svg = deviceEditorPreview) {
       if (event.__avDesignerEditorPreviewWheelHandled) return;
+      if (!editorPreviewWheelZoomModifierActive(event)) return;
       event.__avDesignerEditorPreviewWheelHandled = true;
       event.preventDefault();
       event.stopPropagation();
@@ -107567,6 +107573,7 @@ renderViewerOutputDebug();
 
     function handleNodeBuilderPreviewWheel(event) {
       if (event.__avDesignerNodeBuilderPreviewWheelHandled) return;
+      if (!editorPreviewWheelZoomModifierActive(event)) return;
       event.__avDesignerNodeBuilderPreviewWheelHandled = true;
       event.preventDefault();
       event.stopPropagation();
@@ -107578,6 +107585,7 @@ renderViewerOutputDebug();
 
     function handleTitleBlockPreviewWheel(event) {
       if (event.__avDesignerTitleBlockPreviewWheelHandled) return;
+      if (!editorPreviewWheelZoomModifierActive(event)) return;
       event.__avDesignerTitleBlockPreviewWheelHandled = true;
       event.preventDefault();
       event.stopPropagation();
