@@ -151,6 +151,9 @@ test("Device Editor exposes card slot workflow in Connectors instead of a Slots 
   assert.doesNotMatch(connectorsPanel, /editor-panel-note/);
   assert.doesNotMatch(connectorsPanel, /These are fixed chassis connectors|Drag an available card|Drop a card into the preview/);
   assert.doesNotMatch(connectorsPanel, /<label>Available Cards<\/label>/);
+  assert.match(INDEX_HTML, /const SWAPPABLE_CARD_ICON_DATA_URI = "data:image\/png;base64,/);
+  assert.match(INDEX_HTML, /<img class="card-chip-icon" src="\$\{SWAPPABLE_CARD_ICON_DATA_URI\}" alt="" aria-hidden="true" draggable="false">/);
+  assert.doesNotMatch(INDEX_HTML, /\.card-chip::before/);
   assert.doesNotMatch(cardsPanel, /id="addCardSlot"|id="cardPalette"|id="cardSlotList"/);
   assert.match(cardsPanel, /card-editor-toolbar/);
   assert.match(cardsPanel, /id="newCardType"/);
