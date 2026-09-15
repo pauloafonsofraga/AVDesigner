@@ -4,7 +4,7 @@ import {
   isCanvasObjectKind,
   isLedSurfaceKind
 } from "./canvasObjectKinds.js";
-import { cloneMatrixRoutes } from "./matrixRouting.js";
+import { cloneMatrixRoutes } from "./matrixRouting.js?v=iteration54-4-0-matrix-routing-internal-routes";
 import { normalizeJumpLinks } from "./jumpNodeModel.js";
 
 const ENGINE_EXPORT_FORMAT = "av-designer-engine-prototype";
@@ -163,6 +163,7 @@ export class ProjectMutationAdapter {
       "powerWatts",
       "powerUnit",
       "showInternalWiring",
+      "showInternalMatrixRouting",
       "title",
       "text",
       "backgroundColor",
@@ -178,7 +179,7 @@ export class ProjectMutationAdapter {
         if (Number.isFinite(numeric)) entry.item[key] = roundNumber(numeric);
         return;
       }
-      if (["locked", "showInternalWiring"].includes(key)) {
+      if (["locked", "showInternalWiring", "showInternalMatrixRouting"].includes(key)) {
         entry.item[key] = Boolean(value);
         return;
       }

@@ -40,7 +40,7 @@ import {
 import {
   connectorIncludedInMatrixForEngine,
   normalizeMatrixRoutesForDevice
-} from "./matrixRouting.js";
+} from "./matrixRouting.js?v=iteration54-4-0-matrix-routing-internal-routes";
 import {
   DEVICE_DEFINITION_SCHEMA_VERSION,
   deviceDefinitionVersion,
@@ -495,6 +495,7 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
     powerWatts: instance.powerWatts ?? template.powerWatts ?? "",
     powerUnit: instance.powerUnit || template.powerUnit || "",
     showInternalWiring: Boolean(instance.showInternalWiring),
+    showInternalMatrixRouting: instance.showInternalMatrixRouting !== false,
     labelMapped: Boolean(instance.name || template.name || template.model),
     usesRealSize: Boolean(widthSource && heightSource),
     usesFallbackSize: !(widthSource && heightSource),

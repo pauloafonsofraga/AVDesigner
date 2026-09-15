@@ -31,7 +31,7 @@ import {
 import {
   connectorIncludedInMatrixForEngine,
   normalizeMatrixRoutesForDevice
-} from "./matrixRouting.js";
+} from "./matrixRouting.js?v=iteration54-4-0-matrix-routing-internal-routes";
 import {
   connectorDisplayAnchorById,
   connectorDisplayAnchors,
@@ -1891,6 +1891,7 @@ function normalizeDevice(device) {
     powerWatts: device.powerWatts ?? "",
     powerUnit: String(device.powerUnit || ""),
     showInternalWiring: Boolean(device.showInternalWiring),
+    showInternalMatrixRouting: device.showInternalMatrixRouting !== false,
     labelMapped: Boolean(device.labelMapped || device.label || device.name),
     usesRealSize: Boolean(device.usesRealSize),
     usesFallbackSize: Boolean(device.usesFallbackSize),

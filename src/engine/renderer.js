@@ -10,6 +10,10 @@ import {
   adapterInternalBezierGeometry,
   adapterInternalWirePairs
 } from "./adapterMapping.js";
+import {
+  matrixInternalRoutePairsForDevice,
+  matrixInternalRoutePolyline
+} from "./matrixRouting.js?v=iteration54-4-0-matrix-routing-internal-routes";
 import { isCanvasObjectKind, isLedSurfaceKind } from "./canvasObjectKinds.js";
 import {
   engineConnectorInfoFields,
@@ -56,7 +60,7 @@ import {
 } from "./jumpNodeModel.js";
 import { wirePlaybackEase } from "./wirePlayback.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-3-7-device-editor-integration-hardening";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-4-0-matrix-routing-internal-routes";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -155,25 +159,31 @@ export class WebglGraphRenderer {
     if (!this.gl) throw new Error("WebGL2 is not available in this browser.");
     this.staticWireBuffer = this.gl.createBuffer();
     this.staticDeviceBuffer = this.gl.createBuffer();
+    this.matrixRouteBuffer = this.gl.createBuffer();
     this.liveBuffer = this.gl.createBuffer();
     this.gridBuffer = this.gl.createBuffer();
     this.textureBuffer = this.gl.createBuffer();
     this.glowBuffer = this.gl.createBuffer();
     this.staticWireVertexCount = 0;
     this.staticDeviceVertexCount = 0;
+    this.matrixRouteVertexCount = 0;
     this.liveVertexCount = 0;
     this.gridVertexCount = 0;
     this.wireVertexMap = new Map();
     this.deviceVertexMap = new Map();
+    this.matrixRouteVertexMap = new Map();
     this.wireRangeMap = new Map();
     this.deviceRangeMap = new Map();
+    this.matrixRouteRangeMap = new Map();
     this.staticWireArray = new Float32Array();
     this.staticDeviceArray = new Float32Array();
+    this.matrixRouteArray = new Float32Array();
     this.renderOptions = { ...DEFAULT_RENDER_OPTIONS };
     this.fullRebuildCount = 0;
     this.rangeUpdateCount = 0;
     this.lastStaticStats = null;
     this.lastDirtyStats = null;
+    this.lastMatrixRouteStats = null;
     this.lastTextureStats = null;
     this.lastTextureDrawStats = null;
     this.lastFrameStats = null;
@@ -270,8 +280,10 @@ export class WebglGraphRenderer {
     this.textureScene = scene;
     this.wireVertexMap.clear();
     this.deviceVertexMap.clear();
+    this.matrixRouteVertexMap.clear();
     this.wireRangeMap.clear();
     this.deviceRangeMap.clear();
+    this.matrixRouteRangeMap.clear();
     const geometryStart = performance.now();
     this.refreshCableHops(scene, { mode: "full-static" });
     // Static geometry is built once per scene load. Pan/zoom/drag must not
@@ -282,17 +294,22 @@ export class WebglGraphRenderer {
     this.lastWirePathStats = wirePathStatsForWires(scene.wires);
     scene.devices.forEach(device => {
       this.deviceVertexMap.set(device.id, verticesForDevice(device, null, this.renderOptions));
+      this.matrixRouteVertexMap.set(device.id, verticesForMatrixInternalRoutes(device, null, this.renderOptions));
     });
     const geometryMs = performance.now() - geometryStart;
     const uploadStart = performance.now();
     const wirePack = packVertexMap(this.wireVertexMap);
     const devicePack = packVertexMap(this.deviceVertexMap);
+    const matrixRoutePack = packVertexMap(this.matrixRouteVertexMap);
     this.staticWireArray = wirePack.array;
     this.staticDeviceArray = devicePack.array;
+    this.matrixRouteArray = matrixRoutePack.array;
     this.wireRangeMap = wirePack.ranges;
     this.deviceRangeMap = devicePack.ranges;
+    this.matrixRouteRangeMap = matrixRoutePack.ranges;
     this.staticWireVertexCount = uploadArray(this.gl, this.staticWireBuffer, this.staticWireArray);
     this.staticDeviceVertexCount = uploadArray(this.gl, this.staticDeviceBuffer, this.staticDeviceArray);
+    this.matrixRouteVertexCount = uploadArray(this.gl, this.matrixRouteBuffer, this.matrixRouteArray);
     const uploadMs = performance.now() - uploadStart;
     const textureStart = performance.now();
     this.lastTextureStats = this.prepareTextures(scene, "static scene");
@@ -305,6 +322,7 @@ export class WebglGraphRenderer {
       textureMs,
       wireVertices: this.staticWireVertexCount,
       deviceVertices: this.staticDeviceVertexCount,
+      matrixRouteVertices: this.matrixRouteVertexCount,
       fullRebuildCount: this.fullRebuildCount,
       rangeUpdateCount: this.rangeUpdateCount
     };
@@ -380,6 +398,7 @@ export class WebglGraphRenderer {
     [
       this.staticWireBuffer,
       this.staticDeviceBuffer,
+      this.matrixRouteBuffer,
       this.liveBuffer,
       this.gridBuffer,
       this.textureBuffer,
@@ -392,6 +411,7 @@ export class WebglGraphRenderer {
     });
     this.staticWireBuffer = null;
     this.staticDeviceBuffer = null;
+    this.matrixRouteBuffer = null;
     this.liveBuffer = null;
     this.gridBuffer = null;
     this.textureBuffer = null;
@@ -572,8 +592,10 @@ export class WebglGraphRenderer {
     // drop/connection work away from the old full-scene geometry rebuild.
     let deviceFallbackRebuild = false;
     let wireFallbackRebuild = false;
+    let matrixRouteFallbackRebuild = false;
     let deviceRangeUpdates = 0;
     let wireRangeUpdates = 0;
+    let matrixRouteRangeUpdates = 0;
     let rangeUploadMs = 0;
     deviceIds.forEach(id => {
       const device = scene.getDevice(id);
@@ -584,7 +606,9 @@ export class WebglGraphRenderer {
       const range = this.deviceRangeMap.get(id);
       if (!device) {
         deviceFallbackRebuild = true;
+        matrixRouteFallbackRebuild = true;
         this.deviceVertexMap.delete(id);
+        this.matrixRouteVertexMap.delete(id);
         return;
       }
       if (!range || range.count !== next.length) {
@@ -596,6 +620,19 @@ export class WebglGraphRenderer {
         subUpload(this.gl, this.staticDeviceBuffer, range.offset, next);
         rangeUploadMs += performance.now() - subUploadStart;
         deviceRangeUpdates += 1;
+      }
+      const nextMatrixRoutes = verticesForMatrixInternalRoutes(device, null, this.renderOptions);
+      const matrixRange = this.matrixRouteRangeMap.get(id);
+      if (!matrixRange || matrixRange.count !== nextMatrixRoutes.length) {
+        matrixRouteFallbackRebuild = true;
+        this.matrixRouteVertexMap.set(id, nextMatrixRoutes);
+      } else {
+        this.matrixRouteVertexMap.set(id, nextMatrixRoutes);
+        this.matrixRouteArray.set(nextMatrixRoutes, matrixRange.offset);
+        const subUploadStart = performance.now();
+        subUpload(this.gl, this.matrixRouteBuffer, matrixRange.offset, nextMatrixRoutes);
+        rangeUploadMs += performance.now() - subUploadStart;
+        matrixRouteRangeUpdates += 1;
       }
     });
     [...effectiveWireIds].forEach(id => {
@@ -621,13 +658,19 @@ export class WebglGraphRenderer {
     const geometryMs = performance.now() - geometryStart;
     const uploadStart = performance.now();
     let fallbackStats = null;
+    let matrixRouteFallbackStats = null;
     if (deviceFallbackRebuild) {
       fallbackStats = this.setStaticScene(scene);
-    } else if (wireFallbackRebuild) {
-      fallbackStats = this.rebuildWireGeometry(scene);
+    } else {
+      if (wireFallbackRebuild) {
+        fallbackStats = this.rebuildWireGeometry(scene);
+      }
+      if (matrixRouteFallbackRebuild) {
+        matrixRouteFallbackStats = this.rebuildMatrixInternalRouteGeometry(scene);
+      }
     }
     const uploadMs = rangeUploadMs + (performance.now() - uploadStart);
-    this.rangeUpdateCount += deviceRangeUpdates + wireRangeUpdates;
+    this.rangeUpdateCount += deviceRangeUpdates + wireRangeUpdates + matrixRouteRangeUpdates;
     this.lastDirtyStats = {
       totalMs: performance.now() - start,
       geometryMs,
@@ -637,11 +680,14 @@ export class WebglGraphRenderer {
       dirtyWires: effectiveWireIds.size,
       deviceRangeUpdates,
       wireRangeUpdates,
-      rangeUpdates: deviceRangeUpdates + wireRangeUpdates,
+      matrixRouteRangeUpdates,
+      rangeUpdates: deviceRangeUpdates + wireRangeUpdates + matrixRouteRangeUpdates,
       fallbackRebuild: deviceFallbackRebuild || wireFallbackRebuild,
       deviceFallbackRebuild,
       wireFallbackRebuild,
+      matrixRouteFallbackRebuild,
       fallbackStats,
+      matrixRouteFallbackStats,
       cableHopsRefreshed: refreshCableHops,
       cableHopStats: this.cableHopStats(),
       fullRebuildCount: this.fullRebuildCount,
@@ -667,7 +713,7 @@ export class WebglGraphRenderer {
     this.wireRangeMap = wirePack.ranges;
     this.staticWireVertexCount = uploadArray(this.gl, this.staticWireBuffer, this.staticWireArray);
     const uploadMs = performance.now() - uploadStart;
-    this.rangeUpdateCount += 1;
+    this.rangeUpdateCount += 2;
     return {
       totalMs: performance.now() - start,
       geometryMs,
@@ -706,12 +752,100 @@ export class WebglGraphRenderer {
     };
   }
 
+  rebuildMatrixInternalRouteGeometry(scene) {
+    const start = performance.now();
+    this.matrixRouteVertexMap.clear();
+    this.matrixRouteRangeMap.clear();
+    const geometryStart = performance.now();
+    scene.devices.forEach(device => {
+      this.matrixRouteVertexMap.set(device.id, verticesForMatrixInternalRoutes(device, null, this.renderOptions));
+    });
+    const geometryMs = performance.now() - geometryStart;
+    const uploadStart = performance.now();
+    const matrixRoutePack = packVertexMap(this.matrixRouteVertexMap);
+    this.matrixRouteArray = matrixRoutePack.array;
+    this.matrixRouteRangeMap = matrixRoutePack.ranges;
+    this.matrixRouteVertexCount = uploadArray(this.gl, this.matrixRouteBuffer, this.matrixRouteArray);
+    const uploadMs = performance.now() - uploadStart;
+    this.rangeUpdateCount += 1;
+    this.lastMatrixRouteStats = {
+      totalMs: performance.now() - start,
+      geometryMs,
+      uploadMs,
+      matrixRouteVertices: this.matrixRouteVertexCount,
+      matrixRouteOnlyRebuild: true,
+      fullRebuildCount: this.fullRebuildCount,
+      rangeUpdateCount: this.rangeUpdateCount
+    };
+    return this.lastMatrixRouteStats;
+  }
+
+  updateMatrixInternalRoutes(scene, deviceIds = []) {
+    if (this.disposed || !this.gl) return { disposed: true };
+    const start = performance.now();
+    this.textureScene = scene;
+    const ids = [...new Set(deviceIds || [])];
+    if (!ids.length) return this.rebuildMatrixInternalRouteGeometry(scene);
+    let fallbackRebuild = false;
+    let rangeUpdates = 0;
+    let rangeUploadMs = 0;
+    const geometryStart = performance.now();
+    ids.forEach(id => {
+      const device = scene.getDevice(id);
+      const next = device ? verticesForMatrixInternalRoutes(device, null, this.renderOptions) : [];
+      const range = this.matrixRouteRangeMap.get(id);
+      if (!device) {
+        fallbackRebuild = true;
+        this.matrixRouteVertexMap.delete(id);
+        return;
+      }
+      if (!range || range.count !== next.length) {
+        fallbackRebuild = true;
+        this.matrixRouteVertexMap.set(id, next);
+        return;
+      }
+      this.matrixRouteVertexMap.set(id, next);
+      this.matrixRouteArray.set(next, range.offset);
+      const subUploadStart = performance.now();
+      subUpload(this.gl, this.matrixRouteBuffer, range.offset, next);
+      rangeUploadMs += performance.now() - subUploadStart;
+      rangeUpdates += 1;
+    });
+    const geometryMs = performance.now() - geometryStart;
+    let rebuildStats = null;
+    if (fallbackRebuild) {
+      rebuildStats = this.rebuildMatrixInternalRouteGeometry(scene);
+    } else {
+      this.rangeUpdateCount += rangeUpdates;
+    }
+    this.lastMatrixRouteStats = {
+      totalMs: performance.now() - start,
+      geometryMs,
+      uploadMs: rangeUploadMs,
+      rangeUploadMs,
+      dirtyDevices: ids.length,
+      dirtyWires: 0,
+      deviceRangeUpdates: 0,
+      wireRangeUpdates: 0,
+      matrixRouteRangeUpdates: rangeUpdates,
+      rangeUpdates,
+      fallbackRebuild: false,
+      matrixRouteFallbackRebuild: fallbackRebuild,
+      matrixRouteFallbackStats: rebuildStats,
+      fullRebuildCount: this.fullRebuildCount,
+      rangeUpdateCount: this.rangeUpdateCount
+    };
+    this.lastDirtyStats = this.lastMatrixRouteStats;
+    return this.lastMatrixRouteStats;
+  }
+
   appendDevice(scene, deviceId) {
     const start = performance.now();
     const device = scene.getDevice(deviceId);
     if (!device) return { totalMs: 0, appended: false };
     const geometryStart = performance.now();
     const vertices = verticesForDevice(device, null, this.renderOptions);
+    const matrixRouteVertices = verticesForMatrixInternalRoutes(device, null, this.renderOptions);
     const geometryMs = performance.now() - geometryStart;
     const uploadStart = performance.now();
     const offset = this.staticDeviceArray.length;
@@ -722,6 +856,14 @@ export class WebglGraphRenderer {
     this.deviceVertexMap.set(deviceId, vertices);
     this.deviceRangeMap.set(deviceId, { offset, count: vertices.length });
     this.staticDeviceVertexCount = uploadArray(this.gl, this.staticDeviceBuffer, this.staticDeviceArray);
+    const matrixOffset = this.matrixRouteArray.length;
+    const nextMatrix = new Float32Array(matrixOffset + matrixRouteVertices.length);
+    nextMatrix.set(this.matrixRouteArray, 0);
+    nextMatrix.set(matrixRouteVertices, matrixOffset);
+    this.matrixRouteArray = nextMatrix;
+    this.matrixRouteVertexMap.set(deviceId, matrixRouteVertices);
+    this.matrixRouteRangeMap.set(deviceId, { offset: matrixOffset, count: matrixRouteVertices.length });
+    this.matrixRouteVertexCount = uploadArray(this.gl, this.matrixRouteBuffer, this.matrixRouteArray);
     const uploadMs = performance.now() - uploadStart;
     const textureStart = performance.now();
     const textureEntry = device.kind === "jump"
@@ -739,7 +881,8 @@ export class WebglGraphRenderer {
       dirtyWires: 0,
       deviceRangeUpdates: 1,
       wireRangeUpdates: 0,
-      rangeUpdates: 1,
+      matrixRouteRangeUpdates: 1,
+      rangeUpdates: 2,
       fallbackRebuild: false,
       appended: true,
       texturePrepared: Boolean(textureEntry),
@@ -752,11 +895,15 @@ export class WebglGraphRenderer {
   removeDevice(scene, deviceId) {
     this.textureCache.invalidateDevice(deviceId, "remove device");
     const rebuildStats = this.rebuildDeviceGeometry(scene);
+    const matrixRouteStats = this.rebuildMatrixInternalRouteGeometry(scene);
     this.lastDirtyStats = {
       ...rebuildStats,
       dirtyDevices: 1,
       dirtyWires: 0,
+      matrixRouteFallbackRebuild: true,
+      matrixRouteFallbackStats: matrixRouteStats,
       fallbackRebuild: false,
+      rangeUpdateCount: matrixRouteStats.rangeUpdateCount,
       removed: true
     };
     return this.lastDirtyStats;
@@ -827,6 +974,7 @@ export class WebglGraphRenderer {
       staticDeviceMs: 0,
       rackFrameMs: 0,
       textureDrawMs: 0,
+      matrixInternalRouteMs: 0,
       liveBuildMs: 0,
       liveUploadMs: 0,
       liveDrawMs: 0,
@@ -852,6 +1000,7 @@ export class WebglGraphRenderer {
       connectorOverlayCount: 0,
       connectorNotWorkingMarks: 0,
       connectorRelationships: 0,
+      matrixInternalRoutes: 0,
       wirePreviewDrawn: 0,
       wirePlayback: 0,
       suppressedAffectedWireOverlays: 0,
@@ -919,6 +1068,9 @@ export class WebglGraphRenderer {
     sectionStart = performance.now();
     this.drawTextureDevices(scene, camera, renderOptions, dragSession, layerTrace, device => device.kind !== "area");
     frameStats.textureDrawMs = performance.now() - sectionStart;
+    sectionStart = performance.now();
+    frameStats.matrixInternalRoutes = this.drawMatrixInternalRoutes(dragSession, layerTrace);
+    frameStats.matrixInternalRouteMs = performance.now() - sectionStart;
     const liveVertices = [];
     const liveBuildStart = performance.now();
     if (dragSession && !renderOptions.hideDragOverlay) {
@@ -961,6 +1113,7 @@ export class WebglGraphRenderer {
         // texture quads. The live overlay only draws selection affordances, so
         // we do not reintroduce the old square fallback body during drag.
         if (deviceUsesTextureLayer(device, renderOptions) && this.textureCache.getEntry(id)?.texture) {
+          pushMatrixInternalRoutes(liveVertices, device, offsets, renderOptions, "normal");
           pushSelectionOutline(liveVertices, device, offsets);
           this.recordObjectLayer(layerTrace, id, "liveDragObjectOverlay", "drawn-moving-outline");
         } else {
@@ -995,8 +1148,14 @@ export class WebglGraphRenderer {
         frameStats.objectHoverOverlayMs = performance.now() - hoverOverlayStart;
         (options.selectedIds || new Set()).forEach(id => {
           const device = scene.getDevice(id);
-          if (device) pushSelectionOutline(liveVertices, device, null);
+          if (device) {
+            pushMatrixInternalRoutes(liveVertices, device, null, renderOptions, "highlight");
+            pushSelectionOutline(liveVertices, device, null);
+          }
         });
+        if (hoveredDevice && !(options.selectedIds || new Set()).has(hoveredDevice.id)) {
+          pushMatrixInternalRoutes(liveVertices, hoveredDevice, null, renderOptions, "hover");
+        }
         (options.selectedWireIds || new Set()).forEach(id => {
           if (staticSuppressedWireIds.has(id)) return;
           const wire = scene.getWire(id);
@@ -1362,6 +1521,23 @@ export class WebglGraphRenderer {
       this.recordObjectLayer(layerTrace, id, "staticDeviceLayer", this.deviceRangeMap.has(id) ? "skipped" : "no-range");
     });
     this.drawBufferExceptRanges(this.staticDeviceBuffer, this.staticDeviceVertexCount, skippedRanges);
+  }
+
+  drawMatrixInternalRoutes(dragSession = null, layerTrace = null) {
+    if (!this.matrixRouteVertexCount) return 0;
+    if (!dragSession?.selectedIds?.length) {
+      this.drawBuffer(this.matrixRouteBuffer, this.matrixRouteVertexCount);
+      return this.matrixRouteVertexCount;
+    }
+    const skippedRanges = dragSession.selectedIds
+      .map(id => this.matrixRouteRangeMap.get(id))
+      .filter(Boolean)
+      .sort((a, b) => a.offset - b.offset);
+    dragSession.selectedIds.forEach(id => {
+      this.recordObjectLayer(layerTrace, id, "matrixInternalRouteLayer", this.matrixRouteRangeMap.has(id) ? "skipped-during-drag" : "no-range");
+    });
+    this.drawBufferExceptRanges(this.matrixRouteBuffer, this.matrixRouteVertexCount, skippedRanges);
+    return Math.max(0, this.matrixRouteVertexCount - skippedRanges.reduce((total, range) => total + range.count / 6, 0));
   }
 
   drawBufferExceptRanges(buffer, vertexCount, skippedRanges = []) {
@@ -3082,6 +3258,44 @@ function verticesForWire(scene, wire, offsets = null, width = WIRE_BASE_WIDTH, c
   const vertices = [];
   pushWire(vertices, scene, wire, offsets, width, color, options, cableHopMap);
   return vertices;
+}
+
+function verticesForMatrixInternalRoutes(device, offsets = null, options = DEFAULT_RENDER_OPTIONS) {
+  const vertices = [];
+  pushMatrixInternalRoutes(vertices, device, offsets, options);
+  return vertices;
+}
+
+function pushMatrixInternalRoutes(vertices, device, offsets = null, options = DEFAULT_RENDER_OPTIONS, mode = "normal") {
+  if (!device?.visual?.isMatrixRouter || options.wires === false) return 0;
+  const pairs = matrixInternalRoutePairsForDevice(device);
+  if (!pairs.length) return 0;
+  const offset = offsets?.get(device.id);
+  const baseX = device.x + (offset?.dx || 0);
+  const baseY = device.y + (offset?.dy || 0);
+  const highlighted = mode === "highlight" || mode === "hover";
+  const opacity = highlighted ? 0.92 : 0.62;
+  const width = highlighted ? 5.2 : 3.4;
+  let count = 0;
+  pairs.forEach(pair => {
+    const points = matrixInternalRoutePolyline(device, pair, baseX, baseY, 30);
+    if (points.length < 2) return;
+    const inputColor = matrixRouteConnectorColor(pair.inputConnector, options, "start");
+    const outputColor = matrixRouteConnectorColor(pair.outputConnector, options, "end");
+    if (highlighted) pushPolyline(vertices, points, width + 6, "rgba(251,121,4,.12)");
+    pushGradientPolyline(vertices, points, width, inputColor, outputColor, opacity);
+    count += 1;
+  });
+  return count;
+}
+
+function matrixRouteConnectorColor(connector = {}, options = DEFAULT_RENDER_OPTIONS, edge = "start") {
+  if (options.connectorColors === false) return WIRE_FALLBACK;
+  const segments = Array.isArray(connector.colorSegments)
+    ? connector.colorSegments.map(color => String(color || "").trim()).filter(Boolean)
+    : [];
+  if (segments.length > 1) return edge === "end" ? segments[segments.length - 1] : segments[0];
+  return connector.color || PORT_COLOR;
 }
 
 function packVertexMap(map) {

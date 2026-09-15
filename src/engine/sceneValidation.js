@@ -3,7 +3,7 @@ import {
   matrixCrosspointKey,
   matrixRouteDiagnosticsForDevice,
   normalizeMatrixRoutesForDevice
-} from "./matrixRouting.js";
+} from "./matrixRouting.js?v=iteration54-4-0-matrix-routing-internal-routes";
 import {
   connectorVisualAnchors,
   isV2Connector,

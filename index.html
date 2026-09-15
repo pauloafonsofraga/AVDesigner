@@ -1412,6 +1412,14 @@
       opacity: .95;
     }
 
+    .matrix-internal-wire {
+      fill: none;
+      stroke-width: 3.4;
+      stroke-linecap: round;
+      pointer-events: none;
+      opacity: .62;
+    }
+
     body.dark-mode .adapter-label {
       fill: #f7fafc;
       stroke: rgba(0, 0, 0, .85);
@@ -4942,7 +4950,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.3.16 — Faceplate Upload Label Cleanup — iteration54-3-16-faceplate-upload-label-cleanup</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.4.0 — Matrix Routing Internal Routes — iteration54-4-0-matrix-routing-internal-routes</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5635,10 +5643,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.3.16";
-    const APP_BUILD_ID = "iteration54-3-16-faceplate-upload-label-cleanup";
-    const APP_MODULE_CACHE_ID = "iteration54-3-16-faceplate-upload-label-cleanup-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Faceplate Upload Label Cleanup`;
+    const APP_ITERATION = "54.4.0";
+    const APP_BUILD_ID = "iteration54-4-0-matrix-routing-internal-routes";
+    const APP_MODULE_CACHE_ID = "iteration54-4-0-matrix-routing-internal-routes-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Matrix Routing Internal Routes`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "f409d0373f783821e981515da660a2476e661959";
@@ -96484,6 +96492,7 @@
 
       drawDeviceBody(group, template, instance);
       drawEthernetPairLines(group, instance, template);
+      drawMatrixInternalRoutes(group, instance, template);
       effectiveTemplateConnectors(template)
         .filter(connector => !connector.empty && isConnectorVisibleOnCanvas(instance, connector))
         .forEach(connector => drawConnector(group, instance, connector));
@@ -101511,6 +101520,19 @@
       });
       if (action === "edit") openDeviceEditorForInstance(instanceId);
       if (action === "matrix") openMatrixRoutingModal(instanceId);
+      if (action === "toggle-matrix-internal-routing") {
+        const visible = instance.showInternalMatrixRouting !== false;
+        const engineBridge = activeEngineBridge();
+        if (engineBridge?.commitObjectInspectorFields) {
+          engineBridge.commitObjectInspectorFields(instanceId, { showInternalMatrixRouting: !visible });
+        } else {
+          pushUndo();
+          instance.showInternalMatrixRouting = !visible;
+          renderDeviceInstancesById([instanceId]);
+          renderInspector();
+          updateUndoRedoButtons();
+        }
+      }
       if (action === "duplicate") {
         createProjectCustomDeviceFromCanvasInstance(instanceId);
       }
@@ -101695,7 +101717,10 @@
       if (!instance) return;
       const template = templateForInstance(instance);
       const matrixOption = template?.isMatrixRouter === true
-        ? `<button type="button" data-device-menu="matrix">Edit Matrix Routing</button>`
+        ? `
+          <button type="button" data-device-menu="matrix">Edit Matrix Routing</button>
+          <button type="button" data-device-menu="toggle-matrix-internal-routing">${instance.showInternalMatrixRouting === false ? "Show" : "Hide"} Internal Matrix Routing</button>
+        `
         : "";
       deviceContextMenu.innerHTML = `
         <button type="button" data-device-menu="edit">Edit in Device Editor</button>
@@ -103230,6 +103255,23 @@
       return routes;
     }
 
+    function normalizedMatrixRoutesForInstance(instance, template = templateForInstance(instance)) {
+      if (!instance || !template?.isMatrixRouter) return {};
+      const { inputs, outputs } = matrixEndpointsForInstance(instance);
+      const inputIds = new Set(inputs.map(item => item.id));
+      const outputIds = new Set(outputs.map(item => item.id));
+      const sourceRoutes = instance.matrixRoutes && typeof instance.matrixRoutes === "object" && !Array.isArray(instance.matrixRoutes)
+        ? instance.matrixRoutes
+        : {};
+      const routes = {};
+      Object.entries(sourceRoutes).forEach(([outputId, inputId]) => {
+        const cleanOutputId = String(outputId || "");
+        const cleanInputId = String(inputId || "");
+        if (outputIds.has(cleanOutputId) && inputIds.has(cleanInputId)) routes[cleanOutputId] = cleanInputId;
+      });
+      return routes;
+    }
+
     function matrixRouteList(instance) {
       const { inputs, outputs } = matrixEndpointsForInstance(instance);
       const inputNames = new Map(inputs.map(input => [input.id, input.name]));
@@ -103241,6 +103283,87 @@
           inputId: routes[output.id],
           inputName: inputNames.get(routes[output.id]) || "Missing input"
         }));
+    }
+
+    function matrixInternalRoutingVisibleForInstance(instance, template = templateForInstance(instance)) {
+      return Boolean(instance && template?.isMatrixRouter) && instance.showInternalMatrixRouting !== false;
+    }
+
+    function matrixRouteAnchorPointForConnector(template, connector, role) {
+      const width = deviceTemplateWidth(template);
+      const anchors = Array.isArray(connector?.anchors) ? connector.anchors : [];
+      const preferredSide = role === "output" ? "right" : "left";
+      const anchor = anchors.find(item => item?.side === preferredSide)
+        || anchors.find(item => item?.id && item.id === connector?.primaryAnchorId)
+        || anchors[0]
+        || null;
+      const fallbackX = preferredSide === "right" ? width : 0;
+      const x = Number(anchor?.x ?? connector?.x);
+      const y = Number(anchor?.y ?? connector?.y);
+      return {
+        x: Number.isFinite(x) ? clamp(x, 0, width) : fallbackX,
+        y: Number.isFinite(y) ? clamp(y, 0, Number(template?.height) || 190) : 0
+      };
+    }
+
+    function matrixInternalRoutePairs(instance, template = templateForInstance(instance)) {
+      if (!matrixInternalRoutingVisibleForInstance(instance, template)) return [];
+      const { inputs, outputs } = matrixEndpointsForInstance(instance);
+      const routes = normalizedMatrixRoutesForInstance(instance, template);
+      const inputsById = new Map(inputs.map(input => [input.id, input]));
+      return outputs
+        .map(output => {
+          const input = inputsById.get(routes[output.id]);
+          if (!input) return null;
+          return {
+            input,
+            output,
+            from: matrixRouteAnchorPointForConnector(template, input.connector, "input"),
+            to: matrixRouteAnchorPointForConnector(template, output.connector, "output")
+          };
+        })
+        .filter(Boolean);
+    }
+
+    function matrixInternalRoutePath(template, from, to) {
+      const width = deviceTemplateWidth(template);
+      const direction = to.x >= from.x ? 1 : -1;
+      const dx = Math.max(48, Math.min(width * .42, Math.abs(to.x - from.x) * .42 || width * .24));
+      const c1 = { x: clamp(from.x + dx * direction, 0, width), y: from.y };
+      const c2 = { x: clamp(to.x - dx * direction, 0, width), y: to.y };
+      return `M ${from.x} ${from.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${to.x} ${to.y}`;
+    }
+
+    function drawMatrixInternalRoutes(group, instance, template) {
+      matrixInternalRoutePairs(instance, template).forEach(pair => {
+        const gradientId = nextSvgDomId("matrix-internal-wire-gradient");
+        const inputColor = colorForConnector(pair.input.connector, instance.instanceId);
+        const outputColor = colorForConnector(pair.output.connector, instance.instanceId);
+        const defs = createSvg("defs");
+        const gradient = createSvg("linearGradient", {
+          id: gradientId,
+          gradientUnits: "userSpaceOnUse",
+          x1: pair.from.x,
+          y1: pair.from.y,
+          x2: pair.to.x,
+          y2: pair.to.y
+        });
+        [
+          ["0%", inputColor],
+          ["28%", inputColor],
+          ["72%", outputColor],
+          ["100%", outputColor]
+        ].forEach(([offset, color]) => {
+          gradient.appendChild(createSvg("stop", { offset, "stop-color": color }));
+        });
+        defs.appendChild(gradient);
+        group.appendChild(defs);
+        group.appendChild(createSvg("path", {
+          class: "matrix-internal-wire",
+          d: matrixInternalRoutePath(template, pair.from, pair.to),
+          stroke: `url(#${gradientId})`
+        }));
+      });
     }
 
     function matrixRoutingDeviceKey(instance) {
@@ -105428,6 +105551,7 @@
         .dark-mode .device-outline{fill:#18202a;stroke:#fff}
         .adapter-outline{fill:#32b6ff;fill-opacity:.08;stroke:#32b6ff;stroke-opacity:.72;stroke-width:2;stroke-dasharray:7 5}
         .adapter-internal-wire{fill:none;stroke-width:3;stroke-linecap:round;pointer-events:none;opacity:.95}
+        .matrix-internal-wire{fill:none;stroke-width:3.4;stroke-linecap:round;pointer-events:none;opacity:.62}
         .adapter-label{fill:#18202a;font-size:13px;font-weight:900;text-anchor:middle;dominant-baseline:middle;paint-order:stroke;stroke:rgba(255,255,255,.92);stroke-width:4;stroke-linejoin:round}.dark-mode .adapter-label{fill:#f7fafc;stroke:rgba(0,0,0,.85)}
         .selected .device-outline,.selected .adapter-outline{stroke:#fb7904!important;stroke-width:3;filter:drop-shadow(0 0 9px rgba(251,121,4,.95)) drop-shadow(0 0 22px rgba(251,121,4,.55))}
         .device-face{fill:#fff}.dark-mode .device-face{fill:#2a3745}.device-slot{fill:#101820;stroke:#111820;stroke-width:1}.device-screen{fill:#7fcfc2;opacity:.95}
@@ -106360,6 +106484,15 @@ function connectionColor(w){if(w.cableType==="led-signal")return signalLineColor
 function connectionColorSegments(w){if(!w||w.customColor||w.cableType==="led-signal"||fiberTypes.has(w.cableType))return null;return cableColorSegments(w.cableType)}
 function connectorColor(connector,deviceId){if(connector.type==="led-signal")return signalLineColor(connector.signalIndex);if(cageTypesStandalone.has(connector.type)&&!connector.installedModuleType)return"#778492";const activeType=activeTypeForConnector(connector)||connector.type;if(fiberTypes.has(activeType))return cableColor(activeType,fiberModeForEndpoint(deviceId,connector.id));if(activeType==="misc"&&connector.customColor)return connector.customColor;return cableColor(activeType)}
 function connectorColorSegments(connector){if(!connector||cageTypesStandalone.has(connector.type)&&!connector.installedModuleType)return null;return cableColorSegments(activeTypeForConnector(connector)||connector.type)}
+const matrixExcludedViewerTypes=new Set(["iec","uk-13a","schuko","edison","powercon","powercon-true1","16a-cee","32a-cee","63a-cee","125a-cee","socapex","harting","powerlock","nema","16a-1ph-110v","16a-1ph","32a-1ph-110v","32a-1ph","16a-3ph","32a-3ph","63a-3ph","125a-3ph","cat5e","cat6","cat6a","ethercon","ethernet","sfp-cage","sfp-plus-cage","qsfp-cage","usb-a","usb-b","usb-c","rs-422","midi","dmx-3pin","dmx-5pin","led-signal"]);
+const matrixExcludedViewerText=/\\b(lan|network|mgmt|management|service|control|remote|usb|power|mains|genlock|sync|reference|rs[- ]?422|midi|dmx)\\b/;
+function matrixConnectorIncludedViewer(c){if(!c||c.empty||!c.type)return false;if(typeof c.includeInMatrix==="boolean")return c.includeInMatrix;const raw=String(c.type||"").trim(),active=activeTypeForConnector(c)||raw;if(matrixExcludedViewerTypes.has(raw)||matrixExcludedViewerTypes.has(active))return false;const text=[c.label,c.nameText,c.customText,c.resolutionFrameRate,connectorLabel(c)].join(" ").toLowerCase();return!matrixExcludedViewerText.test(text)}
+function matrixConnectorName(connector,prefix,index){const fallback=prefix+" "+(index+1),name=String(connector&&connector.nameText||connector&&connector.label||fallback).trim()||fallback,plug=String(connectorLabel(connector)||"").trim(),parts=[name];if(plug&&plug.toLowerCase()!==name.toLowerCase())parts.push(plug);return parts.join(" / ")}
+function matrixEndpointsForViewer(t){if(!t||!t.isMatrixRouter)return{inputs:[],outputs:[]};const connectors=effectiveConnectors(t).filter(matrixConnectorIncludedViewer).sort((a,b)=>(Number(a.y)||0)-(Number(b.y)||0)||(Number(a.x)||0)-(Number(b.x)||0));return{inputs:connectors.filter(c=>c.direction==="input").map((c,i)=>({connector:c,id:c.id,name:matrixConnectorName(c,"IN",i)})),outputs:connectors.filter(c=>c.direction==="output").map((c,i)=>({connector:c,id:c.id,name:matrixConnectorName(c,"OUT",i)}))}}
+function matrixRoutesForViewer(inst,t){const routes=inst&&inst.matrixRoutes&&typeof inst.matrixRoutes==="object"&&!Array.isArray(inst.matrixRoutes)?inst.matrixRoutes:{},endpoints=matrixEndpointsForViewer(t),inputIds=new Set(endpoints.inputs.map(i=>i.id)),outputIds=new Set(endpoints.outputs.map(o=>o.id)),clean={};Object.entries(routes).forEach(entry=>{if(outputIds.has(entry[0])&&inputIds.has(entry[1]))clean[entry[0]]=entry[1]});return clean}
+function matrixRouteAnchorPointViewer(t,c,role){const width=exportDeviceWidth(t),height=Number(t&&t.height)||190,side=role==="output"?"right":"left",anchors=Array.isArray(c&&c.anchors)?c.anchors:[],anchor=anchors.find(a=>a&&a.side===side)||anchors.find(a=>a&&a.id&&a.id===c.primaryAnchorId)||anchors[0]||null,x=Number(anchor&&anchor.x!==undefined?anchor.x:c&&c.x),y=Number(anchor&&anchor.y!==undefined?anchor.y:c&&c.y);return{x:Number.isFinite(x)?clampHop(x,0,width):(side==="right"?width:0),y:Number.isFinite(y)?clampHop(y,0,height):0}}
+function matrixInternalRoutePathViewer(t,from,to){const width=exportDeviceWidth(t),dir=to.x>=from.x?1:-1,dx=Math.max(48,Math.min(width*.42,Math.abs(to.x-from.x)*.42||width*.24)),c1={x:clampHop(from.x+dx*dir,0,width),y:from.y},c2={x:clampHop(to.x-dx*dir,0,width),y:to.y};return"M "+from.x+" "+from.y+" C "+c1.x+" "+c1.y+", "+c2.x+" "+c2.y+", "+to.x+" "+to.y}
+function drawMatrixInternalRoutes(g,inst,t){if(!inst||!t||!t.isMatrixRouter||inst.showInternalMatrixRouting===false)return;const endpoints=matrixEndpointsForViewer(t),routes=matrixRoutesForViewer(inst,t),inputs=new Map(endpoints.inputs.map(i=>[i.id,i]));endpoints.outputs.forEach(output=>{const input=inputs.get(routes[output.id]);if(!input)return;const from=matrixRouteAnchorPointViewer(t,input.connector,"input"),to=matrixRouteAnchorPointViewer(t,output.connector,"output"),id="matrix-internal-wire-gradient-"+clipSeq++,defs=s("defs"),gradient=s("linearGradient",{id:id,gradientUnits:"userSpaceOnUse",x1:from.x,y1:from.y,x2:to.x,y2:to.y});[["0%",connectorColor(input.connector,inst.instanceId)],["28%",connectorColor(input.connector,inst.instanceId)],["72%",connectorColor(output.connector,inst.instanceId)],["100%",connectorColor(output.connector,inst.instanceId)]].forEach(stop=>gradient.appendChild(s("stop",{offset:stop[0],"stop-color":stop[1]})));defs.appendChild(gradient);g.appendChild(defs);g.appendChild(s("path",{class:"matrix-internal-wire",d:matrixInternalRoutePathViewer(t,from,to),stroke:"url(#"+id+")"}))})}
 function connectorOperationalStatus(connector){const raw=String(connector&&connector.operationalStatus||"working").trim().toLowerCase();return raw==="not-working"||raw==="not_working"||raw==="not working"||raw==="broken"||raw==="faulty"?"not-working":"working"}
 function connectorNotWorking(connector){return connectorOperationalStatus(connector)==="not-working"}
 function drawConnectorNotWorkingMark(g,x,y,r){const arm=Math.max(7,Number(r)||7)*1.28;[[x-arm,y-arm,x+arm,y+arm],[x-arm,y+arm,x+arm,y-arm]].forEach(p=>g.appendChild(s("line",{x1:p[0],y1:p[1],x2:p[2],y2:p[3],stroke:"#ff0000","stroke-width":2.35,"stroke-linecap":"round","pointer-events":"none"})))}
@@ -106494,7 +106627,7 @@ function clampPowerCenter(t,x,y,w,h){const r=powerFaceRect(t);return{x:Math.min(
 function powerPlugLayout(t){if(!t||!t.isPowerDistro||t.faceImage||t.faceplateDeleted)return[];const r=powerFaceRect(t),out=[],ins=powerPlugConnectors(t,"input",false),outs=powerPlugConnectors(t,"output",false),leftX=r.x+r.width*.25,rightX=r.x+r.width*.75,top=r.y+18;function stack(list,side){let y=top;list.forEach(c=>{const size=powerPlugSize(c),auto={x:side==="input"?leftX:rightX,y:y+size.height/2},p=c.powerPlug&&c.powerPlug.manual?clampPowerCenter(t,c.powerPlug.x,c.powerPlug.y,size.width,size.height):auto;out.push({c,href:powerPlugImage(c),x:p.x-size.width/2,y:p.y-size.height/2,width:size.width,height:size.height,powerlock:false});y+=size.height+10})}stack(ins,"input");stack(outs,"output");let lockY=top+Math.max(powerStackHeight(ins),powerStackHeight(outs))+((ins.length||outs.length)?18:0);[...powerPlugConnectors(t,"input",true),...powerPlugConnectors(t,"output",true)].forEach(c=>{const size=powerPlugSize(c),cy=lockY+size.height/2,p=c.powerPlug&&c.powerPlug.manual?clampPowerCenter(t,c.powerPlug.x,c.powerPlug.y,size.width,size.height):{x:r.x+r.width/2,y:cy};out.push({c,href:powerPlugImage(c),x:p.x-size.width/2,y:p.y-size.height/2,width:size.width,height:size.height,powerlock:true});lockY+=size.height+10});return out}
 function drawPowerPlugImage(g,p){const m=powerPlugTypes[p.c&&p.c.type]||{},crop=m.crop;if(!crop||!crop.viewBox||!crop.box){g.appendChild(s("image",{class:"power-plug-image",href:p.href,x:p.x,y:p.y,width:p.width,height:p.height,preserveAspectRatio:"xMidYMid meet"}));return}const vb=crop.viewBox.map(Number),box=crop.box.map(Number),scale=Math.min(p.width/box[2],p.height/box[3]),cw=box[2]*scale,ch=box[3]*scale,clip="power-plug-export-clip-"+clipSeq++,defs=s("defs"),cp=s("clipPath",{id:clip});cp.appendChild(s("rect",{x:p.x,y:p.y,width:p.width,height:p.height,rx:2}));defs.appendChild(cp);g.appendChild(defs);g.appendChild(s("image",{class:"power-plug-image",href:p.href,x:p.x+(p.width-cw)/2-(box[0]-vb[0])*scale,y:p.y+(p.height-ch)/2-(box[1]-vb[1])*scale,width:vb[2]*scale,height:vb[3]*scale,preserveAspectRatio:"none","clip-path":"url(#"+clip+")"}))}
 function drawPowerFace(g,t){if(!t||!t.isPowerDistro||t.faceImage||t.faceplateDeleted)return false;const r=powerFaceRect(t);g.appendChild(s("rect",{class:"device-face power-distro-face",x:r.x,y:r.y,width:r.width,height:r.height,rx:5}));powerPlugLayout(t).forEach(p=>drawPowerPlugImage(g,p));return true}
-function drawDevice(g,inst,t){if(isAdapterTemplate(t)){const w=Number(t.width)||ADAPTER_WIDTH,h=Number(t.height)||76;g.appendChild(s("rect",{class:"adapter-outline",width:w,height:h,rx:6,fill:"#32b6ff","fill-opacity":.08,stroke:"#32b6ff","stroke-opacity":.72}));drawAdapterInternalWires(g,t,inst);const label=s("text",{class:"adapter-label",x:w/2,y:-5,"dominant-baseline":"auto"});label.textContent=inst.name||t.name||"Adapter / Breakout";g.appendChild(label);effectiveConnectors(t).filter(c=>!c.empty&&!connectorHidden(inst,c)).forEach(c=>drawConnector(g,inst,c));return}g.appendChild(s("rect",{class:"device-outline",width:t.width||DEVICE_WIDTH,height:t.height||190,rx:8}));if(t.faceImage){const face=facePlacement(t);g.appendChild(s("image",{href:t.faceImage,x:face.x,y:face.y,width:face.width,height:face.height,preserveAspectRatio:"xMidYMid meet"}))}else if(drawPowerFace(g,t)){}else if(!t.faceplateDeleted){g.appendChild(s("rect",{class:"device-face",x:FACE_MARGIN,y:FACE_TOP_Y,width:(t.width||DEVICE_WIDTH)-FACE_MARGIN*2,height:FACE_HEIGHT,rx:5}));g.appendChild(s("rect",{class:"device-screen",x:24,y:FACE_TOP_Y+10,width:76,height:34,rx:4}));[0,1,2,3,4,5].forEach(i=>g.appendChild(s("circle",{cx:128+i*18,cy:FACE_TOP_Y+24,r:3.3,fill:i%2?"#fb7904":"#32b6ff"})))};(t.cardSlots||[]).forEach(slot=>{const card=cardTypeById(t,slot.installedCardTypeId);const band=cardBandGeometry(t,slot);g.appendChild(s("rect",{class:"card-band",x:band.x,y:band.y,width:band.width,height:band.height,rx:6}));drawCardCaptionExport(g,card&&card.name||"Empty",band.textX,resolvedCardSlotY(t,slot)+3,card,band.width-12)});effectiveConnectors(t).filter(c=>!c.empty&&!connectorHidden(inst,c)).forEach(c=>drawConnector(g,inst,c));const label=s("text",{class:"device-label",x:20,y:22});label.textContent=inst.name||t.name||"Device";g.appendChild(label)}
+function drawDevice(g,inst,t){if(isAdapterTemplate(t)){const w=Number(t.width)||ADAPTER_WIDTH,h=Number(t.height)||76;g.appendChild(s("rect",{class:"adapter-outline",width:w,height:h,rx:6,fill:"#32b6ff","fill-opacity":.08,stroke:"#32b6ff","stroke-opacity":.72}));drawAdapterInternalWires(g,t,inst);const label=s("text",{class:"adapter-label",x:w/2,y:-5,"dominant-baseline":"auto"});label.textContent=inst.name||t.name||"Adapter / Breakout";g.appendChild(label);effectiveConnectors(t).filter(c=>!c.empty&&!connectorHidden(inst,c)).forEach(c=>drawConnector(g,inst,c));return}g.appendChild(s("rect",{class:"device-outline",width:t.width||DEVICE_WIDTH,height:t.height||190,rx:8}));if(t.faceImage){const face=facePlacement(t);g.appendChild(s("image",{href:t.faceImage,x:face.x,y:face.y,width:face.width,height:face.height,preserveAspectRatio:"xMidYMid meet"}))}else if(drawPowerFace(g,t)){}else if(!t.faceplateDeleted){g.appendChild(s("rect",{class:"device-face",x:FACE_MARGIN,y:FACE_TOP_Y,width:(t.width||DEVICE_WIDTH)-FACE_MARGIN*2,height:FACE_HEIGHT,rx:5}));g.appendChild(s("rect",{class:"device-screen",x:24,y:FACE_TOP_Y+10,width:76,height:34,rx:4}));[0,1,2,3,4,5].forEach(i=>g.appendChild(s("circle",{cx:128+i*18,cy:FACE_TOP_Y+24,r:3.3,fill:i%2?"#fb7904":"#32b6ff"})))};(t.cardSlots||[]).forEach(slot=>{const card=cardTypeById(t,slot.installedCardTypeId);const band=cardBandGeometry(t,slot);g.appendChild(s("rect",{class:"card-band",x:band.x,y:band.y,width:band.width,height:band.height,rx:6}));drawCardCaptionExport(g,card&&card.name||"Empty",band.textX,resolvedCardSlotY(t,slot)+3,card,band.width-12)});drawMatrixInternalRoutes(g,inst,t);effectiveConnectors(t).filter(c=>!c.empty&&!connectorHidden(inst,c)).forEach(c=>drawConnector(g,inst,c));const label=s("text",{class:"device-label",x:20,y:22});label.textContent=inst.name||t.name||"Device";g.appendChild(label)}
 function drawSegmentedConnectorNode(g,x,y,r,colors){const clip="connector-node-export-clip-"+clipSeq++,defs=s("defs"),cp=s("clipPath",{id:clip});cp.appendChild(s("circle",{cx:x,cy:y,r:r}));defs.appendChild(cp);g.appendChild(defs);const step=r*2/colors.length;colors.forEach((color,i)=>g.appendChild(s("rect",{x:x-r+i*step,y:y-r,width:step+.5,height:r*2,fill:color,"clip-path":"url(#"+clip+")","pointer-events":"none"})));g.appendChild(s("circle",{class:"connector-node",cx:x,cy:y,r:r,fill:"none"}))}
 function drawConnector(g,inst,c){const detailScale=canvasDetailScale(),selectedNode=selected&&selected.type==="connector"&&selected.deviceId===inst.instanceId&&selected.connectorId===c.id,infoBoxMode=view.zoom<=INFO_BOX_HIDE_ZOOM?"hidden":detailScale>=INFO_BOX_COMPACT_SCALE?"compact":"full",dimmed=connectorDimmed(inst,c);const node=s("g",{class:selectedNode?"selected":"",opacity:dimmed?0.5:1}),segments=connectorColorSegments(c);if(segments)drawSegmentedConnectorNode(node,c.x,c.y,7,segments);else node.appendChild(s("circle",{class:"connector-node",cx:c.x,cy:c.y,r:7,fill:connectorColor(c,inst.instanceId)}));if(connectorNotWorking(c))drawConnectorNotWorkingMark(node,c.x,c.y,7);node.appendChild(s("circle",{class:"connector-hit",cx:c.x,cy:c.y,r:17,fill:"transparent",stroke:"transparent"}));const label=s("text",{class:"connector-label",x:c.direction==="input"?c.x+17:c.x-17,y:c.y+20,"text-anchor":c.direction==="input"?"start":"end"});label.textContent=connectorLabel(c);node.appendChild(label);if(!isAdapterTemplate(templateForInstance(inst))&&!c.faceplateSide){const fields=c.type==="led-signal"?[{field:"customText",title:connectorFieldTitle(c,"customText"),text:c.customText}]:[{field:"nameText",title:connectorFieldTitle(c,"nameText"),text:c.nameText},{field:"resolutionFrameRate",title:connectorFieldTitle(c,"resolutionFrameRate"),text:c.resolutionFrameRate},{field:"customText",title:connectorFieldTitle(c,"customText"),text:c.customText}];addVisibleInfoBoxes(node,c,fields,detailScale,infoBoxMode)}node.addEventListener("click",e=>{e.stopPropagation();select({type:"connector",deviceId:inst.instanceId,connectorId:c.id})});node.addEventListener("dblclick",e=>{e.stopPropagation();jumpConnectedNode(inst.instanceId,c.id)});g.appendChild(node)}
 function drawWireVisuals(g,d,w,dir){const colors=connectionColorSegments(w);if(!colors){const line=s("path",{class:"wire",d,fill:"none",stroke:connectionColor(w),"marker-end":"url(#arrowEnd)"});if(dir==="two-way")line.setAttribute("marker-start","url(#arrowStart)");g.appendChild(line);return[line]}const len=100/colors.length;return colors.map((color,i)=>{const line=s("path",{class:"wire wire-segmented",d,fill:"none",stroke:color,pathLength:100,"stroke-dasharray":len+" 100","stroke-dashoffset":String(-i*len),"stroke-linecap":"butt"});if(i===colors.length-1)line.setAttribute("marker-end","url(#arrowEnd)");if(dir==="two-way"&&i===0)line.setAttribute("marker-start","url(#arrowStart)");g.appendChild(line);return line})}

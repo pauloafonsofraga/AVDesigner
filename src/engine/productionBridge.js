@@ -54,11 +54,12 @@ import {
 import {
   cloneMatrixRoutes,
   matrixEndpointsForEngineDevice,
+  matrixInternalRoutingVisible,
   matrixRouteDiagnosticsForDevice,
   matrixRoutesEqual,
   normalizeMatrixRoutesForDevice,
   setMatrixRouteForDevice
-} from "./matrixRouting.js";
+} from "./matrixRouting.js?v=iteration54-4-0-matrix-routing-internal-routes";
 import { legacyConnectorHitRadius } from "./legacyZoomDetail.js";
 import { applyCableHopsToPolyline } from "./cableHops.js";
 import {
@@ -122,9 +123,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-3-7-device-editor-integration-hardening";
-export const ENGINE_BRIDGE_VERSION = "iteration54-3-7-device-editor-integration-hardening";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "device-editor-integration-hardening";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-4-0-matrix-routing-internal-routes";
+export const ENGINE_BRIDGE_VERSION = "iteration54-4-0-matrix-routing-internal-routes";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "matrix-routing-internal-routes";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -5831,8 +5832,25 @@ class ProductionEngineBridge {
     const device = this.resolveDeviceBySourceId(objectId);
     if (!device) return { mutationMs: 0 };
     const sourceId = String(device.sourceId || device.id);
-    applyObjectFieldsToSceneDevice(device, fields);
-    const mutationMs = this.mutations?.updateObjectFields(sourceId, fields) || 0;
+    const sanitized = sanitizeObjectInspectorFields(fields);
+    applyObjectFieldsToSceneDevice(device, sanitized);
+    const mutationMs = this.mutations?.updateObjectFields(sourceId, sanitized) || 0;
+    const matrixVisibilityOnly = objectInspectorPatchOnlyInternalMatrixRouting(sanitized);
+    if (matrixVisibilityOnly) {
+      this.scene.dirtyDevices.add(device.id);
+      const dirtyStats = this.renderer.updateMatrixInternalRoutes?.(this.scene, [device.id]) || { totalMs: 0, dirtyDevices: 1, dirtyWires: 0 };
+      this.lastDirtyDeviceIds = new Set([device.id]);
+      this.lastDirtyWireIds = new Set();
+      this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+      this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+      this.renderer.setRenderOptions(this.renderOptions);
+      this.hud?.setMetric("matrix internal routes", matrixInternalRoutingVisible(device) ? "shown" : "hidden");
+      this.hud?.setMetric("dirty update", `${(dirtyStats.totalMs || 0).toFixed(2)} ms`);
+      this.recordDirtyVisualMetrics(dirtyStats, "matrix internal route visibility");
+      this.updateSelectionHud();
+      this.scheduleRender();
+      return { mutationMs, dirtyStats };
+    }
     this.scene.dirtyDevices.add(device.id);
     this.scene.dirtyTextures.add(device.id);
     const affectedWireIds = [...this.scene.affectedWireIdsForDevices([device.id])];
@@ -5857,7 +5875,20 @@ class ProductionEngineBridge {
   previewObjectInspectorFields(objectId, fields = {}) {
     const device = this.resolveDeviceBySourceId(objectId);
     if (!device) return false;
-    applyObjectFieldsToSceneDevice(device, fields);
+    const sanitized = sanitizeObjectInspectorFields(fields);
+    applyObjectFieldsToSceneDevice(device, sanitized);
+    if (objectInspectorPatchOnlyInternalMatrixRouting(sanitized)) {
+      this.scene.dirtyDevices.add(device.id);
+      const dirtyStats = this.renderer.updateMatrixInternalRoutes?.(this.scene, [device.id]) || { totalMs: 0, dirtyDevices: 1, dirtyWires: 0 };
+      this.lastDirtyDeviceIds = new Set([device.id]);
+      this.lastDirtyWireIds = new Set();
+      this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+      this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+      this.renderer.setRenderOptions(this.renderOptions);
+      this.recordDirtyVisualMetrics(dirtyStats, "matrix internal route preview");
+      this.scheduleRender();
+      return true;
+    }
     this.scene.dirtyDevices.add(device.id);
     this.scene.dirtyTextures.add(device.id);
     const affectedWireIds = [...this.scene.affectedWireIdsForDevices([device.id])];
@@ -6124,6 +6155,12 @@ class ProductionEngineBridge {
     const normalized = normalizeMatrixRoutesForDevice({ ...device, matrixRoutes: routes }, routes);
     device.matrixRoutes = normalized;
     const mutationMs = this.mutations?.updateMatrixRoutes(sourceId, normalized) || 0;
+    const dirtyStats = this.renderer.updateMatrixInternalRoutes?.(this.scene, [device.id]) || { totalMs: 0, dirtyDevices: 1, dirtyWires: 0 };
+    this.lastDirtyDeviceIds = new Set([device.id]);
+    this.lastDirtyWireIds = new Set();
+    this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+    this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+    this.renderer.setRenderOptions(this.renderOptions);
     if (options.select !== false) this.scene.selectOnly(device.id);
     const diagnostics = matrixRouteDiagnosticsForDevice(device);
     this.hud?.setMetric("matrix routes", `${diagnostics.assignedRoutes}/${diagnostics.outputs}`);
@@ -6133,7 +6170,7 @@ class ProductionEngineBridge {
     this.updateSelectionHud();
     this.renderEngineInspector();
     this.scheduleRender();
-    return { mutationMs, diagnostics };
+    return { mutationMs, diagnostics, dirtyStats };
   }
 
   commitWireInspectorFields(wireId, fields = {}) {
@@ -10455,17 +10492,22 @@ function engineInspectorPositionForDevice(device) {
 }
 
 function sanitizeObjectInspectorFields(fields = {}) {
-  const allowed = new Set(["name", "label", "notes", "locked", "powerWatts", "powerUnit", "showInternalWiring"]);
+  const allowed = new Set(["name", "label", "notes", "locked", "powerWatts", "powerUnit", "showInternalWiring", "showInternalMatrixRouting"]);
   const sanitized = {};
   Object.entries(fields || {}).forEach(([key, value]) => {
     if (!allowed.has(key)) return;
-    if (["locked", "showInternalWiring"].includes(key)) sanitized[key] = Boolean(value);
+    if (["locked", "showInternalWiring", "showInternalMatrixRouting"].includes(key)) sanitized[key] = Boolean(value);
     else if (key === "powerWatts") {
       const numeric = Number(value);
       if (Number.isFinite(numeric)) sanitized[key] = numeric;
     } else sanitized[key] = String(value ?? "");
   });
   return sanitized;
+}
+
+function objectInspectorPatchOnlyInternalMatrixRouting(fields = {}) {
+  const keys = Object.keys(fields || {});
+  return keys.length === 1 && keys[0] === "showInternalMatrixRouting";
 }
 
 function captureObjectInspectorFields(device, fields = {}) {
@@ -10499,6 +10541,7 @@ function applyObjectFieldsToSceneDevice(device, fields = {}) {
   if (sanitized.powerWatts !== undefined) device.powerWatts = sanitized.powerWatts;
   if (sanitized.powerUnit !== undefined) device.powerUnit = sanitized.powerUnit;
   if (sanitized.showInternalWiring !== undefined) device.showInternalWiring = sanitized.showInternalWiring;
+  if (sanitized.showInternalMatrixRouting !== undefined) device.showInternalMatrixRouting = sanitized.showInternalMatrixRouting;
 }
 
 function sanitizeConnectorInspectorFields(fields = {}) {

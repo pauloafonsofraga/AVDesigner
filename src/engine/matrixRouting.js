@@ -3,6 +3,10 @@ import {
   isEngineDeadCageConnector,
   isEngineFiberCableType
 } from "./connectorCompatibility.js";
+import {
+  connectorDisplayAnchors,
+  createConnectorDisplayLayout
+} from "./connectorDisplayLayout.js";
 
 export const MATRIX_EXCLUDED_CABLE_TYPES = new Set([
   "iec", "uk-13a", "schuko", "edison", "powercon", "powercon-true1",
@@ -142,6 +146,89 @@ export function matrixRouteListForDevice(device, routes = device?.matrixRoutes) 
       }));
 }
 
+export function matrixInternalRoutingVisible(device = {}) {
+  return Boolean(device?.visual?.isMatrixRouter) && device.showInternalMatrixRouting !== false;
+}
+
+export function matrixRouteAnchorForConnector(device = {}, connector = {}, role = "", displayLayout = null) {
+  const layout = displayLayout || createConnectorDisplayLayout(device);
+  const anchors = connectorDisplayAnchors(device, connector, layout);
+  const preferredSide = role === "output" ? "right" : "left";
+  return anchors.find(anchor => anchor?.side === preferredSide)
+    || anchors.find(anchor => anchor?.id && anchor.id === connector?.primaryAnchorId)
+    || anchors[0]
+    || null;
+}
+
+export function matrixInternalRoutePairsForDevice(device = {}, routes = device?.matrixRoutes) {
+  if (!matrixInternalRoutingVisible(device)) return [];
+  const { inputs, outputs } = matrixEndpointsForEngineDevice(device);
+  const normalizedRoutes = normalizeMatrixRoutesForDevice(device, routes);
+  const inputById = new Map(inputs.map(input => [input.id, input]));
+  const displayLayout = createConnectorDisplayLayout(device);
+  return outputs
+    .map(output => {
+      const inputId = normalizedRoutes[output.id];
+      const input = inputById.get(inputId);
+      if (!input) return null;
+      const inputAnchor = matrixRouteAnchorForConnector(device, input.connector, "input", displayLayout);
+      const outputAnchor = matrixRouteAnchorForConnector(device, output.connector, "output", displayLayout);
+      if (!inputAnchor || !outputAnchor) return null;
+      return {
+        deviceId: String(device.sourceId || device.id || ""),
+        routeKey: matrixCrosspointKey(device.sourceId || device.id, input.id, output.id),
+        input,
+        output,
+        inputConnector: input.connector,
+        outputConnector: output.connector,
+        inputAnchor,
+        outputAnchor,
+        start: matrixAnchorPoint(input.connector, inputAnchor, device),
+        end: matrixAnchorPoint(output.connector, outputAnchor, device)
+      };
+    })
+    .filter(Boolean);
+}
+
+export function matrixInternalRouteBezierGeometry(device = {}, pair = {}, baseX = 0, baseY = 0) {
+  const width = Math.max(1, Number(device?.width) || 1);
+  const height = Math.max(1, Number(device?.height) || 1);
+  const start = {
+    x: baseX + clamp(Number(pair?.start?.x) || 0, 0, width),
+    y: baseY + clamp(Number(pair?.start?.y) || 0, 0, height)
+  };
+  const end = {
+    x: baseX + clamp(Number(pair?.end?.x) || 0, 0, width),
+    y: baseY + clamp(Number(pair?.end?.y) || 0, 0, height)
+  };
+  const dir = end.x >= start.x ? 1 : -1;
+  const dx = Math.max(48, Math.min(width * 0.42, Math.abs(end.x - start.x) * 0.42 || width * 0.24));
+  const top = baseY;
+  const bottom = baseY + height;
+  return {
+    start,
+    c1: {
+      x: clamp(start.x + dx * dir, baseX, baseX + width),
+      y: clamp(start.y, top, bottom)
+    },
+    c2: {
+      x: clamp(end.x - dx * dir, baseX, baseX + width),
+      y: clamp(end.y, top, bottom)
+    },
+    end
+  };
+}
+
+export function matrixInternalRoutePolyline(device = {}, pair = {}, baseX = 0, baseY = 0, steps = 28) {
+  const geometry = matrixInternalRouteBezierGeometry(device, pair, baseX, baseY);
+  const count = Math.max(2, Math.floor(Number(steps) || 28));
+  const points = [];
+  for (let index = 0; index <= count; index += 1) {
+    points.push(cubicPoint(geometry.start, geometry.c1, geometry.c2, geometry.end, index / count));
+  }
+  return points;
+}
+
 export function setMatrixRouteForDevice(device, outputId, inputId, options = {}) {
   const routes = normalizeMatrixRoutesForDevice(device, device?.matrixRoutes);
   const cleanOutputId = String(outputId || "");
@@ -207,6 +294,30 @@ function plainRoutes(routes) {
     if (cleanKey && cleanValue) output[cleanKey] = cleanValue;
   });
   return output;
+}
+
+function matrixAnchorPoint(connector = {}, anchor = {}, device = {}) {
+  const fallbackX = connector?.direction === "output" || connector?.side === "right"
+    ? Number(device?.width) || 0
+    : 0;
+  const x = Number(anchor.x ?? connector.x);
+  const y = Number(anchor.y ?? connector.y);
+  return {
+    x: Number.isFinite(x) ? x : fallbackX,
+    y: Number.isFinite(y) ? y : 0
+  };
+}
+
+function cubicPoint(a, b, c, d, t) {
+  const mt = 1 - t;
+  return {
+    x: mt ** 3 * a.x + 3 * mt ** 2 * t * b.x + 3 * mt * t ** 2 * c.x + t ** 3 * d.x,
+    y: mt ** 3 * a.y + 3 * mt ** 2 * t * b.y + 3 * mt * t ** 2 * c.y + t ** 3 * d.y
+  };
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
 }
 
 function matrixTypeLabel(type) {
