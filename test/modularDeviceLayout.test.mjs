@@ -109,6 +109,44 @@ function orderedIds(layout) {
   return layout.orderedItems.map(entry => entry.id);
 }
 
+function assertNoSideOverlap(layout) {
+  for (const side of ["left", "right"]) {
+    const occupied = new Map();
+    layout.items
+      .filter(entry => entry.sideMask === side || entry.sideMask === "both")
+      .forEach(entry => {
+        for (let lane = entry.lane; lane < entry.endLane; lane += 1) {
+          assert.equal(
+            occupied.has(lane),
+            false,
+            `${side} lane ${lane} is occupied by both ${occupied.get(lane)} and ${entry.id}`
+          );
+          occupied.set(lane, entry.id);
+        }
+      });
+  }
+}
+
+function assertStationaryOrderPreserved(snapshot, layout, draggedId) {
+  const finalById = new Map(layout.items.map(entry => [entry.id, entry]));
+  for (const side of ["left", "right"]) {
+    const original = snapshot.items
+      .filter(entry => entry.id !== draggedId && (entry.sideMask === side || entry.sideMask === "both"))
+      .sort((a, b) => {
+        const laneDelta = a.lane - b.lane;
+        if (laneDelta) return laneDelta;
+        const orderDelta = a.order - b.order;
+        if (orderDelta) return orderDelta;
+        return a.id.localeCompare(b.id);
+      });
+    for (let index = 1; index < original.length; index += 1) {
+      const previous = finalById.get(original[index - 1].id);
+      const current = finalById.get(original[index].id);
+      assert.ok(previous.endLane <= current.lane, `${side} stationary order changed around ${previous.id}/${current.id}`);
+    }
+  }
+}
+
 test("input-only and output-only cards can share rows", () => {
   const { cardTypes } = cardFixture();
   const layout = resolveModularDeviceLayout({
@@ -124,6 +162,43 @@ test("input-only and output-only cards can share rows", () => {
 
   assert.equal(layout.cardSlotPositions.get("left-slot").y, START_Y);
   assert.equal(layout.cardSlotPositions.get("right-slot").y, START_Y);
+});
+
+test("stable insertion drag keeps the dragged item at the hard target in mixed-side layouts", () => {
+  const session = createModularInsertionDragSession([
+    item("L", 0, "left", 1, 0),
+    item("R", 0, "right", 1, 1),
+    item("X", 1, "both", 1, 2)
+  ], "L", { startY: START_Y, slotHeight: SLOT });
+  const layout = resolveModularInsertionDrag(session.snapshot, session.draggedItemId, 1);
+
+  assert.deepEqual(laneMap(layout), { L: 1, R: 0, X: 2 });
+  assert.equal(layout.byId.get("L").lane, 1);
+  assertNoSideOverlap(layout);
+  assertStationaryOrderPreserved(session.snapshot, layout, "L");
+  assert.deepEqual(
+    layout.items
+      .filter(entry => entry.id !== "L" && (entry.sideMask === "right" || entry.sideMask === "both"))
+      .sort((a, b) => a.lane - b.lane)
+      .map(entry => entry.id),
+    ["R", "X"]
+  );
+});
+
+test("stable insertion drag keeps variable-span cards atomic at mixed-side hard targets", () => {
+  const session = createModularInsertionDragSession([
+    item("L", 0, "left", 1, 0),
+    item("R", 0, "right", 1, 1),
+    item("CARD", 1, "both", 2, 2, "card-slot")
+  ], "L", { startY: START_Y, slotHeight: SLOT });
+  const layout = resolveModularInsertionDrag(session.snapshot, session.draggedItemId, 1);
+
+  assert.deepEqual(laneMap(layout), { L: 1, R: 0, CARD: 2 });
+  assert.equal(layout.byId.get("L").lane, 1);
+  assert.equal(layout.byId.get("CARD").span, 2);
+  assert.equal(layout.byId.get("CARD").endLane, 4);
+  assertNoSideOverlap(layout);
+  assertStationaryOrderPreserved(session.snapshot, layout, "L");
 });
 
 test("stable insertion drag reuses vacated lanes when moving up", () => {
@@ -247,6 +322,104 @@ test("stable insertion drag is deterministic across repeated calculations", () =
   assert.deepEqual(laneMap(first), laneMap(second));
   assert.deepEqual(orderedIds(first), orderedIds(second));
   assert.equal(first.endLane, second.endLane);
+});
+
+test("generated insertion cases keep hard targets, side order, and deterministic output", () => {
+  const generatedLayouts = [
+    [
+      item("L0", 0, "left", 1, 20),
+      item("R0", 0, "right", 1, 10),
+      item("B2", 2, "both", 1, 30),
+      item("L4", 4, "left", 2, 40)
+    ],
+    [
+      item("A", 0, "left", 2, 4),
+      item("B", 0, "right", 1, 3),
+      item("C", 3, "both", 2, 2, "card-slot"),
+      item("D", 6, "right", 3, 1)
+    ],
+    [
+      item("W", 1, "both", 1, 9),
+      item("X", 3, "left", 3, 8),
+      item("Y", 3, "right", 2, 7),
+      item("Z", 7, "both", 1, 6)
+    ],
+    [
+      item("card-a", 0, "left", 3, 0, "card-slot"),
+      item("card-b", 0, "right", 2, 1, "card-slot"),
+      item("io", 4, "both", 3, 2, "card-slot"),
+      item("tail", 9, "left", 1, 3)
+    ],
+    [
+      item("gap-left-a", 0, "left", 1, 3),
+      item("gap-right-a", 1, "right", 2, 2),
+      item("gap-both", 5, "both", 2, 1),
+      item("gap-left-b", 9, "left", 3, 0)
+    ]
+  ];
+
+  generatedLayouts.forEach((items, layoutIndex) => {
+    const snapshot = createModularPlacementSnapshot(items, { startY: START_Y, slotHeight: SLOT });
+    snapshot.items.forEach(entry => {
+      const targets = new Set([
+        0,
+        Math.max(0, entry.lane - 2),
+        Math.max(0, entry.lane - 1),
+        entry.lane,
+        entry.lane + 1,
+        Math.max(0, snapshot.endLane - entry.span),
+        snapshot.endLane + 1
+      ]);
+      targets.forEach(target => {
+        const layout = resolveModularInsertionDrag(snapshot, entry.id, target);
+        const repeated = resolveModularInsertionDrag(snapshot, entry.id, target);
+        assert.equal(layout.byId.get(entry.id).lane, target, `layout ${layoutIndex} dragged ${entry.id} to ${target}`);
+        assertNoSideOverlap(layout);
+        assertStationaryOrderPreserved(snapshot, layout, entry.id);
+        assert.deepEqual(laneMap(layout), laneMap(repeated), `layout ${layoutIndex} is deterministic for ${entry.id} -> ${target}`);
+        assert.equal(layout.endLane, repeated.endLane);
+      });
+    });
+  });
+});
+
+test("placement snapshots are deeply frozen scalar copies", () => {
+  const source = { id: "real-connector", name: "Original" };
+  const card = { id: "card", name: "Card" };
+  const original = [{
+    ...item("A", 0, "both", 1, 0),
+    source,
+    card,
+    memberIds: ["a", "b"]
+  }];
+  const snapshot = createModularPlacementSnapshot(original, { startY: START_Y, slotHeight: SLOT });
+
+  assert.equal(Object.isFrozen(snapshot), true);
+  assert.equal(Object.isFrozen(snapshot.items), true);
+  assert.equal(Object.isFrozen(snapshot.items[0]), true);
+  assert.equal(Object.isFrozen(snapshot.orderedItems), true);
+  assert.equal(Object.isFrozen(snapshot.byId), true);
+  assert.equal(Object.isFrozen(snapshot.byId.A), true);
+  assert.equal(Object.isFrozen(snapshot.byId.A.memberIds), true);
+  assert.equal("source" in snapshot.byId.A, false);
+  assert.equal("card" in snapshot.byId.A, false);
+  assert.equal(Object.isFrozen(source), false);
+  assert.equal(Object.isFrozen(card), false);
+
+  original[0].requestedLane = 9;
+  original[0].memberIds.push("c");
+  source.name = "Changed";
+  card.name = "Changed Card";
+
+  assert.equal(snapshot.byId.A.requestedLane, 0);
+  assert.deepEqual(snapshot.byId.A.memberIds, ["a", "b"]);
+  assert.throws(() => {
+    snapshot.byId.A = snapshot.items[0];
+  }, TypeError);
+  assert.throws(() => {
+    snapshot.byId.extra = snapshot.items[0];
+  }, TypeError);
+  assert.equal(typeof snapshot.byId.set, "undefined");
 });
 
 test("target lane hysteresis suppresses row-boundary oscillation", () => {

@@ -54,11 +54,6 @@ function sideMaskSides(mask) {
     : [normalized];
 }
 
-function sideMasksIntersect(a, b) {
-  const bSides = new Set(sideMaskSides(b));
-  return sideMaskSides(a).some(side => bSides.has(side));
-}
-
 function intervalsOverlap(start, span, rangeStart, rangeEnd) {
   const itemStart = Math.max(0, Math.round(finiteNumber(start, 0)));
   const itemEnd = itemStart + Math.max(1, Math.round(finiteNumber(span, 1)));
@@ -234,15 +229,41 @@ function packPlacementItemsInOrder(items = [], options = {}) {
   return placementResultFromItems(resolved, { startY, slotHeight, preserveRequestedY });
 }
 
+function frozenSnapshotItem(item = {}) {
+  const memberIds = Array.isArray(item.memberIds)
+    ? Object.freeze(item.memberIds.map(id => stableString(id)).filter(Boolean))
+    : undefined;
+  const snapshot = {
+    id: stableString(item.id),
+    itemType: stableString(item.itemType, "chassis-connector"),
+    sideMask: normalizePlacementSideMask(item.sideMask),
+    requestedLane: Math.max(0, Math.round(finiteNumber(item.requestedLane, item.lane))),
+    requestedY: finiteNumber(item.requestedY, item.y),
+    lane: Math.max(0, Math.round(finiteNumber(item.lane, item.requestedLane))),
+    span: Math.max(1, Math.round(finiteNumber(item.span, 1))),
+    order: finiteNumber(item.order, 0),
+    sourceIndex: finiteNumber(item.sourceIndex, 0),
+    y: finiteNumber(item.y, item.requestedY),
+    endLane: Math.max(0, Math.round(finiteNumber(item.endLane, item.lane + item.span))),
+    bottomY: finiteNumber(item.bottomY, item.y),
+    moved: item.moved === true
+  };
+  if (memberIds) snapshot.memberIds = memberIds;
+  return Object.freeze(snapshot);
+}
+
 function frozenPlacementSnapshot(layout) {
-  const items = layout.items.map(item => Object.freeze({ ...item }));
-  const orderedItems = layout.orderedItems.map(item => items.find(entry => entry.id === item.id) || Object.freeze({ ...item }));
+  const items = layout.items.map(item => frozenSnapshotItem(item));
+  const itemById = Object.fromEntries(items.map(item => [item.id, item]));
+  const orderedItems = layout.orderedItems
+    .map(item => itemById[item.id])
+    .filter(Boolean);
   const snapshot = {
     startY: layout.startY,
     slotHeight: layout.slotHeight,
     items: Object.freeze(items),
     orderedItems: Object.freeze(orderedItems),
-    byId: new Map(items.map(item => [item.id, item])),
+    byId: Object.freeze(itemById),
     occupied: Object.freeze({
       [MODULAR_LAYOUT_SIDE_MASKS.left]: Object.freeze([...(layout.occupied?.left || [])]),
       [MODULAR_LAYOUT_SIDE_MASKS.right]: Object.freeze([...(layout.occupied?.right || [])])
@@ -280,6 +301,160 @@ export function targetLaneWithHysteresis(pointerY, options = {}) {
   return Math.max(0, Math.round(rawLane));
 }
 
+function originalPlacementComparator(a, b) {
+  const laneDelta = a.lane - b.lane;
+  if (laneDelta) return laneDelta;
+  const orderDelta = a.order - b.order;
+  if (orderDelta) return orderDelta;
+  return a.id.localeCompare(b.id);
+}
+
+function laneMapFromItems(items = []) {
+  return new Map(items.map(item => [item.id, item.lane]));
+}
+
+function cloneLaneMap(laneById = new Map()) {
+  return new Map(laneById);
+}
+
+function laneForCandidate(laneById, item) {
+  return Math.max(0, Math.round(finiteNumber(laneById.get(item.id), item.lane)));
+}
+
+function laneMapEndLane(items = [], laneById = new Map()) {
+  return items.reduce((max, item) => Math.max(max, laneForCandidate(laneById, item) + item.span), 0);
+}
+
+function candidateHasNoOverlap(items = [], laneById = new Map()) {
+  const occupied = {
+    [MODULAR_LAYOUT_SIDE_MASKS.left]: [],
+    [MODULAR_LAYOUT_SIDE_MASKS.right]: []
+  };
+  for (const item of items) {
+    const lane = laneForCandidate(laneById, item);
+    for (const side of sideMaskSides(item.sideMask)) {
+      for (let index = lane; index < lane + item.span; index += 1) {
+        if (occupied[side][index]) return false;
+        occupied[side][index] = item.id;
+      }
+    }
+  }
+  return true;
+}
+
+function candidatePreservesStationaryOrder(items = [], laneById = new Map(), draggedId = "") {
+  for (const side of [MODULAR_LAYOUT_SIDE_MASKS.left, MODULAR_LAYOUT_SIDE_MASKS.right]) {
+    const stationary = items
+      .filter(item => item.id !== draggedId && itemOccupiesSide(item, side))
+      .sort(originalPlacementComparator);
+    for (let index = 1; index < stationary.length; index += 1) {
+      const previous = stationary[index - 1];
+      const current = stationary[index];
+      if (laneForCandidate(laneById, previous) + previous.span > laneForCandidate(laneById, current)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function candidateIsValid(items = [], laneById = new Map(), dragged = null, targetLane = 0) {
+  if (!dragged) return false;
+  if (laneForCandidate(laneById, dragged) !== targetLane) return false;
+  return candidateHasNoOverlap(items, laneById)
+    && candidatePreservesStationaryOrder(items, laneById, dragged.id);
+}
+
+function candidateVacatedPenalty(items = [], laneById = new Map(), dragged = null) {
+  if (!dragged) return 0;
+  let penalty = 0;
+  for (const side of sideMaskSides(dragged.sideMask)) {
+    for (let lane = dragged.lane; lane < dragged.lane + dragged.span; lane += 1) {
+      const reused = items.some(item => {
+        if (item.id === dragged.id || !itemOccupiesSide(item, side)) return false;
+        return intervalsOverlap(laneForCandidate(laneById, item), item.span, lane, lane + 1);
+      });
+      if (!reused) penalty += 1;
+    }
+  }
+  return penalty;
+}
+
+function candidateMetrics(items = [], laneById = new Map(), dragged = null, originalEndLane = 0, movementPenalty = 0) {
+  const stationary = items.filter(item => item.id !== dragged?.id);
+  const displacedStationary = stationary.filter(item => laneForCandidate(laneById, item) !== item.lane);
+  const totalDisplacement = displacedStationary.reduce((sum, item) => {
+    return sum + Math.abs(laneForCandidate(laneById, item) - item.lane);
+  }, 0);
+  const endLane = laneMapEndLane(items, laneById);
+  const tieKey = [...items]
+    .sort(originalPlacementComparator)
+    .map(item => `${item.id}:${laneForCandidate(laneById, item)}`)
+    .join("|");
+  return {
+    vacatedPenalty: candidateVacatedPenalty(items, laneById, dragged),
+    extentPenalty: endLane > originalEndLane ? 1 : 0,
+    endLane,
+    movementPenalty,
+    displacedCount: displacedStationary.length,
+    totalDisplacement,
+    tieKey
+  };
+}
+
+function compareCandidateMetrics(a, b) {
+  const keys = ["vacatedPenalty", "extentPenalty", "endLane", "movementPenalty", "displacedCount", "totalDisplacement"];
+  for (const key of keys) {
+    const delta = a[key] - b[key];
+    if (delta) return delta;
+  }
+  return a.tieKey.localeCompare(b.tieKey);
+}
+
+function collisionChainIds(stationaryItems = [], dragged = null, targetLane = 0) {
+  const ids = new Set();
+  sideMaskSides(dragged?.sideMask).forEach(side => {
+    insertionCollisionChainForSide(stationaryItems, dragged, targetLane, side)
+      .forEach(id => ids.add(id));
+  });
+  return ids;
+}
+
+function shiftChainCandidate(baseLaneById = new Map(), stationaryItems = [], chainIds = new Set(), shift = 0) {
+  const candidate = cloneLaneMap(baseLaneById);
+  stationaryItems.forEach(item => {
+    if (!chainIds.has(item.id)) return;
+    candidate.set(item.id, Math.max(0, item.lane + shift));
+  });
+  return candidate;
+}
+
+function packStationaryWithHardReservation(items = [], dragged = null, targetLane = 0, preferredLaneById = new Map()) {
+  const occupied = {
+    [MODULAR_LAYOUT_SIDE_MASKS.left]: [],
+    [MODULAR_LAYOUT_SIDE_MASKS.right]: []
+  };
+  const laneById = new Map([[dragged.id, targetLane]]);
+  reserveItemAt(occupied, dragged, targetLane);
+  [...items]
+    .filter(item => item.id !== dragged.id)
+    .sort(originalPlacementComparator)
+    .forEach(item => {
+      let lane = Math.max(0, Math.round(finiteNumber(preferredLaneById.get(item.id), item.lane)));
+      while (hasCollisionAt(occupied, item, lane)) lane += 1;
+      laneById.set(item.id, lane);
+      reserveItemAt(occupied, item, lane);
+    });
+  return laneById;
+}
+
+function placementResultForLaneMap(items = [], laneById = new Map(), options = {}) {
+  return placementResultFromItems(items.map(item => ({
+    ...item,
+    lane: laneForCandidate(laneById, item)
+  })), options);
+}
+
 export function resolveModularInsertionDrag(snapshot, draggedItemId, targetLane, options = {}) {
   const source = snapshot?.items ? snapshot : createModularPlacementSnapshot(snapshot || [], options);
   const startY = finiteNumber(source.startY, finiteNumber(options.startY, 0));
@@ -303,33 +478,43 @@ export function resolveModularInsertionDrag(snapshot, draggedItemId, targetLane,
   const movingUp = resolvedTargetLane < dragged.lane;
   const dragSpan = dragged.span;
   const stationaryItems = items.filter(item => item.id !== dragged.id);
-  const movedChainIds = new Set();
-  sideMaskSides(dragged.sideMask).forEach(side => {
-    insertionCollisionChainForSide(stationaryItems, dragged, resolvedTargetLane, side)
-      .forEach(id => movedChainIds.add(id));
-  });
-  const projected = items.map(item => {
-    if (item.id === dragged.id) {
-      return {
-        ...item,
-        requestedLane: resolvedTargetLane,
-        requestedY: layoutYForLane(resolvedTargetLane, startY, slotHeight)
-      };
-    }
-    let requestedLane = item.lane;
-    if (movedChainIds.has(item.id) && sideMasksIntersect(item.sideMask, dragged.sideMask)) {
-      requestedLane = movingUp
-        ? item.lane + dragSpan
-        : Math.max(0, item.lane - dragSpan);
-    }
-    return {
-      ...item,
-      requestedLane,
-      requestedY: layoutYForLane(requestedLane, startY, slotHeight)
-    };
+  const baseLaneById = laneMapFromItems(items);
+  baseLaneById.set(dragged.id, resolvedTargetLane);
+  const chainIds = collisionChainIds(stationaryItems, dragged, resolvedTargetLane);
+  const preferredShift = movingUp ? dragSpan : -dragSpan;
+  const awayShift = -preferredShift;
+  const candidates = [{ lanes: baseLaneById, movementPenalty: 0 }];
+  if (chainIds.size) {
+    candidates.push({
+      lanes: shiftChainCandidate(baseLaneById, stationaryItems, chainIds, preferredShift),
+      movementPenalty: 0
+    });
+    candidates.push({
+      lanes: shiftChainCandidate(baseLaneById, stationaryItems, chainIds, awayShift),
+      movementPenalty: 1
+    });
+  }
+  candidates.push({
+    lanes: packStationaryWithHardReservation(
+      items,
+      dragged,
+      resolvedTargetLane,
+      candidates[candidates.length - 1]?.lanes || baseLaneById
+    ),
+    movementPenalty: 2
   });
 
-  return packPlacementItemsInOrder(projected, {
+  const originalEndLane = finiteNumber(source.endLane, laneMapEndLane(items, laneMapFromItems(items)));
+  const valid = candidates
+    .filter(candidate => candidateIsValid(items, candidate.lanes, dragged, resolvedTargetLane))
+    .map(candidate => ({
+      lanes: candidate.lanes,
+      metrics: candidateMetrics(items, candidate.lanes, dragged, originalEndLane, candidate.movementPenalty)
+    }))
+    .sort((a, b) => compareCandidateMetrics(a.metrics, b.metrics));
+  const laneById = valid[0]?.lanes || candidates[candidates.length - 1].lanes;
+
+  return placementResultForLaneMap(items, laneById, {
     startY,
     slotHeight,
     preserveRequestedY: false
@@ -339,7 +524,7 @@ export function resolveModularInsertionDrag(snapshot, draggedItemId, targetLane,
 export function createModularInsertionDragSession(itemsOrLayout = [], draggedItemId = "", options = {}) {
   const snapshot = createModularPlacementSnapshot(itemsOrLayout, options);
   const draggedId = stableString(draggedItemId);
-  const dragged = snapshot.byId.get(draggedId) || null;
+  const dragged = snapshot.byId[draggedId] || null;
   return Object.freeze({
     snapshot,
     draggedItemId: draggedId,
