@@ -7,6 +7,7 @@ import {
   cardSlotSpanLanes,
   createModularInsertionDragSession,
   createModularPlacementSnapshot,
+  isValidModularInsertionResult,
   resolveInstalledCardConnectors,
   resolveModularDeviceLayout,
   resolveModularInsertionDrag,
@@ -147,6 +148,92 @@ function assertStationaryOrderPreserved(snapshot, layout, draggedId) {
   }
 }
 
+function assertInsertionInvariants(snapshot, draggedId, target, context = "") {
+  const layout = resolveModularInsertionDrag(snapshot, draggedId, target);
+  const repeated = resolveModularInsertionDrag(snapshot, draggedId, target);
+  assert.equal(layout.byId.get(draggedId).lane, target, `${context} dragged target`);
+  assertNoSideOverlap(layout);
+  assertStationaryOrderPreserved(snapshot, layout, draggedId);
+  assert.deepEqual(laneMap(layout), laneMap(repeated), `${context} repeated lane map`);
+  assert.equal(layout.endLane, repeated.endLane, `${context} repeated extent`);
+  assert.equal(isValidModularInsertionResult(snapshot, layout, draggedId, target), true, `${context} production validity`);
+  return layout;
+}
+
+function testSideMaskSides(sideMask) {
+  return sideMask === "both" ? ["left", "right"] : [sideMask];
+}
+
+function testItemsShareSide(a, b) {
+  const bSides = new Set(testSideMaskSides(b.sideMask));
+  return testSideMaskSides(a.sideMask).some(side => bSides.has(side));
+}
+
+function testIntervalsOverlap(a, b) {
+  return a.requestedLane < b.requestedLane + b.span && a.requestedLane + a.span > b.requestedLane;
+}
+
+function isValidFixtureLayout(items) {
+  for (let index = 0; index < items.length; index += 1) {
+    for (let otherIndex = index + 1; otherIndex < items.length; otherIndex += 1) {
+      if (testItemsShareSide(items[index], items[otherIndex]) && testIntervalsOverlap(items[index], items[otherIndex])) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function seededRandom(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state += 0x6D2B79F5;
+    let value = state;
+    value = Math.imul(value ^ value >>> 15, value | 1);
+    value ^= value + Math.imul(value ^ value >>> 7, value | 61);
+    return ((value ^ value >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function randomInt(random, min, max) {
+  return min + Math.floor(random() * (max - min + 1));
+}
+
+function createSeededValidLayout(seed) {
+  const random = seededRandom(seed);
+  const masks = ["left", "right", "both"];
+  const count = randomInt(random, 4, 8);
+  const items = [];
+  for (let index = 0; index < count; index += 1) {
+    const sideMask = masks[randomInt(random, 0, masks.length - 1)];
+    const span = randomInt(random, 1, 3);
+    let lane = randomInt(random, 0, 12 + index * 2);
+    let attempts = 0;
+    while (!isValidFixtureLayout([...items, item(`S${seed}-${index}`, lane, sideMask, span, (seed * 13 + index * 7) % 17)])) {
+      attempts += 1;
+      if (attempts > 24) {
+        const endLane = items.reduce((max, entry) => Math.max(max, entry.requestedLane + entry.span), 0);
+        lane = endLane + randomInt(random, 0, 2);
+        break;
+      }
+      lane = randomInt(random, 0, 12 + index * 2);
+    }
+    items.push(item(
+      `S${seed}-${index}`,
+      lane,
+      sideMask,
+      span,
+      (seed * 13 + index * 7) % 17,
+      index % 3 === 0 ? "card-slot" : "chassis-connector"
+    ));
+  }
+  for (let index = items.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomInt(random, 0, index);
+    [items[index], items[swapIndex]] = [items[swapIndex], items[index]];
+  }
+  return items;
+}
+
 test("input-only and output-only cards can share rows", () => {
   const { cardTypes } = cardFixture();
   const layout = resolveModularDeviceLayout({
@@ -227,6 +314,24 @@ test("stable insertion drag reuses vacated lanes when moving down", () => {
   assert.deepEqual(laneMap(layout), { A: 3, B: 0, C: 1, D: 2, E: 4 });
   assert.deepEqual(orderedIds(layout), ["B", "C", "D", "A", "E"]);
   assert.equal(layout.endLane, 5);
+});
+
+test("stable insertion drag grows instead of reversing stationary interval order", () => {
+  const session = createModularInsertionDragSession([
+    item("A", 0, "left", 2, 0),
+    item("B", 2, "left", 1, 1),
+    item("C", 3, "left", 2, 2)
+  ], "C", { startY: START_Y, slotHeight: SLOT });
+  const layout = resolveModularInsertionDrag(session.snapshot, session.draggedItemId, 1);
+
+  assert.deepEqual(laneMap(layout), { A: 3, B: 5, C: 1 });
+  assert.equal(layout.byId.get("C").endLane, 3);
+  assert.equal(layout.byId.get("A").endLane, 5);
+  assert.equal(layout.byId.get("B").endLane, 6);
+  assert.equal(layout.endLane, 6);
+  assertNoSideOverlap(layout);
+  assertStationaryOrderPreserved(session.snapshot, layout, "C");
+  assert.equal(isValidModularInsertionResult(session.snapshot, layout, "C", 1), true);
 });
 
 test("stable insertion drag leaves current-position drops unchanged", () => {
@@ -324,63 +429,78 @@ test("stable insertion drag is deterministic across repeated calculations", () =
   assert.equal(first.endLane, second.endLane);
 });
 
-test("generated insertion cases keep hard targets, side order, and deterministic output", () => {
-  const generatedLayouts = [
-    [
-      item("L0", 0, "left", 1, 20),
-      item("R0", 0, "right", 1, 10),
-      item("B2", 2, "both", 1, 30),
-      item("L4", 4, "left", 2, 40)
-    ],
-    [
-      item("A", 0, "left", 2, 4),
-      item("B", 0, "right", 1, 3),
-      item("C", 3, "both", 2, 2, "card-slot"),
-      item("D", 6, "right", 3, 1)
-    ],
-    [
-      item("W", 1, "both", 1, 9),
-      item("X", 3, "left", 3, 8),
-      item("Y", 3, "right", 2, 7),
-      item("Z", 7, "both", 1, 6)
-    ],
-    [
-      item("card-a", 0, "left", 3, 0, "card-slot"),
-      item("card-b", 0, "right", 2, 1, "card-slot"),
-      item("io", 4, "both", 3, 2, "card-slot"),
-      item("tail", 9, "left", 1, 3)
-    ],
-    [
-      item("gap-left-a", 0, "left", 1, 3),
-      item("gap-right-a", 1, "right", 2, 2),
-      item("gap-both", 5, "both", 2, 1),
-      item("gap-left-b", 9, "left", 3, 0)
-    ]
-  ];
+test("exhaustive three-item insertion cases preserve hard targets and stationary interval order", t => {
+  const masks = ["left", "right", "both"];
+  const spans = [1, 2];
+  const lanes = [0, 1, 2, 3];
+  let layoutCount = 0;
+  let caseCount = 0;
 
-  generatedLayouts.forEach((items, layoutIndex) => {
-    const snapshot = createModularPlacementSnapshot(items, { startY: START_Y, slotHeight: SLOT });
+  for (const maskA of masks) {
+    for (const maskB of masks) {
+      for (const maskC of masks) {
+        for (const spanA of spans) {
+          for (const spanB of spans) {
+            for (const spanC of spans) {
+              for (const laneA of lanes) {
+                for (const laneB of lanes) {
+                  for (const laneC of lanes) {
+                    const items = [
+                      item("A", laneA, maskA, spanA, 0),
+                      item("B", laneB, maskB, spanB, 1),
+                      item("C", laneC, maskC, spanC, 2)
+                    ];
+                    if (!isValidFixtureLayout(items)) continue;
+                    layoutCount += 1;
+                    const snapshot = createModularPlacementSnapshot(items, { startY: START_Y, slotHeight: SLOT });
+                    snapshot.items.forEach(entry => {
+                      for (let target = 0; target <= 5; target += 1) {
+                        if (target === entry.lane) continue;
+                        assertInsertionInvariants(snapshot, entry.id, target, `exhaustive ${layoutCount} ${entry.id}->${target}`);
+                        caseCount += 1;
+                      }
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  t.diagnostic(`exhaustive valid layouts: ${layoutCount}`);
+  t.diagnostic(`exhaustive insertion cases: ${caseCount}`);
+  assert.ok(layoutCount > 0);
+  assert.ok(caseCount > 0);
+});
+
+test("seeded larger insertion cases preserve hard targets and stationary interval order", t => {
+  const seedCount = 320;
+  let caseCount = 0;
+  for (let seed = 1; seed <= seedCount; seed += 1) {
+    const snapshot = createModularPlacementSnapshot(createSeededValidLayout(seed), { startY: START_Y, slotHeight: SLOT });
     snapshot.items.forEach(entry => {
       const targets = new Set([
         0,
-        Math.max(0, entry.lane - 2),
+        Math.max(0, entry.lane - 3),
         Math.max(0, entry.lane - 1),
-        entry.lane,
         entry.lane + 1,
-        Math.max(0, snapshot.endLane - entry.span),
-        snapshot.endLane + 1
+        entry.lane + 3,
+        snapshot.endLane + 2
       ]);
+      targets.delete(entry.lane);
       targets.forEach(target => {
-        const layout = resolveModularInsertionDrag(snapshot, entry.id, target);
-        const repeated = resolveModularInsertionDrag(snapshot, entry.id, target);
-        assert.equal(layout.byId.get(entry.id).lane, target, `layout ${layoutIndex} dragged ${entry.id} to ${target}`);
-        assertNoSideOverlap(layout);
-        assertStationaryOrderPreserved(snapshot, layout, entry.id);
-        assert.deepEqual(laneMap(layout), laneMap(repeated), `layout ${layoutIndex} is deterministic for ${entry.id} -> ${target}`);
-        assert.equal(layout.endLane, repeated.endLane);
+        assertInsertionInvariants(snapshot, entry.id, target, `seed ${seed} ${entry.id}->${target}`);
+        caseCount += 1;
       });
     });
-  });
+  }
+
+  t.diagnostic(`seeded valid layouts: ${seedCount}`);
+  t.diagnostic(`seeded insertion cases: ${caseCount}`);
+  assert.ok(caseCount > seedCount);
 });
 
 test("placement snapshots are deeply frozen scalar copies", () => {

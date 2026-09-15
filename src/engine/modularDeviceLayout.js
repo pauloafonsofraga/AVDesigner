@@ -380,7 +380,7 @@ function candidateVacatedPenalty(items = [], laneById = new Map(), dragged = nul
   return penalty;
 }
 
-function candidateMetrics(items = [], laneById = new Map(), dragged = null, originalEndLane = 0, movementPenalty = 0) {
+function candidateMetrics(items = [], laneById = new Map(), dragged = null, originalEndLane = 0) {
   const stationary = items.filter(item => item.id !== dragged?.id);
   const displacedStationary = stationary.filter(item => laneForCandidate(laneById, item) !== item.lane);
   const totalDisplacement = displacedStationary.reduce((sum, item) => {
@@ -395,7 +395,6 @@ function candidateMetrics(items = [], laneById = new Map(), dragged = null, orig
     vacatedPenalty: candidateVacatedPenalty(items, laneById, dragged),
     extentPenalty: endLane > originalEndLane ? 1 : 0,
     endLane,
-    movementPenalty,
     displacedCount: displacedStationary.length,
     totalDisplacement,
     tieKey
@@ -403,7 +402,7 @@ function candidateMetrics(items = [], laneById = new Map(), dragged = null, orig
 }
 
 function compareCandidateMetrics(a, b) {
-  const keys = ["vacatedPenalty", "extentPenalty", "endLane", "movementPenalty", "displacedCount", "totalDisplacement"];
+  const keys = ["vacatedPenalty", "extentPenalty", "endLane", "displacedCount", "totalDisplacement"];
   for (const key of keys) {
     const delta = a[key] - b[key];
     if (delta) return delta;
@@ -429,22 +428,87 @@ function shiftChainCandidate(baseLaneById = new Map(), stationaryItems = [], cha
   return candidate;
 }
 
-function packStationaryWithHardReservation(items = [], dragged = null, targetLane = 0, preferredLaneById = new Map()) {
+function expandAffectedOrderedComponent(items = [], dragged = null, targetLane = 0, seedIds = new Set()) {
+  const targetEnd = targetLane + (dragged?.span || 1);
+  const affectedIds = new Set(seedIds);
+  items
+    .filter(item => item.id !== dragged?.id)
+    .forEach(item => {
+      const conflictsWithDragged = sideMaskSides(item.sideMask).some(side => {
+        return itemOccupiesSide(dragged, side) && intervalsOverlap(item.lane, item.span, targetLane, targetEnd);
+      });
+      if (conflictsWithDragged) affectedIds.add(item.id);
+    });
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const side of [MODULAR_LAYOUT_SIDE_MASKS.left, MODULAR_LAYOUT_SIDE_MASKS.right]) {
+      let followsAffectedItem = false;
+      const sequence = items
+        .filter(item => item.id !== dragged?.id && itemOccupiesSide(item, side))
+        .sort(originalPlacementComparator);
+      for (const item of sequence) {
+        if (affectedIds.has(item.id)) {
+          followsAffectedItem = true;
+          continue;
+        }
+        if (followsAffectedItem) {
+          affectedIds.add(item.id);
+          changed = true;
+        }
+      }
+    }
+  }
+  return affectedIds;
+}
+
+function constrainedFallbackWithHardReservation(items = [], dragged = null, targetLane = 0, preferredLaneById = new Map(), seedIds = new Set()) {
   const occupied = {
     [MODULAR_LAYOUT_SIDE_MASKS.left]: [],
     [MODULAR_LAYOUT_SIDE_MASKS.right]: []
   };
+  const itemById = new Map(items.map(item => [item.id, item]));
   const laneById = new Map([[dragged.id, targetLane]]);
+  const affectedIds = expandAffectedOrderedComponent(items, dragged, targetLane, seedIds);
+  const predecessorIdsByItem = new Map();
+  for (const side of [MODULAR_LAYOUT_SIDE_MASKS.left, MODULAR_LAYOUT_SIDE_MASKS.right]) {
+    const sequence = items
+      .filter(item => item.id !== dragged.id && itemOccupiesSide(item, side))
+      .sort(originalPlacementComparator);
+    for (let index = 1; index < sequence.length; index += 1) {
+      const current = sequence[index];
+      const previous = sequence[index - 1];
+      if (!predecessorIdsByItem.has(current.id)) predecessorIdsByItem.set(current.id, []);
+      predecessorIdsByItem.get(current.id).push(previous.id);
+    }
+  }
+  const targetEnd = targetLane + dragged.span;
   reserveItemAt(occupied, dragged, targetLane);
+
   [...items]
-    .filter(item => item.id !== dragged.id)
+    .filter(item => item.id !== dragged.id && !affectedIds.has(item.id))
     .sort(originalPlacementComparator)
     .forEach(item => {
-      let lane = Math.max(0, Math.round(finiteNumber(preferredLaneById.get(item.id), item.lane)));
+      laneById.set(item.id, item.lane);
+      reserveItemAt(occupied, item, item.lane);
+    });
+
+  [...items]
+    .filter(item => affectedIds.has(item.id))
+    .sort(originalPlacementComparator)
+    .forEach(item => {
+      let lane = Math.max(targetEnd, Math.round(finiteNumber(preferredLaneById.get(item.id), item.lane)));
+      (predecessorIdsByItem.get(item.id) || []).forEach(previousId => {
+        const previous = itemById.get(previousId);
+        if (!previous || !laneById.has(previousId)) return;
+        lane = Math.max(lane, laneById.get(previousId) + previous.span);
+      });
       while (hasCollisionAt(occupied, item, lane)) lane += 1;
       laneById.set(item.id, lane);
       reserveItemAt(occupied, item, lane);
     });
+
   return laneById;
 }
 
@@ -453,6 +517,35 @@ function placementResultForLaneMap(items = [], laneById = new Map(), options = {
     ...item,
     lane: laneForCandidate(laneById, item)
   })), options);
+}
+
+function assertValidInsertionCandidate(items = [], laneById = new Map(), dragged = null, targetLane = 0) {
+  if (candidateIsValid(items, laneById, dragged, targetLane)) return;
+  const draggedLane = dragged ? laneForCandidate(laneById, dragged) : null;
+  throw new Error(
+    `Unable to resolve modular insertion without violating invariants for ${dragged?.id || "unknown"} ` +
+    `at lane ${targetLane}; dragged lane was ${draggedLane}.`
+  );
+}
+
+export function isValidModularInsertionResult(snapshot, layout, draggedItemId, targetLane, options = {}) {
+  const source = snapshot?.items ? snapshot : createModularPlacementSnapshot(snapshot || [], options);
+  const startY = finiteNumber(source.startY, finiteNumber(options.startY, 0));
+  const slotHeight = positiveNumber(source.slotHeight, positiveNumber(options.slotHeight, MODULAR_LAYOUT_SLOT_HEIGHT));
+  const items = source.items
+    .filter(item => item && stableString(item.id))
+    .map((item, index) => normalizePlacementItem({
+      ...item,
+      requestedLane: Number.isFinite(Number(item.lane)) ? Number(item.lane) : item.requestedLane,
+      requestedY: Number.isFinite(Number(item.y)) ? Number(item.y) : item.requestedY,
+      sourceIndex: index
+    }, index, { startY, slotHeight }));
+  const draggedId = stableString(draggedItemId);
+  const dragged = items.find(item => item.id === draggedId);
+  if (!dragged) return false;
+  const resolvedTargetLane = Math.max(0, Math.round(finiteNumber(targetLane, dragged.lane)));
+  const laneById = new Map((layout?.items || []).map(item => [stableString(item.id), Math.max(0, Math.round(finiteNumber(item.lane, 0)))]));
+  return candidateIsValid(items, laneById, dragged, resolvedTargetLane);
 }
 
 export function resolveModularInsertionDrag(snapshot, draggedItemId, targetLane, options = {}) {
@@ -472,7 +565,11 @@ export function resolveModularInsertionDrag(snapshot, draggedItemId, targetLane,
   if (!dragged) return placementResultFromItems(items, { startY, slotHeight });
   const resolvedTargetLane = Math.max(0, Math.round(finiteNumber(targetLane, dragged.lane)));
   if (resolvedTargetLane === dragged.lane) {
-    return placementResultFromItems(items, { startY, slotHeight });
+    const result = placementResultFromItems(items, { startY, slotHeight });
+    if (!isValidModularInsertionResult(source, result, dragged.id, resolvedTargetLane, { startY, slotHeight })) {
+      throw new Error(`Resolved modular insertion failed validation for ${dragged.id} at lane ${resolvedTargetLane}.`);
+    }
+    return result;
   }
 
   const movingUp = resolvedTargetLane < dragged.lane;
@@ -483,42 +580,45 @@ export function resolveModularInsertionDrag(snapshot, draggedItemId, targetLane,
   const chainIds = collisionChainIds(stationaryItems, dragged, resolvedTargetLane);
   const preferredShift = movingUp ? dragSpan : -dragSpan;
   const awayShift = -preferredShift;
-  const candidates = [{ lanes: baseLaneById, movementPenalty: 0 }];
+  const candidates = [{ lanes: baseLaneById }];
   if (chainIds.size) {
     candidates.push({
-      lanes: shiftChainCandidate(baseLaneById, stationaryItems, chainIds, preferredShift),
-      movementPenalty: 0
+      lanes: shiftChainCandidate(baseLaneById, stationaryItems, chainIds, preferredShift)
     });
     candidates.push({
-      lanes: shiftChainCandidate(baseLaneById, stationaryItems, chainIds, awayShift),
-      movementPenalty: 1
+      lanes: shiftChainCandidate(baseLaneById, stationaryItems, chainIds, awayShift)
     });
   }
-  candidates.push({
-    lanes: packStationaryWithHardReservation(
-      items,
-      dragged,
-      resolvedTargetLane,
-      candidates[candidates.length - 1]?.lanes || baseLaneById
-    ),
-    movementPenalty: 2
-  });
 
   const originalEndLane = finiteNumber(source.endLane, laneMapEndLane(items, laneMapFromItems(items)));
   const valid = candidates
     .filter(candidate => candidateIsValid(items, candidate.lanes, dragged, resolvedTargetLane))
     .map(candidate => ({
       lanes: candidate.lanes,
-      metrics: candidateMetrics(items, candidate.lanes, dragged, originalEndLane, candidate.movementPenalty)
+      metrics: candidateMetrics(items, candidate.lanes, dragged, originalEndLane)
     }))
     .sort((a, b) => compareCandidateMetrics(a.metrics, b.metrics));
-  const laneById = valid[0]?.lanes || candidates[candidates.length - 1].lanes;
+  let laneById = valid[0]?.lanes || null;
+  if (!laneById) {
+    laneById = constrainedFallbackWithHardReservation(
+      items,
+      dragged,
+      resolvedTargetLane,
+      baseLaneById,
+      chainIds
+    );
+  }
+  assertValidInsertionCandidate(items, laneById, dragged, resolvedTargetLane);
 
-  return placementResultForLaneMap(items, laneById, {
+  const result = placementResultForLaneMap(items, laneById, {
     startY,
     slotHeight,
     preserveRequestedY: false
   });
+  if (!isValidModularInsertionResult(source, result, dragged.id, resolvedTargetLane, { startY, slotHeight })) {
+    throw new Error(`Resolved modular insertion failed validation for ${dragged.id} at lane ${resolvedTargetLane}.`);
+  }
+  return result;
 }
 
 export function createModularInsertionDragSession(itemsOrLayout = [], draggedItemId = "", options = {}) {
