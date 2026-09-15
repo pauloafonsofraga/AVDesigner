@@ -24,7 +24,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-4-0-matrix-routing-internal-routes";
+const BUILD_ID = "iteration54-4-1-matrix-routing-modal-polish";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -39,9 +39,9 @@ function sourceSlice(source, startNeedle, endNeedle) {
   return source.slice(start, end);
 }
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.4.0");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.4.0";'), "visible iteration should be 54.4.0");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-4-0-matrix-routing-internal-routes-modules";'), "module cache key should bust 54.4.0 modules");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.4.1");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.4.1";'), "visible iteration should be 54.4.1");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-4-1-matrix-routing-modal-polish-modules";'), "module cache key should bust 54.4.1 modules");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-4-0-matrix-routing-internal-routes"'), "Engine bridge version should identify Iteration 54.4.0");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];

@@ -41,7 +41,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-4-0-matrix-routing-internal-routes";
+const BUILD_ID = "iteration54-4-1-matrix-routing-modal-polish";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -50,9 +50,9 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Matrix Routing Internal Routes");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-4-0-matrix-routing-internal-routes-modules";'), "module cache key should identify Matrix Routing Internal Routes");
-assert.ok(indexHtml.includes("Matrix Routing Internal Routes"), "visible build label should name Matrix Routing Internal Routes");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Matrix Routing Modal Polish");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-4-1-matrix-routing-modal-polish-modules";'), "module cache key should identify Matrix Routing Modal Polish");
+assert.ok(indexHtml.includes("Matrix Routing Modal Polish"), "visible build label should name Matrix Routing Modal Polish");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-4-0-matrix-routing-internal-routes"'), "Engine bridge version should identify Matrix Routing Internal Routes");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "matrix-routing-internal-routes"'), "bridge feature label should identify Matrix Routing Internal Routes");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-4-0-matrix-routing-internal-routes"), "bridge fingerprint should identify Matrix Routing Internal Routes");

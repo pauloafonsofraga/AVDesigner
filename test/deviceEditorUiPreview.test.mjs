@@ -270,8 +270,13 @@ test("Matrix routing separates compact inspector routes from full modal crosspoi
   const renderMatrixModal = functionSource("renderMatrixRoutingModalBody");
   const renderDeviceInspector = functionSource("renderDeviceInspector");
   const filterMatrix = functionSource("applyMatrixInspectorFilter");
+  const matrixCss = sourceSlice(INDEX_HTML, ".matrix-route-row {", ".selected-connector-settings {");
 
   assert.match(INDEX_HTML, /const MATRIX_CROSSPOINT_DEFAULT_LIMIT = 256;/);
+  assert.match(matrixCss, /grid-template-columns: minmax\(110px, 240px\) minmax\(130px, 360px\);/);
+  assert.match(matrixCss, /max-width: 360px;/);
+  assert.match(matrixCss, /width: min\(85vw, calc\(100vw - 44px\)\);/);
+  assert.match(matrixCss, /height: min\(85vh, calc\(100vh - 44px\)\);/);
   assert.match(INDEX_HTML, /modal: \{ filter: "", routedOnly: false, viewByDeviceId: \{\}, bodyScrollTop: 0, routeScrollTop: 0, gridScrollTop: 0, gridScrollLeft: 0 \}/);
   assert.match(matrixMarkup, /const presentation = options\.presentation === "modal" \? "modal" : "inspector";/);
   assert.match(matrixMarkup, /matrixRoutingViewForInstance\(instance, inputs, outputs, \{ presentation, view: options\.view \}\)/);
@@ -292,6 +297,7 @@ test("Matrix routing separates compact inspector routes from full modal crosspoi
   assert.match(renderMatrixModal, /matrixRoutingRestoreState\(matrixRoutingModalBody, "modal", snapshot\)/);
 
   assert.match(bindMatrixRouting, /matrixRoutingUiState\.modal\.viewByDeviceId\[key\] = view;/);
+  assert.match(bindMatrixRouting, /wrapper\.dataset\.matrixViewCurrent = view;/);
   assert.match(bindMatrixRouting, /engineBridge\.commitMatrixRoute\?\./);
   assert.match(bindMatrixRouting, /pushUndo\(\);/);
   assert.match(filterMatrix, /row\.dataset\.matrixRouted === "1"/);
