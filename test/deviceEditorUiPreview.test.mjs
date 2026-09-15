@@ -274,6 +274,8 @@ test("Faceplate tab keeps image controls together in one compact row", () => {
     'id="removeEditorFaceImage"',
     'id="deleteEditorFaceplate"'
   ], "Faceplate image actions should sit together");
+  assert.match(faceplatePanel, /id="editorFaceUpload"[^>]+aria-label="Front face image"/);
+  assert.doesNotMatch(faceplatePanel, />\s*Front Face\s*</);
   assert.doesNotMatch(faceplatePanel, /<label>&nbsp;<\/label>/);
 });
 
