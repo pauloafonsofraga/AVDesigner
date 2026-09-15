@@ -12,7 +12,7 @@ import { NODE_PREVIEW_BUILD_ID } from "../src/engine/nodePreview.js";
 import { TITLE_BLOCK_PREVIEW_BUILD_ID } from "../src/engine/titleBlockPreview.js";
 
 const EXPECTED_PREVIEW_BUILD_ID = "iteration53-4-1-preview-verification";
-const EXPECTED_APP_BUILD_ID = "iteration54-3-14-editor-preview-alt-zoom";
+const EXPECTED_APP_BUILD_ID = "iteration54-3-15-editor-preview-canvas-wheel-modifier";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -24,11 +24,11 @@ assert.equal(RACK_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "rack preview bui
 assert.equal(NODE_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "node preview build id");
 assert.equal(TITLE_BLOCK_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "title-block preview build id");
 
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.3.14";'), "app iteration should be 54.3.14");
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${EXPECTED_APP_BUILD_ID}";`), "app build id should match 54.3.14");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-3-14-editor-preview-alt-zoom-modules";'), "module cache key should match 54.3.14");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.3.15";'), "app iteration should be 54.3.15");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${EXPECTED_APP_BUILD_ID}";`), "app build id should match 54.3.15");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-3-15-editor-preview-canvas-wheel-modifier-modules";'), "module cache key should match 54.3.15");
 assert.ok(indexHtml.includes('url.searchParams.set("module", APP_MODULE_CACHE_ID);'), "engine imports should carry the module cache key");
-assert.ok(indexHtml.includes("Explicit Editor Preview Alt Zoom"), "app build label should name 54.3.14");
+assert.ok(indexHtml.includes("Editor Preview Canvas Wheel Modifier"), "app build label should name 54.3.15");
 
 assert.ok(!enginePreviewSource.includes("legacyActualDraws"), "generic shared preview diagnostics must not publish fake legacy draw counters");
 assert.ok(!indexHtml.includes("legacy draws ${row."), "runtime owner rows must not render fake generic legacy draw counters");
@@ -72,10 +72,9 @@ assert.ok(
 
 const editorWheelFactor = functionSource("editorPreviewWheelZoomFactor");
 assert.ok(editorWheelFactor.includes("event?.deltaY < 0 ? 1.12 : 1 / 1.12"), "Editor preview wheel zoom should use the shared wheel zoom factor");
-const editorAltGate = functionSource("editorPreviewWheelAltModifierActive");
-assert.ok(editorAltGate.includes('event.getModifierState("Alt")'), "Editor preview zoom should request the browser Alt modifier explicitly");
+assert.ok(!indexHtml.includes("function editorPreviewWheelAltModifierActive"), "Editor preview zoom should not use the browser Alt/Option modifier helper");
 const editorWheelGate = functionSource("editorPreviewWheelZoomModifierActive");
-assert.ok(editorWheelGate.includes("IS_APPLE_POINTER_PLATFORM ? editorPreviewWheelAltModifierActive(event) : event?.ctrlKey"), "Editor preview wheel zoom should use Alt on Apple and Ctrl elsewhere");
+assert.ok(editorWheelGate.includes("return canvasWheelZoomModifierActive(event);"), "Editor preview wheel zoom should use the same platform modifier rule as the main canvas");
 assert.ok(
   functionSource("handleEditorPreviewWheel").includes("if (!editorPreviewWheelZoomModifierActive(event)) return;"),
   "Device Editor preview wheel handler should require the editor-specific modifier rule"
