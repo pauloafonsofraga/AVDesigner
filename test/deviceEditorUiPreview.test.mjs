@@ -357,6 +357,27 @@ test("Canvas connector inspector exposes editable node fields", () => {
   });
 });
 
+test("Device Editor instance mode reflects canvas connector field overrides", () => {
+  const openInstanceEditor = functionSource("openDeviceEditorForCanvasInstanceLegacy");
+  const applyEditor = functionSource("applyDeviceEditor");
+  const hydrateOverrides = functionSource("hydrateEditorDraftFromInstanceConnectorOverrides");
+  const pruneOverrides = functionSource("pruneEditorOwnedInstanceConnectorOverrides");
+
+  assert.match(openInstanceEditor, /hydrateEditorDraftFromInstanceConnectorOverrides\(editorDraft\[0\], instance\)/);
+  assert.match(applyEditor, /pruneEditorOwnedInstanceConnectorOverrides\(instance, editedTemplate\)/);
+  assert.match(hydrateOverrides, /instance\?\.connectorOverrides/);
+  assert.match(hydrateOverrides, /editorOwnedConnectorOverridePatch\(override\)/);
+  assert.match(hydrateOverrides, /Object\.assign\(connector, patch\)/);
+  assert.match(hydrateOverrides, /effectiveTemplateConnectors\(template\)[\s\S]*generatedFromCard/);
+  assert.match(hydrateOverrides, /slot\.connectorOverrides\[generated\.sourceConnectorId\]/);
+  assert.match(hydrateOverrides, /normalizeMixedDeviceRows\(template\)/);
+  assert.match(pruneOverrides, /effectiveTemplateConnectors\(editedTemplate\)/);
+  assert.match(pruneOverrides, /EDITOR_INSTANCE_CONNECTOR_OVERRIDE_FIELDS/);
+  assert.match(pruneOverrides, /EDITOR_INSTANCE_DERIVED_CONNECTOR_OVERRIDE_FIELDS/);
+  assert.match(INDEX_HTML, /const EDITOR_INSTANCE_CONNECTOR_OVERRIDE_FIELDS = new Set\(CARD_SLOT_OVERRIDE_FIELDS\);/);
+  assert.match(INDEX_HTML, /"displayLabel",[\s\S]*"colorSegments",[\s\S]*"installedModuleEffectiveType"/);
+});
+
 test("Faceplate tab keeps image controls together in one compact row", () => {
   const faceplatePanel = editorPanel("faceplate");
 

@@ -124,9 +124,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-4-3-canvas-connector-fields";
-export const ENGINE_BRIDGE_VERSION = "iteration54-4-3-canvas-connector-fields";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "canvas-connector-inspector-fields";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-4-4-canvas-device-editor-override-sync";
+export const ENGINE_BRIDGE_VERSION = "iteration54-4-4-canvas-device-editor-override-sync";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "canvas-device-editor-override-sync";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
