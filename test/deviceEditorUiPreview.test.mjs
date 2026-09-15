@@ -211,6 +211,8 @@ test("Cards tab uses compact toolbar and right-side card inspector", () => {
     'id="addCardInputNode"',
     'id="addCardOutputNode"'
   ], "Cards toolbar should mirror the compact Connectors toolbar");
+  assert.match(INDEX_HTML, /\.card-editor-toolbar\s*\{[\s\S]*?flex-wrap: nowrap;/);
+  assert.match(INDEX_HTML, /\.card-editor-toolbar > button,/);
   assert.doesNotMatch(cardsPanel, /editor-panel-note|cardConnectorList|editorCardName|editorCardKind|editorCardCaptionTextColor|editorCardCaptionBackgroundColor/);
   assertOrder(workspaceMarkup, [
     'id="cardInspectorPanel"',
@@ -228,6 +230,19 @@ test("Cards tab uses compact toolbar and right-side card inspector", () => {
   assert.match(renderCardConnectorInspector, /Delete Card Connector/);
   assert.match(cardFieldHandler, /data-card-physical-type/);
   assert.match(cardFieldHandler, /operationalStatus/);
+});
+
+test("Cards tab supports marquee and additive card-node selection", () => {
+  assert.match(INDEX_HTML, /let editorSelectedCardNodeIds = new Set\(\);/);
+  assert.match(functionSource("syncEditorCardNodeSelection"), /editorSelectedCardNodeIds = new Set/);
+  assert.match(functionSource("setEditorCardNodeSelection"), /options\.toggle/);
+  assert.match(functionSource("selectEditorCardNodesInRect"), /editorCardConnectorLayout\(card\)/);
+  assert.match(functionSource("startEditorNodeMarquee"), /editorActiveTab !== "connectors" && editorActiveTab !== "cards"/);
+  assert.match(functionSource("startEditorNodeMarquee"), /mode: isCardMarquee \? "cards" : "connectors"/);
+  assert.match(functionSource("moveEditorNode"), /selectEditorCardNodesInRect\(card, rectFromPoints\(editorNodeMarquee\.start, point\), \{ baseIds: editorNodeMarquee\.baseIds \}\)/);
+  assert.match(functionSource("stopEditorNodeDrag"), /if \(mode === "cards" && moved\) editorSuppressPreviewClickUntil = Date\.now\(\) \+ 150;/);
+  assert.match(functionSource("renderCardEditorPreview"), /const selected = editorSelectedCardNodeIds\.has\(connectorIndex\) \|\| editorSelectedCardNodeIndex === connectorIndex;/);
+  assert.match(functionSource("renderCardEditorPreview"), /drawEditorNodeMarquee\(deviceEditorPreview\);/);
 });
 
 test("Device Editor modal omits visible helper copy", () => {
@@ -319,8 +334,10 @@ test("Device Editor preview wheel zoom uses platform-specific modifiers", () => 
   const editorGate = functionSource("editorPreviewWheelZoomModifierActive");
   assert.match(editorGate, /IS_APPLE_POINTER_PLATFORM \? event\?\.altKey : event\?\.ctrlKey/);
   assert.match(functionSource("zoomEditorPreviewSvg"), /svg === deviceEditorPreview && deviceEditorActivePreviewUsesEngine\(\)/);
-  assert.match(functionSource("bindEditorPreviewNavigation"), /if \(!editorPreviewWheelZoomModifierActive\(event\)\) return;/);
-  assert.match(functionSource("bindEditorPreviewNavigation"), /svg === deviceEditorPreview && deviceEditorActivePreviewUsesEngine\(\)/);
+  assert.match(functionSource("handleEditorPreviewWheel"), /if \(!editorPreviewWheelZoomModifierActive\(event\)\) return;/);
+  assert.match(functionSource("handleEditorPreviewWheel"), /zoomEditorPreviewSvg\(targetSvg, event\.deltaY < 0 \? 1\.12 : 1 \/ 1\.12, event\);/);
+  assert.match(functionSource("bindEditorPreviewNavigation"), /bindEditorPreviewWheelTarget\(svg, svg\);/);
+  assert.match(functionSource("bindEditorPreviewNavigation"), /bindEditorPreviewWheelTarget\(previewHost, svg\);/);
 });
 
 test("Engine preview fit contains both width-limited and height-limited bounds", () => {

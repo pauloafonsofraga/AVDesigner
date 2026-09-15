@@ -3838,14 +3838,22 @@
     }
 
     .card-editor-toolbar {
-      width: 100%;
+      width: fit-content;
+      max-width: 100%;
       margin: 0;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .card-editor-toolbar > button,
+    .card-editor-toolbar > .connector-toolbar-separator {
+      flex: 0 0 auto;
     }
 
     .card-editor-select-field {
-      min-width: 180px;
-      flex: 0 1 240px;
+      min-width: 160px;
+      flex: 0 0 220px;
       margin-bottom: 0;
     }
 
@@ -4868,7 +4876,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.3.8 — Device Editor Compact Controls — iteration54-3-8-device-editor-compact-controls</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.3.9 — Device Editor Card Selection & Preview Zoom — iteration54-3-9-card-preview-selection-zoom</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5562,10 +5570,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.3.8";
-    const APP_BUILD_ID = "iteration54-3-8-device-editor-compact-controls";
-    const APP_MODULE_CACHE_ID = "iteration54-3-8-device-editor-compact-controls-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Device Editor Compact Controls`;
+    const APP_ITERATION = "54.3.9";
+    const APP_BUILD_ID = "iteration54-3-9-card-preview-selection-zoom";
+    const APP_MODULE_CACHE_ID = "iteration54-3-9-card-preview-selection-zoom-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Device Editor Card Selection & Preview Zoom`;
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "f409d0373f783821e981515da660a2476e661959";
     const CANVAS_MIN_ZOOM = 0.03;
@@ -78288,6 +78296,8 @@
     let editorSelectedNodeIds = new Set();
     let connectorInspectorAuxiliaryRefreshDepth = 0;
     let editorSelectedCardNodeIndex = null;
+    let editorSelectedCardNodeIds = new Set();
+    let editorSuppressPreviewClickUntil = 0;
     let editorActiveTab = "device";
     let editorCardIndex = 0;
     let editorSlotIndex = 0;
@@ -84404,7 +84414,7 @@
       editorRackIndex = 0;
       editorCardIndex = 0;
       editorSlotIndex = 0;
-      editorSelectedCardNodeIndex = null;
+      clearEditorCardNodeSelection();
       renderDeviceEditor();
       deviceEditorModal.classList.remove("hidden");
       scheduleDeviceEditorEnginePreviewOpenFit();
@@ -84446,7 +84456,7 @@
       editorRackIndex = 0;
       editorCardIndex = 0;
       editorSlotIndex = 0;
-      editorSelectedCardNodeIndex = null;
+      clearEditorCardNodeSelection();
       renderDeviceEditor();
       deviceEditorModal.classList.remove("hidden");
       scheduleDeviceEditorEnginePreviewOpenFit();
@@ -84490,7 +84500,7 @@
       editorRackIndex = 0;
       editorCardIndex = 0;
       editorSlotIndex = 0;
-      editorSelectedCardNodeIndex = null;
+      clearEditorCardNodeSelection();
       renderDeviceEditor();
       deviceEditorModal.classList.remove("hidden");
       scheduleDeviceEditorEnginePreviewOpenFit();
@@ -84650,7 +84660,7 @@
       editorRackIndex = 0;
       editorCardIndex = 0;
       editorSlotIndex = 0;
-      editorSelectedCardNodeIndex = null;
+      clearEditorCardNodeSelection();
       renderDeviceEditor();
       deviceEditorModal.classList.remove("hidden");
       scheduleDeviceEditorEnginePreviewOpenFit();
@@ -85072,7 +85082,7 @@
       editorConnectorSnapGuide = null;
       editorCardIndex = 0;
       editorSlotIndex = 0;
-      editorSelectedCardNodeIndex = null;
+      clearEditorCardNodeSelection();
     }
 
     function duplicateCurrentEditorDevice() {
@@ -87370,7 +87380,7 @@
       setPowerUnitToggle(editorPowerUnitToggle, powerUnit);
       syncEditorNodeSelection(template);
       const selectedCard = template.cardTypes?.[editorCardIndex];
-      if (editorSelectedCardNodeIndex !== null && !selectedCard?.connectors?.[editorSelectedCardNodeIndex]) editorSelectedCardNodeIndex = null;
+      syncEditorCardNodeSelection(selectedCard);
       editorLedOutputCount.innerHTML = Array.from({ length: 19 }, (_, index) => {
         const count = index + 2;
         return `<option value="${count}" ${Number(template.ledOutputCount || 16) === count ? "selected" : ""}>${count}</option>`;
@@ -87616,7 +87626,7 @@
       }
       editorCardIndex = clamp(editorCardIndex, 0, template.cardTypes.length - 1);
       const card = template.cardTypes[editorCardIndex];
-      if (editorSelectedCardNodeIndex !== null && !card?.connectors?.[editorSelectedCardNodeIndex]) editorSelectedCardNodeIndex = null;
+      syncEditorCardNodeSelection(card);
       editorCardSelect.innerHTML = template.cardTypes.map((item, index) => {
         return `<option value="${index}" ${index === editorCardIndex ? "selected" : ""}>${escapeHtml(item.name || item.id)}</option>`;
       }).join("");
@@ -88355,7 +88365,7 @@
       });
       template.cardTypes.push(copy);
       editorCardIndex = template.cardTypes.length - 1;
-      editorSelectedCardNodeIndex = null;
+      clearEditorCardNodeSelection();
       normalizeCardSlots(template);
       template.height = deviceHeightForSlotCounts(template);
       renderDeviceEditor();
@@ -88460,6 +88470,77 @@
       return template?.cardTypes?.[editorCardIndex] || null;
     }
 
+    function clearEditorCardNodeSelection() {
+      editorSelectedCardNodeIndex = null;
+      editorSelectedCardNodeIds.clear();
+    }
+
+    function syncEditorCardNodeSelection(card) {
+      if (card === undefined) card = currentEditorCard();
+      const connectors = card?.connectors || [];
+      editorSelectedCardNodeIds = new Set(
+        [...editorSelectedCardNodeIds]
+          .map(index => Number(index))
+          .filter(index => Number.isInteger(index) && index >= 0 && index < connectors.length)
+      );
+      if (Number.isInteger(editorSelectedCardNodeIndex) && connectors[editorSelectedCardNodeIndex] && !editorSelectedCardNodeIds.size) {
+        editorSelectedCardNodeIds.add(editorSelectedCardNodeIndex);
+      }
+      if (!editorSelectedCardNodeIds.size) {
+        editorSelectedCardNodeIndex = null;
+        return;
+      }
+      if (!Number.isInteger(editorSelectedCardNodeIndex) || !editorSelectedCardNodeIds.has(editorSelectedCardNodeIndex)) {
+        editorSelectedCardNodeIndex = [...editorSelectedCardNodeIds].sort((a, b) => a - b)[0] ?? null;
+      }
+    }
+
+    function setEditorCardNodeSelection(index, options = {}) {
+      const card = currentEditorCard();
+      const connectors = card?.connectors || [];
+      const safeIndex = Number(index);
+      if (!Number.isInteger(safeIndex) || safeIndex < 0 || safeIndex >= connectors.length) {
+        clearEditorCardNodeSelection();
+        return [];
+      }
+      if (options.toggle) {
+        if (editorSelectedCardNodeIds.has(safeIndex)) editorSelectedCardNodeIds.delete(safeIndex);
+        else editorSelectedCardNodeIds.add(safeIndex);
+      } else if (options.add) {
+        editorSelectedCardNodeIds.add(safeIndex);
+      } else if (!(options.keepGroup && editorSelectedCardNodeIds.has(safeIndex))) {
+        editorSelectedCardNodeIds = new Set([safeIndex]);
+      }
+      if (editorSelectedCardNodeIds.has(safeIndex)) editorSelectedCardNodeIndex = safeIndex;
+      syncEditorCardNodeSelection(card);
+      return [...editorSelectedCardNodeIds];
+    }
+
+    function editorCardPreviewBand(card) {
+      const kind = card?.kind || "io";
+      if (kind === "input") return { x: 10, width: DEVICE_WIDTH / 2 - 16, textX: DEVICE_WIDTH / 4 };
+      if (kind === "output") return { x: DEVICE_WIDTH / 2 + 6, width: DEVICE_WIDTH / 2 - 16, textX: DEVICE_WIDTH * .75 };
+      return { x: 10, width: DEVICE_WIDTH - 20, textX: DEVICE_WIDTH / 2 };
+    }
+
+    function editorCardPreviewRows(card) {
+      const inputCount = (card?.connectors || []).filter(connector => connector.direction === "input").length;
+      const outputCount = (card?.connectors || []).filter(connector => connector.direction !== "input").length;
+      return Math.max(1, inputCount, outputCount);
+    }
+
+    function editorCardConnectorLayout(card) {
+      const band = editorCardPreviewBand(card);
+      const counts = { input: 0, output: 0 };
+      return (card?.connectors || []).map((connector, index) => {
+        const side = connector.direction === "input" ? "input" : "output";
+        const row = counts[side]++;
+        const x = side === "input" ? band.x : band.x + band.width;
+        const y = SLOT_HEIGHT * 2 + row * SLOT_HEIGHT;
+        return { connector, index, row, x, y, side, band };
+      });
+    }
+
     function addCardConnector(direction) {
       const template = currentEditorTemplate();
       if (!template?.hasSwappableCards) return;
@@ -88478,7 +88559,7 @@
         includeInMatrix: false,
         matrixPortTouched: false
       }, card.connectors.length, direction));
-      editorSelectedCardNodeIndex = card.connectors.length - 1;
+      setEditorCardNodeSelection(card.connectors.length - 1);
       normalizeCardSlots(template);
       template.height = deviceHeightForSlotCounts(template);
       renderDeviceEditor();
@@ -88500,7 +88581,7 @@
       applyAutomaticConnectorName(card.connectors, connector);
       normalizeCardConnector(connector, index, connector.direction);
       resetMatrixPortDefault(connector);
-      editorSelectedCardNodeIndex = index;
+      setEditorCardNodeSelection(index);
       normalizeCardSlots(template);
       template.height = deviceHeightForSlotCounts(template);
       renderDeviceEditor();
@@ -88511,11 +88592,14 @@
       const card = currentEditorCard();
       if (!template || !card?.connectors?.[index]) return;
       card.connectors.splice(index, 1);
-      if (editorSelectedCardNodeIndex === index) {
-        editorSelectedCardNodeIndex = null;
-      } else if (editorSelectedCardNodeIndex !== null && editorSelectedCardNodeIndex > index) {
-        editorSelectedCardNodeIndex -= 1;
-      }
+      editorSelectedCardNodeIds = new Set(
+        [...editorSelectedCardNodeIds]
+          .map(selectedIndex => selectedIndex === index ? null : selectedIndex > index ? selectedIndex - 1 : selectedIndex)
+          .filter(selectedIndex => Number.isInteger(selectedIndex))
+      );
+      if (editorSelectedCardNodeIndex === index) editorSelectedCardNodeIndex = null;
+      else if (editorSelectedCardNodeIndex !== null && editorSelectedCardNodeIndex > index) editorSelectedCardNodeIndex -= 1;
+      syncEditorCardNodeSelection(card);
       normalizeCardSlots(template);
       template.height = deviceHeightForSlotCounts(template);
       renderDeviceEditor();
@@ -91267,6 +91351,33 @@
       syncEditorNodeSelection(template);
     }
 
+    function selectEditorCardNodesInRect(card, marqueeRect, options = {}) {
+      if (!card?.connectors) return;
+      const paddedRect = {
+        left: marqueeRect.left - 2,
+        top: marqueeRect.top - 2,
+        right: marqueeRect.right + 2,
+        bottom: marqueeRect.bottom + 2
+      };
+      const nextIds = options.baseIds
+        ? new Set([...options.baseIds].map(index => Number(index)).filter(Number.isInteger))
+        : new Set();
+      editorCardConnectorLayout(card).forEach(({ index, x, y }) => {
+        const radius = 13;
+        const connectorRect = {
+          left: x - radius,
+          top: y - radius,
+          right: x + radius,
+          bottom: y + radius
+        };
+        if (edgeRectsIntersect(paddedRect, connectorRect) || rectContainsPoint(paddedRect, { x, y })) {
+          nextIds.add(index);
+        }
+      });
+      editorSelectedCardNodeIds = nextIds;
+      syncEditorCardNodeSelection(card);
+    }
+
     function drawEditorPowerPlugMarquee(parent) {
       if (!editorPowerPlugMarquee) return;
       const rect = rectFromPoints(editorPowerPlugMarquee.start, editorPowerPlugMarquee.current);
@@ -91665,32 +91776,22 @@
       const template = currentEditorTemplate();
       const card = currentEditorCard();
       if (!template || !card) return;
+      syncEditorCardNodeSelection(card);
       deviceEditorPreview.innerHTML = "";
-      const inputConnectors = card.connectors.filter(connector => connector.direction === "input");
-      const outputConnectors = card.connectors.filter(connector => connector.direction !== "input");
-      const rows = Math.max(1, inputConnectors.length, outputConnectors.length);
       const width = DEVICE_WIDTH;
+      const rows = editorCardPreviewRows(card);
       const height = (rows + 2) * SLOT_HEIGHT;
       const view = editorPreviewViewBox(width, height, editorPreviewZoom, editorPreviewPan, deviceEditorPreview, editorCardPreviewBounds(card));
       deviceEditorPreview.setAttribute("viewBox", `${view.viewX} ${view.viewY} ${view.viewWidth} ${view.viewHeight}`);
-      const kind = card.kind || "io";
-      const band = kind === "input"
-        ? { x: 10, width: DEVICE_WIDTH / 2 - 16, textX: DEVICE_WIDTH / 4 }
-        : kind === "output"
-          ? { x: DEVICE_WIDTH / 2 + 6, width: DEVICE_WIDTH / 2 - 16, textX: DEVICE_WIDTH * .75 }
-          : { x: 10, width: DEVICE_WIDTH - 20, textX: DEVICE_WIDTH / 2 };
+      const band = editorCardPreviewBand(card);
       deviceEditorPreview.appendChild(createSvg("rect", {
         x: band.x, y: SLOT_HEIGHT / 2, width: band.width, height,
         rx: 6, fill: "rgba(50,182,255,.06)", stroke: "rgba(50,182,255,.5)",
         "stroke-width": 1.4, "stroke-dasharray": "5 4"
       }));
       drawCardCaption(deviceEditorPreview, card.name || "Card", band.textX, SLOT_HEIGHT, card, { maxWidth: band.width - 12 });
-      const drawCardPreviewConnector = (connector, index) => {
-        const y = SLOT_HEIGHT * 2 + index * SLOT_HEIGHT;
-        const side = connector.direction === "input" ? "input" : "output";
-        const x = side === "input" ? band.x : band.x + band.width;
-        const connectorIndex = card.connectors.indexOf(connector);
-        const selected = editorSelectedCardNodeIndex === connectorIndex;
+      const drawCardPreviewConnector = ({ connector, index: connectorIndex, x, y, side }) => {
+        const selected = editorSelectedCardNodeIds.has(connectorIndex) || editorSelectedCardNodeIndex === connectorIndex;
         const g = createSvg("g", {
           class: `editor-node ${connector.empty ? "editor-slot-empty" : ""} ${selected ? "editor-node-selected" : ""}`,
           "data-card-preview-node": connectorIndex
@@ -91742,8 +91843,8 @@
         }
         deviceEditorPreview.appendChild(g);
       };
-      inputConnectors.forEach(drawCardPreviewConnector);
-      outputConnectors.forEach(drawCardPreviewConnector);
+      editorCardConnectorLayout(card).forEach(drawCardPreviewConnector);
+      drawEditorNodeMarquee(deviceEditorPreview);
     }
 
     function cardBandGeometry(template, slot) {
@@ -92466,12 +92567,19 @@
     }
 
     function startEditorNodeMarquee(event) {
-      if (event.button !== 0 || editorActiveTab !== "connectors") return false;
+      if (event.button !== 0 || (editorActiveTab !== "connectors" && editorActiveTab !== "cards")) return false;
       const template = currentEditorTemplate();
-      if (!template?.connectors?.length) return false;
       const svg = editorSvgForEvent(event);
       if (svg !== deviceEditorPreview) return false;
-      if (event.target.closest("[data-editor-node], [data-editor-card-slot-id], [data-editor-power-plug-id], [data-editor-resize-target], [data-editor-field], [data-editor-misc-color], [data-editor-remove-node], [data-editor-remove-card-slot]")) return false;
+      const card = currentEditorCard();
+      const isCardMarquee = editorActiveTab === "cards";
+      if (isCardMarquee) {
+        if (!card?.connectors?.length) return false;
+        if (event.target.closest("[data-card-preview-node], [data-card-remove-node], [data-editor-field], [data-editor-misc-color]")) return false;
+      } else {
+        if (!template?.connectors?.length) return false;
+        if (event.target.closest("[data-editor-node], [data-editor-card-slot-id], [data-editor-power-plug-id], [data-editor-resize-target], [data-editor-field], [data-editor-misc-color], [data-editor-remove-node], [data-editor-remove-card-slot]")) return false;
+      }
       event.preventDefault();
       event.stopPropagation();
       const point = getEditorPreviewPoint(event);
@@ -92481,13 +92589,18 @@
         start: point,
         current: point,
         moved: false,
-        baseIds: add ? new Set(editorSelectedNodeIds) : new Set()
+        mode: isCardMarquee ? "cards" : "connectors",
+        baseIds: add ? new Set(isCardMarquee ? editorSelectedCardNodeIds : editorSelectedNodeIds) : new Set()
       };
-      if (!add) clearEditorNodeSelection();
+      if (!add) {
+        if (isCardMarquee) clearEditorCardNodeSelection();
+        else clearEditorNodeSelection();
+      }
       editorSelectedFaceplate = false;
       editorSelectedPowerPlugIds.clear();
       setEditorPointerCapture(event);
-      renderSelectedConnectorSettings();
+      if (isCardMarquee) renderCardEditor();
+      else renderSelectedConnectorSettings();
       renderDeviceEditorPreview();
       return true;
     }
@@ -92588,15 +92701,21 @@
       }
       if (editorNodeMarquee && event.pointerId === editorNodeMarquee.pointerId) {
         const template = currentEditorTemplate();
-        if (!template) return;
+        const card = currentEditorCard();
+        if (!template || (editorNodeMarquee.mode === "cards" && !card)) return;
         const point = getEditorPreviewPoint(event);
         editorNodeMarquee.current = point;
         editorNodeMarquee.moved = Math.hypot(point.x - editorNodeMarquee.start.x, point.y - editorNodeMarquee.start.y) > 4;
         if (editorNodeMarquee.moved) {
-          selectEditorNodesInRect(template, rectFromPoints(editorNodeMarquee.start, point), { baseIds: editorNodeMarquee.baseIds });
+          if (editorNodeMarquee.mode === "cards") {
+            selectEditorCardNodesInRect(card, rectFromPoints(editorNodeMarquee.start, point), { baseIds: editorNodeMarquee.baseIds });
+          } else {
+            selectEditorNodesInRect(template, rectFromPoints(editorNodeMarquee.start, point), { baseIds: editorNodeMarquee.baseIds });
+          }
           editorSelectedFaceplate = false;
           editorSelectedPowerPlugIds.clear();
-          renderSelectedConnectorSettings();
+          if (editorNodeMarquee.mode === "cards") renderCardEditor();
+          else renderSelectedConnectorSettings();
         }
         renderDeviceEditorPreview();
         return;
@@ -92726,17 +92845,26 @@
       if (editorNodeMarquee) {
         if (event?.pointerId !== undefined && event.pointerId !== editorNodeMarquee.pointerId) return;
         const template = currentEditorTemplate();
+        const card = currentEditorCard();
         if (template && event?.clientX !== undefined && event?.clientY !== undefined) {
           const point = getEditorPreviewPoint(event);
           editorNodeMarquee.current = point;
           editorNodeMarquee.moved = editorNodeMarquee.moved || Math.hypot(point.x - editorNodeMarquee.start.x, point.y - editorNodeMarquee.start.y) > 4;
           if (editorNodeMarquee.moved) {
-            selectEditorNodesInRect(template, rectFromPoints(editorNodeMarquee.start, point), { baseIds: editorNodeMarquee.baseIds });
+            if (editorNodeMarquee.mode === "cards" && card) {
+              selectEditorCardNodesInRect(card, rectFromPoints(editorNodeMarquee.start, point), { baseIds: editorNodeMarquee.baseIds });
+            } else {
+              selectEditorNodesInRect(template, rectFromPoints(editorNodeMarquee.start, point), { baseIds: editorNodeMarquee.baseIds });
+            }
           }
         }
         releaseEditorPointerCapture(event);
+        const mode = editorNodeMarquee.mode;
+        const moved = editorNodeMarquee.moved;
         editorNodeMarquee = null;
-        renderSelectedConnectorSettings();
+        if (mode === "cards" && moved) editorSuppressPreviewClickUntil = Date.now() + 150;
+        if (mode === "cards") renderCardEditor();
+        else renderSelectedConnectorSettings();
         renderDeviceEditorPreview();
         return;
       }
@@ -106537,7 +106665,7 @@ renderViewerOutputDebug();
       const previousTab = editorActiveTab;
       editorActiveTab = tab.dataset.editorTab;
       recordShellPanelAction("device editor tab", editorActiveTab);
-      editorSelectedCardNodeIndex = null;
+      clearEditorCardNodeSelection();
       renderEditorTabs();
       try {
         syncEditorFieldsToDraft();
@@ -106655,7 +106783,7 @@ renderViewerOutputDebug();
       editorPowerPlugMarquee = null;
       editorCardIndex = 0;
       editorSlotIndex = 0;
-      editorSelectedCardNodeIndex = null;
+      clearEditorCardNodeSelection();
       if (markDefaultConfig) markDefaultConfig.checked = false;
       renderDeviceEditor();
       requestAnimationFrame(() => requestAnimationFrame(fitDeviceEditorPreview));
@@ -107037,7 +107165,7 @@ renderViewerOutputDebug();
     document.getElementById("addOutputNode").addEventListener("click", () => addEditorNode("output"));
     editorCardSelect.addEventListener("change", event => {
       editorCardIndex = Number(event.target.value) || 0;
-      editorSelectedCardNodeIndex = null;
+      clearEditorCardNodeSelection();
       renderDeviceEditor();
     });
     editorCardName.addEventListener("input", event => {
@@ -107074,7 +107202,7 @@ renderViewerOutputDebug();
       } else if (card.kind === "output") {
         card.connectors = card.connectors.filter(connector => connector.direction === "output");
       }
-      editorSelectedCardNodeIndex = null;
+      clearEditorCardNodeSelection();
       normalizeCardSlots(template);
       template.height = deviceHeightForSlotCounts(template);
       renderDeviceEditor();
@@ -107085,7 +107213,7 @@ renderViewerOutputDebug();
       template.hasSwappableCards = true;
       template.cardTypes.push(createCardType(template, `Card ${template.cardTypes.length + 1}`));
       editorCardIndex = template.cardTypes.length - 1;
-      editorSelectedCardNodeIndex = null;
+      clearEditorCardNodeSelection();
       renderDeviceEditor();
     });
     document.getElementById("duplicateCardType").addEventListener("click", duplicateCurrentCardType);
@@ -107098,7 +107226,7 @@ renderViewerOutputDebug();
         if (slot.installedCardTypeId === card.id) slot.installedCardTypeId = "";
       });
       editorCardIndex = clamp(editorCardIndex, 0, Math.max(0, template.cardTypes.length - 1));
-      editorSelectedCardNodeIndex = null;
+      clearEditorCardNodeSelection();
       normalizeCardSlots(template);
       template.height = deviceHeightForSlotCounts(template);
       renderDeviceEditor();
@@ -107119,7 +107247,7 @@ renderViewerOutputDebug();
       editorPowerPlugMarquee = null;
       editorCardIndex = 0;
       editorSlotIndex = 0;
-      editorSelectedCardNodeIndex = null;
+      clearEditorCardNodeSelection();
       renderDeviceEditor();
     });
     function handleCardConnectorFieldChange(event) {
@@ -107283,6 +107411,11 @@ renderViewerOutputDebug();
     bindEditorInteractionSvg(deviceEditorPreview);
     bindEditorInteractionSvg(deviceEditorFaceplatePreview);
     deviceEditorPreview.addEventListener("click", event => {
+      if (editorActiveTab === "cards" && Date.now() < editorSuppressPreviewClickUntil) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       const slotRemove = event.target.closest("[data-editor-remove-card-slot]");
       if (slotRemove && editorActiveTab === "connectors") {
         event.preventDefault();
@@ -107301,16 +107434,21 @@ renderViewerOutputDebug();
       if (cardPreviewNode && editorActiveTab === "cards") {
         event.preventDefault();
         event.stopPropagation();
-        editorSelectedCardNodeIndex = Number(cardPreviewNode.dataset.cardPreviewNode);
+        const index = Number(cardPreviewNode.dataset.cardPreviewNode);
+        if (event.shiftKey || event.metaKey || event.ctrlKey) {
+          setEditorCardNodeSelection(index, { toggle: true });
+        } else {
+          setEditorCardNodeSelection(index, { keepGroup: editorSelectedCardNodeIds.size > 1 });
+        }
         renderCardEditor();
         renderCardEditorPreview();
         renderEditorDeviceList();
         return;
       }
-      if (editorActiveTab === "cards" && editorSelectedCardNodeIndex !== null) {
+      if (editorActiveTab === "cards" && (editorSelectedCardNodeIndex !== null || editorSelectedCardNodeIds.size)) {
         event.preventDefault();
         event.stopPropagation();
-        editorSelectedCardNodeIndex = null;
+        clearEditorCardNodeSelection();
         renderCardEditor();
         renderCardEditorPreview();
         renderEditorDeviceList();
@@ -107390,9 +107528,9 @@ renderViewerOutputDebug();
       renderDeviceEditorPreview();
     });
 
-    function zoomEditorPreviewSvg(svg, factor) {
-	      if (svg === deviceEditorPreview && deviceEditorActivePreviewUsesEngine()) {
-        zoomDeviceEditorEnginePreview(factor);
+    function zoomEditorPreviewSvg(svg, factor, event = null) {
+      if (svg === deviceEditorPreview && deviceEditorActivePreviewUsesEngine()) {
+        zoomDeviceEditorEnginePreview(factor, event);
         return;
       }
       if (svg === deviceEditorFaceplatePreview) {
@@ -107401,6 +107539,16 @@ renderViewerOutputDebug();
         editorPreviewZoom = Math.min(8, Math.max(.08, editorPreviewZoom * factor));
       }
       renderDeviceEditorPreview();
+    }
+
+    function handleEditorPreviewWheel(event, svg = deviceEditorPreview) {
+      if (event.__avDesignerEditorPreviewWheelHandled) return;
+      if (!editorPreviewWheelZoomModifierActive(event)) return;
+      event.__avDesignerEditorPreviewWheelHandled = true;
+      event.preventDefault();
+      event.stopPropagation();
+      const targetSvg = svg === deviceEditorFaceplatePreview ? deviceEditorFaceplatePreview : deviceEditorPreview;
+      zoomEditorPreviewSvg(targetSvg, event.deltaY < 0 ? 1.12 : 1 / 1.12, event);
     }
 
     function startEditorPreviewPan(event) {
@@ -107443,28 +107591,27 @@ renderViewerOutputDebug();
       renderDeviceEditorPreview();
     }
 
-	    function stopEditorPreviewPan(event) {
-	      if (!editorPreviewPanState) return;
-	      if (event?.pointerId !== undefined && event.pointerId !== editorPreviewPanState.pointerId) return;
-	      const svg = editorPreviewPanState.svg || deviceEditorPreview;
-	      if (event?.pointerId !== undefined && svg.hasPointerCapture(event.pointerId)) {
-	        svg.releasePointerCapture(event.pointerId);
-	      }
-	      (deviceEditorActivePreviewUsesEngine() && svg === deviceEditorPreview ? editorEnginePreviewHost : svg.parentElement)?.classList.remove("panning");
-	      editorPreviewPanState = null;
-	    }
+    function stopEditorPreviewPan(event) {
+      if (!editorPreviewPanState) return;
+      if (event?.pointerId !== undefined && event.pointerId !== editorPreviewPanState.pointerId) return;
+      const svg = editorPreviewPanState.svg || deviceEditorPreview;
+      if (event?.pointerId !== undefined && svg.hasPointerCapture(event.pointerId)) {
+        svg.releasePointerCapture(event.pointerId);
+      }
+      (deviceEditorActivePreviewUsesEngine() && svg === deviceEditorPreview ? editorEnginePreviewHost : svg.parentElement)?.classList.remove("panning");
+      editorPreviewPanState = null;
+    }
 
-	    function bindEditorPreviewNavigation(svg) {
-	      if (!svg) return;
-	      svg.addEventListener("wheel", event => {
-	        if (!editorPreviewWheelZoomModifierActive(event)) return;
-	        event.preventDefault();
-	        if (svg === deviceEditorPreview && deviceEditorActivePreviewUsesEngine()) {
-	          zoomDeviceEditorEnginePreview(event.deltaY < 0 ? 1.12 : 1 / 1.12, event);
-	        } else {
-	          zoomEditorPreviewSvg(svg, event.deltaY < 0 ? 1.12 : 1 / 1.12);
-	        }
-	      }, { passive: false });
+    function bindEditorPreviewWheelTarget(target, svg) {
+      if (!target) return;
+      target.addEventListener("wheel", event => handleEditorPreviewWheel(event, svg), { passive: false });
+    }
+
+    function bindEditorPreviewNavigation(svg) {
+      if (!svg) return;
+      const previewHost = svg.closest?.(".editor-preview") || svg.parentElement;
+      bindEditorPreviewWheelTarget(svg, svg);
+      if (previewHost && previewHost !== svg) bindEditorPreviewWheelTarget(previewHost, svg);
       svg.addEventListener("pointerdown", startEditorPreviewPan);
       svg.addEventListener("pointermove", moveEditorPreviewPan);
       svg.addEventListener("pointerup", stopEditorPreviewPan);
