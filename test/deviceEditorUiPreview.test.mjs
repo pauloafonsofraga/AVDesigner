@@ -264,6 +264,43 @@ test("Device Editor modal omits visible helper copy", () => {
   assert.doesNotMatch(renderConnectorRelationshipsPanel, /Shift-click|Available for two|Select exactly two|Select the exact group|No relationship assigned/);
 });
 
+test("Matrix routing separates compact inspector routes from full modal crosspoints", () => {
+  const matrixMarkup = functionSource("matrixRoutingMarkup");
+  const bindMatrixRouting = functionSource("bindMatrixRoutingInspector");
+  const renderMatrixModal = functionSource("renderMatrixRoutingModalBody");
+  const renderDeviceInspector = functionSource("renderDeviceInspector");
+  const filterMatrix = functionSource("applyMatrixInspectorFilter");
+
+  assert.match(INDEX_HTML, /const MATRIX_CROSSPOINT_DEFAULT_LIMIT = 256;/);
+  assert.match(INDEX_HTML, /modal: \{ filter: "", routedOnly: false, viewByDeviceId: \{\}, bodyScrollTop: 0, routeScrollTop: 0, gridScrollTop: 0, gridScrollLeft: 0 \}/);
+  assert.match(matrixMarkup, /const presentation = options\.presentation === "modal" \? "modal" : "inspector";/);
+  assert.match(matrixMarkup, /matrixRoutingViewForInstance\(instance, inputs, outputs, \{ presentation, view: options\.view \}\)/);
+  assert.match(matrixMarkup, /selectedView === "crosspoint" \? grid : routeTable/);
+  assert.match(matrixMarkup, /data-matrix-presentation="\$\{presentation\}"/);
+  assert.match(matrixMarkup, /data-matrix-view-current="\$\{escapeAttr\(selectedView\)\}"/);
+  assert.match(matrixMarkup, /data-matrix-open-modal/);
+  assert.match(matrixMarkup, /data-matrix-view="routes"/);
+  assert.match(matrixMarkup, /data-matrix-view="crosspoint"/);
+  assert.match(matrixMarkup, /data-matrix-output-select/);
+  assert.match(matrixMarkup, /data-matrix-output/);
+  assert.match(matrixMarkup, /data-matrix-input/);
+
+  assert.match(renderDeviceInspector, /matrixRoutingMarkup\(instance, \{ presentation: "inspector" \}\)/);
+  assert.match(renderDeviceInspector, /bindMatrixRoutingInspector\(instance, inspectorBody, \{ presentation: "inspector" \}\)/);
+  assert.match(renderMatrixModal, /matrixRoutingCaptureState\(matrixRoutingModalBody, "modal"\)/);
+  assert.match(renderMatrixModal, /matrixRoutingMarkup\(instance, \{\s*heading: "Matrix Routing",\s*presentation: "modal"\s*\}\)/);
+  assert.match(renderMatrixModal, /matrixRoutingRestoreState\(matrixRoutingModalBody, "modal", snapshot\)/);
+
+  assert.match(bindMatrixRouting, /matrixRoutingUiState\.modal\.viewByDeviceId\[key\] = view;/);
+  assert.match(bindMatrixRouting, /engineBridge\.commitMatrixRoute\?\./);
+  assert.match(bindMatrixRouting, /pushUndo\(\);/);
+  assert.match(filterMatrix, /row\.dataset\.matrixRouted === "1"/);
+  assert.match(functionSource("matrixRoutingRestoreState"), /data-matrix-view="\$\{CSS\.escape\(snapshot\.focusedView\)\}"/);
+
+  const inspectorOnlyMarkup = sourceSlice(matrixMarkup, 'const viewToggle = presentation === "modal"', "const openFull = presentation === \"inspector\"");
+  assert.doesNotMatch(inspectorOnlyMarkup, /data-matrix-view-current="\$\{escapeAttr\(selectedView\)\}"/, "view selection should be stored on the section, not duplicated in the inspector toggle");
+});
+
 test("Faceplate tab keeps image controls together in one compact row", () => {
   const faceplatePanel = editorPanel("faceplate");
 

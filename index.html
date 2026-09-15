@@ -4557,11 +4557,13 @@
 
     .matrix-routing {
       display: grid;
-      gap: 10px;
-      margin-top: 14px;
+      gap: 8px;
+      margin-top: 12px;
+      min-height: 0;
     }
 
-    .matrix-routing h3 {
+    .matrix-routing h3,
+    .matrix-routing-heading {
       margin: 0;
       color: var(--muted);
       font-size: 11px;
@@ -4570,15 +4572,59 @@
       text-transform: uppercase;
     }
 
+    .matrix-routing-heading strong {
+      color: var(--text);
+      font-size: 12px;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
     .matrix-toolbar {
-      display: grid;
+      display: flex;
       gap: 8px;
-      grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
+      min-width: 0;
     }
 
     .matrix-toolbar input[type="search"] {
       width: 100%;
+      min-width: 150px;
+      height: 28px;
+      font-size: 11px;
+    }
+
+    .matrix-view-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      width: fit-content;
+      padding: 2px;
+      border: 1px solid var(--panel-border);
+      border-radius: 7px;
+      background: rgba(154, 167, 181, .08);
+    }
+
+    .matrix-view-toggle button {
+      min-height: 24px;
+      padding: 3px 9px;
+      border: 0;
+      border-radius: 5px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .matrix-view-toggle button.active,
+    .matrix-view-toggle button[aria-pressed="true"] {
+      background: rgba(50, 182, 255, .18);
+      color: var(--text);
+    }
+
+    .matrix-view-toggle button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
     }
 
     .matrix-grid-details {
@@ -4599,20 +4645,22 @@
       border: 1px solid var(--panel-border);
       border-radius: 8px;
       background: rgba(12, 18, 24, .18);
+      width: fit-content;
+      max-width: 100%;
     }
 
     .matrix-grid {
       border-collapse: separate;
       border-spacing: 0;
       min-width: max-content;
-      width: 100%;
+      width: max-content;
     }
 
     .matrix-grid th,
     .matrix-grid td {
-      min-width: 30px;
-      height: 28px;
-      padding: 3px;
+      min-width: 28px;
+      height: 26px;
+      padding: 2px;
       border-right: 1px solid rgba(148, 163, 184, .22);
       border-bottom: 1px solid rgba(148, 163, 184, .22);
       text-align: center;
@@ -4638,7 +4686,7 @@
     .matrix-grid tbody th {
       top: auto;
       left: 0;
-      max-width: 118px;
+      max-width: 132px;
       overflow: hidden;
       text-align: right;
       text-overflow: ellipsis;
@@ -4650,11 +4698,11 @@
     }
 
     .matrix-cell {
-      width: 20px;
-      height: 20px;
+      width: 18px;
+      height: 18px;
       padding: 0;
       border: 1px solid rgba(154, 167, 181, .45);
-      border-radius: 4px;
+      border-radius: 3px;
       background: rgba(154, 167, 181, .12);
       color: transparent;
       cursor: pointer;
@@ -4668,58 +4716,57 @@
     .matrix-cell.active {
       border-color: rgb(251, 121, 4);
       background: rgb(50, 182, 255);
-      box-shadow: inset 0 0 0 3px rgba(251, 121, 4, .9), 0 0 10px rgba(50, 182, 255, .45);
+      box-shadow: inset 0 0 0 3px rgba(251, 121, 4, .9);
     }
 
     .matrix-route-list {
       display: grid;
-      gap: 6px;
+      gap: 4px;
       margin: 0;
-      padding: 8px;
+      padding: 6px;
       border: 1px solid var(--panel-border);
       border-radius: 8px;
       background: rgba(50, 182, 255, .05);
-      font-size: 12px;
-    }
-
-    .matrix-route-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    .matrix-route-table th,
-    .matrix-route-table td {
-      padding: 6px;
-      border-bottom: 1px solid rgba(154, 167, 181, .22);
-      font-size: 12px;
-      text-align: left;
-    }
-
-    .matrix-route-table th {
-      color: var(--muted);
-      font-size: 10px;
-      font-weight: 900;
-      letter-spacing: .06em;
-      text-transform: uppercase;
-    }
-
-    .matrix-route-table select {
-      width: 100%;
+      font-size: 11px;
+      min-height: 0;
+      overflow: auto;
     }
 
     .matrix-route-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      grid-template-columns: minmax(110px, 190px) minmax(130px, 1fr);
       gap: 8px;
       align-items: center;
+      min-height: 30px;
+      padding: 3px 5px;
+      border-radius: 5px;
     }
 
-    .matrix-route-row strong,
-    .matrix-route-row span {
+    .matrix-route-row:hover {
+      background: rgba(50, 182, 255, .08);
+    }
+
+    .matrix-route-output {
       min-width: 0;
       overflow: hidden;
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 900;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .matrix-route-row select {
+      width: 100%;
+      min-width: 0;
+      height: 26px;
+      font-size: 11px;
+    }
+
+    .matrix-open-full {
+      width: 100%;
+      min-height: 28px;
+      font-size: 11px;
     }
 
     .matrix-empty {
@@ -4729,13 +4776,14 @@
     }
 
     .matrix-routing-modal {
-      padding: 2.5vh 2.5vw;
+      padding: 4vh 4vw;
       place-items: center;
     }
 
     .matrix-routing-dialog {
-      width: 95vw;
-      height: 95vh;
+      width: min(980px, calc(100vw - 44px));
+      max-width: calc(100vw - 44px);
+      max-height: calc(100vh - 44px);
       min-height: 0;
       display: grid;
       grid-template-rows: auto minmax(0, 1fr);
@@ -4750,52 +4798,47 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
-      padding: 12px 14px;
+      gap: 12px;
+      padding: 9px 11px;
       border-bottom: 1px solid var(--panel-border);
       background: rgba(50, 182, 255, .06);
     }
 
     .matrix-routing-dialog-header h2 {
       margin: 0;
-      font-size: 16px;
+      font-size: 14px;
       line-height: 1.2;
     }
 
     .matrix-routing-dialog-header span {
       display: block;
-      margin-top: 3px;
+      margin-top: 2px;
       color: var(--muted);
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 800;
     }
 
     .matrix-routing-dialog-body {
       min-height: 0;
-      overflow: auto;
-      padding: 14px;
+      overflow: hidden;
+      padding: 10px;
     }
 
     .matrix-routing-modal .matrix-routing {
       height: 100%;
       min-height: 0;
       margin-top: 0;
-      grid-template-rows: auto auto minmax(0, .34fr) minmax(0, .66fr);
+      grid-template-rows: auto auto minmax(0, 1fr);
     }
 
     .matrix-routing-modal .matrix-route-list {
       min-height: 0;
-      overflow: auto;
+      max-height: min(64vh, 620px);
     }
 
-    .matrix-routing-modal .matrix-grid-details {
+    .matrix-routing-modal .matrix-grid-panel {
       min-height: 0;
       overflow: hidden;
-    }
-
-    .matrix-routing-modal .matrix-grid-details[open] {
-      display: grid;
-      grid-template-rows: auto minmax(0, 1fr);
     }
 
     .matrix-routing-modal .matrix-grid-wrap {
@@ -4806,14 +4849,46 @@
 
     .matrix-routing-modal .matrix-grid th,
     .matrix-routing-modal .matrix-grid td {
-      min-width: 42px;
-      height: 36px;
-      padding: 5px;
+      min-width: 31px;
+      height: 28px;
+      padding: 3px;
     }
 
     .matrix-routing-modal .matrix-cell {
-      width: 26px;
-      height: 26px;
+      width: 20px;
+      height: 20px;
+    }
+
+    .matrix-routing.inspector {
+      margin-top: 10px;
+    }
+
+    .matrix-routing.inspector .matrix-toolbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .matrix-routing.inspector .matrix-route-list {
+      max-height: min(42vh, 420px);
+      padding: 5px;
+    }
+
+    .matrix-routing.inspector .matrix-route-row {
+      grid-template-columns: minmax(70px, .8fr) minmax(92px, 1.2fr);
+      gap: 6px;
+      min-height: 30px;
+      padding: 3px 4px;
+    }
+
+    .matrix-routing.inspector .matrix-route-output,
+    .matrix-routing.inspector .matrix-route-row select {
+      font-size: 10.5px;
+    }
+
+    @media (max-width: 360px) {
+      .matrix-routing.inspector .matrix-route-row {
+        grid-template-columns: minmax(0, 1fr);
+      }
     }
 
     .selected-connector-settings {
@@ -78320,6 +78395,11 @@
     let rackBuilderWireSegmentDrag = null;
     let rackBuilderWireCornerDrag = null;
     let matrixRoutingModalDeviceId = "";
+    const MATRIX_CROSSPOINT_DEFAULT_LIMIT = 256;
+    const matrixRoutingUiState = {
+      modal: { filter: "", routedOnly: false, viewByDeviceId: {}, bodyScrollTop: 0, routeScrollTop: 0, gridScrollTop: 0, gridScrollLeft: 0 },
+      inspector: { filter: "", routedOnly: false, routeScrollTop: 0 }
+    };
     let libraryResizeDrag = null;
     let deviceTreeResizeDrag = null;
     let rackLibraryDrag = null;
@@ -103163,48 +103243,147 @@
         }));
     }
 
+    function matrixRoutingDeviceKey(instance) {
+      return String(instance?.instanceId || instance?.id || "");
+    }
+
+    function matrixRoutingStateFor(presentation = "inspector") {
+      return presentation === "modal" ? matrixRoutingUiState.modal : matrixRoutingUiState.inspector;
+    }
+
+    function matrixRoutingAssignedCount(routes = {}) {
+      return Object.keys(routes || {}).length;
+    }
+
+    function matrixRoutingDefaultView(inputs = [], outputs = []) {
+      return inputs.length * outputs.length <= MATRIX_CROSSPOINT_DEFAULT_LIMIT ? "crosspoint" : "routes";
+    }
+
+    function matrixRoutingViewForInstance(instance, inputs = [], outputs = [], options = {}) {
+      const presentation = options.presentation === "modal" ? "modal" : "inspector";
+      if (presentation !== "modal") return "routes";
+      const requested = options.view === "crosspoint" || options.view === "routes" ? options.view : "";
+      if (requested) return requested;
+      const stateForView = matrixRoutingStateFor("modal");
+      const key = matrixRoutingDeviceKey(instance);
+      const saved = stateForView.viewByDeviceId[key];
+      if (saved === "crosspoint" || saved === "routes") return saved;
+      return matrixRoutingDefaultView(inputs, outputs);
+    }
+
+    function matrixRoutingToolbarUseful(presentation, inputs = [], outputs = []) {
+      return presentation === "modal" || inputs.length > 8 || outputs.length > 8 || inputs.length + outputs.length > 16;
+    }
+
+    function matrixRoutingCaptureState(root, presentation = "inspector") {
+      if (!root) return {};
+      const stateForPresentation = matrixRoutingStateFor(presentation);
+      const wrapper = root.querySelector("[data-matrix-presentation]");
+      const deviceId = wrapper?.dataset.matrixDeviceId || "";
+      const view = wrapper?.dataset.matrixViewCurrent || "";
+      const filter = root.querySelector("[data-matrix-filter]");
+      const routedOnly = root.querySelector("[data-matrix-routed-only]");
+      const routeList = root.querySelector("[data-matrix-route-list]");
+      const gridScroll = root.querySelector("[data-matrix-grid-scroll]");
+      if (filter) stateForPresentation.filter = filter.value || "";
+      if (routedOnly) stateForPresentation.routedOnly = routedOnly.checked === true;
+      if (presentation === "modal" && deviceId && (view === "routes" || view === "crosspoint")) {
+        stateForPresentation.viewByDeviceId[deviceId] = view;
+      }
+      stateForPresentation.bodyScrollTop = root.scrollTop || 0;
+      if (routeList) stateForPresentation.routeScrollTop = routeList.scrollTop || 0;
+      if (gridScroll) {
+        stateForPresentation.gridScrollTop = gridScroll.scrollTop || 0;
+        stateForPresentation.gridScrollLeft = gridScroll.scrollLeft || 0;
+      }
+      const active = document.activeElement;
+      return {
+        focusedOutput: active?.getAttribute?.("data-matrix-output-select") || "",
+        focusedInput: active?.getAttribute?.("data-matrix-input") || "",
+        focusedView: active?.getAttribute?.("data-matrix-view") || "",
+        focusedFilter: active === filter,
+        focusedRoutedOnly: active === routedOnly
+      };
+    }
+
+    function matrixRoutingRestoreState(root, presentation = "inspector", snapshot = {}) {
+      if (!root) return;
+      const stateForPresentation = matrixRoutingStateFor(presentation);
+      const routeList = root.querySelector("[data-matrix-route-list]");
+      const gridScroll = root.querySelector("[data-matrix-grid-scroll]");
+      root.scrollTop = stateForPresentation.bodyScrollTop || 0;
+      if (routeList) routeList.scrollTop = stateForPresentation.routeScrollTop || 0;
+      if (gridScroll) {
+        gridScroll.scrollTop = stateForPresentation.gridScrollTop || 0;
+        gridScroll.scrollLeft = stateForPresentation.gridScrollLeft || 0;
+      }
+      if (snapshot.focusedOutput) {
+        [...root.querySelectorAll("[data-matrix-output-select]")]
+          .find(element => element.dataset.matrixOutputSelect === snapshot.focusedOutput)
+          ?.focus?.();
+      } else if (snapshot.focusedInput) {
+        [...root.querySelectorAll("[data-matrix-input]")]
+          .find(element => element.dataset.matrixInput === snapshot.focusedInput)
+          ?.focus?.();
+      } else if (snapshot.focusedView) {
+        root.querySelector(`[data-matrix-view="${CSS.escape(snapshot.focusedView)}"]`)?.focus?.();
+      } else if (snapshot.focusedFilter) {
+        root.querySelector("[data-matrix-filter]")?.focus?.();
+      } else if (snapshot.focusedRoutedOnly) {
+        root.querySelector("[data-matrix-routed-only]")?.focus?.();
+      }
+    }
+
+    function matrixRoutingSearchText(output, inputName = "") {
+      return `${output?.name || ""} ${inputName || ""}`.toLowerCase();
+    }
+
     function matrixRoutingMarkup(instance, options = {}) {
+      const presentation = options.presentation === "modal" ? "modal" : "inspector";
       const { inputs, outputs } = matrixEndpointsForInstance(instance);
       const heading = options.heading || "Matrix Routing";
+      const key = matrixRoutingDeviceKey(instance);
+      const uiState = matrixRoutingStateFor(presentation);
       if (!inputs.length || !outputs.length) {
+        const openFull = presentation === "inspector"
+          ? `<button class="tool-button matrix-open-full" type="button" data-matrix-open-modal>Open Full Matrix Routing</button>`
+          : "";
         return `
-          <section class="matrix-routing">
-            <h3>${escapeHtml(heading)}</h3>
-            <div class="matrix-empty">This device is marked as a matrix, but it needs at least one input Matrix Port and one output Matrix Port.</div>
+          <section class="matrix-routing ${presentation}" data-matrix-presentation="${presentation}" data-matrix-device-id="${escapeAttr(key)}" data-matrix-view-current="routes">
+            <div class="matrix-routing-heading"><strong>${escapeHtml(heading)}</strong></div>
+            <div class="matrix-empty">Needs at least one input Matrix Port and one output Matrix Port.</div>
+            ${openFull}
           </section>
         `;
       }
       const routes = ensureMatrixRoutes(instance);
+      const assignedCount = matrixRoutingAssignedCount(routes);
+      const selectedView = matrixRoutingViewForInstance(instance, inputs, outputs, { presentation, view: options.view });
+      if (presentation === "modal") uiState.viewByDeviceId[key] = selectedView;
+      const inputNames = new Map(inputs.map(input => [input.id, input.name]));
       const inputOptionsForOutput = outputId => inputs.map(input => {
         return `<option value="${escapeAttr(input.id)}" ${routes[outputId] === input.id ? "selected" : ""}>${escapeHtml(input.name)}</option>`;
       }).join("");
+      const routeRows = outputs.map(output => {
+        const assignedInputName = inputNames.get(routes[output.id]) || "";
+        return `
+          <div class="matrix-route-row matrix-output-row" data-matrix-row-output="${escapeAttr(output.id)}" data-matrix-routed="${routes[output.id] ? "1" : "0"}" data-matrix-search="${escapeAttr(matrixRoutingSearchText(output, assignedInputName))}">
+            <div class="matrix-route-output" title="${escapeAttr(output.name)}">${escapeHtml(output.name)}</div>
+            <select data-matrix-output-select="${escapeAttr(output.id)}" aria-label="${escapeAttr(`${output.name} input source`)}">
+              <option value="">Unassigned</option>
+              ${inputOptionsForOutput(output.id)}
+            </select>
+          </div>
+        `;
+      }).join("");
       const routeTable = `
-        <div class="matrix-route-list">
-          <table class="matrix-route-table">
-            <thead>
-              <tr><th>Output</th><th>Input Source</th></tr>
-            </thead>
-            <tbody>
-              ${outputs.map(output => `
-                <tr class="matrix-output-row" data-matrix-row-output="${escapeAttr(output.id)}" data-matrix-search="${escapeAttr(`${output.name} ${inputs.find(input => input.id === routes[output.id])?.name || ""}`.toLowerCase())}">
-                  <td title="${escapeAttr(output.name)}">${escapeHtml(output.name)}</td>
-                  <td>
-                    <select data-matrix-output-select="${escapeAttr(output.id)}">
-                      <option value="">Unassigned</option>
-                      ${inputOptionsForOutput(output.id)}
-                    </select>
-                  </td>
-                </tr>
-              `).join("")}
-            </tbody>
-          </table>
+        <div class="matrix-route-list" data-matrix-route-list>
+          ${routeRows}
         </div>
       `;
-      const shouldOpenGrid = options.forceGridOpen === true || inputs.length * outputs.length <= 256;
       const grid = `
-        <details class="matrix-grid-details" ${shouldOpenGrid ? "open" : ""}>
-          <summary>Crosspoint Grid (${outputs.length} x ${inputs.length})</summary>
-        <div class="matrix-grid-wrap">
+        <div class="matrix-grid-panel">
+        <div class="matrix-grid-wrap" data-matrix-grid-scroll>
           <table class="matrix-grid" aria-label="Matrix crosspoint routing">
             <thead>
               <tr>
@@ -103214,7 +103393,7 @@
             </thead>
             <tbody>
               ${outputs.map(output => `
-                <tr>
+                <tr class="matrix-output-row" data-matrix-row-output="${escapeAttr(output.id)}" data-matrix-routed="${routes[output.id] ? "1" : "0"}" data-matrix-search="${escapeAttr(matrixRoutingSearchText(output, inputNames.get(routes[output.id]) || ""))}">
                   <th title="${escapeAttr(output.name)}">${escapeHtml(output.name)}</th>
                   ${inputs.map(input => {
                     const active = routes[output.id] === input.id;
@@ -103226,27 +103405,45 @@
             </tbody>
           </table>
         </div>
-        </details>
+        </div>
       `;
+      const showToolbar = matrixRoutingToolbarUseful(presentation, inputs, outputs);
+      const toolbar = showToolbar ? `
+        <div class="matrix-toolbar">
+          <input data-matrix-filter type="search" placeholder="Search routes" value="${escapeAttr(uiState.filter || "")}" aria-label="Search matrix routes">
+          <label class="checkbox-row matrix-port-row"><input data-matrix-routed-only type="checkbox" ${uiState.routedOnly ? "checked" : ""}> Routed only</label>
+        </div>
+      ` : "";
+      const viewToggle = presentation === "modal" ? `
+        <div class="matrix-view-toggle" role="group" aria-label="Matrix routing view">
+          <button type="button" data-matrix-view="routes" class="${selectedView === "routes" ? "active" : ""}" aria-pressed="${selectedView === "routes" ? "true" : "false"}">Routes</button>
+          <button type="button" data-matrix-view="crosspoint" class="${selectedView === "crosspoint" ? "active" : ""}" aria-pressed="${selectedView === "crosspoint" ? "true" : "false"}">Crosspoint</button>
+        </div>
+      ` : "";
+      const openFull = presentation === "inspector"
+        ? `<button class="tool-button matrix-open-full" type="button" data-matrix-open-modal>Open Full Matrix Routing</button>`
+        : "";
       return `
-        <section class="matrix-routing">
-          <h3>${escapeHtml(heading)}</h3>
-          <div class="matrix-toolbar">
-            <input data-matrix-filter type="search" placeholder="Search inputs / outputs">
-            <label class="checkbox-row matrix-port-row"><input data-matrix-routed-only type="checkbox"> Routed only</label>
-          </div>
-          ${routeTable}
-          ${grid}
+        <section class="matrix-routing ${presentation}" data-matrix-presentation="${presentation}" data-matrix-device-id="${escapeAttr(key)}" data-matrix-view-current="${escapeAttr(selectedView)}">
+          <div class="matrix-routing-heading"><strong>${escapeHtml(heading)}</strong> · ${assignedCount}/${outputs.length} assigned</div>
+          ${viewToggle}
+          ${toolbar}
+          ${selectedView === "crosspoint" ? grid : routeTable}
+          ${openFull}
         </section>
       `;
     }
 
     function applyMatrixInspectorFilter(root = inspectorBody) {
+      const presentation = root.querySelector("[data-matrix-presentation]")?.dataset.matrixPresentation || "inspector";
+      const stateForPresentation = matrixRoutingStateFor(presentation);
       const filter = String(root.querySelector("[data-matrix-filter]")?.value || "").trim().toLowerCase();
       const routedOnly = root.querySelector("[data-matrix-routed-only]")?.checked === true;
+      stateForPresentation.filter = filter;
+      stateForPresentation.routedOnly = routedOnly;
       root.querySelectorAll(".matrix-output-row").forEach(row => {
         const select = row.querySelector("[data-matrix-output-select]");
-        const routed = Boolean(select?.value);
+        const routed = row.dataset.matrixRouted === "1" || Boolean(select?.value);
         const matches = !filter || String(row.dataset.matrixSearch || "").includes(filter);
         row.style.display = matches && (!routedOnly || routed) ? "" : "none";
       });
@@ -103258,9 +103455,27 @@
         else if (activeEngineBridge()) renderInspector();
         else render();
       };
+      const presentation = root.querySelector("[data-matrix-presentation]")?.dataset.matrixPresentation || options.presentation || "inspector";
+      const rememberState = () => matrixRoutingCaptureState(root, presentation);
+      root.querySelectorAll("[data-matrix-view]").forEach(button => {
+        button.addEventListener("click", event => {
+          event.stopPropagation();
+          const view = button.dataset.matrixView;
+          const key = matrixRoutingDeviceKey(instance);
+          if (!key || (view !== "routes" && view !== "crosspoint")) return;
+          rememberState();
+          matrixRoutingUiState.modal.viewByDeviceId[key] = view;
+          rerender();
+        });
+      });
+      root.querySelector("[data-matrix-open-modal]")?.addEventListener("click", event => {
+        event.stopPropagation();
+        openMatrixRoutingModal(instance.instanceId);
+      });
       root.querySelectorAll("[data-matrix-output-select]").forEach(select => {
         select.addEventListener("change", event => {
           event.stopPropagation();
+          rememberState();
           const outputId = select.dataset.matrixOutputSelect;
           const engineBridge = activeEngineBridge();
           if (engineBridge) {
@@ -103282,6 +103497,7 @@
       root.querySelectorAll("[data-matrix-output][data-matrix-input]").forEach(button => {
         button.addEventListener("click", event => {
           event.stopPropagation();
+          rememberState();
           const outputId = button.dataset.matrixOutput;
           const inputId = button.dataset.matrixInput;
           if (!outputId || !inputId) return;
@@ -103311,10 +103527,7 @@
 
     function renderMatrixRoutingModalBody() {
       if (!matrixRoutingModalBody) return;
-      const previousScrollTop = matrixRoutingModalBody.scrollTop || 0;
-      const active = document.activeElement;
-      const focusedMatrixOutput = active?.getAttribute?.("data-matrix-output-select") || "";
-      const focusedMatrixInput = active?.getAttribute?.("data-matrix-input") || "";
+      const snapshot = matrixRoutingCaptureState(matrixRoutingModalBody, "modal");
       const instance = instanceById(matrixRoutingModalDeviceId);
       const template = templateForInstance(instance);
       if (!instance || template?.isMatrixRouter !== true) {
@@ -103322,13 +103535,15 @@
         return;
       }
       const { inputs, outputs } = matrixEndpointsForInstance(instance);
-      matrixRoutingTitle.textContent = `Matrix Routing - ${instance.name || template.name || "Device"}`;
-      matrixRoutingSubtitle.textContent = `${outputs.length} outputs x ${inputs.length} inputs`;
+      const routes = ensureMatrixRoutes(instance);
+      matrixRoutingTitle.textContent = `Matrix Routing`;
+      matrixRoutingSubtitle.textContent = `${instance.name || template.name || "Device"} - ${outputs.length} outputs x ${inputs.length} inputs - ${matrixRoutingAssignedCount(routes)}/${outputs.length} assigned`;
       matrixRoutingModalBody.innerHTML = matrixRoutingMarkup(instance, {
-        heading: "Full Crosspoint",
-        forceGridOpen: true
+        heading: "Matrix Routing",
+        presentation: "modal"
       });
       bindMatrixRoutingInspector(instance, matrixRoutingModalBody, {
+        presentation: "modal",
         rerender: () => {
           if (!activeEngineBridge()) render();
           renderMatrixRoutingModalBody();
@@ -103339,16 +103554,7 @@
         inputCount: inputs.length,
         outputCount: outputs.length
       });
-      matrixRoutingModalBody.scrollTop = previousScrollTop;
-      if (focusedMatrixOutput) {
-        [...matrixRoutingModalBody.querySelectorAll("[data-matrix-output-select]")]
-          .find(element => element.dataset.matrixOutputSelect === focusedMatrixOutput)
-          ?.focus?.();
-      } else if (focusedMatrixInput) {
-        [...matrixRoutingModalBody.querySelectorAll("[data-matrix-input]")]
-          .find(element => element.dataset.matrixInput === focusedMatrixInput)
-          ?.focus?.();
-      }
+      matrixRoutingRestoreState(matrixRoutingModalBody, "modal", snapshot);
     }
 
     function openMatrixRoutingModal(instanceId) {
@@ -103557,7 +103763,7 @@
           <label for="deviceNotes">Notes</label>
           <textarea id="deviceNotes">${escapeHtml(instance.notes || "")}</textarea>
         </div>
-        ${template.isMatrixRouter ? matrixRoutingMarkup(instance) : ""}
+        ${template.isMatrixRouter ? matrixRoutingMarkup(instance, { presentation: "inspector" }) : ""}
         <button class="tool-button" id="editCanvasDevice" type="button">Edit in Device Editor</button>
         <button class="danger-button" id="deleteSelected" type="button">Delete Device</button>
         <button class="tool-button" id="deviceTechSpecsButton" type="button">Device Tech Specs</button>
@@ -103583,7 +103789,7 @@
           instance.notes = value;
         }
       );
-      if (template.isMatrixRouter) bindMatrixRoutingInspector(instance);
+      if (template.isMatrixRouter) bindMatrixRoutingInspector(instance, inspectorBody, { presentation: "inspector" });
       document.getElementById("deviceTechSpecsButton").addEventListener("click", () => openDeviceTechSpecs(template, instance));
       document.getElementById("editCanvasDevice").addEventListener("click", () => openDeviceEditorForInstance(instanceId));
       document.getElementById("deleteSelected").addEventListener("click", () => {
