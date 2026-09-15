@@ -4993,7 +4993,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.4.4 — Canvas Device Editor Override Sync — iteration54-4-4-canvas-device-editor-override-sync</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.5.0 — Device Editor Shared Placement — iteration54-5-0-device-editor-shared-placement</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5686,10 +5686,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.4.4";
-    const APP_BUILD_ID = "iteration54-4-4-canvas-device-editor-override-sync";
-    const APP_MODULE_CACHE_ID = "iteration54-4-4-canvas-device-editor-override-sync-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Canvas Device Editor Override Sync`;
+    const APP_ITERATION = "54.5.0";
+    const APP_BUILD_ID = "iteration54-5-0-device-editor-shared-placement";
+    const APP_MODULE_CACHE_ID = "iteration54-5-0-device-editor-shared-placement-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Device Editor Shared Placement`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "f409d0373f783821e981515da660a2476e661959";
@@ -5942,8 +5942,7 @@
 
     const DEFAULT_CABLE_TYPES = JSON.parse(JSON.stringify(cableTypes));
     const FIBER_CABLE_TYPES = new Set(["fiber-lc", "fiber-sc", "fiber-st", "fiber-mpo", "opticalcon", "fiberfox"]);
-    const pairedNetworkTypeOrder = ["cat5e", "cat6", "cat6a", "ethercon", "sfp-cage", "sfp-plus-cage", "qsfp-cage", "ethernet"];
-    const pairedNetworkTypes = new Set(pairedNetworkTypeOrder);
+    const pairedNetworkTypes = new Set(["cat5e", "cat6", "cat6a", "ethercon", "sfp-cage", "sfp-plus-cage", "qsfp-cage", "ethernet"]);
     const cageConnectorTypes = new Set(["sfp-cage", "sfp-plus-cage", "qsfp-cage"]);
     const TRANSCEIVER_MODULE_OPTIONS = [
       { value: "", label: "Empty", activeType: "", fiberMode: "" },
@@ -78350,6 +78349,8 @@
     let editorEnginePreviewSurface = null;
     let editorEnginePreviewModule = null;
     let editorEnginePreviewModulePromise = null;
+    let deviceEditorPlacementModule = null;
+    let deviceEditorPlacementModulePromise = null;
     let editorEnginePreviewHost = null;
     let editorEnginePreviewSvgHome = null;
     let editorEnginePreviewSvgNextSibling = null;
@@ -79486,11 +79487,6 @@
       return "left";
     }
 
-    function editorPlacementSides(mask) {
-      const normalized = normalizeEditorPlacementSideMask(mask);
-      return normalized === "both" ? ["left", "right"] : [normalized];
-    }
-
     function editorConnectorPlacementSideMask(template, connector) {
       const width = deviceTemplateWidth(template);
       if (isEditorV2ConnectorCandidate(connector)) {
@@ -79529,59 +79525,25 @@
     }
 
     function resolveEditorPlacementItems(items, startY) {
+      const placementModule = requireDeviceEditorPlacementModule();
       const normalized = items.map((item, sourceIndex) => {
         const y = Number.isFinite(Number(item.requestedY)) ? Number(item.requestedY) : Number(item.ref?.y) || startY;
         return {
           ...item,
           id: editorPlacementItemId(item),
+          itemType: item.kind === "card" ? "card-slot" : "chassis-connector",
           sideMask: normalizeEditorPlacementSideMask(item.sideMask),
           requestedLane: laneIndexForY(y, startY),
+          requestedY: y,
           span: Math.max(1, Math.round(Number(item.span) || 1)),
           order: Number.isFinite(Number(item.order)) ? Number(item.order) : sourceIndex,
           sourceIndex
         };
       });
-      const ordered = [...normalized].sort((a, b) => {
-        const laneDelta = a.requestedLane - b.requestedLane;
-        if (laneDelta) return laneDelta;
-        const orderDelta = a.order - b.order;
-        if (orderDelta) return orderDelta;
-        return a.id.localeCompare(b.id);
+      return placementModule.resolveModularPlacementItems(normalized, {
+        startY,
+        slotHeight: SLOT_HEIGHT
       });
-      const occupied = { left: [], right: [] };
-      const hasCollision = (item, lane) => editorPlacementSides(item.sideMask).some(side => {
-        for (let index = lane; index < lane + item.span; index++) {
-          if (occupied[side][index]) return true;
-        }
-        return false;
-      });
-      const reserve = (item, lane) => {
-        editorPlacementSides(item.sideMask).forEach(side => {
-          for (let index = lane; index < lane + item.span; index++) occupied[side][index] = item.id;
-        });
-      };
-      const resolvedById = new Map();
-      const orderedItems = [];
-      ordered.forEach(item => {
-        let lane = item.requestedLane;
-        while (hasCollision(item, lane)) lane++;
-        const resolved = {
-          ...item,
-          lane,
-          y: laneY(lane, startY),
-          endLane: lane + item.span,
-          bottomY: laneY(lane + item.span, startY)
-        };
-        reserve(resolved, lane);
-        resolvedById.set(resolved.id, resolved);
-        orderedItems.push(resolved);
-      });
-      return {
-        items: normalized.map(item => resolvedById.get(item.id)).filter(Boolean),
-        orderedItems,
-        byId: resolvedById,
-        occupied
-      };
     }
 
     function editorLayoutItems(template, options = {}) {
@@ -79602,7 +79564,7 @@
             requestedY,
             sideMask: editorConnectorPlacementSideMask(template, connector),
             span: 1,
-            order: isPairedNetworkConnector(connector) ? 100000 + index : index
+            order: index
           };
         });
       const slotOrderOffset = connectors.length;
@@ -84626,7 +84588,8 @@
       return null;
     }
 
-    function openDeviceEditor(options = {}) {
+    async function openDeviceEditor(options = {}) {
+      if (!await ensureDeviceEditorPlacementModuleReady()) return;
       const reason = typeof options === "string" ? options : (options.reason || "device-editor-open");
       recordDeviceEditorOpen(reason, typeof options === "object" ? options.details || {} : {});
       editorMode = "library";
@@ -84655,13 +84618,13 @@
       scheduleDeviceEditorEnginePreviewOpenFit();
     }
 
-    function openDeviceEditorForTemplate(templateId) {
+    async function openDeviceEditorForTemplate(templateId) {
       const existing = templateById(templateId);
       if (isProjectCustomDeviceTemplate(existing)) {
-        openDeviceEditorForProjectTemplate(templateId);
+        await openDeviceEditorForProjectTemplate(templateId);
         return;
       }
-      openDeviceEditor({ reason: "master-device-edit", details: { templateId } });
+      await openDeviceEditor({ reason: "master-device-edit", details: { templateId } });
       const index = editorDraft.findIndex(template => template.id === templateId);
       if (index >= 0) {
         editorIndex = index;
@@ -84669,7 +84632,8 @@
       }
     }
 
-    function openDeviceEditorWithNewDevice() {
+    async function openDeviceEditorWithNewDevice() {
+      if (!await ensureDeviceEditorPlacementModuleReady()) return;
       recordDeviceEditorOpen("create-new-master-device", {});
       editorMode = "master-create";
       editorInstanceId = null;
@@ -84697,20 +84661,21 @@
       scheduleDeviceEditorEnginePreviewOpenFit();
     }
 
-    function openDeviceEditorForInstance(instanceId) {
-      openDeviceEditorForCanvasInstanceLegacy(instanceId);
+    async function openDeviceEditorForInstance(instanceId) {
+      await openDeviceEditorForCanvasInstanceLegacy(instanceId);
     }
 
-    function openDeviceEditorForProjectTemplate(templateId) {
+    async function openDeviceEditorForProjectTemplate(templateId) {
       const template = projectCustomTemplateById(templateId);
       if (!template) return;
-      openDeviceEditorForProjectTemplateDraft(structuredClone(template), "project-template-edit", {
+      await openDeviceEditorForProjectTemplateDraft(structuredClone(template), "project-template-edit", {
         templateId,
         reason: "explicit-project-custom-edit"
       });
     }
 
-    function openDeviceEditorForProjectTemplateDraft(draft, mode, options = {}) {
+    async function openDeviceEditorForProjectTemplateDraft(draft, mode, options = {}) {
+      if (!await ensureDeviceEditorPlacementModuleReady()) return;
       recordDeviceEditorOpen(options.reason || mode || "project-template-edit", {
         templateId: options.templateId || draft?.id || "",
         mode
@@ -84867,7 +84832,8 @@
       return String(editorMode || "").startsWith("project-template");
     }
 
-    function openDeviceEditorForCanvasInstanceLegacy(instanceId) {
+    async function openDeviceEditorForCanvasInstanceLegacy(instanceId) {
+      if (!await ensureDeviceEditorPlacementModuleReady()) return;
       const instance = instanceById(instanceId);
       const template = templateForInstance(instance);
       if (!instance || !template) return;
@@ -89190,16 +89156,37 @@
       return y >= bounds.y - margin && y <= bounds.y + bounds.height + margin;
     }
 
-    function nextAvailableConnectorY(template, side, excludedConnector = null) {
+    function nextEditorPlacementY(template, sideMask, options = {}) {
       const startY = connectorStartYForTemplate(template);
-      const placementSide = side === "output" || side === "right" ? "right" : "left";
+      const candidateKind = options.kind === "card" ? "card" : "connector";
+      const candidateId = `__editor-placement-candidate-${candidateKind}`;
+      const span = Math.max(1, Math.round(Number(options.span) || 1));
       const layout = resolveEditorPlacementItems(
-        editorLayoutItems(template, { useDragPreview: false }).filter(item => item.ref !== excludedConnector),
+        [
+          ...editorLayoutItems(template, { useDragPreview: false }).filter(item => item.ref !== options.excludedRef),
+          {
+            kind: candidateKind,
+            ref: { id: candidateId },
+            index: Number.MAX_SAFE_INTEGER,
+            template,
+            requestedY: startY,
+            sideMask,
+            span,
+            order: Number.MAX_SAFE_INTEGER
+          }
+        ],
         startY
       );
-      let lane = 0;
-      while (layout.occupied[placementSide]?.[lane]) lane += 1;
-      return laneY(lane, startY);
+      return layout.byId.get(`${candidateKind}:${candidateId}`)?.y || startY;
+    }
+
+    function nextAvailableConnectorY(template, side, excludedConnector = null) {
+      const placementSide = side === "output" || side === "right" ? "right" : "left";
+      return nextEditorPlacementY(template, placementSide, {
+        excludedRef: excludedConnector,
+        kind: "connector",
+        span: 1
+      });
     }
 
     function moveConnectorBelowFaceplate(template, connector) {
@@ -89279,31 +89266,6 @@
         connector.y = Math.max(startY, Number(connector.y) || startY);
       });
       normalizeMixedDeviceRows(template);
-      const nonNetworkMaxY = Math.max(
-        startY,
-        ...template.connectors.filter(connector => !connector.faceplateSide && !isPairedNetworkConnector(connector)).map(connector => Number(connector.y) || startY)
-      );
-      const grouped = new Map();
-      template.connectors.filter(connector => !connector.faceplateSide && isPairedNetworkConnector(connector)).forEach(connector => {
-        const pair = template.connectors.find(item => item.id === connector.pairedConnectorId);
-        if (pair?.faceplateSide) return;
-        const groupId = pairedNetworkGroupId(connector);
-        if (!grouped.has(groupId)) grouped.set(groupId, connector);
-      });
-      let lane = laneIndexForY(nonNetworkMaxY + SLOT_HEIGHT, startY);
-      [...grouped.values()]
-        .sort((a, b) => {
-          const typeDelta = pairedNetworkTypeRank(a.type) - pairedNetworkTypeRank(b.type);
-          if (typeDelta) return typeDelta;
-          return (Number(a.y) || startY) - (Number(b.y) || startY);
-        })
-        .forEach(connector => {
-          const pair = template.connectors.find(item => item.id === connector.pairedConnectorId);
-          const y = laneY(lane++, startY);
-          connector.y = y;
-          if (pair) pair.y = y;
-        });
-      normalizeMixedDeviceRows(template);
       template.connectors.forEach(connector => {
         if (isAdapterTemplate(template) && connectorCanSnapToAdapterCenter(template, connector) && connector.adapterCenterSnap === true) {
           connector.x = 0;
@@ -89323,22 +89285,6 @@
         return editorPrimaryAnchorSide(connector) === "right" ? "output" : "input";
       }
       return connector?.direction === "input" ? "input" : "output";
-    }
-
-    function connectorsOnSide(template, side) {
-      return template.connectors
-        .filter(connector => connectorSideKey(connector) === side)
-        .sort((a, b) => (a.y || 0) - (b.y || 0));
-    }
-
-    function compactConnectorSide(template, side) {
-      const startY = connectorStartYForTemplate(template);
-      const edgeX = deviceTemplateWidth(template);
-      connectorsOnSide(template, side).filter(connector => !connector.faceplateSide).forEach((connector, index) => {
-        connector.x = side === "input" ? 0 : edgeX;
-        connector.y = startY + index * SLOT_HEIGHT;
-      });
-      template.height = deviceHeightForSlotCounts(template);
     }
 
     function reorderConnectorInDirection(template, connector, targetY) {
@@ -89364,10 +89310,6 @@
         connector.y = Math.max(startY, requestedY);
       }
       connector.x = connectorSideKey(connector) === "input" ? 0 : deviceTemplateWidth(template);
-      if (isPairedNetworkConnector(connector) && connector.pairedConnectorId) {
-        const pair = template.connectors.find(item => item.id === connector.pairedConnectorId);
-        if (pair) pair.y = connector.y;
-      }
       if (adapterCenterPlaced) {
         template.height = deviceHeightForSlotCounts(template);
         return;
@@ -89443,19 +89385,9 @@
         item.y = y;
         item.x = connectorSideKey(item) === "input" ? 0 : deviceTemplateWidth(template);
       });
-      template.connectors.forEach(item => {
-        if (!isPairedNetworkConnector(item) || !item.pairedConnectorId) return;
-        const pair = template.connectors.find(pairCandidate => pairCandidate.id === item.pairedConnectorId);
-        if (pair) pair.y = item.y;
-      });
       normalizeMixedDeviceRows(template);
       template.height = deviceHeightForSlotCounts(template);
       syncEditorNodeSelection(template);
-    }
-
-    function pairedNetworkTypeRank(type) {
-      const index = pairedNetworkTypeOrder.indexOf(type);
-      return index === -1 ? pairedNetworkTypeOrder.length : index;
     }
 
     function pairedNetworkGroupId(connector) {
@@ -89527,6 +89459,38 @@
     }
 
     const DEVICE_EDITOR_ENGINE_PREVIEW_DEVICE_ID = "device-editor-preview-device";
+
+    function loadDeviceEditorPlacementModule(statusLabel = "Device Editor placement") {
+      if (deviceEditorPlacementModule) return Promise.resolve(deviceEditorPlacementModule);
+      if (!deviceEditorPlacementModulePromise) {
+        const moduleUrl = engineImportUrl("./src/engine/modularDeviceLayout.js");
+        deviceEditorPlacementModulePromise = import(moduleUrl)
+          .then(module => {
+            if (!module?.resolveModularPlacementItems) {
+              throw new Error("Shared modular placement module is missing resolveModularPlacementItems().");
+            }
+            deviceEditorPlacementModule = module;
+            return module;
+          })
+          .catch(error => {
+            console.error(`${statusLabel} failed to load`, error);
+            deviceEditorPlacementModulePromise = null;
+            setStatus(`${statusLabel} failed to load.`);
+            return null;
+          });
+      }
+      return deviceEditorPlacementModulePromise;
+    }
+
+    function requireDeviceEditorPlacementModule() {
+      if (deviceEditorPlacementModule?.resolveModularPlacementItems) return deviceEditorPlacementModule;
+      throw new Error("Device Editor placement module is not loaded.");
+    }
+
+    async function ensureDeviceEditorPlacementModuleReady() {
+      const module = await loadDeviceEditorPlacementModule();
+      return Boolean(module?.resolveModularPlacementItems);
+    }
 
 	    function deviceEditorUsesEnginePreview() {
 	      return engineEditorRequestedByUrl();
@@ -89760,12 +89724,16 @@
       }
     }
 
-    function editorEnginePreviewTemplateClone(template) {
+    function readonlyDeviceEditorPreviewTemplate(template) {
       const draft = structuredClone(template);
       draft.width = deviceTemplateWidth(template);
-      draft.height = Number(template.height) || deviceHeightForSlotCounts(template);
       draft.name = editorPreviewDeviceName(template);
       validateDraftDefaults(draft);
+      return draft;
+    }
+
+    function editorEnginePreviewTemplateClone(template) {
+      const draft = readonlyDeviceEditorPreviewTemplate(template);
       if (editorNodeDrag) {
         const positions = editorPreviewPositions(template);
         (draft.connectors || []).forEach(connector => {
@@ -90397,16 +90365,16 @@
     }
 
     function renderDeviceEditorEnginePreview(template, options = {}) {
-      validateDraftDefaults(template);
-      if (!template.isPowerDistro || template.faceImage || template.faceplateDeleted) {
+      const previewTemplate = readonlyDeviceEditorPreviewTemplate(template);
+      if (!previewTemplate.isPowerDistro || previewTemplate.faceImage || previewTemplate.faceplateDeleted) {
         editorSelectedFaceplate = false;
         editorSelectedPowerPlugIds.clear();
         editorPowerPlugMarquee = null;
       }
       updateEditorFaceplatePreviewControls(template);
-      const previewDevice = syncDeviceEditorEnginePreview(template, {
+      const previewDevice = syncDeviceEditorEnginePreview(previewTemplate, {
         fit: !editorEnginePreviewDraftSynced || editorEnginePreviewFitPending,
-        fitBounds: editorActivePreviewBounds(template),
+        fitBounds: editorActivePreviewBounds(previewTemplate),
         refreshTexture: options.refreshTexture === false ? false : editorNodeDrag ? false : true
       });
       editorEnginePreviewFitPending = false;
@@ -90417,17 +90385,17 @@
         "data-editor-device-body": "true",
         x: 0,
         y: 0,
-        width: deviceTemplateWidth(template),
-        height: Number(template.height) || deviceHeightForSlotCounts(template),
-        rx: isAdapterTemplate(template) ? 6 : 8
+        width: deviceTemplateWidth(previewTemplate),
+        height: Number(previewTemplate.height) || deviceHeightForSlotCounts(previewTemplate),
+        rx: isAdapterTemplate(previewTemplate) ? 6 : 8
       }));
-      drawEditorEngineFaceplateOverlay(deviceEditorPreview, template, previewDevice);
-      drawEditorEnginePowerPlugOverlay(deviceEditorPreview, template);
-      drawEditorEngineCardSlotOverlay(deviceEditorPreview, template);
-      drawEditorEngineConnectorOverlay(deviceEditorPreview, template);
-      drawEditorResizeHandles(deviceEditorPreview, template, deviceTemplateWidth(template), Number(template.height) || deviceHeightForSlotCounts(template));
+      drawEditorEngineFaceplateOverlay(deviceEditorPreview, previewTemplate, previewDevice);
+      drawEditorEnginePowerPlugOverlay(deviceEditorPreview, previewTemplate);
+      drawEditorEngineCardSlotOverlay(deviceEditorPreview, previewTemplate);
+      drawEditorEngineConnectorOverlay(deviceEditorPreview, previewTemplate);
+      drawEditorResizeHandles(deviceEditorPreview, previewTemplate, deviceTemplateWidth(previewTemplate), Number(previewTemplate.height) || deviceHeightForSlotCounts(previewTemplate));
       editorEnginePreviewOverlayDraws += 1;
-      renderEditorFaceplatePreview(template);
+      renderEditorFaceplatePreview(previewTemplate);
       renderDeviceAuthoringDebugPanel();
     }
 
@@ -91812,65 +91780,65 @@
         return;
       }
       editorEnginePreviewLegacyVisualDraws += 1;
-      validateDraftDefaults(template);
-      if (!template.isPowerDistro || template.faceImage || template.faceplateDeleted) {
+      const previewTemplate = readonlyDeviceEditorPreviewTemplate(template);
+      if (!previewTemplate.isPowerDistro || previewTemplate.faceImage || previewTemplate.faceplateDeleted) {
         editorSelectedFaceplate = false;
         editorSelectedPowerPlugIds.clear();
         editorPowerPlugMarquee = null;
       }
       updateEditorFaceplatePreviewControls(template);
       deviceEditorPreview.innerHTML = "";
-      const width = deviceTemplateWidth(template);
-      const height = Number(template.height) || 132;
-      const view = editorPreviewViewBox(width, height, editorPreviewZoom, editorPreviewPan, deviceEditorPreview, editorActivePreviewBounds(template));
+      const width = deviceTemplateWidth(previewTemplate);
+      const height = Number(previewTemplate.height) || 132;
+      const view = editorPreviewViewBox(width, height, editorPreviewZoom, editorPreviewPan, deviceEditorPreview, editorActivePreviewBounds(previewTemplate));
       deviceEditorPreview.setAttribute("viewBox", `${view.viewX} ${view.viewY} ${view.viewWidth} ${view.viewHeight}`);
       deviceEditorPreview.appendChild(createSvg("rect", {
-        class: isAdapterTemplate(template) ? "editor-adapter-body" : "editor-device-body",
+        class: isAdapterTemplate(previewTemplate) ? "editor-adapter-body" : "editor-device-body",
         "data-editor-device-body": "true",
-        x: 0, y: 0, width, height, rx: isAdapterTemplate(template) ? 6 : 8,
-        fill: isAdapterTemplate(template) ? undefined : "var(--device-body)",
-        stroke: isAdapterTemplate(template) ? undefined : "var(--select)",
+        x: 0, y: 0, width, height, rx: isAdapterTemplate(previewTemplate) ? 6 : 8,
+        fill: isAdapterTemplate(previewTemplate) ? undefined : "var(--device-body)",
+        stroke: isAdapterTemplate(previewTemplate) ? undefined : "var(--select)",
         "stroke-width": 2
       }));
       const previewLabel = createSvg("text", {
-        class: isAdapterTemplate(template) ? "adapter-label" : "device-label",
-        x: isAdapterTemplate(template) ? width / 2 : 20,
-        y: isAdapterTemplate(template) ? -5 : 22,
-        "dominant-baseline": isAdapterTemplate(template) ? "auto" : undefined
+        class: isAdapterTemplate(previewTemplate) ? "adapter-label" : "device-label",
+        x: isAdapterTemplate(previewTemplate) ? width / 2 : 20,
+        y: isAdapterTemplate(previewTemplate) ? -5 : 22,
+        "dominant-baseline": isAdapterTemplate(previewTemplate) ? "auto" : undefined
       });
-      previewLabel.textContent = template.name || (isAdapterTemplate(template) ? "Adapter / Breakout" : "Device");
+      previewLabel.textContent = previewTemplate.name || (isAdapterTemplate(previewTemplate) ? "Adapter / Breakout" : "Device");
       deviceEditorPreview.appendChild(previewLabel);
-      if (!isAdapterTemplate(template) && template.faceImage) {
-        const face = faceImagePlacement(template, width, height);
+      if (!isAdapterTemplate(previewTemplate) && previewTemplate.faceImage) {
+        const face = faceImagePlacement(previewTemplate, width, height);
         deviceEditorPreview.appendChild(createSvg("image", {
-          href: template.faceImage,
+          href: previewTemplate.faceImage,
           x: face.x, y: face.y, width: face.width, height: face.height,
           preserveAspectRatio: "xMidYMid meet"
         }));
-        drawEditorFaceImageResizeTool(deviceEditorPreview, template, face);
-      } else if (!isAdapterTemplate(template) && drawPowerDistroFaceplate(deviceEditorPreview, template, { editor: true })) {
-        drawEditorPowerPlugGuides(deviceEditorPreview, template);
-      } else if (!isAdapterTemplate(template) && !template.faceplateDeleted) {
+        drawEditorFaceImageResizeTool(deviceEditorPreview, previewTemplate, face);
+      } else if (!isAdapterTemplate(previewTemplate) && drawPowerDistroFaceplate(deviceEditorPreview, previewTemplate, { editor: true })) {
+        drawEditorPowerPlugGuides(deviceEditorPreview, previewTemplate);
+      } else if (!isAdapterTemplate(previewTemplate) && !previewTemplate.faceplateDeleted) {
         deviceEditorPreview.appendChild(createSvg("rect", {
           x: FACE_MARGIN, y: FACE_TOP_Y, width: width - FACE_MARGIN * 2, height: FACE_HEIGHT, rx: 5,
           fill: "var(--device-face)"
         }));
         drawDefaultFrontFace(deviceEditorPreview);
       }
-      if (!isAdapterTemplate(template)) drawEditorCardSlotBands(deviceEditorPreview, template);
-      if (isAdapterTemplate(template)) drawAdapterInternalWires(deviceEditorPreview, template);
-      const previewPositions = editorPreviewPositions(template);
-      const sharedRelationshipMap = editorSharedRelationshipMap(template);
-      drawEditorConnectorRelationships(deviceEditorPreview, template, previewPositions);
-      drawEditorEthernetPairLines(deviceEditorPreview, template);
-      drawEditorConnectorSnapGuide(deviceEditorPreview, template);
+      if (!isAdapterTemplate(previewTemplate)) drawEditorCardSlotBands(deviceEditorPreview, previewTemplate);
+      if (isAdapterTemplate(previewTemplate)) drawAdapterInternalWires(deviceEditorPreview, previewTemplate);
+      const previewPositions = editorPreviewPositions(previewTemplate);
+      const sharedRelationshipMap = editorSharedRelationshipMap(previewTemplate);
+      drawEditorConnectorRelationships(deviceEditorPreview, previewTemplate, previewPositions);
+      drawEditorEthernetPairLines(deviceEditorPreview, previewTemplate);
+      drawEditorConnectorSnapGuide(deviceEditorPreview, previewTemplate);
       drawEditorPowerPlugMarquee(deviceEditorPreview);
-      template.connectors.forEach((connector, index) => {
+      previewTemplate.connectors.forEach((connector, index) => {
         const displayY = previewPositions.get(connector.id) ?? connector.y;
         const displayConnector = { ...connector, y: displayY };
         const isDragging = editorNodeDragIncludes(connector);
         const isSelected = editorSelectedNodeIds.has(connector.id) || editorSelectedNodeIndex === index;
-        const groupedSharedBus = sharedRelationshipMap.has(connector.id) && !connector.empty && !isAdapterTemplate(template);
+        const groupedSharedBus = sharedRelationshipMap.has(connector.id) && !connector.empty && !isAdapterTemplate(previewTemplate);
         const anchors = editorDisplayAnchorsForConnector(displayConnector, width, displayY);
         anchors.forEach((anchor, anchorIndex) => {
           const anchorConnector = editorAnchorConnector(displayConnector, anchor);
@@ -91918,7 +91886,7 @@
             label.textContent = connector.empty ? "Drop node" : connectorTypeLabel(connector);
             g.appendChild(label);
           }
-          if (!connector.empty && !isAdapterTemplate(template) && !groupedSharedBus) {
+          if (!connector.empty && !isAdapterTemplate(previewTemplate) && !groupedSharedBus) {
             const fields = connectorInfoFields(connector);
             addVisibleInfoBoxes(g, anchorConnector, fields, true);
             if (connector.type === "misc" && isPrimaryAnchor) {
@@ -91964,10 +91932,10 @@
           deviceEditorPreview.appendChild(g);
         });
       });
-      drawEditorSharedRelationshipFields(deviceEditorPreview, template, previewPositions);
+      drawEditorSharedRelationshipFields(deviceEditorPreview, previewTemplate, previewPositions);
       drawEditorNodeMarquee(deviceEditorPreview);
-      generatedCardConnectors(template).forEach(connector => {
-        const band = cardBandGeometry(template, template.cardSlots.find(slot => slot.id === connector.cardSlotId) || {});
+      generatedCardConnectors(previewTemplate).forEach(connector => {
+        const band = cardBandGeometry(previewTemplate, previewTemplate.cardSlots.find(slot => slot.id === connector.cardSlotId) || {});
         const anchors = isEditorV2ConnectorCandidate(connector)
           ? editorConnectorAnchors(connector, width)
           : [editorPrimaryAnchor(connector, width)];
@@ -92005,8 +91973,8 @@
           deviceEditorPreview.appendChild(g);
         });
       });
-      drawEditorResizeHandles(deviceEditorPreview, template, width, height);
-      renderEditorFaceplatePreview(template);
+      drawEditorResizeHandles(deviceEditorPreview, previewTemplate, width, height);
+      renderEditorFaceplatePreview(previewTemplate);
     }
 
     function renderCardEditorPreview() {
@@ -93152,17 +93120,11 @@
       const startBefore = connectorStartYForTemplate(template);
       const rowsBefore = editorResizeSnapshot(template);
       const idsToRemove = new Set([connector.id]);
-      const sidesToCompact = new Set([connectorSideKey(connector)]);
       if (isPairedNetworkConnector(connector) && connector.pairedConnectorId) idsToRemove.add(connector.pairedConnectorId);
-      if (isPairedNetworkConnector(connector) && connector.pairedConnectorId) {
-        const pair = template.connectors.find(item => item.id === connector.pairedConnectorId);
-        if (pair) sidesToCompact.add(connectorSideKey(pair));
-      }
       template.connectors = template.connectors.filter(item => !idsToRemove.has(item.id));
       clearEditorNodeSelection();
       normalizeConnectorRows(template);
       shiftRowsAfterFaceChange(template, startBefore, rowsBefore);
-      sidesToCompact.forEach(side => compactConnectorSide(template, side));
       renderSelectedConnectorSettings();
       renderDeviceEditorPreview();
     }
@@ -93545,11 +93507,10 @@
 
     function nextEditorSlotY(template, direction) {
       const side = direction === "input" ? "left" : "right";
-      const startY = connectorStartYForTemplate(template);
-      const layout = resolveEditorModularLayout(template, { useDragPreview: false });
-      let lane = 0;
-      while (layout.occupied[side]?.[lane]) lane++;
-      return laneY(lane, startY);
+      return nextEditorPlacementY(template, side, {
+        kind: "card",
+        span: 3
+      });
     }
 
     function editorDropPointCreatesAdapterNode(event) {
@@ -108616,6 +108577,8 @@ renderViewerOutputDebug();
       }
       return engineImportUrl(path);
     }
+
+    loadDeviceEditorPlacementModule("Device Editor placement");
 
     async function runtimeTextHash(text) {
       const value = String(text || "");

@@ -41,7 +41,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-4-4-canvas-device-editor-override-sync";
+const BUILD_ID = "iteration54-5-0-device-editor-shared-placement";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -50,12 +50,12 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Canvas Device Editor Override Sync");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-4-4-canvas-device-editor-override-sync-modules";'), "module cache key should identify Canvas Device Editor Override Sync");
-assert.ok(indexHtml.includes("Canvas Device Editor Override Sync"), "visible build label should name Canvas Device Editor Override Sync");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-4-4-canvas-device-editor-override-sync"'), "Engine bridge version should identify Canvas Device Editor Override Sync");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "canvas-device-editor-override-sync"'), "bridge feature label should identify Canvas Device Editor Override Sync");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-4-4-canvas-device-editor-override-sync"), "bridge fingerprint should identify Canvas Device Editor Override Sync");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Device Editor Shared Placement");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-5-0-device-editor-shared-placement-modules";'), "module cache key should identify Device Editor Shared Placement");
+assert.ok(indexHtml.includes("Device Editor Shared Placement"), "visible build label should name Device Editor Shared Placement");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-5-0-device-editor-shared-placement"'), "Engine bridge version should identify Device Editor Shared Placement");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "canvas-device-editor-override-sync"'), "bridge feature label should identify Device Editor Shared Placement");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-5-0-device-editor-shared-placement"), "bridge fingerprint should identify Device Editor Shared Placement");
 assert.ok(rendererSource.includes("renderer-iteration54-4-0-matrix-routing-internal-routes"), "renderer fingerprint should identify Matrix Routing Internal Routes");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");

@@ -267,6 +267,70 @@ test("Device Editor modal omits visible helper copy", () => {
   assert.doesNotMatch(renderConnectorRelationshipsPanel, /Shift-click|Available for two|Select exactly two|Select the exact group|No relationship assigned/);
 });
 
+test("Device Editor placement delegates to the shared modular layout module", () => {
+  const placementLoader = functionSource("loadDeviceEditorPlacementModule");
+  const placementRequire = functionSource("requireDeviceEditorPlacementModule");
+  const placementReady = functionSource("ensureDeviceEditorPlacementModuleReady");
+  const resolver = functionSource("resolveEditorPlacementItems");
+  const layoutItems = functionSource("editorLayoutItems");
+  const nextPlacement = functionSource("nextEditorPlacementY");
+  const nextConnector = functionSource("nextAvailableConnectorY");
+  const nextSlot = functionSource("nextEditorSlotY");
+  const openEditor = functionSource("openDeviceEditor");
+  const openNew = functionSource("openDeviceEditorWithNewDevice");
+  const openProject = functionSource("openDeviceEditorForProjectTemplateDraft");
+  const openInstance = functionSource("openDeviceEditorForCanvasInstanceLegacy");
+
+  assert.match(placementLoader, /engineImportUrl\("\.\/src\/engine\/modularDeviceLayout\.js"\)/);
+  assert.doesNotMatch(placementLoader, /engineEditorRequestedByUrl/);
+  assert.match(placementRequire, /throw new Error\("Device Editor placement module is not loaded\."\)/);
+  assert.match(placementReady, /await loadDeviceEditorPlacementModule\(\)/);
+  assert.match(INDEX_HTML, /loadDeviceEditorPlacementModule\("Device Editor placement"\);/);
+
+  assert.match(resolver, /requireDeviceEditorPlacementModule\(\)/);
+  assert.match(resolver, /resolveModularPlacementItems\(normalized, \{\s*startY,\s*slotHeight: SLOT_HEIGHT\s*\}\)/);
+  assert.doesNotMatch(resolver, /while\s*\(/);
+  assert.doesNotMatch(resolver, /hasCollision|reserve\(/);
+  assert.match(layoutItems, /order: index/);
+  assert.doesNotMatch(layoutItems, /100000 \+ index|isPairedNetworkConnector\(connector\) \? 100000/);
+
+  assert.match(nextPlacement, /resolveEditorPlacementItems\(/);
+  assert.doesNotMatch(nextPlacement, /while\s*\(/);
+  assert.match(nextConnector, /nextEditorPlacementY\(template, placementSide/);
+  assert.match(nextSlot, /nextEditorPlacementY\(template, side/);
+  assert.doesNotMatch(INDEX_HTML, /function compactConnectorSide|nonNetworkMaxY|pairedNetworkTypeRank|pairedNetworkTypeOrder/);
+  assert.doesNotMatch(INDEX_HTML, /while \(hasCollision|while \(layout\.occupied/);
+
+  assert.match(openEditor, /await ensureDeviceEditorPlacementModuleReady\(\)/);
+  assert.match(openNew, /await ensureDeviceEditorPlacementModuleReady\(\)/);
+  assert.match(openProject, /await ensureDeviceEditorPlacementModuleReady\(\)/);
+  assert.match(openInstance, /await ensureDeviceEditorPlacementModuleReady\(\)/);
+});
+
+test("Device Editor preview renders from detached normalized drafts", () => {
+  const readonlyClone = functionSource("readonlyDeviceEditorPreviewTemplate");
+  const renderPreview = functionSource("renderDeviceEditorPreview");
+  const renderEnginePreview = functionSource("renderDeviceEditorEnginePreview");
+  const engineClone = functionSource("editorEnginePreviewTemplateClone");
+
+  assert.match(readonlyClone, /const draft = structuredClone\(template\);/);
+  assert.match(readonlyClone, /validateDraftDefaults\(draft\);/);
+  assert.doesNotMatch(readonlyClone, /validateDraftDefaults\(template\)/);
+
+  assert.match(renderPreview, /const previewTemplate = readonlyDeviceEditorPreviewTemplate\(template\);/);
+  assert.doesNotMatch(renderPreview, /validateDraftDefaults\(template\);/);
+  assert.match(renderPreview, /deviceTemplateWidth\(previewTemplate\)/);
+  assert.match(renderPreview, /editorActivePreviewBounds\(previewTemplate\)/);
+  assert.match(renderPreview, /previewTemplate\.connectors\.forEach/);
+  assert.match(renderPreview, /generatedCardConnectors\(previewTemplate\)/);
+
+  assert.match(renderEnginePreview, /const previewTemplate = readonlyDeviceEditorPreviewTemplate\(template\);/);
+  assert.doesNotMatch(renderEnginePreview, /validateDraftDefaults\(template\);/);
+  assert.match(renderEnginePreview, /syncDeviceEditorEnginePreview\(previewTemplate/);
+  assert.match(renderEnginePreview, /drawEditorEngineConnectorOverlay\(deviceEditorPreview, previewTemplate\)/);
+  assert.match(engineClone, /readonlyDeviceEditorPreviewTemplate\(template\)/);
+});
+
 test("Matrix routing separates compact inspector routes from full modal crosspoints", () => {
   const matrixMarkup = functionSource("matrixRoutingMarkup");
   const bindMatrixRouting = functionSource("bindMatrixRoutingInspector");
@@ -428,7 +492,7 @@ test("Fit uses active bounds and tab switches auto-fit the active preview", () =
   assert.match(fitPreview, /editorPreviewFitZoomForBounds\(bounds, deviceEditorPreview, 34\)/);
 
   const renderPreview = functionSource("renderDeviceEditorPreview");
-  assert.match(renderPreview, /editorPreviewViewBox\(width, height, editorPreviewZoom, editorPreviewPan, deviceEditorPreview, editorActivePreviewBounds\(template\)\)/);
+  assert.match(renderPreview, /editorPreviewViewBox\(width, height, editorPreviewZoom, editorPreviewPan, deviceEditorPreview, editorActivePreviewBounds\(previewTemplate\)\)/);
   assert.match(functionSource("renderCardEditorPreview"), /editorPreviewViewBox\(width, height, editorPreviewZoom, editorPreviewPan, deviceEditorPreview, editorCardPreviewBounds\(card\)\)/);
 
   const tabHandler = sourceSlice(INDEX_HTML, 'editorTabs.addEventListener("click"', 'connectorRelationshipsPanel?.addEventListener("click"');

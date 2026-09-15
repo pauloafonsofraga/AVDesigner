@@ -251,6 +251,34 @@ test("input-only and output-only cards can share rows", () => {
   assert.equal(layout.cardSlotPositions.get("right-slot").y, START_Y);
 });
 
+test("network connectors keep their requested lane instead of moving below ordinary connectors", () => {
+  const baseConnectors = [
+    { id: "ordinary-a", type: "hdmi", direction: "input", y: START_Y },
+    { id: "network", type: "cat6", direction: "input", y: START_Y + SLOT },
+    { id: "ordinary-b", type: "sdi", direction: "input", y: START_Y + SLOT * 2 }
+  ];
+  const base = resolveModularDeviceLayout({
+    startY: START_Y,
+    slotHeight: SLOT,
+    deviceWidth: DEVICE_WIDTH,
+    connectors: baseConnectors
+  });
+  const withLaterConnector = resolveModularDeviceLayout({
+    startY: START_Y,
+    slotHeight: SLOT,
+    deviceWidth: DEVICE_WIDTH,
+    connectors: [
+      ...baseConnectors,
+      { id: "ordinary-c", type: "dvi", direction: "input", y: START_Y + SLOT * 3 }
+    ]
+  });
+
+  assert.equal(base.connectorPositions.get("network").y, START_Y + SLOT);
+  assert.equal(base.connectorPositions.get("ordinary-b").y, START_Y + SLOT * 2);
+  assert.equal(withLaterConnector.connectorPositions.get("network").y, START_Y + SLOT);
+  assert.equal(withLaterConnector.connectorPositions.get("ordinary-c").y, START_Y + SLOT * 3);
+});
+
 test("stable insertion drag keeps the dragged item at the hard target in mixed-side layouts", () => {
   const session = createModularInsertionDragSession([
     item("L", 0, "left", 1, 0),
