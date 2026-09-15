@@ -5,9 +5,13 @@ import {
   MODULAR_LAYOUT_SLOT_HEIGHT,
   cardBandGeometryForSlot,
   cardSlotSpanLanes,
+  createModularInsertionDragSession,
+  createModularPlacementSnapshot,
   resolveInstalledCardConnectors,
   resolveModularDeviceLayout,
-  resolveModularPlacementItems
+  resolveModularInsertionDrag,
+  resolveModularPlacementItems,
+  targetLaneWithHysteresis
 } from "../src/engine/modularDeviceLayout.js";
 import { normalizeAvDesignerDevice } from "../src/engine/projectAdapter.js";
 
@@ -82,6 +86,29 @@ function projectDevice(template) {
   }, { instanceId: "device-1", templateId: template.id, x: 0, y: 0 }, 0);
 }
 
+function item(id, lane, sideMask = "left", span = 1, order = null, itemType = "chassis-connector") {
+  return {
+    id,
+    itemType,
+    sideMask,
+    requestedLane: lane,
+    span,
+    order: order ?? id.charCodeAt(0)
+  };
+}
+
+function leftFiveConnectors() {
+  return ["A", "B", "C", "D", "E"].map((id, index) => item(id, index, "left", 1, index));
+}
+
+function laneMap(layout) {
+  return Object.fromEntries(layout.items.map(entry => [entry.id, entry.lane]));
+}
+
+function orderedIds(layout) {
+  return layout.orderedItems.map(entry => entry.id);
+}
+
 test("input-only and output-only cards can share rows", () => {
   const { cardTypes } = cardFixture();
   const layout = resolveModularDeviceLayout({
@@ -97,6 +124,156 @@ test("input-only and output-only cards can share rows", () => {
 
   assert.equal(layout.cardSlotPositions.get("left-slot").y, START_Y);
   assert.equal(layout.cardSlotPositions.get("right-slot").y, START_Y);
+});
+
+test("stable insertion drag reuses vacated lanes when moving up", () => {
+  const session = createModularInsertionDragSession(leftFiveConnectors(), "E", {
+    startY: START_Y,
+    slotHeight: SLOT
+  });
+  assert.equal(Object.isFrozen(session.snapshot), true);
+  assert.equal(Object.isFrozen(session.snapshot.items), true);
+  assert.equal(Object.isFrozen(session.snapshot.items[0]), true);
+
+  const layout = resolveModularInsertionDrag(session.snapshot, session.draggedItemId, 1);
+
+  assert.deepEqual(laneMap(layout), { A: 0, B: 2, C: 3, D: 4, E: 1 });
+  assert.deepEqual(orderedIds(layout), ["A", "E", "B", "C", "D"]);
+  assert.equal(layout.endLane, 5);
+});
+
+test("stable insertion drag reuses vacated lanes when moving down", () => {
+  const session = createModularInsertionDragSession(leftFiveConnectors(), "A", {
+    startY: START_Y,
+    slotHeight: SLOT
+  });
+  const layout = resolveModularInsertionDrag(session.snapshot, session.draggedItemId, 3);
+
+  assert.deepEqual(laneMap(layout), { A: 3, B: 0, C: 1, D: 2, E: 4 });
+  assert.deepEqual(orderedIds(layout), ["B", "C", "D", "A", "E"]);
+  assert.equal(layout.endLane, 5);
+});
+
+test("stable insertion drag leaves current-position drops unchanged", () => {
+  const snapshot = createModularPlacementSnapshot(leftFiveConnectors(), {
+    startY: START_Y,
+    slotHeight: SLOT
+  });
+  const layout = resolveModularInsertionDrag(snapshot, "C", 2);
+
+  assert.deepEqual(laneMap(layout), { A: 0, B: 1, C: 2, D: 3, E: 4 });
+  assert.deepEqual(orderedIds(layout), ["A", "B", "C", "D", "E"]);
+  assert.equal(layout.endLane, snapshot.endLane);
+});
+
+test("stable insertion drag only moves the connected collision chain", () => {
+  const session = createModularInsertionDragSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 1, "left", 1, 1),
+    item("C", 5, "left", 1, 2),
+    item("D", 6, "left", 1, 3)
+  ], "D", { startY: START_Y, slotHeight: SLOT });
+  const layout = resolveModularInsertionDrag(session.snapshot, session.draggedItemId, 4);
+
+  assert.deepEqual(laneMap(layout), { A: 0, B: 1, C: 5, D: 4 });
+  assert.equal(layout.endLane, 6);
+});
+
+test("reversing drag target direction preserves stationary item order", () => {
+  const session = createModularInsertionDragSession(leftFiveConnectors(), "A", {
+    startY: START_Y,
+    slotHeight: SLOT
+  });
+  const laneOne = resolveModularInsertionDrag(session.snapshot, session.draggedItemId, 1);
+  const laneThree = resolveModularInsertionDrag(session.snapshot, session.draggedItemId, 3);
+
+  assert.deepEqual(orderedIds(laneOne).filter(id => id !== "A"), ["B", "C", "D", "E"]);
+  assert.deepEqual(orderedIds(laneThree).filter(id => id !== "A"), ["B", "C", "D", "E"]);
+  assert.equal(laneOne.endLane, 5);
+  assert.equal(laneThree.endLane, 5);
+});
+
+test("variable-span cards move as one interval", () => {
+  const session = createModularInsertionDragSession([
+    item("A", 0, "left", 1, 0),
+    item("card", 1, "both", 2, 1, "card-slot"),
+    item("D", 3, "left", 1, 2),
+    item("E", 4, "left", 1, 3)
+  ], "card", { startY: START_Y, slotHeight: SLOT });
+  const layout = resolveModularInsertionDrag(session.snapshot, session.draggedItemId, 3);
+
+  assert.deepEqual(laneMap(layout), { A: 0, card: 3, D: 1, E: 2 });
+  assert.equal(layout.byId.get("card").span, 2);
+  assert.equal(layout.byId.get("card").endLane, 5);
+  assert.equal(layout.endLane, 5);
+});
+
+test("left-side insertion does not displace unrelated right-only items", () => {
+  const session = createModularInsertionDragSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 1, "left", 1, 1),
+    item("C", 2, "left", 1, 2),
+    item("R", 1, "right", 1, 3)
+  ], "C", { startY: START_Y, slotHeight: SLOT });
+  const layout = resolveModularInsertionDrag(session.snapshot, session.draggedItemId, 0);
+
+  assert.deepEqual(laneMap(layout), { A: 1, B: 2, C: 0, R: 1 });
+  assert.equal(layout.endLane, 3);
+});
+
+test("both-side insertion displaces conflicts on both sides", () => {
+  const session = createModularInsertionDragSession([
+    item("L0", 0, "left", 1, 0),
+    item("L1", 1, "left", 1, 1),
+    item("R1", 1, "right", 1, 2),
+    item("L2", 2, "left", 1, 3),
+    item("R2", 2, "right", 1, 4),
+    item("X", 4, "both", 1, 5)
+  ], "X", { startY: START_Y, slotHeight: SLOT });
+  const layout = resolveModularInsertionDrag(session.snapshot, session.draggedItemId, 1);
+
+  assert.deepEqual(laneMap(layout), { L0: 0, L1: 2, R1: 2, L2: 3, R2: 3, X: 1 });
+  assert.equal(layout.endLane, 4);
+});
+
+test("stable insertion drag is deterministic across repeated calculations", () => {
+  const session = createModularInsertionDragSession(leftFiveConnectors(), "E", {
+    startY: START_Y,
+    slotHeight: SLOT
+  });
+  const first = resolveModularInsertionDrag(session.snapshot, session.draggedItemId, 1);
+  const second = resolveModularInsertionDrag(session.snapshot, session.draggedItemId, 1);
+
+  assert.deepEqual(laneMap(first), laneMap(second));
+  assert.deepEqual(orderedIds(first), orderedIds(second));
+  assert.equal(first.endLane, second.endLane);
+});
+
+test("target lane hysteresis suppresses row-boundary oscillation", () => {
+  assert.equal(targetLaneWithHysteresis(START_Y + SLOT * 1.56, {
+    startY: START_Y,
+    slotHeight: SLOT,
+    previousLane: 1,
+    hysteresis: 0.12
+  }), 1);
+  assert.equal(targetLaneWithHysteresis(START_Y + SLOT * 1.63, {
+    startY: START_Y,
+    slotHeight: SLOT,
+    previousLane: 1,
+    hysteresis: 0.12
+  }), 2);
+  assert.equal(targetLaneWithHysteresis(START_Y + SLOT * 1.44, {
+    startY: START_Y,
+    slotHeight: SLOT,
+    previousLane: 2,
+    hysteresis: 0.12
+  }), 2);
+  assert.equal(targetLaneWithHysteresis(START_Y + SLOT * 1.37, {
+    startY: START_Y,
+    slotHeight: SLOT,
+    previousLane: 2,
+    hysteresis: 0.12
+  }), 1);
 });
 
 test("I/O cards test both sides before placement", () => {
