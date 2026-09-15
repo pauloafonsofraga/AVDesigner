@@ -24,7 +24,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-3-11-editor-preview-modifier-wheel-zoom";
+const BUILD_ID = "iteration54-3-12-remove-processor-faceplate-tags";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -39,9 +39,9 @@ function sourceSlice(source, startNeedle, endNeedle) {
   return source.slice(start, end);
 }
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.3.11");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.3.11";'), "visible iteration should be 54.3.11");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-3-11-editor-preview-modifier-wheel-zoom-modules";'), "module cache key should bust 54.3.11 modules");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.3.12");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.3.12";'), "visible iteration should be 54.3.12");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-3-12-remove-processor-faceplate-tags-modules";'), "module cache key should bust 54.3.12 modules");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-3-7-device-editor-integration-hardening"'), "Engine bridge version should identify Iteration 54.3.7");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];

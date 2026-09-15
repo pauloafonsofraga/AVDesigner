@@ -6,6 +6,7 @@ import { fitCameraToBounds } from "../src/engine/enginePreview.js";
 
 const INDEX_HTML = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const ENGINE_PREVIEW_SOURCE = readFileSync(new URL("../src/engine/enginePreview.js", import.meta.url), "utf8");
+const DEVICE_VISUAL_BUILDER_SOURCE = readFileSync(new URL("../src/engine/deviceVisualBuilder.js", import.meta.url), "utf8");
 
 function editorPanel(name) {
   const match = INDEX_HTML.match(new RegExp(`<section class="editor-panel[^"]*" data-editor-panel="${name}">([\\s\\S]*?)</section>`));
@@ -377,4 +378,10 @@ test("Engine preview camera-only operations do not rebuild scene data or texture
   assert.match(setCamera, /if \(render\) this\.render\(\);/, "setCamera should only request a render");
   assert.match(fitToContent, /fitCameraToBounds/, "Fit should update camera from bounds");
   assert.match(resize, /this\.renderer\.resize\(\);/, "resize without fit should only resize the renderer");
+});
+
+test("Matrix and LED Processor flags do not draw automatic faceplate tags", () => {
+  assert.doesNotMatch(DEVICE_VISUAL_BUILDER_SOURCE, /LED PROCESSOR/);
+  assert.doesNotMatch(DEVICE_VISUAL_BUILDER_SOURCE, /drawDeviceTag\(ctx,\s*"MATRIX"/);
+  assert.doesNotMatch(DEVICE_VISUAL_BUILDER_SOURCE, /function\s+drawDeviceTag/);
 });

@@ -382,9 +382,6 @@ function drawRackDeviceVisual(ctx, device, width, height, options) {
     drawConnectorBands(ctx, device, width, height, face.bottom + 12);
   }
 
-  if (visual.isLedProcessor) drawDeviceTag(ctx, "LED PROCESSOR", width - pad, 24, "#ff99cc", "right");
-  if (visual.isMatrixRouter) drawDeviceTag(ctx, "MATRIX", width - pad, 56, "#32b6ff", "right");
-
   // Connector nodes are intentionally not baked into cached device textures.
   // Legacy draws them after the device body so the full circle can extend past
   // the shell; baking them here clips the outer half at the texture bounds.
@@ -1050,16 +1047,6 @@ function groupConnectors(connectors) {
     groups.set(key, list);
   });
   return groups;
-}
-
-function drawDeviceTag(ctx, text, x, y, color, align = "left") {
-  ctx.save();
-  ctx.font = "800 7px system-ui, -apple-system, Segoe UI, sans-serif";
-  ctx.textBaseline = "bottom";
-  ctx.textAlign = align;
-  ctx.fillStyle = color;
-  ctx.fillText(text, x, y);
-  ctx.restore();
 }
 
 function drawFittedText(ctx, text, x, y, maxWidth, maxSize, options = {}) {
