@@ -3,10 +3,13 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { fitCameraToBounds } from "../src/engine/enginePreview.js";
+import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
 
 const INDEX_HTML = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const ENGINE_PREVIEW_SOURCE = readFileSync(new URL("../src/engine/enginePreview.js", import.meta.url), "utf8");
 const DEVICE_VISUAL_BUILDER_SOURCE = readFileSync(new URL("../src/engine/deviceVisualBuilder.js", import.meta.url), "utf8");
+const PRODUCTION_BRIDGE_SOURCE = readFileSync(new URL("../src/engine/productionBridge.js", import.meta.url), "utf8");
+const PROJECT_MUTATIONS_SOURCE = readFileSync(new URL("../src/engine/projectMutations.js", import.meta.url), "utf8");
 
 function editorPanel(name) {
   const match = INDEX_HTML.match(new RegExp(`<section class="editor-panel[^"]*" data-editor-panel="${name}">([\\s\\S]*?)</section>`));
@@ -312,6 +315,46 @@ test("Matrix routing separates compact inspector routes from full modal crosspoi
 
   const inspectorOnlyMarkup = sourceSlice(matrixMarkup, 'const viewToggle = presentation === "modal"', "const openFull = presentation === \"inspector\"");
   assert.doesNotMatch(inspectorOnlyMarkup, /data-matrix-view-current="\$\{escapeAttr\(selectedView\)\}"/, "view selection should be stored on the section, not duplicated in the inspector toggle");
+});
+
+test("Canvas connector inspector exposes editable node fields", () => {
+  const renderConnectorInspector = functionSource("renderConnectorInspector");
+  const fieldSection = functionSource("canvasConnectorFieldSectionMarkup");
+  const fieldBinding = functionSource("bindCanvasConnectorFieldInputs");
+
+  assert.match(renderConnectorInspector, /canvasConnectorFieldSectionMarkup\(connector\)/);
+  assert.match(renderConnectorInspector, /bindCanvasConnectorFieldInputs\(deviceId, connectorId\)/);
+  assert.doesNotMatch(renderConnectorInspector, /Connector editing rules will be added/);
+  assert.match(fieldSection, /connectorInfoFields\(connector\)/);
+  assert.match(fieldSection, /data-canvas-connector-field/);
+  assert.match(fieldBinding, /commitConnectorInspectorFields\?\.\(deviceId, connectorId, patch\)/);
+  assert.match(fieldBinding, /setConnectorFieldsForEndpoint\(deviceId, connectorId, patch\)/);
+
+  assert.match(PRODUCTION_BRIDGE_SOURCE, /engineConnectorInfoFields/);
+  assert.match(PRODUCTION_BRIDGE_SOURCE, /connectorFieldInputsMarkup\(selected\.connector\)/);
+  assert.match(PRODUCTION_BRIDGE_SOURCE, /data-engine-connector-field/);
+  assert.match(PRODUCTION_BRIDGE_SOURCE, /commitConnectorInspectorFields\(deviceId, connectorId, patch\)/);
+  assert.match(PROJECT_MUTATIONS_SOURCE, /"nameCustom"/);
+
+  const projectData = {
+    state: {
+      devices: [{ instanceId: "device-a", connectorOverrides: {} }],
+      connections: []
+    }
+  };
+  const mutations = new ProjectMutationAdapter({ projectData }, { cloneProjectData: false });
+  mutations.updateConnectorFields("device-a", "out-1", {
+    nameText: "OUT 42",
+    nameCustom: true,
+    resolutionFrameRate: "4K60",
+    customText: "Preview"
+  });
+  assert.deepEqual(projectData.state.devices[0].connectorOverrides["out-1"], {
+    nameText: "OUT 42",
+    nameCustom: true,
+    resolutionFrameRate: "4K60",
+    customText: "Preview"
+  });
 });
 
 test("Faceplate tab keeps image controls together in one compact row", () => {

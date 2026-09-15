@@ -10,6 +10,7 @@ import {
   engineConnectorDisplayLabel,
   engineConnectorFiberFamily,
   engineConnectorFiberMode,
+  engineConnectorInfoFields,
   engineFiberModeOption,
   engineWireColorForCable,
   engineWireColorSegmentsForCable,
@@ -123,9 +124,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-4-0-matrix-routing-internal-routes";
-export const ENGINE_BRIDGE_VERSION = "iteration54-4-0-matrix-routing-internal-routes";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "matrix-routing-internal-routes";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-4-3-canvas-connector-fields";
+export const ENGINE_BRIDGE_VERSION = "iteration54-4-3-canvas-connector-fields";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "canvas-connector-inspector-fields";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -6678,7 +6679,9 @@ class ProductionEngineBridge {
           ["Connected Wires", selected.connectedWireIds.length],
           ["Action", "Drag to a compatible connector to create a wire"]
         ])}
+        ${connectorFieldInputsMarkup(selected.connector)}
       `;
+      bindConnectorFieldInputs(this, this.inspectorPanel, selected.device.id, selected.connector.id);
       return;
     }
     if (selectedRacks.length || selectedDevices.length || selectedWires.length || selectedRoutePoints.length || selectedConnectors.length) {
@@ -8699,6 +8702,25 @@ function injectBridgeStyles() {
       color: #aeb9c6;
       font-weight: 800;
     }
+    .engine-bridge-field-section {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+      padding: 10px;
+      border: 1px solid rgba(204,215,228,.18);
+      border-radius: 8px;
+      background: rgba(154,167,181,.08);
+    }
+    .engine-bridge-field-heading {
+      margin: 0;
+      color: #aeb9c6;
+      font: 900 11px/1.2 Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .engine-bridge-field-section .engine-bridge-field {
+      margin: 0;
+    }
     .engine-bridge-field input {
       width: 100%;
       min-height: 28px;
@@ -10547,6 +10569,7 @@ function applyObjectFieldsToSceneDevice(device, fields = {}) {
 function sanitizeConnectorInspectorFields(fields = {}) {
   const allowed = new Set([
     "nameText",
+    "nameCustom",
     "customText",
     "resolutionFrameRate",
     "nameTextCaption",
@@ -10571,6 +10594,10 @@ function sanitizeConnectorInspectorFields(fields = {}) {
   Object.entries(fields || {}).forEach(([key, value]) => {
     if (!allowed.has(key)) return;
     if (key === "colorSegments") return;
+    if (key === "nameCustom") {
+      sanitized[key] = value === true || value === "true";
+      return;
+    }
     sanitized[key] = String(value ?? "");
   });
   if (Array.isArray(fields.colorSegments)) sanitized.colorSegments = fields.colorSegments.map(color => String(color || "")).filter(Boolean);
@@ -10867,6 +10894,46 @@ function detailsMarkup(rows) {
   return `<dl class="engine-bridge-details">${
     rows.map(([key, value]) => `<dt>${escapeHtml(key)}</dt><dd>${escapeHtml(String(value ?? "-"))}</dd>`).join("")
   }</dl>`;
+}
+
+function connectorFieldInputsMarkup(connector) {
+  const fields = engineConnectorInfoFields(connector);
+  if (!fields.length) return "";
+  return `
+    <section class="engine-bridge-field-section">
+      <h4 class="engine-bridge-field-heading">Fields</h4>
+      ${fields.map(field => `
+        <label class="engine-bridge-field">
+          <span>${escapeHtml(field.title)}</span>
+          <input type="text" data-engine-connector-field="${escapeHtml(field.field)}" value="${escapeHtml(field.value ?? field.text ?? "")}" autocomplete="off" />
+        </label>
+      `).join("")}
+    </section>
+  `;
+}
+
+function bindConnectorFieldInputs(bridge, root, deviceId, connectorId) {
+  root?.querySelectorAll?.("[data-engine-connector-field]")?.forEach(input => {
+    let committedValue = input.value;
+    const commit = () => {
+      const field = input.dataset.engineConnectorField || "";
+      if (!field || input.value === committedValue) return;
+      committedValue = input.value;
+      const patch = { [field]: input.value };
+      if (field === "nameText") patch.nameCustom = true;
+      bridge.commitConnectorInspectorFields(deviceId, connectorId, patch);
+    };
+    input.addEventListener("change", commit);
+    input.addEventListener("blur", commit);
+    input.addEventListener("click", event => event.stopPropagation());
+    input.addEventListener("pointerdown", event => event.stopPropagation());
+    input.addEventListener("keydown", event => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      commit();
+      input.blur();
+    });
+  });
 }
 
 function roundForUi(value) {

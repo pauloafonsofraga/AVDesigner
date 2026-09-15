@@ -203,6 +203,7 @@ export class ProjectMutationAdapter {
     if (!entry?.item || !id) return 0;
     const allowed = new Set([
       "nameText",
+      "nameCustom",
       "customText",
       "resolutionFrameRate",
       "nameTextCaption",
@@ -233,6 +234,10 @@ export class ProjectMutationAdapter {
       if (!allowed.has(key)) return;
       if (key === "colorSegments") {
         override[key] = Array.isArray(value) ? value.map(color => String(color || "")).filter(Boolean) : [];
+        return;
+      }
+      if (key === "nameCustom") {
+        override[key] = value === true || value === "true";
         return;
       }
       override[key] = String(value ?? "");
