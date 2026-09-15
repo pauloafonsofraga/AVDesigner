@@ -5,6 +5,7 @@ import {
   MODULAR_LAYOUT_SLOT_HEIGHT,
   cardBandGeometryForSlot,
   cardSlotSpanLanes,
+  connectorPlacementSideMask,
   createModularInsertionDragSession,
   createModularPlacementSnapshot,
   isValidModularInsertionResult,
@@ -75,6 +76,45 @@ function cardFixture() {
       }
     ]
   };
+}
+
+function v2ConnectorDisplayedOnSide(id, side, direction = side === "right" ? "output" : "input", y = START_Y) {
+  const x = side === "right" ? DEVICE_WIDTH : 0;
+  return {
+    id,
+    schemaVersion: 2,
+    type: "hdmi",
+    direction,
+    signalDirection: direction,
+    displaySide: side,
+    primaryAnchorId: side,
+    x,
+    y,
+    anchors: [
+      { id: side, side, x, y, primary: true }
+    ]
+  };
+}
+
+function sideParityCardTypes() {
+  return [
+    {
+      id: "left-input-card",
+      name: "Left Input Card",
+      kind: "input",
+      connectors: [
+        v2ConnectorDisplayedOnSide("card-in", "left", "input", 40)
+      ]
+    },
+    {
+      id: "right-output-card",
+      name: "Right Output Card",
+      kind: "output",
+      connectors: [
+        v2ConnectorDisplayedOnSide("card-out", "right", "output", 40)
+      ]
+    }
+  ];
 }
 
 function projectDevice(template) {
@@ -277,6 +317,68 @@ test("network connectors keep their requested lane instead of moving below ordin
   assert.equal(base.connectorPositions.get("ordinary-b").y, START_Y + SLOT * 2);
   assert.equal(withLaterConnector.connectorPositions.get("network").y, START_Y + SLOT);
   assert.equal(withLaterConnector.connectorPositions.get("ordinary-c").y, START_Y + SLOT * 3);
+});
+
+test("V2 placement side follows display side and anchors instead of signal direction", () => {
+  const outputDisplayedLeft = v2ConnectorDisplayedOnSide("output-left", "left", "output");
+  const inputDisplayedRight = v2ConnectorDisplayedOnSide("input-right", "right", "input");
+  const bothSide = {
+    ...v2ConnectorDisplayedOnSide("both-side", "left", "input"),
+    displaySide: "both",
+    primaryAnchorId: "left",
+    anchors: [
+      { id: "left", side: "left", x: 0, y: START_Y, primary: true },
+      { id: "right", side: "right", x: DEVICE_WIDTH, y: START_Y }
+    ]
+  };
+
+  assert.equal(connectorPlacementSideMask(outputDisplayedLeft, DEVICE_WIDTH), "left");
+  assert.equal(connectorPlacementSideMask(inputDisplayedRight, DEVICE_WIDTH), "right");
+  assert.equal(connectorPlacementSideMask(bothSide, DEVICE_WIDTH), "both");
+  assert.equal(connectorPlacementSideMask({ id: "legacy-output", direction: "output", y: START_Y }, DEVICE_WIDTH), "right");
+  assert.equal(connectorPlacementSideMask({ id: "legacy-input", direction: "input", y: START_Y }, DEVICE_WIDTH), "left");
+});
+
+test("output signal displayed left displaces a conflicting input card slot", () => {
+  const layout = resolveModularDeviceLayout({
+    startY: 152,
+    slotHeight: SLOT,
+    deviceWidth: DEVICE_WIDTH,
+    connectors: [
+      v2ConnectorDisplayedOnSide("chassis-output-left", "left", "output", 152)
+    ],
+    cardTypes: sideParityCardTypes(),
+    cardSlots: [
+      { id: "slot-left-input", installedCardTypeId: "left-input-card", y: 152 }
+    ]
+  });
+
+  assert.equal(layout.connectorPositions.get("chassis-output-left").sideMask, "left");
+  assert.equal(layout.connectorPositions.get("chassis-output-left").y, 152);
+  assert.equal(layout.cardSlotPositions.get("slot-left-input").sideMask, "left");
+  assert.equal(layout.cardSlotPositions.get("slot-left-input").y, 152 + SLOT);
+  assertNoSideOverlap(layout);
+});
+
+test("input signal displayed right displaces a conflicting output card slot", () => {
+  const layout = resolveModularDeviceLayout({
+    startY: 152,
+    slotHeight: SLOT,
+    deviceWidth: DEVICE_WIDTH,
+    connectors: [
+      v2ConnectorDisplayedOnSide("chassis-input-right", "right", "input", 152)
+    ],
+    cardTypes: sideParityCardTypes(),
+    cardSlots: [
+      { id: "slot-right-output", installedCardTypeId: "right-output-card", y: 152 }
+    ]
+  });
+
+  assert.equal(layout.connectorPositions.get("chassis-input-right").sideMask, "right");
+  assert.equal(layout.connectorPositions.get("chassis-input-right").y, 152);
+  assert.equal(layout.cardSlotPositions.get("slot-right-output").sideMask, "right");
+  assert.equal(layout.cardSlotPositions.get("slot-right-output").y, 152 + SLOT);
+  assertNoSideOverlap(layout);
 });
 
 test("stable insertion drag keeps the dragged item at the hard target in mixed-side layouts", () => {

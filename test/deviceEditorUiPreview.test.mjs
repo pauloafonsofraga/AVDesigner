@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import vm from "node:vm";
 
 import { fitCameraToBounds } from "../src/engine/enginePreview.js";
+import {
+  connectorPlacementSideMask,
+  resolveModularPlacementItems
+} from "../src/engine/modularDeviceLayout.js";
 import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
 
 const INDEX_HTML = readFileSync(new URL("../index.html", import.meta.url), "utf8");
@@ -89,6 +94,28 @@ function assertCameraContains(camera, bounds, viewportWidth, viewportHeight, pad
   assert.ok(screen.bottom <= viewportHeight - padding + 0.000001, `${label} should leave bottom padding`);
   assert.ok(close((screen.left + screen.right) / 2, viewportWidth / 2), `${label} should center horizontally`);
   assert.ok(close((screen.top + screen.bottom) / 2, viewportHeight / 2), `${label} should center vertically`);
+}
+
+function runnableIndexFunction(functionName, context = {}) {
+  return vm.runInNewContext(`(${functionSource(functionName)})`, context);
+}
+
+function sideParityConnector(id, side, direction, y = 152) {
+  const x = side === "right" ? 420 : 0;
+  return {
+    id,
+    schemaVersion: 2,
+    type: "hdmi",
+    direction,
+    signalDirection: direction,
+    displaySide: side,
+    primaryAnchorId: side,
+    x,
+    y,
+    anchors: [
+      { id: side, side, x, y, primary: true }
+    ]
+  };
 }
 
 test("Device tab uses compact feature groups with dependent controls beside toggles", () => {
@@ -283,10 +310,12 @@ test("Device Editor placement delegates to the shared modular layout module", ()
 
   assert.match(placementLoader, /engineImportUrl\("\.\/src\/engine\/modularDeviceLayout\.js"\)/);
   assert.doesNotMatch(placementLoader, /engineEditorRequestedByUrl/);
+  assert.match(placementLoader, /connectorPlacementSideMask/);
   assert.match(placementRequire, /throw new Error\("Device Editor placement module is not loaded\."\)/);
   assert.match(placementReady, /await loadDeviceEditorPlacementModule\(\)/);
   assert.match(INDEX_HTML, /loadDeviceEditorPlacementModule\("Device Editor placement"\);/);
 
+  assert.match(functionSource("editorConnectorPlacementSideMask"), /connectorPlacementSideMask\(connector, width\)/);
   assert.match(resolver, /requireDeviceEditorPlacementModule\(\)/);
   assert.match(resolver, /resolveModularPlacementItems\(normalized, \{\s*startY,\s*slotHeight: SLOT_HEIGHT\s*\}\)/);
   assert.doesNotMatch(resolver, /while\s*\(/);
@@ -305,6 +334,82 @@ test("Device Editor placement delegates to the shared modular layout module", ()
   assert.match(openNew, /await ensureDeviceEditorPlacementModuleReady\(\)/);
   assert.match(openProject, /await ensureDeviceEditorPlacementModuleReady\(\)/);
   assert.match(openInstance, /await ensureDeviceEditorPlacementModuleReady\(\)/);
+});
+
+test("Device Editor placement adapter follows shared V2 visual-side lane semantics", () => {
+  const editorConnectorMask = runnableIndexFunction("editorConnectorPlacementSideMask", {
+    requireDeviceEditorPlacementModule: () => ({ connectorPlacementSideMask }),
+    deviceTemplateWidth: template => Number(template?.width) || 420
+  });
+  const editorResolver = runnableIndexFunction("resolveEditorPlacementItems", {
+    requireDeviceEditorPlacementModule: () => ({ resolveModularPlacementItems }),
+    normalizeEditorPlacementSideMask: value => {
+      const raw = String(value || "").trim().toLowerCase();
+      if (raw === "right" || raw === "output") return "right";
+      if (raw === "both" || raw === "full" || raw === "io") return "both";
+      return "left";
+    },
+    laneIndexForY: (y, startY = 152) => Math.max(0, Math.round(((Number(y) || startY) - startY) / 54)),
+    editorPlacementItemId: item => `${item.kind}:${item.ref?.id || item.index}`,
+    SLOT_HEIGHT: 54
+  });
+  const template = { width: 420 };
+  const chassisConnector = sideParityConnector("chassis-output-left", "left", "output");
+  const adapterItems = [
+    {
+      kind: "connector",
+      ref: chassisConnector,
+      index: 0,
+      requestedY: 152,
+      sideMask: editorConnectorMask(template, chassisConnector),
+      span: 1,
+      order: 0
+    },
+    {
+      kind: "card",
+      ref: { id: "slot-left-input" },
+      index: 0,
+      requestedY: 152,
+      sideMask: "left",
+      span: 3,
+      order: 1
+    }
+  ];
+  const adapterLayout = editorResolver(adapterItems, 152);
+  const sharedLayout = resolveModularPlacementItems([
+    { id: "connector:chassis-output-left", itemType: "chassis-connector", sideMask: "left", requestedY: 152, requestedLane: 0, span: 1, order: 0 },
+    { id: "card:slot-left-input", itemType: "card-slot", sideMask: "left", requestedY: 152, requestedLane: 0, span: 3, order: 1 }
+  ], { startY: 152, slotHeight: 54 });
+
+  assert.equal(adapterItems[0].sideMask, "left");
+  assert.deepEqual(
+    Object.fromEntries(adapterLayout.items.map(item => [item.id, item.y])),
+    Object.fromEntries(sharedLayout.items.map(item => [item.id, item.y]))
+  );
+  assert.equal(adapterLayout.byId.get("card:slot-left-input").y, 206);
+});
+
+test("standalone exported viewer side helper follows V2 visual-side semantics", () => {
+  const exportSideMaskForConnector = runnableIndexFunction("exportSideMaskForConnector", {
+    DEVICE_WIDTH: 420,
+    Number,
+    String,
+    Array,
+    Set
+  });
+
+  assert.equal(exportSideMaskForConnector(sideParityConnector("output-left", "left", "output"), { width: 420 }), "left");
+  assert.equal(exportSideMaskForConnector(sideParityConnector("input-right", "right", "input"), { width: 420 }), "right");
+  assert.equal(exportSideMaskForConnector({
+    ...sideParityConnector("both", "left", "input"),
+    displaySide: "both",
+    anchors: [
+      { id: "left", side: "left", x: 0, y: 152, primary: true },
+      { id: "right", side: "right", x: 420, y: 152 }
+    ]
+  }, { width: 420 }), "both");
+  assert.equal(exportSideMaskForConnector({ id: "legacy-output", direction: "output", y: 152 }, { width: 420 }), "right");
+  assert.equal(exportSideMaskForConnector({ id: "legacy-input", direction: "input", y: 152 }, { width: 420 }), "left");
 });
 
 test("Device Editor preview renders from detached normalized drafts", () => {

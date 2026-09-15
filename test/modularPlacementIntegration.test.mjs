@@ -5,6 +5,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { createPreviewDeviceFromDraft } from "../src/engine/enginePreview.js";
+import { resolveModularDeviceLayout } from "../src/engine/modularDeviceLayout.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 
@@ -39,6 +40,96 @@ function visualCardById(device, id) {
   const card = device.visual.visualCards.find(item => item.id === id);
   assert.ok(card, `expected visual card ${id}`);
   return card;
+}
+
+function displayedSideConnector(id, side, direction, y) {
+  const x = side === "right" ? 420 : 0;
+  return {
+    id,
+    schemaVersion: 2,
+    type: "hdmi",
+    direction,
+    signalDirection: direction,
+    displaySide: side,
+    primaryAnchorId: side,
+    x,
+    y,
+    anchors: [
+      { id: side, side, x, y, primary: true }
+    ]
+  };
+}
+
+function displaySideParityTemplate() {
+  return {
+    id: "display-side-parity-template",
+    schemaVersion: 2,
+    deviceDefinitionVersion: 2,
+    name: "Display Side Parity",
+    width: 420,
+    height: 520,
+    hasSwappableCards: true,
+    connectors: [
+      displayedSideConnector("chassis-output-left", "left", "output", 152)
+    ],
+    cardTypes: [
+      {
+        id: "left-input-card",
+        name: "Left Input Card",
+        kind: "input",
+        connectors: [
+          displayedSideConnector("card-input", "left", "input", 40)
+        ]
+      }
+    ],
+    cardSlots: [
+      {
+        id: "slot-left-input",
+        installedCardTypeId: "left-input-card",
+        y: 152,
+        connectorOverrides: {
+          "card-input": { nameText: "Installed Input" }
+        }
+      }
+    ]
+  };
+}
+
+function displaySideParityProject(template = displaySideParityTemplate()) {
+  return {
+    format: "av-designer-project",
+    version: 2,
+    state: {
+      projectName: "Display Side Parity Project",
+      nodeLibrary: [],
+      deviceLibrary: [
+        {
+          id: "source-template",
+          name: "Source",
+          schemaVersion: 2,
+          deviceDefinitionVersion: 2,
+          width: 420,
+          height: 220,
+          connectors: [
+            displayedSideConnector("source-output", "right", "output", 80)
+          ]
+        },
+        template
+      ],
+      devices: [
+        { instanceId: "source-device", templateId: "source-template", x: 0, y: 0 },
+        { instanceId: "parity-device", templateId: template.id, x: 500, y: 0 }
+      ],
+      connections: [
+        {
+          id: "wire-to-generated-input",
+          cableType: "hdmi",
+          from: { deviceId: "source-device", connectorId: "source-output" },
+          to: { deviceId: "parity-device", connectorId: "slot-left-input__card-input" }
+        }
+      ]
+    }
+  };
 }
 
 test("explicit blank New Device preview does not synthesize fallback connector nodes", () => {
@@ -84,6 +175,68 @@ test("explicit blank New Device preview does not synthesize fallback connector n
   assert.ok(sceneDevice, "blank new device should enter SceneGraph");
   assert.equal(sceneDevice.connectors.length, 0, "SceneGraph should preserve the blank connector list");
   assert.equal(sceneDevice.portCount, 0, "SceneGraph should preserve the zero fallback-port count");
+});
+
+test("V2 display-side placement agrees across project normalization and Engine preview", () => {
+  const template = displaySideParityTemplate();
+  const sourceCardSnapshot = JSON.stringify(template.cardTypes);
+  const projectData = displaySideParityProject(template);
+  const normalized = normalizeAvDesignerProject(projectData);
+  const device = normalized.devices.find(item => item.id === "parity-device");
+  assert.ok(device, "normalized parity device should exist");
+  const previewDevice = createPreviewDeviceFromDraft({
+    template,
+    instance: {
+      instanceId: "parity-preview",
+      templateId: template.id,
+      x: 0,
+      y: 0
+    },
+    projectData
+  });
+  const directLayout = resolveModularDeviceLayout({
+    startY: 0,
+    slotHeight: SLOT_HEIGHT,
+    deviceWidth: 420,
+    connectors: template.connectors,
+    cardTypes: template.cardTypes,
+    cardSlots: template.cardSlots,
+    preserveRequestedY: true,
+    cardSlotY: slot => Number(slot.y) || 0
+  });
+
+  const normalizedCard = visualCardById(device, "slot-left-input");
+  const previewCard = visualCardById(previewDevice, "slot-left-input");
+  const chassisConnector = connectorById(device, "chassis-output-left");
+  const generatedConnector = connectorById(device, "slot-left-input__card-input");
+  const previewGeneratedConnector = connectorById(previewDevice, "slot-left-input__card-input");
+
+  assert.equal(directLayout.connectorPositions.get("chassis-output-left").sideMask, "left");
+  assert.equal(directLayout.cardSlotPositions.get("slot-left-input").y, 206);
+  assert.equal(normalizedCard.slotY, 206, "Engine project normalization should displace the card slot");
+  assert.equal(previewCard.slotY, 206, "Engine preview draft should use the same displaced card slot");
+  assert.equal(chassisConnector.x, 0, "output signal displayed left should remain on the left edge");
+  assert.equal(chassisConnector.y, 152);
+  assert.equal(chassisConnector.displaySide, "left");
+  assert.equal(generatedConnector.y, normalizedCard.slotY + SLOT_HEIGHT);
+  assert.equal(previewGeneratedConnector.y, generatedConnector.y);
+  assert.deepEqual(previewGeneratedConnector.anchors, generatedConnector.anchors);
+  assert.deepEqual(
+    normalized.wires.map(wire => [wire.id, wire.fromConnectorId, wire.toConnectorId]),
+    [["wire-to-generated-input", "source-output", "slot-left-input__card-input"]],
+    "stable generated connector endpoint should survive normalization"
+  );
+  assert.equal(normalized.meta.skippedWires, 0, "wire to generated connector should not be skipped");
+  assert.equal(JSON.stringify(template.cardTypes), sourceCardSnapshot, "normalization must not mutate reusable card definitions");
+
+  const repeated = normalizeAvDesignerProject(JSON.parse(JSON.stringify(projectData)));
+  const repeatedDevice = repeated.devices.find(item => item.id === "parity-device");
+  assert.equal(visualCardById(repeatedDevice, "slot-left-input").slotY, normalizedCard.slotY);
+  assert.deepEqual(
+    repeated.wires.map(wire => [wire.id, wire.fromConnectorId, wire.toConnectorId]),
+    normalized.wires.map(wire => [wire.id, wire.fromConnectorId, wire.toConnectorId]),
+    "repeated normalization should keep generated IDs and wire endpoints stable"
+  );
 });
 
 function assertInstalledConnector(device, slotId, sourceConnectorId, expected = {}) {

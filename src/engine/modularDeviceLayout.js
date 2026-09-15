@@ -635,11 +635,64 @@ export function createModularInsertionDragSession(itemsOrLayout = [], draggedIte
   });
 }
 
+function explicitVisualSide(value = "") {
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw === "left" || raw === "input") return MODULAR_LAYOUT_SIDE_MASKS.left;
+  if (raw === "right" || raw === "output") return MODULAR_LAYOUT_SIDE_MASKS.right;
+  if (raw === "both" || raw === "mirrored" || raw === "dual" || raw === "io" || raw === "left-right") {
+    return MODULAR_LAYOUT_SIDE_MASKS.both;
+  }
+  return "";
+}
+
+function sideForCoordinate(x, deviceWidth = 0) {
+  const coordinate = Number(x);
+  if (!Number.isFinite(coordinate)) return "";
+  const width = positiveNumber(deviceWidth, 0);
+  return coordinate > width / 2 ? MODULAR_LAYOUT_SIDE_MASKS.right : MODULAR_LAYOUT_SIDE_MASKS.left;
+}
+
+function connectorRawVisualSides(connector = {}, deviceWidth = 0) {
+  const sides = new Set();
+  const anchors = Array.isArray(connector?.anchors) ? connector.anchors : [];
+  anchors.forEach(anchor => {
+    const explicitSide = explicitVisualSide(anchor?.side);
+    if (explicitSide === MODULAR_LAYOUT_SIDE_MASKS.both) {
+      sides.add(MODULAR_LAYOUT_SIDE_MASKS.left);
+      sides.add(MODULAR_LAYOUT_SIDE_MASKS.right);
+      return;
+    }
+    if (explicitSide) {
+      sides.add(explicitSide);
+      return;
+    }
+    const coordinateSide = sideForCoordinate(anchor?.x, deviceWidth);
+    if (coordinateSide) sides.add(coordinateSide);
+  });
+  return sides;
+}
+
 export function connectorPlacementSideMask(connector = {}, deviceWidth = 0) {
   const topology = normalizeConnectorTopology(connector, {
     deviceWidth,
     forceV2: isV2Connector(connector)
   });
+  const rawDisplaySide = explicitVisualSide(connector?.displaySide || connector?.side);
+  const rawAnchorSides = connectorRawVisualSides(connector, deviceWidth);
+  if (
+    rawDisplaySide === MODULAR_LAYOUT_SIDE_MASKS.both
+    || (rawAnchorSides.has(MODULAR_LAYOUT_SIDE_MASKS.left) && rawAnchorSides.has(MODULAR_LAYOUT_SIDE_MASKS.right))
+  ) {
+    return MODULAR_LAYOUT_SIDE_MASKS.both;
+  }
+  if (rawDisplaySide) return rawDisplaySide;
+  if (rawAnchorSides.has(MODULAR_LAYOUT_SIDE_MASKS.right)) return MODULAR_LAYOUT_SIDE_MASKS.right;
+  if (rawAnchorSides.has(MODULAR_LAYOUT_SIDE_MASKS.left)) return MODULAR_LAYOUT_SIDE_MASKS.left;
+  if (isV2Connector(connector)) {
+    const coordinateSide = sideForCoordinate(connector?.x, deviceWidth);
+    if (coordinateSide) return coordinateSide;
+  }
+
   const sides = new Set(topology.anchors.map(anchor => anchor.side === "right" ? "right" : "left"));
   if (topology.displaySide === "both" || (sides.has("left") && sides.has("right"))) {
     return MODULAR_LAYOUT_SIDE_MASKS.both;

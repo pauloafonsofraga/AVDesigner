@@ -4993,7 +4993,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.5.0 — Device Editor Shared Placement — iteration54-5-0-device-editor-shared-placement</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.5.1 — V2 Display Side Placement Parity — iteration54-5-1-v2-display-side-placement-parity</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5686,10 +5686,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.5.0";
-    const APP_BUILD_ID = "iteration54-5-0-device-editor-shared-placement";
-    const APP_MODULE_CACHE_ID = "iteration54-5-0-device-editor-shared-placement-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Device Editor Shared Placement`;
+    const APP_ITERATION = "54.5.1";
+    const APP_BUILD_ID = "iteration54-5-1-v2-display-side-placement-parity";
+    const APP_MODULE_CACHE_ID = "iteration54-5-1-v2-display-side-placement-parity-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — V2 Display Side Placement Parity`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "f409d0373f783821e981515da660a2476e661959";
@@ -79489,14 +79489,7 @@
 
     function editorConnectorPlacementSideMask(template, connector) {
       const width = deviceTemplateWidth(template);
-      if (isEditorV2ConnectorCandidate(connector)) {
-        const anchors = editorConnectorAnchors(connector, width);
-        const hasLeft = anchors.some(anchor => anchor.side !== "right");
-        const hasRight = anchors.some(anchor => anchor.side === "right");
-        if (String(connector.displaySide || "").toLowerCase() === "both" || (hasLeft && hasRight)) return "both";
-        return editorPrimaryAnchorSide(connector) === "right" ? "right" : "left";
-      }
-      return connectorSideKey(connector) === "input" ? "left" : "right";
+      return requireDeviceEditorPlacementModule().connectorPlacementSideMask(connector, width);
     }
 
     function editorCardPlacementSideMask(template, slot) {
@@ -89466,8 +89459,8 @@
         const moduleUrl = engineImportUrl("./src/engine/modularDeviceLayout.js");
         deviceEditorPlacementModulePromise = import(moduleUrl)
           .then(module => {
-            if (!module?.resolveModularPlacementItems) {
-              throw new Error("Shared modular placement module is missing resolveModularPlacementItems().");
+            if (!module?.resolveModularPlacementItems || !module?.connectorPlacementSideMask) {
+              throw new Error("Shared modular placement module is missing required placement helpers.");
             }
             deviceEditorPlacementModule = module;
             return module;
@@ -106602,14 +106595,14 @@ function facePlacement(t){const width=Number(t&&t.width)||DEVICE_WIDTH,pad=Math.
 function cardTypeById(template,id){return (template.cardTypes||[]).find(card=>card.id===id)}
 function cardSlotRowCount(template,slot){const card=cardTypeById(template,slot.installedCardTypeId);if(!card)return 1;const connectors=(card.connectors||[]).filter(c=>!c.empty&&c.type);const ins=connectors.filter(c=>c.direction==="input").length;const outs=connectors.filter(c=>c.direction!=="input").length;return Math.max(1,ins,outs)}
 function cardSlotLaneCount(template,slot){return cardSlotRowCount(template,slot)+2}
-function exportSideMaskForConnector(connector){const anchors=Array.isArray(connector&&connector.anchors)?connector.anchors:[];const hasLeft=anchors.some(a=>a&&a.side!=="right"),hasRight=anchors.some(a=>a&&a.side==="right");if(connector&&connector.displaySide==="both"||hasLeft&&hasRight)return"both";return connector&&connector.direction==="output"?"right":"left"}
+function exportSideMaskForConnector(connector,template){const width=Number(template&&template.width)||DEVICE_WIDTH,display=String(connector&&connector.displaySide||connector&&connector.side||"").trim().toLowerCase(),explicit=display==="both"||display==="mirrored"||display==="dual"||display==="io"?"both":display==="right"||display==="output"?"right":display==="left"||display==="input"?"left":"",anchors=Array.isArray(connector&&connector.anchors)?connector.anchors:[],sides=new Set;anchors.forEach(a=>{const side=String(a&&a.side||"").trim().toLowerCase();if(side==="both"||side==="mirrored"||side==="dual"||side==="io"){sides.add("left");sides.add("right")}else if(side==="right"||side==="output")sides.add("right");else if(side==="left"||side==="input")sides.add("left");else if(Number.isFinite(Number(a&&a.x)))sides.add(Number(a.x)>width/2?"right":"left")});if(explicit==="both"||sides.has("left")&&sides.has("right"))return"both";if(explicit)return explicit;if(sides.has("right"))return"right";if(sides.has("left"))return"left";if(connector&&(Number(connector.schemaVersion)>=2||connector.displaySide||connector.signalDirection||Array.isArray(connector.anchors))&&Number.isFinite(Number(connector.x)))return Number(connector.x)>width/2?"right":"left";return connector&&connector.direction==="output"?"right":"left"}
 function exportSideMaskForCard(template,slot){const card=cardTypeById(template,slot.installedCardTypeId),kind=String(card&&card.kind||"io").toLowerCase();if(kind==="input")return"left";if(kind==="output")return"right";return"both"}
 function exportPlacementSides(mask){return mask==="both"?["left","right"]:[mask==="right"?"right":"left"]}
 function exportDeviceWidth(template){return Number(template&&template.width)||DEVICE_WIDTH}
 function exportConnectorStartY(template){if(isAdapterTemplate(template))return ADAPTER_START_Y;if(template&&template.faceplateDeleted&&!template.faceImage)return FACE_MARGIN+32;if(template&&template.isPowerDistro&&!template.faceImage){const rect=powerFaceRect(template);return rect.y+rect.height+36}if(template&&template.faceImage){const face=facePlacement(template);return Math.ceil(face.y+face.height+36)}return FACE_TOP_Y+faceHeight(template)+36}
 function exportLaneIndexForY(template,y){const start=exportConnectorStartY(template),numeric=Number(y);return Math.max(0,Math.round(((Number.isFinite(numeric)?numeric:start)-start)/SLOT_HEIGHT))}
 function exportLaneYForIndex(template,lane){return exportConnectorStartY(template)+Math.max(0,Number(lane)||0)*SLOT_HEIGHT}
-function exportResolveLayout(template){const connectors=((template&&template.connectors)||[]).filter(c=>!c.faceplateSide),slots=((template&&template.cardSlots)||[]),items=[...connectors.map((c,i)=>({id:"connector:"+c.id,kind:"connector",ref:c,requestedY:Number.isFinite(Number(c.y))?Number(c.y):exportConnectorStartY(template),requestedLane:exportLaneIndexForY(template,c.y),span:1,sideMask:exportSideMaskForConnector(c),order:i})),...slots.map((slot,i)=>({id:"card:"+slot.id,kind:"card",ref:slot,requestedY:Number.isFinite(Number(slot.y))?Number(slot.y):exportConnectorStartY(template),requestedLane:exportLaneIndexForY(template,slot.y),span:cardSlotLaneCount(template,slot),sideMask:exportSideMaskForCard(template,slot),order:connectors.length+i}))].sort((a,b)=>a.requestedLane-b.requestedLane||a.order-b.order||String(a.id).localeCompare(String(b.id))),occupied={left:[],right:[]},byId=new Map;items.forEach(item=>{let lane=item.requestedLane;const collides=()=>exportPlacementSides(item.sideMask).some(side=>{for(let i=lane;i<lane+item.span;i++){if(occupied[side][i])return true}return false});while(collides())lane++;const y=item.requestedY+(lane-item.requestedLane)*SLOT_HEIGHT;exportPlacementSides(item.sideMask).forEach(side=>{for(let i=lane;i<lane+item.span;i++)occupied[side][i]=item.id});byId.set(item.id,{...item,lane,y,endLane:lane+item.span})});return{byId,occupied}}
+function exportResolveLayout(template){const connectors=((template&&template.connectors)||[]).filter(c=>!c.faceplateSide),slots=((template&&template.cardSlots)||[]),items=[...connectors.map((c,i)=>({id:"connector:"+c.id,kind:"connector",ref:c,requestedY:Number.isFinite(Number(c.y))?Number(c.y):exportConnectorStartY(template),requestedLane:exportLaneIndexForY(template,c.y),span:1,sideMask:exportSideMaskForConnector(c,template),order:i})),...slots.map((slot,i)=>({id:"card:"+slot.id,kind:"card",ref:slot,requestedY:Number.isFinite(Number(slot.y))?Number(slot.y):exportConnectorStartY(template),requestedLane:exportLaneIndexForY(template,slot.y),span:cardSlotLaneCount(template,slot),sideMask:exportSideMaskForCard(template,slot),order:connectors.length+i}))].sort((a,b)=>a.requestedLane-b.requestedLane||a.order-b.order||String(a.id).localeCompare(String(b.id))),occupied={left:[],right:[]},byId=new Map;items.forEach(item=>{let lane=item.requestedLane;const collides=()=>exportPlacementSides(item.sideMask).some(side=>{for(let i=lane;i<lane+item.span;i++){if(occupied[side][i])return true}return false});while(collides())lane++;const y=item.requestedY+(lane-item.requestedLane)*SLOT_HEIGHT;exportPlacementSides(item.sideMask).forEach(side=>{for(let i=lane;i<lane+item.span;i++)occupied[side][i]=item.id});byId.set(item.id,{...item,lane,y,endLane:lane+item.span})});return{byId,occupied}}
 function resolvedCardSlotY(template,slot){return exportResolveLayout(template).byId.get("card:"+(slot&&slot.id))?.y||Number(slot&&slot.y)||exportConnectorStartY(template)}
 function cardBandGeometry(template,slot){const width=exportDeviceWidth(template),card=cardTypeById(template,slot.installedCardTypeId);const kind=card&&card.kind||"io";const lanes=cardSlotLaneCount(template,slot);const y=resolvedCardSlotY(template,slot)-SLOT_HEIGHT/2;const height=lanes*SLOT_HEIGHT;if(kind==="input")return{x:10,y,width:width/2-16,height,textX:width/4};if(kind==="output")return{x:width/2+6,y,width:width/2-16,height,textX:width*.75};return{x:10,y,width:width-20,height,textX:width/2}}
 function cardCaptionTextColorExport(card){return card&&card.captionTextColor||"#fff"}
