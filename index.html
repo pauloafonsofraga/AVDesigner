@@ -4876,7 +4876,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.3.9 — Device Editor Card Selection & Preview Zoom — iteration54-3-9-card-preview-selection-zoom</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.3.10 — Editor Preview Wheel Zoom — iteration54-3-10-editor-preview-wheel-zoom</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5570,10 +5570,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.3.9";
-    const APP_BUILD_ID = "iteration54-3-9-card-preview-selection-zoom";
-    const APP_MODULE_CACHE_ID = "iteration54-3-9-card-preview-selection-zoom-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Device Editor Card Selection & Preview Zoom`;
+    const APP_ITERATION = "54.3.10";
+    const APP_BUILD_ID = "iteration54-3-10-editor-preview-wheel-zoom";
+    const APP_MODULE_CACHE_ID = "iteration54-3-10-editor-preview-wheel-zoom-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Editor Preview Wheel Zoom`;
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "f409d0373f783821e981515da660a2476e661959";
     const CANVAS_MIN_ZOOM = 0.03;
@@ -80029,8 +80029,8 @@
       return Boolean(IS_APPLE_POINTER_PLATFORM ? event?.metaKey : event?.ctrlKey);
     }
 
-    function editorPreviewWheelZoomModifierActive(event) {
-      return Boolean(IS_APPLE_POINTER_PLATFORM ? event?.altKey : event?.ctrlKey);
+    function editorPreviewWheelZoomFactor(event) {
+      return event?.deltaY < 0 ? 1.12 : 1 / 1.12;
     }
 
     function refreshActiveEngineBridge(reason, options = {}) {
@@ -106994,6 +106994,14 @@ renderViewerOutputDebug();
       renderRackBuilderPreview({ overlayOnly: true });
       showRackInternalWireContextMenu(event, rack.id, wireHit.connectionId);
     });
+    function handleRackBuilderPreviewWheel(event) {
+      if (event.__avDesignerRackBuilderPreviewWheelHandled) return;
+      event.__avDesignerRackBuilderPreviewWheelHandled = true;
+      event.preventDefault();
+      event.stopPropagation();
+      setRackBuilderPreviewZoom(rackBuilderPreviewZoom * editorPreviewWheelZoomFactor(event), event);
+    }
+
     rackBuilderPreview.addEventListener("pointerdown", startRackBuilderDeviceDrag);
     rackBuilderPreview.addEventListener("pointerdown", startRackBuilderPreviewPan);
     rackBuilderPreview.addEventListener("pointerdown", startRackBuilderMarquee);
@@ -107014,11 +107022,11 @@ renderViewerOutputDebug();
     rackBuilderPreview.addEventListener("pointercancel", stopRackBuilderDeviceDrag);
     rackBuilderPreview.addEventListener("pointercancel", stopRackBuilderPreviewPan);
     rackBuilderPreview.addEventListener("pointercancel", stopRackBuilderMarquee);
-    rackBuilderPreview.addEventListener("wheel", event => {
-      if (!event.ctrlKey && !event.altKey) return;
-      event.preventDefault();
-      setRackBuilderPreviewZoom(rackBuilderPreviewZoom * (event.deltaY < 0 ? 1.12 : 1 / 1.12), event);
-    }, { passive: false });
+    rackBuilderPreview.addEventListener("wheel", handleRackBuilderPreviewWheel, { passive: false });
+    const rackBuilderPreviewHost = rackBuilderPreviewContainer();
+    if (rackBuilderPreviewHost && rackBuilderPreviewHost !== rackBuilderPreview) {
+      rackBuilderPreviewHost.addEventListener("wheel", handleRackBuilderPreviewWheel, { passive: false });
+    }
     rackBuilderPreview.addEventListener("auxclick", event => {
       if (event.button === 1) event.preventDefault();
     });
@@ -107485,21 +107493,28 @@ renderViewerOutputDebug();
       updateMiscConnectorColor(event.target.value);
       miscColorTargetIndex = null;
     });
-    function zoomDeviceEditorEnginePreview(factor, event = null) {
-      const surface = ensureDeviceEditorEnginePreviewSurface();
-      if (!surface) return;
+    function zoomEnginePreviewSurfaceAt(surface, factor, event = null, options = {}) {
+      if (!surface?.dom?.root || typeof surface.screenToWorld !== "function") return null;
       const rect = surface.dom.root.getBoundingClientRect();
-      const center = event
+      const center = event && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)
         ? { x: event.clientX - rect.left, y: event.clientY - rect.top }
         : { x: rect.width / 2, y: rect.height / 2 };
       const before = surface.screenToWorld(center);
-      const nextZoom = Math.min(8, Math.max(.08, (Number(surface.camera.zoom) || 1) * factor));
+      const minZoom = Number.isFinite(Number(options.minZoom)) ? Number(options.minZoom) : .08;
+      const maxZoom = Number.isFinite(Number(options.maxZoom)) ? Number(options.maxZoom) : 8;
+      const nextZoom = clamp((Number(surface.camera?.zoom) || 1) * factor, minZoom, maxZoom);
       surface.setCamera({
         zoom: nextZoom,
         x: before.x - center.x / nextZoom,
         y: before.y - center.y / nextZoom
       }, { render: false });
       surface.render();
+      return surface.camera;
+    }
+
+    function zoomDeviceEditorEnginePreview(factor, event = null) {
+      const surface = ensureDeviceEditorEnginePreviewSurface();
+      if (!zoomEnginePreviewSurfaceAt(surface, factor, event)) return;
       syncDeviceEditorEngineOverlayViewBox();
     }
     document.getElementById("editorZoomOut").addEventListener("click", () => {
@@ -107543,12 +107558,33 @@ renderViewerOutputDebug();
 
     function handleEditorPreviewWheel(event, svg = deviceEditorPreview) {
       if (event.__avDesignerEditorPreviewWheelHandled) return;
-      if (!editorPreviewWheelZoomModifierActive(event)) return;
       event.__avDesignerEditorPreviewWheelHandled = true;
       event.preventDefault();
       event.stopPropagation();
       const targetSvg = svg === deviceEditorFaceplatePreview ? deviceEditorFaceplatePreview : deviceEditorPreview;
-      zoomEditorPreviewSvg(targetSvg, event.deltaY < 0 ? 1.12 : 1 / 1.12, event);
+      zoomEditorPreviewSvg(targetSvg, editorPreviewWheelZoomFactor(event), event);
+    }
+
+    function handleNodeBuilderPreviewWheel(event) {
+      if (event.__avDesignerNodeBuilderPreviewWheelHandled) return;
+      event.__avDesignerNodeBuilderPreviewWheelHandled = true;
+      event.preventDefault();
+      event.stopPropagation();
+      const surface = ensureNodeBuilderEnginePreviewSurface();
+      if (!surface) return;
+      zoomEnginePreviewSurfaceAt(surface, editorPreviewWheelZoomFactor(event), event);
+      updateNodeBuilderEnginePreviewDebug(null);
+    }
+
+    function handleTitleBlockPreviewWheel(event) {
+      if (event.__avDesignerTitleBlockPreviewWheelHandled) return;
+      event.__avDesignerTitleBlockPreviewWheelHandled = true;
+      event.preventDefault();
+      event.stopPropagation();
+      const surface = ensureTitleBlockEnginePreviewSurface();
+      if (!surface) return;
+      zoomEnginePreviewSurfaceAt(surface, editorPreviewWheelZoomFactor(event), event);
+      updateTitleBlockEnginePreviewDebug(null);
     }
 
     function startEditorPreviewPan(event) {
@@ -107623,6 +107659,12 @@ renderViewerOutputDebug();
 
     bindEditorPreviewNavigation(deviceEditorPreview);
     bindEditorPreviewNavigation(deviceEditorFaceplatePreview);
+    nodeCanvasAppearancePreview?.addEventListener("wheel", handleNodeBuilderPreviewWheel, { passive: false });
+    titleBlockPreview?.addEventListener("wheel", handleTitleBlockPreviewWheel, { passive: false });
+    const titleBlockPreviewHost = titleBlockPreviewContainer();
+    if (titleBlockPreviewHost && titleBlockPreviewHost !== titleBlockPreview) {
+      titleBlockPreviewHost.addEventListener("wheel", handleTitleBlockPreviewWheel, { passive: false });
+    }
 
     function setEditorFaceplatePreviewWidth(width) {
       editorFaceplatePreviewWidth = clamp(Math.round(width), 240, 720);

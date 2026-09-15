@@ -12,7 +12,7 @@ import { NODE_PREVIEW_BUILD_ID } from "../src/engine/nodePreview.js";
 import { TITLE_BLOCK_PREVIEW_BUILD_ID } from "../src/engine/titleBlockPreview.js";
 
 const EXPECTED_PREVIEW_BUILD_ID = "iteration53-4-1-preview-verification";
-const EXPECTED_APP_BUILD_ID = "iteration54-3-9-card-preview-selection-zoom";
+const EXPECTED_APP_BUILD_ID = "iteration54-3-10-editor-preview-wheel-zoom";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -24,11 +24,11 @@ assert.equal(RACK_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "rack preview bui
 assert.equal(NODE_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "node preview build id");
 assert.equal(TITLE_BLOCK_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "title-block preview build id");
 
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.3.9";'), "app iteration should be 54.3.9");
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${EXPECTED_APP_BUILD_ID}";`), "app build id should match 54.3.9");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-3-9-card-preview-selection-zoom-modules";'), "module cache key should match 54.3.9");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.3.10";'), "app iteration should be 54.3.10");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${EXPECTED_APP_BUILD_ID}";`), "app build id should match 54.3.10");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-3-10-editor-preview-wheel-zoom-modules";'), "module cache key should match 54.3.10");
 assert.ok(indexHtml.includes('url.searchParams.set("module", APP_MODULE_CACHE_ID);'), "engine imports should carry the module cache key");
-assert.ok(indexHtml.includes("Device Editor Card Selection & Preview Zoom"), "app build label should name 54.3.9");
+assert.ok(indexHtml.includes("Editor Preview Wheel Zoom"), "app build label should name 54.3.10");
 
 assert.ok(!enginePreviewSource.includes("legacyActualDraws"), "generic shared preview diagnostics must not publish fake legacy draw counters");
 assert.ok(!indexHtml.includes("legacy draws ${row."), "runtime owner rows must not render fake generic legacy draw counters");
@@ -70,13 +70,17 @@ assert.ok(
   "Cards tab should not route active preview navigation through the hidden Engine surface"
 );
 
-const editorWheelGate = functionSource("editorPreviewWheelZoomModifierActive");
-assert.ok(editorWheelGate.includes("IS_APPLE_POINTER_PLATFORM ? event?.altKey : event?.ctrlKey"), "Device Editor preview wheel zoom should use Option on Apple and Ctrl elsewhere");
+const editorWheelFactor = functionSource("editorPreviewWheelZoomFactor");
+assert.ok(editorWheelFactor.includes("event?.deltaY < 0 ? 1.12 : 1 / 1.12"), "Editor preview wheel zoom should use the shared wheel zoom factor");
+assert.ok(!indexHtml.includes("function editorPreviewWheelZoomModifierActive"), "Editor preview wheel zoom should not require a modifier gate");
 assert.ok(
-  functionSource("handleEditorPreviewWheel").includes("if (!editorPreviewWheelZoomModifierActive(event)) return;"),
-  "Device Editor preview wheel handler should use the editor-specific modifier rule"
+  functionSource("handleEditorPreviewWheel").includes("zoomEditorPreviewSvg(targetSvg, editorPreviewWheelZoomFactor(event), event);"),
+  "Device Editor preview wheel handler should zoom directly on wheel"
 );
 assert.ok(functionSource("bindEditorPreviewNavigation").includes("bindEditorPreviewWheelTarget(previewHost, svg)"), "Device Editor preview wheel handler should bind the preview host");
+assert.ok(functionSource("handleRackBuilderPreviewWheel").includes("setRackBuilderPreviewZoom(rackBuilderPreviewZoom * editorPreviewWheelZoomFactor(event), event);"), "Rack Builder preview should zoom directly on wheel");
+assert.ok(functionSource("handleNodeBuilderPreviewWheel").includes("zoomEnginePreviewSurfaceAt(surface, editorPreviewWheelZoomFactor(event), event);"), "Node Builder preview should zoom directly on wheel");
+assert.ok(functionSource("handleTitleBlockPreviewWheel").includes("zoomEnginePreviewSurfaceAt(surface, editorPreviewWheelZoomFactor(event), event);"), "Title Block preview should zoom directly on wheel");
 
 assertFunctionOrder("renderRackBuilderPreview", [
   "if (rackBuilderUsesEnginePreview() && rackBuilderModalOpen())",

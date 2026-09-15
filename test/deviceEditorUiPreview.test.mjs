@@ -325,19 +325,24 @@ test("Fit uses active bounds and tab switches auto-fit the active preview", () =
   assert.match(functionSource("scheduleDeviceEditorPreviewFit"), /fitDeviceEditorPreview\(\);/);
 });
 
-test("Device Editor preview wheel zoom uses platform-specific modifiers", () => {
+test("Editor preview wheel zoom is direct while main canvas keeps its modifier rule", () => {
   const mainCanvasGate = functionSource("canvasWheelZoomModifierActive");
   assert.match(mainCanvasGate, /IS_APPLE_POINTER_PLATFORM \? event\?\.metaKey : event\?\.ctrlKey/);
 
   const activePreviewGate = functionSource("deviceEditorActivePreviewUsesEngine");
   assert.match(activePreviewGate, /deviceEditorUsesEnginePreview\(\) && editorActiveTab !== "cards"/);
-  const editorGate = functionSource("editorPreviewWheelZoomModifierActive");
-  assert.match(editorGate, /IS_APPLE_POINTER_PLATFORM \? event\?\.altKey : event\?\.ctrlKey/);
+  assert.match(functionSource("editorPreviewWheelZoomFactor"), /event\?\.deltaY < 0 \? 1\.12 : 1 \/ 1\.12/);
   assert.match(functionSource("zoomEditorPreviewSvg"), /svg === deviceEditorPreview && deviceEditorActivePreviewUsesEngine\(\)/);
-  assert.match(functionSource("handleEditorPreviewWheel"), /if \(!editorPreviewWheelZoomModifierActive\(event\)\) return;/);
-  assert.match(functionSource("handleEditorPreviewWheel"), /zoomEditorPreviewSvg\(targetSvg, event\.deltaY < 0 \? 1\.12 : 1 \/ 1\.12, event\);/);
+  assert.doesNotMatch(functionSource("handleEditorPreviewWheel"), /editorPreviewWheelZoomModifierActive/);
+  assert.match(functionSource("handleEditorPreviewWheel"), /event\.preventDefault\(\);/);
+  assert.match(functionSource("handleEditorPreviewWheel"), /zoomEditorPreviewSvg\(targetSvg, editorPreviewWheelZoomFactor\(event\), event\);/);
   assert.match(functionSource("bindEditorPreviewNavigation"), /bindEditorPreviewWheelTarget\(svg, svg\);/);
   assert.match(functionSource("bindEditorPreviewNavigation"), /bindEditorPreviewWheelTarget\(previewHost, svg\);/);
+  assert.match(functionSource("handleRackBuilderPreviewWheel"), /setRackBuilderPreviewZoom\(rackBuilderPreviewZoom \* editorPreviewWheelZoomFactor\(event\), event\);/);
+  assert.match(functionSource("handleNodeBuilderPreviewWheel"), /zoomEnginePreviewSurfaceAt\(surface, editorPreviewWheelZoomFactor\(event\), event\);/);
+  assert.match(functionSource("handleTitleBlockPreviewWheel"), /zoomEnginePreviewSurfaceAt\(surface, editorPreviewWheelZoomFactor\(event\), event\);/);
+  assert.match(INDEX_HTML, /nodeCanvasAppearancePreview\?\.addEventListener\("wheel", handleNodeBuilderPreviewWheel, \{ passive: false \}\);/);
+  assert.match(INDEX_HTML, /titleBlockPreviewHost\.addEventListener\("wheel", handleTitleBlockPreviewWheel, \{ passive: false \}\);/);
 });
 
 test("Engine preview fit contains both width-limited and height-limited bounds", () => {
