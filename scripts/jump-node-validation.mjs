@@ -41,7 +41,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-7-1-device-editor-card-motion-parity";
+const BUILD_ID = "iteration54-7-2-atomic-device-editor-group-drag";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -50,12 +50,12 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Device Editor Card Motion Parity");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-7-1-device-editor-card-motion-parity-modules";'), "module cache key should identify Device Editor Card Motion Parity");
-assert.ok(indexHtml.includes("Device Editor Card Motion Parity"), "visible build label should name Device Editor Card Motion Parity");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-7-1-device-editor-card-motion-parity"'), "Engine bridge version should identify Device Editor Card Motion Parity");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "canvas-device-editor-override-sync"'), "bridge feature label should identify Device Editor Card Motion Parity");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-7-1-device-editor-card-motion-parity"), "bridge fingerprint should identify Device Editor Card Motion Parity");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Atomic Device Editor Group Drag");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-7-2-atomic-device-editor-group-drag-modules";'), "module cache key should identify Atomic Device Editor Group Drag");
+assert.ok(indexHtml.includes("Atomic Device Editor Group Drag"), "visible build label should name Atomic Device Editor Group Drag");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-7-2-atomic-device-editor-group-drag"'), "Engine bridge version should identify Atomic Device Editor Group Drag");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "atomic-device-editor-group-drag"'), "bridge feature label should identify Atomic Device Editor Group Drag");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-7-2-atomic-device-editor-group-drag"), "bridge fingerprint should identify Atomic Device Editor Group Drag");
 assert.ok(rendererSource.includes("renderer-iteration54-4-0-matrix-routing-internal-routes"), "renderer fingerprint should identify Matrix Routing Internal Routes");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");

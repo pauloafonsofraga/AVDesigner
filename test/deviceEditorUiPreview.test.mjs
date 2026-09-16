@@ -11,8 +11,11 @@ import {
 import * as placementMotionModule from "../src/engine/deviceEditorPlacementMotion.js";
 import {
   connectorPlacementSideMask,
+  createModularCompositeInsertionDragSession,
   createModularInsertionDragSession,
+  isValidModularCompositeInsertionResult,
   isValidModularInsertionResult,
+  resolveModularCompositeInsertionDrag,
   resolveModularInsertionDrag,
   targetLaneWithHysteresis,
   resolveModularPlacementItems
@@ -163,8 +166,11 @@ function stableDragHarness(template) {
       return true;
     },
     requireDeviceEditorPlacementModule: () => ({
+      createModularCompositeInsertionDragSession,
       createModularInsertionDragSession,
+      isValidModularCompositeInsertionResult,
       resolveModularInsertionDrag,
+      resolveModularCompositeInsertionDrag,
       targetLaneWithHysteresis,
       isValidModularInsertionResult,
       resolveModularPlacementItems
@@ -239,6 +245,7 @@ function stableDragHarness(template) {
     "editorStableDragLaneMap",
     "editorPlacementItemByStableId",
     "createEditorStablePlacementDragSession",
+    "createEditorCompositeConnectorDragSession",
     "resolveEditorStablePlacementDragMove",
     "applyEditorStableResolvedLayout",
     "commitEditorStablePlacementDrag",
@@ -247,6 +254,7 @@ function stableDragHarness(template) {
   const script = `${helpers.map(functionSource).join("\n")}
     ({
       createEditorStablePlacementDragSession,
+      createEditorCompositeConnectorDragSession,
       resolveEditorStablePlacementDragMove,
       applyEditorStableResolvedLayout,
       commitEditorStablePlacementDrag,
@@ -295,6 +303,11 @@ function placementMotionIntegrationHarness(now = 0) {
       const id = String(item?.id || "");
       if (item?.kind === "card" || item?.itemType === "card-slot" || id.startsWith("card:")) return "card";
       return "connector";
+    },
+    editorPlacementItemByStableId: (layout, itemId) => {
+      if (!layout || !itemId) return null;
+      if (layout.byId instanceof Map) return layout.byId.get(itemId) || null;
+      return (layout.items || []).find(item => item.id === itemId) || null;
     }
   };
   const helpers = [
@@ -305,6 +318,7 @@ function placementMotionIntegrationHarness(now = 0) {
     "editorPlacementMotionHasCardEntries",
     "editorMotionLayoutForDrag",
     "beginEditorPlacementMotion",
+    "pinEditorCompositeDraggedMotionEntries",
     "retargetEditorPlacementMotionForDrag"
   ];
   const script = `${helpers.map(functionSource).join("\n")}
@@ -315,6 +329,37 @@ function placementMotionIntegrationHarness(now = 0) {
     })`;
   const api = vm.runInNewContext(script, context);
   return { api, context };
+}
+
+function testConnector(id, sideMask, lane, options = {}) {
+  const direction = sideMask === "right" || options.direction === "output" ? "output" : "input";
+  const x = direction === "output" ? 420 : 0;
+  const y = 100 + lane * 54;
+  const connector = {
+    id,
+    direction,
+    x,
+    y,
+    sideMask,
+    type: "hdmi",
+    ...options
+  };
+  if (options.v2 === true) {
+    connector.schemaVersion = 2;
+    connector.displaySide = sideMask === "both" ? "both" : sideMask;
+    connector.primaryAnchorId = sideMask === "right" ? "right" : "left";
+    connector.anchors = sideMask === "both"
+      ? [
+          { id: "left", side: "left", x: 0, y, primary: true },
+          { id: "right", side: "right", x: 420, y }
+        ]
+      : [{ id: connector.primaryAnchorId, side: connector.primaryAnchorId, x, y, primary: true }];
+  }
+  return connector;
+}
+
+function itemLaneMap(layout) {
+  return Object.fromEntries((layout?.items || []).map(item => [item.id, item.lane]));
 }
 
 test("Device tab uses compact feature groups with dependent controls beside toggles", () => {
@@ -515,11 +560,15 @@ test("Device Editor placement delegates to the shared modular layout module", ()
   assert.match(placementLoader, /connectorPlacementSideMask/);
   assert.match(placementLoader, /createModularInsertionDragSession/);
   assert.match(placementLoader, /resolveModularInsertionDrag/);
+  assert.match(placementLoader, /createModularCompositeInsertionDragSession/);
+  assert.match(placementLoader, /resolveModularCompositeInsertionDrag/);
   assert.match(placementLoader, /targetLaneWithHysteresis/);
   assert.match(placementLoader, /isValidModularInsertionResult/);
+  assert.match(placementLoader, /isValidModularCompositeInsertionResult/);
   assert.match(placementRequire, /throw new Error\("Device Editor placement module is not loaded\."\)/);
   assert.match(placementReady, /await loadDeviceEditorPlacementModule\(\)/);
   assert.match(placementReady, /createModularInsertionDragSession/);
+  assert.match(placementReady, /createModularCompositeInsertionDragSession/);
   assert.match(INDEX_HTML, /loadDeviceEditorPlacementModule\("Device Editor placement"\);/);
   assert.match(motionLoader, /engineImportUrl\("\.\/src\/engine\/deviceEditorPlacementMotion\.js"\)/);
   assert.match(motionLoader, /createPlacementMotionState/);
@@ -553,6 +602,10 @@ test("Device Editor placement delegates to the shared modular layout module", ()
   assert.match(functionSource("bindEditorInteractionSvg"), /lostpointercapture", cancelEditorStableDrags/);
   assert.match(functionSource("cancelEditorInteraction"), /if \(cancelEditorStableDrags\(event\)\) return;/);
   assert.match(functionSource("stopEditorNodeDrag"), /commitEditorStablePlacementDrag\(template, completedDrag/);
+  assert.match(functionSource("startEditorNodeDrag"), /createEditorCompositeConnectorDragSession\(template/);
+  assert.match(functionSource("moveEditorNode"), /resolveEditorStablePlacementDragMove\(editorNodeDrag, point\.y\)/);
+  assert.doesNotMatch(functionSource("moveEditorNode"), /maxY - maxStartY|editorNodeDrag\.deltaY = deltaY/);
+  assert.doesNotMatch(functionSource("editorPreviewPositions"), /connectorYOverrides|resolveEditorModularLayout\(template, \{ connectorYOverrides \}\)/);
 });
 
 test("Device Editor placement adapter follows shared V2 visual-side lane semantics", () => {
@@ -629,7 +682,9 @@ test("Device Editor placement motion is persistent and shared by Engine and Lega
   assert.match(engineRender, /motionOnly: options\.motionFrame === true \|\| editorPlacementMotionHasEntries\(\)/);
   assert.match(syncEngine, /options\.motionOnly === true/);
   assert.match(nodeMove, /retargetEditorPlacementMotionForDrag\(editorNodeDrag/);
+  assert.match(nodeMove, /draggedIds\.length > 1/);
   assert.match(nodeMove, /retargetEditorPlacementMotionForDrag\(editorCardSlotDrag/);
+  assert.match(functionSource("retargetEditorPlacementMotionForDrag"), /pinEditorCompositeDraggedMotionEntries\(drag, draggedY/);
   assert.match(stopDrag, /settleEditorPlacementMotionToLayout\(completedDrag\.lastValidResolvedLayout/);
   assert.match(cancelDrags, /rollbackEditorPlacementMotionForDrag/);
   assert.match(displayAnchors, /deltaY = y - baseY/);
@@ -781,7 +836,7 @@ test("Engine Device Editor card motion uses dynamic overlay ownership without pe
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /visual\.suppressCardAreasInTexture \? "suppress-card-areas" : ""/);
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /!visual\.suppressCardAreasInTexture\) \{\s*drawCardAreas/);
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /drawConnectorBands\(ctx, device, width, height, face\.bottom \+ 12\);/);
-  assert.match(PRODUCTION_BRIDGE_SOURCE, /ENGINE_BRIDGE_VERSION = "iteration54-7-1-device-editor-card-motion-parity"/);
+  assert.match(PRODUCTION_BRIDGE_SOURCE, /ENGINE_BRIDGE_VERSION = "iteration54-7-2-atomic-device-editor-group-drag"/);
 
   assert.match(previewClone, /draft\.suppressCardAreasInTexture = true/);
   assert.match(syncEngine, /suppressCardAreasInTexture: options\.dynamicCardArtwork === true/);
@@ -915,6 +970,252 @@ test("Device Editor stable card-slot drag preserves pointer offset and moves as 
   api.applyEditorStableResolvedLayout(template, drag.lastValidResolvedLayout);
   assert.equal(template.cardSlots[0].y, cardItem.y);
   assert.ok(template.height >= cardItem.bottomY, "commit should recalculate height to contain the moved card band");
+});
+
+test("Device Editor composite connector drag commits the solver lane map as one atomic layout", () => {
+  const template = {
+    width: 420,
+    startY: 100,
+    height: 418,
+    connectors: [
+      testConnector("A", "left", 0),
+      testConnector("B", "left", 1),
+      testConnector("C", "left", 2),
+      testConnector("D", "left", 3),
+      testConnector("E", "left", 4)
+    ],
+    cardSlots: []
+  };
+  const { api } = stableDragHarness(template);
+  const drag = api.createEditorCompositeConnectorDragSession(template, {
+    connectorIds: ["A", "B"],
+    primaryConnectorId: "A",
+    pointerId: 44,
+    pointerY: 100
+  });
+
+  assert.equal(Object.isFrozen(drag.session.snapshot), true);
+  assert.deepEqual(Array.from(drag.selectedDraggedItemIds), ["connector:A", "connector:B"]);
+  api.resolveEditorStablePlacementDragMove(drag, 208);
+  const expected = {
+    "connector:A": 2,
+    "connector:B": 3,
+    "connector:C": 0,
+    "connector:D": 1,
+    "connector:E": 4
+  };
+  assert.deepEqual(itemLaneMap(drag.lastValidResolvedLayout), expected);
+  assert.equal(drag.lastValidResolvedLayout.endLane, 5, "moving within occupied rows should not grow the layout");
+
+  const repeated = structuredClone(drag.lastValidResolvedLayout);
+  api.resolveEditorStablePlacementDragMove(drag, 208, { force: true });
+  assert.deepEqual(itemLaneMap(drag.lastValidResolvedLayout), itemLaneMap(repeated), "repeat resolution should be idempotent");
+
+  const beforeHeight = template.height;
+  assert.equal(api.commitEditorStablePlacementDrag(template, drag, { includeConnectors: true, includeCards: true }), true);
+  assert.deepEqual(
+    Object.fromEntries(template.connectors.map(connector => [connector.id, Math.round((connector.y - 100) / 54)])),
+    {
+      A: 2,
+      B: 3,
+      C: 0,
+      D: 1,
+      E: 4
+    }
+  );
+  assert.equal(template.height, beforeHeight, "same-extent composite drag should preserve required height");
+});
+
+test("Device Editor composite connector drag supports mixed sides and V2 both-side items as logical placements", () => {
+  const mixedTemplate = {
+    width: 420,
+    startY: 100,
+    connectors: [
+      testConnector("A", "left", 0),
+      testConnector("B", "right", 0),
+      testConnector("L", "left", 1),
+      testConnector("R", "right", 1)
+    ],
+    cardSlots: []
+  };
+  const { api: mixedApi } = stableDragHarness(mixedTemplate);
+  const mixedDrag = mixedApi.createEditorCompositeConnectorDragSession(mixedTemplate, {
+    connectorIds: ["A", "B"],
+    primaryConnectorId: "A",
+    pointerY: 100
+  });
+  mixedApi.resolveEditorStablePlacementDragMove(mixedDrag, 154);
+  assert.deepEqual(itemLaneMap(mixedDrag.lastValidResolvedLayout), {
+    "connector:A": 1,
+    "connector:B": 1,
+    "connector:L": 0,
+    "connector:R": 0
+  });
+  assert.equal(mixedDrag.selectedItemOffsets.get("connector:B"), 0, "mixed side members on the same row should remain rigid");
+
+  const v2Template = {
+    width: 420,
+    startY: 100,
+    connectors: [
+      testConnector("IO", "both", 0, { v2: true }),
+      testConnector("NEXT", "left", 1),
+      testConnector("RIGHT", "right", 1)
+    ],
+    cardSlots: []
+  };
+  const { api: v2Api } = stableDragHarness(v2Template);
+  const v2Drag = v2Api.createEditorCompositeConnectorDragSession(v2Template, {
+    connectorIds: ["IO", "NEXT"],
+    primaryConnectorId: "IO",
+    pointerY: 100
+  });
+  assert.deepEqual(Array.from(v2Drag.selectedDraggedItemIds), ["connector:IO", "connector:NEXT"]);
+  assert.equal(v2Drag.session.snapshot.byId["connector:IO"].sideMask, "both");
+  assert.equal(v2Drag.session.draggedItemIds.filter(id => id === "connector:IO").length, 1, "both-side V2 connector should be one logical selected item");
+});
+
+test("Device Editor composite connector drag preserves selected gaps and displaces card slots as atomic spans", () => {
+  const gapTemplate = {
+    width: 420,
+    startY: 100,
+    connectors: [
+      testConnector("A", "left", 0),
+      testConnector("B", "left", 1),
+      testConnector("C", "left", 2),
+      testConnector("D", "left", 3),
+      testConnector("E", "left", 4)
+    ],
+    cardSlots: []
+  };
+  const { api: gapApi } = stableDragHarness(gapTemplate);
+  const gapDrag = gapApi.createEditorCompositeConnectorDragSession(gapTemplate, {
+    connectorIds: ["A", "C"],
+    primaryConnectorId: "A",
+    pointerY: 100
+  });
+  gapApi.resolveEditorStablePlacementDragMove(gapDrag, 154);
+  assert.deepEqual(itemLaneMap(gapDrag.lastValidResolvedLayout), {
+    "connector:A": 1,
+    "connector:B": 0,
+    "connector:C": 3,
+    "connector:D": 2,
+    "connector:E": 4
+  });
+  assert.equal(gapDrag.selectedItemOffsets.get("connector:C"), 108, "non-contiguous selection should preserve the internal gap");
+
+  const cardTemplate = {
+    width: 420,
+    startY: 100,
+    connectors: [
+      testConnector("A", "left", 0),
+      testConnector("B", "left", 1),
+      testConnector("C", "left", 5)
+    ],
+    cardSlots: [{ id: "slot-1", y: 208, span: 3, sideMask: "both" }]
+  };
+  const { api: cardApi } = stableDragHarness(cardTemplate);
+  const cardDrag = cardApi.createEditorCompositeConnectorDragSession(cardTemplate, {
+    connectorIds: ["A", "B"],
+    primaryConnectorId: "A",
+    pointerY: 100
+  });
+  cardApi.resolveEditorStablePlacementDragMove(cardDrag, 208);
+  assert.deepEqual(itemLaneMap(cardDrag.lastValidResolvedLayout), {
+    "connector:A": 2,
+    "connector:B": 3,
+    "card:slot-1": 4,
+    "connector:C": 7
+  });
+  const cardItem = cardApi.editorPlacementItemByStableId(cardDrag.lastValidResolvedLayout, "card:slot-1");
+  assert.equal(cardItem.span, 3, "stationary card should move as one interval");
+  assert.equal(cardApi.commitEditorStablePlacementDrag(cardTemplate, cardDrag, { includeConnectors: true, includeCards: true }), true);
+  assert.equal(cardTemplate.cardSlots[0].y, 316, "committed card slot should match the previewed solved row");
+  assert.ok(cardTemplate.height >= 100 + 8 * 54 + 48, "height should grow only enough to contain the solved layout");
+});
+
+test("Device Editor composite connector drag can grow below the old device bottom and cancel exactly", () => {
+  const template = {
+    width: 420,
+    startY: 100,
+    height: 304,
+    connectors: [
+      testConnector("A", "left", 0),
+      testConnector("B", "left", 1),
+      testConnector("C", "left", 2)
+    ],
+    cardSlots: []
+  };
+  const { api, context } = stableDragHarness(template);
+  const before = structuredClone(template);
+  const drag = api.createEditorCompositeConnectorDragSession(template, {
+    connectorIds: ["A", "B"],
+    primaryConnectorId: "A",
+    pointerId: 81,
+    pointerY: 100
+  });
+  api.resolveEditorStablePlacementDragMove(drag, 316);
+  assert.deepEqual(itemLaneMap(drag.lastValidResolvedLayout), {
+    "connector:A": 4,
+    "connector:B": 5,
+    "connector:C": 2
+  });
+  assert.equal(drag.lastValidResolvedLayout.endLane, 6, "composite drag may grow below the previous device bottom");
+  assert.deepEqual(template, before, "preview resolution should remain read-only");
+
+  context.editorNodeDrag = drag;
+  assert.equal(api.cancelEditorStableDrags({ pointerId: 81, type: "pointercancel" }), true);
+  assert.deepEqual(template, before, "cancel should restore the precise pre-drag logical layout");
+  assert.equal(context.rollbackCount, 1);
+});
+
+test("Device Editor composite placement motion keeps selected members rigid while displaced items animate", () => {
+  const { api, context } = placementMotionIntegrationHarness(0);
+  const baseline = {
+    items: [
+      { id: "connector:A", kind: "connector", y: 100, span: 1, lane: 0 },
+      { id: "connector:B", kind: "connector", y: 154, span: 1, lane: 1 },
+      { id: "connector:C", kind: "connector", y: 208, span: 1, lane: 2 },
+      { id: "card:slot-1", kind: "card", y: 262, span: 3, lane: 3 }
+    ]
+  };
+  const solved = {
+    items: [
+      { id: "connector:A", kind: "connector", y: 208, span: 1, lane: 2 },
+      { id: "connector:B", kind: "connector", y: 262, span: 1, lane: 3 },
+      { id: "connector:C", kind: "connector", y: 100, span: 1, lane: 0 },
+      { id: "card:slot-1", kind: "card", y: 316, span: 3, lane: 4 }
+    ]
+  };
+  const drag = {
+    itemId: "connector:A",
+    compositeDrag: true,
+    selectedDraggedItemIds: ["connector:A", "connector:B"],
+    selectedItemOffsets: new Map([["connector:A", 0], ["connector:B", 54]]),
+    baselineResolvedLayout: baseline,
+    lastValidResolvedLayout: solved,
+    offsetY: 8,
+    currentY: 100
+  };
+
+  api.beginEditorPlacementMotion(drag, { pointerY: 108 });
+  api.retargetEditorPlacementMotionForDrag(drag, { draggedY: 208 });
+  const firstSample = placementMotionModule.samplePlacementMotion(context.editorPlacementMotionState, { now: 0 });
+  assert.equal(firstSample.positions.get("connector:A"), 208);
+  assert.equal(firstSample.positions.get("connector:B"), 262, "secondary selected member should share the primary delta immediately");
+  assert.equal(firstSample.positions.get("connector:B") - firstSample.positions.get("connector:A"), 54);
+  assert.equal(firstSample.positions.get("card:slot-1"), 262, "displaced card starts from its sampled baseline");
+  assert.equal(context.editorPlacementMotionState.entries.get("connector:B").dragged, true);
+  assert.deepEqual(context.dynamicTransitions, [true], "card artwork should activate once when a node group can displace card slots");
+
+  const halfway = placementMotionModule.samplePlacementMotion(context.editorPlacementMotionState, { now: 75 });
+  assert.equal(halfway.positions.get("connector:B") - halfway.positions.get("connector:A"), 54, "selected group should remain rigid during animation sampling");
+  assert.ok(halfway.positions.get("card:slot-1") > 262 && halfway.positions.get("card:slot-1") < 316, "displaced card should animate smoothly");
+
+  context.now = 75;
+  drag.lastValidResolvedLayout = baseline;
+  api.retargetEditorPlacementMotionForDrag(drag, { draggedY: 100 });
+  const interrupted = context.editorPlacementMotionState.entries.get("card:slot-1");
+  assert.ok(interrupted.startY > 262 && interrupted.startY < 316, "direction reversal should retarget from the sampled visual card position");
 });
 
 test("standalone exported viewer side helper follows V2 visual-side semantics", () => {
