@@ -41,7 +41,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-9-0-atomic-card-definition-fan-out";
+const BUILD_ID = "iteration54-9-1-card-fan-out-edge-hardening";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -50,12 +50,12 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Atomic Card Definition Fan-Out");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-9-0-atomic-card-definition-fan-out-modules";'), "module cache key should identify Atomic Card Definition Fan-Out");
-assert.ok(indexHtml.includes("Atomic Card Definition Fan-Out"), "visible build label should name Atomic Card Definition Fan-Out");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-9-0-atomic-card-definition-fan-out"'), "Engine bridge version should identify Atomic Card Definition Fan-Out");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "atomic-card-definition-fan-out"'), "bridge feature label should identify Atomic Card Definition Fan-Out");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-9-0-atomic-card-definition-fan-out"), "bridge fingerprint should identify Atomic Card Definition Fan-Out");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Card Fan-Out Edge Hardening");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-9-1-card-fan-out-edge-hardening-modules";'), "module cache key should identify Card Fan-Out Edge Hardening");
+assert.ok(indexHtml.includes("Card Fan-Out Edge Hardening"), "visible build label should name Card Fan-Out Edge Hardening");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-9-1-card-fan-out-edge-hardening"'), "Engine bridge version should identify Card Fan-Out Edge Hardening");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "card-fan-out-edge-hardening"'), "bridge feature label should identify Card Fan-Out Edge Hardening");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-9-1-card-fan-out-edge-hardening"), "bridge fingerprint should identify Card Fan-Out Edge Hardening");
 assert.ok(rendererSource.includes("renderer-iteration54-4-0-matrix-routing-internal-routes"), "renderer fingerprint should identify Matrix Routing Internal Routes");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");
