@@ -4993,7 +4993,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.9.1 — Card Fan-Out Edge Hardening — iteration54-9-1-card-fan-out-edge-hardening</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.10.0 — Atomic Feature Connector Generation — iteration54-10-0-atomic-feature-connector-generation</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5686,10 +5686,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.9.1";
-    const APP_BUILD_ID = "iteration54-9-1-card-fan-out-edge-hardening";
-    const APP_MODULE_CACHE_ID = "iteration54-9-1-card-fan-out-edge-hardening-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Card Fan-Out Edge Hardening`;
+    const APP_ITERATION = "54.10.0";
+    const APP_BUILD_ID = "iteration54-10-0-atomic-feature-connector-generation";
+    const APP_MODULE_CACHE_ID = "iteration54-10-0-atomic-feature-connector-generation-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Atomic Feature Connector Generation`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "6dc62f5ef0b40e65629ccfb8a5d9e2071fa8273f";
@@ -90320,13 +90320,13 @@
       return connector?.networkGroupId || connector?.ethernetGroupId || connector?.pairedConnectorId || connector?.id || "";
     }
 
-    function ensurePairedNetworkPair(template, connector) {
+    function ensurePairedNetworkPair(template, connector, options = {}) {
       const pairDirection = oppositeConnectorDirection(connector.direction);
       let pair = template.connectors.find(item => item.id === connector.pairedConnectorId);
       const type = connector.type;
       const typeLabel = connector.generatedByEthernetSwitch && connector.label ? connector.label : (cableTypes[type]?.label || connector.label || type);
       if (!pair) {
-        const groupId = connector.networkGroupId || connector.ethernetGroupId || `network-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+        const groupId = options.groupId || connector.networkGroupId || connector.ethernetGroupId || `network-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
         connector.networkGroupId = groupId;
         connector.ethernetGroupId = type === "ethernet" ? groupId : connector.ethernetGroupId || "";
         pair = {
@@ -90353,7 +90353,7 @@
       }
       connector.label = typeLabel;
       connector.empty = false;
-      connector.networkGroupId = connector.networkGroupId || pair.networkGroupId || pair.ethernetGroupId;
+      connector.networkGroupId = options.groupId || connector.networkGroupId || pair.networkGroupId || pair.ethernetGroupId;
       connector.ethernetGroupId = connector.type === "ethernet" ? (connector.ethernetGroupId || connector.networkGroupId) : "";
       connector.pairedConnectorId = pair.id;
       pair.label = typeLabel;
@@ -90371,7 +90371,7 @@
       pair.includeInMatrix = false;
       connector.matrixPortTouched = connector.matrixPortTouched === true;
       pair.matrixPortTouched = pair.matrixPortTouched === true;
-      normalizeConnectorRows(template);
+      if (options.normalize !== false) normalizeConnectorRows(template);
       return pair;
     }
 
@@ -91797,33 +91797,135 @@
       renderDeviceEditorPreview();
     }
 
+    function ledProcessorSignalIndex(connector) {
+      const index = Number(connector?.signalIndex);
+      return Number.isInteger(index) && index > 0 ? index : 0;
+    }
+
+    function isLegacyLedProcessorGeneratedConnector(connector) {
+      const index = ledProcessorSignalIndex(connector);
+      if (!index || connector?.type !== "led-signal" || connector.direction !== "output") return false;
+      const idMatches = new RegExp(`^signal-line-${index}(?:-\\d+)?$`, "i").test(String(connector.id || ""));
+      const labelMatches = new RegExp(`^signal\\s+line\\s+${index}$`, "i").test(String(connector.label || ""));
+      return idMatches && labelMatches;
+    }
+
+    function isLedProcessorGeneratedConnector(connector) {
+      return connector?.generatedByLedProcessor === true || isLegacyLedProcessorGeneratedConnector(connector);
+    }
+
+    function applyLedProcessorGeneratedDefaults(template, connector, signalIndex) {
+      connector.generatedByLedProcessor = true;
+      connector.signalIndex = signalIndex;
+      connector.label = `Signal Line ${signalIndex}`;
+      connector.direction = "output";
+      connector.signalDirection = normalizeEditorSignalDirection("output", "output");
+      connector.displaySide = "right";
+      connector.type = "led-signal";
+      connector.physicalType = "led-signal";
+      connector.connectorType = "led-signal";
+      connector.x = deviceTemplateWidth(template);
+      connector.empty = false;
+      connector.includeInMatrix = false;
+      connector.matrixPortTouched = connector.matrixPortTouched === true;
+      connector.nameText = connector.nameText || "";
+      connector.resolutionFrameRate = connector.resolutionFrameRate || "";
+      connector.customText = connector.customText || "";
+      connector.nameTextCaption = connector.nameTextCaption || "";
+      connector.resolutionFrameRateCaption = connector.resolutionFrameRateCaption || "";
+      connector.customTextCaption = connector.customTextCaption || "";
+      connector.operationalStatus = normalizeEditorConnectorOperationalStatus(connector.operationalStatus);
+      ensureConnectorV2Defaults(template, connector, template.connectors.indexOf(connector), { typeChanged: true });
+      resetMatrixPortDefault(connector);
+    }
+
+    function createLedProcessorConnector(template, signalIndex, y) {
+      const connector = {
+        id: uniqueConnectorId(template, `signal-line-${signalIndex}`),
+        schemaVersion: EDITOR_DEVICE_DEFINITION_SCHEMA_VERSION,
+        label: `Signal Line ${signalIndex}`,
+        nameText: "",
+        direction: "output",
+        signalDirection: "output",
+        displaySide: "right",
+        type: "led-signal",
+        physicalType: "led-signal",
+        connectorType: "led-signal",
+        signalIndex,
+        x: deviceTemplateWidth(template),
+        y,
+        anchors: [],
+        primaryAnchorId: "right",
+        resolutionFrameRate: "",
+        customText: "",
+        empty: false,
+        includeInMatrix: false,
+        matrixPortTouched: false,
+        generatedByLedProcessor: true
+      };
+      applyLedProcessorGeneratedDefaults(template, connector, signalIndex);
+      return connector;
+    }
+
     function applyLedProcessorSettings() {
       const template = currentEditorTemplate();
       if (!template) return;
-      template.isLedProcessor = editorLedProcessor.checked;
-      template.ledOutputCount = clamp(Number(editorLedOutputCount.value) || 16, 2, 20);
-      editorLedOutputCount.disabled = !template.isLedProcessor;
-      template.connectors = template.connectors.filter(connector => connector.type !== "led-signal");
-      if (template.isLedProcessor) {
-        const startY = nextEditorSlotY(template, "output");
-        for (let index = 1; index <= template.ledOutputCount; index++) {
-          template.connectors.push({
-            id: uniqueConnectorId(template, `signal-line-${index}`),
-            label: `Signal Line ${index}`,
-            nameText: "",
-            direction: "output",
-            type: "led-signal",
-            signalIndex: index,
-            x: DEVICE_WIDTH,
-            y: startY + (index - 1) * SLOT_HEIGHT,
-            resolutionFrameRate: "",
-            customText: "",
-            empty: false
+      const enabled = editorLedProcessor.checked === true;
+      const outputCount = clamp(Number(editorLedOutputCount.value) || 16, 2, 20);
+      editorLedOutputCount.disabled = !enabled;
+      commitEditorStructuralEdit(template, {
+        mutate(draft, context) {
+          draft.isLedProcessor = enabled;
+          draft.ledOutputCount = outputCount;
+          const removeIds = [];
+          const upsertIds = [];
+          const hardTargets = {};
+          const ownedByIndex = new Map();
+          let nextGeneratedLane = null;
+          draft.connectors.forEach(connector => {
+            if (!isLedProcessorGeneratedConnector(connector)) return;
+            const signalIndex = ledProcessorSignalIndex(connector);
+            const duplicate = signalIndex && ownedByIndex.has(signalIndex);
+            const outOfRange = signalIndex < 1 || signalIndex > outputCount;
+            if (!enabled || duplicate || outOfRange) {
+              removeIds.push(`connector:${connector.id}`);
+              return;
+            }
+            ownedByIndex.set(signalIndex, connector);
           });
+          if (removeIds.length) {
+            const removedIds = new Set(removeIds.map(id => id.slice("connector:".length)));
+            draft.connectors = draft.connectors.filter(connector => !removedIds.has(connector.id));
+          }
+          if (enabled) {
+            for (let signalIndex = 1; signalIndex <= outputCount; signalIndex++) {
+              let connector = ownedByIndex.get(signalIndex);
+              if (connector && draft.connectors.includes(connector)) {
+                applyLedProcessorGeneratedDefaults(draft, connector, signalIndex);
+                continue;
+              }
+              if (!Number.isFinite(nextGeneratedLane)) {
+                nextGeneratedLane = context.targetLaneForY(nextEditorPlacementY(draft, "right", { kind: "connector", span: 1 }));
+              }
+              const targetLane = nextGeneratedLane++;
+              connector = createLedProcessorConnector(draft, signalIndex, context.targetYForLane(targetLane));
+              draft.connectors.push(connector);
+              upsertIds.push(`connector:${connector.id}`);
+              hardTargets[`connector:${connector.id}`] = targetLane;
+            }
+          }
+          return {
+            removeIds,
+            upsertIds,
+            hardTargets
+          };
+        },
+        afterCommit(committedTemplate) {
+          syncEditorNodeSelection(committedTemplate);
+          renderSelectedConnectorSettings();
+          renderConnectorRelationshipsPanel();
         }
-      }
-      normalizeConnectorRows(template);
-      renderDeviceEditorPreview();
+      });
     }
 
     function selectedSwitchPortOption() {
@@ -91842,37 +91944,137 @@
       renderDeviceEditorPreview();
     }
 
+    function switchPortOptionByValue(value) {
+      return switchPortOptions.find(option => option.value === value) || switchPortOptions[0];
+    }
+
+    function switchPortProfileForConnector(connector, option = null) {
+      if (!connector?.generatedByEthernetSwitch) return "";
+      if (connector.switchPortProfile) return String(connector.switchPortProfile);
+      if (option && connector.type === option.connectorType) return option.value;
+      const match = switchPortOptions.find(item => item.connectorType === connector.type);
+      return match?.value || "";
+    }
+
+    function switchPortIndexForConnector(connector, option = null) {
+      const explicit = Number(connector?.switchPortIndex);
+      if (Number.isInteger(explicit) && explicit > 0) return explicit;
+      const profile = switchPortProfileForConnector(connector, option);
+      if (!profile) return 0;
+      const slug = option ? slugify(option.label) : slugify(profile);
+      const idMatch = String(connector?.id || "").match(new RegExp(`^${slug}-(\\d+)-(?:input|output)(?:-\\d+)?$`, "i"));
+      if (idMatch) return Number(idMatch[1]) || 0;
+      const labelMatch = String(connector?.label || "").match(/(\d+)$/);
+      return labelMatch ? Number(labelMatch[1]) || 0 : 0;
+    }
+
+    function nextSwitchPortIndex(template, option) {
+      return (template.connectors || []).reduce((max, connector) => {
+        if (switchPortProfileForConnector(connector, option) !== option.value) return max;
+        return Math.max(max, switchPortIndexForConnector(connector, option));
+      }, 0) + 1;
+    }
+
+    function uniqueNetworkGroupId(template, baseId) {
+      const base = baseId || "network-switch-port";
+      const existing = new Set((template.connectors || []).flatMap(connector => [connector.networkGroupId, connector.ethernetGroupId]).filter(Boolean));
+      let id = base;
+      let suffix = 2;
+      while (existing.has(id)) id = `${base}-${suffix++}`;
+      return id;
+    }
+
+    function createEthernetSwitchConnectorPair(template, option, portIndex, targetY, groupId) {
+      const outputId = uniqueConnectorId(template, `${slugify(option.label)}-${portIndex}-output`);
+      const inputId = uniqueConnectorId(template, `${slugify(option.label)}-${portIndex}-input`);
+      const common = {
+        schemaVersion: EDITOR_DEVICE_DEFINITION_SCHEMA_VERSION,
+        label: option.label,
+        nameText: "",
+        type: option.connectorType,
+        physicalType: option.connectorType,
+        connectorType: option.connectorType,
+        resolutionFrameRate: "",
+        customText: "",
+        installedModuleType: "",
+        empty: false,
+        includeInMatrix: false,
+        matrixPortTouched: false,
+        generatedByEthernetSwitch: true,
+        switchPortIndex: portIndex,
+        switchPortProfile: option.value,
+        networkGroupId: groupId,
+        ethernetGroupId: option.connectorType === "ethernet" ? groupId : "",
+        y: targetY
+      };
+      const output = {
+        ...common,
+        id: outputId,
+        direction: "output",
+        signalDirection: "output",
+        displaySide: "right",
+        primaryAnchorId: "right",
+        pairedConnectorId: inputId,
+        x: deviceTemplateWidth(template),
+        anchors: []
+      };
+      const input = {
+        ...common,
+        id: inputId,
+        direction: "input",
+        signalDirection: "input",
+        displaySide: "left",
+        primaryAnchorId: "left",
+        pairedConnectorId: outputId,
+        x: 0,
+        anchors: []
+      };
+      ensureConnectorV2Defaults(template, output, template.connectors.length, { typeChanged: true });
+      ensureConnectorV2Defaults(template, input, template.connectors.length + 1, { typeChanged: true });
+      resetMatrixPortDefault(output);
+      resetMatrixPortDefault(input);
+      return { output, input };
+    }
+
     function addEthernetSwitchPortBatch() {
       const template = currentEditorTemplate();
       if (!template || !editorEthernetSwitch.checked) return;
-      template.isEthernetSwitch = true;
-      template.switchPortCount = clamp(Number(editorSwitchPortCount.value) || 8, 1, 48);
-      template.switchPortType = editorSwitchPortType.value || "1g-rj45";
-      const option = selectedSwitchPortOption();
-      const existingOfType = template.connectors.filter(connector => connector.generatedByEthernetSwitch && connector.type === option.connectorType).length / 2;
-      const startY = nextEditorSlotY(template, "output");
-      for (let index = 1; index <= template.switchPortCount; index++) {
-        const portNumber = Math.floor(existingOfType) + index;
-        const connector = {
-          id: uniqueConnectorId(template, `${slugify(option.label)}-${portNumber}-output`),
-          label: option.label,
-          nameText: "",
-          direction: "output",
-          type: option.connectorType,
-          x: DEVICE_WIDTH,
-          y: startY + (index - 1) * SLOT_HEIGHT,
-          resolutionFrameRate: "",
-          customText: "",
-          installedModuleType: "",
-          empty: false,
-          generatedByEthernetSwitch: true
-        };
-        template.connectors.push(connector);
-        const pair = ensurePairedNetworkPair(template, connector);
-        pair.generatedByEthernetSwitch = true;
-      }
-      normalizeConnectorRows(template);
-      renderDeviceEditorPreview();
+      const switchPortCount = clamp(Number(editorSwitchPortCount.value) || 8, 1, 48);
+      const switchPortType = editorSwitchPortType.value || "1g-rj45";
+      const option = switchPortOptionByValue(switchPortType);
+      commitEditorStructuralEdit(template, {
+        mutate(draft, context) {
+          draft.isEthernetSwitch = true;
+          draft.switchPortCount = switchPortCount;
+          draft.switchPortType = option.value;
+          let nextIndex = nextSwitchPortIndex(draft, option);
+          let nextGeneratedLane = null;
+          const upsertIds = [];
+          const hardTargets = {};
+          for (let index = 0; index < switchPortCount; index++) {
+            const portIndex = nextIndex++;
+            if (!Number.isFinite(nextGeneratedLane)) {
+              nextGeneratedLane = context.targetLaneForY(nextEditorPlacementY(draft, "both", { kind: "connector", span: 1 }));
+            }
+            const targetLane = nextGeneratedLane++;
+            const groupId = uniqueNetworkGroupId(draft, `network-switch-${slugify(option.value)}-${portIndex}`);
+            const { output, input } = createEthernetSwitchConnectorPair(draft, option, portIndex, context.targetYForLane(targetLane), groupId);
+            draft.connectors.push(output, input);
+            upsertIds.push(`connector:${output.id}`, `connector:${input.id}`);
+            hardTargets[`connector:${output.id}`] = targetLane;
+            hardTargets[`connector:${input.id}`] = targetLane;
+          }
+          return {
+            upsertIds,
+            hardTargets
+          };
+        },
+        afterCommit(committedTemplate) {
+          syncEditorNodeSelection(committedTemplate);
+          renderSelectedConnectorSettings();
+          renderConnectorRelationshipsPanel();
+        }
+      });
     }
 
     function loadImageDataUrl(dataUrl) {
@@ -94960,7 +95162,7 @@
         draftConnector.y = targetYForLane(targetLane);
         applyAutomaticConnectorName(draft.connectors, draftConnector);
         resetMatrixPortDefault(draftConnector);
-        const pair = ensurePairedNetworkPair(draft, draftConnector);
+        const pair = ensurePairedNetworkPair(draft, draftConnector, { normalize: false });
         if (pair) {
           pair.y = targetYForLane(targetLane);
           upsertIds.add(`connector:${pair.id}`);

@@ -293,6 +293,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     structuralSessions: 0,
     solverCalls: 0,
     validationCalls: 0,
+    normalizationCalls: 0,
     previewRenders: 0,
     editorRenders: 0,
     selectedSettingsRenders: 0,
@@ -344,9 +345,22 @@ function structuralEditorHarness(inputTemplate = {}) {
       hdmi: { label: "HDMI", color: "#ffcc00" },
       dvi: { label: "DVI", color: "#22cc88" },
       ethernet: { label: "Ethernet", color: "#25a6f7" },
+      cat5e: { label: "Cat5e", color: "#6B7280" },
+      cat6a: { label: "Cat6A", color: "#6B7280" },
+      "sfp-cage": { label: "SFP Cage", color: "#9aa2aa" },
+      "sfp-plus-cage": { label: "SFP+ Cage", color: "#9aa2aa" },
+      "qsfp-cage": { label: "QSFP Cage", color: "#9aa2aa" },
+      "led-signal": { label: "LED Signal", color: "#32b6ff" },
       misc: { label: "Misc.", color: "#999999" }
     },
-    pairedNetworkTypes: new Set(["ethernet"]),
+    switchPortOptions: [
+      { value: "1g-rj45", label: "1G RJ45", connectorType: "cat5e" },
+      { value: "10g-rj45", label: "10G RJ45", connectorType: "cat6a" },
+      { value: "sfp", label: "SFP", connectorType: "sfp-cage" },
+      { value: "sfp-plus", label: "SFP+", connectorType: "sfp-plus-cage" },
+      { value: "qsfp", label: "QSFP", connectorType: "qsfp-cage" }
+    ],
+    pairedNetworkTypes: new Set(["cat5e", "cat6", "cat6a", "ethercon", "sfp-cage", "sfp-plus-cage", "qsfp-cage", "ethernet"]),
     cageConnectorTypes: new Set(),
     editorDraft: [template],
     editorIndex: 0,
@@ -356,6 +370,12 @@ function structuralEditorHarness(inputTemplate = {}) {
     editorSelectedNodeIds: new Set(),
     editorSelectedCardNodeIndex: null,
     editorSelectedCardNodeIds: new Set(),
+    editorLedProcessor: { checked: inputTemplate.isLedProcessor === true },
+    editorLedOutputCount: { value: String(inputTemplate.ledOutputCount || 16), disabled: inputTemplate.isLedProcessor !== true },
+    editorEthernetSwitch: { checked: inputTemplate.isEthernetSwitch === true },
+    editorSwitchPortCount: { value: String(inputTemplate.switchPortCount || 8), disabled: inputTemplate.isEthernetSwitch !== true },
+    editorSwitchPortType: { value: inputTemplate.switchPortType || "1g-rj45", disabled: inputTemplate.isEthernetSwitch !== true },
+    addEthernetSwitchPorts: { disabled: inputTemplate.isEthernetSwitch !== true },
     CARD_SLOT_OVERRIDE_FIELDS: [
       "nameText",
       "nameCustom",
@@ -475,7 +495,10 @@ function structuralEditorHarness(inputTemplate = {}) {
       });
       return slot.connectorOverrides;
     },
-    normalizeConnectorRows: device => context.normalizeMixedDeviceRows(device),
+    normalizeConnectorRows: device => {
+      counters.normalizationCalls += 1;
+      context.normalizeMixedDeviceRows(device);
+    },
     normalizeEditorConnectorRelationships: () => {},
     normalizeMatrixPortFlag: connector => {
       connector.includeInMatrix = connector.includeInMatrix === true;
@@ -515,6 +538,27 @@ function structuralEditorHarness(inputTemplate = {}) {
       context.editorSelectedNodeIndex = null;
       context.editorSelectedNodeIds = new Set();
       counters.selectedIndexes.push(null);
+    },
+    syncEditorNodeSelection: (device = template) => {
+      if (!device?.connectors) {
+        context.clearEditorNodeSelection();
+        return;
+      }
+      const validIds = new Set(device.connectors.map(connector => connector.id));
+      context.editorSelectedNodeIds = new Set([...context.editorSelectedNodeIds].filter(id => validIds.has(id)));
+      const indexedConnector = device.connectors[context.editorSelectedNodeIndex];
+      if (indexedConnector && !context.editorSelectedNodeIds.size) {
+        context.editorSelectedNodeIds.add(indexedConnector.id);
+      }
+      if (!context.editorSelectedNodeIds.size) {
+        context.editorSelectedNodeIndex = null;
+        return;
+      }
+      const currentConnector = device.connectors[context.editorSelectedNodeIndex];
+      if (!currentConnector || !context.editorSelectedNodeIds.has(currentConnector.id)) {
+        const firstId = context.editorSelectedNodeIds.values().next().value;
+        context.editorSelectedNodeIndex = device.connectors.findIndex(connector => connector.id === firstId);
+      }
     },
     clamp: (value, min, max) => Math.min(Math.max(Number(value) || 0, min), max),
     renderDeviceEditorPreview: () => { counters.previewRenders += 1; },
@@ -557,6 +601,21 @@ function structuralEditorHarness(inputTemplate = {}) {
     "ensurePairedNetworkPair",
     "nextEditorPlacementY",
     "nextEditorSlotY",
+    "ledProcessorSignalIndex",
+    "isLegacyLedProcessorGeneratedConnector",
+    "isLedProcessorGeneratedConnector",
+    "applyLedProcessorGeneratedDefaults",
+    "createLedProcessorConnector",
+    "applyLedProcessorSettings",
+    "selectedSwitchPortOption",
+    "applyEthernetSwitchSettings",
+    "switchPortOptionByValue",
+    "switchPortProfileForConnector",
+    "switchPortIndexForConnector",
+    "nextSwitchPortIndex",
+    "uniqueNetworkGroupId",
+    "createEthernetSwitchConnectorPair",
+    "addEthernetSwitchPortBatch",
     "addEditorNode",
     "defaultConnectorNameFor",
     "applyAutomaticConnectorName",
@@ -601,6 +660,9 @@ function structuralEditorHarness(inputTemplate = {}) {
       resolveEditorModularLayout,
       editorStructuralLayoutItems,
       commitEditorStructuralEdit,
+      applyLedProcessorSettings,
+      applyEthernetSwitchSettings,
+      addEthernetSwitchPortBatch,
       addEditorNode,
       fillEditorSlot,
       removeEditorNode,
@@ -744,6 +806,36 @@ function selectedCardConnectorIds(template, context) {
   return selectedCardConnectorIndexes(context)
     .map(index => card?.connectors?.[index]?.id)
     .filter(Boolean);
+}
+
+function selectedNodeConnectorIds(context) {
+  return [...context.editorSelectedNodeIds].sort();
+}
+
+function generatedLedConnectors(template) {
+  return (template.connectors || [])
+    .filter(connector => connector.generatedByLedProcessor === true)
+    .sort((a, b) => Number(a.signalIndex || 0) - Number(b.signalIndex || 0));
+}
+
+function generatedSwitchConnectors(template, profile = "") {
+  return (template.connectors || [])
+    .filter(connector => connector.generatedByEthernetSwitch === true)
+    .filter(connector => !profile || connector.switchPortProfile === profile)
+    .sort((a, b) => {
+      const indexDelta = Number(a.switchPortIndex || 0) - Number(b.switchPortIndex || 0);
+      if (indexDelta) return indexDelta;
+      return String(a.direction).localeCompare(String(b.direction));
+    });
+}
+
+function switchGeneratedPairs(template, profile = "") {
+  const connectors = generatedSwitchConnectors(template, profile);
+  const byId = new Map(connectors.map(connector => [connector.id, connector]));
+  return connectors
+    .filter(connector => connector.direction === "output")
+    .map(output => ({ output, input: byId.get(output.pairedConnectorId) }))
+    .sort((a, b) => Number(a.output.switchPortIndex || 0) - Number(b.output.switchPortIndex || 0));
 }
 
 test("Device tab uses compact feature groups with dependent controls beside toggles", () => {
@@ -1062,6 +1154,10 @@ test("Device Editor direct structural operations use the shared atomic transacti
   const fillSlot = functionSource("fillEditorSlot");
   const typeDraft = functionSource("applyEditorConnectorTypeToDraft");
   const removeNode = functionSource("removeEditorNode");
+  const applyLed = functionSource("applyLedProcessorSettings");
+  const applyEthernet = functionSource("applyEthernetSwitchSettings");
+  const addEthernet = functionSource("addEthernetSwitchPortBatch");
+  const ensureNetworkPair = functionSource("ensurePairedNetworkPair");
   const installCard = functionSource("installCardInSlot");
   const addCardSlot = functionSource("addEditorCardSlot");
   const removeCardSlot = functionSource("removeCardSlot");
@@ -1074,9 +1170,16 @@ test("Device Editor direct structural operations use the shared atomic transacti
   const cardDefinitionCommit = functionSource("commitEditorCardDefinitionEdit");
   const displaySideHandler = functionSource("renderSelectedConnectorSettings");
 
-  [addNode, fillSlot, removeNode, installCard, addCardSlot, removeCardSlot].forEach(source => {
+  [addNode, fillSlot, removeNode, applyLed, addEthernet, installCard, addCardSlot, removeCardSlot].forEach(source => {
     assert.match(source, /commitEditorStructuralEdit\(template/);
   });
+  assert.doesNotMatch(applyEthernet, /commitEditorStructuralEdit\(template/);
+  assert.match(ensureNetworkPair, /options\.normalize !== false/);
+  assert.match(ensureNetworkPair, /options\.groupId/);
+  assert.doesNotMatch(applyLed, /template\.connectors = template\.connectors\.filter\(connector => connector\.type !== "led-signal"\)/);
+  assert.match(applyLed, /isLedProcessorGeneratedConnector\(connector\)/);
+  assert.doesNotMatch(addEthernet, /for[\s\S]*ensurePairedNetworkPair\(template, connector\)/);
+  assert.doesNotMatch(addEthernet, /normalizeConnectorRows\(template\)/);
   assert.match(addCardConnector, /commitEditorCardCollectionEdit\(template/);
   [fillCardConnector, removeCardConnector, changeCardKind, deleteCardType].forEach(source => {
     assert.match(source, /commitEditorCardDefinitionEdit\(template, cardTypeId/);
@@ -1088,7 +1191,7 @@ test("Device Editor direct structural operations use the shared atomic transacti
   assert.match(removeNode, /removeIds: \[\.{3}idsToRemove\]\.map\(id => `connector:\$\{id\}`\)/);
   assert.match(removeCardSlot, /removeIds: \[`card:\$\{slotId\}`\]/);
   assert.match(fillSlot, /applyEditorConnectorTypeToDraft\(draft, connectorId, type/);
-  assert.match(typeDraft, /ensurePairedNetworkPair\(draft, draftConnector\)/);
+  assert.match(typeDraft, /ensurePairedNetworkPair\(draft, draftConnector, \{ normalize: false \}\)/);
   assert.match(typeDraft, /hardTargets\[`connector:\$\{pair\.id\}`\] = targetLane/);
   assert.match(installCard, /upsertIds: \[`card:\$\{slotId\}`\]/);
   assert.match(cardDefinitionCommit, /commitEditorCardCollectionEdit\(template, \{/);
@@ -1457,7 +1560,7 @@ test("Device Editor first-card connector creation rolls back cleanly on commit f
   assert.throws(() => api.addCardConnector("input"), /forced device height failure/);
   context.failDeviceHeightForSlotCounts = false;
 
-  assert.deepEqual(template, beforeTemplate);
+  assert.equal(JSON.stringify(template), JSON.stringify(beforeTemplate));
   assert.equal(context.editorCardIndex, beforeSelection.cardIndex);
   assert.equal(context.editorSelectedCardNodeIndex, beforeSelection.primaryIndex);
   assert.deepEqual(selectedCardConnectorIndexes(context), beforeSelection.selectedIndexes);
@@ -1900,7 +2003,7 @@ test("Device Editor failed span-changing card edit preserves multi-selection and
   assert.throws(() => api.fillCardConnector(1, "hdmi"), /invalid layout/);
   placementModule.forceInvalid = false;
 
-  assert.deepEqual(template, beforeTemplate);
+  assert.equal(JSON.stringify(template), JSON.stringify(beforeTemplate));
   assert.deepEqual(template.cardTypes[0].connectors.map(connector => connector.id), ["in-1", "in-2", "in-3"]);
   assert.equal(context.editorSelectedCardNodeIndex, beforePrimary);
   assert.deepEqual(selectedCardConnectorIndexes(context), beforeSelectedIndexes);
@@ -1995,6 +2098,356 @@ test("Device Editor structural display-side upserts synchronize anchors with sol
   assert.equal(counters.solverCalls, 1);
   assert.equal(counters.animationSeeds, 1);
   assert.equal(counters.previewRenders, 1);
+});
+
+test("Device Editor LED Processor generation is owned, atomic, and selection-stable", () => {
+  const { api, template, counters, context } = structuralEditorHarness({
+    connectors: [
+      testConnector("manual-led", "right", 0, {
+        direction: "output",
+        displaySide: "right",
+        type: "led-signal",
+        label: "Manual LED",
+        signalIndex: 99,
+        customText: "manual coordinates",
+        schemaVersion: 2,
+        anchors: [{ id: "right", side: "right", x: 420, y: 100, primary: true }]
+      })
+    ],
+    cardTypes: [{
+      id: "span-card",
+      name: "Wide Card",
+      kind: "io",
+      connectors: [
+        { id: "card-in-1", direction: "input", type: "hdmi", empty: false },
+        { id: "card-out-1", direction: "output", type: "hdmi", empty: false }
+      ]
+    }],
+    cardSlots: [
+      { id: "slot-a", name: "Slot A", installedCardTypeId: "span-card", y: 154, connectorOverrides: {} }
+    ]
+  });
+
+  context.editorLedProcessor.checked = true;
+  context.editorLedOutputCount.value = "3";
+  let before = editorCounterSnapshot(counters);
+  api.applyLedProcessorSettings();
+
+  let generated = generatedLedConnectors(template);
+  assert.deepEqual(generated.map(connector => connector.signalIndex), [1, 2, 3]);
+  assert.equal(template.connectors.find(connector => connector.id === "manual-led")?.generatedByLedProcessor, undefined);
+  assert.equal(template.connectors.find(connector => connector.id === "manual-led")?.customText, "manual coordinates");
+  assert.deepEqual(editorCounterDelta(counters, before), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 1,
+    editorRenders: 0,
+    animationSeeds: 1,
+    animationRetargets: 1
+  });
+  const firstGeneratedId = generated[0].id;
+  const secondGeneratedId = generated[1].id;
+  generated[0].customText = "tile A";
+  generated[0].customTextCaption = "Tile Map";
+  generated[0].operationalStatus = "not-working";
+  generated[1].nameText = "SIG B";
+  generated[1].nameTextCaption = "Signal";
+  context.editorSelectedNodeIds = new Set([firstGeneratedId, secondGeneratedId, "manual-led"]);
+  context.editorSelectedNodeIndex = template.connectors.findIndex(connector => connector.id === secondGeneratedId);
+
+  context.editorLedOutputCount.value = "5";
+  before = editorCounterSnapshot(counters);
+  api.applyLedProcessorSettings();
+
+  generated = generatedLedConnectors(template);
+  assert.deepEqual(generated.map(connector => connector.signalIndex), [1, 2, 3, 4, 5]);
+  assert.equal(generated[0].id, firstGeneratedId, "surviving signal index 1 keeps its stable ID");
+  assert.equal(generated[1].id, secondGeneratedId, "surviving signal index 2 keeps its stable ID");
+  assert.equal(generated[0].customText, "tile A");
+  assert.equal(generated[0].customTextCaption, "Tile Map");
+  assert.equal(generated[0].operationalStatus, "not-working");
+  assert.equal(generated[1].nameText, "SIG B");
+  assert.equal(generated[1].nameTextCaption, "Signal");
+  assert.deepEqual(selectedNodeConnectorIds(context), ["manual-led", firstGeneratedId, secondGeneratedId].sort());
+  assert.deepEqual(editorCounterDelta(counters, before), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 1,
+    editorRenders: 0,
+    animationSeeds: 1,
+    animationRetargets: 1
+  });
+
+  const removedGeneratedId = generated[4].id;
+  context.editorSelectedNodeIds = new Set([firstGeneratedId, removedGeneratedId, "manual-led"]);
+  context.editorSelectedNodeIndex = template.connectors.findIndex(connector => connector.id === removedGeneratedId);
+  context.editorLedOutputCount.value = "2";
+  before = editorCounterSnapshot(counters);
+  api.applyLedProcessorSettings();
+
+  generated = generatedLedConnectors(template);
+  assert.deepEqual(generated.map(connector => connector.signalIndex), [1, 2]);
+  assert.equal(generated[0].id, firstGeneratedId);
+  assert.equal(generated[1].id, secondGeneratedId);
+  assert.ok(!template.connectors.some(connector => connector.id === removedGeneratedId));
+  assert.ok(template.connectors.some(connector => connector.id === "manual-led"), "manual led-signal connector survives count reduction");
+  assert.deepEqual(selectedNodeConnectorIds(context), ["manual-led", firstGeneratedId].sort());
+  assert.deepEqual(editorCounterDelta(counters, before), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 1,
+    editorRenders: 0,
+    animationSeeds: 1,
+    animationRetargets: 1
+  });
+
+  before = editorCounterSnapshot(counters);
+  api.applyLedProcessorSettings();
+  assert.deepEqual(generatedLedConnectors(template).map(connector => connector.id), [firstGeneratedId, secondGeneratedId]);
+  assert.deepEqual(editorCounterDelta(counters, before), {
+    structuralSessions: 1,
+    solverCalls: 0,
+    previewRenders: 1,
+    editorRenders: 0,
+    animationSeeds: 0,
+    animationRetargets: 0
+  });
+
+  context.editorLedProcessor.checked = false;
+  before = editorCounterSnapshot(counters);
+  api.applyLedProcessorSettings();
+  assert.deepEqual(generatedLedConnectors(template), []);
+  assert.ok(template.connectors.some(connector => connector.id === "manual-led"), "turning LED Processor off removes only generator-owned outputs");
+  assert.deepEqual(editorCounterDelta(counters, before), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 1,
+    editorRenders: 0,
+    animationSeeds: 1,
+    animationRetargets: 1
+  });
+});
+
+test("Device Editor LED Processor adopts legacy generated outputs and rolls back failed reconciliation", () => {
+  const { api, template, counters, context, placementModule } = structuralEditorHarness({
+    isLedProcessor: true,
+    ledOutputCount: 2,
+    connectors: [
+      testConnector("signal-line-1", "right", 0, {
+        direction: "output",
+        displaySide: "right",
+        type: "led-signal",
+        label: "Signal Line 1",
+        signalIndex: 1,
+        customText: "legacy map",
+        customTextCaption: "Legacy Caption",
+        schemaVersion: 2,
+        anchors: [{ id: "right", side: "right", x: 420, y: 100, primary: true }]
+      }),
+      testConnector("manual-signal-2", "right", 1, {
+        direction: "output",
+        displaySide: "right",
+        type: "led-signal",
+        label: "Manual Signal 2",
+        signalIndex: 2,
+        customText: "manual keep",
+        schemaVersion: 2,
+        anchors: [{ id: "right", side: "right", x: 420, y: 154, primary: true }]
+      })
+    ]
+  });
+  context.editorLedProcessor.checked = true;
+  context.editorLedOutputCount.value = "2";
+
+  api.applyLedProcessorSettings();
+  const generated = generatedLedConnectors(template);
+  assert.deepEqual(generated.map(connector => connector.id), ["signal-line-1", "signal-line-2"]);
+  assert.equal(generated[0].customText, "legacy map");
+  assert.equal(generated[0].customTextCaption, "Legacy Caption");
+  assert.equal(template.connectors.find(connector => connector.id === "manual-signal-2")?.generatedByLedProcessor, undefined);
+  assert.equal(template.connectors.find(connector => connector.id === "manual-signal-2")?.customText, "manual keep");
+  const laneMap = itemLaneMap(api.resolveEditorModularLayout(template));
+  assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), laneMap, "second static normalization is a fixed point");
+
+  context.editorSelectedNodeIds = new Set(["signal-line-1", "manual-signal-2"]);
+  context.editorSelectedNodeIndex = template.connectors.findIndex(connector => connector.id === "signal-line-1");
+  const beforeTemplate = structuredClone(template);
+  const beforeSelection = selectedNodeConnectorIds(context);
+  const beforeCounts = editorCounterSnapshot(counters);
+  context.editorLedOutputCount.value = "3";
+  placementModule.forceInvalid = true;
+  assert.throws(() => api.applyLedProcessorSettings(), /invalid layout/);
+  placementModule.forceInvalid = false;
+
+  assert.equal(JSON.stringify(template), JSON.stringify(beforeTemplate));
+  assert.deepEqual(selectedNodeConnectorIds(context), beforeSelection);
+  assert.deepEqual(editorCounterDelta(counters, beforeCounts), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 0,
+    editorRenders: 0,
+    animationSeeds: 0,
+    animationRetargets: 0
+  });
+});
+
+test("Device Editor Ethernet Switch settings are nonstructural and Add Ports batches atomically", () => {
+  const { api, template, counters, context } = structuralEditorHarness({
+    cardTypes: [{
+      id: "io-card",
+      name: "I/O Card",
+      kind: "io",
+      connectors: [
+        { id: "in-1", direction: "input", type: "hdmi", empty: false },
+        { id: "out-1", direction: "output", type: "hdmi", empty: false }
+      ]
+    }],
+    cardSlots: [
+      { id: "slot-a", name: "Slot A", installedCardTypeId: "io-card", y: 100, connectorOverrides: {} }
+    ],
+    connectors: [
+      testConnector("fixed-left", "left", 4, { direction: "input", displaySide: "left", schemaVersion: 2, anchors: [{ id: "left", side: "left", x: 0, y: 316, primary: true }] })
+    ]
+  });
+
+  context.editorEthernetSwitch.checked = true;
+  context.editorSwitchPortCount.value = "3";
+  context.editorSwitchPortType.value = "1g-rj45";
+  let before = editorCounterSnapshot(counters);
+  api.applyEthernetSwitchSettings();
+  assert.equal(template.isEthernetSwitch, true);
+  assert.equal(template.switchPortCount, 3);
+  assert.equal(template.switchPortType, "1g-rj45");
+  assert.equal(context.editorSwitchPortCount.disabled, false);
+  assert.deepEqual(editorCounterDelta(counters, before), {
+    structuralSessions: 0,
+    solverCalls: 0,
+    previewRenders: 1,
+    editorRenders: 0,
+    animationSeeds: 0,
+    animationRetargets: 0
+  });
+
+  context.editorSelectedNodeIds = new Set(["fixed-left"]);
+  context.editorSelectedNodeIndex = template.connectors.findIndex(connector => connector.id === "fixed-left");
+  const normalizationBefore = counters.normalizationCalls;
+  before = editorCounterSnapshot(counters);
+  api.addEthernetSwitchPortBatch();
+
+  let pairs = switchGeneratedPairs(template, "1g-rj45");
+  assert.equal(pairs.length, 3);
+  assert.deepEqual(pairs.map(pair => pair.output.switchPortIndex), [1, 2, 3]);
+  const lanes = itemLaneMap(api.resolveEditorModularLayout(template));
+  pairs.forEach(({ output, input }) => {
+    assert.ok(input, `pair for ${output.id} should exist`);
+    assert.equal(output.direction, "output");
+    assert.equal(input.direction, "input");
+    assert.equal(output.displaySide, "right");
+    assert.equal(input.displaySide, "left");
+    assert.equal(output.pairedConnectorId, input.id);
+    assert.equal(input.pairedConnectorId, output.id);
+    assert.equal(output.networkGroupId, input.networkGroupId);
+    assert.equal(output.generatedByEthernetSwitch, true);
+    assert.equal(input.generatedByEthernetSwitch, true);
+    assert.equal(output.includeInMatrix, false);
+    assert.equal(input.includeInMatrix, false);
+    assert.equal(lanes[`connector:${output.id}`], lanes[`connector:${input.id}`], "network pair should share one lane");
+    assert.ok(lanes[`connector:${output.id}`] >= 3, "both-side card span should be respected");
+  });
+  assert.deepEqual(selectedNodeConnectorIds(context), ["fixed-left"]);
+  assert.equal(counters.normalizationCalls, normalizationBefore, "batch should not call normalizeConnectorRows per port");
+  assert.deepEqual(editorCounterDelta(counters, before), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 1,
+    editorRenders: 0,
+    animationSeeds: 1,
+    animationRetargets: 1
+  });
+
+  const firstBatchIds = generatedSwitchConnectors(template, "1g-rj45").map(connector => connector.id);
+  before = editorCounterSnapshot(counters);
+  api.addEthernetSwitchPortBatch();
+  pairs = switchGeneratedPairs(template, "1g-rj45");
+  assert.equal(pairs.length, 6);
+  assert.deepEqual(pairs.map(pair => pair.output.switchPortIndex), [1, 2, 3, 4, 5, 6]);
+  assert.deepEqual(generatedSwitchConnectors(template, "1g-rj45").slice(0, firstBatchIds.length).map(connector => connector.id), firstBatchIds);
+  assert.deepEqual(editorCounterDelta(counters, before), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 1,
+    editorRenders: 0,
+    animationSeeds: 1,
+    animationRetargets: 1
+  });
+
+  context.editorSwitchPortCount.value = "2";
+  context.editorSwitchPortType.value = "sfp";
+  before = editorCounterSnapshot(counters);
+  api.addEthernetSwitchPortBatch();
+  assert.deepEqual(switchGeneratedPairs(template, "sfp").map(pair => pair.output.switchPortIndex), [1, 2]);
+  assert.deepEqual(switchGeneratedPairs(template, "1g-rj45").map(pair => pair.output.switchPortIndex), [1, 2, 3, 4, 5, 6]);
+  assert.deepEqual(editorCounterDelta(counters, before), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 1,
+    editorRenders: 0,
+    animationSeeds: 1,
+    animationRetargets: 1
+  });
+
+  const finalMap = itemLaneMap(api.resolveEditorModularLayout(template));
+  assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), finalMap, "generated switch layout is a fixed point");
+});
+
+test("Device Editor Ethernet Switch batch rollback and later pair movement stay structural", () => {
+  const { api, template, counters, context, placementModule } = structuralEditorHarness({
+    isEthernetSwitch: true,
+    switchPortCount: 2,
+    switchPortType: "10g-rj45"
+  });
+  context.editorEthernetSwitch.checked = true;
+  context.editorSwitchPortCount.value = "2";
+  context.editorSwitchPortType.value = "10g-rj45";
+  const beforeTemplate = structuredClone(template);
+  const beforeCounts = editorCounterSnapshot(counters);
+  placementModule.forceInvalid = true;
+  assert.throws(() => api.addEthernetSwitchPortBatch(), /invalid layout/);
+  placementModule.forceInvalid = false;
+  assert.deepEqual(template, beforeTemplate);
+  assert.equal(template.connectors.length, 0);
+  assert.deepEqual(editorCounterDelta(counters, beforeCounts), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 0,
+    editorRenders: 0,
+    animationSeeds: 0,
+    animationRetargets: 0
+  });
+
+  api.addEthernetSwitchPortBatch();
+  const [{ output, input }] = switchGeneratedPairs(template, "10g-rj45");
+  assert.ok(output && input);
+  api.commitEditorStructuralEdit(template, {
+    primaryItemId: `connector:${output.id}`,
+    mutate(draft, transactionContext) {
+      const outputDraft = draft.connectors.find(connector => connector.id === output.id);
+      const inputDraft = draft.connectors.find(connector => connector.id === input.id);
+      const y = transactionContext.targetYForLane(0);
+      outputDraft.y = y;
+      inputDraft.y = y;
+      return {
+        upsertIds: [`connector:${output.id}`, `connector:${input.id}`],
+        hardTargets: {
+          [`connector:${output.id}`]: 0,
+          [`connector:${input.id}`]: 0
+        }
+      };
+    }
+  });
+  const movedLanes = itemLaneMap(api.resolveEditorModularLayout(template));
+  assert.equal(movedLanes[`connector:${output.id}`], 0);
+  assert.equal(movedLanes[`connector:${input.id}`], 0);
 });
 
 test("Device Editor placement motion is persistent and shared by Engine and Legacy previews", () => {
@@ -2172,7 +2625,7 @@ test("Engine Device Editor card motion uses dynamic overlay ownership without pe
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /visual\.suppressCardAreasInTexture \? "suppress-card-areas" : ""/);
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /!visual\.suppressCardAreasInTexture\) \{\s*drawCardAreas/);
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /drawConnectorBands\(ctx, device, width, height, face\.bottom \+ 12\);/);
-  assert.match(PRODUCTION_BRIDGE_SOURCE, /ENGINE_BRIDGE_VERSION = "iteration54-9-1-card-fan-out-edge-hardening"/);
+  assert.match(PRODUCTION_BRIDGE_SOURCE, /ENGINE_BRIDGE_VERSION = "iteration54-10-0-atomic-feature-connector-generation"/);
 
   assert.match(previewClone, /draft\.suppressCardAreasInTexture = true/);
   assert.match(syncEngine, /suppressCardAreasInTexture: options\.dynamicCardArtwork === true/);

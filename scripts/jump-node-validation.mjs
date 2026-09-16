@@ -41,7 +41,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-9-1-card-fan-out-edge-hardening";
+const BUILD_ID = "iteration54-10-0-atomic-feature-connector-generation";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -50,12 +50,12 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Card Fan-Out Edge Hardening");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-9-1-card-fan-out-edge-hardening-modules";'), "module cache key should identify Card Fan-Out Edge Hardening");
-assert.ok(indexHtml.includes("Card Fan-Out Edge Hardening"), "visible build label should name Card Fan-Out Edge Hardening");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-9-1-card-fan-out-edge-hardening"'), "Engine bridge version should identify Card Fan-Out Edge Hardening");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "card-fan-out-edge-hardening"'), "bridge feature label should identify Card Fan-Out Edge Hardening");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-9-1-card-fan-out-edge-hardening"), "bridge fingerprint should identify Card Fan-Out Edge Hardening");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Atomic Feature Connector Generation");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-10-0-atomic-feature-connector-generation-modules";'), "module cache key should identify Atomic Feature Connector Generation");
+assert.ok(indexHtml.includes("Atomic Feature Connector Generation"), "visible build label should name Atomic Feature Connector Generation");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-10-0-atomic-feature-connector-generation"'), "Engine bridge version should identify Atomic Feature Connector Generation");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "atomic-feature-connector-generation"'), "bridge feature label should identify Atomic Feature Connector Generation");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-10-0-atomic-feature-connector-generation"), "bridge fingerprint should identify Atomic Feature Connector Generation");
 assert.ok(rendererSource.includes("renderer-iteration54-4-0-matrix-routing-internal-routes"), "renderer fingerprint should identify Matrix Routing Internal Routes");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");
