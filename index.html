@@ -4993,7 +4993,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.6.0 — Device Editor Stable Drag Sessions — iteration54-6-0-device-editor-stable-drag-sessions</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.7.0 — Device Editor Persistent Placement Motion — iteration54-7-0-device-editor-persistent-placement-motion</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5686,10 +5686,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.6.0";
-    const APP_BUILD_ID = "iteration54-6-0-device-editor-stable-drag-sessions";
-    const APP_MODULE_CACHE_ID = "iteration54-6-0-device-editor-stable-drag-sessions-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Device Editor Stable Drag Sessions`;
+    const APP_ITERATION = "54.7.0";
+    const APP_BUILD_ID = "iteration54-7-0-device-editor-persistent-placement-motion";
+    const APP_MODULE_CACHE_ID = "iteration54-7-0-device-editor-persistent-placement-motion-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Device Editor Persistent Placement Motion`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "f409d0373f783821e981515da660a2476e661959";
@@ -78351,6 +78351,12 @@
     let editorEnginePreviewModulePromise = null;
     let deviceEditorPlacementModule = null;
     let deviceEditorPlacementModulePromise = null;
+    let deviceEditorPlacementMotionModule = null;
+    let deviceEditorPlacementMotionModulePromise = null;
+    let editorPlacementMotionState = null;
+    let editorPlacementMotionScheduler = null;
+    let editorPlacementMotionSampleCache = null;
+    let editorPlacementMotionClearWhenSettled = false;
     let editorEnginePreviewHost = null;
     let editorEnginePreviewSvgHome = null;
     let editorEnginePreviewSvgNextSibling = null;
@@ -79746,6 +79752,7 @@
         startY,
         slotHeight: SLOT_HEIGHT,
         lastValidResolvedLayout: resolvedLayout,
+        baselineResolvedLayout: structuredClone(resolvedLayout),
         baselineLaneMap,
         movementThresholdCrossed: false,
         moved: false,
@@ -79841,18 +79848,21 @@
       const pointerId = event?.pointerId;
       const matches = drag => !drag || pointerId === undefined || drag.pointerId === pointerId;
       let cancelled = false;
+      let rollbackStarted = false;
       if (matches(editorCardSlotDrag) && editorCardSlotDrag) {
+        rollbackStarted = rollbackEditorPlacementMotionForDrag(editorCardSlotDrag) || rollbackStarted;
         editorCardSlotDrag = null;
         cancelled = true;
       }
       if (matches(editorNodeDrag) && editorNodeDrag) {
+        rollbackStarted = rollbackEditorPlacementMotionForDrag(editorNodeDrag) || rollbackStarted;
         editorNodeDrag = null;
         editorConnectorSnapGuide = null;
         cancelled = true;
       }
       if (cancelled) {
         releaseEditorPointerCapture(event);
-        renderDeviceEditorPreview();
+        if (!rollbackStarted) renderDeviceEditorPreview();
       }
       return cancelled;
     }
@@ -79860,6 +79870,83 @@
     function cancelEditorInteraction(event = null) {
       if (cancelEditorStableDrags(event)) return;
       stopEditorNodeDrag(event);
+    }
+
+    function editorMotionLayoutForDrag(drag, options = {}) {
+      if (!drag) return null;
+      if (options.baseline) return drag.baselineResolvedLayout || drag.lastValidResolvedLayout || null;
+      if (drag.specialTarget) return drag.baselineResolvedLayout || drag.lastValidResolvedLayout || null;
+      return drag.lastValidResolvedLayout || drag.baselineResolvedLayout || null;
+    }
+
+    function beginEditorPlacementMotion(drag) {
+      if (!drag?.itemId) return;
+      const layout = editorMotionLayoutForDrag(drag, { baseline: true });
+      if (!layout?.items?.length) return;
+      try {
+        const module = requireDeviceEditorPlacementMotionModule();
+        const state = ensureEditorPlacementMotionState();
+        module.seedPlacementMotion(state, layout, {
+          now: editorPlacementMotionNow(),
+          reducedMotion: editorPlacementReducedMotion()
+        });
+        editorPlacementMotionClearWhenSettled = false;
+        editorPlacementMotionSampleCache = null;
+      } catch (error) {
+        console.warn("Unable to seed Device Editor placement motion.", error);
+      }
+    }
+
+    function retargetEditorPlacementMotionForDrag(drag, options = {}) {
+      if (!drag?.itemId) return;
+      const layout = editorMotionLayoutForDrag(drag, { baseline: options.baseline === true });
+      if (!layout?.items?.length) return;
+      try {
+        const module = requireDeviceEditorPlacementMotionModule();
+        const state = ensureEditorPlacementMotionState();
+        const draggedY = Number.isFinite(Number(options.draggedY))
+          ? Number(options.draggedY)
+          : Number.isFinite(Number(options.pointerY))
+            ? module.visualYFromPointer(options.pointerY, drag.offsetY)
+            : drag.currentY;
+        module.retargetPlacementMotion(state, layout, {
+          now: editorPlacementMotionNow(),
+          reducedMotion: editorPlacementReducedMotion(),
+          draggedItemId: options.includeDragged === false ? "" : drag.itemId,
+          draggedY,
+          durationMs: 150
+        });
+        editorPlacementMotionSampleCache = null;
+        if (options.clearWhenSettled === true) editorPlacementMotionClearWhenSettled = true;
+        scheduleEditorPlacementMotionFrame();
+      } catch (error) {
+        console.warn("Unable to retarget Device Editor placement motion.", error);
+      }
+    }
+
+    function settleEditorPlacementMotionToLayout(layout, options = {}) {
+      if (!layout?.items?.length || !editorPlacementMotionState?.entries?.size) return;
+      try {
+        const module = requireDeviceEditorPlacementMotionModule();
+        module.retargetPlacementMotion(editorPlacementMotionState, layout, {
+          now: editorPlacementMotionNow(),
+          reducedMotion: editorPlacementReducedMotion(),
+          durationMs: 150
+        });
+        editorPlacementMotionSampleCache = null;
+        editorPlacementMotionClearWhenSettled = options.clearWhenSettled !== false;
+        scheduleEditorPlacementMotionFrame();
+      } catch (error) {
+        console.warn("Unable to settle Device Editor placement motion.", error);
+      }
+    }
+
+    function rollbackEditorPlacementMotionForDrag(drag) {
+      if (!drag?.itemId) return false;
+      const baseline = editorMotionLayoutForDrag(drag, { baseline: true });
+      if (!baseline?.items?.length || !editorPlacementMotionState?.entries?.size) return false;
+      settleEditorPlacementMotionToLayout(baseline, { clearWhenSettled: true });
+      return true;
     }
 
     function normalizeMixedDeviceRows(template) {
@@ -79880,7 +79967,6 @@
       ensureModularDefaults(template);
       if (!template.hasSwappableCards) return [];
       const connectors = [];
-      const activeCardDragLayout = editorActiveStableDragLayout();
       const slotLayout = resolveEditorModularLayout(template, {
         cardSlotYOverrides: editorCardSlotDisplayOverrides(template)
       });
@@ -79892,7 +79978,7 @@
           const effectiveConnector = mergedCardConnectorForSlot(template, slot, connector);
           const side = effectiveConnector.direction === "input" ? "input" : "output";
           const slotIndex = sideCounts[side]++;
-          const resolvedSlotY = editorPlacementItemByStableId(activeCardDragLayout, `card:${slot.id}`)?.y
+          const resolvedSlotY = cardSlotDisplayY(template, slot)
             || slotLayout.byId.get(`card:${slot.id}`)?.y
             || Math.max(connectorStartYForTemplate(template), Number(slot.y) || connectorStartYForTemplate(template));
           const generatedConnector = {
@@ -84818,7 +84904,8 @@
     }
 
     async function openDeviceEditor(options = {}) {
-      if (!await ensureDeviceEditorPlacementModuleReady()) return;
+      if (!await ensureDeviceEditorPlacementModulesReady()) return;
+      clearEditorPlacementMotion();
       const reason = typeof options === "string" ? options : (options.reason || "device-editor-open");
       recordDeviceEditorOpen(reason, typeof options === "object" ? options.details || {} : {});
       editorMode = "library";
@@ -84862,7 +84949,8 @@
     }
 
     async function openDeviceEditorWithNewDevice() {
-      if (!await ensureDeviceEditorPlacementModuleReady()) return;
+      if (!await ensureDeviceEditorPlacementModulesReady()) return;
+      clearEditorPlacementMotion();
       recordDeviceEditorOpen("create-new-master-device", {});
       editorMode = "master-create";
       editorInstanceId = null;
@@ -84904,7 +84992,8 @@
     }
 
     async function openDeviceEditorForProjectTemplateDraft(draft, mode, options = {}) {
-      if (!await ensureDeviceEditorPlacementModuleReady()) return;
+      if (!await ensureDeviceEditorPlacementModulesReady()) return;
+      clearEditorPlacementMotion();
       recordDeviceEditorOpen(options.reason || mode || "project-template-edit", {
         templateId: options.templateId || draft?.id || "",
         mode
@@ -85062,7 +85151,8 @@
     }
 
     async function openDeviceEditorForCanvasInstanceLegacy(instanceId) {
-      if (!await ensureDeviceEditorPlacementModuleReady()) return;
+      if (!await ensureDeviceEditorPlacementModulesReady()) return;
+      clearEditorPlacementMotion();
       const instance = instanceById(instanceId);
       const template = templateForInstance(instance);
       if (!instance || !template) return;
@@ -85098,6 +85188,7 @@
     }
 
     function closeDeviceEditor() {
+      clearEditorPlacementMotion();
       disposeDeviceEditorEnginePreviewSurface();
       deviceEditorModal.classList.add("hidden");
     }
@@ -89567,6 +89658,11 @@
 
     function editorPreviewPositions(template) {
       const map = new Map();
+      const motionPositions = editorPlacementMotionConnectorPositions();
+      if (motionPositions.size) {
+        motionPositions.forEach((y, connectorId) => map.set(connectorId, y));
+        return applyEditorSharedRelationshipDisplayPositions(template, map);
+      }
       if (!editorNodeDrag) {
         const cardDragLayout = editorActiveStableDragLayout();
         if (cardDragLayout) {
@@ -89751,6 +89847,166 @@
         && module?.resolveModularInsertionDrag
         && module?.targetLaneWithHysteresis
         && module?.isValidModularInsertionResult);
+    }
+
+    function loadDeviceEditorPlacementMotionModule(statusLabel = "Device Editor placement motion") {
+      if (deviceEditorPlacementMotionModule) return Promise.resolve(deviceEditorPlacementMotionModule);
+      if (!deviceEditorPlacementMotionModulePromise) {
+        const moduleUrl = engineImportUrl("./src/engine/deviceEditorPlacementMotion.js");
+        deviceEditorPlacementMotionModulePromise = import(moduleUrl)
+          .then(module => {
+            if (!module?.createPlacementMotionState
+              || !module?.seedPlacementMotion
+              || !module?.retargetPlacementMotion
+              || !module?.samplePlacementMotion
+              || !module?.createPlacementMotionFrameScheduler
+              || !module?.visualYFromPointer
+              || !module?.translateAnchorsForVisualY) {
+              throw new Error("Device Editor placement motion module is missing required helpers.");
+            }
+            deviceEditorPlacementMotionModule = module;
+            return module;
+          })
+          .catch(error => {
+            console.error(`${statusLabel} failed to load`, error);
+            deviceEditorPlacementMotionModulePromise = null;
+            setStatus(`${statusLabel} failed to load.`);
+            return null;
+          });
+      }
+      return deviceEditorPlacementMotionModulePromise;
+    }
+
+    function requireDeviceEditorPlacementMotionModule() {
+      if (deviceEditorPlacementMotionModule?.createPlacementMotionState
+        && deviceEditorPlacementMotionModule?.retargetPlacementMotion
+        && deviceEditorPlacementMotionModule?.samplePlacementMotion) return deviceEditorPlacementMotionModule;
+      throw new Error("Device Editor placement motion module is not loaded.");
+    }
+
+    async function ensureDeviceEditorPlacementModulesReady() {
+      const [placement, motion] = await Promise.all([
+        loadDeviceEditorPlacementModule(),
+        loadDeviceEditorPlacementMotionModule()
+      ]);
+      return Boolean(placement?.resolveModularPlacementItems
+        && placement?.createModularInsertionDragSession
+        && placement?.resolveModularInsertionDrag
+        && placement?.targetLaneWithHysteresis
+        && placement?.isValidModularInsertionResult
+        && motion?.createPlacementMotionState
+        && motion?.retargetPlacementMotion
+        && motion?.samplePlacementMotion);
+    }
+
+    function editorPlacementMotionNow() {
+      return typeof performance !== "undefined" && typeof performance.now === "function"
+        ? performance.now()
+        : Date.now();
+    }
+
+    function editorPlacementReducedMotion() {
+      return Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
+    }
+
+    function ensureEditorPlacementMotionState() {
+      const module = requireDeviceEditorPlacementMotionModule();
+      if (!editorPlacementMotionState) {
+        editorPlacementMotionState = module.createPlacementMotionState({
+          durationMs: 150,
+          now: editorPlacementMotionNow(),
+          reducedMotion: editorPlacementReducedMotion()
+        });
+      }
+      editorPlacementMotionState.reducedMotion = editorPlacementReducedMotion();
+      return editorPlacementMotionState;
+    }
+
+    function editorPlacementMotionHasEntries() {
+      return Boolean(editorPlacementMotionState?.entries?.size);
+    }
+
+    function clearEditorPlacementMotion() {
+      editorPlacementMotionScheduler?.cancel?.();
+      editorPlacementMotionScheduler = null;
+      editorPlacementMotionSampleCache = null;
+      editorPlacementMotionClearWhenSettled = false;
+      if (editorPlacementMotionState && deviceEditorPlacementMotionModule?.clearPlacementMotion) {
+        deviceEditorPlacementMotionModule.clearPlacementMotion(editorPlacementMotionState);
+      }
+      editorPlacementMotionState = null;
+    }
+
+    function editorPlacementMotionCurrentSample(now = editorPlacementMotionNow()) {
+      if (!editorPlacementMotionState?.entries?.size || !deviceEditorPlacementMotionModule?.samplePlacementMotion) return null;
+      if (!editorPlacementMotionSampleCache) {
+        editorPlacementMotionSampleCache = deviceEditorPlacementMotionModule.samplePlacementMotion(editorPlacementMotionState, {
+          now,
+          reducedMotion: editorPlacementReducedMotion()
+        });
+      }
+      return editorPlacementMotionSampleCache;
+    }
+
+    function editorPlacementMotionVisualY(itemId, fallback = null) {
+      const sample = editorPlacementMotionCurrentSample();
+      if (sample?.positions?.has(itemId)) return sample.positions.get(itemId);
+      return fallback;
+    }
+
+    function editorPlacementMotionConnectorPositions() {
+      const map = new Map();
+      const sample = editorPlacementMotionCurrentSample();
+      sample?.positions?.forEach((y, itemId) => {
+        if (String(itemId).startsWith("connector:")) map.set(String(itemId).slice("connector:".length), y);
+      });
+      return map;
+    }
+
+    function editorPlacementMotionBottomY() {
+      const sample = editorPlacementMotionCurrentSample();
+      if (!sample?.entries?.length) return null;
+      return sample.entries.reduce((bottom, entry) => {
+        const span = Math.max(1, Number(entry.span) || 1);
+        return Math.max(bottom, Number(entry.currentY) + span * SLOT_HEIGHT);
+      }, 0);
+    }
+
+    function ensureEditorPlacementMotionScheduler() {
+      const module = requireDeviceEditorPlacementMotionModule();
+      if (!editorPlacementMotionScheduler) {
+        editorPlacementMotionScheduler = module.createPlacementMotionFrameScheduler({
+          requestAnimationFrame: callback => requestAnimationFrame(callback),
+          cancelAnimationFrame: id => cancelAnimationFrame(id),
+          onFrame: timestamp => {
+            if (!editorPlacementMotionState?.entries?.size) return;
+            editorPlacementMotionSampleCache = module.samplePlacementMotion(editorPlacementMotionState, {
+              now: Number.isFinite(Number(timestamp)) ? Number(timestamp) : editorPlacementMotionNow(),
+              reducedMotion: editorPlacementReducedMotion()
+            });
+            renderDeviceEditorPreview({ refreshTexture: false, motionFrame: true });
+            const settled = editorPlacementMotionSampleCache?.settled === true;
+            editorPlacementMotionSampleCache = null;
+            if (!settled) {
+              ensureEditorPlacementMotionScheduler().schedule();
+            } else if (editorPlacementMotionClearWhenSettled) {
+              clearEditorPlacementMotion();
+            }
+          }
+        });
+      }
+      return editorPlacementMotionScheduler;
+    }
+
+    function scheduleEditorPlacementMotionFrame() {
+      if (!editorPlacementMotionState?.entries?.size) return;
+      if (editorPlacementReducedMotion()) {
+        editorPlacementMotionSampleCache = null;
+        renderDeviceEditorPreview({ refreshTexture: false, motionFrame: true });
+        if (editorPlacementMotionClearWhenSettled) clearEditorPlacementMotion();
+        return;
+      }
+      ensureEditorPlacementMotionScheduler().schedule();
     }
 
 	    function deviceEditorUsesEnginePreview() {
@@ -89979,10 +90235,35 @@
 
     function setConnectorPreviewY(connector, y) {
       if (!connector || !Number.isFinite(Number(y))) return;
-      connector.y = Number(y);
+      const nextY = Number(y);
+      const currentY = Number.isFinite(Number(connector.y)) ? Number(connector.y) : nextY;
+      const deltaY = nextY - currentY;
       if (Array.isArray(connector.anchors)) {
-        connector.anchors = connector.anchors.map(anchor => ({ ...anchor, y: Number(y) }));
+        connector.anchors = connector.anchors.map(anchor => ({
+          ...anchor,
+          y: (Number.isFinite(Number(anchor.y)) ? Number(anchor.y) : currentY) + deltaY
+        }));
       }
+      connector.y = nextY;
+    }
+
+    function applyEditorPlacementVisualsToPreviewTemplate(draft, sourceTemplate = currentEditorTemplate()) {
+      if (!draft || !sourceTemplate) return draft;
+      const positions = editorPreviewPositions(sourceTemplate);
+      (draft.connectors || []).forEach(connector => {
+        if (positions.has(connector.id)) setConnectorPreviewY(connector, positions.get(connector.id));
+      });
+      if (Array.isArray(draft.cardSlots)) {
+        draft.cardSlots.forEach(slot => {
+          const source = (sourceTemplate.cardSlots || []).find(item => item.id === slot.id);
+          if (source) slot.y = cardSlotDisplayY(sourceTemplate, source);
+        });
+      }
+      const motionBottom = editorPlacementMotionBottomY();
+      if (Number.isFinite(Number(motionBottom))) {
+        draft.height = Math.max(Number(draft.height) || 0, Math.ceil(Number(motionBottom) + DEVICE_BOTTOM_PAD));
+      }
+      return draft;
     }
 
     function readonlyDeviceEditorPreviewTemplate(template) {
@@ -89994,22 +90275,16 @@
       if (dragLayout?.bottomY) {
         draft.height = Math.max(Number(draft.height) || 0, Math.ceil(dragLayout.bottomY + DEVICE_BOTTOM_PAD));
       }
+      const motionBottom = editorPlacementMotionBottomY();
+      if (Number.isFinite(Number(motionBottom))) {
+        draft.height = Math.max(Number(draft.height) || 0, Math.ceil(Number(motionBottom) + DEVICE_BOTTOM_PAD));
+      }
       return draft;
     }
 
     function editorEnginePreviewTemplateClone(template) {
       const draft = readonlyDeviceEditorPreviewTemplate(template);
-      const positions = editorPreviewPositions(template);
-      (draft.connectors || []).forEach(connector => {
-        if (positions.has(connector.id)) setConnectorPreviewY(connector, positions.get(connector.id));
-      });
-      if ((editorNodeDrag || editorCardSlotDrag) && Array.isArray(draft.cardSlots)) {
-        draft.cardSlots.forEach(slot => {
-          const source = (template.cardSlots || []).find(item => item.id === slot.id);
-          if (source) slot.y = cardSlotDisplayY(template, source);
-        });
-      }
-      return draft;
+      return applyEditorPlacementVisualsToPreviewTemplate(draft, template);
     }
 
     function editorEnginePreviewPayload(template) {
@@ -90055,10 +90330,11 @@
       const device = module.createPreviewDeviceFromDraft(payload, 0);
       const visual = device?.visual || {};
       const canSkipTextureRefresh = options.refreshTexture === false
-        && device?.kind !== "adapter"
-        && !visual.isPowerDistro
-        && !visual.hasSwappableCards
-        && !visual.visualCards?.length;
+        && (options.motionOnly === true
+          || (device?.kind !== "adapter"
+            && !visual.isPowerDistro
+            && !visual.hasSwappableCards
+            && !visual.visualCards?.length));
       editorEnginePreviewLastDeviceId = device?.id || DEVICE_EDITOR_ENGINE_PREVIEW_DEVICE_ID;
       const fitBounds = options.fitBounds || editorActivePreviewBounds(template);
       if (!editorEnginePreviewDraftSynced || options.fullScene) {
@@ -90638,7 +90914,8 @@
       const previewDevice = syncDeviceEditorEnginePreview(previewTemplate, {
         fit: !editorEnginePreviewDraftSynced || editorEnginePreviewFitPending,
         fitBounds: editorActivePreviewBounds(previewTemplate),
-        refreshTexture: options.refreshTexture === false ? false : (editorNodeDrag || editorCardSlotDrag) ? false : true
+        refreshTexture: options.refreshTexture === false ? false : (editorNodeDrag || editorCardSlotDrag || editorPlacementMotionHasEntries()) ? false : true,
+        motionOnly: options.motionFrame === true || editorPlacementMotionHasEntries()
       });
       editorEnginePreviewFitPending = false;
       deviceEditorPreview.innerHTML = "";
@@ -91972,6 +92249,7 @@
       editorSelectedFaceplate = false;
       editorSelectedPowerPlugIds.clear();
       setEditorPointerCapture(event);
+      beginEditorPlacementMotion(editorCardSlotDrag);
       renderDeviceEditorPreview();
       return true;
     }
@@ -92041,6 +92319,7 @@
     }
 
     function renderDeviceEditorPreview(options = {}) {
+      if (options.motionFrame !== true) editorPlacementMotionSampleCache = null;
       const template = currentEditorTemplate();
       if (!template) return;
       if (editorActiveTab === "racks") {
@@ -92060,6 +92339,7 @@
       }
       editorEnginePreviewLegacyVisualDraws += 1;
       const previewTemplate = readonlyDeviceEditorPreviewTemplate(template);
+      applyEditorPlacementVisualsToPreviewTemplate(previewTemplate, template);
       if (!previewTemplate.isPowerDistro || previewTemplate.faceImage || previewTemplate.faceplateDeleted) {
         editorSelectedFaceplate = false;
         editorSelectedPowerPlugIds.clear();
@@ -92118,7 +92398,7 @@
         const isDragging = editorNodeDragIncludes(connector);
         const isSelected = editorSelectedNodeIds.has(connector.id) || editorSelectedNodeIndex === index;
         const groupedSharedBus = sharedRelationshipMap.has(connector.id) && !connector.empty && !isAdapterTemplate(previewTemplate);
-        const anchors = editorDisplayAnchorsForConnector(displayConnector, width, displayY);
+        const anchors = editorDisplayAnchorsForConnector(connector, width, displayY);
         anchors.forEach((anchor, anchorIndex) => {
           const anchorConnector = editorAnchorConnector(displayConnector, anchor);
           const isPrimaryAnchor = anchor.id === displayConnector.primaryAnchorId || anchorIndex === 0;
@@ -92127,16 +92407,6 @@
             "data-editor-node": index,
             "data-editor-anchor-id": anchor.id || ""
           });
-          if (editorNodeDrag && !isDragging && Math.abs(displayY - connector.y) > 0.1) {
-            g.appendChild(createSvg("animateTransform", {
-              attributeName: "transform",
-              type: "translate",
-              from: `0 ${connector.y - displayY}`,
-              to: "0 0",
-              dur: ".14s",
-              fill: "freeze"
-            }));
-          }
           if (connector.empty) {
             g.appendChild(createSvg("circle", {
               class: "editor-slot-shape",
@@ -92344,6 +92614,8 @@
 
     function cardSlotDisplayY(template, slot) {
       const startY = connectorStartYForTemplate(template);
+      const motionY = editorPlacementMotionVisualY(`card:${slot?.id}`, null);
+      if (Number.isFinite(Number(motionY))) return Number(motionY);
       if (editorCardSlotDrag?.slotId || editorActiveStableDragLayout()) {
         return editorResolvedCardSlotY(template, slot);
       }
@@ -92460,10 +92732,12 @@
         : [editorPrimaryAnchor(connector, width)];
       const y = Number(displayY);
       if (!Number.isFinite(y)) return anchors;
-      // V2 connectors store anchor.y separately from connector.y. Shared-bus
-      // preview packing is display-only, so override anchor.y here without
-      // mutating saved connector topology or row spacing.
-      return anchors.map(anchor => ({ ...anchor, y }));
+      const baseY = Number.isFinite(Number(connector?.y)) ? Number(connector.y) : y;
+      const deltaY = y - baseY;
+      return anchors.map(anchor => ({
+        ...anchor,
+        y: (Number.isFinite(Number(anchor.y)) ? Number(anchor.y) : baseY) + deltaY
+      }));
     }
 
     function editorConnectorAnchorPoints(template, connector, previewPositions = new Map()) {
@@ -92471,7 +92745,7 @@
       const width = deviceTemplateWidth(template);
       const displayY = previewPositions.get(connector.id) ?? connector.y;
       const displayConnector = { ...connector, y: displayY };
-      const anchors = editorDisplayAnchorsForConnector(displayConnector, width, displayY);
+      const anchors = editorDisplayAnchorsForConnector(connector, width, displayY);
       return anchors.map(anchor => ({
         connector: displayConnector,
         anchor,
@@ -93174,6 +93448,7 @@
         ...(stableDrag || {})
       };
       setEditorPointerCapture(event);
+      if (stableDrag) beginEditorPlacementMotion(editorNodeDrag);
       renderDeviceEditorPreview();
     }
 
@@ -93275,12 +93550,9 @@
       if (editorCardSlotDrag && event.pointerId === editorCardSlotDrag.pointerId) {
         const point = getEditorPreviewPoint(event);
         resolveEditorStablePlacementDragMove(editorCardSlotDrag, point.y);
-        editorCardSlotDrag.currentY = editorPlacementItemByStableId(
-          editorCardSlotDrag.lastValidResolvedLayout,
-          editorCardSlotDrag.itemId
-        )?.y ?? editorCardSlotDrag.currentY;
+        editorCardSlotDrag.currentY = point.y - editorCardSlotDrag.offsetY;
         editorCardSlotDrag.moved = editorCardSlotDrag.movementThresholdCrossed === true;
-        renderDeviceEditorPreview();
+        retargetEditorPlacementMotionForDrag(editorCardSlotDrag, { pointerY: point.y });
         return;
       }
       if (rackPreviewDeviceDrag && event.pointerId === rackPreviewDeviceDrag.pointerId) {
@@ -93319,12 +93591,16 @@
             || Math.abs(point.y - editorNodeDrag.pointerStartY) > 4;
           editorNodeDrag.moved = editorNodeDrag.movementThresholdCrossed;
           editorConnectorSnapGuide = snapY !== null ? { centerY: snapY } : null;
+          retargetEditorPlacementMotionForDrag(editorNodeDrag, {
+            draggedY: editorNodeDrag.currentY,
+            baseline: true
+          });
         } else {
           editorNodeDrag.specialTarget = null;
           editorConnectorSnapGuide = null;
           resolveEditorStablePlacementDragMove(editorNodeDrag, point.y);
+          retargetEditorPlacementMotionForDrag(editorNodeDrag, { pointerY: point.y });
         }
-        renderDeviceEditorPreview();
         return;
       }
       const startY = connectorStartYForTemplate(template);
@@ -93425,12 +93701,16 @@
       }
       if (editorCardSlotDrag) {
         if (event?.pointerId !== undefined && event.pointerId !== editorCardSlotDrag.pointerId) return;
+        const completedDrag = editorCardSlotDrag;
         editorDragPointerReleaseInProgress = true;
         releaseEditorPointerCapture(event);
         editorDragPointerReleaseInProgress = false;
         const template = currentEditorTemplate();
-        if (template && editorCardSlotDrag.moved) {
-          commitEditorStablePlacementDrag(template, editorCardSlotDrag, { includeConnectors: true, includeCards: true });
+        if (template && completedDrag.moved) {
+          commitEditorStablePlacementDrag(template, completedDrag, { includeConnectors: true, includeCards: true });
+          settleEditorPlacementMotionToLayout(completedDrag.lastValidResolvedLayout, { clearWhenSettled: true });
+        } else {
+          clearEditorPlacementMotion();
         }
         editorCardSlotDrag = null;
         renderDeviceEditor();
@@ -93446,12 +93726,19 @@
       }
       if (!editorNodeDrag) return;
       if (event?.pointerId !== undefined && event.pointerId !== editorNodeDrag.pointerId) return;
+      const completedDrag = editorNodeDrag;
       editorDragPointerReleaseInProgress = true;
       releaseEditorPointerCapture(event);
       editorDragPointerReleaseInProgress = false;
       const template = currentEditorTemplate();
-      if (template && editorNodeDrag.moved) {
+      if (template && completedDrag.moved) {
         commitEditorNodeDrag(template);
+        const settleLayout = completedDrag.specialTarget
+          ? resolveEditorModularLayout(template, { useDragPreview: false })
+          : completedDrag.lastValidResolvedLayout;
+        settleEditorPlacementMotionToLayout(settleLayout, { clearWhenSettled: true });
+      } else {
+        clearEditorPlacementMotion();
       }
       editorNodeDrag = null;
       editorConnectorSnapGuide = null;
@@ -107498,6 +107785,7 @@ renderViewerOutputDebug();
       const previousTab = editorActiveTab;
       editorActiveTab = tab.dataset.editorTab;
       recordShellPanelAction("device editor tab", editorActiveTab);
+      if (previousTab !== editorActiveTab) clearEditorPlacementMotion();
       clearEditorCardNodeSelection();
       renderEditorTabs();
       try {
@@ -107609,6 +107897,7 @@ renderViewerOutputDebug();
     function selectEditorDeviceIndex(index) {
       if (editorMode === "instance" || isProjectTemplateEditorMode()) return;
       syncEditorFieldsToDraft();
+      clearEditorPlacementMotion();
       editorIndex = clamp(Number(index) || 0, 0, Math.max(0, editorDraft.length - 1));
       clearEditorNodeSelection();
       editorSelectedFaceplate = false;

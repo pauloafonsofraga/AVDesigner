@@ -142,6 +142,11 @@ function stableDragHarness(template) {
     releaseEditorPointerCapture: () => {
       context.releaseCount += 1;
     },
+    rollbackCount: 0,
+    rollbackEditorPlacementMotionForDrag: () => {
+      context.rollbackCount += 1;
+      return false;
+    },
     renderDeviceEditorPreview: () => {
       context.renderCount += 1;
     },
@@ -429,6 +434,9 @@ test("Device Editor placement delegates to the shared modular layout module", ()
   const placementLoader = functionSource("loadDeviceEditorPlacementModule");
   const placementRequire = functionSource("requireDeviceEditorPlacementModule");
   const placementReady = functionSource("ensureDeviceEditorPlacementModuleReady");
+  const motionLoader = functionSource("loadDeviceEditorPlacementMotionModule");
+  const motionRequire = functionSource("requireDeviceEditorPlacementMotionModule");
+  const combinedReady = functionSource("ensureDeviceEditorPlacementModulesReady");
   const resolver = functionSource("resolveEditorPlacementItems");
   const layoutItems = functionSource("editorLayoutItems");
   const nextPlacement = functionSource("nextEditorPlacementY");
@@ -450,6 +458,13 @@ test("Device Editor placement delegates to the shared modular layout module", ()
   assert.match(placementReady, /await loadDeviceEditorPlacementModule\(\)/);
   assert.match(placementReady, /createModularInsertionDragSession/);
   assert.match(INDEX_HTML, /loadDeviceEditorPlacementModule\("Device Editor placement"\);/);
+  assert.match(motionLoader, /engineImportUrl\("\.\/src\/engine\/deviceEditorPlacementMotion\.js"\)/);
+  assert.match(motionLoader, /createPlacementMotionState/);
+  assert.match(motionLoader, /retargetPlacementMotion/);
+  assert.match(motionLoader, /createPlacementMotionFrameScheduler/);
+  assert.match(motionRequire, /throw new Error\("Device Editor placement motion module is not loaded\."\)/);
+  assert.match(combinedReady, /loadDeviceEditorPlacementModule\(\)/);
+  assert.match(combinedReady, /loadDeviceEditorPlacementMotionModule\(\)/);
 
   assert.match(functionSource("editorConnectorPlacementSideMask"), /connectorPlacementSideMask\(connector, width\)/);
   assert.match(resolver, /requireDeviceEditorPlacementModule\(\)/);
@@ -466,15 +481,15 @@ test("Device Editor placement delegates to the shared modular layout module", ()
   assert.doesNotMatch(INDEX_HTML, /function compactConnectorSide|nonNetworkMaxY|pairedNetworkTypeRank|pairedNetworkTypeOrder/);
   assert.doesNotMatch(INDEX_HTML, /while \(hasCollision|while \(layout\.occupied/);
 
-  assert.match(openEditor, /await ensureDeviceEditorPlacementModuleReady\(\)/);
-  assert.match(openNew, /await ensureDeviceEditorPlacementModuleReady\(\)/);
-  assert.match(openProject, /await ensureDeviceEditorPlacementModuleReady\(\)/);
-  assert.match(openInstance, /await ensureDeviceEditorPlacementModuleReady\(\)/);
+  assert.match(openEditor, /await ensureDeviceEditorPlacementModulesReady\(\)/);
+  assert.match(openNew, /await ensureDeviceEditorPlacementModulesReady\(\)/);
+  assert.match(openProject, /await ensureDeviceEditorPlacementModulesReady\(\)/);
+  assert.match(openInstance, /await ensureDeviceEditorPlacementModulesReady\(\)/);
 
   assert.match(functionSource("bindEditorInteractionSvg"), /pointercancel", cancelEditorInteraction/);
   assert.match(functionSource("bindEditorInteractionSvg"), /lostpointercapture", cancelEditorStableDrags/);
   assert.match(functionSource("cancelEditorInteraction"), /if \(cancelEditorStableDrags\(event\)\) return;/);
-  assert.match(functionSource("stopEditorNodeDrag"), /commitEditorStablePlacementDrag\(template, editorCardSlotDrag/);
+  assert.match(functionSource("stopEditorNodeDrag"), /commitEditorStablePlacementDrag\(template, completedDrag/);
 });
 
 test("Device Editor placement adapter follows shared V2 visual-side lane semantics", () => {
@@ -528,6 +543,34 @@ test("Device Editor placement adapter follows shared V2 visual-side lane semanti
     Object.fromEntries(sharedLayout.items.map(item => [item.id, item.y]))
   );
   assert.equal(adapterLayout.byId.get("card:slot-left-input").y, 206);
+});
+
+test("Device Editor placement motion is persistent and shared by Engine and Legacy previews", () => {
+  const previewPositions = functionSource("editorPreviewPositions");
+  const cardSlotDisplayY = functionSource("cardSlotDisplayY");
+  const previewClone = functionSource("editorEnginePreviewTemplateClone");
+  const legacyRender = functionSource("renderDeviceEditorPreview");
+  const engineRender = functionSource("renderDeviceEditorEnginePreview");
+  const syncEngine = functionSource("syncDeviceEditorEnginePreview");
+  const nodeMove = functionSource("moveEditorNode");
+  const stopDrag = functionSource("stopEditorNodeDrag");
+  const cancelDrags = functionSource("cancelEditorStableDrags");
+  const displayAnchors = functionSource("editorDisplayAnchorsForConnector");
+  const setPreviewY = functionSource("setConnectorPreviewY");
+
+  assert.match(previewPositions, /editorPlacementMotionConnectorPositions\(\)/);
+  assert.match(cardSlotDisplayY, /editorPlacementMotionVisualY\(`card:\$\{slot\?\.id\}`/);
+  assert.match(previewClone, /applyEditorPlacementVisualsToPreviewTemplate\(draft, template\)/);
+  assert.match(legacyRender, /applyEditorPlacementVisualsToPreviewTemplate\(previewTemplate, template\)/);
+  assert.doesNotMatch(legacyRender, /animateTransform/);
+  assert.match(engineRender, /motionOnly: options\.motionFrame === true \|\| editorPlacementMotionHasEntries\(\)/);
+  assert.match(syncEngine, /options\.motionOnly === true/);
+  assert.match(nodeMove, /retargetEditorPlacementMotionForDrag\(editorNodeDrag/);
+  assert.match(nodeMove, /retargetEditorPlacementMotionForDrag\(editorCardSlotDrag/);
+  assert.match(stopDrag, /settleEditorPlacementMotionToLayout\(completedDrag\.lastValidResolvedLayout/);
+  assert.match(cancelDrags, /rollbackEditorPlacementMotionForDrag/);
+  assert.match(displayAnchors, /deltaY = y - baseY/);
+  assert.match(setPreviewY, /deltaY = nextY - currentY/);
 });
 
 test("Device Editor stable connector drag resolves from an immutable snapshot and commits the displayed map", () => {
@@ -606,6 +649,7 @@ test("Device Editor stable drag cancellation leaves the live template untouched"
   assert.equal(context.editorNodeDrag, null);
   assert.deepEqual(template, before, "pointercancel should not commit drag changes");
   assert.equal(context.releaseCount, 1);
+  assert.equal(context.rollbackCount, 1);
   assert.equal(context.renderCount, 1);
 });
 
