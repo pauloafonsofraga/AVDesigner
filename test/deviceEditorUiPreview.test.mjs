@@ -13,10 +13,13 @@ import {
   connectorPlacementSideMask,
   createModularCompositeInsertionDragSession,
   createModularInsertionDragSession,
+  createModularStructuralEditSession,
   isValidModularCompositeInsertionResult,
   isValidModularInsertionResult,
+  isValidModularStructuralEditResult,
   resolveModularCompositeInsertionDrag,
   resolveModularInsertionDrag,
+  resolveModularStructuralEdit,
   targetLaneWithHysteresis,
   resolveModularPlacementItems
 } from "../src/engine/modularDeviceLayout.js";
@@ -168,11 +171,14 @@ function stableDragHarness(template) {
     requireDeviceEditorPlacementModule: () => ({
       createModularCompositeInsertionDragSession,
       createModularInsertionDragSession,
+      createModularStructuralEditSession,
       isValidModularCompositeInsertionResult,
       resolveModularInsertionDrag,
       resolveModularCompositeInsertionDrag,
+      resolveModularStructuralEdit,
       targetLaneWithHysteresis,
       isValidModularInsertionResult,
+      isValidModularStructuralEditResult,
       resolveModularPlacementItems
     }),
     connectorStartYForTemplate: device => Number(device?.startY) || 100,
@@ -550,6 +556,8 @@ test("Device Editor placement delegates to the shared modular layout module", ()
   const nextPlacement = functionSource("nextEditorPlacementY");
   const nextConnector = functionSource("nextAvailableConnectorY");
   const nextSlot = functionSource("nextEditorSlotY");
+  const structuralItems = functionSource("editorStructuralLayoutItems");
+  const structuralCommit = functionSource("commitEditorStructuralEdit");
   const openEditor = functionSource("openDeviceEditor");
   const openNew = functionSource("openDeviceEditorWithNewDevice");
   const openProject = functionSource("openDeviceEditorForProjectTemplateDraft");
@@ -565,10 +573,14 @@ test("Device Editor placement delegates to the shared modular layout module", ()
   assert.match(placementLoader, /targetLaneWithHysteresis/);
   assert.match(placementLoader, /isValidModularInsertionResult/);
   assert.match(placementLoader, /isValidModularCompositeInsertionResult/);
+  assert.match(placementLoader, /createModularStructuralEditSession/);
+  assert.match(placementLoader, /resolveModularStructuralEdit/);
+  assert.match(placementLoader, /isValidModularStructuralEditResult/);
   assert.match(placementRequire, /throw new Error\("Device Editor placement module is not loaded\."\)/);
   assert.match(placementReady, /await loadDeviceEditorPlacementModule\(\)/);
   assert.match(placementReady, /createModularInsertionDragSession/);
   assert.match(placementReady, /createModularCompositeInsertionDragSession/);
+  assert.match(placementReady, /createModularStructuralEditSession/);
   assert.match(INDEX_HTML, /loadDeviceEditorPlacementModule\("Device Editor placement"\);/);
   assert.match(motionLoader, /engineImportUrl\("\.\/src\/engine\/deviceEditorPlacementMotion\.js"\)/);
   assert.match(motionLoader, /createPlacementMotionState/);
@@ -590,6 +602,12 @@ test("Device Editor placement delegates to the shared modular layout module", ()
   assert.doesNotMatch(nextPlacement, /while\s*\(/);
   assert.match(nextConnector, /nextEditorPlacementY\(template, placementSide/);
   assert.match(nextSlot, /nextEditorPlacementY\(template, side/);
+  assert.match(structuralItems, /editorLayoutItems\(template, \{ useDragPreview: false \}\)/);
+  assert.match(structuralItems, /editorPlacementItemId\(item\)/);
+  assert.match(structuralCommit, /createModularStructuralEditSession\(baselineLayout\.items/);
+  assert.match(structuralCommit, /resolveModularStructuralEdit\(session, edit/);
+  assert.match(structuralCommit, /isValidModularStructuralEditResult\(session, edit, solvedLayout/);
+  assert.match(structuralCommit, /replaceEditorTemplateContents\(template, draft\)/);
   assert.doesNotMatch(INDEX_HTML, /function compactConnectorSide|nonNetworkMaxY|pairedNetworkTypeRank|pairedNetworkTypeOrder/);
   assert.doesNotMatch(INDEX_HTML, /while \(hasCollision|while \(layout\.occupied/);
 
@@ -659,6 +677,31 @@ test("Device Editor placement adapter follows shared V2 visual-side lane semanti
     Object.fromEntries(sharedLayout.items.map(item => [item.id, item.y]))
   );
   assert.equal(adapterLayout.byId.get("card:slot-left-input").y, 206);
+});
+
+test("Device Editor direct structural operations use the shared atomic transaction", () => {
+  const addNode = functionSource("addEditorNode");
+  const fillSlot = functionSource("fillEditorSlot");
+  const removeNode = functionSource("removeEditorNode");
+  const installCard = functionSource("installCardInSlot");
+  const addCardSlot = functionSource("addEditorCardSlot");
+  const removeCardSlot = functionSource("removeCardSlot");
+  const displaySideHandler = functionSource("renderSelectedConnectorSettings");
+
+  [addNode, fillSlot, removeNode, installCard, addCardSlot, removeCardSlot].forEach(source => {
+    assert.match(source, /commitEditorStructuralEdit\(template/);
+  });
+  assert.match(addNode, /hardTargets: \{ \[`connector:\$\{connector\.id\}`\]: targetLane \}/);
+  assert.match(addCardSlot, /hardTargets: \{ \[`card:\$\{slot\.id\}`\]: targetLane \}/);
+  assert.match(removeNode, /removeIds: \[\.{3}idsToRemove\]\.map\(id => `connector:\$\{id\}`\)/);
+  assert.match(removeCardSlot, /removeIds: \[`card:\$\{slotId\}`\]/);
+  assert.match(fillSlot, /ensurePairedNetworkPair\(draft, draftConnector\)/);
+  assert.match(fillSlot, /hardTargets\[`connector:\$\{pair\.id\}`\] = targetLane/);
+  assert.match(installCard, /upsertIds: \[`card:\$\{slotId\}`\]/);
+  assert.match(displaySideHandler, /commitEditorStructuralEdit\(template, \{\s*primaryItemId: `connector:\$\{connectorId\}`/);
+  assert.doesNotMatch(addNode, /template\.connectors\.push\(connector\);\s*normalizeConnectorRows\(template\)/);
+  assert.doesNotMatch(removeNode, /template\.connectors = template\.connectors\.filter[\s\S]*normalizeConnectorRows\(template\)/);
+  assert.doesNotMatch(installCard, /slot\.installedCardTypeId = cardTypeId[\s\S]*normalizeCardSlots\(template\)/);
 });
 
 test("Device Editor placement motion is persistent and shared by Engine and Legacy previews", () => {
@@ -836,7 +879,7 @@ test("Engine Device Editor card motion uses dynamic overlay ownership without pe
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /visual\.suppressCardAreasInTexture \? "suppress-card-areas" : ""/);
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /!visual\.suppressCardAreasInTexture\) \{\s*drawCardAreas/);
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /drawConnectorBands\(ctx, device, width, height, face\.bottom \+ 12\);/);
-  assert.match(PRODUCTION_BRIDGE_SOURCE, /ENGINE_BRIDGE_VERSION = "iteration54-7-2-atomic-device-editor-group-drag"/);
+  assert.match(PRODUCTION_BRIDGE_SOURCE, /ENGINE_BRIDGE_VERSION = "iteration54-8-0-atomic-device-editor-structural-edits"/);
 
   assert.match(previewClone, /draft\.suppressCardAreasInTexture = true/);
   assert.match(syncEngine, /suppressCardAreasInTexture: options\.dynamicCardArtwork === true/);

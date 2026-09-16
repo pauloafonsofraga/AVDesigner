@@ -24,7 +24,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-7-2-atomic-device-editor-group-drag";
+const BUILD_ID = "iteration54-8-0-atomic-device-editor-structural-edits";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -39,10 +39,10 @@ function sourceSlice(source, startNeedle, endNeedle) {
   return source.slice(start, end);
 }
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.7.2");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.7.2";'), "visible iteration should be 54.7.2");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-7-2-atomic-device-editor-group-drag-modules";'), "module cache key should bust 54.7.2 modules");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-7-2-atomic-device-editor-group-drag"'), "Engine bridge version should identify Iteration 54.7.2");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.8.0");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.8.0";'), "visible iteration should be 54.8.0");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-8-0-atomic-device-editor-structural-edits-modules";'), "module cache key should bust 54.8.0 modules");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-8-0-atomic-device-editor-structural-edits"'), "Engine bridge version should identify Iteration 54.8.0");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
 assert.ok(classicScripts.length >= 1, "index.html should contain at least one classic script");

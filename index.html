@@ -4993,7 +4993,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.7.2 — Atomic Device Editor Group Drag — iteration54-7-2-atomic-device-editor-group-drag</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.8.0 — Atomic Device Editor Structural Edits — iteration54-8-0-atomic-device-editor-structural-edits</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5686,10 +5686,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.7.2";
-    const APP_BUILD_ID = "iteration54-7-2-atomic-device-editor-group-drag";
-    const APP_MODULE_CACHE_ID = "iteration54-7-2-atomic-device-editor-group-drag-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Atomic Device Editor Group Drag`;
+    const APP_ITERATION = "54.8.0";
+    const APP_BUILD_ID = "iteration54-8-0-atomic-device-editor-structural-edits";
+    const APP_MODULE_CACHE_ID = "iteration54-8-0-atomic-device-editor-structural-edits-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Atomic Device Editor Structural Edits`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "6dc62f5ef0b40e65629ccfb8a5d9e2071fa8273f";
@@ -79915,6 +79915,161 @@
       return true;
     }
 
+    function editorStructuralLayoutItems(template, options = {}) {
+      const startY = connectorStartYForTemplate(template);
+      return editorLayoutItems(template, { useDragPreview: false }).map((item, sourceIndex) => {
+        const y = Number.isFinite(Number(item.requestedY)) ? Number(item.requestedY) : Number(item.ref?.y) || startY;
+        const lane = laneIndexForY(y, startY);
+        return {
+          id: editorPlacementItemId(item),
+          kind: item.kind === "card" ? "card" : "connector",
+          itemType: item.kind === "card" ? "card-slot" : "chassis-connector",
+          sideMask: normalizeEditorPlacementSideMask(item.sideMask),
+          requestedLane: lane,
+          requestedY: laneY(lane, startY),
+          lane,
+          y: laneY(lane, startY),
+          span: Math.max(1, Math.round(Number(item.span) || 1)),
+          order: Number.isFinite(Number(item.order)) ? Number(item.order) : sourceIndex,
+          sourceIndex,
+          ref: options.includeRefs === true ? item.ref : undefined
+        };
+      });
+    }
+
+    function editorStructuralTargetMap(value = null) {
+      if (value instanceof Map) return new Map(value);
+      if (!value || typeof value !== "object") return new Map();
+      return new Map(Object.entries(value));
+    }
+
+    function editorStructuralUpsertForItem(item, options = {}) {
+      const targetLane = Number.isFinite(Number(options.targetLane))
+        ? Math.max(0, Math.round(Number(options.targetLane)))
+        : item.lane;
+      return {
+        id: item.id,
+        itemType: item.itemType,
+        sideMask: item.sideMask,
+        span: item.span,
+        order: item.order,
+        targetLane,
+        hard: options.hard === true
+      };
+    }
+
+    function replaceEditorTemplateContents(target, source) {
+      Object.keys(target).forEach(key => {
+        if (!Object.prototype.hasOwnProperty.call(source, key)) delete target[key];
+      });
+      Object.assign(target, source);
+      return target;
+    }
+
+    function animateEditorStructuralEdit(baselineLayout, solvedLayout, primaryItemId = "") {
+      const itemId = String(primaryItemId || solvedLayout?.structuralEdit?.insertedIds?.[0] || solvedLayout?.structuralEdit?.updatedIds?.[0] || solvedLayout?.items?.[0]?.id || "");
+      if (!itemId) return;
+      const drag = {
+        itemId,
+        baselineResolvedLayout: baselineLayout,
+        lastValidResolvedLayout: solvedLayout,
+        specialTarget: null,
+        compositeDrag: false
+      };
+      beginEditorPlacementMotion(drag);
+      settleEditorPlacementMotionToLayout(solvedLayout, { clearWhenSettled: true });
+    }
+
+    function commitEditorStructuralEdit(template, options = {}) {
+      if (!template || typeof options.mutate !== "function") return null;
+      const placementModule = requireDeviceEditorPlacementModule();
+      const before = structuredClone(template);
+      const startY = connectorStartYForTemplate(template);
+      const baselineLayout = resolveEditorModularLayout(template, { useDragPreview: false });
+      const session = placementModule.createModularStructuralEditSession(baselineLayout.items, {
+        startY,
+        slotHeight: SLOT_HEIGHT
+      });
+      const draft = structuredClone(template);
+      const mutation = options.mutate(draft, {
+        baselineLayout,
+        session,
+        startY,
+        slotHeight: SLOT_HEIGHT,
+        targetLaneForY: y => laneIndexForY(y, startY),
+        targetYForLane: lane => laneY(lane, startY)
+      }) || {};
+      if (mutation.cancelled === true) return null;
+      ensureModularDefaults(draft);
+      const afterItems = editorStructuralLayoutItems(draft);
+      const afterById = new Map(afterItems.map(item => [item.id, item]));
+      const hardTargets = editorStructuralTargetMap(mutation.hardTargets);
+      const explicitUpsertIds = new Set(Array.isArray(mutation.upsertIds) ? mutation.upsertIds.map(id => String(id || "")).filter(Boolean) : []);
+      hardTargets.forEach((_lane, id) => explicitUpsertIds.add(id));
+      const removeIds = Array.isArray(mutation.removeIds)
+        ? mutation.removeIds.map(id => String(id || "")).filter(Boolean)
+        : session.snapshot.items
+            .filter(item => !afterById.has(item.id))
+            .map(item => item.id);
+      const upsertIds = new Set();
+      afterItems.forEach(item => {
+        const base = session.snapshot.byId[item.id];
+        const materiallyChanged = base
+          ? base.itemType !== item.itemType || base.sideMask !== item.sideMask || base.span !== item.span
+          : true;
+        if (!base || materiallyChanged || explicitUpsertIds.has(item.id)) upsertIds.add(item.id);
+      });
+      const upserts = [...upsertIds]
+        .map(id => {
+          const item = afterById.get(id);
+          if (!item) return null;
+          return editorStructuralUpsertForItem(item, {
+            targetLane: hardTargets.has(id) ? hardTargets.get(id) : item.lane,
+            hard: hardTargets.has(id)
+          });
+        })
+        .filter(Boolean);
+      let solvedLayout = baselineLayout;
+      const edit = {
+        removeIds,
+        upserts,
+        compactVacatedSpace: mutation.compactVacatedSpace !== false
+      };
+      if (removeIds.length || upserts.length) {
+        solvedLayout = placementModule.resolveModularStructuralEdit(session, edit, {
+          startY,
+          slotHeight: SLOT_HEIGHT
+        });
+        if (!placementModule.isValidModularStructuralEditResult(session, edit, solvedLayout, {
+          startY,
+          slotHeight: SLOT_HEIGHT
+        })) {
+          throw new Error("Device Editor structural edit produced an invalid layout.");
+        }
+      }
+      try {
+        replaceEditorTemplateContents(template, draft);
+        applyEditorStableResolvedLayout(template, solvedLayout, {
+          includeConnectors: options.includeConnectors !== false,
+          includeCards: options.includeCards !== false
+        });
+        normalizeEditorConnectorRelationships(template);
+        template.height = deviceHeightForSlotCounts(template);
+      } catch (error) {
+        replaceEditorTemplateContents(template, before);
+        throw error;
+      }
+      if (typeof options.afterCommit === "function") options.afterCommit(template, solvedLayout, mutation);
+      if (options.animate !== false && (removeIds.length || upserts.length)) {
+        animateEditorStructuralEdit(baselineLayout, solvedLayout, options.primaryItemId || upserts[0]?.id || solvedLayout.items?.[0]?.id || "");
+      }
+      if (options.render !== false) {
+        if (options.renderEditor === true) renderDeviceEditor();
+        else renderDeviceEditorPreview();
+      }
+      return { baselineLayout, solvedLayout, edit, mutation };
+    }
+
     function commitEditorStablePlacementDrag(template, drag, options = {}) {
       if (!template || !drag?.movementThresholdCrossed) return false;
       const layout = editorStableDragLayout(drag);
@@ -88946,10 +89101,17 @@
       selectedConnectorSettings.querySelectorAll("[data-connector-display-side]").forEach(control => {
         control.addEventListener("change", event => {
           if (!event.target.checked) return;
-          connector.displaySide = normalizeEditorDisplaySide(event.target.dataset.connectorDisplaySide, connector.direction, connector.x, deviceTemplateWidth(template));
-          ensureConnectorV2Defaults(template, connector, connectorIndex);
-          normalizeConnectorRows(template);
-          normalizeEditorConnectorRelationships(template);
+          const connectorId = connector.id;
+          commitEditorStructuralEdit(template, {
+            primaryItemId: `connector:${connectorId}`,
+            mutate(draft) {
+              const draftConnector = draft.connectors.find(item => item.id === connectorId);
+              if (!draftConnector) return { cancelled: true };
+              draftConnector.displaySide = normalizeEditorDisplaySide(event.target.dataset.connectorDisplaySide, draftConnector.direction, draftConnector.x, deviceTemplateWidth(draft));
+              ensureConnectorV2Defaults(draft, draftConnector, draft.connectors.findIndex(item => item.id === draftConnector.id));
+              return { upsertIds: [`connector:${connectorId}`] };
+            }
+          });
           renderSelectedConnectorSettings();
           renderConnectorRelationshipsPanel();
           renderDeviceEditorPreview();
@@ -89283,12 +89445,19 @@
       const slot = template?.cardSlots?.[slotIndex];
       if (!template || !slot) return false;
       if (cardTypeId && !cardTypeById(template, cardTypeId)) return false;
-      slot.installedCardTypeId = cardTypeId || "";
-      ensureCardSlotConnectorOverrides(template, slot);
-      normalizeCardSlots(template);
-      template.height = deviceHeightForSlotCounts(template);
-      renderDeviceEditor();
-      return true;
+      const slotId = slot.id;
+      const transaction = commitEditorStructuralEdit(template, {
+        primaryItemId: `card:${slotId}`,
+        renderEditor: true,
+        mutate(draft) {
+          const draftSlot = draft.cardSlots?.find(item => item.id === slotId);
+          if (!draftSlot) return { cancelled: true };
+          draftSlot.installedCardTypeId = cardTypeId || "";
+          ensureCardSlotConnectorOverrides(draft, draftSlot);
+          return { upsertIds: [`card:${slotId}`] };
+        }
+      });
+      return Boolean(transaction);
     }
 
     function addEditorCardSlot(options = {}) {
@@ -89297,30 +89466,52 @@
       const settings = options && typeof options === "object" && !("target" in options) ? options : {};
       const cardTypeId = String(settings.cardTypeId || "");
       if (cardTypeId && !cardTypeById(template, cardTypeId)) return false;
-      const count = template.cardSlots.length + 1;
-      const slot = createCardSlot(template, `Card Slot ${count}`);
       const requestedY = Number(settings.y);
-      if (Number.isFinite(requestedY)) {
-        slot.y = Math.max(connectorStartYForTemplate(template), requestedY);
-      }
-      if (cardTypeId) slot.installedCardTypeId = cardTypeId;
-      ensureCardSlotConnectorOverrides(template, slot);
-      template.cardSlots.push(slot);
-      editorSlotIndex = template.cardSlots.length - 1;
-      normalizeCardSlots(template);
-      template.height = deviceHeightForSlotCounts(template);
-      renderDeviceEditor();
-      return true;
+      let createdSlotId = "";
+      const transaction = commitEditorStructuralEdit(template, {
+        renderEditor: true,
+        mutate(draft, context) {
+          const count = draft.cardSlots.length + 1;
+          const slot = createCardSlot(draft, `Card Slot ${count}`);
+          if (cardTypeId) slot.installedCardTypeId = cardTypeId;
+          const sideMask = editorCardPlacementSideMask(draft, slot);
+          const span = cardSlotLaneCount(draft, slot);
+          const targetY = Number.isFinite(requestedY)
+            ? Math.max(context.startY, requestedY)
+            : nextEditorPlacementY(template, sideMask, { kind: "card", span });
+          const targetLane = context.targetLaneForY(targetY);
+          slot.y = context.targetYForLane(targetLane);
+          ensureCardSlotConnectorOverrides(draft, slot);
+          draft.cardSlots.push(slot);
+          createdSlotId = slot.id;
+          return {
+            hardTargets: { [`card:${slot.id}`]: targetLane },
+            upsertIds: [`card:${slot.id}`]
+          };
+        },
+        afterCommit(committedTemplate) {
+          editorSlotIndex = committedTemplate.cardSlots.findIndex(slot => slot.id === createdSlotId);
+          if (editorSlotIndex < 0) editorSlotIndex = Math.max(0, committedTemplate.cardSlots.length - 1);
+        }
+      });
+      return Boolean(transaction);
     }
 
     function removeCardSlot(index) {
       const template = currentEditorTemplate();
       if (!template?.cardSlots?.[index]) return;
-      template.cardSlots.splice(index, 1);
-      editorSlotIndex = clamp(editorSlotIndex, 0, Math.max(0, template.cardSlots.length - 1));
-      normalizeCardSlots(template);
-      template.height = deviceHeightForSlotCounts(template);
-      renderDeviceEditor();
+      const slotId = template.cardSlots[index].id;
+      commitEditorStructuralEdit(template, {
+        renderEditor: true,
+        primaryItemId: `card:${slotId}`,
+        mutate(draft) {
+          draft.cardSlots = draft.cardSlots.filter(slot => slot.id !== slotId);
+          return { removeIds: [`card:${slotId}`] };
+        },
+        afterCommit(committedTemplate) {
+          editorSlotIndex = clamp(editorSlotIndex, 0, Math.max(0, committedTemplate.cardSlots.length - 1));
+        }
+      });
     }
 
     function reorderCardSlot(template, slot, y) {
@@ -89946,7 +90137,10 @@
               || !module?.resolveModularCompositeInsertionDrag
               || !module?.targetLaneWithHysteresis
               || !module?.isValidModularInsertionResult
-              || !module?.isValidModularCompositeInsertionResult) {
+              || !module?.isValidModularCompositeInsertionResult
+              || !module?.createModularStructuralEditSession
+              || !module?.resolveModularStructuralEdit
+              || !module?.isValidModularStructuralEditResult) {
               throw new Error("Shared modular placement module is missing required placement helpers.");
             }
             deviceEditorPlacementModule = module;
@@ -89970,7 +90164,10 @@
         && deviceEditorPlacementModule?.resolveModularCompositeInsertionDrag
         && deviceEditorPlacementModule?.targetLaneWithHysteresis
         && deviceEditorPlacementModule?.isValidModularInsertionResult
-        && deviceEditorPlacementModule?.isValidModularCompositeInsertionResult) return deviceEditorPlacementModule;
+        && deviceEditorPlacementModule?.isValidModularCompositeInsertionResult
+        && deviceEditorPlacementModule?.createModularStructuralEditSession
+        && deviceEditorPlacementModule?.resolveModularStructuralEdit
+        && deviceEditorPlacementModule?.isValidModularStructuralEditResult) return deviceEditorPlacementModule;
       throw new Error("Device Editor placement module is not loaded.");
     }
 
@@ -89983,7 +90180,10 @@
         && module?.resolveModularCompositeInsertionDrag
         && module?.targetLaneWithHysteresis
         && module?.isValidModularInsertionResult
-        && module?.isValidModularCompositeInsertionResult);
+        && module?.isValidModularCompositeInsertionResult
+        && module?.createModularStructuralEditSession
+        && module?.resolveModularStructuralEdit
+        && module?.isValidModularStructuralEditResult);
     }
 
     function loadDeviceEditorPlacementMotionModule(statusLabel = "Device Editor placement motion") {
@@ -90034,6 +90234,9 @@
         && placement?.targetLaneWithHysteresis
         && placement?.isValidModularInsertionResult
         && placement?.isValidModularCompositeInsertionResult
+        && placement?.createModularStructuralEditSession
+        && placement?.resolveModularStructuralEdit
+        && placement?.isValidModularStructuralEditResult
         && motion?.createPlacementMotionState
         && motion?.retargetPlacementMotion
         && motion?.samplePlacementMotion);
@@ -93943,14 +94146,16 @@
       const template = currentEditorTemplate();
       const connector = template?.connectors[index];
       if (!connector) return;
-      const startBefore = connectorStartYForTemplate(template);
-      const rowsBefore = editorResizeSnapshot(template);
       const idsToRemove = new Set([connector.id]);
       if (isPairedNetworkConnector(connector) && connector.pairedConnectorId) idsToRemove.add(connector.pairedConnectorId);
-      template.connectors = template.connectors.filter(item => !idsToRemove.has(item.id));
+      commitEditorStructuralEdit(template, {
+        primaryItemId: `connector:${connector.id}`,
+        mutate(draft) {
+          draft.connectors = draft.connectors.filter(item => !idsToRemove.has(item.id));
+          return { removeIds: [...idsToRemove].map(id => `connector:${id}`) };
+        }
+      });
       clearEditorNodeSelection();
-      normalizeConnectorRows(template);
-      shiftRowsAfterFaceChange(template, startBefore, rowsBefore);
       renderSelectedConnectorSettings();
       renderDeviceEditorPreview();
     }
@@ -94361,46 +94566,63 @@
       const y = Number.isFinite(requestedY)
         ? (isFaceplateSideDropTarget(template, requestedY) ? faceplateSideConnectorY(template) : Math.max(startY, requestedY))
         : nextEditorSlotY(template, direction);
-      const connector = {
-        id: uniqueConnectorId(template, slugify(label)),
-        schemaVersion: EDITOR_DEVICE_DEFINITION_SCHEMA_VERSION,
-        label,
-        nameText: "",
-        direction,
-        signalDirection: normalizeEditorSignalDirection("", direction),
-        displaySide: direction === "input" ? "left" : "right",
-        type: "",
-        physicalType: "",
-        connectorType: "",
-        x: direction === "input" ? 0 : deviceTemplateWidth(template),
-        y,
-        anchors: [],
-        primaryAnchorId: direction === "input" ? "left" : "right",
-        infoFields: [],
-        resolutionFrameRate: "",
-        customText: "",
-        moduleCapability: null,
-        fiberCapability: null,
-        powerMetadata: null,
-        empty: true,
-        nameCustom: false,
-        faceplateSide: Number.isFinite(requestedY) && isFaceplateSideDropTarget(template, requestedY),
-        includeInMatrix: false,
-        matrixPortTouched: false
-      };
-      ensureConnectorV2Defaults(template, connector, template.connectors.length);
-      if (connector.faceplateSide) {
-        template.connectors
-          .filter(item => item.faceplateSide && connectorSideKey(item) === connectorSideKey(connector))
-          .forEach(item => moveConnectorBelowFaceplate(template, item));
-      }
-      template.connectors.push(connector);
-      normalizeConnectorRows(template);
-      const createdIndex = template.connectors.findIndex(item => item.id === connector.id);
+      let createdConnectorId = "";
+      const transaction = commitEditorStructuralEdit(template, {
+        mutate(draft, context) {
+          const connector = {
+            id: uniqueConnectorId(draft, slugify(label)),
+            schemaVersion: EDITOR_DEVICE_DEFINITION_SCHEMA_VERSION,
+            label,
+            nameText: "",
+            direction,
+            signalDirection: normalizeEditorSignalDirection("", direction),
+            displaySide: direction === "input" ? "left" : "right",
+            type: "",
+            physicalType: "",
+            connectorType: "",
+            x: direction === "input" ? 0 : deviceTemplateWidth(draft),
+            y,
+            anchors: [],
+            primaryAnchorId: direction === "input" ? "left" : "right",
+            infoFields: [],
+            resolutionFrameRate: "",
+            customText: "",
+            moduleCapability: null,
+            fiberCapability: null,
+            powerMetadata: null,
+            empty: true,
+            nameCustom: false,
+            faceplateSide: Number.isFinite(requestedY) && isFaceplateSideDropTarget(draft, requestedY),
+            includeInMatrix: false,
+            matrixPortTouched: false
+          };
+          ensureConnectorV2Defaults(draft, connector, draft.connectors.length);
+          if (connector.faceplateSide) {
+            draft.connectors
+              .filter(item => item.faceplateSide && connectorSideKey(item) === connectorSideKey(connector))
+              .forEach(item => moveConnectorBelowFaceplate(draft, item));
+          }
+          const targetLane = context.targetLaneForY(connector.y);
+          connector.y = connector.faceplateSide ? connector.y : context.targetYForLane(targetLane);
+          draft.connectors.push(connector);
+          createdConnectorId = connector.id;
+          return connector.faceplateSide
+            ? { upsertIds: [] }
+            : {
+                hardTargets: { [`connector:${connector.id}`]: targetLane },
+                upsertIds: [`connector:${connector.id}`]
+              };
+        },
+        afterCommit(committedTemplate) {
+          setEditorNodeSelection(committedTemplate, committedTemplate.connectors.findIndex(item => item.id === createdConnectorId));
+        }
+      });
+      if (!transaction) return;
+      const createdIndex = template.connectors.findIndex(item => item.id === createdConnectorId);
       setEditorNodeSelection(template, createdIndex);
       if (options.type && createdIndex !== -1) {
         fillEditorSlot(createdIndex, options.type);
-        setEditorNodeSelection(template, template.connectors.findIndex(item => item.id === connector.id));
+        setEditorNodeSelection(template, template.connectors.findIndex(item => item.id === createdConnectorId));
         renderSelectedConnectorSettings();
         return;
       }
@@ -94430,54 +94652,77 @@
       const template = currentEditorTemplate();
       const connector = template?.connectors[index];
       if (!connector || !type) return;
-      const startBefore = connectorStartYForTemplate(template);
-      const rowsBefore = editorResizeSnapshot(template);
       const typeLabel = cableTypes[type]?.label || type;
-      const previousType = connector.type || "";
       if (template.isPowerDistro && connector.direction === "input" && !powerPlugCanExistOnSide(type, "input")) {
         alert(`${typeLabel} cannot be used as a Power Distro input.`);
         return;
       }
-      if (isPairedNetworkConnector(connector) && connector.pairedConnectorId && connector.type !== type) {
-        const pairIndex = template.connectors.findIndex(item => item.id === connector.pairedConnectorId);
-        if (pairIndex !== -1) template.connectors.splice(pairIndex, 1);
-        connector.pairedConnectorId = "";
-        connector.networkGroupId = "";
-        connector.ethernetGroupId = "";
-      }
-      if (pairedNetworkTypes.has(type) && !isDeviceDefinitionV2ForEditor(template)) {
-        connector.label = typeLabel;
-        connector.type = type;
-        connector.empty = false;
-        connector.nameText = connector.nameText || "";
-        connector.customColor = "";
-        connector.installedModuleType = isCageConnector(connector) && previousType === type ? (connector.installedModuleType || "") : "";
-        connector.fiberMode = "";
-        connector.powerPlug = null;
-        connector.x = connector.direction === "input" ? 0 : deviceTemplateWidth(template);
-        applyAutomaticConnectorName(template.connectors, connector);
-        resetMatrixPortDefault(connector);
-        ensurePairedNetworkPair(template, connector);
-        shiftRowsAfterFaceChange(template, startBefore, rowsBefore);
-        renderDeviceEditorPreview();
-        return;
-      }
-      connector.type = type;
-      connector.empty = false;
-      connector.customColor = type === "misc" ? (connector.customColor || cableTypes.misc.color) : "";
-      connector.fiberMode = isFiberCableType(type) ? (connector.fiberMode || DEFAULT_FIBER_MODE) : "";
-      connector.installedModuleType = "";
-      if (!isPowerPlugConnector(connector)) connector.powerPlug = null;
-      if (!connector.label || /^input slot|^output slot/i.test(connector.label)) {
-        connector.label = typeLabel;
-      }
-      applyAutomaticConnectorName(template.connectors, connector);
-      connector.x = connector.direction === "input" ? 0 : deviceTemplateWidth(template);
-      ensureConnectorV2Defaults(template, connector, index, { typeChanged: true });
-      resetMatrixPortDefault(connector);
-      normalizeConnectorRows(template);
-      normalizeEditorConnectorRelationships(template);
-      shiftRowsAfterFaceChange(template, startBefore, rowsBefore);
+      const connectorId = connector.id;
+      commitEditorStructuralEdit(template, {
+        primaryItemId: `connector:${connectorId}`,
+        mutate(draft, context) {
+          const draftConnector = draft.connectors.find(item => item.id === connectorId);
+          if (!draftConnector) return { cancelled: true };
+          const previousType = draftConnector.type || "";
+          const removeIds = [];
+          const upsertIds = new Set();
+          const hardTargets = {};
+          const baselineItem = context.session.snapshot.byId[`connector:${connectorId}`];
+          const targetLane = baselineItem?.lane ?? context.targetLaneForY(draftConnector.y);
+          if (isPairedNetworkConnector(draftConnector) && draftConnector.pairedConnectorId && draftConnector.type !== type) {
+            const pair = draft.connectors.find(item => item.id === draftConnector.pairedConnectorId);
+            if (pair) removeIds.push(`connector:${pair.id}`);
+            draft.connectors = draft.connectors.filter(item => item.id !== draftConnector.pairedConnectorId);
+            draftConnector.pairedConnectorId = "";
+            draftConnector.networkGroupId = "";
+            draftConnector.ethernetGroupId = "";
+          }
+          if (pairedNetworkTypes.has(type) && !isDeviceDefinitionV2ForEditor(draft)) {
+            draftConnector.label = typeLabel;
+            draftConnector.type = type;
+            draftConnector.empty = false;
+            draftConnector.nameText = draftConnector.nameText || "";
+            draftConnector.customColor = "";
+            draftConnector.installedModuleType = isCageConnector(draftConnector) && previousType === type ? (draftConnector.installedModuleType || "") : "";
+            draftConnector.fiberMode = "";
+            draftConnector.powerPlug = null;
+            draftConnector.x = draftConnector.direction === "input" ? 0 : deviceTemplateWidth(draft);
+            draftConnector.y = context.targetYForLane(targetLane);
+            applyAutomaticConnectorName(draft.connectors, draftConnector);
+            resetMatrixPortDefault(draftConnector);
+            const pair = ensurePairedNetworkPair(draft, draftConnector);
+            if (pair) {
+              pair.y = context.targetYForLane(targetLane);
+              upsertIds.add(`connector:${pair.id}`);
+              hardTargets[`connector:${pair.id}`] = targetLane;
+            }
+            upsertIds.add(`connector:${draftConnector.id}`);
+            hardTargets[`connector:${draftConnector.id}`] = targetLane;
+            return {
+              removeIds,
+              upsertIds: [...upsertIds],
+              hardTargets
+            };
+          }
+          draftConnector.type = type;
+          draftConnector.empty = false;
+          draftConnector.customColor = type === "misc" ? (draftConnector.customColor || cableTypes.misc.color) : "";
+          draftConnector.fiberMode = isFiberCableType(type) ? (draftConnector.fiberMode || DEFAULT_FIBER_MODE) : "";
+          draftConnector.installedModuleType = "";
+          if (!isPowerPlugConnector(draftConnector)) draftConnector.powerPlug = null;
+          if (!draftConnector.label || /^input slot|^output slot/i.test(draftConnector.label)) {
+            draftConnector.label = typeLabel;
+          }
+          applyAutomaticConnectorName(draft.connectors, draftConnector);
+          draftConnector.x = draftConnector.direction === "input" ? 0 : deviceTemplateWidth(draft);
+          ensureConnectorV2Defaults(draft, draftConnector, draft.connectors.findIndex(item => item.id === draftConnector.id), { typeChanged: true });
+          resetMatrixPortDefault(draftConnector);
+          return {
+            removeIds,
+            upsertIds: [...upsertIds]
+          };
+        }
+      });
       renderSelectedConnectorSettings();
       renderConnectorRelationshipsPanel();
       renderDeviceEditorPreview();
