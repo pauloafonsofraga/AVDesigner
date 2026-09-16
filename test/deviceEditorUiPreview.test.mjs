@@ -6,6 +6,10 @@ import vm from "node:vm";
 import { fitCameraToBounds } from "../src/engine/enginePreview.js";
 import {
   connectorPlacementSideMask,
+  createModularInsertionDragSession,
+  isValidModularInsertionResult,
+  resolveModularInsertionDrag,
+  targetLaneWithHysteresis,
   resolveModularPlacementItems
 } from "../src/engine/modularDeviceLayout.js";
 import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
@@ -116,6 +120,133 @@ function sideParityConnector(id, side, direction, y = 152) {
       { id: side, side, x, y, primary: true }
     ]
   };
+}
+
+function stableDragHarness(template) {
+  const context = {
+    console,
+    JSON,
+    Map,
+    Number,
+    Object,
+    String,
+    structuredClone,
+    SLOT_HEIGHT: 54,
+    DEVICE_BOTTOM_PAD: 48,
+    editorNodeDrag: null,
+    editorCardSlotDrag: null,
+    editorConnectorSnapGuide: null,
+    editorDragPointerReleaseInProgress: false,
+    releaseCount: 0,
+    renderCount: 0,
+    releaseEditorPointerCapture: () => {
+      context.releaseCount += 1;
+    },
+    renderDeviceEditorPreview: () => {
+      context.renderCount += 1;
+    },
+    editorLaneMapsEqual: (left = new Map(), right = new Map()) => {
+      if (left.size !== right.size) return false;
+      for (const [id, lane] of left) {
+        if (right.get(id) !== lane) return false;
+      }
+      return true;
+    },
+    requireDeviceEditorPlacementModule: () => ({
+      createModularInsertionDragSession,
+      resolveModularInsertionDrag,
+      targetLaneWithHysteresis,
+      isValidModularInsertionResult,
+      resolveModularPlacementItems
+    }),
+    connectorStartYForTemplate: device => Number(device?.startY) || 100,
+    laneY: (lane, startY = 100) => startY + Math.max(0, lane) * 54,
+    captureTemplateConfiguration: device => structuredClone(device),
+    deviceTemplateWidth: device => Number(device?.width) || 420,
+    connectorSideKey: connector => connector?.direction === "output" ? "output" : "input",
+    isEditorV2ConnectorCandidate: connector => Array.isArray(connector?.anchors),
+    editorConnectorAnchors: connector => Array.isArray(connector?.anchors) ? structuredClone(connector.anchors) : [],
+    deviceHeightForSlotCounts: device => {
+      const connectorBottom = Math.max(0, ...(device.connectors || []).map(connector => Number(connector.y) || 0));
+      const slotBottom = Math.max(0, ...(device.cardSlots || []).map(slot => (Number(slot.y) || 0) + (Number(slot.span) || 1) * 54));
+      return Math.max(240, connectorBottom + 102, slotBottom + 102);
+    },
+    syncEditorConnectorAnchorsToPosition: (device, connector) => {
+      if (!Array.isArray(connector.anchors)) return;
+      const width = Number(device?.width) || 420;
+      connector.anchors = connector.anchors.map(anchor => ({
+        ...anchor,
+        x: anchor.side === "right" ? width : 0,
+        y: connector.y
+      }));
+    },
+    resolveEditorModularLayout: device => {
+      const startY = Number(device?.startY) || 100;
+      const connectorItems = (device.connectors || []).map((connector, index) => ({
+        id: `connector:${connector.id}`,
+        kind: "connector",
+        itemType: "chassis-connector",
+        sideMask: connector.sideMask || (connector.displaySide === "both" ? "both" : connector.direction === "output" ? "right" : "left"),
+        requestedY: Number(connector.y) || startY,
+        requestedLane: Math.max(0, Math.round(((Number(connector.y) || startY) - startY) / 54)),
+        span: 1,
+        order: index,
+        ref: connector
+      }));
+      const cardItems = (device.cardSlots || []).map((slot, index) => ({
+        id: `card:${slot.id}`,
+        kind: "card",
+        itemType: "card-slot",
+        sideMask: slot.sideMask || "both",
+        requestedY: Number(slot.y) || startY,
+        requestedLane: Math.max(0, Math.round(((Number(slot.y) || startY) - startY) / 54)),
+        span: Math.max(1, Number(slot.span) || 3),
+        order: connectorItems.length + index,
+        ref: slot
+      }));
+      return resolveModularPlacementItems([...connectorItems, ...cardItems], { startY, slotHeight: 54 });
+    }
+  };
+  context.normalizeMixedDeviceRows = device => {
+    const layout = context.resolveEditorModularLayout(device);
+    layout.items.forEach(item => {
+      if (item.kind === "connector") {
+        item.ref.y = item.y;
+        item.ref.x = item.ref.direction === "output" ? context.deviceTemplateWidth(device) : 0;
+        context.syncEditorConnectorAnchorsToPosition(device, item.ref);
+      } else if (item.kind === "card") {
+        item.ref.y = item.y;
+      }
+    });
+  };
+  const helpers = [
+    "editorStableDragLayout",
+    "editorActiveStableDragLayout",
+    "editorStableDragItemId",
+    "editorStableLayoutItemKind",
+    "editorStableDragSourceId",
+    "editorStableDragLayoutPositions",
+    "editorStableDragLaneMap",
+    "editorPlacementItemByStableId",
+    "createEditorStablePlacementDragSession",
+    "resolveEditorStablePlacementDragMove",
+    "applyEditorStableResolvedLayout",
+    "commitEditorStablePlacementDrag",
+    "cancelEditorStableDrags"
+  ];
+  const script = `${helpers.map(functionSource).join("\n")}
+    ({
+      createEditorStablePlacementDragSession,
+      resolveEditorStablePlacementDragMove,
+      applyEditorStableResolvedLayout,
+      commitEditorStablePlacementDrag,
+      editorStableDragLayoutPositions,
+      editorStableDragLaneMap,
+      editorPlacementItemByStableId,
+      cancelEditorStableDrags
+    })`;
+  const api = vm.runInNewContext(script, context);
+  return { api, context, template };
 }
 
 test("Device tab uses compact feature groups with dependent controls beside toggles", () => {
@@ -311,8 +442,13 @@ test("Device Editor placement delegates to the shared modular layout module", ()
   assert.match(placementLoader, /engineImportUrl\("\.\/src\/engine\/modularDeviceLayout\.js"\)/);
   assert.doesNotMatch(placementLoader, /engineEditorRequestedByUrl/);
   assert.match(placementLoader, /connectorPlacementSideMask/);
+  assert.match(placementLoader, /createModularInsertionDragSession/);
+  assert.match(placementLoader, /resolveModularInsertionDrag/);
+  assert.match(placementLoader, /targetLaneWithHysteresis/);
+  assert.match(placementLoader, /isValidModularInsertionResult/);
   assert.match(placementRequire, /throw new Error\("Device Editor placement module is not loaded\."\)/);
   assert.match(placementReady, /await loadDeviceEditorPlacementModule\(\)/);
+  assert.match(placementReady, /createModularInsertionDragSession/);
   assert.match(INDEX_HTML, /loadDeviceEditorPlacementModule\("Device Editor placement"\);/);
 
   assert.match(functionSource("editorConnectorPlacementSideMask"), /connectorPlacementSideMask\(connector, width\)/);
@@ -334,6 +470,11 @@ test("Device Editor placement delegates to the shared modular layout module", ()
   assert.match(openNew, /await ensureDeviceEditorPlacementModuleReady\(\)/);
   assert.match(openProject, /await ensureDeviceEditorPlacementModuleReady\(\)/);
   assert.match(openInstance, /await ensureDeviceEditorPlacementModuleReady\(\)/);
+
+  assert.match(functionSource("bindEditorInteractionSvg"), /pointercancel", cancelEditorInteraction/);
+  assert.match(functionSource("bindEditorInteractionSvg"), /lostpointercapture", cancelEditorStableDrags/);
+  assert.match(functionSource("cancelEditorInteraction"), /if \(cancelEditorStableDrags\(event\)\) return;/);
+  assert.match(functionSource("stopEditorNodeDrag"), /commitEditorStablePlacementDrag\(template, editorCardSlotDrag/);
 });
 
 test("Device Editor placement adapter follows shared V2 visual-side lane semantics", () => {
@@ -387,6 +528,120 @@ test("Device Editor placement adapter follows shared V2 visual-side lane semanti
     Object.fromEntries(sharedLayout.items.map(item => [item.id, item.y]))
   );
   assert.equal(adapterLayout.byId.get("card:slot-left-input").y, 206);
+});
+
+test("Device Editor stable connector drag resolves from an immutable snapshot and commits the displayed map", () => {
+  const template = {
+    width: 420,
+    startY: 100,
+    connectors: [
+      { id: "A", direction: "input", y: 100, x: 0, sideMask: "left", anchors: [{ id: "left", side: "left", x: 0, y: 100 }] },
+      { id: "B", direction: "input", y: 154, x: 0, sideMask: "left", anchors: [{ id: "left", side: "left", x: 0, y: 154 }] },
+      { id: "C", direction: "input", y: 208, x: 0, sideMask: "left", anchors: [{ id: "left", side: "left", x: 0, y: 208 }] }
+    ],
+    cardSlots: []
+  };
+  const { api } = stableDragHarness(template);
+  const before = structuredClone(template);
+  const drag = api.createEditorStablePlacementDragSession(template, {
+    kind: "connector",
+    id: "C",
+    pointerId: 4,
+    pointerY: 228
+  });
+  const snapshotBefore = JSON.stringify(drag.session.snapshot);
+
+  assert.equal(Object.isFrozen(drag.session.snapshot), true);
+  assert.equal(drag.offsetY, 20);
+  api.resolveEditorStablePlacementDragMove(drag, 232);
+  assert.deepEqual(template, before, "pointer movement should not mutate the live template");
+  assert.equal(JSON.stringify(drag.session.snapshot), snapshotBefore, "session snapshot should remain unchanged");
+  assert.equal(drag.currentTargetLane, 2, "small movement around the original row should stay in-lane");
+
+  api.resolveEditorStablePlacementDragMove(drag, 120);
+  const previewLanes = Object.fromEntries(api.editorStableDragLaneMap(drag.lastValidResolvedLayout));
+  assert.deepEqual(previewLanes, {
+    "connector:A": 1,
+    "connector:B": 2,
+    "connector:C": 0
+  });
+  const previewPositions = api.editorStableDragLayoutPositions(drag.lastValidResolvedLayout, "connector");
+  api.commitEditorStablePlacementDrag(template, drag, { includeConnectors: true, includeCards: true });
+
+  assert.deepEqual(
+    Object.fromEntries(template.connectors.map(connector => [connector.id, connector.y])),
+    Object.fromEntries(previewPositions),
+    "commit should apply the exact displayed connector positions"
+  );
+  template.connectors.forEach(connector => {
+    assert.equal(connector.anchors[0].y, connector.y, `${connector.id} anchor should sync to committed y`);
+  });
+});
+
+test("Device Editor stable drag cancellation leaves the live template untouched", () => {
+  const template = {
+    width: 420,
+    startY: 100,
+    connectors: [
+      { id: "A", direction: "input", y: 100, x: 0, sideMask: "left" },
+      { id: "B", direction: "input", y: 154, x: 0, sideMask: "left" }
+    ],
+    cardSlots: []
+  };
+  const { api, context } = stableDragHarness(template);
+  const before = structuredClone(template);
+  const drag = api.createEditorStablePlacementDragSession(template, {
+    kind: "connector",
+    id: "B",
+    pointerId: 9,
+    pointerY: 154
+  });
+
+  api.resolveEditorStablePlacementDragMove(drag, 100);
+  context.editorNodeDrag = drag;
+  assert.equal(drag.currentTargetLane, 0);
+  assert.deepEqual(template, before, "preview movement should remain read-only before cancellation");
+
+  assert.equal(api.cancelEditorStableDrags({ pointerId: 9, type: "pointercancel" }), true);
+  assert.equal(context.editorNodeDrag, null);
+  assert.deepEqual(template, before, "pointercancel should not commit drag changes");
+  assert.equal(context.releaseCount, 1);
+  assert.equal(context.renderCount, 1);
+});
+
+test("Device Editor stable card-slot drag preserves pointer offset and moves as one span", () => {
+  const template = {
+    width: 420,
+    startY: 100,
+    connectors: [
+      { id: "L", direction: "input", y: 100, x: 0, sideMask: "left" },
+      { id: "R", direction: "output", y: 100, x: 420, sideMask: "right" }
+    ],
+    cardSlots: [
+      { id: "slot-1", y: 154, span: 3, sideMask: "both" }
+    ]
+  };
+  const { api } = stableDragHarness(template);
+  const before = structuredClone(template);
+  const drag = api.createEditorStablePlacementDragSession(template, {
+    kind: "card",
+    id: "slot-1",
+    pointerId: 7,
+    pointerY: 130
+  });
+
+  assert.equal(drag.offsetY, -24, "card drag should preserve where the user grabbed the band");
+  api.resolveEditorStablePlacementDragMove(drag, 134);
+  assert.equal(drag.currentTargetLane, 1, "small movement after an edge grab should not jump rows");
+  assert.deepEqual(template, before, "card preview movement should not mutate the live template");
+
+  api.resolveEditorStablePlacementDragMove(drag, 76);
+  const cardItem = api.editorPlacementItemByStableId(drag.lastValidResolvedLayout, "card:slot-1");
+  assert.equal(cardItem.lane, 0);
+  assert.equal(cardItem.span, 3, "card slot should remain atomic while dragging");
+  api.applyEditorStableResolvedLayout(template, drag.lastValidResolvedLayout);
+  assert.equal(template.cardSlots[0].y, cardItem.y);
+  assert.ok(template.height >= cardItem.bottomY, "commit should recalculate height to contain the moved card band");
 });
 
 test("standalone exported viewer side helper follows V2 visual-side semantics", () => {

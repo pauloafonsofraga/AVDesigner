@@ -4993,7 +4993,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.5.1 — V2 Display Side Placement Parity — iteration54-5-1-v2-display-side-placement-parity</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.6.0 — Device Editor Stable Drag Sessions — iteration54-6-0-device-editor-stable-drag-sessions</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5686,10 +5686,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.5.1";
-    const APP_BUILD_ID = "iteration54-5-1-v2-display-side-placement-parity";
-    const APP_MODULE_CACHE_ID = "iteration54-5-1-v2-display-side-placement-parity-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — V2 Display Side Placement Parity`;
+    const APP_ITERATION = "54.6.0";
+    const APP_BUILD_ID = "iteration54-6-0-device-editor-stable-drag-sessions";
+    const APP_MODULE_CACHE_ID = "iteration54-6-0-device-editor-stable-drag-sessions-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Device Editor Stable Drag Sessions`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "f409d0373f783821e981515da660a2476e661959";
@@ -78401,6 +78401,7 @@
     let editorNodeDrag = null;
     let editorNodeMarquee = null;
     let editorCardSlotDrag = null;
+    let editorDragPointerReleaseInProgress = false;
     let editorPowerPlugDrag = null;
     let editorPowerPlugSnap = null;
     let editorConnectorSnapGuide = null;
@@ -79586,7 +79587,14 @@
     function editorCardSlotDisplayOverrides(template, options = {}) {
       const startY = connectorStartYForTemplate(template);
       const overrides = new Map();
-      if (options.useDragPreview !== false && editorCardSlotDrag?.slotId) {
+      const dragLayout = options.useDragPreview !== false
+        ? editorActiveStableDragLayout()
+        : null;
+      if (dragLayout) {
+        dragLayout.items.forEach(item => {
+          if (editorStableLayoutItemKind(item) === "card") overrides.set(editorStableDragSourceId(item.id, "card"), item.y);
+        });
+      } else if (options.useDragPreview !== false && editorCardSlotDrag?.slotId) {
         overrides.set(editorCardSlotDrag.slotId, Math.max(startY, editorCardSlotDrag.currentY));
       }
       return overrides;
@@ -79594,6 +79602,11 @@
 
     function editorResolvedCardSlotY(template, slot, options = {}) {
       const startY = connectorStartYForTemplate(template);
+      if (options.useDragPreview !== false) {
+        const dragLayout = editorActiveStableDragLayout();
+        const item = dragLayout ? editorPlacementItemByStableId(dragLayout, `card:${slot?.id}`) : null;
+        if (item && Number.isFinite(Number(item.y))) return item.y;
+      }
       const overrides = editorCardSlotDisplayOverrides(template, options);
       const layout = resolveEditorModularLayout(template, { cardSlotYOverrides: overrides });
       const resolved = layout.byId.get(`card:${slot?.id}`);
@@ -79629,6 +79642,226 @@
       }
     }
 
+    function editorStableDragLayout(drag) {
+      return drag?.lastValidResolvedLayout && Array.isArray(drag.lastValidResolvedLayout.items)
+        ? drag.lastValidResolvedLayout
+        : null;
+    }
+
+    function editorActiveStableDragLayout() {
+      if (editorNodeDrag?.specialTarget) return editorStableDragLayout(editorCardSlotDrag);
+      return editorStableDragLayout(editorNodeDrag) || editorStableDragLayout(editorCardSlotDrag);
+    }
+
+    function editorStableDragItemId(kind, id) {
+      return `${kind}:${id}`;
+    }
+
+    function editorStableLayoutItemKind(item = {}) {
+      const id = String(item.id || "");
+      if (item.kind === "card" || item.itemType === "card-slot" || id.startsWith("card:")) return "card";
+      return "connector";
+    }
+
+    function editorStableDragSourceId(itemId = "", expectedKind = "") {
+      const raw = String(itemId || "");
+      const prefix = expectedKind ? `${expectedKind}:` : "";
+      if (prefix && raw.startsWith(prefix)) return raw.slice(prefix.length);
+      const separator = raw.indexOf(":");
+      return separator >= 0 ? raw.slice(separator + 1) : raw;
+    }
+
+    function editorStableDragLayoutPositions(layout, kind) {
+      const map = new Map();
+      (layout?.items || []).forEach(item => {
+        if (editorStableLayoutItemKind(item) !== kind) return;
+        map.set(editorStableDragSourceId(item.id, kind), item.y);
+      });
+      return map;
+    }
+
+    function editorStableDragLaneMap(layout) {
+      const map = new Map();
+      (layout?.items || []).forEach(item => {
+        map.set(item.id, item.lane);
+      });
+      return map;
+    }
+
+    function editorLaneMapsEqual(left = new Map(), right = new Map()) {
+      if (left.size !== right.size) return false;
+      for (const [id, lane] of left) {
+        if (right.get(id) !== lane) return false;
+      }
+      return true;
+    }
+
+    function editorPlacementItemByStableId(layout, itemId) {
+      if (!layout || !itemId) return null;
+      if (layout.byId instanceof Map) return layout.byId.get(itemId) || null;
+      return (layout.items || []).find(item => item.id === itemId) || null;
+    }
+
+    function createEditorStablePlacementDragSession(template, options = {}) {
+      const kind = options.kind === "card" ? "card" : "connector";
+      const id = String(options.id || "");
+      if (!template || !id) return null;
+      const placementModule = requireDeviceEditorPlacementModule();
+      const startY = connectorStartYForTemplate(template);
+      const layout = resolveEditorModularLayout(template, { useDragPreview: false });
+      const itemId = editorStableDragItemId(kind, id);
+      const item = editorPlacementItemByStableId(layout, itemId);
+      if (!item) return null;
+      const session = placementModule.createModularInsertionDragSession(layout.items, itemId, {
+        startY,
+        slotHeight: SLOT_HEIGHT
+      });
+      const targetLane = item.lane;
+      const resolvedLayout = placementModule.resolveModularInsertionDrag(session.snapshot, itemId, targetLane, {
+        startY,
+        slotHeight: SLOT_HEIGHT
+      });
+      if (!placementModule.isValidModularInsertionResult(session.snapshot, resolvedLayout, itemId, targetLane, {
+        startY,
+        slotHeight: SLOT_HEIGHT
+      })) {
+        throw new Error(`Device Editor stable drag session failed validation for ${itemId}.`);
+      }
+      const pointerY = Number(options.pointerY);
+      const resolvedPointerY = Number.isFinite(pointerY) ? pointerY : item.y;
+      const baselineLaneMap = editorStableDragLaneMap(resolvedLayout);
+      return {
+        pointerId: options.pointerId,
+        kind,
+        itemId,
+        sourceId: id,
+        session,
+        originalLane: session.originalLane ?? targetLane,
+        previousTargetLane: targetLane,
+        currentTargetLane: targetLane,
+        offsetY: resolvedPointerY - item.y,
+        pointerStartY: resolvedPointerY,
+        candidateY: item.y,
+        currentY: item.y,
+        startY,
+        slotHeight: SLOT_HEIGHT,
+        lastValidResolvedLayout: resolvedLayout,
+        baselineLaneMap,
+        movementThresholdCrossed: false,
+        moved: false,
+        specialTarget: null,
+        pointerDownTemplateSnapshot: JSON.stringify(captureTemplateConfiguration(template))
+      };
+    }
+
+    function resolveEditorStablePlacementDragMove(drag, pointerY, options = {}) {
+      if (!drag?.session?.snapshot) return drag;
+      const placementModule = requireDeviceEditorPlacementModule();
+      const resolvedPointerY = Number(pointerY);
+      const candidateY = (Number.isFinite(resolvedPointerY) ? resolvedPointerY : drag.pointerStartY) - drag.offsetY;
+      const previousLane = Number.isFinite(Number(drag.currentTargetLane))
+        ? drag.currentTargetLane
+        : drag.originalLane;
+      const targetLane = placementModule.targetLaneWithHysteresis(candidateY, {
+        startY: drag.startY,
+        slotHeight: drag.slotHeight || SLOT_HEIGHT,
+        previousLane
+      });
+      drag.candidateY = candidateY;
+      drag.movementThresholdCrossed = drag.movementThresholdCrossed
+        || Math.abs((Number.isFinite(resolvedPointerY) ? resolvedPointerY : drag.pointerStartY) - drag.pointerStartY) > 4
+        || targetLane !== drag.originalLane;
+      drag.moved = drag.movementThresholdCrossed;
+      if (targetLane === drag.currentTargetLane && !options.force) {
+        const currentItem = editorPlacementItemByStableId(drag.lastValidResolvedLayout, drag.itemId);
+        drag.currentY = currentItem?.y ?? drag.currentY;
+        return drag;
+      }
+      const resolvedLayout = placementModule.resolveModularInsertionDrag(drag.session.snapshot, drag.itemId, targetLane, {
+        startY: drag.startY,
+        slotHeight: drag.slotHeight || SLOT_HEIGHT
+      });
+      if (!placementModule.isValidModularInsertionResult(drag.session.snapshot, resolvedLayout, drag.itemId, targetLane, {
+        startY: drag.startY,
+        slotHeight: drag.slotHeight || SLOT_HEIGHT
+      })) {
+        return drag;
+      }
+      drag.previousTargetLane = drag.currentTargetLane;
+      drag.currentTargetLane = targetLane;
+      drag.lastValidResolvedLayout = resolvedLayout;
+      const currentItem = editorPlacementItemByStableId(resolvedLayout, drag.itemId);
+      drag.currentY = currentItem?.y ?? laneY(targetLane, drag.startY);
+      return drag;
+    }
+
+    function applyEditorStableResolvedLayout(template, layout, options = {}) {
+      if (!template || !layout?.items) return false;
+      const includeConnectors = options.includeConnectors !== false;
+      const includeCards = options.includeCards !== false;
+      const edgeX = deviceTemplateWidth(template);
+      layout.items.forEach(item => {
+        const itemKind = editorStableLayoutItemKind(item);
+        const sourceId = editorStableDragSourceId(item.id, itemKind);
+        if (itemKind === "connector" && includeConnectors) {
+          const connector = template.connectors?.find(candidate => candidate.id === sourceId);
+          if (!connector) return;
+          connector.faceplateSide = false;
+          delete connector.adapterCenterSnap;
+          connector.y = item.y;
+          connector.x = connectorSideKey(connector) === "input" ? 0 : edgeX;
+          syncEditorConnectorAnchorsToPosition(template, connector);
+        } else if (itemKind === "card" && includeCards) {
+          const slot = template.cardSlots?.find(candidate => candidate.id === sourceId);
+          if (slot) slot.y = item.y;
+        }
+      });
+      const committedLaneMap = editorStableDragLaneMap(layout);
+      normalizeMixedDeviceRows(template);
+      const normalizedLaneMap = editorStableDragLaneMap(resolveEditorModularLayout(template, { useDragPreview: false }));
+      if (!editorLaneMapsEqual(committedLaneMap, normalizedLaneMap)) {
+        console.warn("Device Editor stable drag normalization changed committed lane map.", {
+          committed: Object.fromEntries(committedLaneMap),
+          normalized: Object.fromEntries(normalizedLaneMap)
+        });
+      }
+      template.height = deviceHeightForSlotCounts(template);
+      return true;
+    }
+
+    function commitEditorStablePlacementDrag(template, drag, options = {}) {
+      if (!template || !drag?.movementThresholdCrossed) return false;
+      const layout = editorStableDragLayout(drag);
+      if (!layout) return false;
+      return applyEditorStableResolvedLayout(template, layout, options);
+    }
+
+    function cancelEditorStableDrags(event = null) {
+      if (event?.type === "lostpointercapture" && editorDragPointerReleaseInProgress) return false;
+      const pointerId = event?.pointerId;
+      const matches = drag => !drag || pointerId === undefined || drag.pointerId === pointerId;
+      let cancelled = false;
+      if (matches(editorCardSlotDrag) && editorCardSlotDrag) {
+        editorCardSlotDrag = null;
+        cancelled = true;
+      }
+      if (matches(editorNodeDrag) && editorNodeDrag) {
+        editorNodeDrag = null;
+        editorConnectorSnapGuide = null;
+        cancelled = true;
+      }
+      if (cancelled) {
+        releaseEditorPointerCapture(event);
+        renderDeviceEditorPreview();
+      }
+      return cancelled;
+    }
+
+    function cancelEditorInteraction(event = null) {
+      if (cancelEditorStableDrags(event)) return;
+      stopEditorNodeDrag(event);
+    }
+
     function normalizeMixedDeviceRows(template) {
       const layout = resolveEditorModularLayout(template, { useDragPreview: false });
       layout.items.forEach(item => {
@@ -79647,6 +79880,7 @@
       ensureModularDefaults(template);
       if (!template.hasSwappableCards) return [];
       const connectors = [];
+      const activeCardDragLayout = editorActiveStableDragLayout();
       const slotLayout = resolveEditorModularLayout(template, {
         cardSlotYOverrides: editorCardSlotDisplayOverrides(template)
       });
@@ -79658,7 +79892,9 @@
           const effectiveConnector = mergedCardConnectorForSlot(template, slot, connector);
           const side = effectiveConnector.direction === "input" ? "input" : "output";
           const slotIndex = sideCounts[side]++;
-          const resolvedSlotY = slotLayout.byId.get(`card:${slot.id}`)?.y || Math.max(connectorStartYForTemplate(template), Number(slot.y) || connectorStartYForTemplate(template));
+          const resolvedSlotY = editorPlacementItemByStableId(activeCardDragLayout, `card:${slot.id}`)?.y
+            || slotLayout.byId.get(`card:${slot.id}`)?.y
+            || Math.max(connectorStartYForTemplate(template), Number(slot.y) || connectorStartYForTemplate(template));
           const generatedConnector = {
             ...effectiveConnector,
             id: `${slot.id}__${connector.id}`,
@@ -89331,12 +89567,27 @@
 
     function editorPreviewPositions(template) {
       const map = new Map();
-      if (!editorNodeDrag) return applyEditorSharedRelationshipDisplayPositions(template, map);
+      if (!editorNodeDrag) {
+        const cardDragLayout = editorActiveStableDragLayout();
+        if (cardDragLayout) {
+          editorStableDragLayoutPositions(cardDragLayout, "connector").forEach((y, connectorId) => {
+            map.set(connectorId, y);
+          });
+        }
+        return applyEditorSharedRelationshipDisplayPositions(template, map);
+      }
       const draggedIds = editorDragConnectorIds(template);
       if (!draggedIds.length) return applyEditorSharedRelationshipDisplayPositions(template, map);
       const selected = new Set(draggedIds);
       const dragged = template.connectors.find(connector => connector.id === editorNodeDrag.connectorId);
       if (!dragged) return applyEditorSharedRelationshipDisplayPositions(template, map);
+      const stableLayout = draggedIds.length === 1 ? editorStableDragLayout(editorNodeDrag) : null;
+      if (stableLayout && !editorNodeDrag.specialTarget) {
+        editorStableDragLayoutPositions(stableLayout, "connector").forEach((y, connectorId) => {
+          map.set(connectorId, y);
+        });
+        return applyEditorSharedRelationshipDisplayPositions(template, map);
+      }
       if (draggedIds.length === 1 && isAdapterCenterDropTarget(template, dragged, editorNodeDrag.currentY)) {
         map.set(dragged.id, adapterCenterY(template));
         return applyEditorSharedRelationshipDisplayPositions(template, map);
@@ -89366,7 +89617,11 @@
       const connector = template.connectors.find(item => item.id === editorNodeDrag.connectorId);
       if (!connector) return;
       if (draggedIds.length <= 1) {
-        reorderConnectorInDirection(template, connector, editorNodeDrag.currentY);
+        if (editorNodeDrag.specialTarget) {
+          reorderConnectorInDirection(template, connector, editorNodeDrag.currentY);
+        } else {
+          commitEditorStablePlacementDrag(template, editorNodeDrag, { includeConnectors: true, includeCards: true });
+        }
         setEditorNodeSelection(template, template.connectors.findIndex(item => item.id === connector.id), { keepGroup: true });
         return;
       }
@@ -89459,7 +89714,12 @@
         const moduleUrl = engineImportUrl("./src/engine/modularDeviceLayout.js");
         deviceEditorPlacementModulePromise = import(moduleUrl)
           .then(module => {
-            if (!module?.resolveModularPlacementItems || !module?.connectorPlacementSideMask) {
+            if (!module?.resolveModularPlacementItems
+              || !module?.connectorPlacementSideMask
+              || !module?.createModularInsertionDragSession
+              || !module?.resolveModularInsertionDrag
+              || !module?.targetLaneWithHysteresis
+              || !module?.isValidModularInsertionResult) {
               throw new Error("Shared modular placement module is missing required placement helpers.");
             }
             deviceEditorPlacementModule = module;
@@ -89476,13 +89736,21 @@
     }
 
     function requireDeviceEditorPlacementModule() {
-      if (deviceEditorPlacementModule?.resolveModularPlacementItems) return deviceEditorPlacementModule;
+      if (deviceEditorPlacementModule?.resolveModularPlacementItems
+        && deviceEditorPlacementModule?.createModularInsertionDragSession
+        && deviceEditorPlacementModule?.resolveModularInsertionDrag
+        && deviceEditorPlacementModule?.targetLaneWithHysteresis
+        && deviceEditorPlacementModule?.isValidModularInsertionResult) return deviceEditorPlacementModule;
       throw new Error("Device Editor placement module is not loaded.");
     }
 
     async function ensureDeviceEditorPlacementModuleReady() {
       const module = await loadDeviceEditorPlacementModule();
-      return Boolean(module?.resolveModularPlacementItems);
+      return Boolean(module?.resolveModularPlacementItems
+        && module?.createModularInsertionDragSession
+        && module?.resolveModularInsertionDrag
+        && module?.targetLaneWithHysteresis
+        && module?.isValidModularInsertionResult);
     }
 
 	    function deviceEditorUsesEnginePreview() {
@@ -89722,18 +89990,20 @@
       draft.width = deviceTemplateWidth(template);
       draft.name = editorPreviewDeviceName(template);
       validateDraftDefaults(draft);
+      const dragLayout = editorActiveStableDragLayout();
+      if (dragLayout?.bottomY) {
+        draft.height = Math.max(Number(draft.height) || 0, Math.ceil(dragLayout.bottomY + DEVICE_BOTTOM_PAD));
+      }
       return draft;
     }
 
     function editorEnginePreviewTemplateClone(template) {
       const draft = readonlyDeviceEditorPreviewTemplate(template);
-      if (editorNodeDrag) {
-        const positions = editorPreviewPositions(template);
-        (draft.connectors || []).forEach(connector => {
-          if (positions.has(connector.id)) setConnectorPreviewY(connector, positions.get(connector.id));
-        });
-      }
-      if (editorCardSlotDrag && Array.isArray(draft.cardSlots)) {
+      const positions = editorPreviewPositions(template);
+      (draft.connectors || []).forEach(connector => {
+        if (positions.has(connector.id)) setConnectorPreviewY(connector, positions.get(connector.id));
+      });
+      if ((editorNodeDrag || editorCardSlotDrag) && Array.isArray(draft.cardSlots)) {
         draft.cardSlots.forEach(slot => {
           const source = (template.cardSlots || []).find(item => item.id === slot.id);
           if (source) slot.y = cardSlotDisplayY(template, source);
@@ -90368,7 +90638,7 @@
       const previewDevice = syncDeviceEditorEnginePreview(previewTemplate, {
         fit: !editorEnginePreviewDraftSynced || editorEnginePreviewFitPending,
         fitBounds: editorActivePreviewBounds(previewTemplate),
-        refreshTexture: options.refreshTexture === false ? false : editorNodeDrag ? false : true
+        refreshTexture: options.refreshTexture === false ? false : (editorNodeDrag || editorCardSlotDrag) ? false : true
       });
       editorEnginePreviewFitPending = false;
       deviceEditorPreview.innerHTML = "";
@@ -91293,15 +91563,31 @@
     }
 
     function drawEditorConnectorSnapGuide(parent, template) {
-      if (!editorConnectorSnapGuide || !isAdapterTemplate(template)) return;
-      const y = Number(editorConnectorSnapGuide.centerY);
+      if (editorConnectorSnapGuide && isAdapterTemplate(template)) {
+        const y = Number(editorConnectorSnapGuide.centerY);
+        if (!Number.isFinite(y)) return;
+        parent.appendChild(createSvg("line", {
+          class: "power-plug-guide",
+          x1: 0,
+          x2: deviceTemplateWidth(template),
+          y1: y,
+          y2: y
+        }));
+        return;
+      }
+      const drag = editorStableDragLayout(editorNodeDrag) ? editorNodeDrag : editorStableDragLayout(editorCardSlotDrag) ? editorCardSlotDrag : null;
+      if (!drag || drag.specialTarget) return;
+      const item = editorPlacementItemByStableId(drag.lastValidResolvedLayout, drag.itemId);
+      const y = Number(item?.y);
       if (!Number.isFinite(y)) return;
       parent.appendChild(createSvg("line", {
         class: "power-plug-guide",
         x1: 0,
         x2: deviceTemplateWidth(template),
         y1: y,
-        y2: y
+        y2: y,
+        "stroke-dasharray": "5 5",
+        opacity: .55
       }));
     }
 
@@ -92058,7 +92344,7 @@
 
     function cardSlotDisplayY(template, slot) {
       const startY = connectorStartYForTemplate(template);
-      if (editorCardSlotDrag?.slotId === slot?.id) {
+      if (editorCardSlotDrag?.slotId || editorActiveStableDragLayout()) {
         return editorResolvedCardSlotY(template, slot);
       }
       return Number(slot?.y) || startY;
@@ -92727,12 +93013,25 @@
       event.stopPropagation();
       const point = getEditorPreviewPoint(event);
       editorSlotIndex = clamp(index, 0, Math.max(0, template.cardSlots.length - 1));
+      let stableDrag = null;
+      try {
+        stableDrag = createEditorStablePlacementDragSession(template, {
+          kind: "card",
+          id: slot.id,
+          pointerId: event.pointerId,
+          pointerY: point.y
+        });
+      } catch (error) {
+        console.warn("Unable to start stable card-slot drag session.", error);
+      }
+      if (!stableDrag) return true;
       editorCardSlotDrag = {
         pointerId: event.pointerId,
         slotId: slot.id,
         startY: point.y,
-        currentY: point.y,
-        moved: false
+        currentY: stableDrag.currentY,
+        moved: false,
+        ...stableDrag
       };
       editorSelectedPowerPlugIds.clear();
       setEditorPointerCapture(event);
@@ -92844,6 +93143,23 @@
         const displayY = displayPositions.get(item.id) ?? item.y;
         return [id, { y: Number(displayY) || connectorStartYForTemplate(template) }];
       }).filter(Boolean));
+      let stableDrag = null;
+      if (connectorIds.length === 1) {
+        try {
+          stableDrag = createEditorStablePlacementDragSession(template, {
+            kind: "connector",
+            id: connector.id,
+            pointerId: event.pointerId,
+            pointerY: point.y
+          });
+        } catch (error) {
+          console.warn("Unable to start stable connector drag session.", error);
+        }
+        if (!stableDrag) {
+          renderDeviceEditorPreview();
+          return;
+        }
+      }
       editorNodeDrag = {
         pointerId: event.pointerId,
         index,
@@ -92854,7 +93170,8 @@
         offsetY: point.y - primaryDisplayY,
         currentY: primaryDisplayY,
         deltaY: 0,
-        moved: false
+        moved: false,
+        ...(stableDrag || {})
       };
       setEditorPointerCapture(event);
       renderDeviceEditorPreview();
@@ -92957,8 +93274,12 @@
       }
       if (editorCardSlotDrag && event.pointerId === editorCardSlotDrag.pointerId) {
         const point = getEditorPreviewPoint(event);
-        editorCardSlotDrag.currentY = point.y;
-        editorCardSlotDrag.moved = Math.abs(point.y - editorCardSlotDrag.startY) > 4;
+        resolveEditorStablePlacementDragMove(editorCardSlotDrag, point.y);
+        editorCardSlotDrag.currentY = editorPlacementItemByStableId(
+          editorCardSlotDrag.lastValidResolvedLayout,
+          editorCardSlotDrag.itemId
+        )?.y ?? editorCardSlotDrag.currentY;
+        editorCardSlotDrag.moved = editorCardSlotDrag.movementThresholdCrossed === true;
         renderDeviceEditorPreview();
         return;
       }
@@ -92981,9 +93302,33 @@
       const connector = template?.connectors.find(item => item.id === editorNodeDrag.connectorId);
       if (!connector) return;
       const point = getEditorPreviewPoint(event);
+      const draggedIds = editorDragConnectorIds(template);
+      if (draggedIds.length === 1 && editorNodeDrag.session?.snapshot) {
+        const requestedY = point.y - editorNodeDrag.offsetY;
+        const snapY = isAdapterCenterDropTarget(template, connector, requestedY)
+          ? adapterCenterY(template)
+          : null;
+        const faceplateY = snapY === null && isFaceplateSideDropTarget(template, requestedY)
+          ? faceplateSideConnectorY(template)
+          : null;
+        if (snapY !== null || faceplateY !== null) {
+          editorNodeDrag.specialTarget = { type: snapY !== null ? "adapter-center" : "faceplate-side" };
+          editorNodeDrag.currentY = snapY !== null ? snapY : faceplateY;
+          editorNodeDrag.candidateY = requestedY;
+          editorNodeDrag.movementThresholdCrossed = editorNodeDrag.movementThresholdCrossed
+            || Math.abs(point.y - editorNodeDrag.pointerStartY) > 4;
+          editorNodeDrag.moved = editorNodeDrag.movementThresholdCrossed;
+          editorConnectorSnapGuide = snapY !== null ? { centerY: snapY } : null;
+        } else {
+          editorNodeDrag.specialTarget = null;
+          editorConnectorSnapGuide = null;
+          resolveEditorStablePlacementDragMove(editorNodeDrag, point.y);
+        }
+        renderDeviceEditorPreview();
+        return;
+      }
       const startY = connectorStartYForTemplate(template);
       const maxY = Math.max(startY, (Number(template.height) || deviceHeightForSlotCount(1, startY)) - DEVICE_BOTTOM_PAD);
-      const draggedIds = editorDragConnectorIds(template);
       const movingConnectors = draggedIds
         .map(id => template.connectors.find(item => item.id === id))
         .filter(Boolean);
@@ -93008,6 +93353,10 @@
     }
 
     function stopEditorNodeDrag(event) {
+      if (event?.type === "pointercancel" && (editorCardSlotDrag || editorNodeDrag)) {
+        cancelEditorStableDrags(event);
+        return;
+      }
       if (stopEditorFaceImageResize(event)) return;
       if (editorResizeDrag) {
         if (event?.pointerId !== undefined && event.pointerId !== editorResizeDrag.pointerId) return;
@@ -93076,11 +93425,12 @@
       }
       if (editorCardSlotDrag) {
         if (event?.pointerId !== undefined && event.pointerId !== editorCardSlotDrag.pointerId) return;
+        editorDragPointerReleaseInProgress = true;
         releaseEditorPointerCapture(event);
+        editorDragPointerReleaseInProgress = false;
         const template = currentEditorTemplate();
-        const slot = template?.cardSlots.find(item => item.id === editorCardSlotDrag.slotId);
-        if (template && slot && editorCardSlotDrag.moved) {
-          reorderCardSlot(template, slot, editorCardSlotDrag.currentY);
+        if (template && editorCardSlotDrag.moved) {
+          commitEditorStablePlacementDrag(template, editorCardSlotDrag, { includeConnectors: true, includeCards: true });
         }
         editorCardSlotDrag = null;
         renderDeviceEditor();
@@ -93096,7 +93446,9 @@
       }
       if (!editorNodeDrag) return;
       if (event?.pointerId !== undefined && event.pointerId !== editorNodeDrag.pointerId) return;
+      editorDragPointerReleaseInProgress = true;
       releaseEditorPointerCapture(event);
+      editorDragPointerReleaseInProgress = false;
       const template = currentEditorTemplate();
       if (template && editorNodeDrag.moved) {
         commitEditorNodeDrag(template);
@@ -107896,7 +108248,8 @@ renderViewerOutputDebug();
       svg.addEventListener("pointerdown", startEditorNodeDrag);
       svg.addEventListener("pointermove", moveEditorNode);
       svg.addEventListener("pointerup", stopEditorNodeDrag);
-      svg.addEventListener("pointercancel", stopEditorNodeDrag);
+      svg.addEventListener("pointercancel", cancelEditorInteraction);
+      svg.addEventListener("lostpointercapture", cancelEditorStableDrags);
     }
     bindEditorInteractionSvg(deviceEditorPreview);
     bindEditorInteractionSvg(deviceEditorFaceplatePreview);
@@ -108338,6 +108691,11 @@ renderViewerOutputDebug();
         if (matrixRoutingOpen) {
           event.preventDefault();
           closeMatrixRoutingModal();
+          return;
+        }
+        if (deviceEditorOpen && (editorCardSlotDrag || editorNodeDrag)) {
+          event.preventDefault();
+          cancelEditorStableDrags();
           return;
         }
         if (deviceEditorOpen) {
