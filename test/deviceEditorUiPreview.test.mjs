@@ -351,8 +351,37 @@ function structuralEditorHarness(inputTemplate = {}) {
     editorDraft: [template],
     editorIndex: 0,
     editorSlotIndex: null,
+    editorCardIndex: 0,
     editorSelectedNodeIndex: null,
     editorSelectedNodeIds: new Set(),
+    editorSelectedCardNodeIndex: null,
+    editorSelectedCardNodeIds: new Set(),
+    CARD_SLOT_OVERRIDE_FIELDS: [
+      "nameText",
+      "nameCustom",
+      "resolutionFrameRate",
+      "customText",
+      "nameTextCaption",
+      "resolutionFrameRateCaption",
+      "customTextCaption",
+      "includeInMatrix",
+      "matrixPortTouched",
+      "fiberMode",
+      "customColor",
+      "installedModuleType",
+      "schemaVersion",
+      "physicalType",
+      "connectorType",
+      "signalDirection",
+      "displaySide",
+      "anchors",
+      "primaryAnchorId",
+      "operationalStatus",
+      "infoFields",
+      "moduleCapability",
+      "fiberCapability",
+      "powerMetadata"
+    ],
     requireDeviceEditorPlacementModule: () => placementModule,
     requireDeviceEditorPlacementMotionModule: () => placementMotionModule,
     connectorStartYForTemplate: device => Number(device?.startY) || 100,
@@ -433,12 +462,33 @@ function structuralEditorHarness(inputTemplate = {}) {
       const outputs = (card.connectors || []).filter(connector => connector.direction !== "input" && !connector.empty).length;
       return Math.max(1, inputs, outputs) + 2;
     },
-    ensureCardSlotConnectorOverrides: (_device, slot) => {
+    ensureCardSlotConnectorOverrides: (device, slot) => {
       slot.connectorOverrides = slot.connectorOverrides && typeof slot.connectorOverrides === "object" ? slot.connectorOverrides : {};
+      const card = context.cardTypeById(device, slot?.installedCardTypeId);
+      if (!card) {
+        slot.connectorOverrides = {};
+        return slot.connectorOverrides;
+      }
+      const validConnectorIds = new Set((card.connectors || []).map(connector => connector.id));
+      Object.keys(slot.connectorOverrides).forEach(connectorId => {
+        if (!validConnectorIds.has(connectorId)) delete slot.connectorOverrides[connectorId];
+      });
       return slot.connectorOverrides;
     },
     normalizeConnectorRows: device => context.normalizeMixedDeviceRows(device),
     normalizeEditorConnectorRelationships: () => {},
+    normalizeMatrixPortFlag: connector => {
+      connector.includeInMatrix = connector.includeInMatrix === true;
+      connector.matrixPortTouched = connector.matrixPortTouched === true;
+    },
+    effectiveConnectorType: connector => String(connector?.type || connector?.physicalType || connector?.connectorType || ""),
+    activeFiberModeForCageConnector: () => "",
+    hasOwn: (object, key) => Object.prototype.hasOwnProperty.call(object || {}, key),
+    applyTransceiverModule: (connector, value) => {
+      connector.installedModuleType = String(value || "");
+    },
+    editorCardSlotDisplayOverrides: () => ({}),
+    cardSlotDisplayY: (_device, slot) => Number(slot?.y) || 100,
     editorLaneMapsEqual: (left = new Map(), right = new Map()) => {
       if (left.size !== right.size) return false;
       for (const [id, lane] of left) {
@@ -510,6 +560,31 @@ function structuralEditorHarness(inputTemplate = {}) {
     "applyEditorConnectorTypeToDraft",
     "fillEditorSlot",
     "removeEditorNode",
+    "normalizeCardConnector",
+    "createCardType",
+    "uniqueCardTypeId",
+    "uniqueCardConnectorId",
+    "currentEditorCard",
+    "clearEditorCardNodeSelection",
+    "syncEditorCardNodeSelection",
+    "setEditorCardNodeSelection",
+    "restoreEditorCardSelectionByStableIds",
+    "pruneInstalledCardSlotOverridesForCard",
+    "commitEditorCardDefinitionEdit",
+    "applyCardConnectorPhysicalTypeToDraft",
+    "addCardConnector",
+    "fillCardConnector",
+    "removeCardConnector",
+    "changeEditorCardKind",
+    "deleteCurrentCardType",
+    "createNewEditorCardType",
+    "duplicateCurrentCardType",
+    "mergedCardConnectorForSlot",
+    "defaultEditorAnchorForSide",
+    "editorConnectorAnchors",
+    "generatedCardConnectors",
+    "applyInstalledCardConnectorAnchors",
+    "normalizeCardSlots",
     "createCardSlot",
     "uniqueCardSlotId",
     "installCardInSlot",
@@ -524,6 +599,15 @@ function structuralEditorHarness(inputTemplate = {}) {
       addEditorNode,
       fillEditorSlot,
       removeEditorNode,
+      addCardConnector,
+      fillCardConnector,
+      removeCardConnector,
+      changeEditorCardKind,
+      deleteCurrentCardType,
+      createNewEditorCardType,
+      duplicateCurrentCardType,
+      generatedCardConnectors,
+      setEditorCardNodeSelection,
       installCardInSlot,
       addEditorCardSlot,
       removeCardSlot
@@ -625,6 +709,22 @@ function testConnector(id, sideMask, lane, options = {}) {
 
 function itemLaneMap(layout) {
   return Object.fromEntries((layout?.items || []).map(item => [item.id, item.lane]));
+}
+
+function editorCounterSnapshot(counters) {
+  return {
+    structuralSessions: counters.structuralSessions,
+    solverCalls: counters.solverCalls,
+    previewRenders: counters.previewRenders,
+    editorRenders: counters.editorRenders,
+    animationSeeds: counters.animationSeeds,
+    animationRetargets: counters.animationRetargets
+  };
+}
+
+function editorCounterDelta(counters, before) {
+  const after = editorCounterSnapshot(counters);
+  return Object.fromEntries(Object.entries(after).map(([key, value]) => [key, value - before[key]]));
 }
 
 test("Device tab uses compact feature groups with dependent controls beside toggles", () => {
@@ -946,10 +1046,19 @@ test("Device Editor direct structural operations use the shared atomic transacti
   const installCard = functionSource("installCardInSlot");
   const addCardSlot = functionSource("addEditorCardSlot");
   const removeCardSlot = functionSource("removeCardSlot");
+  const addCardConnector = functionSource("addCardConnector");
+  const fillCardConnector = functionSource("fillCardConnector");
+  const removeCardConnector = functionSource("removeCardConnector");
+  const changeCardKind = functionSource("changeEditorCardKind");
+  const deleteCardType = functionSource("deleteCurrentCardType");
+  const cardDefinitionCommit = functionSource("commitEditorCardDefinitionEdit");
   const displaySideHandler = functionSource("renderSelectedConnectorSettings");
 
   [addNode, fillSlot, removeNode, installCard, addCardSlot, removeCardSlot].forEach(source => {
     assert.match(source, /commitEditorStructuralEdit\(template/);
+  });
+  [addCardConnector, fillCardConnector, removeCardConnector, changeCardKind, deleteCardType].forEach(source => {
+    assert.match(source, /commitEditorCardDefinitionEdit\(template, cardTypeId/);
   });
   assert.match(addNode, /hardTargets: \{ \[`connector:\$\{connector\.id\}`\]: targetLane \}/);
   assert.match(addNode, /applyEditorConnectorTypeToDraft\(draft, connector\.id, requestedType/);
@@ -961,10 +1070,14 @@ test("Device Editor direct structural operations use the shared atomic transacti
   assert.match(typeDraft, /ensurePairedNetworkPair\(draft, draftConnector\)/);
   assert.match(typeDraft, /hardTargets\[`connector:\$\{pair\.id\}`\] = targetLane/);
   assert.match(installCard, /upsertIds: \[`card:\$\{slotId\}`\]/);
+  assert.match(cardDefinitionCommit, /commitEditorStructuralEdit\(template, \{/);
+  assert.match(cardDefinitionCommit, /restoreEditorCardSelectionByStableIds\(committedTemplate/);
   assert.match(displaySideHandler, /commitEditorStructuralEdit\(template, \{\s*primaryItemId: `connector:\$\{connectorId\}`/);
   assert.doesNotMatch(addNode, /template\.connectors\.push\(connector\);\s*normalizeConnectorRows\(template\)/);
   assert.doesNotMatch(removeNode, /template\.connectors = template\.connectors\.filter[\s\S]*normalizeConnectorRows\(template\)/);
   assert.doesNotMatch(installCard, /slot\.installedCardTypeId = cardTypeId[\s\S]*normalizeCardSlots\(template\)/);
+  assert.doesNotMatch(changeCardKind, /normalizeCardSlots\(template\)/);
+  assert.doesNotMatch(deleteCardType, /renderDeviceEditor\(\);\s*$/);
 });
 
 test("Device Editor structural transactions derive membership and ignore special-only remove hints", () => {
@@ -1182,6 +1295,365 @@ test("Device Editor structural card-slot edits keep IDs stable and use renderEdi
   assert.deepEqual(counters.edits[2].removeIds, [`card:${slotId}`]);
 });
 
+test("Device Editor card definition add, fill, and type-change fan out through one atomic edit", () => {
+  const { api, template, counters, context } = structuralEditorHarness({
+    cardTypes: [{
+      id: "card-a",
+      name: "Installed Input Card",
+      kind: "input",
+      connectors: [
+        { id: "in-1", direction: "input", type: "hdmi", empty: false, nameText: "IN 1" }
+      ]
+    }],
+    cardSlots: [
+      { id: "slot-a", name: "Slot A", installedCardTypeId: "card-a", y: 100, connectorOverrides: {} },
+      { id: "slot-b", name: "Slot B", installedCardTypeId: "card-a", y: 262, connectorOverrides: {} }
+    ]
+  });
+  context.editorCardIndex = 0;
+  const initialMap = itemLaneMap(api.resolveEditorModularLayout(template));
+
+  let before = editorCounterSnapshot(counters);
+  api.addCardConnector("input");
+  const emptyConnector = template.cardTypes[0].connectors[1];
+  assert.ok(emptyConnector?.id, "add should create a stable source connector");
+  assert.equal(emptyConnector.empty, true, "new card connectors start empty");
+  assert.deepEqual(editorCounterDelta(counters, before), {
+    structuralSessions: 1,
+    solverCalls: 0,
+    previewRenders: 0,
+    editorRenders: 1,
+    animationSeeds: 0,
+    animationRetargets: 0
+  });
+  assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), initialMap, "empty source nodes do not move installed slots");
+  assert.equal(context.editorSelectedCardNodeIndex, 1, "new source connector should be selected by stable ID");
+
+  before = editorCounterSnapshot(counters);
+  api.fillCardConnector(1, "hdmi");
+  assert.equal(template.cardTypes[0].connectors[1].id, emptyConnector.id, "fill preserves source connector ID");
+  assert.equal(template.cardTypes[0].connectors[1].empty, false);
+  assert.deepEqual(editorCounterDelta(counters, before), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 0,
+    editorRenders: 1,
+    animationSeeds: 1,
+    animationRetargets: 1
+  });
+  assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), {
+    "card:slot-a": 0,
+    "card:slot-b": 4
+  }, "all installed copies grow in one solved layout");
+  assert.deepEqual(template.cardSlots.map(slot => slot.id), ["slot-a", "slot-b"], "slot IDs remain stable");
+
+  const generatedAfterFill = api.generatedCardConnectors(template);
+  assert.deepEqual(Array.from(generatedAfterFill.map(connector => connector.id).sort()), [
+    `slot-a__${emptyConnector.id}`,
+    "slot-a__in-1",
+    `slot-b__${emptyConnector.id}`,
+    "slot-b__in-1"
+  ].sort());
+  assert.deepEqual(
+    Object.fromEntries(generatedAfterFill.map(connector => [connector.id, connector.y])),
+    {
+      "slot-a__in-1": 154,
+      [`slot-a__${emptyConnector.id}`]: 208,
+      "slot-b__in-1": 370,
+      [`slot-b__${emptyConnector.id}`]: 424
+    },
+    "generated connector rows follow each installed slot"
+  );
+
+  template.cardSlots[0].connectorOverrides[emptyConnector.id] = { nameText: "Override A" };
+  const idsBeforeTypeChange = Array.from(api.generatedCardConnectors(template).map(connector => connector.id).sort());
+  before = editorCounterSnapshot(counters);
+  api.fillCardConnector(1, "dvi");
+  const generatedAfterTypeChange = api.generatedCardConnectors(template);
+  assert.deepEqual(editorCounterDelta(counters, before), {
+    structuralSessions: 1,
+    solverCalls: 0,
+    previewRenders: 0,
+    editorRenders: 1,
+    animationSeeds: 0,
+    animationRetargets: 0
+  });
+  assert.deepEqual(Array.from(generatedAfterTypeChange.map(connector => connector.id).sort()), idsBeforeTypeChange, "active type changes keep generated IDs stable");
+  assert.equal(generatedAfterTypeChange.find(connector => connector.id === `slot-b__${emptyConnector.id}`)?.type, "dvi");
+  assert.equal(template.cardSlots[0].connectorOverrides[emptyConnector.id].nameText, "Override A", "surviving overrides stay attached to source IDs");
+});
+
+test("Device Editor card definition removal prunes overrides and compacts deterministic vacancies", () => {
+  const { api, template, counters, context } = structuralEditorHarness({
+    cardTypes: [{
+      id: "card-a",
+      name: "Two Input Card",
+      kind: "input",
+      connectors: [
+        { id: "in-1", direction: "input", type: "hdmi", empty: false, nameText: "IN 1" },
+        { id: "in-2", direction: "input", type: "hdmi", empty: false, nameText: "IN 2" }
+      ]
+    }],
+    connectors: [
+      testConnector("fixed-left", "left", 8, { displaySide: "left", schemaVersion: 2, anchors: [{ id: "left", side: "left", x: 0, y: 532, primary: true }] })
+    ],
+    cardSlots: [
+      { id: "slot-a", name: "Slot A", installedCardTypeId: "card-a", y: 100, connectorOverrides: { "in-1": { nameText: "Keep A" }, "in-2": { nameText: "Remove A" } } },
+      { id: "slot-b", name: "Slot B", installedCardTypeId: "card-a", y: 316, connectorOverrides: { "in-2": { nameText: "Remove B" } } }
+    ]
+  });
+  context.editorCardIndex = 0;
+  api.setEditorCardNodeSelection(1);
+
+  const before = editorCounterSnapshot(counters);
+  api.removeCardConnector(1);
+
+  assert.deepEqual(template.cardTypes[0].connectors.map(connector => connector.id), ["in-1"]);
+  assert.deepEqual(editorCounterDelta(counters, before), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 0,
+    editorRenders: 1,
+    animationSeeds: 1,
+    animationRetargets: 1
+  });
+  assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), {
+    "card:slot-a": 0,
+    "card:slot-b": 3,
+    "connector:fixed-left": 6
+  });
+  assert.equal(template.cardSlots[0].connectorOverrides["in-1"].nameText, "Keep A");
+  assert.equal(template.cardSlots[0].connectorOverrides["in-2"], undefined);
+  assert.equal(template.cardSlots[1].connectorOverrides["in-2"], undefined);
+  assert.deepEqual(Array.from(api.generatedCardConnectors(template).map(connector => connector.id).sort()), ["slot-a__in-1", "slot-b__in-1"]);
+  assert.equal(context.editorSelectedCardNodeIndex, 0, "removing selected connector falls back deterministically");
+});
+
+test("Device Editor card connector-count changes skip placement when span is unchanged", () => {
+  const { api, template, counters, context } = structuralEditorHarness({
+    cardTypes: [{
+      id: "card-io",
+      name: "Balanced I/O",
+      kind: "io",
+      connectors: [
+        { id: "in-1", direction: "input", type: "hdmi", empty: false },
+        { id: "in-2", direction: "input", type: "dvi", empty: false },
+        { id: "out-1", direction: "output", type: "hdmi", empty: false },
+        { id: "out-2", direction: "output", type: "dvi", empty: false }
+      ]
+    }],
+    connectors: [
+      testConnector("fixed-left", "left", 4, { displaySide: "left", schemaVersion: 2, anchors: [{ id: "left", side: "left", x: 0, y: 316, primary: true }] })
+    ],
+    cardSlots: [
+      { id: "slot-a", name: "Slot A", installedCardTypeId: "card-io", y: 100, connectorOverrides: { "in-2": { nameText: "Pruned" }, "out-1": { nameText: "Keep" } } }
+    ]
+  });
+  context.editorCardIndex = 0;
+  const initialMap = itemLaneMap(api.resolveEditorModularLayout(template));
+
+  const before = editorCounterSnapshot(counters);
+  api.removeCardConnector(1);
+
+  assert.deepEqual(editorCounterDelta(counters, before), {
+    structuralSessions: 1,
+    solverCalls: 0,
+    previewRenders: 0,
+    editorRenders: 1,
+    animationSeeds: 0,
+    animationRetargets: 0
+  });
+  assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), initialMap, "same max row count should keep placement fixed");
+  assert.equal(template.cardSlots[0].connectorOverrides["in-2"], undefined);
+  assert.equal(template.cardSlots[0].connectorOverrides["out-1"].nameText, "Keep");
+  assert.deepEqual(Array.from(api.generatedCardConnectors(template).map(connector => connector.id).sort()), [
+    "slot-a__in-1",
+    "slot-a__out-1",
+    "slot-a__out-2"
+  ]);
+});
+
+test("Device Editor card kind changes resolve installed slot side masks atomically", () => {
+  const inputTransition = structuralEditorHarness({
+    cardTypes: [{
+      id: "card-io",
+      name: "I/O Card",
+      kind: "io",
+      connectors: [
+        { id: "in-1", direction: "input", type: "hdmi", empty: false },
+        { id: "out-1", direction: "output", type: "hdmi", empty: false }
+      ]
+    }],
+    connectors: [
+      testConnector("right-a", "right", 3, { direction: "output", displaySide: "right", schemaVersion: 2, anchors: [{ id: "right", side: "right", x: 420, y: 262, primary: true }] }),
+      testConnector("left-a", "left", 3, { displaySide: "left", schemaVersion: 2, anchors: [{ id: "left", side: "left", x: 0, y: 262, primary: true }] })
+    ],
+    cardSlots: [
+      { id: "slot-a", name: "Slot A", installedCardTypeId: "card-io", y: 100, connectorOverrides: { "out-1": { nameText: "Prune" } } }
+    ]
+  });
+  inputTransition.context.editorCardIndex = 0;
+  let before = editorCounterSnapshot(inputTransition.counters);
+  inputTransition.api.changeEditorCardKind("input");
+  assert.deepEqual(editorCounterDelta(inputTransition.counters, before), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 0,
+    editorRenders: 1,
+    animationSeeds: 1,
+    animationRetargets: 1
+  });
+  assert.equal(inputTransition.template.cardTypes[0].kind, "input");
+  assert.deepEqual(inputTransition.template.cardTypes[0].connectors.map(connector => connector.id), ["in-1"]);
+  assert.deepEqual(itemLaneMap(inputTransition.api.resolveEditorModularLayout(inputTransition.template)), {
+    "card:slot-a": 0,
+    "connector:right-a": 0,
+    "connector:left-a": 3
+  }, "right-side vacancy can be reused without disturbing left-side order");
+  assert.deepEqual(inputTransition.template.cardSlots[0].connectorOverrides, {});
+
+  const ioTransition = structuralEditorHarness({
+    cardTypes: [{
+      id: "card-input",
+      name: "Input Card",
+      kind: "input",
+      connectors: [
+        { id: "in-1", direction: "input", type: "hdmi", empty: false }
+      ]
+    }],
+    connectors: [
+      testConnector("right-a", "right", 0, { direction: "output", displaySide: "right", schemaVersion: 2, anchors: [{ id: "right", side: "right", x: 420, y: 100, primary: true }] })
+    ],
+    cardSlots: [
+      { id: "slot-a", name: "Slot A", installedCardTypeId: "card-input", y: 100, connectorOverrides: {} }
+    ]
+  });
+  ioTransition.context.editorCardIndex = 0;
+  before = editorCounterSnapshot(ioTransition.counters);
+  ioTransition.api.changeEditorCardKind("io");
+  assert.deepEqual(editorCounterDelta(ioTransition.counters, before), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 0,
+    editorRenders: 1,
+    animationSeeds: 1,
+    animationRetargets: 1
+  });
+  assert.equal(ioTransition.template.cardTypes[0].kind, "io");
+  assert.deepEqual(itemLaneMap(ioTransition.api.resolveEditorModularLayout(ioTransition.template)), {
+    "card:slot-a": 0,
+    "connector:right-a": 3
+  }, "both-side conversion displaces connected right-side conflicts once");
+});
+
+test("Device Editor card type deletion keeps slots stable and skips solver for unused cards", () => {
+  const installed = structuralEditorHarness({
+    cardTypes: [{
+      id: "card-a",
+      name: "Installed Card",
+      kind: "input",
+      connectors: [
+        { id: "in-1", direction: "input", type: "hdmi", empty: false }
+      ]
+    }],
+    cardSlots: [
+      { id: "slot-a", name: "Slot A", installedCardTypeId: "card-a", y: 100, connectorOverrides: { "in-1": { nameText: "A" } } },
+      { id: "slot-b", name: "Slot B", installedCardTypeId: "card-a", y: 262, connectorOverrides: { "in-1": { nameText: "B" } } }
+    ]
+  });
+  installed.context.editorCardIndex = 0;
+  let before = editorCounterSnapshot(installed.counters);
+  installed.api.deleteCurrentCardType();
+  assert.deepEqual(editorCounterDelta(installed.counters, before), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 0,
+    editorRenders: 1,
+    animationSeeds: 1,
+    animationRetargets: 1
+  });
+  assert.deepEqual(installed.template.cardTypes, []);
+  assert.deepEqual(installed.template.cardSlots.map(slot => [slot.id, slot.installedCardTypeId, slot.connectorOverrides]), [
+    ["slot-a", "", {}],
+    ["slot-b", "", {}]
+  ]);
+
+  const unused = structuralEditorHarness({
+    cardTypes: [
+      { id: "card-a", name: "Installed Card", kind: "input", connectors: [{ id: "in-1", direction: "input", type: "hdmi", empty: false }] },
+      { id: "card-unused", name: "Unused Card", kind: "input", connectors: [{ id: "in-unused", direction: "input", type: "hdmi", empty: false }] }
+    ],
+    cardSlots: [
+      { id: "slot-a", name: "Slot A", installedCardTypeId: "card-a", y: 100, connectorOverrides: {} }
+    ]
+  });
+  unused.context.editorCardIndex = 1;
+  before = editorCounterSnapshot(unused.counters);
+  unused.api.deleteCurrentCardType();
+  assert.deepEqual(editorCounterDelta(unused.counters, before), {
+    structuralSessions: 1,
+    solverCalls: 0,
+    previewRenders: 0,
+    editorRenders: 1,
+    animationSeeds: 0,
+    animationRetargets: 0
+  });
+  assert.deepEqual(unused.template.cardTypes.map(card => card.id), ["card-a"]);
+  assert.equal(unused.template.cardSlots[0].installedCardTypeId, "card-a");
+});
+
+test("Device Editor new, duplicate, rollback, and fixed-point card definition behavior stays stable", () => {
+  const creation = structuralEditorHarness();
+  creation.api.createNewEditorCardType();
+  creation.api.duplicateCurrentCardType();
+  assert.equal(creation.counters.structuralSessions, 0);
+  assert.equal(creation.counters.solverCalls, 0);
+  assert.equal(creation.counters.animationSeeds, 0);
+  assert.equal(creation.counters.editorRenders, 2);
+  assert.equal(new Set(creation.template.cardTypes.map(card => card.id)).size, 2, "new and duplicate card IDs are unique");
+
+  const rollback = structuralEditorHarness({
+    cardTypes: [{
+      id: "card-a",
+      name: "Rollback Card",
+      kind: "input",
+      connectors: [
+        { id: "in-1", direction: "input", type: "hdmi", empty: false },
+        { id: "in-2", direction: "input", type: "", empty: true }
+      ]
+    }],
+    cardSlots: [
+      { id: "slot-a", name: "Slot A", installedCardTypeId: "card-a", y: 100, connectorOverrides: { "in-1": { nameText: "Keep" } } },
+      { id: "slot-b", name: "Slot B", installedCardTypeId: "card-a", y: 262, connectorOverrides: {} }
+    ]
+  });
+  rollback.context.editorCardIndex = 0;
+  rollback.api.setEditorCardNodeSelection(0);
+  const beforeTemplate = structuredClone(rollback.template);
+  const beforeSelection = rollback.context.editorSelectedCardNodeIndex;
+  const beforeCounts = editorCounterSnapshot(rollback.counters);
+  const beforeMap = itemLaneMap(rollback.api.resolveEditorModularLayout(rollback.template));
+  rollback.placementModule.forceInvalid = true;
+  assert.throws(() => rollback.api.fillCardConnector(1, "hdmi"), /invalid layout/);
+  rollback.placementModule.forceInvalid = false;
+  assert.deepEqual(rollback.template, beforeTemplate, "failed card definition edit rolls back all draft changes");
+  assert.equal(rollback.context.editorSelectedCardNodeIndex, beforeSelection, "failed edit preserves selection");
+  assert.deepEqual(editorCounterDelta(rollback.counters, beforeCounts), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 0,
+    editorRenders: 0,
+    animationSeeds: 0,
+    animationRetargets: 0
+  });
+  assert.deepEqual(itemLaneMap(rollback.api.resolveEditorModularLayout(rollback.template)), beforeMap);
+
+  rollback.api.fillCardConnector(1, "hdmi");
+  const committedMap = itemLaneMap(rollback.api.resolveEditorModularLayout(rollback.template));
+  assert.deepEqual(itemLaneMap(rollback.api.resolveEditorModularLayout(rollback.template)), committedMap, "fresh static layout is a fixed point after commit");
+  assert.deepEqual(itemLaneMap(rollback.api.resolveEditorModularLayout(rollback.template)), itemLaneMap(rollback.api.resolveEditorModularLayout(rollback.template)), "repeated static resolution is deterministic");
+});
+
 test("Device Editor structural display-side upserts synchronize anchors with solved lanes", () => {
   const { api, template, counters, context } = structuralEditorHarness({
     connectors: [
@@ -1387,7 +1859,7 @@ test("Engine Device Editor card motion uses dynamic overlay ownership without pe
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /visual\.suppressCardAreasInTexture \? "suppress-card-areas" : ""/);
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /!visual\.suppressCardAreasInTexture\) \{\s*drawCardAreas/);
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /drawConnectorBands\(ctx, device, width, height, face\.bottom \+ 12\);/);
-  assert.match(PRODUCTION_BRIDGE_SOURCE, /ENGINE_BRIDGE_VERSION = "iteration54-8-1-structural-edit-transaction-hardening"/);
+  assert.match(PRODUCTION_BRIDGE_SOURCE, /ENGINE_BRIDGE_VERSION = "iteration54-9-0-atomic-card-definition-fan-out"/);
 
   assert.match(previewClone, /draft\.suppressCardAreasInTexture = true/);
   assert.match(syncEngine, /suppressCardAreasInTexture: options\.dynamicCardArtwork === true/);

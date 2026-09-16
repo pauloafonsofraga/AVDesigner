@@ -1461,6 +1461,23 @@ test("structural edit resolves simultaneous flexible card-span changes like batc
   assert.equal(layout.byId.get("CARD-B").endLane, 7);
 });
 
+test("structural edit compacts flexible card shrink chains after reusable definition updates", () => {
+  const session = structuralSession([
+    item("CARD-A", 0, "left", 4, 0, "card-slot"),
+    item("CARD-B", 4, "left", 4, 1, "card-slot"),
+    item("L", 8, "left", 1, 2)
+  ]);
+  const layout = assertStructuralInvariants(session, {
+    upserts: [
+      { id: "CARD-A", span: 3, targetLane: 0, hard: false },
+      { id: "CARD-B", span: 3, targetLane: 4, hard: false }
+    ]
+  }, "flexible card shrink chain");
+
+  assert.deepEqual(laneMap(layout), { "CARD-A": 0, "CARD-B": 3, L: 6 });
+  assert.equal(layout.endLane, 7);
+});
+
 test("structural edit side-mask changes resolve new opposite-side conflicts", () => {
   const session = structuralSession([
     item("A", 0, "left", 1, 0),

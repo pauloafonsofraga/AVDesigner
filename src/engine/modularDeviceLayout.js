@@ -1475,7 +1475,7 @@ function compactStructuralVacancies(items, laneById, vacancies, lockedIds, optio
     const width = Math.max(0, Math.round(vacancy.end - vacancy.start));
     if (width <= 0) continue;
     const candidate = items
-      .filter(item => !lockedIds.has(item.id) && itemOccupiesSide(item, vacancy.side))
+      .filter(item => !lockedIds.has(item.id) && item.id !== vacancy.sourceId && itemOccupiesSide(item, vacancy.side))
       .sort(originalPlacementComparator)
       .find(item => laneForCandidate(nextLaneById, item) === vacancy.end);
     if (!candidate) continue;
@@ -1639,11 +1639,16 @@ export function resolveModularStructuralEdit(session, edit = {}, options = {}) {
   let laneById = repair.laneById;
   let workCount = repair.workCount;
   if (normalizedEdit.compactVacatedSpace) {
+    const compactionLockedIds = new Set(
+      normalizedEdit.upserts
+        .filter(upsert => upsert.hard)
+        .map(upsert => upsert.id)
+    );
     const compaction = compactStructuralVacancies(
       items,
       laneById,
       structuralVacatedIntervals(session, normalizedEdit),
-      normalizedEdit.upsertIds
+      compactionLockedIds
     );
     laneById = compaction.laneById;
     workCount += compaction.workCount;
