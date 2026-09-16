@@ -4993,7 +4993,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.8.0 — Atomic Device Editor Structural Edits — iteration54-8-0-atomic-device-editor-structural-edits</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.8.1 — Structural Edit Transaction Hardening — iteration54-8-1-structural-edit-transaction-hardening</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5686,10 +5686,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.8.0";
-    const APP_BUILD_ID = "iteration54-8-0-atomic-device-editor-structural-edits";
-    const APP_MODULE_CACHE_ID = "iteration54-8-0-atomic-device-editor-structural-edits-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Atomic Device Editor Structural Edits`;
+    const APP_ITERATION = "54.8.1";
+    const APP_BUILD_ID = "iteration54-8-1-structural-edit-transaction-hardening";
+    const APP_MODULE_CACHE_ID = "iteration54-8-1-structural-edit-transaction-hardening-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Structural Edit Transaction Hardening`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "6dc62f5ef0b40e65629ccfb8a5d9e2071fa8273f";
@@ -80005,12 +80005,31 @@
       const afterById = new Map(afterItems.map(item => [item.id, item]));
       const hardTargets = editorStructuralTargetMap(mutation.hardTargets);
       const explicitUpsertIds = new Set(Array.isArray(mutation.upsertIds) ? mutation.upsertIds.map(id => String(id || "")).filter(Boolean) : []);
-      hardTargets.forEach((_lane, id) => explicitUpsertIds.add(id));
-      const removeIds = Array.isArray(mutation.removeIds)
-        ? mutation.removeIds.map(id => String(id || "")).filter(Boolean)
-        : session.snapshot.items
-            .filter(item => !afterById.has(item.id))
-            .map(item => item.id);
+      hardTargets.forEach((_lane, id) => {
+        if (!afterById.has(id)) {
+          throw new Error(`Device Editor structural edit requested a hard target for missing modular item ${id}.`);
+        }
+        explicitUpsertIds.add(id);
+      });
+      explicitUpsertIds.forEach(id => {
+        if (!afterById.has(id)) {
+          throw new Error(`Device Editor structural edit requested an upsert for missing modular item ${id}.`);
+        }
+      });
+      const explicitRemoveHints = new Set(Array.isArray(mutation.removeIds) ? mutation.removeIds.map(id => String(id || "")).filter(Boolean) : []);
+      const removeSet = new Set(
+        session.snapshot.items
+          .filter(item => !afterById.has(item.id))
+          .map(item => item.id)
+      );
+      explicitRemoveHints.forEach(id => {
+        if (!session.snapshot.byId[id]) return;
+        if (afterById.has(id)) {
+          throw new Error(`Device Editor structural edit requested removal for modular item ${id}, but it still exists.`);
+        }
+        removeSet.add(id);
+      });
+      const removeIds = [...removeSet];
       const upsertIds = new Set();
       afterItems.forEach(item => {
         const base = session.snapshot.byId[item.id];
@@ -80033,7 +80052,7 @@
       const edit = {
         removeIds,
         upserts,
-        compactVacatedSpace: mutation.compactVacatedSpace !== false
+        compactVacatedSpace: mutation.compactVacatedSpace !== false && afterItems.length > 0
       };
       if (removeIds.length || upserts.length) {
         solvedLayout = placementModule.resolveModularStructuralEdit(session, edit, {
@@ -89110,12 +89129,13 @@
               draftConnector.displaySide = normalizeEditorDisplaySide(event.target.dataset.connectorDisplaySide, draftConnector.direction, draftConnector.x, deviceTemplateWidth(draft));
               ensureConnectorV2Defaults(draft, draftConnector, draft.connectors.findIndex(item => item.id === draftConnector.id));
               return { upsertIds: [`connector:${connectorId}`] };
+            },
+            afterCommit() {
+              renderSelectedConnectorSettings();
+              renderConnectorRelationshipsPanel();
+              renderDeviceAuthoringDebugPanel();
             }
           });
-          renderSelectedConnectorSettings();
-          renderConnectorRelationshipsPanel();
-          renderDeviceEditorPreview();
-          renderDeviceAuthoringDebugPanel();
         });
       });
       selectedConnectorSettings.querySelectorAll("[data-selected-connector-field]").forEach(control => {
@@ -94153,11 +94173,12 @@
         mutate(draft) {
           draft.connectors = draft.connectors.filter(item => !idsToRemove.has(item.id));
           return { removeIds: [...idsToRemove].map(id => `connector:${id}`) };
+        },
+        afterCommit() {
+          clearEditorNodeSelection();
+          renderSelectedConnectorSettings();
         }
       });
-      clearEditorNodeSelection();
-      renderSelectedConnectorSettings();
-      renderDeviceEditorPreview();
     }
 
     function wrapInfoBoxLines(text, maxWidth, fontSize, maxLines = 2) {
@@ -94559,6 +94580,12 @@
     function addEditorNode(direction, options = {}) {
       syncEditorFieldsToDraft();
       const template = currentEditorTemplate();
+      const requestedType = String(options.type || "");
+      const requestedTypeLabel = requestedType ? (cableTypes[requestedType]?.label || requestedType) : "";
+      if (requestedType && template?.isPowerDistro && direction === "input" && !powerPlugCanExistOnSide(requestedType, "input")) {
+        alert(`${requestedTypeLabel} cannot be used as a Power Distro input.`);
+        return;
+      }
       const sameDirectionCount = template.connectors.filter(connector => connector.direction === direction).length;
       const label = `${direction === "input" ? "Input" : "Output"} Slot ${sameDirectionCount + 1}`;
       const startY = connectorStartYForTemplate(template);
@@ -94606,28 +94633,34 @@
           connector.y = connector.faceplateSide ? connector.y : context.targetYForLane(targetLane);
           draft.connectors.push(connector);
           createdConnectorId = connector.id;
-          return connector.faceplateSide
-            ? { upsertIds: [] }
+          const structuralMutation = connector.faceplateSide
+            ? { removeIds: [], upsertIds: [], hardTargets: {} }
             : {
+                removeIds: [],
                 hardTargets: { [`connector:${connector.id}`]: targetLane },
                 upsertIds: [`connector:${connector.id}`]
               };
+          if (requestedType) {
+            const typeMutation = applyEditorConnectorTypeToDraft(draft, connector.id, requestedType, {
+              targetLane,
+              targetYForLane: context.targetYForLane
+            });
+            if (typeMutation.cancelled) return typeMutation;
+            (typeMutation.removeIds || []).forEach(id => structuralMutation.removeIds.push(id));
+            (typeMutation.upsertIds || []).forEach(id => {
+              if (!structuralMutation.upsertIds.includes(id)) structuralMutation.upsertIds.push(id);
+            });
+            Object.assign(structuralMutation.hardTargets, typeMutation.hardTargets || {});
+          }
+          return structuralMutation;
         },
         afterCommit(committedTemplate) {
           setEditorNodeSelection(committedTemplate, committedTemplate.connectors.findIndex(item => item.id === createdConnectorId));
+          renderSelectedConnectorSettings();
+          renderConnectorRelationshipsPanel();
         }
       });
       if (!transaction) return;
-      const createdIndex = template.connectors.findIndex(item => item.id === createdConnectorId);
-      setEditorNodeSelection(template, createdIndex);
-      if (options.type && createdIndex !== -1) {
-        fillEditorSlot(createdIndex, options.type);
-        setEditorNodeSelection(template, template.connectors.findIndex(item => item.id === createdConnectorId));
-        renderSelectedConnectorSettings();
-        return;
-      }
-      renderDeviceEditorPreview();
-      renderSelectedConnectorSettings();
     }
 
     function defaultConnectorNameFor(connectors, connector) {
@@ -94648,6 +94681,76 @@
       connector.nameText = defaultConnectorNameFor(connectors, connector);
     }
 
+    function applyEditorConnectorTypeToDraft(draft, connectorId, type, context = {}) {
+      const draftConnector = draft?.connectors?.find(item => item.id === connectorId);
+      if (!draftConnector || !type) return { cancelled: true };
+      const typeLabel = cableTypes[type]?.label || type;
+      const previousType = draftConnector.type || "";
+      const removeIds = [];
+      const upsertIds = new Set();
+      const hardTargets = {};
+      const targetLane = Number.isFinite(Number(context.targetLane))
+        ? Math.max(0, Math.round(Number(context.targetLane)))
+        : context.session?.snapshot?.byId?.[`connector:${connectorId}`]?.lane ?? laneIndexForY(draftConnector.y, connectorStartYForTemplate(draft));
+      const targetYForLane = typeof context.targetYForLane === "function"
+        ? context.targetYForLane
+        : lane => laneY(lane, connectorStartYForTemplate(draft));
+
+      if (isPairedNetworkConnector(draftConnector) && draftConnector.pairedConnectorId && draftConnector.type !== type) {
+        const pair = draft.connectors.find(item => item.id === draftConnector.pairedConnectorId);
+        if (pair) removeIds.push(`connector:${pair.id}`);
+        draft.connectors = draft.connectors.filter(item => item.id !== draftConnector.pairedConnectorId);
+        draftConnector.pairedConnectorId = "";
+        draftConnector.networkGroupId = "";
+        draftConnector.ethernetGroupId = "";
+      }
+      if (pairedNetworkTypes.has(type) && !isDeviceDefinitionV2ForEditor(draft)) {
+        draftConnector.label = typeLabel;
+        draftConnector.type = type;
+        draftConnector.empty = false;
+        draftConnector.nameText = draftConnector.nameText || "";
+        draftConnector.customColor = "";
+        draftConnector.installedModuleType = isCageConnector(draftConnector) && previousType === type ? (draftConnector.installedModuleType || "") : "";
+        draftConnector.fiberMode = "";
+        draftConnector.powerPlug = null;
+        draftConnector.x = draftConnector.direction === "input" ? 0 : deviceTemplateWidth(draft);
+        draftConnector.y = targetYForLane(targetLane);
+        applyAutomaticConnectorName(draft.connectors, draftConnector);
+        resetMatrixPortDefault(draftConnector);
+        const pair = ensurePairedNetworkPair(draft, draftConnector);
+        if (pair) {
+          pair.y = targetYForLane(targetLane);
+          upsertIds.add(`connector:${pair.id}`);
+          hardTargets[`connector:${pair.id}`] = targetLane;
+        }
+        upsertIds.add(`connector:${draftConnector.id}`);
+        hardTargets[`connector:${draftConnector.id}`] = targetLane;
+        return {
+          removeIds,
+          upsertIds: [...upsertIds],
+          hardTargets
+        };
+      }
+      draftConnector.type = type;
+      draftConnector.empty = false;
+      draftConnector.customColor = type === "misc" ? (draftConnector.customColor || cableTypes.misc.color) : "";
+      draftConnector.fiberMode = isFiberCableType(type) ? (draftConnector.fiberMode || DEFAULT_FIBER_MODE) : "";
+      draftConnector.installedModuleType = "";
+      if (!isPowerPlugConnector(draftConnector)) draftConnector.powerPlug = null;
+      if (!draftConnector.label || /^input slot|^output slot/i.test(draftConnector.label)) {
+        draftConnector.label = typeLabel;
+      }
+      applyAutomaticConnectorName(draft.connectors, draftConnector);
+      draftConnector.x = draftConnector.direction === "input" ? 0 : deviceTemplateWidth(draft);
+      ensureConnectorV2Defaults(draft, draftConnector, draft.connectors.findIndex(item => item.id === draftConnector.id), { typeChanged: true });
+      resetMatrixPortDefault(draftConnector);
+      return {
+        removeIds,
+        upsertIds: [...upsertIds],
+        hardTargets
+      };
+    }
+
     function fillEditorSlot(index, type) {
       const template = currentEditorTemplate();
       const connector = template?.connectors[index];
@@ -94663,69 +94766,19 @@
         mutate(draft, context) {
           const draftConnector = draft.connectors.find(item => item.id === connectorId);
           if (!draftConnector) return { cancelled: true };
-          const previousType = draftConnector.type || "";
-          const removeIds = [];
-          const upsertIds = new Set();
-          const hardTargets = {};
           const baselineItem = context.session.snapshot.byId[`connector:${connectorId}`];
           const targetLane = baselineItem?.lane ?? context.targetLaneForY(draftConnector.y);
-          if (isPairedNetworkConnector(draftConnector) && draftConnector.pairedConnectorId && draftConnector.type !== type) {
-            const pair = draft.connectors.find(item => item.id === draftConnector.pairedConnectorId);
-            if (pair) removeIds.push(`connector:${pair.id}`);
-            draft.connectors = draft.connectors.filter(item => item.id !== draftConnector.pairedConnectorId);
-            draftConnector.pairedConnectorId = "";
-            draftConnector.networkGroupId = "";
-            draftConnector.ethernetGroupId = "";
-          }
-          if (pairedNetworkTypes.has(type) && !isDeviceDefinitionV2ForEditor(draft)) {
-            draftConnector.label = typeLabel;
-            draftConnector.type = type;
-            draftConnector.empty = false;
-            draftConnector.nameText = draftConnector.nameText || "";
-            draftConnector.customColor = "";
-            draftConnector.installedModuleType = isCageConnector(draftConnector) && previousType === type ? (draftConnector.installedModuleType || "") : "";
-            draftConnector.fiberMode = "";
-            draftConnector.powerPlug = null;
-            draftConnector.x = draftConnector.direction === "input" ? 0 : deviceTemplateWidth(draft);
-            draftConnector.y = context.targetYForLane(targetLane);
-            applyAutomaticConnectorName(draft.connectors, draftConnector);
-            resetMatrixPortDefault(draftConnector);
-            const pair = ensurePairedNetworkPair(draft, draftConnector);
-            if (pair) {
-              pair.y = context.targetYForLane(targetLane);
-              upsertIds.add(`connector:${pair.id}`);
-              hardTargets[`connector:${pair.id}`] = targetLane;
-            }
-            upsertIds.add(`connector:${draftConnector.id}`);
-            hardTargets[`connector:${draftConnector.id}`] = targetLane;
-            return {
-              removeIds,
-              upsertIds: [...upsertIds],
-              hardTargets
-            };
-          }
-          draftConnector.type = type;
-          draftConnector.empty = false;
-          draftConnector.customColor = type === "misc" ? (draftConnector.customColor || cableTypes.misc.color) : "";
-          draftConnector.fiberMode = isFiberCableType(type) ? (draftConnector.fiberMode || DEFAULT_FIBER_MODE) : "";
-          draftConnector.installedModuleType = "";
-          if (!isPowerPlugConnector(draftConnector)) draftConnector.powerPlug = null;
-          if (!draftConnector.label || /^input slot|^output slot/i.test(draftConnector.label)) {
-            draftConnector.label = typeLabel;
-          }
-          applyAutomaticConnectorName(draft.connectors, draftConnector);
-          draftConnector.x = draftConnector.direction === "input" ? 0 : deviceTemplateWidth(draft);
-          ensureConnectorV2Defaults(draft, draftConnector, draft.connectors.findIndex(item => item.id === draftConnector.id), { typeChanged: true });
-          resetMatrixPortDefault(draftConnector);
-          return {
-            removeIds,
-            upsertIds: [...upsertIds]
-          };
+          return applyEditorConnectorTypeToDraft(draft, connectorId, type, {
+            session: context.session,
+            targetLane,
+            targetYForLane: context.targetYForLane
+          });
+        },
+        afterCommit() {
+          renderSelectedConnectorSettings();
+          renderConnectorRelationshipsPanel();
         }
       });
-      renderSelectedConnectorSettings();
-      renderConnectorRelationshipsPanel();
-      renderDeviceEditorPreview();
     }
 
     function connectorTypeLabel(connector) {
