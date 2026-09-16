@@ -358,6 +358,22 @@ function candidatePreservesStationaryOrder(items = [], laneById = new Map(), dra
   return true;
 }
 
+function candidatePreservesStationaryOrderExcept(items = [], laneById = new Map(), excludedIds = new Set()) {
+  for (const side of [MODULAR_LAYOUT_SIDE_MASKS.left, MODULAR_LAYOUT_SIDE_MASKS.right]) {
+    const stationary = items
+      .filter(item => !excludedIds.has(item.id) && itemOccupiesSide(item, side))
+      .sort(originalPlacementComparator);
+    for (let index = 1; index < stationary.length; index += 1) {
+      const previous = stationary[index - 1];
+      const current = stationary[index];
+      if (laneForCandidate(laneById, previous) + previous.span > laneForCandidate(laneById, current)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 function candidateIsValid(items = [], laneById = new Map(), dragged = null, targetLane = 0) {
   if (!dragged) return false;
   if (laneForCandidate(laneById, dragged) !== targetLane) return false;
@@ -633,6 +649,422 @@ export function createModularInsertionDragSession(itemsOrLayout = [], draggedIte
     sideMask: dragged?.sideMask || "",
     span: dragged?.span || 0
   });
+}
+
+function assertValidSourceBaseline(snapshot, label = "modular placement baseline") {
+  const items = Array.isArray(snapshot?.items) ? snapshot.items : [];
+  const laneById = laneMapFromItems(items);
+  if (!candidateHasNoOverlap(items, laneById)) {
+    throw new Error(`${label} already contains overlapping placement items.`);
+  }
+}
+
+function rawPlacementSnapshot(itemsOrLayout = [], options = {}) {
+  if (!Array.isArray(itemsOrLayout)) {
+    return createModularPlacementSnapshot(itemsOrLayout, options);
+  }
+  const startY = finiteNumber(options.startY, 0);
+  const slotHeight = positiveNumber(options.slotHeight, MODULAR_LAYOUT_SLOT_HEIGHT);
+  const normalized = itemsOrLayout
+    .filter(item => item && stableString(item.id))
+    .map((item, index) => normalizePlacementItem(item, index, { startY, slotHeight }));
+  const layout = placementResultFromItems(normalized, {
+    startY,
+    slotHeight,
+    preserveRequestedY: options.preserveRequestedY === true
+  });
+  assertValidSourceBaseline(layout, "modular composite drag baseline");
+  return frozenPlacementSnapshot(layout);
+}
+
+function freezeCompositeMember(member = {}) {
+  return Object.freeze({
+    id: stableString(member.id),
+    laneOffset: Math.round(finiteNumber(member.laneOffset, 0)),
+    sideMask: normalizePlacementSideMask(member.sideMask),
+    span: Math.max(1, Math.round(finiteNumber(member.span, 1))),
+    originalLane: Math.max(0, Math.round(finiteNumber(member.originalLane, 0))),
+    order: finiteNumber(member.order, 0)
+  });
+}
+
+export function createModularCompositeInsertionDragSession(
+  itemsOrLayout = [],
+  draggedItemIds = [],
+  primaryItemId = "",
+  options = {}
+) {
+  const snapshot = rawPlacementSnapshot(itemsOrLayout, options);
+  assertValidSourceBaseline(snapshot, "modular composite drag baseline");
+  const requestedIds = Array.isArray(draggedItemIds)
+    ? draggedItemIds.map(id => stableString(id)).filter(Boolean)
+    : [stableString(draggedItemIds)].filter(Boolean);
+  const requestedSet = new Set(requestedIds);
+  requestedIds.forEach(id => {
+    if (!snapshot.byId[id]) throw new Error(`Selected modular placement item ${id} does not exist.`);
+  });
+  const primaryId = stableString(primaryItemId);
+  const primary = snapshot.byId[primaryId] || null;
+  if (!primary) throw new Error(`Primary modular placement item ${primaryId || "(missing)"} does not exist.`);
+  if (!requestedSet.has(primaryId)) throw new Error(`Primary modular placement item ${primaryId} must be selected.`);
+  const selectedItems = snapshot.orderedItems.filter(item => requestedSet.has(item.id));
+  if (selectedItems.length < 2) {
+    throw new Error("Composite modular insertion drag requires at least two valid selected placement items.");
+  }
+  const draggedItemIdList = Object.freeze(selectedItems.map(item => item.id));
+  const members = Object.freeze(selectedItems.map(item => freezeCompositeMember({
+    id: item.id,
+    laneOffset: item.lane - primary.lane,
+    sideMask: item.sideMask,
+    span: item.span,
+    originalLane: item.lane,
+    order: item.order
+  })));
+  const minLaneOffset = members.reduce((min, member) => Math.min(min, member.laneOffset), 0);
+  const maxLaneOffset = members.reduce((max, member) => Math.max(max, member.laneOffset), 0);
+  const minOccupiedOffset = members.reduce((min, member) => Math.min(min, member.laneOffset), 0);
+  const maxOccupiedOffset = members.reduce((max, member) => Math.max(max, member.laneOffset + member.span), 0);
+  return Object.freeze({
+    snapshot,
+    draggedItemIds: draggedItemIdList,
+    selectedItemIds: draggedItemIdList,
+    primaryItemId: primaryId,
+    originalPrimaryLane: primary.lane,
+    originalPrimaryEndLane: primary.endLane,
+    members,
+    memberCount: members.length,
+    minLaneOffset,
+    maxLaneOffset,
+    minOccupiedOffset,
+    maxOccupiedOffset,
+    startY: snapshot.startY,
+    slotHeight: snapshot.slotHeight,
+    originalPrimaryY: layoutYForLane(primary.lane, snapshot.startY, snapshot.slotHeight)
+  });
+}
+
+function compositeSelectedIdSet(session = {}) {
+  return new Set((session.draggedItemIds || session.selectedItemIds || []).map(id => stableString(id)).filter(Boolean));
+}
+
+function compositeResolvedPrimaryTarget(session = {}, primaryTargetLane = 0) {
+  const requested = Math.max(0, Math.round(finiteNumber(primaryTargetLane, session.originalPrimaryLane)));
+  const minOffset = Math.round(finiteNumber(session.minLaneOffset, 0));
+  return Math.max(requested, -minOffset);
+}
+
+function compositeSelectedLaneById(session = {}, resolvedPrimaryTargetLane = 0) {
+  const lanes = new Map();
+  (session.members || []).forEach(member => {
+    lanes.set(member.id, resolvedPrimaryTargetLane + member.laneOffset);
+  });
+  return lanes;
+}
+
+function compositeDirectConflictIds(items = [], selectedIds = new Set(), selectedLaneById = new Map()) {
+  const selectedItems = items.filter(item => selectedIds.has(item.id));
+  const conflicts = new Set();
+  items
+    .filter(item => !selectedIds.has(item.id))
+    .forEach(item => {
+      const itemSides = sideMaskSides(item.sideMask);
+      const hasConflict = selectedItems.some(selected => {
+        return itemSides.some(side => itemOccupiesSide(selected, side))
+          && intervalsOverlap(item.lane, item.span, laneForCandidate(selectedLaneById, selected), selected.span);
+      });
+      if (hasConflict) conflicts.add(item.id);
+    });
+  return conflicts;
+}
+
+function stationaryPredecessorIdsByItem(items = [], selectedIds = new Set()) {
+  const predecessorIdsByItem = new Map();
+  for (const side of [MODULAR_LAYOUT_SIDE_MASKS.left, MODULAR_LAYOUT_SIDE_MASKS.right]) {
+    const sequence = items
+      .filter(item => !selectedIds.has(item.id) && itemOccupiesSide(item, side))
+      .sort(originalPlacementComparator);
+    for (let index = 1; index < sequence.length; index += 1) {
+      const current = sequence[index];
+      const previous = sequence[index - 1];
+      if (!predecessorIdsByItem.has(current.id)) predecessorIdsByItem.set(current.id, new Set());
+      predecessorIdsByItem.get(current.id).add(previous.id);
+    }
+  }
+  return predecessorIdsByItem;
+}
+
+function candidateLaneForAffectedItem(occupied, item, lowerBound, strategy = "earliest", originalEndLane = 0) {
+  const safeLower = Math.max(0, Math.round(finiteNumber(lowerBound, 0)));
+  if (strategy === "nearest") {
+    const preferred = Math.max(safeLower, Math.round(finiteNumber(item.lane, safeLower)));
+    const maxLane = Math.max(originalEndLane + item.span + 8, preferred + item.span + 8, safeLower + item.span + 8);
+    for (let delta = 0; delta <= maxLane + item.span; delta += 1) {
+      const down = preferred + delta;
+      if (!hasCollisionAt(occupied, item, down)) return down;
+      const up = preferred - delta;
+      if (up >= safeLower && !hasCollisionAt(occupied, item, up)) return up;
+    }
+  }
+  let lane = safeLower;
+  while (hasCollisionAt(occupied, item, lane)) lane += 1;
+  return lane;
+}
+
+function compositeCandidateProblems(items = [], laneById = new Map(), selectedIds = new Set()) {
+  const problems = [];
+  const occupied = {
+    [MODULAR_LAYOUT_SIDE_MASKS.left]: [],
+    [MODULAR_LAYOUT_SIDE_MASKS.right]: []
+  };
+  for (const item of items) {
+    const lane = laneForCandidate(laneById, item);
+    for (const side of sideMaskSides(item.sideMask)) {
+      for (let index = lane; index < lane + item.span; index += 1) {
+        const otherId = occupied[side][index];
+        if (otherId) {
+          if (!selectedIds.has(item.id)) problems.push(item.id);
+          if (!selectedIds.has(otherId)) problems.push(otherId);
+        }
+        occupied[side][index] = item.id;
+      }
+    }
+  }
+  for (const side of [MODULAR_LAYOUT_SIDE_MASKS.left, MODULAR_LAYOUT_SIDE_MASKS.right]) {
+    const stationary = items
+      .filter(item => !selectedIds.has(item.id) && itemOccupiesSide(item, side))
+      .sort(originalPlacementComparator);
+    for (let index = 1; index < stationary.length; index += 1) {
+      const previous = stationary[index - 1];
+      const current = stationary[index];
+      if (laneForCandidate(laneById, previous) + previous.span > laneForCandidate(laneById, current)) {
+        problems.push(current.id);
+      }
+    }
+  }
+  return [...new Set(problems)].filter(Boolean);
+}
+
+function placeCompositeAffectedItems(
+  items = [],
+  selectedIds = new Set(),
+  selectedLaneById = new Map(),
+  initialAffectedIds = new Set(),
+  strategy = "earliest",
+  options = {}
+) {
+  const originalEndLane = Math.max(finiteNumber(options.originalEndLane, 0), laneMapEndLane(items, laneMapFromItems(items)));
+  const itemById = new Map(items.map(item => [item.id, item]));
+  const predecessorIdsByItem = stationaryPredecessorIdsByItem(items, selectedIds);
+  const affectedIds = new Set(initialAffectedIds);
+  let workCount = 0;
+  let passCount = 0;
+  while (passCount <= items.length + 2) {
+    passCount += 1;
+    workCount += items.length;
+    const occupied = {
+      [MODULAR_LAYOUT_SIDE_MASKS.left]: [],
+      [MODULAR_LAYOUT_SIDE_MASKS.right]: []
+    };
+    const laneById = new Map();
+    items
+      .filter(item => selectedIds.has(item.id))
+      .sort(originalPlacementComparator)
+      .forEach(item => {
+        const lane = laneForCandidate(selectedLaneById, item);
+        laneById.set(item.id, lane);
+        reserveItemAt(occupied, item, lane);
+      });
+    items
+      .filter(item => !selectedIds.has(item.id) && !affectedIds.has(item.id))
+      .sort(originalPlacementComparator)
+      .forEach(item => {
+        laneById.set(item.id, item.lane);
+        reserveItemAt(occupied, item, item.lane);
+      });
+    items
+      .filter(item => affectedIds.has(item.id))
+      .sort(originalPlacementComparator)
+      .forEach(item => {
+        let lowerBound = 0;
+        (predecessorIdsByItem.get(item.id) || new Set()).forEach(previousId => {
+          const previous = itemById.get(previousId);
+          if (!previous || !laneById.has(previousId)) return;
+          lowerBound = Math.max(lowerBound, laneById.get(previousId) + previous.span);
+        });
+        const lane = candidateLaneForAffectedItem(occupied, item, lowerBound, strategy, originalEndLane);
+        laneById.set(item.id, lane);
+        reserveItemAt(occupied, item, lane);
+      });
+    const problems = compositeCandidateProblems(items, laneById, selectedIds);
+    const newProblems = problems.filter(id => !selectedIds.has(id) && !affectedIds.has(id));
+    if (!newProblems.length) {
+      return { laneById, affectedIds, workCount, passCount, strategy };
+    }
+    newProblems.forEach(id => affectedIds.add(id));
+  }
+  throw new Error("Unable to resolve modular composite insertion without bounded stationary repair.");
+}
+
+function compositeVacatedPenalty(items = [], laneById = new Map(), selectedIds = new Set()) {
+  const selectedItems = items.filter(item => selectedIds.has(item.id));
+  let penalty = 0;
+  selectedItems.forEach(selected => {
+    for (const side of sideMaskSides(selected.sideMask)) {
+      for (let lane = selected.lane; lane < selected.lane + selected.span; lane += 1) {
+        const reused = items.some(item => {
+          if (selectedIds.has(item.id) || !itemOccupiesSide(item, side)) return false;
+          return intervalsOverlap(laneForCandidate(laneById, item), item.span, lane, lane + 1);
+        });
+        if (!reused) penalty += 1;
+      }
+    }
+  });
+  return penalty;
+}
+
+function compositeCandidateMetrics(items = [], laneById = new Map(), selectedIds = new Set(), originalEndLane = 0, workCount = 0) {
+  const stationary = items.filter(item => !selectedIds.has(item.id));
+  const displacedStationary = stationary.filter(item => laneForCandidate(laneById, item) !== item.lane);
+  const totalDisplacement = displacedStationary.reduce((sum, item) => {
+    return sum + Math.abs(laneForCandidate(laneById, item) - item.lane);
+  }, 0);
+  const endLane = laneMapEndLane(items, laneById);
+  const tieKey = [...items]
+    .sort(originalPlacementComparator)
+    .map(item => `${item.id}:${laneForCandidate(laneById, item)}`)
+    .join("|");
+  return {
+    vacatedPenalty: compositeVacatedPenalty(items, laneById, selectedIds),
+    extentPenalty: endLane > originalEndLane ? 1 : 0,
+    endLane,
+    displacedCount: displacedStationary.length,
+    totalDisplacement,
+    workCount,
+    tieKey
+  };
+}
+
+function compareCompositeMetrics(a, b) {
+  const keys = ["vacatedPenalty", "extentPenalty", "endLane", "displacedCount", "totalDisplacement", "workCount"];
+  for (const key of keys) {
+    const delta = a[key] - b[key];
+    if (delta) return delta;
+  }
+  return a.tieKey.localeCompare(b.tieKey);
+}
+
+function compositeResultForLaneMap(items = [], laneById = new Map(), options = {}) {
+  const startY = finiteNumber(options.startY, 0);
+  const slotHeight = positiveNumber(options.slotHeight, MODULAR_LAYOUT_SLOT_HEIGHT);
+  return placementResultFromItems(items.map(item => {
+    const lane = laneForCandidate(laneById, item);
+    return {
+      ...item,
+      lane,
+      requestedLane: lane,
+      requestedY: layoutYForLane(lane, startY, slotHeight),
+      y: layoutYForLane(lane, startY, slotHeight)
+    };
+  }), {
+    startY,
+    slotHeight,
+    preserveRequestedY: false
+  });
+}
+
+function compositeSessionItems(session = {}, options = {}) {
+  const source = session?.snapshot?.items ? session.snapshot : { items: [] };
+  const startY = finiteNumber(source.startY, finiteNumber(options.startY, 0));
+  const slotHeight = positiveNumber(source.slotHeight, positiveNumber(options.slotHeight, MODULAR_LAYOUT_SLOT_HEIGHT));
+  return source.items
+    .filter(item => item && stableString(item.id))
+    .map((item, index) => normalizePlacementItem({
+      ...item,
+      requestedLane: Number.isFinite(Number(item.lane)) ? Number(item.lane) : item.requestedLane,
+      requestedY: Number.isFinite(Number(item.y)) ? Number(item.y) : item.requestedY,
+      sourceIndex: index
+    }, index, { startY, slotHeight }));
+}
+
+export function isValidModularCompositeInsertionResult(session, layout, primaryTargetLane, options = {}) {
+  if (!session?.snapshot?.items || !session?.primaryItemId) return false;
+  const source = session.snapshot;
+  const items = compositeSessionItems(session, options);
+  const selectedIds = compositeSelectedIdSet(session);
+  if (selectedIds.size < 2) return false;
+  const requestedTarget = Math.max(0, Math.round(finiteNumber(primaryTargetLane, session.originalPrimaryLane)));
+  const resolvedPrimaryTargetLane = compositeResolvedPrimaryTarget(session, requestedTarget);
+  const laneDelta = resolvedPrimaryTargetLane - session.originalPrimaryLane;
+  const laneById = new Map((layout?.items || []).map(item => [stableString(item.id), Math.max(0, Math.round(finiteNumber(item.lane, 0)))]));
+  if (laneById.size !== items.length) return false;
+  for (const item of items) {
+    if (!laneById.has(item.id)) return false;
+  }
+  for (const member of session.members || []) {
+    const sourceItem = source.byId[member.id];
+    const layoutItem = (layout?.items || []).find(item => stableString(item.id) === member.id);
+    if (!sourceItem || !layoutItem) return false;
+    if (laneForCandidate(laneById, sourceItem) !== sourceItem.lane + laneDelta) return false;
+    if (normalizePlacementSideMask(layoutItem.sideMask) !== member.sideMask) return false;
+    if (Math.max(1, Math.round(finiteNumber(layoutItem.span, 1))) !== member.span) return false;
+  }
+  return candidateHasNoOverlap(items, laneById)
+    && candidatePreservesStationaryOrderExcept(items, laneById, selectedIds);
+}
+
+export function resolveModularCompositeInsertionDrag(session, primaryTargetLane, options = {}) {
+  if (!session?.snapshot?.items || !session?.primaryItemId) {
+    throw new Error("A modular composite insertion session is required.");
+  }
+  const source = session.snapshot;
+  assertValidSourceBaseline(source, "modular composite drag baseline");
+  const startY = finiteNumber(source.startY, finiteNumber(options.startY, 0));
+  const slotHeight = positiveNumber(source.slotHeight, positiveNumber(options.slotHeight, MODULAR_LAYOUT_SLOT_HEIGHT));
+  const items = compositeSessionItems(session, { startY, slotHeight });
+  const selectedIds = compositeSelectedIdSet(session);
+  const requestedPrimaryTargetLane = Math.max(0, Math.round(finiteNumber(primaryTargetLane, session.originalPrimaryLane)));
+  const resolvedPrimaryTargetLane = compositeResolvedPrimaryTarget(session, requestedPrimaryTargetLane);
+  const laneDelta = resolvedPrimaryTargetLane - session.originalPrimaryLane;
+  const selectedLaneById = compositeSelectedLaneById(session, resolvedPrimaryTargetLane);
+  const directConflictIds = compositeDirectConflictIds(items, selectedIds, selectedLaneById);
+  const originalEndLane = finiteNumber(source.endLane, laneMapEndLane(items, laneMapFromItems(items)));
+  const candidates = ["earliest", "nearest"].map(strategy => {
+    const candidate = placeCompositeAffectedItems(
+      items,
+      selectedIds,
+      selectedLaneById,
+      directConflictIds,
+      strategy,
+      { originalEndLane }
+    );
+    return {
+      ...candidate,
+      metrics: compositeCandidateMetrics(items, candidate.laneById, selectedIds, originalEndLane, candidate.workCount)
+    };
+  }).filter(candidate => {
+    return candidateHasNoOverlap(items, candidate.laneById)
+      && candidatePreservesStationaryOrderExcept(items, candidate.laneById, selectedIds);
+  }).sort((a, b) => compareCompositeMetrics(a.metrics, b.metrics));
+  const selected = candidates[0];
+  if (!selected) {
+    throw new Error("Unable to resolve modular composite insertion without violating invariants.");
+  }
+  const result = compositeResultForLaneMap(items, selected.laneById, { startY, slotHeight });
+  result.compositeDrag = Object.freeze({
+    draggedItemIds: Object.freeze([...(session.draggedItemIds || [])]),
+    primaryItemId: session.primaryItemId,
+    requestedPrimaryTargetLane,
+    resolvedPrimaryTargetLane,
+    laneDelta,
+    movedStationaryIds: Object.freeze([...selected.affectedIds].sort()),
+    candidateCount: candidates.length,
+    workCount: selected.workCount,
+    strategy: selected.strategy
+  });
+  if (!isValidModularCompositeInsertionResult(session, result, requestedPrimaryTargetLane, { startY, slotHeight })) {
+    throw new Error(`Resolved modular composite insertion failed validation for ${session.primaryItemId} at lane ${resolvedPrimaryTargetLane}.`);
+  }
+  return result;
 }
 
 function explicitVisualSide(value = "") {

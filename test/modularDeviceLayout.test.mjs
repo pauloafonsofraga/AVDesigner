@@ -6,10 +6,13 @@ import {
   cardBandGeometryForSlot,
   cardSlotSpanLanes,
   connectorPlacementSideMask,
+  createModularCompositeInsertionDragSession,
   createModularInsertionDragSession,
   createModularPlacementSnapshot,
+  isValidModularCompositeInsertionResult,
   isValidModularInsertionResult,
   resolveInstalledCardConnectors,
+  resolveModularCompositeInsertionDrag,
   resolveModularDeviceLayout,
   resolveModularInsertionDrag,
   resolveModularPlacementItems,
@@ -188,6 +191,27 @@ function assertStationaryOrderPreserved(snapshot, layout, draggedId) {
   }
 }
 
+function assertStationaryOrderPreservedExcept(snapshot, layout, selectedIds) {
+  const excluded = new Set(selectedIds);
+  const finalById = new Map(layout.items.map(entry => [entry.id, entry]));
+  for (const side of ["left", "right"]) {
+    const original = snapshot.items
+      .filter(entry => !excluded.has(entry.id) && (entry.sideMask === side || entry.sideMask === "both"))
+      .sort((a, b) => {
+        const laneDelta = a.lane - b.lane;
+        if (laneDelta) return laneDelta;
+        const orderDelta = a.order - b.order;
+        if (orderDelta) return orderDelta;
+        return a.id.localeCompare(b.id);
+      });
+    for (let index = 1; index < original.length; index += 1) {
+      const previous = finalById.get(original[index - 1].id);
+      const current = finalById.get(original[index].id);
+      assert.ok(previous.endLane <= current.lane, `${side} stationary order changed around ${previous.id}/${current.id}`);
+    }
+  }
+}
+
 function assertInsertionInvariants(snapshot, draggedId, target, context = "") {
   const layout = resolveModularInsertionDrag(snapshot, draggedId, target);
   const repeated = resolveModularInsertionDrag(snapshot, draggedId, target);
@@ -197,6 +221,43 @@ function assertInsertionInvariants(snapshot, draggedId, target, context = "") {
   assert.deepEqual(laneMap(layout), laneMap(repeated), `${context} repeated lane map`);
   assert.equal(layout.endLane, repeated.endLane, `${context} repeated extent`);
   assert.equal(isValidModularInsertionResult(snapshot, layout, draggedId, target), true, `${context} production validity`);
+  return layout;
+}
+
+function assertCompositeInvariants(session, target, context = "") {
+  const beforeSnapshot = JSON.stringify(session.snapshot);
+  const layout = resolveModularCompositeInsertionDrag(session, target);
+  const repeated = resolveModularCompositeInsertionDrag(session, target);
+  const selectedIds = new Set(session.draggedItemIds);
+  const selectedItems = session.draggedItemIds.map(id => layout.byId.get(id));
+  const baselineById = session.snapshot.byId;
+  const expectedDelta = layout.compositeDrag.laneDelta;
+
+  assert.equal(
+    layout.byId.get(session.primaryItemId).lane,
+    layout.compositeDrag.resolvedPrimaryTargetLane,
+    `${context} primary hard target`
+  );
+  selectedItems.forEach(entry => {
+    const source = baselineById[entry.id];
+    assert.equal(entry.lane - source.lane, expectedDelta, `${context} selected delta ${entry.id}`);
+    assert.equal(entry.lane - layout.byId.get(session.primaryItemId).lane, source.lane - baselineById[session.primaryItemId].lane, `${context} selected offset ${entry.id}`);
+    assert.equal(entry.span, source.span, `${context} selected span ${entry.id}`);
+    assert.equal(entry.sideMask, source.sideMask, `${context} selected side ${entry.id}`);
+  });
+  assertNoSideOverlap(layout);
+  assertStationaryOrderPreservedExcept(session.snapshot, layout, selectedIds);
+  assert.deepEqual(new Set(layout.items.map(entry => entry.id)), new Set(session.snapshot.items.map(entry => entry.id)), `${context} IDs`);
+  assert.deepEqual(laneMap(layout), laneMap(repeated), `${context} repeated lane map`);
+  assert.equal(layout.endLane, repeated.endLane, `${context} repeated extent`);
+  assert.equal(isValidModularCompositeInsertionResult(session, layout, target), true, `${context} production validity`);
+
+  const normalized = resolveModularPlacementItems(layout.items, {
+    startY: layout.startY,
+    slotHeight: layout.slotHeight
+  });
+  assert.deepEqual(laneMap(normalized), laneMap(layout), `${context} static normalization fixed point`);
+  assert.equal(JSON.stringify(session.snapshot), beforeSnapshot, `${context} snapshot unchanged`);
   return layout;
 }
 
@@ -559,6 +620,168 @@ test("stable insertion drag is deterministic across repeated calculations", () =
   assert.equal(first.endLane, second.endLane);
 });
 
+test("composite insertion moves adjacent left-side groups rigidly and reuses vacated lanes", () => {
+  const session = createModularCompositeInsertionDragSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 1, "left", 1, 1),
+    item("C", 2, "left", 1, 2),
+    item("D", 3, "left", 1, 3)
+  ], ["B", "A"], "A", { startY: START_Y, slotHeight: SLOT });
+  const layout = assertCompositeInvariants(session, 2, "adjacent left group");
+
+  assert.deepEqual(session.draggedItemIds, ["A", "B"], "selected IDs normalize by snapshot order");
+  assert.deepEqual(laneMap(layout), { A: 2, B: 3, C: 0, D: 1 });
+  assert.equal(layout.compositeDrag.requestedPrimaryTargetLane, 2);
+  assert.equal(layout.compositeDrag.resolvedPrimaryTargetLane, 2);
+  assert.equal(layout.compositeDrag.laneDelta, 2);
+  assert.equal(layout.endLane, 4);
+});
+
+test("composite insertion preserves mixed-side group rows and side-aware collision chains", () => {
+  const session = createModularCompositeInsertionDragSession([
+    item("L", 0, "left", 1, 0),
+    item("R", 0, "right", 1, 1),
+    item("SL", 1, "left", 1, 2),
+    item("SR", 1, "right", 1, 3)
+  ], ["R", "L"], "L", { startY: START_Y, slotHeight: SLOT });
+  const layout = assertCompositeInvariants(session, 1, "mixed side row group");
+
+  assert.deepEqual(laneMap(layout), { L: 1, R: 1, SL: 0, SR: 0 });
+  assert.equal(layout.byId.get("L").lane - layout.byId.get("R").lane, 0);
+  assert.equal(layout.endLane, 2);
+});
+
+test("composite insertion keeps non-contiguous selected gaps genuine", () => {
+  const session = createModularCompositeInsertionDragSession([
+    item("A", 0, "left", 1, 0),
+    item("GAP-R", 1, "right", 1, 1),
+    item("B", 2, "right", 1, 2),
+    item("X", 1, "left", 1, 3),
+    item("Y", 4, "left", 1, 4)
+  ], ["A", "B"], "A", { startY: START_Y, slotHeight: SLOT });
+  const layout = assertCompositeInvariants(session, 1, "non-contiguous group");
+
+  assert.deepEqual(laneMap(layout), { A: 1, "GAP-R": 1, B: 3, X: 0, Y: 4 });
+  assert.equal(layout.byId.get("GAP-R").lane, 1, "right-only stationary item in the selected shape gap stays put");
+  assert.equal(layout.byId.get("B").lane - layout.byId.get("A").lane, 2);
+});
+
+test("composite insertion hard-reserves both-side selected members", () => {
+  const session = createModularCompositeInsertionDragSession([
+    item("X", 1, "both", 1, 0),
+    item("A", 3, "left", 1, 1),
+    item("L", 2, "left", 1, 2),
+    item("R", 2, "right", 1, 3),
+    item("T", 5, "right", 1, 4)
+  ], ["X", "A"], "X", { startY: START_Y, slotHeight: SLOT });
+  const layout = assertCompositeInvariants(session, 2, "both-side selected member");
+
+  assert.deepEqual(laneMap(layout), { X: 2, A: 4, L: 3, R: 3, T: 5 });
+  assert.equal(layout.byId.get("X").sideMask, "both");
+});
+
+test("composite insertion keeps stationary variable-span cards atomic", () => {
+  const session = createModularCompositeInsertionDragSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 1, "left", 1, 1),
+    item("CARD", 2, "both", 3, 2, "card-slot"),
+    item("R", 6, "right", 1, 3)
+  ], ["A", "B"], "A", { startY: START_Y, slotHeight: SLOT });
+  const layout = assertCompositeInvariants(session, 2, "stationary span card");
+
+  assert.deepEqual(laneMap(layout), { A: 2, B: 3, CARD: 4, R: 7 });
+  assert.equal(layout.byId.get("CARD").span, 3);
+  assert.equal(layout.byId.get("CARD").endLane, 7);
+});
+
+test("composite insertion supports selected variable-span items", () => {
+  const session = createModularCompositeInsertionDragSession([
+    item("CARD", 0, "both", 2, 0, "card-slot"),
+    item("C", 3, "left", 1, 1),
+    item("S", 2, "both", 1, 2),
+    item("R", 5, "right", 1, 3)
+  ], ["CARD", "C"], "CARD", { startY: START_Y, slotHeight: SLOT });
+  const layout = assertCompositeInvariants(session, 1, "selected span card");
+
+  assert.deepEqual(laneMap(layout), { CARD: 1, C: 4, S: 0, R: 5 });
+  assert.equal(layout.byId.get("CARD").span, 2);
+  assert.equal(layout.byId.get("C").lane - layout.byId.get("CARD").lane, 3);
+});
+
+test("composite insertion clamps complete groups at the top boundary", () => {
+  const session = createModularCompositeInsertionDragSession([
+    item("H", 0, "left", 1, 0),
+    item("P", 2, "left", 1, 1),
+    item("S", 4, "left", 1, 2)
+  ], ["H", "P"], "P", { startY: START_Y, slotHeight: SLOT });
+  const layout = assertCompositeInvariants(session, 0, "top boundary");
+
+  assert.deepEqual(laneMap(layout), { H: 0, P: 2, S: 4 });
+  assert.equal(layout.compositeDrag.requestedPrimaryTargetLane, 0);
+  assert.equal(layout.compositeDrag.resolvedPrimaryTargetLane, 2);
+  assert.equal(layout.compositeDrag.laneDelta, 0);
+});
+
+test("composite insertion current-position result reproduces the baseline", () => {
+  const session = createModularCompositeInsertionDragSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 1, "left", 1, 1),
+    item("C", 2, "right", 1, 2),
+    item("D", 3, "both", 1, 3)
+  ], ["B", "C"], "B", { startY: START_Y, slotHeight: SLOT });
+  const layout = assertCompositeInvariants(session, 1, "current position");
+
+  assert.deepEqual(laneMap(layout), { A: 0, B: 1, C: 2, D: 3 });
+  assert.equal(layout.endLane, session.snapshot.endLane);
+});
+
+test("composite insertion direction reversal is deterministic from the immutable baseline", () => {
+  const session = createModularCompositeInsertionDragSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 2, "left", 1, 1),
+    item("C", 3, "right", 1, 2),
+    item("D", 5, "both", 1, 3),
+    item("E", 7, "left", 1, 4)
+  ], ["B", "C"], "B", { startY: START_Y, slotHeight: SLOT });
+  const upward = assertCompositeInvariants(session, 1, "direction reversal up");
+  const downward = assertCompositeInvariants(session, 5, "direction reversal down");
+  const upwardAgain = assertCompositeInvariants(session, 1, "direction reversal up again");
+
+  assert.deepEqual(laneMap(upward), laneMap(upwardAgain));
+  assert.notDeepEqual(laneMap(upward), laneMap(downward));
+});
+
+test("composite insertion leaves unrelated opposite-side items stationary", () => {
+  const session = createModularCompositeInsertionDragSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 1, "left", 1, 1),
+    item("C", 2, "left", 1, 2),
+    item("R", 2, "right", 1, 3),
+    item("RB", 5, "both", 1, 4)
+  ], ["A", "B"], "A", { startY: START_Y, slotHeight: SLOT });
+  const layout = assertCompositeInvariants(session, 2, "opposite-side unrelated");
+
+  assert.deepEqual(laneMap(layout), { A: 2, B: 3, C: 1, R: 2, RB: 5 });
+  assert.equal(layout.byId.get("R").lane, 2);
+});
+
+test("composite insertion session rejects invalid selections and overlapping baselines", () => {
+  assert.throws(() => createModularCompositeInsertionDragSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 1, "left", 1, 1)
+  ], ["A"], "A", { startY: START_Y, slotHeight: SLOT }), /at least two/);
+
+  assert.throws(() => createModularCompositeInsertionDragSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 1, "left", 1, 1)
+  ], ["A", "B"], "Z", { startY: START_Y, slotHeight: SLOT }), /Primary/);
+
+  assert.throws(() => createModularCompositeInsertionDragSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 0, "left", 1, 1)
+  ], ["A", "B"], "A", { startY: START_Y, slotHeight: SLOT }), /overlapping/);
+});
+
 test("exhaustive three-item insertion cases preserve hard targets and stationary interval order", t => {
   const masks = ["left", "right", "both"];
   const spans = [1, 2];
@@ -631,6 +854,172 @@ test("seeded larger insertion cases preserve hard targets and stationary interva
   t.diagnostic(`seeded valid layouts: ${seedCount}`);
   t.diagnostic(`seeded insertion cases: ${caseCount}`);
   assert.ok(caseCount > seedCount);
+});
+
+test("exhaustive small composite insertion cases preserve rigid groups and stationary order", t => {
+  const masks = ["left", "right", "both"];
+  const spans = [1, 2];
+  const lanes = [0, 1, 2, 3];
+  let layoutCount = 0;
+  let caseCount = 0;
+
+  for (const maskA of masks) {
+    for (const maskB of masks) {
+      for (const maskC of masks) {
+        for (const spanA of spans) {
+          for (const spanB of spans) {
+            for (const spanC of spans) {
+              for (const laneA of lanes) {
+                for (const laneB of lanes) {
+                  for (const laneC of lanes) {
+                    const items = [
+                      item("A", laneA, maskA, spanA, 0),
+                      item("B", laneB, maskB, spanB, 1),
+                      item("C", laneC, maskC, spanC, 2)
+                    ];
+                    if (!isValidFixtureLayout(items)) continue;
+                    layoutCount += 1;
+                    const selections = [
+                      ["A", "B"],
+                      ["A", "C"],
+                      ["B", "C"],
+                      ["A", "B", "C"]
+                    ];
+                    selections.forEach(selectedIds => {
+                      selectedIds.forEach(primaryId => {
+                        const session = createModularCompositeInsertionDragSession(items, selectedIds, primaryId, {
+                          startY: START_Y,
+                          slotHeight: SLOT
+                        });
+                        const primaryLane = session.originalPrimaryLane;
+                        const targets = new Set([
+                          0,
+                          Math.max(0, primaryLane - 2),
+                          primaryLane + 1,
+                          primaryLane + 3
+                        ]);
+                        targets.forEach(target => {
+                          assertCompositeInvariants(session, target, `exhaustive composite ${layoutCount} ${selectedIds.join("+")} ${primaryId}->${target}`);
+                          caseCount += 1;
+                        });
+                      });
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  t.diagnostic(`exhaustive composite valid layouts: ${layoutCount}`);
+  t.diagnostic(`exhaustive composite insertion cases: ${caseCount}`);
+  assert.ok(layoutCount > 0);
+  assert.ok(caseCount > layoutCount);
+});
+
+test("seeded composite insertion cases preserve rigid groups across larger layouts", t => {
+  const seedCount = 160;
+  let caseCount = 0;
+  for (let seed = 1; seed <= seedCount; seed += 1) {
+    const items = createSeededValidLayout(1000 + seed);
+    const ordered = [...items].sort((a, b) => {
+      const laneDelta = a.requestedLane - b.requestedLane;
+      if (laneDelta) return laneDelta;
+      const orderDelta = a.order - b.order;
+      if (orderDelta) return orderDelta;
+      return a.id.localeCompare(b.id);
+    });
+    const groups = [
+      ordered.slice(0, 2).map(entry => entry.id),
+      ordered.slice(Math.max(0, Math.floor(ordered.length / 2) - 1), Math.max(0, Math.floor(ordered.length / 2) - 1) + 3).map(entry => entry.id),
+      ordered.slice(-3).map(entry => entry.id)
+    ].filter(ids => ids.length >= 2);
+    groups.forEach((ids, groupIndex) => {
+      const primaryId = ids[Math.min(ids.length - 1, groupIndex % ids.length)];
+      const session = createModularCompositeInsertionDragSession(items, ids, primaryId, {
+        startY: START_Y,
+        slotHeight: SLOT
+      });
+      const targets = new Set([
+        0,
+        Math.max(0, session.originalPrimaryLane - 4),
+        session.originalPrimaryLane + 2,
+        session.snapshot.endLane + 2
+      ]);
+      const firstTarget = [...targets][0];
+      const first = assertCompositeInvariants(session, firstTarget, `seed ${seed} group ${groupIndex} first`);
+      targets.forEach(target => {
+        assertCompositeInvariants(session, target, `seed ${seed} group ${groupIndex} target ${target}`);
+        caseCount += 1;
+      });
+      const repeatedFirst = resolveModularCompositeInsertionDrag(session, firstTarget);
+      assert.deepEqual(laneMap(first), laneMap(repeatedFirst), `seed ${seed} group ${groupIndex} later target must not mutate session`);
+    });
+  }
+
+  t.diagnostic(`seeded composite valid layouts: ${seedCount}`);
+  t.diagnostic(`seeded composite insertion cases: ${caseCount}`);
+  assert.ok(caseCount > seedCount);
+});
+
+test("composite insertion result is independent of input array order when stable order and IDs match", () => {
+  const ordered = [
+    item("A", 0, "left", 1, 0),
+    item("B", 2, "both", 1, 1),
+    item("C", 4, "right", 1, 2),
+    item("D", 6, "left", 1, 3),
+    item("E", 8, "both", 1, 4)
+  ];
+  const shuffled = [ordered[3], ordered[1], ordered[4], ordered[0], ordered[2]];
+  const first = createModularCompositeInsertionDragSession(ordered, ["B", "C", "D"], "C", {
+    startY: START_Y,
+    slotHeight: SLOT
+  });
+  const second = createModularCompositeInsertionDragSession(shuffled, ["D", "C", "B"], "C", {
+    startY: START_Y,
+    slotHeight: SLOT
+  });
+  const firstResult = assertCompositeInvariants(first, 1, "ordered input");
+  const secondResult = assertCompositeInvariants(second, 1, "shuffled input");
+
+  assert.deepEqual(first.draggedItemIds, second.draggedItemIds);
+  assert.deepEqual(laneMap(firstResult), laneMap(secondResult));
+});
+
+test("composite insertion uses bounded work for large interactive fixtures", t => {
+  const masks = ["left", "right", "both"];
+  const items = Array.from({ length: 108 }, (_, index) => {
+    const span = index % 11 === 0 ? 3 : index % 5 === 0 ? 2 : 1;
+    return item(
+      `I${index}`,
+      index * 4,
+      masks[index % masks.length],
+      span,
+      index,
+      index % 7 === 0 ? "card-slot" : "chassis-connector"
+    );
+  });
+  const selectedIds = Array.from({ length: 10 }, (_, index) => `I${44 + index}`);
+  const session = createModularCompositeInsertionDragSession(items, selectedIds, "I48", {
+    startY: START_Y,
+    slotHeight: SLOT
+  });
+  const targets = [
+    session.originalPrimaryLane - 24,
+    session.originalPrimaryLane + 12,
+    session.originalPrimaryLane + 72
+  ];
+  let maxWork = 0;
+  targets.forEach(target => {
+    const layout = assertCompositeInvariants(session, target, `large target ${target}`);
+    maxWork = Math.max(maxWork, layout.compositeDrag.workCount);
+    assert.ok(layout.compositeDrag.workCount <= items.length * (items.length + 4), "composite solver should stay inside bounded repair work");
+    assert.ok(layout.compositeDrag.candidateCount <= 2, "composite solver should not generate unbounded candidates");
+  });
+  t.diagnostic(`composite large-fixture max work count: ${maxWork}`);
 });
 
 test("placement snapshots are deeply frozen scalar copies", () => {
