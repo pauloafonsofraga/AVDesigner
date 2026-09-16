@@ -4993,7 +4993,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.7.0 — Device Editor Persistent Placement Motion — iteration54-7-0-device-editor-persistent-placement-motion</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.7.1 — Device Editor Card Motion Parity — iteration54-7-1-device-editor-card-motion-parity</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5686,10 +5686,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.7.0";
-    const APP_BUILD_ID = "iteration54-7-0-device-editor-persistent-placement-motion";
-    const APP_MODULE_CACHE_ID = "iteration54-7-0-device-editor-persistent-placement-motion-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Device Editor Persistent Placement Motion`;
+    const APP_ITERATION = "54.7.1";
+    const APP_BUILD_ID = "iteration54-7-1-device-editor-card-motion-parity";
+    const APP_MODULE_CACHE_ID = "iteration54-7-1-device-editor-card-motion-parity-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Device Editor Card Motion Parity`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "f409d0373f783821e981515da660a2476e661959";
@@ -78357,6 +78357,8 @@
     let editorPlacementMotionScheduler = null;
     let editorPlacementMotionSampleCache = null;
     let editorPlacementMotionClearWhenSettled = false;
+    let editorEngineDynamicCardArtworkActive = false;
+    let editorEngineDynamicCardArtworkTextureRefreshPending = false;
     let editorEnginePreviewHost = null;
     let editorEnginePreviewSvgHome = null;
     let editorEnginePreviewSvgNextSibling = null;
@@ -79879,17 +79881,42 @@
       return drag.lastValidResolvedLayout || drag.baselineResolvedLayout || null;
     }
 
-    function beginEditorPlacementMotion(drag) {
+    function beginEditorPlacementMotion(drag, options = {}) {
       if (!drag?.itemId) return;
       const layout = editorMotionLayoutForDrag(drag, { baseline: true });
       if (!layout?.items?.length) return;
       try {
         const module = requireDeviceEditorPlacementMotionModule();
+        const now = editorPlacementMotionNow();
         const state = ensureEditorPlacementMotionState();
+        const sampledPositions = state.entries?.size
+          ? module.samplePlacementMotion(state, {
+              now,
+              reducedMotion: editorPlacementReducedMotion()
+            }).positions
+          : null;
         module.seedPlacementMotion(state, layout, {
-          now: editorPlacementMotionNow(),
+          now,
           reducedMotion: editorPlacementReducedMotion()
         });
+        if (sampledPositions?.size) {
+          state.entries.forEach(entry => {
+            if (!sampledPositions.has(entry.id)) return;
+            const sampledY = sampledPositions.get(entry.id);
+            entry.currentY = sampledY;
+            entry.startY = sampledY;
+            entry.startTime = now;
+            entry.settled = editorPlacementReducedMotion() || Math.abs(Number(sampledY) - Number(entry.targetY)) <= 0.0001;
+          });
+          const draggedSampleY = sampledPositions.get(drag.itemId);
+          if (Number.isFinite(Number(draggedSampleY))) {
+            drag.currentY = Number(draggedSampleY);
+            if (Number.isFinite(Number(options.pointerY))) {
+              drag.offsetY = Number(options.pointerY) - Number(draggedSampleY);
+            }
+          }
+        }
+        setEditorEngineDynamicCardArtworkActive(layout.items.some(item => editorStableLayoutItemKind(item) === "card"));
         editorPlacementMotionClearWhenSettled = false;
         editorPlacementMotionSampleCache = null;
       } catch (error) {
@@ -89926,15 +89953,33 @@
       return Boolean(editorPlacementMotionState?.entries?.size);
     }
 
-    function clearEditorPlacementMotion() {
+    function editorPlacementMotionHasCardEntries() {
+      if (!editorPlacementMotionState?.entries?.size) return false;
+      return [...editorPlacementMotionState.entries.keys()].some(id => String(id).startsWith("card:"));
+    }
+
+    function setEditorEngineDynamicCardArtworkActive(active) {
+      const next = Boolean(active);
+      if (editorEngineDynamicCardArtworkActive === next) return false;
+      editorEngineDynamicCardArtworkActive = next;
+      editorEngineDynamicCardArtworkTextureRefreshPending = true;
+      return true;
+    }
+
+    function clearEditorPlacementMotion(options = {}) {
       editorPlacementMotionScheduler?.cancel?.();
       editorPlacementMotionScheduler = null;
       editorPlacementMotionSampleCache = null;
       editorPlacementMotionClearWhenSettled = false;
+      const hadDynamicCardArtwork = editorEngineDynamicCardArtworkActive;
       if (editorPlacementMotionState && deviceEditorPlacementMotionModule?.clearPlacementMotion) {
         deviceEditorPlacementMotionModule.clearPlacementMotion(editorPlacementMotionState);
       }
       editorPlacementMotionState = null;
+      setEditorEngineDynamicCardArtworkActive(false);
+      if (hadDynamicCardArtwork && options.renderFinal !== false && !deviceEditorModal?.classList.contains("hidden")) {
+        renderDeviceEditorPreview({ refreshTexture: true, motionFrame: false });
+      }
     }
 
     function editorPlacementMotionCurrentSample(now = editorPlacementMotionNow()) {
@@ -89990,7 +90035,7 @@
             if (!settled) {
               ensureEditorPlacementMotionScheduler().schedule();
             } else if (editorPlacementMotionClearWhenSettled) {
-              clearEditorPlacementMotion();
+              clearEditorPlacementMotion({ renderFinal: true });
             }
           }
         });
@@ -90003,7 +90048,7 @@
       if (editorPlacementReducedMotion()) {
         editorPlacementMotionSampleCache = null;
         renderDeviceEditorPreview({ refreshTexture: false, motionFrame: true });
-        if (editorPlacementMotionClearWhenSettled) clearEditorPlacementMotion();
+        if (editorPlacementMotionClearWhenSettled) clearEditorPlacementMotion({ renderFinal: true });
         return;
       }
       ensureEditorPlacementMotionScheduler().schedule();
@@ -90213,6 +90258,8 @@
       editorEnginePreviewLastDeviceId = "";
       editorEnginePreviewLegacyVisualDraws = 0;
       editorEnginePreviewOverlayDraws = 0;
+      editorEngineDynamicCardArtworkActive = false;
+      editorEngineDynamicCardArtworkTextureRefreshPending = false;
     }
 
     function scheduleDeviceEditorEnginePreviewOpenFit() {
@@ -90282,13 +90329,14 @@
       return draft;
     }
 
-    function editorEnginePreviewTemplateClone(template) {
+    function editorEnginePreviewTemplateClone(template, options = {}) {
       const draft = readonlyDeviceEditorPreviewTemplate(template);
+      if (options.suppressCardAreasInTexture === true) draft.suppressCardAreasInTexture = true;
       return applyEditorPlacementVisualsToPreviewTemplate(draft, template);
     }
 
-    function editorEnginePreviewPayload(template) {
-      const draft = editorEnginePreviewTemplateClone(template);
+    function editorEnginePreviewPayload(template, options = {}) {
+      const draft = editorEnginePreviewTemplateClone(template, options);
       return {
         template: draft,
         projectData: {
@@ -90326,10 +90374,15 @@
       if (!surface || !template) return null;
       const module = editorEnginePreviewModule;
       if (!module?.createPreviewDeviceFromDraft) return null;
-      const payload = editorEnginePreviewPayload(template);
+      const payload = editorEnginePreviewPayload(template, {
+        suppressCardAreasInTexture: options.dynamicCardArtwork === true
+      });
       const device = module.createPreviewDeviceFromDraft(payload, 0);
       const visual = device?.visual || {};
+      const mustRefreshTexture = options.dynamicCardArtwork === true
+        && editorEngineDynamicCardArtworkTextureRefreshPending === true;
       const canSkipTextureRefresh = options.refreshTexture === false
+        && !mustRefreshTexture
         && (options.motionOnly === true
           || (device?.kind !== "adapter"
             && !visual.isPowerDistro
@@ -90356,6 +90409,9 @@
         surface.replaceDevice(device, { render: false, refreshTexture: !canSkipTextureRefresh });
         if (options.fit === true) surface.fitToContent({ padding: 34, bounds: fitBounds });
         surface.render();
+      }
+      if (!canSkipTextureRefresh) {
+        editorEngineDynamicCardArtworkTextureRefreshPending = false;
       }
       syncDeviceEditorEngineOverlayViewBox();
       return device;
@@ -90860,6 +90916,17 @@
       drawEditorPowerPlugMarquee(parent);
     }
 
+    function drawEditorEngineDynamicCardArtwork(parent, template) {
+      if (!editorEngineDynamicCardArtworkActive || !editorPlacementMotionHasCardEntries()) return;
+      if (editorActiveTab !== "connectors" || !template?.hasSwappableCards) return;
+      const group = createSvg("g", {
+        class: "editor-engine-dynamic-card-artwork",
+        "data-editor-dynamic-card-artwork": "true"
+      });
+      drawCardSlotBands(group, template, { editor: false });
+      parent.appendChild(group);
+    }
+
     function drawEditorEngineCardSlotOverlay(parent, template) {
       if (editorActiveTab !== "connectors" || !template?.hasSwappableCards) return;
       (template.cardSlots || []).forEach((slot, index) => {
@@ -90911,11 +90978,20 @@
         editorPowerPlugMarquee = null;
       }
       updateEditorFaceplatePreviewControls(template);
+      const dynamicCardArtwork = editorEngineDynamicCardArtworkActive && editorPlacementMotionHasCardEntries();
+      const refreshTexture = dynamicCardArtwork && editorEngineDynamicCardArtworkTextureRefreshPending
+        ? true
+        : options.refreshTexture === true
+          ? true
+          : options.refreshTexture === false
+            ? false
+            : (editorNodeDrag || editorCardSlotDrag || editorPlacementMotionHasEntries()) ? false : true;
       const previewDevice = syncDeviceEditorEnginePreview(previewTemplate, {
         fit: !editorEnginePreviewDraftSynced || editorEnginePreviewFitPending,
         fitBounds: editorActivePreviewBounds(previewTemplate),
-        refreshTexture: options.refreshTexture === false ? false : (editorNodeDrag || editorCardSlotDrag || editorPlacementMotionHasEntries()) ? false : true,
-        motionOnly: options.motionFrame === true || editorPlacementMotionHasEntries()
+        refreshTexture,
+        motionOnly: options.motionFrame === true || editorPlacementMotionHasEntries(),
+        dynamicCardArtwork
       });
       editorEnginePreviewFitPending = false;
       deviceEditorPreview.innerHTML = "";
@@ -90931,6 +91007,7 @@
       }));
       drawEditorEngineFaceplateOverlay(deviceEditorPreview, previewTemplate, previewDevice);
       drawEditorEnginePowerPlugOverlay(deviceEditorPreview, previewTemplate);
+      drawEditorEngineDynamicCardArtwork(deviceEditorPreview, previewTemplate);
       drawEditorEngineCardSlotOverlay(deviceEditorPreview, previewTemplate);
       drawEditorEngineConnectorOverlay(deviceEditorPreview, previewTemplate);
       drawEditorResizeHandles(deviceEditorPreview, previewTemplate, deviceTemplateWidth(previewTemplate), Number(previewTemplate.height) || deviceHeightForSlotCounts(previewTemplate));
@@ -92249,7 +92326,6 @@
       editorSelectedFaceplate = false;
       editorSelectedPowerPlugIds.clear();
       setEditorPointerCapture(event);
-      beginEditorPlacementMotion(editorCardSlotDrag);
       renderDeviceEditorPreview();
       return true;
     }
@@ -93309,6 +93385,7 @@
       };
       editorSelectedPowerPlugIds.clear();
       setEditorPointerCapture(event);
+      beginEditorPlacementMotion(editorCardSlotDrag, { pointerY: point.y });
       renderDeviceEditorPreview();
       return true;
     }
@@ -93448,7 +93525,7 @@
         ...(stableDrag || {})
       };
       setEditorPointerCapture(event);
-      if (stableDrag) beginEditorPlacementMotion(editorNodeDrag);
+      if (stableDrag) beginEditorPlacementMotion(editorNodeDrag, { pointerY: point.y });
       renderDeviceEditorPreview();
     }
 
@@ -107783,9 +107860,10 @@ renderViewerOutputDebug();
       if (!tab) return;
       if (tab.disabled || tab.getAttribute("aria-disabled") === "true") return;
       const previousTab = editorActiveTab;
-      editorActiveTab = tab.dataset.editorTab;
+      const nextTab = tab.dataset.editorTab;
+      if (previousTab !== nextTab) clearEditorPlacementMotion();
+      editorActiveTab = nextTab;
       recordShellPanelAction("device editor tab", editorActiveTab);
-      if (previousTab !== editorActiveTab) clearEditorPlacementMotion();
       clearEditorCardNodeSelection();
       renderEditorTabs();
       try {

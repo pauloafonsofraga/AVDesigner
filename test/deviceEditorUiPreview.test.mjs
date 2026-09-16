@@ -3,7 +3,12 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
 
-import { fitCameraToBounds } from "../src/engine/enginePreview.js";
+import {
+  createPreviewDeviceFromDraft,
+  fitCameraToBounds,
+  previewDeviceVisualKey
+} from "../src/engine/enginePreview.js";
+import * as placementMotionModule from "../src/engine/deviceEditorPlacementMotion.js";
 import {
   connectorPlacementSideMask,
   createModularInsertionDragSession,
@@ -252,6 +257,64 @@ function stableDragHarness(template) {
     })`;
   const api = vm.runInNewContext(script, context);
   return { api, context, template };
+}
+
+function placementMotionIntegrationHarness(now = 0) {
+  const context = {
+    console,
+    Map,
+    Math,
+    Number,
+    String,
+    Boolean,
+    deviceEditorPlacementMotionModule: placementMotionModule,
+    editorPlacementMotionState: null,
+    editorPlacementMotionScheduler: null,
+    editorPlacementMotionSampleCache: null,
+    editorPlacementMotionClearWhenSettled: false,
+    editorEngineDynamicCardArtworkActive: false,
+    editorEngineDynamicCardArtworkTextureRefreshPending: false,
+    scheduledFrames: 0,
+    dynamicTransitions: [],
+    now,
+    performance: { now: () => context.now },
+    window: { matchMedia: () => ({ matches: false }) },
+    requireDeviceEditorPlacementMotionModule: () => placementMotionModule,
+    scheduleEditorPlacementMotionFrame: () => {
+      context.scheduledFrames += 1;
+    },
+    setEditorEngineDynamicCardArtworkActive: active => {
+      const next = Boolean(active);
+      if (context.editorEngineDynamicCardArtworkActive === next) return false;
+      context.editorEngineDynamicCardArtworkActive = next;
+      context.editorEngineDynamicCardArtworkTextureRefreshPending = true;
+      context.dynamicTransitions.push(next);
+      return true;
+    },
+    editorStableLayoutItemKind: item => {
+      const id = String(item?.id || "");
+      if (item?.kind === "card" || item?.itemType === "card-slot" || id.startsWith("card:")) return "card";
+      return "connector";
+    }
+  };
+  const helpers = [
+    "editorPlacementMotionNow",
+    "editorPlacementReducedMotion",
+    "ensureEditorPlacementMotionState",
+    "editorPlacementMotionHasEntries",
+    "editorPlacementMotionHasCardEntries",
+    "editorMotionLayoutForDrag",
+    "beginEditorPlacementMotion",
+    "retargetEditorPlacementMotionForDrag"
+  ];
+  const script = `${helpers.map(functionSource).join("\n")}
+    ({
+      beginEditorPlacementMotion,
+      retargetEditorPlacementMotionForDrag,
+      editorPlacementMotionHasCardEntries
+    })`;
+  const api = vm.runInNewContext(script, context);
+  return { api, context };
 }
 
 test("Device tab uses compact feature groups with dependent controls beside toggles", () => {
@@ -571,6 +634,172 @@ test("Device Editor placement motion is persistent and shared by Engine and Lega
   assert.match(cancelDrags, /rollbackEditorPlacementMotionForDrag/);
   assert.match(displayAnchors, /deltaY = y - baseY/);
   assert.match(setPreviewY, /deltaY = nextY - currentY/);
+});
+
+test("Device Editor card-slot drag seeds motion in the card handler, not face resize", () => {
+  const cardDrag = functionSource("startEditorCardSlotDrag");
+  const faceResize = functionSource("startEditorFaceImageResize");
+
+  assert.doesNotMatch(faceResize, /beginEditorPlacementMotion\(/, "face image resize should not seed modular card motion");
+  assertOrder(cardDrag, [
+    "editorCardSlotDrag = {",
+    "setEditorPointerCapture(event);",
+    "beginEditorPlacementMotion(editorCardSlotDrag, { pointerY: point.y });",
+    "renderDeviceEditorPreview();"
+  ], "card slot drag should seed motion immediately after creating the drag session and before first render");
+  assert.match(cardDrag, /kind:\s*"card"/);
+  assert.match(cardDrag, /pointerY:\s*point\.y/);
+});
+
+test("Device Editor card motion integration animates first displacement and interrupted drags from sampled positions", () => {
+  const { api, context } = placementMotionIntegrationHarness(0);
+  const baseline = {
+    items: [
+      { id: "connector:top", kind: "connector", y: 100, span: 1, lane: 0 },
+      { id: "card:slot-a", kind: "card", y: 154, span: 3, lane: 1 },
+      { id: "connector:bottom", kind: "connector", y: 316, span: 1, lane: 4 }
+    ]
+  };
+  const displaced = {
+    items: [
+      { id: "connector:top", kind: "connector", y: 100, span: 1, lane: 0 },
+      { id: "card:slot-a", kind: "card", y: 208, span: 3, lane: 2 },
+      { id: "connector:bottom", kind: "connector", y: 370, span: 1, lane: 5 }
+    ]
+  };
+  const drag = {
+    itemId: "card:slot-a",
+    baselineResolvedLayout: baseline,
+    lastValidResolvedLayout: displaced,
+    offsetY: 20,
+    currentY: 154
+  };
+
+  api.beginEditorPlacementMotion(drag, { pointerY: 174 });
+  assert.equal(context.editorPlacementMotionState.entries.size, 3, "baseline seed should include connectors and cards");
+  assert.equal(context.editorEngineDynamicCardArtworkActive, true);
+  assert.equal(context.editorEngineDynamicCardArtworkTextureRefreshPending, true);
+
+  api.retargetEditorPlacementMotionForDrag(drag, { pointerY: 250 });
+  const firstSample = placementMotionModule.samplePlacementMotion(context.editorPlacementMotionState, { now: 0 });
+  assert.equal(firstSample.positions.get("card:slot-a"), 230, "dragged card should retain pointer offset");
+  assert.equal(firstSample.positions.get("connector:bottom"), 316, "stationary item starts from baseline visual position");
+  assert.equal(firstSample.entries.find(entry => entry.id === "connector:bottom").settled, false);
+
+  const halfway = placementMotionModule.samplePlacementMotion(context.editorPlacementMotionState, { now: 75 });
+  const bottomY = halfway.positions.get("connector:bottom");
+  assert.ok(bottomY > 316 && bottomY < 370, "stationary connector should ease instead of snapping on first move");
+  assert.notEqual(bottomY, 370);
+
+  const interruptedDrag = {
+    itemId: "connector:bottom",
+    baselineResolvedLayout: baseline,
+    lastValidResolvedLayout: baseline,
+    offsetY: 0,
+    currentY: 316
+  };
+  context.now = 75;
+  api.beginEditorPlacementMotion(interruptedDrag, { pointerY: bottomY + 11 });
+  const interruptedEntry = context.editorPlacementMotionState.entries.get("connector:bottom");
+  assert.ok(Math.abs(interruptedEntry.currentY - bottomY) < 0.000001, "new drag should begin from sampled onscreen Y");
+  assert.equal(interruptedDrag.offsetY, 11, "new drag pointer offset should be based on sampled onscreen Y");
+  assert.equal(interruptedEntry.targetY, 316, "new solver baseline remains the committed model");
+});
+
+test("Engine Device Editor card motion uses dynamic overlay ownership without per-frame texture refresh", () => {
+  const template = {
+    id: "motion-card-device",
+    name: "Motion Card Device",
+    width: 420,
+    height: 420,
+    hasSwappableCards: true,
+    connectors: [
+      { id: "fixed-in", type: "hdmi", direction: "input", x: 0, y: 100 }
+    ],
+    cardTypes: [{
+      id: "card-a",
+      name: "Span Card",
+      kind: "io",
+      captionTextColor: "#32b6ff",
+      captionBackgroundColor: "#17212b",
+      connectors: [
+        { id: "in-a", type: "hdmi", direction: "input", x: 0, y: 54, nameText: "IN" },
+        { id: "out-a", type: "hdmi", direction: "output", x: 420, y: 108, nameText: "OUT" }
+      ]
+    }],
+    cardSlots: [{ id: "slot-a", name: "Slot A", installedCardTypeId: "card-a", y: 154 }]
+  };
+  const previewPayload = slotY => {
+    const draft = {
+      ...structuredClone(template),
+      cardSlots: [{ ...template.cardSlots[0], y: slotY }]
+    };
+    return {
+      template: draft,
+      projectData: { state: { deviceLibrary: [draft], nodeLibrary: [] } },
+      instance: {
+        instanceId: "preview-device",
+        id: "preview-device",
+        templateId: draft.id,
+        templateOverride: draft,
+        name: draft.name,
+        x: 0,
+        y: 0
+      }
+    };
+  };
+  const normalDevice = createPreviewDeviceFromDraft(previewPayload(154), 0);
+  const suppressedPayload = previewPayload(208);
+  suppressedPayload.template.suppressCardAreasInTexture = true;
+  suppressedPayload.instance.templateOverride = suppressedPayload.template;
+  const suppressedDevice = createPreviewDeviceFromDraft(suppressedPayload, 0);
+
+  assert.equal(normalDevice.visual.suppressCardAreasInTexture, false);
+  assert.equal(suppressedDevice.visual.suppressCardAreasInTexture, true);
+  assert.equal(normalDevice.visual.visualCards.length, 1, "normal visual card metadata should remain available");
+  assert.equal(suppressedDevice.visual.visualCards.length, 1, "suppressed textures must preserve visual card metadata");
+  assert.notEqual(
+    previewDeviceVisualKey(normalDevice, { detailedDeviceTextures: true }),
+    previewDeviceVisualKey(suppressedDevice, { detailedDeviceTextures: true }),
+    "texture cache identity should include card-artwork suppression"
+  );
+  assert.equal(suppressedDevice.visual.visualCards[0].slotY, 208);
+  assert.deepEqual(
+    suppressedDevice.visual.visualCards[0].connectors.map(connector => connector.y),
+    [262, 262],
+    "generated card connector rows should use the same sampled slot Y"
+  );
+
+  const syncEngine = functionSource("syncDeviceEditorEnginePreview");
+  const renderEngine = functionSource("renderDeviceEditorEnginePreview");
+  const dynamicArtwork = functionSource("drawEditorEngineDynamicCardArtwork");
+  const previewClone = functionSource("editorEnginePreviewTemplateClone");
+  const clearMotion = functionSource("clearEditorPlacementMotion");
+  const scheduler = functionSource("ensureEditorPlacementMotionScheduler");
+  const legacyRender = functionSource("renderDeviceEditorPreview");
+
+  assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /visual\.suppressCardAreasInTexture \? "suppress-card-areas" : ""/);
+  assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /!visual\.suppressCardAreasInTexture\) \{\s*drawCardAreas/);
+  assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /drawConnectorBands\(ctx, device, width, height, face\.bottom \+ 12\);/);
+  assert.match(PRODUCTION_BRIDGE_SOURCE, /ENGINE_BRIDGE_VERSION = "iteration54-7-1-device-editor-card-motion-parity"/);
+
+  assert.match(previewClone, /draft\.suppressCardAreasInTexture = true/);
+  assert.match(syncEngine, /suppressCardAreasInTexture: options\.dynamicCardArtwork === true/);
+  assert.match(syncEngine, /const mustRefreshTexture = options\.dynamicCardArtwork === true/);
+  assert.match(syncEngine, /editorEngineDynamicCardArtworkTextureRefreshPending = false/);
+  assert.match(renderEngine, /const dynamicCardArtwork = editorEngineDynamicCardArtworkActive && editorPlacementMotionHasCardEntries\(\)/);
+  assert.match(renderEngine, /refreshTexture,\s*motionOnly:[\s\S]*dynamicCardArtwork/);
+  assertOrder(renderEngine, [
+    "drawEditorEngineDynamicCardArtwork(deviceEditorPreview, previewTemplate);",
+    "drawEditorEngineCardSlotOverlay(deviceEditorPreview, previewTemplate);",
+    "drawEditorEngineConnectorOverlay(deviceEditorPreview, previewTemplate);"
+  ], "dynamic card artwork should render below hit overlays and connector overlays");
+  assert.match(dynamicArtwork, /drawCardSlotBands\(group, template, \{ editor: false \}\)/);
+  assert.match(dynamicArtwork, /editorPlacementMotionHasCardEntries\(\)/);
+  assert.match(legacyRender, /drawEditorCardSlotBands\(deviceEditorPreview, previewTemplate\)/);
+  assert.doesNotMatch(legacyRender, /animateTransform/);
+  assert.match(scheduler, /renderDeviceEditorPreview\(\{ refreshTexture: false, motionFrame: true \}\)/);
+  assert.match(clearMotion, /renderDeviceEditorPreview\(\{ refreshTexture: true, motionFrame: false \}\)/);
 });
 
 test("Device Editor stable connector drag resolves from an immutable snapshot and commits the displayed map", () => {
@@ -902,7 +1131,9 @@ test("Fit uses active bounds and tab switches auto-fit the active preview", () =
   const tabHandler = sourceSlice(INDEX_HTML, 'editorTabs.addEventListener("click"', 'connectorRelationshipsPanel?.addEventListener("click"');
   assertOrder(tabHandler, [
     "const previousTab = editorActiveTab;",
-    "editorActiveTab = tab.dataset.editorTab;",
+    "const nextTab = tab.dataset.editorTab;",
+    "if (previousTab !== nextTab) clearEditorPlacementMotion();",
+    "editorActiveTab = nextTab;",
     "renderDeviceEditorPreview();",
     "if (previousTab !== editorActiveTab) scheduleDeviceEditorPreviewFit(editorActiveTab);"
   ], "Every tab switch should schedule an active-preview fit after rendering");

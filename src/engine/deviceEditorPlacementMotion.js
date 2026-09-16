@@ -1,4 +1,4 @@
-export const DEVICE_EDITOR_PLACEMENT_MOTION_BUILD_ID = "iteration54-7-0-device-editor-persistent-placement-motion";
+export const DEVICE_EDITOR_PLACEMENT_MOTION_BUILD_ID = "iteration54-7-1-device-editor-card-motion-parity";
 
 export const DEFAULT_PLACEMENT_MOTION_DURATION_MS = 150;
 const EPSILON = 0.0001;

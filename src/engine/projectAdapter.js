@@ -585,6 +585,7 @@ function normalizeDeviceVisualMetadata(
     faceImageOffsetX: finiteNumber(instance.faceImageOffsetX ?? instance.faceplateOffsetX ?? template.faceImageOffsetX ?? template.faceplateOffsetX, 0),
     faceImageOffsetY: finiteNumber(instance.faceImageOffsetY ?? instance.faceplateOffsetY ?? template.faceImageOffsetY ?? template.faceplateOffsetY, 0),
     hasSwappableCards: Boolean(template.hasSwappableCards),
+    suppressCardAreasInTexture: Boolean(template.suppressCardAreasInTexture || instance.suppressCardAreasInTexture),
     isLedProcessor: Boolean(template.isLedProcessor),
     isPowerDistro: Boolean(template.isPowerDistro || instance.isPowerDistro),
     isMatrixRouter: Boolean(template.isMatrixRouter),

@@ -255,6 +255,7 @@ export function deviceVisualCacheKey(device, options = {}) {
     visual.faceImageOffsetX || 0,
     visual.faceImageOffsetY || 0,
     visual.hasSwappableCards ? "cards" : "",
+    visual.suppressCardAreasInTexture ? "suppress-card-areas" : "",
     visual.isLedProcessor ? "led-processor" : "",
     visual.isPowerDistro ? "pd" : "",
     powerDistroShape,
@@ -376,9 +377,9 @@ function drawRackDeviceVisual(ctx, device, width, height, options) {
   const face = drawPowerDistroFaceplate(ctx, device, visual, width, height, detailed)
     || drawFaceplate(ctx, device, visual, width, height, pad, detailed);
 
-  if (detailed && visual.visualCards?.length && !options.simplifiedCards) {
+  if (detailed && visual.visualCards?.length && !options.simplifiedCards && !visual.suppressCardAreasInTexture) {
     drawCardAreas(ctx, visual.visualCards, width, height, pad);
-  } else if (detailed && visual.hasSwappableCards && device.connectors?.length) {
+  } else if (detailed && visual.hasSwappableCards && device.connectors?.length && !visual.suppressCardAreasInTexture) {
     drawConnectorBands(ctx, device, width, height, face.bottom + 12);
   }
 
