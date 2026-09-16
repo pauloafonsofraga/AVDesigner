@@ -1407,8 +1407,50 @@ function structuralItemsForEdit(session, normalizedEdit) {
   return items.sort(originalPlacementComparator);
 }
 
-function structuralSelectedLaneById(normalizedEdit) {
-  return new Map(normalizedEdit.upserts.map(upsert => [upsert.id, upsert.item.lane]));
+function structuralFlexibleUpsertLane(occupied, item, preferredLane, originalEndLane = 0) {
+  const preferred = Math.max(0, Math.round(finiteNumber(preferredLane, item.lane)));
+  if (!hasCollisionAt(occupied, item, preferred)) return preferred;
+  const maxLane = Math.max(originalEndLane + item.span + 8, preferred + item.span + 8);
+  for (let delta = 1; delta <= maxLane + item.span; delta += 1) {
+    const down = preferred + delta;
+    if (!hasCollisionAt(occupied, item, down)) return down;
+    const up = preferred - delta;
+    if (up >= 0 && !hasCollisionAt(occupied, item, up)) return up;
+  }
+  let lane = maxLane + item.span + 1;
+  while (hasCollisionAt(occupied, item, lane)) lane += 1;
+  return lane;
+}
+
+function structuralResolvedSelectedLaneById(session, normalizedEdit, items) {
+  const selectedLaneById = new Map();
+  const occupied = {
+    [MODULAR_LAYOUT_SIDE_MASKS.left]: [],
+    [MODULAR_LAYOUT_SIDE_MASKS.right]: []
+  };
+  const hardUpserts = normalizedEdit.upserts.filter(upsert => upsert.hard);
+  hardUpserts.forEach(upsert => {
+    selectedLaneById.set(upsert.id, upsert.item.lane);
+    reserveItemAt(occupied, upsert.item, upsert.item.lane);
+  });
+  normalizedEdit.upserts
+    .filter(upsert => !upsert.hard)
+    .sort((a, b) => {
+      const orderDelta = a.item.order - b.item.order;
+      if (orderDelta) return orderDelta;
+      return a.id.localeCompare(b.id);
+    })
+    .forEach(upsert => {
+      const lane = structuralFlexibleUpsertLane(
+        occupied,
+        upsert.item,
+        upsert.item.lane,
+        Math.max(session.snapshot.endLane, laneMapEndLane(items, laneMapFromItems(items)))
+      );
+      selectedLaneById.set(upsert.id, lane);
+      reserveItemAt(occupied, upsert.item, lane);
+    });
+  return selectedLaneById;
 }
 
 function canMoveStructuralItemTo(items, laneById, item, targetLane, lockedIds) {
@@ -1466,8 +1508,9 @@ function structuralRepairLayout(session, normalizedEdit, items) {
     };
   }
   const selectedIds = normalizedEdit.upsertIds;
-  const selectedLaneById = structuralSelectedLaneById(normalizedEdit);
-  const hardSelectedItems = items.filter(item => selectedIds.has(item.id));
+  const selectedLaneById = structuralResolvedSelectedLaneById(session, normalizedEdit, items);
+  const hardIds = new Set(normalizedEdit.upserts.filter(upsert => upsert.hard).map(upsert => upsert.id));
+  const hardSelectedItems = items.filter(item => hardIds.has(item.id));
   for (let index = 0; index < hardSelectedItems.length; index += 1) {
     for (let otherIndex = index + 1; otherIndex < hardSelectedItems.length; otherIndex += 1) {
       const a = hardSelectedItems[index];

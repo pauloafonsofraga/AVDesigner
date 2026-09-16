@@ -1263,6 +1263,204 @@ test("structural edit grow keeps the card anchored and displaces its chain downw
   assert.equal(layout.endLane, 6);
 });
 
+test("structural edit displaces flexible existing upserts behind hard reservations", () => {
+  const session = structuralSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 2, "left", 1, 1)
+  ]);
+  const edit = {
+    upserts: [
+      { id: "A", span: 3, targetLane: 0, hard: true },
+      { id: "B", span: 2, targetLane: 2, hard: false }
+    ]
+  };
+  const layout = assertStructuralInvariants(session, edit, "mandatory flexible existing displacement");
+
+  assert.deepEqual(laneMap(layout), { A: 0, B: 3 });
+  assert.equal(layout.byId.get("A").endLane, 3);
+  assert.equal(layout.byId.get("B").endLane, 5);
+});
+
+test("structural edit displaces flexible new insertions behind hard reservations", () => {
+  const session = structuralSession([
+    item("A", 0, "left", 1, 0)
+  ]);
+  const layout = assertStructuralInvariants(session, {
+    upserts: [
+      { id: "A", span: 3, targetLane: 0, hard: true },
+      { id: "N", itemType: "chassis-connector", sideMask: "left", span: 1, targetLane: 1, order: 1 }
+    ]
+  }, "flexible new insertion displacement");
+
+  assert.deepEqual(laneMap(layout), { A: 0, N: 3 });
+  assert.deepEqual(layout.structuralEdit.insertedIds, ["N"]);
+  assert.deepEqual(layout.structuralEdit.movedStationaryIds, []);
+});
+
+test("structural edit resolves overlapping flexible upserts deterministically", () => {
+  const items = [
+    item("A", 0, "left", 1, 0),
+    item("B", 4, "left", 1, 1)
+  ];
+  const edit = {
+    upserts: [
+      { id: "A", targetLane: 1, hard: false },
+      { id: "B", targetLane: 1, hard: false }
+    ]
+  };
+  const first = assertStructuralInvariants(structuralSession(items), edit, "flex-flex ordered");
+  const second = assertStructuralInvariants(structuralSession([...items].reverse()), edit, "flex-flex reversed input");
+
+  assert.deepEqual(laneMap(first), { A: 1, B: 2 });
+  assert.deepEqual(laneMap(first), laneMap(second));
+});
+
+test("structural edit keeps non-conflicting flexible upserts at requested lanes", () => {
+  const session = structuralSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 4, "left", 1, 1)
+  ]);
+  const layout = assertStructuralInvariants(session, {
+    upserts: [{ id: "B", targetLane: 2, hard: false }]
+  }, "non-conflicting flex");
+
+  assert.deepEqual(laneMap(layout), { A: 0, B: 2 });
+});
+
+test("structural edit treats omitted hard as flexible", () => {
+  const session = structuralSession([
+    item("A", 0, "left", 1, 0)
+  ]);
+  const layout = assertStructuralInvariants(session, {
+    upserts: [
+      { id: "A", span: 3, targetLane: 0, hard: true },
+      { id: "N", itemType: "chassis-connector", sideMask: "left", span: 1, targetLane: 1, order: 1 }
+    ]
+  }, "omitted hard is flexible");
+
+  assert.deepEqual(laneMap(layout), { A: 0, N: 3 });
+  assert.deepEqual(layout.structuralEdit.requestedHardTargets, { A: 0 });
+});
+
+test("structural edit allows hard/flexible and flexible/flexible overlaps when resolvable", () => {
+  const session = structuralSession([
+    item("A", 0, "both", 1, 0),
+    item("B", 4, "both", 1, 1)
+  ]);
+  const hardFlex = assertStructuralInvariants(session, {
+    upserts: [
+      { id: "A", span: 2, targetLane: 1, hard: true },
+      { id: "B", span: 2, targetLane: 1, hard: false }
+    ]
+  }, "hard-flex overlap");
+  const flexFlex = assertStructuralInvariants(session, {
+    upserts: [
+      { id: "A", span: 2, targetLane: 1, hard: false },
+      { id: "B", span: 2, targetLane: 1, hard: false }
+    ]
+  }, "flex-flex overlap");
+
+  assert.deepEqual(laneMap(hardFlex), { A: 1, B: 3 });
+  assert.deepEqual(laneMap(flexFlex), { A: 1, B: 3 });
+  assert.throws(() => resolveModularStructuralEdit(session, {
+    upserts: [
+      { id: "A", span: 2, targetLane: 1, hard: true },
+      { id: "B", span: 2, targetLane: 1, hard: true }
+    ]
+  }), /Overlapping/);
+});
+
+test("structural edit moves flexible variable-span cards atomically", () => {
+  const session = structuralSession([
+    item("HARD", 0, "both", 1, 0, "card-slot"),
+    item("CARD", 4, "both", 3, 1, "card-slot")
+  ]);
+  const layout = assertStructuralInvariants(session, {
+    upserts: [
+      { id: "HARD", span: 3, targetLane: 0, hard: true },
+      { id: "CARD", span: 3, targetLane: 1, hard: false }
+    ]
+  }, "flexible span card");
+
+  assert.deepEqual(laneMap(layout), { CARD: 3, HARD: 0 });
+  assert.equal(layout.byId.get("CARD").endLane, 6);
+});
+
+test("structural edit flexible both-side items couple left and right occupancy", () => {
+  const session = structuralSession([
+    item("L", 1, "left", 1, 0),
+    item("R", 1, "right", 1, 1)
+  ]);
+  const layout = assertStructuralInvariants(session, {
+    upserts: [
+      { id: "X", itemType: "card-slot", sideMask: "both", span: 1, targetLane: 1, order: 0.5, hard: false }
+    ]
+  }, "flexible both-side coupling");
+
+  assert.deepEqual(laneMap(layout), { L: 2, R: 2, X: 1 });
+});
+
+test("structural edit validator accepts moved flexible upserts and rejects moved hard upserts", () => {
+  const session = structuralSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 2, "left", 1, 1)
+  ]);
+  const edit = {
+    upserts: [
+      { id: "A", span: 3, targetLane: 0, hard: true },
+      { id: "B", span: 2, targetLane: 2, hard: false }
+    ]
+  };
+  const layout = assertStructuralInvariants(session, edit, "validator flex movement");
+  const movedHard = {
+    ...layout,
+    items: layout.items.map(entry => entry.id === "A" ? { ...entry, lane: 1, y: layout.startY + layout.slotHeight } : entry)
+  };
+
+  assert.equal(isValidModularStructuralEditResult(session, edit, layout), true);
+  assert.equal(isValidModularStructuralEditResult(session, edit, movedHard), false);
+});
+
+test("structural edit metadata keeps flexible upserts out of moved-stationary sets", () => {
+  const session = structuralSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 2, "left", 1, 1),
+    item("C", 5, "left", 1, 2)
+  ]);
+  const layout = assertStructuralInvariants(session, {
+    removeIds: ["C"],
+    upserts: [
+      { id: "A", span: 3, targetLane: 0, hard: true },
+      { id: "B", span: 2, targetLane: 2, hard: false },
+      { id: "N", itemType: "chassis-connector", sideMask: "right", span: 1, targetLane: 0, order: 4 }
+    ]
+  }, "flexible metadata");
+
+  assert.deepEqual(layout.structuralEdit.insertedIds, ["N"]);
+  assert.deepEqual(layout.structuralEdit.updatedIds, ["A", "B"]);
+  assert.deepEqual(layout.structuralEdit.removedIds, ["C"]);
+  assert.deepEqual(layout.structuralEdit.movedStationaryIds, []);
+  assert.deepEqual(layout.structuralEdit.requestedHardTargets, { A: 0 });
+});
+
+test("structural edit resolves simultaneous flexible card-span changes like batch card updates", () => {
+  const session = structuralSession([
+    item("CARD-A", 0, "both", 2, 0, "card-slot"),
+    item("CARD-B", 2, "both", 2, 1, "card-slot"),
+    item("L", 4, "left", 1, 2),
+    item("R", 4, "right", 1, 3)
+  ]);
+  const layout = assertStructuralInvariants(session, {
+    upserts: [
+      { id: "CARD-A", span: 4, targetLane: 0, hard: true },
+      { id: "CARD-B", span: 3, targetLane: 2, hard: false }
+    ]
+  }, "batch card span updates");
+
+  assert.deepEqual(laneMap(layout), { "CARD-A": 0, "CARD-B": 4, L: 7, R: 7 });
+  assert.equal(layout.byId.get("CARD-B").endLane, 7);
+});
+
 test("structural edit side-mask changes resolve new opposite-side conflicts", () => {
   const session = structuralSession([
     item("A", 0, "left", 1, 0),
@@ -1569,6 +1767,59 @@ test("seeded larger structural edits cover inserts deletes growth shrink and sid
   t.diagnostic(`seeded structural layouts: ${seedCount}`);
   t.diagnostic(`seeded structural cases: ${caseCount}`);
   assert.equal(caseCount, seedCount * 6);
+});
+
+test("seeded structural edits mix hard flexible and omitted-hard upserts", t => {
+  const seedCount = 96;
+  const masks = ["left", "right", "both"];
+  let caseCount = 0;
+  for (let seed = 1; seed <= seedCount; seed += 1) {
+    const items = createSeededValidLayout(7000 + seed);
+    const session = structuralSession(items);
+    const reversedSession = structuralSession([...items].reverse());
+    const ordered = session.snapshot.items;
+    const first = ordered[0];
+    const middle = ordered[Math.floor(ordered.length / 2)];
+    const last = ordered[ordered.length - 1];
+    const targetLane = Math.max(0, first.lane);
+    const edit = {
+      upserts: [
+        { id: first.id, span: Math.min(3, first.span + 1), targetLane, hard: true },
+        { id: middle.id, span: Math.min(3, middle.span + 1), targetLane, hard: seed % 2 === 0 ? false : undefined },
+        {
+          id: `FLEX-${seed}`,
+          itemType: seed % 3 === 0 ? "card-slot" : "chassis-connector",
+          sideMask: masks[seed % masks.length],
+          span: seed % 3 + 1,
+          targetLane,
+          order: 200 + seed,
+          hard: seed % 5 === 0 ? false : undefined
+        },
+        {
+          id: `HARD-R-${seed}`,
+          itemType: "chassis-connector",
+          sideMask: last.sideMask === "left" ? "right" : "left",
+          span: 1,
+          targetLane: last.lane + last.span + 2,
+          order: 300 + seed,
+          hard: true
+        }
+      ],
+      compactVacatedSpace: seed % 4 !== 0
+    };
+    const firstResult = assertStructuralInvariants(session, edit, `mixed hard-flex seed ${seed}`);
+    const reversedResult = assertStructuralInvariants(reversedSession, edit, `mixed hard-flex reversed seed ${seed}`);
+
+    assert.deepEqual(laneMap(firstResult), laneMap(reversedResult), `seed ${seed} input-order independence`);
+    assert.equal(firstResult.byId.get(first.id).lane, targetLane, `seed ${seed} hard exactness`);
+    assert.equal(firstResult.byId.get(`HARD-R-${seed}`).lane, last.lane + last.span + 2, `seed ${seed} inserted hard exactness`);
+    assert.ok(firstResult.structuralEdit.workCount <= items.length * (items.length + 16), `seed ${seed} bounded work`);
+    caseCount += 1;
+  }
+
+  t.diagnostic(`seeded mixed hard-flex structural layouts: ${seedCount}`);
+  t.diagnostic(`seeded mixed hard-flex structural cases: ${caseCount}`);
+  assert.equal(caseCount, seedCount);
 });
 
 test("structural edit solver exposes bounded work for large transactions", t => {
