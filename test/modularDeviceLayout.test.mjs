@@ -9,13 +9,16 @@ import {
   createModularCompositeInsertionDragSession,
   createModularInsertionDragSession,
   createModularPlacementSnapshot,
+  createModularStructuralEditSession,
   isValidModularCompositeInsertionResult,
   isValidModularInsertionResult,
+  isValidModularStructuralEditResult,
   resolveInstalledCardConnectors,
   resolveModularCompositeInsertionDrag,
   resolveModularDeviceLayout,
   resolveModularInsertionDrag,
   resolveModularPlacementItems,
+  resolveModularStructuralEdit,
   targetLaneWithHysteresis
 } from "../src/engine/modularDeviceLayout.js";
 import { normalizeAvDesignerDevice } from "../src/engine/projectAdapter.js";
@@ -259,6 +262,56 @@ function assertCompositeInvariants(session, target, context = "") {
   assert.deepEqual(laneMap(normalized), laneMap(layout), `${context} static normalization fixed point`);
   assert.equal(JSON.stringify(session.snapshot), beforeSnapshot, `${context} snapshot unchanged`);
   return layout;
+}
+
+function assertStructuralStationaryOrder(session, layout, edit = {}, context = "") {
+  const removed = new Set(edit.removeIds || []);
+  const edited = new Set((edit.upserts || []).map(upsert => upsert.id));
+  const finalById = new Map(layout.items.map(entry => [entry.id, entry]));
+  for (const side of ["left", "right"]) {
+    const original = session.snapshot.items
+      .filter(entry => !removed.has(entry.id) && !edited.has(entry.id) && (entry.sideMask === side || entry.sideMask === "both"))
+      .sort((a, b) => {
+        const laneDelta = a.lane - b.lane;
+        if (laneDelta) return laneDelta;
+        const orderDelta = a.order - b.order;
+        if (orderDelta) return orderDelta;
+        return a.id.localeCompare(b.id);
+      });
+    for (let index = 1; index < original.length; index += 1) {
+      const previous = finalById.get(original[index - 1].id);
+      const current = finalById.get(original[index].id);
+      assert.ok(previous.endLane <= current.lane, `${context} ${side} stationary order changed around ${previous.id}/${current.id}`);
+    }
+  }
+}
+
+function assertStructuralInvariants(session, edit, context = "") {
+  const beforeSnapshot = JSON.stringify(session.snapshot);
+  const layout = resolveModularStructuralEdit(session, edit);
+  const repeated = resolveModularStructuralEdit(session, edit);
+  assertNoSideOverlap(layout);
+  assertStructuralStationaryOrder(session, layout, edit, context);
+  assert.equal(isValidModularStructuralEditResult(session, edit, layout), true, `${context} production validity`);
+  assert.deepEqual(laneMap(layout), laneMap(repeated), `${context} deterministic replay`);
+  assert.equal(layout.endLane, repeated.endLane, `${context} repeated extent`);
+  (edit.upserts || []).filter(upsert => upsert.hard).forEach(upsert => {
+    assert.equal(layout.byId.get(upsert.id).lane, upsert.targetLane, `${context} hard target ${upsert.id}`);
+  });
+  (edit.removeIds || []).forEach(id => {
+    assert.equal(layout.byId.has(id), false, `${context} removed ${id}`);
+  });
+  const normalized = resolveModularPlacementItems(layout.items, {
+    startY: layout.startY,
+    slotHeight: layout.slotHeight
+  });
+  assert.deepEqual(laneMap(normalized), laneMap(layout), `${context} static normalization fixed point`);
+  assert.equal(JSON.stringify(session.snapshot), beforeSnapshot, `${context} session unchanged`);
+  return layout;
+}
+
+function structuralSession(items) {
+  return createModularStructuralEditSession(items, { startY: START_Y, slotHeight: SLOT });
 }
 
 function testSideMaskSides(sideMask) {
@@ -1059,6 +1112,493 @@ test("placement snapshots are deeply frozen scalar copies", () => {
     snapshot.byId.extra = snapshot.items[0];
   }, TypeError);
   assert.equal(typeof snapshot.byId.set, "undefined");
+});
+
+test("structural edit inserts a left connector into an occupied chain", () => {
+  const session = structuralSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 1, "left", 1, 1),
+    item("C", 2, "left", 1, 2)
+  ]);
+  const edit = {
+    upserts: [{ id: "N", itemType: "chassis-connector", sideMask: "left", span: 1, targetLane: 1, order: 1.5, hard: true }]
+  };
+  const layout = assertStructuralInvariants(session, edit, "left insertion");
+
+  assert.deepEqual(laneMap(layout), { A: 0, B: 2, C: 3, N: 1 });
+  assert.equal(layout.endLane, 4);
+});
+
+test("structural edit inserts into a genuine gap without moving unrelated items", () => {
+  const session = structuralSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 4, "left", 1, 1)
+  ]);
+  const layout = assertStructuralInvariants(session, {
+    upserts: [{ id: "N", itemType: "chassis-connector", sideMask: "left", span: 1, targetLane: 2, order: 0.5, hard: true }]
+  }, "gap insertion");
+
+  assert.deepEqual(laneMap(layout), { A: 0, B: 4, N: 2 });
+  assert.deepEqual(layout.structuralEdit.movedStationaryIds, []);
+});
+
+test("structural edit keeps left and right side insertions independent", () => {
+  const session = structuralSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 1, "left", 1, 1),
+    item("R", 1, "right", 1, 2)
+  ]);
+  const layout = assertStructuralInvariants(session, {
+    upserts: [{ id: "N", itemType: "chassis-connector", sideMask: "left", span: 1, targetLane: 1, order: 0.5, hard: true }]
+  }, "side independent insertion");
+
+  assert.deepEqual(laneMap(layout), { A: 0, B: 2, N: 1, R: 1 });
+  assert.equal(layout.byId.get("R").lane, 1);
+});
+
+test("structural edit both-side insertion displaces connected conflicts on both sides", () => {
+  const session = structuralSession([
+    item("L", 1, "left", 1, 0),
+    item("R", 1, "right", 1, 1),
+    item("T", 3, "both", 1, 2)
+  ]);
+  const layout = assertStructuralInvariants(session, {
+    upserts: [{ id: "X", itemType: "chassis-connector", sideMask: "both", span: 1, targetLane: 1, order: 0.5, hard: true }]
+  }, "both-side insertion");
+
+  assert.deepEqual(laneMap(layout), { L: 2, R: 2, T: 3, X: 1 });
+});
+
+test("structural edit inserts variable-span cards as atomic intervals", () => {
+  const session = structuralSession([
+    item("A", 0, "left", 1, 0),
+    item("L", 2, "left", 1, 1),
+    item("R", 2, "right", 1, 2)
+  ]);
+  const layout = assertStructuralInvariants(session, {
+    upserts: [{ id: "CARD", itemType: "card-slot", sideMask: "both", span: 3, targetLane: 1, order: 0.5, hard: true }]
+  }, "span-card insertion");
+
+  assert.deepEqual(laneMap(layout), { A: 0, CARD: 1, L: 4, R: 4 });
+  assert.equal(layout.byId.get("CARD").endLane, 4);
+});
+
+test("structural edit deletes a middle connector and compacts the connected chain", () => {
+  const session = structuralSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 1, "left", 1, 1),
+    item("C", 2, "left", 1, 2),
+    item("D", 3, "left", 1, 3)
+  ]);
+  const layout = assertStructuralInvariants(session, { removeIds: ["B"] }, "delete middle");
+
+  assert.deepEqual(laneMap(layout), { A: 0, C: 1, D: 2 });
+  assert.equal(layout.endLane, 3);
+});
+
+test("structural edit preserves a pre-existing gap while deleting", () => {
+  const session = structuralSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 2, "left", 1, 1),
+    item("C", 4, "left", 1, 2)
+  ]);
+  const layout = assertStructuralInvariants(session, { removeIds: ["B"] }, "delete gap");
+
+  assert.deepEqual(laneMap(layout), { A: 0, C: 4 });
+  assert.deepEqual(layout.structuralEdit.movedStationaryIds, []);
+});
+
+test("structural edit deletes span cards and compacts adjacent successor chains", () => {
+  const session = structuralSession([
+    item("A", 0, "left", 1, 0),
+    item("CARD", 1, "both", 3, 1, "card-slot"),
+    item("L", 4, "left", 1, 2),
+    item("R", 4, "right", 1, 3),
+    item("T", 5, "both", 1, 4)
+  ]);
+  const layout = assertStructuralInvariants(session, { removeIds: ["CARD"] }, "delete span card");
+
+  assert.deepEqual(laneMap(layout), { A: 0, L: 1, R: 1, T: 2 });
+  assert.equal(layout.endLane, 3);
+});
+
+test("structural edit delete on one side leaves unrelated opposite-side items alone", () => {
+  const session = structuralSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 1, "left", 1, 1),
+    item("C", 2, "left", 1, 2),
+    item("R", 1, "right", 1, 3)
+  ]);
+  const layout = assertStructuralInvariants(session, { removeIds: ["B"] }, "side-specific delete");
+
+  assert.deepEqual(laneMap(layout), { A: 0, C: 1, R: 1 });
+});
+
+test("structural edit shrink compacts only the freed trailing interval", () => {
+  const session = structuralSession([
+    item("CARD", 0, "both", 4, 0, "card-slot"),
+    item("L", 4, "left", 1, 1),
+    item("R", 4, "right", 1, 2)
+  ]);
+  const layout = assertStructuralInvariants(session, {
+    upserts: [{ id: "CARD", span: 2, targetLane: 0, hard: true }]
+  }, "shrink card");
+
+  assert.deepEqual(laneMap(layout), { CARD: 0, L: 2, R: 2 });
+  assert.equal(layout.byId.get("CARD").span, 2);
+});
+
+test("structural edit grow keeps the card anchored and displaces its chain downward", () => {
+  const session = structuralSession([
+    item("CARD", 0, "both", 2, 0, "card-slot"),
+    item("L", 2, "left", 1, 1),
+    item("R", 2, "right", 1, 2),
+    item("T", 4, "both", 1, 3)
+  ]);
+  const layout = assertStructuralInvariants(session, {
+    upserts: [{ id: "CARD", span: 4, targetLane: 0, hard: true }]
+  }, "grow card");
+
+  assert.deepEqual(laneMap(layout), { CARD: 0, L: 4, R: 4, T: 5 });
+  assert.equal(layout.endLane, 6);
+});
+
+test("structural edit side-mask changes resolve new opposite-side conflicts", () => {
+  const session = structuralSession([
+    item("A", 0, "left", 1, 0),
+    item("R", 0, "right", 1, 1),
+    item("B", 1, "right", 1, 2)
+  ]);
+  const layout = assertStructuralInvariants(session, {
+    upserts: [{ id: "A", sideMask: "both", targetLane: 0, hard: true }]
+  }, "side-mask grow");
+
+  assert.deepEqual(laneMap(layout), { A: 0, R: 1, B: 2 });
+  assert.equal(layout.byId.get("A").sideMask, "both");
+});
+
+test("structural edit batch removal compacts paired left and right rows independently", () => {
+  const session = structuralSession([
+    item("L0", 0, "left", 1, 0),
+    item("L1", 1, "left", 1, 1),
+    item("L2", 2, "left", 1, 2),
+    item("R0", 0, "right", 1, 3),
+    item("R1", 1, "right", 1, 4),
+    item("R2", 2, "right", 1, 5)
+  ]);
+  const layout = assertStructuralInvariants(session, { removeIds: ["L1", "R1"] }, "batch paired delete");
+
+  assert.deepEqual(laneMap(layout), { L0: 0, L2: 1, R0: 0, R2: 1 });
+});
+
+test("structural edit supports multiple hard upserts and rejects hard conflicts", () => {
+  const session = structuralSession([
+    item("A", 0, "left", 1, 0),
+    item("C", 4, "left", 1, 1)
+  ]);
+  const layout = assertStructuralInvariants(session, {
+    upserts: [
+      { id: "N", itemType: "chassis-connector", sideMask: "left", span: 1, targetLane: 1, order: 2, hard: true },
+      { id: "M", itemType: "chassis-connector", sideMask: "right", span: 1, targetLane: 1, order: 3, hard: true }
+    ]
+  }, "multiple hard upserts");
+
+  assert.deepEqual(laneMap(layout), { A: 0, C: 4, M: 1, N: 1 });
+  assert.throws(() => resolveModularStructuralEdit(session, {
+    upserts: [
+      { id: "N", itemType: "chassis-connector", sideMask: "left", span: 1, targetLane: 1, hard: true },
+      { id: "X", itemType: "card-slot", sideMask: "both", span: 1, targetLane: 1, hard: true }
+    ]
+  }), /Overlapping/);
+});
+
+test("structural edit no-op reproduces the baseline", () => {
+  const session = structuralSession([
+    item("A", 0, "left", 1, 0),
+    item("R", 0, "right", 1, 1),
+    item("B", 2, "both", 2, 2)
+  ]);
+  const layout = assertStructuralInvariants(session, {}, "noop");
+
+  assert.deepEqual(laneMap(layout), { A: 0, B: 2, R: 0 });
+  assert.equal(layout.endLane, session.snapshot.endLane);
+  assert.deepEqual(layout.structuralEdit.movedStationaryIds, []);
+});
+
+test("structural edit can disable vacancy compaction", () => {
+  const session = structuralSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 1, "left", 1, 1),
+    item("C", 2, "left", 1, 2)
+  ]);
+  const layout = assertStructuralInvariants(session, {
+    removeIds: ["B"],
+    compactVacatedSpace: false
+  }, "compact disabled");
+
+  assert.deepEqual(laneMap(layout), { A: 0, C: 2 });
+  assert.equal(layout.structuralEdit.compactVacatedSpace, false);
+});
+
+test("structural edit sessions are immutable across repeated and reversed calculations", () => {
+  const session = structuralSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 1, "left", 1, 1),
+    item("C", 2, "left", 1, 2),
+    item("R", 1, "right", 1, 3)
+  ]);
+  const firstEdit = { removeIds: ["B"] };
+  const secondEdit = {
+    upserts: [{ id: "N", itemType: "chassis-connector", sideMask: "both", span: 1, targetLane: 1, order: 4, hard: true }]
+  };
+  const first = assertStructuralInvariants(session, firstEdit, "first structural edit");
+  const second = assertStructuralInvariants(session, secondEdit, "second structural edit");
+  const firstAgain = assertStructuralInvariants(session, firstEdit, "first structural edit again");
+
+  assert.deepEqual(laneMap(first), laneMap(firstAgain));
+  assert.notDeepEqual(laneMap(first), laneMap(second));
+});
+
+test("structural edit session snapshots are deeply frozen scalar copies", () => {
+  const source = { name: "live source" };
+  const card = { name: "live card" };
+  const original = [{
+    ...item("A", 0, "both", 1, 0),
+    source,
+    card,
+    memberIds: ["a", "b"]
+  }];
+  const session = createModularStructuralEditSession(original, { startY: START_Y, slotHeight: SLOT });
+
+  assert.equal(Object.isFrozen(session), true);
+  assert.equal(Object.isFrozen(session.snapshot), true);
+  assert.equal(Object.isFrozen(session.snapshot.items), true);
+  assert.equal(Object.isFrozen(session.snapshot.items[0]), true);
+  assert.equal(Object.isFrozen(session.snapshot.byId), true);
+  assert.equal(Object.isFrozen(session.snapshot.byId.A), true);
+  assert.equal("source" in session.snapshot.byId.A, false);
+  assert.equal("card" in session.snapshot.byId.A, false);
+
+  original[0].requestedLane = 9;
+  original[0].memberIds.push("c");
+  source.name = "changed";
+  card.name = "changed";
+
+  assert.equal(session.snapshot.byId.A.lane, 0);
+  assert.deepEqual(session.snapshot.byId.A.memberIds, ["a", "b"]);
+  assert.throws(() => {
+    session.snapshot.byId.A = session.snapshot.items[0];
+  }, TypeError);
+  assert.throws(() => {
+    session.snapshot.byId.extra = session.snapshot.items[0];
+  }, TypeError);
+  assert.equal(typeof session.snapshot.byId.set, "undefined");
+});
+
+test("structural edit result is independent of input order when stable orders and IDs match", () => {
+  const ordered = [
+    item("A", 0, "left", 1, 0),
+    item("B", 2, "both", 1, 1),
+    item("C", 4, "right", 1, 2)
+  ];
+  const shuffled = [ordered[2], ordered[0], ordered[1]];
+  const edit = {
+    upserts: [{ id: "N", itemType: "chassis-connector", sideMask: "left", span: 1, targetLane: 1, order: 0.5, hard: true }]
+  };
+  const first = assertStructuralInvariants(structuralSession(ordered), edit, "ordered structural");
+  const second = assertStructuralInvariants(structuralSession(shuffled), edit, "shuffled structural");
+
+  assert.deepEqual(laneMap(first), laneMap(second));
+});
+
+test("structural edit rejects invalid sessions and edits", () => {
+  assert.throws(() => structuralSession([
+    item("A", 0, "left", 1, 0),
+    item("A", 1, "left", 1, 1)
+  ]), /Duplicate/);
+  assert.throws(() => structuralSession([
+    item("A", 0, "sideways", 1, 0)
+  ]), /side mask/);
+  assert.throws(() => structuralSession([
+    item("A", 0, "left", 0, 0)
+  ]), /span/);
+  assert.throws(() => structuralSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 0, "left", 1, 1)
+  ]), /overlapping/);
+
+  const session = structuralSession([item("A", 0, "left", 1, 0)]);
+  assert.throws(() => resolveModularStructuralEdit(session, { removeIds: ["missing"] }), /missing/);
+  assert.throws(() => resolveModularStructuralEdit(session, {
+    removeIds: ["A"],
+    upserts: [{ id: "A", span: 2 }]
+  }), /both removed and upserted/);
+  assert.throws(() => resolveModularStructuralEdit(session, {
+    upserts: [{ id: "N", itemType: "chassis-connector", sideMask: "left", span: 0, targetLane: 1 }]
+  }), /span/);
+  assert.throws(() => resolveModularStructuralEdit(session, {
+    upserts: [{ id: "N", itemType: "chassis-connector", sideMask: "bad", span: 1, targetLane: 1 }]
+  }), /side mask/);
+  assert.throws(() => resolveModularStructuralEdit(session, {
+    upserts: [{ id: "N", itemType: "chassis-connector", sideMask: "left", span: 1, targetLane: Number.NaN }]
+  }), /target lane/);
+  assert.throws(() => resolveModularStructuralEdit(session, {
+    upserts: [
+      { id: "N", itemType: "chassis-connector", sideMask: "left", span: 1, targetLane: 1, hard: true },
+      { id: "M", itemType: "chassis-connector", sideMask: "left", span: 1, targetLane: 1, hard: true }
+    ]
+  }), /Overlapping/);
+  assert.throws(() => resolveModularStructuralEdit(session, {
+    upserts: [
+      { id: "N", itemType: "chassis-connector", sideMask: "left", span: 1, targetLane: 1 },
+      { id: "N", itemType: "chassis-connector", sideMask: "right", span: 1, targetLane: 1 }
+    ]
+  }), /Conflicting/);
+});
+
+test("structural edit metadata records exact sets and extents", () => {
+  const session = structuralSession([
+    item("A", 0, "left", 1, 0),
+    item("B", 1, "left", 1, 1),
+    item("C", 2, "left", 1, 2)
+  ]);
+  const layout = assertStructuralInvariants(session, {
+    removeIds: ["B", "B"],
+    upserts: [
+      { id: "A", itemType: "card-slot", span: 3, targetLane: 0, hard: true },
+      { id: "N", itemType: "chassis-connector", sideMask: "right", span: 1, targetLane: 0, order: 5, hard: true }
+    ]
+  }, "metadata");
+
+  assert.deepEqual(layout.structuralEdit.insertedIds, ["N"]);
+  assert.deepEqual(layout.structuralEdit.updatedIds, ["A"]);
+  assert.deepEqual(layout.structuralEdit.removedIds, ["B"]);
+  assert.deepEqual(layout.structuralEdit.movedStationaryIds, ["C"]);
+  assert.deepEqual(layout.structuralEdit.requestedHardTargets, { A: 0, N: 0 });
+  assert.equal(layout.structuralEdit.beforeEndLane, 3);
+  assert.equal(layout.structuralEdit.afterEndLane, layout.endLane);
+  assert.ok(layout.structuralEdit.workCount <= 64);
+  assert.ok(layout.structuralEdit.candidateCount <= 1);
+});
+
+test("exhaustive small structural edits preserve invariants", t => {
+  const masks = ["left", "right", "both"];
+  const spans = [1, 2];
+  const lanes = [0, 1, 2];
+  let layoutCount = 0;
+  let caseCount = 0;
+
+  for (const maskA of masks) {
+    for (const maskB of masks) {
+      for (const maskC of masks) {
+        for (const spanA of spans) {
+          for (const spanB of spans) {
+            for (const spanC of spans) {
+              for (const laneA of lanes) {
+                for (const laneB of lanes) {
+                  for (const laneC of lanes) {
+                    const items = [
+                      item("A", laneA, maskA, spanA, 0),
+                      item("B", laneB, maskB, spanB, 1),
+                      item("C", laneC, maskC, spanC, 2)
+                    ];
+                    if (!isValidFixtureLayout(items)) continue;
+                    layoutCount += 1;
+                    const session = structuralSession(items);
+                    ["A", "B", "C"].forEach(id => {
+                      assertStructuralInvariants(session, { removeIds: [id] }, `exhaustive remove ${layoutCount} ${id}`);
+                      caseCount += 1;
+                    });
+                    for (let target = 0; target <= 4; target += 1) {
+                      assertStructuralInvariants(session, {
+                        upserts: [{ id: `N-${target}`, itemType: "chassis-connector", sideMask: "both", span: 1, targetLane: target, order: 3 + target, hard: true }]
+                      }, `exhaustive insert ${layoutCount} ${target}`);
+                      caseCount += 1;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  t.diagnostic(`exhaustive structural valid layouts: ${layoutCount}`);
+  t.diagnostic(`exhaustive structural cases: ${caseCount}`);
+  assert.ok(layoutCount > 0);
+  assert.ok(caseCount > layoutCount);
+});
+
+test("seeded larger structural edits cover inserts deletes growth shrink and side changes", t => {
+  const seedCount = 96;
+  let caseCount = 0;
+  for (let seed = 1; seed <= seedCount; seed += 1) {
+    const items = createSeededValidLayout(4000 + seed);
+    const session = structuralSession(items);
+    const ordered = session.snapshot.items;
+    const first = ordered[0];
+    const middle = ordered[Math.floor(ordered.length / 2)];
+    const last = ordered[ordered.length - 1];
+    const edits = [
+      { removeIds: [middle.id] },
+      {
+        upserts: [{ id: `N-${seed}`, itemType: "card-slot", sideMask: seed % 2 ? "both" : "left", span: seed % 3 + 1, targetLane: Math.max(0, middle.lane), order: 100 + seed, hard: true }]
+      },
+      {
+        upserts: [{ id: first.id, span: first.span + 1, targetLane: first.lane, hard: true }]
+      },
+      {
+        upserts: [{ id: last.id, span: Math.max(1, last.span - 1), targetLane: last.lane, hard: true }]
+      },
+      {
+        upserts: [{ id: middle.id, sideMask: middle.sideMask === "both" ? "left" : "both", targetLane: middle.lane, hard: true }]
+      },
+      {
+        removeIds: [first.id, last.id],
+        compactVacatedSpace: seed % 2 === 0
+      }
+    ];
+    edits.forEach((edit, editIndex) => {
+      assertStructuralInvariants(session, edit, `seed ${seed} edit ${editIndex}`);
+      caseCount += 1;
+    });
+  }
+
+  t.diagnostic(`seeded structural layouts: ${seedCount}`);
+  t.diagnostic(`seeded structural cases: ${caseCount}`);
+  assert.equal(caseCount, seedCount * 6);
+});
+
+test("structural edit solver exposes bounded work for large transactions", t => {
+  const masks = ["left", "right", "both"];
+  const items = Array.from({ length: 114 }, (_, index) => {
+    return item(
+      `I${index}`,
+      index * 3,
+      masks[index % masks.length],
+      index % 13 === 0 ? 3 : index % 7 === 0 ? 2 : 1,
+      index,
+      index % 9 === 0 ? "card-slot" : "chassis-connector"
+    );
+  });
+  const session = structuralSession(items);
+  const edit = {
+    removeIds: ["I10", "I22", "I36", "I58"],
+    upserts: [
+      { id: "I44", span: 3, targetLane: 130, hard: true },
+      { id: "I45", sideMask: "both", targetLane: 135, hard: true },
+      { id: "NEW-A", itemType: "chassis-connector", sideMask: "left", span: 1, targetLane: 12, order: 200, hard: true },
+      { id: "NEW-B", itemType: "card-slot", sideMask: "both", span: 3, targetLane: 180, order: 201, hard: true },
+      { id: "NEW-C", itemType: "chassis-connector", sideMask: "right", span: 2, targetLane: 60, order: 202, hard: true }
+    ]
+  };
+  const layout = assertStructuralInvariants(session, edit, "large structural transaction");
+
+  t.diagnostic(`structural large-fixture work count: ${layout.structuralEdit.workCount}`);
+  assert.ok(layout.structuralEdit.workCount <= items.length * (items.length + 16));
+  assert.ok(layout.structuralEdit.candidateCount <= 1);
 });
 
 test("target lane hysteresis suppresses row-boundary oscillation", () => {

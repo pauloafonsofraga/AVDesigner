@@ -1067,6 +1067,568 @@ export function resolveModularCompositeInsertionDrag(session, primaryTargetLane,
   return result;
 }
 
+const STRUCTURAL_SIDE_MASK_ALIASES = Object.freeze(new Set([
+  "left",
+  "input",
+  "right",
+  "output",
+  "both",
+  "full",
+  "io",
+  "left-right"
+]));
+
+function isValidPlacementSideMaskValue(value) {
+  const raw = String(value ?? "").trim().toLowerCase();
+  return STRUCTURAL_SIDE_MASK_ALIASES.has(raw);
+}
+
+function structuralLaneValue(value, label = "lane") {
+  const lane = Number(value);
+  if (!Number.isFinite(lane)) throw new Error(`Invalid modular structural ${label}.`);
+  return Math.max(0, Math.round(lane));
+}
+
+function structuralPositiveSpan(value, label = "span") {
+  const span = Number(value);
+  if (!Number.isFinite(span) || span <= 0) throw new Error(`Invalid modular structural ${label}.`);
+  return Math.max(1, Math.round(span));
+}
+
+function structuralScalarItem(item = {}) {
+  const scalar = {
+    id: stableString(item.id),
+    itemType: stableString(item.itemType, "chassis-connector"),
+    sideMask: normalizePlacementSideMask(item.sideMask),
+    requestedLane: Math.max(0, Math.round(finiteNumber(item.requestedLane, item.lane))),
+    requestedY: finiteNumber(item.requestedY, item.y),
+    lane: Math.max(0, Math.round(finiteNumber(item.lane, item.requestedLane))),
+    span: Math.max(1, Math.round(finiteNumber(item.span, 1))),
+    order: finiteNumber(item.order, 0),
+    sourceIndex: finiteNumber(item.sourceIndex, 0),
+    y: finiteNumber(item.y, item.requestedY),
+    endLane: Math.max(0, Math.round(finiteNumber(item.lane, item.requestedLane))) + Math.max(1, Math.round(finiteNumber(item.span, 1))),
+    bottomY: finiteNumber(item.bottomY, item.y),
+    moved: item.moved === true
+  };
+  if (Array.isArray(item.memberIds)) {
+    scalar.memberIds = Object.freeze(item.memberIds.map(id => stableString(id)).filter(Boolean));
+  }
+  return Object.freeze(scalar);
+}
+
+function structuralSnapshotItems(itemsOrLayout = [], options = {}) {
+  const rawItems = Array.isArray(itemsOrLayout)
+    ? itemsOrLayout
+    : Array.isArray(itemsOrLayout?.items)
+      ? itemsOrLayout.items
+      : [];
+  const startY = finiteNumber(
+    Array.isArray(itemsOrLayout) ? options.startY : itemsOrLayout?.startY,
+    finiteNumber(options.startY, 0)
+  );
+  const slotHeight = positiveNumber(
+    Array.isArray(itemsOrLayout) ? options.slotHeight : itemsOrLayout?.slotHeight,
+    positiveNumber(options.slotHeight, MODULAR_LAYOUT_SLOT_HEIGHT)
+  );
+  const seenIds = new Set();
+  const normalized = rawItems.map((raw, index) => {
+    if (!raw || typeof raw !== "object") throw new Error("Invalid modular structural baseline item.");
+    const id = stableString(raw.id);
+    if (!id) throw new Error("Modular structural baseline items require stable IDs.");
+    if (seenIds.has(id)) throw new Error(`Duplicate modular structural baseline ID ${id}.`);
+    seenIds.add(id);
+    if (!isValidPlacementSideMaskValue(raw.sideMask)) {
+      throw new Error(`Invalid modular structural side mask for ${id}.`);
+    }
+    if (raw.span !== undefined) structuralPositiveSpan(raw.span, `span for ${id}`);
+    const lane = Number.isFinite(Number(raw.lane))
+      ? structuralLaneValue(raw.lane, `lane for ${id}`)
+      : Number.isFinite(Number(raw.requestedLane))
+        ? structuralLaneValue(raw.requestedLane, `lane for ${id}`)
+        : Number.isFinite(Number(raw.requestedY ?? raw.y))
+          ? layoutLaneForY(raw.requestedY ?? raw.y, startY, slotHeight)
+          : null;
+    if (lane === null) throw new Error(`Invalid modular structural lane for ${id}.`);
+    return normalizePlacementItem({
+      ...raw,
+      id,
+      lane,
+      requestedLane: lane,
+      requestedY: layoutYForLane(lane, startY, slotHeight),
+      y: layoutYForLane(lane, startY, slotHeight),
+      sourceIndex: index
+    }, index, { startY, slotHeight });
+  }).sort(originalPlacementComparator);
+
+  const laneById = laneMapFromItems(normalized);
+  if (!candidateHasNoOverlap(normalized, laneById)) {
+    throw new Error("Modular structural baseline already contains overlapping placement items.");
+  }
+  return {
+    startY,
+    slotHeight,
+    items: normalized
+  };
+}
+
+function freezeStructuralSnapshot(itemsOrLayout = [], options = {}) {
+  const source = structuralSnapshotItems(itemsOrLayout, options);
+  const items = source.items.map(item => structuralScalarItem({
+    ...item,
+    requestedLane: item.lane,
+    requestedY: layoutYForLane(item.lane, source.startY, source.slotHeight),
+    y: layoutYForLane(item.lane, source.startY, source.slotHeight),
+    bottomY: layoutYForLane(item.lane + item.span, source.startY, source.slotHeight)
+  }));
+  const orderedItems = Object.freeze([...items].sort(originalPlacementComparator));
+  const byId = Object.freeze(Object.fromEntries(items.map(item => [item.id, item])));
+  const endLane = items.reduce((max, item) => Math.max(max, item.lane + item.span), 0);
+  return Object.freeze({
+    startY: source.startY,
+    slotHeight: source.slotHeight,
+    items: Object.freeze(items),
+    orderedItems,
+    byId,
+    endLane,
+    bottomY: layoutYForLane(endLane, source.startY, source.slotHeight)
+  });
+}
+
+export function createModularStructuralEditSession(itemsOrLayout = [], options = {}) {
+  const snapshot = freezeStructuralSnapshot(itemsOrLayout, options);
+  return Object.freeze({
+    snapshot,
+    startY: snapshot.startY,
+    slotHeight: snapshot.slotHeight,
+    beforeEndLane: snapshot.endLane,
+    itemCount: snapshot.items.length
+  });
+}
+
+function structuralFieldValue(raw = {}, field = "") {
+  if (!(field in raw)) return undefined;
+  if (field === "sideMask") {
+    if (!isValidPlacementSideMaskValue(raw.sideMask)) throw new Error(`Invalid modular structural side mask for ${stableString(raw.id, "upsert")}.`);
+    return normalizePlacementSideMask(raw.sideMask);
+  }
+  if (field === "span") return structuralPositiveSpan(raw.span, `span for ${stableString(raw.id, "upsert")}`);
+  if (field === "targetLane") return structuralLaneValue(raw.targetLane, `target lane for ${stableString(raw.id, "upsert")}`);
+  if (field === "order") {
+    const order = Number(raw.order);
+    if (!Number.isFinite(order)) throw new Error(`Invalid modular structural order for ${stableString(raw.id, "upsert")}.`);
+    return order;
+  }
+  if (field === "hard") return raw.hard === true;
+  if (field === "itemType") return stableString(raw.itemType, "chassis-connector");
+  return raw[field];
+}
+
+function normalizeStructuralUpserts(session, upserts = []) {
+  const merged = new Map();
+  (Array.isArray(upserts) ? upserts : []).forEach(raw => {
+    const id = stableString(raw?.id);
+    if (!id) throw new Error("Modular structural upserts require stable IDs.");
+    const next = merged.get(id) || { id };
+    for (const field of ["itemType", "sideMask", "span", "targetLane", "order", "hard"]) {
+      if (!(field in (raw || {}))) continue;
+      const value = structuralFieldValue(raw, field);
+      if (field in next && next[field] !== value) {
+        throw new Error(`Conflicting modular structural upsert for ${id}.`);
+      }
+      next[field] = value;
+    }
+    merged.set(id, next);
+  });
+  const maxOrder = session.snapshot.items.reduce((max, item) => Math.max(max, item.order), -1);
+  let insertIndex = 0;
+  const orderedUpserts = [...merged.values()].sort((a, b) => {
+    const baseA = session.snapshot.byId[a.id] || null;
+    const baseB = session.snapshot.byId[b.id] || null;
+    const orderA = "order" in a ? a.order : baseA?.order ?? Number.POSITIVE_INFINITY;
+    const orderB = "order" in b ? b.order : baseB?.order ?? Number.POSITIVE_INFINITY;
+    const orderDelta = orderA - orderB;
+    if (orderDelta) return orderDelta;
+    return a.id.localeCompare(b.id);
+  });
+  const normalized = orderedUpserts.map(upsert => {
+    const base = session.snapshot.byId[upsert.id] || null;
+    if (!base) {
+      if (!("sideMask" in upsert)) throw new Error(`New modular structural item ${upsert.id} requires a side mask.`);
+      if (!("span" in upsert)) throw new Error(`New modular structural item ${upsert.id} requires a span.`);
+      if (!("targetLane" in upsert)) throw new Error(`New modular structural item ${upsert.id} requires a target lane.`);
+    }
+    const lane = "targetLane" in upsert ? upsert.targetLane : base.lane;
+    const item = {
+      id: upsert.id,
+      itemType: "itemType" in upsert ? upsert.itemType : base?.itemType || "chassis-connector",
+      sideMask: "sideMask" in upsert ? upsert.sideMask : base.sideMask,
+      span: "span" in upsert ? upsert.span : base.span,
+      lane,
+      requestedLane: lane,
+      requestedY: layoutYForLane(lane, session.snapshot.startY, session.snapshot.slotHeight),
+      y: layoutYForLane(lane, session.snapshot.startY, session.snapshot.slotHeight),
+      order: "order" in upsert
+        ? upsert.order
+        : base
+          ? base.order
+          : maxOrder + 1 + insertIndex++,
+      sourceIndex: base?.sourceIndex ?? maxOrder + 1 + insertIndex,
+      memberIds: base?.memberIds
+    };
+    return {
+      id: upsert.id,
+      exists: Boolean(base),
+      hard: upsert.hard === true,
+      targetLane: lane,
+      item: normalizePlacementItem(item, item.sourceIndex, {
+        startY: session.snapshot.startY,
+        slotHeight: session.snapshot.slotHeight
+      })
+    };
+  });
+  return normalized.sort((a, b) => {
+    const orderDelta = a.item.order - b.item.order;
+    if (orderDelta) return orderDelta;
+    return a.id.localeCompare(b.id);
+  });
+}
+
+function normalizeStructuralEdit(session, edit = {}) {
+  if (!session?.snapshot?.items || !session.snapshot.byId) {
+    throw new Error("A modular structural edit session is required.");
+  }
+  const removeIds = [];
+  const removeSet = new Set();
+  (Array.isArray(edit?.removeIds) ? edit.removeIds : []).forEach(rawId => {
+    const id = stableString(rawId);
+    if (!id || removeSet.has(id)) return;
+    if (!session.snapshot.byId[id]) throw new Error(`Cannot remove missing modular structural item ${id}.`);
+    removeSet.add(id);
+    removeIds.push(id);
+  });
+  removeIds.sort((a, b) => originalPlacementComparator(session.snapshot.byId[a], session.snapshot.byId[b]));
+  const upserts = normalizeStructuralUpserts(session, edit?.upserts || []);
+  upserts.forEach(upsert => {
+    if (removeSet.has(upsert.id)) {
+      throw new Error(`Modular structural item ${upsert.id} cannot be both removed and upserted.`);
+    }
+  });
+  const hardUpserts = upserts.filter(upsert => upsert.hard);
+  for (let index = 0; index < hardUpserts.length; index += 1) {
+    for (let otherIndex = index + 1; otherIndex < hardUpserts.length; otherIndex += 1) {
+      const a = hardUpserts[index].item;
+      const b = hardUpserts[otherIndex].item;
+      if (!sideMaskSides(a.sideMask).some(side => itemOccupiesSide(b, side))) continue;
+      if (intervalsOverlap(a.lane, a.span, b.lane, b.lane + b.span)) {
+        throw new Error(`Overlapping modular structural hard reservations: ${a.id} and ${b.id}.`);
+      }
+    }
+  }
+  return Object.freeze({
+    removeIds: Object.freeze(removeIds),
+    removeSet,
+    upserts: Object.freeze(upserts),
+    upsertIds: new Set(upserts.map(upsert => upsert.id)),
+    compactVacatedSpace: edit?.compactVacatedSpace !== false
+  });
+}
+
+function structuralIntervalDifference(oldStart, oldEnd, nextStart, nextEnd) {
+  const intervals = [];
+  if (oldStart < Math.min(oldEnd, nextStart)) {
+    intervals.push([oldStart, Math.min(oldEnd, nextStart)]);
+  }
+  if (Math.max(oldStart, nextEnd) < oldEnd) {
+    intervals.push([Math.max(oldStart, nextEnd), oldEnd]);
+  }
+  return intervals.filter(([start, end]) => end > start);
+}
+
+function structuralVacatedIntervals(session, normalizedEdit) {
+  const vacancies = [];
+  normalizedEdit.removeIds.forEach(id => {
+    const item = session.snapshot.byId[id];
+    sideMaskSides(item.sideMask).forEach(side => {
+      vacancies.push({ side, start: item.lane, end: item.lane + item.span, sourceId: id });
+    });
+  });
+  normalizedEdit.upserts.forEach(upsert => {
+    const previous = session.snapshot.byId[upsert.id];
+    if (!previous) return;
+    const next = upsert.item;
+    for (const side of sideMaskSides(previous.sideMask)) {
+      if (!itemOccupiesSide(next, side)) {
+        vacancies.push({ side, start: previous.lane, end: previous.lane + previous.span, sourceId: upsert.id });
+        continue;
+      }
+      structuralIntervalDifference(
+        previous.lane,
+        previous.lane + previous.span,
+        next.lane,
+        next.lane + next.span
+      ).forEach(([start, end]) => {
+        vacancies.push({ side, start, end, sourceId: upsert.id });
+      });
+    }
+  });
+  return vacancies
+    .filter(vacancy => vacancy.end > vacancy.start)
+    .sort((a, b) => {
+      const sideDelta = a.side.localeCompare(b.side);
+      if (sideDelta) return sideDelta;
+      const startDelta = a.start - b.start;
+      if (startDelta) return startDelta;
+      const endDelta = a.end - b.end;
+      if (endDelta) return endDelta;
+      return String(a.sourceId).localeCompare(String(b.sourceId));
+    });
+}
+
+function structuralItemsForEdit(session, normalizedEdit) {
+  const upsertById = new Map(normalizedEdit.upserts.map(upsert => [upsert.id, upsert]));
+  const items = [];
+  session.snapshot.items.forEach(item => {
+    if (normalizedEdit.removeSet.has(item.id)) return;
+    const upsert = upsertById.get(item.id);
+    items.push(upsert ? upsert.item : normalizePlacementItem({
+      ...item,
+      requestedLane: item.lane,
+      requestedY: layoutYForLane(item.lane, session.snapshot.startY, session.snapshot.slotHeight),
+      y: layoutYForLane(item.lane, session.snapshot.startY, session.snapshot.slotHeight)
+    }, item.sourceIndex, {
+      startY: session.snapshot.startY,
+      slotHeight: session.snapshot.slotHeight
+    }));
+  });
+  normalizedEdit.upserts
+    .filter(upsert => !upsert.exists)
+    .forEach(upsert => items.push(upsert.item));
+  return items.sort(originalPlacementComparator);
+}
+
+function structuralSelectedLaneById(normalizedEdit) {
+  return new Map(normalizedEdit.upserts.map(upsert => [upsert.id, upsert.item.lane]));
+}
+
+function canMoveStructuralItemTo(items, laneById, item, targetLane, lockedIds) {
+  if (targetLane < 0) return false;
+  const candidate = new Map(laneById);
+  candidate.set(item.id, targetLane);
+  return candidateHasNoOverlap(items, candidate)
+    && candidatePreservesStationaryOrderExcept(items, candidate, lockedIds);
+}
+
+function compactStructuralVacancies(items, laneById, vacancies, lockedIds, options = {}) {
+  if (!vacancies.length) return { laneById, workCount: 0 };
+  const nextLaneById = new Map(laneById);
+  const queue = vacancies.map(vacancy => ({ ...vacancy }));
+  let workCount = 0;
+  let guard = 0;
+  const maxWork = Math.max(1, items.length * Math.max(1, vacancies.length + items.length + 8));
+  while (queue.length && guard < maxWork) {
+    guard += 1;
+    workCount += 1;
+    const vacancy = queue.shift();
+    const width = Math.max(0, Math.round(vacancy.end - vacancy.start));
+    if (width <= 0) continue;
+    const candidate = items
+      .filter(item => !lockedIds.has(item.id) && itemOccupiesSide(item, vacancy.side))
+      .sort(originalPlacementComparator)
+      .find(item => laneForCandidate(nextLaneById, item) === vacancy.end);
+    if (!candidate) continue;
+    const oldLane = laneForCandidate(nextLaneById, candidate);
+    const targetLane = oldLane - width;
+    if (!canMoveStructuralItemTo(items, nextLaneById, candidate, targetLane, lockedIds)) continue;
+    nextLaneById.set(candidate.id, targetLane);
+    sideMaskSides(candidate.sideMask).forEach(side => {
+      queue.push({
+        side,
+        start: targetLane + candidate.span,
+        end: oldLane + candidate.span,
+        sourceId: candidate.id
+      });
+    });
+  }
+  if (guard >= maxWork && queue.length) {
+    throw new Error("Unable to compact modular structural vacancies within bounded work.");
+  }
+  return { laneById: nextLaneById, workCount };
+}
+
+function structuralRepairLayout(session, normalizedEdit, items) {
+  if (!normalizedEdit.upserts.length) {
+    return {
+      laneById: laneMapFromItems(items),
+      affectedIds: new Set(),
+      workCount: items.length,
+      candidateCount: 1
+    };
+  }
+  const selectedIds = normalizedEdit.upsertIds;
+  const selectedLaneById = structuralSelectedLaneById(normalizedEdit);
+  const hardSelectedItems = items.filter(item => selectedIds.has(item.id));
+  for (let index = 0; index < hardSelectedItems.length; index += 1) {
+    for (let otherIndex = index + 1; otherIndex < hardSelectedItems.length; otherIndex += 1) {
+      const a = hardSelectedItems[index];
+      const b = hardSelectedItems[otherIndex];
+      if (!sideMaskSides(a.sideMask).some(side => itemOccupiesSide(b, side))) continue;
+      if (intervalsOverlap(a.lane, a.span, b.lane, b.lane + b.span)) {
+        throw new Error(`Overlapping modular structural upsert reservations: ${a.id} and ${b.id}.`);
+      }
+    }
+  }
+  const directConflictIds = compositeDirectConflictIds(items, selectedIds, selectedLaneById);
+  const repaired = placeCompositeAffectedItems(
+    items,
+    selectedIds,
+    selectedLaneById,
+    directConflictIds,
+    "nearest",
+    { originalEndLane: session.snapshot.endLane }
+  );
+  return {
+    laneById: repaired.laneById,
+    affectedIds: repaired.affectedIds,
+    workCount: repaired.workCount,
+    candidateCount: 1
+  };
+}
+
+function structuralExpectedIds(session, normalizedEdit) {
+  const ids = new Set(session.snapshot.items.map(item => item.id));
+  normalizedEdit.removeIds.forEach(id => ids.delete(id));
+  normalizedEdit.upserts.forEach(upsert => ids.add(upsert.id));
+  return ids;
+}
+
+function structuralMovedStationaryIds(session, normalizedEdit, layout) {
+  const editedIds = new Set([...normalizedEdit.removeIds, ...normalizedEdit.upserts.map(upsert => upsert.id)]);
+  return layout.items
+    .filter(item => !editedIds.has(item.id))
+    .filter(item => {
+      const base = session.snapshot.byId[item.id];
+      return base && base.lane !== item.lane;
+    })
+    .map(item => item.id)
+    .sort();
+}
+
+function structuralTargetMap(upserts, hardOnly = false, layout = null) {
+  const targetEntries = upserts
+    .filter(upsert => !hardOnly || upsert.hard)
+    .map(upsert => {
+      const lane = layout?.byId?.get?.(upsert.id)?.lane ?? upsert.item.lane;
+      return [upsert.id, lane];
+    })
+    .sort((a, b) => a[0].localeCompare(b[0]));
+  return Object.freeze(Object.fromEntries(targetEntries));
+}
+
+function structuralLayoutItemsForValidation(layout = {}, session = {}) {
+  const startY = finiteNumber(layout.startY, session.snapshot?.startY ?? 0);
+  const slotHeight = positiveNumber(layout.slotHeight, session.snapshot?.slotHeight ?? MODULAR_LAYOUT_SLOT_HEIGHT);
+  return (Array.isArray(layout.items) ? layout.items : []).map((item, index) => normalizePlacementItem({
+    ...item,
+    lane: Number.isFinite(Number(item.lane)) ? Number(item.lane) : item.requestedLane,
+    requestedLane: Number.isFinite(Number(item.lane)) ? Number(item.lane) : item.requestedLane,
+    sourceIndex: index
+  }, index, { startY, slotHeight }));
+}
+
+export function isValidModularStructuralEditResult(session, edit, layout, options = {}) {
+  try {
+    if (!session?.snapshot?.items || !layout?.items) return false;
+    const normalizedEdit = normalizeStructuralEdit(session, edit || {});
+    const expectedIds = structuralExpectedIds(session, normalizedEdit);
+    const layoutItems = structuralLayoutItemsForValidation(layout, session);
+    if (layoutItems.length !== expectedIds.size) return false;
+    const laneById = new Map();
+    const layoutById = new Map();
+    for (const item of layoutItems) {
+      if (!expectedIds.has(item.id) || layoutById.has(item.id)) return false;
+      layoutById.set(item.id, item);
+      laneById.set(item.id, item.lane);
+    }
+    if (!candidateHasNoOverlap(layoutItems, laneById)) return false;
+    for (const upsert of normalizedEdit.upserts) {
+      const item = layoutById.get(upsert.id);
+      if (!item) return false;
+      if (item.itemType !== upsert.item.itemType) return false;
+      if (item.sideMask !== upsert.item.sideMask) return false;
+      if (item.span !== upsert.item.span) return false;
+      if (item.order !== upsert.item.order) return false;
+      if (upsert.hard && item.lane !== upsert.item.lane) return false;
+    }
+    for (const base of session.snapshot.items) {
+      if (normalizedEdit.removeSet.has(base.id) || normalizedEdit.upsertIds.has(base.id)) continue;
+      const item = layoutById.get(base.id);
+      if (!item) return false;
+      if (item.itemType !== base.itemType) return false;
+      if (item.sideMask !== base.sideMask) return false;
+      if (item.span !== base.span) return false;
+      if (item.order !== base.order) return false;
+    }
+    const stationary = session.snapshot.items.filter(item => layoutById.has(item.id));
+    const excluded = new Set([...normalizedEdit.removeIds, ...normalizedEdit.upserts.map(upsert => upsert.id)]);
+    if (!candidatePreservesStationaryOrderExcept(stationary, laneById, excluded)) return false;
+    const normalized = resolveModularPlacementItems(layout.items, {
+      startY: finiteNumber(layout.startY, finiteNumber(options.startY, session.snapshot.startY)),
+      slotHeight: positiveNumber(layout.slotHeight, positiveNumber(options.slotHeight, session.snapshot.slotHeight))
+    });
+    return laneMapEndLane(layoutItems, laneById) === layout.endLane
+      && JSON.stringify(Object.fromEntries(normalized.items.map(item => [item.id, item.lane]).sort())) ===
+        JSON.stringify(Object.fromEntries(layoutItems.map(item => [item.id, item.lane]).sort()));
+  } catch (_error) {
+    return false;
+  }
+}
+
+export function resolveModularStructuralEdit(session, edit = {}, options = {}) {
+  if (!session?.snapshot?.items) {
+    throw new Error("A modular structural edit session is required.");
+  }
+  const normalizedEdit = normalizeStructuralEdit(session, edit);
+  const startY = finiteNumber(options.startY, session.snapshot.startY);
+  const slotHeight = positiveNumber(options.slotHeight, session.snapshot.slotHeight);
+  const items = structuralItemsForEdit(session, normalizedEdit);
+  let repair = structuralRepairLayout(session, normalizedEdit, items);
+  let laneById = repair.laneById;
+  let workCount = repair.workCount;
+  if (normalizedEdit.compactVacatedSpace) {
+    const compaction = compactStructuralVacancies(
+      items,
+      laneById,
+      structuralVacatedIntervals(session, normalizedEdit),
+      normalizedEdit.upsertIds
+    );
+    laneById = compaction.laneById;
+    workCount += compaction.workCount;
+  }
+  const result = compositeResultForLaneMap(items, laneById, { startY, slotHeight });
+  const insertedIds = normalizedEdit.upserts.filter(upsert => !upsert.exists).map(upsert => upsert.id).sort();
+  const updatedIds = normalizedEdit.upserts.filter(upsert => upsert.exists).map(upsert => upsert.id).sort();
+  const removedIds = [...normalizedEdit.removeIds].sort();
+  const movedStationaryIds = structuralMovedStationaryIds(session, normalizedEdit, result);
+  result.structuralEdit = Object.freeze({
+    insertedIds: Object.freeze(insertedIds),
+    updatedIds: Object.freeze(updatedIds),
+    removedIds: Object.freeze(removedIds),
+    movedStationaryIds: Object.freeze(movedStationaryIds),
+    requestedHardTargets: structuralTargetMap(normalizedEdit.upserts, true),
+    resolvedHardTargets: structuralTargetMap(normalizedEdit.upserts, true, result),
+    beforeEndLane: session.snapshot.endLane,
+    afterEndLane: result.endLane,
+    workCount,
+    candidateCount: repair.candidateCount,
+    compactVacatedSpace: normalizedEdit.compactVacatedSpace
+  });
+  if (!isValidModularStructuralEditResult(session, edit, result, { startY, slotHeight })) {
+    throw new Error("Resolved modular structural edit failed validation.");
+  }
+  return result;
+}
+
 function explicitVisualSide(value = "") {
   const raw = String(value || "").trim().toLowerCase();
   if (raw === "left" || raw === "input") return MODULAR_LAYOUT_SIDE_MASKS.left;
