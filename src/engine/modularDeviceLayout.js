@@ -892,26 +892,54 @@ export function resolveModularAuthoringInsertion(session, boundaryIndex, options
   return layout;
 }
 
+export function authoringInsertionBoundaryScreenPositions(session, options = {}) {
+  const boundaries = Array.isArray(session?.boundaries) ? session.boundaries : [];
+  if (!boundaries.length) return [];
+  const originalBoundaryIndex = resolvedAuthoringBoundaryIndex(session, session.originalBoundaryIndex);
+  const minimumStepPx = Math.max(10, positiveNumber(options.minimumStepPx, 12));
+  const projectedLanePx = positiveNumber(options.projectedLanePx, 0);
+  const positions = Array(boundaries.length).fill(0);
+
+  for (let index = originalBoundaryIndex + 1; index < boundaries.length; index += 1) {
+    const previousLane = finiteNumber(boundaries[index - 1]?.targetLane, 0);
+    const targetLane = finiteNumber(boundaries[index]?.targetLane, previousLane);
+    const laneDistancePx = Math.abs(targetLane - previousLane) * projectedLanePx;
+    positions[index] = positions[index - 1] + Math.max(minimumStepPx, laneDistancePx);
+  }
+  for (let index = originalBoundaryIndex - 1; index >= 0; index -= 1) {
+    const nextLane = finiteNumber(boundaries[index + 1]?.targetLane, 0);
+    const targetLane = finiteNumber(boundaries[index]?.targetLane, nextLane);
+    const laneDistancePx = Math.abs(nextLane - targetLane) * projectedLanePx;
+    positions[index] = positions[index + 1] - Math.max(minimumStepPx, laneDistancePx);
+  }
+  return positions;
+}
+
 export function authoringInsertionBoundaryWithHysteresis(pointerClientY, options = {}) {
   const session = options.session;
   const boundaryCount = session?.boundaries?.length || 0;
   if (!boundaryCount) return 0;
-  const originalBoundaryIndex = resolvedAuthoringBoundaryIndex(session, session.originalBoundaryIndex);
   const previousBoundaryIndex = resolvedAuthoringBoundaryIndex(
     session,
-    Number.isFinite(Number(options.previousBoundaryIndex)) ? options.previousBoundaryIndex : originalBoundaryIndex
+    Number.isFinite(Number(options.previousBoundaryIndex)) ? options.previousBoundaryIndex : session.originalBoundaryIndex
   );
   const pointerStartClientY = finiteNumber(options.pointerStartClientY, finiteNumber(pointerClientY, 0));
-  const deltaY = finiteNumber(pointerClientY, pointerStartClientY) - pointerStartClientY;
-  const minimumStepPx = Math.max(10, positiveNumber(options.minimumStepPx, 12));
-  const projectedLanePx = positiveNumber(options.projectedLanePx, 0);
-  const stepPx = Math.max(minimumStepPx, projectedLanePx);
+  const pointerOffsetPx = finiteNumber(pointerClientY, pointerStartClientY) - pointerStartClientY;
+  const positions = authoringInsertionBoundaryScreenPositions(session, options);
   const hysteresisPx = Math.max(0, finiteNumber(options.hysteresisPx, 2));
-  const rawBoundary = originalBoundaryIndex + deltaY / stepPx;
-  const lower = previousBoundaryIndex - 0.5 - hysteresisPx / stepPx;
-  const upper = previousBoundaryIndex + 0.5 + hysteresisPx / stepPx;
-  if (rawBoundary > lower && rawBoundary < upper) return previousBoundaryIndex;
-  return Math.min(boundaryCount - 1, Math.max(0, Math.round(rawBoundary)));
+  let nextBoundaryIndex = previousBoundaryIndex;
+
+  while (nextBoundaryIndex < boundaryCount - 1) {
+    const midpoint = (positions[nextBoundaryIndex] + positions[nextBoundaryIndex + 1]) / 2;
+    if (pointerOffsetPx <= midpoint + hysteresisPx) break;
+    nextBoundaryIndex += 1;
+  }
+  while (nextBoundaryIndex > 0) {
+    const midpoint = (positions[nextBoundaryIndex - 1] + positions[nextBoundaryIndex]) / 2;
+    if (pointerOffsetPx >= midpoint - hysteresisPx) break;
+    nextBoundaryIndex -= 1;
+  }
+  return nextBoundaryIndex;
 }
 
 function assertValidSourceBaseline(snapshot, label = "modular placement baseline") {

@@ -5,6 +5,7 @@ import {
   MODULAR_LAYOUT_SLOT_HEIGHT,
   cardBandGeometryForSlot,
   cardSlotSpanLanes,
+  authoringInsertionBoundaryScreenPositions,
   authoringInsertionBoundaryWithHysteresis,
   connectorPlacementSideMask,
   createModularAuthoringInsertionSession,
@@ -161,6 +162,58 @@ test("screen-space authoring boundaries clamp, debounce tiny Fit motion, and rev
   const backSession = createModularAuthoringInsertionSession(down.items, { draggedItemId: "B" });
   const back = resolveModularAuthoringInsertion(backSession, 1);
   assert.deepEqual(authoringLaneMap(back), { A: 0, B: 1, C: 2 });
+});
+
+test("span-aware authoring boundary geometry uses target-lane distance and midpoint hysteresis", () => {
+  const session = {
+    originalBoundaryIndex: 1,
+    boundaries: [0, 2, 8, 11].map((targetLane, index) => ({ index, insertionIndex: index, targetLane }))
+  };
+
+  assert.deepEqual(authoringInsertionBoundaryScreenPositions(session, {
+    projectedLanePx: 8,
+    minimumStepPx: 12
+  }), [-16, 0, 48, 72], "lane 2 to lane 8 should require six projected lane heights");
+  assert.deepEqual(authoringInsertionBoundaryScreenPositions(session, {
+    projectedLanePx: 54 * 0.035,
+    minimumStepPx: 12
+  }), [-12, 0, 12, 24], "tiny Fit scale should retain a usable step for every boundary");
+  assert.deepEqual(authoringInsertionBoundaryScreenPositions(session, {
+    projectedLanePx: 54 * 0.08,
+    minimumStepPx: 12
+  }), [-12, 0, 25.92, 38.88], "larger lane gaps should remain span-aware at tiny Fit scale");
+
+  const common = {
+    session,
+    pointerStartClientY: 100,
+    projectedLanePx: 8,
+    minimumStepPx: 12,
+    hysteresisPx: 2
+  };
+  assert.equal(authoringInsertionBoundaryWithHysteresis(125, {
+    ...common,
+    previousBoundaryIndex: 1
+  }), 1, "pointer should remain before the forward midpoint plus hysteresis");
+  assert.equal(authoringInsertionBoundaryWithHysteresis(127, {
+    ...common,
+    previousBoundaryIndex: 1
+  }), 2, "pointer should cross after the true six-lane midpoint plus hysteresis");
+  assert.equal(authoringInsertionBoundaryWithHysteresis(123, {
+    ...common,
+    previousBoundaryIndex: 2
+  }), 2, "reverse jitter should remain on the accepted boundary");
+  assert.equal(authoringInsertionBoundaryWithHysteresis(121, {
+    ...common,
+    previousBoundaryIndex: 2
+  }), 1, "reverse movement should cross only after midpoint hysteresis");
+  assert.equal(authoringInsertionBoundaryWithHysteresis(-10000, {
+    ...common,
+    previousBoundaryIndex: 1
+  }), 0);
+  assert.equal(authoringInsertionBoundaryWithHysteresis(10000, {
+    ...common,
+    previousBoundaryIndex: 1
+  }), 3);
 });
 
 function cardFixture() {
