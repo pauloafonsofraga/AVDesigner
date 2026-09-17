@@ -597,6 +597,8 @@ function structuralEditorHarness(inputTemplate = {}) {
     "replaceEditorTemplateContents",
     "animateEditorStructuralEdit",
     "commitEditorStructuralEdit",
+    "editorNodeSelectionSnapshot",
+    "restoreEditorNodeSelectionByStableIds",
     "pairedNetworkGroupId",
     "ensurePairedNetworkPair",
     "nextEditorPlacementY",
@@ -660,6 +662,8 @@ function structuralEditorHarness(inputTemplate = {}) {
       resolveEditorModularLayout,
       editorStructuralLayoutItems,
       commitEditorStructuralEdit,
+      editorNodeSelectionSnapshot,
+      restoreEditorNodeSelectionByStableIds,
       applyLedProcessorSettings,
       applyEthernetSwitchSettings,
       addEthernetSwitchPortBatch,
@@ -810,6 +814,12 @@ function selectedCardConnectorIds(template, context) {
 
 function selectedNodeConnectorIds(context) {
   return [...context.editorSelectedNodeIds].sort();
+}
+
+function selectedNodePrimaryConnectorId(template, context) {
+  return Number.isInteger(context.editorSelectedNodeIndex)
+    ? template.connectors?.[context.editorSelectedNodeIndex]?.id || ""
+    : "";
 }
 
 function generatedLedConnectors(template) {
@@ -1157,6 +1167,8 @@ test("Device Editor direct structural operations use the shared atomic transacti
   const applyLed = functionSource("applyLedProcessorSettings");
   const applyEthernet = functionSource("applyEthernetSwitchSettings");
   const addEthernet = functionSource("addEthernetSwitchPortBatch");
+  const nodeSelectionSnapshot = functionSource("editorNodeSelectionSnapshot");
+  const restoreNodeSelection = functionSource("restoreEditorNodeSelectionByStableIds");
   const ensureNetworkPair = functionSource("ensurePairedNetworkPair");
   const installCard = functionSource("installCardInSlot");
   const addCardSlot = functionSource("addEditorCardSlot");
@@ -1178,8 +1190,16 @@ test("Device Editor direct structural operations use the shared atomic transacti
   assert.match(ensureNetworkPair, /options\.groupId/);
   assert.doesNotMatch(applyLed, /template\.connectors = template\.connectors\.filter\(connector => connector\.type !== "led-signal"\)/);
   assert.match(applyLed, /isLedProcessorGeneratedConnector\(connector\)/);
+  assert.match(applyLed, /const selectionSnapshot = editorNodeSelectionSnapshot\(template\);/);
+  assert.match(applyLed, /restoreEditorNodeSelectionByStableIds\(committedTemplate, selectionSnapshot\);/);
   assert.doesNotMatch(addEthernet, /for[\s\S]*ensurePairedNetworkPair\(template, connector\)/);
   assert.doesNotMatch(addEthernet, /normalizeConnectorRows\(template\)/);
+  assert.match(addEthernet, /const selectionSnapshot = editorNodeSelectionSnapshot\(template\);/);
+  assert.match(addEthernet, /restoreEditorNodeSelectionByStableIds\(committedTemplate, selectionSnapshot\);/);
+  assert.match(nodeSelectionSnapshot, /Object\.freeze\(\{[\s\S]*selectedConnectorIds: Object\.freeze/);
+  assert.doesNotMatch(nodeSelectionSnapshot, /selectedNodeIndex|primaryIndex|new Map/);
+  assert.match(restoreNodeSelection, /editorSelectedNodeIndex = null;/);
+  assert.doesNotMatch(restoreNodeSelection, /syncEditorNodeSelection/);
   assert.match(addCardConnector, /commitEditorCardCollectionEdit\(template/);
   [fillCardConnector, removeCardConnector, changeCardKind, deleteCardType].forEach(source => {
     assert.match(source, /commitEditorCardDefinitionEdit\(template, cardTypeId/);
@@ -2228,6 +2248,151 @@ test("Device Editor LED Processor generation is owned, atomic, and selection-sta
   });
 });
 
+test("Device Editor LED removal does not transfer selection through a stale numeric index", () => {
+  const { api, template, context } = structuralEditorHarness({
+    isLedProcessor: true,
+    ledOutputCount: 3,
+    connectors: [
+      testConnector("ordinary-before", "left", 0, { displaySide: "left", schemaVersion: 2, anchors: [{ id: "left", side: "left", x: 0, y: 100, primary: true }] }),
+      testConnector("signal-line-1", "right", 0, {
+        direction: "output",
+        displaySide: "right",
+        type: "led-signal",
+        label: "Signal Line 1",
+        signalIndex: 1,
+        generatedByLedProcessor: true,
+        schemaVersion: 2,
+        anchors: [{ id: "right", side: "right", x: 420, y: 100, primary: true }]
+      }),
+      testConnector("signal-line-2", "right", 1, {
+        direction: "output",
+        displaySide: "right",
+        type: "led-signal",
+        label: "Signal Line 2",
+        signalIndex: 2,
+        generatedByLedProcessor: true,
+        schemaVersion: 2,
+        anchors: [{ id: "right", side: "right", x: 420, y: 154, primary: true }]
+      }),
+      testConnector("signal-line-3", "right", 2, {
+        direction: "output",
+        displaySide: "right",
+        type: "led-signal",
+        label: "Signal Line 3",
+        signalIndex: 3,
+        generatedByLedProcessor: true,
+        schemaVersion: 2,
+        anchors: [{ id: "right", side: "right", x: 420, y: 208, primary: true }]
+      }),
+      testConnector("ordinary-after", "left", 3, { displaySide: "left", schemaVersion: 2, anchors: [{ id: "left", side: "left", x: 0, y: 262, primary: true }] })
+    ]
+  });
+  context.editorLedProcessor.checked = true;
+  context.editorLedOutputCount.value = "2";
+  context.editorSelectedNodeIds = new Set(["signal-line-3"]);
+  context.editorSelectedNodeIndex = template.connectors.findIndex(connector => connector.id === "signal-line-3");
+
+  api.applyLedProcessorSettings();
+
+  assert.deepEqual(selectedNodeConnectorIds(context), []);
+  assert.equal(context.editorSelectedNodeIndex, null);
+  assert.ok(!context.editorSelectedNodeIds.has("ordinary-after"));
+});
+
+test("Device Editor chassis connector selection snapshots contain only frozen stable IDs", () => {
+  const { api, template, context } = structuralEditorHarness({
+    connectors: [
+      testConnector("selected-a", "left", 0),
+      testConnector("selected-b", "right", 0, { direction: "output" })
+    ]
+  });
+  context.editorSelectedNodeIds = new Set(["selected-a", "selected-b"]);
+  context.editorSelectedNodeIndex = 1;
+
+  const snapshot = api.editorNodeSelectionSnapshot(template);
+
+  assert.ok(Object.isFrozen(snapshot));
+  assert.ok(Object.isFrozen(snapshot.selectedConnectorIds));
+  assert.deepEqual([...snapshot.selectedConnectorIds], ["selected-a", "selected-b"]);
+  assert.equal(snapshot.primaryConnectorId, "selected-b");
+  assert.deepEqual(Object.keys(snapshot).sort(), ["primaryConnectorId", "selectedConnectorIds"]);
+  assert.throws(() => snapshot.selectedConnectorIds.push("other"), /object is not extensible|read only/i);
+  template.connectors[0].id = "changed-after-snapshot";
+  assert.deepEqual([...snapshot.selectedConnectorIds], ["selected-a", "selected-b"]);
+});
+
+test("Device Editor disabling LED Processor clears removed selection without selecting a shifted connector", () => {
+  const { api, template, context } = structuralEditorHarness({
+    isLedProcessor: true,
+    ledOutputCount: 2,
+    connectors: [
+      testConnector("ordinary-before", "left", 0),
+      testConnector("signal-line-1", "right", 0, { direction: "output", type: "led-signal", signalIndex: 1, generatedByLedProcessor: true }),
+      testConnector("signal-line-2", "right", 1, { direction: "output", type: "led-signal", signalIndex: 2, generatedByLedProcessor: true }),
+      testConnector("ordinary-after", "left", 1),
+      testConnector("ordinary-tail", "left", 2)
+    ]
+  });
+  context.editorSelectedNodeIds = new Set(["signal-line-2"]);
+  context.editorSelectedNodeIndex = template.connectors.findIndex(connector => connector.id === "signal-line-2");
+  context.editorLedProcessor.checked = false;
+
+  api.applyLedProcessorSettings();
+
+  assert.deepEqual(selectedNodeConnectorIds(context), []);
+  assert.equal(context.editorSelectedNodeIndex, null);
+  assert.equal(selectedNodePrimaryConnectorId(template, context), "");
+  assert.ok(!context.editorSelectedNodeIds.has("ordinary-tail"));
+});
+
+test("Device Editor LED count reduction promotes the first surviving stable selection", () => {
+  const { api, template, context } = structuralEditorHarness({
+    isLedProcessor: true,
+    ledOutputCount: 3,
+    connectors: [
+      testConnector("signal-line-1", "right", 0, { direction: "output", type: "led-signal", signalIndex: 1, generatedByLedProcessor: true }),
+      testConnector("signal-line-2", "right", 1, { direction: "output", type: "led-signal", signalIndex: 2, generatedByLedProcessor: true }),
+      testConnector("signal-line-3", "right", 2, { direction: "output", type: "led-signal", signalIndex: 3, generatedByLedProcessor: true }),
+      testConnector("ordinary-after", "left", 3)
+    ]
+  });
+  context.editorSelectedNodeIds = new Set(["signal-line-1", "signal-line-3"]);
+  context.editorSelectedNodeIndex = template.connectors.findIndex(connector => connector.id === "signal-line-3");
+  context.editorLedProcessor.checked = true;
+  context.editorLedOutputCount.value = "2";
+
+  api.applyLedProcessorSettings();
+
+  assert.deepEqual(selectedNodeConnectorIds(context), ["signal-line-1"]);
+  assert.equal(selectedNodePrimaryConnectorId(template, context), "signal-line-1");
+  assert.equal(context.editorSelectedNodeIndex, template.connectors.findIndex(connector => connector.id === "signal-line-1"));
+});
+
+test("Device Editor LED reconciliation preserves non-contiguous stable selections only", () => {
+  const { api, template, context } = structuralEditorHarness({
+    isLedProcessor: true,
+    ledOutputCount: 3,
+    connectors: [
+      testConnector("ordinary-a", "left", 0),
+      testConnector("signal-line-1", "right", 0, { direction: "output", type: "led-signal", signalIndex: 1, generatedByLedProcessor: true }),
+      testConnector("ordinary-b", "left", 1),
+      testConnector("signal-line-2", "right", 1, { direction: "output", type: "led-signal", signalIndex: 2, generatedByLedProcessor: true }),
+      testConnector("signal-line-3", "right", 2, { direction: "output", type: "led-signal", signalIndex: 3, generatedByLedProcessor: true }),
+      testConnector("ordinary-c", "left", 2)
+    ]
+  });
+  context.editorSelectedNodeIds = new Set(["ordinary-a", "signal-line-1", "signal-line-3"]);
+  context.editorSelectedNodeIndex = template.connectors.findIndex(connector => connector.id === "signal-line-3");
+  context.editorLedProcessor.checked = true;
+  context.editorLedOutputCount.value = "2";
+
+  api.applyLedProcessorSettings();
+
+  assert.deepEqual(selectedNodeConnectorIds(context), ["ordinary-a", "signal-line-1"]);
+  assert.equal(selectedNodePrimaryConnectorId(template, context), "ordinary-a");
+  assert.ok(!context.editorSelectedNodeIds.has("ordinary-c"));
+});
+
 test("Device Editor LED Processor adopts legacy generated outputs and rolls back failed reconciliation", () => {
   const { api, template, counters, context, placementModule } = structuralEditorHarness({
     isLedProcessor: true,
@@ -2273,7 +2438,11 @@ test("Device Editor LED Processor adopts legacy generated outputs and rolls back
   context.editorSelectedNodeIndex = template.connectors.findIndex(connector => connector.id === "signal-line-1");
   const beforeTemplate = structuredClone(template);
   const beforeSelection = selectedNodeConnectorIds(context);
+  const beforePrimary = selectedNodePrimaryConnectorId(template, context);
+  const beforePrimaryIndex = context.editorSelectedNodeIndex;
   const beforeCounts = editorCounterSnapshot(counters);
+  const beforeSettingsRenders = counters.selectedSettingsRenders;
+  const beforeRelationshipRenders = counters.relationshipRenders;
   context.editorLedOutputCount.value = "3";
   placementModule.forceInvalid = true;
   assert.throws(() => api.applyLedProcessorSettings(), /invalid layout/);
@@ -2281,6 +2450,10 @@ test("Device Editor LED Processor adopts legacy generated outputs and rolls back
 
   assert.equal(JSON.stringify(template), JSON.stringify(beforeTemplate));
   assert.deepEqual(selectedNodeConnectorIds(context), beforeSelection);
+  assert.equal(selectedNodePrimaryConnectorId(template, context), beforePrimary);
+  assert.equal(context.editorSelectedNodeIndex, beforePrimaryIndex);
+  assert.equal(counters.selectedSettingsRenders, beforeSettingsRenders);
+  assert.equal(counters.relationshipRenders, beforeRelationshipRenders);
   assert.deepEqual(editorCounterDelta(counters, beforeCounts), {
     structuralSessions: 1,
     solverCalls: 1,
@@ -2400,22 +2573,63 @@ test("Device Editor Ethernet Switch settings are nonstructural and Add Ports bat
   assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), finalMap, "generated switch layout is a fixed point");
 });
 
+test("Device Editor Ethernet batch insertion preserves exact multi-selection and primary ID", () => {
+  const { api, template, context } = structuralEditorHarness({
+    isEthernetSwitch: true,
+    switchPortCount: 2,
+    switchPortType: "1g-rj45",
+    connectors: [
+      testConnector("selected-left", "left", 0),
+      testConnector("selected-right", "right", 0, { direction: "output" }),
+      testConnector("unselected-left", "left", 1)
+    ]
+  });
+  context.editorEthernetSwitch.checked = true;
+  context.editorSwitchPortCount.value = "2";
+  context.editorSwitchPortType.value = "1g-rj45";
+  context.editorSelectedNodeIds = new Set(["selected-left", "selected-right"]);
+  context.editorSelectedNodeIndex = template.connectors.findIndex(connector => connector.id === "selected-right");
+
+  api.addEthernetSwitchPortBatch();
+
+  assert.deepEqual(selectedNodeConnectorIds(context), ["selected-left", "selected-right"]);
+  assert.equal(selectedNodePrimaryConnectorId(template, context), "selected-right");
+  assert.equal(context.editorSelectedNodeIndex, template.connectors.findIndex(connector => connector.id === "selected-right"));
+  assert.equal(generatedSwitchConnectors(template, "1g-rj45").length, 4);
+});
+
 test("Device Editor Ethernet Switch batch rollback and later pair movement stay structural", () => {
   const { api, template, counters, context, placementModule } = structuralEditorHarness({
     isEthernetSwitch: true,
     switchPortCount: 2,
-    switchPortType: "10g-rj45"
+    switchPortType: "10g-rj45",
+    connectors: [
+      testConnector("rollback-left", "left", 0),
+      testConnector("rollback-right", "right", 0, { direction: "output" })
+    ]
   });
   context.editorEthernetSwitch.checked = true;
   context.editorSwitchPortCount.value = "2";
   context.editorSwitchPortType.value = "10g-rj45";
+  context.editorSelectedNodeIds = new Set(["rollback-left", "rollback-right"]);
+  context.editorSelectedNodeIndex = template.connectors.findIndex(connector => connector.id === "rollback-right");
   const beforeTemplate = structuredClone(template);
+  const beforeSelection = selectedNodeConnectorIds(context);
+  const beforePrimary = selectedNodePrimaryConnectorId(template, context);
+  const beforePrimaryIndex = context.editorSelectedNodeIndex;
   const beforeCounts = editorCounterSnapshot(counters);
+  const beforeSettingsRenders = counters.selectedSettingsRenders;
+  const beforeRelationshipRenders = counters.relationshipRenders;
   placementModule.forceInvalid = true;
   assert.throws(() => api.addEthernetSwitchPortBatch(), /invalid layout/);
   placementModule.forceInvalid = false;
   assert.deepEqual(template, beforeTemplate);
-  assert.equal(template.connectors.length, 0);
+  assert.deepEqual(template.connectors.map(connector => connector.id), ["rollback-left", "rollback-right"]);
+  assert.deepEqual(selectedNodeConnectorIds(context), beforeSelection);
+  assert.equal(selectedNodePrimaryConnectorId(template, context), beforePrimary);
+  assert.equal(context.editorSelectedNodeIndex, beforePrimaryIndex);
+  assert.equal(counters.selectedSettingsRenders, beforeSettingsRenders);
+  assert.equal(counters.relationshipRenders, beforeRelationshipRenders);
   assert.deepEqual(editorCounterDelta(counters, beforeCounts), {
     structuralSessions: 1,
     solverCalls: 1,
@@ -2625,7 +2839,7 @@ test("Engine Device Editor card motion uses dynamic overlay ownership without pe
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /visual\.suppressCardAreasInTexture \? "suppress-card-areas" : ""/);
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /!visual\.suppressCardAreasInTexture\) \{\s*drawCardAreas/);
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /drawConnectorBands\(ctx, device, width, height, face\.bottom \+ 12\);/);
-  assert.match(PRODUCTION_BRIDGE_SOURCE, /ENGINE_BRIDGE_VERSION = "iteration54-10-0-atomic-feature-connector-generation"/);
+  assert.match(PRODUCTION_BRIDGE_SOURCE, /ENGINE_BRIDGE_VERSION = "iteration54-10-1-generated-connector-selection-hardening"/);
 
   assert.match(previewClone, /draft\.suppressCardAreasInTexture = true/);
   assert.match(syncEngine, /suppressCardAreasInTexture: options\.dynamicCardArtwork === true/);
