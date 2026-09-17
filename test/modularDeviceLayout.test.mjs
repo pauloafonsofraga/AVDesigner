@@ -1574,6 +1574,36 @@ test("structural edit sessions are immutable across repeated and reversed calcul
   assert.notDeepEqual(laneMap(first), laneMap(second));
 });
 
+test("structural no-op edit rebases output coordinates without changing semantic lanes", () => {
+  const nextStartY = START_Y + 137;
+  const session = structuralSession([
+    item("left", 0, "left", 1, 0),
+    item("right", 0, "right", 1, 1),
+    item("both", 2, "both", 1, 2),
+    item("card", 4, "both", 3, 3)
+  ]);
+  const edit = { removeIds: [], upserts: [], compactVacatedSpace: true };
+  const layout = resolveModularStructuralEdit(session, edit, {
+    startY: nextStartY,
+    slotHeight: SLOT
+  });
+
+  assert.deepEqual(laneMap(layout), {
+    left: 0,
+    right: 0,
+    both: 2,
+    card: 4
+  });
+  layout.items.forEach(resolved => {
+    assert.equal(resolved.y, nextStartY + resolved.lane * SLOT);
+  });
+  assert.equal(layout.startY, nextStartY);
+  assert.equal(isValidModularStructuralEditResult(session, edit, layout, {
+    startY: nextStartY,
+    slotHeight: SLOT
+  }), true);
+});
+
 test("structural edit session snapshots are deeply frozen scalar copies", () => {
   const source = { name: "live source" };
   const card = { name: "live card" };

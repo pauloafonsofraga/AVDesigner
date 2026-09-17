@@ -376,6 +376,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     editorSwitchPortCount: { value: String(inputTemplate.switchPortCount || 8), disabled: inputTemplate.isEthernetSwitch !== true },
     editorSwitchPortType: { value: inputTemplate.switchPortType || "1g-rj45", disabled: inputTemplate.isEthernetSwitch !== true },
     addEthernetSwitchPorts: { disabled: inputTemplate.isEthernetSwitch !== true },
+    editorPowerDistro: { checked: inputTemplate.isPowerDistro === true },
     CARD_SLOT_OVERRIDE_FIELDS: [
       "nameText",
       "nameCustom",
@@ -404,7 +405,16 @@ function structuralEditorHarness(inputTemplate = {}) {
     ],
     requireDeviceEditorPlacementModule: () => placementModule,
     requireDeviceEditorPlacementMotionModule: () => placementMotionModule,
-    connectorStartYForTemplate: device => Number(device?.startY) || 100,
+    connectorStartYForTemplate: device => {
+      const baseStartY = Number(device?.startY) || 100;
+      if (device?.faceImage) return Number(device.faceImageStartY) || baseStartY;
+      if (device?.faceplateDeleted) return Number(device.deletedFaceStartY) || baseStartY;
+      if (!device?.isPowerDistro) return baseStartY;
+      const explicitStartY = Number(device.powerDistroStartY);
+      if (Number.isFinite(explicitStartY)) return explicitStartY;
+      const powerPlugCount = (device.connectors || []).filter(connector => String(connector?.type || "").startsWith("power-")).length;
+      return baseStartY + Math.max(0, powerPlugCount - 1) * 54;
+    },
     laneIndexForY: (y, startY = 100) => Math.max(0, Math.round(((Number(y) || startY) - startY) / 54)),
     laneY: (lane, startY = 100) => startY + Math.max(0, Math.round(Number(lane) || 0)) * 54,
     deviceTemplateWidth: device => Number(device?.width) || 420,
@@ -432,7 +442,16 @@ function structuralEditorHarness(inputTemplate = {}) {
     isAdapterTemplate: device => device?.objectType === "adapter",
     isDeviceDefinitionV2ForEditor: device => Number(device?.deviceDefinitionVersion || device?.schemaVersion || 0) >= 2,
     isFaceplateSideDropTarget: (device, y) => device?.allowFaceplateSide === true && Number(y) < 80,
-    faceplateSideConnectorY: () => 62,
+    faceplateSideConnectorBounds: device => {
+      if (!device || (device.faceplateDeleted && !device.faceImage)) return null;
+      const y = 20;
+      const startY = context.connectorStartYForTemplate(device);
+      return { x: 12, y, width: (Number(device.width) || 420) - 24, height: Math.max(24, startY - y - 36) };
+    },
+    faceplateSideConnectorY: device => {
+      const bounds = context.faceplateSideConnectorBounds(device);
+      return bounds ? bounds.y + bounds.height / 2 : context.connectorStartYForTemplate(device);
+    },
     moveConnectorBelowFaceplate: (device, connector) => {
       connector.faceplateSide = false;
       connector.y = 100 + (device.connectors || []).filter(item => !item.faceplateSide && item !== connector).length * 54;
@@ -596,6 +615,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     "editorStructuralUpsertForItem",
     "replaceEditorTemplateContents",
     "animateEditorStructuralEdit",
+    "rebaseEditorFaceplateSideConnectors",
     "commitEditorStructuralEdit",
     "editorNodeSelectionSnapshot",
     "restoreEditorNodeSelectionByStableIds",
@@ -609,6 +629,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     "applyLedProcessorGeneratedDefaults",
     "createLedProcessorConnector",
     "applyLedProcessorSettings",
+    "applyPowerDistroSettings",
     "selectedSwitchPortOption",
     "applyEthernetSwitchSettings",
     "switchPortOptionByValue",
@@ -665,6 +686,7 @@ function structuralEditorHarness(inputTemplate = {}) {
       editorNodeSelectionSnapshot,
       restoreEditorNodeSelectionByStableIds,
       applyLedProcessorSettings,
+      applyPowerDistroSettings,
       applyEthernetSwitchSettings,
       addEthernetSwitchPortBatch,
       addEditorNode,
@@ -1165,6 +1187,7 @@ test("Device Editor direct structural operations use the shared atomic transacti
   const typeDraft = functionSource("applyEditorConnectorTypeToDraft");
   const removeNode = functionSource("removeEditorNode");
   const applyLed = functionSource("applyLedProcessorSettings");
+  const applyPowerDistro = functionSource("applyPowerDistroSettings");
   const applyEthernet = functionSource("applyEthernetSwitchSettings");
   const addEthernet = functionSource("addEthernetSwitchPortBatch");
   const nodeSelectionSnapshot = functionSource("editorNodeSelectionSnapshot");
@@ -1182,7 +1205,7 @@ test("Device Editor direct structural operations use the shared atomic transacti
   const cardDefinitionCommit = functionSource("commitEditorCardDefinitionEdit");
   const displaySideHandler = functionSource("renderSelectedConnectorSettings");
 
-  [addNode, fillSlot, removeNode, applyLed, addEthernet, installCard, addCardSlot, removeCardSlot].forEach(source => {
+  [addNode, fillSlot, removeNode, applyLed, applyPowerDistro, addEthernet, installCard, addCardSlot, removeCardSlot].forEach(source => {
     assert.match(source, /commitEditorStructuralEdit\(template/);
   });
   assert.doesNotMatch(applyEthernet, /commitEditorStructuralEdit\(template/);
@@ -1192,6 +1215,12 @@ test("Device Editor direct structural operations use the shared atomic transacti
   assert.match(applyLed, /isLedProcessorGeneratedConnector\(connector\)/);
   assert.match(applyLed, /const selectionSnapshot = editorNodeSelectionSnapshot\(template\);/);
   assert.match(applyLed, /restoreEditorNodeSelectionByStableIds\(committedTemplate, selectionSnapshot\);/);
+  assert.match(applyPowerDistro, /return \{ rebaseStartY: true \};/);
+  assert.match(applyPowerDistro, /const selectionSnapshot = editorNodeSelectionSnapshot\(template\);/);
+  assert.match(applyPowerDistro, /restoreEditorNodeSelectionByStableIds\(committedTemplate, selectionSnapshot\);/);
+  assert.match(applyPowerDistro, /editorPowerDistro\.checked = template\.isPowerDistro === true;/);
+  assert.doesNotMatch(applyPowerDistro, /normalizeConnectorRows|normalizeMixedDeviceRows|shiftRowsAfterFaceChange|renderDeviceEditorPreview/);
+  assert.match(INDEX_HTML, /editorPowerDistro\.addEventListener\("change", applyPowerDistroSettings\);/);
   assert.doesNotMatch(addEthernet, /for[\s\S]*ensurePairedNetworkPair\(template, connector\)/);
   assert.doesNotMatch(addEthernet, /normalizeConnectorRows\(template\)/);
   assert.match(addEthernet, /const selectionSnapshot = editorNodeSelectionSnapshot\(template\);/);
@@ -2120,6 +2149,284 @@ test("Device Editor structural display-side upserts synchronize anchors with sol
   assert.equal(counters.previewRenders, 1);
 });
 
+test("Device Editor Power Distro origin rebases mixed modular content atomically and without drift", () => {
+  const both = testConnector("both-v2", "both", 1, { v2: true, displaySide: "both" });
+  both.anchors[1].y += 12;
+  const faceplate = testConnector("faceplate-side", "left", 0, {
+    v2: true,
+    faceplateSide: true,
+    y: 42,
+    anchors: [{ id: "left", side: "left", x: 0, y: 42, primary: true }]
+  });
+  const { api, template, counters, context } = structuralEditorHarness({
+    height: 0,
+    powerDistroFaceY: 31,
+    powerDistroFaceHeight: 220,
+    cardTypes: [{
+      id: "io-card",
+      name: "I/O Card",
+      kind: "io",
+      connectors: [
+        { id: "card-in", direction: "input", type: "hdmi", empty: false, schemaVersion: 2, displaySide: "left", primaryAnchorId: "left", anchors: [{ id: "left", side: "left", x: 0, y: 40, primary: true }] },
+        { id: "card-out", direction: "output", type: "hdmi", empty: false, schemaVersion: 2, displaySide: "right", primaryAnchorId: "right", anchors: [{ id: "right", side: "right", x: 420, y: 40, primary: true }] }
+      ]
+    }],
+    cardSlots: [
+      { id: "slot-io", name: "Slot I/O", installedCardTypeId: "io-card", y: 316, connectorOverrides: { "card-in": { nameText: "Installed In" } } }
+    ],
+    connectors: [
+      testConnector("left-only", "left", 0, { v2: true }),
+      testConnector("right-only", "right", 0, { v2: true, direction: "output" }),
+      both,
+      testConnector("network-in", "left", 2, { v2: true, type: "cat6a", networkGroupId: "pair-a", pairedConnectorId: "network-out" }),
+      testConnector("network-out", "right", 2, { v2: true, direction: "output", type: "cat6a", networkGroupId: "pair-a", pairedConnectorId: "network-in" }),
+      testConnector("led-output", "right", 3, { v2: true, direction: "output", type: "led-signal", generatedByLedProcessor: true, signalIndex: 1 }),
+      testConnector("power-a", "left", 7, { v2: true, type: "power-a", powerPlug: { manual: true, x: 70, y: 58 } }),
+      testConnector("power-b", "left", 8, { v2: true, type: "power-b" }),
+      testConnector("power-c", "left", 9, { v2: true, type: "power-c" }),
+      testConnector("power-d", "left", 10, { v2: true, type: "power-d" }),
+      faceplate
+    ],
+    connectorRelationships: [{ id: "relationship-a", connectorIds: ["left-only", "both-v2"], type: "shared-bus" }]
+  });
+  template.connectors.forEach(connector => {
+    if (connector.faceplateSide !== true) connector.faceplateSide = false;
+    (connector.anchors || []).forEach(anchor => {
+      anchor.label = String(anchor.label || "");
+      anchor.primary = anchor.id === connector.primaryAnchorId;
+    });
+  });
+  const committedFaceplateConnector = template.connectors.find(connector => connector.id === "faceplate-side");
+  committedFaceplateConnector.y = 42;
+  committedFaceplateConnector.anchors[0].y = 42;
+  template.height = context.deviceHeightForSlotCounts(template);
+  const originalHeight = template.height;
+  const originalConnectors = structuredClone(template.connectors);
+  const originalSlots = structuredClone(template.cardSlots);
+  const originalPowerPlug = structuredClone(template.connectors.find(connector => connector.id === "power-a").powerPlug);
+  const originalRelationships = structuredClone(template.connectorRelationships);
+  const originalIds = template.connectors.map(connector => connector.id);
+  const originalLayout = api.resolveEditorModularLayout(template);
+  const originalLaneMap = itemLaneMap(originalLayout);
+  const originalYById = Object.fromEntries(originalLayout.items.map(item => [item.id, item.y]));
+  const originalAnchorYById = Object.fromEntries(template.connectors
+    .filter(connector => !connector.faceplateSide && Array.isArray(connector.anchors))
+    .map(connector => [connector.id, connector.anchors.map(anchor => anchor.y)]));
+  const originalFaceplateY = template.connectors.find(connector => connector.id === "faceplate-side").y;
+  const originalGenerated = api.generatedCardConnectors(template);
+  context.editorSelectedNodeIds = new Set(["left-only", "both-v2", "led-output"]);
+  context.editorSelectedNodeIndex = template.connectors.findIndex(connector => connector.id === "both-v2");
+
+  const validationBefore = counters.validationCalls;
+  const normalizationBefore = counters.normalizationCalls;
+  let countsBefore = editorCounterSnapshot(counters);
+  context.editorPowerDistro.checked = true;
+  const enabled = api.applyPowerDistroSettings();
+  const enabledLayout = api.resolveEditorModularLayout(template);
+  const originDelta = enabled.committedStartY - enabled.baselineStartY;
+
+  assert.equal(enabled.baselineStartY, 100);
+  assert.equal(enabled.committedStartY, 262);
+  assert.equal(enabled.startYChanged, true);
+  assert.equal(originDelta, 162);
+  assert.deepEqual(itemLaneMap(enabledLayout), originalLaneMap);
+  enabledLayout.items.forEach(item => {
+    assert.equal(item.y, originalYById[item.id] + originDelta, `${item.id} should move by the origin delta`);
+  });
+  template.connectors.filter(connector => !connector.faceplateSide && Array.isArray(connector.anchors)).forEach(connector => {
+    assert.deepEqual(
+      connector.anchors.map(anchor => anchor.y),
+      originalAnchorYById[connector.id].map(y => y + originDelta),
+      `${connector.id} anchors should preserve offsets through the rebase`
+    );
+  });
+  assert.equal(template.connectors.find(connector => connector.id === "both-v2").anchors[1].y
+    - template.connectors.find(connector => connector.id === "both-v2").anchors[0].y, 12);
+  assert.equal(template.cardSlots[0].y, originalSlots[0].y + originDelta);
+  assert.equal(enabledLayout.byId.get("connector:network-in").lane, enabledLayout.byId.get("connector:network-out").lane);
+  assert.equal(enabledLayout.byId.get("card:slot-io").span, 3);
+  assert.deepEqual(template.connectors.find(connector => connector.id === "power-a").powerPlug, originalPowerPlug);
+  assert.deepEqual(template.connectorRelationships, originalRelationships);
+  assert.equal(template.powerDistroFaceY, 31);
+  assert.equal(template.powerDistroFaceHeight, 220);
+  assert.deepEqual(template.connectors.map(connector => connector.id), originalIds);
+  assert.deepEqual(selectedNodeConnectorIds(context), ["both-v2", "led-output", "left-only"]);
+  assert.equal(selectedNodePrimaryConnectorId(template, context), "both-v2");
+  const enabledFaceplateY = template.connectors.find(connector => connector.id === "faceplate-side").y;
+  assert.notEqual(enabledFaceplateY, originalFaceplateY);
+  assert.equal(enabledFaceplateY, context.faceplateSideConnectorY(template));
+  assert.equal(template.connectors.find(connector => connector.id === "faceplate-side").anchors[0].y, enabledFaceplateY);
+  assert.equal(template.connectors.find(connector => connector.id === "faceplate-side").faceplateSide, true);
+  assert.equal(enabledLayout.items.some(item => item.id === "connector:faceplate-side"), false);
+  const enabledGenerated = api.generatedCardConnectors(template);
+  assert.deepEqual(enabledGenerated.map(connector => connector.id), originalGenerated.map(connector => connector.id));
+  assert.equal(enabledGenerated.find(connector => connector.sourceConnectorId === "card-in").y, template.cardSlots[0].y + 54);
+  assert.equal(enabledGenerated.find(connector => connector.sourceConnectorId === "card-out").y, template.cardSlots[0].y + 54);
+  assert.ok(template.height > originalHeight);
+  assert.equal(counters.validationCalls - validationBefore, 1);
+  assert.equal(counters.normalizationCalls, normalizationBefore);
+  assert.deepEqual(editorCounterDelta(counters, countsBefore), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 1,
+    editorRenders: 0,
+    animationSeeds: 1,
+    animationRetargets: 1
+  });
+  assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), itemLaneMap(api.resolveEditorModularLayout(template)));
+
+  countsBefore = editorCounterSnapshot(counters);
+  context.editorPowerDistro.checked = false;
+  const disabled = api.applyPowerDistroSettings();
+  assert.equal(disabled.baselineStartY, 262);
+  assert.equal(disabled.committedStartY, 100);
+  assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), originalLaneMap);
+  assert.deepEqual(JSON.parse(JSON.stringify(template.connectors)), originalConnectors);
+  assert.deepEqual(JSON.parse(JSON.stringify(template.cardSlots)), originalSlots);
+  assert.equal(template.height, originalHeight);
+  assert.deepEqual(editorCounterDelta(counters, countsBefore), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 1,
+    editorRenders: 0,
+    animationSeeds: 1,
+    animationRetargets: 1
+  });
+
+  for (let cycle = 0; cycle < 2; cycle += 1) {
+    context.editorPowerDistro.checked = true;
+    api.applyPowerDistroSettings();
+    assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), originalLaneMap);
+    assert.deepEqual(template.connectors.map(connector => connector.id), originalIds);
+    context.editorPowerDistro.checked = false;
+    api.applyPowerDistroSettings();
+    assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), originalLaneMap);
+    assert.deepEqual(JSON.parse(JSON.stringify(template.connectors)), originalConnectors);
+    assert.deepEqual(JSON.parse(JSON.stringify(template.cardSlots)), originalSlots);
+    assert.equal(template.height, originalHeight);
+  }
+});
+
+test("Device Editor Power Distro no-origin and empty transactions avoid solver work", () => {
+  for (const inputTemplate of [
+    {
+      faceImage: "data:image/png;base64,face",
+      faceImageStartY: 180,
+      connectors: [testConnector("custom-face-node", "left", 0, { v2: true, y: 180, anchors: [{ id: "left", side: "left", x: 0, y: 180, primary: true }] })]
+    },
+    {
+      faceplateDeleted: true,
+      connectors: [testConnector("deleted-face-node", "left", 0, { v2: true })]
+    }
+  ]) {
+    const { api, template, counters, context } = structuralEditorHarness(inputTemplate);
+    template.height = context.deviceHeightForSlotCounts(template);
+    const coordinates = template.connectors.map(connector => ({ id: connector.id, x: connector.x, y: connector.y, anchors: structuredClone(connector.anchors) }));
+    const before = editorCounterSnapshot(counters);
+    context.editorPowerDistro.checked = true;
+    const result = api.applyPowerDistroSettings();
+
+    assert.equal(result.startYChanged, false);
+    assert.equal(template.isPowerDistro, true);
+    assert.deepEqual(template.connectors.map(connector => ({ id: connector.id, x: connector.x, y: connector.y, anchors: structuredClone(connector.anchors) })), coordinates);
+    assert.deepEqual(editorCounterDelta(counters, before), {
+      structuralSessions: 1,
+      solverCalls: 0,
+      previewRenders: 1,
+      editorRenders: 0,
+      animationSeeds: 0,
+      animationRetargets: 0
+    });
+  }
+
+  const empty = structuralEditorHarness({ connectors: [], cardSlots: [], powerDistroStartY: 262 });
+  const emptyBefore = editorCounterSnapshot(empty.counters);
+  empty.context.editorPowerDistro.checked = true;
+  const emptyResult = empty.api.applyPowerDistroSettings();
+  assert.equal(emptyResult.startYChanged, true);
+  assert.equal(empty.template.isPowerDistro, true);
+  assert.equal(empty.counters.validationCalls, 0);
+  assert.deepEqual(editorCounterDelta(empty.counters, emptyBefore), {
+    structuralSessions: 1,
+    solverCalls: 0,
+    previewRenders: 1,
+    editorRenders: 0,
+    animationSeeds: 0,
+    animationRetargets: 0
+  });
+
+  const manual = structuralEditorHarness({
+    manualHeight: 1200,
+    connectors: [
+      testConnector("manual-height-node", "left", 0, { v2: true }),
+      testConnector("manual-height-power-a", "left", 1, { v2: true, type: "power-a" }),
+      testConnector("manual-height-power-b", "left", 2, { v2: true, type: "power-b" })
+    ]
+  });
+  manual.template.height = manual.context.deviceHeightForSlotCounts(manual.template);
+  manual.context.editorPowerDistro.checked = true;
+  manual.api.applyPowerDistroSettings();
+  assert.equal(manual.template.manualHeight, 1200);
+  assert.equal(manual.template.height, 1200);
+  manual.context.editorPowerDistro.checked = false;
+  manual.api.applyPowerDistroSettings();
+  assert.equal(manual.template.manualHeight, 1200);
+  assert.equal(manual.template.height, 1200);
+});
+
+test("Device Editor Power Distro rollback restores template, selection, checkbox, and motion boundary", () => {
+  const { api, template, counters, context, placementModule } = structuralEditorHarness({
+    connectors: [
+      testConnector("selected", "left", 0, { v2: true }),
+      testConnector("power-a", "left", 1, { v2: true, type: "power-a", powerPlug: { manual: true, x: 44, y: 55 } }),
+      testConnector("power-b", "left", 2, { v2: true, type: "power-b" })
+    ]
+  });
+  template.height = context.deviceHeightForSlotCounts(template);
+  context.editorSelectedNodeIds = new Set(["selected", "power-b"]);
+  context.editorSelectedNodeIndex = template.connectors.findIndex(connector => connector.id === "power-b");
+  const beforeTemplate = structuredClone(template);
+  const beforeSelection = selectedNodeConnectorIds(context);
+  const beforePrimary = selectedNodePrimaryConnectorId(template, context);
+  const beforeCounts = editorCounterSnapshot(counters);
+  context.editorPowerDistro.checked = true;
+  placementModule.forceInvalid = true;
+  assert.throws(() => api.applyPowerDistroSettings(), /invalid layout/);
+  placementModule.forceInvalid = false;
+
+  assert.equal(JSON.stringify(template), JSON.stringify(beforeTemplate));
+  assert.deepEqual(selectedNodeConnectorIds(context), beforeSelection);
+  assert.equal(selectedNodePrimaryConnectorId(template, context), beforePrimary);
+  assert.equal(context.editorPowerDistro.checked, false);
+  assert.equal(counters.validationCalls, 1);
+  assert.deepEqual(editorCounterDelta(counters, beforeCounts), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 0,
+    editorRenders: 0,
+    animationSeeds: 0,
+    animationRetargets: 0
+  });
+});
+
+test("Device Editor structural transactions reject silent modular-origin changes", () => {
+  const { api, template, counters } = structuralEditorHarness({
+    connectors: [testConnector("fixed", "left", 0, { v2: true })]
+  });
+  const before = structuredClone(template);
+
+  assert.throws(() => api.commitEditorStructuralEdit(template, {
+    mutate(draft) {
+      draft.startY = 208;
+      return {};
+    }
+  }), /without authorising an origin rebase/);
+  assert.deepEqual(template, before);
+  assert.equal(counters.solverCalls, 0);
+  assert.equal(counters.previewRenders, 0);
+  assert.equal(counters.animationSeeds, 0);
+});
+
 test("Device Editor LED Processor generation is owned, atomic, and selection-stable", () => {
   const { api, template, counters, context } = structuralEditorHarness({
     connectors: [
@@ -2839,7 +3146,7 @@ test("Engine Device Editor card motion uses dynamic overlay ownership without pe
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /visual\.suppressCardAreasInTexture \? "suppress-card-areas" : ""/);
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /!visual\.suppressCardAreasInTexture\) \{\s*drawCardAreas/);
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /drawConnectorBands\(ctx, device, width, height, face\.bottom \+ 12\);/);
-  assert.match(PRODUCTION_BRIDGE_SOURCE, /ENGINE_BRIDGE_VERSION = "iteration54-10-1-generated-connector-selection-hardening"/);
+  assert.match(PRODUCTION_BRIDGE_SOURCE, /ENGINE_BRIDGE_VERSION = "iteration54-11-0-atomic-power-distro-origin-rebase"/);
 
   assert.match(previewClone, /draft\.suppressCardAreasInTexture = true/);
   assert.match(syncEngine, /suppressCardAreasInTexture: options\.dynamicCardArtwork === true/);

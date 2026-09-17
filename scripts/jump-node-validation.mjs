@@ -41,7 +41,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-10-1-generated-connector-selection-hardening";
+const BUILD_ID = "iteration54-11-0-atomic-power-distro-origin-rebase";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -50,12 +50,12 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Generated Connector Selection Hardening");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-10-1-generated-connector-selection-hardening-modules";'), "module cache key should identify Generated Connector Selection Hardening");
-assert.ok(indexHtml.includes("Generated Connector Selection Hardening"), "visible build label should name Generated Connector Selection Hardening");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-10-1-generated-connector-selection-hardening"'), "Engine bridge version should identify Generated Connector Selection Hardening");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "generated-connector-selection-hardening"'), "bridge feature label should identify Generated Connector Selection Hardening");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-10-1-generated-connector-selection-hardening"), "bridge fingerprint should identify Generated Connector Selection Hardening");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Atomic Power Distro Origin Rebase");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-11-0-atomic-power-distro-origin-rebase-modules";'), "module cache key should identify Atomic Power Distro Origin Rebase");
+assert.ok(indexHtml.includes("Atomic Power Distro Origin Rebase"), "visible build label should name Atomic Power Distro Origin Rebase");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-11-0-atomic-power-distro-origin-rebase"'), "Engine bridge version should identify Atomic Power Distro Origin Rebase");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "atomic-power-distro-origin-rebase"'), "bridge feature label should identify Atomic Power Distro Origin Rebase");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-11-0-atomic-power-distro-origin-rebase"), "bridge fingerprint should identify Atomic Power Distro Origin Rebase");
 assert.ok(rendererSource.includes("renderer-iteration54-4-0-matrix-routing-internal-routes"), "renderer fingerprint should identify Matrix Routing Internal Routes");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");
