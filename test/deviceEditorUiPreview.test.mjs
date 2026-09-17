@@ -336,6 +336,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     RegExp,
     structuredClone,
     EDITOR_DEVICE_DEFINITION_SCHEMA_VERSION: 2,
+    FACE_TOP_Y: 20,
     SLOT_HEIGHT: 54,
     DEVICE_BOTTOM_PAD: 48,
     DEVICE_WIDTH: 420,
@@ -364,6 +365,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     cageConnectorTypes: new Set(),
     editorDraft: [template],
     editorIndex: 0,
+    editorFaceplateUploadRevision: 0,
     editorSlotIndex: null,
     editorCardIndex: 0,
     editorSelectedNodeIndex: null,
@@ -377,6 +379,15 @@ function structuralEditorHarness(inputTemplate = {}) {
     editorSwitchPortType: { value: inputTemplate.switchPortType || "1g-rj45", disabled: inputTemplate.isEthernetSwitch !== true },
     addEthernetSwitchPorts: { disabled: inputTemplate.isEthernetSwitch !== true },
     editorPowerDistro: { checked: inputTemplate.isPowerDistro === true },
+    removeEditorFaceImage: { textContent: "Remove Custom Faceplate", disabled: false },
+    deleteEditorFaceplate: { disabled: false },
+    deviceEditorModal: { classList: { contains: () => false } },
+    prepareFrontFaceImage: async dataUrl => ({
+      dataUrl,
+      thumbnailDataUrl: `${dataUrl}-thumb`,
+      width: 800,
+      height: 400
+    }),
     CARD_SLOT_OVERRIDE_FIELDS: [
       "nameText",
       "nameCustom",
@@ -407,7 +418,13 @@ function structuralEditorHarness(inputTemplate = {}) {
     requireDeviceEditorPlacementMotionModule: () => placementMotionModule,
     connectorStartYForTemplate: device => {
       const baseStartY = Number(device?.startY) || 100;
-      if (device?.faceImage) return Number(device.faceImageStartY) || baseStartY;
+      if (device?.faceImage) {
+        const explicitStartY = Number(device.faceImageStartY);
+        if (Number.isFinite(explicitStartY)) return explicitStartY;
+        const width = Number(device.faceImageNaturalWidth);
+        const height = Number(device.faceImageNaturalHeight);
+        return width > 0 && height > 0 ? baseStartY + Math.round(height / width * 100) : baseStartY;
+      }
       if (device?.faceplateDeleted) return Number(device.deletedFaceStartY) || baseStartY;
       if (!device?.isPowerDistro) return baseStartY;
       const explicitStartY = Number(device.powerDistroStartY);
@@ -419,7 +436,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     laneY: (lane, startY = 100) => startY + Math.max(0, Math.round(Number(lane) || 0)) * 54,
     deviceTemplateWidth: device => Number(device?.width) || 420,
     connectorSideKey: connector => connector?.direction === "output" ? "output" : "input",
-    currentEditorTemplate: () => template,
+    currentEditorTemplate: () => context.editorDraft[context.editorIndex],
     syncEditorFieldsToDraft: () => {},
     uniqueConnectorId: (device, baseId = "connector") => {
       const existing = new Set((device.connectors || []).map(connector => connector.id));
@@ -483,6 +500,11 @@ function structuralEditorHarness(inputTemplate = {}) {
     isCageConnector: () => false,
     isFiberCableType: () => false,
     isPowerPlugConnector: () => false,
+    clearPowerPlugPlacements: device => {
+      (device?.connectors || []).forEach(connector => {
+        delete connector.powerPlug;
+      });
+    },
     powerPlugCanExistOnSide: type => type !== "hdmi",
     resetMatrixPortDefault: connector => {
       connector.includeInMatrix = false;
@@ -542,7 +564,7 @@ function structuralEditorHarness(inputTemplate = {}) {
       if (context.failDeviceHeightForSlotCounts === true) {
         throw new Error("forced device height failure");
       }
-      const startY = Number(device?.startY) || 100;
+      const startY = context.connectorStartYForTemplate(device);
       const connectorBottom = Math.max(startY, ...(device.connectors || []).filter(connector => !connector.faceplateSide).map(connector => (Number(connector.y) || startY) + 54));
       const slotBottom = Math.max(startY, ...(device.cardSlots || []).map(slot => (Number(slot.y) || startY) + context.cardSlotLaneCount(device, slot) * 54));
       return Math.max(240, Number(device?.manualHeight) || 0, connectorBottom + 48, slotBottom + 48);
@@ -615,8 +637,21 @@ function structuralEditorHarness(inputTemplate = {}) {
     "editorStructuralUpsertForItem",
     "replaceEditorTemplateContents",
     "animateEditorStructuralEdit",
+    "rebaseEditorStructuralDraftFromBaseline",
+    "reconcileEditorFaceplateSideMembership",
     "rebaseEditorFaceplateSideConnectors",
     "commitEditorStructuralEdit",
+    "syncEditorFaceplateActionControls",
+    "commitEditorFaceplateOriginMutation",
+    "resetEditorFaceImageFields",
+    "resetEditorPowerDistroFaceState",
+    "captureEditorFaceplateUploadTarget",
+    "invalidateEditorFaceplateUploadTarget",
+    "isEditorFaceplateUploadTargetCurrent",
+    "commitPreparedEditorFaceplateUpload",
+    "prepareAndCommitEditorFaceplateUpload",
+    "applyEditorFaceImageRemoval",
+    "applyEditorFaceplateDeletion",
     "editorNodeSelectionSnapshot",
     "restoreEditorNodeSelectionByStableIds",
     "pairedNetworkGroupId",
@@ -683,6 +718,14 @@ function structuralEditorHarness(inputTemplate = {}) {
       resolveEditorModularLayout,
       editorStructuralLayoutItems,
       commitEditorStructuralEdit,
+      commitEditorFaceplateOriginMutation,
+      captureEditorFaceplateUploadTarget,
+      invalidateEditorFaceplateUploadTarget,
+      isEditorFaceplateUploadTargetCurrent,
+      commitPreparedEditorFaceplateUpload,
+      prepareAndCommitEditorFaceplateUpload,
+      applyEditorFaceImageRemoval,
+      applyEditorFaceplateDeletion,
       editorNodeSelectionSnapshot,
       restoreEditorNodeSelectionByStableIds,
       applyLedProcessorSettings,
@@ -1252,6 +1295,35 @@ test("Device Editor direct structural operations use the shared atomic transacti
   assert.doesNotMatch(installCard, /slot\.installedCardTypeId = cardTypeId[\s\S]*normalizeCardSlots\(template\)/);
   assert.doesNotMatch(changeCardKind, /normalizeCardSlots\(template\)/);
   assert.doesNotMatch(deleteCardType, /renderDeviceEditor\(\);\s*$/);
+});
+
+test("Device Editor discrete faceplate actions delegate to one atomic origin transaction", () => {
+  const transaction = functionSource("commitEditorFaceplateOriginMutation");
+  const preparedUpload = functionSource("commitPreparedEditorFaceplateUpload");
+  const prepareAndCommit = functionSource("prepareAndCommitEditorFaceplateUpload");
+  const removeImage = functionSource("applyEditorFaceImageRemoval");
+  const deleteFaceplate = functionSource("applyEditorFaceplateDeletion");
+  const uploadHandlers = sourceSlice(
+    INDEX_HTML,
+    'editorFaceUpload.addEventListener("change"',
+    'document.getElementById("addInputNode")'
+  );
+
+  assert.match(transaction, /commitEditorStructuralEdit\(template/);
+  assert.match(transaction, /rebaseStartY: true/);
+  assert.match(transaction, /reconcileFaceplateSide: true/);
+  assert.match(transaction, /const selectionSnapshot = editorNodeSelectionSnapshot\(template\);/);
+  assert.match(transaction, /restoreEditorNodeSelectionByStableIds\(committedTemplate, selectionSnapshot\);/);
+  assert.match(preparedUpload, /commitEditorFaceplateOriginMutation\(target\.template/);
+  assert.match(removeImage, /commitEditorFaceplateOriginMutation\(template/);
+  assert.match(deleteFaceplate, /commitEditorFaceplateOriginMutation\(template/);
+  assert.match(prepareAndCommit, /Promise\.resolve\(prepareFrontFaceImage\(dataUrl, file\)\)[\s\S]*commitPreparedEditorFaceplateUpload\(target, prepared\)/);
+  assert.match(uploadHandlers, /await prepareAndCommitEditorFaceplateUpload\(uploadTarget, reader\.result, file\);/);
+  assert.match(uploadHandlers, /removeEditorFaceImage\.addEventListener\("click", applyEditorFaceImageRemoval\);/);
+  assert.match(uploadHandlers, /deleteEditorFaceplate\?\.addEventListener\("click", applyEditorFaceplateDeletion\);/);
+  [preparedUpload, prepareAndCommit, removeImage, deleteFaceplate, uploadHandlers].forEach(source => {
+    assert.doesNotMatch(source, /shiftRowsAfterFaceChange|shiftTemplateRowsForStartChange|normalizeConnectorRows|normalizeMixedDeviceRows|renderDeviceEditorPreview|renderDeviceEditor\(/);
+  });
 });
 
 test("Device Editor structural transactions derive membership and ignore special-only remove hints", () => {
@@ -2427,6 +2499,489 @@ test("Device Editor structural transactions reject silent modular-origin changes
   assert.equal(counters.animationSeeds, 0);
 });
 
+test("Device Editor custom face upload, replacement, and removal rebase lanes atomically", () => {
+  const faceplateConnector = testConnector("faceplate-side", "left", 0, { v2: true, faceplateSide: true });
+  faceplateConnector.powerPlug = { manual: true, x: 24, y: 36 };
+  const { api, template, counters, context } = structuralEditorHarness({
+    isPowerDistro: true,
+    powerDistroFaceY: 34,
+    powerDistroFaceHeight: 260,
+    cardTypes: [{
+      id: "io-card",
+      name: "I/O Card",
+      kind: "io",
+      connectors: [
+        { id: "card-in", direction: "input", type: "hdmi", empty: false },
+        { id: "card-out", direction: "output", type: "hdmi", empty: false }
+      ]
+    }],
+    cardSlots: [{ id: "slot-io", installedCardTypeId: "io-card", y: 316 }],
+    connectors: [
+      testConnector("left", "left", 0, { v2: true }),
+      testConnector("right", "right", 0, { v2: true, direction: "output" }),
+      testConnector("power-a", "left", 4, { v2: true, type: "power-a", powerPlug: { manual: true, x: 50, y: 60 } }),
+      testConnector("power-b", "left", 5, { v2: true, type: "power-b" }),
+      testConnector("power-c", "left", 6, { v2: true, type: "power-c" }),
+      testConnector("power-d", "left", 7, { v2: true, type: "power-d" }),
+      faceplateConnector
+    ],
+    connectorRelationships: [{ id: "through-a", type: "through", members: ["left", "right"] }]
+  });
+  template.height = context.deviceHeightForSlotCounts(template);
+  context.editorSelectedNodeIds = new Set(["left", "faceplate-side", "power-c"]);
+  context.editorSelectedNodeIndex = template.connectors.findIndex(connector => connector.id === "faceplate-side");
+  const ids = template.connectors.map(connector => connector.id);
+  const relationships = structuredClone(template.connectorRelationships);
+  const initialLayout = api.resolveEditorModularLayout(template);
+  const initialLanes = itemLaneMap(initialLayout);
+  const initialGeneratedIds = api.generatedCardConnectors(template).map(connector => connector.id);
+  const initialCounters = editorCounterSnapshot(counters);
+  const initialValidationCalls = counters.validationCalls;
+
+  const firstTarget = api.captureEditorFaceplateUploadTarget();
+  const first = api.commitPreparedEditorFaceplateUpload(firstTarget, {
+    dataUrl: "data:image/png;base64,first",
+    thumbnailDataUrl: "data:image/png;base64,first-thumb",
+    width: 800,
+    height: 200
+  });
+  assert.equal(first.baselineStartY, 262);
+  assert.equal(first.committedStartY, 125);
+  assert.equal(first.startYChanged, true);
+  assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), initialLanes);
+  assert.equal(template.faceImage, "data:image/png;base64,first");
+  assert.equal(template.thumbnailImage, "data:image/png;base64,first-thumb");
+  assert.equal(template.faceImageNaturalWidth, 800);
+  assert.equal(template.faceImageNaturalHeight, 200);
+  assert.equal(template.faceplateDeleted, false);
+  assert.equal(template.powerDistroFaceY, 20);
+  assert.equal(template.powerDistroFaceHeight, 0);
+  assert.equal(template.connectors.some(connector => connector.powerPlug), false);
+  assert.deepEqual(template.connectors.map(connector => connector.id), ids);
+  assert.deepEqual(template.connectorRelationships, relationships);
+  assert.deepEqual(api.generatedCardConnectors(template).map(connector => connector.id), initialGeneratedIds);
+  assert.deepEqual(selectedNodeConnectorIds(context), ["faceplate-side", "left", "power-c"]);
+  assert.equal(selectedNodePrimaryConnectorId(template, context), "faceplate-side");
+  assert.equal(template.connectors.find(connector => connector.id === "faceplate-side").faceplateSide, true);
+  assert.equal(template.connectors.find(connector => connector.id === "faceplate-side").y, context.faceplateSideConnectorY(template));
+  assert.equal(counters.validationCalls - initialValidationCalls, 1);
+  assert.equal(counters.normalizationCalls, 0);
+  assert.deepEqual(editorCounterDelta(counters, initialCounters), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 0,
+    editorRenders: 1,
+    animationSeeds: 1,
+    animationRetargets: 1
+  });
+
+  let before = editorCounterSnapshot(counters);
+  const replacement = api.commitPreparedEditorFaceplateUpload(api.captureEditorFaceplateUploadTarget(), {
+    dataUrl: "data:image/jpeg;base64,replacement",
+    thumbnailDataUrl: "data:image/png;base64,replacement-thumb",
+    width: 800,
+    height: 400
+  });
+  assert.equal(replacement.baselineStartY, 125);
+  assert.equal(replacement.committedStartY, 150);
+  assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), initialLanes);
+  assert.equal(template.faceImage, "data:image/jpeg;base64,replacement");
+  assert.equal(template.thumbnailImage, "data:image/png;base64,replacement-thumb");
+  assert.deepEqual(editorCounterDelta(counters, before), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 0,
+    editorRenders: 1,
+    animationSeeds: 1,
+    animationRetargets: 1
+  });
+
+  before = editorCounterSnapshot(counters);
+  const removed = api.applyEditorFaceImageRemoval();
+  assert.equal(removed.baselineStartY, 150);
+  assert.equal(removed.committedStartY, 262);
+  assert.equal(template.faceImage, "");
+  assert.equal(template.thumbnailImage, "");
+  assert.equal(template.faceplateDeleted, false);
+  assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), initialLanes);
+  assert.equal(api.resolveEditorModularLayout(template).byId.get("connector:right").lane, initialLanes["connector:right"]);
+  assert.deepEqual(editorCounterDelta(counters, before), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 0,
+    editorRenders: 1,
+    animationSeeds: 1,
+    animationRetargets: 1
+  });
+});
+
+test("Device Editor ordinary face removal returns to the default origin without changing lanes", () => {
+  const { api, template, counters, context } = structuralEditorHarness({
+    faceImage: "data:image/png;base64,custom",
+    thumbnailImage: "data:image/png;base64,thumb",
+    faceImageNaturalWidth: 500,
+    faceImageNaturalHeight: 250,
+    connectors: [
+      testConnector("left", "left", 0, { v2: true }),
+      testConnector("right", "right", 1, { v2: true, direction: "output" })
+    ]
+  });
+  template.height = context.deviceHeightForSlotCounts(template);
+  const originalLanes = itemLaneMap(api.resolveEditorModularLayout(template));
+  context.editorSelectedNodeIds = new Set(["left", "right"]);
+  context.editorSelectedNodeIndex = 1;
+  const before = editorCounterSnapshot(counters);
+  const result = api.applyEditorFaceImageRemoval();
+
+  assert.equal(result.baselineStartY, 150);
+  assert.equal(result.committedStartY, 100);
+  assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), originalLanes);
+  assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), itemLaneMap(api.resolveEditorModularLayout(template)));
+  assert.deepEqual(selectedNodeConnectorIds(context), ["left", "right"]);
+  assert.equal(selectedNodePrimaryConnectorId(template, context), "right");
+  assert.equal(counters.normalizationCalls, 0);
+  assert.deepEqual(editorCounterDelta(counters, before), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 0,
+    editorRenders: 1,
+    animationSeeds: 1,
+    animationRetargets: 1
+  });
+});
+
+test("Device Editor origin-preserving face replacement and empty removal skip solver motion", () => {
+  const sameAspect = structuralEditorHarness({
+    faceImage: "data:image/png;base64,old",
+    thumbnailImage: "data:image/png;base64,old-thumb",
+    faceImageNaturalWidth: 800,
+    faceImageNaturalHeight: 400,
+    connectors: [testConnector("row", "left", 0, { v2: true })]
+  });
+  const sameAspectCoordinates = structuredClone(sameAspect.template.connectors);
+  const sameAspectBefore = editorCounterSnapshot(sameAspect.counters);
+  const replacement = sameAspect.api.commitPreparedEditorFaceplateUpload(
+    sameAspect.api.captureEditorFaceplateUploadTarget(),
+    {
+      dataUrl: "data:image/png;base64,new",
+      thumbnailDataUrl: "data:image/png;base64,new-thumb",
+      width: 1600,
+      height: 800
+    }
+  );
+  assert.equal(replacement.startYChanged, false);
+  assert.deepEqual(sameAspect.template.connectors, sameAspectCoordinates);
+  assert.equal(sameAspect.template.faceImage, "data:image/png;base64,new");
+  assert.deepEqual(editorCounterDelta(sameAspect.counters, sameAspectBefore), {
+    structuralSessions: 1,
+    solverCalls: 0,
+    previewRenders: 0,
+    editorRenders: 1,
+    animationSeeds: 0,
+    animationRetargets: 0
+  });
+
+  const empty = structuralEditorHarness({
+    faceImage: "data:image/png;base64,empty",
+    thumbnailImage: "data:image/png;base64,empty-thumb",
+    faceImageNaturalWidth: 800,
+    faceImageNaturalHeight: 400,
+    connectors: [],
+    cardSlots: []
+  });
+  const emptyBefore = editorCounterSnapshot(empty.counters);
+  const removal = empty.api.applyEditorFaceImageRemoval();
+  assert.equal(removal.startYChanged, true);
+  assert.equal(empty.template.faceImage, "");
+  assert.deepEqual(editorCounterDelta(empty.counters, emptyBefore), {
+    structuralSessions: 1,
+    solverCalls: 0,
+    previewRenders: 0,
+    editorRenders: 1,
+    animationSeeds: 0,
+    animationRetargets: 0
+  });
+});
+
+test("Device Editor faceplate deletion demotes faceplate connectors and restore keeps them modular", () => {
+  const faceplate = testConnector("faceplate-io", "both", 0, {
+    v2: true,
+    displaySide: "both",
+    faceplateSide: true,
+    nameText: "Front I/O",
+    operationalStatus: "not-working"
+  });
+  const { api, template, counters, context } = structuralEditorHarness({
+    faceImage: "data:image/png;base64,custom",
+    thumbnailImage: "data:image/png;base64,thumb",
+    faceImageNaturalWidth: 800,
+    faceImageNaturalHeight: 400,
+    deletedFaceStartY: 46,
+    manualHeight: 900,
+    cardTypes: [{
+      id: "span-card",
+      name: "Span Card",
+      kind: "io",
+      connectors: [
+        { id: "span-in", direction: "input", type: "hdmi", empty: false },
+        { id: "span-out", direction: "output", type: "hdmi", empty: false }
+      ]
+    }],
+    cardSlots: [{ id: "slot-span", installedCardTypeId: "span-card", y: 262 }],
+    connectors: [
+      testConnector("left", "left", 0, { v2: true }),
+      testConnector("right", "right", 1, { v2: true, direction: "output" }),
+      faceplate
+    ],
+    connectorRelationships: [{ id: "front-through", type: "through", members: ["faceplate-io", "right"] }]
+  });
+  template.height = context.deviceHeightForSlotCounts(template);
+  const originalIds = template.connectors.map(connector => connector.id);
+  const originalRelationships = structuredClone(template.connectorRelationships);
+  const baselineLayout = api.resolveEditorModularLayout(template);
+  const baselineLanes = itemLaneMap(baselineLayout);
+  context.editorSelectedNodeIds = new Set(["left", "faceplate-io"]);
+  context.editorSelectedNodeIndex = template.connectors.findIndex(connector => connector.id === "faceplate-io");
+  let before = editorCounterSnapshot(counters);
+  const validationBefore = counters.validationCalls;
+  const deleted = api.applyEditorFaceplateDeletion();
+  const deletedLayout = api.resolveEditorModularLayout(template);
+  const demoted = template.connectors.find(connector => connector.id === "faceplate-io");
+
+  assert.equal(deleted.baselineStartY, 150);
+  assert.equal(deleted.committedStartY, 46);
+  assert.deepEqual(Array.from(deleted.mutation.demotedFaceplateConnectorIds), ["connector:faceplate-io"]);
+  assert.equal(template.faceplateDeleted, true);
+  assert.equal(template.manualHeight, 0);
+  assert.equal(template.faceImage, "");
+  assert.equal(template.connectors.some(connector => connector.faceplateSide), false);
+  assert.equal(demoted.faceplateSide, false);
+  assert.equal(demoted.nameText, "Front I/O");
+  assert.equal(demoted.operationalStatus, "not-working");
+  assert.equal(demoted.anchors.find(anchor => anchor.id === demoted.primaryAnchorId)?.y, demoted.y);
+  assert.deepEqual(template.connectors.map(connector => connector.id), originalIds);
+  assert.deepEqual(template.connectorRelationships, originalRelationships);
+  Object.entries(baselineLanes).forEach(([id, lane]) => {
+    assert.equal(deletedLayout.byId.get(id)?.lane, lane, `${id} should keep its baseline lane`);
+  });
+  assert.ok(deletedLayout.byId.has("connector:faceplate-io"));
+  assert.deepEqual(selectedNodeConnectorIds(context), ["faceplate-io", "left"]);
+  assert.equal(selectedNodePrimaryConnectorId(template, context), "faceplate-io");
+  assert.equal(counters.validationCalls - validationBefore, 1);
+  assert.equal(counters.normalizationCalls, 0);
+  assert.deepEqual(editorCounterDelta(counters, before), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 0,
+    editorRenders: 1,
+    animationSeeds: 1,
+    animationRetargets: 1
+  });
+
+  const engineDevice = createPreviewDeviceFromDraft({
+    template,
+    projectData: { state: { deviceLibrary: [template], nodeLibrary: [] } },
+    instance: {
+      instanceId: "faceplate-parity-preview",
+      id: "faceplate-parity-preview",
+      templateId: template.id,
+      templateOverride: template,
+      name: template.name,
+      x: 0,
+      y: 0
+    }
+  }, 0);
+  const engineConnectorById = new Map(engineDevice.connectors.map(connector => [connector.id, connector]));
+  template.connectors.forEach(connector => {
+    const engineConnector = engineConnectorById.get(connector.id);
+    assert.ok(engineConnector, `${connector.id} should exist in the Engine preview`);
+    assert.equal(engineConnector.y, connector.y, `${connector.id} should share committed Engine and Legacy Y`);
+    assert.deepEqual(
+      engineConnector.anchors.map(anchor => ({ id: anchor.id, side: anchor.side, x: anchor.x, y: anchor.y })),
+      connector.anchors.map(anchor => ({ id: anchor.id, side: anchor.side, x: anchor.x, y: anchor.y }))
+    );
+  });
+  assert.equal(engineDevice.visual.faceplateDeleted, true);
+  assert.equal(engineDevice.visual.visualCards[0].slotY, template.cardSlots[0].y);
+
+  const deletedLanes = itemLaneMap(deletedLayout);
+  const deletedHeight = template.height;
+  before = editorCounterSnapshot(counters);
+  const restored = api.applyEditorFaceImageRemoval();
+  assert.equal(restored.baselineStartY, 46);
+  assert.equal(restored.committedStartY, 100);
+  assert.equal(template.faceplateDeleted, false);
+  assert.equal(template.connectors.find(connector => connector.id === "faceplate-io").faceplateSide, false);
+  assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), deletedLanes);
+  assert.notEqual(template.height, deletedHeight);
+  assert.deepEqual(editorCounterDelta(counters, before), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 0,
+    editorRenders: 1,
+    animationSeeds: 1,
+    animationRetargets: 1
+  });
+
+  const restoredHeight = template.height;
+  for (let cycle = 0; cycle < 2; cycle += 1) {
+    api.commitPreparedEditorFaceplateUpload(api.captureEditorFaceplateUploadTarget(), {
+      dataUrl: `data:image/png;base64,cycle-${cycle}`,
+      thumbnailDataUrl: `data:image/png;base64,cycle-thumb-${cycle}`,
+      width: 800,
+      height: 400
+    });
+    api.applyEditorFaceImageRemoval();
+    api.applyEditorFaceplateDeletion();
+    api.applyEditorFaceImageRemoval();
+    assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), deletedLanes);
+    assert.deepEqual(template.connectors.map(connector => connector.id), originalIds);
+    assert.equal(template.connectors.some(connector => connector.faceplateSide), false);
+    assert.equal(template.height, restoredHeight);
+  }
+});
+
+test("Device Editor faceplate mutations roll back fully and reject stale uploads", async () => {
+  const rollbackCases = [
+    {
+      name: "upload",
+      input: {
+        isPowerDistro: true,
+        powerDistroStartY: 262,
+        connectors: [testConnector("row", "left", 0, { v2: true, type: "power-a", powerPlug: { manual: true, x: 10, y: 20 } })]
+      },
+      run(api) {
+        return api.commitPreparedEditorFaceplateUpload(api.captureEditorFaceplateUploadTarget(), {
+          dataUrl: "data:image/png;base64,new",
+          thumbnailDataUrl: "data:image/png;base64,new-thumb",
+          width: 800,
+          height: 200
+        });
+      }
+    },
+    {
+      name: "remove",
+      input: {
+        faceImage: "data:image/png;base64,old",
+        thumbnailImage: "data:image/png;base64,old-thumb",
+        faceImageNaturalWidth: 800,
+        faceImageNaturalHeight: 400,
+        connectors: [testConnector("row", "left", 0, { v2: true, powerPlug: { manual: true, x: 10, y: 20 } })]
+      },
+      run(api) { return api.applyEditorFaceImageRemoval(); }
+    },
+    {
+      name: "delete",
+      input: {
+        faceImage: "data:image/png;base64,old",
+        thumbnailImage: "data:image/png;base64,old-thumb",
+        faceImageNaturalWidth: 800,
+        faceImageNaturalHeight: 400,
+        deletedFaceStartY: 46,
+        manualHeight: 880,
+        connectors: [testConnector("row", "left", 0, { v2: true }), testConnector("front", "right", 0, { v2: true, faceplateSide: true })]
+      },
+      run(api) { return api.applyEditorFaceplateDeletion(); }
+    },
+    {
+      name: "restore",
+      input: {
+        faceplateDeleted: true,
+        deletedFaceStartY: 46,
+        connectors: [testConnector("row", "left", 0, { v2: true })]
+      },
+      run(api) { return api.applyEditorFaceImageRemoval(); }
+    }
+  ];
+
+  rollbackCases.forEach(testCase => {
+    const { api, template, counters, context, placementModule } = structuralEditorHarness(testCase.input);
+    template.height = context.deviceHeightForSlotCounts(template);
+    context.editorSelectedNodeIds = new Set(template.connectors.map(connector => connector.id));
+    context.editorSelectedNodeIndex = template.connectors.length - 1;
+    const beforeTemplate = structuredClone(template);
+    const beforeSelection = selectedNodeConnectorIds(context);
+    const beforePrimary = selectedNodePrimaryConnectorId(template, context);
+    const beforeCounters = editorCounterSnapshot(counters);
+    placementModule.forceInvalid = true;
+    assert.throws(() => testCase.run(api), /invalid layout/, `${testCase.name} should reject invalid layout`);
+    placementModule.forceInvalid = false;
+    assert.equal(JSON.stringify(template), JSON.stringify(beforeTemplate), `${testCase.name} should restore the exact template`);
+    assert.deepEqual(selectedNodeConnectorIds(context), beforeSelection);
+    assert.equal(selectedNodePrimaryConnectorId(template, context), beforePrimary);
+    assert.equal(counters.validationCalls, 1);
+    assert.deepEqual(editorCounterDelta(counters, beforeCounters), {
+      structuralSessions: 1,
+      solverCalls: 1,
+      previewRenders: 0,
+      editorRenders: 0,
+      animationSeeds: 0,
+      animationRetargets: 0
+    });
+  });
+
+  const stale = structuralEditorHarness({
+    faceImage: "data:image/png;base64,existing",
+    faceImageNaturalWidth: 800,
+    faceImageNaturalHeight: 400,
+    connectors: [testConnector("row", "left", 0, { v2: true })]
+  });
+  const staleBefore = structuredClone(stale.template);
+  let completePreparation;
+  stale.context.prepareFrontFaceImage = () => new Promise(resolve => {
+    completePreparation = resolve;
+  });
+  const staleTarget = stale.api.captureEditorFaceplateUploadTarget();
+  const pendingStaleUpload = stale.api.prepareAndCommitEditorFaceplateUpload(
+    staleTarget,
+    "data:image/png;base64,stale-source",
+    { type: "image/png", name: "stale.png" }
+  );
+  stale.api.invalidateEditorFaceplateUploadTarget();
+  completePreparation({
+    dataUrl: "data:image/png;base64,stale",
+    thumbnailDataUrl: "data:image/png;base64,stale-thumb",
+    width: 200,
+    height: 800
+  });
+  assert.equal(await pendingStaleUpload, null);
+  assert.deepEqual(stale.template, staleBefore);
+  assert.equal(stale.counters.structuralSessions, 0);
+  assert.equal(stale.counters.solverCalls, 0);
+  assert.equal(stale.counters.animationSeeds, 0);
+  assert.equal(stale.counters.editorRenders, 0);
+
+  stale.context.prepareFrontFaceImage = async () => {
+    throw new Error("forced preparation failure");
+  };
+  const failedPreparationTarget = stale.api.captureEditorFaceplateUploadTarget();
+  await assert.rejects(
+    stale.api.prepareAndCommitEditorFaceplateUpload(
+      failedPreparationTarget,
+      "data:image/png;base64,broken",
+      { type: "image/png", name: "broken.png" }
+    ),
+    /forced preparation failure/
+  );
+  assert.deepEqual(stale.template, staleBefore);
+  assert.equal(stale.counters.structuralSessions, 0);
+  assert.equal(stale.counters.solverCalls, 0);
+  assert.equal(stale.counters.animationSeeds, 0);
+  assert.equal(stale.counters.editorRenders, 0);
+
+  const invalidTarget = stale.api.captureEditorFaceplateUploadTarget();
+  assert.throws(() => stale.api.commitPreparedEditorFaceplateUpload(invalidTarget, {
+    dataUrl: "",
+    width: 0,
+    height: 0
+  }), /metadata is incomplete/);
+  assert.deepEqual(stale.template, staleBefore);
+  assert.equal(stale.counters.structuralSessions, 0);
+  assert.equal(stale.counters.solverCalls, 0);
+  assert.equal(stale.counters.animationSeeds, 0);
+  assert.equal(stale.counters.editorRenders, 0);
+});
+
 test("Device Editor LED Processor generation is owned, atomic, and selection-stable", () => {
   const { api, template, counters, context } = structuralEditorHarness({
     connectors: [
@@ -3146,7 +3701,7 @@ test("Engine Device Editor card motion uses dynamic overlay ownership without pe
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /visual\.suppressCardAreasInTexture \? "suppress-card-areas" : ""/);
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /!visual\.suppressCardAreasInTexture\) \{\s*drawCardAreas/);
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /drawConnectorBands\(ctx, device, width, height, face\.bottom \+ 12\);/);
-  assert.match(PRODUCTION_BRIDGE_SOURCE, /ENGINE_BRIDGE_VERSION = "iteration54-11-0-atomic-power-distro-origin-rebase"/);
+  assert.match(PRODUCTION_BRIDGE_SOURCE, /ENGINE_BRIDGE_VERSION = "iteration54-12-0-atomic-faceplate-origin-mutations"/);
 
   assert.match(previewClone, /draft\.suppressCardAreasInTexture = true/);
   assert.match(syncEngine, /suppressCardAreasInTexture: options\.dynamicCardArtwork === true/);

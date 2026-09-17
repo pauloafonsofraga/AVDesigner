@@ -4993,7 +4993,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.11.0 — Atomic Power Distro Origin Rebase — iteration54-11-0-atomic-power-distro-origin-rebase</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.12.0 — Atomic Faceplate Origin Mutations — iteration54-12-0-atomic-faceplate-origin-mutations</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5686,10 +5686,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.11.0";
-    const APP_BUILD_ID = "iteration54-11-0-atomic-power-distro-origin-rebase";
-    const APP_MODULE_CACHE_ID = "iteration54-11-0-atomic-power-distro-origin-rebase-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Atomic Power Distro Origin Rebase`;
+    const APP_ITERATION = "54.12.0";
+    const APP_BUILD_ID = "iteration54-12-0-atomic-faceplate-origin-mutations";
+    const APP_MODULE_CACHE_ID = "iteration54-12-0-atomic-faceplate-origin-mutations-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Atomic Faceplate Origin Mutations`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "6dc62f5ef0b40e65629ccfb8a5d9e2071fa8273f";
@@ -78344,6 +78344,7 @@
     let panState = null;
     let editorDraft = [];
     let editorIndex = 0;
+    let editorFaceplateUploadRevision = 0;
     let editorPreviewZoom = 1;
     let editorPreviewPan = { x: 0, y: 0 };
     let editorEnginePreviewSurface = null;
@@ -79983,6 +79984,47 @@
       settleEditorPlacementMotionToLayout(solvedLayout, { clearWhenSettled: true });
     }
 
+    function rebaseEditorStructuralDraftFromBaseline(draft, baselineLayout, committedStartY) {
+      if (!draft || !Array.isArray(baselineLayout?.items)) return 0;
+      const edgeX = deviceTemplateWidth(draft);
+      let rebasedCount = 0;
+      baselineLayout.items.forEach(item => {
+        const kind = editorStableLayoutItemKind(item);
+        const sourceId = editorStableDragSourceId(item.id, kind);
+        const y = laneY(item.lane, committedStartY);
+        if (kind === "card") {
+          const slot = draft.cardSlots?.find(candidate => candidate.id === sourceId);
+          if (!slot) return;
+          slot.y = y;
+          rebasedCount += 1;
+          return;
+        }
+        const connector = draft.connectors?.find(candidate => candidate.id === sourceId);
+        if (!connector || connector.faceplateSide === true) return;
+        connector.y = y;
+        connector.x = connectorSideKey(connector) === "input" ? 0 : edgeX;
+        syncEditorConnectorAnchorsToPosition(draft, connector);
+        rebasedCount += 1;
+      });
+      return rebasedCount;
+    }
+
+    function reconcileEditorFaceplateSideMembership(draft, committedStartY) {
+      if (!draft || faceplateSideConnectorBounds(draft)) return [];
+      const edgeX = deviceTemplateWidth(draft);
+      const demotedIds = [];
+      (draft.connectors || []).forEach(connector => {
+        if (connector.faceplateSide !== true) return;
+        connector.faceplateSide = false;
+        delete connector.adapterCenterSnap;
+        connector.y = committedStartY;
+        connector.x = connectorSideKey(connector) === "input" ? 0 : edgeX;
+        syncEditorConnectorAnchorsToPosition(draft, connector);
+        demotedIds.push(`connector:${connector.id}`);
+      });
+      return demotedIds;
+    }
+
     function commitEditorStructuralEdit(template, options = {}) {
       if (!template || typeof options.mutate !== "function") return null;
       const placementModule = requireDeviceEditorPlacementModule();
@@ -80011,9 +80053,19 @@
       if (startYChanged && !rebaseStartY) {
         throw new Error(`Device Editor structural edit changed the modular origin from ${baselineStartY} to ${committedStartY} without authorising an origin rebase.`);
       }
-      const afterItems = editorStructuralLayoutItems(draft, { startY: baselineStartY });
+      if (rebaseStartY && startYChanged) rebaseEditorStructuralDraftFromBaseline(draft, baselineLayout, committedStartY);
+      const demotedFaceplateConnectorIds = mutation.reconcileFaceplateSide === true
+        ? reconcileEditorFaceplateSideMembership(draft, committedStartY)
+        : [];
+      mutation.demotedFaceplateConnectorIds = demotedFaceplateConnectorIds;
+      const afterItems = editorStructuralLayoutItems(draft, { startY: committedStartY });
       const afterById = new Map(afterItems.map(item => [item.id, item]));
       const hardTargets = editorStructuralTargetMap(mutation.hardTargets);
+      if (demotedFaceplateConnectorIds.length) {
+        session.snapshot.items.forEach(item => {
+          if (afterById.has(item.id)) hardTargets.set(item.id, item.lane);
+        });
+      }
       const explicitUpsertIds = new Set(Array.isArray(mutation.upsertIds) ? mutation.upsertIds.map(id => String(id || "")).filter(Boolean) : []);
       hardTargets.forEach((_lane, id) => {
         if (!afterById.has(id)) {
@@ -80093,7 +80145,7 @@
         if (rebaseStartY) rebaseEditorFaceplateSideConnectors(template);
         normalizeEditorConnectorRelationships(template);
         template.height = deviceHeightForSlotCounts(template);
-        if (hasOriginRebase) {
+        if (rebaseStartY && shouldResolveLayout) {
           const committedLaneMap = editorStableDragLaneMap(solvedLayout);
           const firstStaticLayout = resolveEditorModularLayout(template, { useDragPreview: false });
           const secondStaticLayout = resolveEditorModularLayout(template, { useDragPreview: false });
@@ -85548,6 +85600,7 @@
     }
 
     function closeDeviceEditor() {
+      invalidateEditorFaceplateUploadTarget();
       clearEditorPlacementMotion();
       disposeDeviceEditorEnginePreviewSurface();
       deviceEditorModal.classList.add("hidden");
@@ -88290,9 +88343,7 @@
       editorPairTemplate.disabled = !editorPartOfPair.checked;
       editorPairPlaceFirst.checked = template.isPartOfPair === true && template.pairPlaceFirst === true;
       editorPairPlaceFirst.disabled = !editorPartOfPair.checked || !template.pairedTemplateId;
-      removeEditorFaceImage.textContent = template.faceplateDeleted && !template.faceImage ? "Restore Default Faceplate" : "Remove Custom Faceplate";
-      removeEditorFaceImage.disabled = !template.faceImage && !template.faceplateDeleted;
-      if (deleteEditorFaceplate) deleteEditorFaceplate.disabled = template.faceplateDeleted === true && !template.faceImage;
+      syncEditorFaceplateActionControls(template);
       if (editorAdapterBreakout) editorAdapterBreakout.checked = isAdapterTemplate(template);
       editorHasCards.checked = template.hasSwappableCards === true;
       renderEditorTabs();
@@ -90151,6 +90202,141 @@
         rebasedCount += 1;
       });
       return rebasedCount;
+    }
+
+    function syncEditorFaceplateActionControls(template) {
+      if (!template) return;
+      removeEditorFaceImage.textContent = template.faceplateDeleted && !template.faceImage ? "Restore Default Faceplate" : "Remove Custom Faceplate";
+      removeEditorFaceImage.disabled = !template.faceImage && !template.faceplateDeleted;
+      if (deleteEditorFaceplate) deleteEditorFaceplate.disabled = template.faceplateDeleted === true && !template.faceImage;
+    }
+
+    function commitEditorFaceplateOriginMutation(template, options = {}) {
+      if (!template || typeof options.mutate !== "function") return null;
+      const selectionSnapshot = editorNodeSelectionSnapshot(template);
+      try {
+        return commitEditorStructuralEdit(template, {
+          renderEditor: true,
+          mutate(draft, context) {
+            const mutation = options.mutate(draft, context) || {};
+            return {
+              ...mutation,
+              rebaseStartY: true,
+              reconcileFaceplateSide: true
+            };
+          },
+          afterCommit(committedTemplate, solvedLayout, mutation) {
+            restoreEditorNodeSelectionByStableIds(committedTemplate, selectionSnapshot);
+            if (typeof options.afterCommit === "function") {
+              options.afterCommit(committedTemplate, solvedLayout, mutation);
+            }
+          }
+        });
+      } catch (error) {
+        restoreEditorNodeSelectionByStableIds(template, selectionSnapshot);
+        syncEditorFaceplateActionControls(template);
+        throw error;
+      }
+    }
+
+    function resetEditorFaceImageFields(template) {
+      template.faceImage = "";
+      template.thumbnailImage = "";
+      template.faceImageNaturalWidth = 0;
+      template.faceImageNaturalHeight = 0;
+      template.faceImageScale = 1;
+      template.faceImageScaleX = 1;
+      template.faceImageScaleY = 1;
+      template.faceImageOffsetX = 0;
+      template.faceImageOffsetY = 0;
+    }
+
+    function resetEditorPowerDistroFaceState(template) {
+      clearPowerPlugPlacements(template);
+      template.powerDistroFaceY = FACE_TOP_Y;
+      template.powerDistroFaceHeight = 0;
+    }
+
+    function captureEditorFaceplateUploadTarget() {
+      const template = currentEditorTemplate();
+      if (!template) return null;
+      editorFaceplateUploadRevision += 1;
+      return {
+        revision: editorFaceplateUploadRevision,
+        draft: editorDraft,
+        index: editorIndex,
+        template,
+        templateId: String(template.id || "")
+      };
+    }
+
+    function invalidateEditorFaceplateUploadTarget() {
+      editorFaceplateUploadRevision += 1;
+    }
+
+    function isEditorFaceplateUploadTargetCurrent(target) {
+      if (!target || target.revision !== editorFaceplateUploadRevision) return false;
+      if (deviceEditorModal?.classList?.contains("hidden")) return false;
+      const template = currentEditorTemplate();
+      return editorDraft === target.draft
+        && editorIndex === target.index
+        && template === target.template
+        && String(template?.id || "") === target.templateId;
+    }
+
+    function commitPreparedEditorFaceplateUpload(target, prepared) {
+      if (!isEditorFaceplateUploadTargetCurrent(target)) return null;
+      if (!prepared?.dataUrl || !Number(prepared.width) || !Number(prepared.height)) {
+        throw new Error("Prepared faceplate image metadata is incomplete.");
+      }
+      return commitEditorFaceplateOriginMutation(target.template, {
+        mutate(draft) {
+          draft.faceImage = prepared.dataUrl;
+          draft.thumbnailImage = prepared.thumbnailDataUrl || "";
+          draft.faceImageNaturalWidth = prepared.width;
+          draft.faceImageNaturalHeight = prepared.height;
+          draft.faceImageScale = 1;
+          draft.faceImageScaleX = 1;
+          draft.faceImageScaleY = 1;
+          draft.faceImageOffsetX = 0;
+          draft.faceImageOffsetY = 0;
+          draft.faceplateDeleted = false;
+          resetEditorPowerDistroFaceState(draft);
+          return {};
+        }
+      });
+    }
+
+    function prepareAndCommitEditorFaceplateUpload(target, dataUrl, file) {
+      return Promise.resolve(prepareFrontFaceImage(dataUrl, file))
+        .then(prepared => commitPreparedEditorFaceplateUpload(target, prepared));
+    }
+
+    function applyEditorFaceImageRemoval() {
+      const template = currentEditorTemplate();
+      if (!template) return null;
+      return commitEditorFaceplateOriginMutation(template, {
+        mutate(draft) {
+          resetEditorFaceImageFields(draft);
+          draft.faceplateDeleted = false;
+          resetEditorPowerDistroFaceState(draft);
+          return {};
+        }
+      });
+    }
+
+    function applyEditorFaceplateDeletion() {
+      const template = currentEditorTemplate();
+      if (!template) return null;
+      return commitEditorFaceplateOriginMutation(template, {
+        mutate(draft) {
+          resetEditorFaceImageFields(draft);
+          draft.faceplateDeleted = true;
+          resetEditorPowerDistroFaceState(draft);
+          draft.manualHeight = 0;
+          return {};
+        }
+      });
     }
 
     function adapterCenterY(template) {
@@ -108951,6 +109137,7 @@ renderViewerOutputDebug();
     });
     function selectEditorDeviceIndex(index) {
       if (editorMode === "instance" || isProjectTemplateEditorMode()) return;
+      invalidateEditorFaceplateUploadTarget();
       syncEditorFieldsToDraft();
       clearEditorPlacementMotion();
       editorIndex = clamp(Number(index) || 0, 0, Math.max(0, editorDraft.length - 1));
@@ -109257,86 +109444,29 @@ renderViewerOutputDebug();
         editorFaceUpload.value = "";
         return;
       }
+      const uploadTarget = captureEditorFaceplateUploadTarget();
+      if (!uploadTarget) return;
       const reader = new FileReader();
       reader.onload = async () => {
-        const template = currentEditorTemplate();
-        if (!template) return;
         try {
-          const startBefore = connectorStartYForTemplate(template);
-          const rowsBefore = editorResizeSnapshot(template);
-          const prepared = await prepareFrontFaceImage(reader.result, file);
-          template.faceImage = prepared.dataUrl;
-          template.thumbnailImage = prepared.thumbnailDataUrl || "";
-          template.faceImageNaturalWidth = prepared.width;
-          template.faceImageNaturalHeight = prepared.height;
-          template.faceImageScale = 1;
-          template.faceImageScaleX = 1;
-          template.faceImageScaleY = 1;
-          template.faceImageOffsetX = 0;
-          template.faceImageOffsetY = 0;
-          template.faceplateDeleted = false;
-          clearPowerPlugPlacements(template);
-          template.powerDistroFaceY = FACE_TOP_Y;
-          template.powerDistroFaceHeight = 0;
-          shiftRowsAfterFaceChange(template, startBefore, rowsBefore);
-          normalizeConnectorRows(template);
-          removeEditorFaceImage.disabled = false;
-          if (deleteEditorFaceplate) deleteEditorFaceplate.disabled = false;
-          renderDeviceEditorPreview();
+          await prepareAndCommitEditorFaceplateUpload(uploadTarget, reader.result, file);
         } catch (error) {
-          alert("The front face image could not be loaded. Please use a PNG, BMP, JPG, or JPEG file.");
+          if (isEditorFaceplateUploadTargetCurrent(uploadTarget)) {
+            syncEditorFaceplateActionControls(uploadTarget.template);
+            alert("The front face image could not be loaded. Please use a PNG, BMP, JPG, or JPEG file.");
+          }
         }
+      };
+      reader.onerror = () => {
+        if (!isEditorFaceplateUploadTargetCurrent(uploadTarget)) return;
+        syncEditorFaceplateActionControls(uploadTarget.template);
+        alert("The front face image could not be loaded. Please use a PNG, BMP, JPG, or JPEG file.");
       };
       reader.readAsDataURL(file);
       editorFaceUpload.value = "";
     });
-    removeEditorFaceImage.addEventListener("click", () => {
-      const template = currentEditorTemplate();
-      if (!template) return;
-      const startBefore = connectorStartYForTemplate(template);
-      const rowsBefore = editorResizeSnapshot(template);
-      template.faceImage = "";
-      template.thumbnailImage = "";
-      template.faceImageNaturalWidth = 0;
-      template.faceImageNaturalHeight = 0;
-      template.faceImageScale = 1;
-      template.faceImageScaleX = 1;
-      template.faceImageScaleY = 1;
-      template.faceImageOffsetX = 0;
-      template.faceImageOffsetY = 0;
-      template.faceplateDeleted = false;
-      clearPowerPlugPlacements(template);
-      template.powerDistroFaceY = FACE_TOP_Y;
-      template.powerDistroFaceHeight = 0;
-      shiftRowsAfterFaceChange(template, startBefore, rowsBefore);
-      normalizeConnectorRows(template);
-      removeEditorFaceImage.disabled = true;
-      if (deleteEditorFaceplate) deleteEditorFaceplate.disabled = false;
-      renderDeviceEditor();
-    });
-    deleteEditorFaceplate?.addEventListener("click", () => {
-      const template = currentEditorTemplate();
-      if (!template) return;
-      const startBefore = connectorStartYForTemplate(template);
-      const rowsBefore = editorResizeSnapshot(template);
-      template.faceImage = "";
-      template.thumbnailImage = "";
-      template.faceImageNaturalWidth = 0;
-      template.faceImageNaturalHeight = 0;
-      template.faceImageScale = 1;
-      template.faceImageScaleX = 1;
-      template.faceImageScaleY = 1;
-      template.faceImageOffsetX = 0;
-      template.faceImageOffsetY = 0;
-      template.faceplateDeleted = true;
-      clearPowerPlugPlacements(template);
-      template.powerDistroFaceY = FACE_TOP_Y;
-      template.powerDistroFaceHeight = 0;
-      template.manualHeight = 0;
-      shiftRowsAfterFaceChange(template, startBefore, rowsBefore);
-      normalizeConnectorRows(template);
-      renderDeviceEditor();
-    });
+    removeEditorFaceImage.addEventListener("click", applyEditorFaceImageRemoval);
+    deleteEditorFaceplate?.addEventListener("click", applyEditorFaceplateDeletion);
     document.getElementById("addInputNode").addEventListener("click", () => addEditorNode("input"));
     document.getElementById("addOutputNode").addEventListener("click", () => addEditorNode("output"));
     editorCardSelect.addEventListener("change", event => {
