@@ -177,7 +177,7 @@ test("card type drops create installed preview slots or replace selected bands",
   assert.match(INDEX_HTML, /addEditorCardSlot\(\{ cardTypeId, y: point\.y \}\)/);
   assert.match(INDEX_HTML, /installCardInSlot\(Number\(cardSlot\.dataset\.editorCardSlot\), cardTypeId\)/);
   assert.match(INDEX_HTML, /function editorResolvedCardSlotY[\s\S]*resolveEditorModularLayout/);
-  assert.match(INDEX_HTML, /function reorderCardSlot[\s\S]*normalizeMixedDeviceRows/);
+  assert.doesNotMatch(INDEX_HTML, /function reorderCardSlot\b/, "superseded card-slot reorder helper should be removed");
 });
 
 test("old projects with saved card slots load with generated connector and visual parity", () => {

@@ -30,6 +30,7 @@ const ENGINE_PREVIEW_SOURCE = readFileSync(new URL("../src/engine/enginePreview.
 const DEVICE_VISUAL_BUILDER_SOURCE = readFileSync(new URL("../src/engine/deviceVisualBuilder.js", import.meta.url), "utf8");
 const PRODUCTION_BRIDGE_SOURCE = readFileSync(new URL("../src/engine/productionBridge.js", import.meta.url), "utf8");
 const PROJECT_MUTATIONS_SOURCE = readFileSync(new URL("../src/engine/projectMutations.js", import.meta.url), "utf8");
+const RELEASE_HARDENING_FIXTURE = JSON.parse(readFileSync(new URL("../fixtures/modular-placement-release-hardening.avd", import.meta.url), "utf8"));
 
 function editorPanel(name) {
   const match = INDEX_HTML.match(new RegExp(`<section class="editor-panel[^"]*" data-editor-panel="${name}">([\\s\\S]*?)</section>`));
@@ -382,6 +383,10 @@ function structuralEditorHarness(inputTemplate = {}) {
     editorSelectedNodeIds: new Set(),
     editorSelectedFaceplate: false,
     editorSelectedPowerPlugIds: new Set(),
+    editorNodeDrag: null,
+    editorCardSlotDrag: null,
+    editorConnectorSnapGuide: null,
+    editorDragPointerReleaseInProgress: false,
     editorResizeSession: null,
     editorResizePreviewTemplate: null,
     editorResizePointerReleaseInProgress: false,
@@ -481,6 +486,9 @@ function structuralEditorHarness(inputTemplate = {}) {
     currentEditorTemplate: () => context.editorDraft[context.editorIndex],
     editorPreviewDeviceName: device => String(device?.name || "Device"),
     validateDraftDefaults: device => device,
+    normalizedPowerWatts: value => Math.max(0, Number(value) || 0),
+    powerUnitFor: device => device?.powerUnit === "A" ? "A" : "W",
+    normalizePowerUnit: value => value === "A" ? "A" : "W",
     editorActiveStableDragLayout: () => null,
     editorPlacementMotionBottomY: () => null,
     applyEditorPlacementVisualsToPreviewTemplate: device => device,
@@ -817,12 +825,14 @@ function structuralEditorHarness(inputTemplate = {}) {
     "editorConnectorAnchors",
     "generatedCardConnectors",
     "applyInstalledCardConnectorAnchors",
-    "normalizeCardSlots",
     "createCardSlot",
     "uniqueCardSlotId",
     "installCardInSlot",
     "addEditorCardSlot",
-    "removeCardSlot"
+    "removeCardSlot",
+    "captureTemplateConfiguration",
+    "saveTemplateAsDefault",
+    "resetTemplateToDefault"
   ];
   const script = `${helpers.map(functionSource).join("\n")}
     ({
@@ -868,7 +878,11 @@ function structuralEditorHarness(inputTemplate = {}) {
       setEditorCardNodeSelection,
       installCardInSlot,
       addEditorCardSlot,
-      removeCardSlot
+      removeCardSlot,
+      captureTemplateConfiguration,
+      saveTemplateAsDefault,
+      resetTemplateToDefault,
+      applyEditorStableResolvedLayout
     })`;
   const api = vm.runInNewContext(script, context);
   return { api, context, template, counters, placementModule };
@@ -967,6 +981,101 @@ function testConnector(id, sideMask, lane, options = {}) {
 
 function itemLaneMap(layout) {
   return Object.fromEntries((layout?.items || []).map(item => [item.id, item.lane]));
+}
+
+function assertEditorPlacementInvariants(api, template, label = "editor layout", context = null) {
+  const layout = api.resolveEditorModularLayout(template);
+  const occupied = { left: new Map(), right: new Map() };
+  const ids = new Set();
+  (layout.items || []).forEach(item => {
+    assert.ok(!ids.has(item.id), `${label}: ${item.id} should be unique`);
+    ids.add(item.id);
+    assert.ok(Number.isInteger(item.lane) && item.lane >= 0, `${label}: ${item.id} should have a non-negative integer lane`);
+    assert.ok(Number.isInteger(item.span) && item.span >= 1, `${label}: ${item.id} should have an integer span`);
+    const sides = item.sideMask === "both" ? ["left", "right"] : [item.sideMask === "right" ? "right" : "left"];
+    sides.forEach(side => {
+      for (let lane = item.lane; lane < item.lane + item.span; lane += 1) {
+        assert.equal(occupied[side].has(lane), false, `${label}: ${item.id} overlaps ${occupied[side].get(lane)} on ${side} lane ${lane}`);
+        occupied[side].set(lane, item.id);
+      }
+    });
+  });
+  const connectorIds = new Set((template.connectors || []).map(connector => connector.id));
+  assert.equal(connectorIds.size, (template.connectors || []).length, `${label}: chassis connector IDs should be unique`);
+  (template.connectorRelationships || []).forEach(relationship => {
+    (relationship.members || []).forEach(connectorId => {
+      assert.ok(connectorIds.has(connectorId), `${label}: relationship ${relationship.id} references surviving connector ${connectorId}`);
+    });
+    if (relationship.sourceConnectorId) assert.ok(connectorIds.has(relationship.sourceConnectorId), `${label}: relationship source should survive`);
+    if (relationship.targetConnectorId) assert.ok(connectorIds.has(relationship.targetConnectorId), `${label}: relationship target should survive`);
+  });
+  (template.connectors || []).filter(connector => connector.pairedConnectorId).forEach(connector => {
+    const pair = (template.connectors || []).find(candidate => candidate.id === connector.pairedConnectorId);
+    assert.ok(pair, `${label}: paired connector ${connector.id} should resolve`);
+    assert.equal(pair.pairedConnectorId, connector.id, `${label}: paired connector ${connector.id} should be reciprocal`);
+  });
+  (template.connectors || []).filter(connector => Array.isArray(connector.anchors) && connector.anchors.length).forEach(connector => {
+    const primary = connector.anchors.find(anchor => anchor.id === connector.primaryAnchorId)
+      || connector.anchors.find(anchor => anchor.primary)
+      || connector.anchors[0];
+    assert.equal(connector.x, primary.x, `${label}: ${connector.id} primary x parity`);
+    assert.equal(connector.y, primary.y, `${label}: ${connector.id} primary y parity`);
+  });
+  if (typeof api.generatedCardConnectors === "function") {
+    const generated = api.generatedCardConnectors(template);
+    const generatedIds = new Set();
+    generated.forEach(connector => {
+      assert.equal(connector.id, `${connector.cardSlotId}__${connector.sourceConnectorId}`, `${label}: generated connector ID contract`);
+      assert.equal(generatedIds.has(connector.id), false, `${label}: generated connector IDs should be unique`);
+      generatedIds.add(connector.id);
+      const slot = (template.cardSlots || []).find(candidate => candidate.id === connector.cardSlotId);
+      const card = (template.cardTypes || []).find(candidate => candidate.id === slot?.installedCardTypeId);
+      assert.ok(slot && card?.connectors?.some(source => source.id === connector.sourceConnectorId), `${label}: generated connector source should resolve`);
+      const primary = (connector.anchors || []).find(anchor => anchor.id === connector.primaryAnchorId)
+        || (connector.anchors || []).find(anchor => anchor.primary)
+        || connector.anchors?.[0];
+      assert.ok(primary, `${label}: generated connector ${connector.id} should have an installed anchor`);
+      assert.equal(connector.x, primary.x, `${label}: generated connector ${connector.id} primary x parity`);
+      assert.equal(connector.y, primary.y, `${label}: generated connector ${connector.id} primary y parity`);
+    });
+  }
+  if (context) {
+    const selectedIds = [...(context.editorSelectedNodeIds || [])];
+    selectedIds.forEach(id => assert.ok(connectorIds.has(id), `${label}: selected connector ${id} should survive`));
+    if (Number.isInteger(context.editorSelectedNodeIndex)) {
+      const indexed = template.connectors?.[context.editorSelectedNodeIndex];
+      assert.ok(indexed && selectedIds.includes(indexed.id), `${label}: primary connector index should identify a selected stable ID`);
+    }
+    const selectedCardIndexes = [...(context.editorSelectedCardNodeIds || [])];
+    const selectedCard = template.cardTypes?.[context.editorCardIndex];
+    selectedCardIndexes.forEach(index => {
+      assert.ok(Number.isInteger(Number(index)) && selectedCard?.connectors?.[Number(index)], `${label}: selected card connector index should survive`);
+    });
+    (template.connectors || []).filter(connector => connector.faceplateSide).forEach(connector => {
+      assert.equal(layout.byId.has(`connector:${connector.id}`), false, `${label}: faceplate-side connector should remain outside modular lanes`);
+    });
+  }
+  const repeated = api.resolveEditorModularLayout(template);
+  assert.deepEqual(itemLaneMap(repeated), itemLaneMap(layout), `${label}: static layout should be a fixed point`);
+  const requiredBottom = Math.max(0, ...(layout.items || []).map(item => Number(item.y) + Number(item.span) * 54 + 48));
+  assert.ok(Number(template.height) >= requiredBottom || Number(template.manualHeight) >= requiredBottom, `${label}: device height should contain resolved content`);
+  return layout;
+}
+
+function seededGenerator(seed) {
+  let state = seed >>> 0;
+  return {
+    next() {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+      return state / 0x100000000;
+    },
+    pick(values) {
+      return values[Math.floor(this.next() * values.length) % values.length];
+    },
+    integer(maxExclusive) {
+      return Math.floor(this.next() * Math.max(1, maxExclusive));
+    }
+  };
 }
 
 function editorCounterSnapshot(counters) {
@@ -1408,7 +1517,7 @@ test("Device Editor direct structural operations use the shared atomic transacti
     assert.match(source, /commitEditorStructuralEdit\(template/);
   });
   assert.doesNotMatch(applyEthernet, /commitEditorStructuralEdit\(template/);
-  assert.match(ensureNetworkPair, /options\.normalize !== false/);
+  assert.doesNotMatch(ensureNetworkPair, /normalizeMixedDeviceRows|normalizeConnectorRows/);
   assert.match(ensureNetworkPair, /options\.groupId/);
   assert.doesNotMatch(applyLed, /template\.connectors = template\.connectors\.filter\(connector => connector\.type !== "led-signal"\)/);
   assert.match(applyLed, /isLedProcessorGeneratedConnector\(connector\)/);
@@ -4392,7 +4501,7 @@ test("Engine Device Editor card motion uses dynamic overlay ownership without pe
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /visual\.suppressCardAreasInTexture \? "suppress-card-areas" : ""/);
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /!visual\.suppressCardAreasInTexture\) \{\s*drawCardAreas/);
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /drawConnectorBands\(ctx, device, width, height, face\.bottom \+ 12\);/);
-  assert.match(PRODUCTION_BRIDGE_SOURCE, /ENGINE_BRIDGE_VERSION = "iteration54-13-0-transactional-editor-resize-sessions"/);
+  assert.match(PRODUCTION_BRIDGE_SOURCE, /ENGINE_BRIDGE_VERSION = "iteration54-14-0-modular-placement-release-hardening"/);
 
   assert.match(previewClone, /draft\.suppressCardAreasInTexture = true/);
   assert.match(syncEngine, /suppressCardAreasInTexture: options\.dynamicCardArtwork === true/);
@@ -4924,12 +5033,507 @@ test("Device Editor instance mode reflects canvas connector field overrides", ()
   assert.match(hydrateOverrides, /Object\.assign\(connector, patch\)/);
   assert.match(hydrateOverrides, /effectiveTemplateConnectors\(template\)[\s\S]*generatedFromCard/);
   assert.match(hydrateOverrides, /slot\.connectorOverrides\[generated\.sourceConnectorId\]/);
-  assert.match(hydrateOverrides, /normalizeMixedDeviceRows\(template\)/);
+  assert.doesNotMatch(hydrateOverrides, /normalizeMixedDeviceRows|normalizeConnectorRows|deviceHeightForSlotCounts/, "instance metadata hydration must preserve placement exactly");
   assert.match(pruneOverrides, /effectiveTemplateConnectors\(editedTemplate\)/);
   assert.match(pruneOverrides, /EDITOR_INSTANCE_CONNECTOR_OVERRIDE_FIELDS/);
   assert.match(pruneOverrides, /EDITOR_INSTANCE_DERIVED_CONNECTOR_OVERRIDE_FIELDS/);
   assert.match(INDEX_HTML, /const EDITOR_INSTANCE_CONNECTOR_OVERRIDE_FIELDS = new Set\(CARD_SLOT_OVERRIDE_FIELDS\);/);
   assert.match(INDEX_HTML, /"displayLabel",[\s\S]*"colorSegments",[\s\S]*"installedModuleEffectiveType"/);
+});
+
+test("release-hardening deterministic edit trace preserves placement invariants", t => {
+  const source = RELEASE_HARDENING_FIXTURE.state.deviceLibrary.find(item => item.id === "release-modular-chassis");
+  const fixture = structuralEditorHarness(source);
+  const { api, context, counters } = fixture;
+  const trace = [];
+  const current = () => context.editorDraft[0];
+  const check = name => {
+    trace.push(name);
+    const template = current();
+    assertEditorPlacementInvariants(api, template, name, context);
+    const validIds = new Set((template.connectors || []).map(connector => connector.id));
+    assert.ok([...context.editorSelectedNodeIds].every(id => validIds.has(id)), `${name}: chassis selection should contain surviving stable IDs only`);
+  };
+  const moveItem = (itemId, targetLane, reverseLane = null) => {
+    const template = current();
+    const startY = context.connectorStartYForTemplate(template);
+    const layout = api.resolveEditorModularLayout(template);
+    const session = createModularInsertionDragSession(layout.items, itemId, { startY, slotHeight: 54 });
+    if (reverseLane !== null) resolveModularInsertionDrag(session.snapshot, itemId, reverseLane, { startY, slotHeight: 54 });
+    const resolved = resolveModularInsertionDrag(session.snapshot, itemId, targetLane, { startY, slotHeight: 54 });
+    assert.ok(isValidModularInsertionResult(session.snapshot, resolved, itemId, targetLane, { startY, slotHeight: 54 }));
+    api.applyEditorStableResolvedLayout(template, resolved);
+  };
+
+  current().height = context.deviceHeightForSlotCounts(current());
+  context.editorSelectedNodeIds = new Set(["release-left", "release-both"]);
+  context.editorSelectedNodeIndex = current().connectors.findIndex(connector => connector.id === "release-left");
+  check("open fixture");
+
+  api.addEditorNode("input", { type: "hdmi" });
+  check("add left connector");
+  api.addEditorNode("output", { type: "sdi" });
+  check("add right connector");
+  api.commitEditorStructuralEdit(current(), {
+    primaryItemId: "connector:trace-both",
+    mutate(draft, transaction) {
+      const y = transaction.targetYForLane(2);
+      draft.connectors.push({
+        id: "trace-both",
+        schemaVersion: 2,
+        type: "usb-c",
+        direction: "io",
+        signalDirection: "bidirectional",
+        displaySide: "both",
+        primaryAnchorId: "left",
+        sideMask: "both",
+        x: 0,
+        y,
+        anchors: [
+          { id: "left", side: "left", x: 0, y, primary: true },
+          { id: "right", side: "right", x: draft.width, y: y + 7 }
+        ]
+      });
+      return { hardTargets: { "connector:trace-both": 2 } };
+    }
+  });
+  check("add both-side connector");
+
+  const lastConnector = current().connectors.at(-2);
+  const lastLayoutItem = api.resolveEditorModularLayout(current()).byId.get(`connector:${lastConnector.id}`);
+  moveItem(`connector:${lastConnector.id}`, Math.max(0, lastLayoutItem.lane - 2), lastLayoutItem.lane + 1);
+  check("reverse single drag before release");
+
+  const cancelBefore = JSON.stringify(current());
+  const cancelLayout = api.resolveEditorModularLayout(current());
+  const cancelItem = cancelLayout.items.find(item => item.kind === "connector");
+  const cancelSession = createModularInsertionDragSession(cancelLayout.items, cancelItem.id, {
+    startY: context.connectorStartYForTemplate(current()),
+    slotHeight: 54
+  });
+  resolveModularInsertionDrag(cancelSession.snapshot, cancelItem.id, cancelItem.lane + 2, {
+    startY: context.connectorStartYForTemplate(current()),
+    slotHeight: 54
+  });
+  assert.equal(JSON.stringify(current()), cancelBefore, "cancelled drag must leave the live template byte-for-byte unchanged");
+  check("cancel connector drag");
+
+  {
+    const template = current();
+    const startY = context.connectorStartYForTemplate(template);
+    const layout = api.resolveEditorModularLayout(template);
+    const selectedIds = ["connector:release-left", "connector:release-network-in"];
+    const session = createModularCompositeInsertionDragSession(layout.items, selectedIds, selectedIds[0], { startY, slotHeight: 54 });
+    const targetLane = Math.max(0, session.primaryOriginalLane + 1);
+    const resolved = resolveModularCompositeInsertionDrag(session, targetLane, { startY, slotHeight: 54 });
+    assert.ok(isValidModularCompositeInsertionResult(session, resolved, targetLane, { startY, slotHeight: 54 }));
+    api.applyEditorStableResolvedLayout(template, resolved);
+  }
+  check("composite non-contiguous drag");
+
+  {
+    const layout = api.resolveEditorModularLayout(current());
+    const card = layout.byId.get("card:release-slot-io");
+    moveItem(card.id, Math.max(0, card.lane - 1));
+  }
+  check("drag variable-span card");
+
+  const inputSlotIndex = current().cardSlots.findIndex(slot => slot.id === "release-slot-input");
+  assert.equal(api.installCardInSlot(inputSlotIndex, "release-output-card"), true);
+  check("replace installed card");
+
+  context.editorCardIndex = current().cardTypes.findIndex(card => card.id === "release-io-card");
+  api.changeEditorCardKind("input");
+  check("change reusable card kind");
+  const editedCard = current().cardTypes[context.editorCardIndex];
+  const survivingCardConnectorId = editedCard.connectors[0].id;
+  api.setEditorCardNodeSelection(0);
+  api.setEditorCardNodeSelection(1, { add: true });
+  const removedCardConnectorId = editedCard.connectors[1].id;
+  api.removeCardConnector(1);
+  assert.equal(selectedCardConnectorIds(current(), context).includes(removedCardConnectorId), false);
+  assert.ok(selectedCardConnectorIds(current(), context).includes(survivingCardConnectorId), "surviving card selection should remain stable");
+  check("remove card connector and preserve selection");
+
+  const slotsBeforeToggle = JSON.stringify(current().cardSlots);
+  current().hasSwappableCards = false;
+  check("disable swappable cards");
+  current().hasSwappableCards = true;
+  assert.equal(JSON.stringify(current().cardSlots), slotsBeforeToggle, "feature toggle must not discard slot data");
+  check("restore swappable cards");
+
+  context.editorLedProcessor.checked = true;
+  context.editorLedOutputCount.value = "4";
+  api.applyLedProcessorSettings();
+  check("generate LED outputs");
+  context.editorLedOutputCount.value = "2";
+  api.applyLedProcessorSettings();
+  check("reduce LED outputs");
+
+  context.editorEthernetSwitch.checked = true;
+  context.editorSwitchPortCount.value = "2";
+  context.editorSwitchPortType.value = "1g-rj45";
+  api.addEthernetSwitchPortBatch();
+  check("add Ethernet batch");
+
+  context.editorPowerDistro.checked = true;
+  api.applyPowerDistroSettings();
+  check("enable Power Distro");
+  context.editorPowerDistro.checked = false;
+  api.applyPowerDistroSettings();
+  check("disable Power Distro");
+
+  const faceBeforeResize = context.faceImagePlacement(current(), current().width);
+  const faceResizeStart = {
+    x: faceBeforeResize.x + faceBeforeResize.width,
+    y: faceBeforeResize.y + faceBeforeResize.height / 2
+  };
+  api.beginEditorResizeSession(resizePointer(799, faceResizeStart.x, faceResizeStart.y, "pointerdown"), {
+    kind: "custom-face-image",
+    handle: "e",
+    startPoint: faceResizeStart
+  });
+  api.updateEditorResizeSessionFromEvent(resizePointer(799, faceResizeStart.x - 24, faceResizeStart.y));
+  context.flushAnimationFrames();
+  api.finishEditorResizeSession(resizePointer(799, faceResizeStart.x - 24, faceResizeStart.y, "pointerup"));
+  check("commit faceplate resize");
+  const faceCancelBefore = JSON.stringify(current());
+  const cancelFace = context.faceImagePlacement(current(), current().width);
+  const faceCancelStart = { x: cancelFace.x + cancelFace.width, y: cancelFace.y + cancelFace.height };
+  api.beginEditorResizeSession(resizePointer(800, faceCancelStart.x, faceCancelStart.y, "pointerdown"), {
+    kind: "custom-face-image",
+    handle: "se",
+    startPoint: faceCancelStart
+  });
+  api.updateEditorResizeSessionFromEvent(resizePointer(800, faceCancelStart.x + 50, faceCancelStart.y + 50));
+  context.flushAnimationFrames();
+  api.cancelEditorResizeSession(resizePointer(800, faceCancelStart.x + 50, faceCancelStart.y + 50, "pointercancel"));
+  assert.equal(JSON.stringify(current()), faceCancelBefore);
+  check("cancel faceplate resize");
+
+  const startHeight = current().height;
+  api.beginEditorResizeSession(resizePointer(801, 200, startHeight, "pointerdown"), {
+    kind: "device-height",
+    edge: "bottom",
+    startPoint: { x: 200, y: startHeight }
+  });
+  api.updateEditorResizeSessionFromEvent(resizePointer(801, 200, startHeight + 54));
+  context.flushAnimationFrames();
+  api.finishEditorResizeSession(resizePointer(801, 200, startHeight + 54, "pointerup"));
+  check("commit device resize");
+  const resizeCancelBefore = JSON.stringify(current());
+  api.beginEditorResizeSession(resizePointer(802, 200, current().height, "pointerdown"), {
+    kind: "device-height",
+    edge: "bottom",
+    startPoint: { x: 200, y: current().height }
+  });
+  api.updateEditorResizeSessionFromEvent(resizePointer(802, 200, current().height + 108));
+  context.flushAnimationFrames();
+  api.cancelEditorResizeSession(resizePointer(802, 200, current().height + 108, "pointercancel"));
+  assert.equal(JSON.stringify(current()), resizeCancelBefore);
+  check("cancel device resize");
+
+  const uploadTarget = api.captureEditorFaceplateUploadTarget();
+  assert.ok(api.commitPreparedEditorFaceplateUpload(uploadTarget, {
+    dataUrl: "data:image/png;base64,release-replacement",
+    thumbnailDataUrl: "data:image/png;base64,release-replacement-thumb",
+    width: 1200,
+    height: 300
+  }));
+  check("replace face image");
+  assert.ok(api.applyEditorFaceImageRemoval());
+  check("remove face image");
+  assert.ok(api.applyEditorFaceplateDeletion());
+  check("delete faceplate");
+  assert.ok(api.applyEditorFaceImageRemoval());
+  check("restore faceplate");
+
+  api.saveTemplateAsDefault(current());
+  const defaultLaneMap = itemLaneMap(api.resolveEditorModularLayout(current()));
+  current().brand = "Changed after default";
+  current().connectors[0].nameText = "Changed field";
+  assert.equal(api.resetTemplateToDefault(current()), true);
+  assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(current())), defaultLaneMap);
+  check("save and reset default configuration");
+
+  const serialized = JSON.stringify(current());
+  context.editorDraft[0] = JSON.parse(serialized);
+  check("serialize reload and reopen");
+  api.addEditorNode("input", { type: "dvi" });
+  check("continue editing after reopen");
+  assert.ok(counters.solverCalls > 0, "trace should exercise the structural solver");
+  assert.ok(counters.animationSeeds > 0, "committed structural edits should animate");
+  t.diagnostic(`release hardening trace operations: ${trace.length}`);
+  t.diagnostic(`structural sessions: ${counters.structuralSessions}, solver calls: ${counters.solverCalls}, animation seeds: ${counters.animationSeeds}`);
+});
+
+test("release-hardening seeded mixed-operation soak is deterministic", t => {
+  const seeds = [0x541400, 0x5eed5, 0xc0ffee, 0xdecade, 0x13579b, 0x2468ac];
+  const operationsPerSeed = 28;
+
+  const runSeed = seed => {
+    const random = seededGenerator(seed);
+    const source = structuredClone(RELEASE_HARDENING_FIXTURE.state.deviceLibrary.find(item => item.id === "release-modular-chassis"));
+    source.id = `stress-${seed.toString(16)}`;
+    source.name = `Stress ${seed.toString(16)}`;
+    const fixture = structuralEditorHarness(source);
+    const { api, context, counters } = fixture;
+    const trace = [];
+    const stressConnectorIds = new Set();
+    const current = () => context.editorDraft[0];
+    current().height = context.deviceHeightForSlotCounts(current());
+
+    const check = operation => {
+      trace.push(operation);
+      assertEditorPlacementInvariants(api, current(), `seed ${seed} after ${operation}`, context);
+      assert.equal(context.editorResizeSession, null, `seed ${seed}: resize session should settle after ${operation}`);
+      assert.equal(context.editorResizePreviewTemplate, null, `seed ${seed}: resize preview should settle after ${operation}`);
+      assert.equal(context.flushAnimationFrames(), 0, `seed ${seed}: no scheduled resize frame should survive ${operation}`);
+    };
+
+    const applyDrag = (item, targetLane) => {
+      const template = current();
+      const startY = context.connectorStartYForTemplate(template);
+      const session = createModularInsertionDragSession(api.resolveEditorModularLayout(template).items, item.id, { startY, slotHeight: 54 });
+      const resolved = resolveModularInsertionDrag(session.snapshot, item.id, targetLane, { startY, slotHeight: 54 });
+      assert.ok(isValidModularInsertionResult(session.snapshot, resolved, item.id, targetLane, { startY, slotHeight: 54 }));
+      const stableIds = (template.connectors || []).map(connector => connector.id);
+      api.applyEditorStableResolvedLayout(template, resolved);
+      assert.deepEqual(template.connectors.map(connector => connector.id), stableIds, "coordinate-only drag should preserve connector IDs");
+    };
+
+    for (let step = 0; step < operationsPerSeed; step += 1) {
+      const operationKind = step % 14;
+      try {
+        if (operationKind === 0) {
+          const sideMask = random.pick(["left", "right", "both"]);
+          const id = `stress-${seed.toString(16)}-${step}`;
+          const targetLane = random.integer(Math.max(2, api.resolveEditorModularLayout(current()).endLane + 2));
+          api.commitEditorStructuralEdit(current(), {
+            primaryItemId: `connector:${id}`,
+            mutate(draft, transaction) {
+              const y = transaction.targetYForLane(targetLane);
+              const direction = sideMask === "right" ? "output" : sideMask === "both" ? "io" : "input";
+              const connector = {
+                id,
+                schemaVersion: 2,
+                type: "hdmi",
+                physicalType: "hdmi",
+                connectorType: "hdmi",
+                label: "HDMI",
+                direction,
+                signalDirection: direction === "io" ? "bidirectional" : direction,
+                displaySide: sideMask,
+                sideMask,
+                x: sideMask === "right" ? draft.width : 0,
+                y,
+                primaryAnchorId: sideMask === "right" ? "right" : "left",
+                anchors: sideMask === "both"
+                  ? [
+                      { id: "left", side: "left", x: 0, y, primary: true },
+                      { id: "right", side: "right", x: draft.width, y: y + 3 }
+                    ]
+                  : [{ id: sideMask, side: sideMask, x: sideMask === "right" ? draft.width : 0, y, primary: true }],
+                empty: false
+              };
+              draft.connectors.push(connector);
+              return { hardTargets: { [`connector:${id}`]: targetLane } };
+            }
+          });
+          stressConnectorIds.add(id);
+          check(`insert ${id}`);
+        } else if (operationKind === 1) {
+          const layout = api.resolveEditorModularLayout(current());
+          const item = random.pick(layout.items);
+          const targetLane = Math.max(0, item.lane + random.pick([-2, -1, 1, 2]));
+          applyDrag(item, targetLane);
+          check(`drag ${item.id} to ${targetLane}`);
+        } else if (operationKind === 2) {
+          const before = JSON.stringify(current());
+          const layout = api.resolveEditorModularLayout(current());
+          const item = random.pick(layout.items);
+          const startY = context.connectorStartYForTemplate(current());
+          const session = createModularInsertionDragSession(layout.items, item.id, { startY, slotHeight: 54 });
+          resolveModularInsertionDrag(session.snapshot, item.id, Math.max(0, item.lane + random.pick([-2, 2])), { startY, slotHeight: 54 });
+          assert.equal(JSON.stringify(current()), before, "cancelled drag should not mutate the committed template");
+          check(`cancel drag ${item.id}`);
+        } else if (operationKind === 3) {
+          const template = current();
+          const layout = api.resolveEditorModularLayout(template);
+          const connectorItems = layout.items.filter(item => item.kind !== "card");
+          const firstIndex = random.integer(connectorItems.length);
+          let secondIndex = random.integer(connectorItems.length - 1);
+          if (secondIndex >= firstIndex) secondIndex += 1;
+          const selected = [connectorItems[firstIndex], connectorItems[secondIndex]].filter(Boolean);
+          if (selected.length === 2) {
+            const startY = context.connectorStartYForTemplate(template);
+            const selectedIds = selected.map(item => item.id);
+            const session = createModularCompositeInsertionDragSession(layout.items, selectedIds, selectedIds[0], { startY, slotHeight: 54 });
+            const targetLane = Math.max(0, session.primaryOriginalLane + random.pick([-1, 1, 2]));
+            const resolved = resolveModularCompositeInsertionDrag(session, targetLane, { startY, slotHeight: 54 });
+            assert.ok(isValidModularCompositeInsertionResult(session, resolved, targetLane, { startY, slotHeight: 54 }));
+            api.applyEditorStableResolvedLayout(template, resolved);
+          }
+          check(`composite drag ${selected.map(item => item.id).join(",")}`);
+        } else if (operationKind === 4) {
+          const layout = api.resolveEditorModularLayout(current());
+          const cards = layout.items.filter(item => item.kind === "card");
+          const card = random.pick(cards);
+          if (card) applyDrag(card, Math.max(0, card.lane + random.pick([-2, -1, 1, 2])));
+          check(`card drag ${card?.id || "none"}`);
+        } else if (operationKind === 5) {
+          const template = current();
+          const slotIndex = random.integer(template.cardSlots.length);
+          const cardId = random.pick(template.cardTypes).id;
+          api.installCardInSlot(slotIndex, cardId);
+          check(`replace ${template.cardSlots[slotIndex].id} with ${cardId}`);
+        } else if (operationKind === 6) {
+          const template = current();
+          context.editorCardIndex = random.integer(template.cardTypes.length);
+          const nextKind = random.pick(["input", "output", "io"]);
+          api.changeEditorCardKind(nextKind);
+          const card = current().cardTypes[context.editorCardIndex];
+          const direction = card.kind === "output" ? "output" : card.kind === "input" ? "input" : random.pick(["input", "output"]);
+          api.addCardConnector(direction);
+          const updatedCard = current().cardTypes[context.editorCardIndex];
+          api.fillCardConnector(updatedCard.connectors.length - 1, random.pick(["hdmi", "dvi"]));
+          check(`change card ${card.id} to ${nextKind} and grow ${direction}`);
+        } else if (operationKind === 7) {
+          const removable = [...stressConnectorIds].filter(id => current().connectors.some(connector => connector.id === id));
+          const removeId = random.pick(removable);
+          if (removeId) {
+            api.removeEditorNode(current().connectors.findIndex(connector => connector.id === removeId));
+            stressConnectorIds.delete(removeId);
+          }
+          check(`delete ${removeId || "none"}`);
+        } else if (operationKind === 8) {
+          context.editorLedProcessor.checked = !current().isLedProcessor;
+          context.editorLedOutputCount.value = String(2 + random.integer(4));
+          api.applyLedProcessorSettings();
+          check(`LED ${context.editorLedProcessor.checked ? "on" : "off"} ${context.editorLedOutputCount.value}`);
+        } else if (operationKind === 9) {
+          const slots = JSON.stringify(current().cardSlots);
+          current().hasSwappableCards = false;
+          current().hasSwappableCards = true;
+          assert.equal(JSON.stringify(current().cardSlots), slots, "swappable-card toggle should preserve slots");
+          check("toggle swappable cards off/on");
+        } else if (operationKind === 10) {
+          context.editorPowerDistro.checked = !current().isPowerDistro;
+          api.applyPowerDistroSettings();
+          check(`Power Distro ${context.editorPowerDistro.checked ? "on" : "off"}`);
+        } else if (operationKind === 11) {
+          if (current().faceImage) {
+            api.applyEditorFaceImageRemoval();
+            check("remove face image");
+          } else if (!current().faceplateDeleted) {
+            api.applyEditorFaceplateDeletion();
+            check("delete faceplate");
+          } else {
+            const target = api.captureEditorFaceplateUploadTarget();
+            api.commitPreparedEditorFaceplateUpload(target, {
+              dataUrl: `data:image/png;base64,stress-${seed}`,
+              thumbnailDataUrl: `data:image/png;base64,stress-thumb-${seed}`,
+              width: 1000,
+              height: 250
+            });
+            check("restore prepared face image");
+          }
+        } else if (operationKind === 12) {
+          const template = current();
+          const pointerId = seed + step;
+          const startHeight = template.height;
+          const start = resizePointer(pointerId, template.width / 2, startHeight, "pointerdown");
+          api.beginEditorResizeSession(start, {
+            kind: "device-height",
+            edge: "bottom",
+            startPoint: { x: template.width / 2, y: startHeight }
+          });
+          const shouldCancel = random.next() < 0.5;
+          const moved = resizePointer(pointerId, template.width / 2, startHeight + (shouldCancel ? 108 : 54));
+          api.updateEditorResizeSessionFromEvent(moved);
+          context.flushAnimationFrames();
+          if (shouldCancel) api.cancelEditorResizeSession({ ...moved, type: "pointercancel" });
+          else api.finishEditorResizeSession({ ...moved, type: "pointerup" });
+          check(`resize ${shouldCancel ? "cancel" : "commit"}`);
+        } else {
+          const serialized = JSON.stringify(current());
+          context.editorDraft[0] = JSON.parse(serialized);
+          check("save/reload");
+        }
+      } catch (error) {
+        throw new Error(`seed ${seed} failed at step ${step} after [${trace.join(" -> ")}]`, { cause: error });
+      }
+    }
+
+    return {
+      template: JSON.parse(JSON.stringify(current())),
+      lanes: itemLaneMap(api.resolveEditorModularLayout(current())),
+      trace,
+      counters: {
+        structuralSessions: counters.structuralSessions,
+        solverCalls: counters.solverCalls,
+        animationSeeds: counters.animationSeeds,
+        previewRenders: counters.previewRenders,
+        editorRenders: counters.editorRenders
+      }
+    };
+  };
+
+  let totalOperations = 0;
+  seeds.forEach(seed => {
+    const first = runSeed(seed);
+    const repeated = runSeed(seed);
+    assert.deepEqual(repeated, first, `seed ${seed} should replay identically`);
+    totalOperations += first.trace.length;
+  });
+  t.diagnostic(`seeded release soak: ${seeds.length} seeds, ${totalOperations} committed/cancelled operations (${totalOperations * 2} including deterministic replay)`);
+});
+
+test("nonstructural Device Editor edits preserve placement and bypass normalizers", () => {
+  const renderEditor = functionSource("renderDeviceEditor");
+  const syncFields = functionSource("syncEditorFieldsToDraft");
+  const hydrateOverrides = functionSource("hydrateEditorDraftFromInstanceConnectorOverrides");
+  const setModule = functionSource("setTemplateConnectorModule");
+  const saveDefault = functionSource("saveTemplateAsDefault");
+  const hasCardsListener = sourceSlice(INDEX_HTML, 'editorHasCards.addEventListener("change"', 'editorLedProcessor.addEventListener("change"');
+  const cardOverrideCommit = sourceSlice(INDEX_HTML, "if (target.dataset.editorCardSlotId", "const connector = template.connectors");
+  const forbidden = /normalizeMixedDeviceRows|normalizeConnectorRows|normalizeCardSlots/;
+
+  assert.match(renderEditor, /normalizePlacement: false/);
+  assert.doesNotMatch(syncFields, forbidden);
+  assert.doesNotMatch(hydrateOverrides, forbidden);
+  assert.doesNotMatch(setModule, forbidden);
+  assert.doesNotMatch(saveDefault, forbidden);
+  assert.doesNotMatch(hasCardsListener, forbidden);
+  assert.doesNotMatch(cardOverrideCommit, forbidden);
+  assert.doesNotMatch(functionSource("generatedCardConnectors"), /ensureModularDefaults/);
+  assert.doesNotMatch(INDEX_HTML, /function\s+(?:reorderCardSlot|shiftRowsAfterFaceChange|setEditorPowerDistroFaceHeight|normalizeCardSlots|ensureEthernetPair)\b/);
+
+  const fixture = structuralEditorHarness({
+    connectors: [
+      testConnector("meta-left", "left", 0, { v2: true }),
+      testConnector("meta-right", "right", 0, { v2: true, direction: "output" })
+    ],
+    cardTypes: [],
+    cardSlots: []
+  });
+  fixture.template.height = fixture.context.deviceHeightForSlotCounts(fixture.template);
+  const before = {
+    lanes: itemLaneMap(fixture.api.resolveEditorModularLayout(fixture.template)),
+    anchors: structuredClone(fixture.template.connectors.map(connector => connector.anchors)),
+    height: fixture.template.height,
+    solverCalls: fixture.counters.solverCalls,
+    animations: fixture.counters.animationSeeds
+  };
+  fixture.template.connectors[0].nameText = "Renamed";
+  fixture.template.connectors[0].fiberMode = "single-mode";
+  fixture.template.techSpecs = "Metadata only";
+  const reloaded = JSON.parse(JSON.stringify(fixture.template));
+  assert.deepEqual(itemLaneMap(fixture.api.resolveEditorModularLayout(reloaded)), before.lanes);
+  assert.deepEqual(reloaded.connectors.map(connector => connector.anchors), before.anchors);
+  assert.equal(reloaded.height, before.height);
+  assert.equal(fixture.counters.solverCalls, before.solverCalls);
+  assert.equal(fixture.counters.animationSeeds, before.animations);
 });
 
 test("Faceplate tab keeps image controls together in one compact row", () => {

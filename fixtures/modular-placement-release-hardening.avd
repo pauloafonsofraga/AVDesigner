@@ -1,0 +1,456 @@
+{
+  "format": "av-designer-project",
+  "version": 2,
+  "projectName": "Modular Placement Release Hardening",
+  "state": {
+    "projectName": "Modular Placement Release Hardening",
+    "nodeLibrary": [],
+    "deviceLibrary": [
+      {
+        "id": "release-modular-chassis",
+        "name": "Release Modular Chassis",
+        "brand": "Validation",
+        "model": "HARDENING-V2",
+        "category": "Matrixes",
+        "schemaVersion": 2,
+        "deviceDefinitionVersion": 2,
+        "width": 560,
+        "height": 1160,
+        "manualHeight": 1160,
+        "techSpecs": "Deterministic Stage 5H placement fixture.",
+        "hasSwappableCards": true,
+        "isLedProcessor": true,
+        "ledOutputCount": 2,
+        "isEthernetSwitch": true,
+        "switchPortCount": 2,
+        "switchPortType": "1g-rj45",
+        "isPowerDistro": false,
+        "isMatrixRouter": true,
+        "faceImage": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL8WQAAAABJRU5ErkJggg==",
+        "faceImageNaturalWidth": 1600,
+        "faceImageNaturalHeight": 400,
+        "faceImageScale": 1,
+        "faceImageScaleX": 0.92,
+        "faceImageScaleY": 1.15,
+        "faceImageOffsetX": 8,
+        "faceImageOffsetY": 4,
+        "connectors": [
+          {
+            "id": "release-left",
+            "schemaVersion": 2,
+            "type": "hdmi",
+            "physicalType": "hdmi",
+            "connectorType": "hdmi",
+            "direction": "input",
+            "signalDirection": "input",
+            "displaySide": "left",
+            "primaryAnchorId": "left",
+            "x": 0,
+            "y": 240,
+            "anchors": [{ "id": "left", "side": "left", "x": 0, "y": 240, "primary": true }],
+            "nameText": "LEFT IN"
+          },
+          {
+            "id": "release-right",
+            "schemaVersion": 2,
+            "type": "sdi",
+            "physicalType": "sdi",
+            "connectorType": "sdi",
+            "direction": "output",
+            "signalDirection": "output",
+            "displaySide": "right",
+            "primaryAnchorId": "right",
+            "x": 560,
+            "y": 240,
+            "anchors": [{ "id": "right", "side": "right", "x": 560, "y": 240, "primary": true }],
+            "nameText": "RIGHT OUT"
+          },
+          {
+            "id": "release-both",
+            "schemaVersion": 2,
+            "type": "usb-c",
+            "physicalType": "usb-c",
+            "connectorType": "usb-c",
+            "direction": "io",
+            "signalDirection": "bidirectional",
+            "displaySide": "both",
+            "primaryAnchorId": "left",
+            "x": 0,
+            "y": 294,
+            "anchors": [
+              { "id": "left", "side": "left", "x": 0, "y": 294, "primary": true, "label": "Primary" },
+              { "id": "right", "side": "right", "x": 560, "y": 302, "label": "Offset +8" }
+            ],
+            "nameText": "BOTH SIDE"
+          },
+          {
+            "id": "release-network-in",
+            "schemaVersion": 2,
+            "type": "cat6a",
+            "direction": "input",
+            "signalDirection": "bidirectional",
+            "displaySide": "left",
+            "primaryAnchorId": "left",
+            "x": 0,
+            "y": 348,
+            "anchors": [{ "id": "left", "side": "left", "x": 0, "y": 348, "primary": true }],
+            "pairedConnectorId": "release-network-out",
+            "networkGroupId": "release-network-pair",
+            "nameText": "LAN A"
+          },
+          {
+            "id": "release-network-out",
+            "schemaVersion": 2,
+            "type": "cat6a",
+            "direction": "output",
+            "signalDirection": "bidirectional",
+            "displaySide": "right",
+            "primaryAnchorId": "right",
+            "x": 560,
+            "y": 348,
+            "anchors": [{ "id": "right", "side": "right", "x": 560, "y": 348, "primary": true }],
+            "pairedConnectorId": "release-network-in",
+            "networkGroupId": "release-network-pair",
+            "nameText": "LAN B"
+          },
+          {
+            "id": "release-led-1",
+            "schemaVersion": 2,
+            "type": "led-signal",
+            "direction": "output",
+            "signalDirection": "output",
+            "displaySide": "right",
+            "primaryAnchorId": "right",
+            "x": 560,
+            "y": 402,
+            "anchors": [{ "id": "right", "side": "right", "x": 560, "y": 402, "primary": true }],
+            "generatedByLedProcessor": true,
+            "signalIndex": 1,
+            "nameText": "LED 1"
+          },
+          {
+            "id": "release-led-2",
+            "schemaVersion": 2,
+            "type": "led-signal",
+            "direction": "output",
+            "signalDirection": "output",
+            "displaySide": "right",
+            "primaryAnchorId": "right",
+            "x": 560,
+            "y": 456,
+            "anchors": [{ "id": "right", "side": "right", "x": 560, "y": 456, "primary": true }],
+            "generatedByLedProcessor": true,
+            "signalIndex": 2,
+            "nameText": "LED 2"
+          },
+          {
+            "id": "release-switch-in",
+            "schemaVersion": 2,
+            "type": "cat5e",
+            "direction": "input",
+            "signalDirection": "bidirectional",
+            "displaySide": "left",
+            "primaryAnchorId": "left",
+            "x": 0,
+            "y": 456,
+            "anchors": [{ "id": "left", "side": "left", "x": 0, "y": 456, "primary": true }],
+            "generatedByEthernetSwitch": true,
+            "switchPortIndex": 1,
+            "pairedConnectorId": "release-switch-out",
+            "networkGroupId": "release-switch-pair",
+            "nameText": "SW 1 IN"
+          },
+          {
+            "id": "release-switch-out",
+            "schemaVersion": 2,
+            "type": "cat5e",
+            "direction": "output",
+            "signalDirection": "bidirectional",
+            "displaySide": "right",
+            "primaryAnchorId": "right",
+            "x": 560,
+            "y": 510,
+            "anchors": [{ "id": "right", "side": "right", "x": 560, "y": 510, "primary": true }],
+            "generatedByEthernetSwitch": true,
+            "switchPortIndex": 1,
+            "pairedConnectorId": "release-switch-in",
+            "networkGroupId": "release-switch-pair",
+            "nameText": "SW 1 OUT"
+          },
+          {
+            "id": "release-face-side",
+            "schemaVersion": 2,
+            "type": "usb-c",
+            "direction": "input",
+            "signalDirection": "bidirectional",
+            "displaySide": "left",
+            "primaryAnchorId": "left",
+            "x": 0,
+            "y": 97,
+            "anchors": [{ "id": "left", "side": "left", "x": 0, "y": 97, "primary": true }],
+            "faceplateSide": true,
+            "nameText": "FRONT USB"
+          },
+          {
+            "id": "release-power-in",
+            "schemaVersion": 2,
+            "type": "powercon",
+            "direction": "input",
+            "signalDirection": "input",
+            "displaySide": "left",
+            "primaryAnchorId": "left",
+            "x": 0,
+            "y": 510,
+            "anchors": [{ "id": "left", "side": "left", "x": 0, "y": 510, "primary": true }],
+            "powerPlug": { "x": 86, "y": 94, "manual": true },
+            "nameText": "POWER IN"
+          }
+        ],
+        "connectorRelationships": [
+          {
+            "id": "release-through",
+            "type": "through",
+            "sourceConnectorId": "release-network-in",
+            "targetConnectorId": "release-network-out",
+            "members": ["release-network-in", "release-network-out"]
+          },
+          {
+            "id": "release-shared",
+            "type": "exclusive",
+            "sourceConnectorId": "release-left",
+            "members": ["release-left", "release-both"]
+          }
+        ],
+        "connectorTopology": {
+          "schemaVersion": 2,
+          "relationships": [
+            {
+              "id": "release-through",
+              "type": "through",
+              "sourceConnectorId": "release-network-in",
+              "targetConnectorId": "release-network-out",
+              "members": ["release-network-in", "release-network-out"]
+            },
+            {
+              "id": "release-shared",
+              "type": "exclusive",
+              "sourceConnectorId": "release-left",
+              "members": ["release-left", "release-both"]
+            }
+          ]
+        },
+        "cardTypes": [
+          {
+            "id": "release-input-card",
+            "name": "Input Card",
+            "kind": "input",
+            "captionTextColor": "#ffffff",
+            "captionBackgroundColor": "#196c3b",
+            "connectors": [
+              {
+                "id": "input-a",
+                "schemaVersion": 2,
+                "type": "hdmi",
+                "direction": "input",
+                "signalDirection": "input",
+                "displaySide": "left",
+                "primaryAnchorId": "left",
+                "x": 0,
+                "y": 54,
+                "anchors": [{ "id": "left", "side": "left", "x": 0, "y": 54, "primary": true }],
+                "nameText": "CARD INPUT"
+              }
+            ]
+          },
+          {
+            "id": "release-output-card",
+            "name": "Output Card",
+            "kind": "output",
+            "captionTextColor": "#ffffff",
+            "captionBackgroundColor": "#265c8a",
+            "connectors": [
+              {
+                "id": "output-a",
+                "schemaVersion": 2,
+                "type": "sdi",
+                "direction": "output",
+                "signalDirection": "output",
+                "displaySide": "right",
+                "primaryAnchorId": "right",
+                "x": 380,
+                "y": 54,
+                "anchors": [{ "id": "right", "side": "right", "x": 380, "y": 54, "primary": true }],
+                "nameText": "CARD OUT A"
+              },
+              {
+                "id": "output-b",
+                "schemaVersion": 2,
+                "type": "hdmi",
+                "direction": "output",
+                "signalDirection": "output",
+                "displaySide": "right",
+                "primaryAnchorId": "right",
+                "x": 380,
+                "y": 108,
+                "anchors": [{ "id": "right", "side": "right", "x": 380, "y": 108, "primary": true }],
+                "nameText": "CARD OUT B"
+              }
+            ]
+          },
+          {
+            "id": "release-io-card",
+            "name": "I/O Card",
+            "kind": "io",
+            "captionTextColor": "#ffffff",
+            "captionBackgroundColor": "#714a8a",
+            "connectors": [
+              {
+                "id": "io-in-a",
+                "schemaVersion": 2,
+                "type": "hdmi",
+                "direction": "input",
+                "signalDirection": "input",
+                "displaySide": "left",
+                "primaryAnchorId": "left",
+                "x": 0,
+                "y": 54,
+                "anchors": [{ "id": "left", "side": "left", "x": 0, "y": 54, "primary": true }],
+                "nameText": "IO IN A"
+              },
+              {
+                "id": "io-in-b",
+                "schemaVersion": 2,
+                "type": "dvi",
+                "direction": "input",
+                "signalDirection": "input",
+                "displaySide": "left",
+                "primaryAnchorId": "left",
+                "x": 0,
+                "y": 108,
+                "anchors": [{ "id": "left", "side": "left", "x": 0, "y": 108, "primary": true }],
+                "nameText": "IO IN B"
+              },
+              {
+                "id": "io-in-c",
+                "schemaVersion": 2,
+                "type": "sdi",
+                "direction": "input",
+                "signalDirection": "input",
+                "displaySide": "left",
+                "primaryAnchorId": "left",
+                "x": 0,
+                "y": 162,
+                "anchors": [{ "id": "left", "side": "left", "x": 0, "y": 162, "primary": true }],
+                "nameText": "IO IN C"
+              },
+              {
+                "id": "io-both",
+                "schemaVersion": 2,
+                "type": "cat6a",
+                "direction": "io",
+                "signalDirection": "bidirectional",
+                "displaySide": "both",
+                "primaryAnchorId": "left",
+                "x": 0,
+                "y": 216,
+                "anchors": [
+                  { "id": "left", "side": "left", "x": 0, "y": 216, "primary": true },
+                  { "id": "right", "side": "right", "x": 380, "y": 222 }
+                ],
+                "nameText": "IO BOTH"
+              },
+              {
+                "id": "io-out-a",
+                "schemaVersion": 2,
+                "type": "sdi",
+                "direction": "output",
+                "signalDirection": "output",
+                "displaySide": "right",
+                "primaryAnchorId": "right",
+                "x": 380,
+                "y": 54,
+                "anchors": [{ "id": "right", "side": "right", "x": 380, "y": 54, "primary": true }],
+                "nameText": "IO OUT A"
+              }
+            ]
+          }
+        ],
+        "cardSlots": [
+          {
+            "id": "release-slot-input",
+            "name": "Input Slot",
+            "installedCardTypeId": "release-input-card",
+            "y": 618,
+            "connectorOverrides": { "input-a": { "nameText": "OVERRIDE INPUT" } }
+          },
+          {
+            "id": "release-slot-output",
+            "name": "Output Slot",
+            "installedCardTypeId": "release-output-card",
+            "y": 618
+          },
+          {
+            "id": "release-slot-io",
+            "name": "I/O Slot",
+            "installedCardTypeId": "release-io-card",
+            "y": 834
+          },
+          {
+            "id": "release-slot-empty",
+            "name": "Empty Slot",
+            "installedCardTypeId": "",
+            "y": 1104
+          }
+        ]
+      },
+      {
+        "id": "release-source",
+        "name": "Release Source",
+        "schemaVersion": 2,
+        "deviceDefinitionVersion": 2,
+        "width": 300,
+        "height": 220,
+        "connectors": [
+          { "id": "source-hdmi", "type": "hdmi", "direction": "output", "displaySide": "right", "x": 300, "y": 100, "anchors": [{ "id": "right", "side": "right", "x": 300, "y": 100, "primary": true }], "primaryAnchorId": "right" }
+        ]
+      },
+      {
+        "id": "release-sink",
+        "name": "Release Sink",
+        "schemaVersion": 2,
+        "deviceDefinitionVersion": 2,
+        "width": 300,
+        "height": 220,
+        "connectors": [
+          { "id": "sink-sdi", "type": "sdi", "direction": "input", "displaySide": "left", "x": 0, "y": 100, "anchors": [{ "id": "left", "side": "left", "x": 0, "y": 100, "primary": true }], "primaryAnchorId": "left" }
+        ]
+      }
+    ],
+    "devices": [
+      { "instanceId": "release-source-instance", "templateId": "release-source", "name": "Release Source", "x": 40, "y": 160 },
+      { "instanceId": "release-modular-instance", "templateId": "release-modular-chassis", "name": "Release Modular Chassis", "x": 440, "y": 60 },
+      { "instanceId": "release-sink-instance", "templateId": "release-sink", "name": "Release Sink", "x": 1120, "y": 180 }
+    ],
+    "connections": [
+      {
+        "id": "release-wire-input-card",
+        "cableType": "hdmi",
+        "from": { "deviceId": "release-source-instance", "connectorId": "source-hdmi" },
+        "to": { "deviceId": "release-modular-instance", "connectorId": "release-slot-input__input-a" }
+      },
+      {
+        "id": "release-wire-output-card",
+        "cableType": "sdi",
+        "from": { "deviceId": "release-modular-instance", "connectorId": "release-slot-output__output-a" },
+        "to": { "deviceId": "release-sink-instance", "connectorId": "sink-sdi" }
+      }
+    ],
+    "ledSurfaces": [],
+    "areas": [],
+    "racks": [],
+    "jumpNodes": [],
+    "jumpLinks": [],
+    "comments": [],
+    "titleBlocks": []
+  }
+}
