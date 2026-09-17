@@ -10,7 +10,10 @@ import {
 } from "../src/engine/enginePreview.js";
 import * as placementMotionModule from "../src/engine/deviceEditorPlacementMotion.js";
 import {
+  authoringInsertionBoundaryForLane,
+  authoringInsertionBoundaryWithHysteresis,
   connectorPlacementSideMask,
+  createModularAuthoringInsertionSession,
   createModularCompositeInsertionDragSession,
   createModularInsertionDragSession,
   createModularStructuralEditSession,
@@ -18,6 +21,7 @@ import {
   isValidModularInsertionResult,
   isValidModularStructuralEditResult,
   resolveModularCompositeInsertionDrag,
+  resolveModularAuthoringInsertion,
   resolveModularInsertionDrag,
   resolveModularStructuralEdit,
   targetLaneWithHysteresis,
@@ -315,7 +319,10 @@ function structuralEditorHarness(inputTemplate = {}) {
     releasePointerCapture(pointerId) { this.capturedPointers.delete(pointerId); }
   };
   const placementModule = {
+    authoringInsertionBoundaryForLane,
+    authoringInsertionBoundaryWithHysteresis,
     connectorPlacementSideMask,
+    createModularAuthoringInsertionSession,
     resolveModularPlacementItems,
     createModularStructuralEditSession: (...args) => {
       counters.structuralSessions += 1;
@@ -326,6 +333,7 @@ function structuralEditorHarness(inputTemplate = {}) {
       counters.edits.push(structuredClone(args[1]));
       return resolveModularStructuralEdit(...args);
     },
+    resolveModularAuthoringInsertion,
     isValidModularStructuralEditResult: (...args) => {
       counters.validationCalls += 1;
       return placementModule.forceInvalid === true ? false : isValidModularStructuralEditResult(...args);
@@ -376,6 +384,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     cageConnectorTypes: new Set(),
     editorDraft: [template],
     editorIndex: 0,
+    editorActiveTab: "connectors",
     editorFaceplateUploadRevision: 0,
     editorSlotIndex: null,
     editorCardIndex: 0,
@@ -829,6 +838,10 @@ function structuralEditorHarness(inputTemplate = {}) {
     "installCardInSlot",
     "addEditorCardSlot",
     "removeCardSlot",
+    "editorDataTransferHasType",
+    "editorCardDropTypeId",
+    "editorPreviewCanCreateCardSlotFromDrop",
+    "createCardSlotFromPreviewDrop",
     "captureTemplateConfiguration",
     "saveTemplateAsDefault",
     "resetTemplateToDefault"
@@ -878,6 +891,7 @@ function structuralEditorHarness(inputTemplate = {}) {
       installCardInSlot,
       addEditorCardSlot,
       removeCardSlot,
+      createCardSlotFromPreviewDrop,
       captureTemplateConfiguration,
       saveTemplateAsDefault,
       resetTemplateToDefault,
@@ -1044,8 +1058,12 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
     applyEditorFaceImageResize: () => false,
     updateEditorResizeSessionFromEvent: () => false,
     requireDeviceEditorPlacementModule: () => ({
+      authoringInsertionBoundaryForLane,
+      authoringInsertionBoundaryWithHysteresis,
+      createModularAuthoringInsertionSession,
       createModularInsertionDragSession,
       isValidModularInsertionResult,
+      resolveModularAuthoringInsertion,
       resolveModularInsertionDrag,
       targetLaneWithHysteresis,
       resolveModularPlacementItems
@@ -1102,6 +1120,9 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
     "editorStableDragSourceId",
     "editorStableDragLaneMap",
     "editorPlacementItemByStableId",
+    "editorProjectedLanePixels",
+    "createEditorCompactCardDragSession",
+    "resolveEditorCompactCardDragMove",
     "createEditorStablePlacementDragSession",
     "resolveEditorStablePlacementDragMove",
     "applyEditorStableResolvedLayout",
@@ -1145,8 +1166,21 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
     return { pointerId, clientY, startY: Number(slot.y), frame: api.getDrag().coordinateFrame };
   };
   const moveCardToLane = (started, lane, { rawLane = lane } = {}) => {
-    const targetLocalY = (Number(template.startY) || 100) + rawLane * 54 + api.getDrag().offsetY;
-    const clientY = started.frame.clientY + (targetLocalY - started.frame.localY) / started.frame.yBasisY;
+    const drag = api.getDrag();
+    const targetBoundaryIndex = authoringInsertionBoundaryForLane(drag.session, lane, {
+      previousBoundaryIndex: drag.currentBoundaryIndex
+    });
+    const stepPx = Math.max(12, drag.projectedLanePx);
+    const boundaryDelta = targetBoundaryIndex - drag.originalBoundaryIndex;
+    const boundaryLanes = drag.session.boundaries.map(boundary => boundary.targetLane);
+    const minLane = Math.min(...boundaryLanes);
+    const maxLane = Math.max(...boundaryLanes);
+    const overshoot = rawLane > maxLane
+      ? rawLane - maxLane
+      : rawLane < minLane
+        ? rawLane - minLane
+        : 0;
+    const clientY = started.frame.clientY + (boundaryDelta + overshoot) * stepPx;
     api.moveEditorNode(cardEvent("pointermove", started.pointerId, clientY));
     return api.getDrag();
   };
@@ -1221,6 +1255,19 @@ function testConnector(id, sideMask, lane, options = {}) {
 
 function itemLaneMap(layout) {
   return Object.fromEntries((layout?.items || []).map(item => [item.id, item.lane]));
+}
+
+function assertNoAuthoringOverlap(layout) {
+  const occupied = { left: new Map(), right: new Map() };
+  (layout?.items || []).forEach(item => {
+    const sides = item.sideMask === "both" ? ["left", "right"] : [item.sideMask === "right" ? "right" : "left"];
+    sides.forEach(side => {
+      for (let lane = item.lane; lane < item.lane + item.span; lane += 1) {
+        assert.equal(occupied[side].has(lane), false, `${item.id} overlaps ${side} lane ${lane}`);
+        occupied[side].set(lane, item.id);
+      }
+    });
+  });
 }
 
 function assertEditorPlacementInvariants(api, template, label = "editor layout", context = null) {
@@ -1784,7 +1831,9 @@ test("Device Editor direct structural operations use the shared atomic transacti
   assert.match(addNode, /hardTargets: \{ \[`connector:\$\{connector\.id\}`\]: targetLane \}/);
   assert.match(addNode, /applyEditorConnectorTypeToDraft\(draft, connector\.id, requestedType/);
   assert.doesNotMatch(addNode, /fillEditorSlot\(createdIndex, options\.type\)/);
-  assert.match(addCardSlot, /hardTargets: \{ \[`card:\$\{slot\.id\}`\]: targetLane \}/);
+  assert.match(addCardSlot, /createModularAuthoringInsertionSession\(context\.baselineLayout\.items/);
+  assert.match(addCardSlot, /resolveModularAuthoringInsertion\(insertionSession, boundaryIndex/);
+  assert.match(addCardSlot, /hardTargets: Object\.fromEntries\(resolvedInsertion\.items/);
   assert.match(removeNode, /removeIds: \[\.{3}idsToRemove\]\.map\(id => `connector:\$\{id\}`\)/);
   assert.match(removeCardSlot, /removeIds: \[`card:\$\{slotId\}`\]/);
   assert.match(fillSlot, /applyEditorConnectorTypeToDraft\(draft, connectorId, type/);
@@ -4607,7 +4656,7 @@ test("Device Editor card-slot drag seeds motion in the card handler, not face re
     "beginEditorPlacementMotion(editorCardSlotDrag, { pointerY: point.y });",
     "renderDeviceEditorPreview();"
   ], "card slot drag should seed motion immediately after creating the drag session and before first render");
-  assert.match(cardDrag, /kind:\s*"card"/);
+  assert.match(cardDrag, /createEditorCompactCardDragSession\(template/);
   assert.match(cardDrag, /pointerY:\s*point\.y/);
 });
 
@@ -4738,7 +4787,63 @@ test("Device Editor card drag handlers keep accepted lanes, visuals, and frozen 
   }
 });
 
-test("Device Editor card drag handlers support fresh slots, cancellation, and far-pointer lane snapping", () => {
+test("Device Editor real card handlers keep a 12-slot E2 layout compact at tiny Fit scales", () => {
+  const cardSlots = [
+    { id: "slot-a", sideMask: "both", span: 2, lane: 1 },
+    { id: "slot-b", sideMask: "left", span: 1, lane: 3 },
+    { id: "slot-c", sideMask: "right", span: 1, lane: 3 },
+    { id: "slot-d", sideMask: "both", span: 3, lane: 4 },
+    { id: "slot-e", sideMask: "left", span: 1, lane: 7 },
+    { id: "slot-f", sideMask: "right", span: 1, lane: 7 },
+    { id: "slot-g", sideMask: "both", span: 2, lane: 8 },
+    { id: "slot-h", sideMask: "left", span: 1, lane: 10 },
+    { id: "slot-i", sideMask: "right", span: 1, lane: 10 },
+    { id: "slot-j", sideMask: "both", span: 2, lane: 11 },
+    { id: "slot-k", sideMask: "left", span: 1, lane: 13 },
+    { id: "slot-l", sideMask: "right", span: 1, lane: 13 }
+  ].map(slot => ({
+    ...slot,
+    installedCardTypeId: `card-${slot.id}`,
+    y: 100 + slot.lane * 54,
+    overrides: { port: { nameText: slot.id.toUpperCase() } }
+  }));
+  const fixture = {
+    id: "e2-compact-authoring-fixture",
+    name: "E2 Compact Authoring Fixture",
+    height: 930,
+    connectors: [
+      { id: "fixed-left", direction: "input", sideMask: "left", x: 0, y: 100 },
+      { id: "fixed-right", direction: "output", sideMask: "right", x: 420, y: 100 }
+    ],
+    cardSlots
+  };
+
+  for (const previewScale of [0.035, 0.08]) {
+    const harness = cardDragInteractionHarness(fixture, { previewScale });
+    const before = harness.api.getLayout();
+    const beforeExtent = before.endLane;
+    const originalIds = harness.template.cardSlots.map(slot => slot.id);
+    const originalOverrides = structuredClone(harness.template.cardSlots.map(slot => slot.overrides));
+    const started = harness.startCardDrag(0, Math.round(previewScale * 10000));
+    const drag = harness.moveCardToLane(started, 999, { rawLane: 999 });
+
+    assert.equal(drag.currentBoundaryIndex, drag.session.boundaries.length - 1, `${previewScale}: far below clamps to append`);
+    assert.equal(drag.lastValidResolvedLayout.endLane, beforeExtent, `${previewScale}: reorder does not grow extent`);
+    assertNoAuthoringOverlap(drag.lastValidResolvedLayout);
+    for (let lane = 0; lane < drag.lastValidResolvedLayout.endLane; lane += 1) {
+      assert.ok(
+        drag.lastValidResolvedLayout.items.some(item => lane >= item.lane && lane < item.lane + item.span),
+        `${previewScale}: compact layout should not contain an empty global lane ${lane}`
+      );
+    }
+    harness.stopCardDrag(started);
+    assert.equal(harness.api.getLayout().endLane, beforeExtent, `${previewScale}: committed extent matches preview`);
+    assert.deepEqual(harness.template.cardSlots.map(slot => slot.id), originalIds, `${previewScale}: IDs remain stable`);
+    assert.deepEqual(harness.template.cardSlots.map(slot => slot.overrides), originalOverrides, `${previewScale}: overrides remain stable`);
+  }
+});
+
+test("Device Editor card drag handlers support cancellation and clamp far pointers to compact boundaries", () => {
   const fixture = {
     id: "new-three-slot-device",
     name: "New Three Slot Device",
@@ -4764,17 +4869,65 @@ test("Device Editor card drag handlers support fresh slots, cancellation, and fa
   assert.equal(counters.motionRollbacks, 1);
   assert.equal(counters.commits, 0);
 
-  const far = startCardDrag(2, 52);
+  const far = startCardDrag(0, 52);
   const farDrag = moveCardToLane(far, 8, { rawLane: 8.45 });
-  assert.equal(farDrag.currentTargetLane, 8);
-  assert.equal(farDrag.currentY, 532, "semantic artwork Y should be the accepted discrete lane");
+  assert.equal(farDrag.currentBoundaryIndex, farDrag.session.boundaries.length - 1);
+  assert.equal(farDrag.currentTargetLane, 2);
+  assert.equal(farDrag.currentY, 208, "far pointer movement should clamp to the last compact boundary");
   assert.ok(farDrag.rawPointerY > farDrag.currentY, "raw pointer-follow Y remains distinct from semantic Y");
   assert.equal(counters.motionRetargets.at(-1).draggedY, farDrag.currentY);
   assert.equal(template.height, baseline.height, "far pointer movement must not mutate persisted height before release");
   stopCardDrag(far);
-  assert.equal(template.cardSlots.find(slot => slot.id === "slot-3").y, 532);
+  assert.equal(template.cardSlots.find(slot => slot.id === "slot-1").y, 208);
+  assert.deepEqual(template.cardSlots.map(slot => slot.y).sort((a, b) => a - b), [100, 154, 208]);
   assert.equal(template.height, harness.context.deviceHeightForSlotCounts(template), "release height should derive from committed lanes");
   assert.equal(counters.commits, 1);
+});
+
+test("Device Editor preview card drops insert between and append through compact boundaries", () => {
+  const { api, template } = structuralEditorHarness({
+    height: 700,
+    cardTypes: [{
+      id: "io-card",
+      name: "I/O Card",
+      kind: "io",
+      connectors: [
+        { id: "in", direction: "input", type: "hdmi" },
+        { id: "out", direction: "output", type: "hdmi" }
+      ]
+    }],
+    cardSlots: [
+      { id: "slot-a", installedCardTypeId: "io-card", sideMask: "both", y: 100, connectorOverrides: {} },
+      { id: "slot-b", installedCardTypeId: "io-card", sideMask: "both", y: 262, connectorOverrides: {} },
+      { id: "slot-c", installedCardTypeId: "io-card", sideMask: "both", y: 424, connectorOverrides: {} }
+    ]
+  });
+  const dropEvent = y => ({
+    point: { x: 210, y },
+    target: { closest: () => null },
+    dataTransfer: {
+      types: ["application/x-av-card-type"],
+      getData: type => type === "application/x-av-card-type" ? "io-card" : ""
+    }
+  });
+  const beforeIds = template.cardSlots.map(slot => slot.id);
+  const beforeExtent = api.resolveEditorModularLayout(template).endLane;
+
+  assert.equal(api.createCardSlotFromPreviewDrop(dropEvent(262), "io-card"), true);
+  let layout = api.resolveEditorModularLayout(template);
+  const insertedBetween = template.cardSlots.find(slot => !beforeIds.includes(slot.id));
+  assert.ok(insertedBetween);
+  assert.equal(layout.byId.get(`card:${insertedBetween.id}`).lane, 3);
+  assert.equal(layout.endLane, beforeExtent + 3, "one inserted card grows by exactly its span");
+  assertNoAuthoringOverlap(layout);
+
+  const idsAfterBetween = template.cardSlots.map(slot => slot.id);
+  assert.equal(api.createCardSlotFromPreviewDrop(dropEvent(template.height), "io-card"), true);
+  layout = api.resolveEditorModularLayout(template);
+  const appended = template.cardSlots.find(slot => !idsAfterBetween.includes(slot.id));
+  assert.equal(layout.byId.get(`card:${appended.id}`).lane, layout.endLane - 3);
+  assert.equal(layout.endLane, beforeExtent + 6, "append grows by one additional card span only");
+  assertNoAuthoringOverlap(layout);
 });
 
 test("Device Editor repeated card drag cycles do not ratchet coordinates or height", () => {
@@ -4847,7 +5000,7 @@ test("Device Editor model height ignores placement motion and follows only accep
   assert.doesNotMatch(functionSource("deviceContentHeightForSlotCounts"), /editorPlacementMotion/);
   assert.doesNotMatch(functionSource("deviceHeightForSlotCounts"), /editorPlacementMotion/);
   assert.doesNotMatch(functionSource("readonlyDeviceEditorPreviewTemplate"), /editorPlacementMotionBottomY/);
-  assert.match(functionSource("startEditorCardSlotDrag"), /coordinateFrame: captureEditorDragCoordinateFrame/);
+  assert.match(functionSource("startEditorCardSlotDrag"), /const coordinateFrame = captureEditorDragCoordinateFrame/);
   assert.match(functionSource("moveEditorNode"), /getEditorDragPreviewPoint\(event, editorCardSlotDrag\)/);
 });
 

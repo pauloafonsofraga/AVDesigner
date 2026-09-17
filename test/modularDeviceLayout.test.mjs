@@ -5,7 +5,9 @@ import {
   MODULAR_LAYOUT_SLOT_HEIGHT,
   cardBandGeometryForSlot,
   cardSlotSpanLanes,
+  authoringInsertionBoundaryWithHysteresis,
   connectorPlacementSideMask,
+  createModularAuthoringInsertionSession,
   createModularCompositeInsertionDragSession,
   createModularInsertionDragSession,
   createModularPlacementSnapshot,
@@ -14,6 +16,7 @@ import {
   isValidModularInsertionResult,
   isValidModularStructuralEditResult,
   resolveInstalledCardConnectors,
+  resolveModularAuthoringInsertion,
   resolveModularCompositeInsertionDrag,
   resolveModularDeviceLayout,
   resolveModularInsertionDrag,
@@ -26,6 +29,139 @@ import { normalizeAvDesignerDevice } from "../src/engine/projectAdapter.js";
 const SLOT = MODULAR_LAYOUT_SLOT_HEIGHT;
 const START_Y = 180;
 const DEVICE_WIDTH = 420;
+
+function authoringLaneMap(layout) {
+  return Object.fromEntries(layout.items.map(item => [item.id, item.lane]));
+}
+
+function assertNoAuthoringOverlap(layout) {
+  for (const side of ["left", "right"]) {
+    const occupied = new Map();
+    layout.items
+      .filter(item => item.sideMask === side || item.sideMask === "both")
+      .forEach(item => {
+        for (let lane = item.lane; lane < item.lane + item.span; lane += 1) {
+          assert.equal(occupied.has(lane), false, `${side} lane ${lane} overlaps`);
+          occupied.set(lane, item.id);
+        }
+      });
+  }
+}
+
+test("compact authoring reorder exposes finite boundaries and preserves five-item extent", () => {
+  const items = ["A", "B", "C", "D", "E"].map((id, lane) => ({
+    id,
+    itemType: "chassis-connector",
+    sideMask: "left",
+    requestedLane: lane,
+    lane,
+    span: 1,
+    order: lane
+  }));
+
+  const upwardSession = createModularAuthoringInsertionSession(items, { draggedItemId: "E" });
+  assert.equal(upwardSession.boundaries.length, 5);
+  const upward = resolveModularAuthoringInsertion(upwardSession, 1);
+  assert.deepEqual(authoringLaneMap(upward), { A: 0, B: 2, C: 3, D: 4, E: 1 });
+  assert.equal(upward.endLane, 5);
+  assert.deepEqual(upward.authoringInsertion.displacedStationaryIds, ["B", "C", "D"]);
+
+  const downwardSession = createModularAuthoringInsertionSession(items, { draggedItemId: "A" });
+  const downward = resolveModularAuthoringInsertion(downwardSession, 3);
+  assert.deepEqual(authoringLaneMap(downward), { A: 3, B: 0, C: 1, D: 2, E: 4 });
+  assert.equal(downward.endLane, 5);
+  assertNoAuthoringOverlap(downward);
+});
+
+test("compact authoring reorder keeps cards atomic and side-independent rows shared", () => {
+  const session = createModularAuthoringInsertionSession([
+    { id: "left-fixed", sideMask: "left", lane: 0, requestedLane: 0, span: 1, order: 0 },
+    { id: "right-fixed", sideMask: "right", lane: 0, requestedLane: 0, span: 1, order: 1 },
+    { id: "card-a", itemType: "card-slot", sideMask: "both", lane: 1, requestedLane: 1, span: 2, order: 2 },
+    { id: "left-card", itemType: "card-slot", sideMask: "left", lane: 3, requestedLane: 3, span: 1, order: 3 },
+    { id: "right-card", itemType: "card-slot", sideMask: "right", lane: 3, requestedLane: 3, span: 1, order: 4 },
+    { id: "card-b", itemType: "card-slot", sideMask: "both", lane: 4, requestedLane: 4, span: 2, order: 5 }
+  ], { draggedItemId: "card-a" });
+
+  const appended = resolveModularAuthoringInsertion(session, session.boundaries.length - 1);
+  assert.deepEqual(authoringLaneMap(appended), {
+    "left-fixed": 0,
+    "right-fixed": 0,
+    "card-a": 4,
+    "left-card": 1,
+    "right-card": 1,
+    "card-b": 2
+  });
+  assert.equal(appended.endLane, 6);
+  assert.equal(appended.byId.get("card-a").span, 2);
+  assertNoAuthoringOverlap(appended);
+});
+
+test("compact authoring insertion grows only by the inserted span and reports metadata", () => {
+  const session = createModularAuthoringInsertionSession([
+    { id: "card-a", itemType: "card-slot", sideMask: "both", lane: 0, requestedLane: 0, span: 2, order: 0 },
+    { id: "left", sideMask: "left", lane: 2, requestedLane: 2, span: 1, order: 1 },
+    { id: "right", sideMask: "right", lane: 2, requestedLane: 2, span: 1, order: 2 },
+    { id: "card-b", itemType: "card-slot", sideMask: "both", lane: 3, requestedLane: 3, span: 2, order: 3 }
+  ], {
+    insertionItem: {
+      id: "card:new",
+      itemType: "card-slot",
+      sideMask: "both",
+      span: 2,
+      order: 4
+    }
+  });
+
+  const between = resolveModularAuthoringInsertion(session, 1);
+  assert.deepEqual(authoringLaneMap(between), {
+    "card-a": 0,
+    "left": 4,
+    "right": 4,
+    "card-b": 5,
+    "card:new": 2
+  });
+  assert.equal(between.endLane, session.beforeEndLane + 2);
+  assert.equal(between.authoringInsertion.boundaryIndex, 1);
+  assert.equal(between.authoringInsertion.inserted, true);
+  assert.deepEqual(between.authoringInsertion.displacedStationaryIds, ["card-b", "left", "right"]);
+  assertNoAuthoringOverlap(between);
+});
+
+test("screen-space authoring boundaries clamp, debounce tiny Fit motion, and reverse deterministically", () => {
+  const session = createModularAuthoringInsertionSession([
+    { id: "A", sideMask: "both", lane: 0, requestedLane: 0, span: 1, order: 0 },
+    { id: "B", sideMask: "both", lane: 1, requestedLane: 1, span: 1, order: 1 },
+    { id: "C", sideMask: "both", lane: 2, requestedLane: 2, span: 1, order: 2 }
+  ], { draggedItemId: "B" });
+  const base = session.originalBoundaryIndex;
+  assert.equal(authoringInsertionBoundaryWithHysteresis(105, {
+    session,
+    pointerStartClientY: 100,
+    pointerClientY: 105,
+    previousBoundaryIndex: base,
+    projectedLanePx: 2.1
+  }), base, "sub-threshold movement should not change boundary at tiny Fit scale");
+  assert.equal(authoringInsertionBoundaryWithHysteresis(1100, {
+    session,
+    pointerStartClientY: 100,
+    pointerClientY: 1100,
+    previousBoundaryIndex: base,
+    projectedLanePx: 2.1
+  }), session.boundaries.length - 1);
+  assert.equal(authoringInsertionBoundaryWithHysteresis(-900, {
+    session,
+    pointerStartClientY: 100,
+    pointerClientY: -900,
+    previousBoundaryIndex: base,
+    projectedLanePx: 2.1
+  }), 0);
+
+  const down = resolveModularAuthoringInsertion(session, session.boundaries.length - 1);
+  const backSession = createModularAuthoringInsertionSession(down.items, { draggedItemId: "B" });
+  const back = resolveModularAuthoringInsertion(backSession, 1);
+  assert.deepEqual(authoringLaneMap(back), { A: 0, B: 1, C: 2 });
+});
 
 function cardFixture() {
   return {

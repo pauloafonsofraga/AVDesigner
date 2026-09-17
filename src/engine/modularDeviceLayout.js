@@ -651,6 +651,269 @@ export function createModularInsertionDragSession(itemsOrLayout = [], draggedIte
   });
 }
 
+function compactAuthoringLayoutForSequence(sequence = [], options = {}) {
+  const startY = finiteNumber(options.startY, 0);
+  const slotHeight = positiveNumber(options.slotHeight, MODULAR_LAYOUT_SLOT_HEIGHT);
+  const sideEndLane = {
+    [MODULAR_LAYOUT_SIDE_MASKS.left]: 0,
+    [MODULAR_LAYOUT_SIDE_MASKS.right]: 0
+  };
+  const resolved = sequence.map((source, index) => {
+    const item = normalizePlacementItem(source, source.sourceIndex ?? index, { startY, slotHeight });
+    const lane = sideMaskSides(item.sideMask).reduce(
+      (maximum, side) => Math.max(maximum, sideEndLane[side]),
+      0
+    );
+    sideMaskSides(item.sideMask).forEach(side => {
+      sideEndLane[side] = lane + item.span;
+    });
+    return {
+      ...item,
+      requestedLane: lane,
+      requestedY: layoutYForLane(lane, startY, slotHeight),
+      lane,
+      y: layoutYForLane(lane, startY, slotHeight)
+    };
+  });
+  return placementResultFromItems(resolved, { startY, slotHeight });
+}
+
+function authoringLaneSignature(layout = {}) {
+  return (layout.items || [])
+    .map(item => `${item.id}:${item.lane}:${item.span}:${item.sideMask}`)
+    .sort()
+    .join("|");
+}
+
+function frozenAuthoringBoundary(boundary = {}, index = 0) {
+  return Object.freeze({
+    index,
+    insertionIndex: Math.max(0, Math.round(finiteNumber(boundary.insertionIndex, index))),
+    targetLane: Math.max(0, Math.round(finiteNumber(boundary.targetLane, 0))),
+    endLane: Math.max(0, Math.round(finiteNumber(boundary.endLane, 0)))
+  });
+}
+
+function authoringCandidateForInsertion(sequence, movingItem, insertionIndex, options = {}) {
+  const nextSequence = [...sequence];
+  nextSequence.splice(insertionIndex, 0, movingItem);
+  return compactAuthoringLayoutForSequence(nextSequence, options);
+}
+
+function authoringCandidates(stationarySequence, movingItem, options = {}) {
+  const originalInsertionIndex = options.originalInsertionIndex !== null
+    && options.originalInsertionIndex !== undefined
+    && Number.isFinite(Number(options.originalInsertionIndex))
+    ? Math.max(0, Math.round(Number(options.originalInsertionIndex)))
+    : null;
+  const maximumEndLane = options.maximumEndLane !== null
+    && options.maximumEndLane !== undefined
+    && Number.isFinite(Number(options.maximumEndLane))
+    ? Math.max(0, Math.round(Number(options.maximumEndLane)))
+    : null;
+  const bySignature = new Map();
+  for (let insertionIndex = 0; insertionIndex <= stationarySequence.length; insertionIndex += 1) {
+    const layout = authoringCandidateForInsertion(stationarySequence, movingItem, insertionIndex, options);
+    if (maximumEndLane !== null && layout.endLane > maximumEndLane) continue;
+    const signature = authoringLaneSignature(layout);
+    const candidate = {
+      insertionIndex,
+      targetLane: layout.byId.get(movingItem.id)?.lane ?? 0,
+      endLane: layout.endLane,
+      signature
+    };
+    const previous = bySignature.get(signature);
+    if (!previous || (originalInsertionIndex !== null
+      && Math.abs(insertionIndex - originalInsertionIndex) < Math.abs(previous.insertionIndex - originalInsertionIndex))) {
+      bySignature.set(signature, candidate);
+    }
+  }
+  return [...bySignature.values()].sort((a, b) => {
+    const insertionDelta = a.insertionIndex - b.insertionIndex;
+    if (insertionDelta) return insertionDelta;
+    const laneDelta = a.targetLane - b.targetLane;
+    if (laneDelta) return laneDelta;
+    return a.signature.localeCompare(b.signature);
+  });
+}
+
+function normalizeAuthoringInsertionItem(item = {}, index = 0, options = {}) {
+  const normalized = normalizePlacementItem({
+    ...item,
+    requestedLane: Number.isFinite(Number(item.requestedLane)) ? item.requestedLane : 0,
+    lane: Number.isFinite(Number(item.lane)) ? item.lane : 0,
+    order: Number.isFinite(Number(item.order)) ? item.order : index,
+    sourceIndex: Number.isFinite(Number(item.sourceIndex)) ? item.sourceIndex : index
+  }, index, options);
+  if (!normalized.id) throw new Error("Compact modular authoring insertion requires a stable item ID.");
+  return normalized;
+}
+
+export function createModularAuthoringInsertionSession(itemsOrLayout = [], options = {}) {
+  const source = createModularPlacementSnapshot(itemsOrLayout, options);
+  assertValidSourceBaseline(source, "compact modular authoring baseline");
+  const startY = source.startY;
+  const slotHeight = source.slotHeight;
+  const sourceSequence = [...source.orderedItems].sort(originalPlacementComparator);
+  const draggedItemId = stableString(options.draggedItemId);
+  const sourceDragged = draggedItemId ? source.byId[draggedItemId] || null : null;
+  if (draggedItemId && !sourceDragged) {
+    throw new Error(`Compact modular authoring item ${draggedItemId} does not exist.`);
+  }
+  if (sourceDragged && options.insertionItem) {
+    throw new Error("Compact modular authoring sessions accept either a dragged item or a new insertion item, not both.");
+  }
+  if (!sourceDragged && !options.insertionItem) {
+    throw new Error("Compact modular authoring sessions require a dragged item or a new insertion item.");
+  }
+
+  const canonicalBaseline = compactAuthoringLayoutForSequence(sourceSequence, { startY, slotHeight });
+  const canonicalSnapshot = frozenPlacementSnapshot(canonicalBaseline);
+  const movingItem = sourceDragged
+    ? canonicalSnapshot.byId[draggedItemId]
+    : frozenSnapshotItem(normalizeAuthoringInsertionItem(
+        options.insertionItem,
+        canonicalSnapshot.items.length,
+        { startY, slotHeight }
+      ));
+  if (!sourceDragged && canonicalSnapshot.byId[movingItem.id]) {
+    throw new Error(`Compact modular authoring insertion ID ${movingItem.id} already exists.`);
+  }
+  const canonicalSequence = [...canonicalSnapshot.orderedItems];
+  const originalInsertionIndex = sourceDragged
+    ? canonicalSequence.findIndex(item => item.id === movingItem.id)
+    : null;
+  const stationarySequence = canonicalSequence.filter(item => item.id !== movingItem.id);
+  let candidates = authoringCandidates(stationarySequence, movingItem, {
+    startY,
+    slotHeight,
+    originalInsertionIndex,
+    maximumEndLane: sourceDragged ? canonicalSnapshot.endLane : null
+  });
+  if (!candidates.length && sourceDragged) {
+    candidates = authoringCandidates(stationarySequence, movingItem, {
+      startY,
+      slotHeight,
+      originalInsertionIndex
+    });
+  }
+  if (!candidates.length) throw new Error(`Unable to construct compact authoring boundaries for ${movingItem.id}.`);
+  const boundaries = Object.freeze(candidates.map((candidate, index) => frozenAuthoringBoundary(candidate, index)));
+  let originalBoundaryIndex = sourceDragged
+    ? boundaries.findIndex(boundary => boundary.insertionIndex === originalInsertionIndex)
+    : 0;
+  if (sourceDragged && originalBoundaryIndex < 0) {
+    const baselineSignature = authoringLaneSignature(canonicalBaseline);
+    originalBoundaryIndex = candidates.findIndex(candidate => candidate.signature === baselineSignature);
+  }
+  if (originalBoundaryIndex < 0) originalBoundaryIndex = 0;
+  return Object.freeze({
+    snapshot: canonicalSnapshot,
+    movingItem: frozenSnapshotItem(movingItem),
+    draggedItemId: sourceDragged ? movingItem.id : "",
+    insertionItemId: sourceDragged ? "" : movingItem.id,
+    isNewItem: !sourceDragged,
+    stationaryItemIds: Object.freeze(stationarySequence.map(item => item.id)),
+    stationarySequence: Object.freeze(stationarySequence.map(item => frozenSnapshotItem(item))),
+    boundaries,
+    originalBoundaryIndex,
+    originalInsertionIndex: originalInsertionIndex ?? -1,
+    beforeEndLane: canonicalSnapshot.endLane,
+    startY,
+    slotHeight
+  });
+}
+
+function resolvedAuthoringBoundaryIndex(session, boundaryIndex) {
+  const maximum = Math.max(0, (session?.boundaries?.length || 1) - 1);
+  return Math.min(maximum, Math.max(0, Math.round(finiteNumber(boundaryIndex, session?.originalBoundaryIndex || 0))));
+}
+
+export function authoringInsertionBoundaryForLane(session, targetLane, options = {}) {
+  if (!session?.boundaries?.length) return 0;
+  const requestedLane = Math.max(0, Math.round(finiteNumber(targetLane, 0)));
+  const previousBoundaryIndex = Number.isFinite(Number(options.previousBoundaryIndex))
+    ? resolvedAuthoringBoundaryIndex(session, options.previousBoundaryIndex)
+    : null;
+  return session.boundaries.reduce((bestIndex, boundary, index) => {
+    const best = session.boundaries[bestIndex];
+    const distance = Math.abs(boundary.targetLane - requestedLane);
+    const bestDistance = Math.abs(best.targetLane - requestedLane);
+    if (distance !== bestDistance) return distance < bestDistance ? index : bestIndex;
+    if (previousBoundaryIndex !== null) {
+      const previousDistance = Math.abs(index - previousBoundaryIndex);
+      const bestPreviousDistance = Math.abs(bestIndex - previousBoundaryIndex);
+      if (previousDistance !== bestPreviousDistance) return previousDistance < bestPreviousDistance ? index : bestIndex;
+    }
+    return boundary.insertionIndex < best.insertionIndex ? index : bestIndex;
+  }, 0);
+}
+
+export function resolveModularAuthoringInsertion(session, boundaryIndex, options = {}) {
+  if (!session?.snapshot?.items || !session?.movingItem || !session?.boundaries?.length) {
+    throw new Error("A compact modular authoring insertion session is required.");
+  }
+  const resolvedBoundaryIndex = resolvedAuthoringBoundaryIndex(session, boundaryIndex);
+  const boundary = session.boundaries[resolvedBoundaryIndex];
+  const startY = finiteNumber(options.startY, session.startY);
+  const slotHeight = positiveNumber(options.slotHeight, session.slotHeight);
+  const layout = authoringCandidateForInsertion(
+    session.stationarySequence,
+    session.movingItem,
+    boundary.insertionIndex,
+    { startY, slotHeight }
+  );
+  const moving = layout.byId.get(session.movingItem.id);
+  if (!moving || moving.lane !== boundary.targetLane || !candidateHasNoOverlap(layout.items, laneMapFromItems(layout.items))) {
+    throw new Error(`Compact modular authoring boundary ${resolvedBoundaryIndex} produced an invalid layout.`);
+  }
+  const displacedStationaryIds = layout.items
+    .filter(item => item.id !== session.movingItem.id)
+    .filter(item => session.snapshot.byId[item.id]?.lane !== item.lane)
+    .map(item => item.id)
+    .sort();
+  const movedItemIds = [
+    ...(session.isNewItem || session.snapshot.byId[session.movingItem.id]?.lane !== moving.lane ? [session.movingItem.id] : []),
+    ...displacedStationaryIds
+  ].sort();
+  layout.authoringInsertion = Object.freeze({
+    boundaryIndex: resolvedBoundaryIndex,
+    boundaryCount: session.boundaries.length,
+    insertionIndex: boundary.insertionIndex,
+    originalBoundaryIndex: session.originalBoundaryIndex,
+    targetLane: moving.lane,
+    inserted: session.isNewItem,
+    movedItemIds: Object.freeze(movedItemIds),
+    displacedStationaryIds: Object.freeze(displacedStationaryIds),
+    beforeEndLane: session.beforeEndLane,
+    afterEndLane: layout.endLane,
+    finalExtent: layout.endLane
+  });
+  return layout;
+}
+
+export function authoringInsertionBoundaryWithHysteresis(pointerClientY, options = {}) {
+  const session = options.session;
+  const boundaryCount = session?.boundaries?.length || 0;
+  if (!boundaryCount) return 0;
+  const originalBoundaryIndex = resolvedAuthoringBoundaryIndex(session, session.originalBoundaryIndex);
+  const previousBoundaryIndex = resolvedAuthoringBoundaryIndex(
+    session,
+    Number.isFinite(Number(options.previousBoundaryIndex)) ? options.previousBoundaryIndex : originalBoundaryIndex
+  );
+  const pointerStartClientY = finiteNumber(options.pointerStartClientY, finiteNumber(pointerClientY, 0));
+  const deltaY = finiteNumber(pointerClientY, pointerStartClientY) - pointerStartClientY;
+  const minimumStepPx = Math.max(10, positiveNumber(options.minimumStepPx, 12));
+  const projectedLanePx = positiveNumber(options.projectedLanePx, 0);
+  const stepPx = Math.max(minimumStepPx, projectedLanePx);
+  const hysteresisPx = Math.max(0, finiteNumber(options.hysteresisPx, 2));
+  const rawBoundary = originalBoundaryIndex + deltaY / stepPx;
+  const lower = previousBoundaryIndex - 0.5 - hysteresisPx / stepPx;
+  const upper = previousBoundaryIndex + 0.5 + hysteresisPx / stepPx;
+  if (rawBoundary > lower && rawBoundary < upper) return previousBoundaryIndex;
+  return Math.min(boundaryCount - 1, Math.max(0, Math.round(rawBoundary)));
+}
+
 function assertValidSourceBaseline(snapshot, label = "modular placement baseline") {
   const items = Array.isArray(snapshot?.items) ? snapshot.items : [];
   const laneById = laneMapFromItems(items);

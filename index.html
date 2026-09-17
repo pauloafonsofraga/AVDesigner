@@ -4993,7 +4993,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.14.1 — Device Editor Card Drag Parity — iteration54-14-1-device-editor-card-drag-parity</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.15.0 — Compact Modular Authoring Insertion — iteration54-15-0-compact-modular-authoring-insertion</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5686,10 +5686,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.14.1";
-    const APP_BUILD_ID = "iteration54-14-1-device-editor-card-drag-parity";
-    const APP_MODULE_CACHE_ID = "iteration54-14-1-device-editor-card-drag-parity-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Device Editor Card Drag Parity`;
+    const APP_ITERATION = "54.15.0";
+    const APP_BUILD_ID = "iteration54-15-0-compact-modular-authoring-insertion";
+    const APP_MODULE_CACHE_ID = "iteration54-15-0-compact-modular-authoring-insertion-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Compact Modular Authoring Insertion`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "6dc62f5ef0b40e65629ccfb8a5d9e2071fa8273f";
@@ -79758,6 +79758,99 @@
       };
     }
 
+    function editorProjectedLanePixels(coordinateFrame, slotHeight = SLOT_HEIGHT) {
+      const localPerClientPixel = Math.hypot(
+        Number(coordinateFrame?.yBasisX) || 0,
+        Number(coordinateFrame?.yBasisY) || 0
+      );
+      return localPerClientPixel > 0 ? slotHeight / localPerClientPixel : slotHeight;
+    }
+
+    function createEditorCompactCardDragSession(template, options = {}) {
+      const id = String(options.id || "");
+      if (!template || !id) return null;
+      const placementModule = requireDeviceEditorPlacementModule();
+      const startY = connectorStartYForTemplate(template);
+      const layout = resolveEditorModularLayout(template, { useDragPreview: false });
+      const itemId = editorStableDragItemId("card", id);
+      const session = placementModule.createModularAuthoringInsertionSession(layout.items, {
+        draggedItemId: itemId,
+        startY,
+        slotHeight: SLOT_HEIGHT
+      });
+      const boundaryIndex = session.originalBoundaryIndex;
+      const resolvedLayout = placementModule.resolveModularAuthoringInsertion(session, boundaryIndex, {
+        startY,
+        slotHeight: SLOT_HEIGHT
+      });
+      const item = editorPlacementItemByStableId(resolvedLayout, itemId);
+      if (!item) throw new Error(`Device Editor compact card session could not resolve ${itemId}.`);
+      const pointerY = Number(options.pointerY);
+      const resolvedPointerY = Number.isFinite(pointerY) ? pointerY : item.y;
+      const pointerClientY = Number(options.pointerClientY);
+      return {
+        pointerId: options.pointerId,
+        kind: "card",
+        itemId,
+        sourceId: id,
+        session,
+        compactAuthoringDrag: true,
+        originalBoundaryIndex: boundaryIndex,
+        currentBoundaryIndex: boundaryIndex,
+        previousBoundaryIndex: boundaryIndex,
+        originalLane: item.lane,
+        previousTargetLane: item.lane,
+        currentTargetLane: item.lane,
+        offsetY: resolvedPointerY - item.y,
+        pointerStartY: resolvedPointerY,
+        pointerStartClientY: Number.isFinite(pointerClientY) ? pointerClientY : 0,
+        candidateY: item.y,
+        currentY: item.y,
+        startY,
+        slotHeight: SLOT_HEIGHT,
+        coordinateFrame: options.coordinateFrame || null,
+        projectedLanePx: editorProjectedLanePixels(options.coordinateFrame, SLOT_HEIGHT),
+        lastValidResolvedLayout: resolvedLayout,
+        baselineResolvedLayout: structuredClone(resolvedLayout),
+        baselineLaneMap: editorStableDragLaneMap(resolvedLayout),
+        movementThresholdCrossed: false,
+        moved: false,
+        specialTarget: null,
+        pointerDownTemplateSnapshot: JSON.stringify(captureTemplateConfiguration(template))
+      };
+    }
+
+    function resolveEditorCompactCardDragMove(drag, pointerClientY, options = {}) {
+      if (!drag?.compactAuthoringDrag || !drag?.session?.boundaries?.length) return drag;
+      const placementModule = requireDeviceEditorPlacementModule();
+      const nextBoundaryIndex = placementModule.authoringInsertionBoundaryWithHysteresis(pointerClientY, {
+        session: drag.session,
+        pointerStartClientY: drag.pointerStartClientY,
+        previousBoundaryIndex: drag.currentBoundaryIndex,
+        projectedLanePx: drag.projectedLanePx,
+        minimumStepPx: 12,
+        hysteresisPx: 2
+      });
+      if (nextBoundaryIndex === drag.currentBoundaryIndex && !options.force) return drag;
+      const resolvedLayout = placementModule.resolveModularAuthoringInsertion(drag.session, nextBoundaryIndex, {
+        startY: drag.startY,
+        slotHeight: drag.slotHeight || SLOT_HEIGHT
+      });
+      const currentItem = editorPlacementItemByStableId(resolvedLayout, drag.itemId);
+      if (!currentItem) return drag;
+      drag.previousBoundaryIndex = drag.currentBoundaryIndex;
+      drag.currentBoundaryIndex = nextBoundaryIndex;
+      drag.previousTargetLane = drag.currentTargetLane;
+      drag.currentTargetLane = currentItem.lane;
+      drag.candidateY = currentItem.y;
+      drag.currentY = currentItem.y;
+      drag.lastValidResolvedLayout = resolvedLayout;
+      drag.movementThresholdCrossed = drag.movementThresholdCrossed
+        || nextBoundaryIndex !== drag.originalBoundaryIndex;
+      drag.moved = drag.movementThresholdCrossed;
+      return drag;
+    }
+
     function createEditorCompositeConnectorDragSession(template, options = {}) {
       if (!template) return null;
       const placementModule = requireDeviceEditorPlacementModule();
@@ -89880,9 +89973,34 @@
           ensureCardSlotConnectorOverrides(draft, slot);
           draft.cardSlots.push(slot);
           createdSlotId = slot.id;
+          const placementModule = requireDeviceEditorPlacementModule();
+          const insertionSession = placementModule.createModularAuthoringInsertionSession(context.baselineLayout.items, {
+            insertionItem: {
+              id: `card:${slot.id}`,
+              itemType: "card-slot",
+              sideMask,
+              span,
+              order: context.baselineLayout.items.length
+            },
+            startY: context.startY,
+            slotHeight: context.slotHeight
+          });
+          const requestedBoundaryIndex = Number(settings.boundaryIndex);
+          const boundaryIndex = Number.isFinite(requestedBoundaryIndex)
+            ? clamp(Math.round(requestedBoundaryIndex), 0, insertionSession.boundaries.length - 1)
+            : Number.isFinite(requestedY)
+              ? placementModule.authoringInsertionBoundaryForLane(insertionSession, targetLane)
+              : insertionSession.boundaries.length - 1;
+          const resolvedInsertion = placementModule.resolveModularAuthoringInsertion(insertionSession, boundaryIndex, {
+            startY: context.startY,
+            slotHeight: context.slotHeight
+          });
+          slot.y = resolvedInsertion.byId.get(`card:${slot.id}`)?.y ?? slot.y;
           return {
-            hardTargets: { [`card:${slot.id}`]: targetLane },
-            upsertIds: [`card:${slot.id}`]
+            hardTargets: Object.fromEntries(resolvedInsertion.items.map(item => [item.id, item.lane])),
+            upsertIds: resolvedInsertion.items.map(item => item.id),
+            compactVacatedSpace: false,
+            authoringInsertion: resolvedInsertion.authoringInsertion
           };
         },
         afterCommit(committedTemplate) {
@@ -90708,6 +90826,10 @@
               || !module?.connectorPlacementSideMask
               || !module?.createModularInsertionDragSession
               || !module?.resolveModularInsertionDrag
+              || !module?.createModularAuthoringInsertionSession
+              || !module?.resolveModularAuthoringInsertion
+              || !module?.authoringInsertionBoundaryForLane
+              || !module?.authoringInsertionBoundaryWithHysteresis
               || !module?.createModularCompositeInsertionDragSession
               || !module?.resolveModularCompositeInsertionDrag
               || !module?.targetLaneWithHysteresis
@@ -90735,6 +90857,10 @@
       if (deviceEditorPlacementModule?.resolveModularPlacementItems
         && deviceEditorPlacementModule?.createModularInsertionDragSession
         && deviceEditorPlacementModule?.resolveModularInsertionDrag
+        && deviceEditorPlacementModule?.createModularAuthoringInsertionSession
+        && deviceEditorPlacementModule?.resolveModularAuthoringInsertion
+        && deviceEditorPlacementModule?.authoringInsertionBoundaryForLane
+        && deviceEditorPlacementModule?.authoringInsertionBoundaryWithHysteresis
         && deviceEditorPlacementModule?.createModularCompositeInsertionDragSession
         && deviceEditorPlacementModule?.resolveModularCompositeInsertionDrag
         && deviceEditorPlacementModule?.targetLaneWithHysteresis
@@ -90751,6 +90877,10 @@
       return Boolean(module?.resolveModularPlacementItems
         && module?.createModularInsertionDragSession
         && module?.resolveModularInsertionDrag
+        && module?.createModularAuthoringInsertionSession
+        && module?.resolveModularAuthoringInsertion
+        && module?.authoringInsertionBoundaryForLane
+        && module?.authoringInsertionBoundaryWithHysteresis
         && module?.createModularCompositeInsertionDragSession
         && module?.resolveModularCompositeInsertionDrag
         && module?.targetLaneWithHysteresis
@@ -90804,6 +90934,10 @@
       return Boolean(placement?.resolveModularPlacementItems
         && placement?.createModularInsertionDragSession
         && placement?.resolveModularInsertionDrag
+        && placement?.createModularAuthoringInsertionSession
+        && placement?.resolveModularAuthoringInsertion
+        && placement?.authoringInsertionBoundaryForLane
+        && placement?.authoringInsertionBoundaryWithHysteresis
         && placement?.createModularCompositeInsertionDragSession
         && placement?.resolveModularCompositeInsertionDrag
         && placement?.targetLaneWithHysteresis
@@ -94833,14 +94967,16 @@
       event.preventDefault();
       event.stopPropagation();
       const point = getEditorPreviewPoint(event);
+      const coordinateFrame = captureEditorDragCoordinateFrame(event, point);
       editorSlotIndex = clamp(index, 0, Math.max(0, template.cardSlots.length - 1));
       let stableDrag = null;
       try {
-        stableDrag = createEditorStablePlacementDragSession(template, {
-          kind: "card",
+        stableDrag = createEditorCompactCardDragSession(template, {
           id: slot.id,
           pointerId: event.pointerId,
-          pointerY: point.y
+          pointerY: point.y,
+          pointerClientY: event.clientY,
+          coordinateFrame
         });
       } catch (error) {
         console.warn("Unable to start stable card-slot drag session.", error);
@@ -94852,7 +94988,7 @@
         startY: point.y,
         currentY: stableDrag.currentY,
         rawPointerY: stableDrag.currentY,
-        coordinateFrame: captureEditorDragCoordinateFrame(event, point),
+        coordinateFrame,
         moved: false,
         ...stableDrag
       };
@@ -95094,7 +95230,7 @@
       }
       if (editorCardSlotDrag && event.pointerId === editorCardSlotDrag.pointerId) {
         const point = getEditorDragPreviewPoint(event, editorCardSlotDrag);
-        resolveEditorStablePlacementDragMove(editorCardSlotDrag, point.y);
+        resolveEditorCompactCardDragMove(editorCardSlotDrag, event.clientY);
         editorCardSlotDrag.rawPointerY = point.y - editorCardSlotDrag.offsetY;
         const acceptedItem = editorPlacementItemByStableId(editorCardSlotDrag.lastValidResolvedLayout, editorCardSlotDrag.itemId);
         editorCardSlotDrag.currentY = Number.isFinite(Number(acceptedItem?.y)) ? Number(acceptedItem.y) : editorCardSlotDrag.currentY;
