@@ -4993,7 +4993,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.12.0 — Atomic Faceplate Origin Mutations — iteration54-12-0-atomic-faceplate-origin-mutations</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.13.0 — Transactional Editor Resize Sessions — iteration54-13-0-transactional-editor-resize-sessions</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5686,10 +5686,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.12.0";
-    const APP_BUILD_ID = "iteration54-12-0-atomic-faceplate-origin-mutations";
-    const APP_MODULE_CACHE_ID = "iteration54-12-0-atomic-faceplate-origin-mutations-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Atomic Faceplate Origin Mutations`;
+    const APP_ITERATION = "54.13.0";
+    const APP_BUILD_ID = "iteration54-13-0-transactional-editor-resize-sessions";
+    const APP_MODULE_CACHE_ID = "iteration54-13-0-transactional-editor-resize-sessions-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Transactional Editor Resize Sessions`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "6dc62f5ef0b40e65629ccfb8a5d9e2071fa8273f";
@@ -78406,7 +78406,9 @@
     const EDITOR_PREVIEW_PAN_SPEED = 3;
     let editorPreviewPanState = null;
     let editorFaceplatePreviewResize = null;
-    let editorFaceImageResize = null;
+    let editorResizeSession = null;
+    let editorResizePreviewTemplate = null;
+    let editorResizePointerReleaseInProgress = false;
     let editorNodeDrag = null;
     let editorNodeMarquee = null;
     let editorCardSlotDrag = null;
@@ -78415,7 +78417,6 @@
     let editorPowerPlugSnap = null;
     let editorConnectorSnapGuide = null;
     let editorPowerPlugMarquee = null;
-    let editorResizeDrag = null;
     let editorSelectedFaceplate = false;
     let editorSelectedPowerPlugIds = new Set();
     let editorInteractionSvg = null;
@@ -80209,6 +80210,7 @@
     }
 
     function cancelEditorInteraction(event = null) {
+      if (cancelEditorResizeSession(event)) return;
       if (cancelEditorStableDrags(event)) return;
       stopEditorNodeDrag(event);
     }
@@ -85600,6 +85602,7 @@
     }
 
     function closeDeviceEditor() {
+      cancelEditorResizeSession(null, { render: false });
       invalidateEditorFaceplateUploadTarget();
       clearEditorPlacementMotion();
       disposeDeviceEditorEnginePreviewSurface();
@@ -90216,7 +90219,9 @@
       const selectionSnapshot = editorNodeSelectionSnapshot(template);
       try {
         return commitEditorStructuralEdit(template, {
-          renderEditor: true,
+          animate: options.animate,
+          render: options.render,
+          renderEditor: options.renderEditor !== false,
           mutate(draft, context) {
             const mutation = options.mutate(draft, context) || {};
             return {
@@ -91171,8 +91176,15 @@
       return draft;
     }
 
+    function editorResizePreviewTemplateFor(template) {
+      if (!template || !editorResizeSession || !editorResizePreviewTemplate) return template;
+      if (!editorResizeSessionIdentityCurrent(editorResizeSession, { allowHidden: true })) return template;
+      return editorResizeSession.template === template ? editorResizePreviewTemplate : template;
+    }
+
     function readonlyDeviceEditorPreviewTemplate(template) {
-      const draft = structuredClone(template);
+      const sourceTemplate = editorResizePreviewTemplateFor(template);
+      const draft = structuredClone(sourceTemplate);
       draft.width = deviceTemplateWidth(template);
       draft.name = editorPreviewDeviceName(template);
       validateDraftDefaults(draft);
@@ -91188,9 +91200,10 @@
     }
 
     function editorEnginePreviewTemplateClone(template, options = {}) {
+      const sourceTemplate = editorResizePreviewTemplateFor(template);
       const draft = readonlyDeviceEditorPreviewTemplate(template);
       if (options.suppressCardAreasInTexture === true) draft.suppressCardAreasInTexture = true;
-      return applyEditorPlacementVisualsToPreviewTemplate(draft, template);
+      return applyEditorPlacementVisualsToPreviewTemplate(draft, sourceTemplate);
     }
 
     function editorEnginePreviewPayload(template, options = {}) {
@@ -93329,6 +93342,7 @@
     }
 
     function renderEditorFaceplatePreview(template) {
+      template = editorResizePreviewTemplateFor(template);
       updateEditorFaceplatePreviewControls(template);
       if (!deviceEditorFaceplatePreview || !canShowEditorFaceplatePreview(template) || !editorFaceplatePreviewEnabled) return;
       deviceEditorFaceplatePreview.innerHTML = "";
@@ -93391,79 +93405,20 @@
       if (!template?.faceImage) return false;
       event.preventDefault();
       event.stopPropagation();
-      const face = faceImagePlacement(template, DEVICE_WIDTH, Number(template.height) || deviceHeightForSlotCounts(template));
-      const corner = handle.dataset.corner || "se";
-      editorFaceImageResize = {
-        pointerId: event.pointerId,
-        corner,
-        startConnectorY: connectorStartYForTemplate(template),
-        rows: editorResizeSnapshot(template),
-        start: {
-          left: face.x,
-          top: face.y,
-          right: face.x + face.width,
-          bottom: face.y + face.height
-        },
-        moved: false
-      };
-      clearEditorNodeSelection();
-      editorSelectedFaceplate = false;
-      editorSelectedPowerPlugIds.clear();
-      setEditorPointerCapture(event);
-      renderDeviceEditorPreview();
-      return true;
+      return beginEditorResizeSession(event, {
+        kind: "custom-face-image",
+        handle: handle.dataset.corner || "se",
+        startPoint: getEditorPreviewPoint(event)
+      });
     }
 
     function applyEditorFaceImageResize(event) {
-      if (!editorFaceImageResize || event.pointerId !== editorFaceImageResize.pointerId) return false;
-      const template = currentEditorTemplate();
-      if (!template?.faceImage) return true;
-      const point = getEditorPreviewPoint(event);
-      const bounds = faceImageBounds(template, DEVICE_WIDTH);
-      const minWidth = Math.min(24, bounds.width);
-      const minHeight = 16;
-      let { left, top, right, bottom } = editorFaceImageResize.start;
-      const handle = editorFaceImageResize.corner;
-      if (handle.includes("w")) left = clamp(point.x, bounds.x, right - minWidth);
-      if (handle.includes("e")) right = clamp(point.x, left + minWidth, bounds.x + bounds.width);
-      if (handle.includes("n")) top = clamp(point.y, bounds.y, bottom - minHeight);
-      if (handle.includes("s")) bottom = Math.max(point.y, top + minHeight);
-      left = clamp(left, bounds.x, bounds.x + bounds.width - minWidth);
-      top = clamp(top, bounds.y, bounds.y + bounds.height - minHeight);
-      right = clamp(right, left + minWidth, bounds.x + bounds.width);
-      bottom = Math.max(bottom, top + minHeight);
-      const inner = bounds;
-      if (handle === "n" || handle === "s") {
-        left = inner.x;
-        right = inner.x + inner.width;
-      }
-      const width = right - left;
-      const height = bottom - top;
-      const fitScale = inner.width / template.faceImageNaturalWidth;
-      const baseWidth = template.faceImageNaturalWidth * fitScale;
-      const baseHeight = template.faceImageNaturalHeight * fitScale;
-      const nextScaleX = clamp(width / Math.max(1, baseWidth), .2, 6);
-      const nextScaleY = clamp(height / Math.max(1, baseHeight), .2, 6);
-      template.faceImageScale = Math.max(nextScaleX, nextScaleY);
-      template.faceImageScaleX = nextScaleX;
-      template.faceImageScaleY = nextScaleY;
-      const scaledWidth = Math.min(inner.width, baseWidth * nextScaleX);
-      const scaledHeight = Math.min(inner.height, baseHeight * nextScaleY);
-      template.faceImageOffsetX = Math.round(left - (inner.x + (inner.width - scaledWidth) / 2));
-      template.faceImageOffsetY = 0;
-      shiftRowsAfterFaceChange(template, editorFaceImageResize.startConnectorY, editorFaceImageResize.rows);
-      editorFaceImageResize.moved = true;
-      renderDeviceEditorPreview();
-      return true;
+      return updateEditorResizeSessionFromEvent(event);
     }
 
     function stopEditorFaceImageResize(event) {
-      if (!editorFaceImageResize) return false;
-      if (event?.pointerId !== undefined && event.pointerId !== editorFaceImageResize.pointerId) return true;
-      releaseEditorPointerCapture(event);
-      editorFaceImageResize = null;
-      renderDeviceEditorPreview();
-      return true;
+      if (editorResizeSession?.kind !== "custom-face-image") return false;
+      return finishEditorResizeSession(event);
     }
 
     function drawDefaultFrontFace(parent, faceY = FACE_TOP_Y) {
@@ -93499,7 +93454,7 @@
       }
       editorEnginePreviewLegacyVisualDraws += 1;
       const previewTemplate = readonlyDeviceEditorPreviewTemplate(template);
-      applyEditorPlacementVisualsToPreviewTemplate(previewTemplate, template);
+      applyEditorPlacementVisualsToPreviewTemplate(previewTemplate, editorResizePreviewTemplateFor(template));
       if (!previewTemplate.isPowerDistro || previewTemplate.faceImage || previewTemplate.faceplateDeleted) {
         editorSelectedFaceplate = false;
         editorSelectedPowerPlugIds.clear();
@@ -94253,6 +94208,417 @@
       setEditorPowerDistroFaceGeometry(template, powerDistroFaceY(template), requestedHeight, resizeContext);
     }
 
+    function freezeEditorResizeSnapshotValue(value) {
+      if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
+      Object.values(value).forEach(freezeEditorResizeSnapshotValue);
+      return Object.freeze(value);
+    }
+
+    function editorResizeScalarLayoutSnapshot(template) {
+      const layout = resolveEditorModularLayout(template, { useDragPreview: false });
+      return freezeEditorResizeSnapshotValue({
+        startY: connectorStartYForTemplate(template),
+        endLane: Number(layout?.endLane) || 0,
+        items: (layout?.items || []).map(item => ({
+          id: String(item.id || ""),
+          kind: item.kind === "card" || item.itemType === "card-slot" ? "card" : "connector",
+          itemType: item.itemType === "card-slot" ? "card-slot" : "chassis-connector",
+          sideMask: normalizeEditorPlacementSideMask(item.sideMask),
+          lane: Math.max(0, Math.round(Number(item.lane) || 0)),
+          span: Math.max(1, Math.round(Number(item.span) || 1)),
+          order: Number(item.order) || 0
+        }))
+      });
+    }
+
+    function editorResizeGeometry(template, kind) {
+      if (kind === "device-height") {
+        return { height: Math.round(Number(template?.height) || deviceHeightForSlotCounts(template)) };
+      }
+      if (kind === "generated-faceplate") {
+        const rect = powerDistroFaceRect(template);
+        return { y: Math.round(rect.y), height: Math.round(rect.height) };
+      }
+      const face = faceImagePlacement(template, deviceTemplateWidth(template), Number(template?.height) || deviceHeightForSlotCounts(template));
+      return {
+        x: Math.round(face.x * 1000) / 1000,
+        y: Math.round(face.y * 1000) / 1000,
+        width: Math.round(face.width * 1000) / 1000,
+        height: Math.round(face.height * 1000) / 1000,
+        scaleX: Number(template?.faceImageScaleX) || Number(template?.faceImageScale) || 1,
+        scaleY: Number(template?.faceImageScaleY) || Number(template?.faceImageScale) || 1,
+        offsetX: Number(template?.faceImageOffsetX) || 0,
+        offsetY: Number(template?.faceImageOffsetY) || 0
+      };
+    }
+
+    function editorResizeGeometryEqual(left, right) {
+      return JSON.stringify(left || null) === JSON.stringify(right || null);
+    }
+
+    function editorResizeSessionIdentityCurrent(session, options = {}) {
+      if (!session) return false;
+      if (options.allowHidden !== true && deviceEditorModal?.classList?.contains("hidden")) return false;
+      const template = currentEditorTemplate();
+      return editorDraft === session.draft
+        && editorIndex === session.index
+        && template === session.template
+        && String(template?.id || "") === session.templateId;
+    }
+
+    function editorResizeLegacyNavigationSnapshot(template) {
+      template = template || currentEditorTemplate();
+      if (typeof deviceEditorActivePreviewUsesEngine === "function" && deviceEditorActivePreviewUsesEngine()) return null;
+      const svg = typeof deviceEditorPreview === "undefined" ? null : deviceEditorPreview;
+      const values = String(svg?.getAttribute?.("viewBox") || "")
+        .trim()
+        .split(/[\s,]+/)
+        .map(Number);
+      if (values.length !== 4 || !values.every(Number.isFinite) || values[2] <= 0 || values[3] <= 0) return null;
+      return freezeEditorResizeSnapshotValue({
+        zoom: typeof editorPreviewZoom === "number" ? editorPreviewZoom : 1,
+        pan: {
+          x: typeof editorPreviewPan === "object" ? Number(editorPreviewPan?.x) || 0 : 0,
+          y: typeof editorPreviewPan === "object" ? Number(editorPreviewPan?.y) || 0 : 0
+        },
+        centerX: values[0] + values[2] / 2,
+        centerY: values[1] + values[3] / 2
+      });
+    }
+
+    function applyEditorResizeLegacyNavigation(session, template) {
+      const navigation = session?.baseline?.previewNavigation;
+      if (!navigation || !template || typeof editorActivePreviewBounds !== "function") return;
+      if (typeof editorPreviewZoom === "undefined" || typeof editorPreviewPan === "undefined") return;
+      const bounds = editorActivePreviewBounds(template);
+      if (!bounds) return;
+      editorPreviewZoom = navigation.zoom;
+      editorPreviewPan = {
+        x: navigation.centerX - (bounds.x + bounds.width / 2),
+        y: navigation.centerY - (bounds.y + bounds.height / 2)
+      };
+    }
+
+    function captureEditorResizeBaseline(template, kind) {
+      const templateSnapshot = structuredClone(template);
+      const measurementTemplate = structuredClone(templateSnapshot);
+      const faceRect = measurementTemplate?.isPowerDistro && !measurementTemplate.faceImage
+        ? powerDistroFaceRect(measurementTemplate)
+        : { y: FACE_TOP_Y, height: FACE_HEIGHT };
+      const imageFace = measurementTemplate?.faceImage
+        ? faceImagePlacement(
+            measurementTemplate,
+            deviceTemplateWidth(measurementTemplate),
+            Number(measurementTemplate.height) || deviceHeightForSlotCounts(measurementTemplate)
+          )
+        : null;
+      return freezeEditorResizeSnapshotValue({
+        template: templateSnapshot,
+        layout: editorResizeScalarLayoutSnapshot(measurementTemplate),
+        connectorStartY: connectorStartYForTemplate(measurementTemplate),
+        geometry: editorResizeGeometry(measurementTemplate, kind),
+        deviceHeight: Number(measurementTemplate.height) || deviceHeightForSlotCounts(measurementTemplate),
+        faceY: faceRect.y,
+        faceHeight: faceRect.height,
+        faceBottom: faceRect.y + faceRect.height,
+        imageFace: imageFace ? {
+          left: imageFace.x,
+          top: imageFace.y,
+          right: imageFace.x + imageFace.width,
+          bottom: imageFace.y + imageFace.height
+        } : null,
+        nodeSelection: editorNodeSelectionSnapshot(template),
+        faceplateSelected: editorSelectedFaceplate === true,
+        selectedPowerPlugIds: [...editorSelectedPowerPlugIds].map(String),
+        previewNavigation: editorResizeLegacyNavigationSnapshot(template)
+      });
+    }
+
+    function restoreEditorResizeSelection(session, template = null) {
+      template = template || currentEditorTemplate();
+      if (!session || !template || template !== session.template) return;
+      restoreEditorNodeSelectionByStableIds(template, session.baseline.nodeSelection);
+      editorSelectedFaceplate = session.baseline.faceplateSelected === true;
+      const validIds = new Set((template.connectors || []).map(connector => String(connector.id || "")));
+      editorSelectedPowerPlugIds = new Set(
+        session.baseline.selectedPowerPlugIds.filter(id => validIds.has(id))
+      );
+    }
+
+    function beginEditorResizeSession(event, options = {}) {
+      const template = currentEditorTemplate();
+      const kind = String(options.kind || "");
+      if (!template || !["device-height", "generated-faceplate", "custom-face-image"].includes(kind)) return false;
+      if (editorResizeSession) cancelEditorResizeSession(null, { render: false });
+      const startPoint = options.startPoint || getEditorPreviewPoint(event);
+      const surface = editorSvgForEvent(event);
+      const baseline = captureEditorResizeBaseline(template, kind);
+      editorResizeSession = {
+        kind,
+        pointerId: event.pointerId,
+        interactionSurface: surface,
+        draft: editorDraft,
+        index: editorIndex,
+        template,
+        templateId: String(template.id || ""),
+        edge: options.edge === "top" ? "top" : "bottom",
+        handle: String(options.handle || ""),
+        baseline,
+        startPoint: { x: Number(startPoint.x) || 0, y: Number(startPoint.y) || 0 },
+        latestPoint: { x: Number(startPoint.x) || 0, y: Number(startPoint.y) || 0 },
+        lastValidCandidate: structuredClone(baseline.template),
+        lastValidGeometry: baseline.geometry,
+        movementThresholdCrossed: false,
+        frameId: 0
+      };
+      editorResizePreviewTemplate = editorResizeSession.lastValidCandidate;
+      clearEditorNodeSelection();
+      editorSelectedPowerPlugIds.clear();
+      editorSelectedFaceplate = kind === "generated-faceplate";
+      setEditorPointerCapture(event);
+      renderDeviceEditorPreview();
+      return true;
+    }
+
+    function applyEditorCustomFaceImageResizeCandidate(candidate, session, point) {
+      const start = session.baseline.imageFace;
+      if (!start || !candidate.faceImageNaturalWidth || !candidate.faceImageNaturalHeight) return;
+      const bounds = faceImageBounds(session.baseline.template, deviceTemplateWidth(candidate));
+      const minWidth = Math.min(24, bounds.width);
+      const minHeight = 16;
+      let { left, top, right, bottom } = start;
+      const handle = session.handle || "se";
+      if (handle.includes("w")) left = clamp(point.x, bounds.x, right - minWidth);
+      if (handle.includes("e")) right = clamp(point.x, left + minWidth, bounds.x + bounds.width);
+      if (handle.includes("n")) top = clamp(point.y, bounds.y, bottom - minHeight);
+      if (handle.includes("s")) bottom = Math.max(point.y, top + minHeight);
+      left = clamp(left, bounds.x, bounds.x + bounds.width - minWidth);
+      top = clamp(top, bounds.y, bounds.y + bounds.height - minHeight);
+      right = clamp(right, left + minWidth, bounds.x + bounds.width);
+      bottom = Math.max(bottom, top + minHeight);
+      if (handle === "n" || handle === "s") {
+        left = bounds.x;
+        right = bounds.x + bounds.width;
+      }
+      const width = right - left;
+      const height = bottom - top;
+      const fitScale = bounds.width / candidate.faceImageNaturalWidth;
+      const baseWidth = candidate.faceImageNaturalWidth * fitScale;
+      const baseHeight = candidate.faceImageNaturalHeight * fitScale;
+      const baselineScaleX = Number(session.baseline.template.faceImageScaleX) || Number(session.baseline.template.faceImageScale) || 1;
+      const baselineScaleY = Number(session.baseline.template.faceImageScaleY) || Number(session.baseline.template.faceImageScale) || 1;
+      const nextScaleX = handle.includes("w") || handle.includes("e")
+        ? clamp(width / Math.max(1, baseWidth), .2, 6)
+        : baselineScaleX;
+      const nextScaleY = handle.includes("n") || handle.includes("s")
+        ? clamp(height / Math.max(1, baseHeight), .2, 6)
+        : baselineScaleY;
+      candidate.faceImageScale = Math.max(nextScaleX, nextScaleY);
+      candidate.faceImageScaleX = nextScaleX;
+      candidate.faceImageScaleY = nextScaleY;
+      const scaledWidth = Math.min(bounds.width, baseWidth * nextScaleX);
+      const scaledHeight = Math.min(bounds.height, baseHeight * nextScaleY);
+      candidate.faceImageOffsetX = Math.round(left - (bounds.x + (bounds.width - scaledWidth) / 2));
+      candidate.faceImageOffsetY = Math.round(top - (bounds.y + (bounds.height - scaledHeight) / 2));
+    }
+
+    function deriveEditorResizePreviewCandidate(session, point = session?.latestPoint) {
+      if (!session || !point) return null;
+      const candidate = structuredClone(session.baseline.template);
+      const deltaY = Number(point.y) - session.startPoint.y;
+      if (session.kind === "device-height") {
+        const requested = session.edge === "top"
+          ? session.baseline.deviceHeight - deltaY
+          : session.baseline.deviceHeight + deltaY;
+        setEditorDeviceHeight(candidate, requested);
+      } else if (session.kind === "generated-faceplate") {
+        if (session.edge === "top") {
+          const requestedY = session.baseline.faceY + deltaY;
+          setEditorPowerDistroFaceGeometry(candidate, requestedY, session.baseline.faceBottom - requestedY, {
+            edge: "top",
+            startConnectorY: session.baseline.connectorStartY,
+            startFaceBottom: session.baseline.faceBottom
+          });
+        } else {
+          setEditorPowerDistroFaceGeometry(candidate, session.baseline.faceY, session.baseline.faceHeight + deltaY, {
+            edge: "bottom",
+            startConnectorY: session.baseline.connectorStartY,
+            startFaceBottom: session.baseline.faceBottom
+          });
+        }
+      } else {
+        applyEditorCustomFaceImageResizeCandidate(candidate, session, point);
+      }
+      const nextStartY = connectorStartYForTemplate(candidate);
+      if (session.kind !== "device-height" && Math.abs(nextStartY - session.baseline.connectorStartY) >= 0.1) {
+        rebaseEditorStructuralDraftFromBaseline(candidate, session.baseline.layout, nextStartY);
+      }
+      if (session.kind !== "device-height") rebaseEditorFaceplateSideConnectors(candidate);
+      candidate.height = deviceHeightForSlotCounts(candidate);
+      return candidate;
+    }
+
+    function editorResizeCandidateIsValid(session, candidate) {
+      if (!session || !candidate || !Number.isFinite(Number(candidate.height))) return false;
+      if (String(candidate.id || "") !== session.templateId) return false;
+      const baselineConnectorIds = session.baseline.template.connectors.map(connector => String(connector.id || ""));
+      const candidateConnectorIds = (candidate.connectors || []).map(connector => String(connector.id || ""));
+      const baselineSlotIds = (session.baseline.template.cardSlots || []).map(slot => String(slot.id || ""));
+      const candidateSlotIds = (candidate.cardSlots || []).map(slot => String(slot.id || ""));
+      if (JSON.stringify(baselineConnectorIds) !== JSON.stringify(candidateConnectorIds)
+        || JSON.stringify(baselineSlotIds) !== JSON.stringify(candidateSlotIds)) return false;
+      const startY = connectorStartYForTemplate(candidate);
+      for (const item of session.baseline.layout.items) {
+        const sourceId = editorStableDragSourceId(item.id, item.kind);
+        const source = item.kind === "card"
+          ? candidate.cardSlots?.find(slot => slot.id === sourceId)
+          : candidate.connectors?.find(connector => connector.id === sourceId);
+        if (!source || laneIndexForY(source.y, startY) !== item.lane) return false;
+      }
+      return true;
+    }
+
+    function cancelEditorResizePreviewFrame(session = editorResizeSession) {
+      if (!session?.frameId) return;
+      cancelAnimationFrame(session.frameId);
+      session.frameId = 0;
+    }
+
+    function flushEditorResizePreviewCandidate(session = editorResizeSession, options = {}) {
+      if (!session || session !== editorResizeSession) return null;
+      cancelEditorResizePreviewFrame(session);
+      if (!editorResizeSessionIdentityCurrent(session)) {
+        cancelEditorResizeSession(null, { render: options.render !== false });
+        return null;
+      }
+      const candidate = deriveEditorResizePreviewCandidate(session, session.latestPoint);
+      if (editorResizeCandidateIsValid(session, candidate)) {
+        session.lastValidCandidate = candidate;
+        session.lastValidGeometry = editorResizeGeometry(candidate, session.kind);
+        editorResizePreviewTemplate = candidate;
+      }
+      applyEditorResizeLegacyNavigation(session, session.lastValidCandidate);
+      if (options.render !== false) renderDeviceEditorPreview({ resizeFrame: true });
+      return session.lastValidCandidate;
+    }
+
+    function scheduleEditorResizePreview(session = editorResizeSession) {
+      if (!session || session.frameId) return;
+      session.frameId = requestAnimationFrame(() => {
+        session.frameId = 0;
+        if (session === editorResizeSession) flushEditorResizePreviewCandidate(session);
+      });
+    }
+
+    function updateEditorResizeSessionFromEvent(event) {
+      const session = editorResizeSession;
+      if (!session || event?.pointerId !== session.pointerId) return false;
+      if (!editorResizeSessionIdentityCurrent(session)) {
+        cancelEditorResizeSession(event);
+        return true;
+      }
+      const point = getEditorPreviewPoint(event);
+      session.latestPoint = { x: Number(point.x) || 0, y: Number(point.y) || 0 };
+      session.movementThresholdCrossed = session.movementThresholdCrossed
+        || Math.hypot(session.latestPoint.x - session.startPoint.x, session.latestPoint.y - session.startPoint.y) > 2;
+      scheduleEditorResizePreview(session);
+      return true;
+    }
+
+    function releaseEditorResizePointerCapture(session) {
+      const surface = session?.interactionSurface;
+      const pointerId = session?.pointerId;
+      editorResizePointerReleaseInProgress = true;
+      try {
+        if (pointerId !== undefined && surface?.hasPointerCapture?.(pointerId)) surface.releasePointerCapture(pointerId);
+      } finally {
+        editorResizePointerReleaseInProgress = false;
+        if (editorInteractionSvg === surface) editorInteractionSvg = null;
+      }
+    }
+
+    function commitEditorResizeCandidate(session, candidate) {
+      if (session.kind === "device-height") {
+        return commitEditorStructuralEdit(session.template, {
+          animate: false,
+          renderEditor: true,
+          mutate(draft) {
+            draft.manualHeight = candidate.manualHeight;
+            draft.height = candidate.height;
+            return {};
+          }
+        });
+      }
+      return commitEditorFaceplateOriginMutation(session.template, {
+        animate: false,
+        renderEditor: true,
+        mutate(draft) {
+          if (session.kind === "generated-faceplate") {
+            draft.powerDistroFaceY = candidate.powerDistroFaceY;
+            draft.powerDistroFaceHeight = candidate.powerDistroFaceHeight;
+          } else {
+            draft.faceImageScale = candidate.faceImageScale;
+            draft.faceImageScaleX = candidate.faceImageScaleX;
+            draft.faceImageScaleY = candidate.faceImageScaleY;
+            draft.faceImageOffsetX = candidate.faceImageOffsetX;
+            draft.faceImageOffsetY = candidate.faceImageOffsetY;
+          }
+          return {};
+        }
+      });
+    }
+
+    function finishEditorResizeSession(event = null) {
+      const session = editorResizeSession;
+      if (!session) return false;
+      if (event?.pointerId !== undefined && event.pointerId !== session.pointerId) return true;
+      if (!editorResizeSessionIdentityCurrent(session)) return cancelEditorResizeSession(event);
+      if (event?.clientX !== undefined && event?.clientY !== undefined) {
+        const point = getEditorPreviewPoint(event);
+        session.latestPoint = { x: Number(point.x) || 0, y: Number(point.y) || 0 };
+        session.movementThresholdCrossed = session.movementThresholdCrossed
+          || Math.hypot(session.latestPoint.x - session.startPoint.x, session.latestPoint.y - session.startPoint.y) > 2;
+      }
+      const candidate = flushEditorResizePreviewCandidate(session, { render: false }) || session.lastValidCandidate;
+      const changed = session.movementThresholdCrossed
+        && !editorResizeGeometryEqual(session.baseline.geometry, editorResizeGeometry(candidate, session.kind));
+      editorResizeSession = null;
+      editorResizePreviewTemplate = null;
+      cancelEditorResizePreviewFrame(session);
+      releaseEditorResizePointerCapture(session);
+      if (!changed) {
+        restoreEditorResizeSelection(session, session.template);
+        applyEditorResizeLegacyNavigation(session, session.baseline.template);
+        renderDeviceEditorPreview();
+        return true;
+      }
+      try {
+        commitEditorResizeCandidate(session, candidate);
+      } catch (error) {
+        restoreEditorResizeSelection(session, session.template);
+        applyEditorResizeLegacyNavigation(session, session.baseline.template);
+        renderDeviceEditorPreview();
+        console.error("Device Editor resize transaction failed.", error);
+      }
+      return true;
+    }
+
+    function cancelEditorResizeSession(event = null, options = {}) {
+      const session = editorResizeSession;
+      if (!session || (event?.type === "lostpointercapture" && editorResizePointerReleaseInProgress)) return false;
+      if (event?.pointerId !== undefined && event.pointerId !== session.pointerId) return true;
+      cancelEditorResizePreviewFrame(session);
+      editorResizeSession = null;
+      editorResizePreviewTemplate = null;
+      if (editorResizeSessionIdentityCurrent(session, { allowHidden: true })) {
+        restoreEditorResizeSelection(session, session.template);
+        applyEditorResizeLegacyNavigation(session, session.baseline.template);
+      }
+      releaseEditorResizePointerCapture(session);
+      if (options.render !== false && !deviceEditorModal?.classList?.contains("hidden")) renderDeviceEditorPreview();
+      return true;
+    }
+
     function resizeTrianglePoints(cx, y, edge) {
       if (edge === "top") return `${cx},${y - 7} ${cx - 7},${y + 5} ${cx + 7},${y + 5}`;
       return `${cx},${y + 7} ${cx - 7},${y - 5} ${cx + 7},${y - 5}`;
@@ -94280,8 +94646,8 @@
     }
 
     function drawEditorResizeHandles(parent, template, width, height) {
-      drawEditorResizeZone(parent, "device", "top", 0, 0, width, editorResizeDrag?.target === "device" && editorResizeDrag?.edge === "top");
-      drawEditorResizeZone(parent, "device", "bottom", 0, height, width, editorResizeDrag?.target === "device" && editorResizeDrag?.edge === "bottom");
+      drawEditorResizeZone(parent, "device", "top", 0, 0, width, editorResizeSession?.kind === "device-height" && editorResizeSession?.edge === "top");
+      drawEditorResizeZone(parent, "device", "bottom", 0, height, width, editorResizeSession?.kind === "device-height" && editorResizeSession?.edge === "bottom");
       if (template?.isPowerDistro && !template.faceImage) {
         drawEditorFaceplateResizeHandles(parent, template);
       }
@@ -94290,8 +94656,8 @@
     function drawEditorFaceplateResizeHandles(parent, template) {
       if (!template?.isPowerDistro || template.faceImage) return;
       const rect = powerDistroFaceRect(template);
-      drawEditorResizeZone(parent, "faceplate", "top", rect.x, rect.y, rect.width, editorResizeDrag?.target === "faceplate" && editorResizeDrag?.edge === "top");
-      drawEditorResizeZone(parent, "faceplate", "bottom", rect.x, rect.y + rect.height, rect.width, editorResizeDrag?.target === "faceplate" && editorResizeDrag?.edge === "bottom");
+      drawEditorResizeZone(parent, "faceplate", "top", rect.x, rect.y, rect.width, editorResizeSession?.kind === "generated-faceplate" && editorResizeSession?.edge === "top");
+      drawEditorResizeZone(parent, "faceplate", "bottom", rect.x, rect.y + rect.height, rect.width, editorResizeSession?.kind === "generated-faceplate" && editorResizeSession?.edge === "bottom");
     }
 
     function editorSvgForEvent(event) {
@@ -94340,26 +94706,11 @@
       if (target === "faceplate" && (!template.isPowerDistro || template.faceImage)) return false;
       event.preventDefault();
       event.stopPropagation();
-      const point = getEditorPreviewPoint(event);
-      clearEditorNodeSelection();
-      editorSelectedPowerPlugIds.clear();
-      editorSelectedFaceplate = target === "faceplate";
-      const startFaceRect = template.isPowerDistro && !template.faceImage ? powerDistroFaceRect(template) : { y: FACE_TOP_Y, height: FACE_HEIGHT };
-      editorResizeDrag = {
-        pointerId: event.pointerId,
-        target,
+      return beginEditorResizeSession(event, {
+        kind: target === "faceplate" ? "generated-faceplate" : "device-height",
         edge: handle.dataset.editorResizeEdge === "top" ? "top" : "bottom",
-        startY: point.y,
-        startDeviceHeight: Number(template.height) || deviceHeightForSlotCounts(template),
-        startFaceY: startFaceRect.y,
-        startFaceHeight: startFaceRect.height,
-        startFaceBottom: startFaceRect.y + startFaceRect.height,
-        startConnectorY: connectorStartYForTemplate(template),
-        rows: editorResizeSnapshot(template)
-      };
-      setEditorPointerCapture(event);
-      renderDeviceEditorPreview();
-      return true;
+        startPoint: getEditorPreviewPoint(event)
+      });
     }
 
     function startEditorFaceplateMarquee(event) {
@@ -94630,28 +94981,7 @@
 
     function moveEditorNode(event) {
       if (applyEditorFaceImageResize(event)) return;
-      if (editorResizeDrag && event.pointerId === editorResizeDrag.pointerId) {
-        const template = currentEditorTemplate();
-        if (!template) return;
-        const point = getEditorPreviewPoint(event);
-        const deltaY = point.y - editorResizeDrag.startY;
-        if (editorResizeDrag.target === "device") {
-          const requested = editorResizeDrag.edge === "top"
-            ? editorResizeDrag.startDeviceHeight - deltaY
-            : editorResizeDrag.startDeviceHeight + deltaY;
-          setEditorDeviceHeight(template, requested);
-        } else if (editorResizeDrag.target === "faceplate") {
-          if (editorResizeDrag.edge === "top") {
-            const requestedY = editorResizeDrag.startFaceY + deltaY;
-            const requestedHeight = editorResizeDrag.startFaceBottom - requestedY;
-            setEditorPowerDistroFaceGeometry(template, requestedY, requestedHeight, editorResizeDrag);
-          } else {
-            setEditorPowerDistroFaceGeometry(template, editorResizeDrag.startFaceY, editorResizeDrag.startFaceHeight + deltaY, editorResizeDrag);
-          }
-        }
-        renderDeviceEditorPreview();
-        return;
-      }
+      if (updateEditorResizeSessionFromEvent(event)) return;
       if (editorPowerPlugMarquee && event.pointerId === editorPowerPlugMarquee.pointerId) {
         const template = currentEditorTemplate();
         if (!template) return;
@@ -94794,16 +95124,13 @@
     }
 
     function stopEditorNodeDrag(event) {
-      if (event?.type === "pointercancel" && (editorCardSlotDrag || editorNodeDrag)) {
-        cancelEditorStableDrags(event);
+      if (editorResizeSession) {
+        if (event?.type === "pointercancel") cancelEditorResizeSession(event);
+        else finishEditorResizeSession(event);
         return;
       }
-      if (stopEditorFaceImageResize(event)) return;
-      if (editorResizeDrag) {
-        if (event?.pointerId !== undefined && event.pointerId !== editorResizeDrag.pointerId) return;
-        releaseEditorPointerCapture(event);
-        editorResizeDrag = null;
-        renderDeviceEditorPreview();
+      if (event?.type === "pointercancel" && (editorCardSlotDrag || editorNodeDrag)) {
+        cancelEditorStableDrags(event);
         return;
       }
       if (editorPowerPlugMarquee) {
@@ -109015,7 +109342,10 @@ renderViewerOutputDebug();
     deviceTechSpecsModal?.addEventListener("click", event => {
       if (event.target === deviceTechSpecsModal) closeDeviceTechSpecsModal();
     });
-    document.getElementById("resetDeviceEditor").addEventListener("click", openDeviceEditor);
+    document.getElementById("resetDeviceEditor").addEventListener("click", () => {
+      cancelEditorResizeSession(null, { render: false });
+      openDeviceEditor();
+    });
     document.getElementById("exportDeviceLibrary").addEventListener("click", exportDeviceLibraryJson);
     document.getElementById("applyDeviceEditor").addEventListener("click", applyDeviceEditor);
     editorTabs.addEventListener("click", event => {
@@ -109024,6 +109354,7 @@ renderViewerOutputDebug();
       if (tab.disabled || tab.getAttribute("aria-disabled") === "true") return;
       const previousTab = editorActiveTab;
       const nextTab = tab.dataset.editorTab;
+      if (previousTab !== nextTab) cancelEditorResizeSession(null, { render: false });
       if (previousTab !== nextTab) clearEditorPlacementMotion();
       editorActiveTab = nextTab;
       recordShellPanelAction("device editor tab", editorActiveTab);
@@ -109137,6 +109468,7 @@ renderViewerOutputDebug();
     });
     function selectEditorDeviceIndex(index) {
       if (editorMode === "instance" || isProjectTemplateEditorMode()) return;
+      cancelEditorResizeSession(null, { render: false });
       invalidateEditorFaceplateUploadTarget();
       syncEditorFieldsToDraft();
       clearEditorPlacementMotion();
@@ -109665,7 +109997,10 @@ renderViewerOutputDebug();
       svg.addEventListener("pointermove", moveEditorNode);
       svg.addEventListener("pointerup", stopEditorNodeDrag);
       svg.addEventListener("pointercancel", cancelEditorInteraction);
-      svg.addEventListener("lostpointercapture", cancelEditorStableDrags);
+      svg.addEventListener("lostpointercapture", event => {
+        if (cancelEditorResizeSession(event)) return;
+        cancelEditorStableDrags(event);
+      });
     }
     bindEditorInteractionSvg(deviceEditorPreview);
     bindEditorInteractionSvg(deviceEditorFaceplatePreview);
@@ -110107,6 +110442,11 @@ renderViewerOutputDebug();
         if (matrixRoutingOpen) {
           event.preventDefault();
           closeMatrixRoutingModal();
+          return;
+        }
+        if (deviceEditorOpen && editorResizeSession) {
+          event.preventDefault();
+          cancelEditorResizeSession();
           return;
         }
         if (deviceEditorOpen && (editorCardSlotDrag || editorNodeDrag)) {

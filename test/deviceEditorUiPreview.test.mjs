@@ -305,6 +305,14 @@ function structuralEditorHarness(inputTemplate = {}) {
     edits: [],
     selectedIndexes: []
   };
+  const animationFrames = new Map();
+  let nextAnimationFrameId = 1;
+  const resizeSurface = {
+    capturedPointers: new Set(),
+    setPointerCapture(pointerId) { this.capturedPointers.add(pointerId); },
+    hasPointerCapture(pointerId) { return this.capturedPointers.has(pointerId); },
+    releasePointerCapture(pointerId) { this.capturedPointers.delete(pointerId); }
+  };
   const placementModule = {
     connectorPlacementSideMask,
     resolveModularPlacementItems,
@@ -337,6 +345,8 @@ function structuralEditorHarness(inputTemplate = {}) {
     structuredClone,
     EDITOR_DEVICE_DEFINITION_SCHEMA_VERSION: 2,
     FACE_TOP_Y: 20,
+    FACE_HEIGHT: 44,
+    FACE_MARGIN: 12,
     SLOT_HEIGHT: 54,
     DEVICE_BOTTOM_PAD: 48,
     DEVICE_WIDTH: 420,
@@ -370,6 +380,13 @@ function structuralEditorHarness(inputTemplate = {}) {
     editorCardIndex: 0,
     editorSelectedNodeIndex: null,
     editorSelectedNodeIds: new Set(),
+    editorSelectedFaceplate: false,
+    editorSelectedPowerPlugIds: new Set(),
+    editorResizeSession: null,
+    editorResizePreviewTemplate: null,
+    editorResizePointerReleaseInProgress: false,
+    editorInteractionSvg: null,
+    resizeSurface,
     editorSelectedCardNodeIndex: null,
     editorSelectedCardNodeIds: new Set(),
     editorLedProcessor: { checked: inputTemplate.isLedProcessor === true },
@@ -382,6 +399,27 @@ function structuralEditorHarness(inputTemplate = {}) {
     removeEditorFaceImage: { textContent: "Remove Custom Faceplate", disabled: false },
     deleteEditorFaceplate: { disabled: false },
     deviceEditorModal: { classList: { contains: () => false } },
+    requestAnimationFrame: callback => {
+      const id = nextAnimationFrameId++;
+      animationFrames.set(id, callback);
+      return id;
+    },
+    cancelAnimationFrame: id => animationFrames.delete(id),
+    flushAnimationFrames: () => {
+      const pending = [...animationFrames.entries()];
+      animationFrames.clear();
+      pending.forEach(([, callback]) => callback());
+      return pending.length;
+    },
+    editorSvgForEvent: () => resizeSurface,
+    getEditorPreviewPoint: event => ({
+      x: Number(event?.point?.x ?? event?.clientX) || 0,
+      y: Number(event?.point?.y ?? event?.clientY) || 0
+    }),
+    setEditorPointerCapture: event => {
+      context.editorInteractionSvg = resizeSurface;
+      resizeSurface.setPointerCapture(event.pointerId);
+    },
     prepareFrontFaceImage: async dataUrl => ({
       dataUrl,
       thumbnailDataUrl: `${dataUrl}-thumb`,
@@ -423,12 +461,16 @@ function structuralEditorHarness(inputTemplate = {}) {
         if (Number.isFinite(explicitStartY)) return explicitStartY;
         const width = Number(device.faceImageNaturalWidth);
         const height = Number(device.faceImageNaturalHeight);
-        return width > 0 && height > 0 ? baseStartY + Math.round(height / width * 100) : baseStartY;
+        const scaleY = Number(device.faceImageScaleY) || Number(device.faceImageScale) || 1;
+        return width > 0 && height > 0 ? baseStartY + Math.round(height / width * 100 * scaleY) : baseStartY;
       }
       if (device?.faceplateDeleted) return Number(device.deletedFaceStartY) || baseStartY;
       if (!device?.isPowerDistro) return baseStartY;
       const explicitStartY = Number(device.powerDistroStartY);
       if (Number.isFinite(explicitStartY)) return explicitStartY;
+      if (device.resizeGeometryMode === true && Number.isFinite(Number(device.powerDistroFaceHeight))) {
+        return Math.round((Number(device.powerDistroFaceY) || 20) + Number(device.powerDistroFaceHeight) + 36);
+      }
       const powerPlugCount = (device.connectors || []).filter(connector => String(connector?.type || "").startsWith("power-")).length;
       return baseStartY + Math.max(0, powerPlugCount - 1) * 54;
     },
@@ -437,6 +479,11 @@ function structuralEditorHarness(inputTemplate = {}) {
     deviceTemplateWidth: device => Number(device?.width) || 420,
     connectorSideKey: connector => connector?.direction === "output" ? "output" : "input",
     currentEditorTemplate: () => context.editorDraft[context.editorIndex],
+    editorPreviewDeviceName: device => String(device?.name || "Device"),
+    validateDraftDefaults: device => device,
+    editorActiveStableDragLayout: () => null,
+    editorPlacementMotionBottomY: () => null,
+    applyEditorPlacementVisualsToPreviewTemplate: device => device,
     syncEditorFieldsToDraft: () => {},
     uniqueConnectorId: (device, baseId = "connector") => {
       const existing = new Set((device.connectors || []).map(connector => connector.id));
@@ -569,6 +616,43 @@ function structuralEditorHarness(inputTemplate = {}) {
       const slotBottom = Math.max(startY, ...(device.cardSlots || []).map(slot => (Number(slot.y) || startY) + context.cardSlotLaneCount(device, slot) * 54));
       return Math.max(240, Number(device?.manualHeight) || 0, connectorBottom + 48, slotBottom + 48);
     },
+    deviceContentHeightForSlotCounts: device => {
+      const manualHeight = Number(device?.manualHeight) || 0;
+      device.manualHeight = 0;
+      const height = context.deviceHeightForSlotCounts(device);
+      device.manualHeight = manualHeight;
+      return height;
+    },
+    faceImageBounds: (device, width = 420) => {
+      const naturalWidth = Number(device?.faceImageNaturalWidth) || 1;
+      const naturalHeight = Number(device?.faceImageNaturalHeight) || 1;
+      const scaleY = Number(device?.faceImageScaleY) || Number(device?.faceImageScale) || 1;
+      const faceHeight = Math.max(24, Math.round((width - 24) * naturalHeight / naturalWidth * scaleY));
+      return { x: 20, y: 28, width: width - 40, height: Math.max(16, faceHeight - 16) };
+    },
+    faceImagePlacement: (device, width = 420) => {
+      const bounds = context.faceImageBounds(device, width);
+      const scaleX = Number(device?.faceImageScaleX) || Number(device?.faceImageScale) || 1;
+      const scaleY = Number(device?.faceImageScaleY) || Number(device?.faceImageScale) || 1;
+      const imageWidth = Math.min(bounds.width, bounds.width * scaleX);
+      const imageHeight = Math.min(bounds.height, bounds.height * scaleY);
+      return {
+        x: Math.min(bounds.x + bounds.width - imageWidth, Math.max(bounds.x, bounds.x + (bounds.width - imageWidth) / 2 + (Number(device?.faceImageOffsetX) || 0))),
+        y: Math.min(bounds.y + bounds.height - imageHeight, Math.max(bounds.y, bounds.y + (bounds.height - imageHeight) / 2 + (Number(device?.faceImageOffsetY) || 0))),
+        width: imageWidth,
+        height: imageHeight
+      };
+    },
+    powerDistroFaceY: device => Number(device?.powerDistroFaceY) || 20,
+    powerDistroAutoFaceHeight: device => Number(device?.autoFaceHeight) || 80,
+    powerDistroFaceHeight: device => Math.max(Number(device?.autoFaceHeight) || 80, Number(device?.powerDistroFaceHeight) || 0),
+    powerDistroFaceRect: device => ({
+      x: 12,
+      y: Number(device?.powerDistroFaceY) || 20,
+      width: (Number(device?.width) || 420) - 24,
+      height: Math.max(Number(device?.autoFaceHeight) || 80, Number(device?.powerDistroFaceHeight) || 0)
+    }),
+    powerDistroManualPlugTopLimit: device => Number.isFinite(Number(device?.manualPlugTopLimit)) ? Number(device.manualPlugTopLimit) : Infinity,
     setEditorNodeSelection: (device, index) => {
       context.editorSelectedNodeIndex = index;
       const connector = device.connectors[index];
@@ -652,6 +736,33 @@ function structuralEditorHarness(inputTemplate = {}) {
     "prepareAndCommitEditorFaceplateUpload",
     "applyEditorFaceImageRemoval",
     "applyEditorFaceplateDeletion",
+    "shiftTemplateRowsForStartChange",
+    "setEditorDeviceHeight",
+    "setEditorPowerDistroFaceGeometry",
+    "editorResizePreviewTemplateFor",
+    "readonlyDeviceEditorPreviewTemplate",
+    "editorEnginePreviewTemplateClone",
+    "freezeEditorResizeSnapshotValue",
+    "editorResizeScalarLayoutSnapshot",
+    "editorResizeGeometry",
+    "editorResizeGeometryEqual",
+    "editorResizeSessionIdentityCurrent",
+    "editorResizeLegacyNavigationSnapshot",
+    "applyEditorResizeLegacyNavigation",
+    "captureEditorResizeBaseline",
+    "restoreEditorResizeSelection",
+    "beginEditorResizeSession",
+    "applyEditorCustomFaceImageResizeCandidate",
+    "deriveEditorResizePreviewCandidate",
+    "editorResizeCandidateIsValid",
+    "cancelEditorResizePreviewFrame",
+    "flushEditorResizePreviewCandidate",
+    "scheduleEditorResizePreview",
+    "updateEditorResizeSessionFromEvent",
+    "releaseEditorResizePointerCapture",
+    "commitEditorResizeCandidate",
+    "finishEditorResizeSession",
+    "cancelEditorResizeSession",
     "editorNodeSelectionSnapshot",
     "restoreEditorNodeSelectionByStableIds",
     "pairedNetworkGroupId",
@@ -726,6 +837,17 @@ function structuralEditorHarness(inputTemplate = {}) {
       prepareAndCommitEditorFaceplateUpload,
       applyEditorFaceImageRemoval,
       applyEditorFaceplateDeletion,
+      editorResizePreviewTemplateFor,
+      readonlyDeviceEditorPreviewTemplate,
+      editorEnginePreviewTemplateClone,
+      captureEditorResizeBaseline,
+      beginEditorResizeSession,
+      deriveEditorResizePreviewCandidate,
+      editorResizeCandidateIsValid,
+      flushEditorResizePreviewCandidate,
+      updateEditorResizeSessionFromEvent,
+      finishEditorResizeSession,
+      cancelEditorResizeSession,
       editorNodeSelectionSnapshot,
       restoreEditorNodeSelectionByStableIds,
       applyLedProcessorSettings,
@@ -861,6 +983,40 @@ function editorCounterSnapshot(counters) {
 function editorCounterDelta(counters, before) {
   const after = editorCounterSnapshot(counters);
   return Object.fromEntries(Object.entries(after).map(([key, value]) => [key, value - before[key]]));
+}
+
+function resizeConnector(id, sideMask, lane, origin, options = {}) {
+  const connector = testConnector(id, sideMask, lane, { v2: true, ...options });
+  connector.y = origin + lane * 54;
+  if (Array.isArray(connector.anchors)) {
+    connector.anchors = connector.anchors.map(anchor => ({ ...anchor, y: connector.y }));
+  }
+  return connector;
+}
+
+function resizePointer(pointerId, x, y, type = "pointermove") {
+  return { pointerId, button: 0, clientX: x, clientY: y, point: { x, y }, type };
+}
+
+function editorResizeGeometrySnapshot(template) {
+  return {
+    height: template?.height,
+    manualHeight: template?.manualHeight,
+    powerDistroFaceY: template?.powerDistroFaceY,
+    powerDistroFaceHeight: template?.powerDistroFaceHeight,
+    faceImageScale: template?.faceImageScale,
+    faceImageScaleX: template?.faceImageScaleX,
+    faceImageScaleY: template?.faceImageScaleY,
+    faceImageOffsetX: template?.faceImageOffsetX,
+    faceImageOffsetY: template?.faceImageOffsetY,
+    connectors: (template?.connectors || []).map(connector => ({
+      id: connector.id,
+      x: connector.x,
+      y: connector.y,
+      anchors: structuredClone(connector.anchors || [])
+    })),
+    cardSlots: (template?.cardSlots || []).map(slot => ({ id: slot.id, y: slot.y }))
+  };
 }
 
 function selectedCardConnectorIndexes(context) {
@@ -1162,7 +1318,7 @@ test("Device Editor placement delegates to the shared modular layout module", ()
   assert.match(openInstance, /await ensureDeviceEditorPlacementModulesReady\(\)/);
 
   assert.match(functionSource("bindEditorInteractionSvg"), /pointercancel", cancelEditorInteraction/);
-  assert.match(functionSource("bindEditorInteractionSvg"), /lostpointercapture", cancelEditorStableDrags/);
+  assert.match(functionSource("bindEditorInteractionSvg"), /lostpointercapture"[\s\S]*cancelEditorResizeSession\(event\)[\s\S]*cancelEditorStableDrags\(event\)/);
   assert.match(functionSource("cancelEditorInteraction"), /if \(cancelEditorStableDrags\(event\)\) return;/);
   assert.match(functionSource("stopEditorNodeDrag"), /commitEditorStablePlacementDrag\(template, completedDrag/);
   assert.match(functionSource("startEditorNodeDrag"), /createEditorCompositeConnectorDragSession\(template/);
@@ -2982,6 +3138,541 @@ test("Device Editor faceplate mutations roll back fully and reject stale uploads
   assert.equal(stale.counters.editorRenders, 0);
 });
 
+test("Device Editor resize handlers delegate to detached transactional sessions", () => {
+  const move = functionSource("moveEditorNode");
+  const stop = functionSource("stopEditorNodeDrag");
+  const cancel = functionSource("cancelEditorInteraction");
+  const bind = functionSource("bindEditorInteractionSvg");
+  const faceMove = functionSource("applyEditorFaceImageResize");
+  const previewClone = functionSource("readonlyDeviceEditorPreviewTemplate");
+  const faceTransaction = functionSource("commitEditorFaceplateOriginMutation");
+  const closeEditor = functionSource("closeDeviceEditor");
+  const selectDevice = functionSource("selectEditorDeviceIndex");
+  const escapeHandler = INDEX_HTML;
+
+  assert.match(move, /updateEditorResizeSessionFromEvent\(event\)/);
+  assert.doesNotMatch(move, /setEditorDeviceHeight\(template|setEditorPowerDistroFaceGeometry\(template/);
+  assert.match(faceMove, /updateEditorResizeSessionFromEvent\(event\)/);
+  assert.doesNotMatch(faceMove, /faceImageScale|shiftRowsAfterFaceChange|renderDeviceEditorPreview/);
+  assert.match(stop, /finishEditorResizeSession\(event\)/);
+  assert.match(cancel, /cancelEditorResizeSession\(event\)/);
+  assert.match(bind, /pointercancel", cancelEditorInteraction/);
+  assert.match(bind, /lostpointercapture"[\s\S]*cancelEditorResizeSession\(event\)/);
+  assert.match(previewClone, /editorResizePreviewTemplateFor\(template\)/);
+  assert.match(faceTransaction, /animate: options\.animate/);
+  assert.match(closeEditor, /cancelEditorResizeSession\(null, \{ render: false \}\)/);
+  assert.match(selectDevice, /cancelEditorResizeSession\(null, \{ render: false \}\)/);
+  assert.match(INDEX_HTML, /resetDeviceEditor"\)\.addEventListener\("click", \(\) => \{\s*cancelEditorResizeSession\(null, \{ render: false \}\)/);
+  assert.match(INDEX_HTML, /if \(previousTab !== nextTab\) cancelEditorResizeSession\(null, \{ render: false \}\);[\s\S]*editorActiveTab = nextTab/);
+  assert.match(escapeHandler, /deviceEditorOpen && editorResizeSession[\s\S]*cancelEditorResizeSession\(\)/);
+});
+
+test("Legacy resize navigation keeps the absolute camera center across changing preview bounds", () => {
+  const context = {
+    console,
+    Number,
+    Object,
+    String,
+    currentEditorTemplate: () => null,
+    deviceEditorActivePreviewUsesEngine: () => false,
+    deviceEditorPreview: {
+      getAttribute: name => name === "viewBox" ? "10 20 400 200" : ""
+    },
+    editorPreviewZoom: 1.75,
+    editorPreviewPan: { x: 14, y: -9 },
+    editorActivePreviewBounds: template => template.bounds
+  };
+  const script = `${functionSource("freezeEditorResizeSnapshotValue")}
+    ${functionSource("editorResizeLegacyNavigationSnapshot")}
+    ${functionSource("applyEditorResizeLegacyNavigation")}
+    ({ editorResizeLegacyNavigationSnapshot, applyEditorResizeLegacyNavigation })`;
+  const api = vm.runInNewContext(script, context);
+  const baselineTemplate = { bounds: { x: 12, y: 38, width: 356, height: 78 } };
+  const candidateTemplate = { bounds: { x: 12, y: 38, width: 356, height: 144 } };
+  const navigation = api.editorResizeLegacyNavigationSnapshot(baselineTemplate);
+  const session = { baseline: { previewNavigation: navigation } };
+
+  api.applyEditorResizeLegacyNavigation(session, candidateTemplate);
+  assert.equal(context.editorPreviewZoom, 1.75);
+  assert.equal(candidateTemplate.bounds.x + candidateTemplate.bounds.width / 2 + context.editorPreviewPan.x, 210);
+  assert.equal(candidateTemplate.bounds.y + candidateTemplate.bounds.height / 2 + context.editorPreviewPan.y, 120);
+
+  api.applyEditorResizeLegacyNavigation(session, baselineTemplate);
+  assert.equal(baselineTemplate.bounds.x + baselineTemplate.bounds.width / 2 + context.editorPreviewPan.x, 210);
+  assert.equal(baselineTemplate.bounds.y + baselineTemplate.bounds.height / 2 + context.editorPreviewPan.y, 120);
+  assert.equal(Object.isFrozen(navigation), true);
+  assert.equal(Object.isFrozen(navigation.pan), true);
+});
+
+test("generated Power Distro resize previews are isolated, coalesced, and commit one atomic rebase", () => {
+  const origin = 156;
+  const faceConnector = resizeConnector("front", "left", 0, origin, {
+    faceplateSide: true,
+    nameText: "Front I/O"
+  });
+  faceConnector.y = 70;
+  faceConnector.anchors = faceConnector.anchors.map(anchor => ({ ...anchor, y: 70 }));
+  const { api, template, counters, context } = structuralEditorHarness({
+    resizeGeometryMode: true,
+    isPowerDistro: true,
+    powerDistroFaceY: 20,
+    powerDistroFaceHeight: 100,
+    autoFaceHeight: 80,
+    manualPlugTopLimit: 70,
+    connectors: [
+      resizeConnector("left", "left", 0, origin, { powerPlug: { manual: true, x: 90, y: 64 } }),
+      resizeConnector("right", "right", 0, origin, { direction: "output" }),
+      resizeConnector("both", "both", 1, origin),
+      resizeConnector("network-in", "left", 2, origin, { type: "ethernet", networkGroupId: "net-a" }),
+      resizeConnector("network-out", "right", 2, origin, { type: "ethernet", direction: "output", networkGroupId: "net-a" }),
+      resizeConnector("led-output", "right", 6, origin, { type: "led-signal", direction: "output", generatedByLedProcessor: true }),
+      faceConnector
+    ],
+    cardTypes: [{
+      id: "io-card",
+      name: "I/O Card",
+      kind: "io",
+      connectors: [
+        { id: "in", direction: "input", type: "hdmi", empty: false },
+        { id: "out", direction: "output", type: "hdmi", empty: false }
+      ]
+    }],
+    cardSlots: [{ id: "slot-a", installedCardTypeId: "io-card", y: origin + 3 * 54, span: 3 }],
+    connectorRelationships: [{ id: "network-a", type: "paired-network", members: ["network-in", "network-out"] }]
+  });
+  template.height = context.deviceHeightForSlotCounts(template);
+  const baselineTemplate = structuredClone(template);
+  const baselineLanes = itemLaneMap(api.resolveEditorModularLayout(template));
+  const baselineGeneratedIds = api.generatedCardConnectors(structuredClone(template)).map(connector => connector.id);
+  context.editorSelectedNodeIds = new Set(["left", "both", "led-output"]);
+  context.editorSelectedNodeIndex = template.connectors.findIndex(connector => connector.id === "both");
+  context.editorSelectedFaceplate = true;
+  context.editorSelectedPowerPlugIds = new Set(["left"]);
+  const before = editorCounterSnapshot(counters);
+
+  assert.equal(api.beginEditorResizeSession(resizePointer(41, 200, 120, "pointerdown"), {
+    kind: "generated-faceplate",
+    edge: "bottom",
+    startPoint: { x: 200, y: 120 }
+  }), true);
+  for (let index = 0; index < 30; index += 1) {
+    assert.equal(api.updateEditorResizeSessionFromEvent(resizePointer(41, 200, 121 + index)), true);
+  }
+  assert.deepEqual(template, baselineTemplate, "pointer movement must not mutate the live template");
+  assert.equal(counters.structuralSessions, 0);
+  assert.equal(counters.solverCalls, 0);
+  assert.equal(counters.animationSeeds, 0);
+  assert.equal(context.flushAnimationFrames(), 1, "bursty movement should coalesce to one frame");
+  const preview = context.editorResizePreviewTemplate;
+  assert.ok(preview && preview !== template);
+  assert.equal(preview.powerDistroFaceHeight, 130);
+  assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(preview)), baselineLanes);
+  assert.deepEqual(api.generatedCardConnectors(preview).map(connector => connector.id), baselineGeneratedIds);
+  assert.deepEqual(template, baselineTemplate);
+
+  api.finishEditorResizeSession(resizePointer(41, 200, 174, "pointerup"));
+  assert.equal(template.powerDistroFaceHeight, 154);
+  assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), baselineLanes);
+  assert.deepEqual(api.generatedCardConnectors(template).map(connector => connector.id), baselineGeneratedIds);
+  assert.deepEqual(template.connectors.find(connector => connector.id === "left").powerPlug, { manual: true, x: 90, y: 64 });
+  template.connectors.filter(connector => connector.id !== "front").forEach(connector => {
+    assert.ok(connector.anchors.every(anchor => anchor.y === connector.y), `${connector.id} anchors should match the committed row`);
+  });
+  assert.equal(template.connectors.find(connector => connector.id === "front").y, context.faceplateSideConnectorY(template));
+  assert.deepEqual(editorCounterDelta(counters, before), {
+    structuralSessions: 1,
+    solverCalls: 1,
+    previewRenders: 2,
+    editorRenders: 1,
+    animationSeeds: 0,
+    animationRetargets: 0
+  });
+
+  const roundTripBaseline = editorResizeGeometrySnapshot(template);
+  for (let cycle = 0; cycle < 3; cycle += 1) {
+    const growPointerId = 70 + cycle * 2;
+    api.beginEditorResizeSession(resizePointer(growPointerId, 200, 0, "pointerdown"), {
+      kind: "generated-faceplate",
+      edge: "bottom",
+      startPoint: { x: 200, y: 0 }
+    });
+    api.finishEditorResizeSession(resizePointer(growPointerId, 200, 30, "pointerup"));
+    const shrinkPointerId = growPointerId + 1;
+    api.beginEditorResizeSession(resizePointer(shrinkPointerId, 200, 0, "pointerdown"), {
+      kind: "generated-faceplate",
+      edge: "bottom",
+      startPoint: { x: 200, y: 0 }
+    });
+    api.finishEditorResizeSession(resizePointer(shrinkPointerId, 200, -30, "pointerup"));
+    assert.deepEqual(editorResizeGeometrySnapshot(template), roundTripBaseline, `resize cycle ${cycle + 1} must not accumulate coordinate or height drift`);
+  }
+});
+
+test("generated faceplate top resize keeps origin fixed and cancellation restores exact selection", () => {
+  const origin = 156;
+  const { api, template, counters, context } = structuralEditorHarness({
+    resizeGeometryMode: true,
+    isPowerDistro: true,
+    powerDistroFaceY: 20,
+    powerDistroFaceHeight: 100,
+    autoFaceHeight: 60,
+    manualPlugTopLimit: 55,
+    connectors: [resizeConnector("left", "left", 0, origin), resizeConnector("right", "right", 0, origin, { direction: "output" })]
+  });
+  template.height = context.deviceHeightForSlotCounts(template);
+  const baseline = structuredClone(template);
+  context.editorSelectedNodeIds = new Set(["left", "right"]);
+  context.editorSelectedNodeIndex = 1;
+  context.editorSelectedFaceplate = false;
+  context.editorSelectedPowerPlugIds = new Set(["left"]);
+  const before = editorCounterSnapshot(counters);
+
+  api.beginEditorResizeSession(resizePointer(42, 200, 20, "pointerdown"), {
+    kind: "generated-faceplate",
+    edge: "top",
+    startPoint: { x: 200, y: 20 }
+  });
+  api.updateEditorResizeSessionFromEvent(resizePointer(42, 200, 90));
+  context.flushAnimationFrames();
+  assert.equal(context.editorResizePreviewTemplate.powerDistroFaceY, 55, "manual plug top must clamp the faceplate edge");
+  assert.equal(context.connectorStartYForTemplate(context.editorResizePreviewTemplate), origin, "top resize keeps the face bottom and origin fixed");
+  assert.deepEqual(template, baseline);
+  api.cancelEditorResizeSession(resizePointer(42, 200, 90, "pointercancel"));
+  assert.deepEqual(template, baseline);
+  assert.deepEqual(selectedNodeConnectorIds(context), ["left", "right"]);
+  assert.equal(selectedNodePrimaryConnectorId(template, context), "right");
+  assert.equal(context.editorSelectedFaceplate, false);
+  assert.deepEqual([...context.editorSelectedPowerPlugIds], ["left"]);
+  assert.equal(counters.structuralSessions, 0);
+  assert.equal(counters.solverCalls, 0);
+
+  api.beginEditorResizeSession(resizePointer(43, 200, 20, "pointerdown"), {
+    kind: "generated-faceplate",
+    edge: "top",
+    startPoint: { x: 200, y: 20 }
+  });
+  api.updateEditorResizeSessionFromEvent(resizePointer(43, 200, 45));
+  context.flushAnimationFrames();
+  api.finishEditorResizeSession(resizePointer(43, 200, 45, "pointerup"));
+  assert.equal(context.connectorStartYForTemplate(template), origin);
+  assert.equal(counters.structuralSessions, 1);
+  assert.equal(counters.solverCalls, 0);
+  assert.equal(counters.animationSeeds, 0);
+  assert.equal(counters.editorRenders - before.editorRenders, 1);
+});
+
+test("custom image resize derives from its baseline and separates horizontal and vertical commits", () => {
+  const horizontalOrigin = 150;
+  const horizontal = structuralEditorHarness({
+    faceImage: "data:image/png;base64,custom",
+    faceImageNaturalWidth: 800,
+    faceImageNaturalHeight: 400,
+    faceImageScale: 1,
+    faceImageScaleX: 1,
+    faceImageScaleY: 1,
+    connectors: [
+      resizeConnector("left", "left", 0, horizontalOrigin),
+      resizeConnector("both", "both", 1, horizontalOrigin)
+    ]
+  });
+  horizontal.template.height = horizontal.context.deviceHeightForSlotCounts(horizontal.template);
+  const startFace = horizontal.context.faceImagePlacement(horizontal.template, 420);
+  const liveBefore = structuredClone(horizontal.template);
+  horizontal.api.beginEditorResizeSession(resizePointer(51, startFace.x + startFace.width, startFace.y + startFace.height / 2, "pointerdown"), {
+    kind: "custom-face-image",
+    handle: "e",
+    startPoint: { x: startFace.x + startFace.width, y: startFace.y + startFace.height / 2 }
+  });
+  horizontal.api.updateEditorResizeSessionFromEvent(resizePointer(51, startFace.x + startFace.width - 90, startFace.y + startFace.height / 2));
+  horizontal.context.flushAnimationFrames();
+  assert.deepEqual(horizontal.template, liveBefore);
+  assert.ok(horizontal.context.editorResizePreviewTemplate.faceImageScaleX < 1);
+  assert.equal(horizontal.context.editorResizePreviewTemplate.faceImageScaleY, 1);
+  assert.equal(horizontal.context.connectorStartYForTemplate(horizontal.context.editorResizePreviewTemplate), horizontalOrigin);
+  horizontal.api.finishEditorResizeSession(resizePointer(51, startFace.x + startFace.width - 90, startFace.y + startFace.height / 2, "pointerup"));
+  assert.equal(horizontal.counters.structuralSessions, 1);
+  assert.equal(horizontal.counters.solverCalls, 0);
+  assert.equal(horizontal.counters.animationSeeds, 0);
+
+  const vertical = structuralEditorHarness({
+    faceImage: "data:image/png;base64,custom",
+    faceImageNaturalWidth: 800,
+    faceImageNaturalHeight: 400,
+    faceImageScale: 1,
+    faceImageScaleX: 1,
+    faceImageScaleY: 1,
+    connectors: [resizeConnector("left", "left", 0, horizontalOrigin), resizeConnector("right", "right", 1, horizontalOrigin, { direction: "output" })]
+  });
+  vertical.template.height = vertical.context.deviceHeightForSlotCounts(vertical.template);
+  const verticalLanes = itemLaneMap(vertical.api.resolveEditorModularLayout(vertical.template));
+  const verticalFace = vertical.context.faceImagePlacement(vertical.template, 420);
+  const start = { x: verticalFace.x + verticalFace.width / 2, y: verticalFace.y + verticalFace.height };
+  vertical.api.beginEditorResizeSession(resizePointer(52, start.x, start.y, "pointerdown"), {
+    kind: "custom-face-image",
+    handle: "s",
+    startPoint: start
+  });
+  vertical.api.updateEditorResizeSessionFromEvent(resizePointer(52, start.x, start.y + 80));
+  vertical.context.flushAnimationFrames();
+  const outward = structuredClone(vertical.context.editorResizePreviewTemplate);
+  vertical.api.updateEditorResizeSessionFromEvent(resizePointer(52, start.x, start.y - 20));
+  vertical.context.flushAnimationFrames();
+  const reversed = vertical.context.editorResizePreviewTemplate;
+  const direct = vertical.api.deriveEditorResizePreviewCandidate(vertical.context.editorResizeSession, { x: start.x, y: start.y - 20 });
+  assert.notEqual(outward.faceImageScaleY, reversed.faceImageScaleY);
+  assert.equal(reversed.faceImageScaleY, direct.faceImageScaleY, "reversal must derive from the pointer-down snapshot");
+  assert.ok(reversed.faceImageScaleY >= .2 && reversed.faceImageScaleY <= 6);
+  vertical.api.updateEditorResizeSessionFromEvent(resizePointer(52, start.x, start.y + 80));
+  vertical.context.flushAnimationFrames();
+  const finalPreview = structuredClone(vertical.context.editorResizePreviewTemplate);
+  vertical.api.finishEditorResizeSession(resizePointer(52, start.x, start.y + 80, "pointerup"));
+  assert.equal(vertical.template.faceImageScaleY, finalPreview.faceImageScaleY);
+  assert.equal(vertical.template.faceImageOffsetX, finalPreview.faceImageOffsetX);
+  assert.deepEqual(itemLaneMap(vertical.api.resolveEditorModularLayout(vertical.template)), verticalLanes);
+  assert.equal(vertical.counters.structuralSessions, 1);
+  assert.equal(vertical.counters.solverCalls, 1);
+  assert.equal(vertical.counters.animationSeeds, 0);
+});
+
+test("custom image corner resize honors minimums, scale clamps, offsets, and shared preview ownership", () => {
+  const minimum = structuralEditorHarness({
+    faceImage: "data:image/png;base64,custom",
+    faceImageNaturalWidth: 800,
+    faceImageNaturalHeight: 400,
+    faceImageScale: 1,
+    faceImageScaleX: 1,
+    faceImageScaleY: 1,
+    faceImageOffsetX: 12,
+    faceImageOffsetY: -6,
+    connectors: [resizeConnector("both", "both", 0, 150)]
+  });
+  minimum.template.height = minimum.context.deviceHeightForSlotCounts(minimum.template);
+  const baseline = structuredClone(minimum.template);
+  const face = minimum.context.faceImagePlacement(minimum.template, 420);
+  const start = { x: face.x, y: face.y };
+  const target = { x: face.x + face.width - 1, y: face.y + face.height - 1 };
+  minimum.api.beginEditorResizeSession(resizePointer(53, start.x, start.y, "pointerdown"), {
+    kind: "custom-face-image",
+    handle: "nw",
+    startPoint: start
+  });
+  minimum.api.updateEditorResizeSessionFromEvent(resizePointer(53, target.x, target.y));
+  minimum.context.flushAnimationFrames();
+  const preview = structuredClone(minimum.context.editorResizePreviewTemplate);
+  assert.deepEqual(minimum.template, baseline);
+  assert.equal(preview.faceImageScaleX, .2);
+  assert.equal(preview.faceImageScaleY, .2);
+  assert.notEqual(preview.faceImageOffsetX, baseline.faceImageOffsetX);
+  assert.notEqual(preview.faceImageOffsetY, baseline.faceImageOffsetY);
+  const engineCandidate = minimum.api.editorEnginePreviewTemplateClone(minimum.template);
+  const legacyCandidate = minimum.api.readonlyDeviceEditorPreviewTemplate(minimum.template);
+  assert.deepEqual(engineCandidate, legacyCandidate, "Engine and Legacy preview ownership must resolve the same detached candidate");
+  assert.deepEqual(editorResizeGeometrySnapshot(engineCandidate), editorResizeGeometrySnapshot(preview));
+  minimum.api.finishEditorResizeSession(resizePointer(53, target.x, target.y, "pointerup"));
+  assert.deepEqual(editorResizeGeometrySnapshot(minimum.template), editorResizeGeometrySnapshot(preview));
+  assert.equal(minimum.counters.structuralSessions, 1);
+  assert.equal(minimum.counters.animationSeeds, 0);
+
+  const maximum = structuralEditorHarness({
+    faceImage: "data:image/png;base64,custom",
+    faceImageNaturalWidth: 800,
+    faceImageNaturalHeight: 400,
+    faceImageScale: 1,
+    faceImageScaleX: 1,
+    faceImageScaleY: 1,
+    connectors: [resizeConnector("left", "left", 0, 150)]
+  });
+  maximum.template.height = maximum.context.deviceHeightForSlotCounts(maximum.template);
+  const maximumBaseline = structuredClone(maximum.template);
+  const maximumFace = maximum.context.faceImagePlacement(maximum.template, 420);
+  const maximumStart = { x: maximumFace.x + maximumFace.width, y: maximumFace.y + maximumFace.height };
+  maximum.api.beginEditorResizeSession(resizePointer(54, maximumStart.x, maximumStart.y, "pointerdown"), {
+    kind: "custom-face-image",
+    handle: "se",
+    startPoint: maximumStart
+  });
+  maximum.api.updateEditorResizeSessionFromEvent(resizePointer(54, maximumStart.x + 10000, maximumStart.y + 10000));
+  maximum.context.flushAnimationFrames();
+  assert.equal(maximum.context.editorResizePreviewTemplate.faceImageScaleY, 6);
+  assert.deepEqual(maximum.template, maximumBaseline);
+  maximum.api.cancelEditorResizeSession(resizePointer(54, maximumStart.x + 10000, maximumStart.y + 10000, "pointercancel"));
+  assert.deepEqual(maximum.template, maximumBaseline);
+  assert.equal(maximum.counters.structuralSessions, 0);
+});
+
+test("device height resize commits once while cancel, stale identity, and failure leave live state intact", () => {
+  const fixture = () => structuralEditorHarness({
+    connectors: [testConnector("left", "left", 0, { v2: true }), testConnector("right", "right", 1, { v2: true, direction: "output" })]
+  });
+  const committed = fixture();
+  committed.template.height = committed.context.deviceHeightForSlotCounts(committed.template);
+  const lanes = itemLaneMap(committed.api.resolveEditorModularLayout(committed.template));
+  const startHeight = committed.template.height;
+  committed.api.beginEditorResizeSession(resizePointer(61, 200, startHeight, "pointerdown"), {
+    kind: "device-height",
+    edge: "bottom",
+    startPoint: { x: 200, y: startHeight }
+  });
+  committed.api.updateEditorResizeSessionFromEvent(resizePointer(61, 200, startHeight + 120));
+  committed.context.flushAnimationFrames();
+  assert.equal(committed.template.height, startHeight);
+  assert.equal(committed.context.editorResizePreviewTemplate.height, startHeight + 120);
+  committed.api.finishEditorResizeSession(resizePointer(61, 200, startHeight + 120, "pointerup"));
+  assert.equal(committed.template.manualHeight, startHeight + 120);
+  assert.equal(committed.counters.structuralSessions, 1);
+  assert.equal(committed.counters.solverCalls, 0);
+  assert.equal(committed.counters.animationSeeds, 0);
+  assert.deepEqual(itemLaneMap(committed.api.resolveEditorModularLayout(committed.template)), lanes);
+
+  const cancelled = fixture();
+  cancelled.template.height = cancelled.context.deviceHeightForSlotCounts(cancelled.template);
+  cancelled.context.editorSelectedNodeIds = new Set(["left", "right"]);
+  cancelled.context.editorSelectedNodeIndex = 1;
+  const cancelledBefore = structuredClone(cancelled.template);
+  cancelled.api.beginEditorResizeSession(resizePointer(62, 200, 0, "pointerdown"), {
+    kind: "device-height",
+    edge: "top",
+    startPoint: { x: 200, y: 0 }
+  });
+  cancelled.api.updateEditorResizeSessionFromEvent(resizePointer(62, 200, -80));
+  cancelled.context.flushAnimationFrames();
+  cancelled.api.cancelEditorResizeSession(resizePointer(62, 200, -80, "lostpointercapture"));
+  assert.deepEqual(cancelled.template, cancelledBefore);
+  assert.deepEqual(selectedNodeConnectorIds(cancelled.context), ["left", "right"]);
+  assert.equal(cancelled.counters.structuralSessions, 0);
+  assert.equal(cancelled.api.cancelEditorResizeSession(resizePointer(62, 200, -80, "lostpointercapture")), false);
+
+  const stale = fixture();
+  stale.template.height = stale.context.deviceHeightForSlotCounts(stale.template);
+  const staleBefore = structuredClone(stale.template);
+  stale.api.beginEditorResizeSession(resizePointer(63, 200, 0, "pointerdown"), {
+    kind: "device-height",
+    edge: "bottom",
+    startPoint: { x: 200, y: 0 }
+  });
+  stale.context.editorDraft = [{ ...structuredClone(stale.template), id: "replacement" }];
+  stale.api.updateEditorResizeSessionFromEvent(resizePointer(63, 200, 90));
+  assert.deepEqual(stale.template, staleBefore);
+  assert.equal(stale.counters.structuralSessions, 0);
+
+  const failed = structuralEditorHarness({
+    resizeGeometryMode: true,
+    isPowerDistro: true,
+    powerDistroFaceY: 20,
+    powerDistroFaceHeight: 100,
+    autoFaceHeight: 80,
+    connectors: [resizeConnector("row", "left", 0, 156)]
+  });
+  failed.template.height = failed.context.deviceHeightForSlotCounts(failed.template);
+  failed.context.editorSelectedNodeIds = new Set(["row"]);
+  failed.context.editorSelectedNodeIndex = 0;
+  failed.context.editorSelectedFaceplate = false;
+  failed.context.editorSelectedPowerPlugIds = new Set(["row"]);
+  const failedBefore = structuredClone(failed.template);
+  failed.placementModule.forceInvalid = true;
+  failed.api.beginEditorResizeSession(resizePointer(64, 200, 120, "pointerdown"), {
+    kind: "generated-faceplate",
+    edge: "bottom",
+    startPoint: { x: 200, y: 120 }
+  });
+  failed.api.updateEditorResizeSessionFromEvent(resizePointer(64, 200, 180));
+  failed.context.flushAnimationFrames();
+  failed.api.finishEditorResizeSession(resizePointer(64, 200, 180, "pointerup"));
+  assert.deepEqual(failed.template, failedBefore);
+  assert.equal(failed.context.editorResizeSession, null);
+  assert.equal(failed.context.editorResizePreviewTemplate, null);
+  assert.deepEqual(selectedNodeConnectorIds(failed.context), ["row"]);
+  assert.equal(selectedNodePrimaryConnectorId(failed.template, failed.context), "row");
+  assert.equal(failed.context.editorSelectedFaceplate, false);
+  assert.deepEqual([...failed.context.editorSelectedPowerPlugIds], ["row"]);
+  assert.equal(failed.counters.animationSeeds, 0);
+  assert.equal(failed.counters.editorRenders, 0);
+
+  const noMotion = fixture();
+  noMotion.template.height = noMotion.context.deviceHeightForSlotCounts(noMotion.template);
+  noMotion.api.beginEditorResizeSession(resizePointer(65, 200, 0, "pointerdown"), {
+    kind: "device-height",
+    edge: "bottom",
+    startPoint: { x: 200, y: 0 }
+  });
+  noMotion.api.finishEditorResizeSession(resizePointer(65, 200, 0, "pointerup"));
+  assert.equal(noMotion.counters.structuralSessions, 0);
+  assert.equal(noMotion.counters.solverCalls, 0);
+
+  const clamped = fixture();
+  clamped.template.height = clamped.context.deviceHeightForSlotCounts(clamped.template);
+  const clampedHeight = clamped.template.height;
+  clamped.api.beginEditorResizeSession(resizePointer(66, 200, clampedHeight, "pointerdown"), {
+    kind: "device-height",
+    edge: "bottom",
+    startPoint: { x: 200, y: clampedHeight }
+  });
+  clamped.api.updateEditorResizeSessionFromEvent(resizePointer(66, 200, clampedHeight - 10000));
+  clamped.context.flushAnimationFrames();
+  assert.equal(clamped.context.editorResizePreviewTemplate.height, clampedHeight);
+  clamped.api.finishEditorResizeSession(resizePointer(66, 200, clampedHeight - 10000, "pointerup"));
+  assert.equal(clamped.template.height, clampedHeight);
+  assert.equal(clamped.counters.structuralSessions, 0, "geometry clamped to its baseline must skip the transaction");
+  assert.equal(clamped.counters.solverCalls, 0);
+});
+
+test("resize interruption routes cancel pending work and normal release cannot finalize twice", () => {
+  const interruptionTypes = ["pointercancel", "lostpointercapture", "keydown", "tabchange", "close", "reset"];
+  interruptionTypes.forEach((type, index) => {
+    const fixture = structuralEditorHarness({
+      connectors: [testConnector("left", "left", 0, { v2: true }), testConnector("right", "right", 1, { v2: true, direction: "output" })]
+    });
+    fixture.template.height = fixture.context.deviceHeightForSlotCounts(fixture.template);
+    fixture.context.editorSelectedNodeIds = new Set(["left", "right"]);
+    fixture.context.editorSelectedNodeIndex = 1;
+    fixture.context.editorSelectedFaceplate = true;
+    fixture.context.editorSelectedPowerPlugIds = new Set(["left"]);
+    const baseline = structuredClone(fixture.template);
+    const pointerId = 80 + index;
+    fixture.api.beginEditorResizeSession(resizePointer(pointerId, 200, fixture.template.height, "pointerdown"), {
+      kind: "device-height",
+      edge: "bottom",
+      startPoint: { x: 200, y: fixture.template.height }
+    });
+    fixture.api.updateEditorResizeSessionFromEvent(resizePointer(pointerId, 200, fixture.template.height + 90));
+    const event = type === "keydown" || type === "tabchange" || type === "close" || type === "reset"
+      ? { type }
+      : resizePointer(pointerId, 200, fixture.template.height + 90, type);
+    fixture.api.cancelEditorResizeSession(event, { render: !["tabchange", "close", "reset"].includes(type) });
+    assert.deepEqual(fixture.template, baseline, `${type} must leave the live template unchanged`);
+    assert.equal(fixture.context.editorResizeSession, null);
+    assert.equal(fixture.context.editorResizePreviewTemplate, null);
+    assert.equal(fixture.context.flushAnimationFrames(), 0, `${type} must cancel its pending animation frame`);
+    assert.equal(fixture.context.resizeSurface.capturedPointers.size, 0);
+    assert.deepEqual(selectedNodeConnectorIds(fixture.context), ["left", "right"]);
+    assert.equal(selectedNodePrimaryConnectorId(fixture.template, fixture.context), "right");
+    assert.equal(fixture.context.editorSelectedFaceplate, true);
+    assert.deepEqual([...fixture.context.editorSelectedPowerPlugIds], ["left"]);
+    assert.equal(fixture.counters.structuralSessions, 0);
+    assert.equal(fixture.counters.solverCalls, 0);
+  });
+
+  const released = structuralEditorHarness({
+    connectors: [testConnector("left", "left", 0, { v2: true })]
+  });
+  released.template.height = released.context.deviceHeightForSlotCounts(released.template);
+  const pointerId = 99;
+  released.api.beginEditorResizeSession(resizePointer(pointerId, 200, released.template.height, "pointerdown"), {
+    kind: "device-height",
+    edge: "bottom",
+    startPoint: { x: 200, y: released.template.height }
+  });
+  released.api.updateEditorResizeSessionFromEvent(resizePointer(pointerId, 200, released.template.height + 60));
+  released.context.flushAnimationFrames();
+  released.api.finishEditorResizeSession(resizePointer(pointerId, 200, released.template.height + 60, "pointerup"));
+  const committedHeight = released.template.height;
+  const committedCounters = editorCounterSnapshot(released.counters);
+  assert.equal(released.api.cancelEditorResizeSession(resizePointer(pointerId, 200, committedHeight, "lostpointercapture")), false);
+  assert.equal(released.template.height, committedHeight);
+  assert.deepEqual(editorCounterSnapshot(released.counters), committedCounters);
+  assert.equal(released.context.resizeSurface.capturedPointers.size, 0);
+});
+
 test("Device Editor LED Processor generation is owned, atomic, and selection-stable", () => {
   const { api, template, counters, context } = structuralEditorHarness({
     connectors: [
@@ -3541,8 +4232,8 @@ test("Device Editor placement motion is persistent and shared by Engine and Lega
 
   assert.match(previewPositions, /editorPlacementMotionConnectorPositions\(\)/);
   assert.match(cardSlotDisplayY, /editorPlacementMotionVisualY\(`card:\$\{slot\?\.id\}`/);
-  assert.match(previewClone, /applyEditorPlacementVisualsToPreviewTemplate\(draft, template\)/);
-  assert.match(legacyRender, /applyEditorPlacementVisualsToPreviewTemplate\(previewTemplate, template\)/);
+  assert.match(previewClone, /applyEditorPlacementVisualsToPreviewTemplate\(draft, sourceTemplate\)/);
+  assert.match(legacyRender, /applyEditorPlacementVisualsToPreviewTemplate\(previewTemplate, editorResizePreviewTemplateFor\(template\)\)/);
   assert.doesNotMatch(legacyRender, /animateTransform/);
   assert.match(engineRender, /motionOnly: options\.motionFrame === true \|\| editorPlacementMotionHasEntries\(\)/);
   assert.match(syncEngine, /options\.motionOnly === true/);
@@ -3701,7 +4392,7 @@ test("Engine Device Editor card motion uses dynamic overlay ownership without pe
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /visual\.suppressCardAreasInTexture \? "suppress-card-areas" : ""/);
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /!visual\.suppressCardAreasInTexture\) \{\s*drawCardAreas/);
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /drawConnectorBands\(ctx, device, width, height, face\.bottom \+ 12\);/);
-  assert.match(PRODUCTION_BRIDGE_SOURCE, /ENGINE_BRIDGE_VERSION = "iteration54-12-0-atomic-faceplate-origin-mutations"/);
+  assert.match(PRODUCTION_BRIDGE_SOURCE, /ENGINE_BRIDGE_VERSION = "iteration54-13-0-transactional-editor-resize-sessions"/);
 
   assert.match(previewClone, /draft\.suppressCardAreasInTexture = true/);
   assert.match(syncEngine, /suppressCardAreasInTexture: options\.dynamicCardArtwork === true/);
@@ -4112,7 +4803,7 @@ test("Device Editor preview renders from detached normalized drafts", () => {
   const renderEnginePreview = functionSource("renderDeviceEditorEnginePreview");
   const engineClone = functionSource("editorEnginePreviewTemplateClone");
 
-  assert.match(readonlyClone, /const draft = structuredClone\(template\);/);
+  assert.match(readonlyClone, /const sourceTemplate = editorResizePreviewTemplateFor\(template\);[\s\S]*const draft = structuredClone\(sourceTemplate\);/);
   assert.match(readonlyClone, /validateDraftDefaults\(draft\);/);
   assert.doesNotMatch(readonlyClone, /validateDraftDefaults\(template\)/);
 
