@@ -490,7 +490,6 @@ function structuralEditorHarness(inputTemplate = {}) {
     powerUnitFor: device => device?.powerUnit === "A" ? "A" : "W",
     normalizePowerUnit: value => value === "A" ? "A" : "W",
     editorActiveStableDragLayout: () => null,
-    editorPlacementMotionBottomY: () => null,
     applyEditorPlacementVisualsToPreviewTemplate: device => device,
     syncEditorFieldsToDraft: () => {},
     uniqueConnectorId: (device, baseId = "connector") => {
@@ -949,6 +948,247 @@ function placementMotionIntegrationHarness(now = 0) {
       editorPlacementMotionHasCardEntries
     })`;
   const api = vm.runInNewContext(script, context);
+  return { api, context };
+}
+
+function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
+  const template = structuredClone({
+    id: "card-drag-device",
+    name: "Card Drag Device",
+    width: 420,
+    height: 240,
+    manualHeight: 0,
+    startY: 100,
+    connectors: [],
+    cardSlots: [],
+    ...inputTemplate
+  });
+  const counters = {
+    captures: 0,
+    releases: 0,
+    previewRenders: 0,
+    editorRenders: 0,
+    motionSeeds: 0,
+    motionRetargets: [],
+    motionSettles: 0,
+    motionClears: 0,
+    motionRollbacks: 0,
+    commits: 0
+  };
+  const context = {
+    console,
+    JSON,
+    Map,
+    Math,
+    Number,
+    Object,
+    Set,
+    String,
+    structuredClone,
+    SLOT_HEIGHT: 54,
+    DEVICE_BOTTOM_PAD: 48,
+    editorActiveTab: "connectors",
+    editorIndex: 0,
+    editorSlotIndex: null,
+    editorNodeDrag: null,
+    editorCardSlotDrag: null,
+    editorConnectorSnapGuide: null,
+    editorDragPointerReleaseInProgress: false,
+    editorResizeSession: null,
+    editorPowerPlugMarquee: null,
+    editorNodeMarquee: null,
+    editorPowerPlugDrag: null,
+    rackPreviewDeviceDrag: null,
+    editorSelectedPowerPlugIds: new Set(["selection-sentinel"]),
+    previewScale: Number(options.previewScale) || 1,
+    currentEditorTemplate: () => template,
+    clamp: (value, min, max) => Math.min(max, Math.max(min, value)),
+    connectorStartYForTemplate: device => Number(device?.startY) || 100,
+    laneY: (lane, startY = 100) => startY + Math.max(0, lane) * 54,
+    captureTemplateConfiguration: device => structuredClone(device),
+    deviceTemplateWidth: device => Number(device?.width) || 420,
+    connectorSideKey: connector => connector?.direction === "output" ? "output" : "input",
+    isEditorV2ConnectorCandidate: connector => Array.isArray(connector?.anchors),
+    editorConnectorAnchors: connector => structuredClone(connector?.anchors || []),
+    getEditorPreviewPoint: event => ({
+      x: Number(event?.clientX) / context.previewScale,
+      y: Number(event?.clientY) / context.previewScale
+    }),
+    captureEditorDragCoordinateFrame: (event, localPoint) => Object.freeze({
+      clientX: Number(event.clientX) || 0,
+      clientY: Number(event.clientY) || 0,
+      localX: Number(localPoint?.x) || 0,
+      localY: Number(localPoint?.y) || 0,
+      xBasisX: 1 / context.previewScale,
+      xBasisY: 0,
+      yBasisX: 0,
+      yBasisY: 1 / context.previewScale
+    }),
+    setEditorPointerCapture: () => { counters.captures += 1; },
+    releaseEditorPointerCapture: () => { counters.releases += 1; },
+    beginEditorPlacementMotion: () => { counters.motionSeeds += 1; },
+    retargetEditorPlacementMotionForDrag: (_drag, motionOptions) => {
+      counters.motionRetargets.push(structuredClone(motionOptions));
+    },
+    settleEditorPlacementMotionToLayout: layout => {
+      counters.motionSettles += 1;
+      counters.settledLayout = structuredClone(layout);
+    },
+    clearEditorPlacementMotion: () => { counters.motionClears += 1; },
+    rollbackEditorPlacementMotionForDrag: () => {
+      counters.motionRollbacks += 1;
+      return false;
+    },
+    renderDeviceEditorPreview: () => { counters.previewRenders += 1; },
+    renderDeviceEditor: () => { counters.editorRenders += 1; },
+    applyEditorFaceImageResize: () => false,
+    updateEditorResizeSessionFromEvent: () => false,
+    requireDeviceEditorPlacementModule: () => ({
+      createModularInsertionDragSession,
+      isValidModularInsertionResult,
+      resolveModularInsertionDrag,
+      targetLaneWithHysteresis,
+      resolveModularPlacementItems
+    })
+  };
+  context.syncEditorConnectorAnchorsToPosition = (device, connector) => {
+    if (!Array.isArray(connector.anchors)) return;
+    const width = Number(device?.width) || 420;
+    connector.anchors = connector.anchors.map(anchor => ({
+      ...anchor,
+      x: anchor.side === "right" ? width : 0,
+      y: connector.y
+    }));
+  };
+  context.resolveEditorModularLayout = device => {
+    const startY = Number(device?.startY) || 100;
+    const connectors = (device.connectors || []).map((connector, index) => ({
+      id: `connector:${connector.id}`,
+      kind: "connector",
+      itemType: "chassis-connector",
+      sideMask: connector.sideMask || (connector.displaySide === "both" ? "both" : connector.direction === "output" ? "right" : "left"),
+      requestedLane: Math.max(0, Math.round(((Number(connector.y) || startY) - startY) / 54)),
+      span: 1,
+      order: index
+    }));
+    const cards = (device.cardSlots || []).map((slot, index) => ({
+      id: `card:${slot.id}`,
+      kind: "card",
+      itemType: "card-slot",
+      sideMask: slot.sideMask || "both",
+      requestedLane: Math.max(0, Math.round(((Number(slot.y) || startY) - startY) / 54)),
+      span: Math.max(1, Number(slot.span) || 1),
+      order: connectors.length + index
+    }));
+    return resolveModularPlacementItems([...connectors, ...cards], { startY, slotHeight: 54 });
+  };
+  context.deviceHeightForSlotCounts = device => {
+    const layout = context.resolveEditorModularLayout(device);
+    const bottom = Math.max(0, ...layout.items.map(item => item.y + item.span * 54));
+    return Math.max(Number(device?.manualHeight) || 0, 240, Math.ceil(bottom + 75));
+  };
+  context.editorLaneMapsEqual = (left = new Map(), right = new Map()) => {
+    if (left.size !== right.size) return false;
+    for (const [id, lane] of left) {
+      if (right.get(id) !== lane) return false;
+    }
+    return true;
+  };
+
+  const helpers = [
+    "editorStableDragLayout",
+    "editorStableDragItemId",
+    "editorStableLayoutItemKind",
+    "editorStableDragSourceId",
+    "editorStableDragLaneMap",
+    "editorPlacementItemByStableId",
+    "createEditorStablePlacementDragSession",
+    "resolveEditorStablePlacementDragMove",
+    "applyEditorStableResolvedLayout",
+    "commitEditorStablePlacementDrag",
+    "cancelEditorStableDrags",
+    "getEditorDragPreviewPoint",
+    "startEditorCardSlotDrag",
+    "moveEditorNode",
+    "stopEditorNodeDrag"
+  ];
+  const script = `${helpers.map(functionSource).join("\n")}
+    ({
+      startEditorCardSlotDrag,
+      moveEditorNode,
+      stopEditorNodeDrag,
+      getDrag: () => editorCardSlotDrag,
+      getLayout: () => resolveEditorModularLayout(currentEditorTemplate())
+    })`;
+  const api = vm.runInNewContext(script, context);
+  const cardEvent = (type, pointerId, clientY, slotIndex = 0) => ({
+    type,
+    pointerId,
+    button: 0,
+    clientX: 20,
+    clientY,
+    target: {
+      closest(selector) {
+        return selector === "[data-editor-card-slot]"
+          ? { dataset: { editorCardSlot: String(slotIndex) } }
+          : null;
+      }
+    },
+    preventDefault() {},
+    stopPropagation() {}
+  });
+  const startCardDrag = (slotIndex, pointerId = 1) => {
+    const slot = template.cardSlots[slotIndex];
+    const clientY = Number(slot.y) * context.previewScale;
+    const event = cardEvent("pointerdown", pointerId, clientY, slotIndex);
+    assert.equal(api.startEditorCardSlotDrag(event), true);
+    return { pointerId, clientY, startY: Number(slot.y), frame: api.getDrag().coordinateFrame };
+  };
+  const moveCardToLane = (started, lane, { rawLane = lane } = {}) => {
+    const targetLocalY = (Number(template.startY) || 100) + rawLane * 54 + api.getDrag().offsetY;
+    const clientY = started.frame.clientY + (targetLocalY - started.frame.localY) / started.frame.yBasisY;
+    api.moveEditorNode(cardEvent("pointermove", started.pointerId, clientY));
+    return api.getDrag();
+  };
+  const stopCardDrag = (started, type = "pointerup") => {
+    if (type === "pointerup") counters.commits += api.getDrag()?.movementThresholdCrossed ? 1 : 0;
+    api.stopEditorNodeDrag(cardEvent(type, started.pointerId, started.clientY));
+  };
+  return { api, context, counters, template, startCardDrag, moveCardToLane, stopCardDrag };
+}
+
+function deviceHeightCalculationHarness() {
+  const context = {
+    Math,
+    Map,
+    Number,
+    DEVICE_WIDTH: 420,
+    SLOT_HEIGHT: 54,
+    DEVICE_BOTTOM_PAD: 48,
+    ADAPTER_NODE_RADIUS: 16,
+    ADAPTER_NODE_EDGE_PADDING: 24,
+    connectorStartYForTemplate: template => Number(template?.startY) || 100,
+    deviceMinimumHeight: () => 240,
+    effectiveTemplateConnectors: template => template.connectors || [],
+    isAdapterTemplate: () => false,
+    isLayoutConnector: () => true,
+    cardSlotLaneCount: (_template, slot) => Math.max(1, Number(slot?.span) || 1),
+    cardTypeById: () => ({ kind: "io" }),
+    deviceHeightForSlotCount: (_count, _startY, minHeight) => minHeight,
+    editorPlacementMotionVisualY: () => {
+      throw new Error("model-only height must not read placement motion");
+    }
+  };
+  const helpers = [
+    "editorPlacementItemByStableId",
+    "editorPlacementYForHeight",
+    "editorConnectorYForHeight",
+    "cardBandGeometryAtY",
+    "deviceContentHeightForSlotCounts",
+    "deviceHeightForSlotCounts"
+  ];
+  const api = vm.runInNewContext(`${helpers.map(functionSource).join("\n")}
+    ({ deviceContentHeightForSlotCounts, deviceHeightForSlotCounts })`, context);
   return { api, context };
 }
 
@@ -4426,6 +4666,191 @@ test("Device Editor card motion integration animates first displacement and inte
   assert.equal(interruptedEntry.targetY, 316, "new solver baseline remains the committed model");
 });
 
+test("Device Editor card drag handlers keep accepted lanes, visuals, and frozen Fit coordinates in sync", () => {
+  const fixture = {
+    id: "e2-gen1-card-drag-fixture",
+    name: "E2 Gen1 Card Drag Fixture",
+    height: 520,
+    connectors: [
+      { id: "left-top", direction: "input", sideMask: "left", x: 0, y: 100 },
+      { id: "right-top", direction: "output", sideMask: "right", x: 420, y: 100 }
+    ],
+    cardSlots: [
+      { id: "slot-a", installedCardTypeId: "card-span", sideMask: "both", span: 2, y: 154, overrides: { "in-1": { nameText: "A IN" } } },
+      { id: "slot-b", installedCardTypeId: "card-input", sideMask: "left", span: 1, y: 262 },
+      { id: "slot-c", installedCardTypeId: "card-output", sideMask: "right", span: 1, y: 262 },
+      { id: "slot-d", installedCardTypeId: "card-io", sideMask: "both", span: 2, y: 316 }
+    ],
+    connectorRelationships: [{ id: "relationship-a", members: ["left-top", "right-top"] }]
+  };
+  const expectedDown = {
+    "connector:left-top": 0,
+    "connector:right-top": 0,
+    "card:slot-a": 4,
+    "card:slot-b": 1,
+    "card:slot-c": 1,
+    "card:slot-d": 2
+  };
+  const expectedUp = {
+    "connector:left-top": 0,
+    "connector:right-top": 0,
+    "card:slot-a": 1,
+    "card:slot-b": 3,
+    "card:slot-c": 3,
+    "card:slot-d": 4
+  };
+
+  for (const previewMode of ["engine", "legacy"]) {
+    const harness = cardDragInteractionHarness(fixture, { previewScale: 0.16, previewMode });
+    const { api, context, counters, template, startCardDrag, moveCardToLane, stopCardDrag } = harness;
+    const originalIds = template.cardSlots.map(slot => slot.id);
+    const originalOverrides = structuredClone(template.cardSlots[0].overrides);
+    const originalRelationships = structuredClone(template.connectorRelationships);
+    const originalHeight = template.height;
+    const started = startCardDrag(0, previewMode === "engine" ? 41 : 42);
+    const frozenBasis = started.frame.yBasisY;
+
+    context.previewScale = 0.035;
+    const drag = moveCardToLane(started, 4);
+    assert.equal(drag.currentTargetLane, 4, `${previewMode}: solver target should survive preview scale changes`);
+    assert.equal(drag.currentY, 316, `${previewMode}: dragged visual should use the accepted lane Y`);
+    assert.equal(counters.motionRetargets.at(-1).draggedY, 316, `${previewMode}: motion should target the accepted lane`);
+    assert.equal(started.frame.yBasisY, frozenBasis, `${previewMode}: coordinate frame should remain immutable`);
+    assert.deepEqual(itemLaneMap(drag.lastValidResolvedLayout), expectedDown, `${previewMode}: exact downward lane map`);
+    assert.equal(template.height, originalHeight, `${previewMode}: move preview must not mutate persisted height`);
+    assert.equal(template.cardSlots[0].y, 154, `${previewMode}: move preview must not mutate persisted slot Y`);
+
+    stopCardDrag(started);
+    assert.deepEqual(itemLaneMap(api.getLayout()), expectedDown, `${previewMode}: release should commit the displayed map`);
+    assert.equal(template.cardSlots.find(slot => slot.id === "slot-a").y, 316);
+    assert.equal(counters.motionSettles, 1);
+    assert.equal(counters.commits, 1, `${previewMode}: release should commit exactly once`);
+    assert.deepEqual(template.cardSlots.map(slot => slot.id), originalIds, `${previewMode}: stable slot IDs should survive`);
+    assert.deepEqual(template.cardSlots[0].overrides, originalOverrides, `${previewMode}: per-slot overrides should survive`);
+    assert.deepEqual(template.connectorRelationships, originalRelationships, `${previewMode}: relationships should survive`);
+
+    const upward = startCardDrag(0, previewMode === "engine" ? 43 : 44);
+    const upwardDrag = moveCardToLane(upward, 1);
+    assert.deepEqual(itemLaneMap(upwardDrag.lastValidResolvedLayout), expectedUp, `${previewMode}: exact upward lane map`);
+    stopCardDrag(upward);
+    assert.deepEqual(itemLaneMap(api.getLayout()), expectedUp, `${previewMode}: upward release should commit the displayed map`);
+    assert.equal(template.cardSlots.find(slot => slot.id === "slot-a").y, 154);
+  }
+});
+
+test("Device Editor card drag handlers support fresh slots, cancellation, and far-pointer lane snapping", () => {
+  const fixture = {
+    id: "new-three-slot-device",
+    name: "New Three Slot Device",
+    height: 360,
+    cardSlots: [
+      { id: "slot-1", installedCardTypeId: "card-a", sideMask: "both", span: 1, y: 100 },
+      { id: "slot-2", installedCardTypeId: "card-a", sideMask: "both", span: 1, y: 154 },
+      { id: "slot-3", installedCardTypeId: "card-a", sideMask: "both", span: 1, y: 208 }
+    ]
+  };
+  const harness = cardDragInteractionHarness(fixture, { previewScale: 0.2 });
+  const { api, counters, template, startCardDrag, moveCardToLane, stopCardDrag } = harness;
+  const baseline = structuredClone(template);
+  const started = startCardDrag(2, 51);
+  const drag = moveCardToLane(started, 0);
+  assert.deepEqual(itemLaneMap(drag.lastValidResolvedLayout), {
+    "card:slot-1": 1,
+    "card:slot-2": 2,
+    "card:slot-3": 0
+  });
+  stopCardDrag(started, "pointercancel");
+  assert.deepEqual(template, baseline, "pointer cancellation should restore the exact model and height");
+  assert.equal(counters.motionRollbacks, 1);
+  assert.equal(counters.commits, 0);
+
+  const far = startCardDrag(2, 52);
+  const farDrag = moveCardToLane(far, 8, { rawLane: 8.45 });
+  assert.equal(farDrag.currentTargetLane, 8);
+  assert.equal(farDrag.currentY, 532, "semantic artwork Y should be the accepted discrete lane");
+  assert.ok(farDrag.rawPointerY > farDrag.currentY, "raw pointer-follow Y remains distinct from semantic Y");
+  assert.equal(counters.motionRetargets.at(-1).draggedY, farDrag.currentY);
+  assert.equal(template.height, baseline.height, "far pointer movement must not mutate persisted height before release");
+  stopCardDrag(far);
+  assert.equal(template.cardSlots.find(slot => slot.id === "slot-3").y, 532);
+  assert.equal(template.height, harness.context.deviceHeightForSlotCounts(template), "release height should derive from committed lanes");
+  assert.equal(counters.commits, 1);
+});
+
+test("Device Editor repeated card drag cycles do not ratchet coordinates or height", () => {
+  const harness = cardDragInteractionHarness({
+    id: "repeated-card-drag-device",
+    height: 520,
+    connectors: [
+      { id: "fixed-left", direction: "input", sideMask: "left", x: 0, y: 100 },
+      { id: "fixed-right", direction: "output", sideMask: "right", x: 420, y: 100 }
+    ],
+    cardSlots: [
+      { id: "moving", installedCardTypeId: "span", sideMask: "both", span: 2, y: 154 },
+      { id: "left", installedCardTypeId: "left", sideMask: "left", span: 1, y: 262 },
+      { id: "right", installedCardTypeId: "right", sideMask: "right", span: 1, y: 262 },
+      { id: "lower", installedCardTypeId: "lower", sideMask: "both", span: 2, y: 316 }
+    ]
+  }, { previewScale: 0.12 });
+  const baselineMap = itemLaneMap(harness.api.getLayout());
+  const baselineSlotYs = harness.template.cardSlots.map(slot => slot.y);
+  const expectedStableHeight = harness.context.deviceHeightForSlotCounts(harness.template);
+
+  for (let cycle = 0; cycle < 10; cycle += 1) {
+    const down = harness.startCardDrag(0, 100 + cycle * 2);
+    harness.moveCardToLane(down, 4);
+    harness.stopCardDrag(down);
+    const up = harness.startCardDrag(0, 101 + cycle * 2);
+    harness.moveCardToLane(up, 1);
+    harness.stopCardDrag(up);
+    assert.deepEqual(itemLaneMap(harness.api.getLayout()), baselineMap, `cycle ${cycle + 1}: lane map should return exactly`);
+    assert.deepEqual(harness.template.cardSlots.map(slot => slot.y), baselineSlotYs, `cycle ${cycle + 1}: slot coordinates should not drift`);
+    assert.equal(harness.template.height, expectedStableHeight, `cycle ${cycle + 1}: height should not ratchet`);
+  }
+  assert.equal(harness.counters.commits, 20);
+});
+
+test("Device Editor model height ignores placement motion and follows only accepted layout", () => {
+  const { api, context } = deviceHeightCalculationHarness();
+  const template = {
+    startY: 100,
+    manualHeight: 0,
+    hasSwappableCards: true,
+    connectors: [{ id: "fixed", direction: "input", x: 0, y: 100 }],
+    cardSlots: [{ id: "slot-a", installedCardTypeId: "card-a", span: 2, y: 154 }]
+  };
+  const acceptedLayout = {
+    items: [
+      { id: "connector:fixed", kind: "connector", y: 100, lane: 0, span: 1 },
+      { id: "card:slot-a", kind: "card", y: 478, lane: 7, span: 2 }
+    ]
+  };
+  const persistedHeight = api.deviceHeightForSlotCounts(template);
+  const acceptedHeight = api.deviceHeightForSlotCounts(template, { layout: acceptedLayout });
+  context.editorPlacementMotionVisualY = () => 99999;
+  assert.equal(api.deviceHeightForSlotCounts(template), persistedHeight, "active motion must not affect persisted height calculation");
+  assert.equal(api.deviceHeightForSlotCounts(template, { layout: acceptedLayout }), acceptedHeight, "active motion must not affect accepted-layout height");
+  assert.ok(acceptedHeight > persistedHeight, "accepted downward lanes may grow height discretely");
+  template.manualHeight = acceptedHeight + 200;
+  assert.equal(api.deviceHeightForSlotCounts(template), acceptedHeight + 200, "manual height remains authoritative");
+
+  const cardSlotDisplayY = runnableIndexFunction("cardSlotDisplayY", {
+    Number,
+    connectorStartYForTemplate: () => 100,
+    editorPlacementMotionVisualY: () => null,
+    editorCardSlotDrag: null,
+    editorActiveStableDragLayout: () => null,
+    editorResolvedCardSlotY: () => 154
+  });
+  assert.equal(cardSlotDisplayY(template, { id: "slot-a", y: 154 }), 154, "inactive motion must not coerce null into top-lane y=0");
+
+  assert.doesNotMatch(functionSource("deviceContentHeightForSlotCounts"), /editorPlacementMotion/);
+  assert.doesNotMatch(functionSource("deviceHeightForSlotCounts"), /editorPlacementMotion/);
+  assert.doesNotMatch(functionSource("readonlyDeviceEditorPreviewTemplate"), /editorPlacementMotionBottomY/);
+  assert.match(functionSource("startEditorCardSlotDrag"), /coordinateFrame: captureEditorDragCoordinateFrame/);
+  assert.match(functionSource("moveEditorNode"), /getEditorDragPreviewPoint\(event, editorCardSlotDrag\)/);
+});
+
 test("Engine Device Editor card motion uses dynamic overlay ownership without per-frame texture refresh", () => {
   const template = {
     id: "motion-card-device",
@@ -4501,7 +4926,7 @@ test("Engine Device Editor card motion uses dynamic overlay ownership without pe
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /visual\.suppressCardAreasInTexture \? "suppress-card-areas" : ""/);
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /!visual\.suppressCardAreasInTexture\) \{\s*drawCardAreas/);
   assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /drawConnectorBands\(ctx, device, width, height, face\.bottom \+ 12\);/);
-  assert.match(PRODUCTION_BRIDGE_SOURCE, /ENGINE_BRIDGE_VERSION = "iteration54-14-0-modular-placement-release-hardening"/);
+  assert.match(PRODUCTION_BRIDGE_SOURCE, /ENGINE_BRIDGE_VERSION = "iteration54-14-1-device-editor-card-drag-parity"/);
 
   assert.match(previewClone, /draft\.suppressCardAreasInTexture = true/);
   assert.match(syncEngine, /suppressCardAreasInTexture: options\.dynamicCardArtwork === true/);

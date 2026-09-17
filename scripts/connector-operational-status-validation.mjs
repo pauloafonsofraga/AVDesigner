@@ -15,7 +15,7 @@ import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { connectorOperationalStatusMarkSegments } from "../src/engine/renderer.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 
-const BUILD_ID = "iteration54-14-0-modular-placement-release-hardening";
+const BUILD_ID = "iteration54-14-1-device-editor-card-drag-parity";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -24,10 +24,10 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const projectAdapterSource = readFileSync(resolve(repoRoot, "src/engine/projectAdapter.js"), "utf8");
 const mutationSource = readFileSync(resolve(repoRoot, "src/engine/projectMutations.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Modular Placement Release Hardening");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-14-0-modular-placement-release-hardening-modules";'), "module cache key should bust 54.14.0 modules");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-14-0-modular-placement-release-hardening"'), "bridge version should identify Modular Placement Release Hardening");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "modular-placement-release-hardening"'), "bridge feature label should identify Modular Placement Release Hardening");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Device Editor Card Drag Parity");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-14-1-device-editor-card-drag-parity-modules";'), "module cache key should bust 54.14.1 modules");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-14-1-device-editor-card-drag-parity"'), "bridge version should identify Device Editor Card Drag Parity");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "device-editor-card-drag-parity"'), "bridge feature label should identify Device Editor Card Drag Parity");
 assert.ok(rendererSource.includes("renderer-iteration54-4-0-matrix-routing-internal-routes"), "renderer fingerprint should identify Matrix Routing Internal Routes");
 
 assert.equal(normalizeConnectorOperationalStatus(), "working", "missing connector status should default to working");
