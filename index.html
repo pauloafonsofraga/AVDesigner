@@ -4999,7 +4999,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.19.3 — Card Drag Ghost Fix — iteration54-19-3-card-drag-ghost-fix</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.20.0 — Connector Inspector Relationships — iteration54-20-0-connector-inspector-relationships</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5460,6 +5460,7 @@
                   </div>
                 </div>
                 <div class="selected-card-connector-settings" id="cardConnectorList"></div>
+                <div id="cardConnectorRelationshipsPanel"></div>
               </div>
               <input id="editorDeviceSearch" class="hidden" type="search" tabindex="-1" aria-hidden="true">
               <div class="editor-device-list hidden" id="editorDeviceList" aria-hidden="true"></div>
@@ -5692,10 +5693,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.19.3";
-    const APP_BUILD_ID = "iteration54-19-3-card-drag-ghost-fix";
-    const APP_MODULE_CACHE_ID = "iteration54-19-3-card-drag-ghost-fix-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Card Drag Ghost Fix`;
+    const APP_ITERATION = "54.20.0";
+    const APP_BUILD_ID = "iteration54-20-0-connector-inspector-relationships";
+    const APP_MODULE_CACHE_ID = "iteration54-20-0-connector-inspector-relationships-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Connector Inspector Relationships`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "6dc62f5ef0b40e65629ccfb8a5d9e2071fa8273f";
@@ -78668,6 +78669,7 @@
     const editorCardCaptionBackgroundColor = document.getElementById("editorCardCaptionBackgroundColor");
     const editorCardKind = document.getElementById("editorCardKind");
     const cardConnectorList = document.getElementById("cardConnectorList");
+    const cardConnectorRelationshipsPanel = document.getElementById("cardConnectorRelationshipsPanel");
     const cardsDisabled = document.getElementById("cardsDisabled");
     const cardsPanelBody = document.getElementById("cardsPanelBody");
     const cardPalette = document.getElementById("cardPalette");
@@ -80492,6 +80494,26 @@
       return connectors;
     }
 
+    function generatedCardRelationships(template) {
+      if (!template?.hasSwappableCards) return [];
+      return (template.cardSlots || []).flatMap(slot => {
+        const card = cardTypeById(template, slot.installedCardTypeId);
+        if (!card) return [];
+        const installedId = sourceId => sourceId ? `${slot.id}__${sourceId}` : "";
+        const relationshipDraft = {
+          ...card,
+          connectorRelationships: structuredClone(card.connectorRelationships || card.connectorTopology?.relationships || [])
+        };
+        return normalizeEditorConnectorRelationships(relationshipDraft).map((relationship, index) => ({
+          ...relationship,
+          id: `${slot.id}__${relationship.id || `${relationship.type}-${index + 1}`}`,
+          members: relationship.members.map(installedId),
+          sourceConnectorId: installedId(relationship.sourceConnectorId || relationship.members[0]),
+          targetConnectorId: installedId(relationship.targetConnectorId || relationship.members[1])
+        }));
+      });
+    }
+
     function applyInstalledCardConnectorAnchors(template, generatedConnector, sourceConnector, index = 0) {
       const width = deviceTemplateWidth(template);
       const installedY = Number.isFinite(Number(generatedConnector.y)) ? Number(generatedConnector.y) : connectorStartYForTemplate(template);
@@ -80533,6 +80555,14 @@
       return [...chassis, ...generatedCardConnectors(template)];
     }
 
+    function effectiveTemplateConnectorRelationships(template) {
+      if (!template) return [];
+      return [
+        ...(Array.isArray(template.connectorRelationships) ? template.connectorRelationships : []),
+        ...generatedCardRelationships(template)
+      ];
+    }
+
     function connectorById(instanceId, connectorId) {
       const instance = instanceById(instanceId);
       const template = templateForInstance(instance);
@@ -80558,7 +80588,15 @@
     }
 
     function setConnectorFieldsForEndpoint(deviceId, connectorId, fields = {}) {
-      const allowed = new Set(["nameText", "resolutionFrameRate", "customText", "nameCustom"]);
+      const allowed = new Set([
+        "nameText",
+        "resolutionFrameRate",
+        "customText",
+        "nameCustom",
+        "nameTextCaption",
+        "resolutionFrameRateCaption",
+        "customTextCaption"
+      ]);
       const connector = connectorById(deviceId, connectorId);
       if (!connector) return false;
       const nextFields = {};
@@ -80631,6 +80669,9 @@
           nameText: connector.nameText || "",
           customText: connector.customText || "",
           resolutionFrameRate: connector.resolutionFrameRate || "",
+          nameTextCaption: connector.nameTextCaption || "",
+          resolutionFrameRateCaption: connector.resolutionFrameRateCaption || "",
+          customTextCaption: connector.customTextCaption || "",
           color: colorForConnector(connector, deviceId)
         });
       });
@@ -83692,6 +83733,7 @@
           ? structuredClone(template.connectorTopology.relationships)
           : [];
       (template.connectors || []).forEach((connector, index) => ensureConnectorV2Defaults(template, connector, index));
+      (template.cardTypes || []).forEach(card => normalizeEditorConnectorRelationships(card));
       normalizeEditorConnectorRelationships(template);
       return template;
     }
@@ -83814,6 +83856,7 @@
       if (!template) return [];
       const connectors = (template.connectors || []).filter(connector => connector?.id && !connector.empty && connector.type);
       const ids = new Set(connectors.map(connector => connector.id));
+      const connectorsById = new Map(connectors.map(connector => [connector.id, connector]));
       const relationships = [];
       (Array.isArray(template.connectorRelationships) ? template.connectorRelationships : []).forEach((relationship, index) => {
         const type = normalizeEditorRelationshipType(relationship?.type || relationship?.relationshipType);
@@ -83826,6 +83869,10 @@
         ]).filter(id => ids.has(id));
         if (type !== "through" && members.length < 2) return;
         if (type === "through" && members.length < 2) return;
+        const outputOnly = type === "exclusive" && members.every(memberId => {
+          const connector = connectorsById.get(memberId);
+          return normalizeEditorSignalDirection(connector?.signalDirection, connector?.direction) === "output";
+        });
         relationships.push({
           id: String(relationship.id || `${type}-${index + 1}`),
           type,
@@ -83833,7 +83880,8 @@
           members,
           sourceConnectorId: String(relationship.sourceConnectorId || relationship.fromConnectorId || members[0] || ""),
           targetConnectorId: String(relationship.targetConnectorId || relationship.toConnectorId || members[1] || ""),
-          maxActive: Math.max(1, Number(relationship.maxActive) || (type === "exclusive" ? 1 : members.length))
+          maxActive: Math.max(1, Number(relationship.maxActive) || (type === "exclusive" ? 1 : members.length)),
+          outputCopy: outputOnly && relationship.outputCopy !== false
         });
       });
       template.connectorRelationships = relationships;
@@ -88652,10 +88700,16 @@
           <h4 class="connector-inspector-heading">Fields</h4>
           <div class="compact-field-grid">
             ${fields.map(item => `
-              <label class="field">
-                <span>${escapeHtml(item.title)}</span>
-                <input data-card-field="${escapeAttr(item.field)}" data-card-node-index="${connectorIndex}" value="${escapeAttr(item.text || "")}">
-              </label>
+              <div class="field">
+                <label>
+                  <span>Field name</span>
+                  <input data-card-field="${escapeAttr(connectorCaptionKey(item.field))}" data-card-node-index="${connectorIndex}" value="${escapeAttr(item.title)}">
+                </label>
+                <label>
+                  <span>Value</span>
+                  <input data-card-field="${escapeAttr(item.field)}" data-card-node-index="${connectorIndex}" value="${escapeAttr(item.text || "")}">
+                </label>
+              </div>
             `).join("")}
           </div>
         </div>
@@ -88725,6 +88779,7 @@
         editorCardCaptionTextColor.value = "#32b6ff";
         editorCardCaptionBackgroundColor.value = "#17212b";
         cardConnectorList.innerHTML = "";
+        if (cardConnectorRelationshipsPanel) cardConnectorRelationshipsPanel.innerHTML = "";
         return;
       }
       if (!template.cardTypes.length) {
@@ -88743,6 +88798,7 @@
       document.getElementById("addCardInputNode").disabled = card?.kind === "output";
       document.getElementById("addCardOutputNode").disabled = card?.kind === "input";
       cardConnectorList.innerHTML = renderCardConnectorInspector(template, card);
+      renderCardConnectorRelationshipsPanel();
     }
 
     function renderCardSlotEditor() {
@@ -88784,9 +88840,34 @@
         .filter(id => (template.connectors || []).some(connector => connector.id === id && !connector.empty && connector.type));
     }
 
+    function selectedEditorCardConnectorIds(card = currentEditorCard()) {
+      syncEditorCardNodeSelection(card);
+      return [...editorSelectedCardNodeIds]
+        .map(index => card?.connectors?.[Number(index)]?.id || "")
+        .filter(Boolean);
+    }
+
+    function editorRelationshipIsOutputOnly(template, relationship) {
+      const members = uniqueEditorRelationshipMembers(relationship?.members || []);
+      return relationship?.type === "exclusive" && members.length >= 2 && members.every(id => {
+        const connector = editorConnectorById(template, id);
+        return normalizeEditorSignalDirection(connector?.signalDirection, connector?.direction) === "output";
+      });
+    }
+
+    function relationshipOutputCopyControl(template, relationship, attributeName) {
+      if (!editorRelationshipIsOutputOnly(template, relationship)) return "";
+      return `
+        <label class="checkbox-row">
+          <input ${attributeName}="${escapeAttr(relationship.id)}" type="checkbox" ${relationship.outputCopy !== false ? "checked" : ""}>
+          Plug is a copy
+        </label>
+      `;
+    }
+
     function relationshipTypeLabel(type) {
       if (type === "mirrored") return "Mirrored / Multi-anchor";
-      if (type === "exclusive") return "Exclusive Shared Bus";
+      if (type === "exclusive") return "Shared Bus";
       if (type === "through") return "Through / Loop";
       return "Relationship";
     }
@@ -88890,7 +88971,11 @@
         members,
         sourceConnectorId: members[0],
         targetConnectorId: members[1],
-        maxActive: 1
+        maxActive: 1,
+        outputCopy: members.every(id => {
+          const connector = editorConnectorById(template, id);
+          return normalizeEditorSignalDirection(connector?.signalDirection, connector?.direction) === "output";
+        })
       };
       template.connectorRelationships = Array.isArray(template.connectorRelationships) ? template.connectorRelationships : [];
       template.connectorRelationships.push(relationship);
@@ -89017,10 +89102,15 @@
             return `<span>${escapeHtml(relationshipTypeLabel(relationship.type))}: ${escapeHtml(label)}</span>`;
           }).join("")}</div>`
           : "";
+        const copyControls = memberships
+          .map(relationship => relationshipOutputCopyControl(template, relationship, "data-relationship-output-copy"))
+          .filter(Boolean)
+          .join("");
         connectorRelationshipsPanel.innerHTML = `
           <div class="connector-inspector-section">
             <h4 class="connector-inspector-heading">Relationship</h4>
             ${membershipLines}
+            ${copyControls}
             ${validationLines}
           </div>
         `;
@@ -89041,6 +89131,9 @@
           <input data-relationship-label="${escapeAttr(exactExclusive.id)}" value="${escapeAttr(exactExclusive.label || "")}">
         </label>
       ` : "";
+      const outputCopy = exactExclusive
+        ? relationshipOutputCopyControl(template, exactExclusive, "data-relationship-output-copy")
+        : "";
       connectorRelationshipsPanel.innerHTML = `
         <div class="connector-inspector-section">
           <h4 class="connector-inspector-heading">${escapeHtml(rawSelectedIds.length)} Connectors Selected</h4>
@@ -89057,6 +89150,7 @@
           </div>
           ${partialMessage}
           ${busName}
+          ${outputCopy}
           <div class="relationship-toggle-row">
             <span>Through / Loop</span>
             <label class="feature-toggle">
@@ -89066,6 +89160,84 @@
           </div>
           ${exactThrough ? `<button class="tool-button" data-relationship-reverse="${escapeAttr(exactThrough.id)}" type="button">Reverse</button>` : ""}
           ${validationLines}
+        </div>
+      `;
+    }
+
+    function renderCardConnectorRelationshipsPanel() {
+      if (!cardConnectorRelationshipsPanel) return;
+      const card = currentEditorCard();
+      if (!card || editorActiveTab !== "cards") {
+        cardConnectorRelationshipsPanel.innerHTML = "";
+        return;
+      }
+      const relationshipModel = {
+        ...card,
+        connectorRelationships: structuredClone(card.connectorRelationships || card.connectorTopology?.relationships || [])
+      };
+      normalizeEditorConnectorRelationships(relationshipModel);
+      const selectedIds = selectedEditorCardConnectorIds(card);
+      if (!selectedIds.length) {
+        cardConnectorRelationshipsPanel.innerHTML = "";
+        return;
+      }
+      if (selectedIds.length === 1) {
+        const memberships = [
+          ...findEditorRelationshipsTouchingSelection(relationshipModel, "exclusive", selectedIds),
+          ...findEditorRelationshipsTouchingSelection(relationshipModel, "through", selectedIds)
+        ];
+        if (!memberships.length) {
+          cardConnectorRelationshipsPanel.innerHTML = "";
+          return;
+        }
+        cardConnectorRelationshipsPanel.innerHTML = `
+          <div class="connector-inspector-section">
+            <h4 class="connector-inspector-heading">Relationship</h4>
+            <div class="connector-inspector-list">${memberships.map(relationship => {
+              const label = relationship.type === "through"
+                ? editorThroughDirectionLabel(relationshipModel, relationship)
+                : relationship.label || "Shared bus";
+              return `<span>${escapeHtml(relationshipTypeLabel(relationship.type))}: ${escapeHtml(label)}</span>`;
+            }).join("")}</div>
+            ${memberships.map(relationship => relationshipOutputCopyControl(relationshipModel, relationship, "data-card-relationship-output-copy")).join("")}
+          </div>
+        `;
+        return;
+      }
+      const exactExclusive = findExactEditorRelationship(relationshipModel, "exclusive", selectedIds);
+      const partialExclusive = findPartialEditorExclusiveRelationships(relationshipModel, selectedIds);
+      const exactThrough = selectedIds.length === 2 ? findExactEditorRelationship(relationshipModel, "through", selectedIds) : null;
+      const sharedTooLarge = selectedIds.length > EDITOR_SHARED_BUS_MAX_MEMBERS;
+      const sharedDisabled = selectedIds.length < 2 || sharedTooLarge || (!exactExclusive && partialExclusive.length > 0);
+      cardConnectorRelationshipsPanel.innerHTML = `
+        <div class="connector-inspector-section">
+          <h4 class="connector-inspector-heading">${escapeHtml(selectedIds.length)} Connectors Selected</h4>
+          ${selectedConnectorListHtml(card, selectedIds)}
+        </div>
+        <div class="connector-inspector-section">
+          <h4 class="connector-inspector-heading">Relationship</h4>
+          <div class="relationship-toggle-row">
+            <span>Shared Bus</span>
+            <label class="feature-toggle">
+              <input data-card-relationship-toggle="exclusive" type="checkbox" ${exactExclusive ? "checked" : ""} ${sharedDisabled ? "disabled" : ""}>
+              <span>${exactExclusive ? "On" : "Off"}</span>
+            </label>
+          </div>
+          ${exactExclusive ? `
+            <label class="field">
+              <span>Bus Name</span>
+              <input data-card-relationship-label="${escapeAttr(exactExclusive.id)}" value="${escapeAttr(exactExclusive.label || "")}">
+            </label>
+            ${relationshipOutputCopyControl(relationshipModel, exactExclusive, "data-card-relationship-output-copy")}
+          ` : ""}
+          <div class="relationship-toggle-row">
+            <span>Through / Loop</span>
+            <label class="feature-toggle">
+              <input data-card-relationship-toggle="through" type="checkbox" ${exactThrough ? "checked" : ""} ${selectedIds.length !== 2 ? "disabled" : ""}>
+              <span>${exactThrough ? "On" : "Off"}</span>
+            </label>
+          </div>
+          ${exactThrough ? `<button class="tool-button" data-card-relationship-reverse="${escapeAttr(exactThrough.id)}" type="button">Reverse</button>` : ""}
         </div>
       `;
     }
@@ -89252,10 +89424,16 @@
           <h4 class="connector-inspector-heading">Fields</h4>
           <div class="compact-field-grid">
             ${fields.map(item => `
-              <label class="field">
-                <span>${escapeHtml(item.title)}</span>
-                <input data-selected-connector-field="${escapeAttr(item.field)}" value="${escapeAttr(item.text || "")}">
-              </label>
+              <div class="field">
+                <label>
+                  <span>Field name</span>
+                  <input data-selected-connector-caption="${escapeAttr(connectorCaptionKey(item.field))}" value="${escapeAttr(item.title)}">
+                </label>
+                <label>
+                  <span>Value</span>
+                  <input data-selected-connector-field="${escapeAttr(item.field)}" value="${escapeAttr(item.text || "")}">
+                </label>
+              </div>
             `).join("")}
           </div>
         </div>
@@ -89455,6 +89633,16 @@
           renderDeviceAuthoringDebugPanel();
         });
       });
+      selectedConnectorSettings.querySelectorAll("[data-selected-connector-caption]").forEach(control => {
+        control.addEventListener("input", event => {
+          const captionKey = event.target.dataset.selectedConnectorCaption;
+          if (!captionKey) return;
+          setSelectedConnectorValue(captionKey, event.target.value);
+          if (!installedSelection) syncPairedNetworkPairFields(template, connector);
+          renderDeviceEditorPreview();
+          renderDeviceAuthoringDebugPanel();
+        });
+      });
       const moduleControl = selectedConnectorSettings.querySelector("#selectedConnectorModule");
       moduleControl?.addEventListener("change", event => {
         if (installedSelection) {
@@ -89504,7 +89692,8 @@
         kind: "io",
         captionTextColor: "#32b6ff",
         captionBackgroundColor: "#17212b",
-        connectors: []
+        connectors: [],
+        connectorRelationships: []
       };
     }
 
@@ -89521,13 +89710,25 @@
       copy.name = nextName;
       copy.id = uniqueCardTypeId(template, slugify(nextName));
       const connectors = copy.connectors || [];
+      const relationshipSource = structuredClone(copy.connectorRelationships || []);
+      const connectorIdMap = new Map();
       copy.connectors = [];
       connectors.forEach((connector, index) => {
-        copy.connectors.push(normalizeCardConnector({
+        const nextConnector = normalizeCardConnector({
           ...connector,
           id: uniqueCardConnectorId(copy, `${copy.id}-node-${index + 1}`)
-        }, index, connector.direction));
+        }, index, connector.direction);
+        connectorIdMap.set(connector.id, nextConnector.id);
+        copy.connectors.push(nextConnector);
       });
+      copy.connectorRelationships = relationshipSource.map((relationship, index) => ({
+        ...relationship,
+        id: `${relationship.type || "relationship"}-${copy.id}-${index + 1}`,
+        members: (relationship.members || []).map(id => connectorIdMap.get(id)).filter(Boolean),
+        sourceConnectorId: connectorIdMap.get(relationship.sourceConnectorId) || "",
+        targetConnectorId: connectorIdMap.get(relationship.targetConnectorId) || ""
+      }));
+      normalizeEditorConnectorRelationships(copy);
       template.cardTypes.push(copy);
       editorCardIndex = template.cardTypes.length - 1;
       clearEditorCardNodeSelection();
@@ -89855,6 +90056,7 @@
             ...context
           }) || {};
           if (mutation.cancelled === true) return mutation;
+          normalizeEditorConnectorRelationships(draftCard);
           pruneInstalledCardSlotOverridesForCard(draft, cardTypeId);
           return {
             ...mutation,
@@ -92012,7 +92214,7 @@
     }
 
     function drawEditorEngineFaceplateOverlay(parent, template, previewDevice = null) {
-      if (editorActiveTab !== "faceplate" && editorActiveTab !== "device") return;
+      if (editorActiveTab !== "faceplate") return;
       if (template?.faceImage) {
         const face = editorEnginePreviewModule?.previewFaceImagePlacement?.(previewDevice)
           || faceImagePlacement(template, deviceTemplateWidth(template), Number(template.height) || deviceHeightForSlotCounts(template));
@@ -92034,6 +92236,7 @@
     }
 
     function drawEditorEnginePowerPlugOverlay(parent, template) {
+      if (editorActiveTab !== "faceplate") return;
       if (!template?.isPowerDistro || template.faceImage || template.faceplateDeleted) return;
       const overlappingPlugIds = powerPlugOverlapIds(powerPlugLayout(template));
       powerPlugLayout(template).forEach(entry => {
@@ -93719,7 +93922,7 @@
     }
 
     function drawEditorFaceImageResizeTool(parent, template, face) {
-      if (!template?.faceImage || !face) return;
+      if (editorActiveTab !== "faceplate" || !template?.faceImage || !face) return;
       parent.appendChild(createSvg("rect", {
         class: "editor-face-image-frame",
         x: face.x,
@@ -93752,7 +93955,7 @@
     }
 
     function startEditorFaceImageResize(event) {
-      if (event.button !== 0) return false;
+      if (event.button !== 0 || editorActiveTab !== "faceplate") return false;
       const handle = event.target.closest("[data-editor-face-image-resize]");
       if (!handle) return false;
       const template = currentEditorTemplate();
@@ -93906,7 +94109,7 @@
           }
           if (!connector.empty && !isAdapterTemplate(previewTemplate) && !groupedSharedBus) {
             const fields = connectorInfoFields(connector);
-            addVisibleInfoBoxes(g, anchorConnector, fields, true);
+            addVisibleInfoBoxes(g, anchorConnector, fields, false);
             if (connector.type === "misc" && isPrimaryAnchor) {
               const swatchX = anchorConnector.direction === "input" ? anchorConnector.x + 16 : anchorConnector.x - 28;
               const swatch = createSvg("rect", {
@@ -93974,6 +94177,27 @@
         "stroke-width": 1.4, "stroke-dasharray": "5 4"
       }));
       drawCardCaption(deviceEditorPreview, card.name || "Card", band.textX, SLOT_HEIGHT + 3, card, { maxWidth: band.width - 12 });
+      const connectorLayout = editorCardConnectorLayout(card);
+      const cardPoints = new Map(connectorLayout.map(item => [item.connector.id, {
+        connector: item.connector,
+        anchor: { id: item.connector.primaryAnchorId || item.side, side: item.side === "output" ? "right" : "left" },
+        x: item.x,
+        y: item.y
+      }]));
+      const relationshipDraft = {
+        ...card,
+        connectorRelationships: structuredClone(card.connectorRelationships || card.connectorTopology?.relationships || [])
+      };
+      normalizeEditorConnectorRelationships(relationshipDraft).forEach(relationship => {
+        const points = uniqueEditorRelationshipMembers(relationship.members).map(id => cardPoints.get(id)).filter(Boolean);
+        if (relationship.type === "exclusive" && points.length >= 2) {
+          drawEditorSimpleSharedRelationshipLines(deviceEditorPreview, points);
+        } else if (relationship.type === "through" && points.length >= 2) {
+          const from = cardPoints.get(relationship.sourceConnectorId || relationship.members?.[0]);
+          const to = cardPoints.get(relationship.targetConnectorId || relationship.members?.[1]);
+          drawEditorRelationshipArrow(deviceEditorPreview, from, to);
+        }
+      });
       const drawCardPreviewConnector = ({ connector, index: connectorIndex, x, y, side }) => {
         const selected = editorSelectedCardNodeIds.has(connectorIndex) || editorSelectedCardNodeIndex === connectorIndex;
         const g = createSvg("g", {
@@ -94027,7 +94251,7 @@
         }
         deviceEditorPreview.appendChild(g);
       };
-      editorCardConnectorLayout(card).forEach(drawCardPreviewConnector);
+      connectorLayout.forEach(drawCardPreviewConnector);
       drawEditorNodeMarquee(deviceEditorPreview);
     }
 
@@ -94125,7 +94349,7 @@
                   ...(usesResolutionField(connector) ? [{ field: "resolutionFrameRate", title: connectorFieldTitle(connector, "resolutionFrameRate"), text: connector.resolutionFrameRate }] : []),
                   { field: "customText", title: connectorFieldTitle(connector, "customText"), text: connector.customText }
                 ];
-            addVisibleInfoBoxes(g, anchorConnector, fields, true);
+            addVisibleInfoBoxes(g, anchorConnector, fields, false);
             parent.appendChild(g);
           });
         });
@@ -94372,49 +94596,38 @@
 
     function drawEditorRelationshipArrow(parent, from, to, color = "#32b6ff") {
       if (!from || !to) return;
-      const fallback = fallbackEditorRelationshipArrowEndpoints(from, to);
-      let start = editorRelationshipArrowEndpoint(from, to, true);
-      let end = editorRelationshipArrowEndpoint(to, from, false);
-      const adjustedDx = end.x - start.x;
-      const adjustedDy = end.y - start.y;
-      const sourceDx = to.x - from.x;
-      const mostlyHorizontal = Math.abs(sourceDx) >= Math.abs(to.y - from.y);
-      const reversedHorizontal = mostlyHorizontal && Math.sign(adjustedDx || sourceDx) !== Math.sign(sourceDx || adjustedDx);
-      if (Math.hypot(adjustedDx, adjustedDy) < 14 || reversedHorizontal) {
-        start = fallback.start;
-        end = fallback.end;
-      }
       parent.appendChild(createSvg("line", {
-        x1: start.x,
-        y1: start.y,
-        x2: end.x,
-        y2: end.y,
+        x1: from.x,
+        y1: from.y,
+        x2: to.x,
+        y2: to.y,
         stroke: color,
-        "stroke-width": 2.4,
+        "stroke-width": 1.2,
         "stroke-linecap": "round",
-        opacity: .82,
+        opacity: .3,
         "pointer-events": "none"
       }));
-      const angle = Math.atan2(end.y - start.y, end.x - start.x);
-      const size = 8.5;
-      const left = {
-        x: end.x - Math.cos(angle - Math.PI / 6) * size,
-        y: end.y - Math.sin(angle - Math.PI / 6) * size
-      };
-      const right = {
-        x: end.x - Math.cos(angle + Math.PI / 6) * size,
-        y: end.y - Math.sin(angle + Math.PI / 6) * size
-      };
-      parent.appendChild(createSvg("path", {
-        d: `M ${left.x} ${left.y} L ${end.x} ${end.y} L ${right.x} ${right.y}`,
-        fill: "none",
-        stroke: color,
-        "stroke-width": 2.4,
-        "stroke-linecap": "round",
-        "stroke-linejoin": "round",
-        opacity: .82,
-        "pointer-events": "none"
-      }));
+    }
+
+    function drawEditorSimpleSharedRelationshipLines(parent, points, color = "#32b6ff") {
+      if (!points?.length) return;
+      const centerY = points.reduce((sum, point) => sum + point.y, 0) / points.length;
+      const averageX = points.reduce((sum, point) => sum + point.x, 0) / points.length;
+      const leftSide = averageX <= DEVICE_WIDTH / 2;
+      const junction = { x: averageX + (leftSide ? 34 : -34), y: centerY };
+      points.forEach(point => {
+        parent.appendChild(createSvg("line", {
+          x1: point.x,
+          y1: point.y,
+          x2: junction.x,
+          y2: junction.y,
+          stroke: color,
+          "stroke-width": 1.4,
+          "stroke-linecap": "round",
+          opacity: .4,
+          "pointer-events": "none"
+        }));
+      });
     }
 
     function editorSharedRelationshipLayout(template, relationship, members, previewPositions = new Map()) {
@@ -94504,7 +94717,7 @@
           x: layout.fieldAnchorX,
           y: layout.centerY
         };
-        addVisibleInfoBoxes(group, fieldAnchor, connectorInfoFields(layout.representative), true);
+        addVisibleInfoBoxes(group, fieldAnchor, connectorInfoFields(layout.representative), false);
         parent.appendChild(group);
       });
     }
@@ -94512,7 +94725,8 @@
     function drawEditorConnectorRelationships(parent, template, previewPositions = new Map()) {
       if (!template) return;
       normalizeEditorConnectorRelationships(template);
-      const connectorById = new Map((template.connectors || []).map(connector => [connector.id, connector]));
+      const effectiveConnectors = effectiveTemplateConnectors(template);
+      const connectorById = new Map(effectiveConnectors.map(connector => [connector.id, connector]));
       const selectedIds = new Set(editorSelectedConnectorIds(template));
       (template.connectors || []).forEach(connector => {
         const points = editorConnectorAnchorPoints(template, connector, previewPositions);
@@ -94532,15 +94746,19 @@
           }));
         }
       });
-      (template.connectorRelationships || []).forEach(relationship => {
+      effectiveTemplateConnectorRelationships(template).forEach(relationship => {
         const points = uniqueEditorRelationshipMembers(relationship.members)
           .map(connectorId => firstEditorConnectorAnchorPoint(template, connectorById.get(connectorId), previewPositions))
           .filter(Boolean);
         if (relationship.type === "exclusive" && points.length >= 2) {
           const members = editorSharedRelationshipMembers(template, relationship);
           if (members.length > EDITOR_SHARED_BUS_MAX_MEMBERS) return;
-          const layout = editorSharedRelationshipLayout(template, relationship, members, previewPositions);
-          drawEditorSharedRelationshipLines(parent, layout);
+          if (members.length === points.length) {
+            const layout = editorSharedRelationshipLayout(template, relationship, members, previewPositions);
+            drawEditorSharedRelationshipLines(parent, layout);
+          } else {
+            drawEditorSimpleSharedRelationshipLines(parent, points);
+          }
         } else if (relationship.type === "through") {
           const from = firstEditorConnectorAnchorPoint(template, connectorById.get(relationship.sourceConnectorId || relationship.members?.[0]), previewPositions);
           const to = firstEditorConnectorAnchorPoint(template, connectorById.get(relationship.targetConnectorId || relationship.members?.[1]), previewPositions);
@@ -95066,6 +95284,7 @@
     }
 
     function drawEditorResizeHandles(parent, template, width, height) {
+      if (editorActiveTab !== "faceplate") return;
       drawEditorResizeZone(parent, "device", "top", 0, 0, width, editorResizeSession?.kind === "device-height" && editorResizeSession?.edge === "top");
       drawEditorResizeZone(parent, "device", "bottom", 0, height, width, editorResizeSession?.kind === "device-height" && editorResizeSession?.edge === "bottom");
       if (template?.isPowerDistro && !template.faceImage) {
@@ -95074,7 +95293,7 @@
     }
 
     function drawEditorFaceplateResizeHandles(parent, template) {
-      if (!template?.isPowerDistro || template.faceImage) return;
+      if (editorActiveTab !== "faceplate" || !template?.isPowerDistro || template.faceImage) return;
       const rect = powerDistroFaceRect(template);
       drawEditorResizeZone(parent, "faceplate", "top", rect.x, rect.y, rect.width, editorResizeSession?.kind === "generated-faceplate" && editorResizeSession?.edge === "top");
       drawEditorResizeZone(parent, "faceplate", "bottom", rect.x, rect.y + rect.height, rect.width, editorResizeSession?.kind === "generated-faceplate" && editorResizeSession?.edge === "bottom");
@@ -95133,6 +95352,15 @@
       };
     }
 
+    function shiftEditorDragCoordinateFrame(drag, deltaX, deltaY) {
+      if (!drag?.coordinateFrame) return;
+      drag.coordinateFrame = Object.freeze({
+        ...drag.coordinateFrame,
+        localX: drag.coordinateFrame.localX + deltaX,
+        localY: drag.coordinateFrame.localY + deltaY
+      });
+    }
+
     function setEditorPointerCapture(event) {
       const svg = editorSvgForEvent(event);
       editorInteractionSvg = svg;
@@ -95148,7 +95376,7 @@
     }
 
     function startEditorResizeDrag(event) {
-      if (event.button !== 0) return false;
+      if (event.button !== 0 || editorActiveTab !== "faceplate") return false;
       const handle = event.target.closest("[data-editor-resize-target]");
       if (!handle) return false;
       const template = currentEditorTemplate();
@@ -95350,10 +95578,19 @@
     function startEditorNodeDrag(event) {
       if (event.button !== 0) return;
       if (startRackPreviewDeviceDrag(event)) return;
+      if (editorActiveTab === "cards") {
+        startEditorNodeMarquee(event);
+        return;
+      }
+      if (editorActiveTab === "faceplate") {
+        if (startEditorFaceImageResize(event)) return;
+        if (startEditorResizeDrag(event)) return;
+        if (startEditorPowerPlugDrag(event)) return;
+        startEditorFaceplateMarquee(event);
+        return;
+      }
+      if (editorActiveTab !== "connectors") return;
       if (event.target.closest("[data-editor-field], [data-editor-misc-color], [data-editor-remove-node], [data-editor-remove-card-slot]")) return;
-      if (startEditorFaceImageResize(event)) return;
-      if (startEditorResizeDrag(event)) return;
-      if (startEditorPowerPlugDrag(event)) return;
       const template = currentEditorTemplate();
       const installedCardConnector = editorInstalledCardConnectorFromEvent(event);
       if (installedCardConnector) {
@@ -95367,7 +95604,6 @@
         return;
       }
       if (startEditorCardSlotDrag(event)) return;
-      if (startEditorFaceplateMarquee(event)) return;
       if (startEditorNodeMarquee(event)) return;
       const index = editorNodeTargetIndexFromEvent(event);
       const connector = template?.connectors[index];
@@ -96555,6 +96791,7 @@
           connector.label = String(connector.label || cableTypes[connector.type]?.label || "Connector");
           if (!connector.label.trim()) throw new Error(`${card.name} has a connector without a name.`);
         });
+        normalizeEditorConnectorRelationships(card);
       });
       template.cardSlots.forEach(slot => {
         slot.name = String(slot.name || "Card Slot");
@@ -107335,10 +107572,16 @@
           <h4 class="connector-inspector-heading">Fields</h4>
           <div class="compact-field-grid">
             ${fields.map(item => `
-              <label class="field">
-                <span>${escapeHtml(item.title)}</span>
-                <input data-canvas-connector-field="${escapeAttr(item.field)}" value="${escapeAttr(item.text || "")}">
-              </label>
+              <div class="field">
+                <label>
+                  <span>Field name</span>
+                  <input data-canvas-connector-caption="${escapeAttr(connectorCaptionKey(item.field))}" value="${escapeAttr(item.title)}">
+                </label>
+                <label>
+                  <span>Value</span>
+                  <input data-canvas-connector-field="${escapeAttr(item.field)}" value="${escapeAttr(item.text || "")}">
+                </label>
+              </div>
             `).join("")}
           </div>
         </div>
@@ -107346,12 +107589,12 @@
     }
 
     function bindCanvasConnectorFieldInputs(deviceId, connectorId) {
-      inspectorBody.querySelectorAll("[data-canvas-connector-field]").forEach(control => {
+      inspectorBody.querySelectorAll("[data-canvas-connector-field], [data-canvas-connector-caption]").forEach(control => {
         bindDeferredCanvasTextCommit(
           control,
           () => {},
           value => {
-            const field = control.dataset.canvasConnectorField || "";
+            const field = control.dataset.canvasConnectorField || control.dataset.canvasConnectorCaption || "";
             if (!field) return;
             const patch = { [field]: value };
             if (field === "nameText") patch.nameCustom = true;
@@ -109918,6 +110161,14 @@ renderViewerOutputDebug();
     connectorRelationshipsPanel?.addEventListener("change", event => {
       const template = currentEditorTemplate();
       if (!template) return;
+      const outputCopy = event.target.closest("[data-relationship-output-copy]");
+      if (outputCopy) {
+        const relationship = (template.connectorRelationships || []).find(item => item.id === outputCopy.dataset.relationshipOutputCopy);
+        if (!relationship || !editorRelationshipIsOutputOnly(template, relationship)) return;
+        relationship.outputCopy = outputCopy.checked;
+        commitConnectorRelationshipChanges(template);
+        return;
+      }
       const toggle = event.target.closest("[data-relationship-toggle]");
       if (toggle) {
         const selectedIds = selectedEditorConnectorIds(template);
@@ -109967,6 +110218,53 @@ renderViewerOutputDebug();
         }
       }
       commitConnectorRelationshipChanges(template);
+    });
+    cardConnectorRelationshipsPanel?.addEventListener("click", event => {
+      const card = currentEditorCard();
+      if (!card) return;
+      const reverse = event.target.closest("[data-card-relationship-reverse]");
+      if (!reverse) return;
+      reverseEditorThroughRelationship(card, reverse.dataset.cardRelationshipReverse || "");
+      normalizeEditorConnectorRelationships(card);
+      renderCardEditor();
+      renderDeviceEditorPreview();
+    });
+    cardConnectorRelationshipsPanel?.addEventListener("input", event => {
+      const card = currentEditorCard();
+      const labelInput = event.target.closest("[data-card-relationship-label]");
+      if (!card || !labelInput) return;
+      const relationship = (card.connectorRelationships || []).find(item => item.id === labelInput.dataset.cardRelationshipLabel);
+      if (!relationship) return;
+      relationship.label = labelInput.value;
+      normalizeEditorConnectorRelationships(card);
+      renderDeviceEditorPreview();
+    });
+    cardConnectorRelationshipsPanel?.addEventListener("change", event => {
+      const card = currentEditorCard();
+      if (!card) return;
+      const outputCopy = event.target.closest("[data-card-relationship-output-copy]");
+      if (outputCopy) {
+        const relationship = (card.connectorRelationships || []).find(item => item.id === outputCopy.dataset.cardRelationshipOutputCopy);
+        if (!relationship || !editorRelationshipIsOutputOnly(card, relationship)) return;
+        relationship.outputCopy = outputCopy.checked;
+        normalizeEditorConnectorRelationships(card);
+        renderCardEditor();
+        renderDeviceEditorPreview();
+        return;
+      }
+      const toggle = event.target.closest("[data-card-relationship-toggle]");
+      if (!toggle) return;
+      const selectedIds = selectedEditorCardConnectorIds(card);
+      const type = toggle.dataset.cardRelationshipToggle;
+      const exact = findExactEditorRelationship(card, type, selectedIds);
+      if (toggle.checked && !exact) {
+        if (type === "exclusive") upsertExclusiveRelationshipForSelection(card, selectedIds);
+        if (type === "through") upsertThroughRelationshipForSelection(card, selectedIds);
+      }
+      if (!toggle.checked && exact) removeEditorRelationship(card, exact.id);
+      normalizeEditorConnectorRelationships(card);
+      renderCardEditor();
+      renderDeviceEditorPreview();
     });
     editorDeviceSearch.addEventListener("input", event => {
       if (editorDeviceSearch.classList.contains("hidden")) return;
@@ -110650,12 +110948,46 @@ renderViewerOutputDebug();
 
     function handleEditorPreviewWheel(event, svg = deviceEditorPreview) {
       if (event.__avDesignerEditorPreviewWheelHandled) return;
-      if (!editorPreviewWheelZoomModifierActive(event)) return;
       event.__avDesignerEditorPreviewWheelHandled = true;
       event.preventDefault();
       event.stopPropagation();
       const targetSvg = svg === deviceEditorFaceplatePreview ? deviceEditorFaceplatePreview : deviceEditorPreview;
-      zoomEditorPreviewSvg(targetSvg, editorPreviewWheelZoomFactor(event), event);
+      if (editorPreviewWheelZoomModifierActive(event)) {
+        zoomEditorPreviewSvg(targetSvg, editorPreviewWheelZoomFactor(event), event);
+        return;
+      }
+      const deltaX = Number(event.deltaX) || 0;
+      const deltaY = Number(event.deltaY) || 0;
+      if (!deltaX && !deltaY) return;
+      let worldDeltaX = 0;
+      let worldDeltaY = 0;
+      if (targetSvg === deviceEditorFaceplatePreview) {
+        const zoom = Math.max(.0001, editorFaceplatePreviewZoom || 1);
+        worldDeltaX = deltaX / zoom;
+        worldDeltaY = deltaY / zoom;
+        editorFaceplatePreviewPan.x += worldDeltaX;
+        editorFaceplatePreviewPan.y += worldDeltaY;
+        renderDeviceEditorPreview();
+      } else if (deviceEditorActivePreviewUsesEngine() && editorEnginePreviewSurface) {
+        const zoom = Math.max(.0001, Number(editorEnginePreviewSurface.camera.zoom) || 1);
+        worldDeltaX = deltaX / zoom;
+        worldDeltaY = deltaY / zoom;
+        editorEnginePreviewSurface.setCamera({
+          x: (Number(editorEnginePreviewSurface.camera.x) || 0) + worldDeltaX,
+          y: (Number(editorEnginePreviewSurface.camera.y) || 0) + worldDeltaY
+        }, { render: false });
+        editorEnginePreviewSurface.render();
+        syncDeviceEditorEngineOverlayViewBox();
+      } else {
+        const zoom = Math.max(.0001, editorPreviewZoom || 1);
+        worldDeltaX = deltaX / zoom;
+        worldDeltaY = deltaY / zoom;
+        editorPreviewPan.x += worldDeltaX;
+        editorPreviewPan.y += worldDeltaY;
+        renderDeviceEditorPreview();
+      }
+      shiftEditorDragCoordinateFrame(editorNodeDrag, worldDeltaX, worldDeltaY);
+      shiftEditorDragCoordinateFrame(editorCardSlotDrag, worldDeltaX, worldDeltaY);
     }
 
     function handleNodeBuilderPreviewWheel(event) {
@@ -110798,31 +111130,6 @@ renderViewerOutputDebug();
     editorFaceplatePreviewResizeHandle?.addEventListener("pointerup", stopEditorFaceplatePreviewResize);
     editorFaceplatePreviewResizeHandle?.addEventListener("pointercancel", stopEditorFaceplatePreviewResize);
 
-    deviceEditorPreview.addEventListener("dblclick", event => {
-      const target = event.target.closest("[data-editor-field]");
-      if (!target) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const template = currentEditorTemplate();
-      const field = target.dataset.editorField;
-      if (!template || !field) return;
-      if (target.dataset.editorCardSlotId && target.dataset.editorCardConnectorId) {
-        const slot = template.cardSlots?.find(item => item.id === target.dataset.editorCardSlotId);
-        const card = cardTypeById(template, slot?.installedCardTypeId);
-        const sourceConnector = card?.connectors?.find(connector => connector.id === target.dataset.editorCardConnectorId);
-        if (!slot || !sourceConnector) return;
-        const connector = mergedCardConnectorForSlot(template, slot, sourceConnector);
-        openEditorFieldInlineEditor(target, connector, field, event.target.dataset.editorEditMode || "value", {
-          onCommit: ({ value, editingCaption, captionKey }) => {
-            setCardSlotConnectorOverride(template, slot, sourceConnector.id, editingCaption ? captionKey : field, value);
-          }
-        });
-        return;
-      }
-      const connector = template.connectors[Number(target.dataset.editorNode)];
-      if (!connector) return;
-      openEditorFieldInlineEditor(target, connector, field, event.target.dataset.editorEditMode || "value");
-    });
     projectNameInput.addEventListener("input", event => {
       state.projectName = event.target.value;
       updateProjectNameControl(false);

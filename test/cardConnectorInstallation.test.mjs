@@ -3,6 +3,11 @@ import test from "node:test";
 
 import { normalizeAvDesignerDevice } from "../src/engine/projectAdapter.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
+import {
+  connectorRelationshipState,
+  exclusiveConnectionRejectionReason,
+  normalizeConnectorRelationships
+} from "../src/engine/deviceDefinitionV2.js";
 
 const SLOT_HEIGHT = 54;
 const DEVICE_WIDTH = 420;
@@ -205,4 +210,72 @@ test("legacy card connectors without V2 anchors still install at slot rows", () 
   assert.equal(connector.y, 210 + SLOT_HEIGHT, "legacy card connector should use installed slot row");
   assert.equal(connector.anchors[0]?.x, DEVICE_WIDTH, "legacy generated primary anchor should use installed right edge");
   assert.equal(connector.anchors[0]?.y, connector.y, "legacy generated primary anchor should match installed y");
+});
+
+test("installed card relationships use stable slot-prefixed connector IDs without mutating the card", () => {
+  const card = {
+    id: "distribution-card",
+    name: "Distribution Card",
+    kind: "io",
+    connectors: [
+      { id: "in", type: "sdi", direction: "input", signalDirection: "input", x: 0, y: 20 },
+      { id: "out-a", type: "sdi", direction: "output", signalDirection: "output", x: DEVICE_WIDTH, y: 20 },
+      { id: "out-b", type: "sdi", direction: "output", signalDirection: "output", x: DEVICE_WIDTH, y: 74 }
+    ],
+    connectorRelationships: [
+      { id: "copy-bus", type: "exclusive", label: "SDI DA", members: ["out-a", "out-b"] },
+      { id: "loop", type: "through", members: ["in", "out-a"], sourceConnectorId: "in", targetConnectorId: "out-a" }
+    ]
+  };
+  const sourceSnapshot = structuredClone(card);
+  const template = {
+    id: "card-relationship-device",
+    name: "Card Relationship Device",
+    schemaVersion: 2,
+    deviceDefinitionVersion: 2,
+    width: DEVICE_WIDTH,
+    height: 420,
+    hasSwappableCards: true,
+    connectors: [],
+    cardSlots: [{ id: "slot-a", installedCardTypeId: card.id, y: 120 }],
+    cardTypes: [card]
+  };
+
+  const device = normalizeFixtureDevice(template);
+  const copyBus = device.connectorRelationships.find(relationship => relationship.id === "slot-a__copy-bus");
+  const loop = device.connectorRelationships.find(relationship => relationship.id === "slot-a__loop");
+  assert.deepEqual(copyBus?.members, ["slot-a__out-a", "slot-a__out-b"]);
+  assert.equal(copyBus?.outputCopy, true, "output shared buses should default to copy/DA behavior");
+  assert.equal(loop?.sourceConnectorId, "slot-a__in");
+  assert.equal(loop?.targetConnectorId, "slot-a__out-a");
+  assert.deepEqual(card, sourceSnapshot, "installed relationship expansion must not mutate the reusable card");
+});
+
+test("output copy buses remain connectable while output OR buses retain exclusive locking", () => {
+  const connectors = [
+    { id: "out-a", type: "sdi", direction: "output", signalDirection: "output" },
+    { id: "out-b", type: "sdi", direction: "output", signalDirection: "output" }
+  ];
+  const [copyRelationship] = normalizeConnectorRelationships([
+    { id: "outputs", type: "exclusive", members: ["out-a", "out-b"] }
+  ], connectors);
+  assert.equal(copyRelationship.outputCopy, true);
+
+  const device = {
+    id: "device-a",
+    connectors,
+    connectorsById: new Map(connectors.map(connector => [connector.id, connector])),
+    connectorRelationships: [copyRelationship]
+  };
+  const scene = {
+    connectorExternalWireIds(_deviceId, connectorId) {
+      return new Set(connectorId === "out-a" ? ["wire-a"] : []);
+    }
+  };
+  assert.equal(connectorRelationshipState(device, "out-b", scene).activeExclusiveMemberId, "");
+  assert.equal(exclusiveConnectionRejectionReason(scene, { device, connector: connectors[1] }), "");
+
+  device.connectorRelationships = [{ ...copyRelationship, outputCopy: false }];
+  assert.equal(connectorRelationshipState(device, "out-b", scene).activeExclusiveMemberId, "out-a");
+  assert.match(exclusiveConnectionRejectionReason(scene, { device, connector: connectors[1] }), /out-a/i);
 });

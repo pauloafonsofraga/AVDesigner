@@ -262,6 +262,11 @@ export function normalizeInstalledCardConnectorAnchors(connector = {}, options =
 
 export function normalizeConnectorRelationships(rawRelationships = [], connectors = []) {
   const connectorIds = new Set((connectors || []).map(connector => String(connector?.id || "")).filter(Boolean));
+  const connectorsById = new Map(
+    (connectors || [])
+      .map(connector => [String(connector?.id || ""), connector])
+      .filter(([id]) => id)
+  );
   const relationships = [];
   (Array.isArray(rawRelationships) ? rawRelationships : []).forEach((relationship, index) => {
     const type = normalizeRelationshipType(relationship?.type || relationship?.relationshipType);
@@ -274,6 +279,10 @@ export function normalizeConnectorRelationships(rawRelationships = [], connector
     ]).filter(id => connectorIds.has(id));
     if (type !== "through" && members.length < 2) return;
     if (type === "through" && members.length < 2) return;
+    const outputOnly = type === "exclusive" && members.every(memberId => {
+      const connector = connectorsById.get(memberId);
+      return normalizeSignalDirection(connector?.signalDirection, connector?.direction) === "output";
+    });
     relationships.push({
       id: String(relationship.id || `${type}-${index + 1}`),
       type,
@@ -281,7 +290,8 @@ export function normalizeConnectorRelationships(rawRelationships = [], connector
       members,
       sourceConnectorId: String(relationship.sourceConnectorId || relationship.fromConnectorId || members[0] || ""),
       targetConnectorId: String(relationship.targetConnectorId || relationship.toConnectorId || members[1] || ""),
-      maxActive: Math.max(1, Number(relationship.maxActive) || (type === "exclusive" ? 1 : members.length))
+      maxActive: Math.max(1, Number(relationship.maxActive) || (type === "exclusive" ? 1 : members.length)),
+      outputCopy: outputOnly && relationship.outputCopy !== false
     });
   });
   return relationships;
@@ -340,7 +350,7 @@ export function connectorRelationshipState(device = {}, connectorId = "", scene 
   const mirrored = relationships.find(relationship => relationship.type === "mirrored" && relationship.members.includes(connectorId)) || null;
   const exclusive = relationships.find(relationship => relationship.type === "exclusive" && relationship.members.includes(connectorId)) || null;
   const through = relationships.filter(relationship => relationship.type === "through" && relationship.members.includes(connectorId));
-  const activeExclusiveMemberId = exclusive
+  const activeExclusiveMemberId = exclusive && exclusive.outputCopy !== true
     ? exclusive.members.find(memberId => [...(scene?.connectorExternalWireIds?.(device.id, memberId) || [])].length)
     : "";
   return {
@@ -359,7 +369,7 @@ export function exclusiveConnectionRejectionReason(scene, hit, ignoreWireId = ""
   if (!scene || !device || !connector) return "";
   const relationships = normalizeConnectorRelationships(device.connectorRelationships || device.connectorTopology?.relationships, device.connectors || []);
   const exclusive = relationships.find(relationship => relationship.type === "exclusive" && relationship.members.includes(connector.id));
-  if (!exclusive) return "";
+  if (!exclusive || exclusive.outputCopy === true) return "";
   const activeMemberId = exclusive.members.find(memberId => {
     const wireIds = [...scene.connectorExternalWireIds(device.id, memberId)]
       .filter(wireId => wireId !== ignoreWireId);

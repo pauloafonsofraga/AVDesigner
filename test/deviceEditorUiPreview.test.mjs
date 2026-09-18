@@ -34,6 +34,7 @@ import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
 const INDEX_HTML = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const ENGINE_PREVIEW_SOURCE = readFileSync(new URL("../src/engine/enginePreview.js", import.meta.url), "utf8");
 const DEVICE_VISUAL_BUILDER_SOURCE = readFileSync(new URL("../src/engine/deviceVisualBuilder.js", import.meta.url), "utf8");
+const RENDERER_SOURCE = readFileSync(new URL("../src/engine/renderer.js", import.meta.url), "utf8");
 const PRODUCTION_BRIDGE_SOURCE = readFileSync(new URL("../src/engine/productionBridge.js", import.meta.url), "utf8");
 const PROJECT_MUTATIONS_SOURCE = readFileSync(new URL("../src/engine/projectMutations.js", import.meta.url), "utf8");
 const RELEASE_HARDENING_FIXTURE = JSON.parse(readFileSync(new URL("../fixtures/modular-placement-release-hardening.avd", import.meta.url), "utf8"));
@@ -48,22 +49,26 @@ function deviceFeaturePane() {
   return match?.[0] || "";
 }
 
-function functionSource(functionName) {
+function functionSourceFrom(source, functionName) {
   const namePattern = functionName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = new RegExp(`function\\s+${namePattern}\\s*\\([^)]*\\)\\s*\\{`).exec(INDEX_HTML);
+  const match = new RegExp(`function\\s+${namePattern}\\s*\\([^)]*\\)\\s*\\{`).exec(source);
   assert.ok(match, `Missing function ${functionName}`);
   const start = match.index;
   const bodyStart = start + match[0].lastIndexOf("{");
   let depth = 0;
-  for (let index = bodyStart; index < INDEX_HTML.length; index += 1) {
-    const char = INDEX_HTML[index];
+  for (let index = bodyStart; index < source.length; index += 1) {
+    const char = source[index];
     if (char === "{") depth += 1;
     else if (char === "}") {
       depth -= 1;
-      if (depth === 0) return INDEX_HTML.slice(start, index + 1);
+      if (depth === 0) return source.slice(start, index + 1);
     }
   }
   assert.fail(`Unterminated function ${functionName}`);
+}
+
+function functionSource(functionName) {
+  return functionSourceFrom(INDEX_HTML, functionName);
 }
 
 function sourceSlice(source, startNeedle, endNeedle) {
@@ -6996,7 +7001,6 @@ test("nonstructural Device Editor edits preserve placement and bypass normalizer
   const setModule = functionSource("setTemplateConnectorModule");
   const saveDefault = functionSource("saveTemplateAsDefault");
   const hasCardsListener = sourceSlice(INDEX_HTML, 'editorHasCards.addEventListener("change"', 'editorLedProcessor.addEventListener("change"');
-  const cardOverrideCommit = sourceSlice(INDEX_HTML, "if (target.dataset.editorCardSlotId", "const connector = template.connectors");
   const forbidden = /normalizeMixedDeviceRows|normalizeConnectorRows|normalizeCardSlots/;
 
   assert.match(renderEditor, /normalizePlacement: false/);
@@ -7005,7 +7009,9 @@ test("nonstructural Device Editor edits preserve placement and bypass normalizer
   assert.doesNotMatch(setModule, forbidden);
   assert.doesNotMatch(saveDefault, forbidden);
   assert.doesNotMatch(hasCardsListener, forbidden);
-  assert.doesNotMatch(cardOverrideCommit, forbidden);
+  assert.doesNotMatch(INDEX_HTML, /deviceEditorPreview\.addEventListener\("dblclick"/);
+  assert.match(functionSource("renderSelectedConnectorSettings"), /data-selected-connector-caption/);
+  assert.match(functionSource("canvasConnectorFieldSectionMarkup"), /data-canvas-connector-caption/);
   assert.doesNotMatch(functionSource("generatedCardConnectors"), /ensureModularDefaults/);
   assert.doesNotMatch(INDEX_HTML, /function\s+(?:reorderCardSlot|shiftRowsAfterFaceChange|setEditorPowerDistroFaceHeight|normalizeCardSlots|ensureEthernetPair)\b/);
 
@@ -7113,9 +7119,13 @@ test("Editor preview wheel zoom matches the main canvas modifier rule", () => {
   const editorGate = functionSource("editorPreviewWheelZoomModifierActive");
   assert.match(editorGate, /return canvasWheelZoomModifierActive\(event\);/);
   assert.match(functionSource("zoomEditorPreviewSvg"), /svg === deviceEditorPreview && deviceEditorActivePreviewUsesEngine\(\)/);
-  assert.match(functionSource("handleEditorPreviewWheel"), /if \(!editorPreviewWheelZoomModifierActive\(event\)\) return;/);
-  assert.match(functionSource("handleEditorPreviewWheel"), /event\.preventDefault\(\);/);
-  assert.match(functionSource("handleEditorPreviewWheel"), /zoomEditorPreviewSvg\(targetSvg, editorPreviewWheelZoomFactor\(event\), event\);/);
+  const editorWheel = functionSource("handleEditorPreviewWheel");
+  assert.match(editorWheel, /if \(editorPreviewWheelZoomModifierActive\(event\)\)/);
+  assert.match(editorWheel, /event\.preventDefault\(\);/);
+  assert.match(editorWheel, /zoomEditorPreviewSvg\(targetSvg, editorPreviewWheelZoomFactor\(event\), event\);/);
+  assert.match(editorWheel, /editorPreviewPan\.y \+= worldDeltaY/);
+  assert.match(editorWheel, /editorEnginePreviewSurface\.setCamera/);
+  assert.match(editorWheel, /shiftEditorDragCoordinateFrame\(editorNodeDrag, worldDeltaX, worldDeltaY\)/);
   assert.match(functionSource("bindEditorPreviewNavigation"), /bindEditorPreviewWheelTarget\(svg, svg\);/);
   assert.match(functionSource("bindEditorPreviewNavigation"), /bindEditorPreviewWheelTarget\(previewHost, svg\);/);
   assert.match(functionSource("handleRackBuilderPreviewWheel"), /if \(!editorPreviewWheelZoomModifierActive\(event\)\) return;/);
@@ -7126,6 +7136,34 @@ test("Editor preview wheel zoom matches the main canvas modifier rule", () => {
   assert.match(functionSource("handleTitleBlockPreviewWheel"), /zoomEnginePreviewSurfaceAt\(surface, editorPreviewWheelZoomFactor\(event\), event\);/);
   assert.match(INDEX_HTML, /nodeCanvasAppearancePreview\?\.addEventListener\("wheel", handleNodeBuilderPreviewWheel, \{ passive: false \}\);/);
   assert.match(INDEX_HTML, /titleBlockPreviewHost\.addEventListener\("wheel", handleTitleBlockPreviewWheel, \{ passive: false \}\);/);
+});
+
+test("Device Editor interaction ownership and relationship authoring stay tab-scoped", () => {
+  const startDrag = functionSource("startEditorNodeDrag");
+  assertOrder(startDrag, [
+    'if (editorActiveTab === "cards")',
+    'if (editorActiveTab === "faceplate")',
+    'if (editorActiveTab !== "connectors") return;',
+    "const installedCardConnector = editorInstalledCardConnectorFromEvent(event);"
+  ], "Only Connectors should reach chassis/card placement dragging");
+  assert.match(functionSource("startEditorResizeDrag"), /editorActiveTab !== "faceplate"/);
+  assert.match(functionSource("startEditorFaceImageResize"), /editorActiveTab !== "faceplate"/);
+  assert.match(functionSource("drawEditorResizeHandles"), /editorActiveTab !== "faceplate"/);
+  assert.match(functionSource("renderCardConnectorRelationshipsPanel"), /data-card-relationship-toggle="exclusive"/);
+  assert.match(functionSource("renderCardConnectorRelationshipsPanel"), /data-card-relationship-toggle="through"/);
+  assert.match(functionSource("relationshipOutputCopyControl"), /Plug is a copy/);
+});
+
+test("Through relationships render as faint direct node-to-node lines", () => {
+  const editorLine = functionSource("drawEditorRelationshipArrow");
+  const engineLine = functionSourceFrom(RENDERER_SOURCE, "pushThroughConnectorArrow");
+  assert.match(editorLine, /x1: from\.x/);
+  assert.match(editorLine, /x2: to\.x/);
+  assert.match(editorLine, /"stroke-width": 1\.2/);
+  assert.match(editorLine, /opacity: \.3/);
+  assert.doesNotMatch(editorLine, /createSvg\("path"|pushSmallArrowHead/);
+  assert.match(engineLine, /pushLine\(vertices, from, to, 1\.2, "rgba\(50,182,255,\.3\)"\)/);
+  assert.doesNotMatch(engineLine, /pushSmallArrowHead/);
 });
 
 test("Engine preview fit contains both width-limited and height-limited bounds", () => {

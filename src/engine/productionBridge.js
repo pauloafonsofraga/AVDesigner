@@ -8721,6 +8721,10 @@ function injectBridgeStyles() {
     .engine-bridge-field-section .engine-bridge-field {
       margin: 0;
     }
+    .engine-bridge-field > label {
+      display: grid;
+      gap: 4px;
+    }
     .engine-bridge-field input {
       width: 100%;
       min-height: 28px;
@@ -10903,20 +10907,33 @@ function connectorFieldInputsMarkup(connector) {
     <section class="engine-bridge-field-section">
       <h4 class="engine-bridge-field-heading">Fields</h4>
       ${fields.map(field => `
-        <label class="engine-bridge-field">
-          <span>${escapeHtml(field.title)}</span>
-          <input type="text" data-engine-connector-field="${escapeHtml(field.field)}" value="${escapeHtml(field.value ?? field.text ?? "")}" autocomplete="off" />
-        </label>
+        <div class="engine-bridge-field">
+          <label>
+            <span>Field name</span>
+            <input type="text" data-engine-connector-caption="${escapeHtml(connectorCaptionKey(field.field))}" value="${escapeHtml(field.title)}" autocomplete="off" />
+          </label>
+          <label>
+            <span>Value</span>
+            <input type="text" data-engine-connector-field="${escapeHtml(field.field)}" value="${escapeHtml(field.value ?? field.text ?? "")}" autocomplete="off" />
+          </label>
+        </div>
       `).join("")}
     </section>
   `;
 }
 
+function connectorCaptionKey(field = "") {
+  if (field === "nameText") return "nameTextCaption";
+  if (field === "resolutionFrameRate") return "resolutionFrameRateCaption";
+  if (field === "customText") return "customTextCaption";
+  return "";
+}
+
 function bindConnectorFieldInputs(bridge, root, deviceId, connectorId) {
-  root?.querySelectorAll?.("[data-engine-connector-field]")?.forEach(input => {
+  root?.querySelectorAll?.("[data-engine-connector-field], [data-engine-connector-caption]")?.forEach(input => {
     let committedValue = input.value;
     const commit = () => {
-      const field = input.dataset.engineConnectorField || "";
+      const field = input.dataset.engineConnectorField || input.dataset.engineConnectorCaption || "";
       if (!field || input.value === committedValue) return;
       committedValue = input.value;
       const patch = { [field]: input.value };

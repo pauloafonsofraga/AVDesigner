@@ -462,13 +462,15 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
       forceV2: schemaVersion >= DEVICE_DEFINITION_SCHEMA_VERSION
     }))
     .filter(Boolean);
-  const connectorRelationships = normalizeConnectorRelationships(
-    instance.connectorRelationships
-      || instance.connectorTopology?.relationships
-      || template.connectorRelationships
-      || template.connectorTopology?.relationships,
-    connectors
-  );
+  const sourceRelationships = instance.connectorRelationships
+    || instance.connectorTopology?.relationships
+    || template.connectorRelationships
+    || template.connectorTopology?.relationships
+    || [];
+  const connectorRelationships = normalizeConnectorRelationships([
+    ...(Array.isArray(sourceRelationships) ? sourceRelationships : []),
+    ...generatedCardRelationships(template)
+  ], connectors);
   const connectorTopologyValidation = validateConnectorTopology(connectors, connectorRelationships);
   const visual = normalizeDeviceVisualMetadata(template, instance, width, height, nodeColorByType);
   const powerDistro = isPowerDistro
@@ -726,6 +728,29 @@ function generatedCardConnectors(template) {
     return [];
   }
   return installedCardLayout(template, positiveNumber(template.width) || DEFAULT_DEVICE_WIDTH).connectors;
+}
+
+function generatedCardRelationships(template) {
+  if (!template?.hasSwappableCards || !Array.isArray(template.cardSlots) || !Array.isArray(template.cardTypes)) {
+    return [];
+  }
+  return template.cardSlots.flatMap((slot, slotIndex) => {
+    const card = template.cardTypes.find(candidate => candidate.id === slot.installedCardTypeId);
+    if (!card) return [];
+    return normalizeConnectorRelationships(
+      card.connectorRelationships || card.connectorTopology?.relationships,
+      card.connectors || []
+    ).map((relationship, relationshipIndex) => {
+      const installedId = sourceId => sourceId ? `${slot.id}__${sourceId}` : "";
+      return {
+        ...relationship,
+        id: `${slot.id}__${relationship.id || `${relationship.type}-${relationshipIndex + 1}`}`,
+        members: relationship.members.map(installedId),
+        sourceConnectorId: installedId(relationship.sourceConnectorId || relationship.members[0]),
+        targetConnectorId: installedId(relationship.targetConnectorId || relationship.members[1])
+      };
+    });
+  });
 }
 
 function applyInstanceConnectorOverride(instance, connector) {

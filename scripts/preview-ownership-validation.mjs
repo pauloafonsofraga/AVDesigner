@@ -12,7 +12,7 @@ import { NODE_PREVIEW_BUILD_ID } from "../src/engine/nodePreview.js";
 import { TITLE_BLOCK_PREVIEW_BUILD_ID } from "../src/engine/titleBlockPreview.js";
 
 const EXPECTED_PREVIEW_BUILD_ID = "iteration53-4-1-preview-verification";
-const EXPECTED_APP_BUILD_ID = "iteration54-19-3-card-drag-ghost-fix";
+const EXPECTED_APP_BUILD_ID = "iteration54-20-0-connector-inspector-relationships";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -24,11 +24,11 @@ assert.equal(RACK_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "rack preview bui
 assert.equal(NODE_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "node preview build id");
 assert.equal(TITLE_BLOCK_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "title-block preview build id");
 
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.19.3";'), "app iteration should be 54.19.3");
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${EXPECTED_APP_BUILD_ID}";`), "app build id should match 54.19.3");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-19-3-card-drag-ghost-fix-modules";'), "module cache key should match 54.19.3");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.20.0";'), "app iteration should be 54.20.0");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${EXPECTED_APP_BUILD_ID}";`), "app build id should match 54.20.0");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-20-0-connector-inspector-relationships-modules";'), "module cache key should match 54.20.0");
 assert.ok(indexHtml.includes('url.searchParams.set("module", APP_MODULE_CACHE_ID);'), "engine imports should carry the module cache key");
-assert.ok(indexHtml.includes("Card Drag Ghost Fix"), "app build label should name 54.19.3");
+assert.ok(indexHtml.includes("Connector Inspector Relationships"), "app build label should name 54.20.0");
 
 assert.ok(!enginePreviewSource.includes("legacyActualDraws"), "generic shared preview diagnostics must not publish fake legacy draw counters");
 assert.ok(!indexHtml.includes("legacy draws ${row."), "runtime owner rows must not render fake generic legacy draw counters");
@@ -75,10 +75,11 @@ assert.ok(editorWheelFactor.includes("event?.deltaY < 0 ? 1.12 : 1 / 1.12"), "Ed
 assert.ok(!indexHtml.includes("function editorPreviewWheelAltModifierActive"), "Editor preview zoom should not use the browser Alt/Option modifier helper");
 const editorWheelGate = functionSource("editorPreviewWheelZoomModifierActive");
 assert.ok(editorWheelGate.includes("return canvasWheelZoomModifierActive(event);"), "Editor preview wheel zoom should use the same platform modifier rule as the main canvas");
-assert.ok(
-  functionSource("handleEditorPreviewWheel").includes("if (!editorPreviewWheelZoomModifierActive(event)) return;"),
-  "Device Editor preview wheel handler should require the editor-specific modifier rule"
-);
+const editorWheelHandler = functionSource("handleEditorPreviewWheel");
+assert.ok(editorWheelHandler.includes("if (editorPreviewWheelZoomModifierActive(event))"), "Device Editor preview wheel should gate zoom behind the editor-specific modifier rule");
+assert.ok(editorWheelHandler.includes("editorPreviewPan.x += worldDeltaX"), "plain Device Editor wheel input should pan the SVG preview");
+assert.ok(editorWheelHandler.includes("editorEnginePreviewSurface.setCamera"), "plain Device Editor wheel input should pan the Engine preview camera");
+assert.ok(editorWheelHandler.includes("shiftEditorDragCoordinateFrame(editorNodeDrag"), "wheel panning should keep active connector drag coordinates synchronized");
 assert.ok(functionSource("bindEditorPreviewNavigation").includes("bindEditorPreviewWheelTarget(previewHost, svg)"), "Device Editor preview wheel handler should bind the preview host");
 assert.ok(functionSource("handleRackBuilderPreviewWheel").includes("if (!editorPreviewWheelZoomModifierActive(event)) return;"), "Rack Builder preview should require the editor-specific modifier rule");
 assert.ok(functionSource("handleNodeBuilderPreviewWheel").includes("if (!editorPreviewWheelZoomModifierActive(event)) return;"), "Node Builder preview should require the editor-specific modifier rule");

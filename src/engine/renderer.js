@@ -2215,20 +2215,7 @@ function pushThroughConnectorArrow(vertices, device, relationship, baseX, baseY,
   if (!source || !target || source.id === target.id) return 0;
   const from = connectorAnchorRenderPoint(baseX, baseY, source, primaryAnchorForRender(source, device, displayLayout), device);
   const to = connectorAnchorRenderPoint(baseX, baseY, target, primaryAnchorForRender(target, device, displayLayout), device);
-  let start = connectorRelationshipArrowEndpoint(from, source, to, true);
-  let end = connectorRelationshipArrowEndpoint(to, target, from, false);
-  const fallback = fallbackConnectorRelationshipArrowEndpoints(from, to);
-  const adjustedDx = end.x - start.x;
-  const adjustedDy = end.y - start.y;
-  const sourceDx = to.x - from.x;
-  const mostlyHorizontal = Math.abs(sourceDx) >= Math.abs(to.y - from.y);
-  const reversedHorizontal = mostlyHorizontal && Math.sign(adjustedDx || sourceDx) !== Math.sign(sourceDx || adjustedDx);
-  if (Math.hypot(adjustedDx, adjustedDy) < 14 || reversedHorizontal) {
-    start = fallback.start;
-    end = fallback.end;
-  }
-  pushLine(vertices, start, end, 2.4, "rgba(50,182,255,.82)");
-  pushSmallArrowHead(vertices, start, end, "rgba(50,182,255,.82)");
+  pushLine(vertices, from, to, 1.2, "rgba(50,182,255,.3)");
   return 1;
 }
 
