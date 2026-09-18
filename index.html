@@ -4999,7 +4999,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.18.0 — Unified Compact Modular Item Drag — iteration54-18-0-unified-compact-modular-item-drag</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.19.0 — Rigid Modular Card Composition — iteration54-19-0-rigid-modular-card-composition</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5692,10 +5692,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.18.0";
-    const APP_BUILD_ID = "iteration54-18-0-unified-compact-modular-item-drag";
-    const APP_MODULE_CACHE_ID = "iteration54-18-0-unified-compact-modular-item-drag-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Unified Compact Modular Item Drag`;
+    const APP_ITERATION = "54.19.0";
+    const APP_BUILD_ID = "iteration54-19-0-rigid-modular-card-composition";
+    const APP_MODULE_CACHE_ID = "iteration54-19-0-rigid-modular-card-composition-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Rigid Modular Card Composition`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "6dc62f5ef0b40e65629ccfb8a5d9e2071fa8273f";
@@ -89505,6 +89505,7 @@
       const height = Math.max(18, fontSize + 8);
       parent.appendChild(createSvg("rect", {
         ...(options.editor ? { "data-editor-card-slot": options.slotIndex } : {}),
+        ...(options.ownerId ? { "data-editor-card-caption-bar": options.ownerId } : {}),
         x: x - width / 2,
         y: y - fontSize + 1,
         width,
@@ -91366,7 +91367,14 @@
     function editorEnginePreviewTemplateClone(template, options = {}) {
       const sourceTemplate = editorResizePreviewTemplateFor(template);
       const draft = readonlyDeviceEditorPreviewTemplate(template);
-      if (options.suppressCardAreasInTexture === true) draft.suppressCardAreasInTexture = true;
+      if (options.suppressCardAreasInTexture === true) {
+        draft.suppressCardAreasInTexture = true;
+        (draft.cardTypes || []).forEach(card => {
+          (card.connectors || []).forEach(connector => {
+            connector.hiddenOnCanvas = true;
+          });
+        });
+      }
       return applyEditorPlacementVisualsToPreviewTemplate(draft, sourceTemplate);
     }
 
@@ -91959,12 +91967,18 @@
         class: "editor-engine-dynamic-card-artwork",
         "data-editor-dynamic-card-artwork": "true"
       });
-      drawCardSlotBands(group, template, { editor: false, dynamicOwner: true });
+      drawCardSlotBands(group, template, {
+        dynamicOwner: true,
+        includeConnectors: true,
+        hitOverlay: true,
+        selectionOutline: true
+      });
       parent.appendChild(group);
     }
 
     function drawEditorEngineCardSlotOverlay(parent, template) {
       if (editorActiveTab !== "connectors" || !template?.hasSwappableCards) return;
+      if (editorEngineDynamicCardArtworkActive && editorPlacementMotionHasCardEntries()) return;
       (template.cardSlots || []).forEach((slot, index) => {
         const band = cardBandGeometry(template, slot);
         const selected = editorSlotIndex === index || editorCardSlotDrag?.slotId === slot.id;
@@ -93782,45 +93796,6 @@
       });
       drawEditorSharedRelationshipFields(deviceEditorPreview, previewTemplate, previewPositions);
       drawEditorNodeMarquee(deviceEditorPreview);
-      generatedCardConnectors(previewTemplate).forEach(connector => {
-        const band = cardBandGeometry(previewTemplate, previewTemplate.cardSlots.find(slot => slot.id === connector.cardSlotId) || {});
-        const anchors = isEditorV2ConnectorCandidate(connector)
-          ? editorConnectorAnchors(connector, width)
-          : [editorPrimaryAnchor(connector, width)];
-        anchors.forEach(anchor => {
-          const anchorConnector = editorAnchorConnector(connector, anchor);
-          const labelX = anchorConnector.direction === "input" ? band.x + 8 : band.x + band.width - 8;
-          const g = createSvg("g", {
-            class: "editor-node",
-            opacity: .92,
-            "data-editor-card-slot-id": connector.cardSlotId,
-            "data-editor-card-connector-id": connector.sourceConnectorId,
-            "data-editor-anchor-id": anchor.id || ""
-          });
-          drawEditorConnectorNode(g, anchorConnector, anchorConnector.x, anchorConnector.y);
-          const label = createSvg("text", {
-            x: labelX,
-            y: anchorConnector.y + 22,
-            fill: state.darkMode ? "#edf2f7" : "#1f2a36",
-            "font-size": 8.5,
-            "text-anchor": anchorConnector.direction === "input" ? "start" : "end",
-            "paint-order": "stroke",
-            stroke: "rgba(0,0,0,.75)",
-            "stroke-width": 3
-          });
-          label.textContent = connectorTypeLabel(connector);
-          g.appendChild(label);
-          const fields = connector.type === "led-signal"
-            ? [{ field: "customText", title: connectorFieldTitle(connector, "customText"), text: connector.customText }]
-            : [
-                { field: "nameText", title: connectorFieldTitle(connector, "nameText"), text: connector.nameText },
-                ...(usesResolutionField(connector) ? [{ field: "resolutionFrameRate", title: connectorFieldTitle(connector, "resolutionFrameRate"), text: connector.resolutionFrameRate }] : []),
-                { field: "customText", title: connectorFieldTitle(connector, "customText"), text: connector.customText }
-              ];
-          addVisibleInfoBoxes(g, anchorConnector, fields, true);
-          deviceEditorPreview.appendChild(g);
-        });
-      });
       drawEditorResizeHandles(deviceEditorPreview, previewTemplate, width, height);
       renderEditorFaceplatePreview(previewTemplate);
     }
@@ -93934,19 +93909,79 @@
         .trim() || raw;
     }
 
+    function editorCardLocalConnector(connector, slotY) {
+      const offsetY = Number(slotY) || 0;
+      return {
+        ...connector,
+        y: (Number(connector?.y) || 0) - offsetY,
+        anchors: (connector?.anchors || []).map(anchor => ({
+          ...anchor,
+          y: (Number(anchor?.y) || 0) - offsetY
+        }))
+      };
+    }
+
+    function drawEditorInstalledCardConnectorVisuals(parent, template, slot, band, slotY) {
+      generatedCardConnectors(template)
+        .filter(connector => connector.cardSlotId === slot.id)
+        .forEach(connector => {
+          const localConnector = editorCardLocalConnector(connector, slotY);
+          const anchors = isEditorV2ConnectorCandidate(localConnector)
+            ? editorConnectorAnchors(localConnector, deviceTemplateWidth(template))
+            : [editorPrimaryAnchor(localConnector, deviceTemplateWidth(template))];
+          anchors.forEach(anchor => {
+            const anchorConnector = editorAnchorConnector(localConnector, anchor);
+            const labelX = anchorConnector.direction === "input" ? band.x + 8 : band.x + band.width - 8;
+            const g = createSvg("g", {
+              class: "editor-node editor-card-owned-connector",
+              opacity: .92,
+              "data-editor-card-slot-id": connector.cardSlotId,
+              "data-editor-card-connector-id": connector.sourceConnectorId,
+              "data-editor-anchor-id": anchor.id || ""
+            });
+            drawEditorConnectorNode(g, anchorConnector, anchorConnector.x, anchorConnector.y);
+            const label = createSvg("text", {
+              x: labelX,
+              y: anchorConnector.y + 22,
+              fill: state.darkMode ? "#edf2f7" : "#1f2a36",
+              "font-size": 8.5,
+              "text-anchor": anchorConnector.direction === "input" ? "start" : "end",
+              "paint-order": "stroke",
+              stroke: "rgba(0,0,0,.75)",
+              "stroke-width": 3
+            });
+            label.textContent = connectorTypeLabel(connector);
+            g.appendChild(label);
+            const fields = connector.type === "led-signal"
+              ? [{ field: "customText", title: connectorFieldTitle(connector, "customText"), text: connector.customText }]
+              : [
+                  { field: "nameText", title: connectorFieldTitle(connector, "nameText"), text: connector.nameText },
+                  ...(usesResolutionField(connector) ? [{ field: "resolutionFrameRate", title: connectorFieldTitle(connector, "resolutionFrameRate"), text: connector.resolutionFrameRate }] : []),
+                  { field: "customText", title: connectorFieldTitle(connector, "customText"), text: connector.customText }
+                ];
+            addVisibleInfoBoxes(g, anchorConnector, fields, true);
+            parent.appendChild(g);
+          });
+        });
+    }
+
     function drawCardSlotBands(parent, template, options = {}) {
       if (!template.hasSwappableCards) return;
       template.cardSlots.forEach((slot, index) => {
-        const artworkParent = options.dynamicOwner === true
+        const slotY = cardSlotDisplayY(template, slot);
+        const rigidOwner = options.dynamicOwner === true || options.rigidOwner === true || options.editor === true;
+        const artworkParent = rigidOwner
           ? createSvg("g", {
               class: "editor-card-slot-artwork",
-              "data-editor-card-slot-artwork": slot.id
+              "data-editor-card-slot-artwork": slot.id,
+              transform: `translate(0 ${slotY})`
             })
           : parent;
+        const localSlotY = rigidOwner ? 0 : slotY;
         const card = cardTypeById(template, slot.installedCardTypeId);
-        const band = cardBandGeometry(template, slot);
-        const slotInteractive = options.editor && editorActiveTab === "connectors";
-        const rectAttrs = slotInteractive ? {
+        const band = cardBandGeometryAtY(template, slot, localSlotY);
+        const slotInteractive = (options.editor === true || options.hitOverlay === true) && editorActiveTab === "connectors";
+        const rectAttrs = options.editor === true && slotInteractive ? {
           "data-editor-card-slot": index,
           class: editorCardSlotDrag?.slotId === slot.id ? "editor-node-dragging" : ""
         } : {};
@@ -93962,16 +93997,44 @@
           stroke: "rgba(50,182,255,.38)",
           "stroke-width": 1,
           "stroke-dasharray": "5 4",
-          "pointer-events": slotInteractive ? "all" : "none"
+          "pointer-events": options.editor === true && slotInteractive ? "all" : "none"
         }));
         const caption = card?.name || "Empty";
-        drawCardCaption(artworkParent, caption, band.textX, cardSlotDisplayY(template, slot) + 3, card, {
-          editor: slotInteractive,
+        drawCardCaption(artworkParent, caption, band.textX, localSlotY + 3, card, {
+          editor: options.editor === true && slotInteractive,
           slotIndex: index,
           ownerId: slot.id,
           maxWidth: band.width - 12
         });
-        if (slotInteractive && editorSlotIndex === index) {
+        if (options.includeConnectors === true && card) {
+          drawEditorInstalledCardConnectorVisuals(artworkParent, template, slot, band, slotY);
+        }
+        const selected = editorSlotIndex === index || editorCardSlotDrag?.slotId === slot.id;
+        if (options.hitOverlay === true && slotInteractive) {
+          artworkParent.appendChild(createSvg("rect", {
+            class: "editor-engine-card-slot-hit",
+            "data-editor-card-slot": index,
+            x: band.x,
+            y: band.y,
+            width: band.width,
+            height: band.height,
+            rx: 6,
+            fill: "transparent",
+            stroke: "transparent"
+          }));
+        }
+        if (options.selectionOutline === true && selected) {
+          artworkParent.appendChild(createSvg("rect", {
+            class: "editor-engine-card-slot-selection editor-faceplate-selected",
+            "data-editor-card-slot-selection": slot.id,
+            x: band.x,
+            y: band.y,
+            width: band.width,
+            height: band.height,
+            rx: 6
+          }));
+        }
+        if (slotInteractive && selected) {
           const removeX = band.x + band.width - 11;
           const removeY = band.y + 11;
           const remove = createSvg("g", {
@@ -94002,7 +94065,11 @@
     }
 
     function drawEditorCardSlotBands(parent, template) {
-      drawCardSlotBands(parent, template, { editor: true });
+      drawCardSlotBands(parent, template, {
+        editor: true,
+        includeConnectors: true,
+        selectionOutline: true
+      });
     }
 
     function drawEditorEthernetPairLines(parent, template) {

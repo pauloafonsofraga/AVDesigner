@@ -5633,6 +5633,39 @@ test("Engine Device Editor card motion has one visible owner per installed card"
     connectorStartYForTemplate: () => 100,
     cardTypeById: (draft, id) => draft.cardTypes.find(card => card.id === id),
     cardSlotLaneCount: () => 2,
+    generatedCardConnectors: draft => draft.cardSlots.flatMap(slot => {
+      const card = draft.cardTypes.find(candidate => candidate.id === slot.installedCardTypeId);
+      const slotY = motionPositions.get(`card:${slot.id}`) ?? Number(slot.y);
+      const counts = { input: 0, output: 0 };
+      return (card?.connectors || []).map(source => {
+        const direction = source.direction === "output" ? "output" : "input";
+        const row = counts[direction]++;
+        const x = direction === "output" ? 420 : 0;
+        const y = slotY + 54 + row * 54;
+        return {
+          ...source,
+          id: `${slot.id}__${source.id}`,
+          sourceConnectorId: source.id,
+          cardSlotId: slot.id,
+          generatedFromCard: true,
+          x,
+          y,
+          primaryAnchorId: direction,
+          anchors: [{ id: direction, side: direction === "output" ? "right" : "left", x, y, primary: true }]
+        };
+      });
+    }),
+    isEditorV2ConnectorCandidate: connector => Array.isArray(connector?.anchors),
+    editorConnectorAnchors: connector => connector.anchors || [],
+    editorPrimaryAnchor: connector => connector.anchors?.[0] || { id: connector.direction, x: connector.x, y: connector.y },
+    drawEditorConnectorNode: (parent, _connector, x, y) => parent.appendChild(testSvgNode("circle", { cx: x, cy: y })),
+    connectorTypeLabel: connector => connector.type || "Connector",
+    connectorFieldTitle: (_connector, field) => field,
+    usesResolutionField: () => true,
+    addVisibleInfoBoxes: (parent, connector) => parent.appendChild(testSvgNode("g", {
+      "data-editor-card-field-y": connector.y
+    })),
+    state: { darkMode: true },
     createSvg: testSvgNode,
     normalizeColor: value => String(value || ""),
     estimateTitleTextWidth: (value, fontSize) => String(value || "").length * Number(fontSize || 0) * 0.56,
@@ -5646,6 +5679,9 @@ test("Engine Device Editor card motion has one visible owner per installed card"
     "cardBandGeometryAtY",
     "cardBandGeometry",
     "cardSlotDisplayY",
+    "editorAnchorConnector",
+    "editorCardLocalConnector",
+    "drawEditorInstalledCardConnectorVisuals",
     "drawCardSlotBands",
     "drawEditorEngineDynamicCardArtwork",
     "drawEditorEngineCardSlotOverlay",
@@ -5663,6 +5699,11 @@ test("Engine Device Editor card motion has one visible owner per installed card"
   const selections = rendered.filter(node => node.attributes?.["data-editor-card-slot-selection"]);
 
   assert.deepEqual(artwork.map(node => node.attributes["data-editor-card-slot-artwork"]), ["slot-a", "slot-b"]);
+  assert.deepEqual(
+    artwork.map(node => node.attributes.transform),
+    ["translate(0 243.25)", "translate(0 351.25)"],
+    "each installed card must have one parent translation at its sampled world Y"
+  );
   assert.equal(bands.length, 2, "dynamic compositor should draw one band per installed slot");
   assert.equal(captions.length, 2, "dynamic compositor should draw one caption per installed slot");
   assert.deepEqual(captions.map(node => node.attributes["data-editor-card-caption"]), ["slot-a", "slot-b"]);
@@ -5671,6 +5712,18 @@ test("Engine Device Editor card motion has one visible owner per installed card"
       caption.parentNode?.attributes?.["data-editor-card-slot-artwork"],
       caption.attributes["data-editor-card-caption"],
       "caption must be owned by the same transformed artwork group"
+    );
+    assert.equal(caption.attributes.y, 3, "caption Y must remain card-local");
+  });
+  bands.forEach(band => {
+    assert.equal(band.attributes.y, -27, "title bar and card body must remain card-local");
+  });
+  const installedConnectors = rendered.filter(node => node.attributes?.["data-editor-card-connector-id"]);
+  assert.equal(installedConnectors.length, 4, "all installed connector visuals must be rendered by their card owner");
+  installedConnectors.forEach(connector => {
+    assert.ok(
+      connector.parentNode?.attributes?.["data-editor-card-slot-artwork"],
+      "installed connector visuals must be direct children of the rigid card group"
     );
   });
   assert.equal(captions.some(node => node.attributes.y === 157 || node.attributes.y === 265), false, "no caption may remain at a source slot Y");
@@ -5681,8 +5734,90 @@ test("Engine Device Editor card motion has one visible owner per installed card"
     assert.equal(hit.childNodes.length, 0, "hit overlays must not reproduce card contents");
   });
   assert.deepEqual(selections.map(node => node.attributes["data-editor-card-slot-selection"]), ["slot-a"]);
-  assert.equal(bands.find(node => node.attributes["data-editor-card-band"] === "slot-a").attributes.y, 216.25);
-  assert.equal(bands.find(node => node.attributes["data-editor-card-band"] === "slot-b").attributes.y, 324.25);
+  assert.equal(bands.find(node => node.attributes["data-editor-card-band"] === "slot-a").attributes.y, -27);
+  assert.equal(bands.find(node => node.attributes["data-editor-card-band"] === "slot-b").attributes.y, -27);
+
+  const localGeometrySignature = (rootNode, slotId) => {
+    const owner = testSvgDescendants(rootNode).find(node => node.attributes?.["data-editor-card-slot-artwork"] === slotId);
+    assert.ok(owner, `${slotId} should have one rigid owner`);
+    return testSvgDescendants(owner).map(node => ({
+      tagName: node.tagName,
+      role: node.attributes?.["data-editor-card-band"]
+        || node.attributes?.["data-editor-card-caption-bar"]
+        || node.attributes?.["data-editor-card-caption"]
+        || node.attributes?.["data-editor-card-connector-id"]
+        || node.attributes?.["data-editor-card-field-y"]
+        || node.attributes?.class
+        || "",
+      x: node.attributes?.x,
+      y: node.attributes?.y,
+      cx: node.attributes?.cx,
+      cy: node.attributes?.cy,
+      x1: node.attributes?.x1,
+      y1: node.attributes?.y1,
+      x2: node.attributes?.x2,
+      y2: node.attributes?.y2
+    }));
+  };
+  const baselineLocalGeometry = new Map([
+    ["slot-a", localGeometrySignature(root, "slot-a")],
+    ["slot-b", localGeometrySignature(root, "slot-b")]
+  ]);
+  const renderMotionFrame = positions => {
+    positions.forEach((value, key) => motionPositions.set(key, value));
+    const frame = testSvgNode("svg");
+    compositor.drawEditorEngineDynamicCardArtwork(frame, renderTemplate, { engineTextureSuppressed: true });
+    compositor.drawEditorEngineCardSlotOverlay(frame, renderTemplate);
+    return frame;
+  };
+  const assertRigidFrame = (frame, expectedTransforms, label) => {
+    const descendants = testSvgDescendants(frame);
+    const owners = descendants.filter(node => node.attributes?.["data-editor-card-slot-artwork"]);
+    const frameCaptions = descendants.filter(node => node.attributes?.["data-editor-card-caption"]);
+    assert.equal(owners.length, 2, `${label}: no duplicate card owner may remain`);
+    assert.equal(frameCaptions.length, 2, `${label}: exactly one visible title per card`);
+    expectedTransforms.forEach((transform, slotId) => {
+      const owner = owners.find(node => node.attributes["data-editor-card-slot-artwork"] === slotId);
+      assert.equal(owner.attributes.transform, `translate(0 ${transform})`, `${label}: parent owns world movement`);
+      assert.deepEqual(localGeometrySignature(frame, slotId), baselineLocalGeometry.get(slotId), `${label}: every child offset remains immutable`);
+    });
+    const slotACaption = frameCaptions.find(node => node.attributes["data-editor-card-caption"] === "slot-a");
+    const slotAWorldY = expectedTransforms.get("slot-a") + Number(slotACaption.attributes.y);
+    assert.notEqual(slotAWorldY, 157, `${label}: no caption remains at the baseline source coordinate`);
+  };
+
+  assertRigidFrame(renderMotionFrame(new Map([
+    ["card:slot-a", 159.25],
+    ["card:slot-b", 351.25]
+  ])), new Map([
+    ["slot-a", 159.25],
+    ["slot-b", 351.25]
+  ]), "small move");
+  assertRigidFrame(renderMotionFrame(new Map([
+    ["card:slot-a", 297.25],
+    ["card:slot-b", 405.25]
+  ])), new Map([
+    ["slot-a", 297.25],
+    ["slot-b", 405.25]
+  ]), "boundary crossing");
+  assertRigidFrame(renderMotionFrame(new Map([
+    ["card:slot-a", 213.25],
+    ["card:slot-b", 351.25]
+  ])), new Map([
+    ["slot-a", 213.25],
+    ["slot-b", 351.25]
+  ]), "reversal");
+  for (let cycle = 0; cycle < 20; cycle += 1) {
+    const slotAY = cycle % 2 ? 243.25 : 297.25;
+    const slotBY = cycle % 2 ? 351.25 : 405.25;
+    assertRigidFrame(renderMotionFrame(new Map([
+      ["card:slot-a", slotAY],
+      ["card:slot-b", slotBY]
+    ])), new Map([
+      ["slot-a", slotAY],
+      ["slot-b", slotBY]
+    ]), `repeat ${cycle + 1}`);
+  }
 
   const unsuppressed = testSvgNode("svg");
   compositor.drawEditorEngineDynamicCardArtwork(unsuppressed, renderTemplate, { engineTextureSuppressed: false });
@@ -6153,13 +6288,40 @@ test("Device Editor preview renders from detached normalized drafts", () => {
   assert.match(renderPreview, /deviceTemplateWidth\(previewTemplate\)/);
   assert.match(renderPreview, /editorActivePreviewBounds\(previewTemplate\)/);
   assert.match(renderPreview, /previewTemplate\.connectors\.forEach/);
-  assert.match(renderPreview, /generatedCardConnectors\(previewTemplate\)/);
+  assert.match(renderPreview, /drawEditorCardSlotBands\(deviceEditorPreview, previewTemplate\)/);
+  assert.doesNotMatch(renderPreview, /deviceEditorPreview\.appendChild\(g\);[\s\S]*data-editor-card-connector-id/);
 
   assert.match(renderEnginePreview, /const previewTemplate = readonlyDeviceEditorPreviewTemplate\(template\);/);
   assert.doesNotMatch(renderEnginePreview, /validateDraftDefaults\(template\);/);
   assert.match(renderEnginePreview, /syncDeviceEditorEnginePreview\(previewTemplate/);
   assert.match(renderEnginePreview, /drawEditorEngineConnectorOverlay\(deviceEditorPreview, previewTemplate\)/);
   assert.match(engineClone, /readonlyDeviceEditorPreviewTemplate\(template\)/);
+  assert.match(engineClone, /connector\.hiddenOnCanvas = true/);
+});
+
+test("Engine card-motion handoff suppresses static card pixels without mutating card definitions", () => {
+  const source = {
+    id: "card-motion-handoff",
+    cardTypes: [{
+      id: "hdmi-card",
+      name: "HDMI 2.0",
+      connectors: [{ id: "hdmi-1", type: "hdmi", direction: "input" }]
+    }],
+    cardSlots: [{ id: "slot-a", installedCardTypeId: "hdmi-card", y: 154 }]
+  };
+  const clone = runnableIndexFunction("editorEnginePreviewTemplateClone", {
+    editorResizePreviewTemplateFor: template => template,
+    readonlyDeviceEditorPreviewTemplate: template => structuredClone(template),
+    applyEditorPlacementVisualsToPreviewTemplate: draft => draft
+  });
+  const dynamicDraft = clone(source, { suppressCardAreasInTexture: true });
+  assert.equal(dynamicDraft.suppressCardAreasInTexture, true);
+  assert.equal(dynamicDraft.cardTypes[0].connectors[0].hiddenOnCanvas, true);
+  assert.equal(source.cardTypes[0].connectors[0].hiddenOnCanvas, undefined, "authoring card definitions remain immutable");
+
+  const staticDraft = clone(source, { suppressCardAreasInTexture: false });
+  assert.equal(staticDraft.suppressCardAreasInTexture, undefined);
+  assert.equal(staticDraft.cardTypes[0].connectors[0].hiddenOnCanvas, undefined, "static ownership restores normal connector rendering");
 });
 
 test("Matrix routing separates compact inspector routes from full modal crosspoints", () => {
