@@ -5740,6 +5740,9 @@ test("Engine Device Editor card motion has one visible owner per installed card"
   const textureMasks = rendered.filter(node => node.attributes?.["data-editor-card-texture-mask"]);
   const hits = rendered.filter(node => node.attributes?.class === "editor-engine-card-slot-hit");
   const selections = rendered.filter(node => node.attributes?.["data-editor-card-slot-selection"]);
+  const connectorLabels = rendered
+    .filter(node => node.tagName === "text" && (node.textContent === "IN" || node.textContent === "OUT"))
+    .map(node => node.textContent);
 
   assert.deepEqual(
     textureMasks.map(node => node.attributes["data-editor-card-texture-mask"]),
@@ -5754,6 +5757,7 @@ test("Engine Device Editor card motion has one visible owner per installed card"
   assert.equal(root.childNodes[0].attributes?.["data-editor-card-texture-masks"], "true", "stale texture masks draw below live card artwork");
   assert.equal(root.childNodes[1].attributes?.["data-editor-dynamic-card-artwork"], "true", "live card artwork draws after the masks");
   assert.deepEqual(artwork.map(node => node.attributes["data-editor-card-slot-artwork"]), ["slot-a", "slot-b"]);
+  assert.deepEqual(connectorLabels, ["IN", "OUT", "IN", "OUT"], "dynamic card connectors preserve installed nameText labels");
   assert.deepEqual(
     artwork.map(node => node.attributes.transform),
     ["translate(0 243.25)", "translate(0 351.25)"],

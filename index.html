@@ -94116,7 +94116,7 @@
               stroke: "rgba(0,0,0,.75)",
               "stroke-width": 3
             });
-            label.textContent = connectorTypeLabel(connector);
+            label.textContent = connector.nameText || connectorTypeLabel(connector);
             g.appendChild(label);
             const fields = connector.type === "led-signal"
               ? [{ field: "customText", title: connectorFieldTitle(connector, "customText"), text: connector.customText }]
