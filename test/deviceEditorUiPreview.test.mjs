@@ -121,6 +121,31 @@ function runnableIndexFunction(functionName, context = {}) {
   return vm.runInNewContext(`(${functionSource(functionName)})`, context);
 }
 
+function testSvgNode(tagName, attributes = {}) {
+  return {
+    tagName,
+    attributes: { ...attributes },
+    childNodes: [],
+    textContent: "",
+    appendChild(child) {
+      this.childNodes.push(child);
+      return child;
+    }
+  };
+}
+
+function testSvgDescendants(root) {
+  const result = [];
+  const visit = node => {
+    (node?.childNodes || []).forEach(child => {
+      result.push(child);
+      visit(child);
+    });
+  };
+  visit(root);
+  return result;
+}
+
 function sideParityConnector(id, side, direction, y = 152) {
   const x = side === "right" ? 420 : 0;
   return {
@@ -399,6 +424,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     editorDragPointerReleaseInProgress: false,
     editorResizeSession: null,
     editorResizePreviewTemplate: null,
+    editorPlacementMotionPreviewLock: null,
     editorResizePointerReleaseInProgress: false,
     editorInteractionSvg: null,
     resizeSurface,
@@ -756,6 +782,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     "shiftTemplateRowsForStartChange",
     "setEditorDeviceHeight",
     "setEditorPowerDistroFaceGeometry",
+    "editorPlacementPreviewLockFor",
     "editorResizePreviewTemplateFor",
     "readonlyDeviceEditorPreviewTemplate",
     "editorEnginePreviewTemplateClone",
@@ -5036,7 +5063,7 @@ test("Device Editor card drag handlers support cancellation and clamp far pointe
   stopCardDrag(far);
   assert.equal(template.cardSlots.find(slot => slot.id === "slot-1").y, 208);
   assert.deepEqual(template.cardSlots.map(slot => slot.y).sort((a, b) => a - b), [100, 154, 208]);
-  assert.equal(template.height, harness.context.deviceHeightForSlotCounts(template), "release height should derive from committed lanes");
+  assert.equal(template.height, baseline.height, "same-extent reorder should preserve the captured model height");
   assert.equal(counters.commits, 1);
 });
 
@@ -5107,7 +5134,7 @@ test("Device Editor repeated card drag cycles do not ratchet coordinates or heig
   const baselineIds = harness.template.cardSlots.map(slot => slot.id);
   const baselineOverrides = structuredClone(harness.template.cardSlots.map(slot => slot.overrides));
   const baselineRelationships = structuredClone(harness.template.connectorRelationships);
-  const expectedStableHeight = harness.context.deviceHeightForSlotCounts(harness.template);
+  const expectedStableHeight = harness.template.height;
 
   for (let cycle = 0; cycle < 10; cycle += 1) {
     const down = harness.startCardDrag(0, 100 + cycle * 2);
@@ -5124,6 +5151,66 @@ test("Device Editor repeated card drag cycles do not ratchet coordinates or heig
   assert.deepEqual(harness.template.cardSlots.map(slot => slot.id), baselineIds);
   assert.deepEqual(harness.template.cardSlots.map(slot => slot.overrides), baselineOverrides);
   assert.deepEqual(harness.template.connectorRelationships, baselineRelationships);
+});
+
+test("Device Editor multi-lane input and output cards reverse, release, and cancel without preview drift", () => {
+  const fixture = {
+    id: "single-owner-video-fixture",
+    name: "Single Owner Video Fixture",
+    height: 640,
+    connectors: [
+      { id: "left-top", direction: "input", sideMask: "left", x: 0, y: 100 },
+      { id: "right-top", direction: "output", sideMask: "right", x: 420, y: 100 },
+      { id: "left-bottom", direction: "input", sideMask: "left", x: 0, y: 532 },
+      { id: "right-bottom", direction: "output", sideMask: "right", x: 420, y: 532 }
+    ],
+    cardSlots: [
+      { id: "input-card", installedCardTypeId: "input-type", sideMask: "left", span: 3, y: 154 },
+      { id: "output-card", installedCardTypeId: "output-type", sideMask: "right", span: 2, y: 370 }
+    ]
+  };
+  for (const previewMode of ["engine", "legacy"]) {
+    for (const slotIndex of [0, 1]) {
+      const releaseHarness = cardDragInteractionHarness(fixture, { previewScale: 0.11, previewMode });
+      const baselineHeight = releaseHarness.template.height;
+      const baselineEndLane = releaseHarness.api.getLayout().endLane;
+      const started = releaseHarness.startCardDrag(slotIndex, 400 + slotIndex);
+      let drag = null;
+      [0, 3, 8, 3, 0, 8].forEach(targetLane => {
+        drag = releaseHarness.moveCardToLane(started, targetLane, { rawLane: targetLane });
+        assertNoAuthoringOverlap(drag.lastValidResolvedLayout);
+        assert.equal(releaseHarness.template.height, baselineHeight, `${previewMode}: pointer motion must not resize the body`);
+        assert.equal(drag.baselinePreviewHeight, releaseHarness.context.deviceHeightForSlotCounts(releaseHarness.template));
+      });
+      if (drag.currentBoundaryIndex === drag.originalBoundaryIndex) {
+        for (const targetLane of [0, 4, 8]) {
+          drag = releaseHarness.moveCardToLane(started, targetLane, { rawLane: targetLane });
+          if (drag.currentBoundaryIndex !== drag.originalBoundaryIndex) break;
+        }
+      }
+      assert.notEqual(drag.currentBoundaryIndex, drag.originalBoundaryIndex, `${previewMode}: release fixture must end on a changed boundary`);
+      const displayed = itemLaneMap(drag.lastValidResolvedLayout);
+      releaseHarness.stopCardDrag(started);
+      assert.deepEqual(itemLaneMap(releaseHarness.api.getLayout()), displayed, `${previewMode}: release must commit the displayed layout`);
+      const expectedCommittedHeight = drag.lastValidResolvedLayout.endLane === baselineEndLane
+        ? baselineHeight
+        : releaseHarness.context.deviceHeightForSlotCounts(releaseHarness.template);
+      assert.equal(releaseHarness.template.height, expectedCommittedHeight, `${previewMode}: release applies at most one semantic height transition`);
+
+      const cancelHarness = cardDragInteractionHarness(fixture, { previewScale: 0.11, previewMode });
+      const cancelBaseline = structuredClone(cancelHarness.template);
+      const cancelStarted = cancelHarness.startCardDrag(slotIndex, 500 + slotIndex);
+      [8, 0, 4, 0].forEach(targetLane => {
+        const cancelDrag = cancelHarness.moveCardToLane(cancelStarted, targetLane, { rawLane: targetLane });
+        assertNoAuthoringOverlap(cancelDrag.lastValidResolvedLayout);
+        assert.equal(cancelHarness.template.height, cancelBaseline.height);
+      });
+      cancelHarness.stopCardDrag(cancelStarted, "pointercancel");
+      assert.deepEqual(cancelHarness.template, cancelBaseline, `${previewMode}: cancellation restores the exact baseline`);
+      assert.equal(cancelHarness.counters.motionRollbacks, 1);
+      assert.equal(cancelHarness.counters.commits, 0);
+    }
+  }
 });
 
 test("Device Editor model height ignores placement motion and follows only accepted layout", () => {
@@ -5167,7 +5254,81 @@ test("Device Editor model height ignores placement motion and follows only accep
   assert.match(functionSource("moveEditorNode"), /getEditorDragPreviewPoint\(event, editorCardSlotDrag\)/);
 });
 
-test("Engine Device Editor card motion uses dynamic overlay ownership without per-frame texture refresh", () => {
+test("Device Editor card reorder freezes body height and Fit bounds through ownership settle", () => {
+  const template = {
+    id: "frozen-card-preview",
+    name: "Frozen Card Preview",
+    width: 420,
+    height: 520,
+    manualHeight: 0,
+    cardSlots: [{ id: "slot-a", y: 154 }]
+  };
+  const baselineLayout = { items: [{ id: "card:slot-a", kind: "card", y: 154, lane: 1, span: 2 }] };
+  const acceptedLayout = { items: [{ id: "card:slot-a", kind: "card", y: 802, lane: 13, span: 2 }] };
+  const finalRenders = [];
+  const context = {
+    console,
+    Math,
+    Number,
+    Object,
+    String,
+    structuredClone,
+    editorPlacementMotionPreviewLock: null,
+    editorPlacementMotionScheduler: null,
+    editorPlacementMotionSampleCache: null,
+    editorPlacementMotionClearWhenSettled: true,
+    editorPlacementMotionState: { entries: new Map([["card:slot-a", {}]]) },
+    editorEngineDynamicCardArtworkActive: true,
+    editorEngineDynamicCardArtworkTextureRefreshPending: false,
+    deviceEditorPlacementMotionModule: { clearPlacementMotion: state => state.entries.clear() },
+    deviceEditorModal: { classList: { contains: () => false } },
+    currentEditorTemplate: () => template,
+    editorResizePreviewTemplateFor: draft => draft,
+    deviceTemplateWidth: draft => Number(draft.width) || 420,
+    editorPreviewDeviceName: draft => draft.name,
+    validateDraftDefaults: draft => draft,
+    editorActiveStableDragLayout: () => acceptedLayout,
+    deviceHeightForSlotCounts: (_draft, options = {}) => options.layout === acceptedLayout ? 980 : 520,
+    renderDeviceEditorPreview: options => finalRenders.push(structuredClone(options))
+  };
+  const api = vm.runInNewContext(`${[
+    "setEditorEngineDynamicCardArtworkActive",
+    "editorPlacementPreviewLockFor",
+    "captureEditorPlacementPreviewLock",
+    "clearEditorPlacementMotion",
+    "readonlyDeviceEditorPreviewTemplate",
+    "normalizeEditorPreviewBounds",
+    "editorFullDevicePreviewBounds"
+  ].map(functionSource).join("\n")}
+    ({
+      captureEditorPlacementPreviewLock,
+      clearEditorPlacementMotion,
+      readonlyDeviceEditorPreviewTemplate,
+      editorFullDevicePreviewBounds,
+      getLock: () => editorPlacementMotionPreviewLock,
+      getDynamicOwner: () => editorEngineDynamicCardArtworkActive
+    })`, context);
+  const drag = {
+    compactAuthoringDrag: true,
+    baselineResolvedLayout: baselineLayout,
+    baselinePreviewHeight: 520,
+    baselinePreviewBounds: { x: 0, y: 0, width: 420, height: 520 }
+  };
+
+  api.captureEditorPlacementPreviewLock(drag, template);
+  assert.equal(api.readonlyDeviceEditorPreviewTemplate(template).height, 520, "accepted lanes must not resize the body mid-drag");
+  assert.deepEqual(
+    { ...api.editorFullDevicePreviewBounds(template) },
+    { x: 0, y: 0, width: 420, height: 520 },
+    "floating and accepted motion must not alter Fit bounds"
+  );
+  api.clearEditorPlacementMotion({ renderFinal: true });
+  assert.equal(api.getLock(), null, "settle completion releases the frozen preview bounds");
+  assert.equal(api.getDynamicOwner(), false, "settle completion restores texture ownership");
+  assert.deepEqual(finalRenders, [{ refreshTexture: true, motionFrame: false }]);
+});
+
+test("Engine Device Editor card motion has one visible owner per installed card", () => {
   const template = {
     id: "motion-card-device",
     name: "Motion Card Device",
@@ -5231,36 +5392,145 @@ test("Engine Device Editor card motion uses dynamic overlay ownership without pe
     "generated card connector rows should use the same sampled slot Y"
   );
 
-  const syncEngine = functionSource("syncDeviceEditorEnginePreview");
-  const renderEngine = functionSource("renderDeviceEditorEnginePreview");
-  const dynamicArtwork = functionSource("drawEditorEngineDynamicCardArtwork");
-  const previewClone = functionSource("editorEnginePreviewTemplateClone");
-  const clearMotion = functionSource("clearEditorPlacementMotion");
-  const scheduler = functionSource("ensureEditorPlacementMotionScheduler");
-  const legacyRender = functionSource("renderDeviceEditorPreview");
+  const motionPositions = new Map([
+    ["card:slot-a", 243.25],
+    ["card:slot-b", 351.25]
+  ]);
+  const renderTemplate = {
+    ...structuredClone(template),
+    cardSlots: [
+      ...structuredClone(template.cardSlots),
+      { id: "slot-b", name: "Slot B", installedCardTypeId: "card-a", y: 262 }
+    ]
+  };
+  const context = {
+    Number,
+    Math,
+    DEVICE_WIDTH: 420,
+    SLOT_HEIGHT: 54,
+    editorActiveTab: "connectors",
+    editorEngineDynamicCardArtworkActive: true,
+    editorCardSlotDrag: { slotId: "slot-a" },
+    editorNodeDrag: null,
+    editorSlotIndex: 0,
+    editorConnectorSnapGuide: null,
+    editorPlacementMotionHasCardEntries: () => true,
+    editorPlacementMotionVisualY: (id, fallback) => motionPositions.get(id) ?? fallback,
+    editorActiveStableDragLayout: () => null,
+    editorResolvedCardSlotY: (_draft, slot) => Number(slot.y),
+    connectorStartYForTemplate: () => 100,
+    cardTypeById: (draft, id) => draft.cardTypes.find(card => card.id === id),
+    cardSlotLaneCount: () => 2,
+    createSvg: testSvgNode,
+    drawCardCaption: (parent, caption, x, y) => {
+      const label = testSvgNode("text", { "data-editor-card-caption": caption, x, y });
+      label.textContent = caption;
+      parent.appendChild(label);
+    },
+    isAdapterTemplate: () => false,
+    deviceTemplateWidth: draft => Number(draft.width) || 420
+  };
+  const compositor = vm.runInNewContext(`${[
+    "cardBandGeometryAtY",
+    "cardBandGeometry",
+    "cardSlotDisplayY",
+    "drawCardSlotBands",
+    "drawEditorEngineDynamicCardArtwork",
+    "drawEditorEngineCardSlotOverlay",
+    "drawEditorConnectorSnapGuide"
+  ].map(functionSource).join("\n")}
+    ({ drawEditorEngineDynamicCardArtwork, drawEditorEngineCardSlotOverlay, drawEditorConnectorSnapGuide })`, context);
+  const root = testSvgNode("svg");
+  compositor.drawEditorEngineDynamicCardArtwork(root, renderTemplate, { engineTextureSuppressed: true });
+  compositor.drawEditorEngineCardSlotOverlay(root, renderTemplate);
+  const rendered = testSvgDescendants(root);
+  const artwork = rendered.filter(node => node.attributes?.["data-editor-card-slot-artwork"]);
+  const bands = rendered.filter(node => node.attributes?.["data-editor-card-band"]);
+  const captions = rendered.filter(node => node.attributes?.["data-editor-card-caption"]);
+  const hits = rendered.filter(node => node.attributes?.class === "editor-engine-card-slot-hit");
+  const selections = rendered.filter(node => node.attributes?.["data-editor-card-slot-selection"]);
 
-  assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /visual\.suppressCardAreasInTexture \? "suppress-card-areas" : ""/);
-  assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /!visual\.suppressCardAreasInTexture\) \{\s*drawCardAreas/);
-  assert.match(DEVICE_VISUAL_BUILDER_SOURCE, /drawConnectorBands\(ctx, device, width, height, face\.bottom \+ 12\);/);
-  assert.match(PRODUCTION_BRIDGE_SOURCE, /ENGINE_BRIDGE_VERSION = "iteration54-14-1-device-editor-card-drag-parity"/);
+  assert.deepEqual(artwork.map(node => node.attributes["data-editor-card-slot-artwork"]), ["slot-a", "slot-b"]);
+  assert.equal(bands.length, 2, "dynamic compositor should draw one band per installed slot");
+  assert.equal(captions.length, 2, "dynamic compositor should draw one caption per installed slot");
+  assert.equal(hits.length, 2, "each card keeps one hit region");
+  hits.forEach(hit => {
+    assert.equal(hit.attributes.fill, "transparent");
+    assert.equal(hit.attributes.stroke, "transparent");
+    assert.equal(hit.childNodes.length, 0, "hit overlays must not reproduce card contents");
+  });
+  assert.deepEqual(selections.map(node => node.attributes["data-editor-card-slot-selection"]), ["slot-a"]);
+  assert.equal(bands.find(node => node.attributes["data-editor-card-band"] === "slot-a").attributes.y, 216.25);
+  assert.equal(bands.find(node => node.attributes["data-editor-card-band"] === "slot-b").attributes.y, 324.25);
 
-  assert.match(previewClone, /draft\.suppressCardAreasInTexture = true/);
-  assert.match(syncEngine, /suppressCardAreasInTexture: options\.dynamicCardArtwork === true/);
-  assert.match(syncEngine, /const mustRefreshTexture = options\.dynamicCardArtwork === true/);
-  assert.match(syncEngine, /editorEngineDynamicCardArtworkTextureRefreshPending = false/);
-  assert.match(renderEngine, /const dynamicCardArtwork = editorEngineDynamicCardArtworkActive && editorPlacementMotionHasCardEntries\(\)/);
-  assert.match(renderEngine, /refreshTexture,\s*motionOnly:[\s\S]*dynamicCardArtwork/);
-  assertOrder(renderEngine, [
-    "drawEditorEngineDynamicCardArtwork(deviceEditorPreview, previewTemplate);",
-    "drawEditorEngineCardSlotOverlay(deviceEditorPreview, previewTemplate);",
-    "drawEditorEngineConnectorOverlay(deviceEditorPreview, previewTemplate);"
-  ], "dynamic card artwork should render below hit overlays and connector overlays");
-  assert.match(dynamicArtwork, /drawCardSlotBands\(group, template, \{ editor: false \}\)/);
-  assert.match(dynamicArtwork, /editorPlacementMotionHasCardEntries\(\)/);
-  assert.match(legacyRender, /drawEditorCardSlotBands\(deviceEditorPreview, previewTemplate\)/);
-  assert.doesNotMatch(legacyRender, /animateTransform/);
-  assert.match(scheduler, /renderDeviceEditorPreview\(\{ refreshTexture: false, motionFrame: true \}\)/);
-  assert.match(clearMotion, /renderDeviceEditorPreview\(\{ refreshTexture: true, motionFrame: false \}\)/);
+  const unsuppressed = testSvgNode("svg");
+  compositor.drawEditorEngineDynamicCardArtwork(unsuppressed, renderTemplate, { engineTextureSuppressed: false });
+  assert.equal(unsuppressed.childNodes.length, 0, "dynamic owner must wait for texture suppression");
+
+  const guideLayer = testSvgNode("svg");
+  compositor.drawEditorConnectorSnapGuide(guideLayer, renderTemplate);
+  assert.equal(guideLayer.childNodes.length, 0, "card movement must not produce a snap-guide element");
+  context.editorCardSlotDrag = null;
+  context.editorNodeDrag = { itemId: "connector:a" };
+  compositor.drawEditorConnectorSnapGuide(guideLayer, renderTemplate);
+  assert.equal(guideLayer.childNodes.length, 0, "node movement must not produce a snap-guide element");
+
+  const textureRefreshes = [];
+  const surface = {
+    replaceDevice(_device, options) { textureRefreshes.push(options.refreshTexture); },
+    render() {}
+  };
+  const syncContext = {
+    editorEnginePreviewModule: {
+      createPreviewDeviceFromDraft(payload) {
+        return {
+          id: "preview-device",
+          kind: "device",
+          visual: {
+            isPowerDistro: false,
+            hasSwappableCards: true,
+            visualCards: [{}],
+            suppressCardAreasInTexture: payload.template.suppressCardAreasInTexture === true
+          }
+        };
+      }
+    },
+    editorEnginePreviewDraftSynced: true,
+    editorEngineDynamicCardArtworkTextureRefreshPending: true,
+    editorEnginePreviewLastDeviceId: "",
+    editorActiveTab: "connectors",
+    ensureDeviceEditorEnginePreviewSurface: () => surface,
+    editorEnginePreviewPayload: (_draft, options) => ({
+      template: { suppressCardAreasInTexture: options.suppressCardAreasInTexture === true }
+    }),
+    editorActivePreviewBounds: () => ({ x: 0, y: 0, width: 420, height: 520 }),
+    syncDeviceEditorEngineOverlayViewBox() {}
+  };
+  const syncPreview = runnableIndexFunction("syncDeviceEditorEnginePreview", syncContext);
+  syncPreview(renderTemplate, {
+    dynamicCardArtwork: true,
+    refreshTexture: false,
+    motionOnly: true,
+    fitBounds: { x: 0, y: 0, width: 420, height: 520 }
+  });
+  assert.deepEqual(textureRefreshes, [true], "first dynamic frame must refresh to a suppressed texture");
+  assert.equal(syncContext.editorEngineDynamicCardArtworkTextureRefreshPending, false);
+  syncPreview(renderTemplate, {
+    dynamicCardArtwork: true,
+    refreshTexture: false,
+    motionOnly: true,
+    fitBounds: { x: 0, y: 0, width: 420, height: 520 }
+  });
+  assert.deepEqual(textureRefreshes, [true, false], "settle frames reuse the suppressed texture");
+  syncContext.editorEngineDynamicCardArtworkTextureRefreshPending = true;
+  syncPreview(renderTemplate, {
+    dynamicCardArtwork: false,
+    refreshTexture: true,
+    motionOnly: false,
+    fitBounds: { x: 0, y: 0, width: 420, height: 520 }
+  });
+  assert.deepEqual(textureRefreshes, [true, false, true], "ownership return refreshes the normal texture once");
+  assert.equal(syncContext.editorEngineDynamicCardArtworkTextureRefreshPending, false);
 });
 
 test("Device Editor stable connector drag resolves from an immutable snapshot and commits the displayed map", () => {

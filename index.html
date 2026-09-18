@@ -3500,6 +3500,12 @@
       stroke-width: 1.8;
       stroke-dasharray: 5 4;
       vector-effect: non-scaling-stroke;
+      pointer-events: none;
+    }
+
+    .editor-engine-card-slot-hit {
+      fill: transparent;
+      stroke: transparent;
       pointer-events: all;
     }
 
@@ -4993,7 +4999,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.16.0 — Continuous Span-Aware Card Drag — iteration54-16-0-continuous-span-aware-card-drag</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.17.0 — Single-Owner Modular Drag Composition — iteration54-17-0-single-owner-modular-drag-composition</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5686,10 +5692,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.16.0";
-    const APP_BUILD_ID = "iteration54-16-0-continuous-span-aware-card-drag";
-    const APP_MODULE_CACHE_ID = "iteration54-16-0-continuous-span-aware-card-drag-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Continuous Span-Aware Card Drag`;
+    const APP_ITERATION = "54.17.0";
+    const APP_BUILD_ID = "iteration54-17-0-single-owner-modular-drag-composition";
+    const APP_MODULE_CACHE_ID = "iteration54-17-0-single-owner-modular-drag-composition-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Single-Owner Modular Drag Composition`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "6dc62f5ef0b40e65629ccfb8a5d9e2071fa8273f";
@@ -78358,6 +78364,7 @@
     let editorPlacementMotionScheduler = null;
     let editorPlacementMotionSampleCache = null;
     let editorPlacementMotionClearWhenSettled = false;
+    let editorPlacementMotionPreviewLock = null;
     let editorEngineDynamicCardArtworkActive = false;
     let editorEngineDynamicCardArtworkTextureRefreshPending = false;
     let editorEnginePreviewHost = null;
@@ -79789,6 +79796,8 @@
       const pointerY = Number(options.pointerY);
       const resolvedPointerY = Number.isFinite(pointerY) ? pointerY : visualItem.y;
       const pointerClientY = Number(options.pointerClientY);
+      const baselineRequiredHeight = deviceHeightForSlotCounts(template, { layout });
+      const baselineTemplateHeight = Number(template.height) || baselineRequiredHeight;
       return {
         pointerId: options.pointerId,
         kind: "card",
@@ -79818,6 +79827,15 @@
         lastValidResolvedLayout: resolvedLayout,
         baselineResolvedLayout: structuredClone(layout),
         baselineLaneMap: editorStableDragLaneMap(layout),
+        baselineRequiredHeight,
+        baselineTemplateHeight,
+        baselinePreviewHeight: baselineRequiredHeight,
+        baselinePreviewBounds: Object.freeze({
+          x: 0,
+          y: 0,
+          width: deviceTemplateWidth(template),
+          height: baselineRequiredHeight
+        }),
         movementThresholdCrossed: false,
         moved: false,
         specialTarget: null,
@@ -80270,7 +80288,20 @@
       if (!template || !drag?.movementThresholdCrossed) return false;
       const layout = editorStableDragLayout(drag);
       if (!layout) return false;
-      return applyEditorStableResolvedLayout(template, layout, options);
+      if (drag.compactAuthoringDrag !== true) return applyEditorStableResolvedLayout(template, layout, options);
+      const originalHeight = Number.isFinite(Number(drag.baselineTemplateHeight))
+        ? Number(drag.baselineTemplateHeight)
+        : Number(template.height) || 0;
+      const baselineRequiredHeight = Number.isFinite(Number(drag.baselineRequiredHeight))
+        ? Number(drag.baselineRequiredHeight)
+        : deviceHeightForSlotCounts(template, { layout: drag.baselineResolvedLayout });
+      const applied = applyEditorStableResolvedLayout(template, layout, { ...options, updateHeight: false });
+      if (!applied || options.updateHeight === false) return applied;
+      const committedRequiredHeight = deviceHeightForSlotCounts(template);
+      template.height = Math.abs(committedRequiredHeight - baselineRequiredHeight) <= 0.0001
+        ? Math.max(originalHeight, Number(template.manualHeight) || 0)
+        : committedRequiredHeight;
+      return true;
     }
 
     function captureEditorCardDragSelection() {
@@ -80377,6 +80408,7 @@
             }
           }
         }
+        if (drag.compactAuthoringDrag === true) captureEditorPlacementPreviewLock(drag);
         setEditorEngineDynamicCardArtworkActive(layout.items.some(item => editorStableLayoutItemKind(item) === "card"));
         editorPlacementMotionClearWhenSettled = false;
         editorPlacementMotionSampleCache = null;
@@ -91044,6 +91076,40 @@
       return true;
     }
 
+    function editorPlacementPreviewLockFor(template) {
+      template = template || currentEditorTemplate();
+      if (!editorPlacementMotionPreviewLock || !template) return null;
+      const templateId = String(template.id || "");
+      return editorPlacementMotionPreviewLock.templateId === templateId
+        ? editorPlacementMotionPreviewLock
+        : null;
+    }
+
+    function captureEditorPlacementPreviewLock(drag, template) {
+      template = template || currentEditorTemplate();
+      if (drag?.compactAuthoringDrag !== true || !template) return null;
+      const height = Number.isFinite(Number(drag.baselinePreviewHeight))
+        ? Number(drag.baselinePreviewHeight)
+        : deviceHeightForSlotCounts(template, { layout: drag.baselineResolvedLayout });
+      const bounds = drag.baselinePreviewBounds || {
+        x: 0,
+        y: 0,
+        width: deviceTemplateWidth(template),
+        height
+      };
+      editorPlacementMotionPreviewLock = Object.freeze({
+        templateId: String(template.id || ""),
+        height,
+        bounds: Object.freeze({
+          x: Number(bounds.x) || 0,
+          y: Number(bounds.y) || 0,
+          width: Math.max(1, Number(bounds.width) || deviceTemplateWidth(template)),
+          height: Math.max(1, Number(bounds.height) || height)
+        })
+      });
+      return editorPlacementMotionPreviewLock;
+    }
+
     function clearEditorPlacementMotion(options = {}) {
       editorPlacementMotionScheduler?.cancel?.();
       editorPlacementMotionScheduler = null;
@@ -91054,6 +91120,7 @@
         deviceEditorPlacementMotionModule.clearPlacementMotion(editorPlacementMotionState);
       }
       editorPlacementMotionState = null;
+      editorPlacementMotionPreviewLock = null;
       setEditorEngineDynamicCardArtworkActive(false);
       if (hadDynamicCardArtwork && options.renderFinal !== false && !deviceEditorModal?.classList.contains("hidden")) {
         renderDeviceEditorPreview({ refreshTexture: true, motionFrame: false });
@@ -91390,8 +91457,9 @@
       draft.width = deviceTemplateWidth(template);
       draft.name = editorPreviewDeviceName(template);
       validateDraftDefaults(draft);
-      const dragLayout = editorActiveStableDragLayout();
-      draft.height = deviceHeightForSlotCounts(sourceTemplate, { layout: dragLayout });
+      const previewLock = editorPlacementPreviewLockFor(sourceTemplate);
+      const dragLayout = previewLock ? null : editorActiveStableDragLayout();
+      draft.height = previewLock?.height ?? deviceHeightForSlotCounts(sourceTemplate, { layout: dragLayout });
       return draft;
     }
 
@@ -91477,7 +91545,7 @@
         if (options.fit === true) surface.fitToContent({ padding: 34, bounds: fitBounds });
         surface.render();
       }
-      if (!canSkipTextureRefresh) {
+      if (!canSkipTextureRefresh && (options.dynamicCardArtwork !== true || visual.suppressCardAreasInTexture === true)) {
         editorEngineDynamicCardArtworkTextureRefreshPending = false;
       }
       syncDeviceEditorEngineOverlayViewBox();
@@ -91983,14 +92051,15 @@
       drawEditorPowerPlugMarquee(parent);
     }
 
-    function drawEditorEngineDynamicCardArtwork(parent, template) {
+    function drawEditorEngineDynamicCardArtwork(parent, template, options = {}) {
       if (!editorEngineDynamicCardArtworkActive || !editorPlacementMotionHasCardEntries()) return;
+      if (options.engineTextureSuppressed !== true) return;
       if (editorActiveTab !== "connectors" || !template?.hasSwappableCards) return;
       const group = createSvg("g", {
         class: "editor-engine-dynamic-card-artwork",
         "data-editor-dynamic-card-artwork": "true"
       });
-      drawCardSlotBands(group, template, { editor: false });
+      drawCardSlotBands(group, template, { editor: false, dynamicOwner: true });
       parent.appendChild(group);
     }
 
@@ -92000,15 +92069,26 @@
         const band = cardBandGeometry(template, slot);
         const selected = editorSlotIndex === index || editorCardSlotDrag?.slotId === slot.id;
         parent.appendChild(createSvg("rect", {
-          class: `editor-engine-card-slot-selection ${selected ? "editor-faceplate-selected" : ""}`,
+          class: "editor-engine-card-slot-hit",
           "data-editor-card-slot": index,
           x: band.x,
           y: band.y,
           width: band.width,
           height: band.height,
-          rx: 6
+          rx: 6,
+          fill: "transparent",
+          stroke: "transparent"
         }));
         if (selected) {
+          parent.appendChild(createSvg("rect", {
+            class: "editor-engine-card-slot-selection editor-faceplate-selected",
+            "data-editor-card-slot-selection": slot.id,
+            x: band.x,
+            y: band.y,
+            width: band.width,
+            height: band.height,
+            rx: 6
+          }));
           const removeX = band.x + band.width - 11;
           const removeY = band.y + 11;
           const remove = createSvg("g", {
@@ -92074,7 +92154,9 @@
       }));
       drawEditorEngineFaceplateOverlay(deviceEditorPreview, previewTemplate, previewDevice);
       drawEditorEnginePowerPlugOverlay(deviceEditorPreview, previewTemplate);
-      drawEditorEngineDynamicCardArtwork(deviceEditorPreview, previewTemplate);
+      drawEditorEngineDynamicCardArtwork(deviceEditorPreview, previewTemplate, {
+        engineTextureSuppressed: previewDevice?.visual?.suppressCardAreasInTexture === true
+      });
       drawEditorEngineCardSlotOverlay(deviceEditorPreview, previewTemplate);
       drawEditorEngineConnectorOverlay(deviceEditorPreview, previewTemplate);
       drawEditorResizeHandles(deviceEditorPreview, previewTemplate, deviceTemplateWidth(previewTemplate), Number(previewTemplate.height) || deviceHeightForSlotCounts(previewTemplate));
@@ -92094,7 +92176,10 @@
       };
     }
 
-    function editorFullDevicePreviewBounds(template = currentEditorTemplate()) {
+    function editorFullDevicePreviewBounds(template) {
+      template = template || currentEditorTemplate();
+      const previewLock = editorPlacementPreviewLockFor(template);
+      if (previewLock) return normalizeEditorPreviewBounds(previewLock.bounds);
       return normalizeEditorPreviewBounds({
         x: 0,
         y: 0,
@@ -93212,6 +93297,7 @@
     }
 
     function drawEditorConnectorSnapGuide(parent, template) {
+      if (editorNodeDrag || editorCardSlotDrag) return;
       if (editorConnectorSnapGuide && isAdapterTemplate(template)) {
         const y = Number(editorConnectorSnapGuide.centerY);
         if (!Number.isFinite(y)) return;
@@ -93951,6 +94037,12 @@
     function drawCardSlotBands(parent, template, options = {}) {
       if (!template.hasSwappableCards) return;
       template.cardSlots.forEach((slot, index) => {
+        const artworkParent = options.dynamicOwner === true
+          ? createSvg("g", {
+              class: "editor-card-slot-artwork",
+              "data-editor-card-slot-artwork": slot.id
+            })
+          : parent;
         const card = cardTypeById(template, slot.installedCardTypeId);
         const band = cardBandGeometry(template, slot);
         const slotInteractive = options.editor && editorActiveTab === "connectors";
@@ -93958,8 +94050,9 @@
           "data-editor-card-slot": index,
           class: editorCardSlotDrag?.slotId === slot.id ? "editor-node-dragging" : ""
         } : {};
-        parent.appendChild(createSvg("rect", {
+        artworkParent.appendChild(createSvg("rect", {
           ...rectAttrs,
+          "data-editor-card-band": slot.id,
           x: band.x,
           y: band.y,
           width: band.width,
@@ -93972,7 +94065,7 @@
           "pointer-events": slotInteractive ? "all" : "none"
         }));
         const caption = card?.name || "Empty";
-        drawCardCaption(parent, caption, band.textX, cardSlotDisplayY(template, slot) + 3, card, {
+        drawCardCaption(artworkParent, caption, band.textX, cardSlotDisplayY(template, slot) + 3, card, {
           editor: slotInteractive,
           slotIndex: index,
           maxWidth: band.width - 12
@@ -94001,8 +94094,9 @@
             "stroke-width": 2,
             "stroke-linecap": "round"
           }));
-          parent.appendChild(remove);
+          artworkParent.appendChild(remove);
         }
+        if (artworkParent !== parent) parent.appendChild(artworkParent);
       });
     }
 
