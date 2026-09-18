@@ -1052,6 +1052,7 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
     editorSelectedNodeIndex: null,
     editorNodeDrag: null,
     editorCardSlotDrag: null,
+    editorSelectedInstalledCardConnectorId: "",
     editorConnectorSnapGuide: null,
     editorSelectedNodeIds: new Set(["node-selection-sentinel"]),
     editorSelectedCardNodeIds: new Set(["card-selection-sentinel"]),
@@ -1101,6 +1102,7 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
     startEditorFaceImageResize: () => false,
     startEditorResizeDrag: () => false,
     startEditorPowerPlugDrag: () => false,
+    editorInstalledCardConnectorFromEvent: () => null,
     startEditorFaceplateMarquee: () => false,
     startEditorNodeMarquee: () => false,
     isAdapterCenterDropTarget: () => false,
@@ -4801,19 +4803,33 @@ test("Device Editor placement motion is persistent and shared by Engine and Lega
   assert.match(setPreviewY, /deltaY = nextY - currentY/);
 });
 
-test("Device Editor card-slot drag seeds motion in the card handler, not face resize", () => {
+test("Device Editor card-slot drag defers dynamic ownership until pointer movement", () => {
   const cardDrag = functionSource("startEditorCardSlotDrag");
   const faceResize = functionSource("startEditorFaceImageResize");
 
   assert.doesNotMatch(faceResize, /beginEditorPlacementMotion\(/, "face image resize should not seed modular card motion");
-  assertOrder(cardDrag, [
-    "editorCardSlotDrag = {",
-    "setEditorPointerCapture(event);",
-    "beginEditorPlacementMotion(editorCardSlotDrag, { pointerY: point.y });",
-    "renderDeviceEditorPreview();"
-  ], "card slot drag should seed motion immediately after creating the drag session and before first render");
+  assert.doesNotMatch(cardDrag, /beginEditorPlacementMotion\(/, "a click must not hand card artwork to the drag compositor");
+  assert.match(functionSource("moveEditorNode"), /if \(motionJustStarted\) \{[\s\S]*beginEditorPlacementMotion\(editorCardSlotDrag\)/);
+  assert.match(functionSource("moveEditorNode"), /renderDeviceEditorPreview\(\{ refreshTexture: true, motionFrame: true \}\)/);
   assert.match(cardDrag, /createEditorCompactCardDragSession\(template/);
   assert.match(cardDrag, /pointerY:\s*point\.y/);
+});
+
+test("Device Editor installed card children select before their parent card drag target", () => {
+  const startNodeDrag = functionSource("startEditorNodeDrag");
+  const renderInspector = functionSource("renderSelectedConnectorSettings");
+  const installedTarget = functionSource("editorInstalledCardConnectorFromEvent");
+
+  assertOrder(startNodeDrag, [
+    "editorInstalledCardConnectorFromEvent(event)",
+    "setEditorInstalledCardConnectorSelection(template, installedCardConnector.id)",
+    "startEditorCardSlotDrag(event)"
+  ], "installed child connectors must own pointer selection before the card band starts dragging");
+  assert.match(installedTarget, /data-editor-card-connector-id/);
+  assert.match(installedTarget, /editorEngineConnectorIdFromEvent\(event\)/, "Engine-rendered child nodes must use the same selection path");
+  assert.match(renderInspector, /installedSelection = editorSelectedInstalledCardConnector\(template\)/);
+  assert.match(renderInspector, /setCardSlotConnectorOverride/);
+  assert.match(renderInspector, /Installed Card Connector/);
 });
 
 test("Device Editor card motion integration animates first displacement and interrupted drags from sampled positions", () => {
@@ -5042,6 +5058,7 @@ test("Device Editor card click and lost capture restore exact baseline state", (
   const clickHarness = cardDragInteractionHarness(fixture, { previewScale: 0.08 });
   const clickBaseline = structuredClone(clickHarness.template);
   const click = clickHarness.startCardDrag(0, 81);
+  assert.equal(clickHarness.counters.motionSeeds, 0, "pointer down alone must leave the static card owner active");
   clickHarness.stopCardDrag(click);
   assert.deepEqual(clickHarness.template, clickBaseline);
   assert.equal(clickHarness.counters.commits, 0);
@@ -5061,6 +5078,28 @@ test("Device Editor card click and lost capture restore exact baseline state", (
   assert.equal(lostHarness.context.editorSelectedCardNodeIds.has("card-selection-sentinel"), true);
   assert.equal(lostHarness.context.editorSelectedFaceplate, true);
   assert.equal(lostHarness.context.editorSlotIndex, null);
+});
+
+test("Device Editor commits complementary two-card compaction through a single insertion boundary", () => {
+  const harness = cardDragInteractionHarness({
+    id: "two-complementary-cards",
+    name: "Two Complementary Cards",
+    height: 420,
+    cardSlots: [
+      { id: "input-card", installedCardTypeId: "input-type", sideMask: "left", span: 3, y: 100 },
+      { id: "output-card", installedCardTypeId: "output-type", sideMask: "right", span: 3, y: 262 }
+    ]
+  });
+  const started = harness.startCardDrag(1, 83);
+  const drag = harness.moveCardToClientY(started, started.clientY + 5);
+  assert.equal(drag.session.boundaries.length, 1, "complementary cards have one canonical insertion boundary");
+  assert.equal(drag.movementThresholdCrossed, true, "canonical compaction must count as a committed movement");
+  assert.deepEqual(itemLaneMap(drag.lastValidResolvedLayout), {
+    "card:input-card": 0,
+    "card:output-card": 0
+  });
+  harness.stopCardDrag(started);
+  assert.deepEqual(harness.template.cardSlots.map(slot => slot.y), [100, 100]);
 });
 
 test("Device Editor real card handlers keep a 12-slot E2 layout compact at tiny Fit scales", () => {
@@ -5626,6 +5665,7 @@ test("Engine Device Editor card motion has one visible owner per installed card"
     editorCardSlotDrag: { slotId: "slot-a" },
     editorNodeDrag: null,
     editorSlotIndex: 0,
+    editorSelectedInstalledCardConnectorId: "slot-a__in-a",
     editorConnectorSnapGuide: null,
     editorPlacementMotionHasCardEntries: () => true,
     editorPlacementMotionVisualY: (id, fallback) => motionPositions.get(id) ?? fallback,
@@ -5715,6 +5755,7 @@ test("Engine Device Editor card motion has one visible owner per installed card"
       "caption must be owned by the same transformed artwork group"
     );
     assert.equal(caption.attributes.y, 3, "caption Y must remain card-local");
+    assert.equal(caption.attributes["dominant-baseline"], "middle", "caption text stays vertically centered in its color bar");
   });
   bands.forEach(band => {
     assert.equal(band.attributes.y, -27, "title bar and card body must remain card-local");
@@ -5726,6 +5767,15 @@ test("Engine Device Editor card motion has one visible owner per installed card"
       connector.parentNode?.attributes?.["data-editor-card-slot-artwork"],
       "installed connector visuals must be direct children of the rigid card group"
     );
+  });
+  const selectedInstalled = installedConnectors.find(node => node.attributes?.["data-editor-installed-card-connector-id"] === "slot-a__in-a");
+  assert.ok(selectedInstalled, "installed card child connectors expose stable selectable IDs");
+  assert.match(selectedInstalled.attributes.class, /editor-node-selected/);
+  artwork.forEach(owner => {
+    const descendants = testSvgDescendants(owner);
+    const hitIndex = descendants.findIndex(node => node.attributes?.class === "editor-engine-card-slot-hit");
+    const connectorIndex = descendants.findIndex(node => node.attributes?.["data-editor-card-connector-id"]);
+    assert.ok(hitIndex >= 0 && connectorIndex > hitIndex, "child connectors must render above the card drag hit region");
   });
   assert.equal(captions.some(node => node.attributes.y === 157 || node.attributes.y === 265), false, "no caption may remain at a source slot Y");
   assert.equal(hits.length, 2, "each card keeps one hit region");

@@ -542,14 +542,15 @@ function drawCardCaption(ctx, card) {
   const barHeight = Math.max(18, fontSize + 8);
   const barWidth = maxWidth;
   const x = (Number(card.captionX) || Number(card.textX) || (Number(card.x) + Number(card.width) / 2)) - barWidth / 2;
-  const y = (Number(card.captionY) || Number(card.slotY) || Number(card.y) + 18) - fontSize + 1;
+  const centerY = Number(card.captionY) || Number(card.slotY) || Number(card.y) + 18;
+  const y = centerY - barHeight / 2;
   ctx.save();
   roundRect(ctx, x, y, barWidth, barHeight, 4);
   ctx.fillStyle = normalizeColor(card.captionBackgroundColor, "#17212b");
   ctx.globalAlpha = 0.92;
   ctx.fill();
   ctx.globalAlpha = 1;
-  drawFittedText(ctx, text, x + 5, y + barHeight / 2 + fontSize * 0.35, barWidth - 10, fontSize, {
+  drawFittedText(ctx, text, x + 5, centerY, barWidth - 10, fontSize, {
     weight: 800,
     fill: normalizeColor(card.captionTextColor, "#32b6ff"),
     stroke: "rgba(0,0,0,.92)",

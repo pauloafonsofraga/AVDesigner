@@ -93,6 +93,9 @@ const SLOT_HEIGHT = 54;
 const LEGACY_DEVICE_WIDTH = 380;
 const SURFACE_FALLBACK_HEIGHT = 120;
 const CARD_SLOT_OVERRIDE_FIELDS = [
+  "type",
+  "label",
+  "empty",
   "nameText",
   "nameCustom",
   "resolutionFrameRate",

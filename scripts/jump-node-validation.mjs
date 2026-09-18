@@ -41,7 +41,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-19-1-card-layer-handoff-fix";
+const BUILD_ID = "iteration54-19-2-installed-card-interaction-fix";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -50,9 +50,9 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Card Layer Handoff Fix");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-19-1-card-layer-handoff-fix-modules";'), "module cache key should identify Card Layer Handoff Fix");
-assert.ok(indexHtml.includes("Card Layer Handoff Fix"), "visible build label should name Card Layer Handoff Fix");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Installed Card Interaction Fix");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-19-2-installed-card-interaction-fix-modules";'), "module cache key should identify Installed Card Interaction Fix");
+assert.ok(indexHtml.includes("Installed Card Interaction Fix"), "visible build label should name Installed Card Interaction Fix");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-14-1-device-editor-card-drag-parity"'), "Engine bridge version should identify Device Editor Card Drag Parity");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "device-editor-card-drag-parity"'), "Engine bridge feature label should identify Device Editor Card Drag Parity");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-14-1-device-editor-card-drag-parity"), "bridge fingerprint should identify Device Editor Card Drag Parity");
