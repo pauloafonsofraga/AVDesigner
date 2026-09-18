@@ -41,7 +41,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-17-0-single-owner-modular-drag-composition";
+const BUILD_ID = "iteration54-18-0-unified-compact-modular-item-drag";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -50,9 +50,9 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Single-Owner Modular Drag Composition");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-17-0-single-owner-modular-drag-composition-modules";'), "module cache key should identify Single-Owner Modular Drag Composition");
-assert.ok(indexHtml.includes("Single-Owner Modular Drag Composition"), "visible build label should name Single-Owner Modular Drag Composition");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Unified Compact Modular Item Drag");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-18-0-unified-compact-modular-item-drag-modules";'), "module cache key should identify Unified Compact Modular Item Drag");
+assert.ok(indexHtml.includes("Unified Compact Modular Item Drag"), "visible build label should name Unified Compact Modular Item Drag");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-14-1-device-editor-card-drag-parity"'), "Engine bridge version should identify Device Editor Card Drag Parity");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "device-editor-card-drag-parity"'), "Engine bridge feature label should identify Device Editor Card Drag Parity");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-14-1-device-editor-card-drag-parity"), "bridge fingerprint should identify Device Editor Card Drag Parity");

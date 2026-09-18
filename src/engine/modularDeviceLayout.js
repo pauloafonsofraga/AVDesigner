@@ -694,31 +694,93 @@ function frozenAuthoringBoundary(boundary = {}, index = 0) {
   });
 }
 
-function authoringCandidateForInsertion(sequence, movingItem, insertionIndex, options = {}) {
-  const nextSequence = [...sequence];
-  nextSequence.splice(insertionIndex, 0, movingItem);
-  return compactAuthoringLayoutForSequence(nextSequence, options);
+function compactAuthoringLayoutForInsertion(sequence, movingItems, insertionIndex, options = {}) {
+  const startY = finiteNumber(options.startY, 0);
+  const slotHeight = positiveNumber(options.slotHeight, MODULAR_LAYOUT_SLOT_HEIGHT);
+  const moving = Array.isArray(movingItems) ? movingItems : [movingItems];
+  const movingOriginLane = Math.min(...moving.map(item => Math.max(0, Math.round(finiteNumber(item?.lane, 0)))));
+  const sideCursor = {
+    [MODULAR_LAYOUT_SIDE_MASKS.left]: 0,
+    [MODULAR_LAYOUT_SIDE_MASKS.right]: 0
+  };
+  const occupied = {
+    [MODULAR_LAYOUT_SIDE_MASKS.left]: new Set(),
+    [MODULAR_LAYOUT_SIDE_MASKS.right]: new Set()
+  };
+  const resolved = [];
+  const normalize = (source, index = 0) => normalizePlacementItem(
+    source,
+    source.sourceIndex ?? index,
+    { startY, slotHeight }
+  );
+  const intervalIsFree = (item, lane) => sideMaskSides(item.sideMask).every(side => {
+    for (let row = lane; row < lane + item.span; row += 1) {
+      if (occupied[side].has(row)) return false;
+    }
+    return true;
+  });
+  const reserve = (item, lane, options = {}) => {
+    const placed = {
+      ...item,
+      requestedLane: lane,
+      requestedY: layoutYForLane(lane, startY, slotHeight),
+      lane,
+      y: layoutYForLane(lane, startY, slotHeight)
+    };
+    resolved.push(placed);
+    sideMaskSides(placed.sideMask).forEach(side => {
+      for (let row = lane; row < lane + placed.span; row += 1) occupied[side].add(row);
+      if (options.advanceCursor !== false) sideCursor[side] = Math.max(sideCursor[side], lane + placed.span);
+    });
+  };
+  const placeStationary = (source, index) => {
+    const item = normalize(source, index);
+    let lane = sideMaskSides(item.sideMask).reduce(
+      (maximum, side) => Math.max(maximum, sideCursor[side]),
+      0
+    );
+    while (!intervalIsFree(item, lane)) lane += 1;
+    reserve(item, lane);
+  };
+
+  sequence.slice(0, insertionIndex).forEach(placeStationary);
+  const normalizedMoving = moving.map(normalize);
+  const offsets = normalizedMoving.map(item => Math.max(0, item.lane - movingOriginLane));
+  let placedOrigin = normalizedMoving.reduce((minimumOrigin, item, memberIndex) => {
+    const offset = offsets[memberIndex];
+    return sideMaskSides(item.sideMask).reduce(
+      (nextOrigin, side) => Math.max(nextOrigin, sideCursor[side] - offset),
+      minimumOrigin
+    );
+  }, 0);
+  const movingFitsAt = origin => normalizedMoving.every((item, memberIndex) => intervalIsFree(item, origin + offsets[memberIndex]));
+  while (!movingFitsAt(placedOrigin)) placedOrigin += 1;
+  normalizedMoving.forEach((item, memberIndex) => reserve(item, placedOrigin + offsets[memberIndex], {
+    advanceCursor: false
+  }));
+  sequence.slice(insertionIndex).forEach(placeStationary);
+  return placementResultFromItems(resolved, { startY, slotHeight });
 }
 
-function authoringCandidates(stationarySequence, movingItem, options = {}) {
+function authoringCandidateForInsertion(sequence, movingItems, insertionIndex, options = {}) {
+  return compactAuthoringLayoutForInsertion(sequence, movingItems, insertionIndex, options);
+}
+
+function authoringCandidates(stationarySequence, movingItems, options = {}) {
+  const moving = Array.isArray(movingItems) ? movingItems : [movingItems];
+  const primaryMovingItemId = stableString(options.primaryMovingItemId || moving[0]?.id);
   const originalInsertionIndex = options.originalInsertionIndex !== null
     && options.originalInsertionIndex !== undefined
     && Number.isFinite(Number(options.originalInsertionIndex))
     ? Math.max(0, Math.round(Number(options.originalInsertionIndex)))
     : null;
-  const maximumEndLane = options.maximumEndLane !== null
-    && options.maximumEndLane !== undefined
-    && Number.isFinite(Number(options.maximumEndLane))
-    ? Math.max(0, Math.round(Number(options.maximumEndLane)))
-    : null;
   const bySignature = new Map();
   for (let insertionIndex = 0; insertionIndex <= stationarySequence.length; insertionIndex += 1) {
-    const layout = authoringCandidateForInsertion(stationarySequence, movingItem, insertionIndex, options);
-    if (maximumEndLane !== null && layout.endLane > maximumEndLane) continue;
+    const layout = authoringCandidateForInsertion(stationarySequence, moving, insertionIndex, options);
     const signature = authoringLaneSignature(layout);
     const candidate = {
       insertionIndex,
-      targetLane: layout.byId.get(movingItem.id)?.lane ?? 0,
+      targetLane: layout.byId.get(primaryMovingItemId)?.lane ?? 0,
       endLane: layout.endLane,
       signature
     };
@@ -755,64 +817,72 @@ export function createModularAuthoringInsertionSession(itemsOrLayout = [], optio
   const startY = source.startY;
   const slotHeight = source.slotHeight;
   const sourceSequence = [...source.orderedItems].sort(originalPlacementComparator);
-  const draggedItemId = stableString(options.draggedItemId);
-  const sourceDragged = draggedItemId ? source.byId[draggedItemId] || null : null;
-  if (draggedItemId && !sourceDragged) {
-    throw new Error(`Compact modular authoring item ${draggedItemId} does not exist.`);
+  const requestedDraggedIds = Array.isArray(options.draggedItemIds)
+    ? options.draggedItemIds.map(id => stableString(id)).filter(Boolean)
+    : [];
+  const singleDraggedItemId = stableString(options.draggedItemId);
+  if (singleDraggedItemId && !requestedDraggedIds.includes(singleDraggedItemId)) {
+    requestedDraggedIds.push(singleDraggedItemId);
   }
-  if (sourceDragged && options.insertionItem) {
+  const draggedItemIds = [...new Set(requestedDraggedIds)];
+  const missingDraggedItemId = draggedItemIds.find(id => !source.byId[id]);
+  if (missingDraggedItemId) {
+    throw new Error(`Compact modular authoring item ${missingDraggedItemId} does not exist.`);
+  }
+  if (draggedItemIds.length && options.insertionItem) {
     throw new Error("Compact modular authoring sessions accept either a dragged item or a new insertion item, not both.");
   }
-  if (!sourceDragged && !options.insertionItem) {
+  if (!draggedItemIds.length && !options.insertionItem) {
     throw new Error("Compact modular authoring sessions require a dragged item or a new insertion item.");
   }
 
   const canonicalBaseline = compactAuthoringLayoutForSequence(sourceSequence, { startY, slotHeight });
   const canonicalSnapshot = frozenPlacementSnapshot(canonicalBaseline);
-  const movingItem = sourceDragged
-    ? canonicalSnapshot.byId[draggedItemId]
-    : frozenSnapshotItem(normalizeAuthoringInsertionItem(
-        options.insertionItem,
-        canonicalSnapshot.items.length,
-        { startY, slotHeight }
-      ));
-  if (!sourceDragged && canonicalSnapshot.byId[movingItem.id]) {
-    throw new Error(`Compact modular authoring insertion ID ${movingItem.id} already exists.`);
-  }
   const canonicalSequence = [...canonicalSnapshot.orderedItems];
-  const originalInsertionIndex = sourceDragged
-    ? canonicalSequence.findIndex(item => item.id === movingItem.id)
+  const draggedIdSet = new Set(draggedItemIds);
+  const sourceMovingItems = draggedItemIds.length
+    ? canonicalSequence.filter(item => draggedIdSet.has(item.id))
+    : [frozenSnapshotItem(normalizeAuthoringInsertionItem(
+      options.insertionItem,
+      canonicalSnapshot.items.length,
+      { startY, slotHeight }
+    ))];
+  const requestedPrimaryId = stableString(options.primaryDraggedItemId || singleDraggedItemId || sourceMovingItems[0]?.id);
+  const primaryMovingItem = sourceMovingItems.find(item => item.id === requestedPrimaryId) || sourceMovingItems[0];
+  const movingItems = Object.freeze(sourceMovingItems.map(item => frozenSnapshotItem(item)));
+  if (!draggedItemIds.length && canonicalSnapshot.byId[primaryMovingItem.id]) {
+    throw new Error(`Compact modular authoring insertion ID ${primaryMovingItem.id} already exists.`);
+  }
+  const originalInsertionIndex = draggedItemIds.length
+    ? canonicalSequence.findIndex(item => draggedIdSet.has(item.id))
     : null;
-  const stationarySequence = canonicalSequence.filter(item => item.id !== movingItem.id);
-  let candidates = authoringCandidates(stationarySequence, movingItem, {
+  const stationarySequence = canonicalSequence.filter(item => !draggedIdSet.has(item.id));
+  const candidates = authoringCandidates(stationarySequence, movingItems, {
     startY,
     slotHeight,
     originalInsertionIndex,
-    maximumEndLane: sourceDragged ? canonicalSnapshot.endLane : null
+    primaryMovingItemId: primaryMovingItem.id
   });
-  if (!candidates.length && sourceDragged) {
-    candidates = authoringCandidates(stationarySequence, movingItem, {
-      startY,
-      slotHeight,
-      originalInsertionIndex
-    });
-  }
-  if (!candidates.length) throw new Error(`Unable to construct compact authoring boundaries for ${movingItem.id}.`);
+  if (!candidates.length) throw new Error(`Unable to construct compact authoring boundaries for ${primaryMovingItem.id}.`);
   const boundaries = Object.freeze(candidates.map((candidate, index) => frozenAuthoringBoundary(candidate, index)));
-  let originalBoundaryIndex = sourceDragged
+  let originalBoundaryIndex = draggedItemIds.length
     ? boundaries.findIndex(boundary => boundary.insertionIndex === originalInsertionIndex)
     : 0;
-  if (sourceDragged && originalBoundaryIndex < 0) {
+  if (draggedItemIds.length && originalBoundaryIndex < 0) {
     const baselineSignature = authoringLaneSignature(canonicalBaseline);
     originalBoundaryIndex = candidates.findIndex(candidate => candidate.signature === baselineSignature);
   }
   if (originalBoundaryIndex < 0) originalBoundaryIndex = 0;
   return Object.freeze({
     snapshot: canonicalSnapshot,
-    movingItem: frozenSnapshotItem(movingItem),
-    draggedItemId: sourceDragged ? movingItem.id : "",
-    insertionItemId: sourceDragged ? "" : movingItem.id,
-    isNewItem: !sourceDragged,
+    movingItem: frozenSnapshotItem(primaryMovingItem),
+    movingItems,
+    movingItemIds: Object.freeze(movingItems.map(item => item.id)),
+    primaryMovingItemId: primaryMovingItem.id,
+    draggedItemId: draggedItemIds.length === 1 ? primaryMovingItem.id : "",
+    draggedItemIds: Object.freeze(draggedItemIds.length ? movingItems.map(item => item.id) : []),
+    insertionItemId: draggedItemIds.length ? "" : primaryMovingItem.id,
+    isNewItem: !draggedItemIds.length,
     stationaryItemIds: Object.freeze(stationarySequence.map(item => item.id)),
     stationarySequence: Object.freeze(stationarySequence.map(item => frozenSnapshotItem(item))),
     boundaries,
@@ -859,21 +929,24 @@ export function resolveModularAuthoringInsertion(session, boundaryIndex, options
   const slotHeight = positiveNumber(options.slotHeight, session.slotHeight);
   const layout = authoringCandidateForInsertion(
     session.stationarySequence,
-    session.movingItem,
+    session.movingItems || [session.movingItem],
     boundary.insertionIndex,
     { startY, slotHeight }
   );
-  const moving = layout.byId.get(session.movingItem.id);
+  const moving = layout.byId.get(session.primaryMovingItemId || session.movingItem.id);
   if (!moving || moving.lane !== boundary.targetLane || !candidateHasNoOverlap(layout.items, laneMapFromItems(layout.items))) {
     throw new Error(`Compact modular authoring boundary ${resolvedBoundaryIndex} produced an invalid layout.`);
   }
+  const movingItemIds = new Set(session.movingItemIds || [session.movingItem.id]);
   const displacedStationaryIds = layout.items
-    .filter(item => item.id !== session.movingItem.id)
+    .filter(item => !movingItemIds.has(item.id))
     .filter(item => session.snapshot.byId[item.id]?.lane !== item.lane)
     .map(item => item.id)
     .sort();
   const movedItemIds = [
-    ...(session.isNewItem || session.snapshot.byId[session.movingItem.id]?.lane !== moving.lane ? [session.movingItem.id] : []),
+    ...(session.movingItems || [session.movingItem])
+      .filter(item => session.isNewItem || session.snapshot.byId[item.id]?.lane !== layout.byId.get(item.id)?.lane)
+      .map(item => item.id),
     ...displacedStationaryIds
   ].sort();
   layout.authoringInsertion = Object.freeze({
@@ -882,6 +955,7 @@ export function resolveModularAuthoringInsertion(session, boundaryIndex, options
     insertionIndex: boundary.insertionIndex,
     originalBoundaryIndex: session.originalBoundaryIndex,
     targetLane: moving.lane,
+    movingItemIds: Object.freeze([...(session.movingItemIds || [session.movingItem.id])]),
     inserted: session.isNewItem,
     movedItemIds: Object.freeze(movedItemIds),
     displacedStationaryIds: Object.freeze(displacedStationaryIds),

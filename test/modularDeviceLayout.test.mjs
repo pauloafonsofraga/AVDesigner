@@ -216,6 +216,83 @@ test("span-aware authoring boundary geometry uses target-lane distance and midpo
   }), 3);
 });
 
+test("compact authoring treats a selected connector group as one finite-boundary insertion", () => {
+  const items = [
+    { id: "connector:fixed-left", sideMask: "left", lane: 0, requestedLane: 0, span: 1, order: 0 },
+    { id: "connector:fixed-right", sideMask: "right", lane: 0, requestedLane: 0, span: 1, order: 1 },
+    { id: "card:tricombo-a", itemType: "card-slot", sideMask: "both", lane: 1, requestedLane: 1, span: 3, order: 2 },
+    { id: "connector:s3d-in-1", sideMask: "left", lane: 4, requestedLane: 4, span: 1, order: 3 },
+    { id: "connector:s3d-out-1", sideMask: "right", lane: 4, requestedLane: 4, span: 1, order: 4 },
+    { id: "card:tricombo-b", itemType: "card-slot", sideMask: "both", lane: 5, requestedLane: 5, span: 2, order: 5 },
+    { id: "connector:left-tail", sideMask: "left", lane: 9, requestedLane: 9, span: 1, order: 6 },
+    { id: "connector:both-tail", sideMask: "both", lane: 12, requestedLane: 12, span: 1, order: 7 }
+  ];
+  const session = createModularAuthoringInsertionSession(items, {
+    draggedItemIds: ["connector:s3d-in-1", "connector:s3d-out-1"],
+    primaryDraggedItemId: "connector:s3d-in-1"
+  });
+
+  assert.deepEqual(session.movingItemIds, ["connector:s3d-in-1", "connector:s3d-out-1"]);
+  const first = resolveModularAuthoringInsertion(session, 0);
+  assert.equal(first.byId.get("connector:s3d-in-1").lane, 0);
+  assert.equal(first.byId.get("connector:s3d-out-1").lane, 0);
+  assert.equal(first.byId.get("card:tricombo-a").lane, 2);
+  assert.equal(first.endLane, 9);
+  assertNoAuthoringOverlap(first);
+
+  const lastIndex = session.boundaries.length - 1;
+  const last = resolveModularAuthoringInsertion(session, lastIndex);
+  assert.equal(last.byId.get("connector:s3d-in-1").lane, 8);
+  assert.equal(last.byId.get("connector:s3d-out-1").lane, 8);
+  assert.equal(last.endLane, 9);
+  assertNoAuthoringOverlap(last);
+
+  const farBelow = authoringInsertionBoundaryWithHysteresis(100000, {
+    session,
+    pointerStartClientY: 500,
+    previousBoundaryIndex: session.originalBoundaryIndex,
+    projectedLanePx: 7.938
+  });
+  const muchFartherBelow = authoringInsertionBoundaryWithHysteresis(10000000, {
+    session,
+    pointerStartClientY: 500,
+    previousBoundaryIndex: farBelow,
+    projectedLanePx: 7.938
+  });
+  assert.equal(farBelow, lastIndex);
+  assert.equal(muchFartherBelow, lastIndex);
+  assert.deepEqual(authoringLaneMap(resolveModularAuthoringInsertion(session, farBelow)), authoringLaneMap(last));
+  assert.deepEqual(authoringLaneMap(resolveModularAuthoringInsertion(session, muchFartherBelow)), authoringLaneMap(last));
+});
+
+test("compact authoring individual node reorder removes legacy gaps without pointer-distance rows", () => {
+  const items = [
+    { id: "connector:left", sideMask: "left", lane: 0, requestedLane: 0, span: 1, order: 0 },
+    { id: "connector:right", sideMask: "right", lane: 0, requestedLane: 0, span: 1, order: 1 },
+    { id: "card:tricombo-a", itemType: "card-slot", sideMask: "both", lane: 3, requestedLane: 3, span: 3, order: 2 },
+    { id: "connector:s3d-in-1", sideMask: "left", lane: 11, requestedLane: 11, span: 1, order: 3 },
+    { id: "card:tricombo-b", itemType: "card-slot", sideMask: "both", lane: 18, requestedLane: 18, span: 2, order: 4 },
+    { id: "connector:both", sideMask: "both", lane: 24, requestedLane: 24, span: 1, order: 5 }
+  ];
+  const session = createModularAuthoringInsertionSession(items, { draggedItemId: "connector:s3d-in-1" });
+  const first = resolveModularAuthoringInsertion(session, 0);
+  const last = resolveModularAuthoringInsertion(session, session.boundaries.length - 1);
+
+  assert.equal(first.byId.get("connector:s3d-in-1").lane, 0);
+  assert.equal(last.byId.get("connector:s3d-in-1").lane, 7);
+  assert.ok(first.endLane <= 8);
+  assert.ok(last.endLane <= 8);
+  for (const layout of [first, last]) {
+    assertNoAuthoringOverlap(layout);
+    for (let lane = 0; lane < layout.endLane; lane += 1) {
+      assert.ok(
+        layout.items.some(item => lane >= item.lane && lane < item.lane + item.span),
+        `compact authoring result contains empty lane ${lane}`
+      );
+    }
+  }
+});
+
 function cardFixture() {
   return {
     cardTypes: [

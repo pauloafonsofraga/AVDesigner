@@ -4999,7 +4999,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.17.0 — Single-Owner Modular Drag Composition — iteration54-17-0-single-owner-modular-drag-composition</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.18.0 — Unified Compact Modular Item Drag — iteration54-18-0-unified-compact-modular-item-drag</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5692,10 +5692,10 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.17.0";
-    const APP_BUILD_ID = "iteration54-17-0-single-owner-modular-drag-composition";
-    const APP_MODULE_CACHE_ID = "iteration54-17-0-single-owner-modular-drag-composition-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Single-Owner Modular Drag Composition`;
+    const APP_ITERATION = "54.18.0";
+    const APP_BUILD_ID = "iteration54-18-0-unified-compact-modular-item-drag";
+    const APP_MODULE_CACHE_ID = "iteration54-18-0-unified-compact-modular-item-drag-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Unified Compact Modular Item Drag`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "6dc62f5ef0b40e65629ccfb8a5d9e2071fa8273f";
@@ -79712,76 +79712,30 @@
       return (layout.items || []).find(item => item.id === itemId) || null;
     }
 
-    function createEditorStablePlacementDragSession(template, options = {}) {
+    function createEditorCompactPlacementDragSession(template, options = {}) {
       const kind = options.kind === "card" ? "card" : "connector";
-      const id = String(options.id || "");
-      if (!template || !id) return null;
+      const requestedSourceIds = Array.isArray(options.sourceIds)
+        ? options.sourceIds.map(id => String(id || "")).filter(Boolean)
+        : [String(options.id || "")].filter(Boolean);
+      const sourceIds = [...new Set(requestedSourceIds)].filter(id => (
+        kind === "card"
+          ? template?.cardSlots?.some(slot => slot.id === id)
+          : template?.connectors?.some(connector => connector.id === id)
+      ));
+      if (!template || !sourceIds.length) return null;
+      const primarySourceId = sourceIds.includes(String(options.primarySourceId || ""))
+        ? String(options.primarySourceId)
+        : sourceIds[0];
       const placementModule = requireDeviceEditorPlacementModule();
       const startY = connectorStartYForTemplate(template);
       const layout = resolveEditorModularLayout(template, { useDragPreview: false });
-      const itemId = editorStableDragItemId(kind, id);
-      const item = editorPlacementItemByStableId(layout, itemId);
-      if (!item) return null;
-      const session = placementModule.createModularInsertionDragSession(layout.items, itemId, {
-        startY,
-        slotHeight: SLOT_HEIGHT
-      });
-      const targetLane = item.lane;
-      const resolvedLayout = placementModule.resolveModularInsertionDrag(session.snapshot, itemId, targetLane, {
-        startY,
-        slotHeight: SLOT_HEIGHT
-      });
-      if (!placementModule.isValidModularInsertionResult(session.snapshot, resolvedLayout, itemId, targetLane, {
-        startY,
-        slotHeight: SLOT_HEIGHT
-      })) {
-        throw new Error(`Device Editor stable drag session failed validation for ${itemId}.`);
-      }
-      const pointerY = Number(options.pointerY);
-      const resolvedPointerY = Number.isFinite(pointerY) ? pointerY : item.y;
-      const baselineLaneMap = editorStableDragLaneMap(resolvedLayout);
-      return {
-        pointerId: options.pointerId,
-        kind,
-        itemId,
-        sourceId: id,
-        session,
-        originalLane: session.originalLane ?? targetLane,
-        previousTargetLane: targetLane,
-        currentTargetLane: targetLane,
-        offsetY: resolvedPointerY - item.y,
-        pointerStartY: resolvedPointerY,
-        candidateY: item.y,
-        currentY: item.y,
-        startY,
-        slotHeight: SLOT_HEIGHT,
-        lastValidResolvedLayout: resolvedLayout,
-        baselineResolvedLayout: structuredClone(resolvedLayout),
-        baselineLaneMap,
-        movementThresholdCrossed: false,
-        moved: false,
-        specialTarget: null,
-        pointerDownTemplateSnapshot: JSON.stringify(captureTemplateConfiguration(template))
-      };
-    }
-
-    function editorProjectedLanePixels(coordinateFrame, slotHeight = SLOT_HEIGHT) {
-      const localPerClientPixel = Math.hypot(
-        Number(coordinateFrame?.yBasisX) || 0,
-        Number(coordinateFrame?.yBasisY) || 0
-      );
-      return localPerClientPixel > 0 ? slotHeight / localPerClientPixel : slotHeight;
-    }
-
-    function createEditorCompactCardDragSession(template, options = {}) {
-      const id = String(options.id || "");
-      if (!template || !id) return null;
-      const placementModule = requireDeviceEditorPlacementModule();
-      const startY = connectorStartYForTemplate(template);
-      const layout = resolveEditorModularLayout(template, { useDragPreview: false });
-      const itemId = editorStableDragItemId("card", id);
+      const itemIds = sourceIds.map(id => editorStableDragItemId(kind, id));
+      const itemId = editorStableDragItemId(kind, primarySourceId);
+      const visualItem = editorPlacementItemByStableId(layout, itemId);
+      if (!visualItem) return null;
       const session = placementModule.createModularAuthoringInsertionSession(layout.items, {
-        draggedItemId: itemId,
+        draggedItemIds: itemIds,
+        primaryDraggedItemId: itemId,
         startY,
         slotHeight: SLOT_HEIGHT
       });
@@ -79791,32 +79745,40 @@
         slotHeight: SLOT_HEIGHT
       });
       const acceptedItem = editorPlacementItemByStableId(resolvedLayout, itemId);
-      const visualItem = editorPlacementItemByStableId(layout, itemId);
-      if (!acceptedItem || !visualItem) throw new Error(`Device Editor compact card session could not resolve ${itemId}.`);
+      if (!acceptedItem) throw new Error(`Device Editor compact placement session could not resolve ${itemId}.`);
       const pointerY = Number(options.pointerY);
       const resolvedPointerY = Number.isFinite(pointerY) ? pointerY : visualItem.y;
       const pointerClientY = Number(options.pointerClientY);
+      const selectedItemOffsets = new Map();
+      itemIds.forEach(selectedItemId => {
+        const item = editorPlacementItemByStableId(layout, selectedItemId);
+        if (item) selectedItemOffsets.set(selectedItemId, Number(item.y) - Number(visualItem.y));
+      });
       const baselineRequiredHeight = deviceHeightForSlotCounts(template, { layout });
       const baselineTemplateHeight = Number(template.height) || baselineRequiredHeight;
       return {
         pointerId: options.pointerId,
-        kind: "card",
+        kind,
         itemId,
-        sourceId: id,
+        sourceId: primarySourceId,
+        sourceIds,
         session,
         compactAuthoringDrag: true,
+        compositeDrag: itemIds.length > 1,
+        selectedDraggedItemIds: itemIds,
+        selectedItemOffsets,
         originalBoundaryIndex: boundaryIndex,
         currentBoundaryIndex: boundaryIndex,
         previousBoundaryIndex: boundaryIndex,
-        originalLane: acceptedItem.lane,
-        previousTargetLane: acceptedItem.lane,
-        currentTargetLane: acceptedItem.lane,
+        originalLane: visualItem.lane,
+        previousTargetLane: visualItem.lane,
+        currentTargetLane: visualItem.lane,
         offsetY: resolvedPointerY - visualItem.y,
         pointerStartY: resolvedPointerY,
-        pointerStartClientY: Number.isFinite(pointerClientY) ? pointerClientY : 0,
-        candidateY: acceptedItem.y,
-        currentY: acceptedItem.y,
-        acceptedY: acceptedItem.y,
+        pointerStartClientY: Number.isFinite(pointerClientY) ? pointerClientY : resolvedPointerY,
+        candidateY: visualItem.y,
+        currentY: visualItem.y,
+        acceptedY: visualItem.y,
         visualY: visualItem.y,
         visualStartY: visualItem.y,
         visualMoved: false,
@@ -79824,7 +79786,7 @@
         slotHeight: SLOT_HEIGHT,
         coordinateFrame: options.coordinateFrame || null,
         projectedLanePx: editorProjectedLanePixels(options.coordinateFrame, SLOT_HEIGHT),
-        lastValidResolvedLayout: resolvedLayout,
+        lastValidResolvedLayout: structuredClone(layout),
         baselineResolvedLayout: structuredClone(layout),
         baselineLaneMap: editorStableDragLaneMap(layout),
         baselineRequiredHeight,
@@ -79839,11 +79801,38 @@
         movementThresholdCrossed: false,
         moved: false,
         specialTarget: null,
+        selectionSnapshot: options.selectionSnapshot || null,
         pointerDownTemplateSnapshot: JSON.stringify(captureTemplateConfiguration(template))
       };
     }
 
-    function resolveEditorCompactCardDragMove(drag, pointerClientY, options = {}) {
+    function createEditorStablePlacementDragSession(template, options = {}) {
+      return createEditorCompactPlacementDragSession(template, {
+        ...options,
+        kind: options.kind === "card" ? "card" : "connector",
+        sourceIds: [options.id],
+        primarySourceId: options.id
+      });
+    }
+
+    function editorProjectedLanePixels(coordinateFrame, slotHeight = SLOT_HEIGHT) {
+      const localPerClientPixel = Math.hypot(
+        Number(coordinateFrame?.yBasisX) || 0,
+        Number(coordinateFrame?.yBasisY) || 0
+      );
+      return localPerClientPixel > 0 ? slotHeight / localPerClientPixel : slotHeight;
+    }
+
+    function createEditorCompactCardDragSession(template, options = {}) {
+      return createEditorCompactPlacementDragSession(template, {
+        ...options,
+        kind: "card",
+        sourceIds: [options.id],
+        primarySourceId: options.id
+      });
+    }
+
+    function resolveEditorCompactPlacementDragMove(drag, pointerClientY, options = {}) {
       if (!drag?.compactAuthoringDrag || !drag?.session?.boundaries?.length) return drag;
       const placementModule = requireDeviceEditorPlacementModule();
       const nextBoundaryIndex = placementModule.authoringInsertionBoundaryWithHysteresis(pointerClientY, {
@@ -79855,10 +79844,12 @@
         hysteresisPx: 2
       });
       if (nextBoundaryIndex === drag.currentBoundaryIndex && !options.force) return drag;
-      const resolvedLayout = placementModule.resolveModularAuthoringInsertion(drag.session, nextBoundaryIndex, {
-        startY: drag.startY,
-        slotHeight: drag.slotHeight || SLOT_HEIGHT
-      });
+      const resolvedLayout = nextBoundaryIndex === drag.originalBoundaryIndex
+        ? structuredClone(drag.baselineResolvedLayout)
+        : placementModule.resolveModularAuthoringInsertion(drag.session, nextBoundaryIndex, {
+            startY: drag.startY,
+            slotHeight: drag.slotHeight || SLOT_HEIGHT
+          });
       const currentItem = editorPlacementItemByStableId(resolvedLayout, drag.itemId);
       if (!currentItem) return drag;
       drag.previousBoundaryIndex = drag.currentBoundaryIndex;
@@ -79875,122 +79866,28 @@
       return drag;
     }
 
+    function resolveEditorCompactCardDragMove(drag, pointerClientY, options = {}) {
+      return resolveEditorCompactPlacementDragMove(drag, pointerClientY, options);
+    }
+
     function createEditorCompositeConnectorDragSession(template, options = {}) {
       if (!template) return null;
-      const placementModule = requireDeviceEditorPlacementModule();
       const connectorIds = Array.isArray(options.connectorIds)
         ? options.connectorIds.map(id => String(id || "")).filter(id => template.connectors?.some(connector => connector.id === id))
         : [];
       if (connectorIds.length < 2) return null;
       const primaryConnectorId = String(options.primaryConnectorId || connectorIds[0] || "");
       if (!connectorIds.includes(primaryConnectorId)) return null;
-      const startY = connectorStartYForTemplate(template);
-      const layout = resolveEditorModularLayout(template, { useDragPreview: false });
-      const itemIds = connectorIds.map(id => editorStableDragItemId("connector", id));
-      const primaryItemId = editorStableDragItemId("connector", primaryConnectorId);
-      const primaryItem = editorPlacementItemByStableId(layout, primaryItemId);
-      if (!primaryItem) return null;
-      const session = placementModule.createModularCompositeInsertionDragSession(layout.items, itemIds, primaryItemId, {
-        startY,
-        slotHeight: SLOT_HEIGHT
-      });
-      const targetLane = session.originalPrimaryLane ?? primaryItem.lane;
-      const resolvedLayout = placementModule.resolveModularCompositeInsertionDrag(session, targetLane, {
-        startY,
-        slotHeight: SLOT_HEIGHT
-      });
-      if (!placementModule.isValidModularCompositeInsertionResult(session, resolvedLayout, targetLane, {
-        startY,
-        slotHeight: SLOT_HEIGHT
-      })) {
-        throw new Error(`Device Editor composite drag session failed validation for ${primaryItemId}.`);
-      }
-      const pointerY = Number(options.pointerY);
-      const resolvedPointerY = Number.isFinite(pointerY) ? pointerY : primaryItem.y;
-      const selectedItemOffsets = new Map();
-      (session.draggedItemIds || itemIds).forEach(itemId => {
-        const item = editorPlacementItemByStableId(layout, itemId);
-        if (item) selectedItemOffsets.set(itemId, Number(item.y) - Number(primaryItem.y));
-      });
-      const baselineLaneMap = editorStableDragLaneMap(resolvedLayout);
-      return {
-        pointerId: options.pointerId,
+      return createEditorCompactPlacementDragSession(template, {
+        ...options,
         kind: "connector",
-        itemId: primaryItemId,
-        sourceId: primaryConnectorId,
-        connectorId: primaryConnectorId,
-        connectorIds,
-        session,
-        compositeDrag: true,
-        selectedDraggedItemIds: [...(session.draggedItemIds || itemIds)],
-        selectedItemOffsets,
-        originalLane: session.originalPrimaryLane ?? targetLane,
-        previousTargetLane: targetLane,
-        currentTargetLane: targetLane,
-        offsetY: resolvedPointerY - primaryItem.y,
-        pointerStartY: resolvedPointerY,
-        candidateY: primaryItem.y,
-        currentY: primaryItem.y,
-        startY,
-        slotHeight: SLOT_HEIGHT,
-        lastValidResolvedLayout: resolvedLayout,
-        baselineResolvedLayout: structuredClone(resolvedLayout),
-        baselineLaneMap,
-        movementThresholdCrossed: false,
-        moved: false,
-        specialTarget: null,
-        pointerDownTemplateSnapshot: JSON.stringify(captureTemplateConfiguration(template))
-      };
+        sourceIds: connectorIds,
+        primarySourceId: primaryConnectorId
+      });
     }
 
-    function resolveEditorStablePlacementDragMove(drag, pointerY, options = {}) {
-      if (!drag?.session?.snapshot) return drag;
-      const placementModule = requireDeviceEditorPlacementModule();
-      const resolvedPointerY = Number(pointerY);
-      const candidateY = (Number.isFinite(resolvedPointerY) ? resolvedPointerY : drag.pointerStartY) - drag.offsetY;
-      const previousLane = Number.isFinite(Number(drag.currentTargetLane))
-        ? drag.currentTargetLane
-        : drag.originalLane;
-      const targetLane = placementModule.targetLaneWithHysteresis(candidateY, {
-        startY: drag.startY,
-        slotHeight: drag.slotHeight || SLOT_HEIGHT,
-        previousLane
-      });
-      drag.candidateY = candidateY;
-      drag.movementThresholdCrossed = drag.movementThresholdCrossed
-        || Math.abs((Number.isFinite(resolvedPointerY) ? resolvedPointerY : drag.pointerStartY) - drag.pointerStartY) > 4
-        || targetLane !== drag.originalLane;
-      drag.moved = drag.movementThresholdCrossed;
-      if (targetLane === drag.currentTargetLane && !options.force) {
-        const currentItem = editorPlacementItemByStableId(drag.lastValidResolvedLayout, drag.itemId);
-        drag.currentY = currentItem?.y ?? drag.currentY;
-        return drag;
-      }
-      const resolvedLayout = drag.compositeDrag === true
-        ? placementModule.resolveModularCompositeInsertionDrag(drag.session, targetLane, {
-            startY: drag.startY,
-            slotHeight: drag.slotHeight || SLOT_HEIGHT
-          })
-        : placementModule.resolveModularInsertionDrag(drag.session.snapshot, drag.itemId, targetLane, {
-            startY: drag.startY,
-            slotHeight: drag.slotHeight || SLOT_HEIGHT
-          });
-      const valid = drag.compositeDrag === true
-        ? placementModule.isValidModularCompositeInsertionResult(drag.session, resolvedLayout, targetLane, {
-            startY: drag.startY,
-            slotHeight: drag.slotHeight || SLOT_HEIGHT
-          })
-        : placementModule.isValidModularInsertionResult(drag.session.snapshot, resolvedLayout, drag.itemId, targetLane, {
-            startY: drag.startY,
-            slotHeight: drag.slotHeight || SLOT_HEIGHT
-          });
-      if (!valid) return drag;
-      drag.previousTargetLane = drag.currentTargetLane;
-      drag.currentTargetLane = targetLane;
-      drag.lastValidResolvedLayout = resolvedLayout;
-      const currentItem = editorPlacementItemByStableId(resolvedLayout, drag.itemId);
-      drag.currentY = currentItem?.y ?? laneY(targetLane, drag.startY);
-      return drag;
+    function resolveEditorStablePlacementDragMove(drag, pointerClientY, options = {}) {
+      return resolveEditorCompactPlacementDragMove(drag, pointerClientY, options);
     }
 
     function applyEditorStableResolvedLayout(template, layout, options = {}) {
@@ -80337,6 +80234,7 @@
       }
       if (matches(editorNodeDrag) && editorNodeDrag) {
         rollbackStarted = rollbackEditorPlacementMotionForDrag(editorNodeDrag) || rollbackStarted;
+        restoreEditorCardDragSelection(editorNodeDrag.selectionSnapshot);
         editorNodeDrag = null;
         editorConnectorSnapGuide = null;
         cancelled = true;
@@ -80494,6 +80392,7 @@
           reducedMotion: editorPlacementReducedMotion(),
           durationMs: 150
         });
+        pinEditorCompositeDraggedMotionEntries(drag, Number(visualY));
         editorPlacementMotionSampleCache = null;
         scheduleEditorPlacementMotionFrame();
       } catch (error) {
@@ -89617,6 +89516,7 @@
       }));
       const caption = createSvg("text", {
         ...(options.editor ? { "data-editor-card-slot": options.slotIndex } : {}),
+        ...(options.ownerId ? { "data-editor-card-caption": options.ownerId } : {}),
         x,
         y,
         fill: cardCaptionTextColor(card),
@@ -94068,6 +93968,7 @@
         drawCardCaption(artworkParent, caption, band.textX, cardSlotDisplayY(template, slot) + 3, card, {
           editor: slotInteractive,
           slotIndex: index,
+          ownerId: slot.id,
           maxWidth: band.width - 12
         });
         if (slotInteractive && editorSlotIndex === index) {
@@ -95124,7 +95025,8 @@
           pointerId: event.pointerId,
           pointerY: point.y,
           pointerClientY: event.clientY,
-          coordinateFrame
+          coordinateFrame,
+          selectionSnapshot
         });
       } catch (error) {
         console.warn("Unable to start stable card-slot drag session.", error);
@@ -95243,6 +95145,8 @@
       editorSelectedPowerPlugIds.clear();
       renderSelectedConnectorSettings();
       const point = getEditorPreviewPoint(event);
+      const coordinateFrame = captureEditorDragCoordinateFrame(event, point);
+      const selectionSnapshot = captureEditorCardDragSelection();
       const connectorIds = editorSelectedConnectorIds(template, { includePaired: true });
       const displayPositions = editorPreviewPositions(template);
       const primaryDisplayY = displayPositions.get(connector.id) ?? connector.y;
@@ -95259,7 +95163,10 @@
             kind: "connector",
             id: connector.id,
             pointerId: event.pointerId,
-            pointerY: point.y
+            pointerY: point.y,
+            pointerClientY: event.clientY,
+            coordinateFrame,
+            selectionSnapshot
           });
         } catch (error) {
           console.warn("Unable to start stable connector drag session.", error);
@@ -95274,7 +95181,10 @@
             connectorIds,
             primaryConnectorId: connector.id,
             pointerId: event.pointerId,
-            pointerY: point.y
+            pointerY: point.y,
+            pointerClientY: event.clientY,
+            coordinateFrame,
+            selectionSnapshot
           });
         } catch (error) {
           console.warn("Unable to start composite connector drag session.", error);
@@ -95293,7 +95203,7 @@
         side: connectorSideKey(connector),
         offsetY: point.y - primaryDisplayY,
         currentY: primaryDisplayY,
-        coordinateFrame: captureEditorDragCoordinateFrame(event, point),
+        coordinateFrame,
         deltaY: 0,
         moved: false,
         ...(stableDrag || {})
@@ -95415,15 +95325,21 @@
       const point = getEditorDragPreviewPoint(event, editorNodeDrag);
       const draggedIds = editorDragConnectorIds(template);
       if (editorNodeDrag.session?.snapshot) {
+        const previousBoundaryIndex = editorNodeDrag.currentBoundaryIndex;
+        const visualY = point.y - editorNodeDrag.offsetY;
+        editorNodeDrag.visualY = visualY;
+        editorNodeDrag.rawPointerY = visualY;
+        editorNodeDrag.visualMoved = editorNodeDrag.visualMoved
+          || Math.abs(visualY - editorNodeDrag.visualStartY) > 0.5;
         if (draggedIds.length > 1) {
           editorNodeDrag.specialTarget = null;
           editorConnectorSnapGuide = null;
-          resolveEditorStablePlacementDragMove(editorNodeDrag, point.y);
-          const minLaneOffset = Number(editorNodeDrag.session?.minLaneOffset) || 0;
-          const minPrimaryY = editorNodeDrag.startY - minLaneOffset * (editorNodeDrag.slotHeight || SLOT_HEIGHT);
-          retargetEditorPlacementMotionForDrag(editorNodeDrag, {
-            draggedY: Math.max(minPrimaryY, point.y - editorNodeDrag.offsetY)
-          });
+          resolveEditorCompactPlacementDragMove(editorNodeDrag, event.clientY);
+          if (editorNodeDrag.currentBoundaryIndex !== previousBoundaryIndex) {
+            retargetEditorPlacementMotionForDrag(editorNodeDrag, { draggedY: visualY });
+          } else {
+            setEditorDraggedPlacementVisualY(editorNodeDrag, visualY);
+          }
           return;
         }
         const requestedY = point.y - editorNodeDrag.offsetY;
@@ -95448,8 +95364,12 @@
         } else {
           editorNodeDrag.specialTarget = null;
           editorConnectorSnapGuide = null;
-          resolveEditorStablePlacementDragMove(editorNodeDrag, point.y);
-          retargetEditorPlacementMotionForDrag(editorNodeDrag, { pointerY: point.y });
+          resolveEditorCompactPlacementDragMove(editorNodeDrag, event.clientY);
+          if (editorNodeDrag.currentBoundaryIndex !== previousBoundaryIndex) {
+            retargetEditorPlacementMotionForDrag(editorNodeDrag, { draggedY: visualY });
+          } else {
+            setEditorDraggedPlacementVisualY(editorNodeDrag, visualY);
+          }
         }
         return;
       }
@@ -95564,6 +95484,8 @@
           ? resolveEditorModularLayout(template, { useDragPreview: false })
           : completedDrag.lastValidResolvedLayout;
         settleEditorPlacementMotionToLayout(settleLayout, { clearWhenSettled: true });
+      } else if (template && completedDrag.visualMoved) {
+        settleEditorPlacementMotionToLayout(completedDrag.baselineResolvedLayout, { clearWhenSettled: true });
       } else {
         clearEditorPlacementMotion();
       }

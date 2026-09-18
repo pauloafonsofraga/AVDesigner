@@ -128,6 +128,7 @@ function testSvgNode(tagName, attributes = {}) {
     childNodes: [],
     textContent: "",
     appendChild(child) {
+      child.parentNode = this;
       this.childNodes.push(child);
       return child;
     }
@@ -171,6 +172,7 @@ function stableDragHarness(template) {
     Map,
     Number,
     Object,
+    Set,
     String,
     structuredClone,
     SLOT_HEIGHT: 54,
@@ -178,6 +180,11 @@ function stableDragHarness(template) {
     editorNodeDrag: null,
     editorCardSlotDrag: null,
     editorConnectorSnapGuide: null,
+    editorSlotIndex: null,
+    editorSelectedNodeIds: new Set(),
+    editorSelectedCardNodeIds: new Set(),
+    editorSelectedPowerPlugIds: new Set(),
+    editorSelectedFaceplate: false,
     editorDragPointerReleaseInProgress: false,
     releaseCount: 0,
     renderCount: 0,
@@ -200,10 +207,13 @@ function stableDragHarness(template) {
       return true;
     },
     requireDeviceEditorPlacementModule: () => ({
+      authoringInsertionBoundaryWithHysteresis,
+      createModularAuthoringInsertionSession,
       createModularCompositeInsertionDragSession,
       createModularInsertionDragSession,
       createModularStructuralEditSession,
       isValidModularCompositeInsertionResult,
+      resolveModularAuthoringInsertion,
       resolveModularInsertionDrag,
       resolveModularCompositeInsertionDrag,
       resolveModularStructuralEdit,
@@ -281,11 +291,16 @@ function stableDragHarness(template) {
     "editorStableDragLayoutPositions",
     "editorStableDragLaneMap",
     "editorPlacementItemByStableId",
+    "editorProjectedLanePixels",
+    "createEditorCompactPlacementDragSession",
     "createEditorStablePlacementDragSession",
     "createEditorCompositeConnectorDragSession",
+    "resolveEditorCompactPlacementDragMove",
     "resolveEditorStablePlacementDragMove",
     "applyEditorStableResolvedLayout",
     "commitEditorStablePlacementDrag",
+    "captureEditorCardDragSelection",
+    "restoreEditorCardDragSelection",
     "cancelEditorStableDrags"
   ];
   const script = `${helpers.map(functionSource).join("\n")}
@@ -1033,6 +1048,7 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
     editorActiveTab: "connectors",
     editorIndex: 0,
     editorSlotIndex: null,
+    editorSelectedNodeIndex: null,
     editorNodeDrag: null,
     editorCardSlotDrag: null,
     editorConnectorSnapGuide: null,
@@ -1054,6 +1070,41 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
     captureTemplateConfiguration: device => structuredClone(device),
     deviceTemplateWidth: device => Number(device?.width) || 420,
     connectorSideKey: connector => connector?.direction === "output" ? "output" : "input",
+    editorNodeTargetIndexFromEvent: event => Number(event?.nodeIndex),
+    editorSelectedConnectorIds: device => {
+      const valid = new Set((device?.connectors || []).map(connector => connector.id));
+      return [...context.editorSelectedNodeIds].filter(id => valid.has(id));
+    },
+    setEditorNodeSelection: (device, index, selectionOptions = {}) => {
+      const connector = device?.connectors?.[index];
+      if (!connector) return;
+      if (selectionOptions.toggle) {
+        if (context.editorSelectedNodeIds.has(connector.id)) context.editorSelectedNodeIds.delete(connector.id);
+        else context.editorSelectedNodeIds.add(connector.id);
+      } else if (!(selectionOptions.keepGroup && context.editorSelectedNodeIds.size > 1 && context.editorSelectedNodeIds.has(connector.id))) {
+        context.editorSelectedNodeIds = new Set([connector.id]);
+      }
+      context.editorSelectedNodeIndex = index;
+    },
+    syncEditorNodeSelection: device => {
+      const valid = new Set((device?.connectors || []).map(connector => connector.id));
+      context.editorSelectedNodeIds = new Set([...context.editorSelectedNodeIds].filter(id => valid.has(id)));
+      const firstId = context.editorSelectedNodeIds.values().next().value;
+      context.editorSelectedNodeIndex = firstId
+        ? device.connectors.findIndex(connector => connector.id === firstId)
+        : null;
+    },
+    editorPreviewPositions: device => new Map((device?.connectors || []).map(connector => [connector.id, connector.y])),
+    renderSelectedConnectorSettings: () => {},
+    startRackPreviewDeviceDrag: () => false,
+    startEditorFaceImageResize: () => false,
+    startEditorResizeDrag: () => false,
+    startEditorPowerPlugDrag: () => false,
+    startEditorFaceplateMarquee: () => false,
+    startEditorNodeMarquee: () => false,
+    isAdapterCenterDropTarget: () => false,
+    isFaceplateSideDropTarget: () => false,
+    reorderConnectorInDirection: () => null,
     isEditorV2ConnectorCandidate: connector => Array.isArray(connector?.anchors),
     editorConnectorAnchors: connector => structuredClone(connector?.anchors || []),
     getEditorPreviewPoint: event => ({
@@ -1157,9 +1208,12 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
     "editorStableDragLaneMap",
     "editorPlacementItemByStableId",
     "editorProjectedLanePixels",
+    "createEditorCompactPlacementDragSession",
     "createEditorCompactCardDragSession",
+    "resolveEditorCompactPlacementDragMove",
     "resolveEditorCompactCardDragMove",
     "createEditorStablePlacementDragSession",
+    "createEditorCompositeConnectorDragSession",
     "resolveEditorStablePlacementDragMove",
     "applyEditorStableResolvedLayout",
     "commitEditorStablePlacementDrag",
@@ -1167,17 +1221,22 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
     "restoreEditorCardDragSelection",
     "cancelEditorStableDrags",
     "getEditorDragPreviewPoint",
+    "editorDragConnectorIds",
+    "commitEditorNodeDrag",
     "startEditorCardSlotDrag",
+    "startEditorNodeDrag",
     "moveEditorNode",
     "stopEditorNodeDrag"
   ];
   const script = `${helpers.map(functionSource).join("\n")}
     ({
       startEditorCardSlotDrag,
+      startEditorNodeDrag,
       moveEditorNode,
       stopEditorNodeDrag,
       cancelEditorStableDrags,
       getDrag: () => editorCardSlotDrag,
+      getNodeDrag: () => editorNodeDrag,
       getLayout: () => resolveEditorModularLayout(currentEditorTemplate())
     })`;
   const api = vm.runInNewContext(script, context);
@@ -1194,6 +1253,20 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
           : null;
       }
     },
+    preventDefault() {},
+    stopPropagation() {}
+  });
+  const nodeEvent = (type, pointerId, clientY, nodeIndex = 0) => ({
+    type,
+    pointerId,
+    button: 0,
+    clientX: 20,
+    clientY,
+    nodeIndex,
+    shiftKey: false,
+    metaKey: false,
+    ctrlKey: false,
+    target: { closest: () => null },
     preventDefault() {},
     stopPropagation() {}
   });
@@ -1237,6 +1310,23 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
   const loseCardPointerCapture = started => api.cancelEditorStableDrags(
     cardEvent("lostpointercapture", started.pointerId, started.clientY)
   );
+  const startNodeDrag = (nodeIndex, pointerId = 1, selectedIds = null) => {
+    const connector = template.connectors[nodeIndex];
+    if (Array.isArray(selectedIds)) context.editorSelectedNodeIds = new Set(selectedIds);
+    const clientY = Number(connector.y) * context.previewScale;
+    api.startEditorNodeDrag(nodeEvent("pointerdown", pointerId, clientY, nodeIndex));
+    const drag = api.getNodeDrag();
+    assert.ok(drag, `node ${nodeIndex} drag should start`);
+    return { pointerId, clientY, startY: Number(connector.y), frame: drag.coordinateFrame, nodeIndex };
+  };
+  const moveNodeToClientY = (started, clientY) => {
+    api.moveEditorNode(nodeEvent("pointermove", started.pointerId, clientY, started.nodeIndex));
+    return api.getNodeDrag();
+  };
+  const stopNodeDrag = (started, type = "pointerup") => {
+    if (type === "pointerup") counters.commits += api.getNodeDrag()?.movementThresholdCrossed ? 1 : 0;
+    api.stopEditorNodeDrag(nodeEvent(type, started.pointerId, started.clientY, started.nodeIndex));
+  };
   return {
     api,
     context,
@@ -1246,7 +1336,10 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
     moveCardToClientY,
     moveCardToLane,
     stopCardDrag,
-    loseCardPointerCapture
+    loseCardPointerCapture,
+    startNodeDrag,
+    moveNodeToClientY,
+    stopNodeDrag
   };
 }
 
@@ -1777,7 +1870,8 @@ test("Device Editor placement delegates to the shared modular layout module", ()
   assert.match(functionSource("cancelEditorInteraction"), /if \(cancelEditorStableDrags\(event\)\) return;/);
   assert.match(functionSource("stopEditorNodeDrag"), /commitEditorStablePlacementDrag\(template, completedDrag/);
   assert.match(functionSource("startEditorNodeDrag"), /createEditorCompositeConnectorDragSession\(template/);
-  assert.match(functionSource("moveEditorNode"), /resolveEditorStablePlacementDragMove\(editorNodeDrag, point\.y\)/);
+  assert.match(functionSource("moveEditorNode"), /resolveEditorCompactPlacementDragMove\(editorNodeDrag, event\.clientY\)/);
+  assert.doesNotMatch(functionSource("moveEditorNode"), /targetLaneWithHysteresis|resolveModularCompositeInsertionDrag/);
   assert.doesNotMatch(functionSource("moveEditorNode"), /maxY - maxStartY|editorNodeDrag\.deltaY = deltaY/);
   assert.doesNotMatch(functionSource("editorPreviewPositions"), /connectorYOverrides|resolveEditorModularLayout\(template, \{ connectorYOverrides \}\)/);
 });
@@ -5067,6 +5161,124 @@ test("Device Editor card drag handlers support cancellation and clamp far pointe
   assert.equal(counters.commits, 1);
 });
 
+test("Device Editor node handlers use finite compact boundaries at Engine and Legacy zoom scales", () => {
+  const fixture = {
+    id: "e2-s3d-node-compact-fixture",
+    name: "E2 S3D Node Compact Fixture",
+    height: 720,
+    connectors: [
+      { id: "fixed-left", nameText: "Fixed In", direction: "input", sideMask: "left", x: 0, y: 100 },
+      { id: "fixed-right", nameText: "Fixed Out", direction: "output", sideMask: "right", x: 420, y: 100 },
+      { id: "s3d-in-1", nameText: "S3D In 1", direction: "input", sideMask: "left", x: 0, y: 316 },
+      { id: "s3d-out-1", nameText: "S3D Out 1", direction: "output", sideMask: "right", x: 420, y: 316 },
+      { id: "tail-left", nameText: "Tail", direction: "input", sideMask: "left", x: 0, y: 532 },
+      { id: "both-tail", nameText: "Both", direction: "input", displaySide: "both", sideMask: "both", x: 0, y: 586 }
+    ],
+    cardSlots: [
+      { id: "tricombo-a", installedCardTypeId: "tricombo", sideMask: "both", span: 3, y: 154 },
+      { id: "tricombo-b", installedCardTypeId: "tricombo", sideMask: "both", span: 2, y: 370 },
+      { id: "tricombo-c", installedCardTypeId: "tricombo", sideMask: "both", span: 1, y: 478 }
+    ]
+  };
+  const assertCompact = (layout, label) => {
+    assertNoAuthoringOverlap(layout);
+    for (let lane = 0; lane < layout.endLane; lane += 1) {
+      assert.ok(
+        layout.items.some(item => lane >= item.lane && lane < item.lane + item.span),
+        `${label}: lane ${lane} must not be an empty pointer-distance row`
+      );
+    }
+  };
+
+  for (const previewMode of ["engine", "legacy"]) {
+    for (const previewScale of [1.47, 0.035, 0.08]) {
+      const harness = cardDragInteractionHarness(fixture, { previewMode, previewScale });
+      const baseline = structuredClone(harness.template);
+      const baselineHeight = harness.template.height;
+      const started = harness.startNodeDrag(2, Math.round(previewScale * 100000));
+      const dragAtStart = harness.api.getNodeDrag();
+      const frozenFrame = structuredClone(dragAtStart.coordinateFrame);
+      const frozenPreviewHeight = dragAtStart.baselinePreviewHeight;
+      const farBelowClientY = started.clientY + 10000;
+      const farAboveClientY = started.clientY - 10000;
+
+      let drag = harness.moveNodeToClientY(started, farBelowClientY);
+      assert.equal(drag.currentBoundaryIndex, drag.session.boundaries.length - 1, `${previewMode}/${previewScale}: far below clamps last`);
+      assertCompact(drag.lastValidResolvedLayout, `${previewMode}/${previewScale} below`);
+      const belowMap = itemLaneMap(drag.lastValidResolvedLayout);
+      const belowExtent = drag.lastValidResolvedLayout.endLane;
+      drag = harness.moveNodeToClientY(started, farBelowClientY + 1000000);
+      assert.deepEqual(itemLaneMap(drag.lastValidResolvedLayout), belowMap, `${previewMode}/${previewScale}: extra distance cannot change semantic rows`);
+      assert.equal(drag.lastValidResolvedLayout.endLane, belowExtent);
+
+      drag = harness.moveNodeToClientY(started, farAboveClientY);
+      assert.equal(drag.currentBoundaryIndex, 0, `${previewMode}/${previewScale}: far above clamps first`);
+      assertCompact(drag.lastValidResolvedLayout, `${previewMode}/${previewScale} above`);
+      drag = harness.moveNodeToClientY(started, farBelowClientY);
+      assert.deepEqual(itemLaneMap(drag.lastValidResolvedLayout), belowMap, `${previewMode}/${previewScale}: reversal returns deterministically`);
+      assert.equal(harness.template.height, baselineHeight, `${previewMode}/${previewScale}: gesture cannot stretch body`);
+      assert.equal(drag.baselinePreviewHeight, frozenPreviewHeight);
+      assert.deepEqual(drag.coordinateFrame, frozenFrame, `${previewMode}/${previewScale}: pointer transform stays frozen`);
+      assert.equal(drag.compactAuthoringDrag, true);
+      const displayed = itemLaneMap(drag.lastValidResolvedLayout);
+      harness.stopNodeDrag(started);
+      assert.deepEqual(itemLaneMap(harness.api.getLayout()), displayed, `${previewMode}/${previewScale}: release matches preview`);
+
+      const cancelBaseline = structuredClone(harness.template);
+      const cancelled = harness.startNodeDrag(2, Math.round(previewScale * 100000) + 1);
+      harness.moveNodeToClientY(cancelled, cancelled.clientY - 10000);
+      harness.stopNodeDrag(cancelled, "pointercancel");
+      assert.deepEqual(harness.template, cancelBaseline, `${previewMode}/${previewScale}: cancel restores model exactly`);
+      assert.ok(harness.counters.motionRollbacks >= 1);
+      assert.notDeepEqual(harness.template, baseline, `${previewMode}/${previewScale}: release performed a real reorder before cancel check`);
+    }
+  }
+});
+
+test("Device Editor multi-node handlers move a rigid selected profile through compact boundaries", () => {
+  const fixture = {
+    id: "multi-node-compact-fixture",
+    height: 520,
+    connectors: [
+      { id: "left-top", direction: "input", sideMask: "left", x: 0, y: 100 },
+      { id: "right-top", direction: "output", sideMask: "right", x: 420, y: 100 },
+      { id: "s3d-in-1", nameText: "S3D In 1", direction: "input", sideMask: "left", x: 0, y: 316 },
+      { id: "s3d-out-1", direction: "output", sideMask: "right", x: 420, y: 316 }
+    ],
+    cardSlots: [
+      { id: "tricombo-a", installedCardTypeId: "tricombo", sideMask: "both", span: 3, y: 154 },
+      { id: "tricombo-b", installedCardTypeId: "tricombo", sideMask: "both", span: 2, y: 370 }
+    ]
+  };
+
+  for (const previewMode of ["engine", "legacy"]) {
+    const harness = cardDragInteractionHarness(fixture, { previewMode, previewScale: 1.47 });
+    const started = harness.startNodeDrag(2, previewMode === "engine" ? 901 : 902, ["s3d-in-1", "s3d-out-1"]);
+    let drag = harness.moveNodeToClientY(started, started.clientY - 10000);
+    assert.equal(drag.currentBoundaryIndex, 0);
+    assert.equal(drag.compositeDrag, true);
+    assert.deepEqual(
+      JSON.parse(JSON.stringify(drag.selectedDraggedItemIds)),
+      ["connector:s3d-in-1", "connector:s3d-out-1"]
+    );
+    assert.equal(
+      drag.lastValidResolvedLayout.byId.get("connector:s3d-in-1").lane,
+      drag.lastValidResolvedLayout.byId.get("connector:s3d-out-1").lane,
+      `${previewMode}: cross-side selected members keep their shared row`
+    );
+    assertNoAuthoringOverlap(drag.lastValidResolvedLayout);
+    const firstMap = itemLaneMap(drag.lastValidResolvedLayout);
+    drag = harness.moveNodeToClientY(started, started.clientY - 1000000);
+    assert.deepEqual(itemLaneMap(drag.lastValidResolvedLayout), firstMap, `${previewMode}: first boundary saturates`);
+    drag = harness.moveNodeToClientY(started, started.clientY + 10000);
+    assert.equal(drag.currentBoundaryIndex, drag.session.boundaries.length - 1);
+    assertNoAuthoringOverlap(drag.lastValidResolvedLayout);
+    const displayed = itemLaneMap(drag.lastValidResolvedLayout);
+    harness.stopNodeDrag(started);
+    assert.deepEqual(itemLaneMap(harness.api.getLayout()), displayed, `${previewMode}: group release matches preview`);
+  }
+});
+
 test("Device Editor preview card drops insert between and append through compact boundaries", () => {
   const { api, template } = structuralEditorHarness({
     height: 700,
@@ -5422,15 +5634,15 @@ test("Engine Device Editor card motion has one visible owner per installed card"
     cardTypeById: (draft, id) => draft.cardTypes.find(card => card.id === id),
     cardSlotLaneCount: () => 2,
     createSvg: testSvgNode,
-    drawCardCaption: (parent, caption, x, y) => {
-      const label = testSvgNode("text", { "data-editor-card-caption": caption, x, y });
-      label.textContent = caption;
-      parent.appendChild(label);
-    },
+    normalizeColor: value => String(value || ""),
+    estimateTitleTextWidth: (value, fontSize) => String(value || "").length * Number(fontSize || 0) * 0.56,
     isAdapterTemplate: () => false,
     deviceTemplateWidth: draft => Number(draft.width) || 420
   };
   const compositor = vm.runInNewContext(`${[
+    "cardCaptionTextColor",
+    "cardCaptionBackgroundColor",
+    "drawCardCaption",
     "cardBandGeometryAtY",
     "cardBandGeometry",
     "cardSlotDisplayY",
@@ -5453,6 +5665,15 @@ test("Engine Device Editor card motion has one visible owner per installed card"
   assert.deepEqual(artwork.map(node => node.attributes["data-editor-card-slot-artwork"]), ["slot-a", "slot-b"]);
   assert.equal(bands.length, 2, "dynamic compositor should draw one band per installed slot");
   assert.equal(captions.length, 2, "dynamic compositor should draw one caption per installed slot");
+  assert.deepEqual(captions.map(node => node.attributes["data-editor-card-caption"]), ["slot-a", "slot-b"]);
+  captions.forEach(caption => {
+    assert.equal(
+      caption.parentNode?.attributes?.["data-editor-card-slot-artwork"],
+      caption.attributes["data-editor-card-caption"],
+      "caption must be owned by the same transformed artwork group"
+    );
+  });
+  assert.equal(captions.some(node => node.attributes.y === 157 || node.attributes.y === 265), false, "no caption may remain at a source slot Y");
   assert.equal(hits.length, 2, "each card keeps one hit region");
   hits.forEach(hit => {
     assert.equal(hit.attributes.fill, "transparent");
@@ -5797,19 +6018,19 @@ test("Device Editor composite connector drag preserves selected gaps and displac
   });
   cardApi.resolveEditorStablePlacementDragMove(cardDrag, 208);
   assert.deepEqual(itemLaneMap(cardDrag.lastValidResolvedLayout), {
-    "connector:A": 2,
-    "connector:B": 3,
-    "card:slot-1": 4,
-    "connector:C": 7
+    "card:slot-1": 0,
+    "connector:A": 3,
+    "connector:B": 4,
+    "connector:C": 5
   });
   const cardItem = cardApi.editorPlacementItemByStableId(cardDrag.lastValidResolvedLayout, "card:slot-1");
   assert.equal(cardItem.span, 3, "stationary card should move as one interval");
   assert.equal(cardApi.commitEditorStablePlacementDrag(cardTemplate, cardDrag, { includeConnectors: true, includeCards: true }), true);
-  assert.equal(cardTemplate.cardSlots[0].y, 316, "committed card slot should match the previewed solved row");
-  assert.ok(cardTemplate.height >= 100 + 8 * 54 + 48, "height should grow only enough to contain the solved layout");
+  assert.equal(cardTemplate.cardSlots[0].y, 100, "committed card slot should match the previewed compact row");
+  assert.ok(cardTemplate.height >= 100 + 6 * 54 + 48, "height should contain the compact solved layout");
 });
 
-test("Device Editor composite connector drag can grow below the old device bottom and cancel exactly", () => {
+test("Device Editor composite connector far movement saturates at the last compact boundary and cancels exactly", () => {
   const template = {
     width: 420,
     startY: 100,
@@ -5831,11 +6052,11 @@ test("Device Editor composite connector drag can grow below the old device botto
   });
   api.resolveEditorStablePlacementDragMove(drag, 316);
   assert.deepEqual(itemLaneMap(drag.lastValidResolvedLayout), {
-    "connector:A": 4,
-    "connector:B": 5,
-    "connector:C": 2
+    "connector:C": 0,
+    "connector:A": 1,
+    "connector:B": 2
   });
-  assert.equal(drag.lastValidResolvedLayout.endLane, 6, "composite drag may grow below the previous device bottom");
+  assert.equal(drag.lastValidResolvedLayout.endLane, 3, "raw pointer distance must not grow the compact extent");
   assert.deepEqual(template, before, "preview resolution should remain read-only");
 
   context.editorNodeDrag = drag;
