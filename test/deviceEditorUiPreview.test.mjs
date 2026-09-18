@@ -5724,6 +5724,7 @@ test("Engine Device Editor card motion has one visible owner per installed card"
     "editorCardLocalConnector",
     "drawEditorInstalledCardConnectorVisuals",
     "drawCardSlotBands",
+    "drawEditorEngineCardTextureMasks",
     "drawEditorEngineDynamicCardArtwork",
     "drawEditorEngineCardSlotOverlay",
     "drawEditorConnectorSnapGuide"
@@ -5736,9 +5737,22 @@ test("Engine Device Editor card motion has one visible owner per installed card"
   const artwork = rendered.filter(node => node.attributes?.["data-editor-card-slot-artwork"]);
   const bands = rendered.filter(node => node.attributes?.["data-editor-card-band"]);
   const captions = rendered.filter(node => node.attributes?.["data-editor-card-caption"]);
+  const textureMasks = rendered.filter(node => node.attributes?.["data-editor-card-texture-mask"]);
   const hits = rendered.filter(node => node.attributes?.class === "editor-engine-card-slot-hit");
   const selections = rendered.filter(node => node.attributes?.["data-editor-card-slot-selection"]);
 
+  assert.deepEqual(
+    textureMasks.map(node => node.attributes["data-editor-card-texture-mask"]),
+    ["slot-a", "slot-b"],
+    "each baked baseline card band must be covered during dynamic ownership"
+  );
+  assert.deepEqual(
+    textureMasks.map(node => node.attributes.y),
+    [125, 233],
+    "texture masks stay at committed slot rows rather than following animated cards"
+  );
+  assert.equal(root.childNodes[0].attributes?.["data-editor-card-texture-masks"], "true", "stale texture masks draw below live card artwork");
+  assert.equal(root.childNodes[1].attributes?.["data-editor-dynamic-card-artwork"], "true", "live card artwork draws after the masks");
   assert.deepEqual(artwork.map(node => node.attributes["data-editor-card-slot-artwork"]), ["slot-a", "slot-b"]);
   assert.deepEqual(
     artwork.map(node => node.attributes.transform),
