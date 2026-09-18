@@ -9,6 +9,7 @@ import {
   previewDeviceVisualKey
 } from "../src/engine/enginePreview.js";
 import * as placementMotionModule from "../src/engine/deviceEditorPlacementMotion.js";
+import { SceneGraph } from "../src/engine/sceneGraph.js";
 import {
   authoringInsertionBoundaryForLane,
   authoringInsertionBoundaryScreenPositions,
@@ -6302,10 +6303,15 @@ test("Device Editor preview renders from detached normalized drafts", () => {
 test("Engine card-motion handoff suppresses static card pixels without mutating card definitions", () => {
   const source = {
     id: "card-motion-handoff",
+    name: "Card Motion Handoff",
+    width: 420,
+    height: 320,
+    hasSwappableCards: true,
+    connectors: [],
     cardTypes: [{
       id: "hdmi-card",
       name: "HDMI 2.0",
-      connectors: [{ id: "hdmi-1", type: "hdmi", direction: "input" }]
+      connectors: [{ id: "hdmi-1", type: "hdmi", direction: "input", x: 0, y: 54 }]
     }],
     cardSlots: [{ id: "slot-a", installedCardTypeId: "hdmi-card", y: 154 }]
   };
@@ -6319,9 +6325,41 @@ test("Engine card-motion handoff suppresses static card pixels without mutating 
   assert.equal(dynamicDraft.cardTypes[0].connectors[0].hiddenOnCanvas, true);
   assert.equal(source.cardTypes[0].connectors[0].hiddenOnCanvas, undefined, "authoring card definitions remain immutable");
 
+  const previewPayload = template => ({
+    template,
+    projectData: { state: { deviceLibrary: [template], nodeLibrary: [] } },
+    instance: {
+      instanceId: "card-motion-preview",
+      id: "card-motion-preview",
+      templateId: template.id,
+      templateOverride: template,
+      name: template.name,
+      x: 0,
+      y: 0
+    }
+  });
+  const dynamicDevice = createPreviewDeviceFromDraft(previewPayload(dynamicDraft), 0);
+  const dynamicConnector = dynamicDevice.connectors.find(connector => connector.generatedFromCard);
+  assert.equal(dynamicConnector?.id, "slot-a__hdmi-1");
+  assert.equal(dynamicConnector?.hiddenOnCanvas, true, "project adaptation must preserve the editor handoff flag");
+
+  const scene = new SceneGraph();
+  scene.setData({ devices: [dynamicDevice], wires: [], racks: [] });
+  assert.equal(
+    scene.getConnector(dynamicDevice.id, dynamicConnector.id)?.hiddenOnCanvas,
+    true,
+    "SceneGraph normalization and visibility must keep the Engine card layer suppressed"
+  );
+
   const staticDraft = clone(source, { suppressCardAreasInTexture: false });
   assert.equal(staticDraft.suppressCardAreasInTexture, undefined);
   assert.equal(staticDraft.cardTypes[0].connectors[0].hiddenOnCanvas, undefined, "static ownership restores normal connector rendering");
+  const staticDevice = createPreviewDeviceFromDraft(previewPayload(staticDraft), 0);
+  assert.equal(
+    staticDevice.connectors.find(connector => connector.generatedFromCard)?.hiddenOnCanvas,
+    false,
+    "normal preview rendering must continue to expose installed card connectors"
+  );
 });
 
 test("Matrix routing separates compact inspector routes from full modal crosspoints", () => {

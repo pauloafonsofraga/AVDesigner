@@ -792,6 +792,7 @@ function normalizeConnector(connector, index, deviceWidth, nodeColorByType, opti
     pairedConnectorId: String(connector.pairedConnectorId || ""),
     sourceConnectorId: connector.sourceConnectorId || "",
     generatedFromCard: Boolean(connector.generatedFromCard),
+    hiddenOnCanvas: connector.hiddenOnCanvas === true,
     powerPlug,
     powerPlugAsset,
     powerPlugSize,

@@ -494,7 +494,7 @@ export class SceneGraph {
         connector.rackExposedOnCanvas = exposed;
         connector.rackSelectableOnCanvas = selectable;
         connector.referenceOnlyOnCanvas = visible && !selectable;
-        connector.hiddenOnCanvas = !visible;
+        connector.hiddenOnCanvas = connector.authoredHiddenOnCanvas === true || !visible;
       };
       (device.connectors || []).forEach(applyConnectorVisibility);
       (device.visual?.visualCards || []).forEach(card => {
@@ -2286,6 +2286,8 @@ function normalizeConnector(connector, index, deviceWidth = 0, options = {}) {
     pairedConnectorId: connector.pairedConnectorId || "",
     sourceConnectorId: connector.sourceConnectorId || "",
     generatedFromCard: Boolean(connector.generatedFromCard),
+    authoredHiddenOnCanvas: connector.authoredHiddenOnCanvas === true || connector.hiddenOnCanvas === true,
+    hiddenOnCanvas: connector.authoredHiddenOnCanvas === true || connector.hiddenOnCanvas === true,
     effectiveType: connector.effectiveType || connector.type || "",
     displayLabel: connector.displayLabel || connector.label || connector.nameText || connector.type || "",
     labelSource: connector.labelSource || "",
