@@ -7011,7 +7011,12 @@ test("nonstructural Device Editor edits preserve placement and bypass normalizer
   assert.doesNotMatch(hasCardsListener, forbidden);
   assert.doesNotMatch(INDEX_HTML, /deviceEditorPreview\.addEventListener\("dblclick"/);
   assert.match(functionSource("renderSelectedConnectorSettings"), /data-selected-connector-caption/);
+  assert.match(functionSource("renderSelectedConnectorSettings"), /<span>Name<\/span>/);
+  assert.match(functionSource("renderSelectedConnectorSettings"), /<span>Text<\/span>/);
   assert.match(functionSource("canvasConnectorFieldSectionMarkup"), /data-canvas-connector-caption/);
+  assert.match(functionSource("canvasConnectorFieldSectionMarkup"), /<span>Name<\/span>/);
+  assert.match(PRODUCTION_BRIDGE_SOURCE, /<span>Name<\/span>[\s\S]*data-engine-connector-caption/);
+  assert.match(PRODUCTION_BRIDGE_SOURCE, /<span>Text<\/span>[\s\S]*data-engine-connector-field/);
   assert.doesNotMatch(functionSource("generatedCardConnectors"), /ensureModularDefaults/);
   assert.doesNotMatch(INDEX_HTML, /function\s+(?:reorderCardSlot|shiftRowsAfterFaceChange|setEditorPowerDistroFaceHeight|normalizeCardSlots|ensureEthernetPair)\b/);
 

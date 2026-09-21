@@ -10909,11 +10909,11 @@ function connectorFieldInputsMarkup(connector) {
       ${fields.map(field => `
         <div class="engine-bridge-field">
           <label>
-            <span>Field name</span>
+            <span>Name</span>
             <input type="text" data-engine-connector-caption="${escapeHtml(connectorCaptionKey(field.field))}" value="${escapeHtml(field.title)}" autocomplete="off" />
           </label>
           <label>
-            <span>Value</span>
+            <span>Text</span>
             <input type="text" data-engine-connector-field="${escapeHtml(field.field)}" value="${escapeHtml(field.value ?? field.text ?? "")}" autocomplete="off" />
           </label>
         </div>

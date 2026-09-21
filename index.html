@@ -88702,11 +88702,11 @@
             ${fields.map(item => `
               <div class="field">
                 <label>
-                  <span>Field name</span>
+                  <span>Name</span>
                   <input data-card-field="${escapeAttr(connectorCaptionKey(item.field))}" data-card-node-index="${connectorIndex}" value="${escapeAttr(item.title)}">
                 </label>
                 <label>
-                  <span>Value</span>
+                  <span>Text</span>
                   <input data-card-field="${escapeAttr(item.field)}" data-card-node-index="${connectorIndex}" value="${escapeAttr(item.text || "")}">
                 </label>
               </div>
@@ -89426,11 +89426,11 @@
             ${fields.map(item => `
               <div class="field">
                 <label>
-                  <span>Field name</span>
+                  <span>Name</span>
                   <input data-selected-connector-caption="${escapeAttr(connectorCaptionKey(item.field))}" value="${escapeAttr(item.title)}">
                 </label>
                 <label>
-                  <span>Value</span>
+                  <span>Text</span>
                   <input data-selected-connector-field="${escapeAttr(item.field)}" value="${escapeAttr(item.text || "")}">
                 </label>
               </div>
@@ -107574,11 +107574,11 @@
             ${fields.map(item => `
               <div class="field">
                 <label>
-                  <span>Field name</span>
+                  <span>Name</span>
                   <input data-canvas-connector-caption="${escapeAttr(connectorCaptionKey(item.field))}" value="${escapeAttr(item.title)}">
                 </label>
                 <label>
-                  <span>Value</span>
+                  <span>Text</span>
                   <input data-canvas-connector-field="${escapeAttr(item.field)}" value="${escapeAttr(item.text || "")}">
                 </label>
               </div>
