@@ -3602,6 +3602,69 @@ test("Device Editor can detach a faceplate-side connector into a normal drag ses
   assert.match(functionSource("startEditorNodeDrag"), /specialTarget: \{ type: "faceplate-side" \}/);
 });
 
+test("Device Editor commits a faceplate-side connector into the first normal lane", () => {
+  const front = testConnector("front-io", "left", 0, {
+    v2: true,
+    faceplateSide: true
+  });
+  front.y = 42;
+  front.anchors = front.anchors.map(anchor => ({ ...anchor, y: 42 }));
+  const harness = cardDragInteractionHarness({
+    allowFaceplateSide: true,
+    connectors: [
+      front,
+      testConnector("row-a", "left", 0, { v2: true }),
+      testConnector("row-b", "left", 1, { v2: true })
+    ],
+    cardSlots: []
+  }, { previewScale: .2 });
+
+  const started = harness.startNodeDrag(0, 19);
+  const drag = harness.moveNodeToClientY(started, 47 * harness.context.previewScale);
+  assert.equal(drag.currentBoundaryIndex, drag.originalBoundaryIndex, "the first lane is the session's original insertion boundary");
+  assert.equal(drag.moved, true, "leaving the faceplate must count as a committed move even at the same boundary");
+
+  harness.stopNodeDrag(started);
+  const connector = harness.template.connectors.find(item => item.id === "front-io");
+  assert.equal(connector.faceplateSide, false);
+  assert.equal(connector.y, 100);
+  assert.equal(connector.anchors[0].y, 100);
+});
+
+test("Device Editor palette drops resolve a nearby empty slot through preview overlays", () => {
+  const template = {
+    width: 420,
+    connectors: [
+      { id: "input-slot", direction: "input", empty: true, x: 0, y: 154 },
+      { id: "filled-output", direction: "output", empty: false, x: 420, y: 154 },
+      { id: "output-slot", direction: "output", empty: true, x: 420, y: 208 }
+    ]
+  };
+  const context = {
+    Math,
+    Number,
+    SLOT_HEIGHT: 54,
+    editorActiveTab: "connectors",
+    currentEditorTemplate: () => template,
+    editorNodeTargetIndexFromEvent: () => -1,
+    getEditorPreviewPoint: event => event.point,
+    deviceTemplateWidth: device => device.width,
+    editorPreviewPositions: () => new Map(),
+    editorDisplayAnchorsForConnector: (connector, width, y) => [{
+      x: connector.direction === "output" ? width : 0,
+      y
+    }]
+  };
+  const api = vm.runInNewContext(`(${functionSource("editorNodeDropTargetIndexFromEvent")})`, context);
+
+  assert.equal(api({ point: { x: 20, y: 176 } }), 0, "input label/overlay proximity should resolve the empty input slot");
+  assert.equal(api({ point: { x: 400, y: 230 } }), 2, "output label/overlay proximity should resolve the empty output slot");
+  assert.equal(api({ point: { x: 420, y: 154 } }), -1, "geometry fallback must ignore a filled connector");
+  assert.equal(api({ point: { x: 210, y: 154 } }), -1, "unrelated preview space must not become a slot target");
+  assert.match(INDEX_HTML, /const targetIndex = editorNodeDropTargetIndexFromEvent\(event\);[\s\S]*?dropEffect = "copy";/);
+  assert.match(INDEX_HTML, /deviceEditorPreview\.addEventListener\("drop"[\s\S]*?const targetIndex = editorNodeDropTargetIndexFromEvent\(event\);/);
+});
+
 test("Device Editor faceplate mutations roll back fully and reject stale uploads", async () => {
   const rollbackCases = [
     {

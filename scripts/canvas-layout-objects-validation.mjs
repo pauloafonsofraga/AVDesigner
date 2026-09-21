@@ -25,7 +25,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-20-1-power-distro-area-fixes";
+const BUILD_ID = "iteration54-20-2-editor-node-drag-drop-fixes";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -40,9 +40,9 @@ function sourceSlice(source, startNeedle, endNeedle) {
   return source.slice(start, end);
 }
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.20.1");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.20.1";'), "visible iteration should be 54.20.1");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-20-1-power-distro-area-fixes-modules";'), "module cache key should bust 54.20.1 modules");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.20.2");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.20.2";'), "visible iteration should be 54.20.2");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-20-2-editor-node-drag-drop-fixes-modules";'), "module cache key should bust 54.20.2 modules");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-14-1-device-editor-card-drag-parity"'), "unchanged Engine bridge version should retain the prior bridge build");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
