@@ -776,8 +776,13 @@ function structuralEditorHarness(inputTemplate = {}) {
     "syncEditorConnectorAnchorsToPosition",
     "editorStableLayoutItemKind",
     "editorStableDragSourceId",
+    "editorStableDragItemId",
     "editorStableDragLaneMap",
     "editorPlacementItemByStableId",
+    "editorPlacementTemplateForConnectorDrag",
+    "editorProjectedLanePixels",
+    "createEditorCompactPlacementDragSession",
+    "createEditorStablePlacementDragSession",
     "applyEditorStableResolvedLayout",
     "normalizeMixedDeviceRows",
     "editorStructuralLayoutItems",
@@ -898,6 +903,8 @@ function structuralEditorHarness(inputTemplate = {}) {
   const script = `${helpers.map(functionSource).join("\n")}
     ({
       resolveEditorModularLayout,
+      editorPlacementTemplateForConnectorDrag,
+      createEditorStablePlacementDragSession,
       editorStructuralLayoutItems,
       commitEditorStructuralEdit,
       commitEditorFaceplateOriginMutation,
@@ -1215,6 +1222,7 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
     "editorStableDragSourceId",
     "editorStableDragLaneMap",
     "editorPlacementItemByStableId",
+    "editorPlacementTemplateForConnectorDrag",
     "editorProjectedLanePixels",
     "createEditorCompactPlacementDragSession",
     "createEditorCompactCardDragSession",
@@ -3554,6 +3562,44 @@ test("Device Editor faceplate deletion demotes faceplate connectors and restore 
     assert.equal(template.connectors.some(connector => connector.faceplateSide), false);
     assert.equal(template.height, restoredHeight);
   }
+});
+
+test("Device Editor can detach a faceplate-side connector into a normal drag session", () => {
+  const front = testConnector("front-io", "left", 0, {
+    v2: true,
+    faceplateSide: true
+  });
+  front.y = 42;
+  front.anchors = front.anchors.map(anchor => ({ ...anchor, y: 42 }));
+  const { api, template } = structuralEditorHarness({
+    allowFaceplateSide: true,
+    connectors: [
+      front,
+      testConnector("row-a", "left", 0, { v2: true }),
+      testConnector("row-b", "left", 1, { v2: true })
+    ],
+    cardSlots: []
+  });
+  const baseline = structuredClone(template);
+  const sourceConnector = template.connectors.find(connector => connector.id === "front-io");
+  const dragTemplate = api.editorPlacementTemplateForConnectorDrag(template, sourceConnector);
+
+  assert.notEqual(dragTemplate, template);
+  assert.equal(sourceConnector.faceplateSide, true);
+  assert.equal(dragTemplate.connectors.find(connector => connector.id === "front-io").faceplateSide, false);
+  assert.ok(api.resolveEditorModularLayout(dragTemplate).byId.has("connector:front-io"));
+
+  const session = api.createEditorStablePlacementDragSession(dragTemplate, {
+    id: "front-io",
+    pointerId: 9,
+    pointerY: 42,
+    pointerClientY: 42
+  });
+  assert.ok(session, "faceplate-side connector should get a reusable lane insertion session");
+  assert.ok(session.lastValidResolvedLayout.byId.has("connector:front-io"));
+  assert.deepEqual(template, baseline, "preparing the drag must not mutate the saved faceplate placement");
+  assert.match(functionSource("startEditorNodeDrag"), /editorPlacementTemplateForConnectorDrag\(template, connector\)/);
+  assert.match(functionSource("startEditorNodeDrag"), /specialTarget: \{ type: "faceplate-side" \}/);
 });
 
 test("Device Editor faceplate mutations roll back fully and reject stale uploads", async () => {

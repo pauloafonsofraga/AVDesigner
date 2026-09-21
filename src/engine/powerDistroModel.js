@@ -7,9 +7,10 @@ const POWER_PLUG_EDGE_GAP_Y = 10;
 export const POWER_PLUG_ASSET_BASE = "Nodes/PowerPlugs/";
 
 export const POWER_PLUG_TYPES = {
-  "nema": { output: "NEMA.svg", order: 10, size: 24 },
-  "uk-13a": { output: "13A-UK.svg", order: 20, size: 55 },
-  "schuko": { output: "Schuko.svg", order: 30, size: 45 },
+  "iec": { input: "../Thumbnails/C13.png", output: "../Thumbnails/C13.png", order: 5, size: 45 },
+  "nema": { input: "NEMA.svg", output: "NEMA.svg", order: 10, size: 24 },
+  "uk-13a": { input: "13A-UK.svg", output: "13A-UK.svg", order: 20, size: 55 },
+  "schuko": { input: "Schuko.svg", output: "Schuko.svg", order: 30, size: 45 },
   "powercon": { input: "powerCON_Blue.svg", output: "powerCON_White.svg", order: 40, size: 31 },
   "powercon-true1": { input: "powerCON_True1_Male.svg", output: "powerCON_True1_Female.svg", order: 50, size: 31 },
   "16a-1ph-110v": { input: "16-1ph110v-Male.svg", output: "16-1ph110v.svg", order: 60, size: 66 },

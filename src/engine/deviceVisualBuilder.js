@@ -825,6 +825,10 @@ function drawImageObjectVisual(ctx, device, width, height) {
   });
 }
 
+export function areaTitleFontSize(value) {
+  return Math.max(14, Math.min(150, Number(value) || 33));
+}
+
 function drawAreaVisual(ctx, device, width, height) {
   const visual = device.visual || {};
   ctx.save();
@@ -836,7 +840,7 @@ function drawAreaVisual(ctx, device, width, height) {
   ctx.strokeStyle = "rgba(50, 182, 255, .36)";
   ctx.lineWidth = Math.max(1, Math.min(width, height) * 0.006);
   ctx.stroke();
-  drawFittedText(ctx, textureTitle(device), 18, Math.max(34, height * 0.12), width - 36, Math.max(14, Math.min(48, Number(visual.textSize) || 33)), {
+  drawFittedText(ctx, textureTitle(device), 18, Math.max(34, height * 0.12), width - 36, areaTitleFontSize(visual.textSize), {
     weight: 900,
     fill: "#32b6ff",
     stroke: "rgba(0,0,0,.72)",

@@ -18,13 +18,14 @@ import {
   canvasObjectSelectionRect,
   objectGlowRect
 } from "../src/engine/renderer.js";
+import { areaTitleFontSize } from "../src/engine/deviceVisualBuilder.js";
 import {
   TITLE_BLOCK_BASE_HEIGHT,
   TITLE_BLOCK_BASE_WIDTH,
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-20-0-connector-inspector-relationships";
+const BUILD_ID = "iteration54-20-1-power-distro-area-fixes";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -39,9 +40,9 @@ function sourceSlice(source, startNeedle, endNeedle) {
   return source.slice(start, end);
 }
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.20.0");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.20.0";'), "visible iteration should be 54.20.0");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-20-0-connector-inspector-relationships-modules";'), "module cache key should bust 54.20.0 modules");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.20.1");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.20.1";'), "visible iteration should be 54.20.1");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-20-1-power-distro-area-fixes-modules";'), "module cache key should bust 54.20.1 modules");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-14-1-device-editor-card-drag-parity"'), "unchanged Engine bridge version should retain the prior bridge build");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
@@ -103,6 +104,8 @@ assert.equal(areaDevice.height, 60, "area preserves 60px minimum creation height
 assert.equal(areaDevice.visual.backgroundColor, "#223544", "area default background is preserved");
 assert.equal(areaDevice.visual.opacity, 0.42, "area explicit opacity survives normalization");
 assert.equal(areaDevice.visual.textSize, 28, "area text size survives normalization");
+assert.equal(areaTitleFontSize(150), 150, "Engine area labels should honor the inspector's 150px maximum");
+assert.equal(areaTitleFontSize(33), 33, "Engine area labels should preserve the default text size");
 
 [
   [undefined, 0.32],

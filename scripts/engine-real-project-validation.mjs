@@ -13,7 +13,11 @@ import { calculateCableHops, applyCableHopsToPolyline } from "../src/engine/cabl
 import { wirePathStatsForWires } from "../src/engine/wirePath.js";
 import { engineCompatibilitySummary } from "../src/engine/connectorCompatibility.js";
 import { adapterMappingForDevice } from "../src/engine/adapterMapping.js";
-import { powerPlugAssetsForDevice } from "../src/engine/powerDistroModel.js";
+import {
+  powerPlugAssetsForDevice,
+  powerPlugCanExistOnSide,
+  powerPlugImageForConnector
+} from "../src/engine/powerDistroModel.js";
 import {
   matrixEndpointsForEngineDevice,
   matrixRoutesEqual as routesEqual,
@@ -1167,6 +1171,14 @@ function validatePowerDistroFixture() {
     assert.ok(plugAssets.includes("Nodes/PowerPlugs/Schuko.svg"), "missing Schuko asset");
     assert.ok(plugAssets.includes("Nodes/PowerPlugs/Powelock source.svg"), "missing Powerlock output asset");
     assert.equal(model.plugEntries.length, 4);
+  });
+  check("power distro palette plugs have usable input and output artwork", () => {
+    ["iec", "nema", "uk-13a", "schuko"].forEach(type => {
+      assert.equal(powerPlugCanExistOnSide(type, "input"), true, `${type} should be droppable as an input`);
+      assert.equal(powerPlugCanExistOnSide(type, "output"), true, `${type} should be droppable as an output`);
+      assert.ok(powerPlugImageForConnector({ type, direction: "input" }), `${type} input artwork should resolve`);
+      assert.ok(powerPlugImageForConnector({ type, direction: "output" }), `${type} output artwork should resolve`);
+    });
   });
   check("power distro fixture has finite aligned generated geometry", () => {
     assert.ok(Number.isFinite(model.faceRect.x));

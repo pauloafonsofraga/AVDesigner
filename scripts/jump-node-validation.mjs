@@ -41,7 +41,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-20-0-connector-inspector-relationships";
+const BUILD_ID = "iteration54-20-1-power-distro-area-fixes";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -50,9 +50,9 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Connector Inspector Relationships");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-20-0-connector-inspector-relationships-modules";'), "module cache key should identify Connector Inspector Relationships");
-assert.ok(indexHtml.includes("Connector Inspector Relationships"), "visible build label should name Connector Inspector Relationships");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Power Distro and Area Fixes");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-20-1-power-distro-area-fixes-modules";'), "module cache key should identify Power Distro and Area Fixes");
+assert.ok(indexHtml.includes("Power Distro and Area Fixes"), "visible build label should name Power Distro and Area Fixes");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-14-1-device-editor-card-drag-parity"'), "Engine bridge version should identify Device Editor Card Drag Parity");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "device-editor-card-drag-parity"'), "Engine bridge feature label should identify Device Editor Card Drag Parity");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-14-1-device-editor-card-drag-parity"), "bridge fingerprint should identify Device Editor Card Drag Parity");
