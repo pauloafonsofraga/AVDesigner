@@ -57,6 +57,11 @@ function assertComb(geometry, layout, body, offset = { x: 0, y: 0 }) {
   const direction = layout.side === "input" ? 1 : -1, margin = Math.min(4, body.width / 8);
   const requestedJunction = layout.fieldJunctionX ?? layout.points.reduce((sum, p) => sum + p.x, 0) / layout.points.length + direction * 26;
   assert.equal(stem.x2, Math.max(body.x + margin, Math.min(body.x + body.width - margin, requestedJunction)) + offset.x);
+  const fieldLimit = stem.x2 - offset.x - direction * 2;
+  const starts = layout.points.map(p => p.x + direction * 10);
+  const minX = direction === 1 ? Math.max(body.x + margin, ...starts.map(x => x + 2)) : Math.max(body.x + margin, fieldLimit);
+  const maxX = direction === 1 ? Math.min(body.x + body.width - margin, fieldLimit) : Math.min(body.x + body.width - margin, ...starts.map(x => x - 2));
+  assert.equal(trunk.x1, (minX + maxX) / 2 + offset.x, "trunk bisects the safe node-to-field corridor");
   assert.ok(direction * (stem.x2 - stem.x1) > 0);
   assert.ok(stem.x2 > body.x + offset.x && stem.x2 < body.x + body.width + offset.x);
   branches.forEach((branch, i) => {
@@ -78,7 +83,11 @@ for (const count of [2, 3, 4]) for (const side of ["left", "right"]) {
     const layout = createConnectorDisplayLayout(canvas).groups[0], body = { x: 0, width: template.width };
     const geometry = api.sharedBusOrthogonalSegments(layout, body);
     assertComb(geometry, layout, body);
-    assert.equal(geometry.trunk.x1, side === "left" ? 24 : template.width - 24);
+    assert.equal(geometry.trunk.x1, side === "left" ? 18 : template.width - 18);
+    geometry.branches.forEach(branch => {
+      assert.equal(Math.abs(branch.x2 - branch.x1), 8);
+      assert.equal(Math.abs(branch.x2 - branch.x1), Math.abs(geometry.stem.x2 - geometry.stem.x1));
+    });
     assert.deepEqual(geometry, api.sharedBusOrthogonalSegments(createConnectorDisplayLayout(preview).groups[0], body));
     assert.deepEqual(plain(offline.sharedBusOrthogonalSegments(layout, body)), geometry);
     assert.deepEqual(drawSvg("drawEditorSharedRelationshipLines", { ...layout, body }), [geometry.trunk, geometry.stem, ...geometry.branches]);
@@ -90,6 +99,8 @@ for (const count of [2, 3, 4]) for (const side of ["left", "right"]) {
     // Individual fields start 18 units inward; their corridor ends two units before that border.
     const local = { ...layout, fieldJunctionX: side === "left" ? 18 : template.width - 18 };
     const localGeometry = api.sharedBusOrthogonalSegments(local, body);
+    assertComb(localGeometry, local, body);
+    localGeometry.branches.forEach(branch => assert.equal(Math.abs(branch.x2 - branch.x1), Math.abs(localGeometry.stem.x2 - localGeometry.stem.x1)));
     assert.deepEqual(drawSvg("drawResolvedSharedBusRelationships", template.connectors, template.connectorRelationships, body), [localGeometry.trunk, localGeometry.stem, ...localGeometry.branches]);
     assert.deepEqual(drawSvg("drawEditorSimpleSharedRelationshipLines", layout.points, body), [localGeometry.trunk, localGeometry.stem, ...localGeometry.branches]);
     assert.deepEqual(template, before, "rendering never mutates the device or connector order/spacing");
@@ -108,7 +119,7 @@ for (const width of [64, 180, 920]) for (const side of ["input", "output"]) {
     const fallback = drawSvg("drawEditorSimpleSharedRelationshipLines", layout.points, body);
     assertComb({ trunk: fallback[0], stem: fallback[1], branches: fallback.slice(2) },
       { ...layout, fieldJunctionX: edge + (side === "input" ? 18 : -18) }, body);
-    assert.equal(fallback[0].x1, edge + (side === "input" ? 16 : -16));
+    assert.equal(fallback[0].x1, edge + (side === "input" ? 14 : -14));
   });
 }
 
@@ -125,6 +136,8 @@ test("out-of-range junctions clamp to actual body; impossible and invalid geomet
     assert.equal(api.sharedBusOrthogonalSegments({ ...layout, ...invalid }, { width: 380 }), null);
   }
   assert.equal(api.sharedBusOrthogonalSegments(layout, { x: Number.MAX_VALUE, width: Number.MAX_VALUE }), null);
+  assert.equal(api.sharedBusOrthogonalSegments({ ...layout, fieldJunctionX: 1.1e308, points: [{ x: 1e308, y: 10 }, { x: 1e308, y: 30 }] }, { x: 1e308, width: 1e307 }), null,
+    "overflowing midpoint fails safely");
 });
 
 test("motion/reversal/cancellation changes only segment translation, never leaves a diagonal", () => {
@@ -151,9 +164,9 @@ test("standalone SVG drawing uses embedded helper and installed slot IDs/actual 
   context.drawSharedBusRelationships({ appendChild: e => elements.push(e) }, {}, template);
   assert.equal(elements.length, 9);
   const installed = elements.filter(e => e.attributes["data-shared-bus-id"] === "slot__card-bus");
-  assert.equal(installed.length, 4); assert.equal(installed[0].attributes.x1, 16);
+  assert.equal(installed.length, 4); assert.equal(installed[0].attributes.x1, (14 + 16) / 2);
   assert.deepEqual(installed.map(e => e.attributes["data-shared-bus-segment"]), ["trunk", "stem", "branch", "branch"]);
-  assert.equal(installed[1].attributes.x1, 16); assert.equal(installed[1].attributes.x2, 18);
+  assert.equal(installed[1].attributes.x1, 15); assert.equal(installed[1].attributes.x2, 18);
   assert.equal(installed[1].attributes.y1, 727); assert.equal(installed[1].attributes.y2, 727);
   assert.ok(installed[0].attributes.x1 > cardBody.x && installed[0].attributes.x1 < cardBody.x + cardBody.width);
   elements.forEach(({ attributes: a }) => { assert.ok(a.x1 === a.x2 || a.y1 === a.y2); assert.equal(a["pointer-events"], "none"); });

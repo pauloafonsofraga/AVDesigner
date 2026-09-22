@@ -21,9 +21,14 @@ function assertSegments(result, count, side) {
   assert.ok(stem.x2 > body.x && stem.x2 < body.x + body.width);
   assert.ok(side === "left" ? stem.x2 > stem.x1 : stem.x2 < stem.x1);
   if (result.fieldJunctionX !== undefined) assert.equal(stem.x2, result.fieldJunctionX);
+  const margin = Math.min(4, body.width / 8);
+  const minX = side === "left" ? Math.max(body.x + margin, ...branches.map(s => s.x1 + 2)) : Math.max(body.x + margin, stem.x2 + 2);
+  const maxX = side === "left" ? Math.min(body.x + body.width - margin, stem.x2 - 2) : Math.min(body.x + body.width - margin, ...branches.map(s => s.x1 - 2));
+  assert.equal(trunk.x1, (minX + maxX) / 2);
   branches.forEach((s, i) => {
     assert.equal(s.y1, s.y2); assert.equal(s.y1, points[i].y);
     assert.equal(s.x2, trunk.x1);
+    if (body.x === 0 && points.every(p => p.x === points[0].x)) assert.equal(Math.abs(s.x2 - s.x1), Math.abs(stem.x2 - stem.x1));
     assert.ok(side === "left" ? trunk.x1 > points[i].x : trunk.x1 < points[i].x);
   });
 }
@@ -194,7 +199,7 @@ try {
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       const restored = await installed(); assertSegments(restored, count, side); assert.equal(restored.json, original.json);
       assert.deepEqual(errors, []);
-      console.log(`${mode}/${side}/${count}: continuous stem, Fit/normal/fractional zoom, reverse/cancel/commit, duplicate, canvas, offline, card and installed card motion PASS`);
+      console.log(`${mode}/${side}/${count}: centered trunk and continuous stem, Fit/normal/fractional zoom, reverse/cancel/commit, duplicate, canvas, offline, card and installed card motion PASS`);
       await page.locator('[data-editor-tab="device"]').click();
     }
     await page.close();

@@ -25,7 +25,8 @@ export function createSharedBusRenderingAPI() {
     const minX = input ? Math.max(left + margin, ...starts.map(x => x + 2)) : Math.max(left + margin, fieldLimit);
     const maxX = input ? Math.min(right - margin, fieldLimit) : Math.min(right - margin, ...starts.map(x => x - 2));
     if (minX > maxX) return null;
-    const trunkX = Math.max(minX, Math.min(maxX, fieldLimit)) + offsetX;
+    const trunkX = (minX + maxX) / 2 + offsetX;
+    if (!Number.isFinite(trunkX)) return null;
     const ys = points.map(point => point.y + offsetY);
     return {
       trunk: { x1: trunkX, y1: Math.min(...ys), x2: trunkX, y2: Math.max(...ys) },
