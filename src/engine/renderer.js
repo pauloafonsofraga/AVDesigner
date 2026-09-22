@@ -61,7 +61,7 @@ import {
 } from "./jumpNodeModel.js";
 import { wirePlaybackEase } from "./wirePlayback.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-26-1-continuous-shared-bus-junction";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-27-0-segmented-wire-preview-parity";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -1973,13 +1973,14 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
 
   if (interaction.tempWire?.from && interaction.tempWire?.to) {
     const tempRoutePoints = Array.isArray(interaction.tempWire.routePoints) ? interaction.tempWire.routePoints : [];
-    pushPolyline(
+    pushWireColorSegments(
       vertices,
       wirePolylineFromPoints(
         { routeStyle: interaction.tempWire.routeStyle || "bezier", routePoints: tempRoutePoints },
         [interaction.tempWire.from, ...tempRoutePoints, interaction.tempWire.to]
       ),
       3.4,
+      interaction.tempWire,
       interaction.tempWire.color || "#32b6ff"
     );
     pushConnectorHighlight(vertices, interaction.tempWire.from, connectorVisualRadius(interaction.tempWire.sourceHit?.device, overlayOptions.camera) + 5, "#32b6ff", "source");

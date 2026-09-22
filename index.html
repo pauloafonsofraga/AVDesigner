@@ -2115,9 +2115,12 @@
     }
 
     .wire-preview {
+      pointer-events: none;
+    }
+
+    .wire-preview:not(.wire-segmented) {
       stroke-dasharray: 10 8;
       animation: wire-preview-flow .55s linear infinite;
-      pointer-events: none;
     }
 
     @keyframes wire-preview-flow {
@@ -5011,7 +5014,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.26.2 — Centered Shared Bus Trunk — iteration54-26-2-centered-shared-bus-trunk</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.27.0 — Segmented Wire Preview Parity — iteration54-27-0-segmented-wire-preview-parity</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5201,7 +5204,7 @@
           <g id="snapGuides"></g>
           <g id="previewMultiWires"></g>
           <g id="infoBoxHoverLayer"></g>
-          <path id="previewWire" class="wire wire-preview hidden" stroke="#25a56a"></path>
+          <g id="previewWire" class="hidden"></g>
           <path id="previewCommentLine" class="comment-leader hidden"></path>
           <rect id="previewAreaRect" class="area-rect hidden"></rect>
           <rect id="previewTitleBlockRect" class="title-block-placement hidden"></rect>
@@ -5705,13 +5708,13 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.26.2";
-    const APP_BUILD_ID = "iteration54-26-2-centered-shared-bus-trunk";
-    const APP_MODULE_CACHE_ID = "iteration54-26-2-centered-shared-bus-trunk-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Centered Shared Bus Trunk`;
+    const APP_ITERATION = "54.27.0";
+    const APP_BUILD_ID = "iteration54-27-0-segmented-wire-preview-parity";
+    const APP_MODULE_CACHE_ID = "iteration54-27-0-segmented-wire-preview-parity-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Segmented Wire Preview Parity`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
-    const APP_SOURCE_BASE_COMMIT = "6c21b47d4e63cc1a51c1ec865b76f34141508e0d";
+    const APP_SOURCE_BASE_COMMIT = "eb4f22bcb1cda0e31339b71a72c2ed913d0d3c28";
     const CANVAS_MIN_ZOOM = 0.03;
     const CANVAS_MAX_ZOOM = 8;
     const ENGINE_COMMENT_ARROW_LENGTH = 16;
@@ -81227,8 +81230,8 @@
       window.avDesignerEngineBridge?.refreshFromProduction?.("snapshot restored");
     }
 
-    function pushUndo() {
-      undoStack.push(projectSnapshot());
+    function pushUndo(snapshot = projectSnapshot()) {
+      undoStack.push(snapshot);
       if (undoStack.length > 80) undoStack.shift();
       redoStack = [];
       updateUndoRedoButtons();
@@ -85517,8 +85520,8 @@
 
     function connectionError(source, target) {
       if (!source || !target) return "Missing connector.";
-      if (connectorNotWorking(source) || connectorNotWorking(target)) {
-        const connector = connectorNotWorking(source) ? source : target;
+      if (editorConnectorIsNotWorking(source) || editorConnectorIsNotWorking(target)) {
+        const connector = editorConnectorIsNotWorking(source) ? source : target;
         return `${connector.label || connectorTypeLabel(connector) || "Connector"} is marked not working.`;
       }
       if (isDeadCageConnector(source) || isDeadCageConnector(target)) return "Install a transceiver/module before connecting this cage.";
@@ -88226,7 +88229,7 @@
         setStatus("Install a transceiver/module before connecting this cage.");
         return;
       }
-      if (connectorNotWorking(connector) && !rackConnectionForEndpoint(rack, deviceId, connectorId)) {
+      if (editorConnectorIsNotWorking(connector) && !rackConnectionForEndpoint(rack, deviceId, connectorId)) {
         event.preventDefault();
         event.stopPropagation();
         setStatus("Connector is marked not working.");
@@ -100699,14 +100702,14 @@
         .join(" - ");
     }
 
-    function appendWireVisuals(parent, d, connection, direction) {
-      const colors = colorSegmentsForConnection(connection);
-      if (!colors) {
+    function appendWireVisuals(parent, d, connection, direction, appearance = {}) {
+      const colors = appearance.colorSegments || colorSegmentsForConnection(connection);
+      if (!colors?.length) {
         const line = createSvg("path", {
           class: "wire",
           d,
           fill: "none",
-          stroke: colorForConnection(connection)
+          stroke: appearance.color || colorForConnection(connection)
         });
         line.setAttribute("marker-end", "url(#arrowEnd)");
         if (direction === "two-way") line.setAttribute("marker-start", "url(#arrowStart)");
@@ -103364,17 +103367,17 @@
       if (!node) return;
       const point = pending.startWorld;
       const baseline = projectSnapshot(), selected = structuredClone(state.selected), undoLength = undoStack.length, redo = [...redoStack];
-      pushUndo();
       const jumpPressBaseline = { baseline, selected, undoLength, redo };
       const local = connectionForJumpNode(node.id);
       if (pending.shiftRewireCandidate && event.shiftKey && local?.other?.deviceId) {
         state.connections = state.connections.filter(c => c.id !== local.connection.id);
         connectState = { ...local.other, start: pointForEndpoint(local.other), jumpPressBaseline, pointerId: pending.pointerId,
-          rewire: { originalConnection: structuredClone(local.connection), detached: { jumpNodeId: node.id }, detachedSide: local.side, fixedEndpoint: structuredClone(local.other) } };
-        previewWire.setAttribute("stroke", colorForConnection(local.connection));
-        previewWire.classList.remove("hidden");
+          rewire: { originalConnection: structuredClone(local.connection), undoSnapshot: baseline, detached: { jumpNodeId: node.id }, detachedSide: local.side, fixedEndpoint: structuredClone(local.other) } };
+        beginPreviewWire(connectorById(local.other.deviceId, local.other.connectorId), local.other.deviceId, local.connection);
+        renderPreviewWires(point);
         return;
       }
+      pushUndo();
       if (pending.multiSelectionMove) {
         dragState = { multi: true, pointerId: pending.pointerId, startPoint: point, lastPoint: point,
           items: structuredClone(selectionItems()), collisionIndex: collisionIndexForSelections(selectionItems(), "objects"), moved: false, jumpPressBaseline };
@@ -103972,7 +103975,7 @@
         select({ type: "connector", deviceId, connectorId });
         return;
       }
-      if (connectorNotWorking(connector) && !connectionForEndpoint(deviceId, connectorId)) {
+      if (editorConnectorIsNotWorking(connector) && !connectionForEndpoint(deviceId, connectorId)) {
         setStatus("Connector is marked not working.");
         select({ type: "connector", deviceId, connectorId });
         return;
@@ -103989,12 +103992,10 @@
           deviceId,
           connectorId,
           start: pointForConnector(deviceId, connectorId),
+          pointerId: event.pointerId,
           multiLed: selected
         };
-        previewWire.setAttribute("stroke", colorForConnector(connector, deviceId));
-        previewWire.removeAttribute("marker-start");
-        previewWire.classList.add("hidden");
-        previewWire.setAttribute("marker-end", "url(#arrowEnd)");
+        clearPreviewWire();
         renderPreviewWires(getCanvasPoint(event));
         state.selected = null;
         renderInspector();
@@ -104010,7 +104011,7 @@
         }
         const fixedConnector = connectorById(existing.other.deviceId, existing.other.connectorId);
         if (!fixedConnector) return;
-        pushUndo();
+        const undoSnapshot = projectSnapshot();
         const removedConnectionId = existing.connection.id;
         const affectedDeviceIds = deviceIdsForConnection(existing.connection);
         state.connections = state.connections.filter(connection => connection.id !== existing.connection.id);
@@ -104020,6 +104021,7 @@
           start: pointForConnector(existing.other.deviceId, existing.other.connectorId),
           rewire: {
             originalConnection: structuredClone(existing.connection),
+            undoSnapshot,
             detached: { deviceId, connectorId },
             detachedSide: existing.side,
             fixedEndpoint: structuredClone(existing.other)
@@ -104032,24 +104034,14 @@
         renderInspector();
         renderCableLegend();
         setStatus(statusSummary());
-        previewWire.setAttribute("stroke", colorForConnector(fixedConnector, existing.other.deviceId));
-        if (cableDirection(effectiveConnectorType(fixedConnector)) === "two-way") {
-          previewWire.setAttribute("marker-start", "url(#arrowStart)");
-        } else {
-          previewWire.removeAttribute("marker-start");
-        }
+        beginPreviewWire(fixedConnector, existing.other.deviceId, existing.connection);
       } else {
         const start = pointForConnector(deviceId, connectorId);
         connectState = { deviceId, connectorId, start };
-        previewWire.setAttribute("stroke", colorForConnector(connector, deviceId));
-        if (cableDirection(effectiveConnectorType(connector)) === "two-way") {
-          previewWire.setAttribute("marker-start", "url(#arrowStart)");
-        } else {
-          previewWire.removeAttribute("marker-start");
-        }
+        beginPreviewWire(connector, deviceId);
       }
-      previewWire.classList.remove("hidden");
-      previewWire.setAttribute("marker-end", "url(#arrowEnd)");
+      connectState.pointerId = event.pointerId;
+      renderPreviewWires(getCanvasPoint(event));
       if (connectState.rewire) select(null);
       else select({ type: "connector", deviceId, connectorId });
       canvas.setPointerCapture(event.pointerId);
@@ -104130,7 +104122,7 @@
             to,
             notes: ""
           };
-      if (!rewire) pushUndo();
+      pushUndo(rewire?.undoSnapshot);
       if (replacementIds.size) state.connections = state.connections.filter(item => item.id === connection.id || !replacementIds.has(item.id));
       state.connections.push(connection);
       if (!rewire) freezeOrthogonalRouteFromPreview(connection);
@@ -104242,7 +104234,7 @@
               to,
               notes: ""
             };
-        if (!connectState.rewire) pushUndo();
+        pushUndo(connectState.rewire?.undoSnapshot);
         if (replacementIds.size) {
           state.connections = state.connections.filter(item => item.id === connection.id || !replacementIds.has(item.id));
         }
@@ -104311,11 +104303,43 @@
         to: { surfaceId },
         notes: ""
       };
-      if (!connectState.rewire) pushUndo();
+      pushUndo(connectState.rewire?.undoSnapshot);
       state.connections.push(connection);
       freezeOrthogonalRouteFromPreview(connection);
       select({ type: "wire", id: connection.id });
       return connection.id;
+    }
+
+    function clearPreviewWire() {
+      previewWire.replaceChildren();
+      previewWire.classList.add("hidden");
+    }
+
+    function beginPreviewWire(connector, deviceId, originalConnection = null) {
+      clearPreviewWire();
+      const cableType = originalConnection?.cableType || effectiveConnectorType(connector);
+      const connection = originalConnection || { cableType };
+      const colorSegments = originalConnection?.colorSegments?.length > 1
+        ? [...originalConnection.colorSegments]
+        : originalConnection ? colorSegmentsForConnection(connection) : colorSegmentsForConnector(connector);
+      const color = originalConnection ? colorForConnection(connection) : colorForConnector(connector, deviceId);
+      for (const path of appendWireVisuals(previewWire, "", connection, cableDirection(cableType), { color, colorSegments })) {
+        path.classList.add("wire-preview");
+      }
+      previewWire.classList.remove("hidden");
+    }
+
+    function updatePreviewWirePath(d) {
+      for (const path of previewWire.children) path.setAttribute("d", d);
+      previewWire.classList.remove("hidden");
+    }
+
+    function cancelLegacyWirePreview(pointerId = null) {
+      if (!connectState || (pointerId != null && connectState.pointerId !== pointerId)) return false;
+      restoreRewireConnection();
+      endConnection();
+      render();
+      return true;
     }
 
     function renderPreviewWires(point) {
@@ -104341,8 +104365,7 @@
       const fixedPoint = connectState.jumpNodeId
         ? visiblePointForJumpNode(connectState.jumpNodeId, point)
         : visiblePointForConnector(connectState.deviceId, connectState.connectorId, point);
-      previewWire.classList.remove("hidden");
-      previewWire.setAttribute("d", draggingOriginalSource
+      updatePreviewWirePath(draggingOriginalSource
         ? previewWirePath(point, fixedPoint)
         : previewWirePath(fixedPoint, point));
     }
@@ -104384,10 +104407,7 @@
       clearHoverConnector();
       connectState = null;
       previewMultiWires.innerHTML = "";
-      previewWire.classList.add("hidden");
-      previewWire.removeAttribute("d");
-      previewWire.removeAttribute("marker-start");
-      previewWire.removeAttribute("marker-end");
+      clearPreviewWire();
     }
 
     function handleActiveCanvasToolPointerDown(event) {
@@ -104959,15 +104979,19 @@
 
     canvas.addEventListener("pointercancel", event => {
       cancelLegacyJumpGesture("pointercancel", event.pointerId);
+      cancelLegacyWirePreview(event.pointerId);
       endCanvasPan(event, { force: true });
     });
 
     canvas.addEventListener("lostpointercapture", event => endCanvasPan(event, { force: true }));
     canvas.addEventListener("lostpointercapture", event => cancelLegacyJumpGesture("lost capture", event.pointerId));
+    canvas.addEventListener("lostpointercapture", event => cancelLegacyWirePreview(event.pointerId));
     canvas.addEventListener("contextmenu", () => cancelLegacyJumpGesture("context menu"), true);
+    canvas.addEventListener("contextmenu", () => cancelLegacyWirePreview(), true);
     window.addEventListener("blur", () => cancelLegacyJumpGesture("window blur"));
+    window.addEventListener("blur", () => cancelLegacyWirePreview());
     window.addEventListener("keydown", event => {
-      if (event.key === "Escape" && cancelLegacyJumpGesture("escape")) {
+      if (event.key === "Escape" && (cancelLegacyJumpGesture("escape") || cancelLegacyWirePreview())) {
         event.preventDefault(); event.stopImmediatePropagation();
       }
     }, true);

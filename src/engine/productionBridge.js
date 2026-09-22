@@ -125,9 +125,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-25-0-jump-node-hold-to-link-restoration";
-export const ENGINE_BRIDGE_VERSION = "iteration54-25-0-jump-node-hold-to-link-restoration";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-node-hold-to-link-restoration";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-27-0-segmented-wire-preview-parity";
+export const ENGINE_BRIDGE_VERSION = "iteration54-27-0-segmented-wire-preview-parity";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "segmented-wire-preview-parity";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -3581,6 +3581,25 @@ class ProductionEngineBridge {
     this.hud.setMetric("snap guides", `${debug.guideCount || 0}${debug.measurement ? ` / ${debug.measurement}` : ""}`);
   }
 
+  wirePreviewAppearance(connectorHit, originalWire = null) {
+    let connector = connectorHit.connector;
+    if (!originalWire && isJumpConnectorHit(connectorHit)) {
+      const local = this.scene.jumpNodeRole(connectorHit.device.id);
+      const info = jumpNodeConnectionInfo(this.scene, connectorHit.device.id);
+      connector = local?.connector || this.scene.getConnector(info.deviceId, info.connectorId) || connector;
+      originalWire = local?.localWire || this.scene.getWire(info.wireId);
+    }
+    const cableType = originalWire?.cableType || effectiveConnectorTypeForEngine(connector);
+    const colorSegments = originalWire?.colorSegments?.length > 1
+      ? originalWire.colorSegments
+      : engineWireColorSegmentsForCable(cableType) || engineConnectorColorSegments(connector) || [];
+    return {
+      cableType,
+      color: originalWire?.color || connector.color || engineConnectorColor(connector) || "#32b6ff",
+      colorSegments: Object.freeze([...colorSegments])
+    };
+  }
+
   beginWireCreate(connectorHit, worldPoint) {
     this.clearJumpMoveArm("wire-create-start", { updateHud: false });
     this.wireCreate = {
@@ -3588,7 +3607,7 @@ class ProductionEngineBridge {
       pointerWorld: { ...worldPoint },
       target: null,
       compatibility: null,
-      color: connectorHit.connector.color || "#32b6ff"
+      ...this.wirePreviewAppearance(connectorHit)
     };
     this.lastCompatibilityTargetKey = "";
     this.canvas.classList.add("dragging", "wire-creating");
@@ -3615,7 +3634,7 @@ class ProductionEngineBridge {
       pointerWorld: { ...worldPoint },
       target: null,
       compatibility: null,
-      color: wire.color || detachedHit.connector.color || "#32b6ff",
+      ...this.wirePreviewAppearance(detachedHit, wire),
       rewire: {
         wireId: wire.id,
         detachedSide: endpoint.end,
@@ -4443,6 +4462,8 @@ class ProductionEngineBridge {
         from: previewFrom,
         to: previewTo,
         color: this.wireCreate.color,
+        cableType: this.wireCreate.cableType,
+        colorSegments: Object.freeze([...(this.wireCreate.colorSegments || [])]),
         routeStyle: tempRoute.routeStyle,
         routePoints: tempRoute.routePoints,
         sourceHit: rewire?.detachedSide === "from" ? this.wireCreate.target : this.wireCreate.from,

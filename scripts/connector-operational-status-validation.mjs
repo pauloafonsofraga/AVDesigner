@@ -15,7 +15,7 @@ import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { connectorOperationalStatusMarkSegments } from "../src/engine/renderer.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 
-const BUILD_ID = "iteration54-26-2-centered-shared-bus-trunk";
+const BUILD_ID = "iteration54-27-0-segmented-wire-preview-parity";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -24,11 +24,11 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const projectAdapterSource = readFileSync(resolve(repoRoot, "src/engine/projectAdapter.js"), "utf8");
 const mutationSource = readFileSync(resolve(repoRoot, "src/engine/projectMutations.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Centered Shared Bus Trunk");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-26-2-centered-shared-bus-trunk-modules";'), "module cache key should bust 54.26.2 modules");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-25-0-jump-node-hold-to-link-restoration"'), "bridge version should identify Jump Node Hold-To-Link Restoration");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "jump-node-hold-to-link-restoration"'), "bridge feature label should identify Jump Node Hold-To-Link Restoration");
-assert.ok(rendererSource.includes("renderer-iteration54-26-1-continuous-shared-bus-junction"), "renderer fingerprint should identify Continuous Shared Bus Junction");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Segmented Wire Preview Parity");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-27-0-segmented-wire-preview-parity-modules";'), "module cache key should bust 54.27.0 modules");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-27-0-segmented-wire-preview-parity"'), "bridge version should identify Segmented Wire Preview Parity");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "segmented-wire-preview-parity"'), "bridge feature label should identify Segmented Wire Preview Parity");
+assert.ok(rendererSource.includes("renderer-iteration54-27-0-segmented-wire-preview-parity"), "renderer fingerprint should identify Segmented Wire Preview Parity");
 
 assert.equal(normalizeConnectorOperationalStatus(), "working", "missing connector status should default to working");
 assert.equal(normalizeConnectorOperationalStatus("working"), "working", "working status should remain working");
@@ -153,7 +153,7 @@ assert.ok(rendererSource.indexOf("pushInteractionOverlay(liveVertices") < render
 assert.ok(bridgeSource.includes("connectorIsNotWorking(connectorHit.connector.connector)"), "Engine bridge should block starting a cable from a not-working connector");
 assert.ok(bridgeSource.includes('"connector-not-working"'), "Engine bridge should surface a not-working connector interaction state");
 assert.ok(readFileSync(resolve(repoRoot, "src/engine/sceneGraph.js"), "utf8").includes("connectorHitBoundsSize(device, connector)"), "not-working marks should enlarge connector hit bounds");
-assert.ok(indexHtml.includes("connectorNotWorking(source) || connectorNotWorking(target)"), "Legacy connection validation should reject not-working connectors");
+assert.ok(indexHtml.includes("editorConnectorIsNotWorking(source) || editorConnectorIsNotWorking(target)"), "Legacy connection validation should reject not-working connectors using the live status helper");
 assert.ok(indexHtml.includes('id="selectedConnectorNotWorking"'), "Device Editor connector inspector should expose Not working checkbox");
 assert.ok(indexHtml.includes('renderDeviceEditorPreview({ refreshTexture: false })'), "status toggle should repaint without refreshing device textures");
 assert.ok(indexHtml.includes("connectorNotWorking(c)") && indexHtml.includes("drawConnectorNotWorkingMark(node,c.x,c.y,7)") && indexHtml.includes('stroke:"#ff0000"') && indexHtml.includes('"stroke-width":2.35'), "standalone viewer should draw thicker faulty connector X marks in full red");
