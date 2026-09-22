@@ -25,6 +25,7 @@ import {
   setMatrixRouteForDevice
 } from "../src/engine/matrixRouting.js";
 import { MODULAR_LAYOUT_SLOT_HEIGHT } from "../src/engine/modularDeviceLayout.js";
+import { POWER_CATALOG, powerCatalogProject } from "../fixtures/power-distro-catalog.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SLOT_HEIGHT = MODULAR_LAYOUT_SLOT_HEIGHT;
@@ -127,6 +128,7 @@ const longChain = runLongUndoRedoChain(longChainHarness);
 const customDeviceFixture = validateProjectCustomDeviceFixture();
 const adapterBreakoutFixture = validateAdapterBreakoutFixture();
 const powerDistroFixture = validatePowerDistroFixture();
+const powerDistroCatalogFixture = validatePowerDistroCatalogFixture();
 const matrixRoutingFixture = validateMatrixRoutingFixture();
 const modularPlacementFixture = validateModularPlacementProjectFixture();
 
@@ -161,6 +163,7 @@ const summary = {
   customDeviceFixture,
   adapterBreakoutFixture,
   powerDistroFixture,
+  powerDistroCatalogFixture,
   matrixRoutingFixture,
   modularPlacementFixture,
   standaloneViewerSource,
@@ -1093,6 +1096,37 @@ function validateAdapterBreakoutFixture() {
     branches: mapping.branchCount,
     externalMultiConnectionAllowed: mapping.multipleExternalConnections
   };
+}
+
+function validatePowerDistroCatalogFixture() {
+  const project = powerCatalogProject();
+  const harness = createHarness(JSON.stringify(project), "complete power catalog");
+  const device = harness.scene.getDevice("power-catalog-instance");
+  const model = device.visual.powerDistro;
+  for (const [type, [input, output, , width, height]] of Object.entries(POWER_CATALOG)) {
+    for (const [direction, asset] of [["input", input], ["output", output]]) {
+      check(`full Power Distro catalog ${type}/${direction}`, () => {
+        const id = `${type}-${direction}`;
+        const connector = device.connectors.find(c => c.id === id);
+        const entries = model.plugEntries.filter(p => p.connectorId === id);
+        assert.equal(entries.length, 1);
+        assert.equal(connector.type, type);
+        assert.equal(connector.direction, direction);
+        assert.equal(connector.powerPlugAsset, `Nodes/PowerPlugs/${asset}`);
+        assert.deepEqual(connector.powerPlugSize, { width, height });
+        assert.equal(entries[0].href, connector.powerPlugAsset);
+        assert.equal(entries[0].width, width);
+        assert.equal(entries[0].height, height);
+        assert.ok(entries[0].y + height <= model.faceRect.y + model.faceRect.height);
+      });
+    }
+  }
+  const reloaded = createHarness(JSON.stringify(JSON.parse(JSON.stringify(project))), "power catalog reload");
+  check("complete power catalog round trip", () => {
+    assert.deepEqual(reloaded.scene.getDevice(device.id).visual.powerDistro, model);
+    assert.equal(model.plugEntries.length, 42);
+  });
+  return { typeDirectionPairs: 42, aliases: 4, plugEntries: model.plugEntries.length };
 }
 
 function validatePowerDistroFixture() {

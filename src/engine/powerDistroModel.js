@@ -167,7 +167,7 @@ function powerPlugStackHeight(connectors) {
 
 function powerDistroManualPlugHeight(template, faceYOverride = null) {
   if (!template?.isPowerDistro || template.faceImage || template.faceplateDeleted) return FACE_HEIGHT;
-  const faceY = Number.isFinite(Number(faceYOverride)) ? Number(faceYOverride) : powerDistroFaceY(template);
+  const faceY = faceYOverride != null && Number.isFinite(Number(faceYOverride)) ? Number(faceYOverride) : powerDistroFaceY(template);
   const powerlockEntries = [
     ...sortedPowerPlugConnectors(template, "input", true),
     ...sortedPowerPlugConnectors(template, "output", true)
@@ -237,9 +237,8 @@ function sortedPowerPlugConnectors(template, direction, powerlock = false) {
     });
 }
 
-// Iteration 46: this is a runtime copy of Legacy powerPlugLayout(), not a new
-// responsive grid. It should keep matching 8301fbf/index.html unless Legacy
-// intentionally changes the Power Distro editor model.
+// Keep the embedded Legacy and standalone implementations in parity; the catalog
+// tests exercise all three, including manual placements outside the auto stacks.
 function powerPlugLayout(template) {
   if (!template?.isPowerDistro || template.faceImage || template.faceplateDeleted) return [];
   const rect = powerDistroFaceRect(template);
@@ -270,14 +269,17 @@ function powerPlugLayout(template) {
         height: size.height,
         powerlock: false
       });
-      cursor += size.height + POWER_PLUG_EDGE_GAP_Y;
+      if (!manual) cursor += size.height + POWER_PLUG_EDGE_GAP_Y;
     });
   };
   placeStack(normalInputs, "input");
   placeStack(normalOutputs, "output");
 
-  const normalBottom = top + Math.max(powerPlugStackHeight(normalInputs), powerPlugStackHeight(normalOutputs));
-  let powerlockCursor = normalBottom + (normalInputs.length || normalOutputs.length ? 18 : 0);
+  const normalStack = Math.max(
+    powerPlugStackHeight(normalInputs.filter(connector => connector.powerPlug?.manual !== true)),
+    powerPlugStackHeight(normalOutputs.filter(connector => connector.powerPlug?.manual !== true))
+  );
+  let powerlockCursor = top + normalStack + (normalStack ? 18 : 0);
   [
     ...sortedPowerPlugConnectors(template, "input", true),
     ...sortedPowerPlugConnectors(template, "output", true)
@@ -299,7 +301,7 @@ function powerPlugLayout(template) {
       height: size.height,
       powerlock: true
     });
-    powerlockCursor += size.height + POWER_PLUG_EDGE_GAP_Y;
+    if (!manual) powerlockCursor += size.height + POWER_PLUG_EDGE_GAP_Y;
   });
   return entries;
 }

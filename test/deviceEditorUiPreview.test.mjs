@@ -3955,6 +3955,80 @@ test("PD palette type-fill authorizes the faceplate-driven modular-origin rebase
   assert.equal(h.counters.previewRenders, 1);
 });
 
+test("removing a real catalog plug rebases ordinary nodes once and preserves their anchors", () => {
+  const h = structuralEditorHarness({ isPowerDistro: true, connectors: [
+    testConnector("plug", "left", 0, { v2: true, type: "125a-3ph" }),
+    testConnector("ordinary", "right", 1, { v2: true, type: "sdi", customText: "keep" })
+  ] });
+  h.context.connectorStartYForTemplate = device => {
+    const model = normalizePowerDistroForEngine({ template: device, width: device.width, connectors: device.connectors });
+    return model.faceRect.y + model.faceRect.height + 36;
+  };
+  const origin = h.context.connectorStartYForTemplate(h.template);
+  h.template.connectors.forEach((connector, index) => {
+    connector.y = origin + index * 54;
+    connector.anchors.forEach(anchor => { anchor.y = connector.y; });
+  });
+  h.api.removeEditorNode(0);
+  assert.equal(h.template.connectors.length, 1);
+  const remaining = h.template.connectors[0];
+  assert.equal(remaining.id, "ordinary");
+  assert.equal(remaining.customText, "keep");
+  assert.equal(remaining.y, 38 + 78 + 36 + 54);
+  assert.equal(remaining.anchors[0].y, remaining.y);
+  assert.equal(h.counters.structuralSessions, 1);
+});
+
+test("Power Distro motion completion refreshes the committed plug artwork once", () => {
+  for (const isPowerDistro of [true, false]) {
+    const renders = [];
+    const context = {
+      editorPlacementMotionScheduler: { cancel() {} }, editorPlacementMotionSampleCache: null,
+      editorPlacementMotionClearWhenSettled: true, editorEngineDynamicCardArtworkActive: false,
+      editorPlacementMotionState: { entries: new Map([["connector:powerlock", {}]]) },
+      editorPlacementMotionPreviewLock: null,
+      currentEditorTemplate: () => ({ isPowerDistro }),
+      deviceEditorPlacementMotionModule: { clearPlacementMotion() {} },
+      setEditorEngineDynamicCardArtworkActive() {},
+      deviceEditorModal: { classList: { contains: () => false } },
+      renderDeviceEditorPreview: options => renders.push(options)
+    };
+    const clear = runnableIndexFunction("clearEditorPlacementMotion", context);
+    clear({ renderFinal: true });
+    clear({ renderFinal: true });
+    assert.equal(renders.length, isPowerDistro ? 1 : 0);
+    if (isPowerDistro) assert.equal(renders[0].refreshTexture, true);
+  }
+});
+
+test("catalog type changes grow and shrink the faceplate without losing ordinary lanes or selection", () => {
+  const h = structuralEditorHarness({ isPowerDistro: true, connectors: [
+    testConnector("plug", "left", 0, { v2: true, type: "iec", powerPlug: { manual: false, x: 0, y: 0 } }),
+    testConnector("ordinary", "right", 1, { v2: true, type: "sdi", customText: "per-device override" })
+  ] });
+  h.context.isPowerPlugConnector = connector => Boolean(powerPlugImageForConnector(connector));
+  h.context.connectorStartYForTemplate = device => {
+    const model = normalizePowerDistroForEngine({ template: device, width: device.width, connectors: device.connectors });
+    return model.faceRect.y + model.faceRect.height + 36;
+  };
+  const origin = h.context.connectorStartYForTemplate(h.template);
+  h.template.connectors.forEach((c, i) => { c.y = origin + i * 54; c.anchors.forEach(a => { a.y = c.y; }); });
+  for (const type of [...Object.keys(POWER_PLUG_TYPES), ...Object.keys(POWER_PLUG_TYPES).reverse()]) {
+    h.context.cableTypes[type] = { label: type, color: "#ff0000" };
+    assert.equal(h.api.fillEditorSlotById("plug", type), true);
+    const start = h.context.connectorStartYForTemplate(h.template);
+    const [plug, ordinary] = h.template.connectors;
+    assert.equal(plug.id, "plug");
+    assert.equal(plug.type, type);
+    assert.equal(plug.y, start);
+    assert.equal(ordinary.y, start + 54);
+    assert.equal(ordinary.customText, "per-device override");
+    assert.equal(ordinary.anchors[0].y, ordinary.y);
+    assert.ok(h.context.editorSelectedNodeIds.has("plug"));
+    assert.deepEqual(JSON.parse(JSON.stringify(plug.powerPlug)), { manual: false, x: 0, y: 0 });
+  }
+});
+
 test("protected native drops keep accepted input and output IDs across preview modes and Fit scales", () => {
   let cases = 0;
   for (const mode of ["engine", "legacy"]) for (const scale of [1, 0.25]) {
