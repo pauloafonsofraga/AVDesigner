@@ -1077,6 +1077,7 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
     editorConnectorSnapGuide: null,
     editorSelectedNodeIds: new Set(["node-selection-sentinel"]),
     editorSelectedCardNodeIds: new Set(["card-selection-sentinel"]),
+    editorSelectedCardNodeIndex: null,
     editorSelectedFaceplate: true,
     editorDragPointerReleaseInProgress: false,
     editorResizeSession: null,
@@ -1235,6 +1236,13 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
     "editorProjectedLanePixels",
     "createEditorCompactPlacementDragSession",
     "createEditorCompactCardDragSession",
+    "captureEditorConnectorHandoffBaseline",
+    "restoreEditorConnectorHandoff",
+    "dockEditorConnectorDrag",
+    "detachEditorConnectorDrag",
+    "updateEditorConnectorDragMode",
+    "commitEditorConnectorHandoff",
+    "replaceEditorTemplateContents",
     "resolveEditorCompactPlacementDragMove",
     "resolveEditorCompactCardDragMove",
     "createEditorStablePlacementDragSession",
@@ -3760,6 +3768,305 @@ test("Device Editor faceplate deletion demotes faceplate connectors and restore 
   }
 });
 
+function faceplateDragHarness({ side = "left", scale = 1, face = "default", docked = true } = {}) {
+  const h = structuralEditorHarness();
+  const { context, template, counters } = h;
+  const svg = {
+    tagName: "svg",
+    createSVGPoint() { return { x: 0, y: 0, matrixTransform(matrix) { return { x: this.x * matrix.a, y: this.y * matrix.d }; } }; },
+    getScreenCTM: () => ({ inverse: () => ({ a: 1 / scale, d: 1 / scale }) }),
+    setPointerCapture() {}, hasPointerCapture: () => true, releasePointerCapture() {}
+  };
+  Object.assign(context, {
+    FACE_IMAGE_PADDING: 8, ADAPTER_START_Y: 50,
+    clamp: (value, min, max) => Math.min(max, Math.max(min, value)),
+    plainPoint: point => ({ x: point.x, y: point.y }),
+    deviceEditorActivePreviewUsesEngine: () => false,
+    deviceEditorPreview: svg, editorInteractionSvg: null,
+    editorNodeMarquee: null, editorPowerPlugMarquee: null, editorPowerPlugDrag: null, rackPreviewDeviceDrag: null,
+    startRackPreviewDeviceDrag: () => false, startEditorCardSlotDrag: () => false, startEditorNodeMarquee: () => false,
+    editorInstalledCardConnectorFromEvent: () => null,
+    applyEditorFaceImageResize: () => false, updateEditorResizeSessionFromEvent: () => false,
+    editorNodeTargetIndexFromEvent: event => event.nodeIndex,
+    editorSelectedConnectorIds: () => [...context.editorSelectedNodeIds],
+    editorPreviewPositions: device => new Map(device.connectors.map(c => [c.id, c.y])),
+    rollbackEditorPlacementMotionForDrag: () => false,
+    retargetEditorPlacementMotionForDrag: (drag, options) => { counters.animationRetargets++; context.motionTarget = structuredClone(drag.lastValidResolvedLayout); context.motionY = options.draggedY; },
+    setEditorDraggedPlacementVisualY: (_drag, y) => { context.motionY = y; },
+    clearEditorPlacementMotion: () => { context.motionTarget = null; context.motionY = null; context.pendingMotion = false; context.editorPlacementMotionPreviewLock = null; },
+    beginEditorPlacementMotion: () => { counters.animationSeeds++; context.pendingMotion = true; },
+    settleEditorPlacementMotionToLayout: layout => { context.motionTarget = structuredClone(layout); context.pendingMotion = false; }
+  });
+  const functions = [
+    "faceplateAspectHeightForTemplate", "faceplateHeightForTemplate", "faceImageBounds", "faceImagePlacement",
+    "connectorStartYForTemplate", "faceplateSideConnectorBounds", "faceplateSideConnectorY", "isFaceplateSideDropTarget",
+    "editorSvgForEvent", "getEditorPreviewPoint", "getEditorPreviewPointAtClient", "captureEditorDragCoordinateFrame", "getEditorDragPreviewPoint",
+    "setEditorPointerCapture", "releaseEditorPointerCapture", "captureEditorCardDragSelection", "restoreEditorCardDragSelection",
+    "createEditorCompositeConnectorDragSession", "resolveEditorCompactPlacementDragMove", "commitEditorStablePlacementDrag",
+    "editorDragConnectorIds", "reorderConnectorInDirection", "commitEditorNodeDrag", "cancelEditorStableDrags",
+    "captureEditorConnectorHandoffBaseline", "restoreEditorConnectorHandoff", "dockEditorConnectorDrag", "detachEditorConnectorDrag",
+    "updateEditorConnectorDragMode", "commitEditorConnectorHandoff", "captureEditorPlacementPreviewLock",
+    "startEditorNodeDrag", "moveEditorNode", "stopEditorNodeDrag"
+  ];
+  vm.runInNewContext(functions.map(name => name === "captureEditorDragCoordinateFrame"
+    ? sourceSlice(INDEX_HTML, "    function captureEditorDragCoordinateFrame(", "    function getEditorDragPreviewPoint(")
+    : functionSource(name)).join("\n"), context);
+  if (face === "custom") Object.assign(template, { faceImage: "custom.png", faceImageNaturalWidth: 200, faceImageNaturalHeight: 600 });
+  if (face === "pd") Object.assign(template, { isPowerDistro: true, powerDistroFaceY: 31, powerDistroFaceHeight: 600 });
+  const startY = context.connectorStartYForTemplate(template);
+  template.connectors = [testConnector("front", side, 0, { v2: true }), testConnector("a", side, 0, { v2: true }), testConnector("b", side, 1, { v2: true })];
+  template.connectors.forEach((connector, index) => {
+    connector.faceplateSide = index === 0 && docked;
+    connector.y = connector.faceplateSide ? context.faceplateSideConnectorY(template) : startY + (index === 0 ? 2 : index - 1) * 54;
+    connector.anchors.forEach(anchor => { anchor.y = connector.y; });
+  });
+  template.height = context.deviceHeightForSlotCounts(template);
+  context.editorSelectedNodeIds = new Set(["a"]);
+  context.editorSelectedNodeIndex = 1;
+  const event = (type, y, index = 0) => ({
+    type, button: 0, pointerId: 77, clientX: (side === "right" ? 420 : 0) * scale, clientY: y * scale,
+    currentTarget: svg, target: { closest: selector => selector === "svg" ? svg : null }, nodeIndex: index,
+    preventDefault() {}, stopPropagation() {}
+  });
+  return { ...h, scale, event,
+    start: (index = 0) => context.startEditorNodeDrag(event("pointerdown", template.connectors[index].y, index)),
+    move: y => { context.moveEditorNode(event("pointermove", y)); return context.editorNodeDrag; },
+    stop: () => context.stopEditorNodeDrag(event("pointerup", context.editorNodeDrag?.currentY || 0)),
+    cancel: (type = "pointercancel") => context.cancelEditorStableDrags(event(type, 0)),
+    exitY: () => { const b = context.faceplateSideConnectorBounds(template); return b.y + b.height + 54 * .45 + 1; }
+  };
+}
+
+test("faceplate handoff reproduces real docked input session and accumulated-distance defect", () => {
+  const h = faceplateDragHarness({ face: "custom", scale: .2 });
+  const before = JSON.stringify(h.template);
+  h.start();
+  assert.equal(h.context.editorNodeDrag.session, undefined, "no speculative modular session while docked");
+  h.move(h.exitY() - 2);
+  assert.equal(h.counters.animationSeeds, 0);
+  assert.equal(JSON.stringify(h.template), before);
+  const drag = h.move(h.exitY());
+  assert.equal(drag.currentTargetLane, 0, "first detachment cannot consume the travel across the tall faceplate");
+  assert.equal(drag.pointerStartClientY, h.exitY() * h.scale);
+  h.stop();
+  assert.equal(h.template.connectors[0].faceplateSide, false);
+  assert.deepEqual(itemLaneMap(h.api.resolveEditorModularLayout(h.template)), { "connector:front": 0, "connector:a": 1, "connector:b": 2 });
+});
+
+test("faceplate handoff tall-face exit resolves the first boundary instead of the last", () => {
+  const h = faceplateDragHarness({ face: "custom", scale: .2 });
+  h.start();
+  const drag = h.move(h.exitY());
+  assert.equal(drag.currentTargetLane, 0);
+});
+
+for (const side of ["left", "right"]) {
+  for (const face of ["default", "custom", "pd"]) {
+    for (const scale of [.035, .08, .2, 1]) {
+      test(`faceplate handoff ${side}/${face}/${scale} rebases the first boundary and pointer frame`, () => {
+        const h = faceplateDragHarness({ side, face, scale });
+        const before = JSON.stringify(h.template);
+        const startY = h.context.connectorStartYForTemplate(h.template);
+        h.start();
+        assert.equal(h.context.editorNodeDrag.interactionMode, "faceplate-docked");
+        assert.equal(h.context.editorNodeDrag.session, undefined);
+        assert.ok(Object.isFrozen(h.context.editorNodeDrag.handoffBaseline));
+        const snapshot = JSON.parse(h.context.editorNodeDrag.handoffBaseline.layoutJson);
+        assert.deepEqual(snapshot.items.map(item => [item.id, item.lane]), [["connector:a", 0], ["connector:b", 1]]);
+        h.move(h.exitY() - 2);
+        assert.equal(h.counters.animationSeeds, 0);
+        assert.equal(JSON.stringify(h.template), before);
+        const drag = h.move(h.exitY());
+        assert.equal(drag.interactionMode, "modular");
+        assert.equal(drag.currentTargetLane, 0);
+        assert.ok(Math.abs(drag.pointerStartY - h.exitY()) < 1e-8);
+        assert.equal(drag.pointerStartClientY, h.exitY() * scale);
+        assert.equal(drag.offsetY, 0);
+        assert.equal(drag.currentBoundaryIndex, drag.originalBoundaryIndex);
+        assert.ok(Math.abs(drag.coordinateFrame.localY - h.exitY()) < 1e-8);
+        assert.ok(Math.abs(drag.projectedLanePx - 54 * scale) < 1e-8);
+        assert.equal(h.counters.animationSeeds, 1);
+        assert.ok(Math.abs(h.context.motionY - h.exitY()) < 1e-8, "visual stays under pointer");
+        assert.equal(JSON.stringify(h.template), before, "no persisted movement or height breathing during gesture");
+        const positions = authoringInsertionBoundaryScreenPositions(drag.session, { projectedLanePx: drag.projectedLanePx, minimumStepPx: 12 });
+        const clientDelta = positions[1] - positions[0];
+        h.move(h.exitY() + 1 / scale);
+        assert.equal(drag.currentBoundaryIndex, 0, "one-pixel jitter cannot cross a boundary");
+        h.move(h.exitY() + clientDelta / scale);
+        assert.equal(drag.currentBoundaryIndex, 1, "subsequent screen-space movement resumes normally");
+        h.move(h.exitY());
+        assert.equal(drag.currentBoundaryIndex, 0);
+        h.stop();
+        assert.deepEqual(itemLaneMap(h.api.resolveEditorModularLayout(h.template)), { "connector:front": 0, "connector:a": 1, "connector:b": 2 });
+        const front = h.template.connectors[0];
+        assert.equal(front.faceplateSide, false);
+        assert.equal(front.y, startY);
+        assert.equal(front.x, side === "left" ? 0 : 420);
+        assert.equal(front.anchors[0].y, front.y);
+        assert.deepEqual([...h.context.editorSelectedNodeIds], ["front"]);
+        assert.equal(h.context.editorNodeDrag, null);
+      });
+    }
+  }
+}
+
+test("faceplate handoff modular entry, exit and reversal discard dormant neighbour motion", () => {
+  const h = faceplateDragHarness({ docked: false, face: "custom", scale: .08 });
+  const before = JSON.stringify(h.template);
+  h.start();
+  const centre = h.context.faceplateSideConnectorY(h.template);
+  h.move(centre);
+  assert.equal(h.context.editorNodeDrag.interactionMode, "faceplate-docked");
+  assert.equal(h.context.editorNodeDrag.currentY, centre);
+  assert.equal(h.context.editorNodeDrag.session, undefined);
+  assert.equal(h.context.pendingMotion, false);
+  assert.equal(h.context.motionTarget, null);
+  assert.equal(JSON.stringify(h.template), before);
+  const drag = h.move(h.exitY());
+  assert.equal(drag.currentTargetLane, 0);
+  assert.equal(drag.pointerStartClientY, h.exitY() * h.scale);
+  h.move(centre);
+  assert.equal(h.context.pendingMotion, false);
+  h.stop();
+  assert.equal(h.template.connectors[0].faceplateSide, true);
+  assert.equal(h.template.connectors[0].y, centre);
+  assert.equal(h.template.connectors[0].anchors[0].y, centre);
+  assert.deepEqual(itemLaneMap(h.api.resolveEditorModularLayout(h.template)), { "connector:a": 0, "connector:b": 1 });
+});
+
+for (const phase of ["docked", "detached", "moved"]) {
+  for (const type of ["pointercancel", "lostpointercapture"]) {
+    test(`faceplate handoff ${type} from ${phase} restores exact geometry, height and selection`, () => {
+      const h = faceplateDragHarness({ face: "custom", scale: .035, docked: phase !== "docked" });
+      const before = JSON.stringify(h.template);
+      h.start();
+      if (phase === "docked") h.move(h.context.faceplateSideConnectorY(h.template));
+      else h.move(h.exitY());
+      if (phase === "moved") h.move(h.exitY() + 40 / h.scale);
+      h.cancel(type);
+      assert.equal(JSON.stringify(h.template), before);
+      assert.deepEqual([...h.context.editorSelectedNodeIds], ["a"]);
+      assert.equal(h.context.editorSelectedNodeIndex, 1);
+      assert.equal(h.context.editorNodeDrag, null);
+      assert.equal(h.context.editorConnectorSnapGuide, null);
+      assert.equal(h.context.pendingMotion, false);
+      assert.equal(h.context.editorPlacementMotionPreviewLock, null);
+    });
+  }
+}
+
+test("faceplate handoff invalid transition and commit failures cancel without partial mutation", () => {
+  for (const phase of ["transition", "commit"]) {
+    const h = faceplateDragHarness();
+    const before = JSON.stringify(h.template);
+    const warnings = [];
+    h.context.console = { ...console, warn: (...args) => warnings.push(args) };
+    h.start();
+    if (phase === "transition") h.placementModule.createModularAuthoringInsertionSession = () => { throw new Error("forced session failure"); };
+    h.move(h.exitY());
+    if (phase === "commit") { h.placementModule.forceInvalid = true; h.stop(); }
+    assert.equal(JSON.stringify(h.template), before);
+    assert.equal(warnings.length, 1);
+    assert.equal(h.context.editorNodeDrag, null);
+    assert.equal(h.context.pendingMotion, false);
+    assert.deepEqual([...h.context.editorSelectedNodeIds], ["a"]);
+  }
+});
+
+test("faceplate handoff ten dock/undock cycles do not ratchet coordinates, height or anchors", () => {
+  const h = faceplateDragHarness();
+  let dockedGeometry;
+  let modularGeometry;
+  for (let cycle = 0; cycle < 10; cycle++) {
+    h.start(); h.move(h.exitY()); h.stop();
+    const modular = JSON.stringify(h.template);
+    if (cycle) assert.equal(modular, modularGeometry);
+    else modularGeometry = modular;
+    h.start(); h.move(h.context.faceplateSideConnectorY(h.template)); h.stop();
+    const docked = JSON.stringify(h.template);
+    if (cycle) assert.equal(docked, dockedGeometry);
+    else dockedGeometry = docked;
+    assert.equal(h.template.connectors[0].anchors[0].y, h.context.faceplateSideConnectorY(h.template));
+    assert.equal(h.context.editorNodeDrag, null);
+    assert.equal(h.context.pendingMotion, false);
+  }
+});
+
+test("faceplate handoff occupied dock evicts its previous node to the captured global end", () => {
+  const h = faceplateDragHarness({ docked: false });
+  const occupied = testConnector("occupied", "left", 0, { v2: true, faceplateSide: true });
+  occupied.y = h.context.faceplateSideConnectorY(h.template);
+  occupied.anchors[0].y = occupied.y;
+  h.template.connectors.push(occupied);
+  const before = h.api.resolveEditorModularLayout(h.template);
+  assert.equal(before.endLane, 3);
+  h.start(); h.move(occupied.y); h.stop();
+  assert.equal(h.template.connectors.filter(c => c.faceplateSide).length, 1);
+  assert.equal(h.template.connectors[0].faceplateSide, true);
+  const evicted = h.template.connectors.find(c => c.id === "occupied");
+  assert.equal(evicted.faceplateSide, false);
+  assert.equal(evicted.y, 100 + before.endLane * 54);
+  assert.equal(evicted.anchors[0].y, evicted.y);
+  assert.deepEqual(itemLaneMap(h.api.resolveEditorModularLayout(h.template)), { "connector:a": 0, "connector:b": 1, "connector:occupied": 3 });
+});
+
+test("faceplate handoff commits height once and changes preview membership without mutating source", () => {
+  const h = faceplateDragHarness();
+  h.start(); h.move(h.exitY());
+  const clone = structuredClone(h.template);
+  const project = vm.runInNewContext(`(${sourceSlice(INDEX_HTML, "    function applyEditorPlacementVisualsToPreviewTemplate(", "    function editorResizePreviewTemplateFor(")})`, {
+    editorNodeDrag: h.context.editorNodeDrag,
+    editorPreviewPositions: () => new Map([["front", h.exitY()]]),
+    setConnectorPreviewY: runnableIndexFunction("setConnectorPreviewY", { Number }),
+    cardSlotDisplayY: (_t, slot) => slot.y
+  });
+  project(clone, h.template);
+  assert.equal(clone.connectors[0].faceplateSide, false);
+  assert.equal(clone.connectors[0].y, h.exitY());
+  assert.equal(clone.connectors[0].anchors[0].y, h.exitY());
+  assert.equal(h.template.connectors[0].faceplateSide, true);
+  let heightCalls = 0;
+  const heightFor = h.context.deviceHeightForSlotCounts;
+  h.context.deviceHeightForSlotCounts = (...args) => { heightCalls++; return heightFor(...args); };
+  h.stop();
+  assert.equal(heightCalls, 1);
+});
+
+test("faceplate handoff can reverse back to its original dock before release", () => {
+  for (const side of ["left", "right"]) {
+    const h = faceplateDragHarness({ side });
+    const before = structuredClone(h.template);
+    h.start();
+    assert.equal(Object.isFrozen(h.template), false);
+    assert.equal(Object.isFrozen(h.template.connectors[0].anchors), false);
+    const captured = h.context.editorNodeDrag.handoffBaseline.templateJson;
+    h.template.name = "Temporary source mutation";
+    assert.equal(h.context.editorNodeDrag.handoffBaseline.templateJson, captured);
+    h.template.name = before.name;
+    h.move(h.exitY());
+    h.move(h.context.faceplateSideConnectorY(h.template));
+    assert.equal(h.context.editorNodeDrag.session, undefined);
+    assert.equal(h.context.pendingMotion, false);
+    h.stop();
+    assert.deepEqual(h.template.connectors.map(c => [c.id, c.x, c.y, c.faceplateSide, c.anchors[0].y]), before.connectors.map(c => [c.id, c.x, c.y, c.faceplateSide, c.anchors[0].y]));
+    assert.equal(h.template.height, before.height);
+    assert.equal(h.context.editorPlacementMotionPreviewLock, null);
+    assert.deepEqual([...h.context.editorSelectedNodeIds], ["front"]);
+  }
+});
+
+test("faceplate handoff leaves an adjacent output card, overrides and source definitions intact", () => {
+  const h = faceplateDragHarness();
+  h.template.cardTypes = [{ id: "output-card", kind: "output", connectors: [testConnector("card-out", "right", 0, { v2: true })] }];
+  h.template.cardSlots = [{ id: "output-slot", installedCardTypeId: "output-card", y: 100, connectorOverrides: { "card-out": { nameText: "Installed output" } } }];
+  const cards = structuredClone(h.template.cardTypes);
+  const slots = structuredClone(h.template.cardSlots);
+  h.start(); h.move(h.exitY()); h.stop();
+  assert.equal(itemLaneMap(h.api.resolveEditorModularLayout(h.template))["card:output-slot"], 0);
+  assert.deepEqual(h.template.cardSlots, slots);
+  assert.deepEqual(h.template.cardTypes, cards);
+});
+
 test("Device Editor can detach a faceplate-side connector into a normal drag session", () => {
   const front = testConnector("front-io", "left", 0, {
     v2: true,
@@ -3794,34 +4101,19 @@ test("Device Editor can detach a faceplate-side connector into a normal drag ses
   assert.ok(session, "faceplate-side connector should get a reusable lane insertion session");
   assert.ok(session.lastValidResolvedLayout.byId.has("connector:front-io"));
   assert.deepEqual(template, baseline, "preparing the drag must not mutate the saved faceplate placement");
-  assert.match(functionSource("startEditorNodeDrag"), /editorPlacementTemplateForConnectorDrag\(template, connector\)/);
-  assert.match(functionSource("startEditorNodeDrag"), /specialTarget: \{ type: "faceplate-side" \}/);
+  assert.doesNotMatch(functionSource("startEditorNodeDrag"), /editorPlacementTemplateForConnectorDrag\(/);
+  assert.match(functionSource("startEditorNodeDrag"), /dockEditorConnectorDrag\(editorNodeDrag, template, "faceplate-docked"/);
 });
 
 test("Device Editor commits a faceplate-side connector into the first normal lane", () => {
-  const front = testConnector("front-io", "left", 0, {
-    v2: true,
-    faceplateSide: true
-  });
-  front.y = 42;
-  front.anchors = front.anchors.map(anchor => ({ ...anchor, y: 42 }));
-  const harness = cardDragInteractionHarness({
-    allowFaceplateSide: true,
-    connectors: [
-      front,
-      testConnector("row-a", "left", 0, { v2: true }),
-      testConnector("row-b", "left", 1, { v2: true })
-    ],
-    cardSlots: []
-  }, { previewScale: .2 });
-
-  const started = harness.startNodeDrag(0, 19);
-  const drag = harness.moveNodeToClientY(started, 47 * harness.context.previewScale);
+  const harness = faceplateDragHarness({ scale: .2 });
+  harness.start();
+  const drag = harness.move(harness.exitY());
   assert.equal(drag.currentBoundaryIndex, drag.originalBoundaryIndex, "the first lane is the session's original insertion boundary");
   assert.equal(drag.moved, true, "leaving the faceplate must count as a committed move even at the same boundary");
 
-  harness.stopNodeDrag(started);
-  const connector = harness.template.connectors.find(item => item.id === "front-io");
+  harness.stop();
+  const connector = harness.template.connectors.find(item => item.id === "front");
   assert.equal(connector.faceplateSide, false);
   assert.equal(connector.y, 100);
   assert.equal(connector.anchors[0].y, 100);
