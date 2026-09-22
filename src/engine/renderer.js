@@ -26,6 +26,7 @@ import {
   connectorDisplayAnchors,
   createConnectorDisplayLayout
 } from "./connectorDisplayLayout.js";
+import { sharedBusOrthogonalSegments } from "./sharedBusRendering.js";
 import {
   INFO_BOX_COMPACT_SCALE,
   INFO_BOX_MAGNIFIED_ZOOM,
@@ -60,7 +61,7 @@ import {
 } from "./jumpNodeModel.js";
 import { wirePlaybackEase } from "./wirePlayback.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-4-0-matrix-routing-internal-routes";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-26-0-orthogonal-shared-bus-rendering";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -2179,7 +2180,11 @@ function pushExplicitConnectorRelationships(vertices, scene, device, baseX, base
   relationships.forEach(relationship => {
     if (relationship.type === "exclusive") {
       const sharedLayout = displayLayout?.groups?.find(group => group.relationshipId === relationship.id);
-      if (sharedLayout) count += pushSharedBusConnectorLines(vertices, sharedLayout, baseX, baseY);
+      if (sharedLayout) {
+        const cardId = sharedLayout.points[0]?.connector?.cardSlotId;
+        const body = device.visual?.visualCards?.find(card => card.id === cardId) || { x: 0, width: device.width };
+        count += pushSharedBusConnectorLines(vertices, sharedLayout, baseX, baseY, body);
+      }
     } else if (relationship.type === "through") {
       count += pushThroughConnectorArrow(vertices, device, relationship, baseX, baseY, displayLayout);
     }
@@ -2187,26 +2192,16 @@ function pushExplicitConnectorRelationships(vertices, scene, device, baseX, base
   return count;
 }
 
-function pushSharedBusConnectorLines(vertices, layout, baseX, baseY) {
-  if (!layout?.points?.length) return 0;
-  const nodeInset = layout.side === "input" ? SHARED_BUS_NODE_LINE_INSET : -SHARED_BUS_NODE_LINE_INSET;
-  const junction = {
-    x: baseX + layout.fieldJunctionX,
-    y: baseY + layout.centerY
-  };
-  layout.points.forEach(point => {
-    pushLine(
-      vertices,
-      {
-        x: baseX + point.x + nodeInset,
-        y: baseY + point.y
-      },
-      junction,
-      2.1,
-      "rgba(50,182,255,.86)"
-    );
+function pushSharedBusConnectorLines(vertices, layout, baseX, baseY, body) {
+  const geometry = sharedBusOrthogonalSegments(layout, body, {
+    nodeInset: SHARED_BUS_NODE_LINE_INSET, offsetX: baseX, offsetY: baseY
   });
-  return layout.points.length;
+  if (!geometry) return 0;
+  const segments = [geometry.trunk, ...geometry.branches];
+  segments.forEach(({ x1, y1, x2, y2 }) => {
+    pushLine(vertices, { x: x1, y: y1 }, { x: x2, y: y2 }, 2.1, "rgba(50,182,255,.86)");
+  });
+  return segments.length;
 }
 
 function pushThroughConnectorArrow(vertices, device, relationship, baseX, baseY, displayLayout = null) {
