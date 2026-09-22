@@ -101,7 +101,7 @@ try {
     let end = initial.layout.endLane;
     for (const direction of ["Input", "Output"]) {
       await page.locator(`#add${direction}Node`).click(); const s = await check(`append ${direction}`);
-      assert.equal(s.layout.items.find(i => i.id === `connector:${s.template.connectors.at(-1).id}`).lane, end++);
+      assert.equal(s.layout.items.find(i => i.id === `connector:${s.template.connectors.at(-1).id}`).lane, end);
     }
     await page.evaluate(() => fillEditorSlotById("empty", "hdmi")); await check("fill empty");
     const dragState = () => page.evaluate(() => {

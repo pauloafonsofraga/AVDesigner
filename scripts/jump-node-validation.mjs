@@ -41,7 +41,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-24-0-modular-placement-integration-hardening";
+const BUILD_ID = "iteration54-23-1-side-aware-empty-node-append";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -50,9 +50,9 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Modular Placement Integration Hardening");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-24-0-modular-placement-integration-hardening-modules";'), "module cache key should identify Modular Placement Integration Hardening");
-assert.ok(indexHtml.includes("Modular Placement Integration Hardening"), "visible build label should name Modular Placement Integration Hardening");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Side-Aware Empty Node Append");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-23-1-side-aware-empty-node-append-modules";'), "module cache key should identify Side-Aware Empty Node Append");
+assert.ok(indexHtml.includes("Side-Aware Empty Node Append"), "visible build label should name Side-Aware Empty Node Append");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-14-1-device-editor-card-drag-parity"'), "Engine bridge version should identify Device Editor Card Drag Parity");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "device-editor-card-drag-parity"'), "Engine bridge feature label should identify Device Editor Card Drag Parity");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-14-1-device-editor-card-drag-parity"), "bridge fingerprint should identify Device Editor Card Drag Parity");

@@ -1891,7 +1891,8 @@ test("Device Editor placement delegates to the shared modular layout module", ()
   assert.match(nextPlacement, /resolveEditorPlacementItems\(/);
   assert.doesNotMatch(nextPlacement, /while\s*\(/);
   assert.match(nextConnector, /nextEditorPlacementY\(template, placementSide/);
-  assert.match(addNode, /context\.targetYForLane\(context\.baselineLayout\.endLane\)/);
+  assert.match(addNode, /context\.baselineLayout\.items\.reduce/);
+  assert.match(addNode, /context\.targetYForLane\(appendLane\)/);
   assert.doesNotMatch(addNode, /nextEditorPlacementY|nextAvailableConnectorY|normalizeConnectorRows/);
   assert.doesNotMatch(INDEX_HTML, /function nextEditorSlotY\(/);
   assert.match(structuralItems, /editorLayoutItems\(template, \{ useDragPreview: false \}\)/);
@@ -2121,9 +2122,101 @@ test("Device Editor paired deletion filters non-layout IDs but removes modular c
   assert.equal(counters.previewRenders, 1);
 });
 
+function clickEmptyNodeButton(harness, direction) {
+  const id = direction === "input" ? "addInputNode" : "addOutputNode";
+  const listener = INDEX_HTML.split("\n").find(line => line.includes(`document.getElementById("${id}").addEventListener("click"`));
+  assert.ok(listener);
+  let click;
+  vm.runInNewContext(listener, {
+    addEditorNode: harness.api.addEditorNode,
+    document: { getElementById: () => ({ addEventListener: (_type, handler) => { click = handler; } }) }
+  });
+  click();
+}
+
+for (const sequence of [
+  [...Array(7).fill("input"), ...Array(7).fill("output")],
+  [...Array(7).fill("output"), ...Array(7).fill("input")],
+  Array.from({ length: 14 }, (_, i) => i % 2 ? "output" : "input")
+]) {
+  test(`side-aware empty append: rapid real handlers ${sequence.join(",")}`, t => {
+    const h = structuralEditorHarness();
+    const expected = {}, counts = { input: 0, output: 0 };
+    let seventhHeight;
+    for (const [i, direction] of sequence.entries()) {
+      const before = structuredClone(h.template.connectors);
+      clickEmptyNodeButton(h, direction);
+      const node = h.template.connectors.at(-1);
+      expected[`connector:${node.id}`] = counts[direction]++;
+      assert.deepEqual(structuredClone(h.template.connectors.slice(0, -1)), before);
+      if (i === 6) seventhHeight = h.template.height;
+    }
+    const layout = h.api.resolveEditorModularLayout(h.template);
+    t.diagnostic(JSON.stringify(layout.items.map(({ id, lane, sideMask }) => ({ id, lane, sideMask }))));
+    // Pre-fix: seven inputs 0..6, outputs 7..13; masks already left/right, endLane 14.
+    assert.deepEqual(itemLaneMap(layout), expected);
+    assert.equal(layout.endLane, 7);
+    assert.ok(layout.items.every(item => item.sideMask === (item.id.includes("input-") ? "left" : "right")));
+    if (sequence.slice(0, 7).every(direction => direction === sequence[0])) assert.equal(h.template.height, seventhHeight);
+    assert.equal(h.counters.normalizationCalls, 0);
+    assert.equal(h.counters.structuralSessions, 14);
+  });
+}
+
+test("side-aware empty append preserves masks and exact lanes when assigning plugs", () => {
+  const h = structuralEditorHarness();
+  for (let i = 0; i < 4; i++) clickEmptyNodeButton(h, "input");
+  for (let i = 0; i < 2; i++) clickEmptyNodeButton(h, "output");
+  const before = h.api.resolveEditorModularLayout(h.template);
+  const geometry = () => h.template.connectors.map(c => [c.id, c.x, c.y, c.anchors.map(a => [a.id, a.side, a.x, a.y])]);
+  const positions = geometry();
+  for (const c of h.template.connectors) h.api.fillEditorSlotById(c.id, "hdmi");
+  const after = h.api.resolveEditorModularLayout(h.template);
+  assert.deepEqual(after.items.map(c => [c.id, c.lane, c.sideMask]), before.items.map(c => [c.id, c.lane, c.sideMask]));
+  assert.deepEqual(geometry(), positions);
+  assertDefaultNodeAppend(h, "output");
+  assert.equal(h.api.resolveEditorModularLayout(h.template).byId.get("connector:output-slot-3").lane, 2);
+});
+
+test("side-aware empty append excludes faceplate and adapter-centre reservations", () => {
+  for (const special of [{ faceplateSide: true }, { adapterCenterSnap: true }]) {
+    const h = structuralEditorHarness({ objectType: "adapter", connectors: [
+      testConnector("special", "left", 12, { v2: true, ...special }),
+      testConnector("tail", "left", 4, { v2: true }),
+      testConnector("right", "right", 1, { v2: true })
+    ] });
+    assertDefaultNodeAppend(h, "input");
+    assertDefaultNodeAppend(h, "output");
+    assert.deepEqual(itemLaneMap(h.api.resolveEditorModularLayout(h.template)), {
+      "connector:tail": 4, "connector:right": 1, "connector:input-slot-3": 5, "connector:output-slot-2": 2
+    });
+  }
+});
+
+for (const kind of ["input", "output", "io"]) {
+  test(`side-aware empty append respects ${kind} card span without reserving the other track`, () => {
+    const h = structuralEditorHarness({ connectors: [testConnector("both", "both", 1, { v2: true })],
+      cardTypes: [{ id: "card", name: "Card", kind, connectors: [0, 1, 2].map(i => testConnector(`port-${i}`, kind === "output" ? "right" : "left", i, { v2: true })) }],
+      cardSlots: [{ id: "installed", installedCardTypeId: "card", y: 262, connectorOverrides: { "port-1": { nameText: "Override" } } }]
+    });
+    const baseline = h.api.resolveEditorModularLayout(h.template);
+    assert.equal(baseline.byId.get("card:installed").span, 5);
+    assert.equal(baseline.endLane, 8);
+    assertDefaultNodeAppend(h, "input");
+    assertDefaultNodeAppend(h, "output");
+    const l = h.api.resolveEditorModularLayout(h.template);
+    assert.equal(l.byId.get("connector:input-slot-2").lane, kind === "output" ? 2 : 8);
+    assert.equal(l.byId.get("connector:output-slot-1").lane, kind === "input" ? 2 : 8);
+  });
+}
+
 function assertDefaultNodeAppend(harness, direction, options = {}) {
   const { api, template, context, counters } = harness;
   const baseline = api.resolveEditorModularLayout(template);
+  const mask = direction === "input" ? "left" : "right";
+  const target = options.type ? baseline.endLane : Math.max(0, ...baseline.items
+    .filter(item => item.sideMask === mask || item.sideMask === "both")
+    .map(item => item.lane + item.span));
   const before = structuredClone(template);
   const existingIds = new Set(before.connectors.map(connector => connector.id));
   api.addEditorNode(direction, options);
@@ -2131,13 +2224,13 @@ function assertDefaultNodeAppend(harness, direction, options = {}) {
   assert.ok(created.length > 0);
   const expected = { ...itemLaneMap(baseline) };
   for (const connector of created) {
-    expected[`connector:${connector.id}`] = baseline.endLane;
-    assert.equal(connector.y, context.connectorStartYForTemplate(template) + baseline.endLane * 54);
+    expected[`connector:${connector.id}`] = target;
+    assert.equal(connector.y, context.connectorStartYForTemplate(template) + target * 54);
     if (connector.anchors) assert.equal(connector.anchors.find(anchor => anchor.id === connector.primaryAnchorId).y, connector.y);
   }
   const resolved = api.resolveEditorModularLayout(template);
   assert.deepEqual(itemLaneMap(resolved), expected);
-  assert.equal(resolved.endLane, baseline.endLane + 1);
+  assert.equal(resolved.endLane, Math.max(baseline.endLane, target + 1));
   assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), expected, "static-layout fixed point");
   for (const original of before.connectors) {
     const current = template.connectors.find(connector => connector.id === original.id);
@@ -2153,7 +2246,7 @@ function assertDefaultNodeAppend(harness, direction, options = {}) {
   assert.deepEqual(template.connectorRelationships, before.connectorRelationships);
   assert.deepEqual([...context.editorSelectedNodeIds], [created[0].id]);
   const edit = counters.edits.at(-1);
-  assert.ok(edit.upserts.every(item => item.hard && item.span === 1 && item.targetLane === baseline.endLane));
+  assert.ok(edit.upserts.every(item => item.hard && item.span === 1 && item.targetLane === target));
   assert.equal(counters.normalizationCalls, 0, "no legacy row normalizer");
   return created;
 }
@@ -2167,7 +2260,7 @@ test("Device Editor default append starts an empty device at lane zero", () => {
 });
 
 for (const [direction, occupiedSide, prefix] of [["input", "right", "out"], ["output", "left", "in"]]) {
-  test(`Device Editor default append ${direction} uses the opposite side global end`, () => {
+  test(`Device Editor default append ${direction} ignores the opposite side frontier`, () => {
     const h = structuralEditorHarness({ connectors: ["a", "b", "c"].map((id, lane) => testConnector(`${prefix}-${id}`, occupiedSide, lane, { v2: true })) });
     assert.deepEqual(itemLaneMap(h.api.resolveEditorModularLayout(h.template)), {
       [`connector:${prefix}-a`]: 0, [`connector:${prefix}-b`]: 1, [`connector:${prefix}-c`]: 2
@@ -2175,7 +2268,7 @@ for (const [direction, occupiedSide, prefix] of [["input", "right", "out"], ["ou
     assertDefaultNodeAppend(h, direction);
     assert.deepEqual(itemLaneMap(h.api.resolveEditorModularLayout(h.template)), {
       [`connector:${prefix}-a`]: 0, [`connector:${prefix}-b`]: 1, [`connector:${prefix}-c`]: 2,
-      [`connector:${direction}-slot-1`]: 3
+      [`connector:${direction}-slot-1`]: 0
     });
   });
 }
@@ -2253,16 +2346,16 @@ test("Device Editor default append preserves shared-bus members, anchors and rel
   });
   h.context.normalizeMixedDeviceRows(h.template);
   assertDefaultNodeAppend(h, "input");
-  assert.equal(h.template.connectors.at(-1).y, 208);
+  assert.equal(h.template.connectors.at(-1).y, 100);
   assertDefaultNodeAppend(h, "output");
-  assert.equal(h.template.connectors.at(-1).y, 262);
+  assert.equal(h.template.connectors.at(-1).y, 208);
 });
 
 test("Device Editor default append repeated additions never move earlier rows", () => {
   const h = structuralEditorHarness();
   for (let lane = 0; lane < 8; lane += 1) {
     const [created] = assertDefaultNodeAppend(h, lane % 2 ? "output" : "input");
-    assert.equal(created.y, 100 + lane * 54);
+    assert.equal(created.y, 100 + Math.floor(lane / 2) * 54);
   }
   assert.equal(h.counters.structuralSessions, 8);
   assert.equal(h.counters.solverCalls, 8);
@@ -3888,6 +3981,64 @@ function faceplateDragHarness({ side = "left", scale = 1, face = "default", dock
   };
 }
 
+for (const cancel of [true, false]) {
+  test(`side-aware empty append immediate output drag ${cancel ? "cancel" : "commit"}`, t => {
+    const h = faceplateDragHarness({ side: "right", docked: false });
+    vm.runInNewContext(["editorStableDragLayout", "editorStableDragLayoutPositions"].map(functionSource).join("\n"), h.context);
+    h.template.connectors = [];
+    h.context.editorSelectedNodeIds.clear(); h.context.editorSelectedNodeIndex = null;
+    for (let i = 0; i < 7; i++) clickEmptyNodeButton(h, "input");
+    for (let i = 0; i < 7; i++) clickEmptyNodeButton(h, "output");
+    const before = JSON.stringify(h.template);
+    const selected = [...h.context.editorSelectedNodeIds];
+    h.start(13);
+    const d = h.context.editorNodeDrag;
+    t.diagnostic(JSON.stringify({ masks: d.session.snapshot.items.map(i => [i.id, i.sideMask]), boundaries: d.session.boundaries.map(b => b.targetLane) }));
+    const positions = authoringInsertionBoundaryScreenPositions(d.session, { projectedLanePx: d.projectedLanePx, minimumStepPx: 12 });
+    h.move((d.pointerStartClientY + positions[0] - positions[d.originalBoundaryIndex]) / h.scale);
+    assert.equal(d.currentTargetLane, 0);
+    const accepted = itemLaneMap(d.lastValidResolvedLayout);
+    const expected = Object.fromEntries(Array.from({ length: 7 }, (_, i) => [`connector:input-slot-${i + 1}`, i]));
+    Object.assign(expected, Object.fromEntries(Array.from({ length: 6 }, (_, i) => [`connector:output-slot-${i + 1}`, i + 1])), { "connector:output-slot-7": 0 });
+    assert.deepEqual(accepted, expected);
+    assert.equal(JSON.stringify(h.template), before, "preview never changes committed geometry");
+    if (cancel) {
+      h.cancel();
+      assert.equal(JSON.stringify(h.template), before);
+      assert.deepEqual([...h.context.editorSelectedNodeIds], selected);
+    } else {
+      h.stop();
+      assert.deepEqual(itemLaneMap(h.api.resolveEditorModularLayout(h.template)), expected);
+      const node = h.template.connectors.at(-1);
+      assert.equal(node.anchors[0].y, node.y);
+      h.api.fillEditorSlotById(node.id, "hdmi");
+      assert.deepEqual(itemLaneMap(h.api.resolveEditorModularLayout(h.template)), expected);
+    }
+  });
+}
+
+test("side-aware empty append drag displaces a both-side obstruction as one existing chain", () => {
+  const h = faceplateDragHarness({ side: "right", docked: false });
+  vm.runInNewContext(["editorStableDragLayout", "editorStableDragLayoutPositions"].map(functionSource).join("\n"), h.context);
+  const startY = h.context.connectorStartYForTemplate(h.template);
+  h.template.connectors = [testConnector("left", "left", 1, { v2: true }), testConnector("both", "both", 0, { v2: true })];
+  for (const node of h.template.connectors) {
+    node.y += startY - 100;
+    node.anchors.forEach(a => { a.y = node.y; });
+  }
+  h.context.editorSelectedNodeIds.clear(); h.context.editorSelectedNodeIndex = null;
+  clickEmptyNodeButton(h, "output");
+  assert.deepEqual(itemLaneMap(h.api.resolveEditorModularLayout(h.template)), { "connector:left": 1, "connector:both": 0, "connector:output-slot-1": 1 });
+  h.start(2);
+  const d = h.context.editorNodeDrag;
+  const positions = authoringInsertionBoundaryScreenPositions(d.session, { projectedLanePx: d.projectedLanePx, minimumStepPx: 12 });
+  h.move(d.pointerStartClientY + positions[0] - positions[d.originalBoundaryIndex]);
+  const accepted = itemLaneMap(d.lastValidResolvedLayout);
+  assert.deepEqual(accepted, { "connector:left": 2, "connector:output-slot-1": 0, "connector:both": 1 });
+  h.stop();
+  assert.deepEqual(itemLaneMap(h.api.resolveEditorModularLayout(h.template)), accepted);
+});
+
 function modularIntegrationHarness(scale = .2, side = "left") {
   const h = faceplateDragHarness({ scale, side, docked: false });
   const { context: c, template: t } = h;
@@ -3996,10 +4147,10 @@ test("Stage 4 deterministic combined operation trace", t => {
   step("open/reload fixture");
   let end = h.api.resolveEditorModularLayout(d).endLane;
   step("append input", () => h.api.addEditorNode("input"));
-  assert.equal(h.api.resolveEditorModularLayout(d).byId.get(`connector:${d.connectors.at(-1).id}`).lane, end++);
+  assert.equal(h.api.resolveEditorModularLayout(d).byId.get(`connector:${d.connectors.at(-1).id}`).lane, end);
   step("append output", () => h.api.addEditorNode("output"));
   assert.equal(h.api.resolveEditorModularLayout(d).byId.get(`connector:${d.connectors.at(-1).id}`).lane, end);
-  step("confirm global append");
+  step("confirm side-aware append");
   step("fill empty", () => h.api.fillEditorSlotById("empty", "hdmi"));
   h.start(index("left-a"));
   const original = c.editorNodeDrag.originalBoundaryIndex;

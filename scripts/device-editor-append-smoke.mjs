@@ -18,6 +18,8 @@ async function snapshot(page) {
     return {
       laneMap: Object.fromEntries(layout.items.map(item => [item.id, item.lane])),
       endLane: layout.endLane,
+      items: layout.items.map(({ id, lane, span, sideMask }) => ({ id, lane, span, sideMask })),
+      height: template.height,
       startY: layout.startY,
       slotHeight: SLOT_HEIGHT,
       connectors: structuredClone(template.connectors),
@@ -35,10 +37,12 @@ async function clickAppend(page, direction) {
   const added = after.connectors.filter(c => !before.connectors.some(previous => previous.id === c.id));
   assert.equal(added.length, 1);
   const connector = added[0];
+  const mask = direction === "input" ? "left" : "right";
+  const target = Math.max(0, ...before.items.filter(i => i.sideMask === mask || i.sideMask === "both").map(i => i.lane + i.span));
   assert.equal(connector.empty, true);
-  assert.deepEqual(after.laneMap, { ...before.laneMap, [`connector:${connector.id}`]: before.endLane });
-  assert.equal(after.endLane, before.endLane + 1);
-  assert.equal(connector.y, before.startY + before.endLane * before.slotHeight);
+  assert.deepEqual(after.laneMap, { ...before.laneMap, [`connector:${connector.id}`]: target });
+  assert.equal(after.endLane, Math.max(before.endLane, target + 1));
+  assert.equal(connector.y, before.startY + target * before.slotHeight);
   assert.deepEqual(after.connectors.filter(c => c.id !== connector.id), before.connectors, "existing nodes stay unchanged");
   assert.deepEqual(after.slots, before.slots);
   assert.deepEqual(after.cards, before.cards);
@@ -52,6 +56,82 @@ async function clickAppend(page, direction) {
   const host = await page.locator("#deviceEditorPreviewHost").boundingBox();
   assert.ok(box && host && box.y >= host.y && box.y + box.height <= host.y + host.height, "appended node fits in preview");
   return after;
+}
+
+async function rapidEmptyNodeSmoke(page, mode) {
+  const heights = await page.evaluate(() => {
+    const heights = [];
+    // Real DOM listeners, all fourteen clicks in one task with no animation waits.
+    for (const id of ["addInputNode", "addOutputNode"]) {
+      for (let i = 0; i < 7; i++) document.getElementById(id).click();
+      heights.push(currentEditorTemplate().height);
+    }
+    return heights;
+  });
+  const baseline = await snapshot(page);
+  const expected = Object.fromEntries(["input", "output"].flatMap(side => Array.from({ length: 7 }, (_, i) => [`connector:${side}-slot-${i + 1}`, i])));
+  assert.deepEqual(baseline.laneMap, expected);
+  assert.equal(baseline.endLane, 7);
+  assert.equal(heights[1], heights[0]);
+  assert.ok(baseline.items.every(i => i.sideMask === (i.id.includes("input-") ? "left" : "right")));
+  console.log(`${mode}: rapid 7+7 actual lane map ${JSON.stringify(baseline.laneMap)}; heights ${heights.join(" -> ")}`);
+
+  const dragToFirstBoundary = async (id, cancel) => {
+    await page.locator("#editorZoomReset").click();
+    const before = await snapshot(page);
+    const box = await page.locator(`#deviceEditorPreview [data-editor-node-id="${id}"] circle`).first().boundingBox();
+    assert.ok(box);
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForFunction(id => editorNodeDrag?.connectorId === id, id);
+    const start = await page.evaluate(() => ({ json: JSON.stringify(currentEditorTemplate()), selection: editorNodeDrag.selectionSnapshot,
+      masks: editorNodeDrag.session.snapshot.items.map(i => [i.id, i.sideMask]) }));
+    assert.deepEqual(Object.fromEntries(start.masks), Object.fromEntries(before.items.map(i => [i.id, i.sideMask])));
+    const y = await page.evaluate(() => {
+      const d = editorNodeDrag;
+      const p = requireDeviceEditorPlacementModule().authoringInsertionBoundaryScreenPositions(d.session, { projectedLanePx: d.projectedLanePx, minimumStepPx: 12 });
+      return d.pointerStartClientY + p[0] - p[d.originalBoundaryIndex];
+    });
+    await page.mouse.move(box.x + box.width / 2, y);
+    await page.waitForFunction(() => !editorPlacementMotionState?.entries?.size || editorPlacementMotionState.settled === true);
+    const moving = await page.evaluate(() => ({ json: JSON.stringify(currentEditorTemplate()), target: editorNodeDrag.currentTargetLane,
+      lanes: Object.fromEntries(editorNodeDrag.lastValidResolvedLayout.items.map(i => [i.id, i.lane])) }));
+    assert.equal(moving.target, 0);
+    assert.equal(moving.json, start.json);
+    for (let i = 0; i < 7; i++) assert.equal(moving.lanes[`connector:input-slot-${i + 1}`], i);
+    if (cancel) await page.evaluate(() => editorInteractionSvg.releasePointerCapture(editorNodeDrag.pointerId));
+    await page.mouse.up();
+    const after = await snapshot(page);
+    assert.deepEqual(after.laneMap, cancel ? before.laneMap : moving.lanes);
+    assert.deepEqual(after.connectors.filter(c => c.direction === "input"), before.connectors.filter(c => c.direction === "input"));
+    if (cancel) {
+      assert.equal(await page.evaluate(() => JSON.stringify(currentEditorTemplate())), start.json);
+      assert.deepEqual(after.selected, before.selected);
+    }
+    return after;
+  };
+  await dragToFirstBoundary("output-slot-7", true);
+  const committed = await dragToFirstBoundary("output-slot-7", false);
+  const reordered = { ...expected, "connector:output-slot-7": 0 };
+  for (let i = 1; i <= 6; i++) reordered[`connector:output-slot-${i}`] = i;
+  assert.deepEqual(committed.laneMap, reordered, "only the right collision chain moves");
+  // Leave one empty right node to prove completely free left-only rows are usable too.
+  await page.evaluate(() => {
+    for (const c of [...currentEditorTemplate().connectors]) {
+      if (c.direction === "output" && c.id !== "output-slot-6") removeEditorNode(currentEditorTemplate().connectors.findIndex(n => n.id === c.id));
+    }
+  });
+  const sparse = await dragToFirstBoundary("output-slot-6", false);
+  assert.equal(sparse.laneMap["connector:output-slot-6"], 0);
+  const geometry = nodes => nodes.map(c => [c.id, c.x, c.y, c.anchors.map(a => [a.id, a.side, a.x, a.y])]);
+  await page.evaluate(() => {
+    for (const id of ["input-slot-1", "input-slot-4", "output-slot-6"]) fillEditorSlotById(id, "hdmi");
+  });
+  const typed = await snapshot(page);
+  assert.deepEqual(typed.laneMap, sparse.laneMap);
+  assert.deepEqual(geometry(typed.connectors), geometry(sparse.connectors));
+  assert.deepEqual(typed.items, sparse.items);
+  console.log(`${mode}: three native empty-output drags passed (cancel, right collision chain, left-only rows); plug assignment retained lanes/anchors/masks`);
 }
 
 async function faceplateHandoffSmoke(page, mode) {
@@ -223,11 +303,15 @@ try {
     await page.locator("#newDeviceTemplate").click();
     await page.locator('[data-editor-tab="connectors"]').click();
     assert.equal(await page.evaluate(() => deviceEditorActivePreviewUsesEngine()), mode === "engine");
+    await rapidEmptyNodeSmoke(page, mode);
+    await page.locator('[data-editor-tab="device"]').click();
+    await page.locator("#newDeviceTemplate").click();
+    await page.locator('[data-editor-tab="connectors"]').click();
     for (let i = 0; i < 3; i += 1) await clickAppend(page, "output");
     const before = await snapshot(page);
     const after = await clickAppend(page, "input");
     assert.deepEqual(before.laneMap, { "connector:output-slot-1": 0, "connector:output-slot-2": 1, "connector:output-slot-3": 2 });
-    assert.deepEqual(after.laneMap, { ...before.laneMap, "connector:input-slot-1": 3 });
+    assert.deepEqual(after.laneMap, { ...before.laneMap, "connector:input-slot-1": 0 });
     await clickAppend(page, "output");
 
     // Seed reusable card data; additions themselves always use the actual controls.
@@ -255,7 +339,7 @@ try {
       await page.screenshot({ path: `${process.env.AVDESIGNER_SMOKE_SCREENSHOT_DIR}/append-${mode}.png` });
     }
     assert.deepEqual(errors, []);
-    console.log(`${mode}: 7 real Add button clicks passed; outputs 0/1/2 -> input 3; mixed card extent 7 -> input 7/output 8; rendered slots and unchanged existing content verified`);
+    console.log(`${mode}: 7 additional Add button clicks passed; outputs 0/1/2 -> input 0; mixed card extent 7 -> input 7/output 7; rendered slots and unchanged existing content verified`);
     await faceplateHandoffSmoke(page, mode);
     assert.deepEqual(errors, []);
     await page.close();
