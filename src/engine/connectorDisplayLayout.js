@@ -2,6 +2,7 @@ import {
   connectorVisualAnchors,
   normalizeConnectorRelationships
 } from "./deviceDefinitionV2.js";
+import { rigidSharedBusGroups } from "./sharedBusPlacement.js";
 
 export const SHARED_BUS_MAX_MEMBERS = 4;
 export const SHARED_BUS_SLOT_HEIGHT = 54;
@@ -30,6 +31,7 @@ export function createConnectorDisplayLayout(device = {}, connectors = device?.c
   const byConnectorId = new Map();
   const groups = [];
   const consumed = new Set();
+  const rigidGroups = rigidSharedBusGroups({ ...device, connectors: visibleConnectors, connectorRelationships: relationships });
 
   relationships.forEach(relationship => {
     if (relationship.type !== "exclusive") return;
@@ -58,8 +60,10 @@ export function createConnectorDisplayLayout(device = {}, connectors = device?.c
     const groupHeight = sharedBusDisplaySpan(ordered.length);
     const firstY = packedGroupFirstY(averageY, groupHeight, device);
     const gap = ordered.length > 1 ? groupHeight / (ordered.length - 1) : 0;
+    const rigid = rigidGroups.find(group => group.relationshipId === relationship.id);
+    const persistedRigid = rigid && ordered.every((entry, index) => Math.abs(sourceYs[index] - sourceYs[0] - rigid.offsets[index] + rigid.offsets[0]) < .001);
     const points = ordered.map((entry, index) => {
-      const y = firstY + gap * index;
+      const y = persistedRigid ? sourceYs[index] : firstY + gap * index;
       const anchor = { ...entry.anchor, y };
       return {
         connector: entry.connector,
@@ -116,7 +120,9 @@ export function connectorDisplayAnchors(device = {}, connector = {}, displayLayo
   const entry = connector?.id ? layout.byConnectorId.get(connector.id) : null;
   const anchors = connectorVisualAnchors(connector, device);
   if (!entry || !Number.isFinite(Number(entry.displayY))) return anchors;
-  return anchors.map(anchor => ({ ...anchor, y: entry.displayY }));
+  const primary = primaryDisplayAnchor(device, connector);
+  const delta = entry.displayY - sourceConnectorY(connector, primary);
+  return anchors.map(anchor => ({ ...anchor, y: sourceConnectorY(connector, anchor) + delta }));
 }
 
 export function connectorDisplayAnchorById(device = {}, connector = {}, anchorId = "", displayLayout = null) {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
+import * as sharedBusPlacement from "../src/engine/sharedBusPlacement.js";
 
 import { createPreviewDeviceFromDraft } from "../src/engine/enginePreview.js";
 import { resolveModularDeviceLayout } from "../src/engine/modularDeviceLayout.js";
@@ -72,6 +73,7 @@ function standaloneViewerGeometryApi() {
   assert.ok(start >= 0 && end > start, "standalone viewer modular geometry block should exist");
   const source = INDEX_HTML.slice(start, end + endNeedle.length);
   const context = {
+    sharedBusPlacement,
     Map,
     Set,
     Math,

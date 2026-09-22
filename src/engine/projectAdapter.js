@@ -57,8 +57,12 @@ import {
   cardBandGeometryForSlot,
   cardConnectorRowCounts,
   cardSlotSpanLanes,
+  placementItemFromConnector,
+  placementItemFromCardSlot,
+  resolveModularPlacementItems,
   resolveInstalledCardConnectors
 } from "./modularDeviceLayout.js";
+import { groupSharedBusPlacementItems, rigidSharedBusGroups } from "./sharedBusPlacement.js";
 import { commentLeaderEnd } from "./commentGeometry.js";
 import {
   TITLE_BLOCK_BASE_HEIGHT,
@@ -619,7 +623,19 @@ function adapterMappingSummary(mapping = {}) {
 }
 
 function installedCardLayout(template = {}, width = DEFAULT_DEVICE_WIDTH) {
+  let layout;
+  if (rigidSharedBusGroups(template).length) {
+    const connectors = (template.connectors || []).filter(c => !c.faceplateSide);
+    const items = [
+      ...connectors.map((c, index) => placementItemFromConnector(c, { deviceWidth: width, index })),
+      ...(template.cardSlots || []).map((slot, index) => placementItemFromCardSlot(slot,
+        template.cardTypes?.find(card => card.id === slot.installedCardTypeId), { index, order: connectors.length + index }))
+    ];
+    layout = resolveModularPlacementItems(groupSharedBusPlacementItems(template, items), { preserveRequestedY: true });
+    layout.cardSlotPositions = new Map(layout.items.filter(item => item.itemType === "card-slot").map(item => [item.id, item]));
+  }
   return resolveInstalledCardConnectors({
+    layout,
     cardSlots: template.cardSlots,
     cardTypes: template.cardTypes,
     connectors: template.connectors || [],

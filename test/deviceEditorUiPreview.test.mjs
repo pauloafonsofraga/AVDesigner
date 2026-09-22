@@ -9,6 +9,7 @@ import {
   previewDeviceVisualKey
 } from "../src/engine/enginePreview.js";
 import * as placementMotionModule from "../src/engine/deviceEditorPlacementMotion.js";
+import * as sharedBusPlacementModule from "../src/engine/sharedBusPlacement.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 import {
   authoringInsertionBoundaryForLane,
@@ -221,6 +222,7 @@ function stableDragHarness(template) {
       return true;
     },
     requireDeviceEditorPlacementModule: () => ({
+      ...sharedBusPlacementModule,
       authoringInsertionBoundaryWithHysteresis,
       createModularAuthoringInsertionSession,
       createModularCompositeInsertionDragSession,
@@ -374,6 +376,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     releasePointerCapture(pointerId) { this.capturedPointers.delete(pointerId); }
   };
   const placementModule = {
+    ...sharedBusPlacementModule,
     authoringInsertionBoundaryForLane,
     authoringInsertionBoundaryWithHysteresis,
     connectorPlacementSideMask,
@@ -1169,6 +1172,7 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
     applyEditorFaceImageResize: () => false,
     updateEditorResizeSessionFromEvent: () => false,
     requireDeviceEditorPlacementModule: () => ({
+      ...sharedBusPlacementModule,
       authoringInsertionBoundaryForLane,
       authoringInsertionBoundaryScreenPositions,
       authoringInsertionBoundaryWithHysteresis,
@@ -1378,6 +1382,7 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
 
 function deviceHeightCalculationHarness() {
   const context = {
+    requireDeviceEditorPlacementModule: () => sharedBusPlacementModule,
     Math,
     Map,
     Number,
@@ -2199,13 +2204,55 @@ for (const direction of ["input", "output"]) {
   });
 }
 
+test("rigid shared bus reserves one object instead of compressing across an ordinary row", () => {
+  const h = structuralEditorHarness({
+    connectors: [testConnector("bus-a", "left", 0, { v2: true }), testConnector("ordinary", "left", 1, { v2: true }), testConnector("bus-b", "left", 2, { v2: true })],
+    connectorRelationships: [{ id: "bus", type: "exclusive", members: ["bus-a", "bus-b"] }]
+  });
+  const before = JSON.stringify(h.template);
+  const layout = h.api.resolveEditorModularLayout(h.template);
+  assert.deepEqual(itemLaneMap(layout), { "shared-bus:bus": 0, "connector:ordinary": 1 });
+  assert.equal(JSON.stringify(h.template), before);
+  h.api.applyEditorStableResolvedLayout(h.template, layout);
+  assert.deepEqual(h.template.connectors.map(c => [c.id, c.y, c.anchors[0].y]), [["bus-a", 91, 91], ["ordinary", 154, 154], ["bus-b", 109, 109]]);
+});
+
+test("shared layout normalization preserves unrelated adapter placement flags", () => {
+  const h = structuralEditorHarness({ connectors: [testConnector("adapter", "left", 0, { v2: true, adapterCenterSnap: true })] });
+  h.context.normalizeMixedDeviceRows(h.template);
+  assert.equal(h.template.connectors[0].adapterCenterSnap, true);
+});
+
+for (const count of [2, 3, 4]) for (const side of ["left", "right"]) {
+  test(`rigid shared bus ${count}/${side} static lane map and height use the same complete reservation`, () => {
+    const members = Array.from({ length: count }, (_, i) => testConnector(`bus-${i}`, side, i + 1, { v2: true }));
+    const h = structuralEditorHarness({
+      connectors: [testConnector("before", side, 0, { v2: true }), ...members,
+        testConnector("after", side, 1, { v2: true }), testConnector("opposite", side === "left" ? "right" : "left", 1, { v2: true })],
+      connectorRelationships: [{ id: "bus", type: "exclusive", members: members.map(c => c.id) }]
+    });
+    const layout = h.api.resolveEditorModularLayout(h.template), span = count === 4 ? 2 : 1;
+    assert.deepEqual(itemLaneMap(layout), { "connector:before": 0, "shared-bus:bus": 1, "connector:after": 1 + span, "connector:opposite": 1 });
+    assert.equal(layout.endLane, 2 + span);
+    assert.equal(deviceHeightCalculationHarness().api.deviceHeightForSlotCounts(h.template, { layout }), 100 + (2 + span) * 54 + 48);
+    h.api.applyEditorStableResolvedLayout(h.template, layout);
+    const ys = members.map(c => h.template.connectors.find(item => item.id === c.id).y);
+    assert.deepEqual(ys.map(y => y - 154), count === 2 ? [-9, 9] : count === 3 ? [-18, 0, 18] : [0, 18, 36, 54]);
+    assert.ok(ys[0] - 100 >= 16);
+    assert.ok(h.template.connectors.find(c => c.id === "after").y - ys.at(-1) >= 16);
+  });
+}
+
 test("Device Editor default append preserves shared-bus members, anchors and relationship data", () => {
   const h = structuralEditorHarness({
     connectors: [0, 1, 2, 3].map(lane => testConnector(`bus-${lane}`, "right", lane, { v2: true, nameText: `SDI ${lane + 1}` })),
     connectorRelationships: [{ id: "bus", type: "shared-bus", members: ["bus-0", "bus-1", "bus-2", "bus-3"], outputMode: "and" }]
   });
+  h.context.normalizeMixedDeviceRows(h.template);
   assertDefaultNodeAppend(h, "input");
-  assert.equal(h.template.connectors.at(-1).y, 316);
+  assert.equal(h.template.connectors.at(-1).y, 208);
+  assertDefaultNodeAppend(h, "output");
+  assert.equal(h.template.connectors.at(-1).y, 262);
 });
 
 test("Device Editor default append repeated additions never move earlier rows", () => {
@@ -3196,6 +3243,7 @@ test("Device Editor Power Distro origin rebases mixed modular content atomically
     });
   });
   const committedFaceplateConnector = template.connectors.find(connector => connector.id === "faceplate-side");
+  context.normalizeMixedDeviceRows(template);
   committedFaceplateConnector.y = 42;
   committedFaceplateConnector.anchors[0].y = 42;
   template.height = context.deviceHeightForSlotCounts(template);
@@ -3836,6 +3884,148 @@ function faceplateDragHarness({ side = "left", scale = 1, face = "default", dock
     exitY: () => { const b = context.faceplateSideConnectorBounds(template); return b.y + b.height + 54 * .45 + 1; }
   };
 }
+
+function rigidBusDragHarness(count = 4, side = "left") {
+  const h = faceplateDragHarness({ side, docked: false, scale: .2 });
+  const { template, context } = h;
+  template.cardTypes = [{ id: "io", kind: "io", connectors: [testConnector("card-in", "left", 0)] }];
+  template.cardSlots = [{ id: "slot", y: 370, installedCardTypeId: "io", connectorOverrides: { "card-in": { nameText: "Installed" } } }];
+  template.hasSwappableCards = true;
+  template.connectors = [testConnector("before", side, 0, { v2: true }),
+    ...Array.from({ length: count }, (_, i) => testConnector(`bus-${i}`, side, i + 1, { v2: true, nameText: `SDI 12G ${i}` })),
+    testConnector("after", side, 3, { v2: true }), testConnector("opposite", side === "left" ? "right" : "left", 1, { v2: true }),
+    testConnector("both", "both", 4, { v2: true })];
+  template.connectorRelationships = [{ id: "bus", type: "exclusive", members: Array.from({ length: count }, (_, i) => `bus-${i}`) }];
+  context.normalizeMixedDeviceRows(template);
+  context.editorSelectedNodeIds = new Set(["before"]);
+  context.editorSelectedNodeIndex = 0;
+  vm.runInNewContext(["editorStableDragLayout", "editorStableDragLayoutPositions", "commitEditorSharedBusRelationshipEdit"].map(functionSource).join("\n"), context);
+  const preview = () => {
+    const layout = structuredClone(context.motionTarget || h.api.resolveEditorModularLayout(template));
+    const drag = context.editorNodeDrag;
+    if (drag && Number.isFinite(context.motionY)) layout.items.forEach(item => {
+      if (drag.selectedDraggedItemIds.includes(item.id)) item.y = context.motionY + drag.selectedItemOffsets.get(item.id);
+    });
+    return context.editorStableDragLayoutPositions(layout, "connector", template);
+  };
+  const moveBoundary = index => {
+    const drag = context.editorNodeDrag;
+    const positions = authoringInsertionBoundaryScreenPositions(drag.session, { projectedLanePx: drag.projectedLanePx, minimumStepPx: 12 });
+    h.move((drag.pointerStartClientY + positions[index] - positions[drag.originalBoundaryIndex]) / h.scale);
+    return context.editorNodeDrag;
+  };
+  return { ...h, preview, moveBoundary };
+}
+
+for (const count of [2, 3, 4]) for (const side of ["left", "right"]) {
+  test(`rigid shared bus ${count}/${side} drags from every member without expansion across nodes and cards`, () => {
+    for (let member = 0; member < count; member++) {
+      const h = rigidBusDragHarness(count, side);
+      const before = JSON.stringify(h.template);
+      h.start(member + 1);
+      const drag = h.context.editorNodeDrag;
+      assert.equal(drag.itemId, "shared-bus:bus");
+      assert.deepEqual([...drag.selectedDraggedItemIds], ["shared-bus:bus"]);
+      assert.equal(drag.session.snapshot.items.filter(i => i.itemType === "shared-bus").length, 1);
+      const last = drag.session.boundaries.length - 1;
+      for (const boundary of [last, 0, last, 1, 0, last]) {
+        h.moveBoundary(boundary);
+        assert.equal(drag.currentBoundaryIndex, boundary);
+        const ys = Array.from({ length: count }, (_, i) => h.preview().get(`bus-${i}`));
+        assert.deepEqual(ys.map(y => y - ys[0]), Array.from({ length: count }, (_, i) => i * 18));
+        assert.equal(JSON.stringify(h.template), before, "motion never persists coordinates or height");
+        assert.equal(drag.specialTarget, null, "a bus member cannot dock independently");
+      }
+      const accepted = h.context.editorStableDragLayoutPositions(drag.lastValidResolvedLayout, "connector", h.template);
+      h.stop();
+      h.template.connectors.forEach(c => { assert.equal(c.y, accepted.get(c.id)); assert.equal(c.anchors[0].y, c.y); });
+      assert.deepEqual([...h.context.editorSelectedNodeIds], [`bus-${member}`]);
+      assert.deepEqual(h.template.connectorRelationships[0].members, Array.from({ length: count }, (_, i) => `bus-${i}`));
+    }
+  });
+}
+
+for (const phase of ["start", "moved", "reversed"]) for (const type of ["pointercancel", "lostpointercapture"]) {
+  test(`rigid shared bus ${type}/${phase} restores exact baseline and clears motion`, () => {
+    const h = rigidBusDragHarness(), before = JSON.stringify(h.template);
+    h.start(3);
+    if (phase !== "start") h.moveBoundary(h.context.editorNodeDrag.session.boundaries.length - 1);
+    if (phase === "reversed") h.moveBoundary(0);
+    h.cancel(type);
+    assert.equal(JSON.stringify(h.template), before);
+    assert.deepEqual([...h.context.editorSelectedNodeIds], ["before"]);
+    assert.equal(h.context.editorSelectedNodeIndex, 0);
+    assert.equal(h.context.pendingMotion, false);
+    assert.equal(h.context.editorPlacementMotionPreviewLock, null);
+  });
+}
+
+test("rigid shared bus composite selection deduplicates members without replacing inspector IDs", () => {
+  const h = rigidBusDragHarness();
+  h.context.editorSelectedNodeIds = new Set(["bus-0", "bus-2", "after"]);
+  h.context.setEditorNodeSelection = () => {};
+  h.start(1);
+  assert.deepEqual([...h.context.editorNodeDrag.selectedDraggedItemIds], ["shared-bus:bus", "connector:after"]);
+  assert.equal(h.context.editorNodeDrag.compositeDrag, true);
+  h.moveBoundary(0); h.stop();
+  assert.deepEqual([...h.context.editorSelectedNodeIds], ["bus-0", "bus-2", "after"]);
+});
+
+test("rigid shared bus relationship creation/removal are atomic, consecutive, stable over ten cycles", () => {
+  const h = rigidBusDragHarness(4);
+  const members = [...h.template.connectorRelationships[0].members];
+  let on, off;
+  for (let i = 0; i < 10; i++) {
+    h.context.commitEditorSharedBusRelationshipEdit(h.template, draft => { draft.connectorRelationships = []; });
+    const lanes = members.map(id => h.api.resolveEditorModularLayout(h.template).byId.get(`connector:${id}`).lane);
+    assert.deepEqual(lanes.map(lane => lane - lanes[0]), [0, 1, 2, 3]);
+    if (i) assert.equal(JSON.stringify(h.template), off);
+    off = JSON.stringify(h.template);
+    h.context.commitEditorSharedBusRelationshipEdit(h.template, draft => { draft.connectorRelationships = [{ id: "bus", type: "exclusive", members }]; });
+    assert.equal(h.api.resolveEditorModularLayout(h.template).items.filter(item => item.itemType === "shared-bus").length, 1);
+    if (i) assert.equal(JSON.stringify(h.template), on);
+    on = JSON.stringify(h.template);
+  }
+  const selection = [...h.context.editorSelectedNodeIds];
+  h.placementModule.forceInvalid = true;
+  assert.throws(() => h.context.commitEditorSharedBusRelationshipEdit(h.template, draft => { draft.connectorRelationships = []; }), /invalid layout/);
+  assert.equal(JSON.stringify(h.template), on);
+  assert.deepEqual([...h.context.editorSelectedNodeIds], selection);
+});
+
+test("rigid shared bus partial membership removal retains the group and places the detached member atomically", () => {
+  const h = rigidBusDragHarness();
+  h.context.commitEditorSharedBusRelationshipEdit(h.template, draft => { draft.connectorRelationships[0].members.pop(); });
+  const layout = h.api.resolveEditorModularLayout(h.template);
+  assert.ok(layout.byId.has("shared-bus:bus"));
+  assert.ok(layout.byId.has("connector:bus-3"));
+  const ys = h.template.connectors.filter(c => /^bus-/.test(c.id)).map(c => c.y);
+  assert.deepEqual(ys.slice(0, 3).map(y => y - ys[0]), [0, 18, 36]);
+  assert.ok(ys[3] - ys[2] >= 16);
+  const before = JSON.stringify(h.template);
+  for (let i = 0; i < 5; i++) h.context.normalizeMixedDeviceRows(h.template);
+  assert.equal(JSON.stringify(h.template), before);
+});
+
+test("historical shared bus rows resolve once without render mutation or reopen height drift", () => {
+  const h = rigidBusDragHarness();
+  for (let i = 0; i < 4; i++) {
+    const c = h.template.connectors.find(c => c.id === `bus-${i}`);
+    c.y = 154 + i * 54;
+    c.anchors.forEach(a => { a.y = c.y; });
+  }
+  const before = JSON.stringify(h.template);
+  const first = itemLaneMap(h.api.resolveEditorModularLayout(h.template));
+  for (let i = 0; i < 5; i++) assert.deepEqual(itemLaneMap(h.api.resolveEditorModularLayout(h.template)), first);
+  assert.equal(JSON.stringify(h.template), before);
+  h.context.normalizeMixedDeviceRows(h.template);
+  const normalized = JSON.stringify(h.template);
+  for (let i = 0; i < 5; i++) {
+    Object.assign(h.template, JSON.parse(JSON.stringify(h.template)));
+    h.context.normalizeMixedDeviceRows(h.template);
+    assert.equal(JSON.stringify(h.template), normalized);
+  }
+});
 
 test("faceplate handoff reproduces real docked input session and accumulated-distance defect", () => {
   const h = faceplateDragHarness({ face: "custom", scale: .2 });
@@ -7716,7 +7906,7 @@ test("release-hardening deterministic edit trace preserves placement invariants"
     const template = current();
     const startY = context.connectorStartYForTemplate(template);
     const layout = api.resolveEditorModularLayout(template);
-    const selectedIds = ["connector:release-left", "connector:release-network-in"];
+    const selectedIds = ["release-left", "release-network-in"].map(id => layout.items.find(item => item.memberIds?.includes(id))?.id || `connector:${id}`);
     const session = createModularCompositeInsertionDragSession(layout.items, selectedIds, selectedIds[0], { startY, slotHeight: 54 });
     const targetLane = Math.max(0, session.primaryOriginalLane + 1);
     const resolved = resolveModularCompositeInsertionDrag(session, targetLane, { startY, slotHeight: 54 });

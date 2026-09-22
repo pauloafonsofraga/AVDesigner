@@ -3451,6 +3451,11 @@
       pointer-events: none;
     }
 
+    .editor-preview.engine-preview-mode .engine-preview-labels {
+      /* Live connector fields must remain above masks for the previous card texture. */
+      z-index: 5;
+    }
+
     .editor-preview.engine-preview-mode .engine-preview-authoring-overlay {
       pointer-events: auto !important;
       z-index: 3;
@@ -5006,7 +5011,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.22.0 — Stable Faceplate Node Handoff — iteration54-22-0-stable-faceplate-node-handoff</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.23.0 — Rigid Shared Bus Placement — iteration54-23-0-rigid-shared-bus-placement</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5700,13 +5705,13 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.22.0";
-    const APP_BUILD_ID = "iteration54-22-0-stable-faceplate-node-handoff";
-    const APP_MODULE_CACHE_ID = "iteration54-22-0-stable-faceplate-node-handoff-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Stable Faceplate Node Handoff`;
+    const APP_ITERATION = "54.23.0";
+    const APP_BUILD_ID = "iteration54-23-0-rigid-shared-bus-placement";
+    const APP_MODULE_CACHE_ID = "iteration54-23-0-rigid-shared-bus-placement-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Rigid Shared Bus Placement`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
-    const APP_SOURCE_BASE_COMMIT = "6dc62f5ef0b40e65629ccfb8a5d9e2071fa8273f";
+    const APP_SOURCE_BASE_COMMIT = "ae5d71c75843ad401ff457df0fcdde0e99bdc9a5";
     const CANVAS_MIN_ZOOM = 0.03;
     const CANVAS_MAX_ZOOM = 8;
     const ENGINE_COMMENT_ARROW_LENGTH = 16;
@@ -79543,7 +79548,7 @@
     }
 
     function editorPlacementItemId(item) {
-      return `${item.kind}:${item.ref?.id || item.index}`;
+      return item.id || `${item.kind}:${item.ref?.id || item.index}`;
     }
 
     function resolveEditorPlacementItems(items, startY) {
@@ -79553,7 +79558,7 @@
         return {
           ...item,
           id: editorPlacementItemId(item),
-          itemType: item.kind === "card" ? "card-slot" : "chassis-connector",
+          itemType: item.itemType || (item.kind === "card" ? "card-slot" : "chassis-connector"),
           sideMask: normalizeEditorPlacementSideMask(item.sideMask),
           requestedLane: laneIndexForY(y, startY),
           requestedY: y,
@@ -79605,7 +79610,8 @@
           order: slotOrderOffset + index
         };
       });
-      return [...connectors, ...cards];
+      const items = [...connectors, ...cards].map(item => ({ ...item, id: editorPlacementItemId(item) }));
+      return requireDeviceEditorPlacementModule().groupSharedBusPlacementItems(template, items, { startY, slotHeight: SLOT_HEIGHT });
     }
 
     function resolveEditorModularLayout(template, options = {}) {
@@ -79688,6 +79694,7 @@
     function editorStableLayoutItemKind(item = {}) {
       const id = String(item.id || "");
       if (item.kind === "card" || item.itemType === "card-slot" || id.startsWith("card:")) return "card";
+      if (item.itemType === "shared-bus" || id.startsWith("shared-bus:")) return "shared-bus";
       return "connector";
     }
 
@@ -79699,9 +79706,16 @@
       return separator >= 0 ? raw.slice(separator + 1) : raw;
     }
 
-    function editorStableDragLayoutPositions(layout, kind) {
+    function editorStableDragLayoutPositions(layout, kind, template = null) {
       const map = new Map();
+      const groups = (layout?.items || []).some(item => item.itemType === "shared-bus")
+        ? requireDeviceEditorPlacementModule().rigidSharedBusGroups(template || currentEditorTemplate()) : [];
       (layout?.items || []).forEach(item => {
+        if (kind === "connector" && editorStableLayoutItemKind(item) === "shared-bus") {
+          const group = groups.find(group => group.id === item.id);
+          if (group) requireDeviceEditorPlacementModule().sharedBusMemberPositions(group, item.y).forEach((y, id) => map.set(id, y));
+          return;
+        }
         if (editorStableLayoutItemKind(item) !== kind) return;
         map.set(editorStableDragSourceId(item.id, kind), item.y);
       });
@@ -79898,8 +79912,11 @@
       const placementModule = requireDeviceEditorPlacementModule();
       const startY = connectorStartYForTemplate(template);
       const layout = resolveEditorModularLayout(template, { useDragPreview: false });
-      const itemIds = sourceIds.map(id => editorStableDragItemId(kind, id));
-      const itemId = editorStableDragItemId(kind, primarySourceId);
+      const placementId = id => kind === "connector"
+        ? layout.items.find(item => item.itemType === "shared-bus" && item.memberIds.includes(id))?.id || editorStableDragItemId(kind, id)
+        : editorStableDragItemId(kind, id);
+      const itemIds = [...new Set(sourceIds.map(placementId))];
+      const itemId = placementId(primarySourceId);
       const visualItem = editorPlacementItemByStableId(layout, itemId);
       if (!visualItem) return null;
       const session = placementModule.createModularAuthoringInsertionSession(layout.items, {
@@ -80077,14 +80094,25 @@
       const includeConnectors = options.includeConnectors !== false;
       const includeCards = options.includeCards !== false;
       const edgeX = deviceTemplateWidth(template);
+      const groups = requireDeviceEditorPlacementModule().rigidSharedBusGroups(template);
       layout.items.forEach(item => {
         const itemKind = editorStableLayoutItemKind(item);
         const sourceId = editorStableDragSourceId(item.id, itemKind);
-        if (itemKind === "connector" && includeConnectors) {
+        if (itemKind === "shared-bus" && includeConnectors) {
+          const group = groups.find(group => group.id === item.id);
+          if (!group) throw new Error(`Missing rigid shared bus ${item.id}.`);
+          requireDeviceEditorPlacementModule().sharedBusMemberPositions(group, item.y).forEach((y, id) => {
+            const connector = template.connectors.find(c => c.id === id);
+            connector.y = y;
+            syncEditorConnectorAnchorsToPosition(template, connector);
+          });
+        } else if (itemKind === "connector" && includeConnectors) {
           const connector = template.connectors?.find(candidate => candidate.id === sourceId);
           if (!connector) return;
-          connector.faceplateSide = false;
-          delete connector.adapterCenterSnap;
+          if (options.preservePlacementFlags !== true) {
+            connector.faceplateSide = false;
+            delete connector.adapterCenterSnap;
+          }
           connector.y = item.y;
           connector.x = connectorSideKey(connector) === "input" ? 0 : edgeX;
           syncEditorConnectorAnchorsToPosition(template, connector);
@@ -80112,8 +80140,9 @@
         const lane = laneIndexForY(y, startY);
         return {
           id: editorPlacementItemId(item),
-          kind: item.kind === "card" ? "card" : "connector",
-          itemType: item.kind === "card" ? "card-slot" : "chassis-connector",
+          kind: item.kind,
+          itemType: item.itemType || (item.kind === "card" ? "card-slot" : "chassis-connector"),
+          memberIds: item.memberIds,
           sideMask: normalizeEditorPlacementSideMask(item.sideMask),
           requestedLane: lane,
           requestedY: laneY(lane, startY),
@@ -80182,6 +80211,11 @@
           const slot = draft.cardSlots?.find(candidate => candidate.id === sourceId);
           if (!slot) return;
           slot.y = y;
+          rebasedCount += 1;
+          return;
+        }
+        if (kind === "shared-bus") {
+          applyEditorStableResolvedLayout(draft, { items: [{ ...item, y }] }, { normalize: false, updateHeight: false });
           rebasedCount += 1;
           return;
         }
@@ -80415,7 +80449,7 @@
         cancelled = true;
       }
       if (matches(editorNodeDrag) && editorNodeDrag) {
-        if (editorNodeDrag.handoffUsed) restoreEditorConnectorHandoff(editorNodeDrag);
+        if (editorNodeDrag.handoffUsed || editorNodeDrag.rigidSharedBus) restoreEditorConnectorHandoff(editorNodeDrag);
         else {
           rollbackStarted = rollbackEditorPlacementMotionForDrag(editorNodeDrag) || rollbackStarted;
           restoreEditorCardDragSelection(editorNodeDrag.selectionSnapshot);
@@ -80612,16 +80646,7 @@
 
     function normalizeMixedDeviceRows(template) {
       const layout = resolveEditorModularLayout(template, { useDragPreview: false });
-      layout.items.forEach(item => {
-        if (item.kind === "card") {
-          item.ref.y = item.y;
-          return;
-        }
-        const side = connectorSideKey(item.ref);
-        item.ref.y = item.y;
-        item.ref.x = side === "input" ? 0 : deviceTemplateWidth(template);
-        syncEditorConnectorAnchorsToPosition(template, item.ref);
-      });
+      applyEditorStableResolvedLayout(template, layout, { normalize: false, updateHeight: false, preservePlacementFlags: true });
     }
 
     function generatedCardConnectors(template) {
@@ -83952,10 +83977,17 @@
     function applyEditorSharedRelationshipDisplayPositions(template, positions = new Map()) {
       const result = new Map(positions);
       if (!template || isAdapterTemplate(template)) return result;
+      const rigidIds = new Set(requireDeviceEditorPlacementModule().rigidSharedBusGroups(template).map(group => group.relationshipId));
+      if (rigidIds.size) {
+        editorStableDragLayoutPositions(resolveEditorModularLayout(template), "connector", template).forEach((y, id) => {
+          if (!result.has(id)) result.set(id, y);
+        });
+      }
       const draggingIds = new Set(editorDragConnectorIds(template));
       const startY = connectorStartYForTemplate(template);
       const maxY = Math.max(startY, (Number(template.height) || deviceHeightForSlotCounts(template)) - DEVICE_BOTTOM_PAD);
       editorActiveSharedBusRelationships(template).forEach(({ relationship, members }) => {
+        if (rigidIds.has(relationship.id)) return;
         if (members.some(connector => draggingIds.has(connector.id))) return;
         const primarySides = members.map(connector => editorPrimaryAnchorSide(connector));
         const leftCount = primarySides.filter(side => side !== "right").length;
@@ -84027,12 +84059,18 @@
       (Array.isArray(template.connectorRelationships) ? template.connectorRelationships : []).forEach((relationship, index) => {
         const type = normalizeEditorRelationshipType(relationship?.type || relationship?.relationshipType);
         if (!["mirrored", "exclusive", "through"].includes(type)) return;
-        const members = uniqueEditorRelationshipMembers(relationship.members || relationship.connectorIds || [
+        const rawMembers = relationship.members || relationship.connectorIds || [
           relationship.sourceConnectorId,
           relationship.targetConnectorId,
           relationship.fromConnectorId,
           relationship.toConnectorId
-        ]).filter(id => ids.has(id));
+        ];
+        if (type === "exclusive" && (!Array.isArray(rawMembers) || rawMembers.length < 2
+          || new Set(rawMembers).size !== rawMembers.length || rawMembers.some(id => !ids.has(id)))) {
+          relationships.push(structuredClone(relationship));
+          return;
+        }
+        const members = uniqueEditorRelationshipMembers(rawMembers).filter(id => ids.has(id));
         if (type !== "through" && members.length < 2) return;
         if (type === "through" && members.length < 2) return;
         const outputOnly = type === "exclusive" && members.every(memberId => {
@@ -89193,6 +89231,38 @@
       renderDeviceAuthoringDebugPanel();
     }
 
+    function commitEditorSharedBusRelationshipEdit(template, mutate) {
+      const selection = captureEditorCardDragSelection();
+      const groups = requireDeviceEditorPlacementModule().rigidSharedBusGroups(template);
+      try {
+        return commitEditorStructuralEdit(template, {
+          mutate(draft, context) {
+            mutate(draft);
+            const nextGroups = requireDeviceEditorPlacementModule().rigidSharedBusGroups(draft);
+            const hardTargets = {};
+            groups.forEach(group => {
+              const base = editorPlacementItemByStableId(context.baselineLayout, group.id);
+              group.memberIds.forEach((id, index) => {
+                if (nextGroups.some(next => next.memberIds.includes(id))) return;
+                const member = draft.connectors.find(c => c.id === id);
+                if (!member) return;
+                member.y = context.targetYForLane(base.lane + index);
+                syncEditorConnectorAnchorsToPosition(draft, member);
+                hardTargets[`connector:${id}`] = base.lane + index;
+              });
+            });
+            nextGroups.filter(group => !groups.some(previous => previous.id === group.id)).forEach(group => {
+              hardTargets[group.id] = context.targetLaneForY(group.requestedY);
+            });
+            return { hardTargets };
+          }
+        });
+      } catch (error) {
+        restoreEditorCardDragSelection(selection);
+        throw error;
+      }
+    }
+
     function validateEditorTemplateForApply(template) {
       validateDraftDefaults(template, { normalizePlacement: false });
       validateDeviceTemplate(template);
@@ -89228,7 +89298,7 @@
         renderConnectorRelationshipsPanel();
         return;
       }
-      if (type === "exclusive") upsertExclusiveRelationshipForSelection(template, members);
+      if (type === "exclusive") commitEditorSharedBusRelationshipEdit(template, draft => upsertExclusiveRelationshipForSelection(draft, members));
       if (type === "through") upsertThroughRelationshipForSelection(template, members);
       commitConnectorRelationshipChanges(template);
     }
@@ -91003,7 +91073,8 @@
     function deviceContentHeightForSlotCounts(template, options = {}) {
       const startY = connectorStartYForTemplate(template);
       const minHeight = deviceMinimumHeight(template, startY);
-      const layout = options.layout?.items?.length ? options.layout : null;
+      const hasRigidBus = requireDeviceEditorPlacementModule().rigidSharedBusGroups(template).length > 0;
+      const layout = options.layout?.items?.length ? options.layout : hasRigidBus ? resolveEditorModularLayout(template) : null;
       const connectors = effectiveTemplateConnectors(template);
       if (isAdapterTemplate(template)) {
         if (!connectors.length) return minHeight;
@@ -91036,6 +91107,7 @@
         }),
         ...bandBottoms
       );
+      if (hasRigidBus) return Math.max(deviceHeightForSlotCount(1, startY, minHeight), startY + layout.endLane * SLOT_HEIGHT + DEVICE_BOTTOM_PAD);
       return Math.max(deviceHeightForSlotCount(1, startY, minHeight), Math.ceil(maxY + SLOT_HEIGHT + DEVICE_BOTTOM_PAD));
     }
 
@@ -91276,8 +91348,9 @@
       if (deviceEditorPlacementModule) return Promise.resolve(deviceEditorPlacementModule);
       if (!deviceEditorPlacementModulePromise) {
         const moduleUrl = engineImportUrl("./src/engine/modularDeviceLayout.js");
-        deviceEditorPlacementModulePromise = import(moduleUrl)
-          .then(module => {
+        deviceEditorPlacementModulePromise = Promise.all([import(moduleUrl), import(engineImportUrl("./src/engine/sharedBusPlacement.js"))])
+          .then(([placement, sharedBus]) => {
+            const module = { ...placement, ...sharedBus };
             if (!module?.resolveModularPlacementItems
               || !module?.connectorPlacementSideMask
               || !module?.createModularInsertionDragSession
@@ -91523,8 +91596,11 @@
     function editorPlacementMotionConnectorPositions() {
       const map = new Map();
       const sample = editorPlacementMotionCurrentSample();
+      const groups = requireDeviceEditorPlacementModule().rigidSharedBusGroups(currentEditorTemplate());
       sample?.positions?.forEach((y, itemId) => {
         if (String(itemId).startsWith("connector:")) map.set(String(itemId).slice("connector:".length), y);
+        const group = groups.find(group => group.id === itemId);
+        if (group) requireDeviceEditorPlacementModule().sharedBusMemberPositions(group, y).forEach((memberY, id) => map.set(id, memberY));
       });
       return map;
     }
@@ -95891,7 +95967,10 @@
       const point = getEditorPreviewPoint(event);
       const coordinateFrame = captureEditorDragCoordinateFrame(event, point);
       const selectionSnapshot = captureEditorCardDragSelection();
-      const connectorIds = editorSelectedConnectorIds(template, { includePaired: true });
+      const selectedIds = editorSelectedConnectorIds(template, { includePaired: true });
+      const rigidGroups = requireDeviceEditorPlacementModule().rigidSharedBusGroups(template);
+      const movingGroups = rigidGroups.filter(group => group.memberIds.some(id => selectedIds.includes(id)));
+      const connectorIds = [...new Set([...selectedIds, ...movingGroups.flatMap(group => group.memberIds)])];
       const displayPositions = editorPreviewPositions(template);
       const primaryDisplayY = displayPositions.get(connector.id) ?? connector.y;
       const starts = new Map(connectorIds.map(id => {
@@ -95960,6 +96039,10 @@
         moved: false,
         ...(stableDrag || {})
       };
+      if (movingGroups.length) {
+        editorNodeDrag.rigidSharedBus = true;
+        editorNodeDrag.handoffBaseline = handoffBaseline;
+      }
       if (connectorIds.length === 1) {
         editorNodeDrag.handoffBaseline = handoffBaseline;
         editorNodeDrag.interactionMode = "modular";
@@ -96236,7 +96319,7 @@
         try {
           commitEditorNodeDrag(template);
         } catch (error) {
-          if (!completedDrag.handoffUsed) throw error;
+          if (!completedDrag.handoffUsed && !completedDrag.rigidSharedBus) throw error;
           console.warn("Unable to commit the connector handoff.", error);
           cancelEditorStableDrags(event);
           return;
@@ -109724,6 +109807,7 @@ ${wirechartSvgStyle()}
 <div class="report-backdrop hidden" id="reportBackdrop"><section class="report-dialog" role="dialog" aria-modal="true" aria-labelledby="reportTitle"><div class="report-head"><div class="report-title" style="display:flex;align-items:center;gap:10px"><img class="report-logo" src="${escapeAttr(data.logoSrc || "VideoCoreLogo.png")}" alt="Video Core" style="width:34px;height:34px;object-fit:contain"><h2 id="reportTitle">Project Report</h2></div><button class="tool-button" id="closeReport" type="button">Close</button></div><div class="report-body" id="reportContent"></div></section></div>
 <script>
 const data=${serialized};
+const sharedBusPlacement=${requireDeviceEditorPlacementModule().sharedBusPlacementRuntimeSource};
 const outputSnapshotMeta=data.outputSnapshotMeta||null;
 const viewerOutputDebugEnabled=new URLSearchParams(window.location.search).get("debugOutput")==="1";
 if(outputSnapshotMeta){console.info("[viewer-output] snapshot",outputSnapshotMeta)}
@@ -109837,7 +109921,7 @@ function exportDeviceWidth(template){return Number(template&&template.width)||DE
 function exportConnectorStartY(template){if(isAdapterTemplate(template))return ADAPTER_START_Y;if(template&&template.faceplateDeleted&&!template.faceImage)return FACE_MARGIN+32;if(template&&template.isPowerDistro&&!template.faceImage){const rect=powerFaceRect(template);return rect.y+rect.height+36}if(template&&template.faceImage){const face=facePlacement(template);return Math.ceil(face.y+face.height+36)}return FACE_TOP_Y+faceHeight(template)+36}
 function exportLaneIndexForY(template,y){const start=exportConnectorStartY(template),numeric=Number(y);return Math.max(0,Math.round(((Number.isFinite(numeric)?numeric:start)-start)/SLOT_HEIGHT))}
 function exportLaneYForIndex(template,lane){return exportConnectorStartY(template)+Math.max(0,Number(lane)||0)*SLOT_HEIGHT}
-function exportResolveLayout(template){const connectors=((template&&template.connectors)||[]).filter(c=>!c.faceplateSide),slots=((template&&template.cardSlots)||[]),items=[...connectors.map((c,i)=>({id:"connector:"+c.id,kind:"connector",ref:c,requestedY:Number.isFinite(Number(c.y))?Number(c.y):exportConnectorStartY(template),requestedLane:exportLaneIndexForY(template,c.y),span:1,sideMask:exportSideMaskForConnector(c,template),order:i})),...slots.map((slot,i)=>({id:"card:"+slot.id,kind:"card",ref:slot,requestedY:Number.isFinite(Number(slot.y))?Number(slot.y):exportConnectorStartY(template),requestedLane:exportLaneIndexForY(template,slot.y),span:cardSlotLaneCount(template,slot),sideMask:exportSideMaskForCard(template,slot),order:connectors.length+i}))].sort((a,b)=>a.requestedLane-b.requestedLane||a.order-b.order||String(a.id).localeCompare(String(b.id))),occupied={left:[],right:[]},byId=new Map;items.forEach(item=>{let lane=item.requestedLane;const collides=()=>exportPlacementSides(item.sideMask).some(side=>{for(let i=lane;i<lane+item.span;i++){if(occupied[side][i])return true}return false});while(collides())lane++;const y=item.requestedY+(lane-item.requestedLane)*SLOT_HEIGHT;exportPlacementSides(item.sideMask).forEach(side=>{for(let i=lane;i<lane+item.span;i++)occupied[side][i]=item.id});byId.set(item.id,{...item,lane,y,endLane:lane+item.span})});return{byId,occupied}}
+function exportResolveLayout(template){const connectors=((template&&template.connectors)||[]).filter(c=>!c.faceplateSide),slots=((template&&template.cardSlots)||[]),raw=[...connectors.map((c,i)=>({id:"connector:"+c.id,kind:"connector",ref:c,requestedY:Number.isFinite(Number(c.y))?Number(c.y):exportConnectorStartY(template),requestedLane:exportLaneIndexForY(template,c.y),span:1,sideMask:exportSideMaskForConnector(c,template),order:i})),...slots.map((slot,i)=>({id:"card:"+slot.id,kind:"card",ref:slot,requestedY:Number.isFinite(Number(slot.y))?Number(slot.y):exportConnectorStartY(template),requestedLane:exportLaneIndexForY(template,slot.y),span:cardSlotLaneCount(template,slot),sideMask:exportSideMaskForCard(template,slot),order:connectors.length+i}))],items=sharedBusPlacement.groupSharedBusPlacementItems(template,raw,{startY:exportConnectorStartY(template)}).map(item=>({...item,requestedLane:exportLaneIndexForY(template,item.requestedY)})).sort((a,b)=>a.requestedLane-b.requestedLane||a.order-b.order||String(a.id).localeCompare(String(b.id))),occupied={left:[],right:[]},byId=new Map;items.forEach(item=>{let lane=item.requestedLane;const collides=()=>exportPlacementSides(item.sideMask).some(side=>{for(let i=lane;i<lane+item.span;i++){if(occupied[side][i])return true}return false});while(collides())lane++;const y=item.requestedY+(lane-item.requestedLane)*SLOT_HEIGHT;exportPlacementSides(item.sideMask).forEach(side=>{for(let i=lane;i<lane+item.span;i++)occupied[side][i]=item.id});byId.set(item.id,{...item,lane,y,endLane:lane+item.span})});return{byId,occupied}}
 function resolvedCardSlotY(template,slot){return exportResolveLayout(template).byId.get("card:"+(slot&&slot.id))?.y||Number(slot&&slot.y)||exportConnectorStartY(template)}
 function cardBandGeometry(template,slot){const width=exportDeviceWidth(template),card=cardTypeById(template,slot.installedCardTypeId);const kind=card&&card.kind||"io";const lanes=cardSlotLaneCount(template,slot);const y=resolvedCardSlotY(template,slot)-SLOT_HEIGHT/2;const height=lanes*SLOT_HEIGHT;if(kind==="input")return{x:10,y,width:width/2-16,height,textX:width/4};if(kind==="output")return{x:width/2+6,y,width:width/2-16,height,textX:width*.75};return{x:10,y,width:width-20,height,textX:width/2}}
 function cardCaptionTextColorExport(card){return card&&card.captionTextColor||"#fff"}
@@ -110423,7 +110507,9 @@ renderViewerOutputDebug();
       const template = currentEditorTemplate();
       if (!template) return;
       const id = deleteButton.dataset.deleteRelationship || "";
-      template.connectorRelationships = (template.connectorRelationships || []).filter(relationship => relationship.id !== id);
+      const relationship = template.connectorRelationships?.find(item => item.id === id);
+      if (normalizeEditorRelationshipType(relationship?.type) === "exclusive") commitEditorSharedBusRelationshipEdit(template, draft => removeEditorRelationship(draft, id));
+      else removeEditorRelationship(template, id);
       commitConnectorRelationshipChanges(template);
     });
     connectorRelationshipsPanel?.addEventListener("input", event => {
@@ -110459,8 +110545,10 @@ renderViewerOutputDebug();
             renderConnectorRelationshipsPanel();
             return;
           }
-          if (toggle.checked && !exact) upsertExclusiveRelationshipForSelection(template, selectedIds);
-          if (!toggle.checked && exact) removeEditorRelationship(template, exact.id);
+          commitEditorSharedBusRelationshipEdit(template, draft => {
+            if (toggle.checked && !exact) upsertExclusiveRelationshipForSelection(draft, selectedIds);
+            if (!toggle.checked && exact) removeEditorRelationship(draft, exact.id);
+          });
           commitConnectorRelationshipChanges(template);
           return;
         }
@@ -110479,24 +110567,29 @@ renderViewerOutputDebug();
       const relationshipId = source?.dataset.relationshipSource || target?.dataset.relationshipTarget || member?.dataset.relationshipMember || "";
       const relationship = (template.connectorRelationships || []).find(item => item.id === relationshipId);
       if (!relationship) return;
-      if (source) {
-        relationship.sourceConnectorId = source.value;
-        relationship.members = uniqueEditorRelationshipMembers([source.value, relationship.targetConnectorId, ...(relationship.members || [])]);
-      }
-      if (target) {
-        relationship.targetConnectorId = target.value;
-        relationship.members = uniqueEditorRelationshipMembers([relationship.sourceConnectorId, target.value, ...(relationship.members || [])]);
-      }
-      if (member) {
-        const connectorId = member.value;
-        relationship.members = uniqueEditorRelationshipMembers(relationship.members || []);
-        if (member.checked && !relationship.members.includes(connectorId)) relationship.members.push(connectorId);
-        if (!member.checked) relationship.members = relationship.members.filter(id => id !== connectorId);
-        if (relationship.type === "through") {
-          relationship.sourceConnectorId = relationship.members[0] || relationship.sourceConnectorId;
-          relationship.targetConnectorId = relationship.members[1] || relationship.targetConnectorId;
+      const updateMembers = draft => {
+        const relationship = (draft.connectorRelationships || []).find(item => item.id === relationshipId);
+        if (source) {
+          relationship.sourceConnectorId = source.value;
+          relationship.members = uniqueEditorRelationshipMembers([source.value, relationship.targetConnectorId, ...(relationship.members || [])]);
         }
-      }
+        if (target) {
+          relationship.targetConnectorId = target.value;
+          relationship.members = uniqueEditorRelationshipMembers([relationship.sourceConnectorId, target.value, ...(relationship.members || [])]);
+        }
+        if (member) {
+          const connectorId = member.value;
+          relationship.members = uniqueEditorRelationshipMembers(relationship.members || []);
+          if (member.checked && !relationship.members.includes(connectorId)) relationship.members.push(connectorId);
+          if (!member.checked) relationship.members = relationship.members.filter(id => id !== connectorId);
+          if (relationship.type === "through") {
+            relationship.sourceConnectorId = relationship.members[0] || relationship.sourceConnectorId;
+            relationship.targetConnectorId = relationship.members[1] || relationship.targetConnectorId;
+          }
+        }
+      };
+      if (normalizeEditorRelationshipType(relationship.type) === "exclusive") commitEditorSharedBusRelationshipEdit(template, updateMembers);
+      else updateMembers(template);
       commitConnectorRelationshipChanges(template);
     });
     cardConnectorRelationshipsPanel?.addEventListener("click", event => {
