@@ -30,6 +30,14 @@ import {
   resolveModularPlacementItems
 } from "../src/engine/modularDeviceLayout.js";
 import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
+import {
+  POWER_PLUG_TYPES,
+  normalizePowerDistroForEngine,
+  powerDistroRequiredHeight,
+  powerPlugCanExistOnSide,
+  powerPlugImageForConnector,
+  isPowerPlugConnector
+} from "../src/engine/powerDistroModel.js";
 
 const INDEX_HTML = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const ENGINE_PREVIEW_SOURCE = readFileSync(new URL("../src/engine/enginePreview.js", import.meta.url), "utf8");
@@ -859,6 +867,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     "defaultConnectorNameFor",
     "applyAutomaticConnectorName",
     "applyEditorConnectorTypeToDraft",
+    "fillEditorSlotById",
     "fillEditorSlot",
     "removeEditorNode",
     "normalizeCardConnector",
@@ -933,6 +942,7 @@ function structuralEditorHarness(inputTemplate = {}) {
       applyEthernetSwitchSettings,
       addEthernetSwitchPortBatch,
       addEditorNode,
+      fillEditorSlotById,
       fillEditorSlot,
       removeEditorNode,
       addCardConnector,
@@ -1948,6 +1958,7 @@ test("Device Editor placement adapter follows shared V2 visual-side lane semanti
 test("Device Editor direct structural operations use the shared atomic transaction", () => {
   const addNode = functionSource("addEditorNode");
   const fillSlot = functionSource("fillEditorSlot");
+  const fillSlotById = functionSource("fillEditorSlotById");
   const typeDraft = functionSource("applyEditorConnectorTypeToDraft");
   const removeNode = functionSource("removeEditorNode");
   const applyLed = functionSource("applyLedProcessorSettings");
@@ -1969,9 +1980,10 @@ test("Device Editor direct structural operations use the shared atomic transacti
   const cardDefinitionCommit = functionSource("commitEditorCardDefinitionEdit");
   const displaySideHandler = functionSource("renderSelectedConnectorSettings");
 
-  [addNode, fillSlot, removeNode, applyLed, applyPowerDistro, addEthernet, installCard, addCardSlot, removeCardSlot].forEach(source => {
+  [addNode, fillSlotById, removeNode, applyLed, applyPowerDistro, addEthernet, installCard, addCardSlot, removeCardSlot].forEach(source => {
     assert.match(source, /commitEditorStructuralEdit\(template/);
   });
+  assert.match(fillSlot, /fillEditorSlotById\(connectorId, type\)/);
   assert.doesNotMatch(applyEthernet, /commitEditorStructuralEdit\(template/);
   assert.doesNotMatch(ensureNetworkPair, /normalizeMixedDeviceRows|normalizeConnectorRows/);
   assert.match(ensureNetworkPair, /options\.groupId/);
@@ -2005,7 +2017,7 @@ test("Device Editor direct structural operations use the shared atomic transacti
   assert.match(addCardSlot, /hardTargets: Object\.fromEntries\(resolvedInsertion\.items/);
   assert.match(removeNode, /removeIds: \[\.{3}idsToRemove\]\.map\(id => `connector:\$\{id\}`\)/);
   assert.match(removeCardSlot, /removeIds: \[`card:\$\{slotId\}`\]/);
-  assert.match(fillSlot, /applyEditorConnectorTypeToDraft\(draft, connectorId, type/);
+  assert.match(fillSlotById, /applyEditorConnectorTypeToDraft\(draft, connectorId, type/);
   assert.match(typeDraft, /ensurePairedNetworkPair\(draft, draftConnector, \{ normalize: false \}\)/);
   assert.match(typeDraft, /hardTargets\[`connector:\$\{pair\.id\}`\] = targetLane/);
   assert.match(installCard, /upsertIds: \[`card:\$\{slotId\}`\]/);
@@ -3646,8 +3658,9 @@ test("Device Editor palette drops resolve a nearby empty slot through preview ov
     SLOT_HEIGHT: 54,
     editorActiveTab: "connectors",
     currentEditorTemplate: () => template,
-    editorNodeTargetIndexFromEvent: () => -1,
-    getEditorPreviewPoint: event => event.point,
+    editorEngineConnectorIdFromEvent: () => "",
+    getEditorPreviewPointAtClient: (x, y) => ({ x, y }),
+    deviceEditorPreview: {},
     deviceTemplateWidth: device => device.width,
     editorPreviewPositions: () => new Map(),
     editorDisplayAnchorsForConnector: (connector, width, y) => [{
@@ -3655,14 +3668,238 @@ test("Device Editor palette drops resolve a nearby empty slot through preview ov
       y
     }]
   };
-  const api = vm.runInNewContext(`(${functionSource("editorNodeDropTargetIndexFromEvent")})`, context);
+  const api = vm.runInNewContext(`(${functionSource("editorPaletteDropTargetIdFromEvent")})`, context);
 
-  assert.equal(api({ point: { x: 20, y: 176 } }), 0, "input label/overlay proximity should resolve the empty input slot");
-  assert.equal(api({ point: { x: 400, y: 230 } }), 2, "output label/overlay proximity should resolve the empty output slot");
-  assert.equal(api({ point: { x: 420, y: 154 } }), -1, "geometry fallback must ignore a filled connector");
-  assert.equal(api({ point: { x: 210, y: 154 } }), -1, "unrelated preview space must not become a slot target");
-  assert.match(INDEX_HTML, /const targetIndex = editorNodeDropTargetIndexFromEvent\(event\);[\s\S]*?dropEffect = "copy";/);
-  assert.match(INDEX_HTML, /deviceEditorPreview\.addEventListener\("drop"[\s\S]*?const targetIndex = editorNodeDropTargetIndexFromEvent\(event\);/);
+  const event = (x, y) => ({ clientX: x, clientY: y, target: { closest: () => null } });
+  assert.equal(api(event(20, 176)), "input-slot", "input label/overlay proximity should resolve the empty input slot");
+  assert.equal(api(event(400, 230)), "output-slot", "output label/overlay proximity should resolve the empty output slot");
+  assert.equal(api(event(420, 154)), "", "geometry fallback must ignore a filled connector");
+  assert.equal(api(event(210, 154)), "", "unrelated preview space must not become a slot target");
+});
+
+const CEE_DROP_TYPES = [
+  "16a-1ph-110v", "16a-1ph", "32a-1ph-110v", "32a-1ph",
+  "16a-3ph", "32a-3ph", "63a-3ph", "125a-3ph"
+];
+
+function paletteDropHarness({ mode = "engine", scale = 1 } = {}) {
+  const { api, context, template, counters } = structuralEditorHarness({
+    isPowerDistro: true,
+    connectors: [
+      { id: "slot-in", direction: "input", displaySide: "left", empty: true, x: 0, y: 154, type: "" },
+      { id: "slot-out", direction: "output", displaySide: "right", empty: true, x: 420, y: 154, type: "" }
+    ]
+  });
+  const listeners = () => {
+    const callbacks = new Map();
+    return {
+      callbacks,
+      addEventListener(name, callback) { callbacks.set(name, callback); },
+      querySelectorAll() { return []; }
+    };
+  };
+  const nodePalette = listeners();
+  const cardPalette = listeners();
+  const deviceEditorPreview = listeners();
+  const overlayNodes = template.connectors.map(connector => {
+    const classes = new Set();
+    return {
+      dataset: { editorNodeId: connector.id }, classes,
+      classList: { toggle(name, enabled) { if (enabled) classes.add(name); else classes.delete(name); } }
+    };
+  });
+  deviceEditorPreview.querySelectorAll = selector => selector === "[data-editor-node-id]" ? overlayNodes : [];
+  deviceEditorPreview.createSVGPoint = () => ({
+    x: 0, y: 0,
+    matrixTransform() { return { x: this.x / scale, y: this.y / scale }; }
+  });
+  deviceEditorPreview.getScreenCTM = () => ({ inverse: () => ({}) });
+  deviceEditorPreview.contains = () => false;
+  context.nodePalette = nodePalette;
+  context.cardPalette = cardPalette;
+  context.deviceEditorPreview = deviceEditorPreview;
+  context.editorNodePaletteActive = () => true;
+  context.editorEngineConnectorIndexFromEvent = () => -1;
+  context.editorEngineConnectorIdFromEvent = () => "";
+  context.deviceEditorActivePreviewUsesEngine = () => mode === "engine";
+  context.editorEnginePreviewSurface = mode === "engine" ? {
+    screenToDeviceLocal: (_id, point) => ({ x: point.x / scale, y: point.y / scale })
+  } : null;
+  context.deviceEditorEnginePreviewScreenPoint = event => ({ x: event.clientX, y: event.clientY });
+  context.editorEnginePreviewLastDeviceId = "test-device";
+  context.DEVICE_EDITOR_ENGINE_PREVIEW_DEVICE_ID = "test-device";
+  context.plainPoint = point => ({ x: point.x, y: point.y });
+  context.editorPreviewPositions = () => new Map();
+  context.editorDisplayAnchorsForConnector = (connector, width, y) => [{ x: connector.direction === "output" ? width : 0, y }];
+  context.getEditorPreviewPoint = event => ({ x: event.clientX / scale, y: event.clientY / scale });
+  context.getEditorPreviewPointAtClient = runnableIndexFunction("getEditorPreviewPointAtClient", context);
+  context.editorCardDropTypeId = () => "";
+  context.editorDataTransferHasType = (event, type) => event.dataTransfer.types.includes(type);
+  context.editorPreviewCanCreateCardSlotFromDrop = () => false;
+  context.editorDropPointCreatesAdapterNode = () => false;
+  context.fillEditorSlot = api.fillEditorSlot;
+  context.fillEditorSlotById = api.fillEditorSlotById;
+  context.editorPaletteDraggedType = "";
+  context.editorPaletteDropCandidateId = "";
+  context.powerPlugCanExistOnSide = powerPlugCanExistOnSide;
+  context.powerPlugImageForConnector = powerPlugImageForConnector;
+  context.isPowerPlugConnector = isPowerPlugConnector;
+  context.deviceHeightForSlotCounts = device => {
+    const model = normalizePowerDistroForEngine({ template: device, width: device.width, connectors: device.connectors });
+    return powerDistroRequiredHeight(model, device.connectors, 240);
+  };
+  CEE_DROP_TYPES.forEach(type => { context.cableTypes[type] = { label: type, color: "#d33" }; });
+  context.editorPaletteDropTargetIdFromEvent = runnableIndexFunction("editorPaletteDropTargetIdFromEvent", context);
+  context.resolveEditorPaletteDrop = runnableIndexFunction("resolveEditorPaletteDrop", context);
+  context.setEditorPaletteDropCandidate = runnableIndexFunction("setEditorPaletteDropCandidate", context);
+  vm.runInNewContext(sourceSlice(INDEX_HTML, '    nodePalette.addEventListener("dragstart"', '    function bindEditorInteractionSvg'), context);
+  const chip = type => ({
+    dataset: { nodeType: type }, offsetWidth: 80, offsetHeight: 20,
+    classList: { add() {}, remove() {} }
+  });
+  function transfer() {
+    const values = new Map();
+    return {
+      types: [], effectAllowed: "", dropEffect: "",
+      setData(type, value) { values.set(type, value); this.types = [...values.keys()]; },
+      getData(type) { return values.get(type) || ""; },
+      setDragImage() {}
+    };
+  }
+  function event(dataTransfer, target, x, y) {
+    return {
+      dataTransfer, target, clientX: x * scale, clientY: y * scale,
+      defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }
+    };
+  }
+  function target(connectorId, kind = "circle") {
+    const index = template.connectors.findIndex(connector => connector.id === connectorId);
+    return {
+      kind,
+      closest(selector) {
+        if (selector === "[data-editor-node]") return kind === "nearby" ? null : { dataset: { editorNode: String(index) } };
+        if (selector === "[data-editor-node-id]") return kind === "nearby" ? null : { dataset: { editorNodeId: connectorId } };
+        return null;
+      }
+    };
+  }
+  function drag(type, connectorId, kind = "circle", { x, y, beforeDrop, protectedOver = true } = {}) {
+    const dataTransfer = transfer();
+    nodePalette.callbacks.get("dragstart")(event(dataTransfer, { closest: () => chip(type) }, 0, 0));
+    const destination = connectorId ? target(connectorId, kind) : { closest: () => null };
+    const direction = template.connectors.find(connector => connector.id === connectorId)?.direction || "input";
+    const localX = x ?? (direction === "output" ? 420 : 0);
+    const localY = y ?? 154;
+    const over = event(dataTransfer, destination, localX, localY);
+    if (protectedOver) over.dataTransfer = { ...dataTransfer, getData: () => "" };
+    deviceEditorPreview.callbacks.get("dragover")(over);
+    const overCandidateId = context.editorPaletteDropCandidateId;
+    const overHighlighted = overlayNodes.find(node => node.dataset.editorNodeId === connectorId)?.classes.has("editor-palette-drop-target") === true;
+    beforeDrop?.(dataTransfer);
+    const drop = event(dataTransfer, destination, localX, localY);
+    deviceEditorPreview.callbacks.get("drop")(drop);
+    nodePalette.callbacks.get("dragend")(drop);
+    const highlightCleared = overlayNodes.every(node => !node.classes.has("editor-palette-drop-target"));
+    return { over, drop, overCandidateId, overHighlighted, highlightCleared };
+  }
+  function cancel(type, connectorId) {
+    const dataTransfer = transfer();
+    nodePalette.callbacks.get("dragstart")(event(dataTransfer, { closest: () => chip(type) }, 0, 0));
+    const over = event({ ...dataTransfer, getData: () => "" }, target(connectorId), 0, 154);
+    deviceEditorPreview.callbacks.get("dragover")(over);
+    const highlighted = context.editorPaletteDropCandidateId === connectorId;
+    nodePalette.callbacks.get("dragend")(over);
+    return { highlighted, cleared: context.editorPaletteDropCandidateId === "" };
+  }
+  return { api, context, template, counters, drag, cancel, target, deviceEditorPreview, nodePalette };
+}
+
+test("CEE palette drag/drop commits all input and output assets in Engine and Legacy previews", () => {
+  let cases = 0;
+  for (const mode of ["engine", "legacy"]) {
+    for (const scale of [1, 0.25]) {
+      for (const type of CEE_DROP_TYPES) {
+        for (const direction of ["input", "output"]) {
+          const id = direction === "input" ? "slot-in" : "slot-out";
+          for (const kind of ["circle", "label", "nearby"]) {
+            const h = paletteDropHarness({ mode, scale });
+            const result = h.drag(type, id, kind, {
+              x: kind === "nearby" ? (direction === "input" ? 18 : 402) : undefined,
+              y: kind === "nearby" ? 174 : undefined
+            });
+            const connector = h.template.connectors.find(item => item.id === id);
+            assert.equal(result.overCandidateId, id, `${mode}/${scale}/${type}/${direction}/${kind}: dragover targets the same stable ID`);
+            assert.equal(result.overHighlighted, true);
+            assert.equal(result.drop.defaultPrevented, true, `${mode}/${scale}/${type}/${direction}: drop accepted`);
+            assert.equal(connector.type, type);
+            assert.equal(connector.empty, false);
+            assert.equal(h.template.connectors.length, 2);
+            assert.equal(connector.direction, direction);
+            assert.equal(connector.displaySide, direction === "input" ? "left" : "right");
+            assert.equal(connector.y, 154);
+            assert.equal(connector.anchors.find(anchor => anchor.id === connector.primaryAnchorId)?.y, 154);
+            const model = normalizePowerDistroForEngine({ template: h.template, width: 420, connectors: h.template.connectors });
+            assert.equal(model.plugEntries.length, 1);
+            assert.equal(model.plugEntries[0].connectorId, id);
+            assert.equal(model.plugEntries[0].href, `Nodes/PowerPlugs/${POWER_PLUG_TYPES[type][direction]}`);
+            assert.ok(h.template.height >= model.faceRect.y + model.faceRect.height + 22);
+            assert.equal(h.counters.previewRenders, 1);
+            assert.equal(h.counters.normalizationCalls, 0);
+            assert.equal(h.counters.solverCalls, 0, "type-only fill must not invoke the placement solver");
+            assert.deepEqual([...h.context.editorSelectedNodeIds], [id]);
+            assert.equal(h.context.editorPaletteDropCandidateId, "");
+            assert.equal(result.highlightCleared, true);
+            cases++;
+          }
+        }
+      }
+    }
+  }
+  assert.equal(cases, 192);
+});
+
+test("palette drop preserves stable IDs through reordering and rejects filled slots", () => {
+  const h = paletteDropHarness();
+  const before = structuredClone(h.template.connectors);
+  h.drag("32a-3ph", "slot-in", "circle", {
+    beforeDrop() { h.template.connectors.reverse(); }
+  });
+  assert.equal(h.template.connectors.find(item => item.id === "slot-in").type, "32a-3ph");
+  assert.equal(h.template.connectors.find(item => item.id === "slot-out").empty, true);
+  const renderCount = h.counters.previewRenders;
+  h.drag("16a-1ph", "slot-in");
+  assert.equal(h.counters.previewRenders, renderCount, "filled target must not mutate");
+  assert.notDeepEqual(h.template.connectors, before);
+});
+
+test("palette drop validates current slot and transfer before any mutation", () => {
+  const cases = [
+    { name: "removed target", action(h) { return h.drag("32a-1ph", "slot-in", "circle", { beforeDrop() { h.template.connectors = h.template.connectors.filter(item => item.id !== "slot-in"); } }); } },
+    { name: "filled target", action(h) { return h.drag("32a-1ph", "slot-in", "circle", { beforeDrop() { h.template.connectors[0].empty = false; } }); } },
+    { name: "wrong tab", action(h) { h.context.editorActiveTab = "device"; return h.drag("32a-1ph", "slot-in"); } },
+    { name: "bad type", action(h) { return h.drag("not-a-connector", "slot-in"); } },
+    { name: "mismatched transfer", action(h) { return h.drag("32a-1ph", "slot-in", "circle", { beforeDrop(transfer) { transfer.setData("application/x-av-node-type", "16a-1ph"); } }); } },
+    { name: "missing MIME type", action(h) { return h.drag("32a-1ph", "slot-in", "circle", { beforeDrop(transfer) { transfer.types = []; } }); } },
+    { name: "unrelated space", action(h) { return h.drag("32a-1ph", null, "nearby", { x: 210, y: 300 }); } }
+  ];
+  for (const scenario of cases) {
+    const h = paletteDropHarness();
+    const result = scenario.action(h);
+    assert.equal(result.drop.defaultPrevented, false, scenario.name);
+    assert.equal(h.counters.previewRenders, 0, scenario.name);
+    assert.equal(h.counters.structuralSessions, 0, scenario.name);
+    assert.equal(h.context.editorPaletteDropCandidateId, "", scenario.name);
+  }
+});
+
+test("palette drag cancellation clears the slot highlight without editing", () => {
+  const h = paletteDropHarness();
+  const result = h.cancel("16a-1ph-110v", "slot-in");
+  assert.equal(result.highlighted, true);
+  assert.equal(result.cleared, true);
+  assert.equal(h.context.editorPaletteDraggedType, "");
+  assert.equal(h.counters.structuralSessions, 0);
+  assert.equal(h.counters.previewRenders, 0);
 });
 
 test("Device Editor faceplate mutations roll back fully and reject stale uploads", async () => {
