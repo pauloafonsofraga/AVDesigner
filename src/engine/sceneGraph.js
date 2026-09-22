@@ -2304,6 +2304,7 @@ function normalizeConnector(connector, index, deviceWidth = 0, options = {}) {
     fiberFamily: connector.fiberFamily || "",
     customColor: connector.customColor || "",
     nameText: connector.nameText || "",
+    nameCustom: connector.nameCustom === true,
     customText: connector.customText || "",
     resolutionFrameRate: connector.resolutionFrameRate || "",
     nameTextCaption: connector.nameTextCaption || "",

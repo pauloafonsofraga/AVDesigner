@@ -1,4 +1,5 @@
 import { engineWireColorSegmentsForCable } from "./connectorCompatibility.js";
+import { CONNECTOR_RELATIONSHIP_FIELDS, applyConnectorRelationshipFieldPatch } from "./connectorRelationshipMetadata.js";
 import {
   canonicalEngineObjectKind,
   isCanvasObjectKind,
@@ -23,6 +24,7 @@ export class ProjectMutationAdapter {
     // working without a parallel project copy.
     this.project = cloneProjectData ? deepClone(rawProject) : rawProject;
     this.meta = sceneData.meta || {};
+    this.connectorMetadataModels = new Map((sceneData.devices || []).map(device => [String(device.sourceId || device.id), device]));
     this.resetStats();
     this.rebuildIndexes();
   }
@@ -201,6 +203,12 @@ export class ProjectMutationAdapter {
     const id = String(connectorId || "");
     const entry = this.deviceById.get(sourceId);
     if (!entry?.item || !id) return 0;
+    if (Object.keys(fields).every(key => CONNECTOR_RELATIONSHIP_FIELDS.includes(key) || key === "nameCustom")) {
+      const base = this.connectorMetadataModels.get(sourceId) || entry.item.templateOverride || entry.item;
+      const model = { ...base, connectors: (base.connectors || [{ id }]).map(c => ({ ...c, ...entry.item.connectorOverrides?.[c.id] })) };
+      const result = applyConnectorRelationshipFieldPatch(model, id, fields);
+      return this.updateConnectorMetadataStates(sourceId, result.patches);
+    }
     const allowed = new Set([
       "nameText",
       "nameCustom",
@@ -246,6 +254,22 @@ export class ProjectMutationAdapter {
       deviceId: sourceId,
       connectorId: id,
       fields: Object.keys(fields || {})
+    });
+    return this.lastMutation.durationMs;
+  }
+
+  updateConnectorMetadataStates(deviceId, states = []) {
+    const start = performance.now(), sourceId = String(deviceId || "");
+    const instance = this.deviceById.get(sourceId)?.item;
+    if (!instance || !states.length) return 0;
+    const overrides = { ...(instance.connectorOverrides || {}) };
+    states.forEach(({ connectorId, fields }) => {
+      const patch = Object.fromEntries(Object.entries(fields || {}).filter(([key]) => CONNECTOR_RELATIONSHIP_FIELDS.includes(key) || key === "nameCustom"));
+      overrides[connectorId] = { ...overrides[connectorId], ...patch };
+    });
+    instance.connectorOverrides = overrides;
+    this.record("inspector relationship fields", performance.now() - start, sourceId, {
+      deviceId: sourceId, affectedConnectorIds: states.map(item => item.connectorId)
     });
     return this.lastMutation.durationMs;
   }

@@ -1,3 +1,4 @@
+import { CONNECTOR_RELATIONSHIP_FIELDS, normalizeConnectorRelationshipMetadata } from "./connectorRelationshipMetadata.js";
 import {
   ENGINE_CONNECTOR_TYPE_COLORS,
   effectiveConnectorTypeForEngine,
@@ -475,8 +476,14 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
     ...(Array.isArray(sourceRelationships) ? sourceRelationships : []),
     ...generatedCardRelationships(template)
   ], connectors);
+  const metadata = normalizeConnectorRelationshipMetadata({ connectors, connectorRelationships });
+  metadata.patches.forEach(patch => Object.assign(connectors.find(c => c.id === patch.connectorId), patch.fields));
   const connectorTopologyValidation = validateConnectorTopology(connectors, connectorRelationships);
   const visual = normalizeDeviceVisualMetadata(template, instance, width, height, nodeColorByType);
+  (visual.visualCards || []).forEach(card => (card.connectors || []).forEach(c => {
+    const installed = connectors.find(connector => connector.id === c.id);
+    if (installed) CONNECTOR_RELATIONSHIP_FIELDS.forEach(key => { c[key] = installed[key] ?? ""; });
+  }));
   const powerDistro = isPowerDistro
     ? normalizePowerDistroForEngine({ template, instance, width, connectors })
     : null;

@@ -10,6 +10,8 @@ import {
 } from "../src/engine/enginePreview.js";
 import * as placementMotionModule from "../src/engine/deviceEditorPlacementMotion.js";
 import * as sharedBusPlacementModule from "../src/engine/sharedBusPlacement.js";
+import * as relationshipMetadataModule from "../src/engine/connectorRelationshipMetadata.js";
+import { normalizeConnectorRelationships } from "../src/engine/deviceDefinitionV2.js";
 import { modularIntegrationFixture, adapterIntegrationFixture } from "../fixtures/modular-integration.mjs";
 import { assertModularIntegrationState, geometry as integrationGeometry } from "./helpers/modularIntegrationAssertions.mjs";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
@@ -664,7 +666,8 @@ function structuralEditorHarness(inputTemplate = {}) {
       counters.normalizationCalls += 1;
       context.normalizeMixedDeviceRows(device);
     },
-    normalizeEditorConnectorRelationships: () => {},
+    normalizeEditorConnectorRelationships: device => normalizeConnectorRelationships(device.connectorRelationships || [], device.connectors || []),
+    relationshipMetadataApi: () => relationshipMetadataModule,
     normalizeMatrixPortFlag: connector => {
       connector.includeInMatrix = connector.includeInMatrix === true;
       connector.matrixPortTouched = connector.matrixPortTouched === true;
@@ -899,6 +902,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     "defaultEditorAnchorForSide",
     "editorConnectorAnchors",
     "generatedCardConnectors",
+    "generatedCardRelationships",
     "applyInstalledCardConnectorAnchors",
     "createCardSlot",
     "uniqueCardSlotId",
@@ -1871,7 +1875,7 @@ test("Device Editor placement delegates to the shared modular layout module", ()
   assert.match(placementReady, /createModularInsertionDragSession/);
   assert.match(placementReady, /createModularCompositeInsertionDragSession/);
   assert.match(placementReady, /createModularStructuralEditSession/);
-  assert.match(INDEX_HTML, /loadDeviceEditorPlacementModule\("Device Editor placement"\);/);
+  assert.ok(INDEX_HTML.includes('loadDeviceEditorPlacementModule("Device Editor placement").then('));
   assert.match(motionLoader, /engineImportUrl\("\.\/src\/engine\/deviceEditorPlacementMotion\.js"\)/);
   assert.match(motionLoader, /createPlacementMotionState/);
   assert.match(motionLoader, /retargetPlacementMotion/);

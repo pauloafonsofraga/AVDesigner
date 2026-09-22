@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-27-0-segmented-wire-preview-parity";
+const BUILD_ID = "iteration54-28-0-relationship-metadata-synchronization";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -51,12 +51,12 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Segmented Wire Preview Parity");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-27-0-segmented-wire-preview-parity-modules";'), "module cache key should identify Segmented Wire Preview Parity");
-assert.ok(indexHtml.includes("Segmented Wire Preview Parity"), "visible build label should name Segmented Wire Preview Parity");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-27-0-segmented-wire-preview-parity"'), "Engine bridge version should identify Segmented Wire Preview Parity");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "segmented-wire-preview-parity"'), "Engine bridge feature label should identify Segmented Wire Preview Parity");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-27-0-segmented-wire-preview-parity"), "bridge fingerprint should identify Segmented Wire Preview Parity");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Relationship Metadata Synchronization");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-28-0-relationship-metadata-synchronization-modules";'), "module cache key should identify Relationship Metadata Synchronization");
+assert.ok(indexHtml.includes("Relationship Metadata Synchronization"), "visible build label should name Relationship Metadata Synchronization");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-28-0-relationship-metadata-synchronization"'), "Engine bridge version should identify Relationship Metadata Synchronization");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "relationship-metadata-synchronization"'), "Engine bridge feature label should identify Relationship Metadata Synchronization");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-28-0-relationship-metadata-synchronization"), "bridge fingerprint should identify Relationship Metadata Synchronization");
 assert.ok(rendererSource.includes("renderer-iteration54-27-0-segmented-wire-preview-parity"), "renderer fingerprint should identify Segmented Wire Preview Parity");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");

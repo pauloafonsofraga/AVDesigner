@@ -1,5 +1,6 @@
 import { DragSession } from "./dragSession.js";
 import { ObjectSnapSession } from "./objectSnapping.js";
+import { CONNECTOR_RELATIONSHIP_FIELDS, applyConnectorRelationshipFieldPatch } from "./connectorRelationshipMetadata.js";
 import {
   ENGINE_DEFAULT_FIBER_MODE,
   effectiveConnectorTypeForEngine,
@@ -125,9 +126,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-27-0-segmented-wire-preview-parity";
-export const ENGINE_BRIDGE_VERSION = "iteration54-27-0-segmented-wire-preview-parity";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "segmented-wire-preview-parity";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-28-0-relationship-metadata-synchronization";
+export const ENGINE_BRIDGE_VERSION = "iteration54-28-0-relationship-metadata-synchronization";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "relationship-metadata-synchronization";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -6090,6 +6091,22 @@ class ProductionEngineBridge {
     const device = this.resolveDeviceBySourceId(deviceId);
     const connector = device ? this.scene.getConnector(device.id, connectorId) : null;
     if (!device || !connector) return false;
+    if (Object.keys(fields).every(key => CONNECTOR_RELATIONSHIP_FIELDS.includes(key) || key === "nameCustom")) {
+      const result = applyConnectorRelationshipFieldPatch(device, connectorId, fields);
+      if (!result.patches.length) return false;
+      const before = result.patches.map(patch => ({ connectorId: patch.connectorId,
+        fields: Object.fromEntries(Object.keys(patch.fields).map(key => [key, this.scene.getConnector(device.id, patch.connectorId)[key] ?? (key === "nameCustom" ? false : "")])) }));
+      const after = result.patches;
+      const sourceId = device.sourceId || device.id;
+      this.beginProductionCommit("inspector relationship fields");
+      const applied = this.applyConnectorMetadataStates(sourceId, after);
+      this.recordCommand({ type: "InspectorConnectorFieldsCommand", affectedIds: [sourceId, ...result.affectedConnectorIds],
+        undo: bridge => bridge.applyConnectorMetadataStates(sourceId, before),
+        redo: bridge => bridge.applyConnectorMetadataStates(sourceId, after) });
+      this.updateSelectionHud();
+      this.markCommitted("inspector relationship fields", applied.mutationMs, { inspectorFieldEdit: true, connectorId });
+      return true;
+    }
     const affectedConnectorIds = connectorIdsForInspectorEdit(connector, fields);
     const before = affectedConnectorIds.map(id => captureConnectorInspectorFields(this.scene.getConnector(device.id, id), fields)).filter(Boolean);
     const afterFieldsByConnector = new Map();
@@ -6120,6 +6137,38 @@ class ProductionEngineBridge {
       connectorId
     });
     return true;
+  }
+
+  applyConnectorMetadataStates(deviceId, states) {
+    const device = this.resolveDeviceBySourceId(deviceId);
+    if (!device) return { mutationMs: 0 };
+    const previous = states.map(item => ({ connectorId: item.connectorId, connector: deepClone(this.scene.getConnector(device.id, item.connectorId)) }));
+    const entry = this.mutations?.deviceById.get(device.sourceId || device.id)?.item;
+    const previousOverrides = entry?.connectorOverrides;
+    const selectedConnectors = new Set(this.scene.selectedConnectorKeys);
+    let mutationMs = 0;
+    try {
+      states.forEach(item => this.scene.updateConnector(device.id, item.connectorId, item.fields));
+      this.scene.selectedConnectorKeys = new Set(selectedConnectors);
+      const dirtyStats = this.renderer.updateDirty(this.scene, { deviceIds: [device.id], wireIds: [], refreshCableHops: false });
+      this.lastDirtyDeviceIds = new Set([device.id]);
+      this.lastDirtyWireIds = new Set();
+      this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
+      this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
+      this.renderer.setRenderOptions(this.renderOptions);
+      this.recordDirtyVisualMetrics(dirtyStats, "inspector relationship fields");
+      mutationMs = this.mutations?.updateConnectorMetadataStates(device.sourceId || device.id, states) || 0;
+    } catch (error) {
+      previous.forEach(item => this.scene.updateConnector(device.id, item.connectorId, item.connector));
+      this.scene.selectedConnectorKeys = new Set(selectedConnectors);
+      if (entry) {
+        if (previousOverrides === undefined) delete entry.connectorOverrides;
+        else entry.connectorOverrides = previousOverrides;
+      }
+      throw error;
+    }
+    this.scheduleRender();
+    return { mutationMs };
   }
 
   applyConnectorInspectorFields(deviceId, connectorId, fields = {}, options = {}) {
@@ -10996,10 +11045,14 @@ function bindConnectorFieldInputs(bridge, root, deviceId, connectorId) {
     const commit = () => {
       const field = input.dataset.engineConnectorField || input.dataset.engineConnectorCaption || "";
       if (!field || input.value === committedValue) return;
-      committedValue = input.value;
       const patch = { [field]: input.value };
       if (field === "nameText") patch.nameCustom = true;
-      bridge.commitConnectorInspectorFields(deviceId, connectorId, patch);
+      try { bridge.commitConnectorInspectorFields(deviceId, connectorId, patch); }
+      finally {
+        const device = bridge.resolveDeviceBySourceId(deviceId);
+        input.value = bridge.scene.getConnector(device?.id, connectorId)?.[field] ?? "";
+        committedValue = input.value;
+      }
     };
     input.addEventListener("change", commit);
     input.addEventListener("blur", commit);

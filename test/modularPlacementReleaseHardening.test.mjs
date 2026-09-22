@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
 import * as sharedBusPlacement from "../src/engine/sharedBusPlacement.js";
+import * as relationshipMetadata from "../src/engine/connectorRelationshipMetadata.js";
 
 import { createPreviewDeviceFromDraft } from "../src/engine/enginePreview.js";
 import { resolveModularDeviceLayout } from "../src/engine/modularDeviceLayout.js";
@@ -68,12 +69,13 @@ function cardGeometry(card) {
 
 function standaloneViewerGeometryApi() {
   const start = INDEX_HTML.indexOf("function faceAspectHeight(t)");
-  const endNeedle = "function effectiveConnectors(template){return[...((template&&template.connectors)||[]),...generatedCardConnectors(template)]}";
+  const endNeedle = "function effectiveInstanceConnectors(instance)";
   const end = INDEX_HTML.indexOf(endNeedle, start);
   assert.ok(start >= 0 && end > start, "standalone viewer modular geometry block should exist");
-  const source = INDEX_HTML.slice(start, end + endNeedle.length);
+  const source = INDEX_HTML.slice(start, end);
   const context = {
     sharedBusPlacement,
+    relationshipMetadata,
     Map,
     Set,
     Math,
