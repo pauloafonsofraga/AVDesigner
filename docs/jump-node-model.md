@@ -113,13 +113,21 @@ Dragging keeps normal Engine object movement semantics. There is no special pair
 The whole visible circular Jump body is the pointer target. Pressing a Jump starts a transient `pendingJumpPress` state instead of immediately choosing selection, movement, or portal creation.
 
 ```text
-pointerup before 5 px -> select and arm this Jump for movement
-drag beyond 5 px while unarmed and eligible -> create Jump Link
-drag beyond 5 px while explicitly move-armed -> move
-drag beyond 5 px while ineligible for linking -> move
+release before 250 ms and below 5 screen px -> select
+move at least 5 screen px before the hold -> move
+hold for 250 ms below 5 screen px -> create Jump Link preview
+move after the hold -> update only the link preview
+release on a compatible unpaired Jump -> commit one jumpLinks record
+release elsewhere -> cancel without mutation or history
 ```
 
-The 5 px movement tolerance is measured in screen pixels only to distinguish a click from a drag. There is no stationary long-press timer. A Jump becomes move-armed only when the user completes a direct click-release on that Jump; internal SceneGraph selection after wire creation, pair creation, undo/redo, inspector focus, or refresh does not arm movement. During Jump Link creation, target hit testing also accepts the whole visible Jump circle with a small screen-space tolerance before applying the existing output/input compatibility rules.
+Engine and Legacy use the same 250 ms / 5 screen-pixel intent rules, independent of zoom. Selection and move-arm state do not change the hold outcome. The timer immediately opens the foreground portal preview at the latest pointer position, without moving the source or using physical-wire creation state. Target hit testing accepts the whole visible Jump circle with the existing screen-space tolerance and output/input, cable-family and fiber compatibility rules.
+
+A source must still exist, have a device-side physical wire and a clear input/output role, and be unpaired. A rejected hold stays locked until release; it cannot turn into movement or create history, and release can still select the node. Explicit multi-selection holds do not link or collapse the group; dragging moves the group. Shift-rewire retains precedence.
+
+One pointer ID and one pending timer own the gesture. Release, cancellation, lost capture, Escape, context menu, blur, replacement, scene reload and Engine teardown clear ownership and the timer. Identity checks reject stale callbacks. Link completion revalidates compatibility and commits only the canonical `jumpLinks` relationship. Movement history begins only after the movement threshold, never on pointer down.
+
+`test/jumpNodeGesture.test.mjs` runs the production handlers with a controllable clock. `scripts/jump-node-hold-smoke.mjs` exercises real Engine and Legacy mouse gestures at Fit and 100% (configure `AVDESIGNER_BASE_URL`, and optionally `AVDESIGNER_PLAYWRIGHT_PATH` / `AVDESIGNER_CHROME_PATH`).
 
 ## Inspector
 

@@ -21,6 +21,7 @@ import {
   jumpNodeLocalCenter,
   JUMP_NODE_SIZE,
   JUMP_PRESS_MOVE_THRESHOLD_PX,
+  JUMP_LINK_HOLD_MS,
   JUMP_PRESS_INTENT,
   jumpPressIntent,
   jumpPairCompatibility,
@@ -41,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-23-1-side-aware-empty-node-append";
+const BUILD_ID = "iteration54-25-0-jump-node-hold-to-link-restoration";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -50,12 +51,12 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Side-Aware Empty Node Append");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-23-1-side-aware-empty-node-append-modules";'), "module cache key should identify Side-Aware Empty Node Append");
-assert.ok(indexHtml.includes("Side-Aware Empty Node Append"), "visible build label should name Side-Aware Empty Node Append");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-14-1-device-editor-card-drag-parity"'), "Engine bridge version should identify Device Editor Card Drag Parity");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "device-editor-card-drag-parity"'), "Engine bridge feature label should identify Device Editor Card Drag Parity");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-14-1-device-editor-card-drag-parity"), "bridge fingerprint should identify Device Editor Card Drag Parity");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Jump Node Hold-To-Link Restoration");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-25-0-jump-node-hold-to-link-restoration-modules";'), "module cache key should identify Jump Node Hold-To-Link Restoration");
+assert.ok(indexHtml.includes("Jump Node Hold-To-Link Restoration"), "visible build label should name Jump Node Hold-To-Link Restoration");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-25-0-jump-node-hold-to-link-restoration"'), "Engine bridge version should identify Jump Node Hold-To-Link Restoration");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "jump-node-hold-to-link-restoration"'), "Engine bridge feature label should identify Jump Node Hold-To-Link Restoration");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-25-0-jump-node-hold-to-link-restoration"), "bridge fingerprint should identify Jump Node Hold-To-Link Restoration");
 assert.ok(rendererSource.includes("renderer-iteration54-4-0-matrix-routing-internal-routes"), "renderer fingerprint should identify Matrix Routing Internal Routes");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");
@@ -113,8 +114,11 @@ assert.deepEqual(polylinePointAtDistance([{ x: 0, y: 0 }, { x: 10, y: 0 }], 4), 
 assert.ok(bridgeSource.includes("polylinePointAtDistance(step.points, polylineLength(step.points) * easedProgress)"), "Engine playback should compute the same eased dot point the renderer shows");
 assert.ok(bridgeSource.includes('centerCameraAtWorldPoint(playbackPoint, "play-wire-follow"'), "Engine playback should follow the travelling dot every frame");
 assert.equal(JUMP_PRESS_MOVE_THRESHOLD_PX, 5, "Jump press movement tolerance should be 5 px");
+assert.equal(JUMP_LINK_HOLD_MS, 250, "Jump hold should start at 250 ms");
+assert.equal(jumpPressIntent({ distancePx: 4, elapsedMs: 250, canStartLink: true, explicitlyMoveArmed: true }), JUMP_PRESS_INTENT.link, "selected or move-armed hold should link");
+assert.equal(jumpPressIntent({ distancePx: 4, elapsedMs: 250, canStartLink: false }), JUMP_PRESS_INTENT.rejected, "ineligible hold should reject without moving");
 assert.equal(jumpPressIntent({ distancePx: 0, released: true }), JUMP_PRESS_INTENT.select, "released below threshold should select");
-assert.equal(jumpPressIntent({ distancePx: 5, canStartLink: true, explicitlyMoveArmed: false }), JUMP_PRESS_INTENT.link, "eligible unarmed movement at threshold should link");
+assert.equal(jumpPressIntent({ distancePx: 5, canStartLink: true, explicitlyMoveArmed: false }), JUMP_PRESS_INTENT.move, "unarmed movement at threshold should move");
 assert.equal(jumpPressIntent({ distancePx: 5, canStartLink: true, explicitlyMoveArmed: true }), JUMP_PRESS_INTENT.move, "eligible armed movement at threshold should move");
 assert.equal(jumpPressIntent({ distancePx: 5, canStartLink: true, pressedJumpSelected: true, selectedCount: 2 }), JUMP_PRESS_INTENT.move, "selected multi Jump drag should move instead of link from pressed A");
 assert.equal(jumpPressIntent({ distancePx: 5, canStartLink: true, multiSelectionMove: true }), JUMP_PRESS_INTENT.move, "selected multi Jump drag should move instead of link from pressed B");

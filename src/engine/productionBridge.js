@@ -96,6 +96,7 @@ import {
   JUMP_NODE_ROLE_COLORS,
   JUMP_NODE_SIZE,
   JUMP_PRESS_MOVE_THRESHOLD_PX,
+  JUMP_LINK_HOLD_MS,
   normalizeEngineJumpNode,
   resolvePlayableSignalPath
 } from "./jumpNodeModel.js";
@@ -124,9 +125,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-14-1-device-editor-card-drag-parity";
-export const ENGINE_BRIDGE_VERSION = "iteration54-14-1-device-editor-card-drag-parity";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "device-editor-card-drag-parity";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-25-0-jump-node-hold-to-link-restoration";
+export const ENGINE_BRIDGE_VERSION = "iteration54-25-0-jump-node-hold-to-link-restoration";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-node-hold-to-link-restoration";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -370,6 +371,7 @@ class ProductionEngineBridge {
     }
     window.removeEventListener("keydown", this.boundKeyDown, true);
     window.removeEventListener("resize", this.boundResize);
+    window.removeEventListener("blur", this.boundJumpBlur);
     if (restoreProduction) this.api.onExit?.();
   }
 
@@ -1237,6 +1239,12 @@ class ProductionEngineBridge {
     // production snapshot, which is slow and also resets the engine camera.
     window.addEventListener("keydown", this.boundKeyDown, true);
     window.addEventListener("resize", this.boundResize);
+    this.boundJumpBlur = () => {
+      if (!this.pendingJumpPress && !this.jumpLinkCreate) return;
+      this.cancelActiveInteraction("window-blur");
+      this.scheduleRender();
+    };
+    window.addEventListener("blur", this.boundJumpBlur);
   }
 
   handleWheel(event) {
@@ -1543,7 +1551,7 @@ class ProductionEngineBridge {
   }
 
   jumpPressMoveThresholdPx() {
-    return Math.max(this.dragThresholdPx || 0, JUMP_PRESS_MOVE_THRESHOLD_PX);
+    return JUMP_PRESS_MOVE_THRESHOLD_PX;
   }
 
   jumpNodeCenter(device) {
@@ -1699,6 +1707,8 @@ class ProductionEngineBridge {
     const multiSelectionMove = pressedJumpSelected && selectedCount > 1;
     const pending = {
       pointerId,
+      startedAt: performance.now(),
+      holdTimer: null,
       jumpId: String(jumpDevice.id),
       startScreen: { ...point },
       lastScreen: { ...point },
@@ -1720,6 +1730,12 @@ class ProductionEngineBridge {
       gestureWinner: "pending"
     };
     this.pendingJumpPress = pending;
+    pending.holdTimer = setTimeout(() => {
+      if (this.pendingJumpPress !== pending || pending.pointerId !== pointerId || !this.ready) return;
+      pending.holdTimer = null;
+      this.updatePendingJumpPress(pending.lastScreen, pending.lastWorld, { pointerId });
+      this.scheduleRender();
+    }, JUMP_LINK_HOLD_MS);
     this.clearHoverState("jump-press-pending", { render: false });
     this.hud?.setMetric("jump press", `${pending.jumpId} pending / ${pending.canStartLink ? "can-link" : "no-link"} / ${pending.explicitlyMoveArmed ? "armed" : "unarmed"} / ${pending.multiSelectionMove ? "group" : "single"}`);
     this.updateJumpNodeDebugSnapshot("jump-press-pending");
@@ -1731,6 +1747,8 @@ class ProductionEngineBridge {
   cancelPendingJumpPress(reason = "cancelled", { updateHud = true, winner = "cancelled" } = {}) {
     const pending = this.pendingJumpPress;
     if (!pending) return null;
+    clearTimeout(pending.holdTimer);
+    pending.holdTimer = null;
     const dx = Number(pending.lastScreen?.x || 0) - Number(pending.startScreen?.x || 0);
     const dy = Number(pending.lastScreen?.y || 0) - Number(pending.startScreen?.y || 0);
     const distancePx = Math.hypot(dx, dy);
@@ -1757,6 +1775,8 @@ class ProductionEngineBridge {
   updatePendingJumpPress(point, worldPoint, event) {
     const pending = this.pendingJumpPress;
     if (!pending) return "none";
+    if (event?.pointerId !== pending.pointerId) return "pending";
+    if (pending.holdRejected) return "rejected";
     pending.lastScreen = { ...point };
     pending.lastWorld = { ...worldPoint };
     const distancePx = this.jumpPressDistancePx(point);
@@ -1774,6 +1794,7 @@ class ProductionEngineBridge {
       return "rewire";
     }
     const intent = jumpPressIntent({
+      elapsedMs: pending.shiftRewireCandidate ? 0 : performance.now() - pending.startedAt,
       distancePx,
       dragThresholdPx: this.jumpPressMoveThresholdPx(),
       canStartLink: pending.canStartLink,
@@ -1783,6 +1804,14 @@ class ProductionEngineBridge {
       multiSelectionMove: pending.multiSelectionMove
     });
     pending.gestureWinner = intent;
+    if (intent === "rejected") {
+      clearTimeout(pending.holdTimer);
+      pending.holdTimer = null;
+      pending.holdRejected = true;
+      this.hud?.setMetric("jump press", pending.rejectionReason);
+      this.updateInteractionHud("jump-hold-rejected");
+      return "rejected";
+    }
     if (intent === "link") {
       this.resolvePendingJumpPressAsLink(event);
       return "link";
@@ -1825,6 +1854,7 @@ class ProductionEngineBridge {
     if (!jumpDevice || !sourceHit) return false;
     this.clearHoverState("jump-link-start", { render: false });
     this.beginJumpLinkCreate(sourceHit, pointerWorld);
+    this.jumpLinkCreate.pointerId = pending.pointerId;
     this.updateJumpLinkCreate(pointerWorld);
     this.updateSelectionHud();
     this.updateInteractionHud("jump-link-create", { connector: sourceHit, device: jumpDevice });
@@ -1896,6 +1926,7 @@ class ProductionEngineBridge {
   }
 
   jumpLinkStartStatus(jumpId) {
+    if (!isJumpNodeDevice(this.scene.getDevice(jumpId))) return { valid: false, reason: "Jump Node is no longer in the scene." };
     const roleInfo = this.scene.jumpNodeRole(jumpId);
     if (!roleInfo?.localWire) return { valid: false, reason: "Connect this Jump Node to a device input or output first." };
     if (roleInfo.role === JUMP_NODE_ROLE.neutral) return { valid: false, reason: "Connect this Jump Node to a clear input or output first." };
@@ -2088,6 +2119,7 @@ class ProductionEngineBridge {
       this.blockInteraction(event, "pointerdown while loading");
       return;
     }
+    if (this.pendingJumpPress || this.jumpLinkCreate) this.cancelActiveInteraction("interaction-replaced", { updateHud: false });
     const point = this.eventPoint(event);
     if (this.dispatchCanvasToolPointerEvent("pointerdown", event, point)) {
       this.capturePointer(event.pointerId);
@@ -2385,6 +2417,8 @@ class ProductionEngineBridge {
 
   handlePointerMove(event) {
     if (!this.ready) return;
+    const jumpPointerId = this.pendingJumpPress?.pointerId ?? this.jumpLinkCreate?.pointerId;
+    if (jumpPointerId != null && jumpPointerId !== event.pointerId) return;
     const pointerStart = performance.now();
     const point = this.eventPoint(event);
     if (this.dispatchCanvasToolPointerEvent("pointermove", event, point)) {
@@ -2605,6 +2639,8 @@ class ProductionEngineBridge {
   }
 
   handlePointerUp(event) {
+    const jumpPointerId = this.pendingJumpPress?.pointerId ?? this.jumpLinkCreate?.pointerId;
+    if (jumpPointerId != null && jumpPointerId !== event.pointerId) return;
     if (!this.ready) {
       this.blockInteraction(event, "pointerup while loading");
       this.releasePointerCapture(event.pointerId);
@@ -2690,6 +2726,8 @@ class ProductionEngineBridge {
   }
 
   handlePointerCancel(event) {
+    const jumpPointerId = this.pendingJumpPress?.pointerId ?? this.jumpLinkCreate?.pointerId;
+    if (jumpPointerId != null && jumpPointerId !== event.pointerId) return;
     const point = this.eventPoint(event);
     this.dispatchCanvasToolPointerEvent("pointercancel", event, point);
     this.cancelActiveInteraction("pointer-cancel");
@@ -2703,7 +2741,9 @@ class ProductionEngineBridge {
     this.scheduleRender();
   }
 
-  handleLostPointerCapture() {
+  handleLostPointerCapture(event) {
+    const jumpPointerId = this.pendingJumpPress?.pointerId ?? this.jumpLinkCreate?.pointerId;
+    if (jumpPointerId != null && event?.pointerId != null && jumpPointerId !== event.pointerId) return;
     if (!this.dragSession && !this.pendingDrag && !this.pendingJumpPress && !this.jumpLinkCreate && !this.panState && !this.routePointDrag && !this.wireSegmentDrag && !this.wireCreate && !this.resizeSession && !this.commentBoxDrag && !this.marqueeState) return;
     this.cancelActiveInteraction("lost-pointer-capture");
     this.scheduleRender();

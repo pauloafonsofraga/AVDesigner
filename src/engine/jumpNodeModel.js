@@ -12,12 +12,14 @@ export const JUMP_NODE_INFO_MIN_ZOOM = 0.4;
 export const JUMP_NODE_CONNECTOR_ID = "jump-center";
 export const JUMP_LINK_BEZIER_STEPS = 28;
 export const JUMP_PRESS_MOVE_THRESHOLD_PX = 5;
+export const JUMP_LINK_HOLD_MS = 250;
 
 export const JUMP_PRESS_INTENT = Object.freeze({
   pending: "pending",
   select: "select",
   move: "move",
-  link: "link"
+  link: "link",
+  rejected: "rejected"
 });
 
 export const JUMP_NODE_ROLE = Object.freeze({
@@ -85,10 +87,10 @@ export function jumpNodeRoleLabel(role = JUMP_NODE_ROLE.neutral) {
 }
 
 export function jumpPressIntent({
+  elapsedMs = 0,
   distancePx = 0,
   dragThresholdPx = JUMP_PRESS_MOVE_THRESHOLD_PX,
   canStartLink = false,
-  explicitlyMoveArmed = false,
   pressedJumpSelected = false,
   selectedCount = 0,
   multiSelectionMove = false,
@@ -99,11 +101,8 @@ export function jumpPressIntent({
   const selectionCount = Math.max(0, Number.isFinite(Number(selectedCount)) ? Number(selectedCount) : 0);
   const moveSelectedGroup = Boolean(multiSelectionMove || (pressedJumpSelected && selectionCount > 1));
   if (released && distance < threshold) return JUMP_PRESS_INTENT.select;
-  if (distance >= threshold) {
-    if (moveSelectedGroup) return JUMP_PRESS_INTENT.move;
-    if (canStartLink && !explicitlyMoveArmed) return JUMP_PRESS_INTENT.link;
-    return JUMP_PRESS_INTENT.move;
-  }
+  if (distance >= threshold) return JUMP_PRESS_INTENT.move;
+  if (elapsedMs >= JUMP_LINK_HOLD_MS && !moveSelectedGroup) return canStartLink ? JUMP_PRESS_INTENT.link : JUMP_PRESS_INTENT.rejected;
   return JUMP_PRESS_INTENT.pending;
 }
 
