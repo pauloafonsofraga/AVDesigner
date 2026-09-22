@@ -846,7 +846,6 @@ function structuralEditorHarness(inputTemplate = {}) {
     "pairedNetworkGroupId",
     "ensurePairedNetworkPair",
     "nextEditorPlacementY",
-    "nextEditorSlotY",
     "ledProcessorSignalIndex",
     "isLegacyLedProcessorGeneratedConnector",
     "isLedProcessorGeneratedConnector",
@@ -1830,7 +1829,7 @@ test("Device Editor placement delegates to the shared modular layout module", ()
   const layoutItems = functionSource("editorLayoutItems");
   const nextPlacement = functionSource("nextEditorPlacementY");
   const nextConnector = functionSource("nextAvailableConnectorY");
-  const nextSlot = functionSource("nextEditorSlotY");
+  const addNode = functionSource("addEditorNode");
   const structuralItems = functionSource("editorStructuralLayoutItems");
   const structuralCommit = functionSource("commitEditorStructuralEdit");
   const openEditor = functionSource("openDeviceEditor");
@@ -1876,7 +1875,9 @@ test("Device Editor placement delegates to the shared modular layout module", ()
   assert.match(nextPlacement, /resolveEditorPlacementItems\(/);
   assert.doesNotMatch(nextPlacement, /while\s*\(/);
   assert.match(nextConnector, /nextEditorPlacementY\(template, placementSide/);
-  assert.match(nextSlot, /nextEditorPlacementY\(template, side/);
+  assert.match(addNode, /context\.targetYForLane\(context\.baselineLayout\.endLane\)/);
+  assert.doesNotMatch(addNode, /nextEditorPlacementY|nextAvailableConnectorY|normalizeConnectorRows/);
+  assert.doesNotMatch(INDEX_HTML, /function nextEditorSlotY\(/);
   assert.match(structuralItems, /editorLayoutItems\(template, \{ useDragPreview: false \}\)/);
   assert.match(structuralItems, /editorPlacementItemId\(item\)/);
   assert.match(structuralCommit, /createModularStructuralEditSession\(baselineLayout\.items/);
@@ -2102,6 +2103,189 @@ test("Device Editor paired deletion filters non-layout IDs but removes modular c
   assert.equal(counters.animationSeeds, 1);
   assert.equal(counters.animationRetargets, 1);
   assert.equal(counters.previewRenders, 1);
+});
+
+function assertDefaultNodeAppend(harness, direction, options = {}) {
+  const { api, template, context, counters } = harness;
+  const baseline = api.resolveEditorModularLayout(template);
+  const before = structuredClone(template);
+  const existingIds = new Set(before.connectors.map(connector => connector.id));
+  api.addEditorNode(direction, options);
+  const created = template.connectors.filter(connector => !existingIds.has(connector.id));
+  assert.ok(created.length > 0);
+  const expected = { ...itemLaneMap(baseline) };
+  for (const connector of created) {
+    expected[`connector:${connector.id}`] = baseline.endLane;
+    assert.equal(connector.y, context.connectorStartYForTemplate(template) + baseline.endLane * 54);
+    if (connector.anchors) assert.equal(connector.anchors.find(anchor => anchor.id === connector.primaryAnchorId).y, connector.y);
+  }
+  const resolved = api.resolveEditorModularLayout(template);
+  assert.deepEqual(itemLaneMap(resolved), expected);
+  assert.equal(resolved.endLane, baseline.endLane + 1);
+  assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), expected, "static-layout fixed point");
+  for (const original of before.connectors) {
+    const current = template.connectors.find(connector => connector.id === original.id);
+    assert.equal(current.x, original.x);
+    assert.equal(current.y, original.y);
+    assert.deepEqual(current.anchors.map(({ id, x, y }) => ({ id, x, y })), original.anchors.map(({ id, x, y }) => ({ id, x, y })));
+    for (const key of ["nameText", "pairedConnectorId", "networkGroupId", "infoFields"]) {
+      assert.deepEqual(current[key], original[key]);
+    }
+  }
+  assert.deepEqual(template.cardSlots, before.cardSlots);
+  assert.deepEqual(template.cardTypes, before.cardTypes);
+  assert.deepEqual(template.connectorRelationships, before.connectorRelationships);
+  assert.deepEqual([...context.editorSelectedNodeIds], [created[0].id]);
+  const edit = counters.edits.at(-1);
+  assert.ok(edit.upserts.every(item => item.hard && item.span === 1 && item.targetLane === baseline.endLane));
+  assert.equal(counters.normalizationCalls, 0, "no legacy row normalizer");
+  return created;
+}
+
+test("Device Editor default append starts an empty device at lane zero", () => {
+  const h = structuralEditorHarness();
+  const [created] = assertDefaultNodeAppend(h, "input");
+  assert.equal(created.empty, true);
+  assert.equal(created.y, h.context.connectorStartYForTemplate(h.template));
+  assert.deepEqual(itemLaneMap(h.api.resolveEditorModularLayout(h.template)), { "connector:input-slot-1": 0 });
+});
+
+for (const [direction, occupiedSide, prefix] of [["input", "right", "out"], ["output", "left", "in"]]) {
+  test(`Device Editor default append ${direction} uses the opposite side global end`, () => {
+    const h = structuralEditorHarness({ connectors: ["a", "b", "c"].map((id, lane) => testConnector(`${prefix}-${id}`, occupiedSide, lane, { v2: true })) });
+    assert.deepEqual(itemLaneMap(h.api.resolveEditorModularLayout(h.template)), {
+      [`connector:${prefix}-a`]: 0, [`connector:${prefix}-b`]: 1, [`connector:${prefix}-c`]: 2
+    });
+    assertDefaultNodeAppend(h, direction);
+    assert.deepEqual(itemLaneMap(h.api.resolveEditorModularLayout(h.template)), {
+      [`connector:${prefix}-a`]: 0, [`connector:${prefix}-b`]: 1, [`connector:${prefix}-c`]: 2,
+      [`connector:${direction}-slot-1`]: 3
+    });
+  });
+}
+
+test("Device Editor default append leaves earlier gaps and network rows in place", () => {
+  const h = structuralEditorHarness({ connectors: [
+    testConnector("network", "both", 0, { v2: true, type: "ethernet" }),
+    testConnector("later", "left", 4, { v2: true })
+  ] });
+  assertDefaultNodeAppend(h, "input");
+  assert.deepEqual(itemLaneMap(h.api.resolveEditorModularLayout(h.template)), {
+    "connector:network": 0, "connector:later": 4, "connector:input-slot-3": 5
+  });
+});
+
+for (const direction of ["input", "output"]) {
+  test(`Device Editor default append ${direction} follows mixed connectors and full installed card span`, () => {
+    const h = structuralEditorHarness({
+      connectors: [testConnector("left", "left", 0, { v2: true }), testConnector("right", "right", 0, { v2: true }), testConnector("both", "both", 2, { v2: true })],
+      cardTypes: [{ id: "io-card", name: "I/O", kind: "io", connectors: [
+        testConnector("card-a", "left", 0, { v2: true }), testConnector("card-b", "left", 1, { v2: true }), testConnector("card-c", "right", 0, { v2: true })
+      ] }],
+      cardSlots: [{ id: "slot", installedCardTypeId: "io-card", y: 262, connectorOverrides: { "card-a": { nameText: "Custom input" } } }]
+    });
+    const baseline = h.api.resolveEditorModularLayout(h.template);
+    assert.deepEqual(itemLaneMap(baseline), { "connector:left": 0, "connector:right": 0, "connector:both": 2, "card:slot": 3 });
+    assert.equal(baseline.endLane, 7);
+    assertDefaultNodeAppend(h, direction);
+  });
+}
+
+test("Device Editor default append preserves shared-bus members, anchors and relationship data", () => {
+  const h = structuralEditorHarness({
+    connectors: [0, 1, 2, 3].map(lane => testConnector(`bus-${lane}`, "right", lane, { v2: true, nameText: `SDI ${lane + 1}` })),
+    connectorRelationships: [{ id: "bus", type: "shared-bus", members: ["bus-0", "bus-1", "bus-2", "bus-3"], outputMode: "and" }]
+  });
+  assertDefaultNodeAppend(h, "input");
+  assert.equal(h.template.connectors.at(-1).y, 316);
+});
+
+test("Device Editor default append repeated additions never move earlier rows", () => {
+  const h = structuralEditorHarness();
+  for (let lane = 0; lane < 8; lane += 1) {
+    const [created] = assertDefaultNodeAppend(h, lane % 2 ? "output" : "input");
+    assert.equal(created.y, 100 + lane * 54);
+  }
+  assert.equal(h.counters.structuralSessions, 8);
+  assert.equal(h.counters.solverCalls, 8);
+});
+
+for (const y of [null, NaN, Infinity, -Infinity]) {
+  test(`Device Editor default append treats ${String(y)} as no finite explicit Y`, () => {
+    assertDefaultNodeAppend(structuralEditorHarness({ connectors: [testConnector("last", "right", 2, { v2: true })] }), "input", { y });
+  });
+}
+
+test("Device Editor default append uses dynamic faceplate and Power Distro origins", () => {
+  for (const fields of [{ faceImage: "custom.png", faceImageStartY: 320 }, { isPowerDistro: true, powerDistroStartY: 550 }]) {
+    const h = structuralEditorHarness(fields);
+    assertDefaultNodeAppend(h, "input");
+    assertDefaultNodeAppend(h, "output");
+  }
+});
+
+test("Device Editor default append typed and paired network additions begin at the global end", () => {
+  for (const [version, type, count] of [[2, "hdmi", 1], [2, "ethernet", 1], [1, "ethernet", 2]]) {
+    const h = structuralEditorHarness({ deviceDefinitionVersion: version, schemaVersion: version,
+      connectors: [testConnector("last-output", "right", 2, { v2: true })] });
+    const created = assertDefaultNodeAppend(h, "input", { type });
+    assert.equal(created.length, count);
+    assert.equal(created[0].type, type);
+    assert.equal(created[0].empty, false);
+    if (count === 2) {
+      assert.equal(created[0].pairedConnectorId, created[1].id);
+      assert.equal(created[1].pairedConnectorId, created[0].id);
+      assert.equal(created[0].networkGroupId, created[1].networkGroupId);
+    }
+  }
+});
+
+test("Device Editor default append grows height only when the appended row needs it", () => {
+  const h = structuralEditorHarness({ height: 600 });
+  assertDefaultNodeAppend(h, "input");
+  assert.equal(h.template.height, 600);
+  while (h.api.resolveEditorModularLayout(h.template).endLane < 9) assertDefaultNodeAppend(h, "output");
+  assert.equal(h.template.height, h.context.deviceHeightForSlotCounts(h.template));
+  assert.ok(h.template.height > 600);
+});
+
+test("Device Editor default append validation and post-apply failures restore template, height and selection", () => {
+  for (const failure of ["validation", "height"]) {
+    const h = structuralEditorHarness({ height: 800, connectors: [testConnector("selected", "left", 2, { v2: true })] });
+    h.context.editorSelectedNodeIds = new Set(["selected"]);
+    h.context.editorSelectedNodeIndex = 0;
+    const before = structuredClone(h.template);
+    h.placementModule.forceInvalid = failure === "validation";
+    h.context.failDeviceHeightForSlotCounts = failure === "height";
+    assert.throws(() => h.api.addEditorNode("input"), failure === "validation" ? /invalid layout/ : /forced device height failure/);
+    assert.deepEqual(h.template, before);
+    assert.deepEqual([...h.context.editorSelectedNodeIds], ["selected"]);
+    assert.equal(h.context.editorSelectedNodeIndex, 0);
+    assert.equal(h.counters.previewRenders, 0);
+    assert.equal(h.counters.selectedSettingsRenders, 0);
+    assert.equal(h.counters.animationSeeds, 0);
+  }
+});
+
+test("Device Editor append change preserves explicit insertion and faceplate/adapter palette targets", () => {
+  const h = structuralEditorHarness({ connectors: [0, 1, 2].map(lane => testConnector(`in-${lane}`, "left", lane, { v2: true })) });
+  h.api.addEditorNode("input", { y: 154 });
+  assert.deepEqual(itemLaneMap(h.api.resolveEditorModularLayout(h.template)), {
+    "connector:in-0": 0, "connector:input-slot-4": 1, "connector:in-1": 2, "connector:in-2": 3
+  });
+  const face = structuralEditorHarness({ allowFaceplateSide: true, connectors: [testConnector("row", "left", 2, { v2: true })] });
+  face.api.addEditorNode("input", { y: 42, type: "hdmi" });
+  assert.equal(face.template.connectors.at(-1).faceplateSide, true);
+  assert.equal(face.template.connectors.at(-1).y, face.context.faceplateSideConnectorY(face.template));
+  assert.deepEqual(itemLaneMap(face.api.resolveEditorModularLayout(face.template)), { "connector:row": 2 });
+  const adapter = structuralEditorHarness({ objectType: "adapter", connectors: [testConnector("last", "right", 4, { v2: true })] });
+  Object.assign(adapter.context, {
+    editorPaletteDragSession: { active: true, connectorType: "hdmi" },
+    addEditorNode: adapter.api.addEditorNode
+  });
+  const drop = runnableIndexFunction("editorDropPointCreatesAdapterNode", adapter.context);
+  assert.equal(drop({ point: { x: 0, y: 154 } }), true);
+  assert.deepEqual(itemLaneMap(adapter.api.resolveEditorModularLayout(adapter.template)), { "connector:input-slot-1": 1, "connector:last": 4 });
 });
 
 test("Device Editor typed add fills the connector in one atomic structural transaction", () => {
