@@ -21,7 +21,7 @@ for (const count of [2, 3, 4]) for (const side of ["left", "right"]) {
   test(`rigid geometry ${count}/${side}: exact span, offsets, clearance, renderer and offline parity`, () => {
     const device = fixture(count, side), before = structuredClone(device);
     const [group] = rigidSharedBusGroups(device, { startY: 100 });
-    const offsets = count === 2 ? [-9, 9] : count === 3 ? [-18, 0, 18] : [0, 18, 36, 54];
+    const offsets = Array.from({ length: count }, (_, i) => i * 18);
     assert.equal(group.id, "shared-bus:bus");
     assert.equal(group.span, count === 4 ? 2 : 1);
     assert.deepEqual(group.offsets, offsets);
@@ -59,7 +59,7 @@ test("both-side member reserves both tracks and preserves intentional secondary-
   const positions = sharedBusMemberPositions(group, 100);
   device.connectors.forEach(c => { const delta = positions.get(c.id) - c.y; c.y += delta; c.anchors.forEach(a => a.y += delta); });
   const anchors = connectorDisplayAnchors(device, c);
-  assert.deepEqual(anchors.map(a => a.y), [94, 106]);
+  assert.deepEqual(anchors.map(a => a.y), [100, 112]);
   const items = groupSharedBusPlacementItems(device, [{ id: "right-only", sideMask: "right", requestedLane: 0, span: 1, order: 99 }]);
   const layout = resolveModularPlacementItems(items, { startY: 100 });
   assert.equal(layout.byId.get("right-only").lane, 2);

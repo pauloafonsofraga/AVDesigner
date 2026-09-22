@@ -10,6 +10,8 @@ import {
 } from "../src/engine/enginePreview.js";
 import * as placementMotionModule from "../src/engine/deviceEditorPlacementMotion.js";
 import * as sharedBusPlacementModule from "../src/engine/sharedBusPlacement.js";
+import { modularIntegrationFixture, adapterIntegrationFixture } from "../fixtures/modular-integration.mjs";
+import { assertModularIntegrationState, geometry as integrationGeometry } from "./helpers/modularIntegrationAssertions.mjs";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 import {
   authoringInsertionBoundaryForLane,
@@ -1130,6 +1132,7 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
     editorInstalledCardConnectorFromEvent: () => null,
     startEditorFaceplateMarquee: () => false,
     startEditorNodeMarquee: () => false,
+    isAdapterTemplate: device => device?.objectType === "adapter",
     isAdapterCenterDropTarget: () => false,
     isFaceplateSideDropTarget: () => false,
     reorderConnectorInDirection: () => null,
@@ -2214,7 +2217,7 @@ test("rigid shared bus reserves one object instead of compressing across an ordi
   assert.deepEqual(itemLaneMap(layout), { "shared-bus:bus": 0, "connector:ordinary": 1 });
   assert.equal(JSON.stringify(h.template), before);
   h.api.applyEditorStableResolvedLayout(h.template, layout);
-  assert.deepEqual(h.template.connectors.map(c => [c.id, c.y, c.anchors[0].y]), [["bus-a", 91, 91], ["ordinary", 154, 154], ["bus-b", 109, 109]]);
+  assert.deepEqual(h.template.connectors.map(c => [c.id, c.y, c.anchors[0].y]), [["bus-a", 100, 100], ["ordinary", 154, 154], ["bus-b", 118, 118]]);
 });
 
 test("shared layout normalization preserves unrelated adapter placement flags", () => {
@@ -2237,7 +2240,7 @@ for (const count of [2, 3, 4]) for (const side of ["left", "right"]) {
     assert.equal(deviceHeightCalculationHarness().api.deviceHeightForSlotCounts(h.template, { layout }), 100 + (2 + span) * 54 + 48);
     h.api.applyEditorStableResolvedLayout(h.template, layout);
     const ys = members.map(c => h.template.connectors.find(item => item.id === c.id).y);
-    assert.deepEqual(ys.map(y => y - 154), count === 2 ? [-9, 9] : count === 3 ? [-18, 0, 18] : [0, 18, 36, 54]);
+    assert.deepEqual(ys.map(y => y - 154), Array.from({ length: count }, (_, i) => i * 18));
     assert.ok(ys[0] - 100 >= 16);
     assert.ok(h.template.connectors.find(c => c.id === "after").y - ys.at(-1) >= 16);
   });
@@ -3885,6 +3888,238 @@ function faceplateDragHarness({ side = "left", scale = 1, face = "default", dock
   };
 }
 
+function modularIntegrationHarness(scale = .2, side = "left") {
+  const h = faceplateDragHarness({ scale, side, docked: false });
+  const { context: c, template: t } = h;
+  Object.assign(t, modularIntegrationFixture(c.connectorStartYForTemplate(t), t.width, c.faceplateSideConnectorY(t)));
+  t.connectors.find(c => c.id === "both").anchors[1].y += 6;
+  vm.runInNewContext(["commitEditorSharedBusRelationshipEdit", "editorStableDragLayout", "editorStableDragLayoutPositions"].map(functionSource).join("\n"), c);
+  // This harness settles motion synchronously; the browser suite exercises scheduled rollback frames.
+  c.rollbackEditorPlacementMotionForDrag = drag => { c.motionTarget = structuredClone(drag.baselineResolvedLayout); c.pendingMotion = false; c.editorPlacementMotionPreviewLock = null; return true; };
+  c.editorSelectedNodeIds.clear(); c.editorSelectedNodeIndex = null;
+  let previous = structuredClone(t);
+  const check = label => {
+    const renderBefore = JSON.stringify(t);
+    const layout = h.api.resolveEditorModularLayout(t);
+    const preview = createPreviewDeviceFromDraft({ template: t });
+    h.api.readonlyDeviceEditorPreviewTemplate(t);
+    assertModularIntegrationState({ template: t, layout, startY: c.connectorStartYForTemplate(t),
+      repeatedLayout: h.api.resolveEditorModularLayout(t), selectedIds: [...c.editorSelectedNodeIds],
+      generated: preview.connectors.filter(p => p.generatedFromCard), motionActive: !!c.pendingMotion,
+      renderBefore, renderAfter: JSON.stringify(t) }, label, previous);
+    previous = structuredClone(t);
+    return itemLaneMap(layout);
+  };
+  const moveItem = (id, boundary) => {
+    const layout = h.api.resolveEditorModularLayout(t);
+    const session = createModularAuthoringInsertionSession(layout.items, { draggedItemIds: [id], primaryDraggedItemId: id, startY: c.connectorStartYForTemplate(t), slotHeight: 54 });
+    const resolved = resolveModularAuthoringInsertion(session, boundary === -1 ? session.boundaries.length - 1 : boundary, { startY: c.connectorStartYForTemplate(t), slotHeight: 54 });
+    h.api.applyEditorStableResolvedLayout(t, resolved);
+    assert.deepEqual(itemLaneMap(h.api.resolveEditorModularLayout(t)), itemLaneMap(resolved));
+    return session.originalBoundaryIndex;
+  };
+  const moveBoundary = boundary => {
+    const d = c.editorNodeDrag;
+    const positions = authoringInsertionBoundaryScreenPositions(d.session, { projectedLanePx: d.projectedLanePx, minimumStepPx: 12 });
+    const index = boundary === -1 ? positions.length - 1 : boundary;
+    h.move((d.pointerStartClientY + positions[index] - positions[d.originalBoundaryIndex]) / h.scale);
+    return c.editorNodeDrag;
+  };
+  return { ...h, check, moveItem, moveBoundary };
+}
+
+test("Stage 4 integration fixture has exact accounting, an intentional gap and rendering parity", () => {
+  const h = modularIntegrationHarness();
+  assert.deepEqual(h.check("open"), {
+    "connector:left-a": 0, "connector:right-a": 0, "shared-bus:left-bus": 2, "shared-bus:right-bus": 2,
+    "connector:both": 4, "connector:mixed-left": 5, "connector:mixed-right": 5,
+    "connector:net-in": 6, "connector:net-out": 6, "connector:empty": 7,
+    "card:input-slot": 8, "card:output-slot": 8, "card:io-slot": 12,
+    "connector:tail-left": 17, "connector:tail-right": 17
+  });
+});
+
+test("Stage 4 opposite three-member bus moved to the first boundary stays below the modular origin", () => {
+  const h = modularIntegrationHarness();
+  h.check("before right bus move");
+  h.moveItem("shared-bus:right-bus", 0);
+  h.check("right bus first boundary");
+  assert.equal(h.api.resolveEditorModularLayout(h.template).byId.get("shared-bus:right-bus").lane, 0);
+  assert.deepEqual(h.template.connectors.filter(c => c.id.startsWith("right-bus-")).map(c => c.y), [100, 118, 136]);
+});
+
+test("Stage 4 deleting a bus member preserves surviving valid relationship membership", () => {
+  const h = modularIntegrationHarness();
+  h.check("before delete");
+  h.api.removeEditorNode(h.template.connectors.findIndex(c => c.id === "left-bus-3"));
+  h.check("after delete bus member");
+  assert.deepEqual(h.template.connectorRelationships.find(r => r.id === "left-bus").members, ["left-bus-0", "left-bus-1", "left-bus-2"]);
+  assert.deepEqual(h.template.connectors.filter(c => c.id.startsWith("left-bus-")).map(c => c.y), [208, 226, 244]);
+});
+
+test("Stage 4 adapter-centre connector is not packed as an ordinary modular row", () => {
+  const h = structuralEditorHarness(adapterIntegrationFixture());
+  assert.deepEqual(h.api.resolveEditorModularLayout(h.template).items.map(i => i.id), []);
+});
+
+test("Stage 4 adapter-centre node can start a drag and cancel without entering lane occupancy", () => {
+  const h = faceplateDragHarness();
+  Object.assign(h.template, adapterIntegrationFixture());
+  h.context.editorSelectedNodeIds.clear(); h.context.editorSelectedNodeIndex = null;
+  const before = JSON.stringify(h.template);
+  h.start(0);
+  assert.ok(h.context.editorNodeDrag, "centre node remains draggable outside modular occupancy");
+  assert.equal(h.context.editorNodeDrag.interactionMode, "adapter-centre");
+  h.cancel();
+  assert.equal(JSON.stringify(h.template), before);
+  assert.deepEqual(h.api.resolveEditorModularLayout(h.template).items.map(i => i.id), []);
+});
+
+test("Stage 4 live scene preserves card texture suppression through drag and settle", () => {
+  const template = modularIntegrationFixture(), before = JSON.stringify(template);
+  const idle = createPreviewDeviceFromDraft({ template });
+  const moving = createPreviewDeviceFromDraft({ template: { ...template, suppressCardAreasInTexture: true } });
+  const scene = new SceneGraph();
+  scene.setData({ devices: [idle], wires: [], racks: [] });
+  scene.replaceDevice(moving);
+  assert.equal(scene.getDevice(moving.id).visual.suppressCardAreasInTexture, true, "live SVG cards must not also be baked into the Engine texture");
+  assert.equal(previewDeviceVisualKey(scene.getDevice(moving.id)), previewDeviceVisualKey(moving));
+  scene.replaceDevice(idle);
+  assert.equal(scene.getDevice(idle.id).visual.suppressCardAreasInTexture, false, "settle restores static artwork");
+  assert.equal(JSON.stringify(template), before);
+});
+
+test("Stage 4 deterministic combined operation trace", t => {
+  const h = modularIntegrationHarness(), c = h.context, d = h.template, trace = [];
+  const step = (name, run = () => {}) => { run(); trace.push(name); try { return h.check(name); } catch (error) { error.message += `\nTrace: ${trace.join(" -> ")}`; throw error; } };
+  const index = id => d.connectors.findIndex(n => n.id === id);
+  step("open/reload fixture");
+  let end = h.api.resolveEditorModularLayout(d).endLane;
+  step("append input", () => h.api.addEditorNode("input"));
+  assert.equal(h.api.resolveEditorModularLayout(d).byId.get(`connector:${d.connectors.at(-1).id}`).lane, end++);
+  step("append output", () => h.api.addEditorNode("output"));
+  assert.equal(h.api.resolveEditorModularLayout(d).byId.get(`connector:${d.connectors.at(-1).id}`).lane, end);
+  step("confirm global append");
+  step("fill empty", () => h.api.fillEditorSlotById("empty", "hdmi"));
+  h.start(index("left-a"));
+  const original = c.editorNodeDrag.originalBoundaryIndex;
+  h.moveBoundary(original + 1); assert.equal(c.editorNodeDrag.currentBoundaryIndex, original + 1);
+  h.moveBoundary(original); assert.equal(c.editorNodeDrag.currentBoundaryIndex, original);
+  h.moveBoundary(-1); h.stop(); step("ordinary down/reverse/through both-side node");
+  step("four-member bus above ordinary", () => h.moveItem("shared-bus:left-bus", 0));
+  step("four-member bus below card", () => h.moveItem("shared-bus:left-bus", -1));
+  step("card through ordinary", () => h.moveItem("card:input-slot", 0));
+  step("card past bus", () => h.moveItem("card:input-slot", -1));
+  h.start(index("left-a")); h.move(c.faceplateSideConnectorY(d)); h.stop(); step("dock ordinary input");
+  h.start(index("left-a")); h.move(h.exitY()); h.stop(); step("detach first boundary");
+  h.start(index("left-a")); h.move(c.faceplateSideConnectorY(d)); h.move(h.exitY()); h.stop(); step("enter faceplate and reverse");
+  for (const id of ["left-a", "tail-left", "left-bus-0"]) {
+    const before = JSON.stringify(d);
+    h.start(index(id));
+    if (id === "left-a") h.move(c.faceplateSideConnectorY(d)); else h.moveBoundary(-1);
+    h.cancel(); assert.equal(JSON.stringify(d), before); step(`cancel ${id}`);
+  }
+  const cardCancel = JSON.stringify(d), layout = h.api.resolveEditorModularLayout(d);
+  const cardSession = createModularAuthoringInsertionSession(layout.items, { draggedItemIds: ["card:io-slot"], primaryDraggedItemId: "card:io-slot", startY: c.connectorStartYForTemplate(d) });
+  resolveModularAuthoringInsertion(cardSession, 0); assert.equal(JSON.stringify(d), cardCancel); step("cancel card candidate");
+  for (let cycle = 0; cycle < 3; cycle++) {
+    step(`create relationship ${cycle}`, () => c.commitEditorSharedBusRelationshipEdit(d, draft => draft.connectorRelationships.push({ id: "trace-bus", type: "exclusive", members: ["left-a", "tail-left"] })));
+    step(`remove relationship ${cycle}`, () => c.commitEditorSharedBusRelationshipEdit(d, draft => { draft.connectorRelationships = draft.connectorRelationships.filter(r => r.id !== "trace-bus"); }));
+  }
+  step("remove existing relationship member", () => h.api.removeEditorNode(index("left-bus-3")));
+  const slotIndex = () => d.cardSlots.findIndex(s => s.id === "input-slot");
+  step("uninstall card", () => h.api.installCardInSlot(slotIndex(), ""));
+  step("reinstall card", () => h.api.installCardInSlot(slotIndex(), "input-card"));
+  d.cardSlots[slotIndex()].connectorOverrides["in-0"] = { nameText: "Retained override" };
+  step("replace card retaining valid override", () => h.api.installCardInSlot(slotIndex(), "io-card"));
+  assert.equal(d.cardSlots[slotIndex()].connectorOverrides["in-0"].nameText, "Retained override");
+  const originLanes = h.check("before origin"), height = d.height;
+  step("change faceplate origin", () => h.api.commitEditorFaceplateOriginMutation(d, { mutate(draft) { Object.assign(draft, { faceImage: "data:image/png;base64,fixture", faceImageNaturalWidth: 400, faceImageNaturalHeight: 80 }); } }));
+  step("restore origin", () => h.api.commitEditorFaceplateOriginMutation(d, { mutate(draft) { delete draft.faceImage; delete draft.faceImageNaturalWidth; delete draft.faceImageNaturalHeight; } }));
+  assert.deepEqual(h.check("origin fixed point"), originLanes); assert.equal(d.height, height);
+  step("save default", () => h.api.saveTemplateAsDefault(d));
+  const saved = integrationGeometry(d);
+  step("modify after default", () => h.moveItem("shared-bus:left-bus", 0));
+  step("reset default", () => h.api.resetTemplateToDefault(d));
+  assert.deepEqual(integrationGeometry(d), saved);
+  step("serialize/reload", () => Object.assign(d, JSON.parse(JSON.stringify(d))));
+  const copy = structuredClone(d); copy.id = "integration-copy";
+  assert.deepEqual(integrationGeometry(copy), integrationGeometry(d)); step("duplicate geometry");
+  const engine = createPreviewDeviceFromDraft({ template: copy });
+  assert.equal(engine.height, d.height); step("canvas normalization");
+  step("continue editing after reload", () => h.api.addEditorNode("output"));
+  t.diagnostic(`${trace.length} checked operations: ${trace.join(" -> ")}`);
+});
+
+for (const kind of ["ordinary", "faceplate", "bus", "card", "relationship", "reload"]) {
+  test(`Stage 4 ten ${kind} cycles have exact geometry and no drift`, () => {
+    const h = modularIntegrationHarness(), d = h.template, c = h.context;
+    const cycle = () => {
+      if (["ordinary", "bus", "card"].includes(kind)) {
+        const id = { ordinary: "connector:tail-left", bus: "shared-bus:left-bus", card: "card:input-slot" }[kind];
+        const original = h.moveItem(id, -1); h.check(`${kind} down`);
+        h.moveItem(id, original);
+      } else if (kind === "faceplate") {
+        h.start(d.connectors.findIndex(n => n.id === "left-a")); h.move(c.faceplateSideConnectorY(d)); h.stop(); h.check("dock");
+        h.start(d.connectors.findIndex(n => n.id === "left-a")); h.move(h.exitY()); h.stop();
+      } else if (kind === "relationship") {
+        c.commitEditorSharedBusRelationshipEdit(d, draft => draft.connectorRelationships.push({ id: "cycle", type: "exclusive", members: ["left-a", "tail-left"] })); h.check("relationship on");
+        c.commitEditorSharedBusRelationshipEdit(d, draft => { draft.connectorRelationships = draft.connectorRelationships.filter(r => r.id !== "cycle"); });
+      } else Object.assign(d, JSON.parse(JSON.stringify(d)));
+      h.check(`${kind} complete`);
+    };
+    cycle(); // Establish the compact layout once; the fixture deliberately starts with a gap.
+    const baseline = integrationGeometry(d), lanes = h.check("cycle baseline");
+    for (let i = 0; i < 10; i++) { cycle(); assert.deepEqual(integrationGeometry(d), baseline, `${kind}/${i}`); assert.deepEqual(h.check("cycle fixed point"), lanes); }
+  });
+}
+
+for (const seed of [0x542401, 0x542402, 0x542403]) {
+  test(`Stage 4 seeded mixed operations ${seed.toString(16)}`, t => {
+    const h = modularIntegrationHarness(), d = h.template, c = h.context, trace = [];
+    h.api.fillEditorSlotById("empty", "hdmi");
+    let state = seed;
+    const random = n => { state ^= state << 13; state ^= state >>> 17; state ^= state << 5; return (state >>> 0) % n; };
+    for (let i = 0; i < 80; i++) {
+      const operation = random(9); trace.push(operation);
+      try {
+        if (operation === 0) h.api.addEditorNode(random(2) ? "input" : "output");
+        if (operation === 1) { const index = d.connectors.findIndex(n => n.empty && n.id !== "empty"); if (index >= 0) h.api.removeEditorNode(index); else h.api.addEditorNode("input"); }
+        if (operation >= 2 && operation <= 4) h.moveItem(["connector:tail-right", "shared-bus:right-bus", "card:io-slot"][operation - 2], random(2) ? -1 : 0);
+        if (operation === 5) c.commitEditorSharedBusRelationshipEdit(d, draft => {
+          if (draft.connectorRelationships.some(r => r.id === "seed-bus")) draft.connectorRelationships = draft.connectorRelationships.filter(r => r.id !== "seed-bus");
+          else draft.connectorRelationships.push({ id: "seed-bus", type: "exclusive", members: ["empty", "tail-left"] });
+        });
+        if (operation === 6) { h.start(d.connectors.findIndex(n => n.id === "left-a")); h.move(d.connectors.find(n => n.id === "left-a").faceplateSide ? h.exitY() : c.faceplateSideConnectorY(d)); h.stop(); }
+        if (operation === 7) { const before = JSON.stringify(d); h.start(d.connectors.findIndex(n => n.id === "right-bus-0")); h.moveBoundary(random(2) ? -1 : 0); h.cancel(); assert.equal(JSON.stringify(d), before); }
+        if (operation === 8) Object.assign(d, JSON.parse(JSON.stringify(d)));
+        h.check(`seed ${seed}/${i}/${operation}`);
+      } catch (error) { error.message += `\nSeed ${seed.toString(16)}, trace ${trace.join(",")}`; throw error; }
+    }
+    t.diagnostic(`seed ${seed.toString(16)}: ${trace.length} operations`);
+  });
+}
+
+for (const scale of [.035, .08, .2, 1]) for (const side of ["left", "right", "both"]) {
+  test(`Stage 4 normal ${side} connector boundary gesture at scale ${scale}`, () => {
+    const h = modularIntegrationHarness(scale, side), c = h.context, d = h.template;
+    const id = side === "both" ? "both" : `${side}-a`, index = d.connectors.findIndex(n => n.id === id);
+    const before = JSON.stringify(d), height = d.height;
+    h.start(index); const drag = c.editorNodeDrag, original = drag.originalBoundaryIndex;
+    h.move(d.connectors[index].y + 1 / scale);
+    assert.equal(drag.currentBoundaryIndex, original, "sub-threshold move");
+    h.moveBoundary(original + 1); assert.equal(drag.currentBoundaryIndex, original + 1);
+    h.moveBoundary(original); assert.equal(drag.currentBoundaryIndex, original);
+    h.move(d.connectors[index].y + 10000 / scale); assert.equal(drag.currentBoundaryIndex, drag.session.boundaries.length - 1);
+    assert.equal(d.height, height); assert.equal(JSON.stringify(d), before);
+    assert.equal(c.motionY, drag.visualY, "whole object follows the pointer");
+    const accepted = itemLaneMap(drag.lastValidResolvedLayout);
+    h.stop(); assert.deepEqual(h.check("released accepted map"), accepted);
+    const cancel = JSON.stringify(d);
+    h.start(index); h.moveBoundary(0); h.cancel(); assert.equal(JSON.stringify(d), cancel); h.check("cancelled");
+  });
+}
+
 function rigidBusDragHarness(count = 4, side = "left") {
   const h = faceplateDragHarness({ side, docked: false, scale: .2 });
   const { template, context } = h;
@@ -4292,7 +4527,7 @@ test("Device Editor can detach a faceplate-side connector into a normal drag ses
   assert.ok(session.lastValidResolvedLayout.byId.has("connector:front-io"));
   assert.deepEqual(template, baseline, "preparing the drag must not mutate the saved faceplate placement");
   assert.doesNotMatch(functionSource("startEditorNodeDrag"), /editorPlacementTemplateForConnectorDrag\(/);
-  assert.match(functionSource("startEditorNodeDrag"), /dockEditorConnectorDrag\(editorNodeDrag, template, "faceplate-docked"/);
+  assert.match(functionSource("startEditorNodeDrag"), /dockEditorConnectorDrag\(editorNodeDrag, template, adapterCentre \? "adapter-centre" : "faceplate-docked"/);
 });
 
 test("Device Editor commits a faceplate-side connector into the first normal lane", () => {

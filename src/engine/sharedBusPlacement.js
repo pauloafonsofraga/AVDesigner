@@ -31,7 +31,8 @@ export function createSharedBusPlacementAPI() {
     const minAnchor = Math.min(0, ...relativeAnchors), maxAnchor = Math.max(0, ...relativeAnchors);
     // Reserve the node radius plus a small gap, including intentional secondary-anchor offsets.
     const span = Math.max(1, Math.ceil((spread + maxAnchor - minAnchor + 16) / slotHeight));
-    const firstOffset = ((span - 1) * slotHeight - spread - maxAnchor - minAnchor) / 2;
+    // The first accepted lane is the modular origin, not a centre above which nodes may extend.
+    const firstOffset = Math.max(-minAnchor, ((span - 1) * slotHeight - spread - maxAnchor - minAnchor) / 2);
     const memberIds = ordered.map(c => c.id);
     return {
       id: `shared-bus:${relationship.id}`, kind: "shared-bus", itemType: "shared-bus",

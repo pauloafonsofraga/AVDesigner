@@ -1963,6 +1963,7 @@ function normalizeVisualMetadata(visual = {}) {
     faceImageOffsetX: Number(visual.faceImageOffsetX ?? visual.faceplateOffsetX) || 0,
     faceImageOffsetY: Number(visual.faceImageOffsetY ?? visual.faceplateOffsetY) || 0,
     hasSwappableCards: Boolean(visual.hasSwappableCards),
+    suppressCardAreasInTexture: Boolean(visual.suppressCardAreasInTexture),
     isLedProcessor: Boolean(visual.isLedProcessor),
     isPowerDistro: Boolean(visual.isPowerDistro),
     isMatrixRouter: Boolean(visual.isMatrixRouter),
