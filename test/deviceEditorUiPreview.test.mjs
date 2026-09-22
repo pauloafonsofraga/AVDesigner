@@ -3668,6 +3668,7 @@ test("Device Editor palette drops resolve a nearby empty slot through preview ov
       y
     }]
   };
+  context.editorPaletteNearestSlotIdAtClient = runnableIndexFunction("editorPaletteNearestSlotIdAtClient", context);
   const api = vm.runInNewContext(`(${functionSource("editorPaletteDropTargetIdFromEvent")})`, context);
 
   const event = (x, y) => ({ clientX: x, clientY: y, target: { closest: () => null } });
@@ -3701,6 +3702,9 @@ function paletteDropHarness({ mode = "engine", scale = 1 } = {}) {
   const nodePalette = listeners();
   const cardPalette = listeners();
   const deviceEditorPreview = listeners();
+  const deviceEditorPreviewHost = listeners();
+  deviceEditorPreviewHost.contains = node => node === deviceEditorPreview || node?.insideHost === true;
+  deviceEditorPreviewHost.getBoundingClientRect = () => ({ left: -30 * scale, top: -30 * scale, right: 450 * scale, bottom: 500 * scale });
   const overlayNodes = template.connectors.map(connector => {
     const classes = new Set();
     return {
@@ -3718,6 +3722,8 @@ function paletteDropHarness({ mode = "engine", scale = 1 } = {}) {
   context.nodePalette = nodePalette;
   context.cardPalette = cardPalette;
   context.deviceEditorPreview = deviceEditorPreview;
+  context.deviceEditorPreviewHost = deviceEditorPreviewHost;
+  context.document = { addEventListener() {} };
   context.editorNodePaletteActive = () => true;
   context.editorEngineConnectorIndexFromEvent = () => -1;
   context.editorEngineConnectorIdFromEvent = () => "";
@@ -3739,8 +3745,8 @@ function paletteDropHarness({ mode = "engine", scale = 1 } = {}) {
   context.editorDropPointCreatesAdapterNode = () => false;
   context.fillEditorSlot = api.fillEditorSlot;
   context.fillEditorSlotById = api.fillEditorSlotById;
-  context.editorPaletteDraggedType = "";
-  context.editorPaletteDropCandidateId = "";
+  context.editorPaletteDragSession = null;
+  context.traceEditorDeviceDrop = () => {};
   context.powerPlugCanExistOnSide = powerPlugCanExistOnSide;
   context.powerPlugImageForConnector = powerPlugImageForConnector;
   context.isPowerPlugConnector = isPowerPlugConnector;
@@ -3750,8 +3756,10 @@ function paletteDropHarness({ mode = "engine", scale = 1 } = {}) {
   };
   CEE_DROP_TYPES.forEach(type => { context.cableTypes[type] = { label: type, color: "#d33" }; });
   context.editorPaletteDropTargetIdFromEvent = runnableIndexFunction("editorPaletteDropTargetIdFromEvent", context);
+  context.editorPaletteNearestSlotIdAtClient = runnableIndexFunction("editorPaletteNearestSlotIdAtClient", context);
   context.resolveEditorPaletteDrop = runnableIndexFunction("resolveEditorPaletteDrop", context);
   context.setEditorPaletteDropCandidate = runnableIndexFunction("setEditorPaletteDropCandidate", context);
+  context.clearEditorPaletteDragSession = runnableIndexFunction("clearEditorPaletteDragSession", context);
   vm.runInNewContext(sourceSlice(INDEX_HTML, '    nodePalette.addEventListener("dragstart"', '    function bindEditorInteractionSvg'), context);
   const chip = type => ({
     dataset: { nodeType: type }, offsetWidth: 80, offsetHeight: 20,
@@ -3792,12 +3800,12 @@ function paletteDropHarness({ mode = "engine", scale = 1 } = {}) {
     const localY = y ?? 154;
     const over = event(dataTransfer, destination, localX, localY);
     if (protectedOver) over.dataTransfer = { ...dataTransfer, getData: () => "" };
-    deviceEditorPreview.callbacks.get("dragover")(over);
-    const overCandidateId = context.editorPaletteDropCandidateId;
+    deviceEditorPreviewHost.callbacks.get("dragover")(over);
+    const overCandidateId = context.editorPaletteDragSession?.candidate?.connectorId || "";
     const overHighlighted = overlayNodes.find(node => node.dataset.editorNodeId === connectorId)?.classes.has("editor-palette-drop-target") === true;
     beforeDrop?.(dataTransfer);
     const drop = event(dataTransfer, destination, localX, localY);
-    deviceEditorPreview.callbacks.get("drop")(drop);
+    deviceEditorPreviewHost.callbacks.get("drop")(drop);
     nodePalette.callbacks.get("dragend")(drop);
     const highlightCleared = overlayNodes.every(node => !node.classes.has("editor-palette-drop-target"));
     return { over, drop, overCandidateId, overHighlighted, highlightCleared };
@@ -3806,12 +3814,32 @@ function paletteDropHarness({ mode = "engine", scale = 1 } = {}) {
     const dataTransfer = transfer();
     nodePalette.callbacks.get("dragstart")(event(dataTransfer, { closest: () => chip(type) }, 0, 0));
     const over = event({ ...dataTransfer, getData: () => "" }, target(connectorId), 0, 154);
-    deviceEditorPreview.callbacks.get("dragover")(over);
-    const highlighted = context.editorPaletteDropCandidateId === connectorId;
+    deviceEditorPreviewHost.callbacks.get("dragover")(over);
+    const highlighted = context.editorPaletteDragSession?.candidate?.connectorId === connectorId;
     nodePalette.callbacks.get("dragend")(over);
-    return { highlighted, cleared: context.editorPaletteDropCandidateId === "" };
+    return { highlighted, cleared: context.editorPaletteDragSession === null };
   }
-  return { api, context, template, counters, drag, cancel, target, deviceEditorPreview, nodePalette };
+  function nativeDrag(type, connectorId, { dropOnRoot = false, nullRelatedTarget = false, protectedDrop = false, beforeDrop, destinationId = connectorId, direction = "input", overKind = "circle", dropX } = {}) {
+    const dataTransfer = transfer();
+    const thumbnail = { closest: () => chip(type), tagName: "IMG" };
+    nodePalette.callbacks.get("dragstart")(event(dataTransfer, thumbnail, 0, 0));
+    const x = direction === "output" ? 420 : 0;
+    const to = id => overKind === "root" ? { closest: () => null, tagName: "DIV" } : target(id, overKind === "overlay" ? "nearby" : overKind);
+    const root = { closest: () => null, tagName: "DIV" };
+    deviceEditorPreviewHost.callbacks.get("dragenter")(event(dataTransfer, root, x, 154));
+    const over = event({ ...dataTransfer, getData: () => "" }, to(connectorId), x, 154);
+    deviceEditorPreviewHost.callbacks.get("dragover")(over);
+    deviceEditorPreviewHost.callbacks.get("dragleave")({ ...event(dataTransfer, to(connectorId), x, 154), relatedTarget: nullRelatedTarget ? null : { insideHost: true } });
+    const candidateAfterInternalLeave = context.editorPaletteDragSession?.candidate?.connectorId || "";
+    deviceEditorPreviewHost.callbacks.get("dragenter")(event(dataTransfer, to(destinationId), x, 154));
+    deviceEditorPreviewHost.callbacks.get("dragover")(event({ ...dataTransfer, getData: () => "" }, to(destinationId), x, 154));
+    beforeDrop?.(dataTransfer);
+    const drop = event(protectedDrop ? { ...dataTransfer, getData: () => "", types: [] } : dataTransfer, dropOnRoot ? root : to(destinationId), dropX ?? x, 154);
+    deviceEditorPreviewHost.callbacks.get("drop")(drop);
+    nodePalette.callbacks.get("dragend")(drop);
+    return { drop, over, candidateAfterInternalLeave };
+  }
+  return { api, context, template, counters, drag, cancel, nativeDrag, target, deviceEditorPreview, deviceEditorPreviewHost, nodePalette };
 }
 
 test("CEE palette drag/drop commits all input and output assets in Engine and Legacy previews", () => {
@@ -3847,7 +3875,7 @@ test("CEE palette drag/drop commits all input and output assets in Engine and Le
             assert.equal(h.counters.normalizationCalls, 0);
             assert.equal(h.counters.solverCalls, 0, "type-only fill must not invoke the placement solver");
             assert.deepEqual([...h.context.editorSelectedNodeIds], [id]);
-            assert.equal(h.context.editorPaletteDropCandidateId, "");
+            assert.equal(h.context.editorPaletteDragSession, null);
             assert.equal(result.highlightCleared, true);
             cases++;
           }
@@ -3878,8 +3906,6 @@ test("palette drop validates current slot and transfer before any mutation", () 
     { name: "filled target", action(h) { return h.drag("32a-1ph", "slot-in", "circle", { beforeDrop() { h.template.connectors[0].empty = false; } }); } },
     { name: "wrong tab", action(h) { h.context.editorActiveTab = "device"; return h.drag("32a-1ph", "slot-in"); } },
     { name: "bad type", action(h) { return h.drag("not-a-connector", "slot-in"); } },
-    { name: "mismatched transfer", action(h) { return h.drag("32a-1ph", "slot-in", "circle", { beforeDrop(transfer) { transfer.setData("application/x-av-node-type", "16a-1ph"); } }); } },
-    { name: "missing MIME type", action(h) { return h.drag("32a-1ph", "slot-in", "circle", { beforeDrop(transfer) { transfer.types = []; } }); } },
     { name: "unrelated space", action(h) { return h.drag("32a-1ph", null, "nearby", { x: 210, y: 300 }); } }
   ];
   for (const scenario of cases) {
@@ -3888,7 +3914,7 @@ test("palette drop validates current slot and transfer before any mutation", () 
     assert.equal(result.drop.defaultPrevented, false, scenario.name);
     assert.equal(h.counters.previewRenders, 0, scenario.name);
     assert.equal(h.counters.structuralSessions, 0, scenario.name);
-    assert.equal(h.context.editorPaletteDropCandidateId, "", scenario.name);
+    assert.equal(h.context.editorPaletteDragSession, null, scenario.name);
   }
 });
 
@@ -3897,9 +3923,176 @@ test("palette drag cancellation clears the slot highlight without editing", () =
   const result = h.cancel("16a-1ph-110v", "slot-in");
   assert.equal(result.highlighted, true);
   assert.equal(result.cleared, true);
-  assert.equal(h.context.editorPaletteDraggedType, "");
+  assert.equal(h.context.editorPaletteDragSession, null);
   assert.equal(h.counters.structuralSessions, 0);
   assert.equal(h.counters.previewRenders, 0);
+});
+
+test("native palette lifecycle is owned by the preview host and keeps an accepted candidate", () => {
+  const h = paletteDropHarness();
+  assert.ok(h.deviceEditorPreviewHost?.callbacks.has("dragenter"), "stable preview host should own native dragenter");
+  assert.ok(h.deviceEditorPreviewHost.callbacks.has("dragover"), "stable preview host should own native dragover");
+  assert.ok(h.deviceEditorPreviewHost.callbacks.has("dragleave"), "stable preview host should own native dragleave");
+  assert.ok(h.deviceEditorPreviewHost.callbacks.has("drop"), "stable preview host should own native drop");
+  const result = h.nativeDrag("32a-3ph", "slot-in", { dropOnRoot: true, nullRelatedTarget: true, protectedDrop: true });
+  assert.equal(result.candidateAfterInternalLeave, "slot-in");
+  assert.equal(result.drop.defaultPrevented, true);
+  assert.equal(h.template.connectors.find(item => item.id === "slot-in").type, "32a-3ph");
+  assert.equal(h.counters.previewRenders, 1);
+  assert.equal(h.counters.structuralSessions, 1);
+  assert.equal(h.context.editorPaletteDragSession, null);
+});
+
+test("PD palette type-fill authorizes the faceplate-driven modular-origin rebase", () => {
+  const h = paletteDropHarness();
+  h.context.connectorStartYForTemplate = device => device.connectors.some(connector => connector.type === "32a-3ph") ? 130 : 100;
+  const result = h.nativeDrag("32a-3ph", "slot-in", { dropOnRoot: true, nullRelatedTarget: true, protectedDrop: true });
+  assert.equal(result.drop.defaultPrevented, true);
+  assert.equal(h.template.connectors.find(item => item.id === "slot-in").type, "32a-3ph");
+  assert.equal(h.template.connectors.find(item => item.id === "slot-in").y, 184);
+  assert.equal(h.template.connectors.find(item => item.id === "slot-in").anchors[0].y, 184);
+  assert.equal(h.counters.structuralSessions, 1);
+  assert.equal(h.counters.previewRenders, 1);
+});
+
+test("protected native drops keep accepted input and output IDs across preview modes and Fit scales", () => {
+  let cases = 0;
+  for (const mode of ["engine", "legacy"]) for (const scale of [1, 0.25]) {
+    for (const type of ["16a-1ph-110v", "32a-1ph", "32a-3ph", "125a-3ph"]) {
+      for (const direction of ["input", "output"]) {
+        const h = paletteDropHarness({ mode, scale });
+        const id = direction === "input" ? "slot-in" : "slot-out";
+        const result = h.nativeDrag(type, id, { dropOnRoot: true, nullRelatedTarget: true, protectedDrop: true, direction });
+        assert.equal(result.candidateAfterInternalLeave, id);
+        assert.equal(result.drop.defaultPrevented, true);
+        assert.equal(h.template.connectors.find(item => item.id === id).type, type);
+        assert.equal(h.counters.structuralSessions, 1);
+        assert.equal(h.counters.previewRenders, 1);
+        assert.equal(h.context.editorPaletteDragSession, null);
+        cases++;
+      }
+    }
+  }
+  assert.equal(cases, 32);
+});
+
+test("last dragover wins, but drop root cannot independently change the accepted slot", () => {
+  const h = paletteDropHarness();
+  const result = h.nativeDrag("32a-3ph", "slot-in", { destinationId: "slot-out", dropOnRoot: true, protectedDrop: true, dropX: 0 });
+  assert.equal(result.drop.defaultPrevented, true);
+  assert.equal(h.template.connectors.find(item => item.id === "slot-out").type, "32a-3ph", "accepted dragover ID wins over drop coordinates");
+  assert.equal(h.template.connectors.find(item => item.id === "slot-in").empty, true);
+  assert.equal(h.counters.structuralSessions, 1);
+});
+
+test("native drop revalidates candidate after reorder, removal, or filling", () => {
+  for (const mutation of ["reorder", "remove", "fill"]) {
+    const h = paletteDropHarness();
+    const result = h.nativeDrag("32a-3ph", "slot-in", {
+      dropOnRoot: true, protectedDrop: true,
+      beforeDrop() {
+        if (mutation === "reorder") h.template.connectors.reverse();
+        if (mutation === "remove") h.template.connectors = h.template.connectors.filter(item => item.id !== "slot-in");
+        if (mutation === "fill") h.template.connectors.find(item => item.id === "slot-in").empty = false;
+      }
+    });
+    assert.equal(result.drop.defaultPrevented, mutation === "reorder", mutation);
+    assert.equal(h.counters.structuralSessions, mutation === "reorder" ? 1 : 0, mutation);
+    assert.equal(h.context.editorPaletteDragSession, null);
+  }
+});
+
+test("genuine preview exit and dragend cancel without mutation", () => {
+  const h = paletteDropHarness();
+  const transfer = { types: [], setData() {}, setDragImage() {}, getData() { return ""; } };
+  const chip = { dataset: { nodeType: "32a-3ph" }, offsetWidth: 80, offsetHeight: 20, classList: { add() {}, remove() {} } };
+  const event = (target, x, y) => ({ target, clientX: x, clientY: y, dataTransfer: transfer, preventDefault() {} });
+  h.nodePalette.callbacks.get("dragstart")(event({ closest: () => chip }, 0, 0));
+  h.deviceEditorPreviewHost.callbacks.get("dragover")(event(h.target("slot-in"), 0, 154));
+  assert.equal(h.context.editorPaletteDragSession?.candidate?.connectorId, "slot-in");
+  h.deviceEditorPreviewHost.callbacks.get("dragleave")({ ...event(h.target("slot-in"), 600, 600), relatedTarget: null });
+  assert.equal(h.context.editorPaletteDragSession, null);
+  h.nodePalette.callbacks.get("dragend")(event(h.target("slot-in"), 600, 600));
+  assert.equal(h.counters.structuralSessions, 0);
+});
+
+test("preview host owns bubbling sources and thumbnails are not independent drag sources", () => {
+  assert.match(INDEX_HTML, /class="editor-preview" id="deviceEditorPreviewHost"[\s\S]*?<svg id="deviceEditorPreview"/);
+  assert.match(INDEX_HTML, /class="node-thumbnail" draggable="false"/);
+  assert.match(INDEX_HTML, /class="node-chip" draggable="false"/);
+  for (const kind of ["circle", "label", "overlay", "root"]) {
+    const h = paletteDropHarness();
+    // Controlled bubbling: host handlers receive each descendant target unchanged.
+    const result = h.nativeDrag("32a-3ph", "slot-in", { overKind: kind, dropOnRoot: kind === "root", nullRelatedTarget: true, protectedDrop: true });
+    assert.equal(result.drop.defaultPrevented, true, kind);
+    assert.equal(h.template.connectors.find(item => item.id === "slot-in").type, "32a-3ph", kind);
+  }
+});
+
+test("stable host preserves card and adapter drops and palette reordering", () => {
+  const h = paletteDropHarness();
+  let installed = 0;
+  let adapted = 0;
+  let reordered = 0;
+  h.context.editorCardDropTypeId = () => "card-id";
+  h.context.installCardInSlot = (index, type) => { assert.equal(index, 2); assert.equal(type, "card-id"); installed++; };
+  h.context.editorPreviewCanCreateCardSlotFromDrop = () => true;
+  const cardTarget = {
+    closest(selector) { return selector === "[data-editor-card-slot]" ? { dataset: { editorCardSlot: "2" } } : null; }
+  };
+  const event = (target, types, x = 210, y = 154) => ({
+    target, clientX: x, clientY: y, dataTransfer: { types, dropEffect: "", getData: () => "card-id" },
+    defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }
+  });
+  const cardOver = event(cardTarget, ["application/x-av-card-type"]);
+  h.deviceEditorPreviewHost.callbacks.get("dragover")(cardOver);
+  const cardDrop = event(cardTarget, ["application/x-av-card-type"]);
+  h.deviceEditorPreviewHost.callbacks.get("drop")(cardDrop);
+  assert.equal(cardOver.defaultPrevented, true);
+  assert.equal(cardDrop.defaultPrevented, true);
+  assert.equal(installed, 1);
+
+  h.context.editorCardDropTypeId = () => "";
+  h.context.editorDropPointCreatesAdapterNode = () => { adapted++; return true; };
+  const source = { dataset: { nodeType: "32a-3ph" }, offsetWidth: 80, offsetHeight: 20, classList: { add() {}, remove() {} } };
+  const transfer = { types: [], setData(type) { this.types.push(type); }, setDragImage() {}, getData: () => "" };
+  h.nodePalette.callbacks.get("dragstart")({ ...event({ closest: () => source }, [], 0, 0), dataTransfer: transfer });
+  const bodyOver = { ...event({ closest: () => null }, transfer.types), dataTransfer: transfer };
+  h.deviceEditorPreviewHost.callbacks.get("dragover")(bodyOver);
+  h.deviceEditorPreviewHost.callbacks.get("drop")(bodyOver);
+  assert.equal(adapted, 1);
+  assert.equal(h.context.editorPaletteDragSession, null);
+
+  h.context.moveNodeType = (moving, destination) => { assert.equal(moving, "32a-3ph"); assert.equal(destination, "16a-1ph"); reordered++; };
+  const reorderEvent = {
+    ...event({ closest: () => ({ dataset: { nodeType: "16a-1ph" }, classList: { remove() {} } }) }, ["application/x-av-node-reorder"]),
+    dataTransfer: { getData: () => "32a-3ph" }
+  };
+  h.nodePalette.callbacks.get("drop")(reorderEvent);
+  assert.equal(reordered, 1);
+});
+
+test("opt-in Device Editor drop trace exposes bounded native event diagnostics", () => {
+  const context = {
+    editorDeviceDropDebugEnabled: true,
+    editorDeviceDropEvents: [],
+    editorPaletteDragSession: { connectorType: "32a-3ph", candidate: { connectorId: "slot-in" } },
+    APP_BUILD_ID: "iteration54-20-4-native-device-editor-palette-drops",
+    window: {}
+  };
+  const trace = runnableIndexFunction("traceEditorDeviceDrop", context);
+  const event = { target: { tagName: "circle", id: "node", getAttribute: () => "editor-node" }, dataTransfer: { types: ["application/x-av-node-type"] } };
+  trace("dragover", event, "candidate-accepted", true, false);
+  const entry = context.window.__avDesignerDeviceDropDebug.events[0];
+  assert.equal(entry.candidateId, "slot-in");
+  assert.equal(entry.connectorType, "32a-3ph");
+  assert.equal(entry.prevented, true);
+  assert.equal(entry.target, "circle#node.editor-node");
+  for (let index = 0; index < 90; index++) trace("dragover", event, "candidate-accepted", true, false);
+  assert.equal(context.window.__avDesignerDeviceDropDebug.events.length, 80);
+  context.editorDeviceDropDebugEnabled = false;
+  trace("drop", event, "slot-filled", true, true);
+  assert.equal(context.window.__avDesignerDeviceDropDebug.events.length, 80);
 });
 
 test("Device Editor faceplate mutations roll back fully and reject stale uploads", async () => {
