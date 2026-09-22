@@ -61,7 +61,7 @@ import {
 } from "./jumpNodeModel.js";
 import { wirePlaybackEase } from "./wirePlayback.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-26-0-orthogonal-shared-bus-rendering";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-26-1-continuous-shared-bus-junction";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -2197,7 +2197,7 @@ function pushSharedBusConnectorLines(vertices, layout, baseX, baseY, body) {
     nodeInset: SHARED_BUS_NODE_LINE_INSET, offsetX: baseX, offsetY: baseY
   });
   if (!geometry) return 0;
-  const segments = [geometry.trunk, ...geometry.branches];
+  const segments = [geometry.trunk, geometry.stem, ...geometry.branches];
   segments.forEach(({ x1, y1, x2, y2 }) => {
     pushLine(vertices, { x: x1, y: y1 }, { x: x2, y: y2 }, 2.1, "rgba(50,182,255,.86)");
   });

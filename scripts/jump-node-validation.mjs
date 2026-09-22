@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-26-0-orthogonal-shared-bus-rendering";
+const BUILD_ID = "iteration54-26-1-continuous-shared-bus-junction";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -51,13 +51,13 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Orthogonal Shared Bus Rendering");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-26-0-orthogonal-shared-bus-rendering-modules";'), "module cache key should identify Orthogonal Shared Bus Rendering");
-assert.ok(indexHtml.includes("Orthogonal Shared Bus Rendering"), "visible build label should name Orthogonal Shared Bus Rendering");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Continuous Shared Bus Junction");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-26-1-continuous-shared-bus-junction-modules";'), "module cache key should identify Continuous Shared Bus Junction");
+assert.ok(indexHtml.includes("Continuous Shared Bus Junction"), "visible build label should name Continuous Shared Bus Junction");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-25-0-jump-node-hold-to-link-restoration"'), "Engine bridge version should identify Jump Node Hold-To-Link Restoration");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "jump-node-hold-to-link-restoration"'), "Engine bridge feature label should identify Jump Node Hold-To-Link Restoration");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-25-0-jump-node-hold-to-link-restoration"), "bridge fingerprint should identify Jump Node Hold-To-Link Restoration");
-assert.ok(rendererSource.includes("renderer-iteration54-26-0-orthogonal-shared-bus-rendering"), "renderer fingerprint should identify Orthogonal Shared Bus Rendering");
+assert.ok(rendererSource.includes("renderer-iteration54-26-1-continuous-shared-bus-junction"), "renderer fingerprint should identify Continuous Shared Bus Junction");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");
 assert.ok(rendererSource.includes("pushWirePlaybackOverlay"), "renderer should draw transient Play Wire overlays");

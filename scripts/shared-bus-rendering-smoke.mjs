@@ -11,13 +11,19 @@ const browser = await chromium.launch({ headless: true,
   ...(process.env.AVDESIGNER_CHROME_PATH ? { executablePath: process.env.AVDESIGNER_CHROME_PATH } : {}) });
 function assertSegments(result, count, side) {
   const { segments, body, points } = result;
-  assert.equal(segments.length, count + 1);
-  const trunk = segments[0];
+  assert.equal(segments.length, count + 2);
+  const [trunk, stem, ...branches] = segments;
   assert.equal(trunk.x1, trunk.x2); assert.ok(trunk.y2 > trunk.y1);
   assert.ok(trunk.x1 > body.x && trunk.x1 < body.x + body.width);
   segments.forEach(s => { assert.ok(Object.values(s).every(Number.isFinite)); assert.ok(s.x1 === s.x2 || s.y1 === s.y2); });
-  segments.slice(1).forEach((s, i) => {
+  assert.equal(stem.x1, trunk.x1); assert.equal(stem.y1, stem.y2);
+  assert.equal(stem.y1, (Math.min(...points.map(p => p.y)) + Math.max(...points.map(p => p.y))) / 2);
+  assert.ok(stem.x2 > body.x && stem.x2 < body.x + body.width);
+  assert.ok(side === "left" ? stem.x2 > stem.x1 : stem.x2 < stem.x1);
+  if (result.fieldJunctionX !== undefined) assert.equal(stem.x2, result.fieldJunctionX);
+  branches.forEach((s, i) => {
     assert.equal(s.y1, s.y2); assert.equal(s.y1, points[i].y);
+    assert.equal(s.x2, trunk.x1);
     assert.ok(side === "left" ? trunk.x1 > points[i].x : trunk.x1 < points[i].x);
   });
 }
@@ -32,17 +38,19 @@ try {
     const quiet = () => page.waitForFunction(() => !editorPlacementMotionState?.entries?.size || editorPlacementMotionState.settled);
     const read = () => page.evaluate(() => {
       const template = currentEditorTemplate(), body = { x: 0, width: deviceTemplateWidth(template) }, rel = template.connectorRelationships[0];
-      let segments, points;
+      let segments, points, fieldJunctionX;
       if (deviceEditorActivePreviewUsesEngine()) {
         const d = editorEnginePreviewSurface.scene.devices[0], layout = editorEnginePreviewSurface.scene.connectorDisplayLayoutForDevice(d).groups[0];
         const geometry = requireDeviceEditorPlacementModule().sharedBusOrthogonalSegments(layout, body);
-        segments = [geometry.trunk, ...geometry.branches]; points = layout.points.map(({ x, y }) => ({ x, y }));
+        segments = [geometry.trunk, geometry.stem, ...geometry.branches]; points = layout.points.map(({ x, y }) => ({ x, y }));
+        fieldJunctionX = layout.fieldJunctionX;
         if (editorEnginePreviewSurface.renderer.lastFrameStats.connectorRelationships !== segments.length) throw Error("Engine must draw exactly one comb");
       } else {
-        points = editorSharedRelationshipLayout(template, rel, editorSharedRelationshipMembers(template, rel), editorPreviewPositions(template)).points.map(({ x, y }) => ({ x, y }));
+        const layout = editorSharedRelationshipLayout(template, rel, editorSharedRelationshipMembers(template, rel), editorPreviewPositions(template));
+        points = layout.points.map(({ x, y }) => ({ x, y })); fieldJunctionX = layout.fieldJunctionX;
         segments = [...deviceEditorPreview.querySelectorAll("[data-shared-bus-segment]")].map(line => Object.fromEntries(["x1", "y1", "x2", "y2"].map(key => [key, Number(line.getAttribute(key))])));
       }
-      return { body, points, segments, json: JSON.stringify(template) };
+      return { body, points, segments, fieldJunctionX, json: JSON.stringify(template) };
     });
     const shot = name => page.locator("#deviceEditorPreviewHost").screenshot({ path: `${shots}/${mode}-${name}.png` });
     for (const side of ["left", "right"]) for (const count of [2, 3, 4]) {
@@ -56,12 +64,12 @@ try {
         renderDeviceEditor();
       }, fixture);
       await page.locator('[data-relationship-toggle="exclusive"]').locator("..").click(); await quiet();
-      for (const zoom of ["fit", "normal"]) {
+      for (const zoom of ["fit", "normal", "fractional"]) {
         await page.locator("#editorZoomReset").click();
-        if (zoom === "normal") await page.evaluate(() => {
-          if (deviceEditorActivePreviewUsesEngine()) { editorEnginePreviewSurface.setCamera({ zoom: 1 }); syncDeviceEditorEngineOverlayViewBox(); }
-          else { editorPreviewZoom = 1; editorPreviewPan = { x: 0, y: 0 }; renderDeviceEditorPreview(); }
-        });
+        if (zoom !== "fit") await page.evaluate(zoom => {
+          if (deviceEditorActivePreviewUsesEngine()) { editorEnginePreviewSurface.setCamera({ zoom }); syncDeviceEditorEngineOverlayViewBox(); }
+          else { editorPreviewZoom = zoom; editorPreviewPan = { x: 0, y: 0 }; renderDeviceEditorPreview(); }
+        }, zoom === "normal" ? 1 : 1.333);
         assertSegments(await read(), count, side); await shot(`${side}-${count}-${zoom}`);
       }
       await page.locator("#editorZoomReset").click();
@@ -106,7 +114,7 @@ try {
         if (mode === "engine") {
           const b = activeEngineBridge(), d = b.scene.getDevice(id), layout = b.scene.connectorDisplayLayoutForDevice(d).groups[0];
           const geometry = requireDeviceEditorPlacementModule().sharedBusOrthogonalSegments(layout, body);
-          return { body, points: layout.points.map(({ x, y }) => ({ x, y })), segments: [geometry.trunk, ...geometry.branches] };
+          return { body, points: layout.points.map(({ x, y }) => ({ x, y })), segments: [geometry.trunk, geometry.stem, ...geometry.branches] };
         }
         const segments = [...document.querySelectorAll(`[data-instance-id="${id}"] [data-shared-bus-segment]`)].map(line => Object.fromEntries(["x1", "y1", "x2", "y2"].map(k => [k, Number(line.getAttribute(k))])));
         const points = t.connectorRelationships[0].members.map(id => t.connectors.find(c => c.id === id)).map(({ x, y }) => ({ x, y }));
@@ -162,7 +170,7 @@ try {
           const d = editorEnginePreviewSurface.scene.devices[0], layout = editorEnginePreviewSurface.scene.connectorDisplayLayoutForDevice(d).groups[0];
           body = d.visual.visualCards[0];
           const geometry = requireDeviceEditorPlacementModule().sharedBusOrthogonalSegments(layout, body);
-          segments = [geometry.trunk, ...geometry.branches]; points = layout.points.map(({ x, y }) => ({ x, y }));
+          segments = [geometry.trunk, geometry.stem, ...geometry.branches]; points = layout.points.map(({ x, y }) => ({ x, y }));
           if (editorEnginePreviewSurface.renderer.lastFrameStats.connectorRelationships !== segments.length) throw Error("Missing installed Engine comb");
         }
         return { body, points, segments, json: JSON.stringify(t), source: JSON.stringify(currentEditorCard()) };
@@ -186,7 +194,7 @@ try {
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       const restored = await installed(); assertSegments(restored, count, side); assert.equal(restored.json, original.json);
       assert.deepEqual(errors, []);
-      console.log(`${mode}/${side}/${count}: create, Fit/normal, reverse/cancel/commit, duplicate, canvas, offline, card and installed card motion PASS`);
+      console.log(`${mode}/${side}/${count}: continuous stem, Fit/normal/fractional zoom, reverse/cancel/commit, duplicate, canvas, offline, card and installed card motion PASS`);
       await page.locator('[data-editor-tab="device"]').click();
     }
     await page.close();
