@@ -61,7 +61,7 @@ import {
 } from "./jumpNodeModel.js";
 import { wirePlaybackEase } from "./wirePlayback.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-27-0-segmented-wire-preview-parity";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-31-0-read-only-engine-output-viewer";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -1017,7 +1017,10 @@ export class WebglGraphRenderer {
     const textureBefore = this.textureCache.stats();
     this.resize();
     const gl = this.gl;
-    gl.clearColor(0.047, 0.071, 0.094, 1);
+    const canvasBackground = options.renderOptions?.canvasBackground || this.renderOptions.canvasBackground;
+    if (Array.isArray(canvasBackground) && canvasBackground.length === 4 && canvasBackground.every(Number.isFinite)) {
+      gl.clearColor(...canvasBackground);
+    } else gl.clearColor(0.047, 0.071, 0.094, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(this.program);
     gl.uniform4f(this.viewLocation, camera.x, camera.y, this.resolution.width / camera.zoom, this.resolution.height / camera.zoom);

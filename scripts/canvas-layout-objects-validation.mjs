@@ -25,7 +25,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-30-0-engine-output-scene-contract";
+const BUILD_ID = "iteration54-31-0-read-only-engine-output-viewer";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -40,9 +40,9 @@ function sourceSlice(source, startNeedle, endNeedle) {
   return source.slice(start, end);
 }
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.30.0");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.30.0";'), "visible iteration should be 54.30.0");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-30-0-engine-output-scene-contract-modules";'), "module cache key should bust 54.30.0 modules");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.31.0");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.31.0";'), "visible iteration should be 54.31.0");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-31-0-read-only-engine-output-viewer-modules";'), "module cache key should bust 54.31.0 modules");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-29-0-per-connection-led-surface-ordering"'), "Engine bridge version should identify Per-Connection LED Surface Ordering");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Engine Output Viewer</title>
+  <link rel="icon" href="VideoCoreLogo.png">
+  <link rel="stylesheet" href="src/engine/outputViewer.css">
+  <style>
+    html, body { margin: 0; height: 100%; background: #181d23; }
+    body { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 34px minmax(0, 1fr); }
+    .harness { display: flex; align-items: center; gap: 8px; padding: 4px 8px; color: #c3ccd6; font: 11px system-ui; }
+    .harness select, .harness input { min-width: 0; max-width: 45%; font: inherit; }
+    #viewer { min-height: 0; min-width: 0; }
+    #error { color: #ff6670; }
+  </style>
+</head>
+<body>
+  <div class="harness"><select id="fixture" aria-label="Fixture"><option value="parity">Parity fixture</option><option value="scale">100 devices / 300 wires</option></select>
+    <input id="snapshot" type="file" accept=".json,application/json" aria-label="Open Engine output scene"><span id="error" role="alert"></span></div>
+  <main id="viewer"></main>
+  <script type="module" src="src/engine/outputViewerHarness.js"></script>
+</body>
+</html>
