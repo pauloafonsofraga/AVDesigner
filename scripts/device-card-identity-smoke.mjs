@@ -58,8 +58,37 @@ try {
     if (process.env.AVDESIGNER_SCREENSHOT_DIR) {
       await page.locator("aside.library").screenshot({ path: `${process.env.AVDESIGNER_SCREENSHOT_DIR}/${mode}-device-card-identity.png` });
     }
+    const pair = await page.evaluate(() => {
+      const entry = deviceLibraryEntries().find(entry => entry.kind === "pair" && entry.first.name === "M1-DP&HDMI-Pro TX");
+      return { firstId: entry.first.id, secondId: entry.second.id, firstName: entry.first.name, secondName: entry.second.name,
+        title: `${entry.first.name} + ${entry.second.name}`, thumbnail: deviceThumbnailMarkup(entry.first), favorite: !!entry.first.favorite };
+    });
+    const pairCard = page.locator(`#deviceList [data-template-id="${pair.firstId}"][data-pair-template-id="${pair.secondId}"]`);
+    for (const query of [pair.firstName, pair.secondName, "Beetek", "Extenders"]) {
+      await page.locator("#deviceSearch").fill(query);
+      await pairCard.waitFor({ state: "visible" });
+      assert.equal(await pairCard.locator("h3").innerText(), pair.title);
+      assert.equal(await pairCard.locator("p").innerText(), "Beetek / Extenders");
+    }
+    await page.locator("#deviceSearch").fill(pair.firstName);
+    assert.equal(await pairCard.locator(".device-thumb").evaluate(el => el.outerHTML), pair.thumbnail.trim());
+    const pairFavorite = pairCard.locator(".library-favorite");
+    await pairFavorite.click();
+    assert.equal(await pairFavorite.getAttribute("aria-label"), pair.favorite ? "Add to favorites" : "Remove from favorites");
+    await pairFavorite.click();
+    assert.equal(await pairFavorite.getAttribute("aria-label"), pair.favorite ? "Remove from favorites" : "Add to favorites");
+    await pairCard.locator("h3").hover();
+    await page.mouse.down();
+    assert.equal(await page.evaluate(() => libraryDrag.pairTemplateId), pair.secondId);
+    assert.equal(await page.locator(".drag-ghost strong").innerText(), pair.title);
+    assert.equal(await page.locator(".drag-ghost span").innerText(), `Device pair / ${pair.title}`);
+    await page.keyboard.press("Escape");
+    await page.mouse.up();
+    if (process.env.AVDESIGNER_SCREENSHOT_DIR) {
+      await page.locator("aside.library").screenshot({ path: `${process.env.AVDESIGNER_SCREENSHOT_DIR}/${mode}-paired-device-brand.png` });
+    }
     assert.deepEqual(errors, [], `${mode}: console/page errors`);
-    console.log(`${mode}: real Barco E2 Gen2, library/project identity, search, favorite, thumbnail and drag preview PASS`);
+    console.log(`${mode}: real Barco E2 Gen2 and Beetek pair, library/project identity, search, favorite, thumbnail and drag preview PASS`);
     await page.close();
   }
 } finally { await browser.close(); }

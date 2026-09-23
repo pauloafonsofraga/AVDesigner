@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-28-1-device-card-identity-labels";
+const BUILD_ID = "iteration54-28-2-paired-device-brand-labels";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -51,9 +51,9 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Device Card Identity Labels");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-28-1-device-card-identity-labels-modules";'), "module cache key should identify Device Card Identity Labels");
-assert.ok(indexHtml.includes("Device Card Identity Labels"), "visible build label should name Device Card Identity Labels");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Paired Device Brand Labels");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-28-2-paired-device-brand-labels-modules";'), "module cache key should identify Paired Device Brand Labels");
+assert.ok(indexHtml.includes("Paired Device Brand Labels"), "visible build label should name Paired Device Brand Labels");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-28-0-relationship-metadata-synchronization"'), "Engine bridge version should identify Relationship Metadata Synchronization");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "relationship-metadata-synchronization"'), "Engine bridge feature label should identify Relationship Metadata Synchronization");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-28-0-relationship-metadata-synchronization"), "bridge fingerprint should identify Relationship Metadata Synchronization");

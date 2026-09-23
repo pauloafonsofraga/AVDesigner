@@ -141,12 +141,68 @@ test("pair cards retain their pair identity, favorite, drag payload and searchab
   const c = harness([first, second], "paironlymodel", [{ kind: "pair", first, second }]);
   c.renderDeviceLibrary();
   const row = c.deviceList.children[0];
-  assert.deepEqual(lines(row), ["E2 Gen2 + S3", "Pair / Switchers"]);
+  assert.deepEqual(lines(row), ["E2 Gen2 + S3", "Barco / Switchers"]);
   assert.equal(row.dataset.pairTemplateId, second.id);
   assert.match(row.innerHTML, /class="library-favorite active"/);
   c.startLibraryDrag({ button: 0, preventDefault() {}, stopPropagation() {}, currentTarget: row }, first.id, { pairTemplateId: second.id, pairName: "E2 Gen2 + S3" });
   assert.deepEqual(lines(c.libraryDrag.ghost, "strong", "span"), ["E2 Gen2 + S3", "Device pair / E2 Gen2 + S3"]);
   assert.equal(c.libraryDrag.pairTemplateId, second.id);
+});
+
+const pairFixture = Object.freeze({
+  first: Object.freeze({ id: "beetek-tx", name: "M1-DP&HDMI-Pro TX", brand: "Beetek", category: "Extenders", model: "TX-technical-model" }),
+  second: Object.freeze({ id: "beetek-rx", name: "M1-DP&HDMI-Pro RX", brand: "Beetek", category: "Extenders", model: "RX-technical-model" })
+});
+
+for (const [name, firstFields, secondFields, subtitle] of [
+  ["Beetek pair", {}, {}, "Beetek / Extenders"],
+  ["first brand takes precedence", {}, { brand: "Other" }, "Beetek / Extenders"],
+  ["second brand fallback", { brand: "" }, {}, "Beetek / Extenders"],
+  ["no brands", { brand: undefined }, { brand: undefined }, "No brand / Extenders"],
+  ["first manufacturer alias takes precedence", { brand: " ", manufacturer: " Beetek " }, { brand: "Other" }, "Beetek / Extenders"],
+  ["second vendor alias", { brand: undefined }, { brand: undefined, vendor: " Beetek " }, "Beetek / Extenders"],
+  ["second make alias", { brand: undefined }, { brand: undefined, make: "Beetek" }, "Beetek / Extenders"],
+  ["first category takes precedence", {}, { category: "Video" }, "Beetek / Extenders"],
+  ["second category fallback", { category: "" }, {}, "Beetek / Extenders"],
+  ["no categories", { category: undefined }, { category: undefined }, "Beetek / Custom"],
+  ["no brand or category", { brand: "", category: "" }, { brand: "", category: "" }, "No brand / Custom"],
+  ["escaped subtitle", { brand: '<B&"brand">', category: "<Extenders>" }, {}, "&lt;B&amp;&quot;brand&quot;&gt; / &lt;Extenders&gt;"]
+]) {
+  test(`paired card rendering: ${name}`, () => {
+    const first = Object.freeze({ ...pairFixture.first, ...firstFields });
+    const second = Object.freeze({ ...pairFixture.second, ...secondFields });
+    const before = JSON.stringify([first, second]);
+    const c = harness([first, second], "", [{ kind: "pair", first, second }]);
+    c.renderDeviceLibrary();
+    assert.equal(c.deviceList.children.length, 1);
+    const row = c.deviceList.children[0];
+    assert.deepEqual(lines(row), ["M1-DP&amp;HDMI-Pro TX + M1-DP&amp;HDMI-Pro RX", subtitle]);
+    assert.doesNotMatch(row.innerHTML, /Pair \/ /);
+    assert.equal(row.dataset.templateId, first.id);
+    assert.equal(row.dataset.pairTemplateId, second.id);
+    assert.equal(JSON.stringify([first, second]), before);
+  });
+}
+
+test("paired search uses both members' existing fields and the type filter still accepts either member", () => {
+  const { first } = pairFixture;
+  const second = { ...pairFixture.second, brand: "Receiver brand", category: "Receiver category" };
+  const c = harness([first, second], "", [{ kind: "pair", first, second }]);
+  for (const query of [first.name, second.name, first.model, second.model, first.brand, second.brand, first.category, second.category]) {
+    c.searchInput.value = query.toLowerCase();
+    c.renderDeviceLibrary();
+    assert.equal(c.deviceList.children.length, 1, `pair found by ${query}`);
+    assert.equal(lines(c.deviceList.children[0])[1], "Beetek / Extenders");
+  }
+  c.searchInput.value = "not present";
+  c.renderDeviceLibrary();
+  assert.equal(c.deviceList.children.length, 0);
+  c.searchInput.value = "";
+  for (const id of [first.id, second.id, "unrelated"]) {
+    c.deviceMatchesSelectedType = device => device.id === id;
+    c.renderDeviceLibrary();
+    assert.equal(c.deviceList.children.length, id === "unrelated" ? 0 : 1);
+  }
 });
 
 test("special Rack cards retain category/device count and rack identity", () => {
