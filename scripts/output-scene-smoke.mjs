@@ -31,12 +31,10 @@ try {
       if (bridge) bridge.fitView(); else zoomToFit();
       const beforeData = JSON.stringify(projectSnapshotData());
       const beforeSvg = canvas.innerHTML;
-      const beforeHtml = buildStandaloneHtml(projectSnapshotData());
       const snapshot = buildCanonicalOutputSnapshot({ mode: "output-scene-smoke" });
       const output = snapshot.engineScene;
       const repeated = buildCanonicalOutputSnapshot({ mode: "output-scene-smoke" }).engineScene;
-      const unchanged = beforeData === JSON.stringify(projectSnapshotData()) && beforeSvg === canvas.innerHTML
-        && beforeHtml === buildStandaloneHtml(projectSnapshotData());
+      const unchanged = beforeData === JSON.stringify(projectSnapshotData()) && beforeSvg === canvas.innerHTML;
       const beforePdf = await buildEnginePrintDrawing(snapshot);
       const afterPdf = await buildEnginePrintDrawing(snapshot);
       let parity = null;
@@ -57,9 +55,9 @@ try {
         pdfSignature: afterPdf.diagnostics.signature, deterministic: JSON.stringify(output) === JSON.stringify(repeated),
         frozen: Object.isFrozen(output) && Object.isFrozen(output.devices[0].visual), parity,
         metadata: snapshot.metadata, signature: output.signature, counts: output.diagnostics.counts,
-        warnings: output.diagnostics.warnings, html: beforeHtml };
+        warnings: output.diagnostics.warnings, html: (await prepareEngineViewerOutput()).html };
     });
-    assert.equal(result.unchanged, true, `${mode}: project/Legacy SVG/HTML untouched`);
+    assert.equal(result.unchanged, true, `${mode}: project data/Legacy canvas untouched`);
     assert.equal(result.pdfDeterministic, true, `${mode}: Engine print SVG deterministic`);
     assert.equal(result.pdfSignature, result.signature);
     assert.equal(result.deterministic, true);
@@ -70,13 +68,16 @@ try {
     const viewer = await browser.newPage({ viewport: { width: 1800, height: 1100 } });
     viewer.on("pageerror", error => errors.push(`viewer: ${error.message}`));
     await viewer.setContent(result.html);
-    assert.ok(await viewer.locator("#chart .device-outline").count(), "offline HTML retains device drawing");
+    const ready = await viewer.evaluate(() => engineOutputReady);
+    assert.equal(ready.signature, result.signature);
+    assert.equal(ready.assetFailures, 0);
+    assert.equal(await viewer.locator("canvas.output-webgl").count(), 1);
     if (process.env.AVDESIGNER_SCREENSHOT_DIR) {
       await page.screenshot({ path: `${process.env.AVDESIGNER_SCREENSHOT_DIR}/${mode}-output-scene.png` });
       await viewer.screenshot({ path: `${process.env.AVDESIGNER_SCREENSHOT_DIR}/${mode}-output-scene-viewer.png` });
     }
     assert.deepEqual(errors, []);
-    console.log(`${mode}: live parity, full 17-object fixture, deterministic Engine PDF, unchanged historical HTML reference PASS`, result.counts, result.signature);
+    console.log(`${mode}: live parity, full 17-object fixture, deterministic Engine PDF/HTML, unchanged application data/SVG PASS`, result.counts, result.signature);
     await viewer.close();
     await page.close();
   }

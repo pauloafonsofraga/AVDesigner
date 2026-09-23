@@ -1,0 +1,6 @@
+{
+  "baselineCommit": "9ad6c74ad6f8d7b8fc821d8c92dbec16a6460f8e",
+  "method": "Historical SVG viewer: 24 warm camera updates with SVG rebuild, headless Chrome, 1600x1000. CPU submission, not GPU completion. Recorded before removal; not rerun.",
+  "100-devices": { "meanMs": 81.779, "p95Ms": 92.7 },
+  "400-devices": { "meanMs": 350.7, "p95Ms": 400.1 }
+}

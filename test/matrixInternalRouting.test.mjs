@@ -223,7 +223,7 @@ test("Production bridge updates matrix route geometry without dirtying textures 
   assert.match(applyObjectInspectorFields, /this\.renderer\.updateMatrixInternalRoutes\?\.\(this\.scene, \[device\.id\]\)/);
 });
 
-test("Legacy canvas and exported viewer render assigned matrix routes without normal cables", () => {
+test("supported Legacy canvas renders assigned matrix routes without normal cables", () => {
   assert.match(INDEX_HTML, /function drawMatrixInternalRoutes\(group, instance, template\)/);
   assert.match(INDEX_HTML, /function normalizedMatrixRoutesForInstance\(instance, template = templateForInstance\(instance\)\)/);
   assert.match(
@@ -233,9 +233,5 @@ test("Legacy canvas and exported viewer render assigned matrix routes without no
   assert.match(functionSource(INDEX_HTML, "appendCanvasDevice"), /drawMatrixInternalRoutes\(group, instance, template\)/);
   assert.match(functionSource(INDEX_HTML, "showDeviceContextMenu"), /data-device-menu="toggle-matrix-internal-routing"/);
   assert.match(INDEX_HTML, /\.matrix-internal-wire/);
-  assert.match(INDEX_HTML, /matrixConnectorIncludedViewer/);
-  assert.match(functionSource(INDEX_HTML, "matrixEndpointsForViewer"), /filter\(matrixConnectorIncludedViewer\)/);
-  assert.match(INDEX_HTML, /function drawMatrixInternalRoutes\(g,inst,t\)/, "exported viewer should include a compact matrix route renderer");
-  assert.match(INDEX_HTML, /drawMatrixInternalRoutes\(g,inst,t\);effectiveConnectors\(t\)/, "exported viewer should draw matrix internals before connector nodes");
   assert.doesNotMatch(functionSource(INDEX_HTML, "drawMatrixInternalRoutes"), /state\.connections|connections\.push|data\.connections/);
 });

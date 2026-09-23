@@ -12,6 +12,7 @@ const browser = await chromium.launch({ headless: true,
 const base = process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8768";
 const dir = mkdtempSync(join(tmpdir(), "engine-output-html-")), results = [];
 const parsePayload = html => JSON.parse(html.match(/id="engineOutputPayload">([\s\S]*?)<\/script>/)[1]);
+const historicalBaseline = JSON.parse(readFileSync(new URL("../fixtures/legacy-output-performance.json", import.meta.url)));
 const errorsFor = page => {
   const errors = [];
   page.on("pageerror", e => errors.push(e.message));
@@ -75,9 +76,7 @@ try {
       await ensureEngineOutputSceneModule();
       const snapshot = buildCanonicalOutputSnapshot({ drawingDependency: "engine-webgl" }).engineScene;
       const b = activeEngineBridge();
-      window.legacyBenchmarkBuilder = buildStandaloneHtml;
-      buildStandaloneHtml = () => { throw new Error("Legacy HTML renderer was called"); };
-      wirechartExportBounds = () => { throw new Error("Legacy bounds were read"); };
+      canvas.cloneNode = () => { throw new Error("Legacy canvas clone was called"); };
       return { snapshot, gpuWires: Array.from(b.renderer.staticWireArray), gpuMatrix: Array.from(b.renderer.matrixRouteArray) };
     });
     const downloadPromise = app.waitForEvent("download");
@@ -154,63 +153,62 @@ try {
         assert.equal(await viewer.evaluate(() => [...document.querySelectorAll('.output-toolbar button')].every(b => b.getBoundingClientRect().right <= innerWidth)), true, "mobile toolbar fits");
         await viewer.screenshot({ path: join(dir, `mobile-${width}.png`) });
       }
-      // Execute the actual Publish function, replacing only storage/network I/O.
-      let publishRequest;
-      await app.route("**/api/publish", route => {
-        publishRequest = route.request().postDataJSON();
-        return route.fulfill({ json: { url: `${base}/viewer.html?id=smoke-project` } });
-      });
-      await app.evaluate(async () => {
-        window.uploadedFiles = {};
-        loadBlobClient = async () => ({ upload: async (pathname, blob, options) => {
-          if (options.access !== "private") throw new Error("Hosted files must remain private");
-          uploadedFiles[pathname] = await blob.text(); return { pathname };
-        } });
-        openPublishProjectModal(); publishProjectTitle.value = "Hosted parity"; publishProjectPassword.value = "offline-test-password";
-        await publishHostedProject();
-      });
-      assert.equal(publishRequest.password, "offline-test-password");
-      const hostedHtml = await app.evaluate(path => uploadedFiles[path], publishRequest.htmlPath);
-      const hostedPayload = parsePayload(hostedHtml);
-      assert.deepEqual(hostedPayload.engineScene, payload.engineScene);
-      assert.equal(hostedPayload.metadata.bundleHash, payload.metadata.bundleHash);
-      assert.equal(hostedHtml.slice(hostedHtml.lastIndexOf("<script>")), html.slice(html.lastIndexOf("<script>")));
-      assert.ok(!hostedHtml.includes(publishRequest.password));
-      const hosted = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
-      const hostedErrors = errorsFor(hosted), frameRequests = [];
-      hosted.on("request", r => { if (r.frame().parentFrame() && /^https?:/.test(r.url())) frameRequests.push(r.url()); });
-      await hosted.route("**/api/project", route => route.fulfill(route.request().postDataJSON().password === publishRequest.password
-        ? { json: { title: "Hosted parity", html: hostedHtml } } : { status: 401, json: { error: "Password is incorrect." } }));
-      await hosted.goto(`${base}/viewer.html?id=smoke-project`);
-      await hosted.locator("#projectPassword").fill("wrong"); await hosted.getByRole("button", { name: "Open Viewer" }).click();
-      await hosted.waitForFunction(() => document.getElementById("viewerStatus").textContent.includes("incorrect"));
-      await hosted.locator("#projectPassword").fill(publishRequest.password); await hosted.getByRole("button", { name: "Open Viewer" }).click();
-      await hosted.waitForSelector("iframe");
-      const frame = hosted.frames().find(f => f.parentFrame());
-      await frame.waitForFunction(() => window.engineOutputReady);
-      await frame.evaluate(() => engineOutputReady);
-      assert.equal(await frame.evaluate(() => document.documentElement.outerHTML.includes("viewer-jump-link-reveal")), false, "wrapper did not inject Legacy styles");
-      await viewerParity(frame, reference);
-      await frame.getByRole("button", { name: "Report", exact: true }).click();
-      assert.equal(await frame.getByRole("dialog", { name: "Project Report" }).isVisible(), true);
-      await frame.getByRole("button", { name: "Close", exact: true }).click();
-      await hosted.screenshot({ path: join(dir, "hosted.png") });
-      assert.deepEqual(frameRequests, []);
-      assert.deepEqual(hostedErrors.filter(e => !e.includes("401 (Unauthorized)")), []);
-      await hosted.close();
     }
-    // Isolated historical SVG benchmark. Neither current output path may invoke it.
-    if (name !== "parity") {
-      let old = await app.evaluate(() => legacyBenchmarkBuilder(compactProjectDataForViewer(projectSnapshotData())));
-      old = old.replace("function updateView(){", `window.legacyBenchmark=async()=>{fit();const times=[];for(let i=0;i<24;i++){const start=performance.now();view.x+=i%2?-10:10;view.zoom*=i%2?1/1.02:1.02;updateView();render();times.push(performance.now()-start);await new Promise(r=>requestAnimationFrame(r))}return{meanMs:times.reduce((a,b)=>a+b,0)/times.length,p95Ms:times.sort((a,b)=>a-b)[22]}};function updateView(){`);
-      const legacy = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
-      await legacy.setContent(old);
-      await legacy.waitForFunction(() => typeof legacyBenchmark === "function");
-      performance.legacy = await legacy.evaluate(() => legacyBenchmark());
+    // Execute the actual Publish function, replacing only storage/network I/O.
+    let publishRequest;
+    await app.route("**/api/publish", route => {
+      publishRequest = route.request().postDataJSON();
+      return route.fulfill({ json: { url: `${base}/viewer.html?id=smoke-project` } });
+    });
+    await app.evaluate(async () => {
+      window.uploadedFiles = {};
+      loadBlobClient = async () => ({ upload: async (pathname, blob, options) => {
+        if (options.access !== "private") throw new Error("Hosted files must remain private");
+        uploadedFiles[pathname] = await blob.text(); return { pathname };
+      } });
+      openPublishProjectModal(); publishProjectTitle.value = "Hosted parity"; publishProjectPassword.value = "offline-test-password";
+      await publishHostedProject();
+    });
+    assert.equal(publishRequest.password, "offline-test-password");
+    const hostedHtml = await app.evaluate(path => uploadedFiles[path], publishRequest.htmlPath);
+    const hostedPayload = parsePayload(hostedHtml);
+    assert.deepEqual(hostedPayload.engineScene, payload.engineScene);
+    assert.equal(hostedPayload.metadata.bundleHash, payload.metadata.bundleHash);
+    assert.equal(hostedPayload.metadata.sceneSchemaFingerprint, payload.metadata.sceneSchemaFingerprint);
+    assert.equal(initial.sceneSchemaFingerprint, payload.metadata.sceneSchemaFingerprint);
+    assert.equal(initial.bundleHash, payload.metadata.bundleHash);
+    assert.equal(hostedHtml.slice(hostedHtml.lastIndexOf("<script>")), html.slice(html.lastIndexOf("<script>")));
+    assert.ok(!hostedHtml.includes(publishRequest.password));
+    const hosted = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+    const hostedErrors = errorsFor(hosted), frameRequests = [];
+    hosted.on("request", r => { if (r.frame().parentFrame() && /^https?:/.test(r.url())) frameRequests.push(r.url()); });
+    await hosted.route("**/api/project", route => route.fulfill(route.request().postDataJSON().password === publishRequest.password
+      ? { json: { title: "Hosted parity", html: hostedHtml } } : { status: 401, json: { error: "Password is incorrect." } }));
+    await hosted.goto(`${base}/viewer.html?id=smoke-project`);
+    await hosted.locator("#projectPassword").fill("wrong"); await hosted.getByRole("button", { name: "Open Viewer" }).click();
+    await hosted.waitForFunction(() => document.getElementById("viewerStatus").textContent.includes("incorrect"));
+    await hosted.locator("#projectPassword").fill(publishRequest.password); await hosted.getByRole("button", { name: "Open Viewer" }).click();
+    await hosted.waitForSelector("iframe");
+    const frame = hosted.frames().find(f => f.parentFrame());
+    await frame.waitForFunction(() => window.engineOutputReady);
+    await frame.evaluate(() => engineOutputReady);
+    assert.equal(await frame.evaluate(() => document.documentElement.outerHTML.includes("viewer-jump-link-reveal")), false, "wrapper did not inject Legacy styles");
+    await viewerParity(frame, reference);
+    await frame.getByRole("button", { name: "Report", exact: true }).click();
+    assert.equal(await frame.getByRole("dialog", { name: "Project Report" }).isVisible(), true);
+    await frame.getByRole("button", { name: "Close", exact: true }).click();
+    await hosted.screenshot({ path: join(dir, `${name}-hosted.png`) });
+    assert.deepEqual(frameRequests, []);
+    assert.deepEqual(hostedErrors.filter(e => !e.includes("401 (Unauthorized)")), []);
+    await hosted.close();
+    // Compare to the measured, versioned baseline; the retired renderer is not shipped.
+    if (historicalBaseline[name]) {
+      performance.legacy = historicalBaseline[name];
+      performance.baselineCommit = historicalBaseline.baselineCommit;
       performance.speedup = performance.legacy.meanMs / performance.meanMs;
-      assert.ok(performance.speedup > 1.5, "Engine camera frames materially faster than historical SVG rebuilds");
-      await legacy.close();
+      assert.ok(performance.speedup > 1.5, "Engine camera frames materially faster than recorded SVG rebuilds");
     }
+
     assert.deepEqual(network, []); assert.deepEqual(errors, []); assert.deepEqual(appErrors, []);
     results.push({ name, htmlBytes: Buffer.byteLength(html), initial, performance, signature: payload.engineScene.signature });
     console.log(name, JSON.stringify({ htmlBytes: Buffer.byteLength(html), signature: payload.engineScene.signature,
@@ -220,17 +218,24 @@ try {
     await offline.close(); await app.close();
   }
   // The Legacy editor also exports the same Engine contract, not its visible SVG.
-  const legacy = await browser.newPage(); const errors = errorsFor(legacy);
-  await legacy.goto(`${base}/index.html?legacy=1`);
-  await legacy.waitForFunction(() => typeof restoreSnapshot === "function");
-  await legacy.evaluate(f => restoreSnapshot(f), outputViewerParityFixture());
-  const result = await legacy.evaluate(async () => {
-    buildStandaloneHtml = () => { throw new Error("Legacy output called"); };
-    wirechartExportBounds = () => { throw new Error("Legacy bounds called"); };
-    return (await prepareEngineViewerOutput()).html;
-  });
-  assert.equal(parsePayload(result).engineScene.signature, results[0].signature);
-  assert.deepEqual(errors, []); await legacy.close();
+  for (const [name, project] of cases) {
+    const legacy = await browser.newPage({ viewport: { width: 1600, height: 1000 } }), errors = errorsFor(legacy);
+    await legacy.goto(`${base}/index.html?legacy=1`);
+    await legacy.waitForFunction(() => typeof restoreSnapshot === "function");
+    await legacy.evaluate(f => {
+      for (const d of f.devices) d.templateOverride ||= f.deviceLibrary?.find(t => t.id === d.templateId);
+      restoreSnapshot(f); zoomToFit();
+    }, project);
+    const result = await legacy.evaluate(async () => {
+      canvas.cloneNode = () => { throw new Error("Legacy canvas clone called"); };
+      return (await prepareEngineViewerOutput()).html;
+    });
+    assert.equal(parsePayload(result).engineScene.signature, results.find(r => r.name === name).signature);
+    assert.ok(await legacy.locator("#canvas .device-outline").count() > 0, "Legacy application still draws devices");
+    await legacy.screenshot({ path: join(dir, `${name}-legacy-app.png`) });
+    assert.deepEqual(errors, []); await legacy.close();
+  }
+
   writeFileSync(join(dir, "results.json"), JSON.stringify(results, null, 2));
   console.log(`PASS offline download, simulated Publish/authentication, parity, reports, Engine/Legacy apps; artifacts: ${dir}`);
 } finally { await browser.close(); }

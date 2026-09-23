@@ -5,8 +5,8 @@ import { sharedBusOrthogonalSegments } from "./sharedBusRendering.js";
 import { calculateCableHops, applyCableHopsToPolyline } from "./cableHops.js";
 import { jumpNodeCenter, jumpLinkBezierPolyline } from "./jumpNodeModel.js";
 
-export const OUTPUT_SCENE_VERSION = 1;
-export const OUTPUT_SCENE_SOURCE = "engine-project-adapter/scene-graph";
+import { OUTPUT_SCENE_VERSION, OUTPUT_SCENE_SOURCE, OUTPUT_SCENE_SCHEMA_FINGERPRINT } from "./outputSceneContract.js";
+export { OUTPUT_SCENE_VERSION, OUTPUT_SCENE_SOURCE, OUTPUT_SCENE_SCHEMA_FINGERPRINT } from "./outputSceneContract.js";
 
 // Reject non-data values rather than silently retaining runtime resources.
 function plainData(value) {
@@ -115,7 +115,7 @@ export function buildEngineOutputScene(projectSnapshot = {}) {
   if (skippedWires) warnings.push(`${skippedWires} project wires could not be normalized.`);
   if (!empty && normalized.wires.length !== scene.wires.length) warnings.push("SceneGraph rejected normalized wire endpoints.");
   const data = plainData({
-    version: OUTPUT_SCENE_VERSION, sceneDataSource: OUTPUT_SCENE_SOURCE,
+    version: OUTPUT_SCENE_VERSION, schemaFingerprint: OUTPUT_SCENE_SCHEMA_FINGERPRINT, sceneDataSource: OUTPUT_SCENE_SOURCE,
     coordinateSpace: "engine-world", devices, connectors, wires, racks: scene.racks,
     jumpLinks, ledSurfaces, cards, sharedBuses, rackExposure,
     sceneBounds: scene.bounds(),

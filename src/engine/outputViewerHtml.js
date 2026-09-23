@@ -1,4 +1,5 @@
 import { validateOutputAssets } from "./outputViewerAssets.js";
+import { assertOutputSceneContract } from "./outputSceneContract.js";
 export { inlineOutputAssets } from "./outputViewerAssets.js";
 
 export function scriptJson(value) {
@@ -10,13 +11,14 @@ const escapeHtml = value => String(value || "").replace(/[&<>"']/g, c => ({ "&":
 export function buildEngineViewerHtml(snapshot, { bundle, assets = {}, title, cableGroups = [] } = {}) {
   if (!bundle?.javascript || !bundle?.css || bundle.format !== "engine-output-viewer-v1") throw new Error("Engine viewer bundle is unavailable. Run npm run build:output-viewer.");
   const scene = snapshot.engineScene;
-  if (scene?.version !== 1 || !scene.signature) throw new Error("Canonical Engine output scene is required.");
+  assertOutputSceneContract(scene);
   validateOutputAssets(scene, assets);
   const projectName = title || snapshot.reportData?.projectName || "AV Designer";
   const payload = { engineScene: scene, assets, icons: bundle.icons, title: projectName,
     reportData: snapshot.reportData || {}, cableGroups,
     metadata: { ...snapshot.metadata, drawingDependency: "engine-webgl", sceneSignature: scene.signature,
-      bundleHash: bundle.bundleHash, legacyFallback: false } };
+      sceneVersion: scene.version, sceneSchemaFingerprint: scene.schemaFingerprint,
+      bundleHash: bundle.bundleHash } };
   return `<!doctype html>
 <html lang="en" data-avdesigner-output="engine-webgl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">

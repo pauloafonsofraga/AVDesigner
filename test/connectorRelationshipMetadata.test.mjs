@@ -3,8 +3,7 @@ import assert from "node:assert/strict";
 import vm from "node:vm";
 import { readFileSync } from "node:fs";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
-import { CONNECTOR_RELATIONSHIP_FIELDS as fields, applyConnectorRelationshipFieldPatch as patch, normalizeConnectorRelationshipMetadata as normalize,
-  relationshipMetadataRuntimeSource } from "../src/engine/connectorRelationshipMetadata.js";
+import { CONNECTOR_RELATIONSHIP_FIELDS as fields, applyConnectorRelationshipFieldPatch as patch, normalizeConnectorRelationshipMetadata as normalize } from "../src/engine/connectorRelationshipMetadata.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
 import { relationshipMetadataFixture } from "../fixtures/relationship-metadata.mjs";
@@ -95,12 +94,6 @@ test("Malformed/missing members are safe and an unknown edit changes nothing", (
   assert.doesNotThrow(() => normalize(data));
 });
 
-test("Offline embedded runtime exactly matches Engine normalization and patches", () => {
-  const runtime = vm.runInNewContext(relationshipMetadataRuntimeSource), data = relationshipMetadataFixture();
-  const plain = value => JSON.parse(JSON.stringify(value));
-  assert.deepEqual(plain(runtime.normalizeConnectorRelationshipMetadata(data)), plain(normalize(data)));
-  assert.deepEqual(plain(runtime.applyConnectorRelationshipFieldPatch(data, "bus-2", { nameText: "Offline" })), plain(patch(data, "bus-2", { nameText: "Offline" })));
-});
 
 test("Engine instance overrides, save/reload, duplicate and card artwork preserve metadata parity", () => {
   const card = relationshipMetadataFixture(), chassis = { ...relationshipMetadataFixture(), hasSwappableCards: true,

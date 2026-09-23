@@ -54,7 +54,6 @@ try {
       const gpu=live?{wires:JSON.stringify(float(p.wires))===JSON.stringify(Array.from(live.renderer.staticWireArray)),
         matrix:JSON.stringify(float(p.matrix))===JSON.stringify(Array.from(live.renderer.matrixRouteArray))}:null;
       canvas.cloneNode=()=>{throw new Error("Legacy canvas clone called by PDF");};
-      wirechartExportBounds=()=>{throw new Error("Legacy bounds called by PDF");};
       return {signature:snapshot.engineScene.signature,bounds:snapshot.engineScene.bounds,counts:snapshot.engineScene.diagnostics.counts,gpu,
         wireComparison:{lengths:[expected.length,actual.length],mismatch,expected:expected.slice(mismatch,mismatch+12),actual:actual.slice(mismatch,mismatch+12)}};
     });
@@ -80,9 +79,12 @@ try {
       const html=module.buildEngineViewerHtml(snapshot,{bundle,assets});
       const payload=JSON.parse(html.match(/id="engineOutputPayload">([\s\S]*?)<\/script>/)[1]);
       return {html:buildPrintableReportHtml(snapshot.reportData,drawing.svg),signature:drawing.diagnostics.signature,
-        viewerSignature:payload.engineScene.signature,svg:drawing.svg,counts:drawing.diagnostics.counts};
+        viewerSignature:payload.engineScene.signature,svg:drawing.svg,counts:drawing.diagnostics.counts,
+        schema:drawing.diagnostics.sceneSchemaFingerprint,viewerSchema:payload.metadata.sceneSchemaFingerprint,
+        version:drawing.diagnostics.sceneVersion,viewerVersion:payload.metadata.sceneVersion};
     },outputPrintFixture());
     assert.equal(full.signature,full.viewerSignature);assert.equal(full.counts.objects,17);
+    assert.equal(full.schema,full.viewerSchema);assert.equal(full.version,full.viewerVersion);
     const fullPage=await context.newPage(),fullErrors=captureErrors(fullPage);
     await fullPage.setContent(full.html);await printPage(fullPage,`${mode}-full`);
     const repeat=await app.evaluate(async fixture=>{

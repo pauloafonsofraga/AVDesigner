@@ -126,16 +126,29 @@ try {
         return { body, points, segments };
       }, { id, mode });
       assertSegments(main, count, side); await page.screenshot({ path: `${shots}/${mode}-${side}-${count}-canvas.png` });
-      const html = await page.evaluate(() => { const data = structuredClone(projectSnapshotData()); data.logoSrc = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>"; return buildStandaloneHtml(data); });
+      const html = await page.evaluate(async () => (await prepareEngineViewerOutput()).html);
       const viewer = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       viewer.on("pageerror", e => errors.push(e.message)); await viewer.setContent(html);
+      await viewer.evaluate(() => engineOutputReady);
       const exported = await viewer.evaluate(id => {
-        const t = templateForInstance(instanceById(id)), body = { x: 0, width: t.width };
-        const segments = [...document.querySelectorAll("[data-shared-bus-segment]")].map(line => Object.fromEntries(["x1", "y1", "x2", "y2"].map(k => [k, Number(line.getAttribute(k))])));
-        return { body, segments, points: t.connectorRelationships[0].members.map(id => t.connectors.find(c => c.id === id)).map(({ x, y }) => ({ x, y })) };
+        const d = outputViewer.scene.getDevice(id), bus = outputViewer.model.contract.sharedBuses.find(b => b.deviceId === id);
+        const segments = [bus.segments.trunk, bus.segments.stem, ...bus.segments.branches]
+          .map(s => ({ x1:s.x1-d.x,y1:s.y1-d.y,x2:s.x2-d.x,y2:s.y2-d.y }));
+        const ids = bus.connectorIds;
+        return { body: { x:0,width:d.width }, segments, points: ids.map(id => d.connectors.find(c => c.id === id)).map(({x,y})=>({x,y})) };
       }, id);
       assertSegments(exported, count, side);
-      if (mode === "legacy") assert.deepEqual(exported, main);
+      const expected = await page.evaluate(async id => {
+        await ensureEngineOutputSceneModule();
+        const c = buildCanonicalOutputSnapshot().engineScene, d = c.devices.find(d => d.id === id);
+        const s = c.sharedBuses.find(b => b.deviceId === id).segments;
+        return [s.trunk,s.stem,...s.branches].map(s => ({ x1:s.x1-d.x,y1:s.y1-d.y,x2:s.x2-d.x,y2:s.y2-d.y }));
+      }, id);
+      assert.deepEqual(exported.segments, expected, "offline output retains canonical Engine trunks");
+      assert.deepEqual(exported.body, main.body);
+      assert.deepEqual(exported.points, main.points);
+      // Legacy fields sit 18 units in; Engine fields sit 26 units in. Preserve
+      // that existing canvas styling, while requiring exact output-scene parity.
       await viewer.screenshot({ path: `${shots}/${mode}-${side}-${count}-offline.png` }); await viewer.close();
 
       await page.locator("#deviceEditorButton").click();

@@ -179,7 +179,7 @@ try {
     assert.equal((await read()).links.length, 1); assert.deepEqual((await read()).wires, wires);
     pass(`${mode}: actual Shift-rewire away from the Jump cleans up the link; undo restores it`);
     await load(saved);
-    const output = await page.evaluate(async () => { await ensureEngineOutputSceneModule(); const s = buildCanonicalOutputSnapshot(); return { scene: s.engineScene, html: buildStandaloneHtml(s.projectData) }; });
+    const output = await page.evaluate(async () => { const s = await prepareEngineViewerOutput(); return { scene: s.snapshot.engineScene, html: s.html }; });
     assert.equal(output.scene.jumpLinks.length, 1);
     assert.deepEqual(output.scene.diagnostics.warnings, []);
     const viewer = await browser.newPage({ viewport: { width: 1400, height: 900 } });
@@ -201,17 +201,15 @@ try {
     await viewer.close();
     const offline = await browser.newPage({ viewport: { width: 1400, height: 900 } });
     offline.on("pageerror", e => errors.push(`offline: ${e.message}`));
-    const html = output.html.replace("</head>", `<base href="${base}/"></head>`)
-      .replace("function wireTraceSequence(w){", "window.__jumpRoles=()=>[jumpNodeRole('a'),jumpNodeRole('b')];window.__traceForTest=id=>wireTraceSequence((data.connections||[]).find(w=>w.id===id));window.__selectWire=id=>select({type:'wire',id});function wireTraceSequence(w){")
-      .replace("function animateTraceSegment(segment,dot,done){", "window.__segments=[];function animateTraceSegment(segment,dot,done){window.__segments.push(segment.reverse);");
-    await offline.setContent(html);
-    assert.deepEqual(await offline.evaluate(() => __jumpRoles().map(r => r.role)), ["output", "input"]);
-    assert.deepEqual(await offline.locator("[data-jump-node-id] .jump-node-core").evaluateAll(nodes => nodes.map(el => getComputedStyle(el).fill)), ["rgb(50, 182, 255)", "rgb(251, 121, 4)"]);
-    assert.deepEqual(await offline.evaluate(id => __traceForTest(id).map(s => s.type), wires[0].id), ["wire", "teleport", "wire"]);
-    await offline.evaluate(id => __selectWire(id), wires[0].id); await offline.locator("#playWireTrace").click();
-    await offline.waitForFunction(() => __segments.length === 2, null, { timeout: 12000 });
-    assert.deepEqual(await offline.evaluate(() => __segments), [false, true]);
-    pass(`${mode}: current standalone viewer effective roles, selection and real playback`);
+    await offline.setContent(output.html);
+    await offline.evaluate(() => engineOutputReady);
+    assert.deepEqual(await offline.evaluate(() => ["a", "b"].map(id => outputViewer.scene.getDevice(id).visual.jumpRole)), ["output", "input"]);
+    await offline.evaluate(id => outputViewer.select({ type: "wire", id }), wires[0].id);
+    await offline.getByRole("button", { name: "Play Cable", exact: true }).click();
+    await offline.waitForFunction(() => outputViewer.playback?.index === 2, null, { timeout: 15000 });
+    await offline.getByRole("button", { name: "Stop", exact: true }).click();
+    pass(`${mode}: bundled offline viewer effective roles, selection and real playback`);
+
     await offline.close();
     await page.screenshot({ path: `${process.env.AVDESIGNER_SCREENSHOT_DIR || "/tmp"}/${mode}-bidirectional-jumps.png` });
     assert.deepEqual(errors, []); await page.close();

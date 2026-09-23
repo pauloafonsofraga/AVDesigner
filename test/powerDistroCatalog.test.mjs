@@ -8,6 +8,8 @@ import { POWER_CATALOG, POWER_ALIASES, VISIBLE_POWER_TYPES, powerTemplate, power
 import { POWER_PLUG_TYPES, powerPlugImageForConnector, powerPlugDisplaySize, normalizePowerDistroForEngine } from "../src/engine/powerDistroModel.js";
 import { normalizeAvDesignerDevice } from "../src/engine/projectAdapter.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
+import { buildEngineOutputScene } from "../src/engine/outputSceneSnapshot.js";
+import { createOutputViewerModel } from "../src/engine/outputViewerModel.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
@@ -26,9 +28,14 @@ const legacy = vm.createContext({
 for (const name of ["powerPlugMeta", "powerPlugImageForConnector", "isPowerPlugConnector", "powerPlugDisplaySize", "powerPlugStackHeight", "powerDistroManualPlugHeight", "powerDistroAutoFaceHeight", "powerDistroFaceHeight", "powerDistroFaceY", "powerDistroFaceRect", "powerPlugSortValue", "sortedPowerPlugConnectors", "powerPlugLayout", "clampPowerPlugCenter"]) {
   vm.runInContext(legacyFunction(name), legacy);
 }
-const viewer = vm.createContext({ powerPlugTypes: registry, powerPlugAssets: {}, POWER_PLUG_ASSET_BASE: "Nodes/PowerPlugs/", DEVICE_WIDTH: 380, FACE_MARGIN: 12, FACE_TOP_Y: 38, FACE_HEIGHT: 78 });
-const viewerStart = html.indexOf("\nfunction powerPlugImage(c)");
-vm.runInContext(html.slice(viewerStart, html.indexOf("\nfunction drawPowerPlugImage", viewerStart)), viewer);
+function outputPowerModel(template) {
+  const scene = buildEngineOutputScene({ devices: [{ instanceId: "pd", templateOverride: template }], connections: [] });
+  return createOutputViewerModel(scene).scene.getDevice("pd").visual.powerDistro;
+}
+const viewer = {
+  powerPlugLayout: template => outputPowerModel(template).plugEntries,
+  powerFaceRect: template => outputPowerModel(template).faceRect
+};
 
 function model(template) {
   return normalizePowerDistroForEngine({ template, width: template.width, connectors: template.connectors });
@@ -64,8 +71,6 @@ test("Power Distro registry copies match the complete independent catalog exactl
       ...(id === "powerlock" ? { powerlock: true } : {})
     });
   }
-  assert.match(html, /const powerPlugPayload = JSON.stringify\(POWER_PLUG_TYPES\)/);
-  assert.match(html, /const powerPlugTypes=\$\{powerPlugPayload\}/);
 });
 
 test("palette contains 17 canonical choices, four hidden aliases, stable catalog order", () => {

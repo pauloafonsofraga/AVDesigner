@@ -76,6 +76,7 @@ export function renderEngineOutputSvg(snapshot, { images = {}, textMetrics = {},
   const view = { x,y,width:Math.max(bounds.x+bounds.width,text?.right ?? bounds.x)-x+padding,
     height:Math.max(bounds.y+bounds.height,text?.bottom ?? bounds.y)-y+padding };
   const diagnostics = { drawingDependency:OUTPUT_SVG_DEPENDENCY, sceneDataSource:contract.sceneDataSource,
+    sceneVersion:contract.version, sceneSchemaFingerprint:contract.schemaFingerprint,
     signature:contract.signature, bounds:contract.bounds, viewBox:view, counts:contract.diagnostics.counts,
     visibleAnchors:primitives.connectors.length, embeddedImages:ctx.elements.join("").split("<image ").length-1,
     textMetrics:Object.keys(textMetrics).length, vector:true };

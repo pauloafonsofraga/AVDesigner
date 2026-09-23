@@ -98,7 +98,7 @@ rows appear exactly once, with no empty or title-only pages.
   is not added. Very large matrix grids retain the existing table layout limits.
 - The existing undo restore omits `imageObjects`. The smoke tests the full
   canonical 17-object input separately without changing saved-project behavior.
-- Historical unused SVG helpers remain elsewhere in the classic shell; neither
-  PDF nor HTML/Publish calls them. Live Engine/Legacy behavior is unchanged.
+- Stage 5 removed the unused output SVG helpers; the supported Legacy canvas
+  remains. Current acceptance is recorded in `engine-output-pipeline.md`.
 - Shared renderer exports required a renderer cache fingerprint and regenerated
   offline viewer bundle. The production bridge fingerprint is unchanged.

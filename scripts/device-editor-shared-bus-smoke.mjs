@@ -137,16 +137,13 @@ try {
     const reloaded = await page.evaluate(id => templateForInstance(instanceById(id)), id);
     for (const key of ["connectors", "connectorRelationships", "cardTypes", "cardSlots"]) assert.deepEqual(reloaded[key], saved[key], `Project reload preserves ${key}`);
     if (mode === "engine") await page.waitForFunction(id => window.avDesignerEngineBridge?.scene?.getDevice(id), id);
-    const html = await page.evaluate(() => {
-      const data = structuredClone(projectSnapshotData());
-      data.logoSrc = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>";
-      return buildStandaloneHtml(data);
-    });
+    const html = await page.evaluate(async () => (await prepareEngineViewerOutput()).html);
     const offline = await browser.newPage();
     const offlineErrors = [];
     offline.on("pageerror", e => offlineErrors.push(e.message));
     await offline.setContent(html);
-    const exported = await offline.evaluate(id => effectiveConnectors(templateForInstance(instanceById(id))).map(c => [c.id, c.y]), id);
+    await offline.evaluate(() => engineOutputReady);
+    const exported = await offline.evaluate(id => outputViewer.scene.getDevice(id).connectors.map(c => [c.id, c.y]), id);
     for (const c of saved.connectors) assert.ok(exported.some(([id, y]) => id === c.id && y === c.y));
     assert.deepEqual(offlineErrors, []);
     assert.deepEqual(errors, []);

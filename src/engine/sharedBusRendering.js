@@ -1,4 +1,4 @@
-// Self-contained so SVG previews and the offline viewer use the exact same geometry.
+// Shared geometry for the Engine, SVG authoring previews and canonical output scenes.
 export function createSharedBusRenderingAPI() {
   function sharedBusOrthogonalSegments(layout, body, { nodeInset = 10, offsetX = 0, offsetY = 0 } = {}) {
     const points = layout?.points;
@@ -53,4 +53,3 @@ export function createSharedBusRenderingAPI() {
 }
 
 export const { sharedBusOrthogonalSegments, sharedBusLayoutsFromPoints } = createSharedBusRenderingAPI();
-export const sharedBusRenderingRuntimeSource = `(${createSharedBusRenderingAPI.toString()})()`;

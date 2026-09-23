@@ -7993,28 +7993,6 @@ test("Device Editor composite placement motion keeps selected members rigid whil
   assert.ok(interrupted.startY > 262 && interrupted.startY < 316, "direction reversal should retarget from the sampled visual card position");
 });
 
-test("standalone exported viewer side helper follows V2 visual-side semantics", () => {
-  const exportSideMaskForConnector = runnableIndexFunction("exportSideMaskForConnector", {
-    DEVICE_WIDTH: 420,
-    Number,
-    String,
-    Array,
-    Set
-  });
-
-  assert.equal(exportSideMaskForConnector(sideParityConnector("output-left", "left", "output"), { width: 420 }), "left");
-  assert.equal(exportSideMaskForConnector(sideParityConnector("input-right", "right", "input"), { width: 420 }), "right");
-  assert.equal(exportSideMaskForConnector({
-    ...sideParityConnector("both", "left", "input"),
-    displaySide: "both",
-    anchors: [
-      { id: "left", side: "left", x: 0, y: 152, primary: true },
-      { id: "right", side: "right", x: 420, y: 152 }
-    ]
-  }, { width: 420 }), "both");
-  assert.equal(exportSideMaskForConnector({ id: "legacy-output", direction: "output", y: 152 }, { width: 420 }), "right");
-  assert.equal(exportSideMaskForConnector({ id: "legacy-input", direction: "input", y: 152 }, { width: 420 }), "left");
-});
 
 test("Device Editor preview renders from detached normalized drafts", () => {
   const readonlyClone = functionSource("readonlyDeviceEditorPreviewTemplate");

@@ -15,7 +15,7 @@ import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { connectorOperationalStatusMarkSegments } from "../src/engine/renderer.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 
-const BUILD_ID = "iteration54-33-0-engine-vector-pdf-output";
+const BUILD_ID = "iteration54-34-0-unified-engine-output-pipeline";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -25,7 +25,7 @@ const projectAdapterSource = readFileSync(resolve(repoRoot, "src/engine/projectA
 const mutationSource = readFileSync(resolve(repoRoot, "src/engine/projectMutations.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Engine Vector PDF Output");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-33-0-engine-vector-pdf-output-modules";'), "module cache key should bust 54.33.0 modules");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-34-0-unified-engine-output-pipeline-modules";'), "module cache key should bust 54.34.0 modules");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-31-1-bidirectional-jump-node-support"'), "bridge version should identify Bidirectional Jump Node Support");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "bidirectional-jump-node-support"'), "bridge feature label should identify Bidirectional Jump Node Support");
 assert.ok(rendererSource.includes("renderer-iteration54-33-0-engine-vector-pdf-output"), "renderer fingerprint should identify Engine Vector PDF Output");
@@ -156,7 +156,6 @@ assert.ok(readFileSync(resolve(repoRoot, "src/engine/sceneGraph.js"), "utf8").in
 assert.ok(indexHtml.includes("editorConnectorIsNotWorking(source) || editorConnectorIsNotWorking(target)"), "Legacy connection validation should reject not-working connectors using the live status helper");
 assert.ok(indexHtml.includes('id="selectedConnectorNotWorking"'), "Device Editor connector inspector should expose Not working checkbox");
 assert.ok(indexHtml.includes('renderDeviceEditorPreview({ refreshTexture: false })'), "status toggle should repaint without refreshing device textures");
-assert.ok(indexHtml.includes("connectorNotWorking(c)") && indexHtml.includes("drawConnectorNotWorkingMark(node,c.x,c.y,7)") && indexHtml.includes('stroke:"#ff0000"') && indexHtml.includes('"stroke-width":2.35'), "standalone viewer should draw thicker faulty connector X marks in full red");
 assert.ok(projectAdapterSource.includes('"operationalStatus"'), "card slot overrides should carry operational status");
 assert.ok(mutationSource.includes("operationalStatus: connector.operationalStatus || \"working\""), "scene export mutations should preserve operational status");
 

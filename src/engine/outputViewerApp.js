@@ -265,6 +265,7 @@ export class EngineOutputViewer {
       frameMeanMs: frames.reduce((sum, n) => sum + n, 0) / Math.max(1, frames.length),
       fullRebuilds: this.renderer.fullRebuildCount, buffers: ["staticWireBuffer", "staticDeviceBuffer", "matrixRouteBuffer", "liveBuffer", "gridBuffer", "textureBuffer", "glowBuffer"].filter(key => this.renderer[key]).length,
       textures: this.renderer.textureStats(), glowTextures: this.renderer.glowTextureCache.size,
+      sceneVersion: this.model.contract.version, sceneSchemaFingerprint: this.model.contract.schemaFingerprint,
       counts: this.model.contract.diagnostics.counts, signature: this.model.contract.signature };
   }
   dispose() {

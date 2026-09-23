@@ -1,4 +1,4 @@
-// Self-contained so the offline viewer can embed the identical eligibility/geometry rules.
+// Shared eligibility and geometry for the Engine and classic editor bridge.
 export function createSharedBusPlacementAPI() {
   const exclusive = relationship => ["exclusive", "shared-bus", "exclusive-shared-bus", "exclusive-shared"].includes(String(relationship?.type || relationship?.relationshipType || "").trim().toLowerCase());
   const idsFor = relationship => {
@@ -62,4 +62,3 @@ export function createSharedBusPlacementAPI() {
 }
 
 export const { rigidSharedBusGroup, rigidSharedBusGroups, groupSharedBusPlacementItems, sharedBusMemberPositions } = createSharedBusPlacementAPI();
-export const sharedBusPlacementRuntimeSource = `(${createSharedBusPlacementAPI.toString()})()`;

@@ -1,6 +1,7 @@
 import { SceneGraph } from "./sceneGraph.js";
 import { resolvePlayableSignalPath, jumpNodeRoleLabel } from "./jumpNodeModel.js";
 import { resolveOutputDeviceAssets } from "./outputViewerAssets.js";
+import { assertOutputSceneContract } from "./outputSceneContract.js";
 
 function freeze(value) {
   if (value && typeof value === "object") { Object.values(value).forEach(freeze); Object.freeze(value); }
@@ -10,10 +11,7 @@ function freeze(value) {
 export function createOutputViewerModel(snapshot, { assets } = {}) {
   const start = performance.now();
   const source = snapshot?.engineScene || snapshot;
-  if (source?.version !== 1 || source.coordinateSpace !== "engine-world"
-    || ![source.devices, source.wires, source.racks, source.jumpLinks].every(Array.isArray)) {
-    throw new TypeError("Expected a version 1 canonical Engine output scene.");
-  }
+  assertOutputSceneContract(source);
   const contract = freeze(JSON.parse(JSON.stringify(source)));
   const scene = new SceneGraph();
   scene.setData({ devices: contract.devices.map(d => resolveOutputDeviceAssets(d, assets)), wires: contract.wires, racks: contract.racks,

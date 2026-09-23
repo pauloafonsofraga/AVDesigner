@@ -33,11 +33,14 @@ try {
     await load(saved); await check(ledSurfaceOrder);
     if (process.env.AVDESIGNER_SCREENSHOT_DIR) await page.screenshot({ path: `${process.env.AVDESIGNER_SCREENSHOT_DIR}/${mode}-led-surface-ordering.png` });
     const checkExport = async expected => {
-      const offline = await page.evaluate(() => buildStandaloneHtml(projectSnapshotData()));
+      const offline = await page.evaluate(async () => (await prepareEngineViewerOutput()).html);
       const viewer = await browser.newPage();
       viewer.on("pageerror", e => errors.push(`viewer: ${e.message}`));
       await viewer.setContent(offline);
-      const points = await viewer.evaluate(() => ledSurfaceConnections("wall").map(w => ({ id: w.id, ...pointForLedSurface("wall", w) })));
+      await viewer.evaluate(() => engineOutputReady);
+      const points = await viewer.evaluate(() => outputViewer.scene.orderedLedSurfaceWires("wall").map(w => {
+        const p = outputViewer.scene.endpointForWire(w, "to"); return { id: w.id, x: p.x, y: p.y };
+      }));
       assert.deepEqual(points, expectedPoints(expected), `${mode}: standalone/offline HTML parity`);
       await viewer.close();
     };

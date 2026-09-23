@@ -1,5 +1,9 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
+Historical iteration log. Current output ownership is the unified Engine pipeline
+(54.34.0): HTML/Publish use Engine WebGL, PDF uses Engine SVG. The old output
+implementations mentioned below were retired. See `engine-output-pipeline.md`.
+
 Iteration 52.1 compacts the Device Editor connector workflow. The old visible
 Relationships tab is removed, the editor-internal device chooser is replaced
 by a left-side Connector Inspector, and connector properties plus Shared Bus /
@@ -24,8 +28,8 @@ export bounds, report data, connector/rack/internal-wire diagnostics, asset
 counts, warnings, and timing metadata without changing the `.avd` save format.
 Use `debugOutput=1` to show the Output Debug panel in the editor; exported
 viewers can also show embedded snapshot metadata with `?debugOutput=1`.
-PDF drawing deliberately still uses the existing Legacy SVG clone path until
-full visual parity is proven. See
+At that historical stage PDF still used a Legacy SVG clone; this is no longer
+the active output path. See
 [`docs/engine-output-pipeline.md`](engine-output-pipeline.md).
 
 Engine canvas object snapping is restored in the drag-session path, not the

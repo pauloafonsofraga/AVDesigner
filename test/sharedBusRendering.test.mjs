@@ -11,7 +11,6 @@ import { orthogonalSharedBusFixture } from "../fixtures/orthogonal-shared-bus.mj
 
 const index = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const renderer = readFileSync(new URL("../src/engine/renderer.js", import.meta.url), "utf8");
-const offline = vm.runInNewContext(api.sharedBusRenderingRuntimeSource);
 const plain = value => JSON.parse(JSON.stringify(value));
 function functionSource(source, name, indent = "") {
   const start = source.indexOf(`function ${name}(`);
@@ -90,7 +89,6 @@ for (const count of [2, 3, 4]) for (const side of ["left", "right"]) {
       assert.equal(Math.abs(branch.x2 - branch.x1), Math.abs(geometry.stem.x2 - geometry.stem.x1));
     });
     assert.deepEqual(geometry, api.sharedBusOrthogonalSegments(createConnectorDisplayLayout(preview).groups[0], body));
-    assert.deepEqual(plain(offline.sharedBusOrthogonalSegments(layout, body)), geometry);
     assert.deepEqual(drawSvg("drawEditorSharedRelationshipLines", { ...layout, body }), [geometry.trunk, geometry.stem, ...geometry.branches]);
     const vertices = [];
     assert.equal(engine.pushSharedBusConnectorLines(vertices, layout, 123, 57, body), count + 2);
@@ -115,7 +113,6 @@ for (const width of [64, 180, 920]) for (const side of ["input", "output"]) {
     const before = JSON.stringify({ layout, body });
     const geometry = api.sharedBusOrthogonalSegments(layout, body);
     assertComb(geometry, layout, body);
-    assert.deepEqual(plain(offline.sharedBusOrthogonalSegments(layout, body)), geometry);
     assert.equal(JSON.stringify({ layout, body }), before);
     const fallback = drawSvg("drawEditorSimpleSharedRelationshipLines", layout.points, body);
     assertComb({ trunk: fallback[0], stem: fallback[1], branches: fallback.slice(2) },
@@ -153,29 +150,6 @@ test("motion/reversal/cancellation changes only segment translation, never leave
   assert.deepEqual(layout, before);
 });
 
-test("standalone SVG drawing uses embedded helper and installed slot IDs/actual card bounds", () => {
-  const template = orthogonalSharedBusFixture(3);
-  const cardBody = { x: 10, width: 180 }, card = { id: "card", connectorRelationships: [{ id: "card-bus", type: "exclusive", members: ["a", "b"] }] };
-  template.hasSwappableCards = true; template.cardSlots = [{ id: "slot", installedCardTypeId: "card" }];
-  const generated = ["a", "b"].map((id, i) => ({ id: `slot__${id}`, cardSlotId: "slot", x: 0, y: 700 + 54 * i, direction: "input" }));
-  const context = vm.createContext({ sharedBusRendering: offline, effectiveConnectors: t => [...t.connectors, ...generated], connectorHidden: () => false,
-    cardTypeById: () => card, cardBandGeometry: () => cardBody, exportDeviceWidth: t => t.width, s: (tag, attributes) => ({ tag, attributes }) });
-  vm.runInContext(functionSource(index, "drawSharedBusRelationships"), context);
-  const elements = [], before = JSON.stringify(template);
-  context.drawSharedBusRelationships({ appendChild: e => elements.push(e) }, {}, template);
-  assert.equal(elements.length, 9);
-  const installed = elements.filter(e => e.attributes["data-shared-bus-id"] === "slot__card-bus");
-  assert.equal(installed.length, 4); assert.equal(installed[0].attributes.x1, (14 + 16) / 2);
-  assert.deepEqual(installed.map(e => e.attributes["data-shared-bus-segment"]), ["trunk", "stem", "branch", "branch"]);
-  assert.equal(installed[1].attributes.x1, 15); assert.equal(installed[1].attributes.x2, 18);
-  assert.equal(installed[1].attributes.y1, 727); assert.equal(installed[1].attributes.y2, 727);
-  assert.ok(installed[0].attributes.x1 > cardBody.x && installed[0].attributes.x1 < cardBody.x + cardBody.width);
-  elements.forEach(({ attributes: a }) => { assert.ok(a.x1 === a.x2 || a.y1 === a.y2); assert.equal(a["pointer-events"], "none"); });
-  assert.equal(JSON.stringify(template), before);
-  assert.ok(index.includes('const sharedBusRendering=${requireDeviceEditorPlacementModule().sharedBusRenderingRuntimeSource}'));
-  assert.ok(index.includes('drawSharedBusRelationships(g,inst,t);drawMatrixInternalRoutes(g,inst,t);effectiveConnectors(t)'));
-  assert.ok(renderer.indexOf("pushVisibleConnectorRelationshipVisuals(liveVertices") < renderer.indexOf("pushVisibleConnectorNodes(liveVertices"));
-});
 
 test("input/output are exact mirrors including the center stem and non-zero render offsets", () => {
   for (const count of [2, 3, 4]) for (const width of [30, 64, 380]) {
@@ -189,7 +163,6 @@ test("input/output are exact mirrors including the center stem and non-zero rend
     assertComb(left, layout, body, { x: 123, y: -11 }); assertComb(right, mirrored, body, { x: 123, y: -11 });
     const reflect = segment => ({ ...segment, x1: sumX + 246 - segment.x1, x2: sumX + 246 - segment.x2 });
     assert.deepEqual(right, { trunk: reflect(left.trunk), stem: reflect(left.stem), branches: left.branches.map(reflect) });
-    assert.deepEqual(plain(offline.sharedBusOrthogonalSegments(layout, body, offsets)), left);
     assert.deepEqual({ layout, mirrored, body }, before);
   }
 });

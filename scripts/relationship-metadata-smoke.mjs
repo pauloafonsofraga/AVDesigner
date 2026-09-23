@@ -120,9 +120,10 @@ try {
     await page.evaluate(data => restoreSnapshot(data), saved);
     await page.waitForFunction(() => !activeEngineBridge() || activeEngineBridge().ready);
     await verify();
-    const offline = await page.evaluate(() => buildStandaloneHtml(projectSnapshotData()));
+    const offline = await page.evaluate(async () => (await prepareEngineViewerOutput()).html);
     const viewer = await browser.newPage(); await viewer.setContent(offline);
-    const values = await viewer.evaluate(() => ["bus-0", "bus-1", "bus-2", "input", "output"].map(id => connectorById("d", id).nameText));
+    await viewer.evaluate(() => engineOutputReady);
+    const values = await viewer.evaluate(() => ["bus-0", "bus-1", "bus-2", "input", "output"].map(id => outputViewer.scene.getConnector("d", id).nameText));
     assert.deepEqual(values, ["Canvas BUS", "Canvas BUS", "Canvas BUS", "Source", "LOOP"]);
     await viewer.close();
     const card = relationshipMetadataFixture(); card.id = "card"; card.kind = "io";

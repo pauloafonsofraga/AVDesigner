@@ -1,6 +1,6 @@
 import { normalizeLegacyDirection, normalizeSignalDirection } from "./deviceDefinitionV2.js";
 
-// The same pure runtime is embedded in offline viewers and used by the classic editor.
+// Pure metadata operations shared by the Engine and classic editor bridge.
 function createRelationshipMetadataRuntime(normalizeSignalDirection, normalizeLegacyDirection) {
   const fields = Object.freeze(["nameText", "resolutionFrameRate", "customText",
     "nameTextCaption", "resolutionFrameRateCaption", "customTextCaption"]);
@@ -125,4 +125,3 @@ const runtime = createRelationshipMetadataRuntime(normalizeSignalDirection, norm
 export const CONNECTOR_RELATIONSHIP_FIELDS = runtime.fields;
 export const applyConnectorRelationshipFieldPatch = runtime.applyConnectorRelationshipFieldPatch;
 export const normalizeConnectorRelationshipMetadata = runtime.normalizeConnectorRelationshipMetadata;
-export const relationshipMetadataRuntimeSource = `(() => { const normalizeLegacyDirection = ${normalizeLegacyDirection.toString()}; const normalizeSignalDirection = ${normalizeSignalDirection.toString()}; return (${createRelationshipMetadataRuntime.toString()})(normalizeSignalDirection, normalizeLegacyDirection); })()`;

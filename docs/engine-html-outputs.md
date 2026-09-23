@@ -1,4 +1,7 @@
-# Engine HTML and Publish outputs (54.32.0)
+# Engine HTML and Publish outputs
+
+Current cleanup and acceptance: 54.34.0, see `engine-output-pipeline.md`.
+The timing/test totals below record the original Stage 3 acceptance.
 
 Export HTML and Publish both call `prepareEngineViewerOutput()` and
 `buildEngineViewerHtml()`. The only geometry input is the immutable canonical
@@ -35,14 +38,13 @@ produce a visible error rather than switching drawing owners.
 
 Output diagnostics identify `projectDataSource`, `sceneDataSource`,
 `drawingDependency: "engine-webgl"`, `sceneSignature`, `bundleHash`, and
-`legacyFallback: false`. `window.engineOutputReady` resolves after initial assets
+`sceneVersion` and `sceneSchemaFingerprint`. `window.engineOutputReady` resolves after initial assets
 and rendering; `window.outputViewer.diagnostics()` exposes runtime metrics.
 
-The historical `buildStandaloneHtml()` remains isolated for regression/reference
-tests and old-SVG performance comparison. Neither current Export nor Publish
-calls it. There is no Legacy output fallback flag and no silent fallback.
-`viewer.html` still repairs old hosted SVG documents, but bypasses that repair
-entirely for the explicit Engine HTML marker.
+Stage 5 removed the historical standalone SVG implementation and hosted SVG
+style repair. The password page inserts the self-contained HTML unchanged.
+There is no Legacy output fallback. Historical performance is recorded as data,
+not retained executable code.
 
 ## Hosting and reports
 
@@ -64,7 +66,7 @@ read-only viewer. Compact toolbars fit 320px screens.
 safe JSON/HTML embedding, metadata, identical hosted/downloaded implementation,
 and scene/endpoint/card/bus/PD parity. `scripts/engine-output-html-smoke.mjs`
 executes the real Export function, saves the download and opens it in an offline
-browser context. Legacy HTML/bounds functions are replaced with throwing guards
+browser context. Legacy canvas cloning is replaced with a throwing guard
 while exporting. It also runs Publish with simulated private uploads, exercises
 wrong/right passwords through the real authentication page, and compares the
 unlocked iframe with the download and live Engine GPU geometry.

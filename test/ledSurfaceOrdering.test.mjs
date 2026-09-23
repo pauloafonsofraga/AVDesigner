@@ -168,12 +168,9 @@ test("real Legacy ordering and endpoint coordinates match Engine for signal and 
   }
 });
 
-test("standalone ordering matches Legacy for mixed power sources as well as repeated signal indexes", () => {
+test("Engine output ordering matches Legacy for mixed power sources and repeated signal indexes", async () => {
   const project = ledSurfaceOrderingFixture();
   project.connections.unshift(...["z-power", "a-power"].map((id, i) => ({ id, from: { deviceId: i ? "backup" : "main", connectorId: "out-7" }, to: { surfaceId: "wall" }, cableType: "powercon" })));
-  const source = html.split("\n").find(line => line.startsWith("function ledSurfaceConnections(id)"));
-  assert.ok(source);
-  const c = vm.createContext({ data: project, surfaceById: id => project.ledSurfaces.find(s => s.id === id) });
-  vm.runInContext(source, c);
-  assert.deepEqual(Array.from(c.ledSurfaceConnections("wall"), w => w.id), [...ledSurfaceOrder, "a-power", "z-power"]);
+  const { buildEngineOutputScene } = await import("../src/engine/outputSceneSnapshot.js");
+  assert.deepEqual(buildEngineOutputScene(project).ledSurfaces.find(s => s.id === "wall").wireIds, [...ledSurfaceOrder, "a-power", "z-power"]);
 });

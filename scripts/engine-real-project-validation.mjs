@@ -136,7 +136,6 @@ const finalValidation = validateAndRoundTrip(initialHarness, "final");
 check("final engine scene validates", () => {
   assert.deepEqual(finalValidation.validation.errors, []);
 });
-const standaloneViewerSource = validateStandaloneViewerSource();
 
 const commandShape = commandResults.reduce((summary, result) => {
   summary[result.name] = {
@@ -166,7 +165,6 @@ const summary = {
   powerDistroCatalogFixture,
   matrixRoutingFixture,
   modularPlacementFixture,
-  standaloneViewerSource,
   timingsMs: Object.fromEntries(Object.entries(timings).map(([key, value]) => [key, round(value)])),
   checks,
   performanceTargets: {
@@ -1534,62 +1532,6 @@ function validateModularPlacementProjectFixture() {
   };
 }
 
-function validateStandaloneViewerSource() {
-  const indexPath = path.resolve(__dirname, "../index.html");
-  const source = time("standalone viewer source read", () => fs.readFileSync(indexPath, "utf8"));
-  const start = source.indexOf("function buildStandaloneHtml");
-  const viewerSource = start >= 0 ? source.slice(start) : "";
-  const expectedMarkers = [
-    "VIEWER_BEZIER_STEPS",
-    "viewerWireRenderKind",
-    "viewerWirePolylineFromPoints",
-    "samplePolylineHop",
-    "applyCableHopsToPolylineExport",
-    "cableHopPathMap(routes)",
-    "exportConnectorStartY(template)",
-    "exportDeviceWidth(template)",
-    "exportInstalledCardConnector(template,installed,merged,idx)"
-  ];
-  const missingMarkers = expectedMarkers.filter(marker => !viewerSource.includes(marker));
-  const helperStart = viewerSource.indexOf("const VIEWER_BEZIER_STEPS");
-  const helperEnd = viewerSource.indexOf("function renderWires(viewport)", helperStart);
-  const helperSource = helperStart >= 0 && helperEnd > helperStart ? viewerSource.slice(helperStart, helperEnd) : "";
-  const engineModuleReferences = [
-    "src/engine/wirePath",
-    "src/engine/cableHops",
-    "import { wirePolylineFromPoints",
-    "import { calculateCableHops"
-  ].filter(marker => viewerSource.includes(marker));
-
-  check("standalone viewer embeds wire parity helpers", () => {
-    assert.deepEqual(missingMarkers, []);
-  });
-  check("standalone viewer remains self-contained", () => {
-    assert.deepEqual(engineModuleReferences, []);
-  });
-  check("standalone viewer wire helper block parses", () => {
-    assert.ok(helperSource.length > 1000, "expected embedded wire helper source");
-    // Validate the emitted helpers, including functions shared with the shell.
-    const emitted = helperSource.replace(/\$\{(\w+)\.toString\(\)\}/g, (_, name) => {
-      const start = source.indexOf(`    function ${name}(`);
-      const end = source.indexOf("\n    function ", start + 1);
-      assert.ok(start >= 0 && end > start, `missing shared viewer helper ${name}`);
-      return source.slice(start, end);
-    });
-    new Function(emitted);
-  });
-
-  return {
-    markers: expectedMarkers.length,
-    missingMarkers,
-    selfContained: engineModuleReferences.length === 0,
-    helperSyntaxOk: true
-  };
-}
-
-// Output renderer migration is intentionally staged. This smoke test exercises
-// the shared Engine geometry/hop helpers from serializable project data and now
-// guards the standalone viewer's embedded helper copy. PDF remains untouched.
 function validateOutputVisualHelpers(harness, label) {
   const root = projectRoot(harness.mutations.project);
   const enabled = root.cableHops !== false;

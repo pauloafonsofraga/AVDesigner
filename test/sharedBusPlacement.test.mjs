@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import vm from "node:vm";
-import { rigidSharedBusGroups, groupSharedBusPlacementItems, sharedBusMemberPositions, sharedBusPlacementRuntimeSource } from "../src/engine/sharedBusPlacement.js";
+import { rigidSharedBusGroups, groupSharedBusPlacementItems, sharedBusMemberPositions } from "../src/engine/sharedBusPlacement.js";
 import { resolveModularPlacementItems } from "../src/engine/modularDeviceLayout.js";
 import { connectorDisplayAnchors, createConnectorDisplayLayout } from "../src/engine/connectorDisplayLayout.js";
 import { normalizeAvDesignerDevice } from "../src/engine/projectAdapter.js";
@@ -42,8 +41,6 @@ for (const count of [2, 3, 4]) for (const side of ["left", "right"]) {
     const display = createConnectorDisplayLayout(device);
     assert.deepEqual(display.groups[0].points.map(p => p.y), ys);
     device.connectors.forEach((c, i) => assert.equal(connectorDisplayAnchors(device, c, display)[0].y, ys[i]));
-    const offline = vm.runInNewContext(sharedBusPlacementRuntimeSource);
-    assert.deepEqual(JSON.parse(JSON.stringify(offline.rigidSharedBusGroups(device))), rigidSharedBusGroups(device));
     assert.deepEqual(rigidSharedBusGroups(JSON.parse(JSON.stringify(device))), rigidSharedBusGroups(structuredClone(device)));
   });
 }

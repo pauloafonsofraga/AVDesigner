@@ -22,7 +22,7 @@ test("offline output embeds one Engine implementation, all images, reports and t
   assert.deepEqual(p.reportData, s.reportData);
   assert.equal(p.metadata.sceneSignature, s.engineScene.signature);
   assert.equal(p.metadata.drawingDependency, "engine-webgl");
-  assert.equal(p.metadata.legacyFallback, false);
+  assert.equal(p.metadata.sceneSchemaFingerprint, s.engineScene.schemaFingerprint);
   assert.equal(JSON.stringify(s), before);
   assert.equal(requests.length, new Set(requests).size);
   assert.ok(requests.includes("VideoCoreLogo.png"));

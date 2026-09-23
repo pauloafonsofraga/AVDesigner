@@ -1,15 +1,13 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import vm from "node:vm";
-import * as sharedBusPlacement from "../src/engine/sharedBusPlacement.js";
-import * as relationshipMetadata from "../src/engine/connectorRelationshipMetadata.js";
+import { buildEngineOutputScene } from "../src/engine/outputSceneSnapshot.js";
+import { createOutputViewerModel } from "../src/engine/outputViewerModel.js";
 
 import { createPreviewDeviceFromDraft } from "../src/engine/enginePreview.js";
 import { resolveModularDeviceLayout } from "../src/engine/modularDeviceLayout.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 
-const INDEX_HTML = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const FIXTURE = new URL("../fixtures/modular-placement-release-hardening.avd", import.meta.url);
 const SLOT_HEIGHT = 54;
 
@@ -67,39 +65,6 @@ function cardGeometry(card) {
   };
 }
 
-function standaloneViewerGeometryApi() {
-  const start = INDEX_HTML.indexOf("function faceAspectHeight(t)");
-  const endNeedle = "function effectiveInstanceConnectors(instance)";
-  const end = INDEX_HTML.indexOf(endNeedle, start);
-  assert.ok(start >= 0 && end > start, "standalone viewer modular geometry block should exist");
-  const source = INDEX_HTML.slice(start, end);
-  const context = {
-    sharedBusPlacement,
-    relationshipMetadata,
-    Map,
-    Set,
-    Math,
-    Number,
-    String,
-    Object,
-    Array,
-    DEVICE_WIDTH: 380,
-    ADAPTER_START_Y: 28,
-    FACE_MARGIN: 12,
-    FACE_TOP_Y: 42,
-    FACE_HEIGHT: 86,
-    SLOT_HEIGHT,
-    cableTypes: {
-      hdmi: { label: "HDMI" },
-      sdi: { label: "SDI" },
-      dvi: { label: "DVI" },
-      cat6a: { label: "Cat6A" }
-    },
-    isAdapterTemplate: () => false,
-    powerFaceRect: () => ({ x: 12, y: 42, width: 356, height: 86 })
-  };
-  return vm.runInNewContext(`${source}; ({ exportResolveLayout, resolvedCardSlotY, cardBandGeometry, generatedCardConnectors })`, context);
-}
 
 function semanticSnapshot(root) {
   const template = fixtureTemplate(root);
@@ -170,8 +135,8 @@ test("release-hardening geometry matches Engine preview and standalone exported 
   const instance = fixtureInstance(root);
   const { project, device } = normalizedDevice(root);
   const preview = createPreviewDeviceFromDraft({ template, instance, projectData: root });
-  const standalone = standaloneViewerGeometryApi();
-  const standaloneConnectors = standalone.generatedCardConnectors(structuredClone(template));
+  const standalone = createOutputViewerModel(buildEngineOutputScene(root)).scene.getDevice(device.id);
+  const standaloneConnectors = standalone.connectors.filter(c => c.generatedFromCard);
 
   const engineGenerated = device.connectors.filter(connector => connector.generatedFromCard).map(connectorGeometry).sort((a, b) => a.id.localeCompare(b.id));
   const previewGenerated = preview.connectors.filter(connector => connector.generatedFromCard).map(connectorGeometry).sort((a, b) => a.id.localeCompare(b.id));
@@ -189,7 +154,7 @@ test("release-hardening geometry matches Engine preview and standalone exported 
   template.cardSlots.forEach(slot => {
     const engineCard = device.visual.visualCards.find(card => card.id === slot.id);
     assert.ok(engineCard, `Engine card ${slot.id} should exist`);
-    const viewerBand = standalone.cardBandGeometry(template, slot);
+    const viewerBand = standalone.visual.visualCards.find(card => card.id === slot.id);
     assert.equal(viewerBand.y, engineCard.y, `${slot.id} viewer card-band y parity`);
     assert.equal(viewerBand.height, engineCard.height, `${slot.id} viewer card-band span parity`);
   });

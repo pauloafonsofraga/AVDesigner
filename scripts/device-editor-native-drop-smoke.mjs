@@ -193,34 +193,30 @@ try {
       assert.deepEqual(duplicate, before);
       totals.duplicatedMappings += duplicate.entries.length;
       const exported = await page.evaluate(async () => {
-        const data = structuredClone(projectSnapshotData());
-        data.devices = data.devices.filter(d => d.instanceId === "power-catalog-instance");
-        data.powerPlugAssets = await powerPlugAssetPayload();
-        data.logoSrc = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>";
-        return { html: buildStandaloneHtml(data), assets: data.powerPlugAssets };
+        const output = await prepareEngineViewerOutput();
+        const payload = JSON.parse(new DOMParser().parseFromString(output.html, "text/html").getElementById("engineOutputPayload").textContent);
+        return { html: output.html, assets: payload.assets };
       });
       for (const entry of before.entries) assert.match(exported.assets[entry.href], /^data:image\//);
+
       const offline = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
       const offlineErrors = [], network = [];
       offline.on("pageerror", error => offlineErrors.push(error.message));
       await offline.route(/https?:\/\//, route => { network.push(route.request().url()); return route.abort(); });
       try {
         await offline.setContent(exported.html);
-        const entries = await offline.evaluate(() => {
-          const t = templateForInstance(data.devices[0]);
-          return powerPlugLayout(t).map(p => ({ id: p.c.id, href: p.href, x: p.x, y: p.y, width: p.width, height: p.height }));
-        });
+        await offline.evaluate(() => engineOutputReady);
+        const entries = await offline.evaluate(() => outputViewer.scene.getDevice("power-catalog-instance").visual.powerDistro.plugEntries
+          .map(p => ({ id:p.connectorId,href:p.href,x:p.x,y:p.y,width:p.width,height:p.height })));
+
         assert.equal(entries.length, 42);
         for (const entry of entries) {
           const original = before.entries.find(p => p.id === entry.id);
           assert.deepEqual(entry, { ...original, href: exported.assets[original.href] });
         }
-        const images = await offline.locator("image.power-plug-image").evaluateAll(async elements => {
-          for (const element of elements) {
-            const image = new Image(); image.src = element.getAttribute("href"); await image.decode();
-          }
-          return elements.map(e => e.getAttribute("href"));
-        });
+        const images = await offline.evaluate(() => outputViewer.scene.getDevice("power-catalog-instance").visual.powerDistro.plugEntries.map(p=>p.href));
+        assert.equal(await offline.evaluate(() => outputViewer.diagnostics().assetFailures), 0);
+
         assert.equal(images.length, 42);
         for (const entry of entries) assert.ok(images.includes(entry.href));
         assert.deepEqual(offlineErrors, []);

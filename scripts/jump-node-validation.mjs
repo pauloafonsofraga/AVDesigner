@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-33-0-engine-vector-pdf-output";
+const BUILD_ID = "iteration54-34-0-unified-engine-output-pipeline";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -52,8 +52,8 @@ const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Engine Vector PDF Output");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-33-0-engine-vector-pdf-output-modules";'), "module cache key should identify Engine Vector PDF Output");
-assert.ok(indexHtml.includes("Engine Vector PDF Output"), "visible build label should name Engine Vector PDF Output");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-34-0-unified-engine-output-pipeline-modules";'), "module cache key should identify Unified Engine Output Pipeline");
+assert.ok(indexHtml.includes("Unified Engine Output Pipeline"), "visible build label should name Unified Engine Output Pipeline");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-31-1-bidirectional-jump-node-support"'), "Engine bridge version should identify Bidirectional Jump Node Support");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "bidirectional-jump-node-support"'), "Engine bridge feature label should identify Bidirectional Jump Node Support");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-31-1-bidirectional-jump-node-support"), "bridge fingerprint should identify Bidirectional Jump Node Support");
@@ -92,9 +92,7 @@ assert.ok(!bridgeSource.includes("zoomAtStart"), "Engine Play Cable should not p
 assert.ok(bridgeSource.includes('centerCameraAtWorldPoint(playbackPoint, "play-wire-follow", { render: false, zoom: state.playbackZoom })'), "Engine Play Cable camera follow should pan at 100% zoom");
 assert.ok(bridgeSource.includes('centerCameraAtWorldPoint(step.to, "play-wire-teleport", { render: false, zoom: state.playbackZoom })'), "Engine Play Cable teleport follow should pan at 100% zoom");
 assert.ok(indexHtml.includes("const zoom = 1;"), "legacy trace camera should force 100% playback zoom");
-assert.ok(indexHtml.includes("zoom=1;view.zoom=zoom"), "exported viewer trace camera should force 100% playback zoom");
 assert.ok(!indexHtml.includes("canvasView.zoom = 1.13;"), "legacy trace camera should not force a playback zoom");
-assert.ok(!indexHtml.includes("view.zoom=1.13"), "exported viewer trace camera should not force a playback zoom");
 assert.ok(indexHtml.includes('selection.type === "jump-link"'), "app side inspector should handle selected Jump Links");
 assert.ok(indexHtml.includes("renderJumpLinkInspector"), "app side inspector should render selected Jump Link details");
 assert.ok(indexHtml.includes("triggerJumpLinkPlayCableAction(link.id || jumpLinkId"), "app side Jump Link inspector should delegate Play Cable to the Engine bridge");
@@ -422,11 +420,6 @@ assert.ok(indexHtml.includes("jumpLinks: state.jumpLinks"), "project snapshot an
 assert.ok(indexHtml.includes("state.jumpLinks = Array.isArray(data.jumpLinks) ? data.jumpLinks : []"), "project load should initialize jumpLinks");
 assert.ok(indexHtml.includes("jump links:"), "output diagnostics should count Jump Links separately");
 assert.ok(indexHtml.includes("function wireTraceSequence"), "editor/export Play Wire path resolver should exist");
-assert.ok(indexHtml.includes("type:\"teleport\"") || indexHtml.includes('type: "teleport"'), "standalone viewer should include teleport playback steps");
-assert.ok(indexHtml.includes("function renderJumpLinks"), "standalone viewer should have a Jump Link reveal layer");
-assert.ok(indexHtml.includes("viewer-jump-link-reveal"), "standalone viewer should keep hidden Jump Link reveal styling addressable");
-assert.ok(indexHtml.includes("viewerBezierPolyline"), "standalone viewer Jump Link reveal should use Bezier geometry");
-assert.ok(indexHtml.includes("pointsToPath(points)"), "standalone viewer Jump Link reveal should render a Bezier path");
 assert.ok(bridgeSource.includes("hitTestVisibleJumpLink"), "Engine bridge should hit-test visible Jump Link overlays");
 assert.ok(bridgeSource.includes("selectedJumpLinkId"), "Engine bridge should preserve independent Jump Link selection");
 assert.ok(bridgeSource.includes("deleteSelectedJumpLink"), "Engine bridge should delete the selected Jump Link relationship");

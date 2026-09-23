@@ -10,7 +10,7 @@ try {
   installOutputReport(viewer, payload.reportData, payload.cableGroups);
   window.engineOutputReady = viewer.ready.then(diagnostics => {
     if (diagnostics.assetFailures) throw new Error(`${diagnostics.assetFailures} embedded viewer images could not be decoded.`);
-    return diagnostics;
+    return { ...diagnostics, bundleHash: payload.metadata.bundleHash };
   });
   window.engineOutputReady.catch(showFailure);
 } catch (error) { showFailure(error); }

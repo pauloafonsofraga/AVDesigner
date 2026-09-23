@@ -1,7 +1,7 @@
 # Engine Output Scene Contract
 
-Stage 1 (54.30.0) attaches `engineScene` to `buildCanonicalOutputSnapshot()`.
-It does not change drawing ownership, saved project data, or live rendering.
+Stage 1 (54.30.0) attached `engineScene` to `buildCanonicalOutputSnapshot()`.
+Stage 5 completes output ownership without changing saved project data or live rendering.
 
 ## Version 1
 
@@ -33,6 +33,9 @@ An empty document stays empty instead of exporting the adapter's demo graph.
   statistics, excluding nondeterministic timings.
 - `signature`: versioned FNV-1a 64-bit fingerprint of sorted-key JSON. Array order
   remains significant. This is a parity fingerprint, not a security hash.
+- `schemaFingerprint`: versioned FNV-1a 32-bit marker of the shared contract
+  descriptor in `outputSceneContract.js`. Both drawing backends reject version
+  or marker mismatches. Nested geometry semantics are locked by parity tests.
 
 The scene itself has no timestamp. The containing output snapshot retains its
 existing timestamp, mutable report/asset diagnostics and project-data copy. Asset
@@ -60,8 +63,8 @@ with repeated local indexes and PNG wall, jumps/link, exposed/internal rack port
 Bezier/orthogonal wires with actual crossings/hops, area, comment, title and image.
 Node tests compare against a separately normalized SceneGraph. The browser smoke
 compares with the actual production bridge in Engine mode, checks Legacy mode, and
-asserts unchanged saved data and the historical standalone HTML reference, plus
-deterministic Engine print SVG. Actual PDF generation is covered separately by
+asserts unchanged saved data/Legacy canvas and identical Engine HTML signatures,
+plus deterministic Engine print SVG. Actual PDF generation is covered separately by
 `engine-output-pdf-smoke.mjs`; no physical printer is exercised.
 The existing shell `restoreSnapshot()` omits `imageObjects`, so the restored
 canvas has 16 objects. The smoke also supplies the complete canonical fixture

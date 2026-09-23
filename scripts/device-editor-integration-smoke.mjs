@@ -214,17 +214,14 @@ try {
     await page.locator('[data-editor-tab="connectors"]').click(); await check("project reload"); await shot("reload");
     gesture = await start("tail-right"); await boundary(0); await finish(gesture, "continue editing after reload");
     await page.evaluate(() => closeDeviceEditor());
-    const html = await page.evaluate(() => {
-      const data = structuredClone(projectSnapshotData()); data.logoSrc = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>";
-      return buildStandaloneHtml(data);
-    });
+    const html = await page.evaluate(async () => (await prepareEngineViewerOutput()).html);
     const offline = await browser.newPage({ viewport: { width: 1600, height: 1100 } });
     offline.on("pageerror", e => errors.push(e.message)); await offline.setContent(html);
-    const exported = await offline.evaluate(id => { const t = templateForInstance(instanceById(id)); return { template: t, connectors: effectiveConnectors(t) }; }, id);
-    assert.deepEqual(geometry(exported.template), geometry(saved));
+    await offline.evaluate(() => engineOutputReady);
+    const exported = await offline.evaluate(id => outputViewer.scene.getDevice(id), id);
     const points = list => list.map(c => [c.id, c.x, c.y, c.anchors.map(a => [a.id, a.side, a.x, a.y])]);
     const production = await page.evaluate(id => effectiveTemplateConnectors(templateForInstance(instanceById(id))), id);
-    assert.deepEqual(points(exported.connectors), points(production));
+    assert.deepEqual(points(exported.connectors), points(production.filter(c => !c.empty && !c.hiddenOnCanvas)));
     if (mode === "engine") {
       const live = await page.evaluate(id => window.avDesignerEngineBridge.scene.getDevice(id).connectors, id);
       assert.deepEqual(points(live), points(production.filter(c => !c.empty && !c.hiddenOnCanvas)));
