@@ -187,6 +187,14 @@ try {
     await viewer.goto(`${base}/output-viewer.html?empty=1`); await viewer.waitForFunction(() => window.mountOutputViewer);
     await viewer.evaluate(scene => mountOutputViewer(scene), output.scene);
     assert.deepEqual(await viewer.evaluate(() => ["a", "b"].map(id => outputViewer.scene.getDevice(id).visual.jumpRole)), ["output", "input"]);
+    assert.equal(await viewer.evaluate(() => outputViewer.visibleJumpLinkOverlays().length), 0);
+    const jumpPoint = await viewer.evaluate(() => {
+      const v = outputViewer, p = v.model.contract.jumpLinks[0].from, r = v.stage.getBoundingClientRect();
+      return { x: r.x + (p.x - v.camera.x) * v.camera.zoom, y: r.y + (p.y - v.camera.y) * v.camera.zoom };
+    });
+    await viewer.mouse.move(jumpPoint.x, jumpPoint.y);
+    await viewer.waitForFunction(() => outputViewer.renderer.frameStats().jumpLinkOverlays === 1);
+    await viewer.mouse.click(jumpPoint.x, jumpPoint.y);
     const linkPoint = await viewer.evaluate(() => {
       const v = outputViewer, line = v.model.contract.jumpLinks[0].polyline, p = line[Math.floor(line.length / 2)];
       const r = v.stage.getBoundingClientRect(); return { x: r.x + (p.x - v.camera.x) * v.camera.zoom, y: r.y + (p.y - v.camera.y) * v.camera.zoom };

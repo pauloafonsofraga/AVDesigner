@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { outputViewerParityFixture, outputViewerScaleFixture } from "../fixtures/output-viewer.mjs";
 import { buildEngineOutputScene } from "../src/engine/outputSceneSnapshot.js";
-import { createOutputViewerModel, outputCableTrace, outputSelectionDetails } from "../src/engine/outputViewerModel.js";
+import { createOutputViewerModel, outputCableTrace, outputSelectionDetails, outputJumpLinkOverlays } from "../src/engine/outputViewerModel.js";
+import { EngineOutputViewer } from "../src/engine/outputViewerApp.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { calculateCableHops } from "../src/engine/cableHops.js";
@@ -98,6 +99,72 @@ test("cable tracing reuses jump semantics and only snapshot polylines", () => {
   assert.deepEqual(outputCableTrace(model, { type: "wire", id: "curve" })[0].points, model.contract.wires.find(w => w.id === "curve").renderPolyline);
   assert.deepEqual(outputCableTrace(model, { type: "connector", deviceId: "ordinary-a", id: "output" }), []);
   assert.equal(JSON.stringify(model.contract), before);
+});
+
+test("output jump links are hidden until their node is hovered or selected, like the editor", () => {
+  const { model } = setup(), before = JSON.stringify(model.contract);
+  const link = model.contract.jumpLinks[0];
+  const other = { ...link, id: "unrelated", outputJumpId: "other-out", inputJumpId: "other-in" };
+  const multiple = { ...model, contract: { ...model.contract, jumpLinks: [link, other] } };
+  assert.deepEqual(outputJumpLinkOverlays(multiple, null), []);
+  for (const id of [link.outputJumpId, link.inputJumpId]) {
+    const [overlay] = outputJumpLinkOverlays(multiple, null, id);
+    assert.deepEqual(overlay, { ...link, points: link.polyline, mode: "hover" });
+    assert.equal(outputJumpLinkOverlays(multiple, null, id).length, 1, "no unrelated links revealed");
+    assert.equal(outputJumpLinkOverlays(multiple, { type: "device", id })[0].mode, "pair-selected");
+  }
+  assert.deepEqual(outputJumpLinkOverlays(multiple, null, "ordinary-a"), []);
+  assert.deepEqual(outputJumpLinkOverlays(multiple, { type: "device", id: "ordinary-a" }), []);
+  assert.deepEqual(outputJumpLinkOverlays(multiple, { type: "wire", id: "jump-source" }), []);
+  assert.equal(outputJumpLinkOverlays(multiple, { type: "jump-link", id: link.id }, link.inputJumpId)[0].mode, "link-selected");
+  assert.deepEqual(outputJumpLinkOverlays(multiple, null, null), [], "leaving the node hides the link");
+  assert.equal(JSON.stringify(model.contract), before);
+});
+
+test("viewer hit testing ignores hidden jump links and prioritizes the jump body over its connector", () => {
+  const { model } = setup(), before = JSON.stringify(model.contract);
+  const viewer = Object.assign(Object.create(EngineOutputViewer.prototype), {
+    model, scene: model.scene, camera: { x: 0, y: 0, zoom: 1 }, pointers: new Map(),
+    selection: null, hoveredJumpId: null, requestRender() {}, select(value) { this.selection = value; }
+  });
+  const link = model.contract.jumpLinks[0], midpoint = link.polyline[Math.floor(link.polyline.length / 2)];
+  viewer.selectAt(midpoint);
+  assert.notEqual(viewer.selection?.type, "jump-link", "hidden links cannot intercept clicks");
+  viewer.select(null);
+  const center = jumpNodeCenter(model.scene.getDevice(link.outputJumpId));
+  viewer.updateHover(center);
+  assert.equal(viewer.hoveredJumpId, link.outputJumpId);
+  assert.equal(viewer.visibleJumpLinkOverlays().length, 1);
+  viewer.selectAt(center);
+  assert.deepEqual(viewer.selection, { type: "device", id: link.outputJumpId });
+  viewer.updateHover(null);
+  viewer.selectAt(midpoint);
+  assert.deepEqual(viewer.selection, { type: "jump-link", id: link.id }, "selected pair remains inspectable");
+  viewer.select(null);
+  viewer.pointers.set(1, center);
+  viewer.updateHover(center);
+  assert.equal(viewer.hoveredJumpId, null, "pan and touch gestures do not reveal links");
+  assert.equal(JSON.stringify(model.contract), before);
+});
+
+test("viewer render uses hover-filtered links and rechecks hover after camera changes", () => {
+  const { model } = setup();
+  const center = jumpNodeCenter(model.scene.getDevice("jump-out"));
+  let interaction;
+  const viewer = Object.assign(Object.create(EngineOutputViewer.prototype), {
+    model, scene: model.scene, camera: { x: 0, y: 0, zoom: 1 }, pointers: new Map(),
+    selection: null, hoverPoint: null, metrics: { frames: 0, frameMs: [] },
+    host: { querySelector: () => ({}) },
+    renderer: { draw: (_scene, _camera, state) => { interaction = state.interactionState; }, frameStats: () => ({ totalMs: 1 }) }
+  });
+  viewer.renderNow();
+  assert.deepEqual(interaction.jumpLinkOverlays, []);
+  viewer.hoverPoint = center;
+  viewer.renderNow();
+  assert.equal(interaction.jumpLinkOverlays[0].id, "portal");
+  viewer.camera.x += 10000;
+  viewer.renderNow();
+  assert.deepEqual(interaction.jumpLinkOverlays, [], "camera-only movement cannot leave a stale hover link");
 });
 
 test("viewer/controller has no production or editing dependencies", () => {

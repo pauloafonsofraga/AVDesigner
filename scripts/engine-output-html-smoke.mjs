@@ -58,6 +58,54 @@ async function benchmarkEngine(page) {
       unchanged: signature === JSON.stringify(v.model.contract), diagnostics: v.diagnostics() };
   });
 }
+async function checkJumpHover(scope, page, label) {
+  const setup = await scope.evaluate(() => {
+    const v = outputViewer, link = v.model.contract.jumpLinks[0];
+    v.select(null); v.updateHover(null);
+    v.camera = { x: link.from.x - 180, y: link.from.y - 220, zoom: 1 }; v.renderNow();
+    const screen = p => ({ x: p.x - v.camera.x, y: p.y - v.camera.y });
+    return { id: link.id, from: screen(link.from), to: screen(link.to), mid: screen(link.polyline[Math.floor(link.polyline.length / 2)]),
+      before: v.diagnostics(), contract: JSON.stringify(v.model.contract) };
+  });
+  const box = await scope.locator(".output-stage").boundingBox();
+  const move = p => page.mouse.move(box.x + p.x, box.y + p.y);
+  const count = expected => scope.waitForFunction(n => (outputViewer.renderer.frameStats().jumpLinkOverlays || 0) === n, expected);
+  await count(0);
+  await page.mouse.click(box.x + setup.mid.x, box.y + setup.mid.y);
+  assert.notEqual(await scope.evaluate(() => outputViewer.selection?.type), "jump-link", "invisible link cannot be selected");
+  await scope.evaluate(() => outputViewer.select(null));
+  for (const theme of ["dark", "light"]) {
+    await scope.evaluate(theme => outputViewer.setTheme(theme), theme);
+    await move({ x: setup.from.x, y: setup.from.y + 100 }); await count(0);
+    await page.screenshot({ path: join(dir, `${label}-jump-hidden-${theme}.png`) });
+    for (const node of [setup.from, setup.to]) {
+      await move(node); await count(1);
+      assert.deepEqual(await scope.evaluate(() => outputViewer.visibleJumpLinkOverlays().map(l => [l.id, l.mode])), [[setup.id, "hover"]]);
+    }
+    await page.screenshot({ path: join(dir, `${label}-jump-hover-${theme}.png`) });
+    await page.mouse.move(20, 10); await count(0);
+  }
+  await move(setup.from); await count(1);
+  await scope.evaluate(() => { outputViewer.camera.x += 10000; outputViewer.requestRender(); });
+  await count(0);
+  await scope.evaluate(() => { outputViewer.camera.x -= 10000; outputViewer.requestRender(); });
+  await count(1);
+  await scope.locator(".output-stage").dispatchEvent("pointercancel", { pointerId: 99, pointerType: "mouse" });
+  await count(0);
+  await scope.locator(".output-stage").dispatchEvent("pointerleave"); await count(0);
+  // Selection keeps the link inspectable, matching the editor (also usable on touch).
+  await page.mouse.click(box.x + setup.from.x, box.y + setup.from.y); await count(1);
+  assert.equal(await scope.evaluate(() => outputViewer.selection.type), "device");
+  await page.mouse.click(box.x + setup.mid.x, box.y + setup.mid.y); await count(1);
+  assert.deepEqual(await scope.evaluate(() => outputViewer.selection), { type: "jump-link", id: setup.id });
+  await scope.evaluate(() => outputViewer.select(null)); await count(0);
+  const after = await scope.evaluate(() => ({ diagnostics: outputViewer.diagnostics(), contract: JSON.stringify(outputViewer.model.contract) }));
+  assert.equal(after.diagnostics.fullRebuilds, setup.before.fullRebuilds);
+  assert.equal(after.diagnostics.textures.builds, setup.before.textures.builds);
+  assert.equal(after.contract, setup.contract);
+  await scope.evaluate(() => { outputViewer.setTheme("dark"); outputViewer.fit(); });
+  console.log(`PASS ${label}: jump links hidden at rest, hover both nodes, leave, camera, selection; no scene/texture rebuild`);
+}
 try {
   const cases = [["parity", outputViewerParityFixture()], ["100-devices", outputViewerScaleFixture()],
     ["400-devices", outputViewerScaleFixture({ deviceCount: 400 })]];
@@ -109,6 +157,7 @@ try {
     const performance = await benchmarkEngine(viewer);
     assert.equal(performance.rebuilds, 0); assert.equal(performance.textureBuilds, 0); assert.equal(performance.unchanged, true);
     if (name === "parity") {
+      await checkJumpHover(viewer, viewer, "offline");
       // The undo-based shell harness omits imageObjects. Exercise the complete
       // 17-object canonical input through the same bundled offline viewer too.
       const complete = await app.evaluate(async projectData => {
@@ -194,6 +243,7 @@ try {
     await frame.evaluate(() => engineOutputReady);
     assert.equal(await frame.evaluate(() => document.documentElement.outerHTML.includes("viewer-jump-link-reveal")), false, "wrapper did not inject Legacy styles");
     await viewerParity(frame, reference);
+    if (name === "parity") await checkJumpHover(frame, hosted, "hosted");
     await frame.getByRole("button", { name: "Report", exact: true }).click();
     assert.equal(await frame.getByRole("dialog", { name: "Project Report" }).isVisible(), true);
     await frame.getByRole("button", { name: "Close", exact: true }).click();

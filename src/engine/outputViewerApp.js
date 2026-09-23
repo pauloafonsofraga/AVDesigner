@@ -1,9 +1,10 @@
 import { WebglGraphRenderer } from "./renderer.js";
 import { fitCameraToBounds } from "./cameraFit.js";
-import { createOutputViewerModel, outputSelectionDetails, outputCableTrace } from "./outputViewerModel.js";
+import { createOutputViewerModel, outputSelectionDetails, outputCableTrace, outputJumpLinkOverlays } from "./outputViewerModel.js";
 import { screenToWorld, hitTestConnector, hitTestDevice, hitTestWire, hitTestRack, distanceToPolyline } from "./hitTest.js";
 import { deviceVisualSources } from "./deviceVisualBuilder.js";
 import { polylineLength, polylinePointAtDistance, wirePlaybackDurationMs, wirePlaybackEase } from "./wirePlayback.js";
+import { isJumpNodeDevice, jumpNodeCenter } from "./jumpNodeModel.js";
 
 export class EngineOutputViewer {
   constructor(host, snapshot, options = {}) {
@@ -17,6 +18,8 @@ export class EngineOutputViewer {
     this.abort = new AbortController();
     this.pointers = new Map();
     this.selection = null;
+    this.hoverPoint = null;
+    this.hoveredJumpId = null;
     this.frame = 0;
     this.disposed = false;
     this.createDom();
@@ -90,11 +93,15 @@ export class EngineOutputViewer {
       event.preventDefault(); this.stopPlayback(); this.stage.focus();
       this.stage.setPointerCapture(event.pointerId);
       this.pointers.set(event.pointerId, this.screenPoint(event));
+      this.updateHover(null);
       this.gestureMoved = this.pointers.size > 1;
       this.downPoint = this.screenPoint(event);
     });
     on(this.stage, "pointermove", event => {
-      if (!this.pointers.has(event.pointerId)) return;
+      if (!this.pointers.has(event.pointerId)) {
+        if (event.pointerType !== "touch") this.updateHover(this.screenPoint(event));
+        return;
+      }
       const before = [...this.pointers.values()], old = this.pointers.get(event.pointerId), point = this.screenPoint(event);
       if (Math.hypot(point.x - this.downPoint.x, point.y - this.downPoint.y) > 4) this.gestureMoved = true;
       this.pointers.set(event.pointerId, point);
@@ -111,12 +118,18 @@ export class EngineOutputViewer {
       }
     });
     const release = event => {
-      if (!this.pointers.has(event.pointerId)) return;
+      if (!this.pointers.has(event.pointerId)) {
+        if (event.type === "pointercancel") this.updateHover(null);
+        return;
+      }
       if (!this.gestureMoved && this.pointers.size === 1 && event.type === "pointerup") this.selectAt(this.screenPoint(event));
       this.pointers.delete(event.pointerId);
       if (this.stage.hasPointerCapture(event.pointerId)) this.stage.releasePointerCapture(event.pointerId);
+      this.updateHover(event.type === "pointerup" && event.pointerType !== "touch" ? this.screenPoint(event) : null);
     };
     on(this.stage, "pointerup", release); on(this.stage, "pointercancel", release);
+    on(this.stage, "pointerleave", () => this.updateHover(null));
+    on(window, "blur", () => this.updateHover(null));
     on(this.stage, "keydown", event => {
       if (["+", "=", "-", "f", "F", "Escape", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) event.preventDefault();
       if (event.key === "+" || event.key === "=") this.zoomAt(1.2);
@@ -159,11 +172,30 @@ export class EngineOutputViewer {
     this.host.querySelector('[data-action="inspector"]').setAttribute("aria-expanded", String(!this.host.classList.contains("inspector-collapsed")));
     this.requestRender();
   }
+  jumpAt(world) {
+    return hitTestDevice(this.scene, world, device => {
+      if (!isJumpNodeDevice(device)) return false;
+      const center = jumpNodeCenter(device);
+      return Math.hypot(world.x - center.x, world.y - center.y) <= Math.max(device.width, device.height) / 2;
+    }).device;
+  }
+  updateHover(point) {
+    this.hoverPoint = point;
+    const id = point && !this.pointers.size ? this.jumpAt(screenToWorld(this.camera, point))?.id || null : null;
+    if (id === this.hoveredJumpId) return;
+    this.hoveredJumpId = id;
+    this.requestRender();
+  }
+  visibleJumpLinkOverlays() {
+    return outputJumpLinkOverlays(this.model, this.selection, this.hoveredJumpId);
+  }
   selectAt(point) {
     const world = screenToWorld(this.camera, point), tolerance = 9 / this.camera.zoom;
+    const jump = this.jumpAt(world);
+    if (jump) return this.select({ type: "device", id: jump.id });
     const connector = hitTestConnector(this.scene, world, tolerance).connector;
     if (connector) return this.select({ type: "connector", deviceId: connector.device.id, id: connector.connector.id });
-    const link = this.model.contract.jumpLinks.find(l => distanceToPolyline(l.polyline, world).distance < tolerance);
+    const link = this.visibleJumpLinkOverlays().find(l => distanceToPolyline(l.points, world).distance < tolerance);
     if (link) return this.select({ type: "jump-link", id: link.id });
     const wire = hitTestWire(this.scene, world, tolerance).wire;
     if (wire) return this.select({ type: "wire", id: wire.wire.id });
@@ -217,9 +249,11 @@ export class EngineOutputViewer {
   }
   renderNow() {
     if (this.disposed) return;
+    // Recheck stationary pointers after Fit, zoom or resize changes the camera.
+    this.hoveredJumpId = this.hoverPoint && !this.pointers.size
+      ? this.jumpAt(screenToWorld(this.camera, this.hoverPoint))?.id || null : null;
     const interactionState = { selectedConnectors: this.scene.selectedConnectorKeys,
-      jumpLinkOverlays: this.model.contract.jumpLinks.map(link => ({ ...link, points: link.polyline,
-        mode: this.selection?.id === link.id ? "link-selected" : "normal" })) };
+      jumpLinkOverlays: this.visibleJumpLinkOverlays() };
     if (this.playback) {
       const step = this.playback.steps[this.playback.index];
       const progress = Math.min(1, (performance.now() - this.playback.start) / wirePlaybackDurationMs(step.points));

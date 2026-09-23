@@ -60,6 +60,14 @@ entries select/highlight their matching cables. Fit, mouse/touch pan and zoom,
 theme, inspector, device/wire/connector selection and cable tracing reuse the
 read-only viewer. Compact toolbars fit 320px screens.
 
+As of 54.34.1, portal-to-portal jump links are hidden at rest. Hovering either
+jump node reveals only its link; leaving clears the hover. Like the editor,
+selecting a jump node or its revealed link keeps that link available for
+inspection and Play Cable. Invisible jump links cannot intercept clicks.
+Pointer leave/cancel and camera changes clear stale hover, with no scene or
+texture rebuild. Ordinary device-to-jump cables and canonical scene geometry
+are unchanged. Export and Publish share this behavior; PDF is unchanged.
+
 ## Acceptance and performance
 
 `test/outputViewerHtml.test.mjs` covers asset isolation, missing-asset failure,

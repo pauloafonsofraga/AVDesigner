@@ -19,6 +19,17 @@ export function createOutputViewerModel(snapshot, { assets } = {}) {
   return { contract, scene, normalizationMs: performance.now() - start };
 }
 
+export function outputJumpLinkOverlays(model, selection, hoveredJumpId = null) {
+  // Match the editor's transient reveal rules without changing output geometry.
+  return model.contract.jumpLinks.flatMap(link => {
+    const contains = id => id === link.outputJumpId || id === link.inputJumpId;
+    const mode = selection?.type === "jump-link" && selection.id === link.id ? "link-selected"
+      : selection?.type === "device" && contains(selection.id) ? "pair-selected"
+      : contains(hoveredJumpId) ? "hover" : null;
+    return mode ? [{ ...link, points: link.polyline, mode }] : [];
+  });
+}
+
 export function outputSelectionDetails(scene, selection) {
   if (!selection) return { title: "Inspector", rows: [], wireIds: [] };
   if (selection.type === "multi-wire") return { title: "Cables", rows: [["Selected", selection.ids.length]], wireIds: selection.ids };

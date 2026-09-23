@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-34-0-unified-engine-output-pipeline";
+const BUILD_ID = "iteration54-34-1-output-jump-link-hover";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -52,8 +52,8 @@ const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Engine Vector PDF Output");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-34-0-unified-engine-output-pipeline-modules";'), "module cache key should identify Unified Engine Output Pipeline");
-assert.ok(indexHtml.includes("Unified Engine Output Pipeline"), "visible build label should name Unified Engine Output Pipeline");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-34-1-output-jump-link-hover-modules";'), "module cache key should identify Output Jump Link Hover");
+assert.ok(indexHtml.includes("Output Jump Link Hover"), "visible build label should name Output Jump Link Hover");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-31-1-bidirectional-jump-node-support"'), "Engine bridge version should identify Bidirectional Jump Node Support");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "bidirectional-jump-node-support"'), "Engine bridge feature label should identify Bidirectional Jump Node Support");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-31-1-bidirectional-jump-node-support"), "bridge fingerprint should identify Bidirectional Jump Node Support");
