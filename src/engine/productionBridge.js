@@ -126,9 +126,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-29-0-per-connection-led-surface-ordering";
-export const ENGINE_BRIDGE_VERSION = "iteration54-29-0-per-connection-led-surface-ordering";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "per-connection-led-surface-ordering";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-31-1-bidirectional-jump-node-support";
+export const ENGINE_BRIDGE_VERSION = "iteration54-31-1-bidirectional-jump-node-support";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "bidirectional-jump-node-support";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -400,7 +400,7 @@ class ProductionEngineBridge {
   }
 
   sceneCounts() {
-    const jumpRoleCounts = { neutral: 0, output: 0, input: 0 };
+    const jumpRoleCounts = { neutral: 0, output: 0, input: 0, bidirectional: 0 };
     (this.scene.devices || []).forEach(device => {
       if (!isJumpNodeDevice(device)) return;
       const role = this.scene.jumpNodeRole(device.id)?.role || JUMP_NODE_ROLE.neutral;
@@ -411,11 +411,12 @@ class ProductionEngineBridge {
       sceneWires: this.scene.wires.length,
       productionObjects: this.api.getProjectData?.()?.devices?.length ?? null,
       productionWires: this.api.getProjectData?.()?.connections?.length ?? null,
-      jumpNodes: jumpRoleCounts.neutral + jumpRoleCounts.output + jumpRoleCounts.input,
+      jumpNodes: Object.values(jumpRoleCounts).reduce((sum, count) => sum + count, 0),
       jumpLinks: this.scene.jumpLinks.length,
       jumpNeutral: jumpRoleCounts.neutral,
       jumpOutput: jumpRoleCounts.output,
       jumpInput: jumpRoleCounts.input,
+      jumpBidirectional: jumpRoleCounts.bidirectional,
       placedRacks: this.scene.racks?.length || 0,
       rackChildDevices: this.scene.rackIdByDeviceId?.size || 0,
       selectedObjects: this.scene.selectedIds.size,
@@ -1930,7 +1931,7 @@ class ProductionEngineBridge {
     if (!isJumpNodeDevice(this.scene.getDevice(jumpId))) return { valid: false, reason: "Jump Node is no longer in the scene." };
     const roleInfo = this.scene.jumpNodeRole(jumpId);
     if (!roleInfo?.localWire) return { valid: false, reason: "Connect this Jump Node to a device input or output first." };
-    if (roleInfo.role === JUMP_NODE_ROLE.neutral) return { valid: false, reason: "Connect this Jump Node to a clear input or output first." };
+    if (roleInfo.baseRole === JUMP_NODE_ROLE.neutral) return { valid: false, reason: "Connect this Jump Node to a device connector with a defined signal direction first." };
     if (this.scene.jumpLinkForNode(jumpId)) return { valid: false, reason: "Jump Node is already paired." };
     return { valid: true, role: roleInfo.role };
   }
@@ -2010,6 +2011,7 @@ class ProductionEngineBridge {
       return;
     }
     const mutationResult = this.mutations?.restoreJumpLink(sceneLink) || { mutationMs: 0, index: -1 };
+    this.refreshJumpNodeVisuals([sceneLink.outputJumpId, sceneLink.inputJumpId], { reason: "create jump link" });
     this.recordCommand(createJumpLinkCommand(sceneLink, mutationResult.index));
     this.lastPortalCommand = { type: "create jump link", ...sceneLink };
     this.scene.selectJumpPairPrimary(state.fromJumpId);
@@ -5598,6 +5600,9 @@ class ProductionEngineBridge {
       return false;
     }
     const affectedWireIds = [...this.scene.affectedWireIdsForObjects([device.id])];
+    const jumpIds = affectedWireIds.flatMap(id => this.scene.jumpIdsForWire(this.scene.getWire(id)));
+    this.removeInvalidJumpLinksForJumps(jumpIds);
+    this.refreshJumpNodeVisuals(jumpIds, { reason: "connector direction sync" });
     const dirtyStats = this.renderer.updateDirty(this.scene, {
       deviceIds: [device.id],
       wireIds: affectedWireIds,
@@ -7720,6 +7725,7 @@ class ProductionEngineBridge {
     const link = this.scene.insertJumpLink(linkData, index);
     if (!link) return { mutationMs: 0, linkData: null, index: -1 };
     const mutationResult = this.mutations?.restoreJumpLink(link, index) || { mutationMs: 0, index };
+    this.refreshJumpNodeVisuals([link.outputJumpId, link.inputJumpId], { reason: "restore jump link" });
     this.lastPortalCommand = { type: "restore jump link", ...link };
     this.updateJumpNodeDebugSnapshot("restore-jump-link");
     this.scheduleRender();
@@ -7730,6 +7736,7 @@ class ProductionEngineBridge {
     const removed = this.scene.deleteJumpLink(linkId);
     if (!removed?.link) return { mutationMs: 0, linkData: null, index: -1 };
     const mutationResult = this.mutations?.removeJumpLink(removed.link.id) || { mutationMs: 0, index: removed.index, linkData: removed.link };
+    this.refreshJumpNodeVisuals([removed.link.outputJumpId, removed.link.inputJumpId], { reason: "remove jump link" });
     this.lastPortalCommand = { type: "remove jump link", ...removed.link };
     this.updateJumpNodeDebugSnapshot("remove-jump-link");
     this.scheduleRender();

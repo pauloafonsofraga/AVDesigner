@@ -43,6 +43,7 @@ function harness() {
   Object.assign(b, { scene, ready: true, pendingJumpPress: null, jumpMoveArmedId: "", mutations: new ProjectMutationAdapter({ projectData: project }, { cloneProjectData: false }),
     canvas: { addEventListener: (name, fn) => listeners.set(name, fn), classList: { add() {}, remove() {} } }, hud: { setMetric() {} },
     stopWirePlayback() {}, cancelCanvasObjectResize() {}, cancelWireSegmentDrag() {}, cancelRoutePointDrag() {}, cancelJumpPlacement() {},
+    refreshJumpNodeVisuals() {},
     cancelMarquee() {}, updatePlacementDebugHud() {}, clearLoadingReadyTimer() {}, releasePointerCapture() {},
     eventPoint: () => ({ x: 0, y: 0 }), dispatchCanvasToolPointerEvent: () => false, dispatchCanvasToolKeyEvent: () => false,
     isJumpMoveArmed: id => b.jumpMoveArmedId === id,
@@ -140,7 +141,7 @@ test("empty canvas release changes no data or history", () => {
 
 for (const reason of ["neutral", "wireless", "paired", "missing"]) test(`ineligible ${reason} hold rejects, never turns into a move`, () => {
   const h = harness(); h.start();
-  if (reason === "neutral") h.scene.getConnector("source", "port").direction = "io";
+  if (reason === "neutral") Object.assign(h.scene.getConnector("source", "port"), { direction: "unknown", signalDirection: "standard" });
   if (reason === "wireless") h.scene.deleteWire("wire-a");
   if (reason === "paired") h.scene.addJumpLink({ id: "existing", outputJumpId: "a", inputJumpId: "b" });
   if (reason === "missing") { const get = h.scene.getDevice.bind(h.scene); h.scene.getDevice = id => id === "a" ? null : get(id); }
@@ -204,4 +205,15 @@ test("a quick unarmed drag moves instead of starting a portal link", () => {
   assert.equal(h.moves(), 1);
   assert.equal(h.b.jumpLinkCreate, undefined);
   h.advance(500); assert.equal(h.moves(), 1);
+});
+
+for (const sourceId of ["a", "b"]) test(`bidirectional hold from ${sourceId} preserves gesture orientation`, () => {
+  const h = harness();
+  for (const id of ["source", "destination"]) Object.assign(h.scene.getConnector(id, "port"), { direction: "io", signalDirection: "bidirectional" });
+  assert.equal(h.b.jumpLinkStartStatus(sourceId).valid, true);
+  h.start(sourceId); h.release(); h.start(sourceId); h.advance(250);
+  assert.ok(h.b.jumpLinkCreate);
+  h.target(sourceId === "a" ? "b" : "a"); h.b.completeJumpLinkCreate();
+  assert.equal(h.project.jumpLinks.length, 1);
+  assert.equal(h.project.jumpLinks[0].outputJumpId, sourceId);
 });

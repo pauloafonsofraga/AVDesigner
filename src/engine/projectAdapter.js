@@ -71,6 +71,7 @@ import {
 } from "./titleBlockLayout.js";
 import {
   deriveLegacyPairJumpLinks,
+  jumpConnectorBaseRole,
   normalizeEngineJumpNode,
   normalizeJumpLinks,
   validateJumpLinks
@@ -320,11 +321,12 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
   });
   const wires = [...projectWires, ...rackInternalWires];
   const explicitJumpLinks = normalizeJumpLinks(root.jumpLinks || [], { jumpNodeIds });
+  const jumpConnector = endpoint => normalizedDeviceById.get(endpoint.deviceId)?.connectors.find(c => c.id === endpoint.connectorId) || null;
   const legacyJumpLinks = explicitJumpLinks.length
     ? []
-    : deriveLegacyPairJumpLinks(root);
+    : deriveLegacyPairJumpLinks(root, { getConnector: jumpConnector });
   const jumpLinks = explicitJumpLinks.length ? explicitJumpLinks : legacyJumpLinks;
-  const jumpLinkDiagnostics = validateJumpLinks({ ...root, jumpLinks });
+  const jumpLinkDiagnostics = validateJumpLinks({ ...root, jumpLinks }, { getConnector: jumpConnector });
   if (!allDevices.length) return generateSyntheticProject(SIZE_PRESETS.small);
   const adapterMs = performance.now() - adapterStart;
   const connectorCount = allDevices.reduce((total, device) => total + (device.connectors?.length || 0), 0);
@@ -826,6 +828,7 @@ function normalizeConnector(connector, index, deviceWidth, nodeColorByType, opti
     physicalType: topology.physicalType,
     connectorType: topology.connectorType,
     signalDirection: topology.signalDirection,
+    jumpBaseRoleHint: jumpConnectorBaseRole(connector),
     displaySide: topology.displaySide,
     anchors: topology.anchors,
     primaryAnchorId: topology.primaryAnchorId,

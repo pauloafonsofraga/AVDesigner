@@ -1,5 +1,5 @@
 import { SceneGraph } from "./sceneGraph.js";
-import { resolvePlayableSignalPath } from "./jumpNodeModel.js";
+import { resolvePlayableSignalPath, jumpNodeRoleLabel } from "./jumpNodeModel.js";
 
 function freeze(value) {
   if (value && typeof value === "object") { Object.values(value).forEach(freeze); Object.freeze(value); }
@@ -47,6 +47,8 @@ export function outputSelectionDetails(scene, selection) {
     [connector.customTextCaption || "Custom", connector.customText], ["Status", connector.operationalStatus]]
     : [["ID", device.id], ["Brand", device.brand], ["Model", device.model], ["Category", device.category],
       ["Type", device.kind], ["Notes", device.notes], ["Text", device.visual.text]];
+  if (device.kind === "jump") rows.push(["Role", jumpNodeRoleLabel(scene.jumpNodeRole(device.id).role)],
+    ["Base role", jumpNodeRoleLabel(scene.jumpNodeRole(device.id).baseRole)]);
   const wireIds = scene.wires.filter(w => ["from", "to"].some(end =>
     (w[`${end}DeviceId`] === device.id || w[`${end}SurfaceId`] === device.id)
     && (!connector || w[`${end}ConnectorId`] === connector.id))).map(w => w.id);

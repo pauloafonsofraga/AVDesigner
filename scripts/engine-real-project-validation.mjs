@@ -1569,7 +1569,14 @@ function validateStandaloneViewerSource() {
   });
   check("standalone viewer wire helper block parses", () => {
     assert.ok(helperSource.length > 1000, "expected embedded wire helper source");
-    new Function(helperSource);
+    // Validate the emitted helpers, including functions shared with the shell.
+    const emitted = helperSource.replace(/\$\{(\w+)\.toString\(\)\}/g, (_, name) => {
+      const start = source.indexOf(`    function ${name}(`);
+      const end = source.indexOf("\n    function ", start + 1);
+      assert.ok(start >= 0 && end > start, `missing shared viewer helper ${name}`);
+      return source.slice(start, end);
+    });
+    new Function(emitted);
   });
 
   return {

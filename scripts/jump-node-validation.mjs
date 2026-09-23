@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-31-0-read-only-engine-output-viewer";
+const BUILD_ID = "iteration54-31-1-bidirectional-jump-node-support";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -51,12 +51,12 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Read-Only Engine Output Viewer");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-31-0-read-only-engine-output-viewer-modules";'), "module cache key should identify Read-Only Engine Output Viewer");
-assert.ok(indexHtml.includes("Read-Only Engine Output Viewer"), "visible build label should name Read-Only Engine Output Viewer");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-29-0-per-connection-led-surface-ordering"'), "Engine bridge version should identify Per-Connection LED Surface Ordering");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "per-connection-led-surface-ordering"'), "Engine bridge feature label should identify Per-Connection LED Surface Ordering");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-29-0-per-connection-led-surface-ordering"), "bridge fingerprint should identify Per-Connection LED Surface Ordering");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Bidirectional Jump Node Support");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-31-1-bidirectional-jump-node-support-modules";'), "module cache key should identify Bidirectional Jump Node Support");
+assert.ok(indexHtml.includes("Bidirectional Jump Node Support"), "visible build label should name Bidirectional Jump Node Support");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-31-1-bidirectional-jump-node-support"'), "Engine bridge version should identify Bidirectional Jump Node Support");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "bidirectional-jump-node-support"'), "Engine bridge feature label should identify Bidirectional Jump Node Support");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-31-1-bidirectional-jump-node-support"), "bridge fingerprint should identify Bidirectional Jump Node Support");
 assert.ok(rendererSource.includes("renderer-iteration54-31-0-read-only-engine-output-viewer"), "renderer fingerprint should identify Read-Only Engine Output Viewer");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");

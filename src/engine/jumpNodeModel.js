@@ -1,4 +1,5 @@
 import { bezierPolyline } from "./wirePath.js";
+import { isConnectorExplicitlyBidirectional } from "./deviceDefinitionV2.js";
 import {
   effectiveConnectorTypeForEngine,
   engineConnectorDisplayLabel,
@@ -25,19 +26,22 @@ export const JUMP_PRESS_INTENT = Object.freeze({
 export const JUMP_NODE_ROLE = Object.freeze({
   neutral: "neutral",
   output: "output",
-  input: "input"
+  input: "input",
+  bidirectional: "bidirectional"
 });
 
 export const JUMP_NODE_ROLE_COLORS = Object.freeze({
   neutral: "#778492",
   output: "#32b6ff",
-  input: "#fb7904"
+  input: "#fb7904",
+  bidirectional: "#26c6a3"
 });
 
 export const JUMP_NODE_ROLE_LABELS = Object.freeze({
   neutral: "Neutral",
   output: "Output",
-  input: "Input"
+  input: "Input",
+  bidirectional: "Bidirectional"
 });
 
 export function isJumpNodeDevice(device) {
@@ -75,7 +79,41 @@ export function normalizeJumpNodeDirection(direction = "") {
   const value = String(direction || "").trim().toLowerCase();
   if (value === "output" || value === "out" || value === "source") return JUMP_NODE_ROLE.output;
   if (value === "input" || value === "in" || value === "sink") return JUMP_NODE_ROLE.input;
+  if (["io", "bidirectional", "bi-directional", "two-way", "twoway", "both"].includes(value)) return JUMP_NODE_ROLE.bidirectional;
   return JUMP_NODE_ROLE.neutral;
+}
+
+export function jumpConnectorBaseRole(connector = {}) {
+  if (!connector) return JUMP_NODE_ROLE.neutral;
+  const signalRole = normalizeJumpNodeDirection(connector.signalDirection);
+  if (signalRole !== JUMP_NODE_ROLE.neutral) return signalRole;
+  if (isConnectorExplicitlyBidirectional(connector)) return JUMP_NODE_ROLE.bidirectional;
+  const directionRole = normalizeJumpNodeDirection(connector.direction);
+  // Adapter normalization uses io for unknown metadata too. Retain its raw
+  // meaning without changing ordinary connector compatibility or saved data.
+  if (directionRole === JUMP_NODE_ROLE.bidirectional && connector.jumpBaseRoleHint != null) return connector.jumpBaseRoleHint;
+  return directionRole;
+}
+
+export function jumpRoleSupportsEndpoint(baseRole, endpointRole) {
+  return baseRole === endpointRole || baseRole === JUMP_NODE_ROLE.bidirectional;
+}
+
+export function orientJumpPair(firstId, firstRole, secondId, secondRole) {
+  if (firstId === secondId || !firstId || !secondId) return null;
+  if (jumpRoleSupportsEndpoint(firstRole, "output") && jumpRoleSupportsEndpoint(secondRole, "input")) {
+    return { outputJumpId: firstId, inputJumpId: secondId };
+  }
+  if (jumpRoleSupportsEndpoint(secondRole, "output") && jumpRoleSupportsEndpoint(firstRole, "input")) {
+    return { outputJumpId: secondId, inputJumpId: firstId };
+  }
+  return null;
+}
+
+export function effectiveJumpRole(baseRole, link, jumpId) {
+  if (link?.outputJumpId === jumpId) return JUMP_NODE_ROLE.output;
+  if (link?.inputJumpId === jumpId) return JUMP_NODE_ROLE.input;
+  return baseRole;
 }
 
 export function jumpNodeRoleColor(role = JUMP_NODE_ROLE.neutral) {
@@ -281,9 +319,11 @@ export function sceneJumpNodeRole(scene, jumpId = "") {
   const connector = local?.otherDevice && local?.otherConnectorId
     ? getConnectorFromDevice(local.otherDevice, local.otherConnectorId)
     : null;
-  const role = normalizeJumpNodeDirection(connector?.direction);
+  const baseRole = jumpConnectorBaseRole(connector);
+  const role = effectiveJumpRole(baseRole, scene?.jumpLinkForNode?.(jumpId), jumpId);
   return {
     role,
+    baseRole,
     color: jumpNodeRoleColor(role),
     localWire: local?.wire || null,
     localSide: local?.side || "",
@@ -301,6 +341,12 @@ export function jumpNodeConnectionInfo(scene, jumpId = "") {
     ? scene.pairedJumpId(id)
     : pairedJumpIdForLink(link, id);
   const pairLocal = pairId ? sceneJumpDeviceWire(scene, pairId) : null;
+
+  if (link) return jumpInfoFromLocal(pairLocal, {
+    jumpId: id, pairId,
+    side: link.outputJumpId === id ? "right" : "left",
+    prefix: link.outputJumpId === id ? "to" : "from"
+  });
 
   if (local?.side === "to") {
     return jumpInfoFromLocal(pairLocal, {
@@ -343,7 +389,7 @@ export function canonicalJumpWireEndpoints(sourceHit, targetHit) {
   if (sourceIsJump === targetIsJump) return { sourceHit, targetHit };
   const realHit = sourceIsJump ? targetHit : sourceHit;
   const jumpHit = sourceIsJump ? sourceHit : targetHit;
-  const role = normalizeJumpNodeDirection(realHit?.connector?.direction);
+  const role = jumpConnectorBaseRole(realHit?.connector);
   if (role === JUMP_NODE_ROLE.input) return { sourceHit: jumpHit, targetHit: realHit };
   if (role === JUMP_NODE_ROLE.output) return { sourceHit: realHit, targetHit: jumpHit };
   return { sourceHit, targetHit };
@@ -351,7 +397,7 @@ export function canonicalJumpWireEndpoints(sourceHit, targetHit) {
 
 export function jumpCompatibleHitForDeviceWire(jumpHit, realHit) {
   if (!jumpHit || !realHit) return jumpHit;
-  const role = normalizeJumpNodeDirection(realHit.connector?.direction);
+  const role = jumpConnectorBaseRole(realHit.connector);
   return {
     ...jumpHit,
     connector: {
@@ -380,16 +426,17 @@ export function jumpPairCompatibility(scene, firstJumpId, secondJumpId, {
   if (scene?.jumpLinkForNode?.(secondId)) return invalidPair("already-paired", "Target Jump Node is already paired.");
   const firstRole = sceneJumpNodeRole(scene, firstId);
   const secondRole = sceneJumpNodeRole(scene, secondId);
-  if (firstRole.role === JUMP_NODE_ROLE.neutral || secondRole.role === JUMP_NODE_ROLE.neutral) {
-    return invalidPair("neutral", "Connect each Jump Node to a device input or output first.");
+  if (firstRole.baseRole === JUMP_NODE_ROLE.neutral || secondRole.baseRole === JUMP_NODE_ROLE.neutral) {
+    return invalidPair("neutral", "Connect each Jump Node to a device connector with a defined signal direction first.");
   }
-  if (firstRole.role === secondRole.role) {
-    return invalidPair(`${firstRole.role}-${secondRole.role}`, `${jumpNodeRoleLabel(firstRole.role)} Jump Nodes cannot pair with each other.`);
+  const orientation = orientJumpPair(firstId, firstRole.baseRole, secondId, secondRole.baseRole);
+  if (!orientation) {
+    return invalidPair(`${firstRole.baseRole}-${secondRole.baseRole}`, `${jumpNodeRoleLabel(firstRole.baseRole)} Jump Nodes cannot pair with each other.`);
   }
-  const output = firstRole.role === JUMP_NODE_ROLE.output
+  const output = orientation.outputJumpId === firstId
     ? { id: firstId, role: firstRole }
     : { id: secondId, role: secondRole };
-  const input = firstRole.role === JUMP_NODE_ROLE.input
+  const input = orientation.inputJumpId === firstId
     ? { id: firstId, role: firstRole }
     : { id: secondId, role: secondRole };
   if (typeof compatibilitySummary === "function") {
@@ -412,7 +459,8 @@ export function invalidJumpLinksForScene(scene, { jumpIds = [] } = {}) {
     if (!scene.getDevice?.(link.outputJumpId) || !scene.getDevice?.(link.inputJumpId)) return true;
     const outputRole = sceneJumpNodeRole(scene, link.outputJumpId);
     const inputRole = sceneJumpNodeRole(scene, link.inputJumpId);
-    return outputRole.role !== JUMP_NODE_ROLE.output || inputRole.role !== JUMP_NODE_ROLE.input;
+    return !jumpRoleSupportsEndpoint(outputRole.baseRole, JUMP_NODE_ROLE.output)
+      || !jumpRoleSupportsEndpoint(inputRole.baseRole, JUMP_NODE_ROLE.input);
   });
 }
 
@@ -494,8 +542,12 @@ export function rawDeviceWireForJump(project, jumpId = "", { excludeWireId = "",
 
 export function rawJumpNodeRole(project, jumpId = "", { getConnector = null } = {}) {
   const local = rawDeviceWireForJump(project, jumpId, { getConnector });
-  const role = normalizeJumpNodeDirection(local?.connector?.direction);
-  return { role, color: jumpNodeRoleColor(role), localWire: local?.wire || null, connector: local?.connector || null };
+  const baseRole = jumpConnectorBaseRole(local?.connector);
+  const root = projectRoot(project);
+  const link = (root.jumpLinks || []).find(l => l.outputJumpId === jumpId || l.inputJumpId === jumpId)
+    || legacyPairLinkForJump(root, jumpId, { getConnector });
+  const role = effectiveJumpRole(baseRole, link, jumpId);
+  return { role, baseRole, color: jumpNodeRoleColor(role), localWire: local?.wire || null, connector: local?.connector || null };
 }
 
 export function deriveLegacyPairJumpLinks(project, { getConnector = null } = {}) {
@@ -512,11 +564,9 @@ export function deriveLegacyPairJumpLinks(project, { getConnector = null } = {})
   const links = [];
   groups.forEach((ids, pairId) => {
     if (ids.length !== 2) return;
-    const roles = ids.map(id => ({ id, ...rawJumpNodeRole(root, id, { getConnector }) }));
-    const output = roles.find(item => item.role === JUMP_NODE_ROLE.output);
-    const input = roles.find(item => item.role === JUMP_NODE_ROLE.input);
-    if (!output || !input) return;
-    links.push({ id: `jump-link-${sanitizeId(pairId) || links.length + 1}`, outputJumpId: output.id, inputJumpId: input.id });
+    const roles = ids.map(id => jumpConnectorBaseRole(rawDeviceWireForJump(root, id, { getConnector })?.connector));
+    const orientation = orientJumpPair(ids[0], roles[0], ids[1], roles[1]);
+    if (orientation) links.push({ id: `jump-link-${sanitizeId(pairId) || links.length + 1}`, ...orientation });
   });
   return normalizeJumpLinks(links, { jumpNodeIds: new Set(nodes.map(node => String(node?.id || "")).filter(Boolean)) });
 }
@@ -545,12 +595,12 @@ export function validateJumpLinks(project, { compatibilitySummary = null, getCon
       usedJumpIds.add(jumpId);
     });
     if (jumpIds.has(outputJumpId)) {
-      const role = rawJumpNodeRole(root, outputJumpId, { getConnector }).role;
-      if (role !== JUMP_NODE_ROLE.output) warnings.push(`Output Jump ${outputJumpId} derives role ${role}.`);
+      const role = rawJumpNodeRole(root, outputJumpId, { getConnector }).baseRole;
+      if (!jumpRoleSupportsEndpoint(role, JUMP_NODE_ROLE.output)) warnings.push(`Output Jump ${outputJumpId} derives role ${role}.`);
     }
     if (jumpIds.has(inputJumpId)) {
-      const role = rawJumpNodeRole(root, inputJumpId, { getConnector }).role;
-      if (role !== JUMP_NODE_ROLE.input) warnings.push(`Input Jump ${inputJumpId} derives role ${role}.`);
+      const role = rawJumpNodeRole(root, inputJumpId, { getConnector }).baseRole;
+      if (!jumpRoleSupportsEndpoint(role, JUMP_NODE_ROLE.input)) warnings.push(`Input Jump ${inputJumpId} derives role ${role}.`);
     }
     if (typeof compatibilitySummary === "function") {
       const output = rawDeviceWireForJump(root, outputJumpId, { getConnector });

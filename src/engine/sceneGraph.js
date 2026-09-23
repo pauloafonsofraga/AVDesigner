@@ -55,6 +55,7 @@ import {
   invalidJumpLinksForScene,
   isJumpNodeDevice,
   jumpNodeCenter,
+  jumpConnectorBaseRole,
   jumpNodeRoleColor,
   jumpNodeConnectionInfo,
   JUMP_NODE_CONNECTOR_ID,
@@ -211,6 +212,7 @@ export class SceneGraph {
     this.jumpLinkById.set(normalized.id, normalized);
     this.jumpLinkByJumpId.set(normalized.outputJumpId, normalized);
     this.jumpLinkByJumpId.set(normalized.inputJumpId, normalized);
+    this.refreshJumpNodeRoles([normalized.outputJumpId, normalized.inputJumpId]);
     return normalized;
   }
 
@@ -225,6 +227,7 @@ export class SceneGraph {
     const targetIndex = Number.isInteger(index) ? Math.max(0, Math.min(index, this.jumpLinks.length)) : this.jumpLinks.length;
     this.jumpLinks.splice(targetIndex, 0, normalized);
     this.rebuildJumpLinkIndex();
+    this.refreshJumpNodeRoles([normalized.outputJumpId, normalized.inputJumpId]);
     return normalized;
   }
 
@@ -234,6 +237,7 @@ export class SceneGraph {
     if (index < 0) return null;
     const [removed] = this.jumpLinks.splice(index, 1);
     this.rebuildJumpLinkIndex();
+    this.refreshJumpNodeRoles([removed.outputJumpId, removed.inputJumpId]);
     if (this.selectedJumpLinkId === id) this.selectedJumpLinkId = "";
     return { link: removed, index };
   }
@@ -256,6 +260,7 @@ export class SceneGraph {
       device.visual = {
         ...(device.visual || {}),
         jumpRole: role,
+        jumpBaseRole: roleInfo.baseRole,
         jumpColor: color,
         jumpLocalWireId: roleInfo.localWire?.id || "",
         jumpPairedId: this.pairedJumpId(device.id)
@@ -1604,6 +1609,8 @@ export class SceneGraph {
     });
     Object.assign(connector, merged);
     device.connectorsById.set(connector.id, connector);
+    const jumpIds = [...this.connectorWireIds(device.id, connector.id)].flatMap(id => this.jumpIdsForWire(this.getWire(id)));
+    this.refreshJumpNodeRoles(jumpIds);
     this.applyRackConnectorVisibility();
     this.refreshDeviceConnectorIndexEntries(device);
     this.dirtyDevices.add(device.id);
@@ -2275,6 +2282,7 @@ function normalizeConnector(connector, index, deviceWidth = 0, options = {}) {
     physicalType: topology.physicalType,
     connectorType: topology.connectorType,
     signalDirection: topology.signalDirection,
+    jumpBaseRoleHint: jumpConnectorBaseRole(connector),
     displaySide: topology.displaySide,
     anchors: topology.anchors,
     primaryAnchorId: topology.primaryAnchorId,
