@@ -1,12 +1,13 @@
 import { SceneGraph } from "./sceneGraph.js";
 import { resolvePlayableSignalPath, jumpNodeRoleLabel } from "./jumpNodeModel.js";
+import { resolveOutputDeviceAssets } from "./outputViewerAssets.js";
 
 function freeze(value) {
   if (value && typeof value === "object") { Object.values(value).forEach(freeze); Object.freeze(value); }
   return value;
 }
 
-export function createOutputViewerModel(snapshot) {
+export function createOutputViewerModel(snapshot, { assets } = {}) {
   const start = performance.now();
   const source = snapshot?.engineScene || snapshot;
   if (source?.version !== 1 || source.coordinateSpace !== "engine-world"
@@ -15,13 +16,14 @@ export function createOutputViewerModel(snapshot) {
   }
   const contract = freeze(JSON.parse(JSON.stringify(source)));
   const scene = new SceneGraph();
-  scene.setData({ devices: contract.devices, wires: contract.wires, racks: contract.racks,
+  scene.setData({ devices: contract.devices.map(d => resolveOutputDeviceAssets(d, assets)), wires: contract.wires, racks: contract.racks,
     jumpLinks: contract.jumpLinks, meta: { cableHops: contract.diagnostics?.cableHops?.enabled !== false } });
   return { contract, scene, normalizationMs: performance.now() - start };
 }
 
 export function outputSelectionDetails(scene, selection) {
   if (!selection) return { title: "Inspector", rows: [], wireIds: [] };
+  if (selection.type === "multi-wire") return { title: "Cables", rows: [["Selected", selection.ids.length]], wireIds: selection.ids };
   if (selection.type === "wire") {
     const wire = scene.getWire(selection.id);
     if (!wire) return outputSelectionDetails(scene, null);

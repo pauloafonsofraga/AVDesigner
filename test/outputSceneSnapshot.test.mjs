@@ -218,4 +218,9 @@ test("canonical integration adds Engine data but preserves Legacy drawing bounds
   assert.equal(result.metadata.projectDataSource, "canonical-project-snapshot");
   assert.equal(result.metadata.sceneDataSource, "engine-project-adapter/scene-graph");
   assert.equal(result.metadata.drawingDependency, "legacy-svg-clone");
+  context.wirechartExportBounds = () => { throw new Error("Legacy geometry must not be read by Engine output"); };
+  const engine = context.buildCanonicalOutputSnapshot({ drawingDependency: "engine-webgl" });
+  assert.deepEqual(engine.bounds, engine.engineScene.bounds);
+  assert.equal(engine.metadata.drawingDependency, "engine-webgl");
+  assert.equal(engine.reportData, report);
 });

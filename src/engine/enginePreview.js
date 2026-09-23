@@ -15,6 +15,8 @@ import { powerDistroDiagnostics } from "./powerDistroModel.js";
 import { normalizeAvDesignerDevice } from "./projectAdapter.js";
 import { DEFAULT_RENDER_OPTIONS, WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
+import { fitCameraToBounds } from "./cameraFit.js";
+export { fitCameraToBounds } from "./cameraFit.js";
 
 export const ENGINE_PREVIEW_BUILD_ID = "iteration53-4-1-preview-verification";
 
@@ -161,27 +163,6 @@ export function createPreviewDeviceFromDraft(draft = {}, index = 0) {
 
   const projectData = previewProjectDataWithTemplate(draft.projectData || draft.project || {}, template);
   return normalizeAvDesignerDevice(projectData, instance, index);
-}
-
-export function fitCameraToBounds(bounds, viewportWidth, viewportHeight, padding = 36, limits = {}) {
-  const safeBounds = normalizeBounds(bounds);
-  const width = Math.max(1, Number(viewportWidth) || 1);
-  const height = Math.max(1, Number(viewportHeight) || 1);
-  const inset = Math.max(0, Number(padding) || 0);
-  const availableWidth = Math.max(1, width - inset * 2);
-  const availableHeight = Math.max(1, height - inset * 2);
-  const minZoom = positiveNumber(limits.minZoom) || 0.05;
-  const maxZoom = positiveNumber(limits.maxZoom) || 8;
-  const zoom = clamp(
-    Math.min(availableWidth / safeBounds.width, availableHeight / safeBounds.height),
-    minZoom,
-    maxZoom
-  );
-  return {
-    x: safeBounds.x + safeBounds.width / 2 - width / zoom / 2,
-    y: safeBounds.y + safeBounds.height / 2 - height / zoom / 2,
-    zoom
-  };
 }
 
 export function screenToWorldPoint(camera, point) {

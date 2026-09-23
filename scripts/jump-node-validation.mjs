@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-31-1-bidirectional-jump-node-support";
+const BUILD_ID = "iteration54-32-0-engine-html-publish-outputs";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -51,9 +51,9 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Bidirectional Jump Node Support");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-31-1-bidirectional-jump-node-support-modules";'), "module cache key should identify Bidirectional Jump Node Support");
-assert.ok(indexHtml.includes("Bidirectional Jump Node Support"), "visible build label should name Bidirectional Jump Node Support");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Engine HTML and Publish Outputs");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-32-0-engine-html-publish-outputs-modules";'), "module cache key should identify Engine HTML and Publish Outputs");
+assert.ok(indexHtml.includes("Engine HTML and Publish Outputs"), "visible build label should name Engine HTML and Publish Outputs");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-31-1-bidirectional-jump-node-support"'), "Engine bridge version should identify Bidirectional Jump Node Support");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "bidirectional-jump-node-support"'), "Engine bridge feature label should identify Bidirectional Jump Node Support");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-31-1-bidirectional-jump-node-support"), "bridge fingerprint should identify Bidirectional Jump Node Support");

@@ -208,6 +208,7 @@
     function repairHostedViewerHtml(html) {
       const value = String(html || "");
       if (!value.trim()) return value;
+      if (/<html\b[^>]*\bdata-avdesigner-output="engine-webgl"/i.test(value)) return value;
       const repairStyle = `<style>${hostedViewerCss()}
 ${hostedViewerMobileInspectorCss()}
 ${hostedWirechartSvgCss()}</style>`;

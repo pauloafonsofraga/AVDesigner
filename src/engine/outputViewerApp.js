@@ -1,14 +1,16 @@
 import { WebglGraphRenderer } from "./renderer.js";
-import { fitCameraToBounds } from "./enginePreview.js";
+import { fitCameraToBounds } from "./cameraFit.js";
 import { createOutputViewerModel, outputSelectionDetails, outputCableTrace } from "./outputViewerModel.js";
 import { screenToWorld, hitTestConnector, hitTestDevice, hitTestWire, hitTestRack, distanceToPolyline } from "./hitTest.js";
 import { deviceVisualSources } from "./deviceVisualBuilder.js";
 import { polylineLength, polylinePointAtDistance, wirePlaybackDurationMs, wirePlaybackEase } from "./wirePlayback.js";
 
 export class EngineOutputViewer {
-  constructor(host, snapshot) {
+  constructor(host, snapshot, options = {}) {
     this.host = host;
-    this.model = createOutputViewerModel(snapshot);
+    this.options = options;
+    this.icons = { light: "icons/lightmode.png", dark: "icons/darkmode.png", ...options.icons };
+    this.model = createOutputViewerModel(snapshot, options);
     this.scene = this.model.scene;
     this.camera = { x: 0, y: 0, zoom: 1 };
     this.metrics = { normalizationMs: this.model.normalizationMs, frames: 0, frameMs: [], assetFailures: 0 };
@@ -43,7 +45,7 @@ export class EngineOutputViewer {
       <button type="button" data-action="zoom-out" title="Zoom out" aria-label="Zoom out">&#8722;</button>
       <output class="output-zoom" aria-label="Zoom">100%</output>
       <button type="button" data-action="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
-      <button type="button" data-action="theme" title="Light mode" aria-label="Light mode" aria-pressed="false"><img src="icons/lightmode.png" alt=""></button>
+      <button type="button" data-action="theme" title="Light mode" aria-label="Light mode" aria-pressed="false"><img alt=""></button>
       <button type="button" data-action="inspector" title="Toggle inspector" aria-label="Toggle inspector" aria-expanded="true">&#9776;</button>
       </div></header><div class="output-workspace"><section class="output-stage" tabindex="0" aria-label="Read-only Engine canvas">
       <canvas class="output-webgl"></canvas><canvas class="output-labels"></canvas></section>
@@ -53,6 +55,10 @@ export class EngineOutputViewer {
     this.canvas = this.host.querySelector(".output-webgl");
     this.labels = this.host.querySelector(".output-labels");
     this.inspector = this.host.querySelector(".output-inspector");
+    this.host.querySelector('[data-action="theme"] img').src = this.icons.light;
+    if (this.options.title) {
+      const caption = this.host.querySelector(".output-caption"); caption.textContent = this.options.title; caption.title = this.options.title;
+    }
     const compact = matchMedia("(max-width: 700px)").matches;
     this.host.classList.toggle("inspector-collapsed", compact);
     if (compact) {
@@ -145,7 +151,7 @@ export class EngineOutputViewer {
     const button = this.host.querySelector('[data-action="theme"]');
     button.setAttribute("aria-pressed", String(theme === "light"));
     button.title = theme === "light" ? "Dark mode" : "Light mode"; button.setAttribute("aria-label", button.title);
-    button.firstElementChild.src = theme === "light" ? "icons/darkmode.png" : "icons/lightmode.png";
+    button.firstElementChild.src = theme === "light" ? this.icons.dark : this.icons.light;
     this.requestRender();
   }
   toggleInspector() {
@@ -171,6 +177,7 @@ export class EngineOutputViewer {
     this.scene.selectedIds.clear(); this.scene.selectedWireIds.clear(); this.scene.selectedConnectorKeys.clear(); this.scene.selectedRackIds.clear();
     if (selection?.type === "device") this.scene.selectedIds.add(selection.id);
     if (selection?.type === "wire") this.scene.selectedWireIds.add(selection.id);
+    if (selection?.type === "multi-wire") selection.ids.forEach(id => this.scene.selectedWireIds.add(id));
     if (selection?.type === "connector") this.scene.selectedConnectorKeys.add(`${selection.deviceId}:${selection.id}`);
     if (selection?.type === "rack") this.scene.selectedRackIds.add(selection.id);
     const details = outputSelectionDetails(this.scene, selection);

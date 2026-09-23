@@ -2,6 +2,13 @@
   "name": "av-designer",
   "private": true,
   "type": "module",
+  "scripts": {
+    "build:output-viewer": "node scripts/build-output-viewer.mjs",
+    "check:output-viewer": "node scripts/output-viewer-bundle-validation.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  },
   "dependencies": {
     "@vercel/blob": "latest"
   }

@@ -1,7 +1,8 @@
 # Read-only Engine output viewer (54.31.0)
 
-Stage 2 is independent of Export HTML, Publish and PDF. Those outputs still use
-their existing drawing paths; `buildStandaloneHtml()` is unchanged.
+Stage 2 introduced the independent viewer. Stage 3 now uses this same viewer for
+Export HTML and Publish; see [Engine HTML outputs](engine-html-outputs.md).
+PDF retains its existing drawing path.
 
 ## Ownership and API
 
@@ -95,10 +96,11 @@ objects, 1,302 connectors, 267 wires, 26 cards, four LED surfaces and one jump l
 
 ## Current limits
 
-- Requires WebGL2 and HTTP module/asset loading; this is not yet a bundled,
-  self-contained downloadable viewer.
-- Asset URLs must resolve relative to the hosting application and obey browser
-  CORS rules. Failed sources are counted; readiness has a 15-second timeout.
+- Requires WebGL2. The development harness uses HTTP modules/assets; Stage 3
+  downloads and hosted payloads embed the bundle and all required images.
+- When generating an output, source URLs must be readable under browser CORS
+  rules. Missing assets fail export explicitly. Runtime image decode failures
+  are counted; readiness has a 15-second timeout.
 - Light mode changes the canvas and viewer chrome, retaining Engine device
   artwork colors and the Engine's existing low-zoom label/detail behavior.
 - Viewer-only textures use the existing low (2x) quality preset with about one
