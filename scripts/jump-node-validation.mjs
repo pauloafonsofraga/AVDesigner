@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-29-0-per-connection-led-surface-ordering";
+const BUILD_ID = "iteration54-30-0-engine-output-scene-contract";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -51,9 +51,9 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Per-Connection LED Surface Ordering");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-29-0-per-connection-led-surface-ordering-modules";'), "module cache key should identify Per-Connection LED Surface Ordering");
-assert.ok(indexHtml.includes("Per-Connection LED Surface Ordering"), "visible build label should name Per-Connection LED Surface Ordering");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Engine Output Scene Contract");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-30-0-engine-output-scene-contract-modules";'), "module cache key should identify Engine Output Scene Contract");
+assert.ok(indexHtml.includes("Engine Output Scene Contract"), "visible build label should name Engine Output Scene Contract");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-29-0-per-connection-led-surface-ordering"'), "Engine bridge version should identify Per-Connection LED Surface Ordering");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "per-connection-led-surface-ordering"'), "Engine bridge feature label should identify Per-Connection LED Surface Ordering");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-29-0-per-connection-led-surface-ordering"), "bridge fingerprint should identify Per-Connection LED Surface Ordering");
