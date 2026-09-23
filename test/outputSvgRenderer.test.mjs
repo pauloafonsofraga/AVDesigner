@@ -29,7 +29,7 @@ test("print contract uses exact Engine bounds, IDs and counts without mutating i
   assert.equal(count(svg,"data-object-id")+count(svg,"data-jump-id"),17);
   assert.equal(count(svg,"data-wire-id"),20);
   assert.equal(count(svg,"data-rack-id"),1);
-  assert.equal(count(svg,"data-jump-link-id"),1);
+  assert.equal(count(svg,"data-jump-link-id"),0);
   for (const device of contract.devices) assert.ok(svg.includes(`="${device.id}"`));
   assert.equal(JSON.stringify({ contract,images }),before);
   assert.deepEqual(render(),render());

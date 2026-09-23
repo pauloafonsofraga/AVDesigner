@@ -37,6 +37,8 @@ export function validateOutputPipeline() {
   }
   for (const file of ["outputViewerModel.js", "outputViewerHtml.js"]) assert.match(read("src/engine/" + file), /assertOutputSceneContract/);
   assert.match(read("src/engine/outputSvgRenderer.js"), /createOutputViewerModel/);
+  assert.doesNotMatch(read("src/engine/outputSvgRenderer.js"), /meshes\(primitives\.jumpLinks/,
+    "PDF must never print virtual portal meshes");
   const bundle = JSON.parse(read("src/engine/generated/outputViewerBundle.json"));
   assert.ok(bundle.includedModules.includes("src/engine/outputSceneContract.js"));
   assert.ok(bundle.includedModules.includes("src/engine/renderer.js"));

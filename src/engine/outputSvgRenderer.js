@@ -6,6 +6,23 @@ import { OutputSvgContext, svgEscape, svgNumber } from "./outputSvgContext.js";
 
 export const OUTPUT_SVG_DEPENDENCY = "engine-svg";
 
+// Encode every code point, rather than replacing punctuation (which can collide).
+export const pdfJumpDestinationId = id => `pdf-jump-destination-${Array.from(String(id),
+  character => character.codePointAt(0).toString(16)).join("-")}`;
+
+function printJumpNavigation(scene) {
+  return scene.devices.filter(device => device.kind === "jump").flatMap(device => {
+    const link = scene.jumpLinkForNode(device.id);
+    if (!link) return [];
+    const targetId = link.outputJumpId === device.id ? link.inputJumpId : link.outputJumpId;
+    const target = scene.getDevice(targetId);
+    if (target?.kind !== "jump" || targetId === device.id) return [];
+    return [{ sourceId:device.id, targetId, destinationId:pdfJumpDestinationId(device.id),
+      targetDestinationId:pdfJumpDestinationId(targetId),
+      bounds:{ x:device.x, y:device.y, width:device.width, height:device.height } }];
+  });
+}
+
 // Resource acquisition is deliberately separate from pure scene serialization.
 // resolveImage returns an embedded image with its original intrinsic dimensions.
 export async function prepareEnginePrintImages(snapshot, resolveImage) {
@@ -65,7 +82,6 @@ export function renderEngineOutputSvg(snapshot, { images = {}, textMetrics = {},
       ctx.restore();
     });
   });
-  meshes(primitives.jumpLinks,"data-jump-link-id");
   meshes(primitives.jumps,"data-jump-id");
   primitives.connectors.forEach(item=>ctx.group({ "data-connector-id":item.connectorId,"data-device-id":item.deviceId,
     "data-anchor-id":item.anchorId,"data-x":item.point.x,"data-y":item.point.y },()=>ctx.mesh(item.vertices)));
@@ -75,11 +91,21 @@ export function renderEngineOutputSvg(snapshot, { images = {}, textMetrics = {},
   const y = Math.min(bounds.y,text?.top ?? bounds.y)-padding;
   const view = { x,y,width:Math.max(bounds.x+bounds.width,text?.right ?? bounds.x)-x+padding,
     height:Math.max(bounds.y+bounds.height,text?.bottom ?? bounds.y)-y+padding };
+  const jumpNavigation = printJumpNavigation(scene);
+  // Chromium prints these as named XYZ destinations and /Link annotations, not
+  // URIs. fill=none retains the logical hit rectangle without adding any ink.
+  const navigationMarkup = jumpNavigation.map(link => {
+    const rect = Object.entries(link.bounds).map(([key,value]) => `${key}="${svgNumber(value)}"`).join(" ");
+    return `<a id="${link.destinationId}" href="#${link.targetDestinationId}" data-pdf-jump-source="${svgEscape(link.sourceId)}" data-pdf-jump-target="${svgEscape(link.targetId)}" aria-label="Jump to paired node"><rect ${rect} fill="none" stroke="none" pointer-events="all"/></a>`;
+  }).join("");
+  ctx.elements.push(`<g data-layer="pdf-jump-navigation">${navigationMarkup}</g>`);
   const diagnostics = { drawingDependency:OUTPUT_SVG_DEPENDENCY, sceneDataSource:contract.sceneDataSource,
     sceneVersion:contract.version, sceneSchemaFingerprint:contract.schemaFingerprint,
     signature:contract.signature, bounds:contract.bounds, viewBox:view, counts:contract.diagnostics.counts,
     visibleAnchors:primitives.connectors.length, embeddedImages:ctx.elements.join("").split("<image ").length-1,
-    textMetrics:Object.keys(textMetrics).length, vector:true };
+    textMetrics:Object.keys(textMetrics).length, vector:true,
+    jumpNodes:primitives.jumps.length, jumpLinks:contract.jumpLinks.length,
+    jumpDestinations:jumpNavigation.length, jumpAnnotations:jumpNavigation.length, visibleJumpLinkPaths:0 };
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" data-avdesigner-output="engine-svg" data-scene-signature="${svgEscape(contract.signature)}" viewBox="${[view.x,view.y,view.width,view.height].map(svgNumber).join(" ")}" width="${svgNumber(view.width)}" height="${svgNumber(view.height)}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Engine project drawing"><metadata>${svgEscape(JSON.stringify(diagnostics))}</metadata><defs>${ctx.defs.join("")}</defs>${background ? `<rect x="${view.x}" y="${view.y}" width="${view.width}" height="${view.height}" fill="${svgEscape(background)}"/>` : ""}${ctx.elements.join("")}</svg>`;
   return { svg,diagnostics };
 }
