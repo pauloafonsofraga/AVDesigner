@@ -41,11 +41,11 @@ at scene creation, not fetched or embedded by the builder.
 
 ## Drawing Ownership
 
-Metadata now separates `projectDataSource: canonical-project-snapshot`,
-`sceneDataSource: engine-project-adapter/scene-graph`, and
-`drawingDependency: legacy-svg-clone`. HTML/Publish still use the existing standalone
-renderer; PDF still clones Legacy SVG. Outer `snapshot.bounds` intentionally stays
-on the old drawing path. Consumers must not substitute `engineScene.bounds` yet.
+Metadata separates `projectDataSource: canonical-project-snapshot`,
+`sceneDataSource: engine-project-adapter/scene-graph`, and `drawingDependency`.
+Since Stage 3, HTML/Publish use `engine-webgl`; since Stage 4, PDF uses `engine-svg`.
+Outer `snapshot.bounds` now uses Engine geometry for both paths. See
+`engine-html-outputs.md` and `engine-pdf-output.md` for backend ownership.
 
 The classic shell preloads the Engine module; output actions await readiness.
 Direct synchronous callers of `buildCanonicalOutputSnapshot()` must first await
@@ -60,8 +60,9 @@ with repeated local indexes and PNG wall, jumps/link, exposed/internal rack port
 Bezier/orthogonal wires with actual crossings/hops, area, comment, title and image.
 Node tests compare against a separately normalized SceneGraph. The browser smoke
 compares with the actual production bridge in Engine mode, checks Legacy mode, and
-asserts unchanged saved data, standalone HTML and printable SVG before/after scene
-creation. No hosted upload or physical PDF printing is performed by this smoke.
+asserts unchanged saved data and the historical standalone HTML reference, plus
+deterministic Engine print SVG. Actual PDF generation is covered separately by
+`engine-output-pdf-smoke.mjs`; no physical printer is exercised.
 The existing shell `restoreSnapshot()` omits `imageObjects`, so the restored
 canvas has 16 objects. The smoke also supplies the complete canonical fixture
 directly and compares all 17 objects (including the image) with Node output.

@@ -1,6 +1,9 @@
 # Engine Output Pipeline
 
-Current build label: `Iteration 51`
+Historical audit: `Iteration 51`. Current drawing ownership is documented in
+`engine-output-scene.md`, `engine-html-outputs.md`, and `engine-pdf-output.md`.
+As of 54.33.0, both HTML/Publish and PDF draw from Engine geometry; the Legacy
+SVG clone path described below has been removed from PDF export.
 
 Iteration 51 adds a canonical runtime output snapshot in front of reports,
 PDF export, self-contained HTML export, and hosted viewer publish. The snapshot

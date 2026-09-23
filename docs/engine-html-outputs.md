@@ -7,9 +7,10 @@ existing SceneGraph, WebGL renderer, device visuals and wire logic. No editor
 mutation commands, ProductionBridge, placement controller or project adapter
 are shipped in the viewer bundle. Project normalization happens once in the app.
 
-PDF, reports in the editing app, live Engine rendering, saved projects and
-Legacy editing are unchanged. App/module cache labels were advanced; Engine
-renderer and bridge fingerprints were not. `fitCameraToBounds` moved to a small
+In Stage 3, PDF, reports in the editing app, live Engine rendering, saved projects
+and Legacy editing were unchanged. Stage 4 now owns PDF drawing through
+`engine-svg` (see `engine-pdf-output.md`). In Stage 3, app/module cache labels
+advanced without renderer/bridge fingerprint changes. `fitCameraToBounds` moved to a small
 shared camera module and remains re-exported from `enginePreview.js`, avoiding
 an editor dependency in the output bundle.
 
@@ -71,7 +72,7 @@ unlocked iframe with the download and live Engine GPU geometry.
 The browser suite covers both app modes, complete canonical image-object input,
 main/backup LED ordering, cards, buses, PDs, racks, jumps, matrix routes, reports,
 playback, dark/light pixels and screenshots, 320/390px layouts, signatures and
-console errors. `output-scene-smoke.mjs` separately confirms unchanged PDF SVG.
+console errors. `output-scene-smoke.mjs` now also checks deterministic Engine PDF SVG.
 `output-viewer-smoke.mjs` retains touch/pinch, disposal, fit-padding, full fixture
 and optional private real-project coverage. Logs/screenshots remain outside git.
 

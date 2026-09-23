@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-32-0-engine-html-publish-outputs";
+const BUILD_ID = "iteration54-33-0-engine-vector-pdf-output";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -51,13 +51,13 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Engine HTML and Publish Outputs");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-32-0-engine-html-publish-outputs-modules";'), "module cache key should identify Engine HTML and Publish Outputs");
-assert.ok(indexHtml.includes("Engine HTML and Publish Outputs"), "visible build label should name Engine HTML and Publish Outputs");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Engine Vector PDF Output");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-33-0-engine-vector-pdf-output-modules";'), "module cache key should identify Engine Vector PDF Output");
+assert.ok(indexHtml.includes("Engine Vector PDF Output"), "visible build label should name Engine Vector PDF Output");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-31-1-bidirectional-jump-node-support"'), "Engine bridge version should identify Bidirectional Jump Node Support");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "bidirectional-jump-node-support"'), "Engine bridge feature label should identify Bidirectional Jump Node Support");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-31-1-bidirectional-jump-node-support"), "bridge fingerprint should identify Bidirectional Jump Node Support");
-assert.ok(rendererSource.includes("renderer-iteration54-31-0-read-only-engine-output-viewer"), "renderer fingerprint should identify Read-Only Engine Output Viewer");
+assert.ok(rendererSource.includes("renderer-iteration54-33-0-engine-vector-pdf-output"), "renderer fingerprint should identify Engine Vector PDF Output");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");
 assert.ok(rendererSource.includes("pushWirePlaybackOverlay"), "renderer should draw transient Play Wire overlays");

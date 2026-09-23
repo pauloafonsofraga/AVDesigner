@@ -61,7 +61,7 @@ import {
 } from "./jumpNodeModel.js";
 import { wirePlaybackEase } from "./wirePlayback.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-31-0-read-only-engine-output-viewer";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-33-0-engine-vector-pdf-output";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -76,6 +76,8 @@ const CONNECTOR_NOT_WORKING_COLOR = "#ff0000";
 const REAL_ENDPOINT_WIRE_COLOR = "#32b6ff";
 const ROUTED_WIRE_COLOR = "#ff7904";
 const WIRE_BASE_WIDTH = 4.6;
+const WIRE_STATIC_WIDTH = 2.2;
+export const SHARED_BUS_LINE_STYLE = Object.freeze({ width:2.1, color:"rgba(50,182,255,.86)" });
 const WIRE_LABEL_ZOOM_THRESHOLD = 0.55;
 const DEVICE_HOVER_TOOLTIP_ZOOM_THRESHOLD = 0.55;
 const CONNECTOR_RADIUS = 7;
@@ -290,7 +292,7 @@ export class WebglGraphRenderer {
     // Static geometry is built once per scene load. Pan/zoom/drag must not
     // rebuild this path; otherwise large real projects stutter badly.
     scene.wires.forEach(wire => {
-      this.wireVertexMap.set(wire.id, verticesForWire(scene, wire, null, 2.2, wireColor(wire, this.renderOptions), this.renderOptions, this.cableHopMap));
+      this.wireVertexMap.set(wire.id, verticesForWire(scene, wire, null, WIRE_STATIC_WIDTH, wireColor(wire, this.renderOptions), this.renderOptions, this.cableHopMap));
     });
     this.lastWirePathStats = wirePathStatsForWires(scene.wires);
     scene.devices.forEach(device => {
@@ -638,7 +640,7 @@ export class WebglGraphRenderer {
     });
     [...effectiveWireIds].forEach(id => {
       const wire = scene.getWire(id);
-      const next = wire ? verticesForWire(scene, wire, null, 2.2, wireColor(wire, this.renderOptions), this.renderOptions, cableHopMapForDirtyWires) : [];
+      const next = wire ? verticesForWire(scene, wire, null, WIRE_STATIC_WIDTH, wireColor(wire, this.renderOptions), this.renderOptions, cableHopMapForDirtyWires) : [];
       const range = this.wireRangeMap.get(id);
       if (!wire) {
         wireFallbackRebuild = true;
@@ -704,7 +706,7 @@ export class WebglGraphRenderer {
     const geometryStart = performance.now();
     this.refreshCableHops(scene, { mode: "full-wire-rebuild" });
     scene.wires.forEach(wire => {
-      this.wireVertexMap.set(wire.id, verticesForWire(scene, wire, null, 2.2, wireColor(wire, this.renderOptions), this.renderOptions, this.cableHopMap));
+      this.wireVertexMap.set(wire.id, verticesForWire(scene, wire, null, WIRE_STATIC_WIDTH, wireColor(wire, this.renderOptions), this.renderOptions, this.cableHopMap));
     });
     this.lastWirePathStats = wirePathStatsForWires(scene.wires);
     const geometryMs = performance.now() - geometryStart;
@@ -931,7 +933,7 @@ export class WebglGraphRenderer {
       return this.lastDirtyStats;
     }
     const geometryStart = performance.now();
-    const vertices = verticesForWire(scene, wire, null, 2.2, wireColor(wire, this.renderOptions), this.renderOptions, this.cableHopMap);
+    const vertices = verticesForWire(scene, wire, null, WIRE_STATIC_WIDTH, wireColor(wire, this.renderOptions), this.renderOptions, this.cableHopMap);
     const geometryMs = performance.now() - geometryStart;
     const uploadStart = performance.now();
     const offset = this.staticWireArray.length;
@@ -2203,7 +2205,7 @@ function pushSharedBusConnectorLines(vertices, layout, baseX, baseY, body) {
   if (!geometry) return 0;
   const segments = [geometry.trunk, geometry.stem, ...geometry.branches];
   segments.forEach(({ x1, y1, x2, y2 }) => {
-    pushLine(vertices, { x: x1, y: y1 }, { x: x2, y: y2 }, 2.1, "rgba(50,182,255,.86)");
+    pushLine(vertices, { x: x1, y: y1 }, { x: x2, y: y2 }, SHARED_BUS_LINE_STYLE.width, SHARED_BUS_LINE_STYLE.color);
   });
   return segments.length;
 }
@@ -3238,6 +3240,65 @@ function verticesForDevice(device, offsets = null, options = DEFAULT_RENDER_OPTI
   if (deviceUsesTextureLayer(device, options)) return vertices;
   pushDevice(vertices, device, offsets, false, options);
   return vertices;
+}
+
+// Read-only backends share the live renderer's primitives and label routines.
+// No selection, hover, camera culling, or editing state enters this interface.
+export function engineOutputPrimitives(scene, contract) {
+  const mesh = draw => { const vertices = []; draw(vertices); return vertices; };
+  return {
+    racks: contract.racks.map(rack => ({ id: rack.id, vertices: mesh(vertices => {
+      pushRoundedRect(vertices, rack.bounds, RACK_FRAME_RADIUS, RACK_FRAME_FILL);
+      pushDashedRoundedBoxOutline(vertices, rack.bounds, RACK_FRAME_RADIUS, 2, RACK_FRAME_STROKE, 10, 7);
+    }) })),
+    jumpLinks: contract.jumpLinks.map(link => ({ id: link.id, vertices: mesh(vertices =>
+      pushJumpLinkOverlays(vertices, { jumpLinkOverlays: [{ ...link, points: link.polyline }] })) })),
+    wires: contract.wires.map(wire => ({ id: wire.id, vertices: mesh(vertices =>
+      pushWireColorSegments(vertices, wire.renderPolyline, WIRE_STATIC_WIDTH, wire, wireColor(wire))) })),
+    connectors: contract.connectors.flatMap(record => {
+      const device = scene.getDevice(record.deviceId);
+      const connector = scene.getConnector(record.deviceId, record.connectorId);
+      if (!record.visible || !connector || device.kind === "jump" || isLedSurfaceKind(device)) return [];
+      return record.anchors.map(anchor => ({ ...record, anchorId: anchor.id, point: anchor.worldPoint,
+        vertices: mesh(vertices => {
+          pushConnectorNode(vertices, anchor.worldPoint, { ...connector,
+            __renderOpacity: connectorAnchorRenderOpacity(scene, device, connector, anchor) }, device);
+          pushConnectorNotWorkingMark(vertices, anchor.worldPoint, connector, device);
+        }) }));
+    }),
+    relationships: scene.devices.map(device => ({ id: device.id, vertices: mesh(vertices => {
+      if (device.kind === "jump" || isLedSurfaceKind(device)) return;
+      const layout = connectorDisplayLayoutForRender(scene, device);
+      pushConnectorMultiAnchorRelationships(vertices, scene, device, device.x, device.y, layout);
+      for (const relationship of device.connectorRelationships || []) {
+        if (relationship.type === "through") pushThroughConnectorArrow(vertices, device, relationship, device.x, device.y, layout);
+      }
+    }) })),
+    matrix: scene.devices.filter(device => device.visual?.isMatrixRouter).map(device => ({
+      id: device.id, vertices: mesh(vertices => pushMatrixInternalRoutes(vertices, device)) })),
+    jumps: scene.devices.filter(device => device.kind === "jump").map(device => ({ id: device.id,
+      vertices: mesh(vertices => pushJumpNode(vertices, jumpNodeCenter(device), Math.max(device.width, device.height) / 2, {
+        role: device.visual?.jumpRole, color: device.visual?.jumpColor
+      })) }))
+  };
+}
+
+export function drawEngineOutputLabels(ctx, scene, bounds) {
+  const camera = { x: bounds.x, y: bounds.y, zoom: 1 };
+  const resolution = { width: bounds.width, height: bounds.height };
+  ctx.save();
+  ctx.translate(bounds.x, bounds.y);
+  scene.racks.forEach(rack => drawRackLabel(ctx, rack, camera));
+  scene.devices.forEach(device => {
+    drawDeviceLabel(ctx, device, camera);
+    if (device.kind === "jump") drawJumpNodeInfoBox(ctx, scene, device, camera);
+  });
+  scene.wires.forEach(wire => {
+    if (!wire.hideLabel) drawWireLabel(ctx, scene, wire, camera, null, wireCaption(scene, wire));
+  });
+  drawVisibleConnectorLabels(ctx, scene, camera, DEFAULT_RENDER_OPTIONS, null, resolution);
+  drawVisibleConnectorInfoBoxes(ctx, scene, camera, DEFAULT_RENDER_OPTIONS, null, resolution);
+  ctx.restore();
 }
 
 function verticesForWire(scene, wire, offsets = null, width = WIRE_BASE_WIDTH, color = WIRE_FALLBACK, options = DEFAULT_RENDER_OPTIONS, cableHopMap = options.cableHopMap) {

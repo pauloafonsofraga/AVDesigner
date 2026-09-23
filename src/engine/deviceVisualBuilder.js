@@ -327,7 +327,7 @@ export function textureQuality(options = {}) {
   };
 }
 
-function drawDeviceVisual(ctx, device, width, height, options) {
+export function drawDeviceVisual(ctx, device, width, height, options = {}) {
   const kind = visualDeviceKind(device);
   if (kind === "jump") {
     drawJumpVisual(ctx, device, width, height);
@@ -431,7 +431,7 @@ function drawPowerPlugCanvasImage(ctx, entry, options = {}) {
   const height = Math.max(1, Number(entry.height) || 1);
   const x = Number(entry.x) || 0;
   const y = Number(entry.y) || 0;
-  const image = cachedImage(href);
+  const image = visualImage(ctx, href);
   if (image?.complete && image.naturalWidth > 0) {
     const drawRect = preserveAspectRatioMeetRect({ x, y, width, height }, image.naturalWidth, image.naturalHeight);
     ctx.drawImage(image, drawRect.x, drawRect.y, drawRect.width, drawRect.height);
@@ -458,7 +458,7 @@ function drawFaceplate(ctx, device, visual, width, height, pad, detailed) {
     : FACE_HEIGHT;
 
   if (visual.hasFaceImage) {
-    const image = cachedImage(visual.faceImage);
+    const image = visualImage(ctx, visual.faceImage);
     if (image?.complete && image.naturalWidth > 0) {
       const placement = legacyFaceImagePlacement(visual, width, image);
       // Legacy renders faceplates as SVG images with
@@ -758,7 +758,7 @@ function drawJumpVisual(ctx, device, width, height) {
 
 function drawSurfaceVisual(ctx, device, width, height) {
   const visual = device.visual || {};
-  const image = cachedImage(visual.image);
+  const image = visualImage(ctx, visual.image);
   if (image?.complete && image.naturalWidth > 0) {
     ctx.save();
     ctx.globalAlpha = clamp(Number(visual.opacity), 0, 1) || 1;
@@ -802,7 +802,7 @@ function surfaceText(device) {
 
 function drawImageObjectVisual(ctx, device, width, height) {
   const visual = device.visual || {};
-  const image = cachedImage(visual.image);
+  const image = visualImage(ctx, visual.image);
   if (image?.complete && image.naturalWidth > 0) {
     ctx.save();
     ctx.globalAlpha = clamp(Number(visual.opacity), 0, 1) || 1;
@@ -941,7 +941,7 @@ function drawTitleBlockVisual(ctx, device, width, height) {
   drawTitleBlockField(ctx, layout.fields.accountManager, "Acc Manager:", fields.accountManager, { small: true });
   drawTitleBlockField(ctx, layout.fields.approvedBy, "Approved By:", fields.approvedBy, { small: true });
   const logoBox = layout.logoContentRect;
-  const logoImage = logoSource ? cachedImage(logoSource) : null;
+  const logoImage = logoSource ? visualImage(ctx, logoSource) : null;
   if (logoImage?.complete && logoImage.naturalWidth > 0) {
     const logoRect = preserveAspectRatioMeetRect(logoBox, logoImage.naturalWidth, logoImage.naturalHeight);
     ctx.drawImage(logoImage, logoRect.x, logoRect.y, logoRect.width, logoRect.height);
@@ -1312,6 +1312,10 @@ export function deviceVisualSources(device) {
 export function deviceVisualAssetRevision(source) {
   const entry = IMAGE_CACHE.get(String(source || ""));
   return entry?.revision || 0;
+}
+
+function visualImage(ctx, source) {
+  return ctx.resolveImage ? ctx.resolveImage(source) : cachedImage(source);
 }
 
 function cachedImage(source) {

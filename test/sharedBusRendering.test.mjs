@@ -6,6 +6,7 @@ import * as api from "../src/engine/sharedBusRendering.js";
 import { createConnectorDisplayLayout } from "../src/engine/connectorDisplayLayout.js";
 import { createPreviewDeviceFromDraft } from "../src/engine/enginePreview.js";
 import { normalizeAvDesignerDevice } from "../src/engine/projectAdapter.js";
+import { SHARED_BUS_LINE_STYLE } from "../src/engine/renderer.js";
 import { orthogonalSharedBusFixture } from "../fixtures/orthogonal-shared-bus.mjs";
 
 const index = readFileSync(new URL("../index.html", import.meta.url), "utf8");
@@ -35,7 +36,7 @@ function drawSvg(name, ...args) {
   });
   return elements.map(({ attributes: { x1, y1, x2, y2 } }) => ({ x1, y1, x2, y2 }));
 }
-const engine = vm.createContext({ ...api, SHARED_BUS_NODE_LINE_INSET: 10,
+const engine = vm.createContext({ ...api, SHARED_BUS_LINE_STYLE, SHARED_BUS_NODE_LINE_INSET: 10,
   pushLine: (vertices, a, b, width, color) => {
     assert.equal(width, 2.1); assert.equal(color, "rgba(50,182,255,.86)");
     vertices.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });

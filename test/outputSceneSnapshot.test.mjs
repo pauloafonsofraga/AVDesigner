@@ -197,12 +197,12 @@ test("wrapped canonical projects normalize through the same adapter and report r
   assert.ok(scene.diagnostics.warnings.length);
 });
 
-test("canonical integration adds Engine data but preserves Legacy drawing bounds/report data", () => {
+test("canonical integration uses Engine bounds for PDF and HTML while preserving report data", () => {
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   const project = outputParityFixture(), report = { sentinel: "unchanged" }, bounds = { x: 1, y: 2, width: 3, height: 4 };
   const context = vm.createContext({ engineOutputSceneModule: { buildEngineOutputScene },
     outputNow: () => 0, projectSnapshotData: () => project, cloneForOutput: structuredClone,
-    normalizeOutputRect: r => r, wirechartExportBounds: () => bounds, buildProjectReport: () => report,
+    normalizeOutputRect: r => r, wirechartExportBounds: () => { throw new Error("Legacy bounds read"); }, buildProjectReport: () => report,
     outputConnectorRecordsForData: () => [], outputRackInternalWireRecords: () => [],
     outputAssetDiagnostics: () => ({}), outputSnapshotWarnings: () => [], outputImageRecords: () => [],
     isAdapterTemplate: () => false, outputTemplateForInstance: () => ({}),
@@ -211,13 +211,14 @@ test("canonical integration adds Engine data but preserves Legacy drawing bounds
   const source = html.match(/^    function buildCanonicalOutputSnapshot\([^\n]*\) \{[\s\S]*?^    \}/m)[0];
   vm.runInContext(source, context);
   const result = context.buildCanonicalOutputSnapshot();
-  assert.equal(result.bounds, bounds);
+  assert.deepEqual(result.bounds, result.engineScene.bounds);
+  assert.equal(context.buildCanonicalOutputSnapshot({ bounds }).bounds, bounds);
   assert.equal(result.reportData, report);
   assert.deepEqual(result.projectData, project);
   assert.deepEqual(result.engineScene, buildEngineOutputScene(project));
   assert.equal(result.metadata.projectDataSource, "canonical-project-snapshot");
   assert.equal(result.metadata.sceneDataSource, "engine-project-adapter/scene-graph");
-  assert.equal(result.metadata.drawingDependency, "legacy-svg-clone");
+  assert.equal(result.metadata.drawingDependency, "engine-svg");
   context.wirechartExportBounds = () => { throw new Error("Legacy geometry must not be read by Engine output"); };
   const engine = context.buildCanonicalOutputSnapshot({ drawingDependency: "engine-webgl" });
   assert.deepEqual(engine.bounds, engine.engineScene.bounds);

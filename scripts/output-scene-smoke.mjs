@@ -37,8 +37,8 @@ try {
       const repeated = buildCanonicalOutputSnapshot({ mode: "output-scene-smoke" }).engineScene;
       const unchanged = beforeData === JSON.stringify(projectSnapshotData()) && beforeSvg === canvas.innerHTML
         && beforeHtml === buildStandaloneHtml(projectSnapshotData());
-      const beforePdf = await wirechartSvgMarkup({}, { forceLight: true });
-      const afterPdf = await wirechartSvgMarkup({}, { forceLight: true, outputSnapshot: snapshot });
+      const beforePdf = await buildEnginePrintDrawing(snapshot);
+      const afterPdf = await buildEnginePrintDrawing(snapshot);
       let parity = null;
       if (bridge) {
         const live = bridge.scene;
@@ -53,16 +53,18 @@ try {
           ledOrder: output.ledSurfaces.every(s => same(s.wireIds, live.orderedLedSurfaceWires(s.id).map(w => w.id)))
         };
       }
-      return { unchanged, pdfUnchanged: beforePdf === afterPdf, deterministic: JSON.stringify(output) === JSON.stringify(repeated),
+      return { unchanged, pdfDeterministic: beforePdf.svg === afterPdf.svg,
+        pdfSignature: afterPdf.diagnostics.signature, deterministic: JSON.stringify(output) === JSON.stringify(repeated),
         frozen: Object.isFrozen(output) && Object.isFrozen(output.devices[0].visual), parity,
         metadata: snapshot.metadata, signature: output.signature, counts: output.diagnostics.counts,
         warnings: output.diagnostics.warnings, html: beforeHtml };
     });
     assert.equal(result.unchanged, true, `${mode}: project/Legacy SVG/HTML untouched`);
-    assert.equal(result.pdfUnchanged, true, `${mode}: printable SVG unchanged`);
+    assert.equal(result.pdfDeterministic, true, `${mode}: Engine print SVG deterministic`);
+    assert.equal(result.pdfSignature, result.signature);
     assert.equal(result.deterministic, true);
     assert.equal(result.frozen, true);
-    assert.equal(result.metadata.drawingDependency, "legacy-svg-clone");
+    assert.equal(result.metadata.drawingDependency, "engine-svg");
     assert.deepEqual(result.warnings, []);
     if (result.parity) for (const [key, value] of Object.entries(result.parity)) assert.equal(value, true, `live Engine ${key}`);
     const viewer = await browser.newPage({ viewport: { width: 1800, height: 1100 } });
@@ -74,7 +76,7 @@ try {
       await viewer.screenshot({ path: `${process.env.AVDESIGNER_SCREENSHOT_DIR}/${mode}-output-scene-viewer.png` });
     }
     assert.deepEqual(errors, []);
-    console.log(`${mode}: live parity, full 17-object canonical fixture, deterministic scene, unchanged HTML/PDF drawing and offline viewer PASS`, result.counts, result.signature);
+    console.log(`${mode}: live parity, full 17-object fixture, deterministic Engine PDF, unchanged historical HTML reference PASS`, result.counts, result.signature);
     await viewer.close();
     await page.close();
   }
