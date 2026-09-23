@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-28-2-paired-device-brand-labels";
+const BUILD_ID = "iteration54-29-0-per-connection-led-surface-ordering";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -51,12 +51,12 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Paired Device Brand Labels");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-28-2-paired-device-brand-labels-modules";'), "module cache key should identify Paired Device Brand Labels");
-assert.ok(indexHtml.includes("Paired Device Brand Labels"), "visible build label should name Paired Device Brand Labels");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-28-0-relationship-metadata-synchronization"'), "Engine bridge version should identify Relationship Metadata Synchronization");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "relationship-metadata-synchronization"'), "Engine bridge feature label should identify Relationship Metadata Synchronization");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-28-0-relationship-metadata-synchronization"), "bridge fingerprint should identify Relationship Metadata Synchronization");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Per-Connection LED Surface Ordering");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-29-0-per-connection-led-surface-ordering-modules";'), "module cache key should identify Per-Connection LED Surface Ordering");
+assert.ok(indexHtml.includes("Per-Connection LED Surface Ordering"), "visible build label should name Per-Connection LED Surface Ordering");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-29-0-per-connection-led-surface-ordering"'), "Engine bridge version should identify Per-Connection LED Surface Ordering");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "per-connection-led-surface-ordering"'), "Engine bridge feature label should identify Per-Connection LED Surface Ordering");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-29-0-per-connection-led-surface-ordering"), "bridge fingerprint should identify Per-Connection LED Surface Ordering");
 assert.ok(rendererSource.includes("renderer-iteration54-27-0-segmented-wire-preview-parity"), "renderer fingerprint should identify Segmented Wire Preview Parity");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");

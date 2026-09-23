@@ -18,7 +18,7 @@ import {
   isLedSurfaceKind
 } from "./canvasObjectKinds.js";
 import {
-  compareLedSurfaceConnections,
+  ledSurfacePortIndex,
   pointForLedSurface,
   wireEndpointSurfaceId
 } from "./ledSurfaceModel.js";
@@ -766,7 +766,8 @@ export class SceneGraph {
   }
 
   nextLedSurfacePortIndex(surfaceId) {
-    return this.orderedLedSurfaceWires(surfaceId).length;
+    return this.orderedLedSurfaceWires(surfaceId)
+      .reduce((highest, wire) => Math.max(highest, ledSurfacePortIndex(wire, surfaceId) ?? -1), -1) + 1;
   }
 
   wireEndpointDebug(wire, end) {
@@ -1685,11 +1686,14 @@ export class SceneGraph {
   }
 
   orderedLedSurfaceWires(surfaceId) {
-    const surface = this.getDevice(surfaceId) || { id: surfaceId };
     return this.wires
       .map((wire, index) => ({ wire, index }))
       .filter(item => this.wireEndpointSurfaceId(item.wire, "from") === surfaceId || this.wireEndpointSurfaceId(item.wire, "to") === surfaceId)
-      .sort((a, b) => compareLedSurfaceConnections(a, b, surface))
+      // The adapter owns Legacy-to-Engine ordering. Missing/duplicate indexes
+      // retain array order, never processor grouping or local signal numbering.
+      .sort((a, b) => ((ledSurfacePortIndex(a.wire, surfaceId) ?? Infinity)
+        - (ledSurfacePortIndex(b.wire, surfaceId) ?? Infinity))
+        || a.index - b.index || a.wire.id.localeCompare(b.wire.id))
       .map(item => item.wire);
   }
 
@@ -2221,8 +2225,8 @@ function normalizeWire(wire) {
     toAnchorId: wire.toAnchorId ? String(wire.toAnchorId) : "",
     fromSide: wire.fromSide || "right",
     toSide: wire.toSide || "left",
-    fromPortIndex: Math.max(0, Number(wire.fromPortIndex) || 0),
-    toPortIndex: Math.max(0, Number(wire.toPortIndex) || 0),
+    fromPortIndex: wire.fromSurfaceId ? ledSurfacePortIndex(wire, wire.fromSurfaceId) : Math.max(0, Number(wire.fromPortIndex) || 0),
+    toPortIndex: wire.toSurfaceId ? ledSurfacePortIndex(wire, wire.toSurfaceId) : Math.max(0, Number(wire.toPortIndex) || 0),
     routePoints: Array.isArray(wire.routePoints)
       ? wire.routePoints
         .map(point => ({ x: Number(point.x), y: Number(point.y) }))

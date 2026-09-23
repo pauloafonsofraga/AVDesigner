@@ -54,6 +54,15 @@ export function wireTouchesLedSurface(wire = {}, surfaceId = "") {
   return Boolean(id) && (wireEndpointSurfaceId(wire, "from") === id || wireEndpointSurfaceId(wire, "to") === id);
 }
 
+export function ledSurfacePortIndex(wire = {}, surfaceId = "") {
+  const end = wireEndpointSurfaceId(wire, "from") === surfaceId ? "from"
+    : wireEndpointSurfaceId(wire, "to") === surfaceId ? "to" : "";
+  const value = end ? wire[`${end}PortIndex`] : null;
+  if ((typeof value !== "number" && typeof value !== "string") || String(value).trim() === "") return null;
+  const index = Number(value);
+  return Number.isSafeInteger(index) && index >= 0 ? index : null;
+}
+
 export function ledConnectionSourceInfo(connection = {}, surfaceId = "") {
   const surface = String(surfaceId || ledSurfaceIdForConnection(connection) || "").trim();
   const fromSurface = endpointSurfaceId(connection.from);

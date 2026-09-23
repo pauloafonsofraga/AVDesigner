@@ -1003,12 +1003,12 @@ assert.deepEqual(ORTHOGONAL_WIRE_SNAP_STEPS, [10, 15, 20, 25, 30], "Legacy segme
     fromConnectorId: "out",
     toSurfaceId: "led-grid",
     cableType: "led-signal",
-    signalIndex: 16
+    signalIndex: 1
   });
   assert.deepEqual(
     ledScene.orderedLedSurfaceWires("led-grid").map(wire => wire.signalIndex),
-    [1, 2, 16],
-    "LED PNG virtual endpoints keep signal-index ordering when a later signal is added"
+    [1, 2, 1],
+    "LED PNG virtual endpoints use per-connection surface ordering, not local signal-index ordering"
   );
   assert.deepEqual(
     new Set(ledScene.expandLedSurfaceDependentWireIds([ledWireC.id])),
