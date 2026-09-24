@@ -1,3 +1,4 @@
+import { resolveProjectorLens } from "./projectorModel.js";
 import { SpatialIndex } from "./spatialIndex.js";
 import {
   cleanOrthogonalRoutePoints,
@@ -1897,6 +1898,7 @@ function normalizeDevice(device) {
     width,
     height,
     label: device.label || device.name || String(device.id),
+    selectedProjectorLensId: visual.selectedProjectorLensId,
     notes: String(device.notes || ""),
     locked: Boolean(device.locked),
     powerWatts: device.powerWatts ?? "",
@@ -1960,6 +1962,7 @@ function normalizeVisualMetadata(visual = {}) {
     model: visual.model || "",
     category: visual.category || "",
     templateName: visual.templateName || "",
+    ...resolveProjectorLens(visual, visual),
     displayName: visual.displayName || "",
     faceImage: visual.faceImage || "",
     thumbnailImage: visual.thumbnailImage || "",

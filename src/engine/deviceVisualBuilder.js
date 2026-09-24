@@ -241,6 +241,7 @@ export function deviceVisualCacheKey(device, options = {}) {
     options.simplifiedCards ? "simplified" : "standard",
     options.detailedDeviceTextures === false ? "basic" : "detailed",
     title,
+    JSON.stringify([visual.selectedProjectorLensId || "", visual.projectorLensName || ""]),
     templateRevision,
     device.brand || visual.brand || "",
     device.model || visual.model || "",
@@ -397,6 +398,11 @@ function drawDeviceHeader(ctx, device, width, pad, detailed) {
     fill: "#ffffff",
     baseline: "alphabetic"
   });
+  if (device.visual?.isProjector && device.visual.projectorLensName) {
+    drawFittedText(ctx, `Lens: ${device.visual.projectorLensName}`, 20, 34, width - 40, 10.5, {
+      weight: 600, fill: "#d5e0eb", baseline: "alphabetic"
+    });
+  }
   ctx.restore();
 }
 

@@ -1,3 +1,4 @@
+import { resolveProjectorLens } from "./projectorModel.js";
 import { CONNECTOR_RELATIONSHIP_FIELDS, normalizeConnectorRelationshipMetadata } from "./connectorRelationshipMetadata.js";
 import {
   ENGINE_CONNECTOR_TYPE_COLORS,
@@ -508,6 +509,7 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
     width,
     height,
     label,
+    selectedProjectorLensId: visual.selectedProjectorLensId,
     notes: String(instance.notes || ""),
     locked: Boolean(instance.locked),
     powerWatts: instance.powerWatts ?? template.powerWatts ?? "",
@@ -586,6 +588,7 @@ function normalizeDeviceVisualMetadata(
     || instance.isProjectCustomDevice === true;
   return {
     brand,
+    ...resolveProjectorLens(template, instance),
     model,
     category,
     templateName: String(template.name || "").trim(),

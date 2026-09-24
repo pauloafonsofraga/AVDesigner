@@ -1,3 +1,4 @@
+import { resolveProjectorLens } from "./projectorModel.js";
 import { DragSession } from "./dragSession.js";
 import { ObjectSnapSession } from "./objectSnapping.js";
 import { CONNECTOR_RELATIONSHIP_FIELDS, applyConnectorRelationshipFieldPatch } from "./connectorRelationshipMetadata.js";
@@ -127,9 +128,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-31-1-bidirectional-jump-node-support";
-export const ENGINE_BRIDGE_VERSION = "iteration54-31-1-bidirectional-jump-node-support";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "bidirectional-jump-node-support";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-36-0-selectable-projector-lenses";
+export const ENGINE_BRIDGE_VERSION = "iteration54-36-0-selectable-projector-lenses";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
@@ -5886,6 +5887,9 @@ class ProductionEngineBridge {
     if (!device) return false;
     const before = captureObjectInspectorFields(device, fields);
     const after = sanitizeObjectInspectorFields(fields);
+    if (after.selectedProjectorLensId !== undefined) {
+      after.selectedProjectorLensId = resolveProjectorLens(device.visual, after).selectedProjectorLensId;
+    }
     if (!inspectorFieldsChanged(before, after)) return false;
     this.beginProductionCommit("inspector object fields");
     const result = this.applyObjectInspectorFields(device.sourceId || device.id, after);
@@ -7476,7 +7480,9 @@ class ProductionEngineBridge {
     if (this.scene.getDevice(id)) return { mutationMs: 0, device: this.scene.getDevice(id) };
     const projectData = this.mutations?.project || this.api.getProjectData?.();
     const normalized = normalizeAvDesignerDevice(projectData, deviceData, Number.isInteger(index) ? index : 0);
-    const mutationResult = this.mutations?.restoreDeviceInstance(deviceData, index) || { mutationMs: 0 };
+    const restoredData = normalized.visual.isProjector || Object.hasOwn(deviceData, "selectedProjectorLensId")
+      ? { ...deviceData, selectedProjectorLensId: normalized.selectedProjectorLensId } : deviceData;
+    const mutationResult = this.mutations?.restoreDeviceInstance(restoredData, index) || { mutationMs: 0 };
     const device = this.scene.insertDevice(normalized);
     if (!device) return { mutationMs: mutationResult.mutationMs || 0, device: null };
     const dirtyStats = this.renderer.appendDevice(this.scene, device.id);
@@ -10676,7 +10682,7 @@ function engineInspectorPositionForDevice(device) {
 }
 
 function sanitizeObjectInspectorFields(fields = {}) {
-  const allowed = new Set(["name", "label", "notes", "locked", "powerWatts", "powerUnit", "showInternalWiring", "showInternalMatrixRouting"]);
+  const allowed = new Set(["name", "label", "notes", "locked", "powerWatts", "powerUnit", "showInternalWiring", "showInternalMatrixRouting", "selectedProjectorLensId"]);
   const sanitized = {};
   Object.entries(fields || {}).forEach(([key, value]) => {
     if (!allowed.has(key)) return;
@@ -10706,6 +10712,11 @@ function captureObjectInspectorFields(device, fields = {}) {
 
 function applyObjectFieldsToSceneDevice(device, fields = {}) {
   const sanitized = sanitizeObjectInspectorFields(fields);
+  if (sanitized.selectedProjectorLensId !== undefined) {
+    const resolved = resolveProjectorLens(device.visual, sanitized);
+    device.selectedProjectorLensId = resolved.selectedProjectorLensId;
+    device.visual = { ...device.visual, ...resolved };
+  }
   if (sanitized.name !== undefined || sanitized.label !== undefined) {
     const nextName = sanitized.name ?? sanitized.label;
     device.label = String(nextName || device.label || device.id);

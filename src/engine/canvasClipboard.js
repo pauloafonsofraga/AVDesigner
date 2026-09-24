@@ -359,8 +359,13 @@ export function prepareCanvasClipboardPaste(value, destination, target) {
     }
   }
   // Resolve each device once, using the same installed-card endpoint contract as Engine.
-  const connectors = new Map([...additions.devices, ...additions.racks.flatMap(r => r.devices)].map(device => [device.instanceId,
-    new Map(normalizeAvDesignerDevice({ deviceLibrary: templates }, device).connectors.map(c => [c.id, c]))]));
+  const connectors = new Map([...additions.devices, ...additions.racks.flatMap(r => r.devices)].map(device => {
+    const normalized = normalizeAvDesignerDevice({ deviceLibrary: templates }, device);
+    if (normalized.visual.isProjector || Object.hasOwn(device, "selectedProjectorLensId")) {
+      device.selectedProjectorLensId = normalized.selectedProjectorLensId;
+    }
+    return [device.instanceId, new Map(normalized.connectors.map(c => [c.id, c]))];
+  }));
   const validConnector = endpoint => {
     const connector = connectors.get(endpoint.deviceId)?.get(endpoint.connectorId);
     return connector && (!endpoint.anchorId || connector.anchors?.some(anchor => anchor.id === endpoint.anchorId));

@@ -3667,6 +3667,34 @@
       flex: 1 1 76px;
     }
 
+    #deviceEditorModal .projector-lens-list {
+      width: 100%;
+      max-height: 164px;
+      overflow-y: auto;
+    }
+
+    #deviceEditorModal .projector-lens-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 27px;
+      gap: 5px;
+      margin-top: 4px;
+    }
+
+    #deviceEditorModal .projector-lens-row input {
+      min-width: 0;
+      width: 100%;
+      height: 28px;
+      padding: 0 7px;
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      background: var(--canvas-bg);
+      color: var(--ink);
+      font-family: inherit;
+      font-size: 11px;
+    }
+    #deviceEditorModal .projector-lens-row input:disabled { opacity: .45; }
+    #deviceEditorModal .projector-lens-list[data-active="false"] .projector-lens-row ~ .projector-lens-row { display: none; }
+
     .device-feature-pane .editor-feature-dependent select {
       width: 100%;
       min-width: 0;
@@ -5117,7 +5145,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.35.4 — Clipboard Image MIME Normalization — iteration54-35-4-clipboard-image-mime-normalization</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.36.0 — Selectable Projector Lenses — iteration54-36-0-selectable-projector-lenses</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5508,6 +5536,11 @@
                   <label class="feature-toggle"><input id="editorMatrixRouter" type="checkbox"><span>Is a Matrix</span></label>
                 </div>
                 <span class="editor-feature-separator" aria-hidden="true">|</span>
+                <div class="editor-feature-group">
+                  <label class="feature-toggle"><input id="editorProjector" type="checkbox"><span>Is a Projector</span></label>
+                  <div id="editorProjectorLenses" class="projector-lens-list" aria-label="Projector lenses"></div>
+                </div>
+                <span class="editor-feature-separator" aria-hidden="true">|</span>
                 <div class="editor-feature-group editor-feature-group-wide">
                   <label class="feature-toggle"><input id="editorPartOfPair" type="checkbox"><span>Part of a Pair</span></label>
                   <div class="field editor-feature-dependent editor-pair-dependent">
@@ -5810,14 +5843,15 @@
     </div>
   </div>
 
+  <script src="./src/engine/projectorModelCore.js?v=iteration54-36-0-selectable-projector-lenses"></script>
   <script>
-    const APP_ITERATION = "54.35.4";
-    const APP_BUILD_ID = "iteration54-35-4-clipboard-image-mime-normalization";
-    const APP_MODULE_CACHE_ID = "iteration54-35-4-clipboard-image-mime-normalization-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Clipboard Image MIME Normalization`;
+    const APP_ITERATION = "54.36.0";
+    const APP_BUILD_ID = "iteration54-36-0-selectable-projector-lenses";
+    const APP_MODULE_CACHE_ID = "iteration54-36-0-selectable-projector-lenses-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Selectable Projector Lenses`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
-    const APP_SOURCE_BASE_COMMIT = "d29a62179e8a27e4b7d6ffba18f24eaf3ec145d3";
+    const APP_SOURCE_BASE_COMMIT = "7d707f2f1387324ed03f6b34b6d90c2623369e27";
     const CANVAS_MIN_ZOOM = 0.03;
     const CANVAS_MAX_ZOOM = 8;
     const ENGINE_COMMENT_ARROW_LENGTH = 16;
@@ -78748,6 +78782,8 @@
     const editorEthernetSwitch = document.getElementById("editorEthernetSwitch");
     const editorPowerDistro = document.getElementById("editorPowerDistro");
     const editorMatrixRouter = document.getElementById("editorMatrixRouter");
+    const editorProjector = document.getElementById("editorProjector");
+    const editorProjectorLenses = document.getElementById("editorProjectorLenses");
     const editorPartOfPair = document.getElementById("editorPartOfPair");
     const editorPairTemplate = document.getElementById("editorPairTemplate");
     const editorPairPlaceFirst = document.getElementById("editorPairPlaceFirst");
@@ -81321,6 +81357,7 @@
     function hydrateDeviceInstance(instance) {
       const template = templateForInstance(instance);
       if (!template) return instance;
+      instance.selectedProjectorLensId = AVDesignerProjectors.resolveProjectorLens(template, instance).selectedProjectorLensId;
       instance.config = { ...defaultConfigForTemplate(template), ...(instance.config || {}) };
       if (template.isMatrixRouter === true) ensureMatrixRoutes(instance, template);
       else delete instance.matrixRoutes;
@@ -81362,6 +81399,9 @@
       if (Array.isArray(snapshot.nodeLibrary)) restoreCanvasClipboardNodeLibrary(snapshot.nodeLibrary);
       state.imageObjects = structuredClone(snapshot.imageObjects || []);
       state.devices = structuredClone(snapshot.devices || []);
+      state.devices.forEach(instance => {
+        instance.selectedProjectorLensId = AVDesignerProjectors.resolveProjectorLens(templateForInstance(instance), instance).selectedProjectorLensId;
+      });
       state.ledSurfaces = structuredClone(snapshot.ledSurfaces || []);
       state.areas = structuredClone(snapshot.areas || []);
       state.racks = structuredClone(snapshot.racks || []);
@@ -84083,6 +84123,7 @@
 
     function ensureDeviceDefinitionV2(template) {
       if (!template) return template;
+      Object.assign(template, AVDesignerProjectors.normalizeProjectorTemplate(template));
       template.schemaVersion = EDITOR_DEVICE_DEFINITION_SCHEMA_VERSION;
       template.deviceDefinitionVersion = EDITOR_DEVICE_DEFINITION_SCHEMA_VERSION;
       template.connectorRelationships = Array.isArray(template.connectorRelationships)
@@ -86457,17 +86498,28 @@
             : uniqueDeviceTemplateId(editedTemplate.id || editedTemplate.name || "project-custom-device", deviceLibrary);
           markProjectCustomDeviceTemplate(editedTemplate);
           validateEditorTemplateForApply(editedTemplate);
+          const beforeSnapshot = deviceEditorEngineSnapshot();
+          const oldTemplate = deviceLibrary.find(template => template.id === editedTemplate.id);
+          const projectorChanged = JSON.stringify(AVDesignerProjectors.normalizeProjectorTemplate(oldTemplate))
+            !== JSON.stringify(AVDesignerProjectors.normalizeProjectorTemplate(editedTemplate));
           pushUndo();
           const existingIndex = deviceLibrary.findIndex(template => template.id === editedTemplate.id);
           if (existingIndex >= 0) deviceLibrary.splice(existingIndex, 1, editedTemplate);
           else deviceLibrary.push(editedTemplate);
           normalizeProjectCustomTemplates(deviceLibrary);
+          const projectorInstances = projectorChanged ? state.devices.filter(instance => instance.templateId === editedTemplate.id) : [];
+          projectorInstances.forEach(instance => {
+            if (instance.templateOverride) Object.assign(instance.templateOverride, AVDesignerProjectors.normalizeProjectorTemplate(editedTemplate));
+            instance.selectedProjectorLensId = AVDesignerProjectors.resolveProjectorLens(templateForInstance(instance), instance).selectedProjectorLensId;
+          });
+          const afterSnapshot = deviceEditorEngineSnapshot();
           closeDeviceEditor();
           renderProjectCustomDevices();
           renderDeviceLibrary();
           renderRackBuilderSources();
           renderInspector();
           updateUndoRedoButtons();
+          if (projectorChanged) commitDeviceEditorApplyToEngineBridge(beforeSnapshot, afterSnapshot, projectorInstances.map(instance => instance.instanceId));
           setStatus(`${editedTemplate.name || "Project device"} saved to Project Devices.`);
           return;
         }
@@ -88960,6 +89012,7 @@
       addEthernetSwitchPorts.disabled = !editorEthernetSwitch.checked;
       editorPowerDistro.checked = template.isPowerDistro === true;
       editorMatrixRouter.checked = template.isMatrixRouter === true;
+      renderProjectorLensEditor();
       editorPartOfPair.checked = template.isPartOfPair === true;
       editorPairTemplate.innerHTML = pairTemplateOptions(template);
       if (!editorDraft.some(device => device.id === template.pairedTemplateId && device.id !== template.id)) template.pairedTemplateId = "";
@@ -88979,6 +89032,32 @@
       renderRackBuilder();
       renderDeviceEditorPreview();
       renderDeviceAuthoringDebugPanel();
+    }
+
+    function renderProjectorLensEditor() {
+      const template = currentEditorTemplate();
+      if (!template) return;
+      Object.assign(template, AVDesignerProjectors.normalizeProjectorTemplate(template));
+      editorProjector.checked = template.isProjector;
+      editorProjectorLenses.dataset.active = String(template.isProjector);
+      const rows = template.projectorLenses.length ? template.projectorLenses : [{ id: "", name: "" }];
+      editorProjectorLenses.innerHTML = rows.map((lens, index) => `
+        <div class="projector-lens-row" data-lens-id="${escapeAttr(lens.id)}">
+          <input type="text" aria-label="Lens ${index + 1}" value="${escapeAttr(lens.name)}" ${template.isProjector ? "" : "disabled"}>
+          <button type="button" class="tool-button" data-add-projector-lens aria-label="Add lens" title="Add lens" ${template.isProjector ? "" : "disabled"}>+</button>
+        </div>`).join("");
+    }
+
+    function editorLensForRow(row) {
+      const template = currentEditorTemplate();
+      let lens = template.projectorLenses.find(entry => entry.id === row.dataset.lensId);
+      if (!lens) {
+        const { addedLensId, ...metadata } = AVDesignerProjectors.insertProjectorLens(template);
+        Object.assign(template, metadata);
+        row.dataset.lensId = addedLensId;
+        lens = template.projectorLenses.find(entry => entry.id === addedLensId);
+      }
+      return lens;
     }
 
     function renderEditorTabs() {
@@ -90880,6 +90959,8 @@
         switchPortType: template.switchPortType || "1g-rj45",
         isPowerDistro: template.isPowerDistro === true,
         isMatrixRouter: template.isMatrixRouter === true,
+        isProjector: template.isProjector === true,
+        projectorLenses: template.projectorLenses || [],
         isPartOfPair: template.isPartOfPair === true,
         pairedTemplateId: template.pairedTemplateId || "",
         pairPlaceFirst: template.pairPlaceFirst === true,
@@ -90934,6 +91015,7 @@
       template.switchPortType = defaults.switchPortType || "1g-rj45";
       template.isPowerDistro = defaults.isPowerDistro === true;
       template.isMatrixRouter = defaults.isMatrixRouter === true;
+      Object.assign(template, AVDesignerProjectors.normalizeProjectorTemplate(defaults));
       template.isPartOfPair = defaults.isPartOfPair === true;
       template.pairedTemplateId = template.isPartOfPair ? (defaults.pairedTemplateId || "") : "";
       template.pairPlaceFirst = template.isPartOfPair && defaults.pairPlaceFirst === true;
@@ -91059,6 +91141,8 @@
         isPowerDistro: false,
         isMatrixRouter: false,
         isPartOfPair: false,
+        isProjector: false,
+        projectorLenses: [],
         pairedTemplateId: "",
         pairPlaceFirst: false,
         connectorRelationships: [],
@@ -107734,6 +107818,8 @@
       const instance = instanceById(instanceId);
       const template = templateForInstance(instance);
       if (!instance || !template) return;
+      const projector = AVDesignerProjectors.resolveProjectorLens(template, instance);
+      const lenses = projector.projectorLenses.filter(lens => lens.name);
       inspectorBody.innerHTML = `
         <dl class="details">
           <dt>Type</dt><dd>${escapeHtml(deviceTypeInspectorLabel(template))}</dd>
@@ -107745,6 +107831,12 @@
           <input id="deviceNameInput" type="text" value="${escapeAttr(instance.name || template.name || "Device")}">
         </div>
         ${renderPositionInputs("device", instance)}
+        ${projector.isProjector ? `<div class="field">
+          <label for="deviceProjectorLens">Lens</label>
+          <select id="deviceProjectorLens" ${lenses.length ? "" : "disabled"}>
+            ${lenses.length ? lenses.map(lens => `<option value="${escapeAttr(lens.id)}" ${lens.id === projector.selectedProjectorLensId ? "selected" : ""}>${escapeHtml(lens.name)}</option>`).join("") : '<option value="">No lenses configured</option>'}
+          </select>
+        </div>` : ""}
         ${connectedNodesMarkup(instance, template)}
         <div class="field">
           <label for="deviceNotes">Notes</label>
@@ -107756,6 +107848,16 @@
         <button class="tool-button" id="deviceTechSpecsButton" type="button">Device Tech Specs</button>
       `;
       bindPositionInputs("device", instance, { type: "device", id: instance.instanceId });
+      document.getElementById("deviceProjectorLens")?.addEventListener("change", event => {
+        const selectedProjectorLensId = event.target.value;
+        const bridge = activeEngineBridge();
+        if (bridge) bridge.commitObjectInspectorFields(instance.instanceId, { selectedProjectorLensId });
+        else {
+          pushUndo();
+          instance.selectedProjectorLensId = AVDesignerProjectors.resolveProjectorLens(template, { selectedProjectorLensId }).selectedProjectorLensId;
+          render();
+        }
+      });
       bindConnectedNodeInspector();
       bindDeferredCanvasTextCommit(
         document.getElementById("deviceNameInput"),
@@ -110746,6 +110848,29 @@ document.addEventListener("click", function(event) {
       if (!template) return;
       template.isMatrixRouter = editorMatrixRouter.checked;
       renderDeviceEditor();
+    });
+    editorProjector.addEventListener("change", () => {
+      const template = currentEditorTemplate();
+      if (!template) return;
+      template.isProjector = editorProjector.checked;
+      renderDeviceEditor();
+    });
+    editorProjectorLenses.addEventListener("input", event => {
+      if (!event.target.matches("input") || !currentEditorTemplate()?.isProjector) return;
+      editorLensForRow(event.target.closest(".projector-lens-row")).name = event.target.value.trim();
+      renderDeviceEditorPreview();
+    });
+    editorProjectorLenses.addEventListener("change", event => {
+      if (event.target.matches("input")) event.target.value = event.target.value.trim();
+    });
+    editorProjectorLenses.addEventListener("click", event => {
+      const button = event.target.closest("[data-add-projector-lens]");
+      if (!button || !currentEditorTemplate()?.isProjector) return;
+      const lens = editorLensForRow(button.closest(".projector-lens-row"));
+      const { addedLensId, ...metadata } = AVDesignerProjectors.insertProjectorLens(currentEditorTemplate(), lens.id);
+      Object.assign(currentEditorTemplate(), metadata);
+      renderProjectorLensEditor();
+      [...editorProjectorLenses.querySelectorAll(".projector-lens-row")].find(row => row.dataset.lensId === addedLensId)?.querySelector("input")?.focus();
     });
     function applyPairEditorSettings() {
       const template = currentEditorTemplate();

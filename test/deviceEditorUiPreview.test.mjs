@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
+import * as AVDesignerProjectors from "../src/engine/projectorModel.js";
 
 import {
   createPreviewDeviceFromDraft,
@@ -415,6 +416,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     RegExp,
     structuredClone,
     EDITOR_DEVICE_DEFINITION_SCHEMA_VERSION: 2,
+    AVDesignerProjectors,
     FACE_TOP_Y: 20,
     FACE_HEIGHT: 44,
     FACE_MARGIN: 12,
@@ -1693,7 +1695,7 @@ test("Device tab uses compact feature groups with dependent controls beside togg
 
   assert.match(featurePane, /Device Options/);
   expectedLabels.forEach(label => assert.match(featurePane, new RegExp(`>${label}<`), `${label} label`));
-  assert.equal((featurePane.match(/editor-feature-separator/g) || []).length, 6, "feature groups should be separated");
+  assert.equal((featurePane.match(/editor-feature-separator/g) || []).length, 7, "feature groups should be separated");
   assert.doesNotMatch(devicePanel, />Object Type</);
   assert.doesNotMatch(devicePanel, />Swappable Cards</);
   assert.doesNotMatch(devicePanel, />LED Processor</);

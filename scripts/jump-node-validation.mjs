@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-35-4-clipboard-image-mime-normalization";
+const BUILD_ID = "iteration54-36-0-selectable-projector-lenses";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -51,12 +51,12 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Clipboard Image MIME Normalization");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-35-4-clipboard-image-mime-normalization-modules";'), "module cache key should identify Clipboard Image MIME Normalization");
-assert.ok(indexHtml.includes("Clipboard Image MIME Normalization"), "visible build label should name Clipboard Image MIME Normalization");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-31-1-bidirectional-jump-node-support"'), "Engine bridge version should identify Bidirectional Jump Node Support");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "bidirectional-jump-node-support"'), "Engine bridge feature label should identify Bidirectional Jump Node Support");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-31-1-bidirectional-jump-node-support"), "bridge fingerprint should identify Bidirectional Jump Node Support");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Selectable Projector Lenses");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-36-0-selectable-projector-lenses-modules";'), "module cache key should identify Selectable Projector Lenses");
+assert.ok(indexHtml.includes("Selectable Projector Lenses"), "visible build label should name Selectable Projector Lenses");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-36-0-selectable-projector-lenses"'), "Engine bridge version should identify Selectable Projector Lenses");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses"'), "Engine bridge feature label should identify Selectable Projector Lenses");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-36-0-selectable-projector-lenses"), "bridge fingerprint should identify Selectable Projector Lenses");
 assert.ok(rendererSource.includes("renderer-iteration54-33-0-engine-vector-pdf-output"), "renderer fingerprint should identify Engine Vector PDF Output");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");

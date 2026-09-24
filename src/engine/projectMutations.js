@@ -166,6 +166,7 @@ export class ProjectMutationAdapter {
       "powerUnit",
       "showInternalWiring",
       "showInternalMatrixRouting",
+      "selectedProjectorLensId",
       "title",
       "text",
       "backgroundColor",
