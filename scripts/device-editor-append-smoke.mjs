@@ -89,6 +89,7 @@ async function rapidEmptyNodeSmoke(page, mode) {
     assert.deepEqual(Object.fromEntries(start.masks), Object.fromEntries(before.items.map(i => [i.id, i.sideMask])));
     const y = await page.evaluate(() => {
       const d = editorNodeDrag;
+      if (d.persistentAuthoringDrag) return d.pointerStartClientY - d.originalLane * Math.max(12, d.projectedLanePx);
       const p = requireDeviceEditorPlacementModule().authoringInsertionBoundaryScreenPositions(d.session, { projectedLanePx: d.projectedLanePx, minimumStepPx: 12 });
       return d.pointerStartClientY + p[0] - p[d.originalBoundaryIndex];
     });
@@ -329,6 +330,7 @@ try {
       template.hasSwappableCards = true;
       template.cardTypes = [{ id: "io-card", name: "I/O Card", kind: "io", connectors: [connector("card-in", "input", 0), connector("card-in-2", "input", 1), connector("card-out", "output", 0)] }];
       template.cardSlots = [{ id: "slot", name: "Installed I/O", installedCardTypeId: "io-card", y: connectorStartYForTemplate(template) + 3 * SLOT_HEIGHT, connectorOverrides: { "card-in": { nameText: "Installed Input" } } }];
+      normalizeConnectorRows(template);
       renderDeviceEditor();
     });
     const mixed = await snapshot(page);

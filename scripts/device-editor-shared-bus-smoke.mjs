@@ -43,6 +43,7 @@ try {
     }));
     const start = async id => {
       await quiet();
+      await page.locator("#editorZoomReset").click();
       const before = await read();
       const hit = page.locator(`#deviceEditorPreview [data-editor-node-id="${id}"] circle`).first();
       const box = await hit.boundingBox();
@@ -57,7 +58,9 @@ try {
     };
     const moveBoundary = async index => {
       const point = await page.evaluate(index => {
-        const d = editorNodeDrag, p = requireDeviceEditorPlacementModule().authoringInsertionBoundaryScreenPositions(d.session, { projectedLanePx: d.projectedLanePx, minimumStepPx: 12 });
+        const d = editorNodeDrag, module = requireDeviceEditorPlacementModule();
+        const p = d.persistentAuthoringDrag ? Array.from({ length: 1 + module.persistentTargetLane(d.session, d.selectedDraggedItemIds, 1e9, { primaryId: d.itemId }) }, (_, lane) => (lane - d.originalLane) * Math.max(12, d.projectedLanePx))
+          : module.authoringInsertionBoundaryScreenPositions(d.session, { projectedLanePx: d.projectedLanePx, minimumStepPx: 12 });
         const svg = editorInteractionSvg;
         const c = currentEditorTemplate().connectors.find(c => c.id === d.connectorId);
         const a = getEditorPreviewPointAtClient(0, 0, svg), b = getEditorPreviewPointAtClient(1, 0, svg);
@@ -99,7 +102,7 @@ try {
     assert.equal((await read()).json, cancel.json);
     assert.deepEqual((await read()).selected, cancel.selected);
 
-    // Default capture/reset and JSON reload retain actual IDs and compact coordinates.
+    // Default capture/reset and JSON reload retain actual IDs and authored coordinates.
     const saved = await page.evaluate(() => {
       const t = currentEditorTemplate(); saveTemplateAsDefault(t);
       const before = JSON.stringify(t.connectors);

@@ -106,7 +106,7 @@ try {
     await page.evaluate(() => fillEditorSlotById("empty", "hdmi")); await check("fill empty");
     const dragState = () => page.evaluate(() => {
       const d = editorNodeDrag || editorCardSlotDrag;
-      return { id: d?.itemId, boundary: d?.currentBoundaryIndex, original: d?.originalBoundaryIndex, count: d?.session?.boundaries.length,
+      return { id: d?.itemId, boundary: d?.currentBoundaryIndex, original: d?.originalBoundaryIndex, count: d?.persistentAuthoringDrag && d?.session ? 1 + requireDeviceEditorPlacementModule().persistentTargetLane(d.session, d.selectedDraggedItemIds, 1e9, { primaryId: d.itemId }) : d?.session?.boundaries?.length,
         mode: d?.interactionMode,
         selection: d?.handoffUsed || d?.rigidSharedBus ? JSON.parse(d.handoffBaseline.selectionJson) : d?.selectionSnapshot,
         positions: Object.fromEntries(editorPreviewPositions(currentEditorTemplate())),
@@ -130,7 +130,9 @@ try {
     const boundary = async target => {
       const p = await page.evaluate(target => {
         const d = editorNodeDrag || editorCardSlotDrag;
-        const positions = requireDeviceEditorPlacementModule().authoringInsertionBoundaryScreenPositions(d.session, { projectedLanePx: d.projectedLanePx, minimumStepPx: 12 });
+        const module = requireDeviceEditorPlacementModule();
+        const positions = d.persistentAuthoringDrag ? Array.from({ length: 1 + module.persistentTargetLane(d.session, d.selectedDraggedItemIds, 1e9, { primaryId: d.itemId }) }, (_, lane) => (lane - d.originalLane) * Math.max(12, d.projectedLanePx))
+          : module.authoringInsertionBoundaryScreenPositions(d.session, { projectedLanePx: d.projectedLanePx, minimumStepPx: 12 });
         const index = target === -1 ? positions.length - 1 : target;
         const a = getEditorPreviewPointAtClient(0, 0, editorInteractionSvg), b = getEditorPreviewPointAtClient(1, 1, editorInteractionSvg);
         const x = d.kind === "card" ? deviceTemplateWidth(currentEditorTemplate()) / 2 : currentEditorTemplate().connectors.find(c => c.id === d.connectorId).x;

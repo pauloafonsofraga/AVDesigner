@@ -1571,6 +1571,137 @@ export function createModularStructuralEditSession(itemsOrLayout = [], options =
   });
 }
 
+// Chassis authoring preserves empty lanes. Compact card authoring deliberately
+// remains a separate interaction contract; neither mode changes the static solver.
+export function createPersistentModularLayoutSession(itemsOrLayout = [], options = {}) {
+  const raw = Array.isArray(itemsOrLayout) ? itemsOrLayout : itemsOrLayout.items;
+  const items = [...raw].sort((a, b) => String(a.id).localeCompare(String(b.id)))
+    .map((item, index) => ({ ...item, sourceIndex: index, order: item.order ?? index }));
+  const snapshot = freezeStructuralSnapshot(items, {
+    startY: options.startY ?? itemsOrLayout.startY,
+    slotHeight: options.slotHeight ?? itemsOrLayout.slotHeight
+  });
+  return Object.freeze({
+    snapshot, startY: snapshot.startY, slotHeight: snapshot.slotHeight,
+    capacity: Math.max(snapshot.endLane, Math.floor(finiteNumber(options.capacity, snapshot.endLane)))
+  });
+}
+
+function persistentSelection(session, movingIds, options = {}) {
+  const ids = [...new Set(movingIds)].sort();
+  if (!ids.length || ids.some(id => !session.snapshot.byId[id])) throw new Error("Invalid persistent move selection.");
+  const primary = session.snapshot.byId[options.primaryId || ids[0]];
+  if (!primary || !ids.includes(primary.id)) throw new Error("Invalid persistent move primary.");
+  const members = ids.map(id => session.snapshot.byId[id]);
+  return { ids, primary, members,
+    minOffset: Math.min(...members.map(item => item.lane - primary.lane)),
+    maxOffset: Math.max(...members.map(item => item.lane - primary.lane + item.span)) };
+}
+
+export function persistentTargetLane(session, movingIds, targetLane, options = {}) {
+  const selection = persistentSelection(session, movingIds, options);
+  const lower = Math.max(0, -selection.minOffset);
+  // Permit one extension boundary per gesture, independent of raw pointer travel.
+  const upper = Math.max(lower, session.capacity + 1 - selection.maxOffset);
+  return Math.max(lower, Math.min(upper, Math.round(finiteNumber(targetLane, selection.primary.lane))));
+}
+
+export function persistentTargetLaneWithHysteresis(pointerClientY, options = {}) {
+  const { session, movingIds, primaryId } = options;
+  const origin = session.snapshot.byId[primaryId].lane;
+  const step = Math.max(12, positiveNumber(options.projectedLanePx, 12));
+  const raw = origin + (finiteNumber(pointerClientY, options.pointerStartClientY) - options.pointerStartClientY) / step;
+  const previous = finiteNumber(options.previousTargetLane, origin);
+  const hysteresis = Math.min(0.45, 2 / step);
+  const target = Math.abs(raw - previous) <= 0.5 + hysteresis ? previous : Math.round(raw);
+  return persistentTargetLane(session, movingIds, target, { primaryId });
+}
+
+function persistentDirectionalRepair(items, selected, reservations, direction) {
+  const stationary = items.filter(item => !selected.has(item.id)).sort(originalPlacementComparator);
+  if (direction < 0) stationary.reverse();
+  const lanes = new Map(reservations);
+  const sideEnds = { left: direction > 0 ? 0 : Infinity, right: direction > 0 ? 0 : Infinity };
+  const moving = items.filter(item => selected.has(item.id))
+    .sort((a, b) => direction * (reservations.get(a.id) - reservations.get(b.id)));
+  let workCount = 0;
+  for (const item of stationary) {
+    const sides = sideMaskSides(item.sideMask);
+    let lane = direction > 0
+      ? Math.max(item.lane, ...sides.map(side => sideEnds[side]))
+      : Math.min(item.lane, ...sides.map(side => sideEnds[side] - item.span));
+    // Jump over reserved intervals, not individual lanes. Work depends on items,
+    // never on the size of an intentional gap or pointer distance.
+    for (const reserved of moving) {
+      workCount += 1;
+      const at = reservations.get(reserved.id);
+      if (sides.some(side => itemOccupiesSide(reserved, side)) && intervalsOverlap(lane, item.span, at, at + reserved.span)) {
+        lane = direction > 0 ? at + reserved.span : at - item.span;
+      }
+    }
+    if (lane < 0) return null;
+    lanes.set(item.id, lane);
+    sides.forEach(side => { sideEnds[side] = direction > 0 ? lane + item.span : lane; });
+    workCount += 1;
+  }
+  return { lanes, workCount };
+}
+
+export function isValidPersistentModularResult(session, result, options = {}) {
+  try {
+    const { movingIds = [], targetLane, primaryId } = options;
+    const selection = persistentSelection(session, movingIds, { primaryId });
+    const expectedTarget = persistentTargetLane(session, movingIds, targetLane, { primaryId });
+    const items = result.items;
+    if (items.length !== session.snapshot.items.length || new Set(items.map(item => item.id)).size !== items.length) return false;
+    const lanes = new Map(items.map(item => [item.id, item.lane]));
+    if (items.some(item => {
+      const original = session.snapshot.byId[item.id];
+      return !original || !Number.isSafeInteger(item.lane) || item.lane < 0
+        || item.span !== original.span || item.sideMask !== original.sideMask || item.order !== original.order
+        || item.itemType !== original.itemType
+        || item.y !== layoutYForLane(item.lane, session.startY, session.slotHeight)
+        || JSON.stringify(item.memberIds || []) !== JSON.stringify(original.memberIds || []);
+    })) return false;
+    if (selection.members.some(item => lanes.get(item.id) !== expectedTarget + item.lane - selection.primary.lane)) return false;
+    return candidateHasNoOverlap(items, lanes)
+      && candidatePreservesStationaryOrderExcept(session.snapshot.items, lanes, new Set(movingIds))
+      && result.endLane === Math.max(0, ...items.map(item => item.lane + item.span));
+  } catch { return false; }
+}
+
+export function resolvePersistentModularMove(session, movingIds, targetLane, options = {}) {
+  const selection = persistentSelection(session, movingIds, options);
+  const target = persistentTargetLane(session, movingIds, targetLane, options);
+  const reservations = new Map(selection.members.map(item => [item.id, target + item.lane - selection.primary.lane]));
+  const selected = new Set(selection.ids);
+  const direction = target < selection.primary.lane ? -1 : 1;
+  const repair = persistentDirectionalRepair(session.snapshot.items, selected, reservations, direction)
+    || persistentDirectionalRepair(session.snapshot.items, selected, reservations, 1);
+  if (!repair) throw new Error("Unable to repair persistent modular move.");
+  const layout = freezeStructuralSnapshot(session.snapshot.items.map(item => ({
+    ...item, lane: repair.lanes.get(item.id)
+  })), session);
+  const result = Object.freeze({ ...layout, workCount: repair.workCount, targetLane: target });
+  if (!isValidPersistentModularResult(session, result, { movingIds, targetLane, primaryId: selection.primary.id })) {
+    throw new Error("Persistent modular move failed validation.");
+  }
+  return result;
+}
+
+export function resolvePersistentStructuralEdit(session, edit = {}, options = {}) {
+  const pending = session.snapshot.items.filter(item => !(edit.removeIds || []).includes(item.id));
+  const upserts = (edit.upserts || []).map(upsert => {
+    if (session.snapshot.byId[upsert.id] || upsert.targetLane !== undefined) return upsert;
+    const sides = sideMaskSides(upsert.sideMask);
+    const targetLane = Math.max(0, ...pending.filter(item => sides.some(side => itemOccupiesSide(item, side))).map(item => item.lane + item.span));
+    pending.push({ ...upsert, lane: targetLane, span: upsert.span || 1 });
+    return { ...upsert, targetLane };
+  });
+  const result = resolveModularStructuralEdit(session, { ...edit, upserts, compactVacatedSpace: false }, options);
+  return Object.freeze({ ...freezeStructuralSnapshot(result, options), structuralEdit: result.structuralEdit });
+}
+
 function structuralFieldValue(raw = {}, field = "") {
   if (!(field in raw)) return undefined;
   if (field === "sideMask") {
