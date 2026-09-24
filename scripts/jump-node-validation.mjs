@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-34-2-interactive-pdf-jump-navigation";
+const BUILD_ID = "iteration54-35-0-compact-matrix-crosspoints";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -51,9 +51,9 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Engine Vector PDF Output");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-34-2-interactive-pdf-jump-navigation-modules";'), "module cache key should identify Interactive PDF Jump Navigation");
-assert.ok(indexHtml.includes("Interactive PDF Jump Navigation"), "visible build label should name Interactive PDF Jump Navigation");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Compact Matrix Crosspoints");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-35-0-compact-matrix-crosspoints-modules";'), "module cache key should identify Compact Matrix Crosspoints");
+assert.ok(indexHtml.includes("Compact Matrix Crosspoints"), "visible build label should name Compact Matrix Crosspoints");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-31-1-bidirectional-jump-node-support"'), "Engine bridge version should identify Bidirectional Jump Node Support");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "bidirectional-jump-node-support"'), "Engine bridge feature label should identify Bidirectional Jump Node Support");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-31-1-bidirectional-jump-node-support"), "bridge fingerprint should identify Bidirectional Jump Node Support");
