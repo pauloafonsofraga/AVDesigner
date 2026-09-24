@@ -15,7 +15,7 @@ import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { connectorOperationalStatusMarkSegments } from "../src/engine/renderer.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 
-const BUILD_ID = "iteration54-36-3-adapter-topology-thumbnails";
+const BUILD_ID = "iteration54-36-4-global-built-in-defaults";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -24,8 +24,8 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const projectAdapterSource = readFileSync(resolve(repoRoot, "src/engine/projectAdapter.js"), "utf8");
 const mutationSource = readFileSync(resolve(repoRoot, "src/engine/projectMutations.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Adapter Topology Thumbnails");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-36-3-adapter-topology-thumbnails-modules";'), "module cache key should bust 54.36.3 modules");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Global Built-In Defaults");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-36-4-global-built-in-defaults-modules";'), "module cache key should bust 54.36.4 modules");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-36-0-selectable-projector-lenses"'), "bridge version should identify Selectable Projector Lenses");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses"'), "bridge feature label should identify Selectable Projector Lenses");
 assert.ok(rendererSource.includes("renderer-iteration54-36-2-connector-plug-captions"), "renderer fingerprint should identify Connector Plug Captions");

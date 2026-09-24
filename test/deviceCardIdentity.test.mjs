@@ -25,7 +25,8 @@ class Element {
 
 function harness(devices = [fixture], filter = "", entries = devices.map(device => ({ kind: "device", device }))) {
   const context = vm.createContext({
-    Element, structuredClone,
+    Element, structuredClone, localUserSettingsLoaded: true,
+    effectiveLibraryTemplate: template => template,
     document: { createElement: () => new Element(), body: new Element() },
     deviceList: new Element(), customDeviceList: new Element(),
     searchInput: { value: filter }, customDeviceSearch: { value: filter },
