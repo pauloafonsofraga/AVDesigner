@@ -135,11 +135,11 @@ try {
           await copySelectedCanvasObjects();
           await pasteCanvasObjects();
         }
-        return { links: state.jumpLinks, wireCount: state.connections.length,
+        return { links: state.jumpLinks, wireCount: state.connections.length, status: document.querySelector("#statusText").textContent,
           roles: state.jumpLinks.map(l => [jumpNodeRole(l.outputJumpId).role, jumpNodeRole(l.inputJumpId).role]),
           warnings: jumpGestureModule.validateJumpLinks(state, { getConnector: e => connectorById(e.deviceId, e.connectorId) }).warnings };
       }, operation);
-      assert.equal(copied.links.length, 2); assert.equal(copied.wireCount, 4);
+      assert.equal(copied.links.length, 2, copied.status); assert.equal(copied.wireCount, 4, copied.status);
       assert.notEqual(copied.links[0].outputJumpId, copied.links[1].outputJumpId);
       assert.deepEqual(copied.roles, [["output", "input"], ["output", "input"]]); assert.deepEqual(copied.warnings, []);
       pass(`${mode}: ${operation} remaps link IDs and preserves bidirectional roles`);

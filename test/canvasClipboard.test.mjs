@@ -22,9 +22,9 @@ test("mixed selection serializes deterministically, detached, with only required
 });
 
 test("rejects unsupported versions, corrupt JSON, non-selection text and oversized input", () => {
-  for (const text of ["AVDESIGNER_SELECTION_V2:{}", clipboard.CLIPBOARD_PREFIX + "{", "plain text",
+  for (const text of ["AVDESIGNER_SELECTION_V1:{}", "AVDESIGNER_SELECTION_V3:{}", clipboard.CLIPBOARD_PREFIX + "{", "plain text",
     clipboard.CLIPBOARD_PREFIX + "x".repeat(clipboard.CLIPBOARD_LIMITS.bytes + 1)]) assert.throws(() => clipboard.parseCanvasClipboard(text));
-  const { payload } = fixture(); payload.version = 2;
+  const { payload } = fixture(); payload.version = 3;
   assert.throws(() => clipboard.validateCanvasClipboardPayload(payload), /version/);
 });
 
@@ -108,6 +108,15 @@ test("built-in definitions are referenced and unavailable dependencies fail befo
   assert.equal(payload.deviceLibrary.length, 0);
   assert.throws(() => clipboard.prepareCanvasClipboardPaste(payload, {}, target), /missing device definition/);
   assert.doesNotThrow(() => clipboard.prepareCanvasClipboardPaste(payload, { deviceLibrary: project.deviceLibrary }, target));
+});
+
+test("override-only devices retain absent optional template IDs throughout paste and undo/redo", () => {
+  const { payload } = fixture();
+  for (const device of payload.devices) if (device.templateOverride) delete device.templateId;
+  const plan = clipboard.prepareCanvasClipboardPaste(payload, {}, target);
+  for (const device of plan.additions.devices) if (device.templateOverride) assert.equal(Object.hasOwn(device, "templateId"), false);
+  const next = clipboard.applyCanvasClipboardPlan({}, plan);
+  assert.deepEqual(clipboard.applyCanvasClipboardPlan(clipboard.applyCanvasClipboardPlan(next, plan, false), plan), next);
 });
 
 test("single Jump is detached and partial rack selection becomes an independent device", () => {

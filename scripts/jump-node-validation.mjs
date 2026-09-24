@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-35-2-cross-tab-canvas-clipboard";
+const BUILD_ID = "iteration54-35-3-asset-safe-cross-tab-clipboard";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -51,9 +51,9 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Cross-Tab Canvas Clipboard");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-35-2-cross-tab-canvas-clipboard-modules";'), "module cache key should identify Cross-Tab Canvas Clipboard");
-assert.ok(indexHtml.includes("Cross-Tab Canvas Clipboard"), "visible build label should name Cross-Tab Canvas Clipboard");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Asset-Safe Cross-Tab Clipboard");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-35-3-asset-safe-cross-tab-clipboard-modules";'), "module cache key should identify Asset-Safe Cross-Tab Clipboard");
+assert.ok(indexHtml.includes("Asset-Safe Cross-Tab Clipboard"), "visible build label should name Asset-Safe Cross-Tab Clipboard");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-31-1-bidirectional-jump-node-support"'), "Engine bridge version should identify Bidirectional Jump Node Support");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "bidirectional-jump-node-support"'), "Engine bridge feature label should identify Bidirectional Jump Node Support");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-31-1-bidirectional-jump-node-support"), "bridge fingerprint should identify Bidirectional Jump Node Support");

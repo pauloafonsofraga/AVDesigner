@@ -1,7 +1,7 @@
 import { normalizeAvDesignerDevice } from "./projectAdapter.js";
 
-export const CLIPBOARD_PREFIX = "AVDESIGNER_SELECTION_V1:";
-export const CLIPBOARD_STORAGE_KEY = "avdesigner.canvas-clipboard.v1";
+export const CLIPBOARD_PREFIX = "AVDESIGNER_SELECTION_V2:";
+export const CLIPBOARD_STORAGE_KEY = "avdesigner.canvas-clipboard.v2";
 export const CLIPBOARD_TTL_MS = 30 * 60 * 1000;
 export const CLIPBOARD_LIMITS = Object.freeze({ bytes: 16 * 1024 * 1024, objects: 1000, wires: 5000, nodes: 250000, depth: 48 });
 export const CLIPBOARD_COLLECTIONS = Object.freeze({
@@ -16,42 +16,52 @@ const validId = id => typeof id === "string" && id.length > 0 && id.length <= 51
 const finite = n => typeof n === "number" && Number.isFinite(n) && Math.abs(n) <= 1e8;
 
 // Reject non-JSON values before cloning: JSON.stringify otherwise silently drops them.
-export function clipboardJson(value) {
-  let nodes = 0, characters = 0;
+export const isClipboardAssetSource = value => typeof value === "string" && /^(data:image\/|blob:)/i.test(value);
+
+export function clipboardJson(value, { allowImageAssets = false } = {}) {
+  let nodes = 0, bytes = 0;
   const seen = new Set();
+  const account = text => {
+    bytes += new TextEncoder().encode(text).length;
+    if (bytes > CLIPBOARD_LIMITS.bytes) fail(`non-asset JSON is too large (${bytes} bytes; limit ${CLIPBOARD_LIMITS.bytes})`);
+  };
   const visit = (entry, depth) => {
     if (++nodes > CLIPBOARD_LIMITS.nodes || depth > CLIPBOARD_LIMITS.depth) fail("structure is too large");
-    if (entry === null || typeof entry === "boolean") return entry;
-    if (typeof entry === "number") { if (!Number.isFinite(entry)) fail("non-finite number"); return entry; }
+    if (entry === null || typeof entry === "boolean") { account(JSON.stringify(entry)); return entry; }
+    if (typeof entry === "number") { if (!Number.isFinite(entry)) fail("non-finite number"); account(String(entry)); return entry; }
     if (typeof entry === "string") {
-      characters += entry.length;
-      if (characters > CLIPBOARD_LIMITS.bytes) fail("text is too large");
+      account(allowImageAssets && isClipboardAssetSource(entry) ? '""' : JSON.stringify(entry));
       return entry;
     }
     if (typeof entry !== "object" || seen.has(entry)) fail("only acyclic JSON data is allowed");
     const prototype = Object.getPrototypeOf(entry);
     if (!Array.isArray(entry) && prototype !== Object.prototype && prototype !== null) fail("only plain objects are allowed");
     seen.add(entry);
+    account("[]" + ",".repeat(Math.max(0, Object.keys(entry).length - 1)));
     const result = Array.isArray(entry) ? entry.map(item => visit(item, depth + 1)) : {};
     if (!Array.isArray(entry)) for (const key of Object.keys(entry).sort()) {
       if (!validId(key)) fail("unsafe property name");
+      account(JSON.stringify(key) + ":");
       result[key] = visit(entry[key], depth + 1);
     }
     seen.delete(entry);
     return result;
   };
   const result = visit(value, 0);
-  if (new TextEncoder().encode(JSON.stringify(result)).length > CLIPBOARD_LIMITS.bytes) fail("text is too large");
   return result;
 }
+
+// Detach mutable containers while retaining immutable image strings. Structured
+// cloning repeatedly copies large strings before the asset envelope can dedupe them.
+const cloneClipboardData = value => clipboardJson(value, { allowImageAssets: true });
 
 export function countClipboardObjects(payload) {
   return Object.values(CLIPBOARD_COLLECTIONS).reduce((sum, key) => sum + (payload?.[key]?.length || 0), 0);
 }
 
 export function validateCanvasClipboardPayload(value) {
-  const payload = clipboardJson(value);
-  if (payload?.kind !== "avdesigner-selection" || payload.version !== 1) fail("unrecognized kind or version");
+  const payload = clipboardJson(value, { allowImageAssets: true });
+  if (payload?.kind !== "avdesigner-selection" || payload.version !== 2) fail("unrecognized kind or version");
   payload.nodeLibrary ??= [];
   const b = payload.bounds;
   if (!b || ![b.x, b.y, b.width, b.height].every(finite) || b.width <= 0 || b.height <= 0) fail("invalid bounds");
@@ -106,7 +116,7 @@ export function validateCanvasClipboardPayload(value) {
 }
 
 export function serializeCanvasClipboard(payload) {
-  return CLIPBOARD_PREFIX + JSON.stringify(validateCanvasClipboardPayload(payload));
+  return CLIPBOARD_PREFIX + JSON.stringify(clipboardJson(validateCanvasClipboardPayload(payload)));
 }
 
 export function clipboardBlobAssets(payload) {
@@ -114,8 +124,7 @@ export function clipboardBlobAssets(payload) {
   const visit = object => {
     if (!object || typeof object !== "object") return;
     for (const [key, value] of Object.entries(object)) {
-      if (["image", "imageDataUrl", "imageSrc", "faceImage", "thumbnailImage", "src", "thumbnail"].includes(key)
-        && typeof value === "string" && value.startsWith("blob:")) references.push({ object, key, source: value });
+      if (typeof value === "string" && value.startsWith("blob:")) references.push({ object, key, source: value });
       else if (value && typeof value === "object") visit(value);
     }
   };
@@ -131,24 +140,28 @@ export function parseCanvasClipboard(text) {
   if (text.length > CLIPBOARD_LIMITS.bytes + CLIPBOARD_PREFIX.length) fail("text is too large");
   let payload;
   try { payload = JSON.parse(text.slice(CLIPBOARD_PREFIX.length)); } catch { fail("corrupt JSON"); }
-  return validateCanvasClipboardPayload(payload);
+  return validateCanvasClipboardPayload(clipboardJson(payload));
 }
 
-export function writeClipboardFallback(storage, text, now = Date.now()) {
+export function writeClipboardFallback(storage, text, now = Date.now(), systemWritten = false) {
   parseCanvasClipboard(text);
-  storage.setItem(CLIPBOARD_STORAGE_KEY, JSON.stringify({ version: 1, copiedAt: now, text }));
+  storage.setItem(CLIPBOARD_STORAGE_KEY, JSON.stringify({ version: 2, copiedAt: now, text, systemWritten }));
 }
 
-export function readClipboardFallback(storage, now = Date.now()) {
+export function readClipboardFallbackRecord(storage, now = Date.now()) {
   const raw = storage.getItem(CLIPBOARD_STORAGE_KEY);
   if (!raw) return "";
   if (raw.length > CLIPBOARD_LIMITS.bytes * 2) fail("fallback is too large");
   let record;
   try { record = JSON.parse(raw); } catch { fail("invalid fallback record"); }
-  if (record.version !== 1 || !Number.isFinite(record.copiedAt)) fail("invalid fallback record");
+  if (record.version !== 2 || !Number.isFinite(record.copiedAt)) fail("invalid fallback record");
   if (now - record.copiedAt > CLIPBOARD_TTL_MS || record.copiedAt > now + 60000) return "";
   parseCanvasClipboard(record.text);
-  return record.text;
+  return record;
+}
+
+export function readClipboardFallback(storage, now = Date.now()) {
+  return readClipboardFallbackRecord(storage, now)?.text || "";
 }
 
 export function canvasClipboardShortcut(event, apple) {
@@ -186,17 +199,17 @@ export function collectCanvasClipboardSelection(project, items) {
 
 export function createCanvasClipboardPayload(project, selection, bounds, builtins = []) {
   const items = collectCanvasClipboardSelection(project, selection);
-  const payload = { kind: "avdesigner-selection", version: 1, bounds, items, deviceLibrary: [] };
+  const payload = { kind: "avdesigner-selection", version: 2, bounds, items, deviceLibrary: [] };
   for (const key of collections) payload[key] = [];
   const maps = Object.fromEntries(Object.values(CLIPBOARD_COLLECTIONS).map(key => [key, new Map((project[key] || []).map(item => [idOf(item), item]))]));
   for (const item of items) {
     const key = CLIPBOARD_COLLECTIONS[item.type], source = maps[key].get(item.id);
     if (!source) fail("selected object no longer exists");
-    payload[key].push(structuredClone(source));
+    payload[key].push(cloneClipboardData(source));
   }
   const selected = Object.fromEntries(Object.values(CLIPBOARD_COLLECTIONS).map(key => [key, new Map(payload[key].map(item => [idOf(item), idOf(item)]))]));
-  payload.connections = structuredClone((project.connections || []).filter(wire => remapClipboardEndpoint(wire.from, selected) && remapClipboardEndpoint(wire.to, selected)));
-  payload.jumpLinks = structuredClone((project.jumpLinks || []).filter(link => selected.jumpNodes.has(link.outputJumpId) && selected.jumpNodes.has(link.inputJumpId)));
+  payload.connections = cloneClipboardData((project.connections || []).filter(wire => remapClipboardEndpoint(wire.from, selected) && remapClipboardEndpoint(wire.to, selected)));
+  payload.jumpLinks = cloneClipboardData((project.jumpLinks || []).filter(link => selected.jumpNodes.has(link.outputJumpId) && selected.jumpNodes.has(link.inputJumpId)));
   const pairedIds = new Set(payload.jumpLinks.flatMap(link => [link.outputJumpId, link.inputJumpId]));
   payload.jumpNodes.forEach(node => { if (!pairedIds.has(node.id)) delete node.pairId; });
   payload.ledSurfaces.forEach(surface => {
@@ -209,10 +222,10 @@ export function createCanvasClipboardPayload(project, selection, bounds, builtin
     members.forEach(device => { memberMap[device.sourceRackDeviceId || device.instanceId] = device.instanceId; });
     rack.sourceDeviceMap = Object.fromEntries(Object.entries(memberMap).filter(([, id]) => selected.devices.has(id)));
     rack.devices = Object.entries(rack.sourceDeviceMap).map(([id, canvasId]) => ({
-      ...structuredClone((source.devices || []).find(d => d.instanceId === id) || maps.devices.get(canvasId)), instanceId: id, rackId: ""
+      ...cloneClipboardData((source.devices || []).find(d => d.instanceId === id) || maps.devices.get(canvasId)), instanceId: id, rackId: ""
     }));
-    rack.internalConnections = structuredClone(source.internalConnections || []);
-    rack.exposedPorts = structuredClone(source.exposedPorts || []);
+    rack.internalConnections = cloneClipboardData(source.internalConnections || []);
+    rack.exposedPorts = cloneClipboardData(source.exposedPorts || []);
     delete rack.sourceRackId;
   }
   for (const device of payload.devices) if (!selected.racks.has(device.rackId)) {
@@ -223,11 +236,12 @@ export function createCanvasClipboardPayload(project, selection, bounds, builtin
   const used = new Set([...payload.devices, ...payload.racks.flatMap(r => r.devices)].map(d => d.templateId).filter(Boolean));
   for (const id of [...used].sort()) {
     const template = templates.get(id), builtin = builtinById.get(id);
-    if (template && (!builtin || JSON.stringify(clipboardJson(template)) !== JSON.stringify(clipboardJson(builtin)))) payload.deviceLibrary.push(structuredClone(template));
+    if (template && (!builtin || JSON.stringify(clipboardJson(template, { allowImageAssets: true }))
+      !== JSON.stringify(clipboardJson(builtin, { allowImageAssets: true })))) payload.deviceLibrary.push(cloneClipboardData(template));
   }
   const types = new Set();
   visitConnectorTypes(payload, type => { types.add(type); return type; });
-  payload.nodeLibrary = structuredClone((project.nodeLibrary || []).filter(node => node.custom && types.has(node.id)));
+  payload.nodeLibrary = cloneClipboardData((project.nodeLibrary || []).filter(node => node.custom && types.has(node.id)));
   return validateCanvasClipboardPayload(payload);
 }
 
@@ -242,7 +256,7 @@ function visitConnectorTypes(object, resolve) {
 function definitionKey(template) {
   const copy = { ...template };
   for (const key of ["id", "projectCustomDevice", "isProjectCustomDevice", "projectCustomRevision", "visualRevision", "favorite"]) delete copy[key];
-  return JSON.stringify(clipboardJson(copy));
+  return JSON.stringify(clipboardJson(copy, { allowImageAssets: true }));
 }
 
 function fingerprint(text) {
@@ -253,6 +267,8 @@ function fingerprint(text) {
 
 export function prepareCanvasClipboardPaste(value, destination, target) {
   const payload = validateCanvasClipboardPayload(value);
+  const unresolved = object => object && typeof object === "object" && (own(object, "$avdClipboardAsset") || Object.values(object).some(unresolved));
+  if (unresolved(payload)) fail("clipboard assets must be resolved before paste");
   if (clipboardBlobAssets(payload).length) fail("tab-owned image assets must be embedded before copying");
   if (!target || !finite(target.x) || !finite(target.y)) fail("invalid placement");
   const dx = target.x - payload.bounds.x, dy = target.y - payload.bounds.y;
@@ -293,18 +309,18 @@ export function prepareCanvasClipboardPaste(value, destination, target) {
       if (templateIds.has(id)) id = `${id}-clipboard-${fingerprint(key)}`;
       const base = id; let suffix = 2;
       while (templateIds.has(id)) id = `${base}-${suffix++}`;
-      definitions.push({ ...structuredClone(template), id, projectCustomDevice: true, isProjectCustomDevice: true });
+      definitions.push({ ...cloneClipboardData(template), id, projectCustomDevice: true, isProjectCustomDevice: true });
       templateIds.add(id); keys.set(key, id);
     }
     templateMap.set(template.id, id);
   }
   const maps = Object.fromEntries(collections.map(key => [key, new Map(payload[key].map(item => [idOf(item), nextId(key)]))]));
-  const additions = Object.fromEntries(collections.map(key => [key, structuredClone(payload[key])]));
+  const additions = Object.fromEntries(collections.map(key => [key, cloneClipboardData(payload[key])]));
   const templates = [...library, ...definitions];
   const templateById = new Map(templates.map(d => [d.id, d]));
   const updateDevice = device => {
-    device.templateId = templateMap.get(device.templateId) || device.templateId;
-    if (device.templateOverride) device.templateOverride.id = device.templateId || device.templateOverride.id;
+    if (device.templateId) device.templateId = templateMap.get(device.templateId) || device.templateId;
+    if (device.templateOverride && device.templateId) device.templateOverride.id = device.templateId;
     if (!device.templateOverride && !templateById.has(device.templateId)) fail(`missing device definition ${device.templateId}`);
   };
   for (const definition of definitions) if (definition.pairedTemplateId) {
@@ -367,14 +383,14 @@ export function applyCanvasClipboardPlan(project, plan, insert = true) {
   for (const key of collections) {
     const ids = new Set(plan.additions[key].map(idOf));
     if (insert && (project[key] || []).some(item => ids.has(idOf(item)))) fail("paste identity collision");
-    next[key] = insert ? [...(project[key] || []), ...structuredClone(plan.additions[key])]
+    next[key] = insert ? [...(project[key] || []), ...cloneClipboardData(plan.additions[key])]
       : (project[key] || []).filter(item => !ids.has(idOf(item)));
   }
   const current = project.deviceLibrary || [];
   if (insert) {
     const byId = new Map(current.map(d => [d.id, d]));
     if (plan.definitions.some(d => byId.has(d.id) && definitionKey(d) !== definitionKey(byId.get(d.id)))) fail("definition identity collision");
-    next.deviceLibrary = [...current, ...structuredClone(plan.definitions.filter(d => !byId.has(d.id)))];
+    next.deviceLibrary = [...current, ...cloneClipboardData(plan.definitions.filter(d => !byId.has(d.id)))];
   } else {
     const imported = new Set(plan.definitions.map(d => d.id));
     const used = new Set([...next.devices, ...next.racks.flatMap(r => r.devices || [])].map(d => d.templateId));
@@ -384,7 +400,7 @@ export function applyCanvasClipboardPlan(project, plan, insert = true) {
   const nodesById = new Map(currentNodes.map(node => [node.id, node]));
   if (insert) {
     if (addedNodes.some(node => nodesById.has(node.id) && definitionKey(node) !== definitionKey(nodesById.get(node.id)))) fail("node definition collision");
-    next.nodeLibrary = [...currentNodes, ...structuredClone(addedNodes.filter(node => !nodesById.has(node.id)))];
+    next.nodeLibrary = [...currentNodes, ...cloneClipboardData(addedNodes.filter(node => !nodesById.has(node.id)))];
   } else {
     const usedTypes = new Set();
     // Inspect references without mutating the retained project data.

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { canvasClipboardFixture } from "../fixtures/canvas-clipboard.mjs";
+import { runAssetClipboardSmoke } from "./canvas-clipboard-assets-smoke.mjs";
 
 const { chromium } = createRequire(import.meta.url)(process.env.AVDESIGNER_PLAYWRIGHT_PATH || "playwright");
 const browser = await chromium.launch({ headless: true,
@@ -58,7 +59,7 @@ try {
   await shortcut(a, "c");
   await a.waitForFunction(() => document.querySelector("#statusText").textContent.includes("system clipboard"));
   const text = await a.evaluate(() => navigator.clipboard.readText());
-  assert.ok(text.startsWith("AVDESIGNER_SELECTION_V1:"));
+  assert.ok(text.startsWith("AVDESIGNER_SELECTION_V2:"));
   const payload = JSON.parse(text.slice(text.indexOf(":") + 1));
   await shortcut(b, "v");
   await b.waitForFunction(n => state.devices.length === n, 1 + payload.devices.length);
@@ -100,9 +101,10 @@ try {
   await b.evaluate(() => { localStorage.removeItem(canvasClipboardModule.CLIPBOARD_STORAGE_KEY); });
   await shortcut(b, "v"); await b.waitForFunction(n => state.devices.length === n, 1 + 3 * payload.devices.length);
   results.push("repeat IDs/placement and system clipboard after source tab closes");
-  const rollback = await b.evaluate(text => {
+  const rollback = await b.evaluate(async text => {
     const bridge = activeEngineBridge(), data = JSON.stringify(canvasClipboardProject()), history = bridge.commandIndex;
-    const plan = canvasClipboardModule.prepareCanvasClipboardPaste(canvasClipboardModule.parseCanvasClipboard(text), canvasClipboardProject(), { x: 30000, y: 30000 });
+    const resolved = await canvasClipboardAssets.resolveCanvasClipboardEnvelope(canvasClipboardModule.parseCanvasClipboard(text), { store: canvasClipboardAssetStore });
+    const plan = canvasClipboardModule.prepareCanvasClipboardPaste(resolved, canvasClipboardProject(), { x: 30000, y: 30000 });
     const original = bridge.renderer.setStaticScene.bind(bridge.renderer);
     let first = true;
     bridge.renderer.setStaticScene = scene => { if (first) { first = false; throw new Error("injected render failure"); } return original(scene); };
@@ -113,7 +115,7 @@ try {
   }, text);
   assert.deepEqual(rollback, { failed: true, unchanged: true, history: true });
   const invalidBefore = await count(b), historyBefore = await b.evaluate(() => activeEngineBridge().commandIndex);
-  await b.evaluate(() => navigator.clipboard.writeText("AVDESIGNER_SELECTION_V1:{"));
+  await b.evaluate(() => navigator.clipboard.writeText("AVDESIGNER_SELECTION_V2:{"));
   await shortcut(b, "v"); await b.waitForFunction(() => document.querySelector("#statusText").textContent.includes("corrupt JSON"));
   assert.equal(await count(b), invalidBefore); assert.equal(await b.evaluate(() => activeEngineBridge().commandIndex), historyBefore);
   results.push("invalid paste creates no undo entry; rendering failure rolls back objects, definitions and selection");
@@ -153,12 +155,11 @@ try {
   const c = await open(); await loaded(c, fixture.project); await select(c);
   await shortcut(c, "c");
   await c.waitForFunction(() => document.querySelector("#statusText").textContent.includes("system clipboard"));
-  assert.equal(await c.evaluate(() => window.nativeClipboardWrites), 1, "ordinary copy writes through the trusted native event");
+  assert.equal(await c.evaluate(() => window.nativeClipboardWrites), 0, "async asset preparation never writes to an expired native event");
   const session = await context.newCDPSession(c);
-  await session.send("Browser.setPermission", { permission: { name: "clipboard-read" }, setting: "denied", origin: base });
-  // Permission denial does not block trusted clipboard events in Chrome. Simulate
-  // an enterprise policy that also denies DataTransfer access, using real shortcuts.
-  await c.evaluate(() => { DataTransfer.prototype.setData = () => { throw new DOMException("policy denied", "NotAllowedError"); }; });
+  const { targetInfo } = await session.send("Target.getTargetInfo");
+  for (const name of ["clipboard-read", "clipboard-write"]) await session.send("Browser.setPermission", {
+    permission: { name }, setting: "denied", origin: base, browserContextId: targetInfo.browserContextId });
   await shortcut(c, "c");
   await c.waitForFunction(() => document.querySelector("#statusText").textContent.includes("using the fallback"));
   await b.evaluate(() => { DataTransfer.prototype.getData = () => { throw new DOMException("policy denied", "NotAllowedError"); }; });
@@ -174,5 +175,6 @@ try {
   assert.ok(nativeEvents.some(e => e.type === "paste" && e.trusted));
   assert.deepEqual(errors, []);
   results.push("expired fallback rejected, trusted paste events, no browser errors");
+  results.push(...await runAssetClipboardSmoke(browser, base, modifier));
   console.log(JSON.stringify({ passed: results.length, failed: 0, skipped: 0, results }, null, 2));
 } finally { await context.close(); await browser.close(); }
