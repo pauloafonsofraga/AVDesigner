@@ -10,6 +10,7 @@ function harness(size = 48, options = {}) {
   const instance = matrixCrosspointFixture(size, options).devices[0];
   const c = vm.createContext({
     matrixRoutingUiState:{ modal:state(), inspector:state() }, MATRIX_CROSSPOINT_DEFAULT_LIMIT:256,
+    matrixCrosshairBindings:new WeakMap(),
     templateForInstance:device => device.templateOverride, effectiveTemplateConnectors:template => template.connectors,
     connectorIncludedInMatrix:connector => connector.includeInMatrix, connectorTypeLabel:() => "HDMI",
     activeEngineBridge:() => null, pushUndo() {}, state:{}, document:{ activeElement:null }
@@ -18,7 +19,7 @@ function harness(size = 48, options = {}) {
     "matrixEndpointsForTemplate", "matrixEndpointsForInstance", "ensureMatrixRoutes", "matrixRoutingDeviceKey",
     "matrixRoutingStateFor", "matrixRoutingAssignedCount", "matrixRoutingDefaultView", "matrixRoutingViewForInstance",
     "matrixRoutingToolbarUseful", "matrixRoutingSearchText", "matrixRoutingMarkup", "matrixRoutingCaptureState",
-    "applyMatrixInspectorFilter", "bindMatrixRoutingInspector"]) {
+    "applyMatrixInspectorFilter", "clearMatrixCrosspointGuides", "bindMatrixCrosspointGuides", "bindMatrixRoutingInspector"]) {
     const match = html.match(new RegExp(`^    function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?^    \\}`, "m"));
     assert.ok(match, name); vm.runInContext(match[0], c);
   }

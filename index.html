@@ -5006,6 +5006,30 @@
       outline-offset: 2px;
     }
 
+    .matrix-routing-modal .matrix-grid[data-matrix-guides] tr:hover .matrix-crosspoint-cell,
+    .matrix-routing-modal .matrix-grid[data-matrix-guides] tr:focus-within .matrix-crosspoint-cell {
+      background: transparent;
+    }
+
+    .matrix-routing-modal .matrix-grid[data-matrix-guides] tr:hover .matrix-output-header,
+    .matrix-routing-modal .matrix-grid[data-matrix-guides] tr:focus-within .matrix-output-header {
+      background: var(--panel-bg);
+    }
+
+    .matrix-routing-modal .matrix-grid[data-matrix-guides] tr.matrix-guide-row > .matrix-crosspoint-cell,
+    .matrix-routing-modal .matrix-grid[data-matrix-guides] tr > .matrix-crosspoint-cell.matrix-guide-column {
+      background: rgba(50, 182, 255, .08);
+    }
+
+    .matrix-routing-modal .matrix-grid[data-matrix-guides] tr.matrix-guide-row > .matrix-output-header,
+    .matrix-routing-modal .matrix-grid[data-matrix-guides] tr > .matrix-input-header.matrix-guide-column {
+      background: linear-gradient(rgba(50, 182, 255, .14), rgba(50, 182, 255, .14)), var(--panel-bg);
+    }
+
+    .matrix-routing-modal .matrix-grid[data-matrix-guides] tr > .matrix-crosspoint-cell.matrix-guide-intersection {
+      background: rgba(50, 182, 255, .2);
+    }
+
     .matrix-routing.inspector {
       margin-top: 10px;
     }
@@ -5093,7 +5117,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.35.0 — Compact Matrix Crosspoints — iteration54-35-0-compact-matrix-crosspoints</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.35.1 — Matrix Crosshair Highlight — iteration54-35-1-matrix-crosshair-highlight</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5787,13 +5811,13 @@
   </div>
 
   <script>
-    const APP_ITERATION = "54.35.0";
-    const APP_BUILD_ID = "iteration54-35-0-compact-matrix-crosspoints";
-    const APP_MODULE_CACHE_ID = "iteration54-35-0-compact-matrix-crosspoints-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Compact Matrix Crosspoints`;
+    const APP_ITERATION = "54.35.1";
+    const APP_BUILD_ID = "iteration54-35-1-matrix-crosshair-highlight";
+    const APP_MODULE_CACHE_ID = "iteration54-35-1-matrix-crosshair-highlight-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Matrix Crosshair Highlight`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
-    const APP_SOURCE_BASE_COMMIT = "625f4c8bf1b195c6f85a8813067a7acb37ad5846";
+    const APP_SOURCE_BASE_COMMIT = "ee0c24e32147ad25560aba51ce4d39645453e47f";
     const CANVAS_MIN_ZOOM = 0.03;
     const CANVAS_MAX_ZOOM = 8;
     const ENGINE_COMMENT_ARROW_LENGTH = 16;
@@ -78571,6 +78595,7 @@
     let rackBuilderWireCornerDrag = null;
     let matrixRoutingModalDeviceId = "";
     const MATRIX_CROSSPOINT_DEFAULT_LIMIT = 256;
+    const matrixCrosshairBindings = new WeakMap();
     const matrixRoutingUiState = {
       modal: { filter: "", routedOnly: false, viewByDeviceId: {}, bodyScrollTop: 0, routeScrollTop: 0, gridScrollTop: 0, gridScrollLeft: 0 },
       inspector: { filter: "", routedOnly: false, routeScrollTop: 0 }
@@ -107425,17 +107450,17 @@
             <thead>
               <tr>
                 <th class="matrix-corner" scope="col">OUT \\ IN</th>
-                ${inputs.map(input => `<th class="matrix-input-header" scope="col" data-matrix-input-header="${escapeAttr(input.id)}" title="${escapeAttr(input.name)}" aria-label="${escapeAttr(input.name)}"><span class="matrix-input-label">${escapeHtml(input.name)}</span></th>`).join("")}
+                ${inputs.map(input => `<th class="matrix-input-header" scope="col" data-matrix-input-header="${escapeAttr(input.id)}" data-matrix-input-id="${escapeAttr(input.id)}" title="${escapeAttr(input.name)}" aria-label="${escapeAttr(input.name)}"><span class="matrix-input-label">${escapeHtml(input.name)}</span></th>`).join("")}
               </tr>
             </thead>
             <tbody>
               ${outputs.map(output => `
                 <tr class="matrix-output-row" data-matrix-row-output="${escapeAttr(output.id)}" data-matrix-routed="${routes[output.id] ? "1" : "0"}" data-matrix-search="${escapeAttr(matrixRoutingSearchText(output, inputNames.get(routes[output.id]) || ""))}">
-                  <th class="matrix-output-header" scope="row" title="${escapeAttr(output.name)}">${escapeHtml(output.name)}</th>
+                  <th class="matrix-output-header" scope="row" data-matrix-output-id="${escapeAttr(output.id)}" title="${escapeAttr(output.name)}">${escapeHtml(output.name)}</th>
                   ${inputs.map(input => {
                     const active = routes[output.id] === input.id;
                     const routeKey = matrixCrosspointKey(instance.instanceId, input.id, output.id);
-                    return `<td class="matrix-crosspoint-cell"><button class="matrix-cell${active ? " active" : ""}" type="button" title="${escapeAttr(`${output.name} from ${input.name}`)}" aria-label="${escapeAttr(`${output.name} from ${input.name}`)}" aria-pressed="${active ? "true" : "false"}" data-matrix-key="${escapeAttr(routeKey)}" data-matrix-output="${escapeAttr(output.id)}" data-matrix-input="${escapeAttr(input.id)}">${active ? "Selected" : "Set"}</button></td>`;
+                    return `<td class="matrix-crosspoint-cell" data-matrix-input-id="${escapeAttr(input.id)}" data-matrix-output-id="${escapeAttr(output.id)}"><button class="matrix-cell${active ? " active" : ""}" type="button" title="${escapeAttr(`${output.name} from ${input.name}`)}" aria-label="${escapeAttr(`${output.name} from ${input.name}`)}" aria-pressed="${active ? "true" : "false"}" data-matrix-key="${escapeAttr(routeKey)}" data-matrix-output="${escapeAttr(output.id)}" data-matrix-input="${escapeAttr(input.id)}">${active ? "Selected" : "Set"}</button></td>`;
                   }).join("")}
                 </tr>
               `).join("")}
@@ -107484,6 +107509,65 @@
         const matches = !filter || String(row.dataset.matrixSearch || "").includes(filter);
         row.style.display = matches && (!routedOnly || routed) ? "" : "none";
       });
+    }
+
+    function clearMatrixCrosspointGuides(root) {
+      const grid = root?.querySelector(".matrix-grid");
+      if (grid) matrixCrosshairBindings.get(grid)?.();
+    }
+
+    function bindMatrixCrosspointGuides(root) {
+      const grid = root.querySelector(".matrix-grid");
+      if (!grid) return;
+      clearMatrixCrosspointGuides(root);
+      const rows = new Map([...grid.querySelectorAll(".matrix-output-row")].map(row => [row.dataset.matrixRowOutput, row]));
+      const columns = new Map();
+      grid.querySelectorAll("[data-matrix-input-id]").forEach(element => {
+        const id = element.dataset.matrixInputId;
+        if (!columns.has(id)) columns.set(id, []);
+        columns.get(id).push(element);
+      });
+      const crosspoint = target => {
+        const cell = target?.closest?.(".matrix-crosspoint-cell");
+        if (cell?.closest(".matrix-grid") !== grid || !cell.querySelector(".matrix-cell:not(:disabled)")) return null;
+        return { inputId:cell.dataset.matrixInputId, outputId:cell.dataset.matrixOutputId, cell };
+      };
+      let pointer = null, focused = crosspoint(document.activeElement), active = null;
+      const sync = () => {
+        const next = pointer || focused;
+        if (next?.cell === active?.cell && next?.outputId === active?.outputId && next?.inputId === active?.inputId) return;
+        if (next?.outputId !== active?.outputId) {
+          rows.get(active?.outputId)?.classList.remove("matrix-guide-row");
+          rows.get(next?.outputId)?.classList.add("matrix-guide-row");
+        }
+        if (next?.inputId !== active?.inputId) {
+          columns.get(active?.inputId)?.forEach(element => element.classList.remove("matrix-guide-column"));
+          columns.get(next?.inputId)?.forEach(element => element.classList.add("matrix-guide-column"));
+        }
+        active?.cell?.classList.remove("matrix-guide-intersection");
+        next?.cell?.classList.add("matrix-guide-intersection");
+        active = next;
+      };
+      const hover = event => {
+        pointer = crosspoint(event.target);
+        // Keep the existing row-only guide when hovering its output label.
+        const header = event.target?.closest?.(".matrix-output-header");
+        if (!pointer && header?.closest(".matrix-grid") === grid) pointer = { outputId:header.dataset.matrixOutputId };
+        sync();
+      };
+      const leave = () => { pointer = null; sync(); };
+      const focus = event => { focused = crosspoint(event.target); sync(); };
+      const blur = event => { focused = crosspoint(event.relatedTarget); sync(); };
+      const handlers = { pointerover:hover, pointerleave:leave, focusin:focus, focusout:blur };
+      grid.dataset.matrixGuides = "";
+      Object.entries(handlers).forEach(([type, handler]) => grid.addEventListener(type, handler));
+      matrixCrosshairBindings.set(grid, () => {
+        pointer = focused = null; sync();
+        Object.entries(handlers).forEach(([type, handler]) => grid.removeEventListener(type, handler));
+        delete grid.dataset.matrixGuides;
+        matrixCrosshairBindings.delete(grid);
+      });
+      sync();
     }
 
     function bindMatrixRoutingInspector(instance, root = inspectorBody, options = {}) {
@@ -107562,6 +107646,7 @@
       filter?.addEventListener("pointerdown", event => event.stopPropagation());
       routedOnly?.addEventListener("change", () => applyMatrixInspectorFilter(root));
       applyMatrixInspectorFilter(root);
+      bindMatrixCrosspointGuides(root);
     }
 
     function renderMatrixRoutingModalBody() {
@@ -107577,6 +107662,7 @@
       const routes = ensureMatrixRoutes(instance);
       matrixRoutingTitle.textContent = `Matrix Routing`;
       matrixRoutingSubtitle.textContent = `${instance.name || template.name || "Device"} - ${outputs.length} outputs x ${inputs.length} inputs - ${matrixRoutingAssignedCount(routes)}/${outputs.length} assigned`;
+      clearMatrixCrosspointGuides(matrixRoutingModalBody);
       matrixRoutingModalBody.innerHTML = matrixRoutingMarkup(instance, {
         heading: "Matrix Routing",
         presentation: "modal"
@@ -107606,6 +107692,7 @@
     }
 
     function closeMatrixRoutingModal() {
+      clearMatrixCrosspointGuides(matrixRoutingModalBody);
       matrixRoutingModalDeviceId = "";
       matrixRoutingModal?.classList.add("hidden");
       if (matrixRoutingModalBody) matrixRoutingModalBody.innerHTML = "";
