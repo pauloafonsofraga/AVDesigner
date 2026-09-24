@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-36-2-connector-plug-captions";
+const BUILD_ID = "iteration54-36-3-adapter-topology-thumbnails";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -51,9 +51,9 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Connector Plug Captions");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-36-2-connector-plug-captions-modules";'), "module cache key should identify Connector Plug Captions");
-assert.ok(indexHtml.includes("Connector Plug Captions"), "visible build label should name Connector Plug Captions");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Adapter Topology Thumbnails");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-36-3-adapter-topology-thumbnails-modules";'), "module cache key should identify Adapter Topology Thumbnails");
+assert.ok(indexHtml.includes("Adapter Topology Thumbnails"), "visible build label should name Adapter Topology Thumbnails");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-36-0-selectable-projector-lenses"'), "Engine bridge version should identify Selectable Projector Lenses");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses"'), "Engine bridge feature label should identify Selectable Projector Lenses");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-36-0-selectable-projector-lenses"), "bridge fingerprint should identify Selectable Projector Lenses");

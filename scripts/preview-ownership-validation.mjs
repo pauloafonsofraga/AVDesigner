@@ -12,7 +12,7 @@ import { NODE_PREVIEW_BUILD_ID } from "../src/engine/nodePreview.js";
 import { TITLE_BLOCK_PREVIEW_BUILD_ID } from "../src/engine/titleBlockPreview.js";
 
 const EXPECTED_PREVIEW_BUILD_ID = "iteration53-4-1-preview-verification";
-const EXPECTED_APP_BUILD_ID = "iteration54-36-2-connector-plug-captions";
+const EXPECTED_APP_BUILD_ID = "iteration54-36-3-adapter-topology-thumbnails";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -24,11 +24,11 @@ assert.equal(RACK_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "rack preview bui
 assert.equal(NODE_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "node preview build id");
 assert.equal(TITLE_BLOCK_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "title-block preview build id");
 
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.36.2";'), "app iteration should be 54.36.2");
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${EXPECTED_APP_BUILD_ID}";`), "app build id should match 54.36.2");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-36-2-connector-plug-captions-modules";'), "module cache key should match 54.36.2");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.36.3";'), "app iteration should be 54.36.3");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${EXPECTED_APP_BUILD_ID}";`), "app build id should match 54.36.3");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-36-3-adapter-topology-thumbnails-modules";'), "module cache key should match 54.36.3");
 assert.ok(indexHtml.includes('url.searchParams.set("module", APP_MODULE_CACHE_ID);'), "engine imports should carry the module cache key");
-assert.ok(indexHtml.includes("Connector Plug Captions"), "app build label should name 54.36.2");
+assert.ok(indexHtml.includes("Adapter Topology Thumbnails"), "app build label should name 54.36.3");
 
 assert.ok(!enginePreviewSource.includes("legacyActualDraws"), "generic shared preview diagnostics must not publish fake legacy draw counters");
 assert.ok(!indexHtml.includes("legacy draws ${row."), "runtime owner rows must not render fake generic legacy draw counters");
