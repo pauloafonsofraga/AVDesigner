@@ -12,6 +12,7 @@ import { createOutputViewerModel } from "../src/engine/outputViewerModel.js";
 import { buildEngineViewerHtml } from "../src/engine/outputViewerHtml.js";
 import * as clipboard from "../src/engine/canvasClipboard.js";
 import { readFileSync } from "node:fs";
+import { drawObjectHoverTooltip } from "../src/engine/renderer.js";
 
 test("projector defaults and normalization are pure, deterministic and retain distinct records", () => {
   assert.deepEqual(normalizeProjectorTemplate({}), { isProjector: false, projectorLenses: [] });
@@ -73,6 +74,43 @@ const artwork = device => {
   drawDeviceVisual(ctx, device, device.width, device.height);
   return ctx.elements.join("");
 };
+
+function hoverArtwork(device, point = { x: 100, y: 100 }) {
+  const ctx = new OutputSvgContext(), lines = [], boxes = [];
+  ctx.fillText = (...args) => lines.push(args);
+  ctx.rect = (...args) => boxes.push(args);
+  drawObjectHoverTooltip(ctx, device, { x: 0, y: 0, zoom: .4 }, null, point, { width: 640, height: 480 });
+  return { lines, box: boxes[0] };
+}
+
+test("projector hover includes the current instance lens below its name without changing the model", () => {
+  const project = projectorLensFixture(), before = structuredClone(project);
+  let scene = buildEngineOutputScene(project);
+  const a = hoverArtwork(scene.devices[0]), b = hoverArtwork(scene.devices[1]);
+  assert.deepEqual(a.lines.map(line => line[0]), ["Projector A", "Lens: Wide 0.8:1"]);
+  assert.deepEqual(b.lines.map(line => line[0]), ["Projector B", "Lens: Long Throw 2.5:1"]);
+  assert.equal(a.lines[1][2] - a.lines[0][2], 16);
+  assert.equal(a.box[3], 38);
+  assert.deepEqual(project, before);
+  project.devices[0].selectedProjectorLensId = "standard";
+  scene = buildEngineOutputScene(project);
+  assert.deepEqual(hoverArtwork(scene.devices[0]).lines.map(line => line[0]), ["Projector A", "Lens: Standard 1.2:1"]);
+});
+
+test("ordinary and empty projectors retain the original one-line hover; long lens labels stay in the viewport", () => {
+  const device = buildEngineOutputScene(projectorLensFixture()).devices[0];
+  for (const visual of [{}, { isProjector: false, projectorLensName: "Stale lens" }, { isProjector: true, projectorLensName: "" }]) {
+    const hover = hoverArtwork({ ...device, visual });
+    assert.deepEqual(hover.lines.map(line => line[0]), ["Projector A"]);
+    assert.equal(hover.box[3], 22);
+    assert.equal(hover.lines[0][2], hover.box[1] + 11);
+  }
+  const hover = hoverArtwork({ ...device, visual: { ...device.visual, projectorLensName: "Long lens ".repeat(50) } }, { x: 639, y: 479 });
+  assert.equal(hover.box[2], 280);
+  assert.ok(hover.box[0] + hover.box[2] <= 632);
+  assert.ok(hover.box[1] + hover.box[3] <= 472);
+  assert.ok(hover.lines.every(line => line[3] === 264));
+});
 
 test("one subtitle uses the existing header gap; non-projectors and empty projectors add no artwork", () => {
   const project = projectorLensFixture(), device = buildEngineOutputScene(project).devices[0];

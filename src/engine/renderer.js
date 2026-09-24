@@ -61,7 +61,7 @@ import {
 } from "./jumpNodeModel.js";
 import { wirePlaybackEase } from "./wirePlayback.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-33-0-engine-vector-pdf-output";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-36-1-projector-lens-hover-labels";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -4206,9 +4206,13 @@ function isJumpConnectorHit(hit) {
   return hit?.device?.kind === "jump" || hit?.connector?.id === "jump-center";
 }
 
-function drawObjectHoverTooltip(ctx, device, camera, offsets = null, screenPoint = null, resolution = { width: 0, height: 0 }) {
+export function drawObjectHoverTooltip(ctx, device, camera, offsets = null, screenPoint = null, resolution = { width: 0, height: 0 }) {
   const text = deviceLabel(device);
   if (!text) return false;
+  const lines = [text];
+  if (device.visual?.isProjector && device.visual.projectorLensName) {
+    lines.push(`Lens: ${device.visual.projectorLensName}`);
+  }
   const offset = offsets?.get(device.id) || { dx: 0, dy: 0 };
   const anchor = screenPoint || {
     x: (device.x + offset.dx + device.width - camera.x) * camera.zoom,
@@ -4219,8 +4223,9 @@ function drawObjectHoverTooltip(ctx, device, camera, offsets = null, screenPoint
   ctx.font = `800 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
   const paddingX = 8;
   const paddingY = 5;
-  const width = Math.min(280, Math.max(64, ctx.measureText(text).width + paddingX * 2));
-  const height = size + paddingY * 2;
+  const lineHeight = size + 4;
+  const width = Math.min(280, Math.max(64, ...lines.map(line => ctx.measureText(line).width + paddingX * 2)));
+  const height = size + paddingY * 2 + (lines.length - 1) * lineHeight;
   const maxX = Math.max(8, (resolution.width || 0) - width - 8);
   const maxY = Math.max(8, (resolution.height || 0) - height - 8);
   const boxX = Math.min(maxX, Math.max(8, anchor.x + 16));
@@ -4235,7 +4240,9 @@ function drawObjectHoverTooltip(ctx, device, camera, offsets = null, screenPoint
   ctx.fillStyle = "#ffffff";
   ctx.textBaseline = "middle";
   ctx.textAlign = "left";
-  ctx.fillText(text, boxX + paddingX, boxY + height / 2, width - paddingX * 2);
+  lines.forEach((line, index) => {
+    ctx.fillText(line, boxX + paddingX, boxY + paddingY + size / 2 + index * lineHeight, width - paddingX * 2);
+  });
   ctx.restore();
   return true;
 }

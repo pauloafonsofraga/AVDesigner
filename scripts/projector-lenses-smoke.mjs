@@ -53,6 +53,23 @@ const shortcut = async (page, key) => {
   await page.bringToFront(); await page.evaluate(() => document.activeElement?.blur());
   await page.keyboard.press(`${process.platform === "darwin" ? "Meta" : "Control"}+${key}`);
 };
+const hoverLens = async (page, id, lens) => {
+  const p = await page.evaluate(id => {
+    const b = activeEngineBridge(), ctx = b.renderer.labelContext;
+    if (!window.hoverDraws) {
+      window.hoverDraws = [];
+      const fillText = ctx.fillText, clearRect = ctx.clearRect;
+      ctx.fillText = function(text, ...args) { window.hoverDraws.push(text); return fillText.call(this, text, ...args); };
+      ctx.clearRect = function(...args) { window.hoverDraws = []; return clearRect.apply(this, args); };
+    }
+    const d = b.scene.getDevice(id), r = b.canvas.getBoundingClientRect();
+    return { x: r.x + (d.x + d.width / 2 - b.camera.x) * b.camera.zoom,
+      y: r.y + (d.y + d.height / 2 - b.camera.y) * b.camera.zoom };
+  }, id);
+  await page.mouse.move(p.x, p.y);
+  await page.waitForFunction(lens => activeEngineBridge().renderer.lastLabelStats.objectHoverTooltips === 1
+    && hoverDraws.filter(text => text.startsWith("Lens: ")).join() === `Lens: ${lens}`, lens);
+};
 try {
   const page = await open();
   await page.locator("#deviceEditorButton").click();
@@ -95,11 +112,26 @@ try {
   assert.deepEqual(current.devices.map(d => d.lens), ["standard", "long"]);
   assert.deepEqual(current.visuals.map(d => d.lens), ["Standard 1.2:1", "Long Throw 2.5:1"]);
   assert.deepEqual(current.geometry, before.geometry);
+  while (await page.evaluate(() => activeEngineBridge().camera.zoom >= .5)) await page.locator("#zoomOut").click();
+  await hoverLens(page, "projector-a", "Standard 1.2:1");
+  await hoverLens(page, "projector-b", "Long Throw 2.5:1");
   await page.locator("#undoAction").click();
   assert.deepEqual((await stateOf(page)).devices.map(d => d.lens), ["wide", "long"]);
   assert.equal((await stateOf(page)).visuals[0].lens, "Wide 0.8:1");
+  await hoverLens(page, "projector-a", "Wide 0.8:1");
   await page.locator("#redoAction").click();
   assert.equal((await stateOf(page)).visuals[0].lens, "Standard 1.2:1");
+  await hoverLens(page, "projector-a", "Standard 1.2:1");
+  await page.screenshot({ path: `${dir}/projector-hover.png` });
+  const emptyCanvas = await page.evaluate(() => {
+    const r = activeEngineBridge().canvas.getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height * .75 };
+  });
+  await page.mouse.move(emptyCanvas.x, emptyCanvas.y);
+  await page.waitForFunction(() => activeEngineBridge().renderer.lastLabelStats.objectHoverTooltips === 0);
+  assert.equal(await page.evaluate(() => hoverDraws.some(text => text.startsWith("Lens: "))), false);
+  assert.deepEqual((await stateOf(page)).geometry, before.geometry);
+  checks.push("real zoom-out and hover show each selected lens, follow undo/redo, and clear over empty canvas");
   await page.waitForFunction(() => lensDraws.includes("Lens: Standard 1.2:1"));
   await page.screenshot({ path: `${dir}/projector-canvas.png` });
   checks.push("real canvas selection, independent lenses, one Engine undo/redo step, texture draw and unchanged geometry");
