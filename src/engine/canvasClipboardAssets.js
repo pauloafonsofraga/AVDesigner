@@ -6,7 +6,10 @@ export const CLIPBOARD_ASSET_LIMITS = Object.freeze({ inline: 64 * 1024, inlineB
 export const CLIPBOARD_ASSET_DATABASE = "avdesigner-canvas-clipboard";
 const marker = "$avdClipboardAsset";
 const hashPattern = /^sha256:[a-f0-9]{64}$/;
-const imageMime = /^image\/(png|jpeg|gif|webp|avif|bmp|x-icon|vnd\.microsoft\.icon|svg\+xml)$/;
+const imageMime = /^image\/(png|jpeg|gif|webp|avif|bmp|x-icon|svg\+xml)$/;
+const declaredImageMime = /^image\/(png|jpeg|jpg|pjpeg|gif|webp|avif|bmp|x-icon|vnd\.microsoft\.icon|svg\+xml)$/i;
+const validDataUrlHeader = header => /^data:image\/[\w.+-]+(?:;charset=utf-8)?(?:;base64)?$/i.test(header)
+  && declaredImageMime.test(header.slice(5).split(";")[0]);
 const unavailable = detail => new Error(`Paste failed: clipboard assets are unavailable or expired. Copy the selection again. (${detail})`);
 const invalid = detail => { throw new Error(`Clipboard asset envelope is invalid: ${detail}`); };
 const utf8 = text => new TextEncoder().encode(text).length;
@@ -28,20 +31,7 @@ export async function clipboardAssetHash(bytes) {
   return "sha256:" + [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
 }
 
-function assertSafeImage(mimeType, bytes) {
-  if (!imageMime.test(mimeType)) throw new Error(`Unsupported clipboard image MIME type: ${mimeType}`);
-  if (mimeType !== "image/svg+xml") {
-    const head = String.fromCharCode(...bytes.subarray(0, 16));
-    const signatures = {
-      "image/png": head.startsWith("\x89PNG\r\n\x1a\n"), "image/jpeg": head.startsWith("\xff\xd8\xff"),
-      "image/gif": /^GIF8[79]a/.test(head), "image/webp": head.startsWith("RIFF") && head.slice(8, 12) === "WEBP",
-      "image/avif": head.slice(4, 8) === "ftyp" && /avif|avis/.test(head), "image/bmp": head.startsWith("BM"),
-      "image/x-icon": head.startsWith("\0\0\x01\0"), "image/vnd.microsoft.icon": head.startsWith("\0\0\x01\0")
-    };
-    if (!signatures[mimeType]) throw new Error(`Clipboard image bytes do not match ${mimeType}.`);
-    return;
-  }
-  const svg = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+function assertSafeSvg(svg) {
   // Image-only SVG: no active elements, handlers, entities, remote dependencies or CSS execution.
   if (!/<svg[\s>]/i.test(svg) || /<!DOCTYPE|<!ENTITY|<\?(?!xml\s)|<\s*(?:[\w.-]+:)?(script|foreignObject|iframe|object|embed|audio|video|animate\w*|set)\b|\bon[\w:-]+\s*=|javascript\s*:|@import|expression\s*\(|&#/i.test(svg)
     || [...svg.matchAll(/\b(?:href|src)\s*=\s*["']([^"']*)["']/gi)].some(match => !match[1].startsWith("#"))
@@ -50,18 +40,124 @@ function assertSafeImage(mimeType, bytes) {
   }
 }
 
-async function decodeAsset(source, limits, fetchAsset) {
-  let bytes, mimeType;
+// Identify containers from bytes, never their filename, data-URL header or Blob type.
+// Check minimum structure/declared lengths as well as magic bytes so a truncated
+// signature is not accepted as artwork. Raster decoding remains the browser's job.
+export function detectClipboardImageMime(bytes) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength), size = bytes.byteLength;
+  const text = (start, length) => String.fromCharCode(...bytes.subarray(start, start + length));
+  const head = text(0, 16), u32 = (offset, little = false) => view.getUint32(offset, little);
+  if (head.startsWith("\x89PNG\r\n\x1a\n")) {
+    if (size < 45 || u32(8) !== 13 || text(12, 4) !== "IHDR" || !u32(16) || !u32(20)) return null;
+    let data = false;
+    for (let offset = 8; offset + 12 <= size;) {
+      const length = u32(offset), type = text(offset + 4, 4), end = offset + 12 + length;
+      if (end > size) return null;
+      if (type === "IDAT" && length) data = true;
+      if (type === "IEND") return data && length === 0 && end === size ? "image/png" : null;
+      offset = end;
+    }
+    return null;
+  }
+  if (head.startsWith("\xff\xd8\xff")) {
+    let frame = false;
+    for (let offset = 2; offset + 4 <= size;) {
+      if (bytes[offset++] !== 255) return null;
+      while (bytes[offset] === 255) offset++;
+      const code = bytes[offset++];
+      if (offset + 2 > size) return null;
+      const length = view.getUint16(offset);
+      if (length < 2 || offset + length > size) return null;
+      if (code >= 0xc0 && code <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(code)) {
+        if (length < 8 || !view.getUint16(offset + 3) || !view.getUint16(offset + 5)) return null;
+        frame = true;
+      }
+      if (code === 0xda) {
+        if (!frame || length < 6) return null;
+        for (let end = offset + length; end + 1 < size; end++) if (bytes[end] === 255 && bytes[end + 1] === 0xd9) return "image/jpeg";
+        return null;
+      }
+      offset += length;
+    }
+    return null;
+  }
+  if (/^GIF8[79]a/.test(head)) return size >= 14 && view.getUint16(6, true) && view.getUint16(8, true)
+    && bytes[size - 1] === 0x3b ? "image/gif" : null;
+  if (head.startsWith("RIFF") && head.slice(8, 12) === "WEBP") {
+    const end = u32(4, true) + 8; let image = false;
+    if (end !== size) return null;
+    for (let offset = 12; offset + 8 <= end;) {
+      const type = text(offset, 4), length = u32(offset + 4, true), next = offset + 8 + length + (length % 2);
+      if (next > end) return null;
+      if (type === "VP8 " && length >= 10 && text(offset + 11, 3) === "\x9d\x01\x2a") image = true;
+      if (type === "VP8L" && length >= 5 && bytes[offset + 8] === 0x2f) image = true;
+      if (type === "ANMF" && length >= 24) image = true;
+      if (next === end) return image ? "image/webp" : null;
+      offset = next;
+    }
+    return null;
+  }
+  if (head.slice(4, 8) === "ftyp") {
+    if (size < 24) return null;
+    const boxSize = u32(0); let avif = false, data = false;
+    if (boxSize < 16 || boxSize > size || boxSize % 4) return null;
+    for (let i = 8; i < boxSize; i += 4) if (i !== 12 && /^(avif|avis)$/.test(text(i, 4))) avif = true;
+    for (let offset = boxSize; offset + 8 <= size;) {
+      const length = u32(offset) || size - offset;
+      if (length < 8 || offset + length > size) return null;
+      if (["meta", "mdat"].includes(text(offset + 4, 4)) && length > 8) data = true;
+      if (offset + length === size) return avif && data ? "image/avif" : null;
+      offset += length;
+    }
+    return null;
+  }
+  if (head.startsWith("BM")) return size >= 26 && u32(2, true) <= size && u32(2, true) > u32(10, true)
+    && u32(10, true) >= 14 + u32(14, true) && u32(14, true) >= 12 ? "image/bmp" : null;
+  if (head.startsWith("\0\0\x01\0")) {
+    if (size < 22) return null;
+    const count = view.getUint16(4, true);
+    if (!count || 6 + count * 16 > size) return null;
+    for (let i = 0; i < count; i++) {
+      const length = u32(14 + i * 16, true), offset = u32(18 + i * 16, true);
+      if (length < 12 || offset < 6 + count * 16 || offset + length > size) return null;
+    }
+    return "image/x-icon";
+  }
+  let svg;
+  try { svg = new TextDecoder("utf-8", { fatal: true }).decode(bytes); } catch { return null; }
+  if (!/^\s*(?:<\?xml\s[^?]*\?>\s*)?(?:<!--[\s\S]*?-->\s*)*<svg[\s/>]/i.test(svg)) return null;
+  assertSafeSvg(svg);
+  if (!/(?:<\/svg\s*>|\/>)(?:\s|<!--[\s\S]*?-->)*$/i.test(svg)) return null;
+  return "image/svg+xml";
+}
+
+function validatedImageMime(bytes, declaredMime, path = []) {
+  let detected;
+  try {
+    detected = detectClipboardImageMime(bytes);
+    if (detected) return detected;
+  } catch (error) {
+    throw imageFailure(error.message, "image/svg+xml");
+  }
+  throw imageFailure("Unsupported image bytes.", "unknown");
+  function imageFailure(reason, actual) {
+    const field = path.map((key, i) => /^\d+$/.test(key) ? `[${key}]` : `${i ? "." : ""}${key}`).join("").slice(0, 180);
+    return new Error(`${reason} At ${field || "clipboard artwork"} (declared ${(declaredMime || "empty").slice(0, 80)}, detected ${actual}, ${bytes.byteLength} bytes).`);
+  }
+}
+
+async function decodeAsset(source, limits, fetchAsset, path) {
+  let bytes, declaredMime;
   if (source.startsWith("blob:")) {
     const response = await fetchAsset(source);
     if (!response.ok) throw new Error("Clipboard image could not be read. Copy the selection again.");
     const blob = await response.blob();
     limit("individual asset size", blob.size, limits.individual);
-    mimeType = blob.type.toLowerCase(); bytes = new Uint8Array(await blob.arrayBuffer());
+    declaredMime = blob.type.toLowerCase(); bytes = new Uint8Array(await blob.arrayBuffer());
   } else {
     const comma = source.indexOf(","), header = source.slice(0, comma), encoded = source.slice(comma + 1);
-    mimeType = /^data:([^;,]+)/i.exec(header)?.[1]?.toLowerCase();
-    if (comma < 0 || !mimeType || !/^data:image\/[\w.+-]+(?:;charset=[\w-]+)?(?:;base64)?$/i.test(header)) invalid("image data URL header");
+    declaredMime = /^data:([^;,]+)/i.exec(header)?.[1]?.toLowerCase();
+    if (comma < 0 || !validDataUrlHeader(header)) invalid("image data URL header");
     if (/;base64$/i.test(header)) {
       limit("individual asset size", Math.floor(encoded.length * 3 / 4) - (encoded.endsWith("==") ? 2 : encoded.endsWith("=") ? 1 : 0), limits.individual);
       const binary = atob(encoded); bytes = new Uint8Array(binary.length);
@@ -73,7 +169,7 @@ async function decodeAsset(source, limits, fetchAsset) {
   }
   limit("individual asset size", bytes.byteLength, limits.individual);
   if (!bytes.byteLength) invalid("empty image");
-  assertSafeImage(mimeType, bytes);
+  const mimeType = validatedImageMime(bytes, declaredMime, path);
   return { mimeType, bytes };
 }
 
@@ -93,13 +189,13 @@ export async function prepareCanvasClipboardEnvelope(value, { store, now = Date.
   const limits = limitsFor(overrides), envelope = validateCanvasClipboardPayload(value);
   assertNoMarkers(envelope);
   const references = [];
-  walkAssets(envelope, (object, key, source) => references.push({ object, key, source }));
+  walkAssets(envelope, (object, key, source, path) => references.push({ object, key, source, path }));
   const sources = new Map(), unique = new Map(), external = new Map();
   let total = 0, inlineBytes = 0;
   for (const reference of references) {
     let asset = sources.get(reference.source);
     if (!asset) {
-      const decoded = await decodeAsset(reference.source, limits, fetchAsset);
+      const decoded = await decodeAsset(reference.source, limits, fetchAsset, reference.path);
       const hash = await clipboardAssetHash(decoded.bytes);
       asset = { hash, mimeType: decoded.mimeType, byteLength: decoded.bytes.byteLength, bytes: decoded.bytes };
       sources.set(reference.source, asset);
@@ -170,8 +266,7 @@ export function validateClipboardAssetEnvelope(value, now = Date.now()) {
       if (!asset || Object.keys(object).some(key => ![marker, "byteLength", "mimeType", "dataUrlHeader", "rawText"].includes(key))
         || object.mimeType !== asset.mimeType || object.byteLength !== asset.byteLength) invalid("asset reference does not match manifest");
       if (object.dataUrlHeader != null && (typeof object.dataUrlHeader !== "string"
-        || !/^data:image\/[\w.+-]+(?:;charset=utf-8)?(?:;base64)?$/i.test(object.dataUrlHeader)
-        || object.dataUrlHeader.slice(5).split(";")[0].toLowerCase() !== object.mimeType)) invalid("asset URL representation");
+        || !validDataUrlHeader(object.dataUrlHeader))) invalid("asset URL representation");
       if (Object.hasOwn(object, "rawText") && (object.rawText !== true || !object.dataUrlHeader || /;base64$/i.test(object.dataUrlHeader))) invalid("asset URL encoding");
       referenced.add(asset.hash);
     } else Object.values(object).forEach(scan);
@@ -200,7 +295,7 @@ export async function resolveCanvasClipboardEnvelope(value, { store, now = Date.
         || stored.blob.size !== asset.byteLength || stored.blob.type !== asset.mimeType) throw unavailable("missing, expired or mismatched asset");
       const bytes = new Uint8Array(await stored.blob.arrayBuffer());
       if (await clipboardAssetHash(bytes) !== asset.hash) throw unavailable("corrupt asset hash");
-      assertSafeImage(asset.mimeType, bytes);
+      if (validatedImageMime(bytes, asset.mimeType) !== asset.mimeType) throw unavailable("detected image MIME does not match manifest");
       restored.set(asset.hash, { bytes, url: dataUrl(asset.mimeType, bytes) });
     }
   } catch (error) { if (error.message.startsWith("Paste failed:")) throw error; throw unavailable(error.message); }
@@ -220,13 +315,13 @@ export async function resolveCanvasClipboardEnvelope(value, { store, now = Date.
   };
   replace(envelope);
   // Validate inline images too; untrusted envelope JSON must not bypass image safety or blob isolation.
-  const inline = [];
-  walkAssets(value, (_object, _key, source) => inline.push(source));
+  const inline = new Map();
+  walkAssets(value, (_object, _key, source, path) => inline.set(source, path));
   const hashes = new Set(envelope.assetManifest.map(asset => asset.hash));
   let total = envelope.assetManifest.reduce((sum, asset) => sum + asset.byteLength, 0);
-  for (const source of new Set(inline)) {
+  for (const [source, path] of inline) {
     if (source.startsWith("blob:")) invalid("tab-owned URL in envelope");
-    const asset = await decodeAsset(source, CLIPBOARD_ASSET_LIMITS, fetch);
+    const asset = await decodeAsset(source, CLIPBOARD_ASSET_LIMITS, fetch, path);
     if (asset.bytes.byteLength >= CLIPBOARD_ASSET_LIMITS.inline) invalid("large image was not externalized");
     const hash = await clipboardAssetHash(asset.bytes);
     if (!hashes.has(hash)) { hashes.add(hash); total += asset.bytes.byteLength; }

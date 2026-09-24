@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
-import { canvasClipboardAssetsFixture } from "../fixtures/canvas-clipboard-assets.mjs";
+import { canvasClipboardAssetsFixture, canvasClipboardMimeFixture } from "../fixtures/canvas-clipboard-assets.mjs";
 
-export async function runAssetClipboardSmoke(browser, base, modifier) {
+export async function runAssetClipboardSmoke(browser, base, modifier, { mismatchedMime = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 1800, height: 1200 }, permissions: ["clipboard-read", "clipboard-write"] });
-  const errors = [], results = [], fixture = canvasClipboardAssetsFixture();
-  const directory = process.env.AVDESIGNER_SCREENSHOT_DIR || "/tmp/avdesigner-asset-clipboard";
+  const errors = [], results = [], fixture = mismatchedMime ? canvasClipboardMimeFixture() : canvasClipboardAssetsFixture();
+  const directory = (process.env.AVDESIGNER_SCREENSHOT_DIR || "/tmp/avdesigner-asset-clipboard") + (mismatchedMime ? "/mime-normalization" : "");
   await mkdir(directory, { recursive: true });
   const open = async () => {
     const page = await context.newPage(); page.on("pageerror", error => errors.push(error.message));
@@ -18,6 +18,16 @@ export async function runAssetClipboardSmoke(browser, base, modifier) {
     const bytes = new TextEncoder().encode(JSON.stringify(canvasClipboardProject()));
     return { hash: await canvasClipboardAssets.clipboardAssetHash(bytes), history: activeEngineBridge().commandIndex };
   });
+  const artworkPixels = async page => {
+    await page.evaluate(() => activeEngineBridge().fitToView()); await page.waitForTimeout(1500);
+    return page.evaluate(() => {
+      const bridge = activeEngineBridge(); bridge.renderer.draw(bridge.scene, bridge.camera, { renderOptions: bridge.renderOptions });
+      const gl = bridge.renderer.gl, data = new Uint8Array(gl.drawingBufferWidth * gl.drawingBufferHeight * 4);
+      gl.readPixels(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight, gl.RGBA, gl.UNSIGNED_BYTE, data);
+      let artwork = 0; for (let i = 0; i < data.length; i += 4) if (data[i] > 175 && data[i + 1] > 60 && data[i + 1] < 190 && data[i + 2] < 140) artwork++;
+      return artwork;
+    });
+  };
   try {
     const a = await open(), b = await open();
     await a.evaluate(async project => {
@@ -25,6 +35,8 @@ export async function runAssetClipboardSmoke(browser, base, modifier) {
       const bridge = activeEngineBridge(); bridge.scene.selectMany(bridge.scene.devices.map(d => d.id)); bridge.updateSelectionHud();
     }, fixture.project);
     await b.evaluate(() => restoreSnapshot({ devices: [], deviceLibrary: [] }));
+    assert.ok(await artworkPixels(a) > 5000, "source artwork actually renders, including mislabelled PNG bytes");
+    await a.screenshot({ path: `${directory}/asset-heavy-source.png` });
     const sourceBefore = await fingerprint(a);
     await press(a, "c");
     await a.waitForFunction(() => document.querySelector("#statusText").textContent.includes("system clipboard"), null, { timeout: 60000 });
@@ -42,11 +54,12 @@ export async function runAssetClipboardSmoke(browser, base, modifier) {
       return { ids: state.devices.map(d => d.instanceId), coords: state.devices.map(d => [d.x, d.y]),
         face: await hash(template.faceImage), connector: await hash(cableTypes["custom-port"].thumbnail),
         card: await hash(template.cardTypes[0].thumbnailImage), image: await hash(state.imageObjects[0].image),
+        faceHeader: template.faceImage.split(",")[0], thumbnailHeader: template.thumbnailImage.split(",")[0],
         wires: state.connections.length, skipped: activeEngineBridge().scene.meta.skippedWires,
         history: activeEngineBridge().commandHistory.length, stored: await new Promise((resolve, reject) => {
           const r = indexedDB.open("avdesigner-canvas-clipboard", 1); r.onsuccess = () => {
             const request = r.result.transaction("assets").objectStore("assets").getAll();
-            request.onsuccess = () => { r.result.close(); resolve(request.result.map(a => ({ hash: a.hash, size: a.byteLength }))); }; request.onerror = () => reject(request.error);
+            request.onsuccess = () => { r.result.close(); resolve(request.result.map(a => ({ hash: a.hash, size: a.byteLength, mimeType: a.mimeType, blobType: a.blob.type }))); }; request.onerror = () => reject(request.error);
           };
         }) };
     });
@@ -60,14 +73,12 @@ export async function runAssetClipboardSmoke(browser, base, modifier) {
     assert.equal(restored.wires, 1); assert.equal(restored.skipped, 0); assert.equal(restored.history, 1);
     assert.equal(restored.stored.length, 3);
     assert.equal(restored.stored.reduce((sum, item) => sum + item.size, 0), diagnostics.storedAssetBytes);
-    await b.evaluate(() => activeEngineBridge().fitToView()); await b.waitForTimeout(1500);
-    const pixels = await b.evaluate(() => {
-      const bridge = activeEngineBridge(); bridge.renderer.draw(bridge.scene, bridge.camera, { renderOptions: bridge.renderOptions });
-      const gl = bridge.renderer.gl, data = new Uint8Array(gl.drawingBufferWidth * gl.drawingBufferHeight * 4);
-      gl.readPixels(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight, gl.RGBA, gl.UNSIGNED_BYTE, data);
-      let artwork = 0; for (let i = 0; i < data.length; i += 4) if (data[i] > 175 && data[i + 1] > 60 && data[i + 1] < 190 && data[i + 2] < 140) artwork++;
-      return artwork;
-    });
+    assert.equal(restored.faceHeader, `data:image/${mismatchedMime ? "jpeg" : "png"};base64`);
+    assert.equal(restored.thumbnailHeader, "data:image/png;base64");
+    const faceAsset = restored.stored.find(a => a.size === diagnostics.largestAssetBytes);
+    assert.equal(faceAsset.mimeType, "image/png"); assert.equal(faceAsset.blobType, "image/png");
+    assert.equal(envelope.assetManifest.find(a => a.hash === faceAsset.hash).mimeType, "image/png");
+    const pixels = await artworkPixels(b);
     assert.ok(pixels > 5000, `actual faceplate/image pixels: ${pixels}`);
     await b.screenshot({ path: `${directory}/asset-heavy-canvas.png` });
     await b.evaluate(id => openDeviceEditorForInstance(id), restored.ids[0]);
@@ -97,6 +108,10 @@ export async function runAssetClipboardSmoke(browser, base, modifier) {
     // The native paste event still exposes the old OS clipboard in Chrome. The
     // newer explicitly fallback-only envelope must win, without mocking the API.
     await press(b, "v"); await b.waitForFunction(() => state.devices.length === 6, null, { timeout: 60000 });
+    assert.equal(await b.evaluate(() => deviceLibrary.length), 1);
+    assert.equal(await b.evaluate(() => deviceLibrary[0].faceImage.split(",")[0]), restored.faceHeader);
+    assert.ok(await artworkPixels(b) > 5000, "fallback artwork renders too");
+    await b.screenshot({ path: `${directory}/asset-heavy-fallback.png` });
     results.push("actual async permission denial: compact fallback and IndexedDB survive source closure");
     const hash = envelope.assetManifest[0].hash;
     for (const failure of ["missing", "corrupt", "expired"]) {
@@ -122,8 +137,8 @@ export async function runAssetClipboardSmoke(browser, base, modifier) {
     }
     results.push("missing/corrupt/expired IndexedDB records abort without model mutation or an undo entry");
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({ assetClipboard: diagnostics, artworkPixels: pixels, screenshotDirectory: directory,
+    console.log(JSON.stringify({ mismatchedMime, assetClipboard: diagnostics, artworkPixels: pixels, screenshotDirectory: directory,
       passed: results.length, failed: 0, skipped: 0, results }, null, 2));
-    return results;
+    return results.map(result => mismatchedMime ? `PNG declared JPEG: ${result}` : result);
   } finally { await context.close(); }
 }

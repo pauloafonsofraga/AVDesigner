@@ -1,6 +1,7 @@
 # Canvas Clipboard
 
-Build 54.35.3 adds an asset-safe envelope to the existing canvas copy/paste entry
+Build 54.35.4 normalizes clipboard image MIME from bytes, extending the asset-safe
+envelope introduced in 54.35.3 at the existing canvas copy/paste entry
 points. Native `copy` and `paste` events trigger the workflow. Cmd+C/V on Apple
 platforms and Ctrl+C/V elsewhere remain browser shortcuts; Alt is not a modifier.
 Text fields, contenteditable elements, selected browser text and modal editors
@@ -45,8 +46,22 @@ Larger images and all blob URLs use explicit `$avdClipboardAsset` markers plus a
 sorted manifest. The marker is reserved; project data containing it is rejected.
 Limits: 64 MiB per decoded image, 256 MiB total unique image bytes, 256 unique images.
 The existing 16 MiB JSON limit still applies to the compact envelope. Limit errors
-include measured and allowed values. PNG/JPEG/GIF/WebP/AVIF/BMP/ICO signatures are
-checked; image-only SVG rejects active content and external dependencies.
+include measured and allowed values. PNG/JPEG/GIF/WebP/AVIF/BMP/ICO containers are
+identified from their bytes, with signature, minimum structure and length checks;
+image-only SVG requires valid UTF-8 and rejects active content and external
+dependencies. This is not a replacement for the browser's raster decoder.
+
+Detected MIME is authoritative, even when a data URL or Blob declares the wrong
+type. Manifest entries and stored Blobs use the canonical detected MIME (`image/png`,
+`image/jpeg`, `image/gif`, `image/webp`, `image/avif`, `image/bmp`, `image/x-icon`, or
+`image/svg+xml`). Each data URL reference independently preserves its supported
+original header as representation metadata; inline data URLs remain unchanged.
+For example, PNG bytes labelled `data:image/jpeg;base64` store as PNG but restore
+with the original JPEG header. Correct/incorrect headers and empty/incorrect Blob
+types still deduplicate to the same SHA-256 asset. Blob sources restore canonical
+data URLs. Copy does not migrate or rewrite the source project or its definitions.
+At paste, actual bytes must still match the canonical manifest MIME. Relaxing the
+representation header never bypasses byte, length, hash or SVG safety validation.
 
 Paste validates the envelope/manifest, loads every record, verifies byte length and
 SHA-256, restores detached data URLs, then runs the existing complete paste planner.
@@ -90,6 +105,9 @@ paste does not alter the camera to force them into view.
 - `node --test test/canvasClipboard.test.mjs`: serialization, invalid payloads,
   stable identities, dependencies, geometry, racks, undo/redo, expiry, platform
   modifiers and a 129-device mixed performance fixture.
+- `node --test test/canvasClipboardMime.test.mjs`: real encoded image formats,
+  incorrect MIME declarations, Blob types, header-preserving deduplication,
+  truncated/unknown bytes, disguised unsafe SVG, definition reuse and undo/redo.
 - `node scripts/canvas-clipboard-smoke.mjs`: real shortcuts between separate
   Chromium tabs containing different projects, source isolation, imported assets,
   repeated paste, source-tab closure, transaction rollback, text/modal isolation
@@ -100,6 +118,9 @@ paste does not alter the camera to force them into view.
   rendered pixels/screenshots, and corrupts/deletes/expires IndexedDB records to
   prove no mutation or undo entry is created. The prior mixed-object/native-event
   suite still runs, including denied native DataTransfer access.
+- The same browser acceptance runs again with PNG faceplate/image bytes declared
+  as JPEG. It verifies rendered pixels in source/destination/fallback tabs,
+  canonical IndexedDB MIME and unchanged original headers after source closure.
 - Native browser acceptance was exercised on macOS Chrome. Windows/Linux modifier
   handling has unit coverage, not an OS-level browser run.
 
@@ -120,3 +141,9 @@ asset size, never asset contents. Byte totals can vary with instance metadata.
 
 Card artwork fields are preserved, including SVG; the existing card-band renderer
 continues to display its caption/band rather than introducing a card image renderer.
+
+Before MIME normalization, both a 68-byte inline PNG and a 102,638-byte external
+PNG declared as JPEG failed at `d29a621` with exactly:
+`Clipboard image bytes do not match image/jpeg.` Both regressions were confirmed
+red before production changes. Invalid-image diagnostics now identify the field
+path, declared MIME, detected MIME (or unknown) and byte length, never asset content.

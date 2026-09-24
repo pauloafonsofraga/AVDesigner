@@ -63,3 +63,15 @@ export function inlineAssetMetrics(value) {
     uniqueAssets: new Set(references).size, assetReferences: references.length,
     repeatedAssetReferences: references.length - new Set(references).size };
 }
+
+export function canvasClipboardMimeFixture() {
+  const fixture = canvasClipboardAssetsFixture();
+  const faceplate = fixture.assets.faceplate.replace("data:image/png;", "data:image/jpeg;");
+  fixture.assets = { ...fixture.assets, faceplate };
+  fixture.project.deviceLibrary[0].faceImage = faceplate;
+  fixture.project.devices[0].faceImage = faceplate;
+  fixture.project.imageObjects[0].image = faceplate;
+  // The thumbnail retains its correct PNG header: both representations must
+  // share one stored asset without changing the reusable definition's identity.
+  return fixture;
+}

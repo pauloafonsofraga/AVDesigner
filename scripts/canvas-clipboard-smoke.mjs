@@ -176,5 +176,6 @@ try {
   assert.deepEqual(errors, []);
   results.push("expired fallback rejected, trusted paste events, no browser errors");
   results.push(...await runAssetClipboardSmoke(browser, base, modifier));
+  results.push(...await runAssetClipboardSmoke(browser, base, modifier, { mismatchedMime: true }));
   console.log(JSON.stringify({ passed: results.length, failed: 0, skipped: 0, results }, null, 2));
 } finally { await context.close(); await browser.close(); }

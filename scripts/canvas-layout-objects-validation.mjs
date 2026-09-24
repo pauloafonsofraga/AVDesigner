@@ -25,7 +25,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-35-3-asset-safe-cross-tab-clipboard";
+const BUILD_ID = "iteration54-35-4-clipboard-image-mime-normalization";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -40,9 +40,9 @@ function sourceSlice(source, startNeedle, endNeedle) {
   return source.slice(start, end);
 }
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.35.3");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.35.3";'), "visible iteration should be 54.35.3");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-35-3-asset-safe-cross-tab-clipboard-modules";'), "module cache key should bust 54.35.3 modules");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.35.4");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.35.4";'), "visible iteration should be 54.35.4");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-35-4-clipboard-image-mime-normalization-modules";'), "module cache key should bust 54.35.4 modules");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-31-1-bidirectional-jump-node-support"'), "Engine bridge version should identify Bidirectional Jump Node Support");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
