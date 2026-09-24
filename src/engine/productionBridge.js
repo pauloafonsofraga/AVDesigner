@@ -26,6 +26,7 @@ import {
   normalizeEngineCanvasObject
 } from "./projectAdapter.js";
 import { ProjectMutationAdapter } from "./projectMutations.js";
+import { applyCanvasClipboardPlan } from "./canvasClipboard.js";
 import { WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
 import { PerfHud } from "./perfHud.js";
@@ -6509,6 +6510,46 @@ class ProductionEngineBridge {
     this.updateInteractionHud("connector-sync-remove-wires");
     this.scheduleRender();
     return removed;
+  }
+
+  commitCanvasClipboardPaste(plan) {
+    if (!this.ready) throw new Error("Engine clipboard is unavailable while the canvas loads.");
+    const apply = insert => {
+      const previous = this.api.getCanvasClipboardProject();
+      const next = applyCanvasClipboardPlan(previous, plan, insert);
+      const normalized = normalizeProductionProject(next, "canvas clipboard");
+      const beforeSelection = captureEngineSelection(this.scene);
+      try {
+        this.api.applyCanvasClipboardState(next);
+        this.scene.setData(normalized);
+        this.mutations = new ProjectMutationAdapter({ projectData: this.api.getProjectData() }, { cloneProjectData: false });
+        const ids = new Set(Object.values(plan.additions).flat().map(item => item.instanceId || item.id));
+        if (insert) {
+          this.scene.selectMany(this.scene.devices.filter(device => ids.has(device.sourceId || device.id)).map(device => device.id));
+          this.scene.selectedRackIds = new Set(plan.additions.racks.map(rack => rack.id));
+        }
+        this.renderer.setStaticScene(this.scene);
+        this.updateSelectionHud();
+        this.scheduleRender();
+      } catch (error) {
+        this.api.applyCanvasClipboardState(previous);
+        this.scene.setData(normalizeProductionProject(previous, "clipboard rollback"));
+        this.mutations = new ProjectMutationAdapter({ projectData: this.api.getProjectData() }, { cloneProjectData: false });
+        this.scene.selectedIds = new Set(beforeSelection.devices);
+        this.scene.selectedRackIds = new Set(beforeSelection.racks);
+        this.scene.selectedWireIds = new Set(beforeSelection.wires);
+        this.scene.selectedConnectorKeys = new Set(beforeSelection.connectors);
+        this.scene.selectedRoutePointKeys = new Set(beforeSelection.routePoints);
+        this.scene.selectedJumpLinkId = beforeSelection.jumpLinkId;
+        this.renderer.setStaticScene(this.scene);
+        throw error;
+      }
+      return {};
+    };
+    apply(true);
+    this.recordCommand({ type: "canvas clipboard", undo: () => apply(false), redo: () => apply(true) });
+    this.markCommitted("canvas clipboard");
+    return true;
   }
 
   commitDeviceEditorApplyFromProduction(payload = {}) {

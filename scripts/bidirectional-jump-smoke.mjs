@@ -131,8 +131,8 @@ try {
           { type: "jump-node", id: "a" }, { type: "jump-node", id: "b" }] });
         if (operation === "duplicate") duplicateSelectedObjects();
         else {
-          // Exercise the same-tab clipboard fallback without touching the user's OS clipboard.
-          localCanvasClipboard = `${CLIPBOARD_PREFIX}${JSON.stringify(collectCanvasClipboardPayload())}`;
+          // Exercise the clipboard command shared by both application modes.
+          await copySelectedCanvasObjects();
           await pasteCanvasObjects();
         }
         return { links: state.jumpLinks, wireCount: state.connections.length,
