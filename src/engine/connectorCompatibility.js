@@ -189,6 +189,7 @@ const CONNECTOR_LABELS = new Map([
   ["sfp-cage", "SFP Cage"],
   ["sfp-plus-cage", "SFP+ Cage"],
   ["qsfp-cage", "QSFP Cage"],
+  ["qsfp", "QSFP"],
   ["usb-a", "USB-A"],
   ["usb-b", "USB-B"],
   ["usb-c", "USB-C"],
@@ -215,6 +216,12 @@ const CONNECTOR_LABELS = new Map([
   ["speakon-nl8", "speakON NL8"],
   ["dmx-3pin", "DMX 3-pin"],
   ["dmx-5pin", "DMX 5-pin"],
+  ["xlr", "XLR 3-pin"],
+  ["jack", "TRS/TS"],
+  ["phono", "RCA"],
+  ["speakon", "speakON NL4"],
+  ["usb", "USB-A"],
+  ["led-signal", "LED Signal"],
   ["misc", "Misc."],
   ["jump", "Jump Node"],
   ["iec", "IEC"],
@@ -567,6 +574,12 @@ export function engineConnectorTypeDisplayName(connectorOrType, fallback = "") {
     ? String(connectorOrType || "").trim()
     : effectiveConnectorTypeForEngine(connectorOrType) || connectorType(connectorOrType);
   return typeDisplayName(type) || fallback || "";
+}
+
+// External plug captions are catalog identities, never user-entered node names.
+export function engineConnectorPlugTypeLabel(connector) {
+  const type = effectiveConnectorTypeForEngine(connector) || connectorType(connector);
+  return engineConnectorTypeDisplayName(CONNECTOR_LABELS.has(type) ? type : "misc");
 }
 
 export function engineConnectorLabelSource(connector) {

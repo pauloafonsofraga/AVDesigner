@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-36-1-projector-lens-hover-labels";
+const BUILD_ID = "iteration54-36-2-connector-plug-captions";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -51,13 +51,13 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Projector Lens Hover Labels");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-36-1-projector-lens-hover-labels-modules";'), "module cache key should identify Projector Lens Hover Labels");
-assert.ok(indexHtml.includes("Projector Lens Hover Labels"), "visible build label should name Projector Lens Hover Labels");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Connector Plug Captions");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-36-2-connector-plug-captions-modules";'), "module cache key should identify Connector Plug Captions");
+assert.ok(indexHtml.includes("Connector Plug Captions"), "visible build label should name Connector Plug Captions");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-36-0-selectable-projector-lenses"'), "Engine bridge version should identify Selectable Projector Lenses");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses"'), "Engine bridge feature label should identify Selectable Projector Lenses");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-36-0-selectable-projector-lenses"), "bridge fingerprint should identify Selectable Projector Lenses");
-assert.ok(rendererSource.includes("renderer-iteration54-36-1-projector-lens-hover-labels"), "renderer fingerprint should identify Projector Lens Hover Labels");
+assert.ok(rendererSource.includes("renderer-iteration54-36-2-connector-plug-captions"), "renderer fingerprint should identify Connector Plug Captions");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");
 assert.ok(rendererSource.includes("pushWirePlaybackOverlay"), "renderer should draw transient Play Wire overlays");

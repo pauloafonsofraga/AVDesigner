@@ -17,7 +17,7 @@ import {
 import { isCanvasObjectKind, isLedSurfaceKind } from "./canvasObjectKinds.js";
 import {
   engineConnectorInfoFields,
-  engineConnectorTypeDisplayName
+  engineConnectorPlugTypeLabel
 } from "./connectorCompatibility.js";
 import {
   SHARED_BUS_LABEL_OFFSET,
@@ -61,7 +61,7 @@ import {
 } from "./jumpNodeModel.js";
 import { wirePlaybackEase } from "./wirePlayback.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-36-1-projector-lens-hover-labels";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-36-2-connector-plug-captions";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -3405,7 +3405,7 @@ function drawVisibleConnectorLabels(ctx, scene, camera, renderOptions = DEFAULT_
     let count = 0;
     deviceConnectorsForRender(device).forEach(connector => {
       if (displayLayout.byConnectorId.has(connector.id)) return;
-      const text = connectorLabel(connector);
+      const text = engineConnectorPlugTypeLabel(connector);
       if (!text) return;
       connectorDisplayAnchors(device, connector, displayLayout).forEach(anchor => {
         const renderConnector = {
@@ -3490,7 +3490,7 @@ function drawSharedBusConnectorWorldLabel(ctx, layout, baseX, baseY, camera) {
 function sharedBusConnectorLabel(layout) {
   const labels = [];
   (layout?.members || []).forEach(connector => {
-    const label = engineConnectorTypeDisplayName(connector, connector?.type || connector?.label || "Connector");
+    const label = engineConnectorPlugTypeLabel(connector);
     if (label && !labels.includes(label)) labels.push(label);
   });
   return labels.join(" / ") || String(layout?.relationship?.label || "Shared bus").trim();

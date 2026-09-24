@@ -25,7 +25,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-36-1-projector-lens-hover-labels";
+const BUILD_ID = "iteration54-36-2-connector-plug-captions";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -40,9 +40,9 @@ function sourceSlice(source, startNeedle, endNeedle) {
   return source.slice(start, end);
 }
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.36.1");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.36.1";'), "visible iteration should be 54.36.1");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-36-1-projector-lens-hover-labels-modules";'), "module cache key should bust 54.36.1 modules");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.36.2");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.36.2";'), "visible iteration should be 54.36.2");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-36-2-connector-plug-captions-modules";'), "module cache key should bust 54.36.2 modules");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-36-0-selectable-projector-lenses"'), "Engine bridge version should identify Selectable Projector Lenses");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
