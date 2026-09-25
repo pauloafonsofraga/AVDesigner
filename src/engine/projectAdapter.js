@@ -932,6 +932,8 @@ function normalizeLedSurfaces(surfaces) {
     const width = positiveNumber(surface.width) || positiveNumber(surface.naturalWidth) || 360;
     const height = positiveNumber(surface.height) || positiveNumber(surface.naturalHeight) || SURFACE_FALLBACK_HEIGHT;
     const id = String(surface.id || `led-${index}`);
+    const sourceImage = String(surface.image || surface.src || surface.href || "").trim();
+    const previewImage = String(surface.previewImage || surface.previewSrc || "").trim();
     const naturalWidth = positiveNumber(surface.naturalWidth) || positiveNumber(surface.imageNaturalWidth);
     const naturalHeight = positiveNumber(surface.naturalHeight) || positiveNumber(surface.imageNaturalHeight);
     return {
@@ -950,7 +952,9 @@ function normalizeLedSurfaces(surfaces) {
       color: "rgba(70, 70, 70, .65)",
       visual: {
         objectKind: "led-surface",
-        image: String(surface.image || surface.src || surface.href || "").trim(),
+        image: previewImage || sourceImage,
+        previewWidth: positiveNumber(surface.previewWidth) || positiveNumber(surface.previewNaturalWidth),
+        previewHeight: positiveNumber(surface.previewHeight) || positiveNumber(surface.previewNaturalHeight),
         naturalWidth,
         naturalHeight,
         signalSlots: Math.max(0, Number(surface.signalSlots) || 0),

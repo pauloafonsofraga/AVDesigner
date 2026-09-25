@@ -1106,10 +1106,16 @@ export function ledSurfaceTexturePolicy(device = {}) {
   const height = Math.max(1, Number(device?.height) || 1);
   const naturalWidth = Math.max(0, Number(visual.naturalWidth) || Number(visual.pixelWidth) || width);
   const naturalHeight = Math.max(0, Number(visual.naturalHeight) || Number(visual.pixelHeight) || height);
-  const imagePixels = naturalWidth * naturalHeight;
+  const previewWidth = Math.max(0, Number(visual.previewWidth) || 0);
+  const previewHeight = Math.max(0, Number(visual.previewHeight) || 0);
+  const imageWidth = previewWidth > 0 && previewHeight > 0 ? previewWidth : naturalWidth;
+  const imageHeight = previewWidth > 0 && previewHeight > 0 ? previewHeight : naturalHeight;
+  const imagePixels = imageWidth * imageHeight;
   return {
     maxSide: LED_SURFACE_TEXTURE_MAX_SIDE,
     maxPixels: LED_SURFACE_TEXTURE_MAX_PIXELS,
+    imageWidth,
+    imageHeight,
     imagePixels,
     renderImage: Boolean(String(visual.image || "").trim()) && imagePixels <= LED_SURFACE_IMAGE_MAX_PIXELS
   };
@@ -1345,7 +1351,8 @@ function basename(path) {
 
 export function deviceVisualSources(device) {
   const visual = device?.visual || {};
-  return [visual.faceImage, visual.thumbnailImage, visual.image, visual.logo, ...powerPlugAssetsForDevice(device)]
+  const image = isLedSurfaceKind(device) && !ledSurfaceTexturePolicy(device).renderImage ? "" : visual.image;
+  return [visual.faceImage, visual.thumbnailImage, image, visual.logo, ...powerPlugAssetsForDevice(device)]
     .map(value => String(value || "").trim())
     .filter(Boolean);
 }
