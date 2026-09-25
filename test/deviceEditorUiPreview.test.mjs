@@ -1888,9 +1888,14 @@ test("Cards tab uses compact toolbar and right-side card inspector", () => {
   assert.doesNotMatch(renderCardEditor, /card-connector-row|data-card-node-row/);
   assert.match(renderCardConnectorInspector, /Selected Card Connector/);
   assert.match(renderCardConnectorInspector, /data-card-physical-type/);
+  assert.match(renderCardConnectorInspector, /data-card-display-side/);
+  assert.match(renderCardConnectorInspector, /data-card-signal-direction/);
   assert.match(renderCardConnectorInspector, /data-card-field/);
   assert.match(renderCardConnectorInspector, /Delete Card Connector/);
   assert.match(cardFieldHandler, /data-card-physical-type/);
+  assert.match(cardFieldHandler, /commitEditorCardDefinitionEdit/);
+  assert.match(cardFieldHandler, /draftConnector\.displaySide/);
+  assert.match(cardFieldHandler, /draftConnector\.signalDirection/);
   assert.match(cardFieldHandler, /operationalStatus/);
 });
 
@@ -1904,6 +1909,8 @@ test("Cards tab supports marquee and additive card-node selection", () => {
   assert.match(functionSource("moveEditorNode"), /selectEditorCardNodesInRect\(card, rectFromPoints\(editorNodeMarquee\.start, point\), \{ baseIds: editorNodeMarquee\.baseIds \}\)/);
   assert.match(functionSource("stopEditorNodeDrag"), /if \(mode === "cards" && moved\) editorSuppressPreviewClickUntil = Date\.now\(\) \+ 150;/);
   assert.match(functionSource("renderCardEditorPreview"), /const selected = editorSelectedCardNodeIds\.has\(connectorIndex\) \|\| editorSelectedCardNodeIndex === connectorIndex;/);
+  assert.match(functionSource("editorCardConnectorLayout"), /displaySide/);
+  assert.match(functionSource("renderCardEditorPreview"), /visiblePositions/);
   assert.match(functionSource("renderCardEditorPreview"), /drawEditorNodeMarquee\(deviceEditorPreview\);/);
 });
 
