@@ -256,8 +256,9 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
   const root = data?.state || data?.project || data || {};
   const templates = collectTemplates(root, data);
   const nodeColorByType = collectNodeColors(root, data);
+  const nodeLabelByType = collectNodeLabels(root, data);
   const rawDevices = Array.isArray(root.devices) ? root.devices : [];
-  const devices = rawDevices.map((device, index) => normalizeProjectDevice(device, index, templates, nodeColorByType));
+  const devices = rawDevices.map((device, index) => normalizeProjectDevice(device, index, templates, nodeColorByType, nodeLabelByType));
   const areaDevices = normalizeAreas(root.areas || []);
   const imageDevices = normalizeImageObjects(root.imageObjects || root.images || []);
   const jumpDevices = normalizeJumpNodes(root.jumpNodes || []);
@@ -383,7 +384,8 @@ export function normalizeAvDesignerDevice(data, instance, index = 0) {
   const root = data?.state || data?.project || data || {};
   const templates = collectTemplates(root, data);
   const nodeColorByType = collectNodeColors(root, data);
-  return normalizeProjectDevice(instance, index, templates, nodeColorByType);
+  const nodeLabelByType = collectNodeLabels(root, data);
+  return normalizeProjectDevice(instance, index, templates, nodeColorByType, nodeLabelByType);
 }
 
 export function normalizeEngineCanvasObject(kind, item, index = 0) {
@@ -429,7 +431,27 @@ function collectNodeColors(root, data) {
   return map;
 }
 
-function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
+function collectNodeLabels(root, data) {
+  const map = new Map();
+  [root.nodeLibrary, data?.nodeLibrary].forEach(list => {
+    if (!Array.isArray(list)) return;
+    list.forEach(node => {
+      const id = String(node.id || node.type || "").trim();
+      const label = String(node.label || node.name || "").trim();
+      if (id && label) map.set(id, label);
+    });
+  });
+  return map;
+}
+
+function applyNodeTypeLabel(connector, nodeLabelByType) {
+  if (!connector || !nodeLabelByType?.size) return connector;
+  const type = String(connector.type || "").trim();
+  const typeLabel = nodeLabelByType.get(type);
+  return typeLabel ? { ...connector, typeLabel } : connector;
+}
+
+function normalizeProjectDevice(instance, index, templates, nodeColorByType, nodeLabelByType = new Map()) {
   const inlineTemplate = instance.template && typeof instance.template === "object" ? instance.template : null;
   const templateId = instance.templateId
     || instance.deviceId
@@ -453,7 +475,8 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
     deviceDefinitionVersion(instance)
   );
   const rawConnectors = effectiveConnectorsForTemplate(template)
-    .map(connector => applyInstanceConnectorOverride(instance, connector));
+    .map(connector => applyInstanceConnectorOverride(instance, connector))
+    .map(connector => applyNodeTypeLabel(connector, nodeLabelByType));
   const widthSource = isAdapter
     ? LEGACY_ADAPTER_WIDTH
     : positiveNumber(instance.width) || positiveNumber(template.width);
@@ -485,7 +508,10 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType) {
   const visual = normalizeDeviceVisualMetadata(template, instance, width, height, nodeColorByType);
   (visual.visualCards || []).forEach(card => (card.connectors || []).forEach(c => {
     const installed = connectors.find(connector => connector.id === c.id);
-    if (installed) CONNECTOR_RELATIONSHIP_FIELDS.forEach(key => { c[key] = installed[key] ?? ""; });
+    if (installed) {
+      c.typeLabel = installed.typeLabel || "";
+      CONNECTOR_RELATIONSHIP_FIELDS.forEach(key => { c[key] = installed[key] ?? ""; });
+    }
   }));
   const powerDistro = isPowerDistro
     ? normalizePowerDistroForEngine({ template, instance, width, connectors })
@@ -840,6 +866,7 @@ function normalizeConnector(connector, index, deviceWidth, nodeColorByType, opti
     fiberCapability: topology.fiberCapability,
     powerMetadata: topology.powerMetadata,
     label,
+    typeLabel: String(connector.typeLabel || ""),
     displayLabel: label,
     direction,
     side: primaryAnchor?.side || (direction === "input" ? "left" : direction === "output" ? "right" : localX <= deviceWidth / 2 ? "left" : "right"),

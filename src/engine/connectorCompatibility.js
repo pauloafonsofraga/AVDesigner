@@ -553,6 +553,8 @@ export function engineConnectorDisplayLabel(connector, fallback = "") {
     connector.displayLabel,
     connector.nameText
   );
+  const typeLabel = firstUsableLabel(connector.typeLabel);
+  if (typeLabel && (!named || /^(?:misc\.?|custom)$/i.test(named))) return typeLabel;
   if (named) return named;
   if (isEngineCageConnector(connector)) {
     const cageLabel = typeDisplayName(connectorType(connector));
@@ -576,10 +578,21 @@ export function engineConnectorTypeDisplayName(connectorOrType, fallback = "") {
   return typeDisplayName(type) || fallback || "";
 }
 
-// External plug captions are catalog identities, never user-entered node names.
+// Built-in plug captions use catalog identities; custom node types use their
+// saved node-library labels so they remain recognizable in every Engine view.
 export function engineConnectorPlugTypeLabel(connector) {
   const type = effectiveConnectorTypeForEngine(connector) || connectorType(connector);
-  return engineConnectorTypeDisplayName(CONNECTOR_LABELS.has(type) ? type : "misc");
+  if (CONNECTOR_LABELS.has(type)) return engineConnectorTypeDisplayName(type);
+  // User-created node-library entries have stable custom type IDs, but those
+  // IDs are intentionally absent from the built-in connector catalog. Their
+  // saved label is the canonical plug caption and must not collapse to Misc.
+  if (type && type !== "misc" && type !== "custom") {
+    const customLabel = firstUsableLabel(connector?.typeLabel, connector?.label);
+    if (customLabel) return customLabel;
+    const readableType = type.replace(/[-_]+/g, " ").replace(/\b\w/g, character => character.toUpperCase());
+    if (readableType) return readableType;
+  }
+  return engineConnectorTypeDisplayName("misc");
 }
 
 export function engineConnectorLabelSource(connector) {

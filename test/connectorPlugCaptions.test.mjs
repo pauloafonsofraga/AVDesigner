@@ -63,6 +63,34 @@ test("plug catalog handles standard, audio, network, USB, fiber, cages and neutr
   }
 });
 
+test("custom node-library labels remain visible instead of collapsing to Misc.", () => {
+  for (const [type, label] of [["dac", "DAC"], ["barrel-jack", "Barrel Jack"], ["rs-232", "RS-232"]]) {
+    assert.equal(engineConnectorPlugTypeLabel({ type, label }), label);
+  }
+  assert.equal(engineConnectorPlugTypeLabel({ type: "future-node" }), "Future Node");
+  assert.equal(engineConnectorPlugTypeLabel({ type: "misc", label: "DAC" }), "Misc.");
+  assert.equal(engineConnectorPlugTypeLabel({ type: "custom", label: "Barrel Jack" }), "Misc.");
+});
+
+test("node-library labels repair stale generic connector labels after save and reload", () => {
+  const normalized = normalizeAvDesignerProject({
+    nodeLibrary: [{ id: "new-node-3", label: "RS-232", color: "#61c2a1", custom: true }],
+    deviceLibrary: [{
+      id: "custom-device",
+      name: "Custom Device",
+      width: 120,
+      height: 80,
+      connectors: [{ id: "control", type: "new-node-3", label: "Misc.", direction: "input", x: 0, y: 40 }]
+    }],
+    devices: [{ instanceId: "device-1", templateId: "custom-device", x: 0, y: 0 }],
+    connections: []
+  });
+  const connector = normalized.devices.find(device => device.id === "device-1").connectors[0];
+  assert.equal(connector.typeLabel, "RS-232");
+  assert.equal(engineConnectorDisplayLabel(connector), "RS-232");
+  assert.equal(engineConnectorPlugTypeLabel(connector), "RS-232");
+});
+
 test("live label layer separates bold plug captions from information values and refreshes them independently", () => {
   const project = connectorPlugCaptionFixture(), before = structuredClone(project), scene = sceneFor(project);
   let ctx = liveLabels(scene);
