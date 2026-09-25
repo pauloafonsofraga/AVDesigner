@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-36-11-custom-node-labels";
+const BUILD_ID = "iteration54-36-12-auto-led-preview-recovery";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -51,9 +51,9 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Custom Node Labels");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-36-11-custom-node-labels-modules";'), "module cache key should identify Custom Node Labels");
-assert.ok(indexHtml.includes("Custom Node Labels"), "visible build label should name Custom Node Labels");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Auto LED Preview Recovery");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-36-12-auto-led-preview-recovery-modules";'), "module cache key should identify Auto LED Preview Recovery");
+assert.ok(indexHtml.includes("Auto LED Preview Recovery"), "visible build label should name Auto LED Preview Recovery");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-36-0-selectable-projector-lenses"'), "Engine bridge version should identify Selectable Projector Lenses");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses"'), "Engine bridge feature label should identify Selectable Projector Lenses");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-36-0-selectable-projector-lenses"), "bridge fingerprint should identify Selectable Projector Lenses");
