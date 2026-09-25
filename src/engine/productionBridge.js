@@ -67,6 +67,12 @@ import {
 import { legacyConnectorHitRadius } from "./legacyZoomDetail.js";
 import { applyCableHopsToPolyline } from "./cableHops.js";
 import {
+  isLedProcessorMainSignalOutput,
+  ledProcessorOutputsInRect,
+  selectedLedProcessorOutputs,
+  shouldUseLedProcessorOutputMarquee
+} from "./ledProcessorConnections.js";
+import {
   DEVICE_PLACEMENT_FEATURE_LABEL,
   duplicatePlacementCollisionSummary,
   findNonOverlappingGroupDelta,
@@ -128,8 +134,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-36-0-selectable-projector-lenses";
-export const ENGINE_BRIDGE_VERSION = "iteration54-36-0-selectable-projector-lenses";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-36-13-multi-source-led-processor-wiring";
+export const ENGINE_BRIDGE_VERSION = "iteration54-36-13-multi-source-led-processor-wiring";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -2239,6 +2245,30 @@ class ProductionEngineBridge {
         connectorHit.connector.connector.id
       );
       this.clearJumpMoveArm("connector-pointerdown", { updateHud: false });
+      const clickedIsLedProcessorOutput = isLedProcessorMainSignalOutput(
+        connectorHit.connector.device,
+        connectorHit.connector.connector
+      );
+      const clickedKey = `${connectorHit.connector.device.id}:${connectorHit.connector.connector.id}`;
+      if (clickedIsLedProcessorOutput && this.scene.selectedConnectorKeys.has(clickedKey)
+        && this.scene.selectedConnectorKeys.size > 1) {
+        const multiLedSources = selectedLedProcessorOutputs(this.scene, this.scene.selectedConnectorKeys)
+          .filter(item => !connectorIsNotWorking(item.connector));
+        if (!multiLedSources.length) {
+          this.clearHoverState("led-multi-wire-empty", { render: false });
+          this.hud?.setMetric("wire target", "The selected LED output nodes are already connected.");
+          this.updateSelectionHud();
+          this.updateInteractionHud("led-multi-wire-empty", connectorHit);
+          this.scheduleRender();
+          return;
+        }
+        this.clearHoverState("led-multi-wire-start", { render: false });
+        this.beginWireCreate(connectorHit.connector, world, { multiLedSources });
+        this.updateSelectionHud();
+        this.updateInteractionHud("led-multi-wire", connectorHit);
+        this.scheduleRender();
+        return;
+      }
       if (connectedEndpoint) {
         this.clearHoverState("wire-rewire-start", { render: false });
         this.beginWireRewire(connectorHit.connector, connectedEndpoint, world);
@@ -3605,13 +3635,17 @@ class ProductionEngineBridge {
     };
   }
 
-  beginWireCreate(connectorHit, worldPoint) {
+  beginWireCreate(connectorHit, worldPoint, options = {}) {
     this.clearJumpMoveArm("wire-create-start", { updateHud: false });
     this.wireCreate = {
       from: connectorHit,
       pointerWorld: { ...worldPoint },
       target: null,
       compatibility: null,
+      multiLedSources: options.multiLedSources?.map(source => ({
+        deviceId: source.deviceId,
+        connectorId: source.connectorId
+      })) || [],
       ...this.wirePreviewAppearance(connectorHit)
     };
     this.lastCompatibilityTargetKey = "";
@@ -3681,6 +3715,10 @@ class ProductionEngineBridge {
       this.completeWireRewire();
       return;
     }
+    if (this.wireCreate?.multiLedSources?.length) {
+      this.completeMultiLedWireCreate();
+      return;
+    }
     this.clearJumpMoveArm("wire-create-complete", { updateHud: false });
     const commitStart = performance.now();
     const source = this.wireCreate?.from;
@@ -3747,6 +3785,97 @@ class ProductionEngineBridge {
     this.updateSelectionHud();
     this.updateInteractionHud("wire-created");
     this.hud.setMetric("create wire commit", `${(performance.now() - commitStart).toFixed(2)} ms`);
+  }
+
+  completeMultiLedWireCreate() {
+    const state = this.wireCreate;
+    const commitStart = performance.now();
+    const target = state?.target;
+    const targetSurface = target?.virtualSurfaceTarget ? target.device : null;
+    const sourceHits = (state?.multiLedSources || [])
+      .map(source => hitForSceneWireEndpoint(
+        this.scene,
+        { fromDeviceId: source.deviceId, fromConnectorId: source.connectorId },
+        "from"
+      ))
+      .filter(hit => (
+        hit
+          && isLedProcessorMainSignalOutput(hit.device, hit.connector)
+          && !connectorIsNotWorking(hit.connector)
+          && this.scene.connectorExternalWireIds(hit.device.id, hit.connector.id).size === 0
+      ));
+    this.clearJumpMoveArm("led-multi-wire-complete", { updateHud: false });
+    this.wireCreate = null;
+    this.lastCompatibilityTargetKey = "";
+    this.canvas.classList.remove("dragging", "wire-creating");
+    this.clearHoverState("led-multi-wire-complete", { render: false });
+    this.updateCanvasCursor();
+    if (!targetSurface || !sourceHits.length) {
+      this.hud?.setMetric("wire target", targetSurface ? "No available LED processor output nodes." : "Select an LED surface.");
+      this.updateInteractionHud("led-multi-wire rejected");
+      return;
+    }
+
+    const wireRecords = [];
+    for (const sourceHit of sourceHits) {
+      const targetHit = ledSurfaceVirtualHit(targetSurface, target.point, sourceHit);
+      const compatibility = targetHit
+        ? engineCompatibilitySummary(sourceHit, targetHit)
+        : { valid: false, reason: "Invalid LED surface target.", rule: "led-surface-target" };
+      if (!compatibility.valid) continue;
+      const metadata = this.wireMetadataForHits(sourceHit, targetHit, compatibility);
+      const route = this.wireRouteForEndpoints(sourceHit.point, targetHit.point);
+      const wire = this.scene.addWire({
+        ...wireEndpointPayloadForHit(sourceHit, "from"),
+        ...wireEndpointPayloadForHit(targetHit, "to"),
+        color: metadata.color,
+        colorSegments: engineWireColorSegmentsForCable(metadata.cableType),
+        cableType: metadata.cableType,
+        fiberMode: metadata.fiberMode,
+        customColor: metadata.customColor,
+        colorSource: metadata.colorSource,
+        jumpWireMetadataSource: metadata.jumpWireMetadataSource,
+        metadataRepaired: metadata.metadataRepaired,
+        savedCableType: metadata.savedCableType,
+        signalIndex: signalIndexForLedSurfaceWireHits(sourceHit, targetHit),
+        routeStyle: route.routeStyle,
+        routePoints: route.routePoints
+      });
+      if (wire) wireRecords.push({ wire, compatibility, sourceHit, targetHit });
+    }
+    if (!wireRecords.length) {
+      this.hud?.setMetric("wire target", "The selected LED output nodes are incompatible with this surface.");
+      this.updateInteractionHud("led-multi-wire rejected");
+      return;
+    }
+
+    this.beginProductionCommit(`create ${wireRecords.length} LED signal wires`);
+    let mutationMs = 0;
+    const created = [];
+    const connections = [];
+    for (const record of wireRecords) {
+      const { wire } = record;
+      mutationMs += this.mutations?.commitCreatedWire(this.scene, wire) || 0;
+      const connectionData = this.mutations?.connectionDataForWire(wire.sourceId || wire.id);
+      created.push(cloneWire(wire));
+      connections.push(connectionData);
+    }
+    const dirtyStats = this.refreshWireVisuals(wireRecords.map(record => record.wire.id), {
+      reason: "create LED signal wires"
+    });
+    this.scene.clearSelection();
+    wireRecords.forEach(record => this.scene.selectedWireIds.add(record.wire.id));
+    this.recordCommand(createWiresCommand(created, connections));
+    this.markCommitted(`create ${created.length} LED signal wires`, mutationMs, {
+      ledProcessorMultiWire: true,
+      wireCount: created.length
+    });
+    this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
+    this.hud.setMetric("dirty counts", `${dirtyStats.dirtyDevices} dev / ${dirtyStats.dirtyWires} wires`);
+    this.hud.setMetric("create wire commit", `${(performance.now() - commitStart).toFixed(2)} ms`);
+    this.updateSelectionHud();
+    this.updateInteractionHud("led-multi-wire-created");
+    this.scheduleRender();
   }
 
   wireMetadataForHits(wireSource, wireTarget, compatibility = {}, existingWire = null) {
@@ -4022,6 +4151,19 @@ class ProductionEngineBridge {
       ...this.scene.expandRackSelectionIds(ids),
       ...rackIds.flatMap(rackId => this.scene.rackChildIds(rackId))
     ]);
+    const ledOutputs = ledProcessorOutputsInRect(this.scene, rect);
+    if (shouldUseLedProcessorOutputMarquee(expandedIds, ledOutputs)) {
+      this.scene.clearSelection();
+      ledOutputs.forEach(output => {
+        this.scene.selectedConnectorKeys.add(`${output.deviceId}:${output.connectorId}`);
+      });
+      this.hud.setMetric("marquee", `${ledOutputs.length} LED processor output node${ledOutputs.length === 1 ? "" : "s"} selected in top-to-bottom order.`);
+      this.updateSelectionHud();
+      this.updateRackBuilderDebugHud("marquee LED processor output selection");
+      this.updateInteractionHud("marquee-led-output-select");
+      this.updateCanvasCursor();
+      return;
+    }
     if (state.additive) {
       const selectedBefore = new Set(this.scene.selectedRackIds || []);
       this.scene.toggleMany(expandedIds);
@@ -4478,6 +4620,35 @@ class ProductionEngineBridge {
         targetError: rejectionReason || ""
       }
       : null;
+    const multiTempWires = this.wireCreate?.multiLedSources?.length && this.wireCreate.target
+      ? this.wireCreate.multiLedSources.map(source => {
+        const sourceHit = hitForSceneWireEndpoint(
+          this.scene,
+          { fromDeviceId: source.deviceId, fromConnectorId: source.connectorId },
+          "from"
+        );
+        const targetHit = this.wireCreate.target.virtualSurfaceTarget
+          ? ledSurfaceVirtualHit(this.wireCreate.target.device, this.wireCreate.target.point, sourceHit)
+          : this.wireCreate.target;
+        if (!sourceHit || !targetHit) return null;
+        const sourceCompatibility = engineCompatibilitySummary(sourceHit, targetHit);
+        const route = this.wireRouteForEndpoints(sourceHit.point, targetHit.point);
+        return {
+          from: sourceHit.point,
+          to: targetHit.point,
+          color: this.wireCreate.color,
+          cableType: this.wireCreate.cableType,
+          colorSegments: Object.freeze([...(this.wireCreate.colorSegments || [])]),
+          routeStyle: route.routeStyle,
+          routePoints: route.routePoints,
+          sourceHit,
+          targetHit,
+          targetPoint: targetHit.point,
+          validTarget: sourceCompatibility.valid,
+          targetError: sourceCompatibility.reason || ""
+        };
+      }).filter(Boolean)
+      : [];
     return {
       hoveredConnector: this.hoverState.connector,
       hoveredInfoBox: this.hoverState.infoBox,
@@ -4495,7 +4666,8 @@ class ProductionEngineBridge {
       selectedConnectors: this.scene.selectedConnectorKeys,
       selectedRoutePoints: this.scene.selectedRoutePointKeys,
       suppressedWireIds: rewire ? new Set([rewire.wireId]) : new Set(),
-      tempWire,
+      tempWire: multiTempWires[0] || tempWire,
+      tempWires: multiTempWires,
       jumpPlacementGhost: this.jumpPlacement?.center
         ? {
             center: { ...this.jumpPlacement.center },
@@ -10305,6 +10477,17 @@ function createWireCommand(wireData, connectionData) {
     affectedIds: [wireData?.id].filter(Boolean),
     undo: bridge => bridge.removeWire(wireData.id),
     redo: bridge => bridge.restoreWire(wireData, connectionData)
+  };
+}
+
+function createWiresCommand(wireData = [], connectionData = []) {
+  const wires = wireData.map(wire => deepClone(wire));
+  const connections = connectionData.map(connection => deepClone(connection));
+  return {
+    type: "CreateLedProcessorWiresCommand",
+    affectedIds: wires.map(wire => wire?.id).filter(Boolean),
+    undo: bridge => wires.map(wire => bridge.removeWire(wire.id)),
+    redo: bridge => wires.map((wire, index) => bridge.restoreWire(wire, connections[index]))
   };
 }
 

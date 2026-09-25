@@ -61,7 +61,7 @@ import {
 } from "./jumpNodeModel.js";
 import { wirePlaybackEase } from "./wirePlayback.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-36-2-connector-plug-captions";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-36-13-multi-source-led-processor-wiring";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -1976,32 +1976,38 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
     stats.connectorOverlayCount += 1;
   }
 
-  if (interaction.tempWire?.from && interaction.tempWire?.to) {
-    const tempRoutePoints = Array.isArray(interaction.tempWire.routePoints) ? interaction.tempWire.routePoints : [];
+  const tempWires = interaction.tempWires?.length
+    ? interaction.tempWires
+    : interaction.tempWire
+      ? [interaction.tempWire]
+      : [];
+  tempWires.forEach(tempWire => {
+    if (!tempWire?.from || !tempWire?.to) return;
+    const tempRoutePoints = Array.isArray(tempWire.routePoints) ? tempWire.routePoints : [];
     pushWireColorSegments(
       vertices,
       wirePolylineFromPoints(
-        { routeStyle: interaction.tempWire.routeStyle || "bezier", routePoints: tempRoutePoints },
-        [interaction.tempWire.from, ...tempRoutePoints, interaction.tempWire.to]
+        { routeStyle: tempWire.routeStyle || "bezier", routePoints: tempRoutePoints },
+        [tempWire.from, ...tempRoutePoints, tempWire.to]
       ),
       3.4,
-      interaction.tempWire,
-      interaction.tempWire.color || "#32b6ff"
+      tempWire,
+      tempWire.color || "#32b6ff"
     );
-    pushConnectorHighlight(vertices, interaction.tempWire.from, connectorVisualRadius(interaction.tempWire.sourceHit?.device, overlayOptions.camera) + 5, "#32b6ff", "source");
+    pushConnectorHighlight(vertices, tempWire.from, connectorVisualRadius(tempWire.sourceHit?.device, overlayOptions.camera) + 5, "#32b6ff", "source");
     stats.connectorOverlayCount += 1;
-    if (interaction.tempWire.targetPoint && !interaction.tempWire.targetHit?.virtualSurfaceTarget) {
+    if (tempWire.targetPoint && !tempWire.targetHit?.virtualSurfaceTarget) {
       pushConnectorHighlight(
         vertices,
-        interaction.tempWire.targetPoint,
-        connectorVisualRadius(interaction.tempWire.targetHit?.device, overlayOptions.camera) + 5,
-        interaction.tempWire.validTarget ? "#30d158" : "#ff4f5f",
-        interaction.tempWire.validTarget ? "target" : "invalid"
+        tempWire.targetPoint,
+        connectorVisualRadius(tempWire.targetHit?.device, overlayOptions.camera) + 5,
+        tempWire.validTarget ? "#30d158" : "#ff4f5f",
+        tempWire.validTarget ? "target" : "invalid"
       );
       stats.connectorOverlayCount += 1;
     }
-    stats.wirePreviewDrawn = 1;
-  }
+  });
+  if (tempWires.length) stats.wirePreviewDrawn = tempWires.length;
 
   if (interaction.jumpPlacementGhost?.center) {
     pushJumpNode(
