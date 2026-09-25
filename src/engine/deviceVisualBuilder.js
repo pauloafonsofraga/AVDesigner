@@ -45,6 +45,14 @@ const LEGACY_ADAPTER_FILL = "#18222b";
 const LEGACY_ADAPTER_STROKE = "rgba(50, 182, 255, .72)";
 const SLOT_HEIGHT = 54;
 
+// LED-wall artwork can be much larger than a normal device texture. Keep the
+// logical surface dimensions unchanged, but bound the optional preview
+// texture so a large embedded PNG cannot exhaust the renderer's canvas/GPU
+// budget while the scene and its virtual endpoints are being built.
+const LED_SURFACE_TEXTURE_MAX_SIDE = 4096;
+const LED_SURFACE_TEXTURE_MAX_PIXELS = 8_000_000;
+const LED_SURFACE_IMAGE_MAX_PIXELS = 16_000_000;
+
 const IMAGE_CACHE = new Map();
 const assetReadySubscribers = new Set();
 let legacyAssetReadyUnsubscribe = null;
@@ -764,7 +772,7 @@ function drawJumpVisual(ctx, device, width, height) {
 
 function drawSurfaceVisual(ctx, device, width, height) {
   const visual = device.visual || {};
-  const image = visualImage(ctx, visual.image);
+  const image = ledSurfaceImageWithinPreviewBudget(device) ? visualImage(ctx, visual.image) : null;
   if (image?.complete && image.naturalWidth > 0) {
     ctx.save();
     ctx.globalAlpha = clamp(Number(visual.opacity), 0, 1) || 1;
@@ -1092,6 +1100,25 @@ function visualDeviceKind(device) {
   return canonicalEngineObjectKind(device);
 }
 
+export function ledSurfaceTexturePolicy(device = {}) {
+  const visual = device?.visual || {};
+  const width = Math.max(1, Number(device?.width) || 1);
+  const height = Math.max(1, Number(device?.height) || 1);
+  const naturalWidth = Math.max(0, Number(visual.naturalWidth) || Number(visual.pixelWidth) || width);
+  const naturalHeight = Math.max(0, Number(visual.naturalHeight) || Number(visual.pixelHeight) || height);
+  const imagePixels = naturalWidth * naturalHeight;
+  return {
+    maxSide: LED_SURFACE_TEXTURE_MAX_SIDE,
+    maxPixels: LED_SURFACE_TEXTURE_MAX_PIXELS,
+    imagePixels,
+    renderImage: Boolean(String(visual.image || "").trim()) && imagePixels <= LED_SURFACE_IMAGE_MAX_PIXELS
+  };
+}
+
+function ledSurfaceImageWithinPreviewBudget(device) {
+  return ledSurfaceTexturePolicy(device).renderImage;
+}
+
 function effectiveTextureLimits(device, quality, options = {}) {
   const gpuMax = Number(options.gpuMaxTextureSide) || Infinity;
   // Modular chassis such as E2 are very tall. Iteration 40.4 keeps their
@@ -1100,16 +1127,24 @@ function effectiveTextureLimits(device, quality, options = {}) {
   const modularTarget = device?.visual?.hasSwappableCards
     ? Math.max(quality.maxSide, 16384)
     : quality.maxSide;
+  const surfacePolicy = isLedSurfaceKind(device) ? ledSurfaceTexturePolicy(device) : null;
+  const sideTarget = surfacePolicy
+    ? Math.min(quality.maxSide, surfacePolicy.maxSide)
+    : modularTarget;
   const optionMaxPixels = Number(options.maxTexturePixels);
-  const maxPixels = Number.isFinite(optionMaxPixels) && optionMaxPixels > 0
+  const requestedMaxPixels = Number.isFinite(optionMaxPixels) && optionMaxPixels > 0
     ? optionMaxPixels
     : quality.maxPixels || quality.maxSide * quality.maxSide;
+  const maxPixels = surfacePolicy
+    ? Math.min(requestedMaxPixels, surfacePolicy.maxPixels)
+    : requestedMaxPixels;
   return {
-    maxSide: Math.max(1, Math.min(modularTarget, gpuMax)),
+    maxSide: Math.max(1, Math.min(sideTarget, gpuMax)),
     maxPixels: Math.max(1, maxPixels),
     gpuMaxSide: Number.isFinite(gpuMax) ? gpuMax : 0,
     requestedMaxSide: quality.maxSide,
-    modularMaxSide: modularTarget
+    modularMaxSide: modularTarget,
+    ledSurfacePreview: Boolean(surfacePolicy)
   };
 }
 
