@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-36-7-card-connector-inspector";
+const BUILD_ID = "iteration54-36-8-card-connector-relationships";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -51,9 +51,9 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot.js"), "utf8");
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Card Connector Inspector");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-36-7-card-connector-inspector-modules";'), "module cache key should identify Card Connector Inspector");
-assert.ok(indexHtml.includes("Card Connector Inspector"), "visible build label should name Card Connector Inspector");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Card Connector Relationships");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-36-8-card-connector-relationships-modules";'), "module cache key should identify Card Connector Relationships");
+assert.ok(indexHtml.includes("Card Connector Relationships"), "visible build label should name Card Connector Relationships");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-36-0-selectable-projector-lenses"'), "Engine bridge version should identify Selectable Projector Lenses");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses"'), "Engine bridge feature label should identify Selectable Projector Lenses");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-36-0-selectable-projector-lenses"), "bridge fingerprint should identify Selectable Projector Lenses");

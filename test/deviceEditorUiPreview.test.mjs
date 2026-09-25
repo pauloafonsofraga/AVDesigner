@@ -8887,6 +8887,12 @@ test("Editor preview wheel zoom matches the main canvas modifier rule", () => {
 
 test("Device Editor interaction ownership and relationship authoring stay tab-scoped", () => {
   const startDrag = functionSource("startEditorNodeDrag");
+  const cardRelationshipCommit = functionSource("commitEditorCardRelationshipEdit");
+  const cardRelationshipChange = sourceSlice(
+    INDEX_HTML,
+    'cardConnectorRelationshipsPanel?.addEventListener("change"',
+    'editorDeviceSearch.addEventListener("input"'
+  );
   assertOrder(startDrag, [
     'if (editorActiveTab === "cards")',
     'if (editorActiveTab === "faceplate")',
@@ -8898,6 +8904,15 @@ test("Device Editor interaction ownership and relationship authoring stay tab-sc
   assert.match(functionSource("drawEditorResizeHandles"), /editorActiveTab !== "faceplate"/);
   assert.match(functionSource("renderCardConnectorRelationshipsPanel"), /data-card-relationship-toggle="exclusive"/);
   assert.match(functionSource("renderCardConnectorRelationshipsPanel"), /data-card-relationship-toggle="through"/);
+  assert.match(cardRelationshipCommit, /commitEditorCardDefinitionEdit\(template, cardTypeId/);
+  assert.match(cardRelationshipCommit, /normalizeEditorConnectorRelationships\(draftCard\)/);
+  assert.match(cardRelationshipCommit, /selectionSnapshot.connectorIds/);
+  assert.match(cardRelationshipChange, /commitEditorCardRelationshipEdit\(card/);
+  assert.match(cardRelationshipChange, /EDITOR_SHARED_BUS_MAX_MEMBERS/);
+  assert.match(cardRelationshipChange, /upsertExclusiveRelationshipForSelection\(draftCard, draftSelectedIds\)/);
+  assert.match(cardRelationshipChange, /upsertThroughRelationshipForSelection\(draftCard, draftSelectedIds\)/);
+  assert.doesNotMatch(cardRelationshipChange, /upsertExclusiveRelationshipForSelection\(card, selectedIds\)/);
+  assert.doesNotMatch(cardRelationshipChange, /upsertThroughRelationshipForSelection\(card, selectedIds\)/);
   assert.match(functionSource("relationshipOutputCopyControl"), /Plug is a copy/);
 });
 
