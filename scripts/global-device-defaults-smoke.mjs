@@ -9,7 +9,7 @@ const base = process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8768";
 const dir = process.env.AVDESIGNER_SCREENSHOT_DIR || "/tmp/avdesigner-global-defaults";
 await mkdir(dir, { recursive: true });
 const errors = [], checks = [];
-const ready = page => page.waitForFunction(() => localUserSettingsLoaded && localUserSettingsOwner && (!activeEngineBridge() || activeEngineBridge().ready));
+const ready = page => page.waitForFunction(() => localUserSettingsLoaded && localUserSettingsOwner && (location.search.includes("legacy=1") || activeEngineBridge()?.ready));
 const observe = page => {
   page.on("pageerror", e => errors.push(e.message));
   page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });

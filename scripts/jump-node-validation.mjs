@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-38-16-wirenexus-branding";
+const BUILD_ID = "iteration54-38-17-factory-catalogue";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -52,8 +52,8 @@ const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Auto LED Preview Recovery");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-16-wirenexus-branding-modules";'), "module cache key should identify WireNexus Branding");
-assert.ok(indexHtml.includes("WireNexus Branding"), "visible build label should name WireNexus Branding");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-17-factory-catalogue-modules";'), "module cache key should identify Factory Catalogue and Artwork");
+assert.ok(indexHtml.includes("Factory Catalogue and Artwork"), "visible build label should name Factory Catalogue and Artwork");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-16-wirenexus-branding"'), "Engine bridge version should identify WireNexus Branding");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses"'), "Engine bridge feature label should identify Selectable Projector Lenses");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-38-16-wirenexus-branding"), "bridge fingerprint should identify WireNexus Branding");

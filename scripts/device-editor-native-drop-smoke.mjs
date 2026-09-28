@@ -34,6 +34,7 @@ async function newPage(mode) {
     }
   });
   await page.goto(`${baseUrl}/index.html?${""}debugDeviceDrop=1`);
+  await page.evaluate(() => window.wireNexusReady);
   return { page, errors };
 }
 
@@ -174,7 +175,7 @@ try {
       assert.deepEqual(catalogPreview.entries, before.entries);
       totals.previewMappings += catalogPreview.entries.length;
       await page.evaluate(() => closeDeviceEditor());
-      const saved = await page.evaluate(() => JSON.parse(projectJsonPayload()));
+      const saved = await page.evaluate(async () => JSON.parse(await projectJsonPayload()));
       await loadProject(page, saved);
       const reloaded = await inventory(page, mode, { id: "power-catalog-instance" });
       assert.deepEqual(reloaded, before);

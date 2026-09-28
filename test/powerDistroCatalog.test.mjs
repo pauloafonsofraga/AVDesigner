@@ -13,6 +13,7 @@ import { createOutputViewerModel } from "../src/engine/outputViewerModel.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
+const catalogue = JSON.parse(fs.readFileSync(path.join(root, "data/factory-catalogue.json"), "utf8"));
 const clone = value => JSON.parse(JSON.stringify(value));
 const registry = vm.runInNewContext(`(${html.match(/const POWER_PLUG_TYPES = (\{[\s\S]*?\n    \});/)[1]})`);
 function legacyFunction(name) {
@@ -74,8 +75,7 @@ test("Power Distro registry copies match the complete independent catalog exactl
 });
 
 test("palette contains 17 canonical choices, four hidden aliases, stable catalog order", () => {
-  const cableSource = html.match(/(?:const|let) cableTypes = (\{[\s\S]*?\n    \});/)[1];
-  const cables = vm.runInNewContext(`(${cableSource})`);
+  const cables = catalogue.nodeTypes;
   assert.equal(VISIBLE_POWER_TYPES.length, 17);
   assert.equal(new Set(VISIBLE_POWER_TYPES).size, 17);
   assert.deepEqual(Object.keys(POWER_CATALOG).filter(id => cables[id].palette !== false), VISIBLE_POWER_TYPES);
@@ -86,16 +86,11 @@ test("palette contains 17 canonical choices, four hidden aliases, stable catalog
   }
 });
 
-test("embedded standalone artwork is byte-identical to the existing repository artwork", () => {
-  const start = html.indexOf("const POWER_PLUG_INLINE_ASSETS = ");
-  const assets = vm.runInNewContext(`${html.slice(start, html.indexOf("};", start) + 2)}; POWER_PLUG_INLINE_ASSETS`);
-  assert.equal(Object.keys(assets).length, 29);
-  for (const [href, data] of Object.entries(assets)) {
-    const comma = data.indexOf(",");
-    const bytes = data.slice(0, comma).includes("base64")
-      ? Buffer.from(data.slice(comma + 1), "base64") : Buffer.from(decodeURIComponent(data.slice(comma + 1)));
-    assert.deepEqual(bytes, fs.readFileSync(path.resolve(root, href)), href);
-  }
+test("Power Distro artwork is owned by the checked catalogue asset manifest, not duplicated inline", () => {
+  assert.doesNotMatch(html, /POWER_PLUG_INLINE_ASSETS/);
+  const assets = Object.entries(catalogue.assets).filter(([href]) => href.startsWith("Nodes/PowerPlugs/"));
+  assert.equal(assets.length, 29);
+  for (const [href, metadata] of assets) assert.equal(fs.statSync(path.resolve(root, href)).size, metadata.bytes, href);
 });
 
 for (const [type, expected] of Object.entries(POWER_CATALOG)) for (const direction of ["input", "output"]) {

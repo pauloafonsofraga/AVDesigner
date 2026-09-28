@@ -1313,7 +1313,9 @@ function basename(path) {
 
 export function deviceVisualSources(device) {
   const visual = device?.visual || {};
-  return [visual.faceImage, visual.thumbnailImage, visual.image, visual.logo, ...powerPlugAssetsForDevice(device)]
+  // Library thumbnails are not drawn by the Engine. A thumbnail deliberately
+  // assigned as face/image artwork is still collected through that field.
+  return [visual.faceImage, visual.image, visual.logo, ...powerPlugAssetsForDevice(device)]
     .map(value => String(value || "").trim())
     .filter(Boolean);
 }
