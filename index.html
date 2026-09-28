@@ -2359,6 +2359,30 @@
       background: rgba(50, 182, 255, .08);
     }
 
+    .company-logo-preview {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .company-logo-preview img {
+      width: 120px;
+      height: 56px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+
+    .company-logo-preview span {
+      overflow-wrap: anywhere;
+      min-width: 0;
+    }
+
+    .company-logo-preview.hidden { display: none; }
+
+    .company-logo-field { grid-column: 1 / -1; }
+    .company-logo-field input { margin: 6px 0; }
+
     .publish-result.hidden {
       display: none;
     }
@@ -5051,7 +5075,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.38.11 — Engine Status Labels — iteration54-38-11-engine-status-labels</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.38.12 — Company Logo Branding — iteration54-38-12-company-logo-branding</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5580,6 +5604,14 @@
           <label for="publishProjectPassword">Viewer Password</label>
           <input id="publishProjectPassword" type="password" autocomplete="new-password">
         </div>
+        <div class="field company-logo-field">
+          <label for="publishCompanyLogo">Company Logo</label>
+          <div id="publishCompanyLogoPreview" class="company-logo-preview hidden">
+            <img alt="Company logo"><span></span>
+          </div>
+          <input id="publishCompanyLogo" type="file" accept="image/png,image/jpeg,image/bmp,image/webp,.bmp">
+          <button id="removePublishCompanyLogo" type="button" class="tool-button hidden">Remove Logo</button>
+        </div>
         <div class="publish-status" id="publishProjectStatus"></div>
         <div class="publish-result hidden" id="publishProjectResult">
           <label for="publishProjectLink">Shareable Link</label>
@@ -5696,9 +5728,14 @@
             <div class="field"><label for="titleDrawingDate">Drawing Date</label><input id="titleDrawingDate" data-title-field="drawingDate"></div>
             <div class="field"><label for="titleAccountManager">Account Manager</label><input id="titleAccountManager" data-title-field="accountManager"></div>
             <div class="field"><label for="titleApprovedBy">Approved By</label><input id="titleApprovedBy" data-title-field="approvedBy"></div>
-            <div class="field">
+            <div class="field company-logo-field">
               <label for="titleCompanyLogo">Company Logo</label>
-              <input id="titleCompanyLogo" type="file" accept="image/png,image/jpeg,image/bmp,.bmp">
+              <div id="titleCompanyLogoPreview" class="company-logo-preview hidden">
+                <img alt="Company logo"><span></span>
+              </div>
+              <input id="titleCompanyLogo" type="file" accept="image/png,image/jpeg,image/bmp,image/webp,.bmp">
+              <button id="removeTitleCompanyLogo" type="button" class="tool-button hidden">Remove Logo</button>
+              <div id="titleCompanyLogoStatus" role="status"></div>
             </div>
           </div>
         </section>
@@ -5715,15 +5752,16 @@
     </div>
   </div>
 
+  <script src="./src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script src="./src/engine/projectorModelCore.js?v=iteration54-38-11-engine-status-labels"></script>
   <script>
-    const APP_ITERATION = "54.38.11";
-    const APP_BUILD_ID = "iteration54-38-11-engine-status-labels";
-    const APP_MODULE_CACHE_ID = "iteration54-38-11-engine-status-labels-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Engine Status Labels`;
+    const APP_ITERATION = "54.38.12";
+    const APP_BUILD_ID = "iteration54-38-12-company-logo-branding";
+    const APP_MODULE_CACHE_ID = "iteration54-38-12-company-logo-branding-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Company Logo Branding`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
-    const APP_SOURCE_BASE_COMMIT = "013f73013caf0a6a3ca4c2f6382c472e17da197a";
+    const APP_SOURCE_BASE_COMMIT = "5357f88417c28947bb8d69d66b55d5352a877150";
     const CANVAS_MIN_ZOOM = 0.03;
     const CANVAS_MAX_ZOOM = 8;
     const ENGINE_COMMENT_ARROW_LENGTH = 16;
@@ -135192,8 +135230,12 @@
 
     function openTitleBlockEditor(blockId = null) {
       const block = blockId ? titleBlockById(blockId) : null;
+      const rememberedLogo = AVDesignerCompanyLogo.readCompanyLogo();
       titleBlockEditingId = block?.id || null;
       titleBlockDraft = { ...defaultTitleBlockData(), ...(block?.fields || {}) };
+      titleBlockDraft.companyLogo = block ? AVDesignerCompanyLogo.titleBlockLogo(block) : rememberedLogo?.source || "";
+      showCompanyLogo("title", titleBlockDraft.companyLogo, rememberedLogo?.source === titleBlockDraft.companyLogo ? rememberedLogo.name : "Company logo");
+      document.getElementById("titleCompanyLogoStatus").textContent = "";
       titleBlockModalTitle.textContent = block ? "Edit Title Block" : "Title Block";
       saveTitleBlockButton.textContent = block ? "Apply Title Block" : "Place Title Block";
       document.querySelectorAll("[data-title-field]").forEach(input => {
@@ -135238,6 +135280,8 @@
           const before = structuredClone(block);
           const after = structuredClone(block);
           after.fields = { ...defaultTitleBlockData(), ...titleBlockDraft };
+          if ("logo" in after) after.logo = titleBlockDraft.companyLogo;
+          if ("companyLogo" in after) after.companyLogo = titleBlockDraft.companyLogo;
           closeTitleBlockEditor();
           engineBridge.commitCanvasObjectSnapshot("title-block", before, after, {
             label: "edit title-block",
@@ -135247,6 +135291,8 @@
         }
         pushUndo();
         block.fields = { ...defaultTitleBlockData(), ...titleBlockDraft };
+        if ("logo" in block) block.logo = titleBlockDraft.companyLogo;
+        if ("companyLogo" in block) block.companyLogo = titleBlockDraft.companyLogo;
         closeTitleBlockEditor();
         syncCanvasObjectVisual("title-block", block.id, block, { fullShellRender: true });
         return;
@@ -142202,8 +142248,8 @@
         width: editingBlock?.width || TITLE_BLOCK_WIDTH,
         height: editingBlock?.height || TITLE_BLOCK_HEIGHT,
         fields: { ...defaultTitleBlockData(), ...(titleBlockDraft || {}) },
-        logo: titleBlockDraft?.companyLogo || editingBlock?.logo || editingBlock?.companyLogo || editingBlock?.fields?.companyLogo || "",
-        companyLogo: titleBlockDraft?.companyLogo || editingBlock?.companyLogo || editingBlock?.fields?.companyLogo || ""
+        logo: titleBlockDraft?.companyLogo ?? AVDesignerCompanyLogo.titleBlockLogo(editingBlock),
+        companyLogo: titleBlockDraft?.companyLogo ?? AVDesignerCompanyLogo.titleBlockLogo(editingBlock)
       };
     }
 
@@ -154250,6 +154296,8 @@ document.addEventListener("click", function(event) {
       publishProjectPassword.value = "";
       publishProjectLink.value = "";
       publishProjectResult.classList.add("hidden");
+      publishCompanyLogoDraft = AVDesignerCompanyLogo.readCompanyLogo();
+      refreshPublishCompanyLogo();
       setPublishStatus("Choose a password for the technician viewer.");
       publishProjectModal.classList.remove("hidden");
       setTimeout(() => publishProjectPassword.focus(), 0);
@@ -154257,6 +154305,56 @@ document.addEventListener("click", function(event) {
 
     function closePublishProjectModal() {
       publishProjectModal?.classList.add("hidden");
+    }
+
+    let publishCompanyLogoDraft = null;
+
+    function showCompanyLogo(prefix, source, name) {
+      const preview = document.getElementById(`${prefix}CompanyLogoPreview`);
+      preview.classList.toggle("hidden", !source);
+      const image = preview.querySelector("img");
+      if (source) image.src = source;
+      else image.removeAttribute("src");
+      preview.querySelector("span").textContent = source ? name : "";
+      document.getElementById(`remove${prefix[0].toUpperCase() + prefix.slice(1)}CompanyLogo`).classList.toggle("hidden", !source);
+    }
+
+    function refreshPublishCompanyLogo() {
+      const titleLogo = AVDesignerCompanyLogo.projectCompanyLogo(state.titleBlocks);
+      showCompanyLogo("publish", titleLogo || publishCompanyLogoDraft?.source || "",
+        titleLogo ? "Title block logo" : publishCompanyLogoDraft?.name || "Company logo");
+      document.getElementById("publishCompanyLogo").classList.toggle("hidden", !!titleLogo);
+      if (titleLogo) document.getElementById("removePublishCompanyLogo").classList.add("hidden");
+    }
+
+    async function readCompanyLogoFile(file) {
+      if (file.size > 20 * 1024 * 1024) throw new Error("Please choose a company logo smaller than 20 MB.");
+      const source = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("The company logo could not be read."));
+        reader.readAsDataURL(file);
+      });
+      if (!/^data:image\/(png|jpeg|bmp|webp);base64,/.test(source)) throw new Error("Choose a PNG, JPEG, BMP or WebP logo.");
+      const image = new Image();
+      image.src = source;
+      await image.decode();
+      return { source, name: file.name };
+    }
+
+    async function preparePublishedCompanyLogo(source) {
+      if (!source) return "";
+      const image = new Image();
+      image.src = await imagePathToDataUrl(source, new Map());
+      await image.decode();
+      const scale = Math.min(1, 640 / image.naturalWidth, 320 / image.naturalHeight);
+      const surface = document.createElement("canvas");
+      surface.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      surface.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      surface.getContext("2d").drawImage(image, 0, 0, surface.width, surface.height);
+      const result = AVDesignerCompanyLogo.publishedCompanyLogo(surface.toDataURL("image/png"));
+      if (!result) throw new Error("The company logo could not be prepared for publishing.");
+      return result;
     }
 
     async function loadBlobClient() {
@@ -154292,6 +154390,8 @@ document.addEventListener("click", function(event) {
       publishProjectResult?.classList.add("hidden");
       setPublishStatus("Preparing project data...");
       try {
+        const companyLogo = await preparePublishedCompanyLogo(
+          AVDesignerCompanyLogo.projectCompanyLogo(state.titleBlocks) || publishCompanyLogoDraft?.source || "");
         const { html, data } = await prepareEngineViewerOutput({ mode: "hosted-viewer", title });
         data.projectName = title;
         const projectJson = JSON.stringify(data);
@@ -154316,6 +154416,7 @@ document.addEventListener("click", function(event) {
             id,
             title,
             password,
+            companyLogo,
             projectPath: projectBlob.pathname,
             htmlPath: htmlBlob.pathname
           })
@@ -154587,18 +154688,52 @@ document.addEventListener("click", function(event) {
     document.querySelectorAll("[data-title-field]").forEach(input => {
       input.addEventListener("input", () => renderTitleBlockPreview());
     });
-    document.getElementById("titleCompanyLogo").addEventListener("change", event => {
-      const [file] = event.target.files;
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (!titleBlockDraft) titleBlockDraft = defaultTitleBlockData();
-        titleBlockDraft.companyLogo = reader.result;
-        renderTitleBlockPreview();
-      };
-      reader.readAsDataURL(file);
-      event.target.value = "";
-    });
+    for (const prefix of ["title", "publish"]) {
+      const input = document.getElementById(`${prefix}CompanyLogo`);
+      const saveButton = prefix === "publish" ? document.getElementById("confirmPublishProject") : saveTitleBlockButton;
+      let request = 0;
+      input.addEventListener("change", async event => {
+        const [file] = event.target.files;
+        if (!file) return;
+        const current = ++request;
+        const draft = titleBlockDraft;
+        const status = message => prefix === "publish" ? setPublishStatus(message, !!message)
+          : document.getElementById("titleCompanyLogoStatus").textContent = message;
+        input.disabled = true;
+        saveButton.disabled = true;
+        try {
+          const logo = await readCompanyLogoFile(file);
+          if (current !== request || (prefix === "title" && (!draft || draft !== titleBlockDraft))) return;
+          if (prefix === "title") {
+            titleBlockDraft.companyLogo = logo.source;
+            showCompanyLogo(prefix, logo.source, logo.name);
+            renderTitleBlockPreview();
+          } else {
+            publishCompanyLogoDraft = logo;
+            refreshPublishCompanyLogo();
+          }
+          status(AVDesignerCompanyLogo.rememberCompanyLogo(logo) ? "" : "Logo selected, but browser storage is full. It could not be remembered for next time.");
+        } catch {
+          status("The company logo could not be loaded. Choose a PNG, JPEG, BMP or WebP under 20 MB.");
+        } finally {
+          input.value = "";
+          input.disabled = false;
+          saveButton.disabled = false;
+        }
+      });
+      document.getElementById(`remove${prefix[0].toUpperCase() + prefix.slice(1)}CompanyLogo`).addEventListener("click", () => {
+        request++;
+        AVDesignerCompanyLogo.rememberCompanyLogo(null);
+        if (prefix === "title" && titleBlockDraft) {
+          titleBlockDraft.companyLogo = "";
+          showCompanyLogo(prefix, "", "");
+          renderTitleBlockPreview();
+        } else {
+          publishCompanyLogoDraft = null;
+          refreshPublishCompanyLogo();
+        }
+      });
+    }
     document.getElementById("closeDeviceEditor").addEventListener("click", closeDeviceEditor);
     closeDeviceTechSpecs?.addEventListener("click", closeDeviceTechSpecsModal);
     deviceTechSpecsModal?.addEventListener("click", event => {

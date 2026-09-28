@@ -231,7 +231,9 @@ try {
     const hosted = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
     const hostedErrors = errorsFor(hosted), frameRequests = [];
     hosted.on("request", r => { if (r.frame().parentFrame() && /^https?:/.test(r.url())) frameRequests.push(r.url()); });
-    await hosted.route("**/api/project", route => route.fulfill(route.request().postDataJSON().password === publishRequest.password
+    await hosted.route("**/api/project*", route => route.request().method() === "GET"
+      ? route.fulfill({ json: { companyLogo: publishRequest.companyLogo || "" } })
+      : route.fulfill(route.request().postDataJSON().password === publishRequest.password
       ? { json: { title: "Hosted parity", html: hostedHtml } } : { status: 401, json: { error: "Password is incorrect." } }));
     await hosted.goto(`${base}/viewer.html?id=smoke-project`);
     await hosted.locator("#projectPassword").fill("wrong"); await hosted.getByRole("button", { name: "Open Viewer" }).click();

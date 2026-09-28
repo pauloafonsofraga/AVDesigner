@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AV Designer Viewer</title>
-  <link rel="icon" href="/VideoCoreLogo.png">
+  <link id="companyFavicon" rel="icon" href="data:,">
   <style>
     :root {
       color-scheme: dark;
@@ -55,10 +55,13 @@
     }
 
     .brand img {
-      width: 42px;
-      height: 42px;
+      width: 100px;
+      height: 64px;
       object-fit: contain;
     }
+
+    .brand img[hidden] { display: none; }
+    .brand > div { min-width: 0; }
 
     h1 {
       margin: 0;
@@ -134,7 +137,7 @@
 <body>
   <main class="viewer-card">
     <div class="brand">
-      <img src="/VideoCoreLogo.png" alt="Video Core">
+      <img id="companyLogo" alt="Company logo" hidden>
       <div>
         <h1>AV Designer Viewer</h1>
         <p>Read-only hosted wirechart</p>
@@ -151,6 +154,7 @@
     </form>
   </main>
 
+  <script src="/src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script>
     const params = new URLSearchParams(location.search);
     const pathMatch = location.pathname.match(/\/v\/([^/?#]+)/);
@@ -169,6 +173,18 @@
       setStatus("This viewer link is missing a project id.", "error");
       passwordInput.disabled = true;
       button.disabled = true;
+    } else {
+      fetch(`/api/project?id=${encodeURIComponent(projectId)}`)
+        .then(response => response.ok ? response.json() : null)
+        .then(result => {
+          const logo = AVDesignerCompanyLogo.publishedCompanyLogo(result?.companyLogo);
+          const image = document.getElementById("companyLogo");
+          if (!logo || !image) return;
+          image.onload = () => { image.hidden = false; };
+          image.src = logo;
+          document.getElementById("companyFavicon").href = logo;
+        })
+        .catch(() => {});
     }
 
 

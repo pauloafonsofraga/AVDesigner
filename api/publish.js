@@ -1,6 +1,7 @@
 import { put, head } from "@vercel/blob";
 import crypto from "node:crypto";
 import zlib from "node:zlib";
+import "../src/companyLogoCore.js";
 
 const PROJECT_PREFIX = "avdesigner/projects";
 const MAX_TITLE_LENGTH = 120;
@@ -56,6 +57,8 @@ export default async function handler(request, response) {
     const body = readBody(request);
     const title = String(body.title || body.project?.projectName || "Untitled AV Wirechart").trim().slice(0, MAX_TITLE_LENGTH);
     const password = String(body.password || "");
+    const companyLogo = globalThis.AVDesignerCompanyLogo.publishedCompanyLogo(body.companyLogo);
+    if (body.companyLogo && !companyLogo) return json(response, 400, { error: "Invalid company logo." });
 
     if (password.length < 4) return json(response, 400, { error: "Password must be at least 4 characters." });
     if (password.length > MAX_PASSWORD_LENGTH) return json(response, 400, { error: "Password is too long." });
@@ -101,6 +104,7 @@ export default async function handler(request, response) {
       password: passwordRecord,
       projectPath,
       htmlPath,
+      companyLogo,
       schema: 1
     };
 

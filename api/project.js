@@ -1,5 +1,6 @@
 import { get } from "@vercel/blob";
 import crypto from "node:crypto";
+import "../src/companyLogoCore.js";
 
 const PROJECT_PREFIX = "avdesigner/projects";
 const MAX_PASSWORD_LENGTH = 160;
@@ -44,8 +45,8 @@ async function blobText(pathname) {
 }
 
 export default async function handler(request, response) {
-  if (request.method !== "POST") {
-    response.setHeader("Allow", "POST");
+  if (request.method !== "POST" && request.method !== "GET") {
+    response.setHeader("Allow", "GET, POST");
     return json(response, 405, { error: "Method not allowed." });
   }
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
@@ -53,18 +54,24 @@ export default async function handler(request, response) {
   }
 
   try {
-    const body = readBody(request);
+    const brandingOnly = request.method === "GET";
+    const body = brandingOnly ? { id: request.query?.id } : readBody(request);
     const id = safeProjectId(body.id);
     const password = String(body.password || "");
 
     if (!id) return json(response, 400, { error: "Invalid viewer link." });
-    if (!password) return json(response, 400, { error: "Enter the project password." });
+    if (!brandingOnly && !password) return json(response, 400, { error: "Enter the project password." });
     if (password.length > MAX_PASSWORD_LENGTH) return json(response, 400, { error: "Password is too long." });
 
     const metaText = await blobText(`${PROJECT_PREFIX}/${id}/meta.json`);
     if (!metaText) return json(response, 404, { error: "Project was not found." });
 
     const metadata = JSON.parse(metaText);
+    // Only the logo is public. Never return the metadata record or fetch the
+    // private drawing before password verification.
+    if (brandingOnly) return json(response, 200, {
+      companyLogo: globalThis.AVDesignerCompanyLogo.publishedCompanyLogo(metadata.companyLogo)
+    });
     if (!verifyPassword(password, metadata.password)) {
       return json(response, 401, { error: "Password is incorrect." });
     }
