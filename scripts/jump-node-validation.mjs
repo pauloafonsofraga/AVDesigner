@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-38-8-unified-cable-captions";
+const BUILD_ID = "iteration54-38-9-live-device-names";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -52,8 +52,8 @@ const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Auto LED Preview Recovery");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-8-unified-cable-captions-modules";'), "module cache key should identify Unified Cable Captions");
-assert.ok(indexHtml.includes("Unified Cable Captions"), "visible build label should name Unified Cable Captions");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-9-live-device-names-modules";'), "module cache key should identify Live Device Names");
+assert.ok(indexHtml.includes("Live Device Names"), "visible build label should name Live Device Names");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-6-monitor-names-clean-canvas"'), "Engine bridge version should identify LED Multi-Wire Selection");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses"'), "Engine bridge feature label should identify Selectable Projector Lenses");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-38-6-monitor-names-clean-canvas"), "bridge fingerprint should identify LED Multi-Wire Selection");

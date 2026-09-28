@@ -81,8 +81,26 @@ try {
   await interactions(page);
 
   await page.evaluate(() => { const b = activeEngineBridge(); b.scene.selectOnly("direct-source"); b.updateSelectionHud(); });
-  await page.locator("#deviceNameInput").fill("E2 Backup"); await page.locator("#deviceNameInput").press("Tab");
+  const rebuildsBeforeRename = await page.evaluate(() => activeEngineBridge().renderer.fullRebuildCount);
+  const nameInput = page.locator("#deviceNameInput");
+  await nameInput.fill("E2 Bkup");
+  await rendered(page, normal.replace("E2 Main", "E2 Bkup"));
+  await nameInput.evaluate(input => input.setSelectionRange(4, 4));
+  await nameInput.pressSequentially("ac", { delay: 40 });
+  assert.deepEqual(await nameInput.evaluate(input => ({ value: input.value, focused: document.activeElement === input, caret: input.selectionStart })),
+    { value: "E2 Backup", focused: true, caret: 6 });
+  assert.equal(await page.evaluate(() => projectSnapshot().devices.find(d => d.instanceId === "direct-source").name), "E2 Backup");
+  assert.equal(await page.evaluate(() => activeEngineBridge().scene.getDevice("direct-source").label), "E2 Backup");
+  assert.equal(await page.evaluate(() => activeEngineBridge().renderer.fullRebuildCount), rebuildsBeforeRename);
   await rendered(page, normal.replace("E2 Main", "E2 Backup"));
+  await page.screenshot({ path: join(directory, "live-name-while-typing.png") });
+  checks.push("name is stored and rendered while typing without Enter/blur, focus loss, caret jumps or full scene rebuilds");
+  await nameInput.press("Tab");
+  await page.evaluate(() => document.activeElement?.blur());
+  await page.keyboard.press("Control+z"); await rendered(page, normal);
+  assert.equal(await page.evaluate(() => instanceById("direct-source").name), "E2 Main");
+  await page.keyboard.press("Control+Shift+z"); await rendered(page, normal.replace("E2 Main", "E2 Backup"));
+  checks.push("one undo restores the name before typing; redo restores the whole rename");
   await page.evaluate(() => { const b = activeEngineBridge(); b.scene.selectConnectorOnly("direct-source", "signal"); b.updateSelectionHud(); });
   await page.locator('[data-canvas-connector-field="nameText"]').fill("Program Out");
   await page.locator('[data-canvas-connector-field="nameText"]').press("Tab");
