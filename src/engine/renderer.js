@@ -61,8 +61,9 @@ import {
 } from "./jumpNodeModel.js";
 import { wirePlaybackEase } from "./wirePlayback.js";
 import { wireCaption } from "./cableCaption.js";
+import { highlightedCableWireIds } from "./cableSelection.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-8-unified-cable-captions";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-14-paired-jump-cable-highlighting";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -1041,6 +1042,7 @@ export class WebglGraphRenderer {
     const dragSession = options.dragSession || null;
     const interaction = options.interactionState || {};
     const selectedWireIds = options.selectedWireIds || new Set();
+    const highlightedWireIds = highlightedCableWireIds(scene, selectedWireIds);
     const hoveredWireId = interaction.hoveredWire?.wire?.id || interaction.hoveredWireId || "";
     const activeWireEdit = interaction.activeWireEdit || null;
     const staticSuppressedWireIds = new Set(dragSession?.affectedWireIds || []);
@@ -1093,7 +1095,7 @@ export class WebglGraphRenderer {
         const wire = scene.getWire(wireId);
         let status = "disabled";
         if (wire && renderOptions.wires) {
-          if (selectedWireIds.has(wireId)) {
+          if (highlightedWireIds.has(wireId)) {
             pushWireSelection(liveVertices, scene, wire, offsets, renderOptions, null);
             status = "drawn-moving-selected";
           } else if (hoveredWireId === wireId) {
@@ -1167,15 +1169,16 @@ export class WebglGraphRenderer {
         if (hoveredDevice && !(options.selectedIds || new Set()).has(hoveredDevice.id)) {
           pushMatrixInternalRoutes(liveVertices, hoveredDevice, null, renderOptions, "hover");
         }
-        (options.selectedWireIds || new Set()).forEach(id => {
+        highlightedWireIds.forEach(id => {
           if (staticSuppressedWireIds.has(id)) return;
           const wire = scene.getWire(id);
           if (wire && renderOptions.wires) {
             pushWireSelection(liveVertices, scene, wire, null, renderOptions, this.cableHopMap);
-            if (renderOptions.routePoints) pushWireRoutePointHandles(liveVertices, scene, wire, null);
+            this.recordWireLayer(layerTrace, id, "selectedWireOverlay", "drawn");
+            if (renderOptions.routePoints && selectedWireIds.has(id)) pushWireRoutePointHandles(liveVertices, scene, wire, null);
           }
         });
-        if (hoveredWireId && !staticSuppressedWireIds.has(hoveredWireId) && !(options.selectedWireIds || new Set()).has(hoveredWireId)) {
+        if (hoveredWireId && !staticSuppressedWireIds.has(hoveredWireId) && !highlightedWireIds.has(hoveredWireId)) {
           const wire = scene.getWire(hoveredWireId);
           if (wire && renderOptions.wires) pushWireHover(liveVertices, scene, wire, null, renderOptions, this.cableHopMap);
         }
@@ -1348,7 +1351,7 @@ export class WebglGraphRenderer {
     });
     let wireLabelCount = 0;
     if (renderOptions.wires) {
-      const selectedWireIds = options.selectedWireIds || new Set();
+      const selectedWireIds = highlightedCableWireIds(scene, options.selectedWireIds);
       const hoveredWireId = options.interactionState?.hoveredWire?.wire?.id || options.interactionState?.hoveredWireId || "";
       const wireCandidates = new Map();
       const fullWireLabels = camera.zoom >= WIRE_LABEL_ZOOM_THRESHOLD;

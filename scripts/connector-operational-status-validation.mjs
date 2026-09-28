@@ -15,7 +15,7 @@ import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { connectorOperationalStatusMarkSegments } from "../src/engine/renderer.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 
-const BUILD_ID = "iteration54-38-13-led-rack-selection-and-colors";
+const BUILD_ID = "iteration54-38-14-paired-jump-cable-highlighting";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -25,10 +25,10 @@ const projectAdapterSource = readFileSync(resolve(repoRoot, "src/engine/projectA
 const mutationSource = readFileSync(resolve(repoRoot, "src/engine/projectMutations.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Custom Node Labels");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-13-led-rack-selection-and-colors-modules";'), "module cache key should bust 54.38.13 modules");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-14-paired-jump-cable-highlighting-modules";'), "module cache key should bust 54.38.14 modules");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-13-led-rack-selection-and-colors"'), "bridge version should identify LED Rack Selection and Colors");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses"'), "bridge feature label should identify Selectable Projector Lenses");
-assert.ok(rendererSource.includes("renderer-iteration54-38-8-unified-cable-captions"), "renderer fingerprint should identify Unified Cable Captions");
+assert.ok(rendererSource.includes("renderer-iteration54-38-14-paired-jump-cable-highlighting"), "renderer fingerprint should identify Paired Jump Cable Highlighting");
 
 assert.equal(normalizeConnectorOperationalStatus(), "working", "missing connector status should default to working");
 assert.equal(normalizeConnectorOperationalStatus("working"), "working", "working status should remain working");

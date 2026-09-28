@@ -171,6 +171,18 @@ test("portal captions follow visible overlays only, including playback, and resp
   assert.ok(liveLabels(scene, { selectedWireIds: new Set(["direct"]) }, .1).includes(highlighted));
 });
 
+test("selecting either Jump cable leg emphasizes both physical captions without revealing the portal", () => {
+  const scene = sceneFor();
+  for (const id of ["physical-1", "physical-2"]) {
+    const labels = liveLabels(scene, { selectedWireIds: new Set([id]) }, .1);
+    assert.ok(labels.includes(`${strict} - 10 m`));
+    assert.ok(labels.includes(`${strict} - 15 ft`));
+    assert.ok(!labels.includes(strict));
+    assert.ok(!labels.some(label => label.includes("Control A")));
+  }
+  assert.deepEqual(liveLabels(scene, {}, .1), []);
+});
+
 test("viewer wire hover respects Jump/connector/link precedence and clears on leave, camera changes and pan", () => {
   const model = createOutputViewerModel(buildEngineOutputScene(cableCaptionFixture()));
   let state;
