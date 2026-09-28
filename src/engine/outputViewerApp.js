@@ -20,6 +20,7 @@ export class EngineOutputViewer {
     this.selection = null;
     this.hoverPoint = null;
     this.hoveredJumpId = null;
+    this.hoveredWireId = null;
     this.frame = 0;
     this.disposed = false;
     this.createDom();
@@ -181,10 +182,19 @@ export class EngineOutputViewer {
   }
   updateHover(point) {
     this.hoverPoint = point;
-    const id = point && !this.pointers.size ? this.jumpAt(screenToWorld(this.camera, point))?.id || null : null;
-    if (id === this.hoveredJumpId) return;
-    this.hoveredJumpId = id;
-    this.requestRender();
+    const beforeJump = this.hoveredJumpId, beforeWire = this.hoveredWireId;
+    this.refreshHover();
+    if (beforeJump !== this.hoveredJumpId || beforeWire !== this.hoveredWireId) this.requestRender();
+  }
+  refreshHover() {
+    this.hoveredJumpId = null;
+    this.hoveredWireId = null;
+    if (!this.hoverPoint || this.pointers.size) return;
+    const world = screenToWorld(this.camera, this.hoverPoint), tolerance = 9 / this.camera.zoom;
+    this.hoveredJumpId = this.jumpAt(world)?.id || null;
+    if (this.hoveredJumpId || hitTestConnector(this.scene, world, tolerance).connector) return;
+    if (this.visibleJumpLinkOverlays().some(link => distanceToPolyline(link.points, world).distance < tolerance)) return;
+    this.hoveredWireId = hitTestWire(this.scene, world, tolerance).wire?.wire.id || null;
   }
   visibleJumpLinkOverlays() {
     return outputJumpLinkOverlays(this.model, this.selection, this.hoveredJumpId);
@@ -250,15 +260,16 @@ export class EngineOutputViewer {
   renderNow() {
     if (this.disposed) return;
     // Recheck stationary pointers after Fit, zoom or resize changes the camera.
-    this.hoveredJumpId = this.hoverPoint && !this.pointers.size
-      ? this.jumpAt(screenToWorld(this.camera, this.hoverPoint))?.id || null : null;
+    this.refreshHover();
     const interactionState = { selectedConnectors: this.scene.selectedConnectorKeys,
+      hoveredWireId: this.hoveredWireId,
       jumpLinkOverlays: this.visibleJumpLinkOverlays() };
     if (this.playback) {
       const step = this.playback.steps[this.playback.index];
       const progress = Math.min(1, (performance.now() - this.playback.start) / wirePlaybackDurationMs(step.points));
       const point = polylinePointAtDistance(step.points, polylineLength(step.points) * wirePlaybackEase(progress));
-      interactionState.wirePlayback = { active: true, dot: point, progress, points: step.points, color: step.color };
+      interactionState.wirePlayback = { active: true, dot: point, progress, points: step.points, color: step.color,
+        jumpLinkId: step.type === "jump-link" ? step.id : "" };
       if (progress === 1) {
         this.playback.index++; this.playback.start = performance.now();
         if (this.playback.index === this.playback.steps.length) this.stopPlayback();

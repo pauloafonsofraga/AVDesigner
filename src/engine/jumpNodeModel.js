@@ -287,13 +287,13 @@ export function sceneWireEndpointConnectorId(wire, end) {
   return "";
 }
 
-export function sceneJumpDeviceWire(scene, jumpId = "", { excludeWireId = "" } = {}) {
+export function sceneJumpDeviceWire(scene, jumpId = "", { excludeWireId = "", wireIds = null } = {}) {
   const id = String(jumpId || "");
   if (!scene || !id) return null;
-  const wireIds = typeof scene.affectedWireIdsForObjects === "function"
+  const candidates = wireIds ?? (typeof scene.affectedWireIdsForObjects === "function"
     ? [...scene.affectedWireIdsForObjects([id])]
-    : (scene.wires || []).map(wire => wire.id);
-  for (const wireId of wireIds) {
+    : (scene.wires || []).map(wire => wire.id));
+  for (const wireId of candidates) {
     if (excludeWireId && String(wireId) === String(excludeWireId)) continue;
     const wire = typeof scene.getWire === "function"
       ? scene.getWire(wireId)

@@ -60,8 +60,9 @@ import {
   jumpNodeRoleColor
 } from "./jumpNodeModel.js";
 import { wirePlaybackEase } from "./wirePlayback.js";
+import { wireCaption } from "./cableCaption.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-1-original-png-canvas-pan";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-8-unified-cable-captions";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -1380,6 +1381,17 @@ export class WebglGraphRenderer {
         wireLabelCount += 1;
         const moving = dragSession?.affectedWireIds?.has(wire.id);
         this.recordWireLayer(options.layerTrace, wire.id, "labelLayer", moving ? "drawn-moving" : "drawn");
+      });
+      // Label only portals already revealed by interaction, never hidden links.
+      const interaction = options.interactionState || {};
+      const portals = new Map((interaction.jumpLinkOverlays || []).map(overlay => [overlay.id, overlay.points]));
+      const playback = interaction.wirePlayback;
+      if (playback?.active && playback.jumpLinkId && playback.points?.length) portals.set(playback.jumpLinkId, playback.points);
+      portals.forEach((points, id) => {
+        const link = scene.getJumpLink(id);
+        if (!link || !points?.length) return;
+        drawPolylineLabel(ctx, points, camera, wireCaption(scene, link, true));
+        wireLabelCount += 1;
       });
     }
     const connectorLabelCount = drawVisibleConnectorLabels(
@@ -3371,26 +3383,6 @@ function packVertexMap(map) {
   return { array, ranges };
 }
 
-function wireCaption(scene, wire, full = false) {
-  const cableType = String(wire.cableType || "").trim();
-  const customLabel = String(wire.label || "").trim();
-  const cable = customLabel && customLabel !== cableType ? customLabel : cableType || customLabel || "Wire";
-  const length = String(wire.length || "").trim();
-  if (!full) return [cable, length].filter(Boolean).join(" - ");
-  const fromDevice = scene.getDevice(wire.fromSurfaceId || wire.fromDeviceId);
-  const toDevice = scene.getDevice(wire.toSurfaceId || wire.toDeviceId);
-  const fromConnector = wire.fromSurfaceId ? null : fromDevice?.connectorsById?.get(wire.fromConnectorId);
-  const toConnector = wire.toSurfaceId ? null : toDevice?.connectorsById?.get(wire.toConnectorId);
-  return [
-    cable,
-    deviceLabel(fromDevice),
-    connectorLabel(fromConnector, wire.fromSurfaceId ? "LED Screen" : wire.fromConnectorId),
-    deviceLabel(toDevice),
-    connectorLabel(toConnector, wire.toSurfaceId ? "LED Screen" : wire.toConnectorId),
-    length
-  ].filter(Boolean).join(" - ");
-}
-
 function deviceLabel(device) {
   return String(device?.label || device?.visual?.displayName || device?.id || "").trim();
 }
@@ -3880,7 +3872,10 @@ function zoomDetailStatsForCamera(camera, visibleInfoBoxes = 0, compactInfoBoxes
 }
 
 function drawWireLabel(ctx, scene, wire, camera, offsets, text) {
-  const points = scene.wireRenderPolyline(wire, offsets);
+  drawPolylineLabel(ctx, scene.wireRenderPolyline(wire, offsets), camera, text);
+}
+
+function drawPolylineLabel(ctx, points, camera, text) {
   const placement = labelPlacementForPolyline(points);
   if (!placement || !text) return;
   const x = (placement.x - camera.x) * camera.zoom;
