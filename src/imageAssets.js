@@ -43,7 +43,8 @@ export async function inlineImage(source, { cache = new Map(), fetchImage = fetc
   return cache.get(key);
 }
 
-const imageKeys = new Set(["faceImage", "thumbnailImage", "thumbnail", "image", "previewImage", "originalImage", "logo", "companyLogo", "logoSrc"]);
+export const IMAGE_ASSET_FIELDS = Object.freeze(["faceImage", "thumbnailImage", "thumbnail", "image", "previewImage", "originalImage", "logo", "companyLogo", "logoSrc"]);
+const imageKeys = new Set(IMAGE_ASSET_FIELDS);
 
 // Operates on a detached project/library snapshot; keys also cover node artwork,
 // cards, rack overrides, image objects and all supported title-block logo forms.

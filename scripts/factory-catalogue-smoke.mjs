@@ -102,11 +102,19 @@ try {
   assert.ok(saved.deviceLibrary.every(d => !d.faceImage || d.faceImage.startsWith("data:image/")));
   assert.equal(saved.deviceLibrary.find(d => d.id === "test-custom-device").faceImage, png);
   assert.equal(saved.nodeLibrary.find(n => n.id === "test-custom-node").thumbnail, png);
-  await page.route("**/Devices/**", route => route.abort());
+  const reopenedArtworkRequests = [];
+  await page.route("**/Devices/**", route => {
+    // The independently owned main library may request its own thumbnails;
+    // saved canvas artwork must not need a factory faceplate fetch.
+    if (route.request().url().includes("/thumbs/")) return route.continue();
+    reopenedArtworkRequests.push(route.request().url());
+    return route.abort();
+  });
   await page.locator("#fileInput").setInputFiles(savedPath);
   await page.waitForFunction(() => activeEngineBridge()?.scene.getDevice("far")?.visual.faceImage.startsWith("data:image/"));
   assert.equal(await page.evaluate(() => templateById("test-custom-device").faceImage), png);
   assert.equal(await page.evaluate(() => cableTypes["test-custom-node"].thumbnail), png);
+  assert.deepEqual(reopenedArtworkRequests, []);
   await page.unroute("**/Devices/**");
   checks.push("real .avd save/reopen preserves custom device/node bytes and factory faceplates without asset requests");
 

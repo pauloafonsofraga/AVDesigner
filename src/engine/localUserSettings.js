@@ -1,5 +1,8 @@
 import { normalizeConnectorTopology, validateConnectorTopology } from "./deviceDefinitionV2.js";
 
+// Version 1 is retained for reading/recovering existing browser settings. New
+// complete definitions and artwork are owned by ../personalDefinitions.js.
+
 export const LOCAL_USER_SETTINGS_KEY = "av-designer:user-settings:v1";
 export const CONFIGURATION_KEYS = Object.freeze([
   "brand", "connectors", "hasSwappableCards", "cardTypes", "cardSlots", "schemaVersion", "deviceDefinitionVersion",

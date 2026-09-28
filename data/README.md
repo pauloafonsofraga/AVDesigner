@@ -24,8 +24,12 @@ storage/persistence, and offers Retry. A shell initialization failure instead of
 Reload Page: the classic script may already have installed listeners, so it must
 never be injected twice into the same document. Only successful shell readiness
 unlocks the app. Neither recovery action clears saved settings or project files.
-The factory remains immutable; project and
-editor libraries are clones. Defaults controls and promotion behavior are unchanged.
+The factory remains immutable; project and editor libraries are clones.
+
+Phase 2 now separates the personal library from project definitions and replaces
+the Defaults controls. See [Personal Definitions](personal-definitions.md) for
+ownership, durable storage, migration and actions. Factory promotion remains out
+of scope.
 
 ## Artwork
 

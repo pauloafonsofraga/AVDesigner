@@ -1,7 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import vm from "node:vm";
 import * as settingsModule from "../src/engine/localUserSettings.js";
 import { adapterThumbnailFixtures } from "../fixtures/adapter-thumbnails.mjs";
 
@@ -13,7 +11,7 @@ function memory() {
 }
 const configuration = (powerWatts = 123) => ({ ...factory(), powerWatts });
 
-test("defaults persist by stable ID, omit identity/assets and resolve without mutating sources", () => {
+test("legacy v1 defaults omit identity/assets; migration reads their configuration without mutating sources", () => {
   const storage = memory(), owner = createLocalUserSettings({ storage });
   const f = factory(), before = JSON.stringify(f), config = configuration();
   config.name = "Renamed"; config.id = "wrong-id"; config.faceImage = "data:image/png;base64,bytes";
@@ -97,46 +95,4 @@ test("supported configuration preserves modules, relationships, card overrides a
   assert.equal(r.faceImage, undefined); assert.equal(r.thumbnailImage, undefined);
   assert.equal(config.cardTypes[0].thumbnailImage, undefined);
   assert.throws(() => compactDeviceConfiguration({ ...c, cardSlots: [{ id: "x", y: 1, installedCardTypeId: "missing" }] }));
-});
-
-function editorHarness() {
-  const f = factory(), elements = new Map(), noop = () => {};
-  const element = id => { if (!elements.has(id)) elements.set(id, { classList: { toggle: noop, contains: () => true }, checked: false }); return elements.get(id); };
-  const c = vm.createContext({ structuredClone, Map, localUserSettingsModule: settingsModule, localUserSettingsOwner: createLocalUserSettings({ storage: memory() }),
-    effectiveBuiltInDefaults: new Map(), builtInDeviceLibrary: [f], deviceLibrary: [structuredClone(f)], editorLibraryBaseline: [structuredClone(f)],
-    editorDraft: [structuredClone(f)], editorIndex: 0, editorMode: "library", markDefaultConfig: element("mark"),
-    document: { getElementById: element }, setStatus: message => c.status = message, alert: message => { throw new Error(message); }, confirm: () => true,
-    isProjectCustomDeviceTemplate: t => t?.projectCustomDevice === true, currentEditorTemplate: () => c.editorDraft[c.editorIndex],
-    validateEditorTemplateForApply: t => { compactDeviceConfiguration(t); return t; }, validateDraftDefaults: noop,
-    captureTemplateConfiguration: compactDeviceConfiguration, closeDeviceEditor: () => { c.closed = true; c.markDefaultConfig.checked = false; } });
-  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
-  for (const name of ["factoryBuiltInTemplate", "validateGlobalBuiltInTemplate", "effectiveLibraryTemplate", "currentEditorFactoryTemplate", "renderEditorDefaultControls", "applyGlobalBuiltInDefault", "resetEditorBuiltInDefault"]) {
-    vm.runInContext(html.match(new RegExp(`^    function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?^    \\}`, "m"))[0], c);
-  }
-  return c;
-}
-
-test("actual editor global action saves only built-in configuration, not the draft's identity or project", () => {
-  const c = editorHarness(), factoryBefore = JSON.stringify(c.builtInDeviceLibrary), projectBefore = JSON.stringify(c.deviceLibrary);
-  assert.equal(c.applyGlobalBuiltInDefault(), false);
-  c.editorDraft[0].powerWatts = 234; c.editorDraft[0].name = "Changed name"; c.markDefaultConfig.checked = true;
-  assert.equal(c.applyGlobalBuiltInDefault(), true); assert.equal(c.closed, true); assert.equal(c.markDefaultConfig.checked, false);
-  assert.equal(c.effectiveLibraryTemplate(c.deviceLibrary[0]).powerWatts, 234);
-  assert.equal(c.effectiveLibraryTemplate(c.deviceLibrary[0]).name, factory().name);
-  assert.equal(JSON.stringify(c.deviceLibrary), projectBefore); assert.equal(JSON.stringify(c.builtInDeviceLibrary), factoryBefore);
-  assert.match(c.status, /global default for this browser/);
-});
-
-test("actual Reset To Default and Factory reset keep Project Devices isolated and enforce eligibility", () => {
-  const c = editorHarness(); c.localUserSettingsOwner.save(factory().id, configuration(321));
-  c.editorDraft[0].powerWatts = 999; assert.equal(c.resetEditorBuiltInDefault(), true);
-  assert.equal(c.editorDraft[0].powerWatts, 321);
-  const custom = { ...c.editorDraft[0], projectCustomDevice: true };
-  assert.equal(c.effectiveLibraryTemplate(custom), custom);
-  c.effectiveBuiltInDefaults.clear(); c.resetEditorBuiltInDefault({ restoreFactory: true });
-  assert.equal(c.localUserSettingsOwner.has(factory().id), false); assert.equal(c.editorDraft[0].powerWatts, factory().powerWatts);
-  for (const mode of ["instance", "master-create", "project-template-edit", "project-template-create"]) {
-    c.editorMode = mode; assert.equal(c.currentEditorFactoryTemplate(), null); c.markDefaultConfig.checked = true;
-    assert.throws(() => c.applyGlobalBuiltInDefault()); c.renderEditorDefaultControls(); assert.equal(c.markDefaultConfig.checked, false);
-  }
 });
