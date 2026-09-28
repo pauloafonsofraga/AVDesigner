@@ -134,8 +134,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-13-led-rack-selection-and-colors";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-13-led-rack-selection-and-colors";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-16-wirenexus-branding";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-16-wirenexus-branding";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -174,7 +174,7 @@ function isApplePointerPlatform() {
 
 function engineWheelZoomModifierActive(event) {
   // Chrome/macOS can synthesize wheel events with ctrlKey for gesture input.
-  // AV Designer uses Command + wheel on Apple platforms and Ctrl + wheel elsewhere
+  // WireNexus uses Command + wheel on Apple platforms and Ctrl + wheel elsewhere
   // so plain wheel/trackpad movement cannot accidentally become canvas zoom.
   return Boolean(isApplePointerPlatform() ? event?.metaKey : event?.ctrlKey);
 }
@@ -1080,7 +1080,7 @@ class ProductionEngineBridge {
     this.engineRoot = document.createElement("div");
     this.engineRoot.className = "engine-bridge-root";
     this.engineRoot.innerHTML = `
-      <canvas class="engine-bridge-canvas" aria-label="AV Designer canvas"></canvas>
+      <canvas class="engine-bridge-canvas" aria-label="WireNexus canvas"></canvas>
       <canvas class="engine-bridge-label-canvas" aria-hidden="true"></canvas>
       <div class="engine-bridge-editor-overlay" aria-hidden="true"></div>
       <div class="engine-bridge-marquee hidden" aria-hidden="true"></div>
@@ -8848,7 +8848,7 @@ function normalizeProductionProject(projectData, reason) {
   }
   const normalized = normalizeAvDesignerProject(projectData, {
     dataSource: "Production bridge",
-    sourceName: root.projectName || projectData?.projectName || "AV Designer project"
+    sourceName: root.projectName || projectData?.projectName || "WireNexus project"
   });
   // The adapter returns a cloned projectData for the standalone prototype. The
   // bridge must point back to the production state snapshot object so mutation
@@ -8857,7 +8857,7 @@ function normalizeProductionProject(projectData, reason) {
   normalized.meta = {
     ...normalized.meta,
     dataSource: "Production bridge",
-    sourceName: root.projectName || projectData?.projectName || normalized.meta?.sourceName || "AV Designer project",
+    sourceName: root.projectName || projectData?.projectName || normalized.meta?.sourceName || "WireNexus project",
     bridgeVersion: BRIDGE_VERSION,
     reason
   };

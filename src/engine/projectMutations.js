@@ -20,7 +20,7 @@ export class ProjectMutationAdapter {
     this.originalProject = cloneProjectData ? deepClone(rawProject) : null;
     // The standalone prototype owns a private clone by default. Production
     // engine mode passes cloneProjectData:false so committed engine edits write
-    // through to the real AV Designer state object and existing save/load keeps
+    // through to the real WireNexus state object and existing save/load keeps
     // working without a parallel project copy.
     this.project = cloneProjectData ? deepClone(rawProject) : rawProject;
     this.meta = sceneData.meta || {};

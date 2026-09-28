@@ -163,7 +163,7 @@ try {
   assert.equal(await plain.locator("#companyLogo").isVisible(), false);
   assert.equal(await plain.locator("#projectName").isVisible(), false);
   assert.equal(await plain.locator("#unlockButton").isEnabled(), true);
-  pass("missing public branding never restores AV Designer branding or blocks password entry");
+  pass("missing public branding never invents a company logo or blocks password entry");
   assert.deepEqual(errors, []);
   console.log(`PASS ${checks} browser checks; 0 console/page errors; screenshots: ${artifacts}`);
 } finally { await browser.close(); }

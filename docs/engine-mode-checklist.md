@@ -1,4 +1,4 @@
-# AV Designer Engine Mode Feature Parity Matrix
+# WireNexus Engine Mode Feature Parity Matrix
 
 Current status (54.38.0): Engine is the only supported renderer. Legacy mode,
 fallbacks, main SVG layers, and navigation snapshots are removed. Old mode URLs

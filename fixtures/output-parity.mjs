@@ -49,7 +49,7 @@ export function outputParityFixture() {
   project.comments = [{ id: "comment", text: "Output parity", x: 3000, y: 40, width: 250, height: 100,
     anchor: { x: 2850, y: -80 } }];
   project.titleBlocks = [{ id: "title", x: 50, y: 3100, width: 1800, height: 240,
-    fields: { title: "Engine Output Scene", client: "Parity Fixture", company: "AV Designer" } }];
+    fields: { title: "Engine Output Scene", client: "Parity Fixture", company: "WireNexus" } }];
   project.imageObjects = [{ id: "image", x: 3100, y: 1100, width: 160, height: 90, image: project.ledSurfaces[0].image }];
   project.areas = [{ id: "area", x: -100, y: -200, width: 1700, height: 1400, name: "LED Processing", textSize: 60 }];
   project.projectName = "Engine output parity";

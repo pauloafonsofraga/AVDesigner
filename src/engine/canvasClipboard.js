@@ -135,7 +135,7 @@ export function clipboardBlobAssets(payload) {
 export function parseCanvasClipboard(text) {
   if (typeof text !== "string" || !text.startsWith(CLIPBOARD_PREFIX)) {
     if (String(text).startsWith("AVDESIGNER_SELECTION_")) fail("unsupported version");
-    throw new Error("Clipboard content is not an AV Designer selection.");
+    throw new Error("Clipboard content is not a WireNexus selection.");
   }
   if (text.length > CLIPBOARD_LIMITS.bytes + CLIPBOARD_PREFIX.length) fail("text is too large");
   let payload;

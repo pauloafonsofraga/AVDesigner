@@ -13,7 +13,7 @@ export function buildEngineViewerHtml(snapshot, { bundle, assets = {}, title, ca
   const scene = snapshot.engineScene;
   assertOutputSceneContract(scene);
   validateOutputAssets(scene, assets);
-  const projectName = title || snapshot.reportData?.projectName || "AV Designer";
+  const projectName = title || snapshot.reportData?.projectName || "WireNexus";
   const payload = { engineScene: scene, assets, icons: bundle.icons, title: projectName,
     reportData: snapshot.reportData || {}, cableGroups,
     metadata: { ...snapshot.metadata, drawingDependency: "engine-webgl", sceneSignature: scene.signature,
@@ -23,7 +23,7 @@ export function buildEngineViewerHtml(snapshot, { bundle, assets = {}, title, ca
 <html lang="en" data-avdesigner-output="engine-webgl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
-<title>${escapeHtml(projectName)} - AV Designer</title><link rel="icon" href="data:,">
+<title>${escapeHtml(projectName)} - WireNexus</title><link rel="icon" href="data:,">
 <style>html,body,#outputViewer{margin:0;width:100%;height:100%;overflow:hidden}body{background:#181d23}${bundle.css}</style>
 </head><body><main id="outputViewer"></main><noscript>JavaScript and WebGL2 are required.</noscript>
 <script type="application/json" id="engineOutputPayload">${scriptJson(payload)}</script>

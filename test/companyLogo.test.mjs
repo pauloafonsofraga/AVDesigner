@@ -95,8 +95,8 @@ test("public project name uses saved metadata, bounds length and falls back with
   for (const [overrides, expected] of [
     [{ projectName: "  Client <Event> & Show  " }, "Client <Event> & Show"],
     [{ projectName: "", title: "Publish title" }, "Publish title"],
-    [{ projectName: null, title: null }, "Untitled AV Wirechart"],
-    [{ projectName: { secret: "not text" }, title: "" }, "Untitled AV Wirechart"],
+    [{ projectName: null, title: null }, "Untitled WireNexus Project"],
+    [{ projectName: { secret: "not text" }, title: "" }, "Untitled WireNexus Project"],
     [{ projectName: "X".repeat(200) }, "X".repeat(120)]
   ]) {
     const { handler, paths } = projectApi("", overrides);

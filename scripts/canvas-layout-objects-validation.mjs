@@ -25,7 +25,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-38-15-wirenexus-viewer-branding";
+const BUILD_ID = "iteration54-38-16-wirenexus-branding";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -40,10 +40,10 @@ function sourceSlice(source, startNeedle, endNeedle) {
   return source.slice(start, end);
 }
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.38.15");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.15";'), "visible iteration should be 54.38.15");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-15-wirenexus-viewer-branding-modules";'), "module cache key should bust 54.38.15 modules");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-13-led-rack-selection-and-colors"'), "Engine bridge version should identify LED Rack Selection and Colors");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.38.16");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.16";'), "visible iteration should be 54.38.16");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-16-wirenexus-branding-modules";'), "module cache key should bust 54.38.16 modules");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-16-wirenexus-branding"'), "Engine bridge version should identify WireNexus Branding");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
 assert.ok(classicScripts.length >= 1, "index.html should contain at least one classic script");
@@ -86,7 +86,7 @@ const rawTitleBlock = {
   width: 760,
   height: 112,
   fields: {
-    client: "AV Designer",
+    client: "WireNexus",
     project: "Canvas Layout Objects",
     title: "Validation Title",
     revision: "54.1.2",

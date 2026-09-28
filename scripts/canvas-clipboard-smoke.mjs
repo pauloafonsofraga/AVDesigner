@@ -124,7 +124,7 @@ try {
   await input.fill(""); await b.keyboard.press(`${modifier}+v`); assert.equal(await input.inputValue(), "Native text only");
   const textCount = await count(b);
   await shortcut(b, "v"); await b.waitForTimeout(150); assert.equal(await count(b), textCount);
-  assert.ok(await b.evaluate(() => document.querySelector("#statusText").textContent.includes("not an AV Designer")));
+  assert.ok(await b.evaluate(() => document.querySelector("#statusText").textContent.includes("not a WireNexus")));
   await b.keyboard.press("Alt+c"); await b.keyboard.press("Alt+v"); await b.waitForTimeout(150); assert.equal(await count(b), textCount);
   for (const type of ["search", "number"]) {
     await b.evaluate(type => { const input = document.createElement("input"); input.id = "clipboard-isolation"; input.type = type; input.value = "123"; document.body.append(input); input.focus(); input.select(); }, type);

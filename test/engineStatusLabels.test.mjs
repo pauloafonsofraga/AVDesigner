@@ -9,7 +9,7 @@ const bridge = readFileSync(new URL("../src/engine/productionBridge.js", import.
 test("app shell and Engine canvas contain no experimental labels or obsolete startup names", () => {
   assert.doesNotMatch(html, /experimental/i);
   assert.doesNotMatch(bridge, /experimental/i);
-  assert.match(bridge, /aria-label="AV Designer canvas"/);
+  assert.match(bridge, /aria-label="WireNexus canvas"/);
 });
 
 for (const type of ["route point", "object move", "wire create"]) {

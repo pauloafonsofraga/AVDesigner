@@ -71,7 +71,7 @@ export default async function handler(request, response) {
     // the private drawing before password verification.
     if (brandingOnly) {
       const projectName = [metadata.projectName, metadata.title]
-        .find(value => typeof value === "string" && value.trim()) || "Untitled AV Wirechart";
+        .find(value => typeof value === "string" && value.trim()) || "Untitled WireNexus Project";
       return json(response, 200, {
         projectName: projectName.trim().slice(0, 120),
         companyLogo: globalThis.AVDesignerCompanyLogo.publishedCompanyLogo(metadata.companyLogo)

@@ -55,7 +55,7 @@ export default async function handler(request, response) {
 
   try {
     const body = readBody(request);
-    const title = String(body.title || body.project?.projectName || "Untitled AV Wirechart").trim().slice(0, MAX_TITLE_LENGTH);
+    const title = String(body.title || body.project?.projectName || "Untitled WireNexus Project").trim().slice(0, MAX_TITLE_LENGTH);
     const password = String(body.password || "");
     const companyLogo = globalThis.AVDesignerCompanyLogo.publishedCompanyLogo(body.companyLogo);
     if (body.companyLogo && !companyLogo) return json(response, 400, { error: "Invalid company logo." });

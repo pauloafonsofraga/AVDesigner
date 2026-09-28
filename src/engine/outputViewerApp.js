@@ -43,7 +43,7 @@ export class EngineOutputViewer {
   createDom() {
     this.host.classList.add("engine-output-viewer");
     this.host.dataset.theme = "dark";
-    this.host.innerHTML = `<header class="output-toolbar"><strong>AV Designer</strong>
+    this.host.innerHTML = `<header class="output-toolbar"><strong>WireNexus</strong>
       <span class="output-caption">Output Viewer</span><div role="toolbar" aria-label="View controls">
       <button type="button" data-action="fit" title="Fit scene">Fit</button>
       <button type="button" data-action="zoom-out" title="Zoom out" aria-label="Zoom out">&#8722;</button>

@@ -16,7 +16,7 @@ try {
   page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
   await page.goto(base);
   await page.waitForFunction(() => activeEngineBridge()?.ready && localUserSettingsLoaded);
-  assert.equal(await page.locator(".engine-bridge-canvas").getAttribute("aria-label"), "AV Designer canvas");
+  assert.equal(await page.locator(".engine-bridge-canvas").getAttribute("aria-label"), "WireNexus canvas");
   assert.doesNotMatch(await page.locator("body").innerText(), /experimental/i);
   const screen = p => page.evaluate(p => {
     const b = activeEngineBridge(), r = b.canvas.getBoundingClientRect();
