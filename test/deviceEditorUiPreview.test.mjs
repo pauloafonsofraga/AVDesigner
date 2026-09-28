@@ -901,6 +901,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     "fillEditorSlotById",
     "fillEditorSlot",
     "removeEditorNode",
+    "pruneEditorRelationshipsAfterNodeRemoval",
     "normalizeCardConnector",
     "createCardType",
     "uniqueCardTypeId",
@@ -2883,6 +2884,41 @@ test("Device Editor card edits preserve multi-selection by stable source connect
     animationSeeds: 0,
     animationRetargets: 0
   });
+});
+
+test("Device Editor deletes multiple standalone nodes in one transaction and cleans bus/loop members", () => {
+  const { api, template, counters } = structuralEditorHarness({
+    connectors: ["a", "b", "c", "d"].map((id, lane) => testConnector(id, "left", lane, { displaySide: "left", schemaVersion: 2 })),
+    connectorRelationships: [
+      { id: "bus", type: "exclusive", members: ["a", "b"] },
+      { id: "loop", type: "through", members: ["c", "d"], sourceConnectorId: "c", targetConnectorId: "d" }
+    ]
+  });
+  api.removeEditorNode(["a", "b", "c"]);
+  assert.deepEqual(template.connectors.map(c => c.id), ["d"]);
+  assert.deepEqual(template.connectorRelationships, []);
+  assert.equal(counters.structuralSessions, 1);
+  api.removeEditorNode([]);
+  assert.equal(counters.structuralSessions, 1, "empty selections do not commit");
+});
+
+test("Device Editor deletes multiple card nodes atomically, pruning installed overrides and relationships", () => {
+  const { api, template, counters, context } = structuralEditorHarness({
+    cardTypes: [{ id: "card-a", name: "Input Card", kind: "input",
+      connectors: ["a", "b", "c"].map(id => ({ id, direction: "input", signalDirection: "input", type: "hdmi" })),
+      connectorRelationships: [{ id: "bus", type: "exclusive", members: ["a", "b"] }] }],
+    cardSlots: [{ id: "slot", installedCardTypeId: "card-a", y: 100,
+      connectorOverrides: { a: { nameText: "A" }, b: { nameText: "B" }, c: { nameText: "C" } } }]
+  });
+  context.editorCardIndex = 0;
+  api.removeCardConnector(["a", "b"]);
+  assert.deepEqual(template.cardTypes[0].connectors.map(c => c.id), ["c"]);
+  assert.equal(template.cardTypes[0].connectorRelationships.length, 0);
+  assert.deepEqual(Object.keys(template.cardSlots[0].connectorOverrides), ["c"]);
+  assert.equal(counters.structuralSessions, 1);
+  api.removeCardConnector(["c"]);
+  assert.equal(template.cardTypes[0].connectors.length, 0);
+  assert.equal(counters.structuralSessions, 2);
 });
 
 test("Device Editor card definition removal prunes overrides and preserves authored vacancies", () => {

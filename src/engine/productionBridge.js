@@ -30,6 +30,7 @@ import { ProjectMutationAdapter } from "./projectMutations.js";
 import { applyCanvasClipboardPlan } from "./canvasClipboard.js";
 import { WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
+import { monitorNameUpdates } from "./monitorNaming.js";
 import { PerfHud } from "./perfHud.js";
 import { validateEngineScene } from "./sceneValidation.js";
 import {
@@ -132,10 +133,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   ? HitTest.hitTestRack
   : fallbackHitTestRack;
 
-// Keep this visible in the Engine HUD so browser-cache and deployed-build
-// confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-5-keyboard-report-controls";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-5-keyboard-report-controls";
+// Expose build identity in diagnostics without adding an on-canvas HUD.
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-6-monitor-names-clean-canvas";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-6-monitor-names-clean-canvas";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -939,6 +939,7 @@ class ProductionEngineBridge {
       this.scene.setData(normalized);
       this.logCanvasObjectDiagnostics("refresh", normalized);
       this.mutations = new ProjectMutationAdapter(normalized, { cloneProjectData: false });
+      this.synchronizeMonitorNames({ render: false });
       this.commandHistory = [];
       this.commandIndex = 0;
       this.lastMutationType = "-";
@@ -1084,28 +1085,6 @@ class ProductionEngineBridge {
       <canvas class="engine-bridge-label-canvas" aria-hidden="true"></canvas>
       <div class="engine-bridge-editor-overlay" aria-hidden="true"></div>
       <div class="engine-bridge-marquee hidden" aria-hidden="true"></div>
-      <div class="engine-bridge-badge">
-        <strong>Engine Editor Active</strong>
-        <span>branch: engine-prototype</span>
-        <span>${BRIDGE_VERSION}</span>
-        <span>${BRIDGE_FEATURE_LABEL}</span>
-        <button type="button" data-engine-action="refresh">Refresh</button>
-        <button type="button" data-engine-action="toggle-hud">HUD</button>
-      </div>
-      <div class="engine-bridge-status"></div>
-      <div class="engine-bridge-command-bar">
-        <button type="button" data-engine-action="undo">Undo Engine Edit</button>
-        <button type="button" data-engine-action="redo">Redo Engine Edit</button>
-        <button type="button" data-engine-action="delete-wire">Delete Selected Wire</button>
-        <button type="button" data-engine-action="validate">Validate Engine Scene</button>
-        ${this.debugObjectSnapping ? `<button type="button" data-engine-action="snap-test-scene">Setup Snap Test</button>` : ""}
-        ${this.orthogonalTest ? `
-          <button type="button" data-engine-action="select-orthogonal">Select First 90 DEG Wire</button>
-          <button type="button" data-engine-action="copy-routing">Copy Routing Diagnostics</button>
-        ` : ""}
-      </div>
-      <div class="engine-bridge-inspector"></div>
-      <div class="engine-bridge-validation hidden"></div>
       <div class="engine-bridge-error hidden"></div>
       <div class="engine-bridge-loading" role="status" aria-live="polite">
         <div class="engine-bridge-loading-card">
@@ -1117,20 +1096,6 @@ class ProductionEngineBridge {
           <button type="button" class="engine-bridge-loading-fallback hidden" data-engine-action="loading-retry">Retry Engine</button>
         </div>
       </div>
-      <div class="engine-bridge-layer-debug ${this.debugLayerMode ? "" : "hidden"}">
-        <h2>Layer Debug</h2>
-        <div class="engine-bridge-layer-toggles">
-          ${layerDebugControl("hideStaticObjects", "hide static objects", this.renderOptions.hideStaticObjects)}
-          ${layerDebugControl("hideStaticWires", "hide static wires", this.renderOptions.hideStaticWires)}
-          ${layerDebugControl("hideTextureLayer", "hide texture/image layer", this.renderOptions.hideTextureLayer)}
-          ${layerDebugControl("hideDragOverlay", "hide live drag overlay", this.renderOptions.hideDragOverlay)}
-          ${layerDebugControl("hideLabels", "hide labels/text", this.renderOptions.hideLabels)}
-          ${layerDebugControl("hideSurfaces", "hide LED surfaces", this.renderOptions.hideSurfaces)}
-          ${layerDebugControl("hideSelectionOverlay", "hide selection overlay", this.renderOptions.hideSelectionOverlay)}
-        </div>
-        <pre data-layer-trace>Drag a selected object to trace render layers.</pre>
-      </div>
-      <div class="engine-bridge-debug ${engineDebugHudEnabled() ? "" : "hidden"}"></div>
     `;
     this.container.appendChild(this.engineRoot);
     this.canvas = this.engineRoot.querySelector(".engine-bridge-canvas");
@@ -2803,6 +2768,7 @@ class ProductionEngineBridge {
 
   handleKeyDown(event) {
     if (isEditableEventTarget(event.target)) return;
+    if (globalThis.document?.querySelector(".modal-backdrop:not(.hidden), dialog[open]")) return;
     if (!this.ready) {
       if (isEngineCanvasShortcut(event)) {
         consumeEngineShortcut(event);
@@ -5876,6 +5842,7 @@ class ProductionEngineBridge {
     this.renderOptions.dirtyWireIds = this.lastDirtyWireIds;
     this.renderer.setRenderOptions(this.renderOptions);
     this.hud?.setMetric("device sync", sourceDeviceId);
+    this.synchronizeMonitorNames();
     this.hud?.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
     this.updateSelectionHud();
     this.updateInteractionHud("device-sync");
@@ -7084,7 +7051,31 @@ class ProductionEngineBridge {
     `;
   }
 
+  synchronizeMonitorNames({ render = true } = {}) {
+    if (!this.mutations?.root) return;
+    const patches = monitorNameUpdates(this.scene.devices, this.scene.wires, this.mutations.root.devices);
+    const ids = [];
+    for (const patch of patches) {
+      const device = this.scene.getDevice(patch.id);
+      const original = this.mutations.deviceById.get(String(device.sourceId || device.id))?.item;
+      if (!original) continue;
+      original.name = patch.name;
+      original.autoMonitorName = patch.autoMonitorName;
+      if (device.label === patch.name) continue;
+      device.label = patch.name;
+      device.visual = { ...device.visual, displayName: patch.name };
+      this.scene.dirtyDevices.add(device.id);
+      this.scene.dirtyTextures.add(device.id);
+      ids.push(device.id);
+    }
+    if (render && ids.length) {
+      this.renderer.updateDirty(this.scene, { deviceIds: ids, wireIds: [], refreshCableHops: false });
+      this.scheduleRender();
+    }
+  }
+
   markCommitted(type, mutationMs = 0, extra = {}) {
+    this.synchronizeMonitorNames();
     const mutationStats = this.mutations?.stats() || {};
     this.lastMutationType = type;
     this.hud.setMetric("last command", type);

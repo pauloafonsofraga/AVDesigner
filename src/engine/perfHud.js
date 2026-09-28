@@ -207,6 +207,7 @@ export class PerfHud {
   }
 
   scheduleRender() {
+    if (!this.element) return;
     if (this.renderScheduled) return;
     this.renderScheduled = true;
     const schedule = typeof requestAnimationFrame === "function"

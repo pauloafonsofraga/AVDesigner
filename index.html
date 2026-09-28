@@ -2060,6 +2060,18 @@
       box-shadow: 0 14px 34px rgba(0, 0, 0, .38);
     }
 
+    /* Diagnostics remain available programmatically, without floating HUDs. */
+    .app-build-label,
+    .library-drag-debug-panel,
+    .shell-debug-panel,
+    .custom-identity-debug-panel,
+    .device-authoring-debug-panel,
+    .runtime-diagnostics-panel,
+    #debugOutput,
+    #outputDebugPanel {
+      display: none !important;
+    }
+
     .library-drag-debug-panel,
     .shell-debug-panel,
     .custom-identity-debug-panel {
@@ -4985,7 +4997,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.38.5 — Keyboard Nudge and Report Controls — iteration54-38-5-keyboard-report-controls</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.38.6 — Monitor Names and Clean Canvas — iteration54-38-6-monitor-names-clean-canvas</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5642,15 +5654,15 @@
     </div>
   </div>
 
-  <script src="./src/engine/projectorModelCore.js?v=iteration54-38-5-keyboard-report-controls"></script>
+  <script src="./src/engine/projectorModelCore.js?v=iteration54-38-6-monitor-names-clean-canvas"></script>
   <script>
-    const APP_ITERATION = "54.38.5";
-    const APP_BUILD_ID = "iteration54-38-5-keyboard-report-controls";
-    const APP_MODULE_CACHE_ID = "iteration54-38-5-keyboard-report-controls-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Keyboard Nudge and Report Controls`;
+    const APP_ITERATION = "54.38.6";
+    const APP_BUILD_ID = "iteration54-38-6-monitor-names-clean-canvas";
+    const APP_MODULE_CACHE_ID = "iteration54-38-6-monitor-names-clean-canvas-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Monitor Names and Clean Canvas`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
-    const APP_SOURCE_BASE_COMMIT = "6843a29f95f1c3fcd61e9d166073f7b566bc0f15";
+    const APP_SOURCE_BASE_COMMIT = "3ca66340e96ab22971f407c515479369a28d5098";
     const CANVAS_MIN_ZOOM = 0.03;
     const CANVAS_MAX_ZOOM = 8;
     const ENGINE_COMMENT_ARROW_LENGTH = 16;
@@ -132073,7 +132085,11 @@
     }
 
     function settleEditorPlacementMotionToLayout(layout, options = {}) {
-      if (!layout?.items?.length || !editorPlacementMotionState?.entries?.size) return;
+      if (!layout?.items?.length) {
+        clearEditorPlacementMotion({ renderFinal: false });
+        return;
+      }
+      if (!editorPlacementMotionState?.entries?.size) return;
       try {
         const module = requireDeviceEditorPlacementMotionModule();
         module.retargetPlacementMotion(editorPlacementMotionState, layout, {
@@ -133111,7 +133127,7 @@
 
     function currentShellModeLabel() {
       const engineBridge = activeEngineBridge();
-      if (engineBridge) return ENGINE_DEFAULT_TEST_ENABLED ? "Engine Default Test" : "Engine Editor";
+      if (engineBridge) return "Engine Editor";
       return "Engine starting";
     }
 
@@ -138650,6 +138666,7 @@
 
     function renderCardConnectorInspector(template, card) {
       if (!card) return "";
+      if (editorSelectedCardNodeIds.size > 1) return "";
       const connectors = card.connectors || [];
       const connectorIndex = Number.isInteger(editorSelectedCardNodeIndex) ? editorSelectedCardNodeIndex : -1;
       const connector = connectors[connectorIndex];
@@ -139251,6 +139268,7 @@
         <div class="connector-inspector-section">
           <h4 class="connector-inspector-heading">${escapeHtml(selectedIds.length)} Connectors Selected</h4>
           ${selectedConnectorListHtml(card, selectedIds)}
+          <button class="tool-button danger" type="button" data-delete-selected-nodes>Delete Selected Nodes</button>
         </div>
         <div class="connector-inspector-section">
           <h4 class="connector-inspector-heading">Relationship</h4>
@@ -139427,6 +139445,7 @@
           <div class="connector-inspector-section">
             <h4 class="connector-inspector-heading">${escapeHtml(selectedIds.length)} Connectors Selected</h4>
             ${selectedConnectorListHtml(template, selectedIds)}
+            <button class="tool-button danger" type="button" data-delete-selected-nodes>Delete Selected Nodes</button>
           </div>
         `;
         renderConnectorInspectorAuxiliaryPanels();
@@ -140230,14 +140249,16 @@
     function removeCardConnector(index) {
       const template = currentEditorTemplate();
       const card = currentEditorCard();
-      if (!template || !card?.connectors?.[index]) return;
+      if (!template || !card) return;
+      const idsToRemove = new Set(Array.isArray(index) ? index : [card.connectors?.[index]?.id]);
+      if (!card.connectors?.some(connector => idsToRemove.has(connector.id))) return;
       const cardTypeId = card.id;
-      const connectorId = card.connectors[index].id;
       commitEditorCardDefinitionEdit(template, cardTypeId, {
         mutateCard(_draft, draftCard) {
-          const removeIndex = draftCard.connectors.findIndex(connector => connector.id === connectorId);
+          const removeIndex = draftCard.connectors.findIndex(connector => idsToRemove.has(connector.id));
           if (removeIndex < 0) return { cancelled: true };
-          draftCard.connectors.splice(removeIndex, 1);
+          draftCard.connectors = draftCard.connectors.filter(connector => !idsToRemove.has(connector.id));
+          pruneEditorRelationshipsAfterNodeRemoval(draftCard, idsToRemove);
           return {
             selection: {
               fallbackIndex: Math.min(removeIndex, draftCard.connectors.length - 1)
@@ -145655,27 +145676,19 @@
 
     function removeEditorNode(index) {
       const template = currentEditorTemplate();
-      const connector = template?.connectors[index];
+      const idsToRemove = new Set(Array.isArray(index) ? index : [template?.connectors[index]?.id]);
+      const connector = template?.connectors.find(item => idsToRemove.has(item.id));
       if (!connector) return;
-      const idsToRemove = new Set([connector.id]);
-      if (isPairedNetworkConnector(connector) && connector.pairedConnectorId) idsToRemove.add(connector.pairedConnectorId);
+      template.connectors.forEach(item => {
+        if (idsToRemove.has(item.id) && isPairedNetworkConnector(item) && item.pairedConnectorId) idsToRemove.add(item.pairedConnectorId);
+      });
       const affectedBusIds = requireDeviceEditorPlacementModule().rigidSharedBusGroups(template)
         .filter(group => group.memberIds.some(id => idsToRemove.has(id))).map(group => group.id);
       commitEditorStructuralEdit(template, {
         primaryItemId: `connector:${connector.id}`,
         mutate(draft, context) {
           draft.connectors = draft.connectors.filter(item => !idsToRemove.has(item.id));
-          draft.connectorRelationships = (draft.connectorRelationships || []).flatMap(relationship => {
-            const members = relationship.members || relationship.connectorIds || [];
-            if (!Array.isArray(members) || !members.some(id => idsToRemove.has(id))) return [relationship];
-            const surviving = members.filter(id => !idsToRemove.has(id));
-            if (surviving.length < 2) return [];
-            const next = { ...relationship, members: surviving };
-            for (const key of ["sourceConnectorId", "fromConnectorId"]) if (idsToRemove.has(next[key])) next[key] = surviving[0];
-            for (const key of ["targetConnectorId", "toConnectorId"]) if (idsToRemove.has(next[key])) next[key] = surviving[1];
-            if (Array.isArray(next.connectorIds)) next.connectorIds = surviving;
-            return [next];
-          });
+          pruneEditorRelationshipsAfterNodeRemoval(draft, idsToRemove);
           return {
             removeIds: [...idsToRemove].map(id => `connector:${id}`),
             upsertIds: requireDeviceEditorPlacementModule().rigidSharedBusGroups(draft).filter(group => affectedBusIds.includes(group.id)).map(group => group.id),
@@ -145687,6 +145700,26 @@
           renderSelectedConnectorSettings();
         }
       });
+    }
+
+    function pruneEditorRelationshipsAfterNodeRemoval(template, idsToRemove) {
+      template.connectorRelationships = (template.connectorRelationships || []).flatMap(relationship => {
+        const members = relationship.members || relationship.connectorIds || [];
+        if (!Array.isArray(members) || !members.some(id => idsToRemove.has(id))) return [relationship];
+        const surviving = members.filter(id => !idsToRemove.has(id));
+        if (surviving.length < 2) return [];
+        const next = { ...relationship, members: surviving };
+        for (const key of ["sourceConnectorId", "fromConnectorId"]) if (idsToRemove.has(next[key])) next[key] = surviving[0];
+        for (const key of ["targetConnectorId", "toConnectorId"]) if (idsToRemove.has(next[key])) next[key] = surviving[1];
+        if (Array.isArray(next.connectorIds)) next.connectorIds = surviving;
+        return [next];
+      });
+    }
+
+    function deleteSelectedEditorNodes() {
+      if (editorNodeDrag || editorCardSlotDrag || editorResizeSession) return;
+      if (editorActiveTab === "connectors") removeEditorNode(editorSelectedConnectorIds(currentEditorTemplate()));
+      else if (editorActiveTab === "cards") removeCardConnector(selectedEditorCardConnectorIds());
     }
 
     function wrapInfoBoxLines(text, maxWidth, fontSize, maxLines = 2) {
@@ -155176,6 +155209,9 @@ document.addEventListener("click", function(event) {
       if (!button) return;
       removeCardConnector(Number(button.dataset.removeCardNode));
     });
+    deviceEditorModal.addEventListener("click", event => {
+      if (event.target.closest("[data-delete-selected-nodes]")) deleteSelectedEditorNodes();
+    });
     cardPalette.addEventListener("dragstart", event => {
       const chip = event.target.closest("[data-card-type-id]");
       if (!chip) return;
@@ -155743,6 +155779,11 @@ document.addEventListener("click", function(event) {
         return;
       }
       if (isTyping) return;
+      if (deviceEditorOpen && (event.key === "Delete" || event.key === "Backspace")) {
+        event.preventDefault();
+        deleteSelectedEditorNodes();
+        return;
+      }
       const mainCanvasShortcutTarget = !matrixRoutingOpen
         && !deviceEditorOpen
         && !nodeBuilderOpen

@@ -91,3 +91,14 @@ test("loading and wire-only selections cannot move devices", () => {
   b.ready = true; scene.selectWireOnly("cable-0");
   assert.equal(key("ArrowDown").prevented, undefined); assert.equal(b.moves.length, 0);
 });
+
+test("open editors own Delete, Backspace and history shortcuts instead of the background canvas", () => {
+  const { b, key, context, scene } = harness();
+  context.document.querySelector = () => ({});
+  const before = [...scene.selectedIds];
+  for (const name of ["Delete", "Backspace", "Escape", "z", "y"]) {
+    assert.equal(key(name, { ctrlKey: name === "z" || name === "y" }).prevented, undefined);
+  }
+  assert.deepEqual([...scene.selectedIds], before);
+  assert.equal(b.moves.length, 0);
+});
