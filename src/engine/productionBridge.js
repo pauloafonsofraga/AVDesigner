@@ -134,8 +134,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-2-led-multi-wire-selection";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-2-led-multi-wire-selection";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-4-cable-type-selection";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-4-cable-type-selection";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -7393,6 +7393,14 @@ class ProductionEngineBridge {
       action: "reset",
       wire: wires[0]
     });
+  }
+
+  selectWiresBySourceIds(sourceWireIds = []) {
+    const wires = sourceWireIds.map(id => this.resolveWire(id)).filter(wire => wire && wire.selectable !== false);
+    this.scene.clearSelection();
+    wires.forEach(wire => this.scene.selectedWireIds.add(wire.id));
+    this.updateSelectionHud();
+    this.scheduleRender();
   }
 
   resolveWire(sourceWireId, engineWireId = "") {

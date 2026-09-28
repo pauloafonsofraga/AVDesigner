@@ -28,7 +28,7 @@ export function installOutputReport(viewer, report = {}, cableGroups = []) {
         if (cable && index === 0) {
           const action = text("button", item[key]); action.type = "button";
           action.addEventListener("click", () => {
-            const ids = cableGroups.find(g => g.typeId === item.typeId && g.length === item.length)?.wireIds || [];
+            const ids = [...new Set(cableGroups.filter(g => g.typeId === item.typeId).flatMap(g => g.wireIds || []))];
             viewer.select(ids.length === 1 ? { type: "wire", id: ids[0] } : { type: "multi-wire", ids }); dialog.close();
           }, { signal: viewer.abort.signal });
           td.replaceChildren(action);
