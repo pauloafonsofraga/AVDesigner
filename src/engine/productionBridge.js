@@ -134,8 +134,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-11-engine-status-labels";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-11-engine-status-labels";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-13-led-rack-selection-and-colors";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-13-led-rack-selection-and-colors";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -4159,7 +4159,9 @@ class ProductionEngineBridge {
       ...rackIds.flatMap(rackId => this.scene.rackChildIds(rackId))
     ]);
     const ledOutputs = ledProcessorOutputsInRect(this.scene, rect);
-    if (shouldUseLedProcessorOutputMarquee(expandedIds, ledOutputs, rect)) {
+    // Decide port selection from directly intersected devices, before rack
+    // expansion adds unrelated siblings elsewhere in the rack.
+    if (shouldUseLedProcessorOutputMarquee(ids, ledOutputs, rect)) {
       this.scene.clearSelection();
       ledOutputs.forEach(output => {
         this.scene.selectedConnectorKeys.add(`${output.deviceId}:${output.connectorId}`);

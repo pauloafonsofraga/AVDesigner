@@ -14,6 +14,7 @@ export function ledProcessorOutputsInRect(scene, rect = {}) {
     if (!device?.visual?.isLedProcessor) continue;
     for (const connector of connectorsForDevice(device)) {
       if (!isLedProcessorMainSignalOutput(device, connector)) continue;
+      if (scene.isConnectorSelectableOnCanvas?.(device, connector) === false) continue;
       const point = scene.connectorWorldPoint(device, connector);
       if (!pointInRect(point, rect)) continue;
       outputs.push(outputRecord(device, connector, point));
@@ -29,6 +30,7 @@ export function selectedLedProcessorOutputs(scene, selectedConnectorKeys = []) {
     const device = scene?.getDevice?.(deviceId);
     const connector = scene?.getConnector?.(deviceId, connectorId);
     if (!isLedProcessorMainSignalOutput(device, connector)) continue;
+    if (scene.isConnectorSelectableOnCanvas?.(device, connector) === false) continue;
     const point = scene.connectorWorldPoint(device, connector);
     if (scene.connectorExternalWireIds(deviceId, connectorId).size) continue;
     outputs.push(outputRecord(device, connector, point));

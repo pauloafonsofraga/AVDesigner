@@ -1,5 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
+import { SceneGraph } from "../src/engine/sceneGraph.js";
+import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
+import { isCanvasObjectKind } from "../src/engine/canvasObjectKinds.js";
+import { ledRackPortsFixture } from "../fixtures/led-rack-ports.mjs";
 import {
   isLedProcessorMainSignalOutput,
   ledProcessorOutputsInRect,
@@ -118,4 +124,55 @@ test("one fully enclosed processor prevents node-only selection across processor
   const outputs = ledProcessorOutputsInRect(scene, rect);
   assert.equal(outputs.length, 3);
   assert.equal(shouldUseLedProcessorOutputMarquee(["processor-a", "processor-b"], outputs, rect), false);
+});
+
+function rackScene(showInternalWiring) {
+  const scene = new SceneGraph();
+  scene.setData(normalizeAvDesignerProject(ledRackPortsFixture({ showInternalWiring })));
+  return scene;
+}
+
+const bridgeSource = readFileSync(new URL("../src/engine/productionBridge.js", import.meta.url), "utf8");
+function marqueeBridge(scene, rect) {
+  const method = bridgeSource.slice(bridgeSource.indexOf("  completeMarquee() {"), bridgeSource.indexOf("  completeDrag() {"));
+  const helpers = ["normalizedWorldRect", "uniqueItems", "isMarqueeSelectableDevice"].map(name =>
+    bridgeSource.match(new RegExp(`^function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?^\\}`, "m"))[0]).join("\n");
+  const bridge = vm.runInNewContext(`${helpers}\n({${method}})`, {
+    ledProcessorOutputsInRect, shouldUseLedProcessorOutputMarquee, isCanvasObjectKind, isJumpNodeKind: () => false
+  });
+  Object.assign(bridge, { scene,
+    marqueeState: { active: true, startWorld: { x: rect.x, y: rect.y }, currentWorld: { x: rect.x + rect.width, y: rect.y + rect.height } },
+    hud: { setMetric() {} }, hideMarqueeOverlay() {}, updateSelectionHud() {}, updateRackBuilderDebugHud() {}, updateInteractionHud() {}, updateCanvasCursor() {}
+  });
+  return bridge;
+}
+
+for (const showInternalWiring of [false, true]) {
+  test(`rack LED marquee selects exposed ports without selecting unrelated siblings; internals ${showInternalWiring}`, () => {
+    const scene = rackScene(showInternalWiring), d = scene.getDevice("main");
+    const first = scene.connectorWorldPoint(d, scene.getConnector("main", "out-1"));
+    const last = scene.connectorWorldPoint(d, scene.getConnector("main", "out-3"));
+    const rect = { x: first.x - 20, y: first.y - 20, width: 80, height: last.y - first.y + 40 };
+    assert.deepEqual(scene.expandRackSelectionIds(["main"]), ["main", "sibling"], "fixture reproduces sibling expansion");
+    marqueeBridge(scene, rect).completeMarquee();
+    assert.deepEqual([...scene.selectedConnectorKeys], ["main:out-1", "main:out-2", "main:out-3"]);
+    assert.deepEqual([...scene.selectedIds], []);
+    assert.deepEqual([...scene.selectedRackIds], []);
+    assert.equal(selectedLedProcessorOutputs(scene, scene.selectedConnectorKeys).length, 3);
+  });
+
+  test(`rack internal LED ports are excluded from marquee and wire sources; internals ${showInternalWiring}`, () => {
+    const scene = rackScene(showInternalWiring);
+    const outputs = ledProcessorOutputsInRect(scene, { x: -100, y: -100, width: 1000, height: 1000 });
+    assert.deepEqual(outputs.map(o => o.connectorId), ["out-1", "out-2", "out-3"]);
+    assert.deepEqual(selectedLedProcessorOutputs(scene, ["main:out-4", "main:out-5"]), []);
+  });
+}
+
+test("enclosing a rack processor still selects the rack and its children, not its ports", () => {
+  const scene = rackScene(false), device = scene.getDevice("main");
+  marqueeBridge(scene, { x: device.x - 30, y: device.y - 30, width: device.width + 60, height: device.height + 60 }).completeMarquee();
+  assert.deepEqual([...scene.selectedConnectorKeys], []);
+  assert.deepEqual([...scene.selectedIds].sort(), ["main", "sibling"]);
+  assert.deepEqual([...scene.selectedRackIds], ["led-rack"]);
 });

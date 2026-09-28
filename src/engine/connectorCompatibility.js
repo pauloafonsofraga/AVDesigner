@@ -523,7 +523,7 @@ export function engineSignalLineColor(index) {
 
 export function engineConnectorColor(connector, nodeColorByType = new Map()) {
   if (!connector) return "#32B6FF";
-  if (connector.type === "led-signal") return engineSignalLineColor(connector.signalIndex);
+  if (connector.type === "led-signal") return String(connector.customColor || "").trim() || engineSignalLineColor(connector.signalIndex);
   if (isEngineDeadCageConnector(connector)) return "#778492";
   const rawType = connectorType(connector);
   const activeType = effectiveConnectorTypeForEngine(connector) || rawType;

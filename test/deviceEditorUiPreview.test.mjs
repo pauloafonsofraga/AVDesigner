@@ -6056,6 +6056,7 @@ test("Device Editor LED Processor generation is owned, atomic, and selection-sta
 
   let generated = generatedLedConnectors(template);
   assert.deepEqual(generated.map(connector => connector.signalIndex), [1, 2, 3]);
+  assert.ok(generated.every(connector => !connector.customColor), "new LED outputs retain automatic palette colors");
   assert.equal(template.connectors.find(connector => connector.id === "manual-led")?.generatedByLedProcessor, undefined);
   assert.equal(template.connectors.find(connector => connector.id === "manual-led")?.customText, "manual coordinates");
   assert.deepEqual(editorCounterDelta(counters, before), {
@@ -6069,6 +6070,7 @@ test("Device Editor LED Processor generation is owned, atomic, and selection-sta
   const firstGeneratedId = generated[0].id;
   const secondGeneratedId = generated[1].id;
   generated[0].customText = "tile A";
+  generated[0].customColor = "#12ab34";
   generated[0].customTextCaption = "Tile Map";
   generated[0].operationalStatus = "not-working";
   generated[1].nameText = "SIG B";
@@ -6085,6 +6087,8 @@ test("Device Editor LED Processor generation is owned, atomic, and selection-sta
   assert.equal(generated[0].id, firstGeneratedId, "surviving signal index 1 keeps its stable ID");
   assert.equal(generated[1].id, secondGeneratedId, "surviving signal index 2 keeps its stable ID");
   assert.equal(generated[0].customText, "tile A");
+  assert.equal(generated[0].customColor, "#12ab34", "regenerating outputs preserves user colors");
+  assert.ok(generated.slice(2).every(connector => !connector.customColor), "additional outputs still use palette defaults");
   assert.equal(generated[0].customTextCaption, "Tile Map");
   assert.equal(generated[0].operationalStatus, "not-working");
   assert.equal(generated[1].nameText, "SIG B");

@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-38-12-company-logo-branding";
+const BUILD_ID = "iteration54-38-13-led-rack-selection-and-colors";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -52,11 +52,11 @@ const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Auto LED Preview Recovery");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-12-company-logo-branding-modules";'), "module cache key should identify Company Logo Branding");
-assert.ok(indexHtml.includes("Company Logo Branding"), "visible build label should name Company Logo Branding");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-11-engine-status-labels"'), "Engine bridge version should identify Engine Status Labels");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-13-led-rack-selection-and-colors-modules";'), "module cache key should identify LED Rack Selection and Colors");
+assert.ok(indexHtml.includes("LED Rack Selection and Colors"), "visible build label should name LED Rack Selection and Colors");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-13-led-rack-selection-and-colors"'), "Engine bridge version should identify LED Rack Selection and Colors");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses"'), "Engine bridge feature label should identify Selectable Projector Lenses");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-38-11-engine-status-labels"), "bridge fingerprint should identify Engine Status Labels");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-38-13-led-rack-selection-and-colors"), "bridge fingerprint should identify LED Rack Selection and Colors");
 assert.ok(rendererSource.includes("renderer-iteration54-38-8-unified-cable-captions"), "renderer fingerprint should identify Unified Cable Captions");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");

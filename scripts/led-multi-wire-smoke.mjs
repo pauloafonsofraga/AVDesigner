@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { mkdirSync } from "node:fs";
 import { ledSurfaceOrderingFixture } from "../fixtures/led-surface-ordering.mjs";
+import { ledRackPortsFixture } from "../fixtures/led-rack-ports.mjs";
 
 const { chromium } = createRequire(import.meta.url)(process.env.AVDESIGNER_PLAYWRIGHT_PATH || "playwright");
 const base = process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8768";
@@ -16,8 +17,7 @@ try {
   page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
   await page.goto(base);
   await page.waitForFunction(() => activeEngineBridge()?.ready && localUserSettingsLoaded);
-  const load = async route => {
-    const fixture = ledSurfaceOrderingFixture();
+  const load = async (route, fixture = ledSurfaceOrderingFixture()) => {
     fixture.connections = [];
     fixture.wireMode = route;
     await page.evaluate(data => {
@@ -40,7 +40,7 @@ try {
   const read = () => page.evaluate(() => {
     const b = activeEngineBridge(), interaction = b.interactionRenderState();
     b.renderer.draw(b.scene, b.camera, { renderOptions: b.renderOptions, interactionState: interaction });
-    return { devices: [...b.scene.selectedIds], connectors: [...b.scene.selectedConnectorKeys],
+    return { devices: [...b.scene.selectedIds], racks: [...b.scene.selectedRackIds], connectors: [...b.scene.selectedConnectorKeys],
       sources: b.wireCreate?.multiLedSources || [],
       previews: interaction.tempWires.map(w => ({ id: w.sourceHit.connector.id, from: w.from, to: w.to, routeStyle: w.routeStyle })),
       drawing: b.renderer.frameStats().wirePreviewDrawn,
@@ -50,7 +50,7 @@ try {
   });
   const selectNodes = async () => {
     const points = (await outputs()).slice(0, 3);
-    await marquee({ x: points[0].x + 25, y: points[0].y - 20 }, { x: points[2].x - 25, y: points[2].y + 20 });
+    await marquee({ x: points[0].x + 65, y: points[0].y - 20 }, { x: points[2].x - 25, y: points[2].y + 20 });
     const state = await read();
     assert.deepEqual(state.connectors, points.map(p => `main:${p.id}`));
     assert.deepEqual(state.devices, []);
@@ -136,6 +136,40 @@ try {
   assert.equal(current.wires.length, 4);
   assert.equal(new Set(current.wires.map(w => `${w.from.deviceId}:${w.from.connectorId}`)).size, 4);
   checks.push("occupied outputs are skipped while the remaining selected output connects");
+
+  for (const route of ["bezier", "orthogonal"]) {
+    for (const showInternalWiring of [false, true]) {
+      await load(route, ledRackPortsFixture({ showInternalWiring }));
+      const points = await selectNodes();
+      assert.deepEqual((await read()).racks, []);
+      await move(points[1]); await page.mouse.down(); await move({ x: 650, y: 400 });
+      assert.equal((await read()).drawing, 3, "rack multi-selection draws all three previews");
+      await move({ x: 1000, y: 400 }); await page.mouse.up();
+      const connected = await read();
+      assert.equal(connected.wires.length, 3);
+      assert.equal(connected.history, 1);
+      assert.ok(connected.wires.every(w => w.from.deviceId === "main" && w.to.surfaceId === "wall"));
+      assert.deepEqual(connected.wires.map(w => w.from.connectorId), points.map(p => p.id));
+      await page.screenshot({ path: `${directory}/rack-${route}-internals-${showInternalWiring}.png` });
+      await page.evaluate(() => activeEngineBridge().undoEngineCommand());
+      assert.equal((await read()).wires.length, 0);
+      await page.evaluate(() => activeEngineBridge().redoEngineCommand());
+      assert.deepEqual((await read()).wires, connected.wires);
+      const saved = await page.evaluate(() => projectSnapshotData());
+      await page.evaluate(data => restoreSnapshot(data), saved);
+      assert.deepEqual((await read()).wires, connected.wires);
+      await selectNodes();
+      const privatePorts = (await outputs()).slice(3);
+      await marquee({ x: privatePorts[0].x + 65, y: privatePorts[0].y - 15 }, { x: privatePorts.at(-1).x - 25, y: privatePorts.at(-1).y + 15 });
+      assert.deepEqual((await read()).connectors, [], "hidden/reference-only rack ports cannot be selected");
+      const rack = await page.evaluate(() => activeEngineBridge().scene.rackBounds("led-rack"));
+      await marquee({ x: rack.x - 40, y: rack.y - 40 }, { x: rack.x + rack.width + 40, y: rack.y + rack.height + 40 });
+      assert.deepEqual((await read()).racks, ["led-rack"]);
+      assert.deepEqual((await read()).devices.sort(), ["main", "sibling"]);
+      assert.deepEqual((await read()).connectors, []);
+      checks.push(`rack ${route}, internals ${showInternalWiring}: exposed multi-wire previews/commit, undo/redo/reload, hidden-port exclusion, whole-rack selection`);
+    }
+  }
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({ passed: checks.length, failed: 0, skipped: 0, checks, directory }, null, 2));
 } finally { await browser.close(); }
