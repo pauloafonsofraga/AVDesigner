@@ -36,6 +36,8 @@ function device(id, x, y, connectors) {
     id,
     x,
     y,
+    width: 30,
+    height: 40,
     visual: { isLedProcessor: true },
     connectors
   };
@@ -84,4 +86,36 @@ test("LED output marquee is used only when the marquee contains no unrelated sel
   assert.equal(shouldUseLedProcessorOutputMarquee(["processor-a", "ordinary-device"], outputs), false);
   assert.equal(shouldUseLedProcessorOutputMarquee([], outputs), true);
   assert.equal(shouldUseLedProcessorOutputMarquee(["processor-a"], []), false);
+});
+
+test("fully enclosed processors take priority over their output nodes", () => {
+  const scene = makeScene();
+  for (const rect of [
+    { x: 20, y: 80, width: 30, height: 40 },
+    { x: 50, y: 120, width: -30, height: -40 },
+    { x: 0, y: 0, width: 140, height: 140 }
+  ]) {
+    const outputs = ledProcessorOutputsInRect(scene, rect);
+    assert.equal(shouldUseLedProcessorOutputMarquee(["processor-a"], outputs, rect), false);
+  }
+});
+
+test("partial processor marquees still select nodes, even when enclosing every output", () => {
+  const scene = makeScene();
+  for (const rect of [
+    { x: 15, y: 85, width: 10, height: 30 },
+    { x: 15, y: 70, width: 10, height: 60 },
+    { x: 15, y: 85, width: 40, height: 30 }
+  ]) {
+    const outputs = ledProcessorOutputsInRect(scene, rect);
+    assert.equal(outputs.length, 2);
+    assert.equal(shouldUseLedProcessorOutputMarquee(["processor-a"], outputs, rect), true);
+  }
+});
+
+test("one fully enclosed processor prevents node-only selection across processors", () => {
+  const scene = makeScene(), rect = { x: 15, y: 75, width: 90, height: 60 };
+  const outputs = ledProcessorOutputsInRect(scene, rect);
+  assert.equal(outputs.length, 3);
+  assert.equal(shouldUseLedProcessorOutputMarquee(["processor-a", "processor-b"], outputs, rect), false);
 });

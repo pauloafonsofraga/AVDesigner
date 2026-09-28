@@ -134,8 +134,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-1-original-png-canvas-pan";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-1-original-png-canvas-pan";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-2-led-multi-wire-selection";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-2-led-multi-wire-selection";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -4178,7 +4178,7 @@ class ProductionEngineBridge {
       ...rackIds.flatMap(rackId => this.scene.rackChildIds(rackId))
     ]);
     const ledOutputs = ledProcessorOutputsInRect(this.scene, rect);
-    if (shouldUseLedProcessorOutputMarquee(expandedIds, ledOutputs)) {
+    if (shouldUseLedProcessorOutputMarquee(expandedIds, ledOutputs, rect)) {
       this.scene.clearSelection();
       ledOutputs.forEach(output => {
         this.scene.selectedConnectorKeys.add(`${output.deviceId}:${output.connectorId}`);
@@ -4646,22 +4646,23 @@ class ProductionEngineBridge {
         targetError: rejectionReason || ""
       }
       : null;
-    const multiTempWires = this.wireCreate?.multiLedSources?.length && this.wireCreate.target
+    const multiTempWires = this.wireCreate?.multiLedSources?.length
       ? this.wireCreate.multiLedSources.map(source => {
         const sourceHit = hitForSceneWireEndpoint(
           this.scene,
           { fromDeviceId: source.deviceId, fromConnectorId: source.connectorId },
           "from"
         );
-        const targetHit = this.wireCreate.target.virtualSurfaceTarget
+        const targetHit = this.wireCreate.target?.virtualSurfaceTarget
           ? ledSurfaceVirtualHit(this.wireCreate.target.device, this.wireCreate.target.point, sourceHit)
           : this.wireCreate.target;
-        if (!sourceHit || !targetHit) return null;
-        const sourceCompatibility = engineCompatibilitySummary(sourceHit, targetHit);
-        const route = this.wireRouteForEndpoints(sourceHit.point, targetHit.point);
+        const targetPoint = targetHit?.point || this.wireCreate.pointerWorld;
+        if (!sourceHit || !targetPoint) return null;
+        const sourceCompatibility = targetHit ? engineCompatibilitySummary(sourceHit, targetHit) : null;
+        const route = this.wireRouteForEndpoints(sourceHit.point, targetPoint);
         return {
           from: sourceHit.point,
-          to: targetHit.point,
+          to: targetPoint,
           color: this.wireCreate.color,
           cableType: this.wireCreate.cableType,
           colorSegments: Object.freeze([...(this.wireCreate.colorSegments || [])]),
@@ -4669,9 +4670,9 @@ class ProductionEngineBridge {
           routePoints: route.routePoints,
           sourceHit,
           targetHit,
-          targetPoint: targetHit.point,
-          validTarget: sourceCompatibility.valid,
-          targetError: sourceCompatibility.reason || ""
+          targetPoint: targetHit?.point || null,
+          validTarget: Boolean(sourceCompatibility?.valid),
+          targetError: sourceCompatibility?.reason || ""
         };
       }).filter(Boolean)
       : [];

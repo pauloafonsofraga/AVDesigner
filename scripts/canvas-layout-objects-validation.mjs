@@ -25,7 +25,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-38-1-original-png-canvas-pan";
+const BUILD_ID = "iteration54-38-2-led-multi-wire-selection";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -40,10 +40,10 @@ function sourceSlice(source, startNeedle, endNeedle) {
   return source.slice(start, end);
 }
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.38.1");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.1";'), "visible iteration should be 54.38.1");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-1-original-png-canvas-pan-modules";'), "module cache key should bust 54.38.1 modules");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-1-original-png-canvas-pan"'), "Engine bridge version should identify Original PNGs and Canvas Pan");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.38.2");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.2";'), "visible iteration should be 54.38.2");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-2-led-multi-wire-selection-modules";'), "module cache key should bust 54.38.2 modules");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-2-led-multi-wire-selection"'), "Engine bridge version should identify LED Multi-Wire Selection");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
 assert.ok(classicScripts.length >= 1, "index.html should contain at least one classic script");

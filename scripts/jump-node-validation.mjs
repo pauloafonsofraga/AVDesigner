@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-38-1-original-png-canvas-pan";
+const BUILD_ID = "iteration54-38-2-led-multi-wire-selection";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -52,11 +52,11 @@ const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Auto LED Preview Recovery");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-1-original-png-canvas-pan-modules";'), "module cache key should identify Original PNGs and Canvas Pan");
-assert.ok(indexHtml.includes("Original PNGs and Canvas Pan"), "visible build label should name Original PNGs and Canvas Pan");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-1-original-png-canvas-pan"'), "Engine bridge version should identify Original PNGs and Canvas Pan");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-2-led-multi-wire-selection-modules";'), "module cache key should identify LED Multi-Wire Selection");
+assert.ok(indexHtml.includes("LED Multi-Wire Selection"), "visible build label should name LED Multi-Wire Selection");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-2-led-multi-wire-selection"'), "Engine bridge version should identify LED Multi-Wire Selection");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses"'), "Engine bridge feature label should identify Selectable Projector Lenses");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-38-1-original-png-canvas-pan"), "bridge fingerprint should identify Original PNGs and Canvas Pan");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-38-2-led-multi-wire-selection"), "bridge fingerprint should identify LED Multi-Wire Selection");
 assert.ok(rendererSource.includes("renderer-iteration54-38-1-original-png-canvas-pan"), "renderer fingerprint should identify Multi-Source LED Processor Wiring");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");

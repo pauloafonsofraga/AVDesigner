@@ -36,8 +36,12 @@ export function selectedLedProcessorOutputs(scene, selectedConnectorKeys = []) {
   return outputs.sort(compareOutputs);
 }
 
-export function shouldUseLedProcessorOutputMarquee(deviceIds = [], outputs = []) {
+export function shouldUseLedProcessorOutputMarquee(deviceIds = [], outputs = [], rect = {}) {
   if (!outputs.length) return false;
+  // A fully enclosed processor is a device selection, even if all its outputs
+  // also fall inside the marquee. Partial edge selections still select nodes.
+  if (outputs.some(({ device }) => pointInRect(device, rect)
+    && pointInRect({ x: device.x + device.width, y: device.y + device.height }, rect))) return false;
   if (!deviceIds.length) return true;
   const ledDeviceIds = new Set(outputs.map(output => output.deviceId));
   return deviceIds.every(deviceId => ledDeviceIds.has(deviceId));
