@@ -90,7 +90,13 @@ export function collectDefinitionDependencies(definition, library, nodes) {
       if (child && typeof child === "object") visit(child);
     }
   };
-  for (const device of devices.values()) visit(device);
+  for (const device of devices.values()) {
+    visit(device);
+    // Slot overrides and saved defaults can reference a node that does not
+    // appear in the base connector arrays. Use the same reference walk as remapping.
+    visitConnectorTypes(device, type => { if (nodeById.has(type)) used.add(type); return type; },
+      ["type", "cableType", "physicalType", "connectorType", "switchPortType"]);
+  }
   const requiredNodes = [...used].map(id => {
     const node = nodeById.get(id);
     if (!node) throw new Error(`Required node definition ${id} is missing.`);

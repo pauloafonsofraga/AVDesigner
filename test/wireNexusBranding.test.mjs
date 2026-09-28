@@ -60,7 +60,8 @@ test("save and open pickers use the new name but keep the same extensions and pr
 test("library downloads get new filenames without changing the library payload format", async () => {
   const downloads = [], nodes = [{ id: "custom-node" }], devices = [{ id: "custom-device" }];
   const context = { editorDraft: devices, structuredClone, syncEditorFieldsToDraft() {}, enforceDevicePairFirstChoice() {},
-    validateEditorTemplateForApply() {}, serializeNodeLibrary: () => nodes, editorNodeDefinitions: () => nodes, inlineProjectImageAssets: async data => data,
+    validateEditorTemplateForApply() {}, serializeNodeLibrary: () => nodes, editorNodeDefinitions: () => nodes,
+    resolveEditorDraftForProject: definition => ({ definition, nodes: [] }), inlineProjectImageAssets: async data => data,
     downloadBlob: (...args) => downloads.push(args), alert(message) { throw new Error(message); } };
   await shellFunction("exportNodeLibraryJson", context)();
   await shellFunction("exportDeviceLibraryJson", context)();

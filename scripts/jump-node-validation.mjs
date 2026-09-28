@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-38-20-personal-definition-isolation";
+const BUILD_ID = "iteration54-38-21-editor-draft-dependencies";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -52,8 +52,8 @@ const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Auto LED Preview Recovery");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-20-personal-definition-isolation-modules";'), "module cache key should identify Personal Definition Isolation");
-assert.ok(indexHtml.includes("Personal Definition Isolation"), "visible build label should name Personal Definition Isolation");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-21-editor-draft-dependencies-modules";'), "module cache key should identify Editor Draft Dependencies");
+assert.ok(indexHtml.includes("Editor Draft Dependencies"), "visible build label should name Editor Draft Dependencies");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-16-wirenexus-branding"'), "Engine bridge version should identify WireNexus Branding");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses"'), "Engine bridge feature label should identify Selectable Projector Lenses");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-38-16-wirenexus-branding"), "bridge fingerprint should identify WireNexus Branding");

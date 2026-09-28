@@ -46,6 +46,25 @@ failure) retains the old revision, so a stale draft still conflicts on Save. A
 factory reset can finish its explicit storage removal even when new draft edits
 prevent loading factory; that retained draft cannot acquire the removal's token.
 
+Each Device Editor draft also owns a detached node/pair dependency context. A
+project or instance starts with project dependencies. Reload Saved Default installs
+the personal context with its definition, baseline and revision; Use Factory
+Default installs factory nodes, not project or personal node overrides. Failed,
+cancelled or superseded reads install none of that state. Closing invalidates
+pending operations. Discard restores the matching dependency baseline. Explicit
+node edits replace a context so pending reads cannot hide newer edits.
+
+Preview, card colours, validation and personal saves consume the draft context,
+not a mode-based global lookup. Applying a draft to the project resolves collisions
+without side effects first, then installs node additions with the device edit.
+The existing DeviceEditorApplyCommand snapshots include the node library, making
+both additions and remapped references part of undo/redo. Reused dependencies are
+present in the before snapshot and remain available on undo. No project nodes,
+devices, cables or history change on reload, personal save, discard or close.
+Device JSON export resolves all exported drafts into one collision-safe namespace;
+it does not borrow only the currently selected draft's nodes. Dependency capture
+includes references that exist only in installed-card overrides or saved defaults.
+
 Node dependencies are resolved per saved device. `nodes(deviceId)` returns that
 scope; unscoped `nodes()` rejects conflicting same-ID definitions instead of
 silently choosing the last one. `libraryContext()` builds a detached namespace for
@@ -107,6 +126,7 @@ implemented in this phase.
 node --test test/personalDefinitions.test.mjs test/localUserSettings.test.mjs
 node scripts/global-device-defaults-smoke.mjs
 node scripts/personal-definition-isolation-smoke.mjs
+node scripts/editor-default-dependencies-smoke.mjs
 node scripts/factory-catalogue-smoke.mjs
 node scripts/canvas-clipboard-smoke.mjs
 node scripts/device-pair-picker-smoke.mjs
@@ -123,3 +143,11 @@ lock to deterministically hold a reload's read while typing through the editor.
 It verifies the subsequent stale Save fails, and tests conflicting-node duplicate,
 preview, placement, refresh, browser reload and project download/reopen. This is
 automated Chromium coverage, not a claim of manual Safari or Firefox testing.
+
+The editor-dependency smoke covers instance and Project Device editing through
+the actual Reload, Save as My Default, Discard, Close, Apply, Undo and Redo buttons.
+It checks the Engine and card previews, unchanged neighbouring devices/cables,
+dependency reuse, and actual project download/browser reload/reopen. Fixtures and
+editor opening use production functions; screenshots are written to
+`/tmp/wirenexus-editor-dependencies`. Handler-level tests separately exercise read
+failures, validation, cancelled confirmation, switching devices and pending edits.

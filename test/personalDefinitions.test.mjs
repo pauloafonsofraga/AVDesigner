@@ -182,6 +182,8 @@ async function editorHarness(mode = "library", knownFactory = true) {
     builtInDeviceLibrary: f, editorDraft: [definition, factory()], editorIndex: 0, editorMode: mode,
     deviceLibrary: [structuredClone(definition)], cableTypes: Object.fromEntries(nodes.map(n => [n.id, n])), personalNodeDefinitions: nodes, personallyEditedNodeIds: new Set(),
     editorLibraryBaseline: [], editorDefaultRevisions: new Map(), editorInstanceName: "Canvas instance", editorBaselineInstanceName: "",
+    editorDependencyDrafts: null, editorDependencyContexts: [], editorDependencyBaselines: [], editorDependencySession: 0,
+    personalLibraryNodes: owner.libraryContext().nodes, DEFAULT_CABLE_TYPES: Object.fromEntries(nodes.map(node => [node.id, node])),
     personalDefaultsBusy: false, savePersonalDefaultButton: element("save"), document: { getElementById: element },
     syncEditorFieldsToDraft() {}, setStatus: message => c.status = message, alert: message => { c.alerts.push(message); }, alerts: [],
     confirm: message => { c.confirmations.push(message); return c.confirmed; }, confirmations: [], confirmed: true,
@@ -189,14 +191,12 @@ async function editorHarness(mode = "library", knownFactory = true) {
     libraryDeviceTemplates: () => owner.libraryContext().devices, isProjectCustomDeviceTemplate: t => Boolean(t.projectCustomDevice),
     libraryTemplateById: id => owner.libraryContext().devices.find(d => d.id === id),
     personalLibraryNodeContext: () => owner.libraryContext(),
-    editorNodeDefinitions: () => c.editorMode === "instance" || c.editorMode.startsWith("project-template")
-      ? Object.entries(c.cableTypes).map(([id, node]) => ({ ...node, id })) : owner.libraryContext().nodes,
     markProjectCustomDeviceTemplate: t => { t.projectCustomDevice = true; }, validateDraftDefaults() {},
     validateEditorTemplateForApply: compactDeviceConfiguration, resetEditorDeviceSelections() {},
     invalidateEditorFaceplateUploadTarget() {}, clearEditorPlacementMotion() {},
     renderDeviceEditor() { c.renderEditorDefaultControls(); } });
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
-  for (const name of ["factoryBuiltInTemplate", "currentEditorFactoryTemplate", "editorPersonalTargetId", "captureEditorSessionBaseline",
+  for (const name of ["editorDependencyContext", "editorNodeDefinitions", "editorNodeType", "factoryBuiltInTemplate", "currentEditorFactoryTemplate", "editorPersonalTargetId", "captureEditorSessionBaseline",
     "editorHasUnsavedChanges", "renderEditorDefaultControls", "saveEditorPersonalDefault", "reloadEditorPersonalDefault", "discardEditorUnsavedChanges"]) {
     vm.runInContext(html.match(new RegExp(`^    (?:async )?function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?^    \\}`, "m"))[0], c);
   }
@@ -306,7 +306,7 @@ test("switching devices during reload must not install into the newly selected d
 test("failed reload validation preserves the complete editor state and its old revision", async () => {
   const { c, r1 } = await revisionRaceHarness();
   const drafts = structuredClone(c.editorDraft), baseline = structuredClone(c.editorLibraryBaseline);
-  c.validateDraftDefaults = () => { throw new Error("Invalid loaded definition"); };
+  c.validateEditorTemplateForApply = () => { throw new Error("Invalid loaded definition"); };
   await c.reloadEditorPersonalDefault();
   assert.deepEqual(c.editorDraft, drafts);
   assert.deepEqual(c.editorLibraryBaseline, baseline);
@@ -438,4 +438,158 @@ test("factory asset paths and saved identical image bytes do not spuriously rema
   const { owner } = await setup({ factory: [definition], nodes: [node], assetManifest: catalogue.assets });
   await owner.save(definition);
   assert.equal(owner.libraryContext().devices[0].connectors[0].type, "hdmi");
+});
+
+async function conflictingProjectDraft(mode) {
+  const harness = await editorHarness(mode), { c, owner } = harness;
+  const personalNode = { id: "custom-control", label: "Personal control", color: "#112233", direction: "two-way", thumbnail: png, custom: true, metadata: { baud: 9600 } };
+  const definition = factory(); definition.connectors[0].type = personalNode.id;
+  await owner.save(definition, { nodes: [...nodes, personalNode] });
+  c.cableTypes[personalNode.id] = { ...personalNode, label: "OLD PROJECT CONTROL", color: "#ff0000", direction: "one-way", thumbnail: "old.png", metadata: { baud: 115200 } };
+  c.editorDraft[0].connectors[0].type = personalNode.id;
+  c.personalLibraryNodes = owner.libraryContext().nodes;
+  c.editorDependencyDrafts = null;
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  for (const name of ["editorNodeDefinitions", "editorNodeType"]) {
+    vm.runInContext(html.match(new RegExp(`^    function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?^    \\}`, "m"))[0], c);
+  }
+  c.captureEditorSessionBaseline();
+  return { ...harness, personalNode };
+}
+
+for (const mode of ["instance", "project-template-edit"]) test(`reloaded personal dependencies stay with the ${mode} draft and personal save`, async () => {
+  const { c, owner, personalNode } = await conflictingProjectDraft(mode);
+  const projectBefore = structuredClone({ devices: c.deviceLibrary, nodes: c.cableTypes });
+  assert.equal(c.editorNodeType(personalNode.id).label, "OLD PROJECT CONTROL");
+  await c.reloadEditorPersonalDefault();
+  assert.deepEqual(c.alerts, []);
+  await c.saveEditorPersonalDefault();
+  assert.deepEqual(c.alerts, []);
+  const saved = owner.entry(factory().id), type = saved.definition.connectors[0].type;
+  assert.deepEqual(saved.dependencies.nodes.find(node => node.id === type), { ...personalNode, id: type });
+  assert.deepEqual(c.editorNodeType(type), { ...personalNode, id: type });
+  assert.deepEqual({ devices: c.deviceLibrary, nodes: c.cableTypes }, projectBefore);
+});
+
+for (const mode of ["instance", "project-template-edit"]) {
+  test(`${mode} a reloaded default retains paired-device and card dependencies instead of project variants`, async () => {
+    const { c, owner } = await editorHarness(mode);
+    const node = { id: "paired-control", label: "Personal pair control", color: "#112233", direction: "two-way", custom: true, thumbnail: png, metadata: { serial: 9600 } };
+    const root = { ...factory(), isPartOfPair: true, pairedTemplateId: "personal-partner" };
+    const pair = { ...factory(), id: "personal-partner", isPartOfPair: true, pairedTemplateId: root.id };
+    pair.cardTypes[0].connectors[0].type = node.id;
+    await owner.save(root, { library: [root, pair], nodes: [...nodes, node] });
+    c.cableTypes[node.id] = { ...node, label: "Project pair", color: "#ff0000" };
+    c.deviceLibrary.push({ ...structuredClone(pair), name: "Old project partner" });
+    c.editorDependencyDrafts = null; c.captureEditorSessionBaseline();
+    await c.reloadEditorPersonalDefault(); await c.saveEditorPersonalDefault();
+    assert.deepEqual(c.alerts, []);
+    const entry = owner.entry(root.id);
+    assert.equal(entry.dependencies.devices.find(d => d.id === pair.id).name, pair.name);
+    assert.deepEqual(entry.dependencies.nodes.find(n => n.id === node.id), node);
+    assert.equal(c.cableTypes[node.id].label, "Project pair");
+  });
+
+  test(`${mode} cancelled, invalid and switched reloads preserve definition, dependencies, baseline and revision`, async () => {
+    for (const reason of ["cancel", "invalid", "switch", "dependencies", "close"]) {
+      const { c, store } = await conflictingProjectDraft(mode);
+      c.editorDraft[0].name = "Local draft";
+      const before = structuredClone({ draft: c.editorDraft, dependencies: c.editorDependencyContexts, baseline: c.editorLibraryBaseline,
+        dependencyBaseline: c.editorDependencyBaselines, revisions: c.editorDefaultRevisions });
+      if (reason === "cancel") c.confirmed = false;
+      if (reason === "invalid") c.validateEditorTemplateForApply = () => { throw new Error("Invalid definition"); };
+      const gate = reason === "cancel" ? null : pauseRead(store);
+      const reloading = c.reloadEditorPersonalDefault();
+      if (gate) {
+        await gate.pending;
+        if (reason === "switch") c.editorIndex = 1;
+        if (reason === "close") c.editorDependencySession++;
+        if (reason === "dependencies") {
+          c.editorDependencyContexts[0] = structuredClone(c.editorDependencyContexts[0]);
+          c.editorDependencyContexts[0].nodes.find(n => n.id === "custom-control").label = "Typed node edit";
+          before.dependencies[0] = structuredClone(c.editorDependencyContexts[0]);
+        }
+        gate.release();
+      }
+      await reloading;
+      assert.deepEqual({ draft: c.editorDraft, dependencies: c.editorDependencyContexts, baseline: c.editorLibraryBaseline,
+        dependencyBaseline: c.editorDependencyBaselines, revisions: c.editorDefaultRevisions }, before, reason);
+    }
+  });
+
+  test(`${mode} discard restores matching dependency baseline; factory reset uses factory nodes`, async () => {
+    const { c, personalNode } = await conflictingProjectDraft(mode);
+    await c.reloadEditorPersonalDefault();
+    const baseline = structuredClone(c.editorDraft[0]);
+    c.editorDraft[0].name = "Unsaved";
+    c.editorDependencyContexts[0] = structuredClone(c.editorDependencyContexts[0]);
+    c.editorDependencyContexts[0].nodes.find(n => n.id === personalNode.id).color = "#998877";
+    c.discardEditorUnsavedChanges();
+    assert.deepEqual(c.editorDraft[0], baseline);
+    assert.deepEqual(c.editorNodeType(personalNode.id), personalNode);
+    assert.equal(c.editorHasUnsavedChanges(), false);
+    const hdmi = c.DEFAULT_CABLE_TYPES.hdmi;
+    c.cableTypes.hdmi = { ...hdmi, label: "Project HDMI", color: "#ff0000" };
+    await c.reloadEditorPersonalDefault({ restoreFactory: true });
+    assert.deepEqual(c.editorNodeType("hdmi"), hdmi);
+    assert.equal(c.cableTypes.hdmi.label, "Project HDMI");
+  });
+
+  test(`${mode} project collision resolution is draft-local, complete and reuses identical nodes`, async () => {
+    const { c, personalNode } = await conflictingProjectDraft(mode);
+    await c.reloadEditorPersonalDefault();
+    const template = c.editorDraft[0];
+    template.connectors[0].physicalType = personalNode.id;
+    template.connectors[0].connectorType = personalNode.id;
+    template.cardTypes[0].connectors[0].type = personalNode.id;
+    template.cardSlots[0].connectorOverrides = { port: { physicalType: personalNode.id } };
+    template.defaultConfiguration = { connectors: [{ type: personalNode.id }] };
+    const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+    vm.runInContext(html.match(/^    function resolveEditorDraftForProject\([^\n]*\) \{[\s\S]*?^    \}/m)[0], c);
+    const projectNodes = Object.values(c.cableTypes), before = structuredClone({ template, projectNodes });
+    const result = c.resolveEditorDraftForProject(template, 0, projectNodes);
+    const id = result.definition.connectors[0].type;
+    assert.notEqual(id, personalNode.id);
+    assert.equal(result.definition.connectors[0].physicalType, id);
+    assert.equal(result.definition.connectors[0].connectorType, id);
+    assert.equal(result.definition.cardTypes[0].connectors[0].type, id);
+    assert.equal(result.definition.cardSlots[0].connectorOverrides.port.physicalType, id);
+    assert.equal(result.definition.defaultConfiguration.connectors[0].type, id);
+    assert.deepEqual(result.nodes.find(n => n.id === id), { ...personalNode, id });
+    assert.deepEqual({ template, projectNodes }, before);
+    const again = c.resolveEditorDraftForProject(template, 0, [...projectNodes, ...result.nodes]);
+    assert.equal(again.definition.connectors[0].type, id);
+    assert.deepEqual(again.nodes, []);
+  });
+}
+
+test("device-library export resolves every draft context, including conflicting card nodes", async () => {
+  const { c, personalNode } = await conflictingProjectDraft("project-template-edit");
+  await c.reloadEditorPersonalDefault();
+  c.editorDraft[1].connectors[0].type = personalNode.id;
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  for (const name of ["resolveEditorDraftForProject", "exportDeviceLibraryJson"]) {
+    vm.runInContext(html.match(new RegExp(`^    (?:async )?function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?^    \\}`, "m"))[0], c);
+  }
+  c.enforceDevicePairFirstChoice = () => {};
+  c.inlineProjectImageAssets = async () => {};
+  c.downloadBlob = text => { c.downloaded = JSON.parse(text); };
+  await c.exportDeviceLibraryJson(); assert.deepEqual(c.alerts, []);
+  const [a, b] = c.downloaded.devices;
+  assert.notEqual(a.connectors[0].type, b.connectors[0].type);
+  assert.equal(c.downloaded.nodes.find(n => n.id === a.connectors[0].type).label, "Personal control");
+  assert.equal(c.downloaded.nodes.find(n => n.id === b.connectors[0].type).label, "OLD PROJECT CONTROL");
+});
+
+test("personal saves retain nodes referenced only by installed-card overrides or physical defaults", async () => {
+  const { owner, store } = await setup();
+  const node = { id: "override-control", label: "Override control", color: "#112233", direction: "two-way", thumbnail: png, metadata: { serial: 9600 } };
+  const draft = factory();
+  draft.cardSlots[0].connectorOverrides = { input: { type: node.id, physicalType: node.id, connectorType: node.id } };
+  draft.defaultConfiguration = { switchPortType: node.id };
+  await owner.save(draft, { nodes: [...nodes, node] });
+  const entry = (await setup({ store })).owner.entry(draft.id);
+  assert.deepEqual(entry.dependencies.nodes.find(n => n.id === node.id), node);
+  assert.deepEqual(entry.definition.cardSlots[0].connectorOverrides, draft.cardSlots[0].connectorOverrides);
+  assert.equal(entry.definition.defaultConfiguration.switchPortType, node.id);
 });
