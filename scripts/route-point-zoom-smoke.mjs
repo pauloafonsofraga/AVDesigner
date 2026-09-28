@@ -16,6 +16,8 @@ try {
   page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
   await page.goto(base);
   await page.waitForFunction(() => activeEngineBridge()?.ready && localUserSettingsLoaded);
+  assert.equal(await page.locator(".engine-bridge-canvas").getAttribute("aria-label"), "AV Designer canvas");
+  assert.doesNotMatch(await page.locator("body").innerText(), /experimental/i);
   const screen = p => page.evaluate(p => {
     const b = activeEngineBridge(), r = b.canvas.getBoundingClientRect();
     return { x: r.x + (p.x - b.camera.x) * b.camera.zoom, y: r.y + (p.y - b.camera.y) * b.camera.zoom };
@@ -63,6 +65,7 @@ try {
           endpoints: [b.scene.endpointForWire(wire, "from"), b.scene.endpointForWire(wire, "to")] };
       });
       assert.deepEqual(after, { ...before, history: before.history + 1 }, "only the edited route and one history entry change");
+      assert.equal(await page.locator("#statusText").textContent(), await page.evaluate(() => statusSummary()), "canvas edits show the project summary without an Engine commit banner");
       await page.screenshot({ path: join(directory, `${route}-${Math.round(zoom * 100)}-dragged.png`) });
       await page.keyboard.press("Control+z"); assert.deepEqual(await points(), initial);
       await page.keyboard.press("Control+Shift+z"); assert.deepEqual(await points(), moved);

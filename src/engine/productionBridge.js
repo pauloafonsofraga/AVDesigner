@@ -134,8 +134,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-10-zoomed-out-cable-points";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-10-zoomed-out-cable-points";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-11-engine-status-labels";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-11-engine-status-labels";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -349,7 +349,7 @@ class ProductionEngineBridge {
     this.bindEvents();
     this.refreshFromProduction("initial production state");
     this.started = true;
-    console.info("[engine-bridge] Experimental Engine Renderer active", {
+    console.info("[engine-bridge] Engine renderer active", {
       version: BRIDGE_VERSION,
       renderer: "WebGL2 engine",
       activation: engineActivationSource()
@@ -1080,7 +1080,7 @@ class ProductionEngineBridge {
     this.engineRoot = document.createElement("div");
     this.engineRoot.className = "engine-bridge-root";
     this.engineRoot.innerHTML = `
-      <canvas class="engine-bridge-canvas" aria-label="Experimental WebGL engine canvas"></canvas>
+      <canvas class="engine-bridge-canvas" aria-label="AV Designer canvas"></canvas>
       <canvas class="engine-bridge-label-canvas" aria-hidden="true"></canvas>
       <div class="engine-bridge-editor-overlay" aria-hidden="true"></div>
       <div class="engine-bridge-marquee hidden" aria-hidden="true"></div>
