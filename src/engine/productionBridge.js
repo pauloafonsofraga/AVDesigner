@@ -134,8 +134,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-4-cable-type-selection";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-4-cable-type-selection";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-5-keyboard-report-controls";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-5-keyboard-report-controls";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -2810,6 +2810,14 @@ class ProductionEngineBridge {
       }
       return;
     }
+    if (!event.metaKey && !event.ctrlKey && !event.altKey && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+      if (document.querySelector(".modal-backdrop:not(.hidden), dialog[open], .context-menu:not(.hidden)")) return;
+      const step = event.shiftKey ? 10 : 1;
+      const dx = event.key === "ArrowRight" ? step : event.key === "ArrowLeft" ? -step : 0;
+      const dy = event.key === "ArrowDown" ? step : event.key === "ArrowUp" ? -step : 0;
+      if (this.nudgeSelectedDevices(dx, dy)) consumeEngineShortcut(event);
+      return;
+    }
     if (event.key === "Escape" && this.wirePlayback?.active) {
       consumeEngineShortcut(event);
       this.stopWirePlayback("escape");
@@ -2880,6 +2888,20 @@ class ProductionEngineBridge {
       this.updateInteractionHud("selection-cleared");
       this.scheduleRender();
     }
+  }
+
+  nudgeSelectedDevices(dx, dy) {
+    if (!this.ready || this.activeCanvasTool() || this.dragSession || this.pendingDrag || this.panState
+      || this.wireCreate || this.jumpLinkCreate || this.pendingJumpPress || this.resizeSession
+      || this.routePointDrag || this.wireSegmentDrag || this.commentBoxDrag || this.marqueeState) return false;
+    const selectedIds = this.draggableSelectedIds(this.scene.expandRackSelectionIds([...this.scene.selectedIds]));
+    if (!selectedIds.length) return false;
+    // Use the normal move transaction, without snapping away from the exact pixel step.
+    this.dragSession = new DragSession({ scene: this.scene, selectedIds, startWorld: { x: 0, y: 0 } });
+    this.dragSession.update({ x: dx, y: dy }, { snappingEnabled: false });
+    this.completeDrag();
+    this.scheduleRender();
+    return true;
   }
 
   beginPan(point, pointerId) {
@@ -10650,6 +10672,7 @@ function isEngineCanvasShortcut(event) {
   return key === "delete"
     || key === "backspace"
     || key === "escape"
+    || (!event.metaKey && !event.ctrlKey && !event.altKey && ["arrowleft", "arrowright", "arrowup", "arrowdown"].includes(key))
     || (!event.metaKey && !event.ctrlKey && !event.altKey && key === "j")
     || ((event.metaKey || event.ctrlKey) && (key === "z" || key === "y"));
 }

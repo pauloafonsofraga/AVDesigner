@@ -32,6 +32,9 @@
 .output-report > header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); }
 .output-report h2 { margin: 0; font-size: 16px; }
 .output-report h3 { margin: 16px 0 8px; font-size: 13px; }
+.output-report-matrix { margin-top: 16px; border-top: 1px solid var(--border); }
+.output-report-matrix > summary { padding: 10px 0; font-size: 13px; font-weight: 700; cursor: pointer; overflow-wrap: anywhere; }
+.output-report-matrix > summary:focus-visible { outline: 2px solid #26a7da; outline-offset: 2px; }
 .output-report-body { padding: 0 16px 16px; }
 .output-report-summary { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 16px; }
 .output-report-summary dd { margin: 0; font-weight: 700; }

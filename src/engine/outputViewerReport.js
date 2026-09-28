@@ -13,9 +13,11 @@ export function installOutputReport(viewer, report = {}, cableGroups = []) {
     for (const item of report.summary) summary.append(text("dt", item.label), text("dd", item.value));
     body.append(summary);
   }
-  const table = (heading, columns, rows, cable = false) => {
+  const table = (heading, columns, rows, cable = false, collapsible = false) => {
     if (!rows?.length) return;
-    body.append(text("h3", heading));
+    const section = collapsible ? document.createElement("details") : body;
+    if (collapsible) { section.className = "output-report-matrix"; body.append(section); }
+    section.append(text(collapsible ? "summary" : "h3", heading));
     const wrap = document.createElement("div"); wrap.className = "output-report-table";
     const grid = document.createElement("table"), head = document.createElement("thead"), row = document.createElement("tr");
     for (const [, label] of columns) row.append(text("th", label));
@@ -35,7 +37,7 @@ export function installOutputReport(viewer, report = {}, cableGroups = []) {
         }
         tr.append(td);
       }); tbody.append(tr);
-    }); grid.append(tbody); wrap.append(grid); body.append(wrap);
+    }); grid.append(tbody); wrap.append(grid); section.append(wrap);
   };
   table("Devices", [["quantity", "Qty"], ["brand", "Brand"], ["type", "Device"], ["power", "Power"]], report.deviceRows);
   table("Adapters / Breakouts", [["quantity", "Qty"], ["brand", "Brand"], ["type", "Adapter / Breakout"], ["category", "Category"]], report.adapterRows);
@@ -43,7 +45,9 @@ export function installOutputReport(viewer, report = {}, cableGroups = []) {
   table("LED Screens", [["name", "Screen"], ["size", "Physical Size"], ["pixels", "Pixels"]], report.screenRows);
   table("Cable Schedule", [["type", "Cable"], ["length", "Length"], ["quantity", "Qty"]], report.cableRows, true);
   for (const section of report.matrixSections || []) table(`Matrix Routing - ${[section.brand, section.name].filter(Boolean).join(" / ")} (${section.size || ""})`,
-    [["output", "Output"], ["input", "Input Source"]], section.routeRows);
+    [["output", "Output"], ["input", "Input Source"]], section.routeRows, false, true);
   button.addEventListener("click", () => dialog.showModal(), { signal: viewer.abort.signal });
   close.addEventListener("click", () => dialog.close(), { signal: viewer.abort.signal });
+  dialog.addEventListener("cancel", event => { event.preventDefault(); dialog.close(); }, { signal: viewer.abort.signal });
+  dialog.addEventListener("close", () => viewer.stage.focus(), { signal: viewer.abort.signal });
 }
