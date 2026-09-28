@@ -3084,11 +3084,6 @@
       min-width: 58px;
     }
 
-    .editor-pair-dependent select {
-      min-width: 156px;
-      max-width: 220px;
-    }
-
     .editor-feature-separator {
       flex: 0 0 auto;
       color: rgba(148, 163, 184, .62);
@@ -3582,11 +3577,70 @@
 
     .device-feature-pane .editor-pair-dependent {
       flex-basis: 100%;
+      min-width: 0;
     }
 
-    .device-feature-pane .editor-pair-dependent select {
+    #editorPairSearch {
       width: 100%;
-      max-width: none;
+      min-width: 0;
+    }
+
+    .editor-pair-current {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 6px 0;
+      white-space: normal;
+    }
+
+    #editorPairCurrentName {
+      flex: 1;
+      min-width: 0;
+      overflow-wrap: anywhere;
+      font-size: 11px;
+      color: var(--accent);
+    }
+
+    .editor-pair-list {
+      min-width: 0;
+      max-height: 224px;
+      overflow-y: auto;
+      margin: 6px 0 0;
+      padding: 0;
+      border: 1px solid var(--panel-border);
+      border-radius: 4px;
+      background: var(--canvas-bg);
+    }
+
+    .editor-pair-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      margin: 0;
+      border-bottom: 1px solid var(--panel-border);
+      cursor: pointer;
+      white-space: normal;
+    }
+
+    .editor-pair-option:last-child { border-bottom: 0; }
+    .editor-pair-option:has(input:checked) { background: rgba(50, 182, 255, .16); }
+    .editor-pair-option:focus-within { outline: 2px solid var(--accent); outline-offset: -2px; }
+    #deviceEditorModal .editor-pair-option input { flex: 0 0 14px; width: 14px; height: 14px; margin: 0; }
+    .editor-pair-option > span { min-width: 0; }
+    .editor-pair-option strong, .editor-pair-option small {
+      display: block;
+      overflow-wrap: anywhere;
+      line-height: 1.4;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .editor-pair-option strong { font-size: 11px; color: var(--ink); }
+    .editor-pair-option small, #editorPairEmpty { font-size: 10px; color: var(--muted); }
+    #editorPairEmpty { margin: 6px 0; white-space: normal; }
+
+    .editor-pair-current.hidden, .editor-pair-dependent.hidden {
+      display: none;
     }
 
     .device-feature-pane .editor-feature-separator {
@@ -4997,7 +5051,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.38.6 — Monitor Names and Clean Canvas — iteration54-38-6-monitor-names-clean-canvas</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.38.7 — Searchable Device Pairing — iteration54-38-7-searchable-device-pairing</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5362,8 +5416,15 @@
                 <div class="editor-feature-group editor-feature-group-wide">
                   <label class="feature-toggle"><input id="editorPartOfPair" type="checkbox"><span>Part of a Pair</span></label>
                   <div class="field editor-feature-dependent editor-pair-dependent">
-                    <label class="visually-hidden" for="editorPairTemplate">Pair with device</label>
-                    <select id="editorPairTemplate" aria-label="Pair with device"></select>
+                    <input id="editorPairTemplate" type="hidden">
+                    <label class="visually-hidden" for="editorPairSearch">Search paired devices</label>
+                    <input id="editorPairSearch" type="search" placeholder="Search devices" autocomplete="off" aria-controls="editorPairList">
+                    <div id="editorPairCurrent" class="editor-pair-current hidden">
+                      <span id="editorPairCurrentName" aria-label="Selected paired device"></span>
+                      <button id="editorPairClear" class="tool-button" type="button" aria-label="Clear paired device">Clear</button>
+                    </div>
+                    <fieldset id="editorPairList" class="editor-pair-list" aria-label="Pair with device"></fieldset>
+                    <p id="editorPairEmpty" class="hidden" role="status">No matching devices</p>
                   </div>
                   <label class="feature-toggle editor-feature-subtoggle"><input id="editorPairPlaceFirst" type="checkbox"><span>Place This Device First</span></label>
                 </div>
@@ -5654,15 +5715,15 @@
     </div>
   </div>
 
-  <script src="./src/engine/projectorModelCore.js?v=iteration54-38-6-monitor-names-clean-canvas"></script>
+  <script src="./src/engine/projectorModelCore.js?v=iteration54-38-7-searchable-device-pairing"></script>
   <script>
-    const APP_ITERATION = "54.38.6";
-    const APP_BUILD_ID = "iteration54-38-6-monitor-names-clean-canvas";
-    const APP_MODULE_CACHE_ID = "iteration54-38-6-monitor-names-clean-canvas-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Monitor Names and Clean Canvas`;
+    const APP_ITERATION = "54.38.7";
+    const APP_BUILD_ID = "iteration54-38-7-searchable-device-pairing";
+    const APP_MODULE_CACHE_ID = "iteration54-38-7-searchable-device-pairing-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Searchable Device Pairing`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
-    const APP_SOURCE_BASE_COMMIT = "3ca66340e96ab22971f407c515479369a28d5098";
+    const APP_SOURCE_BASE_COMMIT = "b8b2b4a15f89e59e6147932d495a46a9ce096970";
     const CANVAS_MIN_ZOOM = 0.03;
     const CANVAS_MAX_ZOOM = 8;
     const ENGINE_COMMENT_ARROW_LENGTH = 16;
@@ -130099,6 +130160,12 @@
     const editorProjectorLenses = document.getElementById("editorProjectorLenses");
     const editorPartOfPair = document.getElementById("editorPartOfPair");
     const editorPairTemplate = document.getElementById("editorPairTemplate");
+    const editorPairSearch = document.getElementById("editorPairSearch");
+    const editorPairList = document.getElementById("editorPairList");
+    const editorPairCurrent = document.getElementById("editorPairCurrent");
+    const editorPairCurrentName = document.getElementById("editorPairCurrentName");
+    const editorPairClear = document.getElementById("editorPairClear");
+    const editorPairEmpty = document.getElementById("editorPairEmpty");
     const editorPairPlaceFirst = document.getElementById("editorPairPlaceFirst");
     const editorSwitchPortCount = document.getElementById("editorSwitchPortCount");
     const editorSwitchPortType = document.getElementById("editorSwitchPortType");
@@ -136248,15 +136315,42 @@
       });
     }
 
-    function pairTemplateOptions(template) {
-      const options = [`<option value="">Select paired device</option>`];
-      editorDraft
-        .filter(device => device.id !== template?.id)
-        .forEach(device => {
-          const label = `${device.name || device.id || "Device"}${device.brand ? ` / ${device.brand}` : ""}`;
-          options.push(`<option value="${escapeAttr(device.id)}">${escapeHtml(label)}</option>`);
-        });
-      return options.join("");
+    function pairTemplateEntries(template, query = "") {
+      const terms = String(query).trim().toLowerCase().split(/\s+/).filter(Boolean);
+      const available = editorMode === "library" ? editorDraft : [...libraryDeviceTemplates(), ...editorDraft];
+      const candidates = new Map(available.map(device => [device.id, device]));
+      return [...candidates.values()].filter(device => {
+        if (device.id === template?.id) return false;
+        const text = `${device.name || ""} ${deviceBrandLabel(device)} ${device.category || ""} ${device.model || ""} ${device.id || ""}`.toLowerCase();
+        return terms.every(term => text.includes(term));
+      });
+    }
+
+    function renderPairTemplateList(template = currentEditorTemplate()) {
+      const entries = pairTemplateEntries(template, editorPairSearch.value);
+      editorPairList.innerHTML = entries.map(device => `
+        <label class="editor-pair-option">
+          <input type="radio" name="editorPairChoice" value="${escapeAttr(device.id)}" ${device.id === editorPairTemplate.value ? "checked" : ""}>
+          <span><strong>${escapeHtml(device.name || device.id || "Device")}</strong><small>${escapeHtml(deviceBrandLabel(device) || "No brand")} / ${escapeHtml(device.category || "Custom")}</small></span>
+        </label>
+      `).join("");
+      editorPairList.classList.toggle("hidden", !entries.length);
+      editorPairEmpty.classList.toggle("hidden", entries.length > 0);
+    }
+
+    function renderPairTemplatePicker(template) {
+      if (editorPairSearch.dataset.templateId !== template.id) {
+        editorPairSearch.value = "";
+        editorPairSearch.dataset.templateId = template.id;
+      }
+      const paired = pairTemplateEntries(template).find(device => device.id === template.pairedTemplateId);
+      if (!paired) template.pairedTemplateId = "";
+      editorPairTemplate.value = template.pairedTemplateId || "";
+      editorPairSearch.disabled = editorPairList.disabled = !editorPartOfPair.checked;
+      editorPairSearch.closest(".editor-pair-dependent").classList.toggle("hidden", !editorPartOfPair.checked);
+      editorPairCurrent.classList.toggle("hidden", !paired);
+      editorPairCurrentName.textContent = paired?.name || paired?.id || "";
+      renderPairTemplateList(template);
     }
 
     function renderEditorDeviceList() {
@@ -138435,10 +138529,7 @@
       editorMatrixRouter.checked = template.isMatrixRouter === true;
       renderProjectorLensEditor();
       editorPartOfPair.checked = template.isPartOfPair === true;
-      editorPairTemplate.innerHTML = pairTemplateOptions(template);
-      if (!editorDraft.some(device => device.id === template.pairedTemplateId && device.id !== template.id)) template.pairedTemplateId = "";
-      editorPairTemplate.value = template.pairedTemplateId || "";
-      editorPairTemplate.disabled = !editorPartOfPair.checked;
+      renderPairTemplatePicker(template);
       editorPairPlaceFirst.checked = template.isPartOfPair === true && template.pairPlaceFirst === true;
       editorPairPlaceFirst.disabled = !editorPartOfPair.checked || !template.pairedTemplateId;
       syncEditorFaceplateActionControls(template);
@@ -155027,7 +155118,25 @@ document.addEventListener("click", function(event) {
       renderDeviceLibrary();
     }
     editorPartOfPair.addEventListener("change", applyPairEditorSettings);
-    editorPairTemplate.addEventListener("change", applyPairEditorSettings);
+    editorPairSearch.addEventListener("input", () => renderPairTemplateList());
+    editorPairSearch.addEventListener("keydown", event => {
+      if (event.key !== "ArrowDown") return;
+      const first = editorPairList.querySelector("input:checked") || editorPairList.querySelector("input");
+      if (first) { event.preventDefault(); first.focus(); }
+    });
+    editorPairList.addEventListener("change", event => {
+      if (!editorPartOfPair.checked || !event.target.matches('input[name="editorPairChoice"]')) return;
+      editorPairTemplate.value = event.target.value;
+      const scrollTop = editorPairList.scrollTop;
+      applyPairEditorSettings();
+      editorPairList.scrollTop = scrollTop;
+      editorPairList.querySelector("input:checked")?.focus({ preventScroll: true });
+    });
+    editorPairClear.addEventListener("click", () => {
+      editorPairTemplate.value = "";
+      applyPairEditorSettings();
+      editorPairSearch.focus();
+    });
     editorPairPlaceFirst.addEventListener("change", applyPairEditorSettings);
     newDeviceTemplateButton.addEventListener("click", () => {
       openDeviceEditorWithNewDevice();
