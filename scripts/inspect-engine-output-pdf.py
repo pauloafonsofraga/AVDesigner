@@ -96,7 +96,7 @@ def inspect_navigation(reader, name, directory):
 directory = Path(sys.argv[1])
 results = []
 navigation = {}
-for name in ["engine", "legacy", "engine-full", "legacy-full", "multipage",
+for name in ["engine", "engine-full", "multipage",
              "jumps-wide", "jumps-tall", "jumps-cross-page", "jumps-wide-repeat"]:
     reader = PdfReader(directory / f"{name}.pdf")
     texts = [page.extract_text() for page in reader.pages]

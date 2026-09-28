@@ -124,7 +124,7 @@ try {
       await ensureEngineOutputSceneModule();
       const snapshot = buildCanonicalOutputSnapshot({ drawingDependency: "engine-webgl" }).engineScene;
       const b = activeEngineBridge();
-      canvas.cloneNode = () => { throw new Error("Legacy canvas clone was called"); };
+      if (document.querySelector("#canvas")) throw new Error("Retired SVG exists");
       return { snapshot, gpuWires: Array.from(b.renderer.staticWireArray), gpuMatrix: Array.from(b.renderer.matrixRouteArray) };
     });
     const downloadPromise = app.waitForEvent("download");
@@ -277,7 +277,7 @@ try {
       restoreSnapshot(f); zoomToFit();
     }, project);
     const result = await legacy.evaluate(async () => {
-      canvas.cloneNode = () => { throw new Error("Legacy canvas clone called"); };
+      if (document.querySelector("#canvas")) throw new Error("Retired SVG exists");
       return (await prepareEngineViewerOutput()).html;
     });
     assert.equal(parsePayload(result).engineScene.signature, results.find(r => r.name === name).signature);

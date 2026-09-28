@@ -41,6 +41,7 @@ const stateOf = page => page.evaluate(() => ({
 const select = async (page, id) => {
   await page.bringToFront();
   await page.evaluate(() => { const b = activeEngineBridge(); b.scene.clearSelection(); b.updateSelectionHud(); });
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   const p = await page.evaluate(id => {
     const b = activeEngineBridge(), d = b.scene.getDevice(id), r = b.canvas.getBoundingClientRect();
     return { x: r.x + (d.x + d.width / 2 - b.camera.x) * b.camera.zoom,

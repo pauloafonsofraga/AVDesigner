@@ -113,8 +113,8 @@ try {
   assert.deepEqual((await read()).map, trimmed.map); checks++;
   const instanceId = await page.evaluate(() => {
     const t = structuredClone(currentEditorTemplate()); closeDeviceEditor();
-    const instance = addDeviceInstanceFromTemplate(t, 100, 100, { templateOverride: t });
-    window.avDesignerEngineBridge.refreshFromProduction("sparse lanes");
+    const instance = prepareDeviceInstanceFromTemplate(t, 100, 100, { templateOverride: t });
+    if (!activeEngineBridge().createDeviceFromLibraryDrop(instance)) throw new Error("Engine insertion failed");
     return instance.instanceId;
   });
   const json = await page.evaluate(() => JSON.stringify(projectSnapshotData()));

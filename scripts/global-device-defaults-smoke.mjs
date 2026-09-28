@@ -20,7 +20,9 @@ const record = page => page.evaluate(() => ({ project: JSON.stringify(projectSna
   factory: JSON.stringify(builtInDeviceLibrary) }));
 const open = (page, id) => page.evaluate(id => openDeviceEditorForTemplate(id), id);
 const place = (page, id) => page.evaluate(id => {
-  const instance = addDeviceInstance(id, 300 + state.devices.length * 1500, 100);
+  const template = templateById(id), placement = canvasDropTemplatePayload(template, { custom: isProjectCustomDeviceTemplate(template) });
+  const instance = prepareDeviceInstanceFromTemplate(placement.template, 300 + state.devices.length * 1500, 100, placement);
+  if (!activeEngineBridge().createDeviceFromLibraryDrop(instance)) throw new Error("Engine insertion failed");
   return { instanceId: instance.instanceId, templateId: instance.templateId, template: structuredClone(templateForInstance(instance)) };
 }, id);
 const save = async (page, id, watts, removeCard = false) => {
@@ -95,7 +97,13 @@ try {
   }, first.instanceId);
   assert.equal(isolatedPayloads.hasClipboard, true); assert.equal(isolatedPayloads.hasScene, true);
   assert.doesNotMatch(isolatedPayloads.clipboard + isolatedPayloads.output, /builtInDeviceDefaults|av-designer:user-settings/);
-  await b.evaluate(() => newProject()); assert.equal((await place(b, id)).template.powerWatts, 234);
+  await b.evaluate(() => newProject());
+  assert.deepEqual(await b.evaluate(() => {
+    const bridge = activeEngineBridge();
+    return { devices: bridge.scene.devices.length, wires: bridge.scene.wires.length,
+      entries: bridge.renderer.textureCache.stats().deviceEntries, records: bridge.renderer.textureCache.stats().textureCount };
+  }), { devices: 0, wires: 0, entries: 0, records: 0 }, "new project releases the previous scene and its textures");
+  assert.equal((await place(b, id)).template.powerWatts, 234);
   await b.reload(); await ready(b); assert.equal((await place(b, id)).template.powerWatts, 234);
   const registry = await b.evaluate(() => JSON.stringify(localUserSettingsOwner.snapshot()));
   await b.evaluate(project => restoreSnapshot(project), saved);

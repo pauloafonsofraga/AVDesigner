@@ -33,12 +33,12 @@ async function newPage(mode) {
       };
     }
   });
-  await page.goto(`${baseUrl}/index.html?${mode === "legacy" ? "legacy=1&" : ""}debugDeviceDrop=1`);
+  await page.goto(`${baseUrl}/index.html?${""}debugDeviceDrop=1`);
   return { page, errors };
 }
 
 async function inventory(page, mode, { preview = false, id = "" } = {}) {
-  if (mode === "engine") await page.waitForFunction(({ preview, id }) => {
+  await page.waitForFunction(({ preview, id }) => {
     const scene = preview ? editorEnginePreviewSurface?.scene : window.avDesignerEngineBridge?.scene;
     return preview ? scene?.devices?.some(d => d.visual?.powerDistro) : Boolean(scene?.getDevice(id)?.visual?.powerDistro);
   }, { preview, id });
@@ -46,7 +46,7 @@ async function inventory(page, mode, { preview = false, id = "" } = {}) {
     const template = preview ? currentEditorTemplate() : templateForInstance(instanceById(id));
     const legacy = powerPlugLayout(template).map(p => ({ id: p.connector.id, href: p.href, x: p.x, y: p.y, width: p.width, height: p.height }));
     const scene = preview ? editorEnginePreviewSurface?.scene : window.avDesignerEngineBridge?.scene;
-    const device = mode === "engine" ? (preview ? scene.devices.find(d => d.visual?.powerDistro) : scene.getDevice(id)) : null;
+    const device = preview ? scene.devices.find(d => d.visual?.powerDistro) : scene.getDevice(id);
     const entries = device ? device.visual.powerDistro.plugEntries.map(p => ({ id: p.connectorId, href: p.href, x: p.x, y: p.y, width: p.width, height: p.height })) : legacy;
     return { entries, legacy, connectors: template.connectors, face: powerDistroFaceRect(template) };
   }, { mode, preview, id });
@@ -63,16 +63,13 @@ async function assertRendered(page, mode, result, preview) {
     assert.ok(Number.isFinite(matches[0].x) && Number.isFinite(matches[0].y));
   }
   assert.deepEqual(result.entries, result.legacy, "Engine and Legacy artwork agree");
-  if (mode === "engine") {
+  {
     try {
       await page.waitForFunction(hrefs => hrefs.every(href => window.__powerImageDraws.some(draw => draw.decoded && draw.src === new URL(href, location.href).href)), result.entries.map(p => p.href));
     } catch (error) {
       console.error("Artwork draw diagnostic", await page.evaluate(() => [...new Set(window.__powerImageDraws.map(d => d.src))]), result.entries);
       throw error;
     }
-  } else {
-    const actual = await page.locator(preview ? "#deviceEditorPreview image.power-plug-image" : "#devices image.power-plug-image").evaluateAll(images => images.map(image => ({ href: image.getAttribute("href"), width: Number(image.getAttribute("width")), height: Number(image.getAttribute("height")) })));
-    for (const p of result.entries) assert.ok(actual.some(i => i.href === p.href && i.width === p.width && i.height === p.height), `rendered SVG ${p.id}`);
   }
   await page.evaluate(async entries => {
     for (const p of entries) {
@@ -91,7 +88,7 @@ async function loadProject(page, project) {
 }
 
 try {
-  for (const mode of ["engine", "legacy"]) {
+  for (const mode of ["engine"]) {
     for (const type of VISIBLE_POWER_TYPES) {
       const { page, errors } = await newPage(mode);
       try {
@@ -145,10 +142,8 @@ try {
           closeDeviceEditor();
           window.__powerImageDraws = [];
           const bridge = activeEngineBridge();
-          const instance = bridge
-            ? prepareDeviceInstanceFromTemplate(draft, 0, 0, { templateOverride: draft })
-            : addDeviceInstanceFromTemplate(draft, 0, 0, { templateOverride: draft });
-          if (bridge && (!instance || !bridge.createDeviceFromLibraryDrop(instance))) throw new Error("Engine insertion failed");
+          const instance = prepareDeviceInstanceFromTemplate(draft, 0, 0, { templateOverride: draft });
+          if (!instance || !bridge.createDeviceFromLibraryDrop(instance)) throw new Error("Engine insertion failed");
           zoomToFit();
           return instance?.instanceId;
         });
@@ -230,5 +225,5 @@ try {
 } finally {
   await browser.close();
 }
-assert.equal(totals.nativeDrops, 68);
+assert.equal(totals.nativeDrops, 34);
 console.log(JSON.stringify({ status: "passed", visiblePalette: VISIBLE_POWER_TYPES, ...totals }, null, 2));

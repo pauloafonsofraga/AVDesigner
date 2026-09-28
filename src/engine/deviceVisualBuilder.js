@@ -54,6 +54,8 @@ const LED_SURFACE_TEXTURE_MAX_PIXELS = 8_000_000;
 const LED_SURFACE_IMAGE_MAX_PIXELS = 16_000_000;
 
 const IMAGE_CACHE = new Map();
+const SOURCE_KEYS = new Map();
+const SOURCE_OWNERS = new Map();
 const assetReadySubscribers = new Set();
 let legacyAssetReadyUnsubscribe = null;
 
@@ -132,7 +134,7 @@ export function deviceVisualCacheKey(device, options = {}) {
       connector.installedModuleFiberFamily || "",
       connector.installedModuleLabel || "",
       connector.fiberFamily || "",
-      connector.powerPlugAsset || "",
+      visualSourceKey(connector.powerPlugAsset),
       connector.powerDistroRole || "",
       connector.powerPlugSize ? `${Math.round(connector.powerPlugSize.width || 0)}x${Math.round(connector.powerPlugSize.height || 0)}` : "",
       Array.isArray(connector.colorSegments) ? connector.colorSegments.join(",") : "",
@@ -155,7 +157,7 @@ export function deviceVisualCacheKey(device, options = {}) {
         entry.connectorId || "",
         entry.connectorType || "",
         entry.direction || "",
-        entry.href || "",
+        visualSourceKey(entry.href),
         Math.round(entry.x || 0),
         Math.round(entry.y || 0),
         Math.round(entry.width || 0),
@@ -211,7 +213,7 @@ export function deviceVisualCacheKey(device, options = {}) {
   const canvasObjectShape = isCanvasObjectKind(device)
     ? [
       canonicalEngineObjectKind(device),
-      visual.image || "",
+      visualSourceKey(visual.image),
       deviceVisualAssetRevision(visual.image),
       visual.naturalWidth || 0,
       visual.naturalHeight || 0,
@@ -230,7 +232,7 @@ export function deviceVisualCacheKey(device, options = {}) {
       visual.anchor ? `${Math.round(visual.anchor.x || 0)},${Math.round(visual.anchor.y || 0)}` : "",
       visual.leaderEnd ? `${Math.round(visual.leaderEnd.x || 0)},${Math.round(visual.leaderEnd.y || 0)}` : "",
       JSON.stringify(visual.fields || {}),
-      visual.logo || "",
+      visualSourceKey(visual.logo),
       deviceVisualAssetRevision(visual.logo)
     ].join("|")
     : "";
@@ -286,12 +288,13 @@ export function buildDeviceVisual(device, options = {}) {
   const ratio = scalePlan.ratio;
   const canvas = createCanvas(Math.max(1, Math.ceil(width * ratio)), Math.max(1, Math.ceil(height * ratio)));
   const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Could not create device visual canvas context.");
+  if (!ctx) { canvas.width = canvas.height = 1; throw new Error("Could not create device visual canvas context."); }
   ctx.scale(ratio, ratio);
   ctx.clearRect(0, 0, width, height);
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
-  drawDeviceVisual(ctx, device, width, height, options);
+  try { drawDeviceVisual(ctx, device, width, height, options); }
+  catch (error) { canvas.width = canvas.height = 1; throw error; }
   const buildMs = performance.now() - start;
   const diagnostics = deviceVisualDiagnostics(device, {
     logicalWidth: width,
@@ -331,7 +334,7 @@ export function textureQuality(options = {}) {
     ...preset,
     mode,
     highDpi,
-    scale: highDpi ? preset.scale : 1,
+    scale: Math.min(highDpi ? preset.scale : 1, Number(options.textureDemandScale) || Infinity),
     maxPixels: preset.maxPixels || preset.maxSide * preset.maxSide
   };
 }
@@ -1157,10 +1160,10 @@ function effectiveTextureLimits(device, quality, options = {}) {
 function textureScaleForSize(width, height, quality, limits) {
   const maxDimension = Math.max(width, height, 1);
   const logicalPixels = Math.max(1, width * height);
-  const requestedScale = Math.max(0.1, Number(quality.scale) || 1);
+  const requestedScale = Math.max(0.000001, Number(quality.scale) || 1);
   const sideScale = limits.maxSide / maxDimension;
   const pixelScale = Math.sqrt(limits.maxPixels / logicalPixels);
-  const ratio = Math.max(0.1, Math.min(requestedScale, sideScale, pixelScale));
+  const ratio = Math.max(0.000001, Math.min(requestedScale, sideScale, pixelScale));
   const limiters = [];
   if (ratio < requestedScale - 0.001) {
     if (sideScale <= pixelScale + 0.001 && sideScale <= requestedScale + 0.001) limiters.push("max-side");
@@ -1362,6 +1365,29 @@ export function deviceVisualAssetRevision(source) {
   return entry?.revision || 0;
 }
 
+// Each renderer owns its scene's sources independently (including previews).
+// Releasing one renderer must not invalidate artwork used by another.
+export function retainDeviceVisualSources(owner, devices) {
+  SOURCE_OWNERS.set(owner, new Set(devices.flatMap(deviceVisualSources)));
+  pruneVisualSources();
+}
+
+export function releaseDeviceVisualSources(owner) {
+  SOURCE_OWNERS.delete(owner);
+  pruneVisualSources();
+}
+
+function pruneVisualSources() {
+  const live = new Set([...SOURCE_OWNERS.values()].flatMap(sources => [...sources]));
+  for (const [source, entry] of IMAGE_CACHE) {
+    if (live.has(source)) continue;
+    entry.image.onload = entry.image.onerror = null;
+    entry.image.src = "";
+    IMAGE_CACHE.delete(source);
+  }
+  for (const source of SOURCE_KEYS.keys()) if (!live.has(source)) SOURCE_KEYS.delete(source);
+}
+
 function visualImage(ctx, source) {
   return ctx.resolveImage ? ctx.resolveImage(source) : cachedImage(source);
 }
@@ -1433,8 +1459,14 @@ function wrapInfoBoxLines(text, maxWidth, fontSize, maxLines = 2) {
 
 function visualSourceKey(value) {
   const text = String(value || "");
-  if (text.length < 120) return text;
-  return `hash:${text.length}:${hashString(text)}`;
+  if (!text) return "";
+  if (!text.startsWith("data:") && text.length < 120) return text;
+  let key = SOURCE_KEYS.get(text);
+  if (!key) {
+    key = `asset:${text.length}:${hashString(text)}`;
+    SOURCE_KEYS.set(text, key);
+  }
+  return key;
 }
 
 function hashString(value) {

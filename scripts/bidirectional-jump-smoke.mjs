@@ -7,12 +7,12 @@ const base = process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8768";
 let checks = 0;
 const pass = name => { checks++; console.log(`PASS ${name}`); };
 try {
-  for (const mode of ["engine", "legacy"]) {
+  for (const mode of ["engine"]) {
     const page = await browser.newPage({ viewport: { width: 1800, height: 1100 } });
     const errors = []; page.on("pageerror", e => errors.push(e.message));
     page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
-    await page.goto(`${base}/index.html${mode === "legacy" ? "?legacy=1" : ""}`);
-    await page.waitForFunction(() => jumpGestureModule && (!activeEngineBridge() || activeEngineBridge().ready));
+    await page.goto(`${base}/index.html`);
+    await page.waitForFunction(() => activeEngineBridge()?.ready);
     // Real catalog hardware, configured with the editor's V2 connector helper.
     const project = await page.evaluate(() => {
       const template = structuredClone(deviceLibrary.find(d => d.name === "M4250 10 Port"));
@@ -26,16 +26,15 @@ try {
         jumpNodes: [{ id: "a", label: "A", x: 560, y: 320 }, { id: "b", label: "B", x: 760, y: 570 }],
         connections: [], jumpLinks: [], wireMode: "bezier", objectSnapping: false };
     });
-    const fit = () => page.evaluate(() => { const b = activeEngineBridge(); if (b) b.fitView(); else zoomToFit(); });
+    const fit = () => page.evaluate(() => { const b = activeEngineBridge(); b.fitView(); });
     const load = async data => {
       await page.evaluate(data => { restoreSnapshot(data); undoStack = []; redoStack = []; }, data);
-      await page.waitForFunction(() => !activeEngineBridge() || activeEngineBridge().ready); await fit();
+      await page.waitForFunction(() => activeEngineBridge()?.ready); await fit();
     };
     const point = (id, port = "") => page.evaluate(({ id, port }) => {
       const b = activeEngineBridge();
-      const p = port ? (b ? b.scene.connectorWorldPoint(b.scene.getDevice(id), b.scene.getConnector(id, port)) : pointForConnector(id, port)) : pointForJumpNode(id);
-      if (b) { const r = b.canvas.getBoundingClientRect(); return { x: r.x + (p.x - b.camera.x) * b.camera.zoom, y: r.y + (p.y - b.camera.y) * b.camera.zoom }; }
-      const sp = canvas.createSVGPoint(); sp.x = p.x; sp.y = p.y; const q = sp.matrixTransform(canvas.getScreenCTM()); return { x: q.x, y: q.y };
+      const p = port ? (b.scene.connectorWorldPoint(b.scene.getDevice(id), b.scene.getConnector(id, port))) : pointForJumpNode(id);
+      { const r = b.canvas.getBoundingClientRect(); return { x: r.x + (p.x - b.camera.x) * b.camera.zoom, y: r.y + (p.y - b.camera.y) * b.camera.zoom }; }
     }, { id, port });
     const read = () => page.evaluate(() => ({ links: structuredClone(state.jumpLinks), wires: structuredClone(state.connections),
       roles: ["a", "b"].map(id => {
@@ -45,7 +44,7 @@ try {
     const hold = async id => {
       const p = await point(id); await page.mouse.move(p.x, p.y); await page.mouse.down();
       await page.waitForTimeout(320);
-      assert.equal(await page.evaluate(() => !!(activeEngineBridge()?.jumpLinkCreate || jumpLinkCreate)), true, `${mode}: hold preview`);
+      assert.equal(await page.evaluate(() => !!(activeEngineBridge()?.jumpLinkCreate)), true, `${mode}: hold preview`);
     };
     await load(project);
     for (const [device, jump] of [["switch-a", "a"], ["switch-b", "b"]]) {
@@ -57,13 +56,13 @@ try {
       assert.ok(state.wires.some(w => w.from.deviceId === device && w.to.jumpNodeId === jump));
       assert.equal(state.roles[jump === "a" ? 0 : 1].role, "bidirectional");
       assert.equal(state.roles[jump === "a" ? 0 : 1].color, "#26c6a3");
-      if (mode === "legacy") assert.equal(await page.locator(`[data-jump-node-id="${jump}"] .jump-node-core`).evaluate(el => getComputedStyle(el).fill), "rgb(38, 198, 163)", "rendered Legacy node updates immediately after wiring");
+
     }
     pass(`${mode}: two real Netgear V2 connector-to-Jump wire gestures, active bidirectional color`);
     await page.screenshot({ path: `${process.env.AVDESIGNER_SCREENSHOT_DIR || "/tmp"}/${mode}-bidirectional-unpaired.png` });
     const wires = (await read()).wires;
     const a = await point("a"); await page.mouse.click(a.x, a.y);
-    assert.equal(await page.evaluate(() => activeEngineBridge() ? activeEngineBridge().scene.selectedIds.has("a") : state.selected?.id === "a"), true);
+    assert.equal(await page.evaluate(() => activeEngineBridge().scene.selectedIds.has("a")), true);
     await hold("a"); await page.mouse.move(a.x + 110, a.y - 100); await page.mouse.up();
     assert.equal((await read()).links.length, 0); assert.deepEqual((await read()).wires, wires);
     pass(`${mode}: short click selects; hold over empty canvas cancels without mutation`);
@@ -73,51 +72,37 @@ try {
     assert.deepEqual(linked.wires, wires); assert.deepEqual(linked.roles.map(r => r.role), ["output", "input"]);
     assert.deepEqual(linked.roles.map(r => r.baseRole), ["bidirectional", "bidirectional"]);
     assert.deepEqual(linked.roles.map(r => r.color), ["#32b6ff", "#fb7904"]);
-    if (mode === "legacy") assert.deepEqual(await page.locator("#jumpNodes .jump-node-core").evaluateAll(nodes => nodes.map(el => getComputedStyle(el).fill)), ["rgb(50, 182, 255)", "rgb(251, 121, 4)"]);
+
     pass(`${mode}: hold commits one oriented link, effective colors, untouched physical wires`);
-    await page.locator(mode === "engine" ? "[data-jump-to-pair]" : "#jumpToPair").click();
-    assert.equal(await page.evaluate(() => activeEngineBridge() ? activeEngineBridge().scene.selectedIds.has("b") : state.selected?.id === "b"), true);
+    await page.locator("[data-jump-to-pair]").click();
+    assert.equal(await page.evaluate(() => activeEngineBridge().scene.selectedIds.has("b")), true);
     pass(`${mode}: Jump to Pair selects the saved input peer`);
     await page.keyboard.press("Meta+z"); assert.deepEqual((await read()).roles.map(r => r.role), ["bidirectional", "bidirectional"]);
     await page.keyboard.press("Meta+Shift+z"); assert.deepEqual((await read()).roles.map(r => r.role), ["output", "input"]);
     const saved = await page.evaluate(() => JSON.parse(JSON.stringify(projectSnapshot())));
     await load(saved); assert.deepEqual((await read()).links, linked.links);
-    const validity = await page.evaluate(() => jumpGestureModule.validateJumpLinks(state, { getConnector: e => connectorById(e.deviceId, e.connectorId) }));
+    const validity = await page.evaluate(async () => (await import("./src/engine/jumpNodeModel.js")).validateJumpLinks(state, { getConnector: e => connectorById(e.deviceId, e.connectorId) }));
     assert.deepEqual(validity.warnings, []);
     pass(`${mode}: undo/redo colors and saved orientation reload without warnings`);
     const plan = await page.evaluate(id => {
       const b = activeEngineBridge();
-      if (b) return b.wirePlaybackPlanForWire(b.scene.getWire(id)).steps.map(s => ({ type: s.type, reverse: s.reverse }));
-      return wireTraceSequence(state.connections.find(w => w.id === id)).map(s => ({ type: s.type, reverse: s.reverse }));
+      return b.wirePlaybackPlanForWire(b.scene.getWire(id)).steps.map(s => ({ type: s.type, reverse: s.reverse }));
     }, wires[0].id);
     assert.deepEqual(plan.map(s => s.type), ["wire", "teleport", "wire"]); assert.equal(plan[2].reverse, true);
     await page.evaluate(id => {
       const b = activeEngineBridge();
-      if (b) { b.scene.selectWireOnly(id); b.updateSelectionHud(); }
-      else {
-        window.__segments = []; const original = animateWireTraceSegment;
-        animateWireTraceSegment = (segment, dot, done) => { __segments.push(segment.reverse); return original(segment, dot, done); };
-        select({ type: "wire", id });
-      }
+      { b.scene.selectWireOnly(id); b.updateSelectionHud(); }
     }, wires[0].id);
-    if (mode === "engine") {
+    {
       await page.locator(`[data-play-wire][data-wire-id="${wires[0].id}"]`).click();
       await page.waitForFunction(() => activeEngineBridge().wirePlayback?.stepIndex === 2, null, { timeout: 12000 });
       await page.evaluate(() => activeEngineBridge().stopWirePlayback("smoke"));
-    } else {
-      await page.locator("#playWireTrace").click();
-      await page.waitForFunction(() => __segments.length === 2, null, { timeout: 12000 });
-      assert.deepEqual(await page.evaluate(() => __segments), [false, true]); await page.evaluate(() => clearWireTrace());
     }
     pass(`${mode}: Play Cable actually reaches the reversed input-side physical segment`);
     await fit(); const p = await point("a"); await page.mouse.click(p.x, p.y);
-    if (mode === "engine") await page.locator("[data-jump-disconnect]").click();
-    else await page.evaluate(async () => {
-      const { ProjectMutationAdapter } = await import(engineImportUrl("./src/engine/projectMutations.js"));
-      pushUndo(); new ProjectMutationAdapter({ projectData: state }, { cloneProjectData: false }).removeJumpLink(state.jumpLinks[0].id); render();
-    });
+    await page.locator("[data-jump-disconnect]").click();
     assert.deepEqual((await read()).roles.map(r => r.role), ["bidirectional", "bidirectional"]);
-    if (mode === "legacy") assert.deepEqual(await page.locator("#jumpNodes .jump-node-core").evaluateAll(nodes => nodes.map(el => getComputedStyle(el).fill)), ["rgb(38, 198, 163)", "rgb(38, 198, 163)"]);
+
     assert.deepEqual((await read()).wires, wires);
     await page.keyboard.press("Meta+z"); assert.equal((await read()).links.length, 1);
     await page.keyboard.press("Meta+Shift+z"); assert.equal((await read()).links.length, 0);
@@ -137,7 +122,7 @@ try {
         }
         return { links: state.jumpLinks, wireCount: state.connections.length, status: document.querySelector("#statusText").textContent,
           roles: state.jumpLinks.map(l => [jumpNodeRole(l.outputJumpId).role, jumpNodeRole(l.inputJumpId).role]),
-          warnings: jumpGestureModule.validateJumpLinks(state, { getConnector: e => connectorById(e.deviceId, e.connectorId) }).warnings };
+          warnings: (await import("./src/engine/jumpNodeModel.js")).validateJumpLinks(state, { getConnector: e => connectorById(e.deviceId, e.connectorId) }).warnings };
       }, operation);
       assert.equal(copied.links.length, 2, copied.status); assert.equal(copied.wireCount, 4, copied.status);
       assert.notEqual(copied.links[0].outputJumpId, copied.links[1].outputJumpId);
@@ -148,8 +133,7 @@ try {
     await page.evaluate(() => {
       const connector = instanceById("switch-a").templateOverride.connectors.find(c => c.id === "cat5e-output");
       connector.direction = "input"; connector.signalDirection = "input";
-      if (activeEngineBridge()) syncEngineConnectorsFromProduction("switch-a", [connector.id]);
-      else { pruneInvalidJumpLinks(); render(); }
+      syncEngineConnectorsFromProduction("switch-a", [connector.id]);
     });
     assert.equal((await read()).links.length, 0);
     assert.deepEqual((await read()).roles.map(r => r.role), ["input", "bidirectional"]);
@@ -157,8 +141,7 @@ try {
     await load(saved);
     await page.evaluate(id => {
       const bridge = activeEngineBridge();
-      if (bridge) { bridge.scene.selectWireOnly(id); bridge.updateSelectionHud(); }
-      else select({ type: "wire", id });
+      bridge.scene.selectWireOnly(id); bridge.updateSelectionHud();
     }, wires[0].id);
     await page.keyboard.press("Backspace");
     assert.equal((await read()).links.length, 0); assert.equal((await read()).wires.length, 1);

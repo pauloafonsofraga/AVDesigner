@@ -61,7 +61,7 @@ import {
 } from "./jumpNodeModel.js";
 import { wirePlaybackEase } from "./wirePlayback.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-36-13-multi-source-led-processor-wiring";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-0-engine-resource-lifetime";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -340,6 +340,7 @@ export class WebglGraphRenderer {
     this.textureScene = scene;
     const stats = this.textureCache.prepareDevices(scene.devices, {
       ...this.renderOptions,
+      lazyTextures: true,
       invalidationReason: reason
     });
     this.lastTextureStats = stats;
@@ -350,12 +351,6 @@ export class WebglGraphRenderer {
     if (this.disposed) return;
     const scene = this.textureScene;
     if (!scene || !Array.isArray(event?.deviceIds) || !event.deviceIds.length) return;
-    event.deviceIds.forEach(deviceId => {
-      const device = scene.getDevice?.(deviceId);
-      if (device && device.kind !== "jump") {
-        this.textureCache.ensureDeviceTexture(device, this.renderOptions, event.reason || "visual asset loaded");
-      }
-    });
     this.lastTextureStats = this.textureCache.stats();
     this.onTextureAssetReady?.(event);
   }
@@ -569,6 +564,7 @@ export class WebglGraphRenderer {
     const start = performance.now();
     this.textureScene = scene;
     const geometryStart = performance.now();
+    if (deviceIds.length && refreshDeviceTextures) this.textureCache.syncSources(scene.devices);
     const effectiveWireIds = new Set(wireIds);
     let cableHopMapForDirtyWires = this.cableHopMap;
     if (wireIds.length && refreshCableHops) {
@@ -603,7 +599,7 @@ export class WebglGraphRenderer {
     deviceIds.forEach(id => {
       const device = scene.getDevice(id);
       if (refreshDeviceTextures && device && device.kind !== "jump") {
-        this.textureCache.ensureDeviceTexture(device, this.renderOptions, "dirty device visual");
+        this.textureCache.invalidateDevice(device.id, "dirty device visual");
       }
       const next = device ? verticesForDevice(device, null, this.renderOptions) : [];
       const range = this.deviceRangeMap.get(id);
@@ -869,9 +865,7 @@ export class WebglGraphRenderer {
     this.matrixRouteVertexCount = uploadArray(this.gl, this.matrixRouteBuffer, this.matrixRouteArray);
     const uploadMs = performance.now() - uploadStart;
     const textureStart = performance.now();
-    const textureEntry = device.kind === "jump"
-      ? null
-      : this.textureCache.ensureDeviceTexture(device, this.renderOptions, "append device");
+    this.textureCache.syncSources(scene.devices);
     const textureMs = performance.now() - textureStart;
     this.rangeUpdateCount += 1;
     this.lastDirtyStats = {
@@ -888,7 +882,7 @@ export class WebglGraphRenderer {
       rangeUpdates: 2,
       fallbackRebuild: false,
       appended: true,
-      texturePrepared: Boolean(textureEntry),
+      texturePrepared: false,
       fullRebuildCount: this.fullRebuildCount,
       rangeUpdateCount: this.rangeUpdateCount
     };
@@ -897,6 +891,7 @@ export class WebglGraphRenderer {
 
   removeDevice(scene, deviceId) {
     this.textureCache.invalidateDevice(deviceId, "remove device");
+    this.textureCache.syncSources(scene.devices);
     const rebuildStats = this.rebuildDeviceGeometry(scene);
     const matrixRouteStats = this.rebuildMatrixInternalRouteGeometry(scene);
     this.lastDirtyStats = {
@@ -1033,6 +1028,15 @@ export class WebglGraphRenderer {
       dirtyDeviceIds: options.renderOptions?.dirtyDeviceIds || this.renderOptions.dirtyDeviceIds || new Set(),
       dirtyWireIds: options.renderOptions?.dirtyWireIds || this.renderOptions.dirtyWireIds || new Set()
     };
+    if (renderOptions.textureCacheEnabled && renderOptions.texturedDevices && !renderOptions.hideTextureLayer) {
+      const visible = new Map(visibleDevices(scene, camera, this.resolution).map(device => [device.id, device]));
+      for (const id of options.dragSession?.selectedIds || []) {
+        const device = scene.getDevice(id);
+        if (device) visible.set(id, device);
+      }
+      this.textureCache.prepareVisible([...visible.values()], renderOptions, camera.zoom,
+        Math.min(2, globalThis.devicePixelRatio || 1));
+    }
     const dragSession = options.dragSession || null;
     const interaction = options.interactionState || {};
     const selectedWireIds = options.selectedWireIds || new Set();
@@ -1874,7 +1878,7 @@ function visibleDevices(scene, camera, resolution) {
     height: resolution.height / camera.zoom
   };
   const hits = scene.spatialIndex.queryRect(view).map(item => item.payload?.device).filter(Boolean);
-  return hits.length ? hits : scene.devices;
+  return hits;
 }
 
 function visibleRacks(scene, camera, resolution) {

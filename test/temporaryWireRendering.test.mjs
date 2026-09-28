@@ -7,7 +7,6 @@ import { wirePolylineFromPoints } from "../src/engine/wirePath.js";
 
 const bridge = readFileSync(new URL("../src/engine/productionBridge.js", import.meta.url), "utf8");
 const renderer = readFileSync(new URL("../src/engine/renderer.js", import.meta.url), "utf8");
-const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const expected = ["#03E300", "#2A7FFF", "#A05A2C", "#4A4A4A", "#999999"];
 const plain = value => JSON.parse(JSON.stringify(value));
 function method(name) {
@@ -121,106 +120,5 @@ test("Engine repeated preview/finish leaves no interaction vertices or metadata"
     r.pushInteractionOverlay(cleared, {}, b.interactionRenderState());
     assert.equal(cleared.length, 0);
     assert.equal(b.interactionRenderState().tempWire, null);
-  }
-});
-
-function element(attrs = {}) {
-  const classes = new Set((attrs.class || "").split(" "));
-  return { attrs, children: [], classList: { add: name => classes.add(name), remove: name => classes.delete(name), contains: name => classes.has(name) },
-    setAttribute(name, value) { this.attrs[name] = String(value); }, appendChild(child) { this.children.push(child); }, replaceChildren() { this.children = []; } };
-}
-function legacyHarness() {
-  const previewWire = element(), context = { previewWire, previewMultiWires: element(), connectState: { deviceId: "d", connectorId: "c" },
-    createSvg: (tag, attrs) => element(attrs), effectiveConnectorType: colors.effectiveConnectorTypeForEngine,
-    colorSegmentsForType: colors.engineWireColorSegmentsForCable, colorForType: type => colors.engineConnectorColor({ type }),
-    isDeadCageConnector: () => false, isFiberCableType: type => type.startsWith("fiber"), fiberModeColor: () => "#fiber",
-    connectorFiberModeForEndpoint: () => "om4", signalLineColor: () => "#led", cableDirection: () => "two-way",
-    clearHoverConnector() {}, restoreRewireConnection() {}, render() {},
-    visiblePointForConnector: () => ({ x: 0, y: 0 }), visiblePointForJumpNode: () => ({ x: 10, y: 10 }),
-    previewWirePath: (from, to) => `M ${from.x} ${from.y} L ${to.x} ${to.y}` };
-  const names = ["colorForConnection", "colorSegmentsForConnection", "colorForConnector", "colorSegmentsForConnector", "appendWireVisuals",
-    "clearPreviewWire", "beginPreviewWire", "updatePreviewWirePath", "renderPreviewWires", "endConnection", "cancelLegacyWirePreview"];
-  vm.createContext(context);
-  vm.runInContext(names.map(name => fn(html, name, "    ")).join("\n"), context);
-  return context;
-}
-
-test("Legacy immediate canonical segments, shared path updates, markers and committed parity", () => {
-  const l = legacyHarness(), connector = { type: "powerlock", customColor: "#ff0000" };
-  l.beginPreviewWire(connector, "device");
-  const paths = l.previewWire.children;
-  assert.deepEqual(paths.map(path => path.attrs.stroke), expected);
-  paths.forEach((path, i) => {
-    assert.equal(path.attrs.pathLength, 100);
-    assert.equal(path.attrs["stroke-dasharray"], "20 100");
-    assert.equal(path.attrs["stroke-dashoffset"], String(-i * 20));
-    assert.equal(path.attrs["stroke-linecap"], "butt");
-    assert.equal(!!path.attrs["marker-end"], i === 4);
-    assert.equal(!!path.attrs["marker-start"], i === 0);
-  });
-  for (const point of [{ x: 100, y: 60 }, { x: 400, y: 120 }]) {
-    l.renderPreviewWires(point);
-    assert.ok(paths.every(path => path.attrs.d === `M 0 0 L ${point.x} ${point.y}`));
-  }
-  const committed = element();
-  l.appendWireVisuals(committed, paths[0].attrs.d, { cableType: "powerlock", customColor: "#ff0000" }, "two-way");
-  assert.deepEqual(paths.map(path => path.attrs), committed.children.map(path => path.attrs));
-  assert.match(html, /\.wire-preview:not\(\.wire-segmented\)/);
-  assert.ok(html.includes('<g id="previewWire" class="hidden"></g>'));
-  assert.match(html, /querySelectorAll\("[^"\n]*#previewWire[, ]/, "export continues removing the complete preview subtree");
-});
-
-test("Legacy rewiring preserves original sequence for both endpoints, without mutating wire data", () => {
-  const l = legacyHarness(), original = { cableType: "powerlock", colorSegments: [...expected].reverse(), customColor: "#ff0000" };
-  const before = structuredClone(original);
-  for (const detachedSide of ["from", "to"]) {
-    l.connectState = { deviceId: "device", connectorId: "port", rewire: { detachedSide } };
-    l.beginPreviewWire({ type: "powerlock" }, "device", original);
-    l.renderPreviewWires({ x: 100, y: 60 });
-    assert.deepEqual(l.previewWire.children.map(path => path.attrs.stroke), [...expected].reverse());
-    assert.equal(l.previewWire.children[0].attrs.d, detachedSide === "from" ? "M 100 60 L 0 0" : "M 0 0 L 100 60");
-  }
-  assert.deepEqual(original, before);
-});
-
-test("Legacy solid cable precedence and repeat cancellation clear every path", () => {
-  const l = legacyHarness();
-  for (const type of ["hdmi", "sdi", "misc", "fiber-lc", "led-signal"]) {
-    const connector = { type, customColor: "#abcdef", fiberMode: "om4" };
-    l.beginPreviewWire(connector, "d");
-    assert.equal(l.previewWire.children.length, 1);
-    assert.equal(l.previewWire.children[0].attrs.stroke, l.colorForConnector(connector, "d"));
-  }
-  for (let n = 0; n < 8; n++) {
-    l.connectState = { deviceId: "d", connectorId: "c", pointerId: 1 };
-    l.beginPreviewWire({ type: "powerlock" }, "d");
-    assert.equal(l.cancelLegacyWirePreview(999), false);
-    assert.equal(l.previewWire.children.length, 5);
-    assert.equal(l.cancelLegacyWirePreview(1), true);
-    assert.equal(l.previewWire.children.length, 0);
-    assert.ok(l.previewWire.classList.contains("hidden"));
-    assert.equal(l.connectState, null);
-  }
-});
-
-test("Legacy undo is deferred to commit, including Jump-end rewiring", () => {
-  assert.doesNotMatch(fn(html, "startConnection", "    "), /pushUndo\(/);
-  for (const name of ["createConnectionBetween", "createConnectionToJump", "createConnectionToLedSurface"]) {
-    assert.match(fn(html, name, "    "), /pushUndo\((?:connectState\.)?rewire\?\.undoSnapshot\)/);
-  }
-  const move = fn(html, "beginLegacyJumpMove", "    ");
-  assert.ok(move.indexOf("undoSnapshot: baseline") < move.indexOf("pushUndo()"));
-  assert.ok(move.indexOf("beginPreviewWire(") < move.indexOf("pushUndo()"));
-});
-
-test("Legacy live connection guards use the defined operational-status helper", () => {
-  const scope = vm.createContext({});
-  vm.runInContext(["normalizeEditorConnectorOperationalStatus", "editorConnectorIsNotWorking"].map(name => fn(html, name, "    ")).join("\n"), scope);
-  assert.equal(scope.editorConnectorIsNotWorking({}), false);
-  assert.equal(scope.editorConnectorIsNotWorking({ operationalStatus: "not-working" }), true);
-  for (const name of ["startConnection", "connectionError", "startRackBuilderConnection"]) {
-    const source = fn(html, name, "    ");
-    assert.match(source, /editorConnectorIsNotWorking\(/);
-    assert.doesNotMatch(source, /\bconnectorNotWorking\(/);
   }
 });

@@ -49,11 +49,11 @@ async function printPage(page,name) {
   return pages[0].diagnostics;
 }
 try {
-  for (const mode of ["engine","legacy"]) {
+  for (const mode of ["engine"]) {
     const context=await browser.newContext({viewport:{width:1700,height:1100}});
     await context.addInitScript(()=>{window.print=()=>{};});
     const app=await context.newPage(), errors=captureErrors(app);
-    await app.goto(`${base}/index.html${mode==="legacy"?"?legacy=1":""}`);
+    await app.goto(`${base}/index.html${""}`);
     await app.waitForFunction(()=>typeof restoreSnapshot==="function" && (!activeEngineBridge()||activeEngineBridge().ready));
     await app.evaluate(async fixture=>{await ensureEngineOutputSceneModule();restoreSnapshot(fixture);},outputPrintFixture());
     const reference=await app.evaluate(async()=>{
@@ -66,7 +66,7 @@ try {
       const mismatch=expected.findIndex((v,i)=>v!==actual[i]);
       const gpu=live?{wires:JSON.stringify(float(p.wires))===JSON.stringify(Array.from(live.renderer.staticWireArray)),
         matrix:JSON.stringify(float(p.matrix))===JSON.stringify(Array.from(live.renderer.matrixRouteArray))}:null;
-      canvas.cloneNode=()=>{throw new Error("Legacy canvas clone called by PDF");};
+      if (document.querySelector("#canvas")) throw new Error("Retired SVG exists");
       return {signature:snapshot.engineScene.signature,bounds:snapshot.engineScene.bounds,counts:snapshot.engineScene.diagnostics.counts,gpu,
         wireComparison:{lengths:[expected.length,actual.length],mismatch,expected:expected.slice(mismatch,mismatch+12),actual:actual.slice(mismatch,mismatch+12)}};
     });
@@ -107,7 +107,7 @@ try {
     assert.equal(repeat,full.svg,"same font/image inputs produce byte-identical SVG");
     assert.deepEqual(errors,[]);assert.deepEqual(popupErrors,[]);assert.deepEqual(fullErrors,[]);
     results.push({mode,diagnostics,fullSignature:full.signature,gpu:reference.gpu});
-    if(mode==="engine") {
+    {
       for(const shape of ["wide","tall"]) {
         const fixture=outputPdfJumpFixture();
         if(shape==="wide") fixture.jumpNodes[1].x+=2400;

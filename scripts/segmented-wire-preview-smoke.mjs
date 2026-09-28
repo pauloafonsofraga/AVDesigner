@@ -9,36 +9,31 @@ const browser = await chromium.launch({ headless: true,
 const base = process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8768";
 const colors = ["#03E300", "#2A7FFF", "#A05A2C", "#4A4A4A", "#999999"];
 try {
-  for (const mode of ["engine", "legacy"]) {
+  for (const mode of ["engine"]) {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1100 } });
     const errors = [];
     page.on("pageerror", e => errors.push(e.message));
     page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
-    await page.goto(`${base}/index.html${mode === "legacy" ? "?legacy=1" : ""}`);
-    await page.waitForFunction(() => jumpGestureModule && (!activeEngineBridge() || activeEngineBridge().ready));
+    await page.goto(`${base}/index.html`);
+    await page.waitForFunction(() => activeEngineBridge()?.ready);
     const load = async data => {
       await page.evaluate(data => { restoreSnapshot(data); undoStack = []; redoStack = []; }, data);
-      await page.waitForFunction(() => !activeEngineBridge() || activeEngineBridge().ready);
-      await page.evaluate(() => { const b = activeEngineBridge(); if (b) b.fitView(); else zoomToFit(); });
+      await page.waitForFunction(() => activeEngineBridge()?.ready);
+      await page.evaluate(() => { const b = activeEngineBridge(); b.fitView(); });
     };
     const point = (id, port = "port") => page.evaluate(({ id, port }) => {
       const p = id === "jump" ? pointForJumpNode(id) : pointForConnector(id, port), b = activeEngineBridge();
-      if (b) { const r = b.canvas.getBoundingClientRect(); return { x: r.x + (p.x - b.camera.x) * b.camera.zoom, y: r.y + (p.y - b.camera.y) * b.camera.zoom }; }
-      const q = canvas.createSVGPoint(); q.x = p.x; q.y = p.y;
-      const screen = q.matrixTransform(canvas.getScreenCTM()); return { x: screen.x, y: screen.y };
+      { const r = b.canvas.getBoundingClientRect(); return { x: r.x + (p.x - b.camera.x) * b.camera.zoom, y: r.y + (p.y - b.camera.y) * b.camera.zoom }; }
     }, { id, port });
     const read = () => page.evaluate(() => {
       const b = activeEngineBridge(), temp = b?.interactionRenderState().tempWire;
-      const paths = [...previewWire.children];
-      return { active: b ? !!temp : !!connectState,
-        colors: b ? temp?.colorSegments || [] : paths.map(p => p.getAttribute("stroke")),
-        frozen: b ? !temp || Object.isFrozen(temp.colorSegments) : true,
-        paths: paths.map(p => ({ d: p.getAttribute("d"), range: p.getAttribute("stroke-dasharray"), offset: p.getAttribute("stroke-dashoffset"), animation: getComputedStyle(p).animationName })),
-        history: b ? b.commandHistory.length : undoStack.length,
+      return { active: !!temp,
+        colors: temp?.colorSegments || [],
+        frozen: !temp || Object.isFrozen(temp.colorSegments),
+        history: b.commandHistory.length,
         wires: structuredClone(state.connections),
-        committedColors: b ? b.scene.wires.map(w => w.colorSegments) : state.connections.map(w => colorSegmentsForConnection(w)),
-        temp: temp && { from: temp.from, to: temp.to, routeStyle: temp.routeStyle, routePoints: temp.routePoints },
-        hidden: previewWire.classList.contains("hidden") };
+        committedColors: b.scene.wires.map(w => w.colorSegments),
+        temp: temp && { from: temp.from, to: temp.to, routeStyle: temp.routeStyle, routePoints: temp.routePoints } };
     });
     const assertPreview = async history => {
       const r = await read();
@@ -46,15 +41,11 @@ try {
       assert.deepEqual(r.colors, colors, `${mode}: all five canonical colours`);
       assert.equal(r.frozen, true);
       assert.equal(r.history, history, `${mode}: no undo until commit`);
-      if (mode === "legacy") {
-        assert.equal(new Set(r.paths.map(p => p.d)).size, 1);
-        assert.ok(r.paths.every(p => p.d && p.range === "20 100" && p.animation === "none"));
-        assert.deepEqual(r.paths.map(p => p.offset), ["0", "-20", "-40", "-60", "-80"]);
-      }
+
       return r;
     };
     const assertCleared = async () => {
-      const r = await read(); assert.equal(r.active, false); assert.deepEqual(r.colors, []); assert.equal(r.paths.length, 0); return r;
+      const r = await read(); assert.equal(r.active, false); assert.deepEqual(r.colors, []); assert.equal(r.temp, null); return r;
     };
     const press = async (id, port = "port") => { const p = await point(id, port); await page.mouse.move(p.x, p.y); await page.mouse.down(); return p; };
     const moveTo = async (id, port = "port") => { const p = await point(id, port); await page.mouse.move(p.x, p.y, { steps: 6 }); };
@@ -64,7 +55,7 @@ try {
       await assertPreview(0);
       await page.mouse.move(first.x + 120, first.y + 90, { steps: 5 });
       const moved = await assertPreview(0);
-      if (mode === "engine") assert.equal(moved.temp.routeStyle, route);
+      assert.equal(moved.temp.routeStyle, route);
       await moveTo("target-2", "invalid"); await assertPreview(0);
       await moveTo("target"); await assertPreview(0);
       if (process.env.AVDESIGNER_SCREENSHOT_DIR) await page.screenshot({ path: `${process.env.AVDESIGNER_SCREENSHOT_DIR}/${mode}-${route}-powerlock-preview.png` });
@@ -117,8 +108,8 @@ try {
     for (const exit of ["pointercancel", "lostpointercapture", "blur", "contextmenu"]) {
       await load(segmentedWireFixture()); await press("source"); await assertPreview(0);
       await page.evaluate(exit => {
-        const b = activeEngineBridge(), surface = b?.canvas || canvas;
-        const pointerId = b?.activePointerId ?? connectState?.pointerId ?? 1;
+        const b = activeEngineBridge(), surface = b.canvas;
+        const pointerId = b.activePointerId ?? 1;
         if (exit === "blur") window.dispatchEvent(new Event(exit));
         else if (exit === "contextmenu") surface.dispatchEvent(new MouseEvent(exit, { bubbles: true }));
         else surface.dispatchEvent(new PointerEvent(exit, { pointerId }));

@@ -14,11 +14,10 @@ export function validateOutputPipeline() {
   };
   const forbidden = /legacy-svg-clone|legacyOutput|buildStandaloneHtml|wirechartSvgMarkup|wirechartSvgStyle|standaloneViewerCss|VIEWER_BEZIER_STEPS|viewerWirePolylineFromPoints|exportResolveLayout|exportInstalledCardConnector|hostedWirechartSvgCss|repairHostedViewerHtml/;
   assert.doesNotMatch(index + wrapper, forbidden, "retired output renderers must not return");
-  // The supported Legacy canvas retains its application-only navigation snapshot.
   const outputs = ["buildCanonicalOutputSnapshot", "prepareEngineViewerOutput", "exportHtml",
     "publishHostedProject", "buildEnginePrintDrawing", "exportPdfReport", "buildPrintableReportHtml"].map(fn).join("\n");
   assert.doesNotMatch(outputs, /cloneNode|refreshNavigationSnapshot|objectBoundsForSelection/);
-  assert.equal((index.replace(fn("refreshNavigationSnapshot"), "").match(/canvas\.cloneNode\s*\(\s*true\s*\)/g) || []).length, 0);
+  assert.doesNotMatch(index, /canvas\.cloneNode\s*\(\s*true\s*\)|function refreshNavigationSnapshot|class AVWebglRenderer|id="(?:canvas|webglCanvas|deviceTextureCanvas|navigationSnapshotCanvas)"/);
   for (const name of ["exportHtml", "publishHostedProject"]) assert.match(fn(name), /prepareEngineViewerOutput\(/);
   assert.match(fn("prepareEngineViewerOutput"), /buildCanonicalOutputSnapshot\(/);
   assert.match(fn("prepareEngineViewerOutput"), /viewerModule\.buildEngineViewerHtml\(snapshot/);
@@ -52,7 +51,7 @@ export function validateOutputPipeline() {
     }
     assert.ok(count > 0, file + " inline scripts parsed");
   }
-  return { outputs: 3, modules: modules.length, bundleHash: bundle.bundleHash, legacyCanvasPreserved: true };
+  return { outputs: 3, modules: modules.length, bundleHash: bundle.bundleHash, engineOnly: true };
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   console.log("Unified output ownership, bundle boundaries and inline syntax PASS", validateOutputPipeline());

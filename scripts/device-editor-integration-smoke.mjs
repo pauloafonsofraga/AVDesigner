@@ -12,7 +12,7 @@ mkdirSync(screenshots, { recursive: true });
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"],
   ...(process.env.AVDESIGNER_CHROME_PATH ? { executablePath: process.env.AVDESIGNER_CHROME_PATH } : {}) });
 try {
-  for (const mode of ["engine", "legacy"]) {
+  for (const mode of ["engine"]) {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1100 } });
     page.setDefaultTimeout(20000);
     const errors = [], trace = []; let previous = null, gestures = 0;
@@ -91,7 +91,7 @@ try {
       if (["open fixture", "ordinary one-boundary reorder", "delete bus member", "project reload"].includes(name)) console.log(JSON.stringify(laneMap(state.layout)));
       return state;
     };
-    await page.goto(`${base}/index.html${mode === "legacy" ? "?legacy=1" : ""}`);
+    await page.goto(`${base}/index.html${""}`);
     await page.locator("#deviceEditorButton").click(); await page.locator("#newDeviceTemplate").click();
     await page.locator('[data-editor-tab="connectors"]').click();
     const dimensions = await page.evaluate(() => [connectorStartYForTemplate(currentEditorTemplate()), deviceTemplateWidth(currentEditorTemplate()), faceplateSideConnectorY(currentEditorTemplate())]);
@@ -203,10 +203,11 @@ try {
     assert.deepEqual(geometry(copied), geometry(saved)); await check("duplicate");
     const id = await page.evaluate(() => {
       const t = structuredClone(currentEditorTemplate()); closeDeviceEditor();
-      const instance = addDeviceInstanceFromTemplate(t, 100, 100, { templateOverride: t });
+      const instance = { instanceId: "editor-instance", templateId: t.id, name: t.name, x: 100, y: 100, templateOverride: t };
+      if (!activeEngineBridge().createDeviceFromLibraryDrop(instance)) throw new Error("Engine insertion failed");
       window.avDesignerEngineBridge?.refreshFromProduction?.("integration"); zoomToFit(); return instance.instanceId;
     });
-    if (mode === "engine") await page.waitForFunction(id => window.avDesignerEngineBridge?.scene?.getDevice(id), id);
+    await page.waitForFunction(id => window.avDesignerEngineBridge?.scene?.getDevice(id), id);
     await shot("main-canvas");
     const json = await page.evaluate(() => JSON.stringify(projectSnapshotData()));
     await page.evaluate(json => { window.__integrationDevices = state.devices; loadProjectFile(new File([json], "integration.avd", { type: "application/json" })); }, json);
@@ -224,12 +225,9 @@ try {
     const points = list => list.map(c => [c.id, c.x, c.y, c.anchors.map(a => [a.id, a.side, a.x, a.y])]);
     const production = await page.evaluate(id => effectiveTemplateConnectors(templateForInstance(instanceById(id))), id);
     assert.deepEqual(points(exported.connectors), points(production.filter(c => !c.empty && !c.hiddenOnCanvas)));
-    if (mode === "engine") {
+    {
       const live = await page.evaluate(id => window.avDesignerEngineBridge.scene.getDevice(id).connectors, id);
       assert.deepEqual(points(live), points(production.filter(c => !c.empty && !c.hiddenOnCanvas)));
-    } else {
-      const rendered = await page.evaluate(id => [...document.querySelectorAll(`[data-instance-id="${id}"] [data-connector-id]`)].map(g => [g.dataset.connectorId, Number(g.querySelector("circle")?.getAttribute("cy"))]), id);
-      for (const c of production.filter(c => !c.empty && !c.hiddenOnCanvas)) assert.ok(rendered.some(([id, y]) => id === c.id && y === c.y), `Legacy canvas ${c.id}`);
     }
     await offline.screenshot({ path: `${screenshots}/${mode}-offline.png` });
     await page.locator("#deviceEditorButton").click(); await page.locator("#newDeviceTemplate").click();

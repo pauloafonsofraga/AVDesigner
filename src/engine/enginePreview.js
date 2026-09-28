@@ -25,15 +25,15 @@ export const ENGINE_PREVIEW_OWNERSHIP = Object.freeze([
     surface: "Device Editor",
     productionVisual: "EnginePreviewSurface via createPreviewDeviceFromDraft -> normalizeAvDesignerDevice -> SceneGraph -> WebglGraphRenderer",
     authoringOverlay: "SVG connector hit targets, selection halo, empty slots, faceplate/card/plug resize and marquee controls",
-    legacyVisual: "renderDeviceEditorPreview SVG branch when ?legacy=1",
-    duplicateStatus: "Engine branch returns before legacy production drawing; overlay only remains"
+    legacyVisual: "Shared SVG authoring helpers; no alternate main-canvas renderer",
+    duplicateStatus: "Engine owns production drawing; authoring overlay only remains"
   }),
   ownershipRow("rack-builder", {
     surface: "Rack Builder",
     productionVisual: "EnginePreviewSurface via createRackPreviewScene -> normalizeAvDesignerProject -> SceneGraph rack/internal-wire paths",
     authoringOverlay: "SVG rack device hit targets, exposed-port rings, route handles, drop ghost, snap guides, temporary wire and marquee",
-    legacyVisual: "renderRackBuilderPreview SVG branch when ?legacy=1",
-    duplicateStatus: "Engine branch returns before legacy rack device/internal-wire drawing; overlay only remains"
+    legacyVisual: "Shared rack authoring helpers; no alternate main-canvas renderer",
+    duplicateStatus: "Engine owns rack devices and internal wires; authoring overlay only remains"
   }),
   ownershipRow("node-builder", {
     surface: "Node Builder Canvas Appearance",
@@ -45,9 +45,9 @@ export const ENGINE_PREVIEW_OWNERSHIP = Object.freeze([
   ownershipRow("title-block", {
     surface: "Title Block Editor",
     productionVisual: "EnginePreviewSurface via createTitleBlockPreviewScene -> normalizeEngineCanvasObject('title-block')",
-    authoringOverlay: "SVG fallback/overlay host plus DOM form/file controls",
-    legacyVisual: "renderTitleBlockPreview SVG branch when ?legacy=1",
-    duplicateStatus: "Engine branch clears legacy SVG and returns before drawTitleBlock"
+    authoringOverlay: "SVG overlay host plus DOM form/file controls",
+    legacyVisual: "Shared title-block authoring helpers; no alternate main-canvas renderer",
+    duplicateStatus: "Engine owns title-block production drawing; DOM authoring controls remain"
   })
 ]);
 
@@ -59,18 +59,13 @@ export const ENGINE_PREVIEW_EXCLUDED_SURFACES = Object.freeze([
   },
   {
     id: "main-canvas-transient-previews",
-    surface: "#previewWire, #previewMultiWires, #previewCommentLine, #previewAreaRect, #previewTitleBlockRect",
+    surface: "Engine interaction layer and engine-layout-tool-overlay",
     reason: "temporary interaction previews, not persistent editor production previews"
   },
   {
     id: "output-report-viewer",
-    surface: "PDF/export/report/viewer clone renderers",
-    reason: "separate output architecture intentionally outside Iteration 53.4"
-  },
-  {
-    id: "legacy-mode",
-    surface: "?legacy=1 editor previews",
-    reason: "compatibility fallback intentionally keeps legacy SVG/DOM renderers"
+    surface: "Engine output viewer and Engine SVG print serializer",
+    reason: "separate Engine-owned output surfaces, not editor previews"
   }
 ]);
 

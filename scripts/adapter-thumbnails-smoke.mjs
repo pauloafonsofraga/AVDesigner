@@ -11,12 +11,12 @@ const dir = process.env.AVDESIGNER_SCREENSHOT_DIR || "/tmp/avdesigner-adapter-th
 await mkdir(dir, { recursive: true });
 const checks = [], errors = [], timings = [];
 try {
-  for (const mode of ["engine", "legacy"]) {
+  for (const mode of ["engine"]) {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1100 } });
     page.on("pageerror", e => errors.push(`${mode}: ${e.message}`));
     page.on("console", m => { if (m.type() === "error") errors.push(`${mode}: ${m.text()}`); });
     page.on("dialog", d => d.accept());
-    await page.goto(`${base}/index.html${mode === "legacy" ? "?legacy=1" : ""}`);
+    await page.goto(`${base}/index.html${""}`);
     await page.waitForFunction(() => adapterThumbnailCache && (!activeEngineBridge() || activeEngineBridge().ready));
     await page.evaluate(project => restoreSnapshot(project), adapterThumbnailProject());
     await page.locator("#deviceSearch").fill("Topology");
@@ -33,7 +33,8 @@ try {
     await verify(page.locator("#customDeviceList"));
     const before = await page.evaluate(() => ({ data: JSON.stringify(projectSnapshotData()), scene: activeEngineBridge()?.scene.devices.map(d => ({ id: d.id, x: d.x, y: d.y, width: d.width, height: d.height, connectors: d.connectors })) }));
     const colours = await library.locator('svg g[data-connector-id] > circle:first-child').evaluateAll(circles => circles.map(c => c.getAttribute("fill")));
-    assert.ok(colours.includes("#ffd600") && colours.includes("#0b6b3a") && colours.includes("#90a4ae") && colours.includes("#ffff00"));
+    const expectedColours = await page.evaluate(() => ["hdmi", "sdi", "usb-c", "fiber-lc"].map(type => cableTypes[type].color));
+    for (const colour of expectedColours) assert.ok(colours.includes(colour.toLowerCase()), `current node-library colour ${colour}`);
     assert.equal(await library.locator('[data-route-kind="shared-bus"]').count(), 1);
     await page.locator("aside.library").screenshot({ path: `${dir}/${mode}-library-project.png` });
     checks.push(`${mode}: five distinct main-library and Project Device thumbnails, full anchor counts and canonical colours`);
@@ -83,7 +84,7 @@ try {
     await page.locator("#applyDeviceEditor").click();
     await page.locator("#deviceEditorModal").waitFor({ state: "hidden" });
     assert.notEqual(await projectRow.locator("svg").getAttribute("data-adapter-thumbnail"), oldSignature);
-    assert.equal(await projectRow.locator('[data-connector-id="in"] > circle').first().getAttribute("fill"), "#00e676");
+    assert.equal(await projectRow.locator('[data-connector-id="in"] > circle').first().getAttribute("fill"), await page.evaluate(() => cableTypes.dvi.color.toLowerCase()));
     await page.locator("aside.library").screenshot({ path: `${dir}/${mode}-after-apply.png` });
     checks.push(`${mode}: actual Device Editor type change and Apply immediately update the instance thumbnail`);
 

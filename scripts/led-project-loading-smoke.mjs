@@ -40,7 +40,8 @@ try {
     await ensureDeviceEditorPlacementModulesReady();
     window.__calls={legacyDraws:0,connectorLookups:0,normalizations:0,sceneBuilds:0,fullBuffers:0};
     const names=["renderRetiredSvgCanvas","renderWires","renderDevices","renderLedSurfaces"];
-    for(const name of names) {const f=window[name];window[name]=function(...args){window.__calls.legacyDraws++;return f(...args);};}
+    for(const name of names) {if (typeof window[name] !== "undefined") throw new Error(`Retired renderer still exists: ${name}`); window[name]=()=>{window.__calls.legacyDraws++;throw new Error(`Retired renderer invoked: ${name}`);};}
+    if (document.querySelector("#canvas,#webglCanvas,#deviceTextureCanvas,#navigationSnapshotCanvas")) throw new Error("Retired canvas layer remains");
     const lookup=connectorById;
     connectorById=(...args)=>{window.__calls.connectorLookups++;return lookup(...args);};
     const api=deviceEditorPlacementModule;
@@ -166,6 +167,61 @@ try {
   await page.locator("#redoAction").click();
   assert.equal(await page.evaluate(id=>ledSurfaceById(id).naturalWidth,replacedId),replacementWidth);
   pass("image replacement updates Engine only and retains one-step undo/redo");
+  const cycles=[];
+  for (let cycle=0;cycle<3;cycle++) {
+    await open(project);
+    await importPng(pngs[0]);
+    const id=await page.evaluate(()=>{
+      const id=state.ledSurfaces.at(-1).id;
+      state.selected={type:"led-surface",id};renderInspector();return id;
+    });
+    await page.locator("#deleteSelected").click();
+    await page.locator("#undoAction").click();
+    assert.ok(await page.evaluate(id=>Boolean(ledSurfaceById(id)),id));
+    await page.locator("#redoAction").click();
+    assert.equal(await page.evaluate(id=>Boolean(ledSurfaceById(id)),id),false);
+    const settled=await open(project);
+    const ownership=await page.evaluate(()=>{
+      const b=activeEngineBridge(),cache=b.renderer.textureCache;
+      return {keys:[...cache.texturesByKey.keys()],stale:[...cache.entriesByDeviceId.keys()].filter(id=>!b.scene.getDevice(id)),
+        badRefs:[...cache.texturesByKey.values()].filter(record=>record.refCount!==[...cache.entriesByDeviceId.values()].filter(e=>e.record===record).length).length,
+        jsHeapBytes:performance.memory?.usedJSHeapSize || null};
+    });
+    assert.ok(settled.textures.memoryBytes<=settled.textures.budgetBytes);
+    assert.deepEqual(ownership.stale,[]);assert.equal(ownership.badRefs,0);
+    assert.ok(ownership.keys.every(key=>!key.includes("data:image/")));
+    cycles.push({textures:settled.textures,jsHeapBytes:ownership.jsHeapBytes});
+  }
+  assert.equal(cycles[0].textures.textureCount,cycles[2].textures.textureCount);
+  assert.equal(cycles[0].textures.memoryBytes,cycles[2].textures.memoryBytes);
+  const navigation=await page.evaluate(async()=>{
+    const b=activeEngineBridge(),builds=b.renderer.fullRebuildCount,samples=[];
+    for(let i=0;i<30;i++){
+      const start=performance.now();b.camera.x+=i%2?10:-10;b.scheduleRender();
+      await new Promise(requestAnimationFrame);samples.push(performance.now()-start);
+    }
+    return {meanMs:samples.reduce((a,b)=>a+b,0)/samples.length,maxMs:Math.max(...samples),fullRebuilds:b.renderer.fullRebuildCount-builds};
+  });
+  assert.equal(navigation.fullRebuilds,0);
+  const detailed=await page.evaluate(()=>{
+    const b=activeEngineBridge(),device=b.scene.devices.filter(d=>d.visual?.hasSwappableCards).sort((a,b)=>b.height-a.height)[0];
+    if (!device) return null;
+    b.centerCameraAtWorldPoint({x:device.x+device.width/2,y:device.y+200},"detail-check",{zoom:1});
+    return device.id;
+  });
+  if(detailed) {
+    await page.waitForTimeout(1000);
+    const entry=await page.evaluate(id=>{const c=activeEngineBridge().renderer.textureCache;return {scale:c.getEntry(id)?.record.pixelRatio,bytes:c.stats().memoryBytes,budget:c.budgetBytes};},detailed);
+    assert.ok(entry.scale>=1);assert.ok(entry.bytes<=entry.budget);
+    await page.screenshot({path:`${directory}/device-detail.png`});
+  }
+  await page.evaluate(()=>{
+    const b=activeEngineBridge(),d=b.scene.devices.filter(d=>d.kind==="led-surface").sort((a,b)=>a.visual.naturalWidth-b.visual.naturalWidth)[0];
+    if(!d) throw new Error("LED detail fixture missing");
+    b.centerCameraAtWorldPoint({x:d.x+d.width/2,y:d.y+d.height/2},"LED detail",{zoom:0.5});
+  });
+  await page.waitForTimeout(1000);await page.screenshot({path:`${directory}/led-detail.png`});
+  pass("three load/import/delete/undo/redo/reload cycles retain bounded textures and exact shared references");
   const deviceOnly=structuredClone(project);deviceOnly.ledSurfaces=[];deviceOnly.connections=deviceOnly.connections.filter(w=>!w.from?.surfaceId&&!w.to?.surfaceId);
   await open(deviceOnly);const deviceOnlyImport=await importPng(pngs[0]);
   pass("device-only project plus first unconnected LED PNG");
@@ -194,6 +250,22 @@ try {
   assert.equal(await page.evaluate(()=>projectJsonPayload()),dataBeforeRetry);
   assert.equal((await read()).calls.legacyDraws,0);
   pass("Engine load failure retries without data loss or Legacy fallback");
+  await page.evaluate(() => {
+    window.__previewPreparation = ensureLedSurfacePreviews;
+    const gate = new Promise(resolve => { window.__releaseOldLoad = resolve; });
+    ensureLedSurfacePreviews = async (data, bridge, signal) => {
+      if (data.projectName === "Superseded load") { window.__oldLoadWaiting = true; await gate; }
+      return __previewPreparation(data, bridge, signal);
+    };
+    loadProjectFile(new File([JSON.stringify({ projectName: "Superseded load", devices: [], connections: [] })], "old.avd"));
+  });
+  await page.waitForFunction(() => window.__oldLoadWaiting);
+  await page.evaluate(() => loadProjectFile(new File([JSON.stringify({ projectName: "Current load", devices: [], connections: [] })], "current.avd")));
+  await page.waitForFunction(() => state.projectName === "Current load" && activeEngineBridge().ready);
+  await page.evaluate(() => { __releaseOldLoad(); ensureLedSurfacePreviews = __previewPreparation; });
+  await page.waitForTimeout(150);
+  assert.equal(await page.evaluate(() => state.projectName), "Current load");
+  pass("superseded asynchronous project preparation cannot overwrite a newer load");
   const startup=await browser.newPage();
   await startup.route("**/src/engine/productionBridge.js*",route=>route.abort());
   await startup.goto(`${base}/index.html?legacy=1`);
@@ -206,6 +278,6 @@ try {
   await startup.close();
   pass("failed Engine module initialization retries successfully without reloading the app");
   assert.deepEqual(errors,[]);
-  writeFileSync(`${directory}/metrics.json`,JSON.stringify({realProject:Boolean(real),loaded,lookup,connectedImport,deviceOnlyImport,emptyImports,passed:results.length,failed:0,skipped:0,results},null,2));
+  writeFileSync(`${directory}/metrics.json`,JSON.stringify({realProject:Boolean(real),loaded,lookup,connectedImport,deviceOnlyImport,emptyImports,cycles,navigation,passed:results.length,failed:0,skipped:0,results},null,2));
   console.log(JSON.stringify({directory,load:loaded.metrics,endpointLookup:lookup,passed:results.length,failed:0,skipped:0}));
 } finally {await browser.close();}

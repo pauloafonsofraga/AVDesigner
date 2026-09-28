@@ -17,7 +17,8 @@ function assertSegments(result, count, side) {
   assert.ok(trunk.x1 > body.x && trunk.x1 < body.x + body.width);
   segments.forEach(s => { assert.ok(Object.values(s).every(Number.isFinite)); assert.ok(s.x1 === s.x2 || s.y1 === s.y2); });
   assert.equal(stem.x1, trunk.x1); assert.equal(stem.y1, stem.y2);
-  assert.equal(stem.y1, (Math.min(...points.map(p => p.y)) + Math.max(...points.map(p => p.y))) / 2);
+  assert.ok(Math.abs(stem.y1 - (Math.min(...points.map(p => p.y)) + Math.max(...points.map(p => p.y))) / 2) < 1e-9,
+    "animated stem remains centered within floating-point precision");
   assert.ok(stem.x2 > body.x && stem.x2 < body.x + body.width);
   assert.ok(side === "left" ? stem.x2 > stem.x1 : stem.x2 < stem.x1);
   if (result.fieldJunctionX !== undefined) assert.equal(stem.x2, result.fieldJunctionX);
@@ -33,28 +34,22 @@ function assertSegments(result, count, side) {
   });
 }
 try {
-  for (const mode of ["engine", "legacy"]) {
+  for (const mode of ["engine"]) {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1100 } });
     const errors = [];
     page.on("pageerror", e => errors.push(e.message));
     page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
-    await page.goto(`${base}/index.html${mode === "legacy" ? "?legacy=1" : ""}`);
+    await page.goto(`${base}/index.html${""}`);
     await page.locator("#deviceEditorButton").click();
     const quiet = () => page.waitForFunction(() => !editorPlacementMotionState?.entries?.size || editorPlacementMotionState.settled);
     const read = () => page.evaluate(() => {
-      const template = currentEditorTemplate(), body = { x: 0, width: deviceTemplateWidth(template) }, rel = template.connectorRelationships[0];
-      let segments, points, fieldJunctionX;
-      if (deviceEditorActivePreviewUsesEngine()) {
-        const d = editorEnginePreviewSurface.scene.devices[0], layout = editorEnginePreviewSurface.scene.connectorDisplayLayoutForDevice(d).groups[0];
-        const geometry = requireDeviceEditorPlacementModule().sharedBusOrthogonalSegments(layout, body);
-        segments = [geometry.trunk, geometry.stem, ...geometry.branches]; points = layout.points.map(({ x, y }) => ({ x, y }));
-        fieldJunctionX = layout.fieldJunctionX;
-        if (editorEnginePreviewSurface.renderer.lastFrameStats.connectorRelationships !== segments.length) throw Error("Engine must draw exactly one comb");
-      } else {
-        const layout = editorSharedRelationshipLayout(template, rel, editorSharedRelationshipMembers(template, rel), editorPreviewPositions(template));
-        points = layout.points.map(({ x, y }) => ({ x, y })); fieldJunctionX = layout.fieldJunctionX;
-        segments = [...deviceEditorPreview.querySelectorAll("[data-shared-bus-segment]")].map(line => Object.fromEntries(["x1", "y1", "x2", "y2"].map(key => [key, Number(line.getAttribute(key))])));
-      }
+      const template = currentEditorTemplate(), body = { x: 0, width: deviceTemplateWidth(template) };
+      if (!deviceEditorActivePreviewUsesEngine()) throw Error("Connectors preview must use Engine");
+      const d = editorEnginePreviewSurface.scene.devices[0], layout = editorEnginePreviewSurface.scene.connectorDisplayLayoutForDevice(d).groups[0];
+      const geometry = requireDeviceEditorPlacementModule().sharedBusOrthogonalSegments(layout, body);
+      const segments = [geometry.trunk, geometry.stem, ...geometry.branches], points = layout.points.map(({ x, y }) => ({ x, y }));
+      const fieldJunctionX = layout.fieldJunctionX;
+      if (editorEnginePreviewSurface.renderer.lastFrameStats.connectorRelationships !== segments.length) throw Error("Engine must draw exactly one comb");
       return { body, points, segments, fieldJunctionX, json: JSON.stringify(template) };
     });
     const shot = name => page.locator("#deviceEditorPreviewHost").screenshot({ path: `${shots}/${mode}-${name}.png` });
@@ -72,8 +67,7 @@ try {
       for (const zoom of ["fit", "normal", "fractional"]) {
         await page.locator("#editorZoomReset").click();
         if (zoom !== "fit") await page.evaluate(zoom => {
-          if (deviceEditorActivePreviewUsesEngine()) { editorEnginePreviewSurface.setCamera({ zoom }); syncDeviceEditorEngineOverlayViewBox(); }
-          else { editorPreviewZoom = zoom; editorPreviewPan = { x: 0, y: 0 }; renderDeviceEditorPreview(); }
+          editorEnginePreviewSurface.setCamera({ zoom }); syncDeviceEditorEngineOverlayViewBox();
         }, zoom === "normal" ? 1 : 1.333);
         assertSegments(await read(), count, side); await shot(`${side}-${count}-${zoom}`);
       }
@@ -87,7 +81,10 @@ try {
       };
       const boundary = async end => {
         const p = await page.evaluate(end => {
-          const d = editorNodeDrag, positions = requireDeviceEditorPlacementModule().authoringInsertionBoundaryScreenPositions(d.session, { projectedLanePx: d.projectedLanePx, minimumStepPx: 12 });
+          const d = editorNodeDrag, module = requireDeviceEditorPlacementModule();
+          const positions = d.persistentAuthoringDrag
+            ? Array.from({ length: 1 + module.persistentTargetLane(d.session, d.selectedDraggedItemIds, 1e9, { primaryId: d.itemId }) }, (_, lane) => (lane - d.originalLane) * Math.max(12, d.projectedLanePx))
+            : module.authoringInsertionBoundaryScreenPositions(d.session, { projectedLanePx: d.projectedLanePx, minimumStepPx: 12 });
           const index = end ? positions.length - 1 : 0;
           const a = getEditorPreviewPointAtClient(0, 0, editorInteractionSvg), b = getEditorPreviewPointAtClient(1, 1, editorInteractionSvg);
           const c = currentEditorTemplate().connectors.find(c => c.id === d.connectorId);
@@ -109,22 +106,18 @@ try {
         return JSON.parse(JSON.stringify(t));
       });
       const id = await page.evaluate(template => {
-        closeDeviceEditor(); state.devices = [];
-        const instance = addDeviceInstanceFromTemplate(template, 100, 100, { templateOverride: template });
-        activeEngineBridge()?.refreshFromProduction("orthogonal comb"); zoomToFit(); return instance.instanceId;
+        closeDeviceEditor();
+        const instance = prepareDeviceInstanceFromTemplate(template, 100 + state.devices.length * 1500, 100, { templateOverride: template });
+        if (!activeEngineBridge().createDeviceFromLibraryDrop(instance)) throw new Error("Engine insertion failed");
+        zoomToFit(); return instance.instanceId;
       }, saved);
-      if (mode === "engine") await page.waitForFunction(id => activeEngineBridge()?.ready && activeEngineBridge().scene.getDevice(id), id);
-      const main = await page.evaluate(({ id, mode }) => {
+      await page.waitForFunction(id => activeEngineBridge()?.ready && activeEngineBridge().scene.getDevice(id), id);
+      const main = await page.evaluate(id => {
         const t = templateForInstance(instanceById(id)), body = { x: 0, width: deviceTemplateWidth(t) };
-        if (mode === "engine") {
-          const b = activeEngineBridge(), d = b.scene.getDevice(id), layout = b.scene.connectorDisplayLayoutForDevice(d).groups[0];
-          const geometry = requireDeviceEditorPlacementModule().sharedBusOrthogonalSegments(layout, body);
-          return { body, points: layout.points.map(({ x, y }) => ({ x, y })), segments: [geometry.trunk, geometry.stem, ...geometry.branches] };
-        }
-        const segments = [...document.querySelectorAll(`[data-instance-id="${id}"] [data-shared-bus-segment]`)].map(line => Object.fromEntries(["x1", "y1", "x2", "y2"].map(k => [k, Number(line.getAttribute(k))])));
-        const points = t.connectorRelationships[0].members.map(id => t.connectors.find(c => c.id === id)).map(({ x, y }) => ({ x, y }));
-        return { body, points, segments };
-      }, { id, mode });
+        const b = activeEngineBridge(), d = b.scene.getDevice(id), layout = b.scene.connectorDisplayLayoutForDevice(d).groups[0];
+        const geometry = requireDeviceEditorPlacementModule().sharedBusOrthogonalSegments(layout, body);
+        return { body, points: layout.points.map(({ x, y }) => ({ x, y })), segments: [geometry.trunk, geometry.stem, ...geometry.branches] };
+      }, id);
       assertSegments(main, count, side); await page.screenshot({ path: `${shots}/${mode}-${side}-${count}-canvas.png` });
       const html = await page.evaluate(async () => (await prepareEngineViewerOutput()).html);
       const viewer = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
@@ -147,8 +140,6 @@ try {
       assert.deepEqual(exported.segments, expected, "offline output retains canonical Engine trunks");
       assert.deepEqual(exported.body, main.body);
       assert.deepEqual(exported.points, main.points);
-      // Legacy fields sit 18 units in; Engine fields sit 26 units in. Preserve
-      // that existing canvas styling, while requiring exact output-scene parity.
       await viewer.screenshot({ path: `${shots}/${mode}-${side}-${count}-offline.png` }); await viewer.close();
 
       await page.locator("#deviceEditorButton").click();

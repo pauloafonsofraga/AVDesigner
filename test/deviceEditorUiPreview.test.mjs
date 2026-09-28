@@ -877,7 +877,6 @@ function structuralEditorHarness(inputTemplate = {}) {
     "cancelEditorResizeSession",
     "editorNodeSelectionSnapshot",
     "restoreEditorNodeSelectionByStableIds",
-    "pairedNetworkGroupId",
     "ensurePairedNetworkPair",
     "nextEditorPlacementY",
     "ledProcessorSignalIndex",
@@ -4993,9 +4992,9 @@ function paletteDropHarness({ mode = "engine", scale = 1 } = {}) {
   return { api, context, template, counters, drag, cancel, nativeDrag, target, deviceEditorPreview, deviceEditorPreviewHost, nodePalette };
 }
 
-test("CEE palette drag/drop commits all input and output assets in Engine and Legacy previews", () => {
+test("CEE palette drag/drop commits all input and output assets in Engine previews", () => {
   let cases = 0;
-  for (const mode of ["engine", "legacy"]) {
+  for (const mode of ["engine"]) {
     for (const scale of [1, 0.25]) {
       for (const type of CEE_DROP_TYPES) {
         for (const direction of ["input", "output"]) {
@@ -5034,7 +5033,7 @@ test("CEE palette drag/drop commits all input and output assets in Engine and Le
       }
     }
   }
-  assert.equal(cases, 192);
+  assert.equal(cases, 96);
 });
 
 test("palette drop preserves stable IDs through reordering and rejects filled slots", () => {
@@ -5180,9 +5179,9 @@ test("catalog type changes grow and shrink the faceplate without losing ordinary
   }
 });
 
-test("protected native drops keep accepted input and output IDs across preview modes and Fit scales", () => {
+test("protected native drops keep accepted input and output IDs at Engine Fit scales", () => {
   let cases = 0;
-  for (const mode of ["engine", "legacy"]) for (const scale of [1, 0.25]) {
+  for (const mode of ["engine"]) for (const scale of [1, 0.25]) {
     for (const type of ["16a-1ph-110v", "32a-1ph", "32a-3ph", "125a-3ph"]) {
       for (const direction of ["input", "output"]) {
         const h = paletteDropHarness({ mode, scale });
@@ -5198,7 +5197,7 @@ test("protected native drops keep accepted input and output IDs across preview m
       }
     }
   }
-  assert.equal(cases, 32);
+  assert.equal(cases, 16);
 });
 
 test("last dragover wins, but drop root cannot independently change the accepted slot", () => {
@@ -6540,11 +6539,10 @@ test("Device Editor Ethernet Switch batch rollback and later pair movement stay 
   assert.equal(movedLanes[`connector:${input.id}`], 0);
 });
 
-test("Device Editor placement motion is persistent and shared by Engine and Legacy previews", () => {
+test("Device Editor placement motion is persistent across Engine visuals and authoring overlays", () => {
   const previewPositions = functionSource("editorPreviewPositions");
   const cardSlotDisplayY = functionSource("cardSlotDisplayY");
   const previewClone = functionSource("editorEnginePreviewTemplateClone");
-  const legacyRender = functionSource("renderDeviceEditorPreview");
   const engineRender = functionSource("renderDeviceEditorEnginePreview");
   const syncEngine = functionSource("syncDeviceEditorEnginePreview");
   const nodeMove = functionSource("moveEditorNode");
@@ -6556,8 +6554,6 @@ test("Device Editor placement motion is persistent and shared by Engine and Lega
   assert.match(previewPositions, /editorPlacementMotionConnectorPositions\(\)/);
   assert.match(cardSlotDisplayY, /editorPlacementMotionVisualY\(`card:\$\{slot\?\.id\}`/);
   assert.match(previewClone, /applyEditorPlacementVisualsToPreviewTemplate\(draft, sourceTemplate\)/);
-  assert.match(legacyRender, /applyEditorPlacementVisualsToPreviewTemplate\(previewTemplate, editorResizePreviewTemplateFor\(template\)\)/);
-  assert.doesNotMatch(legacyRender, /animateTransform/);
   assert.match(engineRender, /motionOnly: options\.motionFrame === true \|\| editorPlacementMotionHasEntries\(\)/);
   assert.match(syncEngine, /options\.motionOnly === true/);
   assert.match(nodeMove, /retargetEditorPlacementMotionForDrag\(editorNodeDrag/);
@@ -8099,12 +8095,8 @@ test("Device Editor preview renders from detached normalized drafts", () => {
   assert.match(readonlyClone, /validateDraftDefaults\(draft\);/);
   assert.doesNotMatch(readonlyClone, /validateDraftDefaults\(template\)/);
 
-  assert.match(renderPreview, /const previewTemplate = readonlyDeviceEditorPreviewTemplate\(template\);/);
+  assert.match(renderPreview, /renderDeviceEditorEnginePreview\(template, options\)/);
   assert.doesNotMatch(renderPreview, /validateDraftDefaults\(template\);/);
-  assert.match(renderPreview, /deviceTemplateWidth\(previewTemplate\)/);
-  assert.match(renderPreview, /editorActivePreviewBounds\(previewTemplate\)/);
-  assert.match(renderPreview, /previewTemplate\.connectors\.forEach/);
-  assert.match(renderPreview, /drawEditorCardSlotBands\(deviceEditorPreview, previewTemplate\)/);
   assert.doesNotMatch(renderPreview, /deviceEditorPreview\.appendChild\(g\);[\s\S]*data-editor-card-connector-id/);
 
   assert.match(renderEnginePreview, /const previewTemplate = readonlyDeviceEditorPreviewTemplate\(template\);/);
@@ -8814,8 +8806,7 @@ test("Cards tab uses the authoring schematic before the Engine full-device branc
     "setDeviceEditorCardAuthoringMode(false);",
     "if (deviceEditorActivePreviewUsesEngine())",
     "renderDeviceEditorEnginePreview(template, options);",
-    "return;",
-    "editorEnginePreviewLegacyVisualDraws += 1;"
+    "return;"
   ], "Cards authoring preview must precede Engine full-device preview");
 
   const cardMode = functionSource("setDeviceEditorCardAuthoringMode");
@@ -8839,7 +8830,7 @@ test("Fit uses active bounds and tab switches auto-fit the active preview", () =
   assert.match(fitPreview, /editorPreviewFitZoomForBounds\(bounds, deviceEditorPreview, 34\)/);
 
   const renderPreview = functionSource("renderDeviceEditorPreview");
-  assert.match(renderPreview, /editorPreviewViewBox\(width, height, editorPreviewZoom, editorPreviewPan, deviceEditorPreview, editorActivePreviewBounds\(previewTemplate\)\)/);
+  assert.match(renderPreview, /renderDeviceEditorEnginePreview\(template, options\)/);
   assert.match(functionSource("renderCardEditorPreview"), /editorPreviewViewBox\(width, height, editorPreviewZoom, editorPreviewPan, deviceEditorPreview, editorCardPreviewBounds\(card\)\)/);
 
   const tabHandler = sourceSlice(INDEX_HTML, 'editorTabs.addEventListener("click"', 'connectorRelationshipsPanel?.addEventListener("click"');

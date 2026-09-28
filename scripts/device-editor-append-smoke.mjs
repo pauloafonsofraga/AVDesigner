@@ -291,7 +291,7 @@ async function faceplateHandoffSmoke(page, mode) {
 }
 
 try {
-  for (const mode of ["engine", "legacy"]) {
+  for (const mode of ["engine"]) {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
     page.setDefaultTimeout(20000);
     const errors = [];
@@ -299,11 +299,11 @@ try {
     page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
     page.on("response", response => { if (response.status() >= 400) errors.push(`${response.status()} ${response.url()}`); });
     page.on("requestfailed", request => errors.push(`${request.failure()?.errorText} ${request.url()}`));
-    await page.goto(`${baseUrl}/index.html${mode === "legacy" ? "?legacy=1" : ""}`);
+    await page.goto(`${baseUrl}/index.html${""}`);
     await page.locator("#deviceEditorButton").click();
     await page.locator("#newDeviceTemplate").click();
     await page.locator('[data-editor-tab="connectors"]').click();
-    assert.equal(await page.evaluate(() => deviceEditorActivePreviewUsesEngine()), mode === "engine");
+    assert.equal(await page.evaluate(() => deviceEditorActivePreviewUsesEngine()), true);
     await rapidEmptyNodeSmoke(page, mode);
     await page.locator('[data-editor-tab="device"]').click();
     await page.locator("#newDeviceTemplate").click();

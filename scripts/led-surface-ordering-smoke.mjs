@@ -9,17 +9,17 @@ const browser = await chromium.launch({ headless: true,
 const base = process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8768";
 const expectedPoints = ids => ids.map((id, i) => ({ id, x: 900, y: 100 + 960 * ((i + 0.5) / ids.length) }));
 try {
-  for (const mode of ["engine", "retired-legacy-url"]) {
+  for (const mode of ["engine"]) {
     const page = await browser.newPage({ viewport: { width: 1800, height: 1100 } });
     const errors = [];
     page.on("pageerror", e => errors.push(e.message));
     page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
-    await page.goto(`${base}/index.html${mode === "retired-legacy-url" ? "?legacy=1" : ""}`);
+    await page.goto(`${base}/index.html${""}`);
     await page.waitForFunction(() => activeEngineBridge()?.ready);
     const load = async data => {
       await page.evaluate(data => restoreSnapshot(data), data);
       await page.waitForFunction(() => !activeEngineBridge() || activeEngineBridge().ready);
-      await page.evaluate(() => { const b = activeEngineBridge(); if (b) b.fitView(); else zoomToFit(); });
+      await page.evaluate(() => activeEngineBridge().fitView());
     };
     const read = () => page.evaluate(() => {
       const b = activeEngineBridge();
@@ -45,7 +45,7 @@ try {
       await viewer.close();
     };
     await checkExport(ledSurfaceOrder);
-    if (mode === "engine") {
+    {
       const geometry = () => page.evaluate(() => Object.fromEntries([...activeEngineBridge().renderer.wireVertexMap].map(([id, vertices]) => [id, Array.from(vertices)])));
       const checkGeometryChanged = async (before, ids) => {
         const after = await geometry();

@@ -9,13 +9,13 @@ const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"],
   ...(process.env.AVDESIGNER_CHROME_PATH ? { executablePath: process.env.AVDESIGNER_CHROME_PATH } : {}) });
 
 try {
-  for (const mode of ["engine", "legacy"]) {
+  for (const mode of ["engine"]) {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
     page.setDefaultTimeout(20000);
     const errors = [];
     page.on("pageerror", e => errors.push(e.message));
     page.on("console", m => { if (m.type() === "error" || m.type() === "warning") errors.push(m.text()); });
-    await page.goto(`${base}/index.html${mode === "legacy" ? "?legacy=1" : ""}`);
+    await page.goto(`${base}/index.html${""}`);
     await page.locator("#deviceEditorButton").click();
     await page.locator("#newDeviceTemplate").click();
     await page.locator('[data-editor-tab="connectors"]').click();
@@ -116,17 +116,17 @@ try {
     });
     const id = await page.evaluate(template => {
       closeDeviceEditor();
-      const instance = addDeviceInstanceFromTemplate(template, 100, 100, { templateOverride: template });
-      window.avDesignerEngineBridge?.refreshFromProduction?.("shared bus smoke");
+      const instance = { instanceId: "bus-instance", templateId: template.id, name: template.name, x: 100, y: 100, templateOverride: template };
+      if (!activeEngineBridge().createDeviceFromLibraryDrop(instance)) throw new Error("Engine insertion failed");
       zoomToFit(); return instance.instanceId;
     }, saved);
-    if (mode === "engine") await page.waitForFunction(id => window.avDesignerEngineBridge?.scene?.getDevice(id), id);
+    await page.waitForFunction(id => window.avDesignerEngineBridge?.scene?.getDevice(id), id);
     const canvas = await page.evaluate(({ id, mode }) => {
       const t = templateForInstance(instanceById(id));
-      const d = mode === "engine" ? window.avDesignerEngineBridge.scene.getDevice(id) : null;
+      const d = window.avDesignerEngineBridge.scene.getDevice(id);
       return {
         nodes: (d?.connectors || effectiveTemplateConnectors(t)).filter(c => !c.generatedFromCard).map(c => [c.id, c.y]),
-        rendered: mode === "legacy" ? [...document.querySelectorAll(`[data-instance-id="${id}"] [data-connector-id]`)].map(g => [g.dataset.connectorId, Number(g.querySelector("circle")?.getAttribute("cy"))]) : null
+        rendered: null
       };
     }, { id, mode });
     assert.deepEqual(canvas.nodes, saved.connectors.map(c => [c.id, c.y]));
@@ -139,7 +139,7 @@ try {
     await page.waitForFunction(id => instanceById(id), id);
     const reloaded = await page.evaluate(id => templateForInstance(instanceById(id)), id);
     for (const key of ["connectors", "connectorRelationships", "cardTypes", "cardSlots"]) assert.deepEqual(reloaded[key], saved[key], `Project reload preserves ${key}`);
-    if (mode === "engine") await page.waitForFunction(id => window.avDesignerEngineBridge?.scene?.getDevice(id), id);
+    await page.waitForFunction(id => window.avDesignerEngineBridge?.scene?.getDevice(id), id);
     const html = await page.evaluate(async () => (await prepareEngineViewerOutput()).html);
     const offline = await browser.newPage();
     const offlineErrors = [];

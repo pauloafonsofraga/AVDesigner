@@ -12,11 +12,11 @@ const base = process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8768";
 const dir = mkdtempSync(join(tmpdir(), "matrix-crosspoints-")), results = [];
 const id = (direction, index) => `${direction}-port-${101 + index * 7}`;
 try {
-  for (const mode of ["engine", "legacy"]) {
+  for (const mode of ["engine"]) {
     const page = await browser.newPage({ viewport:{ width:1600, height:1000 } }), errors = [];
     page.on("pageerror", error => errors.push(error.message));
     page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
-    await page.goto(`${base}/index.html${mode === "legacy" ? "?legacy=1" : ""}`);
+    await page.goto(`${base}/index.html${""}`);
     await page.waitForFunction(() => typeof restoreSnapshot === "function" && (!activeEngineBridge() || activeEngineBridge().ready));
     const modal = page.locator("#matrixRoutingModal");
     const cell = (output, input) => modal.locator(`[data-matrix-output="${id("output", output)}"][data-matrix-input="${id("input", input)}"]`);

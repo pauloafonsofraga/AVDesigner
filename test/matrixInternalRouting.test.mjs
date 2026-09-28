@@ -222,16 +222,3 @@ test("Production bridge updates matrix route geometry without dirtying textures 
   assert.match(applyObjectInspectorFields, /objectInspectorPatchOnlyInternalMatrixRouting\(sanitized\)/);
   assert.match(applyObjectInspectorFields, /this\.renderer\.updateMatrixInternalRoutes\?\.\(this\.scene, \[device\.id\]\)/);
 });
-
-test("supported Legacy canvas renders assigned matrix routes without normal cables", () => {
-  assert.match(INDEX_HTML, /function drawMatrixInternalRoutes\(group, instance, template\)/);
-  assert.match(INDEX_HTML, /function normalizedMatrixRoutesForInstance\(instance, template = templateForInstance\(instance\)\)/);
-  assert.match(
-    INDEX_HTML,
-    /function matrixInternalRoutePairs\(instance, template = templateForInstance\(instance\)\) \{[\s\S]*?normalizedMatrixRoutesForInstance\(instance, template\)/
-  );
-  assert.match(functionSource(INDEX_HTML, "appendCanvasDevice"), /drawMatrixInternalRoutes\(group, instance, template\)/);
-  assert.match(functionSource(INDEX_HTML, "showDeviceContextMenu"), /data-device-menu="toggle-matrix-internal-routing"/);
-  assert.match(INDEX_HTML, /\.matrix-internal-wire/);
-  assert.doesNotMatch(functionSource(INDEX_HTML, "drawMatrixInternalRoutes"), /state\.connections|connections\.push|data\.connections/);
-});

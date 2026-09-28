@@ -1,5 +1,9 @@
 # Legacy Interface And Visual Fidelity Parity Audit
 
+Historical audit. As of 54.38.0 Engine is the only supported renderer; the Legacy
+canvas and renderer-specific fallbacks have been removed. Shared shell/model
+and authoring behavior remain. See [Engine resource lifetime](engine-resource-lifetime.md).
+
 Source of truth for this audit:
 
 - Legacy reference: `8301fbf23c82f3e3f2496cb90234019c7bf47958`

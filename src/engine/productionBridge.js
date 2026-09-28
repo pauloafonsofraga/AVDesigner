@@ -134,8 +134,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-37-0-engine-only-led-project-loading";
-export const ENGINE_BRIDGE_VERSION = "iteration54-37-0-engine-only-led-project-loading";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-0-engine-resource-lifetime";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-0-engine-resource-lifetime";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -376,7 +376,6 @@ class ProductionEngineBridge {
     this.engineRoot?.remove();
     this.engineRoot = null;
     this.container?.classList.remove("engine-bridge-active");
-    this.container?.classList.remove("webgl-engine-active");
     if (this.boundCanvasWrapDoubleClick) {
       this.container?.removeEventListener("dblclick", this.boundCanvasWrapDoubleClick, true);
       this.boundCanvasWrapDoubleClick = null;
@@ -1077,7 +1076,7 @@ class ProductionEngineBridge {
   }
 
   mountUi() {
-    this.container.classList.add("engine-bridge-active", "webgl-engine-active");
+    this.container.classList.add("engine-bridge-active");
     this.engineRoot = document.createElement("div");
     this.engineRoot.className = "engine-bridge-root";
     this.engineRoot.innerHTML = `
@@ -1128,7 +1127,6 @@ class ProductionEngineBridge {
           ${layerDebugControl("hideLabels", "hide labels/text", this.renderOptions.hideLabels)}
           ${layerDebugControl("hideSurfaces", "hide LED surfaces", this.renderOptions.hideSurfaces)}
           ${layerDebugControl("hideSelectionOverlay", "hide selection overlay", this.renderOptions.hideSelectionOverlay)}
-          ${layerDebugControl("showProductionSvg", "show production SVG/DOM", engineLayerDebugShowProductionSvg())}
         </div>
         <pre data-layer-trace>Drag a selected object to trace render layers.</pre>
       </div>
@@ -1162,9 +1160,6 @@ class ProductionEngineBridge {
     this.engineRoot.querySelector("[data-engine-action='snap-test-scene']")?.addEventListener("click", () => this.createSnapDebugScene());
     this.engineRoot.querySelector("[data-engine-action='select-orthogonal']")?.addEventListener("click", () => this.selectFirstOrthogonalWire());
     this.engineRoot.querySelector("[data-engine-action='copy-routing']")?.addEventListener("click", () => this.copyRoutingDiagnostics());
-    if (this.debugLayerMode && engineLayerDebugShowProductionSvg()) {
-      this.container.classList.add("engine-bridge-show-production-svg");
-    }
     this.bindLayerDebugControls();
   }
 
@@ -1173,12 +1168,8 @@ class ProductionEngineBridge {
     this.layerDebugPanel.querySelectorAll("[data-layer-option]").forEach(input => {
       input.addEventListener("change", () => {
         const key = input.getAttribute("data-layer-option");
-        if (key === "showProductionSvg") {
-          this.container.classList.toggle("engine-bridge-show-production-svg", input.checked);
-        } else {
-          this.renderOptions[key] = input.checked;
-          this.renderer?.setRenderOptions(this.renderOptions);
-        }
+        this.renderOptions[key] = input.checked;
+        this.renderer?.setRenderOptions(this.renderOptions);
         this.scheduleRender();
       });
     });
@@ -8293,7 +8284,7 @@ class ProductionEngineBridge {
     this.loadingPanel.classList.remove("hidden");
     const title = this.loadingPanel.querySelector(".engine-bridge-loading-title");
     if (title) title.textContent = "Engine Editor failed to load";
-    this.setLoadingPhase("Open Legacy Editor or check the console for details.");
+    this.setLoadingPhase("Project retained. Retry Engine or check the console for details.");
     const errorText = error?.message || error?.stack || String(error || "Unknown engine loading error.");
     const errorPanel = this.loadingPanel.querySelector(".engine-bridge-loading-error");
     if (errorPanel) {
@@ -8711,8 +8702,7 @@ class ProductionEngineBridge {
       `affected wires: ${trace.affectedWireIds?.length || 0}`,
       `selected wires: ${trace.selectedWireIds?.length || 0}`,
       `affected selected wires: ${trace.affectedSelectedWireIds?.length || 0}`,
-      `affected hovered wire: ${trace.affectedHoveredWireId || "none"}`,
-      `production SVG/DOM: ${this.container.classList.contains("engine-bridge-show-production-svg") ? "debug visible" : "hidden"}`
+      `affected hovered wire: ${trace.affectedHoveredWireId || "none"}`
     ];
     if (!currentTrace.active && !currentTrace.lastActiveTrace) {
       lines.push("No active drag. Start dragging a selected object to see layer ownership.");
@@ -8844,13 +8834,6 @@ function injectBridgeStyles() {
   style.id = "engineBridgeStyles";
   style.textContent = `
     .canvas-wrap.engine-bridge-active { position: relative; }
-    .canvas-wrap.engine-bridge-active > #canvas,
-    .canvas-wrap.engine-bridge-active > #webglCanvas,
-    .canvas-wrap.engine-bridge-active > #deviceTextureCanvas,
-    .canvas-wrap.engine-bridge-active > #navigationSnapshotCanvas {
-      opacity: 0 !important;
-      pointer-events: none !important;
-    }
     .engine-bridge-root {
       position: absolute;
       inset: 0;
@@ -9248,15 +9231,6 @@ function injectBridgeStyles() {
       white-space: pre-wrap;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
-    .canvas-wrap.engine-bridge-show-production-svg > #canvas,
-    .canvas-wrap.engine-bridge-show-production-svg > #webglCanvas,
-    .canvas-wrap.engine-bridge-show-production-svg > #deviceTextureCanvas,
-    .canvas-wrap.engine-bridge-show-production-svg > #navigationSnapshotCanvas {
-      opacity: .45 !important;
-    }
-    .canvas-wrap.engine-bridge-show-production-svg .engine-bridge-root {
-      background: rgba(17, 24, 32, .72);
-    }
     .engine-bridge-debug {
       position: absolute;
       right: 14px;
@@ -9316,10 +9290,6 @@ function engineLayerDebugEnabled() {
   return params.get("debugLayers") === "1"
     || params.get("debugDeviceVisual") === "1"
     || params.get("debugDeviceTexture") === "1";
-}
-
-function engineLayerDebugShowProductionSvg() {
-  return new URLSearchParams(window.location.search).get("showProductionSvg") === "1";
 }
 
 function engineDebugHudEnabled() {

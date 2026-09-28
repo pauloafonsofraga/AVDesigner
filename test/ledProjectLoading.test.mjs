@@ -124,11 +124,32 @@ test("connector edits retain explicit ordering; relationship/project replacement
 test("retired URL flags cannot activate another canvas; shell and deferred Fit do not draw SVG", () => {
   let shell=0,fit=0;
   const ctx=vm.createContext({renderShellUi(){shell++;},activeEngineBridge:()=>({fitView(){fit++;}}),cancelSvgDetailRefresh(){}});
-  for(const name of ["engineEditorRequestedByUrl","render","renderCanvasOnly","zoomToFit","scheduleSvgDetailRefresh"]) vm.runInContext(source(name),ctx);
+  for(const name of ["engineEditorRequestedByUrl","render","renderCanvasOnly","zoomToFit"]) vm.runInContext(source(name),ctx);
   for(const search of ["","?legacy=1","?engine=0","?engine=false&debugRuntime=1"]) {
     ctx.window={location:{search}};assert.equal(ctx.engineEditorRequestedByUrl(),true);
   }
-  ctx.render(); ctx.renderCanvasOnly(); ctx.renderCanvasOnly({lightweight:true}); ctx.zoomToFit(); ctx.scheduleSvgDetailRefresh();
+  ctx.render(); ctx.renderCanvasOnly(); ctx.renderCanvasOnly({lightweight:true}); ctx.zoomToFit();
   assert.equal(shell,2); assert.equal(fit,1);
   assert.doesNotMatch(html,/id="engineBetaToggle"|Reload Legacy Editor|switchEngineEditorMode|showEngineFailureFallback/);
+  assert.doesNotMatch(html,/function (?:scheduleSvgDetailRefresh|renderRetiredSvgCanvas|renderDevices|renderWires)\(|id="(?:canvas|webglCanvas|deviceTextureCanvas|navigationSnapshotCanvas)"/);
+});
+
+test("shared wire editing syncs Engine without retired renderer caches", () => {
+  const a = { id: "a", from: "moved", to: "fixed" }, b = { id: "b", from: "other", to: "fixed" };
+  const synced = [], repaired = [];
+  let shell = 0;
+  const ctx = vm.createContext({ state: { connections: [a, b], wireMode: "orthogonal" },
+    syncEngineWireFromProduction: wire => synced.push(wire.id), renderShellUi: () => shell++,
+    selectionMoveKey: selection => selection.id, endpointMoveKey: endpoint => endpoint,
+    repairOrthogonalRouteForMovedEndpoint: wire => repaired.push(wire.id) });
+  for (const name of ["syncWireChange", "repairOrthogonalRoutesForMovedSelections"]) vm.runInContext(source(name), ctx);
+  ctx.syncWireChange("a"); ctx.syncWireChange(["b", "missing", null]);
+  assert.deepEqual(synced, ["a", "b"]); assert.equal(shell, 2);
+  ctx.repairOrthogonalRoutesForMovedSelections([{ id: "moved" }]);
+  assert.deepEqual(repaired, ["a"]);
+  ctx.state.wireMode = "bezier";
+  ctx.repairOrthogonalRoutesForMovedSelections([{ id: "other" }]);
+  assert.deepEqual(repaired, ["a"]);
+  assert.doesNotMatch(source("startEditorNodeDrag"), /startEditorFaceplateMarquee/,
+    "Engine faceplate clicks cannot call the retired secondary-preview marquee");
 });

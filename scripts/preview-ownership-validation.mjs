@@ -12,7 +12,7 @@ import { NODE_PREVIEW_BUILD_ID } from "../src/engine/nodePreview.js";
 import { TITLE_BLOCK_PREVIEW_BUILD_ID } from "../src/engine/titleBlockPreview.js";
 
 const EXPECTED_PREVIEW_BUILD_ID = "iteration53-4-1-preview-verification";
-const EXPECTED_APP_BUILD_ID = "iteration54-37-0-engine-only-led-project-loading";
+const EXPECTED_APP_BUILD_ID = "iteration54-38-0-engine-resource-lifetime";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -24,18 +24,18 @@ assert.equal(RACK_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "rack preview bui
 assert.equal(NODE_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "node preview build id");
 assert.equal(TITLE_BLOCK_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "title-block preview build id");
 
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.37.0";'), "app iteration should be 54.37.0");
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${EXPECTED_APP_BUILD_ID}";`), "app build id should match 54.37.0");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-37-0-engine-only-led-project-loading-modules";'), "module cache key should match 54.37.0");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.0";'), "app iteration should be 54.38.0");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${EXPECTED_APP_BUILD_ID}";`), "app build id should match 54.38.0");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-0-engine-resource-lifetime-modules";'), "module cache key should match 54.38.0");
 assert.ok(indexHtml.includes('url.searchParams.set("module", APP_MODULE_CACHE_ID);'), "engine imports should carry the module cache key");
-assert.ok(indexHtml.includes("Engine-Only LED Project Loading"), "app build label should name 54.37.0");
+assert.ok(indexHtml.includes("Engine Resource Lifetime"), "app build label should name 54.38.0");
 assert.ok(indexHtml.includes("async function ensureLedSurfacePreviews"), "project loading should recover missing bounded LED previews");
-assert.ok(indexHtml.includes("href: surface.previewImage || surface.image"), "rendering should prefer the bounded LED preview");
+assert.ok(readFileSync(new URL("../src/engine/projectAdapter.js", import.meta.url), "utf8").includes("previewImage"), "Engine normalization retains bounded LED previews");
 
 assert.ok(!enginePreviewSource.includes("legacyActualDraws"), "generic shared preview diagnostics must not publish fake legacy draw counters");
 assert.ok(!indexHtml.includes("legacy draws ${row."), "runtime owner rows must not render fake generic legacy draw counters");
-assert.ok(indexHtml.includes("legacyActualDeviceVisualDraws: editorEnginePreviewLegacyVisualDraws"), "Device Editor debug must read the real legacy draw counter");
-assert.ok(indexHtml.includes('legacyProductionRenderer: nodeBuilderUsesEnginePreview() ? "none" : "legacy/dom"'), "Node Builder must declare that no Engine-mode legacy production renderer exists");
+assert.doesNotMatch(indexHtml, /LegacyVisualDraws/, "retired production previews and their counters are removed");
+assert.ok(indexHtml.includes('productionRenderer: "EnginePreviewSurface"'), "Node Builder declares its Engine owner");
 
 const ownership = enginePreviewOwnershipAudit();
 assert.equal(ownership.buildId, EXPECTED_PREVIEW_BUILD_ID, "ownership audit build id");
@@ -48,7 +48,7 @@ for (const owner of ["device-editor", "rack-builder", "node-builder", "title-blo
 }
 
 const excludedIds = new Set(ownership.excludedSurfaces.map(row => row.id));
-for (const id of ["node-thumbnail-crop", "main-canvas-transient-previews", "output-report-viewer", "legacy-mode"]) {
+for (const id of ["node-thumbnail-crop", "main-canvas-transient-previews", "output-report-viewer"]) {
   assert.ok(excludedIds.has(id), `${id} should be explicitly excluded from persistent Engine preview migration`);
 }
 
@@ -60,9 +60,8 @@ assertFunctionOrder("renderDeviceEditorPreview", [
   "setDeviceEditorCardAuthoringMode(false);",
   "if (deviceEditorActivePreviewUsesEngine())",
   "renderDeviceEditorEnginePreview(template, options);",
-  "return;",
-  "editorEnginePreviewLegacyVisualDraws += 1;"
-], "Device Editor Cards authoring branch and Engine branch must return before legacy production drawing");
+  "return;"
+], "Device Editor retains Cards authoring and uses Engine for production previews");
 
 const cardAuthoringMode = functionSource("setDeviceEditorCardAuthoringMode");
 assert.ok(cardAuthoringMode.includes("restoreDeviceEditorPreviewSvgHome()"), "Cards tab should restore the SVG authoring schematic to its normal host");
@@ -87,26 +86,14 @@ assert.ok(functionSource("handleRackBuilderPreviewWheel").includes("if (!editorP
 assert.ok(functionSource("handleNodeBuilderPreviewWheel").includes("if (!editorPreviewWheelZoomModifierActive(event)) return;"), "Node Builder preview should require the editor-specific modifier rule");
 assert.ok(functionSource("handleTitleBlockPreviewWheel").includes("if (!editorPreviewWheelZoomModifierActive(event)) return;"), "Title Block preview should require the editor-specific modifier rule");
 
-assertFunctionOrder("renderRackBuilderPreview", [
-  "if (rackBuilderUsesEnginePreview() && rackBuilderModalOpen())",
-  "renderRackBuilderEnginePreview(options);",
-  "return;",
-  "renderRackBuilderInternalWires(rack, bounds);"
-], "Rack Builder Engine branch must return before legacy rack-internal wire drawing");
+assert.ok(functionSource("renderRackBuilderPreview").includes("renderRackBuilderEnginePreview(options);"));
 
 assertFunctionOrder("renderTitleBlockPreview", [
-  "if (titleBlockUsesEnginePreview())",
-  "syncTitleBlockEnginePreview(options);",
-  "return;",
-  "titleBlockEnginePreviewLegacyVisualDraws += 1;",
-  "drawTitleBlock(titleBlockPreview, previewBlock, { preview: true });"
-], "Title Block Engine branch must return before legacy SVG title-block drawing");
+  "syncTitleBlockDraftFromForm();",
+  "syncTitleBlockEnginePreview(options);"
+], "Title Block preview is Engine-owned");
 
-const faceplateGate = functionSource("canShowEditorFaceplatePreview");
-assert.ok(
-  faceplateGate.includes("if (deviceEditorUsesEnginePreview()) return false;"),
-  "separate faceplate SVG production preview must be disabled in Engine mode"
-);
+assert.doesNotMatch(indexHtml, /deviceEditorFaceplatePreview|renderEditorFaceplatePreview/, "retired secondary faceplate preview is removed");
 
 const nodeAppearance = functionSource("renderNodeBuilderCanvasAppearancePreview");
 assert.ok(nodeAppearance.includes("ensureNodeBuilderEnginePreviewSurface()"), "Node Canvas Appearance should use the Engine preview surface");
@@ -122,11 +109,7 @@ assert.ok(indexHtml.includes('owner: "rack-builder"'), "Rack Builder surface own
 assert.ok(indexHtml.includes('owner: "node-builder"'), "Node Builder surface owner should be declared");
 assert.ok(indexHtml.includes('owner: "title-block"'), "Title Block surface owner should be declared");
 
-const rackLegacyDevice = functionSource("drawRackPreviewDevice");
-assert.ok(
-  rackLegacyDevice.includes("if (rackBuilderUsesEnginePreview())") && rackLegacyDevice.includes("rackBuilderEnginePreviewLegacyVisualDraws += 1;"),
-  "Rack legacy device drawing should retain the Engine-mode tripwire"
-);
+assert.doesNotMatch(indexHtml, /function (drawRackPreviewDevice|renderRackBuilderInternalWires|drawDeviceBody|drawTitleBlock)\(/, "retired production SVG builders are removed");
 
 assert.ok(
   previewMigrationDoc.includes("Card Editor single-card authoring schematic")

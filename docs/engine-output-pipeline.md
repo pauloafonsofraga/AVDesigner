@@ -1,7 +1,9 @@
 # Unified Engine Output Pipeline
 
 Build 54.34.0 completes output renderer cleanup on engine-prototype.
-The supported `?legacy=1` application canvas remains unchanged.
+As of 54.38.0, Engine is the only supported application renderer. Old renderer
+URL flags open Engine; the retired SVG canvas and navigation captures are removed.
+See [resource lifetime](engine-resource-lifetime.md) for the current ownership audit.
 
 ## Ownership
 
@@ -43,10 +45,10 @@ its scene/schema identity. PDF does not consume the WebGL bundle.
   model/geometry tests. Existing specialized browser checks now open Engine HTML.
 
 The PDF clone entry point was already removed in Stage 4. No legacyOutput query
-fallback was retained in Stage 3. The remaining canvas.cloneNode call belongs
-only to the Legacy application's navigation snapshot, not any output.
-Guardrails explicitly retain that exception and reject cloning in output paths.
-Renderer and ProductionBridge fingerprints are unchanged in this cleanup.
+fallback was retained in Stage 3. The application's navigation-clone path was
+also removed in 54.38.0. Guardrails reject both retired main-canvas layers and
+Legacy output paths. The resource-lifetime release updates the renderer and
+ProductionBridge fingerprints because those modules changed.
 
 ## Guardrails and Tests
 
@@ -71,10 +73,10 @@ simulated storage/API responses, including wrong-password rejection.
 | Consumer | Representative | Large projects |
 | --- | --- | --- |
 | Live Engine app | SceneGraph and wire/matrix GPU parity | 100 devices/300 wires; 400/1200 |
-| Legacy application | Canvas intact; same canonical export signature | Both large fixtures render/export |
+| Retired mode URLs | Open Engine; same canonical export signature | No alternate canvas is created |
 | Offline HTML | Real download, network disabled, interactions, dark/light | 100/300 and 400/1200 |
 | Hosted viewer | Same implementation/schema/signature; password unlock | Both large payloads unlock/render |
-| Vector PDF | Real Engine/Legacy export and full canonical fixture | 100/300, eleven-page report |
+| Vector PDF | Real Engine export and full canonical fixture | 100/300, eleven-page report |
 
 Representative coverage includes ordinary devices, repeated installed cards,
 shared buses including card buses, breakout, PD, matrix, main/backup processors,
@@ -124,9 +126,8 @@ sufficient to reproduce required checks without this optional local file.
 
 ## Limits
 
-- Legacy shared fields sit 18 units inward versus Engine's 26; its trunk position
-  consequently differs. Both remain centered in their own safe corridor. Outputs
-  match Engine exactly, without redesigning the supported Legacy canvas.
+- Card authoring schematics retain their own field spacing; production canvas
+  and output geometry come from Engine.
 - The existing shell undo restore omits imageObjects. Full canonical image-object
   coverage is tested separately; no saved-project schema change is included.
 - WebGL2 is required. 400-device camera updates exceed a 60Hz frame budget.

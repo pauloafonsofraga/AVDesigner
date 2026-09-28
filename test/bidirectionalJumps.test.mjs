@@ -163,33 +163,31 @@ test("library-backed V2 connectors validate using the same resolved connectors a
 });
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
-function legacyHarness(project) {
+function shellHarness(project) {
   const context = vm.createContext({ state: project, jumpGestureModule: jump, jumpCompatibilityModule: {},
     connectorById: (id, port) => project.devices.find(d => d.instanceId === id)?.templateOverride.connectors.find(c => c.id === port),
     jumpNodeById: id => project.jumpNodes.find(n => n.id === id) });
   for (const name of ["normalizeJumpRole", "jumpConnectorRole", "jumpPairOrientation", "jumpRoleColor",
-    "connectionForJumpNode", "jumpNodeBaseRole", "jumpLinkForJumpNode", "jumpNodeRole", "pruneInvalidJumpLinks", "legacyJumpLinkStartStatus"]) {
+    "connectionForJumpNode", "jumpNodeBaseRole", "jumpLinkForJumpNode", "jumpNodeRole", "pruneInvalidJumpLinks"]) {
     const start = html.indexOf(`    function ${name}(`);
     assert.ok(start >= 0);
     vm.runInContext(html.slice(start, html.indexOf("\n    function ", start + 1)), context);
   }
   return context;
 }
-test("Legacy uses the same aliases and complete pair matrix as Engine", () => {
-  const legacy = legacyHarness(bidirectionalJumpFixture());
+test("Shared project metadata uses the same aliases and complete pair matrix as Engine", () => {
+  const legacy = shellHarness(bidirectionalJumpFixture());
   for (const alias of ["io", "bidirectional", "bi-directional", "two-way", "twoway", "both", "unknown", ""]) {
     assert.equal(legacy.jumpConnectorRole({ direction: alias }), jump.jumpConnectorBaseRole({ direction: alias }));
   }
   for (const first of roles) for (const second of roles) {
     assert.equal(JSON.stringify(legacy.jumpPairOrientation("a", first, "b", second)), JSON.stringify(jump.orientJumpPair("a", first, "b", second)));
   }
-  assert.equal(legacy.legacyJumpLinkStartStatus("a").valid, true);
-  assert.equal(legacy.legacyJumpLinkStartStatus("neutral").valid, false);
 });
-test("Legacy link cleanup uses base roles after direction changes, rewire and local-wire deletion", () => {
+test("Shared project metadata link cleanup uses base roles after direction changes, rewire and local-wire deletion", () => {
   for (const change of ["direction", "rewire", "delete"]) {
     const project = bidirectionalJumpFixture(); project.jumpLinks = [link];
-    const legacy = legacyHarness(project);
+    const legacy = shellHarness(project);
     assert.equal(legacy.jumpNodeRole("a").baseRole, "bidirectional");
     assert.equal(legacy.jumpNodeRole("a").role, "output");
     assert.equal(legacy.pruneInvalidJumpLinks().length, 0);
@@ -202,11 +200,11 @@ test("Legacy link cleanup uses base roles after direction changes, rewire and lo
     assert.equal(legacy.jumpNodeRole("b").color, jump.JUMP_NODE_ROLE_COLORS.bidirectional);
   }
 });
-test("Legacy pairId inference is independent of the queried endpoint and accepts bidirectional peers", () => {
+test("Shared project metadata pairId inference is independent of the queried endpoint and accepts bidirectional peers", () => {
   for (const [first, second] of [["bidirectional", "bidirectional"], ["input", "bidirectional"], ["bidirectional", "output"]]) {
     const project = bidirectionalJumpFixture(first, second);
     project.jumpNodes[0].pairId = project.jumpNodes[1].pairId = "old";
-    const legacy = legacyHarness(project);
+    const legacy = shellHarness(project);
     const expected = jump.deriveLegacyPairJumpLinks(project)[0];
     for (const id of ["b", "a"]) {
       assert.equal(legacy.jumpLinkForJumpNode(id).outputJumpId, expected.outputJumpId);

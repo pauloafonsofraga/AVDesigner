@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-37-0-engine-only-led-project-loading";
+const BUILD_ID = "iteration54-38-0-engine-resource-lifetime";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -52,12 +52,12 @@ const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Auto LED Preview Recovery");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-37-0-engine-only-led-project-loading-modules";'), "module cache key should identify Engine-Only LED Project Loading");
-assert.ok(indexHtml.includes("Engine-Only LED Project Loading"), "visible build label should name Engine-Only LED Project Loading");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-37-0-engine-only-led-project-loading"'), "Engine bridge version should identify Engine-Only LED Project Loading");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-0-engine-resource-lifetime-modules";'), "module cache key should identify Engine Resource Lifetime");
+assert.ok(indexHtml.includes("Engine Resource Lifetime"), "visible build label should name Engine Resource Lifetime");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-0-engine-resource-lifetime"'), "Engine bridge version should identify Engine Resource Lifetime");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses"'), "Engine bridge feature label should identify Selectable Projector Lenses");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-37-0-engine-only-led-project-loading"), "bridge fingerprint should identify Engine-Only LED Project Loading");
-assert.ok(rendererSource.includes("renderer-iteration54-36-13-multi-source-led-processor-wiring"), "renderer fingerprint should identify Multi-Source LED Processor Wiring");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-38-0-engine-resource-lifetime"), "bridge fingerprint should identify Engine Resource Lifetime");
+assert.ok(rendererSource.includes("renderer-iteration54-38-0-engine-resource-lifetime"), "renderer fingerprint should identify Multi-Source LED Processor Wiring");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");
 assert.ok(rendererSource.includes("pushWirePlaybackOverlay"), "renderer should draw transient Play Wire overlays");
@@ -72,7 +72,7 @@ assert.ok(bridgeSource.includes("triggerJumpLinkPlayCableAction"), "Engine bridg
 assert.ok(indexHtml.includes("triggerJumpToPairAction(jumpNodeId"), "app Inspector Jump to Pair should delegate to the active Engine bridge");
 assert.ok(indexHtml.includes("triggerPlayWireAction(connectionId"), "app Inspector Play Wire should delegate to the active Engine bridge");
 assert.ok(indexHtml.includes("triggerJumpNodePlayWireAction(jumpNodeId"), "app Jump Inspector Play Wire should delegate internal Jump Link playback to the active Engine bridge");
-assert.ok(indexHtml.includes("playJumpNodeInternalWireTrace(jumpNodeId)"), "app Jump Inspector fallback should play the internal Jump Link only");
+assert.ok(!indexHtml.includes("function playJumpNodeInternalWireTrace("), "app must not retain a second Jump playback renderer");
 assert.ok(bridgeSource.includes('data-jump-id="${escapeHtml(primaryJump.id)}"'), "Jump to Pair button should carry the active Jump ID");
 assert.ok(bridgeSource.includes('data-wire-id="${escapeHtml(wire.id)}"'), "Play Wire button should carry the active wire ID");
 assert.ok(bridgeSource.includes("jumpNodeInternalWirePlaybackPlan"), "Jump inspector should resolve an internal Jump Link playback plan for selected Jump Nodes");
@@ -91,8 +91,7 @@ assert.ok(bridgeSource.includes("playbackZoom"), "Engine Play Cable should store
 assert.ok(!bridgeSource.includes("zoomAtStart"), "Engine Play Cable should not preserve the starting zoom");
 assert.ok(bridgeSource.includes('centerCameraAtWorldPoint(playbackPoint, "play-wire-follow", { render: false, zoom: state.playbackZoom })'), "Engine Play Cable camera follow should pan at 100% zoom");
 assert.ok(bridgeSource.includes('centerCameraAtWorldPoint(step.to, "play-wire-teleport", { render: false, zoom: state.playbackZoom })'), "Engine Play Cable teleport follow should pan at 100% zoom");
-assert.ok(indexHtml.includes("const zoom = 1;"), "legacy trace camera should force 100% playback zoom");
-assert.ok(!indexHtml.includes("canvasView.zoom = 1.13;"), "legacy trace camera should not force a playback zoom");
+assert.ok(bridgeSource.includes("playbackZoom"), "Engine owns playback camera zoom");
 assert.ok(indexHtml.includes('selection.type === "jump-link"'), "app side inspector should handle selected Jump Links");
 assert.ok(indexHtml.includes("renderJumpLinkInspector"), "app side inspector should render selected Jump Link details");
 assert.ok(indexHtml.includes("triggerJumpLinkPlayCableAction(link.id || jumpLinkId"), "app side Jump Link inspector should delegate Play Cable to the Engine bridge");
@@ -419,7 +418,7 @@ assert.ok(resolvePlayableSignalPath({ startingWireId: "wire-output-jump", projec
 assert.ok(indexHtml.includes("jumpLinks: state.jumpLinks"), "project snapshot and output paths should preserve jumpLinks");
 assert.ok(indexHtml.includes("state.jumpLinks = Array.isArray(data.jumpLinks) ? data.jumpLinks : []"), "project load should initialize jumpLinks");
 assert.ok(indexHtml.includes("jump links:"), "output diagnostics should count Jump Links separately");
-assert.ok(indexHtml.includes("function wireTraceSequence"), "editor/export Play Wire path resolver should exist");
+assert.ok(bridgeSource.includes("resolvePlayableSignalPath"), "Engine owns Play Wire path resolution");
 assert.ok(bridgeSource.includes("hitTestVisibleJumpLink"), "Engine bridge should hit-test visible Jump Link overlays");
 assert.ok(bridgeSource.includes("selectedJumpLinkId"), "Engine bridge should preserve independent Jump Link selection");
 assert.ok(bridgeSource.includes("deleteSelectedJumpLink"), "Engine bridge should delete the selected Jump Link relationship");

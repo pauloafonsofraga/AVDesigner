@@ -2,9 +2,14 @@ import {
   buildDeviceVisual,
   deviceVisualCacheKey,
   deviceVisualSources,
+  retainDeviceVisualSources,
+  releaseDeviceVisualSources,
   subscribeDeviceVisualAssetReady,
   textureQuality
 } from "./deviceVisualBuilder.js";
+
+// RGBA GPU storage estimate, excluding driver overhead and decoded originals.
+export const DEFAULT_TEXTURE_BUDGET_BYTES = 256 * 1024 * 1024;
 
 const EMPTY_STATS = {
   enabled: false,
@@ -45,6 +50,10 @@ export class TextureCache {
     this.maxTextureSide = Number(gl?.getParameter?.(gl.MAX_TEXTURE_SIZE)) || 4096;
     this.entriesByDeviceId = new Map();
     this.texturesByKey = new Map();
+    this.devices = new Map();
+    this.budgetBytes = Math.max(1024, options.budgetBytes || DEFAULT_TEXTURE_BUDGET_BYTES);
+    this.clock = 0;
+    this.evictions = 0;
     this.statsData = { ...EMPTY_STATS };
     this.unsubscribeAssetReady = subscribeDeviceVisualAssetReady(source => {
       if (!this.disposed) this.invalidateByVisualSource(source, "visual asset loaded");
@@ -69,6 +78,15 @@ export class TextureCache {
       this.statsData.lastInvalidationReason = "texture mode changed";
     }
     this.statsData.modeSignature = modeSignature;
+    this.devices = new Map(devices.filter(device => device.kind !== "jump").map(device => [device.id, device]));
+    for (const id of this.entriesByDeviceId.keys()) {
+      const device = this.devices.get(id), entry = this.entriesByDeviceId.get(id);
+      if (!device || entry.key !== deviceVisualCacheKey(device, { ...options,
+        gpuMaxTextureSide: this.maxTextureSide, textureDemandScale: entry.record.demandScale })) {
+        this.invalidateDevice(id, "scene visual changed or removed");
+      }
+    }
+    retainDeviceVisualSources(this, [...this.devices.values()]);
     applyQualityStats(this.statsData, options);
     const start = performance.now();
     let prepared = 0;
@@ -77,10 +95,10 @@ export class TextureCache {
         // Jump nodes are lightweight live geometry, not baked device textures.
         // Keeping them out of the texture cache prevents stale rectangular
         // snapshots from competing with their single circular interaction model.
-        this.entriesByDeviceId.delete(device.id);
+        this.invalidateDevice(device.id, "jump geometry");
         return;
       }
-      this.ensureDeviceTexture(device, options, "scene prepare");
+      if (!options.lazyTextures) this.ensureDeviceTexture(device, options, "scene prepare");
       prepared += 1;
     });
     this.statsData.enabled = true;
@@ -92,11 +110,14 @@ export class TextureCache {
 
   ensureDeviceTexture(device, options = {}, reason = "ensure") {
     if (this.disposed || !this.gl || !device) return null;
-    const buildOptions = { ...options, gpuMaxTextureSide: this.maxTextureSide };
+    const buildOptions = { ...options, gpuMaxTextureSide: this.maxTextureSide,
+      textureDemandScale: Math.min(options.textureDemandScale || textureQuality(options).scale,
+        Math.sqrt(this.budgetBytes / (4 * Math.max(1, device.width + 1) * Math.max(1, device.height + 1)))) };
     applyQualityStats(this.statsData, buildOptions);
     const key = deviceVisualCacheKey(device, buildOptions);
     const existing = this.entriesByDeviceId.get(device.id);
     if (existing && existing.key === key && existing.record?.texture) {
+      existing.record.lastUsed = ++this.clock;
       this.statsData.hits += 1;
       this.statsData.lastTextureDiagnostics = existing.record.diagnostics || existing.diagnostics || null;
       this.statsData.lastTextureCacheEvent = "hit";
@@ -107,6 +128,7 @@ export class TextureCache {
       this.statsData.rebuilds += 1;
       this.statsData.lastInvalidationReason = reason;
     }
+    if (existing) this.invalidateDevice(device.id, reason);
 
     const shared = this.texturesByKey.get(key);
     if (shared?.texture) {
@@ -129,12 +151,15 @@ export class TextureCache {
       visual = buildDeviceVisual(device, buildOptions);
     } catch (error) {
       console.warn("[engine] device texture build failed", { deviceId: device.id, error });
-      visual = buildFallbackVisual(device);
+      visual = buildFallbackVisual(device, buildOptions.textureDemandScale);
       this.statsData.fallbacks += 1;
     }
     const buildMs = performance.now() - buildStart;
     const uploadStart = performance.now();
-    const texture = uploadTexture(this.gl, visual.canvas);
+    this.evictToBudget(key, visual.width * visual.height * 4);
+    let texture;
+    try { texture = uploadTexture(this.gl, visual.canvas); }
+    finally { visual.canvas.width = visual.canvas.height = 1; }
     const uploadMs = performance.now() - uploadStart;
     const record = {
       key,
@@ -144,6 +169,7 @@ export class TextureCache {
       cssWidth: visual.cssWidth || device.width,
       cssHeight: visual.cssHeight || device.height,
       pixelRatio: visual.pixelRatio || 1,
+      demandScale: buildOptions.textureDemandScale,
       buildMs,
       uploadMs,
       fallback: Boolean(visual.fallback),
@@ -161,6 +187,7 @@ export class TextureCache {
     this.statsData.lastTextureCacheEvent = "miss";
     const entry = this.createEntry(device, key, record, reason, true);
     this.entriesByDeviceId.set(device.id, entry);
+    this.evictToBudget(key);
     this.refreshCounts();
     return entry;
   }
@@ -169,11 +196,50 @@ export class TextureCache {
     return this.entriesByDeviceId.get(deviceId) || null;
   }
 
+  syncSources(devices) {
+    this.devices = new Map(devices.filter(device => device.kind !== "jump").map(device => [device.id, device]));
+    retainDeviceVisualSources(this, [...this.devices.values()]);
+  }
+
+  prepareVisible(devices, options = {}, zoom = 1, pixelRatio = 1) {
+    const visible = devices.filter(device => device.kind !== "jump");
+    // Power-of-two demand tiers reuse textures throughout ordinary navigation.
+    // At close zoom retain the selected quality; Fit builds screen-sized artwork.
+    const desired = Math.min(textureQuality(options).scale,
+      Math.max(0.125, 2 ** Math.ceil(Math.log2(Math.max(0.125, zoom * pixelRatio)))));
+    const pixels = visible.reduce((sum, device) => sum + (device.width + 1) * (device.height + 1), 0);
+    const allowed = Math.sqrt(this.budgetBytes * 0.9 / Math.max(4, pixels * 4));
+    const scale = Math.min(desired, 2 ** Math.floor(Math.log2(allowed)));
+    for (const device of visible) {
+      this.devices.set(device.id, device);
+      this.ensureDeviceTexture(device, { ...options, textureDemandScale: scale }, "visible demand");
+    }
+  }
+
+  evictToBudget(protectedKey, reserveBytes = 0) {
+    this.refreshCounts();
+    const records = [...this.texturesByKey.values()].filter(record => record.key !== protectedKey)
+      .sort((a, b) => a.lastUsed - b.lastUsed || a.key.localeCompare(b.key));
+    for (const record of records) {
+      if (this.statsData.memoryBytes + reserveBytes <= this.budgetBytes) break;
+      for (const [id, entry] of this.entriesByDeviceId) {
+        if (entry.record === record) this.invalidateDevice(id, "budget eviction");
+      }
+      this.evictions += 1;
+    }
+  }
+
   invalidateDevice(deviceId, reason = "manual") {
     if (this.disposed) return;
     const entry = this.entriesByDeviceId.get(deviceId);
     if (!entry) return;
     this.entriesByDeviceId.delete(deviceId);
+    entry.record.refCount -= 1;
+    if (entry.record.refCount === 0) {
+      this.gl?.deleteTexture?.(entry.record.texture);
+      this.texturesByKey.delete(entry.key);
+      entry.record.texture = null;
+    }
     this.statsData.lastInvalidationReason = reason;
     this.refreshCounts();
   }
@@ -185,7 +251,7 @@ export class TextureCache {
     const affected = [];
     this.entriesByDeviceId.forEach((entry, deviceId) => {
       if (entry.visualSources?.includes(src)) {
-        this.entriesByDeviceId.delete(deviceId);
+        this.invalidateDevice(deviceId, reason);
         affected.push(deviceId);
       }
     });
@@ -202,9 +268,13 @@ export class TextureCache {
     const gl = this.gl;
     this.texturesByKey.forEach(record => {
       if (record.texture && gl?.deleteTexture) gl.deleteTexture(record.texture);
+      record.texture = null;
+      record.refCount = 0;
     });
     this.entriesByDeviceId.clear();
     this.texturesByKey.clear();
+    this.devices.clear();
+    releaseDeviceVisualSources(this);
     this.statsData = { ...EMPTY_STATS, enabled: this.statsData.enabled, disposed: this.disposed };
   }
 
@@ -226,6 +296,7 @@ export class TextureCache {
 
   createEntry(device, key, record, reason, builtNow) {
     record.refCount += 1;
+    record.lastUsed = ++this.clock;
     return {
       deviceId: device.id,
       key,
@@ -278,6 +349,8 @@ export class TextureCache {
     this.statsData.deviceEntries = this.entriesByDeviceId.size;
     this.statsData.textureCount = this.texturesByKey.size;
     this.statsData.memoryBytes = memoryBytes;
+    this.statsData.budgetBytes = this.budgetBytes;
+    this.statsData.evictions = this.evictions;
     this.statsData.memoryLabel = formatBytes(memoryBytes);
     this.statsData.fallbacks = Math.max(this.statsData.fallbacks, fallbackCount);
     this.statsData.averageTextureSize = this.texturesByKey.size
@@ -314,6 +387,7 @@ function applyQualityStats(stats, options = {}) {
 
 function uploadTexture(gl, source) {
   const texture = gl.createTexture();
+  try {
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -322,11 +396,16 @@ function uploadTexture(gl, source) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
   return texture;
+  } catch (error) {
+    gl.deleteTexture(texture);
+    throw error;
+  }
 }
 
-function buildFallbackVisual(device) {
-  const width = Math.max(1, Math.round(device.width || 1));
-  const height = Math.max(1, Math.round(device.height || 1));
+function buildFallbackVisual(device, scale = 1) {
+  const ratio = Math.min(1, scale, 4096 / Math.max(device.width || 1, device.height || 1));
+  const width = Math.max(1, Math.ceil((device.width || 1) * ratio));
+  const height = Math.max(1, Math.ceil((device.height || 1) * ratio));
   const canvas = typeof OffscreenCanvas !== "undefined"
     ? new OffscreenCanvas(width, height)
     : document.createElement("canvas");
@@ -342,9 +421,9 @@ function buildFallbackVisual(device) {
     canvas,
     width,
     height,
-    cssWidth: width,
-    cssHeight: height,
-    pixelRatio: 1,
+    cssWidth: device.width,
+    cssHeight: device.height,
+    pixelRatio: ratio,
     buildMs: 0,
     fallback: true
   };

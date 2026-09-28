@@ -8,12 +8,12 @@ const browser = await chromium.launch({ headless: true,
 const base = process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8768";
 
 try {
-  for (const mode of ["engine", "legacy"]) {
+  for (const mode of ["engine"]) {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1100 } });
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
     page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
-    await page.goto(`${base}/index.html${mode === "legacy" ? "?legacy=1" : ""}`);
+    await page.goto(`${base}/index.html${""}`);
     await page.waitForFunction(() => typeof deviceLibrary !== "undefined" && (!activeEngineBridge() || activeEngineBridge().ready));
     const source = await page.evaluate(() => {
       const template = libraryDeviceTemplates().find(device => device.id === "barco-e2-gen2");

@@ -9,12 +9,12 @@ const browser = await chromium.launch({ headless: true,
   ...(process.env.AVDESIGNER_CHROME_PATH ? { executablePath: process.env.AVDESIGNER_CHROME_PATH } : {}) });
 const base = process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8768";
 try {
-  for (const mode of ["engine", "legacy"]) {
+  for (const mode of ["engine"]) {
     const page = await browser.newPage({ viewport: { width: 1800, height: 1100 } });
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
     page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
-    await page.goto(`${base}/index.html${mode === "legacy" ? "?legacy=1" : ""}`);
+    await page.goto(`${base}/index.html${""}`);
     await page.waitForFunction(() => typeof restoreSnapshot === "function" && (!activeEngineBridge() || activeEngineBridge().ready));
     await page.evaluate(async fixture => {
       await ensureEngineOutputSceneModule();
@@ -30,11 +30,10 @@ try {
       const bridge = activeEngineBridge();
       if (bridge) bridge.fitView(); else zoomToFit();
       const beforeData = JSON.stringify(projectSnapshotData());
-      const beforeSvg = canvas.innerHTML;
       const snapshot = buildCanonicalOutputSnapshot({ mode: "output-scene-smoke" });
       const output = snapshot.engineScene;
       const repeated = buildCanonicalOutputSnapshot({ mode: "output-scene-smoke" }).engineScene;
-      const unchanged = beforeData === JSON.stringify(projectSnapshotData()) && beforeSvg === canvas.innerHTML;
+      const unchanged = beforeData === JSON.stringify(projectSnapshotData()) && !document.getElementById("canvas");
       const beforePdf = await buildEnginePrintDrawing(snapshot);
       const afterPdf = await buildEnginePrintDrawing(snapshot);
       let parity = null;
@@ -57,7 +56,7 @@ try {
         metadata: snapshot.metadata, signature: output.signature, counts: output.diagnostics.counts,
         warnings: output.diagnostics.warnings, html: (await prepareEngineViewerOutput()).html };
     });
-    assert.equal(result.unchanged, true, `${mode}: project data/Legacy canvas untouched`);
+    assert.equal(result.unchanged, true, `${mode}: project data unchanged and no retired canvas`);
     assert.equal(result.pdfDeterministic, true, `${mode}: Engine print SVG deterministic`);
     assert.equal(result.pdfSignature, result.signature);
     assert.equal(result.deterministic, true);

@@ -1,5 +1,10 @@
 # AV Designer Engine Mode Feature Parity Matrix
 
+Current status (54.38.0): Engine is the only supported renderer. Legacy mode,
+fallbacks, main SVG layers, and navigation snapshots are removed. Old mode URLs
+open Engine. The iteration entries below are historical migration records;
+use [Engine resource lifetime](engine-resource-lifetime.md) for current checks.
+
 Historical iteration log. Current output ownership is the unified Engine pipeline
 (54.34.0): HTML/Publish use Engine WebGL, PDF uses Engine SVG. The old output
 implementations mentioned below were retired. See `engine-output-pipeline.md`.

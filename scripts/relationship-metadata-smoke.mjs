@@ -8,14 +8,14 @@ const browser = await chromium.launch({ headless: true,
   ...(process.env.AVDESIGNER_CHROME_PATH ? { executablePath: process.env.AVDESIGNER_CHROME_PATH } : {}) });
 const base = process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8768";
 try {
-  for (const mode of ["engine", "legacy"]) {
+  for (const mode of ["engine"]) {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1100 } });
     const errors = [];
     page.on("pageerror", e => errors.push(e.message));
     page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
     const dialogs = [];
     page.on("dialog", dialog => { dialogs.push(dialog.message()); return dialog.accept(); });
-    await page.goto(`${base}/index.html${mode === "legacy" ? "?legacy=1" : ""}`);
+    await page.goto(`${base}/index.html${""}`);
     await page.waitForFunction(() => relationshipMetadataApi()?.applyConnectorRelationshipFieldPatch && (!activeEngineBridge() || activeEngineBridge().ready));
     const template = relationshipMetadataFixture();
     template.connectorRelationships = [];
@@ -25,7 +25,8 @@ try {
     await page.evaluate(() => openDeviceEditorForInstance("d"));
     await page.locator('[data-editor-tab="connectors"]').click();
     const editorSelect = async (id, additive = false) => {
-      const target = page.locator(`[data-editor-node-id="${id}"] circle`).first();
+      await page.waitForFunction(() => !editorPlacementMotionState?.entries?.size);
+      const target = page.locator(`#deviceEditorModal [data-editor-node-id="${id}"] circle`).first();
       const point = await target.evaluate(circle => {
         const p = circle.ownerSVGElement.createSVGPoint();
         const inset = Math.min(14, Number(circle.getAttribute("r")) - 1);
@@ -79,17 +80,17 @@ try {
     assert.deepEqual(await page.evaluate(() => structuredClone(currentEditorTemplate().connectors)), last);
     await page.evaluate(() => applyDeviceEditor());
     assert.equal(await page.evaluate(() => deviceEditorModal.classList.contains("hidden")), true, `Apply: ${dialogs.join("; ")}`);
-    await page.waitForFunction(() => !activeEngineBridge() || activeEngineBridge().ready);
-    await page.evaluate(() => { const b = activeEngineBridge(); if (b) b.fitView(); else zoomToFit(); });
+    await page.waitForFunction(() => activeEngineBridge()?.ready);
+    await page.evaluate(() => activeEngineBridge().fitView());
     const canvasSelect = async id => {
       const p = await page.evaluate(id => {
         const p = pointForConnector("d", id), b = activeEngineBridge();
-        if (b) { const r = b.canvas.getBoundingClientRect(); return { x: r.x + (p.x-b.camera.x)*b.camera.zoom, y: r.y + (p.y-b.camera.y)*b.camera.zoom }; }
-        const q = canvas.createSVGPoint(); q.x = p.x; q.y = p.y; const r = q.matrixTransform(canvas.getScreenCTM()); return { x: r.x, y: r.y };
+        const r = b.canvas.getBoundingClientRect();
+        return { x: r.x + (p.x-b.camera.x)*b.camera.zoom, y: r.y + (p.y-b.camera.y)*b.camera.zoom };
       }, id);
       await page.mouse.click(p.x, p.y);
-      const selected = await page.evaluate(() => ({ keys: activeEngineBridge() ? [...activeEngineBridge().scene.selectedConnectorKeys] : [], selected: state.selected, modal: !deviceEditorModal.classList.contains("hidden") }));
-      assert.equal(mode === "engine" ? selected.keys[0] : selected.selected?.connectorId, mode === "engine" ? `d:${id}` : id, `${mode}: individual canvas selection ${JSON.stringify({ p, selected })}`);
+      const selected = await page.evaluate(() => ({ keys: [...activeEngineBridge().scene.selectedConnectorKeys], selected: state.selected, modal: !deviceEditorModal.classList.contains("hidden") }));
+      assert.equal(selected.keys[0], `d:${id}`, `${mode}: individual canvas selection ${JSON.stringify({ p, selected })}`);
     };
     const history = () => page.evaluate(() => activeEngineBridge()?.commandHistory.length ?? undoStack.length);
     const canvasEdit = async (id, field, value) => {
@@ -97,7 +98,7 @@ try {
       const control = page.locator(`[data-canvas-connector-${field.endsWith("Caption") ? "caption" : "field"}="${field}"]`);
       await control.fill(value); await control.blur();
       if (!(id === "output" && field === "nameText")) assert.equal(await history(), before + 1, `${mode}: canvas one undo`);
-      assert.equal(await page.evaluate(() => activeEngineBridge()?.scene.selectedConnectorKeys.values().next().value || state.selected?.connectorId), mode === "engine" ? `d:${id}` : id);
+      assert.equal(await page.evaluate(() => activeEngineBridge()?.scene.selectedConnectorKeys.values().next().value || state.selected?.connectorId), `d:${id}`);
     };
     await canvasEdit("bus-2", "nameText", "Canvas BUS");
     await canvasEdit("bus-0", "resolutionFrameRate", "8K30");
@@ -142,8 +143,7 @@ try {
     await page.locator('[data-editor-tab="connectors"]').click();
     const sourceCard = await page.evaluate(() => structuredClone(currentEditorTemplate().cardTypes[0]));
     const installedSelect = async id => {
-      if (mode === "legacy") await page.locator(`[data-editor-installed-card-connector-id="${id}"] circle`).first().click();
-      else {
+      {
         const p = await page.evaluate(id => {
           const surface = editorEnginePreviewSurface, entry = surface.connectorEntries(editorEnginePreviewLastDeviceId).find(e => e.connector.id === id);
           const rect = surface.dom.root.getBoundingClientRect(); return { x: rect.x + entry.screen.x, y: rect.y + entry.screen.y };

@@ -1,5 +1,12 @@
 # Engine Preview Migration
 
+Current status (54.38.0): Engine is the only supported renderer, including old
+`?legacy=1` URLs. The alternate Device/Rack/Title production SVG branches and
+secondary faceplate preview have been deleted. Cards-tab authoring, crop tools,
+and interaction overlays remain. The audit below records the historical 53.4.1
+migration, not available renderer modes. Current ownership and verification:
+[Engine resource lifetime](engine-resource-lifetime.md).
+
 Build: `iteration53-4-1-preview-verification`
 
 Iteration 53.4.1 is the final corrective verification pass after the 53.4 preview-migration audit. Persistent Engine-mode production-appearance editor previews now route through the shared Engine renderer stack: `EnginePreviewSurface`, `SceneGraph`, `WebglGraphRenderer`, `TextureCache`, `projectAdapter`, `deviceVisualBuilder`, `connectorDisplayLayout`, `faceplateGeometry`, `rackPreview`, `nodePreview`, and `titleBlockPreview`.

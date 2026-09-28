@@ -7,42 +7,39 @@ const browser = await chromium.launch({ headless: true,
   ...(process.env.AVDESIGNER_CHROME_PATH ? { executablePath: process.env.AVDESIGNER_CHROME_PATH } : {}) });
 const base = process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8768";
 try {
-  for (const mode of ["engine", "legacy"]) {
+  for (const mode of ["engine"]) {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
     const errors = [];
     page.on("pageerror", e => errors.push(e.message));
     page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
-    await page.goto(`${base}/index.html${mode === "legacy" ? "?legacy=1" : ""}`);
-    await page.waitForFunction(() => jumpGestureModule && (!activeEngineBridge() || activeEngineBridge().ready));
+    await page.goto(`${base}/index.html`);
+    await page.waitForFunction(() => activeEngineBridge()?.ready);
     const load = async (zoom, data = jumpHoldFixture()) => {
       await page.evaluate(data => { restoreSnapshot(data); undoStack = []; redoStack = []; }, data);
-      await page.waitForFunction(() => !activeEngineBridge() || activeEngineBridge().ready);
+      await page.waitForFunction(() => activeEngineBridge()?.ready);
       await page.evaluate(zoom => {
         const b = activeEngineBridge();
-        if (b) { if (zoom === "fit") b.fitView(); else { b.camera.x = 0; b.camera.y = 0; b.zoomAtCanvasPoint(zoom, { x: 0, y: 0 }); } }
-        else { if (zoom === "fit") zoomToFit(); else { canvasView.x = 0; canvasView.y = 0; canvasView.zoom = zoom; updateCanvasView(); } }
+        { if (zoom === "fit") b.fitView(); else { b.camera.x = 0; b.camera.y = 0; b.zoomAtCanvasPoint(zoom, { x: 0, y: 0 }); } }
       }, zoom);
     };
     const point = id => page.evaluate(id => {
       const n = jumpNodeById(id), b = activeEngineBridge();
-      if (b) { const r = b.canvas.getBoundingClientRect(); return { x: r.x + (n.x - b.camera.x) * b.camera.zoom, y: r.y + (n.y - b.camera.y) * b.camera.zoom }; }
-      const p = canvas.createSVGPoint(); p.x = n.x; p.y = n.y;
-      const q = p.matrixTransform(canvas.getScreenCTM()); return { x: q.x, y: q.y };
+      { const r = b.canvas.getBoundingClientRect(); return { x: r.x + (n.x - b.camera.x) * b.camera.zoom, y: r.y + (n.y - b.camera.y) * b.camera.zoom }; }
     }, id);
     const read = () => page.evaluate(() => {
       const b = activeEngineBridge();
       return { nodes: structuredClone(state.jumpNodes), wires: structuredClone(state.connections), links: structuredClone(state.jumpLinks),
-        pending: !!(b ? b.pendingJumpPress : pendingJumpPress), preview: !!(b ? b.jumpLinkCreate : jumpLinkCreate),
-        overlay: b ? !!b.jumpLinkPreviewState() : !!canvas.querySelector("[data-jump-link-preview]"),
-        selected: b ? [...b.scene.selectedIds] : selectionItems().filter(i => i.type === "jump-node").map(i => i.id),
-        history: b ? b.commandHistory.length : undoStack.length, physicalPreview: !!(b ? b.wireCreate : connectState) };
+        pending: !!(b.pendingJumpPress), preview: !!(b.jumpLinkCreate),
+        overlay: !!b.jumpLinkPreviewState(),
+        selected: [...b.scene.selectedIds],
+        history: b.commandHistory.length, physicalPreview: !!(b.wireCreate) };
     });
     const press = async id => { const p = await point(id); await page.mouse.move(p.x, p.y); await page.mouse.down(); return p; };
     const hold = async (id, jitter = 0) => {
       const p = await press(id);
       if (jitter) await page.mouse.move(p.x + jitter, p.y);
       await page.evaluate(() => {
-        const surface = activeEngineBridge()?.canvas || canvas;
+        const surface = activeEngineBridge().canvas;
         for (const type of ["pointercancel", "lostpointercapture"]) surface.dispatchEvent(new PointerEvent(type, { pointerId: 999 }));
       });
       await page.waitForTimeout(320);
@@ -75,19 +72,11 @@ try {
       assert.deepEqual(saved.jumpLinks, linked.links);
       await load(zoom, saved);
       assert.deepEqual((await read()).links, linked.links);
-      const plan = await page.evaluate(() => jumpGestureModule.resolvePlayableSignalPath({ startingWireId: "wire-a", project: state,
+      const plan = await page.evaluate(async () => (await import("./src/engine/jumpNodeModel.js")).resolvePlayableSignalPath({ startingWireId: "wire-a", project: state,
         getConnector: (deviceId, connectorId) => connectorById(deviceId, connectorId) }).map(segment => segment.type));
       assert.deepEqual(plan, ["wire", "teleport", "wire"]);
       const selected = await point("a"); await page.mouse.click(selected.x, selected.y);
-      if (mode === "engine") await page.locator("[data-jump-disconnect]").click();
-      else {
-        // Legacy has no disconnect inspector action; exercise the canonical mutation
-        // adapter against its live project, then re-pair using real pointer gestures.
-        await page.evaluate(async () => {
-          const { ProjectMutationAdapter } = await import(engineImportUrl("./src/engine/projectMutations.js"));
-          pushUndo(); new ProjectMutationAdapter({ projectData: state }, { cloneProjectData: false }).removeJumpLink(state.jumpLinks[0].id); render();
-        });
-      }
+      await page.locator("[data-jump-disconnect]").click();
       assert.equal((await read()).links.length, 0); assert.deepEqual((await read()).wires, initial.wires);
       await hold("b"); const target = await point("a"); await page.mouse.move(target.x, target.y); await page.mouse.up();
       const repaired = await read(); assert.equal(repaired.links.length, 1);
@@ -110,7 +99,7 @@ try {
         if (linked) await hold("a"); else await press("a");
         if (exit === "Escape") await page.keyboard.press("Escape");
         else await page.evaluate(exit => {
-          const b = activeEngineBridge(), surface = b?.canvas || canvas, owner = b ? b.pendingJumpPress || b.jumpLinkCreate : pendingJumpPress || jumpLinkCreate;
+          const b = activeEngineBridge(), surface = b.canvas, owner = b.pendingJumpPress || b.jumpLinkCreate;
           if (exit === "reload") restoreSnapshot(projectSnapshot());
           else if (exit === "blur") window.dispatchEvent(new Event("blur"));
           else if (exit === "lostpointercapture") surface.releasePointerCapture(owner.pointerId);
@@ -146,7 +135,7 @@ try {
       }
       await load(1, data); const before = await read(); await hold("a");
       const p = await point("b"); await page.mouse.move(p.x, p.y);
-      assert.equal(await page.evaluate(() => (activeEngineBridge()?.jumpLinkCreate || jumpLinkCreate).compatibility.valid), false, `${mode}/${reason}: target rejected`);
+      assert.equal(await page.evaluate(() => (activeEngineBridge()?.jumpLinkCreate).compatibility.valid), false, `${mode}/${reason}: target rejected`);
       await page.mouse.up(); const after = await read();
       assert.deepEqual(after.links, before.links); assert.deepEqual(after.wires, before.wires); assert.equal(after.history, 0);
     }
@@ -160,8 +149,7 @@ try {
     await load(1);
     await page.evaluate(() => {
       const b = activeEngineBridge();
-      if (b) { b.scene.selectOnly("a"); b.scene.toggleSelection("out-2"); b.scheduleRender(); }
-      else select({ type: "multi", items: [{ type: "jump-node", id: "a" }, { type: "jump-node", id: "out-2" }] });
+      { b.scene.selectOnly("a"); b.scene.toggleSelection("out-2"); b.scheduleRender(); }
     });
     const selectedBefore = await read(); const p = await press("a"); await page.waitForTimeout(320);
     assert.equal((await read()).preview, false);
