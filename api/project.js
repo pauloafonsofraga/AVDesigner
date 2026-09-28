@@ -67,11 +67,16 @@ export default async function handler(request, response) {
     if (!metaText) return json(response, 404, { error: "Project was not found." });
 
     const metadata = JSON.parse(metaText);
-    // Only the logo is public. Never return the metadata record or fetch the
-    // private drawing before password verification.
-    if (brandingOnly) return json(response, 200, {
-      companyLogo: globalThis.AVDesignerCompanyLogo.publishedCompanyLogo(metadata.companyLogo)
-    });
+    // Only login branding is public. Never return the metadata record or fetch
+    // the private drawing before password verification.
+    if (brandingOnly) {
+      const projectName = [metadata.projectName, metadata.title]
+        .find(value => typeof value === "string" && value.trim()) || "Untitled AV Wirechart";
+      return json(response, 200, {
+        projectName: projectName.trim().slice(0, 120),
+        companyLogo: globalThis.AVDesignerCompanyLogo.publishedCompanyLogo(metadata.companyLogo)
+      });
+    }
     if (!verifyPassword(password, metadata.password)) {
       return json(response, 401, { error: "Password is incorrect." });
     }

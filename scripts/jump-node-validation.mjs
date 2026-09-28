@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-38-14-paired-jump-cable-highlighting";
+const BUILD_ID = "iteration54-38-15-wirenexus-viewer-branding";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -52,8 +52,8 @@ const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Auto LED Preview Recovery");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-14-paired-jump-cable-highlighting-modules";'), "module cache key should identify Paired Jump Cable Highlighting");
-assert.ok(indexHtml.includes("Paired Jump Cable Highlighting"), "visible build label should name Paired Jump Cable Highlighting");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-15-wirenexus-viewer-branding-modules";'), "module cache key should identify WireNexus Viewer Branding");
+assert.ok(indexHtml.includes("WireNexus Viewer Branding"), "visible build label should name WireNexus Viewer Branding");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-13-led-rack-selection-and-colors"'), "Engine bridge version should identify LED Rack Selection and Colors");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses"'), "Engine bridge feature label should identify Selectable Projector Lenses");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-38-13-led-rack-selection-and-colors"), "bridge fingerprint should identify LED Rack Selection and Colors");

@@ -76,6 +76,7 @@ try {
     assert.equal(request.companyLogo, await page.evaluate(source => preparePublishedCompanyLogo(source), expected));
     return page.evaluate(path => uploadedFiles[path], request.htmlPath);
   }
+  await page.locator("#publishProjectTitle").fill("11864-VX-PWC-Hilton Habtoor");
   const hostedHtml = await publish(first);
   assert.ok(hostedHtml.includes('id="engineOutputPayload"'));
   assert.ok(!hostedHtml.includes(request.password));
@@ -84,7 +85,7 @@ try {
   const hosted = await context.newPage();
   hosted.on("console", message => { if (message.type() === "error" && !message.text().includes("401 (Unauthorized)")) errors.push(message.text()); });
   await hosted.route("**/api/project*", route => route.fulfill(route.request().method() === "GET"
-    ? { json: { companyLogo: request.companyLogo } }
+    ? { json: { companyLogo: request.companyLogo, projectName: request.title } }
     : route.request().postDataJSON().password === "logo-test-password"
       ? { json: { html: hostedHtml, title: "Logo smoke" } }
       : { status: 401, json: { error: "Password is incorrect." } }));
@@ -92,10 +93,24 @@ try {
   await hosted.locator("#companyLogo").waitFor({ state: "visible" });
   assert.equal(await hosted.locator("#companyLogo").getAttribute("src"), request.companyLogo);
   assert.equal(await hosted.locator("#companyFavicon").getAttribute("href"), request.companyLogo);
+  assert.equal(await hosted.locator("h1").textContent(), "WireNexus Viewer");
+  assert.ok(await hosted.locator("h1").evaluate(el => Number(getComputedStyle(el).fontWeight) >= 700));
+  assert.equal(await hosted.locator("#projectName").textContent(), request.title);
+  assert.equal(await hosted.title(), `${request.title} | WireNexus Viewer`);
   await hosted.screenshot({ path: join(artifacts, "hosted-company-logo.png") });
   await hosted.setViewportSize({ width: 375, height: 812 });
   assert.equal(await hosted.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await hosted.screenshot({ path: join(artifacts, "hosted-company-logo-mobile.png") });
+  const longName = 'Client-'.repeat(12) + '<img src=x onerror="window.injected=true">';
+  await hosted.route("**/api/project?id=*", route => route.fulfill({ json: { companyLogo: request.companyLogo, projectName: longName } }));
+  await hosted.setViewportSize({ width: 320, height: 812 });
+  await hosted.reload();
+  await hosted.waitForFunction(name => document.getElementById("projectName").textContent === name, longName);
+  assert.equal(await hosted.locator("#projectName img").count(), 0);
+  assert.equal(await hosted.evaluate(() => Boolean(window.injected)), false);
+  assert.equal(await hosted.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await hosted.screenshot({ path: join(artifacts, "hosted-long-name-mobile.png") });
+  pass("WireNexus heading is bold; project name is plain text and wraps on narrow phones");
   await hosted.locator("#projectPassword").fill("wrong"); await hosted.locator("#unlockButton").click();
   await hosted.waitForFunction(() => viewerStatus.textContent.includes("incorrect"));
   assert.equal(await hosted.locator("iframe").count(), 0);
@@ -115,6 +130,14 @@ try {
   const fallbackHtml = await publish(second);
   assert.equal(JSON.parse(fallbackHtml.match(/id="engineOutputPayload">([\s\S]*?)<\/script>/)[1]).engineScene.signature, noTitleScene);
   await page.screenshot({ path: join(artifacts, "publish-uploaded-logo.png") });
+  const uploadedLogin = await context.newPage();
+  await uploadedLogin.route("**/api/project*", route => route.fulfill({ json: { companyLogo: request.companyLogo, projectName: request.title } }));
+  await uploadedLogin.goto(`${base}/viewer.html?id=logo-project`);
+  await uploadedLogin.locator("#companyLogo").waitFor({ state: "visible" });
+  assert.equal(await uploadedLogin.locator("#companyLogo").getAttribute("src"), request.companyLogo);
+  assert.equal(await uploadedLogin.locator("#projectName").textContent(), request.title);
+  await uploadedLogin.screenshot({ path: join(artifacts, "hosted-uploaded-logo.png") });
+  await uploadedLogin.close();
   pass("no-title-block upload supplies the company logo without altering the drawing scene");
 
   await page.evaluate(first => {
@@ -128,11 +151,19 @@ try {
   assert.equal(await page.evaluate(() => AVDesignerCompanyLogo.readCompanyLogo()), null);
   await publish("");
   const plain = await context.newPage();
-  await plain.route("**/api/project*", route => route.fulfill({ json: { companyLogo: "" } }));
+  await plain.route("**/api/project*", route => route.fulfill({ json: { companyLogo: "", projectName: "Project without logo" } }));
   await plain.goto(`${base}/viewer.html?id=logo-project`);
+  await plain.waitForFunction(() => document.getElementById("projectName").textContent === "Project without logo");
   assert.equal(await plain.locator("#companyLogo").isVisible(), false);
   assert.ok(!(await plain.content()).includes("VideoCoreLogo.png"));
   pass("logo can be removed; unbranded projects never fall back to VideoCore");
+  await plain.route("**/api/project*", route => route.fulfill({ json: {} }));
+  await plain.reload();
+  assert.equal(await plain.locator("h1").textContent(), "WireNexus Viewer");
+  assert.equal(await plain.locator("#companyLogo").isVisible(), false);
+  assert.equal(await plain.locator("#projectName").isVisible(), false);
+  assert.equal(await plain.locator("#unlockButton").isEnabled(), true);
+  pass("missing public branding never restores AV Designer branding or blocks password entry");
   assert.deepEqual(errors, []);
   console.log(`PASS ${checks} browser checks; 0 console/page errors; screenshots: ${artifacts}`);
 } finally { await browser.close(); }

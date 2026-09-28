@@ -63,9 +63,9 @@ async function call(handler, request) {
   await handler(request, response);
   return response;
 }
-function projectApi(companyLogo = png) {
-  const paths = [], metadata = { companyLogo, title: "Private title", projectName: "Private project", htmlPath: "private/viewer.html", projectPath: "private/project.json",
-    password: { salt: "test-salt", iterations: 120000, digest: "sha256", hash: crypto.pbkdf2Sync("secret", "test-salt", 120000, 32, "sha256").toString("hex") } };
+function projectApi(companyLogo = png, overrides = {}) {
+  const paths = [], metadata = { companyLogo, title: "Published title", projectName: "Test project", htmlPath: "private/viewer.html", projectPath: "private/project.json",
+    password: { salt: "test-salt", iterations: 120000, digest: "sha256", hash: crypto.pbkdf2Sync("secret", "test-salt", 120000, 32, "sha256").toString("hex") }, ...overrides };
   const handler = api("project", { get: async path => {
     paths.push(path);
     return { statusCode: 200, stream: new Response(path.endsWith("meta.json") ? JSON.stringify(metadata) : "<html>private viewer</html>").body };
@@ -73,11 +73,11 @@ function projectApi(companyLogo = png) {
   return { handler, paths };
 }
 
-test("public logo endpoint reveals only branding, never title, password, paths or private drawing", async () => {
+test("public branding endpoint exposes project name and logo, never password, paths or private drawing", async () => {
   const { handler, paths } = projectApi();
   const response = await call(handler, { method: "GET", query: { id: "test-project" } });
   assert.equal(response.code, 200);
-  assert.deepEqual(response.body, { companyLogo: png });
+  assert.deepEqual(response.body, { projectName: "Test project", companyLogo: png });
   assert.equal(response.headers["Cache-Control"], "no-store");
   assert.deepEqual(paths, ["avdesigner/projects/test-project/meta.json"]);
 });
@@ -88,7 +88,22 @@ test("public branding rejects invalid IDs before storage access and unsafe store
     assert.equal((await call(handler, { method: "GET", query: { id } })).code, 400);
   }
   assert.deepEqual(paths, []);
-  assert.deepEqual((await call(handler, { method: "GET", query: { id: "test-project" } })).body, { companyLogo: "" });
+  assert.deepEqual((await call(handler, { method: "GET", query: { id: "test-project" } })).body, { projectName: "Test project", companyLogo: "" });
+});
+
+test("public project name uses saved metadata, bounds length and falls back without exposing other fields", async () => {
+  for (const [overrides, expected] of [
+    [{ projectName: "  Client <Event> & Show  " }, "Client <Event> & Show"],
+    [{ projectName: "", title: "Publish title" }, "Publish title"],
+    [{ projectName: null, title: null }, "Untitled AV Wirechart"],
+    [{ projectName: { secret: "not text" }, title: "" }, "Untitled AV Wirechart"],
+    [{ projectName: "X".repeat(200) }, "X".repeat(120)]
+  ]) {
+    const { handler, paths } = projectApi("", overrides);
+    const response = await call(handler, { method: "GET", query: { id: "test-project" } });
+    assert.deepEqual(response.body, { companyLogo: "", projectName: expected });
+    assert.deepEqual(paths, ["avdesigner/projects/test-project/meta.json"]);
+  }
 });
 
 test("private viewer remains password protected after public branding fetch", async () => {
