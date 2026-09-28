@@ -1,24 +1,47 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ledPreviewDimensions, pngDimensions, prepareLedImage } from "../src/engine/imagePreview.js";
+import { pngDimensions, prepareLedImage } from "../src/engine/imagePreview.js";
 
-function png(width,height){const bytes=new ArrayBuffer(24),v=new DataView(bytes);v.setUint32(0,0x89504e47);v.setUint32(4,0x0d0a1a0a);v.setUint32(12,0x49484452);v.setUint32(16,width);v.setUint32(20,height);return bytes;}
-test("PNG header dimensions preserve original geometry and bound either aspect ratio",()=>{
-  assert.deepEqual(pngDimensions(png(15360,1920)),{width:15360,height:1920});
-  assert.deepEqual(ledPreviewDimensions(15360,1920),{width:4096,height:512,needed:true});
-  assert.deepEqual(ledPreviewDimensions(1920,15360),{width:512,height:4096,needed:true});
-  assert.equal(pngDimensions(new ArrayBuffer(10)),null);
+function png(width, height) {
+  const bytes = new ArrayBuffer(24), view = new DataView(bytes);
+  view.setUint32(0, 0x89504e47); view.setUint32(4, 0x0d0a1a0a); view.setUint32(12, 0x49484452);
+  view.setUint32(16, width); view.setUint32(20, height);
+  return bytes;
+}
+
+test("PNG header dimensions retain the original geometry", () => {
+  assert.deepEqual(pngDimensions(png(15360, 1920)), { width: 15360, height: 1920 });
+  assert.deepEqual(pngDimensions(png(1920, 15360)), { width: 1920, height: 15360 });
+  assert.equal(pngDimensions(new ArrayBuffer(10)), null);
 });
-test("small PNG import reads dimensions without decoding or reencoding original",async()=>{
-  const result=await prepareLedImage(new Blob([png(3072,1920)]));
-  assert.equal(result.naturalWidth,3072);assert.equal(result.dataUrl,"");assert.equal(result.needed,false);
+
+test("small and large PNG imports neither resize nor reencode the original", async t => {
+  const previous = globalThis.createImageBitmap;
+  globalThis.createImageBitmap = () => { throw new Error("PNG header read should not decode"); };
+  t.after(() => { globalThis.createImageBitmap = previous; });
+  for (const [width, height] of [[3072, 1920], [15360, 1920], [1920, 15360]]) {
+    const blob = new Blob([png(width, height)]), before = await blob.arrayBuffer();
+    assert.deepEqual(await prepareLedImage(blob), { naturalWidth: width, naturalHeight: height });
+    assert.deepEqual(await blob.arrayBuffer(), before);
+  }
 });
-for(const failure of ["encode","cancel"])test(`temporary bitmap and canvas released after ${failure}`,async t=>{
-  const oldBitmap=globalThis.createImageBitmap,oldCanvas=globalThis.OffscreenCanvas;
-  let closed=0,canvas;const controller=new AbortController();
-  globalThis.createImageBitmap=async(blob,options)=>{assert.equal(options.resizeWidth,4096);return {width:4096,height:512,close(){closed++;}};};
-  globalThis.OffscreenCanvas=class {constructor(w,h){this.width=w;this.height=h;canvas=this;}getContext(){return {drawImage(){}};}async convertToBlob(){if(failure==='encode')throw new Error('encode');controller.abort();return new Blob();}};
-  t.after(()=>{globalThis.createImageBitmap=oldBitmap;globalThis.OffscreenCanvas=oldCanvas;});
-  await assert.rejects(prepareLedImage(new Blob([png(15360,1920)]),{signal:controller.signal}));
-  assert.equal(closed,1);assert.equal(canvas.width,1);assert.equal(canvas.height,1);
+
+test("cancelled PNG preparation does not return stale metadata", async () => {
+  const controller = new AbortController(); controller.abort();
+  await assert.rejects(prepareLedImage(new Blob([png(15360, 1920)]), { signal: controller.signal }), { name: "AbortError" });
+});
+
+for (const cancelled of [false, true]) test(`fallback decoder releases its bitmap (cancelled: ${cancelled})`, async t => {
+  const previous = globalThis.createImageBitmap, controller = new AbortController();
+  let closed = 0;
+  globalThis.createImageBitmap = async (blob, options) => {
+    assert.equal(options, undefined, "no resize options");
+    if (cancelled) controller.abort();
+    return { width: 15360, height: 1920, close() { closed++; } };
+  };
+  t.after(() => { globalThis.createImageBitmap = previous; });
+  const pending = prepareLedImage(new Blob(["not a PNG header"]), { signal: controller.signal });
+  if (cancelled) await assert.rejects(pending, { name: "AbortError" });
+  else assert.deepEqual(await pending, { naturalWidth: 15360, naturalHeight: 1920 });
+  assert.equal(closed, 1);
 });

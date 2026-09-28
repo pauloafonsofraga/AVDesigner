@@ -12,7 +12,7 @@ import { NODE_PREVIEW_BUILD_ID } from "../src/engine/nodePreview.js";
 import { TITLE_BLOCK_PREVIEW_BUILD_ID } from "../src/engine/titleBlockPreview.js";
 
 const EXPECTED_PREVIEW_BUILD_ID = "iteration53-4-1-preview-verification";
-const EXPECTED_APP_BUILD_ID = "iteration54-38-0-engine-resource-lifetime";
+const EXPECTED_APP_BUILD_ID = "iteration54-38-1-original-png-canvas-pan";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -24,13 +24,13 @@ assert.equal(RACK_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "rack preview bui
 assert.equal(NODE_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "node preview build id");
 assert.equal(TITLE_BLOCK_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "title-block preview build id");
 
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.0";'), "app iteration should be 54.38.0");
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${EXPECTED_APP_BUILD_ID}";`), "app build id should match 54.38.0");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-0-engine-resource-lifetime-modules";'), "module cache key should match 54.38.0");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.1";'), "app iteration should be 54.38.1");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${EXPECTED_APP_BUILD_ID}";`), "app build id should match 54.38.1");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-1-original-png-canvas-pan-modules";'), "module cache key should match 54.38.1");
 assert.ok(indexHtml.includes('url.searchParams.set("module", APP_MODULE_CACHE_ID);'), "engine imports should carry the module cache key");
-assert.ok(indexHtml.includes("Engine Resource Lifetime"), "app build label should name 54.38.0");
-assert.ok(indexHtml.includes("async function ensureLedSurfacePreviews"), "project loading should recover missing bounded LED previews");
-assert.ok(readFileSync(new URL("../src/engine/projectAdapter.js", import.meta.url), "utf8").includes("previewImage"), "Engine normalization retains bounded LED previews");
+assert.ok(indexHtml.includes("Original PNGs and Canvas Pan"), "app build label should name 54.38.1");
+assert.doesNotMatch(indexHtml, /ensureLedSurfacePreviews|LED_SURFACE_PREVIEW_MAX/, "LED loading must not generate reduced previews");
+assert.ok(readFileSync(new URL("../src/engine/projectAdapter.js", import.meta.url), "utf8").includes("image: sourceImage"), "Engine loads original LED artwork");
 
 assert.ok(!enginePreviewSource.includes("legacyActualDraws"), "generic shared preview diagnostics must not publish fake legacy draw counters");
 assert.ok(!indexHtml.includes("legacy draws ${row."), "runtime owner rows must not render fake generic legacy draw counters");

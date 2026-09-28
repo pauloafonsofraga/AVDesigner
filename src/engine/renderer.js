@@ -61,7 +61,7 @@ import {
 } from "./jumpNodeModel.js";
 import { wirePlaybackEase } from "./wirePlayback.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-0-engine-resource-lifetime";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-1-original-png-canvas-pan";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";

@@ -1,100 +1,53 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { deviceVisualSources, ledSurfaceTexturePolicy } from "../src/engine/deviceVisualBuilder.js";
+import { buildDeviceVisual, deviceVisualSources, drawDeviceVisual } from "../src/engine/deviceVisualBuilder.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 
-test("large LED surfaces use a bounded Engine preview policy without changing geometry", () => {
-  const device = {
-    kind: "led-surface",
-    width: 15360,
-    height: 1920,
-    visual: {
-      image: "data:image/png;base64,large-led-wall",
-      naturalWidth: 15360,
-      naturalHeight: 1920
-    }
+const wall = {
+  kind: "led-surface", width: 15360, height: 1920,
+  visual: { image: "data:image/png;base64,original", naturalWidth: 15360, naturalHeight: 1920 }
+};
+
+test("large original PNGs are loaded and drawn, not rejected at 16 million pixels", () => {
+  const image = { complete: true, naturalWidth: 15360, naturalHeight: 1920 };
+  const draws = [], sources = [];
+  const ctx = { resolveImage(source) { sources.push(source); return image; },
+    save() {}, restore() {}, strokeRect() {}, drawImage(...args) { draws.push(args); } };
+  drawDeviceVisual(ctx, wall, wall.width, wall.height);
+  assert.deepEqual(deviceVisualSources(wall), [wall.visual.image]);
+  assert.deepEqual(sources, [wall.visual.image]);
+  assert.deepEqual(draws, [[image, 0, 0, 15360, 1920]]);
+});
+
+test("LED textures have no special 4096-side or 8-million-pixel ceiling", t => {
+  const previous = globalThis.OffscreenCanvas;
+  const ctx = { scale() {}, clearRect() {}, save() {}, restore() {}, strokeRect() {}, drawImage() {},
+    resolveImage() { return { complete: true, naturalWidth: 15360, naturalHeight: 1920 }; } };
+  globalThis.OffscreenCanvas = class {
+    constructor(width, height) { this.width = width; this.height = height; }
+    getContext() { return ctx; }
   };
-  const policy = ledSurfaceTexturePolicy(device);
-
-  assert.equal(policy.maxSide, 4096);
-  assert.equal(policy.maxPixels, 8_000_000);
-  assert.equal(policy.imagePixels, 15360 * 1920);
-  assert.equal(policy.renderImage, false);
-  assert.deepEqual(deviceVisualSources(device), []);
+  t.after(() => { globalThis.OffscreenCanvas = previous; });
+  const result = buildDeviceVisual(wall, { gpuMaxTextureSide: 16384 });
+  assert.ok(result.width > 4096);
+  assert.ok(result.width * result.height > 8_000_000);
+  assert.ok(result.width <= 16384, "normal GPU/quality safeguards remain");
 });
 
-test("small LED surfaces retain their embedded preview artwork", () => {
-  const policy = ledSurfaceTexturePolicy({
-    kind: "led-surface",
-    width: 1920,
-    height: 1080,
-    visual: {
-      image: "data:image/png;base64,small-led-wall",
-      naturalWidth: 1920,
-      naturalHeight: 1080
-    }
-  });
-
-  assert.equal(policy.renderImage, true);
-});
-
-test("a bounded LED preview renders while Use Image Size keeps original pixels", () => {
-  const policy = ledSurfaceTexturePolicy({
-    kind: "led-surface",
-    width: 15360,
-    height: 1920,
-    visual: {
-      image: "data:image/png;base64,bounded-preview",
-      previewWidth: 4096,
-      previewHeight: 512,
-      naturalWidth: 15360,
-      naturalHeight: 1920
-    }
-  });
-
-  assert.equal(policy.imageWidth, 4096);
-  assert.equal(policy.imageHeight, 512);
-  assert.equal(policy.imagePixels, 4096 * 512);
-  assert.equal(policy.renderImage, true);
-  assert.deepEqual(deviceVisualSources({
-    kind: "led-surface",
-    width: 15360,
-    height: 1920,
-    visual: {
-      image: "data:image/png;base64,bounded-preview",
-      previewWidth: 4096,
-      previewHeight: 512,
-      naturalWidth: 15360,
-      naturalHeight: 1920
-    }
-  }), ["data:image/png;base64,bounded-preview"]);
-});
-
-test("LED adapter uses the preview while retaining original Use Image Size metadata", () => {
-  const normalized = normalizeAvDesignerProject({
-    version: 1,
-    devices: [],
-    ledSurfaces: [{
-      id: "wall",
-      name: "Wall",
-      image: "data:image/png;base64,original",
-      previewImage: "data:image/png;base64,preview",
-      naturalWidth: 15360,
-      naturalHeight: 1920,
-      previewWidth: 4096,
-      previewHeight: 512,
-      width: 15360,
-      height: 1920,
-      signalSlots: 20
-    }],
-    connections: []
-  });
-  const surface = normalized.devices.find(device => device.id === "wall");
-  assert.equal(surface.visual.image, "data:image/png;base64,preview");
-  assert.equal(surface.visual.previewWidth, 4096);
-  assert.equal(surface.visual.previewHeight, 512);
+test("LED adapter ignores stored reduced previews without mutating saved data", () => {
+  const project = { devices: [], connections: [], ledSurfaces: [{
+    id: "wall", name: "Wall", image: wall.visual.image, previewImage: "data:image/png;base64,preview",
+    naturalWidth: 15360, naturalHeight: 1920, previewWidth: 4096, previewHeight: 512,
+    width: 15360, height: 1920, signalSlots: 20
+  }] };
+  const before = structuredClone(project);
+  const surface = normalizeAvDesignerProject(project).devices.find(device => device.id === "wall");
+  assert.equal(surface.visual.image, wall.visual.image);
+  assert.equal(surface.visual.previewWidth, undefined);
+  assert.equal(surface.visual.previewHeight, undefined);
   assert.equal(surface.visual.naturalWidth, 15360);
   assert.equal(surface.visual.naturalHeight, 1920);
   assert.equal(surface.width, 15360);
   assert.equal(surface.height, 1920);
+  assert.deepEqual(project, before);
 });

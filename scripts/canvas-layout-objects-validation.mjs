@@ -25,7 +25,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-38-0-engine-resource-lifetime";
+const BUILD_ID = "iteration54-38-1-original-png-canvas-pan";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -40,10 +40,10 @@ function sourceSlice(source, startNeedle, endNeedle) {
   return source.slice(start, end);
 }
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.38.0");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.0";'), "visible iteration should be 54.38.0");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-0-engine-resource-lifetime-modules";'), "module cache key should bust 54.38.0 modules");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-0-engine-resource-lifetime"'), "Engine bridge version should identify Engine Resource Lifetime");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.38.1");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.1";'), "visible iteration should be 54.38.1");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-1-original-png-canvas-pan-modules";'), "module cache key should bust 54.38.1 modules");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-1-original-png-canvas-pan"'), "Engine bridge version should identify Original PNGs and Canvas Pan");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
 assert.ok(classicScripts.length >= 1, "index.html should contain at least one classic script");

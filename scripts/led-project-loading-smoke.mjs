@@ -251,21 +251,22 @@ try {
   assert.equal((await read()).calls.legacyDraws,0);
   pass("Engine load failure retries without data loss or Legacy fallback");
   await page.evaluate(() => {
-    window.__previewPreparation = ensureLedSurfacePreviews;
-    const gate = new Promise(resolve => { window.__releaseOldLoad = resolve; });
-    ensureLedSurfacePreviews = async (data, bridge, signal) => {
-      if (data.projectName === "Superseded load") { window.__oldLoadWaiting = true; await gate; }
-      return __previewPreparation(data, bridge, signal);
+    window.__readProjectText = FileReader.prototype.readAsText;
+    FileReader.prototype.readAsText = function(file) {
+      if (file.name === "old.avd") {
+        window.__oldLoadWaiting = true;
+        window.__releaseOldLoad = () => __readProjectText.call(this, file);
+      } else __readProjectText.call(this, file);
     };
     loadProjectFile(new File([JSON.stringify({ projectName: "Superseded load", devices: [], connections: [] })], "old.avd"));
   });
   await page.waitForFunction(() => window.__oldLoadWaiting);
   await page.evaluate(() => loadProjectFile(new File([JSON.stringify({ projectName: "Current load", devices: [], connections: [] })], "current.avd")));
   await page.waitForFunction(() => state.projectName === "Current load" && activeEngineBridge().ready);
-  await page.evaluate(() => { __releaseOldLoad(); ensureLedSurfacePreviews = __previewPreparation; });
+  await page.evaluate(() => { __releaseOldLoad(); FileReader.prototype.readAsText = __readProjectText; });
   await page.waitForTimeout(150);
   assert.equal(await page.evaluate(() => state.projectName), "Current load");
-  pass("superseded asynchronous project preparation cannot overwrite a newer load");
+  pass("superseded asynchronous project reading cannot overwrite a newer load");
   const startup=await browser.newPage();
   await startup.route("**/src/engine/productionBridge.js*",route=>route.abort());
   await startup.goto(`${base}/index.html?legacy=1`);

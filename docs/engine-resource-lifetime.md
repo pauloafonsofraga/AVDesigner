@@ -1,5 +1,38 @@
 # Engine Resource Lifetime
 
+## 54.38.1 Update: Original PNGs and Canvas Pan
+
+Starting commit: `947905db3209f034563f61f84c00486b20b3f959`.
+The original LED PNG is now the rendering source in the application and output
+viewer. Import and project load no longer generate or select reduced previews.
+The LED-specific 4096-side/8-million-texture-pixel limits and the 16-million-
+source-pixel decode rejection have been removed. PNG dimensions are still read
+from the header without a duplicate decode; original bytes, natural dimensions,
+and Use Image Size are unchanged. Existing saved preview data is left intact
+but ignored. Replacing artwork clears the obsolete preview fields.
+
+The general quality settings, hardware texture limits, demand-based texture
+resolution and 256 MiB cache policy below remain. Full original image loading
+does not mean every zoom level allocates a native-resolution GPU texture.
+
+Middle-button panning now takes precedence over active canvas tools on press,
+move and release, prevents native middle-button defaults, and tracks its pointer.
+Escape, blur, lost capture and pointer cancellation end the gesture. The browser
+regression covers selection, Area, Comment and Jump tools without project edits,
+plus an actual 15360 x 1920 PNG, ignored contradictory preview data, original
+pixel colours, import, Use Image Size and network-disabled HTML output.
+
+Verification: 904 Node tests passed with no failures or skips; all 13 validation
+scripts (including bundle reproducibility), inline/module syntax and diff checks
+passed. The new PNG/pan browser suite passed all 11 checks. The supplied private
+two-LED project passed all 12 lifecycle checks without modifying the source file;
+both the wide grid and transparent arches were visually inspected in Chrome.
+
+The following is the historical 54.38.0 audit; its LED preview policy is
+superseded by this update.
+
+## 54.38.0 Audit
+
 Build: 54.38.0 - Engine Resource Lifetime
 
 Starting commit: `3639b9662a76855eae07acce8a4257322a450244` (54.37.0).

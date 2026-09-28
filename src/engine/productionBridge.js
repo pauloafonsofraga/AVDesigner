@@ -134,8 +134,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-0-engine-resource-lifetime";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-0-engine-resource-lifetime";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-1-original-png-canvas-pan";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-1-original-png-canvas-pan";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -1237,6 +1237,9 @@ class ProductionEngineBridge {
 
   bindEvents() {
     this.canvas.addEventListener("contextmenu", event => this.handleContextMenu(event));
+    this.canvas.addEventListener("auxclick", event => {
+      if (event.button === 1) event.preventDefault();
+    });
     this.canvas.addEventListener("wheel", event => this.handleWheel(event), { passive: false });
     this.canvas.addEventListener("pointerdown", event => this.handlePointerDown(event));
     this.canvas.addEventListener("pointermove", event => this.handlePointerMove(event));
@@ -1254,7 +1257,7 @@ class ProductionEngineBridge {
     window.addEventListener("keydown", this.boundKeyDown, true);
     window.addEventListener("resize", this.boundResize);
     this.boundJumpBlur = () => {
-      if (!this.pendingJumpPress && !this.jumpLinkCreate) return;
+      if (!this.pendingJumpPress && !this.jumpLinkCreate && !this.panState) return;
       this.cancelActiveInteraction("window-blur");
       this.scheduleRender();
     };
@@ -2136,16 +2139,18 @@ class ProductionEngineBridge {
     }
     if (this.pendingJumpPress || this.jumpLinkCreate) this.cancelActiveInteraction("interaction-replaced", { updateHud: false });
     const point = this.eventPoint(event);
-    if (this.dispatchCanvasToolPointerEvent("pointerdown", event, point)) {
-      this.capturePointer(event.pointerId);
-      return;
-    }
     if (event.button === 1 || event.buttons === 4) {
+      event.preventDefault();
+      event.stopPropagation();
       this.clearJumpMoveArm("pan-start", { updateHud: false });
       this.capturePointer(event.pointerId);
       this.cancelMarquee("pan-start", { updateCursor: false, render: false });
       this.clearHoverState("pan-start", { render: false });
-      this.beginPan(point);
+      this.beginPan(point, event.pointerId);
+      return;
+    }
+    if (this.dispatchCanvasToolPointerEvent("pointerdown", event, point)) {
+      this.capturePointer(event.pointerId);
       return;
     }
     if (event.button !== 0) return;
@@ -2460,18 +2465,21 @@ class ProductionEngineBridge {
     if (jumpPointerId != null && jumpPointerId !== event.pointerId) return;
     const pointerStart = performance.now();
     const point = this.eventPoint(event);
-    if (this.dispatchCanvasToolPointerEvent("pointermove", event, point)) {
-      this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
-      return;
-    }
     if (this.panState) {
+      if (event.pointerId !== this.panState.pointerId) return;
+      event.preventDefault();
       const dx = (point.x - this.panState.startPoint.x) / this.camera.zoom;
       const dy = (point.y - this.panState.startPoint.y) / this.camera.zoom;
       this.camera.x = this.panState.startCamera.x - dx;
       this.camera.y = this.panState.startCamera.y - dy;
       this.clearHoverState("panning", { render: false });
+      this.notifyViewportChange("middle-button-pan");
       this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
       this.scheduleRender();
+      return;
+    }
+    if (this.dispatchCanvasToolPointerEvent("pointermove", event, point)) {
+      this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
       return;
     }
     if (this.resizeSession) {
@@ -2686,14 +2694,19 @@ class ProductionEngineBridge {
       return;
     }
     const point = this.eventPoint(event);
-    if (this.dispatchCanvasToolPointerEvent("pointerup", event, point)) {
-      this.releasePointerCapture(event.pointerId);
-      return;
-    }
     if (this.panState) {
+      if (event.pointerId !== this.panState.pointerId) return;
+      event.preventDefault();
       this.panState = null;
       this.canvas.classList.remove("panning");
       this.updateCanvasCursor();
+      this.releasePointerCapture(event.pointerId);
+      this.scheduleRender();
+      return;
+    }
+    if (this.dispatchCanvasToolPointerEvent("pointerup", event, point)) {
+      this.releasePointerCapture(event.pointerId);
+      return;
     }
     if (this.resizeSession) {
       this.completeCanvasObjectResize();
@@ -2768,7 +2781,7 @@ class ProductionEngineBridge {
     const jumpPointerId = this.pendingJumpPress?.pointerId ?? this.jumpLinkCreate?.pointerId;
     if (jumpPointerId != null && jumpPointerId !== event.pointerId) return;
     const point = this.eventPoint(event);
-    this.dispatchCanvasToolPointerEvent("pointercancel", event, point);
+    if (!this.panState) this.dispatchCanvasToolPointerEvent("pointercancel", event, point);
     this.cancelActiveInteraction("pointer-cancel");
     this.releasePointerCapture(event.pointerId);
     this.scheduleRender();
@@ -2844,6 +2857,14 @@ class ProductionEngineBridge {
     }
     if (event.key !== "Escape") return;
     this.clearJumpMoveArm("escape", { updateHud: false });
+    if (this.panState) {
+      consumeEngineShortcut(event);
+      const pointerId = this.panState.pointerId;
+      this.cancelActiveInteraction("pan-cancelled");
+      this.releasePointerCapture(pointerId);
+      this.scheduleRender();
+      return;
+    }
     if (this.dispatchCanvasToolKeyEvent("Escape", event)) return;
     if (this.wireCreate || this.jumpLinkCreate || this.pendingJumpPress || this.resizeSession || this.routePointDrag || this.wireSegmentDrag || this.marqueeState || this.dragSession || this.pendingDrag || this.panState) {
       consumeEngineShortcut(event);
@@ -2861,8 +2882,9 @@ class ProductionEngineBridge {
     }
   }
 
-  beginPan(point) {
+  beginPan(point, pointerId) {
     this.panState = {
+      pointerId,
       startPoint: point,
       startCamera: { ...this.camera }
     };

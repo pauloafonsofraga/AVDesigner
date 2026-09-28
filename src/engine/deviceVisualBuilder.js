@@ -45,14 +45,6 @@ const LEGACY_ADAPTER_FILL = "#18222b";
 const LEGACY_ADAPTER_STROKE = "rgba(50, 182, 255, .72)";
 const SLOT_HEIGHT = 54;
 
-// LED-wall artwork can be much larger than a normal device texture. Keep the
-// logical surface dimensions unchanged, but bound the optional preview
-// texture so a large embedded PNG cannot exhaust the renderer's canvas/GPU
-// budget while the scene and its virtual endpoints are being built.
-const LED_SURFACE_TEXTURE_MAX_SIDE = 4096;
-const LED_SURFACE_TEXTURE_MAX_PIXELS = 8_000_000;
-const LED_SURFACE_IMAGE_MAX_PIXELS = 16_000_000;
-
 const IMAGE_CACHE = new Map();
 const SOURCE_KEYS = new Map();
 const SOURCE_OWNERS = new Map();
@@ -775,7 +767,7 @@ function drawJumpVisual(ctx, device, width, height) {
 
 function drawSurfaceVisual(ctx, device, width, height) {
   const visual = device.visual || {};
-  const image = ledSurfaceImageWithinPreviewBudget(device) ? visualImage(ctx, visual.image) : null;
+  const image = visualImage(ctx, visual.image);
   if (image?.complete && image.naturalWidth > 0) {
     ctx.save();
     ctx.globalAlpha = clamp(Number(visual.opacity), 0, 1) || 1;
@@ -1103,31 +1095,6 @@ function visualDeviceKind(device) {
   return canonicalEngineObjectKind(device);
 }
 
-export function ledSurfaceTexturePolicy(device = {}) {
-  const visual = device?.visual || {};
-  const width = Math.max(1, Number(device?.width) || 1);
-  const height = Math.max(1, Number(device?.height) || 1);
-  const naturalWidth = Math.max(0, Number(visual.naturalWidth) || Number(visual.pixelWidth) || width);
-  const naturalHeight = Math.max(0, Number(visual.naturalHeight) || Number(visual.pixelHeight) || height);
-  const previewWidth = Math.max(0, Number(visual.previewWidth) || 0);
-  const previewHeight = Math.max(0, Number(visual.previewHeight) || 0);
-  const imageWidth = previewWidth > 0 && previewHeight > 0 ? previewWidth : naturalWidth;
-  const imageHeight = previewWidth > 0 && previewHeight > 0 ? previewHeight : naturalHeight;
-  const imagePixels = imageWidth * imageHeight;
-  return {
-    maxSide: LED_SURFACE_TEXTURE_MAX_SIDE,
-    maxPixels: LED_SURFACE_TEXTURE_MAX_PIXELS,
-    imageWidth,
-    imageHeight,
-    imagePixels,
-    renderImage: Boolean(String(visual.image || "").trim()) && imagePixels <= LED_SURFACE_IMAGE_MAX_PIXELS
-  };
-}
-
-function ledSurfaceImageWithinPreviewBudget(device) {
-  return ledSurfaceTexturePolicy(device).renderImage;
-}
-
 function effectiveTextureLimits(device, quality, options = {}) {
   const gpuMax = Number(options.gpuMaxTextureSide) || Infinity;
   // Modular chassis such as E2 are very tall. Iteration 40.4 keeps their
@@ -1136,24 +1103,16 @@ function effectiveTextureLimits(device, quality, options = {}) {
   const modularTarget = device?.visual?.hasSwappableCards
     ? Math.max(quality.maxSide, 16384)
     : quality.maxSide;
-  const surfacePolicy = isLedSurfaceKind(device) ? ledSurfaceTexturePolicy(device) : null;
-  const sideTarget = surfacePolicy
-    ? Math.min(quality.maxSide, surfacePolicy.maxSide)
-    : modularTarget;
   const optionMaxPixels = Number(options.maxTexturePixels);
   const requestedMaxPixels = Number.isFinite(optionMaxPixels) && optionMaxPixels > 0
     ? optionMaxPixels
     : quality.maxPixels || quality.maxSide * quality.maxSide;
-  const maxPixels = surfacePolicy
-    ? Math.min(requestedMaxPixels, surfacePolicy.maxPixels)
-    : requestedMaxPixels;
   return {
-    maxSide: Math.max(1, Math.min(sideTarget, gpuMax)),
-    maxPixels: Math.max(1, maxPixels),
+    maxSide: Math.max(1, Math.min(modularTarget, gpuMax)),
+    maxPixels: Math.max(1, requestedMaxPixels),
     gpuMaxSide: Number.isFinite(gpuMax) ? gpuMax : 0,
     requestedMaxSide: quality.maxSide,
-    modularMaxSide: modularTarget,
-    ledSurfacePreview: Boolean(surfacePolicy)
+    modularMaxSide: modularTarget
   };
 }
 
@@ -1354,8 +1313,7 @@ function basename(path) {
 
 export function deviceVisualSources(device) {
   const visual = device?.visual || {};
-  const image = isLedSurfaceKind(device) && !ledSurfaceTexturePolicy(device).renderImage ? "" : visual.image;
-  return [visual.faceImage, visual.thumbnailImage, image, visual.logo, ...powerPlugAssetsForDevice(device)]
+  return [visual.faceImage, visual.thumbnailImage, visual.image, visual.logo, ...powerPlugAssetsForDevice(device)]
     .map(value => String(value || "").trim())
     .filter(Boolean);
 }
