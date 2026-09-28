@@ -40,6 +40,27 @@ leave the previous definition and artwork intact. Read/migration failures use th
 existing startup recovery panel; no partially loaded personal library is treated
 as ready.
 
+Reload installs the validated definition, session baseline and expected revision
+together. An abandoned reload (typing, switching devices, validation or storage
+failure) retains the old revision, so a stale draft still conflicts on Save. A
+factory reset can finish its explicit storage removal even when new draft edits
+prevent loading factory; that retained draft cannot acquire the removal's token.
+
+Node dependencies are resolved per saved device. `nodes(deviceId)` returns that
+scope; unscoped `nodes()` rejects conflicting same-ID definitions instead of
+silently choosing the last one. `libraryContext()` builds a detached namespace for
+library previews, palette, duplication, defaults and JSON export. Intentional
+node edits are explicit overrides; the open project's `cableTypes` is never a
+personal dependency source. Identical saved image bytes and factory asset paths
+share the catalogue's content identity, avoiding needless protocol-ID changes.
+
+New canvas/rack placements resolve that library namespace into the project using
+the same collision allocator as clipboard paste. Conflicting nodes receive stable
+derived IDs, and connector/card/default references follow them. Existing project
+node definitions and cables are not replaced. Original artwork and extra node
+metadata survive project save/reopen. No renderer or factory schema changes are
+needed.
+
 Storage is **saved in this browser**, on the current origin. It is not account
 synchronization or a backup service. Clearing site data removes the personal
 library. Project and library JSON exports retain embedded portable artwork.
@@ -85,6 +106,7 @@ implemented in this phase.
 ```sh
 node --test test/personalDefinitions.test.mjs test/localUserSettings.test.mjs
 node scripts/global-device-defaults-smoke.mjs
+node scripts/personal-definition-isolation-smoke.mjs
 node scripts/factory-catalogue-smoke.mjs
 node scripts/canvas-clipboard-smoke.mjs
 node scripts/device-pair-picker-smoke.mjs
@@ -95,3 +117,9 @@ and transaction aborts, two tabs, factory updates, old project files, project
 save/reopen, and network-disabled Engine HTML. Screenshots are written to
 `/tmp/wirenexus-personal-defaults` by default. No test definitions or private
 projects are added to the factory catalogue.
+
+The isolation smoke uses two actual Chromium tabs and a native IndexedDB write
+lock to deterministically hold a reload's read while typing through the editor.
+It verifies the subsequent stale Save fails, and tests conflicting-node duplicate,
+preview, placement, refresh, browser reload and project download/reopen. This is
+automated Chromium coverage, not a claim of manual Safari or Firefox testing.

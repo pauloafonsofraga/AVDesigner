@@ -128,6 +128,7 @@ test("hostile IDs, labels, colours and module names cannot inject executable SVG
 test("real UI helpers share adapter cache precedence and leave ordinary thumbnails untouched", () => {
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   const ctx = vm.createContext({ adapterThumbnailCache: createAdapterThumbnailCache(), cableTypes: {},
+    personalLibraryDevices: [], personalLibraryNodes: [], editorMode: "library", editorDraft: [],
     isAdapterTemplate: t => t?.isAdapterBreakout, escapeAttr: s => String(s).replaceAll('"', '&quot;') });
   for (const name of ["adapterDeviceThumbnailMarkup", "deviceThumbnailMarkup", "editorDeviceThumbHtml"]) {
     vm.runInContext(html.match(new RegExp(`^    function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?^    \\}`, "m"))[0], ctx);
@@ -139,4 +140,11 @@ test("real UI helpers share adapter cache precedence and leave ordinary thumbnai
     assert.match(fn({ thumbnailImage: "ordinary.png" }), /src="ordinary.png"/);
   }
   assert.equal(ctx.deviceThumbnailMarkup({ faceplateDeleted: true }), "");
+  adapter.connectors.forEach(connector => { connector.type = "custom-control"; });
+  ctx.cableTypes["custom-control"] = { color: "#ff0000" };
+  ctx.personalLibraryDevices = [adapter]; ctx.personalLibraryNodes = [{ id: "custom-control", color: "#112233" }];
+  assert.match(ctx.deviceThumbnailMarkup(adapter), /#112233/);
+  assert.doesNotMatch(ctx.deviceThumbnailMarkup(adapter), /#ff0000/);
+  const projectCopy = structuredClone(adapter);
+  assert.match(ctx.deviceThumbnailMarkup(projectCopy), /#ff0000/);
 });

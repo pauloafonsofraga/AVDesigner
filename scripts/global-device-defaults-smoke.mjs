@@ -119,6 +119,7 @@ try {
   await a.locator("#editorDeviceName").fill("Personal control box");
   await a.evaluate(png => {
     cableTypes["personal-control"] = { id: "personal-control", label: "Custom RS-232", color: "#123456", custom: true, thumbnail: png, direction: "one-way" };
+    nodeBuilderSelectedType = "personal-control"; saveNodeLibraryPreference();
     const t = currentEditorTemplate(); t.connectors = [{ id: "control", type: "personal-control", label: "Control", nameText: "RS-232", direction: "input", x: 0, y: 220 }];
     t.faceImage = png; t.thumbnailImage = png; renderDeviceEditor();
   }, png);

@@ -448,6 +448,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     DEVICE_WIDTH: 420,
     CONNECTOR_START_Y: 100,
     DEFAULT_FIBER_MODE: "singlemode",
+    editorNodeType: id => context.cableTypes[id],
     cableTypes: {
       hdmi: { label: "HDMI", color: "#ffcc00" },
       dvi: { label: "DVI", color: "#22cc88" },

@@ -1,5 +1,6 @@
 import { compactDeviceConfiguration, parseLocalUserSettings, resolveEffectiveBuiltInTemplate } from "./engine/localUserSettings.js";
 import { IMAGE_ASSET_FIELDS, imageDataUrl, inlineProjectArtwork } from "./imageAssets.js";
+import { resolveNodeDefinitionCollisions, visitConnectorTypes } from "./engine/canvasClipboard.js";
 
 export const PERSONAL_DEFINITIONS_VERSION = 2;
 export const PERSONAL_DATABASE = "wirenexus-personal-library";
@@ -42,6 +43,27 @@ export function effectiveLibraryDefinitions(factory, entries) {
   return [...result.values()];
 }
 
+// Resolve a detached definition into another node namespace without replacing
+// that namespace's existing definitions. The clipboard uses the same allocator.
+function nodeContent(node, artworkIdentity = source => source) {
+  const copy = { ...node, colors: node.colors || [], tags: node.tags || [], custom: node.custom === true,
+    videoCable: node.videoCable === true, palette: node.palette !== false, editorPalette: node.editorPalette === true,
+    direction: node.direction === "two-way" ? "two-way" : "one-way" };
+  delete copy.id;
+  if (copy.thumbnail) copy.thumbnail = artworkIdentity(copy.thumbnail);
+  return definitionContent(copy);
+}
+
+export function resolvePersonalNodeContext(definition, sourceNodes, destinationNodes = [], artworkIdentity) {
+  const copy = structuredClone(definition), used = new Set();
+  const fields = ["type", "cableType", "physicalType", "connectorType", "switchPortType"];
+  visitConnectorTypes(copy, type => { used.add(type); return type; }, fields);
+  const required = sourceNodes.filter(node => used.has(node.id));
+  const { nodeDefinitions, nodeMap } = resolveNodeDefinitionCollisions(required, destinationNodes, "personal", node => nodeContent(node, artworkIdentity));
+  visitConnectorTypes(copy, type => nodeMap.get(type) || type, fields);
+  return { definition: copy, nodes: nodeDefinitions };
+}
+
 function assertId(id) {
   if (typeof id !== "string" || !id || ["__proto__", "prototype", "constructor"].includes(id)) throw new Error("Invalid personal device ID.");
 }
@@ -77,7 +99,7 @@ export function collectDefinitionDependencies(definition, library, nodes) {
   return { devices: [...devices.values()].slice(1), nodes: requiredNodes };
 }
 
-async function encodeArtwork(value) {
+async function encodeArtwork(value, artworkIdentities) {
   const encoded = structuredClone(value), assets = {}, pending = new Map();
   await inlineProjectArtwork(encoded, source => {
     if (!/^data:image\//i.test(source)) throw new Error("Personal artwork must be embedded before saving.");
@@ -85,6 +107,7 @@ async function encodeArtwork(value) {
       const bytes = new Uint8Array(await (await fetch(source)).arrayBuffer());
       imageDataUrl(bytes); // Validate actual format before any write.
       const hash = await contentRevision(bytes);
+      artworkIdentities.set(source, hash);
       assets[hash] = bytes;
       return assetPrefix + hash;
     })());
@@ -102,7 +125,7 @@ async function encodeArtwork(value) {
   return { encoded, assets };
 }
 
-function decodeArtwork(value, assets) {
+function decodeArtwork(value, assets, artworkIdentities) {
   const copy = structuredClone(value), cache = new Map();
   const visit = item => {
     if (!item || typeof item !== "object") return;
@@ -111,6 +134,7 @@ function decodeArtwork(value, assets) {
         const id = child.slice(assetPrefix.length);
         if (!assets[id]) throw new Error(`Saved personal artwork ${id} is missing. No defaults have been replaced.`);
         if (!cache.has(id)) cache.set(id, imageDataUrl(assets[id]));
+        artworkIdentities.set(cache.get(id), id);
         item[key] = cache.get(id);
       } else visit(child);
     }
@@ -164,12 +188,14 @@ export function createPersonalIndexedDbStore(indexedDB = globalThis.indexedDB) {
   return { read: () => transact(), update: transact };
 }
 
-export function createPersonalDefinitions({ factory, nodes, store = createPersonalIndexedDbStore(), resolveImage,
+export function createPersonalDefinitions({ factory, nodes, assetManifest = {}, store = createPersonalIndexedDbStore(), resolveImage,
   legacyRaw = "", notify = () => {}, onChange = () => {}, diagnostic = () => {}, uuid = () => crypto.randomUUID() } = {}) {
   let registry = emptyRegistry(), entries = {}, initialized = false;
+  const artworkIdentities = new Map(Object.entries(assetManifest).map(([path, asset]) => [path, asset.sha256]));
+  const artworkIdentity = source => artworkIdentities.get(source) || source;
   const accept = data => {
     if (initialized && data.registry.generation < registry.generation) return;
-    const decoded = decodeArtwork(data.registry.entries, data.assets);
+    const decoded = decodeArtwork(data.registry.entries, data.assets, artworkIdentities);
     registry = data.registry; entries = decoded; initialized = true;
     try { onChange(); } catch (error) { diagnostic(`Personal definition saved; interface refresh failed: ${error.message}`); }
   };
@@ -180,7 +206,7 @@ export function createPersonalDefinitions({ factory, nodes, store = createPerson
     const entry = { definition: source, dependencies, revision: uuid(),
       factory: original ? { id: original.id, baseRevision: entries[source.id]?.factory?.baseRevision || await contentRevision(definitionContent(original)) } : null };
     await inlineProjectArtwork(entry, resolveImage);
-    return encodeArtwork(entry);
+    return encodeArtwork(entry, artworkIdentities);
   };
   const refresh = async () => accept(await store.read());
   const announce = () => { try { notify(); } catch (error) { diagnostic(`Personal definition saved; other tabs could not be notified: ${error.message}`); } };
@@ -217,7 +243,29 @@ export function createPersonalDefinitions({ factory, nodes, store = createPerson
     entry: id => entries[id] ? structuredClone(entries[id]) : null,
     snapshot: () => structuredClone({ version: PERSONAL_DEFINITIONS_VERSION, entries }),
     library: () => effectiveLibraryDefinitions(factory, entries),
-    nodes: () => [...new Map(Object.values(entries).flatMap(entry => entry.dependencies.nodes).map(node => [node.id, structuredClone(node)])).values()],
+    nodes(id) {
+      if (id != null) return structuredClone(entries[id]?.dependencies.nodes || nodes);
+      const result = new Map();
+      for (const node of Object.values(entries).flatMap(entry => entry.dependencies.nodes)) {
+        if (result.has(node.id) && nodeContent(result.get(node.id), artworkIdentity) !== nodeContent(node, artworkIdentity)) {
+          throw new Error(`Node ${node.id} has different personal definitions. Resolve a device scope or use libraryContext().`);
+        }
+        result.set(node.id, structuredClone(node));
+      }
+      return [...result.values()];
+    },
+    libraryContext({ baseNodes = nodes, nodeOverrides = [] } = {}) {
+      const resolvedNodes = structuredClone(baseNodes), devices = [];
+      for (const definition of owner.library()) {
+        const scoped = new Map(owner.nodes(definition.id).map(node => [node.id, node]));
+        for (const node of nodeOverrides) scoped.set(node.id, node);
+        const resolved = resolvePersonalNodeContext(definition, [...scoped.values()], resolvedNodes, artworkIdentity);
+        resolvedNodes.push(...resolved.nodes);
+        devices.push(resolved.definition);
+      }
+      return { devices, nodes: resolvedNodes };
+    },
+    resolveNodeContext: (definition, sourceNodes, destinationNodes) => resolvePersonalNodeContext(definition, sourceNodes, destinationNodes, artworkIdentity),
     async save(definition, { library = owner.library(), nodes: requiredNodes = nodes, expectedRevision = null } = {}) {
       if (!initialized) throw new Error("Personal library is not ready. Reload before saving.");
       const id = definition.id, prepared = await prepare(definition, library, requiredNodes);

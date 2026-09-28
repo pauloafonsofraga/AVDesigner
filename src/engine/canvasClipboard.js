@@ -245,11 +245,11 @@ export function createCanvasClipboardPayload(project, selection, bounds, builtin
   return validateCanvasClipboardPayload(payload);
 }
 
-function visitConnectorTypes(object, resolve) {
+export function visitConnectorTypes(object, resolve, fields = ["type", "cableType"]) {
   if (!object || typeof object !== "object") return;
   for (const [key, value] of Object.entries(object)) {
-    if (["type", "cableType"].includes(key) && typeof value === "string") object[key] = resolve(value);
-    else if (value && typeof value === "object") visitConnectorTypes(value, resolve);
+    if (fields.includes(key) && typeof value === "string") object[key] = resolve(value);
+    else if (value && typeof value === "object") visitConnectorTypes(value, resolve, fields);
   }
 }
 
@@ -263,6 +263,24 @@ function fingerprint(text) {
   let hash = 2166136261;
   for (let i = 0; i < text.length; i++) hash = Math.imul(hash ^ text.charCodeAt(i), 16777619);
   return (hash >>> 0).toString(16);
+}
+
+export function resolveNodeDefinitionCollisions(sourceNodes, nodeLibrary, namespace = "clipboard", keyForNode = definitionKey) {
+  const nodeDefinitions = [], nodeMap = new Map();
+  const nodeKeys = new Map(nodeLibrary.map(node => [keyForNode(node), node.id]));
+  const nodeIds = new Set(nodeLibrary.map(node => node.id));
+  for (const node of sourceNodes) {
+    const key = keyForNode(node);
+    let id = nodeKeys.get(key);
+    if (!id) {
+      id = nodeIds.has(node.id) ? `${node.id}-${namespace}-${fingerprint(key)}` : node.id;
+      const base = id; let suffix = 2;
+      while (nodeIds.has(id)) id = `${base}-${suffix++}`;
+      nodeDefinitions.push({ ...cloneClipboardData(node), id }); nodeIds.add(id); nodeKeys.set(key, id);
+    }
+    nodeMap.set(node.id, id);
+  }
+  return { nodeDefinitions, nodeMap };
 }
 
 export function prepareCanvasClipboardPaste(value, destination, target) {
@@ -283,20 +301,7 @@ export function prepareCanvasClipboardPaste(value, destination, target) {
   reserve(destination); reserve(payload);
   let sequence = 1;
   const nextId = prefix => { let id; do { id = `${prefix}-paste-${sequence++}`; } while (reserved.has(id)); reserved.add(id); return id; };
-  const nodeDefinitions = [], nodeMap = new Map(), nodeLibrary = destination.nodeLibrary || [];
-  const nodeKeys = new Map(nodeLibrary.map(node => [definitionKey(node), node.id]));
-  const nodeIds = new Set(nodeLibrary.map(node => node.id));
-  for (const node of payload.nodeLibrary) {
-    const key = definitionKey(node);
-    let id = nodeKeys.get(key);
-    if (!id) {
-      id = nodeIds.has(node.id) ? `${node.id}-clipboard-${fingerprint(key)}` : node.id;
-      const base = id; let suffix = 2;
-      while (nodeIds.has(id)) id = `${base}-${suffix++}`;
-      nodeDefinitions.push({ ...node, id }); nodeIds.add(id); nodeKeys.set(key, id);
-    }
-    nodeMap.set(node.id, id);
-  }
+  const { nodeDefinitions, nodeMap } = resolveNodeDefinitionCollisions(payload.nodeLibrary, destination.nodeLibrary || []);
   visitConnectorTypes(payload, type => nodeMap.get(type) || type);
   const definitions = [], templateMap = new Map(), library = destination.deviceLibrary || [];
   const keys = new Map(library.map(template => [definitionKey(template), template.id]));
