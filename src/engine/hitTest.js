@@ -79,7 +79,7 @@ export function hitTestConnector(scene, worldPoint, tolerance = 10) {
   };
 }
 
-export function hitTestRoutePoint(scene, worldPoint, tolerance = 10) {
+export function hitTestRoutePoint(scene, worldPoint, tolerance = 10, predicate = null) {
   const start = performance.now();
   const candidates = scene.routePointIndex.queryRect(toleranceRect(worldPoint, tolerance));
   let best = null;
@@ -91,8 +91,10 @@ export function hitTestRoutePoint(scene, worldPoint, tolerance = 10) {
     if (!point || !wire) return;
     const distance = Math.hypot(point.x - worldPoint.x, point.y - worldPoint.y);
     if (distance <= tolerance && distance < bestDistance) {
+      const candidate = { wire, point, pointIndex, distance, key: `${wire.id}:${pointIndex}` };
+      if (predicate && !predicate(candidate)) return;
       bestDistance = distance;
-      best = { wire, point, pointIndex, distance, key: `${wire.id}:${pointIndex}` };
+      best = candidate;
     }
   });
   return {

@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-38-9-live-device-names";
+const BUILD_ID = "iteration54-38-10-zoomed-out-cable-points";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -52,11 +52,11 @@ const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Auto LED Preview Recovery");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-9-live-device-names-modules";'), "module cache key should identify Live Device Names");
-assert.ok(indexHtml.includes("Live Device Names"), "visible build label should name Live Device Names");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-6-monitor-names-clean-canvas"'), "Engine bridge version should identify LED Multi-Wire Selection");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-10-zoomed-out-cable-points-modules";'), "module cache key should identify Zoomed-Out Cable Points");
+assert.ok(indexHtml.includes("Zoomed-Out Cable Points"), "visible build label should name Zoomed-Out Cable Points");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-10-zoomed-out-cable-points"'), "Engine bridge version should identify Zoomed-Out Cable Points");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses"'), "Engine bridge feature label should identify Selectable Projector Lenses");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-38-6-monitor-names-clean-canvas"), "bridge fingerprint should identify LED Multi-Wire Selection");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-38-10-zoomed-out-cable-points"), "bridge fingerprint should identify Zoomed-Out Cable Points");
 assert.ok(rendererSource.includes("renderer-iteration54-38-8-unified-cable-captions"), "renderer fingerprint should identify Unified Cable Captions");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");

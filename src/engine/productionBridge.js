@@ -134,12 +134,11 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-6-monitor-names-clean-canvas";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-6-monitor-names-clean-canvas";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-10-zoomed-out-cable-points";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-10-zoomed-out-cable-points";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
-const DETAIL_HIT_TEST_MIN_ZOOM = 0.5;
 const ENGINE_MIN_ZOOM = 0.03;
 const ENGINE_MAX_ZOOM = 8;
 const WIRE_PLAYBACK_CAMERA_ZOOM = 1;
@@ -2125,7 +2124,6 @@ class ProductionEngineBridge {
     const tolerance = this.hitToleranceWorld();
     const additiveSelection = isAdditiveSelectionModifier(event);
 
-    const shouldHitDetails = this.shouldHitTestDetailTargets();
     const resizeHit = this.hitTestCanvasObjectResizeHandle(world);
     if (resizeHit) {
       this.clearJumpMoveArm("canvas-object-resize", { updateHud: false });
@@ -2138,7 +2136,7 @@ class ProductionEngineBridge {
       return;
     }
 
-    const routeHit = shouldHitDetails && this.renderOptions.routePoints
+    const routeHit = this.shouldHitTestRoutePoints()
       ? this.hitTestEditableRoutePoint(world, tolerance * 1.2)
       : { routePoint: null, candidates: 0, ms: 0 };
     if (routeHit.routePoint) {
@@ -3524,12 +3522,7 @@ class ProductionEngineBridge {
   }
 
   hitTestEditableRoutePoint(world, tolerance) {
-    const hit = hitTestRoutePoint(this.scene, world, tolerance);
-    if (!hit.routePoint || this.routePointHandleIsEditable(hit.routePoint)) return hit;
-    return {
-      ...hit,
-      routePoint: null
-    };
+    return hitTestRoutePoint(this.scene, world, tolerance, point => this.routePointHandleIsEditable(point));
   }
 
   beginRoutePointDrag(routePoint, screenPoint = null, worldPoint = null) {
@@ -4431,8 +4424,7 @@ class ProductionEngineBridge {
       this.scheduleRender();
       return;
     }
-    const shouldHitDetails = this.shouldHitTestDetailTargets();
-    const routeHit = shouldHitDetails && this.renderOptions.routePoints
+    const routeHit = this.shouldHitTestRoutePoints()
       ? this.hitTestEditableRoutePoint(world, tolerance * 1.2)
       : { routePoint: null, candidates: 0, ms: 0 };
     let connectorHit = routeHit.routePoint
@@ -4510,8 +4502,7 @@ class ProductionEngineBridge {
     const point = this.eventPoint(event);
     const world = screenToWorld(this.camera, point);
     const tolerance = this.hitToleranceWorld();
-    const shouldHitDetails = this.shouldHitTestDetailTargets();
-    if (shouldHitDetails && this.renderOptions.routePoints) {
+    if (this.shouldHitTestRoutePoints()) {
       const routeHit = this.hitTestEditableRoutePoint(world, tolerance * 1.2);
       if (routeHit.routePoint) {
         const wire = routeHit.routePoint.wire;
@@ -8564,14 +8555,13 @@ class ProductionEngineBridge {
     return legacyConnectorHitRadius(this.camera.zoom);
   }
 
-  shouldHitTestDetailTargets({ includeActiveWireCreate = false } = {}) {
-    // Detail-level targets are intentionally suppressed at far zoom so tiny
-    // connectors, ports, and route-point handles do not steal object
-    // hover/selection. Jump nodes stay object-level targets at every zoom.
-    // Active wire creation keeps connector hit-testing alive so a wire already
-    // being dragged can still find its target while the user zooms out.
-    return this.camera.zoom >= DETAIL_HIT_TEST_MIN_ZOOM
-      || (includeActiveWireCreate && Boolean(this.wireCreate));
+  shouldHitTestRoutePoints() {
+    // Selected cable handles stay editable at every zoom with a screen-sized
+    // hit area. Hidden handles on other cables must not steal canvas gestures.
+    return this.renderOptions.routePoints && Boolean(
+      this.scene.selectedWireIds.size || this.scene.selectedRoutePointKeys.size
+      || this.routePointDrag || this.wireSegmentDrag
+    );
   }
 
   noteCtrlLeftClickForContextMenu(event, point = this.eventPoint(event)) {
