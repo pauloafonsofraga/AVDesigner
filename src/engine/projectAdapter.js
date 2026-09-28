@@ -35,9 +35,8 @@ import {
   canonicalEngineObjectKind
 } from "./canvasObjectKinds.js";
 import {
-  compareLedSurfaceConnections,
-  endpointSurfaceId,
-  ledSurfaceIdForConnection
+  buildLedSurfaceConnectionIndex,
+  endpointSurfaceId
 } from "./ledSurfaceModel.js";
 import {
   connectorIncludedInMatrixForEngine,
@@ -265,13 +264,15 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
   const surfaceDevices = normalizeLedSurfaces(root.ledSurfaces || []);
   const titleBlockDevices = normalizeTitleBlocks(root.titleBlocks || []);
   const commentDevices = normalizeComments(root.comments || []);
-  const surfaceConnectionOrder = buildSurfaceConnectionOrder(root.connections || [], root.ledSurfaces || []);
+  const connectorsByDevice = new Map(devices.map(device => [device.id, new Map(device.connectors.map(c => [c.id, c]))]));
+  const surfaceConnectionOrder = buildLedSurfaceConnectionIndex(root.connections || [], root.ledSurfaces || [],
+    (deviceId, connectorId) => connectorsByDevice.get(deviceId)?.get(connectorId));
   const wireMode = root.wireMode === "orthogonal" ? "orthogonal" : "bezier";
   surfaceDevices.forEach(surface => {
     // Legacy LED PNG surfaces do not expose visible connector nodes. Wires use
     // virtual left-edge landing points calculated from connected wire order, so
     // keep portCount at 0 to prevent generic fallback connector rows.
-    surface.visual.connectionCount = surfaceConnectionOrder.get(surface.id)?.length || 0;
+    surface.visual.connectionCount = surfaceConnectionOrder.get(surface.id)?.connections.length || 0;
     surface.portCount = 0;
   });
   const allDevices = [
@@ -1145,21 +1146,6 @@ function normalizeTitleBlocks(blocks) {
   });
 }
 
-function buildSurfaceConnectionOrder(connections, surfaces = []) {
-  const map = new Map();
-  const surfaceById = new Map((surfaces || []).map(surface => [String(surface?.id || ""), surface]));
-  connections.forEach((connection, index) => {
-    const surfaceId = ledSurfaceIdForConnection(connection);
-    if (!surfaceId) return;
-    if (!map.has(surfaceId)) map.set(surfaceId, []);
-    map.get(surfaceId).push({ id: connection.id || `surface-wire-${index}`, connection, index });
-  });
-  map.forEach((list, surfaceId) => {
-    list.sort((a, b) => compareLedSurfaceConnections(a, b, surfaceById.get(surfaceId) || { id: surfaceId }));
-  });
-  return map;
-}
-
 function normalizeProjectWire(wire, index, context) {
   const from = normalizeEndpoint(wire.from || {
     deviceId: wire.fromDeviceId,
@@ -1460,8 +1446,7 @@ function normalizeEndpoint(endpoint, end, wire, context) {
 }
 
 function normalizeSurfaceEndpoint(surfaceId, wire, context) {
-  const ordered = context.surfaceConnectionOrder.get(surfaceId) || [];
-  const portIndex = Math.max(0, ordered.findIndex(item => String(item.id) === String(wire.id)));
+  const portIndex = context.surfaceConnectionOrder.get(surfaceId)?.rankById.get(String(wire.id)) ?? 0;
   return {
     surfaceId,
     connectorId: "",

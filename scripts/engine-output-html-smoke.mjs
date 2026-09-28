@@ -267,11 +267,11 @@ try {
       cameraMeanMs: performance.meanMs, cameraP95Ms: performance.p95Ms, legacy: performance.legacy, speedup: performance.speedup }));
     await offline.close(); await app.close();
   }
-  // The Legacy editor also exports the same Engine contract, not its visible SVG.
+  // Retired renderer-selection URLs must still export the same Engine contract.
   for (const [name, project] of cases) {
     const legacy = await browser.newPage({ viewport: { width: 1600, height: 1000 } }), errors = errorsFor(legacy);
     await legacy.goto(`${base}/index.html?legacy=1`);
-    await legacy.waitForFunction(() => typeof restoreSnapshot === "function");
+    await legacy.waitForFunction(() => activeEngineBridge()?.ready);
     await legacy.evaluate(f => {
       for (const d of f.devices) d.templateOverride ||= f.deviceLibrary?.find(t => t.id === d.templateId);
       restoreSnapshot(f); zoomToFit();
@@ -281,11 +281,12 @@ try {
       return (await prepareEngineViewerOutput()).html;
     });
     assert.equal(parsePayload(result).engineScene.signature, results.find(r => r.name === name).signature);
-    assert.ok(await legacy.locator("#canvas .device-outline").count() > 0, "Legacy application still draws devices");
-    await legacy.screenshot({ path: join(dir, `${name}-legacy-app.png`) });
+    assert.equal(await legacy.locator("#canvas .device-outline").count(), 0, "retired URL never builds hidden Legacy devices");
+    assert.ok(await legacy.evaluate(()=>activeEngineBridge()?.scene.devices.length>0));
+    await legacy.screenshot({ path: join(dir, `${name}-retired-legacy-url.png`) });
     assert.deepEqual(errors, []); await legacy.close();
   }
 
   writeFileSync(join(dir, "results.json"), JSON.stringify(results, null, 2));
-  console.log(`PASS offline download, simulated Publish/authentication, parity, reports, Engine/Legacy apps; artifacts: ${dir}`);
+  console.log(`PASS offline download, simulated Publish/authentication, parity, reports, Engine including retired mode URLs; artifacts: ${dir}`);
 } finally { await browser.close(); }

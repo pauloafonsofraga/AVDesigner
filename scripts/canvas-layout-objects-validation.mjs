@@ -25,7 +25,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-36-13-multi-source-led-processor-wiring";
+const BUILD_ID = "iteration54-37-0-engine-only-led-project-loading";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -40,10 +40,10 @@ function sourceSlice(source, startNeedle, endNeedle) {
   return source.slice(start, end);
 }
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.36.13");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.36.13";'), "visible iteration should be 54.36.13");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-36-13-multi-source-led-processor-wiring-modules";'), "module cache key should bust 54.36.13 modules");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-36-13-multi-source-led-processor-wiring"'), "Engine bridge version should identify Multi-Source LED Processor Wiring");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.37.0");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.37.0";'), "visible iteration should be 54.37.0");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-37-0-engine-only-led-project-loading-modules";'), "module cache key should bust 54.37.0 modules");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-37-0-engine-only-led-project-loading"'), "Engine bridge version should identify Engine-Only LED Project Loading");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
 assert.ok(classicScripts.length >= 1, "index.html should contain at least one classic script");
@@ -295,7 +295,7 @@ assert.ok(indexHtml.includes("engine-comment-preview-arrow"), "Engine comment pl
 assert.ok(indexHtml.includes(".comment-editor") && indexHtml.includes("z-index: 120"), "inline comment editor keeps a local stacking value");
 assert.ok(indexHtml.includes('dump.id = "engineCommentEditDebug"'), "debug-only comment edit DOM state is exposed");
 assert.ok(indexHtml.includes("engineCommentEditorHost().appendChild(control)"), "comment editor mounts through the Engine editor host");
-assert.ok(indexHtml.includes("const loadedProjectSnapshot = projectSnapshotData();"), "project load captures a fresh snapshot before Engine refresh");
+assert.ok(indexHtml.includes("const loadedProjectSnapshot = projectSnapshotData({ forEngine: true });"), "project load captures a fresh snapshot before Engine refresh");
 assert.ok(indexHtml.includes('bridge?.refreshFromProduction?.("project loaded", { projectData: loadedProjectSnapshot });'), "project load refreshes Engine from the loaded snapshot");
 assert.ok(bridgeSource.includes("options?.projectData || this.api.getProjectData?.()"), "Engine refresh can consume an explicit project snapshot");
 assert.ok(bridgeSource.includes("engine-bridge-editor-overlay"), "Engine root provides a dedicated editor overlay above canvas layers");

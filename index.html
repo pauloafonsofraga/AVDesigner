@@ -1003,6 +1003,13 @@
       cursor: grabbing;
     }
 
+    #canvasWrap > #canvas,
+    #canvasWrap > #webglCanvas,
+    #canvasWrap > #deviceTextureCanvas,
+    #canvasWrap > #navigationSnapshotCanvas {
+      display: none !important;
+    }
+
     #webglCanvas {
       position: absolute;
       inset: 0;
@@ -5145,7 +5152,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled AV Wirechart" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.36.13 — Multi-Source LED Processor Wiring — iteration54-36-13-multi-source-led-processor-wiring</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current AV Designer build">Iteration 54.37.0 — Engine-Only LED Project Loading — iteration54-37-0-engine-only-led-project-loading</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5194,9 +5201,6 @@
           <!-- Icon: Project voltage state, icons/220.png or icons/110v.png -->
           <img class="toolbar-icon" src="icons/220.png" alt="" aria-hidden="true">
           <span>220V</span>
-        </button>
-        <button class="tool-button engine-beta-control" id="engineBetaToggle" type="button" aria-pressed="true" title="Switch to Legacy Editor">
-          <span>Legacy<br>Editor</span>
         </button>
         <button class="tool-button has-icon" id="deviceEditorButton" type="button" title="Edit device library" aria-label="Edit device library">
           <!-- Icon: Device Editor, icons/Device_Editor.png -->
@@ -5844,15 +5848,15 @@
     </div>
   </div>
 
-  <script src="./src/engine/projectorModelCore.js?v=iteration54-36-13-multi-source-led-processor-wiring"></script>
+  <script src="./src/engine/projectorModelCore.js?v=iteration54-37-0-engine-only-led-project-loading"></script>
   <script>
-    const APP_ITERATION = "54.36.13";
-    const APP_BUILD_ID = "iteration54-36-13-multi-source-led-processor-wiring";
-    const APP_MODULE_CACHE_ID = "iteration54-36-13-multi-source-led-processor-wiring-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Multi-Source LED Processor Wiring`;
+    const APP_ITERATION = "54.37.0";
+    const APP_BUILD_ID = "iteration54-37-0-engine-only-led-project-loading";
+    const APP_MODULE_CACHE_ID = "iteration54-37-0-engine-only-led-project-loading-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Engine-Only LED Project Loading`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
-    const APP_SOURCE_BASE_COMMIT = "7f9b8e4a6d3342a5be313689a050a828ee3454e7";
+    const APP_SOURCE_BASE_COMMIT = "115212fd3774c0aefcd363af32530b2cb9c6d7d1";
     const CANVAS_MIN_ZOOM = 0.03;
     const CANVAS_MAX_ZOOM = 8;
     const ENGINE_COMMENT_ARROW_LENGTH = 16;
@@ -132838,27 +132842,16 @@
     }
 
     function pointForLedSurface(surfaceId, connection = null) {
+      const scene = activeEngineBridge()?.scene;
+      const wire = connection && scene?.getWire(connection.id);
+      if (wire) return scene.endpointForWire(wire, wire.fromSurfaceId === surfaceId ? "from" : "to");
       const surface = ledSurfaceById(surfaceId);
       if (!surface) return { x: 0, y: 0 };
-      const surfaceConnections = connectionsForLedSurface(surfaceId);
-      const count = Math.max(1, surfaceConnections.length || endpointIndexForSurface(surfaceId));
-      const index = connection
-        ? Math.max(0, surfaceConnections.findIndex(item => item.id === connection.id))
-        : Math.max(0, count - 1);
-      const yRatio = (index + 0.5) / count;
-      return {
-        x: surface.x,
-        y: surface.y + surface.height * yRatio
-      };
+      return { x: surface.x, y: surface.y + surface.height / 2 };
     }
 
     function connectionsForLedSurface(surfaceId) {
-      ensureLedSurfaceProcessorOrder(surfaceId);
-      return state.connections
-        .filter(connection => {
-          return connection.to?.surfaceId === surfaceId || connection.from?.surfaceId === surfaceId;
-        })
-        .sort(compareLedSurfaceConnections);
+      return activeEngineBridge()?.scene.orderedLedSurfaceWires(surfaceId) || [];
     }
 
     function endpointIndexForSurface(surfaceId) {
@@ -132969,7 +132962,7 @@
           anchor: plainPoint(comment.anchor)
         })),
         titleBlocks: state.titleBlocks,
-        connections: state.connections,
+        connections: connectionsForProjectSnapshot(),
         darkMode: state.darkMode,
         gridVisible: state.gridVisible,
         objectSnapping: state.objectSnapping,
@@ -133231,7 +133224,6 @@
     }
 
     function libraryDragUrlModeLabel() {
-      if (legacyEditorRequestedByUrl()) return "legacy=1";
       if (engineDefaultTestRequestedByUrl()) return "engineDefaultTest=1";
       if (explicitEngineRequestedByUrl()) return "engine=1";
       return "default";
@@ -134137,7 +134129,7 @@
       };
     }
 
-    const WEBGL_RENDERER_ENABLED = true;
+    const WEBGL_RENDERER_ENABLED = false;
     // Live navigation updates the SVG viewBox directly so newly exposed objects are not clipped.
     // The old snapshot/device texture layers serialized SVG after renders and caused main-thread stalls;
     // keep them disabled until they are replaced with per-object, invalidation-based WebGL textures.
@@ -135226,29 +135218,8 @@
       }
     }
 
-    function scheduleSvgDetailRefresh(delay = SVG_DETAIL_REFRESH_IDLE_MS) {
+    function scheduleSvgDetailRefresh() {
       cancelSvgDetailRefresh();
-      svgDetailRefreshTimer = setTimeout(() => {
-        svgDetailRefreshTimer = null;
-        const queue = callback => {
-          if (typeof requestIdleCallback === "function") {
-            svgDetailRefreshIdle = requestIdleCallback(callback, { timeout: 3200 });
-          } else {
-            svgDetailRefreshIdle = setTimeout(callback, 520);
-          }
-        };
-        queue(() => {
-          svgDetailRefreshIdle = null;
-          if (liveZoomState || isLiveCanvasInteraction()) {
-            scheduleSvgDetailRefresh(delay);
-            return;
-          }
-          svgDetailRefreshFrame = requestAnimationFrame(() => {
-            svgDetailRefreshFrame = null;
-            renderCanvasOnly({ lightweight: true, cameraDetailRefresh: true });
-          });
-        });
-      }, delay);
     }
 
     function scheduleWebglDraw() {
@@ -137127,40 +137098,8 @@
       return "full";
     }
 
-    function updateCanvasView(options = {}) {
-      const rect = canvasWrap.getBoundingClientRect();
-      const width = Math.max(1, rect.width / canvasView.zoom);
-      const height = Math.max(1, rect.height / canvasView.zoom);
-      if (options.deferSvgViewBox) {
-        if (LIVE_SVG_VIEWBOX_UPDATES) {
-          // Keep the real SVG viewport current during pan/zoom; CSS-transforming an old
-          // viewBox clips newly exposed objects until interaction end.
-          canvas.style.transform = "";
-          canvas.setAttribute("viewBox", `${canvasView.x} ${canvasView.y} ${width} ${height}`);
-          if (liveZoomState) {
-            liveZoomState.x = canvasView.x;
-            liveZoomState.y = canvasView.y;
-            liveZoomState.zoom = canvasView.zoom;
-          }
-        } else {
-          applyLiveZoomTransform();
-        }
-      } else {
-        if (liveZoomState) {
-          liveZoomState = null;
-          canvas.style.transform = "";
-          canvasWrap.classList.remove("live-zooming");
-        }
-        canvas.setAttribute("viewBox", `${canvasView.x} ${canvasView.y} ${width} ${height}`);
-      }
+    function updateCanvasView() {
       refreshToolbarZoomReadout();
-      if (!options.deferSvgViewBox) renderSnapGuides();
-      if (options.deferSvgViewBox) {
-        scheduleWebglCameraDraw({ skipGrid: true });
-        scheduleDeviceTextureDraw();
-      } else {
-        scheduleWebglDraw();
-      }
     }
 
     function canvasVisibleRect() {
@@ -137208,39 +137147,7 @@
     }
 
     function zoomToFit() {
-      const bounds = objectBoundsForSelection().map(item => item.rect);
-      if (!bounds.length) {
-        resetZoom();
-        return;
-      }
-      state.comments.forEach(comment => {
-        bounds.push({
-          x: Math.min(comment.anchor.x, comment.x),
-          y: Math.min(comment.anchor.y, comment.y - 18),
-          width: Math.abs(comment.anchor.x - comment.x) + comment.width,
-          height: Math.abs(comment.anchor.y - comment.y) + comment.height + 18
-        });
-      });
-      state.connections.map(selfPatchConnectionBounds).filter(Boolean).forEach(rect => bounds.push(rect));
-      const minX = Math.min(...bounds.map(rect => rect.x));
-      const minY = Math.min(...bounds.map(rect => rect.y));
-      const maxX = Math.max(...bounds.map(rect => rect.x + rect.width));
-      const maxY = Math.max(...bounds.map(rect => rect.y + rect.height));
-      const wrap = canvasWrap.getBoundingClientRect();
-      const padding = 30;
-      const width = Math.max(1, maxX - minX);
-      const height = Math.max(1, maxY - minY);
-      const nextZoom = Math.min(CANVAS_MAX_ZOOM, Math.max(CANVAS_MIN_ZOOM, Math.min(
-        wrap.width / (width + padding * 2),
-        wrap.height / (height + padding * 2)
-      )));
-      canvasView.zoom = nextZoom;
-      const viewWidth = wrap.width / canvasView.zoom;
-      const viewHeight = wrap.height / canvasView.zoom;
-      canvasView.x = minX + width / 2 - viewWidth / 2;
-      canvasView.y = minY + height / 2 - viewHeight / 2;
-      updateCanvasView();
-      scheduleSvgDetailRefresh();
+      activeEngineBridge()?.fitView();
     }
 
     function setToolbarIcon(button, src) {
@@ -145532,13 +145439,17 @@
     let pendingLedGridReplaceSurfaceId = "";
 
     async function importLedGridFile(file) {
+      const metrics = window.__AVD_LED_IMPORT_METRICS__ = { started: performance.now() };
       const reader = new FileReader();
       reader.onload = async () => {
         try {
+          const decodeStart = performance.now();
           const image = await loadImageDataUrl(reader.result);
+          metrics.decodeMs = performance.now() - decodeStart;
           const naturalWidth = image.naturalWidth || image.width || 640;
           const naturalHeight = image.naturalHeight || image.height || 360;
           const preview = prepareLedSurfacePreview(image);
+          metrics.preparationMs = performance.now() - decodeStart;
           const maxWidth = 520;
           const scale = Math.min(1, maxWidth / naturalWidth);
           const surface = {
@@ -145558,17 +145469,12 @@
               previewHeight: preview.height
             } : {})
           };
-          pushUndo();
-          const insertedIndex = state.ledSurfaces.length;
-          state.ledSurfaces.push(surface);
-          state.selected = { type: "led-surface", id: surface.id };
-          render();
-          activeEngineBridge()?.syncCanvasObjectFromProduction?.("led-surface", surface.id, surface, {
-            recordCreateCommand: true,
-            refreshMutationIndexes: true,
-            select: true,
-            index: insertedIndex
-          });
+          const bridge = activeEngineBridge();
+          if (!bridge?.commitCreatedCanvasObject("led-surface", surface, { select: true })) {
+            throw new Error("The Engine must be ready before importing an LED image.");
+          }
+          renderShellUi();
+          metrics.totalMs = performance.now() - metrics.started;
         } catch (error) {
           alert("The LED screen PNG could not be loaded.");
         }
@@ -145587,24 +145493,22 @@
           const naturalHeight = image.naturalHeight || image.height || 0;
           if (!naturalWidth || !naturalHeight) throw new Error("Image size unavailable");
           const preview = prepareLedSurfacePreview(image);
-          pushUndo();
-          surface.image = reader.result;
-          surface.naturalWidth = naturalWidth;
-          surface.naturalHeight = naturalHeight;
-          surface.width = Math.round(naturalWidth);
-          surface.height = Math.round(naturalHeight);
+          const before = structuredClone(surface);
+          const after = { ...before, image: reader.result, naturalWidth, naturalHeight,
+            width: Math.round(naturalWidth), height: Math.round(naturalHeight) };
           if (preview.dataUrl) {
-            surface.previewImage = preview.dataUrl;
-            surface.previewWidth = preview.width;
-            surface.previewHeight = preview.height;
+            after.previewImage = preview.dataUrl;
+            after.previewWidth = preview.width;
+            after.previewHeight = preview.height;
           } else {
-            delete surface.previewImage;
-            delete surface.previewWidth;
-            delete surface.previewHeight;
+            delete after.previewImage;
+            delete after.previewWidth;
+            delete after.previewHeight;
           }
-          state.selected = { type: "led-surface", id: surface.id };
-          render();
-          activeEngineBridge()?.syncCanvasObjectFromProduction?.("led-surface", surface.id, surface);
+          if (!activeEngineBridge()?.commitCanvasObjectSnapshot("led-surface", before, after, { label: "replace LED image" })) {
+            throw new Error("The Engine must be ready before replacing an LED image.");
+          }
+          renderShellUi();
         } catch (error) {
           alert("The replacement LED screen PNG could not be loaded.");
         }
@@ -150774,10 +150678,7 @@
     }
 
     function render() {
-      cancelLiveCanvasRender();
-      clearWebglWireExclusions({ defer: false });
-      renderCanvasOnly();
-      renderInspector();
+      renderShellUi();
     }
 
     function pluralCount(count, singular, plural = `${singular}s`) {
@@ -150985,6 +150886,20 @@
     }
 
     function renderCanvasOnly(options = {}) {
+      if (!options.lightweight && !options.live) renderShellUi();
+    }
+
+    function renderShellUi() {
+      renderProjectCustomDevices();
+      renderCableLegend();
+      renderInspector();
+      updateUndoRedoButtons();
+      emptyHint.classList.toggle("hidden", state.devices.length > 0 || state.ledSurfaces.length > 0 || state.areas.length > 0 || state.comments.length > 0 || state.titleBlocks.length > 0);
+      setStatus(statusSummary());
+    }
+
+    // Retired main-canvas implementation, retained only until Stage 2 cleanup.
+    function renderRetiredSvgCanvas(options = {}) {
       const lightweight = options.lightweight === true;
       const viewport = lightweight ? lightweightRenderViewport() : null;
       const renderOptions = { viewport, lightweight };
@@ -160624,7 +160539,23 @@
         .slice(0, 80) || "av-wirechart";
     }
 
-    function projectSnapshotData() {
+    function connectionsForProjectSnapshot() {
+      const bridge = activeEngineBridge();
+      if (bridge?.mutations?.root?.connections !== state.connections) return state.connections;
+      return state.connections.map(connection => {
+        const wire = bridge.scene.getWire(connection.id);
+        if (!wire || (!wire.fromSurfaceId && !wire.toSurfaceId)) return connection;
+        const copy = { ...connection };
+        for (const end of ["from", "to"]) {
+          if (wire[`${end}SurfaceId`] && connection[end]?.surfaceId === wire[`${end}SurfaceId`]) {
+            copy[end] = { ...connection[end], portIndex: wire[`${end}PortIndex`] };
+          }
+        }
+        return copy;
+      });
+    }
+
+    function projectSnapshotData({ forEngine = false } = {}) {
       state.devices.forEach(normalizeInstanceRelationshipMetadata);
       return {
         version: state.version,
@@ -160645,7 +160576,7 @@
         jumpLinks: state.jumpLinks,
         comments: state.comments,
         titleBlocks: state.titleBlocks,
-        connections: state.connections,
+        connections: forEngine ? state.connections : connectionsForProjectSnapshot(),
         deviceLibrary
       };
     }
@@ -161719,6 +161650,7 @@ document.addEventListener("click", function(event) {
     }
 
     function loadProjectFile(file, options = {}) {
+      const metrics = window.__AVD_PROJECT_LOAD_METRICS__ = { started: performance.now() };
       cancelLegacyJumpGesture("project load");
       const engineBridge = activeEngineBridge() || window.avDesignerEngineBridge;
       engineBridge?.beginProjectLoad?.(`Loading file: ${file?.name || "project"}`);
@@ -161727,8 +161659,13 @@ document.addEventListener("click", function(event) {
         const bridge = activeEngineBridge() || window.avDesignerEngineBridge;
         try {
           bridge?.setLoadingPhase?.("Parsing project file...");
+          const parseStart = performance.now();
           const data = JSON.parse(reader.result);
+          metrics.parseMs = performance.now() - parseStart;
+          const previewStart = performance.now();
           await ensureLedSurfacePreviews(data, bridge);
+          metrics.previewPreparationMs = performance.now() - previewStart;
+          const shellStart = performance.now();
           bridge?.setLoadingPhase?.("Applying project settings...");
           state.version = data.version || 1;
           state.projectName = data.projectName || "Untitled AV Wirechart";
@@ -161748,6 +161685,7 @@ document.addEventListener("click", function(event) {
           loadDeviceFavoritesPreference();
           state.devices = Array.isArray(data.devices) ? data.devices.map(hydrateDeviceInstance).filter(Boolean) : [];
           state.ledSurfaces = Array.isArray(data.ledSurfaces) ? data.ledSurfaces : [];
+          state.imageObjects = Array.isArray(data.imageObjects) ? data.imageObjects : [];
           state.areas = Array.isArray(data.areas) ? data.areas : [];
           state.racks = Array.isArray(data.racks) ? data.racks.filter(rack => rack && rack.id) : [];
           state.jumpNodes = Array.isArray(data.jumpNodes) ? data.jumpNodes : [];
@@ -161766,16 +161704,18 @@ document.addEventListener("click", function(event) {
           projectFileHandle = options.fileHandle || null;
           projectFileName = options.fileHandle?.name || file?.name || "";
           renderDeviceLibrary();
-          const loadedProjectSnapshot = projectSnapshotData();
+          const loadedProjectSnapshot = projectSnapshotData({ forEngine: true });
           render();
-          requestAnimationFrame(zoomToFit);
+          metrics.shellMs = performance.now() - shellStart;
           bridge?.setLoadingPhase?.("Rebuilding Engine Editor scene...");
           try {
             bridge?.refreshFromProduction?.("project loaded", { projectData: loadedProjectSnapshot });
+            metrics.engine = bridge?.lastProjectLoadMetrics;
+            metrics.totalMs = performance.now() - metrics.started;
           } catch (engineError) {
             console.error("[engine-bridge] Project loaded, but Engine Editor rebuild failed.", engineError);
             setStatus(`Engine editor failed after project load: ${engineError.message || engineError}`);
-            showEngineFailureFallback(engineError);
+            showEngineFailure(engineError);
             return;
           }
           if (projectFileHandle) setStatus(`Loaded ${projectFileName || "project"}. Save will overwrite this file.`);
@@ -163427,9 +163367,6 @@ document.addEventListener("click", function(event) {
     });
     document.getElementById("saveProject").addEventListener("click", editorActions.saveProject);
     document.getElementById("saveProjectAs").addEventListener("click", editorActions.saveProjectAs);
-    document.getElementById("engineBetaToggle")?.addEventListener("click", () => {
-      switchEngineEditorMode(!engineEditorRequestedByUrl());
-    });
     document.getElementById("loadProject").addEventListener("click", () => {
       recordShellAction("load project");
       openProjectFile();
@@ -163663,20 +163600,12 @@ document.addEventListener("click", function(event) {
       }
     });
 
-    function legacyEditorRequestedByUrl() {
-      const params = new URLSearchParams(window.location.search);
-      const engineFlag = String(params.get("engine") || "").toLowerCase();
-      return params.get("legacy") === "1" || engineFlag === "0" || engineFlag === "false";
-    }
-
     function explicitEngineRequestedByUrl() {
       const params = new URLSearchParams(window.location.search);
       return params.get("engine") === "1" || params.get("engineDefaultTest") === "1";
     }
 
     function engineEditorRequestedByUrl() {
-      if (legacyEditorRequestedByUrl()) return false;
-      if (explicitEngineRequestedByUrl()) return true;
       return true;
     }
 
@@ -163703,51 +163632,8 @@ document.addEventListener("click", function(event) {
         || count(state.titleBlocks) > 0;
     }
 
-    function confirmEngineModeReload() {
-      if (!projectHasReloadRisk()) return true;
-      return window.confirm("Switching editor mode will reload the app. Save your project first if needed.");
-    }
-
-    function engineModeUrl(enabled) {
-      const url = new URL(window.location.href);
-      if (enabled) {
-        url.searchParams.delete("legacy");
-        const engineFlag = String(url.searchParams.get("engine") || "").toLowerCase();
-        if (engineFlag === "0" || engineFlag === "false") {
-          url.searchParams.delete("engine");
-        }
-        url.searchParams.delete("engineDefaultTest");
-      } else {
-        url.searchParams.set("legacy", "1");
-        url.searchParams.delete("engine");
-        url.searchParams.delete("engineDefaultTest");
-      }
-      return url.toString();
-    }
-
-    function switchEngineEditorMode(enabled) {
-      if (enabled === engineEditorRequestedByUrl()) return;
-      if (!confirmEngineModeReload()) return;
-      window.location.href = engineModeUrl(enabled);
-    }
-
-    function updateEngineBetaControl() {
-      const button = document.getElementById("engineBetaToggle");
-      if (!button) return;
-      const requested = engineEditorRequestedByUrl();
-      const active = Boolean(activeEngineBridge());
-      button.setAttribute("aria-pressed", requested ? "true" : "false");
-      button.title = requested
-        ? "Switch to Legacy Editor"
-        : "Switch to Engine Editor";
-      button.innerHTML = requested
-        ? "<span>Legacy<br>Editor</span>"
-        : "<span>Engine<br>Editor</span>";
-      button.classList.toggle("active", active);
-    }
-
     function appRuntimeModeLabel() {
-      return engineEditorRequestedByUrl() ? "Engine Editor" : "Legacy Editor";
+      return "Engine Editor";
     }
 
     function updateAppBuildLabel() {
@@ -164157,9 +164043,13 @@ document.addEventListener("click", function(event) {
       }
     }
 
+    let engineStartAttempt = 0;
+
     function startExperimentalEngineRenderer() {
       if (!experimentalEngineRendererRequested()) return;
-      const productionBridgeUrl = engineImportUrl("./src/engine/productionBridge.js");
+      document.getElementById("engineFailureFallback")?.remove();
+      const attempt = engineStartAttempt++;
+      const productionBridgeUrl = engineImportUrl("./src/engine/productionBridge.js") + (attempt ? `&retry=${attempt}` : "");
       console.info("[engine-bridge] Requested experimental engine renderer.", {
         mode: appRuntimeModeLabel(),
         iteration: APP_ITERATION,
@@ -164175,7 +164065,7 @@ document.addEventListener("click", function(event) {
           };
           window.avDesignerEngineBridge = module.createProductionEngineBridge({
             canvasWrap,
-            getProjectData: projectSnapshotData,
+            getProjectData: () => projectSnapshotData({ forEngine: true }),
             getCanvasClipboardProject: canvasClipboardProject,
             applyCanvasClipboardState,
             restoreDeviceEditorSnapshot: restoreDeviceEditorEngineSnapshot,
@@ -164263,13 +164153,11 @@ document.addEventListener("click", function(event) {
               render();
               setStatus(statusSummary());
               updateUndoRedoButtons();
-              updateEngineBetaControl();
               updateAppBuildLabel();
             }
           });
           const activeMode = appRuntimeModeLabel();
-          setStatus(`${activeMode} active. Use the toolbar mode switch to reload the legacy editor if needed.`);
-          updateEngineBetaControl();
+          setStatus(`${activeMode} active.`);
           updateAppBuildLabel();
           updateLibraryDragDebug();
           updateShellDebug({ lastPanelAction: "engine bridge mounted" });
@@ -164278,8 +164166,7 @@ document.addEventListener("click", function(event) {
         .catch(error => {
           console.error("[engine-bridge] Could not start experimental renderer.", error);
           setStatus(`Engine editor failed: ${error.message || error}`);
-          showEngineFailureFallback(error);
-          updateEngineBetaControl();
+          showEngineFailure(error);
           updateAppBuildLabel();
           updateLibraryDragDebug({ engineStartError: error?.message || String(error) });
           updateShellDebug({ lastPanelAction: "engine bridge failed" });
@@ -164287,7 +164174,7 @@ document.addEventListener("click", function(event) {
         });
     }
 
-    function showEngineFailureFallback(error) {
+    function showEngineFailure(error) {
       if (document.getElementById("engineFailureFallback")) return;
       const panel = document.createElement("div");
       panel.id = "engineFailureFallback";
@@ -164295,10 +164182,19 @@ document.addEventListener("click", function(event) {
       panel.innerHTML = `
         <strong>Engine editor failed to start.</strong>
         <span>${escapeHtml(error?.message || error || "Unknown engine startup error.")}</span>
-        <button class="tool-button" type="button">Reload Legacy Editor</button>
+        <span>Your project is retained. Retry the Engine or use Save As to save it.</span>
+        <button class="tool-button" type="button">Retry Engine</button>
       `;
       panel.querySelector("button")?.addEventListener("click", () => {
-        window.location.href = engineModeUrl(false);
+        const bridge = window.avDesignerEngineBridge;
+        if (bridge?.isActive()) {
+          try {
+            bridge.refreshFromProduction("retry project load");
+            panel.remove();
+          } catch (retryError) {
+            panel.querySelector("span").textContent = retryError.message || String(retryError);
+          }
+        } else startExperimentalEngineRenderer();
       });
       canvasWrap.appendChild(panel);
     }
@@ -164317,7 +164213,6 @@ document.addEventListener("click", function(event) {
     setCableHops(true);
     setProjectVoltage(DEFAULT_POWER_VOLTAGE, { renderUi: false });
     updateProjectNameControl();
-    updateEngineBetaControl();
     updateAppBuildLabel();
     refreshRuntimeDiagnostics({ phase: "startup" });
     setupShellDebugObservers();

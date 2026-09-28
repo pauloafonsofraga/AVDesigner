@@ -20,7 +20,6 @@ import {
 } from "./canvasObjectKinds.js";
 import {
   ledSurfacePortIndex,
-  pointForLedSurface,
   wireEndpointSurfaceId
 } from "./ledSurfaceModel.js";
 import {
@@ -76,6 +75,7 @@ export class SceneGraph {
     this.meta = {};
     this.devicesById = new Map();
     this.wiresById = new Map();
+    this.ledSurfaceWireLayouts = new Map();
     this.racksById = new Map();
     this.jumpLinkById = new Map();
     this.jumpLinkByJumpId = new Map();
@@ -575,6 +575,7 @@ export class SceneGraph {
   }
 
   rebuildWireIndex() {
+    this.ledSurfaceWireLayouts.clear();
     this.rebuildConnectorOwnershipIndex();
     this.wireIdsByDeviceId.clear();
     this.wireIdsByConnectorKey.clear();
@@ -609,6 +610,7 @@ export class SceneGraph {
 
   addWireEndpointIndexes(wire) {
     if (!wire?.id) return;
+    this.ledSurfaceIdsForWire(wire).forEach(id => this.ledSurfaceWireLayouts.delete(id));
     ["from", "to"].forEach(end => {
       const key = this.wireEndpointConnectorKey(wire, end);
       if (key) {
@@ -622,6 +624,7 @@ export class SceneGraph {
 
   removeWireEndpointIndexes(wire) {
     if (!wire?.id) return;
+    this.ledSurfaceIdsForWire(wire).forEach(id => this.ledSurfaceWireLayouts.delete(id));
     ["from", "to"].forEach(end => {
       const key = this.wireEndpointConnectorKey(wire, end);
       const connectorWires = key ? this.wireIdsByConnectorKey.get(key) : null;
@@ -1689,12 +1692,22 @@ export class SceneGraph {
   }
 
   rawEndpointForLedSurface(wire, device, pos) {
-    const orderedWires = this.orderedLedSurfaceWires(device.id);
-    return pointForLedSurface({ ...device, x: pos.x, y: pos.y }, wire, orderedWires);
+    const layout = this.ledSurfaceWireLayout(device.id);
+    const count = Math.max(1, layout.wires.length);
+    const rank = layout.rankById.get(wire.id) ?? 0;
+    return { x: pos.x, y: pos.y + device.height * ((rank + 0.5) / count) };
   }
 
   orderedLedSurfaceWires(surfaceId) {
-    return this.wires
+    return this.ledSurfaceWireLayout(surfaceId).wires;
+  }
+
+  ledSurfaceWireLayout(surfaceId) {
+    const cached = this.ledSurfaceWireLayouts.get(surfaceId);
+    if (cached) return cached;
+    // Endpoint-index mutations invalidate both old and new surfaces. Positions,
+    // metadata and camera changes do not alter explicit per-wire landing order.
+    const wires = this.wires
       .map((wire, index) => ({ wire, index }))
       .filter(item => this.wireEndpointSurfaceId(item.wire, "from") === surfaceId || this.wireEndpointSurfaceId(item.wire, "to") === surfaceId)
       // The adapter owns Legacy-to-Engine ordering. Missing/duplicate indexes
@@ -1703,6 +1716,9 @@ export class SceneGraph {
         - (ledSurfacePortIndex(b.wire, surfaceId) ?? Infinity))
         || a.index - b.index || a.wire.id.localeCompare(b.wire.id))
       .map(item => item.wire);
+    const layout = { wires: Object.freeze(wires), rankById: new Map(wires.map((w, i) => [w.id, i])) };
+    this.ledSurfaceWireLayouts.set(surfaceId, layout);
+    return layout;
   }
 
   visibleEndpoint(wire, end, point, otherPoint) {

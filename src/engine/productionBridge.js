@@ -134,8 +134,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
 
 // Keep this visible in the Engine HUD so browser-cache and deployed-build
 // confusion is obvious while testing shell-to-Engine toolbar state.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-36-13-multi-source-led-processor-wiring";
-export const ENGINE_BRIDGE_VERSION = "iteration54-36-13-multi-source-led-processor-wiring";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-37-0-engine-only-led-project-loading";
+export const ENGINE_BRIDGE_VERSION = "iteration54-37-0-engine-only-led-project-loading";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -370,6 +370,9 @@ class ProductionEngineBridge {
     this.jumpLinkCreate = null;
     this.clearJumpMoveArm("destroy", { updateHud: false });
     this.clearLoadingReadyTimer();
+    if (this.renderFrame) cancelAnimationFrame(this.renderFrame);
+    this.renderFrame = null;
+    this.renderer?.dispose();
     this.engineRoot?.remove();
     this.engineRoot = null;
     this.container?.classList.remove("engine-bridge-active");
@@ -909,9 +912,17 @@ class ProductionEngineBridge {
     try {
       this.setLoadingPhase("Reading project data...");
       const rawProject = options?.projectData || this.api.getProjectData?.();
+      // Preserve current per-connection surface indexes on an explicit refresh.
+      // A newly opened project has a different connections array and owns its
+      // own saved order.
+      if (this.mutations?.root?.connections === rawProject?.connections) {
+        this.mutations.persistLedSurfaceIndexes(this.scene);
+      }
       this.setGridVisible(rawProject?.gridVisible !== false, { render: false });
       this.setLoadingPhase("Normalizing project...");
+      const normalizeStart = performance.now();
       const normalized = normalizeProductionProject(rawProject, reason);
+      const normalizationMs = performance.now() - normalizeStart;
       this.setLoadingPhase("Finalizing interaction state...");
       this.stopWirePlayback("scene refresh", { render: false });
       this.cancelActiveInteraction("scene refresh", { updateHud: false });
@@ -936,6 +947,7 @@ class ProductionEngineBridge {
       const sceneBuildMs = performance.now() - start;
       this.setLoadingPhase("Preparing WebGL buffers...");
       const staticStats = this.renderer.setStaticScene(this.scene);
+      this.lastProjectLoadMetrics = { normalizationMs, sceneBuildMs, bufferPreparationMs: performance.now() - start - sceneBuildMs };
       if (preserveViewport && beforeCamera) this.camera = beforeCamera;
       else this.fitView();
       this.notifyViewportChange(preserveViewport ? "scene-refresh-preserved" : "scene-refresh-fit");
@@ -1080,7 +1092,6 @@ class ProductionEngineBridge {
         <span>${BRIDGE_FEATURE_LABEL}</span>
         <button type="button" data-engine-action="refresh">Refresh</button>
         <button type="button" data-engine-action="toggle-hud">HUD</button>
-        <button type="button" data-engine-action="exit">Use Legacy Editor</button>
       </div>
       <div class="engine-bridge-status"></div>
       <div class="engine-bridge-command-bar">
@@ -1104,7 +1115,7 @@ class ProductionEngineBridge {
           <div class="engine-bridge-loading-bar" aria-hidden="true"><span></span></div>
           <p class="engine-bridge-loading-note">Interaction is locked until scene data, WebGL buffers, labels, and hit testing are ready.</p>
           <pre class="engine-bridge-loading-error hidden"></pre>
-          <button type="button" class="engine-bridge-loading-fallback hidden" data-engine-action="loading-exit">Open Legacy Editor</button>
+          <button type="button" class="engine-bridge-loading-fallback hidden" data-engine-action="loading-retry">Retry Engine</button>
         </div>
       </div>
       <div class="engine-bridge-layer-debug ${this.debugLayerMode ? "" : "hidden"}">
@@ -1137,8 +1148,10 @@ class ProductionEngineBridge {
     this.boundInspectorActionClick = event => this.handleInspectorActionClick(event);
     this.inspectorPanel?.addEventListener("click", this.boundInspectorActionClick);
     this.engineRoot.querySelector("[data-engine-action='refresh']")?.addEventListener("click", () => this.refreshFromProduction("manual button"));
-    this.engineRoot.querySelector("[data-engine-action='exit']")?.addEventListener("click", () => exitEngineMode());
-    this.engineRoot.querySelector("[data-engine-action='loading-exit']")?.addEventListener("click", () => exitEngineMode());
+    this.engineRoot.querySelector("[data-engine-action='loading-retry']")?.addEventListener("click", () => {
+      try { this.refreshFromProduction("retry project load"); }
+      catch (error) { this.showLoadingFailure(error); }
+    });
     this.engineRoot.querySelector("[data-engine-action='toggle-hud']")?.addEventListener("click", () => {
       this.debugPanel?.classList.toggle("hidden");
     });
@@ -8221,7 +8234,7 @@ class ProductionEngineBridge {
     if (text && active) text.textContent = message || "Preparing project data...";
     const title = this.loadingPanel.querySelector(".engine-bridge-loading-title");
     if (title && active) title.textContent = "Loading Engine Editor...";
-    const fallback = this.loadingPanel.querySelector("[data-engine-action='loading-exit']");
+    const fallback = this.loadingPanel.querySelector("[data-engine-action='loading-retry']");
     fallback?.classList.add("hidden");
     const error = this.loadingPanel.querySelector(".engine-bridge-loading-error");
     error?.classList.add("hidden");
@@ -8245,6 +8258,7 @@ class ProductionEngineBridge {
       this.hud.setMetric("load ready", `${(performance.now() - pending.loadStart).toFixed(1)} ms`);
       this.setLoadingPhase("Ready.");
       this.setLoading(false);
+      if (this.lastProjectLoadMetrics) this.lastProjectLoadMetrics.firstFrameMs = performance.now() - pending.loadStart;
       this.scheduleRender();
     };
     if (!pending.delayMs) {
@@ -8286,7 +8300,7 @@ class ProductionEngineBridge {
       errorPanel.textContent = errorText;
       errorPanel.classList.remove("hidden");
     }
-    this.loadingPanel.querySelector("[data-engine-action='loading-exit']")?.classList.remove("hidden");
+    this.loadingPanel.querySelector("[data-engine-action='loading-retry']")?.classList.remove("hidden");
     this.updateCommandButtons();
   }
 
@@ -9281,19 +9295,6 @@ function injectBridgeStyles() {
     .engine-bridge-root .hidden { display: none !important; }
   `;
   document.head.appendChild(style);
-}
-
-function exitEngineMode() {
-  try {
-    localStorage.removeItem("avdesignerEngineRenderer");
-  } catch (error) {
-    // localStorage may be unavailable in private or restricted contexts.
-  }
-  const url = new URL(window.location.href);
-  url.searchParams.set("legacy", "1");
-  url.searchParams.delete("engine");
-  url.searchParams.delete("engineDefaultTest");
-  window.location.href = url.toString();
 }
 
 function engineActivationSource() {

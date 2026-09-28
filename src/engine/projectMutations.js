@@ -43,6 +43,18 @@ export class ProjectMutationAdapter {
     this.history = [];
   }
 
+  persistLedSurfaceIndexes(scene) {
+    for (const wire of scene.wires) {
+      const connection = this.connectionById.get(String(wire.sourceId || wire.id))?.item;
+      if (!connection) continue;
+      for (const end of ["from", "to"]) {
+        if (wire[`${end}SurfaceId`] && connection[end]?.surfaceId === wire[`${end}SurfaceId`]) {
+          connection[end].portIndex = wire[`${end}PortIndex`];
+        }
+      }
+    }
+  }
+
   rebuildIndexes() {
     this.root = projectRoot(this.project);
     if (!Array.isArray(this.root.devices)) this.root.devices = [];
@@ -992,7 +1004,7 @@ function endpointToProject(scene, wire, end) {
   const surfaceId = String(end === "from" ? wire.fromSurfaceId || "" : wire.toSurfaceId || "").trim();
   if (surfaceId) {
     const surface = scene.getDevice(surfaceId);
-    return { surfaceId: String(surface?.sourceId || surfaceId) };
+    return { surfaceId: String(surface?.sourceId || surfaceId), portIndex: wire[`${end}PortIndex`] };
   }
   const deviceId = end === "from" ? wire.fromDeviceId : wire.toDeviceId;
   const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
@@ -1015,7 +1027,7 @@ function endpointToProjectFromSceneData(sceneData, wire, end) {
   const surfaceId = String(end === "from" ? wire.fromSurfaceId || "" : wire.toSurfaceId || "").trim();
   if (surfaceId) {
     const surface = (sceneData.devices || []).find(device => String(device?.id || "") === surfaceId);
-    return { surfaceId: String(surface?.sourceId || surfaceId) };
+    return { surfaceId: String(surface?.sourceId || surfaceId), portIndex: wire[`${end}PortIndex`] };
   }
   const deviceId = end === "from" ? wire.fromDeviceId : wire.toDeviceId;
   const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;

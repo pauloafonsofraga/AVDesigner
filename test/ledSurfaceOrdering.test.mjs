@@ -141,24 +141,22 @@ test("project save/reload preserves initial landing order, identities and metada
 });
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
-function legacy(project) {
-  const c = vm.createContext({ state: project,
-    ledSurfaceById: id => project.ledSurfaces.find(s => s.id === id),
-    instanceById: id => project.devices.find(d => d.instanceId === id),
-    connectorById: (id, connectorId) => project.devices.find(d => d.instanceId === id)?.templateOverride.connectors.find(c => c.id === connectorId)
+function shell(project, scene) {
+  const c = vm.createContext({ state: project, activeEngineBridge: () => ({scene}),
+    ledSurfaceById: id => project.ledSurfaces.find(s => s.id === id)
   });
-  for (const name of ["pointForLedSurface", "connectionsForLedSurface", "endpointIndexForSurface", "ledConnectionSourceInfo", "ledSurfaceIdForConnection", "ensureLedSurfaceProcessorOrder", "ledProcessorOrderIndex", "compareLedSurfaceConnections"]) {
+  for (const name of ["pointForLedSurface", "connectionsForLedSurface", "endpointIndexForSurface"]) {
     const source = html.match(new RegExp(`^    function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?^    \\}`, "m"));
     assert.ok(source, name); vm.runInContext(source[0], c);
   }
   return c;
 }
 
-test("real Legacy ordering and endpoint coordinates match Engine for signal and mixed-power fixtures", () => {
+test("shell reads Engine ordering and endpoint coordinates for signal and mixed-power fixtures", () => {
   for (const power of [false, true]) {
     const project = ledSurfaceOrderingFixture();
     if (power) project.connections.unshift(...["z-power", "a-power"].map((id, i) => ({ id, from: { deviceId: i ? "backup" : "main", connectorId: "out-7" }, to: { surfaceId: "wall" }, cableType: "powercon" })));
-    const { scene } = setup(project), svg = legacy(project);
+    const { scene } = setup(project), svg = shell(project, scene);
     const expected = [...ledSurfaceOrder, ...(power ? ["a-power", "z-power"] : [])];
     assertLandings(scene, expected);
     assert.deepEqual(Array.from(svg.connectionsForLedSurface("wall"), w => w.id), expected);

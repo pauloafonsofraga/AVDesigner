@@ -109,7 +109,7 @@ export function registerLedProcessorForSurface(surface = {}, deviceId = "") {
 }
 
 export function ledProcessorOrderIndex(surface = {}, deviceId = "") {
-  const order = ensureLedSurfaceProcessorOrder(surface);
+  const order = surface.ledProcessorOrder || [];
   const index = order.indexOf(String(deviceId || ""));
   return index === -1 ? Number.MAX_SAFE_INTEGER : index;
 }
@@ -135,13 +135,48 @@ export function compareLedSurfaceConnections(a, b, surface = {}) {
 }
 
 export function connectionsForLedSurface(surfaceId = "", connections = [], surfaces = []) {
-  const id = String(surfaceId || "").trim();
-  const surface = surfaceById(surfaces, id) || { id };
-  ensureLedSurfaceProcessorOrder(surface, connections);
-  return (connections || [])
-    .map((connection, index) => ({ id: String(connection?.id || `surface-wire-${index}`), connection, index }))
-    .filter(item => ledSurfaceIdForConnection(item.connection) === id)
-    .sort((a, b) => compareLedSurfaceConnections(a, b, surface));
+  return buildLedSurfaceConnectionIndex(connections, surfaces).get(String(surfaceId))?.connections || [];
+}
+
+export function savedLedSurfacePortIndex(connection, surfaceId) {
+  const end = (endpointSurfaceId(connection.from) || connection.fromSurfaceId) === surfaceId ? "from" : "to";
+  return ledSurfacePortIndex({ [`${end}SurfaceId`]: surfaceId,
+    [`${end}PortIndex`]: connection[end]?.portIndex ?? connection[`${end}PortIndex`] }, surfaceId);
+}
+
+// One operation-scoped index. Sorting reads precomputed scalar keys only; it
+// never resolves connectors, modifies surface metadata, or scans the project.
+export function buildLedSurfaceConnectionIndex(connections = [], surfaces = [], resolveConnector = () => null) {
+  const result = new Map();
+  const surfaceById = new Map(surfaces.map(s => [String(s.id), s]));
+  connections.forEach((connection, index) => {
+    const surfaceId = ledSurfaceIdForConnection(connection);
+    if (!surfaceId) return;
+    if (!result.has(surfaceId)) result.set(surfaceId, { connections: [], rankById: new Map() });
+    const info = ledConnectionSourceInfo(connection, surfaceId);
+    const connector = resolveConnector(info.deviceId, info.connectorId);
+    result.get(surfaceId).connections.push({ id: String(connection.id || `surface-wire-${index}`), connection, index,
+      deviceId: info.deviceId, signal: Number(connection.signalIndex || info.signalIndex || connector?.signalIndex) || 0,
+      signalFirst: connection.cableType === "led-signal" ? 0 : 1,
+      portIndex: savedLedSurfacePortIndex(connection, surfaceId) });
+  });
+  result.forEach((entry, id) => {
+    const ranks = new Map((surfaceById.get(id)?.ledProcessorOrder || []).map((deviceId, i) => [String(deviceId), i]));
+    // Resolve missing saved ranks once, in source order, just as initial load did.
+    // Explicit per-connection indexes below remain authoritative after editing.
+    entry.connections.forEach(c => {
+      if (!c.signalFirst && c.deviceId && !ranks.has(c.deviceId)) ranks.set(c.deviceId, ranks.size);
+    });
+    entry.connections.forEach(c => { c.processorRank = ranks.get(c.deviceId) ?? Number.MAX_SAFE_INTEGER; });
+    const explicit = entry.connections.some(c => c.portIndex != null);
+    entry.connections.sort((a, b) => explicit
+      ? (a.portIndex ?? Infinity) - (b.portIndex ?? Infinity) || a.index - b.index
+      : a.signalFirst - b.signalFirst || (!a.signalFirst && (a.processorRank - b.processorRank || a.signal - b.signal))
+        || a.id.localeCompare(b.id) || a.index - b.index);
+    let nextIndex = explicit ? Math.max(...entry.connections.map(c => c.portIndex ?? -1)) + 1 : 0;
+    entry.connections.forEach(c => entry.rankById.set(c.id, c.portIndex ?? nextIndex++));
+  });
+  return result;
 }
 
 export function endpointIndexForSurface(surfaceId = "", connections = [], surfaces = []) {
