@@ -20,7 +20,11 @@ inline copy in `index.html` or use browser/project data to regenerate it.
 application script executes only after successful loading. `wireNexusReady` is its
 shared readiness promise, including the existing shell/editor/Engine initializers.
 On catalogue failure the app remains inert, does not initialize
-storage/persistence, and offers Retry. The factory remains immutable; project and
+storage/persistence, and offers Retry. A shell initialization failure instead offers
+Reload Page: the classic script may already have installed listeners, so it must
+never be injected twice into the same document. Only successful shell readiness
+unlocks the app. Neither recovery action clears saved settings or project files.
+The factory remains immutable; project and
 editor libraries are clones. Defaults controls and promotion behavior are unchanged.
 
 ## Artwork
@@ -81,13 +85,15 @@ node scripts/factory-catalogue-validation.mjs
 # Optional historical comparison when the baseline commit exists locally:
 node scripts/factory-catalogue-validation.mjs --compare-baseline
 node --test test/factoryCatalogue.test.mjs
+node --test test/factoryCatalogueBootstrap.test.mjs
 node scripts/factory-catalogue-smoke.mjs
 ```
 
 The browser harness uses the same Playwright/Chrome environment variables as the
 existing smoke scripts. It tests the real library/pair drag, offline HTML, offscreen
 artwork, save/reopen with device asset requests blocked, failed catalogue recovery,
-and missing required artwork. Screenshots and measured resource bodies go to a
+forced shell-readiness rejection followed by page reload, and missing required
+artwork. Screenshots and measured resource bodies go to a
 temporary artifact directory printed by the script.
 
 ## Measured Results

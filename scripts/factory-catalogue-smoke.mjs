@@ -8,7 +8,11 @@ const { chromium } = createRequire(import.meta.url)(process.env.AVDESIGNER_PLAYW
 const browser = await chromium.launch({ headless: true, ...(process.env.AVDESIGNER_CHROME_PATH ? { executablePath: process.env.AVDESIGNER_CHROME_PATH } : {}) });
 const base = process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8768";
 const dir = mkdtempSync(join(tmpdir(), "factory-catalogue-")), checks = [], errors = [];
-const ready = page => page.waitForFunction(() => typeof localUserSettingsLoaded !== "undefined" && localUserSettingsLoaded && activeEngineBridge()?.ready);
+const ready = async page => {
+  await page.waitForFunction(() => window.wireNexusReady);
+  await page.evaluate(() => window.wireNexusReady);
+  await page.waitForFunction(() => localUserSettingsLoaded && activeEngineBridge()?.ready);
+};
 const observe = page => {
   page.on("pageerror", error => errors.push(error.message));
   page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
@@ -124,6 +128,62 @@ try {
   await failure.unroute("**/data/factory-catalogue.json*"); await failure.locator("#catalogueRetry").click(); await ready(failure);
   assert.equal(await failure.evaluate(() => cableTypes["saved-user-node"].label), "Before catalogue failure");
   checks.push("missing catalogue blocks app/persistence, preserves storage and recovers using Retry");
+
+  const shellFailureContext = await browser.newContext();
+  await shellFailureContext.addInitScript(() => {
+    // Fail after real shell initialization, not before catalogue loading. The
+    // next document can initialize normally while keeping the same storage.
+    const fail = !sessionStorage.getItem("shell-failed-once");
+    const settings = '{"schemaVersion":1,"builtInDeviceDefaults":{}}';
+    const project = '{"projectName":"Keep existing project","devices":[],"connections":[]}';
+    if (fail) {
+      localStorage.setItem("av-designer:user-settings:v1", settings);
+      localStorage.setItem("bootstrap-saved-project-test", project);
+    }
+    window.bootstrapShellStarts = 0;
+    let readiness;
+    Object.defineProperty(window, "wireNexusShellReady", {
+      get: () => readiness,
+      set(value) {
+        window.bootstrapShellStarts++;
+        readiness = Promise.resolve(value).then(() => {
+          if (fail) {
+            sessionStorage.setItem("shell-failed-once", "1");
+            throw new Error("Forced shell readiness failure");
+          }
+        });
+      }
+    });
+  });
+  const shellFailure = await shellFailureContext.newPage(); observe(shellFailure);
+  await shellFailure.goto(base);
+  await shellFailure.locator('#catalogueStartup[data-phase="shell-failed"]').waitFor();
+  assert.equal(await shellFailure.locator("#catalogueRetry").innerText(), "Reload Page");
+  assert.match(await shellFailure.locator("#catalogueStartupMessage").innerText(), /Forced shell readiness failure/);
+  assert.equal(await shellFailure.evaluate(() => document.querySelector(".app").inert), true);
+  assert.equal(await shellFailure.evaluate(() => bootstrapShellStarts), 1);
+  assert.equal(await shellFailure.evaluate(() => window.wireNexusReady.then(() => "false success", () => "rejected")), "rejected");
+  const preserved = await shellFailure.evaluate(() => ({
+    settings: localStorage.getItem("av-designer:user-settings:v1"),
+    project: localStorage.getItem("bootstrap-saved-project-test")
+  }));
+  assert.equal(preserved.settings, '{"schemaVersion":1,"builtInDeviceDefaults":{}}');
+  assert.equal(preserved.project, '{"projectName":"Keep existing project","devices":[],"connections":[]}');
+  await shellFailure.screenshot({ path: join(dir, "shell-reload.png") });
+  const reloaded = shellFailure.waitForEvent("load");
+  await shellFailure.locator("#catalogueRetry").click(); await reloaded; await ready(shellFailure);
+  assert.equal(await shellFailure.locator("#catalogueStartup").count(), 0);
+  assert.equal(await shellFailure.evaluate(() => document.querySelector(".app").inert), false);
+  assert.equal(await shellFailure.evaluate(() => bootstrapShellStarts), 1);
+  assert.deepEqual(await shellFailure.evaluate(() => ({
+    settings: localStorage.getItem("av-designer:user-settings:v1"),
+    project: localStorage.getItem("bootstrap-saved-project-test")
+  })), preserved);
+  await shellFailure.locator("#deviceSearch").fill("M1-DP");
+  await shellFailure.waitForFunction(() => deviceList.children.length === 1);
+  assert.match(await shellFailure.locator("#deviceList").innerText(), /Beetek \/ Extenders/);
+  await shellFailure.screenshot({ path: join(dir, "shell-recovered.png") });
+  checks.push("real shell rejection after successful catalogue load offers Reload Page, recovers in a fresh document and preserves saved settings/project data");
 
   const missing = await failure.evaluate(async () => {
     const original = deviceLibrary.find(d => d.name === "E2 Gen2");
