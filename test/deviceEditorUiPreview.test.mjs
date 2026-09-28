@@ -892,8 +892,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     "switchPortProfileForConnector",
     "switchPortIndexForConnector",
     "nextSwitchPortIndex",
-    "uniqueNetworkGroupId",
-    "createEthernetSwitchConnectorPair",
+    "createEthernetSwitchConnector",
     "addEthernetSwitchPortBatch",
     "addEditorNode",
     "defaultConnectorNameFor",
@@ -1737,15 +1736,6 @@ function generatedSwitchConnectors(template, profile = "") {
       if (indexDelta) return indexDelta;
       return String(a.direction).localeCompare(String(b.direction));
     });
-}
-
-function switchGeneratedPairs(template, profile = "") {
-  const connectors = generatedSwitchConnectors(template, profile);
-  const byId = new Map(connectors.map(connector => [connector.id, connector]));
-  return connectors
-    .filter(connector => connector.direction === "output")
-    .map(output => ({ output, input: byId.get(output.pairedConnectorId) }))
-    .sort((a, b) => Number(a.output.switchPortIndex || 0) - Number(b.output.switchPortIndex || 0));
 }
 
 test("Device tab uses compact feature groups with dependent controls beside toggles", () => {
@@ -6379,28 +6369,28 @@ test("Device Editor Ethernet Switch settings are nonstructural and Add Ports bat
   context.editorSelectedNodeIds = new Set(["fixed-left"]);
   context.editorSelectedNodeIndex = template.connectors.findIndex(connector => connector.id === "fixed-left");
   const normalizationBefore = counters.normalizationCalls;
+  const baseline = api.resolveEditorModularLayout(template);
+  const baselineLanes = itemLaneMap(baseline);
   before = editorCounterSnapshot(counters);
   api.addEthernetSwitchPortBatch();
 
-  let pairs = switchGeneratedPairs(template, "1g-rj45");
-  assert.equal(pairs.length, 3);
-  assert.deepEqual(pairs.map(pair => pair.output.switchPortIndex), [1, 2, 3]);
-  const lanes = itemLaneMap(api.resolveEditorModularLayout(template));
-  pairs.forEach(({ output, input }) => {
-    assert.ok(input, `pair for ${output.id} should exist`);
-    assert.equal(output.direction, "output");
-    assert.equal(input.direction, "input");
-    assert.equal(output.displaySide, "right");
-    assert.equal(input.displaySide, "left");
-    assert.equal(output.pairedConnectorId, input.id);
-    assert.equal(input.pairedConnectorId, output.id);
-    assert.equal(output.networkGroupId, input.networkGroupId);
-    assert.equal(output.generatedByEthernetSwitch, true);
-    assert.equal(input.generatedByEthernetSwitch, true);
-    assert.equal(output.includeInMatrix, false);
-    assert.equal(input.includeInMatrix, false);
-    assert.equal(lanes[`connector:${output.id}`], lanes[`connector:${input.id}`], "network pair should share one lane");
-    assert.ok(lanes[`connector:${output.id}`] >= 3, "both-side card span should be respected");
+  let ports = generatedSwitchConnectors(template, "1g-rj45");
+  assert.equal(ports.length, 3, "one logical connector per port, not an input/output pair");
+  assert.deepEqual(ports.map(port => port.switchPortIndex), [1, 2, 3]);
+  const layout = api.resolveEditorModularLayout(template);
+  assert.equal(layout.endLane, baseline.endLane + 3);
+  assert.deepEqual(itemLaneMap(layout), { ...baselineLanes, ...Object.fromEntries(ports.map((port, i) => [`connector:${port.id}`, baseline.endLane + i])) });
+  ports.forEach(port => {
+    assert.equal(port.direction, "io");
+    assert.equal(port.signalDirection, "bidirectional");
+    assert.equal(port.displaySide, "both");
+    assert.equal(port.pairedConnectorId, undefined);
+    assert.equal(port.networkGroupId, undefined);
+    assert.equal(port.ethernetGroupId, undefined);
+    assert.equal(port.generatedByEthernetSwitch, true);
+    assert.equal(port.includeInMatrix, false);
+    assert.deepEqual(port.anchors.map(a => [a.side, a.x, a.y]), [["left", 0, port.y], ["right", template.width, port.y]]);
+    assert.equal(layout.byId.get(`connector:${port.id}`).sideMask, "both");
   });
   assert.deepEqual(selectedNodeConnectorIds(context), ["fixed-left"]);
   assert.equal(counters.normalizationCalls, normalizationBefore, "batch should not call normalizeConnectorRows per port");
@@ -6416,9 +6406,9 @@ test("Device Editor Ethernet Switch settings are nonstructural and Add Ports bat
   const firstBatchIds = generatedSwitchConnectors(template, "1g-rj45").map(connector => connector.id);
   before = editorCounterSnapshot(counters);
   api.addEthernetSwitchPortBatch();
-  pairs = switchGeneratedPairs(template, "1g-rj45");
-  assert.equal(pairs.length, 6);
-  assert.deepEqual(pairs.map(pair => pair.output.switchPortIndex), [1, 2, 3, 4, 5, 6]);
+  ports = generatedSwitchConnectors(template, "1g-rj45");
+  assert.equal(ports.length, 6);
+  assert.deepEqual(ports.map(port => port.switchPortIndex), [1, 2, 3, 4, 5, 6]);
   assert.deepEqual(generatedSwitchConnectors(template, "1g-rj45").slice(0, firstBatchIds.length).map(connector => connector.id), firstBatchIds);
   assert.deepEqual(editorCounterDelta(counters, before), {
     structuralSessions: 1,
@@ -6433,8 +6423,8 @@ test("Device Editor Ethernet Switch settings are nonstructural and Add Ports bat
   context.editorSwitchPortType.value = "sfp";
   before = editorCounterSnapshot(counters);
   api.addEthernetSwitchPortBatch();
-  assert.deepEqual(switchGeneratedPairs(template, "sfp").map(pair => pair.output.switchPortIndex), [1, 2]);
-  assert.deepEqual(switchGeneratedPairs(template, "1g-rj45").map(pair => pair.output.switchPortIndex), [1, 2, 3, 4, 5, 6]);
+  assert.deepEqual(generatedSwitchConnectors(template, "sfp").map(port => port.switchPortIndex), [1, 2]);
+  assert.deepEqual(generatedSwitchConnectors(template, "1g-rj45").map(port => port.switchPortIndex), [1, 2, 3, 4, 5, 6]);
   assert.deepEqual(editorCounterDelta(counters, before), {
     structuralSessions: 1,
     solverCalls: 1,
@@ -6470,10 +6460,37 @@ test("Device Editor Ethernet batch insertion preserves exact multi-selection and
   assert.deepEqual(selectedNodeConnectorIds(context), ["selected-left", "selected-right"]);
   assert.equal(selectedNodePrimaryConnectorId(template, context), "selected-right");
   assert.equal(context.editorSelectedNodeIndex, template.connectors.findIndex(connector => connector.id === "selected-right"));
-  assert.equal(generatedSwitchConnectors(template, "1g-rj45").length, 4);
+  assert.equal(generatedSwitchConnectors(template, "1g-rj45").length, 2);
 });
 
-test("Device Editor Ethernet Switch batch rollback and later pair movement stay structural", () => {
+for (const profile of ["1g-rj45", "10g-rj45", "sfp", "sfp-plus", "qsfp"]) {
+  test(`Ethernet ${profile} generates 48 atomic both-side ports without the old placement lookup`, () => {
+    const { api, template, context, counters } = structuralEditorHarness({ hasSwappableCards: false });
+    context.nextEditorPlacementY = () => { throw new Error("old placement lookup must not run"); };
+    context.editorEthernetSwitch.checked = true;
+    context.editorSwitchPortCount.value = "48";
+    context.editorSwitchPortType.value = profile;
+    api.addEthernetSwitchPortBatch();
+    const ports = generatedSwitchConnectors(template, profile);
+    const layout = api.resolveEditorModularLayout(template);
+    assert.equal(ports.length, 48);
+    assert.equal(layout.items.length, 48);
+    assert.equal(layout.endLane, 48);
+    assert.deepEqual(itemLaneMap(layout), Object.fromEntries(ports.map((port, i) => [`connector:${port.id}`, i])));
+    assert.equal(counters.solverCalls, 1);
+    for (const port of ports) {
+      assert.equal(port.schemaVersion, 2);
+      assert.equal(port.displaySide, "both");
+      assert.equal(port.signalDirection, "bidirectional");
+      assert.equal(port.direction, "io");
+      assert.equal(port.pairedConnectorId, undefined);
+      assert.equal(port.anchors.length, 2);
+      assert.equal(layout.byId.get(`connector:${port.id}`).sideMask, "both");
+    }
+  });
+}
+
+test("Device Editor Ethernet Switch batch rollback and both-anchor movement stay structural", () => {
   const { api, template, counters, context, placementModule } = structuralEditorHarness({
     isEthernetSwitch: true,
     switchPortCount: 2,
@@ -6515,28 +6532,23 @@ test("Device Editor Ethernet Switch batch rollback and later pair movement stay 
   });
 
   api.addEthernetSwitchPortBatch();
-  const [{ output, input }] = switchGeneratedPairs(template, "10g-rj45");
-  assert.ok(output && input);
+  const [port] = generatedSwitchConnectors(template, "10g-rj45");
+  assert.equal(port.anchors.length, 2);
   api.commitEditorStructuralEdit(template, {
-    primaryItemId: `connector:${output.id}`,
+    primaryItemId: `connector:${port.id}`,
     mutate(draft, transactionContext) {
-      const outputDraft = draft.connectors.find(connector => connector.id === output.id);
-      const inputDraft = draft.connectors.find(connector => connector.id === input.id);
-      const y = transactionContext.targetYForLane(0);
-      outputDraft.y = y;
-      inputDraft.y = y;
+      const portDraft = draft.connectors.find(connector => connector.id === port.id);
+      portDraft.y = transactionContext.targetYForLane(0);
       return {
-        upsertIds: [`connector:${output.id}`, `connector:${input.id}`],
-        hardTargets: {
-          [`connector:${output.id}`]: 0,
-          [`connector:${input.id}`]: 0
-        }
+        upsertIds: [`connector:${port.id}`],
+        hardTargets: { [`connector:${port.id}`]: 0 }
       };
     }
   });
   const movedLanes = itemLaneMap(api.resolveEditorModularLayout(template));
-  assert.equal(movedLanes[`connector:${output.id}`], 0);
-  assert.equal(movedLanes[`connector:${input.id}`], 0);
+  assert.equal(movedLanes[`connector:${port.id}`], 0);
+  const moved = template.connectors.find(connector => connector.id === port.id);
+  assert.deepEqual(moved.anchors.map(a => a.y), [moved.y, moved.y]);
 });
 
 test("Device Editor placement motion is persistent across Engine visuals and authoring overlays", () => {
