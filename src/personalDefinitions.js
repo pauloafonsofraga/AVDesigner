@@ -248,6 +248,52 @@ export function createPersonalDefinitions({ factory, nodes, assetManifest = {}, 
     has: id => Object.hasOwn(entries, id),
     entry: id => entries[id] ? structuredClone(entries[id]) : null,
     snapshot: () => structuredClone({ version: PERSONAL_DEFINITIONS_VERSION, entries }),
+    promotionReceipts: () => structuredClone(Object.values(registry.promotionReceipts || {})),
+    async recordPromotionReceipts(receipts) {
+      if (!initialized) throw new Error("Personal library is not ready.");
+      const data = await store.update(current => {
+        current.promotionReceipts ||= {};
+        for (const receipt of receipts) {
+          const copy = structuredClone(receipt);
+          // A save in another tab between preparation and this transaction must
+          // never authorize deletion of that newer personal version.
+          if ((current.entries[copy.sourceId]?.revision || null) !== copy.personalRevision) copy.personalMatches = false;
+          current.promotionReceipts[copy.id] ||= copy;
+        }
+        current.generation++; return current;
+      });
+      accept(data); announce();
+    },
+    async reconcilePromotions(decisions) {
+      if (!initialized) throw new Error("Personal library is not ready.");
+      const data = await store.update(current => {
+        let changed = false;
+        // Resolve removals first so multiple receipts for the same content all
+        // report the final state in this transaction, independent of ordering.
+        for (const decision of decisions) {
+          const receipt = current.promotionReceipts?.[decision.id];
+          if (!receipt || receipt.packageId !== decision.packageId) continue;
+          const entry = current.entries[receipt.sourceId];
+          if (decision.status === "Factory version active" && decision.cleanup && receipt.personalMatches && entry?.revision === receipt.personalRevision) {
+            delete current.entries[receipt.sourceId]; changed = true;
+          }
+        }
+        for (const decision of decisions) {
+          const receipt = current.promotionReceipts?.[decision.id];
+          if (!receipt || receipt.packageId !== decision.packageId) continue;
+          const entry = current.entries[receipt.sourceId];
+          let status = decision.status;
+          if (status === "Factory version active" && entry) {
+            status = "Factory version active - further personal changes remain";
+          }
+          if (receipt.status !== status) { receipt.status = status; changed = true; }
+        }
+        if (changed) current.generation++;
+        return current;
+      });
+      const changed = data.registry.generation !== registry.generation;
+      accept(data); if (changed) announce();
+    },
     library: () => effectiveLibraryDefinitions(factory, entries),
     nodes(id) {
       if (id != null) return structuredClone(entries[id]?.dependencies.nodes || nodes);

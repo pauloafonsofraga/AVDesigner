@@ -28,8 +28,11 @@ The factory remains immutable; project and editor libraries are clones.
 
 Phase 2 now separates the personal library from project definitions and replaces
 the Defaults controls. See [Personal Definitions](personal-definitions.md) for
-ownership, durable storage, migration and actions. Factory promotion remains out
-of scope.
+ownership, durable storage, migration and actions. Stage 3 adds opt-in development
+authoring and reviewed repository-side import; see
+[Factory Promotion](../docs/factory-promotion.md). Public Defaults controls remain
+unchanged. Small `promotions` fingerprint receipts in the catalogue allow validation
+of intentionally reviewed changes without rewriting this historical extraction audit.
 
 ## Artwork
 

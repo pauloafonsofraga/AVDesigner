@@ -117,8 +117,10 @@ baseline. Edits made during an async save remain unsaved. The footer's project s
 is independent of the personal actions; no checkbox changes its meaning. General
 JSON export remains a secondary portable export, not a default-save operation.
 
-Factory promotion, receipts, promotion exports and repository import are not
-implemented in this phase.
+Factory promotion was deliberately separate from this phase. The subsequent
+[reviewed factory-promotion workflow](../docs/factory-promotion.md) adds opt-in
+authoring, repository import and revision-checked receipts without changing these
+personal/project ownership boundaries.
 
 ## Verification
 

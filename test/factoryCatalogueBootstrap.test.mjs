@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { createFactoryCatalogueLoader } from "../src/factoryCatalogue.js";
+import { FACTORY_AUTHORING } from "../src/buildCapabilities.js";
 
 // Execute the actual bootstrap entry point with its DOM boundary substituted.
 // The production loader and the entire start/error/button sequence still run.
@@ -25,7 +26,7 @@ function harness({ fetchCatalogue = async () => Response.json(catalogue), initia
     createElement: () => ({ remove() {} }),
     body: { append() { calls.scripts++; window.wireNexusShellReady = initialize ? initialize() : Promise.resolve(); } }
   };
-  const context = { window, document, URL, Error,
+  const context = { window, document, URL, Error, FACTORY_AUTHORING,
     createFactoryCatalogueLoader: options => createFactoryCatalogueLoader({ ...options, fetchCatalogue: (...args) => { calls.fetch++; return fetchCatalogue(...args); } }),
     imageAssets: {}, portableProjectData() {}, observeLibraryArtwork() { calls.observers++; },
     localStorage: { setItem() { assert.fail("bootstrap must not write storage"); }, clear() { assert.fail("bootstrap must not clear storage"); } }

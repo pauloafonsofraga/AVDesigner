@@ -1,6 +1,7 @@
 import { createFactoryCatalogueLoader, portableProjectData } from "./factoryCatalogue.js";
 import * as imageAssets from "./imageAssets.js";
 import { observeLibraryArtwork } from "./libraryArtwork.js";
+import { FACTORY_AUTHORING } from "./buildCapabilities.js";
 
 const version = new URL(import.meta.url).searchParams.get("v") || "";
 const load = createFactoryCatalogueLoader({ url: new URL(`../data/factory-catalogue.json?v=${encodeURIComponent(version)}`, import.meta.url) });
@@ -30,6 +31,7 @@ function start() {
     setPhase("initializing-shell");
     message.textContent = "Starting WireNexus...";
     Object.defineProperty(window, "WireNexusFactoryCatalogue", { value: catalogue });
+    Object.defineProperty(window, "WireNexusBuildCapabilities", { value: Object.freeze({ factoryAuthoring: FACTORY_AUTHORING === true }) });
     Object.defineProperty(window, "WireNexusImageAssets", { value: Object.freeze({ ...imageAssets, portableProjectData }) });
     observeLibraryArtwork();
     // Keep the existing classic-script globals used by the shell/bridge. No app
