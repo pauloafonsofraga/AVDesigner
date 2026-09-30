@@ -3477,7 +3477,7 @@ function drawSharedBusConnectorWorldLabel(ctx, layout, baseX, baseY, camera) {
   const x = (worldX - camera.x) * camera.zoom;
   const y = (worldY - camera.y) * camera.zoom;
   const metrics = legacyConnectorLabelMetrics(camera.zoom);
-  const size = Math.max(9, metrics.screenFontSize);
+  const size = metrics.screenFontSize;
   ctx.save();
   ctx.font = `900 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
   ctx.textAlign = side === "right" ? "right" : "left";
@@ -3529,8 +3529,7 @@ function drawVisibleConnectorInfoBoxes(ctx, scene, camera, renderOptions = DEFAU
     const displayLayout = connectorDisplayLayoutForRender(scene, device);
     deviceConnectorsForRender(device).forEach(connector => {
       if (displayLayout.byConnectorId.has(connector.id)) return;
-      const fields = engineConnectorInfoFields(connector)
-        .filter(field => String(field?.value ?? field?.text ?? "").trim());
+      const fields = visibleConnectorInfoFields(connector);
       if (!fields.length) return;
       connectorDisplayAnchors(device, connector, displayLayout).forEach(anchor => {
         const renderConnector = {
@@ -3578,7 +3577,7 @@ function drawVisibleConnectorInfoBoxes(ctx, scene, camera, renderOptions = DEFAU
         x: baseX + layout.fieldAnchorX,
         y: baseY + layout.centerY
       };
-      engineConnectorInfoFields(representative).forEach((field, index) => {
+      visibleConnectorInfoFields(representative).forEach((field, index) => {
         entries.push({
           key: connectorInfoBoxKey(device, renderConnector, field, index),
           deviceId: device.id,
@@ -3662,6 +3661,11 @@ function drawVisibleConnectorInfoBoxes(ctx, scene, camera, renderOptions = DEFAU
     });
   }
   return stats;
+}
+
+function visibleConnectorInfoFields(connector) {
+  return engineConnectorInfoFields(connector)
+    .filter(field => String(field?.value ?? field?.text ?? "").trim());
 }
 
 function connectorInfoBoxKey(device, connector, field, index) {
@@ -3775,10 +3779,10 @@ function drawScreenInfoBoxText(ctx, rect, scale, title, value) {
   ctx.strokeText(title, rect.x + rect.width / 2, titleY);
   ctx.fillText(title, rect.x + rect.width / 2, titleY);
 
-  const lines = wrapScreenInfoBoxLines(ctx, value, Math.max(8, rect.width - 7 * scale), valueFontSize, 2);
+  ctx.font = `700 ${valueFontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  const lines = wrapScreenInfoBoxLines(ctx, value, Math.max(8, rect.width - 7 * scale), 2);
   const lineHeight = valueFontSize * 1.12;
   const startY = rect.y + rect.height / 2 + 3.3 * scale - (lines.length - 1) * lineHeight / 2;
-  ctx.font = `700 ${valueFontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
   ctx.strokeStyle = "transparent";
   ctx.lineWidth = 0;
   ctx.fillStyle = "#edf2f7";
@@ -3788,24 +3792,36 @@ function drawScreenInfoBoxText(ctx, rect, scale, title, value) {
   ctx.restore();
 }
 
-function wrapScreenInfoBoxLines(ctx, text, maxWidth, fontSize, maxLines = 2) {
+function wrapScreenInfoBoxLines(ctx, text, maxWidth, maxLines = 2) {
   const words = String(text || "").split(/\s+/).filter(Boolean);
   if (!words.length) return [""];
   const lines = [];
   let line = "";
-  words.forEach(word => {
-    const candidate = line ? `${line} ${word}` : word;
-    if (ctx.measureText(candidate).width <= maxWidth || !line) {
-      line = candidate;
-    } else {
-      lines.push(line);
-      line = word;
+  for (const word of words) {
+    let remaining = word;
+    while (remaining) {
+      const candidate = line ? `${line} ${remaining}` : remaining;
+      if (ctx.measureText(candidate).width <= maxWidth) {
+        line = candidate;
+        break;
+      }
+      if (line) {
+        lines.push(line);
+        line = "";
+      } else {
+        let length = 1;
+        while (length < remaining.length && ctx.measureText(remaining.slice(0, length + 1)).width <= maxWidth) length += 1;
+        lines.push(remaining.slice(0, length));
+        remaining = remaining.slice(length);
+      }
+      if (lines.length > maxLines) break;
     }
-  });
+    if (lines.length > maxLines) break;
+  }
   if (line) lines.push(line);
   if (lines.length <= maxLines) return lines;
   const kept = lines.slice(0, maxLines);
-  kept[maxLines - 1] = fitScreenText(ctx, kept[maxLines - 1], maxWidth, "...");
+  kept[maxLines - 1] = fitScreenText(ctx, `${kept[maxLines - 1]}...`, maxWidth, "...");
   return kept;
 }
 
