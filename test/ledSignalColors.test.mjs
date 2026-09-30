@@ -7,6 +7,10 @@ import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { createPreviewDeviceFromDraft } from "../src/engine/enginePreview.js";
 import { buildEngineOutputScene } from "../src/engine/outputSceneSnapshot.js";
 import { ledRackPortsFixture } from "../fixtures/led-rack-ports.mjs";
+import { SceneGraph } from "../src/engine/sceneGraph.js";
+import { isLedSurfaceCompatibleCableType } from "../src/engine/ledSurfaceModel.js";
+import { ledProcessorOutputsInRect, restoreProjectLedProcessorSignalTypes,
+  selectedLedProcessorOutputs } from "../src/engine/ledProcessorConnections.js";
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const functionSource = name => html.match(new RegExp(`^    function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?^    \\}`, "m"))[0];
@@ -39,6 +43,42 @@ test("custom LED colors survive project serialization, rack normalization, previ
     assert.equal(device.connectors[2].color, engineSignalLineColor(3));
   }
   assert.equal(JSON.stringify(project), saved, "normalizing and exporting never mutates source data");
+});
+
+test("orphaned personal LED signal aliases recover colors, marquee sources and LED surface targets", () => {
+  const project = ledRackPortsFixture();
+  const alias = "led-signal-personal-f00a0e90-2";
+  const processor = project.devices[0].templateOverride;
+  processor.connectors.slice(0, 3).forEach(connector => {
+    connector.type = alias;
+    connector.physicalType = alias;
+    connector.connectorType = alias;
+  });
+  processor.connectors[1].customColor = "#123456";
+  project.deviceLibrary = [structuredClone(processor)];
+  const sibling = project.devices[1].templateOverride.connectors[0];
+  sibling.type = alias;
+  const originalIndexes = processor.connectors.map(connector => connector.signalIndex);
+  assert.equal(restoreProjectLedProcessorSignalTypes(project), 6);
+  assert.equal(restoreProjectLedProcessorSignalTypes(project), 0);
+  assert.deepEqual(processor.connectors.map(connector => connector.signalIndex), originalIndexes);
+  assert.equal(sibling.type, alias, "an unrelated device's custom connector is untouched");
+  assert.deepEqual(processor.connectors.slice(0, 3).map(connector =>
+    [connector.type, connector.physicalType, connector.connectorType]),
+  Array.from({ length: 3 }, () => ["led-signal", "led-signal", "led-signal"]));
+  const scene = new SceneGraph();
+  scene.setData(normalizeAvDesignerProject(project));
+  const device = scene.getDevice("main");
+  assert.equal(scene.getConnector("main", "out-1").color, engineSignalLineColor(1));
+  assert.equal(scene.getConnector("main", "out-2").color, "#123456");
+  assert.equal(scene.getConnector("main", "out-3").color, engineSignalLineColor(3));
+  const points = [1, 2, 3].map(index => scene.connectorWorldPoint(device, scene.getConnector("main", `out-${index}`)));
+  const rect = { x: Math.min(...points.map(point => point.x)) - 2,
+    y: Math.min(...points.map(point => point.y)) - 2, width: 4,
+    height: Math.max(...points.map(point => point.y)) - Math.min(...points.map(point => point.y)) + 4 };
+  assert.deepEqual(ledProcessorOutputsInRect(scene, rect).map(output => output.connectorId), ["out-1", "out-2", "out-3"]);
+  assert.deepEqual(selectedLedProcessorOutputs(scene, ["main:out-1", "main:out-2"]).map(output => output.connectorId), ["out-1", "out-2"]);
+  assert.equal(isLedSurfaceCompatibleCableType(scene.getConnector("main", "out-1").type), true);
 });
 
 test("LED override handling does not change ordinary and fiber connector colors", () => {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { ledProjectLoadingFixture } from "../fixtures/led-project-loading.mjs";
+import { ledSurfaceOrderingFixture } from "../fixtures/led-surface-ordering.mjs";
 import { normalizeAvDesignerDevice, normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 
@@ -62,7 +63,10 @@ try {
     const calls=(await read()).calls;
     await page.evaluate(()=>{window.__AVD_PROJECT_LOAD_METRICS__=null;window.__longTasks=[];});
     const chooser=page.waitForEvent("filechooser"); await page.locator("#loadProject").click();
-    await (await chooser).setFiles({name,mimeType:"application/json",buffer:Buffer.from(JSON.stringify(data))});
+    const payload=Buffer.from(JSON.stringify(data));
+    if(payload.length>50*1024*1024) {
+      const path=`${directory}/${name}`;writeFileSync(path,payload);await (await chooser).setFiles(path);
+    } else await (await chooser).setFiles({name,mimeType:"application/json",buffer:payload});
     await page.waitForFunction(()=>window.__AVD_PROJECT_LOAD_METRICS__?.totalMs!=null && activeEngineBridge()?.ready,{},{timeout:90000});
     await page.waitForTimeout(5000);
     const actual=await read();
@@ -267,6 +271,63 @@ try {
   await page.waitForTimeout(150);
   assert.equal(await page.evaluate(() => state.projectName), "Current load");
   pass("superseded asynchronous project reading cannot overwrite a newer load");
+  const aliased = ledSurfaceOrderingFixture();
+  aliased.connections = [];
+  for (const connector of aliased.devices[0].templateOverride.connectors) {
+    connector.type = connector.physicalType = connector.connectorType = "led-signal-personal-f00a0e90-2";
+  }
+  aliased.devices[0].templateOverride.connectors[1].customColor = "#123456";
+  aliased.deviceLibrary = [structuredClone(aliased.devices[0].templateOverride)];
+  await open(aliased, "orphaned-led-signals.avd");
+  const restored = await page.evaluate(() => {
+    const scene = activeEngineBridge().scene;
+    const signals = scene.getDevice("main").connectors.filter(connector => connector.signalIndex);
+    return { types: signals.map(connector => connector.type), colors: signals.map(connector => connector.color),
+      savedTypes: projectSnapshotData().devices[0].templateOverride.connectors.map(connector => connector.type) };
+  });
+  assert.equal(restored.types.length, 7);
+  assert.ok(restored.types.every(type => type === "led-signal"));
+  assert.ok(restored.savedTypes.every(type => type === "led-signal"));
+  assert.deepEqual(restored.colors.slice(0, 3), ["#ff99cc", "#123456", "#ffcc99"]);
+  await page.evaluate(() => {
+    const bridge = activeEngineBridge(), device = bridge.scene.getDevice("main");
+    bridge.centerCameraAtWorldPoint({ x: device.x + device.width / 2, y: device.y + device.height / 2 },
+      "LED signal recovery", { zoom: 1 });
+  });
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: `${directory}/restored-led-signals.png` });
+  await page.evaluate(() => {
+    const bridge = activeEngineBridge();
+    bridge.camera = { x: -100, y: -220, zoom: 0.65 };
+    bridge.scheduleRender();
+  });
+  const signalPoints = await page.evaluate(() => {
+    const scene = activeEngineBridge().scene, device = scene.getDevice("main");
+    return device.connectors.slice(0, 3).map(connector => scene.connectorWorldPoint(device, connector));
+  });
+  const signalScreen = point => page.evaluate(point => {
+    const bridge = activeEngineBridge(), rect = bridge.canvas.getBoundingClientRect();
+    return { x: rect.x + (point.x - bridge.camera.x) * bridge.camera.zoom,
+      y: rect.y + (point.y - bridge.camera.y) * bridge.camera.zoom };
+  }, point);
+  const signalMove = async point => {
+    const screen = await signalScreen(point);
+    await page.mouse.move(screen.x, screen.y, { steps: 5 });
+  };
+  await signalMove({ x: signalPoints[0].x + 65, y: signalPoints[0].y - 20 });
+  await page.mouse.down();
+  await signalMove({ x: signalPoints[2].x - 25, y: signalPoints[2].y + 20 });
+  await page.mouse.up();
+  assert.deepEqual(await page.evaluate(() => [...activeEngineBridge().scene.selectedConnectorKeys]),
+    ["main:out-1", "main:out-2", "main:out-3"]);
+  await signalMove(signalPoints[1]);
+  await page.mouse.down();
+  await signalMove({ x: 1000, y: 400 });
+  await page.mouse.up();
+  const connected = await page.evaluate(() => structuredClone(state.connections));
+  assert.equal(connected.length, 3);
+  assert.ok(connected.every(wire => wire.cableType === "led-signal" && wire.to.surfaceId === "wall"));
+  pass("file load restores LED colors, three-node marquee and three wires onto the PNG");
   const startup=await browser.newPage();
   await startup.route("**/src/engine/productionBridge.js*",route=>route.abort());
   await startup.goto(`${base}/index.html?legacy=1`);

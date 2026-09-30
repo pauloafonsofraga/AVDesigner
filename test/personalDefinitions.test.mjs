@@ -434,6 +434,27 @@ test("project collision mapping preserves card/default references and reuses a m
   assert.deepEqual([source, node, projectNode], before);
 });
 
+test("LED processor built-in signal type keeps its semantic ID across personal node collisions", () => {
+  const alias = "led-signal-personal-f00a0e90-2";
+  const source = { id: "processor", isLedProcessor: true, connectors: [
+    { id: "signal-line-1", type: "led-signal", physicalType: "led-signal", connectorType: "led-signal", direction: "output", signalIndex: 1 },
+    { id: "signal-line-2", type: alias, physicalType: alias, connectorType: alias, direction: "output", signalIndex: 2 },
+    { id: "ordinary", type: "custom-control", direction: "input" }
+  ] };
+  const personalNodes = [{ id: "led-signal", label: "Personal LED", color: "#123456", custom: true },
+    { id: "custom-control", label: "Personal control", color: "#123456", custom: true }];
+  const projectNodes = [{ id: "led-signal", label: "Built-in LED", color: "#ff0000", custom: false },
+    { id: "custom-control", label: "Project control", color: "#ff0000", custom: true }];
+  const before = structuredClone([source, personalNodes, projectNodes]);
+  const result = personal.resolvePersonalNodeContext(source, personalNodes, projectNodes);
+  assert.deepEqual(result.definition.connectors.slice(0, 2).map(connector =>
+    [connector.type, connector.physicalType, connector.connectorType]),
+  [["led-signal", "led-signal", "led-signal"], ["led-signal", "led-signal", "led-signal"]]);
+  assert.equal(result.nodes.some(node => node.id.startsWith("led-signal-personal-")), false);
+  assert.notEqual(result.definition.connectors[2].type, "custom-control", "ordinary personal collisions still remap");
+  assert.deepEqual([source, personalNodes, projectNodes], before);
+});
+
 test("factory asset paths and saved identical image bytes do not spuriously remap protocol IDs", async () => {
   const node = nodes.find(n => n.id === "hdmi"), definition = { ...factory(), connectors: [{ id: "a", type: "hdmi", x: 0, y: 200, direction: "input" }], cardTypes: [], cardSlots: [] };
   const { owner } = await setup({ factory: [definition], nodes: [node], assetManifest: catalogue.assets });
