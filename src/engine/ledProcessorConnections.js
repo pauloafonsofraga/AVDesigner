@@ -1,31 +1,16 @@
+import { restoreProjectSemanticConnectorTypes, restoreSemanticConnectorTypes } from "./semanticNodeIdentity.js";
+
 const LED_SIGNAL_TYPE = "led-signal";
-const orphanedPersonalSignalType = /^led-signal-personal-[0-9a-f]{8}(?:-\d+)?$/;
+const ledSignalTypes = new Set([LED_SIGNAL_TYPE]);
 
 // Personal node collision resolution once renamed built-in LED signals, leaving
 // saved processors with node IDs that no longer exist in the project library.
 export function restoreLedProcessorSignalTypes(definition) {
-  if (definition?.isLedProcessor !== true || !Array.isArray(definition.connectors)) return 0;
-  let repaired = 0;
-  for (const connector of definition.connectors) {
-    if (connector?.direction !== "output" || !Number.isSafeInteger(Number(connector.signalIndex))
-      || Number(connector.signalIndex) < 1 || !orphanedPersonalSignalType.test(connector.type || "")) continue;
-    for (const field of ["type", "physicalType", "connectorType", "cableType"]) {
-      if (orphanedPersonalSignalType.test(connector[field] || "")) connector[field] = LED_SIGNAL_TYPE;
-    }
-    repaired++;
-  }
-  return repaired;
+  return restoreSemanticConnectorTypes(definition, ledSignalTypes);
 }
 
 export function restoreProjectLedProcessorSignalTypes(project) {
-  let repaired = 0;
-  for (const definition of project?.deviceLibrary || []) repaired += restoreLedProcessorSignalTypes(definition);
-  const restoreInstance = instance => {
-    repaired += restoreLedProcessorSignalTypes(instance?.templateOverride);
-  };
-  for (const instance of project?.devices || []) restoreInstance(instance);
-  for (const rack of project?.racks || []) for (const instance of rack?.devices || []) restoreInstance(instance);
-  return repaired;
+  return restoreProjectSemanticConnectorTypes(project, ledSignalTypes);
 }
 
 export function isLedProcessorMainSignalOutput(device, connector) {

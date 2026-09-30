@@ -276,6 +276,14 @@ try {
   for (const connector of aliased.devices[0].templateOverride.connectors) {
     connector.type = connector.physicalType = connector.connectorType = "led-signal-personal-f00a0e90-2";
   }
+  for (const [id, y] of [["cage-a", 440], ["cage-b", 465]]) {
+    aliased.devices[0].templateOverride.connectors.push({ id, label: "SFP+ Cage", direction: "output",
+      type: "sfp-plus-cage-personal-9a5361be-3", physicalType: "sfp-plus-cage-personal-9a5361be-3",
+      connectorType: "sfp-plus-cage-personal-9a5361be-3", x: 280, y, installedModuleType: "" });
+  }
+  aliased.devices[0].templateOverride.connectorRelationships = [
+    { id: "cage-bus", type: "exclusive", members: ["cage-a", "cage-b"], outputCopy: true }
+  ];
   aliased.devices[0].templateOverride.connectors[1].customColor = "#123456";
   aliased.deviceLibrary = [structuredClone(aliased.devices[0].templateOverride)];
   await open(aliased, "orphaned-led-signals.avd");
@@ -283,12 +291,17 @@ try {
     const scene = activeEngineBridge().scene;
     const signals = scene.getDevice("main").connectors.filter(connector => connector.signalIndex);
     return { types: signals.map(connector => connector.type), colors: signals.map(connector => connector.color),
-      savedTypes: projectSnapshotData().devices[0].templateOverride.connectors.map(connector => connector.type) };
+      savedTypes: projectSnapshotData().devices[0].templateOverride.connectors
+        .filter(connector => connector.signalIndex).map(connector => connector.type) };
   });
   assert.equal(restored.types.length, 7);
   assert.ok(restored.types.every(type => type === "led-signal"));
   assert.ok(restored.savedTypes.every(type => type === "led-signal"));
   assert.deepEqual(restored.colors.slice(0, 3), ["#ff99cc", "#123456", "#ffcc99"]);
+  assert.deepEqual(await page.evaluate(() => ["cage-a", "cage-b"].map(id => {
+    const connector = activeEngineBridge().scene.getConnector("main", id);
+    return [connector.type, connector.color];
+  })), [["sfp-plus-cage", "#778492"], ["sfp-plus-cage", "#778492"]]);
   await page.evaluate(() => {
     const bridge = activeEngineBridge(), device = bridge.scene.getDevice("main");
     bridge.centerCameraAtWorldPoint({ x: device.x + device.width / 2, y: device.y + device.height / 2 },
@@ -328,6 +341,26 @@ try {
   assert.equal(connected.length, 3);
   assert.ok(connected.every(wire => wire.cableType === "led-signal" && wire.to.surfaceId === "wall"));
   pass("file load restores LED colors, three-node marquee and three wires onto the PNG");
+  await page.evaluate(() => openDeviceEditorForInstance("main"));
+  await page.locator('[data-editor-tab="connectors"]').click();
+  await page.waitForFunction(() => editorEnginePreviewSurface && !editorEnginePreviewFitPending);
+  const cageCircle = page.locator('#deviceEditorModal [data-editor-node-id="cage-a"] circle').first();
+  const cagePoint = await cageCircle.evaluate(circle => {
+    const point = circle.ownerSVGElement.createSVGPoint();
+    point.x = Number(circle.getAttribute("cx")); point.y = Number(circle.getAttribute("cy"));
+    const screen = point.matrixTransform(circle.getScreenCTM());
+    return { x: screen.x, y: screen.y };
+  });
+  await page.mouse.click(cagePoint.x, cagePoint.y);
+  assert.deepEqual(await page.evaluate(() => [...editorSelectedNodeIds]), ["cage-a"]);
+  const moduleSelect = page.locator("#selectedConnectorModule");
+  assert.equal(await moduleSelect.count(), 1);
+  const moduleOptions = await moduleSelect.locator("option").evaluateAll(options => options.map(option => option.value).filter(Boolean));
+  assert.ok(moduleOptions.length > 0);
+  await moduleSelect.selectOption(moduleOptions[0]);
+  assert.equal(await page.evaluate(() => editorDraft[editorIndex].connectors.find(connector => connector.id === "cage-a").installedModuleType), moduleOptions[0]);
+  await page.locator("#closeDeviceEditor").click();
+  pass("shared-bus SFP+ cages stay grey and expose an installable module in the Device Editor");
   const startup=await browser.newPage();
   await startup.route("**/src/engine/productionBridge.js*",route=>route.abort());
   await startup.goto(`${base}/index.html?legacy=1`);

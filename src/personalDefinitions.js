@@ -1,7 +1,7 @@
 import { compactDeviceConfiguration, parseLocalUserSettings, resolveEffectiveBuiltInTemplate } from "./engine/localUserSettings.js";
 import { IMAGE_ASSET_FIELDS, imageDataUrl, inlineProjectArtwork } from "./imageAssets.js";
 import { resolveNodeDefinitionCollisions, visitConnectorTypes } from "./engine/canvasClipboard.js";
-import { restoreLedProcessorSignalTypes } from "./engine/ledProcessorConnections.js";
+import { isSemanticNodeType, restoreSemanticConnectorTypes } from "./engine/semanticNodeIdentity.js";
 
 export const PERSONAL_DEFINITIONS_VERSION = 2;
 export const PERSONAL_DATABASE = "wirenexus-personal-library";
@@ -58,11 +58,11 @@ function nodeContent(node, artworkIdentity = source => source) {
 
 export function resolvePersonalNodeContext(definition, sourceNodes, destinationNodes = [], artworkIdentity) {
   const copy = structuredClone(definition), used = new Set();
-  restoreLedProcessorSignalTypes(copy);
+  restoreSemanticConnectorTypes(copy);
   const fields = ["type", "cableType", "physicalType", "connectorType", "switchPortType"];
   visitConnectorTypes(copy, type => { used.add(type); return type; }, fields);
   const required = sourceNodes.filter(node => used.has(node.id)
-    && !(node.id === "led-signal" && destinationNodes.some(destination => destination.id === node.id)));
+    && !(isSemanticNodeType(node.id) && destinationNodes.some(destination => destination.id === node.id)));
   const { nodeDefinitions, nodeMap } = resolveNodeDefinitionCollisions(required, destinationNodes, "personal", node => nodeContent(node, artworkIdentity));
   visitConnectorTypes(copy, type => nodeMap.get(type) || type, fields);
   return { definition: copy, nodes: nodeDefinitions };
