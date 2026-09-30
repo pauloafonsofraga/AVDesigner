@@ -5087,7 +5087,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled WireNexus Project" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">Iteration 54.38.22 — Reviewed Factory Promotion — iteration54-38-22-reviewed-factory-promotion</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">Iteration 54.38.23 — Account Library Ownership — iteration54-38-23-account-library-ownership</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5396,9 +5396,9 @@
                 <div class="editor-default-buttons">
                   <button class="tool-button" id="savePersonalDefault" type="button">Save as My Default</button>
                   <button class="tool-button" id="resetDeviceDefault" type="button">Reload Saved Default</button>
-                  <button class="tool-button" id="restoreFactoryDefault" type="button">Use Factory Default</button>
+                  <button class="tool-button" id="restoreFactoryDefault" type="button">Use WireNexus Library Version</button>
                 </div>
-                <small>Saved in this browser.</small>
+                <small id="personalSyncStatus" role="status">Pending sync</small>
               </div>
             </section>
 
@@ -5767,12 +5767,12 @@
 
   <script src="./src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script src="./src/engine/projectorModelCore.js?v=iteration54-38-11-engine-status-labels"></script>
-  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-22-reviewed-factory-promotion"></script>
+  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-23-account-library-ownership"></script>
   <script type="text/wirenexus-app" id="wireNexusAppSource">
-    const APP_ITERATION = "54.38.22";
-    const APP_BUILD_ID = "iteration54-38-22-reviewed-factory-promotion";
-    const APP_MODULE_CACHE_ID = "iteration54-38-22-reviewed-factory-promotion-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Reviewed Factory Promotion`;
+    const APP_ITERATION = "54.38.23";
+    const APP_BUILD_ID = "iteration54-38-23-account-library-ownership";
+    const APP_MODULE_CACHE_ID = "iteration54-38-23-account-library-ownership-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Account Library Ownership`;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
     const APP_SOURCE_BASE_COMMIT = "043675cfb7ecde8581e7fd95c96b5887372187c3";
@@ -6095,6 +6095,10 @@
     let personalLibraryChannel = null;
     let personalDefaultsBusy = false;
     let factoryAuthoringUi = null;
+    let accountLibraryUi = null;
+    let signedInLibraryOwner = null;
+    let catalogueRevisions = {};
+    let catalogueProvenanceModule = null;
     let libraryOrder = [];
     const libraryFavorites = new Set();
     let editorLibraryBaseline = [];
@@ -6173,6 +6177,10 @@
     }
 
     function refreshGlobalBuiltInDefaults() {
+      if (signedInLibraryOwner && localUserSettingsOwner === signedInLibraryOwner) {
+        const preferences = localUserSettingsOwner.preferences(); libraryOrder = preferences.order;
+        libraryFavorites.clear(); preferences.favorites.forEach(id => libraryFavorites.add(id));
+      }
       if (!projectNodeDefinitions.length && (state.devices.length || state.racks.length)) projectNodeDefinitions = serializeNodeLibrary();
       if (localUserSettingsOwner) {
         const context = personalLibraryNodeContext();
@@ -6199,9 +6207,12 @@
           let legacyRaw = "";
           try { legacyRaw = localStorage.getItem("av-designer:user-settings:v1") || ""; } catch (error) { setStatus("Previous browser defaults could not be read."); }
           personalNodeDefinitions = Object.entries(cableTypes).map(([id, node]) => ({ ...structuredClone(node), id }));
+          catalogueProvenanceModule = await import(engineImportUrl("./src/catalogueProvenance.js"));
+          catalogueRevisions = await catalogueProvenanceModule.catalogueProvenance(window.WireNexusFactoryCatalogue);
           if (typeof BroadcastChannel === "function") personalLibraryChannel = new BroadcastChannel("wirenexus-personal-definitions-v2");
           const cache = new Map();
           localUserSettingsOwner = module.createPersonalDefinitions({ factory: builtInDeviceLibrary, nodes: personalNodeDefinitions,
+            provenance: catalogueRevisions,
             assetManifest: window.WireNexusFactoryCatalogue.assets,
             legacyRaw, resolveImage: source => imagePathToDataUrl(source, cache),
             notify: () => personalLibraryChannel?.postMessage("changed"),
@@ -6209,10 +6220,13 @@
           await localUserSettingsOwner.initialize();
           const promotion = await import(engineImportUrl("./src/factoryPromotion.js"));
           try { await promotion.recognizePromotions(localUserSettingsOwner, window.WireNexusFactoryCatalogue); }
-          catch (error) { setStatus(`Factory recognition could not complete: ${error.message}. Personal definitions retained; reload to retry.`); }
-          if (window.WireNexusBuildCapabilities?.factoryAuthoring === true) {
+          catch (error) { setStatus(`WireNexus Library recognition could not complete: ${error.message}. Personal definitions retained; reload to retry.`); }
+          const mountAdministration = async accountAdmin => {
+            factoryAuthoringUi?.dispose(); factoryAuthoringUi = null;
+            if (!accountAdmin && window.WireNexusBuildCapabilities?.factoryAuthoring !== true) return;
             const authoring = await import(engineImportUrl("./src/factoryAuthoringApp.js"));
             factoryAuthoringUi = authoring.mountFactoryAuthoring({
+              accountAdmin,
               container: document.querySelector('[data-editor-panel="defaults"]'), catalogue: window.WireNexusFactoryCatalogue, owner: localUserSettingsOwner,
               readDraft: sync => {
                 if (!currentEditorTemplate()) return null;
@@ -6230,7 +6244,33 @@
                 anchor.href = url; anchor.download = name; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
               }
             });
-          }
+          };
+          await mountAdministration(false);
+          const recoveryOwner = localUserSettingsOwner;
+          const account = await import(engineImportUrl("./src/accountLibraryApp.js"));
+          accountLibraryUi = await account.mountAccountLibrary({
+            container: document.querySelector('[data-editor-panel="defaults"]'),
+            recoveryOwner, recoveryStore: module.createPersonalIndexedDbStore(),
+            recoveryPreferences: () => ({ favorites: JSON.parse(localStorage.getItem(DEVICE_FAVORITES_STORAGE_KEY) || '[]'),
+              order: JSON.parse(localStorage.getItem(DEVICE_LIBRARY_ORDER_STORAGE_KEY) || '[]') }),
+            createOwner: store => module.createPersonalDefinitions({ factory: builtInDeviceLibrary, nodes: personalNodeDefinitions,
+              provenance: catalogueRevisions, store, assetManifest: window.WireNexusFactoryCatalogue.assets,
+              resolveImage: source => imagePathToDataUrl(source, cache), onChange: refreshGlobalBuiltInDefaults }).initialize(),
+            onOwner: async (owner, admin) => {
+              localUserSettingsOwner = owner;
+              signedInLibraryOwner = admin ? owner : null;
+              if (admin) {
+                const preferences = owner.preferences(); libraryOrder = preferences.order;
+                libraryFavorites.clear(); preferences.favorites.forEach(id => libraryFavorites.add(id));
+                await promotion.recognizePromotions(owner, window.WireNexusFactoryCatalogue);
+              } else { loadDeviceLibraryOrderPreference(); loadDeviceFavoritesPreference(); }
+              await mountAdministration(admin); refreshGlobalBuiltInDefaults();
+            },
+            onStatus: (state, detail) => {
+              const label = document.getElementById('personalSyncStatus');
+              label.textContent = state; label.title = detail || '';
+            }
+          });
           if (personalLibraryChannel) personalLibraryChannel.onmessage = () => localUserSettingsOwner.refresh().catch(error => setStatus(`Personal library refresh failed: ${error.message}`));
           window.addEventListener("focus", () => localUserSettingsOwner.refresh().catch(error => setStatus(`Personal library refresh failed: ${error.message}`)));
           refreshGlobalBuiltInDefaults();
@@ -17245,8 +17285,9 @@
       const personal = localUserSettingsOwner?.has(id);
       const project = editorMode === "instance" || isProjectTemplateEditorMode();
       savePersonalDefaultButton.textContent = factory ? "Save as My Default" : project ? "Save a Copy to My Library" : "Save to My Library";
-      savePersonalDefaultButton.disabled = personalDefaultsBusy || !localUserSettingsOwner;
-      document.getElementById("editorDefaultStatus").textContent = `${factory ? (personal ? "Your default" : "Factory default") : personal ? "Your library device" : project ? "Project definition" : "New library device"}${editorHasUnsavedChanges() ? " / Unsaved changes" : ""}`;
+      savePersonalDefaultButton.disabled = personalDefaultsBusy || !localUserSettingsOwner || accountLibraryUi?.canSave() === false;
+      document.getElementById("editorDefaultStatus").textContent = `${factory ? (personal ? "Your default" : "WireNexus Device Library") : personal ? "Your library device" : project ? "Project definition" : "New library device"}${editorHasUnsavedChanges() ? " / Unsaved changes" : ""}`;
+      renderLibraryUpdateNotice();
       const reload = document.getElementById("resetDeviceDefault");
       reload.classList.toggle("hidden", !factory && (!personal || project));
       reload.disabled = personalDefaultsBusy || !localUserSettingsOwner;
@@ -17264,6 +17305,8 @@
       if (personalDefaultsBusy) return;
       try {
         if (!localUserSettingsOwner) throw new Error("Personal library is unavailable. Reload before saving.");
+        if (accountLibraryUi?.canSave() === false) throw new Error("Sign in as the owner before saving a personal definition.");
+        const owner = localUserSettingsOwner;
         syncEditorFieldsToDraft();
         const target = currentEditorTemplate(), index = editorIndex, mode = editorMode;
         const context = editorDependencyContext(), session = editorDependencySession;
@@ -17281,25 +17324,26 @@
         });
         const nodes = context.nodes;
         personalDefaultsBusy = true; renderEditorDefaultControls();
-        const saved = await localUserSettingsOwner.save(definition, { library: dependencies, nodes,
+        const saved = await owner.save(definition, { library: dependencies, nodes,
           expectedRevision: copyToLibrary ? null : editorDefaultRevisions.get(definition.id) || null });
         // Only advance the saved draft's baseline. Edits typed during the async
         // transaction and every other open draft remain unsaved and untouched.
-        if (editorDependencySession === session && editorMode === mode && editorDraft[index] === target) {
+        if (localUserSettingsOwner === owner && editorDependencySession === session && editorMode === mode && editorDraft[index] === target) {
           editorLibraryBaseline[index] = baseline;
           editorDependencyBaselines[index] = context;
           editorDefaultRevisions.set(definition.id, saved.revision);
         }
-        setStatus(`${definition.name} saved in this browser. Existing project devices were not changed.`);
+        setStatus(`${definition.name}: ${accountLibraryUi?.isAccount() ? "Synced to your account" : "saved to browser recovery only; not account-synced"}. Existing project devices were not changed.`);
       } catch (error) {
         alert(`Personal definition was not saved: ${error.message}`);
       } finally { personalDefaultsBusy = false; renderEditorDefaultControls(); }
     }
 
-    async function reloadEditorPersonalDefault({ restoreFactory = false } = {}) {
+    async function reloadEditorPersonalDefault({ restoreFactory = false, draftOnly = false } = {}) {
       if (personalDefaultsBusy || !localUserSettingsOwner) return;
+      const owner = localUserSettingsOwner;
       syncEditorFieldsToDraft();
-      const factory = currentEditorFactoryTemplate();
+      const factory = draftOnly ? factoryBuiltInTemplate(currentEditorTemplate()?.libraryProvenance?.catalogueId) : currentEditorFactoryTemplate();
       const template = currentEditorTemplate(), id = editorPersonalTargetId();
       const index = editorIndex, mode = editorMode, drafts = editorDraft, instanceName = editorInstanceName;
       const context = editorDependencyContext(), session = editorDependencySession;
@@ -17307,27 +17351,31 @@
       const personal = localUserSettingsOwner.has(id), dirty = editorHasUnsavedChanges();
       if (restoreFactory && !factory) return;
       const question = restoreFactory
-        ? `${personal ? "Remove your saved default and use" : "Use"} the factory definition for "${template.name}"?${dirty ? " Unsaved changes to this draft will be discarded." : ""} Existing project devices will not change.`
+        ? `${personal && !draftOnly ? "Remove your saved default and use" : "Use"} the WireNexus Library definition for "${template.name}"?${dirty ? " Unsaved changes to this draft will be discarded." : ""} Existing project devices will not change.`
         : `Discard unsaved changes to "${template.name}" and reload its saved definition?`;
-      if ((dirty || (restoreFactory && personal)) && !confirm(question)) return;
+      if ((dirty || draftOnly || (restoreFactory && personal)) && !confirm(question)) return;
       personalDefaultsBusy = true; renderEditorDefaultControls();
       try {
-        if (restoreFactory && personal) await localUserSettingsOwner.remove(id, editorDefaultRevisions.get(id) || null);
-        else await localUserSettingsOwner.refresh();
-        if (editorDependencySession !== session || editorMode !== mode || editorDraft !== drafts || editorIndex !== index || editorDraft[index] !== template) return;
+        if (restoreFactory && personal && !draftOnly) {
+          if (accountLibraryUi?.canSave() === false) throw new Error("Sign in before changing your personal default.");
+          await owner.remove(id, editorDefaultRevisions.get(id) || null);
+        } else if (!draftOnly) await owner.refresh();
+        if (localUserSettingsOwner !== owner || editorDependencySession !== session || editorMode !== mode || editorDraft !== drafts || editorIndex !== index || editorDraft[index] !== template) return;
         if (localUserSettingsModule.definitionContent(template) !== draftContent || editorInstanceName !== instanceName || editorDependencyContext() !== context) {
           throw new Error("The draft changed while loading. Your newer draft edits were kept; reload again to replace them.");
         }
         const loaded = localUserSettingsOwner.entry(id);
-        if (restoreFactory && loaded) throw new Error("A newer personal default appeared during factory reset. Reload Saved Default before editing it.");
+        if (restoreFactory && loaded && !draftOnly) throw new Error("A newer personal default appeared while loading the WireNexus Library version. Reload Saved Default before editing it.");
         const nextContext = restoreFactory || !loaded ? {
           devices: builtInDeviceLibrary,
           nodes: Object.entries(DEFAULT_CABLE_TYPES).map(([id, node]) => ({ ...node, id }))
         } : personalLibraryNodeContext();
-        const saved = nextContext.devices.find(device => device.id === id) || factory;
+        const saved = draftOnly ? factory : nextContext.devices.find(device => device.id === id) || factory;
         if (!saved) throw new Error("This device has no saved personal definition.");
         const draft = structuredClone(saved);
+        if (restoreFactory && factory && catalogueRevisions[factory.id]) draft.libraryProvenance = structuredClone(catalogueRevisions[factory.id]);
         if (factory) draft.factoryTemplateId = factory.id;
+        if (draftOnly) { draft.id = template.id; if (!template.factoryTemplateId) delete draft.factoryTemplateId; }
         if (editorMode === "instance" || isProjectTemplateEditorMode()) {
           draft.id = template.id;
           if (isProjectCustomDeviceTemplate(template)) markProjectCustomDeviceTemplate(draft, { touchRevision: false });
@@ -17338,9 +17386,9 @@
         invalidateEditorFaceplateUploadTarget();
         clearEditorPlacementMotion();
         editorDraft[index] = draft;
-        editorLibraryBaseline[index] = baseline;
+        if (!draftOnly) editorLibraryBaseline[index] = baseline;
         editorDependencyContexts[index] = dependencies;
-        editorDependencyBaselines[index] = dependencies;
+        if (!draftOnly) editorDependencyBaselines[index] = dependencies;
         editorDefaultRevisions.set(id, loaded?.revision || null);
         resetEditorDeviceSelections();
         renderDeviceEditor();
@@ -19643,6 +19691,44 @@
       } else {
         modalTitle.textContent = `Device Editor - ${template?.name || "Master Device"}`;
       }
+      renderLibraryUpdateNotice();
+    }
+
+    function renderLibraryUpdateNotice() {
+      const header = document.querySelector('#deviceEditorModal .modal-header');
+      if (!header || !catalogueProvenanceModule) return;
+      let notice = document.getElementById('deviceLibraryUpdateNotice');
+      if (!notice) {
+        notice = document.createElement('button'); notice.id = 'deviceLibraryUpdateNotice'; notice.type = 'button';
+        notice.textContent = catalogueProvenanceModule.LIBRARY_UPDATE_NOTICE;
+        notice.style.cssText = 'color:#ffb45c;background:none;border:1px solid currentColor;border-radius:4px;font-size:12px;line-height:1.4;white-space:normal;text-align:left;max-width:420px;padding:5px 8px';
+        header.style.flexWrap = 'wrap'; header.insertBefore(notice, document.getElementById('closeDeviceEditor'));
+        notice.addEventListener('click', reviewDeviceLibraryUpdate);
+      }
+      notice.hidden = !catalogueProvenanceModule.libraryUpdateFor(currentEditorTemplate(), catalogueRevisions);
+    }
+
+    function reviewDeviceLibraryUpdate() {
+      syncEditorFieldsToDraft();
+      const template = currentEditorTemplate(), update = catalogueProvenanceModule.libraryUpdateFor(template, catalogueRevisions);
+      if (!update) return;
+      const session = editorDependencySession;
+      const dialog = document.createElement('dialog');
+      dialog.style.cssText = 'width:min(850px,calc(100vw - 32px));max-height:85vh;overflow:auto;background:var(--panel);color:var(--text);border:1px solid var(--line);padding:16px';
+      const title = document.createElement('h3'); title.textContent = 'Compare with WireNexus Library';
+      const pre = document.createElement('pre'); pre.style.cssText = 'white-space:pre-wrap;overflow-wrap:anywhere;max-height:55vh;overflow:auto';
+      const library = factoryBuiltInTemplate(update.current.catalogueId);
+      const dependencies = localUserSettingsModule.collectDefinitionDependencies(library, builtInDeviceLibrary,
+        Object.entries(DEFAULT_CABLE_TYPES).map(([id, node]) => ({ ...node, id })));
+      pre.textContent = JSON.stringify({ savedProvenance: update.previous, currentProvenance: update.current,
+        currentDraft: template, currentDependencies: editorDependencyContext().nodes, wireNexusLibrary: library, requiredDependencies: dependencies }, null, 2);
+      const adopt = document.createElement('button'); adopt.className = 'tool-button'; adopt.textContent = 'Load WireNexus Version into Draft';
+      adopt.addEventListener('click', () => {
+        dialog.close();
+        if (editorDependencySession === session && currentEditorTemplate() === template) reloadEditorPersonalDefault({ restoreFactory: true, draftOnly: true });
+      });
+      const close = document.createElement('button'); close.className = 'tool-button'; close.textContent = 'Close'; close.addEventListener('click', () => dialog.close());
+      dialog.append(title, pre, adopt, close); dialog.addEventListener('close', () => dialog.remove()); document.body.append(dialog); dialog.showModal();
     }
 
     function syncEditorFieldsToDraft() {
@@ -24092,6 +24178,7 @@
     function saveDeviceLibraryOrderPreference() {
       try {
         libraryOrder = personalLibraryDevices.map(template => template.id);
+        if (accountLibraryUi?.isAccount()) { saveAccountLibraryPreferences(); return; }
         localStorage.setItem(DEVICE_LIBRARY_ORDER_STORAGE_KEY, JSON.stringify(personalLibraryDevices.map(template => template.id)));
       } catch (error) {}
     }
@@ -24110,6 +24197,7 @@
 
     function saveDeviceFavoritesPreference() {
       try {
+        if (accountLibraryUi?.isAccount()) { saveAccountLibraryPreferences(); return; }
         localStorage.setItem(
           DEVICE_FAVORITES_STORAGE_KEY,
           JSON.stringify(personalLibraryDevices.filter(template => template.favorite === true).map(template => template.id))
@@ -24138,6 +24226,13 @@
       saveDeviceFavoritesPreference();
       renderDeviceLibrary();
       setStatus(template.favorite ? "Added to favorites." : "Removed from favorites.");
+    }
+
+    function saveAccountLibraryPreferences() {
+      const value = { favorites: [...libraryFavorites], order: [...libraryOrder] };
+      accountLibraryUi.savePreferences(value).catch(error => {
+        setStatus(`Preferences not synced: ${error.message}`);
+      });
     }
 
     function moveLibraryGhost(event) {

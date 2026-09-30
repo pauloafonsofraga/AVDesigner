@@ -28,8 +28,8 @@ access control outside this workflow.
 
 1. Edit the complete template and save it with **Save as My Default** or
    **Save to My Library**. Project instance names are not template names.
-2. On Defaults, open the separate **Factory Authoring** section and select
-   **Promote to Factory**. Update the known factory ID, or add a new stable ID.
+2. On Defaults, open **WireNexus Library Administration** and select
+   **Promote to WireNexus Device Library**. Update the known library ID, or add a new stable ID.
    Retain a new personal device's ID unless a different ID is genuinely needed.
 3. **Review Changes** shows changed fields, previous values, complete candidates,
    cards, required node/pair dependencies and affected users of shared definitions.
@@ -91,12 +91,12 @@ For local authoring, rebuild into a fresh directory and serve it at the same
 host/port. No settings or project files should be cleared.
 
 - Old definition/dependencies: **Awaiting deployment**, personal version retained.
-- Exact candidate and every dependency match: **Factory version active**.
+- Exact candidate and every dependency match: **WireNexus Library version active**.
 - The exact personal revision/content captured at export is still present:
   remove only that redundant override, including a proven renamed new identity.
 - Personal content changed meanwhile: preserve it and show **further personal
   changes remain**.
-- Different factory content: retain it and offer **Compare with Factory**.
+- Different library content: retain it and offer **Compare with WireNexus Library**.
 
 Only a local receipt can authorize cleanup. A second user's matching override,
 an unsaved candidate differing from a saved personal version, and unreceipted

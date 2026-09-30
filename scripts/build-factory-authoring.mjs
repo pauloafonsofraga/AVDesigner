@@ -13,7 +13,7 @@ catch (error) { if (error.code !== "ENOENT") throw error; }
 // Tracked static application files only: no private/untracked files, tokens,
 // server endpoints, Git state, node_modules or browser data enter this build.
 const tracked = execFileSync("git", ["ls-files", "-z"], { cwd: root }).toString().split("\0").filter(Boolean);
-for (const file of tracked.filter(file => ["index.html", "VideoCoreLogo.png"].includes(file) || /^(src|data|assets|Devices|Nodes|icons|Images|Logos|fonts)\//.test(file))) {
+for (const file of tracked.filter(file => ["index.html", "account-config.json", "VideoCoreLogo.png"].includes(file) || /^(src|data|assets|Devices|Nodes|icons|Images|Logos|fonts)\//.test(file))) {
   await mkdir(dirname(resolve(destination, file)), { recursive: true });
   await cp(resolve(root, file), resolve(destination, file));
 }

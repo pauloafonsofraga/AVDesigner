@@ -7,9 +7,11 @@
     "check:output-viewer": "node scripts/output-viewer-bundle-validation.mjs"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.3.14",
     "esbuild": "0.25.12"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.117.2",
     "@vercel/blob": "latest"
   }
 }

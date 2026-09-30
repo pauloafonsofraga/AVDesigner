@@ -179,6 +179,7 @@ async function editorHarness(mode = "library", knownFactory = true) {
     return elements.get(id);
   };
   const c = vm.createContext({ structuredClone, Map, crypto, localUserSettingsModule: personal, localUserSettingsOwner: owner,
+    accountLibraryUi: null, catalogueRevisions: {}, renderLibraryUpdateNotice() {},
     builtInDeviceLibrary: f, editorDraft: [definition, factory()], editorIndex: 0, editorMode: mode,
     deviceLibrary: [structuredClone(definition)], cableTypes: Object.fromEntries(nodes.map(n => [n.id, n])), personalNodeDefinitions: nodes, personallyEditedNodeIds: new Set(),
     editorLibraryBaseline: [], editorDefaultRevisions: new Map(), editorInstanceName: "Canvas instance", editorBaselineInstanceName: "",
@@ -244,7 +245,7 @@ for (const mode of ["library", "project-template-edit", "instance"]) test(`real 
   await c.reloadEditorPersonalDefault({ restoreFactory: true });
   assert.equal(c.editorDraft[0].name, factory().name); assert.equal(owner.has(factory().id), false);
   assert.equal(c.editorMode, mode); assert.equal(JSON.stringify(c.deviceLibrary), projectBefore);
-  assert.equal(element("editorDefaultStatus").textContent, "Factory default");
+  assert.equal(element("editorDefaultStatus").textContent, "WireNexus Device Library");
 });
 
 for (const mode of ["library", "master-create", "project-template-edit", "instance"]) test(`unknown ancestry in ${mode} uses an independent personal identity and hides factory reset`, async () => {

@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/account-config.json",
+      "destination": "/api/account-config"
+    },
+    {
       "source": "/v/:id",
       "destination": "/viewer.html?id=:id"
     }

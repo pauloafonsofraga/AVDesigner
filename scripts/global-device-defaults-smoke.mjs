@@ -189,7 +189,7 @@ try {
   assert.equal(await b.evaluate(() => currentEditorTemplate().name), "New factory E2");
   assert.equal(await b.evaluate(id => localUserSettingsOwner.has(id), id), false);
   assert.equal(await a.evaluate(() => templateForInstance(instanceById("old-e2")).name), "Old project E2");
-  checks.push("factory update leaves personal E2 intact until explicit Use Factory Default, with project snapshots unchanged");
+  checks.push("WireNexus Library update leaves personal E2 intact until explicit Use WireNexus Library Version, with project snapshots unchanged");
 
   const migrationContext = await browser.newContext();
   const originalFactory = updatedCatalogue.devices.find(d => d.id === id);

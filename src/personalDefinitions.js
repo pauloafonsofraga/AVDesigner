@@ -30,8 +30,9 @@ export function factoryIdFor(definition, factory) {
   return factory.some(item => item.id === id) ? id : null;
 }
 
-export function effectiveLibraryDefinitions(factory, entries) {
-  const result = new Map(factory.map(item => [item.id, { ...structuredClone(item), factoryTemplateId: item.id }]));
+export function effectiveLibraryDefinitions(factory, entries, provenance = {}) {
+  const result = new Map(factory.map(item => [item.id, { ...structuredClone(item), factoryTemplateId: item.id,
+    ...(provenance[item.id] ? { libraryProvenance: structuredClone(provenance[item.id]) } : {}) }]));
   for (const entry of Object.values(entries)) {
     for (const dependency of entry.dependencies.devices) if (!result.has(dependency.id)) result.set(dependency.id, structuredClone(dependency));
   }
@@ -195,7 +196,7 @@ export function createPersonalIndexedDbStore(indexedDB = globalThis.indexedDB) {
 }
 
 export function createPersonalDefinitions({ factory, nodes, assetManifest = {}, store = createPersonalIndexedDbStore(), resolveImage,
-  legacyRaw = "", notify = () => {}, onChange = () => {}, diagnostic = () => {}, uuid = () => crypto.randomUUID() } = {}) {
+  provenance = {}, legacyRaw = "", notify = () => {}, onChange = () => {}, diagnostic = () => {}, uuid = () => crypto.randomUUID() } = {}) {
   let registry = emptyRegistry(), entries = {}, initialized = false;
   const artworkIdentities = new Map(Object.entries(assetManifest).map(([path, asset]) => [path, asset.sha256]));
   const artworkIdentity = source => artworkIdentities.get(source) || source;
@@ -248,6 +249,15 @@ export function createPersonalDefinitions({ factory, nodes, assetManifest = {}, 
     has: id => Object.hasOwn(entries, id),
     entry: id => entries[id] ? structuredClone(entries[id]) : null,
     snapshot: () => structuredClone({ version: PERSONAL_DEFINITIONS_VERSION, entries }),
+    preferences: () => structuredClone(registry.preferences || { favorites: [], order: [] }),
+    async savePreferences(preferences) {
+      const expected = definitionContent(registry.preferences || {});
+      const data = await store.update(current => {
+        if (definitionContent(current.preferences || {}) !== expected) throw new Error("Library preferences changed on another computer. Refresh before saving.");
+        current.preferences = structuredClone(preferences); current.generation++; return current;
+      });
+      accept(data); announce();
+    },
     promotionReceipts: () => structuredClone(Object.values(registry.promotionReceipts || {})),
     async recordPromotionReceipts(receipts) {
       if (!initialized) throw new Error("Personal library is not ready.");
@@ -294,7 +304,7 @@ export function createPersonalDefinitions({ factory, nodes, assetManifest = {}, 
       const changed = data.registry.generation !== registry.generation;
       accept(data); if (changed) announce();
     },
-    library: () => effectiveLibraryDefinitions(factory, entries),
+    library: () => effectiveLibraryDefinitions(factory, entries, provenance),
     nodes(id) {
       if (id != null) return structuredClone(entries[id]?.dependencies.nodes || nodes);
       const result = new Map();

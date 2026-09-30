@@ -62,7 +62,7 @@ try {
   execFileSync(process.execPath, [new URL("./factory-catalogue-validation.mjs", import.meta.url).pathname, "--root", build]);
   await page.reload(); await ready(page); await open(page);
   assert.equal(await page.evaluate(id => localUserSettingsOwner.has(id), id), false);
-  assert.match(await page.locator("#factoryPromotionStatus").innerText(), /Factory version active/);
+  assert.match(await page.locator("#factoryPromotionStatus").innerText(), /WireNexus Library version active/);
   assert.equal(await page.evaluate(id => libraryTemplateById(id).name, id), "Reviewed browser E2");
   checks.push("temporary repository apply recognized at same origin; only exact exported override removed");
 
