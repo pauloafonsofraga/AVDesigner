@@ -25,7 +25,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-38-23-account-library-ownership";
+const BUILD_ID = "iteration54-38-28-title-block-text-wrapping";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -40,9 +40,9 @@ function sourceSlice(source, startNeedle, endNeedle) {
   return source.slice(start, end);
 }
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.38.23");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.23";'), "visible iteration should be 54.38.23");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-23-account-library-ownership-modules";'), "module cache key should bust 54.38.23 modules");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.38.28");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.28";'), "visible iteration should be 54.38.28");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-28-title-block-text-wrapping-modules";'), "module cache key should bust 54.38.28 modules");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-16-wirenexus-branding"'), "Engine bridge version should identify WireNexus Branding");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];

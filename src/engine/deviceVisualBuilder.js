@@ -945,10 +945,10 @@ function drawTitleBlockVisual(ctx, device, width, height) {
   drawTitleBlockField(ctx, layout.fields.location, "Location:", fields.location);
   drawTitleBlockField(ctx, layout.fields.title, "Title:", fields.title || "Video Wirechart");
   drawTitleBlockField(ctx, layout.fields.jobId, "Job ID:", fields.jobId);
-  drawTitleBlockField(ctx, layout.fields.eventDate, "Event Date:", fields.eventDate, { small: true });
-  drawTitleBlockField(ctx, layout.fields.drawingDate, "Drawing Date:", fields.drawingDate, { small: true });
-  drawTitleBlockField(ctx, layout.fields.accountManager, "Acc Manager:", fields.accountManager, { small: true });
-  drawTitleBlockField(ctx, layout.fields.approvedBy, "Approved By:", fields.approvedBy, { small: true });
+  drawTitleBlockField(ctx, layout.fields.eventDate, "Event Date:", fields.eventDate);
+  drawTitleBlockField(ctx, layout.fields.drawingDate, "Drawing Date:", fields.drawingDate);
+  drawTitleBlockField(ctx, layout.fields.accountManager, "Acc Manager:", fields.accountManager);
+  drawTitleBlockField(ctx, layout.fields.approvedBy, "Approved By:", fields.approvedBy);
   const logoBox = layout.logoContentRect;
   const logoImage = logoSource ? visualImage(ctx, logoSource) : null;
   if (logoImage?.complete && logoImage.naturalWidth > 0) {
@@ -965,18 +965,52 @@ function drawTitleBlockVisual(ctx, device, width, height) {
   ctx.restore();
 }
 
-function drawTitleBlockField(ctx, rect, label, value, options = {}) {
-  const y = rect.y + rect.height * (options.small ? 0.58 : 0.4);
-  drawTitleBlockCell(ctx, rect.x + 8, y, label, value);
-}
-
-function drawTitleBlockCell(ctx, x, y, label, value) {
+function drawTitleBlockField(ctx, rect, label, value) {
+  const x = rect.x + 8;
+  const valueX = x + 54;
+  const valueWidth = Math.max(0, rect.x + rect.width - 8 - valueX);
+  const lineHeight = 9;
+  const maxLines = Math.max(1, Math.floor((rect.height - 10) / lineHeight));
+  ctx.save();
   ctx.font = "700 6px system-ui, -apple-system, Segoe UI, sans-serif";
   ctx.fillStyle = "#d7e6f5";
   ctx.textBaseline = "middle";
-  ctx.fillText(label, x, y);
+  ctx.fillText(label, x, rect.y + rect.height / 2);
   ctx.font = "800 7px system-ui, -apple-system, Segoe UI, sans-serif";
-  ctx.fillText(String(value || ""), x + 46, y);
+  const lines = wrapTitleBlockValue(ctx, String(value || ""), valueWidth, maxLines);
+  const firstY = rect.y + rect.height / 2 - (lines.length - 1) * lineHeight / 2;
+  lines.forEach((line, index) => ctx.fillText(line, valueX, firstY + index * lineHeight));
+  ctx.restore();
+}
+
+function wrapTitleBlockValue(ctx, value, maxWidth, maxLines) {
+  if (!value.trim() || maxWidth <= 0) return [];
+  const lines = [];
+  let line = "";
+  const fits = text => ctx.measureText(text).width <= maxWidth;
+  for (const word of value.trim().split(/\s+/)) {
+    const candidate = line ? `${line} ${word}` : word;
+    if (fits(candidate)) {
+      line = candidate;
+      continue;
+    }
+    if (line) lines.push(line);
+    line = "";
+    for (const character of word) {
+      if (fits(line + character)) line += character;
+      else {
+        if (line) lines.push(line);
+        line = character;
+      }
+    }
+  }
+  if (line) lines.push(line);
+  if (lines.length <= maxLines) return lines;
+  const visible = lines.slice(0, maxLines);
+  let last = visible[maxLines - 1];
+  while (last && !fits(`${last}\u2026`)) last = [...last].slice(0, -1).join("");
+  visible[maxLines - 1] = fits(`${last}\u2026`) ? `${last}\u2026` : last;
+  return visible;
 }
 
 function drawWrappedText(ctx, text, x, y, maxWidth, maxHeight, options = {}) {
