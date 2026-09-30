@@ -215,6 +215,7 @@ function stableDragHarness(template) {
     DEVICE_BOTTOM_PAD: 48,
     editorNodeDrag: null,
     editorCardSlotDrag: null,
+    editorCardNodeDrag: null,
     editorConnectorSnapGuide: null,
     editorSlotIndex: null,
     editorSelectedNodeIds: new Set(),
@@ -482,6 +483,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     editorSelectedPowerPlugIds: new Set(),
     editorNodeDrag: null,
     editorCardSlotDrag: null,
+    editorCardNodeDrag: null,
     editorConnectorSnapGuide: null,
     editorDragPointerReleaseInProgress: false,
     editorResizeSession: null,
@@ -1167,6 +1169,7 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
     editorSelectedNodeIndex: null,
     editorNodeDrag: null,
     editorCardSlotDrag: null,
+    editorCardNodeDrag: null,
     editorSelectedInstalledCardConnectorId: "",
     editorConnectorSnapGuide: null,
     editorSelectedNodeIds: new Set(["node-selection-sentinel"]),
@@ -7312,6 +7315,7 @@ test("Device Editor model height ignores placement motion and follows only accep
     connectorStartYForTemplate: () => 100,
     editorPlacementMotionVisualY: () => null,
     editorCardSlotDrag: null,
+    editorCardNodeDrag: null,
     editorActiveStableDragLayout: () => null,
     editorResolvedCardSlotY: () => 154
   });
@@ -7482,6 +7486,7 @@ test("Engine Device Editor card motion has one visible owner per installed card"
     editorEngineDynamicCardArtworkActive: true,
     editorCardSlotDrag: { slotId: "slot-a" },
     editorNodeDrag: null,
+    editorCardNodeDrag: null,
     editorSlotIndex: 0,
     editorSelectedInstalledCardConnectorId: "slot-a__in-a",
     editorConnectorSnapGuide: null,
@@ -8884,7 +8889,7 @@ test("Fit uses active bounds and tab switches auto-fit the active preview", () =
 
   const renderPreview = functionSource("renderDeviceEditorPreview");
   assert.match(renderPreview, /renderDeviceEditorEnginePreview\(template, options\)/);
-  assert.match(functionSource("renderCardEditorPreview"), /editorPreviewViewBox\(width, height, editorPreviewZoom, editorPreviewPan, deviceEditorPreview, editorCardPreviewBounds\(card\)\)/);
+  assert.match(functionSource("renderCardEditorPreview"), /editorPreviewViewBox\(width, height, editorPreviewZoom, editorPreviewPan, deviceEditorPreview, editorCardPreviewBounds\(previewCard\)\)/);
 
   const tabHandler = sourceSlice(INDEX_HTML, 'editorTabs.addEventListener("click"', 'connectorRelationshipsPanel?.addEventListener("click"');
   assertOrder(tabHandler, [
