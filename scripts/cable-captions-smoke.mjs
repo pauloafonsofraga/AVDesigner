@@ -79,6 +79,11 @@ try {
   const page = await context.newPage(); observe(page); await page.goto(base);
   await page.waitForFunction(() => activeEngineBridge()?.ready && localUserSettingsLoaded);
   await page.evaluate(project => restoreSnapshot(project), cableCaptionFixture());
+  await page.waitForFunction(() => engineOutputSceneModule && reportCableScheduleModule);
+  const report = await page.evaluate(() => buildCanonicalOutputSnapshot().reportData);
+  assert.equal(report.summary.find(row => row.label === "Cables")?.value, 3);
+  assert.equal(report.cableRows.reduce((count, row) => count + row.quantity, 0), 3);
+  checks.push("project report and output snapshot count two paired Jump paths plus one direct wire as three logical cables");
   await interactions(page);
 
   await page.evaluate(() => {

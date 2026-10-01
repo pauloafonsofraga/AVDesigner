@@ -69,7 +69,7 @@ function realEndpoint(wire, jumpEnd) {
   return second.jumpNodeId ? first : second;
 }
 
-function groupedCables(project, getConnector) {
+export function groupedCables(project, getConnector) {
   const wires = project.connections || [];
   const byId = new Map(wires.map(wire => [String(wire.id), wire]));
   const visited = new Set(), groups = [];
