@@ -6034,6 +6034,9 @@ class ProductionEngineBridge {
     if (wireData.fiberMode !== undefined) wire.fiberMode = String(wireData.fiberMode || "");
     if (wireData.label !== undefined) wire.label = String(wireData.label || wire.cableType || wire.id);
     if (wireData.length !== undefined) wire.length = String(wireData.length || "");
+    if (wireData.cableNumber !== undefined) wire.cableNumber = String(wireData.cableNumber || "");
+    if (wireData.loom !== undefined) wire.loom = String(wireData.loom || "");
+    if (wireData.notes !== undefined) wire.notes = String(wireData.notes || "");
     if (wireData.hideLabel !== undefined) wire.hideLabel = Boolean(wireData.hideLabel);
     if (wireData.routeStyle !== undefined || wireData.routePoints !== undefined) {
       wire.routePoints = normalizeRoutePointsForBridge(wireData.routePoints);
@@ -10841,6 +10844,9 @@ function cloneWire(wire) {
     cableType: wire.cableType,
     fiberMode: wire.fiberMode,
     length: wire.length,
+    cableNumber: wire.cableNumber,
+    loom: wire.loom,
+    notes: wire.notes,
     hideLabel: Boolean(wire.hideLabel),
   } : null;
 }
@@ -11054,7 +11060,7 @@ function connectorInspectorStatesChanged(beforeStates = [], afterStates = []) {
 }
 
 function sanitizeWireInspectorFields(fields = {}) {
-  const allowed = new Set(["label", "length", "notes", "hideLabel", "fiberMode", "cableType", "customColor"]);
+  const allowed = new Set(["label", "length", "notes", "loom", "cableNumber", "hideLabel", "fiberMode", "cableType", "customColor"]);
   const sanitized = {};
   Object.entries(fields || {}).forEach(([key, value]) => {
     if (!allowed.has(key)) return;

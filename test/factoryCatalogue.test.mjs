@@ -73,6 +73,7 @@ test("project save detaches and embeds factory, custom node, card, rack, LED, im
     imageObjects: [{ image: "image.png" }], titleBlocks: [{ fields: { companyLogo: "logo.png" } }] };
   const html = read("index.html").toString(), source = html.match(/^    async function projectJsonPayload\(\) \{[\s\S]*?^    \}/m)[0];
   const saved = await vm.runInNewContext(`(${source})()`, { structuredClone,
+    loadCableScheduleModule: async () => ({}), assignProjectCableNumbers() {},
     window: { WireNexusImageAssets: { portableProjectData }, WireNexusFactoryCatalogue: { devices: [] } },
     projectSnapshotData: () => original,
     inlineProjectImageAssets: data => inlineProjectArtwork(data, src => inlineImage(src, { baseUrl, fetchImage })) });

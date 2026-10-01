@@ -5031,6 +5031,29 @@
       }
     }
 
+    .cable-schedule-dialog {
+      width: min(1500px, 96vw);
+      height: min(82vh, 900px);
+      max-width: none;
+      max-height: none;
+      padding: 0;
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      background: var(--panel-bg);
+      color: var(--ink);
+    }
+    .cable-schedule-dialog::backdrop { background: rgba(0, 0, 0, .7); }
+    .cable-schedule-dialog[open] { display: grid; grid-template-rows: auto minmax(0, 1fr); }
+    .cable-schedule-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--panel-border); }
+    .cable-schedule-header h2 { font-size: 15px; margin: 0 auto 0 0; }
+    .cable-schedule-table-wrap { overflow: auto; min-height: 0; }
+    .cable-schedule-table { border-collapse: collapse; min-width: 1350px; width: 100%; font-size: 12px; }
+    .cable-schedule-table th, .cable-schedule-table td { padding: 7px 8px; border-bottom: 1px solid var(--panel-border); text-align: left; vertical-align: top; white-space: pre-wrap; }
+    .cable-schedule-table th { position: sticky; top: 0; z-index: 1; background: var(--panel-bg); color: var(--ink); }
+    .cable-schedule-table tbody tr { cursor: pointer; }
+    .cable-schedule-table tbody tr:hover { background: rgba(50, 182, 255, .1); }
+    .cable-schedule-empty { padding: 24px; color: var(--muted); }
+
     .selected-connector-settings {
       margin-top: 0;
     }
@@ -5087,7 +5110,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled WireNexus Project" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">Iteration 54.38.30 — Library Deletion Controls — iteration54-38-30-library-deletion</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">Iteration 54.38.31 — Cable Schedule Graphics — iteration54-38-31-cable-schedule</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5202,6 +5225,7 @@
         <button class="tool-button" id="projectReportButton" type="button" title="Open project report">
           <span>Report</span>
         </button>
+        <button class="tool-button" id="cableScheduleButton" type="button" title="Open live cable schedule">Cable Schedule</button>
         <button class="tool-button has-icon" id="exportPdf" type="button" title="Export a print-ready PDF report" aria-label="Export PDF report">
           <!-- Icon: Export PDF, icons/pdf.png -->
           <img class="toolbar-icon" src="icons/pdf.png" alt="" aria-hidden="true">
@@ -5264,6 +5288,19 @@
       </div>
     </aside>
   </div>
+
+  <dialog id="cableScheduleDialog" class="cable-schedule-dialog" aria-label="Cable Schedule">
+    <header class="cable-schedule-header">
+      <h2>Cable Schedule</h2>
+      <button class="tool-button" id="downloadCableScheduleXlsx" type="button">Download XLSX</button>
+      <button class="tool-button" id="downloadCableScheduleCsv" type="button">Download CSV</button>
+      <button class="tool-button" id="closeCableSchedule" type="button">Close</button>
+    </header>
+    <div class="cable-schedule-table-wrap">
+      <table class="cable-schedule-table"><thead id="cableScheduleHead"></thead><tbody id="cableScheduleBody"></tbody></table>
+      <p class="cable-schedule-empty hidden" id="cableScheduleEmpty">No cables in this project.</p>
+    </div>
+  </dialog>
 
   <div class="context-menu hidden" id="deviceContextMenu" role="menu"></div>
 
@@ -5768,12 +5805,12 @@
   <script src="./src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script src="./src/engine/projectorModelCore.js?v=iteration54-38-11-engine-status-labels"></script>
   <script src="./src/engine/historyCloneCore.js?v=iteration54-38-29-memory-safe-undo"></script>
-  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-30-library-deletion"></script>
+  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-31-cable-schedule"></script>
   <script type="text/wirenexus-app" id="wireNexusAppSource">
-    const APP_ITERATION = "54.38.30";
-    const APP_BUILD_ID = "iteration54-38-30-library-deletion";
-    const APP_MODULE_CACHE_ID = "iteration54-38-30-library-deletion-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Library Deletion Controls`;
+    const APP_ITERATION = "54.38.31";
+    const APP_BUILD_ID = "iteration54-38-31-cable-schedule";
+    const APP_MODULE_CACHE_ID = "iteration54-38-31-cable-schedule-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Cable Schedule Graphics`;
     const { cloneHistoryValue, MAX_HISTORY_ENTRIES } = window.WireNexusHistoryClone;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
@@ -6409,6 +6446,7 @@
       titleBlocks: [],
       imageObjects: [],
       connections: [],
+      cableNumberCounters: {},
       selected: null,
       darkMode: true,
       gridVisible: true,
@@ -6717,6 +6755,11 @@
     const publishProjectResult = document.getElementById("publishProjectResult");
     const publishProjectLink = document.getElementById("publishProjectLink");
     const projectReportButton = document.getElementById("projectReportButton");
+    const cableScheduleButton = document.getElementById("cableScheduleButton");
+    const cableScheduleDialog = document.getElementById("cableScheduleDialog");
+    const cableScheduleHead = document.getElementById("cableScheduleHead");
+    const cableScheduleBody = document.getElementById("cableScheduleBody");
+    const cableScheduleEmpty = document.getElementById("cableScheduleEmpty");
     const cableLegend = document.getElementById("cableLegend");
     const emptyHint = document.getElementById("emptyHint");
     const fileInput = document.getElementById("fileInput");
@@ -9332,6 +9375,7 @@
         })),
         titleBlocks: state.titleBlocks,
         connections: connectionsForProjectSnapshot(),
+        cableNumberCounters: state.cableNumberCounters,
         darkMode: state.darkMode,
         gridVisible: state.gridVisible,
         objectSnapping: state.objectSnapping,
@@ -9358,6 +9402,7 @@
       state.comments = cloneHistoryValue(snapshot.comments || []);
       state.titleBlocks = cloneHistoryValue(snapshot.titleBlocks || []);
       state.connections = cloneHistoryValue(snapshot.connections || []);
+      state.cableNumberCounters = cloneHistoryValue(snapshot.cableNumberCounters || {});
       state.devices.forEach(normalizeInstanceRelationshipMetadata);
       state.selected = null;
       setDarkMode(snapshot.darkMode !== false);
@@ -29828,6 +29873,10 @@
           <input id="wireLength" type="text" inputmode="text" value="${escapeAttr(connection.length || "")}" placeholder="10m, 50 cm, 2.5 meters">
         </div>
         <div class="field">
+          <label for="wireLoom">Loom</label>
+          <input id="wireLoom" value="${escapeAttr(connection.loom || "")}">
+        </div>
+        <div class="field">
           <label class="checkbox-row"><input id="wireHideLabel" type="checkbox" ${connection.hideLabel ? "checked" : ""}> Hide Wire Label</label>
         </div>
         <div class="field">
@@ -29876,6 +29925,20 @@
           renderCanvasOnly();
         }
       );
+      bindDeferredCanvasTextCommit(
+        document.getElementById("wireLoom"),
+        value => {
+          const engineBridge = activeEngineBridge();
+          if (engineBridge?.previewWireInspectorFields?.(connectionId, { loom: value })) return;
+          connection.loom = value;
+        },
+        value => {
+          const engineBridge = activeEngineBridge();
+          if (engineBridge?.commitWireInspectorFields?.(connectionId, { loom: value })) return;
+          connection.loom = value;
+          requestCableScheduleRefresh();
+        }
+      );
       document.getElementById("wireHideLabel").addEventListener("change", event => {
         const nextHidden = event.target.checked;
         const engineBridge = activeEngineBridge();
@@ -29918,6 +29981,7 @@
       if (!wires.length) return;
       const sameLength = wires.every(connection => (connection.length || "") === (wires[0].length || ""));
       const sameNotes = wires.every(connection => (connection.notes || "") === (wires[0].notes || ""));
+      const sameLoom = wires.every(connection => (connection.loom || "") === (wires[0].loom || ""));
       inspectorBody.innerHTML = `
         <dl class="details">
           <dt>Type</dt><dd>Multiple Wires</dd>
@@ -29930,6 +29994,10 @@
         <div class="field">
           <label for="multiWireNotes">Notes</label>
           <textarea id="multiWireNotes" placeholder="${sameNotes ? "" : "Multiple values"}">${escapeHtml(sameNotes ? wires[0].notes || "" : "")}</textarea>
+        </div>
+        <div class="field">
+          <label for="multiWireLoom">Loom</label>
+          <input id="multiWireLoom" value="${escapeAttr(sameLoom ? wires[0].loom || "" : "")}" placeholder="${sameLoom ? "" : "Multiple values"}">
         </div>
         <button class="tool-button" id="resetMultiWireRoutes" type="button" ${wires.some(connection => normalizedWireRoutePoints(connection).length) ? "" : "disabled"}>Reset Wire Routes</button>
       `;
@@ -29969,7 +30037,110 @@
           });
         }
       );
+      bindDeferredCanvasTextCommit(
+        document.getElementById("multiWireLoom"),
+        value => {
+          const engineBridge = activeEngineBridge();
+          if (engineBridge?.previewMultiWireInspectorFields?.(wires.map(connection => connection.id), { loom: value })) return;
+          wires.forEach(connection => { connection.loom = value; });
+        },
+        value => {
+          const engineBridge = activeEngineBridge();
+          if (engineBridge?.commitMultiWireInspectorFields?.(wires.map(connection => connection.id), { loom: value })) return;
+          wires.forEach(connection => { connection.loom = value; });
+          requestCableScheduleRefresh();
+        }
+      );
       document.getElementById("resetMultiWireRoutes").addEventListener("click", () => resetWireRoutes(connectionIds));
+    }
+
+    let cableScheduleModulePromise = null;
+    let cableScheduleXlsxPromise = null;
+    let cableScheduleRows = [];
+    let cableScheduleRefreshQueued = false;
+    let cableScheduleRenderedSignature = "";
+    let cableScheduleRenderCount = 0;
+
+    function loadCableScheduleModule() {
+      cableScheduleModulePromise ||= import(engineImportUrl("./src/engine/cableSchedule.js"))
+        .catch(error => { cableScheduleModulePromise = null; throw error; });
+      return cableScheduleModulePromise;
+    }
+
+    function assignProjectCableNumbers(module) {
+      const project = { ...state, deviceLibrary };
+      module.ensureCableNumbers(project, { getConnector: connectorById, nodeDefinitions: serializeNodeLibrary() });
+      state.cableNumberCounters = project.cableNumberCounters;
+      const bridge = activeEngineBridge();
+      if (bridge) state.connections.forEach(connection => {
+        const wire = bridge.resolveWire?.(connection.id);
+        if (wire) wire.cableNumber = connection.cableNumber || "";
+      });
+    }
+
+    async function refreshCableSchedule() {
+      if (!cableScheduleDialog.open) return;
+      const module = await loadCableScheduleModule();
+      if (!cableScheduleDialog.open) return;
+      assignProjectCableNumbers(module);
+      const nodeDefinitions = serializeNodeLibrary();
+      const rows = module.buildCableSchedule({ ...state, deviceLibrary, nodeLibrary: nodeDefinitions }, {
+        assignNumbers: false, getConnector: connectorById, nodeDefinitions
+      });
+      const signature = JSON.stringify(rows);
+      cableScheduleRows = rows;
+      if (signature === cableScheduleRenderedSignature) return;
+      cableScheduleRenderedSignature = signature;
+      cableScheduleRenderCount++;
+      cableScheduleHead.innerHTML = `<tr>${module.CABLE_SCHEDULE_COLUMNS.map(([, label]) => `<th>${escapeHtml(label)}</th>`).join("")}</tr>`;
+      cableScheduleBody.innerHTML = rows.map((row, index) => `<tr data-cable-schedule-row="${index}">${module.CABLE_SCHEDULE_COLUMNS.map(([key]) => `<td>${escapeHtml(row[key] || "")}</td>`).join("")}</tr>`).join("");
+      cableScheduleEmpty.classList.toggle("hidden", rows.length > 0);
+    }
+
+    function requestCableScheduleRefresh() {
+      if (!cableScheduleDialog.open || cableScheduleRefreshQueued) return;
+      cableScheduleRefreshQueued = true;
+      requestAnimationFrame(() => {
+        cableScheduleRefreshQueued = false;
+        refreshCableSchedule().catch(error => setStatus(`Cable Schedule could not update: ${error.message}`));
+      });
+    }
+
+    async function openCableSchedule() {
+      flushPendingInspectorCommit();
+      cableScheduleDialog.showModal();
+      cableScheduleRenderedSignature = "";
+      await refreshCableSchedule();
+    }
+
+    function loadCableScheduleXlsxBundle() {
+      if (window.WireNexusCableScheduleXlsx?.createCableScheduleXlsx) return Promise.resolve(window.WireNexusCableScheduleXlsx);
+      cableScheduleXlsxPromise ||= new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = `./src/engine/generated/cableScheduleBundle.js?v=${APP_BUILD_ID}`;
+        script.onload = () => window.WireNexusCableScheduleXlsx?.createCableScheduleXlsx
+          ? resolve(window.WireNexusCableScheduleXlsx) : reject(new Error("XLSX writer did not initialize."));
+        script.onerror = () => reject(new Error("XLSX writer could not be loaded."));
+        document.head.appendChild(script);
+      }).catch(error => { cableScheduleXlsxPromise = null; throw error; });
+      return cableScheduleXlsxPromise;
+    }
+
+    async function downloadCableSchedule(format) {
+      try {
+        await refreshCableSchedule();
+        const module = await loadCableScheduleModule();
+        const filename = `${projectFileBaseName()}-cable-schedule.${format}`;
+        if (format === "csv") {
+          downloadBlob(`\uFEFF${module.cableScheduleCsv(cableScheduleRows)}`, filename, "text/csv;charset=utf-8");
+          return;
+        }
+        const writer = await loadCableScheduleXlsxBundle();
+        const data = await writer.createCableScheduleXlsx(cableScheduleRows, {
+          nodeDefinitions: serializeNodeLibrary(), loadArtwork: imagePathToDataUrl
+        });
+        downloadBlob(data, filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      } catch (error) { alert(`Cable Schedule could not be downloaded: ${error.message}`); }
     }
 
     function projectFileBaseName() {
@@ -30018,6 +30189,7 @@
         comments: state.comments,
         titleBlocks: state.titleBlocks,
         connections: forEngine ? state.connections : connectionsForProjectSnapshot(),
+        cableNumberCounters: state.cableNumberCounters,
         deviceLibrary
       };
     }
@@ -30931,6 +31103,8 @@ document.addEventListener("click", function(event) {
     }
 
     async function projectJsonPayload() {
+      const module = await loadCableScheduleModule();
+      assignProjectCableNumbers(module);
       const data = window.WireNexusImageAssets.portableProjectData(projectSnapshotData(), window.WireNexusFactoryCatalogue);
       await inlineProjectImageAssets(data);
       return JSON.stringify(data, null, 2);
@@ -31072,6 +31246,7 @@ document.addEventListener("click", function(event) {
           state.comments = Array.isArray(data.comments) ? data.comments : [];
           state.titleBlocks = Array.isArray(data.titleBlocks) ? data.titleBlocks : [];
           state.connections = Array.isArray(data.connections) ? data.connections : [];
+          state.cableNumberCounters = data.cableNumberCounters && typeof data.cableNumberCounters === "object" ? data.cableNumberCounters : {};
           bridge?.setLoadingPhase?.("Rebuilding production compatibility data...");
           ensureRackList();
           state.selected = null;
@@ -31364,6 +31539,7 @@ document.addEventListener("click", function(event) {
       state.comments = [];
       state.titleBlocks = [];
       state.connections = [];
+      state.cableNumberCounters = {};
       state.imageObjects = [];
       deviceLibrary = structuredClone(builtInDeviceLibrary);
       projectNodeDefinitions = [];
@@ -32801,6 +32977,19 @@ document.addEventListener("click", function(event) {
       exportHtml();
     });
     projectReportButton?.addEventListener("click", editorActions.openReport);
+    cableScheduleButton?.addEventListener("click", () => {
+      openCableSchedule().catch(error => setStatus(`Cable Schedule could not open: ${error.message}`));
+    });
+    document.getElementById("closeCableSchedule")?.addEventListener("click", () => cableScheduleDialog.close());
+    document.getElementById("downloadCableScheduleCsv")?.addEventListener("click", () => downloadCableSchedule("csv"));
+    document.getElementById("downloadCableScheduleXlsx")?.addEventListener("click", () => downloadCableSchedule("xlsx"));
+    cableScheduleBody?.addEventListener("click", event => {
+      const row = cableScheduleRows[Number(event.target.closest("tr[data-cable-schedule-row]")?.dataset.cableScheduleRow)];
+      if (!row?.wireIds?.length) return;
+      const items = row.wireIds.map(id => ({ type: "wire", id }));
+      cableScheduleDialog.close();
+      selectWiresFast(items.length === 1 ? items[0] : { type: "multi", items });
+    });
     document.getElementById("publishProjectButton").addEventListener("click", openPublishProjectModal);
     document.getElementById("closePublishProject").addEventListener("click", closePublishProjectModal);
     document.getElementById("cancelPublishProject").addEventListener("click", closePublishProjectModal);
@@ -33530,6 +33719,7 @@ document.addEventListener("click", function(event) {
               console.info("[engine-bridge] production undo snapshot captured", { type });
             },
             onEngineCommit: ({ type, mutationStats }) => {
+              requestCableScheduleRefresh();
               renderCableLegend();
               renderProjectCustomDevices();
               renderInspector();

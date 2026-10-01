@@ -1,0 +1,2 @@
+# ExcelJS embeds whitespace-significant template literals in this generated bundle.
+src/engine/generated/cableScheduleBundle.js whitespace=-blank-at-eol

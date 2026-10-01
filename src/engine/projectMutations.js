@@ -308,6 +308,8 @@ export class ProjectMutationAdapter {
     const allowed = new Set([
       "label",
       "length",
+      "cableNumber",
+      "loom",
       "notes",
       "hideLabel",
       "fiberMode",
@@ -952,7 +954,10 @@ function rawConnectionFromSceneWireData(sceneData, wire) {
     customColor: customColorForProjectWire(wire),
     from: endpointToProjectFromSceneData(sceneData, wire, "from"),
     to: endpointToProjectFromSceneData(sceneData, wire, "to"),
-    notes: "",
+    notes: wire.notes || "",
+    length: wire.length || "",
+    cableNumber: wire.cableNumber || "",
+    loom: wire.loom || "",
     fiberMode: wire.fiberMode || "",
     hideLabel: Boolean(wire.hideLabel),
     ...routeFieldsFromWire(wire)
@@ -970,7 +975,10 @@ function rawConnectionFromWire(scene, wire, id) {
     customColor: customColorForProjectWire(wire),
     from: endpointToProject(scene, wire, "from"),
     to: endpointToProject(scene, wire, "to"),
-    notes: "",
+    notes: wire.notes || "",
+    length: wire.length || "",
+    cableNumber: wire.cableNumber || "",
+    loom: wire.loom || "",
     fiberMode: wire.fiberMode || "",
     hideLabel: Boolean(wire.hideLabel),
     ...routeFieldsFromWire(wire)

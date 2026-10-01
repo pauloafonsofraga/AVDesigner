@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "build:output-viewer": "node scripts/build-output-viewer.mjs",
-    "check:output-viewer": "node scripts/output-viewer-bundle-validation.mjs"
+    "check:output-viewer": "node scripts/output-viewer-bundle-validation.mjs",
+    "build:cable-schedule": "node scripts/build-cable-schedule.mjs",
+    "check:cable-schedule": "node scripts/build-cable-schedule.mjs --check"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.3.14",
@@ -12,6 +14,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "2.117.2",
-    "@vercel/blob": "latest"
+    "@vercel/blob": "latest",
+    "exceljs": "4.4.0"
   }
 }
