@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-38-43-technician-viewer-navigation";
+const BUILD_ID = "iteration54-38-44-connected-nodes-in-viewer";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -52,7 +52,7 @@ const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Auto LED Preview Recovery");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-43-technician-viewer-navigation-modules";'), "module cache key should identify Technician Viewer Navigation");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-44-connected-nodes-in-viewer-modules";'), "module cache key should identify Connected Nodes in Viewer");
 assert.ok(indexHtml.includes("Signal Chain"), "visible build label should name Signal Chain");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-39-shared-jump-labels"'), "Engine bridge version should identify Shared Jump Cable Labels");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses"'), "Engine bridge feature label should identify Selectable Projector Lenses");

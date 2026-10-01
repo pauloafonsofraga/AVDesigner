@@ -28,6 +28,12 @@
 .output-inspector dd [data-action="endpoint"] { width: 100%; height: auto; min-height: 30px; text-align: left; white-space: normal; overflow-wrap: anywhere; }
 .output-cables { display: grid; gap: 6px; margin: 12px 0; }
 .output-cables button { height: auto; min-height: 28px; text-align: left; overflow-wrap: anywhere; }
+.output-cables h3 { margin: 0 0 2px; color: var(--muted); font-size: 11px; text-transform: uppercase; }
+.output-cables .output-connected-node { display: grid; grid-template-columns: 14px minmax(0, 1fr); align-items: start; gap: 9px; width: 100%; padding: 8px; border-radius: 7px; background: var(--panel); }
+.output-connected-node-dot { width: 12px; height: 12px; margin-top: 3px; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #0004; }
+.output-connected-node-main, .output-connected-node-meta, .output-connected-node-cable { display: block; min-width: 0; overflow-wrap: anywhere; }
+.output-connected-node-main { font-weight: 900; }
+.output-connected-node-meta, .output-connected-node-cable { margin-top: 2px; color: var(--muted); font-size: 11px; font-weight: 700; line-height: 1.35; }
 .output-inspector [data-action="play"] { background: #176a8c; color: #fff; width: 100%; }
 .output-inspector [data-action="signal-chain"] { width: 100%; margin-top: 8px; }
 .output-signal-chain { width: min(760px, 94vw); max-height: 85dvh; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }

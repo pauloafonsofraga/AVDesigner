@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { outputViewerParityFixture, outputViewerScaleFixture } from "../fixtures/output-viewer.mjs";
 import { buildEngineOutputScene } from "../src/engine/outputSceneSnapshot.js";
-import { createOutputViewerModel, outputCableTrace, outputSelectionDetails, outputJumpLinkOverlays } from "../src/engine/outputViewerModel.js";
+import { createOutputViewerModel, outputCableTrace, outputSelectionDetails, outputJumpLinkOverlays, outputConnectedNodeItems } from "../src/engine/outputViewerModel.js";
 import { EngineOutputViewer } from "../src/engine/outputViewerApp.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
@@ -111,6 +111,32 @@ test("cable inspection uses readable endpoints and hides internal wire IDs", () 
   assert.equal(outputSelectionDetails(model.scene, { type: "wire", id: wire.id }).title, "V-171");
   wire.cableNumber = "";
   assert.equal(outputSelectionDetails(model.scene, { type: "wire", id: wire.id }).title, "Display Port");
+});
+
+test("device inspector uses editor-style connected node labels without internal device fields", () => {
+  const { model } = setup();
+  const scene = model.scene;
+  const device = scene.getDevice("ordinary-a");
+  device.label = "Processor A";
+  scene.getDevice("ordinary-b").label = "Display B";
+  scene.getConnector("ordinary-a", "output").nameText = "OUT 1";
+  scene.getConnector("ordinary-b", "input").nameText = "IN 1";
+  const wire = scene.getWire("curve");
+  wire.cableType = "display-port"; wire.length = "5m";
+  const before = JSON.stringify(model.contract);
+  const details = outputSelectionDetails(scene, { type: "device", id: "ordinary-a" });
+  assert.equal(details.title, "Processor A");
+  assert.ok(!details.rows.some(([key]) => key === "ID" || key === "Type"));
+  const items = outputConnectedNodeItems(scene, "ordinary-a");
+  assert.deepEqual(items.map(item => item.wireId), ["cross-vertical", "cross-horizontal", "curve", "jump-source"]);
+  assert.deepEqual(items.find(item => item.wireId === "curve"), {
+    wireId: "curve", deviceId: "ordinary-a", connectorId: "output", otherDeviceId: "ordinary-b",
+    otherConnectorId: "input", otherSide: "to", port: "OUT 1", destination: "To Display B / IN 1",
+    cable: "Display Port · 5m", color: "#0B6B3A", colorSegments: null, x: 240, y: 180
+  });
+  assert.deepEqual(outputConnectedNodeItems(scene, "ordinary-a", "input").map(item => item.wireId), ["cross-vertical"]);
+  assert.deepEqual(outputConnectedNodeItems(scene, "missing"), []);
+  assert.equal(JSON.stringify(model.contract), before);
 });
 
 test("cable tracing reuses jump semantics and only snapshot polylines", () => {

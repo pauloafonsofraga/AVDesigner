@@ -31,6 +31,41 @@ export function outputJumpLinkOverlays(model, selection, hoveredJumpId = null) {
   });
 }
 
+function cableTypeName(type) {
+  const fallback = String(type || "").replace(/[-_]+/g, " ").replace(/\b\w/g, character => character.toUpperCase());
+  return engineConnectorTypeDisplayName(type, fallback || "Cable");
+}
+
+function connectedPortName(connector, device) {
+  if (device?.kind === "jump") return "Portal";
+  if (!connector) return device?.kind === "led-surface" ? "LED Screen" : "Connector";
+  return connector.nameText || connector.label || engineConnectorTypeDisplayName(connector.type, "Connector");
+}
+
+export function outputConnectedNodeItems(scene, deviceId, connectorId = "") {
+  const device = scene.getDevice(deviceId);
+  if (!device) return [];
+  return scene.wires.flatMap(wire => ["from", "to"].flatMap(side => {
+    const localId = wire[`${side}DeviceId`] || wire[`${side}SurfaceId`];
+    const localConnectorId = wire[`${side}ConnectorId`];
+    if (localId !== deviceId || (connectorId && localConnectorId !== connectorId)) return [];
+    const connector = scene.getConnector(deviceId, localConnectorId);
+    if (!connector) return [];
+    const otherSide = side === "from" ? "to" : "from";
+    const otherId = wire[`${otherSide}DeviceId`] || wire[`${otherSide}SurfaceId`];
+    const otherDevice = scene.getDevice(otherId);
+    const otherConnectorId = wire[`${otherSide}ConnectorId`];
+    const otherConnector = scene.getConnector(otherId, otherConnectorId);
+    return [{ wireId: wire.id, deviceId, connectorId: localConnectorId,
+      otherDeviceId: otherId, otherConnectorId, otherSide,
+      port: connectedPortName(connector, device),
+      destination: `${side === "from" ? "To" : "From"} ${otherDevice?.label || "Device"} / ${connectedPortName(otherConnector, otherDevice)}`,
+      cable: `${cableTypeName(wire.cableType)}${wire.length ? ` · ${wire.length}` : ""}`,
+      color: wire.color, colorSegments: wire.colorSegments,
+      x: connector.x, y: connector.y }];
+  })).sort((a, b) => a.y - b.y || a.x - b.x || a.wireId.localeCompare(b.wireId));
+}
+
 export function outputSelectionDetails(scene, selection) {
   if (!selection) return { title: "Inspector", rows: [], wireIds: [] };
   if (selection.type === "multi-wire") return { title: "Cables", rows: [["Selected", selection.ids.length]], wireIds: selection.ids };
@@ -44,8 +79,7 @@ export function outputSelectionDetails(scene, selection) {
       const port = connector?.nameText || connector?.label || connector?.type;
       return [device?.label || deviceId || "Unknown device", port].filter(Boolean).join(" / ");
     };
-    const cableType = String(wire.cableType || "").replace(/[-_]+/g, " ").replace(/\b\w/g, character => character.toUpperCase());
-    const readableType = engineConnectorTypeDisplayName(wire.cableType, cableType || "Cable");
+    const readableType = cableTypeName(wire.cableType);
     const title = wire.label && wire.label !== wire.cableType && wire.label !== wire.id
       ? wire.label : wire.cableNumber || readableType;
     return { title, rows: [
@@ -71,8 +105,8 @@ export function outputSelectionDetails(scene, selection) {
     [connector.nameTextCaption || "Name", connector.nameText],
     [connector.resolutionFrameRateCaption || "Resolution", connector.resolutionFrameRate],
     [connector.customTextCaption || "Custom", connector.customText], ["Status", connector.operationalStatus]]
-    : [["ID", device.id], ["Brand", device.brand], ["Model", device.model], ["Category", device.category],
-      ["Type", device.kind], ["Notes", device.notes], ["Text", device.visual.text]];
+    : [["Brand", device.brand], ["Model", device.model], ["Category", device.category],
+      ["Notes", device.notes], ["Text", device.visual.text]];
   if (device.kind === "jump") rows.push(["Role", jumpNodeRoleLabel(scene.jumpNodeRole(device.id).role)],
     ["Base role", jumpNodeRoleLabel(scene.jumpNodeRole(device.id).baseRole)]);
   const wireIds = scene.wires.filter(w => ["from", "to"].some(end =>

@@ -42,6 +42,16 @@ async function viewerParity(page, reference) {
   }
 }
 async function checkCableInspector(scope, label) {
+  await scope.evaluate(() => outputViewer.select({ type: "device", id: "ordinary-a" }));
+  assert.equal(await scope.locator('.output-inspector dt').allTextContents().then(labels => labels.some(value => value === "ID" || value === "Type")), false);
+  assert.equal(await scope.locator('.output-cables h3').textContent(), "Connected Nodes");
+  const connected = scope.locator('.output-connected-node[data-wire-id="curve"]');
+  assert.match(await connected.textContent(), /outputTo ordinary-b \/ inputSDI/);
+  await connected.click();
+  await scope.waitForFunction(() => outputViewer.selection?.type === "connector" && outputViewer.selection.id === "output");
+  await scope.evaluate(() => outputViewer.select({ type: "device", id: "ordinary-a" }));
+  await scope.locator('.output-connected-node[data-wire-id="curve"]').dblclick();
+  assert.deepEqual(await scope.evaluate(() => outputViewer.selection), { type: "connector", deviceId: "ordinary-b", id: "input" });
   await scope.evaluate(() => outputViewer.select({ type: "wire", id: "curve" }));
   assert.equal(await scope.locator('.output-inspector h2').textContent(), "SDI");
   assert.equal(await scope.locator('.output-inspector dt').allTextContents().then(labels => labels.includes("ID")), false);

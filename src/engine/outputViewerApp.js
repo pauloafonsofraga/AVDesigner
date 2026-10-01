@@ -1,6 +1,6 @@
 import { WebglGraphRenderer } from "./renderer.js";
 import { fitCameraToBounds } from "./cameraFit.js";
-import { createOutputViewerModel, outputSelectionDetails, outputCableTrace, outputJumpLinkOverlays } from "./outputViewerModel.js";
+import { createOutputViewerModel, outputSelectionDetails, outputCableTrace, outputJumpLinkOverlays, outputConnectedNodeItems } from "./outputViewerModel.js";
 import { screenToWorld, hitTestConnector, hitTestDevice, hitTestWire, hitTestRack, distanceToPolyline } from "./hitTest.js";
 import { deviceVisualSources } from "./deviceVisualBuilder.js";
 import { polylineLength, polylinePointAtDistance, wirePlaybackDurationMs, wirePlaybackEase } from "./wirePlayback.js";
@@ -23,6 +23,7 @@ export class EngineOutputViewer {
     this.hoveredJumpId = null;
     this.hoveredWireId = null;
     this.holdTimer = 0;
+    this.connectedNodeClickTimer = 0;
     this.longPressShown = false;
     this.frame = 0;
     this.disposed = false;
@@ -91,10 +92,21 @@ export class EngineOutputViewer {
       if (action === "inspector") this.toggleInspector();
       if (action === "play") this.play();
       if (action === "wire") this.select({ type: "wire", id: button.dataset.id });
+      if (action === "connected-node") {
+        clearTimeout(this.connectedNodeClickTimer);
+        const { deviceId, connectorId } = button.dataset;
+        this.connectedNodeClickTimer = setTimeout(() => this.select({ type: "connector", deviceId, id: connectorId }), 180);
+      }
       if (action === "endpoint") this.focusWireEndpoint(button.dataset.end);
       if (action === "signal-chain") this.openSignalChain();
       if (action === "signal-chain-close") this.signalChainDialog.close();
       if (action === "signal-chain-choice") this.renderSignalChain(this.signalChains[Number(button.dataset.index)]);
+    });
+    on(this.host, "dblclick", event => {
+      const button = event.target.closest('button[data-action="connected-node"]');
+      if (!button) return;
+      clearTimeout(this.connectedNodeClickTimer);
+      this.focusConnectedNode(button.dataset.wireId, button.dataset.otherSide);
     });
     on(this.stage, "wheel", event => {
       event.preventDefault(); this.stopPlayback();
@@ -252,6 +264,7 @@ export class EngineOutputViewer {
     this.select(rack ? { type: "rack", id: rack.id } : null);
   }
   select(selection) {
+    clearTimeout(this.connectedNodeClickTimer);
     this.stopPlayback(); this.selection = selection;
     this.scene.selectedIds.clear(); this.scene.selectedWireIds.clear(); this.scene.selectedConnectorKeys.clear(); this.scene.selectedRackIds.clear();
     if (selection?.type === "device") this.scene.selectedIds.add(selection.id);
@@ -275,7 +288,30 @@ export class EngineOutputViewer {
       fields.append(dt, dd);
     });
     const cables = this.inspector.querySelector(".output-cables"); cables.replaceChildren();
-    (selection?.type === "wire" ? [] : details.wireIds).forEach(id => {
+    if (selection?.type === "device" || selection?.type === "connector") {
+      const items = outputConnectedNodeItems(this.scene, selection.deviceId || selection.id,
+        selection.type === "connector" ? selection.id : "");
+      if (items.length) {
+        const heading = document.createElement("h3"); heading.textContent = "Connected Nodes"; cables.append(heading);
+      }
+      items.forEach(item => {
+        const button = document.createElement("button"); button.type = "button";
+        button.className = "output-connected-node"; button.dataset.action = "connected-node";
+        button.dataset.deviceId = item.deviceId; button.dataset.connectorId = item.connectorId;
+        button.dataset.wireId = item.wireId; button.dataset.otherSide = item.otherSide;
+        button.title = "Select port; double-click to jump to the connected port";
+        const dot = document.createElement("span"); dot.className = "output-connected-node-dot";
+        const colors = item.colorSegments?.filter(color => /^#[\da-f]{3,8}$/i.test(color)) || [];
+        dot.style.background = colors.length ? `linear-gradient(90deg, ${colors.join(", ")})`
+          : /^#[\da-f]{3,8}$/i.test(item.color || "") ? item.color : "#32b6ff";
+        const body = document.createElement("span");
+        for (const [className, value] of [["output-connected-node-main", item.port],
+          ["output-connected-node-meta", item.destination], ["output-connected-node-cable", item.cable]]) {
+          const line = document.createElement("span"); line.className = className; line.textContent = value; body.append(line);
+        }
+        button.append(dot, body); cables.append(button);
+      });
+    } else if (selection?.type !== "wire") details.wireIds.forEach(id => {
       const button = document.createElement("button"); button.type = "button"; button.dataset.action = "wire"; button.dataset.id = id;
       button.textContent = this.scene.getWire(id)?.label || id; button.title = "Inspect cable"; cables.append(button);
     });
@@ -350,6 +386,19 @@ export class EngineOutputViewer {
     this.camera.x = point.x - this.stage.clientWidth / (2 * this.camera.zoom);
     this.camera.y = point.y - this.stage.clientHeight / (2 * this.camera.zoom);
     this.requestRender();
+  }
+  focusConnectedNode(wireId, end) {
+    if (end !== "from" && end !== "to") return;
+    const wire = this.scene.getWire(wireId);
+    if (!wire) return;
+    const point = this.scene.endpointForWire(wire, end);
+    if (!Number.isFinite(point?.x) || !Number.isFinite(point?.y)) return;
+    const deviceId = wire[`${end}DeviceId`] || wire[`${end}SurfaceId`];
+    const connectorId = wire[`${end}ConnectorId`];
+    this.camera.x = point.x - this.stage.clientWidth / (2 * this.camera.zoom);
+    this.camera.y = point.y - this.stage.clientHeight / (2 * this.camera.zoom);
+    this.select(this.scene.getConnector(deviceId, connectorId)
+      ? { type: "connector", deviceId, id: connectorId } : { type: "device", id: deviceId });
   }
   play() {
     if (this.playback) { this.stopPlayback(); return; }
@@ -436,7 +485,8 @@ export class EngineOutputViewer {
   }
   dispose() {
     if (this.disposed) return;
-    this.disposed = true; clearTimeout(this.holdTimer); cancelAnimationFrame(this.frame); this.abort.abort(); this.resizeObserver.disconnect();
+    this.disposed = true; clearTimeout(this.holdTimer); clearTimeout(this.connectedNodeClickTimer);
+    cancelAnimationFrame(this.frame); this.abort.abort(); this.resizeObserver.disconnect();
     this.renderer.dispose(); this.host.replaceChildren(); this.host.classList.remove("engine-output-viewer");
   }
 }

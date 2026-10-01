@@ -95,6 +95,25 @@ try {
       assert.equal(await page.locator(".output-inspector input,.output-inspector textarea,.output-inspector select").count(), 0);
     }
     if (name === "parity") {
+      await page.evaluate(() => outputViewer.select({ type: "device", id: "ordinary-a" }));
+      assert.equal(await page.locator('.output-inspector dt').allTextContents().then(labels => labels.some(label => label === "ID" || label === "Type")), false);
+      const connectedRows = page.locator('.output-connected-node');
+      assert.equal(await connectedRows.count(), 4);
+      assert.equal(await page.locator('.output-cables h3').textContent(), "Connected Nodes");
+      await page.screenshot({ path: `${shots}/output-viewer-connected-nodes.png` });
+      const curveRow = page.locator('.output-connected-node[data-wire-id="curve"]');
+      assert.match(await curveRow.textContent(), /outputTo ordinary-b \/ inputSDI/);
+      await curveRow.click();
+      await page.waitForFunction(() => outputViewer.selection?.type === "connector" && outputViewer.selection.id === "output");
+      await page.evaluate(() => outputViewer.select({ type: "device", id: "ordinary-a" }));
+      await page.locator('.output-connected-node[data-wire-id="curve"]').dblclick();
+      const jumped = await page.evaluate(() => {
+        const viewer = outputViewer, wire = viewer.scene.getWire("curve"), point = viewer.scene.endpointForWire(wire, "to");
+        return { selection: viewer.selection, offset: Math.hypot(point.x - viewer.camera.x - viewer.stage.clientWidth / (2 * viewer.camera.zoom),
+          point.y - viewer.camera.y - viewer.stage.clientHeight / (2 * viewer.camera.zoom)) };
+      });
+      assert.deepEqual(jumped.selection, { type: "connector", deviceId: "ordinary-b", id: "input" });
+      assert.ok(jumped.offset < .01, "double-click centers connected port");
       const deviceHint = await page.evaluate(() => {
         const viewer = outputViewer, device = viewer.scene.getDevice("ordinary-a");
         const point = { x: device.x + device.width / 2, y: device.y + device.height / 2 };
