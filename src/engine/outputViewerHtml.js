@@ -8,14 +8,14 @@ export function scriptJson(value) {
 
 const escapeHtml = value => String(value || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-export function buildEngineViewerHtml(snapshot, { bundle, assets = {}, title, cableGroups = [] } = {}) {
+export function buildEngineViewerHtml(snapshot, { bundle, assets = {}, title, cableGroups = [], signalChains = [] } = {}) {
   if (!bundle?.javascript || !bundle?.css || bundle.format !== "engine-output-viewer-v1") throw new Error("Engine viewer bundle is unavailable. Run npm run build:output-viewer.");
   const scene = snapshot.engineScene;
   assertOutputSceneContract(scene);
   validateOutputAssets(scene, assets);
   const projectName = title || snapshot.reportData?.projectName || "WireNexus";
   const payload = { engineScene: scene, assets, icons: bundle.icons, title: projectName,
-    reportData: snapshot.reportData || {}, cableGroups,
+    reportData: snapshot.reportData || {}, cableGroups, signalChains,
     metadata: { ...snapshot.metadata, drawingDependency: "engine-webgl", sceneSignature: scene.signature,
       sceneVersion: scene.version, sceneSchemaFingerprint: scene.schemaFingerprint,
       bundleHash: bundle.bundleHash } };

@@ -19,6 +19,7 @@
 .output-stage:active { cursor: grabbing; }
 .output-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .output-labels { pointer-events: none; }
+.output-device-hint { position: absolute; z-index: 3; pointer-events: none; max-width: min(280px, 75vw); padding: 5px 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--panel); color: var(--text); font-size: 12px; font-weight: 700; overflow-wrap: anywhere; box-shadow: 0 2px 8px #0006; }
 .output-inspector { padding: 14px; border-left: 1px solid var(--border); overflow: auto; background: var(--bg); }
 .output-inspector h2 { font-size: 14px; margin: 0 0 16px; overflow-wrap: anywhere; }
 .output-inspector dl { display: grid; gap: 3px; margin: 0; }
@@ -28,6 +29,19 @@
 .output-cables { display: grid; gap: 6px; margin: 12px 0; }
 .output-cables button { height: auto; min-height: 28px; text-align: left; overflow-wrap: anywhere; }
 .output-inspector [data-action="play"] { background: #176a8c; color: #fff; width: 100%; }
+.output-inspector [data-action="signal-chain"] { width: 100%; margin-top: 8px; }
+.output-signal-chain { width: min(760px, 94vw); max-height: 85dvh; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
+.output-signal-chain::backdrop { background: #000a; }
+.output-signal-chain header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.output-signal-chain h2 { margin: 0; font-size: 15px; }
+.output-signal-chain-body { padding: 20px; }
+.output-signal-chain-choices { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+.output-signal-chain-graph { display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, 1fr) minmax(0, 1fr); align-items: center; gap: 14px; }
+.output-signal-chain-endpoint, .output-signal-chain-cable { min-width: 0; display: grid; justify-items: center; gap: 7px; text-align: center; overflow-wrap: anywhere; }
+.output-signal-chain-endpoint span, .output-signal-chain-cable span { color: var(--muted); }
+.output-signal-chain-node { display: block; width: 22px; height: 22px; border: 2px solid white; border-radius: 50%; }
+.output-signal-chain-line { width: 100%; height: 7px; border-radius: 4px; }
+@media (max-width: 560px) { .output-signal-chain-graph { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .output-signal-chain-cable { grid-column: 1 / -1; grid-row: 1; } }
 .output-report { width: min(1000px, 92vw); max-height: 86dvh; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
 .output-report::backdrop { background: #0009; }
 .output-report > header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); }

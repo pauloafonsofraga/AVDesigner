@@ -41,7 +41,7 @@ async function viewerParity(page, reference) {
     assert.deepEqual(actual.gpuMatrix, reference.gpuMatrix, "live Engine matrix buffers");
   }
 }
-async function checkCableInspector(scope) {
+async function checkCableInspector(scope, label) {
   await scope.evaluate(() => outputViewer.select({ type: "wire", id: "curve" }));
   assert.equal(await scope.locator('.output-inspector h2').textContent(), "SDI");
   assert.equal(await scope.locator('.output-inspector dt').allTextContents().then(labels => labels.includes("ID")), false);
@@ -60,6 +60,24 @@ async function checkCableInspector(scope) {
     assert.ok(Math.abs(focused.x - point.x) < .01 && Math.abs(focused.y - point.y) < .01);
     assert.deepEqual(focused.selection, { type: "wire", id: "curve" });
   }
+  await scope.getByRole("button", { name: "Signal Chain" }).click();
+  const chain = scope.getByRole("dialog", { name: "Signal Chain" });
+  assert.equal(await chain.isVisible(), true);
+  assert.match(await chain.textContent(), /ordinary-a/);
+  assert.match(await chain.textContent(), /ordinary-b/);
+  await chain.screenshot({ path: join(dir, `${label}-signal-chain.png`) });
+  await chain.getByRole("button", { name: "Close" }).click();
+  await scope.evaluate(() => outputViewer.select({ type: "connector", deviceId: "ordinary-a", id: "output" }));
+  await scope.getByRole("button", { name: "Signal Chain" }).click();
+  assert.ok(await chain.locator('[data-action="signal-chain-choice"]').count() > 1);
+  await chain.locator('[data-action="signal-chain-choice"]').nth(1).click();
+  await chain.getByRole("button", { name: "Close" }).click();
+  await scope.evaluate(() => { outputViewer.select({ type: "wire", id: "curve" }); outputViewer.fit(); });
+  await scope.getByRole("button", { name: "Play Cable" }).click();
+  await scope.waitForFunction(() => outputViewer.playback && outputViewer.camera.zoom === 1);
+  const camera = await scope.evaluate(() => ({ x: outputViewer.camera.x, y: outputViewer.camera.y }));
+  await scope.waitForFunction(before => Math.hypot(outputViewer.camera.x - before.x, outputViewer.camera.y - before.y) > 2, camera);
+  await scope.getByRole("button", { name: "Stop" }).click();
 }
 async function benchmarkEngine(page) {
   return page.evaluate(async () => {
@@ -177,7 +195,7 @@ try {
     const performance = await benchmarkEngine(viewer);
     assert.equal(performance.rebuilds, 0); assert.equal(performance.textureBuilds, 0); assert.equal(performance.unchanged, true);
     if (name === "parity") {
-      await checkCableInspector(viewer);
+      await checkCableInspector(viewer, "offline");
       await checkJumpHover(viewer, viewer, "offline");
       // The undo-based shell harness omits imageObjects. Exercise the complete
       // 17-object canonical input through the same bundled offline viewer too.
@@ -242,6 +260,10 @@ try {
     assert.equal(publishRequest.password, "offline-test-password");
     const hostedHtml = await app.evaluate(path => uploadedFiles[path], publishRequest.htmlPath);
     const hostedPayload = parsePayload(hostedHtml);
+    if (name === "parity") {
+      assert.ok(hostedPayload.signalChains.some(chain => chain.wireIds.includes("jump-source")
+        && chain.wireIds.includes("jump-destination")), "Jump cable legs share one Signal Chain");
+    }
     assert.deepEqual(hostedPayload.engineScene, payload.engineScene);
     assert.equal(hostedPayload.metadata.bundleHash, payload.metadata.bundleHash);
     assert.equal(hostedPayload.metadata.sceneSchemaFingerprint, payload.metadata.sceneSchemaFingerprint);
@@ -267,7 +289,7 @@ try {
     assert.equal(await frame.evaluate(() => document.documentElement.outerHTML.includes("viewer-jump-link-reveal")), false, "wrapper did not inject Legacy styles");
     await viewerParity(frame, reference);
     if (name === "parity") {
-      await checkCableInspector(frame);
+      await checkCableInspector(frame, "hosted");
       await checkJumpHover(frame, hosted, "hosted");
     }
     await frame.getByRole("button", { name: "Report", exact: true }).click();

@@ -4,7 +4,8 @@ import { installOutputReport } from "./outputViewerReport.js";
 const host = document.getElementById("outputViewer");
 try {
   const payload = JSON.parse(document.getElementById("engineOutputPayload").textContent);
-  const viewer = new EngineOutputViewer(host, payload.engineScene, { assets: payload.assets, icons: payload.icons, title: payload.title });
+  const viewer = new EngineOutputViewer(host, payload.engineScene, { assets: payload.assets, icons: payload.icons,
+    title: payload.title, signalChains: payload.signalChains });
   window.outputViewer = viewer;
   window.engineOutputMetadata = Object.freeze(payload.metadata);
   installOutputReport(viewer, payload.reportData, payload.cableGroups);

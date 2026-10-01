@@ -13,6 +13,7 @@ export class EngineOutputViewer {
     this.icons = { light: "icons/lightmode.png", dark: "icons/darkmode.png", ...options.icons };
     this.model = createOutputViewerModel(snapshot, options);
     this.scene = this.model.scene;
+    this.signalChains = Array.isArray(options.signalChains) ? options.signalChains : [];
     this.camera = { x: 0, y: 0, zoom: 1 };
     this.metrics = { normalizationMs: this.model.normalizationMs, frames: 0, frameMs: [], assetFailures: 0 };
     this.abort = new AbortController();
@@ -21,6 +22,8 @@ export class EngineOutputViewer {
     this.hoverPoint = null;
     this.hoveredJumpId = null;
     this.hoveredWireId = null;
+    this.holdTimer = 0;
+    this.longPressShown = false;
     this.frame = 0;
     this.disposed = false;
     this.createDom();
@@ -52,13 +55,18 @@ export class EngineOutputViewer {
       <button type="button" data-action="theme" title="Light mode" aria-label="Light mode" aria-pressed="false"><img alt=""></button>
       <button type="button" data-action="inspector" title="Toggle inspector" aria-label="Toggle inspector" aria-expanded="true">&#9776;</button>
       </div></header><div class="output-workspace"><section class="output-stage" tabindex="0" aria-label="Read-only Engine canvas">
-      <canvas class="output-webgl"></canvas><canvas class="output-labels"></canvas></section>
+      <canvas class="output-webgl"></canvas><canvas class="output-labels"></canvas><div class="output-device-hint" role="tooltip" hidden></div></section>
       <aside class="output-inspector" aria-label="Inspector"><h2>Inspector</h2><dl></dl><div class="output-cables"></div>
-      <button type="button" data-action="play" hidden>Play Cable</button></aside></div>`;
+      <button type="button" data-action="play" hidden>Play Cable</button>
+      <button type="button" data-action="signal-chain" hidden>Signal Chain</button></aside></div>
+      <dialog class="output-signal-chain" aria-label="Signal Chain"><header><h2>Signal Chain</h2>
+      <button type="button" data-action="signal-chain-close">Close</button></header><div class="output-signal-chain-body"></div></dialog>`;
     this.stage = this.host.querySelector(".output-stage");
     this.canvas = this.host.querySelector(".output-webgl");
     this.labels = this.host.querySelector(".output-labels");
+    this.deviceHint = this.host.querySelector(".output-device-hint");
     this.inspector = this.host.querySelector(".output-inspector");
+    this.signalChainDialog = this.host.querySelector(".output-signal-chain");
     this.host.querySelector('[data-action="theme"] img').src = this.icons.light;
     if (this.options.title) {
       const caption = this.host.querySelector(".output-caption"); caption.textContent = this.options.title; caption.title = this.options.title;
@@ -84,6 +92,9 @@ export class EngineOutputViewer {
       if (action === "play") this.play();
       if (action === "wire") this.select({ type: "wire", id: button.dataset.id });
       if (action === "endpoint") this.focusWireEndpoint(button.dataset.end);
+      if (action === "signal-chain") this.openSignalChain();
+      if (action === "signal-chain-close") this.signalChainDialog.close();
+      if (action === "signal-chain-choice") this.renderSignalChain(this.signalChains[Number(button.dataset.index)]);
     });
     on(this.stage, "wheel", event => {
       event.preventDefault(); this.stopPlayback();
@@ -93,11 +104,18 @@ export class EngineOutputViewer {
     on(this.stage, "pointerdown", event => {
       if (event.button !== 0 && event.button !== 1) return;
       event.preventDefault(); this.stopPlayback(); this.stage.focus();
+      this.hideDeviceHint(); clearTimeout(this.holdTimer); this.longPressShown = false;
       this.stage.setPointerCapture(event.pointerId);
       this.pointers.set(event.pointerId, this.screenPoint(event));
       this.updateHover(null);
       this.gestureMoved = this.pointers.size > 1;
       this.downPoint = this.screenPoint(event);
+      if (event.pointerType === "touch" && this.pointers.size === 1) {
+        const point = this.downPoint;
+        this.holdTimer = setTimeout(() => {
+          if (this.pointers.size === 1 && !this.gestureMoved) this.longPressShown = this.showDeviceHint(point);
+        }, 450);
+      }
     });
     on(this.stage, "pointermove", event => {
       if (!this.pointers.has(event.pointerId)) {
@@ -105,7 +123,9 @@ export class EngineOutputViewer {
         return;
       }
       const before = [...this.pointers.values()], old = this.pointers.get(event.pointerId), point = this.screenPoint(event);
-      if (Math.hypot(point.x - this.downPoint.x, point.y - this.downPoint.y) > 4) this.gestureMoved = true;
+      if (Math.hypot(point.x - this.downPoint.x, point.y - this.downPoint.y) > 4) {
+        this.gestureMoved = true; clearTimeout(this.holdTimer); this.hideDeviceHint();
+      }
       this.pointers.set(event.pointerId, point);
       if (this.pointers.size === 2) {
         const after = [...this.pointers.values()];
@@ -124,14 +144,16 @@ export class EngineOutputViewer {
         if (event.type === "pointercancel") this.updateHover(null);
         return;
       }
-      if (!this.gestureMoved && this.pointers.size === 1 && event.type === "pointerup") this.selectAt(this.screenPoint(event));
+      clearTimeout(this.holdTimer); this.hideDeviceHint();
+      if (!this.gestureMoved && !this.longPressShown && this.pointers.size === 1 && event.type === "pointerup") this.selectAt(this.screenPoint(event));
+      this.longPressShown = false;
       this.pointers.delete(event.pointerId);
       if (this.stage.hasPointerCapture(event.pointerId)) this.stage.releasePointerCapture(event.pointerId);
       this.updateHover(event.type === "pointerup" && event.pointerType !== "touch" ? this.screenPoint(event) : null);
     };
     on(this.stage, "pointerup", release); on(this.stage, "pointercancel", release);
-    on(this.stage, "pointerleave", () => this.updateHover(null));
-    on(window, "blur", () => this.updateHover(null));
+    on(this.stage, "pointerleave", () => { if (!this.pointers.size) this.updateHover(null); });
+    on(window, "blur", () => { clearTimeout(this.holdTimer); this.hideDeviceHint(); this.updateHover(null); });
     on(this.stage, "keydown", event => {
       if (["+", "=", "-", "f", "F", "Escape", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) event.preventDefault();
       if (event.key === "+" || event.key === "=") this.zoomAt(1.2);
@@ -185,6 +207,7 @@ export class EngineOutputViewer {
     this.hoverPoint = point;
     const beforeJump = this.hoveredJumpId, beforeWire = this.hoveredWireId;
     this.refreshHover();
+    if (!this.pointers.size) this.showDeviceHint(point);
     if (beforeJump !== this.hoveredJumpId || beforeWire !== this.hoveredWireId) this.requestRender();
   }
   refreshHover() {
@@ -197,6 +220,19 @@ export class EngineOutputViewer {
     if (this.visibleJumpLinkOverlays().some(link => distanceToPolyline(link.points, world).distance < tolerance)) return;
     this.hoveredWireId = hitTestWire(this.scene, world, tolerance).wire?.wire.id || null;
   }
+  showDeviceHint(point) {
+    if (!this.deviceHint || !this.stage || !point) { this.hideDeviceHint(); return false; }
+    const device = hitTestDevice(this.scene, screenToWorld(this.camera, point)).device;
+    if (!device) { this.hideDeviceHint(); return false; }
+    this.deviceHint.textContent = device.label || device.id;
+    this.deviceHint.hidden = false;
+    const x = Math.min(point.x + 14, this.stage.clientWidth - this.deviceHint.offsetWidth - 8);
+    const y = Math.min(point.y + 14, this.stage.clientHeight - this.deviceHint.offsetHeight - 8);
+    this.deviceHint.style.left = `${Math.max(8, x)}px`;
+    this.deviceHint.style.top = `${Math.max(8, y)}px`;
+    return true;
+  }
+  hideDeviceHint() { if (this.deviceHint) this.deviceHint.hidden = true; }
   visibleJumpLinkOverlays() {
     return outputJumpLinkOverlays(this.model, this.selection, this.hoveredJumpId);
   }
@@ -246,7 +282,59 @@ export class EngineOutputViewer {
     const play = this.inspector.querySelector('[data-action="play"]');
     play.hidden = outputCableTrace(this.model, selection).length === 0;
     play.textContent = "Play Cable";
+    this.inspector.querySelector('[data-action="signal-chain"]').hidden = this.signalChainsForSelection().length === 0;
     this.requestRender();
+  }
+  signalChainsForSelection() {
+    if (this.selection?.type === "wire") return this.signalChains.filter(chain => chain.wireIds?.includes(this.selection.id));
+    if (this.selection?.type !== "connector") return [];
+    return this.signalChains.filter(chain => [chain.from, chain.to].some(end =>
+      end?.deviceId === this.selection.deviceId && end?.connectorId === this.selection.id));
+  }
+  openSignalChain() {
+    const chains = this.signalChainsForSelection();
+    if (!chains.length) return;
+    this.renderSignalChain(chains[0], chains);
+    this.signalChainDialog.showModal();
+  }
+  renderSignalChain(chain, choices = this.signalChainsForSelection()) {
+    if (!chain) return;
+    const body = this.signalChainDialog.querySelector(".output-signal-chain-body");
+    body.replaceChildren();
+    const text = (tag, value, className) => {
+      const element = document.createElement(tag);
+      element.textContent = String(value || "");
+      if (className) element.className = className;
+      return element;
+    };
+    if (choices.length > 1) {
+      const list = text("div", "", "output-signal-chain-choices");
+      choices.forEach(item => {
+        const button = text("button", item.cableNumber || item.cable || "Cable");
+        button.type = "button"; button.dataset.action = "signal-chain-choice";
+        button.dataset.index = String(this.signalChains.indexOf(item));
+        button.setAttribute("aria-pressed", String(item === chain));
+        list.append(button);
+      });
+      body.append(list);
+    }
+    const graph = text("div", "", "output-signal-chain-graph");
+    const endpoint = (end, role) => {
+      const item = text("div", "", "output-signal-chain-endpoint");
+      item.append(text("strong", end?.device || "Device"), text("span", end?.port || "Port"));
+      const dot = text("i", "", "output-signal-chain-node");
+      dot.style.backgroundColor = /^#[\da-f]{6}$/i.test(end?.color || "") ? end.color : "#32b6ff";
+      dot.setAttribute("aria-label", `${role} connector`);
+      item.append(dot); return item;
+    };
+    graph.append(endpoint(chain.from, "Source"));
+    const cable = text("div", "", "output-signal-chain-cable");
+    cable.append(text("strong", chain.cableNumber || "Cable"));
+    const line = text("div", "", "output-signal-chain-line");
+    line.style.backgroundColor = /^#[\da-f]{6}$/i.test(chain.cableColor || "") ? chain.cableColor : "#32b6ff";
+    cable.append(line, text("span", [chain.cable, chain.length].filter(Boolean).join(" / ")));
+    if (chain.loom) cable.append(text("span", `Loom: ${chain.loom}`));
+    graph.append(cable, endpoint(chain.to, "Destination")); body.append(graph);
   }
   focusWireEndpoint(end) {
     if (this.selection?.type !== "wire" || (end !== "from" && end !== "to")) return;
@@ -268,6 +356,7 @@ export class EngineOutputViewer {
     const steps = outputCableTrace(this.model, this.selection);
     if (!steps.length) return;
     this.playback = { steps, index: 0, start: performance.now() };
+    this.centerPlaybackCamera(steps[0].points[0]);
     this.inspector.querySelector('[data-action="play"]').textContent = "Stop";
     this.requestRender();
   }
@@ -277,6 +366,12 @@ export class EngineOutputViewer {
     const button = this.inspector?.querySelector('[data-action="play"]'); if (button) button.textContent = "Play Cable";
     if (wasPlaying) this.requestRender();
   }
+  centerPlaybackCamera(point) {
+    if (!point || !this.stage) return;
+    this.camera.zoom = 1;
+    this.camera.x = point.x - this.stage.clientWidth / 2;
+    this.camera.y = point.y - this.stage.clientHeight / 2;
+  }
   requestRender() {
     if (this.disposed || this.frame) return;
     this.frame = requestAnimationFrame(() => { this.frame = 0; this.renderNow(); });
@@ -285,6 +380,7 @@ export class EngineOutputViewer {
     if (this.disposed) return;
     // Recheck stationary pointers after Fit, zoom or resize changes the camera.
     this.refreshHover();
+    if (!this.pointers.size && this.hoverPoint) this.showDeviceHint(this.hoverPoint);
     const interactionState = { selectedConnectors: this.scene.selectedConnectorKeys,
       hoveredWireId: this.hoveredWireId,
       jumpLinkOverlays: this.visibleJumpLinkOverlays() };
@@ -292,6 +388,7 @@ export class EngineOutputViewer {
       const step = this.playback.steps[this.playback.index];
       const progress = Math.min(1, (performance.now() - this.playback.start) / wirePlaybackDurationMs(step.points));
       const point = polylinePointAtDistance(step.points, polylineLength(step.points) * wirePlaybackEase(progress));
+      this.centerPlaybackCamera(point);
       interactionState.wirePlayback = { active: true, dot: point, progress, points: step.points, color: step.color,
         jumpLinkId: step.type === "jump-link" ? step.id : "" };
       if (progress === 1) {
@@ -339,7 +436,7 @@ export class EngineOutputViewer {
   }
   dispose() {
     if (this.disposed) return;
-    this.disposed = true; cancelAnimationFrame(this.frame); this.abort.abort(); this.resizeObserver.disconnect();
+    this.disposed = true; clearTimeout(this.holdTimer); cancelAnimationFrame(this.frame); this.abort.abort(); this.resizeObserver.disconnect();
     this.renderer.dispose(); this.host.replaceChildren(); this.host.classList.remove("engine-output-viewer");
   }
 }

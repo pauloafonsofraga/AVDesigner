@@ -95,6 +95,18 @@ try {
       assert.equal(await page.locator(".output-inspector input,.output-inspector textarea,.output-inspector select").count(), 0);
     }
     if (name === "parity") {
+      const deviceHint = await page.evaluate(() => {
+        const viewer = outputViewer, device = viewer.scene.getDevice("ordinary-a");
+        const point = { x: device.x + device.width / 2, y: device.y + device.height / 2 };
+        viewer.camera = { x: point.x - 180, y: point.y - 180, zoom: 1 }; viewer.renderNow();
+        return { label: device.label };
+      });
+      const stageBox = await page.locator(".output-stage").boundingBox();
+      await page.mouse.move(stageBox.x + 180, stageBox.y + 180);
+      await page.waitForFunction(() => !document.querySelector(".output-device-hint").hidden);
+      assert.equal(await page.locator(".output-device-hint").textContent(), deviceHint.label);
+      await page.mouse.move(stageBox.x + 20, stageBox.y + 20);
+      assert.equal(await page.locator(".output-device-hint").isHidden(), true);
       await page.evaluate(() => outputViewer.select({ type: "wire", id: "curve" }));
       await page.screenshot({ path: `${shots}/output-viewer-cable-inspector.png` });
       assert.equal(await page.locator('.output-inspector dt').allTextContents().then(labels => labels.includes("ID")), false);
@@ -123,6 +135,9 @@ try {
       await page.evaluate(() => { outputViewer.select({ type: "wire", id: "jump-source" }); outputViewer.fit(); });
       await page.getByRole("button", { name: "Play Cable", exact: true }).click();
       await page.waitForFunction(() => outputViewer.renderer.frameStats().wirePlayback > 0);
+      assert.equal(await page.evaluate(() => outputViewer.camera.zoom), 1, "Play Cable starts at editor playback zoom");
+      const playbackCamera = await page.evaluate(() => ({ x: outputViewer.camera.x, y: outputViewer.camera.y }));
+      await page.waitForFunction(before => Math.hypot(outputViewer.camera.x - before.x, outputViewer.camera.y - before.y) > 2, playbackCamera);
       assert.equal(await page.getByRole("button", { name: "Stop", exact: true }).count(), 1);
       await page.getByRole("button", { name: "Stop", exact: true }).click();
       await page.waitForFunction(() => outputViewer.renderer.frameStats().wirePlayback === 0);
@@ -147,6 +162,16 @@ try {
       // Touch pinch goes through the same pointer controller, with no mutation.
       const pinch = await page.evaluate(() => ({ zoom: outputViewer.camera.zoom, before: JSON.stringify(outputViewer.model.contract) }));
       const touch = await page.context().newCDPSession(page);
+      await page.evaluate(() => {
+        const v = outputViewer, d = v.scene.getDevice("ordinary-a");
+        v.camera = { x: d.x + d.width / 2 - 150, y: d.y + d.height / 2 - 200, zoom: 1 }; v.renderNow();
+      });
+      const mobileStage = await page.locator(".output-stage").boundingBox();
+      await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: mobileStage.x + 150, y: mobileStage.y + 200, id: 4 }] });
+      await page.waitForFunction(() => !document.querySelector(".output-device-hint").hidden);
+      assert.equal(await page.locator(".output-device-hint").textContent(), deviceHint.label);
+      await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      assert.equal(await page.locator(".output-device-hint").isHidden(), true);
       await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: 140, y: 260, id: 1 }, { x: 240, y: 260, id: 2 }] });
       await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: 100, y: 260, id: 1 }, { x: 280, y: 260, id: 2 }] });
       await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
