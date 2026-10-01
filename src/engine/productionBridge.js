@@ -1985,12 +1985,19 @@ class ProductionEngineBridge {
       inputJumpId: compatibility.inputJumpId
     };
     this.beginProductionCommit("create jump link");
-    const sceneLink = this.scene.addJumpLink(linkData);
-    if (!sceneLink) {
+    const mutationResult = this.mutations?.restoreJumpLink(linkData);
+    if (!mutationResult?.linkData) {
+      this.hud?.setMetric("jump link", "Could not save Jump Link.");
       this.updateInteractionHud("jump-link-failed");
       return;
     }
-    const mutationResult = this.mutations?.restoreJumpLink(sceneLink) || { mutationMs: 0, index: -1 };
+    const sceneLink = this.scene.addJumpLink(mutationResult.linkData);
+    if (!sceneLink) {
+      this.mutations.removeJumpLink(linkData.id);
+      this.hud?.setMetric("jump link", "Could not add Jump Link to the scene.");
+      this.updateInteractionHud("jump-link-failed");
+      return;
+    }
     this.refreshJumpNodeVisuals([sceneLink.outputJumpId, sceneLink.inputJumpId], { reason: "create jump link" });
     this.recordCommand(createJumpLinkCommand(sceneLink, mutationResult.index));
     this.lastPortalCommand = { type: "create jump link", ...sceneLink };
@@ -7986,9 +7993,13 @@ class ProductionEngineBridge {
   }
 
   restoreJumpLink(linkData, index = null) {
-    const link = this.scene.insertJumpLink(linkData, index);
-    if (!link) return { mutationMs: 0, linkData: null, index: -1 };
-    const mutationResult = this.mutations?.restoreJumpLink(link, index) || { mutationMs: 0, index };
+    const mutationResult = this.mutations?.restoreJumpLink(linkData, index);
+    if (!mutationResult?.linkData) return { mutationMs: 0, linkData: null, index: -1 };
+    const link = this.scene.insertJumpLink(mutationResult.linkData, index);
+    if (!link) {
+      this.mutations.removeJumpLink(mutationResult.linkData.id);
+      return { mutationMs: 0, linkData: null, index: -1 };
+    }
     this.refreshJumpNodeVisuals([link.outputJumpId, link.inputJumpId], { reason: "restore jump link" });
     this.lastPortalCommand = { type: "restore jump link", ...link };
     this.updateJumpNodeDebugSnapshot("restore-jump-link");

@@ -126,6 +126,15 @@ for (const sourceId of ["a", "b"]) test(`valid hold from ${sourceId} creates exa
   assert.deepEqual(jump.resolvePlayableSignalPath({ startingWireId: "wire-a", project: saved }).map(s => s.type), ["wire", "teleport", "wire"]);
 });
 
+test("a rejected production write never creates a visual-only Jump Link", () => {
+  const h = harness();
+  h.b.mutations.restoreJumpLink = () => ({ mutationMs: 0, linkData: null, index: -1 });
+  h.start("a"); h.advance(250); h.target("b"); h.b.completeJumpLinkCreate();
+  assert.equal(h.project.jumpLinks.length, 0);
+  assert.equal(h.scene.jumpLinks.length, 0);
+  assert.equal(h.history.length, 0);
+});
+
 for (const [from, to, rule] of [["a", "a", "self"], ["a", "out-2", "output-output"], ["b", "in-2", "input-input"], ["a", "neutral", "neutral"]]) {
   test(`invalid target ${rule} changes no data or history`, () => {
     const h = harness(), before = JSON.stringify(h.project);

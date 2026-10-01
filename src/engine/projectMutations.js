@@ -479,7 +479,10 @@ export class ProjectMutationAdapter {
     const entry = this.jumpNodeById.get(id);
     if (!entry) return { mutationMs: 0, jumpNodeData: null, index: -1 };
     const [removed] = this.root.jumpNodes.splice(entry.index, 1);
-    this.root.jumpLinks = this.root.jumpLinks.filter(link => link.outputJumpId !== id && link.inputJumpId !== id);
+    for (let index = this.root.jumpLinks.length - 1; index >= 0; index -= 1) {
+      const link = this.root.jumpLinks[index];
+      if (link?.outputJumpId === id || link?.inputJumpId === id) this.root.jumpLinks.splice(index, 1);
+    }
     this.rebuildIndexes();
     this.record("delete jump node", performance.now() - start, `jumpNodes[${entry.index}]`, { jumpNodeId: id });
     return { mutationMs: this.lastMutation.durationMs, jumpNodeData: deepClone(removed), index: entry.index };
