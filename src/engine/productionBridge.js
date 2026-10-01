@@ -1,4 +1,5 @@
 import { resolveProjectorLens } from "./projectorModel.js";
+import { cloneHistoryValue, MAX_HISTORY_ENTRIES } from "./historyClone.js";
 import { DragSession } from "./dragSession.js";
 import { ObjectSnapSession } from "./objectSnapping.js";
 import { CONNECTOR_RELATIONSHIP_FIELDS, applyConnectorRelationshipFieldPatch } from "./connectorRelationshipMetadata.js";
@@ -7094,7 +7095,7 @@ class ProductionEngineBridge {
     if (!command) return;
     this.commandHistory = this.commandHistory.slice(0, this.commandIndex);
     this.commandHistory.push(command);
-    if (this.commandHistory.length > 80) this.commandHistory.shift();
+    if (this.commandHistory.length > MAX_HISTORY_ENTRIES) this.commandHistory.shift();
     this.commandIndex = this.commandHistory.length;
     this.hud?.setMetric("last command", command.type);
     this.hud?.setMetric("undo redo", `${this.commandIndex} undo / ${this.commandHistory.length - this.commandIndex} redo`);
@@ -10702,7 +10703,7 @@ function commandTargetMs(command) {
 }
 
 function deepClone(value) {
-  return value == null ? value : JSON.parse(JSON.stringify(value));
+  return cloneHistoryValue(value);
 }
 
 function cloneJumpLinkRecords(records = []) {
