@@ -6,11 +6,16 @@
     "build:output-viewer": "node scripts/build-output-viewer.mjs",
     "check:output-viewer": "node scripts/output-viewer-bundle-validation.mjs",
     "build:cable-schedule": "node scripts/build-cable-schedule.mjs",
-    "check:cable-schedule": "node scripts/build-cable-schedule.mjs --check"
+    "check:cable-schedule": "node scripts/build-cable-schedule.mjs --check",
+    "build:pdf-prototype": "node scripts/build-pdf-prototype.mjs",
+    "check:pdf-prototype": "node scripts/build-pdf-prototype.mjs --check"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.3.14",
-    "esbuild": "0.25.12"
+    "@xmldom/xmldom": "0.9.12",
+    "esbuild": "0.25.12",
+    "pdfkit": "0.20.2",
+    "svg-to-pdfkit": "0.1.8"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.117.2",

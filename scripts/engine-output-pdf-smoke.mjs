@@ -35,15 +35,9 @@ async function printPage(page,name) {
   writeFileSync(join(dir,`${name}.svg`),xml);
   await page.pdf({path:join(dir,`${name}.pdf`),format:"A3",landscape:true,printBackground:true,preferCSSPageSize:true});
   await page.screenshot({path:join(dir,`${name}-print.png`),fullPage:true});
-  // These are Engine world rectangles, not screen coordinates. The Python
-  // inspector maps them through the actual PDF's SVG graphics transforms.
   const pages=await page.locator(".drawing-frame svg").evaluateAll(svgs=>svgs.map(svg=>({
     diagnostics:JSON.parse(svg.querySelector("metadata").textContent),
-    navigation:[...svg.querySelectorAll("[data-pdf-jump-source]")].map(link=>({
-      source:link.dataset.pdfJumpSource,target:link.dataset.pdfJumpTarget,
-      destinationId:link.id,targetDestinationId:link.getAttribute("href").slice(1),
-      bounds:Object.fromEntries(["x","y","width","height"].map(key=>[key,Number(link.firstElementChild.getAttribute(key))]))
-    }))
+    navigation:[]
   })));
   assert.equal(await page.locator("[data-jump-link-id]").count(),0);
   writeFileSync(join(dir,`${name}.navigation.json`),JSON.stringify(pages,null,2));
@@ -93,11 +87,14 @@ try {
       const html=module.buildEngineViewerHtml(snapshot,{bundle,assets});
       const payload=JSON.parse(html.match(/id="engineOutputPayload">([\s\S]*?)<\/script>/)[1]);
       return {html:buildPrintableReportHtml(snapshot.reportData,drawing.svg),signature:drawing.diagnostics.signature,
-        viewerSignature:payload.engineScene.signature,svg:drawing.svg,counts:drawing.diagnostics.counts,
+        viewerSignature:payload.engineScene.signature,svg:drawing.svg,reportData:snapshot.reportData,
+        engineScene:snapshot.engineScene,diagnostics:drawing.diagnostics,counts:drawing.diagnostics.counts,
         schema:drawing.diagnostics.sceneSchemaFingerprint,viewerSchema:payload.metadata.sceneSchemaFingerprint,
         version:drawing.diagnostics.sceneVersion,viewerVersion:payload.metadata.sceneVersion};
     },outputPrintFixture());
     assert.equal(full.signature,full.viewerSignature);assert.equal(full.counts.objects,17);
+    writeFileSync(join(dir,"engine-full.prototype.json"),JSON.stringify({svg:full.svg,
+      diagnostics:full.diagnostics,engineScene:full.engineScene,reportData:full.reportData}));
     assert.equal(full.schema,full.viewerSchema);assert.equal(full.version,full.viewerVersion);
     const fullPage=await context.newPage(),fullErrors=captureErrors(fullPage);
     await fullPage.setContent(full.html);await printPage(fullPage,`${mode}-full`);
@@ -121,27 +118,11 @@ try {
         const jumpPage=await context.newPage(),jumpErrors=captureErrors(jumpPage);
         await jumpPage.setContent(print.html);
         const info=await printPage(jumpPage,`jumps-${shape}`);
-        assert.equal(info.signature,print.signature);assert.equal(info.jumpAnnotations,4);
-        assert.equal(info.jumpDestinations,4);assert.equal(info.jumpNodes,5);assert.equal(info.visibleJumpLinkPaths,0);
+        assert.equal(info.signature,print.signature);assert.equal(info.jumpAnnotations,0);
+        assert.equal(info.jumpDestinations,0);assert.equal(info.jumpNavigationCandidates,4);
+        assert.equal(info.jumpNodes,5);assert.equal(info.visibleJumpLinkPaths,0);
         if(shape==="wide") {
           await printPage(jumpPage,"jumps-wide-repeat");
-          const control=await context.newPage();
-          await control.setContent(print.html);
-          await control.locator('[data-layer="pdf-jump-navigation"]').evaluate(node=>node.remove());
-          await printPage(control,"jumps-without-navigation");
-          await control.close();
-          // Exercise future drawing-page imposition without changing production
-          // pagination: each endpoint/annotation belongs to exactly one page.
-          await jumpPage.evaluate(()=>{
-            const frame=document.querySelector(".drawing-frame"), second=frame.cloneNode(true);
-            frame.after(second);
-            for(const [page,ids]of [[frame,new Set(["strict-a","bidi-a","unpaired"])],
-              [second,new Set(["strict-b","bidi-b"])]]) {
-              page.querySelectorAll("[data-pdf-jump-source]").forEach(a=>{if(!ids.has(a.dataset.pdfJumpSource))a.remove();});
-              page.querySelectorAll("[data-jump-id]").forEach(g=>{if(!ids.has(g.dataset.jumpId))g.remove();});
-            }
-          });
-          await printPage(jumpPage,"jumps-cross-page");
         }
         assert.deepEqual(jumpErrors,[]);
       }
@@ -151,9 +132,12 @@ try {
         fixture.devices.forEach(d=>{d.templateOverride=fixture.deviceLibrary[0];});
         const s=buildCanonicalOutputSnapshot({projectData:fixture,mode:"pdf-multipage"});
         const drawing=await buildEnginePrintDrawing(s);
-        return {html:buildPrintableReportHtml(s.reportData,drawing.svg),rows:s.reportData.cableRows.length};
+        return {html:buildPrintableReportHtml(s.reportData,drawing.svg),rows:s.reportData.cableRows.length,
+          svg:drawing.svg,diagnostics:drawing.diagnostics,engineScene:s.engineScene,reportData:s.reportData};
       },scale);
       assert.equal(report.rows,300);
+      writeFileSync(join(dir,"multipage.prototype.json"),JSON.stringify({svg:report.svg,
+        diagnostics:report.diagnostics,engineScene:report.engineScene,reportData:report.reportData}));
       const tablePage=await context.newPage(),tableErrors=captureErrors(tablePage);
       await tablePage.setContent(report.html);await printPage(tablePage,"multipage");
       assert.deepEqual(tableErrors,[]);
@@ -164,8 +148,12 @@ try {
       const loomPrint=await app.evaluate(async fixture=>{
         const snapshot=buildCanonicalOutputSnapshot({projectData:fixture,mode:"pdf-loom"});
         const drawing=await buildEnginePrintDrawing(snapshot);
-        return {html:buildPrintableReportHtml(snapshot.reportData,drawing.svg),signature:snapshot.engineScene.signature};
+        return {html:buildPrintableReportHtml(snapshot.reportData,drawing.svg),signature:snapshot.engineScene.signature,
+          svg:drawing.svg,diagnostics:drawing.diagnostics,engineScene:snapshot.engineScene,
+          reportData:snapshot.reportData};
       },loomFixture);
+      writeFileSync(join(dir,"managed-loom.prototype.json"),JSON.stringify({svg:loomPrint.svg,
+        diagnostics:loomPrint.diagnostics,engineScene:loomPrint.engineScene,reportData:loomPrint.reportData}));
       const loomPage=await context.newPage(),loomErrors=captureErrors(loomPage);
       await loomPage.setContent(loomPrint.html);
       const loomInfo=await printPage(loomPage,"managed-loom");

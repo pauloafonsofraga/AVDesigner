@@ -7,7 +7,10 @@ const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const bridge = readFileSync(new URL("../src/engine/productionBridge.js", import.meta.url), "utf8");
 
 test("app shell and Engine canvas contain no experimental labels or obsolete startup names", () => {
-  assert.doesNotMatch(html, /experimental/i);
+  const gate = '    if (new URLSearchParams(location.search).has("experimentalPdf")) {';
+  const start = html.indexOf(gate), end = html.indexOf('    document.getElementById("newProject")', start);
+  assert.ok(start >= 0 && end > start, "PDF prototype must stay behind its developer query gate");
+  assert.doesNotMatch(html.slice(0, start) + html.slice(end), /experimental/i);
   assert.doesNotMatch(bridge, /experimental/i);
   assert.match(bridge, /aria-label="WireNexus canvas"/);
 });
