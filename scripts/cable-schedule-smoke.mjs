@@ -47,8 +47,17 @@ try {
   await page.locator("#cableScheduleBody tr").first().waitFor();
   assert.equal(await page.locator("#cableScheduleBody tr").count(), 5, "four direct cables and one Jump-paired cable");
   assert.match(await page.locator("#cableScheduleBody").innerText(), /FOH Rack → Stage Rack/);
+  await page.waitForFunction(() => [...document.querySelectorAll("#cableScheduleBody img")]
+    .every(image => image.complete && image.naturalWidth > 0));
+  assert.equal(await page.locator("#cableScheduleBody .cable-schedule-node-graphic").count(), 10);
+  assert.equal(await page.locator("#cableScheduleBody .cable-schedule-cable-graphic").count(), 5);
+  const idStyle = await page.locator("#cableScheduleBody .cable-schedule-id").first()
+    .evaluate(element => ({ fontSize: getComputedStyle(element).fontSize,
+      outline: getComputedStyle(element).webkitTextStrokeWidth }));
+  assert.ok(Math.abs(parseFloat(idStyle.fontSize) - 17 * 96 / 72) < 0.1);
+  assert.ok(Math.abs(parseFloat(idStyle.outline) - 0.5 * 96 / 72) < 0.1);
   assert.equal(await page.evaluate(() => activeEngineBridge().commandHistory.length), historyBeforeOpen);
-  checks.push("live UI shows five logical cables, including one paired Jump cable and rack names");
+  checks.push("live spreadsheet-style UI shows five logical cables, plug and cable artwork, and outlined 17pt IDs");
 
   assert.equal(await page.evaluate(() => activeEngineBridge().commitWireInspectorFields("cable-0", {
     length: "20 m", notes: "New note", loom: "Loom A"
@@ -97,13 +106,17 @@ try {
   await workbook.xlsx.load(readFileSync(xlsxPath));
   const sheet = workbook.getWorksheet("Cable Schedule");
   assert.equal(sheet.rowCount, 6);
-  assert.ok(sheet.getImages().length >= 10, "workbook contains node/cable graphics");
+  assert.ok(sheet.getImages().length >= 15, "workbook contains ID, node, and cable graphics");
+  assert.equal(sheet.getImages().filter(image => image.range.tl.nativeCol === 0).length, 5);
+  assert.equal(sheet.getCell("A2").font.size, 17);
+  assert.equal(sheet.getCell("A2").value, "V-001");
   assert.ok([...sheet.getColumn(10).values].includes("Loom A"));
   checks.push("downloaded XLSX is readable and embeds node/cable graphics alongside matching rows");
 
   const jumpRowIndex = await page.evaluate(() => cableScheduleRows.findIndex(row => row.wireIds.length === 2));
   assert.ok(jumpRowIndex >= 0);
-  await page.locator("#cableScheduleBody tr").nth(jumpRowIndex).click();
+  await page.locator("#cableScheduleBody tr").nth(jumpRowIndex)
+    .locator(".cable-schedule-node-graphic").first().click();
   await page.waitForFunction(() => activeEngineBridge().scene.selectedWireIds.size === 2);
   assert.deepEqual(await page.evaluate(() => [...activeEngineBridge().scene.selectedWireIds].sort()), ["wire-a", "wire-b"]);
   checks.push("clicking the logical Jump cable highlights both physical wire legs");

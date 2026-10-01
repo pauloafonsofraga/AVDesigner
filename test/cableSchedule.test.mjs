@@ -148,18 +148,28 @@ test("XLSX contains text values, formatting, and reused endpoint/cable artwork",
   data.connections.push({ ...structuredClone(data.connections[0]), id: "wire-2", cableNumber: "" });
   const rows = buildCableSchedule(data);
   const png = `data:image/png;base64,${readFileSync(new URL("../Nodes/Thumbnails/bnc.png", import.meta.url)).toString("base64")}`;
-  const bytes = await createCableScheduleXlsx(rows, { graphics: { nodes: { sdi: png }, cables: { "#32b6ff": png } } });
+  const bytes = await createCableScheduleXlsx(rows, { graphics: {
+    nodes: { sdi: png }, cables: { "#32b6ff": png }, ids: { "V-001": png, "V-002": png }
+  } });
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(bytes);
   const sheet = workbook.getWorksheet("Cable Schedule");
   assert.equal(sheet.rowCount, 3);
   assert.equal(sheet.getCell("A1").value, "Cable ID");
   assert.equal(sheet.getCell("A2").value, "V-001");
+  assert.equal(sheet.getCell("A2").font.size, 17);
+  assert.equal(sheet.getCell("A2").font.bold, true);
+  assert.equal(sheet.getCell("A2").font.color.argb, "FF32B6FF");
   assert.equal(sheet.getCell("J2").value, "FOH-01");
   assert.equal(sheet.getCell("L2").value, "One, two\nThree");
   assert.equal(sheet.views[0].state, "frozen");
-  assert.equal(sheet.getImages().length, 6);
-  assert.ok(sheet.getImages().every(image => image.range.tl.nativeColOff >= 180 * 9525),
-    "graphics stay to the right of port and cable text");
-  assert.equal(workbook.model.media.length, 2);
+  assert.equal(sheet.getImages().length, 8);
+  assert.equal(sheet.getImages().filter(image => image.range.tl.nativeCol === 0).length, 2,
+    "outlined ID artwork covers the searchable cell value");
+  assert.ok(sheet.getImages().filter(image => image.range.tl.nativeCol === 0)
+    .every(image => image.range.tl.nativeColOff === 0), "ID artwork covers the full text origin");
+  assert.ok(sheet.getImages().filter(image => image.range.tl.nativeCol !== 0)
+    .every(image => image.range.tl.nativeColOff >= 180 * 9525),
+    "plug and cable graphics stay to the right of their text");
+  assert.equal(workbook.model.media.length, 4);
 });
