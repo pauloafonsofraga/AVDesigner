@@ -1,4 +1,5 @@
 import { engineConnectorColor, engineConnectorDisplayLabel, effectiveConnectorTypeForEngine } from "./connectorCompatibility.js";
+import { normalizeSignalDirection } from "./deviceDefinitionV2.js";
 import { rawWireJumpIds, resolvePlayableSignalPath } from "./jumpNodeModel.js";
 
 export const CABLE_SCHEDULE_COLUMNS = Object.freeze([
@@ -113,9 +114,7 @@ function groupFamily(project, group, options) {
 
 // This is the sole numbering mutation. It changes only persisted connection
 // metadata and high-water marks; it never creates an undo entry by itself.
-export function ensureCableNumbers(input, options = {}) {
-  const project = projectRoot(input);
-  const groups = groupedCables(project, options.getConnector);
+function numberCableGroups(project, groups, options, commit) {
   const counters = { ...project.cableNumberCounters };
   for (const family of familyOrder) counters[family] = Math.max(0, Number(counters[family]) || 0);
   for (const wire of project.connections || []) {
@@ -130,10 +129,15 @@ export function ensureCableNumbers(input, options = {}) {
     claimed.add(number);
     group.family = family;
     group.cableNumber = number;
-    group.wires.forEach(wire => { wire.cableNumber = number; });
+    if (commit) group.wires.forEach(wire => { wire.cableNumber = number; });
   }
-  project.cableNumberCounters = counters;
+  if (commit) project.cableNumberCounters = counters;
   return groups;
+}
+
+export function ensureCableNumbers(input, options = {}) {
+  const project = projectRoot(input);
+  return numberCableGroups(project, groupedCables(project, options.getConnector), options, true);
 }
 
 function endpointDisplay(project, endpoint, getConnector, nodeColors) {
@@ -142,6 +146,9 @@ function endpointDisplay(project, endpoint, getConnector, nodeColors) {
   const connector = connectorFor(project, endpoint, getConnector);
   const template = instance?.templateOverride || (project.deviceLibrary || []).find(item => item.id === instance?.templateId);
   return {
+    deviceId: String(instance?.instanceId || ""), surfaceId: String(surface?.id || ""),
+    connectorId: String(connector?.id || endpoint?.connectorId || ""),
+    direction: connector ? normalizeSignalDirection(connector.signalDirection, connector.direction) : "",
     device: String(instance?.name || template?.name || surface?.name || "Unconnected"),
     port: String(connector?.nameText || connector?.label || (connector ? engineConnectorDisplayLabel(connector) : "") || (surface ? "LED Screen" : "")),
     type: String(connector ? effectiveConnectorTypeForEngine(connector) || connector.physicalType || connector.type || "" : ""),
@@ -152,7 +159,10 @@ function endpointDisplay(project, endpoint, getConnector, nodeColors) {
 
 export function buildCableSchedule(input, options = {}) {
   const project = projectRoot(input);
-  const groups = options.assignNumbers === false ? groupedCables(project, options.getConnector) : ensureCableNumbers(project, options);
+  const groups = options.assignNumbers === false ? groupedCables(project, options.getConnector)
+    : options.assignNumbers === "readOnly"
+      ? numberCableGroups(project, groupedCables(project, options.getConnector), options, false)
+      : ensureCableNumbers(project, options);
   const nodeDefinitions = options.nodeDefinitions || project.nodeLibrary || [];
   const node = id => Array.isArray(nodeDefinitions) ? nodeDefinitions.find(item => item.id === id) : nodeDefinitions[id];
   const physicalLabel = id => node(id)?.label || id;
@@ -175,17 +185,50 @@ export function buildCableSchedule(input, options = {}) {
       cableNumber: group.cableNumber || primary.cableNumber || "",
       sourceDevice: source.device, sourcePort: source.port,
       destinationDevice: destination.device, destinationPort: destination.port,
+      sourceDeviceId: source.deviceId, sourceSurfaceId: source.surfaceId,
+      sourceConnectorId: source.connectorId, sourceDirection: source.direction,
+      destinationDeviceId: destination.deviceId, destinationSurfaceId: destination.surfaceId,
+      destinationConnectorId: destination.connectorId, destinationDirection: destination.direction,
       signal: families[family], connector: [source.type, destination.type].filter(Boolean).map(physicalLabel).join(" → "),
       cable: `${cableLabel}${fiberMode}`, length: String(value("length")),
+      fiberMode: String(value("fiberMode")),
       loom: String(value("loom")), rackLocation, notes: String(value("notes")),
       wireIds: group.wires.map(wire => String(wire.id)),
       sourceNodeTypeId: source.type, destinationNodeTypeId: destination.type,
       sourceNodeColor: source.color, destinationNodeColor: destination.color,
-      cableTypeId: cableType, cableColor: String(value("customColor") || node(cableType)?.color || "#32b6ff")
+      cableTypeId: cableType, cableColor: String(value("customColor") || node(cableType)?.color || "#32b6ff"),
+      cableCustomColor: String(value("customColor"))
     };
   }).sort((a, b) => familyOrder.indexOf(a.cableNumber[0]) - familyOrder.indexOf(b.cableNumber[0])
     || Number(a.cableNumber.slice(2)) - Number(b.cableNumber.slice(2))
     || a.cableNumber.localeCompare(b.cableNumber));
+}
+
+function signalChainFromRow(row) {
+  const endpoint = side => ({
+    device: row[`${side}Device`], deviceId: row[`${side}DeviceId`], surfaceId: row[`${side}SurfaceId`],
+    connectorId: row[`${side}ConnectorId`], port: row[`${side}Port`],
+    typeId: row[`${side}NodeTypeId`], color: row[`${side}NodeColor`],
+    direction: row[`${side}Direction`]
+  });
+  const reverse = row.sourceDirection === "input" && row.destinationDirection === "output";
+  const directed = reverse || row.sourceDirection === "output" && row.destinationDirection === "input";
+  return { ...row, from: endpoint(reverse ? "destination" : "source"),
+    to: endpoint(reverse ? "source" : "destination"), flow: directed ? "forward" : "bidirectional" };
+}
+
+export function signalChainForWire(rows, wireId) {
+  const id = String(wireId || "");
+  const row = id && rows.find(item => item.wireIds.includes(id));
+  return row ? signalChainFromRow(row) : null;
+}
+
+export function signalChainsForConnector(rows, deviceId, connectorId) {
+  const owner = String(deviceId || ""), connector = String(connectorId || "");
+  if (!owner || !connector) return [];
+  return rows.filter(row => row.sourceDeviceId === owner && row.sourceConnectorId === connector
+    || row.destinationDeviceId === owner && row.destinationConnectorId === connector)
+    .map(signalChainFromRow);
 }
 
 export function cableScheduleCsv(rows) {

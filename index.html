@@ -5043,6 +5043,29 @@
       color: var(--ink);
     }
     .cable-schedule-dialog::backdrop { background: rgba(0, 0, 0, .7); }
+    .signal-chain-dialog { width: min(880px, 95vw); max-width: none; padding: 0; border: 1px solid var(--panel-border); border-radius: 6px; background: var(--panel-bg); color: var(--ink); box-shadow: 0 20px 60px #0008; }
+    .signal-chain-dialog::backdrop { background: #000a; }
+    .signal-chain-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--panel-border); }
+    .signal-chain-header h2 { margin: 0; font-size: 15px; }
+    .signal-chain-body { padding: 18px; }
+    .signal-chain-graph { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr) minmax(135px, 1fr) minmax(0, .8fr) minmax(0, 1.2fr); align-items: center; gap: 12px; }
+    .signal-chain-device, .signal-chain-node, .signal-chain-cable { min-width: 0; text-align: center; }
+    .signal-chain-art { display: grid; place-items: center; height: 86px; padding: 8px; border: 1px solid var(--panel-border); border-radius: 4px; background: color-mix(in srgb, var(--panel-bg) 84%, var(--ink)); }
+    .signal-chain-art img { display: block; max-width: 100%; max-height: 70px; object-fit: contain; }
+    .signal-chain-art-fallback { font-weight: 700; font-size: 12px; }
+    .signal-chain-name { margin-top: 9px; font-size: 12px; font-weight: 700; overflow-wrap: anywhere; }
+    .signal-chain-sub { margin-top: 3px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+    .signal-chain-node-art { display: flex; justify-content: center; align-items: center; height: 40px; }
+    .signal-chain-node-art img { width: 38px; height: 30px; object-fit: contain; }
+    .signal-chain-dot { width: 20px; height: 20px; border: 2px solid #fff; border-radius: 50%; background: var(--node-color); box-shadow: 0 0 0 1px #59646c; }
+    .signal-chain-node-art img + .signal-chain-dot { width: 14px; height: 14px; margin-left: -4px; }
+    .signal-chain-cable-id { font-size: 18px; font-weight: 800; }
+    .signal-chain-line { display: flex; width: 100%; height: 8px; overflow: hidden; margin: 15px 0 8px; border-radius: 4px; }
+    .signal-chain-line span { flex: 1; background: var(--segment-color); }
+    .signal-chain-flow { color: var(--muted); font-size: 11px; }
+    .signal-chain-choices { display: grid; gap: 6px; }
+    .signal-chain-choices button { width: 100%; text-align: left; }
+    @media (max-width: 650px) { .signal-chain-graph { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .signal-chain-cable { grid-column: 1 / -1; grid-row: 1; } }
     .cable-schedule-dialog[open] { display: grid; grid-template-rows: auto minmax(0, 1fr); }
     .cable-schedule-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--panel-border); }
     .cable-schedule-header h2 { font-size: 15px; margin: 0 auto 0 0; }
@@ -5131,7 +5154,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled WireNexus Project" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">Iteration 54.38.37 — Cable Schedule Filters and Focus — iteration54-38-37-cable-schedule-filters</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">Iteration 54.38.38 — Signal Chain — iteration54-38-38-signal-chain</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5324,6 +5347,11 @@
       </table>
       <p class="cable-schedule-empty hidden" id="cableScheduleEmpty">No cables in this project.</p>
     </div>
+  </dialog>
+
+  <dialog id="signalChainDialog" class="signal-chain-dialog" aria-label="Signal Chain">
+    <header class="signal-chain-header"><h2 id="signalChainTitle">Signal Chain</h2><button class="tool-button" id="closeSignalChain" type="button">Close</button></header>
+    <div class="signal-chain-body" id="signalChainBody"></div>
   </dialog>
 
   <div class="context-menu hidden" id="deviceContextMenu" role="menu"></div>
@@ -5829,12 +5857,12 @@
   <script src="./src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script src="./src/engine/projectorModelCore.js?v=iteration54-38-11-engine-status-labels"></script>
   <script src="./src/engine/historyCloneCore.js?v=iteration54-38-29-memory-safe-undo"></script>
-  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-37-cable-schedule-filters"></script>
+  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-38-signal-chain"></script>
   <script type="text/wirenexus-app" id="wireNexusAppSource">
-    const APP_ITERATION = "54.38.37";
-    const APP_BUILD_ID = "iteration54-38-37-cable-schedule-filters";
-    const APP_MODULE_CACHE_ID = "iteration54-38-37-cable-schedule-filters-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Cable Schedule Filters and Focus`;
+    const APP_ITERATION = "54.38.38";
+    const APP_BUILD_ID = "iteration54-38-38-signal-chain";
+    const APP_MODULE_CACHE_ID = "iteration54-38-38-signal-chain-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Signal Chain`;
     const { cloneHistoryValue, MAX_HISTORY_ENTRIES } = window.WireNexusHistoryClone;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
@@ -6784,6 +6812,9 @@
     const cableScheduleHead = document.getElementById("cableScheduleHead");
     const cableScheduleBody = document.getElementById("cableScheduleBody");
     const cableScheduleEmpty = document.getElementById("cableScheduleEmpty");
+    const signalChainDialog = document.getElementById("signalChainDialog");
+    const signalChainTitle = document.getElementById("signalChainTitle");
+    const signalChainBody = document.getElementById("signalChainBody");
     const cableLegend = document.getElementById("cableLegend");
     const emptyHint = document.getElementById("emptyHint");
     const fileInput = document.getElementById("fileInput");
@@ -27081,6 +27112,7 @@
         const useEngineRouteActions = Boolean(engineBridge?.createWireRoutePoint);
         event.stopPropagation();
         hideDeviceContextMenu();
+        if (wireAction === "signal-chain") { openSignalChainForWire(wireId); return; }
         if (wireAction === "corner" && Number.isFinite(point.x) && Number.isFinite(point.y)) {
           if (useEngineRouteActions) engineBridge.createWireRoutePoint(wireId, engineRouteContext);
           else createWireCornerAt(wireId, point);
@@ -27094,6 +27126,15 @@
           else resetWireRoutes(wireIds);
         }
         if (wireAction === "select-same") selectWiresOfSameType(wireId);
+        return;
+      }
+      const connectorAction = event.target.closest("[data-connector-menu]")?.dataset.connectorMenu;
+      const connectorDeviceId = deviceContextMenu.dataset.connectorDeviceId;
+      const connectorId = deviceContextMenu.dataset.connectorId;
+      if (connectorAction === "signal-chain" && connectorDeviceId && connectorId) {
+        event.stopPropagation();
+        hideDeviceContextMenu();
+        openSignalChainForConnector(connectorDeviceId, connectorId);
         return;
       }
       const rackAction = event.target.closest("[data-rack-menu]")?.dataset.rackMenu;
@@ -27599,6 +27640,7 @@
       const ids = wireContextSelectionIds(connectionId);
       const hasRoutes = ids.some(id => normalizedWireRoutePoints(state.connections.find(item => item.id === id)).length);
       deviceContextMenu.innerHTML = `
+        ${activeEngineBridge() ? '<button type="button" data-wire-menu="signal-chain">Signal Chain</button>' : ""}
         <button type="button" data-wire-menu="corner">Create Corner</button>
         <button type="button" data-wire-menu="select-same">Select all cables from the same type</button>
         <button type="button" ${hasRoutes ? "" : "disabled"} data-wire-menu="reset">Reset Wire Route${ids.length > 1 ? "s" : ""}</button>
@@ -27627,6 +27669,21 @@
       delete deviceContextMenu.dataset.templateId;
       delete deviceContextMenu.dataset.rackId;
       delete deviceContextMenu.dataset.cornerIndex;
+      deviceContextMenu.classList.remove("hidden");
+    }
+
+    function connectorHasCable(deviceId, connectorId) {
+      return state.connections.some(wire => [wire.from, wire.to].some(end =>
+        end?.deviceId === deviceId && end?.connectorId === connectorId));
+    }
+
+    function showConnectorContextMenu(event, deviceId, connectorId) {
+      if (!activeEngineBridge() || !connectorHasCable(deviceId, connectorId)) return;
+      deviceContextMenu.innerHTML = '<button type="button" data-connector-menu="signal-chain">Signal Chain</button>';
+      deviceContextMenu.style.left = `${event.clientX}px`;
+      deviceContextMenu.style.top = `${event.clientY}px`;
+      deviceContextMenu.dataset.connectorDeviceId = deviceId;
+      deviceContextMenu.dataset.connectorId = connectorId;
       deviceContextMenu.classList.remove("hidden");
     }
 
@@ -27663,6 +27720,8 @@
       delete deviceContextMenu.dataset.projectCustomTemplateId;
       delete deviceContextMenu.dataset.templateId;
       delete deviceContextMenu.dataset.wireId;
+      delete deviceContextMenu.dataset.connectorDeviceId;
+      delete deviceContextMenu.dataset.connectorId;
       delete deviceContextMenu.dataset.wireIds;
       delete deviceContextMenu.dataset.wireX;
       delete deviceContextMenu.dataset.wireY;
@@ -29801,7 +29860,9 @@
         ${canvasConnectorFieldSectionMarkup(connector)}
         ${isCageConnector(connector) ? transceiverModuleSelectHtml("connectorModule", connector) : ""}
         ${isFiberCableType(activeType) ? fiberModeSelectHtml("connectorFiberMode", connectorFiberModeForEndpoint(deviceId, connectorId, connector), fiberModeOptionsForCageConnector(connector)) : ""}
+        ${activeEngineBridge() && connectorHasCable(deviceId, connectorId) ? '<button class="tool-button" id="connectorSignalChain" type="button">Signal Chain</button>' : ""}
       `;
+      document.getElementById("connectorSignalChain")?.addEventListener("click", () => openSignalChainForConnector(deviceId, connectorId));
       bindCanvasConnectorFieldInputs(deviceId, connectorId);
       const moduleControl = document.getElementById("connectorModule");
       if (moduleControl) {
@@ -29891,6 +29952,7 @@
           <dt>From</dt><dd>${escapeHtml(fromDevice ? `${fromDevice.name} / ${fromConnector?.label || "Missing"}` : fromSurface?.name || "Missing")}</dd>
           <dt>To</dt><dd>${escapeHtml(toDevice ? `${toDevice.name} / ${toConnector?.label || "Missing"}` : toSurface?.name || "Missing")}</dd>
         </dl>
+        ${activeEngineBridge() ? '<button class="tool-button" id="wireSignalChain" type="button">Signal Chain</button>' : ""}
         <button class="tool-button" id="playWireTrace" type="button">▶ Play Cable</button>
         <div class="field">
           <label for="wireLabel">Label</label>
@@ -29915,6 +29977,7 @@
         <button class="tool-button" id="resetWireRoute" type="button" ${normalizedWireRoutePoints(connection).length ? "" : "disabled"}>Reset Wire Route</button>
         <button class="danger-button" id="deleteSelected" type="button">Delete Wire</button>
       `;
+      document.getElementById("wireSignalChain")?.addEventListener("click", () => openSignalChainForWire(connectionId));
       document.getElementById("playWireTrace").addEventListener("click", () => {
         const engineBridge = activeEngineBridge();
         if (engineBridge?.triggerPlayWireAction) {
@@ -30101,6 +30164,145 @@
         .catch(error => { cableScheduleModulePromise = null; throw error; });
       return cableScheduleModulePromise;
     }
+
+    let signalChainWireId = "";
+    let signalChainRenderSignature = "";
+    let signalChainArtworkSources = [];
+    let signalChainNodeThumbnails = [];
+    let signalChainRefreshQueued = false;
+    let signalChainRefreshVersion = 0;
+
+    function signalChainRows(module) {
+      const nodeDefinitions = Object.entries(cableTypes).map(([id, node]) => ({ ...node, id }));
+      return module.buildCableSchedule({ ...state, deviceLibrary }, {
+        assignNumbers: "readOnly", getConnector: connectorById, nodeDefinitions
+      });
+    }
+
+    function signalChainColor(value, fallback = "#32b6ff") {
+      return /^#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i.test(String(value || "")) ? value : fallback;
+    }
+
+    function signalChainArtworkSource(endpoint) {
+      const instance = instanceById(endpoint.deviceId);
+      const template = templateForInstance(instance);
+      return template?.thumbnailImage
+        || window.WireNexusFactoryCatalogue.libraryThumbnails[template?.faceImage]
+        || template?.faceImage || "";
+    }
+
+    function signalChainDeviceMarkup(endpoint) {
+      const thumbnail = signalChainArtworkSource(endpoint);
+      const artwork = thumbnail
+        ? `<img src="${escapeAttr(thumbnail)}" alt="${escapeAttr(endpoint.device)}" loading="lazy" decoding="async">`
+        : `<span class="signal-chain-art-fallback">${escapeHtml(endpoint.surfaceId ? "LED screen" : "Device")}</span>`;
+      return `<div class="signal-chain-device"><div class="signal-chain-art">${artwork}</div>
+        <div class="signal-chain-name" title="${escapeAttr(endpoint.device)}">${escapeHtml(endpoint.device)}</div></div>`;
+    }
+
+    function signalChainNodeMarkup(endpoint, role) {
+      const node = cableTypes[endpoint.typeId];
+      const thumbnail = node?.thumbnail || "";
+      const color = signalChainColor(endpoint.color || node?.color);
+      return `<div class="signal-chain-node" data-signal-chain-role="${role}">
+        <div class="signal-chain-node-art">${thumbnail
+          ? `<img src="${escapeAttr(thumbnail)}" alt="" loading="lazy" decoding="async">` : ""}
+          <span class="signal-chain-dot" style="--node-color:${color}"></span></div>
+        <div class="signal-chain-name" title="${escapeAttr(endpoint.port)}">${escapeHtml(endpoint.port || "Port")}</div>
+        <div class="signal-chain-sub">${escapeHtml(node?.label || endpoint.typeId || "")}</div></div>`;
+    }
+
+    function signalChainMarkup(chain) {
+      const cable = cableTypes[chain.cableTypeId];
+      const colors = (Array.isArray(cable?.colors) && !chain.cableCustomColor ? cable.colors : [])
+        .map(color => signalChainColor(color, "")).filter(Boolean);
+      if (!colors.length) colors.push(signalChainColor(chain.cableColor));
+      const line = colors.map(color => `<span style="--segment-color:${color}"></span>`).join("");
+      const metadata = [chain.cable, chain.length].filter(Boolean).join(" · ");
+      return `<div class="signal-chain-graph" data-signal-chain-wire-ids="${escapeAttr(chain.wireIds.join(","))}">
+        ${signalChainDeviceMarkup(chain.from)}
+        ${signalChainNodeMarkup(chain.from, "from")}
+        <div class="signal-chain-cable"><div class="signal-chain-cable-id">${escapeHtml(chain.cableNumber)}</div>
+          <div class="signal-chain-line" aria-hidden="true">${line}</div>
+          <div class="signal-chain-sub">${escapeHtml(metadata)}</div>
+          <div class="signal-chain-flow">${chain.flow === "forward" ? "Output → Input" : "Bidirectional / unspecified"}</div>
+          ${chain.loom ? `<div class="signal-chain-sub">Loom: ${escapeHtml(chain.loom)}</div>` : ""}
+        </div>
+        ${signalChainNodeMarkup(chain.to, "to")}
+        ${signalChainDeviceMarkup(chain.to)}
+      </div>`;
+    }
+
+    function showSignalChain(chain) {
+      signalChainWireId = chain.wireIds[0];
+      const signature = JSON.stringify([chain, cableTypes[chain.cableTypeId]?.colors]);
+      const artworkSources = [signalChainArtworkSource(chain.from), signalChainArtworkSource(chain.to)];
+      const nodeThumbnails = [cableTypes[chain.from.typeId]?.thumbnail, cableTypes[chain.to.typeId]?.thumbnail];
+      if (signalChainDialog.open && signature === signalChainRenderSignature
+        && artworkSources.every((source, index) => source === signalChainArtworkSources[index])
+        && nodeThumbnails.every((source, index) => source === signalChainNodeThumbnails[index])) return;
+      signalChainRenderSignature = signature;
+      signalChainArtworkSources = artworkSources;
+      signalChainNodeThumbnails = nodeThumbnails;
+      signalChainTitle.textContent = `Signal Chain · ${chain.cableNumber}`;
+      signalChainBody.innerHTML = signalChainMarkup(chain);
+      signalChainBody.dataset.renderCount = String((Number(signalChainBody.dataset.renderCount) || 0) + 1);
+      if (!signalChainDialog.open) signalChainDialog.showModal();
+    }
+
+    async function openSignalChainForWire(wireId) {
+      if (!activeEngineBridge()) return;
+      flushPendingInspectorCommit();
+      const module = await loadCableScheduleModule();
+      const chain = module.signalChainForWire(signalChainRows(module), wireId);
+      if (chain) showSignalChain(chain);
+    }
+
+    async function openSignalChainForConnector(deviceId, connectorId) {
+      if (!activeEngineBridge()) return;
+      flushPendingInspectorCommit();
+      const module = await loadCableScheduleModule();
+      const chains = module.signalChainsForConnector(signalChainRows(module), deviceId, connectorId);
+      if (chains.length === 1) { showSignalChain(chains[0]); return; }
+      if (!chains.length) return;
+      signalChainWireId = "";
+      signalChainRenderSignature = "";
+      signalChainTitle.textContent = "Signal Chain · Choose cable";
+      signalChainBody.innerHTML = `<div class="signal-chain-choices">${chains.map(chain => {
+        const other = chain.from.deviceId === deviceId && chain.from.connectorId === connectorId ? chain.to : chain.from;
+        return `<button class="tool-button" type="button" data-signal-chain-choice="${escapeAttr(chain.wireIds[0])}">${escapeHtml(chain.cableNumber)} · ${escapeHtml(other.device)} / ${escapeHtml(other.port)}</button>`;
+      }).join("")}</div>`;
+      if (!signalChainDialog.open) signalChainDialog.showModal();
+    }
+
+    function requestSignalChainRefresh() {
+      if (!signalChainDialog.open || !signalChainWireId || signalChainRefreshQueued) return;
+      signalChainRefreshQueued = true;
+      requestAnimationFrame(async () => {
+        signalChainRefreshQueued = false;
+        const version = ++signalChainRefreshVersion;
+        try {
+          const module = await loadCableScheduleModule();
+          if (!signalChainDialog.open || version !== signalChainRefreshVersion) return;
+          const chain = module.signalChainForWire(signalChainRows(module), signalChainWireId);
+          if (chain) showSignalChain(chain);
+          else signalChainDialog.close();
+        } catch (error) { setStatus(`Signal Chain could not update: ${error.message}`); }
+      });
+    }
+
+    document.getElementById("closeSignalChain").addEventListener("click", () => signalChainDialog.close());
+    signalChainDialog.addEventListener("close", () => {
+      signalChainWireId = "";
+      signalChainRenderSignature = "";
+      signalChainArtworkSources = [];
+      signalChainNodeThumbnails = [];
+      signalChainRefreshVersion++;
+    });
+    signalChainBody.addEventListener("click", event => {
+      const wireId = event.target.closest("[data-signal-chain-choice]")?.dataset.signalChainChoice;
+      if (wireId) openSignalChainForWire(wireId);
+    });
 
     function loadCableScheduleGraphics() {
       cableScheduleGraphicsPromise ||= import(engineImportUrl("./src/engine/cableScheduleGraphics.js"))
@@ -33822,6 +34024,10 @@ document.addEventListener("click", function(event) {
                 showWireContextMenu(event, target.wireId, target);
                 return;
               }
+              if (target.type === "connector") {
+                showConnectorContextMenu(event, target.deviceId, target.connectorId);
+                return;
+              }
               if (target.type === "wire-corner") {
                 showWireCornerContextMenu(event, target.wireId, target.pointIndex, target);
                 return;
@@ -33833,6 +34039,7 @@ document.addEventListener("click", function(event) {
             },
             onEngineCommit: ({ type, mutationStats }) => {
               requestCableScheduleRefresh();
+              requestSignalChainRefresh();
               renderCableLegend();
               renderProjectCustomDevices();
               renderInspector();

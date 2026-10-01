@@ -4,7 +4,8 @@ import { readFileSync } from "node:fs";
 import ExcelJS from "exceljs/dist/exceljs.min.js";
 import { bidirectionalJumpFixture } from "../fixtures/bidirectional-jumps.mjs";
 import { buildCableSchedule, cableFamily, cableScheduleCsv, cableScheduleFilterOptions,
-  cableScheduleVisibleRowIndexes, ensureCableNumbers } from "../src/engine/cableSchedule.js";
+  cableScheduleVisibleRowIndexes, ensureCableNumbers, signalChainForWire,
+  signalChainsForConnector } from "../src/engine/cableSchedule.js";
 import { createCableScheduleXlsx } from "../src/engine/cableScheduleXlsx.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
@@ -101,16 +102,20 @@ test("endpoint graphics retain individual connector colors", () => {
 test("installed optical modules take fibre precedence; empty cages are not reported as LC", () => {
   const data = project();
   data.connections[0].cableType = "other";
+  data.connections[0].fiberMode = "singlemode";
   data.devices.forEach(device => {
     Object.assign(device.templateOverride.connectors[0], { type: "sfp-cage", installedModuleId: "lc" });
   });
   const [optical] = buildCableSchedule(data);
   assert.equal(optical.cableNumber, "F-001");
   assert.match(optical.connector, /fiber-lc/);
+  assert.equal(signalChainForWire([optical], "wire-1").from.typeId, "fiber-lc");
+  assert.equal(signalChainForWire([optical], "wire-1").fiberMode, "singlemode");
   data.devices.forEach(device => { device.templateOverride.connectors[0].installedModuleId = ""; });
   const [empty] = buildCableSchedule(data);
   assert.equal(empty.cableNumber, "X-001");
   assert.doesNotMatch(empty.connector, /fiber-lc/);
+  assert.equal(signalChainForWire([empty], "wire-1").from.typeId, "sfp-cage");
 });
 
 test("paired Jump Node legs form one logical cable with real endpoints", () => {
@@ -125,6 +130,62 @@ test("paired Jump Node legs form one logical cable with real endpoints", () => {
   assert.deepEqual(rows[0].wireIds, ["wire-a", "wire-b"]);
   assert.equal(rows[0].loom, "Jump Loom");
   assert.equal(data.connections[0].cableNumber, data.connections[1].cableNumber);
+  const firstLeg = signalChainForWire(rows, "wire-a");
+  const secondLeg = signalChainForWire(rows, "wire-b");
+  assert.deepEqual(firstLeg, secondLeg);
+  assert.deepEqual(firstLeg.wireIds, ["wire-a", "wire-b"]);
+  assert.equal(firstLeg.from.device, "source");
+  assert.equal(firstLeg.to.device, "destination");
+  assert.equal(firstLeg.cableNumber, rows[0].cableNumber);
+  assert.equal(signalChainsForConnector(rows, "source", "port")[0].cableNumber, rows[0].cableNumber);
+  assert.equal(signalChainsForConnector(rows, "destination", "port")[0].cableNumber, rows[0].cableNumber);
+});
+
+test("Signal Chain resolves direct endpoints, names and metadata without mutating the project", () => {
+  const data = project(), before = structuredClone(data);
+  const rows = buildCableSchedule(data, { assignNumbers: "readOnly" });
+  const chain = signalChainForWire(rows, "wire-1");
+  assert.equal(chain.cableNumber, "V-001");
+  assert.deepEqual([chain.from.device, chain.from.port, chain.to.device, chain.to.port],
+    ["Source", "SDI Out", "Destination", "SDI In"]);
+  assert.deepEqual([chain.length, chain.loom], ["12 m", "FOH-01"]);
+  assert.equal(chain.flow, "forward");
+  assert.equal(signalChainsForConnector(rows, "device-0", "port")[0].cableNumber, chain.cableNumber);
+  assert.equal(signalChainsForConnector(rows, "device-1", "port")[0].cableNumber, chain.cableNumber);
+  assert.deepEqual(signalChainsForConnector(rows, "device-0", "missing"), []);
+  assert.equal(signalChainForWire(rows, "missing"), null);
+  assert.deepEqual(data, before, "opening a chain must not assign Cable IDs or create history");
+
+  data.devices[0].name = "Renamed Source";
+  data.devices[0].templateOverride.connectors[0].nameText = "Program Out";
+  const renamed = signalChainForWire(buildCableSchedule(data, { assignNumbers: "readOnly" }), "wire-1");
+  assert.equal(renamed.cableNumber, chain.cableNumber);
+  assert.equal(renamed.from.device, "Renamed Source");
+  assert.equal(renamed.from.port, "Program Out");
+  data.connections[0].customColor = "#E12345";
+  assert.equal(signalChainForWire(buildCableSchedule(data, { assignNumbers: "readOnly" }), "wire-1").cableCustomColor, "#E12345");
+});
+
+test("Signal Chain uses direction only when the endpoints establish it", () => {
+  const data = project();
+  data.connections[0].from = { deviceId: "device-1", connectorId: "port" };
+  data.connections[0].to = { deviceId: "device-0", connectorId: "port" };
+  const reversed = signalChainForWire(buildCableSchedule(data, { assignNumbers: "readOnly" }), "wire-1");
+  assert.equal(reversed.from.device, "Source");
+  assert.equal(reversed.to.device, "Destination");
+  assert.equal(reversed.flow, "forward");
+  data.devices.forEach(device => { device.templateOverride.connectors[0].signalDirection = "bidirectional"; });
+  const neutral = signalChainForWire(buildCableSchedule(data, { assignNumbers: "readOnly" }), "wire-1");
+  assert.equal(neutral.flow, "bidirectional");
+});
+
+test("Signal Chain returns every logical cable on a multi-connected connector", () => {
+  const data = project();
+  data.connections.push({ ...structuredClone(data.connections[0]), id: "wire-2", cableType: "hdmi" });
+  const rows = buildCableSchedule(data, { assignNumbers: "readOnly" });
+  const chains = signalChainsForConnector(rows, "device-0", "port");
+  assert.equal(chains.length, 2);
+  assert.deepEqual(chains.map(chain => chain.wireIds[0]).sort(), ["wire-1", "wire-2"]);
 });
 
 test("source, destination, and cable dropdowns combine without changing schedule rows", () => {
