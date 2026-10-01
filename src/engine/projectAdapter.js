@@ -330,7 +330,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
     : deriveLegacyPairJumpLinks(root, { getConnector: jumpConnector });
   const jumpLinks = explicitJumpLinks.length ? explicitJumpLinks : legacyJumpLinks;
   const jumpLinkDiagnostics = validateJumpLinks({ ...root, jumpLinks }, { getConnector: jumpConnector });
-  if (!allDevices.length) return generateSyntheticProject(SIZE_PRESETS.small);
+  if (!allDevices.length && !root.looms?.length) return generateSyntheticProject(SIZE_PRESETS.small);
   const adapterMs = performance.now() - adapterStart;
   const connectorCount = allDevices.reduce((total, device) => total + (device.connectors?.length || 0), 0);
   const stats = {
@@ -352,6 +352,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
     wires,
     racks: placedRacks,
     jumpLinks,
+    looms: Array.isArray(root.looms) ? deepClone(root.looms) : [],
     // Keep an untouched copy beside the render graph. The mutation adapter is
     // the only prototype module allowed to write back into this project copy.
     projectData: deepClone(data),
@@ -1191,6 +1192,7 @@ function normalizeProjectWire(wire, index, context) {
     label: wire.label || cableType || `Wire ${index + 1}`,
     length: wire.length || wire.cableLength || "",
     cableNumber: String(wire.cableNumber || ""),
+    loomId: String(wire.loomId || ""),
     loom: String(wire.loom || ""),
     notes: String(wire.notes || ""),
     hideLabel: Boolean(wire.hideLabel),

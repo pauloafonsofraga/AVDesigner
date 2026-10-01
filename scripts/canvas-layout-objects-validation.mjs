@@ -25,7 +25,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-38-46-native-png-drop-guard";
+const BUILD_ID = "iteration54-38-47-managed-cable-looms";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -40,10 +40,10 @@ function sourceSlice(source, startNeedle, endNeedle) {
   return source.slice(start, end);
 }
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.38.46");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.46";'), "visible iteration should be 54.38.46");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-46-native-png-drop-guard-modules";'), "module cache key should bust 54.38.46 modules");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-39-shared-jump-labels"'), "Engine bridge version should identify Shared Jump Cable Labels");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.38.47");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.47";'), "visible iteration should be 54.38.47");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-47-managed-cable-looms-modules";'), "module cache key should bust 54.38.47 modules");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-47-managed-cable-looms"'), "Engine bridge version should identify Managed Cable Looms");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
 assert.ok(classicScripts.length >= 1, "index.html should contain at least one classic script");

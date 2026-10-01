@@ -209,6 +209,7 @@ export function createCanvasClipboardPayload(project, selection, bounds, builtin
   }
   const selected = Object.fromEntries(Object.values(CLIPBOARD_COLLECTIONS).map(key => [key, new Map(payload[key].map(item => [idOf(item), idOf(item)]))]));
   payload.connections = cloneClipboardData((project.connections || []).filter(wire => remapClipboardEndpoint(wire.from, selected) && remapClipboardEndpoint(wire.to, selected)));
+  payload.connections.forEach(wire => { delete wire.loomId; });
   payload.jumpLinks = cloneClipboardData((project.jumpLinks || []).filter(link => selected.jumpNodes.has(link.outputJumpId) && selected.jumpNodes.has(link.inputJumpId)));
   const pairedIds = new Set(payload.jumpLinks.flatMap(link => [link.outputJumpId, link.inputJumpId]));
   payload.jumpNodes.forEach(node => { if (!pairedIds.has(node.id)) delete node.pairId; });

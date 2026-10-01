@@ -69,6 +69,7 @@ export function renderEngineOutputSvg(snapshot, { images = {}, textMetrics = {},
   scene.devices.filter(d => d.kind === "area").forEach(d=>artwork(ctx,d));
   meshes(primitives.racks,"data-rack-id");
   meshes(primitives.wires,"data-wire-id");
+  meshes(primitives.looms,"data-loom-id");
   scene.devices.filter(d => !["area","jump"].includes(d.kind)).forEach(d=>artwork(ctx,d));
   meshes(primitives.matrix,"data-matrix-id");
   meshes(primitives.relationships,"data-relationships-device-id");

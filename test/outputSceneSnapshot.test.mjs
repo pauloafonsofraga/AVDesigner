@@ -25,7 +25,7 @@ test("representative output contract matches live Engine object IDs, data and co
   assert.deepEqual(output.racks, json(live.racks));
   assert.deepEqual(output.sceneBounds, live.bounds());
   assert.deepEqual(output.diagnostics.counts, { objects: 17, connectors: 59, wires: 20, racks: 1,
-    cards: 4, sharedBuses: 2, jumpLinks: 1, ledSurfaces: 1 });
+    cards: 4, sharedBuses: 2, jumpLinks: 1, looms: 0, ledSurfaces: 1 });
   assert.deepEqual(output.diagnostics.warnings, []);
   assert.deepEqual(new Set(output.devices.map(d => d.kind)), new Set([
     "device", "adapter", "power-distro", "jump", "led-surface", "image-object", "area", "comment", "title-block"

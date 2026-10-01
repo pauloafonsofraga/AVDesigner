@@ -10,7 +10,8 @@ export async function runAssetClipboardSmoke(browser, base, modifier, { mismatch
   const open = async () => {
     const page = await context.newPage(); page.on("pageerror", error => errors.push(error.message));
     page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
-    await page.goto(base); await page.waitForFunction(() => activeEngineBridge()?.ready && canvasClipboardAssets);
+    await page.goto(base); await page.waitForFunction(() => typeof activeEngineBridge === "function"
+      && activeEngineBridge()?.ready && typeof canvasClipboardAssets !== "undefined" && canvasClipboardAssets);
     return page;
   };
   const press = async (page, key) => { await page.bringToFront(); await page.evaluate(() => document.activeElement?.blur()); await page.keyboard.press(`${modifier}+${key}`); };

@@ -112,10 +112,11 @@ export function hitTestWire(scene, worldPoint, tolerance = 8) {
   candidates.forEach(item => {
     const wire = item.payload?.wire || item.wire;
     if (!wire || wire.selectable === false) return;
-    const result = distanceToPolyline(scene.wireRenderPolyline(wire), worldPoint);
+    const breakout = item.payload?.breakout || item.breakout;
+    const result = distanceToPolyline(breakout?.points || scene.wireRenderPolyline(wire), worldPoint);
     if (result.distance <= tolerance && result.distance < bestDistance) {
       bestDistance = result.distance;
-      best = { wire, distance: result.distance, segmentIndex: result.segmentIndex, point: result.point };
+      best = { wire, breakout, distance: result.distance, segmentIndex: result.segmentIndex, point: result.point };
     }
   });
   return {
@@ -123,6 +124,35 @@ export function hitTestWire(scene, worldPoint, tolerance = 8) {
     candidates: candidates.length,
     ms: performance.now() - start
   };
+}
+
+export function hitTestLoom(scene, worldPoint, tolerance = 8) {
+  let best = null;
+  const selected = scene.looms?.find(item => item.id === scene.selectedLoomId);
+  for (const [index, point] of (selected?.routePoints || []).entries()) {
+    const distance = Math.hypot(worldPoint.x - point.x, worldPoint.y - point.y);
+    if (distance <= tolerance + 6 && (!best || distance < best.distance)) {
+      best = { loomId: selected.id, part: "route-point", pointIndex: index, distance, point };
+    }
+  }
+  if (best) return best;
+  for (const plan of scene.loomPlans || []) {
+    for (const [part, point] of [["sideA", plan.headA], ["sideB", plan.headB]]) {
+      const distance = Math.hypot(worldPoint.x - point.x, worldPoint.y - point.y);
+      if (distance <= 13 + tolerance && (!best || distance < best.distance)) {
+        best = { loomId: plan.loomId, part, distance, point };
+      }
+    }
+  }
+  if (best) return best;
+  for (const plan of scene.loomPlans || []) {
+    const hit = distanceToPolyline(plan.trunk, worldPoint);
+    if (hit.distance <= 7 + tolerance && (!best || hit.distance < best.distance)) {
+      best = { loomId: plan.loomId, part: "trunk", distance: hit.distance,
+        point: hit.point, segmentIndex: hit.segmentIndex };
+    }
+  }
+  return best;
 }
 
 export function distanceToPolyline(points, point) {

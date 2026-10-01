@@ -1,10 +1,10 @@
 // Shared by the producer and both output backends; contains no layout code.
-export const OUTPUT_SCENE_VERSION = 1;
+export const OUTPUT_SCENE_VERSION = 2;
 export const OUTPUT_SCENE_SOURCE = "engine-project-adapter/scene-graph";
 export const OUTPUT_SCENE_SCHEMA = Object.freeze({
   version: "number", schemaFingerprint: "string", sceneDataSource: "string",
   coordinateSpace: "engine-world", devices: "array", connectors: "array", wires: "array",
-  racks: "array", jumpLinks: "array", ledSurfaces: "array", cards: "array",
+  racks: "array", jumpLinks: "array", looms: "array", loomPlans: "array", ledSurfaces: "array", cards: "array",
   sharedBuses: "array", rackExposure: "array", sceneBounds: "rect|null", bounds: "rect|null",
   diagnostics: "object", signature: "string"
 });
@@ -15,7 +15,7 @@ export const OUTPUT_SCENE_SCHEMA_FINGERPRINT = `engine-output-v${OUTPUT_SCENE_VE
 export function assertOutputSceneContract(scene) {
   if (scene?.version !== OUTPUT_SCENE_VERSION || scene.schemaFingerprint !== OUTPUT_SCENE_SCHEMA_FINGERPRINT
     || scene.coordinateSpace !== "engine-world" || !scene.signature
-    || ![scene.devices, scene.connectors, scene.wires, scene.racks, scene.jumpLinks].every(Array.isArray)) {
+    || ![scene.devices, scene.connectors, scene.wires, scene.racks, scene.jumpLinks, scene.looms, scene.loomPlans].every(Array.isArray)) {
     throw new TypeError("Canonical Engine output scene version/schema mismatch.");
   }
 }

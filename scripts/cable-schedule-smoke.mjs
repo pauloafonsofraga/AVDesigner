@@ -56,7 +56,8 @@ try {
   const sourceFilter = page.locator('[data-cable-schedule-filter="sourceDevice"]');
   const destinationFilter = page.locator('[data-cable-schedule-filter="destinationDevice"]');
   const cableFilter = page.locator('[data-cable-schedule-filter="cable"]');
-  assert.equal(await page.locator(".cable-schedule-filter").count(), 3);
+  const loomFilter = page.locator('[data-cable-schedule-filter="loom"]');
+  assert.equal(await page.locator(".cable-schedule-filter").count(), 4);
   await sourceFilter.selectOption(scheduleValues[0].sourceDevice);
   await destinationFilter.selectOption(scheduleValues[0].destinationDevice);
   await cableFilter.selectOption(scheduleValues[0].cable);
@@ -66,8 +67,9 @@ try {
   await sourceFilter.selectOption("");
   await destinationFilter.selectOption("");
   await cableFilter.selectOption("");
+  await loomFilter.selectOption("");
   assert.equal(await page.locator("#cableScheduleBody tr").count(), 5);
-  checks.push("three header dropdowns combine and reset without changing the underlying cable list");
+  checks.push("four header dropdowns combine and reset without changing the underlying cable list");
   assert.match(await page.locator("#cableScheduleBody").innerText(), /FOH Rack → Stage Rack/);
   await page.waitForFunction(() => [...document.querySelectorAll("#cableScheduleBody img")]
     .every(image => image.complete && image.naturalWidth > 0));
@@ -195,6 +197,8 @@ try {
   const chooser = await chooserPromise;
   await chooser.setFiles(avdPath);
   await page.waitForFunction(() => state.projectName === "Graphic Cable Schedule" && state.connections.length === 6);
+  assert.equal(await page.evaluate(() => state.looms.find(loom => loom.name === "Loom A")?.id),
+    await page.evaluate(() => state.connections.find(wire => wire.id === "cable-0")?.loomId));
   await page.locator("#cableScheduleButton").click();
   await page.locator("#cableScheduleBody tr").first().waitFor();
   assert.deepEqual(await page.evaluate(() => state.connections.map(connection => connection.cableNumber)),
@@ -213,7 +217,7 @@ try {
   assert.ok(mobileBounds.y >= 0 && mobileBounds.y + mobileBounds.height <= 844);
   const closeBounds = await page.locator("#closeCableSchedule").boundingBox();
   assert.ok(closeBounds.x + closeBounds.width <= mobileBounds.x + mobileBounds.width);
-  assert.equal(await page.locator(".cable-schedule-filter").count(), 3);
+  assert.equal(await page.locator(".cable-schedule-filter").count(), 4);
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await page.screenshot({ path: join(directory, "cable-schedule-mobile.png") });
   checks.push("enlarged schedule stays within a mobile viewport with scrollable columns");

@@ -59,6 +59,7 @@ export class ProjectMutationAdapter {
     this.root = projectRoot(this.project);
     if (!Array.isArray(this.root.devices)) this.root.devices = [];
     if (!Array.isArray(this.root.connections)) this.root.connections = [];
+    if (!Array.isArray(this.root.looms)) this.root.looms = [];
     if (!Array.isArray(this.root.jumpNodes)) this.root.jumpNodes = [];
     if (!Array.isArray(this.root.jumpLinks)) this.root.jumpLinks = [];
     if (!Array.isArray(this.root.ledSurfaces)) this.root.ledSurfaces = [];
@@ -960,6 +961,7 @@ function rawConnectionFromSceneWireData(sceneData, wire) {
     notes: wire.notes || "",
     length: wire.length || "",
     cableNumber: wire.cableNumber || "",
+    loomId: wire.loomId || "",
     loom: wire.loom || "",
     fiberMode: wire.fiberMode || "",
     hideLabel: Boolean(wire.hideLabel),
@@ -981,6 +983,7 @@ function rawConnectionFromWire(scene, wire, id) {
     notes: wire.notes || "",
     length: wire.length || "",
     cableNumber: wire.cableNumber || "",
+    loomId: wire.loomId || "",
     loom: wire.loom || "",
     fiberMode: wire.fiberMode || "",
     hideLabel: Boolean(wire.hideLabel),

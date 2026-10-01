@@ -7,7 +7,7 @@ function toArgb(color) {
 }
 
 export async function createCableScheduleXlsx(rows, { nodeDefinitions = [], loadArtwork = async value => value,
-  graphics = null } = {}) {
+  graphics = null, looms = [] } = {}) {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "WireNexus";
   const sheet = workbook.addWorksheet("Cable Schedule", { views: [{ state: "frozen", ySplit: 1 }] });
@@ -66,6 +66,35 @@ export async function createCableScheduleXlsx(rows, { nodeDefinitions = [], load
       || cableIdGraphic(record.cableNumber, color, index % 2 ? "#f1f5f7" : "#ffffff");
     if (idGraphic) await addGraphic(rowNumber, 1, `id:${record.cableNumber}:${color}`,
       async () => idGraphic, { x: 0, y: 6, width: idGraphic.width || 105, height: idGraphic.height || 34 });
+  }
+  const loomSheet = workbook.addWorksheet("Loom Schedule", { views: [{ state: "frozen", ySplit: 1 }] });
+  const loomColumns = [
+    ["name", "Loom", 20], ["sideA", "Side A", 24], ["sideB", "Side B", 24],
+    ["trunkLength", "Trunk Length", 18], ["circuits", "Circuits", 12],
+    ["composition", "Composition", 48], ["notes", "Notes", 42]
+  ];
+  loomSheet.columns = loomColumns.map(([key, header, width]) => ({ key, header, width }));
+  loomSheet.autoFilter = { from: "A1", to: `G${Math.max(2, looms.length + 1)}` };
+  loomSheet.getRow(1).height = 28;
+  loomSheet.getRow(1).eachCell(cell => {
+    cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF263641" } };
+    cell.alignment = { vertical: "middle" };
+  });
+  for (const [index, loom] of looms.entries()) {
+    const members = rows.filter(row => row.loomId === loom.id);
+    const families = new Map();
+    members.forEach(row => families.set(row.signal, (families.get(row.signal) || 0) + 1));
+    const row = loomSheet.addRow({ name: String(loom.name || ""), sideA: String(loom.sideA?.label || ""),
+      sideB: String(loom.sideB?.label || ""), trunkLength: String(loom.trunkLength || ""),
+      circuits: members.length,
+      composition: [...families].sort(([a], [b]) => a.localeCompare(b))
+        .map(([family, count]) => `${count} ${family}`).join(" / "), notes: String(loom.notes || "") });
+    row.height = Math.max(28, String(loom.notes || "").split("\n").length * 16);
+    row.eachCell(cell => { cell.alignment = { vertical: "middle", wrapText: true }; });
+    if (index % 2) row.eachCell(cell => {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F5F7" } };
+    });
   }
   return workbook.xlsx.writeBuffer();
 }

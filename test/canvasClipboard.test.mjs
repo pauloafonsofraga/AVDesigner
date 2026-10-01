@@ -21,6 +21,15 @@ test("mixed selection serializes deterministically, detached, with only required
   assert.deepEqual(project, before);
 });
 
+test("copying devices without their Loom leaves pasted cables unassigned", () => {
+  const { project, items, bounds } = canvasClipboardFixture();
+  project.connections.forEach(wire => { wire.loomId = "loom-1"; });
+  const payload = clipboard.createCanvasClipboardPayload(project, items, bounds);
+  assert.ok(payload.connections.length);
+  assert.ok(payload.connections.every(wire => !Object.hasOwn(wire, "loomId")));
+  assert.ok(project.connections.every(wire => wire.loomId === "loom-1"));
+});
+
 test("rejects unsupported versions, corrupt JSON, non-selection text and oversized input", () => {
   for (const text of ["AVDESIGNER_SELECTION_V1:{}", "AVDESIGNER_SELECTION_V3:{}", clipboard.CLIPBOARD_PREFIX + "{", "plain text",
     clipboard.CLIPBOARD_PREFIX + "x".repeat(clipboard.CLIPBOARD_LIMITS.bytes + 1)]) assert.throws(() => clipboard.parseCanvasClipboard(text));

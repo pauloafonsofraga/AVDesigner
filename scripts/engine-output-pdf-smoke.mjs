@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { outputPrintFixture } from "../fixtures/output-print.mjs";
 import { outputViewerScaleFixture } from "../fixtures/output-viewer.mjs";
 import { outputPdfJumpFixture } from "../fixtures/output-pdf-jumps.mjs";
+import { cableTypeSelectionFixture } from "../fixtures/cable-type-selection.mjs";
 
 const { chromium } = createRequire(import.meta.url)(process.env.AVDESIGNER_PLAYWRIGHT_PATH || "playwright");
 const browser = await chromium.launch({headless:true,
@@ -156,6 +157,25 @@ try {
       const tablePage=await context.newPage(),tableErrors=captureErrors(tablePage);
       await tablePage.setContent(report.html);await printPage(tablePage,"multipage");
       assert.deepEqual(tableErrors,[]);
+      const loomFixture=cableTypeSelectionFixture();
+      loomFixture.connections.slice(0,3).forEach(wire=>{wire.loomId="loom-1";});
+      loomFixture.looms=[{id:"loom-1",name:"L01",sideA:{label:"FOH",x:340,y:300},
+        sideB:{label:"Stage",x:700,y:300},routeStyle:"orthogonal",routePoints:[],trunkLength:"75 m"}];
+      const loomPrint=await app.evaluate(async fixture=>{
+        const snapshot=buildCanonicalOutputSnapshot({projectData:fixture,mode:"pdf-loom"});
+        const drawing=await buildEnginePrintDrawing(snapshot);
+        return {html:buildPrintableReportHtml(snapshot.reportData,drawing.svg),signature:snapshot.engineScene.signature};
+      },loomFixture);
+      const loomPage=await context.newPage(),loomErrors=captureErrors(loomPage);
+      await loomPage.setContent(loomPrint.html);
+      const loomInfo=await printPage(loomPage,"managed-loom");
+      assert.equal(loomInfo.signature,loomPrint.signature);
+      assert.equal(loomInfo.counts.looms,1);
+      assert.equal(await loomPage.locator('[data-loom-id="loom-1"]').count(),1);
+      assert.equal(await loomPage.locator('[data-wire-id="cable-0"],[data-wire-id="cable-1"],[data-wire-id="cable-2"]').count(),0);
+      assert.match(await loomPage.locator('.drawing-frame svg').textContent(),/L01/);
+      assert.deepEqual(loomErrors,[]);
+      await loomPage.close();
     }
     await context.close();
   }

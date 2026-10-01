@@ -75,7 +75,7 @@ test("viewer owns isolated read-only contract and consumes no projectData geomet
   model.scene.selectedIds.add("ordinary-a");
   assert.equal(model.contract.devices[0].x, -100);
   assert.throws(() => createOutputViewerModel(outputViewerParityFixture()), /canonical/i);
-  assert.throws(() => createOutputViewerModel({ ...snapshot, version: 2 }), /canonical/i);
+  assert.throws(() => createOutputViewerModel({ ...snapshot, version: 1 }), /canonical/i);
 });
 
 test("connector inspection exposes fields without modifying model data", () => {

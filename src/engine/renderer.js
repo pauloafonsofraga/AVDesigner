@@ -63,7 +63,7 @@ import { wirePlaybackEase } from "./wirePlayback.js";
 import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-39-shared-jump-labels";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-47-managed-cable-looms";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -294,8 +294,10 @@ export class WebglGraphRenderer {
     // Static geometry is built once per scene load. Pan/zoom/drag must not
     // rebuild this path; otherwise large real projects stutter badly.
     scene.wires.forEach(wire => {
-      this.wireVertexMap.set(wire.id, verticesForWire(scene, wire, null, WIRE_STATIC_WIDTH, wireColor(wire, this.renderOptions), this.renderOptions, this.cableHopMap));
+      this.wireVertexMap.set(wire.id, scene.isWireHiddenByLoom(wire.id) ? []
+        : verticesForWire(scene, wire, null, WIRE_STATIC_WIDTH, wireColor(wire, this.renderOptions), this.renderOptions, this.cableHopMap));
     });
+    scene.loomPlans.forEach(plan => this.wireVertexMap.set(`loom:${plan.loomId}`, verticesForLoomPlan(scene, plan)));
     this.lastWirePathStats = wirePathStatsForWires(scene.wires);
     scene.devices.forEach(device => {
       this.deviceVertexMap.set(device.id, verticesForDevice(device, null, this.renderOptions));
@@ -638,7 +640,8 @@ export class WebglGraphRenderer {
     });
     [...effectiveWireIds].forEach(id => {
       const wire = scene.getWire(id);
-      const next = wire ? verticesForWire(scene, wire, null, WIRE_STATIC_WIDTH, wireColor(wire, this.renderOptions), this.renderOptions, cableHopMapForDirtyWires) : [];
+      const next = wire ? scene.isWireHiddenByLoom(id) ? []
+        : verticesForWire(scene, wire, null, WIRE_STATIC_WIDTH, wireColor(wire, this.renderOptions), this.renderOptions, cableHopMapForDirtyWires) : [];
       const range = this.wireRangeMap.get(id);
       if (!wire) {
         wireFallbackRebuild = true;
@@ -663,7 +666,7 @@ export class WebglGraphRenderer {
     if (deviceFallbackRebuild) {
       fallbackStats = this.setStaticScene(scene);
     } else {
-      if (wireFallbackRebuild) {
+      if (wireFallbackRebuild || (scene.looms.length && (deviceIds.length || effectiveWireIds.size))) {
         fallbackStats = this.rebuildWireGeometry(scene);
       }
       if (matrixRouteFallbackRebuild) {
@@ -704,8 +707,10 @@ export class WebglGraphRenderer {
     const geometryStart = performance.now();
     this.refreshCableHops(scene, { mode: "full-wire-rebuild" });
     scene.wires.forEach(wire => {
-      this.wireVertexMap.set(wire.id, verticesForWire(scene, wire, null, WIRE_STATIC_WIDTH, wireColor(wire, this.renderOptions), this.renderOptions, this.cableHopMap));
+      this.wireVertexMap.set(wire.id, scene.isWireHiddenByLoom(wire.id) ? []
+        : verticesForWire(scene, wire, null, WIRE_STATIC_WIDTH, wireColor(wire, this.renderOptions), this.renderOptions, this.cableHopMap));
     });
+    scene.loomPlans.forEach(plan => this.wireVertexMap.set(`loom:${plan.loomId}`, verticesForLoomPlan(scene, plan)));
     this.lastWirePathStats = wirePathStatsForWires(scene.wires);
     const geometryMs = performance.now() - geometryStart;
     const uploadStart = performance.now();
@@ -1175,9 +1180,23 @@ export class WebglGraphRenderer {
           if (wire && renderOptions.wires) {
             pushWireSelection(liveVertices, scene, wire, null, renderOptions, this.cableHopMap);
             this.recordWireLayer(layerTrace, id, "selectedWireOverlay", "drawn");
-            if (renderOptions.routePoints && selectedWireIds.has(id)) pushWireRoutePointHandles(liveVertices, scene, wire, null);
+            if (renderOptions.routePoints && selectedWireIds.has(id) && !scene.isWireHiddenByLoom(id)) pushWireRoutePointHandles(liveVertices, scene, wire, null);
           }
         });
+        if (scene.selectedLoomId) {
+          const plan = scene.loomPlans.find(item => item.loomId === scene.selectedLoomId);
+          if (plan) {
+            pushPolyline(liveVertices, plan.trunk, 22, "rgba(251,121,4,.25)");
+            for (const head of [plan.headA, plan.headB]) {
+              pushCircleOutline(liveVertices, head, 17, 3, "#fb7904");
+            }
+            const loom = scene.looms.find(item => item.id === scene.selectedLoomId);
+            for (const point of loom?.routePoints || []) {
+              pushCircle(liveVertices, point, 5, "#fb7904");
+              pushCircleOutline(liveVertices, point, 6, 1.5, "#ffffff");
+            }
+          }
+        }
         if (hoveredWireId && !staticSuppressedWireIds.has(hoveredWireId) && !highlightedWireIds.has(hoveredWireId)) {
           const wire = scene.getWire(hoveredWireId);
           if (wire && renderOptions.wires) pushWireHover(liveVertices, scene, wire, null, renderOptions, this.cableHopMap);
@@ -1378,7 +1397,7 @@ export class WebglGraphRenderer {
           this.recordWireLayer(options.layerTrace, wire.id, "labelLayer", "suppressed-moving");
           return;
         }
-        if (wire.hideLabel || isPhysicalJumpWire(scene, wire)) return;
+        if (wire.hideLabel || scene.isWireHiddenByLoom(wire.id) || isPhysicalJumpWire(scene, wire)) return;
         if ((options.interactionState?.suppressedWireIds || new Set()).has(wire.id)) return;
         const selected = selectedWireIds.has(wire.id);
         const hovered = hoveredWireId === wire.id;
@@ -1399,6 +1418,15 @@ export class WebglGraphRenderer {
         drawPolylineLabel(ctx, points, camera, wireCaption(scene, link, true));
         wireLabelCount += 1;
       });
+      for (const plan of scene.loomPlans) {
+        const loom = scene.looms.find(item => item.id === plan.loomId);
+        if (!loom) continue;
+        const caption = [loom.name, `${plan.circuitCount} circuit${plan.circuitCount === 1 ? "" : "s"}`, loom.trunkLength]
+          .filter(Boolean).join(" · ");
+        drawPolylineLabel(ctx, plan.trunk, camera, caption);
+        drawLoomHeadLabels(ctx, plan, loom, camera);
+        wireLabelCount += 1;
+      }
     }
     const connectorLabelCount = drawVisibleConnectorLabels(
       ctx,
@@ -3105,6 +3133,12 @@ function pushWireHover(vertices, scene, wire, offsets, options = DEFAULT_RENDER_
 }
 
 function pushWire(vertices, scene, wire, offsets, width, color, options = DEFAULT_RENDER_OPTIONS, cableHopMap = options.cableHopMap) {
+  if (scene.isWireHiddenByLoom(wire.id)) {
+    (scene.loomBreakoutByWireId.get(wire.id) || []).forEach(breakout => {
+      pushPolyline(vertices, breakout.points, width, color);
+    });
+    return;
+  }
   const basePoints = scene.wireRenderPolyline(wire, offsets);
   // Cable hops are runtime-only geometry. During active object drags the
   // affected live overlay deliberately skips hop geometry; route-point drags
@@ -3281,8 +3315,9 @@ export function engineOutputPrimitives(scene, contract) {
     }) })),
     jumpLinks: contract.jumpLinks.map(link => ({ id: link.id, vertices: mesh(vertices =>
       pushJumpLinkOverlays(vertices, { jumpLinkOverlays: [{ ...link, points: link.polyline }] })) })),
-    wires: contract.wires.map(wire => ({ id: wire.id, vertices: mesh(vertices =>
+    wires: contract.wires.filter(wire => !scene.isWireHiddenByLoom(wire.id)).map(wire => ({ id: wire.id, vertices: mesh(vertices =>
       pushWireColorSegments(vertices, wire.renderPolyline, WIRE_STATIC_WIDTH, wire, wireColor(wire))) })),
+    looms: scene.loomPlans.map(plan => ({ id: plan.loomId, vertices: verticesForLoomPlan(scene, plan) })),
     connectors: contract.connectors.flatMap(record => {
       const device = scene.getDevice(record.deviceId);
       const connector = scene.getConnector(record.deviceId, record.connectorId);
@@ -3322,10 +3357,18 @@ export function drawEngineOutputLabels(ctx, scene, bounds) {
     if (device.kind === "jump") drawJumpNodeInfoBox(ctx, scene, device, camera);
   });
   scene.wires.forEach(wire => {
-    if (!wire.hideLabel && !isPhysicalJumpWire(scene, wire)) {
+    if (!wire.hideLabel && !scene.isWireHiddenByLoom(wire.id) && !isPhysicalJumpWire(scene, wire)) {
       drawWireLabel(ctx, scene, wire, camera, null, wireCaption(scene, wire));
     }
   });
+  for (const plan of scene.loomPlans) {
+    const loom = scene.looms.find(item => item.id === plan.loomId);
+    if (!loom) continue;
+    drawPolylineLabel(ctx, plan.trunk, camera,
+      [loom.name, `${plan.circuitCount} circuit${plan.circuitCount === 1 ? "" : "s"}`, loom.trunkLength]
+        .filter(Boolean).join(" · "));
+    drawLoomHeadLabels(ctx, plan, loom, camera);
+  }
   drawVisibleConnectorLabels(ctx, scene, camera, DEFAULT_RENDER_OPTIONS, null, resolution);
   drawVisibleConnectorInfoBoxes(ctx, scene, camera, DEFAULT_RENDER_OPTIONS, null, resolution);
   ctx.restore();
@@ -3334,6 +3377,55 @@ export function drawEngineOutputLabels(ctx, scene, bounds) {
 function verticesForWire(scene, wire, offsets = null, width = WIRE_BASE_WIDTH, color = WIRE_FALLBACK, options = DEFAULT_RENDER_OPTIONS, cableHopMap = options.cableHopMap) {
   const vertices = [];
   pushWire(vertices, scene, wire, offsets, width, color, options, cableHopMap);
+  return vertices;
+}
+
+function verticesForLoomPlan(scene, plan) {
+  const vertices = [];
+  pushPolyline(vertices, plan.trunk, 16, "#101820");
+  pushPolyline(vertices, plan.trunk, 11, "#8999a5");
+  const familyColor = { Video: "#f4c542", Network: "#34cf9d", Fibre: "#9a8dff",
+    Audio: "#ff8c55", Power: "#ff5d69", Other: "#32b6ff" };
+  const families = (plan.families || []).slice(0, 6);
+  const expandedFamilies = scene.expandedLoomIds?.has(plan.loomId) && plan.circuitCount > 16;
+  if (!families.length) pushPolyline(vertices, plan.trunk, 3, "#32b6ff");
+  else {
+    const dx = plan.headB.x - plan.headA.x, dy = plan.headB.y - plan.headA.y;
+    const length = Math.hypot(dx, dy) || 1;
+    const normal = { x: -dy / length, y: dx / length };
+    families.forEach((family, index) => {
+      const offset = (index - (families.length - 1) / 2) * (expandedFamilies ? 2.5 : 1.7);
+      const stripe = plan.trunk.map(point => ({ x: point.x + normal.x * offset,
+        y: point.y + normal.y * offset }));
+      pushPolyline(vertices, stripe, expandedFamilies ? 2.2 : 1.5,
+        familyColor[family.name] || familyColor.Other);
+    });
+  }
+  if (scene.expandedLoomIds?.has(plan.loomId) && plan.circuitCount > 0 && plan.circuitCount <= 16) {
+    const dx = plan.headB.x - plan.headA.x, dy = plan.headB.y - plan.headA.y;
+    const length = Math.hypot(dx, dy) || 1;
+    const normal = { x: -dy / length, y: dx / length };
+    const starts = plan.breakouts.filter(item => item.end === "A");
+    starts.forEach((breakout, index) => {
+      const offset = (index - (starts.length - 1) / 2) * 2.2;
+      const shifted = plan.trunk.map(point => ({ x: point.x + normal.x * offset,
+        y: point.y + normal.y * offset }));
+      const wire = scene.getWire(breakout.wireId);
+      pushPolyline(vertices, shifted, 1.25, wire?.customColor || wire?.color || WIRE_FALLBACK);
+    });
+  }
+  for (const breakout of plan.breakouts) {
+    const wire = scene.getWire(breakout.wireId);
+    pushPolyline(vertices, breakout.points, 2.4, wire?.customColor || wire?.color || WIRE_FALLBACK);
+    if (plan.circuitCount <= 16) {
+      pushCircle(vertices, breakout.points[1], 3, wire?.customColor || wire?.color || WIRE_FALLBACK);
+    }
+  }
+  for (const head of [plan.headA, plan.headB]) {
+    pushCircle(vertices, head, 13, "#101820");
+    pushCircleOutline(vertices, head, 13, 3, "#d2dbe2");
+    pushCircle(vertices, head, 5, "#32b6ff");
+  }
   return vertices;
 }
 
@@ -3918,6 +4010,27 @@ function drawPolylineLabel(ctx, points, camera, text) {
   ctx.strokeText(text, 0, -8 * Math.max(1, Math.sqrt(camera.zoom)));
   ctx.fillText(text, 0, -8 * Math.max(1, Math.sqrt(camera.zoom)));
   ctx.restore();
+}
+
+function drawLoomHeadLabels(ctx, plan, loom, camera) {
+  for (const [side, point, fallback] of [
+    [loom.sideA, plan.headA, "Side A"], [loom.sideB, plan.headB, "Side B"]
+  ]) {
+    const label = String(side?.label || fallback);
+    const x = (point.x - camera.x) * camera.zoom;
+    const y = (point.y - camera.y) * camera.zoom - 23;
+    ctx.save();
+    ctx.font = "700 11px system-ui, -apple-system, Segoe UI, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "rgba(0,0,0,.82)";
+    ctx.lineWidth = 3;
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeText(label, x, y);
+    ctx.fillText(label, x, y);
+    ctx.restore();
+  }
 }
 
 function drawSnapMeasurementLabel(ctx, measure, camera) {

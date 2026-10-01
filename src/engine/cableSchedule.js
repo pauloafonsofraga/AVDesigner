@@ -9,7 +9,7 @@ export const CABLE_SCHEDULE_COLUMNS = Object.freeze([
   ["length", "Length"], ["loom", "Loom"], ["rackLocation", "Rack / Location"], ["notes", "Notes"]
 ]);
 
-export const CABLE_SCHEDULE_FILTER_KEYS = Object.freeze(["sourceDevice", "destinationDevice", "cable"]);
+export const CABLE_SCHEDULE_FILTER_KEYS = Object.freeze(["sourceDevice", "destinationDevice", "cable", "loom"]);
 
 export function cableScheduleFilterOptions(rows, key) {
   if (!CABLE_SCHEDULE_FILTER_KEYS.includes(key)) return [];
@@ -180,6 +180,8 @@ export function buildCableSchedule(input, options = {}) {
     const rackLocation = sourceRack === destinationRack ? sourceRack : `${sourceRack} → ${destinationRack}`.trim();
     const cableType = String(group.wires.find(wire => wire.cableType && wire.cableType !== "jump")?.cableType || value("cableType"));
     const cableLabel = node(cableType)?.label || cableType || "Cable";
+    const loomId = String(value("loomId"));
+    const loomRecord = (project.looms || []).find(item => String(item.id) === loomId);
     const fiberMode = family === "F" && value("fiberMode") ? ` - ${value("fiberMode")}` : "";
     return {
       cableNumber: group.cableNumber || primary.cableNumber || "",
@@ -192,7 +194,7 @@ export function buildCableSchedule(input, options = {}) {
       signal: families[family], connector: [source.type, destination.type].filter(Boolean).map(physicalLabel).join(" → "),
       cable: `${cableLabel}${fiberMode}`, length: String(value("length")),
       fiberMode: String(value("fiberMode")),
-      loom: String(value("loom")), rackLocation, notes: String(value("notes")),
+      loomId, loom: String(loomRecord?.name || value("loom")), rackLocation, notes: String(value("notes")),
       wireIds: group.wires.map(wire => String(wire.id)),
       sourceNodeTypeId: source.type, destinationNodeTypeId: destination.type,
       sourceNodeColor: source.color, destinationNodeColor: destination.color,

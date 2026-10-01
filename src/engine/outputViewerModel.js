@@ -16,7 +16,8 @@ export function createOutputViewerModel(snapshot, { assets } = {}) {
   const contract = freeze(JSON.parse(JSON.stringify(source)));
   const scene = new SceneGraph();
   scene.setData({ devices: contract.devices.map(d => resolveOutputDeviceAssets(d, assets)), wires: contract.wires, racks: contract.racks,
-    jumpLinks: contract.jumpLinks, meta: { cableHops: contract.diagnostics?.cableHops?.enabled !== false } });
+    jumpLinks: contract.jumpLinks, looms: contract.looms, loomPlans: contract.loomPlans,
+    meta: { cableHops: contract.diagnostics?.cableHops?.enabled !== false } });
   return { contract, scene, normalizationMs: performance.now() - start };
 }
 
@@ -69,6 +70,14 @@ export function outputConnectedNodeItems(scene, deviceId, connectorId = "") {
 export function outputSelectionDetails(scene, selection) {
   if (!selection) return { title: "Inspector", rows: [], wireIds: [] };
   if (selection.type === "multi-wire") return { title: "Cables", rows: [["Selected", selection.ids.length]], wireIds: selection.ids };
+  if (selection.type === "loom") {
+    const loom = scene.looms.find(item => item.id === selection.id);
+    const plan = scene.loomPlans.find(item => item.loomId === selection.id);
+    return { title: loom?.name || "Loom", rows: [["Side A", loom?.sideA?.label || "Side A"],
+      ["Side B", loom?.sideB?.label || "Side B"], ["Trunk Length", loom?.trunkLength || ""],
+      ["Circuits", plan?.circuitCount || 0], ["Notes", loom?.notes || ""]],
+      wireIds: [...new Set(plan?.breakouts.map(item => item.wireId) || [])] };
+  }
   if (selection.type === "wire") {
     const wire = scene.getWire(selection.id);
     if (!wire) return outputSelectionDetails(scene, null);

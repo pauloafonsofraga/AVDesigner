@@ -31,6 +31,9 @@ import { ProjectMutationAdapter } from "./projectMutations.js";
 import { applyCanvasClipboardPlan } from "./canvasClipboard.js";
 import { WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
+import { allocateLoomIdentity, dissolveLoom, renameLoom, selectedLoomCableGroups,
+  setLogicalCableLoom } from "./loomModel.js";
+import { externalCableEndpoints, initialLoomHeads } from "./loomGeometry.js";
 import { monitorNameUpdates } from "./monitorNaming.js";
 import { PerfHud } from "./perfHud.js";
 import { validateEngineScene } from "./sceneValidation.js";
@@ -126,6 +129,7 @@ const {
   hitTestDevice,
   hitTestRoutePoint,
   hitTestWire,
+  hitTestLoom,
   screenToWorld
 } = HitTest;
 
@@ -137,8 +141,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-39-shared-jump-labels";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-39-shared-jump-labels";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-47-managed-cable-looms";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-47-managed-cable-looms";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -939,6 +943,14 @@ class ProductionEngineBridge {
       // points only. Pan, zoom, hover, and drag frames must keep using cached
       // engine buffers/textures and must not re-adapt the whole production app.
       this.scene.setData(normalized);
+      for (const loom of rawProject?.looms || []) {
+        if (loom.sideA && loom.sideB) continue;
+        const plan = this.scene.loomPlans.find(item => item.loomId === loom.id);
+        if (!plan?.circuitCount) continue;
+        if (!loom.sideA) loom.sideA = { label: "Side A", ...plan.headA };
+        if (!loom.sideB) loom.sideB = { label: "Side B", ...plan.headB };
+      }
+      if (this.scene.looms.some(loom => !loom.sideA || !loom.sideB)) this.scene.rebuildLoomGeometry();
       this.logCanvasObjectDiagnostics("refresh", normalized);
       this.mutations = new ProjectMutationAdapter(normalized, { cloneProjectData: false });
       this.synchronizeMonitorNames({ render: false });
@@ -2277,10 +2289,20 @@ class ProductionEngineBridge {
       return;
     }
 
+    const loomHit = hitTestLoom(this.scene, world, tolerance);
+    if (loomHit && loomHit.part !== "trunk") {
+      this.scene.selectLoomOnly(loomHit.loomId);
+      this.loomHeadDrag = { loomId: loomHit.loomId, part: loomHit.part,
+        pointIndex: loomHit.pointIndex, pointerId: event.pointerId, startWorld: world,
+        before: this.captureLoomState(), moved: false };
+      this.updateSelectionHud();
+      this.scheduleRender();
+      return;
+    }
     const wireHit = hitTestWire(this.scene, world, tolerance);
     if (wireHit.wire) {
       this.clearJumpMoveArm("wire-pointerdown", { updateHud: false });
-      if (!additiveSelection && this.beginWireSegmentDrag(wireHit, point, world)) {
+      if (!wireHit.breakout && !additiveSelection && this.beginWireSegmentDrag(wireHit, point, world)) {
         this.updateSelectionHud();
         this.updateInteractionHud("wire-segment-drag", wireHit);
         this.scheduleRender();
@@ -2291,6 +2313,13 @@ class ProductionEngineBridge {
       else this.scene.selectWireOnly(wireHit.wire.wire.id);
       this.updateSelectionHud();
       this.updateInteractionHud("wire-select", wireHit);
+      this.scheduleRender();
+      return;
+    }
+
+    if (loomHit) {
+      this.scene.selectLoomOnly(loomHit.loomId);
+      this.updateSelectionHud();
       this.scheduleRender();
       return;
     }
@@ -2415,7 +2444,12 @@ class ProductionEngineBridge {
       return;
     }
     if (target.type === "wire" || target.type === "wire-corner") {
-      this.scene.selectWireOnly(target.engineWireId || target.wireId);
+      const clickedWireId = target.engineWireId || target.wireId;
+      if (!this.scene.selectedWireIds.has(clickedWireId) || this.scene.selectedWireIds.size <= 1) {
+        this.scene.selectWireOnly(clickedWireId);
+      }
+    } else if (target.type === "loom") {
+      this.scene.selectLoomOnly(target.loomId);
     } else if (target.type === "connector") {
       this.scene.selectConnectorOnly(target.engineDeviceId, target.connectorId);
     } else if (target.type === "rack" && target.rackId) {
@@ -2449,6 +2483,24 @@ class ProductionEngineBridge {
       this.notifyViewportChange("middle-button-pan");
       this.hud.setMetric("pointermove", `${(performance.now() - pointerStart).toFixed(3)} ms`);
       this.scheduleRender();
+      return;
+    }
+    if (this.loomHeadDrag) {
+      if (event.pointerId !== this.loomHeadDrag.pointerId) return;
+      const world = screenToWorld(this.camera, point);
+      const drag = this.loomHeadDrag;
+      const beforeLoom = drag.before.looms.find(loom => loom.id === drag.loomId);
+      const original = drag.part === "route-point" ? beforeLoom?.routePoints?.[drag.pointIndex] : beforeLoom?.[drag.part];
+      const loom = this.mutations.root.looms.find(item => item.id === drag.loomId);
+      if (loom && original) {
+        const target = drag.part === "route-point" ? loom.routePoints[drag.pointIndex] : loom[drag.part];
+        target.x = original.x + world.x - drag.startWorld.x;
+        target.y = original.y + world.y - drag.startWorld.y;
+        drag.moved = Math.hypot(world.x - drag.startWorld.x, world.y - drag.startWorld.y) > 1;
+        this.scene.rebuildLoomGeometry();
+        this.renderer.rebuildWireGeometry(this.scene);
+        this.scheduleRender();
+      }
       return;
     }
     if (this.dispatchCanvasToolPointerEvent("pointermove", event, point)) {
@@ -2677,6 +2729,24 @@ class ProductionEngineBridge {
       this.scheduleRender();
       return;
     }
+    if (this.loomHeadDrag) {
+      const drag = this.loomHeadDrag;
+      if (event.pointerId !== drag.pointerId) return;
+      const after = this.captureLoomState();
+      this.loomHeadDrag = null;
+      if (drag.moved) {
+        this.applyLoomState(drag.before);
+        this.beginProductionCommit("move loom head");
+        const result = this.applyLoomState(after);
+        this.markCommitted("move loom head", result.mutationMs);
+        this.recordCommand({ type: "move loom head", undo: bridge => bridge.applyLoomState(drag.before),
+          redo: bridge => bridge.applyLoomState(after) });
+      }
+      this.releasePointerCapture(event.pointerId);
+      this.updateSelectionHud();
+      this.scheduleRender();
+      return;
+    }
     if (this.dispatchCanvasToolPointerEvent("pointerup", event, point)) {
       this.releasePointerCapture(event.pointerId);
       return;
@@ -2769,7 +2839,7 @@ class ProductionEngineBridge {
   handleLostPointerCapture(event) {
     const jumpPointerId = this.pendingJumpPress?.pointerId ?? this.jumpLinkCreate?.pointerId;
     if (jumpPointerId != null && event?.pointerId != null && jumpPointerId !== event.pointerId) return;
-    if (!this.dragSession && !this.pendingDrag && !this.pendingJumpPress && !this.jumpLinkCreate && !this.panState && !this.routePointDrag && !this.wireSegmentDrag && !this.wireCreate && !this.resizeSession && !this.commentBoxDrag && !this.marqueeState) return;
+    if (!this.dragSession && !this.pendingDrag && !this.pendingJumpPress && !this.jumpLinkCreate && !this.panState && !this.loomHeadDrag && !this.routePointDrag && !this.wireSegmentDrag && !this.wireCreate && !this.resizeSession && !this.commentBoxDrag && !this.marqueeState) return;
     this.cancelActiveInteraction("lost-pointer-capture");
     this.scheduleRender();
   }
@@ -4273,6 +4343,10 @@ class ProductionEngineBridge {
   }
 
   cancelActiveInteraction(reason = "cancelled", { updateHud = true } = {}) {
+    if (this.loomHeadDrag) {
+      this.applyLoomState(this.loomHeadDrag.before);
+      this.loomHeadDrag = null;
+    }
     this.stopWirePlayback(`interaction ${reason}`, { render: false });
     this.cancelCanvasObjectResize(reason);
     this.cancelWireSegmentDrag(reason);
@@ -4507,6 +4581,7 @@ class ProductionEngineBridge {
       || this.scene.selectedConnectorKeys.size
       || this.scene.selectedRoutePointKeys.size
       || this.scene.selectedJumpLinkId
+      || this.scene.selectedLoomId
     );
   }
 
@@ -4540,10 +4615,13 @@ class ProductionEngineBridge {
         connectorId: connectorHit.connector.connector.id
       };
     }
+    const loomHit = hitTestLoom(this.scene, world, tolerance);
+    if (loomHit && loomHit.part !== "trunk") return { type: "loom", loomId: loomHit.loomId, ...loomHit,
+      clickedWorld: { ...world } };
     const wireHit = hitTestWire(this.scene, world, tolerance);
     if (wireHit.wire) {
       const wire = wireHit.wire.wire;
-      const renderedPoints = this.scene.wireRenderPolyline(wire);
+      const renderedPoints = wireHit.wire.breakout?.points || this.scene.wireRenderPolyline(wire);
       const segment = renderedPoints.slice(wireHit.wire.segmentIndex, wireHit.wire.segmentIndex + 2);
       return {
         type: "wire",
@@ -4554,9 +4632,12 @@ class ProductionEngineBridge {
         segmentIndex: wireHit.wire.segmentIndex,
         segmentOrientation: wire.routeStyle === "orthogonal"
           ? segmentOrientationLabel(segment[0], segment[1])
-          : "curve"
+          : "curve",
+        loomedBreakout: Boolean(wireHit.wire.breakout)
       };
     }
+    if (loomHit) return { type: "loom", loomId: loomHit.loomId, ...loomHit,
+      clickedWorld: { ...world } };
     const foregroundObjectHit = this.hitTestPreciseCanvasObject(world, tolerance, {
       kinds: ["comment", "title-block", "image-object", "led-surface"]
     });
@@ -5259,7 +5340,8 @@ class ProductionEngineBridge {
     const selectedRoutePoints = this.scene.selectedRoutePointKeys.size;
     const selectedConnectors = this.scene.selectedConnectorKeys.size;
     const selectedJumpLinks = this.scene.selectedJumpLinkId ? 1 : 0;
-    const selectedTotal = selectedDevices + selectedRacks + selectedWires + selectedRoutePoints + selectedConnectors + selectedJumpLinks;
+    const selectedLooms = this.scene.selectedLoomId ? 1 : 0;
+    const selectedTotal = selectedDevices + selectedRacks + selectedWires + selectedRoutePoints + selectedConnectors + selectedJumpLinks + selectedLooms;
     this.hud.setSceneStats({ selected: selectedTotal });
     this.hud.setMetric("selected racks", selectedRacks);
     this.hud.setMetric("selected devices", selectedDevices);
@@ -5291,6 +5373,7 @@ class ProductionEngineBridge {
       rackIds: [...this.scene.selectedRackIds],
       wireIds: [...this.scene.selectedWireIds],
       jumpLinkId: this.scene.selectedJumpLinkId || "",
+      loomId: this.scene.selectedLoomId || "",
       wires: selectedWireObjects,
       connectorKeys: [...this.scene.selectedConnectorKeys],
       routePointKeys: [...this.scene.selectedRoutePointKeys],
@@ -6905,8 +6988,183 @@ class ProductionEngineBridge {
     this.api.onEngineHistoryChange?.(this.engineHistoryState(reason));
   }
 
+  captureLoomState() {
+    const root = this.mutations?.root;
+    return {
+      looms: structuredClone(root?.looms || []),
+      loomNumberCounter: Number(root?.loomNumberCounter) || 0,
+      memberships: (root?.connections || []).map(wire => ({ id: String(wire.id), loomId: wire.loomId || "",
+        loom: wire.loom || "" }))
+    };
+  }
+
+  applyLoomState(snapshot) {
+    const start = performance.now();
+    const root = this.mutations.root;
+    root.looms.splice(0, root.looms.length, ...structuredClone(snapshot.looms));
+    root.loomNumberCounter = Math.max(Number(root.loomNumberCounter) || 0,
+      Number(snapshot.loomNumberCounter) || 0);
+    this.api.onEngineLoomCounterChange?.(root.loomNumberCounter);
+    const membershipById = new Map(snapshot.memberships.map(item => [item.id, item]));
+    for (const wire of root.connections) {
+      const membership = membershipById.get(String(wire.id));
+      if (membership?.loomId) wire.loomId = membership.loomId;
+      else delete wire.loomId;
+      if (membership?.loom) wire.loom = membership.loom;
+      else delete wire.loom;
+    }
+    for (const wire of this.scene.wires) {
+      const membership = membershipById.get(String(wire.sourceId || wire.id));
+      wire.loomId = membership?.loomId || "";
+      wire.loom = membership?.loom || "";
+    }
+    this.scene.rebuildLoomGeometry();
+    this.scene.rebuildWireSpatialIndex();
+    this.scene.rebuildRoutePointIndex();
+    this.renderer.rebuildWireGeometry(this.scene);
+    this.mutations.record("loom", performance.now() - start, "looms", { count: root.looms.length });
+    this.scheduleRender();
+    return { mutationMs: performance.now() - start };
+  }
+
+  commitLoomEdit(type, edit) {
+    if (!this.ready || !this.mutations?.root) return false;
+    const before = this.captureLoomState();
+    const draft = { ...this.mutations.root, looms: structuredClone(before.looms),
+      loomNumberCounter: before.loomNumberCounter,
+      connections: this.mutations.root.connections.map(wire => ({ ...wire })) };
+    const accepted = edit(draft);
+    if (!accepted) return false;
+    const after = {
+      looms: draft.looms, loomNumberCounter: draft.loomNumberCounter,
+      memberships: draft.connections.map(wire => ({ id: String(wire.id), loomId: wire.loomId || "",
+        loom: wire.loom || "" }))
+    };
+    if (JSON.stringify(before) === JSON.stringify(after)) return false;
+    this.beginProductionCommit(type);
+    const result = this.applyLoomState(after);
+    this.markCommitted(type, result.mutationMs);
+    this.recordCommand({ type, undo: bridge => bridge.applyLoomState(before),
+      redo: bridge => bridge.applyLoomState(after) });
+    return true;
+  }
+
+  createLoomFromWires(wireIds = [...this.scene.selectedWireIds]) {
+    const selected = [...wireIds].map(String);
+    let createdId = "";
+    const committed = this.commitLoomEdit("create loom", draft => {
+      const groups = selectedLoomCableGroups(draft, selected);
+      if (groups.length < 2 || groups.some(group => group.wires.some(wire => wire.loomId))) return false;
+      const heads = initialLoomHeads(groups.map(group => externalCableEndpoints(group, this.scene)).filter(Boolean));
+      if (!heads) return false;
+      const identity = allocateLoomIdentity(draft);
+      createdId = identity.id;
+      draft.looms.push({ ...identity, kind: "loom", ...heads,
+        routeStyle: "orthogonal", routePoints: [], trunkLength: "", notes: "" });
+      setLogicalCableLoom(groups, identity.id);
+      return true;
+    });
+    if (committed && createdId) {
+      this.scene.selectLoomOnly(createdId);
+      this.updateSelectionHud();
+      this.scheduleRender();
+    }
+    return committed;
+  }
+
+  selectedLogicalCableCount(wireIds = [...this.scene.selectedWireIds]) {
+    return selectedLoomCableGroups(this.mutations.root, [...wireIds].map(String)).length;
+  }
+
+  selectLoomById(loomId) {
+    if (!this.scene.looms.some(loom => loom.id === loomId)) return false;
+    this.scene.selectLoomOnly(loomId);
+    this.updateSelectionHud();
+    this.scheduleRender();
+    return true;
+  }
+
+  toggleLoomExpanded(loomId) {
+    if (!this.scene.looms.some(loom => loom.id === loomId)) return false;
+    if (this.scene.expandedLoomIds.has(loomId)) this.scene.expandedLoomIds.delete(loomId);
+    else this.scene.expandedLoomIds.add(loomId);
+    this.renderer.rebuildWireGeometry(this.scene);
+    this.scheduleRender();
+    return true;
+  }
+
+  addWiresToLoom(loomId, wireIds = [...this.scene.selectedWireIds]) {
+    return this.commitLoomEdit("add loom members", draft => {
+      if (!draft.looms.some(loom => loom.id === loomId)) return false;
+      const groups = selectedLoomCableGroups(draft, [...wireIds].map(String));
+      if (!groups.length || groups.some(group => group.wires.some(wire => wire.loomId && wire.loomId !== loomId))) return false;
+      setLogicalCableLoom(groups, loomId);
+      return true;
+    });
+  }
+
+  removeWiresFromLoom(wireIds = [...this.scene.selectedWireIds]) {
+    return this.commitLoomEdit("remove loom members", draft => {
+      const groups = selectedLoomCableGroups(draft, [...wireIds].map(String))
+        .filter(group => group.wires.some(wire => wire.loomId));
+      if (!groups.length) return false;
+      setLogicalCableLoom(groups, "");
+      return true;
+    });
+  }
+
+  dissolveManagedLoom(loomId) {
+    return this.commitLoomEdit("dissolve loom", draft => dissolveLoom(draft, loomId));
+  }
+
+  updateManagedLoom(loomId, fields) {
+    return this.commitLoomEdit("edit loom", draft => {
+      const loom = draft.looms.find(item => item.id === loomId);
+      if (!loom) return false;
+      if (fields.name !== undefined && !renameLoom(draft, loomId, fields.name)) return false;
+      for (const key of ["trunkLength", "notes", "routeStyle"]) {
+        if (fields[key] !== undefined) loom[key] = String(fields[key]);
+      }
+      for (const side of ["sideA", "sideB"]) {
+        if (fields[side]) loom[side] = { ...loom[side], ...fields[side] };
+      }
+      if (fields.routePoints) loom.routePoints = structuredClone(fields.routePoints);
+      return true;
+    });
+  }
+
+  addLoomRoutePoint(loomId, point) {
+    if (![point?.x, point?.y].every(Number.isFinite)) return false;
+    return this.commitLoomEdit("add loom corner", draft => {
+      const loom = draft.looms.find(item => item.id === loomId);
+      if (!loom) return false;
+      loom.routePoints ||= [];
+      loom.routePoints.push({ x: point.x, y: point.y });
+      return true;
+    });
+  }
+
+  removeLoomRoutePoint(loomId, pointIndex) {
+    return this.commitLoomEdit("remove loom corner", draft => {
+      const loom = draft.looms.find(item => item.id === loomId);
+      if (!loom?.routePoints?.[pointIndex]) return false;
+      loom.routePoints.splice(pointIndex, 1);
+      return true;
+    });
+  }
+
   renderEngineInspector() {
     if (!this.inspectorPanel) return;
+    if (this.scene.selectedLoomId) {
+      const loom = this.scene.looms.find(item => item.id === this.scene.selectedLoomId);
+      const plan = this.scene.loomPlans.find(item => item.loomId === this.scene.selectedLoomId);
+      this.inspectorPanel.innerHTML = `<h3>Engine Inspector</h3>${detailsMarkup([
+        ["Loom", loom?.name || this.scene.selectedLoomId],
+        ["Circuits", plan?.circuitCount || 0],
+        ["Sides", `${loom?.sideA?.label || "Side A"} / ${loom?.sideB?.label || "Side B"}`]
+      ])}`;
+      return;
+    }
     const selectedRacks = [...this.scene.selectedRackIds].map(id => this.scene.getRack(id)).filter(Boolean);
     const selectedDevices = [...this.scene.selectedIds].map(id => this.scene.getDevice(id)).filter(Boolean);
     const selectedWires = [...this.scene.selectedWireIds].map(id => this.scene.getWire(id)).filter(Boolean);
@@ -8910,6 +9168,7 @@ function normalizeProductionProject(projectData, reason) {
     "areas",
     "comments",
     "titleBlocks",
+    "looms",
     "racks"
   ].some(key => Array.isArray(root[key]) && root[key].length);
   if (!hasObjects) {

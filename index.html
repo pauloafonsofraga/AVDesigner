@@ -1036,6 +1036,16 @@
       padding: 14px 16px 20px;
     }
 
+    .loom-member-list { max-height: 420px; overflow-y: auto; margin: 8px 0 12px; }
+    .loom-member-list h4 { margin: 12px 0 5px; font-size: 11px; text-transform: uppercase; }
+    .loom-member-row { display: grid; grid-template-columns: minmax(0, 1fr) 32px; gap: 4px; margin-bottom: 4px; }
+    .loom-member-row .tool-button { min-width: 0; height: auto; min-height: 32px; padding: 5px 7px; }
+    .loom-member-row [data-loom-wire] { display: block; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+    .loom-member-row [data-loom-wire] strong,
+    .loom-member-row [data-loom-wire] span,
+    .loom-member-row [data-loom-wire] small { display: block; }
+    .loom-member-row [data-loom-wire] small { opacity: .72; }
+
     .field {
       margin-bottom: 13px;
     }
@@ -5159,7 +5169,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled WireNexus Project" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">Iteration 54.38.46 — Native PNG Drop Guard — iteration54-38-46-native-png-drop-guard</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">Iteration 54.38.47 — Managed Cable Looms — iteration54-38-47-managed-cable-looms</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5862,12 +5872,12 @@
   <script src="./src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script src="./src/engine/projectorModelCore.js?v=iteration54-38-11-engine-status-labels"></script>
   <script src="./src/engine/historyCloneCore.js?v=iteration54-38-29-memory-safe-undo"></script>
-  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-46-native-png-drop-guard"></script>
+  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-47-managed-cable-looms"></script>
   <script type="text/wirenexus-app" id="wireNexusAppSource">
-    const APP_ITERATION = "54.38.46";
-    const APP_BUILD_ID = "iteration54-38-46-native-png-drop-guard";
-    const APP_MODULE_CACHE_ID = "iteration54-38-46-native-png-drop-guard-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Native PNG Drop Guard`;
+    const APP_ITERATION = "54.38.47";
+    const APP_BUILD_ID = "iteration54-38-47-managed-cable-looms";
+    const APP_MODULE_CACHE_ID = "iteration54-38-47-managed-cable-looms-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Managed Cable Looms`;
     const { cloneHistoryValue, MAX_HISTORY_ENTRIES } = window.WireNexusHistoryClone;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
@@ -6503,6 +6513,8 @@
       titleBlocks: [],
       imageObjects: [],
       connections: [],
+      looms: [],
+      loomNumberCounter: 0,
       cableNumberCounters: {},
       selected: null,
       darkMode: true,
@@ -9436,6 +9448,8 @@
         })),
         titleBlocks: state.titleBlocks,
         connections: connectionsForProjectSnapshot(),
+        looms: state.looms,
+        loomNumberCounter: state.loomNumberCounter,
         cableNumberCounters: state.cableNumberCounters,
         darkMode: state.darkMode,
         gridVisible: state.gridVisible,
@@ -9463,6 +9477,8 @@
       state.comments = cloneHistoryValue(snapshot.comments || []);
       state.titleBlocks = cloneHistoryValue(snapshot.titleBlocks || []);
       state.connections = cloneHistoryValue(snapshot.connections || []);
+      state.looms = cloneHistoryValue(snapshot.looms || []);
+      state.loomNumberCounter = Number(snapshot.loomNumberCounter) || 0;
       state.cableNumberCounters = cloneHistoryValue(snapshot.cableNumberCounters || {});
       state.devices.forEach(normalizeInstanceRelationshipMetadata);
       state.selected = null;
@@ -27177,8 +27193,12 @@
         };
         const engineBridge = window.avDesignerEngineBridge;
         const useEngineRouteActions = Boolean(engineBridge?.createWireRoutePoint);
+        const targetLoomId = event.target.closest("[data-loom-id]")?.dataset.loomId || "";
         event.stopPropagation();
         hideDeviceContextMenu();
+        if (wireAction === "create-loom") { engineBridge?.createLoomFromWires?.(wireIds); return; }
+        if (wireAction === "add-loom") { engineBridge?.addWiresToLoom?.(targetLoomId, wireIds); return; }
+        if (wireAction === "remove-loom") { engineBridge?.removeWiresFromLoom?.(wireIds); return; }
         if (wireAction === "signal-chain") { openSignalChainForWire(wireId); return; }
         if (wireAction === "corner" && Number.isFinite(point.x) && Number.isFinite(point.y)) {
           if (useEngineRouteActions) engineBridge.createWireRoutePoint(wireId, engineRouteContext);
@@ -27193,6 +27213,32 @@
           else resetWireRoutes(wireIds);
         }
         if (wireAction === "select-same") selectWiresOfSameType(wireId);
+        return;
+      }
+      const loomAction = event.target.closest("[data-loom-menu]")?.dataset.loomMenu;
+      const loomId = deviceContextMenu.dataset.loomId;
+      if (loomAction && loomId) {
+        const loomX = Number(deviceContextMenu.dataset.loomX);
+        const loomY = Number(deviceContextMenu.dataset.loomY);
+        const loomPointIndex = Number(deviceContextMenu.dataset.loomPointIndex);
+        event.stopPropagation();
+        hideDeviceContextMenu();
+        const bridge = activeEngineBridge();
+        if (loomAction === "select-members") {
+          const ids = state.connections.filter(wire => wire.loomId === loomId).map(wire => wire.id);
+          bridge?.selectWiresBySourceIds?.(ids);
+        }
+        if (loomAction === "toggle-expanded") bridge?.toggleLoomExpanded?.(loomId);
+        if (loomAction === "reset-route") bridge?.updateManagedLoom?.(loomId, { routePoints: [] });
+        if (loomAction === "add-corner") bridge?.addLoomRoutePoint?.(loomId, { x: loomX, y: loomY });
+        if (loomAction === "delete-corner") bridge?.removeLoomRoutePoint?.(loomId, loomPointIndex);
+        if (loomAction === "dissolve" && confirm("Dissolve this Loom? Member cables and their original routes will remain.")) {
+          bridge?.dissolveManagedLoom?.(loomId);
+        }
+        if (loomAction === "edit") {
+          state.selected = { type: "loom", id: loomId };
+          renderInspector();
+        }
         return;
       }
       const connectorAction = event.target.closest("[data-connector-menu]")?.dataset.connectorMenu;
@@ -27706,11 +27752,18 @@
       if (!connection) return;
       const ids = wireContextSelectionIds(connectionId);
       const hasRoutes = ids.some(id => normalizedWireRoutePoints(state.connections.find(item => item.id === id)).length);
+      const bridge = activeEngineBridge();
+      const logicalCount = bridge?.selectedLogicalCableCount?.(ids) || 0;
+      const memberLoomId = connection.loomId || "";
+      const unassigned = ids.every(id => !state.connections.find(wire => wire.id === id)?.loomId);
       deviceContextMenu.innerHTML = `
         ${activeEngineBridge() ? '<button type="button" data-wire-menu="signal-chain">Signal Chain</button>' : ""}
-        <button type="button" data-wire-menu="corner">Create Corner</button>
+        ${memberLoomId ? `<button type="button" data-wire-menu="remove-loom">Remove from Loom</button>` : ""}
+        ${unassigned && logicalCount >= 2 ? '<button type="button" data-wire-menu="create-loom">Create Loom from Selected Cables</button>' : ""}
+        ${unassigned ? (state.looms || []).map(loom => `<button type="button" data-wire-menu="add-loom" data-loom-id="${escapeAttr(loom.id)}">Add to ${escapeHtml(loom.name)}</button>`).join("") : ""}
+        ${memberLoomId ? "" : '<button type="button" data-wire-menu="corner">Create Corner</button>'}
         <button type="button" data-wire-menu="select-same">Select all cables from the same type</button>
-        <button type="button" ${hasRoutes ? "" : "disabled"} data-wire-menu="reset">Reset Wire Route${ids.length > 1 ? "s" : ""}</button>
+        ${memberLoomId ? "" : `<button type="button" ${hasRoutes ? "" : "disabled"} data-wire-menu="reset">Reset Wire Route${ids.length > 1 ? "s" : ""}</button>`}
       `;
       const point = engineRouteContext?.nearestPoint || getCanvasPoint(event);
       deviceContextMenu.style.left = `${event.clientX}px`;
@@ -27736,6 +27789,26 @@
       delete deviceContextMenu.dataset.templateId;
       delete deviceContextMenu.dataset.rackId;
       delete deviceContextMenu.dataset.cornerIndex;
+      deviceContextMenu.classList.remove("hidden");
+    }
+
+    function showLoomContextMenu(event, loomId, context = {}) {
+      const loom = (state.looms || []).find(item => item.id === loomId);
+      if (!loom) return;
+      deviceContextMenu.innerHTML = `
+        <button type="button" data-loom-menu="toggle-expanded">${activeEngineBridge()?.scene?.expandedLoomIds?.has(loomId) ? "Collapse Loom" : "Expand Loom"}</button>
+        <button type="button" data-loom-menu="edit">Edit Loom</button>
+        <button type="button" data-loom-menu="select-members">Select All Circuits</button>
+        ${context.part === "route-point" ? '<button type="button" data-loom-menu="delete-corner">Delete Corner</button>'
+          : '<button type="button" data-loom-menu="add-corner">Create Corner</button>'}
+        <button type="button" data-loom-menu="reset-route" ${loom.routePoints?.length ? "" : "disabled"}>Reset Loom Route</button>
+        <button type="button" class="danger" data-loom-menu="dissolve">Dissolve Loom</button>`;
+      deviceContextMenu.style.left = `${event.clientX}px`;
+      deviceContextMenu.style.top = `${event.clientY}px`;
+      deviceContextMenu.dataset.loomId = loomId;
+      deviceContextMenu.dataset.loomX = String(context.clickedWorld?.x);
+      deviceContextMenu.dataset.loomY = String(context.clickedWorld?.y);
+      deviceContextMenu.dataset.loomPointIndex = String(context.pointIndex ?? "");
       deviceContextMenu.classList.remove("hidden");
     }
 
@@ -27797,6 +27870,10 @@
       delete deviceContextMenu.dataset.wireSegmentIndex;
       delete deviceContextMenu.dataset.wireSegmentOrientation;
       delete deviceContextMenu.dataset.engineWireId;
+      delete deviceContextMenu.dataset.loomId;
+      delete deviceContextMenu.dataset.loomX;
+      delete deviceContextMenu.dataset.loomY;
+      delete deviceContextMenu.dataset.loomPointIndex;
       delete deviceContextMenu.dataset.cornerIndex;
       delete deviceContextMenu.dataset.rackId;
       delete deviceContextMenu.dataset.rackBuilderRackId;
@@ -28529,9 +28606,75 @@
       if (selection.type === "area") renderAreaInspector(selection.id);
       if (selection.type === "title-block") renderTitleBlockInspector(selection.id);
       if (selection.type === "jump-link") renderJumpLinkInspector(selection.id);
+      if (selection.type === "loom") renderLoomInspector(selection.id);
       if (selection.type === "jump-node") renderJumpNodeInspector(selection.id);
       if (selection.type === "connector") renderConnectorInspector(selection.deviceId, selection.connectorId);
       if (selection.type === "wire") renderWireInspector(selection.id);
+    }
+
+    function renderLoomInspector(loomId) {
+      const loom = (state.looms || []).find(item => item.id === loomId);
+      if (!loom) return;
+      const wireIds = state.connections.filter(wire => wire.loomId === loomId).map(wire => wire.id);
+      inspectorBody.innerHTML = `
+        <h3>${escapeHtml(loom.name)}</h3>
+        <div class="field"><label for="loomName">Name</label><input id="loomName" value="${escapeAttr(loom.name)}"></div>
+        <div class="field"><label for="loomSideA">Side A</label><input id="loomSideA" value="${escapeAttr(loom.sideA?.label || "")}"></div>
+        <div class="field"><label for="loomSideB">Side B</label><input id="loomSideB" value="${escapeAttr(loom.sideB?.label || "")}"></div>
+        <div class="field"><label for="loomTrunkLength">Trunk Length</label><input id="loomTrunkLength" value="${escapeAttr(loom.trunkLength || "")}"></div>
+        <div class="field"><label for="loomNotes">Notes</label><textarea id="loomNotes">${escapeHtml(loom.notes || "")}</textarea></div>
+        <div class="field"><label for="loomRouteStyle">Route</label><select id="loomRouteStyle">
+          <option value="orthogonal" ${loom.routeStyle !== "bezier" ? "selected" : ""}>Orthogonal</option>
+          <option value="bezier" ${loom.routeStyle === "bezier" ? "selected" : ""}>Bezier</option>
+        </select></div>
+        <div id="loomComposition">${wireIds.length ? "Loading circuits..." : "0 circuits"}</div>
+        <button class="tool-button" id="loomSelectCircuits" ${wireIds.length ? "" : "disabled"}>Select All Circuits</button>
+        <button class="tool-button" id="loomResetRoute" ${loom.routePoints?.length ? "" : "disabled"}>Reset Loom Route</button>
+        <button class="danger-button" id="loomDissolve">Dissolve Loom</button>`;
+      const bridge = activeEngineBridge();
+      for (const [id, patch] of [
+        ["loomName", value => ({ name: value })],
+        ["loomSideA", value => ({ sideA: { label: value } })],
+        ["loomSideB", value => ({ sideB: { label: value } })],
+        ["loomTrunkLength", value => ({ trunkLength: value })]
+      ]) bindDeferredCanvasTextCommit(document.getElementById(id), () => {}, value => {
+        if (!bridge?.updateManagedLoom?.(loomId, patch(value))) setStatus("Loom name must be unique and non-empty.");
+      });
+      bindDeferredCanvasTextareaCommit(document.getElementById("loomNotes"), () => {}, value => {
+        bridge?.updateManagedLoom?.(loomId, { notes: value });
+      });
+      document.getElementById("loomRouteStyle")?.addEventListener("change", event => {
+        bridge?.updateManagedLoom?.(loomId, { routeStyle: event.target.value, routePoints: [] });
+      });
+      document.getElementById("loomSelectCircuits")?.addEventListener("click", () => bridge?.selectWiresBySourceIds?.(wireIds));
+      document.getElementById("loomResetRoute")?.addEventListener("click", () => bridge?.updateManagedLoom?.(loomId, { routePoints: [] }));
+      document.getElementById("loomDissolve")?.addEventListener("click", () => {
+        if (confirm(`Dissolve ${loom.name}? Member cables and their routes remain.`)) bridge?.dissolveManagedLoom?.(loomId);
+      });
+      loadCableScheduleModule().then(module => {
+        if (state.selected?.type !== "loom" || state.selected.id !== loomId) return;
+        const host = document.getElementById("loomComposition");
+        if (!host) return;
+        const rows = signalChainRows(module).filter(row => row.loomId === loomId);
+        const families = new Map();
+        rows.forEach(row => {
+          const list = families.get(row.signal) || [];
+          list.push(row);
+          families.set(row.signal, list);
+        });
+        host.innerHTML = `<p>${rows.length} circuit${rows.length === 1 ? "" : "s"}</p><div class="loom-member-list">`
+          + [...families].map(([family, members]) => `<h4>${escapeHtml(family)} · ${members.length}</h4>`
+            + members.map(row => `<div class="loom-member-row"><button class="tool-button" type="button" data-loom-wire="${escapeAttr(row.wireIds[0])}">
+              <strong>${escapeHtml(row.cableNumber)}</strong><span>${escapeHtml(row.sourceDevice)} / ${escapeHtml(row.sourcePort)} → ${escapeHtml(row.destinationDevice)} / ${escapeHtml(row.destinationPort)}</span>
+              <small>${escapeHtml(row.cable)}</small></button><button class="tool-button" type="button" data-loom-remove="${escapeAttr(row.wireIds[0])}" aria-label="Remove ${escapeAttr(row.cableNumber)} from Loom">×</button></div>`).join(""))
+            .join("") + "</div>";
+        host.querySelectorAll("[data-loom-wire]").forEach(button => button.addEventListener("click", () => {
+          bridge?.selectWiresBySourceIds?.([button.dataset.loomWire]);
+        }));
+        host.querySelectorAll("[data-loom-remove]").forEach(button => button.addEventListener("click", () => {
+          bridge?.removeWiresFromLoom?.([button.dataset.loomRemove]);
+        }));
+      }).catch(error => setStatus(`Loom circuits could not be loaded: ${error.message}`));
     }
 
     function deviceBrandLabel(template) {
@@ -30041,8 +30184,9 @@
         </div>
         <div class="field">
           <label for="wireLoom">Loom</label>
-          <input id="wireLoom" value="${escapeAttr(connection.loom || "")}">
+          <select id="wireLoom"><option value="">None</option>${(state.looms || []).map(loom => `<option value="${escapeAttr(loom.id)}" ${loom.id === connection.loomId ? "selected" : ""}>${escapeHtml(loom.name)}</option>`).join("")}</select>
         </div>
+        ${connection.loomId ? '<button class="tool-button" id="wireOpenLoom" type="button">Open Loom</button>' : ""}
         ${jumpLeg ? "" : `<div class="field">
           <label class="checkbox-row"><input id="wireHideLabel" type="checkbox" ${connection.hideLabel ? "checked" : ""}> Hide Wire Label</label>
         </div>`}
@@ -30051,7 +30195,7 @@
           <textarea id="wireNotes">${escapeHtml(connection.notes || "")}</textarea>
         </div>
         ${isFiberCableType(connection.cableType) ? fiberModeSelectHtml("wireFiberMode", connection.fiberMode, fiberModeOptionsForConnection(connection)) : ""}
-        <button class="tool-button" id="resetWireRoute" type="button" ${normalizedWireRoutePoints(connection).length ? "" : "disabled"}>Reset Wire Route</button>
+        <button class="tool-button" id="resetWireRoute" type="button" ${!connection.loomId && normalizedWireRoutePoints(connection).length ? "" : "disabled"}>Reset Wire Route</button>
         <button class="danger-button" id="deleteSelected" type="button">Delete Wire</button>
       `;
       document.getElementById("wireSignalChain")?.addEventListener("click", () => openSignalChainForWire(connectionId));
@@ -30093,20 +30237,21 @@
           renderCanvasOnly();
         }
       );
-      bindDeferredCanvasTextCommit(
-        document.getElementById("wireLoom"),
-        value => {
-          const engineBridge = activeEngineBridge();
-          if (engineBridge?.previewWireInspectorFields?.(connectionId, { loom: value })) return;
-          connection.loom = value;
-        },
-        value => {
-          const engineBridge = activeEngineBridge();
-          if (engineBridge?.commitWireInspectorFields?.(connectionId, { loom: value })) return;
-          connection.loom = value;
-          requestCableScheduleRefresh();
+      document.getElementById("wireLoom")?.addEventListener("change", event => {
+        const targetId = event.target.value;
+        const engineBridge = activeEngineBridge();
+        if (!engineBridge) return;
+        if (connection.loomId && targetId && targetId !== connection.loomId) {
+          setStatus("Remove this cable from its current Loom before assigning another.");
+          event.target.value = connection.loomId;
+          return;
         }
-      );
+        if (targetId) engineBridge.addWiresToLoom(targetId, [connectionId]);
+        else engineBridge.removeWiresFromLoom([connectionId]);
+      });
+      document.getElementById("wireOpenLoom")?.addEventListener("click", () => {
+        bridge?.selectLoomById?.(connection.loomId);
+      });
       document.getElementById("wireHideLabel")?.addEventListener("change", event => {
         const nextHidden = event.target.checked;
         const engineBridge = activeEngineBridge();
@@ -30149,11 +30294,14 @@
       if (!wires.length) return;
       const sameLength = wires.every(connection => (connection.length || "") === (wires[0].length || ""));
       const sameNotes = wires.every(connection => (connection.notes || "") === (wires[0].notes || ""));
-      const sameLoom = wires.every(connection => (connection.loom || "") === (wires[0].loom || ""));
+      const sameLoom = wires.every(connection => (connection.loomId || "") === (wires[0].loomId || ""));
+      const allUnassigned = wires.every(connection => !connection.loomId);
+      const bridge = activeEngineBridge();
+      const logicalCount = bridge?.selectedLogicalCableCount?.(wires.map(wire => wire.id)) || wires.length;
       inspectorBody.innerHTML = `
         <dl class="details">
           <dt>Type</dt><dd>Multiple Wires</dd>
-          <dt>Selected</dt><dd>${wires.length}</dd>
+          <dt>Selected</dt><dd>${logicalCount} logical cable${logicalCount === 1 ? "" : "s"}</dd>
         </dl>
         <div class="field">
           <label for="multiWireLength">Length</label>
@@ -30165,9 +30313,11 @@
         </div>
         <div class="field">
           <label for="multiWireLoom">Loom</label>
-          <input id="multiWireLoom" value="${escapeAttr(sameLoom ? wires[0].loom || "" : "")}" placeholder="${sameLoom ? "" : "Multiple values"}">
+          <select id="multiWireLoom"><option value="">${sameLoom ? "None" : "Multiple"}</option>${(state.looms || []).map(loom => `<option value="${escapeAttr(loom.id)}" ${sameLoom && wires[0].loomId === loom.id ? "selected" : ""}>${escapeHtml(loom.name)}</option>`).join("")}</select>
         </div>
-        <button class="tool-button" id="resetMultiWireRoutes" type="button" ${wires.some(connection => normalizedWireRoutePoints(connection).length) ? "" : "disabled"}>Reset Wire Routes</button>
+        <button class="tool-button" id="createSelectedLoom" type="button" ${allUnassigned && logicalCount >= 2 ? "" : "disabled"}>Create Loom</button>
+        <button class="tool-button" id="removeSelectedLoom" type="button" ${allUnassigned ? "disabled" : ""}>Remove from Loom</button>
+        <button class="tool-button" id="resetMultiWireRoutes" type="button" ${wires.some(connection => !connection.loomId && normalizedWireRoutePoints(connection).length) ? "" : "disabled"}>Reset Wire Routes</button>
       `;
       bindDeferredCanvasTextCommit(
         document.getElementById("multiWireLength"),
@@ -30205,20 +30355,15 @@
           });
         }
       );
-      bindDeferredCanvasTextCommit(
-        document.getElementById("multiWireLoom"),
-        value => {
-          const engineBridge = activeEngineBridge();
-          if (engineBridge?.previewMultiWireInspectorFields?.(wires.map(connection => connection.id), { loom: value })) return;
-          wires.forEach(connection => { connection.loom = value; });
-        },
-        value => {
-          const engineBridge = activeEngineBridge();
-          if (engineBridge?.commitMultiWireInspectorFields?.(wires.map(connection => connection.id), { loom: value })) return;
-          wires.forEach(connection => { connection.loom = value; });
-          requestCableScheduleRefresh();
-        }
-      );
+      document.getElementById("multiWireLoom")?.addEventListener("change", event => {
+        const ids = wires.map(wire => wire.id);
+        if (event.target.value) {
+          if (!allUnassigned) { setStatus("Remove selected cables from their current Looms first."); return; }
+          bridge?.addWiresToLoom?.(event.target.value, ids);
+        } else bridge?.removeWiresFromLoom?.(ids);
+      });
+      document.getElementById("createSelectedLoom")?.addEventListener("click", () => bridge?.createLoomFromWires?.(wires.map(wire => wire.id)));
+      document.getElementById("removeSelectedLoom")?.addEventListener("click", () => bridge?.removeWiresFromLoom?.(wires.map(wire => wire.id)));
       document.getElementById("resetMultiWireRoutes").addEventListener("click", () => resetWireRoutes(connectionIds));
     }
 
@@ -30232,7 +30377,7 @@
     let cableScheduleRefreshVersion = 0;
     let cableScheduleIllustratedRows = [];
     let cableScheduleGraphicsRenderer = null;
-    const cableScheduleFilters = { sourceDevice: "", destinationDevice: "", cable: "" };
+    const cableScheduleFilters = { sourceDevice: "", destinationDevice: "", cable: "", loom: "" };
     const cableScheduleGraphicCache = new Map();
     const cableScheduleArtworkCache = new Map();
 
@@ -30296,6 +30441,9 @@
       if (!colors.length) colors.push(signalChainColor(chain.cableColor));
       const line = colors.map(color => `<span style="--segment-color:${color}"></span>`).join("");
       const metadata = [chain.cable, chain.length].filter(Boolean).join(" · ");
+      const loom = (state.looms || []).find(item => item.id === chain.loomId);
+      const loomLabel = loom ? [loom.name, [loom.sideA?.label, loom.sideB?.label].filter(Boolean).join(" ↔ ")]
+        .filter(Boolean).join(" · ") : chain.loom;
       return `<div class="signal-chain-graph" data-signal-chain-wire-ids="${escapeAttr(chain.wireIds.join(","))}">
         ${signalChainDeviceMarkup(chain.from)}
         ${signalChainNodeMarkup(chain.from, "from")}
@@ -30303,7 +30451,8 @@
           <div class="signal-chain-line" aria-hidden="true">${line}</div>
           <div class="signal-chain-sub">${escapeHtml(metadata)}</div>
           <div class="signal-chain-flow">${chain.flow === "forward" ? "Output → Input" : "Bidirectional / unspecified"}</div>
-          ${chain.loom ? `<div class="signal-chain-sub">Loom: ${escapeHtml(chain.loom)}</div>` : ""}
+          ${loom ? `<button class="tool-button" type="button" data-signal-chain-loom="${escapeAttr(loom.id)}">${escapeHtml(loomLabel)}</button>`
+            : chain.loom ? `<div class="signal-chain-sub">Loom: ${escapeHtml(chain.loom)}</div>` : ""}
         </div>
         ${signalChainNodeMarkup(chain.to, "to")}
         ${signalChainDeviceMarkup(chain.to)}
@@ -30377,6 +30526,12 @@
       signalChainRefreshVersion++;
     });
     signalChainBody.addEventListener("click", event => {
+      const loomId = event.target.closest("[data-signal-chain-loom]")?.dataset.signalChainLoom;
+      if (loomId) {
+        signalChainDialog.close();
+        activeEngineBridge()?.selectLoomById?.(loomId);
+        return;
+      }
       const wireId = event.target.closest("[data-signal-chain-choice]")?.dataset.signalChainChoice;
       if (wireId) openSignalChainForWire(wireId);
     });
@@ -30522,7 +30677,7 @@
         }
         const writer = await loadCableScheduleXlsxBundle();
         const data = await writer.createCableScheduleXlsx(cableScheduleRows, {
-          nodeDefinitions: serializeNodeLibrary(), loadArtwork: imagePathToDataUrl
+          nodeDefinitions: serializeNodeLibrary(), loadArtwork: imagePathToDataUrl, looms: state.looms
         });
         downloadBlob(data, filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       } catch (error) { alert(`Cable Schedule could not be downloaded: ${error.message}`); }
@@ -30574,6 +30729,8 @@
         comments: state.comments,
         titleBlocks: state.titleBlocks,
         connections: forEngine ? state.connections : connectionsForProjectSnapshot(),
+        looms: state.looms || [],
+        loomNumberCounter: state.loomNumberCounter || 0,
         cableNumberCounters: state.cableNumberCounters,
         deviceLibrary
       };
@@ -31639,6 +31796,12 @@ document.addEventListener("click", function(event) {
           state.comments = Array.isArray(data.comments) ? data.comments : [];
           state.titleBlocks = Array.isArray(data.titleBlocks) ? data.titleBlocks : [];
           state.connections = Array.isArray(data.connections) ? data.connections : [];
+          const { migrateLegacyLooms } = await import(engineImportUrl("./src/engine/loomModel.js"));
+          const loomProject = { ...data, deviceLibrary, connections: state.connections };
+          const loomWarnings = migrateLegacyLooms(loomProject);
+          state.looms = loomProject.looms;
+          state.loomNumberCounter = loomProject.loomNumberCounter || 0;
+          if (loomWarnings.length) console.warn("[loom-migration]", ...loomWarnings);
           state.cableNumberCounters = data.cableNumberCounters && typeof data.cableNumberCounters === "object" ? data.cableNumberCounters : {};
           bridge?.setLoadingPhase?.("Rebuilding production compatibility data...");
           ensureRackList();
@@ -31941,6 +32104,8 @@ document.addEventListener("click", function(event) {
       state.comments = [];
       state.titleBlocks = [];
       state.connections = [];
+      state.looms = [];
+      state.loomNumberCounter = 0;
       state.cableNumberCounters = {};
       state.imageObjects = [];
       deviceLibrary = structuredClone(builtInDeviceLibrary);
@@ -33995,6 +34160,7 @@ document.addEventListener("click", function(event) {
         : selection.wireIds || [];
       const selectedConnectors = selection.connectorKeys || [];
       const selectedJumpLinkId = String(selection.jumpLinkId || selection.selectedJumpLinkId || "").trim();
+      const selectedLoomId = String(selection.loomId || "").trim();
       const selectedJumpLink = selectedJumpLinkId ? jumpLinkById(selectedJumpLinkId) : null;
       const selectedRackId = (() => {
         const rackIds = [...new Set(selectedDevices.map(device => String(device.rackId || "")).filter(Boolean))];
@@ -34017,6 +34183,11 @@ document.addEventListener("click", function(event) {
         if (device.kind === "jump" || device.sourceKind === "jumpNode") return "jump-node";
         return "device";
       };
+      if (selectedLoomId) {
+        state.selected = { type: "loom", id: selectedLoomId };
+        renderInspector();
+        return;
+      }
       if (explicitRackIds.length === 1 && !selectedWires.length && !selectedConnectors.length && selectedDevices.every(device => device.rackId === explicitRackIds[0])) {
         state.selected = { type: "rack", id: explicitRackIds[0] };
         renderInspector();
@@ -34111,6 +34282,7 @@ document.addEventListener("click", function(event) {
             applyCanvasClipboardState,
             restoreDeviceEditorSnapshot: restoreDeviceEditorEngineSnapshot,
             nextId,
+            onEngineLoomCounterChange: counter => { state.loomNumberCounter = counter; },
             setJumpNodeToolActive,
             getGridVisible: () => state.gridVisible !== false,
             getObjectSnapping: () => state.objectSnapping !== false,
@@ -34158,6 +34330,10 @@ document.addEventListener("click", function(event) {
               }
               if (target.type === "wire") {
                 showWireContextMenu(event, target.wireId, target);
+                return;
+              }
+              if (target.type === "loom") {
+                showLoomContextMenu(event, target.loomId, target);
                 return;
               }
               if (target.type === "connector") {

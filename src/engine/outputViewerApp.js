@@ -1,7 +1,7 @@
 import { WebglGraphRenderer } from "./renderer.js";
 import { fitCameraToBounds } from "./cameraFit.js";
 import { createOutputViewerModel, outputSelectionDetails, outputCableTrace, outputJumpLinkOverlays, outputConnectedNodeItems } from "./outputViewerModel.js";
-import { screenToWorld, hitTestConnector, hitTestDevice, hitTestWire, hitTestRack, distanceToPolyline } from "./hitTest.js";
+import { screenToWorld, hitTestConnector, hitTestDevice, hitTestWire, hitTestLoom, hitTestRack, distanceToPolyline } from "./hitTest.js";
 import { deviceVisualSources } from "./deviceVisualBuilder.js";
 import { polylineLength, polylinePointAtDistance, wirePlaybackDurationMs, wirePlaybackEase } from "./wirePlayback.js";
 import { isJumpNodeDevice, jumpNodeCenter } from "./jumpNodeModel.js";
@@ -256,8 +256,11 @@ export class EngineOutputViewer {
     if (connector) return this.select({ type: "connector", deviceId: connector.device.id, id: connector.connector.id });
     const link = this.visibleJumpLinkOverlays().find(l => distanceToPolyline(l.points, world).distance < tolerance);
     if (link) return this.select({ type: "jump-link", id: link.id });
+    const loom = hitTestLoom(this.scene, world, tolerance);
+    if (loom && loom.part !== "trunk") return this.select({ type: "loom", id: loom.loomId });
     const wire = hitTestWire(this.scene, world, tolerance).wire;
     if (wire) return this.select({ type: "wire", id: wire.wire.id });
+    if (loom) return this.select({ type: "loom", id: loom.loomId });
     const device = hitTestDevice(this.scene, world).device;
     if (device) return this.select({ type: "device", id: device.id });
     const rack = hitTestRack(this.scene, world).rack;
@@ -267,6 +270,7 @@ export class EngineOutputViewer {
     clearTimeout(this.connectedNodeClickTimer);
     this.stopPlayback(); this.selection = selection;
     this.scene.selectedIds.clear(); this.scene.selectedWireIds.clear(); this.scene.selectedConnectorKeys.clear(); this.scene.selectedRackIds.clear();
+    this.scene.selectedLoomId = selection?.type === "loom" ? selection.id : "";
     if (selection?.type === "device") this.scene.selectedIds.add(selection.id);
     if (selection?.type === "wire") this.scene.selectedWireIds.add(selection.id);
     if (selection?.type === "multi-wire") selection.ids.forEach(id => this.scene.selectedWireIds.add(id));

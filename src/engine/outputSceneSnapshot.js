@@ -68,7 +68,7 @@ export function buildEngineOutputScene(projectSnapshot = {}) {
   const scene = new SceneGraph();
   // The interactive adapter supplies a demo graph for an empty document. An
   // output contract must describe the empty document, not that demonstration.
-  const empty = !["devices", "areas", "imageObjects", "images", "jumpNodes", "ledSurfaces", "titleBlocks", "comments"]
+  const empty = !["devices", "areas", "imageObjects", "images", "jumpNodes", "ledSurfaces", "titleBlocks", "comments", "looms"]
     .some(key => Array.isArray(root[key]) && root[key].length);
   const normalized = empty ? null : normalizeAvDesignerProject(project);
   scene.setData(empty ? { meta: { cableHops: root.cableHops !== false } } : normalized);
@@ -109,6 +109,8 @@ export function buildEngineOutputScene(projectSnapshot = {}) {
   }));
   const cards = scene.devices.flatMap(device => device.visual.visualCards.map(card => ({ deviceId: device.id, ...card })));
   const rackExposure = scene.racks.map(rack => scene.rackConnectorDiagnostics(rack.id));
+  const looms = scene.looms;
+  const loomPlans = scene.loomPlans;
   const { calcMs, ...hopDiagnostics } = hopResult.stats;
   const warnings = empty ? [] : [...(scene.meta.jumpLinkWarnings || []), ...(scene.meta.jumpLinkIndexWarnings || [])];
   const skippedWires = empty ? (root.connections || []).length : normalized.meta.skippedWires || 0;
@@ -117,14 +119,16 @@ export function buildEngineOutputScene(projectSnapshot = {}) {
   const data = plainData({
     version: OUTPUT_SCENE_VERSION, schemaFingerprint: OUTPUT_SCENE_SCHEMA_FINGERPRINT, sceneDataSource: OUTPUT_SCENE_SOURCE,
     coordinateSpace: "engine-world", devices, connectors, wires, racks: scene.racks,
-    jumpLinks, ledSurfaces, cards, sharedBuses, rackExposure,
+    jumpLinks, looms, loomPlans, ledSurfaces, cards, sharedBuses, rackExposure,
     sceneBounds: scene.bounds(),
     bounds: geometryBounds([...scene.devices.map(deviceBounds), ...scene.racks.map(rack => rack.bounds)],
-      [...wires.flatMap(wire => wire.renderPolyline), ...jumpLinks.flatMap(link => link.polyline),
+      [...wires.filter(wire => !scene.isWireHiddenByLoom(wire.id)).flatMap(wire => wire.renderPolyline),
+        ...jumpLinks.flatMap(link => link.polyline),
+        ...loomPlans.flatMap(plan => [...plan.trunk, ...plan.breakouts.flatMap(item => item.points)]),
         ...connectors.flatMap(connector => connector.anchors.map(anchor => anchor.worldPoint))]),
     diagnostics: { counts: { objects: devices.length, connectors: connectors.length, wires: wires.length,
       racks: scene.racks.length, cards: cards.length, sharedBuses: sharedBuses.length,
-      jumpLinks: jumpLinks.length, ledSurfaces: ledSurfaces.length },
+      jumpLinks: jumpLinks.length, looms: looms.length, ledSurfaces: ledSurfaces.length },
       adapter: scene.adapterStats(),
       skippedWires, cableHops: hopDiagnostics, warnings }
   });

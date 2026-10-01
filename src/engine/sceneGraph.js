@@ -12,6 +12,9 @@ import {
   shiftRoutePoints
 } from "./orthogonalRouting.js";
 import { wirePolylineFromPoints } from "./wirePath.js";
+import { loomGeometry } from "./loomGeometry.js";
+import { normalizeLoom } from "./loomModel.js";
+import { buildCableSchedule, groupedCables } from "./cableSchedule.js";
 import { adapterMappingForDevice } from "./adapterMapping.js";
 import {
   canonicalEngineObjectKind,
@@ -72,6 +75,9 @@ export class SceneGraph {
     this.wires = [];
     this.racks = [];
     this.jumpLinks = [];
+    this.looms = [];
+    this.loomPlans = [];
+    this.loomBreakoutByWireId = new Map();
     this.meta = {};
     this.devicesById = new Map();
     this.wiresById = new Map();
@@ -96,6 +102,8 @@ export class SceneGraph {
     this.wireIndex = new SpatialIndex(420);
     this.routePointIndex = new SpatialIndex(96);
     this.selectedWireIds = new Set();
+    this.selectedLoomId = "";
+    this.expandedLoomIds = new Set();
     this.selectedConnectorKeys = new Set();
     this.selectedRoutePointKeys = new Set();
     this.primarySelectedJumpId = "";
@@ -103,7 +111,7 @@ export class SceneGraph {
     this.connectorDisplayLayoutByDeviceId = new Map();
   }
 
-  setData({ devices = [], wires = [], racks = [], jumpLinks = [], meta = {} }) {
+  setData({ devices = [], wires = [], racks = [], jumpLinks = [], looms = [], projectData = null, loomPlans = null, meta = {} }) {
     this.devices = devices.map(normalizeDevice);
     this.racks = racks.map(normalizeRack).filter(Boolean);
     this.meta = meta || {};
@@ -114,6 +122,10 @@ export class SceneGraph {
       && this.devicesById.has(this.wireEndpointObjectId(wire, "to"))
     ));
     this.wiresById = new Map(this.wires.map(wire => [wire.id, wire]));
+    this.looms = looms.map(normalizeLoom);
+    this.loomProject = projectData;
+    this.loomPlans = Array.isArray(loomPlans) ? loomPlans : [];
+    this.rebuildLoomGeometry();
     this.jumpLinks = normalizeJumpLinks(jumpLinks, {
       jumpNodeIds: new Set(this.devices.filter(device => isJumpNodeDevice(device)).map(device => device.id))
     });
@@ -124,6 +136,8 @@ export class SceneGraph {
     this.selectedIds.clear();
     this.selectedRackIds.clear();
     this.selectedWireIds.clear();
+    this.selectedLoomId = "";
+    this.expandedLoomIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
     this.primarySelectedJumpId = "";
@@ -544,6 +558,7 @@ export class SceneGraph {
   }
 
   selectRackOnly(rackId) {
+    this.selectedLoomId = "";
     const id = String(rackId || "");
     const childIds = this.rackChildIds(id);
     this.selectedIds = new Set(childIds.filter(childId => this.devicesById.has(childId)));
@@ -557,6 +572,7 @@ export class SceneGraph {
   }
 
   toggleRackSelection(rackId) {
+    this.selectedLoomId = "";
     const id = String(rackId || "");
     const childIds = this.rackChildIds(rackId);
     this.selectedWireIds.clear();
@@ -902,18 +918,48 @@ export class SceneGraph {
   }
 
   rebuildWireSpatialIndex() {
-    const items = this.wires.map(wire => ({
+    const items = this.wires.filter(wire => !this.isWireHiddenByLoom(wire.id)).map(wire => ({
       id: wire.id,
       bounds: inflateBounds(pointsBounds(this.wireRenderPolyline(wire)), 28),
       wire
     }));
+    for (const [wireId, breakouts] of this.loomBreakoutByWireId) for (const [index, breakout] of breakouts.entries()) {
+      items.push({ id: `loom-breakout:${wireId}:${index}`,
+        bounds: inflateBounds(pointsBounds(breakout.points), 28),
+        wire: this.getWire(wireId), breakout });
+    }
     this.wireIndex.rebuild(items);
+  }
+
+  rebuildLoomGeometry() {
+    const root = this.loomProject?.state || this.loomProject?.project || this.loomProject;
+    if (root?.connections) {
+      this.looms = (root.looms || []).map(normalizeLoom);
+      const cableGroups = this.looms.length ? groupedCables(root) : [];
+      const scheduleRows = this.looms.length
+        ? buildCableSchedule(root, { assignNumbers: "readOnly" }) : [];
+      this.loomPlans = this.looms.map(loom => loomGeometry(root, this, loom, cableGroups, scheduleRows));
+    }
+    this.loomBreakoutByWireId = new Map();
+    this.hiddenLoomWireIds = new Set();
+    for (const plan of this.loomPlans) {
+      plan.hiddenWireIds.forEach(id => this.hiddenLoomWireIds.add(id));
+      for (const breakout of plan.breakouts) {
+        const list = this.loomBreakoutByWireId.get(breakout.wireId) || [];
+        list.push(breakout);
+        this.loomBreakoutByWireId.set(breakout.wireId, list);
+      }
+    }
+  }
+
+  isWireHiddenByLoom(wireId) {
+    return this.hiddenLoomWireIds?.has(String(wireId)) || false;
   }
 
   rebuildRoutePointIndex() {
     const items = [];
     this.wires.forEach(wire => {
-      if (wire.selectable === false) return;
+      if (wire.selectable === false || this.isWireHiddenByLoom(wire.id)) return;
       (wire.routePoints || []).forEach((point, index) => {
         items.push({
           id: routePointKey(wire.id, index),
@@ -947,11 +993,20 @@ export class SceneGraph {
       this.spatialIndex.update(deviceId, deviceBounds(device), { id: device.id, bounds: deviceBounds(device), device });
       this.refreshDeviceConnectorIndexEntries(device);
     });
-    this.refreshWireIndexes(affectedWireIds);
+    if (this.looms.length) {
+      this.rebuildLoomGeometry();
+      this.rebuildWireSpatialIndex();
+      this.rebuildRoutePointIndex();
+    } else this.refreshWireIndexes(affectedWireIds);
     this.rebuildRackIndex();
   }
 
   refreshWireSpatialIndexes(wireIds = []) {
+    if (this.looms.length) {
+      this.rebuildLoomGeometry();
+      this.rebuildWireSpatialIndex();
+      return;
+    }
     wireIds.forEach(wireId => {
       const wire = this.getWire(wireId);
       this.wireIndex.delete(wireId);
@@ -1000,6 +1055,7 @@ export class SceneGraph {
   }
 
   selectOnly(id) {
+    this.selectedLoomId = "";
     this.selectedIds.clear();
     this.selectedRackIds.clear();
     this.selectedWireIds.clear();
@@ -1011,6 +1067,7 @@ export class SceneGraph {
   }
 
   selectJumpPairPrimary(jumpId) {
+    this.selectedLoomId = "";
     const id = String(jumpId || "");
     this.selectedIds.clear();
     this.selectedRackIds.clear();
@@ -1025,6 +1082,7 @@ export class SceneGraph {
   }
 
   selectJumpLinkOnly(linkId) {
+    this.selectedLoomId = "";
     const id = String(linkId || "");
     this.selectedIds.clear();
     this.selectedRackIds.clear();
@@ -1042,6 +1100,7 @@ export class SceneGraph {
   }
 
   toggleSelection(id) {
+    this.selectedLoomId = "";
     this.selectedRackIds.clear();
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
@@ -1053,6 +1112,7 @@ export class SceneGraph {
   }
 
   toggleMany(ids) {
+    this.selectedLoomId = "";
     this.selectedRackIds.clear();
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
@@ -1066,6 +1126,7 @@ export class SceneGraph {
   }
 
   selectMany(ids) {
+    this.selectedLoomId = "";
     this.selectedIds = new Set(ids.filter(id => this.devicesById.has(id)));
     this.selectedRackIds.clear();
     this.selectedWireIds.clear();
@@ -1076,6 +1137,7 @@ export class SceneGraph {
   }
 
   selectWireOnly(id) {
+    this.selectedLoomId = "";
     this.selectedIds.clear();
     this.selectedRackIds.clear();
     this.selectedWireIds.clear();
@@ -1087,6 +1149,7 @@ export class SceneGraph {
   }
 
   toggleWireSelection(id) {
+    this.selectedLoomId = "";
     this.selectedIds.clear();
     this.selectedRackIds.clear();
     this.selectedConnectorKeys.clear();
@@ -1098,6 +1161,7 @@ export class SceneGraph {
   }
 
   selectConnectorOnly(deviceId, connectorId) {
+    this.selectedLoomId = "";
     this.selectedIds.clear();
     this.selectedRackIds.clear();
     this.selectedWireIds.clear();
@@ -1110,6 +1174,7 @@ export class SceneGraph {
   }
 
   selectRoutePointOnly(wireId, pointIndex) {
+    this.selectedLoomId = "";
     this.selectedIds.clear();
     this.selectedRackIds.clear();
     this.selectedWireIds.clear();
@@ -1122,6 +1187,7 @@ export class SceneGraph {
   }
 
   clearSelection() {
+    this.selectedLoomId = "";
     this.selectedIds.clear();
     this.selectedRackIds.clear();
     this.selectedWireIds.clear();
@@ -1129,6 +1195,11 @@ export class SceneGraph {
     this.selectedRoutePointKeys.clear();
     this.primarySelectedJumpId = "";
     this.selectedJumpLinkId = "";
+  }
+
+  selectLoomOnly(loomId) {
+    this.clearSelection();
+    if (this.looms.some(loom => loom.id === loomId)) this.selectedLoomId = loomId;
   }
 
   affectedWireIdsForDevices(deviceIds) {
@@ -1792,7 +1863,7 @@ export class SceneGraph {
   }
 
   bounds() {
-    if (!this.devices.length) return { x: 0, y: 0, width: 1000, height: 600 };
+    if (!this.devices.length && !this.loomPlans.length) return { x: 0, y: 0, width: 1000, height: 600 };
     let minX = Infinity;
     let minY = Infinity;
     let maxX = -Infinity;
@@ -1803,6 +1874,13 @@ export class SceneGraph {
       maxX = Math.max(maxX, device.x + device.width);
       maxY = Math.max(maxY, device.y + device.height);
     });
+    for (const plan of this.loomPlans) for (const point of [...plan.trunk,
+      ...plan.breakouts.flatMap(item => item.points)]) {
+      minX = Math.min(minX, point.x);
+      minY = Math.min(minY, point.y);
+      maxX = Math.max(maxX, point.x);
+      maxY = Math.max(maxY, point.y);
+    }
     return {
       x: minX,
       y: minY,
@@ -2271,6 +2349,7 @@ function normalizeWire(wire) {
     label: wire.label || wire.cableType || String(wire.id),
     length: wire.length || "",
     cableNumber: String(wire.cableNumber || ""),
+    loomId: String(wire.loomId || ""),
     loom: String(wire.loom || ""),
     notes: String(wire.notes || ""),
     hideLabel: Boolean(wire.hideLabel),
