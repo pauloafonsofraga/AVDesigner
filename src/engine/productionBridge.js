@@ -1428,7 +1428,7 @@ class ProductionEngineBridge {
       };
       this.jumpPlacement = {
         startCenter: { ...center },
-        snapSession: new ObjectSnapSession({ scene: this.scene, selectedIds: [], startRect }),
+        snapSession: new ObjectSnapSession({ scene: this.scene, selectedIds: [], startRect, alignJumpToConnectors: true }),
         center: { ...center },
         guides: null,
         snapDebug: null,

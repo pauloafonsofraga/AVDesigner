@@ -1,7 +1,8 @@
 import { deviceBounds } from "./sceneGraph.js";
 import { SpatialIndex } from "./spatialIndex.js";
+import { isJumpNodeDevice, jumpNodeCenter } from "./jumpNodeModel.js";
 
-export const OBJECT_SNAPPING_MODULE_FINGERPRINT = "object-snapping-runtime-guide-v13";
+export const OBJECT_SNAPPING_MODULE_FINGERPRINT = "object-snapping-jump-connector-alignment-v14";
 
 const SNAP_SPACING_STEPS = [50, 100, 150, 200, 250, 300, 350, 400, 450, 500];
 const SNAP_MAX_SPACING_STEP = Math.max(...SNAP_SPACING_STEPS);
@@ -115,7 +116,14 @@ function snapEdgeGuides(snappedRect, bestX, bestY) {
             : snappedRect.y + snappedRect.height
         }
       : null,
-    edgeY: bestY?.source === "edge" && bestY?.guide != null
+    edgeY: bestY?.source === "connector" && bestY?.guide != null
+      ? {
+          side: "connector",
+          y: bestY.guide,
+          x1: Math.min(bestY.targetX, snappedRect.x + bestY.anchorOffsetX),
+          x2: Math.max(bestY.targetX, snappedRect.x + bestY.anchorOffsetX)
+        }
+      : bestY?.source === "edge" && bestY?.guide != null
       ? {
           side: bestY.side || null,
           y: bestY.guide,
@@ -215,16 +223,26 @@ function normalizeSnapMode(mode) {
 }
 
 export class ObjectSnapSession {
-  constructor({ scene, selectedIds = [], startRect = null }) {
+  constructor({ scene, selectedIds = [], startRect = null, alignJumpToConnectors = false }) {
     this.scene = scene;
     this.selectedIds = new Set((selectedIds || []).map(id => String(id || "")).filter(Boolean));
     this.startRect = cloneRect(startRect) || rectFromSceneObjects(scene, [...this.selectedIds]);
+    const selectedDevices = [...this.selectedIds].map(id => scene?.getDevice?.(id));
+    const movingJumps = selectedDevices.length > 0
+      && selectedDevices.every(device => isJumpNodeDevice(device));
+    this.jumpAnchor = this.startRect && (alignJumpToConnectors || movingJumps)
+      ? (movingJumps ? jumpNodeCenter(selectedDevices[0]) : {
+          x: this.startRect.x + this.startRect.width / 2,
+          y: this.startRect.y + this.startRect.height / 2
+        })
+      : null;
+    this.connectorTargets = this.jumpAnchor ? this.buildConnectorTargets() : [];
     // Snapping must be independent from the live render/spatial indexes.
     // Build one immutable target index when the drag starts, then reuse it for
     // every pointer frame. This matches the Legacy snap-session behavior and
     // prevents viewport/render refreshes from making snapping appear to vanish.
     this.targets = this.buildTargets();
-    this.targetCount = this.targets.length;
+    this.targetCount = this.targets.length + this.connectorTargets.length;
     this.targetIndex = new SpatialIndex(scene.spatialIndex?.cellSize || 360);
     this.targetIndex.rebuild(this.targets);
     this.lastCandidateSource = "none";
@@ -274,6 +292,25 @@ export class ObjectSnapSession {
       addTarget("rack", rack.id, rack.bounds);
     });
     return targets;
+  }
+
+  buildConnectorTargets() {
+    const targets = [];
+    (this.scene?.devices || []).forEach(device => {
+      if (!device?.id || device.visible === false || isJumpNodeDevice(device)) return;
+      if (this.selectedIds.has(String(device.id))) return;
+      (this.scene.visibleConnectorsForDevice?.(device) || []).forEach(connector => {
+        if (!connector?.id || connector.empty === true) return;
+        const point = this.scene.connectorWorldPoint(device, connector);
+        if (!Number.isFinite(point?.x) || !Number.isFinite(point?.y)) return;
+        targets.push({
+          id: `connector:${device.id}:${connector.id}`,
+          x: point.x,
+          y: point.y
+        });
+      });
+    });
+    return targets.sort((a, b) => a.id.localeCompare(b.id));
   }
 
   normalizeTargetIndexItem(item) {
@@ -502,6 +539,36 @@ export class ObjectSnapSession {
       }
     });
 
+    let connectorCandidateCount = 0;
+    if (this.jumpAnchor && edgeEnabled && allowY) {
+      const rawCenterX = this.jumpAnchor.x + dx;
+      const rawCenterY = this.jumpAnchor.y + dy;
+      let connectorMatch = null;
+      this.connectorTargets.forEach(target => {
+        const horizontalDistance = Math.abs(rawCenterX - target.x);
+        const diff = Math.abs(rawCenterY - target.y);
+        if (diff > threshold || horizontalDistance > 600 / Math.max(zoom, 0.01)) return;
+        connectorCandidateCount += 1;
+        if (!connectorMatch || diff < connectorMatch.diff
+          || (diff === connectorMatch.diff && horizontalDistance < connectorMatch.horizontalDistance)) {
+          connectorMatch = { target, diff, horizontalDistance };
+        }
+      });
+      if (connectorMatch) {
+        bestY = {
+          axis: "y",
+          source: "connector",
+          diff: connectorMatch.diff,
+          delta: connectorMatch.target.y - rawCenterY,
+          guide: connectorMatch.target.y,
+          targetId: connectorMatch.target.id,
+          targetKind: "connector",
+          targetX: connectorMatch.target.x,
+          anchorOffsetX: this.jumpAnchor.x - this.startRect.x
+        };
+      }
+    }
+
     const snappedDx = dx + (bestX?.delta || 0);
     const snappedDy = dy + (bestY?.delta || 0);
     const snappedRect = offsetRect(this.startRect, snappedDx, snappedDy);
@@ -529,7 +596,7 @@ export class ObjectSnapSession {
       dy: snappedDy,
       guides,
       snapped: hasSnap,
-      candidateCount: candidates.length,
+      candidateCount: candidates.length + connectorCandidateCount,
       debug: {
         frame: this.snapFrame,
         enabled,
@@ -547,7 +614,7 @@ export class ObjectSnapSession {
         correctionX: snappedDx - dx,
         correctionY: snappedDy - dy,
         candidateSource: this.lastCandidateSource,
-        candidateCount: candidates.length,
+        candidateCount: candidates.length + connectorCandidateCount,
         bestX: snapDebugSummary(bestX),
         bestY: snapDebugSummary(bestY),
         guides: cloneGuides(guides),
