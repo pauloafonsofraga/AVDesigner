@@ -5032,8 +5032,8 @@
     }
 
     .cable-schedule-dialog {
-      width: min(1500px, 96vw);
-      height: min(82vh, 900px);
+      width: min(2025px, 96vw);
+      height: min(1215px, 95vh);
       max-width: none;
       max-height: none;
       padding: 0;
@@ -5050,6 +5050,8 @@
     .cable-schedule-table { border-collapse: collapse; width: 2180px; table-layout: fixed; font-size: 12px; }
     .cable-schedule-table th, .cable-schedule-table td { padding: 7px 9px; border: 1px solid #dbe3e8; text-align: left; vertical-align: middle; white-space: pre-wrap; overflow-wrap: anywhere; }
     .cable-schedule-table th { position: sticky; top: 0; z-index: 1; background: #263641; color: #fff; font-weight: 700; }
+    .cable-schedule-filter { display: block; width: 100%; min-width: 0; margin-top: 5px; padding: 4px 6px; border: 1px solid #718290; border-radius: 3px; background: #fff; color: #18202a; font: inherit; }
+    .cable-schedule-filter:focus-visible { outline: 2px solid #32b6ff; outline-offset: 1px; }
     .cable-schedule-table tbody tr { height: 48px; cursor: pointer; background: #fff; }
     .cable-schedule-table tbody tr:nth-child(even) { background: #f1f5f7; }
     .cable-schedule-table tbody tr:hover { background: #e3f3fc; }
@@ -5064,6 +5066,14 @@
     body.dark-mode .cable-schedule-table tbody tr:hover { background: #294559; }
     body.dark-mode .cable-schedule-table td { color: #edf2f7; }
     .cable-schedule-empty { padding: 24px; color: var(--muted); }
+    @media (max-width: 600px) {
+      .cable-schedule-header { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 6px; }
+      .cable-schedule-header h2 { grid-column: 1 / 3; grid-row: 1; }
+      .cable-schedule-header .tool-button { min-width: 0; font-size: 12px; white-space: nowrap; }
+      #downloadCableScheduleXlsx { grid-column: 1; grid-row: 2; }
+      #downloadCableScheduleCsv { grid-column: 2; grid-row: 2; }
+      #closeCableSchedule { grid-column: 3; grid-row: 1; }
+    }
 
     .selected-connector-settings {
       margin-top: 0;
@@ -5121,7 +5131,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled WireNexus Project" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">Iteration 54.38.36 — Persistent Jump Links — iteration54-38-36-persistent-jump-links</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">Iteration 54.38.37 — Cable Schedule Filters and Focus — iteration54-38-37-cable-schedule-filters</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5819,12 +5829,12 @@
   <script src="./src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script src="./src/engine/projectorModelCore.js?v=iteration54-38-11-engine-status-labels"></script>
   <script src="./src/engine/historyCloneCore.js?v=iteration54-38-29-memory-safe-undo"></script>
-  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-36-persistent-jump-links"></script>
+  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-37-cable-schedule-filters"></script>
   <script type="text/wirenexus-app" id="wireNexusAppSource">
-    const APP_ITERATION = "54.38.36";
-    const APP_BUILD_ID = "iteration54-38-36-persistent-jump-links";
-    const APP_MODULE_CACHE_ID = "iteration54-38-36-persistent-jump-links-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Persistent Jump Links`;
+    const APP_ITERATION = "54.38.37";
+    const APP_BUILD_ID = "iteration54-38-37-cable-schedule-filters";
+    const APP_MODULE_CACHE_ID = "iteration54-38-37-cable-schedule-filters-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Cable Schedule Filters and Focus`;
     const { cloneHistoryValue, MAX_HISTORY_ENTRIES } = window.WireNexusHistoryClone;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
@@ -30080,6 +30090,9 @@
     let cableScheduleRenderedSignature = "";
     let cableScheduleRenderCount = 0;
     let cableScheduleRefreshVersion = 0;
+    let cableScheduleIllustratedRows = [];
+    let cableScheduleGraphicsRenderer = null;
+    const cableScheduleFilters = { sourceDevice: "", destinationDevice: "", cable: "" };
     const cableScheduleGraphicCache = new Map();
     const cableScheduleArtworkCache = new Map();
 
@@ -30111,6 +30124,32 @@
       return `<span class="cable-schedule-illustrated"><span>${escapeHtml(text || "")}</span>${graphic
         ? `<img class="cable-schedule-graphic cable-schedule-${kind}-graphic" src="${escapeAttr(graphic)}" alt="" width="38" height="24" loading="lazy" decoding="async">`
         : ""}</span>`;
+    }
+
+    function renderCableScheduleFilterHeader(module) {
+      cableScheduleHead.innerHTML = `<tr>${module.CABLE_SCHEDULE_COLUMNS.map(([key, label]) => {
+        if (!module.CABLE_SCHEDULE_FILTER_KEYS.includes(key)) return `<th>${escapeHtml(label)}</th>`;
+        const options = module.cableScheduleFilterOptions(cableScheduleRows, key);
+        if (!options.includes(cableScheduleFilters[key])) cableScheduleFilters[key] = "";
+        return `<th>${escapeHtml(label)}<select class="cable-schedule-filter" data-cable-schedule-filter="${escapeAttr(key)}" aria-label="Filter ${escapeAttr(label)}"><option value="">All</option>${options.map(value => `<option value="${escapeAttr(value)}"${cableScheduleFilters[key] === value ? " selected" : ""}>${escapeHtml(value)}</option>`).join("")}</select></th>`;
+      }).join("")}</tr>`;
+    }
+
+    function renderCableScheduleRows(module) {
+      const visibleIndexes = module.cableScheduleVisibleRowIndexes(cableScheduleRows, cableScheduleFilters);
+      cableScheduleBody.innerHTML = visibleIndexes.map(index => {
+        const row = cableScheduleRows[index], graphics = cableScheduleGraphicsRenderer;
+        return `<tr data-cable-schedule-row="${index}">${module.CABLE_SCHEDULE_COLUMNS.map(([key]) => {
+          let contents = escapeHtml(row[key] || "");
+          if (key === "cableNumber") contents = `<span class="cable-schedule-id" style="color:${graphics.cleanCableScheduleColor(row.cableColor)}">${contents}</span>`;
+          if (key === "sourcePort") contents = cableScheduleIllustratedCell(row[key], cableScheduleIllustratedRows[index].source, "node");
+          if (key === "destinationPort") contents = cableScheduleIllustratedCell(row[key], cableScheduleIllustratedRows[index].destination, "node");
+          if (key === "cable") contents = cableScheduleIllustratedCell(row[key], cableScheduleIllustratedRows[index].cable, "cable");
+          return `<td>${contents}</td>`;
+        }).join("")}</tr>`;
+      }).join("");
+      cableScheduleEmpty.textContent = cableScheduleRows.length ? "No cables match these filters." : "No cables in this project.";
+      cableScheduleEmpty.classList.toggle("hidden", visibleIndexes.length > 0);
     }
 
     function assignProjectCableNumbers(module) {
@@ -30154,18 +30193,12 @@
       }));
       if (!cableScheduleDialog.open || version !== cableScheduleRefreshVersion) return;
       cableScheduleRows = rows;
+      cableScheduleIllustratedRows = illustratedRows;
+      cableScheduleGraphicsRenderer = graphics;
       cableScheduleRenderedSignature = signature;
       cableScheduleRenderCount++;
-      cableScheduleHead.innerHTML = `<tr>${module.CABLE_SCHEDULE_COLUMNS.map(([, label]) => `<th>${escapeHtml(label)}</th>`).join("")}</tr>`;
-      cableScheduleBody.innerHTML = rows.map((row, index) => `<tr data-cable-schedule-row="${index}">${module.CABLE_SCHEDULE_COLUMNS.map(([key]) => {
-        let contents = escapeHtml(row[key] || "");
-        if (key === "cableNumber") contents = `<span class="cable-schedule-id" style="color:${graphics.cleanCableScheduleColor(row.cableColor)}">${contents}</span>`;
-        if (key === "sourcePort") contents = cableScheduleIllustratedCell(row[key], illustratedRows[index].source, "node");
-        if (key === "destinationPort") contents = cableScheduleIllustratedCell(row[key], illustratedRows[index].destination, "node");
-        if (key === "cable") contents = cableScheduleIllustratedCell(row[key], illustratedRows[index].cable, "cable");
-        return `<td>${contents}</td>`;
-      }).join("")}</tr>`).join("");
-      cableScheduleEmpty.classList.toggle("hidden", rows.length > 0);
+      renderCableScheduleFilterHeader(module);
+      renderCableScheduleRows(module);
     }
 
     function requestCableScheduleRefresh() {
@@ -33062,6 +33095,13 @@ document.addEventListener("click", function(event) {
       const items = row.wireIds.map(id => ({ type: "wire", id }));
       cableScheduleDialog.close();
       selectWiresFast(items.length === 1 ? items[0] : { type: "multi", items });
+      activeEngineBridge()?.fitWiresBySourceIds(row.wireIds);
+    });
+    cableScheduleHead?.addEventListener("change", event => {
+      const key = event.target.closest("select[data-cable-schedule-filter]")?.dataset.cableScheduleFilter;
+      if (!Object.hasOwn(cableScheduleFilters, key)) return;
+      cableScheduleFilters[key] = event.target.value;
+      loadCableScheduleModule().then(renderCableScheduleRows).catch(error => setStatus(`Cable Schedule could not filter: ${error.message}`));
     });
     document.getElementById("publishProjectButton").addEventListener("click", openPublishProjectModal);
     document.getElementById("closePublishProject").addEventListener("click", closePublishProjectModal);

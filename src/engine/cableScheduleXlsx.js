@@ -33,9 +33,16 @@ export async function createCableScheduleXlsx(rows, { nodeDefinitions = [], load
       imageId = workbook.addImage({ base64: dataUrl.dataUrl || dataUrl, extension: "png" });
       imageIds.set(key, imageId);
     }
-    sheet.addImage(imageId, { tl: { nativeCol: column - 1, nativeColOff: (placement.x ?? 185) * 9525,
-      nativeRow: row - 1, nativeRowOff: (placement.y ?? 3) * 9525 },
-      ext: { width: placement.width ?? 38, height: placement.height ?? 24 }, editAs: "oneCell" });
+    const x = placement.x ?? 185, y = placement.y ?? 3;
+    const width = placement.width ?? 38, height = placement.height ?? 24;
+    // Two-cell anchors keep each graphic with its row when Excel filters hide rows.
+    sheet.addImage(imageId, {
+      tl: { nativeCol: column - 1, nativeColOff: x * 9525,
+        nativeRow: row - 1, nativeRowOff: y * 9525 },
+      br: { nativeCol: column - 1, nativeColOff: (x + width) * 9525,
+        nativeRow: row - 1, nativeRowOff: (y + height) * 9525 },
+      editAs: "twoCell"
+    });
     sheet.getCell(row, column).alignment = { vertical: "middle", wrapText: true };
   };
   for (let index = 0; index < rows.length; index++) {

@@ -68,6 +68,7 @@ import {
 } from "./matrixRouting.js?v=iteration54-4-0-matrix-routing-internal-routes";
 import { legacyConnectorHitRadius } from "./legacyZoomDetail.js";
 import { applyCableHopsToPolyline } from "./cableHops.js";
+import { fitCameraToBounds } from "./cameraFit.js";
 import {
   isLedProcessorMainSignalOutput,
   ledProcessorOutputsInRect,
@@ -7418,6 +7419,33 @@ class ProductionEngineBridge {
     wires.forEach(wire => this.scene.selectedWireIds.add(wire.id));
     this.updateSelectionHud();
     this.scheduleRender();
+  }
+
+  fitWiresBySourceIds(sourceWireIds = []) {
+    if (!this.ready || this.viewportReplayGuard) return false;
+    const bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+    for (const id of sourceWireIds) {
+      const wire = this.resolveWire(id);
+      if (!wire) continue;
+      for (const point of this.scene.wireRenderPolyline(wire)) {
+        if (!Number.isFinite(point?.x) || !Number.isFinite(point?.y)) continue;
+        bounds.minX = Math.min(bounds.minX, point.x);
+        bounds.minY = Math.min(bounds.minY, point.y);
+        bounds.maxX = Math.max(bounds.maxX, point.x);
+        bounds.maxY = Math.max(bounds.maxY, point.y);
+      }
+    }
+    if (!Number.isFinite(bounds.minX)) return false;
+    const rect = this.canvas.getBoundingClientRect();
+    const camera = fitCameraToBounds({ x: bounds.minX, y: bounds.minY,
+      width: bounds.maxX - bounds.minX, height: bounds.maxY - bounds.minY },
+    rect.width, rect.height, 80, { minZoom: ENGINE_MIN_ZOOM, maxZoom: 2 });
+    this.camera.x = camera.x;
+    this.camera.y = camera.y;
+    this.camera.zoom = camera.zoom;
+    this.notifyViewportChange("cable-schedule-fit");
+    this.scheduleRender();
+    return true;
   }
 
   resolveWire(sourceWireId, engineWireId = "") {

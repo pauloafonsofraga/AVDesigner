@@ -8,6 +8,19 @@ export const CABLE_SCHEDULE_COLUMNS = Object.freeze([
   ["length", "Length"], ["loom", "Loom"], ["rackLocation", "Rack / Location"], ["notes", "Notes"]
 ]);
 
+export const CABLE_SCHEDULE_FILTER_KEYS = Object.freeze(["sourceDevice", "destinationDevice", "cable"]);
+
+export function cableScheduleFilterOptions(rows, key) {
+  if (!CABLE_SCHEDULE_FILTER_KEYS.includes(key)) return [];
+  return [...new Set(rows.map(row => String(row[key] || "")))].filter(Boolean)
+    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" }));
+}
+
+export function cableScheduleVisibleRowIndexes(rows, filters = {}) {
+  const selected = CABLE_SCHEDULE_FILTER_KEYS.filter(key => filters[key]);
+  return rows.flatMap((row, index) => selected.every(key => row[key] === filters[key]) ? [index] : []);
+}
+
 const families = Object.freeze({ V: "Video", N: "Network", A: "Audio", F: "Fibre", P: "Power", X: "Other" });
 const familyOrder = ["A", "F", "N", "P", "V", "X"];
 const typeFamilies = new Map(Object.entries({

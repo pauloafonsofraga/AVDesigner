@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import ExcelJS from "exceljs/dist/exceljs.min.js";
 import { bidirectionalJumpFixture } from "../fixtures/bidirectional-jumps.mjs";
-import { buildCableSchedule, cableFamily, cableScheduleCsv, ensureCableNumbers } from "../src/engine/cableSchedule.js";
+import { buildCableSchedule, cableFamily, cableScheduleCsv, cableScheduleFilterOptions,
+  cableScheduleVisibleRowIndexes, ensureCableNumbers } from "../src/engine/cableSchedule.js";
 import { createCableScheduleXlsx } from "../src/engine/cableScheduleXlsx.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
@@ -126,6 +127,23 @@ test("paired Jump Node legs form one logical cable with real endpoints", () => {
   assert.equal(data.connections[0].cableNumber, data.connections[1].cableNumber);
 });
 
+test("source, destination, and cable dropdowns combine without changing schedule rows", () => {
+  const rows = [
+    { sourceDevice: "Alpha", destinationDevice: "Screen", cable: "HDMI" },
+    { sourceDevice: "Alpha", destinationDevice: "Rack", cable: "SDI" },
+    { sourceDevice: "Bravo", destinationDevice: "Screen", cable: "SDI" }
+  ];
+  const original = structuredClone(rows);
+  assert.deepEqual(cableScheduleFilterOptions(rows, "sourceDevice"), ["Alpha", "Bravo"]);
+  assert.deepEqual(cableScheduleFilterOptions(rows, "destinationDevice"), ["Rack", "Screen"]);
+  assert.deepEqual(cableScheduleFilterOptions(rows, "cable"), ["HDMI", "SDI"]);
+  assert.deepEqual(cableScheduleFilterOptions(rows, "notes"), []);
+  assert.deepEqual(cableScheduleVisibleRowIndexes(rows), [0, 1, 2]);
+  assert.deepEqual(cableScheduleVisibleRowIndexes(rows, { sourceDevice: "Alpha", destinationDevice: "Rack", cable: "SDI" }), [1]);
+  assert.deepEqual(cableScheduleVisibleRowIndexes(rows, { sourceDevice: "Bravo", cable: "HDMI" }), []);
+  assert.deepEqual(rows, original);
+});
+
 test("Engine normalization and mutation retain schedule metadata", () => {
   const data = project();
   ensureCableNumbers(data);
@@ -163,7 +181,11 @@ test("XLSX contains text values, formatting, and reused endpoint/cable artwork",
   assert.equal(sheet.getCell("J2").value, "FOH-01");
   assert.equal(sheet.getCell("L2").value, "One, two\nThree");
   assert.equal(sheet.views[0].state, "frozen");
+  assert.equal(sheet.autoFilter, "A1:L3",
+    "Excel includes native filter dropdowns on Source Device, Destination Device, and Cable");
   assert.equal(sheet.getImages().length, 8);
+  assert.ok(sheet.getImages().every(image => image.range.editAs === "twoCell" && image.range.br),
+    "artwork remains attached to filtered rows");
   assert.equal(sheet.getImages().filter(image => image.range.tl.nativeCol === 0).length, 2,
     "outlined ID artwork covers the searchable cell value");
   assert.ok(sheet.getImages().filter(image => image.range.tl.nativeCol === 0)
