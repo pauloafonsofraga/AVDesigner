@@ -18,6 +18,7 @@ const typeFamilies = new Map(Object.entries({
   "speakon-nl2": "A", "speakon-nl4": "A", "speakon-nl8": "A", speakon: "A",
   "fiber-lc": "F", "fiber-sc": "F", "fiber-st": "F", "fiber-mpo": "F", opticalcon: "F", fiberfox: "F",
   iec: "P", schuko: "P", "uk-13a": "P", edison: "P", powercon: "P", "powercon-true1": "P",
+  "new-node": "P", "barrel-jack": "P",
   "16a-cee": "P", "32a-cee": "P", "63a-cee": "P", "125a-cee": "P",
   socapex: "P", harting: "P", powerlock: "P", nema: "P",
   "16a-1ph-110v": "P", "16a-1ph": "P", "32a-1ph-110v": "P", "32a-1ph": "P",

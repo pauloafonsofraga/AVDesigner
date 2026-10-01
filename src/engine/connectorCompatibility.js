@@ -8,6 +8,9 @@ import {
 const CAGE_CONNECTOR_TYPES = new Set(["sfp-cage", "sfp-plus-cage", "qsfp-cage"]);
 const CAT_CONNECTOR_TYPES = new Set(["cat5e", "cat6", "cat6a", "ethercon", "ethernet"]);
 const USB_CONNECTOR_TYPES = new Set(["usb-a", "usb-b", "usb-c"]);
+const POWER_CABLE_END_TYPES = new Set([
+  "iec", "uk-13a", "powercon", "powercon-true1", "new-node", "barrel-jack", "schuko", "nema"
+]);
 const ENGINE_POWERLOCK_SEGMENT_COLORS = ["#03E300", "#2A7FFF", "#A05A2C", "#4A4A4A", "#999999"];
 const ENGINE_SIGNAL_LINE_COLORS = [
   "#ff99cc", "#ffff99", "#ffcc99", "#ccffcc",
@@ -334,6 +337,7 @@ export function areEngineConnectorTypesCompatible(source, target) {
   if (!sourceType || !targetType) return false;
   if (sourceType === targetType) return engineFiberModesCompatible(source, target, sourceType, targetType);
   if (CAT_CONNECTOR_TYPES.has(sourceType) && CAT_CONNECTOR_TYPES.has(targetType)) return true;
+  if (POWER_CABLE_END_TYPES.has(sourceType) && POWER_CABLE_END_TYPES.has(targetType)) return true;
   return USB_CONNECTOR_TYPES.has(sourceType) && USB_CONNECTOR_TYPES.has(targetType);
 }
 
