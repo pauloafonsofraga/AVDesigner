@@ -10,6 +10,7 @@ import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { wireCaption, resolveCableEndpoints } from "../src/engine/cableCaption.js";
 import { monitorNameUpdates } from "../src/engine/monitorNaming.js";
 import { WebglGraphRenderer, DEFAULT_RENDER_OPTIONS, drawEngineOutputLabels } from "../src/engine/renderer.js";
+import { DragSession } from "../src/engine/dragSession.js";
 import { OutputSvgContext } from "../src/engine/outputSvgContext.js";
 import { buildEngineOutputScene } from "../src/engine/outputSceneSnapshot.js";
 import { createOutputViewerModel, outputJumpLinkOverlays } from "../src/engine/outputViewerModel.js";
@@ -52,6 +53,26 @@ test("normal, hovered and selected captions use identities, not cable type or cu
   assert.ok(liveLabels(scene, { selectedWireIds: new Set(["direct"]) }).includes(highlighted));
   assert.ok(!liveLabels(scene).some(text => text.includes("Custom cable label")));
   assert.deepEqual(project, before); assert.equal(wire.label, "Custom cable label"); assert.equal(wire.cableType, "hdmi");
+});
+
+test("moving a connected device hides only its cable names until the drag ends", () => {
+  const scene = sceneFor();
+  const drag = new DragSession({
+    scene,
+    selectedIds: ["direct-source"],
+    startWorld: { x: 0, y: 0 }
+  });
+  drag.update({ x: 80, y: 30 });
+  assert.ok(drag.affectedWireIds.has("direct"));
+  const during = liveLabels(scene, {
+    dragSession: drag,
+    selectedWireIds: new Set(["direct"]),
+    interactionState: { hoveredWireId: "direct" }
+  });
+  assert.ok(!during.includes(normal));
+  assert.ok(!during.includes(highlighted));
+  assert.ok(during.length > 0, "unaffected cable names remain visible");
+  assert.ok(liveLabels(scene).includes(normal), "name reappears when the drag ends");
 });
 
 test("length suffix preserves existing text/units, omits empty lengths and does not invent zero", () => {

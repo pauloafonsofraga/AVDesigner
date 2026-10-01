@@ -63,7 +63,7 @@ import { wirePlaybackEase } from "./wirePlayback.js";
 import { wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-14-paired-jump-cable-highlighting";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-35-hide-moving-cable-labels";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -1374,6 +1374,10 @@ export class WebglGraphRenderer {
         if (wire) wireCandidates.set(id, wire);
       });
       wireCandidates.forEach(wire => {
+        if (dragSession?.affectedWireIds?.has(wire.id)) {
+          this.recordWireLayer(options.layerTrace, wire.id, "labelLayer", "suppressed-moving");
+          return;
+        }
         if (wire.hideLabel) return;
         if ((options.interactionState?.suppressedWireIds || new Set()).has(wire.id)) return;
         const selected = selectedWireIds.has(wire.id);
@@ -1382,8 +1386,7 @@ export class WebglGraphRenderer {
         if (!caption) return;
         drawWireLabel(ctx, scene, wire, camera, offsets, caption);
         wireLabelCount += 1;
-        const moving = dragSession?.affectedWireIds?.has(wire.id);
-        this.recordWireLayer(options.layerTrace, wire.id, "labelLayer", moving ? "drawn-moving" : "drawn");
+        this.recordWireLayer(options.layerTrace, wire.id, "labelLayer", "drawn");
       });
       // Label only portals already revealed by interaction, never hidden links.
       const interaction = options.interactionState || {};
