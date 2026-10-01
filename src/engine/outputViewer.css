@@ -24,6 +24,7 @@
 .output-inspector dl { display: grid; gap: 3px; margin: 0; }
 .output-inspector dt { color: var(--muted); font-size: 10px; text-transform: uppercase; }
 .output-inspector dd { margin: 0 0 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.output-inspector dd [data-action="endpoint"] { width: 100%; height: auto; min-height: 30px; text-align: left; white-space: normal; overflow-wrap: anywhere; }
 .output-cables { display: grid; gap: 6px; margin: 12px 0; }
 .output-cables button { height: auto; min-height: 28px; text-align: left; overflow-wrap: anywhere; }
 .output-inspector [data-action="play"] { background: #176a8c; color: #fff; width: 100%; }

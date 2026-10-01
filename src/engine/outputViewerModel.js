@@ -2,6 +2,7 @@ import { SceneGraph } from "./sceneGraph.js";
 import { resolvePlayableSignalPath, jumpNodeRoleLabel } from "./jumpNodeModel.js";
 import { resolveOutputDeviceAssets } from "./outputViewerAssets.js";
 import { assertOutputSceneContract } from "./outputSceneContract.js";
+import { engineConnectorTypeDisplayName } from "./connectorCompatibility.js";
 
 function freeze(value) {
   if (value && typeof value === "object") { Object.values(value).forEach(freeze); Object.freeze(value); }
@@ -36,9 +37,23 @@ export function outputSelectionDetails(scene, selection) {
   if (selection.type === "wire") {
     const wire = scene.getWire(selection.id);
     if (!wire) return outputSelectionDetails(scene, null);
-    return { title: wire.label || wire.id, rows: [["Cable", wire.cableType], ["ID", wire.id],
-      ["From", wire.fromDeviceId || wire.fromSurfaceId], ["To", wire.toDeviceId || wire.toSurfaceId],
-      ["Length", wire.length], ["Notes", wire.notes]], wireIds: [wire.id] };
+    const endpointLabel = end => {
+      const deviceId = wire[`${end}DeviceId`] || wire[`${end}SurfaceId`];
+      const device = scene.getDevice(deviceId);
+      const connector = scene.getConnector(deviceId, wire[`${end}ConnectorId`]);
+      const port = connector?.nameText || connector?.label || connector?.type;
+      return [device?.label || deviceId || "Unknown device", port].filter(Boolean).join(" / ");
+    };
+    const cableType = String(wire.cableType || "").replace(/[-_]+/g, " ").replace(/\b\w/g, character => character.toUpperCase());
+    const readableType = engineConnectorTypeDisplayName(wire.cableType, cableType || "Cable");
+    const title = wire.label && wire.label !== wire.cableType && wire.label !== wire.id
+      ? wire.label : wire.cableNumber || readableType;
+    return { title, rows: [
+      ["Cable", readableType],
+      ["Cable ID", wire.cableNumber],
+      ["From", endpointLabel("from")], ["To", endpointLabel("to")],
+      ["Length", wire.length], ["Notes", wire.notes]
+    ], wireIds: [wire.id] };
   }
   if (selection.type === "jump-link") {
     const link = scene.getJumpLink(selection.id);

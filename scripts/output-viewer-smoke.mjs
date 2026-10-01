@@ -95,6 +95,31 @@ try {
       assert.equal(await page.locator(".output-inspector input,.output-inspector textarea,.output-inspector select").count(), 0);
     }
     if (name === "parity") {
+      await page.evaluate(() => outputViewer.select({ type: "wire", id: "curve" }));
+      await page.screenshot({ path: `${shots}/output-viewer-cable-inspector.png` });
+      assert.equal(await page.locator('.output-inspector dt').allTextContents().then(labels => labels.includes("ID")), false);
+      assert.equal(await page.locator('.output-inspector dd').filter({ hasText: "SDI" }).count(), 1);
+      assert.equal(await page.locator('.output-cables button').count(), 0, "selected cable has no duplicate selection button");
+      for (const [end, label] of [["from", "From"], ["to", "To"]]) {
+        const expected = await page.evaluate(end => {
+          const viewer = window.outputViewer, wire = viewer.scene.getWire("curve");
+          const point = viewer.scene.endpointForWire(wire, end);
+          return { point, deviceId: wire[`${end}DeviceId`], connectorId: wire[`${end}ConnectorId`] };
+        }, end);
+        const button = page.locator(`[data-action="endpoint"][data-end="${end}"]`);
+        assert.equal(await button.getAttribute("title"), `Focus ${label.toLowerCase()} endpoint`);
+        await button.click();
+        const focused = await page.evaluate(() => {
+          const viewer = window.outputViewer;
+          return { x: viewer.camera.x + viewer.stage.clientWidth / (2 * viewer.camera.zoom),
+            y: viewer.camera.y + viewer.stage.clientHeight / (2 * viewer.camera.zoom),
+            selected: viewer.selection, connectorKeys: [...viewer.scene.selectedConnectorKeys] };
+        });
+        assert.ok(Math.abs(focused.x - expected.point.x) < .01 && Math.abs(focused.y - expected.point.y) < .01,
+          `${label} button centers the actual Engine endpoint`);
+        assert.deepEqual(focused.selected, { type: "wire", id: "curve" });
+        assert.deepEqual(focused.connectorKeys, [`${expected.deviceId}:${expected.connectorId}`]);
+      }
       await page.evaluate(() => { outputViewer.select({ type: "wire", id: "jump-source" }); outputViewer.fit(); });
       await page.getByRole("button", { name: "Play Cable", exact: true }).click();
       await page.waitForFunction(() => outputViewer.renderer.frameStats().wirePlayback > 0);

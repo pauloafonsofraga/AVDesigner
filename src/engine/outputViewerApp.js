@@ -83,6 +83,7 @@ export class EngineOutputViewer {
       if (action === "inspector") this.toggleInspector();
       if (action === "play") this.play();
       if (action === "wire") this.select({ type: "wire", id: button.dataset.id });
+      if (action === "endpoint") this.focusWireEndpoint(button.dataset.end);
     });
     on(this.stage, "wheel", event => {
       event.preventDefault(); this.stopPlayback();
@@ -227,16 +228,39 @@ export class EngineOutputViewer {
     const fields = this.inspector.querySelector("dl"); fields.replaceChildren();
     details.rows.filter(([, value]) => value != null && value !== "").forEach(([label, value]) => {
       const dt = document.createElement("dt"), dd = document.createElement("dd");
-      dt.textContent = label; dd.textContent = String(value); fields.append(dt, dd);
+      dt.textContent = label;
+      if (selection?.type === "wire" && (label === "From" || label === "To")) {
+        const button = document.createElement("button");
+        button.type = "button"; button.dataset.action = "endpoint";
+        button.dataset.end = label === "From" ? "from" : "to";
+        button.title = `Focus ${label.toLowerCase()} endpoint`;
+        button.textContent = String(value); dd.append(button);
+      } else dd.textContent = String(value);
+      fields.append(dt, dd);
     });
     const cables = this.inspector.querySelector(".output-cables"); cables.replaceChildren();
-    details.wireIds.forEach(id => {
+    (selection?.type === "wire" ? [] : details.wireIds).forEach(id => {
       const button = document.createElement("button"); button.type = "button"; button.dataset.action = "wire"; button.dataset.id = id;
       button.textContent = this.scene.getWire(id)?.label || id; button.title = "Inspect cable"; cables.append(button);
     });
     const play = this.inspector.querySelector('[data-action="play"]');
     play.hidden = outputCableTrace(this.model, selection).length === 0;
     play.textContent = "Play Cable";
+    this.requestRender();
+  }
+  focusWireEndpoint(end) {
+    if (this.selection?.type !== "wire" || (end !== "from" && end !== "to")) return;
+    const wire = this.scene.getWire(this.selection.id);
+    if (!wire) return;
+    const point = this.scene.endpointForWire(wire, end);
+    if (!Number.isFinite(point?.x) || !Number.isFinite(point?.y)) return;
+    const deviceId = wire[`${end}DeviceId`] || wire[`${end}SurfaceId`];
+    const connectorId = wire[`${end}ConnectorId`];
+    this.scene.selectedConnectorKeys.clear();
+    if (this.scene.getConnector(deviceId, connectorId)) this.scene.selectedConnectorKeys.add(`${deviceId}:${connectorId}`);
+    this.camera.zoom = Math.max(this.camera.zoom, .5);
+    this.camera.x = point.x - this.stage.clientWidth / (2 * this.camera.zoom);
+    this.camera.y = point.y - this.stage.clientHeight / (2 * this.camera.zoom);
     this.requestRender();
   }
   play() {

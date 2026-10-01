@@ -41,6 +41,26 @@ async function viewerParity(page, reference) {
     assert.deepEqual(actual.gpuMatrix, reference.gpuMatrix, "live Engine matrix buffers");
   }
 }
+async function checkCableInspector(scope) {
+  await scope.evaluate(() => outputViewer.select({ type: "wire", id: "curve" }));
+  assert.equal(await scope.locator('.output-inspector h2').textContent(), "SDI");
+  assert.equal(await scope.locator('.output-inspector dt').allTextContents().then(labels => labels.includes("ID")), false);
+  assert.equal(await scope.locator('.output-cables button').count(), 0);
+  for (const end of ["from", "to"]) {
+    const point = await scope.evaluate(end => {
+      const viewer = outputViewer;
+      return viewer.scene.endpointForWire(viewer.scene.getWire("curve"), end);
+    }, end);
+    await scope.locator(`[data-action="endpoint"][data-end="${end}"]`).click();
+    const focused = await scope.evaluate(() => {
+      const viewer = outputViewer;
+      return { x: viewer.camera.x + viewer.stage.clientWidth / (2 * viewer.camera.zoom),
+        y: viewer.camera.y + viewer.stage.clientHeight / (2 * viewer.camera.zoom), selection: viewer.selection };
+    });
+    assert.ok(Math.abs(focused.x - point.x) < .01 && Math.abs(focused.y - point.y) < .01);
+    assert.deepEqual(focused.selection, { type: "wire", id: "curve" });
+  }
+}
 async function benchmarkEngine(page) {
   return page.evaluate(async () => {
     const v = outputViewer; v.fit(); v.select(null);
@@ -157,6 +177,7 @@ try {
     const performance = await benchmarkEngine(viewer);
     assert.equal(performance.rebuilds, 0); assert.equal(performance.textureBuilds, 0); assert.equal(performance.unchanged, true);
     if (name === "parity") {
+      await checkCableInspector(viewer);
       await checkJumpHover(viewer, viewer, "offline");
       // The undo-based shell harness omits imageObjects. Exercise the complete
       // 17-object canonical input through the same bundled offline viewer too.
@@ -245,7 +266,10 @@ try {
     await frame.evaluate(() => engineOutputReady);
     assert.equal(await frame.evaluate(() => document.documentElement.outerHTML.includes("viewer-jump-link-reveal")), false, "wrapper did not inject Legacy styles");
     await viewerParity(frame, reference);
-    if (name === "parity") await checkJumpHover(frame, hosted, "hosted");
+    if (name === "parity") {
+      await checkCableInspector(frame);
+      await checkJumpHover(frame, hosted, "hosted");
+    }
     await frame.getByRole("button", { name: "Report", exact: true }).click();
     assert.equal(await frame.getByRole("dialog", { name: "Project Report" }).isVisible(), true);
     await frame.getByRole("button", { name: "Close", exact: true }).click();
@@ -273,7 +297,7 @@ try {
   for (const [name, project] of cases) {
     const legacy = await browser.newPage({ viewport: { width: 1600, height: 1000 } }), errors = errorsFor(legacy);
     await legacy.goto(`${base}/index.html?legacy=1`);
-    await legacy.waitForFunction(() => activeEngineBridge()?.ready);
+    await legacy.waitForFunction(() => typeof activeEngineBridge === "function" && activeEngineBridge()?.ready);
     await legacy.evaluate(f => {
       for (const d of f.devices) d.templateOverride ||= f.deviceLibrary?.find(t => t.id === d.templateId);
       restoreSnapshot(f); zoomToFit();

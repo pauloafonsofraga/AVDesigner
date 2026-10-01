@@ -88,6 +88,31 @@ test("connector inspection exposes fields without modifying model data", () => {
   assert.equal(JSON.stringify(model.contract), before);
 });
 
+test("cable inspection uses readable endpoints and hides internal wire IDs", () => {
+  const { model } = setup();
+  const wire = model.scene.getWire("curve");
+  wire.label = "OUT 3 to DP 3";
+  wire.cableType = "display-port";
+  wire.cableNumber = "V-171";
+  model.scene.getDevice("ordinary-a").label = "Processor A";
+  model.scene.getDevice("ordinary-b").label = "Display B";
+  const details = outputSelectionDetails(model.scene, { type: "wire", id: wire.id });
+  assert.equal(details.title, "OUT 3 to DP 3");
+  assert.deepEqual(details.rows, [
+    ["Cable", "Display Port"], ["Cable ID", "V-171"],
+    ["From", "Processor A / output"], ["To", "Display B / input"],
+    ["Length", ""], ["Notes", ""]
+  ]);
+  assert.ok(!JSON.stringify(details.rows).includes("ordinary-a"));
+  assert.ok(!JSON.stringify(details.rows).includes("ordinary-b"));
+  assert.ok(!JSON.stringify(details.rows).includes('"ID","curve"'));
+  assert.deepEqual(details.wireIds, ["curve"]);
+  wire.label = "display-port";
+  assert.equal(outputSelectionDetails(model.scene, { type: "wire", id: wire.id }).title, "V-171");
+  wire.cableNumber = "";
+  assert.equal(outputSelectionDetails(model.scene, { type: "wire", id: wire.id }).title, "Display Port");
+});
+
 test("cable tracing reuses jump semantics and only snapshot polylines", () => {
   const { model } = setup();
   const before = JSON.stringify(model.contract);
