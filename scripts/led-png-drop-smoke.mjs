@@ -28,10 +28,10 @@ try {
       const clientX = location?.clientX ?? rect.left + rect.width / 2;
       const clientY = location?.clientY ?? rect.top + rect.height / 2;
       const world = bridge.clientPointToWorld(clientX, clientY);
-      bridge.canvas.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, clientX, clientY, dataTransfer: transfer }));
+      document.body.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, clientX, clientY, dataTransfer: transfer }));
       const highlighted = document.getElementById("canvasWrap").classList.contains("led-png-drop-target");
       const drop = new DragEvent("drop", { bubbles: true, cancelable: true, clientX, clientY, dataTransfer: transfer });
-      bridge.canvas.dispatchEvent(drop);
+      document.body.dispatchEvent(drop);
       return { world, highlighted, prevented: drop.defaultPrevented, image: await new Promise(resolve => {
         const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.readAsDataURL(blob);
       }) };
