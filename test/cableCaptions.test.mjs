@@ -55,7 +55,7 @@ test("normal, hovered and selected captions use identities, not cable type or cu
   assert.deepEqual(project, before); assert.equal(wire.label, "Custom cable label"); assert.equal(wire.cableType, "hdmi");
 });
 
-test("moving a connected device hides only its cable names until the drag ends", () => {
+test("moving a connected device hides its cable name until the drag ends", () => {
   const scene = sceneFor();
   const drag = new DragSession({
     scene,
@@ -71,7 +71,7 @@ test("moving a connected device hides only its cable names until the drag ends",
   });
   assert.ok(!during.includes(normal));
   assert.ok(!during.includes(highlighted));
-  assert.ok(during.length > 0, "unaffected cable names remain visible");
+  assert.deepEqual(during, [], "physical Jump wires never show captions");
   assert.ok(liveLabels(scene).includes(normal), "name reappears when the drag ends");
 });
 
@@ -192,16 +192,26 @@ test("portal captions follow visible overlays only, including playback, and resp
   assert.ok(liveLabels(scene, { selectedWireIds: new Set(["direct"]) }, .1).includes(highlighted));
 });
 
-test("selecting either Jump cable leg emphasizes both physical captions without revealing the portal", () => {
+test("selecting either Jump cable leg never reveals a physical caption or the portal", () => {
   const scene = sceneFor();
   for (const id of ["physical-1", "physical-2"]) {
     const labels = liveLabels(scene, { selectedWireIds: new Set([id]) }, .1);
-    assert.ok(labels.includes(`${strict} - 10 m`));
-    assert.ok(labels.includes(`${strict} - 15 ft`));
-    assert.ok(!labels.includes(strict));
-    assert.ok(!labels.some(label => label.includes("Control A")));
+    assert.deepEqual(labels, []);
   }
   assert.deepEqual(liveLabels(scene, {}, .1), []);
+});
+
+test("a shared Jump cable label appears only on the visible portal and stays out of print", () => {
+  const project = cableCaptionFixture();
+  project.connections[0].label = project.connections[1].label = "Camera feed";
+  const scene = sceneFor(project), link = scene.getJumpLink("strict-pair");
+  assert.equal(wireCaption(scene, link), "Camera feed");
+  assert.deepEqual(liveLabels(scene, { selectedWireIds: new Set(["physical-1"]) }, .1), []);
+  const overlay = outputJumpLinkOverlays(createOutputViewerModel(buildEngineOutputScene(project)), null, "strict-a");
+  assert.ok(liveLabels(scene, { interactionState: { jumpLinkOverlays: overlay } }).includes("Camera feed"));
+  const ctx = context(); drawEngineOutputLabels(ctx, scene, buildEngineOutputScene(project).bounds);
+  assert.ok(!ctx.captions.includes("Camera feed"));
+  assert.ok(!renderEngineOutputSvg(buildEngineOutputScene(project)).svg.includes("Camera feed"));
 });
 
 test("viewer wire hover respects Jump/connector/link precedence and clears on leave, camera changes and pan", () => {
@@ -237,7 +247,7 @@ test("live, offline HTML, Publish and vector PDF share captions without changing
   const ctx = context(); drawEngineOutputLabels(ctx, live, contract.bounds);
   assert.deepEqual(ctx.captions.sort(), liveLabels(live).sort());
   const { svg, diagnostics } = renderEngineOutputSvg(contract);
-  assert.ok(svg.includes(normal)); assert.ok(svg.includes("Camera Main to Stage Screen - 10 m"));
+  assert.ok(svg.includes(normal)); assert.ok(!svg.includes("Camera Main to Stage Screen - 10 m"));
   assert.ok(!svg.includes(highlighted)); assert.ok(!svg.includes(`>${strict}</text>`));
   assert.doesNotMatch(svg, /data-jump-link-id/); assert.equal(diagnostics.visibleJumpLinkPaths, 0);
   assert.equal(renderEngineOutputSvg(contract).svg, svg); assert.equal(JSON.stringify(contract), before);

@@ -110,7 +110,8 @@ import {
   JUMP_PRESS_MOVE_THRESHOLD_PX,
   JUMP_LINK_HOLD_MS,
   normalizeEngineJumpNode,
-  resolvePlayableSignalPath
+  resolvePlayableSignalPath,
+  sceneJumpLinkPhysicalWires
 } from "./jumpNodeModel.js";
 import {
   polylineLength,
@@ -136,8 +137,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-16-wirenexus-branding";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-16-wirenexus-branding";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-39-shared-jump-labels";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-39-shared-jump-labels";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -6487,10 +6488,43 @@ class ProductionEngineBridge {
     return { mutationMs, diagnostics, dirtyStats };
   }
 
+  jumpLinkForPhysicalWire(wireId) {
+    const wire = this.resolveWire(wireId);
+    if (!wire) return null;
+    const link = [wire.fromDeviceId, wire.toDeviceId]
+      .map(id => this.scene.jumpLinkForNode(id)).find(Boolean);
+    return link && sceneJumpLinkPhysicalWires(this.scene, link).some(item => item.id === wire.id) ? link : null;
+  }
+
+  jumpLinkLabel(linkId) {
+    const link = this.scene.getJumpLink(linkId);
+    const wires = sceneJumpLinkPhysicalWires(this.scene, link);
+    const connections = this.mutations?.root?.connections || [];
+    const stored = wires.map(wire => ({ label: connections.find(item => item.id === (wire.sourceId || wire.id))?.label,
+      type: wire.cableType }))
+      .find(item => String(item.label || "").trim() && String(item.label).trim() !== String(item.type || "").trim())?.label;
+    return stored === undefined ? wires.map(wire => wire.label !== wire.cableType ? wire.label : "")
+      .find(label => String(label || "").trim()) || "" : String(stored);
+  }
+
+  previewJumpLinkLabel(linkId, label) {
+    const wires = sceneJumpLinkPhysicalWires(this.scene, this.scene.getJumpLink(linkId));
+    return wires.length ? this.previewMultiWireInspectorFields(wires.map(wire => wire.id), { label }) : false;
+  }
+
+  commitJumpLinkLabel(linkId, label) {
+    const wires = sceneJumpLinkPhysicalWires(this.scene, this.scene.getJumpLink(linkId));
+    return wires.length ? this.commitMultiWireInspectorFields(wires.map(wire => wire.id), { label }, { preserveSelection: true }) : false;
+  }
+
   commitWireInspectorFields(wireId, fields = {}) {
     if (!this.ready) return false;
     const wire = this.resolveWire(wireId);
     if (!wire) return false;
+    if (Object.keys(fields).length === 1 && fields.label !== undefined) {
+      const link = this.jumpLinkForPhysicalWire(wire.id);
+      if (link) return this.commitJumpLinkLabel(link.id, fields.label);
+    }
     const before = this.consumeWireInspectorPreviewBaseline(wire, fields)
       || captureWireInspectorFields(wire, fields);
     const after = sanitizeWireInspectorFields(fields);
@@ -6512,6 +6546,10 @@ class ProductionEngineBridge {
     if (!this.ready) return false;
     const wire = this.resolveWire(wireId);
     if (!wire) return false;
+    if (Object.keys(fields).length === 1 && fields.label !== undefined) {
+      const link = this.jumpLinkForPhysicalWire(wire.id);
+      if (link) return this.previewJumpLinkLabel(link.id, fields.label);
+    }
     return this.applyWireInspectorPreview(wire, fields);
   }
 
@@ -6529,7 +6567,7 @@ class ProductionEngineBridge {
     return true;
   }
 
-  commitMultiWireInspectorFields(wireIds = [], fields = {}) {
+  commitMultiWireInspectorFields(wireIds = [], fields = {}, options = {}) {
     if (!this.ready) return false;
     const wires = uniqueItems(wireIds)
       .map(id => this.resolveWire(id))
@@ -6557,7 +6595,7 @@ class ProductionEngineBridge {
     after.forEach(item => {
       mutationMs += this.applyWireInspectorFields(item.wireId, item.fields, { select: false }).mutationMs || 0;
     });
-    this.scene.selectedWireIds = new Set(ids);
+    if (!options.preserveSelection) this.scene.selectedWireIds = new Set(ids);
     this.updateSelectionHud();
     this.recordCommand(multiWireInspectorFieldsCommand(before, after));
     this.markCommitted("inspector multi-wire fields", mutationMs, {

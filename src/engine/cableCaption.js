@@ -1,5 +1,5 @@
 import { engineConnectorDisplayLabel } from "./connectorCompatibility.js";
-import { isJumpNodeDevice, sceneJumpDeviceWire } from "./jumpNodeModel.js";
+import { isJumpNodeDevice, sceneJumpDeviceWire, sceneJumpLinkPhysicalWires } from "./jumpNodeModel.js";
 
 function endpointIdentity(device, connector, surface = false) {
   if (!device || isJumpNodeDevice(device)) return { device: "Unconnected", node: "" };
@@ -38,7 +38,19 @@ export function resolveCableEndpoints(scene, cable) {
 
 export function wireCaption(scene, cable, highlighted = false) {
   const { from, to, virtual } = resolveCableEndpoints(scene, cable);
+  if (virtual) {
+    const sharedLabel = sceneJumpLinkPhysicalWires(scene, cable)
+      .map(wire => ({ label: String(wire.label || "").trim(), type: String(wire.cableType || "").trim() }))
+      .find(item => item.label && item.label !== item.type)?.label;
+    if (sharedLabel) return sharedLabel;
+  }
   const label = endpoint => highlighted && endpoint.node ? `${endpoint.device} - ${endpoint.node}` : endpoint.device;
   const length = virtual ? "" : String(cable.length ?? "");
   return `${label(from)} to ${label(to)}${length.trim() ? ` - ${length}` : ""}`;
+}
+
+export function isPhysicalJumpWire(scene, wire) {
+  return Boolean(wire && !wire.outputJumpId && !wire.inputJumpId
+    && (isJumpNodeDevice(scene.getDevice(wire.fromDeviceId))
+      || isJumpNodeDevice(scene.getDevice(wire.toDeviceId))));
 }

@@ -54,7 +54,7 @@ async function leaveCable(page, output) {
   }
   await page.mouse.move(5, 5);
 }
-async function interactions(page, output = false, renamed = false) {
+async function interactions(page, output = false, renamed = false, portal = "Camera Main - SDI OUT 1 to Stage Screen - SDI IN") {
   const plain = renamed ? normal.replace("E2 Main", "E2 Backup") : normal;
   const full = renamed ? highlighted.replace("E2 Main", "E2 Backup").replace("HDMI OUT 1", "Program Out") : highlighted;
   await record(page, output); await leaveCable(page, output); await rendered(page, plain);
@@ -64,13 +64,14 @@ async function interactions(page, output = false, renamed = false) {
   await page.mouse.click(p.x, p.y); await leaveCable(page, output); await rendered(page, full);
   await page.keyboard.press("Escape"); await rendered(page, plain); await rendered(page, full, false);
   checks.push(`${output ? "offline HTML" : "live Engine"}: native hover, select, leave and Escape produce exact captions`);
-  const jump = await point(page, "strict-a", true), portal = "Camera Main - SDI OUT 1 to Stage Screen - SDI IN";
+  const jump = await point(page, "strict-a", true);
   await rendered(page, portal, false);
   await page.mouse.move(jump.x, jump.y); await rendered(page, portal);
   await page.screenshot({ path: join(directory, `${output ? "offline" : "live"}-jump.png`) });
   await leaveCable(page, output); await rendered(page, portal, false);
-  await rendered(page, "Camera Main to Stage Screen - 10 m"); await rendered(page, "Camera Main to Stage Screen - 15 ft");
-  checks.push(`${output ? "offline HTML" : "live Engine"}: Jump portal caption is transient and segments keep separate lengths`);
+  await rendered(page, "Camera Main to Stage Screen - 10 m", false);
+  await rendered(page, "Camera Main to Stage Screen - 15 ft", false);
+  checks.push(`${output ? "offline HTML" : "live Engine"}: Jump portal caption is transient and physical legs have no captions`);
 }
 try {
   const context = await browser.newContext({ viewport: { width: 1800, height: 1250 } });
@@ -79,6 +80,46 @@ try {
   await page.waitForFunction(() => activeEngineBridge()?.ready && localUserSettingsLoaded);
   await page.evaluate(project => restoreSnapshot(project), cableCaptionFixture());
   await interactions(page);
+
+  await page.evaluate(() => {
+    const bridge = activeEngineBridge();
+    bridge.scene.selectWireOnly("physical-1");
+    bridge.updateSelectionHud();
+  });
+  await page.locator("#wireLabel").fill("Camera feed");
+  await page.locator("#wireLabel").press("Tab");
+  assert.deepEqual(await page.evaluate(() => state.connections.slice(0, 2).map(wire => wire.label)), ["Camera feed", "Camera feed"]);
+  assert.equal(await page.evaluate(() => activeEngineBridge().scene.selectedWireIds.has("physical-1")), true);
+  await page.evaluate(() => {
+    const bridge = activeEngineBridge();
+    bridge.scene.selectOnly("strict-a");
+    bridge.updateSelectionHud();
+    bridge.scheduleRender();
+  });
+  const portalPoint = await page.evaluate(() => {
+    const bridge = activeEngineBridge(), overlay = bridge.visibleJumpLinkOverlays().find(item => item.id === "strict-pair");
+    const world = overlay.points[Math.floor(overlay.points.length / 2)];
+    const rect = bridge.canvas.getBoundingClientRect();
+    return { x: rect.x + (world.x - bridge.camera.x) * bridge.camera.zoom,
+      y: rect.y + (world.y - bridge.camera.y) * bridge.camera.zoom };
+  });
+  await page.mouse.click(portalPoint.x, portalPoint.y);
+  assert.equal(await page.evaluate(() => activeEngineBridge().scene.selectedJumpLinkId), "strict-pair");
+  assert.equal(await page.locator("#jumpLinkLabel").inputValue(), "Camera feed");
+  await rendered(page, "Camera feed");
+  await page.locator("#jumpLinkLabel").fill("Program return");
+  await page.locator("#jumpLinkLabel").press("Tab");
+  assert.deepEqual(await page.evaluate(() => state.connections.slice(0, 2).map(wire => wire.label)), ["Program return", "Program return"]);
+  assert.equal(await page.evaluate(() => activeEngineBridge().scene.selectedJumpLinkId), "strict-pair");
+  await rendered(page, "Program return");
+  await page.evaluate(() => document.activeElement?.blur());
+  await page.keyboard.press("Control+z");
+  assert.deepEqual(await page.evaluate(() => state.connections.slice(0, 2).map(wire => wire.label)), ["Camera feed", "Camera feed"]);
+  await page.keyboard.press("Control+Shift+z");
+  assert.deepEqual(await page.evaluate(() => state.connections.slice(0, 2).map(wire => wire.label)), ["Program return", "Program return"]);
+  await page.evaluate(() => restoreSnapshot(projectSnapshot()));
+  assert.deepEqual(await page.evaluate(() => state.connections.slice(0, 2).map(wire => wire.label)), ["Program return", "Program return"]);
+  checks.push("physical-leg and portal inspectors edit one saved Jump cable label; selection, undo, redo and reload preserve it");
 
   await page.evaluate(() => { const b = activeEngineBridge(); b.scene.selectOnly("direct-source"); b.updateSelectionHud(); });
   const rebuildsBeforeRename = await page.evaluate(() => activeEngineBridge().renderer.fullRebuildCount);
@@ -122,7 +163,7 @@ try {
   const offlineContext = await browser.newContext({ viewport: { width: 1800, height: 1250 }, offline: true });
   const viewer = await offlineContext.newPage(); observe(viewer); await viewer.goto(`file://${directory}/captions.html`);
   await viewer.waitForFunction(() => window.outputViewer?.model);
-  await interactions(viewer, true, true);
+  await interactions(viewer, true, true, "Program return");
   const rebuilds = await viewer.evaluate(() => outputViewer.renderer.fullRebuildCount);
   const hover = await point(viewer, "direct"); await viewer.mouse.move(hover.x, hover.y); await rendered(viewer, renamed);
   await viewer.evaluate(() => { outputViewer.camera.y += 5000; outputViewer.requestRender(); });
@@ -140,12 +181,13 @@ try {
   const print = await popup; observe(print); await print.waitForSelector("svg[data-avdesigner-output=engine-svg]");
   const labels = await print.locator('.drawing-frame [data-layer="labels"]').textContent();
   assert.ok(labels.includes(normal.replace("E2 Main", "E2 Backup"))); assert.ok(!labels.includes(renamed));
-  assert.ok(labels.includes("Camera Main to Stage Screen - 10 m")); assert.ok(labels.includes("Camera Main to Stage Screen - 15 ft"));
+  assert.ok(!labels.includes("Camera Main to Stage Screen - 10 m")); assert.ok(!labels.includes("Camera Main to Stage Screen - 15 ft"));
+  assert.ok(!labels.includes("Program return"));
   assert.equal(await print.locator("[data-jump-link-id]").count(), 0);
   await print.emulateMedia({ media: "print" });
   await print.pdf({ path: join(directory, "captions.pdf"), format: "A3", landscape: true, printBackground: true, preferCSSPageSize: true });
   assert.ok(readFileSync(join(directory, "captions.pdf")).length > 1000);
-  checks.push("actual Engine PDF uses normal captions and physical Jump wires; no virtual portal paths");
+  checks.push("actual Engine PDF retains normal captions but prints no Jump cable captions or virtual portal paths");
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({ passed: checks.length, failed: 0, skipped: 0, checks, errors, directory }, null, 2));
 } finally { await browser.close(); }

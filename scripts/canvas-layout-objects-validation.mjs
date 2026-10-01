@@ -25,7 +25,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-38-38-signal-chain";
+const BUILD_ID = "iteration54-38-39-shared-jump-labels";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -40,10 +40,10 @@ function sourceSlice(source, startNeedle, endNeedle) {
   return source.slice(start, end);
 }
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.38.38");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.38";'), "visible iteration should be 54.38.38");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-38-signal-chain-modules";'), "module cache key should bust 54.38.38 modules");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-16-wirenexus-branding"'), "Engine bridge version should identify WireNexus Branding");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.38.39");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.39";'), "visible iteration should be 54.38.39");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-39-shared-jump-labels-modules";'), "module cache key should bust 54.38.39 modules");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-39-shared-jump-labels"'), "Engine bridge version should identify Shared Jump Cable Labels");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
 assert.ok(classicScripts.length >= 1, "index.html should contain at least one classic script");

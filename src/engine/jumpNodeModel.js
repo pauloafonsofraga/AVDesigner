@@ -314,6 +314,19 @@ export function sceneJumpDeviceWire(scene, jumpId = "", { excludeWireId = "", wi
   return null;
 }
 
+export function sceneJumpLinkPhysicalWires(scene, link) {
+  if (!link) return [];
+  const seen = new Set();
+  return [link.outputJumpId, link.inputJumpId].flatMap(jumpId => {
+    const wire = sceneJumpDeviceWire(scene, jumpId, {
+      wireIds: scene?.wireIdsByDeviceId?.get(jumpId) || []
+    })?.wire;
+    if (!wire || seen.has(wire.id)) return [];
+    seen.add(wire.id);
+    return [wire];
+  });
+}
+
 export function sceneJumpNodeRole(scene, jumpId = "") {
   const local = sceneJumpDeviceWire(scene, jumpId);
   const connector = local?.otherDevice && local?.otherConnectorId

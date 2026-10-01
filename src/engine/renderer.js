@@ -60,10 +60,10 @@ import {
   jumpNodeRoleColor
 } from "./jumpNodeModel.js";
 import { wirePlaybackEase } from "./wirePlayback.js";
-import { wireCaption } from "./cableCaption.js";
+import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-35-hide-moving-cable-labels";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-39-shared-jump-labels";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -1378,7 +1378,7 @@ export class WebglGraphRenderer {
           this.recordWireLayer(options.layerTrace, wire.id, "labelLayer", "suppressed-moving");
           return;
         }
-        if (wire.hideLabel) return;
+        if (wire.hideLabel || isPhysicalJumpWire(scene, wire)) return;
         if ((options.interactionState?.suppressedWireIds || new Set()).has(wire.id)) return;
         const selected = selectedWireIds.has(wire.id);
         const hovered = hoveredWireId === wire.id;
@@ -3322,7 +3322,9 @@ export function drawEngineOutputLabels(ctx, scene, bounds) {
     if (device.kind === "jump") drawJumpNodeInfoBox(ctx, scene, device, camera);
   });
   scene.wires.forEach(wire => {
-    if (!wire.hideLabel) drawWireLabel(ctx, scene, wire, camera, null, wireCaption(scene, wire));
+    if (!wire.hideLabel && !isPhysicalJumpWire(scene, wire)) {
+      drawWireLabel(ctx, scene, wire, camera, null, wireCaption(scene, wire));
+    }
   });
   drawVisibleConnectorLabels(ctx, scene, camera, DEFAULT_RENDER_OPTIONS, null, resolution);
   drawVisibleConnectorInfoBoxes(ctx, scene, camera, DEFAULT_RENDER_OPTIONS, null, resolution);
