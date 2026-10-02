@@ -56,7 +56,7 @@ try {
   await offline.screenshot({ path: join(directory, "offline-mobile.png") });
   checks.push("self-contained HTML has WireNexus branding offline on desktop/mobile");
 
-  const popupEvent = page.waitForEvent("popup"); await page.locator("#exportPdf").click();
+  const popupEvent = page.waitForEvent("popup"); await page.evaluate(() => exportChromiumPdfReport());
   const report = await popupEvent; observe(report);
   await report.waitForSelector('svg[data-avdesigner-output="engine-svg"]');
   assert.equal(await report.title(), `${project.projectName} - WireNexus Report`);
@@ -65,7 +65,7 @@ try {
   await report.emulateMedia({ media: "print" });
   await report.pdf({ path: join(directory, "wirenexus-report.pdf"), format: "A3", landscape: true, printBackground: true, preferCSSPageSize: true });
   await report.screenshot({ path: join(directory, "print-report.png") });
-  checks.push("actual Engine vector PDF report carries the new product name");
+  checks.push("Chromium reference PDF report carries the new product name");
 
   const hosted = await context.newPage(); observe(hosted);
   await hosted.route("**/api/project*", route => route.fulfill({ json: route.request().method() === "GET"

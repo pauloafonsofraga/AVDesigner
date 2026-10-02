@@ -1,7 +1,7 @@
 import { registerStdFonts } from "pdfkit";
 import Helvetica from "pdfkit/standard-fonts/Helvetica";
 import HelveticaBold from "pdfkit/standard-fonts/HelveticaBold";
-import { generateExperimentalPdf } from "./outputPdfPrototype.js";
+import { generatePdf } from "./outputPdf.js";
 
 registerStdFonts(Helvetica, HelveticaBold);
-export { generateExperimentalPdf };
+export { generatePdf };

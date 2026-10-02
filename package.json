@@ -7,8 +7,8 @@
     "check:output-viewer": "node scripts/output-viewer-bundle-validation.mjs",
     "build:cable-schedule": "node scripts/build-cable-schedule.mjs",
     "check:cable-schedule": "node scripts/build-cable-schedule.mjs --check",
-    "build:pdf-prototype": "node scripts/build-pdf-prototype.mjs",
-    "check:pdf-prototype": "node scripts/build-pdf-prototype.mjs --check"
+    "build:pdf": "node scripts/build-pdf.mjs",
+    "check:pdf": "node scripts/build-pdf.mjs --check"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.3.14",

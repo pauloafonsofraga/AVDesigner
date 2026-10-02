@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { pdfPageLayout } from "../src/engine/outputPdfLayout.js";
-import { generateExperimentalPdf } from "../src/engine/outputPdfPrototype.js";
+import { pdfPageLayout, jumpNavigationContext, fitRCoordinates, viewerNavigationZoom,
+  JUMP_CONTEXT_FRACTION } from "../src/engine/outputPdfLayout.js";
+import { generatePdf } from "../src/engine/outputPdf.js";
 import { outputPdfJumpFixture } from "../fixtures/output-pdf-jumps.mjs";
 import { buildEngineOutputScene } from "../src/engine/outputSceneSnapshot.js";
 import { renderEngineOutputSvg } from "../src/engine/outputSvgRenderer.js";
@@ -33,10 +34,41 @@ test("PDF page layout maps viewBox points and bounds through the exact drawing t
   assert.throws(() => pdfPageLayout({ marginMm: 500, svgViewBox: view }));
 });
 
-test("PDFKit prototype generates vector PDF bytes with reciprocal Jump annotations", async () => {
+test("FitR navigation context is centred or clamped to every page edge", () => {
+  const layout = pdfPageLayout({ paper: "A3", marginMm: 4, svgViewBox: view });
+  const area = layout.pageArea;
+  const center = { x: area.x + area.width / 2 - 10, y: area.y + area.height / 2 - 10,
+    width: 20, height: 20 };
+  const context = jumpNavigationContext(layout, center);
+  assert.equal(context.width, area.width * JUMP_CONTEXT_FRACTION);
+  assert.equal(context.height, area.height * JUMP_CONTEXT_FRACTION);
+  assert.ok(Math.abs(context.x + context.width / 2 - (center.x + center.width / 2)) < 1e-9);
+  assert.ok(Math.abs(context.y + context.height / 2 - (center.y + center.height / 2)) < 1e-9);
+  assert.deepEqual(fitRCoordinates(layout.paperHeight, context), [context.x,
+    layout.paperHeight - context.y - context.height,
+    context.x + context.width, layout.paperHeight - context.y]);
+  for (const [x, y] of [[area.x, area.y], [area.x + area.width - 20, area.y],
+    [area.x, area.y + area.height - 20], [area.x + area.width - 20, area.y + area.height - 20]]) {
+    const edge = jumpNavigationContext(layout, { x, y, width: 20, height: 20 });
+    const [left, bottom, right, top] = fitRCoordinates(layout.paperHeight, edge);
+    assert.ok(left >= area.x && right <= area.x + area.width);
+    assert.ok(edge.y >= area.y && edge.y + edge.height <= area.y + area.height);
+    assert.ok(bottom >= 0 && top <= layout.paperHeight && bottom < top && left < right);
+  }
+});
+
+test("browser navigation zoom scales with paper width instead of a fixed sheet size", () => {
+  const layout = paper => pdfPageLayout({ paper, svgViewBox: view });
+  assert.ok(Math.abs(viewerNavigationZoom(layout("A3")) - 1.8) < 1e-9);
+  assert.ok(viewerNavigationZoom(layout("A2")) < viewerNavigationZoom(layout("A3")));
+  assert.ok(viewerNavigationZoom(layout("A1")) < viewerNavigationZoom(layout("A2")));
+  assert.ok(viewerNavigationZoom(layout("A4")) > viewerNavigationZoom(layout("A3")));
+});
+
+test("PDFKit production generator creates vector PDF bytes with reciprocal Jump annotations", async () => {
   const scene = buildEngineOutputScene(outputPdfJumpFixture());
   const drawing = renderEngineOutputSvg(scene);
-  const result = await generateExperimentalPdf({ svg: drawing.svg, diagnostics: drawing.diagnostics,
+  const result = await generatePdf({ svg: drawing.svg, diagnostics: drawing.diagnostics,
     engineScene: scene, reportData: { projectName: "Jump fixture", deviceRows: [
       { quantity: 1, brand: "Test", type: "Source", power: "0W" }
     ] } });

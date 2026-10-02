@@ -186,7 +186,7 @@ try {
   checks.push("real self-contained HTML download renders the same selected lens through Engine");
 
   const popupPromise = page.waitForEvent("popup");
-  await page.locator("#exportPdf").click();
+  await page.evaluate(() => exportChromiumPdfReport());
   const print = await popupPromise;
   await print.waitForSelector("svg[data-avdesigner-output=engine-svg]");
   for (const name of ["Wide 0.8:1", "Long Throw 2.5:1"]) {
@@ -194,7 +194,7 @@ try {
   }
   await print.emulateMedia({ media: "print" });
   await print.pdf({ path: `${dir}/projectors.pdf`, format: "A3", landscape: true, printBackground: true, preferCSSPageSize: true });
-  checks.push("real PDF export button and Chromium PDF writer retain one vector subtitle per instance");
+  checks.push("Chromium reference PDF retains one vector lens subtitle per instance");
 
   await page.evaluate(project => restoreSnapshot(project), projectorLensFixture());
   // Open the template-level authoring entry point; changes and Apply still use real controls.

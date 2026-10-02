@@ -15,14 +15,18 @@ export function validateOutputPipeline() {
   const forbidden = /legacy-svg-clone|legacyOutput|buildStandaloneHtml|wirechartSvgMarkup|wirechartSvgStyle|standaloneViewerCss|VIEWER_BEZIER_STEPS|viewerWirePolylineFromPoints|exportResolveLayout|exportInstalledCardConnector|hostedWirechartSvgCss|repairHostedViewerHtml/;
   assert.doesNotMatch(index + wrapper, forbidden, "retired output renderers must not return");
   const outputs = ["buildCanonicalOutputSnapshot", "prepareEngineViewerOutput", "exportHtml",
-    "publishHostedProject", "buildEnginePrintDrawing", "exportPdfReport", "buildPrintableReportHtml"].map(fn).join("\n");
+    "publishHostedProject", "buildEnginePrintDrawing", "exportPdfReport", "generatePdfReport", "buildPrintableReportHtml"].map(fn).join("\n");
   assert.doesNotMatch(outputs, /cloneNode|refreshNavigationSnapshot|objectBoundsForSelection/);
   assert.doesNotMatch(index, /canvas\.cloneNode\s*\(\s*true\s*\)|function refreshNavigationSnapshot|class AVWebglRenderer|id="(?:canvas|webglCanvas|deviceTextureCanvas|navigationSnapshotCanvas)"/);
   for (const name of ["exportHtml", "publishHostedProject"]) assert.match(fn(name), /prepareEngineViewerOutput\(/);
   assert.match(fn("prepareEngineViewerOutput"), /buildCanonicalOutputSnapshot\(/);
   assert.match(fn("prepareEngineViewerOutput"), /viewerModule\.buildEngineViewerHtml\(snapshot/);
   assert.match(fn("engineViewerResources"), /generated\/outputViewerBundle\.json/);
-  assert.match(fn("exportPdfReport"), /buildEnginePrintDrawing\(snapshot\)/);
+  assert.match(fn("exportPdfReport"), /pdfExportDialog/);
+  assert.match(fn("generatePdfReport"), /buildEnginePrintDrawing\(snapshot\)/);
+  assert.match(fn("generatePdfReport"), /outputPdfBundle\.js/);
+  assert.match(fn("generatePdfReport"), /module\.generatePdf\(/);
+  assert.doesNotMatch(fn("generatePdfReport"), /window\.open|window\.print/);
   assert.match(fn("buildEnginePrintDrawing"), /outputSvgRenderer\.js/);
   assert.match(fn("buildEnginePrintDrawing"), /renderEngineOutputSvg\(snapshot/);
   assert.match(wrapper, /frame\.srcdoc = result\.html/);

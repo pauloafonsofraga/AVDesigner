@@ -1,4 +1,4 @@
-"""Verify experimental app-owned PDFs against their Engine-to-page transform."""
+"""Verify production app-owned PDFs against their Engine-to-page transform."""
 import json
 import sys
 from collections import Counter
@@ -15,7 +15,7 @@ for name, case in expected.items():
     nodes = {node["destinationId"]: node for node in case["nodes"]}
     assert len(nodes) == len(case["nodes"]), f"{name}: duplicate destination ID"
     assert len(reader.pages) >= case["pages"], f"{name}: drawing pages missing"
-    assert len(reader.named_destinations) == len(nodes), f"{name}: named destinations missing"
+    assert len(reader.named_destinations) == 2 * len(nodes), f"{name}: named destinations missing"
     links = []
     for page_index, page in enumerate(reader.pages):
         assert float(page.mediabox.width) > 0 and float(page.mediabox.height) > 0
@@ -28,27 +28,45 @@ for name, case in expected.items():
     for page_index, annotation in links:
         assert "/URI" not in annotation and "/URI" not in annotation.get("/A", {})
         assert annotation["/A"]["/S"] == "/GoTo"
-        target_id = str(annotation["/A"]["/D"])
-        target = nodes[target_id]
-        source = nodes[target["targetDestinationId"]]
-        assert source["sourceId"] == target["targetId"]
-        assert source["targetId"] == target["sourceId"]
+        rect = list(map(float, annotation["/Rect"]))
+        matches = []
+        for candidate in case["nodes"]:
+            if candidate["pageIndex"] != page_index:
+                continue
+            box = candidate["pdfRect"]
+            candidate_rect = [box["x"], candidate["paperHeight"] - box["y"] - box["height"],
+                              box["x"] + box["width"], candidate["paperHeight"] - box["y"]]
+            if all(abs(a - b) < 0.03 for a, b in zip(rect, candidate_rect)):
+                matches.append(candidate)
+        assert len(matches) == 1, f"{name}: source annotation does not match exactly one Jump"
+        source = matches[0]
+        target = nodes[source["targetDestinationId"]]
+        assert source["sourceId"] == target["targetId"] and source["targetId"] == target["sourceId"]
         assert source["destinationId"] not in seen
         seen.add(source["destinationId"])
-        assert page_index == source["pageIndex"]
-        box = source["pdfRect"]
-        source_rect = [box["x"], source["paperHeight"] - box["y"] - box["height"],
-                       box["x"] + box["width"], source["paperHeight"] - box["y"]]
-        rect = list(map(float, annotation["/Rect"]))
         assert rect[2] > rect[0] and rect[3] > rect[1]
-        assert all(abs(a - b) < 0.03 for a, b in zip(rect, source_rect)), (name, rect, source_rect)
+        action_destination = annotation["/A"]["/D"]
+        assert action_destination == f"{target['destinationId']}-viewer"
+        viewer_destination = reader.named_destinations[action_destination]
+        assert reader.get_destination_page_number(viewer_destination) == target["pageIndex"]
+        assert viewer_destination["/Type"] == "/XYZ"
+        frame = target["contextRect"]
+        assert abs(float(viewer_destination["/Left"]) - frame["x"]) < 0.03
+        assert abs(float(viewer_destination["/Top"]) -
+                   (target["paperHeight"] - frame["y"])) < 0.03
+        assert 0.7 <= float(viewer_destination["/Zoom"]) <= 2.3
+    assert seen == set(nodes), f"{name}: missing reciprocal source annotations"
+    for target_id, target in nodes.items():
         destination = reader.named_destinations[target_id]
         assert reader.get_destination_page_number(destination) == target["pageIndex"]
-        target_box = target["pdfRect"]
-        assert destination["/Type"] == "/XYZ"
-        assert abs(float(destination["/Left"]) - target_box["x"]) < 0.03
-        assert abs(float(destination["/Top"]) - (target["paperHeight"] - target_box["y"])) < 0.03
-        assert str(destination["/Zoom"]) == "NullObject"
+        assert destination["/Type"] == "/FitR"
+        actual_fit = [float(destination[key]) for key in ["/Left", "/Bottom", "/Right", "/Top"]]
+        assert all(abs(a - b) < 0.03 for a, b in zip(actual_fit, target["fitR"])), (name, actual_fit, target["fitR"])
+        assert actual_fit[0] >= 0 and actual_fit[1] >= 0
+        assert actual_fit[2] <= float(reader.pages[target["pageIndex"]].mediabox.width)
+        assert actual_fit[3] <= float(reader.pages[target["pageIndex"]].mediabox.height)
+        assert actual_fit[0] < actual_fit[2] and actual_fit[1] < actual_fit[3]
+        assert "/Zoom" not in destination
     drawing = reader.pages[0]
     ops = drawing.get_contents().operations
     assert sum(op in [b"m", b"l", b"c", b"re"] for _, op in ops) > 20, f"{name}: drawing rasterized"
@@ -64,6 +82,9 @@ for name, case in expected.items():
         actual_rows = Counter(line for line in report_lines if line in expected_rows)
         assert len(case["reportRows"]["cables"]) == 300
         assert actual_rows == expected_rows, f"{name}: duplicate or missing cable rows"
+    if name == "full-project":
+        assert any("OUT \\ IN" in line for line in report_lines), f"{name}: matrix crosspoint grid missing"
+        assert any("Matrix Routing" in line for line in report_lines), f"{name}: matrix routing missing"
     results.append({"name": name, "pages": len(reader.pages), "links": len(links),
                     "warnings": len(case["warnings"]), "bytes": case["bytes"]})
 print(json.dumps({"passed": len(results), "failed": 0, "results": results}, indent=2))

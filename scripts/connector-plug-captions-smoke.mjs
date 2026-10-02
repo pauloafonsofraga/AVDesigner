@@ -124,7 +124,7 @@ try {
   await viewer.screenshot({ path: `${dir}/matrix-offline.png` });
   checks.push("actual offline HTML export uses Engine bundle with matching caption and information layers");
 
-  const popup = page.waitForEvent("popup"); await page.locator("#exportPdf").click();
+  const popup = page.waitForEvent("popup"); await page.evaluate(() => exportChromiumPdfReport());
   const print = await popup; observe(print);
   await print.waitForSelector("svg[data-avdesigner-output=engine-svg]");
   const labels = print.locator('.drawing-frame [data-layer="labels"]');
@@ -136,7 +136,7 @@ try {
   await print.emulateMedia({ media: "print" });
   await print.pdf({ path: `${dir}/captions.pdf`, format: "A3", landscape: true, printBackground: true, preferCSSPageSize: true });
   assert.ok((await readFile(`${dir}/captions.pdf`)).length > 1000);
-  checks.push("real vector PDF export retains bold plug captions and separate metadata values by text role");
+  checks.push("Chromium reference PDF retains bold plug captions and separate metadata values by text role");
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({ passed: checks.length, failed: 0, skipped: 0, checks, artifacts: dir }, null, 2));
 } finally { await browser.close(); }

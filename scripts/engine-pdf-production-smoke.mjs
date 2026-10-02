@@ -5,11 +5,11 @@ import { join } from "node:path";
 import { buildEngineOutputScene } from "../src/engine/outputSceneSnapshot.js";
 import { renderEngineOutputSvg } from "../src/engine/outputSvgRenderer.js";
 import { buildOutputJumpNavigation } from "../src/engine/outputNavigation.js";
-import { pdfPageLayout } from "../src/engine/outputPdfLayout.js";
-import { generateExperimentalPdf } from "../src/engine/outputPdfPrototype.js";
+import { pdfPageLayout, jumpNavigationContext, fitRCoordinates } from "../src/engine/outputPdfLayout.js";
+import { generatePdf } from "../src/engine/outputPdf.js";
 import { outputPdfJumpFixture } from "../fixtures/output-pdf-jumps.mjs";
 
-const dir = mkdtempSync(join(tmpdir(), "wirenexus-pdf-prototype-"));
+const dir = mkdtempSync(join(tmpdir(), "wirenexus-pdf-production-"));
 const options = [
   ["a4-0-fit", { paper: "A4", marginMm: 0 }],
   ["a4-4-fit", { paper: "A4", marginMm: 4 }],
@@ -29,17 +29,21 @@ const expected = {};
 
 async function produce(name, drawingPages, config = {}, report = reportData) {
   const beforeMs = performance.now(), beforeRss = process.memoryUsage().rss;
-  const result = await generateExperimentalPdf({ drawingPages, reportData: report, options: config });
+  const result = await generatePdf({ drawingPages, reportData: report, options: config });
   const generationMs = Math.round((performance.now() - beforeMs) * 10) / 10;
   const rssDeltaMiB = Math.round((process.memoryUsage().rss - beforeRss) / 1048576 * 10) / 10;
   writeFileSync(join(dir, `${name}.pdf`), result.bytes);
   const nodes = drawingPages.flatMap((page, pageIndex) => {
-    const layout = pdfPageLayout({ ...config, svgViewBox: page.diagnostics.viewBox });
+    const layout = pdfPageLayout({ ...config, ...page.options, svgViewBox: page.diagnostics.viewBox });
     const allowed = page.sourceIds ? new Set(page.sourceIds) : null;
     return buildOutputJumpNavigation(page.engineScene).jumpNodes
       .filter(node => !allowed || allowed.has(node.sourceId))
-      .map(node => ({ ...node, pageIndex, pdfRect: layout.rect(node.bounds),
-        paperHeight: layout.paperHeight }));
+      .map(node => {
+        const pdfRect = layout.rect(node.bounds);
+        return { ...node, pageIndex, pdfRect, contextRect: jumpNavigationContext(layout, pdfRect),
+          fitR: fitRCoordinates(layout.paperHeight, jumpNavigationContext(layout, pdfRect)),
+          paperHeight: layout.paperHeight };
+      });
   });
   assert.equal(result.jumpAnnotations, nodes.length);
   expected[name] = { nodes, pages: drawingPages.length, report: true,
@@ -55,6 +59,19 @@ for (const shape of ["wide", "tall"]) {
   for (const [name, config] of options) await produce(`${shape}-${name}`, [page], config);
 }
 
+for (const [name, x, y] of [
+  ["top-left", -490, -290], ["top-right", 1180, -290],
+  ["bottom-left", -490, 750], ["bottom-right", 1180, 750],
+  ["center", 370, 250]
+]) {
+  const edgeProject = outputPdfJumpFixture();
+  const target = edgeProject.jumpNodes.find(node => node.id === "strict-b");
+  target.x = x; target.y = y;
+  const scene = buildEngineOutputScene(edgeProject);
+  await produce(`edge-${name}`, [{ ...renderEngineOutputSvg(scene), engineScene: scene }],
+    { paper: "A3", marginMm: 4 });
+}
+
 const project = outputPdfJumpFixture(), fullScene = buildEngineOutputScene(project);
 const halves = [["strict-a", "bidi-a", "unpaired"], ["strict-b", "bidi-b"]];
 const drawingPages = halves.map(ids => {
@@ -67,6 +84,7 @@ const drawingPages = halves.map(ids => {
   const drawing = renderEngineOutputSvg(buildEngineOutputScene(subset));
   return { ...drawing, engineScene: fullScene, sourceIds: ids };
 });
+drawingPages[1].options = { paper: "A4", orientation: "portrait", marginMm: 10 };
 await produce("cross-page", drawingPages, { paper: "A3", marginMm: 4 });
 
 if (process.argv[2]) {

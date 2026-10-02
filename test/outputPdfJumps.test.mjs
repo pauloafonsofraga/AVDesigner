@@ -13,7 +13,7 @@ import { engineOutputPrimitives } from "../src/engine/renderer.js";
 const contract = buildEngineOutputScene(outputPdfJumpFixture());
 const count = (svg,attribute) => [...svg.matchAll(new RegExp(` ${attribute}="`,"g"))].length;
 
-test("production PDF has unchanged rings/physical wires but no clickable Jump links or portal ink",()=>{
+test("Engine print SVG has unchanged rings/physical wires and no Chromium anchors or portal ink",()=>{
   const before=JSON.stringify(contract), model=createOutputViewerModel(contract);
   const {svg,diagnostics}=renderEngineOutputSvg(contract), primitives=engineOutputPrimitives(model.scene,contract);
   assert.equal(count(svg,"data-jump-id"),5);

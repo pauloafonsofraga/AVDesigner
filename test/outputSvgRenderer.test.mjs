@@ -160,7 +160,7 @@ test("SVG backend retains transforms, clipping, curves, gradients and original i
   assert.ok(render(buildEngineOutputScene({})).svg.includes('data-avdesigner-output="engine-svg"'));
 });
 
-test("real PDF entry point uses only the Engine drawing and retains report sections",async()=> {
+test("Chromium reference PDF uses the Engine drawing and retains report sections",async()=> {
   const html = readFileSync(new URL("../index.html",import.meta.url),"utf8");
   const extract = name => html.match(new RegExp(`^    (?:async )?function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?^    \\}`,"m"))[0];
   const writes=[],calls=[],report={sentinel:true};
@@ -170,9 +170,11 @@ test("real PDF entry point uses only the Engine drawing and retains report secti
     logoSourceForReport:async()=>"logo",buildEnginePrintDrawing:async s=>{assert.equal(s.reportData,report);return{svg:"ENGINE"};},
     buildPrintableReportHtml:(r,svg,logo)=>{assert.equal(r,report);assert.equal(svg,"ENGINE");assert.equal(logo,"logo");return"REPORT";},recordOutputTiming(){},
     canvas:{cloneNode(){throw new Error("Legacy clone called");}},wirechartSvgMarkup(){throw new Error("Legacy renderer called");}});
-  vm.runInContext(extract("exportPdfReport"),context);await context.exportPdfReport();
+  vm.runInContext(extract("exportChromiumPdfReport"),context);await context.exportChromiumPdfReport();
   assert.equal(calls[0].drawingDependency,"engine-svg");assert.equal(writes.at(-1),"REPORT");
   for(const section of ["Devices","Adapters","Racks","LED Screens","Cable Schedule"]) assert.ok(extract("buildPrintableReportHtml").includes(section));
   assert.ok(extract("buildPrintableReportHtml").includes("matrixReportHtml"));
-  assert.doesNotMatch(extract("exportPdfReport"),/wirechartSvgMarkup|cloneNode|legacy-svg-clone/);
+  assert.doesNotMatch(extract("exportChromiumPdfReport"),/wirechartSvgMarkup|cloneNode|legacy-svg-clone/);
+  assert.match(extract("generatePdfReport"),/module\.generatePdf\(/);
+  assert.doesNotMatch(extract("generatePdfReport"),/window\.open|window\.print/);
 });

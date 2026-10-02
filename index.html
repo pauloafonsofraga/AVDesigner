@@ -5060,6 +5060,13 @@
     .cable-schedule-dialog::backdrop { background: rgba(0, 0, 0, .7); }
     .signal-chain-dialog { width: min(880px, 95vw); max-width: none; padding: 0; border: 1px solid var(--panel-border); border-radius: 6px; background: var(--panel-bg); color: var(--ink); box-shadow: 0 20px 60px #0008; }
     .signal-chain-dialog::backdrop { background: #000a; }
+    .pdf-export-dialog { width: min(380px, calc(100vw - 24px)); max-width: none; padding: 0; border: 1px solid var(--panel-border); border-radius: 6px; background: var(--panel-bg); color: var(--ink); box-shadow: 0 20px 60px #0008; }
+    .pdf-export-dialog::backdrop { background: #000a; }
+    .pdf-export-dialog form { display: grid; gap: 14px; padding: 18px; }
+    .pdf-export-dialog h2 { margin: 0 0 4px; font-size: 16px; }
+    .pdf-export-dialog label { display: grid; gap: 5px; font-size: 12px; font-weight: 700; }
+    .pdf-export-dialog select, .pdf-export-dialog input { width: 100%; min-height: 34px; padding: 6px 9px; border: 1px solid var(--panel-border); border-radius: 5px; background: var(--panel-strong); color: var(--ink); }
+    .pdf-export-dialog .pdf-export-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
     .signal-chain-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--panel-border); }
     .signal-chain-header h2 { margin: 0; font-size: 15px; }
     .signal-chain-body { padding: 18px; }
@@ -5169,7 +5176,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled WireNexus Project" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">Iteration 54.38.48 — PDF Jump Navigation Hardening — iteration54-38-48-pdf-jump-navigation-hardening</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">Iteration 54.38.49 — App-Owned PDF Export — iteration54-38-49-app-owned-pdf-export</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5367,6 +5374,19 @@
   <dialog id="signalChainDialog" class="signal-chain-dialog" aria-label="Signal Chain">
     <header class="signal-chain-header"><h2 id="signalChainTitle">Signal Chain</h2><button class="tool-button" id="closeSignalChain" type="button">Close</button></header>
     <div class="signal-chain-body" id="signalChainBody"></div>
+  </dialog>
+  <dialog id="pdfExportDialog" class="pdf-export-dialog" aria-label="Export PDF">
+    <form id="pdfExportForm">
+      <h2>Export PDF</h2>
+      <label>Paper<select name="paper"><option>A3</option><option>A4</option><option>A2</option><option>A1</option></select></label>
+      <label>Orientation<select name="orientation"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></label>
+      <label>Margins (mm)<input name="marginMm" type="number" min="0" max="30" value="4" required></label>
+      <label>Scale<select name="scale"><option value="fit">Fit</option><option value="75">75% of Fit</option><option value="100">100% of Fit</option></select></label>
+      <div class="pdf-export-actions">
+        <button class="tool-button" id="cancelPdfExport" type="button">Cancel</button>
+        <button class="primary-button" id="confirmPdfExport" type="submit">Export PDF</button>
+      </div>
+    </form>
   </dialog>
 
   <div class="context-menu hidden" id="deviceContextMenu" role="menu"></div>
@@ -5872,12 +5892,12 @@
   <script src="./src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script src="./src/engine/projectorModelCore.js?v=iteration54-38-11-engine-status-labels"></script>
   <script src="./src/engine/historyCloneCore.js?v=iteration54-38-29-memory-safe-undo"></script>
-  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-48-pdf-jump-navigation-hardening"></script>
+  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-49-app-owned-pdf-export"></script>
   <script type="text/wirenexus-app" id="wireNexusAppSource">
-    const APP_ITERATION = "54.38.48";
-    const APP_BUILD_ID = "iteration54-38-48-pdf-jump-navigation-hardening";
-    const APP_MODULE_CACHE_ID = "iteration54-38-48-pdf-jump-navigation-hardening-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — PDF Jump Navigation Hardening`;
+    const APP_ITERATION = "54.38.49";
+    const APP_BUILD_ID = "iteration54-38-49-app-owned-pdf-export";
+    const APP_MODULE_CACHE_ID = "iteration54-38-49-app-owned-pdf-export-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — App-Owned PDF Export`;
     const { cloneHistoryValue, MAX_HISTORY_ENTRIES } = window.WireNexusHistoryClone;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
@@ -31621,7 +31641,43 @@ document.addEventListener("click", function(event) {
       });
     }
 
-    async function exportPdfReport() {
+    let pdfExportBusy = false;
+
+    function exportPdfReport() {
+      if (pdfExportBusy) return;
+      document.getElementById("pdfExportDialog").showModal();
+    }
+
+    async function generatePdfReport(options) {
+      if (pdfExportBusy) return;
+      pdfExportBusy = true;
+      const toolbarButton = document.getElementById("exportPdf");
+      const confirmButton = document.getElementById("confirmPdfExport");
+      toolbarButton.disabled = true;
+      confirmButton.disabled = true;
+      setStatus("Generating PDF...");
+      const started = outputNow();
+      try {
+        await ensureEngineOutputSceneModule();
+        const module = await import(`./src/engine/generated/outputPdfBundle.js?v=${APP_BUILD_ID}`);
+        const snapshot = buildCanonicalOutputSnapshot({ mode: "pdf-report", drawingDependency: "engine-svg" });
+        const drawing = await buildEnginePrintDrawing(snapshot);
+        const result = await module.generatePdf({ svg: drawing.svg, diagnostics: drawing.diagnostics,
+          engineScene: snapshot.engineScene, reportData: snapshot.reportData, options });
+        if (result.warnings.length) throw new Error(`PDF artwork could not be rendered: ${result.warnings.join("; ")}`);
+        downloadBlob(result.bytes, `${projectFileBaseName()}-report.pdf`, "application/pdf");
+        recordOutputTiming("pdf-report", { pdfMs: outputNow() - started });
+        setStatus("PDF exported.");
+      } catch (error) {
+        setStatus(`PDF export failed: ${error.message || error}`);
+      } finally {
+        pdfExportBusy = false;
+        toolbarButton.disabled = false;
+        confirmButton.disabled = false;
+      }
+    }
+
+    async function exportChromiumPdfReport() {
       const started = outputNow();
       const popup = window.open("", "_blank");
       if (!popup) {
@@ -33585,46 +33641,15 @@ document.addEventListener("click", function(event) {
       if (event.target === publishProjectModal) closePublishProjectModal();
     });
     document.getElementById("exportPdf").addEventListener("click", editorActions.exportPdf);
-    if (new URLSearchParams(location.search).has("experimentalPdf")) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "tool-button";
-      button.textContent = "Experimental PDFKit Export";
-      button.title = "Developer preview. Normal Export PDF is unchanged.";
-      document.getElementById("exportPdf").after(button);
-      const dialog = document.createElement("dialog");
-      dialog.innerHTML = `<form method="dialog" style="display:grid;gap:10px;padding:18px;min-width:300px">
-        <strong>Experimental PDFKit Export</strong>
-        <label>Paper <select name="paper"><option>A3</option><option>A4</option><option>A2</option><option>A1</option></select></label>
-        <label>Orientation <select name="orientation"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></label>
-        <label>Margins (mm) <input name="marginMm" type="number" min="0" max="30" value="4"></label>
-        <label>Scale <select name="scale"><option value="fit">Fit</option><option value="75">75% of Fit</option><option value="100">100% of Fit</option></select></label>
-        <p>Prototype for checking vector and Jump navigation parity. It does not replace Export PDF.</p>
-        <div><button value="cancel">Cancel</button> <button value="generate">Generate PDF</button></div></form>`;
-      document.body.appendChild(dialog);
-      button.addEventListener("click", () => dialog.showModal());
-      dialog.addEventListener("close", async () => {
-        if (dialog.returnValue !== "generate") return;
-        button.disabled = true;
-        const form = dialog.querySelector("form");
-        const options = { paper: form.elements.paper.value, orientation: form.elements.orientation.value,
-          marginMm: Number(form.elements.marginMm.value), scale: form.elements.scale.value };
-        try {
-          await ensureEngineOutputSceneModule();
-          const pdfModule = await import(`./src/engine/generated/outputPdfPrototypeBundle.js?v=${APP_BUILD_ID}`);
-          const snapshot = buildCanonicalOutputSnapshot({ mode: "experimental-pdf", drawingDependency: "engine-svg" });
-          const drawing = await buildEnginePrintDrawing(snapshot);
-          const result = await pdfModule.generateExperimentalPdf({
-            svg: drawing.svg, diagnostics: drawing.diagnostics,
-            engineScene: snapshot.engineScene, reportData: snapshot.reportData, options
-          });
-          if (result.warnings.length) throw new Error(`SVG conversion warnings: ${result.warnings.join("; ")}`);
-          downloadBlob(result.bytes, `${projectFileBaseName()}-experimental.pdf`, "application/pdf");
-        } catch (error) {
-          setStatus(`Experimental PDF export failed: ${error.message || error}`);
-        } finally { button.disabled = false; }
-      });
-    }
+    document.getElementById("cancelPdfExport").addEventListener("click", () => document.getElementById("pdfExportDialog").close());
+    document.getElementById("pdfExportForm").addEventListener("submit", event => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const options = { paper: form.elements.paper.value, orientation: form.elements.orientation.value,
+        marginMm: Number(form.elements.marginMm.value), scale: form.elements.scale.value };
+      document.getElementById("pdfExportDialog").close();
+      generatePdfReport(options);
+    });
     document.getElementById("newProject").addEventListener("click", () => {
       recordShellAction("new project");
       newProject();

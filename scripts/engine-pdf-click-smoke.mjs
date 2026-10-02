@@ -11,7 +11,9 @@ const browser = await chromium.launch({ headless: true,
   ...(process.env.AVDESIGNER_CHROME_PATH ? { executablePath: process.env.AVDESIGNER_CHROME_PATH } : {}) });
 let clicks = 0;
 try {
-  for (const name of ["wide-a3-4-fit", "wide-a3-10-fit", "tall-a4-4-fit", "cross-page"]) {
+  for (const name of ["wide-a3-4-fit", "wide-a3-10-fit", "wide-a3-4-75", "wide-a2-4-fit",
+    "tall-a4-4-fit", "cross-page",
+    "edge-top-left", "edge-bottom-right", "edge-center"]) {
     const context = await browser.newContext({ viewport: { width: 1500, height: 1000 }, offline: true });
     const page = await context.newPage();
     await page.goto(pathToFileURL(join(dir, `${name}.pdf`)).href);
@@ -48,26 +50,39 @@ try {
           && before.y > before.main.top && before.y < before.main.bottom,
         `${name}/${source.sourceId}: source offscreen ${JSON.stringify(before)}`);
         await page.mouse.click(before.x, before.y);
-        await viewer.waitForFunction(position => {
-          const current = document.querySelector("pdf-viewer").viewport.position;
-          return Math.abs(current.x - position.x) + Math.abs(current.y - position.y) > 50;
-        }, before.position, { timeout: 3000 }).catch(async error => {
+        await viewer.waitForFunction(previous => {
+          const current = document.querySelector("pdf-viewer").viewport;
+          return Math.abs(current.position.x - previous.position.x)
+            + Math.abs(current.position.y - previous.position.y) > 50
+            || Math.abs(current.getZoom() - previous.zoom) > 0.05;
+        }, before, { timeout: 3000 }).catch(async error => {
           const after = await screenPoint(target);
           await page.screenshot({ path: join(dir, `${name}-${source.sourceId}-failed.png`) });
           throw new Error(`${name}/${source.sourceId} click did not navigate: ${JSON.stringify({ before, after })}; ${error.message}`);
         });
         const after = await screenPoint(target);
-        assert.equal(after.zoom, 3, "Jump click preserves zoom");
         assert.ok(after.x >= after.main.left && after.x < after.main.right
           && after.y >= after.main.top && after.y < after.main.bottom,
         `${name}/${target.sourceId}: target offscreen ${JSON.stringify(after)}`);
+        const frame = target.contextRect;
+        const targetX = target.pdfRect.x + target.pdfRect.width / 2;
+        const targetY = target.pdfRect.y + target.pdfRect.height / 2;
+        const centred = Math.abs(targetX - frame.x - frame.width / 2) < 0.1
+          && Math.abs(targetY - frame.y - frame.height / 2) < 0.1;
+        if (centred) {
+          const middleX = (after.main.left + after.main.right) / 2;
+          const middleY = (after.main.top + after.main.bottom) / 2;
+          assert.ok(Math.abs(after.x - middleX) <= (after.main.right - after.main.left) * 0.25
+            && Math.abs(after.y - middleY) <= (after.main.bottom - after.main.top) * 0.25,
+          `${name}/${target.sourceId}: paired Jump not centrally framed ${JSON.stringify(after)}`);
+        }
         assert.equal(context.pages().length, 1, "internal link must not open a browser URL");
         clicks++;
         await page.screenshot({ path: join(dir, `${name}-${source.sourceId}-to-${target.sourceId}.png`) });
       }
     }
     await context.close();
-    console.log(`PASS ${name}: strict and bidirectional reciprocal clicks at 300% offline`);
+    console.log(`PASS ${name}: reciprocal offline clicks and contextual framing`);
   }
   console.log(JSON.stringify({ passed: clicks, failed: 0, skipped: 0 }));
 } finally { await browser.close(); }

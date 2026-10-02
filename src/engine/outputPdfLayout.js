@@ -2,6 +2,29 @@ const MM_TO_PT = 72 / 25.4;
 const PAPER_MM = Object.freeze({
   A4: [210, 297], A3: [297, 420], A2: [420, 594], A1: [594, 841]
 });
+export const JUMP_CONTEXT_FRACTION = 0.4;
+
+export function viewerNavigationZoom(layout) {
+  const a3LandscapeWidth = PAPER_MM.A3[1] * MM_TO_PT;
+  return Math.max(0.7, Math.min(2.3, 1.8 * a3LandscapeWidth / layout.paperWidth));
+}
+
+export function jumpNavigationContext(layout, hit) {
+  const area = layout.pageArea;
+  const width = area.width * JUMP_CONTEXT_FRACTION;
+  const height = area.height * JUMP_CONTEXT_FRACTION;
+  const centerX = hit.x + hit.width / 2;
+  const centerY = hit.y + hit.height / 2;
+  return Object.freeze({
+    x: Math.max(area.x, Math.min(centerX - width / 2, area.x + area.width - width)),
+    y: Math.max(area.y, Math.min(centerY - height / 2, area.y + area.height - height)),
+    width, height
+  });
+}
+
+export function fitRCoordinates(pageHeight, rect) {
+  return [rect.x, pageHeight - rect.y - rect.height, rect.x + rect.width, pageHeight - rect.y];
+}
 
 export function pdfPageLayout({ paper = "A3", orientation = "landscape", marginMm = 4,
   scale = "fit", svgViewBox }) {
@@ -31,6 +54,7 @@ export function pdfPageLayout({ paper = "A3", orientation = "landscape", marginM
       width: bounds.width * drawingScale, height: bounds.height * drawingScale };
   };
   return Object.freeze({ paperWidth, paperHeight, margin, scale: drawingScale, fitScale,
+    pageArea: Object.freeze({ x: margin, y: margin, width: availableWidth, height: availableHeight }),
     drawingRect: Object.freeze({ x: offsetX, y: offsetY, width: renderedWidth, height: renderedHeight }),
     point, rect });
 }

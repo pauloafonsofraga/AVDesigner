@@ -182,7 +182,7 @@ try {
   await viewer.setViewportSize({ width: 390, height: 844 }); await viewer.locator('[data-action="fit"]').click();
   await viewer.screenshot({ path: join(directory, "offline-mobile.png") });
 
-  const popup = page.waitForEvent("popup"); await page.locator("#exportPdf").click();
+  const popup = page.waitForEvent("popup"); await page.evaluate(() => exportChromiumPdfReport());
   const print = await popup; observe(print); await print.waitForSelector("svg[data-avdesigner-output=engine-svg]");
   const labels = await print.locator('.drawing-frame [data-layer="labels"]').textContent();
   assert.ok(labels.includes(normal.replace("E2 Main", "E2 Backup"))); assert.ok(!labels.includes(renamed));
@@ -192,7 +192,7 @@ try {
   await print.emulateMedia({ media: "print" });
   await print.pdf({ path: join(directory, "captions.pdf"), format: "A3", landscape: true, printBackground: true, preferCSSPageSize: true });
   assert.ok(readFileSync(join(directory, "captions.pdf")).length > 1000);
-  checks.push("actual Engine PDF retains normal captions but prints no Jump cable captions or virtual portal paths");
+  checks.push("Chromium reference PDF retains normal captions but prints no Jump cable captions or virtual portal paths");
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({ passed: checks.length, failed: 0, skipped: 0, checks, errors, directory }, null, 2));
 } finally { await browser.close(); }

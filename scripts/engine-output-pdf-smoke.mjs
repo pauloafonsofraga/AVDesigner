@@ -67,7 +67,7 @@ try {
     });
     if(reference.gpu)for(const [key,value]of Object.entries(reference.gpu))assert.equal(value,true,`live GPU ${key}: ${JSON.stringify(reference.wireComparison)}`);
     const popupPromise=app.waitForEvent("popup");
-    await app.evaluate(()=>exportPdfReport());
+    await app.evaluate(()=>exportChromiumPdfReport());
     const popup=await popupPromise,popupErrors=captureErrors(popup);
     await popup.waitForSelector("svg[data-avdesigner-output=engine-svg]");
     const diagnostics=await printPage(popup,mode);
