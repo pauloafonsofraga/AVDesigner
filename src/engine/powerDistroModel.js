@@ -39,7 +39,7 @@ export function powerPlugMeta(type) {
 }
 
 export function powerPlugImageForConnector(connector) {
-  const meta = powerPlugMeta(connector?.type);
+  const meta = powerPlugMeta(connector?.compatibilityType || connector?.type);
   if (!meta) return "";
   const side = connector?.direction === "input" ? "input" : "output";
   const file = meta[side];
@@ -57,7 +57,7 @@ export function isPowerPlugConnector(connector) {
 }
 
 export function powerPlugDisplaySize(connector) {
-  const meta = powerPlugMeta(connector?.type) || {};
+  const meta = powerPlugMeta(connector?.compatibilityType || connector?.type) || {};
   const width = Number(meta.width);
   const height = Number(meta.height);
   if (Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0) {
@@ -223,13 +223,13 @@ function powerDistroFaceRect(template) {
 }
 
 function powerPlugSortValue(connector) {
-  return powerPlugMeta(connector?.type)?.order || 999;
+  return powerPlugMeta(connector?.compatibilityType || connector?.type)?.order || 999;
 }
 
 function sortedPowerPlugConnectors(template, direction, powerlock = false) {
   return (template.connectors || [])
     .filter(connector => !connector.empty && connector.direction === direction && isPowerPlugConnector(connector))
-    .filter(connector => Boolean(powerPlugMeta(connector.type)?.powerlock) === powerlock)
+    .filter(connector => Boolean(powerPlugMeta(connector.compatibilityType || connector.type)?.powerlock) === powerlock)
     .sort((a, b) => {
       const rank = powerPlugSortValue(a) - powerPlugSortValue(b);
       if (rank) return rank;

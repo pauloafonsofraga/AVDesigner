@@ -6,6 +6,7 @@ import { CONNECTOR_RELATIONSHIP_FIELDS, applyConnectorRelationshipFieldPatch } f
 import {
   ENGINE_DEFAULT_FIBER_MODE,
   effectiveConnectorTypeForEngine,
+  engineConnectorCompatibilityType,
   engineCompatibilityHitForWireEndpoint,
   engineCompatibilitySummary,
   engineConnectorColor,
@@ -3711,7 +3712,7 @@ class ProductionEngineBridge {
       connector = local?.connector || this.scene.getConnector(info.deviceId, info.connectorId) || connector;
       originalWire = local?.localWire || this.scene.getWire(info.wireId);
     }
-    const cableType = originalWire?.cableType || effectiveConnectorTypeForEngine(connector);
+    const cableType = originalWire?.cableType || engineConnectorCompatibilityType(connector);
     const colorSegments = originalWire?.colorSegments?.length > 1
       ? originalWire.colorSegments
       : engineWireColorSegmentsForCable(cableType) || engineConnectorColorSegments(connector) || [];
@@ -3972,7 +3973,7 @@ class ProductionEngineBridge {
     if (sourceIsJump !== targetIsJump) {
       const realHit = sourceIsJump ? wireTarget : wireSource;
       const connector = realHit?.connector || {};
-      const cableType = effectiveConnectorTypeForEngine(connector)
+      const cableType = engineConnectorCompatibilityType(connector)
         || compatibility.sourceType
         || compatibility.targetType
         || connector.type
@@ -10231,7 +10232,7 @@ function hitTestLedSurfaceTarget(scene, worldPoint, sourceHit) {
 function ledSurfaceVirtualHit(surface, worldPoint, sourceHit = null, wire = null, end = "to") {
   if (!surface || !isLedSurfaceKind(surface)) return null;
   const sourceConnector = sourceHit?.connector || null;
-  const sourceType = effectiveConnectorTypeForEngine(sourceConnector)
+  const sourceType = engineConnectorCompatibilityType(sourceConnector)
     || String(sourceConnector?.effectiveType || sourceConnector?.type || wire?.cableType || "").trim();
   if (!isLedSurfaceCompatibleCableType(sourceType)) return null;
   const sourceFiberMode = sourceConnector?.fiberMode || sourceConnector?.installedModuleFiberMode || wire?.fiberMode || "";

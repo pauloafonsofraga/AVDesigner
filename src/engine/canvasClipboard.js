@@ -1,4 +1,5 @@
 import { normalizeAvDesignerDevice } from "./projectAdapter.js";
+import { canonicalFactoryNodeIds, restoreNodeCompatibilityTypes } from "./nodeCompatibilityIdentity.js";
 
 export const CLIPBOARD_PREFIX = "AVDESIGNER_SELECTION_V2:";
 export const CLIPBOARD_STORAGE_KEY = "avdesigner.canvas-clipboard.v2";
@@ -242,7 +243,8 @@ export function createCanvasClipboardPayload(project, selection, bounds, builtin
   }
   const types = new Set();
   visitConnectorTypes(payload, type => { types.add(type); return type; });
-  payload.nodeLibrary = cloneClipboardData((project.nodeLibrary || []).filter(node => node.custom && types.has(node.id)));
+  payload.nodeLibrary = cloneClipboardData((project.nodeLibrary || []).filter(node =>
+    (node.custom || node.compatibilityType) && types.has(node.id)));
   return validateCanvasClipboardPayload(payload);
 }
 
@@ -266,7 +268,7 @@ function fingerprint(text) {
   return (hash >>> 0).toString(16);
 }
 
-export function resolveNodeDefinitionCollisions(sourceNodes, nodeLibrary, namespace = "clipboard", keyForNode = definitionKey) {
+export function resolveNodeDefinitionCollisions(sourceNodes, nodeLibrary, namespace = "clipboard", keyForNode = definitionKey, canonicalNodeIds = new Set()) {
   const nodeDefinitions = [], nodeMap = new Map();
   const nodeKeys = new Map(nodeLibrary.map(node => [keyForNode(node), node.id]));
   const nodeIds = new Set(nodeLibrary.map(node => node.id));
@@ -277,7 +279,9 @@ export function resolveNodeDefinitionCollisions(sourceNodes, nodeLibrary, namesp
       id = nodeIds.has(node.id) ? `${node.id}-${namespace}-${fingerprint(key)}` : node.id;
       const base = id; let suffix = 2;
       while (nodeIds.has(id)) id = `${base}-${suffix++}`;
-      nodeDefinitions.push({ ...cloneClipboardData(node), id }); nodeIds.add(id); nodeKeys.set(key, id);
+      const compatibilityType = node.compatibilityType || (id !== node.id && canonicalNodeIds.has(node.id) ? node.id : "");
+      nodeDefinitions.push({ ...cloneClipboardData(node), id, ...(compatibilityType ? { compatibilityType } : {}) });
+      nodeIds.add(id); nodeKeys.set(key, id);
     }
     nodeMap.set(node.id, id);
   }
@@ -302,7 +306,10 @@ export function prepareCanvasClipboardPaste(value, destination, target) {
   reserve(destination); reserve(payload);
   let sequence = 1;
   const nextId = prefix => { let id; do { id = `${prefix}-paste-${sequence++}`; } while (reserved.has(id)); reserved.add(id); return id; };
-  const { nodeDefinitions, nodeMap } = resolveNodeDefinitionCollisions(payload.nodeLibrary, destination.nodeLibrary || []);
+  const canonicalIds = canonicalFactoryNodeIds(destination.factoryNodeTypes);
+  restoreNodeCompatibilityTypes(payload.nodeLibrary, canonicalIds);
+  const { nodeDefinitions, nodeMap } = resolveNodeDefinitionCollisions(payload.nodeLibrary, destination.nodeLibrary || [],
+    "clipboard", definitionKey, canonicalIds);
   visitConnectorTypes(payload, type => nodeMap.get(type) || type);
   const definitions = [], templateMap = new Map(), library = destination.deviceLibrary || [];
   const keys = new Map(library.map(template => [definitionKey(template), template.id]));

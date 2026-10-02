@@ -2,6 +2,7 @@ import { compactDeviceConfiguration, parseLocalUserSettings, resolveEffectiveBui
 import { IMAGE_ASSET_FIELDS, imageDataUrl, inlineProjectArtwork } from "./imageAssets.js";
 import { resolveNodeDefinitionCollisions, visitConnectorTypes } from "./engine/canvasClipboard.js";
 import { isSemanticNodeType, restoreSemanticConnectorTypes } from "./engine/semanticNodeIdentity.js";
+import { canonicalFactoryNodeIds, restoreNodeCompatibilityTypes } from "./engine/nodeCompatibilityIdentity.js";
 
 export const PERSONAL_DEFINITIONS_VERSION = 2;
 export const PERSONAL_DATABASE = "wirenexus-personal-library";
@@ -56,14 +57,17 @@ function nodeContent(node, artworkIdentity = source => source) {
   return definitionContent(copy);
 }
 
-export function resolvePersonalNodeContext(definition, sourceNodes, destinationNodes = [], artworkIdentity) {
+export function resolvePersonalNodeContext(definition, sourceNodes, destinationNodes = [], artworkIdentity, factoryNodeTypes = {}) {
   const copy = structuredClone(definition), used = new Set();
+  const canonicalIds = canonicalFactoryNodeIds(factoryNodeTypes);
+  const scopedNodes = structuredClone(sourceNodes);
+  restoreNodeCompatibilityTypes(scopedNodes, canonicalIds);
   restoreSemanticConnectorTypes(copy);
   const fields = ["type", "cableType", "physicalType", "connectorType", "switchPortType"];
   visitConnectorTypes(copy, type => { used.add(type); return type; }, fields);
-  const required = sourceNodes.filter(node => used.has(node.id)
+  const required = scopedNodes.filter(node => used.has(node.id)
     && !(isSemanticNodeType(node.id) && destinationNodes.some(destination => destination.id === node.id)));
-  const { nodeDefinitions, nodeMap } = resolveNodeDefinitionCollisions(required, destinationNodes, "personal", node => nodeContent(node, artworkIdentity));
+  const { nodeDefinitions, nodeMap } = resolveNodeDefinitionCollisions(required, destinationNodes, "personal", node => nodeContent(node, artworkIdentity), canonicalIds);
   visitConnectorTypes(copy, type => nodeMap.get(type) || type, fields);
   return { definition: copy, nodes: nodeDefinitions };
 }
@@ -198,7 +202,7 @@ export function createPersonalIndexedDbStore(indexedDB = globalThis.indexedDB) {
   return { read: () => transact(), update: transact };
 }
 
-export function createPersonalDefinitions({ factory, nodes, assetManifest = {}, store = createPersonalIndexedDbStore(), resolveImage,
+export function createPersonalDefinitions({ factory, nodes, factoryNodeTypes = {}, assetManifest = {}, store = createPersonalIndexedDbStore(), resolveImage,
   provenance = {}, legacyRaw = "", notify = () => {}, onChange = () => {}, diagnostic = () => {}, uuid = () => crypto.randomUUID() } = {}) {
   let registry = emptyRegistry(), entries = {}, initialized = false;
   const artworkIdentities = new Map(Object.entries(assetManifest).map(([path, asset]) => [path, asset.sha256]));
@@ -324,13 +328,13 @@ export function createPersonalDefinitions({ factory, nodes, assetManifest = {}, 
       for (const definition of owner.library()) {
         const scoped = new Map(owner.nodes(definition.id).map(node => [node.id, node]));
         for (const node of nodeOverrides) scoped.set(node.id, node);
-        const resolved = resolvePersonalNodeContext(definition, [...scoped.values()], resolvedNodes, artworkIdentity);
+        const resolved = resolvePersonalNodeContext(definition, [...scoped.values()], resolvedNodes, artworkIdentity, factoryNodeTypes);
         resolvedNodes.push(...resolved.nodes);
         devices.push(resolved.definition);
       }
       return { devices, nodes: resolvedNodes };
     },
-    resolveNodeContext: (definition, sourceNodes, destinationNodes) => resolvePersonalNodeContext(definition, sourceNodes, destinationNodes, artworkIdentity),
+    resolveNodeContext: (definition, sourceNodes, destinationNodes) => resolvePersonalNodeContext(definition, sourceNodes, destinationNodes, artworkIdentity, factoryNodeTypes),
     async save(definition, { library = owner.library(), nodes: requiredNodes = nodes, expectedRevision = null } = {}) {
       if (!initialized) throw new Error("Personal library is not ready. Reload before saving.");
       const id = definition.id, prepared = await prepare(definition, library, requiredNodes);

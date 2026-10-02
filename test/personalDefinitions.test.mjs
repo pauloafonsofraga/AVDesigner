@@ -52,6 +52,19 @@ test("complete personal definition, custom nodes and original artwork survive re
   assert.equal(owner.entry(draft.id).definition.name, "My E2");
 });
 
+test("personal defaults retain scoped protocol compatibility in durable node dependencies", async () => {
+  const { owner, store } = await setup({ factoryNodeTypes: catalogue.nodeTypes });
+  const draft = factory();
+  draft.connectors[0].type = "hdmi-personal-542ee7a2";
+  const scoped = { ...nodes.find(node => node.id === "hdmi"), id: "hdmi-personal-542ee7a2",
+    label: "HDMI Personal", color: "#123456", compatibilityType: "hdmi" };
+  await owner.save(draft, { nodes: [...nodes, scoped] });
+  const reloaded = (await setup({ store, factoryNodeTypes: catalogue.nodeTypes })).owner;
+  assert.equal(reloaded.entry(draft.id).dependencies.nodes.find(node => node.id === scoped.id).compatibilityType, "hdmi");
+  assert.equal(reloaded.libraryContext().nodes.find(node => node.id === scoped.id).compatibilityType, "hdmi");
+  assert.equal(reloaded.libraryContext().devices.find(device => device.id === draft.id).connectors[0].type, scoped.id);
+});
+
 test("factory updates never deep-merge a saved E2; reset explicitly adopts the new factory", async () => {
   const { store, owner } = await setup();
   const draft = factory(); draft.name = "User E2"; draft.cardTypes = []; draft.cardSlots = [];

@@ -1679,7 +1679,9 @@ export class SceneGraph {
     // Keep connector metadata updates in-place. Hit-test payloads and selected
     // connector records hold references to this object, so replacing it would
     // leave stale SFP/module state in the interaction path.
-    const merged = normalizeConnector({ ...connector, ...patch, id: connector.id }, 0, device.width, {
+    const typeChanged = Object.hasOwn(patch, "type") && patch.type !== connector.type;
+    const merged = normalizeConnector({ ...connector, ...(typeChanged ? { compatibilityType: "" } : {}),
+      ...patch, id: connector.id }, 0, device.width, {
       forceV2: deviceDefinitionVersion(device) >= DEVICE_DEFINITION_SCHEMA_VERSION
     });
     Object.assign(connector, merged);
@@ -2381,6 +2383,7 @@ function normalizeConnector(connector, index, deviceWidth = 0, options = {}) {
     id: String(connector.id || `connector-${index}`),
     schemaVersion: topology.schemaVersion,
     type: connector.type || "",
+    compatibilityType: String(connector.compatibilityType || ""),
     physicalType: topology.physicalType,
     connectorType: topology.connectorType,
     signalDirection: topology.signalDirection,

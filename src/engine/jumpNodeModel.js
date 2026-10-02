@@ -1,7 +1,7 @@
 import { bezierPolyline } from "./wirePath.js";
 import { isConnectorExplicitlyBidirectional } from "./deviceDefinitionV2.js";
 import {
-  effectiveConnectorTypeForEngine,
+  engineConnectorCompatibilityType,
   engineConnectorDisplayLabel,
   engineConnectorFiberMode
 } from "./connectorCompatibility.js";
@@ -661,7 +661,7 @@ function jumpInfoFromLocal(local, {
     deviceName: deviceName || "",
     connectorId: local?.otherConnectorId || "",
     connectorName: connectorName || "",
-    cableType: effectiveConnectorTypeForEngine(connector) || connector?.type || local?.wire?.cableType || "",
+    cableType: engineConnectorCompatibilityType(connector) || connector?.type || local?.wire?.cableType || "",
     fiberMode: engineConnectorFiberMode(connector) || local?.wire?.fiberMode || ""
   };
 }

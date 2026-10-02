@@ -3,6 +3,7 @@ import { CONNECTOR_RELATIONSHIP_FIELDS, normalizeConnectorRelationshipMetadata }
 import {
   ENGINE_CONNECTOR_TYPE_COLORS,
   effectiveConnectorTypeForEngine,
+  engineConnectorCompatibilityType,
   engineConnectorColor,
   engineConnectorColorSegments,
   engineConnectorDisplayLabel,
@@ -256,8 +257,9 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
   const templates = collectTemplates(root, data);
   const nodeColorByType = collectNodeColors(root, data);
   const nodeLabelByType = collectNodeLabels(root, data);
+  const nodeCompatibilityByType = collectNodeCompatibilityTypes(root, data);
   const rawDevices = Array.isArray(root.devices) ? root.devices : [];
-  const devices = rawDevices.map((device, index) => normalizeProjectDevice(device, index, templates, nodeColorByType, nodeLabelByType));
+  const devices = rawDevices.map((device, index) => normalizeProjectDevice(device, index, templates, nodeColorByType, nodeLabelByType, nodeCompatibilityByType));
   const areaDevices = normalizeAreas(root.areas || []);
   const imageDevices = normalizeImageObjects(root.imageObjects || root.images || []);
   const jumpDevices = normalizeJumpNodes(root.jumpNodes || []);
@@ -387,7 +389,8 @@ export function normalizeAvDesignerDevice(data, instance, index = 0) {
   const templates = collectTemplates(root, data);
   const nodeColorByType = collectNodeColors(root, data);
   const nodeLabelByType = collectNodeLabels(root, data);
-  return normalizeProjectDevice(instance, index, templates, nodeColorByType, nodeLabelByType);
+  const nodeCompatibilityByType = collectNodeCompatibilityTypes(root, data);
+  return normalizeProjectDevice(instance, index, templates, nodeColorByType, nodeLabelByType, nodeCompatibilityByType);
 }
 
 export function normalizeEngineCanvasObject(kind, item, index = 0) {
@@ -446,14 +449,29 @@ function collectNodeLabels(root, data) {
   return map;
 }
 
-function applyNodeTypeLabel(connector, nodeLabelByType) {
-  if (!connector || !nodeLabelByType?.size) return connector;
-  const type = String(connector.type || "").trim();
-  const typeLabel = nodeLabelByType.get(type);
-  return typeLabel ? { ...connector, typeLabel } : connector;
+function collectNodeCompatibilityTypes(root, data) {
+  const map = new Map();
+  [root.nodeLibrary, data?.nodeLibrary].forEach(list => {
+    if (!Array.isArray(list)) return;
+    list.forEach(node => {
+      const id = String(node.id || node.type || "").trim();
+      const compatibilityType = String(node.compatibilityType || "").trim();
+      if (id && compatibilityType) map.set(id, compatibilityType);
+    });
+  });
+  return map;
 }
 
-function normalizeProjectDevice(instance, index, templates, nodeColorByType, nodeLabelByType = new Map()) {
+function applyNodeTypeMetadata(connector, nodeLabelByType, nodeCompatibilityByType) {
+  if (!connector) return connector;
+  const type = String(connector.type || "").trim();
+  const typeLabel = nodeLabelByType.get(type);
+  const compatibilityType = String(connector.compatibilityType || nodeCompatibilityByType.get(type) || "").trim();
+  return typeLabel || compatibilityType ? { ...connector, ...(typeLabel ? { typeLabel } : {}),
+    ...(compatibilityType ? { compatibilityType } : {}) } : connector;
+}
+
+function normalizeProjectDevice(instance, index, templates, nodeColorByType, nodeLabelByType = new Map(), nodeCompatibilityByType = new Map()) {
   const inlineTemplate = instance.template && typeof instance.template === "object" ? instance.template : null;
   const templateId = instance.templateId
     || instance.deviceId
@@ -478,7 +496,7 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType, nod
   );
   const rawConnectors = effectiveConnectorsForTemplate(template)
     .map(connector => applyInstanceConnectorOverride(instance, connector))
-    .map(connector => applyNodeTypeLabel(connector, nodeLabelByType));
+    .map(connector => applyNodeTypeMetadata(connector, nodeLabelByType, nodeCompatibilityByType));
   const widthSource = isAdapter
     ? LEGACY_ADAPTER_WIDTH
     : positiveNumber(instance.width) || positiveNumber(template.width);
@@ -856,6 +874,7 @@ function normalizeConnector(connector, index, deviceWidth, nodeColorByType, opti
     id: String(connector.id || `connector-${index}`),
     schemaVersion: topology.schemaVersion,
     type,
+    compatibilityType: String(connector.compatibilityType || ""),
     physicalType: topology.physicalType,
     connectorType: topology.connectorType,
     signalDirection: topology.signalDirection,
@@ -1215,7 +1234,7 @@ function effectiveJumpDeviceWireMetadata(wire, from, to, context, index) {
   const toJump = isEndpointJumpNode(to, context);
   const realEndpoint = fromJump && !toJump ? to : toJump && !fromJump ? from : null;
   const realConnector = realEndpoint ? connectorForNormalizedEndpoint(realEndpoint, context) : null;
-  const realCableType = effectiveConnectorTypeForEngine(realConnector) || realConnector?.type || "";
+  const realCableType = engineConnectorCompatibilityType(realConnector) || realConnector?.type || "";
   const realFiberMode = realConnector ? engineConnectorFiberMode(realConnector) : "";
   const savedTypeIsPortalFallback = !savedCableType || savedCableType === "jump" || savedCableType === "misc";
   const accidentalFallbackCustomColor = savedTypeIsPortalFallback && isFallbackJumpColor(savedCustomColor);

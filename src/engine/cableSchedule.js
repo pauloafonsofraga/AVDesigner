@@ -1,4 +1,4 @@
-import { engineConnectorColor, engineConnectorDisplayLabel, effectiveConnectorTypeForEngine } from "./connectorCompatibility.js";
+import { engineConnectorColor, engineConnectorDisplayLabel, engineConnectorCompatibilityType } from "./connectorCompatibility.js";
 import { normalizeSignalDirection } from "./deviceDefinitionV2.js";
 import { rawWireJumpIds, resolvePlayableSignalPath } from "./jumpNodeModel.js";
 
@@ -39,11 +39,14 @@ const typeFamilies = new Map(Object.entries({
   "16a-3ph": "P", "32a-3ph": "P", "63a-3ph": "P", "125a-3ph": "P"
 }));
 const numberPattern = /^([VNAFPX])-(\d{3,})$/;
+const nodeDefinition = (definitions, id) => Array.isArray(definitions)
+  ? definitions.find(item => item.id === id) : definitions?.[id];
 
 export function cableFamily(typeId, nodeDefinitions = []) {
   const key = String(typeId || "").trim().toLowerCase();
   if (typeFamilies.has(key)) return typeFamilies.get(key);
-  const node = Array.isArray(nodeDefinitions) ? nodeDefinitions.find(item => item.id === key) : nodeDefinitions[key];
+  const node = nodeDefinition(nodeDefinitions, key);
+  if (node?.compatibilityType && typeFamilies.has(node.compatibilityType)) return typeFamilies.get(node.compatibilityType);
   const tags = Array.isArray(node?.tags) ? node.tags.map(tag => String(tag).toLowerCase()) : [];
   for (const [tag, family] of [["fiber", "F"], ["fibre", "F"], ["power", "P"], ["network", "N"], ["audio", "A"], ["video", "V"]]) {
     if (tags.includes(tag)) return family;
@@ -106,7 +109,9 @@ function groupFamily(project, group, options) {
   const cable = cableFamily(cableType, options.nodeDefinitions);
   const endpoints = [group.source, group.destination].map(endpoint => {
     const connector = connectorFor(project, endpoint, options.getConnector);
-    return cableFamily(connector ? effectiveConnectorTypeForEngine(connector) || connector.type : "", options.nodeDefinitions);
+    const node = nodeDefinition(options.nodeDefinitions, connector?.type);
+    return cableFamily(connector ? engineConnectorCompatibilityType({ ...connector,
+      compatibilityType: connector.compatibilityType || node?.compatibilityType }) : "", options.nodeDefinitions);
   });
   if (endpoints.includes("F")) return "F";
   return cable;
@@ -140,10 +145,11 @@ export function ensureCableNumbers(input, options = {}) {
   return numberCableGroups(project, groupedCables(project, options.getConnector), options, true);
 }
 
-function endpointDisplay(project, endpoint, getConnector, nodeColors) {
+function endpointDisplay(project, endpoint, getConnector, nodeColors, nodeDefinitions) {
   const instance = (project.devices || []).find(item => item.instanceId === endpoint?.deviceId);
   const surface = (project.ledSurfaces || []).find(item => item.id === endpoint?.surfaceId);
   const connector = connectorFor(project, endpoint, getConnector);
+  const node = nodeDefinition(nodeDefinitions, connector?.type);
   const template = instance?.templateOverride || (project.deviceLibrary || []).find(item => item.id === instance?.templateId);
   return {
     deviceId: String(instance?.instanceId || ""), surfaceId: String(surface?.id || ""),
@@ -151,7 +157,8 @@ function endpointDisplay(project, endpoint, getConnector, nodeColors) {
     direction: connector ? normalizeSignalDirection(connector.signalDirection, connector.direction) : "",
     device: String(instance?.name || template?.name || surface?.name || "Unconnected"),
     port: String(connector?.nameText || connector?.label || (connector ? engineConnectorDisplayLabel(connector) : "") || (surface ? "LED Screen" : "")),
-    type: String(connector ? effectiveConnectorTypeForEngine(connector) || connector.physicalType || connector.type || "" : ""),
+    type: String(connector ? engineConnectorCompatibilityType({ ...connector,
+      compatibilityType: connector.compatibilityType || node?.compatibilityType }) || connector.physicalType || connector.type || "" : ""),
     rackId: String(instance?.rackId || ""),
     color: connector ? engineConnectorColor(connector, nodeColors) : ""
   };
@@ -164,7 +171,7 @@ export function buildCableSchedule(input, options = {}) {
       ? numberCableGroups(project, groupedCables(project, options.getConnector), options, false)
       : ensureCableNumbers(project, options);
   const nodeDefinitions = options.nodeDefinitions || project.nodeLibrary || [];
-  const node = id => Array.isArray(nodeDefinitions) ? nodeDefinitions.find(item => item.id === id) : nodeDefinitions[id];
+  const node = id => nodeDefinition(nodeDefinitions, id);
   const physicalLabel = id => node(id)?.label || id;
   const nodeColors = new Map((Array.isArray(nodeDefinitions) ? nodeDefinitions : Object.values(nodeDefinitions))
     .filter(item => item?.id && item?.color).map(item => [item.id, item.color]));
@@ -172,8 +179,8 @@ export function buildCableSchedule(input, options = {}) {
   return groups.map(group => {
     const primary = group.primary;
     const value = key => group.wires.find(wire => String(wire[key] || "").trim())?.[key] || "";
-    const source = endpointDisplay(project, group.source, options.getConnector, nodeColors);
-    const destination = endpointDisplay(project, group.destination, options.getConnector, nodeColors);
+    const source = endpointDisplay(project, group.source, options.getConnector, nodeColors, nodeDefinitions);
+    const destination = endpointDisplay(project, group.destination, options.getConnector, nodeColors, nodeDefinitions);
     const family = group.family || groupFamily(project, group, { ...options, nodeDefinitions });
     const sourceRack = source.rackId ? rackName(source.rackId) : "";
     const destinationRack = destination.rackId ? rackName(destination.rackId) : "";

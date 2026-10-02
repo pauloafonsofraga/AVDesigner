@@ -275,6 +275,14 @@ export function effectiveConnectorTypeForEngine(connector) {
   return connectorType(connector);
 }
 
+export function engineConnectorCompatibilityType(connector) {
+  if (!connector) return "";
+  // A cage's installed module, not its scoped storage identity, determines
+  // electrical compatibility. An empty cage remains disconnected.
+  if (isEngineCageConnector(connector)) return effectiveConnectorTypeForEngine(connector);
+  return String(connector.compatibilityType || "").trim() || effectiveConnectorTypeForEngine(connector);
+}
+
 export function installedModuleDetailsForEngine(connector) {
   const module = objectValue(connector?.installedModule) || objectValue(connector?.module) || objectValue(connector?.transceiverModule);
   const id = firstText(
@@ -332,8 +340,8 @@ export function installedModuleDetailsForEngine(connector) {
 }
 
 export function areEngineConnectorTypesCompatible(source, target) {
-  const sourceType = effectiveConnectorTypeForEngine(source);
-  const targetType = effectiveConnectorTypeForEngine(target);
+  const sourceType = engineConnectorCompatibilityType(source);
+  const targetType = engineConnectorCompatibilityType(target);
   if (!sourceType || !targetType) return false;
   if (sourceType === targetType) return engineFiberModesCompatible(source, target, sourceType, targetType);
   if (CAT_CONNECTOR_TYPES.has(sourceType) && CAT_CONNECTOR_TYPES.has(targetType)) return true;
@@ -344,8 +352,8 @@ export function areEngineConnectorTypesCompatible(source, target) {
 export function engineCompatibilitySummary(sourceHit, targetHit) {
   const source = connectorFromHit(sourceHit);
   const target = connectorFromHit(targetHit);
-  const sourceType = effectiveConnectorTypeForEngine(source);
-  const targetType = effectiveConnectorTypeForEngine(target);
+  const sourceType = engineConnectorCompatibilityType(source);
+  const targetType = engineConnectorCompatibilityType(target);
   if (!source || !target) {
     return result(false, "missing", "Missing connector.", sourceType, targetType, source, target);
   }
@@ -477,7 +485,7 @@ export function engineConnectorFiberMode(connector) {
   if (explicit) return explicit;
   const details = installedModuleDetailsForEngine(connector);
   if (details.fiberMode) return details.fiberMode;
-  const activeType = effectiveConnectorTypeForEngine(connector);
+  const activeType = engineConnectorCompatibilityType(connector);
   return isEngineFiberCableType(activeType) ? ENGINE_DEFAULT_FIBER_MODE : "";
 }
 
@@ -485,7 +493,7 @@ export function engineConnectorFiberFamily(connector) {
   return engineFiberModeFamily(engineConnectorFiberMode(connector));
 }
 
-export function engineAllowedFiberModesForCompatibility(source, target, sourceType = effectiveConnectorTypeForEngine(source), targetType = effectiveConnectorTypeForEngine(target)) {
+export function engineAllowedFiberModesForCompatibility(source, target, sourceType = engineConnectorCompatibilityType(source), targetType = engineConnectorCompatibilityType(target)) {
   if (!isEngineFiberCableType(sourceType) || !isEngineFiberCableType(targetType)) return [];
   if (sourceType !== targetType) return [];
   if (!engineFiberModesCompatible(source, target, sourceType, targetType)) return [];
@@ -497,7 +505,7 @@ export function engineAllowedFiberModesForCompatibility(source, target, sourceTy
     .map(option => option.value);
 }
 
-export function engineDefaultFiberModeForCompatibility(source, target, sourceType = effectiveConnectorTypeForEngine(source), targetType = effectiveConnectorTypeForEngine(target)) {
+export function engineDefaultFiberModeForCompatibility(source, target, sourceType = engineConnectorCompatibilityType(source), targetType = engineConnectorCompatibilityType(target)) {
   const allowedModes = engineAllowedFiberModesForCompatibility(source, target, sourceType, targetType);
   if (!allowedModes.length) return "";
   const sourceMode = engineConnectorFiberMode(source);
@@ -620,7 +628,7 @@ export function engineConnectorFieldTitle(connector, field) {
 }
 
 export function engineUsesResolutionField(connector) {
-  const activeType = effectiveConnectorTypeForEngine(connector) || connectorType(connector);
+  const activeType = engineConnectorCompatibilityType(connector) || connectorType(connector);
   return ENGINE_RESOLUTION_FIELD_TYPES.has(activeType)
     || isPairedNetworkConnector(connector)
     || isNetworkStyleV2Connector(connector)
@@ -667,18 +675,18 @@ export function sameEngineConnectorHit(a, b) {
 
 function isPairedNetworkConnector(connector) {
   if (isV2Connector(connector)) return false;
-  return CAT_CONNECTOR_TYPES.has(effectiveConnectorTypeForEngine(connector));
+  return CAT_CONNECTOR_TYPES.has(engineConnectorCompatibilityType(connector));
 }
 
 function isNetworkStyleV2Connector(connector) {
   if (!isV2Connector(connector)) return false;
-  return V2_SUGGESTED_BIDIRECTIONAL_TYPES.has(effectiveConnectorTypeForEngine(connector));
+  return V2_SUGGESTED_BIDIRECTIONAL_TYPES.has(engineConnectorCompatibilityType(connector));
 }
 
 function isTwoWayConnector(connector) {
   if (isConnectorExplicitlyBidirectional(connector)) return true;
   if (isV2Connector(connector)) return false;
-  return TWO_WAY_TYPES.has(effectiveConnectorTypeForEngine(connector));
+  return TWO_WAY_TYPES.has(engineConnectorCompatibilityType(connector));
 }
 
 function connectorFromHit(hit) {
