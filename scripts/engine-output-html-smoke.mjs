@@ -112,7 +112,9 @@ async function checkJumpHover(scope, page, label) {
     v.select(null); v.updateHover(null);
     v.camera = { x: link.from.x - 180, y: link.from.y - 220, zoom: 1 }; v.renderNow();
     const screen = p => ({ x: p.x - v.camera.x, y: p.y - v.camera.y });
-    return { id: link.id, from: screen(link.from), to: screen(link.to), mid: screen(link.polyline[Math.floor(link.polyline.length / 2)]),
+    return { id: link.id, outputId: link.outputJumpId, inputId: link.inputJumpId,
+      fromWorld: link.from, toWorld: link.to,
+      from: screen(link.from), to: screen(link.to), mid: screen(link.polyline[Math.floor(link.polyline.length / 2)]),
       before: v.diagnostics(), contract: JSON.stringify(v.model.contract) };
   });
   const box = await scope.locator(".output-stage").boundingBox();
@@ -146,13 +148,40 @@ async function checkJumpHover(scope, page, label) {
   assert.equal(await scope.evaluate(() => outputViewer.selection.type), "device");
   await page.mouse.click(box.x + setup.mid.x, box.y + setup.mid.y); await count(1);
   assert.deepEqual(await scope.evaluate(() => outputViewer.selection), { type: "jump-link", id: setup.id });
-  await scope.evaluate(() => outputViewer.select(null)); await count(0);
+  await scope.evaluate(() => outputViewer.select(null));
+  await page.mouse.move(20, 10); await count(0);
+  const navigationBefore = await scope.evaluate(() => {
+    outputViewer.renderNow();
+    return outputViewer.diagnostics();
+  });
+  assert.equal(navigationBefore.fullRebuilds, setup.before.fullRebuilds);
+  assert.equal(navigationBefore.textures.builds, setup.before.textures.builds);
+  await page.mouse.dblclick(box.x + setup.from.x, box.y + setup.from.y);
+  await scope.waitForFunction(id => outputViewer.selection?.id === id, setup.inputId);
+  const pairedFocus = await scope.evaluate(() => {
+    const v = outputViewer;
+    return { x: v.camera.x + v.stage.clientWidth / (2 * v.camera.zoom),
+      y: v.camera.y + v.stage.clientHeight / (2 * v.camera.zoom), zoom: v.camera.zoom };
+  });
+  assert.ok(Math.hypot(pairedFocus.x - setup.toWorld.x, pairedFocus.y - setup.toWorld.y) < .01);
+  assert.equal(pairedFocus.zoom, 1);
+  await page.screenshot({ path: join(dir, `${label}-jump-to-pair.png`) });
+  await page.mouse.dblclick(box.x + (await scope.locator(".output-stage").evaluate(stage => stage.clientWidth)) / 2,
+    box.y + (await scope.locator(".output-stage").evaluate(stage => stage.clientHeight)) / 2);
+  await scope.waitForFunction(id => outputViewer.selection?.id === id, setup.outputId);
+  const originalFocus = await scope.evaluate(() => {
+    const v = outputViewer;
+    return { x: v.camera.x + v.stage.clientWidth / (2 * v.camera.zoom),
+      y: v.camera.y + v.stage.clientHeight / (2 * v.camera.zoom) };
+  });
+  assert.ok(Math.hypot(originalFocus.x - setup.fromWorld.x, originalFocus.y - setup.fromWorld.y) < .01);
+  await scope.evaluate(() => outputViewer.select(null));
+  await page.mouse.move(20, 10); await count(0);
   const after = await scope.evaluate(() => ({ diagnostics: outputViewer.diagnostics(), contract: JSON.stringify(outputViewer.model.contract) }));
-  assert.equal(after.diagnostics.fullRebuilds, setup.before.fullRebuilds);
-  assert.equal(after.diagnostics.textures.builds, setup.before.textures.builds);
+  assert.equal(after.diagnostics.fullRebuilds, navigationBefore.fullRebuilds);
   assert.equal(after.contract, setup.contract);
   await scope.evaluate(() => { outputViewer.setTheme("dark"); outputViewer.fit(); });
-  console.log(`PASS ${label}: jump links hidden at rest, hover both nodes, leave, camera, selection; no scene/texture rebuild`);
+  console.log(`PASS ${label}: jump links hidden at rest; double-click navigates both directions; no scene rebuild`);
 }
 try {
   const cases = [["parity", outputViewerParityFixture()], ["100-devices", outputViewerScaleFixture()],

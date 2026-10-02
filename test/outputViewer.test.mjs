@@ -198,6 +198,29 @@ test("viewer hit testing ignores hidden jump links and prioritizes the jump body
   assert.equal(JSON.stringify(model.contract), before);
 });
 
+test("viewer Jump Node navigation centers the paired node in both directions without changing zoom or scene data", () => {
+  const { model } = setup(), before = JSON.stringify(model.contract);
+  const viewer = Object.assign(Object.create(EngineOutputViewer.prototype), {
+    model, scene: model.scene, camera: { x: 25, y: 40, zoom: 1.7 },
+    stage: { clientWidth: 1200, clientHeight: 800 },
+    selection: null, select(value) { this.selection = value; }
+  });
+  const link = model.contract.jumpLinks[0];
+  for (const [sourceId, pairedId] of [[link.outputJumpId, link.inputJumpId], [link.inputJumpId, link.outputJumpId]]) {
+    assert.equal(viewer.jumpToPair(sourceId), true);
+    assert.deepEqual(viewer.selection, { type: "device", id: pairedId });
+    const center = jumpNodeCenter(model.scene.getDevice(pairedId));
+    assert.equal(viewer.camera.x + viewer.stage.clientWidth / (2 * viewer.camera.zoom), center.x);
+    assert.equal(viewer.camera.y + viewer.stage.clientHeight / (2 * viewer.camera.zoom), center.y);
+    assert.equal(viewer.camera.zoom, 1.7);
+  }
+  const camera = { ...viewer.camera }, selection = viewer.selection;
+  assert.equal(viewer.jumpToPair("ordinary-a"), false);
+  assert.deepEqual(viewer.camera, camera);
+  assert.deepEqual(viewer.selection, selection);
+  assert.equal(JSON.stringify(model.contract), before);
+});
+
 test("viewer render uses hover-filtered links and rechecks hover after camera changes", () => {
   const { model } = setup();
   const center = jumpNodeCenter(model.scene.getDevice("jump-out"));

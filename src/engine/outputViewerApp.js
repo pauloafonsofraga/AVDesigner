@@ -108,6 +108,11 @@ export class EngineOutputViewer {
       clearTimeout(this.connectedNodeClickTimer);
       this.focusConnectedNode(button.dataset.wireId, button.dataset.otherSide);
     });
+    on(this.stage, "dblclick", event => {
+      if (event.button !== 0) return;
+      const jump = this.jumpAt(screenToWorld(this.camera, this.screenPoint(event)));
+      if (jump) this.jumpToPair(jump.id);
+    });
     on(this.stage, "wheel", event => {
       event.preventDefault(); this.stopPlayback();
       if (event.ctrlKey || event.metaKey || event.altKey) this.zoomAt(Math.exp(-Math.max(-100, Math.min(100, event.deltaY)) * .008), this.screenPoint(event));
@@ -214,6 +219,16 @@ export class EngineOutputViewer {
       const center = jumpNodeCenter(device);
       return Math.hypot(world.x - center.x, world.y - center.y) <= Math.max(device.width, device.height) / 2;
     }).device;
+  }
+  jumpToPair(jumpId) {
+    const pairedId = this.scene.pairedJumpId(jumpId);
+    const paired = pairedId ? this.scene.getDevice(pairedId) : null;
+    if (!isJumpNodeDevice(paired)) return false;
+    const center = jumpNodeCenter(paired);
+    this.camera.x = center.x - this.stage.clientWidth / (2 * this.camera.zoom);
+    this.camera.y = center.y - this.stage.clientHeight / (2 * this.camera.zoom);
+    this.select({ type: "device", id: paired.id });
+    return true;
   }
   updateHover(point) {
     this.hoverPoint = point;
