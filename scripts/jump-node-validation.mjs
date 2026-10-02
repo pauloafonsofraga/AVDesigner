@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-38-49-app-owned-pdf-export";
+const BUILD_ID = "iteration54-38-50-hidden-node-dependencies";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -52,7 +52,7 @@ const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Auto LED Preview Recovery");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-49-app-owned-pdf-export-modules";'), "module cache key should identify app-owned PDF export");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-50-hidden-node-dependencies-modules";'), "module cache key should identify hidden node dependencies");
 assert.ok(indexHtml.includes("Signal Chain"), "visible build label should name Signal Chain");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-47-managed-cable-looms"'), "Engine bridge version should identify Managed Cable Looms");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses"'), "Engine bridge feature label should identify Selectable Projector Lenses");

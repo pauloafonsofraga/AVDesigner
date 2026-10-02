@@ -197,7 +197,7 @@ async function editorHarness(mode = "library", knownFactory = true) {
     invalidateEditorFaceplateUploadTarget() {}, clearEditorPlacementMotion() {},
     renderDeviceEditor() { c.renderEditorDefaultControls(); } });
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
-  for (const name of ["editorDependencyContext", "editorNodeDefinitions", "editorNodeType", "factoryBuiltInTemplate", "currentEditorFactoryTemplate", "editorPersonalTargetId", "captureEditorSessionBaseline",
+  for (const name of ["editorDependencyContext", "completeEditorNodeDefinitions", "editorNodeDefinitions", "editorNodeType", "factoryBuiltInTemplate", "currentEditorFactoryTemplate", "editorPersonalTargetId", "captureEditorSessionBaseline",
     "editorHasUnsavedChanges", "renderEditorDefaultControls", "saveEditorPersonalDefault", "reloadEditorPersonalDefault", "discardEditorUnsavedChanges"]) {
     vm.runInContext(html.match(new RegExp(`^    (?:async )?function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?^    \\}`, "m"))[0], c);
   }
