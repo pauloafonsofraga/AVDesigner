@@ -43,12 +43,12 @@ try {
     selected: activeEngineBridge().scene.selectedLoomId,
     plan: structuredClone(activeEngineBridge().scene.loomPlans[0]) }));
   assert.equal(first.looms.length, 1);
-  assert.equal(first.looms[0].name, "L01");
+  assert.equal(first.looms[0].name, "LM-001");
   assert.deepEqual(first.ids, ["loom-1", "loom-1", "", ""]);
   assert.equal(first.selected, "loom-1");
   assert.equal(first.plan.circuitCount, 2);
   assert.equal(first.plan.breakouts.length, 4);
-  assert.equal(await page.locator("#loomName").inputValue(), "L01");
+  assert.equal(await page.locator("#loomName").inputValue(), "LM-001");
   await page.screenshot({ path: "/tmp/wirenexus-managed-loom-editor.png" });
 
   const points = await page.evaluate(() => {
@@ -86,7 +86,7 @@ try {
   const avdPath = join(mkdtempSync(join(tmpdir(), "wirenexus-loom-")), download.suggestedFilename());
   await download.saveAs(avdPath);
   const savedFile = JSON.parse(readFileSync(avdPath, "utf8"));
-  assert.equal(savedFile.looms[0].name, "L01");
+  assert.equal(savedFile.looms[0].name, "LM-001");
   assert.equal(savedFile.connections.filter(wire => wire.loomId === "loom-1").length, 3);
   await page.evaluate(() => { activeEngineBridge().dissolveManagedLoom("loom-1"); });
   assert.equal(await page.evaluate(() => state.looms.length), 0);
@@ -95,7 +95,7 @@ try {
   const chooser = await chooserPromise;
   await chooser.setFiles(avdPath);
   await page.waitForFunction(() => activeEngineBridge()?.scene?.loomPlans?.[0]?.circuitCount === 3);
-  assert.equal(await page.evaluate(() => state.looms[0].name), "L01");
+  assert.equal(await page.evaluate(() => state.looms[0].name), "LM-001");
   await page.screenshot({ path: "/tmp/wirenexus-managed-loom-reloaded.png" });
   const output = buildEngineOutputScene(saved);
   const viewer = await browser.newPage({ viewport: { width: 1600, height: 900 } });
@@ -176,7 +176,7 @@ try {
   assert.equal(await page.evaluate(() => activeEngineBridge().undoEngineCommand()), true);
   assert.equal(await page.evaluate(() => state.looms.length), 0);
   assert.equal(await page.evaluate(() => activeEngineBridge().createLoomFromWires(["cable-0", "cable-1"])), true);
-  assert.equal(await page.evaluate(() => state.looms[0].name), "L02");
+  assert.equal(await page.evaluate(() => state.looms[0].name), "LM-002");
   assert.deepEqual(errors, []);
   console.log("Managed Loom browser smoke PASS: create, Inspector, mouse drag, undo/redo, dissolve, save/reload, output viewer, stress; screenshots in /tmp", stress, camera);
 } finally {

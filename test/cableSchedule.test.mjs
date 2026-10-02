@@ -69,6 +69,27 @@ test("families, stable numbering, high-water marks and family changes", () => {
   assert.equal(cableFamily("unknown"), "X");
 });
 
+test("lighting cables use L numbers without treating every XLR or loom member as lighting", () => {
+  const data = project();
+  data.devices.forEach(device => { device.templateOverride.connectors[0].type = "dmx-5pin"; });
+  data.connections[0].cableType = "xlr-5pin";
+  const [first] = buildCableSchedule(data);
+  assert.equal(first.cableNumber, "L-001");
+  assert.equal(first.signal, "Lighting");
+  assert.equal(first.loom, "FOH-01");
+  data.connections[0].cableNumber = "L-009";
+  data.connections.push({ ...structuredClone(data.connections[0]), id: "wire-2", cableNumber: "", loomId: "loom-1" });
+  data.looms = [{ id: "loom-1", name: "LM-001" }];
+  assert.deepEqual(buildCableSchedule(data).map(row => row.cableNumber), ["L-009", "L-010"]);
+  assert.equal(data.cableNumberCounters.L, 10);
+  assert.equal(buildCableSchedule(data)[1].loom, "LM-001");
+  data.devices.forEach(device => { device.templateOverride.connectors[0].type = "xlr-5pin"; });
+  data.connections[1].cableType = "xlr-5pin";
+  assert.equal(buildCableSchedule(data)[0].signal, "Audio");
+  assert.equal(cableFamily("dmx-3pin"), "L");
+  assert.equal(cableFamily("custom-lx", [{ id: "custom-lx", compatibilityType: "xlr-5pin", tags: ["lighting"] }]), "L");
+});
+
 test("old project numbering is deterministic without changing connection data", () => {
   const data = project();
   data.connections.push({ ...structuredClone(data.connections[0]), id: "wire-2", cableNumber: "V-009" });

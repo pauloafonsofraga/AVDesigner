@@ -4,7 +4,7 @@ import { bidirectionalJumpFixture } from "../fixtures/bidirectional-jumps.mjs";
 import { cableTypeSelectionFixture } from "../fixtures/cable-type-selection.mjs";
 import { managedLoomMixedFixture } from "../fixtures/managed-looms.mjs";
 import { buildCableSchedule } from "../src/engine/cableSchedule.js";
-import { allocateLoomIdentity, dissolveLoom, loomComposition, migrateLegacyLooms,
+import { allocateLoomIdentity, dissolveLoom, loomComposition, migrateLegacyLooms, normalizeLoom,
   renameLoom, selectedLoomCableGroups, setLogicalCableLoom } from "../src/engine/loomModel.js";
 import { initialLoomHeads, loomGeometry, loomTrunkPoints, orientCableEndpoints } from "../src/engine/loomGeometry.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
@@ -68,12 +68,16 @@ test("mixed Video, Network, Fibre, Audio and Jump legs count as five logical cir
 
 test("stable names never reuse deleted high-water identifiers and reject case-insensitive duplicates", () => {
   const project = { looms: [{ id: "loom-2", name: "L02" }], loomNumberCounter: 3, connections: [] };
-  assert.deepEqual(allocateLoomIdentity(project), { id: "loom-4", name: "L04" });
+  assert.deepEqual(allocateLoomIdentity(project), { id: "loom-4", name: "LM-004" });
   project.looms.push({ id: "loom-4", name: "FOH" });
   assert.equal(renameLoom(project, "loom-2", "foh"), false);
   assert.equal(renameLoom(project, "loom-2", "Stage"), true);
   assert.equal(dissolveLoom(project, "loom-2"), true);
-  assert.deepEqual(allocateLoomIdentity(project), { id: "loom-5", name: "L05" });
+  assert.deepEqual(allocateLoomIdentity(project), { id: "loom-5", name: "LM-005" });
+  project.looms.push({ id: "loom-7", name: "LM-009" });
+  assert.deepEqual(allocateLoomIdentity(project), { id: "loom-10", name: "LM-010" });
+  assert.equal(normalizeLoom({ id: "loom-2", name: "L02" }).name, "L02", "existing Loom names stay unchanged");
+  assert.equal(normalizeLoom({ id: "loom-1" }).name, "LM-001");
 });
 
 test("head placement and A/B assignment are independent of electrical direction", () => {
@@ -164,7 +168,7 @@ test("Engine output scene and vector PDF share Loom geometry without printing hi
 test("XLSX keeps logical cable rows and summarizes each Loom on a separate sheet", async () => {
   const project = jumpProject();
   project.connections.forEach(wire => { wire.loomId = "loom-1"; });
-  project.looms = [{ id: "loom-1", name: "L01", sideA: { label: "FOH", x: 0, y: 0 },
+  project.looms = [{ id: "loom-1", name: "LM-001", sideA: { label: "FOH", x: 0, y: 0 },
     sideB: { label: "Stage", x: 100, y: 0 }, trunkLength: "75 m", notes: "Signal bundle" }];
   const rows = buildCableSchedule(project, { assignNumbers: "readOnly" });
   const bytes = await createCableScheduleXlsx(rows, { looms: project.looms,
@@ -173,7 +177,7 @@ test("XLSX keeps logical cable rows and summarizes each Loom on a separate sheet
   await workbook.xlsx.load(bytes);
   assert.equal(workbook.getWorksheet("Cable Schedule").rowCount, 2);
   const summary = workbook.getWorksheet("Loom Schedule");
-  assert.equal(summary.getCell("A2").value, "L01");
+  assert.equal(summary.getCell("A2").value, "LM-001");
   assert.equal(summary.getCell("B2").value, "FOH");
   assert.equal(summary.getCell("C2").value, "Stage");
   assert.equal(summary.getCell("D2").value, "75 m");

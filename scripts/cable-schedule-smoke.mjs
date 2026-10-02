@@ -221,6 +221,27 @@ try {
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await page.screenshot({ path: join(directory, "cable-schedule-mobile.png") });
   checks.push("enlarged schedule stays within a mobile viewport with scrollable columns");
+
+  await page.locator("#closeCableSchedule").click();
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  const lighting = cableTypeSelectionFixture();
+  lighting.devices.forEach(device => { device.templateOverride.connectors[0].type = "dmx-5pin"; });
+  lighting.connections = [{ ...lighting.connections[0], cableType: "xlr-5pin", loomId: "loom-1" }];
+  lighting.looms = [{ id: "loom-1", name: "LM-001" }];
+  await page.evaluate(data => { restoreSnapshot(data); zoomToFit(); }, lighting);
+  await page.locator("#cableScheduleButton").click();
+  await page.waitForFunction(() => cableScheduleRows.length === 1 && cableScheduleRows[0].cableNumber === "L-001");
+  assert.match(await page.locator("#cableScheduleBody").innerText(), /L-001/);
+  assert.match(await page.locator("#cableScheduleBody").innerText(), /LM-001/);
+  const lightingDownload = page.waitForEvent("download");
+  await page.locator("#downloadCableScheduleXlsx").click();
+  const lightingXlsx = await lightingDownload, lightingPath = join(directory, lightingXlsx.suggestedFilename());
+  await lightingXlsx.saveAs(lightingPath);
+  const lightingWorkbook = new ExcelJS.Workbook();
+  await lightingWorkbook.xlsx.load(readFileSync(lightingPath));
+  assert.equal(lightingWorkbook.getWorksheet("Cable Schedule").getCell("A2").value, "L-001");
+  assert.equal(lightingWorkbook.getWorksheet("Loom Schedule").getCell("A2").value, "LM-001");
+  checks.push("DMX-purpose XLR cable uses L ID while its loom remains a separate LM assembly in UI and XLSX");
   assert.deepEqual(errors, []);
   checks.push("no browser page or console errors");
   console.log(JSON.stringify({ passed: checks.length, failed: 0, skipped: 0, checks, directory }, null, 2));

@@ -11,7 +11,7 @@ export function normalizeLoom(value, index = 0) {
   }) : null;
   return {
     id: String(value?.id || `loom-${index + 1}`), kind: "loom",
-    name: String(value?.name || `L${String(index + 1).padStart(2, "0")}`),
+    name: String(value?.name || `LM-${String(index + 1).padStart(3, "0")}`),
     sideA: point(value?.sideA, "Side A"), sideB: point(value?.sideB, "Side B"),
     routeStyle: value?.routeStyle === "bezier" ? "bezier" : "orthogonal",
     routePoints: Array.isArray(value?.routePoints) ? value.routePoints
@@ -28,12 +28,12 @@ export function allocateLoomIdentity(project) {
   let counter = Math.max(0, Number(root.loomNumberCounter) || 0);
   for (const loom of looms) {
     const idNumber = /^loom-(\d+)$/.exec(String(loom.id || ""));
-    const nameNumber = /^L(\d+)$/i.exec(String(loom.name || ""));
+    const nameNumber = /^(?:L|LM-)(\d+)$/i.exec(String(loom.name || ""));
     counter = Math.max(counter, Number(idNumber?.[1] || 0), Number(nameNumber?.[1] || 0));
   }
-  do { counter++; } while (ids.has(`loom-${counter}`) || occupiedNames.has(nameKey(`L${String(counter).padStart(2, "0")}`)));
+  do { counter++; } while (ids.has(`loom-${counter}`) || occupiedNames.has(nameKey(`LM-${String(counter).padStart(3, "0")}`)));
   root.loomNumberCounter = counter;
-  return { id: `loom-${counter}`, name: `L${String(counter).padStart(2, "0")}` };
+  return { id: `loom-${counter}`, name: `LM-${String(counter).padStart(3, "0")}` };
 }
 
 export function selectedLoomCableGroups(project, selectedWireIds) {

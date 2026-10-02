@@ -41,7 +41,7 @@ try {
   await page.locator('[data-wire-menu="create-loom"]').click();
   const created = await page.evaluate(() => ({ loom: structuredClone(state.looms[0]),
     ids: state.connections.map(wire => wire.loomId), plan: structuredClone(activeEngineBridge().scene.loomPlans[0]) }));
-  assert.equal(created.loom.name, "L01");
+  assert.equal(created.loom.name, "LM-001");
   assert.equal(created.plan.circuitCount, 5);
   assert.equal(created.plan.breakouts.length, 10);
   assert.equal(created.plan.hiddenWireIds.length, 6);
@@ -54,7 +54,7 @@ try {
 
   const trunk = await toScreen(created.plan.trunk[Math.floor(created.plan.trunk.length / 2)]);
   await page.mouse.click(trunk.x, trunk.y);
-  assert.equal(await page.locator("#loomName").inputValue(), "L01");
+  assert.equal(await page.locator("#loomName").inputValue(), "LM-001");
   assert.match(await page.locator("#loomComposition").innerText(), /5 circuits/);
   await page.screenshot({ path: join(shots, "wirenexus-loom-mixed-inspector.png") });
   const breakout = created.plan.breakouts.find(item => item.wireId === "cable-0" && item.end === "A");

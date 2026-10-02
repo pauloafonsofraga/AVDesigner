@@ -23,13 +23,14 @@ export function cableScheduleVisibleRowIndexes(rows, filters = {}) {
   return rows.flatMap((row, index) => selected.every(key => row[key] === filters[key]) ? [index] : []);
 }
 
-const families = Object.freeze({ V: "Video", N: "Network", A: "Audio", F: "Fibre", P: "Power", X: "Other" });
-const familyOrder = ["A", "F", "N", "P", "V", "X"];
+const families = Object.freeze({ V: "Video", N: "Network", A: "Audio", F: "Fibre", L: "Lighting", P: "Power", X: "Other" });
+const familyOrder = ["A", "F", "L", "N", "P", "V", "X"];
 const typeFamilies = new Map(Object.entries({
   sdi: "V", bnc: "V", hdmi: "V", dvi: "V", "display-port": "V", "mini-display-port": "V",
   vga: "V", cxp: "V", "led-signal": "V", "led-grid-signal": "V",
   cat5e: "N", cat6: "N", cat6a: "N", ethercon: "N", ethernet: "N",
   "xlr-3pin": "A", "xlr-5pin": "A", "trs-ts": "A", rca: "A", aes: "A",
+  "dmx-3pin": "L", "dmx-5pin": "L",
   "speakon-nl2": "A", "speakon-nl4": "A", "speakon-nl8": "A", speakon: "A",
   "fiber-lc": "F", "fiber-sc": "F", "fiber-st": "F", "fiber-mpo": "F", opticalcon: "F", fiberfox: "F",
   iec: "P", schuko: "P", "uk-13a": "P", edison: "P", powercon: "P", "powercon-true1": "P",
@@ -39,7 +40,7 @@ const typeFamilies = new Map(Object.entries({
   "16a-1ph-110v": "P", "16a-1ph": "P", "32a-1ph-110v": "P", "32a-1ph": "P",
   "16a-3ph": "P", "32a-3ph": "P", "63a-3ph": "P", "125a-3ph": "P"
 }));
-const numberPattern = /^([VNAFPX])-(\d{3,})$/;
+const numberPattern = /^([VNAFLPX])-(\d{3,})$/;
 const nodeDefinition = (definitions, id) => Array.isArray(definitions)
   ? definitions.find(item => item.id === id) : definitions?.[id];
 
@@ -47,8 +48,9 @@ export function cableFamily(typeId, nodeDefinitions = []) {
   const key = String(typeId || "").trim().toLowerCase();
   if (typeFamilies.has(key)) return typeFamilies.get(key);
   const node = nodeDefinition(nodeDefinitions, key);
-  if (node?.compatibilityType && typeFamilies.has(node.compatibilityType)) return typeFamilies.get(node.compatibilityType);
   const tags = Array.isArray(node?.tags) ? node.tags.map(tag => String(tag).toLowerCase()) : [];
+  if (tags.includes("lighting") || tags.includes("dmx")) return "L";
+  if (node?.compatibilityType && typeFamilies.has(node.compatibilityType)) return typeFamilies.get(node.compatibilityType);
   for (const [tag, family] of [["fiber", "F"], ["fibre", "F"], ["power", "P"], ["network", "N"], ["audio", "A"], ["video", "V"]]) {
     if (tags.includes(tag)) return family;
   }
@@ -115,6 +117,7 @@ function groupFamily(project, group, options) {
       compatibilityType: connector.compatibilityType || node?.compatibilityType }) : "", options.nodeDefinitions);
   });
   if (endpoints.includes("F")) return "F";
+  if (cable === "L" || endpoints.includes("L")) return "L";
   return cable;
 }
 
