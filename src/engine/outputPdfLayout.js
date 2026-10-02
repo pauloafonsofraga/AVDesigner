@@ -4,11 +4,6 @@ const PAPER_MM = Object.freeze({
 });
 export const JUMP_CONTEXT_FRACTION = 0.4;
 
-export function viewerNavigationZoom(layout) {
-  const a3LandscapeWidth = PAPER_MM.A3[1] * MM_TO_PT;
-  return Math.max(0.7, Math.min(2.3, 1.8 * a3LandscapeWidth / layout.paperWidth));
-}
-
 export function jumpNavigationContext(layout, hit) {
   const area = layout.pageArea;
   const width = area.width * JUMP_CONTEXT_FRACTION;

@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { pdfPageLayout, jumpNavigationContext, fitRCoordinates, viewerNavigationZoom,
+import { pdfPageLayout, jumpNavigationContext, fitRCoordinates,
   JUMP_CONTEXT_FRACTION } from "../src/engine/outputPdfLayout.js";
+import { jumpXyzDestination } from "../src/engine/outputPdfNavigation.js";
 import { generatePdf } from "../src/engine/outputPdf.js";
 import { outputPdfJumpFixture } from "../fixtures/output-pdf-jumps.mjs";
 import { buildEngineOutputScene } from "../src/engine/outputSceneSnapshot.js";
@@ -57,12 +58,14 @@ test("FitR navigation context is centred or clamped to every page edge", () => {
   }
 });
 
-test("browser navigation zoom scales with paper width instead of a fixed sheet size", () => {
-  const layout = paper => pdfPageLayout({ paper, svgViewBox: view });
-  assert.ok(Math.abs(viewerNavigationZoom(layout("A3")) - 1.8) < 1e-9);
-  assert.ok(viewerNavigationZoom(layout("A2")) < viewerNavigationZoom(layout("A3")));
-  assert.ok(viewerNavigationZoom(layout("A1")) < viewerNavigationZoom(layout("A2")));
-  assert.ok(viewerNavigationZoom(layout("A4")) > viewerNavigationZoom(layout("A3")));
+test("Jump destination uses the exact target coordinate and preserves viewer zoom", () => {
+  for (const paper of ["A4", "A3", "A2", "A1"]) {
+    const layout = pdfPageLayout({ paper, svgViewBox: view });
+    const hit = layout.rect({ x: 50, y: 200, width: 44, height: 44 });
+    const targetPageRef = { id: paper };
+    assert.deepEqual(jumpXyzDestination(targetPageRef, hit, layout.paperHeight),
+      [targetPageRef, "XYZ", hit.x, layout.paperHeight - hit.y, null]);
+  }
 });
 
 test("PDFKit production generator creates vector PDF bytes with reciprocal Jump annotations", async () => {

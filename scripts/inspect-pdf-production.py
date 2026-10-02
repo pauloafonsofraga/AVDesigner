@@ -15,7 +15,7 @@ for name, case in expected.items():
     nodes = {node["destinationId"]: node for node in case["nodes"]}
     assert len(nodes) == len(case["nodes"]), f"{name}: duplicate destination ID"
     assert len(reader.pages) >= case["pages"], f"{name}: drawing pages missing"
-    assert len(reader.named_destinations) == 2 * len(nodes), f"{name}: named destinations missing"
+    assert not reader.named_destinations, f"{name}: obsolete named Jump destinations"
     links = []
     for page_index, page in enumerate(reader.pages):
         assert float(page.mediabox.width) > 0 and float(page.mediabox.height) > 0
@@ -27,6 +27,8 @@ for name, case in expected.items():
     seen = set()
     for page_index, annotation in links:
         assert "/URI" not in annotation and "/URI" not in annotation.get("/A", {})
+        assert "/JS" not in annotation and "/JS" not in annotation.get("/A", {})
+        assert "/Dest" not in annotation, f"{name}: expected direct GoTo action"
         assert annotation["/A"]["/S"] == "/GoTo"
         rect = list(map(float, annotation["/Rect"]))
         matches = []
@@ -46,27 +48,14 @@ for name, case in expected.items():
         seen.add(source["destinationId"])
         assert rect[2] > rect[0] and rect[3] > rect[1]
         action_destination = annotation["/A"]["/D"]
-        assert action_destination == f"{target['destinationId']}-viewer"
-        viewer_destination = reader.named_destinations[action_destination]
-        assert reader.get_destination_page_number(viewer_destination) == target["pageIndex"]
-        assert viewer_destination["/Type"] == "/XYZ"
-        frame = target["contextRect"]
-        assert abs(float(viewer_destination["/Left"]) - frame["x"]) < 0.03
-        assert abs(float(viewer_destination["/Top"]) -
-                   (target["paperHeight"] - frame["y"])) < 0.03
-        assert 0.7 <= float(viewer_destination["/Zoom"]) <= 2.3
+        assert len(action_destination) == 5
+        assert action_destination[0] == reader.pages[target["pageIndex"]].indirect_reference
+        assert action_destination[1] == "/XYZ"
+        assert abs(float(action_destination[2]) - target["pdfRect"]["x"]) < 0.03
+        assert abs(float(action_destination[3]) -
+                   (target["paperHeight"] - target["pdfRect"]["y"])) < 0.03
+        assert str(action_destination[4]) == "NullObject", f"{name}: zoom must remain unchanged"
     assert seen == set(nodes), f"{name}: missing reciprocal source annotations"
-    for target_id, target in nodes.items():
-        destination = reader.named_destinations[target_id]
-        assert reader.get_destination_page_number(destination) == target["pageIndex"]
-        assert destination["/Type"] == "/FitR"
-        actual_fit = [float(destination[key]) for key in ["/Left", "/Bottom", "/Right", "/Top"]]
-        assert all(abs(a - b) < 0.03 for a, b in zip(actual_fit, target["fitR"])), (name, actual_fit, target["fitR"])
-        assert actual_fit[0] >= 0 and actual_fit[1] >= 0
-        assert actual_fit[2] <= float(reader.pages[target["pageIndex"]].mediabox.width)
-        assert actual_fit[3] <= float(reader.pages[target["pageIndex"]].mediabox.height)
-        assert actual_fit[0] < actual_fit[2] and actual_fit[1] < actual_fit[3]
-        assert "/Zoom" not in destination
     drawing = reader.pages[0]
     ops = drawing.get_contents().operations
     assert sum(op in [b"m", b"l", b"c", b"re"] for _, op in ops) > 20, f"{name}: drawing rasterized"

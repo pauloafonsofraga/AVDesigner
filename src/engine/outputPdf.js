@@ -1,6 +1,7 @@
 import PDFDocument from "pdfkit";
 import SVGtoPDF from "svg-to-pdfkit";
-import { pdfPageLayout, jumpNavigationContext, fitRCoordinates, viewerNavigationZoom } from "./outputPdfLayout.js";
+import { pdfPageLayout } from "./outputPdfLayout.js";
+import { addJumpLink } from "./outputPdfNavigation.js";
 import { buildOutputJumpNavigation } from "./outputNavigation.js";
 import { expandInlineSvgImages } from "./pdfInlineSvgImages.js";
 
@@ -142,9 +143,11 @@ export async function generatePdf({ svg, diagnostics, engineScene, drawingPages,
   });
   const warnings = [];
   const destinations = new Map();
+  const pageRefs = [];
   for (const [pageIndex, drawing] of drawings.entries()) {
     const pageLayout = layouts[pageIndex];
     doc.addPage({ size: [pageLayout.paperWidth, pageLayout.paperHeight], margin: 0 });
+    pageRefs.push(doc.page.dictionary);
     doc.rect(pageLayout.pageArea.x, pageLayout.pageArea.y,
       pageLayout.pageArea.width, pageLayout.pageArea.height)
       .fillAndStroke("#f7f9fb", rule);
@@ -159,20 +162,14 @@ export async function generatePdf({ svg, diagnostics, engineScene, drawingPages,
     doc.restore();
     for (const node of navigation.filter(item => item.pageIndex === pageIndex)) {
       const hit = pageLayout.rect(node.bounds);
-      const context = jumpNavigationContext(pageLayout, hit);
-      const fitR = fitRCoordinates(pageLayout.paperHeight, context);
-      destinations.set(node.destinationId, { hit, fitR, pageIndex });
-      doc.addNamedDestination(node.destinationId, "FitR", ...fitR);
-      // PDFium ignores FitR link actions, so clickable links use an internal XYZ context view.
-      doc.addNamedDestination(`${node.destinationId}-viewer`, "XYZ", context.x, context.y,
-        viewerNavigationZoom(pageLayout));
+      destinations.set(node.destinationId, { hit, pageIndex, paperHeight: pageLayout.paperHeight });
     }
   }
   for (const node of navigation) {
     const source = destinations.get(node.destinationId);
+    const target = destinations.get(node.targetDestinationId);
     doc.switchToPage(source.pageIndex);
-    doc.goTo(source.hit.x, source.hit.y, source.hit.width, source.hit.height,
-      `${node.targetDestinationId}-viewer`);
+    addJumpLink(doc, source.hit, pageRefs[target.pageIndex], target.hit, target.paperHeight);
   }
   doc.flushPages();
   if (reportData) reportPages(doc, reportData, layout);
