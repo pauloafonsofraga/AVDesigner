@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-38-51-curated-project-devices";
+const BUILD_ID = "iteration54-38-52-shared-bus-faceplate-resize";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -52,7 +52,7 @@ const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Auto LED Preview Recovery");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-51-curated-project-devices-modules";'), "module cache key should identify curated project devices");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-52-shared-bus-faceplate-resize-modules";'), "module cache key should identify shared-bus faceplate resize");
 assert.ok(indexHtml.includes("Signal Chain"), "visible build label should name Signal Chain");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-47-managed-cable-looms"'), "Engine bridge version should identify Managed Cable Looms");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses"'), "Engine bridge feature label should identify Selectable Projector Lenses");

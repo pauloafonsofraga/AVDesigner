@@ -47,6 +47,31 @@ try {
   assert.ok(curated.p20.connectors.some(connector => connector.type === "iec"));
   assert.equal(curated.pixera.hasSwappableCards, true);
   assert.ok(curated.pixera.cardSlots.length > 0);
+  await page.locator('[data-editor-tab="faceplate"]').click();
+  const faceBefore = await page.evaluate(() => ({
+    scale: currentEditorTemplate().faceImageScaleY,
+    connectors: currentEditorTemplate().connectors.map(connector => connector.id),
+    relationships: structuredClone(currentEditorTemplate().connectorRelationships),
+    buses: editorResizeScalarLayoutSnapshot(currentEditorTemplate()).items
+      .filter(item => item.kind === "shared-bus").map(item => [item.id, item.lane])
+  }));
+  const faceHandle = await page.locator('[data-editor-face-image-resize][data-corner="s"]').boundingBox();
+  assert.ok(faceHandle, "P20 faceplate resize handle is visible");
+  const handleX = faceHandle.x + faceHandle.width / 2, handleY = faceHandle.y + faceHandle.height / 2;
+  await page.mouse.move(handleX, handleY); await page.mouse.down();
+  await page.mouse.move(handleX, handleY + 80, { steps: 10 }); await page.mouse.up();
+  const faceAfter = await page.evaluate(() => ({
+    scale: currentEditorTemplate().faceImageScaleY,
+    connectors: currentEditorTemplate().connectors.map(connector => connector.id),
+    relationships: structuredClone(currentEditorTemplate().connectorRelationships),
+    buses: editorResizeScalarLayoutSnapshot(currentEditorTemplate()).items
+      .filter(item => item.kind === "shared-bus").map(item => [item.id, item.lane])
+  }));
+  assert.ok(faceAfter.scale > faceBefore.scale, "P20 faceplate responds to a real pointer drag");
+  assert.deepEqual(faceAfter.connectors, faceBefore.connectors);
+  assert.deepEqual(faceAfter.relationships, faceBefore.relationships);
+  assert.deepEqual(faceAfter.buses, faceBefore.buses);
+  checks.push("curated P20 faceplate resizes with a pointer while 12 shared buses retain identity and lanes");
   const libraryDownload = page.waitForEvent("download");
   await page.locator("#exportDeviceLibrary").click();
   const exportedLibrary = await libraryDownload;

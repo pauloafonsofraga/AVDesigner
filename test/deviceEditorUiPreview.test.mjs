@@ -5713,6 +5713,32 @@ test("generated faceplate top resize keeps origin fixed and cancellation restore
   assert.equal(counters.editorRenders - before.editorRenders, 1);
 });
 
+test("P20 shared buses remain rigid while its faceplate is resized", () => {
+  const catalogue = JSON.parse(readFileSync(new URL("../data/factory-catalogue.json", import.meta.url), "utf8"));
+  const p20 = catalogue.devices.find(device => device.id === "custom-device-mq84dpgn");
+  const { api, template, context } = structuralEditorHarness(p20);
+  const before = structuredClone(template);
+  const buses = api.captureEditorResizeBaseline(template, "custom-face-image").layout.items
+    .filter(item => item.kind === "shared-bus").map(item => [item.id, item.lane]);
+  assert.equal(buses.length, 12);
+  const face = context.faceImagePlacement(template, template.width);
+  const start = { x: face.x + face.width / 2, y: face.y + face.height };
+
+  api.beginEditorResizeSession(resizePointer(901, start.x, start.y, "pointerdown"), {
+    kind: "custom-face-image", handle: "s", startPoint: start
+  });
+  api.updateEditorResizeSessionFromEvent(resizePointer(901, start.x, start.y + 80));
+  context.flushAnimationFrames();
+  assert.ok(context.editorResizePreviewTemplate.faceImageScaleY > before.faceImageScaleY);
+  assert.deepEqual(template, before, "preview cannot mutate the live definition");
+  api.finishEditorResizeSession(resizePointer(901, start.x, start.y + 80, "pointerup"));
+  assert.ok(template.faceImageScaleY > before.faceImageScaleY);
+  assert.deepEqual(template.connectorRelationships, before.connectorRelationships);
+  assert.deepEqual(template.connectors.map(connector => connector.id), before.connectors.map(connector => connector.id));
+  assert.deepEqual(api.captureEditorResizeBaseline(template, "custom-face-image").layout.items
+    .filter(item => item.kind === "shared-bus").map(item => [item.id, item.lane]), buses);
+});
+
 test("custom image resize derives from its baseline and separates horizontal and vertical commits", () => {
   const horizontalOrigin = 150;
   const horizontal = structuralEditorHarness({
