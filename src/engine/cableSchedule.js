@@ -1,4 +1,5 @@
-import { engineConnectorColor, engineConnectorDisplayLabel, engineConnectorCompatibilityType } from "./connectorCompatibility.js";
+import { engineConnectorColor, engineConnectorDisplayLabel, engineConnectorCompatibilityType,
+  engineConnectorUserFacingTypeLabel } from "./connectorCompatibility.js";
 import { normalizeSignalDirection } from "./deviceDefinitionV2.js";
 import { rawWireJumpIds, resolvePlayableSignalPath } from "./jumpNodeModel.js";
 
@@ -156,9 +157,16 @@ function endpointDisplay(project, endpoint, getConnector, nodeColors, nodeDefini
     connectorId: String(connector?.id || endpoint?.connectorId || ""),
     direction: connector ? normalizeSignalDirection(connector.signalDirection, connector.direction) : "",
     device: String(instance?.name || template?.name || surface?.name || "Unconnected"),
-    port: String(connector?.nameText || connector?.label || (connector ? engineConnectorDisplayLabel(connector) : "") || (surface ? "LED Screen" : "")),
+    port: String(connector?.nameText || (connector?.label !== connector?.type ? connector?.label : "")
+      || (connector ? engineConnectorDisplayLabel({ ...connector, typeLabel: node?.label || connector.typeLabel,
+        compatibilityType: connector.compatibilityType || node?.compatibilityType }) : "")
+      || (surface ? "LED Screen" : "")),
     type: String(connector ? engineConnectorCompatibilityType({ ...connector,
       compatibilityType: connector.compatibilityType || node?.compatibilityType }) || connector.physicalType || connector.type || "" : ""),
+    typeId: String(connector?.type || ""),
+    typeLabel: connector ? engineConnectorUserFacingTypeLabel({ ...connector,
+      typeLabel: node?.label !== connector.type ? node?.label : connector.typeLabel,
+      compatibilityType: connector.compatibilityType || node?.compatibilityType }) : "",
     rackId: String(instance?.rackId || ""),
     color: connector ? engineConnectorColor(connector, nodeColors) : ""
   };
@@ -172,7 +180,6 @@ export function buildCableSchedule(input, options = {}) {
       : ensureCableNumbers(project, options);
   const nodeDefinitions = options.nodeDefinitions || project.nodeLibrary || [];
   const node = id => nodeDefinition(nodeDefinitions, id);
-  const physicalLabel = id => node(id)?.label || id;
   const nodeColors = new Map((Array.isArray(nodeDefinitions) ? nodeDefinitions : Object.values(nodeDefinitions))
     .filter(item => item?.id && item?.color).map(item => [item.id, item.color]));
   const rackName = id => (project.racks || []).find(rack => rack.id === id)?.name || id;
@@ -186,7 +193,9 @@ export function buildCableSchedule(input, options = {}) {
     const destinationRack = destination.rackId ? rackName(destination.rackId) : "";
     const rackLocation = sourceRack === destinationRack ? sourceRack : `${sourceRack} → ${destinationRack}`.trim();
     const cableType = String(group.wires.find(wire => wire.cableType && wire.cableType !== "jump")?.cableType || value("cableType"));
-    const cableLabel = node(cableType)?.label || cableType || "Cable";
+    const cableNode = node(cableType);
+    const cableLabel = cableType ? engineConnectorUserFacingTypeLabel({ type: cableType,
+      typeLabel: cableNode?.label, compatibilityType: cableNode?.compatibilityType }, "Cable") : "Cable";
     const loomId = String(value("loomId"));
     const loomRecord = (project.looms || []).find(item => String(item.id) === loomId);
     const fiberMode = family === "F" && value("fiberMode") ? ` - ${value("fiberMode")}` : "";
@@ -198,12 +207,13 @@ export function buildCableSchedule(input, options = {}) {
       sourceConnectorId: source.connectorId, sourceDirection: source.direction,
       destinationDeviceId: destination.deviceId, destinationSurfaceId: destination.surfaceId,
       destinationConnectorId: destination.connectorId, destinationDirection: destination.direction,
-      signal: families[family], connector: [source.type, destination.type].filter(Boolean).map(physicalLabel).join(" → "),
+      signal: families[family], connector: [source.typeLabel, destination.typeLabel].filter(Boolean).join(" → "),
       cable: `${cableLabel}${fiberMode}`, length: String(value("length")),
       fiberMode: String(value("fiberMode")),
       loomId, loom: String(loomRecord?.name || value("loom")), rackLocation, notes: String(value("notes")),
       wireIds: group.wires.map(wire => String(wire.id)),
-      sourceNodeTypeId: source.type, destinationNodeTypeId: destination.type,
+      sourceNodeTypeId: source.typeId, destinationNodeTypeId: destination.typeId,
+      sourceNodeTypeLabel: source.typeLabel, destinationNodeTypeLabel: destination.typeLabel,
       sourceNodeColor: source.color, destinationNodeColor: destination.color,
       cableTypeId: cableType, cableColor: String(value("customColor") || node(cableType)?.color || "#32b6ff"),
       cableCustomColor: String(value("customColor"))
@@ -217,7 +227,7 @@ function signalChainFromRow(row) {
   const endpoint = side => ({
     device: row[`${side}Device`], deviceId: row[`${side}DeviceId`], surfaceId: row[`${side}SurfaceId`],
     connectorId: row[`${side}ConnectorId`], port: row[`${side}Port`],
-    typeId: row[`${side}NodeTypeId`], color: row[`${side}NodeColor`],
+    typeId: row[`${side}NodeTypeId`], typeLabel: row[`${side}NodeTypeLabel`], color: row[`${side}NodeColor`],
     direction: row[`${side}Direction`]
   });
   const reverse = row.sourceDirection === "input" && row.destinationDirection === "output";

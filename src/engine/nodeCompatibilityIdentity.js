@@ -10,8 +10,16 @@ export function canonicalFactoryNodeIds(nodeTypes) {
 }
 
 export function generatedPersonalAliasBase(id, canonicalIds) {
-  const match = /^(.+)-personal-[0-9a-f]{8}(?:-(?:[2-9]|[1-9]\d+))?$/.exec(String(id || ""));
+  const match = generatedScopedNodeIdMatch(id);
   return match && canonicalIds?.has(match[1]) ? match[1] : "";
+}
+
+export function isGeneratedScopedNodeId(id) {
+  return Boolean(generatedScopedNodeIdMatch(id));
+}
+
+function generatedScopedNodeIdMatch(id) {
+  return /^(.+)-personal-[0-9a-f]{8}(?:-(?:[2-9]|[1-9]\d+))?$/.exec(String(id || ""));
 }
 
 export function restoreNodeCompatibilityTypes(nodes, canonicalIds) {

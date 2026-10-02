@@ -7,11 +7,13 @@ import {
   canonicalFactoryNodeIds, generatedPersonalAliasBase, restoreProjectNodeCompatibilityTypes
 } from "../src/engine/nodeCompatibilityIdentity.js";
 import {
-  effectiveConnectorTypeForEngine, engineCompatibilitySummary, engineConnectorCompatibilityType
+  effectiveConnectorTypeForEngine, engineCompatibilitySummary, engineConnectorCompatibilityType,
+  engineConnectorPlugTypeLabel, engineConnectorTypeDisplayName, engineConnectorUserFacingTypeLabel
 } from "../src/engine/connectorCompatibility.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
-import { buildCableSchedule } from "../src/engine/cableSchedule.js";
+import { buildCableSchedule, cableScheduleCsv, signalChainForWire } from "../src/engine/cableSchedule.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
+import { outputConnectedNodeItems, outputSelectionDetails } from "../src/engine/outputViewerModel.js";
 import { bidirectionalJumpFixture } from "../fixtures/bidirectional-jumps.mjs";
 
 const factory = JSON.parse(readFileSync(new URL("../data/factory-catalogue.json", import.meta.url), "utf8"));
@@ -107,7 +109,7 @@ test("Engine accepts ordinary HDMI to scoped HDMI without flattening scoped artw
   assert.equal(row.signal, "Video");
   assert.equal(row.cableTypeId, "hdmi");
   assert.equal(row.sourceNodeTypeId, "hdmi");
-  assert.equal(row.destinationNodeTypeId, "hdmi");
+  assert.equal(row.destinationNodeTypeId, alias);
 
   const graph = new SceneGraph();
   graph.setData(scene);
@@ -115,6 +117,42 @@ test("Engine accepts ordinary HDMI to scoped HDMI without flattening scoped artw
   graph.updateConnector("target", "in-1", { type: "sdi" });
   assert.equal(engineConnectorCompatibilityType(graph.getConnector("target", "in-1")), "sdi",
     "changing node type cannot retain the previous alias's electrical identity");
+});
+
+test("scoped node captions prefer authored labels and never print generated IDs", () => {
+  const scoped = { type: alias, compatibilityType: "hdmi", typeLabel: "Personal HDMI", color: "#123456" };
+  assert.equal(engineConnectorUserFacingTypeLabel(scoped), "Personal HDMI");
+  assert.equal(engineConnectorPlugTypeLabel(scoped), "Personal HDMI");
+  assert.equal(engineConnectorUserFacingTypeLabel({ ...scoped, typeLabel: "" }), "HDMI");
+  assert.equal(engineConnectorUserFacingTypeLabel({ ...scoped, typeLabel: alias }), "HDMI");
+  assert.equal(engineConnectorUserFacingTypeLabel({ type: "custom-control-personal-12345678",
+    typeLabel: "RS-232 Custom" }), "RS-232 Custom");
+  assert.equal(engineConnectorUserFacingTypeLabel({ type: "custom-control-personal-aaaaaaaa",
+    typeLabel: "RS-232 Control A" }), "RS-232 Control A");
+  assert.equal(engineConnectorUserFacingTypeLabel({ type: "custom-control-personal-bbbbbbbb",
+    typeLabel: "RS-232 Control B" }), "RS-232 Control B");
+  assert.equal(engineConnectorUserFacingTypeLabel({ type: alias }), "Connector");
+  assert.equal(engineConnectorTypeDisplayName(alias, "Hdmi Personal 542ee7a2"), "Connector");
+});
+
+test("schedule, Signal Chain, CSV and offline inspector keep readable captions and scoped graphics", () => {
+  const project = projectWithAlias();
+  project.connections.push({ id: "wire-1", from: { deviceId: "source", connectorId: "out-1" },
+    to: { deviceId: "target", connectorId: "in-1" }, cableType: "hdmi" });
+  const [row] = buildCableSchedule(project, { assignNumbers: "readOnly" });
+  assert.equal(row.connector, "HDMI → Personal HDMI");
+  assert.equal(row.cable, "HDMI");
+  assert.equal(row.destinationNodeTypeId, alias);
+  assert.equal(row.destinationNodeColor, "#123456");
+  assert.equal(signalChainForWire([row], "wire-1").to.typeLabel, "Personal HDMI");
+  assert.doesNotMatch(cableScheduleCsv([row]), /-personal-/);
+  const graph = new SceneGraph();
+  graph.setData(normalizeAvDesignerProject(project));
+  assert.equal(outputSelectionDetails(graph, { type: "connector", deviceId: "target", id: "in-1" })
+    .rows.find(([key]) => key === "Type")[1], "Personal HDMI");
+  assert.doesNotMatch(JSON.stringify(outputConnectedNodeItems(graph, "source")), /-personal-/);
+  assert.equal(graph.getConnector("target", "in-1").type, alias);
+  assert.equal(graph.getConnector("target", "in-1").compatibilityType, "hdmi");
 });
 
 test("custom collision aliases remain isolated unless compatibility is explicitly authored", () => {

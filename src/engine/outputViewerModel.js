@@ -2,7 +2,7 @@ import { SceneGraph } from "./sceneGraph.js";
 import { resolvePlayableSignalPath, jumpNodeRoleLabel } from "./jumpNodeModel.js";
 import { resolveOutputDeviceAssets } from "./outputViewerAssets.js";
 import { assertOutputSceneContract } from "./outputSceneContract.js";
-import { engineConnectorTypeDisplayName } from "./connectorCompatibility.js";
+import { engineConnectorTypeDisplayName, engineConnectorUserFacingTypeLabel } from "./connectorCompatibility.js";
 
 function freeze(value) {
   if (value && typeof value === "object") { Object.values(value).forEach(freeze); Object.freeze(value); }
@@ -40,7 +40,7 @@ function cableTypeName(type) {
 function connectedPortName(connector, device) {
   if (device?.kind === "jump") return "Portal";
   if (!connector) return device?.kind === "led-surface" ? "LED Screen" : "Connector";
-  return connector.nameText || connector.label || engineConnectorTypeDisplayName(connector.type, "Connector");
+  return connector.nameText || engineConnectorUserFacingTypeLabel(connector);
 }
 
 export function outputConnectedNodeItems(scene, deviceId, connectorId = "") {
@@ -85,7 +85,7 @@ export function outputSelectionDetails(scene, selection) {
       const deviceId = wire[`${end}DeviceId`] || wire[`${end}SurfaceId`];
       const device = scene.getDevice(deviceId);
       const connector = scene.getConnector(deviceId, wire[`${end}ConnectorId`]);
-      const port = connector?.nameText || connector?.label || connector?.type;
+      const port = connector?.nameText || engineConnectorUserFacingTypeLabel(connector);
       return [device?.label || deviceId || "Unknown device", port].filter(Boolean).join(" / ");
     };
     const readableType = cableTypeName(wire.cableType);
@@ -110,7 +110,7 @@ export function outputSelectionDetails(scene, selection) {
   const device = scene.getDevice(selection.deviceId || selection.id);
   if (!device) return outputSelectionDetails(scene, null);
   const connector = selection.type === "connector" ? scene.getConnector(device.id, selection.id) : null;
-  const rows = connector ? [["Device", device.label], ["ID", connector.id], ["Type", connector.type],
+  const rows = connector ? [["Device", device.label], ["ID", connector.id], ["Type", engineConnectorUserFacingTypeLabel(connector)],
     [connector.nameTextCaption || "Name", connector.nameText],
     [connector.resolutionFrameRateCaption || "Resolution", connector.resolutionFrameRate],
     [connector.customTextCaption || "Custom", connector.customText], ["Status", connector.operationalStatus]]
@@ -121,7 +121,7 @@ export function outputSelectionDetails(scene, selection) {
   const wireIds = scene.wires.filter(w => ["from", "to"].some(end =>
     (w[`${end}DeviceId`] === device.id || w[`${end}SurfaceId`] === device.id)
     && (!connector || w[`${end}ConnectorId`] === connector.id))).map(w => w.id);
-  return { title: connector?.nameText || connector?.label || device.label, rows, wireIds };
+  return { title: connector?.nameText || (connector ? engineConnectorUserFacingTypeLabel(connector) : device.label), rows, wireIds };
 }
 
 export function outputCableTrace(model, selection) {

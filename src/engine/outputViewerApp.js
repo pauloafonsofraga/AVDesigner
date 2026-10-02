@@ -361,7 +361,8 @@ export class EngineOutputViewer {
     const graph = text("div", "", "output-signal-chain-graph");
     const endpoint = (end, role) => {
       const item = text("div", "", "output-signal-chain-endpoint");
-      item.append(text("strong", end?.device || "Device"), text("span", end?.port || "Port"));
+      item.append(text("strong", end?.device || "Device"), text("span", end?.port || "Port"),
+        text("span", end?.typeLabel || ""));
       const dot = text("i", "", "output-signal-chain-node");
       dot.style.backgroundColor = /^#[\da-f]{6}$/i.test(end?.color || "") ? end.color : "#32b6ff";
       dot.setAttribute("aria-label", `${role} connector`);

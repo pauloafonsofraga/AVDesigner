@@ -108,8 +108,8 @@ test("installed optical modules take fibre precedence; empty cages are not repor
   });
   const [optical] = buildCableSchedule(data);
   assert.equal(optical.cableNumber, "F-001");
-  assert.match(optical.connector, /fiber-lc/);
-  assert.equal(signalChainForWire([optical], "wire-1").from.typeId, "fiber-lc");
+  assert.match(optical.connector, /Fiber LC/);
+  assert.equal(signalChainForWire([optical], "wire-1").from.typeId, "sfp-cage");
   assert.equal(signalChainForWire([optical], "wire-1").fiberMode, "singlemode");
   data.devices.forEach(device => { device.templateOverride.connectors[0].installedModuleId = ""; });
   const [empty] = buildCableSchedule(data);

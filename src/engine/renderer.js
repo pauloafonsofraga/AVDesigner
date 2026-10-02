@@ -17,7 +17,8 @@ import {
 import { isCanvasObjectKind, isLedSurfaceKind } from "./canvasObjectKinds.js";
 import {
   engineConnectorInfoFields,
-  engineConnectorPlugTypeLabel
+  engineConnectorPlugTypeLabel,
+  engineConnectorUserFacingTypeLabel
 } from "./connectorCompatibility.js";
 import {
   SHARED_BUS_LABEL_OFFSET,
@@ -3488,7 +3489,12 @@ function deviceLabel(device) {
 }
 
 function connectorLabel(connector, fallback = "") {
-  return String(connector?.displayLabel || connector?.label || connector?.nameText || connector?.name || connector?.effectiveType || connector?.type || fallback || "").trim();
+  const rawType = String(connector?.type || "").trim();
+  const display = String(connector?.displayLabel || "").trim();
+  const label = String(connector?.label || "").trim();
+  return String((display && display !== rawType ? display : "")
+    || (label && label !== rawType ? label : "") || connector?.nameText || connector?.name
+    || engineConnectorUserFacingTypeLabel(connector, fallback)).trim();
 }
 
 function drawVisibleConnectorLabels(ctx, scene, camera, renderOptions = DEFAULT_RENDER_OPTIONS, dragSession = null, resolution = { width: 0, height: 0 }, layerTrace = null, renderer = null) {
@@ -4155,14 +4161,7 @@ function drawConnectorTooltip(ctx, entry, camera, offsets = null) {
   const x = (entry.point.x + offset.dx - camera.x) * camera.zoom;
   const y = (entry.point.y + offset.dy - camera.y) * camera.zoom;
   const name = connectorLabel(entry.connector, entry.connector?.id || "Connector");
-  const rawType = String(entry.connector?.type || entry.connector?.direction || "").trim();
-  const effectiveType = String(entry.connector?.effectiveType || "").trim();
-  const module = String(entry.connector?.installedModuleLabel || "").trim();
-  const type = module && module !== name
-    ? module
-    : effectiveType && effectiveType !== rawType
-      ? `${rawType} -> ${effectiveType}`
-      : rawType;
+  const type = engineConnectorUserFacingTypeLabel(entry.connector);
   const device = deviceLabel(entry.device);
   const line = [name, type && type !== name ? type : ""].filter(Boolean).join(" / ");
   const text = [device, line].filter(Boolean).join(" - ");

@@ -4,6 +4,7 @@ import {
   isV2Connector,
   V2_SUGGESTED_BIDIRECTIONAL_TYPES
 } from "./deviceDefinitionV2.js";
+import { isGeneratedScopedNodeId } from "./nodeCompatibilityIdentity.js";
 
 const CAGE_CONNECTOR_TYPES = new Set(["sfp-cage", "sfp-plus-cage", "qsfp-cage"]);
 const CAT_CONNECTOR_TYPES = new Set(["cat5e", "cat6", "cat6a", "ethercon", "ethernet"]);
@@ -559,6 +560,7 @@ export function engineConnectorColorSegments(connector) {
 
 export function engineConnectorDisplayLabel(connector, fallback = "") {
   if (!connector) return fallback || "";
+  const generatedType = isGeneratedScopedNodeId(connectorType(connector)) ? connectorType(connector) : "";
   const named = firstUsableLabel(
     connector.name,
     connector.displayName,
@@ -566,8 +568,8 @@ export function engineConnectorDisplayLabel(connector, fallback = "") {
     connector.nameText
   );
   const typeLabel = firstUsableLabel(connector.typeLabel);
-  if (typeLabel && (!named || /^(?:misc\.?|custom)$/i.test(named))) return typeLabel;
-  if (named) return named;
+  if (typeLabel && typeLabel !== generatedType && (!named || named === generatedType || /^(?:misc\.?|custom)$/i.test(named))) return typeLabel;
+  if (named && named !== generatedType) return named;
   if (isEngineCageConnector(connector)) {
     const cageLabel = typeDisplayName(connectorType(connector));
     const module = installedModuleDetailsForEngine(connector);
@@ -578,22 +580,41 @@ export function engineConnectorDisplayLabel(connector, fallback = "") {
     if (switchLabel) return switchLabel;
   }
   const labelled = firstUsableLabel(connector.label, connector.alias);
-  if (labelled) return labelled;
-  const activeType = effectiveConnectorTypeForEngine(connector) || connectorType(connector);
-  return typeDisplayName(activeType) || fallback || "";
+  if (labelled && labelled !== generatedType) return labelled;
+  return engineConnectorUserFacingTypeLabel(connector, fallback);
+}
+
+export function engineConnectorUserFacingTypeLabel(connector, fallback = "Connector") {
+  if (!connector) return fallback;
+  const type = effectiveConnectorTypeForEngine(connector) || connectorType(connector);
+  if (isEngineCageConnector(connector)) return typeDisplayName(type);
+  const authored = firstUsableLabel(connector.typeLabel);
+  if (authored && authored !== type) return authored;
+  const compatibility = String(connector.compatibilityType || "").trim();
+  if (compatibility) return typeDisplayName(compatibility);
+  const labelled = firstUsableLabel(connector.label);
+  if (labelled && labelled !== connector.nameText && labelled !== type) return labelled;
+  return isGeneratedScopedNodeId(type) ? fallback : typeDisplayName(type);
 }
 
 export function engineConnectorTypeDisplayName(connectorOrType, fallback = "") {
+  if (connectorOrType && typeof connectorOrType === "object") {
+    return engineConnectorUserFacingTypeLabel(connectorOrType, fallback);
+  }
   const type = typeof connectorOrType === "string"
     ? String(connectorOrType || "").trim()
     : effectiveConnectorTypeForEngine(connectorOrType) || connectorType(connectorOrType);
-  return typeDisplayName(type) || fallback || "";
+  return isGeneratedScopedNodeId(type) ? "Connector" : typeDisplayName(type) || fallback || "";
 }
 
 // Built-in plug captions use catalog identities; custom node types use their
 // saved node-library labels so they remain recognizable in every Engine view.
 export function engineConnectorPlugTypeLabel(connector) {
   const type = effectiveConnectorTypeForEngine(connector) || connectorType(connector);
+  if (!isEngineCageConnector(connector)
+    && (connector?.typeLabel || connector?.compatibilityType || isGeneratedScopedNodeId(type))) {
+    return engineConnectorUserFacingTypeLabel(connector);
+  }
   if (CONNECTOR_LABELS.has(type)) return engineConnectorTypeDisplayName(type);
   // User-created node-library entries have stable custom type IDs, but those
   // IDs are intentionally absent from the built-in connector catalog. Their
