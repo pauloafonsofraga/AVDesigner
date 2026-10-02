@@ -456,7 +456,8 @@ test("LED processor built-in signal type keeps its semantic ID across personal n
 });
 
 test("factory asset paths and saved identical image bytes do not spuriously remap protocol IDs", async () => {
-  const node = nodes.find(n => n.id === "hdmi"), definition = { ...factory(), connectors: [{ id: "a", type: "hdmi", x: 0, y: 200, direction: "input" }], cardTypes: [], cardSlots: [] };
+  const node = nodes.find(n => n.id === "hdmi"), definition = { ...factory(), connectors: [{ id: "a", type: "hdmi", x: 0, y: 200, direction: "input" }],
+    connectorRelationships: [], connectorTopology: undefined, cardTypes: [], cardSlots: [] };
   const { owner } = await setup({ factory: [definition], nodes: [node], assetManifest: catalogue.assets });
   await owner.save(definition);
   assert.equal(owner.libraryContext().devices[0].connectors[0].type, "hdmi");

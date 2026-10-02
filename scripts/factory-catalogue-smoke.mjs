@@ -30,13 +30,32 @@ try {
     images: [...document.querySelectorAll("#deviceList [data-library-src]")].map(image => ({ source: image.dataset.librarySrc, loaded: Boolean(image.getAttribute("src")) }))
   }));
   writeFileSync(join(dir, "startup-metrics.json"), JSON.stringify(metrics, null, 2));
-  assert.equal(metrics.devices, 81); assert.equal(metrics.nodes, 58);
+  assert.equal(metrics.devices, 95); assert.equal(metrics.nodes, 59);
   assert.ok(metrics.images.some(image => !image.loaded), "offscreen catalogue thumbnails remain unrequested");
   assert.equal(metrics.resources.filter(r => r.name.endsWith("factory-catalogue.json")).length, 1);
   assert.equal(metrics.resources.filter(r => r.name.startsWith("/Devices/faceplates/") && !r.name.includes("/thumbs/")).length, 0);
   assert.equal(await page.evaluate(() => Object.isFrozen(builtInDeviceLibrary[0].connectors[0]) && builtInDeviceLibrary !== deviceLibrary), true);
   await page.screenshot({ path: join(dir, "library.png") });
   checks.push("single catalogue readiness, immutable factory, lazy thumbnails and no eager faceplate requests");
+
+  await page.locator("#deviceSearch").fill("P20");
+  assert.equal(await page.locator("#deviceList .library-device").count(), 1);
+  await page.evaluate(() => openDeviceEditorForTemplate("custom-device-mq84dpgn"));
+  const curated = await page.evaluate(() => ({ p20: editorDraft[editorIndex], pixera: editorDraft.find(device => device.id === "custom-device-mq7z05by") }));
+  assert.equal(curated.p20.hasSwappableCards, false);
+  assert.equal(curated.p20.cardSlots.length, 0);
+  assert.ok(curated.p20.connectors.some(connector => connector.type === "iec"));
+  assert.equal(curated.pixera.hasSwappableCards, true);
+  assert.ok(curated.pixera.cardSlots.length > 0);
+  const libraryDownload = page.waitForEvent("download");
+  await page.locator("#exportDeviceLibrary").click();
+  const exportedLibrary = await libraryDownload;
+  await exportedLibrary.saveAs(join(dir, "curated-device-library.json"));
+  const exported = JSON.parse(readFileSync(join(dir, "curated-device-library.json"), "utf8"));
+  assert.equal(exported.devices.filter(device => device.name === "P20").length, 1);
+  assert.equal(exported.devices.find(device => device.name === "P20").connectors.length, 54);
+  await page.locator("#closeDeviceEditor").click();
+  checks.push("curated P20/Pixera defaults open in Device Editor and full Device JSON exports");
 
   await page.locator("#deviceSearch").fill("M1-DP");
   await page.waitForFunction(() => deviceList.children.length === 1);
@@ -204,6 +223,32 @@ try {
   });
   assert.match(missing, /Required artwork could not be embedded: missing-required-factory.png/);
   checks.push("missing required output asset is a clear error, never a successful broken export");
+  if (process.env.AVDESIGNER_REAL_PROJECT_PATH) {
+    const realContext = await browser.newContext({ viewport: { width: 1800, height: 1100 } });
+    await realContext.addInitScript(() => { window.showSaveFilePicker = undefined; });
+    const realPage = await realContext.newPage(); observe(realPage);
+    await realPage.goto(base); await ready(realPage);
+    await realPage.locator("#fileInput").setInputFiles(process.env.AVDESIGNER_REAL_PROJECT_PATH);
+    await realPage.waitForFunction(() => state.devices.length === 174, undefined, { timeout: 120000 });
+    await realPage.evaluate(() => openDeviceEditorForProjectTemplate("project-custom-p20-2"));
+    assert.equal(await realPage.evaluate(() => editorDraft[0].connectors.filter(node => node.type === "iec").length), 1);
+    let realAlert = "";
+    realPage.on("dialog", dialog => { realAlert = dialog.message(); dialog.accept(); });
+    const realDownload = realPage.waitForEvent("download", { timeout: 10000 }).catch(() => null);
+    await realPage.locator("#exportDeviceLibrary").click();
+    const realJson = await realDownload;
+    if (!realJson) throw new Error(realAlert || "Original project P20 did not export Device JSON");
+    await realJson.saveAs(join(dir, "project-p20-device.json"));
+    const exportedP20 = JSON.parse(readFileSync(join(dir, "project-p20-device.json"), "utf8"));
+    assert.equal(exportedP20.devices.length, 1);
+    assert.equal(exportedP20.devices[0].connectors.length, 54);
+    realAlert = "";
+    await realPage.locator("#applyDeviceEditor").click();
+    await realPage.waitForFunction(() => deviceEditorModal.classList.contains("hidden"));
+    assert.equal(realAlert, "");
+    checks.push("original 174-device project opens; edited P20 exports and applies without missing-node errors");
+    await realContext.close();
+  }
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({ checks, pass: checks.length, fail: 0, skip: 0, metrics: {
     indexBytes: metrics.navigation[0].bytes, requests: metrics.resources.length,

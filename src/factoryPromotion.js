@@ -101,6 +101,16 @@ function nodeReferences(device) {
 function sharedUsers(catalogue, kind, id) {
   return catalogue.devices.filter(d => kind === "node" ? nodeReferences(d).includes(id) : d.pairedTemplateId === id).map(d => d.id).sort();
 }
+function validPairMetadata(device, pair, catalogue) {
+  if (!pair || pair.id === device.id) return false;
+  if (pair.isPartOfPair && pair.pairedTemplateId === device.id) return true;
+  const original = catalogue.devices.find(item => item.id === device.id);
+  const originalPair = catalogue.devices.find(item => item.id === pair.id);
+  return Boolean(original && originalPair && original.isPartOfPair === device.isPartOfPair
+    && original.pairedTemplateId === device.pairedTemplateId
+    && originalPair.isPartOfPair === pair.isPartOfPair
+    && originalPair.pairedTemplateId === pair.pairedTemplateId);
+}
 export async function reviewFactoryPromotion({ definition, personalId = definition.id, library, nodes, catalogue, targetId = definition.id, mode = "update", resolveImage, makeThumbnail }) {
   assertPromotionId(targetId);
   const original = catalogue.devices.find(d => d.id === targetId);
@@ -116,7 +126,7 @@ export async function reviewFactoryPromotion({ definition, personalId = definiti
   for (const device of devices) {
     if (device.isPartOfPair) {
       const pair = devices.find(d => d.id === device.pairedTemplateId);
-      if (!pair || pair.id === device.id || !pair.isPartOfPair || pair.pairedTemplateId !== device.id) fail(`Pair ${device.id} must be reciprocal.`);
+      if (!validPairMetadata(device, pair, catalogue)) fail(`Pair ${device.id} must be reciprocal or preserve existing factory pairing.`);
     }
   }
   for (const [kind, values, originals] of [["device", devices, catalogue.devices], ["node", [...required].sort().map(id => byNode.get(id) || fail(`Required node ${id} is missing.`)), factoryNodes]]) {
@@ -199,7 +209,7 @@ export async function validatePromotionPackage(pkg, catalogue) {
     for (const node of nodeReferences(device)) { if (!rows.has(`node:${node}`)) fail(`Missing reviewed node ${node}`); required.add(`node:${node}`); }
     if (device.isPartOfPair) {
       const pair = rows.get(`device:${device.pairedTemplateId}`)?.definition;
-      if (!pair || pair.id === device.id || !pair.isPartOfPair || pair.pairedTemplateId !== device.id) fail(`Invalid paired dependency ${id}`);
+      if (!validPairMetadata(device, pair, catalogue)) fail(`Invalid paired dependency ${id}`);
       visitDevice(pair.id);
     }
     if (device.faceImage && !device.thumbnailImage && !pkg.thumbnails[device.faceImage]) fail(`Missing library thumbnail ${id}`);

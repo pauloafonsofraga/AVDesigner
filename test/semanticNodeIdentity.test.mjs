@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { engineConnectorColor, isEngineCageConnector, isEngineDeadCageConnector } from "../src/engine/connectorCompatibility.js";
-import { resolvePersonalNodeContext } from "../src/personalDefinitions.js";
+import { collectDefinitionDependencies, resolvePersonalNodeContext } from "../src/personalDefinitions.js";
 import { restoreProjectSemanticConnectorTypes, restoreSemanticConnectorTypes } from "../src/engine/semanticNodeIdentity.js";
 
 const alias = type => `${type}-personal-9a5361be-3`;
@@ -68,4 +68,18 @@ test("only real LED processor outputs and known personal aliases are restored", 
   assert.equal(restoreSemanticConnectorTypes(processor), 1);
   assert.deepEqual(processor.connectors.map(connector => connector.type),
     ["led-signal", aliased, "sfp-plus-cage-personal-not-a-hash"]);
+});
+
+test("inactive card connector aliases in an edited P20 do not block Device JSON export dependencies", () => {
+  const definition = { id: "p20", name: "P20", width: 380, height: 1600, hasSwappableCards: false,
+    connectors: [{ id: "iec", type: "iec", direction: "input", x: 0, y: 1500 }], cardSlots: [],
+    cardTypes: [{ id: "old-card", name: "Old card", connectors: [cage("sfp", "sfp-plus-cage")] }] };
+  const nodes = [{ id: "iec", label: "IEC" }, { id: "sfp-plus-cage", label: "SFP+ Cage" }];
+  const before = structuredClone(definition);
+  const resolved = resolvePersonalNodeContext(definition, nodes, nodes);
+  assert.equal(resolved.definition.cardTypes[0].connectors[0].type, "sfp-plus-cage");
+  assert.equal(resolved.definition.cardTypes[0].connectors[0].physicalType, "sfp-plus-cage");
+  assert.equal(resolved.definition.cardTypes[0].connectors[0].connectorType, "sfp-plus-cage");
+  assert.doesNotThrow(() => collectDefinitionDependencies(resolved.definition, [resolved.definition], nodes));
+  assert.deepEqual(definition, before);
 });

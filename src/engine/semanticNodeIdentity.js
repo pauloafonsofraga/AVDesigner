@@ -7,20 +7,26 @@ export function isSemanticNodeType(type) {
 }
 
 export function restoreSemanticConnectorTypes(definition, allowedTypes = semanticTypes) {
-  if (!Array.isArray(definition?.connectors)) return 0;
   let repaired = 0;
-  for (const connector of definition.connectors) {
-    const canonicalType = personalAlias.exec(connector?.type || "")?.[1];
-    if (!allowedTypes.has(canonicalType)) continue;
-    if (canonicalType === "led-signal" && (definition.isLedProcessor !== true
-      || connector.direction !== "output" || !Number.isSafeInteger(Number(connector.signalIndex))
-      || Number(connector.signalIndex) < 1)) continue;
-    for (const field of typeFields) {
-      const fieldType = personalAlias.exec(connector[field] || "")?.[1];
-      if (fieldType === canonicalType) connector[field] = canonicalType;
+  const seen = new WeakSet();
+  const visit = value => {
+    if (!value || typeof value !== "object" || seen.has(value)) return;
+    seen.add(value);
+    if (Array.isArray(value.connectors)) for (const connector of value.connectors) {
+      const canonicalType = personalAlias.exec(connector?.type || "")?.[1];
+      if (!allowedTypes.has(canonicalType)) continue;
+      if (canonicalType === "led-signal" && (definition.isLedProcessor !== true
+        || connector.direction !== "output" || !Number.isSafeInteger(Number(connector.signalIndex))
+        || Number(connector.signalIndex) < 1)) continue;
+      for (const field of typeFields) {
+        const fieldType = personalAlias.exec(connector[field] || "")?.[1];
+        if (fieldType === canonicalType) connector[field] = canonicalType;
+      }
+      repaired++;
     }
-    repaired++;
-  }
+    for (const [key, child] of Object.entries(value)) if (key !== "connectors" && child && typeof child === "object") visit(child);
+  };
+  visit(definition);
   return repaired;
 }
 
