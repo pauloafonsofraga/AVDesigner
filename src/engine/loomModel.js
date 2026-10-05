@@ -48,7 +48,12 @@ export function loomCableGroups(project, loomId) {
 export function setLogicalCableLoom(groups, loomId) {
   for (const group of groups) for (const wire of group.wires) {
     if (loomId) wire.loomId = loomId;
-    else delete wire.loomId;
+    else {
+      delete wire.loomId;
+      delete wire.loomEntrySide;
+      delete wire.loomEntryRoutePoints;
+      delete wire.loomExitRoutePoints;
+    }
     delete wire.loom;
   }
 }

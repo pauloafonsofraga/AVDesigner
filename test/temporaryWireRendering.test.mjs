@@ -30,6 +30,7 @@ function engineHarness() {
       clearSelection() {}, connectorExternalWireIds: () => new Set(), jumpNodeRole: () => ({}), getConnector: () => ({ type: "powerlock" }), getWire: () => null },
     canvas: { classList: { add() {}, remove() {} } }, hoverState: {},
     clearJumpMoveArm() {}, updateCanvasCursor() {}, recordRewireDiagnostic() {}, clearHoverState() {},
+    currentWireRouteMode: () => "bezier",
     currentWireCompatibility: () => ({ valid: true }), wireRewireRejectionReason: () => "",
     wireRouteForEndpoints: () => ({ routeStyle: "bezier", routePoints: [] }),
     snapDebugVisualState() {}, jumpLinkPreviewState() {}, visibleJumpLinkOverlays() {}, wirePlaybackOverlayState() {}, pairedJumpHighlightIds() {}
@@ -90,6 +91,7 @@ for (const type of ["hdmi", "sdi", "fiber-lc", "led-signal", "misc"]) test(`Engi
 function rendererHarness() {
   const context = { wirePolylineFromPoints, DEFAULT_RENDER_OPTIONS: {},
     pushPolyline: (vertices, points, width, color) => vertices.push({ points, color }),
+    colorWithOpacity: (color, opacity) => opacity >= 1 ? color : color,
     connectorVisualRadius: () => 10, pushConnectorHighlight() {}, pushWirePlaybackOverlay: () => 0, pushSnapGuides: () => 0 };
   const names = ["pushInteractionOverlay", "pushWireColorSegments", "polylineLength", "polylinePointAtDistance", "polylineSlice"];
   return vm.runInNewContext(`${names.map(name => fn(renderer, name)).join("\n")}\n({pushInteractionOverlay, pushWireColorSegments, polylineLength})`, context);

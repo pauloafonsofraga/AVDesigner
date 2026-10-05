@@ -4,6 +4,7 @@ import { connectorDisplayAnchors, SHARED_BUS_NODE_LINE_INSET } from "./connector
 import { sharedBusOrthogonalSegments } from "./sharedBusRendering.js";
 import { calculateCableHops, applyCableHopsToPolyline } from "./cableHops.js";
 import { jumpNodeCenter, jumpLinkBezierPolyline } from "./jumpNodeModel.js";
+import { adapterWorldPoint } from "./adapterRotation.js";
 
 import { OUTPUT_SCENE_VERSION, OUTPUT_SCENE_SOURCE, OUTPUT_SCENE_SCHEMA_FINGERPRINT } from "./outputSceneContract.js";
 export { OUTPUT_SCENE_VERSION, OUTPUT_SCENE_SOURCE, OUTPUT_SCENE_SCHEMA_FINGERPRINT } from "./outputSceneContract.js";
@@ -61,6 +62,12 @@ function geometryBounds(rects, points) {
   return { x, y, width: Math.max(1, right - x), height: Math.max(1, bottom - y) };
 }
 
+function rotateBusSegment(device, segment) {
+  const from = adapterWorldPoint(device, { x: segment.x1 - device.x, y: segment.y1 - device.y });
+  const to = adapterWorldPoint(device, { x: segment.x2 - device.x, y: segment.y2 - device.y });
+  return { ...segment, x1: from.x, y1: from.y, x2: to.x, y2: to.y };
+}
+
 /** Serialize a detached Engine graph; never serialize its Maps or runtime indexes. */
 export function buildEngineOutputScene(projectSnapshot = {}) {
   const project = plainData(projectSnapshot);
@@ -92,12 +99,19 @@ export function buildEngineOutputScene(projectSnapshot = {}) {
   const sharedBuses = scene.devices.flatMap(device => scene.connectorDisplayLayoutForDevice(device).groups.map(group => {
     const cardSlotId = group.points[0]?.connector?.cardSlotId || "";
     const body = device.visual.visualCards.find(card => card.id === cardSlotId) || { x: 0, width: device.width };
+    const geometry = sharedBusOrthogonalSegments(group, body, {
+      nodeInset: SHARED_BUS_NODE_LINE_INSET, offsetX: device.x, offsetY: device.y
+    });
+    const rotated = device.kind === "adapter" && geometry ? Object.fromEntries(
+      Object.entries(geometry).map(([key, value]) => [key, key === "branches"
+        ? value.map(segment => rotateBusSegment(device, segment))
+        : value && typeof value === "object" && "x1" in value ? rotateBusSegment(device, value) : value])
+    ) : geometry;
     return { deviceId: device.id, relationshipId: group.relationshipId, cardSlotId, side: group.side,
       connectorIds: group.members.map(connector => connector.id),
-      fieldJunction: { x: device.x + group.fieldJunctionX, y: device.y + group.centerY },
-      segments: sharedBusOrthogonalSegments(group, body, {
-        nodeInset: SHARED_BUS_NODE_LINE_INSET, offsetX: device.x, offsetY: device.y
-      }) };
+      fieldJunction: device.kind === "adapter" ? adapterWorldPoint(device, { x: group.fieldJunctionX, y: group.centerY })
+        : { x: device.x + group.fieldJunctionX, y: device.y + group.centerY },
+      segments: rotated };
   }));
   const jumpLinks = scene.jumpLinks.map(link => {
     const from = jumpNodeCenter(scene.getDevice(link.outputJumpId));

@@ -1,3 +1,5 @@
+import { orthogonalManualPoints } from "./routingPlacement.js";
+
 const DEFAULT_BEZIER_STEPS = 28;
 const MANUAL_SEGMENT_STEPS = 14;
 
@@ -22,10 +24,11 @@ export function wirePolylineFromPoints(wire = {}, points = [], options = {}) {
   const clean = cleanPoints(points);
   if (clean.length < 2) return clean;
   const kind = wireRenderKind(wire);
-  if (kind === "orthogonal") return clean;
+  if (kind === "orthogonal") return wire.manualRoute ? orthogonalManualPoints(clean) : clean;
   if (kind === "custom") return splinePolylineThroughPoints(clean, options.manualSegmentSteps || MANUAL_SEGMENT_STEPS);
   return bezierPolyline(clean[0], clean[clean.length - 1], options.bezierSteps || DEFAULT_BEZIER_STEPS);
 }
+
 
 export function bezierPolyline(from, to, steps = DEFAULT_BEZIER_STEPS) {
   const controls = legacyBezierControls(from, to);

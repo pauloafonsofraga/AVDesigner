@@ -218,6 +218,7 @@ export class ProjectMutationAdapter {
       "y",
       "width",
       "height",
+      "rotation",
       "locked",
       "powerWatts",
       "powerUnit",
@@ -234,7 +235,7 @@ export class ProjectMutationAdapter {
     ]);
     Object.entries(fields || {}).forEach(([key, value]) => {
       if (!allowed.has(key)) return;
-      if (["x", "y", "width", "height", "powerWatts"].includes(key)) {
+      if (["x", "y", "width", "height", "rotation", "powerWatts"].includes(key)) {
         const numeric = Number(value);
         if (Number.isFinite(numeric)) entry.item[key] = roundNumber(numeric);
         return;
@@ -425,9 +426,10 @@ export class ProjectMutationAdapter {
     if (!wire) return 0;
     const sourceId = String(wire.sourceId || wire.id);
     const entry = this.connectionById.get(sourceId) || this.ensureConnection(scene, wire);
-    const routeKey = wire.routeStyle === "orthogonal" || Array.isArray(entry.item.orthogonalRoutePoints)
+    const routeKey = !wire.manualRoute && (wire.routeStyle === "orthogonal" || Array.isArray(entry.item.orthogonalRoutePoints))
       ? "orthogonalRoutePoints"
       : "routePoints";
+    if (wire.manualRoute) entry.item.manualRouteStyle = wire.routeStyle === "orthogonal" ? "orthogonal" : "bezier";
     entry.item[routeKey] = (wire.routePoints || []).map(point => ({
       x: roundNumber(point.x),
       y: roundNumber(point.y)
@@ -1006,6 +1008,11 @@ function rawConnectionFromSceneWireData(sceneData, wire) {
     length: wire.length || "",
     cableNumber: wire.cableNumber || "",
     loomId: wire.loomId || "",
+    loomEntrySide: wire.loomEntrySide || "",
+    loomEntryRoutePoints: wire.loomEntryRoutePoints || [],
+    loomExitRoutePoints: wire.loomExitRoutePoints || [],
+    manualRoute: Boolean(wire.manualRoute),
+    manualRouteStyle: wire.manualRoute ? (wire.routeStyle === "orthogonal" ? "orthogonal" : "bezier") : undefined,
     loom: wire.loom || "",
     fiberMode: wire.fiberMode || "",
     hideLabel: Boolean(wire.hideLabel),
@@ -1028,6 +1035,11 @@ function rawConnectionFromWire(scene, wire, id) {
     length: wire.length || "",
     cableNumber: wire.cableNumber || "",
     loomId: wire.loomId || "",
+    loomEntrySide: wire.loomEntrySide || "",
+    loomEntryRoutePoints: wire.loomEntryRoutePoints || [],
+    loomExitRoutePoints: wire.loomExitRoutePoints || [],
+    manualRoute: Boolean(wire.manualRoute),
+    manualRouteStyle: wire.manualRoute ? (wire.routeStyle === "orthogonal" ? "orthogonal" : "bezier") : undefined,
     loom: wire.loom || "",
     fiberMode: wire.fiberMode || "",
     hideLabel: Boolean(wire.hideLabel),
@@ -1053,7 +1065,7 @@ function routeFieldsFromWire(wire) {
     x: roundNumber(point.x),
     y: roundNumber(point.y)
   }));
-  return wire.routeStyle === "orthogonal"
+  return wire.routeStyle === "orthogonal" && !wire.manualRoute
     ? { orthogonalRoutePoints: points }
     : { routePoints: points };
 }

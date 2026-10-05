@@ -1,6 +1,7 @@
 import { buildCableSchedule, groupedCables } from "./cableSchedule.js";
 import { buildPreviewOrthogonalWirePoints } from "./orthogonalRouting.js";
 import { wirePolylineFromPoints } from "./wirePath.js";
+import { gatewayExitSide, loomCoreColors, orthogonalManualPoints } from "./routingPlacement.js";
 
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const mean = points => ({
@@ -92,6 +93,24 @@ export function loomGeometry(project, scene, loom, cableGroups = groupedCables(p
   const span = Math.hypot(dx, dy) || 1;
   const normal = { x: -dy / span, y: dx / span };
   const breakouts = members.flatMap((member, index) => {
+    const wire = scene.getWire(String(member.group.primary.id));
+    const entrySide = member.group.primary.loomEntrySide;
+    if (wire && gatewayExitSide(entrySide)) {
+      const entry = entrySide === "sideA" ? headA : headB;
+      const exit = entrySide === "sideA" ? headB : headA;
+      const route = (from, interior, to) => {
+        const points = [from, ...interior, to];
+        if (wire.routeStyle === "orthogonal") return interior.length
+          ? orthogonalManualPoints(points) : buildPreviewOrthogonalWirePoints(from, to);
+        return wirePolylineFromPoints({ routeStyle: "bezier", routePoints: interior }, points);
+      };
+      return [
+        { wireId: wire.id, wireIds: [wire.id], end: entrySide === "sideA" ? "A" : "B",
+          points: route(member.pair[0], wire.loomEntryRoutePoints || [], entry) },
+        { wireId: wire.id, wireIds: [wire.id], end: entrySide === "sideA" ? "B" : "A",
+          points: route(exit, wire.loomExitRoutePoints || [], member.pair[1]) }
+      ];
+    }
     const [a, b] = orientCableEndpoints(member.pair, headA, headB);
     const spacing = members.length <= 16 ? Math.min(9, 110 / Math.max(1, members.length)) : 0;
     const offset = (index - (members.length - 1) / 2) * spacing;
@@ -112,6 +131,7 @@ export function loomGeometry(project, scene, loom, cableGroups = groupedCables(p
       sideA: resolved.sideA || headA, sideB: resolved.sideB || headB }), breakouts,
     hiddenWireIds: members.flatMap(member => member.group.wires.map(wire => String(wire.id))),
     circuitCount: members.length,
+    coreColors: loomCoreColors(members.map(member => scene.getWire(String(member.group.primary.id))).filter(Boolean)),
     families: [...familyCounts].sort(([a], [b]) => a.localeCompare(b))
       .map(([name, count]) => ({ name, count }))
   };

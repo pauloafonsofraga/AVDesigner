@@ -12,7 +12,8 @@ export function hitTestDevice(scene, worldPoint, predicate = null) {
   for (let index = hits.length - 1; index >= 0; index -= 1) {
     const item = hits[index];
     const device = item?.payload?.device;
-    if (device && (!predicate || predicate(device))) {
+    if (device && (!predicate || predicate(device))
+      && (device.kind !== "adapter" || adapterContainsWorldPoint(device, worldPoint))) {
       result = device;
       break;
     }
@@ -197,3 +198,4 @@ function toleranceRect(point, tolerance) {
     height: tolerance * 2
   };
 }
+import { adapterContainsWorldPoint } from "./adapterRotation.js";

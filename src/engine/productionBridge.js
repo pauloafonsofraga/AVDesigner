@@ -1,6 +1,7 @@
 import { resolveProjectorLens } from "./projectorModel.js";
 import { cloneHistoryValue, MAX_HISTORY_ENTRIES } from "./historyClone.js";
 import { DragSession } from "./dragSession.js";
+import { adapterCenter, adapterRotationHandle, snapAdapterRotation } from "./adapterRotation.js";
 import { ObjectSnapSession } from "./objectSnapping.js";
 import { CONNECTOR_RELATIONSHIP_FIELDS, applyConnectorRelationshipFieldPatch } from "./connectorRelationshipMetadata.js";
 import {
@@ -144,8 +145,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-60-attached-jump-nodes";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-60-attached-jump-nodes";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-62-cable-routing";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-62-cable-routing";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -241,11 +242,14 @@ class ProductionEngineBridge {
     this.loadingReadyTimer = null;
     this.pendingReadyAfterRender = null;
     this.dragSession = null;
+    this.rotationDrag = null;
     this.pendingDrag = null;
     this.panState = null;
     this.routePointDrag = null;
     this.wireSegmentDrag = null;
     this.wireCreate = null;
+    this.loomCreationActive = false;
+    this.loomCreate = null;
     this.jumpPlacement = null;
     this.jumpLinkCreate = null;
     this.pendingJumpPress = null;
@@ -2044,6 +2048,14 @@ class ProductionEngineBridge {
   }
 
   handleCanvasWrapDoubleClick(event) {
+    if (this.loomCreationActive && this.loomCreate) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+      const point = this.eventPoint(event);
+      this.completeLoomCreation(screenToWorld(this.camera, point));
+      return;
+    }
     if (this.shouldIgnoreCanvasWrapDoubleClick(event)) return;
     if (!this.ready) {
       this.blockInteraction(event, "double-click while loading");
@@ -2128,6 +2140,51 @@ class ProductionEngineBridge {
     return true;
   }
 
+  selectedAdapterRotationHit(point) {
+    if (this.scene.selectedIds.size !== 1) return null;
+    const device = this.scene.getDevice([...this.scene.selectedIds][0]);
+    if (!device || device.kind !== "adapter" || device.locked) return null;
+    const handle = adapterRotationHandle(device, this.camera.zoom);
+    const screen = { x: (handle.x - this.camera.x) * this.camera.zoom,
+      y: (handle.y - this.camera.y) * this.camera.zoom };
+    return Math.hypot(point.x - screen.x, point.y - screen.y) <= 14 ? device : null;
+  }
+
+  previewAdapterRotation(deviceId, rotation, wireIds) {
+    const device = this.scene.getDevice(deviceId);
+    if (!device || device.kind !== "adapter" || device.rotation === rotation) return false;
+    this.scene.rotateAdapter(deviceId, rotation, wireIds);
+    this.renderer.updateDirty(this.scene, { deviceIds: [deviceId], wireIds,
+      refreshCableHops: false, refreshDeviceTextures: false });
+    this.scheduleRender();
+    return true;
+  }
+
+  applyAdapterRotation(deviceId, rotation) {
+    const device = this.scene.getDevice(deviceId);
+    if (!device || device.kind !== "adapter") return false;
+    const wireIds = [...this.scene.affectedWireIdsForDevices([deviceId])];
+    this.scene.rotateAdapter(deviceId, rotation, wireIds);
+    this.mutations?.updateObjectFields(device.sourceId || device.id, { rotation });
+    this.renderer.updateDirty(this.scene, { deviceIds: [deviceId], wireIds, refreshDeviceTextures: false });
+    this.scheduleRender();
+    return true;
+  }
+
+  completeAdapterRotation() {
+    const drag = this.rotationDrag;
+    if (!drag) return;
+    this.rotationDrag = null;
+    const after = this.scene.getDevice(drag.deviceId)?.rotation ?? drag.before;
+    if (after === drag.before) return;
+    this.beginProductionCommit("rotate adapter");
+    this.applyAdapterRotation(drag.deviceId, after);
+    this.recordCommand({ type: "RotateAdapterCommand", affectedIds: [drag.deviceId],
+      undo: bridge => bridge.applyAdapterRotation(drag.deviceId, drag.before),
+      redo: bridge => bridge.applyAdapterRotation(drag.deviceId, after) });
+    this.markCommitted("rotate adapter", 0);
+  }
+
   handlePointerDown(event) {
     if (!this.ready) {
       this.blockInteraction(event, "pointerdown while loading");
@@ -2150,11 +2207,57 @@ class ProductionEngineBridge {
       return;
     }
     if (event.button !== 0) return;
+    if (this.loomCreationActive) {
+      event.preventDefault();
+      this.handleLoomCreationClick(screenToWorld(this.camera, point), event.detail);
+      return;
+    }
+    if (this.wireCreate?.manual && !this.wireCreate.rewire) {
+      event.preventDefault();
+      this.capturePointer(event.pointerId);
+      const world = screenToWorld(this.camera, point);
+      const gateway = hitTestLoom(this.scene, world, this.hitToleranceWorld());
+      if (!this.wireCreate.loomId && (gateway?.part === "sideA" || gateway?.part === "sideB")) {
+        this.enterWireLoomGateway(gateway);
+        return;
+      }
+      const connector = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld()).connector;
+      const surface = connector ? null : hitTestLedSurfaceTarget(this.scene, world, this.wireCreate.from).target;
+      const target = connector || surface;
+      if (target && target !== this.wireCreate.from) {
+        this.wireCreate.target = target;
+        this.completeWireCreate();
+      } else if (!target) {
+        this.wireCreate.routePoints.push({ ...world });
+        this.wireCreate.pointerWorld = world;
+        this.scheduleRender();
+      }
+      return;
+    }
+    if (this.wireCreate?.loomId && !this.wireCreate.rewire) {
+      this.capturePointer(event.pointerId);
+      return;
+    }
     if (event.ctrlKey) this.noteCtrlLeftClickForContextMenu(event, point);
     this.capturePointer(event.pointerId);
     const world = screenToWorld(this.camera, point);
     const tolerance = this.hitToleranceWorld();
     const additiveSelection = isAdditiveSelectionModifier(event);
+
+    const rotationTarget = this.selectedAdapterRotationHit(point);
+    if (rotationTarget) {
+      event.preventDefault();
+      const center = adapterCenter(rotationTarget);
+      this.rotationDrag = {
+        deviceId: rotationTarget.id, pointerId: event.pointerId,
+        before: rotationTarget.rotation || 0,
+        startAngle: Math.atan2(world.y - center.y, world.x - center.x),
+        wireIds: [...this.scene.affectedWireIdsForDevices([rotationTarget.id])]
+      };
+      this.clearHoverState("adapter-rotation", { render: false });
+      this.scheduleRender();
+      return;
+    }
 
     const resizeHit = this.hitTestCanvasObjectResizeHandle(world);
     if (resizeHit) {
@@ -2482,6 +2585,24 @@ class ProductionEngineBridge {
     if (jumpPointerId != null && jumpPointerId !== event.pointerId) return;
     const pointerStart = performance.now();
     const point = this.eventPoint(event);
+    if (this.loomCreationActive && !this.panState) {
+      if (this.loomCreate) this.loomCreate.pointerWorld = screenToWorld(this.camera, point);
+      this.scheduleRender();
+      return;
+    }
+    if (this.rotationDrag) {
+      if (event.pointerId !== this.rotationDrag.pointerId) return;
+      event.preventDefault();
+      const drag = this.rotationDrag;
+      const device = this.scene.getDevice(drag.deviceId);
+      if (!device) return;
+      const world = screenToWorld(this.camera, point);
+      const center = adapterCenter(device);
+      const angle = Math.atan2(world.y - center.y, world.x - center.x);
+      const snapped = snapAdapterRotation(drag.before + (angle - drag.startAngle) * 180 / Math.PI);
+      if (snapped !== device.rotation) this.previewAdapterRotation(device.id, snapped, drag.wireIds);
+      return;
+    }
     if (this.panState) {
       if (event.pointerId !== this.panState.pointerId) return;
       event.preventDefault();
@@ -2649,11 +2770,14 @@ class ProductionEngineBridge {
     }
     if (this.wireCreate) {
       const world = screenToWorld(this.camera, point);
+      const gateway = !this.wireCreate.loomId
+        ? hitTestLoom(this.scene, world, this.hitToleranceWorld()) : null;
+      this.wireCreate.gatewayHover = gateway?.part === "sideA" || gateway?.part === "sideB" ? gateway : null;
       const connectorHit = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld());
       const surfaceHit = connectorHit.connector
         ? { target: null, candidates: 0, ms: 0 }
         : hitTestLedSurfaceTarget(this.scene, world, this.wireCreate.from);
-      const targetHit = connectorHit.connector || surfaceHit.target;
+      const targetHit = this.wireCreate.gatewayHover ? null : connectorHit.connector || surfaceHit.target;
       this.setHoverState({
         ...emptyHoverState(),
         connector: targetHit,
@@ -2729,6 +2853,19 @@ class ProductionEngineBridge {
       return;
     }
     const point = this.eventPoint(event);
+    if ((this.loomCreationActive || this.wireCreate?.manual) && !this.panState) {
+      this.releasePointerCapture(event.pointerId);
+      this.scheduleRender();
+      return;
+    }
+    if (this.rotationDrag) {
+      if (event.pointerId !== this.rotationDrag.pointerId) return;
+      this.completeAdapterRotation();
+      this.releasePointerCapture(event.pointerId);
+      this.updateSelectionHud();
+      this.scheduleRender();
+      return;
+    }
     if (this.panState) {
       if (event.pointerId !== this.panState.pointerId) return;
       event.preventDefault();
@@ -2819,7 +2956,9 @@ class ProductionEngineBridge {
     }
     if (this.pendingJumpPress) this.completePendingJumpPress(point, event);
     if (this.jumpLinkCreate) this.completeJumpLinkCreate();
-    if (this.wireCreate) this.completeWireCreate();
+    if (this.wireCreate?.gatewayHover && !this.wireCreate.loomId) {
+      this.enterWireLoomGateway(this.wireCreate.gatewayHover);
+    } else if (this.wireCreate) this.completeWireCreate();
     if (this.marqueeState) this.completeMarquee();
     if (this.pendingDrag) {
       this.pendingDrag = null;
@@ -2847,9 +2986,10 @@ class ProductionEngineBridge {
   }
 
   handleLostPointerCapture(event) {
+    if (this.wireCreate?.manual || this.wireCreate?.loomId) return;
     const jumpPointerId = this.pendingJumpPress?.pointerId ?? this.jumpLinkCreate?.pointerId;
     if (jumpPointerId != null && event?.pointerId != null && jumpPointerId !== event.pointerId) return;
-    if (!this.dragSession && !this.pendingDrag && !this.pendingJumpPress && !this.jumpLinkCreate && !this.panState && !this.loomHeadDrag && !this.routePointDrag && !this.wireSegmentDrag && !this.wireCreate && !this.resizeSession && !this.commentBoxDrag && !this.marqueeState) return;
+    if (!this.rotationDrag && !this.dragSession && !this.pendingDrag && !this.pendingJumpPress && !this.jumpLinkCreate && !this.panState && !this.loomHeadDrag && !this.routePointDrag && !this.wireSegmentDrag && !this.wireCreate && !this.resizeSession && !this.commentBoxDrag && !this.marqueeState) return;
     this.cancelActiveInteraction("lost-pointer-capture");
     this.scheduleRender();
   }
@@ -2863,6 +3003,21 @@ class ProductionEngineBridge {
         this.hud?.setMetric("blocked shortcut", `${event.key} while loading`);
       }
       return;
+    }
+    if (!event.metaKey && !event.ctrlKey && !event.altKey && event.key === "Backspace") {
+      if (this.loomCreationActive && this.loomCreate) {
+        consumeEngineShortcut(event);
+        this.loomCreate.routePoints.pop();
+        this.loomCreate.lastClick = null;
+        this.scheduleRender();
+        return;
+      }
+      if (this.wireCreate?.manual) {
+        consumeEngineShortcut(event);
+        this.wireCreate.routePoints.pop();
+        this.scheduleRender();
+        return;
+      }
     }
     if (!event.metaKey && !event.ctrlKey && !event.altKey && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
       if (document.querySelector(".modal-backdrop:not(.hidden), dialog[open], .context-menu:not(.hidden)")) return;
@@ -2918,6 +3073,14 @@ class ProductionEngineBridge {
       return;
     }
     if (event.key !== "Escape") return;
+    if (this.loomCreationActive) {
+      consumeEngineShortcut(event);
+      this.loomCreate = null;
+      this.loomCreationActive = false;
+      globalThis.document?.getElementById("createCableLoom")?.setAttribute("aria-pressed", "false");
+      this.scheduleRender();
+      return;
+    }
     this.clearJumpMoveArm("escape", { updateHud: false });
     if (this.panState) {
       consumeEngineShortcut(event);
@@ -3822,6 +3985,9 @@ class ProductionEngineBridge {
       pointerWorld: { ...worldPoint },
       target: null,
       compatibility: null,
+      manual: this.currentWirePlacementMode?.() === "manual" && !options.multiLedSources?.length,
+      routeStyle: this.currentWireRouteMode(),
+      routePoints: [],
       multiLedSources: options.multiLedSources?.map(source => ({
         deviceId: source.deviceId,
         connectorId: source.connectorId
@@ -3877,7 +4043,85 @@ class ProductionEngineBridge {
     return mode === "orthogonal" ? "orthogonal" : "bezier";
   }
 
-  wireRouteForEndpoints(from, to) {
+  currentWirePlacementMode() {
+    return typeof window !== "undefined" && window.__avDesignerWireRouting?.placement?.() === "manual"
+      ? "manual" : "auto";
+  }
+
+  enterWireLoomGateway(hit) {
+    const state = this.wireCreate;
+    const plan = this.scene.loomPlans.find(item => item.loomId === hit.loomId);
+    if (!state || !plan || state.loomId) return false;
+    const exit = hit.part === "sideA" ? plan.headB : plan.headA;
+    state.loomId = hit.loomId;
+    state.loomEntrySide = hit.part;
+    state.loomEntryRoutePoints = state.routePoints;
+    state.routePoints = [];
+    state.gatewayHover = null;
+    state.pointerWorld = { ...exit };
+    state.loomExitPoint = { ...exit };
+    state.target = null;
+    this.scheduleRender();
+    return true;
+  }
+
+  toggleLoomCreation() {
+    this.cancelActiveInteraction("loom-tool-toggle", { updateHud: false });
+    this.loomCreationActive = !this.loomCreationActive;
+    this.loomCreate = null;
+    this.updateCanvasCursor();
+    this.scheduleRender();
+    return this.loomCreationActive;
+  }
+
+  handleLoomCreationClick(world, detail = 1) {
+    if (!this.loomCreate) {
+      this.loomCreate = { sideA: { x: world.x, y: world.y }, routePoints: [],
+        routeStyle: this.currentWireRouteMode(), pointerWorld: world, lastClick: null };
+    } else {
+      const point = { x: world.x, y: world.y };
+      this.loomCreate.routePoints.push(point);
+      this.loomCreate.lastClick = { point, time: performance.now() };
+      this.loomCreate.pointerWorld = world;
+    }
+    this.scheduleRender();
+  }
+
+  completeLoomCreation(world) {
+    const draft = this.loomCreate;
+    if (!draft) return false;
+    const endpoint = { x: world.x, y: world.y };
+    while (draft.routePoints.length) {
+      const previous = draft.routePoints.at(-1);
+      if (Math.hypot(endpoint.x - previous.x, endpoint.y - previous.y) * this.camera.zoom >= 8) break;
+      draft.routePoints.pop();
+    }
+    let createdId = "";
+    if (Math.hypot(endpoint.x - draft.sideA.x, endpoint.y - draft.sideA.y) > 1) {
+      this.commitLoomEdit("draw loom", project => {
+        const identity = allocateLoomIdentity(project);
+        createdId = identity.id;
+        project.looms.push({ ...identity, kind: "loom",
+          sideA: { label: "Side A", ...draft.sideA }, sideB: { label: "Side B", ...endpoint },
+          routeStyle: draft.routeStyle, routePoints: draft.routePoints,
+          trunkLength: "", notes: "" });
+        return true;
+      });
+    }
+    this.loomCreate = null;
+    this.loomCreationActive = false;
+    globalThis.document?.getElementById("createCableLoom")?.setAttribute("aria-pressed", "false");
+    if (createdId) this.scene.selectLoomOnly(createdId);
+    this.updateSelectionHud();
+    this.scheduleRender();
+    return Boolean(createdId);
+  }
+
+  wireRouteForEndpoints(from, to, state = this.wireCreate) {
+    if (state?.manual) return {
+      routeStyle: state.routeStyle,
+      routePoints: normalizeRoutePointsForBridge(state.routePoints)
+    };
     if (this.currentWireRouteMode() !== "orthogonal") {
       return { routeStyle: "bezier", routePoints: [] };
     }
@@ -3901,8 +4145,9 @@ class ProductionEngineBridge {
     }
     this.clearJumpMoveArm("wire-create-complete", { updateHud: false });
     const commitStart = performance.now();
-    const source = this.wireCreate?.from;
-    const target = this.wireCreate?.target;
+    const state = this.wireCreate;
+    const source = state?.from;
+    const target = state?.target;
     const compatibility = source && target ? this.currentWireCompatibility() : null;
     this.wireCreate = null;
     this.lastCompatibilityTargetKey = "";
@@ -3923,7 +4168,7 @@ class ProductionEngineBridge {
     const wireSource = canonical.sourceHit;
     const wireTarget = canonical.targetHit;
     const metadata = this.wireMetadataForHits(wireSource, wireTarget, compatibility);
-    const route = this.wireRouteForEndpoints(wireSource.point, wireTarget.point);
+    const route = this.wireRouteForEndpoints(wireSource.point, wireTarget.point, state);
     const wire = this.scene.addWire({
       ...wireEndpointPayloadForHit(wireSource, "from"),
       ...wireEndpointPayloadForHit(wireTarget, "to"),
@@ -3938,7 +4183,12 @@ class ProductionEngineBridge {
       savedCableType: metadata.savedCableType,
       signalIndex: signalIndexForLedSurfaceWireHits(wireSource, wireTarget),
       routeStyle: route.routeStyle,
-      routePoints: route.routePoints
+      routePoints: route.routePoints,
+      manualRoute: Boolean(state?.manual),
+      loomId: state?.loomId || "",
+      loomEntrySide: state?.loomEntrySide || "",
+      loomEntryRoutePoints: state?.loomEntryRoutePoints || [],
+      loomExitRoutePoints: state?.loomId ? route.routePoints : []
     });
     if (!wire) {
       this.updateInteractionHud("wire-create failed");
@@ -3947,6 +4197,7 @@ class ProductionEngineBridge {
     const beforeAttachments = this.jumpAttachmentSnapshot();
     this.beginProductionCommit("create wire");
     const mutationMs = this.mutations?.commitCreatedWire(this.scene, wire) || 0;
+    if (wire.loomId) this.scene.rebuildLoomGeometry();
     this.reconcileJumpAttachments(this.scene.jumpIdsForWire(wire));
     const afterAttachments = this.jumpAttachmentSnapshot();
     const connectionData = this.mutations?.connectionDataForWire(wire.sourceId || wire.id);
@@ -4442,6 +4693,11 @@ class ProductionEngineBridge {
   }
 
   cancelActiveInteraction(reason = "cancelled", { updateHud = true } = {}) {
+    if (this.rotationDrag) {
+      const drag = this.rotationDrag;
+      this.rotationDrag = null;
+      this.previewAdapterRotation(drag.deviceId, drag.before, drag.wireIds);
+    }
     if (this.loomHeadDrag) {
       this.applyLoomState(this.loomHeadDrag.before);
       this.loomHeadDrag = null;
@@ -4792,9 +5048,10 @@ class ProductionEngineBridge {
       ? this.wireRewireRejectionReason(this.wireCreate.target, compatibility)
       : compatibility.reason;
     const wireTargetValid = this.wireCreate?.target ? compatibility.valid && !rejectionReason : false;
-    const tempTo = this.wireCreate?.target?.point || this.wireCreate?.pointerWorld;
+    const tempTo = this.wireCreate?.gatewayHover?.point || this.wireCreate?.target?.point || this.wireCreate?.pointerWorld;
     const rewire = this.wireCreate?.rewire;
-    const previewFrom = rewire?.detachedSide === "from" ? tempTo : this.wireCreate?.from?.point;
+    const previewFrom = rewire?.detachedSide === "from" ? tempTo
+      : this.wireCreate?.loomExitPoint || this.wireCreate?.from?.point;
     const previewTo = rewire?.detachedSide === "from" ? this.wireCreate?.from?.point : tempTo;
     const tempRoute = this.wireCreate
       ? rewire
@@ -4810,6 +5067,8 @@ class ProductionEngineBridge {
         colorSegments: Object.freeze([...(this.wireCreate.colorSegments || [])]),
         routeStyle: tempRoute.routeStyle,
         routePoints: tempRoute.routePoints,
+        manualRoute: Boolean(this.wireCreate.manual),
+        opacity: this.wireCreate.manual ? 0.5 : 1,
         sourceHit: rewire?.detachedSide === "from" ? this.wireCreate.target : this.wireCreate.from,
         targetHit: this.wireCreate.target,
         targetPoint: this.wireCreate.target?.point || null,
@@ -4866,6 +5125,11 @@ class ProductionEngineBridge {
       suppressedWireIds: rewire ? new Set([rewire.wireId]) : new Set(),
       tempWire: multiTempWires[0] || tempWire,
       tempWires: multiTempWires,
+      gatewayHover: this.wireCreate?.gatewayHover || null,
+      loomPreview: this.loomCreate ? {
+        points: [this.loomCreate.sideA, ...this.loomCreate.routePoints, this.loomCreate.pointerWorld],
+        routeStyle: this.loomCreate.routeStyle
+      } : null,
       jumpPlacementGhost: this.jumpPlacement?.center
         ? {
             center: { ...this.jumpPlacement.center },
@@ -6229,6 +6493,7 @@ class ProductionEngineBridge {
     if (wireData.loom !== undefined) wire.loom = String(wireData.loom || "");
     if (wireData.notes !== undefined) wire.notes = String(wireData.notes || "");
     if (wireData.hideLabel !== undefined) wire.hideLabel = Boolean(wireData.hideLabel);
+    if (wireData.manualRoute !== undefined) wire.manualRoute = Boolean(wireData.manualRoute);
     if (wireData.routeStyle !== undefined || wireData.routePoints !== undefined) {
       wire.routePoints = normalizeRoutePointsForBridge(wireData.routePoints);
       wire.routeStyle = wireData.routeStyle === "orthogonal" ? "orthogonal" : wire.routePoints.length ? "custom" : "bezier";
@@ -7101,7 +7366,9 @@ class ProductionEngineBridge {
       looms: structuredClone(root?.looms || []),
       loomNumberCounter: Number(root?.loomNumberCounter) || 0,
       memberships: (root?.connections || []).map(wire => ({ id: String(wire.id), loomId: wire.loomId || "",
-        loom: wire.loom || "" }))
+        loom: wire.loom || "", loomEntrySide: wire.loomEntrySide || "",
+        loomEntryRoutePoints: structuredClone(wire.loomEntryRoutePoints || []),
+        loomExitRoutePoints: structuredClone(wire.loomExitRoutePoints || []) }))
     };
   }
 
@@ -7119,11 +7386,20 @@ class ProductionEngineBridge {
       else delete wire.loomId;
       if (membership?.loom) wire.loom = membership.loom;
       else delete wire.loom;
+      if (membership?.loomEntrySide) wire.loomEntrySide = membership.loomEntrySide;
+      else delete wire.loomEntrySide;
+      if (membership?.loomEntryRoutePoints?.length) wire.loomEntryRoutePoints = structuredClone(membership.loomEntryRoutePoints);
+      else delete wire.loomEntryRoutePoints;
+      if (membership?.loomExitRoutePoints?.length) wire.loomExitRoutePoints = structuredClone(membership.loomExitRoutePoints);
+      else delete wire.loomExitRoutePoints;
     }
     for (const wire of this.scene.wires) {
       const membership = membershipById.get(String(wire.sourceId || wire.id));
       wire.loomId = membership?.loomId || "";
       wire.loom = membership?.loom || "";
+      wire.loomEntrySide = membership?.loomEntrySide || "";
+      wire.loomEntryRoutePoints = structuredClone(membership?.loomEntryRoutePoints || []);
+      wire.loomExitRoutePoints = structuredClone(membership?.loomExitRoutePoints || []);
     }
     this.scene.rebuildLoomGeometry();
     this.scene.rebuildWireSpatialIndex();
@@ -7145,7 +7421,9 @@ class ProductionEngineBridge {
     const after = {
       looms: draft.looms, loomNumberCounter: draft.loomNumberCounter,
       memberships: draft.connections.map(wire => ({ id: String(wire.id), loomId: wire.loomId || "",
-        loom: wire.loom || "" }))
+        loom: wire.loom || "", loomEntrySide: wire.loomEntrySide || "",
+        loomEntryRoutePoints: structuredClone(wire.loomEntryRoutePoints || []),
+        loomExitRoutePoints: structuredClone(wire.loomExitRoutePoints || []) }))
     };
     if (JSON.stringify(before) === JSON.stringify(after)) return false;
     this.beginProductionCommit(type);
@@ -11312,6 +11590,11 @@ function cloneWire(wire) {
     toPortIndex: wire.toPortIndex,
     routeStyle: wire.routeStyle,
     routePoints: cloneRoutePoints(wire.routePoints),
+    manualRoute: Boolean(wire.manualRoute),
+    loomId: wire.loomId || "",
+    loomEntrySide: wire.loomEntrySide || "",
+    loomEntryRoutePoints: cloneRoutePoints(wire.loomEntryRoutePoints),
+    loomExitRoutePoints: cloneRoutePoints(wire.loomExitRoutePoints),
     fromUsesRealConnector: wire.fromUsesRealConnector,
     toUsesRealConnector: wire.toUsesRealConnector,
     usesRealConnectorEndpoints: wire.usesRealConnectorEndpoints,

@@ -552,6 +552,7 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType, nod
     sourceRackDeviceId: String(instance.sourceRackDeviceId || ""),
     x: finiteNumber(instance.x, 0),
     y: finiteNumber(instance.y, 0),
+    rotation: isAdapter ? finiteNumber(instance.rotation, 0) : 0,
     width,
     height,
     label,
@@ -1181,7 +1182,7 @@ function normalizeProjectWire(wire, index, context) {
   const metadata = effectiveJumpDeviceWireMetadata(wire, from, to, context, index);
   const cableType = metadata.cableType;
   const fiberMode = metadata.fiberMode;
-  const usesOrthogonalRoute = Array.isArray(wire.orthogonalRoutePoints);
+  const usesOrthogonalRoute = !wire.manualRoute && Array.isArray(wire.orthogonalRoutePoints);
   const routePoints = normalizeRoutePoints(usesOrthogonalRoute ? wire.orthogonalRoutePoints : wire.routePoints);
   const fromFallback = Boolean(from.deviceId && !from.usesRealConnector);
   const toFallback = Boolean(to.deviceId && !to.usesRealConnector);
@@ -1202,7 +1203,9 @@ function normalizeProjectWire(wire, index, context) {
     fromPortIndex: from.portIndex ?? index % 4,
     toPortIndex: to.portIndex ?? (index * 3) % 4,
     routePoints,
-    routeStyle: usesOrthogonalRoute ? "orthogonal" : routePoints.length ? "custom" : "bezier",
+    routeStyle: wire.manualRoute ? (wire.manualRouteStyle === "orthogonal" ? "orthogonal" : "bezier")
+      : usesOrthogonalRoute ? "orthogonal" : routePoints.length ? "custom" : "bezier",
+    manualRoute: Boolean(wire.manualRoute),
     fromUsesRealConnector: Boolean(from.usesRealConnector),
     toUsesRealConnector: Boolean(to.usesRealConnector),
     usesRealConnectorEndpoints: Boolean(from.usesRealConnector && to.usesRealConnector),
@@ -1213,6 +1216,9 @@ function normalizeProjectWire(wire, index, context) {
     length: wire.length || wire.cableLength || "",
     cableNumber: String(wire.cableNumber || ""),
     loomId: String(wire.loomId || ""),
+    loomEntrySide: String(wire.loomEntrySide || ""),
+    loomEntryRoutePoints: normalizeRoutePoints(wire.loomEntryRoutePoints),
+    loomExitRoutePoints: normalizeRoutePoints(wire.loomExitRoutePoints),
     loom: String(wire.loom || ""),
     notes: String(wire.notes || ""),
     hideLabel: Boolean(wire.hideLabel),

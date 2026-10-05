@@ -16,6 +16,7 @@ import { loomGeometry } from "./loomGeometry.js";
 import { normalizeLoom } from "./loomModel.js";
 import { buildCableSchedule, groupedCables } from "./cableSchedule.js";
 import { adapterMappingForDevice } from "./adapterMapping.js";
+import { adapterRotationBounds, adapterWorldPoint, normalizeAdapterRotation } from "./adapterRotation.js";
 import {
   canonicalEngineObjectKind,
   isCanvasObjectKind,
@@ -1245,6 +1246,19 @@ export class SceneGraph {
     this.refreshMovedDeviceIndexes(movedDeviceIds, [...affectedWireIds]);
   }
 
+  rotateAdapter(deviceId, rotation, affectedIds = null) {
+    const device = this.getDevice(deviceId);
+    if (!device || device.kind !== "adapter") return [];
+    const next = normalizeAdapterRotation(rotation);
+    if (Math.abs(device.rotation - next) < 0.0001) return [];
+    const affectedWireIds = affectedIds || [...this.affectedWireIdsForDevices([deviceId])];
+    device.rotation = next;
+    this.dirtyDevices.add(deviceId);
+    affectedWireIds.forEach(id => this.dirtyWires.add(id));
+    this.refreshMovedDeviceIndexes([deviceId], affectedWireIds);
+    return affectedWireIds;
+  }
+
   resizeCanvasObject(deviceId, rect = {}, { refreshIndexes = true } = {}) {
     const device = this.getDevice(deviceId);
     if (!device || !isCanvasObjectKind(device)) return { moved: false, affectedWireIds: [] };
@@ -1536,6 +1550,11 @@ export class SceneGraph {
     fiberMode = "",
     routeStyle = "bezier",
     routePoints = [],
+    manualRoute = false,
+    loomId = "",
+    loomEntrySide = "",
+    loomEntryRoutePoints = [],
+    loomExitRoutePoints = [],
     signalIndex = 0,
     customColor = "",
     colorSource = "",
@@ -1576,6 +1595,11 @@ export class SceneGraph {
       savedCableType,
       routeStyle,
       routePoints,
+      manualRoute,
+      loomId,
+      loomEntrySide,
+      loomEntryRoutePoints,
+      loomExitRoutePoints,
       label: `${fromEndpoint.label || "Connector"} to ${toEndpoint.label || "LED Screen"}`
     });
     this.wires.push(wire);
@@ -1704,10 +1728,9 @@ export class SceneGraph {
     }
     const layout = displayLayout || this.connectorDisplayLayoutForDevice(device);
     const anchor = connectorDisplayAnchorById(device, connector, anchorId || connector?.primaryAnchorId || "", layout);
-    return {
-      x: device.x + (Number(anchor?.x ?? connector?.x) || 0),
-      y: device.y + (Number(anchor?.y ?? connector?.y) || 0)
-    };
+    const localPoint = { x: Number(anchor?.x ?? connector?.x) || 0, y: Number(anchor?.y ?? connector?.y) || 0 };
+    return device.kind === "adapter" ? adapterWorldPoint(device, localPoint)
+      : { x: device.x + localPoint.x, y: device.y + localPoint.y };
   }
 
   positionForDevice(device, offsetMap = null) {
@@ -1749,6 +1772,10 @@ export class SceneGraph {
     if (connector) {
       const layout = this.connectorDisplayLayoutForDevice(device);
       const anchor = connectorDisplayAnchorById(device, connector, anchorId || connector.primaryAnchorId || "", layout);
+      if (device.kind === "adapter") return adapterWorldPoint(device, {
+        x: Number(anchor?.x ?? connector.x) || 0,
+        y: Number(anchor?.y ?? connector.y) || 0
+      }, offsetMap?.get(device.id));
       return {
         x: pos.x + (Number(anchor?.x ?? connector.x) || 0),
         y: pos.y + (Number(anchor?.y ?? connector.y) || 0)
@@ -1758,6 +1785,10 @@ export class SceneGraph {
     const portIndex = end === "from" ? wire.fromPortIndex : wire.toPortIndex;
     const portCount = Math.max(1, device.portCount || 4);
     const y = pos.y + device.height * ((portIndex + 1) / (portCount + 1));
+    if (device.kind === "adapter") return adapterWorldPoint(device, {
+      x: side === "left" ? 0 : device.width,
+      y: device.height * ((portIndex + 1) / (portCount + 1))
+    }, offsetMap?.get(device.id));
     return {
       x: side === "left" ? pos.x : pos.x + device.width,
       y
@@ -1871,10 +1902,11 @@ export class SceneGraph {
     let maxX = -Infinity;
     let maxY = -Infinity;
     this.devices.forEach(device => {
-      minX = Math.min(minX, device.x);
-      minY = Math.min(minY, device.y);
-      maxX = Math.max(maxX, device.x + device.width);
-      maxY = Math.max(maxY, device.y + device.height);
+      const bounds = deviceBounds(device);
+      minX = Math.min(minX, bounds.x);
+      minY = Math.min(minY, bounds.y);
+      maxX = Math.max(maxX, bounds.x + bounds.width);
+      maxY = Math.max(maxY, bounds.y + bounds.height);
     });
     for (const plan of this.loomPlans) for (const point of [...plan.trunk,
       ...plan.breakouts.flatMap(item => item.points)]) {
@@ -1893,6 +1925,7 @@ export class SceneGraph {
 }
 
 export function deviceBounds(device) {
+  if (device.kind === "adapter") return adapterRotationBounds(device);
   return {
     x: device.x,
     y: device.y,
@@ -1991,6 +2024,7 @@ function normalizeDevice(device) {
     sourceRackDeviceId: String(device.sourceRackDeviceId || ""),
     x: Number(device.x) || 0,
     y: Number(device.y) || 0,
+    rotation: kind === "adapter" ? normalizeAdapterRotation(device.rotation) : 0,
     width,
     height,
     label: device.label || device.name || String(device.id),
@@ -2341,6 +2375,7 @@ function normalizeWire(wire) {
         .map(point => ({ x: Number(point.x), y: Number(point.y) }))
         .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y))
       : [],
+    manualRoute: Boolean(wire.manualRoute),
     // Rack-internal wires must keep Legacy's fixed 90-degree visual contract
     // even if older/imported data still carries a Bezier/custom route flag.
     routeStyle: internalRackWire ? "orthogonal" : wire.routeStyle === "orthogonal" ? "orthogonal" : wire.routePoints?.length ? "custom" : "bezier",
@@ -2354,6 +2389,9 @@ function normalizeWire(wire) {
     length: wire.length || "",
     cableNumber: String(wire.cableNumber || ""),
     loomId: String(wire.loomId || ""),
+    loomEntrySide: String(wire.loomEntrySide || ""),
+    loomEntryRoutePoints: Array.isArray(wire.loomEntryRoutePoints) ? wire.loomEntryRoutePoints.map(point => ({ x: Number(point.x), y: Number(point.y) })) : [],
+    loomExitRoutePoints: Array.isArray(wire.loomExitRoutePoints) ? wire.loomExitRoutePoints.map(point => ({ x: Number(point.x), y: Number(point.y) })) : [],
     loom: String(wire.loom || ""),
     notes: String(wire.notes || ""),
     hideLabel: Boolean(wire.hideLabel),

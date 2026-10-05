@@ -25,7 +25,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-38-60-attached-jump-nodes";
+const BUILD_ID = "iteration54-38-62-cable-routing";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -40,10 +40,10 @@ function sourceSlice(source, startNeedle, endNeedle) {
   return source.slice(start, end);
 }
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.38.60");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.60";'), "visible iteration should be 54.38.60");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-60-attached-jump-nodes-modules";'), "module cache key should bust 54.38.60 modules");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-60-attached-jump-nodes"'), "Engine bridge version should identify attached Jump Nodes");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.38.62");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.62";'), "visible iteration should be 54.38.62");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-62-cable-routing-modules";'), "module cache key should bust 54.38.62 modules");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-62-cable-routing"'), "Engine bridge version should identify cable routing");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
 assert.ok(classicScripts.length >= 1, "index.html should contain at least one classic script");

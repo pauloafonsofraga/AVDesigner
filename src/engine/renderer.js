@@ -1,4 +1,5 @@
 import { TextureCache } from "./textureCache.js";
+import { adapterRotationBounds, adapterWorldPoint, rotateAdapterPoint } from "./adapterRotation.js";
 import {
   applyCableHopsToPolyline,
   calculateCableHops,
@@ -6,6 +7,7 @@ import {
   emptyCableHopStats
 } from "./cableHops.js";
 import { wirePathStatsForWires, wirePolylineFromPoints } from "./wirePath.js";
+import { offsetPolyline, tapeBandsAlongPath } from "./routingPlacement.js";
 import {
   adapterInternalBezierGeometry,
   adapterInternalWirePairs
@@ -64,7 +66,7 @@ import { wirePlaybackEase } from "./wirePlayback.js";
 import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-47-managed-cable-looms";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-48-cable-loom-visuals";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -1134,9 +1136,11 @@ export class WebglGraphRenderer {
         if (deviceUsesTextureLayer(device, renderOptions) && this.textureCache.getEntry(id)?.texture) {
           pushMatrixInternalRoutes(liveVertices, device, offsets, renderOptions, "normal");
           pushSelectionOutline(liveVertices, device, offsets);
+          pushAdapterRotationHandle(liveVertices, device, camera, offsets);
           this.recordObjectLayer(layerTrace, id, "liveDragObjectOverlay", "drawn-moving-outline");
         } else {
           pushDevice(liveVertices, device, offsets, true, renderOptions);
+          pushAdapterRotationHandle(liveVertices, device, camera, offsets);
           this.recordObjectLayer(layerTrace, id, "liveDragObjectOverlay", "drawn-moving-body");
         }
       });
@@ -1170,6 +1174,7 @@ export class WebglGraphRenderer {
           if (device) {
             pushMatrixInternalRoutes(liveVertices, device, null, renderOptions, "highlight");
             pushSelectionOutline(liveVertices, device, null);
+            pushAdapterRotationHandle(liveVertices, device, camera);
           }
         });
         if (hoveredDevice && !(options.selectedIds || new Set()).has(hoveredDevice.id)) {
@@ -1733,7 +1738,9 @@ export class WebglGraphRenderer {
       const x = glowRect.x - entry.padding;
       const y = glowRect.y - entry.padding;
       const vertices = groups.get(entry.texture) || [];
+      const start = vertices.length;
       pushTextureRect(vertices, x, y, glowRect.width + entry.padding * 2, glowRect.height + entry.padding * 2);
+      rotateAdapterTextureVertices(vertices, start, device, offset);
       groups.set(entry.texture, vertices);
       this.recordObjectLayer(
         layerTrace,
@@ -2038,12 +2045,14 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
     pushWireColorSegments(
       vertices,
       wirePolylineFromPoints(
-        { routeStyle: tempWire.routeStyle || "bezier", routePoints: tempRoutePoints },
+        { routeStyle: tempWire.routeStyle || "bezier", routePoints: tempRoutePoints,
+          manualRoute: tempWire.manualRoute },
         [tempWire.from, ...tempRoutePoints, tempWire.to]
       ),
       3.4,
       tempWire,
-      tempWire.color || "#32b6ff"
+      tempWire.color || "#32b6ff",
+      tempWire.opacity || 1
     );
     pushConnectorHighlight(vertices, tempWire.from, connectorVisualRadius(tempWire.sourceHit?.device, overlayOptions.camera) + 5, "#32b6ff", "source");
     stats.connectorOverlayCount += 1;
@@ -2059,6 +2068,17 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
     }
   });
   if (tempWires.length) stats.wirePreviewDrawn = tempWires.length;
+  if (interaction.gatewayHover?.point) {
+    pushCircle(vertices, interaction.gatewayHover.point, 22, "rgba(50,182,255,.24)");
+    pushCircleOutline(vertices, interaction.gatewayHover.point, 17, 3, "#32b6ff");
+  }
+  if (interaction.loomPreview?.points?.length >= 2) {
+    const preview = interaction.loomPreview;
+    pushPolyline(vertices, wirePolylineFromPoints({ routeStyle: preview.routeStyle,
+      manualRoute: preview.routeStyle === "orthogonal", routePoints: preview.points.slice(1, -1) },
+    preview.points), 9, "rgba(50,182,255,.5)");
+    pushCircle(vertices, preview.points[0], 8, "#d2dbe2");
+  }
 
   if (interaction.jumpPlacementGhost?.center) {
     pushJumpNode(
@@ -2246,7 +2266,7 @@ function pushExplicitConnectorRelationships(vertices, scene, device, baseX, base
       if (sharedLayout) {
         const cardId = sharedLayout.points[0]?.connector?.cardSlotId;
         const body = device.visual?.visualCards?.find(card => card.id === cardId) || { x: 0, width: device.width };
-        count += pushSharedBusConnectorLines(vertices, sharedLayout, baseX, baseY, body);
+        count += pushSharedBusConnectorLines(vertices, sharedLayout, baseX, baseY, body, device);
       }
     } else if (relationship.type === "through") {
       count += pushThroughConnectorArrow(vertices, device, relationship, baseX, baseY, displayLayout);
@@ -2255,14 +2275,18 @@ function pushExplicitConnectorRelationships(vertices, scene, device, baseX, base
   return count;
 }
 
-function pushSharedBusConnectorLines(vertices, layout, baseX, baseY, body) {
+function pushSharedBusConnectorLines(vertices, layout, baseX, baseY, body, device = null) {
   const geometry = sharedBusOrthogonalSegments(layout, body, {
     nodeInset: SHARED_BUS_NODE_LINE_INSET, offsetX: baseX, offsetY: baseY
   });
   if (!geometry) return 0;
   const segments = [geometry.trunk, geometry.stem, ...geometry.branches];
   segments.forEach(({ x1, y1, x2, y2 }) => {
-    pushLine(vertices, { x: x1, y: y1 }, { x: x2, y: y2 }, SHARED_BUS_LINE_STYLE.width, SHARED_BUS_LINE_STYLE.color);
+    const from = device?.kind === "adapter" ? adapterWorldPoint(device, { x: x1 - baseX, y: y1 - baseY },
+      { dx: baseX - device.x, dy: baseY - device.y }) : { x: x1, y: y1 };
+    const to = device?.kind === "adapter" ? adapterWorldPoint(device, { x: x2 - baseX, y: y2 - baseY },
+      { dx: baseX - device.x, dy: baseY - device.y }) : { x: x2, y: y2 };
+    pushLine(vertices, from, to, SHARED_BUS_LINE_STYLE.width, SHARED_BUS_LINE_STYLE.color);
   });
   return segments.length;
 }
@@ -2428,10 +2452,13 @@ function primaryAnchorForRender(connector = {}, device = {}, displayLayout = nul
 }
 
 function connectorAnchorRenderPoint(baseX, baseY, connector, anchor, device = {}) {
-  return {
-    x: baseX + (Number.isFinite(Number(anchor?.x)) ? Number(anchor.x) : connectorRenderX(connector, device)),
-    y: baseY + (Number.isFinite(Number(anchor?.y)) ? Number(anchor.y) : connectorRenderY(connector, device))
+  const local = {
+    x: Number.isFinite(Number(anchor?.x)) ? Number(anchor.x) : connectorRenderX(connector, device),
+    y: Number.isFinite(Number(anchor?.y)) ? Number(anchor.y) : connectorRenderY(connector, device)
   };
+  return device.kind === "adapter"
+    ? adapterWorldPoint(device, local, { dx: baseX - device.x, dy: baseY - device.y })
+    : { x: baseX + local.x, y: baseY + local.y };
 }
 
 function connectorAnchorRenderOpacity(scene, device, connector, anchor) {
@@ -2731,9 +2758,11 @@ function pushDevice(vertices, device, offsets = null, selected = false, options 
     // Fallback geometry must still look like a Legacy adapter/breakout. Do
     // not draw the normal solid device body here; texture misses/loading would
     // otherwise flash a completely different object type.
+    const start = vertices.length;
     pushRect(vertices, x, y, device.width, device.height, "rgba(50, 182, 255, .08)");
     pushAdapterFallbackInternalWires(vertices, device, x, y);
     pushDashedBoxOutline(vertices, { x, y, width: device.width, height: device.height }, 3, "#32b6ff", 9, 6);
+    rotateAdapterVertices(vertices, start, device, offset);
     return;
   }
   const fill = isLedSurfaceKind(device)
@@ -2932,6 +2961,28 @@ function pushSelectionOutline(vertices, device, offsets = null) {
   }
 }
 
+function pushAdapterRotationHandle(vertices, device, camera, offsets = null) {
+  if (device.kind !== "adapter" || device.locked) return;
+  const offset = offsets?.get(device.id);
+  const bounds = adapterRotationBounds(device, offset);
+  const zoom = Math.max(0.01, camera.zoom);
+  const handle = { x: bounds.x + bounds.width / 2, y: bounds.y - 30 / zoom };
+  const stemTop = { x: handle.x, y: handle.y + 9 / zoom };
+  const stemBottom = { x: handle.x, y: bounds.y - 2 / zoom };
+  pushLine(vertices, stemTop, stemBottom, 1.4 / zoom, "rgba(251,121,4,.74)");
+  pushCircle(vertices, handle, 9 / zoom, "#1f2933", 20);
+  pushCircleOutline(vertices, handle, 9 / zoom, 1.5 / zoom, "#fb7904", 20);
+  const radius = 4.5 / zoom;
+  const arc = [];
+  for (let step = 0; step <= 9; step++) {
+    const angle = (-0.8 + step * 0.22) * Math.PI;
+    arc.push({ x: handle.x + Math.cos(angle) * radius, y: handle.y + Math.sin(angle) * radius });
+  }
+  for (let step = 1; step < arc.length; step++) pushLine(vertices, arc[step - 1], arc[step], 1.5 / zoom, "#ffffff");
+  const tip = arc.at(-1);
+  pushLine(vertices, tip, { x: tip.x - 2 / zoom, y: tip.y - 2 / zoom }, 1.5 / zoom, "#ffffff");
+}
+
 function pushHoverOutline(vertices, device, offsets = null) {
   if (device?.kind === "comment") {
     pushCommentLeaderEmphasis(vertices, device, offsets, "hover");
@@ -3016,6 +3067,7 @@ function pushObjectOutline(vertices, device, offsets = null, layers = []) {
   }
   if (device.kind === "adapter") {
     layers.forEach(layer => {
+      const start = vertices.length;
       const rect = {
         x: x - layer.expand,
         y: y - layer.expand,
@@ -3023,6 +3075,7 @@ function pushObjectOutline(vertices, device, offsets = null, layers = []) {
         height: device.height + layer.expand * 2
       };
       pushDashedBoxOutline(vertices, rect, layer.width, layer.color, 9, 6);
+      rotateAdapterVertices(vertices, start, device, offsets?.get(device.id));
     });
     return;
   }
@@ -3170,17 +3223,17 @@ function pushPolyline(vertices, points, width, color) {
   }
 }
 
-function pushWireColorSegments(vertices, points, width, wire, fallbackColor) {
+function pushWireColorSegments(vertices, points, width, wire, fallbackColor, opacity = 1) {
   const colors = Array.isArray(wire?.colorSegments)
     ? wire.colorSegments.filter(Boolean)
     : [];
   if (colors.length < 2) {
-    pushPolyline(vertices, points, width, fallbackColor);
+    pushPolyline(vertices, points, width, colorWithOpacity(fallbackColor, opacity));
     return;
   }
   colors.forEach((color, index) => {
     const segment = polylineSlice(points, index / colors.length, (index + 1) / colors.length);
-    pushPolyline(vertices, segment, width, color);
+    pushPolyline(vertices, segment, width, colorWithOpacity(color, opacity));
   });
 }
 
@@ -3272,7 +3325,31 @@ function pushTextureQuad(vertices, device, offsets = null) {
   const offset = offsets?.get(device.id);
   const x = device.x + (offset?.dx || 0);
   const y = device.y + (offset?.dy || 0);
+  const start = vertices.length;
   pushTextureRect(vertices, x, y, device.width, device.height);
+  rotateAdapterTextureVertices(vertices, start, device, offset);
+}
+
+function rotateAdapterTextureVertices(vertices, start, device, offset = null) {
+  if (device.kind !== "adapter" || !device.rotation) return;
+  for (let index = start; index < vertices.length; index += 4) {
+    const point = rotateAdapterPoint(device, {
+      x: vertices[index] - (offset?.dx || 0), y: vertices[index + 1] - (offset?.dy || 0)
+    }, offset);
+    vertices[index] = point.x;
+    vertices[index + 1] = point.y;
+  }
+}
+
+function rotateAdapterVertices(vertices, start, device, offset = null) {
+  if (!device.rotation) return;
+  for (let index = start; index < vertices.length; index += 6) {
+    const point = rotateAdapterPoint(device, {
+      x: vertices[index] - (offset?.dx || 0), y: vertices[index + 1] - (offset?.dy || 0)
+    }, offset);
+    vertices[index] = point.x;
+    vertices[index + 1] = point.y;
+  }
 }
 
 function pushTextureRect(vertices, x, y, width, height) {
@@ -3383,37 +3460,16 @@ function verticesForWire(scene, wire, offsets = null, width = WIRE_BASE_WIDTH, c
 
 function verticesForLoomPlan(scene, plan) {
   const vertices = [];
-  pushPolyline(vertices, plan.trunk, 16, "#101820");
-  pushPolyline(vertices, plan.trunk, 11, "#8999a5");
-  const familyColor = { Video: "#f4c542", Network: "#34cf9d", Fibre: "#9a8dff",
-    Audio: "#ff8c55", Power: "#ff5d69", Other: "#32b6ff" };
-  const families = (plan.families || []).slice(0, 6);
-  const expandedFamilies = scene.expandedLoomIds?.has(plan.loomId) && plan.circuitCount > 16;
-  if (!families.length) pushPolyline(vertices, plan.trunk, 3, "#32b6ff");
-  else {
-    const dx = plan.headB.x - plan.headA.x, dy = plan.headB.y - plan.headA.y;
-    const length = Math.hypot(dx, dy) || 1;
-    const normal = { x: -dy / length, y: dx / length };
-    families.forEach((family, index) => {
-      const offset = (index - (families.length - 1) / 2) * (expandedFamilies ? 2.5 : 1.7);
-      const stripe = plan.trunk.map(point => ({ x: point.x + normal.x * offset,
-        y: point.y + normal.y * offset }));
-      pushPolyline(vertices, stripe, expandedFamilies ? 2.2 : 1.5,
-        familyColor[family.name] || familyColor.Other);
-    });
-  }
-  if (scene.expandedLoomIds?.has(plan.loomId) && plan.circuitCount > 0 && plan.circuitCount <= 16) {
-    const dx = plan.headB.x - plan.headA.x, dy = plan.headB.y - plan.headA.y;
-    const length = Math.hypot(dx, dy) || 1;
-    const normal = { x: -dy / length, y: dx / length };
-    const starts = plan.breakouts.filter(item => item.end === "A");
-    starts.forEach((breakout, index) => {
-      const offset = (index - (starts.length - 1) / 2) * 2.2;
-      const shifted = plan.trunk.map(point => ({ x: point.x + normal.x * offset,
-        y: point.y + normal.y * offset }));
-      const wire = scene.getWire(breakout.wireId);
-      pushPolyline(vertices, shifted, 1.25, wire?.customColor || wire?.color || WIRE_FALLBACK);
-    });
+  const colors = plan.coreColors?.length ? plan.coreColors : ["#8999a5"];
+  const bundleWidth = Math.max(16, colors.length * 2.6 + 7);
+  pushPolyline(vertices, plan.trunk, bundleWidth, "#101820");
+  pushPolyline(vertices, plan.trunk, bundleWidth - 3, "#59636b");
+  colors.forEach((color, index) => {
+    const offset = (index - (colors.length - 1) / 2) * 2.6;
+    pushPolyline(vertices, offsetPolyline(plan.trunk, offset), 2.3, color);
+  });
+  for (const [from, to] of tapeBandsAlongPath(plan.trunk, 54, bundleWidth + 1)) {
+    pushLine(vertices, from, to, 6, "#07090b");
   }
   for (const breakout of plan.breakouts) {
     const wire = scene.getWire(breakout.wireId);
@@ -3524,10 +3580,9 @@ function drawVisibleConnectorLabels(ctx, scene, camera, renderOptions = DEFAULT_
           __anchorId: anchor.id,
           __renderOpacity: connectorAnchorRenderOpacity(scene, device, connector, anchor)
         };
-        drawConnectorWorldLabel(ctx, {
-          x: baseX + anchor.x,
-          y: baseY + anchor.y
-        }, renderConnector, text, camera);
+        drawConnectorWorldLabel(ctx,
+          connectorAnchorRenderPoint(baseX, baseY, connector, anchor, device),
+          renderConnector, text, camera);
         count += 1;
       });
     });
@@ -4236,8 +4291,9 @@ function drawDeviceLabel(ctx, device, camera, offsets = null, tone = "normal") {
   }
   if (device.kind === "adapter") {
     const labelSize = Math.max(5, 13 * camera.zoom * toneBoost);
-    const labelX = x + screenWidth / 2;
-    const labelY = y - 5 * camera.zoom;
+    const bounds = adapterRotationBounds(device, offset);
+    const labelX = (bounds.x + bounds.width / 2 - camera.x) * camera.zoom;
+    const labelY = (bounds.y - camera.y - 5) * camera.zoom;
     ctx.font = `900 ${labelSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";

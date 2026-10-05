@@ -76,6 +76,7 @@ export function validateCanvasClipboardPayload(value) {
       if (!["racks", "connections", "jumpLinks", "deviceLibrary", "nodeLibrary"].includes(key)
         && ![item.x, item.y].every(finite)) fail(`invalid ${key} coordinates`);
       for (const field of ["width", "height"]) if (own(item, field) && (!finite(item[field]) || item[field] <= 0)) fail(`invalid ${field}`);
+      if (key === "devices" && own(item, "rotation") && !finite(item.rotation)) fail("invalid rotation");
     }
   }
   if (!countClipboardObjects(payload) || countClipboardObjects(payload) > CLIPBOARD_LIMITS.objects

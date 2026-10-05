@@ -94,6 +94,19 @@ test("cards, shared buses, adapters, matrix routes, PDs, images, comments and di
   assert.equal(scene.meta.imageObjects, 1);
 });
 
+test("placed adapter rotation survives clipboard copy/paste without changing its template", () => {
+  const { project, items, bounds } = canvasClipboardFixture();
+  project.devices[0].rotation = 45;
+  const payload = clipboard.createCanvasClipboardPayload(project, items, bounds);
+  const plan = clipboard.prepareCanvasClipboardPaste(payload, project, target);
+  assert.equal(payload.devices[0].rotation, 45);
+  assert.equal(plan.additions.devices[0].rotation, 45);
+  assert.equal(project.devices[0].rotation, 45);
+  assert.equal(Object.hasOwn(payload.deviceLibrary[0] || {}, "rotation"), false);
+  payload.devices[0].rotation = "bad";
+  assert.throws(() => clipboard.validateCanvasClipboardPayload(payload), /rotation/);
+});
+
 test("custom definitions reuse identical content, resolve ID collisions deterministically, and repeat paste is independent", () => {
   const { payload } = fixture();
   const destination = { deviceLibrary: [{ ...payload.deviceLibrary[0], name: "Unrelated" }] };

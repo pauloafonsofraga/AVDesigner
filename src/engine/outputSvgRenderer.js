@@ -4,6 +4,7 @@ import { engineOutputPrimitives, drawEngineOutputLabels, SHARED_BUS_LINE_STYLE }
 import { outputAssetSources, isInlineOutputImage } from "./outputViewerAssets.js";
 import { OutputSvgContext, svgEscape, svgNumber } from "./outputSvgContext.js";
 import { buildOutputJumpNavigation } from "./outputNavigation.js";
+import { adapterRotationBounds } from "./adapterRotation.js";
 
 export const OUTPUT_SVG_DEPENDENCY = "engine-svg";
 
@@ -20,9 +21,15 @@ export async function prepareEnginePrintImages(snapshot, resolveImage) {
 }
 
 function artwork(ctx, device) {
+  const bounds = device.kind === "adapter" ? adapterRotationBounds(device) : device;
   ctx.group({ "data-object-id":device.id, "data-kind":device.kind,
-    "data-bounds":JSON.stringify({ x:device.x, y:device.y, width:device.width, height:device.height }) }, () => {
-    ctx.save(); ctx.translate(device.x,device.y);
+    "data-bounds":JSON.stringify({ x:bounds.x, y:bounds.y, width:bounds.width, height:bounds.height }) }, () => {
+    ctx.save();
+    if (device.kind === "adapter" && device.rotation) {
+      ctx.translate(device.x + device.width / 2, device.y + device.height / 2);
+      ctx.rotate(device.rotation * Math.PI / 180);
+      ctx.translate(-device.width / 2, -device.height / 2);
+    } else ctx.translate(device.x, device.y);
     drawDeviceVisual(ctx,device,device.width,device.height,{ connectorMarkers:"live" });
     ctx.restore();
   });

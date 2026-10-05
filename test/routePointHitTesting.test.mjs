@@ -28,6 +28,7 @@ function harness(zoom = 0.34) {
   });
   Object.assign(b, { scene, ready: true, camera: { x: -300, y: -150, zoom }, renderOptions: { routePoints: true },
     eventPoint: e => ({ x: e.clientX, y: e.clientY }), dispatchCanvasToolPointerEvent: () => false,
+    selectedAdapterRotationHit: () => null,
     hitTestCanvasObjectResizeHandle: () => null, hitTestJumpPressTarget: () => ({}),
     clearJumpMoveArm() {}, clearHoverState() {}, capturePointer() {}, updateSelectionHud() {},
     updateInteractionHud() {}, updateCanvasCursor() {}, scheduleRender() {},
