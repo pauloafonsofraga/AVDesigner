@@ -7,7 +7,7 @@ import {
   emptyCableHopStats
 } from "./cableHops.js";
 import { wirePathStatsForWires, wirePolylineFromPoints } from "./wirePath.js";
-import { offsetPolyline, tapeBandsAlongPath } from "./routingPlacement.js";
+import { LOOM_GATEWAY_RING_COLOR, LOOM_TAPE_COLOR, loomBundleWidths, offsetPolyline, tapeBandsAlongPath } from "./routingPlacement.js";
 import {
   adapterInternalBezierGeometry,
   adapterInternalWirePairs
@@ -66,7 +66,7 @@ import { wirePlaybackEase } from "./wirePlayback.js";
 import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-48-cable-loom-visuals";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-63-loom-appearance";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -3461,15 +3461,15 @@ function verticesForWire(scene, wire, offsets = null, width = WIRE_BASE_WIDTH, c
 function verticesForLoomPlan(scene, plan) {
   const vertices = [];
   const colors = plan.coreColors?.length ? plan.coreColors : ["#8999a5"];
-  const bundleWidth = Math.max(16, colors.length * 2.6 + 7);
-  pushPolyline(vertices, plan.trunk, bundleWidth, "#101820");
-  pushPolyline(vertices, plan.trunk, bundleWidth - 3, "#59636b");
+  const widths = loomBundleWidths(colors.length);
+  pushPolyline(vertices, plan.trunk, widths.sheath, "#101820");
+  pushPolyline(vertices, plan.trunk, widths.jacket, "#59636b");
   colors.forEach((color, index) => {
     const offset = (index - (colors.length - 1) / 2) * 2.6;
-    pushPolyline(vertices, offsetPolyline(plan.trunk, offset), 2.3, color);
+    pushPolyline(vertices, offsetPolyline(plan.trunk, offset), widths.core, color);
   });
-  for (const [from, to] of tapeBandsAlongPath(plan.trunk, 54, bundleWidth + 1)) {
-    pushLine(vertices, from, to, 6, "#07090b");
+  for (const [from, to] of tapeBandsAlongPath(plan.trunk, 54, widths.sheath + 1)) {
+    pushLine(vertices, from, to, 6, LOOM_TAPE_COLOR);
   }
   for (const breakout of plan.breakouts) {
     const wire = scene.getWire(breakout.wireId);
@@ -3480,7 +3480,7 @@ function verticesForLoomPlan(scene, plan) {
   }
   for (const head of [plan.headA, plan.headB]) {
     pushCircle(vertices, head, 13, "#101820");
-    pushCircleOutline(vertices, head, 13, 3, "#d2dbe2");
+    pushCircleOutline(vertices, head, 13, 3, LOOM_GATEWAY_RING_COLOR);
     pushCircle(vertices, head, 5, "#32b6ff");
   }
   return vertices;

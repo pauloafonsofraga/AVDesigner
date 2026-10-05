@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-38-62-cable-routing";
+const BUILD_ID = "iteration54-38-63-loom-appearance";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -52,12 +52,12 @@ const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify PDF Jump destinations");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-62-cable-routing-modules";'), "module cache key should identify the current build");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-63-loom-appearance-modules";'), "module cache key should identify the current build");
 assert.ok(indexHtml.includes("Signal Chain"), "visible build label should name Signal Chain");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-62-cable-routing"'), "Engine bridge version should identify the current build");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses"'), "Engine bridge feature label should identify Selectable Projector Lenses");
 assert.ok(bridgeSource.includes("production-bridge-iteration54-38-62-cable-routing"), "bridge fingerprint should identify the current build");
-assert.ok(rendererSource.includes("renderer-iteration54-38-48-cable-loom-visuals"), "renderer fingerprint should identify cable loom visuals");
+assert.ok(rendererSource.includes("renderer-iteration54-38-63-loom-appearance"), "renderer fingerprint should identify loom appearance");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");
 assert.ok(rendererSource.includes("pushWirePlaybackOverlay"), "renderer should draw transient Play Wire overlays");

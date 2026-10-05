@@ -1,3 +1,6 @@
+export const LOOM_TAPE_COLOR = "#454c53";
+export const LOOM_GATEWAY_RING_COLOR = "#0c4fe8";
+
 export function orthogonalManualPoints(points) {
   if (points.length < 2) return points;
   const result = [points[0]];
@@ -11,17 +14,27 @@ export function orthogonalManualPoints(points) {
   return result;
 }
 
+export function loomBundleWidths(coreCount) {
+  const sheath = Math.max(16, Math.max(1, coreCount) * 2.6 + 7);
+  return { sheath, jacket: Math.max(3, (sheath - 3) / 2), core: 2.3 };
+}
+
 export function gatewayExitSide(entrySide) {
   return entrySide === "sideA" ? "sideB" : entrySide === "sideB" ? "sideA" : "";
 }
 
 export function loomCoreColors(wires) {
-  const colors = wires.map(wire => String(wire.customColor || wire.color || "#32b6ff"))
-    .filter(Boolean);
-  const unique = [...new Set(colors.map(color => color.toLowerCase()))];
-  if (!unique.length) return [];
-  if (unique.length === 1) return Array(Math.min(6, colors.length)).fill(colors[0]);
-  return unique.map(key => colors.find(color => color.toLowerCase() === key));
+  const cableGroups = new Map();
+  for (const wire of wires) {
+    const color = String(wire.customColor || wire.color || "#32b6ff").trim();
+    const type = String(wire.cableType || wire.connectorType || wire.type || "").trim().toLowerCase();
+    const key = type ? `type:${type}` : `color:${color.toLowerCase()}`;
+    if (!cableGroups.has(key)) cableGroups.set(key, { repeat: !!type, colors: [] });
+    cableGroups.get(key).colors.push(color);
+  }
+  return [...cableGroups.values()].flatMap(group => group.repeat
+    ? group.colors.slice(0, 6)
+    : group.colors.slice(0, 1));
 }
 
 export function tapeBandsAlongPath(points, interval = 54, width = 18) {
