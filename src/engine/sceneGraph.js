@@ -1994,6 +1994,8 @@ function normalizeDevice(device) {
     width,
     height,
     label: device.label || device.name || String(device.id),
+    attachedDeviceId: String(device.attachedDeviceId || ""),
+    autoAttachJumpNodes: Boolean(device.autoAttachJumpNodes),
     selectedProjectorLensId: visual.selectedProjectorLensId,
     notes: String(device.notes || ""),
     locked: Boolean(device.locked),

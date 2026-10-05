@@ -350,7 +350,12 @@ export function prepareCanvasClipboardPaste(value, destination, target) {
       item.from = remapClipboardEndpoint(item.from, maps); item.to = remapClipboardEndpoint(item.to, maps);
       offsetRoutePointsForPaste(item, dx, dy);
     }
-    if (key === "jumpNodes") delete item.pairId;
+    if (key === "jumpNodes") {
+      delete item.pairId;
+      const mappedDevice = maps.devices.get(item.attachedDeviceId);
+      if (mappedDevice) item.attachedDeviceId = mappedDevice;
+      else delete item.attachedDeviceId;
+    }
     if (key === "jumpLinks") {
       item.outputJumpId = maps.jumpNodes.get(item.outputJumpId); item.inputJumpId = maps.jumpNodes.get(item.inputJumpId);
       const pairId = nextId("jump-pair");

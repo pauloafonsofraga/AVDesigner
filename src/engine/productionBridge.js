@@ -30,6 +30,7 @@ import {
   normalizeEngineCanvasObject
 } from "./projectAdapter.js";
 import { ProjectMutationAdapter } from "./projectMutations.js";
+import { attachedJumpIdsForDevices, directDeviceIdsForJump, eligibleDeviceForJump } from "./jumpAttachment.js";
 import { applyCanvasClipboardPlan } from "./canvasClipboard.js";
 import { WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
@@ -143,8 +144,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-47-managed-cable-looms";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-47-managed-cable-looms";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-60-attached-jump-nodes";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-60-attached-jump-nodes";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -955,6 +956,13 @@ class ProductionEngineBridge {
       if (this.scene.looms.some(loom => !loom.sideA || !loom.sideB)) this.scene.rebuildLoomGeometry();
       this.logCanvasObjectDiagnostics("refresh", normalized);
       this.mutations = new ProjectMutationAdapter(normalized, { cloneProjectData: false });
+      const normalizedAttachments = this.mutations.reconcileJumpAttachments(
+        this.mutations.root.jumpNodes.map(node => String(node.id))
+      );
+      normalizedAttachments.forEach(({ id, attachedDeviceId }) => {
+        const jump = this.scene.getDevice(id);
+        if (jump) jump.attachedDeviceId = attachedDeviceId;
+      });
       this.synchronizeMonitorNames({ render: false });
       this.commandHistory = [];
       this.commandIndex = 0;
@@ -2942,8 +2950,10 @@ class ProductionEngineBridge {
       || this.routePointDrag || this.wireSegmentDrag || this.commentBoxDrag || this.marqueeState) return false;
     const selectedIds = this.draggableSelectedIds(this.scene.expandRackSelectionIds([...this.scene.selectedIds]));
     if (!selectedIds.length) return false;
+    const followerIds = attachedJumpIdsForDevices(this.mutations?.root, selectedIds)
+      .filter(id => !selectedIds.includes(id) && !this.deviceMovementLocked(this.scene.getDevice(id)));
     // Use the normal move transaction, without snapping away from the exact pixel step.
-    this.dragSession = new DragSession({ scene: this.scene, selectedIds, startWorld: { x: 0, y: 0 } });
+    this.dragSession = new DragSession({ scene: this.scene, selectedIds: [...selectedIds, ...followerIds], startWorld: { x: 0, y: 0 } });
     this.dragSession.update({ x: dx, y: dy }, { snappingEnabled: false });
     this.completeDrag();
     this.scheduleRender();
@@ -3188,9 +3198,11 @@ class ProductionEngineBridge {
     this.scene.selectedConnectorKeys.clear();
     this.scene.selectedRoutePointKeys.clear();
     this.scene.clearSelectedJumpLink?.();
+    const followers = attachedJumpIdsForDevices(this.mutations?.root, draggableIds)
+      .filter(id => !draggableIds.includes(id) && !this.deviceMovementLocked(this.scene.getDevice(id)));
     this.dragSession = new DragSession({
       scene: this.scene,
-      selectedIds: draggableIds,
+      selectedIds: [...draggableIds, ...followers],
       startWorld: worldPoint,
       startPoint: meta.startPoint || null,
       startClient: meta.startClient || null,
@@ -3216,6 +3228,85 @@ class ProductionEngineBridge {
         const device = this.scene.getDevice(id);
         return Boolean(device && !this.deviceMovementLocked(device));
       });
+  }
+
+  jumpAttachmentDeviceId(jumpId) {
+    return eligibleDeviceForJump(this.mutations?.root, String(jumpId || ""));
+  }
+
+  jumpAttachmentStatus(jumpId) {
+    const deviceIds = directDeviceIdsForJump(this.mutations?.root, String(jumpId || ""));
+    return { deviceId: deviceIds.length === 1 ? deviceIds[0] : "", ambiguous: deviceIds.length > 1 };
+  }
+
+  jumpAttachmentSnapshot() {
+    return this.mutations?.jumpAttachmentSnapshot() || [];
+  }
+
+  applyJumpAttachmentSnapshot(states, { notify = true } = {}) {
+    const count = this.mutations?.setJumpAttachments(states) || 0;
+    for (const { id } of states || []) {
+      const sceneNode = this.scene.getDevice(id);
+      const raw = this.mutations?.jumpNodeById.get(id)?.item;
+      if (sceneNode && raw) sceneNode.attachedDeviceId = raw.attachedDeviceId || "";
+    }
+    if (notify) this.updateSelectionHud();
+    return { mutationMs: 0, changed: count };
+  }
+
+  reconcileJumpAttachments(ids) {
+    const after = this.mutations?.reconcileJumpAttachments(ids) || [];
+    this.applyJumpAttachmentSnapshot(after, { notify: false });
+    return after;
+  }
+
+  commitJumpAttachments(jumpIds, enabled) {
+    if (!this.ready) return false;
+    const ids = [...new Set(jumpIds.map(String))];
+    const before = this.jumpAttachmentSnapshot();
+    const updates = ids.map(id => ({ id, attachedDeviceId: enabled ? this.jumpAttachmentDeviceId(id) : "" }))
+      .filter(entry => this.jumpAttachmentDeviceId(entry.id));
+    if (!updates.length) return false;
+    this.beginProductionCommit(enabled ? "attach Jump Nodes" : "detach Jump Nodes");
+    this.applyJumpAttachmentSnapshot(updates);
+    const after = this.jumpAttachmentSnapshot();
+    this.recordCommand(jumpAttachmentCommand(before, after));
+    this.markCommitted(enabled ? "attach Jump Nodes" : "detach Jump Nodes", 0);
+    return true;
+  }
+
+  commitDeviceAutoAttach(deviceId, enabled) {
+    if (!this.ready) return false;
+    const id = String(deviceId || "");
+    const device = this.mutations?.deviceById.get(id)?.item;
+    if (!device || Boolean(device.autoAttachJumpNodes) === Boolean(enabled)) return false;
+    const before = this.jumpAttachmentSnapshot();
+    const oldValue = Boolean(device.autoAttachJumpNodes);
+    this.beginProductionCommit("auto-attach Jump Nodes");
+    this.applyDeviceAutoAttach(id, enabled);
+    const after = this.jumpAttachmentSnapshot();
+    this.recordCommand({
+      type: "DeviceAutoAttachJumpNodesCommand",
+      affectedIds: [id],
+      undo: bridge => {
+        bridge.applyDeviceAutoAttach(id, oldValue, { notify: false });
+        return bridge.applyJumpAttachmentSnapshot(before, { notify: false });
+      },
+      redo: bridge => {
+        bridge.applyDeviceAutoAttach(id, enabled, { notify: false });
+        return bridge.applyJumpAttachmentSnapshot(after, { notify: false });
+      }
+    });
+    this.markCommitted("auto-attach Jump Nodes", 0);
+    return true;
+  }
+
+  applyDeviceAutoAttach(deviceId, enabled, { notify = true } = {}) {
+    this.mutations?.setDeviceAutoAttach(deviceId, enabled);
+    const sceneDevice = this.scene.getDevice(deviceId);
+    if (sceneDevice) sceneDevice.autoAttachJumpNodes = Boolean(enabled);
+    this.applyJumpAttachmentSnapshot(this.jumpAttachmentSnapshot(), { notify });
+    return { mutationMs: 0 };
   }
 
   deviceMovementLocked(device) {
@@ -3853,8 +3944,11 @@ class ProductionEngineBridge {
       this.updateInteractionHud("wire-create failed");
       return;
     }
+    const beforeAttachments = this.jumpAttachmentSnapshot();
     this.beginProductionCommit("create wire");
     const mutationMs = this.mutations?.commitCreatedWire(this.scene, wire) || 0;
+    this.reconcileJumpAttachments(this.scene.jumpIdsForWire(wire));
+    const afterAttachments = this.jumpAttachmentSnapshot();
     const connectionData = this.mutations?.connectionDataForWire(wire.sourceId || wire.id);
     const dirtyStats = this.refreshWireVisuals([wire.id], {
       appendWireId: wire.id,
@@ -3869,7 +3963,7 @@ class ProductionEngineBridge {
     this.hud.setMetric("dirty counts", `${dirtyStats.dirtyDevices} dev / ${dirtyStats.dirtyWires} wires`);
     this.hud.setMetric("gpu update", dirtyStats.appended ? "append wire buffer" : "bufferSubData ranges");
     this.markCommitted("create wire", mutationMs);
-    this.recordCommand(createWireCommand(cloneWire(wire), connectionData));
+    this.recordCommand(withJumpAttachments(createWireCommand(cloneWire(wire), connectionData), beforeAttachments, afterAttachments));
     this.recordCompatibilityDiagnostic("wire-created", compatibility, source, target);
     this.updateSelectionHud();
     this.updateInteractionHud("wire-created");
@@ -4088,6 +4182,7 @@ class ProductionEngineBridge {
       return;
     }
     const beforeWire = cloneWire(wire);
+    const beforeAttachments = this.jumpAttachmentSnapshot();
     const beforeLedSurfaceIds = this.scene.ledSurfaceIdsForWire(beforeWire);
     const beforeConnection = rewire.originalConnection || this.mutations?.connectionDataForWire(wire.sourceId || wire.id);
     this.beginProductionCommit("rewire endpoint");
@@ -4114,6 +4209,8 @@ class ProductionEngineBridge {
       ...this.scene.jumpIdsForWire(beforeWire),
       ...this.scene.jumpIdsForWire(afterWire)
     ]);
+    this.reconcileJumpAttachments(affectedJumpIds);
+    const afterAttachments = this.jumpAttachmentSnapshot();
     const invalidatedJumpLinks = this.removeInvalidJumpLinksForJumps(affectedJumpIds);
     const dirtyStats = this.refreshWireVisuals([updated.id], {
       extraLedSurfaceIds: beforeLedSurfaceIds,
@@ -4131,7 +4228,7 @@ class ProductionEngineBridge {
       newConnectorWireCount: target.virtualSurfaceTarget ? 0 : this.scene.connectorExternalWireIds(target.device.id, target.connector.id).size,
     });
     this.finishWireInteraction({ selectWireId: updated.id, reason: "wire-rewired" });
-    this.recordCommand(moveWireEndpointCommand(beforeWire, afterWire, beforeConnection, afterConnection, invalidatedJumpLinks));
+    this.recordCommand(withJumpAttachments(moveWireEndpointCommand(beforeWire, afterWire, beforeConnection, afterConnection, invalidatedJumpLinks), beforeAttachments, afterAttachments));
     this.markCommitted("rewire endpoint", mutationMs);
     this.updateSelectionHud();
     this.updateInteractionHud("wire-rewired");
@@ -6337,9 +6434,17 @@ class ProductionEngineBridge {
       this.scheduleRender();
       return false;
     }
+    const dx = afterPosition.x - device.x;
+    const dy = afterPosition.y - device.y;
+    const followerIds = attachedJumpIdsForDevices(this.mutations?.root, [device.id]);
+    const followers = followerIds.map(id => this.scene.getDevice(id)).filter(Boolean);
+    const beforePositions = [...before, ...followers.map(captureDevicePosition).filter(Boolean)];
+    const afterPositions = [afterPosition, ...followers.map(follower => ({
+      id: follower.id, x: follower.x + dx, y: follower.y + dy
+    }))];
     this.beginProductionCommit("inspector position");
-    const result = this.applyDevicePositions([afterPosition], []);
-    this.recordCommand(moveDevicesCommand(before, [afterPosition], [], []));
+    const result = this.applyDevicePositions(afterPositions, []);
+    this.recordCommand(moveDevicesCommand(beforePositions, afterPositions, [], []));
     this.markCommitted("inspector position", result.mutationMs || 0, {
       inspectorFieldEdit: true,
       objectId: device.sourceId || device.id
@@ -8279,6 +8384,7 @@ class ProductionEngineBridge {
     const mutationMs = isEngineInternalRackWire(wireData)
       ? 0
       : this.mutations?.restoreWire(connectionData) || 0;
+    this.reconcileJumpAttachments(this.scene.jumpIdsForWire(wire));
     const dirtyStats = this.refreshWireVisuals([wire.id], {
       appendWireId: wire.id,
       reason: "restore wire"
@@ -8305,6 +8411,7 @@ class ProductionEngineBridge {
     const mutationMs = isEngineInternalRackWire(removed)
       ? 0
       : this.mutations?.deleteWire(removed.sourceId || removed.id) || 0;
+    this.reconcileJumpAttachments(affectedJumpIds);
     const dirtyStats = this.refreshWireVisuals([removed.id], {
       extraLedSurfaceIds: ledSurfaceIds,
       reason: "remove wire"
@@ -8441,6 +8548,7 @@ class ProductionEngineBridge {
       .filter(id => isEngineDeletableDevice(this.scene.getDevice(id)));
     if (!ids.length) return;
     const commitStart = performance.now();
+    const beforeAttachments = this.jumpAttachmentSnapshot();
     const selectionBefore = captureEngineSelection(this.scene);
     const connectedWireIds = uniqueItems([...this.scene.affectedWireIdsForObjects(ids)]);
     this.customDeviceDiagnostic("delete selected devices start", {
@@ -8477,8 +8585,10 @@ class ProductionEngineBridge {
       });
     });
     if (!deletedDevices.length && !deletedWires.length) return;
+    this.reconcileJumpAttachments(beforeAttachments.map(item => item.id));
+    const afterAttachments = this.jumpAttachmentSnapshot();
     this.scene.clearSelection();
-    this.recordCommand(deleteDevicesCommand(deletedDevices, deletedWires, selectionBefore));
+    this.recordCommand(withJumpAttachments(deleteDevicesCommand(deletedDevices, deletedWires, selectionBefore), beforeAttachments, afterAttachments));
     this.markCommitted(`delete ${deletedDevices.length} device${deletedDevices.length === 1 ? "" : "s"}`, mutationMs, {
       deletedDeviceCount: deletedDevices.length,
       deletedWireCount: deletedWires.length
@@ -8497,6 +8607,7 @@ class ProductionEngineBridge {
     const ids = uniqueItems((rackIds || []).map(id => String(id || "")).filter(Boolean));
     if (!ids.length) return;
     const commitStart = performance.now();
+    const beforeAttachments = this.jumpAttachmentSnapshot();
     const selectionBefore = captureEngineSelection(this.scene);
     const childIds = uniqueItems(ids.flatMap(rackId => this.scene.rackChildIds(rackId)));
     if (!childIds.length) return;
@@ -8537,8 +8648,9 @@ class ProductionEngineBridge {
         index: result.index
       });
     });
+    this.reconcileJumpAttachments(beforeAttachments.map(item => item.id));
     this.scene.clearSelection();
-    this.recordCommand(deleteRackInstancesCommand(deletedRacks, deletedDevices, deletedWires, selectionBefore));
+    this.recordCommand(withJumpAttachments(deleteRackInstancesCommand(deletedRacks, deletedDevices, deletedWires, selectionBefore), beforeAttachments, this.jumpAttachmentSnapshot()));
     this.markCommitted(`delete ${deletedRacks.length} rack${deletedRacks.length === 1 ? "" : "s"}`, mutationMs, {
       deletedRackCount: deletedRacks.length,
       deletedDeviceCount: deletedDevices.length,
@@ -8557,6 +8669,7 @@ class ProductionEngineBridge {
       return;
     }
     const commitStart = performance.now();
+    const beforeAttachments = this.jumpAttachmentSnapshot();
     const wireIds = [...this.scene.selectedWireIds];
     if (!wireIds.length) return;
     this.beginProductionCommit(`delete ${wireIds.length} wire${wireIds.length === 1 ? "" : "s"}`);
@@ -8572,7 +8685,7 @@ class ProductionEngineBridge {
       });
     });
     this.scene.selectedWireIds.clear();
-    this.recordCommand(deleteWiresCommand(deleted));
+    this.recordCommand(withJumpAttachments(deleteWiresCommand(deleted), beforeAttachments, this.jumpAttachmentSnapshot()));
     this.markCommitted(`delete ${wireIds.length} wire${wireIds.length === 1 ? "" : "s"}`, mutationMs);
     this.updateSelectionHud();
     this.updateInteractionHud("wire-delete");
@@ -10826,6 +10939,33 @@ function createWireCommand(wireData, connectionData) {
     affectedIds: [wireData?.id].filter(Boolean),
     undo: bridge => bridge.removeWire(wireData.id),
     redo: bridge => bridge.restoreWire(wireData, connectionData)
+  };
+}
+
+function jumpAttachmentCommand(before, after) {
+  return {
+    type: "JumpAttachmentCommand",
+    affectedIds: after.map(item => item.id),
+    undo: bridge => bridge.applyJumpAttachmentSnapshot(before, { notify: false }),
+    redo: bridge => bridge.applyJumpAttachmentSnapshot(after, { notify: false })
+  };
+}
+
+function withJumpAttachments(command, before, after) {
+  const undo = command.undo;
+  const redo = command.redo;
+  return {
+    ...command,
+    undo: bridge => {
+      const result = undo(bridge);
+      bridge.applyJumpAttachmentSnapshot(before, { notify: false });
+      return result;
+    },
+    redo: bridge => {
+      const result = redo(bridge);
+      bridge.applyJumpAttachmentSnapshot(after, { notify: false });
+      return result;
+    }
   };
 }
 

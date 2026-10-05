@@ -135,6 +135,19 @@ test("single Jump is detached and partial rack selection becomes an independent 
   assert.equal(payload.racks.length, 0); assert.equal(payload.devices[0].rackId, undefined);
 });
 
+test("pasted Jump attachment remaps only when its connected device is copied", () => {
+  const { project, bounds } = canvasClipboardFixture();
+  project.jumpNodes.find(node => node.id === "jump-out").attachedDeviceId = "ordinary-a";
+  const alone = clipboard.createCanvasClipboardPayload(project, [{ type: "jump-node", id: "jump-out" }], bounds);
+  const alonePlan = clipboard.prepareCanvasClipboardPaste(alone, project, target);
+  assert.equal(alonePlan.additions.jumpNodes[0].attachedDeviceId, undefined);
+  const together = clipboard.createCanvasClipboardPayload(project, [
+    { type: "jump-node", id: "jump-out" }, { type: "device", id: "ordinary-a" }
+  ], bounds);
+  const togetherPlan = clipboard.prepareCanvasClipboardPaste(together, project, target);
+  assert.equal(togetherPlan.additions.jumpNodes[0].attachedDeviceId, togetherPlan.additions.devices[0].instanceId);
+});
+
 test("same-origin fallback is atomic, versioned and expires after thirty minutes", () => {
   const records = new Map(), storage = { getItem: key => records.get(key), setItem: (key, value) => records.set(key, value) };
   const text = clipboard.serializeCanvasClipboard(fixture().payload);

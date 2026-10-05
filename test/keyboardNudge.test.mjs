@@ -4,20 +4,22 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 import { DragSession } from "../src/engine/dragSession.js";
+import { attachedJumpIdsForDevices } from "../src/engine/jumpAttachment.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { cableTypeSelectionFixture } from "../fixtures/cable-type-selection.mjs";
 
 const source = readFileSync(new URL("../src/engine/productionBridge.js", import.meta.url), "utf8");
 function harness() {
-  const context = vm.createContext({ DragSession, document: { querySelector: () => null }, uniqueItems: ids => [...new Set(ids)] });
+  const context = vm.createContext({ DragSession, attachedJumpIdsForDevices, document: { querySelector: () => null }, uniqueItems: ids => [...new Set(ids)] });
   for (const name of ["consumeEngineShortcut", "isEditableEventTarget", "isEngineCanvasShortcut"]) {
     vm.runInContext(source.match(new RegExp(`^function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?^\\}`, "m"))[0], context);
   }
   const methods = ["handleKeyDown", "nudgeSelectedDevices", "draggableSelectedIds", "deviceMovementLocked"]
     .map(name => source.match(new RegExp(`^  ${name}\\([^\\n]*\\) \\{[\\s\\S]*?^  \\}`, "m"))[0]);
   const b = vm.runInContext(`({${methods.join(",")}})`, context);
-  const scene = new SceneGraph(); scene.setData(normalizeAvDesignerProject(cableTypeSelectionFixture())); scene.selectOnly("source");
-  Object.assign(b, { scene, ready: true, camera: { zoom: 1 }, activeCanvasTool: () => "", draws: 0, moves: [],
+  const project = cableTypeSelectionFixture();
+  const scene = new SceneGraph(); scene.setData(normalizeAvDesignerProject(project)); scene.selectOnly("source");
+  Object.assign(b, { scene, mutations: { root: project }, ready: true, camera: { zoom: 1 }, activeCanvasTool: () => "", draws: 0, moves: [],
     scheduleRender() { this.draws++; }, completeDrag() {
       this.moves.push({ dx: this.dragSession.dx, dy: this.dragSession.dy, snapping: this.dragSession.snapSession });
       this.dragSession.commit(); this.dragSession = null;

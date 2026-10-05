@@ -184,6 +184,7 @@ export function normalizeEngineJumpNode(node = {}, index = 0) {
     width: JUMP_NODE_SIZE,
     height: JUMP_NODE_SIZE,
     label,
+    attachedDeviceId: String(node.attachedDeviceId || ""),
     labelMapped: Boolean(node.label || node.name),
     usesRealSize: true,
     usesFallbackSize: false,

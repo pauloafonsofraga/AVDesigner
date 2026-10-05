@@ -556,6 +556,7 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType, nod
     height,
     label,
     selectedProjectorLensId: visual.selectedProjectorLensId,
+    autoAttachJumpNodes: Boolean(instance.autoAttachJumpNodes),
     notes: String(instance.notes || ""),
     locked: Boolean(instance.locked),
     powerWatts: instance.powerWatts ?? template.powerWatts ?? "",

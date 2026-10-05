@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-38-59-export-filenames-pdf-progress";
+const BUILD_ID = "iteration54-38-60-attached-jump-nodes";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -52,11 +52,11 @@ const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify PDF Jump destinations");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-59-export-filenames-pdf-progress-modules";'), "module cache key should identify PDF Jump destinations");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-60-attached-jump-nodes-modules";'), "module cache key should identify attached Jump Nodes");
 assert.ok(indexHtml.includes("Signal Chain"), "visible build label should name Signal Chain");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-47-managed-cable-looms"'), "Engine bridge version should identify Managed Cable Looms");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-60-attached-jump-nodes"'), "Engine bridge version should identify attached Jump Nodes");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses"'), "Engine bridge feature label should identify Selectable Projector Lenses");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-38-47-managed-cable-looms"), "bridge fingerprint should identify Managed Cable Looms");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-38-60-attached-jump-nodes"), "bridge fingerprint should identify attached Jump Nodes");
 assert.ok(rendererSource.includes("renderer-iteration54-38-47-managed-cable-looms"), "renderer fingerprint should identify Managed Cable Looms");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");

@@ -3148,6 +3148,29 @@
       font-size: 13px;
     }
 
+    .jump-auto-attach-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 8px 0 14px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .jump-auto-attach-row .feature-toggle span {
+      min-width: 48px;
+      min-height: 25px;
+      padding: 3px 9px;
+    }
+
+    .jump-following-status {
+      display: block;
+      margin: -2px 0 12px 25px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
     .feature-toggle {
       display: inline-flex;
       align-items: center;
@@ -5186,7 +5209,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled WireNexus Project" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">Iteration 54.38.59 — Export Filenames and PDF Progress — iteration54-38-59-export-filenames-pdf-progress</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">Iteration 54.38.60 — Attached Jump Nodes — iteration54-38-60-attached-jump-nodes</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5910,12 +5933,12 @@
   <script src="./src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script src="./src/engine/projectorModelCore.js?v=iteration54-38-11-engine-status-labels"></script>
   <script src="./src/engine/historyCloneCore.js?v=iteration54-38-29-memory-safe-undo"></script>
-  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-59-export-filenames-pdf-progress"></script>
+  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-60-attached-jump-nodes"></script>
   <script type="text/wirenexus-app" id="wireNexusAppSource">
-    const APP_ITERATION = "54.38.59";
-    const APP_BUILD_ID = "iteration54-38-59-export-filenames-pdf-progress";
-    const APP_MODULE_CACHE_ID = "iteration54-38-59-export-filenames-pdf-progress-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Export Filenames and PDF Progress`;
+    const APP_ITERATION = "54.38.60";
+    const APP_BUILD_ID = "iteration54-38-60-attached-jump-nodes";
+    const APP_MODULE_CACHE_ID = "iteration54-38-60-attached-jump-nodes-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Attached Jump Nodes`;
     const { cloneHistoryValue, MAX_HISTORY_ENTRIES } = window.WireNexusHistoryClone;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
@@ -28566,6 +28589,7 @@
             x: Math.round(node.x + dx),
             y: Math.round(node.y + dy)
           };
+          delete clone.attachedDeviceId;
           maps.jumpNodes.set(node.id, clone.id);
           state.jumpNodes.push(clone);
           nextSelectionItems.push({ type: "jump-node", id: clone.id });
@@ -28632,12 +28656,18 @@
       const objects = multiObjectItems(items);
       const wireCount = (items || []).filter(item => item.type === "wire").length;
       const canAlign = objects.filter(selectionCanMove).length >= 2;
+      const jumpIds = items.length > 1 && items.every(item => item.type === "jump-node")
+        ? items.map(item => item.id) : [];
+      const bridge = activeEngineBridge();
+      const eligibleJumps = bridge ? jumpIds.filter(id => bridge.jumpAttachmentDeviceId(id)) : [];
+      const attachedCount = eligibleJumps.filter(id => jumpNodeById(id)?.attachedDeviceId === bridge.jumpAttachmentDeviceId(id)).length;
       inspectorBody.innerHTML = `
         <dl class="details">
           <dt>Type</dt><dd>Object Group</dd>
           <dt>Objects</dt><dd>${objects.length}</dd>
           ${wireCount ? `<dt>Wires</dt><dd>${wireCount}</dd>` : ""}
         </dl>
+        ${jumpIds.length && bridge ? `<label class="checkbox-row"><input id="multiJumpAttach" type="checkbox" ${eligibleJumps.length && attachedCount === eligibleJumps.length ? "checked" : ""} ${eligibleJumps.length ? "" : "disabled"}> Attach to connected devices</label>` : ""}
         <div class="config-section multi-object-actions">
           <h3>Align Objects</h3>
           <div class="align-button-grid">
@@ -28655,6 +28685,16 @@
         button.addEventListener("click", () => alignSelectedObjects(button.dataset.alignGroup));
       });
       document.getElementById("duplicateObjectGroup")?.addEventListener("click", duplicateSelectedObjects);
+      const bulkAttach = document.getElementById("multiJumpAttach");
+      if (bulkAttach) {
+        bulkAttach.indeterminate = attachedCount > 0 && attachedCount < eligibleJumps.length;
+        bulkAttach.addEventListener("change", () => {
+          const attach = bulkAttach.checked;
+          bridge.commitJumpAttachments(jumpIds, attach);
+          const skipped = jumpIds.length - eligibleJumps.length;
+          setStatus(`${eligibleJumps.length} Jump Node${eligibleJumps.length === 1 ? "" : "s"} ${attach ? "attached" : "detached"}${skipped ? `; ${skipped} not directly connected to a device` : ""}.`);
+        });
+      }
     }
 
     function renderInspector() {
@@ -29459,6 +29499,7 @@
           <label for="deviceNotes">Notes</label>
           <textarea id="deviceNotes">${escapeHtml(instance.notes || "")}</textarea>
         </div>
+        ${activeEngineBridge() ? `<div class="jump-auto-attach-row" title="Automatically attach current and future Jump Nodes connected directly to this device. Existing attachments remain when switched off."><span>Auto-attach Jump Nodes</span><label class="feature-toggle"><input id="deviceAutoAttachJumpNodes" type="checkbox" aria-label="Auto-attach Jump Nodes" ${instance.autoAttachJumpNodes ? "checked" : ""}><span>${instance.autoAttachJumpNodes ? "ON" : "OFF"}</span></label></div>` : ""}
         ${template.isMatrixRouter ? matrixRoutingMarkup(instance, { presentation: "inspector" }) : ""}
         <button class="tool-button" id="editCanvasDevice" type="button">Edit in Device Editor</button>
         <button class="danger-button" id="deleteSelected" type="button">Delete Device</button>
@@ -29488,6 +29529,9 @@
           instance.notes = value;
         }
       );
+      document.getElementById("deviceAutoAttachJumpNodes")?.addEventListener("change", event => {
+        activeEngineBridge()?.commitDeviceAutoAttach(instance.instanceId, event.target.checked);
+      });
       if (template.isMatrixRouter) bindMatrixRoutingInspector(instance, inspectorBody, { presentation: "inspector" });
       document.getElementById("deviceTechSpecsButton").addEventListener("click", () => openDeviceTechSpecs(template, instance));
       document.getElementById("editCanvasDevice").addEventListener("click", () => openDeviceEditorForInstance(instanceId));
@@ -30051,6 +30095,11 @@
       const localConnection = connectionForJumpNode(jumpNodeId)?.connection || null;
       const seed = portalSeedConnectionForJumpNode(jumpNodeId);
       const jumpLink = jumpLinkForJumpNode(jumpNodeId);
+      const bridge = activeEngineBridge();
+      const attachmentStatus = bridge?.jumpAttachmentStatus(jumpNodeId) || {};
+      const attachedDeviceId = attachmentStatus.deviceId || "";
+      const attachedDevice = attachedDeviceId ? instanceById(attachedDeviceId) : null;
+      const attachedName = attachedDevice?.name || templateForInstance(attachedDevice)?.name || "Device";
       inspectorBody.innerHTML = `
         <dl class="details">
           <dt>Type</dt><dd>Jump Node</dd>
@@ -30060,6 +30109,8 @@
           <dt>Status</dt><dd>${localConnection ? "Connected" : seed ? "Ready for continuation" : "Waiting for cable"}</dd>
           <dt>Cable</dt><dd>${escapeHtml(seed ? (cableTypes[seed.cableType]?.label || seed.cableType) : "")}</dd>
         </dl>
+        ${attachedDevice ? `<label class="checkbox-row"><input id="jumpAttachToDevice" type="checkbox" ${node.attachedDeviceId === attachedDeviceId ? "checked" : ""}> Attach to ${escapeHtml(attachedName)}</label>${node.attachedDeviceId === attachedDeviceId ? `<small class="jump-following-status">Following: ${escapeHtml(attachedName)}</small>` : ""}` : ""}
+        ${attachmentStatus.ambiguous ? `<small class="jump-following-status">Connected to multiple devices; attachment unavailable.</small>` : ""}
         <button class="tool-button" id="jumpToPair" type="button" ${pair ? "" : "disabled"}>Jump to Pair</button>
         ${jumpLink && pair ? `<button class="tool-button" id="jumpPlayWireTrace" type="button" data-jump-node-play-wire data-jump-id="${escapeAttr(jumpNodeId)}" data-jump-link-id="${escapeAttr(jumpLink.id)}">▶ Play Cable</button>` : ""}
         <button class="danger-button" id="deleteSelected" type="button">Delete Jump Node</button>
@@ -30079,6 +30130,9 @@
           return;
         }
 
+      });
+      document.getElementById("jumpAttachToDevice")?.addEventListener("change", event => {
+        bridge?.commitJumpAttachments([jumpNodeId], event.target.checked);
       });
       document.getElementById("deleteSelected")?.addEventListener("click", () => {
         state.selected = { type: "jump-node", id: jumpNodeId };

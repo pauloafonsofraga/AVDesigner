@@ -7,6 +7,7 @@ import {
 } from "./canvasObjectKinds.js";
 import { cloneMatrixRoutes } from "./matrixRouting.js?v=iteration54-4-0-matrix-routing-internal-routes";
 import { normalizeJumpLinks } from "./jumpNodeModel.js";
+import { eligibleDeviceForJump, reconcileJumpAttachment, jumpAttachmentSnapshot } from "./jumpAttachment.js";
 
 const ENGINE_EXPORT_FORMAT = "av-designer-engine-prototype";
 
@@ -108,6 +109,49 @@ export class ProjectMutationAdapter {
       const id = connection.id;
       if (id) this.connectionById.set(String(id), { item: connection, index });
     });
+  }
+
+  jumpAttachmentSnapshot() {
+    return jumpAttachmentSnapshot(this.root);
+  }
+
+  setJumpAttachments(states = []) {
+    let changed = 0;
+    for (const { id, attachedDeviceId } of states) {
+      const jump = this.jumpNodeById.get(String(id))?.item;
+      if (!jump) continue;
+      const next = String(attachedDeviceId || "");
+      if (String(jump.attachedDeviceId || "") === next) continue;
+      if (next && eligibleDeviceForJump(this.root, String(id)) !== next) continue;
+      if (next) jump.attachedDeviceId = next;
+      else delete jump.attachedDeviceId;
+      changed++;
+    }
+    if (changed) this.record("jump attachments", 0, "jumpNodes[].attachedDeviceId", { changed });
+    return changed;
+  }
+
+  reconcileJumpAttachments(ids = []) {
+    const uniqueIds = [...new Set(ids.map(String))];
+    const before = uniqueIds.map(id => ({ id, attachedDeviceId: String(this.jumpNodeById.get(id)?.item?.attachedDeviceId || "") }));
+    for (const id of uniqueIds) reconcileJumpAttachment(this.root, id);
+    const after = uniqueIds.map(id => ({ id, attachedDeviceId: String(this.jumpNodeById.get(id)?.item?.attachedDeviceId || "") }));
+    if (JSON.stringify(before) !== JSON.stringify(after)) this.record("reconcile jump attachments", 0, "jumpNodes[].attachedDeviceId");
+    return after;
+  }
+
+  setDeviceAutoAttach(deviceId, enabled) {
+    const entry = this.deviceById.get(String(deviceId));
+    if (!entry) return false;
+    entry.item.autoAttachJumpNodes = Boolean(enabled);
+    if (enabled) {
+      const ids = this.root.jumpNodes
+        .filter(jump => eligibleDeviceForJump(this.root, String(jump.id)) === String(deviceId))
+        .map(jump => String(jump.id));
+      this.reconcileJumpAttachments(ids);
+    }
+    this.record("device auto attach", 0, `devices[${entry.index}].autoAttachJumpNodes`);
+    return true;
   }
 
   originalProjectData() {
