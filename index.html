@@ -5067,6 +5067,16 @@
     .pdf-export-dialog label { display: grid; gap: 5px; font-size: 12px; font-weight: 700; }
     .pdf-export-dialog select, .pdf-export-dialog input { width: 100%; min-height: 34px; padding: 6px 9px; border: 1px solid var(--panel-border); border-radius: 5px; background: var(--panel-strong); color: var(--ink); }
     .pdf-export-dialog .pdf-export-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+    .pdf-generating-dialog { width: min(400px, calc(100vw - 24px)); max-width: none; padding: 0; border: 0; background: transparent; color: #cbd6e3; }
+    .pdf-generating-dialog::backdrop { background: #000a; }
+    .pdf-generating-card { display: grid; gap: 12px; padding: 22px 24px; border: 1px solid rgba(50,182,255,.45); border-radius: 8px; background: rgba(18,28,38,.96); box-shadow: 0 18px 60px rgba(0,0,0,.45), 0 0 34px rgba(50,182,255,.18); }
+    .pdf-generating-card h2 { margin: 0; color: #32b6ff; font-size: 16px; text-transform: uppercase; }
+    .pdf-generating-card span { font-size: 13px; }
+    .pdf-generating-bar { position: relative; height: 6px; overflow: hidden; border-radius: 999px; background: rgba(204,215,228,.16); }
+    .pdf-generating-bar span { position: absolute; inset: 0 auto 0 0; width: 44%; border-radius: inherit; background: linear-gradient(90deg, #32b6ff, #ff7904); animation: pdf-generating-sweep 1s ease-in-out infinite; }
+    .pdf-generating-card p { margin: 0; color: #93a3b3; font-size: 12px; line-height: 1.4; }
+    @keyframes pdf-generating-sweep { from { transform: translateX(-100%); } to { transform: translateX(230%); } }
+    @media (prefers-reduced-motion: reduce) { .pdf-generating-bar span { animation: none; } }
     .signal-chain-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--panel-border); }
     .signal-chain-header h2 { margin: 0; font-size: 15px; }
     .signal-chain-body { padding: 18px; }
@@ -5176,7 +5186,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled WireNexus Project" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">Iteration 54.38.58 — Padded PDF Jump Navigation — iteration54-38-58-padded-pdf-jump-navigation</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">Iteration 54.38.59 — Export Filenames and PDF Progress — iteration54-38-59-export-filenames-pdf-progress</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5387,6 +5397,14 @@
         <button class="primary-button" id="confirmPdfExport" type="submit">Export PDF</button>
       </div>
     </form>
+  </dialog>
+  <dialog id="pdfGeneratingDialog" class="pdf-generating-dialog" aria-labelledby="pdfGeneratingTitle">
+    <div class="pdf-generating-card" role="status" aria-live="polite">
+      <h2 id="pdfGeneratingTitle">Generating PDF</h2>
+      <span id="pdfGeneratingStatus">Preparing PDF engine...</span>
+      <div class="pdf-generating-bar" aria-hidden="true"><span></span></div>
+      <p>Large projects may take a few seconds.</p>
+    </div>
   </dialog>
 
   <div class="context-menu hidden" id="deviceContextMenu" role="menu"></div>
@@ -5892,12 +5910,12 @@
   <script src="./src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script src="./src/engine/projectorModelCore.js?v=iteration54-38-11-engine-status-labels"></script>
   <script src="./src/engine/historyCloneCore.js?v=iteration54-38-29-memory-safe-undo"></script>
-  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-58-padded-pdf-jump-navigation"></script>
+  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-59-export-filenames-pdf-progress"></script>
   <script type="text/wirenexus-app" id="wireNexusAppSource">
-    const APP_ITERATION = "54.38.58";
-    const APP_BUILD_ID = "iteration54-38-58-padded-pdf-jump-navigation";
-    const APP_MODULE_CACHE_ID = "iteration54-38-58-padded-pdf-jump-navigation-modules";
-    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Padded PDF Jump Navigation`;
+    const APP_ITERATION = "54.38.59";
+    const APP_BUILD_ID = "iteration54-38-59-export-filenames-pdf-progress";
+    const APP_MODULE_CACHE_ID = "iteration54-38-59-export-filenames-pdf-progress-modules";
+    const APP_BUILD_LABEL = `Iteration ${APP_ITERATION} — Export Filenames and PDF Progress`;
     const { cloneHistoryValue, MAX_HISTORY_ENTRIES } = window.WireNexusHistoryClone;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
@@ -30737,8 +30755,7 @@
 
     function projectFileBaseName() {
       return projectDisplayName()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/[^A-Za-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "")
         .slice(0, 80) || "av-wirechart";
     }
@@ -31685,24 +31702,33 @@ document.addEventListener("click", function(event) {
       pdfExportBusy = true;
       const toolbarButton = document.getElementById("exportPdf");
       const confirmButton = document.getElementById("confirmPdfExport");
+      const generatingDialog = document.getElementById("pdfGeneratingDialog");
+      const generatingStatus = document.getElementById("pdfGeneratingStatus");
       toolbarButton.disabled = true;
       confirmButton.disabled = true;
       setStatus("Generating PDF...");
       const started = outputNow();
       try {
+        generatingStatus.textContent = "Preparing PDF engine...";
+        generatingDialog.showModal();
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         await ensureEngineOutputSceneModule();
         const module = await import(`./src/engine/generated/outputPdfBundle.js?v=${APP_BUILD_ID}`);
+        generatingStatus.textContent = "Preparing drawing...";
         const snapshot = buildCanonicalOutputSnapshot({ mode: "pdf-report", drawingDependency: "engine-svg" });
         const drawing = await buildEnginePrintDrawing(snapshot);
+        generatingStatus.textContent = "Generating vector PDF...";
         const result = await module.generatePdf({ svg: drawing.svg, diagnostics: drawing.diagnostics,
           engineScene: snapshot.engineScene, reportData: snapshot.reportData, options });
         if (result.warnings.length) throw new Error(`PDF artwork could not be rendered: ${result.warnings.join("; ")}`);
+        generatingStatus.textContent = "Finalizing download...";
         downloadBlob(result.bytes, `${projectFileBaseName()}-report.pdf`, "application/pdf");
         recordOutputTiming("pdf-report", { pdfMs: outputNow() - started });
         setStatus("PDF exported.");
       } catch (error) {
         setStatus(`PDF export failed: ${error.message || error}`);
       } finally {
+        if (generatingDialog.open) generatingDialog.close();
         pdfExportBusy = false;
         toolbarButton.disabled = false;
         confirmButton.disabled = false;
@@ -33677,6 +33703,9 @@ document.addEventListener("click", function(event) {
     });
     document.getElementById("exportPdf").addEventListener("click", editorActions.exportPdf);
     document.getElementById("cancelPdfExport").addEventListener("click", () => document.getElementById("pdfExportDialog").close());
+    document.getElementById("pdfGeneratingDialog").addEventListener("cancel", event => {
+      if (pdfExportBusy) event.preventDefault();
+    });
     document.getElementById("pdfExportForm").addEventListener("submit", event => {
       event.preventDefault();
       const form = event.currentTarget;

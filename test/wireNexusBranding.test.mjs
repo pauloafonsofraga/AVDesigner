@@ -37,6 +37,32 @@ test("default project title is rebranded without rewriting a user's existing pro
   assert.equal(context.document.title, "AV Designer Launch Event - WireNexus by Video Core");
 });
 
+test("shared export filename base preserves project capitalization and existing suffixes", async () => {
+  for (const [name, expected] of [
+    ["11846-VX-GPJ-SalesforceWorldTour-Wirechart_Rev1.0",
+      "11846-VX-GPJ-SalesforceWorldTour-Wirechart-Rev1-0"],
+    ["My CLIENT Project 2026", "My-CLIENT-Project-2026"],
+    ["  _..._  ", "av-wirechart"]
+  ]) {
+    const baseName = shellFunction("projectFileBaseName", { projectDisplayName: () => name });
+    assert.equal(baseName(), expected);
+    const suggested = shellFunction("suggestedProjectFileName", { projectFileBaseName: baseName });
+    assert.equal(suggested(), `${expected}-project.avd`);
+  }
+  const downloads = [];
+  const context = { projectFileBaseName: () => "My-CLIENT-Project-2026", cableScheduleRows: [],
+    refreshCableSchedule: async () => {}, loadCableScheduleModule: async () => ({ cableScheduleCsv: () => "csv" }),
+    loadCableScheduleXlsxBundle: async () => ({ createCableScheduleXlsx: async () => new Uint8Array([1]) }),
+    serializeNodeLibrary: () => [], imagePathToDataUrl: () => "", state: { looms: [] },
+    downloadBlob: (...args) => downloads.push(args), alert(message) { throw new Error(message); } };
+  const download = shellFunction("downloadCableSchedule", context);
+  await download("csv");
+  await download("xlsx");
+  assert.deepEqual(downloads.map(([, filename]) => filename), [
+    "My-CLIENT-Project-2026-cable-schedule.csv", "My-CLIENT-Project-2026-cable-schedule.xlsx"
+  ]);
+});
+
 test("save and open pickers use the new name but keep the same extensions and project contents", async () => {
   const pickers = [], writes = [], loads = [], file = { name: "existing.avd" };
   const handle = { name: file.name, getFile: async () => file };
