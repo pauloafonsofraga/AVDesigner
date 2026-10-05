@@ -12,12 +12,16 @@ const browser = await chromium.launch({ headless: true,
 const sizes = [[900, 650], [1200, 800], [1500, 1000], [1920, 1080], [1000, 1400]];
 const results = [];
 let clicks = 0;
+const denseOnly = process.env.AVDESIGNER_DENSE_ONLY === "1";
 try {
   for (const [width, height] of sizes) {
     const context = await browser.newContext({ viewport: { width, height }, offline: true });
     for (const [name, fixture] of Object.entries(cases)) {
+      if ((name === "dense-acceptance") !== denseOnly) continue;
       const page = await context.newPage();
-      await page.goto(pathToFileURL(join(dir, `${name}.pdf`)).href);
+      const pdfPath = name === "dense-acceptance" && process.env.AVDESIGNER_PDF_ACCEPTANCE_PATH
+        ? process.env.AVDESIGNER_PDF_ACCEPTANCE_PATH : join(dir, `${name}.pdf`);
+      await page.goto(pathToFileURL(pdfPath).href);
       const viewer = await page.waitForEvent("frameattached", {
         predicate: frame => frame.url().startsWith("chrome-extension://"), timeout: 2500
       }).catch(() => page.frames().find(frame => frame.url().startsWith("chrome-extension://")));
@@ -37,7 +41,9 @@ try {
           position: { ...viewport.position }, zoom: viewport.getZoom(),
           main: { left: main.left, top: main.top, right: main.right, bottom: main.bottom } };
       }, { node });
-      for (const id of ["strict-a", "bidi-a"]) {
+      for (const id of denseOnly
+        ? ["patch-1-a", "patch-2-a", "patch-3-a", "patch-4-a", "patch-5-a"]
+        : ["strict-a", "bidi-a"]) {
         const a = nodes.find(node => node.sourceId === id);
         const b = nodes.find(node => node.sourceId === a.targetId);
         await viewer.evaluate(({ node }) => {
@@ -67,6 +73,13 @@ try {
           `${name}/${width}x${height}/${target.sourceId}: target offscreen ${JSON.stringify(after)}`);
           assert.equal(after.zoom, 3,
             `${name}/${width}x${height}/${target.sourceId}: destination changed viewer zoom`);
+          const drawing = target.drawingRect;
+          const padX = Math.max(48, Math.min(96, drawing.width * 0.08));
+          const padY = Math.max(48, Math.min(96, drawing.height * 0.08));
+          if (target.pdfRect.x - drawing.x > padX && target.pdfRect.y - drawing.y > padY) {
+            assert.ok(after.x - after.main.left > 40 && after.y - after.main.top > 40,
+              `${name}/${width}x${height}/${target.sourceId}: interior target lacks visible context ${JSON.stringify(after)}`);
+          }
           assert.equal(context.pages().length, 1, "internal link must not open a browser URL");
           results.push({ viewport: `${width}x${height}`, name, sourceId: source.sourceId,
             sourceRect: source.pdfRect, targetId: target.sourceId, targetRect: target.pdfRect,
@@ -75,19 +88,22 @@ try {
           if ((name === "wide-a3-4-fit" && ["900x650", "1500x1000", "1920x1080", "1000x1400"]
             .includes(`${width}x${height}`) && source.sourceId === "strict-a")
             || (name === "edge-bottom-right" && width === 900 && source.sourceId === "strict-a")
-            || (name === "cross-page" && width === 1500 && source.sourceId === "strict-a")) {
+            || (name === "cross-page" && width === 1500 && source.sourceId === "strict-a")
+            || (name === "dense-acceptance" && [900, 1500].includes(width)
+              && source.sourceId === "patch-1-a")) {
             await page.screenshot({ path: join(dir,
               `${name}-${width}x${height}-${source.sourceId}-to-${target.sourceId}.png`) });
           }
         }
       }
       await page.close();
-      console.log(`PASS ${name} ${width}x${height}: four reciprocal offline clicks, target visible, zoom retained`);
+      console.log(`PASS ${name} ${width}x${height}: ${denseOnly ? 10 : 4} reciprocal offline clicks, target visible, zoom retained`);
     }
     await context.close();
   }
   console.log(JSON.stringify({ passed: clicks, failed: 0, skipped: 0 }));
 } finally {
-  writeFileSync(join(dir, "click-results.json"), JSON.stringify(results, null, 2));
+  writeFileSync(join(dir, denseOnly ? "dense-click-results.json" : "click-results.json"),
+    JSON.stringify(results, null, 2));
   await browser.close();
 }

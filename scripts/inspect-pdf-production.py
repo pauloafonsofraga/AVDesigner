@@ -51,9 +51,14 @@ for name, case in expected.items():
         assert len(action_destination) == 5
         assert action_destination[0] == reader.pages[target["pageIndex"]].indirect_reference
         assert action_destination[1] == "/XYZ"
-        assert abs(float(action_destination[2]) - target["pdfRect"]["x"]) < 0.03
-        assert abs(float(action_destination[3]) -
-                   (target["paperHeight"] - target["pdfRect"]["y"])) < 0.03
+        drawing_rect = target["drawingRect"]
+        pad_x = max(48, min(96, drawing_rect["width"] * 0.08))
+        pad_y = max(48, min(96, drawing_rect["height"] * 0.08))
+        expected_left = max(drawing_rect["x"], target["pdfRect"]["x"] - pad_x)
+        expected_top = min(target["paperHeight"] - drawing_rect["y"],
+                           target["paperHeight"] - target["pdfRect"]["y"] + pad_y)
+        assert abs(float(action_destination[2]) - expected_left) < 0.03
+        assert abs(float(action_destination[3]) - expected_top) < 0.03
         assert str(action_destination[4]) == "NullObject", f"{name}: zoom must remain unchanged"
     assert seen == set(nodes), f"{name}: missing reciprocal source annotations"
     drawing = reader.pages[0]

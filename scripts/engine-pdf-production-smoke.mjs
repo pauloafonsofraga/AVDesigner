@@ -8,6 +8,7 @@ import { buildOutputJumpNavigation } from "../src/engine/outputNavigation.js";
 import { pdfPageLayout, jumpNavigationContext, fitRCoordinates } from "../src/engine/outputPdfLayout.js";
 import { generatePdf } from "../src/engine/outputPdf.js";
 import { outputPdfJumpFixture } from "../fixtures/output-pdf-jumps.mjs";
+import { pdfJumpPaddedAcceptanceFixture } from "../fixtures/pdf-jump-padded-acceptance.mjs";
 
 const dir = mkdtempSync(join(tmpdir(), "wirenexus-pdf-production-"));
 const options = [
@@ -42,7 +43,7 @@ async function produce(name, drawingPages, config = {}, report = reportData) {
         const pdfRect = layout.rect(node.bounds);
         return { ...node, pageIndex, pdfRect, contextRect: jumpNavigationContext(layout, pdfRect),
           fitR: fitRCoordinates(layout.paperHeight, jumpNavigationContext(layout, pdfRect)),
-          paperHeight: layout.paperHeight };
+          paperHeight: layout.paperHeight, drawingRect: layout.drawingRect };
       });
   });
   assert.equal(result.jumpAnnotations, nodes.length);
@@ -86,6 +87,13 @@ const drawingPages = halves.map(ids => {
 });
 drawingPages[1].options = { paper: "A4", orientation: "portrait", marginMm: 10 };
 await produce("cross-page", drawingPages, { paper: "A3", marginMm: 4 });
+
+const denseScene = buildEngineOutputScene(pdfJumpPaddedAcceptanceFixture());
+assert.equal(denseScene.devices.length, 110);
+assert.equal(denseScene.wires.length, 310);
+assert.equal(denseScene.jumpLinks.length, 5);
+await produce("dense-acceptance", [{ ...renderEngineOutputSvg(denseScene), engineScene: denseScene }],
+  { paper: "A3", marginMm: 4 });
 
 if (process.argv[2]) {
   for (const [name, source] of [["full-project", "engine-full"], ["large-report", "multipage"],

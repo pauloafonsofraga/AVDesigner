@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { pdfPageLayout, jumpNavigationContext, fitRCoordinates,
   JUMP_CONTEXT_FRACTION } from "../src/engine/outputPdfLayout.js";
-import { jumpXyzDestination } from "../src/engine/outputPdfNavigation.js";
+import { jumpXyzDestination, jumpXyzNavigationAnchor } from "../src/engine/outputPdfNavigation.js";
 import { generatePdf } from "../src/engine/outputPdf.js";
 import { outputPdfJumpFixture } from "../fixtures/output-pdf-jumps.mjs";
 import { buildEngineOutputScene } from "../src/engine/outputSceneSnapshot.js";
@@ -58,14 +58,31 @@ test("FitR navigation context is centred or clamped to every page edge", () => {
   }
 });
 
-test("Jump destination uses the exact target coordinate and preserves viewer zoom", () => {
+test("Jump destination pads an interior target within its drawing and preserves viewer zoom", () => {
   for (const paper of ["A4", "A3", "A2", "A1"]) {
     const layout = pdfPageLayout({ paper, svgViewBox: view });
-    const hit = layout.rect({ x: 50, y: 200, width: 44, height: 44 });
+    const hit = layout.rect({ x: 500, y: 300, width: 44, height: 44 });
     const targetPageRef = { id: paper };
-    assert.deepEqual(jumpXyzDestination(targetPageRef, hit, layout.paperHeight),
-      [targetPageRef, "XYZ", hit.x, layout.paperHeight - hit.y, null]);
+    const { left, top } = jumpXyzNavigationAnchor(layout, hit);
+    assert.equal(left, Math.max(layout.drawingRect.x, hit.x - Math.max(48, Math.min(96, layout.drawingRect.width * 0.08))));
+    assert.equal(top, Math.min(layout.paperHeight - layout.drawingRect.y,
+      layout.paperHeight - hit.y + Math.max(48, Math.min(96, layout.drawingRect.height * 0.08))));
+    assert.ok(left < hit.x && top > layout.paperHeight - hit.y);
+    assert.deepEqual(jumpXyzDestination(targetPageRef, hit, layout),
+      [targetPageRef, "XYZ", left, top, null]);
   }
+});
+
+test("Jump anchor clamps at the drawing top-left, including letterboxed drawings", () => {
+  const layout = pdfPageLayout({ paper: "A4", orientation: "portrait",
+    svgViewBox: { x: 0, y: 0, width: 200, height: 3000 } });
+  const topLeft = { x: layout.drawingRect.x, y: layout.drawingRect.y, width: 12, height: 12 };
+  assert.deepEqual(jumpXyzNavigationAnchor(layout, topLeft), {
+    left: layout.drawingRect.x, top: layout.paperHeight - layout.drawingRect.y
+  });
+  const targetPageRef = { id: "a4-portrait" };
+  assert.equal(jumpXyzDestination(targetPageRef, topLeft, layout)[0], targetPageRef);
+  assert.equal(jumpXyzDestination(targetPageRef, topLeft, layout)[4], null);
 });
 
 test("PDFKit production generator creates vector PDF bytes with reciprocal Jump annotations", async () => {

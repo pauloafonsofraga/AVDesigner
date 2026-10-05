@@ -162,14 +162,14 @@ export async function generatePdf({ svg, diagnostics, engineScene, drawingPages,
     doc.restore();
     for (const node of navigation.filter(item => item.pageIndex === pageIndex)) {
       const hit = pageLayout.rect(node.bounds);
-      destinations.set(node.destinationId, { hit, pageIndex, paperHeight: pageLayout.paperHeight });
+      destinations.set(node.destinationId, { hit, pageIndex });
     }
   }
   for (const node of navigation) {
     const source = destinations.get(node.destinationId);
     const target = destinations.get(node.targetDestinationId);
     doc.switchToPage(source.pageIndex);
-    addJumpLink(doc, source.hit, pageRefs[target.pageIndex], target.hit, target.paperHeight);
+    addJumpLink(doc, source.hit, pageRefs[target.pageIndex], target.hit, layouts[target.pageIndex]);
   }
   doc.flushPages();
   if (reportData) reportPages(doc, reportData, layout);
