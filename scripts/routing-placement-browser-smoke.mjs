@@ -4,12 +4,34 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { cableTypeSelectionFixture } from "../fixtures/cable-type-selection.mjs";
+import { loomBundleWidths, loomCoreColors } from "../src/engine/routingPlacement.js";
 
 const { chromium } = createRequire(import.meta.url)(process.env.AVDESIGNER_PLAYWRIGHT_PATH || "playwright");
 const browser = await chromium.launch({ headless: true,
   ...(process.env.AVDESIGNER_CHROME_PATH ? { executablePath: process.env.AVDESIGNER_CHROME_PATH } : {}) });
 const screenshots = mkdtempSync(join(tmpdir(), "wirenexus-routing-placement-"));
 const errors = [];
+function projectWithLoom(types) {
+  const snapshot = structuredClone(cableTypeSelectionFixture());
+  const loomId = "loom-core-browser";
+  for (const [deviceIndex, device] of snapshot.devices.entries()) {
+    const template = structuredClone(device.templateOverride);
+    template.height = 150 + types.length * 28;
+    template.connectors = types.map((type, index) => ({ id: `core-port-${index}`, type,
+      physicalType: type, connectorType: type, label: type.toUpperCase(),
+      direction: deviceIndex ? "input" : "output", signalDirection: deviceIndex ? "input" : "output",
+      displaySide: deviceIndex ? "left" : "right", x: deviceIndex ? 0 : template.width,
+      y: 96 + index * 28 }));
+    device.templateOverride = template;
+  }
+  snapshot.connections = types.map((cableType, index) => ({ id: `progressive-cable-${index + 1}`,
+    cableType, loomId, from: { deviceId: "source", connectorId: `core-port-${index}` },
+    to: { deviceId: "sink", connectorId: `core-port-${index}` } }));
+  snapshot.looms = [{ id: loomId, name: "LM-Core-Test", kind: "loom",
+    sideA: { label: "Side A", x: 500, y: 300 }, sideB: { label: "Side B", x: 760, y: 300 },
+    routeStyle: "bezier", routePoints: [], trunkLength: "", notes: "" }];
+  return snapshot;
+}
 try {
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
   page.on("pageerror", error => errors.push(error.message));
@@ -132,12 +154,49 @@ try {
   await page.screenshot({ path: join(screenshots, "loom-with-cable.png") });
 
   const saved = await page.evaluate(async () => JSON.parse(await projectJsonPayload()));
+
+  const renderCoreCase = async (types, name) => {
+    await page.evaluate(snapshot => restoreSnapshot(snapshot), projectWithLoom(types));
+    await page.waitForFunction(count => activeEngineBridge()?.scene.loomPlans[0]?.circuitCount === count, types.length);
+    const state = await page.evaluate(() => {
+      const bridge = activeEngineBridge(), plan = bridge.scene.loomPlans[0];
+      return { circuitCount: plan.circuitCount, coreColors: [...plan.coreColors],
+        wires: bridge.scene.wires.map(wire => ({ id: wire.id, color: wire.customColor || wire.color })),
+        loomVertices: bridge.renderer.wireVertexMap.get(`loom:${plan.loomId}`).length };
+    });
+    const orderedWires = types.map((_, index) => state.wires.find(wire => wire.id === `progressive-cable-${index + 1}`));
+    assert.ok(orderedWires.every(Boolean));
+    assert.deepEqual(state.coreColors, loomCoreColors(orderedWires));
+    assert.ok(state.coreColors.length <= 8);
+    assert.ok(state.loomVertices > 0);
+    assert.ok(loomBundleWidths(state.coreColors.length).sheath <= loomBundleWidths(8).sheath);
+    assert.equal(loomBundleWidths(9).sheath, loomBundleWidths(8).sheath);
+    await page.screenshot({ path: join(screenshots, `${name}.png`) });
+    return state.coreColors;
+  };
+  await renderCoreCase(["hdmi"], "cores-01-hdmi");
+  await renderCoreCase(Array(4).fill("hdmi"), "cores-04-hdmi");
+  await renderCoreCase(Array(20).fill("hdmi"), "cores-20-hdmi-capped");
+  await renderCoreCase([...Array(12).fill("hdmi"), "xlr-3pin"], "cores-12-hdmi-1-xlr");
+  const diverseBase = [...Array(3).fill("hdmi"), ...Array(3).fill("xlr-3pin"), ...Array(2).fill("sdi")];
+  await renderCoreCase(diverseBase, "cores-mixed-eight");
+  await renderCoreCase([...diverseBase, "fiber-lc"], "cores-add-fibre");
+  await renderCoreCase([...diverseBase, "fiber-lc", "ethercon"], "cores-add-network");
+  await renderCoreCase([...diverseBase, "fiber-lc", "ethercon", "usb-a"], "cores-add-usb");
+  await renderCoreCase([...diverseBase, "fiber-lc", "ethercon", "usb-a", "iec"], "cores-add-power");
+  const eightUnique = [...diverseBase, "fiber-lc", "ethercon", "usb-a", "iec", "speakon-nl4"];
+  const capped = await renderCoreCase(eightUnique, "cores-eight-unique");
+  assert.deepEqual(await renderCoreCase([...eightUnique, "dmx-5pin"], "cores-ninth-hidden"), capped);
+  assert.deepEqual(await renderCoreCase([...eightUnique, "dmx-5pin", "rca"], "cores-tenth-hidden"), capped);
+  assert.deepEqual(await renderCoreCase([...eightUnique, "dmx-5pin", "rca", "hdmi"], "cores-add-existing-at-cap"), capped);
+  await renderCoreCase([...eightUnique.slice(1), "dmx-5pin", "rca"], "cores-remove-and-reveal");
+
   await page.evaluate(snapshot => restoreSnapshot(snapshot), saved);
   await page.waitForFunction(() => activeEngineBridge()?.ready);
   assert.equal(await page.evaluate(() => activeEngineBridge().scene.loomPlans[0].circuitCount), 2);
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({ screenshots, manualWires: 2, loomId: cable.loomId,
-    circuits: 2, browserErrors: errors.length }));
+    circuits: 2, coreCompositionCases: 14, browserErrors: errors.length }));
 } finally {
   await browser.close();
 }

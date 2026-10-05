@@ -1,6 +1,7 @@
 export const LOOM_TAPE_COLOR = "#454c53";
 export const LOOM_GATEWAY_RING_COLOR = "#0c4fe8";
 export const LOOM_BREAKOUT_COLOR = "#59636b";
+export const LOOM_MAX_VISIBLE_CORES = 8;
 
 export function orthogonalManualPoints(points) {
   if (points.length < 2) return points;
@@ -16,7 +17,8 @@ export function orthogonalManualPoints(points) {
 }
 
 export function loomBundleWidths(coreCount) {
-  const sheath = Math.max(16, Math.max(1, coreCount) * 2.6 + 7);
+  const visibleCount = Math.min(LOOM_MAX_VISIBLE_CORES, Math.max(1, Number(coreCount) || 0));
+  const sheath = Math.max(16, visibleCount * 2.6 + 7);
   return { sheath, jacket: Math.max(3, (sheath - 3) / 2), core: 2.3 };
 }
 
@@ -25,18 +27,28 @@ export function gatewayExitSide(entrySide) {
 }
 
 export function loomCoreColors(wires) {
-  const cableGroups = new Map();
+  const colorGroups = new Map();
   for (const wire of wires) {
     const color = String(wire.customColor || wire.color || "#32b6ff").trim();
-    const type = String(wire.cableType || wire.connectorType || wire.type || "").trim().toLowerCase();
-    const key = type ? `type:${type}` : `color:${color.toLowerCase()}`;
-    if (!cableGroups.has(key)) cableGroups.set(key, { repeat: !!type, colors: [] });
-    cableGroups.get(key).colors.push(color);
+    const key = color.toLowerCase();
+    if (!colorGroups.has(key)) colorGroups.set(key, { color, count: 0 });
+    colorGroups.get(key).count += 1;
   }
-  const groups = [...cableGroups.values()];
-  return groups.length === 1 && groups[0].repeat
-    ? groups[0].colors.slice(0, 6)
-    : groups.map(group => group.colors[0]);
+  const groups = [...colorGroups.values()].slice(0, LOOM_MAX_VISIBLE_CORES)
+    .map(group => ({ ...group, visible: group.count }));
+  let visibleCount = groups.reduce((total, group) => total + group.visible, 0);
+  while (visibleCount > LOOM_MAX_VISIBLE_CORES) {
+    let largest = -1;
+    for (let index = 0; index < groups.length; index += 1) {
+      if (groups[index].visible > 1 && (largest < 0 || groups[index].visible > groups[largest].visible)) {
+        largest = index;
+      }
+    }
+    if (largest < 0) break;
+    groups[largest].visible -= 1;
+    visibleCount -= 1;
+  }
+  return groups.flatMap(group => Array(group.visible).fill(group.color));
 }
 
 export function tapeBandsAlongPath(points, interval = 54, width = 18) {

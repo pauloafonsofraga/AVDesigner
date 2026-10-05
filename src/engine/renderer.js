@@ -67,7 +67,7 @@ import { wirePlaybackEase } from "./wirePlayback.js";
 import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-63-loom-appearance";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-64-loom-core-balance";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
