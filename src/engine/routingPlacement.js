@@ -1,5 +1,6 @@
 export const LOOM_TAPE_COLOR = "#454c53";
 export const LOOM_GATEWAY_RING_COLOR = "#0c4fe8";
+export const LOOM_BREAKOUT_COLOR = "#59636b";
 
 export function orthogonalManualPoints(points) {
   if (points.length < 2) return points;
@@ -32,9 +33,10 @@ export function loomCoreColors(wires) {
     if (!cableGroups.has(key)) cableGroups.set(key, { repeat: !!type, colors: [] });
     cableGroups.get(key).colors.push(color);
   }
-  return [...cableGroups.values()].flatMap(group => group.repeat
-    ? group.colors.slice(0, 6)
-    : group.colors.slice(0, 1));
+  const groups = [...cableGroups.values()];
+  return groups.length === 1 && groups[0].repeat
+    ? groups[0].colors.slice(0, 6)
+    : groups.map(group => group.colors[0]);
 }
 
 export function tapeBandsAlongPath(points, interval = 54, width = 18) {

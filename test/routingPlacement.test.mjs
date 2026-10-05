@@ -4,7 +4,7 @@ import { cableTypeSelectionFixture } from "../fixtures/cable-type-selection.mjs"
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 import { dissolveLoom } from "../src/engine/loomModel.js";
-import { gatewayExitSide, LOOM_GATEWAY_RING_COLOR, LOOM_TAPE_COLOR, loomBundleWidths,
+import { gatewayExitSide, LOOM_BREAKOUT_COLOR, LOOM_GATEWAY_RING_COLOR, LOOM_TAPE_COLOR, loomBundleWidths,
   loomCoreColors, orthogonalManualPoints, tapeBandsAlongPath } from "../src/engine/routingPlacement.js";
 import { wirePolylineFromPoints } from "../src/engine/wirePath.js";
 
@@ -57,18 +57,19 @@ test("one logical cable traverses either Loom endpoint and keeps authored legs",
   }
 });
 
-test("Loom cores repeat same-type circuits up to six while different types appear once", () => {
+test("Loom repeats one cable type up to six, but mixed types each appear exactly once", () => {
   const yellow = { color: "#ffee00" }, green = { color: "#00aa55" };
+  const hdmi = { cableType: "hdmi", color: yellow.color };
+  const sdi = { cableType: "sdi", color: green.color };
   assert.deepEqual(loomCoreColors([]), []);
   assert.deepEqual(loomCoreColors([yellow]), [yellow.color]);
   assert.deepEqual(loomCoreColors(Array(3).fill(yellow)), [yellow.color]);
   assert.deepEqual(loomCoreColors(Array(8).fill(yellow)), [yellow.color]);
   assert.deepEqual(loomCoreColors([yellow, yellow, green, green]), [yellow.color, green.color]);
-  const hdmi = { cableType: "hdmi", color: yellow.color };
-  const sdi = { cableType: "sdi", color: green.color };
+  assert.deepEqual(loomCoreColors(Array(3).fill(hdmi)), Array(3).fill(yellow.color));
   assert.deepEqual(loomCoreColors(Array(8).fill(hdmi)), Array(6).fill(yellow.color));
-  assert.deepEqual(loomCoreColors([hdmi, { ...hdmi, color: "#ffd600" }, sdi]),
-    [yellow.color, "#ffd600", green.color]);
+  assert.deepEqual(loomCoreColors([hdmi, { ...hdmi, color: "#ffd600" }, sdi,
+    { cableType: "xlr-3pin", color: "#ab47bc" }]), [yellow.color, green.color, "#ab47bc"]);
   assert.deepEqual(loomCoreColors([{ ...hdmi, color: "#FFD600" }, { ...hdmi, color: "#ffd600" }]),
     ["#FFD600", "#ffd600"]);
   assert.deepEqual(loomCoreColors([yellow, { customColor: "#FFEE00" }, green]), [yellow.color, green.color]);
@@ -86,4 +87,5 @@ test("loom jacket is half-width and uses the requested tape and gateway colors",
   assert.equal(widths.jacket, (widths.sheath - 3) / 2);
   assert.equal(LOOM_TAPE_COLOR, "#454c53");
   assert.equal(LOOM_GATEWAY_RING_COLOR, "#0c4fe8");
+  assert.equal(LOOM_BREAKOUT_COLOR, "#59636b");
 });

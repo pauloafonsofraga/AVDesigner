@@ -7,7 +7,8 @@ import {
   emptyCableHopStats
 } from "./cableHops.js";
 import { wirePathStatsForWires, wirePolylineFromPoints } from "./wirePath.js";
-import { LOOM_GATEWAY_RING_COLOR, LOOM_TAPE_COLOR, loomBundleWidths, offsetPolyline, tapeBandsAlongPath } from "./routingPlacement.js";
+import { LOOM_BREAKOUT_COLOR, LOOM_GATEWAY_RING_COLOR, LOOM_TAPE_COLOR, loomBundleWidths,
+  offsetPolyline, tapeBandsAlongPath } from "./routingPlacement.js";
 import {
   adapterInternalBezierGeometry,
   adapterInternalWirePairs
@@ -3472,11 +3473,7 @@ function verticesForLoomPlan(scene, plan) {
     pushLine(vertices, from, to, 6, LOOM_TAPE_COLOR);
   }
   for (const breakout of plan.breakouts) {
-    const wire = scene.getWire(breakout.wireId);
-    pushPolyline(vertices, breakout.points, 2.4, wire?.customColor || wire?.color || WIRE_FALLBACK);
-    if (plan.circuitCount <= 16) {
-      pushCircle(vertices, breakout.points[1], 3, wire?.customColor || wire?.color || WIRE_FALLBACK);
-    }
+    pushPolyline(vertices, breakout.points, WIRE_BASE_WIDTH, LOOM_BREAKOUT_COLOR);
   }
   for (const head of [plan.headA, plan.headB]) {
     pushCircle(vertices, head, 13, "#101820");
