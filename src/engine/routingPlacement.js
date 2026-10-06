@@ -2,7 +2,7 @@ export const LOOM_TAPE_COLOR = "#252A30";
 export const LOOM_GATEWAY_RING_COLOR = "#0c4fe8";
 export const LOOM_OUTER_JACKET_COLOR = "#7CCBFF";
 export const LOOM_INNER_JACKET_COLOR = "#59636b";
-export const LOOM_MAX_VISIBLE_CORES = 8;
+export const LOOM_MAX_VISIBLE_CORES = 10;
 
 export function orthogonalManualPoints(points) {
   if (points.length < 2) return points;

@@ -4,6 +4,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { cableTypeSelectionFixture } from "../fixtures/cable-type-selection.mjs";
+import { wirePolylineFromPoints } from "../src/engine/wirePath.js";
 import { loomBundleWidths, loomCoreColors } from "../src/engine/routingPlacement.js";
 
 const { chromium } = createRequire(import.meta.url)(process.env.AVDESIGNER_PLAYWRIGHT_PATH || "playwright");
@@ -334,16 +335,16 @@ try {
     const orderedWires = types.map((_, index) => state.wires.find(wire => wire.id === `progressive-cable-${index + 1}`));
     assert.ok(orderedWires.every(Boolean));
     assert.deepEqual(state.coreColors, loomCoreColors(orderedWires));
-    assert.ok(state.coreColors.length <= 8);
+    assert.ok(state.coreColors.length <= 10);
     assert.ok(state.loomVertices > 0);
-    assert.ok(loomBundleWidths(state.coreColors.length).sheath <= loomBundleWidths(8).sheath);
-    assert.equal(loomBundleWidths(9).sheath, loomBundleWidths(8).sheath);
+    assert.ok(loomBundleWidths(state.coreColors.length).sheath <= loomBundleWidths(10).sheath);
+    assert.equal(loomBundleWidths(11).sheath, loomBundleWidths(10).sheath);
     await page.screenshot({ path: join(screenshots, `${name}.png`) });
-    if (name === "cores-mixed-eight") {
+    if (name === "cores-mixed-ten") {
       await page.evaluate(() => { const bridge = activeEngineBridge();
         bridge.camera.x = 475; bridge.camera.y = 255; bridge.camera.zoom = 2.6; bridge.scheduleRender(); });
       await page.waitForTimeout(120);
-      await page.screenshot({ path: join(screenshots, "loom-8core-jacket-tape.png") });
+      await page.screenshot({ path: join(screenshots, "loom-10core-jacket-tape.png") });
       await page.evaluate(() => { const bridge = activeEngineBridge(); bridge.camera.x = 0;
         bridge.camera.y = 0; bridge.camera.zoom = 0.8; bridge.scheduleRender(); });
     }
@@ -351,20 +352,23 @@ try {
   };
   await renderCoreCase(["hdmi"], "cores-01-hdmi");
   await renderCoreCase(Array(4).fill("hdmi"), "cores-04-hdmi");
+  await renderCoreCase(Array(8).fill("hdmi"), "cores-08-hdmi");
+  await renderCoreCase(Array(10).fill("hdmi"), "cores-10-hdmi");
   await renderCoreCase(Array(20).fill("hdmi"), "cores-20-hdmi-capped");
   await renderCoreCase([...Array(12).fill("hdmi"), "xlr-3pin"], "cores-12-hdmi-1-xlr");
   const diverseBase = [...Array(3).fill("hdmi"), ...Array(3).fill("xlr-3pin"), ...Array(2).fill("sdi")];
-  await renderCoreCase(diverseBase, "cores-mixed-eight");
+  await renderCoreCase(diverseBase, "cores-mixed-base");
   await renderCoreCase([...diverseBase, "fiber-lc"], "cores-add-fibre");
-  await renderCoreCase([...diverseBase, "fiber-lc", "ethercon"], "cores-add-network");
+  await renderCoreCase([...diverseBase, "fiber-lc", "ethercon"], "cores-mixed-ten");
   await renderCoreCase([...diverseBase, "fiber-lc", "ethercon", "usb-a"], "cores-add-usb");
   await renderCoreCase([...diverseBase, "fiber-lc", "ethercon", "usb-a", "iec"], "cores-add-power");
-  const eightUnique = [...diverseBase, "fiber-lc", "ethercon", "usb-a", "iec", "speakon-nl4"];
-  const capped = await renderCoreCase(eightUnique, "cores-eight-unique");
-  assert.deepEqual(await renderCoreCase([...eightUnique, "dmx-5pin"], "cores-ninth-hidden"), capped);
-  assert.deepEqual(await renderCoreCase([...eightUnique, "dmx-5pin", "rca"], "cores-tenth-hidden"), capped);
-  assert.deepEqual(await renderCoreCase([...eightUnique, "dmx-5pin", "rca", "hdmi"], "cores-add-existing-at-cap"), capped);
-  await renderCoreCase([...eightUnique.slice(1), "dmx-5pin", "rca"], "cores-remove-and-reveal");
+  const tenUnique = ["hdmi", "xlr-3pin", "sdi", "fiber-lc", "ethercon", "usb-a", "iec",
+    "speakon-nl4", "dmx-5pin", "rca"];
+  const capped = await renderCoreCase(tenUnique, "cores-ten-unique");
+  assert.deepEqual(await renderCoreCase([...tenUnique, "display-port"], "cores-eleventh-hidden"), capped);
+  assert.deepEqual(await renderCoreCase([...tenUnique, "display-port", "powercon"], "cores-twelfth-hidden"), capped);
+  assert.deepEqual(await renderCoreCase([...tenUnique, "display-port", "powercon", "hdmi"], "cores-add-existing-at-cap"), capped);
+  await renderCoreCase([...tenUnique.slice(1), "display-port", "powercon"], "cores-remove-and-reveal");
 
   const incrementalTypes = ["xlr-3pin", "hdmi", "sdi", "dmx-5pin", "ethercon", "usb-a", "iec", "speakon-nl4", "rca", "display-port"];
   const incremental = structuredClone(cableTypeSelectionFixture());
@@ -423,7 +427,7 @@ try {
   assert.deepEqual(addSdi.coreColors, sortedCoreColors(addSdi.wires));
   for (const index of [3, 4, 5, 6, 7, 8, 9]) {
     const result = await addThroughLoom(index);
-    assert.ok(result.coreColors.length <= 8 && result.vertexCount > 0,
+    assert.ok(result.coreColors.length <= 10 && result.vertexCount > 0,
       `added cable ${index} immediately rebuilds a balanced, capped loom`);
     assert.deepEqual(result.coreColors, sortedCoreColors(result.wires));
   }
@@ -579,12 +583,92 @@ try {
   assert.deepEqual(redoneLoom.routePoints, afterLoom.routePoints);
   await page.screenshot({ path: join(screenshots, "whole-loom-trunk-drag-final.png") });
 
+  const pathBounds = points => ({ minX: Math.min(...points.map(point => point.x)),
+    maxX: Math.max(...points.map(point => point.x)), minY: Math.min(...points.map(point => point.y)),
+    maxY: Math.max(...points.map(point => point.y)) });
+  const createFinishingDoubleClick = async (routeStyle, waypoints, name) => {
+    await page.evaluate(snapshot => restoreSnapshot(snapshot), project);
+    await page.waitForFunction(() => activeEngineBridge()?.ready
+      && activeEngineBridge().mutations.root.looms.length === 0);
+    await page.evaluate(() => { const bridge = activeEngineBridge(); bridge.camera.x = 0;
+      bridge.camera.y = 0; bridge.camera.zoom = 0.8; bridge.scheduleRender(); });
+    const currentStyle = await page.evaluate(() => activeEngineBridge().currentWireRouteMode());
+    if (currentStyle !== routeStyle) await page.locator("#wireModeToggle").click();
+    await page.evaluate(() => {
+      const bridge = activeEngineBridge();
+      window.__loomFinishPointerEvents = [];
+      if (bridge.canvas.__loomFinishPointerListener) {
+        bridge.canvas.removeEventListener("pointerdown", bridge.canvas.__loomFinishPointerListener);
+      }
+      bridge.canvas.__loomFinishPointerListener = event => {
+        if (!bridge.loomCreate) return;
+        window.__loomFinishPointerEvents.push({ detail: event.detail,
+          previewPoints: structuredClone(bridge.interactionRenderState().loomPreview?.points || []) });
+      };
+      bridge.canvas.addEventListener("pointerdown", bridge.canvas.__loomFinishPointerListener);
+    });
+    await page.locator("#createCableLoom").click();
+    const sideA = { x: 320, y: 260 }, sideB = { x: 850, y: 330 };
+    await clickWorld(sideA);
+    for (const waypoint of waypoints) {
+      const point = await screen(waypoint);
+      await page.mouse.move(point.x, point.y, { steps: 3 });
+      await page.mouse.click(point.x, point.y);
+    }
+    const endpoint = await screen(sideB);
+    await page.mouse.move(endpoint.x, endpoint.y, { steps: 6 });
+    const beforePoints = await page.evaluate(() => structuredClone(
+      activeEngineBridge().interactionRenderState().loomPreview.points));
+    const beforePath = wirePolylineFromPoints({ routeStyle, routePoints: beforePoints.slice(1, -1) }, beforePoints);
+    await page.mouse.click(endpoint.x, endpoint.y);
+    const afterFirstClick = await page.evaluate(() => ({
+      points: structuredClone(activeEngineBridge().interactionRenderState().loomPreview.points),
+      events: structuredClone(window.__loomFinishPointerEvents)
+    }));
+    const finishingPointerStart = afterFirstClick.events.length;
+    const firstClickPath = wirePolylineFromPoints({ routeStyle, routePoints: afterFirstClick.points.slice(1, -1) },
+      afterFirstClick.points);
+    const beforeBounds = pathBounds(beforePath), firstBounds = pathBounds(firstClickPath);
+    for (const key of ["minX", "maxX", "minY", "maxY"]) {
+      assert.ok(Math.abs(firstBounds[key] - beforeBounds[key]) < 0.01,
+        `${name}: first finishing click keeps ${key} stable (${beforeBounds[key]} -> ${firstBounds[key]})`);
+    }
+    assert.deepEqual(afterFirstClick.points, beforePoints, `${name}: endpoint is not duplicated in live preview`);
+    await page.mouse.dblclick(endpoint.x, endpoint.y, { delay: 60 });
+    await page.waitForTimeout(100);
+    const result = await page.evaluate(() => ({
+      loom: structuredClone(activeEngineBridge().mutations.root.looms[0]),
+      active: Boolean(activeEngineBridge().loomCreate),
+      events: structuredClone(window.__loomFinishPointerEvents)
+    }));
+    assert.equal(result.active, false, `${name}: browser double-click completes loom (${JSON.stringify(result)})`);
+    assert.deepEqual(result.loom.routePoints, waypoints, `${name}: legitimate waypoints survive without a phantom endpoint`);
+    assert.ok(result.events.length >= finishingPointerStart + 2, `${name}: browser emitted finishing pointerdowns`);
+    assert.ok(result.events.slice(finishingPointerStart).every(event => Number.isFinite(event.detail)),
+      `${name}: pointer event detail is captured for finishing-click handling`);
+    assert.ok(result.events.slice(finishingPointerStart).every(event => JSON.stringify(event.previewPoints) === JSON.stringify(beforePoints)),
+      `${name}: preview point sequence stays stable through the double-click pointerdowns`);
+    const finalPoints = [result.loom.sideA, ...result.loom.routePoints, result.loom.sideB];
+    const finalPath = wirePolylineFromPoints({ routeStyle, routePoints: result.loom.routePoints }, finalPoints);
+    assert.deepEqual(finalPath, firstClickPath, `${name}: committed geometry matches preview after the first click`);
+    const finalBounds = pathBounds(finalPath);
+    for (const key of ["minX", "maxX", "minY", "maxY"]) {
+      assert.ok(Math.abs(finalBounds[key] - firstBounds[key]) < 0.01,
+        `${name}: completion keeps ${key} stable`);
+    }
+  };
+  await createFinishingDoubleClick("bezier", [], "bezier-direct");
+  await createFinishingDoubleClick("bezier", [{ x: 470, y: 500 }], "bezier-one-waypoint");
+  await createFinishingDoubleClick("bezier", [{ x: 430, y: 540 }, { x: 600, y: 140 }, { x: 720, y: 500 }],
+    "bezier-strong-curve");
+  await createFinishingDoubleClick("orthogonal", [{ x: 430, y: 540 }, { x: 720, y: 180 }], "orthogonal-waypoints");
+
   await page.evaluate(snapshot => restoreSnapshot(snapshot), saved);
   await page.waitForFunction(() => activeEngineBridge()?.ready);
   assert.equal(await page.evaluate(() => activeEngineBridge().scene.loomPlans[0].circuitCount), 2);
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({ screenshots, manualWires: 2, loomId: cable.loomId,
-    circuits: 2, coreCompositionCases: 14, browserErrors: errors.length }));
+    circuits: 2, coreCompositionCases: 16, browserErrors: errors.length }));
 } finally {
   await browser.close();
 }

@@ -105,6 +105,18 @@ export function loomTrunkPoints(loom) {
   return buildPreviewOrthogonalWirePoints(a, b);
 }
 
+export function loomCreationPreviewPoints(draft, zoom = 1, tolerancePx = 8) {
+  if (!draft?.sideA) return [];
+  const points = [draft.sideA, ...(draft.routePoints || [])];
+  const cursor = draft.pointerWorld;
+  const last = points.at(-1);
+  const scale = Math.max(0.01, Number(zoom) || 1);
+  if (cursor && Math.hypot(cursor.x - last.x, cursor.y - last.y) * scale > tolerancePx) {
+    points.push(cursor);
+  }
+  return points;
+}
+
 export function loomGeometry(project, scene, loom, cableGroups = groupedCables(project),
   scheduleRows = buildCableSchedule(project, { assignNumbers: "readOnly" })) {
   const members = cableGroups

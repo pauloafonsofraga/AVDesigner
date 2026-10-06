@@ -37,7 +37,7 @@ import { WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
 import { allocateLoomIdentity, dissolveLoom, renameLoom, selectedLoomCableGroups,
   setLogicalCableLoom } from "./loomModel.js";
-import { externalCableEndpoints, initialLoomHeads } from "./loomGeometry.js";
+import { externalCableEndpoints, initialLoomHeads, loomCreationPreviewPoints } from "./loomGeometry.js";
 import { monitorNameUpdates } from "./monitorNaming.js";
 import { PerfHud } from "./perfHud.js";
 import { validateEngineScene } from "./sceneValidation.js";
@@ -145,8 +145,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-66-live-loom-routing";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-66-live-loom-routing";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-67-loom-core-preview-stability";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-67-loom-core-preview-stability";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -4128,8 +4128,14 @@ class ProductionEngineBridge {
         routeStyle: this.currentWireRouteMode(), pointerWorld: world, lastClick: null };
     } else {
       const point = { x: world.x, y: world.y };
-      this.loomCreate.routePoints.push(point);
-      this.loomCreate.lastClick = { point, time: performance.now() };
+      const isDoubleClickContinuation = Number(detail) >= 2;
+      const lastClick = this.loomCreate.lastClick;
+      const repeatedClick = lastClick && performance.now() - lastClick.time <= 500
+        && Math.hypot(point.x - lastClick.point.x, point.y - lastClick.point.y) * this.camera.zoom < 8;
+      if (!isDoubleClickContinuation && !repeatedClick) {
+        this.loomCreate.routePoints.push(point);
+        this.loomCreate.lastClick = { point, time: performance.now() };
+      }
       this.loomCreate.pointerWorld = world;
     }
     this.scheduleRender();
@@ -5189,7 +5195,7 @@ class ProductionEngineBridge {
       tempWires: multiTempWires,
       gatewayHover: this.wireCreate?.gatewayHover || null,
       loomPreview: this.loomCreate ? {
-        points: [this.loomCreate.sideA, ...this.loomCreate.routePoints, this.loomCreate.pointerWorld],
+        points: loomCreationPreviewPoints(this.loomCreate, this.camera.zoom),
         routeStyle: this.loomCreate.routeStyle
       } : null,
       jumpPlacementGhost: this.jumpPlacement?.center

@@ -5,7 +5,7 @@ import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 import { dissolveLoom } from "../src/engine/loomModel.js";
 import { engineOutputPrimitives } from "../src/engine/renderer.js";
-import { loomBreakoutPolyline } from "../src/engine/loomGeometry.js";
+import { loomBreakoutPolyline, loomCreationPreviewPoints } from "../src/engine/loomGeometry.js";
 import { gatewayExitSide, LOOM_GATEWAY_RING_COLOR, LOOM_INNER_JACKET_COLOR, LOOM_OUTER_JACKET_COLOR,
   LOOM_TAPE_COLOR, loomBundleWidths, loomCableDisplayColor, loomCoreColors, LOOM_MAX_VISIBLE_CORES,
   orthogonalManualPoints, tapeBandsAlongPath } from "../src/engine/routingPlacement.js";
@@ -123,7 +123,7 @@ test("loom breakout legs use each actual wire's resolved, fibre, and custom colo
     "custom cable colour overrides the built-in type colour on breakouts");
 });
 
-test("loom shows every cable when at or below the eight-core limit", () => {
+test("loom shows every cable when at or below the ten-core limit", () => {
   const h = "#ffee00", x = "#ab47bc", s = "#00aa55";
   assert.deepEqual(loomCoreColors([]), []);
   assert.deepEqual(loomCoreColors([{ color: h }]), [h]);
@@ -131,41 +131,46 @@ test("loom shows every cable when at or below the eight-core limit", () => {
   assert.deepEqual(loomCoreColors([{ color: h }, { color: h }, { color: x }, { color: x }]), [h, h, x, x]);
   assert.deepEqual(loomCoreColors([...Array(3).fill({ color: h }), ...Array(3).fill({ color: x }), ...Array(2).fill({ color: s })]),
     [h, h, h, x, x, x, s, s]);
-  assert.equal(loomCoreColors(Array(8).fill({ color: h })).length, LOOM_MAX_VISIBLE_CORES);
+  assert.equal(LOOM_MAX_VISIBLE_CORES, 10);
+  assert.equal(loomCoreColors(Array(10).fill({ color: h })).length, LOOM_MAX_VISIBLE_CORES);
 });
 
-test("over-limit single-colour quantity is capped at eight and width stops growing", () => {
+test("over-limit single-colour quantity is capped at ten and width stops growing", () => {
   const h = "#ffee00", x = "#ab47bc";
-  assert.deepEqual(loomCoreColors(Array(20).fill({ color: h })), Array(8).fill(h));
+  assert.deepEqual(loomCoreColors(Array(20).fill({ color: h })), Array(10).fill(h));
   const twelveAndOne = loomCoreColors([...Array(12).fill({ color: h }), { color: x }]);
-  assert.deepEqual(twelveAndOne, [...Array(7).fill(h), x]);
-  const alreadyFull = loomCoreColors([...Array(8).fill({ color: h }), { color: h }]);
-  assert.equal(alreadyFull.length, 8);
-  assert.equal(loomBundleWidths(alreadyFull.length).sheath, loomBundleWidths(8).sheath);
-  assert.equal(loomBundleWidths(9).sheath, loomBundleWidths(8).sheath);
+  assert.deepEqual(twelveAndOne, [...Array(9).fill(h), x]);
+  const alreadyFull = loomCoreColors([...Array(10).fill({ color: h }), { color: h }]);
+  assert.equal(alreadyFull.length, 10);
+  assert.equal(loomBundleWidths(alreadyFull.length).sheath, loomBundleWidths(10).sheath);
+  assert.equal(loomBundleWidths(11).sheath, loomBundleWidths(10).sheath);
+  assert.deepEqual(loomCoreColors(Array(100).fill({ color: h })), Array(10).fill(h));
+  assert.equal(loomBundleWidths(100).sheath, loomBundleWidths(10).sheath);
+  assert.equal(loomBundleWidths(100).outerJacket, loomBundleWidths(10).outerJacket);
 });
 
 test("new colour groups progressively replace duplicates with stable first-group tie breaks", () => {
   const h = "#ffee00", x = "#ab47bc", s = "#00aa55", f = "#ffff00", n = "#607d8b";
   const initial = [...Array(3).fill(h), ...Array(3).fill(x), ...Array(2).fill(s)].map(color => ({ color }));
   assert.deepEqual(loomCoreColors(initial), [...Array(3).fill(h), ...Array(3).fill(x), ...Array(2).fill(s)]);
-  assert.deepEqual(loomCoreColors([...initial, { color: f }]), [h, h, x, x, x, s, s, f]);
-  assert.deepEqual(loomCoreColors([...initial, { color: f }, { color: n }]), [h, h, x, x, s, s, f, n]);
+  assert.deepEqual(loomCoreColors([...initial, { color: f }]), [h, h, h, x, x, x, s, s, f]);
+  assert.deepEqual(loomCoreColors([...initial, { color: f }, { color: n }]), [h, h, h, x, x, x, s, s, f, n]);
   const usb = "#8d6e63", power = "#d7262d", audio = "#4caf50";
-  assert.deepEqual(loomCoreColors([...initial, ...[f, n, usb].map(color => ({ color }))]), [h, x, x, s, s, f, n, usb]);
-  assert.deepEqual(loomCoreColors([...initial, ...[f, n, usb, power].map(color => ({ color }))]), [h, x, s, s, f, n, usb, power]);
-  assert.deepEqual(loomCoreColors([...initial, ...[f, n, usb, power, audio].map(color => ({ color }))]), [h, x, s, f, n, usb, power, audio]);
+  assert.deepEqual(loomCoreColors([...initial, ...[f, n, usb].map(color => ({ color }))]), [h, h, x, x, x, s, s, f, n, usb]);
+  assert.deepEqual(loomCoreColors([...initial, ...[f, n, usb, power].map(color => ({ color }))]), [h, h, x, x, s, s, f, n, usb, power]);
+  assert.deepEqual(loomCoreColors([...initial, ...[f, n, usb, power, audio].map(color => ({ color }))]), [h, x, x, s, s, f, n, usb, power, audio]);
 });
 
-test("the first eight colour categories remain fixed until a represented group is removed", () => {
+test("the first ten colour categories remain fixed until a represented group is removed", () => {
   const palette = ["#ffee00", "#ab47bc", "#00aa55", "#ffff00", "#607d8b", "#8d6e63", "#d7262d", "#4caf50", "#ff9900", "#0099cc"];
-  const eight = palette.slice(0, 8).map(color => ({ color }));
-  const expected = palette.slice(0, 8);
-  assert.deepEqual(loomCoreColors(eight), expected);
-  assert.deepEqual(loomCoreColors([...eight, { color: palette[8] }]), expected);
-  assert.deepEqual(loomCoreColors([...eight, { color: palette[8] }, { color: palette[9] }]), expected);
-  assert.deepEqual(loomCoreColors([...eight.slice(1), { color: palette[8] }, { color: palette[9] }]),
-    palette.slice(1, 8).concat(palette[8]));
+  const ten = palette.map(color => ({ color }));
+  assert.deepEqual(loomCoreColors(ten), palette);
+  const withEleventh = [...ten, { color: "#123456" }];
+  assert.deepEqual(loomCoreColors(withEleventh), palette);
+  const withTwelfth = [...withEleventh, { color: "#654321" }];
+  assert.deepEqual(loomCoreColors(withTwelfth), palette);
+  const removedRepresented = [...ten.slice(1), ...withEleventh.slice(10)];
+  assert.deepEqual(loomCoreColors(removedRepresented), palette.slice(1).concat("#123456"));
 });
 
 test("loom core counts recompute without stale colours and use resolved colour categories", () => {
@@ -186,12 +191,12 @@ test("PVC tape positions follow polyline distance through turns", () => {
     [{ x: 54, y: 0 }, { x: 108, y: 0 }, { x: 108, y: 54 }]);
 });
 
-test("loom outer jacket wraps the inner bundle and extends tape without exceeding the eight-core cap", () => {
+test("loom outer jacket wraps the inner bundle and extends tape without exceeding the ten-core cap", () => {
   const widths = loomBundleWidths(4);
   assert.equal(widths.jacket, (widths.sheath - 3) / 2);
   assert.ok(widths.outerJacket > widths.sheath);
-  assert.equal(loomBundleWidths(8).outerJacket, loomBundleWidths(20).outerJacket);
-  assert.equal(loomBundleWidths(9).outerJacket, loomBundleWidths(8).outerJacket);
+  assert.equal(loomBundleWidths(10).outerJacket, loomBundleWidths(20).outerJacket);
+  assert.equal(loomBundleWidths(11).outerJacket, loomBundleWidths(10).outerJacket);
   assert.equal(widths.outerJacket - widths.sheath, 3, "exposed jacket thickness is halved from 6 to 3 px");
   assert.equal(LOOM_TAPE_COLOR, "#252A30");
   assert.notEqual(LOOM_TAPE_COLOR, "#000000");
@@ -227,6 +232,36 @@ test("loom outer jacket wraps the inner bundle and extends tape without exceedin
   const tapeWidth = Math.hypot(tape[0][1].x - tape[0][0].x, tape[0][1].y - tape[0][0].y);
   assert.ok(Math.abs(tapeWidth - loomBundleWidths(fixture.plan.coreColors.length).outerJacket - 1) < 1e-8,
     "PVC tape crosses the new outermost jacket width");
+});
+
+test("loom drawing preview does not duplicate a just-clicked endpoint while the cursor is stationary", () => {
+  const a = { x: 0, y: 0 }, endpoint = { x: 340, y: 180 };
+  const draft = { sideA: a, routePoints: [endpoint], pointerWorld: endpoint, routeStyle: "bezier" };
+  assert.deepEqual(loomCreationPreviewPoints(draft, 1), [a, endpoint]);
+  const curve = wirePolylineFromPoints({ routeStyle: "bezier", routePoints: [] }, [a, endpoint]);
+  const preview = wirePolylineFromPoints({ routeStyle: "bezier", routePoints: [endpoint] }, loomCreationPreviewPoints(draft, 1));
+  assert.deepEqual(preview, curve);
+  draft.pointerWorld = { x: 360, y: 200 };
+  assert.deepEqual(loomCreationPreviewPoints(draft, 1), [a, endpoint, draft.pointerWorld]);
+  assert.deepEqual(loomCreationPreviewPoints({ ...draft, routeStyle: "orthogonal" }, 1), [a, endpoint, draft.pointerWorld]);
+});
+
+test("loom preview preserves normal waypoints and smooth multi-waypoint Bezier routes", () => {
+  const sideA = { x: 0, y: 0 }, waypoint = { x: 120, y: 220 }, endpoint = { x: 360, y: 0 };
+  const draft = { sideA, routePoints: [waypoint, endpoint], pointerWorld: endpoint, routeStyle: "bezier" };
+  const afterFirstFinishClick = loomCreationPreviewPoints(draft, 1);
+  assert.deepEqual(afterFirstFinishClick, [sideA, waypoint, endpoint]);
+  const canonical = wirePolylineFromPoints({ routeStyle: "bezier", routePoints: [waypoint] }, [sideA, waypoint, endpoint]);
+  const preview = wirePolylineFromPoints({ routeStyle: "bezier", routePoints: [waypoint, endpoint] }, afterFirstFinishClick);
+  assert.deepEqual(preview, canonical);
+  draft.pointerWorld = { x: endpoint.x + 2, y: endpoint.y + 2 };
+  assert.deepEqual(loomCreationPreviewPoints(draft, 1), [sideA, waypoint, endpoint]);
+  draft.pointerWorld = { x: endpoint.x + 20, y: endpoint.y + 10 };
+  const moving = loomCreationPreviewPoints(draft, 1);
+  assert.equal(moving.length, 4);
+  const movingCurve = wirePolylineFromPoints({ routeStyle: "bezier", routePoints: moving.slice(1, -1) }, moving);
+  assert.ok(movingCurve.length > 4);
+  assert.ok(movingCurve.every(point => Number.isFinite(point.x) && Number.isFinite(point.y)));
 });
 
 test("loom breakout endpoints follow transient device offsets while gateway points stay fixed", () => {
