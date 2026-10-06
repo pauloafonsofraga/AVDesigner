@@ -1,4 +1,4 @@
-export const LOOM_TAPE_COLOR = "#454c53";
+export const LOOM_TAPE_COLOR = "#252A30";
 export const LOOM_GATEWAY_RING_COLOR = "#0c4fe8";
 export const LOOM_OUTER_JACKET_COLOR = "#7CCBFF";
 export const LOOM_INNER_JACKET_COLOR = "#59636b";
@@ -20,7 +20,7 @@ export function orthogonalManualPoints(points) {
 export function loomBundleWidths(coreCount) {
   const visibleCount = Math.min(LOOM_MAX_VISIBLE_CORES, Math.max(1, Number(coreCount) || 0));
   const sheath = Math.max(16, visibleCount * 2.6 + 7);
-  return { sheath, outerJacket: sheath + 6, jacket: Math.max(3, (sheath - 3) / 2), core: 2.3 };
+  return { sheath, outerJacket: sheath + 3, jacket: Math.max(3, (sheath - 3) / 2), core: 2.3 };
 }
 
 export function gatewayExitSide(entrySide) {

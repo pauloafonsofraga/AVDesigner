@@ -41,6 +41,8 @@ try {
   project.devices[1].x = 900;
   await page.goto(`${process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8769"}/index.html`);
   await page.waitForFunction(() => typeof restoreSnapshot === "function" && activeEngineBridge()?.ready);
+  await page.waitForFunction(() => !document.querySelector("#catalogueStartup")
+    || getComputedStyle(document.querySelector("#catalogueStartup")).display === "none");
   await page.evaluate(snapshot => restoreSnapshot(snapshot), project);
   await page.waitForFunction(() => activeEngineBridge()?.ready && activeEngineBridge().scene.getDevice("sink"));
   await page.evaluate(() => {
@@ -177,6 +179,7 @@ try {
     await page.locator("#wirePlacementSelect").selectOption("manual");
     await page.evaluate(() => { const bridge = activeEngineBridge(); bridge.camera.x = 0;
       bridge.camera.y = 0; bridge.camera.zoom = 0.8; bridge.scheduleRender(); });
+    await page.waitForTimeout(100);
     const from = await connector("source", "gateway-port");
     const to = await connector("sink", "gateway-port");
     await clickWorld(from);
@@ -362,6 +365,219 @@ try {
   assert.deepEqual(await renderCoreCase([...eightUnique, "dmx-5pin", "rca"], "cores-tenth-hidden"), capped);
   assert.deepEqual(await renderCoreCase([...eightUnique, "dmx-5pin", "rca", "hdmi"], "cores-add-existing-at-cap"), capped);
   await renderCoreCase([...eightUnique.slice(1), "dmx-5pin", "rca"], "cores-remove-and-reveal");
+
+  const incrementalTypes = ["xlr-3pin", "hdmi", "sdi", "dmx-5pin", "ethercon", "usb-a", "iec", "speakon-nl4", "rca", "display-port"];
+  const incremental = structuredClone(cableTypeSelectionFixture());
+  for (const [deviceIndex, device] of incremental.devices.entries()) {
+    const template = structuredClone(device.templateOverride);
+    template.height = 220 + incrementalTypes.length * 44;
+    template.connectors = incrementalTypes.map((type, index) => ({ id: `core-port-${index}`, type,
+      physicalType: type, connectorType: type, label: type.toUpperCase(),
+      direction: deviceIndex ? "input" : "output", signalDirection: deviceIndex ? "input" : "output",
+      displaySide: deviceIndex ? "left" : "right", x: deviceIndex ? 0 : template.width, y: 190 + index * 44 }));
+    device.templateOverride = template;
+  }
+  incremental.connections = [{ id: "incremental-existing-xlr", cableType: "xlr-3pin", loomId: "incremental-loom",
+    from: { deviceId: "source", connectorId: "core-port-0" },
+    to: { deviceId: "sink", connectorId: "core-port-0" } }];
+  incremental.looms = [{ id: "incremental-loom", name: "LM-Incremental", sideA: { label: "Side A", x: 500, y: 300 },
+    sideB: { label: "Side B", x: 760, y: 300 }, routeStyle: "bezier", routePoints: [] }];
+  await page.evaluate(snapshot => restoreSnapshot(snapshot), incremental);
+  await page.waitForFunction(() => activeEngineBridge()?.ready
+    && activeEngineBridge().scene.loomPlans[0]?.circuitCount === 1);
+  await page.waitForFunction(() => !document.querySelector("#catalogueStartup")
+    || getComputedStyle(document.querySelector("#catalogueStartup")).display === "none");
+  await page.evaluate(() => { const bridge = activeEngineBridge(); bridge.camera.x = 0;
+    bridge.camera.y = 0; bridge.camera.zoom = 0.8; bridge.scheduleRender(); });
+  await page.waitForTimeout(250);
+  await page.locator("#wirePlacementSelect").selectOption("auto");
+  const addThroughLoom = async index => {
+    return page.evaluate(index => {
+      const bridge = activeEngineBridge(), scene = bridge.scene;
+      const makeHit = deviceId => {
+        const device = scene.getDevice(deviceId), connector = scene.getConnector(deviceId, `core-port-${index}`);
+        const point = scene.connectorWorldPoint(device, connector);
+        return { device, connector, point };
+      };
+      const source = makeHit("source"), target = makeHit("sink");
+      bridge.beginWireCreate(source, source.point);
+      Object.assign(bridge.wireCreate, { target, loomId: "incremental-loom", loomEntrySide: "sideA",
+        loomExitPoint: { ...scene.loomPlans[0].headB }, pointerWorld: { ...target.point } });
+      bridge.completeWireCreate();
+      const plan = bridge.scene.loomPlans[0];
+      return { coreColors: [...plan.coreColors], wires: bridge.scene.wires.filter(wire => wire.loomId === plan.loomId)
+        .map(wire => ({ id: wire.id, color: wire.customColor || wire.color })),
+        vertexCount: bridge.renderer.wireVertexMap.get(`loom:${plan.loomId}`).length };
+    }, index);
+  };
+  const initialLoomVertices = await page.evaluate(() => activeEngineBridge().renderer.wireVertexMap
+    .get("loom:incremental-loom").length);
+  const sortedCoreColors = wires => loomCoreColors([...wires].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true })));
+  const addHdmi = await addThroughLoom(1);
+  assert.ok(addHdmi.coreColors.includes("#FFD600"), `HDMI yellow core should appear immediately: ${JSON.stringify(addHdmi)}`);
+  assert.deepEqual(addHdmi.coreColors, sortedCoreColors(addHdmi.wires));
+  assert.ok(addHdmi.vertexCount > initialLoomVertices, "new core is uploaded in the create commit");
+  await page.screenshot({ path: join(screenshots, "loom-added-hdmi-before-moving-head.png") });
+  const addSdi = await addThroughLoom(2);
+  assert.ok(addSdi.coreColors.includes("#2dd77f"), `SDI green core should appear immediately: ${addSdi.coreColors}`);
+  assert.deepEqual(addSdi.coreColors, sortedCoreColors(addSdi.wires));
+  for (const index of [3, 4, 5, 6, 7, 8, 9]) {
+    const result = await addThroughLoom(index);
+    assert.ok(result.coreColors.length <= 8 && result.vertexCount > 0,
+      `added cable ${index} immediately rebuilds a balanced, capped loom`);
+    assert.deepEqual(result.coreColors, sortedCoreColors(result.wires));
+  }
+  const membershipWireId = await page.evaluate(() => activeEngineBridge().scene.wires
+    .find(wire => wire.cableType === "hdmi").id);
+  assert.equal(await page.evaluate(id => activeEngineBridge().removeWiresFromLoom([id]), membershipWireId), true);
+  assert.equal(await page.evaluate(() => activeEngineBridge().scene.loomPlans[0].circuitCount), 9,
+    "removing membership immediately rebuilds the loom core plan");
+  assert.equal(await page.evaluate(id => activeEngineBridge().addWiresToLoom("incremental-loom", [id]), membershipWireId), true);
+  assert.equal(await page.evaluate(() => activeEngineBridge().scene.loomPlans[0].circuitCount), 10,
+    "restoring membership immediately restores the loom core plan");
+
+  const dragDevicesAndValidate = async routeStyle => {
+    const snapshot = projectWithLoom(["hdmi", "sdi", "xlr-3pin"]);
+    snapshot.connections.forEach((wire, index) => {
+      wire.loomEntrySide = "sideA";
+      if (routeStyle === "orthogonal") {
+        wire.manualRoute = true;
+        wire.manualRouteStyle = "orthogonal";
+        wire.loomEntryRoutePoints = [{ x: 550, y: 230 + index * 28 }];
+      }
+    });
+    await page.evaluate(value => restoreSnapshot(value), snapshot);
+    await page.waitForFunction(() => activeEngineBridge()?.ready
+      && activeEngineBridge().scene.loomPlans[0]?.circuitCount === 3);
+    await page.evaluate(() => {
+      const bridge = activeEngineBridge();
+      bridge.camera.x = 0; bridge.camera.y = 0; bridge.camera.zoom = 0.8;
+      bridge.renderOptions.debugLayers = true;
+      bridge.renderer.setRenderOptions(bridge.renderOptions);
+      window.__loomDragSamples = [];
+      let lastSequence = bridge.renderer.renderFrameSequence;
+      const sample = () => {
+        const current = activeEngineBridge();
+        const sequence = current?.renderer?.renderFrameSequence;
+        if (current?.dragSession && sequence !== lastSequence) {
+          lastSequence = sequence;
+          const suppressed = [...(current.renderer.lastSuppressedLoomIds || [])];
+          if (suppressed.includes("loom-core-browser")) window.__loomDragSamples.push({ sequence,
+            dx: current.dragSession.dx, dy: current.dragSession.dy,
+            breakouts: structuredClone(current.renderer.lastLiveLoomDragState || []),
+            suppressed,
+            affectedWireIds: [...current.dragSession.affectedWireIds]
+          });
+        }
+        requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+      bridge.scheduleRender();
+    });
+    const before = await page.evaluate(() => {
+      const bridge = activeEngineBridge(), device = bridge.scene.getDevice("source");
+      return { device: { x: device.x, y: device.y, width: device.width, height: device.height },
+        fromPoints: bridge.scene.wires.map(wire => bridge.scene.endpointForWire(wire, "from")),
+        gateways: bridge.scene.loomPlans[0].breakouts.map(item => ({ wireId: item.wireId,
+          externalEnd: item.externalEnd, point: item.gatewayPoint })) };
+    });
+    const start = await screen({ x: before.device.x + before.device.width / 2,
+      y: before.device.y + before.device.height / 2 });
+    await page.mouse.click(start.x, start.y);
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    for (let step = 1; step <= 12; step += 1) {
+      await page.mouse.move(start.x + step * 7, start.y + step * 4);
+      await page.waitForTimeout(16);
+      if (step === 6) await page.screenshot({ path: join(screenshots, `device-drag-${routeStyle}-live-breakouts.png`) });
+    }
+    await page.waitForTimeout(80);
+    const mid = await page.evaluate(() => ({ samples: window.__loomDragSamples,
+      range: activeEngineBridge().renderer.wireRangeMap.get(`loom:${activeEngineBridge().scene.loomPlans[0].loomId}`) }));
+    assert.ok(mid.samples.length >= 4, "continuous device drag should be sampled across visible frames");
+    const movingFrames = mid.samples.filter(frame => Math.hypot(frame.dx, frame.dy) > 1);
+    assert.ok(movingFrames.length && movingFrames.every(frame => frame.breakouts.length >= 3),
+      `every moving frame redraws affected breakout legs (samples: ${mid.samples.map(frame =>
+        `${frame.dx.toFixed(2)},${frame.dy.toFixed(2)}:${frame.breakouts.length}[${frame.affectedWireIds};w=${frame.wiresVisible};h=${frame.staticWiresHidden}]`)})`);
+    assert.ok(mid.samples.some(frame => Math.hypot(frame.dx, frame.dy) > 1), "drag samples contain transient motion");
+    assert.ok(mid.samples.every(frame => frame.suppressed.includes("loom-core-browser")),
+      "stale static loom range is suppressed rather than left under the live redraw");
+    assert.ok(mid.samples.every(frame => frame.breakouts.every(item => item.externalPoint && item.gatewayPoint)));
+    const last = mid.samples.at(-1);
+    assert.ok(last.breakouts.some(item => Math.hypot(item.externalPoint.x - before.fromPoints[0].x,
+      item.externalPoint.y - before.fromPoints[0].y) > 1), "breakout endpoints follow source-device motion");
+    for (const item of last.breakouts) {
+      const original = before.gateways.find(entry => entry.wireId === item.wireId
+        && entry.externalEnd === item.externalEnd);
+      assert.ok(original && Math.hypot(original.point.x - item.gatewayPoint.x,
+        original.point.y - item.gatewayPoint.y) < 0.01, "loom gateway stays fixed during device drag");
+    }
+    assert.ok(mid.range?.count > 0, "the suppressed static plan existed and was replaced");
+    await page.mouse.up();
+    await page.waitForFunction(() => !activeEngineBridge().dragSession
+      && activeEngineBridge().renderer.lastLiveLoomDragState.length === 0);
+    const after = await page.evaluate(() => ({ points: activeEngineBridge().scene.wires
+      .map(wire => activeEngineBridge().scene.endpointForWire(wire, "from")),
+      transient: activeEngineBridge().renderer.lastLiveLoomDragState }));
+    assert.notDeepEqual(after.points, before.fromPoints, "device drag commits endpoint movement on pointer-up");
+    assert.equal(after.transient.length, 0, "temporary redraw clears after pointer-up");
+  };
+  await dragDevicesAndValidate("bezier");
+  await dragDevicesAndValidate("orthogonal");
+
+  const wholeLoom = projectWithLoom(["hdmi", "sdi", "xlr-3pin"]);
+  wholeLoom.looms[0].routePoints = [{ x: 610, y: 260 }, { x: 690, y: 340 }];
+  await page.evaluate(snapshot => restoreSnapshot(snapshot), wholeLoom);
+  await page.waitForFunction(() => activeEngineBridge()?.ready
+    && activeEngineBridge().scene.loomPlans[0]?.circuitCount === 3);
+  await page.evaluate(() => { const bridge = activeEngineBridge(); bridge.camera.x = 0; bridge.camera.y = 0;
+    bridge.camera.zoom = 0.8; bridge.scheduleRender(); });
+  const beforeLoom = await page.evaluate(() => {
+    const bridge = activeEngineBridge(), loomState = bridge.mutations.root.looms[0];
+    return { sideA: structuredClone(loomState.sideA), sideB: structuredClone(loomState.sideB),
+      routePoints: structuredClone(loomState.routePoints), trunk: structuredClone(bridge.scene.loomPlans[0].trunk),
+      deviceEndpoints: bridge.scene.wires.map(wire => bridge.scene.endpointForWire(wire, "from")) };
+  });
+  const trunkPoint = beforeLoom.trunk[Math.floor(beforeLoom.trunk.length / 2)];
+  await clickWorld(trunkPoint);
+  assert.equal(await page.evaluate(() => activeEngineBridge().scene.selectedLoomId), "loom-core-browser");
+  assert.deepEqual(await page.evaluate(() => ({ sideA: activeEngineBridge().mutations.root.looms[0].sideA,
+    sideB: activeEngineBridge().mutations.root.looms[0].sideB })),
+  { sideA: beforeLoom.sideA, sideB: beforeLoom.sideB }, "a simple trunk click only selects");
+  const trunkScreen = await screen(trunkPoint);
+  await page.mouse.move(trunkScreen.x, trunkScreen.y);
+  await page.mouse.down();
+  for (let step = 1; step <= 10; step += 1) {
+    await page.mouse.move(trunkScreen.x + step * 8, trunkScreen.y + step * 4);
+    await page.waitForTimeout(16);
+    if (step === 5) await page.screenshot({ path: join(screenshots, "whole-loom-trunk-drag-live.png") });
+  }
+  await page.mouse.up();
+  const afterLoom = await page.evaluate(() => {
+    const bridge = activeEngineBridge(), loomState = bridge.mutations.root.looms[0];
+    return { sideA: structuredClone(loomState.sideA), sideB: structuredClone(loomState.sideB),
+      routePoints: structuredClone(loomState.routePoints), trunk: structuredClone(bridge.scene.loomPlans[0].trunk),
+      deviceEndpoints: bridge.scene.wires.map(wire => bridge.scene.endpointForWire(wire, "from")),
+      commandType: bridge.commandHistory[bridge.commandIndex - 1]?.type };
+  });
+  const followsLoomDelta = (from, to) => Math.hypot((to.x - from.x) - (afterLoom.sideA.x - beforeLoom.sideA.x),
+    (to.y - from.y) - (afterLoom.sideA.y - beforeLoom.sideA.y)) < 0.01;
+  assert.equal(afterLoom.commandType, "move loom", "whole-loom movement is one history command");
+  assert.ok(followsLoomDelta(beforeLoom.sideB, afterLoom.sideB));
+  assert.ok(beforeLoom.routePoints.every((point, index) => followsLoomDelta(point, afterLoom.routePoints[index])));
+  assert.ok(beforeLoom.trunk.every((point, index) => followsLoomDelta(point, afterLoom.trunk[index])));
+  assert.deepEqual(afterLoom.deviceEndpoints, beforeLoom.deviceEndpoints, "device endpoints stay fixed when loom moves");
+  await page.locator("#undoAction").click();
+  const undoneLoom = await page.evaluate(() => activeEngineBridge().mutations.root.looms[0]);
+  assert.deepEqual(undoneLoom.sideA, beforeLoom.sideA);
+  assert.deepEqual(undoneLoom.sideB, beforeLoom.sideB);
+  assert.deepEqual(undoneLoom.routePoints, beforeLoom.routePoints);
+  await page.locator("#redoAction").click();
+  const redoneLoom = await page.evaluate(() => activeEngineBridge().mutations.root.looms[0]);
+  assert.deepEqual(redoneLoom.sideA, afterLoom.sideA);
+  assert.deepEqual(redoneLoom.sideB, afterLoom.sideB);
+  assert.deepEqual(redoneLoom.routePoints, afterLoom.routePoints);
+  await page.screenshot({ path: join(screenshots, "whole-loom-trunk-drag-final.png") });
 
   await page.evaluate(snapshot => restoreSnapshot(snapshot), saved);
   await page.waitForFunction(() => activeEngineBridge()?.ready);

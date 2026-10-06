@@ -5,6 +5,7 @@ import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 import { dissolveLoom } from "../src/engine/loomModel.js";
 import { engineOutputPrimitives } from "../src/engine/renderer.js";
+import { loomBreakoutPolyline } from "../src/engine/loomGeometry.js";
 import { gatewayExitSide, LOOM_GATEWAY_RING_COLOR, LOOM_INNER_JACKET_COLOR, LOOM_OUTER_JACKET_COLOR,
   LOOM_TAPE_COLOR, loomBundleWidths, loomCableDisplayColor, loomCoreColors, LOOM_MAX_VISIBLE_CORES,
   orthogonalManualPoints, tapeBandsAlongPath } from "../src/engine/routingPlacement.js";
@@ -191,7 +192,9 @@ test("loom outer jacket wraps the inner bundle and extends tape without exceedin
   assert.ok(widths.outerJacket > widths.sheath);
   assert.equal(loomBundleWidths(8).outerJacket, loomBundleWidths(20).outerJacket);
   assert.equal(loomBundleWidths(9).outerJacket, loomBundleWidths(8).outerJacket);
-  assert.equal(LOOM_TAPE_COLOR, "#454c53");
+  assert.equal(widths.outerJacket - widths.sheath, 3, "exposed jacket thickness is halved from 6 to 3 px");
+  assert.equal(LOOM_TAPE_COLOR, "#252A30");
+  assert.notEqual(LOOM_TAPE_COLOR, "#000000");
   assert.equal(LOOM_GATEWAY_RING_COLOR, "#0c4fe8");
   assert.equal(LOOM_OUTER_JACKET_COLOR, "#7CCBFF");
   assert.equal(LOOM_INNER_JACKET_COLOR, "#59636b");
@@ -224,4 +227,44 @@ test("loom outer jacket wraps the inner bundle and extends tape without exceedin
   const tapeWidth = Math.hypot(tape[0][1].x - tape[0][0].x, tape[0][1].y - tape[0][0].y);
   assert.ok(Math.abs(tapeWidth - loomBundleWidths(fixture.plan.coreColors.length).outerJacket - 1) < 1e-8,
     "PVC tape crosses the new outermost jacket width");
+});
+
+test("loom breakout endpoints follow transient device offsets while gateway points stay fixed", () => {
+  for (const routeStyle of ["bezier", "orthogonal"]) {
+    const project = cableTypeSelectionFixture();
+    project.connections[0].loomId = loom.id;
+    project.connections[0].loomEntrySide = "sideA";
+    project.connections[0].routeStyle = routeStyle;
+    project.connections[0].routePoints = routeStyle === "orthogonal" ? [{ x: 480, y: 270 }] : [];
+    project.connections[0].manualRoute = routeStyle === "orthogonal";
+    project.connections[0].manualRouteStyle = routeStyle;
+    project.looms = [{ ...structuredClone(loom), sideA: { x: 350, y: 300 }, sideB: { x: 760, y: 300 },
+      routeStyle: "bezier", routePoints: [] }];
+    const scene = new SceneGraph();
+    scene.setData(normalizeAvDesignerProject(project));
+    const wire = scene.wires[0];
+    const breakouts = scene.loomBreakoutByWireId.get(wire.id);
+    assert.equal(breakouts.length, 2);
+    const offsets = new Map([[wire.fromDeviceId, { dx: 125, dy: -45 }]]);
+    const moving = breakouts.find(item => item.externalEnd === "from");
+    const fixedGateway = { ...moving.gatewayPoint };
+    const before = loomBreakoutPolyline(scene, moving);
+    const after = loomBreakoutPolyline(scene, moving, offsets);
+    const actualEndpoint = scene.endpointForWire(wire, "from", offsets);
+    assert.deepEqual(after[0], actualEndpoint);
+    assert.deepEqual(after.at(-1), fixedGateway);
+    assert.notDeepEqual(after, before);
+    if (routeStyle === "orthogonal") {
+      for (let index = 1; index < after.length; index += 1) {
+        assert.ok(Math.abs(after[index - 1].x - after[index].x) < 0.001
+          || Math.abs(after[index - 1].y - after[index].y) < 0.001,
+          "orthogonal manual breakout stays axis-aligned after the endpoint moves");
+      }
+    }
+    const affectedDeviceIds = new Set([wire.fromDeviceId]);
+    const unaffected = breakouts.find(item => item.externalEnd === "to");
+    assert.deepEqual(loomBreakoutPolyline(scene, unaffected, offsets), unaffected.points,
+      "other endpoints remain unchanged when they have no transient offset");
+    assert.equal(affectedDeviceIds.has(wire.toDeviceId), false);
+  }
 });

@@ -145,8 +145,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-65-loom-gateway-routing";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-65-loom-gateway-routing";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-66-live-loom-routing";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-66-live-loom-routing";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -2427,6 +2427,14 @@ class ProductionEngineBridge {
       this.scheduleRender();
       return;
     }
+    if (loomHit?.part === "trunk") {
+      this.scene.selectLoomOnly(loomHit.loomId);
+      this.loomHeadDrag = { loomId: loomHit.loomId, part: "trunk", pointerId: event.pointerId,
+        startWorld: world, startPoint: point, before: this.captureLoomState(), moved: false };
+      this.updateSelectionHud();
+      this.scheduleRender();
+      return;
+    }
     const wireHit = hitTestWire(this.scene, world, tolerance);
     if (wireHit.wire) {
       this.clearJumpMoveArm("wire-pointerdown", { updateHud: false });
@@ -2636,6 +2644,26 @@ class ProductionEngineBridge {
       const world = screenToWorld(this.camera, point);
       const drag = this.loomHeadDrag;
       const beforeLoom = drag.before.looms.find(loom => loom.id === drag.loomId);
+      if (drag.part === "trunk") {
+        const screenDx = point.x - drag.startPoint.x;
+        const screenDy = point.y - drag.startPoint.y;
+        if (!drag.moved && screenDx * screenDx + screenDy * screenDy < this.dragThresholdPx ** 2) return;
+        const dx = world.x - drag.startWorld.x;
+        const dy = world.y - drag.startWorld.y;
+        const loom = this.mutations.root.looms.find(item => item.id === drag.loomId);
+        if (!loom || !beforeLoom) return;
+        const original = structuredClone(beforeLoom);
+        for (const side of ["sideA", "sideB"]) {
+          if (original[side]) loom[side] = { ...original[side], x: original[side].x + dx, y: original[side].y + dy };
+        }
+        loom.routePoints = (original.routePoints || []).map(routePoint => ({
+          ...routePoint, x: routePoint.x + dx, y: routePoint.y + dy
+        }));
+        drag.moved = true;
+        this.refreshLoomComposition();
+        this.scheduleRender();
+        return;
+      }
       const original = drag.part === "route-point" ? beforeLoom?.routePoints?.[drag.pointIndex] : beforeLoom?.[drag.part];
       const loom = this.mutations.root.looms.find(item => item.id === drag.loomId);
       if (loom && original) {
@@ -2644,6 +2672,7 @@ class ProductionEngineBridge {
         target.y = original.y + world.y - drag.startWorld.y;
         drag.moved = Math.hypot(world.x - drag.startWorld.x, world.y - drag.startWorld.y) > 1;
         this.scene.rebuildLoomGeometry();
+        this.scene.rebuildWireSpatialIndex();
         this.renderer.rebuildWireGeometry(this.scene);
         this.scheduleRender();
       }
@@ -2898,10 +2927,11 @@ class ProductionEngineBridge {
       this.loomHeadDrag = null;
       if (drag.moved) {
         this.applyLoomState(drag.before);
-        this.beginProductionCommit("move loom head");
+        const commandType = drag.part === "trunk" ? "move loom" : "move loom head";
+        this.beginProductionCommit(commandType);
         const result = this.applyLoomState(after);
-        this.markCommitted("move loom head", result.mutationMs);
-        this.recordCommand({ type: "move loom head", undo: bridge => bridge.applyLoomState(drag.before),
+        this.markCommitted(commandType, result.mutationMs);
+        this.recordCommand({ type: commandType, undo: bridge => bridge.applyLoomState(drag.before),
           redo: bridge => bridge.applyLoomState(after) });
       }
       this.releasePointerCapture(event.pointerId);
@@ -4215,14 +4245,12 @@ class ProductionEngineBridge {
     const beforeAttachments = this.jumpAttachmentSnapshot();
     this.beginProductionCommit("create wire");
     const mutationMs = this.mutations?.commitCreatedWire(this.scene, wire) || 0;
-    if (wire.loomId) this.scene.rebuildLoomGeometry();
     this.reconcileJumpAttachments(this.scene.jumpIdsForWire(wire));
     const afterAttachments = this.jumpAttachmentSnapshot();
     const connectionData = this.mutations?.connectionDataForWire(wire.sourceId || wire.id);
-    const dirtyStats = this.refreshWireVisuals([wire.id], {
-      appendWireId: wire.id,
-      reason: "create wire"
-    });
+    const dirtyStats = wire.loomId
+      ? this.refreshLoomComposition()
+      : this.refreshWireVisuals([wire.id], { appendWireId: wire.id, reason: "create wire" });
     this.refreshJumpNodeVisuals(this.scene.jumpIdsForWire(wire), {
       wireIds: [wire.id],
       reason: "create jump-side wire"
@@ -4484,10 +4512,10 @@ class ProductionEngineBridge {
         loomEntryRoutePoints: state.loomEntryRoutePoints || [],
         loomExitRoutePoints: route.routePoints
       }) || updated;
-      this.scene.rebuildLoomGeometry();
     }
     updated = this.applyJumpWireMetadataFromScene(updated.id, compatibility) || updated;
     const mutationMs = this.mutations?.commitRewiredWire(this.scene, updated.id) || 0;
+    if (beforeWire.loomId || updated.loomId || state.loomId) this.refreshLoomComposition();
     const afterWire = cloneWire(updated);
     const afterConnection = this.mutations?.connectionDataForWire(updated.sourceId || updated.id);
     const affectedJumpIds = uniqueItems([
@@ -7406,6 +7434,15 @@ class ProductionEngineBridge {
     };
   }
 
+  refreshLoomComposition() {
+    this.scene.rebuildLoomGeometry();
+    this.scene.rebuildWireSpatialIndex();
+    this.scene.rebuildRoutePointIndex();
+    const stats = this.renderer.rebuildWireGeometry(this.scene);
+    this.scheduleRender();
+    return stats;
+  }
+
   applyLoomState(snapshot) {
     const start = performance.now();
     const root = this.mutations.root;
@@ -7435,10 +7472,7 @@ class ProductionEngineBridge {
       wire.loomEntryRoutePoints = structuredClone(membership?.loomEntryRoutePoints || []);
       wire.loomExitRoutePoints = structuredClone(membership?.loomExitRoutePoints || []);
     }
-    this.scene.rebuildLoomGeometry();
-    this.scene.rebuildWireSpatialIndex();
-    this.scene.rebuildRoutePointIndex();
-    this.renderer.rebuildWireGeometry(this.scene);
+    this.refreshLoomComposition();
     this.mutations.record("loom", performance.now() - start, "looms", { count: root.looms.length });
     this.scheduleRender();
     return { mutationMs: performance.now() - start };
@@ -8697,10 +8731,9 @@ class ProductionEngineBridge {
       ? 0
       : this.mutations?.restoreWire(connectionData) || 0;
     this.reconcileJumpAttachments(this.scene.jumpIdsForWire(wire));
-    const dirtyStats = this.refreshWireVisuals([wire.id], {
-      appendWireId: wire.id,
-      reason: "restore wire"
-    });
+    const dirtyStats = wire.loomId
+      ? this.refreshLoomComposition()
+      : this.refreshWireVisuals([wire.id], { appendWireId: wire.id, reason: "restore wire" });
     if (wire.selectable !== false) this.scene.selectWireOnly(wire.id);
     this.hud.setMetric("dirty update", `${dirtyStats.totalMs.toFixed(2)} ms`);
     this.refreshJumpNodeVisuals(this.scene.jumpIdsForWire(wire), {
@@ -8724,10 +8757,9 @@ class ProductionEngineBridge {
       ? 0
       : this.mutations?.deleteWire(removed.sourceId || removed.id) || 0;
     this.reconcileJumpAttachments(affectedJumpIds);
-    const dirtyStats = this.refreshWireVisuals([removed.id], {
-      extraLedSurfaceIds: ledSurfaceIds,
-      reason: "remove wire"
-    });
+    const dirtyStats = wireData?.loomId
+      ? this.refreshLoomComposition()
+      : this.refreshWireVisuals([removed.id], { extraLedSurfaceIds: ledSurfaceIds, reason: "remove wire" });
     const removedJumpLinks = this.removeInvalidJumpLinksForJumps(affectedJumpIds);
     this.refreshJumpNodeVisuals(affectedJumpIds, {
       reason: "remove jump-side wire"

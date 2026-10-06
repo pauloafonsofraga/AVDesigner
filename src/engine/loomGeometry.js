@@ -28,6 +28,35 @@ export function externalCableEndpoints(group, scene) {
     ? [a, b] : null;
 }
 
+function externalEndpointRef(group, endpoint, scene) {
+  for (const raw of group.wires) {
+    const wire = scene.getWire(String(raw.id));
+    if (!wire) continue;
+    for (const end of ["from", "to"]) {
+      if (endpointMatches(raw[end], endpoint)) return { wireId: wire.id, end };
+    }
+  }
+  return null;
+}
+
+export function loomBreakoutPolyline(scene, breakout, offsetMap = null) {
+  const wire = scene.getWire(String(breakout?.externalWireId || breakout?.wireId || ""));
+  const externalEnd = breakout?.externalEnd;
+  const external = wire && (externalEnd === "from" || externalEnd === "to")
+    ? scene.endpointForWire(wire, externalEnd, offsetMap) : null;
+  const gateway = breakout?.gatewayPoint;
+  if (!external || !gateway) return breakout?.points || [];
+  if (breakout.routeStyle === "straight") return breakout.gatewayAtStart
+    ? [gateway, external] : [external, gateway];
+  const interior = breakout.routePoints || [];
+  const points = breakout.gatewayAtStart
+    ? [gateway, ...interior, external]
+    : [external, ...interior, gateway];
+  if (breakout.routeStyle === "orthogonal") return interior.length
+    ? orthogonalManualPoints(points) : buildPreviewOrthogonalWirePoints(points[0], points.at(-1));
+  return wirePolylineFromPoints({ routeStyle: "bezier", routePoints: interior }, points);
+}
+
 export function orientCableEndpoints(pair, headA, headB) {
   const forward = distance(pair[0], headA) + distance(pair[1], headB);
   const reverse = distance(pair[0], headB) + distance(pair[1], headA);
@@ -104,10 +133,18 @@ export function loomGeometry(project, scene, loom, cableGroups = groupedCables(p
           ? orthogonalManualPoints(points) : buildPreviewOrthogonalWirePoints(from, to);
         return wirePolylineFromPoints({ routeStyle: "bezier", routePoints: interior }, points);
       };
+      const sourceRef = externalEndpointRef(member.group, member.group.source, scene);
+      const destinationRef = externalEndpointRef(member.group, member.group.destination, scene);
       return [
         { wireId: wire.id, wireIds: [wire.id], end: entrySide === "sideA" ? "A" : "B",
+          externalWireId: sourceRef?.wireId || wire.id, externalEnd: sourceRef?.end || "from",
+          gatewayAtStart: false, gatewayPoint: entry,
+          routePoints: wire.loomEntryRoutePoints || [], routeStyle: wire.routeStyle,
           points: route(member.pair[0], wire.loomEntryRoutePoints || [], entry) },
         { wireId: wire.id, wireIds: [wire.id], end: entrySide === "sideA" ? "B" : "A",
+          externalWireId: destinationRef?.wireId || wire.id, externalEnd: destinationRef?.end || "to",
+          gatewayAtStart: true, gatewayPoint: exit,
+          routePoints: wire.loomExitRoutePoints || [], routeStyle: wire.routeStyle,
           points: route(exit, wire.loomExitRoutePoints || [], member.pair[1]) }
       ];
     }
@@ -116,9 +153,18 @@ export function loomGeometry(project, scene, loom, cableGroups = groupedCables(p
     const offset = (index - (members.length - 1) / 2) * spacing;
     const attachmentA = { x: headA.x + normal.x * offset, y: headA.y + normal.y * offset };
     const attachmentB = { x: headB.x + normal.x * offset, y: headB.y + normal.y * offset };
+    const sourceRef = externalEndpointRef(member.group, member.group.source, scene);
+    const destinationRef = externalEndpointRef(member.group, member.group.destination, scene);
+    const aIsSource = distance(a, member.pair[0]) <= distance(a, member.pair[1]);
+    const aRef = aIsSource ? sourceRef : destinationRef;
+    const bRef = aIsSource ? destinationRef : sourceRef;
     return [
-      { wireId: String(member.group.primary.id), wireIds: member.group.wires.map(wire => String(wire.id)), end: "A", points: [a, attachmentA] },
-      { wireId: String(member.group.primary.id), wireIds: member.group.wires.map(wire => String(wire.id)), end: "B", points: [b, attachmentB] }
+      { wireId: String(member.group.primary.id), wireIds: member.group.wires.map(wire => String(wire.id)), end: "A",
+        externalWireId: aRef?.wireId || member.group.primary.id, externalEnd: aRef?.end || "from",
+        gatewayAtStart: false, gatewayPoint: attachmentA, routePoints: [], routeStyle: "straight", points: [a, attachmentA] },
+      { wireId: String(member.group.primary.id), wireIds: member.group.wires.map(wire => String(wire.id)), end: "B",
+        externalWireId: bRef?.wireId || member.group.primary.id, externalEnd: bRef?.end || "to",
+        gatewayAtStart: false, gatewayPoint: attachmentB, routePoints: [], routeStyle: "straight", points: [b, attachmentB] }
     ];
   });
   const familyCounts = new Map();

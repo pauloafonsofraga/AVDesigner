@@ -7,6 +7,7 @@ import {
   emptyCableHopStats
 } from "./cableHops.js";
 import { wirePathStatsForWires, wirePolylineFromPoints } from "./wirePath.js";
+import { loomBreakoutPolyline } from "./loomGeometry.js";
 import { LOOM_GATEWAY_RING_COLOR, LOOM_INNER_JACKET_COLOR, LOOM_OUTER_JACKET_COLOR, LOOM_TAPE_COLOR,
   loomBundleWidths, loomCableDisplayColor, offsetPolyline, tapeBandsAlongPath } from "./routingPlacement.js";
 import {
@@ -67,7 +68,7 @@ import { wirePlaybackEase } from "./wirePlayback.js";
 import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-65-loom-gateway-routing";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-66-live-loom-routing";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -976,6 +977,7 @@ export class WebglGraphRenderer {
       return this.lastFrameStats;
     }
     const start = performance.now();
+    this.renderFrameSequence = (this.renderFrameSequence || 0) + 1;
     const frameStats = {
       totalMs: 0,
       gridMs: 0,
@@ -1057,6 +1059,13 @@ export class WebglGraphRenderer {
     const staticSuppressedWireIds = new Set(dragSession?.affectedWireIds || []);
     if (activeWireEdit?.wireId) staticSuppressedWireIds.add(activeWireEdit.wireId);
     (interaction.suppressedWireIds || []).forEach(wireId => staticSuppressedWireIds.add(wireId));
+    const affectedLoomPlans = dragSession
+      ? scene.loomPlans.filter(plan => plan.breakouts.some(breakout =>
+        breakout.wireIds.some(wireId => dragSession.affectedWireIds.has(String(wireId)))))
+      : [];
+    this.lastSuppressedLoomIds = affectedLoomPlans.map(plan => plan.loomId);
+    const staticSuppressedGeometryIds = new Set(staticSuppressedWireIds);
+    affectedLoomPlans.forEach(plan => staticSuppressedGeometryIds.add(`loom:${plan.loomId}`));
     let sectionStart = performance.now();
     if (renderOptions.gridVisible !== false) this.drawGrid(camera);
     frameStats.gridMs = performance.now() - sectionStart;
@@ -1069,7 +1078,23 @@ export class WebglGraphRenderer {
     frameStats.rackFrameMs = performance.now() - sectionStart;
     if (renderOptions.wires && !renderOptions.hideStaticWires) {
       sectionStart = performance.now();
-      this.drawStaticWires(dragSession, layerTrace, staticSuppressedWireIds);
+      this.drawStaticWires(dragSession, layerTrace, staticSuppressedGeometryIds);
+      if (affectedLoomPlans.length && dragSession && renderOptions.wires) {
+        const offsets = dragSession.offsetMap();
+        for (const plan of affectedLoomPlans) {
+          const vertices = verticesForLoomPlan(scene, plan, offsets);
+          const count = vertices.length ? upload(gl, this.liveBuffer, vertices) : 0;
+          this.drawBuffer(this.liveBuffer, count);
+        }
+        this.lastLiveLoomDragState = affectedLoomPlans.flatMap(plan => plan.breakouts
+          .filter(breakout => breakout.wireIds.some(wireId => dragSession.affectedWireIds.has(String(wireId))))
+          .map(breakout => {
+            const points = loomBreakoutPolyline(scene, breakout, offsets);
+            return { loomId: plan.loomId, wireId: breakout.wireId, externalEnd: breakout.externalEnd,
+              externalPoint: breakout.gatewayAtStart ? points.at(-1) : points[0],
+              gatewayPoint: { ...breakout.gatewayPoint }, points };
+          }));
+      } else this.lastLiveLoomDragState = [];
       frameStats.staticWireMs = performance.now() - sectionStart;
     } else {
       this.recordAffectedWires(layerTrace, "staticWireLayer", renderOptions.wires ? "hidden" : "disabled");
@@ -3190,7 +3215,7 @@ function pushWireHover(vertices, scene, wire, offsets, options = DEFAULT_RENDER_
 function pushWire(vertices, scene, wire, offsets, width, color, options = DEFAULT_RENDER_OPTIONS, cableHopMap = options.cableHopMap) {
   if (scene.isWireHiddenByLoom(wire.id)) {
     (scene.loomBreakoutByWireId.get(wire.id) || []).forEach(breakout => {
-      pushPolyline(vertices, breakout.points, width, color);
+      pushPolyline(vertices, loomBreakoutPolyline(scene, breakout, offsets), width, color);
     });
     return;
   }
@@ -3459,7 +3484,7 @@ function verticesForWire(scene, wire, offsets = null, width = WIRE_BASE_WIDTH, c
   return vertices;
 }
 
-function verticesForLoomPlan(scene, plan) {
+function verticesForLoomPlan(scene, plan, offsets = null) {
   const vertices = [];
   const colors = plan.coreColors?.length ? plan.coreColors : ["#8999a5"];
   const widths = loomBundleWidths(colors.length);
@@ -3481,12 +3506,13 @@ function verticesForLoomPlan(scene, plan) {
   for (const breakout of plan.breakouts) {
     const wire = scene.getWire(breakout.wireId);
     const resolvedColor = loomCableDisplayColor(wire);
+    const points = offsets ? loomBreakoutPolyline(scene, breakout, offsets) : breakout.points;
     if (wire?.customColor) {
-      pushPolyline(vertices, breakout.points, WIRE_BASE_WIDTH, resolvedColor);
+      pushPolyline(vertices, points, WIRE_BASE_WIDTH, resolvedColor);
     } else if (wire?.colorSegments?.length > 1) {
-      pushWireColorSegments(vertices, breakout.points, WIRE_BASE_WIDTH, wire, resolvedColor);
+      pushWireColorSegments(vertices, points, WIRE_BASE_WIDTH, wire, resolvedColor);
     } else {
-      pushPolyline(vertices, breakout.points, WIRE_BASE_WIDTH, resolvedColor);
+      pushPolyline(vertices, points, WIRE_BASE_WIDTH, resolvedColor);
     }
   }
   for (const head of [plan.headA, plan.headB]) {
