@@ -47,6 +47,11 @@ const rack = {
     { deviceId: "shared-child", connectorId: "shared-display-port" },
     { deviceId: "through-child", connectorId: "sdi-in" }
   ],
+  patchPanels: [{
+    id: "patch-panel-validation", label: "VIDEO PATCH", x: -100, y: 120,
+    rackFace: "rear", placementSide: "left", baseCapacity: 8,
+    ports: [{ id: "patch-port-validation", slot: 1, sourceRackDeviceId: "normal-child", sourceConnectorId: "output-hdmi" }]
+  }],
   devices: [
     rackChild("normal-child", "normal-faceplate", 80, 90, "Main Screen Processor"),
     rackChild("adapter-child", "adapter-breakout", 700, 130, "USB-C Breakout"),
@@ -70,6 +75,8 @@ assert.equal(previewScene.wires.length, rack.internalConnections.length, "rack p
 assert.equal(previewScene.racks.length, 1, "rack preview includes one placed preview rack");
 assert.equal(previewScene.meta.rackPreview.previewRackId, RACK_PREVIEW_DEFAULT_RACK_ID, "default preview rack id should be stable");
 assert.equal(previewScene.meta.rackPreview.sourceRackId, rack.id, "rack preview remembers the source rack id");
+assert.equal(previewScene.meta.rackPreview.patchPanelCount, 1, "patch panels are represented in preview metadata");
+assert.equal(previewScene.meta.rackPreview.patchPanelPortCount, 1, "proxy port counts are included in preview metadata");
 
 for (const child of rack.devices) {
   const expectedId = previewRackChildId(rack.id, child.instanceId);
@@ -95,6 +102,9 @@ assert.equal(diagnostics.connectorHitTargets, rack.exposedPorts.length, "only ex
 assert.ok(diagnostics.visibleConnectorOverlays > diagnostics.connectorHitTargets, "Rack Builder preview can render internal authoring connectors without making them external hit targets");
 assert.equal(diagnostics.bezierInternalWires, 0, "internal rack wires are never bezier");
 assert.ok(diagnostics.internalOrthogonalSegments >= rack.internalConnections.length, "internal rack wires produce orthogonal segments");
+const previewRackRecord = graph.getRack(RACK_PREVIEW_DEFAULT_RACK_ID);
+assert.ok(previewRackRecord.bounds.x <= rack.patchPanels[0].x, "Rack Builder rack bounds include its left-side patch panel");
+assert.ok(previewRackRecord.patchPanels.some(panel => panel.id === rack.patchPanels[0].id), "normalized Engine rack retains patch-panel data");
 
 const reorderedRack = {
   ...rack,

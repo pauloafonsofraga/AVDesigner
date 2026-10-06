@@ -1,6 +1,29 @@
 import { normalizeAvDesignerProject } from "./projectAdapter.js";
+import {
+  createRackPatchPanel,
+  nextRackPatchPanelSlot,
+  normalizeRackPatchPanels,
+  removeRackPatchPanelSource,
+  rackPatchPanelCapacity,
+  rackPatchPanelPortForSource,
+  rackPatchPanelPortWorldPoint,
+  rackPatchPanelVisualHeight,
+  resolveRackPatchPanelPort
+} from "./rackPatchPanels.js";
 
-export const RACK_PREVIEW_BUILD_ID = "iteration53-4-1-preview-verification";
+export {
+  createRackPatchPanel,
+  nextRackPatchPanelSlot,
+  normalizeRackPatchPanels,
+  removeRackPatchPanelSource,
+  rackPatchPanelCapacity,
+  rackPatchPanelPortForSource,
+  rackPatchPanelPortWorldPoint,
+  rackPatchPanelVisualHeight,
+  resolveRackPatchPanelPort
+};
+
+export const RACK_PREVIEW_BUILD_ID = "iteration53-4-2-patch-panel-authoring";
 export const RACK_PREVIEW_DEFAULT_RACK_ID = "rack-builder-preview-rack";
 
 export function createRackPreviewScene({
@@ -11,7 +34,7 @@ export function createRackPreviewScene({
   previewRackId = RACK_PREVIEW_DEFAULT_RACK_ID
 } = {}) {
   const normalizedRack = normalizeRackDefinition(rack);
-  if (!normalizedRack.devices.length) {
+  if (!normalizedRack.devices.length && !normalizedRack.patchPanels.length) {
     return {
       devices: [],
       wires: [],
@@ -39,9 +62,16 @@ export function createRackPreviewScene({
   });
   const previewDeviceIds = new Set(Object.values(projectData.previewMeta.childIdBySourceId));
   const previewWireIds = new Set(Object.values(projectData.previewMeta.internalWireIdByConnectionId));
-  const devices = normalized.devices.filter(device => previewDeviceIds.has(device.id));
-  const wires = normalized.wires.filter(wire => previewWireIds.has(wire.id));
-  const racks = normalized.racks.filter(item => item.id === previewRackId);
+  const devices = (normalized.devices || []).filter(device => previewDeviceIds.has(device.id));
+  const wires = (normalized.wires || []).filter(wire => previewWireIds.has(wire.id));
+  const racks = (normalized.racks || []).filter(item => item.id === previewRackId);
+  if (!racks.length && normalizedRack.patchPanels.length) {
+    const rackRecord = projectData.racks.find(item => item.id === previewRackId);
+    if (rackRecord) {
+      const bounds = boundsForPatchPanels(normalizedRack.patchPanels);
+      racks.push({ ...rackRecord, childCount: 0, bounds, boundsFinite: true });
+    }
+  }
   return {
     devices,
     wires,
@@ -57,6 +87,21 @@ export function createRackPreviewScene({
       })
     }
   };
+}
+
+function boundsForPatchPanels(panels) {
+  const rects = (panels || []).map(panel => ({
+    x: Number(panel.x) || 0,
+    y: Number(panel.y) || 0,
+    width: 120,
+    height: rackPatchPanelVisualHeight(panel)
+  }));
+  if (!rects.length) return null;
+  const minX = Math.min(...rects.map(rect => rect.x - 34));
+  const minY = Math.min(...rects.map(rect => rect.y - 34));
+  const maxX = Math.max(...rects.map(rect => rect.x + rect.width + 34));
+  const maxY = Math.max(...rects.map(rect => rect.y + rect.height + 34));
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
 export function createRackPreviewProjectData({
@@ -107,6 +152,7 @@ export function createRackPreviewProjectData({
     sourceDeviceMap: childIdBySourceId,
     internalConnections: cloneJson(sourceRack.internalConnections),
     exposedPorts: cloneJson(sourceRack.exposedPorts),
+    patchPanels: cloneJson(sourceRack.patchPanels),
     childDeviceIds: Object.values(childIdBySourceId)
   };
   const internalWireIdByConnectionId = {};
@@ -153,7 +199,8 @@ function normalizeRackDefinition(rack) {
     name: String(rack?.name || rack?.label || "Rack").trim() || "Rack",
     devices,
     internalConnections: normalizeRackInternalConnections(rack?.internalConnections),
-    exposedPorts: normalizeRackExposedPorts(rack?.exposedPorts)
+    exposedPorts: normalizeRackExposedPorts(rack?.exposedPorts),
+    patchPanels: normalizeRackPatchPanels(rack?.patchPanels)
   };
 }
 
@@ -244,6 +291,9 @@ function rackPreviewMeta({
       internalRackConnectionCount: sourceRack?.internalConnections?.length || 0,
       enginePreviewInternalWireCount: normalized?.wires?.filter(wire => wire.internalRackWire).length || 0,
       exposedPortCount: sourceRack?.exposedPorts?.length || 0,
+      patchPanelCount: sourceRack?.patchPanels?.length || 0,
+      patchPanelPortCount: (sourceRack?.patchPanels || []).reduce((count, panel) => count + (panel.ports?.length || 0), 0),
+      patchPanels: cloneJson(sourceRack?.patchPanels || []),
       childIdBySourceId: { ...(childIdBySourceId || {}) },
       sourceIdByChildId,
       internalWireIdByConnectionId: { ...(internalWireIdByConnectionId || {}) },
@@ -284,6 +334,21 @@ function rackPreviewStructuralSignature(rack) {
     exposedPorts: (rack?.exposedPorts || []).map(port => ({
       deviceId: port.rackDefinitionDeviceId || port.deviceId || "",
       connectorId: port.connectorId || ""
+    })),
+    patchPanels: (rack?.patchPanels || []).map(panel => ({
+      id: panel.id || "",
+      label: panel.label || "",
+      rackFace: panel.rackFace || "rear",
+      placementSide: panel.placementSide || "right",
+      x: panel.x || 0,
+      y: panel.y || 0,
+      baseCapacity: panel.baseCapacity || 8,
+      ports: (panel.ports || []).map(port => ({
+        id: port.id || "",
+        slot: port.slot || 0,
+        sourceRackDeviceId: port.sourceRackDeviceId || "",
+        sourceConnectorId: port.sourceConnectorId || ""
+      }))
     }))
   });
 }

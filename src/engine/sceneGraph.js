@@ -14,6 +14,7 @@ import {
 import { wirePolylineFromPoints } from "./wirePath.js";
 import { loomGeometry } from "./loomGeometry.js";
 import { normalizeLoom } from "./loomModel.js";
+import { rackPatchPanelVisualHeight } from "./rackPatchPanels.js";
 import { buildCableSchedule, groupedCables } from "./cableSchedule.js";
 import { adapterMappingForDevice } from "./adapterMapping.js";
 import { adapterRotationBounds, adapterWorldPoint, normalizeAdapterRotation } from "./adapterRotation.js";
@@ -309,8 +310,11 @@ export class SceneGraph {
         ...Object.values(rack.sourceDeviceMap || {}).map(id => String(id || "")),
         ...(this.rackDeviceIdsByRackId.get(rack.id) || [])
       ]).filter(id => this.devicesById.has(id));
-      if (!rack.id || !childDeviceIds.length) return;
-      const bounds = rackBoundsForChildIds(childDeviceIds, this.devicesById, 34);
+      if (!rack.id || (!childDeviceIds.length && !rack.patchPanels?.length)) return;
+      const bounds = rackBoundsWithPatchPanels(
+        rackBoundsForChildIds(childDeviceIds, this.devicesById, 34),
+        rack.patchPanels
+      );
       const boundsFinite = finiteBounds(bounds);
       const nextRack = {
         ...rack,
@@ -345,6 +349,7 @@ export class SceneGraph {
         sourceDeviceMap: {},
         internalConnections: [],
         exposedPorts: [],
+        patchPanels: [],
         childDeviceIds: [...childDeviceIds],
         bounds,
         boundsFinite,
@@ -2080,6 +2085,7 @@ function normalizeRack(rack) {
     sourceDeviceMap: clonePlainObject(rack.sourceDeviceMap),
     internalConnections: Array.isArray(rack.internalConnections) ? cloneJson(rack.internalConnections) : [],
     exposedPorts: Array.isArray(rack.exposedPorts) ? cloneJson(rack.exposedPorts) : [],
+    patchPanels: Array.isArray(rack.patchPanels) ? cloneJson(rack.patchPanels) : [],
     childDeviceIds: Array.isArray(rack.childDeviceIds)
       ? uniqueItems(rack.childDeviceIds.map(childId => String(childId || "")).filter(Boolean))
       : []
@@ -2559,6 +2565,22 @@ function rackBoundsForChildIds(childDeviceIds, devicesById, padding = 34) {
     width: Math.max(1, maxX - minX + padding * 2),
     height: Math.max(1, maxY - minY + padding * 2)
   };
+}
+
+function rackBoundsWithPatchPanels(bounds, patchPanels = []) {
+  const panels = Array.isArray(patchPanels) ? patchPanels : [];
+  if (!panels.length) return bounds;
+  const rects = panels.map(panel => ({
+    x: Number(panel?.x) || 0,
+    y: Number(panel?.y) || 0,
+    width: 120,
+    height: rackPatchPanelVisualHeight(panel)
+  }));
+  const minX = Math.min(...(bounds ? [bounds.x, ...rects.map(rect => rect.x - 34)] : rects.map(rect => rect.x - 34)));
+  const minY = Math.min(...(bounds ? [bounds.y, ...rects.map(rect => rect.y - 34)] : rects.map(rect => rect.y - 34)));
+  const maxX = Math.max(...(bounds ? [bounds.x + bounds.width, ...rects.map(rect => rect.x + rect.width + 34)] : rects.map(rect => rect.x + rect.width + 34)));
+  const maxY = Math.max(...(bounds ? [bounds.y + bounds.height, ...rects.map(rect => rect.y + rect.height + 34)] : rects.map(rect => rect.y + rect.height + 34)));
+  return { x: minX, y: minY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) };
 }
 
 function finiteBounds(bounds) {

@@ -2803,6 +2803,67 @@
       gap: 10px;
     }
 
+    .rack-list-panel {
+      grid-template-rows: auto minmax(130px, .75fr) minmax(0, 1fr);
+    }
+
+    .rack-list-panel:not(.has-patch-selection) { grid-template-rows: auto minmax(0, 1fr); }
+
+    .rack-patch-inspector {
+      min-height: 0;
+      overflow: auto;
+      display: grid;
+      align-content: start;
+      gap: 9px;
+      padding: 10px;
+      border: 1px solid var(--panel-border);
+      border-radius: 7px;
+      background: rgba(35, 44, 54, .72);
+    }
+
+    .rack-patch-inspector:empty { display: none; }
+    .rack-patch-inspector label { color: var(--muted); font-size: 10px; font-weight: 900; text-transform: uppercase; }
+    .rack-patch-inspector input,
+    .rack-patch-inspector select { width: 100%; min-width: 0; }
+    .rack-patch-port-list { display: grid; gap: 4px; max-height: 150px; overflow: auto; }
+    .rack-patch-port-row { display: flex; gap: 5px; align-items: center; justify-content: space-between; padding: 5px 6px; border-radius: 5px; background: rgba(20, 27, 34, .72); font-size: 10px; font-weight: 800; }
+    .rack-patch-port-row small { display: block; color: var(--muted); font-size: 9px; font-weight: 700; }
+    .rack-patch-port-row button { min-width: 27px; padding: 2px 6px; }
+
+    .rack-patch-panel-body {
+      fill: rgba(39, 48, 58, .94);
+      stroke: #fb7904;
+      stroke-width: 2;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .rack-patch-panel.selected .rack-patch-panel-body,
+    .rack-patch-panel.target .rack-patch-panel-body {
+      fill: rgba(251, 121, 4, .17);
+      stroke-width: 3;
+      filter: drop-shadow(0 0 8px rgba(251, 121, 4, .85));
+    }
+
+    .rack-patch-panel { cursor: grab; }
+    .rack-patch-panel:active { cursor: grabbing; }
+    .rack-patch-label { fill: #f4a15e; font-size: 12px; font-weight: 900; pointer-events: none; }
+    .rack-patch-slot { stroke: #7c8793; stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+    .rack-patch-port { stroke: #e7edf4; stroke-width: 1.5; vector-effect: non-scaling-stroke; cursor: crosshair; }
+    .rack-patch-empty { fill: #202a35; stroke: #7c8793; stroke-dasharray: 3 2; }
+    .rack-patch-port-label { fill: #dfe6ee; font-size: 9px; font-weight: 800; pointer-events: none; }
+
+    .rack-patch-lead {
+      fill: none;
+      stroke-width: 2.4;
+      stroke-dasharray: 7 5;
+      vector-effect: non-scaling-stroke;
+      opacity: .9;
+      pointer-events: stroke;
+      cursor: pointer;
+    }
+
+    .rack-patch-lead.selected { stroke-width: 4; filter: drop-shadow(0 0 5px rgba(251, 121, 4, .9)); }
+
     .rack-list {
       min-height: 260px;
     }
@@ -2954,6 +3015,7 @@
     .rack-preview-controls {
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 6px;
     }
 
@@ -5221,7 +5283,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled WireNexus Project" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">54.38.72 — Loom Label Visibility</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">54.38.73 — Rack Patch Panel Authoring</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5758,6 +5820,7 @@
                 <select id="rackBuilderCategory"></select>
               </div>
               <div class="rack-preview-controls">
+                <button class="tool-button" id="rackBuilderAddPatchPanel" type="button" title="Add a passive patch panel" disabled>Add Patch Panel</button>
                 <button class="tool-button" id="rackBuilderZoomOut" type="button" title="Zoom out">-</button>
                 <button class="tool-button" id="rackBuilderZoomFit" type="button" title="Fit rack">Fit</button>
                 <button class="tool-button" id="rackBuilderZoomIn" type="button" title="Zoom in">+</button>
@@ -5770,6 +5833,7 @@
           </section>
           <aside class="rack-list-panel">
             <div class="panel-title">Created Racks</div>
+            <div class="rack-patch-inspector" id="rackBuilderPatchInspector"></div>
             <div class="editor-device-list rack-list" id="rackBuilderList"></div>
           </aside>
         </div>
@@ -5947,11 +6011,11 @@
   <script src="./src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script src="./src/engine/projectorModelCore.js?v=iteration54-38-11-engine-status-labels"></script>
   <script src="./src/engine/historyCloneCore.js?v=iteration54-38-29-memory-safe-undo"></script>
-  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-72-loom-label-visibility"></script>
+  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-73-rack-patch-panel-authoring"></script>
   <script type="text/wirenexus-app" id="wireNexusAppSource">
-    const APP_ITERATION = "54.38.72";
-    const APP_BUILD_ID = "iteration54-38-72-loom-label-visibility";
-    const APP_MODULE_CACHE_ID = "iteration54-38-72-loom-label-visibility-modules";
+    const APP_ITERATION = "54.38.73";
+    const APP_BUILD_ID = "iteration54-38-73-rack-patch-panel-authoring";
+    const APP_MODULE_CACHE_ID = "iteration54-38-73-rack-patch-panel-authoring-modules";
     const APP_BUILD_LABEL = `${APP_ITERATION} — Loom Label Visibility`;
     const { cloneHistoryValue, MAX_HISTORY_ENTRIES } = window.WireNexusHistoryClone;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
@@ -6833,6 +6897,9 @@
     let rackBuilderPreviewPanState = null;
     let rackBuilderSnapGuides = null;
     let rackBuilderSelectedDeviceIds = new Set();
+    let rackBuilderSelectedPatchPanelId = "";
+    let rackBuilderPatchPanelDrag = null;
+    let rackBuilderHoverPatchPanelId = "";
     let rackBuilderMarquee = null;
     let rackBuilderConnectState = null;
     let rackBuilderHoverConnector = null;
@@ -6999,6 +7066,8 @@
     const rackBuilderZoomOut = document.getElementById("rackBuilderZoomOut");
     const rackBuilderZoomFit = document.getElementById("rackBuilderZoomFit");
     const rackBuilderZoomIn = document.getElementById("rackBuilderZoomIn");
+    const rackBuilderAddPatchPanel = document.getElementById("rackBuilderAddPatchPanel");
+    const rackBuilderPatchInspector = document.getElementById("rackBuilderPatchInspector");
     const rackBuilderList = document.getElementById("rackBuilderList");
     const rackBuilderName = document.getElementById("rackBuilderName");
     const rackBuilderCategory = document.getElementById("rackBuilderCategory");
@@ -7213,8 +7282,10 @@
       if (rack.devices && !Array.isArray(rack.devices)) rack.devices = [];
       if (!Array.isArray(rack.internalConnections)) rack.internalConnections = [];
       if (!Array.isArray(rack.exposedPorts)) rack.exposedPorts = [];
+      if (!Array.isArray(rack.patchPanels)) rack.patchPanels = [];
       rack.internalConnections = rack.internalConnections.filter(connection => connection && connection.id && connection.from && connection.to);
       rack.exposedPorts = rack.exposedPorts.filter(port => port && port.id && port.deviceId && port.connectorId);
+      rack.patchPanels = rack.patchPanels.filter(panel => panel && panel.id && Array.isArray(panel.ports));
       rack.category = normalizeRackCategory(rack.category);
       return rack;
     }
@@ -7245,6 +7316,12 @@
       const template = templateForInstance(instance);
       const connector = template ? effectiveTemplateConnectors(template).find(item => item.id === connectorId && !item.empty) : null;
       if (!rack || !instance || !connector || rackExposedPortFor(rack, deviceId, connectorId)) return;
+      const mapping = rackBuilderPreviewAdapterModule?.rackPatchPanelPortForSource?.(rack.patchPanels, deviceId, connectorId);
+      if (mapping) {
+        const transfer = rackBuilderPreviewAdapterModule.removeRackPatchPanelSource(rack.patchPanels, deviceId, connectorId);
+        rack.patchPanels = transfer.panels;
+        setStatus("Moved connector to direct rack exposure; its Patch Panel port was removed.");
+      }
       removeRackInternalWiresForEndpoint(rack, deviceId, connectorId);
       rack.exposedPorts.push({
         id: rackPortId(deviceId, connectorId),
@@ -7271,6 +7348,10 @@
         if (matches) removed.add(connection.id);
         return !matches;
       });
+      rack.patchPanels = (rack.patchPanels || []).map(panel => ({
+        ...panel,
+        ports: (panel.ports || []).filter(port => !(port.sourceRackDeviceId === deviceId && port.sourceConnectorId === connectorId))
+      }));
       if (removed.has(rackBuilderSelectedWireId)) rackBuilderSelectedWireId = "";
       return rack.internalConnections.length !== before;
     }
@@ -7318,6 +7399,7 @@
         devices: [],
         internalConnections: [],
         exposedPorts: [],
+        patchPanels: [],
         showInternalWiring: false,
         category: "Misc."
       };
@@ -9650,6 +9732,14 @@
 
     function undoAction() {
       if (!deviceEditorModal.classList.contains("hidden")) { undoEditorConnectorMetadata(); return; }
+      if (typeof rackBuilderModalOpen === "function" && rackBuilderModalOpen() && undoStack.length) {
+        const snapshot = undoStack.pop();
+        redoStack.push(projectSnapshot({ includeClipboardDependencies: Array.isArray(snapshot.deviceLibrary) }));
+        restoreSnapshot(snapshot);
+        renderRackBuilder();
+        updateUndoRedoButtons();
+        return;
+      }
       const engineBridge = activeEngineBridge();
       if (engineBridge) {
         flushPendingInspectorCommit();
@@ -9671,6 +9761,15 @@
 
     function redoAction() {
       if (!deviceEditorModal.classList.contains("hidden")) { undoEditorConnectorMetadata(true); return; }
+      if (typeof rackBuilderModalOpen === "function" && rackBuilderModalOpen() && redoStack.length) {
+        const snapshot = redoStack.pop();
+        undoStack.push(projectSnapshot({ includeClipboardDependencies: Array.isArray(snapshot.deviceLibrary) }));
+        if (undoStack.length > MAX_HISTORY_ENTRIES) undoStack.shift();
+        restoreSnapshot(snapshot);
+        renderRackBuilder();
+        updateUndoRedoButtons();
+        return;
+      }
       const engineBridge = activeEngineBridge();
       if (engineBridge) {
         flushPendingInspectorCommit();
@@ -9693,6 +9792,12 @@
     function updateUndoRedoButtons() {
       const undo = document.getElementById("undoAction");
       const redo = document.getElementById("redoAction");
+      if (typeof rackBuilderModalOpen === "function" && rackBuilderModalOpen()) {
+        if (undo) undo.disabled = undoStack.length === 0;
+        if (redo) redo.disabled = redoStack.length === 0;
+        updateShellDebug({ lastPanelAction: "rack builder undo/redo state" });
+        return;
+      }
       const engineBridge = activeEngineBridge();
       if (engineBridge) {
         if (undo) undo.disabled = !engineBridge.canUndoEngineCommand?.();
@@ -13469,6 +13574,7 @@
       if (rackBuilderUsesEnginePreview()) {
         loadRackBuilderEnginePreviewModules().then(() => {
           if (!rackBuilderModalOpen()) return;
+          if (rackBuilderAddPatchPanel) rackBuilderAddPatchPanel.disabled = !selectedEditorRack() || !rackBuilderPreviewAdapterModule?.createRackPatchPanel;
           rackBuilderEnginePreviewFitPending = true;
           renderRackBuilderPreview({ fullScene: true, fit: true });
         });
@@ -13497,7 +13603,99 @@
         rackBuilderCategory.innerHTML = RACK_CATEGORIES.map(category => '<option value="' + escapeAttr(category) + '" ' + (selectedRack && normalizeRackCategory(selectedRack.category) === category ? "selected" : "") + '>' + escapeHtml(category) + '</option>').join("");
       }
       if (rackBuilderDeleteRack) rackBuilderDeleteRack.disabled = !selectedRack;
+      if (rackBuilderAddPatchPanel) rackBuilderAddPatchPanel.disabled = !selectedRack || !rackBuilderPreviewAdapterModule?.createRackPatchPanel;
       renderRackBuilderPreview();
+      renderRackBuilderPatchInspector();
+    }
+
+    function rackPatchPanels(rack) {
+      return ensureRackModel(rack)?.patchPanels || [];
+    }
+
+    function rackPatchPanelById(rack, panelId) {
+      return rackPatchPanels(rack).find(panel => panel.id === panelId) || null;
+    }
+
+    function rackPatchPanelPortById(panel, portId) {
+      return panel?.ports?.find(port => port.id === portId) || null;
+    }
+
+    function renderRackBuilderPatchInspector() {
+      if (!rackBuilderPatchInspector) return;
+      const rack = selectedEditorRack();
+      const panel = rackPatchPanelById(rack, rackBuilderSelectedPatchPanelId);
+      rackBuilderPatchInspector.parentElement?.classList.toggle("has-patch-selection", Boolean(panel));
+      if (!panel) {
+        rackBuilderPatchInspector.innerHTML = "";
+        return;
+      }
+      const capacity = rackBuilderPreviewAdapterModule?.rackPatchPanelCapacity?.(panel) || 8;
+      const ports = (panel.ports || []).map(port => {
+        const resolved = rackBuilderPreviewAdapterModule?.resolveRackPatchPanelPort?.(panel, port, (deviceId, connectorId) => rackConnectorById(rack, deviceId, connectorId));
+        const connector = resolved?.connector;
+        const sourceName = rackDefinitionInstanceById(rack, port.sourceRackDeviceId)?.name || port.sourceRackDeviceId || "Missing device";
+        const connectorName = connector ? (connector.nameText || connector.label || connectorTypeLabel(connector)) : (port.sourceConnectorId || "Missing connector");
+        return `<div class="rack-patch-port-row"><span>${escapeHtml(String(port.slot).padStart(2, "0"))} / ${escapeHtml(connectorName)}<small>${escapeHtml(sourceName)}${connector ? "" : " / Unresolved"}</small></span><button type="button" class="danger-button" data-patch-port-delete="${escapeAttr(port.id)}" title="Remove port">×</button></div>`;
+      }).join("");
+      rackBuilderPatchInspector.innerHTML = `
+        <strong>PATCH PANEL</strong>
+        <label>Label<input type="text" data-patch-panel-label value="${escapeAttr(panel.label)}"></label>
+        <label>Rack face<select data-patch-panel-face><option value="front"${panel.rackFace === "front" ? " selected" : ""}>Front</option><option value="rear"${panel.rackFace === "rear" ? " selected" : ""}>Rear</option></select></label>
+        <label>Placement side<select data-patch-panel-side><option value="left"${panel.placementSide === "left" ? " selected" : ""}>Left</option><option value="right"${panel.placementSide === "right" ? " selected" : ""}>Right</option></select></label>
+        <small>${(panel.ports || []).length} ports / ${capacity} slots</small>
+        <div class="rack-patch-port-list">${ports || `<span class="muted">No ports assigned</span>`}</div>
+        <button type="button" class="danger-button" data-patch-panel-delete="${escapeAttr(panel.id)}">Delete Patch Panel</button>
+      `;
+    }
+
+    async function addRackBuilderPatchPanel() {
+      const rack = selectedEditorRack();
+      if (!rack) return;
+      await loadRackBuilderEnginePreviewModules();
+      const module = rackBuilderPreviewAdapterModule;
+      if (!module?.createRackPatchPanel) {
+        setStatus("Patch Panel tools could not be loaded. Retry opening Rack Builder.");
+        return;
+      }
+      const bounds = boundsForDeviceList(rackDefinitionDevices(rack.id), 0) || { x: 160, y: 100, width: 480, height: 260 };
+      pushUndo();
+      const index = rackPatchPanels(rack).length + 1;
+      const panel = module.createRackPatchPanel({
+        id: nextId("patchpanel"),
+        label: `PATCH PANEL ${index}`,
+        x: Math.round(bounds.x + bounds.width + 28),
+        y: Math.round(bounds.y),
+        placementSide: "right",
+        rackFace: "rear"
+      });
+      rackPatchPanels(rack).push(panel);
+      rackBuilderSelectedPatchPanelId = panel.id;
+      rackBuilderSelectedDeviceIds.clear();
+      rackBuilderSelectedWireId = "";
+      rackBuilderEnginePreviewFitPending = true;
+      renderRackBuilder();
+      fitRackBuilderPreviewToContent(rack);
+      renderCanvasOnly();
+      setStatus("Patch Panel added. Drag a rack connector onto it to assign a port.");
+    }
+
+    function deleteRackBuilderPatchPanel(rack, panelId) {
+      if (!rack || !rackPatchPanelById(rack, panelId)) return;
+      pushUndo();
+      rack.patchPanels = rackPatchPanels(rack).filter(panel => panel.id !== panelId);
+      if (rackBuilderSelectedPatchPanelId === panelId) rackBuilderSelectedPatchPanelId = "";
+      if (rackBuilderSelectedWireId && !rack.internalConnections.some(connection => connection.id === rackBuilderSelectedWireId)) rackBuilderSelectedWireId = "";
+      renderRackBuilder();
+      renderCanvasOnly();
+    }
+
+    function deleteRackBuilderPatchPort(rack, panel, portId) {
+      if (!rack || !panel || !rackPatchPanelPortById(panel, portId)) return;
+      pushUndo();
+      panel.ports = panel.ports.filter(port => port.id !== portId);
+      if (rackBuilderSelectedWireId === portId) rackBuilderSelectedWireId = "";
+      renderRackBuilder();
+      renderCanvasOnly();
     }
 
     function renderRackBuilderList() {
@@ -13898,6 +14096,189 @@
       });
     }
 
+    function rackPatchPanelGeometry(panel) {
+      const width = 120;
+      const capacity = rackBuilderPreviewAdapterModule?.rackPatchPanelCapacity?.(panel) || 8;
+      const height = rackBuilderPreviewAdapterModule?.rackPatchPanelVisualHeight?.(panel) || (34 + capacity * 28 + 18);
+      return { x: Number(panel.x) || 0, y: Number(panel.y) || 0, width, height, capacity };
+    }
+
+    function rackPatchPanelPortPoint(panel, port) {
+      return rackBuilderPreviewAdapterModule?.rackPatchPanelPortWorldPoint?.(panel, port)
+        || { x: (Number(panel.x) || 0) + 60, y: (Number(panel.y) || 0) + 34 + ((Number(port.slot) || 1) - 1) * 28 };
+    }
+
+    function fitRackBuilderPreviewToContent(rack, padding = 64) {
+      const surface = rackBuilderEnginePreviewSurface;
+      if (!surface || !rack) return;
+      const rects = rackDefinitionDevices(rack.id).map(instance => rackBuilderDeviceRect(instance)).filter(Boolean);
+      rackPatchPanels(rack).forEach(panel => rects.push(rackPatchPanelGeometry(panel)));
+      if (!rects.length) return;
+      const minX = Math.min(...rects.map(rect => rect.x));
+      const minY = Math.min(...rects.map(rect => rect.y));
+      const maxX = Math.max(...rects.map(rect => rect.x + rect.width));
+      const maxY = Math.max(...rects.map(rect => rect.y + rect.height));
+      const width = Math.max(1, surface.dom.root.clientWidth);
+      const height = Math.max(1, surface.dom.root.clientHeight);
+      const zoom = Math.max(.05, Math.min(
+        (width - padding * 2) / Math.max(1, maxX - minX),
+        (height - padding * 2) / Math.max(1, maxY - minY)
+      ));
+      surface.setCamera({ x: minX - padding / zoom, y: minY - padding / zoom, zoom }, { render: true });
+      rackBuilderEnginePreviewCameraActions += 1;
+      syncRackBuilderEngineOverlayViewBox();
+    }
+
+    function drawRackBuilderPatchLeads(rack) {
+      const module = rackBuilderPreviewAdapterModule;
+      if (!module) return;
+      rackPatchPanels(rack).forEach(panel => (panel.ports || []).forEach(port => {
+        const resolved = module.resolveRackPatchPanelPort(panel, port, (deviceId, connectorId) => rackConnectorById(rack, deviceId, connectorId));
+        if (!resolved.resolved) return;
+        const from = rackPointForConnector(rack, port.sourceRackDeviceId, port.sourceConnectorId);
+        const to = rackPatchPanelPortPoint(panel, port);
+        const deltaX = to.x - from.x;
+        const bendX = from.x + deltaX * .58;
+        const d = `M ${from.x} ${from.y} L ${bendX} ${from.y} L ${bendX} ${to.y} L ${to.x} ${to.y}`;
+        const path = createSvg("path", {
+          class: `rack-patch-lead${rackBuilderSelectedWireId === port.id ? " selected" : ""}`,
+          d,
+          stroke: colorForConnector(resolved.connector),
+          "data-rack-patch-lead": port.id,
+          "data-rack-patch-panel-id": panel.id
+        });
+        path.addEventListener("pointerdown", event => {
+          if (event.button !== 0) return;
+          event.preventDefault();
+          event.stopPropagation();
+          rackBuilderSelectedWireId = port.id;
+          rackBuilderSelectedDeviceIds.clear();
+          rackBuilderSelectedPatchPanelId = panel.id;
+          renderRackBuilderPreview({ overlayOnly: true });
+        });
+        path.addEventListener("contextmenu", event => {
+          event.preventDefault();
+          event.stopPropagation();
+          rackBuilderSelectedPatchPanelId = panel.id;
+          showRackBuilderPatchPanelContextMenu(event, rack, panel, port);
+        });
+        rackBuilderPreview.appendChild(path);
+      }));
+    }
+
+    function drawRackBuilderPatchPanels(rack) {
+      const module = rackBuilderPreviewAdapterModule;
+      if (!module) return;
+      rackPatchPanels(rack).forEach(panel => {
+        const box = rackPatchPanelGeometry(panel);
+        const selected = rackBuilderSelectedPatchPanelId === panel.id;
+        const target = rackBuilderHoverPatchPanelId === panel.id;
+        const group = createSvg("g", {
+          class: `rack-patch-panel${selected ? " selected" : ""}${target ? " target" : ""}`,
+          "data-rack-patch-panel-id": panel.id
+        });
+        group.appendChild(createSvg("rect", {
+          class: "rack-patch-panel-body",
+          x: box.x, y: box.y, width: box.width, height: box.height, rx: 7
+        }));
+        const labelX = panel.placementSide === "right" ? box.x + 15 : box.x + box.width - 15;
+        const label = createSvg("text", {
+          class: "rack-patch-label",
+          x: labelX,
+          y: box.y + box.height / 2,
+          "text-anchor": "middle",
+          transform: `rotate(-90 ${labelX} ${box.y + box.height / 2})`
+        });
+        label.textContent = String(panel.label || "PATCH PANEL");
+        group.appendChild(label);
+        const portsBySlot = new Map((panel.ports || []).map(port => [Number(port.slot), port]));
+        for (let slot = 1; slot <= box.capacity; slot += 1) {
+          const port = portsBySlot.get(slot);
+          const point = rackPatchPanelPortPoint(panel, port || { slot });
+          group.appendChild(createSvg("circle", {
+            class: `rack-patch-slot${port ? " rack-patch-port" : " rack-patch-empty"}`,
+            cx: point.x, cy: point.y, r: port ? 7 : 5,
+            fill: port ? (module.resolveRackPatchPanelPort(panel, port, (deviceId, connectorId) => rackConnectorById(rack, deviceId, connectorId)).connector
+              ? colorForConnector(rackConnectorById(rack, port.sourceRackDeviceId, port.sourceConnectorId)) : "#a83b3b") : "",
+            "data-rack-patch-panel-id": panel.id,
+            ...(port ? { "data-rack-patch-port-id": port.id } : {})
+          }));
+          if (port) {
+            const text = createSvg("text", {
+              class: "rack-patch-port-label",
+              x: point.x + 10,
+              y: point.y + 3
+            });
+            text.textContent = String(slot).padStart(2, "0");
+            group.appendChild(text);
+          }
+        }
+        group.addEventListener("pointerdown", event => startRackBuilderPatchPanelDrag(event, panel.id));
+        group.addEventListener("contextmenu", event => {
+          if (event.target.closest("[data-rack-patch-port-id]")) {
+            const port = rackPatchPanelPortById(panel, event.target.closest("[data-rack-patch-port-id]").dataset.rackPatchPortId);
+            if (!port) return;
+            event.preventDefault();
+            event.stopPropagation();
+            showRackBuilderPatchPanelContextMenu(event, rack, panel, port);
+          }
+        });
+        rackBuilderPreview.appendChild(group);
+      });
+    }
+
+    function startRackBuilderPatchPanelDrag(event, panelId) {
+      if (event.button !== 0 || rackBuilderConnectState) return;
+      const rack = selectedEditorRack();
+      const panel = rackPatchPanelById(rack, panelId);
+      if (!rack || !panel) return;
+      event.preventDefault();
+      event.stopPropagation();
+      rackBuilderSelectedPatchPanelId = panelId;
+      rackBuilderSelectedDeviceIds.clear();
+      rackBuilderSelectedWireId = "";
+      rackBuilderSelectedConnector = null;
+      const point = rackPreviewPoint(event);
+      rackBuilderPatchPanelDrag = {
+        pointerId: event.pointerId,
+        rackId: rack.id,
+        panelId,
+        offsetX: point.x - panel.x,
+        offsetY: point.y - panel.y,
+        moved: false
+      };
+      rackBuilderPreview.setPointerCapture(event.pointerId);
+      renderRackBuilderPatchInspector();
+      renderRackBuilderPreview({ overlayOnly: true });
+    }
+
+    function moveRackBuilderPatchPanel(event) {
+      const drag = rackBuilderPatchPanelDrag;
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      const rack = rackById(drag.rackId);
+      const panel = rackPatchPanelById(rack, drag.panelId);
+      if (!panel) return;
+      const point = rackPreviewPoint(event);
+      if (!drag.moved) pushUndo();
+      panel.x = Math.round(point.x - drag.offsetX);
+      panel.y = Math.round(point.y - drag.offsetY);
+      drag.moved = true;
+      renderRackBuilderPreview({ overlayOnly: true });
+    }
+
+    function stopRackBuilderPatchPanelDrag(event) {
+      const drag = rackBuilderPatchPanelDrag;
+      if (!drag || (event?.pointerId !== undefined && event.pointerId !== drag.pointerId)) return;
+      if (event?.pointerId !== undefined && rackBuilderPreview?.hasPointerCapture?.(event.pointerId)) rackBuilderPreview.releasePointerCapture(event.pointerId);
+      rackBuilderPatchPanelDrag = null;
+      renderRackBuilderPatchInspector();
+      if (drag.moved) {
+        renderRackBuilderPreview({ fullScene: true, fit: false });
+        fitRackBuilderPreviewToContent(selectedEditorRack());
+      } else renderRackBuilderPreview({ overlayOnly: true });
+      if (drag.moved) renderCanvasOnly();
+    }
+
     function drawRackBuilderEngineConnectorOverlay(rack) {
       const hitRadius = 18 / Math.max(rackBuilderPreviewZoom, .25);
       const haloRadius = 13 / Math.max(rackBuilderPreviewZoom, .25);
@@ -13965,6 +14346,8 @@
         drawRackBuilderEngineMessage("Drag devices here.");
       }
       drawRackBuilderEngineDeviceOverlay(rack);
+      drawRackBuilderPatchLeads(rack);
+      drawRackBuilderPatchPanels(rack);
       drawRackBuilderEngineConnectorOverlay(rack);
       renderRackBuilderPreviewWire(rack);
       drawRackBuilderEngineInternalWireHandles(rack);
@@ -14007,6 +14390,8 @@
         internalRackConnectionCount: rackInternalConnections(rack).length,
         enginePreviewInternalWireCount: meta.enginePreviewInternalWireCount || surfaceDiagnostics.wires || 0,
         exposedPortCount: rackExposedPorts(rack).length,
+        patchPanelCount: rackPatchPanels(rack).length,
+        patchPanelPortCount: rackPatchPanels(rack).reduce((count, panel) => count + (panel.ports?.length || 0), 0),
         authorableConnectorCount: rackBuilderEngineConnectorEntries(rack).length,
         engineConnectorHitTargets: rackBuilderEnginePreviewSurface?.scene?.rackConnectorDiagnostics?.(meta.previewRackId)?.connectorHitTargets ?? 0,
         camera: surfaceDiagnostics.camera || rackBuilderEnginePreviewSurface?.camera || null,
@@ -15021,52 +15406,28 @@
       event.stopPropagation();
       rackBuilderSelectedConnector = { deviceId, connectorId };
       rackBuilderSelectedWireId = "";
-      if (isRackDefinitionConnectorExposed(rack, deviceId, connectorId)) {
+      if (rackBuilderPreviewAdapterModule?.rackPatchPanelPortForSource?.(rackPatchPanels(rack), deviceId, connectorId)) {
         rackBuilderConnectState = null;
         rackBuilderHoverConnector = null;
-        setStatus("Exposed rack ports are external only.");
+        setStatus("This connector already has a Patch Panel port.");
         renderRackBuilderPreview({ overlayOnly: true });
         return;
       }
-      const existing = rackConnectionForEndpoint(rack, deviceId, connectorId);
-      if (existing) {
-        const fixedConnector = rackConnectorById(rack, existing.other.deviceId, existing.other.connectorId);
-        if (!fixedConnector) return;
-        pushUndo();
-        rack.internalConnections = rackInternalConnections(rack).filter(connection => connection.id !== existing.connection.id);
-        const start = visibleRackPointForConnector(rack, existing.other.deviceId, existing.other.connectorId, {
-          x: rackPointForConnector(rack, existing.other.deviceId, existing.other.connectorId).x + (fixedConnector.direction === "input" ? -80 : 80),
-          y: rackPointForConnector(rack, existing.other.deviceId, existing.other.connectorId).y
-        });
-        rackBuilderConnectState = {
-          rackId: rack.id,
-          deviceId: existing.other.deviceId,
-          connectorId: existing.other.connectorId,
-          start,
-          current: start,
-          rewire: {
-            originalConnection: structuredClone(existing.connection),
-            detached: { deviceId, connectorId },
-            detachedSide: existing.side,
-            fixedEndpoint: structuredClone(existing.other)
-          }
-        };
-      } else {
-        const start = visibleRackPointForConnector(rack, deviceId, connectorId, {
-          x: rackPointForConnector(rack, deviceId, connectorId).x + (connector.direction === "input" ? -80 : 80),
-          y: rackPointForConnector(rack, deviceId, connectorId).y
-        });
-        rackBuilderConnectState = {
-          rackId: rack.id,
-          deviceId,
-          connectorId,
-          start,
-          current: start
-        };
+      if (rackConnectionForEndpoint(rack, deviceId, connectorId)) {
+        rackBuilderConnectState = null;
+        setStatus("Disconnect the existing internal wire before assigning this connector to a Patch Panel.");
+        renderRackBuilderPreview({ overlayOnly: true });
+        return;
       }
+      const start = visibleRackPointForConnector(rack, deviceId, connectorId, {
+        x: rackPointForConnector(rack, deviceId, connectorId).x + (connector.direction === "input" ? -80 : 80),
+        y: rackPointForConnector(rack, deviceId, connectorId).y
+      });
+      rackBuilderConnectState = { rackId: rack.id, deviceId, connectorId, start, current: start };
       rackBuilderHoverConnector = null;
+      rackBuilderHoverPatchPanelId = "";
       rackBuilderPreview.setPointerCapture(event.pointerId);
-      renderRackBuilderPreview(existing ? { fullScene: true } : { overlayOnly: true });
+      renderRackBuilderPreview({ overlayOnly: true });
     }
 
     function moveRackBuilderConnection(event) {
@@ -15077,8 +15438,17 @@
       const engineHit = rackBuilderUsesEnginePreview() ? rackBuilderEngineConnectorHitFromEvent(event) : null;
       const target = engineHit ? null : document.elementFromPoint(event.clientX, event.clientY);
       const connectorGroup = target?.closest?.("[data-rack-preview-connector-id]");
+      const panelGroup = target?.closest?.("[data-rack-patch-panel-id]");
       const rack = selectedEditorRack();
       rackBuilderHoverConnector = null;
+      rackBuilderHoverPatchPanelId = "";
+      if (rack && panelGroup) {
+        const panel = rackPatchPanelById(rack, panelGroup.dataset.rackPatchPanelId);
+        const source = rackConnectorById(rack, rackBuilderConnectState.deviceId, rackBuilderConnectState.connectorId);
+        const occupied = Boolean(rackConnectionForEndpoint(rack, rackBuilderConnectState.deviceId, rackBuilderConnectState.connectorId));
+        const alreadyMapped = Boolean(rackBuilderPreviewAdapterModule?.rackPatchPanelPortForSource?.(rackPatchPanels(rack), rackBuilderConnectState.deviceId, rackBuilderConnectState.connectorId));
+        if (panel && source && !occupied && !alreadyMapped) rackBuilderHoverPatchPanelId = panel.id;
+      }
       if (rack && (engineHit || connectorGroup)) {
         const deviceId = engineHit?.deviceId || connectorGroup.dataset.rackPreviewConnectorDeviceId;
         const connectorId = engineHit?.connectorId || connectorGroup.dataset.rackPreviewConnectorId;
@@ -15086,11 +15456,12 @@
           const source = rackConnectorById(rack, rackBuilderConnectState.deviceId, rackBuilderConnectState.connectorId);
           const targetConnector = rackConnectorById(rack, deviceId, connectorId);
           const targetUsed = rackConnectionForEndpoint(rack, deviceId, connectorId);
+          const targetPatched = rackBuilderPreviewAdapterModule?.rackPatchPanelPortForSource?.(rackPatchPanels(rack), deviceId, connectorId);
           const rewire = rackBuilderConnectState.rewire;
           const sourceForError = rewire?.detachedSide === "from" ? targetConnector : source;
           const targetForError = rewire?.detachedSide === "from" ? source : targetConnector;
           const targetExposed = isRackDefinitionConnectorExposed(rack, deviceId, connectorId);
-          if (source && targetConnector && !targetUsed && !targetExposed && !connectionError(sourceForError, targetForError)) {
+          if (source && targetConnector && !targetUsed && !targetPatched && !targetExposed && !connectionError(sourceForError, targetForError)) {
             rackBuilderHoverConnector = { deviceId, connectorId };
           }
         }
@@ -15107,13 +15478,26 @@
       const engineHit = rackBuilderUsesEnginePreview() ? rackBuilderEngineConnectorHitFromEvent(event) : null;
       const target = engineHit ? null : document.elementFromPoint(event.clientX, event.clientY);
       const connectorGroup = target?.closest?.("[data-rack-preview-connector-id]");
+      const panelGroup = target?.closest?.("[data-rack-patch-panel-id]");
       const sourceDeviceId = activeConnectState.deviceId;
       const sourceConnectorId = activeConnectState.connectorId;
       if (rackBuilderPreview.hasPointerCapture(event.pointerId)) rackBuilderPreview.releasePointerCapture(event.pointerId);
       if (!rack || (!engineHit && !connectorGroup)) {
+        if (rack && panelGroup) {
+          const panel = rackPatchPanelById(rack, panelGroup.dataset.rackPatchPanelId);
+          const success = panel && createRackPatchPanelPort(rack, panel, sourceDeviceId, sourceConnectorId);
+          rackBuilderConnectState = null;
+          rackBuilderHoverConnector = null;
+          rackBuilderHoverPatchPanelId = "";
+          renderRackBuilder();
+          renderCanvasOnly();
+          if (!success) setStatus("Could not assign that connector to the Patch Panel.");
+          return;
+        }
         restoreRackInternalRewireConnection(activeConnectState);
         rackBuilderConnectState = null;
         rackBuilderHoverConnector = null;
+        rackBuilderHoverPatchPanelId = "";
         renderRackBuilderPreview({ fullScene: true });
         return;
       }
@@ -15130,14 +15514,45 @@
       if (!created) restoreRackInternalRewireConnection(activeConnectState);
       rackBuilderConnectState = null;
       rackBuilderHoverConnector = null;
+      rackBuilderHoverPatchPanelId = "";
       renderRackBuilder();
       renderCanvasOnly();
+    }
+
+    function createRackPatchPanelPort(rack, panel, deviceId, connectorId) {
+      const module = rackBuilderPreviewAdapterModule;
+      const connector = rackConnectorById(rack, deviceId, connectorId);
+      if (!rack || !panel || !connector || !module || rackConnectionForEndpoint(rack, deviceId, connectorId)) return false;
+      if (module.rackPatchPanelPortForSource(rackPatchPanels(rack), deviceId, connectorId)) {
+        setStatus("This connector already has a Patch Panel port.");
+        return false;
+      }
+      const slot = module.nextRackPatchPanelSlot(panel);
+      pushUndo();
+      rack.exposedPorts = rackExposedPorts(rack).filter(port => !(port.deviceId === deviceId && port.connectorId === connectorId));
+      const port = {
+        id: nextId("patchport"),
+        slot,
+        sourceRackDeviceId: deviceId,
+        sourceConnectorId: connectorId
+      };
+      panel.ports.push(port);
+      rackBuilderSelectedPatchPanelId = panel.id;
+      rackBuilderSelectedWireId = port.id;
+      rackBuilderSelectedConnector = { deviceId, connectorId };
+      setStatus(`Patch Panel port ${slot} assigned. Direct exposure, if present, was transferred.`);
+      return true;
     }
 
     function createRackInternalConnection(rack, sourceDeviceId, sourceConnectorId, targetDeviceId, targetConnectorId) {
       if (!rack || (sourceDeviceId === targetDeviceId && sourceConnectorId === targetConnectorId)) return false;
       const source = rackConnectorById(rack, sourceDeviceId, sourceConnectorId);
       const target = rackConnectorById(rack, targetDeviceId, targetConnectorId);
+      if (rackBuilderPreviewAdapterModule?.rackPatchPanelPortForSource?.(rackPatchPanels(rack), sourceDeviceId, sourceConnectorId)
+        || rackBuilderPreviewAdapterModule?.rackPatchPanelPortForSource?.(rackPatchPanels(rack), targetDeviceId, targetConnectorId)) {
+        setStatus("Remove the Patch Panel port before creating a direct internal wire.");
+        return false;
+      }
       if (isRackDefinitionConnectorExposed(rack, sourceDeviceId, sourceConnectorId)
         || isRackDefinitionConnectorExposed(rack, targetDeviceId, targetConnectorId)) {
         setStatus("Exposed rack ports are external only.");
@@ -27411,6 +27826,19 @@
         renderCanvasOnly();
         return;
       }
+      const patchPanelAction = event.target.closest("[data-rack-patch-menu]")?.dataset.rackPatchMenu;
+      const patchPanelRackId = deviceContextMenu.dataset.rackPatchPanelRackId;
+      const patchPanelId = deviceContextMenu.dataset.rackPatchPanelId;
+      const patchPortId = deviceContextMenu.dataset.rackPatchPortId;
+      if (patchPanelAction && patchPanelRackId && patchPanelId) {
+        event.stopPropagation();
+        hideDeviceContextMenu();
+        const rack = rackById(patchPanelRackId);
+        const panel = rackPatchPanelById(rack, patchPanelId);
+        if (patchPanelAction === "delete-port" && panel && patchPortId) deleteRackBuilderPatchPort(rack, panel, patchPortId);
+        if (patchPanelAction === "delete-panel") deleteRackBuilderPatchPanel(rack, patchPanelId);
+        return;
+      }
       const rackBuilderWireAction = event.target.closest("[data-rack-builder-wire-menu]")?.dataset.rackBuilderWireMenu;
       const rackBuilderWireRackId = deviceContextMenu.dataset.rackBuilderWireRackId;
       const rackBuilderWireId = deviceContextMenu.dataset.rackBuilderWireId;
@@ -27638,6 +28066,22 @@
       delete deviceContextMenu.dataset.wireIds;
       delete deviceContextMenu.dataset.rackBuilderWireRackId;
       delete deviceContextMenu.dataset.rackBuilderWireId;
+      deviceContextMenu.classList.remove("hidden");
+    }
+
+    function showRackBuilderPatchPanelContextMenu(event, rack, panel, port = null) {
+      if (!rack || !panel) return;
+      event.preventDefault();
+      event.stopPropagation();
+      deviceContextMenu.innerHTML = port
+        ? `<button type="button" class="danger" data-rack-patch-menu="delete-port">Remove Patch Port ${escapeHtml(String(port.slot))}</button><button type="button" data-rack-patch-menu="delete-panel">Delete Patch Panel</button>`
+        : `<button type="button" data-rack-patch-menu="delete-panel">Delete Patch Panel</button>`;
+      deviceContextMenu.style.left = `${event.clientX}px`;
+      deviceContextMenu.style.top = `${event.clientY}px`;
+      deviceContextMenu.dataset.rackPatchPanelRackId = rack.id;
+      deviceContextMenu.dataset.rackPatchPanelId = panel.id;
+      if (port) deviceContextMenu.dataset.rackPatchPortId = port.id;
+      else delete deviceContextMenu.dataset.rackPatchPortId;
       deviceContextMenu.classList.remove("hidden");
     }
 
@@ -32542,6 +32986,44 @@ document.addEventListener("click", function(event) {
     voltageToggle.addEventListener("click", editorActions.toggleVoltage);
     document.getElementById("deviceEditorButton").addEventListener("click", editorActions.openDeviceEditor);
     rackBuilderButton.addEventListener("click", editorActions.openRackBuilder);
+    rackBuilderAddPatchPanel?.addEventListener("click", addRackBuilderPatchPanel);
+    rackBuilderPatchInspector?.addEventListener("focusin", event => {
+      if (event.target.matches("[data-patch-panel-label]")) pushUndo();
+    });
+    rackBuilderPatchInspector?.addEventListener("input", event => {
+      if (!event.target.matches("[data-patch-panel-label]")) return;
+      const panel = rackPatchPanelById(selectedEditorRack(), rackBuilderSelectedPatchPanelId);
+      if (!panel) return;
+      panel.label = event.target.value;
+      renderRackBuilderPreview({ overlayOnly: true });
+      renderCanvasOnly();
+    });
+    rackBuilderPatchInspector?.addEventListener("change", event => {
+      const panel = rackPatchPanelById(selectedEditorRack(), rackBuilderSelectedPatchPanelId);
+      if (!panel) return;
+      if (event.target.matches("[data-patch-panel-face]")) {
+        pushUndo();
+        panel.rackFace = event.target.value === "front" ? "front" : "rear";
+      } else if (event.target.matches("[data-patch-panel-side]")) {
+        pushUndo();
+        panel.placementSide = event.target.value === "left" ? "left" : "right";
+        const bounds = boundsForDeviceList(rackDefinitionDevices(selectedEditorRack()?.id), 0);
+        if (bounds) panel.x = Math.round(panel.placementSide === "left" ? bounds.x - 148 : bounds.x + bounds.width + 28);
+      } else return;
+      if (event.target.matches("[data-patch-panel-side]")) {
+        renderRackBuilderPreview({ fullScene: true, fit: false });
+        fitRackBuilderPreviewToContent(selectedEditorRack());
+      } else renderRackBuilderPreview({ overlayOnly: true });
+      renderCanvasOnly();
+    });
+    rackBuilderPatchInspector?.addEventListener("click", event => {
+      const rack = selectedEditorRack();
+      const panel = rackPatchPanelById(rack, rackBuilderSelectedPatchPanelId);
+      const deletePanelId = event.target.closest("[data-patch-panel-delete]")?.dataset.patchPanelDelete;
+      const deletePortId = event.target.closest("[data-patch-port-delete]")?.dataset.patchPortDelete;
+      if (deletePanelId) deleteRackBuilderPatchPanel(rack, deletePanelId);
+      if (deletePortId && panel) deleteRackBuilderPatchPort(rack, panel, deletePortId);
+    });
     document.getElementById("closeRackBuilder").addEventListener("click", closeRackBuilder);
     document.getElementById("applyRackBuilder").addEventListener("click", closeRackBuilder);
     closeMatrixRouting?.addEventListener("click", closeMatrixRoutingModal);
@@ -33082,18 +33564,21 @@ document.addEventListener("click", function(event) {
     rackBuilderPreview.addEventListener("pointerdown", startRackBuilderPreviewPan);
     rackBuilderPreview.addEventListener("pointerdown", startRackBuilderMarquee);
     rackBuilderPreview.addEventListener("pointermove", moveRackBuilderConnection);
+    rackBuilderPreview.addEventListener("pointermove", moveRackBuilderPatchPanel);
     rackBuilderPreview.addEventListener("pointermove", moveRackBuilderWireSegmentDrag);
     rackBuilderPreview.addEventListener("pointermove", moveRackBuilderWireCornerDrag);
     rackBuilderPreview.addEventListener("pointermove", moveRackBuilderDevice);
     rackBuilderPreview.addEventListener("pointermove", moveRackBuilderPreviewPan);
     rackBuilderPreview.addEventListener("pointermove", moveRackBuilderMarquee);
     rackBuilderPreview.addEventListener("pointerup", finishRackBuilderConnection);
+    rackBuilderPreview.addEventListener("pointerup", stopRackBuilderPatchPanelDrag);
     rackBuilderPreview.addEventListener("pointerup", stopRackBuilderWireSegmentDrag);
     rackBuilderPreview.addEventListener("pointerup", stopRackBuilderWireCornerDrag);
     rackBuilderPreview.addEventListener("pointerup", stopRackBuilderDeviceDrag);
     rackBuilderPreview.addEventListener("pointerup", stopRackBuilderPreviewPan);
     rackBuilderPreview.addEventListener("pointerup", stopRackBuilderMarquee);
     rackBuilderPreview.addEventListener("pointercancel", stopRackBuilderWireSegmentDrag);
+    rackBuilderPreview.addEventListener("pointercancel", stopRackBuilderPatchPanelDrag);
     rackBuilderPreview.addEventListener("pointercancel", stopRackBuilderWireCornerDrag);
     rackBuilderPreview.addEventListener("pointercancel", stopRackBuilderDeviceDrag);
     rackBuilderPreview.addEventListener("pointercancel", stopRackBuilderPreviewPan);
@@ -34014,10 +34499,11 @@ document.addEventListener("click", function(event) {
         setJumpNodeToolActive(true);
         return;
       }
-      if (rackBuilderOpen && event.key === "Escape" && (rackBuilderSelectedDeviceIds.size || rackBuilderSelectedWireId)) {
+      if (rackBuilderOpen && event.key === "Escape" && (rackBuilderSelectedDeviceIds.size || rackBuilderSelectedWireId || rackBuilderSelectedPatchPanelId)) {
         event.preventDefault();
         rackBuilderSelectedDeviceIds.clear();
         rackBuilderSelectedWireId = "";
+        rackBuilderSelectedPatchPanelId = "";
         rackBuilderSelectedConnector = null;
         rackBuilderMarquee = null;
         rackBuilderWireSegmentDrag = null;
@@ -34028,7 +34514,17 @@ document.addEventListener("click", function(event) {
       if (rackBuilderOpen && (event.key === "Delete" || event.key === "Backspace")) {
         event.preventDefault();
         if (rackBuilderSelectedWireId) {
+          const rack = selectedEditorRack();
+          const panel = rackPatchPanels(rack).find(item => item.ports?.some(port => port.id === rackBuilderSelectedWireId));
+          if (panel) {
+            deleteRackBuilderPatchPort(rack, panel, rackBuilderSelectedWireId);
+            return;
+          }
           deleteRackInternalWire(selectedEditorRack()?.id, rackBuilderSelectedWireId);
+          return;
+        }
+        if (rackBuilderSelectedPatchPanelId) {
+          deleteRackBuilderPatchPanel(selectedEditorRack(), rackBuilderSelectedPatchPanelId);
           return;
         }
         deleteSelectedRackBuilderDevices();

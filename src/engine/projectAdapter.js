@@ -1320,6 +1320,7 @@ function normalizePlacedRacks(root, context = {}) {
         sourceDeviceMap,
         internalConnections: Array.isArray(rack?.internalConnections) ? deepClone(rack.internalConnections) : [],
         exposedPorts: Array.isArray(rack?.exposedPorts) ? deepClone(rack.exposedPorts) : [],
+        patchPanels: Array.isArray(rack?.patchPanels) ? deepClone(rack.patchPanels) : [],
         childDeviceIds
       };
     })

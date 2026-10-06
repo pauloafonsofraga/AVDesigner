@@ -18,7 +18,7 @@ import { SceneGraph } from "./sceneGraph.js";
 import { fitCameraToBounds } from "./cameraFit.js";
 export { fitCameraToBounds } from "./cameraFit.js";
 
-export const ENGINE_PREVIEW_BUILD_ID = "iteration53-4-1-preview-verification";
+export const ENGINE_PREVIEW_BUILD_ID = "iteration53-4-2-patch-panel-authoring";
 
 export const ENGINE_PREVIEW_OWNERSHIP = Object.freeze([
   ownershipRow("device-editor", {

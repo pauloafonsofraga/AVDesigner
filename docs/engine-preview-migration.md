@@ -7,7 +7,7 @@ and interaction overlays remain. The audit below records the historical 53.4.1
 migration, not available renderer modes. Current ownership and verification:
 [Engine resource lifetime](engine-resource-lifetime.md).
 
-Build: `iteration53-4-1-preview-verification`
+Build: `iteration53-4-2-patch-panel-authoring`
 
 Iteration 53.4.1 is the final corrective verification pass after the 53.4 preview-migration audit. Persistent Engine-mode production-appearance editor previews now route through the shared Engine renderer stack: `EnginePreviewSurface`, `SceneGraph`, `WebglGraphRenderer`, `TextureCache`, `projectAdapter`, `deviceVisualBuilder`, `connectorDisplayLayout`, `faceplateGeometry`, `rackPreview`, `nodePreview`, and `titleBlockPreview`.
 
@@ -74,7 +74,7 @@ For those surfaces, Engine-mode production visuals should report `EnginePreviewS
 
 `scripts/preview-ownership-validation.mjs` verifies:
 
-- all current preview build IDs equal `iteration53-4-1-preview-verification`;
+- all current preview build IDs equal `iteration53-4-2-patch-panel-authoring`;
 - Engine dynamic imports carry the current app module cache key while preserving the shared preview build ID;
 - the final ownership map includes all four persistent Engine preview owners;
 - Node crop, transient canvas previews, output/report/viewer paths, and Legacy mode are explicitly excluded;
