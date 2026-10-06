@@ -3,6 +3,8 @@ export const LOOM_GATEWAY_RING_COLOR = "#0c4fe8";
 export const LOOM_OUTER_JACKET_COLOR = "#7CCBFF";
 export const LOOM_INNER_JACKET_COLOR = "#59636b";
 export const LOOM_MAX_VISIBLE_CORES = 10;
+export const LOOM_CORE_SPACING = 2.6;
+export const LOOM_CORE_WIDTH = 2.3;
 
 export function orthogonalManualPoints(points) {
   if (points.length < 2) return points;
@@ -19,8 +21,10 @@ export function orthogonalManualPoints(points) {
 
 export function loomBundleWidths(coreCount) {
   const visibleCount = Math.min(LOOM_MAX_VISIBLE_CORES, Math.max(1, Number(coreCount) || 0));
-  const sheath = Math.max(16, visibleCount * 2.6 + 7);
-  return { sheath, outerJacket: sheath + 3, jacket: Math.max(3, (sheath - 3) / 2), core: 2.3 };
+  const coreEnvelope = (visibleCount - 1) * LOOM_CORE_SPACING + LOOM_CORE_WIDTH;
+  const sheath = Math.max(16, coreEnvelope);
+  return { sheath, outerJacket: sheath + 3, jacket: Math.max(3, (sheath - 3) / 2),
+    core: LOOM_CORE_WIDTH, coreSpacing: LOOM_CORE_SPACING, coreEnvelope };
 }
 
 export function gatewayExitSide(entrySide) {

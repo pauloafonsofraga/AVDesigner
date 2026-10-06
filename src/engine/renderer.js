@@ -68,7 +68,7 @@ import { wirePlaybackEase } from "./wirePlayback.js";
 import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-66-live-loom-routing";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-68-loom-packing-gateway-previews";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -3497,7 +3497,7 @@ function verticesForLoomPlan(scene, plan, offsets = null) {
   pushPolyline(vertices, plan.trunk, widths.sheath, "#101820");
   pushPolyline(vertices, plan.trunk, widths.jacket, LOOM_INNER_JACKET_COLOR);
   colors.forEach((color, index) => {
-    const offset = (index - (colors.length - 1) / 2) * 2.6;
+    const offset = (index - (colors.length - 1) / 2) * widths.coreSpacing;
     pushPolyline(vertices, offsetPolyline(plan.trunk, offset), widths.core, color);
   });
   for (const [from, to] of tapeBandsAlongPath(plan.trunk, 54, widths.outerJacket + 1)) {

@@ -145,8 +145,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-67-loom-core-preview-stability";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-67-loom-core-preview-stability";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-68-loom-packing-gateway-previews";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-68-loom-packing-gateway-previews";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -4101,12 +4101,14 @@ class ProductionEngineBridge {
     const plan = this.scene.loomPlans.find(item => item.loomId === hit.loomId);
     if (!state || !plan || state.loomId) return false;
     const exit = hit.part === "sideA" ? plan.headB : plan.headA;
+    const entryRoute = this.wireRouteForEndpoints(state.from.point, hit.point, state);
     state.loomId = hit.loomId;
     state.loomEntrySide = hit.part;
-    state.loomEntryRoutePoints = state.routePoints;
+    state.loomEntryPoint = { ...hit.point };
+    state.loomEntryRouteStyle = entryRoute.routeStyle;
+    state.loomEntryRoutePoints = entryRoute.routePoints.map(point => ({ ...point }));
     state.routePoints = [];
     state.gatewayHover = null;
-    state.pointerWorld = { ...exit };
     state.loomExitPoint = { ...exit };
     state.target = null;
     this.scheduleRender();
@@ -5144,6 +5146,24 @@ class ProductionEngineBridge {
         targetError: rejectionReason || ""
       }
       : null;
+    const loomEntryTempWire = this.wireCreate?.loomId && this.wireCreate.loomEntryPoint
+      ? {
+        from: this.wireCreate.from.point,
+        to: this.wireCreate.loomEntryPoint,
+        color: this.wireCreate.color,
+        cableType: this.wireCreate.cableType,
+        colorSegments: Object.freeze([...(this.wireCreate.colorSegments || [])]),
+        routeStyle: this.wireCreate.loomEntryRouteStyle || this.wireCreate.routeStyle,
+        routePoints: this.wireCreate.loomEntryRoutePoints || [],
+        manualRoute: Boolean(this.wireCreate.manual),
+        opacity: 1,
+        sourceHit: this.wireCreate.from,
+        targetHit: null,
+        targetPoint: null,
+        validTarget: true,
+        targetError: ""
+      }
+      : null;
     const multiTempWires = this.wireCreate?.multiLedSources?.length
       ? this.wireCreate.multiLedSources.map(source => {
         const sourceHit = hitForSceneWireEndpoint(
@@ -5192,7 +5212,7 @@ class ProductionEngineBridge {
       selectedRoutePoints: this.scene.selectedRoutePointKeys,
       suppressedWireIds: rewire ? new Set([rewire.wireId]) : new Set(),
       tempWire: multiTempWires[0] || tempWire,
-      tempWires: multiTempWires,
+      tempWires: loomEntryTempWire ? [loomEntryTempWire, tempWire].filter(Boolean) : multiTempWires,
       gatewayHover: this.wireCreate?.gatewayHover || null,
       loomPreview: this.loomCreate ? {
         points: loomCreationPreviewPoints(this.loomCreate, this.camera.zoom),

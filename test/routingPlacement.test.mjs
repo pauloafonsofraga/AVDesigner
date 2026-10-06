@@ -8,7 +8,7 @@ import { engineOutputPrimitives } from "../src/engine/renderer.js";
 import { loomBreakoutPolyline, loomCreationPreviewPoints } from "../src/engine/loomGeometry.js";
 import { gatewayExitSide, LOOM_GATEWAY_RING_COLOR, LOOM_INNER_JACKET_COLOR, LOOM_OUTER_JACKET_COLOR,
   LOOM_TAPE_COLOR, loomBundleWidths, loomCableDisplayColor, loomCoreColors, LOOM_MAX_VISIBLE_CORES,
-  orthogonalManualPoints, tapeBandsAlongPath } from "../src/engine/routingPlacement.js";
+  LOOM_CORE_SPACING, LOOM_CORE_WIDTH, orthogonalManualPoints, tapeBandsAlongPath } from "../src/engine/routingPlacement.js";
 import { wirePolylineFromPoints } from "../src/engine/wirePath.js";
 
 const loom = { id: "loom-1", name: "LM-001", routeStyle: "bezier", routePoints: [],
@@ -198,12 +198,19 @@ test("loom outer jacket wraps the inner bundle and extends tape without exceedin
   assert.equal(loomBundleWidths(10).outerJacket, loomBundleWidths(20).outerJacket);
   assert.equal(loomBundleWidths(11).outerJacket, loomBundleWidths(10).outerJacket);
   assert.equal(widths.outerJacket - widths.sheath, 3, "exposed jacket thickness is halved from 6 to 3 px");
+  const fullPack = loomBundleWidths(LOOM_MAX_VISIBLE_CORES);
+  assert.equal(fullPack.coreEnvelope, (LOOM_MAX_VISIBLE_CORES - 1) * LOOM_CORE_SPACING + LOOM_CORE_WIDTH);
+  assert.equal(fullPack.sheath, fullPack.coreEnvelope,
+    "the ten-core envelope reaches the inside edge of the outer sleeve with no clearance band");
+  assert.ok(fullPack.outerJacket > fullPack.sheath,
+    "the light-blue outer jacket remains outside and visible beyond the conductors");
   assert.equal(LOOM_TAPE_COLOR, "#252A30");
   assert.notEqual(LOOM_TAPE_COLOR, "#000000");
   assert.equal(LOOM_GATEWAY_RING_COLOR, "#0c4fe8");
   assert.equal(LOOM_OUTER_JACKET_COLOR, "#7CCBFF");
   assert.equal(LOOM_INNER_JACKET_COLOR, "#59636b");
-  const fixture = loomRenderFixture("hdmi", { count: 8 });
+  const fixture = loomRenderFixture("hdmi", { count: 10 });
+  assert.equal(fixture.plan.coreColors.length, LOOM_MAX_VISIBLE_CORES);
   const outerRgb = normalizedRgb(LOOM_OUTER_JACKET_COLOR), innerRgb = normalizedRgb("#101820");
   const maxDistanceFromTrunk = targetColor => {
     const distances = [];
@@ -217,6 +224,9 @@ test("loom outer jacket wraps the inner bundle and extends tape without exceedin
   };
   assert.ok(maxDistanceFromTrunk(outerRgb) > maxDistanceFromTrunk(innerRgb),
     "light-blue jacket is a visible layer wider than the inner sheath");
+  const coreEnvelope = (fixture.plan.coreColors.length - 1) * LOOM_CORE_SPACING + LOOM_CORE_WIDTH;
+  assert.ok(Math.abs(fullPack.sheath - coreEnvelope) < 1e-8,
+    "the max-capacity coloured core pack meets the inner jacket boundary");
   const jacketXs = [];
   for (let index = 0; index < fixture.vertices.length; index += 6) {
     if (outerRgb.every((channel, offset) => Math.abs(fixture.vertices[index + 2 + offset] - channel) < 0.002)) {

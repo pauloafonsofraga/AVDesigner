@@ -128,6 +128,19 @@ try {
   assert.equal(await page.evaluate(() => activeEngineBridge().wireCreate?.loomEntrySide), "sideA");
   assert.deepEqual(await page.evaluate(() => activeEngineBridge().wireCreate?.loomExitPoint),
     { x: 750, y: 600 });
+  const sideAPreviews = await page.evaluate(() => activeEngineBridge().interactionRenderState().tempWires
+    .map(wire => ({ from: wire.from, to: wire.to, routeStyle: wire.routeStyle, routePoints: wire.routePoints })));
+  assert.equal(sideAPreviews.length, 2, "loom entry leaves the source leg visible beside the live exit leg");
+  assert.deepEqual(sideAPreviews[0].from, await connector("source", "port-2"));
+  assert.deepEqual(sideAPreviews[0].to, { x: 430, y: 600 });
+  assert.deepEqual(sideAPreviews[1].from, { x: 750, y: 600 });
+  assert.equal(sideAPreviews[0].routeStyle, "orthogonal");
+  await page.mouse.move(...Object.values(await screen({ x: 820, y: 520 })), { steps: 4 });
+  const movedSideAPreviews = await page.evaluate(() => activeEngineBridge().interactionRenderState().tempWires
+    .map(wire => ({ from: wire.from, to: wire.to, routeStyle: wire.routeStyle, routePoints: wire.routePoints })));
+  assert.deepEqual(movedSideAPreviews[0], sideAPreviews[0], "the established entry leg stays locked during cursor movement");
+  assert.notDeepEqual(movedSideAPreviews[1].to, sideAPreviews[1].to, "the exit leg follows the cursor");
+  await page.screenshot({ path: join(screenshots, "loom-side-a-entry-live-exit.png") });
   const destination = await screen(await connector("sink", "port-2"));
   await page.mouse.move(destination.x, destination.y, { steps: 8 });
   await page.mouse.down();
@@ -146,6 +159,18 @@ try {
   await page.mouse.up();
   assert.equal(await page.evaluate(() => activeEngineBridge().wireCreate?.loomEntrySide), "sideB");
   assert.deepEqual(await page.evaluate(() => activeEngineBridge().wireCreate?.loomExitPoint), { x: 430, y: 600 });
+  const sideBPreviews = await page.evaluate(() => activeEngineBridge().interactionRenderState().tempWires
+    .map(wire => ({ from: wire.from, to: wire.to, routeStyle: wire.routeStyle, routePoints: wire.routePoints })));
+  assert.equal(sideBPreviews.length, 2, "reverse entry also preserves both cable hops");
+  assert.deepEqual(sideBPreviews[0].from, await connector("source", "port-3"));
+  assert.deepEqual(sideBPreviews[0].to, { x: 750, y: 600 });
+  assert.deepEqual(sideBPreviews[1].from, { x: 430, y: 600 });
+  await page.mouse.move(...Object.values(await screen({ x: 360, y: 520 })), { steps: 4 });
+  const movedSideBPreviews = await page.evaluate(() => activeEngineBridge().interactionRenderState().tempWires
+    .map(wire => ({ from: wire.from, to: wire.to, routeStyle: wire.routeStyle, routePoints: wire.routePoints })));
+  assert.deepEqual(movedSideBPreviews[0], sideBPreviews[0], "reverse entry preserves its established first leg");
+  assert.notDeepEqual(movedSideBPreviews[1].to, sideBPreviews[1].to, "reverse exit preview follows the cursor");
+  await page.screenshot({ path: join(screenshots, "loom-side-b-entry-live-exit.png") });
   const destinationB = await screen(await connector("sink", "port-3"));
   await page.mouse.move(destinationB.x, destinationB.y, { steps: 8 });
   await page.mouse.down();
