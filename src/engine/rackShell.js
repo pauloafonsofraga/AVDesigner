@@ -47,10 +47,19 @@ export function rackShellBounds(compactContentBounds, rackShell = {}) {
   };
 }
 
+function resolveRackShellStyle(value) {
+  if (typeof value === "string") {
+    return RACK_SHELL_STYLES[value] || RACK_SHELL_STYLES[DEFAULT_RACK_SHELL_STYLE_ID];
+  }
+  if (value && typeof value === "object" && value.insets
+    && Number.isFinite(Number(value.sourceWidth)) && Number.isFinite(Number(value.sourceHeight))) {
+    return value;
+  }
+  return rackShellStyle(value);
+}
+
 export function rackShellSlices(styleOrId = DEFAULT_RACK_SHELL_STYLE_ID, shellRect = {}) {
-  const style = typeof styleOrId === "string"
-    ? RACK_SHELL_STYLES[styleOrId] || RACK_SHELL_STYLES[DEFAULT_RACK_SHELL_STYLE_ID]
-    : rackShellStyle(styleOrId);
+  const style = resolveRackShellStyle(styleOrId);
   const sx = [0, style.insets.left, style.sourceWidth - style.insets.right, style.sourceWidth];
   const sy = [0, style.insets.top, style.sourceHeight - style.insets.bottom, style.sourceHeight];
   const minWidth = style.insets.left + style.insets.right;

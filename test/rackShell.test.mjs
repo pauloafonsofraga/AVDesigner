@@ -27,6 +27,38 @@ test("rack shell slices preserve fixed corners and stretch only the center rails
   assert.equal(large.find(item => item.role === "center").destinationRect.height, 332);
 });
 
+test("rack shell slices accept style IDs and authored shell configs with unchanged standard geometry", () => {
+  const rect = { x: 35, y: 42, width: 240, height: 180 };
+  const byId = rackShellSlices("standard", rect);
+  const byConfig = rackShellSlices({ styleId: "standard", color: "#3A7FA5" }, rect);
+  assert.deepEqual(byConfig, byId);
+  assert.deepEqual(byId[0].sourceRect, { x: 0, y: 0, width: 24, height: 24 });
+  assert.deepEqual(byId[0].destinationRect, { x: 35, y: 42, width: 24, height: 24 });
+});
+
+test("rack shell slices preserve geometry from an already-resolved non-default style", () => {
+  const testWide = {
+    id: "test-wide",
+    src: "./test-wide.png",
+    sourceWidth: 160,
+    sourceHeight: 120,
+    insets: { left: 18, top: 12, right: 26, bottom: 20 },
+    padding: { left: 10, top: 10, right: 10, bottom: 10 }
+  };
+  const rect = { x: 30, y: 40, width: 300, height: 220 };
+  const slices = rackShellSlices(testWide, rect);
+  const slice = role => slices.find(item => item.role === role);
+
+  assert.deepEqual(slice("top-left").sourceRect, { x: 0, y: 0, width: 18, height: 12 });
+  assert.equal(slice("top-right").sourceRect.x, 160 - 26);
+  assert.equal(slice("bottom").sourceRect.y, 120 - 20);
+  assert.equal(slice("center").sourceRect.width, 160 - 18 - 26);
+  assert.equal(slice("center").sourceRect.height, 120 - 12 - 20);
+  assert.deepEqual(slice("top-left").destinationRect, { x: 30, y: 40, width: 18, height: 12 });
+  assert.deepEqual(slice("top-right").destinationRect, { x: 304, y: 40, width: 26, height: 12 });
+  assert.deepEqual(slice("bottom-left").destinationRect, { x: 30, y: 240, width: 18, height: 20 });
+});
+
 test("rack shell geometry clamps minimum size and never returns negative slices", () => {
   const style = rackShellStyle();
   const shell = rackShellBounds({ x: 10, y: 20, width: 1, height: 1 }, { styleId: "standard" });
