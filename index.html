@@ -33571,7 +33571,7 @@ document.addEventListener("click", function(event) {
     rackBuilderColor?.addEventListener("input", event => {
       const rack = selectedEditorRack();
       if (!rack) return;
-      const styleId = rackShellStyleRegistry?.[rack.rackShell?.styleId] ? rack.rackShell.styleId : "standard";
+      const styleId = String(rack.rackShell?.styleId || "standard");
       rack.rackShell = { styleId, color: event.target.value.toUpperCase() };
       syncCanvasRackInstancesForSource(rack.id);
       refreshActiveEngineBridge("rack shell color");

@@ -117,6 +117,28 @@ try {
   await page.locator("#redoAction").dispatchEvent("click");
   await page.waitForFunction(({ id }) => rackById(id)?.rackShell?.styleId === "touring"
     && rackById(id)?.rackShell?.color === "#A14B32", racks.racks[0]);
+  const registryUnavailableResults = await page.evaluate(({ rackId }) => {
+    const registry = rackShellStyleRegistry;
+    const input = document.querySelector("#rackBuilderColor");
+    const rack = rackById(rackId);
+    rackShellStyleRegistry = null;
+    try {
+      const results = [];
+      for (const [styleId, color] of [["professional", "#3D8054"], ["touring", "#7A8B91"]]) {
+        rack.rackShell = { styleId, color: "#23658A" };
+        input.value = color;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        results.push({ ...rack.rackShell });
+      }
+      return results;
+    } finally {
+      rackShellStyleRegistry = registry;
+    }
+  }, { rackId: racks.racks[0].id });
+  assert.deepEqual(registryUnavailableResults, [
+    { styleId: "professional", color: "#3D8054" },
+    { styleId: "touring", color: "#7A8B91" }
+  ], "color edits preserve Professional and Touring when the style registry is unavailable");
   await page.screenshot({ path: join(screenshots, "rack-style-selector.png"), fullPage: false });
   await page.locator("#closeRackBuilder").click();
   const pdfDownload = page.waitForEvent("download");
