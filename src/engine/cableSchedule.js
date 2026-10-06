@@ -3,6 +3,7 @@ import { engineConnectorColor, engineConnectorDisplayLabel, engineConnectorCompa
 import { normalizeSignalDirection } from "./deviceDefinitionV2.js";
 import { rawWireJumpIds, resolvePlayableSignalPath } from "./jumpNodeModel.js";
 import { cableLengthDisplayLabel } from "./loomMetadata.js";
+import { resolveRackPatchPresentation } from "./rackPatchTopology.js";
 
 export const CABLE_SCHEDULE_COLUMNS = Object.freeze([
   ["cableNumber", "Cable ID"], ["sourceDevice", "Source Device"], ["sourcePort", "Source Port"],
@@ -188,24 +189,38 @@ function endpointDisplay(project, endpoint, getConnector, nodeColors, nodeDefini
   const connector = connectorFor(project, endpoint, getConnector);
   const node = nodeDefinition(nodeDefinitions, connector?.type);
   const template = instance?.templateOverride || (project.deviceLibrary || []).find(item => item.id === instance?.templateId);
+  const semanticDevice = String(instance?.name || template?.name || surface?.name || "Unconnected");
+  const semanticPort = String(connector?.nameText || (connector?.label !== connector?.type ? connector?.label : "")
+    || (connector ? engineConnectorDisplayLabel({ ...connector, typeLabel: node?.label || connector.typeLabel,
+      compatibilityType: connector.compatibilityType || node?.compatibilityType }) : "")
+    || (surface ? "LED Screen" : ""));
+  const patch = resolveRackPatchPresentation(project, endpoint);
   return {
     deviceId: String(instance?.instanceId || ""), surfaceId: String(surface?.id || ""),
     connectorId: String(connector?.id || endpoint?.connectorId || ""),
     direction: connector ? normalizeSignalDirection(connector.signalDirection, connector.direction) : "",
-    device: String(instance?.name || template?.name || surface?.name || "Unconnected"),
-    port: String(connector?.nameText || (connector?.label !== connector?.type ? connector?.label : "")
-      || (connector ? engineConnectorDisplayLabel({ ...connector, typeLabel: node?.label || connector.typeLabel,
-        compatibilityType: connector.compatibilityType || node?.compatibilityType }) : "")
-      || (surface ? "LED Screen" : "")),
+    device: patch ? `${patch.rackName} / ${patch.panelLabel}` : semanticDevice,
+    port: patch ? `Port ${patch.slot}` : semanticPort,
+    realDevice: semanticDevice,
+    realPort: semanticPort,
     type: String(connector ? engineConnectorCompatibilityType({ ...connector,
       compatibilityType: connector.compatibilityType || node?.compatibilityType }) || connector.physicalType || connector.type || "" : ""),
     typeId: String(connector?.type || ""),
     typeLabel: connector ? engineConnectorUserFacingTypeLabel({ ...connector,
       typeLabel: node?.label !== connector.type ? node?.label : connector.typeLabel,
       compatibilityType: connector.compatibilityType || node?.compatibilityType }) : "",
-    rackId: String(instance?.rackId || ""),
+    rackId: patch?.rackId || String(instance?.rackId || ""),
+    patch,
     color: connector ? engineConnectorColor(connector, nodeColors) : ""
   };
+}
+
+function derivePatchReportNotes(notes, source, destination) {
+  const mappings = [
+    source.patch && `Source patch: ${source.patch.rackName} / ${source.patch.panelLabel} / Port ${source.patch.slot} ↔ ${source.realDevice} / ${source.realPort}`,
+    destination.patch && `Destination patch: ${destination.patch.rackName} / ${destination.patch.panelLabel} / Port ${destination.patch.slot} ↔ ${destination.realDevice} / ${destination.realPort}`
+  ].filter(Boolean);
+  return [...[String(notes || "").trimEnd()].filter(Boolean), ...mappings].join("\n");
 }
 
 export function buildCableSchedule(input, options = {}) {
@@ -225,9 +240,10 @@ export function buildCableSchedule(input, options = {}) {
     const source = endpointDisplay(project, group.source, options.getConnector, nodeColors, nodeDefinitions);
     const destination = endpointDisplay(project, group.destination, options.getConnector, nodeColors, nodeDefinitions);
     const family = group.family || groupFamily(project, group, { ...options, nodeDefinitions });
-    const sourceRack = source.rackId ? rackName(source.rackId) : "";
-    const destinationRack = destination.rackId ? rackName(destination.rackId) : "";
-    const rackLocation = sourceRack === destinationRack ? sourceRack : `${sourceRack} → ${destinationRack}`.trim();
+    const sourceRack = source.patch?.rackName || (source.rackId ? rackName(source.rackId) : "");
+    const destinationRack = destination.patch?.rackName || (destination.rackId ? rackName(destination.rackId) : "");
+    const rackLocation = source.rackId === destination.rackId
+      ? sourceRack : `${sourceRack} → ${destinationRack}`.trim();
     const cableType = String(group.wires.find(wire => wire.cableType && wire.cableType !== "jump")?.cableType || value("cableType"));
     const cableNode = node(cableType);
     const cableLabel = cableType ? engineConnectorUserFacingTypeLabel({ type: cableType,
@@ -241,13 +257,17 @@ export function buildCableSchedule(input, options = {}) {
       destinationDevice: destination.device, destinationPort: destination.port,
       sourceDeviceId: source.deviceId, sourceSurfaceId: source.surfaceId,
       sourceConnectorId: source.connectorId, sourceDirection: source.direction,
+      sourceRealDevice: source.realDevice, sourceRealPort: source.realPort,
+      sourcePatch: source.patch,
       destinationDeviceId: destination.deviceId, destinationSurfaceId: destination.surfaceId,
       destinationConnectorId: destination.connectorId, destinationDirection: destination.direction,
+      destinationRealDevice: destination.realDevice, destinationRealPort: destination.realPort,
+      destinationPatch: destination.patch,
       signal: families[family], connector: [source.typeLabel, destination.typeLabel].filter(Boolean).join(" → "),
       cable: `${cableLabel}${fiberMode}`, length: cableLengthDisplayLabel(value("length"), loomRecord),
       fiberMode: String(value("fiberMode")),
       loomId, loom: String(loomRecord?.name || value("loom")), rackLocation,
-      notes: deriveLoomReportNotes(value("notes"), loomRecord),
+      notes: derivePatchReportNotes(deriveLoomReportNotes(value("notes"), loomRecord), source, destination),
       wireIds: group.wires.map(wire => String(wire.id)),
       sourceNodeTypeId: source.typeId, destinationNodeTypeId: destination.typeId,
       sourceNodeTypeLabel: source.typeLabel, destinationNodeTypeLabel: destination.typeLabel,
@@ -262,8 +282,9 @@ export function buildCableSchedule(input, options = {}) {
 
 function signalChainFromRow(row) {
   const endpoint = side => ({
-    device: row[`${side}Device`], deviceId: row[`${side}DeviceId`], surfaceId: row[`${side}SurfaceId`],
-    connectorId: row[`${side}ConnectorId`], port: row[`${side}Port`],
+    device: row[`${side}RealDevice`] || row[`${side}Device`], deviceId: row[`${side}DeviceId`], surfaceId: row[`${side}SurfaceId`],
+    connectorId: row[`${side}ConnectorId`], port: row[`${side}RealPort`] || row[`${side}Port`],
+    patch: row[`${side}Patch`] || null,
     typeId: row[`${side}NodeTypeId`], typeLabel: row[`${side}NodeTypeLabel`], color: row[`${side}NodeColor`],
     direction: row[`${side}Direction`]
   });
@@ -284,6 +305,14 @@ export function signalChainsForConnector(rows, deviceId, connectorId) {
   if (!owner || !connector) return [];
   return rows.filter(row => row.sourceDeviceId === owner && row.sourceConnectorId === connector
     || row.destinationDeviceId === owner && row.destinationConnectorId === connector)
+    .map(signalChainFromRow);
+}
+
+export function signalChainsForPatchPort(rows, rackId, patchPanelId, patchPortId) {
+  const wanted = [String(rackId || ""), String(patchPanelId || ""), String(patchPortId || "")];
+  if (wanted.some(value => !value)) return [];
+  return rows.filter(row => [row.sourcePatch, row.destinationPatch].some(patch => patch
+    && [String(patch.rackId), String(patch.panelId), String(patch.portId)].every((value, index) => value === wanted[index])))
     .map(signalChainFromRow);
 }
 

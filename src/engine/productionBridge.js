@@ -145,8 +145,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-74-compact-rack-projection";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-74-compact-rack-projection";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-77-patch-panel-chain";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-77-patch-panel-chain";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -5038,7 +5038,8 @@ class ProductionEngineBridge {
         type: "connector",
         deviceId: device.sourceId || device.id,
         engineDeviceId: device.id,
-        connectorId: connectorHit.connector.connector.id
+        connectorId: connectorHit.connector.connector.id,
+        rackPresentation: connectorHit.connector.rackPresentation || null
       };
     }
     const loomHit = hitTestLoom(this.scene, world, tolerance);

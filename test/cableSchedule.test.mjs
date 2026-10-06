@@ -5,7 +5,7 @@ import ExcelJS from "exceljs/dist/exceljs.min.js";
 import { bidirectionalJumpFixture } from "../fixtures/bidirectional-jumps.mjs";
 import { buildCableSchedule, cableFamily, cableScheduleCsv, cableScheduleFilterOptions,
   cableScheduleVisibleRowIndexes, ensureCableNumbers, signalChainForWire,
-  signalChainsForConnector } from "../src/engine/cableSchedule.js";
+  signalChainsForConnector, signalChainsForPatchPort, groupedCables } from "../src/engine/cableSchedule.js";
 import { createCableScheduleXlsx } from "../src/engine/cableScheduleXlsx.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
@@ -26,6 +26,31 @@ function project() {
       to: { deviceId: "device-1", connectorId: "port" } }],
     racks: [], cableNumberCounters: {}
   };
+}
+
+function addPatchPresentation(data, { rackId, rackName, panelId, panelLabel, portId, slot, deviceId, sourceRackDeviceId }) {
+  data.racks ||= [];
+  const sourceRackId = `${rackId}-definition`;
+  data.racks.push(
+    { id: sourceRackId, name: rackName, patchPanels: [{ id: panelId, label: panelLabel, rackFace: "rear",
+      placementSide: "right", ports: [{ id: portId, slot, sourceRackDeviceId, sourceConnectorId: "port" }] }] },
+    { id: rackId, name: rackName, sourceRackId, canvasInstance: true,
+      sourceDeviceMap: { [sourceRackDeviceId]: deviceId }, patchPanels: [] }
+  );
+  const device = data.devices.find(item => item.instanceId === deviceId);
+  device.rackId = rackId;
+  device.sourceRackDeviceId = sourceRackDeviceId;
+  return { rackId, patchPanelId: panelId, patchPortId: portId };
+}
+
+function addSourcePatch(data) {
+  return addPatchPresentation(data, { rackId: "foh", rackName: "FOH Rack", panelId: "panel-foh",
+    panelLabel: "VIDEO PATCH", portId: "port-foh-3", slot: 3, deviceId: "device-0", sourceRackDeviceId: "source-0" });
+}
+
+function addDestinationPatch(data) {
+  return addPatchPresentation(data, { rackId: "stage", rackName: "Stage Rack", panelId: "panel-stage",
+    panelLabel: "VIDEO PATCH", portId: "port-stage-5", slot: 5, deviceId: "device-1", sourceRackDeviceId: "source-1" });
 }
 
 test("direct cable derives current endpoint labels and persisted metadata", () => {
@@ -186,6 +211,160 @@ test("rack locations use explicit memberships only", () => {
   assert.equal(buildCableSchedule(data)[0].rackLocation, "FOH Rack → Stage Rack");
   data.devices[0].rackId = "r2";
   assert.equal(buildCableSchedule(data)[0].rackLocation, "Stage Rack");
+});
+
+test("one patched endpoint reports physical termination and keeps real semantic connector data", () => {
+  const data = project();
+  data.connections[0].from = { deviceId: "device-0", connectorId: "port", ...addSourcePatch(data) };
+  const [row] = buildCableSchedule(data, { assignNumbers: "readOnly" });
+  assert.equal(row.sourceDevice, "FOH Rack / VIDEO PATCH");
+  assert.equal(row.sourcePort, "Port 3");
+  assert.equal(row.destinationDevice, "Destination");
+  assert.equal(row.destinationPort, "SDI In");
+  assert.deepEqual([row.sourceDeviceId, row.sourceConnectorId, row.sourceRealDevice, row.sourceRealPort],
+    ["device-0", "port", "Source", "SDI Out"]);
+  assert.deepEqual(row.sourcePatch, { resolved: true, rackId: "foh", rackName: "FOH Rack", panelId: "panel-foh",
+    panelLabel: "VIDEO PATCH", rackFace: "rear", placementSide: "right", portId: "port-foh-3", slot: 3,
+    sourceRackDeviceId: "source-0", sourceConnectorId: "port" });
+  assert.equal(row.signal, "Video");
+  assert.equal(row.cableNumber, "V-001");
+  assert.equal(row.notes, "One, two\nThree\nSource patch: FOH Rack / VIDEO PATCH / Port 3 ↔ Source / SDI Out");
+  assert.equal(data.connections[0].notes, "One, two\nThree", "derived patch notes are not persisted");
+  assert.equal(row.rackLocation, "FOH Rack →");
+  const chain = signalChainForWire([row], "wire-1");
+  assert.equal(chain.from.device, "Source");
+  assert.equal(chain.from.port, "SDI Out");
+  assert.equal(chain.from.patch.slot, 3);
+  data.devices[1].rackId = "foh";
+  assert.equal(buildCableSchedule(data, { assignNumbers: "readOnly" })[0].rackLocation, "FOH Rack",
+    "a direct endpoint in the same physical rack collapses the location to one rack name");
+});
+
+test("both patched endpoints remain one external cable with live physical locations and notes", () => {
+  const data = project();
+  data.connections[0].from = { deviceId: "device-0", connectorId: "port", ...addSourcePatch(data) };
+  data.connections[0].to = { deviceId: "device-1", connectorId: "port", ...addDestinationPatch(data) };
+  const [row] = buildCableSchedule(data, { assignNumbers: "readOnly" });
+  assert.equal(groupedCables(data).length, 1);
+  assert.equal(row.sourceDevice, "FOH Rack / VIDEO PATCH");
+  assert.equal(row.sourcePort, "Port 3");
+  assert.equal(row.destinationDevice, "Stage Rack / VIDEO PATCH");
+  assert.equal(row.destinationPort, "Port 5");
+  assert.equal(row.rackLocation, "FOH Rack → Stage Rack");
+  assert.match(row.notes, /Source patch: FOH Rack \/ VIDEO PATCH \/ Port 3 ↔ Source \/ SDI Out/);
+  assert.match(row.notes, /Destination patch: Stage Rack \/ VIDEO PATCH \/ Port 5 ↔ Destination \/ SDI In/);
+  const chain = signalChainForWire([row], "wire-1");
+  assert.deepEqual([chain.from.device, chain.from.patch.slot, chain.to.device, chain.to.patch.slot],
+    ["Source", 3, "Destination", 5]);
+  [data.connections[0].from, data.connections[0].to] = [data.connections[0].to, data.connections[0].from];
+  const reversed = signalChainForWire(buildCableSchedule(data, { assignNumbers: "readOnly" }), "wire-1");
+  assert.deepEqual([reversed.from.device, reversed.from.patch.slot, reversed.to.device, reversed.to.patch.slot],
+    ["Source", 3, "Destination", 5], "direction normalization keeps each live patch attached to its semantic endpoint");
+});
+
+test("stale patch presentations fall back without losing or mutating the cable", () => {
+  const data = project();
+  data.connections[0].from = { deviceId: "device-0", connectorId: "port", ...addSourcePatch(data) };
+  const before = structuredClone(data);
+  data.racks.find(item => item.id === "foh-definition").patchPanels[0].ports = [];
+  const staleBefore = structuredClone(data);
+  const [row] = buildCableSchedule(data, { assignNumbers: "readOnly" });
+  assert.equal(row.sourcePatch, null);
+  assert.deepEqual([row.sourceDevice, row.sourcePort], ["Source", "SDI Out"]);
+  assert.equal(row.wireIds.length, 1);
+  assert.equal(signalChainForWire([row], "wire-1").from.device, "Source");
+  assert.deepEqual(data, staleBefore, "reporting does not repair stale presentation IDs");
+  assert.deepEqual(before.connections[0].from, {
+    deviceId: "device-0", connectorId: "port", rackId: "foh", patchPanelId: "panel-foh", patchPortId: "port-foh-3"
+  });
+
+  const invalidations = [
+    data => { data.connections[0].from.rackId = "missing-rack"; },
+    data => { data.connections[0].from.patchPanelId = "missing-panel"; },
+    data => { data.racks.find(item => item.id === "foh-definition").patchPanels[0].ports[0].sourceConnectorId = "different-connector"; },
+    data => { data.racks.find(item => item.id === "foh").sourceDeviceMap["source-0"] = "device-1"; }
+  ];
+  for (const invalidate of invalidations) {
+    const candidate = project();
+    candidate.connections[0].from = { deviceId: "device-0", connectorId: "port", ...addSourcePatch(candidate) };
+    invalidate(candidate);
+    const unchanged = structuredClone(candidate);
+    const [fallback] = buildCableSchedule(candidate, { assignNumbers: "readOnly" });
+    assert.equal(fallback.sourcePatch, null);
+    assert.deepEqual([fallback.sourceDevice, fallback.sourcePort], ["Source", "SDI Out"]);
+    assert.deepEqual(candidate, unchanged, "invalid presentation IDs are ignored without repair mutations");
+  }
+});
+
+test("patch labels and stable slots resolve live from rack ownership and presentation-specific lookup", () => {
+  const data = project();
+  const presentation = addSourcePatch(data);
+  data.connections[0].from = { deviceId: "device-0", connectorId: "port", ...presentation };
+  data.connections.push({ ...structuredClone(data.connections[0]), id: "wire-direct", from: { deviceId: "device-0", connectorId: "port" } });
+  const sourceRack = data.racks.find(item => item.id === "foh-definition");
+  sourceRack.patchPanels[0].ports.push({ id: "other-port", slot: 4, sourceRackDeviceId: "source-0", sourceConnectorId: "other" });
+  sourceRack.patchPanels[0].ports.find(item => item.id === "port-foh-3").slot = 5;
+  sourceRack.patchPanels[0].label = "PATCH A";
+  data.racks.find(item => item.id === "foh").name = "Renamed FOH Rack";
+  let rows = buildCableSchedule(data, { assignNumbers: "readOnly" });
+  assert.equal(rows.find(row => row.wireIds.includes("wire-1")).sourceDevice, "Renamed FOH Rack / PATCH A");
+  assert.equal(rows.find(row => row.wireIds.includes("wire-1")).sourcePort, "Port 5");
+  sourceRack.patchPanels[0].label = "VIDEO PATCH";
+  rows = buildCableSchedule(data, { assignNumbers: "readOnly" });
+  const patched = signalChainsForPatchPort(rows, "foh", "panel-foh", "port-foh-3");
+  assert.equal(patched.length, 1);
+  assert.deepEqual(patched[0].wireIds, ["wire-1"]);
+  assert.equal(patched[0].from.patch.slot, 5);
+  assert.equal(signalChainsForConnector(rows, "device-0", "port").length, 2);
+  assert.deepEqual(signalChainsForPatchPort(rows, "foh", "panel-foh", "missing"), []);
+});
+
+test("direct, source-patched, and both-ends-patched CSV/XLSX exports remain one row per external cable", async () => {
+  const data = project();
+  const direct = structuredClone(data.connections[0]);
+  const sourcePresentation = addSourcePatch(data), destinationPresentation = addDestinationPatch(data);
+  const sourcePatched = { ...structuredClone(direct), id: "wire-source-patched",
+    from: { deviceId: "device-0", connectorId: "port", ...sourcePresentation } };
+  const bothPatched = { ...structuredClone(direct), id: "wire-both-patched",
+    from: { deviceId: "device-0", connectorId: "port", ...sourcePresentation },
+    to: { deviceId: "device-1", connectorId: "port", ...destinationPresentation } };
+  data.connections = [direct, sourcePatched, bothPatched];
+  const rows = buildCableSchedule(data, { assignNumbers: "readOnly" });
+  assert.equal(rows.length, 3);
+  const csv = cableScheduleCsv(rows);
+  assert.match(csv, /"FOH Rack \/ VIDEO PATCH","Port 3"/);
+  assert.match(csv, /Source patch: FOH Rack \/ VIDEO PATCH \/ Port 3 ↔ Source \/ SDI Out/);
+  assert.equal((csv.match(/"V-00[1-3]"/g) || []).length, 3);
+
+  const bytes = await createCableScheduleXlsx(rows);
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(bytes);
+  const sheet = workbook.getWorksheet("Cable Schedule");
+  assert.equal(sheet.rowCount, 4);
+  assert.equal(sheet.getCell("B3").value, "FOH Rack / VIDEO PATCH");
+  assert.equal(sheet.getCell("C3").value, "Port 3");
+  assert.match(sheet.getCell("L3").value, /Source patch: FOH Rack \/ VIDEO PATCH \/ Port 3 ↔ Source \/ SDI Out/);
+  assert.equal(sheet.getCell("B4").value, "FOH Rack / VIDEO PATCH");
+  assert.equal(sheet.getCell("D4").value, "Stage Rack / VIDEO PATCH");
+});
+
+test("patched outer Jump cable keeps one logical chain and hides the paired Jump nodes", () => {
+  const data = bidirectionalJumpFixture("output", "input");
+  data.jumpLinks = [{ id: "link", outputJumpId: "a", inputJumpId: "b" }];
+  data.connections = data.connections.slice(0, 2);
+  const patch = addPatchPresentation(data, { rackId: "stage", rackName: "Stage Rack", panelId: "panel-stage",
+    panelLabel: "VIDEO PATCH", portId: "port-stage-5", slot: 5, deviceId: "destination", sourceRackDeviceId: "source-1" });
+  data.connections[1].from = { deviceId: "destination", connectorId: "port", ...patch };
+  const rows = buildCableSchedule(data, { assignNumbers: "readOnly" });
+  assert.equal(rows.length, 1);
+  assert.deepEqual(rows[0].wireIds, ["wire-a", "wire-b"]);
+  assert.equal(rows[0].destinationDevice, "Stage Rack / VIDEO PATCH");
+  assert.equal(rows[0].destinationPort, "Port 5");
+  const firstLeg = signalChainForWire(rows, "wire-a"), secondLeg = signalChainForWire(rows, "wire-b");
+  assert.deepEqual(firstLeg, secondLeg);
+  assert.deepEqual([firstLeg.from.device, firstLeg.to.device, firstLeg.to.patch.slot], ["source", "destination", 5]);
+  assert.deepEqual(signalChainsForPatchPort(rows, "stage", "panel-stage", "port-stage-5")[0].wireIds,
+    ["wire-a", "wire-b"]);
 });
 
 test("endpoint graphics retain individual connector colors", () => {

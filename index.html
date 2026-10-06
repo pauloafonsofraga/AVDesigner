@@ -5155,7 +5155,7 @@
       color: var(--ink);
     }
     .cable-schedule-dialog::backdrop { background: rgba(0, 0, 0, .7); }
-    .signal-chain-dialog { width: min(880px, 95vw); max-width: none; padding: 0; border: 1px solid var(--panel-border); border-radius: 6px; background: var(--panel-bg); color: var(--ink); box-shadow: 0 20px 60px #0008; }
+    .signal-chain-dialog { width: min(1120px, 96vw); max-width: none; padding: 0; border: 1px solid var(--panel-border); border-radius: 6px; background: var(--panel-bg); color: var(--ink); box-shadow: 0 20px 60px #0008; }
     .signal-chain-dialog::backdrop { background: #000a; }
     .pdf-export-dialog { width: min(380px, calc(100vw - 24px)); max-width: none; padding: 0; border: 1px solid var(--panel-border); border-radius: 6px; background: var(--panel-bg); color: var(--ink); box-shadow: 0 20px 60px #0008; }
     .pdf-export-dialog::backdrop { background: #000a; }
@@ -5177,8 +5177,8 @@
     .signal-chain-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--panel-border); }
     .signal-chain-header h2 { margin: 0; font-size: 15px; }
     .signal-chain-body { padding: 18px; }
-    .signal-chain-graph { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr) minmax(135px, 1fr) minmax(0, .8fr) minmax(0, 1.2fr); align-items: center; gap: 12px; }
-    .signal-chain-device, .signal-chain-node, .signal-chain-cable { min-width: 0; text-align: center; }
+    .signal-chain-graph { display: grid; grid-template-columns: minmax(92px, 1.15fr) minmax(62px, .75fr) minmax(120px, 1fr) minmax(120px, 1.2fr) minmax(120px, 1fr) minmax(62px, .75fr) minmax(92px, 1.15fr); align-items: center; gap: 8px; }
+    .signal-chain-device, .signal-chain-node, .signal-chain-cable, .signal-chain-patch-stop { min-width: 0; text-align: center; }
     .signal-chain-art { display: grid; place-items: center; height: 86px; padding: 8px; border: 1px solid var(--panel-border); border-radius: 4px; background: color-mix(in srgb, var(--panel-bg) 84%, var(--ink)); }
     .signal-chain-art img { display: block; max-width: 100%; max-height: 70px; object-fit: contain; }
     .signal-chain-art-fallback { font-weight: 700; font-size: 12px; }
@@ -5192,9 +5192,17 @@
     .signal-chain-line { display: flex; width: 100%; height: 8px; overflow: hidden; margin: 15px 0 8px; border-radius: 4px; }
     .signal-chain-line span { flex: 1; background: var(--segment-color); }
     .signal-chain-flow { color: var(--muted); font-size: 11px; }
+    .signal-chain-patch-stop { display: grid; align-content: center; gap: 7px; }
+    .signal-chain-patch-lead { width: 100%; height: 2px; background: repeating-linear-gradient(90deg, #f59b32 0 4px, transparent 4px 8px); opacity: .62; }
+    .signal-chain-patch-card { display: grid; gap: 4px; min-height: 86px; align-content: center; padding: 8px 6px; border: 1px solid #d98421; border-radius: 4px; background: color-mix(in srgb, #d98421 13%, var(--panel-bg)); }
+    .signal-chain-patch-kind { color: #f3a33f; font-size: 9px; font-weight: 900; }
+    .signal-chain-patch-label { font-size: 11px; font-weight: 800; overflow-wrap: anywhere; }
+    .signal-chain-patch-port { font-size: 12px; font-weight: 900; }
+    .signal-chain-patch-rack { color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+    .signal-chain-patch-empty { min-width: 0; }
     .signal-chain-choices { display: grid; gap: 6px; }
     .signal-chain-choices button { width: 100%; text-align: left; }
-    @media (max-width: 650px) { .signal-chain-graph { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .signal-chain-cable { grid-column: 1 / -1; grid-row: 1; } }
+    @media (max-width: 760px) { .signal-chain-graph { grid-template-columns: minmax(0, 1fr); gap: 10px; } .signal-chain-patch-empty { display: none; } .signal-chain-patch-stop { grid-template-columns: minmax(0, 1fr) minmax(150px, 220px) minmax(0, 1fr); align-items: center; } .signal-chain-cable { grid-column: auto; grid-row: auto; } }
     .cable-schedule-dialog[open] { display: grid; grid-template-rows: auto minmax(0, 1fr); }
     .cable-schedule-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--panel-border); }
     .cable-schedule-header h2 { font-size: 15px; margin: 0 auto 0 0; }
@@ -5283,7 +5291,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled WireNexus Project" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">54.38.76 — Selectable Rack Shell Styles</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">54.38.77 — Patch Panel Signal Chain Topology</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -6019,12 +6027,12 @@
   <script src="./src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script src="./src/engine/projectorModelCore.js?v=iteration54-38-11-engine-status-labels"></script>
   <script src="./src/engine/historyCloneCore.js?v=iteration54-38-29-memory-safe-undo"></script>
-  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-76-rack-styles"></script>
+  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-77-patch-panel-chain"></script>
   <script type="text/wirenexus-app" id="wireNexusAppSource">
-    const APP_ITERATION = "54.38.76";
-    const APP_BUILD_ID = "iteration54-38-76-rack-styles";
-    const APP_MODULE_CACHE_ID = "iteration54-38-76-rack-styles-modules";
-    const APP_BUILD_LABEL = `${APP_ITERATION} — Selectable Rack Shell Styles`;
+    const APP_ITERATION = "54.38.77";
+    const APP_BUILD_ID = "iteration54-38-77-patch-panel-chain";
+    const APP_MODULE_CACHE_ID = "iteration54-38-77-patch-panel-chain-modules";
+    const APP_BUILD_LABEL = `${APP_ITERATION} — Patch Panel Signal Chain Topology`;
     const { cloneHistoryValue, MAX_HISTORY_ENTRIES } = window.WireNexusHistoryClone;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
@@ -27873,8 +27881,12 @@
       const connectorId = deviceContextMenu.dataset.connectorId;
       if (connectorAction === "signal-chain" && connectorDeviceId && connectorId) {
         event.stopPropagation();
+        const patchRackId = deviceContextMenu.dataset.connectorPatchRackId;
+        const patchPanelId = deviceContextMenu.dataset.connectorPatchPanelId;
+        const patchPortId = deviceContextMenu.dataset.connectorPatchPortId;
         hideDeviceContextMenu();
-        openSignalChainForConnector(connectorDeviceId, connectorId);
+        if (patchRackId && patchPanelId && patchPortId) openSignalChainForPatchPort(patchRackId, patchPanelId, patchPortId);
+        else openSignalChainForConnector(connectorDeviceId, connectorId);
         return;
       }
       const rackAction = event.target.closest("[data-rack-menu]")?.dataset.rackMenu;
@@ -28464,13 +28476,29 @@
         end?.deviceId === deviceId && end?.connectorId === connectorId));
     }
 
-    function showConnectorContextMenu(event, deviceId, connectorId) {
-      if (!activeEngineBridge() || !connectorHasCable(deviceId, connectorId)) return;
+    function connectorHasPatchPortCable(presentation) {
+      if (!presentation?.rackId || !presentation?.patchPanelId || !presentation?.patchPortId) return false;
+      return state.connections.some(wire => ["from", "to"].some(end => {
+        const endpoint = wire[end] || {};
+        return String(endpoint.rackId || wire[`${end}RackId`] || "") === String(presentation.rackId)
+          && String(endpoint.patchPanelId || wire[`${end}PatchPanelId`] || "") === String(presentation.patchPanelId)
+          && String(endpoint.patchPortId || wire[`${end}PatchPortId`] || "") === String(presentation.patchPortId);
+      }));
+    }
+
+    function showConnectorContextMenu(event, deviceId, connectorId, rackPresentation = null) {
+      const hasCable = rackPresentation ? connectorHasPatchPortCable(rackPresentation) : connectorHasCable(deviceId, connectorId);
+      if (!activeEngineBridge() || !hasCable) return;
       deviceContextMenu.innerHTML = '<button type="button" data-connector-menu="signal-chain">Signal Chain</button>';
       deviceContextMenu.style.left = `${event.clientX}px`;
       deviceContextMenu.style.top = `${event.clientY}px`;
       deviceContextMenu.dataset.connectorDeviceId = deviceId;
       deviceContextMenu.dataset.connectorId = connectorId;
+      if (rackPresentation) {
+        deviceContextMenu.dataset.connectorPatchRackId = rackPresentation.rackId;
+        deviceContextMenu.dataset.connectorPatchPanelId = rackPresentation.patchPanelId;
+        deviceContextMenu.dataset.connectorPatchPortId = rackPresentation.patchPortId;
+      }
       deviceContextMenu.classList.remove("hidden");
     }
 
@@ -28509,6 +28537,9 @@
       delete deviceContextMenu.dataset.wireId;
       delete deviceContextMenu.dataset.connectorDeviceId;
       delete deviceContextMenu.dataset.connectorId;
+      delete deviceContextMenu.dataset.connectorPatchRackId;
+      delete deviceContextMenu.dataset.connectorPatchPanelId;
+      delete deviceContextMenu.dataset.connectorPatchPortId;
       delete deviceContextMenu.dataset.wireIds;
       delete deviceContextMenu.dataset.wireX;
       delete deviceContextMenu.dataset.wireY;
@@ -31152,6 +31183,18 @@
         <div class="signal-chain-sub">${escapeHtml(endpoint.typeLabel || nodeLibraryDisplayLabel(endpoint.typeId, node))}</div></div>`;
     }
 
+    function signalChainPatchMarkup(patch, role) {
+      if (!patch) return '<div class="signal-chain-patch-empty" aria-hidden="true"></div>';
+      return `<div class="signal-chain-patch-stop" data-signal-chain-patch-role="${role}">
+        <span class="signal-chain-patch-lead" aria-hidden="true"></span>
+        <div class="signal-chain-patch-card"><div class="signal-chain-patch-kind">PASSIVE PATCH</div>
+          <div class="signal-chain-patch-label">${escapeHtml(patch.panelLabel)}</div>
+          <div class="signal-chain-patch-port">Port ${escapeHtml(patch.slot)}</div>
+          <div class="signal-chain-patch-rack">${escapeHtml(patch.rackName)}</div>
+        </div>
+      </div>`;
+    }
+
     function signalChainMarkup(chain) {
       const cable = cableTypes[chain.cableTypeId];
       const colors = (Array.isArray(cable?.colors) && !chain.cableCustomColor ? cable.colors : [])
@@ -31165,6 +31208,7 @@
       return `<div class="signal-chain-graph" data-signal-chain-wire-ids="${escapeAttr(chain.wireIds.join(","))}">
         ${signalChainDeviceMarkup(chain.from)}
         ${signalChainNodeMarkup(chain.from, "from")}
+        ${signalChainPatchMarkup(chain.from.patch, "from")}
         <div class="signal-chain-cable"><div class="signal-chain-cable-id">${escapeHtml(chain.cableNumber)}</div>
           <div class="signal-chain-line" aria-hidden="true">${line}</div>
           <div class="signal-chain-sub">${escapeHtml(metadata)}</div>
@@ -31172,6 +31216,7 @@
           ${loom ? `<button class="tool-button" type="button" data-signal-chain-loom="${escapeAttr(loom.id)}">${escapeHtml(loomLabel)}</button>`
             : chain.loom ? `<div class="signal-chain-sub">Loom: ${escapeHtml(chain.loom)}</div>` : ""}
         </div>
+        ${signalChainPatchMarkup(chain.to.patch, "to")}
         ${signalChainNodeMarkup(chain.to, "to")}
         ${signalChainDeviceMarkup(chain.to)}
       </div>`;
@@ -31214,6 +31259,26 @@
       signalChainTitle.textContent = "Signal Chain · Choose cable";
       signalChainBody.innerHTML = `<div class="signal-chain-choices">${chains.map(chain => {
         const other = chain.from.deviceId === deviceId && chain.from.connectorId === connectorId ? chain.to : chain.from;
+        return `<button class="tool-button" type="button" data-signal-chain-choice="${escapeAttr(chain.wireIds[0])}">${escapeHtml(chain.cableNumber)} · ${escapeHtml(other.device)} / ${escapeHtml(other.port)}</button>`;
+      }).join("")}</div>`;
+      if (!signalChainDialog.open) signalChainDialog.showModal();
+    }
+
+    async function openSignalChainForPatchPort(rackId, patchPanelId, patchPortId) {
+      if (!activeEngineBridge()) return;
+      flushPendingInspectorCommit();
+      const module = await loadCableScheduleModule();
+      const chains = module.signalChainsForPatchPort(signalChainRows(module), rackId, patchPanelId, patchPortId);
+      if (chains.length === 1) { showSignalChain(chains[0]); return; }
+      if (!chains.length) return;
+      signalChainWireId = "";
+      signalChainRenderSignature = "";
+      signalChainTitle.textContent = "Signal Chain · Choose cable";
+      const patchKey = [String(rackId), String(patchPanelId), String(patchPortId)].join("/");
+      signalChainBody.innerHTML = `<div class="signal-chain-choices">${chains.map(chain => {
+        const fromPatch = chain.from.patch
+          && [chain.from.patch.rackId, chain.from.patch.panelId, chain.from.patch.portId].join("/") === patchKey;
+        const other = fromPatch ? chain.to : chain.from;
         return `<button class="tool-button" type="button" data-signal-chain-choice="${escapeAttr(chain.wireIds[0])}">${escapeHtml(chain.cableNumber)} · ${escapeHtml(other.device)} / ${escapeHtml(other.port)}</button>`;
       }).join("")}</div>`;
       if (!signalChainDialog.open) signalChainDialog.showModal();
@@ -35212,7 +35277,7 @@ document.addEventListener("click", function(event) {
                 return;
               }
               if (target.type === "connector") {
-                showConnectorContextMenu(event, target.deviceId, target.connectorId);
+                showConnectorContextMenu(event, target.deviceId, target.connectorId, target.rackPresentation || null);
                 return;
               }
               if (target.type === "wire-corner") {
