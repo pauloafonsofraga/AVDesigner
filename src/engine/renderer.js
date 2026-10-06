@@ -68,7 +68,7 @@ import { wirePlaybackEase } from "./wirePlayback.js";
 import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-68-loom-packing-gateway-previews";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-72-loom-label-visibility";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -1452,7 +1452,7 @@ export class WebglGraphRenderer {
       });
       for (const plan of scene.loomPlans) {
         const loom = scene.looms.find(item => item.id === plan.loomId);
-        if (!loom) continue;
+        if (!loom || !loomLabelsVisible(scene, plan)) continue;
         const caption = [loom.name, `${plan.circuitCount} circuit${plan.circuitCount === 1 ? "" : "s"}`, loom.trunkLength]
           .filter(Boolean).join(" · ");
         drawPolylineLabel(ctx, plan.trunk, camera, caption);
@@ -3467,7 +3467,7 @@ export function drawEngineOutputLabels(ctx, scene, bounds) {
   });
   for (const plan of scene.loomPlans) {
     const loom = scene.looms.find(item => item.id === plan.loomId);
-    if (!loom) continue;
+    if (!loom || !loomLabelsVisible(scene, plan)) continue;
     drawPolylineLabel(ctx, plan.trunk, camera,
       [loom.name, `${plan.circuitCount} circuit${plan.circuitCount === 1 ? "" : "s"}`, loom.trunkLength]
         .filter(Boolean).join(" · "));
@@ -4087,6 +4087,12 @@ function zoomDetailStatsForCamera(camera, visibleInfoBoxes = 0, compactInfoBoxes
 
 function drawWireLabel(ctx, scene, wire, camera, offsets, text) {
   drawPolylineLabel(ctx, scene.wireRenderPolyline(wire, offsets), camera, text);
+}
+
+function loomLabelsVisible(scene, plan) {
+  const members = (plan.hiddenWireIds || []).map(id => scene.getWire(id))
+    .filter(wire => wire && String(wire.loomId || "") === String(plan.loomId));
+  return !members.length || members.some(wire => !wire.hideLabel);
 }
 
 function drawPolylineLabel(ctx, points, camera, text) {

@@ -101,6 +101,36 @@ test("loom trunk length labels blank member cables without changing explicit cab
   assert.equal(wireCaption(scene, wire), "E2 Main to Projector Left");
 });
 
+test("loom and endpoint labels follow member cable hide-label visibility", () => {
+  const project = cableCaptionFixture();
+  project.connections[0].loomId = "loom-visible";
+  project.looms = [{ id: "loom-visible", name: "LM-VISIBLE",
+    sideA: { label: "FOH", x: 200, y: 180 }, sideB: { label: "Stage", x: 760, y: 180 },
+    routeStyle: "orthogonal", routePoints: [] }];
+  const visibleScene = sceneFor(project);
+  const visibleLabels = liveLabels(visibleScene);
+  assert.ok(visibleLabels.some(label => label.includes("LM-VISIBLE")));
+  assert.ok(visibleLabels.includes("FOH"));
+  assert.ok(visibleLabels.includes("Stage"));
+  const visiblePrint = context();
+  drawEngineOutputLabels(visiblePrint, visibleScene, visibleScene.bounds());
+  assert.ok(visiblePrint.captions.some(label => label.includes("LM-VISIBLE")));
+  assert.ok(visiblePrint.captions.includes("FOH"));
+  assert.ok(visiblePrint.captions.includes("Stage"));
+
+  project.connections[0].hideLabel = true;
+  const hiddenScene = sceneFor(project);
+  const hiddenLabels = liveLabels(hiddenScene);
+  assert.ok(!hiddenLabels.some(label => label.includes("LM-VISIBLE")));
+  assert.ok(!hiddenLabels.includes("FOH"));
+  assert.ok(!hiddenLabels.includes("Stage"));
+  const hiddenPrint = context();
+  drawEngineOutputLabels(hiddenPrint, hiddenScene, hiddenScene.bounds());
+  assert.ok(!hiddenPrint.captions.some(label => label.includes("LM-VISIBLE")));
+  assert.ok(!hiddenPrint.captions.includes("FOH"));
+  assert.ok(!hiddenPrint.captions.includes("Stage"));
+});
+
 test("node names take precedence over stale plug captions and refresh without rebuilding geometry", () => {
   const scene = sceneFor(), wire = scene.getWire("direct");
   const points = scene.wireRenderPolyline(wire);
