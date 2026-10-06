@@ -23,6 +23,38 @@ export function cableScheduleVisibleRowIndexes(rows, filters = {}) {
   return rows.flatMap((row, index) => selected.every(key => row[key] === filters[key]) ? [index] : []);
 }
 
+export function deriveLoomReportNotes(notes, loom) {
+  const existing = String(notes ?? "");
+  if (!loom) return existing;
+  const name = String(loom.name || loom.id || "").trim();
+  if (!name) return existing;
+  const origin = String(loom.origin || "").trim();
+  const destination = String(loom.destination || "").trim();
+  const label = `Loom: ${name}${origin && destination ? ` — ${origin} → ${destination}` : ""}`;
+  const length = String(loom.trunkLength || "").trim();
+  const derived = [label];
+  if (length) derived.push(`Loom length: ${length} — Derived from ${name}`);
+  return [existing.trimEnd(), ...derived].filter(Boolean).join("\n");
+}
+
+export function parseComparableCableLengthMeters(value) {
+  const match = String(value ?? "").trim().match(/^([+-]?(?:\d+(?:[.,]\d*)?|[.,]\d+))\s*(mm|millimeters?|cm|centimeters?|m|meters?|metres?|km|kilometers?|kilometres?|in|inches?|ft|feet|foot|yd|yards?)$/i);
+  if (!match) return null;
+  const amount = Number(match[1].replace(",", "."));
+  if (!Number.isFinite(amount) || amount < 0) return null;
+  const unit = match[2].toLowerCase();
+  const factors = {
+    mm: 0.001, millimeter: 0.001, millimeters: 0.001,
+    cm: 0.01, centimeter: 0.01, centimeters: 0.01,
+    m: 1, meter: 1, meters: 1, metre: 1, metres: 1,
+    km: 1000, kilometer: 1000, kilometers: 1000, kilometre: 1000, kilometres: 1000,
+    in: 0.0254, inch: 0.0254, inches: 0.0254,
+    ft: 0.3048, foot: 0.3048, feet: 0.3048,
+    yd: 0.9144, yard: 0.9144, yards: 0.9144
+  };
+  return amount * factors[unit];
+}
+
 const families = Object.freeze({ V: "Video", N: "Network", A: "Audio", F: "Fibre", L: "Lighting", P: "Power", X: "Other" });
 const familyOrder = ["A", "F", "L", "N", "P", "V", "X"];
 const typeFamilies = new Map(Object.entries({
@@ -213,7 +245,8 @@ export function buildCableSchedule(input, options = {}) {
       signal: families[family], connector: [source.typeLabel, destination.typeLabel].filter(Boolean).join(" → "),
       cable: `${cableLabel}${fiberMode}`, length: String(value("length")),
       fiberMode: String(value("fiberMode")),
-      loomId, loom: String(loomRecord?.name || value("loom")), rackLocation, notes: String(value("notes")),
+      loomId, loom: String(loomRecord?.name || value("loom")), rackLocation,
+      notes: deriveLoomReportNotes(value("notes"), loomRecord),
       wireIds: group.wires.map(wire => String(wire.id)),
       sourceNodeTypeId: source.typeId, destinationNodeTypeId: destination.typeId,
       sourceNodeTypeLabel: source.typeLabel, destinationNodeTypeLabel: destination.typeLabel,

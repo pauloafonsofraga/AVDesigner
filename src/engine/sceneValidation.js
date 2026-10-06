@@ -11,6 +11,25 @@ import {
   validateConnectorTopology
 } from "./deviceDefinitionV2.js";
 import { validateJumpLinks } from "./jumpNodeModel.js";
+import { groupedCables, parseComparableCableLengthMeters } from "./cableSchedule.js";
+
+export function loomCableLengthWarnings(projectData) {
+  const root = projectRoot(projectData);
+  const looms = new Map((root.looms || []).map(loom => [String(loom.id), loom]));
+  const warnings = [];
+  for (const group of groupedCables(root)) {
+    const wire = group.wires.find(item => String(item.loomId || "").trim());
+    const loom = wire && looms.get(String(wire.loomId));
+    if (!loom) continue;
+    const cableLength = group.wires.map(item => String(item.length || "").trim()).find(Boolean);
+    const cableMeters = parseComparableCableLengthMeters(cableLength);
+    const loomMeters = parseComparableCableLengthMeters(loom.trunkLength);
+    if (cableMeters === null || loomMeters === null || cableMeters >= loomMeters) continue;
+    const cable = String(group.wires.find(item => item.cableNumber)?.cableNumber || group.primary.id);
+    warnings.push(`Cable ${cable} is ${cableLength} but Loom ${loom.name || loom.id} has a ${loom.trunkLength} common run.`);
+  }
+  return warnings;
+}
 
 export function validateEngineScene(scene, projectData = null) {
   const start = performance.now();
@@ -103,6 +122,7 @@ export function validateEngineScene(scene, projectData = null) {
   validateRackCanvasParity(scene, errors, counts);
   validateMatrixRoutingParity(scene, productionDevices, errors, warnings, counts);
   validateJumpLinkParity(scene, root, warnings, counts);
+  warnings.push(...loomCableLengthWarnings(root));
 
   const durationMs = performance.now() - start;
   return {

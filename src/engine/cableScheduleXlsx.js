@@ -69,8 +69,8 @@ export async function createCableScheduleXlsx(rows, { nodeDefinitions = [], load
   }
   const loomSheet = workbook.addWorksheet("Loom Schedule", { views: [{ state: "frozen", ySplit: 1 }] });
   const loomColumns = [
-    ["name", "Loom", 20], ["sideA", "Side A", 24], ["sideB", "Side B", 24],
-    ["trunkLength", "Trunk Length", 18], ["circuits", "Circuits", 12],
+    ["name", "Loom", 20], ["origin", "Origin", 24], ["destination", "Destination", 24],
+    ["trunkLength", "Length", 18], ["circuits", "Circuits", 12],
     ["composition", "Composition", 48], ["notes", "Notes", 42]
   ];
   loomSheet.columns = loomColumns.map(([key, header, width]) => ({ key, header, width }));
@@ -85,8 +85,8 @@ export async function createCableScheduleXlsx(rows, { nodeDefinitions = [], load
     const members = rows.filter(row => row.loomId === loom.id);
     const families = new Map();
     members.forEach(row => families.set(row.signal, (families.get(row.signal) || 0) + 1));
-    const row = loomSheet.addRow({ name: String(loom.name || ""), sideA: String(loom.sideA?.label || ""),
-      sideB: String(loom.sideB?.label || ""), trunkLength: String(loom.trunkLength || ""),
+    const row = loomSheet.addRow({ name: String(loom.name || ""), origin: String(loom.origin || ""),
+      destination: String(loom.destination || ""), trunkLength: String(loom.trunkLength || ""),
       circuits: members.length,
       composition: [...families].sort(([a], [b]) => a.localeCompare(b))
         .map(([family, count]) => `${count} ${family}`).join(" / "), notes: String(loom.notes || "") });

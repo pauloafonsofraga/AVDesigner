@@ -9,6 +9,7 @@ import { buildCableSchedule, cableFamily, cableScheduleCsv, cableScheduleFilterO
 import { createCableScheduleXlsx } from "../src/engine/cableScheduleXlsx.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { ProjectMutationAdapter } from "../src/engine/projectMutations.js";
+import { loomCableLengthWarnings, validateEngineScene } from "../src/engine/sceneValidation.js";
 
 function project() {
   const names = ["Source", "Destination"];
@@ -43,6 +44,75 @@ test("direct cable derives current endpoint labels and persisted metadata", () =
   assert.equal(changed.destinationDevice, 'Device "A", Main');
   assert.match(cableScheduleCsv([changed]), /"Device ""A"", Main"/);
   assert.match(cableScheduleCsv([changed]), /"One, two\nThree"/);
+});
+
+test("loom schedule Notes are derived dynamically without mutating cable notes", () => {
+  const data = project();
+  const loom = { id: "loom-1", name: "LM-001", origin: "FOH", destination: "Stage Rack", trunkLength: "75 m" };
+  data.looms = [loom];
+  data.connections[0].loomId = loom.id;
+  const before = data.connections[0].notes;
+  assert.equal(buildCableSchedule(data, { assignNumbers: "readOnly" })[0].notes,
+    "One, two\nThree\nLoom: LM-001 — FOH → Stage Rack\nLoom length: 75 m — Derived from LM-001");
+  assert.equal(data.connections[0].notes, before);
+  assert.equal(buildCableSchedule(data, { assignNumbers: "readOnly" })[0].notes,
+    "One, two\nThree\nLoom: LM-001 — FOH → Stage Rack\nLoom length: 75 m — Derived from LM-001");
+  loom.trunkLength = "80 m";
+  assert.match(buildCableSchedule(data, { assignNumbers: "readOnly" })[0].notes, /Loom length: 80 m — Derived from LM-001/);
+  assert.equal(data.connections[0].length, "12 m", "loom edits do not change cable length");
+  loom.name = "LM-009";
+  assert.match(buildCableSchedule(data, { assignNumbers: "readOnly" })[0].notes, /Derived from LM-009/);
+  loom.origin = "";
+  assert.match(buildCableSchedule(data, { assignNumbers: "readOnly" })[0].notes, /Loom: LM-009\n/);
+  loom.origin = "FOH";
+  loom.destination = "";
+  assert.match(buildCableSchedule(data, { assignNumbers: "readOnly" })[0].notes, /Loom: LM-009\n/);
+  loom.destination = "Stage Rack";
+  loom.trunkLength = "";
+  assert.doesNotMatch(buildCableSchedule(data, { assignNumbers: "readOnly" })[0].notes, /Loom length:/);
+  for (const [partial, expected] of [
+    [{ name: "LM-partial" }, "Loom: LM-partial"],
+    [{ name: "LM-partial", trunkLength: "12 m" }, "Loom: LM-partial\nLoom length: 12 m — Derived from LM-partial"],
+    [{ name: "LM-partial", origin: "FOH", destination: "Stage" }, "Loom: LM-partial — FOH → Stage"]
+  ]) {
+    data.looms[0] = { id: "loom-1", ...partial };
+    assert.equal(buildCableSchedule(data, { assignNumbers: "readOnly" })[0].notes, `${before}\n${expected}`);
+  }
+  data.connections[0].loomId = "";
+  assert.equal(buildCableSchedule(data, { assignNumbers: "readOnly" })[0].notes, before,
+    "removing membership removes all derived text");
+});
+
+test("loom cable-length validation warns only for known comparable values and never blocks", () => {
+  const data = project();
+  data.looms = [{ id: "loom-1", name: "LM-001", trunkLength: "75 m" }];
+  data.connections[0].loomId = "loom-1";
+  data.connections[0].cableNumber = "V-014";
+  data.connections[0].length = "50 m";
+  assert.deepEqual(loomCableLengthWarnings(data),
+    ["Cable V-014 is 50 m but Loom LM-001 has a 75 m common run."]);
+  const validation = validateEngineScene({ devices: [], wires: [], selectedIds: new Set(),
+    selectedWireIds: new Set(), selectedConnectorKeys: new Set(), selectedRoutePointKeys: new Set() },
+  { ...data, devices: [], connections: structuredClone(data.connections) });
+  assert.equal(validation.ok, true, "short-cable finding is a warning, not a blocking validation error");
+  assert.ok(validation.warnings.some(message => message.includes("Cable V-014 is 50 m")));
+  data.connections[0].length = "90 m";
+  assert.deepEqual(loomCableLengthWarnings(data), []);
+  data.connections[0].length = "as installed";
+  assert.deepEqual(loomCableLengthWarnings(data), []);
+  data.connections[0].length = "50 m";
+  data.looms[0].trunkLength = "75 bananas";
+  assert.deepEqual(loomCableLengthWarnings(data), []);
+});
+
+test("origin and destination survive project normalization without changing gateway identities", () => {
+  const data = project();
+  data.looms = [{ id: "loom-1", name: "LM-001", origin: "FOH", destination: "Stage Rack",
+    sideA: { label: "Gateway A", x: 3, y: 4 }, sideB: { label: "Gateway B", x: 5, y: 6 }, trunkLength: "75 m" }];
+  const normalized = normalizeAvDesignerProject(data);
+  assert.deepEqual([normalized.looms[0].origin, normalized.looms[0].destination, normalized.looms[0].trunkLength,
+    normalized.looms[0].sideA.label, normalized.looms[0].sideB.label],
+  ["FOH", "Stage Rack", "75 m", "Gateway A", "Gateway B"]);
 });
 
 test("families, stable numbering, high-water marks and family changes", () => {

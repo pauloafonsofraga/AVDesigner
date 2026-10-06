@@ -78,6 +78,12 @@ test("stable names never reuse deleted high-water identifiers and reject case-in
   assert.deepEqual(allocateLoomIdentity(project), { id: "loom-10", name: "LM-010" });
   assert.equal(normalizeLoom({ id: "loom-2", name: "L02" }).name, "L02", "existing Loom names stay unchanged");
   assert.equal(normalizeLoom({ id: "loom-1" }).name, "LM-001");
+  assert.deepEqual([normalizeLoom({ id: "loom-3", origin: "FOH", destination: "Stage", trunkLength: "75 m" }).origin,
+    normalizeLoom({ id: "loom-3", origin: "FOH", destination: "Stage", trunkLength: "75 m" }).destination,
+    normalizeLoom({ id: "loom-3", origin: "FOH", destination: "Stage", trunkLength: "75 m" }).trunkLength],
+  ["FOH", "Stage", "75 m"]);
+  assert.deepEqual([normalizeLoom({ id: "old" }).origin, normalizeLoom({ id: "old" }).destination,
+    normalizeLoom({ id: "old" }).trunkLength], ["", "", ""]);
 });
 
 test("head placement and A/B assignment are independent of electrical direction", () => {
@@ -168,8 +174,9 @@ test("Engine output scene and vector PDF share Loom geometry without printing hi
 test("XLSX keeps logical cable rows and summarizes each Loom on a separate sheet", async () => {
   const project = jumpProject();
   project.connections.forEach(wire => { wire.loomId = "loom-1"; });
-  project.looms = [{ id: "loom-1", name: "LM-001", sideA: { label: "FOH", x: 0, y: 0 },
-    sideB: { label: "Stage", x: 100, y: 0 }, trunkLength: "75 m", notes: "Signal bundle" }];
+  project.looms = [{ id: "loom-1", name: "LM-001", origin: "FOH", destination: "Stage Rack",
+    sideA: { label: "Gateway A", x: 0, y: 0 }, sideB: { label: "Gateway B", x: 100, y: 0 },
+    trunkLength: "75 m", notes: "Signal bundle" }];
   const rows = buildCableSchedule(project, { assignNumbers: "readOnly" });
   const bytes = await createCableScheduleXlsx(rows, { looms: project.looms,
     graphics: { ids: {}, cables: {}, nodes: {} } });
@@ -179,7 +186,7 @@ test("XLSX keeps logical cable rows and summarizes each Loom on a separate sheet
   const summary = workbook.getWorksheet("Loom Schedule");
   assert.equal(summary.getCell("A2").value, "LM-001");
   assert.equal(summary.getCell("B2").value, "FOH");
-  assert.equal(summary.getCell("C2").value, "Stage");
+  assert.equal(summary.getCell("C2").value, "Stage Rack");
   assert.equal(summary.getCell("D2").value, "75 m");
   assert.equal(summary.getCell("E2").value, 1);
   assert.match(summary.getCell("F2").value, /1 Video/);

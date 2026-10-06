@@ -12,12 +12,13 @@ export function normalizeLoom(value, index = 0) {
   return {
     id: String(value?.id || `loom-${index + 1}`), kind: "loom",
     name: String(value?.name || `LM-${String(index + 1).padStart(3, "0")}`),
+    origin: String(value?.origin ?? ""), destination: String(value?.destination ?? ""),
     sideA: point(value?.sideA, "Side A"), sideB: point(value?.sideB, "Side B"),
     routeStyle: value?.routeStyle === "bezier" ? "bezier" : "orthogonal",
     routePoints: Array.isArray(value?.routePoints) ? value.routePoints
       .filter(p => Number.isFinite(Number(p?.x)) && Number.isFinite(Number(p?.y)))
       .map(p => ({ x: Number(p.x), y: Number(p.y) })) : [],
-    trunkLength: String(value?.trunkLength || ""), notes: String(value?.notes || "")
+    trunkLength: String(value?.trunkLength ?? ""), notes: String(value?.notes ?? "")
   };
 }
 

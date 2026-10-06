@@ -78,6 +78,58 @@ try {
   assert.equal(await page.evaluate(() => activeEngineBridge().redoEngineCommand()), true);
   assert.equal(await page.evaluate(() => activeEngineBridge().scene.loomPlans[0].circuitCount), 3);
 
+  await page.evaluate(() => Object.assign(state.connections.find(wire => wire.id === "cable-0"),
+    { length: "90 m", notes: "Main screen feed" }));
+  for (const [selector, value, key] of [
+    ["#loomOrigin", "FOH", "origin"], ["#loomDestination", "Stage Rack", "destination"],
+    ["#loomTrunkLength", "75 m", "trunkLength"]
+  ]) {
+    await page.locator(selector).fill(value);
+    await page.locator(selector).press("Tab");
+    await page.waitForFunction(([field, expected]) => state.looms[0]?.[field] === expected, [key, value]);
+  }
+  await page.screenshot({ path: "/tmp/wirenexus-managed-loom-metadata.png" });
+  const reportAt75 = await page.evaluate(async () => {
+    const module = await loadCableScheduleModule();
+    return module.buildCableSchedule(state, { assignNumbers: "readOnly" }).find(row => row.wireIds.includes("cable-0"));
+  });
+  assert.equal(reportAt75.length, "90 m");
+  assert.equal(reportAt75.notes, "Main screen feed\nLoom: LM-001 — FOH → Stage Rack\nLoom length: 75 m — Derived from LM-001");
+  assert.equal(await page.evaluate(() => state.connections.find(wire => wire.id === "cable-0").notes), "Main screen feed");
+  await page.locator("#cableScheduleButton").click();
+  await page.waitForFunction(() => document.querySelector("#cableScheduleBody")?.innerText.includes("Loom length: 75 m — Derived from LM-001"));
+  assert.match(await page.locator("#cableScheduleBody").innerText(), /Main screen feed[\s\S]*Loom: LM-001 — FOH → Stage Rack[\s\S]*Loom length: 75 m — Derived from LM-001/);
+  await page.locator("#closeCableSchedule").click();
+  await page.locator("#loomTrunkLength").fill("80 m");
+  await page.locator("#loomTrunkLength").press("Tab");
+  await page.waitForFunction(() => state.looms[0]?.trunkLength === "80 m");
+  const reportAt80 = await page.evaluate(async () => {
+    const module = await loadCableScheduleModule();
+    return module.buildCableSchedule(state, { assignNumbers: "readOnly" }).find(row => row.wireIds.includes("cable-0"));
+  });
+  assert.equal(reportAt80.length, "90 m");
+  assert.match(reportAt80.notes, /Loom length: 80 m — Derived from LM-001/);
+  assert.equal(await page.evaluate(() => activeEngineBridge().undoEngineCommand()), true);
+  assert.equal(await page.evaluate(() => state.looms[0].trunkLength), "75 m");
+  assert.equal(await page.evaluate(() => activeEngineBridge().redoEngineCommand()), true);
+  assert.equal(await page.evaluate(() => state.looms[0].trunkLength), "80 m");
+  await page.locator("#loomName").fill("LM-BROWSER");
+  await page.locator("#loomName").press("Tab");
+  await page.waitForFunction(() => state.looms[0]?.name === "LM-BROWSER");
+  await page.locator("#cableScheduleButton").click();
+  await page.waitForFunction(() => document.querySelector("#cableScheduleBody")?.innerText.includes("Loom length: 80 m — Derived from LM-BROWSER"));
+  assert.match((await page.evaluate(async () => {
+    const module = await loadCableScheduleModule();
+    return module.buildCableSchedule(state, { assignNumbers: "readOnly" }).find(row => row.wireIds.includes("cable-0")).notes;
+  })), /Derived from LM-BROWSER/);
+  assert.equal(await page.evaluate(() => activeEngineBridge().removeWiresFromLoom(["cable-0"])), true);
+  assert.equal(await page.evaluate(async () => {
+    const module = await loadCableScheduleModule();
+    return module.buildCableSchedule(state, { assignNumbers: "readOnly" }).find(row => row.wireIds.includes("cable-0")).notes;
+  }), "Main screen feed");
+  await page.locator("#closeCableSchedule").click();
+  assert.equal(await page.evaluate(() => activeEngineBridge().addWiresToLoom("loom-1", ["cable-0"])), true);
+
   const saved = await page.evaluate(() => structuredClone(projectSnapshotData({ forEngine: true })));
   await page.evaluate(() => { window.showSaveFilePicker = undefined; window.showOpenFilePicker = undefined; });
   const projectDownload = page.waitForEvent("download");
@@ -86,8 +138,10 @@ try {
   const avdPath = join(mkdtempSync(join(tmpdir(), "wirenexus-loom-")), download.suggestedFilename());
   await download.saveAs(avdPath);
   const savedFile = JSON.parse(readFileSync(avdPath, "utf8"));
-  assert.equal(savedFile.looms[0].name, "LM-001");
+  assert.deepEqual([savedFile.looms[0].name, savedFile.looms[0].origin, savedFile.looms[0].destination, savedFile.looms[0].trunkLength],
+    ["LM-BROWSER", "FOH", "Stage Rack", "80 m"]);
   assert.equal(savedFile.connections.filter(wire => wire.loomId === "loom-1").length, 3);
+  assert.equal(savedFile.connections.find(wire => wire.id === "cable-0").notes, "Main screen feed");
   await page.evaluate(() => { activeEngineBridge().dissolveManagedLoom("loom-1"); });
   assert.equal(await page.evaluate(() => state.looms.length), 0);
   const chooserPromise = page.waitForEvent("filechooser");
@@ -95,7 +149,18 @@ try {
   const chooser = await chooserPromise;
   await chooser.setFiles(avdPath);
   await page.waitForFunction(() => activeEngineBridge()?.scene?.loomPlans?.[0]?.circuitCount === 3);
-  assert.equal(await page.evaluate(() => state.looms[0].name), "LM-001");
+  assert.deepEqual(await page.evaluate(() => [state.looms[0].name, state.looms[0].origin, state.looms[0].destination,
+    state.looms[0].trunkLength]), ["LM-BROWSER", "FOH", "Stage Rack", "80 m"]);
+  const reselected = await page.evaluate(() => {
+    const bridge = activeEngineBridge(), plan = bridge.scene.loomPlans[0];
+    const rect = bridge.canvas.getBoundingClientRect();
+    const world = { x: (plan.headA.x + plan.headB.x) / 2, y: (plan.headA.y + plan.headB.y) / 2 };
+    return { x: rect.x + (world.x - bridge.camera.x) * bridge.camera.zoom,
+      y: rect.y + (world.y - bridge.camera.y) * bridge.camera.zoom };
+  });
+  await page.mouse.click(reselected.x, reselected.y);
+  assert.deepEqual(await Promise.all(["#loomOrigin", "#loomDestination", "#loomTrunkLength"].map(selector => page.locator(selector).inputValue())),
+    ["FOH", "Stage Rack", "80 m"]);
   await page.screenshot({ path: "/tmp/wirenexus-managed-loom-reloaded.png" });
   const output = buildEngineOutputScene(saved);
   const viewer = await browser.newPage({ viewport: { width: 1600, height: 900 } });
@@ -178,7 +243,7 @@ try {
   assert.equal(await page.evaluate(() => activeEngineBridge().createLoomFromWires(["cable-0", "cable-1"])), true);
   assert.equal(await page.evaluate(() => state.looms[0].name), "LM-002");
   assert.deepEqual(errors, []);
-  console.log("Managed Loom browser smoke PASS: create, Inspector, mouse drag, undo/redo, dissolve, save/reload, output viewer, stress; screenshots in /tmp", stress, camera);
+  console.log("Managed Loom browser smoke PASS: metadata editing, dynamic report notes, cable/loom length independence, membership changes, save/reload, output viewer, stress; screenshots in /tmp", stress, camera);
 } finally {
   await browser.close();
 }

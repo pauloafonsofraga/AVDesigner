@@ -145,8 +145,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-68-loom-packing-gateway-previews";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-68-loom-packing-gateway-previews";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-69-loom-metadata-cable-notes";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-69-loom-metadata-cable-notes";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -4160,7 +4160,7 @@ class ProductionEngineBridge {
         project.looms.push({ ...identity, kind: "loom",
           sideA: { label: "Side A", ...draft.sideA }, sideB: { label: "Side B", ...endpoint },
           routeStyle: draft.routeStyle, routePoints: draft.routePoints,
-          trunkLength: "", notes: "" });
+          origin: "", destination: "", trunkLength: "", notes: "" });
         return true;
       });
     }
@@ -7539,7 +7539,7 @@ class ProductionEngineBridge {
       const identity = allocateLoomIdentity(draft);
       createdId = identity.id;
       draft.looms.push({ ...identity, kind: "loom", ...heads,
-        routeStyle: "orthogonal", routePoints: [], trunkLength: "", notes: "" });
+        routeStyle: "orthogonal", routePoints: [], origin: "", destination: "", trunkLength: "", notes: "" });
       setLogicalCableLoom(groups, identity.id);
       return true;
     });
@@ -7601,7 +7601,7 @@ class ProductionEngineBridge {
       const loom = draft.looms.find(item => item.id === loomId);
       if (!loom) return false;
       if (fields.name !== undefined && !renameLoom(draft, loomId, fields.name)) return false;
-      for (const key of ["trunkLength", "notes", "routeStyle"]) {
+      for (const key of ["origin", "destination", "trunkLength", "notes", "routeStyle"]) {
         if (fields[key] !== undefined) loom[key] = String(fields[key]);
       }
       for (const side of ["sideA", "sideB"]) {
