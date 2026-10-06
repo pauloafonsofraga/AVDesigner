@@ -83,6 +83,24 @@ test("length suffix preserves existing text/units, omits empty lengths and does 
   }
 });
 
+test("loom trunk length labels blank member cables without changing explicit cable lengths", () => {
+  const project = cableCaptionFixture();
+  project.looms = [{ id: "loom-1", name: "LM-001", trunkLength: "75 m" }];
+  const savedWire = project.connections.find(wire => wire.id === "direct");
+  savedWire.loomId = "loom-1";
+  savedWire.length = "";
+  savedWire.cableLength = "";
+  const scene = sceneFor(project), wire = scene.getWire("direct");
+  wire.length = "";
+  assert.equal(wireCaption(scene, wire), "E2 Main to Projector Left - 75 m — Derived from LM-001");
+  assert.equal(savedWire.length, "", "the derived caption is display-only");
+  wire.length = "90 m";
+  assert.equal(wireCaption(scene, wire), "E2 Main to Projector Left - 90 m");
+  wire.length = "";
+  scene.looms[0].trunkLength = "";
+  assert.equal(wireCaption(scene, wire), "E2 Main to Projector Left");
+});
+
 test("node names take precedence over stale plug captions and refresh without rebuilding geometry", () => {
   const scene = sceneFor(), wire = scene.getWire("direct");
   const points = scene.wireRenderPolyline(wire);

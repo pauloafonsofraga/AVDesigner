@@ -55,11 +55,16 @@ test("loom schedule Notes are derived dynamically without mutating cable notes",
   assert.equal(buildCableSchedule(data, { assignNumbers: "readOnly" })[0].notes,
     "One, two\nThree\nLoom: LM-001 — FOH → Stage Rack\nLoom length: 75 m — Derived from LM-001");
   assert.equal(data.connections[0].notes, before);
+  data.connections[0].length = "";
+  const derivedLength = buildCableSchedule(data, { assignNumbers: "readOnly" })[0];
+  assert.equal(derivedLength.length, "75 m — Derived from LM-001");
+  assert.equal(data.connections[0].length, "", "derived loom length never persists into the cable field");
+  data.connections[0].length = "90 m";
   assert.equal(buildCableSchedule(data, { assignNumbers: "readOnly" })[0].notes,
     "One, two\nThree\nLoom: LM-001 — FOH → Stage Rack\nLoom length: 75 m — Derived from LM-001");
   loom.trunkLength = "80 m";
   assert.match(buildCableSchedule(data, { assignNumbers: "readOnly" })[0].notes, /Loom length: 80 m — Derived from LM-001/);
-  assert.equal(data.connections[0].length, "12 m", "loom edits do not change cable length");
+  assert.equal(data.connections[0].length, "90 m", "loom edits do not change cable length");
   loom.name = "LM-009";
   assert.match(buildCableSchedule(data, { assignNumbers: "readOnly" })[0].notes, /Derived from LM-009/);
   loom.origin = "";
@@ -70,6 +75,9 @@ test("loom schedule Notes are derived dynamically without mutating cable notes",
   loom.destination = "Stage Rack";
   loom.trunkLength = "";
   assert.doesNotMatch(buildCableSchedule(data, { assignNumbers: "readOnly" })[0].notes, /Loom length:/);
+  data.connections[0].length = "";
+  assert.equal(buildCableSchedule(data, { assignNumbers: "readOnly" })[0].length, "");
+  data.connections[0].length = "12 m";
   for (const [partial, expected] of [
     [{ name: "LM-partial" }, "Loom: LM-partial"],
     [{ name: "LM-partial", trunkLength: "12 m" }, "Loom: LM-partial\nLoom length: 12 m — Derived from LM-partial"],

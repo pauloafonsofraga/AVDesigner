@@ -2,6 +2,7 @@ import { engineConnectorColor, engineConnectorDisplayLabel, engineConnectorCompa
   engineConnectorUserFacingTypeLabel } from "./connectorCompatibility.js";
 import { normalizeSignalDirection } from "./deviceDefinitionV2.js";
 import { rawWireJumpIds, resolvePlayableSignalPath } from "./jumpNodeModel.js";
+import { cableLengthDisplayLabel } from "./loomMetadata.js";
 
 export const CABLE_SCHEDULE_COLUMNS = Object.freeze([
   ["cableNumber", "Cable ID"], ["sourceDevice", "Source Device"], ["sourcePort", "Source Port"],
@@ -243,7 +244,7 @@ export function buildCableSchedule(input, options = {}) {
       destinationDeviceId: destination.deviceId, destinationSurfaceId: destination.surfaceId,
       destinationConnectorId: destination.connectorId, destinationDirection: destination.direction,
       signal: families[family], connector: [source.typeLabel, destination.typeLabel].filter(Boolean).join(" → "),
-      cable: `${cableLabel}${fiberMode}`, length: String(value("length")),
+      cable: `${cableLabel}${fiberMode}`, length: cableLengthDisplayLabel(value("length"), loomRecord),
       fiberMode: String(value("fiberMode")),
       loomId, loom: String(loomRecord?.name || value("loom")), rackLocation,
       notes: deriveLoomReportNotes(value("notes"), loomRecord),

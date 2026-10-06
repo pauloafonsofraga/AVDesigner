@@ -95,7 +95,22 @@ try {
   });
   assert.equal(reportAt75.length, "90 m");
   assert.equal(reportAt75.notes, "Main screen feed\nLoom: LM-001 — FOH → Stage Rack\nLoom length: 75 m — Derived from LM-001");
+  assert.equal(await page.evaluate(async () => {
+    const module = await loadCableScheduleModule();
+    const wire = state.connections.find(item => item.id === "cable-0"), original = wire.length;
+    wire.length = "";
+    const derived = module.buildCableSchedule(state, { assignNumbers: "readOnly" })
+      .find(row => row.wireIds.includes("cable-0")).length;
+    wire.length = original;
+    return derived;
+  }), "75 m — Derived from LM-001");
   assert.equal(await page.evaluate(() => state.connections.find(wire => wire.id === "cable-0").notes), "Main screen feed");
+  assert.equal(await page.evaluate(async () => {
+    const { wireCaption } = await import(engineImportUrl("./src/engine/cableCaption.js"));
+    const wire = activeEngineBridge().scene.getWire("cable-0");
+    wire.length = "";
+    return wireCaption(activeEngineBridge().scene, wire);
+  }), "Cable source to Cable sink - 75 m — Derived from LM-001");
   await page.locator("#cableScheduleButton").click();
   await page.waitForFunction(() => document.querySelector("#cableScheduleBody")?.innerText.includes("Loom length: 75 m — Derived from LM-001"));
   assert.match(await page.locator("#cableScheduleBody").innerText(), /Main screen feed[\s\S]*Loom: LM-001 — FOH → Stage Rack[\s\S]*Loom length: 75 m — Derived from LM-001/);

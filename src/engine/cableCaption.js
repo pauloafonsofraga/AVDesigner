@@ -1,5 +1,6 @@
 import { engineConnectorDisplayLabel } from "./connectorCompatibility.js";
 import { isJumpNodeDevice, sceneJumpDeviceWire, sceneJumpLinkPhysicalWires } from "./jumpNodeModel.js";
+import { cableLengthDisplayLabel } from "./loomMetadata.js";
 
 function endpointIdentity(device, connector, surface = false) {
   if (!device || isJumpNodeDevice(device)) return { device: "Unconnected", node: "" };
@@ -45,7 +46,9 @@ export function wireCaption(scene, cable, highlighted = false) {
     if (sharedLabel) return sharedLabel;
   }
   const label = endpoint => highlighted && endpoint.node ? `${endpoint.device} - ${endpoint.node}` : endpoint.device;
-  const length = virtual ? "" : String(cable.length ?? "");
+  const loom = !virtual && cable.loomId
+    ? scene.looms?.find(item => String(item.id) === String(cable.loomId)) : null;
+  const length = virtual ? "" : cableLengthDisplayLabel(cable.length, loom);
   return `${label(from)} to ${label(to)}${length.trim() ? ` - ${length}` : ""}`;
 }
 
