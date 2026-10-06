@@ -89,6 +89,18 @@ try {
     await page.waitForFunction(([field, expected]) => state.looms[0]?.[field] === expected, [key, value]);
   }
   await page.screenshot({ path: "/tmp/wirenexus-managed-loom-metadata.png" });
+  await page.evaluate(() => renderWireInspector("cable-2"));
+  assert.equal(await page.locator("#wireLength").inputValue(), "75 m");
+  assert.equal(await page.locator("#wireLengthSource").innerText(), "Inherited from LM-001");
+  await page.locator("#wireLength").focus();
+  await page.locator("#wireLength").evaluate(control => control.blur());
+  assert.equal(await page.evaluate(() => state.connections.find(wire => wire.id === "cable-2").length || ""), "",
+    "viewing or leaving the inherited field must not materialize it as a cable override");
+  await page.locator("#wireLength").fill("60 m");
+  await page.locator("#wireLength").blur();
+  await page.waitForFunction(() => state.connections.find(wire => wire.id === "cable-2")?.length === "60 m");
+  assert.equal(await page.locator("#wireLengthSource").count(), 0,
+    "a cable-specific length replaces the inherited value and hint");
   const reportAt75 = await page.evaluate(async () => {
     const module = await loadCableScheduleModule();
     return module.buildCableSchedule(state, { assignNumbers: "readOnly" }).find(row => row.wireIds.includes("cable-0"));
@@ -115,6 +127,10 @@ try {
   await page.waitForFunction(() => document.querySelector("#cableScheduleBody")?.innerText.includes("Loom length: 75 m — Derived from LM-001"));
   assert.match(await page.locator("#cableScheduleBody").innerText(), /Main screen feed[\s\S]*Loom: LM-001 — FOH → Stage Rack[\s\S]*Loom length: 75 m — Derived from LM-001/);
   await page.locator("#closeCableSchedule").click();
+  await page.evaluate(() => {
+    activeEngineBridge().selectLoomById("loom-1");
+    renderInspector();
+  });
   await page.locator("#loomTrunkLength").fill("80 m");
   await page.locator("#loomTrunkLength").press("Tab");
   await page.waitForFunction(() => state.looms[0]?.trunkLength === "80 m");
