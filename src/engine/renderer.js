@@ -68,7 +68,7 @@ import { wirePlaybackEase } from "./wirePlayback.js";
 import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-72-loom-label-visibility";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-74-compact-rack-projection";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -304,7 +304,7 @@ export class WebglGraphRenderer {
     });
     scene.loomPlans.forEach(plan => this.wireVertexMap.set(`loom:${plan.loomId}`, verticesForLoomPlan(scene, plan)));
     this.lastWirePathStats = wirePathStatsForWires(scene.wires);
-    scene.devices.forEach(device => {
+    canvasRenderDevices(scene).forEach(device => {
       this.deviceVertexMap.set(device.id, verticesForDevice(device, null, this.renderOptions));
       this.matrixRouteVertexMap.set(device.id, verticesForMatrixInternalRoutes(device, null, this.renderOptions));
     });
@@ -347,7 +347,7 @@ export class WebglGraphRenderer {
     // selection, drag, and wire updates must reuse cached textures and should
     // not call this path implicitly.
     this.textureScene = scene;
-    const stats = this.textureCache.prepareDevices(scene.devices, {
+    const stats = this.textureCache.prepareDevices(canvasRenderDevices(scene), {
       ...this.renderOptions,
       lazyTextures: true,
       invalidationReason: reason
@@ -512,7 +512,7 @@ export class WebglGraphRenderer {
       this.recordSelectedObjects(trace, "textureLayer", "lod-skipped");
     } else {
       dragSession.selectedIds.forEach(id => {
-        const device = scene.getDevice(id);
+        const device = scene.canvasDeviceForId?.(id) || scene.getDevice(id);
         if (!device || !deviceVisible(device, options)) {
           this.recordObjectLayer(trace, id, "textureLayer", device ? "hidden" : "missing");
           return;
@@ -573,7 +573,7 @@ export class WebglGraphRenderer {
     const start = performance.now();
     this.textureScene = scene;
     const geometryStart = performance.now();
-    if (deviceIds.length && refreshDeviceTextures) this.textureCache.syncSources(scene.devices);
+    if (deviceIds.length && refreshDeviceTextures) this.textureCache.syncSources(canvasRenderDevices(scene));
     const effectiveWireIds = new Set(wireIds);
     let cableHopMapForDirtyWires = this.cableHopMap;
     if (wireIds.length && refreshCableHops) {
@@ -606,7 +606,7 @@ export class WebglGraphRenderer {
     let matrixRouteRangeUpdates = 0;
     let rangeUploadMs = 0;
     deviceIds.forEach(id => {
-      const device = scene.getDevice(id);
+      const device = scene.canvasDeviceForId?.(id) || scene.getDevice(id);
       if (refreshDeviceTextures && device && device.kind !== "jump") {
         this.textureCache.invalidateDevice(device.id, "dirty device visual");
       }
@@ -741,7 +741,7 @@ export class WebglGraphRenderer {
     this.deviceVertexMap.clear();
     this.deviceRangeMap.clear();
     const geometryStart = performance.now();
-    scene.devices.forEach(device => {
+    canvasRenderDevices(scene).forEach(device => {
       this.deviceVertexMap.set(device.id, verticesForDevice(device, null, this.renderOptions));
     });
     const geometryMs = performance.now() - geometryStart;
@@ -768,7 +768,7 @@ export class WebglGraphRenderer {
     this.matrixRouteVertexMap.clear();
     this.matrixRouteRangeMap.clear();
     const geometryStart = performance.now();
-    scene.devices.forEach(device => {
+    canvasRenderDevices(scene).forEach(device => {
       this.matrixRouteVertexMap.set(device.id, verticesForMatrixInternalRoutes(device, null, this.renderOptions));
     });
     const geometryMs = performance.now() - geometryStart;
@@ -802,7 +802,7 @@ export class WebglGraphRenderer {
     let rangeUploadMs = 0;
     const geometryStart = performance.now();
     ids.forEach(id => {
-      const device = scene.getDevice(id);
+      const device = scene.canvasDeviceForId?.(id) || scene.getDevice(id);
       const next = device ? verticesForMatrixInternalRoutes(device, null, this.renderOptions) : [];
       const range = this.matrixRouteRangeMap.get(id);
       if (!device) {
@@ -852,7 +852,7 @@ export class WebglGraphRenderer {
 
   appendDevice(scene, deviceId) {
     const start = performance.now();
-    const device = scene.getDevice(deviceId);
+    const device = scene.canvasDeviceForId?.(deviceId) || scene.getDevice(deviceId);
     if (!device) return { totalMs: 0, appended: false };
     const geometryStart = performance.now();
     const vertices = verticesForDevice(device, null, this.renderOptions);
@@ -877,7 +877,7 @@ export class WebglGraphRenderer {
     this.matrixRouteVertexCount = uploadArray(this.gl, this.matrixRouteBuffer, this.matrixRouteArray);
     const uploadMs = performance.now() - uploadStart;
     const textureStart = performance.now();
-    this.textureCache.syncSources(scene.devices);
+    this.textureCache.syncSources(canvasRenderDevices(scene));
     const textureMs = performance.now() - textureStart;
     this.rangeUpdateCount += 1;
     this.lastDirtyStats = {
@@ -903,7 +903,7 @@ export class WebglGraphRenderer {
 
   removeDevice(scene, deviceId) {
     this.textureCache.invalidateDevice(deviceId, "remove device");
-    this.textureCache.syncSources(scene.devices);
+    this.textureCache.syncSources(canvasRenderDevices(scene));
     const rebuildStats = this.rebuildDeviceGeometry(scene);
     const matrixRouteStats = this.rebuildMatrixInternalRouteGeometry(scene);
     this.lastDirtyStats = {
@@ -1044,7 +1044,7 @@ export class WebglGraphRenderer {
     if (renderOptions.textureCacheEnabled && renderOptions.texturedDevices && !renderOptions.hideTextureLayer) {
       const visible = new Map(visibleDevices(scene, camera, this.resolution).map(device => [device.id, device]));
       for (const id of options.dragSession?.selectedIds || []) {
-        const device = scene.getDevice(id);
+        const device = scene.canvasDeviceForId?.(id) || scene.getDevice(id);
         if (device) visible.set(id, device);
       }
       this.textureCache.prepareVisible([...visible.values()], renderOptions, camera.zoom,
@@ -1154,7 +1154,7 @@ export class WebglGraphRenderer {
       frameStats.affectedWires = dragSession.affectedWireIds.size;
       const objectOverlayStart = performance.now();
       dragSession.selectedIds.forEach(id => {
-        const device = scene.getDevice(id);
+        const device = scene.canvasDeviceForId?.(id) || scene.getDevice(id);
         if (!device) return;
         // While dragging, textured devices keep their cached visual and move as
         // texture quads. The live overlay only draws selection affordances, so
@@ -1196,7 +1196,7 @@ export class WebglGraphRenderer {
         }
         frameStats.objectHoverOverlayMs = performance.now() - hoverOverlayStart;
         (options.selectedIds || new Set()).forEach(id => {
-          const device = scene.getDevice(id);
+          const device = scene.canvasDeviceForId?.(id) || scene.getDevice(id);
           if (device) {
             pushMatrixInternalRoutes(liveVertices, device, null, renderOptions, "highlight");
             pushSelectionOutline(liveVertices, device, null);
@@ -1328,7 +1328,8 @@ export class WebglGraphRenderer {
       width: this.resolution.width / camera.zoom,
       height: this.resolution.height / camera.zoom
     };
-    const visible = scene.spatialIndex.queryRect(view).map(item => item.payload?.device).filter(Boolean);
+    const visible = scene.spatialIndex.queryRect(view).map(item => item.payload?.device).filter(Boolean)
+      .map(device => scene.canvasDeviceForId?.(device.id) || device);
     const dragSession = options.dragSession || null;
     const offsets = dragSession?.offsetMap();
     const selectedIds = options.selectedIds || new Set();
@@ -1340,6 +1341,7 @@ export class WebglGraphRenderer {
     visibleRacks(scene, camera, this.resolution).forEach(rack => {
       const offset = rackDragOffset(rack, offsets);
       if (drawRackLabel(ctx, rack, camera, offset, selectedRackIds.has(rack.id))) rackLabelCount += 1;
+      drawCompactRackPanelLabels(ctx, scene.compactRackLayout?.(rack.id), camera, offset);
     });
     let deviceLabelCount = 0;
     let deviceLabelsHidden = 0;
@@ -1371,7 +1373,7 @@ export class WebglGraphRenderer {
     }
     selectedIds.forEach(id => {
       if (drawn.has(id)) return;
-      const device = scene.getDevice(id);
+      const device = scene.canvasDeviceForId?.(id) || scene.getDevice(id);
       if (!device) {
         this.recordObjectLayer(options.layerTrace, id, "labelLayer", "missing");
         return;
@@ -1391,7 +1393,7 @@ export class WebglGraphRenderer {
       if (device?.kind === "jump") jumpInfoCandidates.set(device.id, device);
     });
     selectedIds.forEach(id => {
-      const device = scene.getDevice(id);
+      const device = scene.canvasDeviceForId?.(id) || scene.getDevice(id);
       if (device?.kind === "jump") jumpInfoCandidates.set(device.id, device);
     });
     if (hoveredDevice?.kind === "jump") jumpInfoCandidates.set(hoveredDevice.id, hoveredDevice);
@@ -1562,6 +1564,26 @@ export class WebglGraphRenderer {
       (rack.childDeviceIds || []).forEach(childId => {
         this.recordObjectLayer(layerTrace, childId, "rackFrameLayer", selectedRackIds.has(rack.id) ? "drawn-selected-rack" : "drawn-rack");
       });
+      const compactLayout = scene.compactRackLayout?.(rack.id);
+      compactLayout?.patchPanels.forEach(panel => {
+        const panelRect = { ...panel.rect, x: panel.rect.x + offset.dx, y: panel.rect.y + offset.dy };
+        panel.ports.forEach(port => pushLine(vertices,
+          { x: port.lead.from.x + offset.dx, y: port.lead.from.y + offset.dy },
+          { x: port.lead.to.x + offset.dx, y: port.lead.to.y + offset.dy },
+          2.2, colorWithOpacity(port.lead.color, 0.62)));
+        pushRoundedRect(vertices, panelRect, 5, "rgba(21,28,36,.96)");
+        pushLine(vertices, { x: panelRect.x, y: panelRect.y }, { x: panelRect.x + panelRect.width, y: panelRect.y }, 2, "#fb7904");
+        pushLine(vertices, { x: panelRect.x + panelRect.width, y: panelRect.y }, { x: panelRect.x + panelRect.width, y: panelRect.y + panelRect.height }, 2, "#fb7904");
+        pushLine(vertices, { x: panelRect.x + panelRect.width, y: panelRect.y + panelRect.height }, { x: panelRect.x, y: panelRect.y + panelRect.height }, 2, "#fb7904");
+        pushLine(vertices, { x: panelRect.x, y: panelRect.y + panelRect.height }, { x: panelRect.x, y: panelRect.y }, 2, "#fb7904");
+        for (let slot = 1; slot <= panel.capacity; slot += 1) {
+          if (panel.ports.some(port => port.slot === slot)) continue;
+          pushCircleOutline(vertices, {
+            x: panelRect.x + (panel.placementSide === "left" ? panelRect.width - 8 : 8),
+            y: panelRect.y + 14 + (slot - 0.5) * 22
+          }, 5.5, 1.2, "rgba(173,188,201,.62)", 14);
+        }
+      });
     });
     const count = vertices.length ? upload(this.gl, this.liveBuffer, vertices) : 0;
     this.drawBuffer(this.liveBuffer, count);
@@ -1710,7 +1732,7 @@ export class WebglGraphRenderer {
     });
     if (dragSession) {
       dragSession.selectedIds.forEach(id => {
-        const device = scene.getDevice(id);
+        const device = scene.canvasDeviceForId?.(id) || scene.getDevice(id);
         if (!device || device.kind === "jump") return;
         if (deviceFilter && !deviceFilter(device)) return;
         addDevice(device, "drawn-moving-texture", dragOffsets);
@@ -1775,7 +1797,7 @@ export class WebglGraphRenderer {
         "drawn-soft-texture"
       );
     };
-    selectedIds.forEach(id => addGlow(scene.getDevice(id), "selected"));
+    selectedIds.forEach(id => addGlow(scene.canvasDeviceForId?.(id) || scene.getDevice(id), "selected"));
     if (hoveredDevice && !selectedIds.has(hoveredDevice.id)) addGlow(hoveredDevice, "hover");
     if (!groups.size) return;
 
@@ -1876,7 +1898,7 @@ export class WebglGraphRenderer {
       },
       dragDelta: dragSession ? { dx: dragSession.dx, dy: dragSession.dy } : null,
       objects: selectedIds.map(id => {
-        const device = scene.getDevice(id);
+        const device = scene.canvasDeviceForId?.(id) || scene.getDevice(id);
         const offset = dragSession?.offsetMap().get(id) || { dx: 0, dy: 0 };
         const committed = device ? { x: device.x, y: device.y } : null;
         const expected = device ? { x: device.x + offset.dx, y: device.y + offset.dy } : null;
@@ -1957,8 +1979,14 @@ function visibleDevices(scene, camera, resolution) {
     width: resolution.width / camera.zoom,
     height: resolution.height / camera.zoom
   };
-  const hits = scene.spatialIndex.queryRect(view).map(item => item.payload?.device).filter(Boolean);
-  return hits;
+  return scene.spatialIndex.queryRect(view)
+    .map(item => item.payload?.device)
+    .filter(Boolean)
+    .map(device => scene.canvasDeviceForId(device.id) || device);
+}
+
+function canvasRenderDevices(scene) {
+  return typeof scene?.renderDevices === "function" ? scene.renderDevices() : scene?.devices || [];
 }
 
 function visibleRacks(scene, camera, resolution) {
@@ -2251,7 +2279,7 @@ function pushVisibleConnectorRelationshipVisuals(vertices, scene, camera, resolu
     if (selectedIds.has(device.id)) return;
     drawDeviceRelationships(device, "drawn-live");
   });
-  selectedIds.forEach(id => drawDeviceRelationships(scene.getDevice(id), "drawn-moving-live"));
+  selectedIds.forEach(id => drawDeviceRelationships(scene.canvasDeviceForId?.(id) || scene.getDevice(id), "drawn-moving-live"));
   return count;
 }
 
@@ -2437,7 +2465,7 @@ function pushVisibleConnectorNodes(vertices, scene, camera, resolution, renderOp
     if (selectedIds.has(device.id)) return;
     drawDeviceConnectors(device, "drawn-live");
   });
-  selectedIds.forEach(id => drawDeviceConnectors(scene.getDevice(id), "drawn-moving-live"));
+  selectedIds.forEach(id => drawDeviceConnectors(scene.canvasDeviceForId?.(id) || scene.getDevice(id), "drawn-moving-live"));
   return count;
 }
 
@@ -2465,7 +2493,7 @@ function pushVisibleConnectorNotWorkingMarks(vertices, scene, camera, resolution
     drawn.add(device.id);
   };
   visibleDevices(scene, camera, resolution).forEach(drawDeviceConnectorMarks);
-  selectedIds.forEach(id => drawDeviceConnectorMarks(scene.getDevice(id)));
+  selectedIds.forEach(id => drawDeviceConnectorMarks(scene.canvasDeviceForId?.(id) || scene.getDevice(id)));
   return count;
 }
 
@@ -3636,7 +3664,7 @@ function drawVisibleConnectorLabels(ctx, scene, camera, renderOptions = DEFAULT_
     total += drawDeviceConnectors(device, "drawn-live");
   });
   selectedIds.forEach(id => {
-    total += drawDeviceConnectors(scene.getDevice(id), "drawn-moving-live");
+    total += drawDeviceConnectors(scene.canvasDeviceForId?.(id) || scene.getDevice(id), "drawn-moving-live");
   });
   return total;
 }
@@ -3793,7 +3821,7 @@ function drawVisibleConnectorInfoBoxes(ctx, scene, camera, renderOptions = DEFAU
     if (selectedIds.has(device.id)) return;
     collectDeviceInfoBoxes(device);
   });
-  selectedIds.forEach(id => collectDeviceInfoBoxes(scene.getDevice(id)));
+  selectedIds.forEach(id => collectDeviceInfoBoxes(scene.canvasDeviceForId?.(id) || scene.getDevice(id)));
   entries.forEach(entry => {
     const hovered = hoverEligible && entry.key === hoveredKey;
     const drawResult = drawConnectorInfoBox(ctx, entry, camera, mode, hovered);
@@ -4508,6 +4536,28 @@ function drawRackLabel(ctx, rack, camera, offset = { dx: 0, dy: 0 }, selected = 
   ctx.fillText(text, x, y);
   ctx.restore();
   return true;
+}
+
+function drawCompactRackPanelLabels(ctx, layout, camera, offset = { dx: 0, dy: 0 }) {
+  if (!layout || camera.zoom < 0.08) return;
+  layout.patchPanels.forEach(panel => {
+    const x = (panel.label.x + offset.dx - camera.x) * camera.zoom;
+    const y = (panel.label.y + offset.dy - camera.y) * camera.zoom;
+    const fontSize = Math.max(7, Math.min(12, 10 * camera.zoom));
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(-Math.PI / 2);
+    ctx.font = `800 ${fontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "rgba(0,0,0,.9)";
+    ctx.lineWidth = Math.max(2, fontSize * 0.28);
+    ctx.fillStyle = "#f2f6fa";
+    ctx.strokeText(panel.label.text, 0, 0);
+    ctx.fillText(panel.label.text, 0, 0);
+    ctx.restore();
+  });
 }
 
 function pushRect(vertices, x, y, width, height, colorValue) {

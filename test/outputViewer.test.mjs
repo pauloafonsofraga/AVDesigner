@@ -16,7 +16,7 @@ const json = value => JSON.parse(JSON.stringify(value));
 function setup(project = outputViewerParityFixture()) {
   const snapshot = buildEngineOutputScene(project);
   const model = createOutputViewerModel(json(snapshot));
-  const live = new SceneGraph(); live.setData(normalizeAvDesignerProject(project));
+  const live = new SceneGraph(); live.setData(normalizeAvDesignerProject(project, { rackPresentationMode: "builder" }));
   return { project, snapshot, model, live };
 }
 

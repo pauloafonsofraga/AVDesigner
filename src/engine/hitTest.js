@@ -12,8 +12,9 @@ export function hitTestDevice(scene, worldPoint, predicate = null) {
   for (let index = hits.length - 1; index >= 0; index -= 1) {
     const item = hits[index];
     const device = item?.payload?.device;
+    const canvasDevice = device ? scene.canvasDeviceForId?.(device.id) || device : null;
     if (device && (!predicate || predicate(device))
-      && (device.kind !== "adapter" || adapterContainsWorldPoint(device, worldPoint))) {
+      && (scene.isCompactRackDevice?.(device) || canvasDevice.kind !== "adapter" || adapterContainsWorldPoint(canvasDevice, worldPoint))) {
       result = device;
       break;
     }
@@ -66,6 +67,7 @@ export function hitTestConnector(scene, worldPoint, tolerance = 10) {
         anchor,
         anchorId,
         anchorKey: payload.anchorKey || item.id || "",
+        rackPresentation: payload.rackPresentation || null,
         logicalKey,
         point,
         distance,

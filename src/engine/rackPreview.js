@@ -23,7 +23,7 @@ export {
   resolveRackPatchPanelPort
 };
 
-export const RACK_PREVIEW_BUILD_ID = "iteration53-4-2-patch-panel-authoring";
+export const RACK_PREVIEW_BUILD_ID = "iteration53-4-3-builder-compact-projection";
 export const RACK_PREVIEW_DEFAULT_RACK_ID = "rack-builder-preview-rack";
 
 export function createRackPreviewScene({
@@ -146,6 +146,7 @@ export function createRackPreviewProjectData({
     name: sourceRack.name,
     sourceRackId: sourceRack.id,
     canvasInstance: true,
+    presentationMode: "builder",
     hidden: true,
     locked: Boolean(sourceRack.locked),
     showInternalWiring: true,

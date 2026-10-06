@@ -290,7 +290,10 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
   const surfaceIds = new Set(surfaceDevices.map(device => device.id));
   const deviceIds = new Set(allDevices.map(device => device.id));
   const normalizedDeviceById = new Map(allDevices.map(device => [device.id, device]));
-  const placedRacks = normalizePlacedRacks(root, { normalizedDeviceById });
+  const placedRacks = normalizePlacedRacks(root, {
+    normalizedDeviceById,
+    rackPresentationMode: loadMeta.rackPresentationMode
+  });
   const placedRackIds = new Set(placedRacks.map(rack => rack.id));
   const connectorIdsByDevice = new Map(allDevices.map(device => [
     device.id,
@@ -1198,6 +1201,12 @@ function normalizeProjectWire(wire, index, context) {
     toConnectorId: to.connectorId || "",
     fromAnchorId: from.anchorId || "",
     toAnchorId: to.anchorId || "",
+    fromRackId: from.rackId || "",
+    toRackId: to.rackId || "",
+    fromPatchPanelId: from.patchPanelId || "",
+    toPatchPanelId: to.patchPanelId || "",
+    fromPatchPortId: from.patchPortId || "",
+    toPatchPortId: to.patchPortId || "",
     fromSide: from.side,
     toSide: to.side,
     fromPortIndex: from.portIndex ?? index % 4,
@@ -1314,6 +1323,8 @@ function normalizePlacedRacks(root, context = {}) {
         sourceRackId: String(rack?.sourceRackId || ""),
         name: String(rack?.name || rack?.label || "Rack"),
         canvasInstance: true,
+        presentationMode: context.rackPresentationMode === "builder" || rack?.presentationMode === "builder"
+          ? "builder" : "compact",
         hidden: rack?.hidden === true,
         locked: Boolean(rack?.locked),
         showInternalWiring: Boolean(rack?.showInternalWiring),
@@ -1344,6 +1355,7 @@ function normalizeRackInternalWires(root, context) {
   racks.forEach(rack => {
     const rackId = String(rack?.id || "");
     if (context.placedRackIds?.size && !context.placedRackIds.has(rackId)) return;
+    if (rack?.presentationMode === "compact") return;
     if (!rack?.showInternalWiring) return;
     if (!rackId) return;
     const sourceRack = rack.sourceRackId ? (rackById.get(String(rack.sourceRackId)) || rack) : rack;
@@ -1458,6 +1470,9 @@ function normalizeEndpoint(endpoint, end, wire, context) {
       deviceId,
       connectorId,
       anchorId: anchor?.id || anchorId,
+      rackId: String(endpoint.rackId || ""),
+      patchPanelId: String(endpoint.patchPanelId || ""),
+      patchPortId: String(endpoint.patchPortId || ""),
       side: anchor?.side || (end === "from" ? "right" : "left"),
       usesRealConnector: Boolean(connectorId && connectorIds?.has(connectorId))
     };

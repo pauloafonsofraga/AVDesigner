@@ -11,8 +11,9 @@ import { RACK_PREVIEW_BUILD_ID } from "../src/engine/rackPreview.js";
 import { NODE_PREVIEW_BUILD_ID } from "../src/engine/nodePreview.js";
 import { TITLE_BLOCK_PREVIEW_BUILD_ID } from "../src/engine/titleBlockPreview.js";
 
-const EXPECTED_PREVIEW_BUILD_ID = "iteration53-4-2-patch-panel-authoring";
-const EXPECTED_APP_BUILD_ID = "iteration54-38-73-rack-patch-panel-authoring";
+const EXPECTED_PREVIEW_BUILD_ID = "iteration53-4-3-compact-rack-projection";
+const EXPECTED_RACK_PREVIEW_BUILD_ID = "iteration53-4-3-builder-compact-projection";
+const EXPECTED_APP_BUILD_ID = "iteration54-38-74-compact-rack-projection";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -20,15 +21,15 @@ const enginePreviewSource = readFileSync(resolve(repoRoot, "src/engine/enginePre
 const previewMigrationDoc = readFileSync(resolve(repoRoot, "docs/engine-preview-migration.md"), "utf8");
 
 assert.equal(ENGINE_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "shared preview build id");
-assert.equal(RACK_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "rack preview build id");
+assert.equal(RACK_PREVIEW_BUILD_ID, EXPECTED_RACK_PREVIEW_BUILD_ID, "rack preview cache id");
 assert.equal(NODE_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "node preview build id");
 assert.equal(TITLE_BLOCK_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "title-block preview build id");
 
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.73";'), "app iteration should be 54.38.73");
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${EXPECTED_APP_BUILD_ID}";`), "app build id should match 54.38.73");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-73-rack-patch-panel-authoring-modules";'), "module cache key should match 54.38.73");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.74";'), "app iteration should be 54.38.74");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${EXPECTED_APP_BUILD_ID}";`), "app build id should match 54.38.74");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-74-compact-rack-projection-modules";'), "module cache key should match 54.38.74");
 assert.ok(indexHtml.includes('url.searchParams.set("module", APP_MODULE_CACHE_ID);'), "engine imports should carry the module cache key");
-assert.ok(indexHtml.includes("Rack Patch Panel Authoring"), "app build label should name 54.38.73");
+assert.ok(indexHtml.includes("Compact Rack Projection"), "app build label should name 54.38.74");
 assert.doesNotMatch(indexHtml, /ensureLedSurfacePreviews|LED_SURFACE_PREVIEW_MAX/, "LED loading must not generate reduced previews");
 assert.ok(readFileSync(new URL("../src/engine/projectAdapter.js", import.meta.url), "utf8").includes("image: sourceImage"), "Engine loads original LED artwork");
 

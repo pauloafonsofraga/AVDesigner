@@ -14,7 +14,7 @@ import { jumpNodeCenter, jumpLinkBezierPolyline } from "../src/engine/jumpNodeMo
 
 function setup(project = outputParityFixture()) {
   const live = new SceneGraph();
-  live.setData(normalizeAvDesignerProject(project));
+  live.setData(normalizeAvDesignerProject(project, { rackPresentationMode: "builder" }));
   return { project, live, output: buildEngineOutputScene(project) };
 }
 const json = value => JSON.parse(JSON.stringify(value));

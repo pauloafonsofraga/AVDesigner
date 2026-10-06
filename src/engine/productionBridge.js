@@ -145,8 +145,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-69-loom-metadata-cable-notes";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-69-loom-metadata-cable-notes";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-74-compact-rack-projection";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-74-compact-rack-projection";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -4499,7 +4499,8 @@ class ProductionEngineBridge {
         rewire.detachedSide,
         target.device.id,
         target.connector?.id || "",
-        target.anchorId || target.anchor?.id || ""
+        target.anchorId || target.anchor?.id || "",
+        target.rackPresentation || null
       );
     if (!updated) {
       this.finishWireInteraction({ restoreSelection: true, reason: "wire-rewire-failed" });
@@ -10832,7 +10833,10 @@ function wireEndpointPayloadForHit(hit, end) {
   return {
     [`${prefix}DeviceId`]: hit?.device?.id || "",
     [`${prefix}ConnectorId`]: hit?.connector?.id || "",
-    [`${prefix}AnchorId`]: hit?.anchorId || hit?.anchor?.id || ""
+    [`${prefix}AnchorId`]: hit?.anchorId || hit?.anchor?.id || "",
+    [`${prefix}RackId`]: hit?.rackPresentation?.rackId || "",
+    [`${prefix}PatchPanelId`]: hit?.rackPresentation?.patchPanelId || "",
+    [`${prefix}PatchPortId`]: hit?.rackPresentation?.patchPortId || ""
   };
 }
 
@@ -11676,6 +11680,12 @@ function cloneWire(wire) {
     toConnectorId: wire.toConnectorId,
     fromAnchorId: wire.fromAnchorId || "",
     toAnchorId: wire.toAnchorId || "",
+    fromRackId: wire.fromRackId || "",
+    toRackId: wire.toRackId || "",
+    fromPatchPanelId: wire.fromPatchPanelId || "",
+    toPatchPanelId: wire.toPatchPanelId || "",
+    fromPatchPortId: wire.fromPatchPortId || "",
+    toPatchPortId: wire.toPatchPortId || "",
     fromSide: wire.fromSide,
     toSide: wire.toSide,
     fromPortIndex: wire.fromPortIndex,

@@ -258,6 +258,7 @@ export function deviceVisualCacheKey(device, options = {}) {
     visual.faceImageOffsetX || 0,
     visual.faceImageOffsetY || 0,
     visual.hasSwappableCards ? "cards" : "",
+    visual.isRackCompact ? "rack-compact" : "",
     visual.suppressCardAreasInTexture ? "suppress-card-areas" : "",
     visual.isLedProcessor ? "led-processor" : "",
     visual.isPowerDistro ? "pd" : "",
@@ -332,6 +333,10 @@ export function textureQuality(options = {}) {
 }
 
 export function drawDeviceVisual(ctx, device, width, height, options = {}) {
+  if (device.visual?.isRackCompact) {
+    drawCompactRackDeviceVisual(ctx, device, width, height);
+    return;
+  }
   const kind = visualDeviceKind(device);
   if (kind === "jump") {
     drawJumpVisual(ctx, device, width, height);
@@ -362,6 +367,33 @@ export function drawDeviceVisual(ctx, device, width, height, options = {}) {
     return;
   }
   drawRackDeviceVisual(ctx, device, width, height, options);
+}
+
+function drawCompactRackDeviceVisual(ctx, device, width, height) {
+  const visual = device.visual || {};
+  const rect = visual.rackCompactFaceplateRect || { x: 0, y: 0, width, height };
+  if (visual.hasFaceImage && visual.faceImage) {
+    const image = visualImage(ctx, visual.faceImage);
+    if (image?.complete && image.naturalWidth > 0) {
+      const fit = preserveAspectRatioMeetRect(rect, image.naturalWidth, image.naturalHeight);
+      ctx.drawImage(image, fit.x, fit.y, fit.width, fit.height);
+    } else {
+      drawFaceplateLoadingPlaceholder(ctx, visual, rect.x, rect.y, rect.width, rect.height);
+    }
+    return;
+  }
+  ctx.save();
+  roundRect(ctx, rect.x, rect.y, rect.width, rect.height, 2);
+  ctx.fillStyle = "#29343f";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(220,230,240,.7)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  drawFittedText(ctx, device.label || device.name || visual.model || device.model || "DEVICE",
+    rect.x + 5, rect.y + rect.height / 2, rect.width - 10, Math.min(10, rect.height * 0.48), {
+      weight: 700, fill: "#dbe6ef", baseline: "middle", align: "center"
+    });
+  ctx.restore();
 }
 
 function drawRackDeviceVisual(ctx, device, width, height, options) {

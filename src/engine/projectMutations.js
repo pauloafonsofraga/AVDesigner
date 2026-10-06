@@ -1100,6 +1100,10 @@ function endpointToProject(scene, wire, end) {
     connectorId: connectorId || ""
   };
   if (anchorId) endpoint.anchorId = String(anchorId);
+  const rackId = String(wire[`${end}RackId`] || "");
+  const patchPanelId = String(wire[`${end}PatchPanelId`] || "");
+  const patchPortId = String(wire[`${end}PatchPortId`] || "");
+  if (rackId && patchPanelId && patchPortId) Object.assign(endpoint, { rackId, patchPanelId, patchPortId });
   return endpoint;
 }
 
@@ -1121,6 +1125,10 @@ function endpointToProjectFromSceneData(sceneData, wire, end) {
     connectorId: connectorId || ""
   };
   if (anchorId) endpoint.anchorId = String(anchorId);
+  const rackId = String(wire[`${end}RackId`] || "");
+  const patchPanelId = String(wire[`${end}PatchPanelId`] || "");
+  const patchPortId = String(wire[`${end}PatchPortId`] || "");
+  if (rackId && patchPanelId && patchPortId) Object.assign(endpoint, { rackId, patchPanelId, patchPortId });
   return endpoint;
 }
 

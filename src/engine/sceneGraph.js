@@ -15,6 +15,7 @@ import { wirePolylineFromPoints } from "./wirePath.js";
 import { loomGeometry } from "./loomGeometry.js";
 import { normalizeLoom } from "./loomModel.js";
 import { rackPatchPanelVisualHeight } from "./rackPatchPanels.js";
+import { createRackCompactLayout, compactConnectorSide } from "./rackCompactLayout.js?v=iteration54-38-74-compact-rack-projection";
 import { buildCableSchedule, groupedCables } from "./cableSchedule.js";
 import { adapterMappingForDevice } from "./adapterMapping.js";
 import { adapterRotationBounds, adapterWorldPoint, normalizeAdapterRotation } from "./adapterRotation.js";
@@ -93,6 +94,9 @@ export class SceneGraph {
     this.wireIdsByConnectorKey = new Map();
     this.rackDeviceIdsByRackId = new Map();
     this.rackIdByDeviceId = new Map();
+    this.compactRackLayoutById = new Map();
+    this.compactRackLayoutByDeviceId = new Map();
+    this.compactCanvasDeviceById = new Map();
     this.selectedIds = new Set();
     this.selectedRackIds = new Set();
     this.dirtyDevices = new Set();
@@ -311,10 +315,10 @@ export class SceneGraph {
         ...(this.rackDeviceIdsByRackId.get(rack.id) || [])
       ]).filter(id => this.devicesById.has(id));
       if (!rack.id || (!childDeviceIds.length && !rack.patchPanels?.length)) return;
-      const bounds = rackBoundsWithPatchPanels(
-        rackBoundsForChildIds(childDeviceIds, this.devicesById, 34),
-        rack.patchPanels
+      const builderBounds = rackBoundsWithPatchPanels(
+        rackBoundsForChildIds(childDeviceIds, this.devicesById, 34), rack.patchPanels
       );
+      const bounds = builderBounds;
       const boundsFinite = finiteBounds(bounds);
       const nextRack = {
         ...rack,
@@ -343,6 +347,7 @@ export class SceneGraph {
         sourceRackId: "",
         name: "Rack",
         canvasInstance: true,
+        presentationMode: "compact",
         hidden: true,
         locked: false,
         showInternalWiring: false,
@@ -367,11 +372,150 @@ export class SceneGraph {
     });
     this.racks = normalizedRacks;
     this.racksById = new Map(this.racks.map(rack => [rack.id, rack]));
+    this.rebuildCompactRackLayouts();
+    this.racks = this.racks.map(rack => {
+      const compact = this.compactRackLayoutById.get(rack.id);
+      const bounds = compact?.bounds || rack.bounds;
+      return { ...rack, bounds, boundsFinite: finiteBounds(bounds), presentationMode: rack.presentationMode || "builder" };
+    });
+    this.racksById = new Map(this.racks.map(rack => [rack.id, rack]));
     this.applyRackConnectorVisibility();
     this.selectedRackIds.forEach(rackId => {
       if (!this.racksById.has(rackId)) this.selectedRackIds.delete(rackId);
     });
     this.rebuildRackSpatialIndex();
+  }
+
+  rebuildCompactRackLayouts() {
+    this.compactRackLayoutById.clear();
+    this.compactRackLayoutByDeviceId.clear();
+    this.compactCanvasDeviceById.clear();
+    this.racks.forEach(rack => {
+      if (rack.presentationMode !== "compact") return;
+      const layout = createRackCompactLayout({
+        rack,
+        devices: rack.childDeviceIds.map(id => this.getDevice(id)).filter(Boolean),
+        connectorForPort: (device, reference) => this.getConnector(device.id, reference.id)
+      });
+      if (!layout) return;
+      this.compactRackLayoutById.set(rack.id, layout);
+      layout.devices.forEach(deviceLayout => {
+        const source = this.getDevice(deviceLayout.deviceId);
+        if (!source) return;
+        this.compactRackLayoutByDeviceId.set(source.id, { rackId: rack.id, layout: deviceLayout });
+        const rackLayout = layout;
+        const directPorts = deviceLayout.ports.slice();
+        const panelPorts = rackLayout.patchPanels.flatMap(panel => panel.ports)
+          .filter(port => port.sourceRackDeviceId === deviceLayout.sourceRackDeviceId);
+        const visiblePorts = [
+          ...directPorts,
+          ...panelPorts.map(port => ({
+            connectorId: port.sourceConnectorId,
+            point: port.point,
+            panelPortId: port.portId,
+            rackPresentation: { rackId: rack.id, patchPanelId: port.panelId, patchPortId: port.portId }
+          }))
+        ];
+        const visibleByConnector = new Map(visiblePorts.map(port => [port.connectorId, port]));
+        const connectors = source.connectors.filter(connector => visibleByConnector.has(connector.id)).map(connector => {
+          const port = visibleByConnector.get(connector.id);
+          const side = port?.side || compactConnectorSide(connector, source);
+          const point = port?.point || { x: deviceLayout.rect.x, y: deviceLayout.rect.y };
+          const anchors = connectorVisualAnchors(connector, source);
+          const anchorId = connector.primaryAnchorId || anchors[0]?.id || "compact-port";
+          return {
+            ...connector,
+            hiddenOnCanvas: false,
+            referenceOnlyOnCanvas: false,
+            rackSelectableOnCanvas: true,
+            rackExposedOnCanvas: !port.rackPresentation,
+            x: point.x - deviceLayout.rect.x,
+            y: point.y - deviceLayout.rect.y,
+            side,
+            displaySide: side,
+            anchors: [{ id: anchorId, side, x: point.x - deviceLayout.rect.x, y: point.y - deviceLayout.rect.y }],
+            primaryAnchorId: anchorId,
+            rackPresentation: port.rackPresentation || null
+          };
+        });
+        const visual = {
+          ...source.visual,
+          isRackCompact: true,
+          isMatrixRouter: false,
+          visualCards: [],
+          hasSwappableCards: false,
+          rackCompactFaceplateRect: {
+            x: deviceLayout.faceplateRect.x - deviceLayout.rect.x,
+            y: deviceLayout.faceplateRect.y - deviceLayout.rect.y,
+            width: deviceLayout.faceplateRect.width,
+            height: deviceLayout.faceplateRect.height
+          }
+        };
+        const canvasDevice = {
+          ...source,
+          kind: "device",
+          x: deviceLayout.rect.x,
+          y: deviceLayout.rect.y,
+          width: deviceLayout.rect.width,
+          height: deviceLayout.rect.height,
+          visual,
+          connectors,
+          portCount: connectors.length,
+          connectorsById: new Map(connectors.map(connector => [connector.id, connector])),
+          connectorRelationships: [],
+          connectorTopology: { ...(source.connectorTopology || {}), relationships: [] },
+          rackCompactSourceKind: source.kind,
+          rackCompactFaceplateRect: visual.rackCompactFaceplateRect
+        };
+        this.compactCanvasDeviceById.set(source.id, canvasDevice);
+      });
+    });
+  }
+
+  renderDevices() {
+    return this.devices.map(device => this.compactCanvasDeviceById.get(device.id) || device);
+  }
+
+  canvasDeviceForId(deviceId) {
+    const id = String(deviceId || "");
+    return this.compactCanvasDeviceById.get(id) || this.getDevice(id);
+  }
+
+  compactRackLayout(rackId) {
+    return this.compactRackLayoutById.get(String(rackId || "")) || null;
+  }
+
+  compactRackPortForConnector(deviceOrId, connectorOrId) {
+    const deviceId = typeof deviceOrId === "string" ? deviceOrId : deviceOrId?.id;
+    const connectorId = typeof connectorOrId === "string" ? connectorOrId : connectorOrId?.id;
+    const entry = this.compactRackLayoutByDeviceId.get(String(deviceId || ""));
+    if (!entry || !connectorId) return null;
+    const direct = entry.layout.ports.find(port => port.connectorId === String(connectorId));
+    if (direct) return { ...direct, presentation: null };
+    const rack = this.getRack(entry.rackId);
+    const definitionId = rackDefinitionDeviceIdForChild(this.getDevice(deviceId), rack);
+    for (const panel of this.compactRackLayoutById.get(entry.rackId)?.patchPanels || []) {
+      const port = panel.ports.find(item => item.sourceRackDeviceId === definitionId && item.sourceConnectorId === String(connectorId));
+      if (port) return { ...port, presentation: { rackId: entry.rackId, patchPanelId: panel.panelId, patchPortId: port.portId } };
+    }
+    return null;
+  }
+
+  rackPatchPortByPresentation(rackId, panelId, portId) {
+    const rack = this.compactRackLayoutById.get(String(rackId || ""));
+    const panel = rack?.patchPanels.find(item => item.panelId === String(panelId || ""));
+    return panel?.ports.find(item => item.portId === String(portId || "")) || null;
+  }
+
+  canvasBoundsForDevice(deviceOrId) {
+    const device = typeof deviceOrId === "string" ? this.getDevice(deviceOrId) : deviceOrId;
+    if (!device) return null;
+    return deviceBounds(this.compactCanvasDeviceById.get(device.id) || device);
+  }
+
+  isCompactRackDevice(deviceOrId) {
+    const id = typeof deviceOrId === "string" ? deviceOrId : deviceOrId?.id;
+    return this.compactCanvasDeviceById.has(String(id || ""));
   }
 
   deviceRackId(deviceOrId) {
@@ -415,7 +559,9 @@ export class SceneGraph {
     if (!connector) return false;
     if (!device.rackId) return connector.hiddenOnCanvas !== true;
     const rack = this.getRack(device.rackId);
-    return isRackChildConnectorExposedOnCanvas(device, connector, rack) || rack?.showInternalWiring === true;
+    return isRackChildConnectorExposedOnCanvas(device, connector, rack)
+      || Boolean(this.compactRackPortForConnector(device, connector)?.presentation)
+      || (rack?.presentationMode !== "compact" && rack?.showInternalWiring === true);
   }
 
   // Rack child connectors can be rendered as reference-only ports when internal
@@ -426,7 +572,9 @@ export class SceneGraph {
     const connector = typeof connectorOrId === "string" ? device.connectorsById?.get(connectorOrId) : connectorOrId;
     if (!connector) return false;
     if (!device.rackId) return connector.hiddenOnCanvas !== true && connector.referenceOnlyOnCanvas !== true;
-    return isRackChildConnectorExposedOnCanvas(device, connector, this.getRack(device.rackId));
+    const rack = this.getRack(device.rackId);
+    return isRackChildConnectorExposedOnCanvas(device, connector, rack)
+      || Boolean(this.compactRackPortForConnector(device, connector)?.presentation);
   }
 
   visibleConnectorsForDevice(deviceOrId) {
@@ -513,8 +661,9 @@ export class SceneGraph {
           ? rackExposedPortKey(definitionDeviceId, connector.id)
           : "";
         const exposed = Boolean(rack && exposedKeys.has(key));
-        const visible = !rack || exposed || rack.showInternalWiring === true;
-        const selectable = !rack || exposed;
+        const panelProxy = Boolean(rack && rack.presentationMode === "compact" && this.compactRackPortForConnector(device, connector)?.presentation);
+        const visible = !rack || exposed || panelProxy || (rack.presentationMode !== "compact" && rack.showInternalWiring === true);
+        const selectable = !rack || exposed || panelProxy;
         connector.rackDefinitionDeviceId = definitionDeviceId;
         connector.rackExposedPortKey = key;
         connector.rackExposedOnCanvas = exposed;
@@ -709,7 +858,7 @@ export class SceneGraph {
     return wire;
   }
 
-  rewireWireEndpoint(wireId, end, targetDeviceId, targetConnectorId, targetAnchorId = "") {
+  rewireWireEndpoint(wireId, end, targetDeviceId, targetConnectorId, targetAnchorId = "", presentation = null) {
     const wire = this.getWire(wireId);
     const targetDevice = this.getDevice(targetDeviceId);
     const targetConnector = this.getConnector(targetDeviceId, targetConnectorId);
@@ -718,6 +867,11 @@ export class SceneGraph {
     const targetLayout = targetDevice ? this.connectorDisplayLayoutForDevice(targetDevice) : null;
     const targetAnchor = targetConnector
       ? connectorDisplayAnchorById(targetDevice, targetConnector, targetAnchorId || targetConnector.primaryAnchorId || "", targetLayout)
+      : null;
+    const targetPresentation = targetConnector
+      ? presentation?.patchPortId
+        ? this.rackPatchPresentationForConnector(targetDevice, targetConnector, presentation)
+        : this.compactRackPortForConnector(targetDevice, targetConnector)?.presentation || null
       : null;
     const next = isLedSurfaceKind(targetDevice)
       ? {
@@ -728,6 +882,9 @@ export class SceneGraph {
         [`${endpointPrefix}Side`]: "left",
         [`${endpointPrefix}PortIndex`]: this.nextLedSurfacePortIndex(targetDevice.id),
         [`${endpointPrefix}UsesRealConnector`]: false,
+        [`${endpointPrefix}RackId`]: "",
+        [`${endpointPrefix}PatchPanelId`]: "",
+        [`${endpointPrefix}PatchPortId`]: "",
       }
       : targetConnector
         ? {
@@ -738,6 +895,9 @@ export class SceneGraph {
           [`${endpointPrefix}Side`]: targetAnchor?.side || targetConnector.side || (end === "from" ? "right" : "left"),
           [`${endpointPrefix}PortIndex`]: Math.max(0, targetDevice.connectors.indexOf(targetConnector)),
           [`${endpointPrefix}UsesRealConnector`]: true,
+          [`${endpointPrefix}RackId`]: targetPresentation?.rackId || "",
+          [`${endpointPrefix}PatchPanelId`]: targetPresentation?.patchPanelId || "",
+          [`${endpointPrefix}PatchPortId`]: targetPresentation?.patchPortId || "",
         }
         : null;
     if (!next) return null;
@@ -823,7 +983,7 @@ export class SceneGraph {
   rebuildSpatialIndex() {
     const items = this.devices.map(device => ({
       id: device.id,
-      bounds: deviceBounds(device),
+      bounds: this.canvasBoundsForDevice(device) || deviceBounds(device),
       device
     }));
     this.spatialIndex.rebuild(items);
@@ -866,7 +1026,8 @@ export class SceneGraph {
     const logicalKey = connectorKey(device.id, connector.id);
     const hitBoundsSize = connectorHitBoundsSize(device, connector);
     return anchors.map(anchor => {
-      const point = this.connectorAnchorWorldPoint(device, connector, anchor.id, layout);
+      const compactPort = this.compactRackPortForConnector(device, connector);
+      const point = compactPort?.point || this.connectorAnchorWorldPoint(device, connector, anchor.id, layout);
       const id = connectorAnchorIndexKey(device.id, connector.id, anchor.id);
       return {
         id,
@@ -877,6 +1038,7 @@ export class SceneGraph {
         anchorId: anchor.id,
         anchorKey: id,
         logicalKey,
+        rackPresentation: compactPort?.presentation || null,
         point
       };
     });
@@ -1544,10 +1706,16 @@ export class SceneGraph {
     fromDeviceId,
     fromConnectorId,
     fromAnchorId = "",
+    fromRackId = "",
+    fromPatchPanelId = "",
+    fromPatchPortId = "",
     fromSurfaceId,
     toDeviceId,
     toConnectorId,
     toAnchorId = "",
+    toRackId = "",
+    toPatchPanelId = "",
+    toPatchPortId = "",
     toSurfaceId,
     color = "#32b6ff",
     colorSegments = null,
@@ -1567,8 +1735,10 @@ export class SceneGraph {
     metadataRepaired = false,
     savedCableType = ""
   }) {
-    const fromEndpoint = this.resolveAddWireEndpoint("from", { deviceId: fromDeviceId, connectorId: fromConnectorId, anchorId: fromAnchorId, surfaceId: fromSurfaceId });
-    const toEndpoint = this.resolveAddWireEndpoint("to", { deviceId: toDeviceId, connectorId: toConnectorId, anchorId: toAnchorId, surfaceId: toSurfaceId });
+    const fromEndpoint = this.resolveAddWireEndpoint("from", { deviceId: fromDeviceId, connectorId: fromConnectorId, anchorId: fromAnchorId, surfaceId: fromSurfaceId,
+      presentation: { rackId: fromRackId, patchPanelId: fromPatchPanelId, patchPortId: fromPatchPortId } });
+    const toEndpoint = this.resolveAddWireEndpoint("to", { deviceId: toDeviceId, connectorId: toConnectorId, anchorId: toAnchorId, surfaceId: toSurfaceId,
+      presentation: { rackId: toRackId, patchPanelId: toPatchPanelId, patchPortId: toPatchPortId } });
     if (!fromEndpoint || !toEndpoint) return null;
     const wire = normalizeWire({
       id: this.nextWireId(),
@@ -1580,6 +1750,12 @@ export class SceneGraph {
       toConnectorId: toEndpoint.connectorId,
       fromAnchorId: fromEndpoint.anchorId,
       toAnchorId: toEndpoint.anchorId,
+      fromRackId: fromEndpoint.rackPresentation?.rackId || "",
+      fromPatchPanelId: fromEndpoint.rackPresentation?.patchPanelId || "",
+      fromPatchPortId: fromEndpoint.rackPresentation?.patchPortId || "",
+      toRackId: toEndpoint.rackPresentation?.rackId || "",
+      toPatchPanelId: toEndpoint.rackPresentation?.patchPanelId || "",
+      toPatchPortId: toEndpoint.rackPresentation?.patchPortId || "",
       fromSide: fromEndpoint.side,
       toSide: toEndpoint.side,
       fromPortIndex: fromEndpoint.portIndex,
@@ -1647,8 +1823,19 @@ export class SceneGraph {
       side: anchor?.side || connector.side || (end === "from" ? "right" : "left"),
       portIndex: Math.max(0, device.connectors.indexOf(connector)),
       usesRealConnector: true,
+      rackPresentation: endpoint.presentation?.patchPortId
+        ? this.rackPatchPresentationForConnector(device, connector, endpoint.presentation)
+        : this.compactRackPortForConnector(device, connector)?.presentation || null,
       label: connector.label || connector.type || "Connector"
     };
+  }
+
+  rackPatchPresentationForConnector(device, connector, presentation = {}) {
+    const port = this.rackPatchPortByPresentation(presentation.rackId, presentation.patchPanelId, presentation.patchPortId);
+    const rack = this.getRack(presentation.rackId);
+    const definitionId = rackDefinitionDeviceIdForChild(device, rack);
+    if (!port || port.sourceRackDeviceId !== definitionId || port.sourceConnectorId !== connector.id) return null;
+    return { rackId: String(presentation.rackId), patchPanelId: String(presentation.patchPanelId), patchPortId: String(presentation.patchPortId) };
   }
 
   insertWire(wireData) {
@@ -1731,6 +1918,8 @@ export class SceneGraph {
     if (isJumpNodeDevice(device) && String(connector?.id || "") === JUMP_NODE_CONNECTOR_ID) {
       return jumpNodeCenter(device);
     }
+    const compactPort = this.compactRackPortForConnector(device, connector);
+    if (compactPort) return compactPort.point;
     const layout = displayLayout || this.connectorDisplayLayoutForDevice(device);
     const anchor = connectorDisplayAnchorById(device, connector, anchorId || connector?.primaryAnchorId || "", layout);
     const localPoint = { x: Number(anchor?.x ?? connector?.x) || 0, y: Number(anchor?.y ?? connector?.y) || 0 };
@@ -1770,11 +1959,26 @@ export class SceneGraph {
     }
     const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
     const anchorId = end === "from" ? wire.fromAnchorId : wire.toAnchorId;
+    const presentationRackId = String(wire[`${end}RackId`] || "");
+    const presentationPanelId = String(wire[`${end}PatchPanelId`] || "");
+    const presentationPortId = String(wire[`${end}PatchPortId`] || "");
+    if (presentationRackId && presentationPanelId && presentationPortId) {
+      const patchPort = this.rackPatchPortByPresentation(presentationRackId, presentationPanelId, presentationPortId);
+      if (patchPort) {
+        const offset = offsetMap?.get(device.id);
+        return { x: patchPort.point.x + (offset?.dx || 0), y: patchPort.point.y + (offset?.dy || 0) };
+      }
+    }
     const connector = connectorId ? device.connectorsById.get(connectorId) : null;
     if (connector && isJumpNodeDevice(device) && connector.id === JUMP_NODE_CONNECTOR_ID) {
       return jumpNodeCenter(device, offsetMap?.get(device.id));
     }
     if (connector) {
+      const compactPort = this.compactRackPortForConnector(device, connector);
+      if (compactPort) {
+        const offset = offsetMap?.get(device.id);
+        return { x: compactPort.point.x + (offset?.dx || 0), y: compactPort.point.y + (offset?.dy || 0) };
+      }
       const layout = this.connectorDisplayLayoutForDevice(device);
       const anchor = connectorDisplayAnchorById(device, connector, anchorId || connector.primaryAnchorId || "", layout);
       if (device.kind === "adapter") return adapterWorldPoint(device, {
@@ -2079,6 +2283,7 @@ function normalizeRack(rack) {
     sourceRackId: String(rack.sourceRackId || "").trim(),
     name: String(rack.name || rack.label || "Rack"),
     canvasInstance: rack.canvasInstance !== false,
+    presentationMode: rack.presentationMode === "compact" ? "compact" : "builder",
     hidden: rack.hidden === true,
     locked: Boolean(rack.locked),
     showInternalWiring: Boolean(rack.showInternalWiring),
@@ -2372,6 +2577,12 @@ function normalizeWire(wire) {
     toConnectorId: wire.toConnectorId ? String(wire.toConnectorId) : "",
     fromAnchorId: wire.fromAnchorId ? String(wire.fromAnchorId) : "",
     toAnchorId: wire.toAnchorId ? String(wire.toAnchorId) : "",
+    fromRackId: wire.fromRackId ? String(wire.fromRackId) : "",
+    toRackId: wire.toRackId ? String(wire.toRackId) : "",
+    fromPatchPanelId: wire.fromPatchPanelId ? String(wire.fromPatchPanelId) : "",
+    toPatchPanelId: wire.toPatchPanelId ? String(wire.toPatchPanelId) : "",
+    fromPatchPortId: wire.fromPatchPortId ? String(wire.fromPatchPortId) : "",
+    toPatchPortId: wire.toPatchPortId ? String(wire.toPatchPortId) : "",
     fromSide: wire.fromSide || "right",
     toSide: wire.toSide || "left",
     fromPortIndex: wire.fromSurfaceId ? ledSurfacePortIndex(wire, wire.fromSurfaceId) : Math.max(0, Number(wire.fromPortIndex) || 0),
