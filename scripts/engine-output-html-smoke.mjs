@@ -28,7 +28,8 @@ async function viewerParity(page, reference) {
         && same(w.endpoints.to, v.scene.endpointForWire(v.scene.getWire(w.id), "to"))
         && same(w.polyline, v.scene.wireRenderPolyline(v.scene.getWire(w.id))) && same(w.cableHops, v.renderer.cableHopMap.get(w.id) || [])),
       led: c.ledSurfaces.every(s => same(s.wireIds, v.scene.orderedLedSurfaceWires(s.id).map(w => w.id))),
-      racks: same(c.racks, v.scene.racks), devices: c.devices.every(d => {
+      racks: same(c.racks.map(({ rackShellImage, ...rack }) => rack),
+        v.scene.racks.map(({ rackShellImage, ...rack }) => rack)), devices: c.devices.every(d => {
         const live = v.scene.getDevice(d.id);
         return d.x === live.x && d.y === live.y && d.width === live.width && d.height === live.height
           && same(d.visual.visualCards, live.visual.visualCards) && same(d.connectorGroups, live.connectorGroups);

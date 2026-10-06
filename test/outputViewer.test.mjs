@@ -16,7 +16,7 @@ const json = value => JSON.parse(JSON.stringify(value));
 function setup(project = outputViewerParityFixture()) {
   const snapshot = buildEngineOutputScene(project);
   const model = createOutputViewerModel(json(snapshot));
-  const live = new SceneGraph(); live.setData(normalizeAvDesignerProject(project, { rackPresentationMode: "builder" }));
+  const live = new SceneGraph(); live.setData(normalizeAvDesignerProject(project, { rackPresentationMode: "compact" }));
   return { project, snapshot, model, live };
 }
 
@@ -27,7 +27,9 @@ for (const [name, fixture] of [["representative", outputViewerParityFixture], ["
     assert.deepEqual(devices(model.scene), devices(live));
     assert.deepEqual(model.scene.bounds(), live.bounds());
     assert.deepEqual(model.scene.wires, live.wires);
-    assert.deepEqual(model.scene.racks, live.racks);
+    const racksWithoutRuntimeAssets = racks => json(racks.map(({ rackShellImage, ...rack }) => rack));
+    assert.deepEqual(racksWithoutRuntimeAssets(model.scene.racks), racksWithoutRuntimeAssets(live.racks));
+    for (const rack of model.scene.racks) assert.ok(rack.rackShellImage);
     for (const c of snapshot.connectors) {
       const d = model.scene.getDevice(c.deviceId), connector = model.scene.getConnector(d.id, c.connectorId);
       assert.deepEqual(model.scene.connectorWorldPoint(d, connector), c.worldPoint);

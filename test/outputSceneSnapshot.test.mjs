@@ -14,7 +14,7 @@ import { jumpNodeCenter, jumpLinkBezierPolyline } from "../src/engine/jumpNodeMo
 
 function setup(project = outputParityFixture()) {
   const live = new SceneGraph();
-  live.setData(normalizeAvDesignerProject(project, { rackPresentationMode: "builder" }));
+  live.setData(normalizeAvDesignerProject(project, { rackPresentationMode: "compact" }));
   return { project, live, output: buildEngineOutputScene(project) };
 }
 const json = value => JSON.parse(JSON.stringify(value));
@@ -95,7 +95,8 @@ test("rack exposure and internal route ownership are serialized without runtime 
   const { live, output } = setup();
   assert.deepEqual(output.rackExposure, [live.rackConnectorDiagnostics("rack")]);
   assert.equal(output.rackExposure[0].resolvedExposedConnectors, 2);
-  assert.equal(output.rackExposure[0].referenceOnlyConnectors, 2);
+  assert.equal(output.rackExposure[0].referenceOnlyConnectors, 0);
+  assert.equal(output.rackExposure[0].hiddenChildConnectors, 2);
   assert.equal(output.wires.find(w => w.id === "rack-internal-rack-internal").routeStyle, "orthogonal");
 });
 

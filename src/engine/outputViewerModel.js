@@ -3,6 +3,7 @@ import { resolvePlayableSignalPath, jumpNodeRoleLabel } from "./jumpNodeModel.js
 import { resolveOutputDeviceAssets } from "./outputViewerAssets.js";
 import { assertOutputSceneContract } from "./outputSceneContract.js";
 import { engineConnectorTypeDisplayName, engineConnectorUserFacingTypeLabel } from "./connectorCompatibility.js";
+import { normalizeRackShell, rackShellStyle } from "./rackShell.js";
 
 function freeze(value) {
   if (value && typeof value === "object") { Object.values(value).forEach(freeze); Object.freeze(value); }
@@ -15,7 +16,12 @@ export function createOutputViewerModel(snapshot, { assets } = {}) {
   assertOutputSceneContract(source);
   const contract = freeze(JSON.parse(JSON.stringify(source)));
   const scene = new SceneGraph();
-  scene.setData({ devices: contract.devices.map(d => resolveOutputDeviceAssets(d, assets)), wires: contract.wires, racks: contract.racks,
+  const racks = contract.racks.map(rack => {
+    const shell = normalizeRackShell(rack.rackShell);
+    const source = rackShellStyle(shell).src;
+    return { ...rack, rackShell: shell, rackShellImage: assets?.[source] || source };
+  });
+  scene.setData({ devices: contract.devices.map(d => resolveOutputDeviceAssets(d, assets)), wires: contract.wires, racks,
     jumpLinks: contract.jumpLinks, looms: contract.looms, loomPlans: contract.loomPlans,
     meta: { cableHops: contract.diagnostics?.cableHops?.enabled !== false } });
   return { contract, scene, normalizationMs: performance.now() - start };

@@ -28,6 +28,7 @@ try {
     const template = { id: "qa-compact-template", name: "Compact QA Switch", model: "QA-240", category: "Network",
       width: 320, height: 220, connectors: [...connectors, ...expansionConnectors], cards: [], hasSwappableCards: false };
     const rack = createRack("Compact Rack QA");
+    rack.rackShell = { styleId: "standard", color: "#23658A" };
     rack.devices = [hydrateDeviceInstance({ instanceId: "qa-compact-source", templateId: template.id,
       templateOverride: template, name: template.name, x: 200, y: 180 }),
     hydrateDeviceInstance({ instanceId: "qa-compact-source-2", templateId: template.id,
@@ -41,6 +42,11 @@ try {
     ];
     rack.showInternalWiring = true;
     addRackInstanceToCanvas(rack.id, 900, 520);
+    const redRack = createRack("Compact Rack QA Red");
+    redRack.rackShell = { styleId: "standard", color: "#A14B32" };
+    redRack.devices = [hydrateDeviceInstance({ instanceId: "qa-red-source", templateId: template.id,
+      templateOverride: template, name: "Compact Rack QA Red Device", x: 40, y: 0 })];
+    addRackInstanceToCanvas(redRack.id, 1580, 520);
     renderCanvasOnly();
     const canvasRack = state.racks.find(item => item.canvasInstance && item.sourceRackId === rack.id);
     const scene = activeEngineBridge().scene;
@@ -66,7 +72,11 @@ try {
         leftPanel: layout.patchPanels.find(panel => panel.panelId === "qa-panel-left"),
         rightPanel: layout.patchPanels.find(panel => panel.panelId === "qa-panel-right"),
         bounds: scene.getRack(canvasRack.id).bounds,
+        contentBounds: layout.compactContentBounds,
+        shellBounds: layout.shellBounds,
         diagnostics: layout.diagnostics },
+      rackColor: rackById(rack.id).rackShell.color,
+      redRack: { id: redRack.id, color: redRack.rackShell.color },
       appBuild: document.getElementById("appBuildLabel")?.textContent || "" };
   });
   assert.equal(placed.scene.mode, "compact");
@@ -83,13 +93,37 @@ try {
   assert.equal(placed.scene.leftPanel.rackFace, "front");
   assert.equal(placed.scene.rightPanel.rackFace, "rear");
   assert.ok(placed.scene.bounds.width > placed.scene.compactWidth);
+  assert.ok(placed.scene.shellBounds.width > placed.scene.contentBounds.width);
+  assert.ok(placed.scene.shellBounds.height > placed.scene.contentBounds.height);
+  assert.equal(placed.rackColor, "#23658A");
+  assert.equal(placed.redRack.color, "#A14B32");
   assert.ok(placed.scene.secondCompactRect.y > placed.scene.compactRect.y, "source y order drives the compact device stack");
   await page.evaluate(() => { activeEngineBridge().scene.clearSelection(); activeEngineBridge().scheduleRender(); });
   await page.locator("#zoomFit").click();
+  await page.waitForFunction(() => activeEngineBridge()?.renderer?.textureStats?.().rackShellTexturesReady === 1);
+  const shellTextures = await page.evaluate(() => activeEngineBridge().renderer.textureStats());
+  assert.equal(shellTextures.rackShellTextureCount, 1, "different rack colors reuse the single shell artwork texture");
   await page.screenshot({ path: join(screenshots, "compact-rack-canvas.png"), fullPage: false });
 
   await page.evaluate(({ rackId }) => openRackBuilderForRack(rackId), placed);
   await page.waitForFunction(() => rackBuilderPreviewAdapterModule?.rackPatchPanelPortForSource);
+  const rackColorControl = page.locator("#rackBuilderColor");
+  assert.equal(await rackColorControl.inputValue(), "#23658a");
+  await rackColorControl.evaluate(input => {
+    input.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+    input.value = "#3d8054"; input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await page.waitForFunction(({ rackId, canvasRackId }) => rackById(rackId)?.rackShell?.color === "#3D8054"
+    && activeEngineBridge()?.scene.getRack(canvasRackId)?.rackShell?.color === "#3D8054", placed);
+  await page.waitForFunction(() => !document.querySelector("#undoAction")?.disabled);
+  await page.locator("#undoAction").dispatchEvent("click");
+  await page.waitForFunction(({ rackId }) => rackById(rackId)?.rackShell?.color === "#23658A", placed);
+  await page.locator("#redoAction").dispatchEvent("click");
+  await page.waitForFunction(({ rackId }) => rackById(rackId)?.rackShell?.color === "#3D8054", placed);
+  await rackColorControl.evaluate(input => {
+    input.focus(); input.value = "#23658A"; input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await page.waitForFunction(({ rackId }) => rackById(rackId)?.rackShell?.color === "#23658A", placed);
   const wireState = await page.evaluate(({ canvasRackId, childId, rackId }) => {
     const scene = activeEngineBridge().scene;
     const layout = scene.compactRackLayout(canvasRackId);

@@ -1,9 +1,12 @@
 import { deviceVisualSources } from "./deviceVisualBuilder.js";
+import { rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
 export const isInlineOutputImage = source => /^data:image\/[a-z0-9.+-]+[;,]/i.test(String(source || ""));
 
 export function outputAssetSources(scene) {
-  return [...new Set((scene.devices || []).flatMap(deviceVisualSources))].sort();
+  const rackSources = (scene.racks || []).filter(rack => rack.presentationMode === "compact")
+    .map(rack => rackShellStyle(normalizeRackShell(rack.rackShell)).src);
+  return [...new Set([...(scene.devices || []).flatMap(deviceVisualSources), ...rackSources])].sort();
 }
 
 export async function inlineOutputAssets(scene, resolveImage) {

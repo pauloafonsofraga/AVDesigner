@@ -67,8 +67,9 @@ import {
 import { wirePlaybackEase } from "./wirePlayback.js";
 import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
+import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-74-compact-rack-projection";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-75-rack-shell";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -210,6 +211,7 @@ export class WebglGraphRenderer {
       onAssetReady: event => this.handleTextureAssetReady(event)
     });
     this.glowTextureCache = new Map();
+    this.rackShellTextures = new Map();
     this.program = createProgram(this.gl, vertexSource, fragmentSource);
     this.positionLocation = this.gl.getAttribLocation(this.program, "a_position");
     this.colorLocation = this.gl.getAttribLocation(this.program, "a_color");
@@ -219,6 +221,12 @@ export class WebglGraphRenderer {
     this.textureCoordLocation = this.gl.getAttribLocation(this.textureProgram, "a_texcoord");
     this.textureViewLocation = this.gl.getUniformLocation(this.textureProgram, "u_view");
     this.textureSamplerLocation = this.gl.getUniformLocation(this.textureProgram, "u_texture");
+    this.rackShellProgram = createProgram(this.gl, textureVertexSource, rackShellFragmentSource);
+    this.rackShellPositionLocation = this.gl.getAttribLocation(this.rackShellProgram, "a_position");
+    this.rackShellCoordLocation = this.gl.getAttribLocation(this.rackShellProgram, "a_texcoord");
+    this.rackShellViewLocation = this.gl.getUniformLocation(this.rackShellProgram, "u_view");
+    this.rackShellSamplerLocation = this.gl.getUniformLocation(this.rackShellProgram, "u_texture");
+    this.rackShellTintLocation = this.gl.getUniformLocation(this.rackShellProgram, "u_tint");
     this.resolution = { width: 1, height: 1 };
     this.gl.enable(this.gl.BLEND);
     this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
@@ -413,7 +421,16 @@ export class WebglGraphRenderer {
     ].forEach(buffer => {
       if (buffer && gl?.deleteBuffer) gl.deleteBuffer(buffer);
     });
-    [this.program, this.textureProgram].forEach(program => {
+    this.rackShellTextures?.forEach(entry => {
+      if (entry.texture && gl?.deleteTexture) gl.deleteTexture(entry.texture);
+      if (entry.image) {
+        entry.image.onload = null;
+        entry.image.onerror = null;
+        entry.image.src = "";
+      }
+    });
+    this.rackShellTextures?.clear();
+    [this.program, this.textureProgram, this.rackShellProgram].forEach(program => {
       if (program && gl?.deleteProgram) gl.deleteProgram(program);
     });
     this.staticWireBuffer = null;
@@ -425,6 +442,8 @@ export class WebglGraphRenderer {
     this.glowBuffer = null;
     this.program = null;
     this.textureProgram = null;
+    this.rackShellProgram = null;
+    this.rackShellTextures = null;
     this.textureScene = null;
     this.onTextureAssetReady = null;
     this.labelContext = null;
@@ -436,12 +455,45 @@ export class WebglGraphRenderer {
   textureStats() {
     return {
       ...this.textureCache.stats(),
+      rackShellTextureCount: this.rackShellTextures?.size || 0,
+      rackShellTexturesReady: [...(this.rackShellTextures?.values() || [])].filter(entry => entry.status === "ready").length,
       drawMs: this.lastTextureDrawStats?.drawMs || 0,
       drawCalls: this.lastTextureDrawStats?.drawCalls || 0,
       quads: this.lastTextureDrawStats?.quads || 0,
       missing: this.lastTextureDrawStats?.missing || 0,
       lodSkipped: this.lastTextureDrawStats?.lodSkipped || 0
     };
+  }
+
+  loadRackShellTexture(source = rackShellStyle().src) {
+    if (typeof Image === "undefined" || !this.gl) return;
+    if (this.rackShellTextures.has(source)) return;
+    const image = new Image();
+    const entry = { image, texture: null, status: "loading" };
+    this.rackShellTextures.set(source, entry);
+    image.onload = () => {
+      if (this.disposed || this.rackShellTextures?.get(source) !== entry) return;
+      const gl = this.gl;
+      const texture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+      entry.texture = texture;
+      entry.status = "ready";
+      this.onTextureAssetReady?.({ rackShell: true, source });
+    };
+    image.onerror = () => {
+      entry.status = "failed";
+      if (!this.disposed) {
+        console.warn("[engine] rack shell artwork unavailable; using vector enclosure", { source });
+        this.onTextureAssetReady?.({ rackShell: true, source, fallback: true });
+      }
+    };
+    image.src = source;
   }
 
   frameStats() {
@@ -1546,6 +1598,7 @@ export class WebglGraphRenderer {
     const selectedRackIds = new Set(drawOptions.selectedRackIds || []);
     const dragOffsets = dragSession?.offsetMap() || null;
     const racks = visibleRacks(scene, camera, this.resolution);
+    this.drawRackShells(racks, camera, dragOffsets, layerTrace);
     racks.forEach(rack => {
       if (!rack?.bounds) return;
       const offset = rackDragOffset(rack, dragOffsets);
@@ -1555,8 +1608,12 @@ export class WebglGraphRenderer {
         width: rack.bounds.width,
         height: rack.bounds.height
       };
-      pushRoundedRect(vertices, rect, RACK_FRAME_RADIUS, RACK_FRAME_FILL);
-      pushDashedRoundedBoxOutline(vertices, rect, RACK_FRAME_RADIUS, 2, RACK_FRAME_STROKE, 10, 7);
+      const shellSource = rack.rackShellImage || rackShellStyle(rack.rackShell).src;
+      const hasShellTexture = rack.presentationMode === "compact" && this.rackShellTextures.get(shellSource)?.texture;
+      if (!hasShellTexture) {
+        pushRoundedRect(vertices, rect, RACK_FRAME_RADIUS, RACK_FRAME_FILL);
+        pushDashedRoundedBoxOutline(vertices, rect, RACK_FRAME_RADIUS, 2, RACK_FRAME_STROKE, 10, 7);
+      }
       if (selectedRackIds.has(rack.id)) {
         pushDashedRoundedBoxOutline(vertices, inflateRect(rect, 4), RACK_FRAME_RADIUS + 4, 4, "rgba(251,121,4,.22)", 10, 7);
         pushDashedRoundedBoxOutline(vertices, inflateRect(rect, 2), RACK_FRAME_RADIUS + 2, 3, "rgba(251,121,4,.72)", 10, 7);
@@ -1588,6 +1645,53 @@ export class WebglGraphRenderer {
     const count = vertices.length ? upload(this.gl, this.liveBuffer, vertices) : 0;
     this.drawBuffer(this.liveBuffer, count);
     return racks.length;
+  }
+
+  drawRackShells(racks, camera, offsets = null, layerTrace = null) {
+    const gl = this.gl;
+    const groups = new Map();
+    for (const rack of racks) {
+      if (rack?.presentationMode !== "compact") continue;
+      const layout = this.textureScene?.compactRackLayout?.(rack.id);
+      const bounds = layout?.shellBounds || rack.bounds;
+      if (!bounds) continue;
+      const shell = normalizeRackShell(rack.rackShell);
+      const style = rackShellStyle(shell);
+      const source = rack.rackShellImage || style.src;
+      this.loadRackShellTexture(source);
+      const textureEntry = this.rackShellTextures.get(source);
+      if (!textureEntry?.texture) continue;
+      const offset = rackDragOffset(rack, offsets);
+      const rect = { ...bounds, x: bounds.x + offset.dx, y: bounds.y + offset.dy };
+      const tint = parseColor(shell.color).slice(0, 3);
+      const key = `${source}:${tint.map(value => Math.round(value * 255)).join(",")}`;
+      const vertices = groups.get(key) || { tint, texture: textureEntry.texture, vertices: [] };
+      for (const slice of rackShellSlices(style, rect)) {
+        pushRackShellSlice(vertices.vertices, slice, style.sourceWidth, style.sourceHeight);
+      }
+      groups.set(key, vertices);
+      this.recordObjectLayer(layerTrace, rack.id, "rackShellLayer", "drawn-rack-shell");
+    }
+    if (!groups.size) return;
+    gl.useProgram(this.rackShellProgram);
+    gl.uniform4f(this.rackShellViewLocation, camera.x, camera.y,
+      this.resolution.width / camera.zoom, this.resolution.height / camera.zoom);
+    gl.uniform1i(this.rackShellSamplerLocation, 0);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.textureBuffer);
+    gl.enableVertexAttribArray(this.rackShellPositionLocation);
+    gl.vertexAttribPointer(this.rackShellPositionLocation, 2, gl.FLOAT, false, 4 * 4, 0);
+    gl.enableVertexAttribArray(this.rackShellCoordLocation);
+    gl.vertexAttribPointer(this.rackShellCoordLocation, 2, gl.FLOAT, false, 4 * 4, 2 * 4);
+    groups.forEach(({ tint, texture, vertices }) => {
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.uniform3f(this.rackShellTintLocation, ...tint);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STREAM_DRAW);
+      gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 4);
+    });
+    gl.useProgram(this.program);
+    gl.uniform4f(this.viewLocation, camera.x, camera.y,
+      this.resolution.width / camera.zoom, this.resolution.height / camera.zoom);
   }
 
   drawBuffer(buffer, vertexCount) {
@@ -3419,6 +3523,18 @@ function pushTextureRect(vertices, x, y, width, height) {
   );
 }
 
+function pushRackShellSlice(vertices, slice, sourceWidth, sourceHeight) {
+  const { x, y, width, height } = slice.destinationRect;
+  const source = slice.sourceRect;
+  const u1 = source.x / sourceWidth;
+  const v1 = source.y / sourceHeight;
+  const u2 = (source.x + source.width) / sourceWidth;
+  const v2 = (source.y + source.height) / sourceHeight;
+  const x2 = x + width, y2 = y + height;
+  vertices.push(x,y,u1,v1, x2,y,u2,v1, x2,y2,u2,v2,
+    x,y,u1,v1, x2,y2,u2,v2, x,y2,u1,v2);
+}
+
 function inflateRect(rect, amount) {
   const value = Number(amount) || 0;
   return {
@@ -4857,5 +4973,17 @@ const textureFragmentSource = `#version 300 es
   out vec4 outColor;
   void main() {
     outColor = texture(u_texture, v_texcoord);
+  }
+`;
+
+const rackShellFragmentSource = `#version 300 es
+  precision mediump float;
+  uniform sampler2D u_texture;
+  uniform vec3 u_tint;
+  in vec2 v_texcoord;
+  out vec4 outColor;
+  void main() {
+    vec4 source = texture(u_texture, v_texcoord);
+    outColor = vec4(source.rgb * u_tint, source.a);
   }
 `;

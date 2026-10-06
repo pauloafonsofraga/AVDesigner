@@ -25,7 +25,7 @@ test("print contract uses exact Engine bounds, IDs and counts without mutating i
   assert.equal(diagnostics.signature,contract.signature);
   assert.deepEqual(diagnostics.bounds,contract.bounds);
   assert.deepEqual(diagnostics.counts,contract.diagnostics.counts);
-  assert.deepEqual(diagnostics.viewBox,{ x:-124,y:-224,width:3822,height:3588 });
+  assert.deepEqual(diagnostics.viewBox,{ x:-124,y:-224,width:3830,height:3588 });
   assert.equal(count(svg,"data-object-id")+count(svg,"data-jump-id"),17);
   assert.equal(count(svg,"data-wire-id"),20);
   assert.equal(count(svg,"data-rack-id"),1);

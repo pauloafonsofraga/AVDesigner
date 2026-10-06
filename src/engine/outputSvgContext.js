@@ -129,6 +129,13 @@ export class OutputSvgContext {
   drawImage(image,x,y,width,height) {
     this.emit(`<image href="${svgEscape(image.href)}" x="${svgNumber(x)}" y="${svgNumber(y)}" width="${svgNumber(width)}" height="${svgNumber(height)}" preserveAspectRatio="none"/>`);
   }
+  drawImageSlice(image,sourceRect,destinationRect,sourceWidth,sourceHeight) {
+    const id = `print-image-slice-${this.defs.length}`;
+    const {x,y,width,height} = destinationRect;
+    const sx = width / sourceRect.width, sy = height / sourceRect.height;
+    this.defs.push(`<clipPath id="${id}"><rect x="${svgNumber(x)}" y="${svgNumber(y)}" width="${svgNumber(width)}" height="${svgNumber(height)}"/></clipPath>`);
+    this.elements.push(`<g ${this.transformAttribute()} clip-path="url(#${id})" opacity="${svgNumber(this.globalAlpha)}"><image href="${svgEscape(image.href)}" x="${svgNumber(x-sourceRect.x*sx)}" y="${svgNumber(y-sourceRect.y*sy)}" width="${svgNumber(sourceWidth*sx)}" height="${svgNumber(sourceHeight*sy)}" preserveAspectRatio="none"/></g>`);
+  }
   createLinearGradient(x1,y1,x2,y2) { return this.gradient("linearGradient",`x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"`); }
   createRadialGradient(x1,y1,r1,x2,y2,r2) { return this.gradient("radialGradient",`fx="${x1}" fy="${y1}" fr="${r1}" cx="${x2}" cy="${y2}" r="${r2}"`); }
   gradient(type,attrs) { return { type,attrs,stops:[],addColorStop(offset,color) { this.stops.push([offset,color]); } }; }

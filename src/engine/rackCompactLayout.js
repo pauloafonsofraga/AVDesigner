@@ -1,3 +1,5 @@
+import { rackShellBounds } from "./rackShell.js";
+
 export const RACK_COMPACT_FACEPLATE_WIDTH = 240;
 export const RACK_COMPACT_DEVICE_GAP = 12;
 export const RACK_COMPACT_PORT_GAP = 22;
@@ -132,11 +134,15 @@ export function createRackCompactLayout({ rack = {}, devices = [], connectorForP
   };
   const origin = { x: -offset.x, y: -offset.y };
   const localBounds = unionRects(allRects, 24);
-  const bounds = translateRect(localBounds, origin);
+  const compactContentBounds = translateRect(localBounds, origin);
+  const shellBounds = rackShellBounds(compactContentBounds, rack.rackShell);
+  const bounds = shellBounds || compactContentBounds;
   return {
     rackId: String(rack.id || ""),
     presentationMode: "compact",
     origin: { x: offset.x, y: offset.y },
+    compactContentBounds,
+    shellBounds,
     bounds,
     devices: deviceLayouts.map(item => translateDeviceLayout(item, origin)),
     patchPanels: panelLayouts.map(item => translatePanelLayout(item, origin)),

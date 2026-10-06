@@ -77,7 +77,7 @@ export function buildEngineOutputScene(projectSnapshot = {}) {
   // output contract must describe the empty document, not that demonstration.
   const empty = !["devices", "areas", "imageObjects", "images", "jumpNodes", "ledSurfaces", "titleBlocks", "comments", "looms"]
     .some(key => Array.isArray(root[key]) && root[key].length);
-  const normalized = empty ? null : normalizeAvDesignerProject(project, { rackPresentationMode: "builder" });
+  const normalized = empty ? null : normalizeAvDesignerProject(project, { rackPresentationMode: "compact" });
   scene.setData(empty ? { meta: { cableHops: root.cableHops !== false } } : normalized);
   const devices = scene.devices.map(({ connectorsById, ...device }) => device);
   const connectors = scene.devices.flatMap(device => device.connectors.map((connector, index) => ({

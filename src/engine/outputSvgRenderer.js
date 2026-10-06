@@ -5,19 +5,62 @@ import { outputAssetSources, isInlineOutputImage } from "./outputViewerAssets.js
 import { OutputSvgContext, svgEscape, svgNumber } from "./outputSvgContext.js";
 import { buildOutputJumpNavigation } from "./outputNavigation.js";
 import { adapterRotationBounds } from "./adapterRotation.js";
+import { normalizeRackShell, rackShellSlices, rackShellStyle } from "./rackShell.js";
 
 export const OUTPUT_SVG_DEPENDENCY = "engine-svg";
 
 // Resource acquisition is deliberately separate from pure scene serialization.
 // resolveImage returns an embedded image with its original intrinsic dimensions.
-export async function prepareEnginePrintImages(snapshot, resolveImage) {
+export const rackShellImageKey = (source, color) => `${source}#tint=${normalizeRackShell({ color }).color}`;
+
+export async function prepareEnginePrintImages(snapshot, resolveImage, tintImage = null) {
   const scene = snapshot.engineScene || snapshot;
-  return Object.fromEntries(await Promise.all(outputAssetSources(scene).map(async source => {
+  const images = Object.fromEntries(await Promise.all(outputAssetSources(scene).map(async source => {
     const image = await resolveImage(source);
     if (!isInlineOutputImage(image?.href) || !Number.isFinite(image.width) || !Number.isFinite(image.height)
       || image.width <= 0 || image.height <= 0) throw new Error(`Cannot embed print image: ${source.slice(0,100)}`);
     return [source, { href:image.href, width:image.width, height:image.height }];
   })));
+  if (typeof tintImage === "function") {
+    const variants = new Map();
+    for (const rack of scene.racks || []) {
+      if (rack.presentationMode !== "compact") continue;
+      const shell = normalizeRackShell(rack.rackShell), style = rackShellStyle(shell), key = rackShellImageKey(style.src, shell.color);
+      if (variants.has(key)) continue;
+      const tinted = await tintImage(images[style.src], shell.color);
+      if (!isInlineOutputImage(tinted?.href) || !(tinted.width > 0) || !(tinted.height > 0)) {
+        throw new Error(`Cannot tint rack shell image: ${style.src}`);
+      }
+      variants.set(key, { href:tinted.href, width:tinted.width, height:tinted.height });
+    }
+    Object.assign(images, Object.fromEntries(variants));
+  }
+  return images;
+}
+
+function drawRackShells(ctx, racks, images) {
+  let imageCount = 0, fallbackCount = 0;
+  for (const rack of racks || []) {
+    if (rack.presentationMode !== "compact") continue;
+    const shell = normalizeRackShell(rack.rackShell), style = rackShellStyle(shell);
+    const image = images[rackShellImageKey(style.src, shell.color)] || images[style.src];
+    const bounds = rack.bounds;
+    if (!bounds) continue;
+    if (!image) {
+      fallbackCount += 1;
+      ctx.save(); ctx.fillStyle = shell.color; ctx.globalAlpha = 0.18;
+      ctx.fillRect(bounds.x, bounds.y, bounds.width, bounds.height); ctx.globalAlpha = 1;
+      ctx.strokeStyle = shell.color; ctx.lineWidth = 2; ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height); ctx.restore();
+      continue;
+    }
+    imageCount += 1;
+    ctx.group({ "data-rack-id":rack.id, "data-rack-shell-style":shell.styleId, "data-rack-shell-color":shell.color }, () => {
+      for (const slice of rackShellSlices(shell, bounds)) {
+        ctx.drawImageSlice(image, slice.sourceRect, slice.destinationRect, style.sourceWidth, style.sourceHeight);
+      }
+    });
+  }
+  return { imageCount, fallbackCount };
 }
 
 function artwork(ctx, device) {
@@ -58,7 +101,8 @@ export function renderEngineOutputSvg(snapshot, { images = {}, textMetrics = {},
   const primitives = engineOutputPrimitives(scene,contract);
   const meshes = (items,attribute) => items.forEach(item => ctx.group({ [attribute]:item.id },()=>ctx.mesh(item.vertices)));
   scene.devices.filter(d => d.kind === "area").forEach(d=>artwork(ctx,d));
-  meshes(primitives.racks,"data-rack-id");
+  const shellDiagnostics = drawRackShells(ctx, contract.racks, images);
+  meshes(primitives.racks.filter(item => !contract.racks.some(rack => rack.id === item.id && rack.presentationMode === "compact")),"data-rack-id");
   meshes(primitives.wires,"data-wire-id");
   meshes(primitives.looms,"data-loom-id");
   scene.devices.filter(d => !["area","jump"].includes(d.kind)).forEach(d=>artwork(ctx,d));
@@ -92,6 +136,7 @@ export function renderEngineOutputSvg(snapshot, { images = {}, textMetrics = {},
     jumpNodes:primitives.jumps.length, jumpLinks:contract.jumpLinks.length,
     jumpNavigationCandidates:navigationCandidates,
     jumpDestinations:0, jumpAnnotations:0, visibleJumpLinkPaths:0 };
+  Object.assign(diagnostics, { rackShellImages:shellDiagnostics.imageCount, rackShellFallbacks:shellDiagnostics.fallbackCount });
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" data-avdesigner-output="engine-svg" data-scene-signature="${svgEscape(contract.signature)}" viewBox="${[view.x,view.y,view.width,view.height].map(svgNumber).join(" ")}" width="${svgNumber(view.width)}" height="${svgNumber(view.height)}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Engine project drawing"><metadata>${svgEscape(JSON.stringify(diagnostics))}</metadata><defs>${ctx.defs.join("")}</defs>${background ? `<rect x="${view.x}" y="${view.y}" width="${view.width}" height="${view.height}" fill="${svgEscape(background)}"/>` : ""}${ctx.elements.join("")}</svg>`;
   return { svg,diagnostics };
 }

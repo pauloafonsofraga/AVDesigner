@@ -15,7 +15,8 @@ import { wirePolylineFromPoints } from "./wirePath.js";
 import { loomGeometry } from "./loomGeometry.js";
 import { normalizeLoom } from "./loomModel.js";
 import { rackPatchPanelVisualHeight } from "./rackPatchPanels.js";
-import { createRackCompactLayout, compactConnectorSide } from "./rackCompactLayout.js?v=iteration54-38-74-compact-rack-projection";
+import { normalizeRackShell } from "./rackShell.js";
+import { createRackCompactLayout, compactConnectorSide } from "./rackCompactLayout.js?v=iteration54-38-75-rack-shell";
 import { buildCableSchedule, groupedCables } from "./cableSchedule.js";
 import { adapterMappingForDevice } from "./adapterMapping.js";
 import { adapterRotationBounds, adapterWorldPoint, normalizeAdapterRotation } from "./adapterRotation.js";
@@ -2282,6 +2283,8 @@ function normalizeRack(rack) {
     id,
     sourceRackId: String(rack.sourceRackId || "").trim(),
     name: String(rack.name || rack.label || "Rack"),
+    rackShell: normalizeRackShell(rack.rackShell),
+    rackShellImage: String(rack.rackShellImage || ""),
     canvasInstance: rack.canvasInstance !== false,
     presentationMode: rack.presentationMode === "compact" ? "compact" : "builder",
     hidden: rack.hidden === true,
@@ -2661,8 +2664,12 @@ function normalizeConnector(connector, index, deviceWidth = 0, options = {}) {
     pairedConnectorId: connector.pairedConnectorId || "",
     sourceConnectorId: connector.sourceConnectorId || "",
     generatedFromCard: Boolean(connector.generatedFromCard),
-    authoredHiddenOnCanvas: connector.authoredHiddenOnCanvas === true || connector.hiddenOnCanvas === true,
-    hiddenOnCanvas: connector.authoredHiddenOnCanvas === true || connector.hiddenOnCanvas === true,
+    authoredHiddenOnCanvas: Object.prototype.hasOwnProperty.call(connector, "authoredHiddenOnCanvas")
+      ? connector.authoredHiddenOnCanvas === true
+      : connector.hiddenOnCanvas === true,
+    hiddenOnCanvas: Object.prototype.hasOwnProperty.call(connector, "authoredHiddenOnCanvas")
+      ? connector.authoredHiddenOnCanvas === true
+      : connector.hiddenOnCanvas === true,
     effectiveType: connector.effectiveType || connector.type || "",
     typeLabel: connector.typeLabel || "",
     displayLabel: connector.displayLabel || connector.label || connector.nameText || connector.type || "",

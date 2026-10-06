@@ -66,6 +66,7 @@ import {
 } from "./modularDeviceLayout.js";
 import { groupSharedBusPlacementItems, rigidSharedBusGroups } from "./sharedBusPlacement.js";
 import { commentLeaderEnd } from "./commentGeometry.js";
+import { normalizeRackShell } from "./rackShell.js";
 import {
   TITLE_BLOCK_BASE_HEIGHT,
   TITLE_BLOCK_BASE_WIDTH
@@ -1303,6 +1304,7 @@ function isFallbackJumpColor(color) {
 function normalizePlacedRacks(root, context = {}) {
   const racks = Array.isArray(root.racks) ? root.racks : [];
   if (!racks.length) return [];
+  const rackDefinitions = new Map(racks.map(rack => [String(rack?.id || ""), rack]).filter(([id]) => id));
   const rawDevicesById = new Map((root.devices || [])
     .map(device => [String(device?.instanceId || device?.id || ""), device])
     .filter(([id]) => id));
@@ -1310,6 +1312,7 @@ function normalizePlacedRacks(root, context = {}) {
     .filter(isPlacedRackRecord)
     .map((rack, index) => {
       const id = String(rack?.id || `placed-rack-${index}`);
+      const sourceRack = rackDefinitions.get(String(rack?.sourceRackId || ""));
       const sourceDeviceMap = cloneStringMap(rack?.sourceDeviceMap);
       const childDeviceIds = uniqueItems([
         ...Object.values(sourceDeviceMap),
@@ -1322,9 +1325,10 @@ function normalizePlacedRacks(root, context = {}) {
         id,
         sourceRackId: String(rack?.sourceRackId || ""),
         name: String(rack?.name || rack?.label || "Rack"),
+        rackShell: normalizeRackShell(sourceRack?.rackShell || rack?.rackShell),
         canvasInstance: true,
-        presentationMode: context.rackPresentationMode === "builder" || rack?.presentationMode === "builder"
-          ? "builder" : "compact",
+        presentationMode: context.rackPresentationMode === "compact" ? "compact"
+          : context.rackPresentationMode === "builder" || rack?.presentationMode === "builder" ? "builder" : "compact",
         hidden: rack?.hidden === true,
         locked: Boolean(rack?.locked),
         showInternalWiring: Boolean(rack?.showInternalWiring),
