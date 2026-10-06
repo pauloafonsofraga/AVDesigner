@@ -145,8 +145,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-62-cable-routing";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-62-cable-routing";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-65-loom-gateway-routing";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-65-loom-gateway-routing";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -2234,6 +2234,21 @@ class ProductionEngineBridge {
       }
       return;
     }
+    if (this.wireCreate?.loomId && this.wireCreate.rewire) {
+      event.preventDefault();
+      this.capturePointer(event.pointerId);
+      const world = screenToWorld(this.camera, point);
+      const connector = hitTestConnector(this.scene, world, this.connectorHitToleranceWorld()).connector;
+      if (connector && connector !== this.wireCreate.from) {
+        this.wireCreate.target = connector;
+        this.completeWireRewire();
+      } else if (!connector) {
+        this.wireCreate.routePoints.push({ ...world });
+        this.wireCreate.pointerWorld = world;
+        this.scheduleRender();
+      }
+      return;
+    }
     if (this.wireCreate?.loomId && !this.wireCreate.rewire) {
       this.capturePointer(event.pointerId);
       return;
@@ -4019,6 +4034,9 @@ class ProductionEngineBridge {
       pointerWorld: { ...worldPoint },
       target: null,
       compatibility: null,
+      manual: Boolean(wire.manualRoute),
+      routeStyle: wire.routeStyle,
+      routePoints: (wire.routePoints || []).map(point => ({ ...point })),
       ...this.wirePreviewAppearance(detachedHit, wire),
       rewire: {
         wireId: wire.id,
@@ -4424,7 +4442,8 @@ class ProductionEngineBridge {
       this.finishWireInteraction({ restoreSelection: true, reason: "wire-rewire-missing" });
       return;
     }
-    if (this.isOriginalRewireTarget(target)) {
+    const returningToOriginal = this.isOriginalRewireTarget(target);
+    if (returningToOriginal && !state.loomId) {
       this.recordRewireDiagnostic("return-original", { compatibility });
       this.finishWireInteraction({ selectWireId: wire.id, reason: "wire-rewire-return-original" });
       this.updateSelectionHud();
@@ -4437,13 +4456,15 @@ class ProductionEngineBridge {
     const beforeLedSurfaceIds = this.scene.ledSurfaceIdsForWire(beforeWire);
     const beforeConnection = rewire.originalConnection || this.mutations?.connectionDataForWire(wire.sourceId || wire.id);
     this.beginProductionCommit("rewire endpoint");
-    let updated = this.scene.rewireWireEndpoint(
-      wire.id,
-      rewire.detachedSide,
-      target.device.id,
-      target.connector?.id || "",
-      target.anchorId || target.anchor?.id || ""
-    );
+    let updated = returningToOriginal
+      ? wire
+      : this.scene.rewireWireEndpoint(
+        wire.id,
+        rewire.detachedSide,
+        target.device.id,
+        target.connector?.id || "",
+        target.anchorId || target.anchor?.id || ""
+      );
     if (!updated) {
       this.finishWireInteraction({ restoreSelection: true, reason: "wire-rewire-failed" });
       return;
@@ -4451,6 +4472,19 @@ class ProductionEngineBridge {
     const nextSignalIndex = signalIndexForLedSurfaceSceneWire(this.scene, updated, target);
     if (this.scene.ledSurfaceIdsForWire(updated).length && nextSignalIndex !== updated.signalIndex) {
       updated = this.scene.applyWireState(updated.id, { signalIndex: nextSignalIndex }) || updated;
+    }
+    if (state.loomId) {
+      const route = this.wireRouteForEndpoints(state.loomExitPoint || target.point, target.point, state);
+      updated = this.scene.applyWireState(updated.id, {
+        routeStyle: route.routeStyle,
+        routePoints: route.routePoints,
+        manualRoute: Boolean(state.manual),
+        loomId: state.loomId,
+        loomEntrySide: state.loomEntrySide,
+        loomEntryRoutePoints: state.loomEntryRoutePoints || [],
+        loomExitRoutePoints: route.routePoints
+      }) || updated;
+      this.scene.rebuildLoomGeometry();
     }
     updated = this.applyJumpWireMetadataFromScene(updated.id, compatibility) || updated;
     const mutationMs = this.mutations?.commitRewiredWire(this.scene, updated.id) || 0;

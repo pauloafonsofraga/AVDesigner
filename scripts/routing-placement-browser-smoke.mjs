@@ -155,6 +155,170 @@ try {
 
   const saved = await page.evaluate(async () => JSON.parse(await projectJsonPayload()));
 
+  const runGatewayCreation = async (type, side, screenshot = false, targetType = type) => {
+    const gatewayProject = structuredClone(cableTypeSelectionFixture());
+    gatewayProject.connections = [];
+    for (const [index, device] of gatewayProject.devices.entries()) {
+      const template = structuredClone(device.templateOverride);
+      template.height = 280;
+      const connectorType = index ? targetType : type;
+      template.connectors = [{ id: "gateway-port", type: connectorType, physicalType: connectorType, connectorType,
+        label: connectorType, direction: index ? "input" : "output", signalDirection: index ? "input" : "output",
+        displaySide: index ? "left" : "right", x: index ? 0 : template.width, y: 190 }];
+      device.templateOverride = template;
+      device.x = index ? 900 : 80;
+    }
+    gatewayProject.looms = [{ id: "gateway-test-loom", name: "LM-Gateway-Test", kind: "loom",
+      sideA: { label: "Side A", x: 480, y: 360 }, sideB: { label: "Side B", x: 720, y: 360 },
+      routeStyle: "bezier", routePoints: [], trunkLength: "", notes: "" }];
+    await page.evaluate(snapshot => restoreSnapshot(snapshot), gatewayProject);
+    await page.waitForFunction(() => activeEngineBridge()?.scene.getDevice("sink")
+      && activeEngineBridge().scene.loomPlans[0]?.loomId === "gateway-test-loom");
+    await page.locator("#wirePlacementSelect").selectOption("manual");
+    await page.evaluate(() => { const bridge = activeEngineBridge(); bridge.camera.x = 0;
+      bridge.camera.y = 0; bridge.camera.zoom = 0.8; bridge.scheduleRender(); });
+    const from = await connector("source", "gateway-port");
+    const to = await connector("sink", "gateway-port");
+    await clickWorld(from);
+    assert.ok(await page.evaluate(() => activeEngineBridge().wireCreate), `${type}: source should start wire creation`);
+    const plan = await page.evaluate(() => activeEngineBridge().scene.loomPlans[0]);
+    await clickWorld(plan[side === "sideA" ? "headA" : "headB"]);
+    const gatewayState = await page.evaluate(() => ({ loomId: activeEngineBridge().wireCreate?.loomId,
+      entrySide: activeEngineBridge().wireCreate?.loomEntrySide }));
+    await page.mouse.move(...Object.values(await screen(to)));
+    const compatibility = await page.evaluate(() => {
+      const bridge = activeEngineBridge(), summary = bridge.currentWireCompatibility();
+      const source = bridge.wireCreate?.from?.connector, target = bridge.wireCreate?.target?.connector;
+      return { valid: summary.valid, rule: summary.rule, reason: summary.reason,
+        source: source && { type: source.type, compatibilityType: source.compatibilityType || "",
+          effectiveType: summary.sourceType },
+        target: target && { type: target.type, compatibilityType: target.compatibilityType || "",
+          effectiveType: summary.targetType }, resolvedCableType: summary.sourceType || summary.targetType };
+    });
+    await clickWorld(to);
+    const wires = await page.evaluate(() => activeEngineBridge().scene.wires.map(wire => ({ id: wire.id,
+      loomId: wire.loomId, loomEntrySide: wire.loomEntrySide, cableType: wire.cableType,
+      color: wire.customColor || wire.color })));
+    assert.equal(wires.length, 1, `${type}: loom traversal creates one logical cable`);
+    assert.equal(wires[0].loomId, "gateway-test-loom", `${type}: cable retains loom membership`);
+    const result = { type, targetType, side, gatewayState, compatibility, wires };
+    if (screenshot) await page.screenshot({ path: join(screenshots, `gateway-${type}-${side}.png`) });
+    return result;
+  };
+  const gatewayReproductions = [];
+  for (const type of ["hdmi", "sdi", "speakon-nl4", "display-port"]) {
+    for (const side of ["sideA", "sideB"]) {
+      gatewayReproductions.push(await runGatewayCreation(type, side,
+        type === "speakon-nl4" || type === "display-port"));
+    }
+  }
+  for (const [sourceType, targetType] of [["speakon", "speakon-nl4"], ["displayport", "display-port"]]) {
+    for (const side of ["sideA", "sideB"]) {
+      const result = await runGatewayCreation(sourceType, side, false, targetType);
+      assert.equal(result.compatibility.valid, true,
+        `${sourceType}/${targetType}: legacy alias pair must route through ${side}`);
+      assert.equal(result.wires[0].loomId, "gateway-test-loom");
+      gatewayReproductions.push(result);
+    }
+  }
+  const runGatewayRewire = async (type, side) => {
+    const rewireProject = structuredClone(cableTypeSelectionFixture());
+    rewireProject.connections = [{ id: "existing-gateway-cable", cableType: type, length: "5m",
+      cableLabel: `Existing ${type}`, customColor: "#123456", color: "#123456",
+      from: { deviceId: "source", connectorId: "port-0" },
+      to: { deviceId: "sink", connectorId: "port-0" } }];
+    for (const [index, device] of rewireProject.devices.entries()) {
+      const template = structuredClone(device.templateOverride);
+      template.height = 280;
+      template.connectors = [{ id: "port-0", type, physicalType: type, connectorType: type,
+        label: type, direction: index ? "input" : "output", signalDirection: index ? "input" : "output",
+        displaySide: index ? "left" : "right", x: index ? 0 : template.width, y: 190 }];
+      device.templateOverride = template;
+      device.x = index ? 900 : 80;
+    }
+    rewireProject.looms = [{ id: "rewire-test-loom", name: "LM-Rewire-Test", kind: "loom",
+      sideA: { label: "Side A", x: 480, y: 360 }, sideB: { label: "Side B", x: 720, y: 360 },
+      routeStyle: "bezier", routePoints: [], trunkLength: "", notes: "" }];
+    await page.evaluate(snapshot => restoreSnapshot(snapshot), rewireProject);
+    await page.waitForFunction(() => activeEngineBridge()?.scene.getDevice("sink")
+      && activeEngineBridge().scene.loomPlans[0]?.loomId === "rewire-test-loom");
+    await page.waitForFunction(() => activeEngineBridge()?.scene.wires.length === 1);
+    await page.locator("#wirePlacementSelect").selectOption("manual");
+    await page.evaluate(() => { const bridge = activeEngineBridge(); bridge.camera.x = 0;
+      bridge.camera.y = 0; bridge.camera.zoom = 0.8; bridge.scheduleRender(); });
+    const from = await connector("source", "port-0"), to = await connector("sink", "port-0");
+    const plan = await page.evaluate(() => activeEngineBridge().scene.loomPlans[0]);
+    const start = await screen(to), gateway = await screen(plan[side === "sideA" ? "headA" : "headB"]);
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(gateway.x, gateway.y, { steps: 8 });
+    await page.mouse.up();
+    const gatewayState = await page.evaluate(() => ({ loomId: activeEngineBridge().wireCreate?.loomId,
+      entrySide: activeEngineBridge().wireCreate?.loomEntrySide }));
+    assert.deepEqual(gatewayState, { loomId: "rewire-test-loom", entrySide: side },
+      `${type}: dragging the connected cable into ${side} must enter loom traversal`);
+    await page.mouse.move(...Object.values(await screen(to)));
+    const compatibility = await page.evaluate(() => {
+      const bridge = activeEngineBridge(), summary = bridge.currentWireCompatibility();
+      return { valid: summary.valid, rule: summary.rule, reason: summary.reason,
+        sourceType: summary.sourceType, targetType: summary.targetType };
+    });
+    await page.mouse.click(...Object.values(await screen(to)));
+    const inspect = () => page.evaluate(() => {
+        const b = activeEngineBridge(), wire = b.scene.getWire("existing-gateway-cable");
+        return wire && { id: wire.id, sourceId: wire.sourceId, fromDeviceId: wire.fromDeviceId,
+          fromConnectorId: wire.fromConnectorId, toDeviceId: wire.toDeviceId,
+          toConnectorId: wire.toConnectorId, cableType: wire.cableType,
+          customColor: wire.customColor, color: wire.color, loomId: wire.loomId,
+          loomEntrySide: wire.loomEntrySide,
+          root: b.mutations.root.connections.find(item => item.id === wire.id) };
+    });
+    const committed = await inspect();
+    assert.equal(committed.loomId, "rewire-test-loom", `${type}: rewire persists loom membership`);
+    assert.equal(committed.loomEntrySide, side);
+    assert.equal(committed.id, "existing-gateway-cable");
+    assert.equal(committed.cableType, type);
+    assert.equal(committed.customColor, "#123456");
+    assert.equal(committed.root.loomId, "rewire-test-loom");
+    assert.equal(committed.root.cableLabel, `Existing ${type}`);
+    assert.equal(committed.root.length, "5m");
+    assert.equal(committed.root.from.deviceId, "source");
+    assert.equal(committed.root.to.deviceId, "sink");
+    assert.equal(await page.evaluate(() => activeEngineBridge().scene.wires.length), 1);
+
+    assert.equal(await page.evaluate(() => activeEngineBridge().undoEngineCommand()), true,
+      `${type}: loom rewire should be undoable`);
+    await page.waitForFunction(() => !activeEngineBridge().scene.getWire("existing-gateway-cable")?.loomId);
+    const undone = await inspect();
+    assert.equal(undone.root.loomId, undefined);
+    assert.equal(undone.root.cableLabel, `Existing ${type}`);
+    assert.equal(undone.root.customColor, "#123456");
+
+    assert.equal(await page.evaluate(() => activeEngineBridge().redoEngineCommand()), true,
+      `${type}: loom rewire should be redoable`);
+    await page.waitForFunction(() => activeEngineBridge().scene.getWire("existing-gateway-cable")?.loomId
+      === "rewire-test-loom");
+    const redone = await inspect();
+    assert.equal(redone.loomEntrySide, side);
+    assert.equal(redone.root.loomId, "rewire-test-loom");
+
+    const roundTrip = await page.evaluate(async () => JSON.parse(await projectJsonPayload()));
+    await page.evaluate(snapshot => restoreSnapshot(snapshot), roundTrip);
+    await page.waitForFunction(() => activeEngineBridge()?.scene.getWire("existing-gateway-cable")?.loomId
+      === "rewire-test-loom");
+    const reopened = await inspect();
+    assert.equal(reopened.loomEntrySide, side);
+    assert.equal(reopened.id, "existing-gateway-cable");
+    assert.equal(reopened.root.cableLabel, `Existing ${type}`);
+    return { type, side, from, gatewayState, compatibility, wire: reopened };
+  };
+  const rewireReproductions = [];
+  for (const type of ["speakon-nl4", "display-port"]) {
+    for (const side of ["sideA", "sideB"]) rewireReproductions.push(await runGatewayRewire(type, side));
+  }
+  console.log("Gateway creation reproduction", JSON.stringify(gatewayReproductions));
+  console.log("Gateway existing-wire rewire reproduction", JSON.stringify(rewireReproductions));
+
   const renderCoreCase = async (types, name) => {
     await page.evaluate(snapshot => restoreSnapshot(snapshot), projectWithLoom(types));
     await page.waitForFunction(count => activeEngineBridge()?.scene.loomPlans[0]?.circuitCount === count, types.length);
@@ -172,6 +336,14 @@ try {
     assert.ok(loomBundleWidths(state.coreColors.length).sheath <= loomBundleWidths(8).sheath);
     assert.equal(loomBundleWidths(9).sheath, loomBundleWidths(8).sheath);
     await page.screenshot({ path: join(screenshots, `${name}.png`) });
+    if (name === "cores-mixed-eight") {
+      await page.evaluate(() => { const bridge = activeEngineBridge();
+        bridge.camera.x = 475; bridge.camera.y = 255; bridge.camera.zoom = 2.6; bridge.scheduleRender(); });
+      await page.waitForTimeout(120);
+      await page.screenshot({ path: join(screenshots, "loom-8core-jacket-tape.png") });
+      await page.evaluate(() => { const bridge = activeEngineBridge(); bridge.camera.x = 0;
+        bridge.camera.y = 0; bridge.camera.zoom = 0.8; bridge.scheduleRender(); });
+    }
     return state.coreColors;
   };
   await renderCoreCase(["hdmi"], "cores-01-hdmi");

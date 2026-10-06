@@ -4,12 +4,57 @@ import { cableTypeSelectionFixture } from "../fixtures/cable-type-selection.mjs"
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 import { dissolveLoom } from "../src/engine/loomModel.js";
-import { gatewayExitSide, LOOM_BREAKOUT_COLOR, LOOM_GATEWAY_RING_COLOR, LOOM_TAPE_COLOR, loomBundleWidths,
-  loomCoreColors, LOOM_MAX_VISIBLE_CORES, orthogonalManualPoints, tapeBandsAlongPath } from "../src/engine/routingPlacement.js";
+import { engineOutputPrimitives } from "../src/engine/renderer.js";
+import { gatewayExitSide, LOOM_GATEWAY_RING_COLOR, LOOM_INNER_JACKET_COLOR, LOOM_OUTER_JACKET_COLOR,
+  LOOM_TAPE_COLOR, loomBundleWidths, loomCableDisplayColor, loomCoreColors, LOOM_MAX_VISIBLE_CORES,
+  orthogonalManualPoints, tapeBandsAlongPath } from "../src/engine/routingPlacement.js";
 import { wirePolylineFromPoints } from "../src/engine/wirePath.js";
 
 const loom = { id: "loom-1", name: "LM-001", routeStyle: "bezier", routePoints: [],
   sideA: { x: 350, y: 200 }, sideB: { x: 650, y: 200 } };
+
+function loomRenderFixture(cableType, { customColor = "", fiberMode = "", count = 1 } = {}) {
+  const project = cableTypeSelectionFixture();
+  project.devices.forEach(device => {
+    const template = structuredClone(device.templateOverride);
+    template.height = 190 + count * 38;
+    template.connectors = Array.from({ length: count }, (_, index) => ({ ...template.connectors[0],
+      id: `port-${index}`, type: cableType, physicalType: cableType, connectorType: cableType,
+      y: 170 + index * 38 }));
+    device.templateOverride = template;
+  });
+  project.connections = Array.from({ length: count }, (_, index) => ({ id: `loom-wire-${index + 1}`,
+    cableType, fiberMode, color: customColor || "", customColor, loomId: loom.id, loomEntrySide: "sideA",
+    from: { deviceId: "source", connectorId: `port-${index}` },
+    to: { deviceId: "sink", connectorId: `port-${index}` } }));
+  project.looms = [{ ...structuredClone(loom), routeStyle: "orthogonal",
+    sideA: { x: 450, y: 360 }, sideB: { x: 760, y: 360 } }];
+  const scene = new SceneGraph();
+  scene.setData(normalizeAvDesignerProject(project));
+  scene.rebuildLoomGeometry();
+  const contract = { racks: [], jumpLinks: [], wires: [], connectors: [] };
+  return { scene, wire: scene.wires[0], plan: scene.loomPlans[0],
+    vertices: engineOutputPrimitives(scene, contract).looms[0].vertices };
+}
+
+function normalizedRgb(hex) {
+  const value = Number.parseInt(String(hex).replace(/^#/, ""), 16);
+  return [(value >> 16 & 255) / 255, (value >> 8 & 255) / 255, (value & 255) / 255];
+}
+
+function hasVertexColorNearSegment(vertices, color, points) {
+  const targetColor = normalizedRgb(color);
+  const segmentIndex = Math.max(0, Math.floor((points.length - 1) / 2));
+  const from = points[segmentIndex], to = points[Math.min(segmentIndex + 1, points.length - 1)];
+  if (!from || !to) return false;
+  const target = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
+  for (let index = 0; index < vertices.length; index += 6) {
+    const sameColor = targetColor.every((channel, offset) => Math.abs(vertices[index + 2 + offset] - channel) < 0.002);
+    if (!sameColor) continue;
+    if (Math.hypot(vertices[index] - target.x, vertices[index + 1] - target.y) < 8) return true;
+  }
+  return false;
+}
 
 test("manual cable points survive normalization and switch between Bezier and orthogonal", () => {
   const project = cableTypeSelectionFixture();
@@ -55,6 +100,26 @@ test("one logical cable traverses either Loom endpoint and keeps authored legs",
     assert.equal(project.connections[0].loomId, undefined);
     assert.equal(project.connections[0].loomEntrySide, undefined);
   }
+});
+
+test("loom breakout legs use each actual wire's resolved, fibre, and custom colours", () => {
+  const cases = [
+    ["hdmi", "#FFD600"], ["sdi", "#0B6B3A"], ["xlr-3pin", "#AB47BC"],
+    ["speakon-nl4", "#00ACC1"], ["display-port", "#3D5AFE"]
+  ];
+  for (const [type, expected] of cases) {
+    const { wire, plan, vertices } = loomRenderFixture(type);
+    assert.equal(loomCableDisplayColor(wire).toLowerCase(), expected.toLowerCase(), `${type} resolved colour`);
+    assert.ok(hasVertexColorNearSegment(vertices, expected, plan.breakouts[0].points),
+      `${type} breakout renderer should use the resolved wire colour`);
+  }
+  const fiber = loomRenderFixture("fiber-lc", { fiberMode: "om4" });
+  assert.ok(hasVertexColorNearSegment(fiber.vertices, loomCableDisplayColor(fiber.wire), fiber.plan.breakouts[0].points),
+    "fibre-mode wire colour is used by the breakout renderer");
+  const custom = loomRenderFixture("hdmi", { customColor: "#12ABEF" });
+  assert.equal(loomCableDisplayColor(custom.wire), "#12ABEF");
+  assert.ok(hasVertexColorNearSegment(custom.vertices, "#12ABEF", custom.plan.breakouts[0].points),
+    "custom cable colour overrides the built-in type colour on breakouts");
 });
 
 test("loom shows every cable when at or below the eight-core limit", () => {
@@ -120,10 +185,43 @@ test("PVC tape positions follow polyline distance through turns", () => {
     [{ x: 54, y: 0 }, { x: 108, y: 0 }, { x: 108, y: 54 }]);
 });
 
-test("loom jacket is half-width and uses the requested tape and gateway colors", () => {
+test("loom outer jacket wraps the inner bundle and extends tape without exceeding the eight-core cap", () => {
   const widths = loomBundleWidths(4);
   assert.equal(widths.jacket, (widths.sheath - 3) / 2);
+  assert.ok(widths.outerJacket > widths.sheath);
+  assert.equal(loomBundleWidths(8).outerJacket, loomBundleWidths(20).outerJacket);
+  assert.equal(loomBundleWidths(9).outerJacket, loomBundleWidths(8).outerJacket);
   assert.equal(LOOM_TAPE_COLOR, "#454c53");
   assert.equal(LOOM_GATEWAY_RING_COLOR, "#0c4fe8");
-  assert.equal(LOOM_BREAKOUT_COLOR, "#59636b");
+  assert.equal(LOOM_OUTER_JACKET_COLOR, "#7CCBFF");
+  assert.equal(LOOM_INNER_JACKET_COLOR, "#59636b");
+  const fixture = loomRenderFixture("hdmi", { count: 8 });
+  const outerRgb = normalizedRgb(LOOM_OUTER_JACKET_COLOR), innerRgb = normalizedRgb("#101820");
+  const maxDistanceFromTrunk = targetColor => {
+    const distances = [];
+    for (let index = 0; index < fixture.vertices.length; index += 6) {
+      if (!targetColor.every((channel, offset) => Math.abs(fixture.vertices[index + 2 + offset] - channel) < 0.002)) continue;
+      const x = fixture.vertices[index], y = fixture.vertices[index + 1];
+      if (x < fixture.plan.headA.x - 15 || x > fixture.plan.headB.x + 15) continue;
+      distances.push(Math.abs(y - fixture.plan.headA.y));
+    }
+    return distances.length ? Math.max(...distances) : 0;
+  };
+  assert.ok(maxDistanceFromTrunk(outerRgb) > maxDistanceFromTrunk(innerRgb),
+    "light-blue jacket is a visible layer wider than the inner sheath");
+  const jacketXs = [];
+  for (let index = 0; index < fixture.vertices.length; index += 6) {
+    if (outerRgb.every((channel, offset) => Math.abs(fixture.vertices[index + 2 + offset] - channel) < 0.002)) {
+      jacketXs.push(fixture.vertices[index]);
+    }
+  }
+  assert.ok(Math.min(...jacketXs) >= fixture.plan.headA.x - 14.6,
+    "outer jacket does not protrude past Side A gateway ring");
+  assert.ok(Math.max(...jacketXs) <= fixture.plan.headB.x + 14.6,
+    "outer jacket does not protrude past Side B gateway ring");
+  const tape = tapeBandsAlongPath(fixture.plan.trunk, 54, loomBundleWidths(fixture.plan.coreColors.length).outerJacket + 1);
+  assert.ok(tape.length > 0);
+  const tapeWidth = Math.hypot(tape[0][1].x - tape[0][0].x, tape[0][1].y - tape[0][0].y);
+  assert.ok(Math.abs(tapeWidth - loomBundleWidths(fixture.plan.coreColors.length).outerJacket - 1) < 1e-8,
+    "PVC tape crosses the new outermost jacket width");
 });

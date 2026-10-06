@@ -7,8 +7,8 @@ import {
   emptyCableHopStats
 } from "./cableHops.js";
 import { wirePathStatsForWires, wirePolylineFromPoints } from "./wirePath.js";
-import { LOOM_BREAKOUT_COLOR, LOOM_GATEWAY_RING_COLOR, LOOM_TAPE_COLOR, loomBundleWidths,
-  offsetPolyline, tapeBandsAlongPath } from "./routingPlacement.js";
+import { LOOM_GATEWAY_RING_COLOR, LOOM_INNER_JACKET_COLOR, LOOM_OUTER_JACKET_COLOR, LOOM_TAPE_COLOR,
+  loomBundleWidths, loomCableDisplayColor, offsetPolyline, tapeBandsAlongPath } from "./routingPlacement.js";
 import {
   adapterInternalBezierGeometry,
   adapterInternalWirePairs
@@ -67,7 +67,7 @@ import { wirePlaybackEase } from "./wirePlayback.js";
 import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-64-loom-core-balance";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-65-loom-gateway-routing";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -3463,17 +3463,31 @@ function verticesForLoomPlan(scene, plan) {
   const vertices = [];
   const colors = plan.coreColors?.length ? plan.coreColors : ["#8999a5"];
   const widths = loomBundleWidths(colors.length);
+  const trunkLength = polylineLength(plan.trunk);
+  const jacketTrim = Math.min(trunkLength / 2, Math.max(0, widths.outerJacket / 2 - 14.5));
+  const jacketPath = trunkLength
+    ? polylineSlice(plan.trunk, jacketTrim / trunkLength, 1 - jacketTrim / trunkLength)
+    : [];
+  pushPolyline(vertices, jacketPath, widths.outerJacket, LOOM_OUTER_JACKET_COLOR);
   pushPolyline(vertices, plan.trunk, widths.sheath, "#101820");
-  pushPolyline(vertices, plan.trunk, widths.jacket, "#59636b");
+  pushPolyline(vertices, plan.trunk, widths.jacket, LOOM_INNER_JACKET_COLOR);
   colors.forEach((color, index) => {
     const offset = (index - (colors.length - 1) / 2) * 2.6;
     pushPolyline(vertices, offsetPolyline(plan.trunk, offset), widths.core, color);
   });
-  for (const [from, to] of tapeBandsAlongPath(plan.trunk, 54, widths.sheath + 1)) {
+  for (const [from, to] of tapeBandsAlongPath(plan.trunk, 54, widths.outerJacket + 1)) {
     pushLine(vertices, from, to, 6, LOOM_TAPE_COLOR);
   }
   for (const breakout of plan.breakouts) {
-    pushPolyline(vertices, breakout.points, WIRE_BASE_WIDTH, LOOM_BREAKOUT_COLOR);
+    const wire = scene.getWire(breakout.wireId);
+    const resolvedColor = loomCableDisplayColor(wire);
+    if (wire?.customColor) {
+      pushPolyline(vertices, breakout.points, WIRE_BASE_WIDTH, resolvedColor);
+    } else if (wire?.colorSegments?.length > 1) {
+      pushWireColorSegments(vertices, breakout.points, WIRE_BASE_WIDTH, wire, resolvedColor);
+    } else {
+      pushPolyline(vertices, breakout.points, WIRE_BASE_WIDTH, resolvedColor);
+    }
   }
   for (const head of [plan.headA, plan.headB]) {
     pushCircle(vertices, head, 13, "#101820");

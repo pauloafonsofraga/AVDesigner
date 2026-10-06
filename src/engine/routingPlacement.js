@@ -1,6 +1,7 @@
 export const LOOM_TAPE_COLOR = "#454c53";
 export const LOOM_GATEWAY_RING_COLOR = "#0c4fe8";
-export const LOOM_BREAKOUT_COLOR = "#59636b";
+export const LOOM_OUTER_JACKET_COLOR = "#7CCBFF";
+export const LOOM_INNER_JACKET_COLOR = "#59636b";
 export const LOOM_MAX_VISIBLE_CORES = 8;
 
 export function orthogonalManualPoints(points) {
@@ -19,17 +20,21 @@ export function orthogonalManualPoints(points) {
 export function loomBundleWidths(coreCount) {
   const visibleCount = Math.min(LOOM_MAX_VISIBLE_CORES, Math.max(1, Number(coreCount) || 0));
   const sheath = Math.max(16, visibleCount * 2.6 + 7);
-  return { sheath, jacket: Math.max(3, (sheath - 3) / 2), core: 2.3 };
+  return { sheath, outerJacket: sheath + 6, jacket: Math.max(3, (sheath - 3) / 2), core: 2.3 };
 }
 
 export function gatewayExitSide(entrySide) {
   return entrySide === "sideA" ? "sideB" : entrySide === "sideB" ? "sideA" : "";
 }
 
+export function loomCableDisplayColor(wire) {
+  return String(wire?.customColor || wire?.color || "#32b6ff").trim();
+}
+
 export function loomCoreColors(wires) {
   const colorGroups = new Map();
   for (const wire of wires) {
-    const color = String(wire.customColor || wire.color || "#32b6ff").trim();
+    const color = loomCableDisplayColor(wire);
     const key = color.toLowerCase();
     if (!colorGroups.has(key)) colorGroups.set(key, { color, count: 0 });
     colorGroups.get(key).count += 1;

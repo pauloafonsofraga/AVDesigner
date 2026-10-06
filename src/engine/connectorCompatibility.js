@@ -7,6 +7,10 @@ import {
 import { isGeneratedScopedNodeId } from "./nodeCompatibilityIdentity.js";
 
 const CAGE_CONNECTOR_TYPES = new Set(["sfp-cage", "sfp-plus-cage", "qsfp-cage"]);
+const ENGINE_CONNECTOR_COMPATIBILITY_ALIASES = new Map([
+  ["speakon", "speakon-nl4"],
+  ["displayport", "display-port"]
+]);
 const CAT_CONNECTOR_TYPES = new Set(["cat5e", "cat6", "cat6a", "ethercon", "ethernet"]);
 const USB_CONNECTOR_TYPES = new Set(["usb-a", "usb-b", "usb-c"]);
 const POWER_CABLE_END_TYPES = new Set([
@@ -281,7 +285,8 @@ export function engineConnectorCompatibilityType(connector) {
   // A cage's installed module, not its scoped storage identity, determines
   // electrical compatibility. An empty cage remains disconnected.
   if (isEngineCageConnector(connector)) return effectiveConnectorTypeForEngine(connector);
-  return String(connector.compatibilityType || "").trim() || effectiveConnectorTypeForEngine(connector);
+  const value = String(connector.compatibilityType || "").trim() || effectiveConnectorTypeForEngine(connector);
+  return ENGINE_CONNECTOR_COMPATIBILITY_ALIASES.get(value.toLowerCase()) || value;
 }
 
 export function installedModuleDetailsForEngine(connector) {
@@ -540,12 +545,14 @@ export function engineConnectorColor(connector, nodeColorByType = new Map()) {
   if (isEngineDeadCageConnector(connector)) return "#778492";
   const rawType = connectorType(connector);
   const activeType = effectiveConnectorTypeForEngine(connector) || rawType;
+  const compatibilityType = engineConnectorCompatibilityType(connector) || activeType;
   if (isEngineFiberCableType(activeType)) return engineFiberModeColor(engineConnectorFiberMode(connector));
   if (activeType === "misc" && connector.customColor) return String(connector.customColor).trim();
   return nodeColorByType.get(activeType)
     || ENGINE_CONNECTOR_TYPE_COLORS.get(activeType)
     || nodeColorByType.get(rawType)
     || ENGINE_CONNECTOR_TYPE_COLORS.get(rawType)
+    || (compatibilityType !== activeType ? ENGINE_CONNECTOR_TYPE_COLORS.get(compatibilityType) : "")
     || String(connector.customColor || "").trim()
     || "#32B6FF";
 }

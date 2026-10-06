@@ -465,6 +465,16 @@ export class ProjectMutationAdapter {
       const signalIndex = Number(wire.signalIndex) || 0;
       if (signalIndex > 0) entry.item.signalIndex = signalIndex;
       else delete entry.item.signalIndex;
+      const loomFields = {
+        loomId: wire.loomId,
+        loomEntrySide: wire.loomEntrySide,
+        loomEntryRoutePoints: wire.loomEntryRoutePoints,
+        loomExitRoutePoints: wire.loomExitRoutePoints
+      };
+      for (const [field, value] of Object.entries(loomFields)) {
+        if (Array.isArray(value) ? value.length : value) entry.item[field] = deepClone(value);
+        else delete entry.item[field];
+      }
     }
     this.record("rewire endpoint", performance.now() - start, `connections[${entry.index}].from/to`, {
       wireId,
