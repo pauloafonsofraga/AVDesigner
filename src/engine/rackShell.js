@@ -5,10 +5,31 @@ export const RACK_SHELL_ASSET_PATH = "./assets/rack-shells/standard-neutral.png"
 export const RACK_SHELL_STYLES = Object.freeze({
   standard: Object.freeze({
     id: "standard",
+    label: "Standard",
     src: RACK_SHELL_ASSET_PATH,
     sourceWidth: 96,
     sourceHeight: 96,
     insets: Object.freeze({ left: 24, top: 24, right: 24, bottom: 24 }),
+    padding: Object.freeze({ left: 18, top: 18, right: 18, bottom: 18 })
+  }),
+  professional: Object.freeze({
+    id: "professional",
+    label: "Professional AV Rack",
+    src: "./assets/rack-shells/professional-neutral.png",
+    sourceWidth: 1254,
+    sourceHeight: 1254,
+    sourceInsets: Object.freeze({ left: 165, top: 155, right: 165, bottom: 175 }),
+    destinationInsets: Object.freeze({ left: 27, top: 27, right: 27, bottom: 27 }),
+    padding: Object.freeze({ left: 18, top: 18, right: 18, bottom: 18 })
+  }),
+  touring: Object.freeze({
+    id: "touring",
+    label: "Touring Flight Case",
+    src: "./assets/rack-shells/touring-neutral.png",
+    sourceWidth: 1254,
+    sourceHeight: 1254,
+    sourceInsets: Object.freeze({ left: 180, top: 170, right: 180, bottom: 180 }),
+    destinationInsets: Object.freeze({ left: 34, top: 34, right: 34, bottom: 34 }),
     padding: Object.freeze({ left: 18, top: 18, right: 18, bottom: 18 })
   })
 });
@@ -34,10 +55,11 @@ export function rackShellStyle(value = {}) {
 export function rackShellBounds(compactContentBounds, rackShell = {}) {
   if (!compactContentBounds) return null;
   const style = rackShellStyle(rackShell);
+  const insets = destinationInsetsFor(style);
   const { left, top, right, bottom } = style.padding;
-  const width = Math.max(style.insets.left + style.insets.right,
+  const width = Math.max(insets.left + insets.right,
     Number(compactContentBounds.width) + left + right);
-  const height = Math.max(style.insets.top + style.insets.bottom,
+  const height = Math.max(insets.top + insets.bottom,
     Number(compactContentBounds.height) + top + bottom);
   return {
     x: Number(compactContentBounds.x) - left - (width - Number(compactContentBounds.width) - left - right) / 2,
@@ -51,25 +73,34 @@ function resolveRackShellStyle(value) {
   if (typeof value === "string") {
     return RACK_SHELL_STYLES[value] || RACK_SHELL_STYLES[DEFAULT_RACK_SHELL_STYLE_ID];
   }
-  if (value && typeof value === "object" && value.insets
-    && Number.isFinite(Number(value.sourceWidth)) && Number.isFinite(Number(value.sourceHeight))) {
-    return value;
+  if (value && typeof value === "object"
+    && Number.isFinite(Number(value.sourceWidth)) && Number.isFinite(Number(value.sourceHeight))
+    && (value.sourceInsets || value.destinationInsets || value.insets)) {
+    const legacyInsets = value.insets || {};
+    return {
+      ...value,
+      sourceInsets: value.sourceInsets || legacyInsets,
+      destinationInsets: value.destinationInsets || legacyInsets,
+      padding: value.padding || { left: 0, top: 0, right: 0, bottom: 0 }
+    };
   }
   return rackShellStyle(value);
 }
 
 export function rackShellSlices(styleOrId = DEFAULT_RACK_SHELL_STYLE_ID, shellRect = {}) {
   const style = resolveRackShellStyle(styleOrId);
-  const sx = [0, style.insets.left, style.sourceWidth - style.insets.right, style.sourceWidth];
-  const sy = [0, style.insets.top, style.sourceHeight - style.insets.bottom, style.sourceHeight];
-  const minWidth = style.insets.left + style.insets.right;
-  const minHeight = style.insets.top + style.insets.bottom;
+  const sourceInsets = sourceInsetsFor(style);
+  const destinationInsets = destinationInsetsFor(style);
+  const sx = [0, sourceInsets.left, style.sourceWidth - sourceInsets.right, style.sourceWidth];
+  const sy = [0, sourceInsets.top, style.sourceHeight - sourceInsets.bottom, style.sourceHeight];
+  const minWidth = destinationInsets.left + destinationInsets.right;
+  const minHeight = destinationInsets.top + destinationInsets.bottom;
   const width = Math.max(minWidth, Number(shellRect.width) || 0);
   const height = Math.max(minHeight, Number(shellRect.height) || 0);
-  const dx = [Number(shellRect.x) || 0, (Number(shellRect.x) || 0) + style.insets.left,
-    (Number(shellRect.x) || 0) + width - style.insets.right, (Number(shellRect.x) || 0) + width];
-  const dy = [Number(shellRect.y) || 0, (Number(shellRect.y) || 0) + style.insets.top,
-    (Number(shellRect.y) || 0) + height - style.insets.bottom, (Number(shellRect.y) || 0) + height];
+  const dx = [Number(shellRect.x) || 0, (Number(shellRect.x) || 0) + destinationInsets.left,
+    (Number(shellRect.x) || 0) + width - destinationInsets.right, (Number(shellRect.x) || 0) + width];
+  const dy = [Number(shellRect.y) || 0, (Number(shellRect.y) || 0) + destinationInsets.top,
+    (Number(shellRect.y) || 0) + height - destinationInsets.bottom, (Number(shellRect.y) || 0) + height];
   return SLICE_ROLES.map(([role, column, row]) => {
     const col = column === "left" ? 0 : column === "center" ? 1 : 2;
     const r = row === "top" ? 0 : row === "center" ? 1 : 2;
@@ -79,4 +110,12 @@ export function rackShellSlices(styleOrId = DEFAULT_RACK_SHELL_STYLE_ID, shellRe
       destinationRect: { x: dx[col], y: dy[r], width: dx[col + 1] - dx[col], height: dy[r + 1] - dy[r] }
     };
   });
+}
+
+function sourceInsetsFor(style) {
+  return style.sourceInsets || style.insets;
+}
+
+function destinationInsetsFor(style) {
+  return style.destinationInsets || style.insets;
 }

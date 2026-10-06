@@ -1,13 +1,28 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildEngineOutputScene } from "../src/engine/outputSceneSnapshot.js";
-import { outputAssetSources } from "../src/engine/outputViewerAssets.js";
+import { inlineOutputAssets, outputAssetSources } from "../src/engine/outputViewerAssets.js";
 import { createOutputViewerModel } from "../src/engine/outputViewerModel.js";
 import { prepareEnginePrintImages, rackShellImageKey, renderEngineOutputSvg } from "../src/engine/outputSvgRenderer.js";
 import { outputParityFixture } from "../fixtures/output-parity.mjs";
 import { createRackCompactLayout } from "../src/engine/rackCompactLayout.js";
 import { normalizeRackShell, rackShellBounds, rackShellSlices, rackShellStyle,
-  DEFAULT_RACK_SHELL_COLOR } from "../src/engine/rackShell.js";
+  DEFAULT_RACK_SHELL_COLOR, RACK_SHELL_STYLES } from "../src/engine/rackShell.js";
+
+test("production rack shell registry retains Standard and exposes the supplied high-resolution styles", () => {
+  assert.deepEqual(Object.values(RACK_SHELL_STYLES).map(style => [style.id, style.label]), [
+    ["standard", "Standard"],
+    ["professional", "Professional AV Rack"],
+    ["touring", "Touring Flight Case"]
+  ]);
+  assert.equal(new Set(Object.values(RACK_SHELL_STYLES).map(style => style.id)).size, 3);
+  assert.equal(RACK_SHELL_STYLES.professional.src, "./assets/rack-shells/professional-neutral.png");
+  assert.equal(RACK_SHELL_STYLES.touring.src, "./assets/rack-shells/touring-neutral.png");
+  for (const id of ["professional", "touring"]) {
+    assert.equal(RACK_SHELL_STYLES[id].sourceWidth, 1254);
+    assert.equal(RACK_SHELL_STYLES[id].sourceHeight, 1254);
+  }
+});
 
 test("rack shell slices preserve fixed corners and stretch only the center rails", () => {
   const small = rackShellSlices("standard", { x: 10, y: 20, width: 180, height: 140 });
@@ -59,6 +74,23 @@ test("rack shell slices preserve geometry from an already-resolved non-default s
   assert.deepEqual(slice("bottom-left").destinationRect, { x: 30, y: 240, width: 18, height: 20 });
 });
 
+test("high-resolution source slices are independent from world-space destination borders", () => {
+  const style = RACK_SHELL_STYLES.professional;
+  const topLeft = rackShellSlices(style, { x: 12, y: 24, width: 360, height: 720 })[0];
+  assert.equal(topLeft.sourceRect.width, 165);
+  assert.equal(topLeft.sourceRect.height, 155);
+  assert.equal(topLeft.destinationRect.width, 27);
+  assert.equal(topLeft.destinationRect.height, 27);
+
+  const legacyCustom = {
+    id: "legacy-test", src: "./legacy.png", sourceWidth: 96, sourceHeight: 96,
+    insets: { left: 24, top: 24, right: 24, bottom: 24 }
+  };
+  const legacySlice = rackShellSlices(legacyCustom, { x: 0, y: 0, width: 160, height: 160 })[0];
+  assert.equal(legacySlice.sourceRect.width, 24);
+  assert.equal(legacySlice.destinationRect.width, 24);
+});
+
 test("rack shell geometry clamps minimum size and never returns negative slices", () => {
   const style = rackShellStyle();
   const shell = rackShellBounds({ x: 10, y: 20, width: 1, height: 1 }, { styleId: "standard" });
@@ -67,6 +99,23 @@ test("rack shell geometry clamps minimum size and never returns negative slices"
   assert.ok(rackShellSlices("standard", { ...shell, width: 1, height: 1 })
     .every(slice => slice.sourceRect.width >= 0 && slice.sourceRect.height >= 0
       && slice.destinationRect.width >= 0 && slice.destinationRect.height >= 0));
+});
+
+test("rack style changes leave compact content, connector points, and Patch Panel geometry unchanged", () => {
+  const child = { id: "device-1", rackId: "rack", x: 40, y: 20, width: 400, height: 180,
+    visual: { hasFaceImage: true, faceImageNaturalWidth: 1200, faceImageNaturalHeight: 300 },
+    connectors: [{ id: "out", direction: "output", displaySide: "right", x: 400, y: 90 }] };
+  const rack = { id: "rack", exposedPorts: [{ id: "exposed", deviceId: "device-1", connectorId: "out" }],
+    patchPanels: [{ id: "panel", placementSide: "left", y: 20, ports: [{ id: "port", slot: 2 }] }] };
+  const layoutFor = styleId => createRackCompactLayout({ rack: { ...rack, rackShell: { styleId, color: "#A14B32" } }, devices: [child] });
+  const standard = layoutFor("standard"), professional = layoutFor("professional"), touring = layoutFor("touring");
+  for (const next of [professional, touring]) {
+    assert.deepEqual(next.devices, standard.devices);
+    assert.deepEqual(next.patchPanels, standard.patchPanels);
+    assert.deepEqual(next.compactContentBounds, standard.compactContentBounds);
+  }
+  assert.equal(normalizeRackShell({ styleId: "professional", color: "#A14B32" }).color, "#A14B32");
+  assert.equal(normalizeRackShell({ styleId: "touring", color: "#A14B32" }).styleId, "touring");
 });
 
 test("rack appearance normalizes old, valid and invalid values without changing geometry", () => {
@@ -90,13 +139,13 @@ test("placed rack instances resolve color from the source rack on save/reload", 
   placed.sourceRackId = "rack-definition";
   placed.rackShell = { styleId: "standard", color: "#FF0000" };
   project.racks.unshift({ id: "rack-definition", name: "Source Rack",
-    rackShell: { styleId: "standard", color: "#A14B32" }, devices: [] });
+    rackShell: { styleId: "professional", color: "#A14B32" }, devices: [] });
   const first = buildEngineOutputScene(project);
   assert.deepEqual(first.racks.find(rack => rack.id === placed.id).rackShell,
-    { styleId: "standard", color: "#A14B32" });
+    { styleId: "professional", color: "#A14B32" });
   const reloaded = buildEngineOutputScene(JSON.parse(JSON.stringify(project)));
   assert.deepEqual(reloaded.racks.find(rack => rack.id === placed.id).rackShell,
-    { styleId: "standard", color: "#A14B32" });
+    { styleId: "professional", color: "#A14B32" });
   assert.deepEqual(reloaded.racks.find(rack => rack.id === placed.id).bounds,
     first.racks.find(rack => rack.id === placed.id).bounds);
 });
@@ -127,6 +176,41 @@ test("output viewer embeds one replaceable neutral shell asset and resolves it p
   assert.equal(model.scene.getRack("rack").rackShellImage, "data:image/png;base64,AAAA");
 });
 
+test("output asset collection includes only distinct production shell sources used by compact racks", () => {
+  const project = outputParityFixture();
+  project.racks[0].rackShell = { styleId: "professional", color: "#23658A" };
+  const second = structuredClone(project.racks[0]);
+  second.id = "rack-tour";
+  second.rackShell = { styleId: "touring", color: "#A14B32" };
+  project.racks.push(second);
+  const scene = buildEngineOutputScene(project);
+  assert.deepEqual(outputAssetSources(scene).filter(source => source.includes("rack-shells/")), [
+    "./assets/rack-shells/professional-neutral.png",
+    "./assets/rack-shells/touring-neutral.png"
+  ]);
+});
+
+test("offline HTML asset inlining resolves each selected shell source once", async () => {
+  const project = outputParityFixture();
+  project.racks[0].rackShell = { styleId: "professional", color: "#23658A" };
+  const second = structuredClone(project.racks[0]);
+  second.id = "rack-tour";
+  second.rackShell = { styleId: "touring", color: "#A14B32" };
+  project.racks.push(second);
+  const scene = buildEngineOutputScene(project), requested = [];
+  const assets = await inlineOutputAssets(scene, async source => {
+    requested.push(source);
+    return "data:image/png;base64,c2hlbGw=";
+  });
+  const shellSources = requested.filter(source => source.includes("/rack-shells/")).sort();
+  assert.deepEqual(shellSources, [
+    "./assets/rack-shells/professional-neutral.png",
+    "./assets/rack-shells/touring-neutral.png"
+  ]);
+  assert.equal(assets["./assets/rack-shells/professional-neutral.png"], "data:image/png;base64,c2hlbGw=");
+  assert.equal(assets["./assets/rack-shells/touring-neutral.png"], "data:image/png;base64,c2hlbGw=");
+});
+
 test("print resources tint once per distinct rack color and SVG uses the shared nine slices", async () => {
   const project = outputParityFixture();
   project.racks[0].rackShell = { styleId: "standard", color: "#23658A" };
@@ -149,4 +233,34 @@ test("print resources tint once per distinct rack color and SVG uses the shared 
   assert.equal(output.diagnostics.rackShellFallbacks, 0);
   assert.equal((output.svg.match(/data-rack-shell-style="standard"/g) || []).length, 2);
   assert.equal((output.svg.match(/<clipPath id="print-image-slice-/g) || []).length, 18);
+});
+
+test("SVG/PDF shell drawing uses each selected production style's source image and slice geometry", async () => {
+  const project = outputParityFixture();
+  project.racks[0].rackShell = { styleId: "professional", color: "#23658A" };
+  const second = structuredClone(project.racks[0]);
+  second.id = "rack-professional-red";
+  second.rackShell = { styleId: "professional", color: "#A14B32" };
+  const third = structuredClone(project.racks[0]);
+  third.id = "rack-tour";
+  third.rackShell = { styleId: "touring", color: "#23658A" };
+  project.racks.push(second, third);
+  const scene = buildEngineOutputScene(project);
+  const acquired = [], tinted = [];
+  const images = await prepareEnginePrintImages(scene, async source => {
+    acquired.push(source);
+    return { href: "data:image/png;base64,AAAA", width: 1254, height: 1254 };
+  }, async (image, color) => {
+    tinted.push(color);
+    return { ...image, href: `data:image/png;base64,${color.slice(1)}` };
+  });
+  assert.deepEqual(acquired.filter(source => source.includes("/rack-shells/")).sort(), [
+    "./assets/rack-shells/professional-neutral.png",
+    "./assets/rack-shells/touring-neutral.png"
+  ]);
+  assert.deepEqual(tinted.sort(), ["#23658A", "#23658A", "#A14B32"]);
+  const output = renderEngineOutputSvg(scene, { images });
+  assert.equal((output.svg.match(/data-rack-shell-style="professional"/g) || []).length, 2);
+  assert.match(output.svg, /data-rack-shell-style="touring"/);
+  assert.equal((output.svg.match(/<clipPath id="print-image-slice-/g) || []).length, 27);
 });

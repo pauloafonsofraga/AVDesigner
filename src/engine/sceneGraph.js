@@ -16,7 +16,7 @@ import { loomGeometry } from "./loomGeometry.js";
 import { normalizeLoom } from "./loomModel.js";
 import { rackPatchPanelVisualHeight } from "./rackPatchPanels.js";
 import { normalizeRackShell } from "./rackShell.js";
-import { createRackCompactLayout, compactConnectorSide } from "./rackCompactLayout.js?v=iteration54-38-75-rack-shell";
+import { createRackCompactLayout, compactConnectorSide } from "./rackCompactLayout.js?v=iteration54-38-76-rack-styles";
 import { buildCableSchedule, groupedCables } from "./cableSchedule.js";
 import { adapterMappingForDevice } from "./adapterMapping.js";
 import { adapterRotationBounds, adapterWorldPoint, normalizeAdapterRotation } from "./adapterRotation.js";
