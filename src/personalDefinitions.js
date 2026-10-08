@@ -2,7 +2,7 @@ import { compactDeviceConfiguration, parseLocalUserSettings, resolveEffectiveBui
 import { IMAGE_ASSET_FIELDS, imageDataUrl, inlineProjectArtwork } from "./imageAssets.js";
 import { resolveNodeDefinitionCollisions, visitConnectorTypes } from "./engine/canvasClipboard.js";
 import { isSemanticNodeType, restoreSemanticConnectorTypes } from "./engine/semanticNodeIdentity.js";
-import { canonicalFactoryNodeIds, restoreNodeCompatibilityTypes } from "./engine/nodeCompatibilityIdentity.js";
+import { canonicalFactoryNodeIds, generatedPersonalAliasBase, restoreNodeCompatibilityTypes } from "./engine/nodeCompatibilityIdentity.js";
 
 export const PERSONAL_DEFINITIONS_VERSION = 2;
 export const PERSONAL_DATABASE = "wirenexus-personal-library";
@@ -48,10 +48,16 @@ export function effectiveLibraryDefinitions(factory, entries, provenance = {}) {
 
 // Resolve a detached definition into another node namespace without replacing
 // that namespace's existing definitions. The clipboard uses the same allocator.
-function nodeContent(node, artworkIdentity = source => source) {
+function nodeContent(node, artworkIdentity = source => source, canonicalIds = new Set()) {
   const copy = { ...node, colors: node.colors || [], tags: node.tags || [], custom: node.custom === true,
     videoCable: node.videoCable === true, palette: node.palette !== false, editorPalette: node.editorPalette === true,
     direction: node.direction === "two-way" ? "two-way" : "one-way" };
+  const compatibilityType = String(copy.compatibilityType || "");
+  const scopedCanonicalType = generatedPersonalAliasBase(node.id, canonicalIds);
+  if ((canonicalIds.has(node.id) && (!compatibilityType || compatibilityType === node.id))
+      || (scopedCanonicalType && compatibilityType === scopedCanonicalType)) {
+    delete copy.compatibilityType;
+  }
   delete copy.id;
   if (copy.thumbnail) copy.thumbnail = artworkIdentity(copy.thumbnail);
   return definitionContent(copy);
@@ -67,7 +73,8 @@ export function resolvePersonalNodeContext(definition, sourceNodes, destinationN
   visitConnectorTypes(copy, type => { used.add(type); return type; }, fields);
   const required = scopedNodes.filter(node => used.has(node.id)
     && !(isSemanticNodeType(node.id) && destinationNodes.some(destination => destination.id === node.id)));
-  const { nodeDefinitions, nodeMap } = resolveNodeDefinitionCollisions(required, destinationNodes, "personal", node => nodeContent(node, artworkIdentity), canonicalIds);
+  const { nodeDefinitions, nodeMap } = resolveNodeDefinitionCollisions(required, destinationNodes, "personal",
+    node => nodeContent(node, artworkIdentity, canonicalIds), canonicalIds);
   visitConnectorTypes(copy, type => nodeMap.get(type) || type, fields);
   return { definition: copy, nodes: nodeDefinitions };
 }

@@ -80,6 +80,32 @@ test("new personal collisions preserve scoped storage identity and all dependent
   assert.equal(definition.connectors[0].type, "hdmi", "source definition stays untouched");
 });
 
+test("personal node resolution ignores only derived canonical identity and reuses scoped variants", () => {
+  const canonical = { ...structuredClone(factory.nodeTypes.hdmi), id: "hdmi" };
+  const definition = { id: "matrix", connectors: [{ id: "port", type: "hdmi" }] };
+  const equivalentAlias = { ...structuredClone(canonical), id: alias, compatibilityType: "hdmi" };
+  const equivalent = resolvePersonalNodeContext(definition, [equivalentAlias], [canonical], undefined, factory.nodeTypes);
+  assert.equal(equivalent.definition.connectors[0].type, "hdmi");
+  assert.deepEqual(equivalent.nodes, [], "derived compatibility metadata does not create an unnecessary alias");
+
+  const firstVariant = { ...structuredClone(canonical), label: "HDMI Personal", color: "#123456", compatibilityType: "hdmi" };
+  const first = resolvePersonalNodeContext(definition, [firstVariant], [canonical], undefined, factory.nodeTypes);
+  assert.equal(first.nodes.length, 1);
+  assert.match(first.nodes[0].id, /^hdmi-personal-[0-9a-f]{8}$/);
+  assert.equal(first.nodes[0].compatibilityType, "hdmi");
+  assert.equal(first.nodes[0].color, "#123456");
+
+  const repeated = resolvePersonalNodeContext(definition, [firstVariant], [canonical, ...first.nodes], undefined, factory.nodeTypes);
+  assert.equal(repeated.definition.connectors[0].type, first.nodes[0].id);
+  assert.deepEqual(repeated.nodes, [], "the same scoped definition is reused instead of generating a -2 alias");
+
+  const secondVariant = { ...firstVariant, label: "HDMI Personal B", color: "#654321" };
+  const second = resolvePersonalNodeContext(definition, [secondVariant], [canonical, ...first.nodes], undefined, factory.nodeTypes);
+  assert.equal(second.nodes.length, 1);
+  assert.notEqual(second.nodes[0].id, first.nodes[0].id);
+  assert.equal(second.nodes[0].compatibilityType, "hdmi");
+});
+
 test("Engine accepts ordinary HDMI to scoped HDMI without flattening scoped artwork or metadata", () => {
   const project = projectWithAlias();
   const scene = normalizeAvDesignerProject(project);

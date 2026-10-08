@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-38-80-loom-tool-ux-jump-tails";
+const BUILD_ID = "iteration54-38-81-main-device-list-node-resolution";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -52,11 +52,11 @@ const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify PDF Jump destinations");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-80-loom-tool-ux-jump-tails-modules";'), "module cache key should identify the current build");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-81-main-device-list-node-resolution-modules";'), "module cache key should identify the current build");
 assert.ok(indexHtml.includes("Signal Chain"), "visible build label should name Signal Chain");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-80-loom-tool-ux-jump-tails"'), "Engine bridge version should identify the current build");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "loom-tool-snapping-jump-tails"'), "Engine bridge feature label should identify the current feature set");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-38-80-loom-tool-ux-jump-tails"), "bridge fingerprint should identify the current build");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-81-main-device-list-node-resolution"'), "Engine bridge version should identify the current build");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "main-device-list-node-resolution"'), "Engine bridge feature label should identify the current feature set");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-38-81-main-device-list-node-resolution"), "bridge fingerprint should identify the current build");
 assert.ok(rendererSource.includes("renderer-iteration54-38-79-loom-stability-followup"), "renderer fingerprint should identify the current build");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");

@@ -150,9 +150,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-80-loom-tool-ux-jump-tails";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-80-loom-tool-ux-jump-tails";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "loom-tool-snapping-jump-tails";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-81-main-device-list-node-resolution";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-81-main-device-list-node-resolution";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "main-device-list-node-resolution";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const ENGINE_MIN_ZOOM = 0.03;
@@ -503,7 +503,7 @@ class ProductionEngineBridge {
   }
 
   resolveLibraryDropPlacement(rawDevices = [], firstIndex = null, options = {}) {
-    const projectData = this.mutations?.project || this.api.getProjectData?.();
+    const projectData = this.api.getProjectData?.() || this.mutations?.project;
     const previewDevices = (rawDevices || [])
       .map((rawDevice, offset) => {
         const index = Number.isInteger(firstIndex) ? firstIndex + offset : offset;
@@ -8759,7 +8759,7 @@ class ProductionEngineBridge {
     const id = String(deviceData?.instanceId || deviceData?.id || "");
     if (!id) return { mutationMs: 0, device: null };
     if (this.scene.getDevice(id)) return { mutationMs: 0, device: this.scene.getDevice(id) };
-    const projectData = this.mutations?.project || this.api.getProjectData?.();
+    const projectData = this.api.getProjectData?.() || this.mutations?.project;
     const normalized = normalizeAvDesignerDevice(projectData, deviceData, Number.isInteger(index) ? index : 0);
     const restoredData = normalized.visual.isProjector || Object.hasOwn(deviceData, "selectedProjectorLensId")
       ? { ...deviceData, selectedProjectorLensId: normalized.selectedProjectorLensId } : deviceData;
