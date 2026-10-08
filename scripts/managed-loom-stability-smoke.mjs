@@ -24,7 +24,7 @@ function loomFixture(count = 64) {
     from: { deviceId: "source", connectorId: `port-${index}` },
     to: { deviceId: "sink", connectorId: `port-${index}` } }));
   project.looms = [{ id: "loom-1", name: "LM-001", sideA: { label: "Side A", x: 390, y: 220 },
-    sideB: { label: "Side B", x: 720, y: 220 }, routeStyle: "orthogonal", routePoints: [] }];
+    sideB: { label: "Side B", x: 720, y: 220 }, routeStyle: "orthogonal", routePoints: [{ x: 560, y: 280 }] }];
   return project;
 }
 
@@ -84,10 +84,30 @@ try {
     assert.equal(dragStart.drag?.loomId, "loom-1", `${part}: pointer should capture Loom drag; got ${JSON.stringify(dragStart)}`);
     await page.mouse.move(screen.x + 42, screen.y + 26, { steps: 5 });
     await page.waitForFunction(() => activeEngineBridge().loomHeadDrag?.previewPlan?.circuitCount === 64);
+    await page.waitForFunction(() => {
+      const bridge = activeEngineBridge(), preview = bridge.loomHeadDrag?.previewPlan;
+      const overlay = bridge.renderer.lastSelectedLoomOverlay;
+      return preview && overlay?.source === "transient" && overlay.plan === preview;
+    });
     const moving = await page.evaluate(() => ({
       projectUnchanged: JSON.stringify(state.looms[0]),
       stats: { ...window.__loomDragRebuildStats },
       previewVertices: activeEngineBridge().renderer.lastLoomDragPreviewStats?.vertices || 0,
+      overlay: {
+        source: activeEngineBridge().renderer.lastSelectedLoomOverlay?.source,
+        planMatchesPreview: activeEngineBridge().renderer.lastSelectedLoomOverlay?.plan
+          === activeEngineBridge().loomHeadDrag?.previewPlan,
+        loomMatchesPreview: activeEngineBridge().renderer.lastSelectedLoomOverlay?.loom
+          === activeEngineBridge().loomHeadDrag?.previewLoom,
+        headA: activeEngineBridge().renderer.lastSelectedLoomOverlay?.plan?.headA,
+        headB: activeEngineBridge().renderer.lastSelectedLoomOverlay?.plan?.headB,
+        routePoints: activeEngineBridge().renderer.lastSelectedLoomOverlay?.loom?.routePoints,
+        previewHeadA: activeEngineBridge().loomHeadDrag?.previewPlan?.headA,
+        previewHeadB: activeEngineBridge().loomHeadDrag?.previewPlan?.headB,
+        previewRoutePoints: activeEngineBridge().loomHeadDrag?.previewLoom?.routePoints,
+        canonicalHeadA: activeEngineBridge().scene.loomPlans[0].headA,
+        canonicalHeadB: activeEngineBridge().scene.loomPlans[0].headB
+      },
       geometryTiming: { averageMs: activeEngineBridge().loomHeadDrag.previewGeometryTotalMs
         / activeEngineBridge().loomHeadDrag.previewGeometryFrames,
         maxMs: activeEngineBridge().loomHeadDrag.previewGeometryMaxMs }
@@ -96,6 +116,16 @@ try {
     assert.deepEqual(moving.stats, { composition: 0, sceneGeometry: 0, wireIndex: 0, routeIndex: 0, fullWireGeometry: 0 },
       `${part}: pointer frames do not rebuild canonical Loom composition or wire buffers`);
     assert.ok(moving.previewVertices > 0, `${part}: transient geometry is rendered`);
+    assert.equal(moving.overlay.source, "transient", `${part}: selection overlay reports transient geometry`);
+    assert.equal(moving.overlay.planMatchesPreview, true, `${part}: selected trunk/gateways use the live preview plan`);
+    assert.equal(moving.overlay.loomMatchesPreview, true, `${part}: selected route-point markers use the preview Loom`);
+    assert.deepEqual(moving.overlay.headA, moving.overlay.previewHeadA, `${part}: selected gateway follows preview`);
+    assert.deepEqual(moving.overlay.headB, moving.overlay.previewHeadB, `${part}: paired gateway follows preview`);
+    assert.deepEqual(moving.overlay.routePoints, moving.overlay.previewRoutePoints,
+      `${part}: selected route-point marker follows preview Loom`);
+    assert.notDeepEqual(part === "sideB" ? moving.overlay.headB : moving.overlay.headA,
+      part === "sideB" ? moving.overlay.canonicalHeadB : moving.overlay.canonicalHeadA,
+      `${part}: old canonical gateway position is not used for the selection overlay`);
     await page.mouse.up();
     await page.waitForFunction(() => !activeEngineBridge().loomHeadDrag);
     assert.deepEqual(await page.evaluate(() => ({ ...window.__loomDragRebuildStats })),
@@ -110,19 +140,26 @@ try {
   await dragPart("trunk");
   await dragPart("sideA");
   await dragPart("sideB");
+  await page.evaluate(() => activeEngineBridge().updateManagedLoom("loom-1", { routePoints: [] }));
+  await page.waitForFunction(() => activeEngineBridge().scene.looms[0]?.routePoints?.length === 0);
 
   const hoverPoints = await page.evaluate(() => {
     const bridge = activeEngineBridge(), plan = bridge.scene.loomPlans[0];
     const breakout = plan.breakouts.find(item => item.end === "A");
     return { sideA: plan.headA, sideB: plan.headB,
-      trunk: plan.trunk[Math.floor(plan.trunk.length / 2)],
+      trunk: { x: (plan.headA.x + plan.headB.x) / 2, y: (plan.headA.y + plan.headB.y) / 2 },
       breakout: { x: (breakout.points[0].x + breakout.points.at(-1).x) / 2,
         y: (breakout.points[0].y + breakout.points.at(-1).y) / 2 } };
   });
   for (const part of ["sideA", "sideB", "trunk"]) {
     const point = await toScreen(hoverPoints[part]);
     await page.mouse.move(point.x, point.y);
-    await page.waitForFunction(expected => activeEngineBridge().hoverState.loom?.part === expected, part);
+    await page.waitForFunction(expected => activeEngineBridge().hoverState.loom?.part === expected,
+      part, { timeout: 4000 }).catch(async () => {
+      const state = await page.evaluate(() => ({ hover: activeEngineBridge().hoverState,
+        point: activeEngineBridge().eventPoint({ clientX: window.__lastMouseX, clientY: window.__lastMouseY }) }));
+      throw new Error(`${part}: Loom hover did not settle: ${JSON.stringify(state)}`);
+    });
     assert.equal(await page.evaluate(() => activeEngineBridge().hoverState.wire), null,
       `${part}: Loom owns hover rather than one internal cable breakout`);
   }
@@ -135,7 +172,9 @@ try {
   const rewireProject = cableTypeSelectionFixture();
   rewireProject.connections = [0, 1].map(index => ({ id: `rewire-${index}`, cableType: "hdmi",
     loomId: "loom-1", loomEntrySide: "sideA", loomEntryRoutePoints: [{ x: 420, y: 300 }],
-    loomExitRoutePoints: [{ x: 700, y: 360 }], length: "12m", notes: `cable ${index}`,
+    loomExitRoutePoints: [{ x: 700, y: 360 }, { x: 720, y: 380 }],
+    routePoints: [{ x: 125, y: 135 }, { x: 150, y: 165 }], manualRoute: true,
+    routeStyle: "orthogonal", length: "12m", notes: `cable ${index}`,
     from: { deviceId: "source", connectorId: `port-${index}` },
     to: { deviceId: "sink", connectorId: `port-${index}` } }));
   rewireProject.looms = [{ id: "loom-1", name: "LM-Rewire", sideA: { x: 410, y: 300 },
@@ -167,6 +206,18 @@ try {
       return bridge.beginWireRewire(data.detachedHit, data.endpoint, point);
     }, { end, data: initial });
     assert.equal(started, true);
+    const seeded = await page.evaluate(() => {
+      const bridge = activeEngineBridge(), state = bridge.wireCreate;
+      const field = state.rewire.loomTail.routeField;
+      return { routeField: field, points: structuredClone(state.routePoints),
+        matchesTail: JSON.stringify(state.routePoints) === JSON.stringify(state.rewire.originalWire[field]),
+        cloned: state.routePoints !== bridge.scene.getWire("rewire-0")[field],
+        commandIndex: bridge.commandIndex };
+    });
+    assert.equal(seeded.routeField, initial.routeField, `${end}: actual breakout determines route field`);
+    assert.deepEqual(seeded.points, initial.before[initial.routeField], `${end}: manual rewire starts at its Loom breakout route`);
+    assert.equal(seeded.matchesTail, true);
+    assert.equal(seeded.cloned, true, `${end}: editable points are cloned from persisted tail points`);
     const configured = await page.evaluate(({ data, end }) => {
       const bridge = activeEngineBridge(), wire = bridge.scene.getWire("rewire-0");
       const device = bridge.scene.getDevice(data.targetDeviceId);
@@ -174,16 +225,19 @@ try {
       const point = bridge.scene.connectorWorldPoint(device, connector);
       const tail = bridge.wireCreate.rewire.loomTail;
       bridge.wireCreate.manual = true;
-      bridge.wireCreate.routePoints = [{ x: point.x + (end === "from" ? 38 : -38), y: point.y + 24 }];
+      bridge.wireCreate.routePoints[0] = { x: point.x + (end === "from" ? 38 : -38), y: point.y + 24 };
+      const persistedDuringPreview = structuredClone(wire[tail.routeField]);
       bridge.wireCreate.target = { device, connector, point, anchorId: connector.primaryAnchorId || "" };
       return { routeField: tail?.routeField || "", gateway: tail?.gatewayPoint || null,
         loomId: tail?.loomId || "", compatibility: bridge.currentWireCompatibility(),
-        rejection: bridge.wireRewireRejectionReason(bridge.wireCreate.target) };
+        rejection: bridge.wireRewireRejectionReason(bridge.wireCreate.target), persistedDuringPreview };
     }, { data: initial, end });
     assert.equal(configured.loomId, "loom-1");
     assert.equal(configured.routeField, initial.routeField);
     assert.equal(configured.compatibility.valid, true, `${end}: endpoint compatibility ${JSON.stringify(configured)}`);
     assert.equal(configured.rejection, "", `${end}: rewire rejection ${JSON.stringify(configured)}`);
+    assert.deepEqual(configured.persistedDuringPreview, initial.before[initial.routeField],
+      `${end}: editing seeded preview does not mutate persisted Loom route points`);
     await page.evaluate(() => activeEngineBridge().completeWireRewire());
     const result = await page.evaluate(({ routeField }) => {
       const bridge = activeEngineBridge(), wire = bridge.scene.getWire("rewire-0");
@@ -210,6 +264,35 @@ try {
   };
   const rewireResults = [await performTailRewire("from"), await performTailRewire("to")];
 
+  await page.evaluate(project => restoreSnapshot(project), rewireProject);
+  await page.waitForFunction(() => activeEngineBridge()?.scene.loomPlans[0]?.circuitCount === 2);
+  const cancelState = await page.evaluate(() => {
+    const bridge = activeEngineBridge(), wire = bridge.scene.getWire("rewire-0");
+    const endpoint = bridge.scene.wireEndpointAtConnector(wire.fromDeviceId, wire.fromConnectorId);
+    const detachedHit = bridge.hitForExistingWireEndpoint(wire, "from");
+    const point = bridge.scene.endpointForWire(wire, "from");
+    const started = bridge.beginWireRewire(detachedHit, endpoint, point);
+    const beforeWire = structuredClone(bridge.mutations.root.connections.find(item => item.id === wire.id));
+    const beforeIndex = bridge.commandIndex;
+    bridge.wireCreate.routePoints[0].x += 999;
+    bridge.wireCreate.routePoints.push({ x: 888, y: 999 });
+    const previewChanged = JSON.stringify(bridge.wireCreate.routePoints)
+      !== JSON.stringify(bridge.wireCreate.rewire.originalWire.loomEntryRoutePoints);
+    bridge.cancelActiveInteraction("loom-tail-rewire-cancel-test");
+    return { started, beforeWire, beforeIndex, afterIndex: bridge.commandIndex, previewChanged,
+      afterWire: structuredClone(bridge.mutations.root.connections.find(item => item.id === wire.id)),
+      sceneWire: structuredClone(bridge.scene.getWire(wire.id)) };
+  });
+  assert.equal(cancelState.started, true, "cancel regression starts a Loom-tail rewire");
+  assert.equal(cancelState.previewChanged, true, "cancel regression edits only temporary route points");
+  assert.equal(cancelState.afterIndex, cancelState.beforeIndex, "cancel creates no history entry");
+  for (const key of ["from", "to", "loomId", "loomEntryRoutePoints", "loomExitRoutePoints"]) {
+    assert.deepEqual(cancelState.afterWire[key], cancelState.beforeWire[key], `cancel preserves ${key}`);
+  }
+  assert.equal(cancelState.sceneWire.loomId, "loom-1");
+  assert.deepEqual(cancelState.sceneWire.loomEntryRoutePoints, cancelState.beforeWire.loomEntryRoutePoints);
+  assert.deepEqual(cancelState.sceneWire.loomExitRoutePoints, cancelState.beforeWire.loomExitRoutePoints);
+
   const deleteProject = managedLoomMixedFixture();
   deleteProject.connections.forEach(wire => Object.assign(wire, { loomId: "loom-1",
     cableNumber: `C-${wire.id}`, length: "17m", notes: "keep notes", customColor: "#2468ac" }));
@@ -225,7 +308,12 @@ try {
   let dialogs = 0;
   page.on("dialog", dialog => { dialogs++; void dialog.dismiss(); });
   await page.keyboard.press("Delete");
-  await page.waitForFunction(() => state.looms.length === 0);
+  await page.waitForFunction(() => state.looms.length === 0, null, { timeout: 4000 }).catch(async () => {
+    const debug = await page.evaluate(() => ({ selectedLoomId: activeEngineBridge().scene.selectedLoomId,
+      selected: state.selected, looms: state.looms.length, commandIndex: activeEngineBridge().commandIndex,
+      activeElement: document.activeElement?.id }));
+    throw new Error(`Keyboard Loom delete did not complete: ${JSON.stringify(debug)}`);
+  });
   const deleted = await page.evaluate(() => ({ records: state.connections.map(wire => {
     const copy = structuredClone(wire);
     for (const key of ["loomId", "loom", "loomEntrySide", "loomEntryRoutePoints", "loomExitRoutePoints"]) delete copy[key];
@@ -250,9 +338,21 @@ try {
 
   await page.evaluate(project => restoreSnapshot(project), deleteProject);
   await page.waitForFunction(() => activeEngineBridge()?.scene.loomPlans[0]?.circuitCount === 5);
-  await page.evaluate(() => activeEngineBridge().selectLoomById("loom-1"));
-  await page.evaluate(() => deleteSelection());
-  await page.waitForFunction(() => state.looms.length === 0);
+  await page.evaluate(() => {
+    activeEngineBridge().selectLoomById("loom-1");
+    state.selected = { type: "loom", id: "loom-1" };
+  });
+  const shellDelete = await page.evaluate(() => {
+    const bridge = activeEngineBridge(), originalDelete = bridge.deleteSelectedLoom.bind(bridge);
+    let deleteCalls = 0;
+    let deleteResult = null;
+    bridge.deleteSelectedLoom = (...args) => { deleteCalls++; deleteResult = originalDelete(...args); return deleteResult; };
+    deleteSelection();
+    return { looms: state.looms.length, selected: state.selected,
+      selectedLoomId: bridge.scene.selectedLoomId, deleteCalls, deleteResult,
+      connections: state.connections.length };
+  });
+  assert.equal(shellDelete.looms, 0, `application Delete action routes selected Loom through cable-preserving deletion: ${JSON.stringify(shellDelete)}`);
   assert.equal(await page.evaluate(() => state.connections.length), deleteProject.connections.length,
     "application Delete action routes selected Loom through cable-preserving deletion");
 

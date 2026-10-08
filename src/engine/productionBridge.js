@@ -149,8 +149,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-78-loom-stability";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-78-loom-stability";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-79-loom-stability-followup";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-79-loom-stability-followup";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -4068,6 +4068,7 @@ class ProductionEngineBridge {
     const loomRouteField = loomGatewaySide
       ? (wire.loomEntrySide === loomGatewaySide ? "loomEntryRoutePoints" : "loomExitRoutePoints")
       : "";
+    const initialRoutePoints = loomRouteField ? wire[loomRouteField] : wire.routePoints;
     const previousSelection = {
       devices: [...this.scene.selectedIds],
       wires: [...this.scene.selectedWireIds],
@@ -4084,7 +4085,7 @@ class ProductionEngineBridge {
       compatibility: null,
       manual: Boolean(wire.manualRoute),
       routeStyle: wire.routeStyle,
-      routePoints: (wire.routePoints || []).map(point => ({ ...point })),
+      routePoints: (initialRoutePoints || []).map(point => ({ ...point })),
       ...this.wirePreviewAppearance(detachedHit, wire),
       rewire: {
         wireId: wire.id,

@@ -69,7 +69,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-78-loom-stability";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-79-loom-stability-followup";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -1289,19 +1289,29 @@ export class WebglGraphRenderer {
           }
         });
         if (scene.selectedLoomId) {
-          const plan = scene.loomPlans.find(item => item.loomId === scene.selectedLoomId);
+          const preview = interaction.loomDragPreview;
+          const usingPreview = preview?.plan?.loomId === scene.selectedLoomId;
+          const plan = usingPreview ? preview.plan
+            : scene.loomPlans.find(item => item.loomId === scene.selectedLoomId);
+          const loom = usingPreview ? preview.loom
+            : scene.looms.find(item => item.id === scene.selectedLoomId);
+          this.lastSelectedLoomOverlay = plan ? {
+            loomId: scene.selectedLoomId,
+            source: usingPreview ? "transient" : "canonical",
+            plan,
+            loom
+          } : null;
           if (plan) {
             pushPolyline(liveVertices, plan.trunk, 22, "rgba(251,121,4,.25)");
             for (const head of [plan.headA, plan.headB]) {
               pushCircleOutline(liveVertices, head, 17, 3, "#fb7904");
             }
-            const loom = scene.looms.find(item => item.id === scene.selectedLoomId);
             for (const point of loom?.routePoints || []) {
               pushCircle(liveVertices, point, 5, "#fb7904");
               pushCircleOutline(liveVertices, point, 6, 1.5, "#ffffff");
             }
           }
-        }
+        } else this.lastSelectedLoomOverlay = null;
         if (hoveredWireId && !staticSuppressedWireIds.has(hoveredWireId) && !highlightedWireIds.has(hoveredWireId)) {
           const wire = scene.getWire(hoveredWireId);
           if (wire && renderOptions.wires) pushWireHover(liveVertices, scene, wire, null, renderOptions, this.cableHopMap);
