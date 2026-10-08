@@ -15,7 +15,7 @@ import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { connectorOperationalStatusMarkSegments } from "../src/engine/renderer.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 
-const BUILD_ID = "iteration54-38-79-loom-stability-followup";
+const BUILD_ID = "iteration54-38-80-loom-tool-ux-jump-tails";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -25,9 +25,9 @@ const projectAdapterSource = readFileSync(resolve(repoRoot, "src/engine/projectA
 const mutationSource = readFileSync(resolve(repoRoot, "src/engine/projectMutations.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify live loom routing");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-79-loom-stability-followup-modules"'), "module cache key should bust current modules");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-79-loom-stability-followup"'), "bridge version should identify the Loom stability interaction build");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses"'), "bridge feature label should identify Selectable Projector Lenses");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-80-loom-tool-ux-jump-tails-modules"'), "module cache key should bust current modules");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-80-loom-tool-ux-jump-tails"'), "bridge version should identify the Loom tool and Jump-tail interaction build");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "loom-tool-snapping-jump-tails"'), "bridge feature label should identify Loom snapping and Jump tails");
 assert.ok(rendererSource.includes("renderer-iteration54-38-79-loom-stability-followup"), "renderer fingerprint should identify Loom selection overlays");
 
 assert.equal(normalizeConnectorOperationalStatus(), "working", "missing connector status should default to working");

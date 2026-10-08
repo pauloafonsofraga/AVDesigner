@@ -223,20 +223,25 @@ function normalizeSnapMode(mode) {
 }
 
 export class ObjectSnapSession {
-  constructor({ scene, selectedIds = [], startRect = null, alignJumpToConnectors = false }) {
+  constructor({ scene, selectedIds = [], startRect = null, alignJumpToConnectors = false, connectorSnapAnchor = null }) {
     this.scene = scene;
     this.selectedIds = new Set((selectedIds || []).map(id => String(id || "")).filter(Boolean));
     this.startRect = cloneRect(startRect) || rectFromSceneObjects(scene, [...this.selectedIds]);
     const selectedDevices = [...this.selectedIds].map(id => scene?.getDevice?.(id));
     const movingJumps = selectedDevices.length > 0
       && selectedDevices.every(device => isJumpNodeDevice(device));
-    this.jumpAnchor = this.startRect && (alignJumpToConnectors || movingJumps)
-      ? (movingJumps ? jumpNodeCenter(selectedDevices[0]) : {
+    const explicitConnectorAnchor = connectorSnapAnchor && Number.isFinite(Number(connectorSnapAnchor?.x))
+      && Number.isFinite(Number(connectorSnapAnchor?.y))
+      ? { x: Number(connectorSnapAnchor.x), y: Number(connectorSnapAnchor.y) }
+      : null;
+    this.connectorSnapAnchor = this.startRect && (explicitConnectorAnchor || alignJumpToConnectors || movingJumps)
+      ? (explicitConnectorAnchor || (movingJumps ? jumpNodeCenter(selectedDevices[0]) : {
           x: this.startRect.x + this.startRect.width / 2,
           y: this.startRect.y + this.startRect.height / 2
-        })
+        }))
       : null;
-    this.connectorTargets = this.jumpAnchor ? this.buildConnectorTargets() : [];
+    this.jumpAnchor = this.connectorSnapAnchor;
+    this.connectorTargets = this.connectorSnapAnchor ? this.buildConnectorTargets() : [];
     // Snapping must be independent from the live render/spatial indexes.
     // Build one immutable target index when the drag starts, then reuse it for
     // every pointer frame. This matches the Legacy snap-session behavior and
@@ -540,9 +545,9 @@ export class ObjectSnapSession {
     });
 
     let connectorCandidateCount = 0;
-    if (this.jumpAnchor && edgeEnabled && allowY) {
-      const rawCenterX = this.jumpAnchor.x + dx;
-      const rawCenterY = this.jumpAnchor.y + dy;
+    if (this.connectorSnapAnchor && edgeEnabled && allowY) {
+      const rawCenterX = this.connectorSnapAnchor.x + dx;
+      const rawCenterY = this.connectorSnapAnchor.y + dy;
       let connectorMatch = null;
       this.connectorTargets.forEach(target => {
         const horizontalDistance = Math.abs(rawCenterX - target.x);
@@ -564,7 +569,7 @@ export class ObjectSnapSession {
           targetId: connectorMatch.target.id,
           targetKind: "connector",
           targetX: connectorMatch.target.x,
-          anchorOffsetX: this.jumpAnchor.x - this.startRect.x
+          anchorOffsetX: this.connectorSnapAnchor.x - this.startRect.x
         };
       }
     }
