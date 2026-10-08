@@ -150,9 +150,9 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-81-main-device-list-node-resolution";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-81-main-device-list-node-resolution";
-export const ENGINE_BRIDGE_FEATURE_LABEL = "main-device-list-node-resolution";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-82-jump-scoped-connector-compatibility";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-82-jump-scoped-connector-compatibility";
+export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
 const ENGINE_MIN_ZOOM = 0.03;

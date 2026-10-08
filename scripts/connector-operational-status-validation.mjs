@@ -15,7 +15,7 @@ import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { connectorOperationalStatusMarkSegments } from "../src/engine/renderer.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 
-const BUILD_ID = "iteration54-38-81-main-device-list-node-resolution";
+const BUILD_ID = "iteration54-38-82-jump-scoped-connector-compatibility";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -24,10 +24,10 @@ const rendererSource = readFileSync(resolve(repoRoot, "src/engine/renderer.js"),
 const projectAdapterSource = readFileSync(resolve(repoRoot, "src/engine/projectAdapter.js"), "utf8");
 const mutationSource = readFileSync(resolve(repoRoot, "src/engine/projectMutations.js"), "utf8");
 
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify live loom routing");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-81-main-device-list-node-resolution-modules"'), "module cache key should bust current modules");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-81-main-device-list-node-resolution"'), "bridge version should identify the current insertion fix");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "main-device-list-node-resolution"'), "bridge feature label should identify the current insertion fix");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Jump scoped connector compatibility");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-82-jump-scoped-connector-compatibility-modules"'), "module cache key should bust current modules");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-82-jump-scoped-connector-compatibility"'), "bridge version should identify the current Jump compatibility fix");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility"'), "bridge feature label should identify the current Jump compatibility fix");
 assert.ok(rendererSource.includes("renderer-iteration54-38-79-loom-stability-followup"), "renderer fingerprint should identify Loom selection overlays");
 
 assert.equal(normalizeConnectorOperationalStatus(), "working", "missing connector status should default to working");

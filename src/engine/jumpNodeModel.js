@@ -411,17 +411,20 @@ export function canonicalJumpWireEndpoints(sourceHit, targetHit) {
 
 export function jumpCompatibleHitForDeviceWire(jumpHit, realHit) {
   if (!jumpHit || !realHit) return jumpHit;
-  const role = jumpConnectorBaseRole(realHit.connector);
+  const realConnector = realHit.connector || {};
+  const role = jumpConnectorBaseRole(realConnector);
   return {
     ...jumpHit,
     connector: {
       ...jumpHit.connector,
-      type: realHit.connector?.type || "misc",
+      type: realConnector.type || "misc",
+      compatibilityType: engineConnectorCompatibilityType(realConnector) || "",
       direction: role === JUMP_NODE_ROLE.input ? "output" : role === JUMP_NODE_ROLE.output ? "input" : "io",
-      fiberMode: realHit.connector?.fiberMode || jumpHit.connector?.fiberMode || "",
-      installedModuleType: realHit.connector?.installedModuleType || "",
-      installedModuleId: realHit.connector?.installedModuleId || "",
-      installedModuleName: realHit.connector?.installedModuleName || ""
+      fiberMode: realConnector.fiberMode || jumpHit.connector?.fiberMode || "",
+      installedModuleType: realConnector.installedModuleType || "",
+      installedModuleId: realConnector.installedModuleId || "",
+      installedModuleName: realConnector.installedModuleName || "",
+      installedModuleActiveType: realConnector.installedModuleActiveType || ""
     }
   };
 }
