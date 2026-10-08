@@ -69,7 +69,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-76-rack-styles";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-78-loom-stability";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -1118,6 +1118,10 @@ export class WebglGraphRenderer {
     this.lastSuppressedLoomIds = affectedLoomPlans.map(plan => plan.loomId);
     const staticSuppressedGeometryIds = new Set(staticSuppressedWireIds);
     affectedLoomPlans.forEach(plan => staticSuppressedGeometryIds.add(`loom:${plan.loomId}`));
+    const loomDragPreview = interaction.loomDragPreview;
+    if (loomDragPreview?.plan?.loomId) staticSuppressedGeometryIds.add(`loom:${loomDragPreview.plan.loomId}`);
+    const loomRewirePreview = interaction.loomRewirePreview;
+    if (loomRewirePreview?.loomId) staticSuppressedGeometryIds.add(`loom:${loomRewirePreview.loomId}`);
     let sectionStart = performance.now();
     if (renderOptions.gridVisible !== false) this.drawGrid(camera);
     frameStats.gridMs = performance.now() - sectionStart;
@@ -1131,6 +1135,23 @@ export class WebglGraphRenderer {
     if (renderOptions.wires && !renderOptions.hideStaticWires) {
       sectionStart = performance.now();
       this.drawStaticWires(dragSession, layerTrace, staticSuppressedGeometryIds);
+      if (loomDragPreview?.plan && renderOptions.wires) {
+        const previewVertices = verticesForLoomPlan(scene, loomDragPreview.plan);
+        const previewCount = previewVertices.length ? upload(gl, this.liveBuffer, previewVertices) : 0;
+        this.drawBuffer(this.liveBuffer, previewCount);
+        this.lastLoomDragPreviewStats = { loomId: loomDragPreview.plan.loomId,
+          circuits: loomDragPreview.plan.circuitCount, vertices: previewCount };
+      } else this.lastLoomDragPreviewStats = null;
+      if (loomRewirePreview?.loomId && renderOptions.wires) {
+        const plan = scene.loomPlans.find(item => item.loomId === loomRewirePreview.loomId);
+        if (plan) {
+          const previewPlan = { ...plan, breakouts: plan.breakouts.filter(item =>
+            !(String(item.externalWireId || item.wireId) === String(loomRewirePreview.externalWireId)
+              && item.externalEnd === loomRewirePreview.externalEnd)) };
+          const previewVertices = verticesForLoomPlan(scene, previewPlan);
+          this.drawBuffer(this.liveBuffer, upload(gl, this.liveBuffer, previewVertices));
+        }
+      }
       if (affectedLoomPlans.length && dragSession && renderOptions.wires) {
         const offsets = dragSession.offsetMap();
         for (const plan of affectedLoomPlans) {
@@ -1505,12 +1526,15 @@ export class WebglGraphRenderer {
         wireLabelCount += 1;
       });
       for (const plan of scene.loomPlans) {
-        const loom = scene.looms.find(item => item.id === plan.loomId);
+        const preview = options.interactionState?.loomDragPreview;
+        const activePlan = preview?.plan?.loomId === plan.loomId ? preview.plan : plan;
+        const loom = preview?.plan?.loomId === plan.loomId
+          ? preview.loom : scene.looms.find(item => item.id === plan.loomId);
         if (!loom || !loomLabelsVisible(scene, plan)) continue;
-        const caption = [loom.name, `${plan.circuitCount} circuit${plan.circuitCount === 1 ? "" : "s"}`, loom.trunkLength]
+        const caption = [loom.name, `${activePlan.circuitCount} circuit${activePlan.circuitCount === 1 ? "" : "s"}`, loom.trunkLength]
           .filter(Boolean).join(" · ");
-        drawPolylineLabel(ctx, plan.trunk, camera, caption);
-        drawLoomHeadLabels(ctx, plan, loom, camera);
+        drawPolylineLabel(ctx, activePlan.trunk, camera, caption);
+        drawLoomHeadLabels(ctx, activePlan, loom, camera);
         wireLabelCount += 1;
       }
     }
@@ -2127,6 +2151,19 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
     snapDebugVisuals: 0
   };
   const wireCreateActive = Boolean(interaction.tempWire);
+  const hoveredLoom = interaction.hoveredLoom;
+  if (hoveredLoom?.loomId && renderOptions.wires) {
+    const plan = scene.loomPlans.find(item => item.loomId === hoveredLoom.loomId);
+    if (plan) {
+      if (hoveredLoom.part === "trunk") pushPolyline(vertices, plan.trunk, 5.2, "rgba(50,182,255,.42)");
+      const gateway = hoveredLoom.part === "sideA" ? plan.headA
+        : hoveredLoom.part === "sideB" ? plan.headB : null;
+      if (gateway) {
+        pushCircle(vertices, gateway, 16, "rgba(50,182,255,.16)");
+        pushCircleOutline(vertices, gateway, 16, 3.5, "#65d1ff");
+      }
+    }
+  }
   const suppressedWireIds = interaction.suppressedWireIds || new Set();
   const hoveredWireId = interaction.hoveredWire?.wire?.id || interaction.hoveredWireId;
   if (hoveredWireId && (overlayOptions.suppressHoveredWire || suppressedWireIds.has(hoveredWireId))) {

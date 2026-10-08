@@ -6,7 +6,8 @@ import { managedLoomMixedFixture } from "../fixtures/managed-looms.mjs";
 import { buildCableSchedule } from "../src/engine/cableSchedule.js";
 import { allocateLoomIdentity, dissolveLoom, loomComposition, migrateLegacyLooms, normalizeLoom,
   renameLoom, selectedLoomCableGroups, setLogicalCableLoom } from "../src/engine/loomModel.js";
-import { initialLoomHeads, loomGeometry, loomTrunkPoints, orientCableEndpoints } from "../src/engine/loomGeometry.js";
+import { initialLoomHeads, loomGeometry, loomTrunkPoints, orientCableEndpoints,
+  prepareLoomGeometryContext } from "../src/engine/loomGeometry.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 import { hitTestWire } from "../src/engine/hitTest.js";
@@ -132,6 +133,55 @@ test("collapsed geometry has two physical breakouts per logical cable and hides 
   assert.deepEqual(geometry.breakouts.map(item => item.end), ["A", "B"]);
   assert.ok(geometry.trunk.length >= 2);
   assert.deepEqual(project.connections, before, "geometry never mutates source routes or membership");
+});
+
+test("prepared Loom geometry context reuses external endpoints and family summary for transient previews", () => {
+  const project = cableTypeSelectionFixture();
+  project.connections.forEach(wire => { wire.loomId = "loom-1"; });
+  project.looms = [{ id: "loom-1", name: "LM-001", sideA: { x: 300, y: 100 },
+    sideB: { x: 800, y: 100 }, routeStyle: "orthogonal", routePoints: [] }];
+  const normalized = normalizeAvDesignerProject(project);
+  const scene = new SceneGraph();
+  scene.setData(normalized);
+  const context = prepareLoomGeometryContext(project, scene, "loom-1");
+  assert.equal(context.members.length, 4);
+  assert.ok(context.members.every(member => member.pair?.length === 2
+    && member.sourceRef?.wireId && member.destinationRef?.wireId));
+  const moved = { ...scene.looms[0], sideA: { ...scene.looms[0].sideA, x: 250 } };
+  const preview = loomGeometry(project, scene, moved, [], [], context);
+  assert.equal(preview.circuitCount, scene.loomPlans[0].circuitCount);
+  assert.deepEqual(preview.families, scene.loomPlans[0].families);
+  assert.equal(preview.breakouts.length, scene.loomPlans[0].breakouts.length);
+  assert.equal(scene.loomPlans[0].headA.x, 300, "preview does not mutate canonical scene geometry");
+  assert.equal(project.looms[0].sideA.x, 300, "preview does not mutate persisted project geometry");
+});
+
+test("dissolving a Loom preserves complete connection records except Loom membership and tail routing", () => {
+  const project = managedLoomMixedFixture();
+  project.looms = [{ id: "loom-1", name: "LM-001", sideA: { x: 300, y: 100 }, sideB: { x: 800, y: 100 } }];
+  project.connections.forEach((wire, index) => Object.assign(wire, {
+    loomId: "loom-1", cableNumber: `C-${index + 1}`, cableType: `Type ${index}`,
+    length: `${index + 1} m`, notes: `notes ${index}`, customColor: `#12345${index}`,
+    jumpWireMetadataSource: `jump metadata ${index}`,
+    patchPanelEndpointPresentation: { rackId: `rack-${index}`, panelId: `panel-${index}`, portId: `port-${index}` },
+    loomEntrySide: "sideA", loomEntryRoutePoints: [{ x: index, y: 1 }],
+    loomExitRoutePoints: [{ x: index, y: 2 }], loom: "Legacy label"
+  }));
+  const withoutLoomFields = wire => {
+    const copy = structuredClone(wire);
+    for (const field of ["loomId", "loom", "loomEntrySide", "loomEntryRoutePoints", "loomExitRoutePoints"]) delete copy[field];
+    return copy;
+  };
+  const before = project.connections.map(withoutLoomFields);
+  const membership = selectedLoomCableGroups(project, project.connections.map(wire => wire.id));
+  assert.equal(membership.length, 5);
+  assert.equal(membership.find(group => group.wires.length === 2)?.wires.length, 2,
+    "paired Jump legs are part of the same logical cable group");
+  assert.equal(dissolveLoom(project, "loom-1"), true);
+  assert.deepEqual(project.connections.map(withoutLoomFields), before);
+  assert.equal(project.connections.length, before.length);
+  assert.ok(project.connections.every(wire => !["loomId", "loom", "loomEntrySide",
+    "loomEntryRoutePoints", "loomExitRoutePoints"].some(field => Object.hasOwn(wire, field))));
 });
 
 test("Engine scene indexes breakout legs but not invisible complete cable routes", () => {

@@ -25,7 +25,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-38-77-patch-panel-chain";
+const BUILD_ID = "iteration54-38-78-loom-stability";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -41,9 +41,9 @@ function sourceSlice(source, startNeedle, endNeedle) {
 }
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Iteration 54.38.72");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.77";'), "visible iteration should be 54.38.77");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-77-patch-panel-chain-modules";'), "module cache key should bust 54.38.77 modules");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-77-patch-panel-chain"'), "Engine bridge version should identify patch-panel Signal Chain context support");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.78";'), "visible iteration should be 54.38.78");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-78-loom-stability-modules";'), "module cache key should bust current modules");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-78-loom-stability"'), "Engine bridge version should identify Loom stability interactions");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
 assert.ok(classicScripts.length >= 1, "index.html should contain at least one classic script");

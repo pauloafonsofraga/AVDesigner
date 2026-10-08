@@ -130,6 +130,12 @@ export function hitTestWire(scene, worldPoint, tolerance = 8) {
 }
 
 export function hitTestLoom(scene, worldPoint, tolerance = 8) {
+  return hitTestSelectedLoomRoutePoint(scene, worldPoint, tolerance)
+    || hitTestLoomGateway(scene, worldPoint, tolerance)
+    || hitTestLoomTrunk(scene, worldPoint, tolerance);
+}
+
+export function hitTestSelectedLoomRoutePoint(scene, worldPoint, tolerance = 8) {
   let best = null;
   const selected = scene.looms?.find(item => item.id === scene.selectedLoomId);
   for (const [index, point] of (selected?.routePoints || []).entries()) {
@@ -138,7 +144,11 @@ export function hitTestLoom(scene, worldPoint, tolerance = 8) {
       best = { loomId: selected.id, part: "route-point", pointIndex: index, distance, point };
     }
   }
-  if (best) return best;
+  return best;
+}
+
+export function hitTestLoomGateway(scene, worldPoint, tolerance = 8) {
+  let best = null;
   for (const plan of scene.loomPlans || []) {
     for (const [part, point] of [["sideA", plan.headA], ["sideB", plan.headB]]) {
       const distance = Math.hypot(worldPoint.x - point.x, worldPoint.y - point.y);
@@ -147,7 +157,11 @@ export function hitTestLoom(scene, worldPoint, tolerance = 8) {
       }
     }
   }
-  if (best) return best;
+  return best;
+}
+
+export function hitTestLoomTrunk(scene, worldPoint, tolerance = 8) {
+  let best = null;
   for (const plan of scene.loomPlans || []) {
     const hit = distanceToPolyline(plan.trunk, worldPoint);
     if (hit.distance <= 7 + tolerance && (!best || hit.distance < best.distance)) {

@@ -15,7 +15,7 @@ import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { connectorOperationalStatusMarkSegments } from "../src/engine/renderer.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 
-const BUILD_ID = "iteration54-38-77-patch-panel-chain";
+const BUILD_ID = "iteration54-38-78-loom-stability";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -25,10 +25,10 @@ const projectAdapterSource = readFileSync(resolve(repoRoot, "src/engine/projectA
 const mutationSource = readFileSync(resolve(repoRoot, "src/engine/projectMutations.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify live loom routing");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-77-patch-panel-chain-modules"'), "module cache key should bust 54.38.77 modules");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-77-patch-panel-chain"'), "bridge version should identify patch-panel Signal Chain context support");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-78-loom-stability-modules"'), "module cache key should bust current modules");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-78-loom-stability"'), "bridge version should identify the Loom stability interaction build");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "selectable-projector-lenses"'), "bridge feature label should identify Selectable Projector Lenses");
-assert.ok(rendererSource.includes("renderer-iteration54-38-76-rack-styles"), "renderer fingerprint should identify rack shell rendering");
+assert.ok(rendererSource.includes("renderer-iteration54-38-78-loom-stability"), "renderer fingerprint should identify Loom hover rendering");
 
 assert.equal(normalizeConnectorOperationalStatus(), "working", "missing connector status should default to working");
 assert.equal(normalizeConnectorOperationalStatus("working"), "working", "working status should remain working");

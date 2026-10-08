@@ -117,11 +117,32 @@ export function loomCreationPreviewPoints(draft, zoom = 1, tolerancePx = 8) {
   return points;
 }
 
+export function prepareLoomGeometryContext(project, scene, loomId) {
+  const root = project?.state || project?.project || project || {};
+  const cableGroups = groupedCables(root);
+  const scheduleRows = buildCableSchedule(root, { assignNumbers: "readOnly" });
+  const members = cableGroups.filter(group => group.wires.some(wire => wire.loomId === loomId))
+    .map(group => ({ group, pair: externalCableEndpoints(group, scene),
+      sourceRef: externalEndpointRef(group, group.source, scene),
+      destinationRef: externalEndpointRef(group, group.destination, scene) }))
+    .filter(member => member.pair)
+    .sort((a, b) => String(a.group.primary.cableNumber || a.group.primary.id)
+      .localeCompare(String(b.group.primary.cableNumber || b.group.primary.id), undefined, { numeric: true }));
+  const familyCounts = new Map();
+  for (const row of scheduleRows) if (row.loomId === loomId) {
+    const family = String(row.signal || "Other");
+    familyCounts.set(family, (familyCounts.get(family) || 0) + 1);
+  }
+  return { members, familyCounts };
+}
+
 export function loomGeometry(project, scene, loom, cableGroups = groupedCables(project),
-  scheduleRows = buildCableSchedule(project, { assignNumbers: "readOnly" })) {
-  const members = cableGroups
+  scheduleRows = buildCableSchedule(project, { assignNumbers: "readOnly" }), context = null) {
+  const members = context?.members || cableGroups
     .filter(group => group.wires.some(wire => wire.loomId === loom.id))
-    .map(group => ({ group, pair: externalCableEndpoints(group, scene) }))
+    .map(group => ({ group, pair: externalCableEndpoints(group, scene),
+      sourceRef: externalEndpointRef(group, group.source, scene),
+      destinationRef: externalEndpointRef(group, group.destination, scene) }))
     .filter(member => member.pair)
     .sort((a, b) => String(a.group.primary.cableNumber || a.group.primary.id)
       .localeCompare(String(b.group.primary.cableNumber || b.group.primary.id), undefined, { numeric: true }));
@@ -145,8 +166,8 @@ export function loomGeometry(project, scene, loom, cableGroups = groupedCables(p
           ? orthogonalManualPoints(points) : buildPreviewOrthogonalWirePoints(from, to);
         return wirePolylineFromPoints({ routeStyle: "bezier", routePoints: interior }, points);
       };
-      const sourceRef = externalEndpointRef(member.group, member.group.source, scene);
-      const destinationRef = externalEndpointRef(member.group, member.group.destination, scene);
+      const sourceRef = member.sourceRef;
+      const destinationRef = member.destinationRef;
       return [
         { wireId: wire.id, wireIds: [wire.id], end: entrySide === "sideA" ? "A" : "B",
           externalWireId: sourceRef?.wireId || wire.id, externalEnd: sourceRef?.end || "from",
@@ -165,8 +186,8 @@ export function loomGeometry(project, scene, loom, cableGroups = groupedCables(p
     const offset = (index - (members.length - 1) / 2) * spacing;
     const attachmentA = { x: headA.x + normal.x * offset, y: headA.y + normal.y * offset };
     const attachmentB = { x: headB.x + normal.x * offset, y: headB.y + normal.y * offset };
-    const sourceRef = externalEndpointRef(member.group, member.group.source, scene);
-    const destinationRef = externalEndpointRef(member.group, member.group.destination, scene);
+    const sourceRef = member.sourceRef;
+    const destinationRef = member.destinationRef;
     const aIsSource = distance(a, member.pair[0]) <= distance(a, member.pair[1]);
     const aRef = aIsSource ? sourceRef : destinationRef;
     const bRef = aIsSource ? destinationRef : sourceRef;
@@ -179,8 +200,8 @@ export function loomGeometry(project, scene, loom, cableGroups = groupedCables(p
         gatewayAtStart: false, gatewayPoint: attachmentB, routePoints: [], routeStyle: "straight", points: [b, attachmentB] }
     ];
   });
-  const familyCounts = new Map();
-  for (const row of scheduleRows) if (row.loomId === loom.id) {
+  const familyCounts = context?.familyCounts || new Map();
+  if (!context) for (const row of scheduleRows) if (row.loomId === loom.id) {
     const family = String(row.signal || "Other");
     familyCounts.set(family, (familyCounts.get(family) || 0) + 1);
   }
