@@ -140,21 +140,6 @@ try {
   assert.deepEqual(await page.evaluate(() => state.looms[0].routePoints.map(point => point.id)), ["lrp-1", "lrp-3"]);
   assert.deepEqual(await page.evaluate(() => state.connections.map(wire => wire.id)), baseline.ids);
   assert.equal(await page.evaluate(() => JSON.stringify(state.connections.map(wire => [wire.from, wire.to]))), baseline.endpoints);
-
-  const legacySnapshot = structuredClone(saved);
-  legacySnapshot.looms[0].routePoints = legacySnapshot.looms[0].routePoints.map(({ x, y }) => ({ x, y }));
-  delete legacySnapshot.looms[0].routePointCounter;
-  const legacyPath = join(mkdtempSync(join(tmpdir(), "wirenexus-loom-legacy-")), "legacy.avd");
-  writeFileSync(legacyPath, JSON.stringify(legacySnapshot));
-  const legacyChooserPromise = page.waitForEvent("filechooser");
-  await page.locator("#loadProject").click();
-  await (await legacyChooserPromise).setFiles(legacyPath);
-  await page.waitForFunction(() => activeEngineBridge()?.scene?.loomPlans?.[0]?.circuitCount === 5
-    && state.looms[0]?.routePoints?.map(point => point.id).join(",") === "lrp-1,lrp-2");
-  assert.deepEqual(await page.evaluate(() => state.looms[0].routePoints.map(point => point.id)), ["lrp-1", "lrp-2"]);
-  assert.deepEqual(await page.evaluate(() => state.looms[0].routePoints.map(({ x, y }) => ({ x, y }))),
-    legacySnapshot.looms[0].routePoints, "legacy restore materializes IDs without moving authored route points");
-
   assert.equal(await page.evaluate(() => activeEngineBridge().removeWiresFromLoom(["cable-2"])), true);
   assert.equal(await page.evaluate(() => activeEngineBridge().scene.loomPlans[0].circuitCount), 4);
   assert.equal(await page.evaluate(() => activeEngineBridge().scene.isWireHiddenByLoom("cable-2")), false);
@@ -163,6 +148,57 @@ try {
   assert.equal(await page.evaluate(() => state.looms.length), 0);
   assert.deepEqual(await page.evaluate(() => state.connections.map(wire => wire.id)), baseline.ids);
   assert.ok(await page.evaluate(() => state.connections.every(wire => !wire.loomId)));
+
+  const legacySnapshot = structuredClone(saved);
+  const authoredPoints = saved.looms[0].routePoints;
+  legacySnapshot.looms[0].routePoints = [
+    { x: authoredPoints[0].x, y: authoredPoints[0].y },
+    { id: "sideA", x: authoredPoints[0].x + 20, y: authoredPoints[0].y + 20 },
+    { id: "lrp-2", x: authoredPoints[0].x + 40, y: authoredPoints[0].y + 40 },
+    { id: "lrp-2", x: authoredPoints[1].x, y: authoredPoints[1].y },
+    { id: "arbitrary", x: authoredPoints[1].x + 20, y: authoredPoints[1].y + 20 }
+  ];
+  delete legacySnapshot.looms[0].routePointCounter;
+  const legacyPath = join(mkdtempSync(join(tmpdir(), "wirenexus-loom-legacy-")), "legacy.avd");
+  writeFileSync(legacyPath, JSON.stringify(legacySnapshot));
+  const legacyChooserPromise = page.waitForEvent("filechooser");
+  await page.locator("#loadProject").click();
+  await (await legacyChooserPromise).setFiles(legacyPath);
+  await page.waitForFunction(() => activeEngineBridge()?.scene?.loomPlans?.[0]?.circuitCount === 5
+    && state.looms[0]?.routePoints?.map(point => point.id).join(",") === "lrp-3,lrp-4,lrp-2,lrp-5,lrp-6");
+  const repaired = await page.evaluate(() => ({ loom: structuredClone(state.looms[0]),
+    nodes: activeEngineBridge().scene.looms[0] && activeEngineBridge().scene.looms[0].routePoints,
+    cableCount: state.connections.length }));
+  assert.deepEqual(repaired.loom.routePoints.map(point => point.id), ["lrp-3", "lrp-4", "lrp-2", "lrp-5", "lrp-6"]);
+  assert.equal(repaired.loom.routePointCounter, 6);
+  assert.equal(repaired.nodes.filter(point => point.id === "sideA").length, 0);
+  assert.equal(repaired.nodes.filter(point => point.id === "sideB").length, 0);
+  assert.equal(repaired.cableCount, saved.connections.length);
+  assert.deepEqual(await page.evaluate(() => state.looms[0].routePoints.map(({ x, y }) => ({ x, y }))),
+    legacySnapshot.looms[0].routePoints.map(({ x, y }) => ({ x, y })),
+    "legacy restore materializes IDs without moving authored route points");
+
+  await page.evaluate(() => { state.looms[0].origin = "malformed-id-reload-check"; });
+  const repairedDownloadPromise = page.waitForEvent("download");
+  await page.locator("#saveProjectAs").click();
+  const repairedDownload = await repairedDownloadPromise;
+  const repairedPath = join(mkdtempSync(join(tmpdir(), "wirenexus-loom-repaired-")), repairedDownload.suggestedFilename());
+  await repairedDownload.saveAs(repairedPath);
+  const repairedFile = JSON.parse(readFileSync(repairedPath, "utf8"));
+  assert.deepEqual(repairedFile.looms[0].routePoints.map(point => point.id), repaired.loom.routePoints.map(point => point.id));
+  assert.equal(repairedFile.looms[0].routePointCounter, 6);
+  assert.equal(repairedFile.looms[0].origin, "malformed-id-reload-check");
+  const repairedChooserPromise = page.waitForEvent("filechooser");
+  await page.locator("#loadProject").click();
+  await (await repairedChooserPromise).setFiles(repairedPath);
+  await page.waitForFunction(() => state.looms[0]?.origin === "malformed-id-reload-check"
+    && activeEngineBridge().scene.looms[0]?.routePointCounter === 6
+    && activeEngineBridge().scene.getWire("cable-2")?.loomId === "loom-1");
+  await page.waitForFunction(() => activeEngineBridge()?.scene?.loomPlans?.[0]?.circuitCount === 5
+    && state.looms[0]?.routePoints?.map(point => point.id).join(",") === "lrp-3,lrp-4,lrp-2,lrp-5,lrp-6");
+  assert.deepEqual(await page.evaluate(() => state.looms[0].routePoints.map(point => point.id)),
+    repaired.loom.routePoints.map(point => point.id));
+
   assert.deepEqual(errors, []);
   console.log("Managed Loom mixed browser acceptance PASS: four families, Jump pair, context menu, trunk/breakout selection, Signal Chain, routing, .avd, removal, dissolve, dark/light; screenshots in", shots);
 } finally {

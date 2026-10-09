@@ -5,6 +5,7 @@ import { cableTypeSelectionFixture } from "../fixtures/cable-type-selection.mjs"
 import { managedLoomMixedFixture } from "../fixtures/managed-looms.mjs";
 import { buildCableSchedule } from "../src/engine/cableSchedule.js";
 import { addLoomRoutePoint, allocateLoomIdentity, allocateLoomRoutePointId, dissolveLoom,
+  isCanonicalLoomRoutePointId, parseLoomRoutePointId,
   loomComposition, migrateLegacyLooms, normalizeLoom,
   DEFAULT_LOOM_LABEL_BACKGROUND_COLOR, DEFAULT_LOOM_LABEL_TEXT_COLOR, loomLabelBackgroundRgba,
   normalizeLoomLabelColor, renameLoom, selectedLoomCableGroups, setLogicalCableLoom } from "../src/engine/loomModel.js";
@@ -130,6 +131,79 @@ test("Loom normalization repairs duplicate route point IDs idempotently without 
   assert.deepEqual(normalized.routePoints.map(({ x, y }) => ({ x, y })), raw.routePoints.map(({ x, y }) => ({ x, y })));
   assert.deepEqual(normalized.routePoints.map(point => point.id), ["lrp-2", "lrp-5", "lrp-6"]);
   assert.deepEqual(normalizeLoom(normalized), normalized);
+});
+
+test("route-point IDs accept only canonical positive lrp integers", () => {
+  for (const [id, expected] of [["lrp-1", 1], ["lrp-17", 17], ["lrp-204", 204]]) {
+    assert.equal(parseLoomRoutePointId(id), expected);
+    assert.equal(isCanonicalLoomRoutePointId(id), true);
+  }
+  for (const id of ["sideA", "sideB", "foo", "route-1", "LRP-1", "lrp-", "lrp-0", "lrp--1",
+    "lrp-01", "lrp-1.5", "", null, 1, "lrp-9007199254740992"]) {
+    assert.equal(parseLoomRoutePointId(id), null, `${String(id)} is rejected`);
+    assert.equal(isCanonicalLoomRoutePointId(id), false);
+  }
+});
+
+test("reserved, malformed and duplicate route IDs repair deterministically above the high-water mark", () => {
+  const raw = { id: "loom-repair", routePointCounter: 7,
+    sideA: { x: 1, y: 2 }, sideB: { x: 500, y: 300 }, routeStyle: "orthogonal",
+    routePoints: [
+      { id: "sideA", x: 10, y: 10 }, { id: "lrp-3", x: 20, y: 20 },
+      { id: "lrp-3", x: 30, y: 30 }, { id: "foo", x: 40, y: 40 },
+      { id: "sideB", x: 50, y: 50 }, { id: "lrp-0", x: 60, y: 60 },
+      { id: "lrp--3", x: 70, y: 70 }, { x: 80, y: 80 }
+    ] };
+  const beforeGeometry = loomTrunkPoints(raw);
+  const normalized = normalizeLoom(raw);
+  assert.deepEqual(normalized.routePoints.map(point => point.id),
+    ["lrp-8", "lrp-3", "lrp-9", "lrp-10", "lrp-11", "lrp-12", "lrp-13", "lrp-14"]);
+  assert.equal(normalized.routePointCounter, 14);
+  assert.deepEqual(normalized.routePoints.map(({ x, y }) => ({ x, y })), raw.routePoints.map(({ x, y }) => ({ x, y })));
+  assert.deepEqual(loomTrunkPoints(normalized), beforeGeometry, "identity repair leaves canonical trunk geometry unchanged");
+  assert.deepEqual(normalizeLoom(normalized), normalized, "repair is idempotent");
+
+  const example = normalizeLoom({ routePointCounter: 7, routePoints: [
+    { id: "sideA", x: 10, y: 10 }, { id: "lrp-3", x: 20, y: 20 },
+    { id: "lrp-3", x: 30, y: 30 }, { id: "foo", x: 40, y: 40 }
+  ] });
+  assert.deepEqual(example.routePoints.map(point => point.id), ["lrp-8", "lrp-3", "lrp-9", "lrp-10"]);
+  assert.equal(example.routePointCounter, 10);
+});
+
+test("logical nodes, spans and locators stay unambiguous after malformed ID repair", () => {
+  const malformed = { id: "loom-malformed", sideA: { x: 0, y: 0 }, sideB: { x: 400, y: 0 },
+    routeStyle: "bezier", routePoints: [{ id: "sideA", x: 80, y: 100 }, { id: "sideB", x: 180, y: 80 },
+      { id: "lrp-2", x: 280, y: 100 }, { id: "lrp-2", x: 330, y: 50 }] };
+  const beforeGeometry = loomTrunkPoints(malformed);
+  const loom = normalizeLoom(malformed);
+  const nodes = loomRouteControlNodes(loom), spans = loomRouteSpans(loom);
+  assert.equal(nodes.filter(node => node.id === "sideA").length, 1);
+  assert.equal(nodes.filter(node => node.id === "sideB").length, 1);
+  const routeIds = nodes.filter(node => node.kind === "route-point").map(node => node.id);
+  assert.ok(routeIds.every(isCanonicalLoomRoutePointId));
+  assert.equal(new Set(nodes.map(node => node.id)).size, nodes.length);
+  assert.equal(new Set(spans.map(span => span.id)).size, spans.length);
+  assert.ok(spans.every(span => span.fromAnchorId !== span.toAnchorId));
+  assert.deepEqual(loomTrunkPoints(loom), beforeGeometry);
+  const target = { x: 210, y: 60 };
+  const locator = locatePointOnLoomRoute(loom, target);
+  const resolved = resolveLoomRouteAttachment(loom, locator);
+  assert.equal(resolved.valid, true);
+  assert.deepEqual([resolved.fromAnchorId, resolved.toAnchorId], [locator.fromAnchorId, locator.toAnchorId]);
+  assert.ok(Math.hypot(resolved.point.x - locator.point.x, resolved.point.y - locator.point.y) < 0.01);
+});
+
+test("route-point allocation ignores malformed IDs and preserves non-contiguous canonical IDs", () => {
+  const loom = { routePointCounter: 0, routePoints: [
+    { id: "sideA", x: 0, y: 0 }, { id: "lrp-0", x: 1, y: 1 },
+    { id: "foo-1000", x: 2, y: 2 }, { id: "lrp-2", x: 3, y: 3 }
+  ] };
+  assert.equal(allocateLoomRoutePointId(loom), "lrp-3");
+  const saved = normalizeLoom({ routePointCounter: 9,
+    routePoints: [{ id: "lrp-4", x: 4, y: 4 }, { id: "lrp-9", x: 9, y: 9 }] });
+  assert.deepEqual(normalizeLoom(JSON.parse(JSON.stringify(saved))), saved);
+  assert.deepEqual(saved.routePoints.map(point => point.id), ["lrp-4", "lrp-9"]);
 });
 
 test("legacy Loom migration materializes route IDs without changing canonical trunk geometry", () => {

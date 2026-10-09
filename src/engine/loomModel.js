@@ -6,6 +6,25 @@ const nameKey = name => String(name || "").trim().toLowerCase();
 export const DEFAULT_LOOM_LABEL_TEXT_COLOR = "#ffffff";
 export const DEFAULT_LOOM_LABEL_BACKGROUND_COLOR = "#000000";
 
+export function parseLoomRoutePointId(value) {
+  if (typeof value !== "string") return null;
+  const match = /^lrp-([1-9]\d*)$/.exec(value);
+  if (!match) return null;
+  const number = Number(match[1]);
+  return Number.isSafeInteger(number) ? number : null;
+}
+
+export function isCanonicalLoomRoutePointId(value) {
+  return parseLoomRoutePointId(value) !== null;
+}
+
+function normalizedRoutePointCounter(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  const counter = Math.floor(number);
+  return Number.isSafeInteger(counter) && counter > 0 ? counter : 0;
+}
+
 export function normalizeLoomLabelColor(value, fallback = DEFAULT_LOOM_LABEL_TEXT_COLOR) {
   const normalize = candidate => {
     const source = String(candidate ?? "").trim();
@@ -32,27 +51,24 @@ export function normalizeLoom(value, index = 0) {
   const rawRoutePoints = Array.isArray(value?.routePoints) ? value.routePoints
     .filter(p => Number.isFinite(Number(p?.x)) && Number.isFinite(Number(p?.y))) : [];
   const routePointIds = new Set();
-  let routePointCounter = Math.max(0, Math.floor(Number(value?.routePointCounter) || 0));
+  let routePointCounter = normalizedRoutePointCounter(value?.routePointCounter);
   for (const routePoint of rawRoutePoints) {
-    const id = String(routePoint?.id || "").trim();
-    const match = /^lrp-(\d+)$/.exec(id);
-    if (match) routePointCounter = Math.max(routePointCounter, Number(match[1]));
+    const id = routePoint?.id;
+    const number = parseLoomRoutePointId(id);
+    if (number !== null) routePointCounter = Math.max(routePointCounter, number);
   }
   const nextRoutePointId = () => {
+    if (routePointCounter >= Number.MAX_SAFE_INTEGER) return "";
     do { routePointCounter += 1; } while (routePointIds.has(`lrp-${routePointCounter}`));
     return `lrp-${routePointCounter}`;
   };
   const routePoints = rawRoutePoints.map(routePoint => {
-    let id = String(routePoint?.id || "").trim();
-    if (!id || routePointIds.has(id)) id = nextRoutePointId();
-    else {
-      routePointIds.add(id);
-      const match = /^lrp-(\d+)$/.exec(id);
-      if (match) routePointCounter = Math.max(routePointCounter, Number(match[1]));
-    }
+    let id = routePoint?.id;
+    if (!isCanonicalLoomRoutePointId(id) || routePointIds.has(id)) id = nextRoutePointId();
+    if (!id) return null;
     routePointIds.add(id);
     return { id, x: Number(routePoint.x), y: Number(routePoint.y) };
-  });
+  }).filter(Boolean);
   return {
     id: String(value?.id || `loom-${index + 1}`), kind: "loom",
     name: String(value?.name || `LM-${String(index + 1).padStart(3, "0")}`),
@@ -69,12 +85,12 @@ export function normalizeLoom(value, index = 0) {
 export function allocateLoomRoutePointId(loom) {
   if (!loom || typeof loom !== "object") return "";
   const points = Array.isArray(loom.routePoints) ? loom.routePoints : [];
-  const used = new Set(points.map(point => String(point?.id || "")).filter(Boolean));
-  let counter = Math.max(0, Math.floor(Number(loom.routePointCounter) || 0));
+  const used = new Set(points.map(point => point?.id).filter(isCanonicalLoomRoutePointId));
+  let counter = normalizedRoutePointCounter(loom.routePointCounter);
   for (const id of used) {
-    const match = /^lrp-(\d+)$/.exec(id);
-    if (match) counter = Math.max(counter, Number(match[1]));
+    counter = Math.max(counter, parseLoomRoutePointId(id));
   }
+  if (counter >= Number.MAX_SAFE_INTEGER) return "";
   do { counter += 1; } while (used.has(`lrp-${counter}`));
   loom.routePointCounter = counter;
   return `lrp-${counter}`;
@@ -83,7 +99,9 @@ export function allocateLoomRoutePointId(loom) {
 export function addLoomRoutePoint(loom, point) {
   if (!loom || !Number.isFinite(point?.x) || !Number.isFinite(point?.y)) return null;
   loom.routePoints ||= [];
-  const routePoint = { id: allocateLoomRoutePointId(loom), x: point.x, y: point.y };
+  const id = allocateLoomRoutePointId(loom);
+  if (!id) return null;
+  const routePoint = { id, x: point.x, y: point.y };
   loom.routePoints.push(routePoint);
   return routePoint;
 }

@@ -297,23 +297,63 @@ try {
   deleteProject.connections.forEach(wire => Object.assign(wire, { loomId: "loom-1",
     cableNumber: `C-${wire.id}`, length: "17m", notes: "keep notes", customColor: "#2468ac" }));
   deleteProject.looms = [{ id: "loom-1", name: "LM-Delete", sideA: { x: 350, y: 300 }, sideB: { x: 760, y: 300 } }];
+  const waitForDeleteProject = () => page.waitForFunction(expectedConnections => {
+    const bridge = activeEngineBridge();
+    return state.looms[0]?.id === "loom-1"
+      && bridge?.mutations?.root?.looms?.some(loom => loom.id === "loom-1")
+      && bridge?.mutations?.root?.connections?.length === expectedConnections
+      && bridge?.scene?.loomPlans?.[0]?.circuitCount === 5;
+  }, deleteProject.connections.length);
   await page.evaluate(project => restoreSnapshot(project), deleteProject);
-  await page.waitForFunction(() => activeEngineBridge()?.scene.loomPlans[0]?.circuitCount === 5);
+  await waitForDeleteProject();
   const originalRecords = await page.evaluate(() => state.connections.map(without => {
     const copy = structuredClone(without);
     for (const key of ["loomId", "loom", "loomEntrySide", "loomEntryRoutePoints", "loomExitRoutePoints"]) delete copy[key];
     return copy;
   }));
-  await page.evaluate(() => { activeEngineBridge().selectLoomById("loom-1"); activeEngineBridge().canvas.focus(); });
+  const deleteFocus = await page.evaluate(() => {
+    const bridge = activeEngineBridge();
+    bridge.selectLoomById("loom-1");
+    const describe = target => target && ({ tagName: target.tagName, id: target.id || "",
+      contentEditable: Boolean(target.isContentEditable), editable: ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)
+        || Boolean(target.closest?.("[contenteditable='true'], .inline-editor, [role='textbox']")) });
+    const beforeCanvasFocus = describe(document.activeElement);
+    bridge.canvas.focus();
+    const afterCanvasFocus = describe(document.activeElement);
+    document.activeElement?.blur?.();
+    const after = describe(document.activeElement);
+    window.__loomDeleteKeyProbe = null;
+    const handleKeyDown = bridge.handleKeyDown.bind(bridge);
+    bridge.handleKeyDown = event => {
+      window.__loomDeleteKeyProbe = { key: event.key, target: describe(event.target),
+        selectedLoomId: bridge.scene.selectedLoomId, commandIndex: bridge.commandIndex };
+      return handleKeyDown(event);
+    };
+    return { beforeCanvasFocus, afterCanvasFocus, canvasTabIndex: bridge.canvas.tabIndex,
+      canvasFocused: document.activeElement === bridge.canvas, after,
+      selectedLoomId: bridge.scene.selectedLoomId,
+      selection: state.selected, commandIndex: bridge.commandIndex };
+  });
+  assert.equal(deleteFocus.selectedLoomId, "loom-1");
+  assert.ok(deleteFocus.after && !deleteFocus.after.editable,
+    `Delete must be sent with a non-editable focused element: ${JSON.stringify(deleteFocus)}`);
   let dialogs = 0;
   page.on("dialog", dialog => { dialogs++; void dialog.dismiss(); });
   await page.keyboard.press("Delete");
   await page.waitForFunction(() => state.looms.length === 0, null, { timeout: 4000 }).catch(async () => {
     const debug = await page.evaluate(() => ({ selectedLoomId: activeEngineBridge().scene.selectedLoomId,
       selected: state.selected, looms: state.looms.length, commandIndex: activeEngineBridge().commandIndex,
-      activeElement: document.activeElement?.id }));
+      activeElement: document.activeElement?.id, activeTag: document.activeElement?.tagName,
+      keyProbe: window.__loomDeleteKeyProbe }));
     throw new Error(`Keyboard Loom delete did not complete: ${JSON.stringify(debug)}`);
   });
+  const deleteEvent = await page.evaluate(() => window.__loomDeleteKeyProbe);
+  assert.equal(deleteEvent?.key, "Delete", `Engine handler must receive Delete: ${JSON.stringify(deleteEvent)}`);
+  assert.equal(deleteEvent?.target?.editable, false, `Delete event target must be non-editable: ${JSON.stringify(deleteEvent)}`);
+  assert.equal(deleteEvent?.selectedLoomId, "loom-1");
+  assert.equal(await page.evaluate(() => activeEngineBridge().commandIndex), deleteFocus.commandIndex + 1,
+    "keyboard deletion adds exactly one history command");
+  assert.equal(await page.evaluate(() => activeEngineBridge().scene.selectedLoomId), "");
   const deleted = await page.evaluate(() => ({ records: state.connections.map(wire => {
     const copy = structuredClone(wire);
     for (const key of ["loomId", "loom", "loomEntrySide", "loomEntryRoutePoints", "loomExitRoutePoints"]) delete copy[key];
@@ -337,20 +377,31 @@ try {
   assert.equal(dialogs, 0);
 
   await page.evaluate(project => restoreSnapshot(project), deleteProject);
-  await page.waitForFunction(() => activeEngineBridge()?.scene.loomPlans[0]?.circuitCount === 5);
+  await waitForDeleteProject();
   await page.evaluate(() => {
     activeEngineBridge().selectLoomById("loom-1");
     state.selected = { type: "loom", id: "loom-1" };
   });
   const shellDelete = await page.evaluate(() => {
     const bridge = activeEngineBridge(), originalDelete = bridge.deleteSelectedLoom.bind(bridge);
+    const before = {
+      ready: bridge.ready,
+      stateLoomIds: state.looms.map(loom => loom.id),
+      rootLoomIds: bridge.mutations.root.looms.map(loom => loom.id),
+      sceneLoomIds: bridge.scene.looms.map(loom => loom.id),
+      selectedLoomId: bridge.scene.selectedLoomId,
+      selected: structuredClone(state.selected),
+      historyIndex: bridge.commandIndex
+    };
     let deleteCalls = 0;
     let deleteResult = null;
     bridge.deleteSelectedLoom = (...args) => { deleteCalls++; deleteResult = originalDelete(...args); return deleteResult; };
     deleteSelection();
     return { looms: state.looms.length, selected: state.selected,
       selectedLoomId: bridge.scene.selectedLoomId, deleteCalls, deleteResult,
-      connections: state.connections.length };
+      connections: state.connections.length, before,
+      rootLoomIdsAfter: bridge.mutations.root.looms.map(loom => loom.id),
+      historyIndexAfter: bridge.commandIndex };
   });
   assert.equal(shellDelete.looms, 0, `application Delete action routes selected Loom through cable-preserving deletion: ${JSON.stringify(shellDelete)}`);
   assert.equal(await page.evaluate(() => state.connections.length), deleteProject.connections.length,
@@ -370,6 +421,9 @@ try {
     hoverOwners: ["gateway Side A", "gateway Side B", "trunk", "breakout wire"],
     rewireResults, deleteCablesPreserved: originalRecords.length,
     jumpLegsPreserved: deleteProject.connections.filter(wire => wire.from?.jumpNodeId || wire.to?.jumpNodeId).length,
+    deleteFocus, deleteEvent, shellDelete: { selectedLoomId: shellDelete.before.selectedLoomId,
+      deleteResult: shellDelete.deleteResult, historyIndex: shellDelete.before.historyIndex,
+      historyIndexAfter: shellDelete.historyIndexAfter },
     dialogs, consoleErrors: errors.length
   }));
 } finally {
