@@ -8,6 +8,8 @@ import {
 } from "./cableHops.js";
 import { wirePathStatsForWires, wirePolylineFromPoints } from "./wirePath.js";
 import { loomBreakoutPolyline } from "./loomGeometry.js";
+import { DEFAULT_LOOM_LABEL_BACKGROUND_COLOR, DEFAULT_LOOM_LABEL_TEXT_COLOR,
+  loomLabelBackgroundRgba } from "./loomModel.js";
 import { LOOM_GATEWAY_RING_COLOR, LOOM_INNER_JACKET_COLOR, LOOM_OUTER_JACKET_COLOR, LOOM_TAPE_COLOR,
   loomBundleWidths, loomCableDisplayColor, offsetPolyline, tapeBandsAlongPath } from "./routingPlacement.js";
 import {
@@ -69,7 +71,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-87-unpaired-jump-marker";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-88-loom-label-colors";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -1543,8 +1545,9 @@ export class WebglGraphRenderer {
         if (!loom || !loomLabelsVisible(scene, plan)) continue;
         const caption = [loom.name, `${activePlan.circuitCount} circuit${activePlan.circuitCount === 1 ? "" : "s"}`, loom.trunkLength]
           .filter(Boolean).join(" · ");
-        drawPolylineLabel(ctx, activePlan.trunk, camera, caption);
-        drawLoomHeadLabels(ctx, activePlan, loom, camera);
+        const labelStyle = loomLabelStyle(loom);
+        drawPolylineLabel(ctx, activePlan.trunk, camera, caption, labelStyle);
+        drawLoomHeadLabels(ctx, activePlan, loom, camera, labelStyle);
         wireLabelCount += 1;
       }
     }
@@ -3698,10 +3701,11 @@ export function drawEngineOutputLabels(ctx, scene, bounds) {
   for (const plan of scene.loomPlans) {
     const loom = scene.looms.find(item => item.id === plan.loomId);
     if (!loom || !loomLabelsVisible(scene, plan)) continue;
+    const labelStyle = loomLabelStyle(loom);
     drawPolylineLabel(ctx, plan.trunk, camera,
       [loom.name, `${plan.circuitCount} circuit${plan.circuitCount === 1 ? "" : "s"}`, loom.trunkLength]
-        .filter(Boolean).join(" · "));
-    drawLoomHeadLabels(ctx, plan, loom, camera);
+        .filter(Boolean).join(" · "), labelStyle);
+    drawLoomHeadLabels(ctx, plan, loom, camera, labelStyle);
   }
   drawVisibleConnectorLabels(ctx, scene, camera, DEFAULT_RENDER_OPTIONS, null, resolution);
   drawVisibleConnectorInfoBoxes(ctx, scene, camera, DEFAULT_RENDER_OPTIONS, null, resolution);
@@ -4325,28 +4329,36 @@ function loomLabelsVisible(scene, plan) {
   return !members.length || members.some(wire => !wire.hideLabel);
 }
 
-function drawPolylineLabel(ctx, points, camera, text) {
+function drawPolylineLabel(ctx, points, camera, text, style = null) {
   const placement = labelPlacementForPolyline(points);
   if (!placement || !text) return;
   const x = (placement.x - camera.x) * camera.zoom;
   const y = (placement.y - camera.y) * camera.zoom;
   const size = Math.max(10, Math.min(15, 11 * Math.sqrt(camera.zoom)));
   ctx.save();
+  if (style) ctx.textPaintMode = "exact";
   ctx.translate(x, y);
   ctx.rotate(placement.angle * Math.PI / 180);
   ctx.font = `700 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.lineJoin = "round";
-  ctx.strokeStyle = "rgba(0,0,0,.82)";
+  ctx.strokeStyle = style?.haloColor || "rgba(0,0,0,.82)";
   ctx.lineWidth = Math.max(3, size * 0.38);
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = style?.textColor || "#ffffff";
   ctx.strokeText(text, 0, -8 * Math.max(1, Math.sqrt(camera.zoom)));
   ctx.fillText(text, 0, -8 * Math.max(1, Math.sqrt(camera.zoom)));
   ctx.restore();
 }
 
-function drawLoomHeadLabels(ctx, plan, loom, camera) {
+function loomLabelStyle(loom = {}) {
+  return {
+    textColor: loom.labelTextColor || DEFAULT_LOOM_LABEL_TEXT_COLOR,
+    haloColor: loomLabelBackgroundRgba(loom.labelBackgroundColor || DEFAULT_LOOM_LABEL_BACKGROUND_COLOR)
+  };
+}
+
+function drawLoomHeadLabels(ctx, plan, loom, camera, style = loomLabelStyle(loom)) {
   for (const [side, point, fallback] of [
     [loom.sideA, plan.headA, "Side A"], [loom.sideB, plan.headB, "Side B"]
   ]) {
@@ -4354,13 +4366,14 @@ function drawLoomHeadLabels(ctx, plan, loom, camera) {
     const x = (point.x - camera.x) * camera.zoom;
     const y = (point.y - camera.y) * camera.zoom - 23;
     ctx.save();
+    ctx.textPaintMode = "exact";
     ctx.font = "700 11px system-ui, -apple-system, Segoe UI, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = "rgba(0,0,0,.82)";
+    ctx.strokeStyle = style.haloColor;
     ctx.lineWidth = 3;
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = style.textColor;
     ctx.strokeText(label, x, y);
     ctx.fillText(label, x, y);
     ctx.restore();

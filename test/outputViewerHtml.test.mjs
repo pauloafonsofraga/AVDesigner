@@ -31,6 +31,24 @@ test("offline output embeds one Engine implementation, all images, reports and t
   new vm.Script(bundle.javascript);
 });
 
+test("downloaded HTML and hosted Publish retain Loom label colors", async () => {
+  const project = outputViewerParityFixture();
+  project.looms = [{ id: "html-style-loom", name: "LM-HTML", labelTextColor: "#ff00ff",
+    labelBackgroundColor: "#00ff00", sideA: { label: "FOH", x: 120, y: 180 },
+    sideB: { label: "Stage", x: 920, y: 180 }, routeStyle: "orthogonal", routePoints: [] }];
+  const s = { engineScene: buildEngineOutputScene(project), reportData: { projectName: "Styled Loom" } };
+  const assets = await inlineOutputAssets(s.engineScene, () => png);
+  const download = payload(buildEngineViewerHtml(s, { bundle, assets }));
+  const hosted = payload(buildEngineViewerHtml(s, { bundle, assets, title: "Hosted Styled Loom" }));
+  for (const output of [download, hosted]) {
+    assert.deepEqual([output.engineScene.looms[0].labelTextColor, output.engineScene.looms[0].labelBackgroundColor],
+      ["#ff00ff", "#00ff00"]);
+    const viewer = createOutputViewerModel(output.engineScene, { assets });
+    assert.deepEqual([viewer.contract.looms[0].labelTextColor, viewer.contract.looms[0].labelBackgroundColor],
+      ["#ff00ff", "#00ff00"]);
+  }
+});
+
 test("missing external assets fail explicitly; no silent Legacy or network fallback", async () => {
   const s = snapshot();
   assert.throws(() => buildEngineViewerHtml(s, { bundle }), /Missing offline viewer image/);

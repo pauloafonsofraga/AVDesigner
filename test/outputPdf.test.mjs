@@ -86,8 +86,16 @@ test("Jump anchor clamps at the drawing top-left, including letterboxed drawings
 });
 
 test("PDFKit production generator creates vector PDF bytes with reciprocal Jump annotations", async () => {
-  const scene = buildEngineOutputScene(outputPdfJumpFixture());
+  const project = outputPdfJumpFixture();
+  project.looms = [{ id: "styled-pdf-loom", name: "LM-PDF", labelTextColor: "#ff00ff",
+    labelBackgroundColor: "#00ff00", sideA: { label: "FOH", x: -800, y: 200 },
+    sideB: { label: "Stage", x: 800, y: 200 }, routeStyle: "orthogonal", routePoints: [] }];
+  const scene = buildEngineOutputScene(project);
   const drawing = renderEngineOutputSvg(scene);
+  assert.match(drawing.svg, /fill="#ff00ff"/);
+  assert.match(drawing.svg, /stroke="rgba\(0,255,0,0\.82\)"/);
+  assert.match(drawing.svg, />FOH<\/text>/);
+  assert.match(drawing.svg, />Stage<\/text>/);
   const result = await generatePdf({ svg: drawing.svg, diagnostics: drawing.diagnostics,
     engineScene: scene, reportData: { projectName: "Jump fixture", deviceRows: [
       { quantity: 1, brand: "Test", type: "Source", power: "0W" }

@@ -5,7 +5,8 @@ import { cableTypeSelectionFixture } from "../fixtures/cable-type-selection.mjs"
 import { managedLoomMixedFixture } from "../fixtures/managed-looms.mjs";
 import { buildCableSchedule } from "../src/engine/cableSchedule.js";
 import { allocateLoomIdentity, dissolveLoom, loomComposition, migrateLegacyLooms, normalizeLoom,
-  renameLoom, selectedLoomCableGroups, setLogicalCableLoom } from "../src/engine/loomModel.js";
+  DEFAULT_LOOM_LABEL_BACKGROUND_COLOR, DEFAULT_LOOM_LABEL_TEXT_COLOR, loomLabelBackgroundRgba,
+  normalizeLoomLabelColor, renameLoom, selectedLoomCableGroups, setLogicalCableLoom } from "../src/engine/loomModel.js";
 import { initialLoomHeads, loomGeometry, loomTrunkPoints, orientCableEndpoints,
   prepareLoomGeometryContext } from "../src/engine/loomGeometry.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
@@ -85,6 +86,22 @@ test("stable names never reuse deleted high-water identifiers and reject case-in
   ["FOH", "Stage", "75 m"]);
   assert.deepEqual([normalizeLoom({ id: "old" }).origin, normalizeLoom({ id: "old" }).destination,
     normalizeLoom({ id: "old" }).trunkLength], ["", "", ""]);
+});
+
+test("Loom label colors normalize to safe canonical hex values with legacy defaults", () => {
+  const legacy = { id: "loom-legacy", name: "LM-OLD", origin: "FOH", destination: "Stage",
+    sideA: { label: "A", x: 10, y: 20 }, sideB: { label: "B", x: 30, y: 40 },
+    routeStyle: "orthogonal", routePoints: [{ x: 2, y: 3 }], trunkLength: "75 m", notes: "legacy" };
+  const normalized = normalizeLoom(legacy);
+  assert.deepEqual([normalized.labelTextColor, normalized.labelBackgroundColor], ["#ffffff", "#000000"]);
+  const { labelTextColor, labelBackgroundColor, ...legacyProperties } = normalized;
+  assert.deepEqual(legacyProperties, { ...legacy, kind: "loom" });
+  assert.deepEqual([DEFAULT_LOOM_LABEL_TEXT_COLOR, DEFAULT_LOOM_LABEL_BACKGROUND_COLOR], ["#ffffff", "#000000"]);
+  assert.deepEqual([normalizeLoomLabelColor("#F0A"), normalizeLoomLabelColor("#ABCDEF"),
+    normalizeLoomLabelColor("invalid", "#123456")], ["#ff00aa", "#abcdef", "#123456"]);
+  assert.equal(normalizeLoomLabelColor("url(javascript:alert(1))"), "#ffffff");
+  assert.equal(loomLabelBackgroundRgba("#ff0000"), "rgba(255,0,0,0.82)");
+  assert.equal(loomLabelBackgroundRgba("invalid"), "rgba(0,0,0,0.82)");
 });
 
 test("head placement and A/B assignment are independent of electrical direction", () => {
@@ -206,9 +223,11 @@ test("Engine output scene and vector PDF share Loom geometry without printing hi
   const project = jumpProject();
   project.connections.forEach(wire => { wire.loomId = "loom-1"; });
   project.looms = [{ id: "loom-1", name: "L01", sideA: { label: "FOH", x: 180, y: 100 },
-    sideB: { label: "Stage", x: 760, y: 100 }, routeStyle: "orthogonal", routePoints: [], trunkLength: "75 m" }];
+    sideB: { label: "Stage", x: 760, y: 100 }, routeStyle: "orthogonal", routePoints: [], trunkLength: "75 m",
+    labelTextColor: "#ff00ff", labelBackgroundColor: "#00ff00" }];
   const contract = buildEngineOutputScene(project);
   assert.equal(contract.looms.length, 1);
+  assert.deepEqual([contract.looms[0].labelTextColor, contract.looms[0].labelBackgroundColor], ["#ff00ff", "#00ff00"]);
   assert.equal(contract.loomPlans[0].hiddenWireIds.length, 2);
   assert.ok(Object.isFrozen(contract.loomPlans));
   assert.deepEqual(buildEngineOutputScene(project), contract);
@@ -216,6 +235,9 @@ test("Engine output scene and vector PDF share Loom geometry without printing hi
   assert.match(svg, /data-loom-id="loom-1"/);
   assert.doesNotMatch(svg, /data-wire-id="wire-a"|data-wire-id="wire-b"/);
   assert.match(svg, /L01/);
+  assert.match(svg, /fill="#ff00ff"/, "Loom text color remains exact in vector output");
+  assert.match(svg, /stroke="rgba\(0,255,0,0\.82\)"/, "Loom halo uses its selected color at the legacy opacity");
+  assert.match(svg, /FOH[\s\S]*fill="#ff00ff"[\s\S]*Stage[\s\S]*fill="#ff00ff"/);
   const wrapped = buildEngineOutputScene({ state: project });
   assert.deepEqual(wrapped.loomPlans, contract.loomPlans);
   assert.deepEqual(wrapped.looms, contract.looms);

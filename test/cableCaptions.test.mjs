@@ -26,10 +26,12 @@ function sceneFor(project = cableCaptionFixture()) {
   const scene = new SceneGraph(); scene.setData(normalizeAvDesignerProject(project)); return scene;
 }
 function context() {
-  const ctx = new OutputSvgContext(); ctx.captions = [];
+  const ctx = new OutputSvgContext(); ctx.captions = []; ctx.labelStyles = [];
   const fill = ctx.fillText;
   ctx.fillText = function(text, x, y) {
-    if (this.strokeStyle === "rgba(0,0,0,.82)") this.captions.push(text);
+    this.labelStyles.push({ text: String(text), fill: this.fillStyle, stroke: this.strokeStyle,
+      textPaintMode: this.textPaintMode });
+    if (/^rgba\(0,0,0,(?:\.82|0\.82)\)$/.test(this.strokeStyle)) this.captions.push(text);
     fill.call(this, text, x, y);
   };
   ctx.setTransform = () => {}; ctx.clearRect = () => {};
@@ -129,6 +131,27 @@ test("loom and endpoint labels follow member cable hide-label visibility", () =>
   assert.ok(!hiddenPrint.captions.some(label => label.includes("LM-VISIBLE")));
   assert.ok(!hiddenPrint.captions.includes("FOH"));
   assert.ok(!hiddenPrint.captions.includes("Stage"));
+});
+
+test("custom Loom label colors affect only its trunk and endpoints", () => {
+  const project = cableCaptionFixture();
+  project.looms = [{ id: "styled-loom", name: "LM-STYLED", labelTextColor: "#ff00ff",
+    labelBackgroundColor: "#00ff00", sideA: { label: "FOH", x: 320, y: 230 },
+    sideB: { label: "Stage", x: 880, y: 230 }, routeStyle: "orthogonal", routePoints: [] }];
+  const scene = sceneFor(project), canvas = context();
+  const previous = globalThis.window; globalThis.window = { devicePixelRatio: 1 };
+  try {
+    const renderer = Object.assign(Object.create(WebglGraphRenderer.prototype), {
+      labelContext: canvas, labelCanvas: {}, resolution: { width: 6000, height: 6000 }, renderOptions: DEFAULT_RENDER_OPTIONS
+    });
+    renderer.drawLabels(scene, { x: -1000, y: -1000, zoom: 1 }, {});
+  } finally { if (previous) globalThis.window = previous; else delete globalThis.window; }
+  const styleFor = text => canvas.labelStyles.find(label => label.text === text);
+  for (const text of ["LM-STYLED · 0 circuits", "FOH", "Stage"]) {
+    assert.deepEqual(styleFor(text), { text, fill: "#ff00ff", stroke: "rgba(0,255,0,0.82)", textPaintMode: "exact" });
+  }
+  const ordinary = styleFor(normal);
+  assert.deepEqual(ordinary, { text: normal, fill: "#ffffff", stroke: "rgba(0,0,0,.82)", textPaintMode: "print" });
 });
 
 test("node names take precedence over stale plug captions and refresh without rebuilding geometry", () => {

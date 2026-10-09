@@ -49,6 +49,31 @@ try {
   assert.equal(first.plan.circuitCount, 2);
   assert.equal(first.plan.breakouts.length, 4);
   assert.equal(await page.locator("#loomName").inputValue(), "LM-001");
+  const setColor = async (selector, value) => page.locator(selector).evaluate((control, color) => {
+    control.value = color;
+    control.dispatchEvent(new Event("input", { bubbles: true }));
+    control.dispatchEvent(new Event("change", { bubbles: true }));
+  }, value);
+  await setColor("#loomLabelTextColor", "#ff00ff");
+  assert.equal(await page.evaluate(() => state.looms[0].labelTextColor), "#ff00ff");
+  assert.equal(await page.evaluate(() => activeEngineBridge().undoEngineCommand()), true);
+  assert.equal(await page.evaluate(() => state.looms[0].labelTextColor || "#ffffff"), "#ffffff");
+  assert.equal(await page.locator("#loomLabelTextColor").inputValue(), "#ffffff",
+    "undo synchronizes the selected Loom inspector control");
+  assert.equal(await page.evaluate(() => activeEngineBridge().redoEngineCommand()), true);
+  assert.equal(await page.evaluate(() => state.looms[0].labelTextColor), "#ff00ff");
+  await setColor("#loomLabelBackgroundColor", "#00ff00");
+  assert.deepEqual(await page.evaluate(() => [state.looms[0].labelTextColor, state.looms[0].labelBackgroundColor]),
+    ["#ff00ff", "#00ff00"]);
+  assert.equal(await page.evaluate(() => activeEngineBridge().undoEngineCommand()), true);
+  assert.deepEqual(await page.evaluate(() => [state.looms[0].labelTextColor || "#ffffff", state.looms[0].labelBackgroundColor || "#000000"]),
+    ["#ff00ff", "#000000"]);
+  assert.equal(await page.locator("#loomLabelBackgroundColor").inputValue(), "#000000",
+    "background undo synchronizes its inspector control");
+  assert.equal(await page.evaluate(() => activeEngineBridge().redoEngineCommand()), true);
+  assert.deepEqual(await page.evaluate(() => [state.looms[0].labelTextColor, state.looms[0].labelBackgroundColor]),
+    ["#ff00ff", "#00ff00"]);
+  assert.equal(await page.locator("#loomLabelBackgroundColor").inputValue(), "#00ff00");
   await page.screenshot({ path: "/tmp/wirenexus-managed-loom-editor.png" });
 
   const points = await page.evaluate(() => {
@@ -66,6 +91,8 @@ try {
   await page.mouse.down();
   await page.mouse.move(points.headA.x + 35, points.headA.y + 18, { steps: 4 });
   await page.mouse.up();
+  assert.deepEqual(await page.evaluate(() => [state.looms[0].labelTextColor, state.looms[0].labelBackgroundColor]),
+    ["#ff00ff", "#00ff00"], "geometry preview/commit preserves Loom label styling");
   assert.ok(await page.evaluate(x => state.looms[0].sideA.x > x + 10, originalHeadX));
   assert.equal(await page.evaluate(() => activeEngineBridge().undoEngineCommand()), true);
   assert.equal(await page.evaluate(() => state.looms[0].sideA.x), originalHeadX);
@@ -171,6 +198,7 @@ try {
   const savedFile = JSON.parse(readFileSync(avdPath, "utf8"));
   assert.deepEqual([savedFile.looms[0].name, savedFile.looms[0].origin, savedFile.looms[0].destination, savedFile.looms[0].trunkLength],
     ["LM-BROWSER", "FOH", "Stage Rack", "80 m"]);
+  assert.deepEqual([savedFile.looms[0].labelTextColor, savedFile.looms[0].labelBackgroundColor], ["#ff00ff", "#00ff00"]);
   assert.equal(savedFile.connections.filter(wire => wire.loomId === "loom-1").length, 3);
   assert.equal(savedFile.connections.find(wire => wire.id === "cable-0").notes, "Main screen feed");
   await page.evaluate(() => { activeEngineBridge().dissolveManagedLoom("loom-1"); });
@@ -181,7 +209,8 @@ try {
   await chooser.setFiles(avdPath);
   await page.waitForFunction(() => activeEngineBridge()?.scene?.loomPlans?.[0]?.circuitCount === 3);
   assert.deepEqual(await page.evaluate(() => [state.looms[0].name, state.looms[0].origin, state.looms[0].destination,
-    state.looms[0].trunkLength]), ["LM-BROWSER", "FOH", "Stage Rack", "80 m"]);
+    state.looms[0].trunkLength, state.looms[0].labelTextColor, state.looms[0].labelBackgroundColor]),
+  ["LM-BROWSER", "FOH", "Stage Rack", "80 m", "#ff00ff", "#00ff00"]);
   const reselected = await page.evaluate(() => {
     const bridge = activeEngineBridge(), plan = bridge.scene.loomPlans[0];
     const rect = bridge.canvas.getBoundingClientRect();
@@ -199,10 +228,13 @@ try {
   await viewer.goto(`${base}/output-viewer.html?empty=1`);
   await viewer.evaluate(snapshot => mountOutputViewer(snapshot), output);
   const viewerState = await viewer.evaluate(() => ({ count: outputViewer.scene.loomPlans[0]?.circuitCount,
-    hidden: outputViewer.scene.hiddenLoomWireIds.size, signature: outputViewer.model.contract.signature }));
+    hidden: outputViewer.scene.hiddenLoomWireIds.size, signature: outputViewer.model.contract.signature,
+    labelTextColor: outputViewer.model.contract.looms[0]?.labelTextColor,
+    labelBackgroundColor: outputViewer.model.contract.looms[0]?.labelBackgroundColor }));
   assert.equal(viewerState.count, 3);
   assert.equal(viewerState.hidden, 3);
   assert.equal(viewerState.signature, output.signature);
+  assert.deepEqual([viewerState.labelTextColor, viewerState.labelBackgroundColor], ["#ff00ff", "#00ff00"]);
   await viewer.screenshot({ path: "/tmp/wirenexus-managed-loom-viewer.png" });
   await viewer.close();
 

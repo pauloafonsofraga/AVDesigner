@@ -35,8 +35,8 @@ import { attachedJumpIdsForDevices, directDeviceIdsForJump, eligibleDeviceForJum
 import { applyCanvasClipboardPlan } from "./canvasClipboard.js";
 import { WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
-import { allocateLoomIdentity, dissolveLoom, renameLoom, selectedLoomCableGroups,
-  setLogicalCableLoom } from "./loomModel.js";
+import { allocateLoomIdentity, DEFAULT_LOOM_LABEL_BACKGROUND_COLOR, DEFAULT_LOOM_LABEL_TEXT_COLOR,
+  dissolveLoom, normalizeLoomLabelColor, renameLoom, selectedLoomCableGroups, setLogicalCableLoom } from "./loomModel.js";
 import { externalCableEndpoints, initialLoomHeads, loomCreationPreviewPoints, loomGeometry,
   prepareLoomGeometryContext } from "./loomGeometry.js";
 import { canonicalLoomWireRouting } from "./loomJumpRouting.js";
@@ -7850,6 +7850,24 @@ class ProductionEngineBridge {
     return true;
   }
 
+  previewManagedLoomLabelStyle(loomId, fields = {}) {
+    const loom = this.scene.looms.find(item => item.id === loomId);
+    if (!loom) return false;
+    for (const [key, fallback] of [
+      ["labelTextColor", DEFAULT_LOOM_LABEL_TEXT_COLOR],
+      ["labelBackgroundColor", DEFAULT_LOOM_LABEL_BACKGROUND_COLOR]
+    ]) {
+      if (fields[key] !== undefined) loom[key] = normalizeLoomLabelColor(fields[key], fallback);
+    }
+    this.scheduleRender();
+    return true;
+  }
+
+  getManagedLoomLabelDefaults() {
+    return { labelTextColor: DEFAULT_LOOM_LABEL_TEXT_COLOR,
+      labelBackgroundColor: DEFAULT_LOOM_LABEL_BACKGROUND_COLOR };
+  }
+
   updateManagedLoom(loomId, fields) {
     return this.commitLoomEdit("edit loom", draft => {
       const loom = draft.looms.find(item => item.id === loomId);
@@ -7857,6 +7875,12 @@ class ProductionEngineBridge {
       if (fields.name !== undefined && !renameLoom(draft, loomId, fields.name)) return false;
       for (const key of ["origin", "destination", "trunkLength", "notes", "routeStyle"]) {
         if (fields[key] !== undefined) loom[key] = String(fields[key]);
+      }
+      if (fields.labelTextColor !== undefined) {
+        loom.labelTextColor = normalizeLoomLabelColor(fields.labelTextColor, DEFAULT_LOOM_LABEL_TEXT_COLOR);
+      }
+      if (fields.labelBackgroundColor !== undefined) {
+        loom.labelBackgroundColor = normalizeLoomLabelColor(fields.labelBackgroundColor, DEFAULT_LOOM_LABEL_BACKGROUND_COLOR);
       }
       for (const side of ["sideA", "sideB"]) {
         if (fields[side]) loom[side] = { ...loom[side], ...fields[side] };

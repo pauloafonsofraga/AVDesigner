@@ -3,6 +3,26 @@ import { buildCableSchedule, groupedCables } from "./cableSchedule.js";
 const rootOf = project => project?.state || project?.project || project || {};
 const nameKey = name => String(name || "").trim().toLowerCase();
 
+export const DEFAULT_LOOM_LABEL_TEXT_COLOR = "#ffffff";
+export const DEFAULT_LOOM_LABEL_BACKGROUND_COLOR = "#000000";
+
+export function normalizeLoomLabelColor(value, fallback = DEFAULT_LOOM_LABEL_TEXT_COLOR) {
+  const normalize = candidate => {
+    const source = String(candidate ?? "").trim();
+    if (/^#[\da-f]{6}$/i.test(source)) return source.toLowerCase();
+    const short = /^#([\da-f])([\da-f])([\da-f])$/i.exec(source);
+    return short ? `#${short[1]}${short[1]}${short[2]}${short[2]}${short[3]}${short[3]}`.toLowerCase() : "";
+  };
+  return normalize(value) || normalize(fallback) || DEFAULT_LOOM_LABEL_TEXT_COLOR;
+}
+
+export function loomLabelBackgroundRgba(value, alpha = 0.82) {
+  const color = normalizeLoomLabelColor(value, DEFAULT_LOOM_LABEL_BACKGROUND_COLOR);
+  const channels = [1, 3, 5].map(index => Number.parseInt(color.slice(index, index + 2), 16));
+  const opacity = Math.max(0, Math.min(1, Number.isFinite(Number(alpha)) ? Number(alpha) : 0.82));
+  return `rgba(${channels.join(",")},${opacity})`;
+}
+
 export function normalizeLoom(value, index = 0) {
   const point = (side, fallback) => side ? ({
     label: String(side?.label || fallback),
@@ -14,6 +34,8 @@ export function normalizeLoom(value, index = 0) {
     name: String(value?.name || `LM-${String(index + 1).padStart(3, "0")}`),
     origin: String(value?.origin ?? ""), destination: String(value?.destination ?? ""),
     sideA: point(value?.sideA, "Side A"), sideB: point(value?.sideB, "Side B"),
+    labelTextColor: normalizeLoomLabelColor(value?.labelTextColor, DEFAULT_LOOM_LABEL_TEXT_COLOR),
+    labelBackgroundColor: normalizeLoomLabelColor(value?.labelBackgroundColor, DEFAULT_LOOM_LABEL_BACKGROUND_COLOR),
     routeStyle: value?.routeStyle === "bezier" ? "bezier" : "orthogonal",
     routePoints: Array.isArray(value?.routePoints) ? value.routePoints
       .filter(p => Number.isFinite(Number(p?.x)) && Number.isFinite(Number(p?.y)))

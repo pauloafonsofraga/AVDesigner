@@ -8,7 +8,7 @@ export const svgNumber = value => {
 };
 
 const stateKeys = ["fillStyle", "strokeStyle", "lineWidth", "lineCap", "lineJoin", "globalAlpha",
-  "font", "textAlign", "textBaseline", "lineDash", "matrix", "clips"];
+  "font", "textAlign", "textBaseline", "textPaintMode", "lineDash", "matrix", "clips"];
 const multiply = (a, b) => [a[0]*b[0]+a[2]*b[1], a[1]*b[0]+a[3]*b[1],
   a[0]*b[2]+a[2]*b[3], a[1]*b[2]+a[3]*b[3], a[0]*b[4]+a[2]*b[5]+a[4], a[1]*b[4]+a[3]*b[5]+a[5]];
 
@@ -37,7 +37,7 @@ export class OutputSvgContext {
     this.elements = []; this.defs = []; this.stack = []; this.path = []; this.textBounds = null;
     this.fillStyle = "#000000"; this.strokeStyle = "#000000"; this.lineWidth = 1;
     this.lineCap = "butt"; this.lineJoin = "miter"; this.globalAlpha = 1;
-    this.font = "10px sans-serif"; this.textAlign = "left"; this.textBaseline = "alphabetic";
+    this.font = "10px sans-serif"; this.textAlign = "left"; this.textBaseline = "alphabetic"; this.textPaintMode = "print";
     this.lineDash = []; this.matrix = [1,0,0,1,0,0]; this.clips = [];
   }
   save() { this.stack.push(Object.fromEntries(stateKeys.map(k => [k, Array.isArray(this[k]) ? [...this[k]] : this[k]]))); }
@@ -116,7 +116,8 @@ export class OutputSvgContext {
       this.textBounds.left = Math.min(this.textBounds.left,wx); this.textBounds.top = Math.min(this.textBounds.top,wy);
       this.textBounds.right = Math.max(this.textBounds.right,wx); this.textBounds.bottom = Math.max(this.textBounds.bottom,wy);
     }
-    this.emit(`<text x="${svgNumber(x)}" y="${svgNumber(y)}" font-family="${svgEscape(parsed?.[3] || "sans-serif")}" font-size="${size}" font-weight="${svgEscape(weight)}" text-anchor="${anchor}" dominant-baseline="${baseline}" xml:space="preserve" ${stroke ? `fill="none" ${this.strokeAttributes("text-stroke")}` : `fill="${this.paint(this.fillStyle,"text")}"`}>${svgEscape(text)}</text>`);
+    const exactStyle = this.textPaintMode === "exact";
+    this.emit(`<text x="${svgNumber(x)}" y="${svgNumber(y)}" font-family="${svgEscape(parsed?.[3] || "sans-serif")}" font-size="${size}" font-weight="${svgEscape(weight)}" text-anchor="${anchor}" dominant-baseline="${baseline}" xml:space="preserve" ${stroke ? `fill="none" ${this.strokeAttributes(exactStyle ? "stroke" : "text-stroke")}` : `fill="${this.paint(this.fillStyle,exactStyle ? "fill" : "text")}"`}>${svgEscape(text)}</text>`);
   }
   fillText(text,x,y) { this.text(text,x,y,false); }
   strokeText(text,x,y) { this.text(text,x,y,true); }

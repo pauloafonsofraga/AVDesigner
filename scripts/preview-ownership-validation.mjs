@@ -13,7 +13,7 @@ import { TITLE_BLOCK_PREVIEW_BUILD_ID } from "../src/engine/titleBlockPreview.js
 
 const EXPECTED_PREVIEW_BUILD_ID = "iteration53-4-3-compact-rack-projection";
 const EXPECTED_RACK_PREVIEW_BUILD_ID = "iteration53-4-3-builder-compact-projection";
-const EXPECTED_APP_BUILD_ID = "iteration54-38-87-unpaired-jump-marker";
+const EXPECTED_APP_BUILD_ID = "iteration54-38-88-loom-label-colors";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -25,11 +25,11 @@ assert.equal(RACK_PREVIEW_BUILD_ID, EXPECTED_RACK_PREVIEW_BUILD_ID, "rack previe
 assert.equal(NODE_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "node preview build id");
 assert.equal(TITLE_BLOCK_PREVIEW_BUILD_ID, EXPECTED_PREVIEW_BUILD_ID, "title-block preview build id");
 
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.87";'), "app iteration should be 54.38.87");
-assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${EXPECTED_APP_BUILD_ID}";`), "app build id should match 54.38.87");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-87-unpaired-jump-marker-modules";'), "module cache key should match 54.38.87");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.88";'), "app iteration should be 54.38.88");
+assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${EXPECTED_APP_BUILD_ID}";`), "app build id should match 54.38.88");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-88-loom-label-colors-modules";'), "module cache key should match 54.38.88");
 assert.ok(indexHtml.includes('url.searchParams.set("module", APP_MODULE_CACHE_ID);'), "engine imports should carry the module cache key");
-assert.ok(indexHtml.includes("Unpaired Jump Center Marker"), "app build label should name the current Jump visual-state fix");
+assert.ok(indexHtml.includes("Loom Label Colors"), "app build label should name the current Loom label-style change");
 assert.doesNotMatch(indexHtml, /ensureLedSurfacePreviews|LED_SURFACE_PREVIEW_MAX/, "LED loading must not generate reduced previews");
 assert.ok(readFileSync(new URL("../src/engine/projectAdapter.js", import.meta.url), "utf8").includes("image: sourceImage"), "Engine loads original LED artwork");
 
