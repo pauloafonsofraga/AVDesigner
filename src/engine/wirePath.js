@@ -40,11 +40,11 @@ export function bezierPolyline(from, to, steps = DEFAULT_BEZIER_STEPS) {
   return points;
 }
 
-function splinePolylineThroughPoints(points, stepsPerSegment) {
-  if (points.length < 2) return points;
-  if (points.length === 2) return bezierPolyline(points[0], points[1], DEFAULT_BEZIER_STEPS);
+export function splinePolylineSegmentsThroughPoints(points, stepsPerSegment = MANUAL_SEGMENT_STEPS) {
+  if (points.length < 2) return [];
+  if (points.length === 2) return [bezierPolyline(points[0], points[1], DEFAULT_BEZIER_STEPS)];
   const tangents = points.map((_, index) => tangentForPoint(points, index));
-  const result = [];
+  const segments = [];
   for (let index = 0; index < points.length - 1; index += 1) {
     const current = points[index];
     const next = points[index + 1];
@@ -58,12 +58,17 @@ function splinePolylineThroughPoints(points, stepsPerSegment) {
       x: next.x - nextTangent.x / 3,
       y: next.y - nextTangent.y / 3
     };
-    for (let step = 0; step <= stepsPerSegment; step += 1) {
-      if (index && step === 0) continue;
-      result.push(cubicPoint(current, c1, c2, next, step / stepsPerSegment));
-    }
+    const samples = [];
+    for (let step = 0; step <= stepsPerSegment; step += 1) samples.push(
+      cubicPoint(current, c1, c2, next, step / stepsPerSegment));
+    segments.push(samples);
   }
-  return result;
+  return segments;
+}
+
+function splinePolylineThroughPoints(points, stepsPerSegment) {
+  return splinePolylineSegmentsThroughPoints(points, stepsPerSegment)
+    .flatMap((segment, index) => index ? segment.slice(1) : segment);
 }
 
 function legacyBezierControls(from, to) {

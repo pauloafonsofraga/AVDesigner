@@ -36,7 +36,8 @@ import { applyCanvasClipboardPlan } from "./canvasClipboard.js";
 import { WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
 import { allocateLoomIdentity, DEFAULT_LOOM_LABEL_BACKGROUND_COLOR, DEFAULT_LOOM_LABEL_TEXT_COLOR,
-  dissolveLoom, normalizeLoomLabelColor, renameLoom, selectedLoomCableGroups, setLogicalCableLoom } from "./loomModel.js";
+  addLoomRoutePoint as appendLoomRoutePoint, dissolveLoom, normalizeLoom, normalizeLoomLabelColor,
+  renameLoom, selectedLoomCableGroups, setLogicalCableLoom } from "./loomModel.js";
 import { externalCableEndpoints, initialLoomHeads, loomCreationPreviewPoints, loomGeometry,
   prepareLoomGeometryContext } from "./loomGeometry.js";
 import { canonicalLoomWireRouting } from "./loomJumpRouting.js";
@@ -4304,10 +4305,10 @@ class ProductionEngineBridge {
       this.commitLoomEdit("draw loom", project => {
         const identity = allocateLoomIdentity(project);
         createdId = identity.id;
-        project.looms.push({ ...identity, kind: "loom",
+        project.looms.push(normalizeLoom({ ...identity, kind: "loom",
           sideA: { label: "Side A", ...draft.sideA }, sideB: { label: "Side B", ...endpoint },
           routeStyle: draft.routeStyle, routePoints: draft.routePoints,
-          origin: "", destination: "", trunkLength: "", notes: "" });
+          origin: "", destination: "", trunkLength: "", notes: "" }));
         return true;
       });
     }
@@ -7889,7 +7890,11 @@ class ProductionEngineBridge {
       for (const side of ["sideA", "sideB"]) {
         if (fields[side]) loom[side] = { ...loom[side], ...fields[side] };
       }
-      if (fields.routePoints) loom.routePoints = structuredClone(fields.routePoints);
+      if (fields.routePoints) {
+        const normalized = normalizeLoom({ ...loom, routePoints: fields.routePoints });
+        loom.routePoints = normalized.routePoints;
+        loom.routePointCounter = normalized.routePointCounter;
+      }
       return true;
     });
   }
@@ -7899,9 +7904,7 @@ class ProductionEngineBridge {
     return this.commitLoomEdit("add loom corner", draft => {
       const loom = draft.looms.find(item => item.id === loomId);
       if (!loom) return false;
-      loom.routePoints ||= [];
-      loom.routePoints.push({ x: point.x, y: point.y });
-      return true;
+      return Boolean(appendLoomRoutePoint(loom, point));
     });
   }
 

@@ -1,7 +1,8 @@
 import { buildCableSchedule, groupedCables } from "./cableSchedule.js";
 import { buildPreviewOrthogonalWirePoints } from "./orthogonalRouting.js";
-import { wirePolylineFromPoints } from "./wirePath.js";
+import { splinePolylineSegmentsThroughPoints, wirePolylineFromPoints } from "./wirePath.js";
 import { gatewayExitSide, loomCoreColors, orthogonalManualPoints } from "./routingPlacement.js";
+import { normalizeLoom } from "./loomModel.js";
 
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const mean = points => ({
@@ -103,6 +104,122 @@ export function loomTrunkPoints(loom) {
     return result;
   }
   return buildPreviewOrthogonalWirePoints(a, b);
+}
+
+export function loomRouteControlNodes(value) {
+  const loom = normalizeLoom(value);
+  return [
+    { id: "sideA", kind: "side", x: loom.sideA?.x ?? 0, y: loom.sideA?.y ?? 0 },
+    ...loom.routePoints.map(({ id, x, y }) => ({ id, kind: "route-point", x, y })),
+    { id: "sideB", kind: "side", x: loom.sideB?.x ?? 0, y: loom.sideB?.y ?? 0 }
+  ];
+}
+
+export function loomRouteSpans(loom) {
+  const nodes = loomRouteControlNodes(loom);
+  return nodes.slice(1).map((to, index) => {
+    const from = nodes[index];
+    return { id: `${from.id}=>${to.id}`, fromAnchorId: from.id, toAnchorId: to.id,
+      from: { x: from.x, y: from.y }, to: { x: to.x, y: to.y } };
+  });
+}
+
+export function loomRouteSpanPolyline(value, fromAnchorId, toAnchorId) {
+  const loom = normalizeLoom(value);
+  const nodes = loomRouteControlNodes(loom);
+  const spanIndex = nodes.findIndex((node, index) => index < nodes.length - 1
+    && node.id === fromAnchorId && nodes[index + 1].id === toAnchorId);
+  if (spanIndex < 0) return [];
+  const from = nodes[spanIndex], to = nodes[spanIndex + 1];
+  if (loom.routeStyle === "orthogonal") {
+    if (!loom.routePoints.length) return loomTrunkPoints(loom);
+    return from.x !== to.x && from.y !== to.y
+      ? [{ x: from.x, y: from.y }, { x: to.x, y: from.y }, { x: to.x, y: to.y }]
+      : [{ x: from.x, y: from.y }, { x: to.x, y: to.y }];
+  }
+  if (!loom.routePoints.length) return loomTrunkPoints(loom);
+  const controls = nodes.map(({ x, y }) => ({ x, y }));
+  return splinePolylineSegmentsThroughPoints(controls)[spanIndex] || [];
+}
+
+export function resolveLoomRouteAttachment(loom, locator) {
+  const spans = loomRouteSpans(loom);
+  const span = spans.find(item => item.fromAnchorId === locator?.fromAnchorId
+    && item.toAnchorId === locator?.toAnchorId);
+  const rawFraction = Number(locator?.fraction);
+  if (!span || !Number.isFinite(rawFraction)) return { valid: false };
+  const fraction = Math.max(0, Math.min(1, rawFraction));
+  const points = loomRouteSpanPolyline(loom, span.fromAnchorId, span.toAnchorId);
+  if (points.length < 2) return { valid: false };
+  const point = pointAtPolylineFraction(points, fraction);
+  const tangent = tangentOnPolyline(points, fraction);
+  if (!point || !tangent) return { valid: false };
+  return { valid: true, point, tangent, spanId: span.id, fromAnchorId: span.fromAnchorId,
+    toAnchorId: span.toAnchorId, fraction };
+}
+
+export function locatePointOnLoomRoute(loom, worldPoint) {
+  if (!Number.isFinite(worldPoint?.x) || !Number.isFinite(worldPoint?.y)) return { valid: false };
+  let best = null;
+  for (const span of loomRouteSpans(loom)) {
+    const points = loomRouteSpanPolyline(loom, span.fromAnchorId, span.toAnchorId);
+    const lengths = points.slice(1).map((point, index) => distance(point, points[index]));
+    const total = lengths.reduce((sum, length) => sum + length, 0);
+    if (!total) continue;
+    let walked = 0;
+    for (let index = 1; index < points.length; index += 1) {
+      const hit = nearestPointOnSegment(worldPoint, points[index - 1], points[index]);
+      if (!best || hit.distance < best.distance) best = {
+        distance: hit.distance,
+        locator: { fromAnchorId: span.fromAnchorId, toAnchorId: span.toAnchorId,
+          fraction: (walked + lengths[index - 1] * hit.t) / total }
+      };
+      walked += lengths[index - 1];
+    }
+  }
+  return best ? { valid: true, ...best.locator, point: resolveLoomRouteAttachment(loom, best.locator).point,
+    distance: best.distance } : { valid: false };
+}
+
+function nearestPointOnSegment(point, a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y, lengthSq = dx * dx + dy * dy;
+  const t = lengthSq ? Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSq)) : 0;
+  const projected = { x: a.x + dx * t, y: a.y + dy * t };
+  return { ...projected, t, distance: distance(point, projected) };
+}
+
+function pointAtPolylineFraction(points, fraction) {
+  const lengths = points.slice(1).map((point, index) => distance(point, points[index]));
+  const total = lengths.reduce((sum, length) => sum + length, 0);
+  if (!total) return points[0] ? { ...points[0] } : null;
+  const target = Math.max(0, Math.min(1, fraction)) * total;
+  let walked = 0;
+  for (let index = 0; index < lengths.length; index += 1) {
+    const length = lengths[index];
+    if (walked + length >= target || index === lengths.length - 1) {
+      const t = length ? (target - walked) / length : 0;
+      return { x: points[index].x + (points[index + 1].x - points[index].x) * t,
+        y: points[index].y + (points[index + 1].y - points[index].y) * t };
+    }
+    walked += length;
+  }
+  return { ...points.at(-1) };
+}
+
+function tangentOnPolyline(points, fraction) {
+  const target = Math.max(0, Math.min(1, fraction)) * points.slice(1)
+    .reduce((sum, point, index) => sum + distance(point, points[index]), 0);
+  let walked = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    const length = distance(points[index - 1], points[index]);
+    if (walked + length >= target || index === points.length - 1) {
+      const magnitude = length || 1;
+      return { x: (points[index].x - points[index - 1].x) / magnitude,
+        y: (points[index].y - points[index - 1].y) / magnitude };
+    }
+    walked += length;
+  }
+  return null;
 }
 
 export function loomCreationPreviewPoints(draft, zoom = 1, tolerancePx = 8) {

@@ -29,6 +29,30 @@ export function normalizeLoom(value, index = 0) {
     x: Number.isFinite(Number(side?.x)) ? Number(side.x) : 0,
     y: Number.isFinite(Number(side?.y)) ? Number(side.y) : 0
   }) : null;
+  const rawRoutePoints = Array.isArray(value?.routePoints) ? value.routePoints
+    .filter(p => Number.isFinite(Number(p?.x)) && Number.isFinite(Number(p?.y))) : [];
+  const routePointIds = new Set();
+  let routePointCounter = Math.max(0, Math.floor(Number(value?.routePointCounter) || 0));
+  for (const routePoint of rawRoutePoints) {
+    const id = String(routePoint?.id || "").trim();
+    const match = /^lrp-(\d+)$/.exec(id);
+    if (match) routePointCounter = Math.max(routePointCounter, Number(match[1]));
+  }
+  const nextRoutePointId = () => {
+    do { routePointCounter += 1; } while (routePointIds.has(`lrp-${routePointCounter}`));
+    return `lrp-${routePointCounter}`;
+  };
+  const routePoints = rawRoutePoints.map(routePoint => {
+    let id = String(routePoint?.id || "").trim();
+    if (!id || routePointIds.has(id)) id = nextRoutePointId();
+    else {
+      routePointIds.add(id);
+      const match = /^lrp-(\d+)$/.exec(id);
+      if (match) routePointCounter = Math.max(routePointCounter, Number(match[1]));
+    }
+    routePointIds.add(id);
+    return { id, x: Number(routePoint.x), y: Number(routePoint.y) };
+  });
   return {
     id: String(value?.id || `loom-${index + 1}`), kind: "loom",
     name: String(value?.name || `LM-${String(index + 1).padStart(3, "0")}`),
@@ -37,11 +61,31 @@ export function normalizeLoom(value, index = 0) {
     labelTextColor: normalizeLoomLabelColor(value?.labelTextColor, DEFAULT_LOOM_LABEL_TEXT_COLOR),
     labelBackgroundColor: normalizeLoomLabelColor(value?.labelBackgroundColor, DEFAULT_LOOM_LABEL_BACKGROUND_COLOR),
     routeStyle: value?.routeStyle === "bezier" ? "bezier" : "orthogonal",
-    routePoints: Array.isArray(value?.routePoints) ? value.routePoints
-      .filter(p => Number.isFinite(Number(p?.x)) && Number.isFinite(Number(p?.y)))
-      .map(p => ({ x: Number(p.x), y: Number(p.y) })) : [],
+    routePoints, routePointCounter,
     trunkLength: String(value?.trunkLength ?? ""), notes: String(value?.notes ?? "")
   };
+}
+
+export function allocateLoomRoutePointId(loom) {
+  if (!loom || typeof loom !== "object") return "";
+  const points = Array.isArray(loom.routePoints) ? loom.routePoints : [];
+  const used = new Set(points.map(point => String(point?.id || "")).filter(Boolean));
+  let counter = Math.max(0, Math.floor(Number(loom.routePointCounter) || 0));
+  for (const id of used) {
+    const match = /^lrp-(\d+)$/.exec(id);
+    if (match) counter = Math.max(counter, Number(match[1]));
+  }
+  do { counter += 1; } while (used.has(`lrp-${counter}`));
+  loom.routePointCounter = counter;
+  return `lrp-${counter}`;
+}
+
+export function addLoomRoutePoint(loom, point) {
+  if (!loom || !Number.isFinite(point?.x) || !Number.isFinite(point?.y)) return null;
+  loom.routePoints ||= [];
+  const routePoint = { id: allocateLoomRoutePointId(loom), x: point.x, y: point.y };
+  loom.routePoints.push(routePoint);
+  return routePoint;
 }
 
 export function allocateLoomIdentity(project) {

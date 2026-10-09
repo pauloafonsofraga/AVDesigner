@@ -4,10 +4,12 @@ import { bidirectionalJumpFixture } from "../fixtures/bidirectional-jumps.mjs";
 import { cableTypeSelectionFixture } from "../fixtures/cable-type-selection.mjs";
 import { managedLoomMixedFixture } from "../fixtures/managed-looms.mjs";
 import { buildCableSchedule } from "../src/engine/cableSchedule.js";
-import { allocateLoomIdentity, dissolveLoom, loomComposition, migrateLegacyLooms, normalizeLoom,
+import { addLoomRoutePoint, allocateLoomIdentity, allocateLoomRoutePointId, dissolveLoom,
+  loomComposition, migrateLegacyLooms, normalizeLoom,
   DEFAULT_LOOM_LABEL_BACKGROUND_COLOR, DEFAULT_LOOM_LABEL_TEXT_COLOR, loomLabelBackgroundRgba,
   normalizeLoomLabelColor, renameLoom, selectedLoomCableGroups, setLogicalCableLoom } from "../src/engine/loomModel.js";
-import { initialLoomHeads, loomGeometry, loomTrunkPoints, orientCableEndpoints,
+import { initialLoomHeads, locatePointOnLoomRoute, loomGeometry, loomRouteControlNodes,
+  loomRouteSpanPolyline, loomRouteSpans, loomTrunkPoints, orientCableEndpoints, resolveLoomRouteAttachment,
   prepareLoomGeometryContext } from "../src/engine/loomGeometry.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
@@ -95,7 +97,7 @@ test("Loom label colors normalize to safe canonical hex values with legacy defau
   const normalized = normalizeLoom(legacy);
   assert.deepEqual([normalized.labelTextColor, normalized.labelBackgroundColor], ["#ffffff", "#000000"]);
   const { labelTextColor, labelBackgroundColor, ...legacyProperties } = normalized;
-  assert.deepEqual(legacyProperties, { ...legacy, kind: "loom" });
+  assert.deepEqual(legacyProperties, { ...legacy, kind: "loom", routePoints: [{ id: "lrp-1", x: 2, y: 3 }], routePointCounter: 1 });
   assert.deepEqual([DEFAULT_LOOM_LABEL_TEXT_COLOR, DEFAULT_LOOM_LABEL_BACKGROUND_COLOR], ["#ffffff", "#000000"]);
   assert.deepEqual([normalizeLoomLabelColor("#F0A"), normalizeLoomLabelColor("#ABCDEF"),
     normalizeLoomLabelColor("invalid", "#123456")], ["#ff00aa", "#abcdef", "#123456"]);
@@ -103,6 +105,117 @@ test("Loom label colors normalize to safe canonical hex values with legacy defau
   assert.equal(loomLabelBackgroundRgba("#ff0000"), "rgba(255,0,0,0.82)");
   assert.equal(loomLabelBackgroundRgba("invalid"), "rgba(0,0,0,0.82)");
 });
+
+test("Loom route points migrate stable IDs, preserve valid IDs, and allocate above the high-water mark", () => {
+  const legacy = normalizeLoom({ id: "loom-legacy", sideA: { x: 0, y: 0 }, sideB: { x: 400, y: 0 },
+    routePoints: [{ x: 100, y: 30 }, { x: 250, y: 50 }] });
+  assert.deepEqual(legacy.routePoints, [
+    { id: "lrp-1", x: 100, y: 30 }, { id: "lrp-2", x: 250, y: 50 }
+  ]);
+  assert.equal(legacy.routePointCounter, 2);
+  const existing = normalizeLoom({ id: "loom-stable", routePointCounter: 8,
+    routePoints: [{ id: "lrp-3", x: 1, y: 2 }, { id: "lrp-8", x: 3, y: 4 }] });
+  assert.deepEqual(existing.routePoints.map(point => point.id), ["lrp-3", "lrp-8"]);
+  assert.equal(allocateLoomRoutePointId(existing), "lrp-9");
+  existing.routePoints.splice(1, 1);
+  assert.equal(addLoomRoutePoint(existing, { x: 5, y: 6 }).id, "lrp-10", "deleted high IDs are not reused");
+  assert.deepEqual(normalizeLoom(JSON.parse(JSON.stringify(existing))), existing,
+    "normalization is stable across JSON save/reload");
+});
+
+test("Loom normalization repairs duplicate route point IDs idempotently without changing geometry", () => {
+  const raw = { id: "loom-duplicate", routePointCounter: 4,
+    routePoints: [{ id: "lrp-2", x: 10, y: 20 }, { id: "lrp-2", x: 30, y: 40 }, { x: 50, y: 60 }] };
+  const normalized = normalizeLoom(raw);
+  assert.deepEqual(normalized.routePoints.map(({ x, y }) => ({ x, y })), raw.routePoints.map(({ x, y }) => ({ x, y })));
+  assert.deepEqual(normalized.routePoints.map(point => point.id), ["lrp-2", "lrp-5", "lrp-6"]);
+  assert.deepEqual(normalizeLoom(normalized), normalized);
+});
+
+test("legacy Loom migration materializes route IDs without changing canonical trunk geometry", () => {
+  const legacy = { looms: [{ id: "loom-legacy", name: "LM-OLD", sideA: { x: 10, y: 20 },
+    sideB: { x: 410, y: 220 }, routeStyle: "orthogonal",
+    routePoints: [{ x: 120, y: 80 }, { x: 300, y: 160 }] }], connections: [] };
+  const before = loomTrunkPoints(legacy.looms[0]);
+  assert.deepEqual(migrateLegacyLooms(legacy), []);
+  assert.deepEqual(legacy.looms[0].routePoints.map(({ id }) => id), ["lrp-1", "lrp-2"]);
+  assert.deepEqual(loomTrunkPoints(legacy.looms[0]), before);
+  const reloaded = JSON.parse(JSON.stringify(legacy));
+  assert.deepEqual(migrateLegacyLooms(reloaded), []);
+  assert.deepEqual(reloaded.looms[0].routePoints, legacy.looms[0].routePoints);
+});
+
+test("logical Loom nodes and spans use stable anchor identifiers", () => {
+  const loom = normalizeLoom({ id: "loom-span", sideA: { x: 0, y: 0 }, sideB: { x: 300, y: 0 },
+    routePoints: [{ id: "lrp-4", x: 100, y: 20 }, { id: "lrp-9", x: 200, y: 40 }] });
+  assert.deepEqual(loomRouteControlNodes(loom).map(node => [node.id, node.kind]), [
+    ["sideA", "side"], ["lrp-4", "route-point"], ["lrp-9", "route-point"], ["sideB", "side"]
+  ]);
+  assert.deepEqual(loomRouteSpans(loom).map(span => span.id), [
+    "sideA=>lrp-4", "lrp-4=>lrp-9", "lrp-9=>sideB"
+  ]);
+});
+
+test("Loom route locators round-trip across orthogonal elbows and canonical Bezier spans", () => {
+  const cases = [
+    { routeStyle: "orthogonal", routePoints: [], sideB: { x: 300, y: 0 } },
+    { routeStyle: "orthogonal", routePoints: [{ id: "lrp-1", x: 100, y: 100 }], sideB: { x: 300, y: 0 } },
+    { routeStyle: "orthogonal", routePoints: [{ id: "lrp-1", x: 100, y: 100 },
+      { id: "lrp-2", x: 250, y: -20 }], sideB: { x: 400, y: 80 } },
+    { routeStyle: "bezier", routePoints: [], sideB: { x: 300, y: 120 } },
+    { routeStyle: "bezier", routePoints: [{ id: "lrp-1", x: 100, y: 120 },
+      { id: "lrp-2", x: 240, y: -50 }], sideB: { x: 400, y: 100 } }
+  ];
+  for (const [caseIndex, source] of cases.entries()) {
+    const loom = normalizeLoom({ id: `geometry-${caseIndex}`, sideA: { x: 0, y: 0 }, ...source });
+    const span = loomRouteSpans(loom)[Math.floor(loomRouteSpans(loom).length / 2)];
+    const points = loomRouteSpanPolyline(loom, span.fromAnchorId, span.toAnchorId);
+    const target = pointOnPolyline(points, 0.37);
+    const locator = locatePointOnLoomRoute(loom, target);
+    assert.equal(locator.valid, true, `case ${caseIndex} captures a valid locator`);
+    assert.equal(locator.fromAnchorId, span.fromAnchorId);
+    assert.equal(locator.toAnchorId, span.toAnchorId);
+    const resolved = resolveLoomRouteAttachment(loom, locator);
+    assert.equal(resolved.valid, true);
+    assert.ok(Math.hypot(resolved.point.x - locator.point.x, resolved.point.y - locator.point.y) < 0.01);
+    assert.ok(Math.hypot(resolved.point.x - target.x, resolved.point.y - target.y) < 3,
+      `case ${caseIndex} round trips to the projected path point`);
+  }
+});
+
+test("Loom locators survive edits elsewhere, route-style changes, and invalidate when an owner anchor is deleted", () => {
+  const loom = normalizeLoom({ id: "stable-locator", sideA: { x: 0, y: 0 }, sideB: { x: 400, y: 0 },
+    routeStyle: "orthogonal", routePoints: [{ id: "lrp-1", x: 100, y: 80 }, { id: "lrp-2", x: 250, y: 120 }] });
+  const locator = { fromAnchorId: "lrp-1", toAnchorId: "lrp-2", fraction: 0.42 };
+  assert.equal(resolveLoomRouteAttachment(loom, locator).valid, true);
+  loom.routePoints[0].x += 20;
+  assert.equal(resolveLoomRouteAttachment(loom, locator).valid, true);
+  loom.routeStyle = "bezier";
+  assert.equal(resolveLoomRouteAttachment(loom, locator).valid, true);
+  loom.routePoints.unshift({ id: "lrp-7", x: 40, y: 10 });
+  assert.equal(resolveLoomRouteAttachment(loom, { fromAnchorId: "lrp-2", toAnchorId: "sideB", fraction: 0.6 }).valid, true);
+  loom.routePoints = loom.routePoints.filter(point => point.id !== "lrp-2");
+  assert.equal(resolveLoomRouteAttachment(loom, locator).valid, false);
+  assert.equal(resolveLoomRouteAttachment(loom, { fromAnchorId: "sideA", toAnchorId: "lrp-7", fraction: 1.5 }).fraction, 1,
+    "finite locator fractions clamp to the span endpoints");
+  assert.equal(resolveLoomRouteAttachment(loom, { fromAnchorId: "lrp-7", toAnchorId: "sideB", fraction: 0.5 }).valid, false,
+    "non-adjacent anchor pairs are invalid");
+});
+
+function pointOnPolyline(points, fraction) {
+  const lengths = points.slice(1).map((point, index) => Math.hypot(point.x - points[index].x, point.y - points[index].y));
+  const total = lengths.reduce((sum, length) => sum + length, 0);
+  let target = total * fraction;
+  for (let index = 0; index < lengths.length; index += 1) {
+    if (target <= lengths[index] || index === lengths.length - 1) {
+      const t = lengths[index] ? target / lengths[index] : 0;
+      return { x: points[index].x + (points[index + 1].x - points[index].x) * t,
+        y: points[index].y + (points[index + 1].y - points[index].y) * t };
+    }
+    target -= lengths[index];
+  }
+  return points.at(-1);
+}
 
 test("head placement and A/B assignment are independent of electrical direction", () => {
   const pairs = [

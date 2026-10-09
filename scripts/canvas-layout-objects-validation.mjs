@@ -25,7 +25,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-38-89-loom-picker-cancel";
+const BUILD_ID = "iteration54-38-90-stable-loom-route-anchors";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -41,8 +41,8 @@ function sourceSlice(source, startNeedle, endNeedle) {
 }
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Jump glow contrast");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.89";'), "visible iteration should be 54.38.89");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-89-loom-picker-cancel-modules";'), "module cache key should bust current modules");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.90";'), "visible iteration should be 54.38.90");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-90-stable-loom-route-anchors-modules";'), "module cache key should bust current modules");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-82-jump-scoped-connector-compatibility"'), "Engine bridge version should identify the current Jump compatibility fix");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];

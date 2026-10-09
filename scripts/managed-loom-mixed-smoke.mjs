@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { managedLoomMixedFixture } from "../fixtures/managed-looms.mjs";
@@ -85,7 +85,35 @@ try {
   const newTrunkScreen = await toScreen(newTrunk);
   await page.mouse.click(newTrunkScreen.x, newTrunkScreen.y, { button: "right" });
   await page.locator('[data-loom-menu="add-corner"]').click();
-  assert.equal(await page.evaluate(() => state.looms[0].routePoints.length), 1);
+  await page.evaluate(() => {
+    const loom = state.looms[0];
+    activeEngineBridge().addLoomRoutePoint(loom.id, { x: loom.sideA.x + 90, y: loom.sideA.y + 120 });
+    activeEngineBridge().addLoomRoutePoint(loom.id, { x: loom.sideB.x - 90, y: loom.sideB.y - 120 });
+  });
+  const initialRoutePoints = await page.evaluate(() => structuredClone(state.looms[0].routePoints));
+  assert.deepEqual(initialRoutePoints.map(point => point.id), ["lrp-1", "lrp-2", "lrp-3"]);
+  assert.equal(await page.evaluate(() => state.looms[0].routePointCounter), 3);
+  assert.equal(await page.evaluate(() => activeEngineBridge().undoEngineCommand()), true);
+  assert.deepEqual(await page.evaluate(() => state.looms[0].routePoints.map(point => point.id)), ["lrp-1", "lrp-2"]);
+  assert.equal(await page.evaluate(() => activeEngineBridge().redoEngineCommand()), true);
+  assert.deepEqual(await page.evaluate(() => state.looms[0].routePoints.map(point => point.id)), ["lrp-1", "lrp-2", "lrp-3"]);
+  const beforeMove = await page.evaluate(() => structuredClone(state.looms[0].routePoints));
+  await page.evaluate(() => {
+    const loom = state.looms[0];
+    activeEngineBridge().updateManagedLoom(loom.id, { routePoints: loom.routePoints.map((point, index) =>
+      index === 1 ? { ...point, x: point.x + 35, y: point.y + 20 } : { ...point }) });
+  });
+  assert.deepEqual(await page.evaluate(() => state.looms[0].routePoints.map(point => point.id)), ["lrp-1", "lrp-2", "lrp-3"]);
+  assert.equal(await page.evaluate(() => activeEngineBridge().undoEngineCommand()), true);
+  assert.deepEqual(await page.evaluate(() => state.looms[0].routePoints), beforeMove);
+  assert.equal(await page.evaluate(() => activeEngineBridge().redoEngineCommand()), true);
+  assert.deepEqual(await page.evaluate(() => state.looms[0].routePoints.map(point => point.id)), ["lrp-1", "lrp-2", "lrp-3"]);
+  assert.equal(await page.evaluate(() => activeEngineBridge().removeLoomRoutePoint("loom-1", 1)), true);
+  assert.deepEqual(await page.evaluate(() => state.looms[0].routePoints.map(point => point.id)), ["lrp-1", "lrp-3"]);
+  assert.equal(await page.evaluate(() => activeEngineBridge().undoEngineCommand()), true);
+  assert.deepEqual(await page.evaluate(() => state.looms[0].routePoints.map(point => point.id)), ["lrp-1", "lrp-2", "lrp-3"]);
+  assert.equal(await page.evaluate(() => activeEngineBridge().redoEngineCommand()), true);
+  assert.deepEqual(await page.evaluate(() => state.looms[0].routePoints.map(point => point.id)), ["lrp-1", "lrp-3"]);
   await page.mouse.click(newTrunkScreen.x, newTrunkScreen.y, { button: "right" });
   await page.locator('[data-loom-menu="toggle-expanded"]').click();
   assert.equal(await page.evaluate(() => activeEngineBridge().scene.expandedLoomIds.has("loom-1")), true);
@@ -100,7 +128,8 @@ try {
   const path = join(mkdtempSync(join(tmpdir(), "wirenexus-loom-mixed-")), download.suggestedFilename());
   await download.saveAs(path);
   const saved = JSON.parse(readFileSync(path, "utf8"));
-  assert.equal(saved.looms[0].routePoints.length, 1);
+  assert.deepEqual(saved.looms[0].routePoints.map(point => point.id), ["lrp-1", "lrp-3"]);
+  assert.equal(saved.looms[0].routePointCounter, 3);
   assert.equal(saved.connections.filter(wire => wire.loomId === "loom-1").length, 6);
   const chooserPromise = page.waitForEvent("filechooser");
   await page.locator("#loadProject").click();
@@ -108,8 +137,23 @@ try {
   await chooser.setFiles(path);
   await page.waitForFunction(() => activeEngineBridge()?.ready && activeEngineBridge()?.scene?.loomPlans?.[0]?.circuitCount === 5);
   assert.deepEqual(await page.evaluate(() => state.looms[0]), saved.looms[0]);
+  assert.deepEqual(await page.evaluate(() => state.looms[0].routePoints.map(point => point.id)), ["lrp-1", "lrp-3"]);
   assert.deepEqual(await page.evaluate(() => state.connections.map(wire => wire.id)), baseline.ids);
   assert.equal(await page.evaluate(() => JSON.stringify(state.connections.map(wire => [wire.from, wire.to]))), baseline.endpoints);
+
+  const legacySnapshot = structuredClone(saved);
+  legacySnapshot.looms[0].routePoints = legacySnapshot.looms[0].routePoints.map(({ x, y }) => ({ x, y }));
+  delete legacySnapshot.looms[0].routePointCounter;
+  const legacyPath = join(mkdtempSync(join(tmpdir(), "wirenexus-loom-legacy-")), "legacy.avd");
+  writeFileSync(legacyPath, JSON.stringify(legacySnapshot));
+  const legacyChooserPromise = page.waitForEvent("filechooser");
+  await page.locator("#loadProject").click();
+  await (await legacyChooserPromise).setFiles(legacyPath);
+  await page.waitForFunction(() => activeEngineBridge()?.scene?.loomPlans?.[0]?.circuitCount === 5
+    && state.looms[0]?.routePoints?.map(point => point.id).join(",") === "lrp-1,lrp-2");
+  assert.deepEqual(await page.evaluate(() => state.looms[0].routePoints.map(point => point.id)), ["lrp-1", "lrp-2"]);
+  assert.deepEqual(await page.evaluate(() => state.looms[0].routePoints.map(({ x, y }) => ({ x, y }))),
+    legacySnapshot.looms[0].routePoints, "legacy restore materializes IDs without moving authored route points");
 
   assert.equal(await page.evaluate(() => activeEngineBridge().removeWiresFromLoom(["cable-2"])), true);
   assert.equal(await page.evaluate(() => activeEngineBridge().scene.loomPlans[0].circuitCount), 4);
