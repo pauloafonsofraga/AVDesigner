@@ -54,17 +54,79 @@ try {
     control.dispatchEvent(new Event("input", { bubbles: true }));
     control.dispatchEvent(new Event("change", { bubbles: true }));
   }, value);
+  const previewColor = async (selector, value) => {
+    const control = page.locator(selector);
+    await control.focus();
+    await control.evaluate((element, color) => {
+      element.value = color;
+      element.dispatchEvent(new Event("input", { bubbles: true }));
+    }, value);
+  };
+  const historyState = () => page.evaluate(() => activeEngineBridge().engineHistoryState());
+  const historyBeforeCancel = await historyState();
+  assert.deepEqual(await page.evaluate(() => [Object.hasOwn(state.looms[0], "labelTextColor"),
+    Object.hasOwn(state.looms[0], "labelBackgroundColor")]), [false, false]);
+  await previewColor("#loomLabelTextColor", "#ff0000");
+  assert.deepEqual(await page.evaluate(() => ({ root: Object.hasOwn(state.looms[0], "labelTextColor"),
+    scene: activeEngineBridge().scene.looms.find(loom => loom.id === "loom-1").labelTextColor })),
+  { root: false, scene: "#ff0000" });
+  assert.deepEqual(await historyState(), historyBeforeCancel, "text preview creates no history entry");
+  await page.locator("#loomLabelTextColor").blur();
+  assert.deepEqual(await page.evaluate(() => ({ root: Object.hasOwn(state.looms[0], "labelTextColor"),
+    scene: activeEngineBridge().scene.looms.find(loom => loom.id === "loom-1").labelTextColor,
+    control: document.querySelector("#loomLabelTextColor").value })),
+  { root: false, scene: "#ffffff", control: "#ffffff" });
+  assert.deepEqual(await historyState(), historyBeforeCancel, "text cancel creates no history entry");
+
+  await previewColor("#loomLabelBackgroundColor", "#00ff00");
+  assert.deepEqual(await page.evaluate(() => ({ root: Object.hasOwn(state.looms[0], "labelBackgroundColor"),
+    scene: activeEngineBridge().scene.looms.find(loom => loom.id === "loom-1").labelBackgroundColor })),
+  { root: false, scene: "#00ff00" });
+  assert.deepEqual(await historyState(), historyBeforeCancel, "background preview creates no history entry");
+  await page.locator("#loomLabelBackgroundColor").blur();
+  assert.deepEqual(await page.evaluate(() => ({ root: Object.hasOwn(state.looms[0], "labelBackgroundColor"),
+    scene: activeEngineBridge().scene.looms.find(loom => loom.id === "loom-1").labelBackgroundColor,
+    control: document.querySelector("#loomLabelBackgroundColor").value })),
+  { root: false, scene: "#000000", control: "#000000" });
+  assert.deepEqual(await historyState(), historyBeforeCancel, "background cancel creates no history entry");
+
+  await page.evaluate(() => {
+    state.looms[0].labelTextColor = "not-a-color";
+    renderLoomInspector("loom-1");
+  });
+  assert.equal(await page.locator("#loomLabelTextColor").inputValue(), "#ffffff",
+    "malformed historical color initializes to the normalized effective default");
+  const invalidHistory = await historyState();
+  await previewColor("#loomLabelTextColor", "#112233");
+  assert.equal(await page.evaluate(() => activeEngineBridge().scene.looms.find(loom => loom.id === "loom-1").labelTextColor), "#112233");
+  assert.equal(await page.evaluate(() => state.looms[0].labelTextColor), "not-a-color");
+  await page.locator("#loomLabelTextColor").blur();
+  assert.deepEqual(await page.evaluate(() => ({ root: state.looms[0].labelTextColor,
+    scene: activeEngineBridge().scene.looms.find(loom => loom.id === "loom-1").labelTextColor,
+    control: document.querySelector("#loomLabelTextColor").value })),
+  { root: "not-a-color", scene: "#ffffff", control: "#ffffff" });
+  assert.deepEqual(await historyState(), invalidHistory, "invalid-value cancel creates no history entry");
+  await page.evaluate(() => { delete state.looms[0].labelTextColor; renderLoomInspector("loom-1"); });
+
+  const beforeTextCommit = await historyState();
   await setColor("#loomLabelTextColor", "#ff00ff");
   assert.equal(await page.evaluate(() => state.looms[0].labelTextColor), "#ff00ff");
+  const afterTextCommit = await historyState();
+  assert.equal(afterTextCommit.commandIndex, beforeTextCommit.commandIndex + 1);
+  assert.equal(afterTextCommit.commandCount, beforeTextCommit.commandCount + 1);
   assert.equal(await page.evaluate(() => activeEngineBridge().undoEngineCommand()), true);
   assert.equal(await page.evaluate(() => state.looms[0].labelTextColor || "#ffffff"), "#ffffff");
   assert.equal(await page.locator("#loomLabelTextColor").inputValue(), "#ffffff",
     "undo synchronizes the selected Loom inspector control");
   assert.equal(await page.evaluate(() => activeEngineBridge().redoEngineCommand()), true);
   assert.equal(await page.evaluate(() => state.looms[0].labelTextColor), "#ff00ff");
+  const beforeBackgroundCommit = await historyState();
   await setColor("#loomLabelBackgroundColor", "#00ff00");
   assert.deepEqual(await page.evaluate(() => [state.looms[0].labelTextColor, state.looms[0].labelBackgroundColor]),
     ["#ff00ff", "#00ff00"]);
+  const afterBackgroundCommit = await historyState();
+  assert.equal(afterBackgroundCommit.commandIndex, beforeBackgroundCommit.commandIndex + 1);
+  assert.equal(afterBackgroundCommit.commandCount, beforeBackgroundCommit.commandCount + 1);
   assert.equal(await page.evaluate(() => activeEngineBridge().undoEngineCommand()), true);
   assert.deepEqual(await page.evaluate(() => [state.looms[0].labelTextColor || "#ffffff", state.looms[0].labelBackgroundColor || "#000000"]),
     ["#ff00ff", "#000000"]);

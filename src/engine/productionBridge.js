@@ -7863,9 +7863,13 @@ class ProductionEngineBridge {
     return true;
   }
 
-  getManagedLoomLabelDefaults() {
-    return { labelTextColor: DEFAULT_LOOM_LABEL_TEXT_COLOR,
-      labelBackgroundColor: DEFAULT_LOOM_LABEL_BACKGROUND_COLOR };
+  getManagedLoomLabelStyle(loomId) {
+    const loom = this.mutations?.root?.looms?.find(item => item.id === loomId)
+      || this.scene.looms.find(item => item.id === loomId);
+    return {
+      labelTextColor: normalizeLoomLabelColor(loom?.labelTextColor, DEFAULT_LOOM_LABEL_TEXT_COLOR),
+      labelBackgroundColor: normalizeLoomLabelColor(loom?.labelBackgroundColor, DEFAULT_LOOM_LABEL_BACKGROUND_COLOR)
+    };
   }
 
   updateManagedLoom(loomId, fields) {
