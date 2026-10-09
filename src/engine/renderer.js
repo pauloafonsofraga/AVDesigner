@@ -69,7 +69,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-85-jump-pair-ring";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-86-unpaired-jump-ring";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -2397,7 +2397,7 @@ function pushJumpNodeForeground(vertices, scene, camera, resolution, {
       color: device.visual?.jumpColor || jumpNodeRoleColor(device.visual?.jumpRole),
       bodyGlow: jumpNodeBodyGlowEnabled(device),
       bodyGlowScale: jumpNodeBodyGlowScale(device),
-      innerRing: jumpNodeInnerRingEnabled(device)
+      pairedRing: jumpNodePairedRingEnabled(device)
     });
     renderer?.recordObjectLayer?.(
       layerTrace,
@@ -2960,7 +2960,7 @@ function pushDevice(vertices, device, offsets = null, selected = false, options 
       color: device.visual?.jumpColor || jumpNodeRoleColor(device.visual?.jumpRole),
       bodyGlow: jumpNodeBodyGlowEnabled(device),
       bodyGlowScale: jumpNodeBodyGlowScale(device),
-      innerRing: jumpNodeInnerRingEnabled(device)
+      pairedRing: jumpNodePairedRingEnabled(device)
     });
     return;
   }
@@ -3021,12 +3021,11 @@ function pushJumpNode(vertices, center, radius, options = {}) {
     pushCircle(vertices, center, visualRadius * 1.28, colorWithOpacity(glow, opacity * 0.22 * glowOpacityScale), 40);
   }
   pushCircle(vertices, center, visualRadius + 1.7, colorWithOpacity("rgba(255,255,255,.86)", opacity), 40);
-  pushCircle(vertices, center, visualRadius, colorWithOpacity(color, opacity), 40);
+  const bodyColor = options.pairedRing === false ? "#171d24" : color;
+  pushCircle(vertices, center, visualRadius, colorWithOpacity(bodyColor, opacity), 40);
   pushCircle(vertices, center, holeRadius, colorWithOpacity("#030609", opacity), 40);
   pushCircleOutline(vertices, center, visualRadius + 2.2, 1.3, colorWithOpacity(color, opacity * 0.82), 40);
-  if (options.innerRing !== false) {
-    pushCircleOutline(vertices, center, holeRadius + 0.8, 0.9, colorWithOpacity("rgba(0,0,0,.72)", opacity), 40);
-  }
+  pushCircleOutline(vertices, center, holeRadius + 0.8, 0.9, colorWithOpacity("rgba(0,0,0,.72)", opacity), 40);
 }
 
 export function jumpNodeBodyGlowEnabled(device) {
@@ -3041,7 +3040,7 @@ export function jumpNodeBodyGlowScale(device) {
   return connected && paired ? 2.4 : 1;
 }
 
-export function jumpNodeInnerRingEnabled(device) {
+export function jumpNodePairedRingEnabled(device) {
   return Boolean(device?.visual?.jumpPairedId);
 }
 
@@ -3666,7 +3665,7 @@ export function engineOutputPrimitives(scene, contract) {
         role: device.visual?.jumpRole, color: device.visual?.jumpColor,
         bodyGlow: jumpNodeBodyGlowEnabled(device),
         bodyGlowScale: jumpNodeBodyGlowScale(device),
-        innerRing: jumpNodeInnerRingEnabled(device)
+        pairedRing: jumpNodePairedRingEnabled(device)
       })) }))
   };
 }

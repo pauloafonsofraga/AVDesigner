@@ -3,7 +3,7 @@ import test from "node:test";
 import { outputPdfJumpFixture } from "../fixtures/output-pdf-jumps.mjs";
 import { JUMP_NODE_ROLE_COLORS } from "../src/engine/jumpNodeModel.js";
 import { buildEngineOutputScene } from "../src/engine/outputSceneSnapshot.js";
-import { engineOutputPrimitives, jumpNodeBodyGlowEnabled, jumpNodeBodyGlowScale, jumpNodeInnerRingEnabled } from "../src/engine/renderer.js";
+import { engineOutputPrimitives, jumpNodeBodyGlowEnabled, jumpNodeBodyGlowScale, jumpNodePairedRingEnabled } from "../src/engine/renderer.js";
 import { createOutputViewerModel } from "../src/engine/outputViewerModel.js";
 
 test("Jump body glow follows connection and pairing, not role or color", () => {
@@ -17,7 +17,7 @@ test("Jump body glow follows connection and pairing, not role or color", () => {
   for (const [label, visual, expected] of cases) {
     assert.equal(jumpNodeBodyGlowEnabled({ visual: { jumpRole: "output", jumpColor: "#32b6ff", ...visual } }), expected, label);
     assert.equal(jumpNodeBodyGlowScale({ visual }), label === "connected and paired" ? 2.4 : 1, `${label} glow contrast`);
-    assert.equal(jumpNodeInnerRingEnabled({ visual }), Boolean(visual.jumpPairedId), `${label} inner ring`);
+    assert.equal(jumpNodePairedRingEnabled({ visual }), Boolean(visual.jumpPairedId), `${label} paired body ring`);
   }
   assert.equal(jumpNodeBodyGlowEnabled(null), true, "generic and placement-ghost state keeps the default glow");
 });
@@ -39,12 +39,12 @@ test("Engine output mesh suppresses only normal role glow for connected unpaired
   assert.equal(pairedNode.visual.jumpColor, unpairedNode.visual.jumpColor);
   assert.equal(jumpNodeBodyGlowEnabled(pairedNode), true);
   assert.equal(jumpNodeBodyGlowEnabled(unpairedNode), false);
-  assert.equal(jumpNodeInnerRingEnabled(pairedNode), true);
-  assert.equal(jumpNodeInnerRingEnabled(unpairedNode), false);
+  assert.equal(jumpNodePairedRingEnabled(pairedNode), true);
+  assert.equal(jumpNodePairedRingEnabled(unpairedNode), false);
   assert.ok(pairedMesh.vertices.length > unpairedMesh.vertices.length, "paired output retains two role-glow circles");
   assert.ok(pairedMesh.vertices[5] > 0.2, "paired output uses a clearly visible outer role-glow opacity");
   assert.notDeepEqual(pairedMesh.vertices, unpairedMesh.vertices,
-    "paired output includes the inner ring and glow while unpaired output omits both");
+    "paired output keeps the role-colored inner body ring while unpaired output uses a dark fill");
   assert.equal(pairedModel.scene.getDevice("bidi-a").visual.jumpBaseRole, "bidirectional");
   assert.equal(jumpNodeBodyGlowEnabled(pairedModel.scene.getDevice("bidi-a")), true);
   assert.equal(unpairedModel.scene.getDevice("bidi-a").visual.jumpRole, "bidirectional");
