@@ -3,14 +3,15 @@ import assert from "node:assert/strict";
 import { bidirectionalJumpFixture } from "../fixtures/bidirectional-jumps.mjs";
 import { cableTypeSelectionFixture } from "../fixtures/cable-type-selection.mjs";
 import { managedLoomMixedFixture } from "../fixtures/managed-looms.mjs";
-import { buildCableSchedule } from "../src/engine/cableSchedule.js";
+import { buildCableSchedule, signalChainForWire } from "../src/engine/cableSchedule.js";
 import { addLoomRoutePoint, allocateLoomIdentity, allocateLoomRoutePointId, dissolveLoom,
-  isCanonicalLoomRoutePointId, parseLoomRoutePointId,
+  allocateLoomPortalIdentity, isCanonicalLoomRoutePointId, normalizeLoomCollection, parseLoomRoutePointId,
   loomComposition, migrateLegacyLooms, normalizeLoom,
   DEFAULT_LOOM_LABEL_BACKGROUND_COLOR, DEFAULT_LOOM_LABEL_TEXT_COLOR, loomLabelBackgroundRgba,
   normalizeLoomLabelColor, renameLoom, selectedLoomCableGroups, setLogicalCableLoom } from "../src/engine/loomModel.js";
 import { initialLoomHeads, locatePointOnLoomRoute, loomGeometry, loomRouteControlNodes,
   loomRouteSpanPolyline, loomRouteSpans, loomTrunkPoints, orientCableEndpoints, resolveLoomRouteAttachment,
+  rebaseLoomPortalAttachments, splitLoomRouteAtAttachment,
   prepareLoomGeometryContext } from "../src/engine/loomGeometry.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
@@ -98,7 +99,8 @@ test("Loom label colors normalize to safe canonical hex values with legacy defau
   const normalized = normalizeLoom(legacy);
   assert.deepEqual([normalized.labelTextColor, normalized.labelBackgroundColor], ["#ffffff", "#000000"]);
   const { labelTextColor, labelBackgroundColor, ...legacyProperties } = normalized;
-  assert.deepEqual(legacyProperties, { ...legacy, kind: "loom", routePoints: [{ id: "lrp-1", x: 2, y: 3 }], routePointCounter: 1 });
+  assert.deepEqual(legacyProperties, { ...legacy, kind: "loom", routePoints: [{ id: "lrp-1", x: 2, y: 3 }],
+    routePointCounter: 1, portalPairs: [] });
   assert.deepEqual([DEFAULT_LOOM_LABEL_TEXT_COLOR, DEFAULT_LOOM_LABEL_BACKGROUND_COLOR], ["#ffffff", "#000000"]);
   assert.deepEqual([normalizeLoomLabelColor("#F0A"), normalizeLoomLabelColor("#ABCDEF"),
     normalizeLoomLabelColor("invalid", "#123456")], ["#ff00aa", "#abcdef", "#123456"]);
@@ -204,6 +206,96 @@ test("route-point allocation ignores malformed IDs and preserves non-contiguous 
     routePoints: [{ id: "lrp-4", x: 4, y: 4 }, { id: "lrp-9", x: 9, y: 9 }] });
   assert.deepEqual(normalizeLoom(JSON.parse(JSON.stringify(saved))), saved);
   assert.deepEqual(saved.routePoints.map(point => point.id), ["lrp-4", "lrp-9"]);
+});
+
+test("Portal pairs normalize defensively against stable adjacent route anchors", () => {
+  const loom = normalizeLoom({ id: "loom-portals", sideA: { x: 0, y: 0 }, sideB: { x: 200, y: 0 },
+    routePoints: [{ id: "lrp-1", x: 80, y: 0 }], portalPairs: [{ id: "loom-portal-4", name: "LP-004",
+      attachment: { fromAnchorId: "sideA", toAnchorId: "lrp-1", fraction: 1.5 }, portalB: { x: 500, y: 300 } }] });
+  assert.deepEqual(loom.portalPairs, [{ id: "loom-portal-4", name: "LP-004",
+    attachment: { fromAnchorId: "sideA", toAnchorId: "lrp-1", fraction: 1 }, portalB: { x: 500, y: 300 } }]);
+  for (const portalPairs of [
+    [{ id: "missing", attachment: { fromAnchorId: "sideA", toAnchorId: "sideB", fraction: 0.5 }, portalB: { x: 1, y: 2 } }],
+    [{ id: "loom-portal-1", attachment: { fromAnchorId: "sideA", toAnchorId: "sideB", fraction: 0.5 }, portalB: { x: 1, y: 2 } }],
+    [{ id: "loom-portal-1", name: "LP-002", attachment: { fromAnchorId: "sideA", toAnchorId: "sideB", fraction: 0.5 }, portalB: { x: 1, y: 2 } }],
+    [{ id: "loom-portal-1", attachment: { fromAnchorId: "sideA", toAnchorId: "sideB", fraction: NaN }, portalB: { x: 1, y: 2 } }],
+    [{ id: "loom-portal-1", attachment: { fromAnchorId: "sideA", toAnchorId: "lrp-1", fraction: 0.5 }, portalB: { x: Infinity, y: 2 } }],
+    [{ id: "loom-portal-1", attachment: { fromAnchorId: "sideA", toAnchorId: "sideB", fraction: 0.5 }, portalB: { x: 1, y: 2 } }],
+    [{ id: "loom-portal-1", attachment: { fromAnchorId: "sideA", toAnchorId: "lrp-1", fraction: 0.5 }, portalB: { x: 1, y: 2 } },
+      { id: "loom-portal-1", attachment: { fromAnchorId: "lrp-1", toAnchorId: "sideB", fraction: 0.5 }, portalB: { x: 3, y: 4 } }]
+  ]) assert.doesNotThrow(() => normalizeLoom({ sideA: { x: 0, y: 0 }, sideB: { x: 2, y: 0 },
+    routePoints: [{ id: "lrp-1", x: 1, y: 0 }], portalPairs }));
+  assert.deepEqual(normalizeLoom({ sideA: { x: 0, y: 0 }, sideB: { x: 2, y: 0 },
+    routePoints: [{ id: "lrp-1", x: 1, y: 0 }],
+    portalPairs: [{ id: "loom-portal-1", name: "LP-001", attachment: { fromAnchorId: "sideA", toAnchorId: "sideB", fraction: 0.5 },
+      portalB: { x: 1, y: 1 } }] }).portalPairs, [], "locator anchors must be adjacent in the normalized Loom");
+  const excess = normalizeLoomCollection([{ id: "excess", sideA: { x: 0, y: 0 }, sideB: { x: 2, y: 0 },
+    portalPairs: [1, 2].map(number => ({ id: `loom-portal-${number}`, name: `LP-${String(number).padStart(3, "0")}`, attachment: {
+      fromAnchorId: "sideA", toAnchorId: "sideB", fraction: 0.5 }, portalB: { x: number, y: 1 } })) }]);
+  assert.equal(excess.looms[0].portalPairs.length, 1);
+  assert.equal(excess.looms[0].portalPairs[0].name, "LP-001");
+  assert.equal(excess.warnings.length, 1);
+});
+
+test("Portal collection repairs duplicate identities and allocates above persistent high water", () => {
+  const initial = { looms: [
+    { id: "one", portalPairs: [{ id: "loom-portal-2", name: "LP-002", attachment: {
+      fromAnchorId: "sideA", toAnchorId: "sideB", fraction: 0.5 }, portalB: { x: 10, y: 20 } }] },
+    { id: "two", portalPairs: [{ id: "loom-portal-2", name: "LP-002", attachment: {
+      fromAnchorId: "sideA", toAnchorId: "sideB", fraction: 0.5 }, portalB: { x: 30, y: 40 } }] }
+  ], loomPortalNumberCounter: 3 };
+  const normalized = normalizeLoomCollection(initial.looms, initial.loomPortalNumberCounter);
+  assert.deepEqual(normalized.looms.map(loom => loom.portalPairs[0].id), ["loom-portal-2", "loom-portal-4"]);
+  assert.deepEqual(normalized.looms.map(loom => loom.portalPairs[0].name), ["LP-002", "LP-004"]);
+  assert.equal(normalized.loomPortalNumberCounter, 4);
+  const project = { ...initial, looms: normalized.looms };
+  assert.deepEqual(allocateLoomPortalIdentity(project), { id: "loom-portal-5", name: "LP-005" });
+  assert.equal(project.loomPortalNumberCounter, 5);
+});
+
+test("Portal route split retains canonical trunk and never bridges the Portal gap", () => {
+  for (const routeStyle of ["orthogonal", "bezier"]) {
+    const loom = normalizeLoom({ id: "split", routeStyle, sideA: { x: 0, y: 0 }, sideB: { x: 240, y: 100 },
+      routePoints: [{ id: "lrp-1", x: 100, y: 0 }, { id: "lrp-2", x: 100, y: 100 }],
+      portalPairs: [{ id: "loom-portal-1", name: "LP-001", attachment: {
+        fromAnchorId: "lrp-1", toAnchorId: "lrp-2", fraction: 0.5 }, portalB: { x: 400, y: 300 } }] });
+    const canonical = loomTrunkPoints(loom);
+    const split = splitLoomRouteAtAttachment(loom, loom.portalPairs[0].attachment, loom.portalPairs[0].portalB);
+    const resolved = resolveLoomRouteAttachment(loom, loom.portalPairs[0].attachment);
+    assert.equal(split.valid, true);
+    assert.deepEqual(split.portalA, resolved.point);
+    assert.deepEqual(split.sectionA.at(-1), resolved.point);
+    assert.deepEqual(split.sectionB[0], loom.portalPairs[0].portalB);
+    assert.deepEqual(loomTrunkPoints(loom), canonical, "derived split does not rewrite canonical route");
+    assert.ok(split.sectionB.length > 2);
+    if (routeStyle === "orthogonal") {
+      assert.ok(split.sectionB.slice(0, 3).every((point, index, points) => !index
+        || points[index - 1].x === point.x || points[index - 1].y === point.y), "Portal B tail is orthogonal");
+    }
+    const spans = loomRouteSpans(loom);
+    const owner = spans.findIndex(span => span.fromAnchorId === "lrp-1" && span.toAnchorId === "lrp-2");
+    const downstreamSpan = spans[owner + 1];
+    const downstream = loomRouteSpanPolyline(loom, downstreamSpan.fromAnchorId, downstreamSpan.toAnchorId);
+    assert.deepEqual(split.sectionB.slice(-downstream.length), downstream, "downstream canonical spans are reused");
+    assert.equal(locatePointOnLoomRoute(loom, split.portalA).valid, true);
+  }
+});
+
+test("route topology edits rebase an invalid Portal locator and preserve Portal B", () => {
+  const before = normalizeLoom({ id: "rebase", routeStyle: "orthogonal", sideA: { x: 0, y: 0 },
+    sideB: { x: 200, y: 0 }, portalPairs: [{ id: "loom-portal-1", name: "LP-001", attachment: {
+      fromAnchorId: "sideA", toAnchorId: "sideB", fraction: 0.5 }, portalB: { x: 400, y: 300 } }] });
+  const after = structuredClone(before);
+  after.routePoints = [{ id: "lrp-1", x: 100, y: 100 }];
+  assert.equal(resolveLoomRouteAttachment(after, before.portalPairs[0].attachment).valid, false);
+  assert.equal(rebaseLoomPortalAttachments([before], [after]), true);
+  const rebased = after.portalPairs[0].attachment;
+  assert.equal(resolveLoomRouteAttachment(after, rebased).valid, true);
+  assert.deepEqual(after.portalPairs[0].portalB, before.portalPairs[0].portalB);
+  assert.ok(rebased.fromAnchorId !== "sideA" || rebased.toAnchorId !== "sideB");
+  assert.equal(rebaseLoomPortalAttachments([before], [{ ...after, routePoints: [], portalPairs: [
+    { ...after.portalPairs[0], attachment: { fromAnchorId: "missing", toAnchorId: "sideB", fraction: 0.5 } }
+  ] }]), true, "rebased routes stay well formed on subsequent edits");
 });
 
 test("legacy Loom migration materializes route IDs without changing canonical trunk geometry", () => {
@@ -428,6 +520,24 @@ test("Engine output scene and vector PDF share Loom geometry without printing hi
   const wrapped = buildEngineOutputScene({ state: project });
   assert.deepEqual(wrapped.loomPlans, contract.loomPlans);
   assert.deepEqual(wrapped.looms, contract.looms);
+});
+
+test("Loom Portal presentation does not change logical cables, Cable Schedule, or Signal Chain", () => {
+  const project = jumpProject();
+  project.connections.forEach(wire => { wire.loomId = "loom-1"; });
+  project.looms = [{ id: "loom-1", name: "LM-001", sideA: { x: 180, y: 100 }, sideB: { x: 760, y: 100 },
+    routeStyle: "orthogonal", routePoints: [], trunkLength: "75 m" }];
+  const signature = () => JSON.stringify(project.connections.map(({ id, from, to, cableType, cableNumber,
+    length, notes, loomId }) => ({ id, from, to, cableType, cableNumber, length, notes, loomId })));
+  const cablesBefore = signature();
+  const scheduleBefore = buildCableSchedule(project, { assignNumbers: "readOnly" });
+  const chainBefore = scheduleBefore.map(row => signalChainForWire(scheduleBefore, row.wireIds[0]));
+  project.looms[0].portalPairs = [{ id: "loom-portal-1", name: "LP-001", attachment: {
+    fromAnchorId: "sideA", toAnchorId: "sideB", fraction: 0.45 }, portalB: { x: 1000, y: 320 } }];
+  assert.equal(signature(), cablesBefore);
+  const scheduleAfter = buildCableSchedule(project, { assignNumbers: "readOnly" });
+  assert.deepEqual(scheduleAfter, scheduleBefore);
+  assert.deepEqual(scheduleAfter.map(row => signalChainForWire(scheduleAfter, row.wireIds[0])), chainBefore);
 });
 
 test("XLSX keeps logical cable rows and summarizes each Loom on a separate sheet", async () => {

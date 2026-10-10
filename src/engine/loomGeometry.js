@@ -1,5 +1,5 @@
 import { buildCableSchedule, groupedCables } from "./cableSchedule.js";
-import { buildPreviewOrthogonalWirePoints } from "./orthogonalRouting.js";
+import { buildPreviewOrthogonalWirePoints, ORTHOGONAL_EXIT_OFFSET } from "./orthogonalRouting.js";
 import { splinePolylineSegmentsThroughPoints, wirePolylineFromPoints } from "./wirePath.js";
 import { gatewayExitSide, loomCoreColors, orthogonalManualPoints } from "./routingPlacement.js";
 import { normalizeLoom } from "./loomModel.js";
@@ -181,6 +181,94 @@ export function locatePointOnLoomRoute(loom, worldPoint) {
     distance: best.distance } : { valid: false };
 }
 
+export function rebaseLoomPortalAttachments(beforeLooms, afterLooms) {
+  const beforeById = new Map((beforeLooms || []).map(loom => [loom.id, loom]));
+  for (const loom of afterLooms || []) {
+    for (const pair of loom.portalPairs || []) {
+      const before = beforeById.get(loom.id);
+      const beforePair = before?.portalPairs?.find(item => item.id === pair.id);
+      if (!beforePair || resolveLoomRouteAttachment(loom, pair.attachment).valid) continue;
+      const oldPoint = resolveLoomRouteAttachment(before, beforePair.attachment);
+      if (!oldPoint.valid) return false;
+      const projected = locatePointOnLoomRoute(loom, oldPoint.point);
+      if (!projected.valid) return false;
+      pair.attachment = { fromAnchorId: projected.fromAnchorId,
+        toAnchorId: projected.toAnchorId, fraction: projected.fraction };
+    }
+  }
+  return true;
+}
+
+export function splitLoomRouteAtAttachment(value, attachment, portalB) {
+  const loom = normalizeLoom(value);
+  const resolved = resolveLoomRouteAttachment(loom, attachment);
+  if (!resolved.valid || !Number.isFinite(Number(portalB?.x)) || !Number.isFinite(Number(portalB?.y))) {
+    return { valid: false };
+  }
+  const spans = loomRouteSpans(loom);
+  const spanIndex = spans.findIndex(span => span.fromAnchorId === resolved.fromAnchorId
+    && span.toAnchorId === resolved.toAnchorId);
+  if (spanIndex < 0) return { valid: false };
+  const owner = spans[spanIndex];
+  const ownerPath = loomRouteSpanPolyline(loom, owner.fromAnchorId, owner.toAnchorId);
+  const sectionA = [];
+  spans.slice(0, spanIndex).forEach(span => appendUniquePoints(sectionA,
+    loomRouteSpanPolyline(loom, span.fromAnchorId, span.toAnchorId)));
+  appendUniquePoints(sectionA, polylinePrefix(ownerPath, resolved.fraction));
+
+  const portalPoint = { x: Number(portalB.x), y: Number(portalB.y) };
+  const sectionB = [];
+  const resumedTail = loom.routeStyle === "orthogonal"
+    ? portalOrthogonalTail(portalPoint, owner.to)
+    : wirePolylineFromPoints({ routeStyle: "bezier", routePoints: [] }, [portalPoint, owner.to]);
+  appendUniquePoints(sectionB, resumedTail);
+  spans.slice(spanIndex + 1).forEach(span => appendUniquePoints(sectionB,
+    loomRouteSpanPolyline(loom, span.fromAnchorId, span.toAnchorId)));
+  return { valid: true, portalA: resolved.point, portalB: portalPoint,
+    fromAnchorId: owner.fromAnchorId, toAnchorId: owner.toAnchorId,
+    sectionA, sectionB, spanIndex };
+}
+
+function portalOrthogonalTail(from, to) {
+  const direction = to.x >= from.x ? 1 : -1;
+  const exit = { x: from.x + direction * ORTHOGONAL_EXIT_OFFSET, y: from.y };
+  const middleX = (exit.x + to.x) / 2;
+  const points = [from, exit, { x: middleX, y: from.y }, { x: middleX, y: to.y }, to];
+  return points.filter((point, index) => index === 0
+    || Math.hypot(point.x - points[index - 1].x, point.y - points[index - 1].y) > 1e-7);
+}
+
+function polylinePrefix(points, fraction) {
+  if (!points.length) return [];
+  const lengths = points.slice(1).map((point, index) => distance(point, points[index]));
+  const total = lengths.reduce((sum, length) => sum + length, 0);
+  if (!total) return [{ ...points[0] }];
+  const target = total * Math.max(0, Math.min(1, fraction));
+  const result = [{ ...points[0] }];
+  let walked = 0;
+  for (let index = 0; index < lengths.length; index += 1) {
+    const length = lengths[index], nextWalked = walked + length;
+    if (nextWalked < target) result.push({ ...points[index + 1] });
+    else {
+      const t = length ? (target - walked) / length : 0;
+      appendUniquePoints(result, [{
+        x: points[index].x + (points[index + 1].x - points[index].x) * t,
+        y: points[index].y + (points[index + 1].y - points[index].y) * t
+      }]);
+      break;
+    }
+    walked = nextWalked;
+  }
+  return result;
+}
+
+function appendUniquePoints(target, points) {
+  for (const point of points || []) {
+    const previous = target.at(-1);
+    if (!previous || distance(previous, point) > 1e-7) target.push({ x: point.x, y: point.y });
+  }
+}
+
 function nearestPointOnSegment(point, a, b) {
   const dx = b.x - a.x, dy = b.y - a.y, lengthSq = dx * dx + dy * dy;
   const t = lengthSq ? Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSq)) : 0;
@@ -322,9 +410,17 @@ export function loomGeometry(project, scene, loom, cableGroups = groupedCables(p
     const family = String(row.signal || "Other");
     familyCounts.set(family, (familyCounts.get(family) || 0) + 1);
   }
+  const trunk = loomTrunkPoints({ ...resolved,
+    sideA: resolved.sideA || headA, sideB: resolved.sideB || headB });
+  const portalPair = resolved.portalPairs?.[0] || null;
+  const portalSplit = portalPair
+    ? splitLoomRouteAtAttachment(resolved, portalPair.attachment, portalPair.portalB) : null;
+  const visibleTrunkSections = portalSplit?.valid
+    ? [portalSplit.sectionA, portalSplit.sectionB] : [trunk];
   return {
-    loomId: loom.id, headA, headB, trunk: loomTrunkPoints({ ...resolved,
-      sideA: resolved.sideA || headA, sideB: resolved.sideB || headB }), breakouts,
+    loomId: loom.id, headA, headB, trunk, visibleTrunkSections, breakouts,
+    portalPair: portalSplit?.valid ? { ...portalPair, portalA: portalSplit.portalA,
+      portalB: portalSplit.portalB } : null,
     hiddenWireIds: members.flatMap(member => member.group.wires.map(wire => String(wire.id))),
     circuitCount: members.length,
     coreColors: loomCoreColors(members.map(member => scene.getWire(String(member.group.primary.id))).filter(Boolean)),

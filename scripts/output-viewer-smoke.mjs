@@ -39,7 +39,8 @@ try {
           && same(w.endpoints.to, v.scene.endpointForWire(v.scene.getWire(w.id), "to")) && same(w.polyline, v.scene.wireRenderPolyline(v.scene.getWire(w.id)))
           && same(w.cableHops, v.renderer.cableHopMap.get(w.id) || [])),
         led: c.ledSurfaces.every(s => same(s.wireIds, v.scene.orderedLedSurfaceWires(s.id).map(w => w.id))),
-        racks: same(c.racks, v.scene.racks)
+        racks: same(c.racks.map(({ rackShellImage, ...rack }) => rack),
+          v.scene.racks.map(({ rackShellImage, ...rack }) => rack))
       };
     });
     for (const [key, passed] of Object.entries(parity)) assert.equal(passed, true, `${name}: ${key}`);

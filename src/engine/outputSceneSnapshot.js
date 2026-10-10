@@ -138,7 +138,11 @@ export function buildEngineOutputScene(projectSnapshot = {}) {
     bounds: geometryBounds([...scene.devices.map(deviceBounds), ...scene.racks.map(rack => rack.bounds)],
       [...wires.filter(wire => !scene.isWireHiddenByLoom(wire.id)).flatMap(wire => wire.renderPolyline),
         ...jumpLinks.flatMap(link => link.polyline),
-        ...loomPlans.flatMap(plan => [...plan.trunk, ...plan.breakouts.flatMap(item => item.points)]),
+        ...loomPlans.flatMap(plan => [
+          ...(plan.visibleTrunkSections || [plan.trunk]).flat(),
+          ...(plan.portalPair ? [plan.portalPair.portalA, plan.portalPair.portalB] : []),
+          ...plan.breakouts.flatMap(item => item.points)
+        ]),
         ...connectors.flatMap(connector => connector.anchors.map(anchor => anchor.worldPoint))]),
     diagnostics: { counts: { objects: devices.length, connectors: connectors.length, wires: wires.length,
       racks: scene.racks.length, cards: cards.length, sharedBuses: sharedBuses.length,

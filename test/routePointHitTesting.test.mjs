@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import vm from "node:vm";
 import { readFileSync } from "node:fs";
 import { hitTestRoutePoint, hitTestConnector, hitTestLoomGateway, hitTestLoomTrunk,
-  hitTestSelectedLoomRoutePoint, screenToWorld } from "../src/engine/hitTest.js";
+  hitTestLoomPortal, hitTestSelectedLoomRoutePoint, screenToWorld } from "../src/engine/hitTest.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { cableTypeSelectionFixture } from "../fixtures/cable-type-selection.mjs";
@@ -23,7 +23,7 @@ function harness(zoom = 0.34) {
   const methods = ["shouldHitTestRoutePoints", "hitToleranceWorld", "hitTestEditableRoutePoint", "routePointHandleIsEditable",
     "beginRoutePointDrag", "handlePointerDown", "updateHover", "contextMenuTarget"];
   const b = vm.runInNewContext(`({${methods.map(method).join(",")}})`, {
-    hitTestRoutePoint, hitTestConnector, hitTestLoomGateway, hitTestLoomTrunk, hitTestSelectedLoomRoutePoint,
+    hitTestRoutePoint, hitTestConnector, hitTestLoomGateway, hitTestLoomTrunk, hitTestLoomPortal, hitTestSelectedLoomRoutePoint,
     screenToWorld, cloneRoutePoints: structuredClone,
     isAdditiveSelectionModifier: () => false, isJumpConnectorHit: () => false,
     jumpHoverDiagnostics: value => value, jumpIdleHoverPrecedence: () => ({ owner: "route-point" })

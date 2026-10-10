@@ -7,6 +7,7 @@ import { ledSurfaceOrder } from "../fixtures/led-surface-ordering.mjs";
 import { buildEngineOutputScene, outputSceneSignature } from "../src/engine/outputSceneSnapshot.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
+import { hitTestLoomPortal, hitTestLoomTrunk } from "../src/engine/hitTest.js";
 import { connectorDisplayAnchors } from "../src/engine/connectorDisplayLayout.js";
 import { sharedBusOrthogonalSegments } from "../src/engine/sharedBusRendering.js";
 import { calculateCableHops, applyCableHopsToPolyline } from "../src/engine/cableHops.js";
@@ -127,6 +128,35 @@ test("output bounds include Engine wire excursions beyond SceneGraph body bounds
     assert.ok(point.x >= output.bounds.x && point.x <= output.bounds.x + output.bounds.width);
     assert.ok(point.y >= output.bounds.y && point.y <= output.bounds.y + output.bounds.height);
   }
+});
+
+test("Engine output keeps the canonical Loom route but exports only its two Portal sections", () => {
+  const project = { devices: [], connections: [], looms: [{ id: "portal-loom", name: "LM-001",
+    sideA: { x: 0, y: 0, label: "Side A" }, sideB: { x: 300, y: 0, label: "Side B" },
+    routeStyle: "orthogonal", routePoints: [], portalPairs: [{ id: "loom-portal-1", name: "LP-001",
+      attachment: { fromAnchorId: "sideA", toAnchorId: "sideB", fraction: 0.5 },
+      portalB: { x: 600, y: 300 } }] }] };
+  const output = buildEngineOutputScene(project);
+  const plan = output.loomPlans.find(item => item.loomId === "portal-loom");
+  assert.equal(plan.trunk[0].x, 0);
+  assert.equal(plan.trunk.at(-1).x, 300);
+  assert.equal(plan.visibleTrunkSections.length, 2);
+  assert.deepEqual(plan.visibleTrunkSections[0].at(-1), plan.portalPair.portalA);
+  assert.deepEqual(plan.visibleTrunkSections[1][0], plan.portalPair.portalB);
+  assert.ok(output.bounds.x + output.bounds.width >= 600);
+  assert.equal(output.version, 4);
+  assert.match(output.schemaFingerprint, /^engine-output-v4-/);
+  assert.equal(JSON.stringify(output).includes("loom-portal-1:a"), false,
+    "derived endpoint keys are presentation state, not logical output objects");
+  assert.deepEqual(buildEngineOutputScene(project), output, "Portal output remains deterministic");
+  assert.deepEqual(project.looms[0].portalPairs[0].portalB, { x: 600, y: 300 }, "serialization does not mutate input");
+  const live = new SceneGraph();
+  live.setData(normalizeAvDesignerProject(project));
+  assert.equal(hitTestLoomPortal(live, plan.portalPair.portalA).side, "a");
+  assert.equal(hitTestLoomPortal(live, plan.portalPair.portalB).side, "b");
+  assert.equal(hitTestLoomTrunk(live, { x: 200, y: 0 }), null, "the invisible Portal gap is not hittable as trunk");
+  assert.equal(live.selectLoomPortal("loom-portal-1:b"), true);
+  assert.equal(live.selectedLoomPortalKey, "loom-portal-1:b");
 });
 
 test("scene is deeply frozen, JSON lossless, isolated and free of Maps/functions/live references", () => {

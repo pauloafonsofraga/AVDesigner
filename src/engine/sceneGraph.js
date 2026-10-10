@@ -13,7 +13,7 @@ import {
 } from "./orthogonalRouting.js";
 import { wirePolylineFromPoints } from "./wirePath.js";
 import { loomGeometry } from "./loomGeometry.js";
-import { normalizeLoom } from "./loomModel.js";
+import { normalizeLoom, normalizeLoomCollection } from "./loomModel.js";
 import { rackPatchPanelVisualHeight } from "./rackPatchPanels.js";
 import { normalizeRackShell } from "./rackShell.js";
 import { createRackCompactLayout, compactConnectorSide } from "./rackCompactLayout.js?v=iteration54-38-76-rack-styles";
@@ -108,8 +108,10 @@ export class SceneGraph {
     this.connectorIndex = new SpatialIndex(96);
     this.wireIndex = new SpatialIndex(420);
     this.routePointIndex = new SpatialIndex(96);
+    this.loomPortalIndex = new SpatialIndex(96);
     this.selectedWireIds = new Set();
     this.selectedLoomId = "";
+    this.selectedLoomPortalKey = "";
     this.expandedLoomIds = new Set();
     this.selectedConnectorKeys = new Set();
     this.selectedRoutePointKeys = new Set();
@@ -144,6 +146,7 @@ export class SceneGraph {
     this.selectedRackIds.clear();
     this.selectedWireIds.clear();
     this.selectedLoomId = "";
+    this.selectedLoomPortalKey = "";
     this.expandedLoomIds.clear();
     this.selectedConnectorKeys.clear();
     this.selectedRoutePointKeys.clear();
@@ -1103,7 +1106,10 @@ export class SceneGraph {
   rebuildLoomGeometry() {
     const root = this.loomProject?.state || this.loomProject?.project || this.loomProject;
     if (root?.connections) {
-      this.looms = (root.looms || []).map(normalizeLoom);
+      const normalized = normalizeLoomCollection(root.looms, root.loomPortalNumberCounter);
+      this.looms = normalized.looms;
+      root.looms = normalized.looms;
+      root.loomPortalNumberCounter = normalized.loomPortalNumberCounter;
       const cableGroups = this.looms.length ? groupedCables(root) : [];
       const scheduleRows = this.looms.length
         ? buildCableSchedule(root, { assignNumbers: "readOnly" }) : [];
@@ -1111,14 +1117,24 @@ export class SceneGraph {
     }
     this.loomBreakoutByWireId = new Map();
     this.hiddenLoomWireIds = new Set();
+    const portalEntries = [];
     for (const plan of this.loomPlans) {
       plan.hiddenWireIds.forEach(id => this.hiddenLoomWireIds.add(id));
+      if (plan.portalPair) {
+        for (const [side, point] of [["a", plan.portalPair.portalA], ["b", plan.portalPair.portalB]]) {
+          const key = `${plan.portalPair.id}:${side}`;
+          portalEntries.push({ id: key, bounds: centeredBounds(point, 48),
+            key, loomId: plan.loomId, pairId: plan.portalPair.id, side, point,
+            name: plan.portalPair.name });
+        }
+      }
       for (const breakout of plan.breakouts) {
         const list = this.loomBreakoutByWireId.get(breakout.wireId) || [];
         list.push(breakout);
         this.loomBreakoutByWireId.set(breakout.wireId, list);
       }
     }
+    this.loomPortalIndex.rebuild(portalEntries);
   }
 
   isWireHiddenByLoom(wireId) {
@@ -1225,6 +1241,7 @@ export class SceneGraph {
 
   selectOnly(id) {
     this.selectedLoomId = "";
+    this.selectedLoomPortalKey = "";
     this.selectedIds.clear();
     this.selectedRackIds.clear();
     this.selectedWireIds.clear();
@@ -1237,6 +1254,7 @@ export class SceneGraph {
 
   selectJumpPairPrimary(jumpId) {
     this.selectedLoomId = "";
+    this.selectedLoomPortalKey = "";
     const id = String(jumpId || "");
     this.selectedIds.clear();
     this.selectedRackIds.clear();
@@ -1252,6 +1270,7 @@ export class SceneGraph {
 
   selectJumpLinkOnly(linkId) {
     this.selectedLoomId = "";
+    this.selectedLoomPortalKey = "";
     const id = String(linkId || "");
     this.selectedIds.clear();
     this.selectedRackIds.clear();
@@ -1270,6 +1289,7 @@ export class SceneGraph {
 
   toggleSelection(id) {
     this.selectedLoomId = "";
+    this.selectedLoomPortalKey = "";
     this.selectedRackIds.clear();
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
@@ -1282,6 +1302,7 @@ export class SceneGraph {
 
   toggleMany(ids) {
     this.selectedLoomId = "";
+    this.selectedLoomPortalKey = "";
     this.selectedRackIds.clear();
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
@@ -1296,6 +1317,7 @@ export class SceneGraph {
 
   selectMany(ids) {
     this.selectedLoomId = "";
+    this.selectedLoomPortalKey = "";
     this.selectedIds = new Set(ids.filter(id => this.devicesById.has(id)));
     this.selectedRackIds.clear();
     this.selectedWireIds.clear();
@@ -1307,6 +1329,7 @@ export class SceneGraph {
 
   selectWireOnly(id) {
     this.selectedLoomId = "";
+    this.selectedLoomPortalKey = "";
     this.selectedIds.clear();
     this.selectedRackIds.clear();
     this.selectedWireIds.clear();
@@ -1319,6 +1342,7 @@ export class SceneGraph {
 
   toggleWireSelection(id) {
     this.selectedLoomId = "";
+    this.selectedLoomPortalKey = "";
     this.selectedIds.clear();
     this.selectedRackIds.clear();
     this.selectedConnectorKeys.clear();
@@ -1331,6 +1355,7 @@ export class SceneGraph {
 
   selectConnectorOnly(deviceId, connectorId) {
     this.selectedLoomId = "";
+    this.selectedLoomPortalKey = "";
     this.selectedIds.clear();
     this.selectedRackIds.clear();
     this.selectedWireIds.clear();
@@ -1344,6 +1369,7 @@ export class SceneGraph {
 
   selectRoutePointOnly(wireId, pointIndex) {
     this.selectedLoomId = "";
+    this.selectedLoomPortalKey = "";
     this.selectedIds.clear();
     this.selectedRackIds.clear();
     this.selectedWireIds.clear();
@@ -1357,6 +1383,7 @@ export class SceneGraph {
 
   clearSelection() {
     this.selectedLoomId = "";
+    this.selectedLoomPortalKey = "";
     this.selectedIds.clear();
     this.selectedRackIds.clear();
     this.selectedWireIds.clear();
@@ -1369,6 +1396,14 @@ export class SceneGraph {
   selectLoomOnly(loomId) {
     this.clearSelection();
     if (this.looms.some(loom => loom.id === loomId)) this.selectedLoomId = loomId;
+  }
+
+  selectLoomPortal(key) {
+    const id = String(key || "");
+    if (!this.loomPortalIndex.items.has(id)) return false;
+    this.clearSelection();
+    this.selectedLoomPortalKey = id;
+    return true;
   }
 
   affectedWireIdsForDevices(deviceIds) {
@@ -2118,7 +2153,9 @@ export class SceneGraph {
       maxX = Math.max(maxX, bounds.x + bounds.width);
       maxY = Math.max(maxY, bounds.y + bounds.height);
     });
-    for (const plan of this.loomPlans) for (const point of [...plan.trunk,
+    for (const plan of this.loomPlans) for (const point of [
+      ...(plan.visibleTrunkSections || [plan.trunk]).flat(),
+      ...(plan.portalPair ? [plan.portalPair.portalA, plan.portalPair.portalB] : []),
       ...plan.breakouts.flatMap(item => item.points)]) {
       minX = Math.min(minX, point.x);
       minY = Math.min(minY, point.y);

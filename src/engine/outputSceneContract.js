@@ -1,10 +1,10 @@
 // Shared by the producer and both output backends; contains no layout code.
-export const OUTPUT_SCENE_VERSION = 3;
+export const OUTPUT_SCENE_VERSION = 4;
 export const OUTPUT_SCENE_SOURCE = "engine-project-adapter/scene-graph";
 export const OUTPUT_SCENE_SCHEMA = Object.freeze({
   version: "number", schemaFingerprint: "string", sceneDataSource: "string",
   coordinateSpace: "engine-world", devices: "array", connectors: "array", wires: "array",
-  racks: "array<rackShell>", jumpLinks: "array", looms: "array", loomPlans: "array", ledSurfaces: "array", cards: "array",
+  racks: "array<rackShell>", jumpLinks: "array", looms: "array", loomPlans: "array<loomPlanWithVisibleTrunkSectionsAndPortalPair>", ledSurfaces: "array", cards: "array",
   sharedBuses: "array", rackExposure: "array", sceneBounds: "rect|null", bounds: "rect|null",
   diagnostics: "object", signature: "string"
 });

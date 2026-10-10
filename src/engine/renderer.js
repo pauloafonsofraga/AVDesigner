@@ -1304,9 +1304,14 @@ export class WebglGraphRenderer {
             loom
           } : null;
           if (plan) {
-            pushPolyline(liveVertices, plan.trunk, 22, "rgba(251,121,4,.25)");
+            for (const section of plan.visibleTrunkSections || [plan.trunk]) {
+              pushPolyline(liveVertices, section, 22, "rgba(251,121,4,.25)");
+            }
             for (const head of [plan.headA, plan.headB]) {
               pushCircleOutline(liveVertices, head, 17, 3, "#fb7904");
+            }
+            if (plan.portalPair) for (const point of [plan.portalPair.portalA, plan.portalPair.portalB]) {
+              pushCircleOutline(liveVertices, point, 24, 3, "#fb7904");
             }
             for (const point of loom?.routePoints || []) {
               pushCircle(liveVertices, point, 5, "#fb7904");
@@ -1546,8 +1551,9 @@ export class WebglGraphRenderer {
         const caption = [loom.name, `${activePlan.circuitCount} circuit${activePlan.circuitCount === 1 ? "" : "s"}`, loom.trunkLength]
           .filter(Boolean).join(" · ");
         const labelStyle = loomLabelStyle(loom);
-        drawPolylineLabel(ctx, activePlan.trunk, camera, caption, labelStyle);
+        drawLoomSectionLabels(ctx, activePlan.visibleTrunkSections || [activePlan.trunk], camera, caption, labelStyle);
         drawLoomHeadLabels(ctx, activePlan, loom, camera, labelStyle);
+        drawLoomPortalLabels(ctx, activePlan, camera);
         wireLabelCount += 1;
       }
     }
@@ -2168,7 +2174,9 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
   if (hoveredLoom?.loomId && renderOptions.wires) {
     const plan = scene.loomPlans.find(item => item.loomId === hoveredLoom.loomId);
     if (plan) {
-      if (hoveredLoom.part === "trunk") pushPolyline(vertices, plan.trunk, 5.2, "rgba(50,182,255,.42)");
+      if (hoveredLoom.part === "trunk") for (const section of plan.visibleTrunkSections || [plan.trunk]) {
+        pushPolyline(vertices, section, 5.2, "rgba(50,182,255,.42)");
+      }
       const gateway = hoveredLoom.part === "sideA" ? plan.headA
         : hoveredLoom.part === "sideB" ? plan.headB : null;
       if (gateway) {
@@ -2176,6 +2184,24 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
         pushCircleOutline(vertices, gateway, 16, 3.5, "#65d1ff");
       }
     }
+  }
+  const portalPointForKey = key => {
+    const [pairId, side] = String(key || "").split(":");
+    const previewPlan = interaction.loomDragPreview?.plan;
+    const plan = previewPlan?.portalPair?.id === pairId ? previewPlan
+      : scene.loomPlans?.find(item => item.portalPair?.id === pairId);
+    return side === "a" ? plan?.portalPair?.portalA : side === "b" ? plan?.portalPair?.portalB : null;
+  };
+  const hoveredPortalKey = interaction.hoveredLoomPortal?.key;
+  const hoveredPortalPoint = portalPointForKey(hoveredPortalKey);
+  if (hoveredPortalPoint) pushCircleOutline(vertices, hoveredPortalPoint, 25, 3.5, "#65d1ff");
+  const selectedPortalPoint = portalPointForKey(interaction.selectedLoomPortalKey);
+  if (selectedPortalPoint) pushCircleOutline(vertices, selectedPortalPoint, 28, 4, "#fb7904");
+  const portalPlacement = interaction.loomPortalPlacement;
+  if (portalPlacement) {
+    pushCircle(vertices, portalPlacement.portalB, 18, "rgba(18,28,38,.72)");
+    pushCircleOutline(vertices, portalPlacement.portalB, 20, 3, "rgba(101,209,255,.62)");
+    pushCircleOutline(vertices, portalPlacement.portalA, 22, 2.5, "rgba(101,209,255,.46)");
   }
   const suppressedWireIds = interaction.suppressedWireIds || new Set();
   const hoveredWireId = interaction.hoveredWire?.wire?.id || interaction.hoveredWireId;
@@ -3702,10 +3728,11 @@ export function drawEngineOutputLabels(ctx, scene, bounds) {
     const loom = scene.looms.find(item => item.id === plan.loomId);
     if (!loom || !loomLabelsVisible(scene, plan)) continue;
     const labelStyle = loomLabelStyle(loom);
-    drawPolylineLabel(ctx, plan.trunk, camera,
-      [loom.name, `${plan.circuitCount} circuit${plan.circuitCount === 1 ? "" : "s"}`, loom.trunkLength]
-        .filter(Boolean).join(" · "), labelStyle);
+    const caption = [loom.name, `${plan.circuitCount} circuit${plan.circuitCount === 1 ? "" : "s"}`, loom.trunkLength]
+      .filter(Boolean).join(" · ");
+    drawLoomSectionLabels(ctx, plan.visibleTrunkSections || [plan.trunk], camera, caption, labelStyle);
     drawLoomHeadLabels(ctx, plan, loom, camera, labelStyle);
+    drawLoomPortalLabels(ctx, plan, camera);
   }
   drawVisibleConnectorLabels(ctx, scene, camera, DEFAULT_RENDER_OPTIONS, null, resolution);
   drawVisibleConnectorInfoBoxes(ctx, scene, camera, DEFAULT_RENDER_OPTIONS, null, resolution);
@@ -3722,20 +3749,30 @@ function verticesForLoomPlan(scene, plan, offsets = null) {
   const vertices = [];
   const colors = plan.coreColors?.length ? plan.coreColors : ["#8999a5"];
   const widths = loomBundleWidths(colors.length);
-  const trunkLength = polylineLength(plan.trunk);
-  const jacketTrim = Math.min(trunkLength / 2, Math.max(0, widths.outerJacket / 2 - 14.5));
-  const jacketPath = trunkLength
-    ? polylineSlice(plan.trunk, jacketTrim / trunkLength, 1 - jacketTrim / trunkLength)
-    : [];
-  pushPolyline(vertices, jacketPath, widths.outerJacket, LOOM_OUTER_JACKET_COLOR);
-  pushPolyline(vertices, plan.trunk, widths.sheath, "#101820");
-  pushPolyline(vertices, plan.trunk, widths.jacket, LOOM_INNER_JACKET_COLOR);
-  colors.forEach((color, index) => {
-    const offset = (index - (colors.length - 1) / 2) * widths.coreSpacing;
-    pushPolyline(vertices, offsetPolyline(plan.trunk, offset), widths.core, color);
-  });
-  for (const [from, to] of tapeBandsAlongPath(plan.trunk, 54, widths.outerJacket + 1)) {
-    pushLine(vertices, from, to, 6, LOOM_TAPE_COLOR);
+  for (const section of plan.visibleTrunkSections || [plan.trunk]) {
+    const length = polylineLength(section);
+    const jacketTrim = Math.min(length / 2, Math.max(0, widths.outerJacket / 2 - 14.5));
+    const jacketPath = length ? polylineSlice(section, jacketTrim / length, 1 - jacketTrim / length) : [];
+    pushPolyline(vertices, jacketPath, widths.outerJacket, LOOM_OUTER_JACKET_COLOR);
+    pushPolyline(vertices, section, widths.sheath, "#101820");
+    pushPolyline(vertices, section, widths.jacket, LOOM_INNER_JACKET_COLOR);
+    colors.forEach((color, index) => {
+      const offset = (index - (colors.length - 1) / 2) * widths.coreSpacing;
+      pushPolyline(vertices, offsetPolyline(section, offset), widths.core, color);
+    });
+    for (const [from, to] of tapeBandsAlongPath(section, 54, widths.outerJacket + 1)) {
+      pushLine(vertices, from, to, 6, LOOM_TAPE_COLOR);
+    }
+  }
+  if (plan.portalPair) {
+    for (const point of [plan.portalPair.portalA, plan.portalPair.portalB]) {
+      pushCircle(vertices, point, 20, "#101820");
+      pushCircleOutline(vertices, point, 20, 3.5, "#32b6ff");
+      pushCircle(vertices, point, 12.5, "#18232d");
+      pushCircleOutline(vertices, point, 11, 1.5, "#d6e6f1");
+      for (const [dx, dy] of [[-4, 0], [4, 0], [0, 4]]) pushCircle(vertices,
+        { x: point.x + dx, y: point.y + dy }, 1.5, "#32b6ff");
+    }
   }
   for (const breakout of plan.breakouts) {
     const wire = scene.getWire(breakout.wireId);
@@ -3755,6 +3792,27 @@ function verticesForLoomPlan(scene, plan, offsets = null) {
     pushCircle(vertices, head, 5, "#32b6ff");
   }
   return vertices;
+}
+
+function drawLoomPortalLabels(ctx, plan, camera) {
+  if (!plan?.portalPair) return;
+  for (const [side, point] of [["A", plan.portalPair.portalA], ["B", plan.portalPair.portalB]]) {
+    const x = (point.x - camera.x) * camera.zoom + 30;
+    const y = (point.y - camera.y) * camera.zoom;
+    const label = `${plan.portalPair.name} ${side}`;
+    ctx.save();
+    ctx.textPaintMode = "exact";
+    ctx.font = "700 11px system-ui, -apple-system, Segoe UI, sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "rgba(0,0,0,.88)";
+    ctx.lineWidth = 3;
+    ctx.fillStyle = "#eaf6ff";
+    ctx.strokeText(label, x, y);
+    ctx.fillText(label, x, y);
+    ctx.restore();
+  }
 }
 
 function verticesForMatrixInternalRoutes(device, offsets = null, options = DEFAULT_RENDER_OPTIONS) {
@@ -4349,6 +4407,16 @@ function drawPolylineLabel(ctx, points, camera, text, style = null) {
   ctx.strokeText(text, 0, -8 * Math.max(1, Math.sqrt(camera.zoom)));
   ctx.fillText(text, 0, -8 * Math.max(1, Math.sqrt(camera.zoom)));
   ctx.restore();
+}
+
+function drawLoomSectionLabels(ctx, sections, camera, text, style) {
+  const valid = sections.filter(section => section?.length > 1);
+  if (!valid.length || !text) return;
+  const minimumScreenLength = Math.max(112, text.length * 5.5);
+  const visible = valid.filter(section => polylineLength(section) * camera.zoom >= minimumScreenLength);
+  const chosen = visible.length ? visible : [valid.reduce((longest, section) =>
+    polylineLength(section) > polylineLength(longest) ? section : longest)];
+  chosen.forEach(section => drawPolylineLabel(ctx, section, camera, text, style));
 }
 
 function loomLabelStyle(loom = {}) {

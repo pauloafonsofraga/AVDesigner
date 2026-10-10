@@ -25,6 +25,94 @@ function normalizedRoutePointCounter(value) {
   return Number.isSafeInteger(counter) && counter > 0 ? counter : 0;
 }
 
+function normalizedLoomPortalCounter(value) {
+  const number = Number(value);
+  return Number.isSafeInteger(number) && number > 0 ? number : 0;
+}
+
+function portalNumberFromId(value) {
+  const match = /^loom-portal-([1-9]\d*)$/.exec(String(value || ""));
+  if (!match) return 0;
+  const number = Number(match[1]);
+  return Number.isSafeInteger(number) ? number : 0;
+}
+
+function normalizeLoomPortalPairs(value, routePoints) {
+  if (!Array.isArray(value)) return [];
+  const anchorIds = ["sideA", ...routePoints.map(point => point.id), "sideB"];
+  const seenIds = new Set();
+  for (const raw of value) {
+    const number = portalNumberFromId(raw?.id);
+    if (!number || seenIds.has(raw.id)) continue;
+    const attachment = raw?.attachment;
+    const spanIndex = anchorIds.findIndex((id, index) => index < anchorIds.length - 1
+      && id === attachment?.fromAnchorId && anchorIds[index + 1] === attachment?.toAnchorId);
+    const fraction = Number(attachment?.fraction);
+    const portalB = raw?.portalB;
+    const expectedName = number ? `LP-${String(number).padStart(3, "0")}` : "";
+    if (spanIndex < 0 || !Number.isFinite(fraction)
+      || String(raw?.name || "").trim() !== expectedName
+      || !Number.isFinite(Number(portalB?.x)) || !Number.isFinite(Number(portalB?.y))) continue;
+    seenIds.add(raw.id);
+    return [{ id: raw.id,
+      name: expectedName,
+      attachment: { fromAnchorId: attachment.fromAnchorId, toAnchorId: attachment.toAnchorId,
+        fraction: Math.max(0, Math.min(1, fraction)) },
+      portalB: { x: Number(portalB.x), y: Number(portalB.y) } }];
+  }
+  return [];
+}
+
+export function normalizeLoomCollection(values, portalCounter = 0) {
+  const looms = (Array.isArray(values) ? values : []).map(normalizeLoom);
+  const warnings = [];
+  (Array.isArray(values) ? values : []).forEach((value, index) => {
+    const rawCount = Array.isArray(value?.portalPairs) ? value.portalPairs.length : 0;
+    if (rawCount > looms[index].portalPairs.length) {
+      warnings.push(`Invalid or excess Loom Portal pair data was discarded for ${looms[index].name || looms[index].id}.`);
+    }
+  });
+  const usedIds = new Set();
+  const usedNames = new Set();
+  let counter = normalizedLoomPortalCounter(portalCounter);
+  for (const loom of looms) for (const pair of loom.portalPairs) {
+    counter = Math.max(counter, portalNumberFromId(pair.id));
+    const nameNumber = /^LP-(\d+)$/i.exec(pair.name || "");
+    if (nameNumber) counter = Math.max(counter, Number(nameNumber[1]) || 0);
+  }
+  for (const loom of looms) {
+    for (const pair of loom.portalPairs) {
+      if (!usedIds.has(pair.id) && !usedNames.has(pair.name.toLowerCase())) {
+        usedIds.add(pair.id);
+        usedNames.add(pair.name.toLowerCase());
+        continue;
+      }
+      do { counter += 1; } while (usedIds.has(`loom-portal-${counter}`)
+        || usedNames.has(`lp-${String(counter).padStart(3, "0")}`));
+      pair.id = `loom-portal-${counter}`;
+      pair.name = `LP-${String(counter).padStart(3, "0")}`;
+      usedIds.add(pair.id);
+      usedNames.add(pair.name.toLowerCase());
+    }
+  }
+  return { looms, loomPortalNumberCounter: counter, warnings };
+}
+
+export function allocateLoomPortalIdentity(project) {
+  const root = rootOf(project);
+  let counter = normalizedLoomPortalCounter(root.loomPortalNumberCounter);
+  const usedIds = new Set(), usedNames = new Set();
+  for (const loom of root.looms || []) for (const pair of loom.portalPairs || []) {
+    usedIds.add(String(pair?.id || ""));
+    usedNames.add(String(pair?.name || "").toLowerCase());
+    counter = Math.max(counter, portalNumberFromId(pair?.id));
+  }
+  do { counter += 1; } while (usedIds.has(`loom-portal-${counter}`)
+    || usedNames.has(`lp-${String(counter).padStart(3, "0")}`));
+  root.loomPortalNumberCounter = counter;
+  return { id: `loom-portal-${counter}`, name: `LP-${String(counter).padStart(3, "0")}` };
+}
+
 export function normalizeLoomLabelColor(value, fallback = DEFAULT_LOOM_LABEL_TEXT_COLOR) {
   const normalize = candidate => {
     const source = String(candidate ?? "").trim();
@@ -78,6 +166,7 @@ export function normalizeLoom(value, index = 0) {
     labelBackgroundColor: normalizeLoomLabelColor(value?.labelBackgroundColor, DEFAULT_LOOM_LABEL_BACKGROUND_COLOR),
     routeStyle: value?.routeStyle === "bezier" ? "bezier" : "orthogonal",
     routePoints, routePointCounter,
+    portalPairs: normalizeLoomPortalPairs(value?.portalPairs, routePoints),
     trunkLength: String(value?.trunkLength ?? ""), notes: String(value?.notes ?? "")
   };
 }
@@ -154,7 +243,10 @@ export function loomComposition(project, loomId) {
 
 export function migrateLegacyLooms(project) {
   const root = rootOf(project), warnings = [];
-  root.looms = Array.isArray(root.looms) ? root.looms.map(normalizeLoom) : [];
+  const normalized = normalizeLoomCollection(root.looms, root.loomPortalNumberCounter);
+  root.looms = normalized.looms;
+  root.loomPortalNumberCounter = normalized.loomPortalNumberCounter;
+  warnings.push(...normalized.warnings);
   const byId = new Map(root.looms.map(loom => [loom.id, loom]));
   const byName = new Map(root.looms.map(loom => [nameKey(loom.name), loom]));
   for (const group of groupedCables(root)) {

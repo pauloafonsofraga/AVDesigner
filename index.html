@@ -6683,6 +6683,7 @@
       connections: [],
       looms: [],
       loomNumberCounter: 0,
+      loomPortalNumberCounter: 0,
       cableNumberCounters: {},
       selected: null,
       darkMode: true,
@@ -9677,6 +9678,7 @@
         connections: connectionsForProjectSnapshot(),
         looms: state.looms,
         loomNumberCounter: state.loomNumberCounter,
+        loomPortalNumberCounter: state.loomPortalNumberCounter,
         cableNumberCounters: state.cableNumberCounters,
         darkMode: state.darkMode,
         gridVisible: state.gridVisible,
@@ -9706,6 +9708,7 @@
       state.connections = cloneHistoryValue(snapshot.connections || []);
       state.looms = cloneHistoryValue(snapshot.looms || []);
       state.loomNumberCounter = Number(snapshot.loomNumberCounter) || 0;
+      state.loomPortalNumberCounter = Number(snapshot.loomPortalNumberCounter) || 0;
       state.cableNumberCounters = cloneHistoryValue(snapshot.cableNumberCounters || {});
       state.devices.forEach(normalizeInstanceRelationshipMetadata);
       state.selected = null;
@@ -9717,7 +9720,9 @@
       setProjectVoltage(snapshot.powerVoltage || DEFAULT_POWER_VOLTAGE, { renderUi: false });
       syncIdCounter();
       render();
-      window.avDesignerEngineBridge?.refreshFromProduction?.("snapshot restored");
+      window.avDesignerEngineBridge?.refreshFromProduction?.("snapshot restored", {
+        projectData: projectSnapshotData({ forEngine: true, useEngineRoot: false })
+      });
     }
 
     function pushUndo(snapshot = projectSnapshot()) {
@@ -27871,6 +27876,10 @@
         if (loomAction === "reset-route") bridge?.updateManagedLoom?.(loomId, { routePoints: [] });
         if (loomAction === "add-corner") bridge?.addLoomRoutePoint?.(loomId, { x: loomX, y: loomY });
         if (loomAction === "delete-corner") bridge?.removeLoomRoutePoint?.(loomId, loomPointIndex);
+        if (loomAction === "add-portal" && Number.isFinite(loomX) && Number.isFinite(loomY)) {
+          bridge?.beginLoomPortalPlacement?.(loomId, { x: loomX, y: loomY });
+        }
+        if (loomAction === "remove-portal") bridge?.removeLoomPortalPair?.(loomId);
         if (loomAction === "dissolve") bridge?.deleteSelectedLoom?.(loomId);
         if (loomAction === "edit") {
           state.selected = { type: "loom", id: loomId };
@@ -28456,12 +28465,16 @@
     function showLoomContextMenu(event, loomId, context = {}) {
       const loom = (state.looms || []).find(item => item.id === loomId);
       if (!loom) return;
+      const hasPortalPair = Boolean(loom.portalPairs?.length);
       deviceContextMenu.innerHTML = `
         <button type="button" data-loom-menu="toggle-expanded">${activeEngineBridge()?.scene?.expandedLoomIds?.has(loomId) ? "Collapse Loom" : "Expand Loom"}</button>
         <button type="button" data-loom-menu="edit">Edit Loom</button>
         <button type="button" data-loom-menu="select-members">Select All Circuits</button>
         ${context.part === "route-point" ? '<button type="button" data-loom-menu="delete-corner">Delete Corner</button>'
           : '<button type="button" data-loom-menu="add-corner">Create Corner</button>'}
+        ${hasPortalPair
+          ? '<button type="button" class="danger" data-loom-menu="remove-portal">Remove Loom Portal Pair</button>'
+          : '<button type="button" data-loom-menu="add-portal">Add Loom Portal Pair</button>'}
         <button type="button" data-loom-menu="reset-route" ${loom.routePoints?.length ? "" : "disabled"}>Reset Loom Route</button>
         <button type="button" class="danger" data-loom-menu="dissolve">Dissolve Loom</button>`;
       deviceContextMenu.style.left = `${event.clientX}px`;
@@ -28567,12 +28580,16 @@
 
     function deleteSelection() {
       const selection = state.selected;
+      const engineBridge = activeEngineBridge();
+      if (!selection && engineBridge?.scene?.selectedLoomPortalKey) {
+        engineBridge.deleteSelectedLoomPortal?.();
+        return;
+      }
       if (!selection && ledConnectorSelection.length) {
         deleteLedConnectorSelectionConnections();
         return;
       }
       if (!selection) return;
-      const engineBridge = activeEngineBridge();
       if (engineBridge) {
         const selectedItems = selection.type === "multi" ? (selection.items || []) : [selection];
         const selectedLoom = selectedItems.find(item => item?.type === "loom");
@@ -31531,8 +31548,9 @@
       });
     }
 
-    function projectSnapshotData({ forEngine = false } = {}) {
+    function projectSnapshotData({ forEngine = false, useEngineRoot = true } = {}) {
       state.devices.forEach(normalizeInstanceRelationshipMetadata);
+      const engineRoot = useEngineRoot ? activeEngineBridge()?.mutations?.root : null;
       return {
         version: state.version,
         projectName: state.projectName,
@@ -31553,8 +31571,9 @@
         comments: state.comments,
         titleBlocks: state.titleBlocks,
         connections: forEngine ? state.connections : connectionsForProjectSnapshot(),
-        looms: state.looms || [],
+        looms: engineRoot?.looms || state.looms || [],
         loomNumberCounter: state.loomNumberCounter || 0,
+        loomPortalNumberCounter: engineRoot?.loomPortalNumberCounter ?? state.loomPortalNumberCounter ?? 0,
         cableNumberCounters: state.cableNumberCounters,
         deviceLibrary
       };
@@ -32693,6 +32712,7 @@ document.addEventListener("click", function(event) {
           const loomWarnings = migrateLegacyLooms(loomProject);
           state.looms = loomProject.looms;
           state.loomNumberCounter = loomProject.loomNumberCounter || 0;
+          state.loomPortalNumberCounter = loomProject.loomPortalNumberCounter || 0;
           if (loomWarnings.length) console.warn("[loom-migration]", ...loomWarnings);
           state.cableNumberCounters = data.cableNumberCounters && typeof data.cableNumberCounters === "object" ? data.cableNumberCounters : {};
           bridge?.setLoadingPhase?.("Rebuilding production compatibility data...");
@@ -32706,7 +32726,7 @@ document.addEventListener("click", function(event) {
           projectFileHandle = options.fileHandle || null;
           projectFileName = options.fileHandle?.name || file?.name || "";
           renderDeviceLibrary();
-          const loadedProjectSnapshot = projectSnapshotData({ forEngine: true });
+          const loadedProjectSnapshot = projectSnapshotData({ forEngine: true, useEngineRoot: false });
           render();
           metrics.shellMs = performance.now() - shellStart;
           bridge?.setLoadingPhase?.("Rebuilding Engine Editor scene...");
@@ -32998,6 +33018,7 @@ document.addEventListener("click", function(event) {
       state.connections = [];
       state.looms = [];
       state.loomNumberCounter = 0;
+      state.loomPortalNumberCounter = 0;
       state.cableNumberCounters = {};
       state.imageObjects = [];
       deviceLibrary = structuredClone(builtInDeviceLibrary);
@@ -35145,6 +35166,12 @@ document.addEventListener("click", function(event) {
       const selectedConnectors = selection.connectorKeys || [];
       const selectedJumpLinkId = String(selection.jumpLinkId || selection.selectedJumpLinkId || "").trim();
       const selectedLoomId = String(selection.loomId || "").trim();
+      const selectedLoomPortalKey = String(selection.loomPortalKey || "").trim();
+      if (selectedLoomPortalKey) {
+        state.selected = null;
+        renderInspector();
+        return;
+      }
       const selectedJumpLink = selectedJumpLinkId ? jumpLinkById(selectedJumpLinkId) : null;
       const selectedRackId = (() => {
         const rackIds = [...new Set(selectedDevices.map(device => String(device.rackId || "")).filter(Boolean))];
@@ -35267,6 +35294,8 @@ document.addEventListener("click", function(event) {
             restoreDeviceEditorSnapshot: restoreDeviceEditorEngineSnapshot,
             nextId,
             onEngineLoomCounterChange: counter => { state.loomNumberCounter = counter; },
+            onEngineLoomsChange: looms => { state.looms = structuredClone(looms || []); },
+            onEngineLoomPortalCounterChange: counter => { state.loomPortalNumberCounter = counter; },
             setJumpNodeToolActive,
             getGridVisible: () => state.gridVisible !== false,
             getObjectSnapping: () => state.objectSnapping !== false,

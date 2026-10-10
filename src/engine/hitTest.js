@@ -135,6 +135,18 @@ export function hitTestLoom(scene, worldPoint, tolerance = 8) {
     || hitTestLoomTrunk(scene, worldPoint, tolerance);
 }
 
+export function hitTestLoomPortal(scene, worldPoint, tolerance = 8) {
+  const candidates = scene.loomPortalIndex?.queryRect(toleranceRect(worldPoint, tolerance + 20)) || [];
+  let best = null;
+  for (const item of candidates) {
+    const portal = item.payload;
+    if (!portal?.point) continue;
+    const distance = Math.hypot(worldPoint.x - portal.point.x, worldPoint.y - portal.point.y);
+    if (distance <= tolerance + 17 && (!best || distance < best.distance)) best = { ...portal, distance };
+  }
+  return best;
+}
+
 export function hitTestSelectedLoomRoutePoint(scene, worldPoint, tolerance = 8) {
   let best = null;
   const selected = scene.looms?.find(item => item.id === scene.selectedLoomId);
@@ -163,10 +175,12 @@ export function hitTestLoomGateway(scene, worldPoint, tolerance = 8) {
 export function hitTestLoomTrunk(scene, worldPoint, tolerance = 8) {
   let best = null;
   for (const plan of scene.loomPlans || []) {
-    const hit = distanceToPolyline(plan.trunk, worldPoint);
-    if (hit.distance <= 7 + tolerance && (!best || hit.distance < best.distance)) {
-      best = { loomId: plan.loomId, part: "trunk", distance: hit.distance,
-        point: hit.point, segmentIndex: hit.segmentIndex };
+    for (const [sectionIndex, section] of (plan.visibleTrunkSections || [plan.trunk]).entries()) {
+      const hit = distanceToPolyline(section, worldPoint);
+      if (hit.distance <= 7 + tolerance && (!best || hit.distance < best.distance)) {
+        best = { loomId: plan.loomId, part: "trunk", distance: hit.distance,
+          point: hit.point, segmentIndex: hit.segmentIndex, sectionIndex };
+      }
     }
   }
   return best;

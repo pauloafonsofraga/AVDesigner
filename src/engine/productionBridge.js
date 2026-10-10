@@ -35,11 +35,12 @@ import { attachedJumpIdsForDevices, directDeviceIdsForJump, eligibleDeviceForJum
 import { applyCanvasClipboardPlan } from "./canvasClipboard.js";
 import { WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
-import { allocateLoomIdentity, DEFAULT_LOOM_LABEL_BACKGROUND_COLOR, DEFAULT_LOOM_LABEL_TEXT_COLOR,
+import { allocateLoomIdentity, allocateLoomPortalIdentity, DEFAULT_LOOM_LABEL_BACKGROUND_COLOR, DEFAULT_LOOM_LABEL_TEXT_COLOR,
   addLoomRoutePoint as appendLoomRoutePoint, dissolveLoom, normalizeLoom, normalizeLoomLabelColor,
   renameLoom, selectedLoomCableGroups, setLogicalCableLoom } from "./loomModel.js";
-import { externalCableEndpoints, initialLoomHeads, loomCreationPreviewPoints, loomGeometry,
-  prepareLoomGeometryContext } from "./loomGeometry.js";
+import { externalCableEndpoints, initialLoomHeads, locatePointOnLoomRoute, loomCreationPreviewPoints,
+  loomGeometry, prepareLoomGeometryContext, rebaseLoomPortalAttachments,
+  resolveLoomRouteAttachment } from "./loomGeometry.js";
 import { canonicalLoomWireRouting } from "./loomJumpRouting.js";
 import { monitorNameUpdates } from "./monitorNaming.js";
 import { PerfHud } from "./perfHud.js";
@@ -137,6 +138,7 @@ const {
   hitTestRoutePoint,
   hitTestWire,
   hitTestLoom,
+  hitTestLoomPortal,
   hitTestLoomGateway,
   hitTestLoomTrunk,
   hitTestSelectedLoomRoutePoint,
@@ -256,6 +258,7 @@ class ProductionEngineBridge {
     this.wireCreate = null;
     this.loomCreationActive = false;
     this.loomCreate = null;
+    this.loomPortalPlacement = null;
     this.jumpPlacement = null;
     this.jumpLinkCreate = null;
     this.pendingJumpPress = null;
@@ -1180,6 +1183,13 @@ class ProductionEngineBridge {
     const closest = typeof target?.closest === "function"
       ? selector => target.closest(selector)
       : () => null;
+    const removePortalButton = closest("[data-loom-portal-remove]");
+    if (removePortalButton && this.inspectorPanel?.contains(removePortalButton)) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.deleteSelectedLoomPortal();
+      return;
+    }
     const jumpPairButton = closest("[data-jump-to-pair]");
     if (jumpPairButton && this.inspectorPanel?.contains(jumpPairButton)) {
       event.preventDefault();
@@ -2211,11 +2221,42 @@ class ProductionEngineBridge {
       this.beginPan(point, event.pointerId);
       return;
     }
+    if (event.button === 0) {
+      const world = screenToWorld(this.camera, point);
+      if (this.loomPortalPlacement) {
+        event.preventDefault();
+        this.capturePointer(event.pointerId);
+        const placement = this.updateLoomPortalPlacement(world, event.shiftKey);
+        if (placement) this.completeLoomPortalPlacement(placement);
+        return;
+      }
+      const portalHit = hitTestLoomPortal(this.scene, world, this.hitToleranceWorld());
+      if (portalHit) {
+        event.preventDefault();
+        this.capturePointer(event.pointerId);
+        if (this.wireCreate || this.loomCreationActive) this.cancelActiveInteraction("portal-selected", { updateHud: false });
+        const loom = this.scene.looms.find(item => item.id === portalHit.loomId);
+        const pair = loom?.portalPairs?.find(item => item.id === portalHit.pairId);
+        if (!pair || !this.scene.selectLoomPortal(portalHit.key)) return;
+        this.loomHeadDrag = { loomId: portalHit.loomId, pairId: portalHit.pairId,
+          part: portalHit.side === "a" ? "portal-a" : "portal-b", pointerId: event.pointerId,
+          startWorld: world, startPoint: point, startPortalB: { ...pair.portalB },
+          before: this.captureLoomState(), beforeLoom: structuredClone(loom), moved: false,
+          geometryContext: prepareLoomGeometryContext(this.mutations.root, this.scene, portalHit.loomId),
+          snapSession: portalHit.side === "b"
+            ? this.createLoomSnapSession(pair.portalB) : null };
+        this.updateSelectionHud();
+        this.updateCanvasCursor();
+        this.scheduleRender();
+        return;
+      }
+    }
     if (this.dispatchCanvasToolPointerEvent("pointerdown", event, point)) {
       this.capturePointer(event.pointerId);
       return;
     }
     if (event.button !== 0) return;
+    const world = screenToWorld(this.camera, point);
     if (this.loomCreationActive) {
       event.preventDefault();
       const world = screenToWorld(this.camera, point);
@@ -2266,7 +2307,6 @@ class ProductionEngineBridge {
     }
     if (event.ctrlKey) this.noteCtrlLeftClickForContextMenu(event, point);
     this.capturePointer(event.pointerId);
-    const world = screenToWorld(this.camera, point);
     const tolerance = this.hitToleranceWorld();
     const additiveSelection = isAdditiveSelectionModifier(event);
 
@@ -2630,6 +2670,11 @@ class ProductionEngineBridge {
       this.scheduleRender();
       return;
     }
+    if (this.loomPortalPlacement) {
+      this.updateLoomPortalPlacement(screenToWorld(this.camera, point), event.shiftKey);
+      this.scheduleRender();
+      return;
+    }
     if (this.rotationDrag) {
       if (event.pointerId !== this.rotationDrag.pointerId) return;
       event.preventDefault();
@@ -2661,6 +2706,31 @@ class ProductionEngineBridge {
       const world = screenToWorld(this.camera, point);
       const drag = this.loomHeadDrag;
       const beforeLoom = drag.beforeLoom;
+      if (drag.part === "portal-a") {
+        const locator = locatePointOnLoomRoute(beforeLoom, world);
+        const pair = beforeLoom?.portalPairs?.find(item => item.id === drag.pairId);
+        if (!locator.valid || !pair) return;
+        const previewLoom = structuredClone(beforeLoom);
+        previewLoom.portalPairs.find(item => item.id === drag.pairId).attachment = {
+          fromAnchorId: locator.fromAnchorId, toAnchorId: locator.toAnchorId, fraction: locator.fraction
+        };
+        this.updateLoomDragPreview(drag, previewLoom);
+        drag.moved = JSON.stringify(pair.attachment) !== JSON.stringify(previewLoom.portalPairs[0]?.attachment);
+        this.scheduleRender();
+        return;
+      }
+      if (drag.part === "portal-b") {
+        const pair = beforeLoom?.portalPairs?.find(item => item.id === drag.pairId);
+        if (!pair) return;
+        const { dx, dy } = this.snapLoomDrag(drag, world, event.shiftKey);
+        const previewLoom = structuredClone(beforeLoom);
+        const previewPair = previewLoom.portalPairs.find(item => item.id === drag.pairId);
+        previewPair.portalB = { x: drag.startPortalB.x + dx, y: drag.startPortalB.y + dy };
+        this.updateLoomDragPreview(drag, previewLoom);
+        drag.moved = Math.hypot(dx, dy) > 1;
+        this.scheduleRender();
+        return;
+      }
       if (drag.part === "trunk") {
         const screenDx = point.x - drag.startPoint.x;
         const screenDy = point.y - drag.startPoint.y;
@@ -2939,7 +3009,10 @@ class ProductionEngineBridge {
       if (event.pointerId !== drag.pointerId) return;
       this.loomHeadDrag = null;
       if (drag.moved) {
-        this.commitLoomEdit(drag.part === "trunk" ? "move loom" : "move loom head", draft => {
+        const commandType = drag.part === "portal-a" ? "move Loom Portal A"
+          : drag.part === "portal-b" ? "move Loom Portal B"
+            : drag.part === "trunk" ? "move loom" : "move loom head";
+        this.commitLoomEdit(commandType, draft => {
           const index = draft.looms.findIndex(loom => loom.id === drag.loomId);
           if (index < 0 || !drag.previewLoom) return false;
           draft.looms[index] = structuredClone(drag.previewLoom);
@@ -3103,6 +3176,11 @@ class ProductionEngineBridge {
     }
     if (event.key === "Delete" || event.key === "Backspace") {
       this.clearJumpMoveArm("delete-key", { updateHud: false });
+      if (this.scene.selectedLoomPortalKey) {
+        consumeEngineShortcut(event);
+        this.deleteSelectedLoomPortal();
+        return;
+      }
       if (this.scene.selectedLoomId) {
         consumeEngineShortcut(event);
         this.deleteSelectedLoom();
@@ -3139,6 +3217,12 @@ class ProductionEngineBridge {
       return;
     }
     if (event.key !== "Escape") return;
+    if (this.loomPortalPlacement) {
+      consumeEngineShortcut(event);
+      this.cancelActiveInteraction("loom-portal-placement-cancelled");
+      this.scheduleRender();
+      return;
+    }
     if (this.loomCreationActive) {
       consumeEngineShortcut(event);
       this.deactivateLoomCreation("escape");
@@ -4945,6 +5029,10 @@ class ProductionEngineBridge {
       this.loomHeadDrag = null;
       this.scheduleRender();
     }
+    if (this.loomPortalPlacement) {
+      this.loomPortalPlacement = null;
+      this.scheduleRender();
+    }
     this.stopWirePlayback(`interaction ${reason}`, { render: false });
     this.cancelCanvasObjectResize(reason);
     this.cancelWireSegmentDrag(reason);
@@ -5032,6 +5120,7 @@ class ProductionEngineBridge {
   hoverOwnerKey(state = this.hoverState) {
     if (!state) return "none";
     if (state.infoBox?.key) return `info-box:${state.infoBox.key}`;
+    if (state.loomPortal?.key) return `loom-portal:${state.loomPortal.key}`;
     if (state.routePoint?.wire?.id) return `route-point:${state.routePoint.wire.id}:${state.routePoint.pointIndex}`;
     if (state.connector?.device?.id && state.connector?.connector?.id) {
       return `connector:${state.connector.device.id}:${state.connector.connector.id}`;
@@ -5072,6 +5161,15 @@ class ProductionEngineBridge {
       }, "connector-info-hover");
       this.updateCanvasCursor();
       this.updateInteractionHud("connector-info-hover", { candidates: 1, ms: 0 });
+      this.scheduleRender();
+      return;
+    }
+    const portalHit = hitTestLoomPortal(this.scene, world, tolerance);
+    if (portalHit) {
+      this.setHoverState({ ...emptyHoverState(), loomPortal: portalHit, screenPoint,
+        candidateCount: 1, hitMs: 0 }, "loom-portal-hover");
+      this.updateCanvasCursor();
+      this.updateInteractionHud("loom-portal-hover", portalHit);
       this.scheduleRender();
       return;
     }
@@ -5200,7 +5298,7 @@ class ProductionEngineBridge {
 
   hasHoverState() {
     return Boolean(this.hoverState.device || this.hoverState.connector || this.hoverState.wire
-      || this.hoverState.routePoint || this.hoverState.infoBox || this.hoverState.loom);
+      || this.hoverState.routePoint || this.hoverState.infoBox || this.hoverState.loom || this.hoverState.loomPortal);
   }
 
   hasSelection() {
@@ -5212,6 +5310,7 @@ class ProductionEngineBridge {
       || this.scene.selectedRoutePointKeys.size
       || this.scene.selectedJumpLinkId
       || this.scene.selectedLoomId
+      || this.scene.selectedLoomPortalKey
     );
   }
 
@@ -5219,6 +5318,9 @@ class ProductionEngineBridge {
     const point = this.eventPoint(event);
     const world = screenToWorld(this.camera, point);
     const tolerance = this.hitToleranceWorld();
+    const portalHit = hitTestLoomPortal(this.scene, world, tolerance);
+    if (portalHit) return { type: "loom", loomId: portalHit.loomId,
+      part: "portal", portalKey: portalHit.key, clickedWorld: { ...world } };
     if (this.shouldHitTestRoutePoints()) {
       const routeHit = this.hitTestEditableRoutePoint(world, tolerance * 1.2);
       if (routeHit.routePoint) {
@@ -5406,6 +5508,9 @@ class ProductionEngineBridge {
       : [];
     return {
       hoveredLoom: this.hoverState.loom,
+      hoveredLoomPortal: this.hoverState.loomPortal,
+      selectedLoomPortalKey: this.scene.selectedLoomPortalKey || "",
+      loomPortalPlacement: this.loomPortalPlacement ? structuredClone(this.loomPortalPlacement) : null,
       loomDragPreview: this.loomHeadDrag?.previewPlan ? {
         plan: this.loomHeadDrag.previewPlan,
         loom: this.loomHeadDrag.previewLoom
@@ -5426,7 +5531,7 @@ class ProductionEngineBridge {
           ? { mode: "wire-segment", wireId: this.wireSegmentDrag.wireId, segmentIndex: this.wireSegmentDrag.segmentIndex }
           : null,
       snapGuides: this.jumpPlacement?.guides || this.dragSession?.snapGuides
-        || this.loomHeadDrag?.lastSnap?.guides || this.loomCreate?.guides
+        || this.loomHeadDrag?.lastSnap?.guides || this.loomPortalPlacement?.guides || this.loomCreate?.guides
         || this.wireSegmentDrag?.lastSnap?.guides || null,
       snapDebugVisual: this.snapDebugVisualState(),
       hoverScreenPoint: this.hoverState.screenPoint,
@@ -6014,7 +6119,8 @@ class ProductionEngineBridge {
     const selectedConnectors = this.scene.selectedConnectorKeys.size;
     const selectedJumpLinks = this.scene.selectedJumpLinkId ? 1 : 0;
     const selectedLooms = this.scene.selectedLoomId ? 1 : 0;
-    const selectedTotal = selectedDevices + selectedRacks + selectedWires + selectedRoutePoints + selectedConnectors + selectedJumpLinks + selectedLooms;
+    const selectedLoomPortals = this.scene.selectedLoomPortalKey ? 1 : 0;
+    const selectedTotal = selectedDevices + selectedRacks + selectedWires + selectedRoutePoints + selectedConnectors + selectedJumpLinks + selectedLooms + selectedLoomPortals;
     this.hud.setSceneStats({ selected: selectedTotal });
     this.hud.setMetric("selected racks", selectedRacks);
     this.hud.setMetric("selected devices", selectedDevices);
@@ -6047,6 +6153,7 @@ class ProductionEngineBridge {
       wireIds: [...this.scene.selectedWireIds],
       jumpLinkId: this.scene.selectedJumpLinkId || "",
       loomId: this.scene.selectedLoomId || "",
+      loomPortalKey: this.scene.selectedLoomPortalKey || "",
       wires: selectedWireObjects,
       connectorKeys: [...this.scene.selectedConnectorKeys],
       routePointKeys: [...this.scene.selectedRoutePointKeys],
@@ -7682,6 +7789,7 @@ class ProductionEngineBridge {
     return {
       looms: structuredClone(root?.looms || []),
       loomNumberCounter: Number(root?.loomNumberCounter) || 0,
+      loomPortalNumberCounter: Number(root?.loomPortalNumberCounter) || 0,
       memberships: (root?.connections || []).map(wire => ({ id: String(wire.id), loomId: wire.loomId || "",
         loom: wire.loom || "", loomEntrySide: wire.loomEntrySide || "",
         loomEntryRoutePoints: structuredClone(wire.loomEntryRoutePoints || []),
@@ -7719,9 +7827,12 @@ class ProductionEngineBridge {
     const start = performance.now();
     const root = this.mutations.root;
     root.looms.splice(0, root.looms.length, ...structuredClone(snapshot.looms));
+    this.api.onEngineLoomsChange?.(root.looms);
     root.loomNumberCounter = Math.max(Number(root.loomNumberCounter) || 0,
       Number(snapshot.loomNumberCounter) || 0);
     this.api.onEngineLoomCounterChange?.(root.loomNumberCounter);
+    root.loomPortalNumberCounter = Number(snapshot.loomPortalNumberCounter) || 0;
+    this.api.onEngineLoomPortalCounterChange?.(root.loomPortalNumberCounter);
     const membershipById = new Map(snapshot.memberships.map(item => [item.id, item]));
     for (const wire of root.connections) {
       const membership = membershipById.get(String(wire.id));
@@ -7755,11 +7866,14 @@ class ProductionEngineBridge {
     const before = this.captureLoomState();
     const draft = { ...this.mutations.root, looms: structuredClone(before.looms),
       loomNumberCounter: before.loomNumberCounter,
+      loomPortalNumberCounter: before.loomPortalNumberCounter,
       connections: this.mutations.root.connections.map(wire => ({ ...wire })) };
     const accepted = edit(draft);
     if (!accepted) return false;
+    if (!rebaseLoomPortalAttachments(before.looms, draft.looms)) return false;
     const after = {
       looms: draft.looms, loomNumberCounter: draft.loomNumberCounter,
+      loomPortalNumberCounter: draft.loomPortalNumberCounter,
       memberships: draft.connections.map(wire => ({ id: String(wire.id), loomId: wire.loomId || "",
         loom: wire.loom || "", loomEntrySide: wire.loomEntrySide || "",
         loomEntryRoutePoints: structuredClone(wire.loomEntryRoutePoints || []),
@@ -7772,6 +7886,84 @@ class ProductionEngineBridge {
     this.recordCommand({ type, undo: bridge => bridge.applyLoomState(before),
       redo: bridge => bridge.applyLoomState(after) });
     return true;
+  }
+
+  beginLoomPortalPlacement(loomId, worldPoint) {
+    const loom = this.scene.looms.find(item => item.id === loomId);
+    if (!loom || loom.portalPairs?.length || !Number.isFinite(worldPoint?.x) || !Number.isFinite(worldPoint?.y)) return false;
+    const attachment = locatePointOnLoomRoute(loom, worldPoint);
+    if (!attachment.valid) return false;
+    this.cancelActiveInteraction("loom-portal-placement", { updateHud: false });
+    this.api.setJumpNodeToolActive?.(false);
+    this.loomPortalPlacement = {
+      loomId, attachment: { fromAnchorId: attachment.fromAnchorId,
+        toAnchorId: attachment.toAnchorId, fraction: attachment.fraction },
+      portalA: { ...attachment.point }, portalB: { ...attachment.point },
+      startWorld: { ...attachment.point }, snapSession: this.createLoomSnapSession(attachment.point)
+    };
+    this.scene.clearSelection();
+    this.updateCanvasCursor();
+    this.updateInteractionHud("loom-portal-placement");
+    this.scheduleRender();
+    return true;
+  }
+
+  updateLoomPortalPlacement(world, axisLockRequested = false) {
+    const placement = this.loomPortalPlacement;
+    if (!placement || !Number.isFinite(world?.x) || !Number.isFinite(world?.y)) return null;
+    const drag = { startWorld: placement.startWorld, snapSession: placement.snapSession };
+    const { dx, dy } = this.snapLoomDrag(drag, world, axisLockRequested);
+    placement.portalB = { x: placement.startWorld.x + dx, y: placement.startWorld.y + dy };
+    placement.guides = drag.lastSnap?.guides || null;
+    return placement;
+  }
+
+  completeLoomPortalPlacement(placement = this.loomPortalPlacement) {
+    if (!placement || placement !== this.loomPortalPlacement) return false;
+    const created = this.createLoomPortalPair(placement.loomId, placement.attachment, placement.portalB);
+    this.loomPortalPlacement = null;
+    this.updateCanvasCursor();
+    this.updateSelectionHud();
+    this.scheduleRender();
+    return created;
+  }
+
+  createLoomPortalPair(loomId, attachment, portalB) {
+    let pairId = "";
+    const created = this.commitLoomEdit("create Loom Portal pair", draft => {
+      const loom = draft.looms.find(item => item.id === loomId);
+      if (!loom || loom.portalPairs?.length || !resolveLoomRouteAttachment(loom, attachment).valid
+        || ![portalB?.x, portalB?.y].every(Number.isFinite)) return false;
+      const identity = allocateLoomPortalIdentity(draft);
+      pairId = identity.id;
+      loom.portalPairs = [{ ...identity, attachment: { fromAnchorId: attachment.fromAnchorId,
+        toAnchorId: attachment.toAnchorId, fraction: attachment.fraction }, portalB: { x: portalB.x, y: portalB.y } }];
+      return true;
+    });
+    if (created && pairId) this.scene.selectLoomPortal(`${pairId}:a`);
+    return created;
+  }
+
+  removeLoomPortalPair(loomId) {
+    const removed = this.commitLoomEdit("remove Loom Portal pair", draft => {
+      const loom = draft.looms.find(item => item.id === loomId);
+      if (!loom?.portalPairs?.length) return false;
+      loom.portalPairs = [];
+      return true;
+    });
+    if (removed) {
+      this.scene.clearSelection();
+      this.updateSelectionHud();
+      this.scheduleRender();
+    }
+    return removed;
+  }
+
+  deleteSelectedLoomPortal() {
+    const key = this.scene.selectedLoomPortalKey;
+    if (!key) return false;
+    const entry = this.scene.loomPortalIndex.items.get(key)?.payload;
+    return entry ? this.removeLoomPortalPair(entry.loomId) : false;
   }
 
   createLoomFromWires(wireIds = [...this.scene.selectedWireIds]) {
@@ -7891,9 +8083,11 @@ class ProductionEngineBridge {
         if (fields[side]) loom[side] = { ...loom[side], ...fields[side] };
       }
       if (fields.routePoints) {
+        const portalPairs = structuredClone(loom.portalPairs || []);
         const normalized = normalizeLoom({ ...loom, routePoints: fields.routePoints });
         loom.routePoints = normalized.routePoints;
         loom.routePointCounter = normalized.routePointCounter;
+        loom.portalPairs = portalPairs;
       }
       return true;
     });
@@ -7919,6 +8113,16 @@ class ProductionEngineBridge {
 
   renderEngineInspector() {
     if (!this.inspectorPanel) return;
+    if (this.scene.selectedLoomPortalKey) {
+      const portal = this.scene.loomPortalIndex.items.get(this.scene.selectedLoomPortalKey)?.payload;
+      const loom = this.scene.looms.find(item => item.id === portal?.loomId);
+      this.inspectorPanel.innerHTML = `<h3>Engine Inspector</h3>${detailsMarkup([
+        ["Type", "Loom Portal"], ["Pair", portal?.name || portal?.pairId || ""],
+        ["Endpoint", portal?.side === "a" ? "A · route anchored" : "B · free position"],
+        ["Loom", loom?.name || portal?.loomId || ""]
+      ])}<button type="button" class="engine-bridge-action danger" data-loom-portal-remove>Remove Loom Portal Pair</button>`;
+      return;
+    }
     if (this.scene.selectedLoomId) {
       const loom = this.scene.looms.find(item => item.id === this.scene.selectedLoomId);
       const plan = this.scene.loomPlans.find(item => item.loomId === this.scene.selectedLoomId);
@@ -9709,15 +9913,18 @@ class ProductionEngineBridge {
     } else if (this.panState || this.dragSession || this.loomHeadDrag || this.commentBoxDrag || this.routePointDrag || this.wireSegmentDrag) {
       cursor = "grabbing";
       cursorState = this.panState ? "panning" : "dragging";
-    } else if (this.loomCreationActive || this.jumpPlacement || this.jumpLinkCreate || this.wireCreate || this.hoverState.connector || this.marqueeState) {
+    } else if (this.loomPortalPlacement || this.loomCreationActive || this.jumpPlacement || this.jumpLinkCreate || this.wireCreate || this.hoverState.connector || this.marqueeState) {
       cursor = "crosshair";
-      cursorState = this.loomCreationActive ? "loom-create" : this.jumpPlacement ? "jump-placement" : this.jumpLinkCreate ? "jump-link-create" : this.wireCreate ? "wire-create" : this.marqueeState ? "marquee" : "connector";
+      cursorState = this.loomPortalPlacement ? "loom-portal-place" : this.loomCreationActive ? "loom-create" : this.jumpPlacement ? "jump-placement" : this.jumpLinkCreate ? "jump-link-create" : this.wireCreate ? "wire-create" : this.marqueeState ? "marquee" : "connector";
     } else if (this.hoverState.infoBox) {
       cursor = "";
       cursorState = "connector-info";
     } else if (this.hoverState.loom) {
       cursor = "grab";
       cursorState = "loom";
+    } else if (this.hoverState.loomPortal) {
+      cursor = "grab";
+      cursorState = "loom-portal";
     } else if (this.pendingDrag || this.pendingJumpPress || this.hoverState.routePoint || this.hoverState.device) {
       cursor = "grab";
       cursorState = this.pendingJumpPress ? "pending-jump-press" : this.pendingDrag ? "pending-drag" : this.hoverState.routePoint ? "route-point" : "object";
