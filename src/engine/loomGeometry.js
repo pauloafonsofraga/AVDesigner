@@ -2,7 +2,7 @@ import { buildCableSchedule, groupedCables } from "./cableSchedule.js";
 import { buildPreviewOrthogonalWirePoints, ORTHOGONAL_EXIT_OFFSET } from "./orthogonalRouting.js";
 import { splinePolylineSegmentsThroughPoints, wirePolylineFromPoints } from "./wirePath.js";
 import { gatewayExitSide, loomCoreColors, orthogonalManualPoints } from "./routingPlacement.js";
-import { normalizeLoom } from "./loomModel.js";
+import { canonicalizeLoomPortalAttachment, normalizeLoom } from "./loomModel.js";
 
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const mean = points => ({
@@ -187,13 +187,21 @@ export function rebaseLoomPortalAttachments(beforeLooms, afterLooms) {
     for (const pair of loom.portalPairs || []) {
       const before = beforeById.get(loom.id);
       const beforePair = before?.portalPairs?.find(item => item.id === pair.id);
-      if (!beforePair || resolveLoomRouteAttachment(loom, pair.attachment).valid) continue;
+      const canonical = canonicalizeLoomPortalAttachment(loom.routePoints, pair.attachment);
+      const current = resolveLoomRouteAttachment(loom, pair.attachment);
+      if (current.valid) {
+        if (!canonical.valid) return false;
+        pair.attachment = canonical.attachment;
+        continue;
+      }
+      if (!beforePair) return false;
       const oldPoint = resolveLoomRouteAttachment(before, beforePair.attachment);
       if (!oldPoint.valid) return false;
       const projected = locatePointOnLoomRoute(loom, oldPoint.point);
       if (!projected.valid) return false;
-      pair.attachment = { fromAnchorId: projected.fromAnchorId,
-        toAnchorId: projected.toAnchorId, fraction: projected.fraction };
+      const rebased = canonicalizeLoomPortalAttachment(loom.routePoints, projected);
+      if (!rebased.valid) return false;
+      pair.attachment = rebased.attachment;
     }
   }
   return true;
@@ -201,7 +209,9 @@ export function rebaseLoomPortalAttachments(beforeLooms, afterLooms) {
 
 export function splitLoomRouteAtAttachment(value, attachment, portalB) {
   const loom = normalizeLoom(value);
-  const resolved = resolveLoomRouteAttachment(loom, attachment);
+  const canonical = canonicalizeLoomPortalAttachment(loom.routePoints, attachment);
+  if (!canonical.valid) return { valid: false };
+  const resolved = resolveLoomRouteAttachment(loom, canonical.attachment);
   if (!resolved.valid || !Number.isFinite(Number(portalB?.x)) || !Number.isFinite(Number(portalB?.y))) {
     return { valid: false };
   }
@@ -225,6 +235,7 @@ export function splitLoomRouteAtAttachment(value, attachment, portalB) {
   spans.slice(spanIndex + 1).forEach(span => appendUniquePoints(sectionB,
     loomRouteSpanPolyline(loom, span.fromAnchorId, span.toAnchorId)));
   return { valid: true, portalA: resolved.point, portalB: portalPoint,
+    attachment: canonical.attachment,
     fromAnchorId: owner.fromAnchorId, toAnchorId: owner.toAnchorId,
     sectionA, sectionB, spanIndex };
 }

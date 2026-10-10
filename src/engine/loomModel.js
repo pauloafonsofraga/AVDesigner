@@ -5,6 +5,7 @@ const nameKey = name => String(name || "").trim().toLowerCase();
 
 export const DEFAULT_LOOM_LABEL_TEXT_COLOR = "#ffffff";
 export const DEFAULT_LOOM_LABEL_BACKGROUND_COLOR = "#000000";
+export const LOOM_PORTAL_ENDPOINT_EPSILON = 1e-6;
 
 export function parseLoomRoutePointId(value) {
   if (typeof value !== "string") return null;
@@ -37,27 +38,43 @@ function portalNumberFromId(value) {
   return Number.isSafeInteger(number) ? number : 0;
 }
 
+export function canonicalizeLoomPortalAttachment(routePoints, attachment) {
+  const anchorIds = ["sideA", ...(Array.isArray(routePoints) ? routePoints.map(point => point?.id) : []), "sideB"];
+  const spanIndex = anchorIds.findIndex((id, index) => index < anchorIds.length - 1
+    && id === attachment?.fromAnchorId && anchorIds[index + 1] === attachment?.toAnchorId);
+  const rawFraction = Number(attachment?.fraction);
+  if (spanIndex < 0 || !Number.isFinite(rawFraction)) return { valid: false };
+  const fraction = Math.max(0, Math.min(1, rawFraction));
+  if (fraction <= LOOM_PORTAL_ENDPOINT_EPSILON) {
+    return { valid: true, attachment: { fromAnchorId: anchorIds[spanIndex],
+      toAnchorId: anchorIds[spanIndex + 1], fraction: 0 } };
+  }
+  if (fraction >= 1 - LOOM_PORTAL_ENDPOINT_EPSILON) {
+    if (spanIndex + 2 >= anchorIds.length) return { valid: false };
+    return { valid: true, attachment: { fromAnchorId: anchorIds[spanIndex + 1],
+      toAnchorId: anchorIds[spanIndex + 2], fraction: 0 } };
+  }
+  return { valid: true, attachment: { fromAnchorId: anchorIds[spanIndex],
+    toAnchorId: anchorIds[spanIndex + 1], fraction } };
+}
+
 function normalizeLoomPortalPairs(value, routePoints) {
   if (!Array.isArray(value)) return [];
-  const anchorIds = ["sideA", ...routePoints.map(point => point.id), "sideB"];
   const seenIds = new Set();
   for (const raw of value) {
     const number = portalNumberFromId(raw?.id);
     if (!number || seenIds.has(raw.id)) continue;
     const attachment = raw?.attachment;
-    const spanIndex = anchorIds.findIndex((id, index) => index < anchorIds.length - 1
-      && id === attachment?.fromAnchorId && anchorIds[index + 1] === attachment?.toAnchorId);
-    const fraction = Number(attachment?.fraction);
+    const canonical = canonicalizeLoomPortalAttachment(routePoints, attachment);
     const portalB = raw?.portalB;
     const expectedName = number ? `LP-${String(number).padStart(3, "0")}` : "";
-    if (spanIndex < 0 || !Number.isFinite(fraction)
+    if (!canonical.valid
       || String(raw?.name || "").trim() !== expectedName
       || !Number.isFinite(Number(portalB?.x)) || !Number.isFinite(Number(portalB?.y))) continue;
     seenIds.add(raw.id);
     return [{ id: raw.id,
       name: expectedName,
-      attachment: { fromAnchorId: attachment.fromAnchorId, toAnchorId: attachment.toAnchorId,
-        fraction: Math.max(0, Math.min(1, fraction)) },
+      attachment: canonical.attachment,
       portalB: { x: Number(portalB.x), y: Number(portalB.y) } }];
   }
   return [];

@@ -159,6 +159,30 @@ test("Engine output keeps the canonical Loom route but exports only its two Port
   assert.equal(live.selectedLoomPortalKey, "loom-portal-1:b");
 });
 
+test("Engine output canonicalizes exact interior Portal span ends without exporting a teleport segment", () => {
+  const project = { devices: [], connections: [], looms: [{ id: "portal-end", name: "LM-002",
+    sideA: { x: 0, y: 0, label: "Side A" }, sideB: { x: 400, y: 100, label: "Side B" },
+    routeStyle: "orthogonal", routePoints: [{ id: "lrp-1", x: 100, y: 0 },
+      { id: "lrp-2", x: 200, y: 100 }, { id: "lrp-3", x: 300, y: 100 }],
+    portalPairs: [{ id: "loom-portal-2", name: "LP-002", attachment: {
+      fromAnchorId: "lrp-1", toAnchorId: "lrp-2", fraction: 1 }, portalB: { x: 700, y: 400 } }] }] };
+  const output = buildEngineOutputScene(project);
+  const plan = output.loomPlans.find(item => item.loomId === "portal-end");
+  assert.deepEqual(plan.portalPair.attachment,
+    { fromAnchorId: "lrp-2", toAnchorId: "lrp-3", fraction: 0 });
+  assert.deepEqual(plan.visibleTrunkSections[0].at(-1), plan.portalPair.portalA);
+  assert.deepEqual(plan.visibleTrunkSections[1][0], plan.portalPair.portalB);
+  assert.deepEqual(plan.visibleTrunkSections[1].at(-1), { x: 400, y: 100 });
+  for (const section of plan.visibleTrunkSections) for (let index = 1; index < section.length; index += 1) {
+    const from = section[index - 1], to = section[index];
+    const isTeleportPair = (from.x === plan.portalPair.portalA.x && from.y === plan.portalPair.portalA.y
+      && to.x === plan.portalPair.portalB.x && to.y === plan.portalPair.portalB.y)
+      || (from.x === plan.portalPair.portalB.x && from.y === plan.portalPair.portalB.y
+        && to.x === plan.portalPair.portalA.x && to.y === plan.portalPair.portalA.y);
+    assert.equal(isTeleportPair, false, "output visible geometry never draws A↔B");
+  }
+});
+
 test("scene is deeply frozen, JSON lossless, isolated and free of Maps/functions/live references", () => {
   const project = outputParityFixture(), before = structuredClone(project);
   const output = buildEngineOutputScene(project);

@@ -35,7 +35,8 @@ import { attachedJumpIdsForDevices, directDeviceIdsForJump, eligibleDeviceForJum
 import { applyCanvasClipboardPlan } from "./canvasClipboard.js";
 import { WebglGraphRenderer } from "./renderer.js";
 import { SceneGraph } from "./sceneGraph.js";
-import { allocateLoomIdentity, allocateLoomPortalIdentity, DEFAULT_LOOM_LABEL_BACKGROUND_COLOR, DEFAULT_LOOM_LABEL_TEXT_COLOR,
+import { allocateLoomIdentity, allocateLoomPortalIdentity, canonicalizeLoomPortalAttachment,
+  DEFAULT_LOOM_LABEL_BACKGROUND_COLOR, DEFAULT_LOOM_LABEL_TEXT_COLOR,
   addLoomRoutePoint as appendLoomRoutePoint, dissolveLoom, normalizeLoom, normalizeLoomLabelColor,
   renameLoom, selectedLoomCableGroups, setLogicalCableLoom } from "./loomModel.js";
 import { externalCableEndpoints, initialLoomHeads, locatePointOnLoomRoute, loomCreationPreviewPoints,
@@ -153,8 +154,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-82-jump-scoped-connector-compatibility";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-82-jump-scoped-connector-compatibility";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-91-loom-portal-span-end-canonicalization";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-91-loom-portal-span-end-canonicalization";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -2242,6 +2243,7 @@ class ProductionEngineBridge {
           part: portalHit.side === "a" ? "portal-a" : "portal-b", pointerId: event.pointerId,
           startWorld: world, startPoint: point, startPortalB: { ...pair.portalB },
           before: this.captureLoomState(), beforeLoom: structuredClone(loom), moved: false,
+          invalidPortalDrop: false,
           geometryContext: prepareLoomGeometryContext(this.mutations.root, this.scene, portalHit.loomId),
           snapSession: portalHit.side === "b"
             ? this.createLoomSnapSession(pair.portalB) : null };
@@ -2707,13 +2709,17 @@ class ProductionEngineBridge {
       const drag = this.loomHeadDrag;
       const beforeLoom = drag.beforeLoom;
       if (drag.part === "portal-a") {
-        const locator = locatePointOnLoomRoute(beforeLoom, world);
+        const located = locatePointOnLoomRoute(beforeLoom, world);
         const pair = beforeLoom?.portalPairs?.find(item => item.id === drag.pairId);
-        if (!locator.valid || !pair) return;
+        if (!pair) return;
+        if (!located.valid) { drag.invalidPortalDrop = true; return; }
+        const canonical = canonicalizeLoomPortalAttachment(beforeLoom.routePoints, located);
+        if (!canonical.valid) { drag.invalidPortalDrop = true; return; }
+        const resolved = resolveLoomRouteAttachment(beforeLoom, canonical.attachment);
+        if (!resolved.valid) { drag.invalidPortalDrop = true; return; }
+        drag.invalidPortalDrop = false;
         const previewLoom = structuredClone(beforeLoom);
-        previewLoom.portalPairs.find(item => item.id === drag.pairId).attachment = {
-          fromAnchorId: locator.fromAnchorId, toAnchorId: locator.toAnchorId, fraction: locator.fraction
-        };
+        previewLoom.portalPairs.find(item => item.id === drag.pairId).attachment = canonical.attachment;
         this.updateLoomDragPreview(drag, previewLoom);
         drag.moved = JSON.stringify(pair.attachment) !== JSON.stringify(previewLoom.portalPairs[0]?.attachment);
         this.scheduleRender();
@@ -3008,7 +3014,7 @@ class ProductionEngineBridge {
       const drag = this.loomHeadDrag;
       if (event.pointerId !== drag.pointerId) return;
       this.loomHeadDrag = null;
-      if (drag.moved) {
+      if (drag.moved && !(drag.part === "portal-a" && drag.invalidPortalDrop)) {
         const commandType = drag.part === "portal-a" ? "move Loom Portal A"
           : drag.part === "portal-b" ? "move Loom Portal B"
             : drag.part === "trunk" ? "move loom" : "move loom head";
@@ -7893,13 +7899,16 @@ class ProductionEngineBridge {
     if (!loom || loom.portalPairs?.length || !Number.isFinite(worldPoint?.x) || !Number.isFinite(worldPoint?.y)) return false;
     const attachment = locatePointOnLoomRoute(loom, worldPoint);
     if (!attachment.valid) return false;
+    const canonical = canonicalizeLoomPortalAttachment(loom.routePoints, attachment);
+    if (!canonical.valid) return false;
+    const resolved = resolveLoomRouteAttachment(loom, canonical.attachment);
+    if (!resolved.valid) return false;
     this.cancelActiveInteraction("loom-portal-placement", { updateHud: false });
     this.api.setJumpNodeToolActive?.(false);
     this.loomPortalPlacement = {
-      loomId, attachment: { fromAnchorId: attachment.fromAnchorId,
-        toAnchorId: attachment.toAnchorId, fraction: attachment.fraction },
-      portalA: { ...attachment.point }, portalB: { ...attachment.point },
-      startWorld: { ...attachment.point }, snapSession: this.createLoomSnapSession(attachment.point)
+      loomId, attachment: canonical.attachment,
+      portalA: { ...resolved.point }, portalB: { ...resolved.point },
+      startWorld: { ...resolved.point }, snapSession: this.createLoomSnapSession(resolved.point)
     };
     this.scene.clearSelection();
     this.updateCanvasCursor();
@@ -7932,12 +7941,13 @@ class ProductionEngineBridge {
     let pairId = "";
     const created = this.commitLoomEdit("create Loom Portal pair", draft => {
       const loom = draft.looms.find(item => item.id === loomId);
-      if (!loom || loom.portalPairs?.length || !resolveLoomRouteAttachment(loom, attachment).valid
+      const canonical = loom && canonicalizeLoomPortalAttachment(loom.routePoints, attachment);
+      if (!loom || loom.portalPairs?.length || !canonical?.valid
+        || !resolveLoomRouteAttachment(loom, canonical.attachment).valid
         || ![portalB?.x, portalB?.y].every(Number.isFinite)) return false;
       const identity = allocateLoomPortalIdentity(draft);
       pairId = identity.id;
-      loom.portalPairs = [{ ...identity, attachment: { fromAnchorId: attachment.fromAnchorId,
-        toAnchorId: attachment.toAnchorId, fraction: attachment.fraction }, portalB: { x: portalB.x, y: portalB.y } }];
+      loom.portalPairs = [{ ...identity, attachment: canonical.attachment, portalB: { x: portalB.x, y: portalB.y } }];
       return true;
     });
     if (created && pairId) this.scene.selectLoomPortal(`${pairId}:a`);

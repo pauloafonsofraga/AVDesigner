@@ -5,7 +5,8 @@ import { cableTypeSelectionFixture } from "../fixtures/cable-type-selection.mjs"
 import { managedLoomMixedFixture } from "../fixtures/managed-looms.mjs";
 import { buildCableSchedule, signalChainForWire } from "../src/engine/cableSchedule.js";
 import { addLoomRoutePoint, allocateLoomIdentity, allocateLoomRoutePointId, dissolveLoom,
-  allocateLoomPortalIdentity, isCanonicalLoomRoutePointId, normalizeLoomCollection, parseLoomRoutePointId,
+  allocateLoomPortalIdentity, canonicalizeLoomPortalAttachment, isCanonicalLoomRoutePointId,
+  normalizeLoomCollection, parseLoomRoutePointId,
   loomComposition, migrateLegacyLooms, normalizeLoom,
   DEFAULT_LOOM_LABEL_BACKGROUND_COLOR, DEFAULT_LOOM_LABEL_TEXT_COLOR, loomLabelBackgroundRgba,
   normalizeLoomLabelColor, renameLoom, selectedLoomCableGroups, setLogicalCableLoom } from "../src/engine/loomModel.js";
@@ -213,7 +214,7 @@ test("Portal pairs normalize defensively against stable adjacent route anchors",
     routePoints: [{ id: "lrp-1", x: 80, y: 0 }], portalPairs: [{ id: "loom-portal-4", name: "LP-004",
       attachment: { fromAnchorId: "sideA", toAnchorId: "lrp-1", fraction: 1.5 }, portalB: { x: 500, y: 300 } }] });
   assert.deepEqual(loom.portalPairs, [{ id: "loom-portal-4", name: "LP-004",
-    attachment: { fromAnchorId: "sideA", toAnchorId: "lrp-1", fraction: 1 }, portalB: { x: 500, y: 300 } }]);
+    attachment: { fromAnchorId: "lrp-1", toAnchorId: "sideB", fraction: 0 }, portalB: { x: 500, y: 300 } }]);
   for (const portalPairs of [
     [{ id: "missing", attachment: { fromAnchorId: "sideA", toAnchorId: "sideB", fraction: 0.5 }, portalB: { x: 1, y: 2 } }],
     [{ id: "loom-portal-1", attachment: { fromAnchorId: "sideA", toAnchorId: "sideB", fraction: 0.5 }, portalB: { x: 1, y: 2 } }],
@@ -253,6 +254,40 @@ test("Portal collection repairs duplicate identities and allocates above persist
   assert.equal(project.loomPortalNumberCounter, 5);
 });
 
+test("Portal attachment ownership canonicalizes exact span ends and rejects terminal Side B", () => {
+  const routePoints = [{ id: "lrp-1", x: 100, y: 0 }, { id: "lrp-2", x: 200, y: 0 },
+    { id: "lrp-3", x: 300, y: 0 }];
+  assert.deepEqual(canonicalizeLoomPortalAttachment(routePoints, {
+    fromAnchorId: "lrp-1", toAnchorId: "lrp-2", fraction: 1
+  }), { valid: true, attachment: { fromAnchorId: "lrp-2", toAnchorId: "lrp-3", fraction: 0 } });
+  assert.deepEqual(canonicalizeLoomPortalAttachment(routePoints, {
+    fromAnchorId: "lrp-1", toAnchorId: "lrp-2", fraction: 1 - 5e-7
+  }), { valid: true, attachment: { fromAnchorId: "lrp-2", toAnchorId: "lrp-3", fraction: 0 } },
+  "projection noise within the deliberate 1e-6 endpoint tolerance canonicalizes deterministically");
+  assert.deepEqual(canonicalizeLoomPortalAttachment(routePoints, {
+    fromAnchorId: "lrp-2", toAnchorId: "lrp-3", fraction: 0
+  }), { valid: true, attachment: { fromAnchorId: "lrp-2", toAnchorId: "lrp-3", fraction: 0 } },
+  "fraction zero is retained as the canonical anchor ownership");
+  assert.deepEqual(canonicalizeLoomPortalAttachment(routePoints, {
+    fromAnchorId: "lrp-3", toAnchorId: "sideB", fraction: 1
+  }), { valid: false }, "the terminal Side B cut has no downstream v1 continuation");
+
+  const importedTerminal = normalizeLoomCollection([{ id: "terminal", sideA: { x: 0, y: 0 },
+    sideB: { x: 400, y: 0 }, routePoints, portalPairs: [{ id: "loom-portal-1", name: "LP-001",
+      attachment: { fromAnchorId: "lrp-3", toAnchorId: "sideB", fraction: 1 }, portalB: { x: 500, y: 20 } }] }]);
+  assert.equal(importedTerminal.looms[0].portalPairs.length, 0);
+  assert.equal(importedTerminal.warnings.length, 1);
+  assert.match(importedTerminal.warnings[0], /Portal pair data was discarded/);
+  const importedInterior = normalizeLoomCollection([{ id: "interior", sideA: { x: 0, y: 0 },
+    sideB: { x: 400, y: 0 }, routePoints, portalPairs: [{ id: "loom-portal-1", name: "LP-001",
+      attachment: { fromAnchorId: "lrp-1", toAnchorId: "lrp-2", fraction: 1 }, portalB: { x: 500, y: 20 } }] }]);
+  assert.deepEqual(importedInterior.looms[0].portalPairs[0].attachment,
+    { fromAnchorId: "lrp-2", toAnchorId: "lrp-3", fraction: 0 });
+  const reloaded = normalizeLoomCollection(JSON.parse(JSON.stringify(importedInterior.looms)));
+  assert.deepEqual(reloaded.looms[0].portalPairs[0].attachment,
+    importedInterior.looms[0].portalPairs[0].attachment, "save/reload preserves the canonical locator exactly");
+});
+
 test("Portal route split retains canonical trunk and never bridges the Portal gap", () => {
   for (const routeStyle of ["orthogonal", "bezier"]) {
     const loom = normalizeLoom({ id: "split", routeStyle, sideA: { x: 0, y: 0 }, sideB: { x: 240, y: 100 },
@@ -281,6 +316,46 @@ test("Portal route split retains canonical trunk and never bridges the Portal ga
   }
 });
 
+test("Portal split at an exact interior span end resumes only after that anchor", () => {
+  for (const routeStyle of ["orthogonal", "bezier"]) {
+    const loom = normalizeLoom({ id: `span-end-${routeStyle}`, routeStyle,
+      sideA: { x: 0, y: 0 }, sideB: { x: 400, y: 100 },
+      routePoints: [{ id: "lrp-1", x: 100, y: 0 }, { id: "lrp-2", x: 200, y: 100 },
+        { id: "lrp-3", x: 300, y: 100 }],
+      portalPairs: [{ id: "loom-portal-1", name: "LP-001", attachment: {
+        fromAnchorId: "lrp-1", toAnchorId: "lrp-2", fraction: 1 }, portalB: { x: 700, y: 400 } }] });
+    const canonicalTrunk = loomTrunkPoints(loom);
+    const originalPoint = resolveLoomRouteAttachment(loom, {
+      fromAnchorId: "lrp-1", toAnchorId: "lrp-2", fraction: 1
+    }).point;
+    const split = splitLoomRouteAtAttachment(loom, loom.portalPairs[0].attachment, loom.portalPairs[0].portalB);
+    assert.equal(split.valid, true, `${routeStyle}: interior endpoint remains valid`);
+    assert.deepEqual(split.attachment, { fromAnchorId: "lrp-2", toAnchorId: "lrp-3", fraction: 0 });
+    assert.deepEqual(split.portalA, originalPoint, `${routeStyle}: canonicalization preserves Portal A world position`);
+    assert.deepEqual(split.sectionA.at(-1), split.portalA);
+    assert.deepEqual(split.sectionB[0], split.portalB);
+    assert.deepEqual(split.sectionB.at(-1), { x: loom.sideB.x, y: loom.sideB.y });
+    assert.deepEqual(loomTrunkPoints(loom), canonicalTrunk, "the authored canonical trunk is unchanged");
+    assert.ok(split.sectionB.slice(0, 3).every((point, index, points) => !index
+      || routeStyle === "bezier" || points[index - 1].x === point.x || points[index - 1].y === point.y),
+    "orthogonal Portal B tail has no accidental diagonal");
+    for (const section of [split.sectionA, split.sectionB]) for (let index = 1; index < section.length; index += 1) {
+      const previous = section[index - 1], current = section[index];
+      const isTeleportPair = (Math.hypot(previous.x - split.portalA.x, previous.y - split.portalA.y) < 1e-7
+        && Math.hypot(current.x - split.portalB.x, current.y - split.portalB.y) < 1e-7)
+        || (Math.hypot(previous.x - split.portalB.x, previous.y - split.portalB.y) < 1e-7
+          && Math.hypot(current.x - split.portalA.x, current.y - split.portalA.y) < 1e-7);
+      assert.equal(isTeleportPair, false, `${routeStyle}: generated visible sections contain no A↔B segment`);
+    }
+    const terminal = splitLoomRouteAtAttachment(loom,
+      { fromAnchorId: "lrp-3", toAnchorId: "sideB", fraction: 1 }, { x: 600, y: 100 });
+    assert.equal(terminal.valid, false, "defensive geometry split rejects the terminal Side B cut");
+    const generic = resolveLoomRouteAttachment(loom,
+      { fromAnchorId: "lrp-3", toAnchorId: "sideB", fraction: 1 });
+    assert.equal(generic.valid, true, "generic stable-route locator semantics remain unchanged");
+  }
+});
+
 test("route topology edits rebase an invalid Portal locator and preserve Portal B", () => {
   const before = normalizeLoom({ id: "rebase", routeStyle: "orthogonal", sideA: { x: 0, y: 0 },
     sideB: { x: 200, y: 0 }, portalPairs: [{ id: "loom-portal-1", name: "LP-001", attachment: {
@@ -296,6 +371,23 @@ test("route topology edits rebase an invalid Portal locator and preserve Portal 
   assert.equal(rebaseLoomPortalAttachments([before], [{ ...after, routePoints: [], portalPairs: [
     { ...after.portalPairs[0], attachment: { fromAnchorId: "missing", toAnchorId: "sideB", fraction: 0.5 } }
   ] }]), true, "rebased routes stay well formed on subsequent edits");
+});
+
+test("Portal route rebases canonicalize projected anchors and reject terminal projections safely", () => {
+  const before = normalizeLoom({ id: "rebase-anchor", sideA: { x: 0, y: 0 }, sideB: { x: 300, y: 100 },
+    routeStyle: "orthogonal", routePoints: [{ id: "lrp-1", x: 100, y: 0 }, { id: "lrp-2", x: 200, y: 100 }],
+    portalPairs: [{ id: "loom-portal-1", name: "LP-001", attachment: {
+      fromAnchorId: "lrp-1", toAnchorId: "lrp-2", fraction: 0 }, portalB: { x: 500, y: 300 } }] });
+  const after = structuredClone(before);
+  after.routePoints = after.routePoints.filter(point => point.id !== "lrp-2");
+  assert.equal(rebaseLoomPortalAttachments([before], [after]), true);
+  assert.deepEqual(after.portalPairs[0].attachment,
+    { fromAnchorId: "lrp-1", toAnchorId: "sideB", fraction: 0 });
+  const terminal = structuredClone(before);
+  terminal.portalPairs[0].attachment = { fromAnchorId: "lrp-2", toAnchorId: "sideB", fraction: 1 };
+  assert.equal(resolveLoomRouteAttachment(terminal, terminal.portalPairs[0].attachment).valid, true);
+  assert.equal(rebaseLoomPortalAttachments([before], [terminal]), false,
+    "route edits do not commit a Portal projected to terminal Side B");
 });
 
 test("legacy Loom migration materializes route IDs without changing canonical trunk geometry", () => {

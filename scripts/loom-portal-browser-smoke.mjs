@@ -261,6 +261,67 @@ try {
   assert.equal(await page.evaluate(() => activeEngineBridge().redoEngineCommand()), true);
   await page.screenshot({ path: join(shots, "08-removed-pair.png") });
 
+  await page.evaluate(project => restoreSnapshot(project), loomFixture(8));
+  await page.waitForFunction(() => activeEngineBridge().scene.loomPlans[0]?.circuitCount === 8);
+  const terminalBefore = await page.evaluate(() => JSON.stringify(activeEngineBridge().mutations.root.looms));
+  assert.equal(await page.evaluate(() => {
+    const bridge = activeEngineBridge(), loom = bridge.scene.looms[0];
+    return bridge.beginLoomPortalPlacement(loom.id, loom.sideB);
+  }), false, "Portal creation exactly at terminal Side B is rejected");
+  assert.equal(await page.evaluate(() => JSON.stringify(activeEngineBridge().mutations.root.looms)), terminalBefore,
+    "terminal creation does not mutate project state");
+  assert.equal(await page.evaluate(() => activeEngineBridge().canUndoEngineCommand()), false,
+    "terminal creation does not add a history command");
+  assert.equal(await page.evaluate(() => activeEngineBridge().createLoomPortalPair("loom-1", {
+    fromAnchorId: "sideA", toAnchorId: "lrp-1", fraction: 0.5
+  }, { x: 1200, y: 500 })), true);
+  const preAnchorAttachment = await page.evaluate(() => structuredClone(
+    activeEngineBridge().mutations.root.looms[0].portalPairs[0].attachment));
+  const anchorPoint = await page.evaluate(() => structuredClone(
+    activeEngineBridge().scene.looms[0].routePoints[0]));
+  const portalStart = await page.evaluate(() => activeEngineBridge().scene.loomPlans[0].portalPair.portalA);
+  const portalScreen = await toScreen(portalStart), anchorScreen = await toScreen(anchorPoint);
+  await page.mouse.move(portalScreen.x, portalScreen.y);
+  await page.mouse.down();
+  await page.mouse.move(anchorScreen.x, anchorScreen.y, { steps: 1 });
+  await page.waitForFunction(() => Boolean(activeEngineBridge().loomHeadDrag?.previewPlan?.portalPair));
+  await page.mouse.up();
+  await page.waitForFunction(() => !activeEngineBridge().loomHeadDrag);
+  const canonicalAnchorAttachment = { fromAnchorId: "lrp-1", toAnchorId: "sideB", fraction: 0 };
+  assert.deepEqual(await page.evaluate(() => activeEngineBridge().mutations.root.looms[0].portalPairs[0].attachment),
+    canonicalAnchorAttachment, "dragging Portal A to an interior anchor stores next-span @ 0");
+  assert.deepEqual(await page.evaluate(() => activeEngineBridge().scene.loomPlans[0].portalPair.portalA),
+    { x: anchorPoint.x, y: anchorPoint.y }, "Portal A remains at the exact interior anchor");
+  assert.equal(await page.evaluate(() => activeEngineBridge().undoEngineCommand()), true);
+  assert.deepEqual(await page.evaluate(() => activeEngineBridge().mutations.root.looms[0].portalPairs[0].attachment),
+    preAnchorAttachment, "one undo restores the exact prior locator");
+  assert.equal(await page.evaluate(() => activeEngineBridge().redoEngineCommand()), true);
+  assert.deepEqual(await page.evaluate(() => activeEngineBridge().mutations.root.looms[0].portalPairs[0].attachment),
+    canonicalAnchorAttachment, "redo restores the canonical locator");
+  const terminalDragBefore = await page.evaluate(() => JSON.stringify(
+    activeEngineBridge().mutations.root.looms[0].portalPairs[0].attachment));
+  const terminalTarget = await page.evaluate(() => activeEngineBridge().scene.looms[0].sideB);
+  const currentPortalA = await page.evaluate(() => activeEngineBridge().scene.loomPlans[0].portalPair.portalA);
+  const currentScreen = await toScreen(currentPortalA), terminalScreen = await toScreen(terminalTarget);
+  await page.mouse.move(currentScreen.x, currentScreen.y);
+  await page.mouse.down();
+  await page.mouse.move(terminalScreen.x, terminalScreen.y, { steps: 5 });
+  await page.mouse.up();
+  await page.waitForFunction(() => !activeEngineBridge().loomHeadDrag);
+  assert.equal(await page.evaluate(() => JSON.stringify(
+    activeEngineBridge().mutations.root.looms[0].portalPairs[0].attachment)), terminalDragBefore,
+  "dropping Portal A at Side B restores the prior valid attachment");
+  assert.equal(await page.evaluate(() => activeEngineBridge().undoEngineCommand()), true);
+  assert.deepEqual(await page.evaluate(() => activeEngineBridge().mutations.root.looms[0].portalPairs[0].attachment),
+    preAnchorAttachment, "the rejected terminal drag adds no history; the next undo is the prior anchor drag");
+  assert.equal(await page.evaluate(() => activeEngineBridge().redoEngineCommand()), true);
+  assert.deepEqual(await page.evaluate(() => activeEngineBridge().mutations.root.looms[0].portalPairs[0].attachment),
+    canonicalAnchorAttachment);
+  const anchorSave = await page.evaluate(() => projectSnapshotData({ forEngine: true }));
+  await page.evaluate(snapshot => restoreSnapshot(snapshot), anchorSave);
+  assert.deepEqual(await page.evaluate(() => activeEngineBridge().mutations.root.looms[0].portalPairs[0].attachment),
+    canonicalAnchorAttachment, "save/reload does not bounce the canonical attachment");
+
   const performance = [];
   for (const count of [8, 32, 64]) {
     console.log(`Portal drag performance fixture: ${count} circuits`);
