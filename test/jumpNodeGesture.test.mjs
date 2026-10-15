@@ -135,7 +135,7 @@ test("a rejected production write never creates a visual-only Jump Link", () => 
   assert.equal(h.history.length, 0);
 });
 
-for (const [from, to, rule] of [["a", "a", "self"], ["a", "out-2", "output-output"], ["b", "in-2", "input-input"], ["a", "neutral", "neutral"]]) {
+for (const [from, to, rule] of [["a", "a", "self"], ["a", "out-2", "output-output"], ["b", "in-2", "input-input"]]) {
   test(`invalid target ${rule} changes no data or history`, () => {
     const h = harness(), before = JSON.stringify(h.project);
     h.start(from); h.advance(250); h.target(to);
@@ -148,7 +148,18 @@ test("empty canvas release changes no data or history", () => {
   assert.equal(h.history.length, 0); assert.equal(h.project.jumpLinks.length, 0);
 });
 
-for (const reason of ["neutral", "wireless", "paired", "missing"]) test(`ineligible ${reason} hold rejects, never turns into a move`, () => {
+test("empty Jump hold pairs without creating physical cables", () => {
+  const h = harness();
+  h.scene.deleteWire("wire-a"); h.scene.deleteWire("wire-b");
+  h.project.connections = []; h.b.mutations.rebuildIndexes();
+  h.start("a"); h.advance(250); h.target("b"); h.b.completeJumpLinkCreate();
+  assert.equal(h.history.length, 1);
+  assert.deepEqual(h.project.connections, []);
+  assert.equal(h.project.jumpLinks[0].deviceIndependent, true);
+  assert.equal(h.scene.jumpNodeRole("a").role, "neutral");
+});
+
+for (const reason of ["neutral", "paired", "missing"]) test(`ineligible ${reason} hold rejects, never turns into a move`, () => {
   const h = harness(); h.start();
   if (reason === "neutral") Object.assign(h.scene.getConnector("source", "port"), { direction: "unknown", signalDirection: "standard" });
   if (reason === "wireless") h.scene.deleteWire("wire-a");

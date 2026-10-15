@@ -13,7 +13,7 @@ try {
     page.on("pageerror", e => errors.push(e.message));
     page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
     await page.goto(`${base}/index.html`);
-    await page.waitForFunction(() => activeEngineBridge()?.ready);
+    await page.waitForFunction(() => activeEngineBridge()?.ready && localUserSettingsLoaded);
     const load = async (zoom, data = jumpHoldFixture()) => {
       await page.evaluate(data => { restoreSnapshot(data); undoStack = []; redoStack = []; }, data);
       await page.waitForFunction(() => activeEngineBridge()?.ready);
@@ -112,16 +112,16 @@ try {
       }
     }
     console.log(`${mode}: 12 pending/preview cancellation paths PASS`);
-    for (const reason of ["neutral", "wireless", "paired"]) {
+    for (const reason of ["unknown-direction", "paired"]) {
       const data = jumpHoldFixture();
-      if (reason === "wireless") data.connections = data.connections.filter(wire => wire.id !== "wire-a");
+      if (reason === "unknown-direction") Object.assign(data.devices[0].templateOverride.connectors[0], { direction: "unknown", signalDirection: "standard" });
       if (reason === "paired") data.jumpLinks.push({ id: "existing", outputJumpId: "a", inputJumpId: "b" });
       await load(1, data); const before = await read();
-      const p = await press(reason === "neutral" ? "neutral" : "a"); await page.waitForTimeout(320);
+      const p = await press("a"); await page.waitForTimeout(320);
       assert.equal((await read()).preview, false);
       await page.mouse.move(p.x + 25, p.y); await page.mouse.up();
       const after = await read(); assert.deepEqual(after.nodes, before.nodes); assert.deepEqual(after.links, before.links); assert.equal(after.history, 0);
-      assert.deepEqual(after.selected, [reason === "neutral" ? "neutral" : "a"]);
+      assert.deepEqual(after.selected, ["a"]);
     }
     console.log(`${mode}: rejected holds remain selectable and cannot move PASS`);
     for (const reason of ["paired-target", "family", "fiber"]) {
@@ -140,12 +140,16 @@ try {
       assert.deepEqual(after.links, before.links); assert.deepEqual(after.wires, before.wires); assert.equal(after.history, 0);
     }
     console.log(`${mode}: paired, cable-family and fiber-mode targets reject PASS`);
-    for (const target of ["a", "out-2", "neutral", null]) {
+    for (const target of ["a", "out-2", null]) {
       await load(1); const before = await read(); await hold("a");
       const p = target ? await point(target) : { x: 530, y: 200 };
       await page.mouse.move(p.x, p.y); await page.mouse.up();
       const after = await read(); assert.equal(after.links.length, 0); assert.equal(after.history, 0); assert.deepEqual(after.nodes, before.nodes); assert.deepEqual(after.wires, before.wires);
     }
+    await load(1);
+    await hold("neutral");
+    await page.keyboard.press("Escape"); await page.mouse.up();
+    assert.equal((await read()).links.length, 0, "empty Jump hold uses the existing cancellable pairing gesture");
     await load(1);
     await page.evaluate(() => {
       const b = activeEngineBridge();

@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-38-91-loom-portal-span-end-canonicalization";
+const BUILD_ID = "iteration54-38-92-independent-jump-pairing";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -52,12 +52,12 @@ const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Jump pairing glow state");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-91-loom-portal-span-end-canonicalization-modules";'), "module cache key should identify the current build");
-assert.ok(indexHtml.includes("Loom Portal Span-End Canonicalization"), "visible build label should name the current build");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-91-loom-portal-span-end-canonicalization"'), "Engine bridge version should identify the current build");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-92-independent-jump-pairing-modules";'), "module cache key should identify the current build");
+assert.ok(indexHtml.includes("Independent Jump Pairing"), "visible build label should name the current build");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-92-independent-jump-pairing"'), "Engine bridge version should identify the current build");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility"'), "Engine bridge feature label should identify the current feature set");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-38-91-loom-portal-span-end-canonicalization"), "bridge fingerprint should identify the current build");
-assert.ok(rendererSource.includes("renderer-iteration54-38-88-loom-label-colors"), "renderer fingerprint should identify the current build");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-38-92-independent-jump-pairing"), "bridge fingerprint should identify the current build");
+assert.ok(rendererSource.includes("renderer-iteration54-38-92-independent-jump-pairing"), "renderer fingerprint should identify the current build");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");
 assert.ok(rendererSource.includes("pushWirePlaybackOverlay"), "renderer should draw transient Play Wire overlays");
@@ -294,7 +294,7 @@ assert.equal(deleteScene.getJumpLink("engine-jump-link-1")?.id, "engine-jump-lin
 expectPair("output + input", createScene({ jumpLinks: [] }), "jump-output", "jump-input", true, "output-input");
 expectPair("output + output", createScene({ jumpLinks: [] }), "jump-output", "jump-output-2", false, "output-output");
 expectPair("input + input", createScene({ jumpLinks: [] }), "jump-input", "jump-input-2", false, "input-input");
-expectPair("neutral + input", createScene({ jumpLinks: [] }), "jump-neutral", "jump-input", false, "neutral");
+expectPair("empty + input", createScene({ jumpLinks: [] }), "jump-neutral", "jump-input", true, "device-independent");
 expectPair("self", createScene({ jumpLinks: [] }), "jump-output", "jump-output", false, "self");
 expectPair("already paired", createScene({ jumpLinks: [{ id: "jump-link-1", outputJumpId: "jump-output", inputJumpId: "jump-input" }] }), "jump-output", "jump-input-2", false, "already-paired");
 expectPair("matching HDMI", createScene({ jumpLinks: [] }), "jump-output", "jump-input", true, "output-input");
@@ -351,7 +351,7 @@ assert.match(invalidWarnings, /duplicates link id dup/, "duplicate Jump Link IDs
 assert.match(invalidWarnings, /references missing output Jump missing-output/, "missing Jump IDs should warn");
 assert.match(invalidWarnings, /pairs a Jump Node with itself/, "self-pair should warn");
 assert.match(invalidWarnings, /appears in multiple Jump Links/, "one Jump in multiple links should warn");
-assert.match(invalidWarnings, /Output Jump jump-neutral derives role neutral/, "neutral stored as output should warn");
+assert.doesNotMatch(invalidWarnings, /Output Jump jump-neutral derives role neutral/, "an empty paired endpoint has no electrical role to reject");
 assert.match(invalidWarnings, /Input Jump jump-output derives role output/, "role drift should warn");
 
 const normalizedLinks = normalizeJumpLinks([
@@ -408,7 +408,7 @@ assert.deepEqual(disconnectedProject.jumpLinks, baseProject.jumpLinks, "undo dis
 const missingRoleScene = createScene({ jumpLinks: baseProject.jumpLinks });
 missingRoleScene.wires = missingRoleScene.wires.filter(wire => wire.id !== "wire-output-jump");
 const invalidAfterWireDelete = invalidJumpLinksForScene(missingRoleScene, { jumpIds: ["jump-output"] });
-assert.deepEqual(invalidAfterWireDelete.map(link => link.id), ["jump-link-1"], "deleting the role-defining visible wire invalidates the portal link");
+assert.deepEqual(invalidAfterWireDelete, [], "deleting a device-side cable preserves the saved Jump pair");
 
 const malformedLoopProject = createProject({
   jumpLinks: [{ id: "loop", outputJumpId: "jump-output", inputJumpId: "jump-output" }]

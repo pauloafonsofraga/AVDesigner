@@ -115,6 +115,7 @@ import {
   jumpNodeRoleColor,
   jumpNodeRoleLabel,
   jumpPairCompatibility,
+  jumpDeviceAttachmentCompatibility,
   JUMP_NODE_CONNECTOR_ID,
   JUMP_NODE_ROLE,
   JUMP_NODE_ROLE_COLORS,
@@ -154,8 +155,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-91-loom-portal-span-end-canonicalization";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-91-loom-portal-span-end-canonicalization";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-92-independent-jump-pairing";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-92-independent-jump-pairing";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -1956,8 +1957,7 @@ class ProductionEngineBridge {
   jumpLinkStartStatus(jumpId) {
     if (!isJumpNodeDevice(this.scene.getDevice(jumpId))) return { valid: false, reason: "Jump Node is no longer in the scene." };
     const roleInfo = this.scene.jumpNodeRole(jumpId);
-    if (!roleInfo?.localWire) return { valid: false, reason: "Connect this Jump Node to a device input or output first." };
-    if (roleInfo.baseRole === JUMP_NODE_ROLE.neutral) return { valid: false, reason: "Connect this Jump Node to a device connector with a defined signal direction first." };
+    if (roleInfo?.localWire && roleInfo.baseRole === JUMP_NODE_ROLE.neutral) return { valid: false, reason: "Connect this Jump Node to a device connector with a defined signal direction first." };
     if (this.scene.jumpLinkForNode(jumpId)) return { valid: false, reason: "Jump Node is already paired." };
     return { valid: true, role: roleInfo.role };
   }
@@ -2028,7 +2028,8 @@ class ProductionEngineBridge {
     const linkData = {
       id: this.uniqueJumpLinkId(),
       outputJumpId: compatibility.outputJumpId,
-      inputJumpId: compatibility.inputJumpId
+      inputJumpId: compatibility.inputJumpId,
+      ...(compatibility.deviceIndependent ? { deviceIndependent: true } : {})
     };
     this.beginProductionCommit("create jump link");
     const mutationResult = this.mutations?.restoreJumpLink(linkData);
@@ -6363,6 +6364,9 @@ class ProductionEngineBridge {
       const targetIsJump = isJumpNodeDevice(targetHit?.device);
       if (sourceIsJump !== targetIsJump) {
         const realHit = sourceIsJump ? targetHit : sourceHit;
+        const pair = jumpDeviceAttachmentCompatibility(this.scene, (sourceIsJump ? sourceHit : targetHit).device.id,
+          realHit, { compatibilitySummary: engineCompatibilitySummary, excludeWireId: rewire.wireId });
+        if (!pair.valid) return pair;
         if (sourceIsJump) sourceHit = jumpCompatibleHitForDeviceWire(sourceHit, realHit);
         if (targetIsJump) targetHit = jumpCompatibleHitForDeviceWire(targetHit, realHit);
       }
@@ -6385,6 +6389,9 @@ class ProductionEngineBridge {
     }
     if (sourceIsJump !== targetIsJump) {
       const realHit = sourceIsJump ? targetHit : sourceHit;
+      const pair = jumpDeviceAttachmentCompatibility(this.scene, (sourceIsJump ? sourceHit : targetHit).device.id,
+        realHit, { compatibilitySummary: engineCompatibilitySummary });
+      if (!pair.valid) return pair;
       if (sourceIsJump) sourceHit = jumpCompatibleHitForDeviceWire(sourceHit, realHit);
       if (targetIsJump) targetHit = jumpCompatibleHitForDeviceWire(targetHit, realHit);
     }

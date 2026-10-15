@@ -12,7 +12,7 @@ try {
     const errors = []; page.on("pageerror", e => errors.push(e.message));
     page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
     await page.goto(`${base}/index.html`);
-    await page.waitForFunction(() => activeEngineBridge()?.ready);
+    await page.waitForFunction(() => activeEngineBridge()?.ready && localUserSettingsLoaded);
     // Real catalog hardware, configured with the editor's V2 connector helper.
     const project = await page.evaluate(() => {
       const template = structuredClone(deviceLibrary.find(d => d.name === "M4250 10 Port"));
@@ -74,7 +74,7 @@ try {
     assert.deepEqual(linked.roles.map(r => r.color), ["#32b6ff", "#fb7904"]);
 
     pass(`${mode}: hold commits one oriented link, effective colors, untouched physical wires`);
-    await page.locator("[data-jump-to-pair]").click();
+    await page.locator("#jumpToPair").click();
     assert.equal(await page.evaluate(() => activeEngineBridge().scene.selectedIds.has("b")), true);
     pass(`${mode}: Jump to Pair selects the saved input peer`);
     await page.keyboard.press("Meta+z"); assert.deepEqual((await read()).roles.map(r => r.role), ["bidirectional", "bidirectional"]);
@@ -94,7 +94,7 @@ try {
       { b.scene.selectWireOnly(id); b.updateSelectionHud(); }
     }, wires[0].id);
     {
-      await page.locator(`[data-play-wire][data-wire-id="${wires[0].id}"]`).click();
+      await page.locator("#playWireTrace").click();
       await page.waitForFunction(() => activeEngineBridge().wirePlayback?.stepIndex === 2, null, { timeout: 12000 });
       await page.evaluate(() => activeEngineBridge().stopWirePlayback("smoke"));
     }

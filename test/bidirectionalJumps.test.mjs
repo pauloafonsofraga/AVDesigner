@@ -80,7 +80,7 @@ test("base/effective roles, visual refresh, deletion, restore and immutable wire
   assert.equal(JSON.stringify(project.connections), before);
 });
 
-test("saved orientation cannot conceal incompatible base direction or missing local wire", () => {
+test("saved orientation rejects incompatible direction while cable removal preserves the pair", () => {
   const project = bidirectionalJumpFixture(); project.jumpLinks = [link];
   const scene = sceneFor(project);
   Object.assign(scene.getConnector("source", "port"), { direction: "input", signalDirection: "input" });
@@ -93,7 +93,8 @@ test("saved orientation cannot conceal incompatible base direction or missing lo
   const clean = sceneFor(bidirectionalJumpFixture()); clean.addJumpLink(link); clean.deleteWire("wire-a");
   clean.removeInvalidJumpLinksForJumps(["a"]);
   assert.equal(clean.getDevice("a").visual.jumpRole, "neutral");
-  assert.equal(clean.getDevice("b").visual.jumpRole, "bidirectional");
+  assert.equal(clean.getDevice("b").visual.jumpRole, "input");
+  assert.equal(clean.jumpLinks.length, 1);
 });
 
 for (const issue of ["family", "fiber", "not-working", "module", "paired", "self"]) test(`reject ${issue} using real connectors`, () => {

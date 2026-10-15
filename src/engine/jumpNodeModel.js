@@ -111,6 +111,7 @@ export function orientJumpPair(firstId, firstRole, secondId, secondRole) {
 }
 
 export function effectiveJumpRole(baseRole, link, jumpId) {
+  if (baseRole === JUMP_NODE_ROLE.neutral) return baseRole;
   if (link?.outputJumpId === jumpId) return JUMP_NODE_ROLE.output;
   if (link?.inputJumpId === jumpId) return JUMP_NODE_ROLE.input;
   return baseRole;
@@ -232,7 +233,7 @@ export function normalizeJumpLinks(links = [], { jumpNodeIds = new Set() } = {})
     seenIds.add(id);
     usedJumpIds.add(outputJumpId);
     usedJumpIds.add(inputJumpId);
-    return { id, outputJumpId, inputJumpId };
+    return { id, outputJumpId, inputJumpId, ...(link.deviceIndependent ? { deviceIndependent: true } : {}) };
   }).filter(Boolean);
 }
 
@@ -334,7 +335,9 @@ export function sceneJumpNodeRole(scene, jumpId = "") {
     ? getConnectorFromDevice(local.otherDevice, local.otherConnectorId)
     : null;
   const baseRole = jumpConnectorBaseRole(connector);
-  const role = effectiveJumpRole(baseRole, scene?.jumpLinkForNode?.(jumpId), jumpId);
+  const link = scene?.jumpLinkForNode?.(jumpId);
+  const peer = link?.deviceIndependent ? sceneJumpDeviceWire(scene, pairedJumpIdForLink(link, jumpId)) : null;
+  const role = independentJumpRole(baseRole, jumpConnectorBaseRole(peer?.otherConnector), link, jumpId);
   return {
     role,
     baseRole,
@@ -356,11 +359,13 @@ export function jumpNodeConnectionInfo(scene, jumpId = "") {
     : pairedJumpIdForLink(link, id);
   const pairLocal = pairId ? sceneJumpDeviceWire(scene, pairId) : null;
 
-  if (link) return jumpInfoFromLocal(pairLocal, {
-    jumpId: id, pairId,
-    side: link.outputJumpId === id ? "right" : "left",
-    prefix: link.outputJumpId === id ? "to" : "from"
-  });
+  if (link) {
+    const role = sceneJumpNodeRole(scene, id).role;
+    const outputSide = link.deviceIndependent && (role === "input" || role === "output")
+      ? role === "output" : link.outputJumpId === id;
+    return jumpInfoFromLocal(pairLocal, { jumpId: id, pairId,
+      side: outputSide ? "right" : "left", prefix: outputSide ? "to" : "from" });
+  }
 
   if (local?.side === "to") {
     return jumpInfoFromLocal(pairLocal, {
@@ -443,12 +448,17 @@ export function jumpPairCompatibility(scene, firstJumpId, secondJumpId, {
   if (scene?.jumpLinkForNode?.(secondId)) return invalidPair("already-paired", "Target Jump Node is already paired.");
   const firstRole = sceneJumpNodeRole(scene, firstId);
   const secondRole = sceneJumpNodeRole(scene, secondId);
-  if (firstRole.baseRole === JUMP_NODE_ROLE.neutral || secondRole.baseRole === JUMP_NODE_ROLE.neutral) {
+  if ((firstRole.localWire && firstRole.baseRole === JUMP_NODE_ROLE.neutral)
+    || (secondRole.localWire && secondRole.baseRole === JUMP_NODE_ROLE.neutral)) {
     return invalidPair("neutral", "Connect each Jump Node to a device connector with a defined signal direction first.");
   }
-  const orientation = orientJumpPair(firstId, firstRole.baseRole, secondId, secondRole.baseRole);
+  const orientation = orientJumpPair(firstId, firstRole.localWire ? firstRole.baseRole : "bidirectional",
+    secondId, secondRole.localWire ? secondRole.baseRole : "bidirectional");
   if (!orientation) {
     return invalidPair(`${firstRole.baseRole}-${secondRole.baseRole}`, `${jumpNodeRoleLabel(firstRole.baseRole)} Jump Nodes cannot pair with each other.`);
+  }
+  if (!firstRole.localWire || !secondRole.localWire) {
+    return { valid: true, rule: "device-independent", reason: "", ...orientation, deviceIndependent: true };
   }
   const output = orientation.outputJumpId === firstId
     ? { id: firstId, role: firstRole }
@@ -476,8 +486,14 @@ export function invalidJumpLinksForScene(scene, { jumpIds = [] } = {}) {
     if (!scene.getDevice?.(link.outputJumpId) || !scene.getDevice?.(link.inputJumpId)) return true;
     const outputRole = sceneJumpNodeRole(scene, link.outputJumpId);
     const inputRole = sceneJumpNodeRole(scene, link.inputJumpId);
-    return !jumpRoleSupportsEndpoint(outputRole.baseRole, JUMP_NODE_ROLE.output)
-      || !jumpRoleSupportsEndpoint(inputRole.baseRole, JUMP_NODE_ROLE.input);
+    if (link.deviceIndependent) {
+      return (outputRole.localWire && outputRole.baseRole === "neutral")
+        || (inputRole.localWire && inputRole.baseRole === "neutral")
+        || !orientJumpPair(link.outputJumpId, outputRole.localWire ? outputRole.baseRole : "bidirectional",
+          link.inputJumpId, inputRole.localWire ? inputRole.baseRole : "bidirectional");
+    }
+    return (outputRole.localWire && !jumpRoleSupportsEndpoint(outputRole.baseRole, JUMP_NODE_ROLE.output))
+      || (inputRole.localWire && !jumpRoleSupportsEndpoint(inputRole.baseRole, JUMP_NODE_ROLE.input));
   });
 }
 
@@ -491,9 +507,14 @@ export function resolvePlayableSignalPath({ startingWireId = "", project = {}, g
   if (!startingWire) return [];
   const jumpId = rawWireJumpIds(startingWire)[0] || "";
   if (!jumpId) return [{ type: "wire", wireId: startingWire.id, connection: startingWire, reverse: false }];
-  const link = links.find(item => item.outputJumpId === jumpId || item.inputJumpId === jumpId)
+  let link = links.find(item => item.outputJumpId === jumpId || item.inputJumpId === jumpId)
     || legacyPairLinkForJump(root, jumpId, { getConnector });
   if (!link) return [{ type: "wire", wireId: startingWire.id, connection: startingWire, reverse: false }];
+  if (link.deviceIndependent) {
+    const orientation = orientJumpPair(link.outputJumpId, rawJumpNodeRole(root, link.outputJumpId, { getConnector }).baseRole,
+      link.inputJumpId, rawJumpNodeRole(root, link.inputJumpId, { getConnector }).baseRole);
+    if (orientation) link = { ...link, ...orientation };
+  }
   const outputWire = rawDeviceWireForJump(root, link.outputJumpId, { excludeWireId: "", getConnector });
   const inputWire = rawDeviceWireForJump(root, link.inputJumpId, { excludeWireId: "", getConnector });
   if (!outputWire?.wire || !inputWire?.wire) {
@@ -563,7 +584,8 @@ export function rawJumpNodeRole(project, jumpId = "", { getConnector = null } = 
   const root = projectRoot(project);
   const link = (root.jumpLinks || []).find(l => l.outputJumpId === jumpId || l.inputJumpId === jumpId)
     || legacyPairLinkForJump(root, jumpId, { getConnector });
-  const role = effectiveJumpRole(baseRole, link, jumpId);
+  const peer = link?.deviceIndependent ? rawDeviceWireForJump(root, pairedJumpIdForLink(link, jumpId), { getConnector }) : null;
+  const role = independentJumpRole(baseRole, jumpConnectorBaseRole(peer?.connector), link, jumpId);
   return { role, baseRole, color: jumpNodeRoleColor(role), localWire: local?.wire || null, connector: local?.connector || null };
 }
 
@@ -613,11 +635,21 @@ export function validateJumpLinks(project, { compatibilitySummary = null, getCon
     });
     if (jumpIds.has(outputJumpId)) {
       const role = rawJumpNodeRole(root, outputJumpId, { getConnector }).baseRole;
-      if (!jumpRoleSupportsEndpoint(role, JUMP_NODE_ROLE.output)) warnings.push(`Output Jump ${outputJumpId} derives role ${role}.`);
+      if (rawDeviceWireForJump(root, outputJumpId, { getConnector }) && !link.deviceIndependent
+        && !jumpRoleSupportsEndpoint(role, JUMP_NODE_ROLE.output)) warnings.push(`Output Jump ${outputJumpId} derives role ${role}.`);
     }
     if (jumpIds.has(inputJumpId)) {
       const role = rawJumpNodeRole(root, inputJumpId, { getConnector }).baseRole;
-      if (!jumpRoleSupportsEndpoint(role, JUMP_NODE_ROLE.input)) warnings.push(`Input Jump ${inputJumpId} derives role ${role}.`);
+      if (rawDeviceWireForJump(root, inputJumpId, { getConnector }) && !link.deviceIndependent
+        && !jumpRoleSupportsEndpoint(role, JUMP_NODE_ROLE.input)) warnings.push(`Input Jump ${inputJumpId} derives role ${role}.`);
+    }
+    if (link.deviceIndependent) {
+      const output = rawDeviceWireForJump(root, outputJumpId, { getConnector });
+      const input = rawDeviceWireForJump(root, inputJumpId, { getConnector });
+      if (!orientJumpPair(outputJumpId, output ? jumpConnectorBaseRole(output.connector) : "bidirectional",
+        inputJumpId, input ? jumpConnectorBaseRole(input.connector) : "bidirectional")) {
+        warnings.push(`Jump Link ${id || index} has incompatible signal directions.`);
+      }
     }
     if (typeof compatibilitySummary === "function") {
       const output = rawDeviceWireForJump(root, outputJumpId, { getConnector });
@@ -629,6 +661,32 @@ export function validateJumpLinks(project, { compatibilitySummary = null, getCon
     }
   });
   return { valid: warnings.length === 0, warnings };
+}
+
+function independentJumpRole(baseRole, peerRole, link, jumpId) {
+  if (!link?.deviceIndependent || baseRole !== "bidirectional") return link?.deviceIndependent
+    ? baseRole : effectiveJumpRole(baseRole, link, jumpId);
+  if (peerRole === "input") return "output";
+  if (peerRole === "output") return "input";
+  return effectiveJumpRole(baseRole, link, jumpId);
+}
+
+export function jumpDeviceAttachmentCompatibility(scene, jumpId, realHit, { compatibilitySummary, excludeWireId = "" } = {}) {
+  const link = scene?.jumpLinkForNode?.(jumpId);
+  if (!link) return { valid: true };
+  const role = jumpConnectorBaseRole(realHit?.connector);
+  if (role === "neutral") return invalidPair("neutral", "The connector needs a defined signal direction.");
+  if (!link.deviceIndependent && !jumpRoleSupportsEndpoint(role, link.outputJumpId === jumpId ? "output" : "input")) {
+    return invalidPair("direction", "The connector direction conflicts with this Jump pair.");
+  }
+  const peer = sceneJumpDeviceWire(scene, pairedJumpIdForLink(link, jumpId), { excludeWireId });
+  if (!peer) return { valid: true };
+  const orientation = orientJumpPair(jumpId, role, peer.otherDeviceId, jumpConnectorBaseRole(peer.otherConnector));
+  if (!orientation) return invalidPair("direction", "The connector direction conflicts with the paired Jump.");
+  return typeof compatibilitySummary === "function"
+    ? compatibilitySummary(orientation.outputJumpId === jumpId ? realHit : { device: peer.otherDevice, connector: peer.otherConnector },
+      orientation.inputJumpId === jumpId ? realHit : { device: peer.otherDevice, connector: peer.otherConnector })
+    : { valid: true };
 }
 
 function hitFromRole(roleInfo = {}) {
