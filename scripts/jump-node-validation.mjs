@@ -42,7 +42,7 @@ import {
   wirePlaybackEase
 } from "../src/engine/wirePlayback.js";
 
-const BUILD_ID = "iteration54-38-92-independent-jump-pairing";
+const BUILD_ID = "iteration54-38-93-unified-jump-loom-routing";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -52,12 +52,12 @@ const snapshotSource = readFileSync(resolve(repoRoot, "src/engine/outputSnapshot
 const wirePlaybackSource = readFileSync(resolve(repoRoot, "src/engine/wirePlayback.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Jump pairing glow state");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-92-independent-jump-pairing-modules";'), "module cache key should identify the current build");
-assert.ok(indexHtml.includes("Independent Jump Pairing"), "visible build label should name the current build");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-92-independent-jump-pairing"'), "Engine bridge version should identify the current build");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-93-unified-jump-loom-routing-modules";'), "module cache key should identify the current build");
+assert.ok(indexHtml.includes("Unified Jump and Loom Routing"), "visible build label should name the current build");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-93-unified-jump-loom-routing"'), "Engine bridge version should identify the current build");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility"'), "Engine bridge feature label should identify the current feature set");
-assert.ok(bridgeSource.includes("production-bridge-iteration54-38-92-independent-jump-pairing"), "bridge fingerprint should identify the current build");
-assert.ok(rendererSource.includes("renderer-iteration54-38-92-independent-jump-pairing"), "renderer fingerprint should identify the current build");
+assert.ok(bridgeSource.includes("production-bridge-iteration54-38-93-unified-jump-loom-routing"), "bridge fingerprint should identify the current build");
+assert.ok(rendererSource.includes("renderer-iteration54-38-93-unified-jump-loom-routing"), "renderer fingerprint should identify the current build");
 assert.ok(snapshotSource.includes("jumpLinks"), "output snapshot should preserve jumpLinks");
 assert.ok(rendererSource.includes("drawJumpNodeInfoBox"), "renderer should draw derived Legacy Jump info boxes");
 assert.ok(rendererSource.includes("pushWirePlaybackOverlay"), "renderer should draw transient Play Wire overlays");

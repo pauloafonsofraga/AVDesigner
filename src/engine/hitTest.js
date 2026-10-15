@@ -55,7 +55,7 @@ export function hitTestConnector(scene, worldPoint, tolerance = 10) {
     const device = payload.device || item.device;
     if (!point || !connector || !device) return;
     const distance = Math.hypot(point.x - worldPoint.x, point.y - worldPoint.y);
-    const radius = device.kind === "jump" ? tolerance * 1.9 : tolerance;
+    const radius = device.kind === "jump" ? Math.max(tolerance * 1.9, device.visual?.jumpLoomId ? 22 : 0) : tolerance;
     if (distance <= radius && distance < bestDistance) {
       bestDistance = distance;
       const anchor = payload.anchor || null;
@@ -151,6 +151,7 @@ export function hitTestSelectedLoomRoutePoint(scene, worldPoint, tolerance = 8) 
   let best = null;
   const selected = scene.looms?.find(item => item.id === scene.selectedLoomId);
   for (const [index, point] of (selected?.routePoints || []).entries()) {
+    if (point.id === selected.jumpRouting?.entryAnchorId) continue;
     const distance = Math.hypot(worldPoint.x - point.x, worldPoint.y - point.y);
     if (distance <= tolerance + 6 && (!best || distance < best.distance)) {
       best = { loomId: selected.id, part: "route-point", pointIndex: index, distance, point };
@@ -163,6 +164,7 @@ export function hitTestLoomGateway(scene, worldPoint, tolerance = 8) {
   let best = null;
   for (const plan of scene.loomPlans || []) {
     for (const [part, point] of [["sideA", plan.headA], ["sideB", plan.headB]]) {
+      if (part === "sideB" && plan.hiddenHeadB) continue;
       const distance = Math.hypot(worldPoint.x - point.x, worldPoint.y - point.y);
       if (distance <= 13 + tolerance && (!best || distance < best.distance)) {
         best = { loomId: plan.loomId, part, distance, point };

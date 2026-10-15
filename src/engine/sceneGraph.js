@@ -14,6 +14,7 @@ import {
 import { wirePolylineFromPoints } from "./wirePath.js";
 import { loomGeometry } from "./loomGeometry.js";
 import { normalizeLoom, normalizeLoomCollection } from "./loomModel.js";
+import { loomForJump, reconcileLoomJumpAssociations } from "./loomJumpAssociation.js";
 import { rackPatchPanelVisualHeight } from "./rackPatchPanels.js";
 import { normalizeRackShell } from "./rackShell.js";
 import { createRackCompactLayout, compactConnectorSide } from "./rackCompactLayout.js?v=iteration54-38-76-rack-styles";
@@ -134,11 +135,11 @@ export class SceneGraph {
     this.looms = looms.map(normalizeLoom);
     this.loomProject = projectData;
     this.loomPlans = Array.isArray(loomPlans) ? loomPlans : [];
-    this.rebuildLoomGeometry();
     this.jumpLinks = normalizeJumpLinks(jumpLinks, {
       jumpNodeIds: new Set(this.devices.filter(device => isJumpNodeDevice(device)).map(device => device.id))
     });
     this.rebuildJumpLinkIndex();
+    this.rebuildLoomGeometry();
     this.refreshJumpNodeRoles();
     this.rebuildRackIndex();
     this.applyRackConnectorVisibility();
@@ -288,7 +289,8 @@ export class SceneGraph {
         jumpBaseRole: roleInfo.baseRole,
         jumpColor: color,
         jumpLocalWireId: roleInfo.localWire?.id || "",
-        jumpPairedId: this.pairedJumpId(device.id)
+        jumpPairedId: this.pairedJumpId(device.id),
+        jumpLoomId: loomForJump(this, device.id)?.id || ""
       };
       device.color = color;
       (device.connectors || []).forEach(connector => {
@@ -1106,6 +1108,7 @@ export class SceneGraph {
   rebuildLoomGeometry() {
     const root = this.loomProject?.state || this.loomProject?.project || this.loomProject;
     if (root?.connections) {
+      reconcileLoomJumpAssociations(root);
       const normalized = normalizeLoomCollection(root.looms, root.loomPortalNumberCounter);
       this.looms = normalized.looms;
       root.looms = normalized.looms;
@@ -1135,6 +1138,7 @@ export class SceneGraph {
       }
     }
     this.loomPortalIndex.rebuild(portalEntries);
+    this.refreshJumpNodeRoles();
   }
 
   isWireHiddenByLoom(wireId) {

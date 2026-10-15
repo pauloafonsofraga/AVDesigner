@@ -35,6 +35,7 @@ function engineHarness() {
     clearJumpMoveArm() {}, updateCanvasCursor() {}, recordRewireDiagnostic() {}, clearHoverState() {}, scheduleRender() {},
     currentWireRouteMode: () => "bezier",
     currentWireCompatibility: () => ({ valid: true }), wireRewireRejectionReason: () => "",
+    loomJumpHoverStates: () => [], loomJumpDragPreviews: () => [],
     wireRouteForEndpoints(from, to, state = this.wireCreate) {
       if (state?.manual) return { routeStyle: state.routeStyle, routePoints: state.routePoints.map(point => ({ ...point })) };
       return state?.routeStyle === "orthogonal"

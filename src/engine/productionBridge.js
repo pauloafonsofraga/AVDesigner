@@ -43,6 +43,7 @@ import { externalCableEndpoints, initialLoomHeads, locatePointOnLoomRoute, loomC
   loomGeometry, prepareLoomGeometryContext, rebaseLoomPortalAttachments,
   resolveLoomRouteAttachment } from "./loomGeometry.js";
 import { canonicalLoomWireRouting } from "./loomJumpRouting.js";
+import { loomForJump, loomJumpAttachmentCompatibility, reconcileLoomJumpAssociations } from "./loomJumpAssociation.js";
 import { monitorNameUpdates } from "./monitorNaming.js";
 import { PerfHud } from "./perfHud.js";
 import { validateEngineScene } from "./sceneValidation.js";
@@ -155,8 +156,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-92-independent-jump-pairing";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-92-independent-jump-pairing";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-93-unified-jump-loom-routing";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-93-unified-jump-loom-routing";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -2046,6 +2047,7 @@ class ProductionEngineBridge {
       return;
     }
     this.refreshJumpNodeVisuals([sceneLink.outputJumpId, sceneLink.inputJumpId], { reason: "create jump link" });
+    if (this.scene.looms.some(loom => loom.jumpRouting)) this.refreshLoomComposition();
     this.recordCommand(createJumpLinkCommand(sceneLink, mutationResult.index));
     this.lastPortalCommand = { type: "create jump link", ...sceneLink };
     this.scene.selectJumpPairPrimary(state.fromJumpId);
@@ -2225,6 +2227,10 @@ class ProductionEngineBridge {
     }
     if (event.button === 0) {
       const world = screenToWorld(this.camera, point);
+      if (!this.loomCreationActive && !this.activeCanvasTool() && !this.wireCreate && !event.shiftKey && !event.metaKey && !event.ctrlKey
+        && this.resumeLoomFromJumpAt(world)) {
+        event.preventDefault(); this.capturePointer(event.pointerId); return;
+      }
       if (this.loomPortalPlacement) {
         event.preventDefault();
         this.capturePointer(event.pointerId);
@@ -4270,6 +4276,7 @@ class ProductionEngineBridge {
     const wasActive = this.loomCreationActive || Boolean(this.loomCreate);
     this.loomCreationActive = false;
     this.loomCreate = null;
+    this.setLoomJumpHover(null);
     const button = globalThis.document?.getElementById("createCableLoom");
     button?.classList.remove("active");
     button?.setAttribute("aria-pressed", "false");
@@ -4309,6 +4316,11 @@ class ProductionEngineBridge {
       axisLock, enabled: this.objectSnappingEnabled(), mode: this.debugSnapMode
     });
     const snapped = { x: origin.x + snap.dx, y: origin.y + snap.dy };
+    if (draft.sideAPlaced && !draft.resumeLoomId) {
+      draft.jumpHover = this.loomJumpHoverAt(world);
+      this.setLoomJumpHover(draft.jumpHover);
+      if (draft.jumpHover?.valid) Object.assign(snapped, draft.jumpHover.point);
+    }
     draft.pointerWorld = snapped;
     draft.guides = snap.guides || null;
     if (!draft.sideAPlaced) draft.sideA = { ...snapped };
@@ -4353,7 +4365,128 @@ class ProductionEngineBridge {
       dy: snapped?.dy ?? (axisLock === "x" ? 0 : rawDy) };
   }
 
+  loomJumpHoverAt(world) {
+    let best = null;
+    for (const device of this.scene.devices) {
+      if (!isJumpNodeDevice(device)) continue;
+      const point = jumpNodeCenter(device), distance = Math.hypot(point.x - world.x, point.y - world.y);
+      const retained = this.loomCreate?.jumpHover?.jumpId === device.id;
+      const threshold = Math.max(16, 16 / this.camera.zoom) * (retained ? 1.25 : 1);
+      if (distance > threshold || (best && best.distance <= distance)) continue;
+      best = { jumpId: device.id, point, distance, ...loomJumpAttachmentCompatibility(this.scene, device.id) };
+    }
+    return best;
+  }
+
+  setLoomJumpHover(hover) {
+    this.loomJumpHoverAnimations ||= new Map();
+    const now = performance.now();
+    for (const [id, state] of this.loomJumpHoverAnimations) {
+      if (id === hover?.jumpId && hover.valid) continue;
+      if (state.target !== 1 || state.active) this.loomJumpHoverAnimations.set(id, {
+        ...state, from: this.loomJumpHoverScale(state, now), target: 1, start: now, active: false });
+    }
+    if (hover) {
+      const previous = this.loomJumpHoverAnimations.get(hover.jumpId);
+      const target = hover.valid ? 1.5 : 1;
+      if (!previous || previous.target !== target || !previous.active) this.loomJumpHoverAnimations.set(hover.jumpId, {
+        ...hover, from: previous ? this.loomJumpHoverScale(previous, now) : 1, target, start: now, active: true });
+    }
+    if (this.canvas) this.canvas.title = hover && !hover.valid ? hover.reason : "";
+  }
+
+  loomJumpHoverScale(state, now) {
+    const t = Math.min(1, Math.max(0, (now - state.start) / 140));
+    return state.from + (state.target - state.from) * (1 - (1 - t) ** 3);
+  }
+
+  loomJumpHoverStates() {
+    const states = [], now = performance.now();
+    for (const [id, state] of this.loomJumpHoverAnimations || []) {
+      const moving = now - state.start < 140;
+      if (!state.active && !moving) { this.loomJumpHoverAnimations.delete(id); continue; }
+      states.push({ ...state, scale: this.loomJumpHoverScale(state, now) });
+      if (moving) this.scheduleRender();
+    }
+    return states;
+  }
+
+  attachDrawingLoomToJump(jumpId) {
+    const draft = this.loomCreate;
+    const compatibility = loomJumpAttachmentCompatibility(this.scene, jumpId);
+    if (!draft?.sideAPlaced || draft.resumeLoomId || !compatibility.valid) return false;
+    const point = jumpNodeCenter(this.scene.getDevice(jumpId));
+    if (Math.hypot(point.x - draft.sideA.x, point.y - draft.sideA.y) < 1) return false;
+    let loomId = "";
+    const accepted = this.commitLoomEdit("draw loom to Jump", project => {
+      const identity = allocateLoomIdentity(project);
+      const loom = normalizeLoom({ ...identity, sideA: { label: "Side A", ...draft.sideA },
+        sideB: { label: "Side B", ...point }, routeStyle: draft.routeStyle,
+        routePoints: [...draft.routePoints, point] });
+      loom.jumpRouting = { usageMode: "loom", entryJumpId: jumpId, exitJumpId: compatibility.peerId,
+        entryAnchorId: loom.routePoints.at(-1).id, continuationComplete: false };
+      project.looms.push(loom); loomId = loom.id; return true;
+    });
+    if (!accepted) return false;
+    this.deactivateLoomCreation("loom section committed", { render: false });
+    if (compatibility.peerId) this.beginLoomContinuation(loomId);
+    else { this.scene.selectLoomOnly(loomId); this.updateSelectionHud(); }
+    this.scheduleRender();
+    return true;
+  }
+
+  beginLoomContinuation(loomId) {
+    const loom = this.scene.looms.find(item => item.id === loomId);
+    const routing = loom?.jumpRouting;
+    const peerId = routing && this.scene.pairedJumpId(routing.entryJumpId);
+    if (!routing || routing.continuationComplete || !peerId) return false;
+    const point = jumpNodeCenter(this.scene.getDevice(peerId));
+    if (!point) return false;
+    this.api.setJumpNodeToolActive?.(false);
+    this.loomCreationActive = true;
+    this.loomCreate = { sideA: point, sideAPlaced: true, routePoints: [], routeStyle: loom.routeStyle,
+      pointerWorld: point, resumeLoomId: loomId, lastClick: null, snapSession: null, snapOrigin: point, guides: null };
+    const button = globalThis.document?.getElementById("createCableLoom");
+    button?.classList.add("active"); button?.setAttribute("aria-pressed", "true");
+    this.scene.clearSelection(); this.updateSelectionHud(); this.updateCanvasCursor(); this.scheduleRender();
+    return true;
+  }
+
+  resumeLoomFromJumpAt(world) {
+    for (const plan of this.scene.loomPlans) {
+      const routing = plan.jumpRouting;
+      if (!routing?.exitPoint || routing.continuationComplete) continue;
+      if (Math.hypot(world.x - routing.exitPoint.x, world.y - routing.exitPoint.y) <= Math.max(21, 14 / this.camera.zoom)) {
+        return this.beginLoomContinuation(plan.loomId);
+      }
+    }
+    return false;
+  }
+
+  loomJumpDragPreviews() {
+    const drag = this.dragSession;
+    if (!drag) return [];
+    if (!drag.loomJumpContexts) drag.loomJumpContexts = this.scene.looms.filter(loom => loom.jumpRouting
+      && [loom.jumpRouting.entryJumpId, this.scene.pairedJumpId(loom.jumpRouting.entryJumpId)]
+        .some(id => drag.selectedIds.includes(id))).map(loom => ({ loom,
+      context: prepareLoomGeometryContext(this.mutations.root, this.scene, loom.id) }));
+    const key = `${drag.dx}:${drag.dy}`;
+    if (drag.loomJumpPreviewKey !== key) {
+      const start = performance.now();
+      drag.loomJumpPreviewKey = key;
+      drag.loomJumpPreviews = drag.loomJumpContexts.map(({ loom, context }) => ({ loom,
+        plan: loomGeometry(this.mutations.root, this.scene, loom, [], [], { ...context, jumpOffsets: drag.offsetMap() }) }));
+      drag.loomJumpFrames = (drag.loomJumpFrames || 0) + 1;
+      drag.loomJumpTotalMs = (drag.loomJumpTotalMs || 0) + performance.now() - start;
+    }
+    return drag.loomJumpPreviews || [];
+  }
+
   handleLoomCreationClick(world, detail = 1) {
+    if (this.loomCreate?.sideAPlaced && this.loomCreate.jumpHover && !this.loomCreate.resumeLoomId) {
+      if (this.loomCreate.jumpHover.valid) this.attachDrawingLoomToJump(this.loomCreate.jumpHover.jumpId);
+      return;
+    }
     if (!this.loomCreate?.sideAPlaced) {
       const sideA = this.updateLoomCreationPointer(world, { endpoint: true }) || world;
       this.loomCreate = { sideA: { x: sideA.x, y: sideA.y }, sideAPlaced: true, routePoints: [],
@@ -4394,6 +4527,19 @@ class ProductionEngineBridge {
     let createdId = "";
     if (Math.hypot(endpoint.x - draft.sideA.x, endpoint.y - draft.sideA.y) > 1) {
       this.commitLoomEdit("draw loom", project => {
+        if (draft.resumeLoomId) {
+          const loom = project.looms.find(item => item.id === draft.resumeLoomId);
+          if (!loom?.jumpRouting || !this.scene.pairedJumpId(loom.jumpRouting.entryJumpId)) return false;
+          const anchor = loom.routePoints.findIndex(point => point.id === loom.jumpRouting.entryAnchorId);
+          if (anchor < 0) return false;
+          loom.routePoints.splice(anchor + 1);
+          for (const point of draft.routePoints) appendLoomRoutePoint(loom, point);
+          loom.sideB = { ...loom.sideB, ...endpoint };
+          loom.jumpRouting.continuationComplete = true;
+          loom.jumpRouting.exitJumpId = this.scene.pairedJumpId(loom.jumpRouting.entryJumpId);
+          createdId = loom.id;
+          return true;
+        }
         const identity = allocateLoomIdentity(project);
         createdId = identity.id;
         project.looms.push(normalizeLoom({ ...identity, kind: "loom",
@@ -4405,6 +4551,7 @@ class ProductionEngineBridge {
     }
     this.loomCreate = null;
     this.loomCreationActive = false;
+    this.setLoomJumpHover(null);
     const button = globalThis.document?.getElementById("createCableLoom");
     button?.classList.remove("active");
     button?.setAttribute("aria-pressed", "false");
@@ -4994,6 +5141,11 @@ class ProductionEngineBridge {
       deviceIds: selectedIds,
       wireIds: affectedWireIds
     });
+    if (this.dragSession.loomJumpContexts?.length) {
+      this.lastLoomJumpDragDiagnostics = { frames: this.dragSession.loomJumpFrames || 0,
+        averageMs: (this.dragSession.loomJumpTotalMs || 0) / Math.max(1, this.dragSession.loomJumpFrames || 0) };
+      this.renderer.rebuildWireGeometry(this.scene);
+    }
     this.lastDirtyDeviceIds = new Set(selectedIds);
     this.lastDirtyWireIds = new Set(affectedWireIds);
     this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
@@ -5515,6 +5667,8 @@ class ProductionEngineBridge {
       : [];
     return {
       hoveredLoom: this.hoverState.loom,
+      loomJumpHoverStates: this.loomJumpHoverStates(),
+      loomJumpPreviews: this.loomJumpDragPreviews(),
       hoveredLoomPortal: this.hoverState.loomPortal,
       selectedLoomPortalKey: this.scene.selectedLoomPortalKey || "",
       loomPortalPlacement: this.loomPortalPlacement ? structuredClone(this.loomPortalPlacement) : null,
@@ -5602,6 +5756,7 @@ class ProductionEngineBridge {
       const outputDevice = this.scene.getDevice(link.outputJumpId);
       const inputDevice = this.scene.getDevice(link.inputJumpId);
       if (!outputDevice || !inputDevice) return;
+      if (loomForJump(this.scene, link.outputJumpId)) return;
       const from = this.jumpNodeCenter(outputDevice);
       const to = this.jumpNodeCenter(inputDevice);
       const points = jumpLinkBezierPolyline(from, to);
@@ -7811,10 +7966,14 @@ class ProductionEngineBridge {
   }
 
   refreshLoomComposition() {
+    if (this.mutations?.root) reconcileLoomJumpAssociations(this.mutations.root);
     this.scene.rebuildLoomGeometry();
+    this.api.onEngineLoomsChange?.(this.mutations?.root?.looms || this.scene.looms);
     this.scene.rebuildWireSpatialIndex();
     this.scene.rebuildRoutePointIndex();
     const stats = this.renderer.rebuildWireGeometry(this.scene);
+    const jumpIds = this.scene.devices.filter(device => device.kind === "jump").map(device => device.id);
+    if (jumpIds.length) this.renderer.updateDirty(this.scene, { deviceIds: jumpIds, wireIds: [], refreshCableHops: false });
     this.scheduleRender();
     return stats;
   }
@@ -7840,7 +7999,6 @@ class ProductionEngineBridge {
     const start = performance.now();
     const root = this.mutations.root;
     root.looms.splice(0, root.looms.length, ...structuredClone(snapshot.looms));
-    this.api.onEngineLoomsChange?.(root.looms);
     root.loomNumberCounter = Math.max(Number(root.loomNumberCounter) || 0,
       Number(snapshot.loomNumberCounter) || 0);
     this.api.onEngineLoomCounterChange?.(root.loomNumberCounter);
@@ -7883,6 +8041,8 @@ class ProductionEngineBridge {
       connections: this.mutations.root.connections.map(wire => ({ ...wire })) };
     const accepted = edit(draft);
     if (!accepted) return false;
+    if (draft.looms.some(loom => loom.jumpRouting && (loom.portalPairs?.length
+      || !loom.routePoints.some(point => point.id === loom.jumpRouting.entryAnchorId)))) return false;
     if (!rebaseLoomPortalAttachments(before.looms, draft.looms)) return false;
     const after = {
       looms: draft.looms, loomNumberCounter: draft.loomNumberCounter,
@@ -7903,7 +8063,7 @@ class ProductionEngineBridge {
 
   beginLoomPortalPlacement(loomId, worldPoint) {
     const loom = this.scene.looms.find(item => item.id === loomId);
-    if (!loom || loom.portalPairs?.length || !Number.isFinite(worldPoint?.x) || !Number.isFinite(worldPoint?.y)) return false;
+    if (!loom || loom.jumpRouting || loom.portalPairs?.length || !Number.isFinite(worldPoint?.x) || !Number.isFinite(worldPoint?.y)) return false;
     const attachment = locatePointOnLoomRoute(loom, worldPoint);
     if (!attachment.valid) return false;
     const canonical = canonicalizeLoomPortalAttachment(loom.routePoints, attachment);
@@ -7949,7 +8109,7 @@ class ProductionEngineBridge {
     const created = this.commitLoomEdit("create Loom Portal pair", draft => {
       const loom = draft.looms.find(item => item.id === loomId);
       const canonical = loom && canonicalizeLoomPortalAttachment(loom.routePoints, attachment);
-      if (!loom || loom.portalPairs?.length || !canonical?.valid
+      if (!loom || loom.jumpRouting || loom.portalPairs?.length || !canonical?.valid
         || !resolveLoomRouteAttachment(loom, canonical.attachment).valid
         || ![portalB?.x, portalB?.y].every(Number.isFinite)) return false;
       const identity = allocateLoomPortalIdentity(draft);
@@ -8123,6 +8283,7 @@ class ProductionEngineBridge {
     return this.commitLoomEdit("remove loom corner", draft => {
       const loom = draft.looms.find(item => item.id === loomId);
       if (!loom?.routePoints?.[pointIndex]) return false;
+      if (loom.routePoints[pointIndex].id === loom.jumpRouting?.entryAnchorId) return false;
       loom.routePoints.splice(pointIndex, 1);
       return true;
     });
@@ -8502,6 +8663,8 @@ class ProductionEngineBridge {
     const routeMutationMs = this.commitWireRouteStates(routeStates);
     const mutationMs = deviceMutationMs + routeMutationMs;
     const dirtyStats = this.renderer.updateDirty(this.scene, { deviceIds: ids, wireIds: affectedWireIds });
+    if (this.scene.looms.some(loom => loom.jumpRouting && [loom.jumpRouting.entryJumpId,
+      this.scene.pairedJumpId(loom.jumpRouting.entryJumpId)].some(id => ids.includes(id)))) this.renderer.rebuildWireGeometry(this.scene);
     this.lastDirtyDeviceIds = new Set(ids);
     this.lastDirtyWireIds = new Set(affectedWireIds);
     this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
@@ -9002,7 +9165,15 @@ class ProductionEngineBridge {
 
   restoreCreatedDevice(deviceData, index = null, { select = true, recordMetric = true } = {}) {
     if (deviceData?.__engineJumpNode) {
-      return this.restoreCreatedJumpNode(deviceData.data || deviceData.jumpNodeData, index, { select, recordMetric });
+      const result = this.restoreCreatedJumpNode(deviceData.data || deviceData.jumpNodeData, index, { select, recordMetric });
+      if (deviceData.loomJumpSnapshots?.length) {
+        for (const saved of deviceData.loomJumpSnapshots) {
+          const loomIndex = this.mutations.root.looms.findIndex(loom => loom.id === saved.id);
+          if (loomIndex >= 0) this.mutations.root.looms[loomIndex] = structuredClone(saved);
+        }
+        this.refreshLoomComposition();
+      }
+      return result;
     }
     const objectKind = String(deviceData?.__engineObjectKind || "");
     if (objectKind) {
@@ -9101,6 +9272,17 @@ class ProductionEngineBridge {
     }
     if (isJumpNodeDevice(device)) {
       const sourceId = String(device.sourceId || id);
+      const loomJumpSnapshots = this.mutations.root.looms.filter(loom => loomForJump(this.scene, id)?.id === loom.id)
+        .map(loom => structuredClone(loom));
+      for (const saved of loomJumpSnapshots) {
+        const loom = this.mutations.root.looms.find(item => item.id === saved.id);
+        if (loom.jumpRouting.entryJumpId === id) {
+          const anchor = loom.routePoints.find(point => point.id === loom.jumpRouting.entryAnchorId);
+          if (anchor) Object.assign(anchor, jumpNodeCenter(device));
+          delete loom.jumpRouting;
+        } else loom.jumpRouting.exitJumpId = "";
+      }
+      const undoPayload = data => ({ ...jumpNodeUndoPayload(data), loomJumpSnapshots });
       const link = this.scene.jumpLinkForNode(id);
       const removedLink = link ? this.removeJumpLink(link.id) : { mutationMs: 0, linkData: null, index: -1 };
       const mutationResult = this.mutations?.removeJumpNode(sourceId) || { mutationMs: 0, jumpNodeData: null, index: -1 };
@@ -9108,12 +9290,13 @@ class ProductionEngineBridge {
       if (!removed) {
         return {
           mutationMs: (mutationResult.mutationMs || 0) + (removedLink.mutationMs || 0),
-          deviceData: jumpNodeUndoPayload(mutationResult.jumpNodeData),
+          deviceData: undoPayload(mutationResult.jumpNodeData),
           index: mutationResult.index,
           jumpLinks: removedLink.linkData ? [{ linkData: removedLink.linkData, index: removedLink.index }] : []
         };
       }
       const dirtyStats = this.renderer.removeDevice(this.scene, id);
+      if (loomJumpSnapshots.length) this.refreshLoomComposition();
       this.lastDirtyDeviceIds = new Set([id]);
       this.lastDirtyWireIds = new Set();
       this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
@@ -9126,7 +9309,7 @@ class ProductionEngineBridge {
       return {
         mutationMs: (mutationResult.mutationMs || 0) + (removedLink.mutationMs || 0),
         dirtyStats,
-        deviceData: jumpNodeUndoPayload(mutationResult.jumpNodeData),
+        deviceData: undoPayload(mutationResult.jumpNodeData),
         index: mutationResult.index,
         jumpLinks: removedLink.linkData ? [{ linkData: removedLink.linkData, index: removedLink.index }] : []
       };
@@ -9310,6 +9493,7 @@ class ProductionEngineBridge {
       return { mutationMs: 0, linkData: null, index: -1 };
     }
     this.refreshJumpNodeVisuals([link.outputJumpId, link.inputJumpId], { reason: "restore jump link" });
+    if (this.scene.looms.some(loom => loom.jumpRouting)) this.refreshLoomComposition();
     this.lastPortalCommand = { type: "restore jump link", ...link };
     this.updateJumpNodeDebugSnapshot("restore-jump-link");
     this.scheduleRender();
@@ -9321,6 +9505,7 @@ class ProductionEngineBridge {
     if (!removed?.link) return { mutationMs: 0, linkData: null, index: -1 };
     const mutationResult = this.mutations?.removeJumpLink(removed.link.id) || { mutationMs: 0, index: removed.index, linkData: removed.link };
     this.refreshJumpNodeVisuals([removed.link.outputJumpId, removed.link.inputJumpId], { reason: "remove jump link" });
+    if (this.scene.looms.some(loom => loom.jumpRouting)) this.refreshLoomComposition();
     this.lastPortalCommand = { type: "remove jump link", ...removed.link };
     this.updateJumpNodeDebugSnapshot("remove-jump-link");
     this.scheduleRender();

@@ -1,4 +1,5 @@
 import { buildCableSchedule, groupedCables } from "./cableSchedule.js";
+import { normalizeLoomJumpRouting } from "./loomJumpAssociation.js";
 
 const rootOf = project => project?.state || project?.project || project || {};
 const nameKey = name => String(name || "").trim().toLowerCase();
@@ -88,6 +89,7 @@ export function normalizeLoomCollection(values, portalCounter = 0) {
     if (rawCount > looms[index].portalPairs.length) {
       warnings.push(`Invalid or excess Loom Portal pair data was discarded for ${looms[index].name || looms[index].id}.`);
     }
+    if (value?.jumpRouting && !looms[index].jumpRouting) warnings.push(`Invalid Loom Jump association discarded for ${looms[index].name || looms[index].id}.`);
   });
   const usedIds = new Set();
   const usedNames = new Set();
@@ -174,6 +176,8 @@ export function normalizeLoom(value, index = 0) {
     routePointIds.add(id);
     return { id, x: Number(routePoint.x), y: Number(routePoint.y) };
   }).filter(Boolean);
+  const portalPairs = normalizeLoomPortalPairs(value?.portalPairs, routePoints);
+  const jumpRouting = portalPairs.length ? null : normalizeLoomJumpRouting(value?.jumpRouting, routePoints);
   return {
     id: String(value?.id || `loom-${index + 1}`), kind: "loom",
     name: String(value?.name || `LM-${String(index + 1).padStart(3, "0")}`),
@@ -183,7 +187,8 @@ export function normalizeLoom(value, index = 0) {
     labelBackgroundColor: normalizeLoomLabelColor(value?.labelBackgroundColor, DEFAULT_LOOM_LABEL_BACKGROUND_COLOR),
     routeStyle: value?.routeStyle === "bezier" ? "bezier" : "orthogonal",
     routePoints, routePointCounter,
-    portalPairs: normalizeLoomPortalPairs(value?.portalPairs, routePoints),
+    portalPairs,
+    ...(jumpRouting ? { jumpRouting } : {}),
     trunkLength: String(value?.trunkLength ?? ""), notes: String(value?.notes ?? "")
   };
 }

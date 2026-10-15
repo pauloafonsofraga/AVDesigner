@@ -64,6 +64,7 @@ import {
   jumpNodeConnectionInfo,
   jumpLinkBezierPolyline,
   jumpNodeCenter,
+  jumpNodeRenderRadius,
   jumpNodeRoleColor
 } from "./jumpNodeModel.js";
 import { wirePlaybackEase } from "./wirePlayback.js";
@@ -71,7 +72,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-92-independent-jump-pairing";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-93-unified-jump-loom-routing";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -1111,11 +1112,12 @@ export class WebglGraphRenderer {
     const hoveredWireId = interaction.hoveredWire?.wire?.id || interaction.hoveredWireId || "";
     const activeWireEdit = interaction.activeWireEdit || null;
     const staticSuppressedWireIds = new Set(dragSession?.affectedWireIds || []);
+    const loomJumpPreviews = interaction.loomJumpPreviews || [];
     if (activeWireEdit?.wireId) staticSuppressedWireIds.add(activeWireEdit.wireId);
     (interaction.suppressedWireIds || []).forEach(wireId => staticSuppressedWireIds.add(wireId));
     const affectedLoomPlans = dragSession
-      ? scene.loomPlans.filter(plan => plan.breakouts.some(breakout =>
-        breakout.wireIds.some(wireId => dragSession.affectedWireIds.has(String(wireId)))))
+      ? scene.loomPlans.filter(plan => loomJumpPreviews.some(preview => preview.plan.loomId === plan.loomId)
+        || plan.breakouts.some(breakout => breakout.wireIds.some(wireId => dragSession.affectedWireIds.has(String(wireId)))))
       : [];
     this.lastSuppressedLoomIds = affectedLoomPlans.map(plan => plan.loomId);
     const staticSuppressedGeometryIds = new Set(staticSuppressedWireIds);
@@ -1157,7 +1159,8 @@ export class WebglGraphRenderer {
       if (affectedLoomPlans.length && dragSession && renderOptions.wires) {
         const offsets = dragSession.offsetMap();
         for (const plan of affectedLoomPlans) {
-          const vertices = verticesForLoomPlan(scene, plan, offsets);
+          const activePlan = loomJumpPreviews.find(preview => preview.plan.loomId === plan.loomId)?.plan || plan;
+          const vertices = verticesForLoomPlan(scene, activePlan, offsets);
           const count = vertices.length ? upload(gl, this.liveBuffer, vertices) : 0;
           this.drawBuffer(this.liveBuffer, count);
         }
@@ -1291,7 +1294,7 @@ export class WebglGraphRenderer {
           }
         });
         if (scene.selectedLoomId) {
-          const preview = interaction.loomDragPreview;
+          const preview = interaction.loomDragPreview || loomJumpPreviews.find(item => item.plan.loomId === scene.selectedLoomId);
           const usingPreview = preview?.plan?.loomId === scene.selectedLoomId;
           const plan = usingPreview ? preview.plan
             : scene.loomPlans.find(item => item.loomId === scene.selectedLoomId);
@@ -1307,13 +1310,14 @@ export class WebglGraphRenderer {
             for (const section of plan.visibleTrunkSections || [plan.trunk]) {
               pushPolyline(liveVertices, section, 22, "rgba(251,121,4,.25)");
             }
-            for (const head of [plan.headA, plan.headB]) {
+            for (const head of [plan.headA, ...(plan.hiddenHeadB ? [] : [plan.headB])]) {
               pushCircleOutline(liveVertices, head, 17, 3, "#fb7904");
             }
             if (plan.portalPair) for (const point of [plan.portalPair.portalA, plan.portalPair.portalB]) {
               pushCircleOutline(liveVertices, point, 24, 3, "#fb7904");
             }
             for (const point of loom?.routePoints || []) {
+              if (point.id === loom.jumpRouting?.entryAnchorId) continue;
               pushCircle(liveVertices, point, 5, "#fb7904");
               pushCircleOutline(liveVertices, point, 6, 1.5, "#ffffff");
             }
@@ -1332,6 +1336,7 @@ export class WebglGraphRenderer {
           selectedIds: options.selectedIds || new Set(),
           pairedJumpHighlightIds: interaction.pairedJumpHighlightIds || new Set(),
           hoveredDeviceId: hoveredDevice?.id || "",
+          jumpHoverStates: interaction.loomJumpHoverStates || [],
           renderOptions,
           layerTrace,
           renderer: this
@@ -1543,7 +1548,8 @@ export class WebglGraphRenderer {
         wireLabelCount += 1;
       });
       for (const plan of scene.loomPlans) {
-        const preview = options.interactionState?.loomDragPreview;
+        const preview = options.interactionState?.loomDragPreview
+          || options.interactionState?.loomJumpPreviews?.find(item => item.plan.loomId === plan.loomId);
         const activePlan = preview?.plan?.loomId === plan.loomId ? preview.plan : plan;
         const loom = preview?.plan?.loomId === plan.loomId
           ? preview.loom : scene.looms.find(item => item.id === plan.loomId);
@@ -2404,6 +2410,7 @@ function pushJumpNodeForeground(vertices, scene, camera, resolution, {
   selectedIds = new Set(),
   pairedJumpHighlightIds = new Set(),
   hoveredDeviceId = "",
+  jumpHoverStates = [],
   renderOptions = DEFAULT_RENDER_OPTIONS,
   layerTrace = null,
   renderer = null
@@ -2415,7 +2422,8 @@ function pushJumpNodeForeground(vertices, scene, camera, resolution, {
     const paired = pairedJumpHighlightIds.has(device.id);
     const hovered = hoveredDeviceId === device.id;
     const center = jumpNodeCenter(device);
-    const radius = Math.max(device.width, device.height) / 2;
+    const jumpHover = jumpHoverStates.find(state => state.jumpId === device.id);
+    const radius = jumpNodeRenderRadius(device) * (jumpHover?.scale || 1);
     const visualRadius = jumpNodeVisualRadius(radius);
     if (selected || paired) pushJumpSelectionGlow(vertices, center, visualRadius, selected ? "selected" : "paired");
     if (selected) pushSelectionOutline(vertices, device, null);
@@ -2429,6 +2437,8 @@ function pushJumpNodeForeground(vertices, scene, camera, resolution, {
       pairedRing: jumpNodePairedRingEnabled(device),
       statusDotColor: jumpNodeStatusDotColor(device)
     });
+    if (jumpHover?.active) pushCircleOutline(vertices, center, visualRadius + 5, 1.5,
+      jumpHover.valid ? "#32b6ff" : "#ef4444", 40);
     renderer?.recordObjectLayer?.(
       layerTrace,
       device.id,
@@ -2981,7 +2991,7 @@ function pushDevice(vertices, device, offsets = null, selected = false, options 
   const y = device.y + (offset?.dy || 0);
   if (device.kind === "jump") {
     const center = jumpNodeCenter(device, offset);
-    const radius = Math.max(device.width, device.height) / 2;
+    const radius = jumpNodeRenderRadius(device);
     const visualRadius = jumpNodeVisualRadius(radius);
     if (selected) pushJumpSelectionGlow(vertices, center, visualRadius, "selected");
     if (selected) pushSelectionOutline(vertices, device, offsets);
@@ -3334,7 +3344,7 @@ function pushObjectOutline(vertices, device, offsets = null, layers = []) {
   const y = outline.y;
   if (device.kind === "jump") {
     const center = { x: x + device.width / 2, y: y + device.height / 2 };
-    const radius = jumpNodeVisualRadius(Math.max(device.width, device.height) / 2);
+    const radius = jumpNodeVisualRadius(jumpNodeRenderRadius(device));
     layers.forEach(layer => {
       pushCircleOutline(vertices, center, radius + layer.expand, layer.width, layer.color, 34);
     });
@@ -3705,7 +3715,7 @@ export function engineOutputPrimitives(scene, contract) {
     matrix: scene.devices.filter(device => device.visual?.isMatrixRouter).map(device => ({
       id: device.id, vertices: mesh(vertices => pushMatrixInternalRoutes(vertices, device)) })),
     jumps: scene.devices.filter(device => device.kind === "jump").map(device => ({ id: device.id,
-      vertices: mesh(vertices => pushJumpNode(vertices, jumpNodeCenter(device), Math.max(device.width, device.height) / 2, {
+      vertices: mesh(vertices => pushJumpNode(vertices, jumpNodeCenter(device), jumpNodeRenderRadius(device), {
         role: device.visual?.jumpRole, color: device.visual?.jumpColor,
         bodyGlow: jumpNodeBodyGlowEnabled(device),
         bodyGlowScale: jumpNodeBodyGlowScale(device),
@@ -3792,7 +3802,7 @@ function verticesForLoomPlan(scene, plan, offsets = null) {
       pushPolyline(vertices, points, WIRE_BASE_WIDTH, resolvedColor);
     }
   }
-  for (const head of [plan.headA, plan.headB]) {
+  for (const head of [plan.headA, ...(plan.hiddenHeadB ? [] : [plan.headB])]) {
     pushCircle(vertices, head, 13, "#101820");
     pushCircleOutline(vertices, head, 13, 3, LOOM_GATEWAY_RING_COLOR);
     pushCircle(vertices, head, 5, "#32b6ff");
@@ -4434,7 +4444,7 @@ function loomLabelStyle(loom = {}) {
 
 function drawLoomHeadLabels(ctx, plan, loom, camera, style = loomLabelStyle(loom)) {
   for (const [side, point, fallback] of [
-    [loom.sideA, plan.headA, "Side A"], [loom.sideB, plan.headB, "Side B"]
+    [loom.sideA, plan.headA, "Side A"], ...(plan.hiddenHeadB ? [] : [[loom.sideB, plan.headB, "Side B"]])
   ]) {
     const label = String(side?.label || fallback);
     const x = (point.x - camera.x) * camera.zoom;

@@ -3,6 +3,7 @@ import { buildPreviewOrthogonalWirePoints, ORTHOGONAL_EXIT_OFFSET } from "./orth
 import { splinePolylineSegmentsThroughPoints, wirePolylineFromPoints } from "./wirePath.js";
 import { gatewayExitSide, loomCoreColors, orthogonalManualPoints } from "./routingPlacement.js";
 import { canonicalizeLoomPortalAttachment, normalizeLoom } from "./loomModel.js";
+import { resolveLoomJumpRouting } from "./loomJumpAssociation.js";
 
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const mean = points => ({
@@ -363,8 +364,11 @@ export function loomGeometry(project, scene, loom, cableGroups = groupedCables(p
     .sort((a, b) => String(a.group.primary.cableNumber || a.group.primary.id)
       .localeCompare(String(b.group.primary.cableNumber || b.group.primary.id), undefined, { numeric: true }));
   const automatic = (!loom.sideA || !loom.sideB) ? initialLoomHeads(members.map(member => member.pair)) : null;
-  const resolved = automatic ? { ...loom, sideA: loom.sideA || automatic.sideA,
+  let resolved = automatic ? { ...loom, sideA: loom.sideA || automatic.sideA,
     sideB: loom.sideB || automatic.sideB } : loom;
+  const jumpRouting = resolveLoomJumpRouting(loom, scene, context?.jumpOffsets);
+  if (jumpRouting) resolved = { ...resolved, routePoints: resolved.routePoints.map(point =>
+    point.id === jumpRouting.entryAnchorId ? { ...point, ...jumpRouting.entryPoint } : point) };
   const headA = sidePoint(resolved.sideA || { x: 0, y: 0 });
   const headB = sidePoint(resolved.sideB || { x: 80, y: 0 });
   const dx = headB.x - headA.x, dy = headB.y - headA.y;
@@ -426,10 +430,18 @@ export function loomGeometry(project, scene, loom, cableGroups = groupedCables(p
   const portalPair = resolved.portalPairs?.[0] || null;
   const portalSplit = portalPair
     ? splitLoomRouteAtAttachment(resolved, portalPair.attachment, portalPair.portalB) : null;
-  const visibleTrunkSections = portalSplit?.valid
+  const entryIndex = jumpRouting ? resolved.routePoints.findIndex(point => point.id === jumpRouting.entryAnchorId) : -1;
+  const jumpSplit = entryIndex >= 0 ? splitLoomRouteAtAttachment(resolved, {
+    fromAnchorId: jumpRouting.entryAnchorId, toAnchorId: resolved.routePoints[entryIndex + 1]?.id || "sideB", fraction: 0
+  }, jumpRouting.exitPoint || jumpRouting.entryPoint) : null;
+  const visibleTrunkSections = jumpSplit?.valid
+    ? [jumpSplit.sectionA, ...(!jumpRouting.waiting ? [jumpSplit.sectionB] : [])]
+    : portalSplit?.valid
     ? [portalSplit.sectionA, portalSplit.sectionB] : [trunk];
   return {
-    loomId: loom.id, headA, headB, trunk, visibleTrunkSections, breakouts,
+    loomId: loom.id, headA, headB, trunk, visibleTrunkSections,
+    breakouts: jumpRouting?.waiting ? breakouts.filter(item => item.end !== "B") : breakouts,
+    ...(jumpRouting ? { jumpRouting, hiddenHeadB: jumpRouting.waiting } : {}),
     portalPair: portalSplit?.valid ? { ...portalPair, portalA: portalSplit.portalA,
       portalB: portalSplit.portalB } : null,
     hiddenWireIds: members.flatMap(member => member.group.wires.map(wire => String(wire.id))),

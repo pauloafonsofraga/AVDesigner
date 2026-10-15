@@ -299,7 +299,7 @@ try {
   deleteProject.looms = [{ id: "loom-1", name: "LM-Delete", sideA: { x: 350, y: 300 }, sideB: { x: 760, y: 300 } }];
   const waitForDeleteProject = () => page.waitForFunction(expectedConnections => {
     const bridge = activeEngineBridge();
-    return state.looms[0]?.id === "loom-1"
+    return bridge?.ready && state.looms[0]?.id === "loom-1"
       && bridge?.mutations?.root?.looms?.some(loom => loom.id === "loom-1")
       && bridge?.mutations?.root?.connections?.length === expectedConnections
       && bridge?.scene?.loomPlans?.[0]?.circuitCount === 5;

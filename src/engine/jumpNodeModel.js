@@ -1,5 +1,6 @@
 import { bezierPolyline } from "./wirePath.js";
 import { isConnectorExplicitlyBidirectional } from "./deviceDefinitionV2.js";
+import { jumpPairLoomConflict, loomForJump } from "./loomJumpAssociation.js";
 import {
   engineConnectorCompatibilityType,
   engineConnectorDisplayLabel,
@@ -9,6 +10,11 @@ import {
 export const JUMP_NODE_SIZE = 44;
 export const JUMP_NODE_VISUAL_SCALE = 0.4;
 export const JUMP_NODE_VISUAL_RADIUS = JUMP_NODE_SIZE * JUMP_NODE_VISUAL_SCALE / 2;
+export const LOOM_JUMP_SCALE = 2.4;
+export function jumpNodeRenderRadius(device) {
+  return Math.max(Number(device?.width) || JUMP_NODE_SIZE, Number(device?.height) || JUMP_NODE_SIZE) / 2
+    * (device?.visual?.jumpLoomId ? LOOM_JUMP_SCALE : 1);
+}
 export const JUMP_NODE_INFO_MIN_ZOOM = 0.4;
 export const JUMP_NODE_CONNECTOR_ID = "jump-center";
 export const JUMP_LINK_BEZIER_STEPS = 28;
@@ -358,6 +364,12 @@ export function jumpNodeConnectionInfo(scene, jumpId = "") {
     ? scene.pairedJumpId(id)
     : pairedJumpIdForLink(link, id);
   const pairLocal = pairId ? sceneJumpDeviceWire(scene, pairId) : null;
+  const loom = loomForJump(scene, id);
+  if (loom?.jumpRouting) {
+    const continuing = id !== loom.jumpRouting.entryJumpId && !loom.jumpRouting.continuationComplete;
+    const text = continuing ? `Continue ${loom.name}` : `${loom.name}${pairId ? "" : " · Waiting for pair"}`;
+    return { ...unassignedJumpInfo("right", "to", id, pairId), text, displayText: text };
+  }
 
   if (link) {
     const role = sceneJumpNodeRole(scene, id).role;
@@ -446,6 +458,8 @@ export function jumpPairCompatibility(scene, firstJumpId, secondJumpId, {
   if (!isJumpNodeDevice(first) || !isJumpNodeDevice(second)) return invalidPair("missing", "Missing Jump Node.");
   if (scene?.jumpLinkForNode?.(firstId)) return invalidPair("already-paired", "Source Jump Node is already paired.");
   if (scene?.jumpLinkForNode?.(secondId)) return invalidPair("already-paired", "Target Jump Node is already paired.");
+  const loomConflict = jumpPairLoomConflict(scene, firstId, secondId);
+  if (loomConflict) return invalidPair("loom-ownership", loomConflict);
   const firstRole = sceneJumpNodeRole(scene, firstId);
   const secondRole = sceneJumpNodeRole(scene, secondId);
   if ((firstRole.localWire && firstRole.baseRole === JUMP_NODE_ROLE.neutral)
@@ -672,6 +686,7 @@ function independentJumpRole(baseRole, peerRole, link, jumpId) {
 }
 
 export function jumpDeviceAttachmentCompatibility(scene, jumpId, realHit, { compatibilitySummary, excludeWireId = "" } = {}) {
+  if (loomForJump(scene, jumpId)) return invalidPair("loom-ownership", "This Jump carries a Loom bundle.");
   const link = scene?.jumpLinkForNode?.(jumpId);
   if (!link) return { valid: true };
   const role = jumpConnectorBaseRole(realHit?.connector);

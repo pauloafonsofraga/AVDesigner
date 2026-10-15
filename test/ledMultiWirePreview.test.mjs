@@ -26,6 +26,7 @@ function harness(target) {
     currentWireCompatibility: () => ({ valid: Boolean(target), reason: "" }),
     wireRouteForEndpoints: (from, to) => ({ routeStyle: "orthogonal", routePoints: [{ x: to.x, y: from.y }] }),
     snapDebugVisualState() {}, jumpLinkPreviewState() {}, visibleJumpLinkOverlays() {},
+    loomJumpHoverStates: () => [], loomJumpDragPreviews: () => [],
     wirePlaybackOverlayState() {}, pairedJumpHighlightIds() {}
   });
   return b;
