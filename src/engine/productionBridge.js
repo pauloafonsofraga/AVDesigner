@@ -156,8 +156,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-93-unified-jump-loom-routing";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-93-unified-jump-loom-routing";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-94-loom-jump-route-state";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-94-loom-jump-route-state";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -2058,6 +2058,9 @@ class ProductionEngineBridge {
     });
     this.updateSelectionHud();
     this.updateInteractionHud("jump-link-created");
+    const waitingLoom = this.scene.looms.find(loom => loom.jumpRouting && !loom.jumpRouting.continuationComplete
+      && [sceneLink.outputJumpId, sceneLink.inputJumpId].includes(loom.jumpRouting.entryJumpId));
+    if (waitingLoom) this.beginLoomContinuation(waitingLoom.id, { pointerWorld: state.pointerWorld });
   }
 
   currentJumpLinkCompatibilityFromState(state, targetJumpId = "") {
@@ -2073,6 +2076,7 @@ class ProductionEngineBridge {
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation?.();
+      if (this.loomCreate.awaitingPointerDown) return;
       const point = this.eventPoint(event);
       const world = screenToWorld(this.camera, point);
       this.updateLoomCreationPointer(world, { endpoint: true, axisLockRequested: Boolean(event.shiftKey) });
@@ -2268,6 +2272,7 @@ class ProductionEngineBridge {
     const world = screenToWorld(this.camera, point);
     if (this.loomCreationActive) {
       event.preventDefault();
+      if (this.loomCreate) this.loomCreate.awaitingPointerDown = false;
       const world = screenToWorld(this.camera, point);
       this.updateLoomCreationPointer(world, { endpoint: Number(event.detail) >= 2, axisLockRequested: Boolean(event.shiftKey) });
       this.handleLoomCreationClick(this.loomCreate?.pointerWorld || world, event.detail);
@@ -4435,7 +4440,7 @@ class ProductionEngineBridge {
     return true;
   }
 
-  beginLoomContinuation(loomId) {
+  beginLoomContinuation(loomId, { pointerWorld = null } = {}) {
     const loom = this.scene.looms.find(item => item.id === loomId);
     const routing = loom?.jumpRouting;
     const peerId = routing && this.scene.pairedJumpId(routing.entryJumpId);
@@ -4445,7 +4450,8 @@ class ProductionEngineBridge {
     this.api.setJumpNodeToolActive?.(false);
     this.loomCreationActive = true;
     this.loomCreate = { sideA: point, sideAPlaced: true, routePoints: [], routeStyle: loom.routeStyle,
-      pointerWorld: point, resumeLoomId: loomId, lastClick: null, snapSession: null, snapOrigin: point, guides: null };
+      pointerWorld: pointerWorld ? { ...pointerWorld } : point, resumeLoomId: loomId,
+      awaitingPointerDown: true, lastClick: null, snapSession: null, snapOrigin: point, guides: null };
     const button = globalThis.document?.getElementById("createCableLoom");
     button?.classList.add("active"); button?.setAttribute("aria-pressed", "true");
     this.scene.clearSelection(); this.updateSelectionHud(); this.updateCanvasCursor(); this.scheduleRender();
@@ -7968,6 +7974,11 @@ class ProductionEngineBridge {
   refreshLoomComposition() {
     if (this.mutations?.root) reconcileLoomJumpAssociations(this.mutations.root);
     this.scene.rebuildLoomGeometry();
+    if (this.loomCreate?.resumeLoomId) {
+      const loom = this.scene.looms.find(item => item.id === this.loomCreate.resumeLoomId);
+      if (!loom?.jumpRouting || loom.jumpRouting.continuationComplete
+        || !this.scene.pairedJumpId(loom.jumpRouting.entryJumpId)) this.deactivateLoomCreation("continuation invalidated", { render: false });
+    }
     this.api.onEngineLoomsChange?.(this.mutations?.root?.looms || this.scene.looms);
     this.scene.rebuildWireSpatialIndex();
     this.scene.rebuildRoutePointIndex();

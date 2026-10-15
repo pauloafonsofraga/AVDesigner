@@ -431,11 +431,16 @@ export function loomGeometry(project, scene, loom, cableGroups = groupedCables(p
   const portalSplit = portalPair
     ? splitLoomRouteAtAttachment(resolved, portalPair.attachment, portalPair.portalB) : null;
   const entryIndex = jumpRouting ? resolved.routePoints.findIndex(point => point.id === jumpRouting.entryAnchorId) : -1;
-  const jumpSplit = entryIndex >= 0 ? splitLoomRouteAtAttachment(resolved, {
-    fromAnchorId: jumpRouting.entryAnchorId, toAnchorId: resolved.routePoints[entryIndex + 1]?.id || "sideB", fraction: 0
-  }, jumpRouting.exitPoint || jumpRouting.entryPoint) : null;
-  const visibleTrunkSections = jumpSplit?.valid
-    ? [jumpSplit.sectionA, ...(!jumpRouting.waiting ? [jumpSplit.sectionB] : [])]
+  // The stable gateway anchor is an endpoint, not an extra spline control.
+  // Sampling each side independently also keeps continuation edits out of section A's tangents.
+  const jumpSections = entryIndex >= 0 ? [
+    loomTrunkPoints({ ...resolved, sideB: jumpRouting.entryPoint,
+      routePoints: resolved.routePoints.slice(0, entryIndex) }),
+    ...(!jumpRouting.waiting ? [loomTrunkPoints({ ...resolved, sideA: jumpRouting.exitPoint,
+      routePoints: resolved.routePoints.slice(entryIndex + 1) })] : [])
+  ] : null;
+  const visibleTrunkSections = jumpSections
+    ? jumpSections
     : portalSplit?.valid
     ? [portalSplit.sectionA, portalSplit.sectionB] : [trunk];
   return {

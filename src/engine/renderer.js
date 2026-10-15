@@ -65,6 +65,7 @@ import {
   jumpLinkBezierPolyline,
   jumpNodeCenter,
   jumpNodeRenderRadius,
+  jumpNodeVisualState,
   jumpNodeRoleColor
 } from "./jumpNodeModel.js";
 import { wirePlaybackEase } from "./wirePlayback.js";
@@ -72,7 +73,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-93-unified-jump-loom-routing";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-94-loom-jump-route-state";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -3073,29 +3074,26 @@ function pushJumpNode(vertices, center, radius, options = {}) {
 }
 
 export function jumpNodeBodyGlowEnabled(device) {
-  const connected = Boolean(device?.visual?.jumpLocalWireId);
-  const paired = Boolean(device?.visual?.jumpPairedId);
-  return !connected || paired;
+  const { occupied, paired } = jumpNodeVisualState(device);
+  return !occupied || paired;
 }
 
 export function jumpNodeBodyGlowScale(device) {
-  const connected = Boolean(device?.visual?.jumpLocalWireId);
-  const paired = Boolean(device?.visual?.jumpPairedId);
-  return connected && paired ? 2.4 : 1;
+  const { occupied, paired } = jumpNodeVisualState(device);
+  return occupied && paired ? 2.4 : 1;
 }
 
 export function jumpNodePairedRingEnabled(device) {
-  return Boolean(device?.visual?.jumpPairedId);
+  return jumpNodeVisualState(device).paired;
 }
 
 export function jumpNodeUnpairedConnectedMarkerEnabled(device) {
-  return Boolean(device?.visual?.jumpLocalWireId) && !jumpNodePairedRingEnabled(device);
+  const { occupied, paired } = jumpNodeVisualState(device);
+  return occupied && !paired;
 }
 
 export function jumpNodeStatusDotColor(device) {
-  const connected = Boolean(device?.visual?.jumpLocalWireId);
-  const paired = jumpNodePairedRingEnabled(device);
-  return connected ? paired ? "" : "#ef4444" : paired ? "#a855f7" : "";
+  return jumpNodeVisualState(device).statusDotColor;
 }
 
 function jumpNodeVisualRadius(radius = JUMP_NODE_SIZE / 2) {

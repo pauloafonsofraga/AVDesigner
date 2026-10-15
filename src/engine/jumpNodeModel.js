@@ -343,7 +343,10 @@ export function sceneJumpNodeRole(scene, jumpId = "") {
   const baseRole = jumpConnectorBaseRole(connector);
   const link = scene?.jumpLinkForNode?.(jumpId);
   const peer = link?.deviceIndependent ? sceneJumpDeviceWire(scene, pairedJumpIdForLink(link, jumpId)) : null;
-  const role = independentJumpRole(baseRole, jumpConnectorBaseRole(peer?.otherConnector), link, jumpId);
+  const loom = loomForJump(scene, jumpId);
+  const role = loom && link
+    ? loom.jumpRouting.entryJumpId === jumpId ? JUMP_NODE_ROLE.output : JUMP_NODE_ROLE.input
+    : independentJumpRole(baseRole, jumpConnectorBaseRole(peer?.otherConnector), link, jumpId);
   return {
     role,
     baseRole,
@@ -353,6 +356,12 @@ export function sceneJumpNodeRole(scene, jumpId = "") {
     connector,
     device: local?.otherDevice || null
   };
+}
+
+export function jumpNodeVisualState(device) {
+  const occupied = Boolean(device?.visual?.jumpLocalWireId || device?.visual?.jumpLoomId);
+  const paired = Boolean(device?.visual?.jumpPairedId);
+  return { occupied, paired, statusDotColor: occupied ? paired ? "" : "#ef4444" : paired ? "#a855f7" : "" };
 }
 
 export function jumpNodeConnectionInfo(scene, jumpId = "") {

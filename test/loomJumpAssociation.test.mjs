@@ -49,7 +49,9 @@ for (const routeStyle of ["orthogonal", "bezier"]) test(`${routeStyle}: Jump-ass
   assert.equal(scene.getDevice("jump-a").width, 44);
   assert.equal(scene.getDevice("jump-a").x + 22, 300);
   assert.equal(jumpNodeRenderRadius(scene.getDevice("jump-a")), 52.8);
-  assert.equal(jumpNodeStatusDotColor(scene.getDevice("jump-a")), "#a855f7");
+  assert.equal(jumpNodeStatusDotColor(scene.getDevice("jump-a")), "");
+  assert.equal(scene.getDevice("jump-a").visual.jumpColor, "#32b6ff");
+  assert.equal(scene.getDevice("jump-b").visual.jumpColor, "#fb7904");
   assert.equal(JSON.stringify(project.connections), before);
   assert.deepEqual(buildCableSchedule(project, { assignNumbers: "readOnly" }), rows);
   assert.deepEqual(rows.map(row => signalChainForWire(rows, row.wireIds[0])), chains);
@@ -66,12 +68,13 @@ test("waiting Loom survives unpair/re-pair and exposes continuation without inve
   const scene = sceneFor(project);
   assert.equal(scene.loomPlans[0].visibleTrunkSections.length, 1);
   assert.equal(scene.loomPlans[0].hiddenHeadB, true);
-  assert.equal(jumpNodeStatusDotColor(scene.getDevice("jump-a")), "");
+  assert.equal(jumpNodeStatusDotColor(scene.getDevice("jump-a")), "#ef4444");
   const pair = { id: "later-pair", outputJumpId: "jump-a", inputJumpId: "jump-b", deviceIndependent: true };
   project.jumpLinks = [pair]; scene.addJumpLink(pair); scene.rebuildLoomGeometry();
   assert.equal(scene.loomPlans[0].jumpRouting.exitJumpId, "jump-b");
   assert.equal(scene.loomPlans[0].visibleTrunkSections.length, 1);
-  assert.equal(jumpNodeStatusDotColor(scene.getDevice("jump-b")), "#a855f7");
+  assert.equal(jumpNodeStatusDotColor(scene.getDevice("jump-b")), "");
+  assert.equal(scene.getDevice("jump-b").visual.jumpColor, "#fb7904");
   scene.loomProject.looms[0].jumpRouting.continuationComplete = true; scene.rebuildLoomGeometry();
   assert.equal(scene.loomPlans[0].visibleTrunkSections.length, 2); noTeleport(scene.loomPlans[0]);
   scene.loomProject.jumpLinks = []; scene.deleteJumpLink(pair.id); scene.rebuildLoomGeometry();
