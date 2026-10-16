@@ -58,7 +58,8 @@ for (const routeStyle of ["orthogonal", "bezier"]) test(`${routeStyle}: Jump-ass
   const output = buildEngineOutputScene(project), viewer = createOutputViewerModel(output);
   assert.deepEqual(output.loomPlans[0].visibleTrunkSections, plan.visibleTrunkSections);
   assert.deepEqual(viewer.scene.loomPlans[0].visibleTrunkSections, plan.visibleTrunkSections);
-  assert.deepEqual(outputJumpLinkOverlays(viewer, { type: "device", id: "jump-a" }), []);
+  assert.deepEqual(outputJumpLinkOverlays(viewer, null), [], "pair remains hidden at rest");
+  assert.equal(outputJumpLinkOverlays(viewer, { type: "device", id: "jump-a" })[0].mode, "pair-selected");
   assert.match(renderEngineOutputSvg(output).svg, /data-loom-id="loom-1"/);
   assert.deepEqual(sceneFor(JSON.parse(JSON.stringify(project))).loomPlans[0].visibleTrunkSections, plan.visibleTrunkSections);
 });

@@ -8,6 +8,7 @@ import {
 } from "./cableHops.js";
 import { wirePathStatsForWires, wirePolylineFromPoints } from "./wirePath.js";
 import { loomBreakoutPolyline } from "./loomGeometry.js";
+import { loomForJump } from "./loomJumpAssociation.js";
 import { DEFAULT_LOOM_LABEL_BACKGROUND_COLOR, DEFAULT_LOOM_LABEL_TEXT_COLOR,
   loomLabelBackgroundRgba } from "./loomModel.js";
 import { LOOM_GATEWAY_RING_COLOR, LOOM_INNER_JACKET_COLOR, LOOM_OUTER_JACKET_COLOR, LOOM_TAPE_COLOR,
@@ -73,7 +74,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-96-loom-interaction-stability";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-97-loom-jump-presentation";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -1325,7 +1326,7 @@ export class WebglGraphRenderer {
           const wire = scene.getWire(hoveredWireId);
           if (wire && renderOptions.wires) pushWireHover(liveVertices, scene, wire, null, renderOptions, this.cableHopMap);
         }
-        frameStats.jumpLinkOverlays = pushJumpLinkOverlays(liveVertices, interaction);
+        frameStats.jumpLinkOverlays = pushJumpLinkOverlays(liveVertices, interaction, scene);
         // Jump nodes must stay visually on top of selected/hovered wire
         // emphasis. They are normally part of the static device buffer, so a
         // lightweight foreground pass redraws only visible jump nodes before
@@ -2375,7 +2376,18 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
   return stats;
 }
 
-function pushJumpLinkOverlays(vertices, interaction = {}) {
+export function jumpLinkOverlayWidth(scene, overlay) {
+  const loom = overlay.outputJumpId && loomForJump(scene, overlay.outputJumpId);
+  if (loom) {
+    const plan = scene.loomPlans.find(item => item.loomId === loom.id);
+    return loomBundleWidths(plan?.coreColors?.length).outerJacket;
+  }
+  return overlay.mode === "link-selected" ? 6.4
+    : overlay.mode === "pair-selected" || overlay.mode === "selected" ? 5.9
+    : overlay.mode === "preview" ? 5.4 : 4.8;
+}
+
+function pushJumpLinkOverlays(vertices, interaction = {}, scene = null) {
   let count = 0;
   const overlays = [
     ...(Array.isArray(interaction.jumpLinkOverlays) ? interaction.jumpLinkOverlays : []),
@@ -2387,7 +2399,7 @@ function pushJumpLinkOverlays(vertices, interaction = {}) {
     const points = Array.isArray(overlay.points) && overlay.points.length > 2
       ? overlay.points
       : jumpLinkBezierPolyline(overlay.from, overlay.to);
-    const width = selected ? 6.4 : pairSelected ? 5.9 : overlay.mode === "preview" ? 5.4 : 4.8;
+    const width = jumpLinkOverlayWidth(scene, overlay);
     const alpha = overlay.valid === false ? 0.58 : selected ? 0.98 : pairSelected ? 0.94 : overlay.mode === "hover" ? 0.82 : 0.9;
     if (selected) {
       pushPolyline(vertices, points, width + 11, "rgba(251,121,4,.16)");
@@ -3717,7 +3729,7 @@ export function engineOutputPrimitives(scene, contract) {
       pushDashedRoundedBoxOutline(vertices, rack.bounds, RACK_FRAME_RADIUS, 2, RACK_FRAME_STROKE, 10, 7);
     }) })),
     jumpLinks: contract.jumpLinks.map(link => ({ id: link.id, vertices: mesh(vertices =>
-      pushJumpLinkOverlays(vertices, { jumpLinkOverlays: [{ ...link, points: link.polyline }] })) })),
+      pushJumpLinkOverlays(vertices, { jumpLinkOverlays: [{ ...link, points: link.polyline }] }, scene)) })),
     wires: contract.wires.filter(wire => !scene.isWireHiddenByLoom(wire.id)).map(wire => ({ id: wire.id, vertices: mesh(vertices =>
       pushWireColorSegments(vertices, wire.renderPolyline, WIRE_STATIC_WIDTH, wire, wireColor(wire))) })),
     looms: scene.loomPlans.map(plan => ({ id: plan.loomId, vertices: verticesForLoomPlan(scene, plan) })),

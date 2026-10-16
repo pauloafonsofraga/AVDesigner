@@ -30,7 +30,6 @@ export function createOutputViewerModel(snapshot, { assets } = {}) {
 export function outputJumpLinkOverlays(model, selection, hoveredJumpId = null) {
   // Match the editor's transient reveal rules without changing output geometry.
   return model.contract.jumpLinks.flatMap(link => {
-    if (model.scene.getDevice(link.outputJumpId)?.visual?.jumpLoomId) return [];
     const contains = id => id === link.outputJumpId || id === link.inputJumpId;
     const mode = selection?.type === "jump-link" && selection.id === link.id ? "link-selected"
       : selection?.type === "device" && contains(selection.id) ? "pair-selected"

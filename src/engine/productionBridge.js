@@ -157,8 +157,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-96-loom-interaction-stability";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-96-loom-interaction-stability";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-97-loom-jump-presentation";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-97-loom-jump-presentation";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -5775,7 +5775,6 @@ class ProductionEngineBridge {
       const outputDevice = this.scene.getDevice(link.outputJumpId);
       const inputDevice = this.scene.getDevice(link.inputJumpId);
       if (!outputDevice || !inputDevice) return;
-      if (loomForJump(this.scene, link.outputJumpId) && mode !== "hover") return;
       const from = this.jumpNodeCenter(outputDevice);
       const to = this.jumpNodeCenter(inputDevice);
       const points = jumpLinkBezierPolyline(from, to);

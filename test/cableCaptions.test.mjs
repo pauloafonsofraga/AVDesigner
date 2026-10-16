@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { cableCaptionFixture } from "../fixtures/cable-captions.mjs";
 import { modularIntegrationFixture } from "../fixtures/modular-integration.mjs";
+import { loomStabilityFixture } from "../fixtures/loom-stability.mjs";
 import { relationshipMetadataFixture } from "../fixtures/relationship-metadata.mjs";
 import { outputViewerParityFixture } from "../fixtures/output-viewer.mjs";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
@@ -46,6 +47,14 @@ function liveLabels(scene, options = {}, zoom = 1) {
   finally { if (previous) globalThis.window = previous; else delete globalThis.window; }
   return ctx.captions;
 }
+
+test("revealed Loom Jump captions draw the Loom name instead of unconnected endpoints", () => {
+  const model = createOutputViewerModel(buildEngineOutputScene(loomStabilityFixture()));
+  const overlay = outputJumpLinkOverlays(model, { type: "device", id: "jump-a" });
+  const labels = liveLabels(model.scene, { interactionState: { jumpLinkOverlays: overlay } });
+  assert.equal(labels.filter(text => text === "LM-001").length, 1);
+  assert.ok(!labels.some(text => text.includes("Unconnected")));
+});
 
 test("normal, hovered and selected captions use identities, not cable type or custom label", () => {
   const project = cableCaptionFixture(), before = structuredClone(project), scene = sceneFor(project), wire = scene.getWire("direct");
