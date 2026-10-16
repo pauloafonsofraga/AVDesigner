@@ -156,8 +156,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-94-loom-jump-route-state";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-94-loom-jump-route-state";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-95-pdf-artwork-loom-tool";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-95-pdf-artwork-loom-tool";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -2229,6 +2229,17 @@ class ProductionEngineBridge {
       this.beginPan(point, event.pointerId);
       return;
     }
+    if (this.loomCreationActive) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+      if (event.button !== 0) return;
+      if (this.loomCreate) this.loomCreate.awaitingPointerDown = false;
+      const world = screenToWorld(this.camera, point);
+      this.updateLoomCreationPointer(world, { endpoint: Number(event.detail) >= 2, axisLockRequested: Boolean(event.shiftKey) });
+      this.handleLoomCreationClick(this.loomCreate?.pointerWorld || world, event.detail);
+      return;
+    }
     if (event.button === 0) {
       const world = screenToWorld(this.camera, point);
       if (!this.loomCreationActive && !this.activeCanvasTool() && !this.wireCreate && !event.shiftKey && !event.metaKey && !event.ctrlKey
@@ -2270,14 +2281,6 @@ class ProductionEngineBridge {
     }
     if (event.button !== 0) return;
     const world = screenToWorld(this.camera, point);
-    if (this.loomCreationActive) {
-      event.preventDefault();
-      if (this.loomCreate) this.loomCreate.awaitingPointerDown = false;
-      const world = screenToWorld(this.camera, point);
-      this.updateLoomCreationPointer(world, { endpoint: Number(event.detail) >= 2, axisLockRequested: Boolean(event.shiftKey) });
-      this.handleLoomCreationClick(this.loomCreate?.pointerWorld || world, event.detail);
-      return;
-    }
     if (this.wireCreate?.manual && !this.wireCreate.rewire) {
       event.preventDefault();
       this.capturePointer(event.pointerId);
@@ -4263,8 +4266,10 @@ class ProductionEngineBridge {
   toggleLoomCreation() {
     this.cancelActiveInteraction("loom-tool-toggle", { updateHud: false });
     const enabled = !this.loomCreationActive;
-    if (enabled) this.api.setJumpNodeToolActive?.(false);
     if (enabled) {
+      this.api.cancelCanvasLayoutTool?.();
+      this.api.setJumpNodeToolActive?.(false);
+      this.canvasToolPointerActive = false;
       this.loomCreationActive = true;
       this.loomCreate = { sideA: null, routePoints: [], routeStyle: this.currentWireRouteMode(),
         pointerWorld: null, snapSession: null, snapOrigin: null, guides: null };
