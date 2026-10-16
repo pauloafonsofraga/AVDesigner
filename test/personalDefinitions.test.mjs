@@ -198,7 +198,7 @@ async function editorHarness(mode = "library", knownFactory = true) {
     editorLibraryBaseline: [], editorDefaultRevisions: new Map(), editorInstanceName: "Canvas instance", editorBaselineInstanceName: "",
     editorDependencyDrafts: null, editorDependencyContexts: [], editorDependencyBaselines: [], editorDependencySession: 0,
     personalLibraryNodes: owner.libraryContext().nodes, DEFAULT_CABLE_TYPES: Object.fromEntries(nodes.map(node => [node.id, node])),
-    personalDefaultsBusy: false, savePersonalDefaultButton: element("save"), document: { getElementById: element },
+    personalDefaultsBusy: false, savePersonalDefaultButton: element("save"), duplicateEditorDeviceButton: element("duplicate"), document: { getElementById: element },
     syncEditorFieldsToDraft() {}, setStatus: message => c.status = message, alert: message => { c.alerts.push(message); }, alerts: [],
     confirm: message => { c.confirmations.push(message); return c.confirmed; }, confirmations: [], confirmed: true,
     currentEditorTemplate: () => c.editorDraft[c.editorIndex], isProjectTemplateEditorMode: () => c.editorMode.startsWith("project-template"),
@@ -217,6 +217,113 @@ async function editorHarness(mode = "library", knownFactory = true) {
   c.captureEditorSessionBaseline();
   return { c, owner, store, element };
 }
+
+async function duplicateEditorHarness(mode = "library") {
+  const harness = await editorHarness(mode), { c } = harness;
+  Object.assign(c, {
+    PROJECT_CUSTOM_DEVICE_FLAG: "projectCustomDevice", customIdentityDebug: {}, recordCustomIdentity() {},
+    slugify: value => value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+    openDeviceEditorForProjectTemplateDraft(copy, nextMode, options) { c.projectCopy = { copy, nextMode, options }; }
+  });
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  for (const name of ["uniqueDeviceTemplateId", "duplicateDeviceTemplateForCollection", "duplicateCurrentEditorDevice"]) {
+    vm.runInContext(html.match(new RegExp(`^    (?:async )?function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?^    \\}`, "m"))[0], c);
+  }
+  return harness;
+}
+
+test("Device Editor duplication saves an independent reusable definition before closing, without a separate Defaults save", async () => {
+  const { c, owner, store } = await duplicateEditorHarness();
+  const projectBefore = structuredClone(c.deviceLibrary), factoryBefore = structuredClone(c.builtInDeviceLibrary);
+  const node = { id: "custom-control", label: "Control", color: "#123456", thumbnail: png, metadata: { baud: 9600 } };
+  c.editorDependencyContexts[0] = { ...c.editorDependencyContexts[0], nodes: [...nodes, node] };
+  c.editorDraft[0].connectors[0].type = node.id;
+  c.editorDraft[0].faceImage = png;
+  c.editorDraft[0].factoryTemplateId = factory().id;
+  const sourceBefore = structuredClone(c.editorDraft[0]);
+  await c.duplicateCurrentEditorDevice();
+  assert.deepEqual(c.alerts, []);
+  const copy = c.currentEditorTemplate(), saved = owner.entry(copy.id);
+  assert.ok(saved, "Duplicate must persist immediately, not just create a draft");
+  assert.equal(saved.factory, null);
+  assert.equal(saved.definition.faceImage, png);
+  assert.deepEqual(saved.definition.cardTypes, sourceBefore.cardTypes);
+  assert.deepEqual(saved.definition.cardSlots, sourceBefore.cardSlots);
+  assert.deepEqual(saved.dependencies.nodes.find(n => n.id === node.id), node);
+  assert.equal(c.editorDefaultRevisions.get(copy.id), saved.revision);
+  assert.equal(c.editorHasUnsavedChanges(), false);
+  assert.deepEqual(c.editorDraft[0], sourceBefore);
+  assert.deepEqual(c.deviceLibrary, projectBefore);
+  assert.deepEqual(c.builtInDeviceLibrary, factoryBefore);
+  assert.equal(owner.has(factory().id), false);
+  assert.ok(c.libraryDeviceTemplates().some(d => d.id === copy.id));
+  assert.deepEqual((await setup({ store })).owner.entry(copy.id), saved);
+  c.editorDraft[c.editorIndex].name = "Renamed copy";
+  await c.saveEditorPersonalDefault();
+  assert.deepEqual(c.alerts, []);
+  assert.equal(owner.entry(copy.id).definition.name, "Renamed copy");
+});
+
+test("repeated editor duplicates avoid both draft and already-saved library identities", async () => {
+  const { c, owner } = await duplicateEditorHarness();
+  await c.duplicateCurrentEditorDevice();
+  const first = c.currentEditorTemplate();
+  // Simulate a second tab creating a copy absent from this editor's drafts.
+  const other = c.duplicateDeviceTemplateForCollection(c.editorDraft[0], c.libraryDeviceTemplates());
+  await owner.save(other);
+  c.editorIndex = 0;
+  await c.duplicateCurrentEditorDevice();
+  assert.deepEqual(c.alerts, []);
+  const last = c.currentEditorTemplate();
+  assert.equal(new Set([first.id, other.id, last.id]).size, 3);
+  assert.equal(new Set([first.name, other.name, last.name]).size, 3);
+  assert.ok(owner.has(last.id));
+});
+
+for (const failure of ["storage", "unavailable", "read-only"]) test(`editor duplicate ${failure} failure retains all drafts and does not report success`, async () => {
+  const { c, owner, store } = await duplicateEditorHarness();
+  const before = structuredClone(c.editorDraft), baseline = structuredClone(c.editorLibraryBaseline);
+  if (failure === "storage") store.fail = true;
+  if (failure === "unavailable") c.localUserSettingsOwner = null;
+  if (failure === "read-only") c.accountLibraryUi = { canSave: () => false };
+  await c.duplicateCurrentEditorDevice();
+  assert.equal(c.alerts.length, 1);
+  assert.deepEqual(c.editorDraft, before);
+  assert.deepEqual(c.editorLibraryBaseline, baseline);
+  assert.equal(c.editorIndex, 0);
+  assert.equal(Object.keys(owner.snapshot().entries).length, 0);
+  assert.equal(c.personalDefaultsBusy, false);
+});
+
+for (const change of ["edit", "close", "switch"]) test(`pending editor duplication survives ${change} without replacing newer editor state or creating two copies`, async () => {
+  const { c, owner, store, element } = await duplicateEditorHarness();
+  const update = store.update.bind(store);
+  let release, started;
+  const gate = new Promise(resolve => { release = resolve; }), pending = new Promise(resolve => { started = resolve; });
+  store.update = async (...args) => { started(); await gate; return update(...args); };
+  const duplicating = c.duplicateCurrentEditorDevice();
+  await pending;
+  assert.equal(element("duplicate").disabled, true);
+  await c.duplicateCurrentEditorDevice();
+  if (change === "edit") c.editorDraft[0].name = "Newer source edit";
+  if (change === "close") c.editorDependencySession++;
+  if (change === "switch") c.editorIndex = 1;
+  const before = structuredClone(c.editorDraft), index = c.editorIndex;
+  release(); await duplicating;
+  assert.deepEqual(c.alerts, []);
+  assert.deepEqual(c.editorDraft, before);
+  assert.equal(c.editorIndex, index);
+  assert.equal(Object.keys(owner.snapshot().entries).length, 1);
+  assert.equal(c.personalDefaultsBusy, false);
+});
+
+test("project-only duplication remains project-scoped", async () => {
+  const { c, owner } = await duplicateEditorHarness("project-template-edit");
+  await c.duplicateCurrentEditorDevice();
+  assert.equal(c.projectCopy.nextMode, "project-template-create");
+  assert.equal(c.projectCopy.copy.projectCustomDevice, true);
+  assert.equal(Object.keys(owner.snapshot().entries).length, 0);
+});
 
 test("library reordering uses the effective library and leaves project definitions untouched", () => {
   const project = [factory()], before = structuredClone(project);

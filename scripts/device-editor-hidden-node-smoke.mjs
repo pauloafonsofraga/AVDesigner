@@ -14,7 +14,7 @@ try {
   await page.waitForFunction(() => typeof openDeviceEditorForTemplate === "function" && activeEngineBridge()?.ready);
   await page.evaluate(async () => {
     await openDeviceEditorForTemplate("custom-device-mq84dpgn");
-    duplicateCurrentEditorDevice();
+    await duplicateCurrentEditorDevice();
     for (const context of new Set(editorDependencyContexts)) {
       if (context) context.nodes = context.nodes.filter(node => node.id !== "sfp-plus-cage");
     }
