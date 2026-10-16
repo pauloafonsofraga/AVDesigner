@@ -1402,6 +1402,14 @@ export class SceneGraph {
     if (this.looms.some(loom => loom.id === loomId)) this.selectedLoomId = loomId;
   }
 
+  get selectedLoomId() {
+    return this.selectedLoomIds?.size === 1 ? [...this.selectedLoomIds][0] : "";
+  }
+
+  set selectedLoomId(id) {
+    this.selectedLoomIds = new Set(id ? [id] : []);
+  }
+
   selectLoomPortal(key) {
     const id = String(key || "");
     if (!this.loomPortalIndex.items.has(id)) return false;

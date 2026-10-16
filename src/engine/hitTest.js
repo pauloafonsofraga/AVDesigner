@@ -188,6 +188,27 @@ export function hitTestLoomTrunk(scene, worldPoint, tolerance = 8) {
   return best;
 }
 
+export function loomsInRect(scene, rect) {
+  // Match Engine intersection marquee semantics using only physical sections.
+  const intersects = (a, b) => {
+    let low = 0, high = 1;
+    for (const [origin, delta, min, max] of [
+      [a.x, b.x - a.x, rect.x, rect.x + rect.width],
+      [a.y, b.y - a.y, rect.y, rect.y + rect.height]
+    ]) {
+      if (!delta) { if (origin < min || origin > max) return false; continue; }
+      const first = (min - origin) / delta, last = (max - origin) / delta;
+      low = Math.max(low, Math.min(first, last));
+      high = Math.min(high, Math.max(first, last));
+      if (low > high) return false;
+    }
+    return true;
+  };
+  return (scene.loomPlans || []).filter(plan => (plan.visibleTrunkSections || [plan.trunk])
+    .some(section => section.some((point, index) => index && intersects(section[index - 1], point))))
+    .map(plan => plan.loomId);
+}
+
 export function distanceToPolyline(points, point) {
   let best = { distance: Infinity, segmentIndex: -1, point: null };
   for (let index = 1; index < points.length; index += 1) {

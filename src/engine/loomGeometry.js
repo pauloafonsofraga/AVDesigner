@@ -91,6 +91,10 @@ export function initialLoomHeads(pairs) {
 export function loomTrunkPoints(loom) {
   const a = sidePoint(loom.sideA), b = sidePoint(loom.sideB);
   const interior = (loom.routePoints || []).filter(point => Number.isFinite(point.x) && Number.isFinite(point.y));
+  // Detached Jump anchors remain stable authored records, but an endpoint is
+  // not also a spline control. Keep the records without doubling the tangent.
+  while (interior.length && distance(interior[0], a) < 0.000001) interior.shift();
+  while (interior.length && distance(interior.at(-1), b) < 0.000001) interior.pop();
   if (loom.routeStyle === "bezier") return wirePolylineFromPoints({ routeStyle: "bezier",
     routePoints: interior }, [a, ...interior, b]);
   if (interior.length) {
@@ -105,6 +109,18 @@ export function loomTrunkPoints(loom) {
     return result;
   }
   return buildPreviewOrthogonalWirePoints(a, b);
+}
+
+export function translateLoomSection(loom, sectionIndex, dx, dy) {
+  const result = structuredClone(loom);
+  const anchor = loom.jumpRouting
+    ? loom.routePoints.findIndex(point => point.id === loom.jumpRouting.entryAnchorId) : -1;
+  const move = point => ({ ...point, x: point.x + dx, y: point.y + dy });
+  if (anchor < 0 || sectionIndex === 0) result.sideA = move(result.sideA);
+  if (anchor < 0 || sectionIndex === 1) result.sideB = move(result.sideB);
+  result.routePoints = result.routePoints.map((point, index) => anchor < 0
+    || (sectionIndex === 0 && index < anchor) || (sectionIndex === 1 && index > anchor) ? move(point) : point);
+  return result;
 }
 
 export function loomRouteControlNodes(value) {
@@ -371,9 +387,12 @@ export function loomGeometry(project, scene, loom, cableGroups = groupedCables(p
     point.id === jumpRouting.entryAnchorId ? { ...point, ...jumpRouting.entryPoint } : point) };
   const headA = sidePoint(resolved.sideA || { x: 0, y: 0 });
   const headB = sidePoint(resolved.sideB || { x: 80, y: 0 });
-  const dx = headB.x - headA.x, dy = headB.y - headA.y;
-  const span = Math.hypot(dx, dy) || 1;
-  const normal = { x: -dy / span, y: dx / span };
+  const normalBetween = (a, b) => {
+    const dx = b.x - a.x, dy = b.y - a.y, span = Math.hypot(dx, dy) || 1;
+    return { x: -dy / span, y: dx / span };
+  };
+  const normalA = normalBetween(headA, jumpRouting?.entryPoint || headB);
+  const normalB = normalBetween(jumpRouting?.exitPoint || headA, headB);
   const breakouts = members.flatMap((member, index) => {
     const wire = scene.getWire(String(member.group.primary.id));
     const entrySide = member.group.primary.loomEntrySide;
@@ -401,11 +420,14 @@ export function loomGeometry(project, scene, loom, cableGroups = groupedCables(p
           points: route(exit, wire.loomExitRoutePoints || [], member.pair[1]) }
       ];
     }
-    const [a, b] = orientCableEndpoints(member.pair, headA, headB);
+    // A teleported run must not reassign the other section's conductors when
+    // a free endpoint moves past it. Explicit entry-side routing above wins;
+    // otherwise use the physical cable's stable logical endpoint order.
+    const [a, b] = jumpRouting ? member.pair : orientCableEndpoints(member.pair, headA, headB);
     const spacing = members.length <= 16 ? Math.min(9, 110 / Math.max(1, members.length)) : 0;
     const offset = (index - (members.length - 1) / 2) * spacing;
-    const attachmentA = { x: headA.x + normal.x * offset, y: headA.y + normal.y * offset };
-    const attachmentB = { x: headB.x + normal.x * offset, y: headB.y + normal.y * offset };
+    const attachmentA = { x: headA.x + normalA.x * offset, y: headA.y + normalA.y * offset };
+    const attachmentB = { x: headB.x + normalB.x * offset, y: headB.y + normalB.y * offset };
     const sourceRef = member.sourceRef;
     const destinationRef = member.destinationRef;
     const aIsSource = distance(a, member.pair[0]) <= distance(a, member.pair[1]);

@@ -219,7 +219,8 @@ try {
     assert.deepEqual(current.plans[0].visibleTrunkSections[1][0], { x: exit.x, y: exit.y });
     assert.deepEqual(current.wires, wiresBefore);
     assert.deepEqual(current.looms[0].portalPairs, []);
-    assert.equal(await page.evaluate(() => activeEngineBridge().visibleJumpLinkOverlays().length), 0);
+    await page.mouse.move(320, 100);
+    assert.equal(await page.evaluate(() => activeEngineBridge().visibleJumpLinkOverlays().length), 0, "no pair indicator away from hover");
     assert.equal(await page.evaluate(id => activeEngineBridge().addWiresToLoom(id, ["bundle-cable"]), loomId), true);
     await page.evaluate(id => activeEngineBridge().updateManagedLoom(id, { labelTextColor: "#ffccdd", labelBackgroundColor: "#334455" }), loomId);
     const membersBefore = (await readLoom()).wires;

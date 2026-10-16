@@ -1,4 +1,5 @@
 import test from "node:test";
+import * as HitTest from "../src/engine/hitTest.js";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
@@ -138,7 +139,7 @@ function marqueeBridge(scene, rect) {
   const helpers = ["normalizedWorldRect", "uniqueItems", "isMarqueeSelectableDevice"].map(name =>
     bridgeSource.match(new RegExp(`^function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?^\\}`, "m"))[0]).join("\n");
   const bridge = vm.runInNewContext(`${helpers}\n({${method}})`, {
-    ledProcessorOutputsInRect, shouldUseLedProcessorOutputMarquee, isCanvasObjectKind, isJumpNodeKind: () => false
+    HitTest, ledProcessorOutputsInRect, shouldUseLedProcessorOutputMarquee, isCanvasObjectKind, isJumpNodeKind: () => false
   });
   Object.assign(bridge, { scene,
     marqueeState: { active: true, startWorld: { x: rect.x, y: rect.y }, currentWorld: { x: rect.x + rect.width, y: rect.y + rect.height } },

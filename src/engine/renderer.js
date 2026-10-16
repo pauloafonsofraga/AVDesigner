@@ -73,7 +73,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-95-pdf-artwork-loom-tool";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-96-loom-interaction-stability";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -409,6 +409,7 @@ export class WebglGraphRenderer {
   }
 
   dispose() {
+    this.clearLoomPreviewBuffers();
     if (this.disposed) return;
     const gl = this.gl;
     this.disposed = true;
@@ -1120,13 +1121,17 @@ export class WebglGraphRenderer {
       ? scene.loomPlans.filter(plan => loomJumpPreviews.some(preview => preview.plan.loomId === plan.loomId)
         || plan.breakouts.some(breakout => breakout.wireIds.some(wireId => dragSession.affectedWireIds.has(String(wireId)))))
       : [];
-    this.lastSuppressedLoomIds = affectedLoomPlans.map(plan => plan.loomId);
     const staticSuppressedGeometryIds = new Set(staticSuppressedWireIds);
     affectedLoomPlans.forEach(plan => staticSuppressedGeometryIds.add(`loom:${plan.loomId}`));
     const loomDragPreview = interaction.loomDragPreview;
+    if (!loomDragPreview && !affectedLoomPlans.length) this.clearLoomPreviewBuffers();
     if (loomDragPreview?.plan?.loomId) staticSuppressedGeometryIds.add(`loom:${loomDragPreview.plan.loomId}`);
     const loomRewirePreview = interaction.loomRewirePreview;
     if (loomRewirePreview?.loomId) staticSuppressedGeometryIds.add(`loom:${loomRewirePreview.loomId}`);
+    this.lastSuppressedLoomIds = scene.loomPlans.filter(plan => staticSuppressedGeometryIds.has(`loom:${plan.loomId}`)).map(plan => plan.loomId);
+    this.lastLoomGeometrySources = scene.loomPlans.map(plan => ({ loomId: plan.loomId,
+      source: staticSuppressedGeometryIds.has(`loom:${plan.loomId}`) ? "transient" : "canonical",
+      staticSuppressed: staticSuppressedGeometryIds.has(`loom:${plan.loomId}`) }));
     let sectionStart = performance.now();
     if (renderOptions.gridVisible !== false) this.drawGrid(camera);
     frameStats.gridMs = performance.now() - sectionStart;
@@ -1141,12 +1146,10 @@ export class WebglGraphRenderer {
       sectionStart = performance.now();
       this.drawStaticWires(dragSession, layerTrace, staticSuppressedGeometryIds);
       if (loomDragPreview?.plan && renderOptions.wires) {
-        const previewVertices = verticesForLoomPlan(scene, loomDragPreview.plan);
-        const previewCount = previewVertices.length ? upload(gl, this.liveBuffer, previewVertices) : 0;
-        this.drawBuffer(this.liveBuffer, previewCount);
-        this.lastLoomDragPreviewStats = { loomId: loomDragPreview.plan.loomId,
-          circuits: loomDragPreview.plan.circuitCount, vertices: previewCount };
-      } else this.lastLoomDragPreviewStats = null;
+        this.drawLoomPreview(scene, loomDragPreview.plan);
+      } else {
+        this.lastLoomDragPreviewStats = null;
+      }
       if (loomRewirePreview?.loomId && renderOptions.wires) {
         const plan = scene.loomPlans.find(item => item.loomId === loomRewirePreview.loomId);
         if (plan) {
@@ -1161,9 +1164,7 @@ export class WebglGraphRenderer {
         const offsets = dragSession.offsetMap();
         for (const plan of affectedLoomPlans) {
           const activePlan = loomJumpPreviews.find(preview => preview.plan.loomId === plan.loomId)?.plan || plan;
-          const vertices = verticesForLoomPlan(scene, activePlan, offsets);
-          const count = vertices.length ? upload(gl, this.liveBuffer, vertices) : 0;
-          this.drawBuffer(this.liveBuffer, count);
+          this.drawLoomPreview(scene, activePlan, offsets);
         }
         this.lastLiveLoomDragState = affectedLoomPlans.flatMap(plan => plan.breakouts
           .filter(breakout => breakout.wireIds.some(wireId => dragSession.affectedWireIds.has(String(wireId))))
@@ -1294,16 +1295,12 @@ export class WebglGraphRenderer {
             if (renderOptions.routePoints && selectedWireIds.has(id) && !scene.isWireHiddenByLoom(id)) pushWireRoutePointHandles(liveVertices, scene, wire, null);
           }
         });
-        if (scene.selectedLoomId) {
-          const preview = interaction.loomDragPreview || loomJumpPreviews.find(item => item.plan.loomId === scene.selectedLoomId);
-          const usingPreview = preview?.plan?.loomId === scene.selectedLoomId;
-          const plan = usingPreview ? preview.plan
-            : scene.loomPlans.find(item => item.loomId === scene.selectedLoomId);
-          const loom = usingPreview ? preview.loom
-            : scene.looms.find(item => item.id === scene.selectedLoomId);
+        this.lastSelectedLoomOverlay = null;
+        for (const loomId of scene.selectedLoomIds || (scene.selectedLoomId ? [scene.selectedLoomId] : [])) {
+          const { plan, loom, source } = loomRenderPresentation(scene, interaction, loomId);
           this.lastSelectedLoomOverlay = plan ? {
-            loomId: scene.selectedLoomId,
-            source: usingPreview ? "transient" : "canonical",
+            loomId,
+            source,
             plan,
             loom
           } : null;
@@ -1323,7 +1320,7 @@ export class WebglGraphRenderer {
               pushCircleOutline(liveVertices, point, 6, 1.5, "#ffffff");
             }
           }
-        } else this.lastSelectedLoomOverlay = null;
+        }
         if (hoveredWireId && !staticSuppressedWireIds.has(hoveredWireId) && !highlightedWireIds.has(hoveredWireId)) {
           const wire = scene.getWire(hoveredWireId);
           if (wire && renderOptions.wires) pushWireHover(liveVertices, scene, wire, null, renderOptions, this.cableHopMap);
@@ -1549,11 +1546,7 @@ export class WebglGraphRenderer {
         wireLabelCount += 1;
       });
       for (const plan of scene.loomPlans) {
-        const preview = options.interactionState?.loomDragPreview
-          || options.interactionState?.loomJumpPreviews?.find(item => item.plan.loomId === plan.loomId);
-        const activePlan = preview?.plan?.loomId === plan.loomId ? preview.plan : plan;
-        const loom = preview?.plan?.loomId === plan.loomId
-          ? preview.loom : scene.looms.find(item => item.id === plan.loomId);
+        const { plan: activePlan, loom } = loomRenderPresentation(scene, options.interactionState, plan.loomId);
         if (!loom || !loomLabelsVisible(scene, plan)) continue;
         const caption = [loom.name, `${activePlan.circuitCount} circuit${activePlan.circuitCount === 1 ? "" : "s"}`, loom.trunkLength]
           .filter(Boolean).join(" · ");
@@ -1754,6 +1747,43 @@ export class WebglGraphRenderer {
     gl.enableVertexAttribArray(this.colorLocation);
     gl.vertexAttribPointer(this.colorLocation, 4, gl.FLOAT, false, stride, 2 * 4);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
+  }
+
+  clearLoomPreviewBuffers() {
+    for (const item of this.loomPreviewBuffers?.values() || []) this.gl?.deleteBuffer(item.buffer);
+    this.loomPreviewBuffers = null;
+  }
+
+  drawLoomPreview(scene, plan, offsets = null) {
+    this.loomPreviewBuffers ||= new Map();
+    if (offsets) plan = { ...plan, breakouts: plan.breakouts.map(breakout => ({ ...breakout,
+      points: loomBreakoutPolyline(scene, breakout, offsets) })) };
+    const sections = loomRenderSections(plan), active = new Set(), updatedSections = [];
+    let vertexCount = 0;
+    sections.forEach((section, index) => {
+      const id = `${plan.loomId}:${index}`;
+      active.add(id);
+      // Only the moving physical section changes this key. The other section
+      // retains both its vertices and GPU buffer throughout the gesture.
+      const key = JSON.stringify([section.visibleTrunkSections, section.renderHeads,
+        section.headA, section.headB, section.breakouts, section.portalPair, section.coreColors]);
+      let cached = this.loomPreviewBuffers.get(id);
+      if (!cached) {
+        cached = { loomId: plan.loomId, buffer: this.gl.createBuffer(), key: "", count: 0 };
+        this.loomPreviewBuffers.set(id, cached);
+      }
+      if (cached.key !== key) {
+        cached.count = upload(this.gl, cached.buffer, verticesForLoomPlan(scene, section));
+        cached.key = key; updatedSections.push(index);
+      }
+      this.drawBuffer(cached.buffer, cached.count);
+      vertexCount += cached.count;
+    });
+    for (const [id, cached] of this.loomPreviewBuffers) if (cached.loomId === plan.loomId && !active.has(id)) {
+      this.gl.deleteBuffer(cached.buffer); this.loomPreviewBuffers.delete(id);
+    }
+    this.lastLoomDragPreviewStats = { loomId: plan.loomId, circuits: plan.circuitCount,
+      vertices: vertexCount, updatedSections, bufferCount: this.loomPreviewBuffers.size };
   }
 
   drawStaticWires(dragSession = null, layerTrace = null, suppressedWireIds = dragSession?.affectedWireIds || new Set()) {
@@ -2179,7 +2209,7 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
   const wireCreateActive = Boolean(interaction.tempWire);
   const hoveredLoom = interaction.hoveredLoom;
   if (hoveredLoom?.loomId && renderOptions.wires) {
-    const plan = scene.loomPlans.find(item => item.loomId === hoveredLoom.loomId);
+    const plan = loomRenderPresentation(scene, interaction, hoveredLoom.loomId)?.plan;
     if (plan) {
       if (hoveredLoom.part === "trunk") for (const section of plan.visibleTrunkSections || [plan.trunk]) {
         pushPolyline(vertices, section, 5.2, "rgba(50,182,255,.42)");
@@ -3759,6 +3789,23 @@ function verticesForWire(scene, wire, offsets = null, width = WIRE_BASE_WIDTH, c
   return vertices;
 }
 
+export function loomRenderPresentation(scene, interaction = {}, loomId) {
+  const preview = interaction?.loomDragPreview?.plan?.loomId === loomId ? interaction.loomDragPreview
+    : interaction?.loomJumpPreviews?.find(item => item.plan.loomId === loomId);
+  return preview ? { ...preview, source: "transient" }
+    : { plan: scene.loomPlans.find(item => item.loomId === loomId),
+      loom: scene.looms.find(item => item.id === loomId), source: "canonical" };
+}
+
+export function loomRenderSections(plan) {
+  if (!plan.jumpRouting || plan.visibleTrunkSections.length !== 2) return [plan];
+  return plan.visibleTrunkSections.map((section, index) => ({ ...plan,
+    visibleTrunkSections: [section], headA: index === 0 ? plan.headA : null,
+    headB: index === 1 ? plan.headB : null,
+    renderHeads: [index === 0 ? plan.headA : plan.headB],
+    breakouts: plan.breakouts.filter(breakout => breakout.end === (index === 0 ? "A" : "B")) }));
+}
+
 function verticesForLoomPlan(scene, plan, offsets = null) {
   const vertices = [];
   const colors = plan.coreColors?.length ? plan.coreColors : ["#8999a5"];
@@ -3800,7 +3847,7 @@ function verticesForLoomPlan(scene, plan, offsets = null) {
       pushPolyline(vertices, points, WIRE_BASE_WIDTH, resolvedColor);
     }
   }
-  for (const head of [plan.headA, ...(plan.hiddenHeadB ? [] : [plan.headB])]) {
+  for (const head of plan.renderHeads || [plan.headA, ...(plan.hiddenHeadB ? [] : [plan.headB])]) {
     pushCircle(vertices, head, 13, "#101820");
     pushCircleOutline(vertices, head, 13, 3, LOOM_GATEWAY_RING_COLOR);
     pushCircle(vertices, head, 5, "#32b6ff");
