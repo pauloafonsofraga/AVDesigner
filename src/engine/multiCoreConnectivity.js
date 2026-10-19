@@ -131,6 +131,8 @@ function ordinaryConnectorIndex(project, getConnector) {
   return { devices, connectors };
 }
 
+export { ordinaryConnectorIndex as multiCoreEquipmentConnectorIndex };
+
 function referenceResult(reference, status, details = {}) {
   return { reference: copy(reference ?? null), status, valid: status === "valid", ...details };
 }
@@ -340,7 +342,7 @@ export function createMultiCoreConnectivity(projectInput, { getConnector, onStag
   return freeze(snapshot);
 }
 
-function equipmentCompatibility(a, b) {
+export function equipmentCompatibility(a, b) {
   if (!a || !b) return null;
   const port = p => ({ ...p, fiberMode: fibreMode(p) || fibreMode(p === a ? b : a), direction: normalizeSignalDirection(p.signalDirection, p.direction) });
   const aType = engineConnectorCompatibilityType(a), bType = engineConnectorCompatibilityType(b);

@@ -74,7 +74,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-102-multi-core-connectivity";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-103-multi-core-canvas";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -2364,6 +2364,7 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
       }
     );
   }
+  for (const device of interaction.multiCorePlacementPreview || []) pushDevice(vertices, device, null, false, renderOptions);
 
   if (interaction.marquee) {
     pushBoxOutline(vertices, interaction.marquee, 2.4, "rgba(50, 182, 255, .92)");
@@ -3549,6 +3550,11 @@ function pushPolyline(vertices, points, width, color) {
 }
 
 function pushWireColorSegments(vertices, points, width, wire, fallbackColor, opacity = 1) {
+  if (wire?.multiCoreIdentity?.kind === "multi-core-trunk") {
+    pushPolyline(vertices, points, width + 8, colorWithOpacity("#58636b", opacity));
+    pushPolyline(vertices, points, width + 4, colorWithOpacity(fallbackColor, opacity));
+    return;
+  }
   const colors = Array.isArray(wire?.colorSegments)
     ? wire.colorSegments.filter(Boolean)
     : [];
@@ -4451,7 +4457,16 @@ function zoomDetailStatsForCamera(camera, visibleInfoBoxes = 0, compactInfoBoxes
 }
 
 function drawWireLabel(ctx, scene, wire, camera, offsets, text) {
-  drawPolylineLabel(ctx, scene.wireRenderPolyline(wire, offsets), camera, text);
+  let points = scene.wireRenderPolyline(wire, offsets);
+  if (wire.multiCoreIdentity && wire.routeStyle === "orthogonal" && points.length > 2) {
+    let longest = [points[0], points[1]], length = 0;
+    for (let i = 1; i < points.length; i++) {
+      const distance = Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+      if (distance > length) { longest = [points[i - 1], points[i]]; length = distance; }
+    }
+    points = longest;
+  }
+  drawPolylineLabel(ctx, points, camera, text);
 }
 
 function loomLabelsVisible(scene, plan) {

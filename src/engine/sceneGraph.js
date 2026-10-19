@@ -1513,6 +1513,11 @@ export class SceneGraph {
       const fromMoved = movedIds.has(this.wireEndpointOwnerId(wire, "from"));
       const toMoved = movedIds.has(this.wireEndpointOwnerId(wire, "to"));
       if (!fromMoved && !toMoved) return;
+      if (wire.multiCoreIdentity) {
+        if (fromMoved && toMoved) wire.routePoints = wire.routePoints.map(point => ({ ...point, x: point.x + dx, y: point.y + dy }));
+        this.dirtyWires.add(wire.id);
+        return;
+      }
       if (fromMoved && toMoved) {
         wire.routePoints = shiftRoutePoints(wire.routePoints, dx, dy);
       } else if (wire.routeStyle === "orthogonal") {
@@ -1609,7 +1614,7 @@ export class SceneGraph {
       : pointIndex;
     const point = routePoints?.[editPointIndex];
     if (!point) return { moved: false, pointIndex };
-    if (wire.routeStyle === "orthogonal") {
+    if (wire.routeStyle === "orthogonal" && !wire.multiCoreIdentity) {
       const moved = moveOrthogonalRoutePoint({
         // Corner movement is calculated from the immutable drag-start route.
         // Re-feeding the already-mutated live route changes point identity and
@@ -1992,6 +1997,11 @@ export class SceneGraph {
   }
 
   rawEndpointForWire(wire, end, offsetMap = null) {
+    if (wire.multiCoreIdentity?.kind === "multi-core-trunk") {
+      const device = this.getDevice(wire[`${end}DeviceId`]);
+      const pos = this.positionForDevice(device, offsetMap);
+      return { x: pos.x + device.width / 2, y: pos.y + device.height };
+    }
     const surfaceId = this.wireEndpointSurfaceId(wire, end);
     if (surfaceId) {
       const surface = this.getDevice(surfaceId);
@@ -2083,6 +2093,7 @@ export class SceneGraph {
   }
 
   visibleEndpoint(wire, end, point, otherPoint) {
+    if (wire.multiCoreIdentity) return point;
     if (this.wireEndpointSurfaceId(wire, end)) return point;
     const deviceId = end === "from" ? wire.fromDeviceId : wire.toDeviceId;
     const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
@@ -2174,6 +2185,13 @@ export class SceneGraph {
       maxX = Math.max(maxX, point.x);
       maxY = Math.max(maxY, point.y);
     }
+    for (const wire of this.wires) {
+      if (!wire.multiCoreIdentity && !this.getDevice(wire.fromDeviceId)?.multiCoreIdentity && !this.getDevice(wire.toDeviceId)?.multiCoreIdentity) continue;
+      for (const point of this.wireRenderPolyline(wire)) {
+        minX = Math.min(minX, point.x); minY = Math.min(minY, point.y);
+        maxX = Math.max(maxX, point.x); maxY = Math.max(maxY, point.y);
+      }
+    }
     return {
       x: minX,
       y: minY,
@@ -2255,8 +2273,8 @@ function normalizeDevice(device) {
     device.sourceKind
   );
   const canvasObject = isCanvasObjectKind(kind);
-  const width = Math.max(40, Number(device.width) || 120);
-  const height = Math.max(28, Number(device.height) || 58);
+  const width = device.multiCoreIdentity ? Number(device.width) : Math.max(40, Number(device.width) || 120);
+  const height = device.multiCoreIdentity ? Number(device.height) : Math.max(28, Number(device.height) || 58);
   const schemaVersion = deviceDefinitionVersion(device);
   const connectors = isLedSurfaceKind({ kind, sourceKind: device.sourceKind, visual })
     ? []
@@ -2275,6 +2293,7 @@ function normalizeDevice(device) {
     : null;
   const normalized = {
     id: String(device.id),
+    ...(device.multiCoreIdentity ? { multiCoreIdentity: { ...device.multiCoreIdentity } } : {}),
     schemaVersion,
     sourceKind: device.sourceKind || "",
     sourceId: device.sourceId || device.id || "",
@@ -2616,6 +2635,7 @@ function normalizeWire(wire) {
   const internalRackWire = Boolean(wire.internalRackWire);
   return {
     id: String(wire.id),
+    ...(wire.multiCoreIdentity ? { multiCoreIdentity: { ...wire.multiCoreIdentity } } : {}),
     sourceKind: wire.sourceKind || "",
     sourceId: wire.sourceId || wire.id || "",
     rackId: wire.rackId ? String(wire.rackId) : "",
@@ -2641,7 +2661,7 @@ function normalizeWire(wire) {
     toPortIndex: wire.toSurfaceId ? ledSurfacePortIndex(wire, wire.toSurfaceId) : Math.max(0, Number(wire.toPortIndex) || 0),
     routePoints: Array.isArray(wire.routePoints)
       ? wire.routePoints
-        .map(point => ({ x: Number(point.x), y: Number(point.y) }))
+        .map(point => ({ ...(point.id ? { id: point.id } : {}), x: Number(point.x), y: Number(point.y) }))
         .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y))
       : [],
     manualRoute: Boolean(wire.manualRoute),

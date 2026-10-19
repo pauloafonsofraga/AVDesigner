@@ -4,6 +4,7 @@ import { resolveOutputDeviceAssets } from "./outputViewerAssets.js";
 import { assertOutputSceneContract } from "./outputSceneContract.js";
 import { engineConnectorTypeDisplayName, engineConnectorUserFacingTypeLabel } from "./connectorCompatibility.js";
 import { normalizeRackShell, rackShellStyle } from "./rackShell.js";
+import { multiCorePortReference } from "./multiCoreProjection.js";
 
 function freeze(value) {
   if (value && typeof value === "object") { Object.values(value).forEach(freeze); Object.freeze(value); }
@@ -87,6 +88,7 @@ export function outputSelectionDetails(scene, selection) {
   if (selection.type === "wire") {
     const wire = scene.getWire(selection.id);
     if (!wire) return outputSelectionDetails(scene, null);
+    if (wire.multiCoreIdentity) return { title: wire.label, rows: [["Part", "Multi-Core trunk"], ["Length", wire.length], ["Route style", wire.routeStyle]], wireIds: [] };
     const endpointLabel = end => {
       const deviceId = wire[`${end}DeviceId`] || wire[`${end}SurfaceId`];
       const device = scene.getDevice(deviceId);
@@ -124,7 +126,7 @@ export function outputSelectionDetails(scene, selection) {
       ["Notes", device.notes], ["Text", device.visual.text]];
   if (device.kind === "jump") rows.push(["Role", jumpNodeRoleLabel(scene.jumpNodeRole(device.id).role)],
     ["Base role", jumpNodeRoleLabel(scene.jumpNodeRole(device.id).baseRole)]);
-  const wireIds = scene.wires.filter(w => ["from", "to"].some(end =>
+  const wireIds = scene.wires.filter(w => !w.multiCoreIdentity && ["from", "to"].some(end =>
     (w[`${end}DeviceId`] === device.id || w[`${end}SurfaceId`] === device.id)
     && (!connector || w[`${end}ConnectorId`] === connector.id))).map(w => w.id);
   return { title: connector?.nameText || (connector ? engineConnectorUserFacingTypeLabel(connector) : device.label), rows, wireIds };
@@ -136,17 +138,19 @@ export function outputCableTrace(model, selection) {
     : selection.type === "device" ? model.contract.jumpLinks.find(l => l.inputJumpId === selection.id || l.outputJumpId === selection.id) : null;
   if (link) return [{ id: link.id, type: "jump-link", points: link.polyline, color: "#32b6ff" }];
   const wire = model.scene.getWire(selection.id);
-  if (selection.type !== "wire" || !wire) return [];
+  if (selection.type !== "wire" || !wire || wire.multiCoreIdentity) return [];
   // Adapt only endpoint identity for the existing semantic tracer. All geometry
   // comes directly from the immutable contract, never a production project.
   const endpoint = (w, end) => {
     const deviceId = w[`${end}DeviceId`];
+    const device = model.scene.getDevice(deviceId);
+    if (device?.multiCoreIdentity) return multiCorePortReference(device, w[`${end}ConnectorId`]);
     return model.scene.getDevice(deviceId)?.kind === "jump" ? { jumpNodeId: deviceId }
       : { deviceId, surfaceId: w[`${end}SurfaceId`], connectorId: w[`${end}ConnectorId`] };
   };
   const project = { jumpLinks: model.contract.jumpLinks,
     jumpNodes: model.contract.devices.filter(d => d.kind === "jump"),
-    connections: model.contract.wires.map(w => ({ ...w, from: endpoint(w, "from"), to: endpoint(w, "to") })) };
+    connections: model.contract.wires.filter(w => !w.multiCoreIdentity).map(w => ({ ...w, from: endpoint(w, "from"), to: endpoint(w, "to") })) };
   const steps = resolvePlayableSignalPath({ startingWireId: wire.id, project,
     getConnector: end => model.scene.getConnector(end.deviceId, end.connectorId) });
   return steps.flatMap(step => {

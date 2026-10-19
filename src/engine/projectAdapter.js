@@ -1,5 +1,6 @@
 import { resolveProjectorLens } from "./projectorModel.js";
 import { multiCoreConnectivityModelSnapshot, isMultiCoreEndpointReference } from "./multiCoreConnectivity.js";
+import { projectMultiCoreScene, multiCoreEndKey } from "./multiCoreProjection.js";
 import { CONNECTOR_RELATIONSHIP_FIELDS, normalizeConnectorRelationshipMetadata } from "./connectorRelationshipMetadata.js";
 import {
   ENGINE_CONNECTOR_TYPE_COLORS,
@@ -256,6 +257,8 @@ export async function loadProjectFile(file) {
 export function normalizeAvDesignerProject(data, loadMeta = {}) {
   const adapterStart = performance.now();
   const root = data?.state || data?.project || data || {};
+  const modelData = multiCoreConnectivityModelSnapshot(root);
+  const multiCoreProjection = projectMultiCoreScene(root, modelData?.connectivity);
   const templates = collectTemplates(root, data);
   const nodeColorByType = collectNodeColors(root, data);
   const nodeLabelByType = collectNodeLabels(root, data);
@@ -284,6 +287,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
     ...imageDevices,
     ...surfaceDevices,
     ...devices,
+    ...multiCoreProjection.devices,
     ...jumpDevices,
     ...titleBlockDevices,
     ...commentDevices
@@ -329,7 +333,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
     wireMode,
     placedRackIds
   });
-  const wires = [...projectWires, ...rackInternalWires];
+  const wires = [...projectWires, ...rackInternalWires, ...multiCoreProjection.trunks];
   const explicitJumpLinks = normalizeJumpLinks(root.jumpLinks || [], { jumpNodeIds });
   const jumpConnector = endpoint => normalizedDeviceById.get(endpoint.deviceId)?.connectors.find(c => c.id === endpoint.connectorId) || null;
   const legacyJumpLinks = explicitJumpLinks.length
@@ -337,7 +341,6 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
     : deriveLegacyPairJumpLinks(root, { getConnector: jumpConnector });
   const jumpLinks = explicitJumpLinks.length ? explicitJumpLinks : legacyJumpLinks;
   const jumpLinkDiagnostics = validateJumpLinks({ ...root, jumpLinks }, { getConnector: jumpConnector });
-  const modelData = multiCoreConnectivityModelSnapshot(root);
   if (!allDevices.length && !root.looms?.length && !modelData) return generateSyntheticProject(SIZE_PRESETS.small);
   const adapterMs = performance.now() - adapterStart;
   const connectorCount = allDevices.reduce((total, device) => total + (device.connectors?.length || 0), 0);
@@ -375,6 +378,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
       jumpNodes: jumpDevices.length,
       jumpLinks: jumpLinks.length,
       jumpLinkWarnings: jumpLinkDiagnostics.warnings || [],
+      multiCoreDiagnostics: multiCoreProjection.diagnostics,
       ledSurfaces: surfaceDevices.length,
       imageObjects: imageDevices.length,
       areas: areaDevices.length,
@@ -1455,8 +1459,14 @@ function uniqueItems(items = []) {
 
 function normalizeEndpoint(endpoint, end, wire, context) {
   if (!endpoint) return null;
-  // Phase 3 retains these in projectData/modelData, without a fake canvas owner.
-  if (isMultiCoreEndpointReference(endpoint)) return null;
+  if (isMultiCoreEndpointReference(endpoint)) {
+    if (endpoint.kind && endpoint.kind !== "multi-core-port" || endpoint.deviceId || endpoint.jumpNodeId || endpoint.surfaceId) return null;
+    const deviceId = multiCoreEndKey(endpoint.multiCoreId, endpoint.endId);
+    const device = context.normalizedDeviceById.get(deviceId);
+    const connector = device?.connectors.find(port => port.id === endpoint.connectorId);
+    return connector ? { deviceId, connectorId: connector.id, side: connector.side,
+      usesRealConnector: true } : null;
+  }
   const directSurfaceId = endpointSurfaceId(endpoint);
   if (directSurfaceId && context.surfaceIds.has(directSurfaceId)) {
     return normalizeSurfaceEndpoint(directSurfaceId, wire, context);

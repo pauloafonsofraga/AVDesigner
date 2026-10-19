@@ -269,6 +269,8 @@ export class ObjectSnapSession {
       const targetId = snapTargetId(kind, id);
       const rect = cloneRect(bounds);
       if (!id || this.selectedIds.has(String(id)) || this.selectedIds.has(targetId)) return;
+      const identity = this.scene.getDevice?.(id)?.multiCoreIdentity;
+      if (identity && [...this.selectedIds].some(selected => this.scene.getDevice?.(selected)?.multiCoreIdentity?.multiCoreId === identity.multiCoreId)) return;
       if (!rect) return;
       targets.push({
         id: targetId,

@@ -38,8 +38,8 @@ try {
   await load(original);
   let summary = await stateSummary();
   assert.equal(summary.state, "connected-both"); assert.equal(summary.path.valid, true);
-  assert.deepEqual(summary.connections, original.connections); assert.equal(summary.rowCount, 2); assert.deepEqual(summary.scene, [2, 0]);
-  checks.push("real file load retains two canonical patch leads; 14 passive channels; no synthetic visuals");
+  assert.deepEqual(summary.connections, original.connections); assert.equal(summary.rowCount, 2); assert.deepEqual(summary.scene, [4, 3]);
+  checks.push("real file load retains two canonical patch leads and 14 passive channels; two derived ends and one schematic trunk");
   const download = page.waitForEvent("download"); await page.locator("#saveProject").click();
   const saved = JSON.parse(await readFile(await (await download).path(), "utf8"));
   assert.deepEqual(saved.connections, original.connections); assert.deepEqual(saved.multiCores, original.multiCores);
@@ -77,7 +77,7 @@ try {
   await page.evaluate(() => activeEngineBridge().fitView());
   await page.screenshot({ path: `${dir}/historical-engine.png` });
   checks.push("historical devices, LED, rack, matrix and Jump fixture loads without Multi-Core leakage or changed cable count");
-  const mixed = { ...historical, projectName: "Model-Only Connectivity Export", multiCores: saved.multiCores,
+  const mixed = { ...historical, projectName: "Multi-Core Connectivity Export", multiCores: saved.multiCores,
     devices: [...historical.devices, ...saved.devices], connections: [...historical.connections, ...saved.connections] };
   await load(mixed);
   const exported = await page.evaluate(async () => {
@@ -94,7 +94,7 @@ try {
   assert.equal((await offline.evaluate(() => engineOutputReady)).assetFailures, 0);
   assert.deepEqual(await offline.evaluate(() => JSON.parse(document.getElementById("engineOutputPayload").textContent).engineScene.modelData.connectivity), exported.connectivity);
   await offline.screenshot({ path: `${dir}/offline-model-contract.png` });
-  checks.push("shared HTML/Publish generation embeds JSON-only connectivity; viewer opens offline, with existing graphics only");
+  checks.push("shared HTML/Publish generation embeds connectivity and derived schematic geometry; viewer opens offline");
   assert.deepEqual(alerts, []); assert.deepEqual(errors, []);
   console.log(JSON.stringify({ checks, alerts, errors, screenshots: dir }, null, 2));
 } finally { await browser.close(); }

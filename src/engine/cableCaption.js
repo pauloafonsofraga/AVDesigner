@@ -39,6 +39,7 @@ export function resolveCableEndpoints(scene, cable) {
 }
 
 export function wireCaption(scene, cable, highlighted = false) {
+  if (cable.multiCoreIdentity?.kind === "multi-core-trunk") return `${cable.label}${cable.length ? ` / ${cable.length}` : ""}`;
   const jumpLoom = cable.outputJumpId && cable.inputJumpId && loomForJump(scene, cable.outputJumpId);
   if (jumpLoom) return String(jumpLoom.name || jumpLoom.id);
   const { from, to, virtual } = resolveCableEndpoints(scene, cable);

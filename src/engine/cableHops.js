@@ -35,6 +35,7 @@ export function calculateCableHops(scene, options = {}) {
 
   const entries = scene.wires
     .map((wire, index) => {
+      if (wire.multiCoreIdentity) return null;
       const points = scene.wireRenderPolyline(wire);
       const sample = samplePolyline(points);
       return sample

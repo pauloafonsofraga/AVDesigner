@@ -77,7 +77,7 @@ export function buildEngineOutputScene(projectSnapshot = {}) {
   const scene = new SceneGraph();
   // The interactive adapter supplies a demo graph for an empty document. An
   // output contract must describe the empty document, not that demonstration.
-  const empty = !["devices", "areas", "imageObjects", "images", "jumpNodes", "ledSurfaces", "titleBlocks", "comments", "looms"]
+  const empty = !["devices", "areas", "imageObjects", "images", "jumpNodes", "ledSurfaces", "titleBlocks", "comments", "looms", "multiCores"]
     .some(key => Array.isArray(root[key]) && root[key].length);
   const normalized = empty ? null : normalizeAvDesignerProject(project, { rackPresentationMode: "compact" });
   scene.setData(empty ? { meta: { cableHops: root.cableHops !== false } } : normalized);
@@ -129,6 +129,7 @@ export function buildEngineOutputScene(projectSnapshot = {}) {
   const loomPlans = scene.loomPlans;
   const { calcMs, ...hopDiagnostics } = hopResult.stats;
   const warnings = empty ? [] : [...(scene.meta.jumpLinkWarnings || []), ...(scene.meta.jumpLinkIndexWarnings || [])];
+  warnings.push(...(scene.meta.multiCoreDiagnostics || []).map(d => d.message).filter(Boolean));
   const skippedWires = empty ? (root.connections || []).length : normalized.meta.skippedWires || 0;
   if (skippedWires) warnings.push(`${skippedWires} project wires could not be normalized.`);
   if (!empty && normalized.wires.length !== scene.wires.length) warnings.push("SceneGraph rejected normalized wire endpoints.");

@@ -4,6 +4,7 @@ import { DragSession } from "./dragSession.js";
 import { adapterCenter, adapterRotationHandle, snapAdapterRotation } from "./adapterRotation.js";
 import { ObjectSnapSession } from "./objectSnapping.js";
 import { CONNECTOR_RELATIONSHIP_FIELDS, applyConnectorRelationshipFieldPatch } from "./connectorRelationshipMetadata.js";
+import { multiCoreCanvasMethods } from "./multiCoreCanvas.js";
 import {
   ENGINE_DEFAULT_FIBER_MODE,
   effectiveConnectorTypeForEngine,
@@ -157,8 +158,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-102-multi-core-connectivity";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-102-multi-core-connectivity";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-103-multi-core-canvas";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-103-multi-core-canvas";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -974,6 +975,7 @@ class ProductionEngineBridge {
       if (this.scene.looms.some(loom => !loom.sideA || !loom.sideB)) this.scene.rebuildLoomGeometry();
       this.logCanvasObjectDiagnostics("refresh", normalized);
       this.mutations = new ProjectMutationAdapter(normalized, { cloneProjectData: false });
+      this.multiCoreConnectivityCache = null;
       const normalizedAttachments = this.mutations.reconcileJumpAttachments(
         this.mutations.root.jumpNodes.map(node => String(node.id))
       );
@@ -1005,6 +1007,8 @@ class ProductionEngineBridge {
       this.notifyHistoryChange(reason);
       this.renderEngineInspector();
       this.showError("");
+      const multiCoreErrors = (normalized.meta.multiCoreDiagnostics || []).filter(d => d.severity === "error");
+      if (multiCoreErrors.length) this.showError(`Multi-Core data retained with diagnostics: ${multiCoreErrors.slice(0, 3).map(d => d.message).join(" ")}`);
       this.hud.setMetric("load build", `${(performance.now() - loadStart).toFixed(1)} ms`);
       this.setLoadingPhase("Rendering first engine frame...");
       this.finishLoadingAfterOptionalDelay(loadStart);
@@ -2232,6 +2236,11 @@ class ProductionEngineBridge {
       this.beginPan(point, event.pointerId);
       return;
     }
+    if (this.multiCoreRoutePlacement && event.button === 0) {
+      event.preventDefault(); event.stopImmediatePropagation();
+      this.placeMultiCoreRoutePoint(screenToWorld(this.camera, point)); return;
+    }
+    if (this.multiCorePointerDown?.(event, point, screenToWorld(this.camera, point))) return;
     if (this.loomCreationActive) {
       event.preventDefault();
       event.stopPropagation();
@@ -2686,6 +2695,10 @@ class ProductionEngineBridge {
     if (jumpPointerId != null && jumpPointerId !== event.pointerId) return;
     const pointerStart = performance.now();
     const point = this.eventPoint(event);
+    if (this.multiCorePlacement && !this.panState) {
+      this.multiCorePlacement.cursor = screenToWorld(this.camera, point);
+      this.scheduleRender(); return;
+    }
     if (this.loomCreationActive && !this.panState) {
       this.updateLoomCreationPointer(screenToWorld(this.camera, point), { axisLockRequested: Boolean(event.shiftKey) });
       this.scheduleRender();
@@ -3194,6 +3207,14 @@ class ProductionEngineBridge {
       return;
     }
     if (event.key === "Delete" || event.key === "Backspace") {
+      const projectedEnds = [...this.scene.selectedIds].some(id => this.scene.getDevice(id)?.multiCoreIdentity);
+      const projectedTrunk = this.selectedMultiCoreProjection();
+      if (projectedEnds || projectedTrunk?.multiCoreIdentity) {
+        consumeEngineShortcut(event);
+        if (projectedEnds) this.showError("Termination ends cannot be deleted separately. Select the Multi-Core trunk to delete the assembly.");
+        else this.deleteMultiCore(projectedTrunk.multiCoreIdentity.multiCoreId);
+        return;
+      }
       this.clearJumpMoveArm("delete-key", { updateHud: false });
       if (this.scene.selectedLoomPortalKey) {
         consumeEngineShortcut(event);
@@ -3236,6 +3257,9 @@ class ProductionEngineBridge {
       return;
     }
     if (event.key !== "Escape") return;
+    if (this.multiCorePlacement || this.multiCoreRoutePlacement) {
+      consumeEngineShortcut(event); this.multiCoreRoutePlacement = null; this.cancelMultiCorePlacement(); return;
+    }
     if (this.loomPortalPlacement) {
       consumeEngineShortcut(event);
       this.cancelActiveInteraction("loom-portal-placement-cancelled");
@@ -5198,6 +5222,9 @@ class ProductionEngineBridge {
   }
 
   cancelActiveInteraction(reason = "cancelled", { updateHud = true } = {}) {
+    this.multiCorePlacement = null;
+    this.multiCoreRoutePlacement = null;
+    globalThis.document?.getElementById("createMultiCore")?.classList.remove("active");
     if (this.rotationDrag) {
       const drag = this.rotationDrag;
       this.rotationDrag = null;
@@ -5721,10 +5748,16 @@ class ProductionEngineBridge {
       tempWire: multiTempWires[0] || tempWire,
       tempWires: loomEntryTempWire ? [loomEntryTempWire, tempWire].filter(Boolean) : multiTempWires,
       gatewayHover: this.wireCreate?.gatewayHover || null,
-      loomPreview: this.loomCreate ? {
+      loomPreview: this.multiCorePlacement?.A ? { points: [this.multiCorePlacement.A, this.multiCorePlacement.cursor || this.multiCorePlacement.A], routeStyle: "bezier" } : this.loomCreate ? {
         points: loomCreationPreviewPoints(this.loomCreate, this.camera.zoom),
         routeStyle: this.loomCreate.routeStyle
       } : null,
+      multiCorePlacementPreview: this.multiCorePlacement?.A ? ["A", "B"].map(role => ({
+        id: `multi-core-preview-${role}`, kind: "device", color: "rgba(50,182,255,.12)",
+        ...(role === "A" ? this.multiCorePlacement.A : this.multiCorePlacement.cursor || this.multiCorePlacement.A),
+        width: this.multiCorePlacement.definition.ends[role].width,
+        height: this.multiCorePlacement.definition.ends[role].height
+      })) : [],
       jumpPlacementGhost: this.jumpPlacement?.center
         ? {
             center: { ...this.jumpPlacement.center },
@@ -6314,6 +6347,7 @@ class ProductionEngineBridge {
       .filter(Boolean)
       .map(device => ({
         id: device.id,
+        ...(device.multiCoreIdentity ? { multiCoreIdentity: { ...device.multiCoreIdentity } } : {}),
         sourceId: device.sourceId || device.id,
         sourceKind: device.sourceKind || device.kind || "device",
         kind: device.kind || "device",
@@ -6324,6 +6358,7 @@ class ProductionEngineBridge {
       .filter(Boolean)
       .map(wire => ({
         id: wire.id,
+        ...(wire.multiCoreIdentity ? { multiCoreIdentity: { ...wire.multiCoreIdentity } } : {}),
         sourceId: wire.sourceId || wire.id,
         sourceKind: wire.sourceKind || "connection"
       }));
@@ -6531,6 +6566,8 @@ class ProductionEngineBridge {
       return { valid: false, rule: "no-target", reason: "", sourceType: "", targetType: "" };
     }
     const rewire = this.wireCreate.rewire;
+    const mc = this.multiCoreConnectionCompatibility(this.wireCreate.from, this.wireCreate.target, rewire?.wireId);
+    if (mc && !mc.valid) return mc;
     if (rewire) {
       let sourceHit = rewire.detachedSide === "from" ? this.wireCreate.target : this.wireCreate.from;
       let targetHit = rewire.detachedSide === "from" ? this.wireCreate.from : this.wireCreate.target;
@@ -6544,10 +6581,11 @@ class ProductionEngineBridge {
         if (sourceIsJump) sourceHit = jumpCompatibleHitForDeviceWire(sourceHit, realHit);
         if (targetIsJump) targetHit = jumpCompatibleHitForDeviceWire(targetHit, realHit);
       }
-      return engineCompatibilitySummary(
+      const summary = engineCompatibilitySummary(
         engineCompatibilityHitForWireEndpoint(sourceHit, rewire.originalWire, "from"),
         engineCompatibilityHitForWireEndpoint(targetHit, rewire.originalWire, "to")
       );
+      return mc?.valid && summary.rule === "type-mismatch" ? { ...summary, ...mc } : summary;
     }
     const sourceIsJump = isJumpNodeDevice(this.wireCreate.from?.device);
     const targetIsJump = isJumpNodeDevice(this.wireCreate.target?.device);
@@ -6569,7 +6607,8 @@ class ProductionEngineBridge {
       if (sourceIsJump) sourceHit = jumpCompatibleHitForDeviceWire(sourceHit, realHit);
       if (targetIsJump) targetHit = jumpCompatibleHitForDeviceWire(targetHit, realHit);
     }
-    const summary = engineCompatibilitySummary(sourceHit, targetHit);
+    let summary = engineCompatibilitySummary(sourceHit, targetHit);
+    if (mc?.valid && summary.rule === "type-mismatch") summary = { ...summary, ...mc };
     const occupancyReason = summary.valid
       ? this.wireCreateEndpointRejectionReason(this.wireCreate.from, this.wireCreate.target)
       : "";
@@ -8616,6 +8655,7 @@ class ProductionEngineBridge {
   }
 
   markCommitted(type, mutationMs = 0, extra = {}) {
+    this.multiCoreConnectivityCache = null;
     this.synchronizeMonitorNames();
     const mutationStats = this.mutations?.stats() || {};
     this.lastMutationType = type;
@@ -9684,6 +9724,9 @@ class ProductionEngineBridge {
   }
 
   deleteSelectedDevices(deviceIds = this.selectedDeletableDeviceIds()) {
+    if (deviceIds.some(id => this.scene.getDevice(id)?.multiCoreIdentity)) {
+      this.showError("Multi-Core ends cannot be deleted separately."); return false;
+    }
     if (!this.ready) {
       this.hud?.setMetric("blocked command", "delete devices while loading");
       return;
@@ -9824,6 +9867,10 @@ class ProductionEngineBridge {
   }
 
   deleteSelectedWires() {
+    if ([...this.scene.selectedWireIds].some(id => this.scene.getWire(id)?.multiCoreIdentity)) {
+      const selected = this.selectedMultiCoreProjection();
+      return selected ? this.deleteMultiCore(selected.multiCoreIdentity.multiCoreId) : false;
+    }
     if (!this.ready) {
       this.hud?.setMetric("blocked command", "delete while loading");
       return;
@@ -10208,6 +10255,9 @@ class ProductionEngineBridge {
     if (!this.ready) {
       cursor = "wait";
       cursorState = "loading";
+    } else if (this.multiCorePlacement || this.multiCoreRoutePlacement) {
+      cursor = "crosshair";
+      cursorState = "multi-core-placement";
     } else if (this.resizeSession) {
       cursor = resizeCursorForHandle(this.resizeSession.handle);
       cursorState = "resizing";
@@ -10438,6 +10488,8 @@ class ProductionEngineBridge {
   }
 }
 
+Object.assign(ProductionEngineBridge.prototype, multiCoreCanvasMethods);
+
 function normalizeProductionProject(projectData, reason) {
   const root = projectData?.state || projectData?.project || projectData || {};
   const hasObjects = [
@@ -10450,6 +10502,7 @@ function normalizeProductionProject(projectData, reason) {
     "comments",
     "titleBlocks",
     "looms",
+    "multiCores",
     "racks"
   ].some(key => Array.isArray(root[key]) && root[key].length);
   if (!hasObjects) {
@@ -12848,7 +12901,7 @@ function isAdditiveSelectionModifier(event) {
 }
 
 function cloneRoutePoints(points = []) {
-  return (points || []).map(point => ({ x: Number(point.x) || 0, y: Number(point.y) || 0 }));
+  return (points || []).map(point => ({ ...(point.id ? { id: point.id } : {}), x: Number(point.x) || 0, y: Number(point.y) || 0 }));
 }
 
 function captureWireRouteStates(scene, wireIds = []) {

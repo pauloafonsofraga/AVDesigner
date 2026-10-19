@@ -63,8 +63,9 @@ test("Engine adapter/mutation JSON round-trip retains model-only and opaque futu
   project.multiCores.push({ schemaVersion: 31, id: "future", exoticMapping: [{ to: "keep" }] });
   for (const raw of [project, { state: project }, { project }]) {
     const before = structuredClone(raw), adapted = normalizeAvDesignerProject(raw);
-    assert.equal(adapted.devices.length, 0, "a Multi-Core-only project must not become a demo scene");
-    assert.equal(adapted.wires.length, 0);
+    assert.equal(adapted.devices.filter(d => !d.multiCoreIdentity).length, 0, "a Multi-Core-only project must not become a demo scene");
+    assert.equal(adapted.wires.filter(w => !w.multiCoreIdentity).length, 0);
+    assert.equal(adapted.devices.length, 2);
     assert.deepEqual(adapted.projectData, raw);
     assert.deepEqual(adapted.modelData.multiCores, project.multiCores);
     const adapter = new ProjectMutationAdapter(adapted), restored = JSON.parse(adapter.exportJson());
@@ -74,17 +75,18 @@ test("Engine adapter/mutation JSON round-trip retains model-only and opaque futu
   }
 });
 
-test("model-only output section is deeply immutable and not rendered or discarded by viewers", () => {
+test("canonical output model is deeply immutable alongside derived Phase 4 visuals", () => {
   const project = hybridMultiCoreProject(), before = structuredClone(project);
   const snapshot = createOutputSnapshot({ projectData: project }), output = buildEngineOutputScene(project);
   assert.deepEqual(snapshot.modelData.multiCores, project.multiCores);
   assert.ok(Object.isFrozen(snapshot.modelData.multiCores[0].ends.A.connectors[0]));
   assert.ok(Object.isFrozen(output.modelData.multiCores[0].resolvedDefinition));
   assert.throws(() => { output.modelData.multiCores[0].circuits[0].endAPortId = "changed"; }, TypeError);
-  assert.deepEqual(output.devices, []); assert.deepEqual(output.wires, []); assert.deepEqual(output.connectors, []);
-  assert.equal(output.bounds, null); assertOutputSceneContract(output);
+  assert.equal(output.devices.length, 2); assert.equal(output.wires.length, 1); assert.equal(output.connectors.length, 28);
+  assert(output.devices.every(d => d.multiCoreIdentity)); assert(output.wires.every(w => w.multiCoreIdentity));
+  assert(output.bounds); assertOutputSceneContract(output);
   const viewer = createOutputViewerModel(output);
-  assert.deepEqual(viewer.scene.devices, []);
+  assert.equal(viewer.scene.devices.length, 2);
   assert.deepEqual(viewer.contract.modelData, output.modelData);
   assert.deepEqual(project, before);
   const future = { multiCores: [{ schemaVersion: 50, id: "later", mapping: { preserve: true } }] };
@@ -172,9 +174,10 @@ for (const [name, fixture] of historical) test(`historical ${name}: normalize/sa
   const newRows = buildCableSchedule(withMultiCore, { assignNumbers: "readOnly" });
   assert.deepEqual(newRows, oldRows);
   for (const row of oldRows) assert.deepEqual(signalChainForWire(newRows, row.wireIds[0]), signalChainForWire(oldRows, row.wireIds[0]));
-  const { modelData, signature, ...rendered } = buildEngineOutputScene(withMultiCore);
-  const { signature: oldSignature, ...oldRendered } = outputBefore;
-  assert.deepEqual(rendered, oldRendered);
+  const rendered = buildEngineOutputScene(withMultiCore);
+  assert.deepEqual(rendered.devices.filter(d => !d.multiCoreIdentity), outputBefore.devices);
+  assert.deepEqual(rendered.wires.filter(w => !w.multiCoreIdentity), outputBefore.wires);
+  for (const field of ["racks", "jumpLinks", "looms", "loomPlans", "cards", "sharedBuses", "rackExposure"]) assert.deepEqual(rendered[field], outputBefore[field]);
   assert.deepEqual(before, original);
 });
 
@@ -182,7 +185,7 @@ test("canonical valid and unresolved cables survive adapter, output, fallback ex
   const project = connectedMultiCoreProject();
   project.connections.push({ ...structuredClone(project.connections[0]), id: "unresolved", to: { multiCoreId: "missing", endId: "missing", connectorId: "missing" } });
   const before = structuredClone(project), adapted = normalizeAvDesignerProject(project);
-  assert.equal(adapted.devices.length, 2); assert.equal(adapted.wires.length, 0);
+  assert.equal(adapted.devices.length, 4); assert.equal(adapted.wires.length, 3);
   assert.deepEqual(adapted.projectData.connections, before.connections);
   for (const data of [adapted, { ...adapted, projectData: undefined }]) {
     assert.deepEqual(JSON.parse(new ProjectMutationAdapter(data).exportJson()).connections, before.connections);
@@ -192,7 +195,7 @@ test("canonical valid and unresolved cables survive adapter, output, fallback ex
   assert.equal(output.modelData.version, 1); assert.equal(output.modelData.connectivity.version, 1);
   assert.deepEqual(output.modelData.connectivity.cables.map(c => c.connection), before.connections);
   assert.deepEqual(createOutputViewerModel(json(output)).contract.modelData, json(output.modelData));
-  assert.equal(output.wires.length, 0);
+  assert.equal(output.wires.filter(w => !w.multiCoreIdentity).length, 2);
   const h = shell(project); h.connectionEndpointStillExists = () => false;
   h.pruneInvalidCanvasConnections();
   assert.deepEqual(json(h.state.connections), before.connections);

@@ -8,6 +8,7 @@ import {
 import { cloneMatrixRoutes } from "./matrixRouting.js?v=iteration54-4-0-matrix-routing-internal-routes";
 import { normalizeJumpLinks } from "./jumpNodeModel.js";
 import { multiCoreProjectFields } from "./multiCoreModel.js";
+import { multiCorePortReference } from "./multiCoreProjection.js";
 import { eligibleDeviceForJump, reconcileJumpAttachment, jumpAttachmentSnapshot } from "./jumpAttachment.js";
 
 const ENGINE_EXPORT_FORMAT = "av-designer-engine-prototype";
@@ -379,6 +380,14 @@ export class ProjectMutationAdapter {
   }
 
   writeDevicePosition(device) {
+    if (device.multiCoreIdentity) {
+      const { multiCoreId, role, endId } = device.multiCoreIdentity;
+      const matches = (this.root.multiCores || []).filter(mc => mc.id === multiCoreId);
+      const end = matches.length === 1 ? matches[0].ends?.[role] : null;
+      if (!end || end.id !== endId) return { ok: false };
+      end.x = device.x; end.y = device.y;
+      return { ok: true, path: `multiCores.${multiCoreId}.ends.${role}` };
+    }
     const sourceId = String(device.sourceId || device.id);
     if (device.sourceKind === "jumpNode" || device.kind === "jump") {
       const entry = this.jumpNodeById.get(sourceId) || this.ensureJumpNode(device);
@@ -405,7 +414,7 @@ export class ProjectMutationAdapter {
 
   commitCreatedWire(scene, wire) {
     const start = performance.now();
-    if (!wire) return 0;
+    if (!wire || wire.multiCoreIdentity) return 0;
     const raw = this.connectionById.get(String(wire.sourceId || wire.id))?.item;
     if (raw) return 0;
     const connection = rawConnectionFromWire(scene, wire, this.uniqueConnectionId(wire.id));
@@ -425,6 +434,13 @@ export class ProjectMutationAdapter {
     const start = performance.now();
     const wire = scene.getWire(wireId);
     if (!wire) return 0;
+    if (wire.multiCoreIdentity) {
+      const mc = this.root.multiCores?.find(item => item.id === wire.multiCoreIdentity.multiCoreId);
+      if (!mc || wire.routePoints.some(point => !point.id)) return 0;
+      mc.trunk.routePoints = structuredClone(wire.routePoints);
+      mc.trunk.routeStyle = wire.routeStyle === "orthogonal" ? "orthogonal" : "bezier";
+      return performance.now() - start;
+    }
     const sourceId = String(wire.sourceId || wire.id);
     const entry = this.connectionById.get(sourceId) || this.ensureConnection(scene, wire);
     const routeKey = !wire.manualRoute && (wire.routeStyle === "orthogonal" || Array.isArray(entry.item.orthogonalRoutePoints))
@@ -448,7 +464,7 @@ export class ProjectMutationAdapter {
   commitRewiredWire(scene, wireId, connectionState = null) {
     const start = performance.now();
     const wire = scene.getWire(wireId);
-    if (!wire) return 0;
+    if (!wire || wire.multiCoreIdentity) return 0;
     const sourceId = String(wire.sourceId || wire.id);
     const entry = this.connectionById.get(sourceId) || this.ensureConnection(scene, wire);
     if (connectionState) {
@@ -955,10 +971,10 @@ function projectRoot(project) {
 }
 
 function buildProjectFromSceneData(sceneData = {}) {
-  const devices = (sceneData.devices || []).map(rawDeviceFromSceneDevice);
+  const devices = (sceneData.devices || []).filter(device => !device.multiCoreIdentity).map(rawDeviceFromSceneDevice);
   const connections = sceneData.modelData?.connectivity?.version === 1
     ? structuredClone(sceneData.modelData.connectivity.cables.map(cable => cable.connection))
-    : (sceneData.wires || []).map(wire => rawConnectionFromSceneWireData(sceneData, wire));
+    : (sceneData.wires || []).filter(wire => !wire.multiCoreIdentity).map(wire => rawConnectionFromSceneWireData(sceneData, wire));
   return {
     ...multiCoreProjectFields(sceneData.modelData),
     format: ENGINE_EXPORT_FORMAT,
@@ -1094,6 +1110,7 @@ function endpointToProject(scene, wire, end) {
   const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
   const anchorId = end === "from" ? wire.fromAnchorId : wire.toAnchorId;
   const device = scene.getDevice(deviceId);
+  if (device?.multiCoreIdentity) return multiCorePortReference(device, connectorId);
   const sourceId = String(device?.sourceId || deviceId || "");
   if (device?.sourceKind === "jumpNode" || device?.kind === "jump") return { jumpNodeId: sourceId };
   // Compatibility fallback for older in-memory wires. New Engine LED surface
@@ -1121,6 +1138,7 @@ function endpointToProjectFromSceneData(sceneData, wire, end) {
   const connectorId = end === "from" ? wire.fromConnectorId : wire.toConnectorId;
   const anchorId = end === "from" ? wire.fromAnchorId : wire.toAnchorId;
   const device = (sceneData.devices || []).find(item => String(item?.id || "") === String(deviceId || ""));
+  if (device?.multiCoreIdentity) return multiCorePortReference(device, connectorId);
   const sourceId = String(device?.sourceId || deviceId || "");
   if (device?.sourceKind === "jumpNode" || device?.kind === "jump") return { jumpNodeId: sourceId };
   if (isLedSurfaceKind(device)) return { surfaceId: sourceId };
