@@ -956,7 +956,9 @@ function projectRoot(project) {
 
 function buildProjectFromSceneData(sceneData = {}) {
   const devices = (sceneData.devices || []).map(rawDeviceFromSceneDevice);
-  const connections = (sceneData.wires || []).map(wire => rawConnectionFromSceneWireData(sceneData, wire));
+  const connections = sceneData.modelData?.connectivity?.version === 1
+    ? structuredClone(sceneData.modelData.connectivity.cables.map(cable => cable.connection))
+    : (sceneData.wires || []).map(wire => rawConnectionFromSceneWireData(sceneData, wire));
   return {
     ...multiCoreProjectFields(sceneData.modelData),
     format: ENGINE_EXPORT_FORMAT,

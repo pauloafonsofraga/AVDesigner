@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { hybridMultiCoreDefinition, hybridMultiCoreProject } from "../fixtures/multi-core.mjs";
+import { connectedMultiCoreProject, multiCorePort } from "../fixtures/multi-core-connectivity.mjs";
+import { createMultiCoreConnectivity, traceMultiCoreSignalPath, isMultiCoreConnection } from "../src/engine/multiCoreConnectivity.js";
 import { outputParityFixture } from "../fixtures/output-parity.mjs";
 import { loomStabilityFixture } from "../fixtures/loom-stability.mjs";
 import { managedLoomMixedFixture } from "../fixtures/managed-looms.mjs";
@@ -17,7 +19,7 @@ import { assertOutputSceneContract } from "../src/engine/outputSceneContract.js"
 import { portableProjectData } from "../src/factoryCatalogue.js";
 import { inlineProjectArtwork } from "../src/imageAssets.js";
 import { createPersonalDefinitions, collectDefinitionDependencies } from "../src/personalDefinitions.js";
-import { buildCableSchedule } from "../src/engine/cableSchedule.js";
+import { buildCableSchedule, signalChainForWire } from "../src/engine/cableSchedule.js";
 
 const json = value => JSON.parse(JSON.stringify(value));
 const fields = model.multiCoreProjectFields;
@@ -27,13 +29,13 @@ const png = `data:image/png;base64,${readFileSync(new URL("../Nodes/Thumbnails/H
 
 function shell(project = {}) {
   const state = { version: 1, devices: [], connections: [], imageObjects: [], ledSurfaces: [], areas: [], racks: [], jumpNodes: [], jumpLinks: [], comments: [], titleBlocks: [], looms: [], ...structuredClone(project) };
-  const context = vm.createContext({ state, structuredClone, cloneHistoryValue, window: { WireNexusMultiCore: model },
+  const context = vm.createContext({ state, structuredClone, cloneHistoryValue, window: { WireNexusMultiCore: { ...model, isMultiCoreConnection } },
     activeEngineBridge: () => null, deviceLibrary: [], serializeNodeLibrary: () => [], restoreCanvasClipboardNodeLibrary: () => {},
     normalizeInstanceRelationshipMetadata: () => {}, plainPoint: point => point,
     setDarkMode: () => {}, setGridVisible: () => {}, setObjectSnapping: () => {}, setWireMode: () => {}, setCableHops: () => {},
     setProjectVoltage: () => {}, DEFAULT_POWER_VOLTAGE: 230, currentPowerVoltage: () => 230, syncIdCounter: () => {}, render: () => {},
     templateForInstance: () => ({}), AVDesignerProjectors: { resolveProjectorLens: () => ({}) } });
-  for (const name of ["connectionsForProjectSnapshot", "projectSnapshot", "restoreSnapshot", "projectSnapshotData", "compactProjectDataForViewer"]) vm.runInContext(source(name), context);
+  for (const name of ["connectionsForProjectSnapshot", "projectSnapshot", "restoreSnapshot", "projectSnapshotData", "compactProjectDataForViewer", "pruneInvalidCanvasConnections"]) vm.runInContext(source(name), context);
   return context;
 }
 
@@ -166,8 +168,56 @@ for (const [name, fixture] of historical) test(`historical ${name}: normalize/sa
   assert.deepEqual(outputAfter, outputBefore);
   assert.deepEqual(buildCableSchedule(restored, { assignNumbers: "readOnly" }), buildCableSchedule(before, { assignNumbers: "readOnly" }));
   const withMultiCore = { ...restored, ...fields(hybridMultiCoreProject()) };
+  const oldRows = buildCableSchedule(before, { assignNumbers: "readOnly" });
+  const newRows = buildCableSchedule(withMultiCore, { assignNumbers: "readOnly" });
+  assert.deepEqual(newRows, oldRows);
+  for (const row of oldRows) assert.deepEqual(signalChainForWire(newRows, row.wireIds[0]), signalChainForWire(oldRows, row.wireIds[0]));
   const { modelData, signature, ...rendered } = buildEngineOutputScene(withMultiCore);
   const { signature: oldSignature, ...oldRendered } = outputBefore;
   assert.deepEqual(rendered, oldRendered);
   assert.deepEqual(before, original);
+});
+
+test("canonical valid and unresolved cables survive adapter, output, fallback export and shared cleanup", () => {
+  const project = connectedMultiCoreProject();
+  project.connections.push({ ...structuredClone(project.connections[0]), id: "unresolved", to: { multiCoreId: "missing", endId: "missing", connectorId: "missing" } });
+  const before = structuredClone(project), adapted = normalizeAvDesignerProject(project);
+  assert.equal(adapted.devices.length, 2); assert.equal(adapted.wires.length, 0);
+  assert.deepEqual(adapted.projectData.connections, before.connections);
+  for (const data of [adapted, { ...adapted, projectData: undefined }]) {
+    assert.deepEqual(JSON.parse(new ProjectMutationAdapter(data).exportJson()).connections, before.connections);
+  }
+  const output = buildEngineOutputScene(project); assertOutputSceneContract(output);
+  assert.equal(output.version, 5);
+  assert.equal(output.modelData.version, 1); assert.equal(output.modelData.connectivity.version, 1);
+  assert.deepEqual(output.modelData.connectivity.cables.map(c => c.connection), before.connections);
+  assert.deepEqual(createOutputViewerModel(json(output)).contract.modelData, json(output.modelData));
+  assert.equal(output.wires.length, 0);
+  const h = shell(project); h.connectionEndpointStillExists = () => false;
+  h.pruneInvalidCanvasConnections();
+  assert.deepEqual(json(h.state.connections), before.connections);
+  assert.match(source("applyDeviceEditor"), /isMultiCoreConnection/);
+  assert.deepEqual(project, before);
+  const orphan = { connections: [structuredClone(project.connections[2])] }, orphanScene = normalizeAvDesignerProject(orphan);
+  assert.equal(orphanScene.devices.length, 0, "orphan-only model must not load a synthetic demo scene");
+  assert.equal(orphanScene.wires.length, 0);
+  assert.deepEqual(orphanScene.modelData.connectivity.cables.map(c => c.connection), orphan.connections);
+});
+
+test("actual history snapshots add, remove, rewire, undo and redo external patch leads deterministically", () => {
+  const project = connectedMultiCoreProject(), h = shell({ ...project, connections: [] }), states = [];
+  const capture = () => states.push(h.projectSnapshot());
+  capture(); h.state.connections.push(structuredClone(project.connections[0])); capture();
+  h.state.connections.push(structuredClone(project.connections[1])); capture();
+  h.state.connections.splice(0, 1); capture();
+  h.state.connections[0].from = multiCorePort(project, "B", 1); capture();
+  const expected = ["unused", "connected-a", "connected-both", "connected-b", "unused"];
+  for (const i of [4, 3, 2, 1, 0, 1, 2, 3, 4]) {
+    h.restoreSnapshot(states[i]);
+    const saved = json(h.projectSnapshotData()), connectivity = createMultiCoreConnectivity(saved);
+    assert.equal(connectivity.channels[0].state, expected[i]);
+    assert.deepEqual(saved.connections, json(states[i].connections));
+    assert.deepEqual(saved.multiCores, project.multiCores);
+    if (i === 2) assert.equal(traceMultiCoreSignalPath(connectivity, "patch-3m").valid, true);
+  }
 });

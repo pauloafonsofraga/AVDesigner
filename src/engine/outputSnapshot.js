@@ -1,4 +1,4 @@
-import { multiCoreModelSnapshot } from "./multiCoreModel.js";
+import { multiCoreConnectivityModelSnapshot } from "./multiCoreConnectivity.js";
 
 export const OUTPUT_SNAPSHOT_VERSION = 1;
 
@@ -58,7 +58,7 @@ export function createOutputSnapshot({
   diagnostics = {}
 } = {}) {
   const data = cloneOutputValue(projectData || {});
-  const modelData = multiCoreModelSnapshot(data);
+  const modelData = multiCoreConnectivityModelSnapshot(data);
   const warnings = Array.isArray(diagnostics.warnings) ? diagnostics.warnings.slice() : [];
   const normalizedBounds = normalizeOutputRect(bounds);
   if (!normalizedBounds) warnings.push("Output bounds are empty or non-finite.");

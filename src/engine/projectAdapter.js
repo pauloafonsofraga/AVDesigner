@@ -1,5 +1,5 @@
 import { resolveProjectorLens } from "./projectorModel.js";
-import { multiCoreModelSnapshot } from "./multiCoreModel.js";
+import { multiCoreConnectivityModelSnapshot, isMultiCoreEndpointReference } from "./multiCoreConnectivity.js";
 import { CONNECTOR_RELATIONSHIP_FIELDS, normalizeConnectorRelationshipMetadata } from "./connectorRelationshipMetadata.js";
 import {
   ENGINE_CONNECTOR_TYPE_COLORS,
@@ -337,7 +337,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
     : deriveLegacyPairJumpLinks(root, { getConnector: jumpConnector });
   const jumpLinks = explicitJumpLinks.length ? explicitJumpLinks : legacyJumpLinks;
   const jumpLinkDiagnostics = validateJumpLinks({ ...root, jumpLinks }, { getConnector: jumpConnector });
-  const modelData = multiCoreModelSnapshot(root);
+  const modelData = multiCoreConnectivityModelSnapshot(root);
   if (!allDevices.length && !root.looms?.length && !modelData) return generateSyntheticProject(SIZE_PRESETS.small);
   const adapterMs = performance.now() - adapterStart;
   const connectorCount = allDevices.reduce((total, device) => total + (device.connectors?.length || 0), 0);
@@ -1455,6 +1455,8 @@ function uniqueItems(items = []) {
 
 function normalizeEndpoint(endpoint, end, wire, context) {
   if (!endpoint) return null;
+  // Phase 3 retains these in projectData/modelData, without a fake canvas owner.
+  if (isMultiCoreEndpointReference(endpoint)) return null;
   const directSurfaceId = endpointSurfaceId(endpoint);
   if (directSurfaceId && context.surfaceIds.has(directSurfaceId)) {
     return normalizeSurfaceEndpoint(directSurfaceId, wire, context);

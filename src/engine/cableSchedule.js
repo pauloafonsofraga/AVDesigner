@@ -4,6 +4,9 @@ import { normalizeSignalDirection } from "./deviceDefinitionV2.js";
 import { rawWireJumpIds, resolvePlayableSignalPath } from "./jumpNodeModel.js";
 import { cableLengthDisplayLabel } from "./loomMetadata.js";
 import { resolveRackPatchPresentation } from "./rackPatchTopology.js";
+import { createMultiCoreConnectivity, isMultiCoreEndpointReference, traceMultiCoreSignalPath } from "./multiCoreConnectivity.js";
+
+const signalChainConnectivity = new WeakMap();
 
 export const CABLE_SCHEDULE_COLUMNS = Object.freeze([
   ["cableNumber", "Cable ID"], ["sourceDevice", "Source Device"], ["sourcePort", "Source Port"],
@@ -234,7 +237,7 @@ export function buildCableSchedule(input, options = {}) {
   const nodeColors = new Map((Array.isArray(nodeDefinitions) ? nodeDefinitions : Object.values(nodeDefinitions))
     .filter(item => item?.id && item?.color).map(item => [item.id, item.color]));
   const rackName = id => (project.racks || []).find(rack => rack.id === id)?.name || id;
-  return groups.map(group => {
+  const rows = groups.map(group => {
     const primary = group.primary;
     const value = key => group.wires.find(wire => String(wire[key] || "").trim())?.[key] || "";
     const source = endpointDisplay(project, group.source, options.getConnector, nodeColors, nodeDefinitions);
@@ -278,6 +281,10 @@ export function buildCableSchedule(input, options = {}) {
   }).sort((a, b) => familyOrder.indexOf(a.cableNumber[0]) - familyOrder.indexOf(b.cableNumber[0])
     || Number(a.cableNumber.slice(2)) - Number(b.cableNumber.slice(2))
     || a.cableNumber.localeCompare(b.cableNumber));
+  if (project.multiCores?.length || project.connections?.some(c => isMultiCoreEndpointReference(c.from) || isMultiCoreEndpointReference(c.to))) {
+    signalChainConnectivity.set(rows, createMultiCoreConnectivity(project, { getConnector: options.getConnector }));
+  }
+  return rows;
 }
 
 function signalChainFromRow(row) {
@@ -294,10 +301,19 @@ function signalChainFromRow(row) {
     to: endpoint(reverse ? "source" : "destination"), flow: directed ? "forward" : "bidirectional" };
 }
 
-export function signalChainForWire(rows, wireId) {
+export function signalChainForWire(rows, wireId, { connectivity = signalChainConnectivity.get(rows), reverse = false } = {}) {
   const id = String(wireId || "");
   const row = id && rows.find(item => item.wireIds.includes(id));
-  return row ? signalChainFromRow(row) : null;
+  if (!row) return null;
+  const chain = signalChainFromRow(row);
+  if (!connectivity) return chain;
+  const path = traceMultiCoreSignalPath(connectivity, id, { reverse });
+  const concernsMultiCore = path.segments.some(s => s.kind === "multi-core-passive-channel")
+    || connectivity.cables.some(c => (path.externalCableIds.includes(c.wireId) || row.wireIds.includes(c.wireId))
+      && [c.from, c.to].some(e => isMultiCoreEndpointReference(e.reference)))
+    || path.diagnostics.some(d => isMultiCoreEndpointReference(d.reference));
+  // wireIds still identifies a physical reporting row; path holds the expanded logical chain.
+  return concernsMultiCore ? { ...chain, path } : chain;
 }
 
 export function signalChainsForConnector(rows, deviceId, connectorId) {
@@ -305,7 +321,7 @@ export function signalChainsForConnector(rows, deviceId, connectorId) {
   if (!owner || !connector) return [];
   return rows.filter(row => row.sourceDeviceId === owner && row.sourceConnectorId === connector
     || row.destinationDeviceId === owner && row.destinationConnectorId === connector)
-    .map(signalChainFromRow);
+    .map(row => signalChainForWire(rows, row.wireIds[0]));
 }
 
 export function signalChainsForPatchPort(rows, rackId, patchPanelId, patchPortId) {
@@ -313,7 +329,7 @@ export function signalChainsForPatchPort(rows, rackId, patchPanelId, patchPortId
   if (wanted.some(value => !value)) return [];
   return rows.filter(row => [row.sourcePatch, row.destinationPatch].some(patch => patch
     && [String(patch.rackId), String(patch.panelId), String(patch.portId)].every((value, index) => value === wanted[index])))
-    .map(signalChainFromRow);
+    .map(row => signalChainForWire(rows, row.wireIds[0]));
 }
 
 export function cableScheduleCsv(rows) {
