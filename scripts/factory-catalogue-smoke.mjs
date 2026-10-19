@@ -30,13 +30,38 @@ try {
     images: [...document.querySelectorAll("#deviceList [data-library-src]")].map(image => ({ source: image.dataset.librarySrc, loaded: Boolean(image.getAttribute("src")) }))
   }));
   writeFileSync(join(dir, "startup-metrics.json"), JSON.stringify(metrics, null, 2));
-  assert.equal(metrics.devices, 95); assert.equal(metrics.nodes, 59);
+  assert.equal(metrics.devices, 97); assert.equal(metrics.nodes, 59);
   assert.ok(metrics.images.some(image => !image.loaded), "offscreen catalogue thumbnails remain unrequested");
   assert.equal(metrics.resources.filter(r => r.name.endsWith("factory-catalogue.json")).length, 1);
   assert.equal(metrics.resources.filter(r => r.name.startsWith("/Devices/faceplates/") && !r.name.includes("/thumbs/")).length, 0);
   assert.equal(await page.evaluate(() => Object.isFrozen(builtInDeviceLibrary[0].connectors[0]) && builtInDeviceLibrary !== deviceLibrary), true);
   await page.screenshot({ path: join(dir, "library.png") });
   checks.push("single catalogue readiness, immutable factory, lazy thumbnails and no eager faceplate requests");
+
+  for (const [id, name, connectors, cards] of [["custom-device-mvaqvarp", "Helios", 15, 3], ["custom-device-mvevuyh2", "RS12", 14, 0]]) {
+    await page.locator("#deviceSearch").fill(name);
+    assert.equal(await page.locator("#deviceList .library-device").count(), 1);
+    await page.waitForFunction(() => {
+      const image = document.querySelector("#deviceList img[data-library-src]");
+      return image?.complete && image.naturalWidth === 240;
+    });
+    await page.evaluate(id => openDeviceEditorForTemplate(id), id);
+    const imported = await page.evaluate(() => {
+      const device = currentEditorTemplate();
+      return { name: device.name, connectors: device.connectors.length, cards: device.cardTypes.length, face: device.faceImage };
+    });
+    assert.equal(imported.name, name);
+    assert.equal(imported.connectors, connectors);
+    assert.equal(imported.cards, cards);
+    const width = await page.evaluate(src => new Promise((resolve, reject) => {
+      const image = new Image(); image.onload = () => resolve(image.naturalWidth); image.onerror = reject; image.src = src;
+    }), imported.face);
+    assert.equal(width, 1800);
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: join(dir, `${name.toLowerCase()}-editor.png`) });
+    await page.locator("#closeDeviceEditor").click();
+  }
+  checks.push("Helios/RS12 search, lazy thumbnails, authored cards/ports and full-resolution Device Editor artwork");
 
   await page.locator("#deviceSearch").fill("P20");
   assert.equal(await page.locator("#deviceList .library-device").count(), 1);
@@ -97,8 +122,8 @@ try {
   checks.push("real paired-library search, metadata, pointer insertion and Engine rendering");
 
   const fixture = await page.evaluate(png => {
-    const used = structuredClone(deviceLibrary.find(d => d.name === "M1-DP&HDMI-Pro TX"));
-    const offscreen = structuredClone(deviceLibrary.find(d => d.name === "E2 Gen2"));
+    const used = structuredClone(deviceLibrary.find(d => d.name === "RS12"));
+    const offscreen = structuredClone(deviceLibrary.find(d => d.name === "Helios"));
     const custom = structuredClone(used); custom.id = "test-custom-device"; custom.name = "Custom artwork";
     custom.faceImage = png; custom.thumbnailImage = png; custom.isPartOfPair = false; custom.pairedTemplateId = "";
     return { projectName: "Catalogue portable artwork", deviceLibrary: [used, offscreen, custom],
@@ -147,19 +172,22 @@ try {
   assert.equal(saved.deviceLibrary.find(d => d.id === "test-custom-device").faceImage, png);
   assert.equal(saved.nodeLibrary.find(n => n.id === "test-custom-node").thumbnail, png);
   const reopenedArtworkRequests = [];
-  await page.route("**/Devices/**", route => {
+  const blockFactoryArtwork = route => {
     // The independently owned main library may request its own thumbnails;
     // saved canvas artwork must not need a factory faceplate fetch.
-    if (route.request().url().includes("/thumbs/")) return route.continue();
+    if (route.request().url().includes("/thumbs/") || fixture.deviceLibrary.some(device => route.request().url().endsWith(device.thumbnailImage))) return route.continue();
     reopenedArtworkRequests.push(route.request().url());
     return route.abort();
-  });
+  };
+  await page.route("**/Devices/**", blockFactoryArtwork);
+  await page.route("**/assets/factory/**", blockFactoryArtwork);
   await page.locator("#fileInput").setInputFiles(savedPath);
   await page.waitForFunction(() => activeEngineBridge()?.scene.getDevice("far")?.visual.faceImage.startsWith("data:image/"));
   assert.equal(await page.evaluate(() => templateById("test-custom-device").faceImage), png);
   assert.equal(await page.evaluate(() => cableTypes["test-custom-node"].thumbnail), png);
   assert.deepEqual(reopenedArtworkRequests, []);
   await page.unroute("**/Devices/**");
+  await page.unroute("**/assets/factory/**");
   checks.push("real .avd save/reopen preserves custom device/node bytes and factory faceplates without asset requests");
 
   const failureContext = await browser.newContext();
