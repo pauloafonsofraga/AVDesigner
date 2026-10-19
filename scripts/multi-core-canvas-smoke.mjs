@@ -2,23 +2,24 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { mkdir, readFile } from "node:fs/promises";
 import { connectedMultiCoreProject } from "../fixtures/multi-core-connectivity.mjs";
-import { hybridMultiCoreDefinition } from "../fixtures/multi-core.mjs";
 const { chromium } = createRequire(import.meta.url)("playwright");
 const browser = await chromium.launch({ headless: true, executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
-const dir = "/tmp/wirenexus-multi-core-canvas";
+const dir = process.env.AVDESIGNER_SCREENSHOT_DIR || "/tmp/wirenexus-multi-core-canvas";
 await mkdir(dir, { recursive: true });
 try {
   const page = await browser.newPage({ viewport: { width: 1800, height: 1100 }, acceptDownloads: true });
   await page.addInitScript(() => { window.showSaveFilePicker = undefined; });
   const errors = [];
+  const nonProductionRequests = [];
+  await page.route(/\/(fixtures|test|scripts)\//, route => { nonProductionRequests.push(route.request().url()); return route.abort(); });
   page.on("pageerror", e => errors.push(e.message));
   page.on("dialog", d => d.accept());
-  await page.goto("http://127.0.0.1:8773");
+  await page.goto(process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8773");
   await page.waitForFunction(() => window.wireNexusReady); await page.evaluate(() => wireNexusReady);
   const project = connectedMultiCoreProject();
   project.projectName = "Multi-Core Canvas Acceptance";
   project.multiCores = []; project.connections = [];
-  project.multiCoreDefinitions = [hybridMultiCoreDefinition()];
+  project.multiCoreDefinitions = [];
   project.devices[1].x = 1400;
   await page.locator("#fileInput").setInputFiles({ name: "canvas.avd", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(project)) });
   await page.waitForFunction(() => state.projectName === "Multi-Core Canvas Acceptance" && activeEngineBridge()?.ready);
@@ -26,6 +27,7 @@ try {
   const bounds = await canvas.boundingBox();
   const click = async (x, y) => page.mouse.click(bounds.x + x, bounds.y + y);
   await page.locator("#createMultiCore").click();
+  assert.deepEqual(await page.locator(".multi-core-picker select option").allTextContents(), ["Hybrid Multi-Core (14 circuits)"]);
   await page.locator("dialog button[value=place]").click();
   await page.waitForFunction(() => activeEngineBridge().multiCorePlacement);
   await click(400, 200);
@@ -150,6 +152,23 @@ try {
     return traceMultiCoreSignalPath(createMultiCoreConnectivity(projectSnapshotData()), state.connections[0].id);
   });
   assert.equal(path.valid, true); assert.equal(path.externalCableIds.length, 2);
+  const reopenedConnections = await page.evaluate(() => structuredClone(state.connections));
+  const rejected = await page.evaluate(() => {
+    const bridge = activeEngineBridge(), before = JSON.stringify(projectSnapshotData());
+    const scene = bridge.scene.devices, selection = JSON.stringify([...bridge.scene.selectedIds]);
+    const history = [...bridge.commandHistory], index = bridge.commandIndex;
+    const accepted = bridge.commitMultiCoreEdit("Invalid structural edit acceptance test", draft => {
+      draft.multiCores[0].circuits[1].endAPortId = draft.multiCores[0].circuits[0].endAPortId;
+    });
+    return { accepted, unchanged: before === JSON.stringify(projectSnapshotData()), sceneUnchanged: scene === bridge.scene.devices,
+      selectionUnchanged: selection === JSON.stringify([...bridge.scene.selectedIds]),
+      historyUnchanged: index === bridge.commandIndex && history.length === bridge.commandHistory.length && history.every((command, i) => command === bridge.commandHistory[i]),
+      codes: bridge.lastMultiCoreEditValidation.blockingDiagnostics.map(d => d.code) };
+  });
+  assert.equal(rejected.accepted, false); assert.equal(rejected.unchanged, true);
+  assert.equal(rejected.sceneUnchanged, true); assert.equal(rejected.selectionUnchanged, true); assert.equal(rejected.historyUnchanged, true);
+  assert.ok(rejected.codes.includes("duplicate-mapping"));
+  assert.deepEqual(await page.evaluate(() => state.connections), reopenedConnections);
   await page.locator("#zoomFit").click();
   const r = await canvas.boundingBox();
   await drag({ x: r.x + 10, y: r.y + 10 }, { x: r.x + r.width - 10, y: r.y + r.height - 10 });
@@ -180,5 +199,6 @@ try {
   await (await pdfDownload).saveAs(`${dir}/multi-core.pdf`);
   assert.equal((await readFile(`${dir}/multi-core.pdf`)).subarray(0, 4).toString(), "%PDF");
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ checks: ["cancelled placement", "UI insertion and exact identity undo/redo", "end deletion blocked", "typed patch leads", "independent A/B movement", "whole assembly movement", "route add/move/remove/reset", "route style", "undo/redo", "mixed marquee", "connected deletion blocked", "save/reopen", "Signal Chain", "offline HTML and simulated Publish geometry parity", "PDF toolbar download"], screenshots: dir, errors }, null, 2));
+  assert.deepEqual(nonProductionRequests, []);
+  console.log(JSON.stringify({ checks: ["production-only bootstrap and reference picker", "cancelled placement", "UI insertion and exact identity undo/redo", "end deletion blocked", "typed patch leads", "independent A/B movement", "whole assembly movement", "route add/move/remove/reset", "route style", "undo/redo", "mixed marquee", "connected deletion blocked", "save/reopen", "Signal Chain", "invalid structural transaction rejected without project/history/scene/selection mutation", "offline HTML and simulated Publish geometry parity", "PDF toolbar download"], screenshots: dir, errors }, null, 2));
 } finally { await browser.close(); }

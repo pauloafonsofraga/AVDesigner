@@ -3,7 +3,8 @@ import { createMultiCoreConnectivity, resolveMultiCoreEndpoint, multiCorePhysica
 import { multiCorePortReference, multiCoreEndKey } from "./multiCoreProjection.js";
 import { normalizeAvDesignerProject } from "./projectAdapter.js";
 import { hitTestConnector, hitTestDevice, hitTestWire } from "./hitTest.js";
-import { hybridMultiCoreDefinition } from "../../fixtures/multi-core.mjs";
+import { hybridMultiCoreDefinition } from "./multiCoreReferenceDefinitions.js";
+import { validateMultiCoreEdit } from "./multiCoreEditValidation.js";
 
 const escape = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const list = value => Array.isArray(value) ? value : [];
@@ -52,10 +53,17 @@ export const multiCoreCanvasMethods = {
   commitMultiCoreEdit(type, edit) {
     const before = multiCoreProjectFields(this.mutations.root), after = structuredClone(before);
     if (edit(after) === false || JSON.stringify(before) === JSON.stringify(after)) return false;
+    const validation = validateMultiCoreEdit(before, after, { project: this.mutations.root });
+    this.lastMultiCoreEditValidation = validation;
+    if (!validation.valid) {
+      this.showError?.(`Multi-Core edit was not applied: ${validation.blockingDiagnostics.slice(0, 3).map(d => d.message).join(" ")}`);
+      return false;
+    }
+    const accepted = structuredClone(after);
     this.beginProductionCommit(type);
-    const result = this.applyMultiCoreFields(after);
+    const result = this.applyMultiCoreFields(accepted);
     this.markCommitted(type, result.mutationMs);
-    this.recordCommand({ type, undo: bridge => bridge.applyMultiCoreFields(before), redo: bridge => bridge.applyMultiCoreFields(after) });
+    this.recordCommand({ type, undo: bridge => bridge.applyMultiCoreFields(before), redo: bridge => bridge.applyMultiCoreFields(accepted) });
     this.updateSelectionHud();
     return true;
   },

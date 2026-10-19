@@ -21,7 +21,7 @@ const defaults = (value, fields) => {
 };
 
 function diagnostic(value, category, path, message, severity = "error", affected = {}) {
-  return { severity, category, multiCoreId: typeof value?.id === "string" ? value.id : null,
+  return { severity, category, code: category, multiCoreId: typeof value?.id === "string" ? value.id : null,
     path, message, ...affected };
 }
 
