@@ -136660,6 +136660,14 @@
       "editorPalette": true,
       "cage": true
     },
+    "sfp28-cage": {
+      "label": "SFP28 Cage",
+      "color": "#678ACF",
+      "direction": "two-way",
+      "palette": false,
+      "editorPalette": true,
+      "cage": true
+    },
     "qsfp-cage": {
       "label": "QSFP Cage",
       "color": "#A8B6C8",
@@ -137502,6 +137510,12 @@
       "fiber",
       "sfp",
       "sfp+"
+    ],
+    "sfp28-cage": [
+      "network",
+      "fiber",
+      "sfp",
+      "sfp28"
     ],
     "qsfp-cage": [
       "network",

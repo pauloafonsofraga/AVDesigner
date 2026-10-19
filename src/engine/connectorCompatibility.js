@@ -6,7 +6,7 @@ import {
 } from "./deviceDefinitionV2.js";
 import { isGeneratedScopedNodeId } from "./nodeCompatibilityIdentity.js";
 
-const CAGE_CONNECTOR_TYPES = new Set(["sfp-cage", "sfp-plus-cage", "qsfp-cage"]);
+const CAGE_CONNECTOR_TYPES = new Set(["sfp-cage", "sfp-plus-cage", "sfp28-cage", "qsfp-cage"]);
 const ENGINE_CONNECTOR_COMPATIBILITY_ALIASES = new Map([
   ["speakon", "speakon-nl4"],
   ["displayport", "display-port"]
@@ -94,6 +94,7 @@ export const ENGINE_CONNECTOR_TYPE_COLORS = new Map([
   ["ethernet", "#32B6FF"],
   ["sfp-cage", "#7FA0B8"],
   ["sfp-plus-cage", "#678ACF"],
+  ["sfp28-cage", "#678ACF"],
   ["qsfp-cage", "#A8B6C8"],
   ["rs-422", "#607D8B"],
   ["led-signal", "#ff99cc"],
@@ -134,12 +135,17 @@ const TRANSCEIVER_MODULE_ACTIVE_TYPES = new Map([
   ["sfppluslc", "fiber-lc"],
   ["sfppluslcsinglemode", "fiber-lc"],
   ["sfppluslcmultimode", "fiber-lc"],
+  ["sfp28lc", "fiber-lc"],
+  ["sfp28lcsinglemode", "fiber-lc"],
+  ["sfp28lcmultimode", "fiber-lc"],
   ["rj45", "cat6a"],
   ["rj45ethernet", "cat6a"],
   ["sfprj45", "cat6a"],
   ["sfprj45ethernet", "cat6a"],
   ["sfpplusrj45", "cat6a"],
   ["sfpplusrj45ethernet", "cat6a"],
+  ["sfp28rj45", "cat6a"],
+  ["sfp28rj45ethernet", "cat6a"],
   ["1grj45", "cat6a"],
   ["10grj45", "cat6a"],
   ["cat", "cat6a"],
@@ -173,6 +179,7 @@ const TWO_WAY_TYPES = new Set([
   "ethernet",
   "sfp-cage",
   "sfp-plus-cage",
+  "sfp28-cage",
   "qsfp-cage",
   "rs-422",
   "usb-a",
@@ -196,6 +203,7 @@ const CONNECTOR_LABELS = new Map([
   ["fiberfox", "FiberFox"],
   ["sfp-cage", "SFP Cage"],
   ["sfp-plus-cage", "SFP+ Cage"],
+  ["sfp28-cage", "SFP28 Cage"],
   ["qsfp-cage", "QSFP Cage"],
   ["qsfp", "QSFP"],
   ["usb-a", "USB-A"],

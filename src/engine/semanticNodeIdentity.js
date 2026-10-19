@@ -1,5 +1,5 @@
-const semanticTypes = new Set(["led-signal", "sfp-cage", "sfp-plus-cage", "qsfp-cage"]);
-const personalAlias = /^(led-signal|sfp-cage|sfp-plus-cage|qsfp-cage)-personal-[0-9a-f]{8}(?:-\d+)?$/;
+const semanticTypes = new Set(["led-signal", "sfp-cage", "sfp-plus-cage", "sfp28-cage", "qsfp-cage"]);
+const personalAlias = /^(led-signal|sfp-cage|sfp-plus-cage|sfp28-cage|qsfp-cage)-personal-[0-9a-f]{8}(?:-\d+)?$/;
 const typeFields = ["type", "physicalType", "connectorType", "cableType"];
 
 export function isSemanticNodeType(type) {

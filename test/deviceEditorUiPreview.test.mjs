@@ -458,6 +458,7 @@ function structuralEditorHarness(inputTemplate = {}) {
       cat6a: { label: "Cat6A", color: "#6B7280" },
       "sfp-cage": { label: "SFP Cage", color: "#9aa2aa" },
       "sfp-plus-cage": { label: "SFP+ Cage", color: "#9aa2aa" },
+      "sfp28-cage": { label: "SFP28 Cage", color: "#9aa2aa" },
       "qsfp-cage": { label: "QSFP Cage", color: "#9aa2aa" },
       "led-signal": { label: "LED Signal", color: "#32b6ff" },
       misc: { label: "Misc.", color: "#999999" }
@@ -467,9 +468,10 @@ function structuralEditorHarness(inputTemplate = {}) {
       { value: "10g-rj45", label: "10G RJ45", connectorType: "cat6a" },
       { value: "sfp", label: "SFP", connectorType: "sfp-cage" },
       { value: "sfp-plus", label: "SFP+", connectorType: "sfp-plus-cage" },
+      { value: "sfp28", label: "SFP28", connectorType: "sfp28-cage" },
       { value: "qsfp", label: "QSFP", connectorType: "qsfp-cage" }
     ],
-    pairedNetworkTypes: new Set(["cat5e", "cat6", "cat6a", "ethercon", "sfp-cage", "sfp-plus-cage", "qsfp-cage", "ethernet"]),
+    pairedNetworkTypes: new Set(["cat5e", "cat6", "cat6a", "ethercon", "sfp-cage", "sfp-plus-cage", "sfp28-cage", "qsfp-cage", "ethernet"]),
     cageConnectorTypes: new Set(),
     editorDraft: [template],
     editorIndex: 0,
@@ -6533,7 +6535,7 @@ test("Device Editor Ethernet batch insertion preserves exact multi-selection and
   assert.equal(generatedSwitchConnectors(template, "1g-rj45").length, 2);
 });
 
-for (const profile of ["1g-rj45", "10g-rj45", "sfp", "sfp-plus", "qsfp"]) {
+for (const profile of ["1g-rj45", "10g-rj45", "sfp", "sfp-plus", "sfp28", "qsfp"]) {
   test(`Ethernet ${profile} generates 48 atomic both-side ports without the old placement lookup`, () => {
     const { api, template, context, counters } = structuralEditorHarness({ hasSwappableCards: false });
     context.nextEditorPlacementY = () => { throw new Error("old placement lookup must not run"); };

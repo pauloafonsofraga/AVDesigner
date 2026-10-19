@@ -47,7 +47,7 @@ test("plug catalog handles standard, audio, network, USB, fiber, cages and neutr
   const cases = { hdmi: "HDMI", dvi: "DVI", sdi: "SDI", bnc: "BNC", "display-port": "Display Port", vga: "VGA",
     cat6a: "CAT6A", ethernet: "Ethernet", ethercon: "etherCON", "rs-422": "RS-422", "usb-c": "USB-C",
     "xlr-3pin": "XLR 3-pin", "speakon-nl4": "speakON NL4", "fiber-lc": "Fiber LC", "fiber-mpo": "Fiber MPO",
-    "sfp-cage": "SFP Cage", "sfp-plus-cage": "SFP+ Cage", "qsfp-cage": "QSFP Cage", qsfp: "QSFP", misc: "Misc.", custom: "Misc.", "": "Misc." };
+    "sfp-cage": "SFP Cage", "sfp-plus-cage": "SFP+ Cage", "sfp28-cage": "SFP28 Cage", "qsfp-cage": "QSFP Cage", qsfp: "QSFP", misc: "Misc.", custom: "Misc.", "": "Misc." };
   for (const [type, expected] of Object.entries(cases)) {
     const connector = { type, name: "User name", displayName: "Display name", displayLabel: "Display label", nameText: "IN 1", label: "Alias", alias: "Other", fiberMode: "om4" };
     const before = structuredClone(connector);
@@ -110,7 +110,7 @@ test("live label layer separates bold plug captions from information values and 
 
 test("cage installation and removal update live captions from effective module type, not stale displayLabel", () => {
   const scene = sceneFor(connectorPlugCaptionFixture());
-  for (const cage of ["sfp-cage", "sfp-plus-cage", "qsfp-cage"]) {
+  for (const cage of ["sfp-cage", "sfp-plus-cage", "sfp28-cage", "qsfp-cage"]) {
     for (const [module, expected] of [["", engineConnectorTypeDisplayName(cage)], ["rj45", "CAT6A"], ["lc-multimode-om4", "Fiber LC"], ["mpo", "Fiber MPO"], ["", engineConnectorTypeDisplayName(cage)]]) {
       scene.updateConnector("matrix", "in-1", { type: cage, installedModuleType: module, displayLabel: "Stale node name" });
       const ctx = liveLabels(scene);

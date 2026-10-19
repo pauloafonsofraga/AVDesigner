@@ -129,7 +129,7 @@ function previewTransceiverMetadata(typeId, options = {}) {
       fiberMode: requested.fiberMode || options.fiberMode || ""
     };
   }
-  if (typeId === "sfp-cage" || typeId === "sfp-plus-cage") {
+  if (typeId === "sfp-cage" || typeId === "sfp-plus-cage" || typeId === "sfp28-cage") {
     return {
       installedModuleType: "lc-singlemode",
       installedModuleActiveType: "fiber-lc",

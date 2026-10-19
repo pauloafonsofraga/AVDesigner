@@ -76,7 +76,7 @@ try {
   }
   checks.push("native dragging from either anchor moves one both-side interval; collision chain and undo/redo stay stable");
   await page.locator('[data-editor-tab="device"]').click();
-  for (const profile of ["1g-rj45", "10g-rj45", "sfp", "sfp-plus", "qsfp"]) {
+  for (const profile of ["1g-rj45", "10g-rj45", "sfp", "sfp-plus", "sfp28", "qsfp"]) {
     const before = await read();
     await page.locator("#editorSwitchPortCount").selectOption("2");
     await page.locator("#editorSwitchPortType").selectOption(profile);
@@ -88,6 +88,34 @@ try {
     assert.equal(after.endLane, before.endLane + 2);
     assert.deepEqual(after.template.connectors.slice(0, before.template.connectors.length), before.template.connectors);
     checks.push(`${profile}: append two ports without moving or changing existing ports`);
+    if (profile === "sfp28") {
+      await page.locator('[data-editor-tab="connectors"]').click();
+      await circle(added[0].id, "left").click();
+      assert.deepEqual(await page.locator("#selectedConnectorModule option").evaluateAll(options => options.map(option => option.value)),
+        ["", "lc-singlemode", "lc-multimode", "rj45-ethernet"]);
+      const status = () => page.evaluate(id => {
+        const connector = currentEditorTemplate().connectors.find(port => port.id === id);
+        return { type: connector.type, effective: effectiveConnectorType(connector), dead: isDeadCageConnector(connector),
+          color: colorForConnector(connector), module: connector.installedModuleType, side: connector.displaySide };
+      }, added[0].id);
+      assert.equal((await status()).dead, true);
+      assert.equal((await status()).color, "#778492");
+      for (const [module, effective] of [["lc-singlemode", "fiber-lc"], ["lc-multimode", "fiber-lc"], ["rj45-ethernet", "cat6a"]]) {
+        await page.locator("#selectedConnectorModule").selectOption(module);
+        const port = await status();
+        assert.equal(port.type, "sfp28-cage"); assert.equal(port.effective, effective);
+        assert.equal(port.dead, false); assert.equal(port.side, "both");
+        if (module === "lc-multimode") {
+          assert.equal(await page.locator("#selectedConnectorFiberMode").inputValue(), "om4");
+          await page.screenshot({ path: `${directory}/sfp28-module-inspector.png` });
+        }
+      }
+      await page.locator("#selectedConnectorModule").selectOption("");
+      assert.equal((await status()).dead, true);
+      assert.equal((await status()).color, "#778492");
+      await page.locator('[data-editor-tab="device"]').click();
+      checks.push("SFP28 module inspector matches SFP+: empty grey cage, LC fibre modes, RJ45 and module removal; no QSFP-only MPO option");
+    }
   }
   const final = await read();
   const normalized = await page.evaluate(async template => {
@@ -109,15 +137,20 @@ try {
   });
   checks.push("JSON round-trip into the live Engine retains one connector ID and two anchors per port");
   await page.locator("#editorDeviceName").fill("Ethernet Switch Regression");
+  const savedId = await page.evaluate(() => currentEditorTemplate().id);
   await page.locator("#applyDeviceEditor").click();
-  await page.waitForFunction(() => deviceEditorModal.classList.contains("hidden"));
-  const savedId = await page.evaluate(() => deviceLibrary.find(t => t.name === "Ethernet Switch Regression")?.id);
-  assert.ok(savedId, "Apply saves the new switch in Project Devices");
-  await page.evaluate(id => openDeviceEditorForProjectTemplate(id), savedId);
+  await page.waitForFunction(() => !personalDefaultsBusy);
+  assert.deepEqual(errors, []);
+  assert.equal(await page.evaluate(id => localUserSettingsOwner.has(id), savedId), true, "Save registers the new switch in My Library");
+  await page.locator("#closeDeviceEditor").click();
+  await page.reload();
+  await page.waitForFunction(() => activeEngineBridge()?.ready && localUserSettingsLoaded);
+  await page.evaluate(id => openDeviceEditorForTemplate(id), savedId);
   const reopened = await read(); assertPorts(reopened);
   assert.deepEqual(reopened.lanes, final.lanes);
   assert.deepEqual(reopened.template.connectors.map(p => p.id), final.template.connectors.map(p => p.id));
-  checks.push("Apply and reopen preserve both-side placement, bidirectional flags, connector IDs and lanes");
+  assert.deepEqual(reopened.template.connectors.map(p => p.type), final.template.connectors.map(p => p.type));
+  checks.push("Save to My Library, browser reload and reopen preserve both-side placement, bidirectional flags, connector types, IDs and lanes");
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({ passed: checks.length, failed: 0, skipped: 0, checks, directory }, null, 2));
 } finally { await browser.close(); }

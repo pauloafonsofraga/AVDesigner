@@ -15,7 +15,7 @@ export const MATRIX_EXCLUDED_CABLE_TYPES = new Set([
   "powerlock", "nema", "16a-1ph-110v", "16a-1ph", "32a-1ph-110v",
   "32a-1ph", "16a-3ph", "32a-3ph", "63a-3ph", "125a-3ph",
   "cat5e", "cat6", "cat6a", "ethercon", "ethernet", "sfp-cage",
-  "sfp-plus-cage", "qsfp-cage", "usb-a", "usb-b", "usb-c", "rs-422",
+  "sfp-plus-cage", "sfp28-cage", "qsfp-cage", "usb-a", "usb-b", "usb-c", "rs-422",
   "midi", "dmx-3pin", "dmx-5pin", "led-signal"
 ]);
 
@@ -42,6 +42,7 @@ const MATRIX_TYPE_LABELS = new Map([
   ["fiberfox", "FiberFox"],
   ["sfp-cage", "SFP Cage"],
   ["sfp-plus-cage", "SFP+ Cage"],
+  ["sfp28-cage", "SFP28 Cage"],
   ["qsfp-cage", "QSFP Cage"],
   ["usb-a", "USB-A"],
   ["usb-b", "USB-B"],
