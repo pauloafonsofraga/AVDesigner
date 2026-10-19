@@ -144,8 +144,8 @@ test("Engine output keeps the canonical Loom route but exports only its two Port
   assert.deepEqual(plan.visibleTrunkSections[0].at(-1), plan.portalPair.portalA);
   assert.deepEqual(plan.visibleTrunkSections[1][0], plan.portalPair.portalB);
   assert.ok(output.bounds.x + output.bounds.width >= 600);
-  assert.equal(output.version, 4);
-  assert.match(output.schemaFingerprint, /^engine-output-v4-/);
+  assert.equal(output.version, 5);
+  assert.match(output.schemaFingerprint, /^engine-output-v5-/);
   assert.equal(JSON.stringify(output).includes("loom-portal-1:a"), false,
     "derived endpoint keys are presentation state, not logical output objects");
   assert.deepEqual(buildEngineOutputScene(project), output, "Portal output remains deterministic");

@@ -1,4 +1,5 @@
 import { resolveProjectorLens } from "./projectorModel.js";
+import { multiCoreModelSnapshot } from "./multiCoreModel.js";
 import { CONNECTOR_RELATIONSHIP_FIELDS, normalizeConnectorRelationshipMetadata } from "./connectorRelationshipMetadata.js";
 import {
   ENGINE_CONNECTOR_TYPE_COLORS,
@@ -336,7 +337,8 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
     : deriveLegacyPairJumpLinks(root, { getConnector: jumpConnector });
   const jumpLinks = explicitJumpLinks.length ? explicitJumpLinks : legacyJumpLinks;
   const jumpLinkDiagnostics = validateJumpLinks({ ...root, jumpLinks }, { getConnector: jumpConnector });
-  if (!allDevices.length && !root.looms?.length) return generateSyntheticProject(SIZE_PRESETS.small);
+  const modelData = multiCoreModelSnapshot(root);
+  if (!allDevices.length && !root.looms?.length && !modelData) return generateSyntheticProject(SIZE_PRESETS.small);
   const adapterMs = performance.now() - adapterStart;
   const connectorCount = allDevices.reduce((total, device) => total + (device.connectors?.length || 0), 0);
   const stats = {
@@ -354,6 +356,7 @@ export function normalizeAvDesignerProject(data, loadMeta = {}) {
     rackInternalWires: rackInternalWires.length
   };
   return {
+    ...(modelData ? { modelData } : {}),
     devices: allDevices,
     wires,
     racks: placedRacks,

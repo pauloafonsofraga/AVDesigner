@@ -19,7 +19,7 @@ test("output entry points reject retired renderers and share Engine ownership", 
 for (const [name, project] of [["representative", outputPrintFixture()], ["100 devices / 300 wires", outputViewerScaleFixture()]]) {
   test(name + ": HTML, Publish and vector PDF share schema, signature and geometry", async () => {
     const before = JSON.stringify(project), engineScene = buildEngineOutputScene(project);
-    assert.deepEqual(Object.keys(engineScene).sort(), Object.keys(OUTPUT_SCENE_SCHEMA).sort());
+    assert.deepEqual(Object.keys(engineScene).sort(), Object.keys(OUTPUT_SCENE_SCHEMA).filter(key => !key.endsWith("?")).sort());
     const image = outputPrintFixture().ledSurfaces[0].image;
     const assets = await inlineOutputAssets(engineScene, () => image);
     const snapshot = { engineScene, reportData: { projectName: name }, metadata: {} };

@@ -5,6 +5,7 @@ import { sharedBusOrthogonalSegments } from "./sharedBusRendering.js";
 import { calculateCableHops, applyCableHopsToPolyline } from "./cableHops.js";
 import { jumpNodeCenter, jumpLinkBezierPolyline } from "./jumpNodeModel.js";
 import { adapterWorldPoint } from "./adapterRotation.js";
+import { multiCoreModelSnapshot } from "./multiCoreModel.js";
 
 import { OUTPUT_SCENE_VERSION, OUTPUT_SCENE_SOURCE, OUTPUT_SCENE_SCHEMA_FINGERPRINT } from "./outputSceneContract.js";
 export { OUTPUT_SCENE_VERSION, OUTPUT_SCENE_SOURCE, OUTPUT_SCENE_SCHEMA_FINGERPRINT } from "./outputSceneContract.js";
@@ -72,6 +73,7 @@ function rotateBusSegment(device, segment) {
 export function buildEngineOutputScene(projectSnapshot = {}) {
   const project = plainData(projectSnapshot);
   const root = project.state || project.project || project;
+  const modelData = multiCoreModelSnapshot(root);
   const scene = new SceneGraph();
   // The interactive adapter supplies a demo graph for an empty document. An
   // output contract must describe the empty document, not that demonstration.
@@ -131,6 +133,7 @@ export function buildEngineOutputScene(projectSnapshot = {}) {
   if (skippedWires) warnings.push(`${skippedWires} project wires could not be normalized.`);
   if (!empty && normalized.wires.length !== scene.wires.length) warnings.push("SceneGraph rejected normalized wire endpoints.");
   const data = plainData({
+    ...(modelData ? { modelData } : {}),
     version: OUTPUT_SCENE_VERSION, schemaFingerprint: OUTPUT_SCENE_SCHEMA_FINGERPRINT, sceneDataSource: OUTPUT_SCENE_SOURCE,
     coordinateSpace: "engine-world", devices, connectors, wires, racks: scene.racks,
     jumpLinks, looms, loomPlans, ledSurfaces, cards, sharedBuses, rackExposure,

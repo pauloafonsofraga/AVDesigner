@@ -7,6 +7,7 @@ import {
 } from "./canvasObjectKinds.js";
 import { cloneMatrixRoutes } from "./matrixRouting.js?v=iteration54-4-0-matrix-routing-internal-routes";
 import { normalizeJumpLinks } from "./jumpNodeModel.js";
+import { multiCoreProjectFields } from "./multiCoreModel.js";
 import { eligibleDeviceForJump, reconcileJumpAttachment, jumpAttachmentSnapshot } from "./jumpAttachment.js";
 
 const ENGINE_EXPORT_FORMAT = "av-designer-engine-prototype";
@@ -957,6 +958,7 @@ function buildProjectFromSceneData(sceneData = {}) {
   const devices = (sceneData.devices || []).map(rawDeviceFromSceneDevice);
   const connections = (sceneData.wires || []).map(wire => rawConnectionFromSceneWireData(sceneData, wire));
   return {
+    ...multiCoreProjectFields(sceneData.modelData),
     format: ENGINE_EXPORT_FORMAT,
     version: 1,
     projectName: sceneData.meta?.projectName || sceneData.meta?.sourceName || "Engine Prototype Project",

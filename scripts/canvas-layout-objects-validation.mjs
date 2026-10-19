@@ -25,7 +25,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-38-98-device-editor-duplication";
+const BUILD_ID = "iteration54-38-99-multi-core-model";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -41,9 +41,9 @@ function sourceSlice(source, startNeedle, endNeedle) {
 }
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Jump glow contrast");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.98";'), "visible iteration should be 54.38.98");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-98-device-editor-duplication-modules";'), "module cache key should bust current modules");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-98-device-editor-duplication"'), "Engine bridge version should identify the current build");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.99";'), "visible iteration should be 54.38.99");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-99-multi-core-model-modules";'), "module cache key should bust current modules");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-99-multi-core-model"'), "Engine bridge version should identify the current build");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
 assert.ok(classicScripts.length >= 1, "index.html should contain at least one classic script");
@@ -295,7 +295,7 @@ assert.ok(indexHtml.includes("engine-comment-preview-arrow"), "Engine comment pl
 assert.ok(indexHtml.includes(".comment-editor") && indexHtml.includes("z-index: 120"), "inline comment editor keeps a local stacking value");
 assert.ok(indexHtml.includes('dump.id = "engineCommentEditDebug"'), "debug-only comment edit DOM state is exposed");
 assert.ok(indexHtml.includes("engineCommentEditorHost().appendChild(control)"), "comment editor mounts through the Engine editor host");
-assert.ok(indexHtml.includes("const loadedProjectSnapshot = projectSnapshotData({ forEngine: true });"), "project load captures a fresh snapshot before Engine refresh");
+assert.ok(indexHtml.includes("const loadedProjectSnapshot = projectSnapshotData({ forEngine: true, useEngineRoot: false });"), "project load captures the new document, not the preceding Engine root, before refresh");
 assert.ok(indexHtml.includes('bridge?.refreshFromProduction?.("project loaded", { projectData: loadedProjectSnapshot });'), "project load refreshes Engine from the loaded snapshot");
 assert.ok(bridgeSource.includes("options?.projectData || this.api.getProjectData?.()"), "Engine refresh can consume an explicit project snapshot");
 assert.ok(bridgeSource.includes("engine-bridge-editor-overlay"), "Engine root provides a dedicated editor overlay above canvas layers");

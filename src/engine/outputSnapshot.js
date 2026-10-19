@@ -1,3 +1,5 @@
+import { multiCoreModelSnapshot } from "./multiCoreModel.js";
+
 export const OUTPUT_SNAPSHOT_VERSION = 1;
 
 export function cloneOutputValue(value) {
@@ -56,6 +58,7 @@ export function createOutputSnapshot({
   diagnostics = {}
 } = {}) {
   const data = cloneOutputValue(projectData || {});
+  const modelData = multiCoreModelSnapshot(data);
   const warnings = Array.isArray(diagnostics.warnings) ? diagnostics.warnings.slice() : [];
   const normalizedBounds = normalizeOutputRect(bounds);
   if (!normalizedBounds) warnings.push("Output bounds are empty or non-finite.");
@@ -74,6 +77,7 @@ export function createOutputSnapshot({
   };
   return {
     version: OUTPUT_SNAPSHOT_VERSION,
+    ...(modelData ? { modelData } : {}),
     createdAt: new Date().toISOString(),
     bounds: normalizedBounds,
     projectData: data,

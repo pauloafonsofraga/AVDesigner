@@ -3,6 +3,7 @@ import { IMAGE_ASSET_FIELDS, imageDataUrl, inlineProjectArtwork } from "./imageA
 import { resolveNodeDefinitionCollisions, visitConnectorTypes } from "./engine/canvasClipboard.js";
 import { isSemanticNodeType, restoreSemanticConnectorTypes } from "./engine/semanticNodeIdentity.js";
 import { canonicalFactoryNodeIds, generatedPersonalAliasBase, restoreNodeCompatibilityTypes } from "./engine/nodeCompatibilityIdentity.js";
+import { normalizeMultiCoreDefinition } from "./engine/multiCoreModel.js";
 
 export const PERSONAL_DEFINITIONS_VERSION = 2;
 export const PERSONAL_DATABASE = "wirenexus-personal-library";
@@ -29,16 +30,18 @@ export async function contentRevision(value) {
 
 export function factoryIdFor(definition, factory) {
   const id = definition?.factoryTemplateId || definition?.id;
-  return factory.some(item => item.id === id) ? id : null;
+  return factory.some(item => item.id === id && (item.kind === "multi-core") === (definition?.kind === "multi-core")) ? id : null;
 }
 
 export function effectiveLibraryDefinitions(factory, entries, provenance = {}) {
-  const result = new Map(factory.map(item => [item.id, { ...structuredClone(item), factoryTemplateId: item.id,
+  const result = new Map(factory.filter(item => item.kind !== "multi-core").map(item => [item.id, { ...structuredClone(item), factoryTemplateId: item.id,
     ...(provenance[item.id] ? { libraryProvenance: structuredClone(provenance[item.id]) } : {}) }]));
   for (const entry of Object.values(entries)) {
-    for (const dependency of entry.dependencies.devices) if (!result.has(dependency.id)) result.set(dependency.id, structuredClone(dependency));
+    if (entry.definition.kind === "multi-core") continue;
+    for (const dependency of entry.dependencies.devices) if (dependency.kind !== "multi-core" && !result.has(dependency.id)) result.set(dependency.id, structuredClone(dependency));
   }
   for (const entry of Object.values(entries)) {
+    if (entry.definition.kind === "multi-core") continue;
     const definition = structuredClone(entry.definition);
     if (entry.factory) definition.factoryTemplateId = entry.factory.id;
     result.set(definition.id, definition);
@@ -88,6 +91,11 @@ export function collectDefinitionDependencies(definition, library, nodes) {
   const available = new Map(library.map(item => [item.id, item]));
   for (const device of devices.values()) {
     assertId(device.id);
+    if (device.kind === "multi-core") {
+      const result = normalizeMultiCoreDefinition(device);
+      if (!result.valid) throw new Error(`Invalid Multi-Core definition: ${result.diagnostics.filter(item => item.severity === "error").map(item => `${item.path}: ${item.message}`).join("; ")}`);
+      continue;
+    }
     if (!device.name || !Number.isFinite(device.width) || !Number.isFinite(device.height)) throw new Error("Device name and dimensions are required.");
     compactDeviceConfiguration(device);
     const pairId = device.isPartOfPair && device.pairedTemplateId;
@@ -221,7 +229,7 @@ export function createPersonalDefinitions({ factory, nodes, factoryNodeTypes = {
     try { onChange(); } catch (error) { diagnostic(`Personal definition saved; interface refresh failed: ${error.message}`); }
   };
   const prepare = async (definition, library, requiredNodes) => {
-    const source = authoredDefinition(definition);
+    const source = authoredDefinition(definition.kind === "multi-core" ? normalizeMultiCoreDefinition(definition).value : definition);
     const dependencies = collectDefinitionDependencies(source, library, requiredNodes);
     const factoryId = factoryIdFor(definition, factory), original = factory.find(item => item.id === factoryId);
     const entry = { definition: source, dependencies, revision: uuid(),
@@ -319,10 +327,14 @@ export function createPersonalDefinitions({ factory, nodes, factoryNodeTypes = {
       accept(data); if (changed) announce();
     },
     library: () => effectiveLibraryDefinitions(factory, entries, provenance),
+    // Typed model access only. The ordinary Device List does not expose these
+    // products until their insertion/editor workflows are implemented.
+    multiCoreDefinitions: () => Object.values(entries).filter(entry => entry.definition.kind === "multi-core")
+      .map(entry => structuredClone(entry.definition)),
     nodes(id) {
       if (id != null) return structuredClone(entries[id]?.dependencies.nodes || nodes);
       const result = new Map();
-      for (const node of Object.values(entries).flatMap(entry => entry.dependencies.nodes)) {
+      for (const node of Object.values(entries).filter(entry => entry.definition.kind !== "multi-core").flatMap(entry => entry.dependencies.nodes)) {
         if (result.has(node.id) && nodeContent(result.get(node.id), artworkIdentity) !== nodeContent(node, artworkIdentity)) {
           throw new Error(`Node ${node.id} has different personal definitions. Resolve a device scope or use libraryContext().`);
         }
@@ -354,6 +366,8 @@ export function createPersonalDefinitions({ factory, nodes, factoryNodeTypes = {
       }
       const data = await store.update(current => {
         if ((current.entries[id]?.revision || null) !== expectedRevision) throw new Error("This personal definition changed in another tab. Reload Saved Default before saving again.");
+        const existing = current.entries[id]?.definition || factory.find(item => item.id === id);
+        if (existing && (existing.kind === "multi-core") !== (definition.kind === "multi-core")) throw new Error("A definition ID cannot change product kind.");
         for (const [dependencyId, entry] of dependencies) if (!current.entries[dependencyId]) current.entries[dependencyId] = entry;
         current.entries[id] = prepared.encoded; current.generation++;
         return current;
