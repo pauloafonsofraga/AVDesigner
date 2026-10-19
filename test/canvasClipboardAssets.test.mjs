@@ -97,7 +97,7 @@ test("many repeated small images cannot fill the localStorage envelope with base
 
 for (const condition of ["missing", "expired", "corrupt", "wrong length", "wrong MIME"]) {
   test(`${condition} stored asset aborts before destination mutation or history creation`, async () => {
-    const store = memoryStore(), { envelope } = await prepareCanvasClipboardEnvelope(payload(), options(store));
+    const store = memoryStore(), { envelope } = await prepareCanvasClipboardEnvelope(payload(), { ...options(store), limits: { portableBudget: 0 } });
     const hash = envelope.assetManifest[0].hash, record = store.records.get(hash);
     if (condition === "missing") store.records.delete(hash);
     if (condition === "expired") record.expiresAt = now;
@@ -153,7 +153,8 @@ test("executable and externally dependent SVG is rejected even below the inline 
 });
 
 test("storage denial cannot publish an envelope with unavailable assets", async () => {
-  await assert.rejects(prepareCanvasClipboardEnvelope(payload(), { store: { gc() { throw new Error("quota denied"); } }, now }), /storage is unavailable.*quota denied/);
+  await assert.rejects(prepareCanvasClipboardEnvelope(payload(), { store: { gc() { throw new Error("quota denied"); } }, now,
+    limits: { portableBudget: 0 } }), /storage is unavailable.*quota denied/);
 });
 
 test("inline-only copies and paste do not require IndexedDB, while expired records are collected on rejected paste", async () => {

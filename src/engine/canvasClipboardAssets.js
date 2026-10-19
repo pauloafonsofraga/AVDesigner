@@ -1,8 +1,8 @@
 import { clipboardJson, isClipboardAssetSource, validateCanvasClipboardPayload,
-  serializeCanvasClipboard, CLIPBOARD_TTL_MS } from "./canvasClipboard.js";
+  serializeCanvasClipboard, CLIPBOARD_TTL_MS, CLIPBOARD_LIMITS } from "./canvasClipboard.js";
 
 export const CLIPBOARD_ASSET_LIMITS = Object.freeze({ inline: 64 * 1024, inlineBudget: 256 * 1024,
-  individual: 64 * 1024 * 1024, total: 256 * 1024 * 1024, count: 256 });
+  portableBudget: 8 * 1024 * 1024, individual: 64 * 1024 * 1024, total: 256 * 1024 * 1024, count: 256 });
 export const CLIPBOARD_ASSET_DATABASE = "avdesigner-canvas-clipboard";
 const marker = "$avdClipboardAsset";
 const hashPattern = /^sha256:[a-f0-9]{64}$/;
@@ -10,7 +10,7 @@ const imageMime = /^image\/(png|jpeg|gif|webp|avif|bmp|x-icon|svg\+xml)$/;
 const declaredImageMime = /^image\/(png|jpeg|jpg|pjpeg|gif|webp|avif|bmp|x-icon|vnd\.microsoft\.icon|svg\+xml)$/i;
 const validDataUrlHeader = header => /^data:image\/[\w.+-]+(?:;charset=utf-8)?(?:;base64)?$/i.test(header)
   && declaredImageMime.test(header.slice(5).split(";")[0]);
-const unavailable = detail => new Error(`Paste failed: clipboard assets are unavailable or expired. Copy the selection again. (${detail})`);
+const unavailable = detail => new Error(`Paste failed: clipboard assets are unavailable or expired. Copy the selection again. (${detail}) For a large selection, open both projects at the same WireNexus address in the same browser profile, or transfer the device library JSON.`);
 const invalid = detail => { throw new Error(`Clipboard asset envelope is invalid: ${detail}`); };
 const utf8 = text => new TextEncoder().encode(text).length;
 const limit = (name, measured, maximum) => {
@@ -173,10 +173,10 @@ async function decodeAsset(source, limits, fetchAsset, path) {
   return { mimeType, bytes };
 }
 
-function dataUrl(mimeType, bytes) {
+function base64Bytes(bytes) {
   const chunks = [];
   for (let offset = 0; offset < bytes.length; offset += 32768) chunks.push(String.fromCharCode(...bytes.subarray(offset, offset + 32768)));
-  return `data:${mimeType};base64,${btoa(chunks.join(""))}`;
+  return btoa(chunks.join(""));
 }
 
 function assertNoMarkers(object) {
@@ -188,6 +188,7 @@ function assertNoMarkers(object) {
 export async function prepareCanvasClipboardEnvelope(value, { store, now = Date.now(), limits: overrides, fetchAsset = fetch } = {}) {
   const limits = limitsFor(overrides), envelope = validateCanvasClipboardPayload(value);
   assertNoMarkers(envelope);
+  if (Object.hasOwn(envelope, "assetData")) invalid("reserved asset data in project payload");
   const references = [];
   walkAssets(envelope, (object, key, source, path) => references.push({ object, key, source, path }));
   const sources = new Map(), unique = new Map(), external = new Map();
@@ -224,24 +225,38 @@ export async function prepareCanvasClipboardEnvelope(value, { store, now = Date.
   envelope.assetManifest = manifests.map(({ hash, mimeType, byteLength }) => ({ hash, mimeType, byteLength }));
   envelope.copiedAt = now; envelope.expiresAt = now + CLIPBOARD_TTL_MS;
   validateClipboardAssetEnvelope(envelope, now);
-  const text = serializeCanvasClipboard(envelope);
-  if (manifests.length && !store) throw new Error("Copy failed: temporary clipboard asset storage is unavailable.");
+  const compactText = serializeCanvasClipboard(envelope);
+  // Carry each image once when the complete set fits. Large selections retain the
+  // compact store-backed transport; never allocate their repeated inline JSON.
+  const portableBytes = manifests.reduce((sum, asset) => sum + 4 * Math.ceil(asset.byteLength / 3), 0);
+  const portableOverhead = utf8(JSON.stringify(Object.fromEntries(manifests.map(asset => [asset.hash, ""])))) + 13;
+  const portable = manifests.length > 0 && portableBytes <= limits.portableBudget
+    && utf8(compactText) + portableBytes + portableOverhead <= CLIPBOARD_LIMITS.bytes;
+  if (portable) envelope.assetData = Object.fromEntries(manifests.map(asset => [asset.hash, base64Bytes(asset.bytes)]));
+  const requiresAssetStore = manifests.length > 0 && !portable;
+  const text = portable ? serializeCanvasClipboard(envelope) : compactText;
+  if (requiresAssetStore && !store) throw new Error("Copy failed: temporary clipboard asset storage is unavailable for this large selection.");
+  let storedAssetCount = 0;
   if (store) {
     try {
       await store.gc(now);
       if (manifests.length) await store.putMany(manifests.map(({ hash, mimeType, byteLength, bytes }) => ({ hash, mimeType, byteLength,
         blob: new Blob([bytes], { type: mimeType }), createdAt: now, expiresAt: envelope.expiresAt })));
-    } catch (error) { if (manifests.length) throw new Error(`Copy failed: temporary clipboard asset storage is unavailable (${error.message}).`); }
+      storedAssetCount = manifests.length;
+    } catch (error) { if (requiresAssetStore) throw new Error(`Copy failed: temporary clipboard asset storage is unavailable (${error.message}).`); }
   }
   // Replace strings with empty strings to measure model structure without allocating the giant inline JSON.
   const model = clipboardJson(value, { allowImageAssets: true });
   let assetStringBytes = 0;
   walkAssets(model, (object, key, source) => { assetStringBytes += utf8(JSON.stringify(source)) - 2; object[key] = ""; });
   const nonAssetJsonBytes = utf8(JSON.stringify(model));
-  return { envelope, text, diagnostics: { nonAssetJsonBytes, originalInlinePayloadBytes: nonAssetJsonBytes + assetStringBytes,
-    compactEnvelopeBytes: utf8(text), assetReferences: references.length, repeatedAssetReferences: references.length - unique.size,
-    uniqueAssetCount: unique.size, uniqueAssetBytes: total, storedAssetCount: manifests.length,
-    storedAssetBytes: manifests.reduce((sum, asset) => sum + asset.byteLength, 0), largestAssetBytes: Math.max(0, ...[...unique.values()].map(asset => asset.byteLength)) } };
+  const fallbackText = storedAssetCount === manifests.length ? compactText : text;
+  return { envelope, text, fallbackText, diagnostics: { nonAssetJsonBytes, originalInlinePayloadBytes: nonAssetJsonBytes + assetStringBytes,
+    compactEnvelopeBytes: utf8(compactText), transportBytes: utf8(text), assetReferences: references.length, repeatedAssetReferences: references.length - unique.size,
+    uniqueAssetCount: unique.size, uniqueAssetBytes: total, storedAssetCount, requiresAssetStore,
+    portableAssetCount: portable ? manifests.length : 0, portableAssetBytes: portable ? portableBytes : 0,
+    storedAssetBytes: storedAssetCount ? manifests.reduce((sum, asset) => sum + asset.byteLength, 0) : 0,
+    largestAssetBytes: Math.max(0, ...[...unique.values()].map(asset => asset.byteLength)) } };
 }
 
 export function validateClipboardAssetEnvelope(value, now = Date.now()) {
@@ -257,6 +272,21 @@ export function validateClipboardAssetEnvelope(value, now = Date.now()) {
     limit("individual asset size", asset.byteLength, CLIPBOARD_ASSET_LIMITS.individual);
     total += asset.byteLength; limit("total unique asset size", total, CLIPBOARD_ASSET_LIMITS.total);
     manifest.set(asset.hash, asset);
+  }
+  if (Object.hasOwn(envelope, "assetData")) {
+    const data = envelope.assetData;
+    if (!data || typeof data !== "object" || Array.isArray(data) || !manifest.size
+      || Object.keys(data).length !== manifest.size) invalid("portable asset set");
+    let portableBytes = 0;
+    for (const [hash, encoded] of Object.entries(data)) {
+      const asset = manifest.get(hash);
+      if (!asset || typeof encoded !== "string" || encoded.length !== 4 * Math.ceil(asset.byteLength / 3)) invalid("portable asset length");
+      const padding = (3 - asset.byteLength % 3) % 3;
+      if ((padding && !encoded.endsWith("=".repeat(padding)))
+        || /[^A-Za-z0-9+/]/.test(encoded.slice(0, encoded.length - padding))) invalid("portable asset encoding");
+      portableBytes += encoded.length;
+    }
+    limit("portable asset JSON size", portableBytes, CLIPBOARD_ASSET_LIMITS.portableBudget);
   }
   const referenced = new Set();
   const scan = object => {
@@ -286,17 +316,25 @@ export async function resolveCanvasClipboardEnvelope(value, { store, now = Date.
   let gcError;
   try { if (store) await store.gc(now); } catch (error) { gcError = error; }
   const envelope = validateClipboardAssetEnvelope(value, now), restored = new Map();
-  if (gcError && envelope.assetManifest.length) throw unavailable(gcError.message);
+  if (gcError && envelope.assetManifest.length && !envelope.assetData) throw unavailable(gcError.message);
   try {
     for (const asset of envelope.assetManifest) {
-      const stored = await store?.get(asset.hash);
-      if (!stored || stored.expiresAt <= now || stored.hash !== asset.hash || stored.mimeType !== asset.mimeType
-        || stored.byteLength !== asset.byteLength || !(stored.blob instanceof Blob)
-        || stored.blob.size !== asset.byteLength || stored.blob.type !== asset.mimeType) throw unavailable("missing, expired or mismatched asset");
-      const bytes = new Uint8Array(await stored.blob.arrayBuffer());
+      let bytes;
+      if (envelope.assetData) {
+        const binary = atob(envelope.assetData[asset.hash]);
+        bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      } else {
+        const stored = await store?.get(asset.hash);
+        if (!stored || stored.expiresAt <= now || stored.hash !== asset.hash || stored.mimeType !== asset.mimeType
+          || stored.byteLength !== asset.byteLength || !(stored.blob instanceof Blob)
+          || stored.blob.size !== asset.byteLength || stored.blob.type !== asset.mimeType) throw unavailable("missing, expired or mismatched asset");
+        bytes = new Uint8Array(await stored.blob.arrayBuffer());
+      }
+      if (bytes.byteLength !== asset.byteLength) throw unavailable("asset length does not match manifest");
       if (await clipboardAssetHash(bytes) !== asset.hash) throw unavailable("corrupt asset hash");
       if (validatedImageMime(bytes, asset.mimeType) !== asset.mimeType) throw unavailable("detected image MIME does not match manifest");
-      restored.set(asset.hash, { bytes, url: dataUrl(asset.mimeType, bytes) });
+      restored.set(asset.hash, { bytes, url: `data:${asset.mimeType};base64,${base64Bytes(bytes)}` });
     }
   } catch (error) { if (error.message.startsWith("Paste failed:")) throw error; throw unavailable(error.message); }
   const replace = object => {
@@ -328,7 +366,7 @@ export async function resolveCanvasClipboardEnvelope(value, { store, now = Date.
     limit("asset count", hashes.size, CLIPBOARD_ASSET_LIMITS.count);
     limit("total unique asset size", total, CLIPBOARD_ASSET_LIMITS.total);
   }
-  delete envelope.assetManifest; delete envelope.copiedAt; delete envelope.expiresAt;
+  delete envelope.assetManifest; delete envelope.assetData; delete envelope.copiedAt; delete envelope.expiresAt;
   return validateCanvasClipboardPayload(envelope);
 }
 

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { canvasClipboardFixture } from "../fixtures/canvas-clipboard.mjs";
 import { runAssetClipboardSmoke } from "./canvas-clipboard-assets-smoke.mjs";
+import { runPortableClipboardSmoke } from "./canvas-clipboard-portable-smoke.mjs";
 
 const { chromium } = createRequire(import.meta.url)(process.env.AVDESIGNER_PLAYWRIGHT_PATH || "playwright");
 const browser = await chromium.launch({ headless: true,
@@ -177,5 +178,6 @@ try {
   results.push("expired fallback rejected, trusted paste events, no browser errors");
   results.push(...await runAssetClipboardSmoke(browser, base, modifier));
   results.push(...await runAssetClipboardSmoke(browser, base, modifier, { mismatchedMime: true }));
+  results.push(...await runPortableClipboardSmoke(browser, base, modifier));
   console.log(JSON.stringify({ passed: results.length, failed: 0, skipped: 0, results }, null, 2));
 } finally { await context.close(); await browser.close(); }

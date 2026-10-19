@@ -75,3 +75,14 @@ export function canvasClipboardMimeFixture() {
   // share one stored asset without changing the reusable definition's identity.
   return fixture;
 }
+
+export function canvasClipboardPortableFixture() {
+  const fixture = canvasClipboardAssetsFixture();
+  const correct = png(320, 180), faceplate = correct.replace("image/png", "image/jpeg");
+  fixture.assets = { ...fixture.assets, faceplate };
+  Object.assign(fixture.project.deviceLibrary[0], { faceImage: faceplate, thumbnailImage: correct,
+    faceImageNaturalWidth: 320, faceImageNaturalHeight: 180 });
+  fixture.project.devices[0].faceImage = faceplate;
+  fixture.project.imageObjects[0].image = faceplate;
+  return fixture;
+}

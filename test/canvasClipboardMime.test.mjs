@@ -109,7 +109,7 @@ for (const [name, bytes] of [["HTML", Buffer.from("<!doctype html><html><script>
 }
 
 test("representation metadata never overrides actual manifest MIME or bypasses stored-byte verification", async () => {
-  const store = memoryStore(), { envelope } = await prepareCanvasClipboardEnvelope(payload([url(pngBytes)]), { store, now, limits: { inline: 1 } });
+  const store = memoryStore(), { envelope } = await prepareCanvasClipboardEnvelope(payload([url(pngBytes)]), { store, now, limits: { inline: 1, portableBudget: 0 } });
   for (const header of ["data:text/html;base64", "data:application/javascript;base64", "data:image/unknown;base64", "data:image/png;extra=1;base64"]) {
     const bad = structuredClone(envelope); bad.imageObjects[0].image.dataUrlHeader = header;
     assert.throws(() => validateClipboardAssetEnvelope(bad, now), /asset URL representation/);

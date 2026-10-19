@@ -27,6 +27,36 @@ retain their native clipboard behavior.
 
 ## Temporary Artwork Store
 
+Build 54.38.107 adds bounded, self-contained artwork transport for ordinary device
+copies. Previously a project-local device with just a 102,638-byte faceplate failed
+when pasted into a different origin's empty asset store with `missing, expired or
+mismatched asset`, even though the device definition itself was included.
+
+The V2 envelope may now include `assetData`, a hash-keyed table of base64 bytes for
+every manifest entry, once per unique image. This complete table is included only
+when its encoded bytes fit an 8 MiB budget and the entire envelope still fits the
+existing 16 MiB JSON limit. No image resizing, recompression, definition rewriting,
+or increase in existing safety limits is involved. Portable copies do not require
+IndexedDB to succeed on either side, survive source-tab closure, and work across
+WireNexus addresses/browser profiles. Both tabs must run this build or newer for
+cross-origin asset resolution. The normal 30-minute expiry still applies.
+
+Large selections use the existing compact store-backed envelope, without a partial
+portable table that could misleadingly appear self-contained. Their copy status
+explicitly requires the same app address and browser profile, with device library
+JSON offered as the transfer alternative. Old store-backed envelopes remain valid.
+After updating, copy the selection again to include portable artwork.
+The same-origin localStorage fallback keeps the compact text when its asset-store
+write succeeded, avoiding a new storage-quota regression. Otherwise it uses the
+self-contained text, never references to assets that failed to store.
+
+Portable data must exactly match the manifest, byte lengths, detected MIME and
+SHA-256 hashes. Missing entries, extra entries, unsafe SVG and corrupt bytes abort
+before any project mutation. A bad cache cannot block valid portable data, and a
+valid cache cannot hide tampered portable data. Asset transport metadata is removed
+before the normal paste planner runs; source data and destination definitions remain
+subject to the existing collision handling and one-command undo/redo behavior.
+
 `canvasClipboardAssets.js` uses IndexedDB database `avdesigner-canvas-clipboard`,
 store `assets`, keyed by `sha256:<hex>` from Web Crypto SHA-256 of decoded bytes.
 Each record contains the hash, MIME type, Blob, byte length, creation time and
@@ -63,11 +93,11 @@ data URLs. Copy does not migrate or rewrite the source project or its definition
 At paste, actual bytes must still match the canonical manifest MIME. Relaxing the
 representation header never bypasses byte, length, hash or SVG safety validation.
 
-Paste validates the envelope/manifest, loads every record, verifies byte length and
+Store-backed paste validates the envelope/manifest, loads every record, verifies byte length and
 SHA-256, restores detached data URLs, then runs the existing complete paste planner.
 Missing, expired or corrupt assets abort before any mutation or undo entry. Asset
 references require the same origin, browser profile and available IndexedDB; they
-are not system-wide portable. Inline-only envelopes do not require stored assets.
+are not system-wide portable. Inline-only and portable envelopes do not require stored assets.
 The asset lifetime is 30 minutes, matching the fallback.
 
 `src/engine/canvasClipboard.js` owns selection dependencies, validation, remapping
@@ -101,6 +131,14 @@ tab after it closes. Oversized groups may extend beyond the current viewport;
 paste does not alter the camera to force them into view.
 
 ## Verification
+
+- `node --test test/canvasClipboardPortable.test.mjs`: cross-store project-only
+  devices, exact artwork/header preservation, no-store copy/paste, revoked blobs,
+  budget boundaries, expiry, tampering and dependency-aware undo/redo.
+- `node scripts/canvas-clipboard-portable-smoke.mjs`: real Chrome shortcuts between
+  localhost and 127.0.0.1 origins, source closure, empty destination asset storage,
+  rendered pixels/screenshots, repeat paste, undo/redo, same-tab project switching
+  and denied IndexedDB. Also included in the complete clipboard smoke suite.
 
 - `node --test test/canvasClipboard.test.mjs`: serialization, invalid payloads,
   stable identities, dependencies, geometry, racks, undo/redo, expiry, platform
