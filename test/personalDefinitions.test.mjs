@@ -193,6 +193,8 @@ async function editorHarness(mode = "library", knownFactory = true) {
   };
   const c = vm.createContext({ structuredClone, Map, crypto, localUserSettingsModule: personal, localUserSettingsOwner: owner,
     accountLibraryUi: null, catalogueRevisions: {}, renderLibraryUpdateNotice() {},
+    editorCloseGuard: { save: operation => operation() },
+    window: { WireNexusEditorLifecycle: { editorDataContent: value => personal.definitionContent(value) } },
     builtInDeviceLibrary: f, editorDraft: [definition, factory()], editorIndex: 0, editorMode: mode,
     deviceLibrary: [structuredClone(definition)], cableTypes: Object.fromEntries(nodes.map(n => [n.id, n])), personalNodeDefinitions: nodes, personallyEditedNodeIds: new Set(),
     editorLibraryBaseline: [], editorDefaultRevisions: new Map(), editorInstanceName: "Canvas instance", editorBaselineInstanceName: "",
@@ -211,7 +213,7 @@ async function editorHarness(mode = "library", knownFactory = true) {
     renderDeviceEditor() { c.renderEditorDefaultControls(); } });
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   for (const name of ["editorDependencyContext", "completeEditorNodeDefinitions", "editorNodeDefinitions", "editorNodeType", "factoryBuiltInTemplate", "currentEditorFactoryTemplate", "editorPersonalTargetId", "captureEditorSessionBaseline",
-    "editorHasUnsavedChanges", "renderEditorDefaultControls", "saveEditorPersonalDefault", "reloadEditorPersonalDefault", "discardEditorUnsavedChanges"]) {
+    "editorDefinitionChanged", "editorDependenciesChanged", "editorHasUnsavedChanges", "renderEditorDefaultControls", "saveEditorPersonalDefault", "persistEditorPersonalDefault", "reloadEditorPersonalDefault", "discardEditorUnsavedChanges"]) {
     vm.runInContext(html.match(new RegExp(`^    (?:async )?function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?^    \\}`, "m"))[0], c);
   }
   c.captureEditorSessionBaseline();

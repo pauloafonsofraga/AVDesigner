@@ -201,12 +201,14 @@ try {
     assert.deepEqual(geometry(reset.template), geometry(saved));
     const copied = await page.evaluate(() => duplicateDeviceTemplateForCollection(currentEditorTemplate(), [currentEditorTemplate()]));
     assert.deepEqual(geometry(copied), geometry(saved)); await check("duplicate");
-    const id = await page.evaluate(() => {
-      const t = structuredClone(currentEditorTemplate()); closeDeviceEditor();
+    const placedTemplate = await page.evaluate(() => structuredClone(currentEditorTemplate()));
+    await page.locator("#closeDeviceEditor").click();
+    await page.getByRole("button", { name: "Discard Changes", exact: true }).click();
+    const id = await page.evaluate(t => {
       const instance = { instanceId: "editor-instance", templateId: t.id, name: t.name, x: 100, y: 100, templateOverride: t };
       if (!activeEngineBridge().createDeviceFromLibraryDrop(instance)) throw new Error("Engine insertion failed");
       window.avDesignerEngineBridge?.refreshFromProduction?.("integration"); zoomToFit(); return instance.instanceId;
-    });
+    }, placedTemplate);
     await page.waitForFunction(id => window.avDesignerEngineBridge?.scene?.getDevice(id), id);
     await shot("main-canvas");
     const json = await page.evaluate(() => JSON.stringify(projectSnapshotData()));
@@ -216,7 +218,8 @@ try {
     await page.evaluate(id => openDeviceEditorForInstance(id), id);
     await page.locator('[data-editor-tab="connectors"]').click(); await check("project reload"); await shot("reload");
     gesture = await start("tail-right"); await boundary(0); await finish(gesture, "continue editing after reload");
-    await page.evaluate(() => closeDeviceEditor());
+    await page.locator("#closeDeviceEditor").click();
+    await page.getByRole("button", { name: "Discard Changes", exact: true }).click();
     const html = await page.evaluate(async () => (await prepareEngineViewerOutput()).html);
     const offline = await browser.newPage({ viewport: { width: 1600, height: 1100 } });
     offline.on("pageerror", e => errors.push(e.message)); await offline.setContent(html);

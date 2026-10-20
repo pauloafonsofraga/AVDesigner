@@ -1814,7 +1814,8 @@ test("Create New Device starts as a named blank device with no starter connector
   assert.match(blankTemplate, /connectors:\s*\[\]/);
   assert.match(blankTemplate, /faceplateDeleted:\s*false/);
 
-  const createNewDevice = functionSource("openDeviceEditorWithNewDevice");
+  const createNewDevice = functionSource("initializeDeviceEditorWithNewDevice");
+  assert.match(functionSource("openDeviceEditorWithNewDevice"), /replaceEditor\(initializeDeviceEditorWithNewDevice\)/);
   assert.match(createNewDevice, /markMasterDeviceTemplate\(createBlankDeviceTemplate\(\)\)/);
   assert.doesNotMatch(createNewDevice, /Custom Device/);
 });
@@ -1946,10 +1947,10 @@ test("Device Editor placement delegates to the shared modular layout module", ()
   const addNode = functionSource("addEditorNode");
   const structuralItems = functionSource("editorStructuralLayoutItems");
   const structuralCommit = functionSource("commitEditorStructuralEdit");
-  const openEditor = functionSource("openDeviceEditor");
-  const openNew = functionSource("openDeviceEditorWithNewDevice");
-  const openProject = functionSource("openDeviceEditorForProjectTemplateDraft");
-  const openInstance = functionSource("openDeviceEditorForCanvasInstanceLegacy");
+  const openEditor = functionSource("initializeDeviceEditor");
+  const openNew = functionSource("initializeDeviceEditorWithNewDevice");
+  const openProject = functionSource("initializeDeviceEditorForProjectTemplateDraft");
+  const openInstance = functionSource("initializeDeviceEditorForCanvasInstance");
 
   assert.match(placementLoader, /engineImportUrl\("\.\/src\/engine\/modularDeviceLayout\.js"\)/);
   assert.doesNotMatch(placementLoader, /engineEditorRequestedByUrl/);
@@ -3265,6 +3266,7 @@ test("Device Editor close skips final preview rendering and preserves an invalid
   const before = structuredClone(draft), calls = [], classes = new Set();
   const context = {
     editorDependencySession: 7,
+    editorPendingFields: null,
     editorDraft: [draft], currentEditorTemplate: () => draft,
     deviceEditorModal: { classList: { add: value => classes.add(value), contains: value => classes.has(value) } },
     clearEditorPaletteDragSession: () => calls.push("palette"),
@@ -3276,7 +3278,8 @@ test("Device Editor close skips final preview rendering and preserves an invalid
     renderDeviceEditorPreview: () => assert.fail("closing must not rebuild an invalid preview"),
     disposeDeviceEditorEnginePreviewSurface: () => calls.push("dispose")
   };
-  vm.runInNewContext(`${functionSource("clearEditorPlacementMotion")}\n${functionSource("closeDeviceEditor")}\ncloseDeviceEditor();`, context);
+  context.editorCloseGuard = { requestClose: () => context.disposeDeviceEditor() };
+  vm.runInNewContext(`${functionSource("clearEditorPlacementMotion")}\n${functionSource("disposeDeviceEditor")}\n${functionSource("closeDeviceEditor")}\ncloseDeviceEditor();`, context);
   assert.equal(classes.has("hidden"), true);
   assert.equal(context.editorDependencySession, 8);
   assert.deepEqual(calls, ["palette", "resize", "upload", "motion", "dispose"]);
@@ -5602,7 +5605,7 @@ test("Device Editor resize handlers delegate to detached transactional sessions"
   const faceMove = functionSource("applyEditorFaceImageResize");
   const previewClone = functionSource("readonlyDeviceEditorPreviewTemplate");
   const faceTransaction = functionSource("commitEditorFaceplateOriginMutation");
-  const closeEditor = functionSource("closeDeviceEditor");
+  const closeEditor = functionSource("disposeDeviceEditor");
   const selectDevice = functionSource("selectEditorDeviceIndex");
   const escapeHandler = INDEX_HTML;
 
@@ -8448,8 +8451,10 @@ test("Canvas connector inspector exposes editable node fields", () => {
 });
 
 test("Device Editor instance mode reflects canvas connector field overrides", () => {
-  const openInstanceEditor = functionSource("openDeviceEditorForCanvasInstanceLegacy");
-  const applyEditor = functionSource("applyDeviceEditor");
+  const openInstanceEditor = functionSource("initializeDeviceEditorForCanvasInstance");
+  const applyEditor = functionSource("persistDeviceEditor");
+  assert.match(functionSource("openDeviceEditorForCanvasInstanceLegacy"), /replaceEditor/);
+  assert.match(functionSource("applyDeviceEditor"), /editorCloseGuard\?\.save/);
   const hydrateOverrides = functionSource("hydrateEditorDraftFromInstanceConnectorOverrides");
   const pruneOverrides = functionSource("pruneEditorOwnedInstanceConnectorOverrides");
 

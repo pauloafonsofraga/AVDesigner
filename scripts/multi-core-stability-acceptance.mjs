@@ -38,6 +38,7 @@ export async function auditMultiCoreReference({ page, dir, point, read }) {
     assert.match(await page.locator(".mc-diagnostics").innerText(), /Not saved/);
     assert.deepEqual(await read(), snapshot);
     if (exit === "escape") await page.keyboard.press("Escape"); else await action(exit);
+    await page.getByRole("button", { name: "Discard Changes", exact: true }).click();
     assert.equal(await page.locator(".mc-editor").count(), 0); assert.deepEqual(await read(), snapshot);
   }
   const snapshot = await page.evaluate(() => JSON.stringify([projectSnapshotData({ forEngine: true }), activeEngineBridge().engineHistoryState()]));

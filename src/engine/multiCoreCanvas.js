@@ -6,6 +6,7 @@ import { hitTestConnector, hitTestDevice, hitTestWire } from "./hitTest.js";
 import { hybridMultiCoreDefinition } from "./multiCoreReferenceDefinitions.js";
 import { validateMultiCoreEdit } from "./multiCoreEditValidation.js";
 import { MultiCoreEditor } from "./multiCoreEditor.js";
+import { replaceEditor } from "../editorLifecycle.js";
 import { newMultiCoreDefinition, duplicateMultiCoreDefinition } from "./multiCoreEditorDraft.js";
 import { inlineImage, inlineProjectArtwork } from "../imageAssets.js";
 import { ENGINE_CONNECTOR_TYPE_COLORS } from "./connectorCompatibility.js";
@@ -28,12 +29,14 @@ export const multiCoreCanvasMethods = {
     this.updateCanvasCursor();
   },
   openMultiCoreEditor(value, options = {}) {
-    if (this.multiCoreEditor && !this.multiCoreEditor.closed) { this.multiCoreEditor.root.querySelector("button")?.focus(); return; }
-    this.cancelActiveInteraction("multi-core-editor");
-    this.cancelMultiCorePlacement();
-    this.deactivateLoomCreation("multi-core-editor");
-    this.api.cancelCanvasLayoutTool?.();
-    this.multiCoreEditor = new MultiCoreEditor(this, value, options);
+    return replaceEditor(() => {
+      this.cancelActiveInteraction("multi-core-editor");
+      this.cancelMultiCorePlacement();
+      this.deactivateLoomCreation("multi-core-editor");
+      this.api.cancelCanvasLayoutTool?.();
+      this.multiCoreEditor = new MultiCoreEditor(this, value, options);
+      return true;
+    });
   },
 
   openMultiCorePicker() {

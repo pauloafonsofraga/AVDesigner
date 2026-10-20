@@ -2347,6 +2347,19 @@
       font-weight: 800;
     }
 
+    .editor-unsaved-backdrop { z-index: 200; }
+    .modal.editor-unsaved-modal {
+      width: min(520px, calc(100vw - 28px));
+      height: auto;
+      min-width: 0;
+      min-height: 0;
+      max-height: calc(100dvh - 28px);
+      grid-template-rows: 52px auto auto;
+      overflow: auto;
+    }
+    .editor-unsaved-modal p { margin: 0; padding: 20px 16px; line-height: 1.5; }
+    .editor-unsaved-modal .modal-footer { padding: 12px 14px; flex-wrap: wrap; }
+
     .publish-modal {
       width: min(560px, calc(100vw - 28px));
       height: auto;
@@ -5358,7 +5371,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled WireNexus Project" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">54.38.113 — Factory Library Additions</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">54.38.114 — Editor Unsaved Changes</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -6106,12 +6119,12 @@
   <script src="./src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script src="./src/engine/projectorModelCore.js?v=iteration54-38-11-engine-status-labels"></script>
   <script src="./src/engine/historyCloneCore.js?v=iteration54-38-29-memory-safe-undo"></script>
-  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-113-factory-library-additions"></script>
+  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-114-editor-unsaved-changes"></script>
   <script type="text/wirenexus-app" id="wireNexusAppSource">
-    const APP_ITERATION = "54.38.113";
-    const APP_BUILD_ID = "iteration54-38-113-factory-library-additions";
-    const APP_MODULE_CACHE_ID = "iteration54-38-113-factory-library-additions-modules";
-    const APP_BUILD_LABEL = `${APP_ITERATION} — Factory Library Additions`;
+    const APP_ITERATION = "54.38.114";
+    const APP_BUILD_ID = "iteration54-38-114-editor-unsaved-changes";
+    const APP_MODULE_CACHE_ID = "iteration54-38-114-editor-unsaved-changes-modules";
+    const APP_BUILD_LABEL = `${APP_ITERATION} — Editor Unsaved Changes`;
     const { cloneHistoryValue, MAX_HISTORY_ENTRIES } = window.WireNexusHistoryClone;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
@@ -6886,6 +6899,8 @@
     let editorDraft = [];
     let editorIndex = 0;
     let editorFaceplateUploadRevision = 0;
+    let editorCloseGuard = null;
+    let editorPendingFields = null;
     let editorPreviewZoom = 1;
     let editorPreviewPan = { x: 0, y: 0 };
     let editorEnginePreviewSurface = null;
@@ -9038,7 +9053,36 @@
       if (cancelEditorResizeSession(event)) return;
       if (cancelEditorPowerPlugMarquee(event)) return;
       if (cancelEditorStableDrags(event)) return;
+      if (editorPowerPlugDrag) { cancelDeviceEditorActiveInteraction(); return; }
       stopEditorNodeDrag(event);
+    }
+
+    function cancelDeviceEditorActiveInteraction() {
+      if (editorPaletteDragSession?.active) { clearEditorPaletteDragSession(); return true; }
+      if (cancelEditorResizeSession() || cancelEditorPowerPlugMarquee() || cancelEditorStableDrags()) return true;
+      if (editorPowerPlugDrag) {
+        const drag = editorPowerPlugDrag;
+        editorPowerPlugDrag = null;
+        for (const connector of currentEditorTemplate()?.connectors || []) {
+          if (!drag.originalPlacements.has(connector.id)) continue;
+          const original = drag.originalPlacements.get(connector.id);
+          if (original === undefined) delete connector.powerPlug;
+          else connector.powerPlug = structuredClone(original);
+        }
+        editorPowerPlugSnap = null;
+        releaseEditorPointerCapture({ pointerId: drag.pointerId });
+        renderDeviceEditorPreview();
+        return true;
+      }
+      if (editorNodeMarquee || editorPreviewPanState) {
+        const interaction = editorNodeMarquee || editorPreviewPanState;
+        editorNodeMarquee = null;
+        editorPreviewPanState = null;
+        releaseEditorPointerCapture({ pointerId: interaction.pointerId });
+        renderDeviceEditorPreview();
+        return true;
+      }
+      return false;
     }
 
     function editorMotionLayoutForDrag(drag, options = {}) {
@@ -12794,6 +12838,10 @@
     }
 
     async function openDeviceEditor(options = {}) {
+      return window.WireNexusEditorLifecycle.replaceEditor(() => initializeDeviceEditor(options));
+    }
+
+    async function initializeDeviceEditor(options = {}) {
       if (!await ensureDeviceEditorPlacementModulesReady()) return;
       await loadLocalUserSettings();
       clearEditorPlacementMotion();
@@ -12805,7 +12853,7 @@
       editorProjectTemplateId = "";
       editorProjectSourceInstanceId = "";
       editorDraft = structuredClone(libraryDeviceTemplates());
-      editorIndex = 0;
+      editorIndex = Math.max(0, editorDraft.findIndex(template => template.id === options.templateId));
       clearEditorNodeSelection();
       editorSelectedFaceplate = false;
       editorSelectedPowerPlugIds.clear();
@@ -12822,6 +12870,7 @@
       clearEditorCardNodeSelection();
       renderDeviceEditor();
       captureEditorSessionBaseline();
+      beginEditorCloseGuard();
       deviceEditorModal.classList.remove("hidden");
       scheduleDeviceEditorEnginePreviewOpenFit();
     }
@@ -12832,15 +12881,14 @@
         await openDeviceEditorForProjectTemplate(templateId);
         return;
       }
-      await openDeviceEditor({ reason: "master-device-edit", details: { templateId } });
-      const index = editorDraft.findIndex(template => template.id === templateId);
-      if (index >= 0) {
-        editorIndex = index;
-        renderDeviceEditor();
-      }
+      return openDeviceEditor({ reason: "master-device-edit", details: { templateId }, templateId });
     }
 
     async function openDeviceEditorWithNewDevice() {
+      return window.WireNexusEditorLifecycle.replaceEditor(initializeDeviceEditorWithNewDevice);
+    }
+
+    async function initializeDeviceEditorWithNewDevice() {
       if (!await ensureDeviceEditorPlacementModulesReady()) return;
       await loadLocalUserSettings();
       clearEditorPlacementMotion();
@@ -12868,6 +12916,7 @@
       clearEditorCardNodeSelection();
       renderDeviceEditor();
       captureEditorSessionBaseline();
+      beginEditorCloseGuard();
       deviceEditorModal.classList.remove("hidden");
       scheduleDeviceEditorEnginePreviewOpenFit();
     }
@@ -12886,6 +12935,10 @@
     }
 
     async function openDeviceEditorForProjectTemplateDraft(draft, mode, options = {}) {
+      return window.WireNexusEditorLifecycle.replaceEditor(() => initializeDeviceEditorForProjectTemplateDraft(draft, mode, options));
+    }
+
+    async function initializeDeviceEditorForProjectTemplateDraft(draft, mode, options = {}) {
       if (!await ensureDeviceEditorPlacementModulesReady()) return;
       await loadLocalUserSettings();
       clearEditorPlacementMotion();
@@ -12920,6 +12973,7 @@
       clearEditorCardNodeSelection();
       renderDeviceEditor();
       captureEditorSessionBaseline();
+      beginEditorCloseGuard();
       deviceEditorModal.classList.remove("hidden");
       scheduleDeviceEditorEnginePreviewOpenFit();
     }
@@ -13054,6 +13108,10 @@
     }
 
     async function openDeviceEditorForCanvasInstanceLegacy(instanceId) {
+      return window.WireNexusEditorLifecycle.replaceEditor(() => initializeDeviceEditorForCanvasInstance(instanceId));
+    }
+
+    async function initializeDeviceEditorForCanvasInstance(instanceId) {
       if (!await ensureDeviceEditorPlacementModulesReady()) return;
       await loadLocalUserSettings();
       clearEditorPlacementMotion();
@@ -13088,12 +13146,19 @@
       clearEditorCardNodeSelection();
       renderDeviceEditor();
       captureEditorSessionBaseline();
+      beginEditorCloseGuard();
       deviceEditorModal.classList.remove("hidden");
       scheduleDeviceEditorEnginePreviewOpenFit();
     }
 
     function closeDeviceEditor() {
+      return editorCloseGuard?.requestClose();
+    }
+
+    function disposeDeviceEditor() {
       editorDependencySession++;
+      editorPendingFields?.dispose();
+      editorPendingFields = null;
       deviceEditorModal.classList.add("hidden");
       clearEditorPaletteDragSession();
       cancelEditorResizeSession(null, { render: false });
@@ -13231,6 +13296,10 @@
     }
 
     async function applyDeviceEditor() {
+      return editorCloseGuard?.save();
+    }
+
+    async function persistDeviceEditor() {
       try {
         syncEditorFieldsToDraft();
         if (editorMode === "instance") {
@@ -13290,7 +13359,6 @@
           });
           pruneInvalidJumpLinks();
           const afterSnapshot = deviceEditorEngineSnapshot();
-          closeDeviceEditor();
           renderDeviceLibrary();
           renderProjectCustomDevices();
           renderRackBuilderSources();
@@ -13302,15 +13370,14 @@
               : `${normalizedName} updated on the canvas.`;
           if (commitDeviceEditorApplyToEngineBridge(beforeSnapshot, afterSnapshot, [instance.instanceId])) {
             setStatus(statusText);
-            return;
+            return true;
           }
           render();
           setStatus(statusText);
-          return;
+          return true;
         }
         if (editorMode === "master-create") {
-          await saveEditorPersonalDefault();
-          return;
+          return persistEditorPersonalDefault();
         }
         if (isProjectTemplateEditorMode()) {
           const resolved = resolveEditorDraftForProject(editorDraft[editorIndex]);
@@ -13337,7 +13404,6 @@
             instance.selectedProjectorLensId = AVDesignerProjectors.resolveProjectorLens(templateForInstance(instance), instance).selectedProjectorLensId;
           });
           const afterSnapshot = deviceEditorEngineSnapshot();
-          closeDeviceEditor();
           renderProjectCustomDevices();
           renderDeviceLibrary();
           renderRackBuilderSources();
@@ -13346,7 +13412,7 @@
           const affectedIds = state.devices.filter(instance => instance.templateId === editedTemplate.id && (!instance.templateOverride || projectorChanged)).map(instance => instance.instanceId);
           if (!commitDeviceEditorApplyToEngineBridge(beforeSnapshot, afterSnapshot, affectedIds)) render();
           setStatus(`${editedTemplate.name || "Project device"} saved to Project Devices.`);
-          return;
+          return true;
         }
         const editedTemplates = structuredClone(editorDraft);
         if (!Array.isArray(editedTemplates)) throw new Error("Device library must be an array.");
@@ -13372,9 +13438,8 @@
           ]));
         });
         if (!projectCustomCopies.length) {
-          closeDeviceEditor();
           setStatus("No master device changes to save as Project Devices.");
-          return;
+          return true;
         }
         const beforeSnapshot = deviceEditorEngineSnapshot();
         pushUndo(projectSnapshot({ includeClipboardDependencies: true }));
@@ -13384,7 +13449,6 @@
           ...projectCustomCopies
         ]);
         const afterSnapshot = deviceEditorEngineSnapshot();
-        closeDeviceEditor();
         renderDeviceLibrary();
         renderProjectCustomDevices();
         renderRackBuilderSources();
@@ -13393,12 +13457,14 @@
         const statusText = `${pluralCount(projectCustomCopies.length, "edited device")} saved to Project Devices. Master library devices were left unchanged.`;
         if (commitDeviceEditorApplyToEngineBridge(beforeSnapshot, afterSnapshot, [])) {
           setStatus(statusText);
-          return;
+          return true;
         }
         render();
         setStatus(statusText);
+        return true;
       } catch (error) {
         alert(`Device library could not be applied: ${error.message}`);
+        return false;
       }
     }
 
@@ -13632,7 +13698,7 @@
         renderEditorDefaultControls();
         try {
           await owner.remove(source.id, editorDefaultRevisions.get(source.id) || null);
-          closeDeviceEditor();
+          editorCloseGuard.dispose();
           setStatus(`${source.name || "Device"} deleted from My Library. Existing project devices were kept.`);
         } catch (error) {
           alert(`Device could not be deleted: ${error.message}`);
@@ -18213,6 +18279,9 @@
     }
 
     function captureEditorSessionBaseline() {
+      // Reopening may be declined by the guard. A caller must not mark that
+      // still-active draft as saved after its awaited open was cancelled.
+      if (editorCloseGuard?.closed === false) return;
       editorDependencyContext();
       editorDependencyBaselines = editorDependencyContexts.slice();
       editorLibraryBaseline = structuredClone(editorDraft);
@@ -18224,11 +18293,44 @@
       renderEditorDefaultControls();
     }
 
+    function beginEditorCloseGuard() {
+      if (!editorCloseGuard || editorCloseGuard.closed) {
+        editorPendingFields = window.WireNexusEditorLifecycle.pendingEditorFields(deviceEditorModal);
+        editorCloseGuard = window.WireNexusEditorLifecycle.createEditorGuard({
+          root: deviceEditorModal,
+          prepare: () => { editorPendingFields?.flush(); cancelDeviceEditorActiveInteraction(); },
+          dirty: editorSessionHasUnsavedChanges,
+          save: persistDeviceEditor,
+          dispose: disposeDeviceEditor,
+          busy: () => personalDefaultsBusy,
+          error: error => alert(`Device could not be saved: ${error.message}`)
+        });
+      }
+    }
+
+    function editorSessionHasUnsavedChanges() {
+      if (editorDraft.length !== editorLibraryBaseline.length) return true;
+      return editorDraft.some((template, index) => editorDefinitionChanged(template, editorLibraryBaseline[index])
+        || editorDependenciesChanged(index))
+        || (editorMode === "instance" && editorInstanceName !== editorBaselineInstanceName);
+    }
+
+    function editorDefinitionChanged(template, baseline) {
+      if (!template || !baseline) return template !== baseline;
+      return localUserSettingsModule.definitionContent(template) !== localUserSettingsModule.definitionContent(baseline);
+    }
+
+    function editorDependenciesChanged(index) {
+      const current = editorDependencyContext(index), baseline = editorDependencyBaselines[index];
+      return current !== baseline && window.WireNexusEditorLifecycle.editorDataContent(current)
+        !== window.WireNexusEditorLifecycle.editorDataContent(baseline);
+    }
+
     function editorHasUnsavedChanges() {
       const baseline = editorLibraryBaseline[editorIndex], template = currentEditorTemplate();
       if (!baseline || !template || !localUserSettingsModule) return false;
-      return localUserSettingsModule.definitionContent(template) !== localUserSettingsModule.definitionContent(baseline)
-        || editorDependencyContext() !== editorDependencyBaselines[editorIndex]
+      return editorDefinitionChanged(template, baseline)
+        || editorDependenciesChanged(editorIndex)
         || (editorMode === "instance" && editorInstanceName !== editorBaselineInstanceName);
     }
 
@@ -18256,6 +18358,10 @@
     }
 
     async function saveEditorPersonalDefault() {
+      return editorCloseGuard?.save(persistEditorPersonalDefault, false);
+    }
+
+    async function persistEditorPersonalDefault() {
       if (personalDefaultsBusy) return;
       try {
         if (!localUserSettingsOwner) throw new Error("Personal library is unavailable. Reload before saving.");
@@ -18288,8 +18394,10 @@
           editorDefaultRevisions.set(definition.id, saved.revision);
         }
         setStatus(`${definition.name}: ${accountLibraryUi?.isAccount() ? "Synced to your account" : "saved to browser recovery only; not account-synced"}. Existing project devices were not changed.`);
+        return true;
       } catch (error) {
         alert(`Personal definition was not saved: ${error.message}`);
+        return false;
       } finally { personalDefaultsBusy = false; renderEditorDefaultControls(); }
     }
 
@@ -23064,6 +23172,8 @@
         connectorId,
         selectedIds,
         starts,
+        originalPlacements: new Map(template.connectors.filter(item => selectedIds.includes(item.id))
+          .map(item => [item.id, structuredClone(item.powerPlug)])),
         offsetX: point.x - entry.cx,
         offsetY: point.y - entry.cy,
         width: entry.width,
@@ -28567,7 +28677,7 @@
       renderInspector();
       if (!engineBridge) render();
       updateUndoRedoButtons();
-      if (options.closeEditor) closeDeviceEditor();
+      if (options.closeEditor) editorCloseGuard.dispose();
       setStatus(`${template.name || "Project Device"} deleted from Project Devices${placedIds.length ? ` with ${placedIds.length} canvas instance${placedIds.length === 1 ? "" : "s"}` : ""}.`);
     }
 
@@ -34139,10 +34249,15 @@ document.addEventListener("click", function(event) {
       const uploadTarget = captureEditorFaceplateUploadTarget();
       if (!uploadTarget) return;
       const reader = new FileReader();
+      let completeUpload, failUpload;
+      const pendingUpload = new Promise((resolve, reject) => { completeUpload = resolve; failUpload = reject; });
+      editorCloseGuard.trackUpload(pendingUpload);
       reader.onload = async () => {
         try {
           await prepareAndCommitEditorFaceplateUpload(uploadTarget, reader.result, file);
+          completeUpload();
         } catch (error) {
+          failUpload(error);
           if (isEditorFaceplateUploadTargetCurrent(uploadTarget)) {
             syncEditorFaceplateActionControls(uploadTarget.template);
             alert("The front face image could not be loaded. Please use a PNG, BMP, JPG, or JPEG file.");
@@ -34150,6 +34265,7 @@ document.addEventListener("click", function(event) {
         }
       };
       reader.onerror = () => {
+        failUpload(new Error("The front face image could not be loaded."));
         if (!isEditorFaceplateUploadTargetCurrent(uploadTarget)) return;
         syncEditorFaceplateActionControls(uploadTarget.template);
         alert("The front face image could not be loaded. Please use a PNG, BMP, JPG, or JPEG file.");
@@ -34430,17 +34546,18 @@ document.addEventListener("click", function(event) {
     // Own editor history before the main Engine canvas capture listener sees it.
     window.addEventListener("keydown", event => {
       if (deviceEditorModal.classList.contains("hidden")) return;
-      const cancel = event.key === "Escape" && (editorNodeDrag || editorCardSlotDrag || editorCardNodeDrag || editorPowerPlugMarquee);
+      if (event.key === "Escape" && !document.querySelector("dialog[open]") && cancelDeviceEditorActiveInteraction()) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
       const field = event.target?.matches?.("[data-selected-connector-field], [data-selected-connector-caption], [data-card-field]");
       const history = (event.metaKey || event.ctrlKey) && ["z", "y"].includes(event.key.toLowerCase())
         && (!isTextEditingTarget(document.activeElement) || field);
-      if (!cancel && !history) return;
+      if (!history) return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      if (cancel) {
-        if (!cancelEditorPowerPlugMarquee()) cancelEditorStableDrags();
-      }
-      else undoEditorConnectorMetadata(event.shiftKey || event.key.toLowerCase() === "y");
+      undoEditorConnectorMetadata(event.shiftKey || event.key.toLowerCase() === "y");
     }, true);
     function bindEditorInteractionSvg(svg) {
       if (!svg) return;

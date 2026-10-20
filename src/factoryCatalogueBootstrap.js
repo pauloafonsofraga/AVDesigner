@@ -4,6 +4,7 @@ import { observeLibraryArtwork } from "./libraryArtwork.js";
 import { FACTORY_AUTHORING } from "./buildCapabilities.js";
 import { MULTI_CORE_PROJECT_FIELDS, multiCoreProjectFields } from "./engine/multiCoreModel.js";
 import { isMultiCoreConnection } from "./engine/multiCoreConnectivity.js";
+import * as editorLifecycle from "./editorLifecycle.js";
 
 const version = new URL(import.meta.url).searchParams.get("v") || "";
 const load = createFactoryCatalogueLoader({ url: new URL(`../data/factory-catalogue.json?v=${encodeURIComponent(version)}`, import.meta.url) });
@@ -36,6 +37,7 @@ function start() {
     Object.defineProperty(window, "WireNexusBuildCapabilities", { value: Object.freeze({ factoryAuthoring: FACTORY_AUTHORING === true }) });
     Object.defineProperty(window, "WireNexusImageAssets", { value: Object.freeze({ ...imageAssets, portableProjectData }) });
     Object.defineProperty(window, "WireNexusMultiCore", { value: Object.freeze({ MULTI_CORE_PROJECT_FIELDS, multiCoreProjectFields, isMultiCoreConnection }) });
+    Object.defineProperty(window, "WireNexusEditorLifecycle", { value: editorLifecycle });
     observeLibraryArtwork();
     // Keep the existing classic-script globals used by the shell/bridge. No app
     // initialization or persistence can run against an absent catalogue.

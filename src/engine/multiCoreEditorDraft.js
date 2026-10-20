@@ -1,10 +1,11 @@
 import { MULTI_CORE_SCHEMA_VERSION, allocateMultiCoreChildId, allocateMultiCoreId, normalizeMultiCoreDefinition,
   multiCoreProjectFields } from "./multiCoreModel.js";
 import { validateMultiCoreEdit } from "./multiCoreEditValidation.js";
+import { editorDataContent } from "../editorLifecycle.js";
 
 const copy = value => structuredClone(value);
 const list = value => Array.isArray(value) ? value : [];
-export const sameMultiCoreData = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+export const sameMultiCoreData = (a, b) => editorDataContent(a) === editorDataContent(b);
 
 export function newMultiCoreDefinition(usedIds = []) {
   const allocation = allocateMultiCoreId({ prefix: "mc-definition", usedIds });
@@ -176,6 +177,7 @@ export class MultiCoreEditorDraft {
     this.undo.push(this.value); if (this.undo.length > 30) this.undo.shift(); this.redo = []; this.value = next; return true;
   }
   undoEdit() { if (!this.undo.length) return false; this.redo.push(this.value); this.value = this.undo.pop(); return true; }
+  isDirty() { return !sameMultiCoreData(this.original, this.value); }
   redoEdit() { if (!this.redo.length) return false; this.undo.push(this.value); this.value = this.redo.pop(); return true; }
   fields(project = this.project, value = this.value) {
     const fields = multiCoreProjectFields(project), key = this.definition ? "multiCoreDefinitions" : "multiCores";

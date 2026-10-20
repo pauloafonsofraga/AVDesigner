@@ -199,7 +199,8 @@ test("canonical valid and unresolved cables survive adapter, output, fallback ex
   const h = shell(project); h.connectionEndpointStillExists = () => false;
   h.pruneInvalidCanvasConnections();
   assert.deepEqual(json(h.state.connections), before.connections);
-  assert.match(source("applyDeviceEditor"), /isMultiCoreConnection/);
+  assert.match(source("applyDeviceEditor"), /editorCloseGuard\?\.save/);
+  assert.match(source("persistDeviceEditor"), /isMultiCoreConnection/);
   assert.deepEqual(project, before);
   const orphan = { connections: [structuredClone(project.connections[2])] }, orphanScene = normalizeAvDesignerProject(orphan);
   assert.equal(orphanScene.devices.length, 0, "orphan-only model must not load a synthetic demo scene");

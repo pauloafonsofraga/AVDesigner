@@ -86,6 +86,7 @@ try {
   await page.keyboard.press("Meta+Shift+z"); assert.deepEqual(await canonical(), edited);
   checks.push("independent fanout style, layout, drag at zoom, numeric placement, connector duplication/deletion/insertion, rear face, artwork upload, trunk edit", "occupied port protection, invalid mapping blocks Save, corrected atomic Save, exact project undo/redo and cable retention");
   await open("A"); await tab("Channels"); await page.locator('[data-path="circuits.1.endBPortId"]').selectOption("b-41"); await action("save"); await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Discard Changes", exact: true }).click();
   assert.equal(await page.locator(".mc-editor").count(), 0); assert.deepEqual(await canonical(), edited);
   checks.push("failed Save never traps Escape/Close");
   const download = page.waitForEvent("download"); await page.locator("#saveProject").click();
@@ -149,7 +150,13 @@ try {
   await other.locator('[data-action="save"]').click(); await other.locator(".mc-editor").waitFor({ state: "detached" });
   await action("save"); await page.waitForFunction(() => document.querySelector(".mc-diagnostics")?.textContent.includes("changed in another tab"));
   assert.match(await page.locator(".mc-diagnostics").innerText(), /changed in another tab/);
+  await action("close");
+  await page.getByRole("button", { name: "Save Changes", exact: true }).click();
+  await page.waitForFunction(() => !activeEngineBridge().multiCoreEditor.guard.saving);
+  assert.match(await page.locator(".mc-diagnostics").innerText(), /changed in another tab/);
+  assert.equal((await draft()).description, "Unsaved stale draft");
   await tab("Defaults"); await action("reload-definition");
+  await page.getByRole("button", { name: "Discard Changes", exact: true }).click();
   await page.waitForFunction(() => activeEngineBridge().multiCoreEditor.session.value.description === "Newer tab revision");
   assert.equal((await draft()).description, "Newer tab revision");
   await action("cancel"); await other.close();

@@ -4,6 +4,7 @@ import { attachMultiCoreJump, multiCoreJumpPeer } from "./multiCoreJumpRouting.j
 import { legacyFaceImagePlacement } from "./faceplateGeometry.js";
 import { imageDataUrl } from "../imageAssets.js";
 import { detectClipboardImageMime } from "./canvasClipboardAssets.js";
+import { createEditorGuard, pendingEditorFields, replaceEditor } from "../editorLifecycle.js";
 import { MultiCoreEditorDraft, sameMultiCoreData, duplicateMultiCoreDefinition, multiCoreFace, multiCoreFaceEntries,
   placeMultiCorePorts, addMultiCorePort, duplicateMultiCorePorts, removeMultiCorePorts, moveMultiCorePortsToFace,
   addMultiCoreCircuit, addMultiCoreGroup, editMultiCoreGroup } from "./multiCoreEditorDraft.js";
@@ -46,6 +47,11 @@ export class MultiCoreEditor {
     });
     this.root.addEventListener("keydown", event => this.keydown(event));
     document.body.append(this.root); this.run(() => this.render()); this.root.querySelector('[data-action="close"]').focus();
+    this.pendingFields = pendingEditorFields(this.root);
+    this.guard = createEditorGuard({ root: this.root, label: "Multi-Core",
+      prepare: () => { this.pendingFields.flush(); this.cancelDrag(); },
+      dirty: () => this.session.isDirty(),
+      save: () => this.persist(), dispose: () => this.dispose(), error: error => this.error(error.message) });
   }
 
   run(fn) { try { const result = fn(); result?.catch?.(error => this.error(error.message)); return result; } catch (error) { this.error(error.message); } }
@@ -342,7 +348,8 @@ export class MultiCoreEditor {
     this.renderPortProperties(); this.drawFace();
   }
   cancelDrag() { if (!this.drag) return; this.selected = this.drag.originalSelection; this.drag = null; this.renderPortProperties(); this.drawFace(); }
-  async upload(file) {
+  upload(file) { return this.guard.trackUpload(this.prepareUpload(file)); }
+  async prepareUpload(file) {
     if (!file) return;
     const role = this.role, faceId = this.faceIds[role], bytes = new Uint8Array(await file.arrayBuffer());
     if (!detectClipboardImageMime(bytes)) throw new Error("Unsupported or unsafe artwork. Choose a PNG, JPEG, WebP or safe SVG.");
@@ -356,7 +363,8 @@ export class MultiCoreEditor {
       <dl><dt>Owner</dt><dd>${this.session.definition ? "Personal library" : "This project"}</dd><dt>Saved revision</dt><dd>${esc(saved?.revision || this.session.value.definitionRevision || "Not saved to personal library")}</dd></dl>
       <div class="mc-toolbar">${button("duplicate-definition", "Save as New Personal Definition")}${this.session.definition && saved ? button("reload-definition", "Reload Saved Default") : ""}</div></div>`;
   }
-  async save() {
+  save() { return this.guard.save(); }
+  async persist() {
     if (this.saving || this.session.readOnly) return;
     if ([...this.root.querySelectorAll("input,select,textarea")].some(input => !input.reportValidity())) return;
     if (!this.validate().valid) { this.error(`Not saved: ${(this.validation.blockingDiagnostics || this.validation.diagnostics).map(d => d.message).join(" ")}`); return; }
@@ -373,7 +381,8 @@ export class MultiCoreEditor {
         const accepted = this.bridge.commitMultiCoreEdit("Edit Multi-Core", fields => { fields.multiCores = fields.multiCores.map(mc => mc.id === current.id ? structuredClone(this.session.value) : mc); });
         if (!accepted && !sameMultiCoreData(current, this.session.value)) throw new Error(this.bridge.lastMultiCoreEditValidation?.blockingDiagnostics?.map(d => d.message).join(" ") || "Multi-Core edit could not be applied.");
       }
-      this.onSaved?.(); this.close();
+      this.onSaved?.();
+      return true;
     } finally { this.saving = false; }
   }
   async action(action) {
@@ -405,19 +414,22 @@ export class MultiCoreEditor {
       this.faceIds[this.role] ||= end.faces[0].id;
     });
     if (action === "reload-definition") {
-      await this.owner.refresh(); const saved = this.owner.entry(this.session.value.id); if (!saved) throw new Error("The saved definition no longer exists.");
-      if (this.closed) return;
-      this.session = new MultiCoreEditorDraft(saved.definition, { definition: true }); this.revision = saved.revision;
-      this.nodes = new Map(this.bridge.api.getMultiCoreEditorContext().nodes.map(node => [node.id, node]));
-      for (const node of [...this.owner.nodes(saved.definition.id), ...list(saved.definition.nodeDefinitions)]) this.nodes.set(node.id, node);
-      this.faceIds = { A: saved.definition.ends?.A?.faces?.[0]?.id, B: saved.definition.ends?.B?.faces?.[0]?.id };
-      this.selected.clear(); this.render(); return;
+      const id = this.session.value.id, tab = this.tab;
+      return replaceEditor(async () => {
+        try {
+          await this.owner.refresh();
+          const saved = this.owner.entry(id);
+          if (!saved) throw new Error("The saved definition no longer exists.");
+          this.bridge.multiCoreEditor = new MultiCoreEditor(this.bridge, saved.definition, { definition: true, tab });
+          return true;
+        } catch (error) { alert(`Default could not be reloaded: ${error.message}`); return false; }
+      });
     }
     if (action === "duplicate-definition") {
       const copy = duplicateMultiCoreDefinition(this.session.value, [...this.context.personalDefinitions.map(d => d.id), ...list(this.bridge.mutations.root.multiCoreDefinitions).map(d => d.id)]);
       const gate = new MultiCoreEditorDraft(copy, { definition: true }).validate();
       if (!gate.valid) throw new Error(`Correct Channels before creating a definition: ${gate.blockingDiagnostics.map(d => d.message).join(" ")}`);
-      this.close(); this.bridge.openMultiCoreEditor(copy, { definition: true, tab: "General" });
+      return this.bridge.openMultiCoreEditor(copy, { definition: true, tab: "General" });
     }
   }
   keydown(event) {
@@ -443,5 +455,6 @@ export class MultiCoreEditor {
     if (["Backspace", "Delete"].includes(event.key) && this.selected.size) { event.preventDefault(); this.run(() => this.action("delete-ports")); }
   }
   disposePreview() { this.drag = null; this.resizeObserver?.disconnect(); this.surface?.dispose(); this.surface = null; this.overlay = null; this.faceImageElement = null; this.faceImageSource = null; }
-  close() { if (this.closed) return; this.closed = true; this.disposePreview(); this.root.remove(); if (this.bridge.multiCoreEditor === this) this.bridge.multiCoreEditor = null; this.previousFocus?.focus?.(); }
+  close() { return this.guard.requestClose(); }
+  dispose() { if (this.closed) return; this.closed = true; this.pendingFields?.dispose(); this.disposePreview(); this.root.remove(); if (this.bridge.multiCoreEditor === this) this.bridge.multiCoreEditor = null; this.previousFocus?.focus?.(); }
 }
