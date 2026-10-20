@@ -1,4 +1,4 @@
-import { normalizeConnectorTopology } from "./deviceDefinitionV2.js";
+import { normalizeConnectorTopology, validateConnectorTopology } from "./deviceDefinitionV2.js";
 
 export const MULTI_CORE_SCHEMA_VERSION = 1;
 export const MULTI_CORE_STYLES = Object.freeze([
@@ -110,6 +110,13 @@ export function validateMultiCore(value, { definition = false } = {}) {
       });
     });
     if (!Array.isArray(end.connectors)) add("ports", `${base}.connectors`, "Connectors must be an array.", "error", affected);
+    const relationships = end.connectorRelationships || end.connectorTopology?.relationships;
+    if (Array.isArray(relationships) && relationships.every(record) && list(end.connectors).every(record)) {
+      for (const message of validateConnectorTopology(list(end.connectors), relationships).errors) add("connector-relationship", `${base}.connectorRelationships`, message, "error", affected);
+      for (const relation of relationships) for (const field of ["sourceConnectorId", "targetConnectorId"]) {
+        if (relation[field] && ports[role].get(relation[field])?.length !== 1) add("connector-relationship", `${base}.connectorRelationships`, `${relation.id} references missing connector ${relation[field]}.`, "error", affected);
+      }
+    } else if (relationships !== undefined) add("connector-relationship", `${base}.connectorRelationships`, "Connector relationships must be an array of records.", "error", affected);
     list(end.connectors).forEach((port, index) => {
       const path = `${base}.connectors[${index}]`, context = { ...affected, portId: port?.id ?? null };
       if (!record(port)) { add("port", path, "Port must be an object.", "error", context); return; }

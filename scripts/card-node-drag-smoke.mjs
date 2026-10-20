@@ -15,6 +15,7 @@ try {
   page.on("pageerror", error => errors.push(error.message));
   page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
   await page.goto(`${base}/index.html`);
+  await page.waitForFunction(() => window.wireNexusReady); await page.evaluate(() => wireNexusReady);
   await page.locator("#deviceEditorButton").click();
   await page.locator("#newDeviceTemplate").click();
   await page.evaluate(() => {
@@ -33,6 +34,7 @@ try {
     renderDeviceEditor();
   });
   await page.locator('[data-editor-tab="cards"]').click();
+  await page.locator("#editorZoomReset").click();
   const order = () => page.evaluate(() => currentEditorCard().connectors.map(connector => connector.id));
   assert.deepEqual(await order(), ["left-a", "left-b", "right-a", "both"]);
   const line = page.locator('[data-card-both-connector-line="both"]');
@@ -42,15 +44,18 @@ try {
   assert.equal(await page.evaluate(() => generatedCardConnectors(currentEditorTemplate()).find(connector => connector.sourceConnectorId === "both")?.anchors.length), 2);
 
   const center = async index => {
-    const box = await page.locator(`[data-card-preview-node="${index}"] circle`).first().boundingBox();
-    assert.ok(box, `card node ${index} is visible`);
-    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    return page.evaluate(index => {
+      const item = editorCardConnectorLayout(currentEditorCard()).find(entry => entry.index === index);
+      const position = item.positions?.[0] || item, point = deviceEditorPreview.createSVGPoint();
+      point.x = position.x; point.y = position.y;
+      const screen = point.matrixTransform(deviceEditorPreview.getScreenCTM()); return { x: screen.x, y: screen.y };
+    }, index);
   };
   const from = await center(1);
   const to = await center(0);
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
-  await page.mouse.move(to.x, to.y, { steps: 8 });
+  await page.mouse.move(to.x, to.y - 30, { steps: 8 });
   assert.deepEqual(await order(), ["left-a", "left-b", "right-a", "both"], "preview must not mutate the card");
   await page.mouse.up();
   assert.deepEqual(await order(), ["left-b", "left-a", "right-a", "both"]);
@@ -61,7 +66,7 @@ try {
   const lower = await center(1);
   await page.mouse.move(after.x, after.y);
   await page.mouse.down();
-  await page.mouse.move(lower.x, lower.y, { steps: 8 });
+  await page.mouse.move(lower.x, lower.y + 30, { steps: 8 });
   await page.keyboard.press("Escape");
   await page.mouse.up();
   assert.deepEqual(await order(), ["left-b", "left-a", "right-a", "both"], "Escape cancels without mutation");

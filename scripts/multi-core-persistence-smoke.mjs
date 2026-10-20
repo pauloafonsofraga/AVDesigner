@@ -28,9 +28,11 @@ try {
   only.multiCores[0].idCounters = { circuit: 91, routePoint: 42 };
   await load(only);
   assert.deepEqual(await page.evaluate(() => WireNexusMultiCore.multiCoreProjectFields(projectSnapshotData())), multiCoreProjectFields(only));
-  assert.deepEqual(await page.evaluate(() => [activeEngineBridge().scene.devices.length, activeEngineBridge().scene.wires.length]), [0, 0]);
+  assert.deepEqual(await page.evaluate(() => [activeEngineBridge().scene.devices.length, activeEngineBridge().scene.wires.length]), [2, 1]);
+  assert.equal(await page.evaluate(() => activeEngineBridge().scene.devices.every(d => d.multiCoreIdentity && !d.visual.faceImage)), true);
+  assert.deepEqual(await page.evaluate(() => [state.devices.length, state.connections.length]), [0, 0]);
   assert.equal(await page.evaluate(() => projectHasReloadRisk()), true);
-  checks.push("real file input preserves a Multi-Core-only project without synthetic canvas objects");
+  checks.push("real file input preserves a Multi-Core-only project with two schematic ends and one trunk, without canonical devices or synthetic cables");
   const download = page.waitForEvent("download"); await page.locator("#saveProject").click();
   const saved = JSON.parse(await readFile(await (await download).path(), "utf8"));
   assert.deepEqual(multiCoreProjectFields(saved), multiCoreProjectFields(only));
@@ -49,9 +51,11 @@ try {
     const result = await prepareEngineViewerOutput();
     const payload = JSON.parse(result.html.match(/id="engineOutputPayload">([\s\S]*?)<\/script>/)[1]);
     return { html: result.html, model: payload.engineScene.modelData,
-      synthetic: payload.engineScene.devices.some(d => d.kind === "multi-core" || d.id.startsWith("mc-end-")) };
+      synthetic: payload.engineScene.devices.some(d => d.kind === "multi-core" || d.id.startsWith("mc-end-")),
+      ends: payload.engineScene.devices.filter(d => d.multiCoreIdentity).length };
   });
   assert.deepEqual(exported.model.multiCores, saved.multiCores); assert.equal(exported.synthetic, false);
+  assert.equal(exported.ends, 2);
   await page.screenshot({ path: `${dir}/existing-engine-unchanged.png` });
   const offline = await context.newPage();
   offline.on("pageerror", error => errors.push(error.message));
@@ -60,7 +64,7 @@ try {
   const ready = await offline.evaluate(() => engineOutputReady);
   assert.equal(ready.assetFailures, 0);
   await offline.screenshot({ path: `${dir}/offline-viewer.png` });
-  checks.push("HTML/Publish preparation preserves model-only data; generated viewer opens offline without new visuals");
+  checks.push("HTML/Publish preparation preserves model data and schematic ends; generated viewer opens offline");
   await load({ ...outputParityFixture(), projectName: "Historical Project" });
   assert.deepEqual(await page.evaluate(() => WireNexusMultiCore.multiCoreProjectFields(projectSnapshotData())), {});
   await load({ ...only, projectName: "Before New Project" });

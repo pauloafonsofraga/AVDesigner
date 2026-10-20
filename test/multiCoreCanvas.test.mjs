@@ -49,10 +49,12 @@ test("existing connector and body hit tests retain typed Multi-Core identities",
 test("invalid imported ends remain inspectable without enabling destructive editing", () => {
   const project = connectedMultiCoreProject(); delete project.multiCores[0].trunk;
   const { scene, mutations } = setup(project), selected = scene.devices.find(d => d.multiCoreIdentity);
-  const panel = { innerHTML: "" };
-  assert.equal(multiCoreCanvasMethods.renderMultiCoreInspector.call({ mutations, selectedMultiCoreProjection: () => selected }, panel), true);
+  const edit = {}, panel = { innerHTML: "", querySelector: () => edit }; let opened;
+  assert.equal(multiCoreCanvasMethods.renderMultiCoreInspector.call({ mutations, selectedMultiCoreProjection: () => selected, openMultiCoreEditor: record => { opened = record; } }, panel), true);
   assert.match(panel.innerHTML, /Imported data retained/);
   assert.equal(mutations.root.multiCores[0].trunk, undefined);
+  edit.onclick(); assert.equal(opened, mutations.root.multiCores[0]);
+  assert.doesNotMatch(panel.innerHTML, /data-mc-delete|data-mc-route-remove/);
 });
 
 for (const role of ["A", "B"]) test(`End ${role} uses transient DragSession offsets and typed writeback`, () => {

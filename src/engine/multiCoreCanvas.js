@@ -1,39 +1,90 @@
 import { instantiateMultiCoreDefinition, normalizeMultiCoreDefinition, normalizeMultiCore, multiCoreProjectFields, allocateMultiCoreChildId } from "./multiCoreModel.js";
 import { createMultiCoreConnectivity, resolveMultiCoreEndpoint, multiCorePhysicalCompatibility, equipmentCompatibility, multiCoreEquipmentConnectorIndex } from "./multiCoreConnectivity.js";
-import { multiCorePortReference, multiCoreEndKey } from "./multiCoreProjection.js";
+import { multiCorePortReference, multiCoreEndKey, projectMultiCoreScene } from "./multiCoreProjection.js";
 import { normalizeAvDesignerProject } from "./projectAdapter.js";
 import { hitTestConnector, hitTestDevice, hitTestWire } from "./hitTest.js";
 import { hybridMultiCoreDefinition } from "./multiCoreReferenceDefinitions.js";
 import { validateMultiCoreEdit } from "./multiCoreEditValidation.js";
+import { MultiCoreEditor } from "./multiCoreEditor.js";
+import { newMultiCoreDefinition, duplicateMultiCoreDefinition } from "./multiCoreEditorDraft.js";
+import { inlineImage, inlineProjectArtwork } from "../imageAssets.js";
+import { ENGINE_CONNECTOR_TYPE_COLORS } from "./connectorCompatibility.js";
 
 const escape = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const list = value => Array.isArray(value) ? value : [];
 
 export const multiCoreCanvasMethods = {
+  openMultiCoreEditor(value, options = {}) {
+    if (this.multiCoreEditor && !this.multiCoreEditor.closed) { this.multiCoreEditor.root.querySelector("button")?.focus(); return; }
+    this.cancelActiveInteraction("multi-core-editor");
+    this.cancelMultiCorePlacement();
+    this.deactivateLoomCreation("multi-core-editor");
+    this.api.cancelCanvasLayoutTool?.();
+    this.multiCoreEditor = new MultiCoreEditor(this, value, options);
+  },
+
   openMultiCorePicker() {
     if (!this.ready) return;
     this.cancelActiveInteraction("multi-core-picker");
     this.deactivateLoomCreation("multi-core-picker");
     this.api.cancelCanvasLayoutTool?.();
-    const definitions = [...list(this.mutations.root.multiCoreDefinitions), hybridMultiCoreDefinition()]
-      .filter(d => normalizeMultiCoreDefinition(d).valid);
+    const context = this.api.getMultiCoreEditorContext?.() || {};
+    const definitions = [...new Map([hybridMultiCoreDefinition(), ...list(this.mutations.root.multiCoreDefinitions), ...list(context.personalDefinitions)]
+      .filter(d => d && typeof d === "object")
+      .map(d => [d.id, d])).values()];
+    const assemblies = list(this.mutations.root.multiCores).filter(mc => mc && typeof mc === "object");
     const dialog = document.createElement("dialog");
     dialog.className = "multi-core-picker";
     dialog.innerHTML = `<form method="dialog"><h3>Place Multi-Core</h3><select aria-label="Multi-Core definition">${definitions.map((d, i) =>
-      `<option value="${i}">${escape(d.name)} (${d.circuits.length} circuits)</option>`).join("")}</select>
+      `<option value="${i}">${escape(d.name || d.id || "Unresolved definition")} (${list(d.circuits).length} circuits)</option>`).join("")}</select>
+      <div class="multi-core-actions"><button type="button" class="tool-button" data-definition-create>Create</button><button type="button" class="tool-button" data-definition-edit>Edit Personal</button><button type="button" class="tool-button" data-definition-copy>Duplicate</button></div>
+      ${assemblies.length ? `<label>Project assemblies<select aria-label="Project Multi-Core">${assemblies.map((mc, i) => `<option value="${i}">${escape(mc.name || mc.id || "Unresolved import")}</option>`).join("")}</select></label><button type="button" class="tool-button" data-assembly-edit>Edit Assembly</button>` : ""}
       <button class="tool-button" value="cancel">Cancel</button><button class="tool-button" value="place">Place</button></form>`;
-    dialog.querySelector("form").addEventListener("submit", event => {
+    const selected = () => definitions[Number(dialog.querySelector("select").value)];
+    const refresh = () => {
+      dialog.querySelector('[value="place"]').disabled = !normalizeMultiCoreDefinition(selected()).valid;
+      dialog.querySelector("[data-definition-edit]").disabled = !context.owner?.has(selected()?.id);
+      dialog.querySelector("[data-definition-copy]").disabled = selected()?.schemaVersion !== 1 || !selected()?.ends?.A || !selected()?.ends?.B;
+    };
+    dialog.querySelector("select").onchange = refresh; refresh();
+    const edit = value => { dialog.close(); this.openMultiCoreEditor(value, { definition: true }); };
+    dialog.querySelector("[data-definition-create]").onclick = () => edit(newMultiCoreDefinition(definitions.map(d => d.id)));
+    dialog.querySelector("[data-definition-edit]").onclick = () => edit(selected());
+    dialog.querySelector("[data-definition-copy]").onclick = () => edit(duplicateMultiCoreDefinition(selected(), definitions.map(d => d.id)));
+    dialog.querySelector("[data-assembly-edit]")?.addEventListener("click", () => {
+      const record = assemblies[Number(dialog.querySelector('[aria-label="Project Multi-Core"]').value)];
+      dialog.close(); this.openMultiCoreEditor(record);
+    });
+    dialog.querySelector("form").addEventListener("submit", async event => {
       if (event.submitter?.value === "place") {
-        this.multiCorePlacement = { definition: definitions[Number(dialog.querySelector("select").value)] };
+        event.preventDefault(); event.submitter.disabled = true;
+        try {
+        let definition = structuredClone(selected());
+        const sourceNodes = context.owner?.has(definition.id) ? context.owner.nodes(definition.id) : definition.nodeDefinitions || context.nodes || [];
+        const scoped = context.owner?.resolveNodeContext(definition, sourceNodes, context.nodes || []);
+        if (scoped) definition = scoped.definition;
+        const nodes = new Map([...(context.nodes || []), ...(scoped?.nodes || sourceNodes)].map(n => [n.id, n]));
+        definition.nodeDefinitions = [...new Set(Object.values(definition.ends).flatMap(end => end.connectors.map(p => p.type)))].map(id => nodes.get(id)).filter(Boolean);
+        for (const end of Object.values(definition.ends)) for (const port of end.connectors) {
+          const node = nodes.get(port.type);
+          if (node?.color && !port.color && !ENGINE_CONNECTOR_TYPE_COLORS.has(port.type)) port.color = node.color;
+          if (node?.compatibilityType) port.compatibilityType = node.compatibilityType;
+        }
+        const cache = new Map();
+        await inlineProjectArtwork(definition, source => inlineImage(source, { cache }));
+        if (!dialog.open) return;
+        this.multiCorePlacement = { definition };
         document.getElementById("createMultiCore")?.classList.add("active");
         this.updateCanvasCursor();
+        dialog.close();
+        } catch (error) { event.submitter.disabled = false; this.showError?.(error.message); }
       }
     });
     dialog.addEventListener("close", () => dialog.remove(), { once: true });
     document.body.append(dialog); dialog.showModal();
   },
 
-  applyMultiCoreFields(fields) {
+  applyMultiCoreFields(fields, { affectedIds = null } = {}) {
     const start = performance.now();
     const root = this.mutations.root;
     for (const key of ["multiCores", "multiCoreDefinitions", "multiCoreIdCounter"]) {
@@ -42,9 +93,26 @@ export const multiCoreCanvasMethods = {
     }
     this.api.onEngineMultiCoreFieldsChange?.(multiCoreProjectFields(root, { cloneValues: false }));
     this.mutations.rebuildIndexes();
-    const normalized = normalizeAvDesignerProject(this.mutations.project);
-    this.scene.setData(normalized);
-    this.renderer.setStaticScene(this.scene);
+    const projection = affectedIds && projectMultiCoreScene({ ...root, multiCores: root.multiCores.filter(mc => affectedIds.includes(mc.id)) });
+    const existing = projection && projection.devices.length === affectedIds.length * 2 && projection.trunks.length === affectedIds.length
+      && projection.devices.every(d => this.scene.getDevice(d.id)) && projection.trunks.every(w => this.scene.getWire(w.id));
+    if (existing) {
+      const wireIds = new Set(projection.trunks.map(w => w.id));
+      for (const device of projection.devices) {
+        this.scene.replaceDevice(device);
+        for (const wire of this.scene.wires) if (wire.fromDeviceId === device.id || wire.toDeviceId === device.id) wireIds.add(wire.id);
+      }
+      for (const wire of projection.trunks) this.scene.applyWireState(wire.id, wire);
+      this.scene.refreshWireIndexes([...wireIds]);
+      this.scene.meta.multiCoreDiagnostics = [...(this.scene.meta.multiCoreDiagnostics || []).filter(d => !affectedIds.includes(d.multiCoreId)), ...projection.diagnostics];
+      for (const key of this.scene.selectedConnectorKeys) if (!this.scene.connectorOwnerByKey.has(key)) this.scene.selectedConnectorKeys.delete(key);
+      if (this.scene.projectData) for (const key of ["multiCores", "multiCoreDefinitions", "multiCoreIdCounter"]) this.scene.projectData[key] = root[key];
+      this.renderer.updateDirty(this.scene, { deviceIds: projection.devices.map(d => d.id), wireIds: [...wireIds], refreshDeviceTextures: true });
+    } else {
+      const normalized = normalizeAvDesignerProject(this.mutations.project);
+      this.scene.setData(normalized);
+      this.renderer.setStaticScene(this.scene);
+    }
     this.multiCoreConnectivityCache = null;
     this.scheduleRender();
     return { mutationMs: performance.now() - start };
@@ -60,10 +128,13 @@ export const multiCoreCanvasMethods = {
       return false;
     }
     const accepted = structuredClone(after);
+    const options = type === "Edit Multi-Core" ? { affectedIds: validation.affectedMultiCoreIds } : {};
     this.beginProductionCommit(type);
-    const result = this.applyMultiCoreFields(accepted);
+    let result;
+    try { result = this.applyMultiCoreFields(accepted, options); }
+    catch (error) { this.applyMultiCoreFields(before); throw error; }
     this.markCommitted(type, result.mutationMs);
-    this.recordCommand({ type, undo: bridge => bridge.applyMultiCoreFields(before), redo: bridge => bridge.applyMultiCoreFields(accepted) });
+    this.recordCommand({ type, undo: bridge => bridge.applyMultiCoreFields(before, options), redo: bridge => bridge.applyMultiCoreFields(accepted, options) });
     this.updateSelectionHud();
     return true;
   },
@@ -150,6 +221,12 @@ export const multiCoreCanvasMethods = {
       const trunks = [...this.scene.selectedWireIds].filter(id => this.scene.getWire(id)?.multiCoreIdentity);
       if (!ends.length && !trunks.length) return false;
       panel.innerHTML = `<h3>Selection</h3><dl class="details multi-core-details"><dt>Multi-Core ends</dt><dd>${ends.length}</dd><dt>Multi-Core trunks</dt><dd>${trunks.length}</dd><dt>Other objects</dt><dd>${this.scene.selectedIds.size - ends.length}</dd></dl>`;
+      const ids = new Set([...ends.map(id => this.scene.getDevice(id).multiCoreIdentity.multiCoreId), ...trunks.map(id => this.scene.getWire(id).multiCoreIdentity.multiCoreId)]);
+      if (ids.size === 1 && ends.length === this.scene.selectedIds.size && trunks.length === this.scene.selectedWireIds.size) {
+        const record = this.mutations.root.multiCores?.find(mc => mc.id === [...ids][0]);
+        const edit = document.createElement("button"); edit.className = "tool-button"; edit.textContent = "Edit Multi-Core";
+        edit.onclick = () => this.openMultiCoreEditor(record); panel.append(edit);
+      }
       return true;
     }
     const identity = selected.multiCoreIdentity;
@@ -157,7 +234,8 @@ export const multiCoreCanvasMethods = {
     if (!record) return false;
     const checked = normalizeMultiCore(record), mc = checked.value;
     if (!checked.valid) {
-      panel.innerHTML = `<h3>Multi-Core</h3><strong>${escape(mc.name || mc.id)}</strong><p>Imported data retained. Editing requires a valid definition.</p>${checked.diagnostics.filter(d => d.severity === "error").slice(0, 4).map(d => `<p>${escape(d.message)}</p>`).join("")}`;
+      panel.innerHTML = `<h3>Multi-Core</h3><strong>${escape(mc.name || mc.id)}</strong><p>Imported data retained.</p><button class="tool-button" data-mc-edit>Edit Multi-Core</button>${checked.diagnostics.filter(d => d.severity === "error").slice(0, 4).map(d => `<p>${escape(d.message)}</p>`).join("")}`;
+      panel.querySelector("[data-mc-edit]").onclick = () => this.openMultiCoreEditor(record);
       return true;
     }
     const snapshot = this.multiCoreConnectivityCache ||= createMultiCoreConnectivity(this.mutations.root);
@@ -169,12 +247,14 @@ export const multiCoreCanvasMethods = {
       ["Occupied channels", channels.filter(c => c.connectionsA.length || c.connectionsB.length).length]];
     panel.innerHTML = `<h3>Multi-Core</h3><dl class="details multi-core-details">${details.map(([k, v]) => `<dt>${escape(k)}</dt><dd>${escape(v)}</dd>`).join("")}</dl>
       <div class="multi-core-actions"><label>Route style <select data-mc-route-style><option value="bezier">Bezier</option><option value="orthogonal">Orthogonal</option></select></label>
+      <button class="tool-button" type="button" data-mc-edit>Edit Multi-Core</button>
       <button class="tool-button" type="button" data-mc-select-all>Select Assembly</button>
       <button class="tool-button" type="button" data-mc-route-add>Add Route Point</button>
       <button class="tool-button" type="button" data-mc-route-reset>Reset Route</button></div>
       ${mc.trunk.routePoints.map(p => `<div class="multi-core-route-point"><span>${escape(p.id)}</span><button class="tool-button" type="button" data-mc-route-move="${escape(p.id)}">Move</button><button class="tool-button" type="button" data-mc-route-remove="${escape(p.id)}">Remove</button></div>`).join("")}
       ${end ? "" : '<button class="tool-button" type="button" data-mc-delete>Delete Assembly</button>'}`;
     const route = panel.querySelector("[data-mc-route-style]"); route.value = mc.trunk.routeStyle;
+    panel.querySelector("[data-mc-edit]").onclick = () => this.openMultiCoreEditor(record, { tab: identity.role ? `End ${identity.role}` : "Trunk" });
     const edit = (label, fn) => this.commitMultiCoreEdit(label, draft => fn(draft.multiCores.find(item => item.id === mc.id)));
     route.onchange = () => edit("Multi-Core route style", item => { item.trunk.routeStyle = route.value; });
     panel.querySelector("[data-mc-select-all]").onclick = () => {

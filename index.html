@@ -5157,6 +5157,52 @@
     .cable-schedule-dialog::backdrop { background: rgba(0, 0, 0, .7); }
     .signal-chain-dialog { width: min(1120px, 96vw); max-width: none; padding: 0; border: 1px solid var(--panel-border); border-radius: 6px; background: var(--panel-bg); color: var(--ink); box-shadow: 0 20px 60px #0008; }
     .signal-chain-dialog::backdrop { background: #000a; }
+    .mc-editor-backdrop { z-index: 80; }
+    .mc-editor { min-width: 0; min-height: 0; color: var(--ink); }
+    .mc-editor .modal-header { gap: 16px; }
+    .mc-editor .modal-header [data-scope] { flex: 1; font-size: 12px; opacity: .75; }
+    .mc-editor .modal-footer { justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+    .mc-editor-main { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 0; }
+    .mc-editor-content { overflow: auto; padding: 16px; min-height: 0; }
+    .mc-editor h3 { font-size: 14px; margin: 16px 0 8px; }
+    .mc-editor input, .mc-editor select, .mc-editor textarea { box-sizing: border-box; min-width: 0; max-width: 100%; width: 100%; padding: 7px; border: 1px solid var(--panel-border); border-radius: 4px; color: var(--ink); background: var(--panel-strong); font: inherit; }
+    .mc-editor .field { min-width: 0; display: grid; gap: 5px; font-size: 12px; }
+    .mc-editor .editor-tab[data-errors=true] { color: #ef5d64; border-bottom-color: #ef5d64; }
+    .mc-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+    .mc-fields.single { grid-template-columns: 1fr; }
+    .mc-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+    .mc-toolbar > input, .mc-toolbar > select { width: auto; max-width: 180px; }
+    .mc-toolbar input[type=number] { width: 70px; }
+    .mc-toolbar .field { flex: 1; }
+    .mc-toolbar input[type=file] { width: 180px; font-size: 11px; }
+    .mc-info { padding: 12px 0; overflow-wrap: anywhere; }
+    .mc-info dt { font-size: 12px; opacity: .75; margin-top: 10px; }
+    .mc-info dd { margin-left: 0; font-size: 13px; }
+    .mc-diagnostics { border-top: 1px solid var(--panel-border); padding: 8px 16px; font-size: 12px; max-height: 90px; overflow: auto; white-space: pre-line; }
+    .mc-diagnostics[data-invalid=true] { color: #ef5d64; }
+    .mc-end { display: grid; grid-template-columns: 280px minmax(0, 1fr); height: 100%; min-height: 320px; gap: 16px; }
+    .mc-properties { overflow: auto; border-right: 1px solid var(--panel-border); padding-right: 14px; }
+    .mc-face-workspace { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+    .mc-preview { position: relative; min-height: 240px; overflow: hidden; background: var(--canvas-bg, #0b1218); border: 1px solid var(--panel-border); }
+    .mc-port-list { max-height: 160px; overflow: auto; margin-bottom: 12px; }
+    .mc-port-row { width: 100%; display: block; text-align: left; padding: 7px; background: transparent; color: var(--ink); border: 1px solid transparent; border-radius: 4px; font-size: 12px; overflow-wrap: anywhere; }
+    .mc-port-row.active { border-color: var(--accent, #28b8ee); background: #28b8ee22; }
+    .mc-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .mc-table td, .mc-table th { text-align: left; padding: 7px; border-bottom: 1px solid var(--panel-border); vertical-align: top; }
+    .mc-table th { position: sticky; top: 0; background: var(--panel-bg); }
+    .mc-table td .field > span { display: none; }
+    .mc-table small { display: block; max-width: 130px; overflow-wrap: anywhere; margin-top: 4px; opacity: .65; }
+    .mc-table-scroll { overflow: auto; }
+    .mc-table select { min-width: 110px; }
+    .mc-table input { min-width: 70px; }
+    @media (max-width: 760px) {
+      .mc-editor { grid-template-rows: auto minmax(0, 1fr) auto; }
+      .mc-end { grid-template-columns: minmax(0, 1fr); grid-template-rows: 220px minmax(300px, 1fr); min-height: 560px; }
+      .mc-properties { border-right: 0; border-bottom: 1px solid var(--panel-border); padding-right: 0; }
+      .mc-editor .editor-tabs { overflow-x: auto; }
+      .mc-editor .editor-tab { flex-shrink: 0; }
+      .mc-editor-content { padding: 8px; }
+    }
     .pdf-export-dialog { width: min(380px, calc(100vw - 24px)); max-width: none; padding: 0; border: 1px solid var(--panel-border); border-radius: 6px; background: var(--panel-bg); color: var(--ink); box-shadow: 0 20px 60px #0008; }
     .pdf-export-dialog::backdrop { background: #000a; }
     .pdf-export-dialog form { display: grid; gap: 14px; padding: 18px; }
@@ -5312,7 +5358,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled WireNexus Project" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">54.38.107 — Portable Clipboard</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">54.38.108 — Multi-Core Editor</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -6049,12 +6095,12 @@
   <script src="./src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script src="./src/engine/projectorModelCore.js?v=iteration54-38-11-engine-status-labels"></script>
   <script src="./src/engine/historyCloneCore.js?v=iteration54-38-29-memory-safe-undo"></script>
-  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-107-portable-clipboard"></script>
+  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-108-multi-core-editor"></script>
   <script type="text/wirenexus-app" id="wireNexusAppSource">
-    const APP_ITERATION = "54.38.107";
-    const APP_BUILD_ID = "iteration54-38-107-portable-clipboard";
-    const APP_MODULE_CACHE_ID = "iteration54-38-107-portable-clipboard-modules";
-    const APP_BUILD_LABEL = `${APP_ITERATION} — Portable Clipboard`;
+    const APP_ITERATION = "54.38.108";
+    const APP_BUILD_ID = "iteration54-38-108-multi-core-editor";
+    const APP_MODULE_CACHE_ID = "iteration54-38-108-multi-core-editor-modules";
+    const APP_BUILD_LABEL = `${APP_ITERATION} — Multi-Core Editor`;
     const { cloneHistoryValue, MAX_HISTORY_ENTRIES } = window.WireNexusHistoryClone;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
@@ -21388,8 +21434,8 @@
       return entries;
     }
 
-    function clampPowerPlugCenter(template, x, y, width = 32, height = 32) {
-      const rect = powerDistroFaceRect(template);
+    function clampPowerPlugCenter(template, x, y, width = 32, height = 32, faceRect = null) {
+      const rect = faceRect || powerDistroFaceRect(template);
       const halfW = width / 2;
       const halfH = height / 2;
       return {
@@ -21459,9 +21505,10 @@
         .sort((a, b) => a.delta - b.delta || b.priority - a.priority)[0] || null;
     }
 
-    function snapPowerPlugCenter(template, connector, rawX, rawY, width, height, ignoreIds = new Set()) {
-      let center = clampPowerPlugCenter(template, rawX, rawY, width, height);
-      const face = powerDistroFaceRect(template);
+    function snapPowerPlugCenter(template, connector, rawX, rawY, width, height, ignoreIds = new Set(), physicalFace = null) {
+      const face = physicalFace?.face || powerDistroFaceRect(template);
+      const clampCenter = (x, y) => clampPowerPlugCenter(template, x, y, width, height, face);
+      let center = clampCenter(rawX, rawY);
       const faceEdges = {
         left: face.x,
         right: face.x + face.width,
@@ -21470,7 +21517,7 @@
       };
       const ignored = ignoreIds instanceof Set ? ignoreIds : new Set(ignoreIds || []);
       ignored.add(connector.id);
-      const others = powerPlugLayout(template)
+      const others = (physicalFace?.entries || powerPlugLayout(template))
         .filter(entry => !ignored.has(entry.connector.id))
         .map(powerPlugEntryRect);
       const guides = { centerX: null, centerY: null, gaps: [] };
@@ -21516,7 +21563,7 @@
         if (Number.isFinite(bestX.guide?.centerX)) guides.centerX = bestX.guide.centerX;
         else if (bestX.guide) guides.gaps.push(bestX.guide);
       }
-      center = clampPowerPlugCenter(template, center.x, center.y, width, height);
+      center = clampCenter(center.x, center.y);
       moving = powerPlugRectFromCenter(center, width, height);
 
       const yProposals = [];
@@ -21557,7 +21604,7 @@
         if (Number.isFinite(bestY.guide?.centerY)) guides.centerY = bestY.guide.centerY;
         else if (bestY.guide) guides.gaps.push(bestY.guide);
       }
-      center = clampPowerPlugCenter(template, center.x, center.y, width, height);
+      center = clampCenter(center.x, center.y);
       moving = powerPlugRectFromCenter(center, width, height);
 
       return { center, guides };
@@ -22903,10 +22950,10 @@
       return plainPoint(point.matrixTransform(svg.getScreenCTM().inverse()));
     }
 
-    function captureEditorDragCoordinateFrame(event, localPoint = getEditorPreviewPoint(event)) {
+    function captureEditorDragCoordinateFrame(event, localPoint = getEditorPreviewPoint(event), converter = getEditorPreviewPointAtClient) {
       const svg = editorInteractionSvg || editorSvgForEvent(event);
-      const xSample = getEditorPreviewPointAtClient(event.clientX + 1, event.clientY, svg);
-      const ySample = getEditorPreviewPointAtClient(event.clientX, event.clientY + 1, svg);
+      const xSample = converter(event.clientX + 1, event.clientY, svg);
+      const ySample = converter(event.clientX, event.clientY + 1, svg);
       return Object.freeze({
         clientX: Number(event.clientX) || 0,
         clientY: Number(event.clientY) || 0,
@@ -35443,6 +35490,22 @@ document.addEventListener("click", function(event) {
             onEngineCanvasToolKeyEvent: handleEngineCanvasToolKeyEvent,
             onEngineCanvasObjectDoubleClick: handleEngineCanvasObjectDoubleClick,
             onEngineSelection: syncProductionSelectionFromEngine,
+            getMultiCoreEditorContext: () => ({
+              owner: localUserSettingsOwner,
+              nodes: completeEditorNodeDefinitions(Object.entries(cableTypes).map(([id, node]) => ({ ...node, id }))),
+              personalDefinitions: localUserSettingsOwner?.multiCoreDefinitions() || []
+            }),
+            faceplatePlacement: {
+              captureFrame: captureEditorDragCoordinateFrame,
+              dragPoint: getEditorDragPreviewPoint,
+              snap: (face, entries, id, x, y, width, height, ignore) =>
+                snapPowerPlugCenter(null, { id }, x, y, width, height, ignore, { face, entries }),
+              clamp: (face, x, y, width, height) => clampPowerPlugCenter(null, x, y, width, height, face),
+              overlaps: powerPlugOverlapIds,
+              rect: rectFromPoints,
+              contains: rectContainsPoint,
+              zoomModifier: canvasWheelZoomModifierActive
+            },
             onEngineMultiCoreFieldsChange: fields => {
               for (const key of ["multiCores", "multiCoreDefinitions", "multiCoreIdCounter"]) {
                 if (Object.hasOwn(fields, key)) state[key] = fields[key]; else delete state[key];

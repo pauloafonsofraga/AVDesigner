@@ -26,10 +26,18 @@ try {
     await page.locator("#deviceSearch").fill("E2 Gen2");
     const card = page.locator(`#deviceList [data-template-id="${source.id}"]`);
     await card.waitFor({ state: "visible" });
+    const thumbnailMarkup = row => row.locator(".device-thumb").evaluate(el => {
+      const copy = el.cloneNode(true);
+      for (const img of copy.querySelectorAll("img[data-library-src]")) {
+        if (img.hasAttribute("src") && img.getAttribute("src") !== img.dataset.librarySrc) throw new Error("Loaded thumbnail differs from its catalogue source.");
+        img.removeAttribute("src");
+      }
+      return copy.outerHTML;
+    });
     const checkIdentity = async (row, title) => {
       assert.equal(await row.locator("h3").innerText(), title);
       assert.equal(await row.locator("p").innerText(), "Barco / Switchers");
-      assert.equal(await row.locator(".device-thumb").evaluate(el => el.outerHTML), source.thumbnail.trim());
+      assert.equal(await thumbnailMarkup(row), source.thumbnail.trim());
     };
     await checkIdentity(card, "E2 Gen2");
     const favorite = card.locator(".library-favorite");
@@ -71,7 +79,7 @@ try {
       assert.equal(await pairCard.locator("p").innerText(), "Beetek / Extenders");
     }
     await page.locator("#deviceSearch").fill(pair.firstName);
-    assert.equal(await pairCard.locator(".device-thumb").evaluate(el => el.outerHTML), pair.thumbnail.trim());
+    assert.equal(await thumbnailMarkup(pairCard), pair.thumbnail.trim());
     const pairFavorite = pairCard.locator(".library-favorite");
     await pairFavorite.click();
     assert.equal(await pairFavorite.getAttribute("aria-label"), pair.favorite ? "Add to favorites" : "Remove from favorites");

@@ -21,6 +21,13 @@ export { fitCameraToBounds } from "./cameraFit.js";
 export const ENGINE_PREVIEW_BUILD_ID = "iteration53-4-3-compact-rack-projection";
 
 export const ENGINE_PREVIEW_OWNERSHIP = Object.freeze([
+  ownershipRow("multi-core-editor", {
+    surface: "Multi-Core Termination Editor",
+    productionVisual: "EnginePreviewSurface camera, lifecycle and background; editor-only physical faces are not schematic production devices",
+    authoringOverlay: "High-resolution SVG/image face, connector hit targets, marquee and shared Faceplate Editor snap guides",
+    legacyVisual: "Shared faceplate geometry and placement helpers; no alternate main-canvas renderer",
+    duplicateStatus: "Editor-only authoring; two schematic canvas ends and one trunk remain unchanged"
+  }),
   ownershipRow("device-editor", {
     surface: "Device Editor",
     productionVisual: "EnginePreviewSurface via createPreviewDeviceFromDraft -> normalizeAvDesignerDevice -> SceneGraph -> WebglGraphRenderer",
