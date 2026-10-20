@@ -87,21 +87,21 @@ test("projector hover includes the current instance lens below its name without 
   const project = projectorLensFixture(), before = structuredClone(project);
   let scene = buildEngineOutputScene(project);
   const a = hoverArtwork(scene.devices[0]), b = hoverArtwork(scene.devices[1]);
-  assert.deepEqual(a.lines.map(line => line[0]), ["Projector A", "Lens: Wide 0.8:1"]);
-  assert.deepEqual(b.lines.map(line => line[0]), ["Projector B", "Lens: Long Throw 2.5:1"]);
+  assert.deepEqual(a.lines.map(line => line[0]), ["AV Projector A", "Lens: Wide 0.8:1"]);
+  assert.deepEqual(b.lines.map(line => line[0]), ["AV Projector B", "Lens: Long Throw 2.5:1"]);
   assert.equal(a.lines[1][2] - a.lines[0][2], 16);
   assert.equal(a.box[3], 38);
   assert.deepEqual(project, before);
   project.devices[0].selectedProjectorLensId = "standard";
   scene = buildEngineOutputScene(project);
-  assert.deepEqual(hoverArtwork(scene.devices[0]).lines.map(line => line[0]), ["Projector A", "Lens: Standard 1.2:1"]);
+  assert.deepEqual(hoverArtwork(scene.devices[0]).lines.map(line => line[0]), ["AV Projector A", "Lens: Standard 1.2:1"]);
 });
 
 test("ordinary and empty projectors retain the original one-line hover; long lens labels stay in the viewport", () => {
   const device = buildEngineOutputScene(projectorLensFixture()).devices[0];
   for (const visual of [{}, { isProjector: false, projectorLensName: "Stale lens" }, { isProjector: true, projectorLensName: "" }]) {
     const hover = hoverArtwork({ ...device, visual });
-    assert.deepEqual(hover.lines.map(line => line[0]), ["Projector A"]);
+    assert.deepEqual(hover.lines.map(line => line[0]), ["AV Projector A"]);
     assert.equal(hover.box[3], 22);
     assert.equal(hover.lines[0][2], hover.box[1] + 11);
   }

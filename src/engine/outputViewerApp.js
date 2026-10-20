@@ -1,4 +1,5 @@
 import { WebglGraphRenderer } from "./renderer.js";
+import { deviceHeaderLabel } from "./deviceDisplayName.js";
 import { fitCameraToBounds } from "./cameraFit.js";
 import { createOutputViewerModel, outputSelectionDetails, outputCableTrace, outputJumpLinkOverlays, outputConnectedNodeItems } from "./outputViewerModel.js";
 import { screenToWorld, hitTestConnector, hitTestDevice, hitTestWire, hitTestLoom, hitTestRack, distanceToPolyline } from "./hitTest.js";
@@ -252,7 +253,7 @@ export class EngineOutputViewer {
     if (!this.deviceHint || !this.stage || !point) { this.hideDeviceHint(); return false; }
     const device = hitTestDevice(this.scene, screenToWorld(this.camera, point)).device;
     if (!device) { this.hideDeviceHint(); return false; }
-    this.deviceHint.textContent = device.label || device.id;
+    this.deviceHint.textContent = deviceHeaderLabel(device);
     this.deviceHint.hidden = false;
     const x = Math.min(point.x + 14, this.stage.clientWidth - this.deviceHint.offsetWidth - 8);
     const y = Math.min(point.y + 14, this.stage.clientHeight - this.deviceHint.offsetHeight - 8);

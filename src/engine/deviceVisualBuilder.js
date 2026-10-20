@@ -1,4 +1,5 @@
 import { engineConnectorInfoFields } from "./connectorCompatibility.js";
+import { deviceHeaderLabel, hasOrdinaryDeviceHeader } from "./deviceDisplayName.js";
 import {
   adapterColorStops,
   adapterInternalWirePairs,
@@ -431,7 +432,8 @@ function drawDeviceHeader(ctx, device, width, pad, detailed) {
   drawFittedText(ctx, title, 20, 22, width - 40, 15.4, {
     weight: 900,
     fill: "#ffffff",
-    baseline: "alphabetic"
+    baseline: "alphabetic",
+    truncate: hasOrdinaryDeviceHeader(device)
   });
   if (device.visual?.isProjector && device.visual.projectorLensName) {
     drawFittedText(ctx, `Lens: ${device.visual.projectorLensName}`, 20, 34, width - 40, 10.5, {
@@ -1131,7 +1133,7 @@ function groupConnectors(connectors) {
 }
 
 function drawFittedText(ctx, text, x, y, maxWidth, maxSize, options = {}) {
-  const value = String(text || "").trim();
+  let value = String(text || "").trim();
   if (!value || maxWidth <= 0 || maxSize <= 0) return;
   const minSize = options.minSize || 5;
   let size = maxSize;
@@ -1144,6 +1146,9 @@ function drawFittedText(ctx, text, x, y, maxWidth, maxSize, options = {}) {
     if (ctx.measureText(value).width <= maxWidth || size <= minSize) break;
     size -= 0.75;
   } while (size > minSize);
+  if (options.truncate && ctx.measureText(value).width > maxWidth) {
+    value = wrapTitleBlockValue(ctx, value, maxWidth, 1)[0] || "";
+  }
   let drawX = x;
   if (ctx.textAlign === "center") drawX = x + maxWidth / 2;
   if (ctx.textAlign === "right") drawX = x + maxWidth;
@@ -1356,6 +1361,7 @@ function adapterDiagnostics(device) {
 }
 
 function textureTitle(device) {
+  if (hasOrdinaryDeviceHeader(device)) return deviceHeaderLabel(device);
   const visual = device.visual || {};
   if (device.kind === "jump" || isCanvasObjectKind(device) || device.kind === "adapter") {
     return String(device.label || visual.displayName || visual.templateName || device.kind || "Object").trim();

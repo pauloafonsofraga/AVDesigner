@@ -1,4 +1,5 @@
 import { SceneGraph } from "./sceneGraph.js";
+import { deviceHeaderLabel } from "./deviceDisplayName.js";
 import { resolvePlayableSignalPath, jumpNodeRoleLabel } from "./jumpNodeModel.js";
 import { resolveOutputDeviceAssets } from "./outputViewerAssets.js";
 import { assertOutputSceneContract } from "./outputSceneContract.js";
@@ -123,7 +124,7 @@ export function outputSelectionDetails(scene, selection) {
   const device = scene.getDevice(selection.deviceId || selection.id);
   if (!device) return outputSelectionDetails(scene, null);
   const connector = selection.type === "connector" ? scene.getConnector(device.id, selection.id) : null;
-  const rows = connector ? [["Device", device.label], ["ID", connector.id], ["Type", engineConnectorUserFacingTypeLabel(connector)],
+  const rows = connector ? [["Device", deviceHeaderLabel(device)], ["ID", connector.id], ["Type", engineConnectorUserFacingTypeLabel(connector)],
     [connector.nameTextCaption || "Name", connector.nameText],
     [connector.resolutionFrameRateCaption || "Resolution", connector.resolutionFrameRate],
     [connector.customTextCaption || "Custom", connector.customText], ["Status", connector.operationalStatus]]
@@ -135,7 +136,7 @@ export function outputSelectionDetails(scene, selection) {
   const wireIds = scene.wires.filter(w => !w.multiCoreIdentity && ["from", "to"].some(end =>
     (w[`${end}DeviceId`] === device.id || w[`${end}SurfaceId`] === device.id)
     && (!connector || w[`${end}ConnectorId`] === connector.id))).map(w => w.id);
-  return { title: connector?.nameText || (connector ? engineConnectorUserFacingTypeLabel(connector) : device.label), rows, wireIds };
+  return { title: connector?.nameText || (connector ? engineConnectorUserFacingTypeLabel(connector) : deviceHeaderLabel(device)), rows, wireIds };
 }
 
 export function outputCableTrace(model, selection) {

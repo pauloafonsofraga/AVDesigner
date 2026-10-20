@@ -1,4 +1,5 @@
 import { resolveProjectorLens } from "./projectorModel.js";
+import { deviceBrandForDisplay } from "./deviceDisplayName.js";
 import { multiCoreConnectivityModelSnapshot, isMultiCoreEndpointReference } from "./multiCoreConnectivity.js";
 import { projectMultiCoreScene, multiCoreEndKey } from "./multiCoreProjection.js";
 import { CONNECTOR_RELATIONSHIP_FIELDS, normalizeConnectorRelationshipMetadata } from "./connectorRelationshipMetadata.js";
@@ -645,7 +646,7 @@ function normalizeDeviceVisualMetadata(
   height = DEFAULT_DEVICE_HEIGHT,
   nodeColorByType = NODE_TYPE_FALLBACKS
 ) {
-  const brand = String(instance.brand || template.brand || "").trim();
+  const brand = deviceBrandForDisplay(instance) || deviceBrandForDisplay(template);
   const model = String(instance.model || template.model || "").trim();
   const category = String(instance.category || template.category || template.type || template.section || "").trim();
   const faceImage = String(instance.faceImage || template.faceImage || "").trim();

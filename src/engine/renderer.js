@@ -1,4 +1,5 @@
 import { TextureCache } from "./textureCache.js";
+import { deviceHeaderLabel, hasOrdinaryDeviceHeader } from "./deviceDisplayName.js";
 import { adapterRotationBounds, adapterWorldPoint, rotateAdapterPoint } from "./adapterRotation.js";
 import { isTransceiverCage, transceiverModulePresentation } from "./transceiverModules.js";
 import {
@@ -76,7 +77,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-115-sfp-sdi-dac";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-116-device-brand-headers";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -3952,6 +3953,7 @@ function packVertexMap(map) {
 }
 
 function deviceLabel(device) {
+  if (device && hasOrdinaryDeviceHeader(device)) return deviceHeaderLabel(device);
   return String(device?.label || device?.visual?.displayName || device?.id || "").trim();
 }
 
