@@ -1,6 +1,7 @@
 import { bezierPolyline } from "./wirePath.js";
 import { isConnectorExplicitlyBidirectional } from "./deviceDefinitionV2.js";
 import { jumpPairLoomConflict, loomForJump } from "./loomJumpAssociation.js";
+import { multiCoreForJump, multiCoreJumpPairConflict } from "./multiCoreJumpRouting.js";
 import {
   engineConnectorCompatibilityType,
   engineConnectorDisplayLabel,
@@ -13,7 +14,7 @@ export const JUMP_NODE_VISUAL_RADIUS = JUMP_NODE_SIZE * JUMP_NODE_VISUAL_SCALE /
 export const LOOM_JUMP_SCALE = 2.4;
 export function jumpNodeRenderRadius(device) {
   return Math.max(Number(device?.width) || JUMP_NODE_SIZE, Number(device?.height) || JUMP_NODE_SIZE) / 2
-    * (device?.visual?.jumpLoomId ? LOOM_JUMP_SCALE : 1);
+    * (device?.visual?.jumpLoomId || device?.visual?.jumpMultiCoreId ? LOOM_JUMP_SCALE : 1);
 }
 export const JUMP_NODE_INFO_MIN_ZOOM = 0.4;
 export const JUMP_NODE_CONNECTOR_ID = "jump-center";
@@ -306,7 +307,7 @@ export function sceneJumpDeviceWire(scene, jumpId = "", { excludeWireId = "", wi
     const wire = typeof scene.getWire === "function"
       ? scene.getWire(wireId)
       : (scene.wires || []).find(item => String(item?.id || "") === String(wireId));
-    if (!wire) continue;
+    if (!wire || wire.multiCoreIdentity) continue;
     const side = sceneWireJumpEndpoint(wire, id);
     if (!side) continue;
     const otherEnd = side === "from" ? "to" : "from";
@@ -344,8 +345,10 @@ export function sceneJumpNodeRole(scene, jumpId = "") {
   const link = scene?.jumpLinkForNode?.(jumpId);
   const peer = link?.deviceIndependent ? sceneJumpDeviceWire(scene, pairedJumpIdForLink(link, jumpId)) : null;
   const loom = loomForJump(scene, jumpId);
-  const role = loom && link
-    ? loom.jumpRouting.entryJumpId === jumpId ? JUMP_NODE_ROLE.output : JUMP_NODE_ROLE.input
+  const mc = multiCoreForJump(scene, jumpId);
+  const routing = mc?.trunk?.jumpRouting || loom?.jumpRouting;
+  const role = mc || (loom && link)
+    ? routing.entryJumpId === jumpId ? JUMP_NODE_ROLE.output : JUMP_NODE_ROLE.input
     : independentJumpRole(baseRole, jumpConnectorBaseRole(peer?.otherConnector), link, jumpId);
   return {
     role,
@@ -359,7 +362,7 @@ export function sceneJumpNodeRole(scene, jumpId = "") {
 }
 
 export function jumpNodeVisualState(device) {
-  const occupied = Boolean(device?.visual?.jumpLocalWireId || device?.visual?.jumpLoomId);
+  const occupied = Boolean(device?.visual?.jumpLocalWireId || device?.visual?.jumpLoomId || device?.visual?.jumpMultiCoreId);
   const paired = Boolean(device?.visual?.jumpPairedId);
   return { occupied, paired, statusDotColor: occupied ? paired ? "" : "#ef4444" : paired ? "#a855f7" : "" };
 }
@@ -373,6 +376,11 @@ export function jumpNodeConnectionInfo(scene, jumpId = "") {
     ? scene.pairedJumpId(id)
     : pairedJumpIdForLink(link, id);
   const pairLocal = pairId ? sceneJumpDeviceWire(scene, pairId) : null;
+  const mc = multiCoreForJump(scene, id);
+  if (mc) {
+    const text = `${mc.name || mc.id}${pairId ? "" : " - Waiting for pair"}`;
+    return { ...unassignedJumpInfo("right", "to", id, pairId), text, displayText: text };
+  }
   const loom = loomForJump(scene, id);
   if (loom?.jumpRouting) {
     const continuing = id !== loom.jumpRouting.entryJumpId && !loom.jumpRouting.continuationComplete;
@@ -469,6 +477,8 @@ export function jumpPairCompatibility(scene, firstJumpId, secondJumpId, {
   if (scene?.jumpLinkForNode?.(secondId)) return invalidPair("already-paired", "Target Jump Node is already paired.");
   const loomConflict = jumpPairLoomConflict(scene, firstId, secondId);
   if (loomConflict) return invalidPair("loom-ownership", loomConflict);
+  const mcConflict = multiCoreJumpPairConflict(scene, firstId, secondId);
+  if (mcConflict) return invalidPair("multi-core-ownership", mcConflict);
   const firstRole = sceneJumpNodeRole(scene, firstId);
   const secondRole = sceneJumpNodeRole(scene, secondId);
   if ((firstRole.localWire && firstRole.baseRole === JUMP_NODE_ROLE.neutral)
@@ -695,6 +705,7 @@ function independentJumpRole(baseRole, peerRole, link, jumpId) {
 }
 
 export function jumpDeviceAttachmentCompatibility(scene, jumpId, realHit, { compatibilitySummary, excludeWireId = "" } = {}) {
+  if (multiCoreForJump(scene, jumpId)) return invalidPair("multi-core-ownership", "This Jump carries a Multi-Core trunk.");
   if (loomForJump(scene, jumpId)) return invalidPair("loom-ownership", "This Jump carries a Loom bundle.");
   const link = scene?.jumpLinkForNode?.(jumpId);
   if (!link) return { valid: true };

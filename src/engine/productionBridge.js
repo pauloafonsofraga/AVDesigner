@@ -45,6 +45,8 @@ import { externalCableEndpoints, initialLoomHeads, locatePointOnLoomRoute, loomC
   resolveLoomRouteAttachment, translateLoomSection } from "./loomGeometry.js";
 import { canonicalLoomWireRouting } from "./loomJumpRouting.js";
 import { loomForJump, loomJumpAttachmentCompatibility, reconcileLoomJumpAssociations } from "./loomJumpAssociation.js";
+import { multiCoreForJump } from "./multiCoreJumpRouting.js";
+import { multiCoreProjectFields } from "./multiCoreModel.js";
 import { monitorNameUpdates } from "./monitorNaming.js";
 import { PerfHud } from "./perfHud.js";
 import { validateEngineScene } from "./sceneValidation.js";
@@ -158,8 +160,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-108-multi-core-editor";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-108-multi-core-editor";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-109-multi-core-jumps";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-109-multi-core-jumps";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -1735,6 +1737,7 @@ class ProductionEngineBridge {
     const connectorHit = hit?.connector || hit;
     const jumpDevice = connectorHit?.device || hit?.device || null;
     if (!jumpDevice || !isJumpNodeDevice(jumpDevice)) return false;
+    if (!this.activeCanvasTool()) this.canvasToolPointerActive = false;
     this.cancelPendingJumpPress("replace", { updateHud: false });
     const roleInfo = this.scene.jumpNodeRole(jumpDevice.id);
     const startStatus = this.jumpLinkStartStatus(jumpDevice.id);
@@ -2055,6 +2058,7 @@ class ProductionEngineBridge {
     }
     this.refreshJumpNodeVisuals([sceneLink.outputJumpId, sceneLink.inputJumpId], { reason: "create jump link" });
     if (this.scene.looms.some(loom => loom.jumpRouting)) this.refreshLoomComposition();
+    if (this.mutations?.root?.multiCores?.length) this.refreshMultiCoreJumpProjection();
     this.recordCommand(createJumpLinkCommand(sceneLink, mutationResult.index));
     this.lastPortalCommand = { type: "create jump link", ...sceneLink };
     this.scene.selectJumpPairPrimary(state.fromJumpId);
@@ -3056,7 +3060,8 @@ class ProductionEngineBridge {
       this.scheduleRender();
       return;
     }
-    if (this.dispatchCanvasToolPointerEvent("pointerup", event, point)) {
+    // A claimed Jump gesture must finish even after the placement tool was toggled off.
+    if (!this.pendingJumpPress && !this.jumpLinkCreate && this.dispatchCanvasToolPointerEvent("pointerup", event, point)) {
       this.releasePointerCapture(event.pointerId);
       return;
     }
@@ -3391,8 +3396,7 @@ class ProductionEngineBridge {
     }
   }
 
-  beginPendingDrag(point, worldPoint, event = null) {
-    const requestedIds = [...this.scene.selectedIds];
+  beginPendingDrag(point, worldPoint, event = null, requestedIds = [...this.scene.selectedIds]) {
     if (!requestedIds.length) return;
     const selectedIds = this.draggableSelectedIds(requestedIds);
     if (!selectedIds.length) {
@@ -7603,6 +7607,8 @@ class ProductionEngineBridge {
 
   jumpLinkLabel(linkId) {
     const link = this.scene.getJumpLink(linkId);
+    const mc = multiCoreForJump(this.scene, link?.outputJumpId);
+    if (mc) return mc.name || mc.id;
     const wires = sceneJumpLinkPhysicalWires(this.scene, link);
     const connections = this.mutations?.root?.connections || [];
     const stored = wires.map(wire => ({ label: connections.find(item => item.id === (wire.sourceId || wire.id))?.label,
@@ -9307,6 +9313,10 @@ class ProductionEngineBridge {
         }
         this.refreshLoomComposition();
       }
+      for (const saved of deviceData.multiCoreJumpSnapshots || []) {
+        this.mutations.editMultiCore(saved.id, draft => { draft.trunk.jumpRouting = structuredClone(saved.trunk.jumpRouting); });
+      }
+      if (deviceData.multiCoreJumpSnapshots?.length) this.refreshMultiCoreJumpProjection();
       return result;
     }
     const objectKind = String(deviceData?.__engineObjectKind || "");
@@ -9406,6 +9416,13 @@ class ProductionEngineBridge {
     }
     if (isJumpNodeDevice(device)) {
       const sourceId = String(device.sourceId || id);
+      const multiCoreJumpSnapshots = (this.mutations.root.multiCores || [])
+        .filter(mc => mc?.trunk?.jumpRouting?.entryJumpId === id).map(mc => structuredClone(mc));
+      for (const saved of multiCoreJumpSnapshots) this.mutations.editMultiCore(saved.id, draft => { delete draft.trunk.jumpRouting; });
+      if (multiCoreJumpSnapshots.length) {
+        this.multiCoreRoutePlacement = null;
+        this.updateCanvasCursor();
+      }
       const loomJumpSnapshots = this.mutations.root.looms.filter(loom => loomForJump(this.scene, id)?.id === loom.id)
         .map(loom => structuredClone(loom));
       for (const saved of loomJumpSnapshots) {
@@ -9421,7 +9438,7 @@ class ProductionEngineBridge {
           delete loom.jumpRouting;
         } else loom.jumpRouting.exitJumpId = "";
       }
-      const undoPayload = data => ({ ...jumpNodeUndoPayload(data), loomJumpSnapshots });
+      const undoPayload = data => ({ ...jumpNodeUndoPayload(data), loomJumpSnapshots, multiCoreJumpSnapshots });
       const link = this.scene.jumpLinkForNode(id);
       const removedLink = link ? this.removeJumpLink(link.id) : { mutationMs: 0, linkData: null, index: -1 };
       const mutationResult = this.mutations?.removeJumpNode(sourceId) || { mutationMs: 0, jumpNodeData: null, index: -1 };
@@ -9436,6 +9453,8 @@ class ProductionEngineBridge {
       }
       const dirtyStats = this.renderer.removeDevice(this.scene, id);
       if (loomJumpSnapshots.length) this.refreshLoomComposition();
+      if (multiCoreJumpSnapshots.length) this.applyMultiCoreFields(multiCoreProjectFields(this.mutations.root));
+      else this.refreshMultiCoreJumpProjection();
       this.lastDirtyDeviceIds = new Set([id]);
       this.lastDirtyWireIds = new Set();
       this.renderOptions.dirtyDeviceIds = this.lastDirtyDeviceIds;
@@ -9633,6 +9652,7 @@ class ProductionEngineBridge {
     }
     this.refreshJumpNodeVisuals([link.outputJumpId, link.inputJumpId], { reason: "restore jump link" });
     if (this.scene.looms.some(loom => loom.jumpRouting)) this.refreshLoomComposition();
+    if (this.mutations?.root?.multiCores?.length) this.refreshMultiCoreJumpProjection();
     this.lastPortalCommand = { type: "restore jump link", ...link };
     this.updateJumpNodeDebugSnapshot("restore-jump-link");
     this.scheduleRender();
@@ -9645,6 +9665,7 @@ class ProductionEngineBridge {
     const mutationResult = this.mutations?.removeJumpLink(removed.link.id) || { mutationMs: 0, index: removed.index, linkData: removed.link };
     this.refreshJumpNodeVisuals([removed.link.outputJumpId, removed.link.inputJumpId], { reason: "remove jump link" });
     if (this.scene.looms.some(loom => loom.jumpRouting)) this.refreshLoomComposition();
+    if (this.mutations?.root?.multiCores?.length) this.refreshMultiCoreJumpProjection();
     this.lastPortalCommand = { type: "remove jump link", ...removed.link };
     this.updateJumpNodeDebugSnapshot("remove-jump-link");
     this.scheduleRender();

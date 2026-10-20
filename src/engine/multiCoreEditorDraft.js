@@ -21,6 +21,7 @@ export function duplicateMultiCoreDefinition(source, usedIds = []) {
   const allocated = allocateMultiCoreId({ prefix: "mc-definition", usedIds: [...usedIds, source.id] });
   if (!allocated.id) throw new Error(allocated.diagnostics[0].message);
   const draft = copy(source);
+  if (draft.trunk) delete draft.trunk.jumpRouting;
   Object.assign(draft, { id: allocated.id, revision: "1", name: `${source.name || "Multi-Core"} Copy` });
   for (const field of ["definitionId", "definitionRevision", "resolvedDefinition", "assemblyId", "location", "libraryProvenance", "factoryTemplateId"]) delete draft[field];
   for (const role of ["A", "B"]) {

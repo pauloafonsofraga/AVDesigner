@@ -1,5 +1,6 @@
 import { normalizeMultiCore } from "./multiCoreModel.js";
 import { ENGINE_CONNECTOR_TYPE_COLORS } from "./connectorCompatibility.js";
+import { multiCoreJumpDiagnostics, multiCoreJumpPeer, multiCoreSectionPoints, multiCoreSectionKey } from "./multiCoreJumpRouting.js";
 
 // Keys belong to the render graph only. Canonical endpoints never contain them.
 export const multiCoreEndKey = (multiCoreId, endId) => JSON.stringify(["multi-core-end", multiCoreId, endId]);
@@ -10,6 +11,8 @@ export const multiCorePortReference = (device, connectorId) => ({ kind: "multi-c
 /** Schematic primitives only: no face images, canonical devices, or physical cables. */
 export function projectMultiCoreScene(project, connectivity) {
   const devices = [], trunks = [], diagnostics = [];
+  const gatewayDiagnostics = multiCoreJumpDiagnostics(project);
+  diagnostics.push(...gatewayDiagnostics);
   const reserved = new Set((connectivity?.owners || []).map(owner => owner.id));
   for (const connection of Array.isArray(project.connections) ? project.connections : []) reserved.add(connection?.id);
   const ambiguous = new Set((connectivity?.diagnostics || []).filter(d => d.code === "ambiguous-identity").map(d => d.identity));
@@ -53,13 +56,28 @@ export function projectMultiCoreScene(project, connectivity) {
     if (reserved.has(multiCoreTrunkKey(mc.id)) || mc.trunk.routePoints.some(p => Math.abs(p.x) > 1e7 || Math.abs(p.y) > 1e7)) {
       diagnostics.push({ severity: "error", message: "Multi-Core trunk has ambiguous identity or out-of-range geometry; saved data retained.", multiCoreId: mc.id }); continue;
     }
-    trunks.push({ id: multiCoreTrunkKey(mc.id), sourceId: mc.id, sourceKind: "multi-core-trunk",
+    const trunk = { id: multiCoreTrunkKey(mc.id), sourceId: mc.id, sourceKind: "multi-core-trunk",
       multiCoreIdentity: { kind: "multi-core-trunk", multiCoreId: mc.id },
       fromDeviceId: ends[0].id, toDeviceId: ends[1].id, fromSide: "bottom", toSide: "bottom",
       routePoints: structuredClone(mc.trunk.routePoints), routeStyle: mc.trunk.routeStyle, manualRoute: true,
       color: "#97a7b5", label: `${mc.name || mc.id} / ${mc.circuits?.length || 0} circuits`,
       length: mc.trunk.length == null ? "" : `${mc.trunk.length} ${mc.trunk.lengthUnit || ""}`,
-      cableType: "", selectable: true });
+      cableType: "", selectable: true };
+    if (!mc.trunk.jumpRouting) trunks.push(trunk);
+    else if (!gatewayDiagnostics.some(d => d.multiCoreId === mc.id)) {
+      const routing = mc.trunk.jumpRouting, peer = multiCoreJumpPeer(project, routing.entryJumpId);
+      if (Object.values(routing.sections).some(section => reserved.has(multiCoreSectionKey(mc.id, section.id)))) {
+        diagnostics.push({ severity: "error", message: "Multi-Core section key collides with a project object; saved data retained.", multiCoreId: mc.id }); continue;
+      }
+      for (const role of peer ? ["A", "B"] : ["A"]) {
+        const section = routing.sections[role];
+        trunks.push({ ...trunk, id: multiCoreSectionKey(mc.id, section.id),
+          multiCoreIdentity: { ...trunk.multiCoreIdentity, sectionId: section.id, sectionRole: role },
+          fromDeviceId: role === "A" ? ends[0].id : peer,
+          toDeviceId: role === "A" ? routing.entryJumpId : ends[1].id,
+          routePoints: structuredClone(multiCoreSectionPoints(mc, role)) });
+      }
+    }
   }
   return { devices, trunks, diagnostics };
 }

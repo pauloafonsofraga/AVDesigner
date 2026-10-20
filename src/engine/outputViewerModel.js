@@ -24,6 +24,7 @@ export function createOutputViewerModel(snapshot, { assets } = {}) {
   });
   scene.setData({ devices: contract.devices.map(d => resolveOutputDeviceAssets(d, assets)), wires: contract.wires, racks,
     jumpLinks: contract.jumpLinks, looms: contract.looms, loomPlans: contract.loomPlans,
+    projectData: contract.modelData ? { multiCores: contract.modelData.multiCores } : null,
     meta: { cableHops: contract.diagnostics?.cableHops?.enabled !== false } });
   return { contract, scene, normalizationMs: performance.now() - start };
 }

@@ -1,5 +1,6 @@
 import { EnginePreviewSurface } from "./enginePreview.js";
 import { MULTI_CORE_STYLES, MULTI_CORE_MEDIA_FAMILIES } from "./multiCoreModel.js";
+import { attachMultiCoreJump, multiCoreJumpPeer } from "./multiCoreJumpRouting.js";
 import { legacyFaceImagePlacement } from "./faceplateGeometry.js";
 import { imageDataUrl } from "../imageAssets.js";
 import { detectClipboardImageMime } from "./canvasClipboardAssets.js";
@@ -125,6 +126,20 @@ export class MultiCoreEditor {
       <div class="mc-toolbar"><input aria-label="New group name" placeholder="Group name" value="New group"><select aria-label="Group media">${MULTI_CORE_MEDIA_FAMILIES.map(f => option(f, title(f))).join("")}</select>
       <input aria-label="Group specification" placeholder="Physical specification"><select aria-label="Group connector">${this.nodeOptions()}</select><input aria-label="Group quantity" type="number" min="1" max="128" value="1">${button("add-group", "Add Group")}</div>`;
     const groups = content.querySelector(".mc-groups");
+    if (!this.session.definition) {
+      const routing = mc.trunk.jumpRouting, project = this.bridge.mutations.root;
+      const gateways = document.createElement("div"); gateways.className = "mc-toolbar";
+      gateways.innerHTML = `<label class="field">Jump gateway<select aria-label="Trunk Jump gateway"><option value="">Continuous trunk</option>${list(project.jumpNodes).map(j => `<option value="${esc(j.id)}">${esc(j.label || j.id)}</option>`).join("")}</select></label>
+        <span>${routing ? esc(multiCoreJumpPeer(project, routing.entryJumpId) ? "Paired" : "Waiting for pair") : ""}</span>
+        ${Object.entries(routing?.sections || {}).map(([role, s]) => `<span>Section ${esc(role)}: ${esc(s?.id)} (${list(s?.pointIds).length} points)</span>`).join("")}`;
+      const select = gateways.querySelector("select"); select.value = routing?.entryJumpId || "";
+      select.disabled = this.session.readOnly;
+      select.onchange = () => this.run(() => this.edit(d => {
+        if (select.value) Object.assign(d, attachMultiCoreJump(d, select.value));
+        else delete d.trunk.jumpRouting;
+      }));
+      content.prepend(gateways);
+    }
     for (const [index, group] of list(mc.trunk.circuitGroups).entries()) {
       const row = document.createElement("div"); row.className = "mc-toolbar";
       row.innerHTML = `${this.field("Name", `trunk.circuitGroups.${index}.name`)}${this.field("Media", `trunk.circuitGroups.${index}.mediaFamily`, { values: MULTI_CORE_MEDIA_FAMILIES })}${this.field("Specification", `trunk.circuitGroups.${index}.mediaSpec`)}

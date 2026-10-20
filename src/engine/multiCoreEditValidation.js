@@ -1,5 +1,6 @@
 import { MULTI_CORE_PROJECT_FIELDS, MULTI_CORE_SCHEMA_VERSION, multiCoreProjectFields, normalizeMultiCoreProject } from "./multiCoreModel.js";
 import { createMultiCoreConnectivity, isMultiCoreEndpointReference, multiCorePhysicalCompatibility } from "./multiCoreConnectivity.js";
+import { multiCoreJumpDiagnostics } from "./multiCoreJumpRouting.js";
 
 const list = value => Array.isArray(value) ? value : [];
 const rootOf = value => value?.state || value?.project || value || {};
@@ -38,7 +39,7 @@ export function multiCoreEditDiagnosticKey(diagnostic, project) {
     ? root : one(root.multiCores, diagnostic.multiCoreId) || root;
   return stable({ code: diagnostic.code || diagnostic.category, category: diagnostic.category,
     severity: diagnostic.severity, path: identityPath(diagnostic.path, local),
-    multiCoreId: diagnostic.multiCoreId, end: diagnostic.end, endId: diagnostic.endId,
+    multiCoreId: diagnostic.multiCoreId, end: diagnostic.end, endId: diagnostic.endId, jumpId: diagnostic.jumpId,
     circuitId: diagnostic.circuitId, portId: diagnostic.portId, wireId: diagnostic.wireId,
     side: diagnostic.side, reference: diagnostic.reference, identity: diagnostic.identity,
     portKey: diagnostic.portKey, rule: diagnostic.rule, jumpLinkId: diagnostic.jumpLinkId,
@@ -68,9 +69,11 @@ function structuralFields(project) {
   for (const mc of list(fields.multiCores)) {
     if (!record(mc) || mc.schemaVersion !== MULTI_CORE_SCHEMA_VERSION) continue;
     for (const end of Object.values(mc.ends || {})) if (record(end)) { delete end.x; delete end.y; }
-    if (record(mc.trunk)) for (const field of ["routeStyle", "routePoints"]) delete mc.trunk[field];
+    if (record(mc.trunk)) for (const field of ["routeStyle", "routePoints", "jumpRouting"]) delete mc.trunk[field];
     if (record(mc.idCounters)) {
       delete mc.idCounters.routePoint;
+      delete mc.idCounters.gateway;
+      delete mc.idCounters.section;
       if (!Object.keys(mc.idCounters).length) delete mc.idCounters;
     }
   }
@@ -79,6 +82,12 @@ function structuralFields(project) {
 
 function protectOpaqueRecords(before, after) {
   const diagnostics = [];
+  for (const mc of list(before.multiCores)) {
+    const routing = mc?.trunk?.jumpRouting;
+    if (routing && (routing.schemaVersion !== 1 || routing.kind !== "multi-core-jump")
+      && !same(routing, one(after.multiCores, mc.id)?.trunk?.jumpRouting))
+      diagnostics.push(issue("opaque-gateway-edit", "Unsupported gateway associations must remain unchanged; no supported migration is available.", { multiCoreId: mc.id }));
+  }
   for (const field of ["multiCores", "multiCoreDefinitions"]) {
     const remaining = list(after[field]).slice();
     for (const value of list(before[field])) {
@@ -170,7 +179,8 @@ export function validateMultiCoreEdit(beforeInput, afterInput, context = {}) {
   const structural = !same(structuralFields(before), structuralFields(after));
   const beforeModel = normalizeMultiCoreProject(multiCoreProjectFields(before));
   const afterModel = normalizeMultiCoreProject(multiCoreProjectFields(after));
-  const beforeDiagnostics = [...beforeModel.diagnostics], afterDiagnostics = [...afterModel.diagnostics];
+  const beforeDiagnostics = [...beforeModel.diagnostics, ...multiCoreJumpDiagnostics(before)],
+    afterDiagnostics = [...afterModel.diagnostics, ...multiCoreJumpDiagnostics(after)];
   const restrictions = protectOpaqueRecords(before, after);
   if (context.project && Object.keys(afterInput).some(key => !MULTI_CORE_PROJECT_FIELDS.includes(key)))
     restrictions.push(issue("edit-scope", "A Multi-Core transaction may only change Multi-Core project fields."));

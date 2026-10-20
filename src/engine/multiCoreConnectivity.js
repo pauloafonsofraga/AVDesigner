@@ -312,7 +312,10 @@ export function createMultiCoreConnectivity(projectInput, { getConnector, onStag
     loomJumps.add(routing.entryJumpId); loomJumps.add(routing.exitJumpId);
     for (const link of linksAtJump.get(routing.entryJumpId) || []) { loomJumps.add(link.outputJumpId); loomJumps.add(link.inputJumpId); }
   }
+  const trunkJumps = new Set(list(project.multiCores).map(mc => mc?.trunk?.jumpRouting?.entryJumpId).filter(Boolean));
   for (const link of rawLinks) {
+    // Trunk gateways are drawing discontinuities, never passive electrical edges.
+    if (trunkJumps.has(link.outputJumpId) || trunkJumps.has(link.inputJumpId)) continue;
     const a = resolve({ jumpNodeId: link?.outputJumpId }), b = resolve({ jumpNodeId: link?.inputJumpId });
     const invalid = !a.valid || !b.valid || a.key === b.key || linkIds.get(link?.id)?.length !== 1
       || [link.outputJumpId, link.inputJumpId].some(jump => linksAtJump.get(jump)?.length !== 1);

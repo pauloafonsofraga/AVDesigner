@@ -8,6 +8,8 @@ import {
 import { cloneMatrixRoutes } from "./matrixRouting.js?v=iteration54-4-0-matrix-routing-internal-routes";
 import { normalizeJumpLinks } from "./jumpNodeModel.js";
 import { multiCoreProjectFields } from "./multiCoreModel.js";
+import { validateMultiCoreEdit } from "./multiCoreEditValidation.js";
+import { replaceMultiCoreSectionPoints } from "./multiCoreJumpRouting.js";
 import { multiCorePortReference } from "./multiCoreProjection.js";
 import { eligibleDeviceForJump, reconcileJumpAttachment, jumpAttachmentSnapshot } from "./jumpAttachment.js";
 
@@ -379,18 +381,36 @@ export class ProjectMutationAdapter {
     return this.lastMutation.durationMs;
   }
 
+  validateMultiCoreProject(after) {
+    if (!this.root.multiCores?.length) return;
+    const result = validateMultiCoreEdit(this.root, after);
+    if (!result.valid) throw new Error(result.blockingDiagnostics.map(d => d.message).join(" "));
+  }
+
+  editMultiCore(id, edit) {
+    const before = multiCoreProjectFields(this.root), after = structuredClone(before);
+    const index = after.multiCores.findIndex(mc => mc.id === id);
+    if (index < 0) throw new Error("Missing Multi-Core assembly.");
+    edit(after.multiCores[index]);
+    const result = validateMultiCoreEdit(before, after, { project: this.root });
+    if (!result.valid) throw new Error(result.blockingDiagnostics.map(d => d.message).join(" "));
+    this.root.multiCores[index] = after.multiCores[index];
+  }
+
   writeDevicePosition(device) {
     if (device.multiCoreIdentity) {
       const { multiCoreId, role, endId } = device.multiCoreIdentity;
       const matches = (this.root.multiCores || []).filter(mc => mc.id === multiCoreId);
       const end = matches.length === 1 ? matches[0].ends?.[role] : null;
       if (!end || end.id !== endId) return { ok: false };
-      end.x = device.x; end.y = device.y;
+      this.editMultiCore(multiCoreId, draft => { draft.ends[role].x = device.x; draft.ends[role].y = device.y; });
       return { ok: true, path: `multiCores.${multiCoreId}.ends.${role}` };
     }
     const sourceId = String(device.sourceId || device.id);
     if (device.sourceKind === "jumpNode" || device.kind === "jump") {
       const entry = this.jumpNodeById.get(sourceId) || this.ensureJumpNode(device);
+      this.validateMultiCoreProject({ ...this.root, jumpNodes: this.root.jumpNodes.map(node => node.id === sourceId
+        ? { ...node, x: device.x + device.width / 2, y: device.y + device.height / 2 } : node) });
       entry.item.x = device.x + device.width / 2;
       entry.item.y = device.y + device.height / 2;
       return { ok: true, path: `jumpNodes[${entry.index}].x/y` };
@@ -437,8 +457,10 @@ export class ProjectMutationAdapter {
     if (wire.multiCoreIdentity) {
       const mc = this.root.multiCores?.find(item => item.id === wire.multiCoreIdentity.multiCoreId);
       if (!mc || wire.routePoints.some(point => !point.id)) return 0;
-      mc.trunk.routePoints = structuredClone(wire.routePoints);
-      mc.trunk.routeStyle = wire.routeStyle === "orthogonal" ? "orthogonal" : "bezier";
+      this.editMultiCore(mc.id, draft => {
+        replaceMultiCoreSectionPoints(draft, wire.multiCoreIdentity.sectionId, wire.routePoints);
+        draft.trunk.routeStyle = wire.routeStyle === "orthogonal" ? "orthogonal" : "bezier";
+      });
       return performance.now() - start;
     }
     const sourceId = String(wire.sourceId || wire.id);
@@ -552,6 +574,8 @@ export class ProjectMutationAdapter {
     const id = String(jumpNodeId || "");
     const entry = this.jumpNodeById.get(id);
     if (!entry) return { mutationMs: 0, jumpNodeData: null, index: -1 };
+    this.validateMultiCoreProject({ ...this.root, jumpNodes: this.root.jumpNodes.filter(j => j.id !== id),
+      jumpLinks: this.root.jumpLinks.filter(l => l.outputJumpId !== id && l.inputJumpId !== id) });
     const [removed] = this.root.jumpNodes.splice(entry.index, 1);
     for (let index = this.root.jumpLinks.length - 1; index >= 0; index -= 1) {
       const link = this.root.jumpLinks[index];
@@ -579,6 +603,7 @@ export class ProjectMutationAdapter {
     const targetIndex = Number.isInteger(index)
       ? Math.max(0, Math.min(index, this.root.jumpLinks.length))
       : this.root.jumpLinks.length;
+    this.validateMultiCoreProject({ ...this.root, jumpLinks: [...this.root.jumpLinks, normalized] });
     this.root.jumpLinks.splice(targetIndex, 0, deepClone(normalized));
     this.rebuildIndexes();
     this.record("restore jump link", performance.now() - start, `jumpLinks[${targetIndex}]`, { jumpLinkId: normalized.id });
@@ -589,6 +614,7 @@ export class ProjectMutationAdapter {
     const start = performance.now();
     const entry = this.jumpLinkById.get(String(linkId || ""));
     if (!entry) return { mutationMs: 0, linkData: null, index: -1 };
+    this.validateMultiCoreProject({ ...this.root, jumpLinks: this.root.jumpLinks.filter(l => l.id !== linkId) });
     const [removed] = this.root.jumpLinks.splice(entry.index, 1);
     this.rebuildIndexes();
     this.record("delete jump link", performance.now() - start, `jumpLinks[${entry.index}]`, { jumpLinkId: linkId });

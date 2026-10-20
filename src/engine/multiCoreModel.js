@@ -296,7 +296,7 @@ function allIds(value, result = new Set()) {
 }
 
 export function allocateMultiCoreChildId(input, kind) {
-  const value = clone(input), prefixes = { circuit: "mc-circuit", port: "mc-port", routePoint: "mc-route", strand: "mc-strand", face: "mc-face" };
+  const value = clone(input), prefixes = { circuit: "mc-circuit", port: "mc-port", routePoint: "mc-route", strand: "mc-strand", face: "mc-face", gateway: "mc-gateway", section: "mc-section" };
   if (!record(value) || value.schemaVersion !== MULTI_CORE_SCHEMA_VERSION || !Object.hasOwn(prefixes, kind)
       || (value.idCounters !== undefined && !record(value.idCounters))) {
     return { value, id: null, diagnostics: [diagnostic(value, "counter", "idCounters", "Cannot allocate an identity for this record or child kind.")] };

@@ -43,7 +43,7 @@ function harness() {
   Object.assign(b, { scene, ready: true, pendingJumpPress: null, jumpMoveArmedId: "", mutations: new ProjectMutationAdapter({ projectData: project }, { cloneProjectData: false }),
     canvas: { addEventListener: (name, fn) => listeners.set(name, fn), classList: { add() {}, remove() {} } }, hud: { setMetric() {} },
     stopWirePlayback() {}, cancelCanvasObjectResize() {}, cancelWireSegmentDrag() {}, cancelRoutePointDrag() {}, cancelJumpPlacement() {},
-    refreshJumpNodeVisuals() {},
+    refreshJumpNodeVisuals() {}, activeCanvasTool: () => "",
     cancelMarquee() {}, updatePlacementDebugHud() {}, clearLoadingReadyTimer() {}, releasePointerCapture() {},
     eventPoint: () => ({ x: 0, y: 0 }), dispatchCanvasToolPointerEvent: () => false, dispatchCanvasToolKeyEvent: () => false,
     isJumpMoveArmed: id => b.jumpMoveArmedId === id,
@@ -83,6 +83,13 @@ test("selected-then-hold reproduces the regression and must start a portal previ
   assert.ok(h.b.jumpLinkCreate, "pre-fix: no timer, selected Jump instead moves when pointer crosses 5 px");
   assert.equal(h.moves(), 0);
   assert.equal(h.project.jumpNodes[0].x, 340);
+});
+
+test("toggled-off Jump placement cannot retain pointer ownership over the next pairing gesture", () => {
+  const h = harness(); h.b.canvasToolPointerActive = true;
+  h.start(); assert.equal(h.b.canvasToolPointerActive, false);
+  h.advance(300); h.target("b"); h.b.completeJumpLinkCreate();
+  assert.equal(h.project.jumpLinks.length, 1); assert.equal(h.history.length, 1);
 });
 
 for (const ms of [0, 100, 249]) test(`release at ${ms} ms selects, clears timer, never mutates`, () => {

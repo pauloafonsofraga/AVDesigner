@@ -55,7 +55,7 @@ export function hitTestConnector(scene, worldPoint, tolerance = 10) {
     const device = payload.device || item.device;
     if (!point || !connector || !device) return;
     const distance = Math.hypot(point.x - worldPoint.x, point.y - worldPoint.y);
-    const radius = device.kind === "jump" ? Math.max(tolerance * 1.9, device.visual?.jumpLoomId ? 22 : 0) : tolerance;
+    const radius = device.kind === "jump" ? Math.max(tolerance * 1.9, device.visual?.jumpLoomId || device.visual?.jumpMultiCoreId ? 22 : 0) : tolerance;
     if (distance <= radius && distance < bestDistance) {
       bestDistance = distance;
       const anchor = payload.anchor || null;

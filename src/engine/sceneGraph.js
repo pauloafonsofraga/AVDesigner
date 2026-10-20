@@ -15,6 +15,7 @@ import { wirePolylineFromPoints } from "./wirePath.js";
 import { loomGeometry } from "./loomGeometry.js";
 import { normalizeLoom, normalizeLoomCollection } from "./loomModel.js";
 import { loomForJump, reconcileLoomJumpAssociations } from "./loomJumpAssociation.js";
+import { multiCoreForJump } from "./multiCoreJumpRouting.js";
 import { rackPatchPanelVisualHeight } from "./rackPatchPanels.js";
 import { normalizeRackShell } from "./rackShell.js";
 import { createRackCompactLayout, compactConnectorSide } from "./rackCompactLayout.js?v=iteration54-38-76-rack-styles";
@@ -134,6 +135,7 @@ export class SceneGraph {
     this.wiresById = new Map(this.wires.map(wire => [wire.id, wire]));
     this.looms = looms.map(normalizeLoom);
     this.loomProject = projectData;
+    this.projectData = projectData?.state || projectData?.project || projectData;
     this.loomPlans = Array.isArray(loomPlans) ? loomPlans : [];
     this.jumpLinks = normalizeJumpLinks(jumpLinks, {
       jumpNodeIds: new Set(this.devices.filter(device => isJumpNodeDevice(device)).map(device => device.id))
@@ -290,7 +292,8 @@ export class SceneGraph {
         jumpColor: color,
         jumpLocalWireId: roleInfo.localWire?.id || "",
         jumpPairedId: this.pairedJumpId(device.id),
-        jumpLoomId: loomForJump(this, device.id)?.id || ""
+        jumpLoomId: loomForJump(this, device.id)?.id || "",
+        jumpMultiCoreId: multiCoreForJump(this, device.id)?.id || ""
       };
       device.color = color;
       (device.connectors || []).forEach(connector => {
@@ -2000,7 +2003,7 @@ export class SceneGraph {
     if (wire.multiCoreIdentity?.kind === "multi-core-trunk") {
       const device = this.getDevice(wire[`${end}DeviceId`]);
       const pos = this.positionForDevice(device, offsetMap);
-      return { x: pos.x + device.width / 2, y: pos.y + device.height };
+      return { x: pos.x + device.width / 2, y: pos.y + device.height * (isJumpNodeDevice(device) ? 0.5 : 1) };
     }
     const surfaceId = this.wireEndpointSurfaceId(wire, end);
     if (surfaceId) {

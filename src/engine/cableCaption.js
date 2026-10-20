@@ -2,6 +2,7 @@ import { engineConnectorDisplayLabel } from "./connectorCompatibility.js";
 import { isJumpNodeDevice, sceneJumpDeviceWire, sceneJumpLinkPhysicalWires } from "./jumpNodeModel.js";
 import { cableLengthDisplayLabel } from "./loomMetadata.js";
 import { loomForJump } from "./loomJumpAssociation.js";
+import { multiCoreForJump } from "./multiCoreJumpRouting.js";
 
 function endpointIdentity(device, connector, surface = false) {
   if (!device || isJumpNodeDevice(device)) return { device: "Unconnected", node: "" };
@@ -40,6 +41,8 @@ export function resolveCableEndpoints(scene, cable) {
 
 export function wireCaption(scene, cable, highlighted = false) {
   if (cable.multiCoreIdentity?.kind === "multi-core-trunk") return `${cable.label}${cable.length ? ` / ${cable.length}` : ""}`;
+  const jumpMC = cable.outputJumpId && cable.inputJumpId && multiCoreForJump(scene, cable.outputJumpId);
+  if (jumpMC) return String(jumpMC.name || jumpMC.id);
   const jumpLoom = cable.outputJumpId && cable.inputJumpId && loomForJump(scene, cable.outputJumpId);
   if (jumpLoom) return String(jumpLoom.name || jumpLoom.id);
   const { from, to, virtual } = resolveCableEndpoints(scene, cable);
@@ -57,7 +60,7 @@ export function wireCaption(scene, cable, highlighted = false) {
 }
 
 export function isPhysicalJumpWire(scene, wire) {
-  return Boolean(wire && !wire.outputJumpId && !wire.inputJumpId
+  return Boolean(wire && !wire.multiCoreIdentity && !wire.outputJumpId && !wire.inputJumpId
     && (isJumpNodeDevice(scene.getDevice(wire.fromDeviceId))
       || isJumpNodeDevice(scene.getDevice(wire.toDeviceId))));
 }

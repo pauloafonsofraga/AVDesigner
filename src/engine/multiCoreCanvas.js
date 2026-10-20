@@ -9,11 +9,24 @@ import { MultiCoreEditor } from "./multiCoreEditor.js";
 import { newMultiCoreDefinition, duplicateMultiCoreDefinition } from "./multiCoreEditorDraft.js";
 import { inlineImage, inlineProjectArtwork } from "../imageAssets.js";
 import { ENGINE_CONNECTOR_TYPE_COLORS } from "./connectorCompatibility.js";
+import { attachMultiCoreJump, multiCoreGatewayIds, multiCoreSectionPoints, replaceMultiCoreSectionPoints, multiCoreJumpDiagnostics } from "./multiCoreJumpRouting.js";
 
 const escape = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const list = value => Array.isArray(value) ? value : [];
 
 export const multiCoreCanvasMethods = {
+  refreshMultiCoreJumpProjection() {
+    if (!this.mutations.root.multiCores?.some(mc => mc?.trunk?.jumpRouting)) return;
+    this.applyMultiCoreFields(multiCoreProjectFields(this.mutations.root));
+  },
+
+  beginMultiCoreJumpAssignment(id) {
+    this.cancelActiveInteraction("multi-core-jump");
+    this.deactivateLoomCreation("multi-core-jump");
+    this.api.cancelCanvasLayoutTool?.();
+    this.multiCoreRoutePlacement = { multiCoreId: id, gateway: true };
+    this.updateCanvasCursor();
+  },
   openMultiCoreEditor(value, options = {}) {
     if (this.multiCoreEditor && !this.multiCoreEditor.closed) { this.multiCoreEditor.root.querySelector("button")?.focus(); return; }
     this.cancelActiveInteraction("multi-core-editor");
@@ -87,6 +100,7 @@ export const multiCoreCanvasMethods = {
   applyMultiCoreFields(fields, { affectedIds = null } = {}) {
     const start = performance.now();
     const root = this.mutations.root;
+    const selection = { devices: [...this.scene.selectedIds], wires: [...this.scene.selectedWireIds] };
     for (const key of ["multiCores", "multiCoreDefinitions", "multiCoreIdCounter"]) {
       if (Object.hasOwn(fields, key)) root[key] = structuredClone(fields[key]);
       else delete root[key];
@@ -95,6 +109,7 @@ export const multiCoreCanvasMethods = {
     this.mutations.rebuildIndexes();
     const projection = affectedIds && projectMultiCoreScene({ ...root, multiCores: root.multiCores.filter(mc => affectedIds.includes(mc.id)) });
     const existing = projection && projection.devices.length === affectedIds.length * 2 && projection.trunks.length === affectedIds.length
+      && !root.multiCores.some(mc => affectedIds.includes(mc.id) && mc.trunk?.jumpRouting)
       && projection.devices.every(d => this.scene.getDevice(d.id)) && projection.trunks.every(w => this.scene.getWire(w.id));
     if (existing) {
       const wireIds = new Set(projection.trunks.map(w => w.id));
@@ -110,7 +125,10 @@ export const multiCoreCanvasMethods = {
       this.renderer.updateDirty(this.scene, { deviceIds: projection.devices.map(d => d.id), wireIds: [...wireIds], refreshDeviceTextures: true });
     } else {
       const normalized = normalizeAvDesignerProject(this.mutations.project);
+      normalized.projectData = this.mutations.project;
       this.scene.setData(normalized);
+      this.scene.selectedIds = new Set(selection.devices.filter(id => this.scene.getDevice(id)));
+      this.scene.selectedWireIds = new Set(selection.wires.filter(id => this.scene.getWire(id)));
       this.renderer.setStaticScene(this.scene);
     }
     this.multiCoreConnectivityCache = null;
@@ -166,7 +184,12 @@ export const multiCoreCanvasMethods = {
     if (event.shiftKey) {
       if (this.scene.selectedWireIds.has(wire.id)) this.scene.selectedWireIds.delete(wire.id);
       else this.scene.selectedWireIds.add(wire.id);
-    } else this.scene.selectWireOnly(wire.id);
+    } else {
+      if (!this.scene.selectedWireIds.has(wire.id)) this.scene.selectWireOnly(wire.id);
+      const selectedTrunks = [...this.scene.selectedWireIds].map(id => this.scene.getWire(id)).filter(w => w?.multiCoreIdentity);
+      const moveIds = [...new Set([...this.scene.selectedIds, ...selectedTrunks.flatMap(w => [w.fromDeviceId, w.toDeviceId])])];
+      this.beginPendingDrag(point, world, event, moveIds);
+    }
     this.updateSelectionHud(); this.scheduleRender(); return true;
   },
 
@@ -233,6 +256,8 @@ export const multiCoreCanvasMethods = {
     const record = this.mutations.root.multiCores?.find(mc => mc.id === identity.multiCoreId);
     if (!record) return false;
     const checked = normalizeMultiCore(record), mc = checked.value;
+    checked.diagnostics.push(...multiCoreJumpDiagnostics(this.mutations.root).filter(d => d.multiCoreId === mc.id));
+    if (checked.diagnostics.some(d => d.severity === "error")) checked.valid = false;
     if (!checked.valid) {
       panel.innerHTML = `<h3>Multi-Core</h3><strong>${escape(mc.name || mc.id)}</strong><p>Imported data retained.</p><button class="tool-button" data-mc-edit>Edit Multi-Core</button>${checked.diagnostics.filter(d => d.severity === "error").slice(0, 4).map(d => `<p>${escape(d.message)}</p>`).join("")}`;
       panel.querySelector("[data-mc-edit]").onclick = () => this.openMultiCoreEditor(record);
@@ -241,7 +266,7 @@ export const multiCoreCanvasMethods = {
     const snapshot = this.multiCoreConnectivityCache ||= createMultiCoreConnectivity(this.mutations.root);
     const channels = snapshot.channels.filter(c => c.multiCoreId === mc.id);
     const end = identity.role ? mc.ends[identity.role] : null;
-    const details = [["Multi-Core", mc.name || mc.id], ["Part", end ? `End ${identity.role}` : "Trunk"],
+    const details = [["Multi-Core", mc.name || mc.id], ["Part", end ? `End ${identity.role}` : `Trunk${identity.sectionRole ? ` / Section ${identity.sectionRole}` : ""}`],
       ...(end ? [["Style", end.style], ["Ports", end.connectors.length], ["Position", `${Number(end.x.toFixed(2))}, ${Number(end.y.toFixed(2))}`]] : [["Circuits", mc.circuits.length]]),
       ["Length", `${mc.trunk.length ?? ""} ${mc.trunk.lengthUnit || ""}`],
       ["Occupied channels", channels.filter(c => c.connectionsA.length || c.connectionsB.length).length]];
@@ -249,25 +274,32 @@ export const multiCoreCanvasMethods = {
       <div class="multi-core-actions"><label>Route style <select data-mc-route-style><option value="bezier">Bezier</option><option value="orthogonal">Orthogonal</option></select></label>
       <button class="tool-button" type="button" data-mc-edit>Edit Multi-Core</button>
       <button class="tool-button" type="button" data-mc-select-all>Select Assembly</button>
+      <button class="tool-button" type="button" data-mc-jump>Route Through Jump</button>
+      ${mc.trunk.jumpRouting ? '<button class="tool-button" type="button" data-mc-jump-remove>Detach Gateways</button>' : ""}
       <button class="tool-button" type="button" data-mc-route-add>Add Route Point</button>
       <button class="tool-button" type="button" data-mc-route-reset>Reset Route</button></div>
-      ${mc.trunk.routePoints.map(p => `<div class="multi-core-route-point"><span>${escape(p.id)}</span><button class="tool-button" type="button" data-mc-route-move="${escape(p.id)}">Move</button><button class="tool-button" type="button" data-mc-route-remove="${escape(p.id)}">Remove</button></div>`).join("")}
+      ${multiCoreSectionPoints(mc, identity.sectionRole || "A").map(p => `<div class="multi-core-route-point"><span>${escape(p.id)}</span><button class="tool-button" type="button" data-mc-route-move="${escape(p.id)}">Move</button><button class="tool-button" type="button" data-mc-route-remove="${escape(p.id)}">Remove</button></div>`).join("")}
       ${end ? "" : '<button class="tool-button" type="button" data-mc-delete>Delete Assembly</button>'}`;
     const route = panel.querySelector("[data-mc-route-style]"); route.value = mc.trunk.routeStyle;
     panel.querySelector("[data-mc-edit]").onclick = () => this.openMultiCoreEditor(record, { tab: identity.role ? `End ${identity.role}` : "Trunk" });
     const edit = (label, fn) => this.commitMultiCoreEdit(label, draft => fn(draft.multiCores.find(item => item.id === mc.id)));
     route.onchange = () => edit("Multi-Core route style", item => { item.trunk.routeStyle = route.value; });
+    panel.querySelector("[data-mc-jump]").onclick = () => this.beginMultiCoreJumpAssignment(mc.id);
+    panel.querySelector("[data-mc-jump-remove]")?.addEventListener("click", () => edit("Detach Multi-Core gateways", item => { delete item.trunk.jumpRouting; }));
     panel.querySelector("[data-mc-select-all]").onclick = () => {
-      this.scene.selectMany([multiCoreEndKey(mc.id, mc.ends.A.id), multiCoreEndKey(mc.id, mc.ends.B.id)]);
+      this.scene.selectMany([multiCoreEndKey(mc.id, mc.ends.A.id), multiCoreEndKey(mc.id, mc.ends.B.id), ...multiCoreGatewayIds(this.mutations.root, mc)]);
       this.updateSelectionHud(); this.scheduleRender();
     };
-    panel.querySelector("[data-mc-route-add]").onclick = () => { this.multiCoreRoutePlacement = { multiCoreId: mc.id }; this.updateCanvasCursor(); };
-    panel.querySelector("[data-mc-route-reset]").onclick = () => edit("Reset Multi-Core route", item => { item.trunk.routePoints = []; });
+    panel.querySelector("[data-mc-route-add]").onclick = () => { this.multiCoreRoutePlacement = { multiCoreId: mc.id, sectionRole: identity.sectionRole || "A" }; this.updateCanvasCursor(); };
+    panel.querySelector("[data-mc-route-reset]").onclick = () => edit("Reset Multi-Core route", item => {
+      replaceMultiCoreSectionPoints(item, item.trunk.jumpRouting?.sections?.[identity.sectionRole || "A"]?.id, []);
+    });
     panel.querySelectorAll("[data-mc-route-move]").forEach(button => { button.onclick = () => {
       this.multiCoreRoutePlacement = { multiCoreId: mc.id, pointId: button.dataset.mcRouteMove }; this.updateCanvasCursor();
     }; });
     panel.querySelectorAll("[data-mc-route-remove]").forEach(button => { button.onclick = () => edit("Remove Multi-Core route point", item => {
       item.trunk.routePoints = item.trunk.routePoints.filter(p => p.id !== button.dataset.mcRouteRemove);
+      for (const section of Object.values(item.trunk.jumpRouting?.sections || {})) section.pointIds = section.pointIds.filter(id => id !== button.dataset.mcRouteRemove);
     }); });
     panel.querySelector("[data-mc-delete]")?.addEventListener("click", () => this.deleteMultiCore(mc.id));
     return true;
@@ -277,6 +309,15 @@ export const multiCoreCanvasMethods = {
     const placement = this.multiCoreRoutePlacement;
     this.multiCoreRoutePlacement = null;
     this.updateCanvasCursor();
+    if (placement.gateway) {
+      const jump = hitTestDevice(this.scene, world).device;
+      if (jump?.kind !== "jump") { this.showError("Choose an ordinary Jump Node for the trunk gateway."); return false; }
+      return this.commitMultiCoreEdit("Route Multi-Core through Jump", draft => {
+        const index = draft.multiCores.findIndex(mc => mc.id === placement.multiCoreId);
+        if (index < 0) return false;
+        draft.multiCores[index] = attachMultiCoreJump(draft.multiCores[index], jump.id);
+      });
+    }
     return this.commitMultiCoreEdit(placement.pointId ? "Move Multi-Core route point" : "Add Multi-Core route point", draft => {
       const index = draft.multiCores.findIndex(mc => mc.id === placement.multiCoreId);
       const mc = draft.multiCores[index];
@@ -289,6 +330,7 @@ export const multiCoreCanvasMethods = {
         const result = allocateMultiCoreChildId(mc, "routePoint");
         if (!result.id) return false;
         result.value.trunk.routePoints.push({ id: result.id, ...world });
+        result.value.trunk.jumpRouting?.sections?.[placement.sectionRole || "A"]?.pointIds.push(result.id);
         draft.multiCores[index] = result.value;
       }
     });

@@ -9,6 +9,7 @@ import {
 import { wirePathStatsForWires, wirePolylineFromPoints } from "./wirePath.js";
 import { loomBreakoutPolyline } from "./loomGeometry.js";
 import { loomForJump } from "./loomJumpAssociation.js";
+import { multiCoreForJump } from "./multiCoreJumpRouting.js";
 import { DEFAULT_LOOM_LABEL_BACKGROUND_COLOR, DEFAULT_LOOM_LABEL_TEXT_COLOR,
   loomLabelBackgroundRgba } from "./loomModel.js";
 import { LOOM_GATEWAY_RING_COLOR, LOOM_INNER_JACKET_COLOR, LOOM_OUTER_JACKET_COLOR, LOOM_TAPE_COLOR,
@@ -74,7 +75,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-108-multi-core-editor";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-109-multi-core-jumps";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -2378,6 +2379,7 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
 }
 
 export function jumpLinkOverlayWidth(scene, overlay) {
+  if (overlay.outputJumpId && multiCoreForJump(scene, overlay.outputJumpId)) return 8;
   const loom = overlay.outputJumpId && loomForJump(scene, overlay.outputJumpId);
   if (loom) {
     const plan = scene.loomPlans.find(item => item.loomId === loom.id);

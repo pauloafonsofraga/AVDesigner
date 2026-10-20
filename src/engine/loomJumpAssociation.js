@@ -1,3 +1,5 @@
+import { multiCoreForJump } from "./multiCoreJumpRouting.js";
+
 export function normalizeLoomJumpRouting(value, routePoints) {
   if (!value || typeof value !== "object") return null;
   const entryJumpId = String(value.entryJumpId || "").trim();
@@ -17,6 +19,7 @@ const hasCable = (scene, id) => Boolean(id && (scene?.wireIdsByDeviceId
   : scene?.wires?.some(wire => wire.fromDeviceId === id || wire.toDeviceId === id)));
 
 export function loomJumpAttachmentCompatibility(scene, jumpId, loomId = "") {
+  if (multiCoreForJump(scene, jumpId)) return { valid: false, reason: "This Jump carries a Multi-Core trunk." };
   const node = scene?.getDevice?.(jumpId);
   if (node?.kind !== "jump") return { valid: false, reason: "Missing Jump Node." };
   const peerId = scene.pairedJumpId?.(jumpId) || "";
