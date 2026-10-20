@@ -7,6 +7,7 @@ import { join } from "node:path";
 const { chromium } = createRequire(import.meta.url)(process.env.AVDESIGNER_PLAYWRIGHT_PATH || "playwright");
 const browser = await chromium.launch({ headless: true, ...(process.env.AVDESIGNER_CHROME_PATH ? { executablePath: process.env.AVDESIGNER_CHROME_PATH } : {}) });
 const base = process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8768";
+const catalogue = JSON.parse(readFileSync(new URL("../data/factory-catalogue.json", import.meta.url), "utf8"));
 const dir = mkdtempSync(join(tmpdir(), "factory-catalogue-")), checks = [], errors = [];
 const ready = async page => {
   await page.waitForFunction(() => window.wireNexusReady);
@@ -30,7 +31,7 @@ try {
     images: [...document.querySelectorAll("#deviceList [data-library-src]")].map(image => ({ source: image.dataset.librarySrc, loaded: Boolean(image.getAttribute("src")) }))
   }));
   writeFileSync(join(dir, "startup-metrics.json"), JSON.stringify(metrics, null, 2));
-  assert.equal(metrics.devices, 97); assert.equal(metrics.nodes, 59);
+  assert.equal(metrics.devices, catalogue.devices.length); assert.equal(metrics.nodes, catalogue.nodes.length);
   assert.ok(metrics.images.some(image => !image.loaded), "offscreen catalogue thumbnails remain unrequested");
   assert.equal(metrics.resources.filter(r => r.name.endsWith("factory-catalogue.json")).length, 1);
   assert.equal(metrics.resources.filter(r => r.name.startsWith("/Devices/faceplates/") && !r.name.includes("/thumbs/")).length, 0);

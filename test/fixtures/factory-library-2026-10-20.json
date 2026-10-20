@@ -1,0 +1,387 @@
+{
+  "inputs": [
+    {
+      "filename": "wirenexus-device-library (3).json",
+      "sha256": "0a1d026952ccecf9929cdf5c802f6d7b655fdbc1c328b703c276ac533447d827",
+      "bytes": 108074956,
+      "exportedAt": "2026-10-20T11:48:50.342Z"
+    },
+    {
+      "filename": "wirenexus-device-library (4).json",
+      "sha256": "77f5b1a0c3e5776959fd66bb8ac57835d77889c0e4a91820b95f90cd7005bad5",
+      "bytes": 87868482,
+      "exportedAt": "2026-10-20T11:49:00.494Z"
+    }
+  ],
+  "baseline": "a35eed802c80be8deb2bfd7accadcb6574b0c834",
+  "packageId": "45a49a90763ef279ac42e01cbd5ef22d81cffbb7a6b718396257218dd938c8b4",
+  "skippedId": "modulo-pi-kinetic-vnode-ruggedized-4x4k",
+  "devices": [
+    {
+      "id": "custom-device-mvf4q0db",
+      "name": "Q8",
+      "source": "wirenexus-device-library (3).json",
+      "fingerprint": "addb47ced70533b207c49aabdf463cfc5beeffbc9b3a811250d9ea62fb92e166",
+      "brand": "PixelHue",
+      "connectors": 25,
+      "cards": 7,
+      "slots": 10,
+      "artwork": {
+        "4caaffe1562c399a218d194844b4060ea7d42df086c451d7d7710277f1b9a83d": {
+          "bytes": 277851,
+          "mime": "image/png"
+        },
+        "46557d74861e221b2a8ba7a42d2faab8f2c570e9c72f17dbd419c7bcbad1f397": {
+          "bytes": 50467,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "personal-d21bdb6e-18a7-4ec1-9802-bcc383eeaadd",
+      "name": "VX 4+",
+      "source": "wirenexus-device-library (3).json",
+      "fingerprint": "b7537e2913c6763e52bc8aef6b6eccedc93c695b19769db5ab4b214ef69b43a9",
+      "brand": "Disguise",
+      "connectors": 39,
+      "cards": 5,
+      "slots": 4,
+      "artwork": {
+        "e5472001eed3acf284698d82279e893b608a701c62ccb6a2ac8f734a37c944b8": {
+          "bytes": 2661368,
+          "mime": "image/png"
+        },
+        "d3d1e1a34aec523d8bef6881e54ea58e6e95a652e62e60b4697cb4dad63f0e67": {
+          "bytes": 51800,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-vx4-copy-2",
+      "name": "VX 3",
+      "source": "wirenexus-device-library (3).json",
+      "fingerprint": "db291494acd799a288a7c884fad2b26af6a34e81cead91f35b9ec0cecdea09dd",
+      "brand": "Disguise",
+      "connectors": 39,
+      "cards": 5,
+      "slots": 3,
+      "artwork": {
+        "a899cb17e48e9231782cc1e04b0c1c2c8105d3dd4a49979f1c795956b5159836": {
+          "bytes": 2208525,
+          "mime": "image/png"
+        },
+        "8f92d78a4dc408917aa82c0b2fae0c9f3ef25159b607cc5846ac2335e43182e8": {
+          "bytes": 58337,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-vx3-copy",
+      "name": "VX 2+",
+      "source": "wirenexus-device-library (3).json",
+      "fingerprint": "d1e9f733b0d71d6100c7a3a4495bd54427c2cba32650f62d8d6c0b45c624b513",
+      "brand": "Disguise",
+      "connectors": 31,
+      "cards": 5,
+      "slots": 2,
+      "artwork": {
+        "534109ef6d7f28c2e16163719f57752635a460535a34cb85fd0cef80339f3918": {
+          "bytes": 3004397,
+          "mime": "image/png"
+        },
+        "4a2585a7dab325dd4409fe0edf1c2a53e2277b441bbaaac6990d200a033a9b54": {
+          "bytes": 56616,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-vx3-copy-2",
+      "name": "GX 3+",
+      "source": "wirenexus-device-library (3).json",
+      "fingerprint": "b7eaabcb7c10c510a4aa2e8d9ab0253db1ea1a1b114c1d08ab3145c15fcc845e",
+      "brand": "Disguise",
+      "connectors": 36,
+      "cards": 5,
+      "slots": 3,
+      "artwork": {
+        "5ad34b6bbcc5efda5b481f2eb0935aad47ec5e242f23a9d758281b81b1f552ac": {
+          "bytes": 248578,
+          "mime": "image/png"
+        },
+        "24abcd8521a5319c7e6de8ea8a127117f5fce0aa6368646e3aba7b72c381300a": {
+          "bytes": 32323,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-gx3-copy",
+      "name": "GX 3",
+      "source": "wirenexus-device-library (3).json",
+      "fingerprint": "86d7640644ae720d93b21f83405408313c2437e092eb00266d047ef64601a78f",
+      "brand": "Disguise",
+      "connectors": 35,
+      "cards": 5,
+      "slots": 3,
+      "artwork": {
+        "18e0c37e1c8a7af35c05df72eaed677529a08785a47c12bd4e4f6f17cf99c76e": {
+          "bytes": 3010382,
+          "mime": "image/png"
+        },
+        "5038c1abb4529c1375cbfab1444ed08ed0d1f4d4cde721bd3a683b6ead7cd7a3": {
+          "bytes": 55891,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-gx3-copy-2",
+      "name": "RX III",
+      "source": "wirenexus-device-library (3).json",
+      "fingerprint": "01fae0fdbb835fba4b58883c696e618d55d893baa22fa7915cc7dcd70e8fa531",
+      "brand": "Disguise",
+      "connectors": 9,
+      "cards": 1,
+      "slots": 0,
+      "artwork": {
+        "b2d9591993b3a862605709fc6cd92455a96489aad4bc032935058634809d2b0e": {
+          "bytes": 708205,
+          "mime": "image/png"
+        },
+        "4c8e417530538a91073f8c4830c0656a1113feeb71ca829df53a5d81f22d433a": {
+          "bytes": 16423,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-gx3-copy-3",
+      "name": "EX 3+",
+      "source": "wirenexus-device-library (3).json",
+      "fingerprint": "9c65e48663fce154f81c0e0f3167f9fe832f4bfaa0001813c9ee3e78716ba519",
+      "brand": "Disguise",
+      "connectors": 18,
+      "cards": 5,
+      "slots": 0,
+      "artwork": {
+        "bcd3ce6f6861e4a3fb92ee9f73197b8eb1fd90fddb60d344e6b6fa752b958129": {
+          "bytes": 57128,
+          "mime": "image/png"
+        },
+        "b282af9d347cc38f834ac0f0594c92c1c7e6d583b2f4da57b821e7970cf1be7b": {
+          "bytes": 14735,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-ex3-copy",
+      "name": "EX 2C",
+      "source": "wirenexus-device-library (3).json",
+      "fingerprint": "90a5366e63e887b3d0db1710f9a37a9c73e44ea65c5ea322ab5dfa2733d8d353",
+      "brand": "Disguise",
+      "connectors": 17,
+      "cards": 5,
+      "slots": 0,
+      "artwork": {
+        "b2f313dbcb7bec86660faf3a74110544e70fff525bcc068c91c28a57d3ce2a9b": {
+          "bytes": 58479,
+          "mime": "image/png"
+        },
+        "4a733134a61d984d34bca68f16103ac1cccc456c76d71259d1eb58afbed88f7c": {
+          "bytes": 14427,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-ex-2c-copy",
+      "name": "EX 2",
+      "source": "wirenexus-device-library (3).json",
+      "fingerprint": "fb886b4352e23447a5a242d57ebd2a490c86e4ff8df4233d30b9d32090cae0ed",
+      "brand": "Disguise",
+      "connectors": 13,
+      "cards": 5,
+      "slots": 0,
+      "artwork": {
+        "b4342a4c48b5967fbd36991824be24c36dd5f3bfad10f2a347550dbb31ae6efb": {
+          "bytes": 57952,
+          "mime": "image/png"
+        },
+        "05ba982b62ff55261fd4b9569cff739bed7f697e2c9028e7a35fa27418843e3d": {
+          "bytes": 14049,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-vx-4-copy",
+      "name": "Hippotizer Boreal+ MK2 (HDMI 2.0)",
+      "source": "wirenexus-device-library (3).json",
+      "fingerprint": "5a288c1ecef9485fd65a8a53147441743c7f306e49e900ad21399f702641bf33",
+      "brand": "Green Hippo",
+      "connectors": 23,
+      "cards": 1,
+      "slots": 0,
+      "artwork": {
+        "485be3b2e3550ccad5f1d44e2b49a45a7a65633ac8fcb26fdb27efd0998245ac": {
+          "bytes": 174068,
+          "mime": "image/png"
+        },
+        "a9043538431d58703bac72d79942bf3827bdf0aa77cb48c60205073c265a12b6": {
+          "bytes": 39806,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-hippotizer-boreal-mk2-hdmi-2-0-copy",
+      "name": "Hippotizer Boreal+ MK2 (DP 1.2)",
+      "source": "wirenexus-device-library (3).json",
+      "fingerprint": "1f8e36a25f06548fd1a91460bf7a06d51d66ecc94d969da3b3d9a439eaf7ec18",
+      "brand": "Green Hippo",
+      "connectors": 23,
+      "cards": 1,
+      "slots": 0,
+      "artwork": {
+        "485be3b2e3550ccad5f1d44e2b49a45a7a65633ac8fcb26fdb27efd0998245ac": {
+          "bytes": 174068,
+          "mime": "image/png"
+        },
+        "a9043538431d58703bac72d79942bf3827bdf0aa77cb48c60205073c265a12b6": {
+          "bytes": 39806,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-hippotizer-boreal-mk2-dp-1-2-copy",
+      "name": "Hyco MX",
+      "source": "wirenexus-device-library (3).json",
+      "fingerprint": "18c2cebe1574ff825984fa6a0b7c38364bec215445a36fc31f357a0cdc622172",
+      "brand": "Green Hippo",
+      "connectors": 20,
+      "cards": 6,
+      "slots": 7,
+      "artwork": {
+        "1ff820589e210b99067fdfc124bdf622b7b87aa7511fd1e6ffd8088112b6cc84": {
+          "bytes": 1773588,
+          "mime": "image/png"
+        },
+        "6d063a82525f3cb5347e54ecbf6fef2e577e387e12c4a4a0b8a1c31eb72cdcd6": {
+          "bytes": 33373,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mvgekxns",
+      "name": "V-160HD",
+      "source": "wirenexus-device-library (3).json",
+      "fingerprint": "89f817dbfa6d2e4856e53cab8fdc5cd07937b583a5581a9df91bda1630bd914d",
+      "brand": "Roland",
+      "connectors": 39,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "98cdff4aead11deef57c33ffa0c1b0430c12093fa81334dae0134614fd14dfa9": {
+          "bytes": 929204,
+          "mime": "image/png"
+        },
+        "d5903367d88871045f7d0157815654ee91ce9fdb819055e4ed952b67eabaddb0": {
+          "bytes": 50482,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-v-160hd-copy",
+      "name": "V-80HD",
+      "source": "wirenexus-device-library (3).json",
+      "fingerprint": "ea0ced929a7687e7ffd9941056a6ff4e9004082065f823c643f1b1946a98a81a",
+      "brand": "Roland",
+      "connectors": 28,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "1b7a8fe00a1b96bd9f601b040157c3b13f775149a717f65e0ca06ef53a736e24": {
+          "bytes": 954981,
+          "mime": "image/png"
+        },
+        "4cb8d56feee1f522eebdf5a23334e585bda55bb1a96c596d2f2076cde380aaf3": {
+          "bytes": 56995,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "modulo-pi-player-pro-ruggedized-4x4k",
+      "name": "Modulo Player Pro Ruggedized (4x4K)",
+      "source": "wirenexus-device-library (4).json",
+      "fingerprint": "10cb598627d488bd17b5f5f588c1716bc520e277b7e95a55cc19fe32b70894fa",
+      "brand": "Modulo Pi",
+      "connectors": 12,
+      "cards": 15,
+      "slots": 8,
+      "artwork": {
+        "1292ab4efdf634c510b9b82c889dc3d1f669cc32094231a950dd7cb5ab585bc6": {
+          "bytes": 665502,
+          "mime": "image/png"
+        },
+        "2de0c5f7b9fe2d9d68a98ce75f69b812f011d3d4da86cf93d2eb5d5151846bef": {
+          "bytes": 44974,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-modulo-pro-ruggedized-4x4k-copy",
+      "name": "Modulo Kinetic Designer Ruggedized",
+      "source": "wirenexus-device-library (4).json",
+      "fingerprint": "728d9b1fbfed70df64fdfd5a0de1dee70550688d469c965c302bfdbdf0795d44",
+      "brand": "Modulo Pi",
+      "connectors": 10,
+      "cards": 15,
+      "slots": 3,
+      "artwork": {
+        "1292ab4efdf634c510b9b82c889dc3d1f669cc32094231a950dd7cb5ab585bc6": {
+          "bytes": 665502,
+          "mime": "image/png"
+        },
+        "2de0c5f7b9fe2d9d68a98ce75f69b812f011d3d4da86cf93d2eb5d5151846bef": {
+          "bytes": 44974,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-modulo-player-pro-ruggedized-4x4k-copy",
+      "name": "Modulo Kinetic V-Node Ruggedized (4x4K)",
+      "source": "wirenexus-device-library (4).json",
+      "fingerprint": "29dc0c0439f38940935c3e094ea46975b137ce6a6e9176174c396ec7689ca9b8",
+      "brand": "Modulo Pi",
+      "connectors": 12,
+      "cards": 15,
+      "slots": 8,
+      "artwork": {
+        "1292ab4efdf634c510b9b82c889dc3d1f669cc32094231a950dd7cb5ab585bc6": {
+          "bytes": 665502,
+          "mime": "image/png"
+        },
+        "2de0c5f7b9fe2d9d68a98ce75f69b812f011d3d4da86cf93d2eb5d5151846bef": {
+          "bytes": 44974,
+          "mime": "image/png"
+        }
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "new-node-5",
+      "fingerprint": "548207e38a0b7d1d4272dfce0653c22ddd8cae4dde5f23e47e7adb50585e172f"
+    }
+  ]
+}
