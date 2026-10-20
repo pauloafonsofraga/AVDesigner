@@ -75,6 +75,14 @@ import {
   sceneJumpNodeRole
 } from "./jumpNodeModel.js";
 
+const CONNECTOR_MODULE_STRING_FIELDS = [
+  "installedModuleType", "installedModuleId", "installedModuleName", "installedModuleActiveType",
+  "installedModuleEffectiveType", "installedModuleFiberMode", "installedModuleFiberFamily", "installedModuleLabel",
+  "moduleId", "moduleName", "moduleType", "moduleActiveType", "moduleEffectiveType", "moduleFiberMode",
+  "transceiverModuleId", "transceiverModuleName", "transceiverModuleType",
+  "transceiverModuleActiveType", "transceiverModuleEffectiveType", "transceiverModuleFiberMode"
+];
+
 export class SceneGraph {
   constructor() {
     this.devices = [];
@@ -434,6 +442,7 @@ export class SceneGraph {
           const anchorId = connector.primaryAnchorId || anchors[0]?.id || "compact-port";
           return {
             ...connector,
+            ...cloneConnectorModuleMetadata(connector),
             hiddenOnCanvas: false,
             referenceOnlyOnCanvas: false,
             rackSelectableOnCanvas: true,
@@ -1776,6 +1785,7 @@ export class SceneGraph {
     color = "#32b6ff",
     colorSegments = null,
     cableType = "Test Cable",
+    cableAssembly,
     fiberMode = "",
     routeStyle = "bezier",
     routePoints = [],
@@ -1823,6 +1833,7 @@ export class SceneGraph {
       color,
       colorSegments,
       cableType,
+      cableAssembly,
       fiberMode,
       signalIndex,
       customColor,
@@ -1957,6 +1968,11 @@ export class SceneGraph {
       forceV2: deviceDefinitionVersion(device) >= DEVICE_DEFINITION_SCHEMA_VERSION
     });
     Object.assign(connector, merged);
+    (device.visual?.visualCards || []).forEach(card => (card.connectors || []).forEach(visualConnector => {
+      if (visualConnector.id === connector.id) Object.assign(visualConnector, cloneConnectorModuleMetadata(connector));
+    }));
+    const compactConnector = this.compactCanvasDeviceById.get(device.id)?.connectorsById.get(connector.id);
+    if (compactConnector) Object.assign(compactConnector, cloneConnectorModuleMetadata(connector));
     device.connectorsById.set(connector.id, connector);
     const jumpIds = [...this.connectorWireIds(device.id, connector.id)].flatMap(id => this.jumpIdsForWire(this.getWire(id)));
     this.refreshJumpNodeRoles(jumpIds);
@@ -2594,6 +2610,7 @@ function normalizeVisualCard(card, index) {
 function normalizeVisualCardConnector(connector, index) {
   if (!connector || typeof connector !== "object") return null;
   return {
+    ...cloneConnectorModuleMetadata(connector),
     id: String(connector.id || `card-connector-${index}`),
     sourceConnectorId: String(connector.sourceConnectorId || ""),
     cardSlotId: String(connector.cardSlotId || ""),
@@ -2688,6 +2705,7 @@ function normalizeWire(wire) {
     notes: String(wire.notes || ""),
     hideLabel: Boolean(wire.hideLabel),
     cableType: wire.cableType || "",
+    ...(wire.cableAssembly !== undefined ? { cableAssembly: cloneJson(wire.cableAssembly) } : {}),
     fiberMode: wire.fiberMode || "",
     signalIndex: Number(wire.signalIndex) || 0,
     customColor: String(wire.customColor || ""),
@@ -2712,6 +2730,7 @@ function normalizeConnector(connector, index, deviceWidth = 0, options = {}) {
   const primaryAnchor = primaryAnchorForConnector(topology, deviceWidth);
   const direction = signalDirectionToLegacyDirection(topology.signalDirection, connector.direction || "io");
   return {
+    ...cloneConnectorModuleMetadata(connector),
     id: String(connector.id || `connector-${index}`),
     schemaVersion: topology.schemaVersion,
     type: connector.type || "",
@@ -2836,6 +2855,15 @@ function clonePlainObject(value) {
 
 function cloneJson(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
+}
+
+function cloneConnectorModuleMetadata(connector) {
+  return Object.fromEntries([
+    ...["installedModule", "module", "transceiverModule", "moduleCapabilities", "cageCapabilities", "supportedRates"]
+      .filter(key => connector[key] !== undefined).map(key => [key, cloneJson(connector[key])]),
+    ...CONNECTOR_MODULE_STRING_FIELDS.filter(key => connector[key] !== undefined)
+      .map(key => [key, String(connector[key] ?? "")])
+  ]);
 }
 
 function rackBoundsForChildIds(childDeviceIds, devicesById, padding = 34) {

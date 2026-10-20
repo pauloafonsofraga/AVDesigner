@@ -7,11 +7,13 @@ import { FACTORY_AUTHORING } from "../src/buildCapabilities.js";
 import { MULTI_CORE_PROJECT_FIELDS, multiCoreProjectFields } from "../src/engine/multiCoreModel.js";
 import { isMultiCoreConnection } from "../src/engine/multiCoreConnectivity.js";
 import * as editorLifecycle from "../src/editorLifecycle.js";
+import * as transceivers from "../src/engine/transceiverModules.js";
+import * as connectorCompatibility from "../src/engine/connectorCompatibility.js";
 
 // Execute the actual bootstrap entry point with its DOM boundary substituted.
 // The production loader and the entire start/error/button sequence still run.
 const source = readFileSync(new URL("../src/factoryCatalogueBootstrap.js", import.meta.url), "utf8")
-  .replace(/^import .*;\n/gm, "")
+  .replace(/^import[\s\S]*?;\n/gm, "")
   .replaceAll("import.meta.url", '"https://example.test/src/factoryCatalogueBootstrap.js?v=test"');
 const catalogue = { version: 1, devices: [{ id: "device" }], nodes: [{ id: "node" }],
   nodeTypes: {}, assets: {}, nodeThumbnails: {}, nodeTags: {}, libraryThumbnails: {} };
@@ -30,6 +32,7 @@ function harness({ fetchCatalogue = async () => Response.json(catalogue), initia
     body: { append() { calls.scripts++; window.wireNexusShellReady = initialize ? initialize() : Promise.resolve(); } }
   };
   const context = { window, document, URL, Error, FACTORY_AUTHORING, MULTI_CORE_PROJECT_FIELDS, multiCoreProjectFields, isMultiCoreConnection, editorLifecycle,
+    transceivers, ...connectorCompatibility,
     createFactoryCatalogueLoader: options => createFactoryCatalogueLoader({ ...options, fetchCatalogue: (...args) => { calls.fetch++; return fetchCatalogue(...args); } }),
     imageAssets: {}, portableProjectData() {}, observeLibraryArtwork() { calls.observers++; },
     localStorage: { setItem() { assert.fail("bootstrap must not write storage"); }, clear() { assert.fail("bootstrap must not clear storage"); } }

@@ -102,6 +102,14 @@ const DEFAULT_DEVICE_HEIGHT = 58;
 const SLOT_HEIGHT = 54;
 const LEGACY_DEVICE_WIDTH = 380;
 const SURFACE_FALLBACK_HEIGHT = 120;
+const CONNECTOR_MODULE_FIELDS = [
+  "installedModule", "module", "transceiverModule", "moduleCapabilities", "cageCapabilities", "supportedRates"
+];
+const CONNECTOR_MODULE_STRING_FIELDS = [
+  "moduleId", "moduleName", "moduleType", "moduleActiveType", "moduleEffectiveType", "moduleFiberMode",
+  "transceiverModuleId", "transceiverModuleName", "transceiverModuleType",
+  "transceiverModuleActiveType", "transceiverModuleEffectiveType", "transceiverModuleFiberMode"
+];
 const CARD_SLOT_OVERRIDE_FIELDS = [
   "type",
   "label",
@@ -118,6 +126,14 @@ const CARD_SLOT_OVERRIDE_FIELDS = [
   "fiberMode",
   "customColor",
   "installedModuleType",
+  "installedModuleId",
+  "installedModuleName",
+  "installedModuleActiveType",
+  "installedModuleEffectiveType",
+  "installedModuleFiberMode",
+  "installedModuleFiberFamily",
+  ...CONNECTOR_MODULE_FIELDS,
+  ...CONNECTOR_MODULE_STRING_FIELDS,
   "schemaVersion",
   "physicalType",
   "connectorType",
@@ -541,6 +557,10 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType, nod
     const installed = connectors.find(connector => connector.id === c.id);
     if (installed) {
       c.typeLabel = installed.typeLabel || "";
+      Object.assign(c, cloneConnectorModuleMetadata(installed));
+      ["installedModuleType", "installedModuleId", "installedModuleName", "installedModuleActiveType",
+        "installedModuleEffectiveType", "installedModuleFiberMode", "installedModuleFiberFamily", "installedModuleLabel"]
+        .forEach(key => { c[key] = String(installed[key] ?? ""); });
       CONNECTOR_RELATIONSHIP_FIELDS.forEach(key => { c[key] = installed[key] ?? ""; });
     }
   }));
@@ -744,6 +764,7 @@ function normalizeVisualCards(
       const visualConnector = normalizeConnectorVisualMetadata(installedConnector, nodeColorByType);
       return {
         ...visualConnector,
+        ...cloneConnectorModuleMetadata(merged),
         id: installedConnector.id,
         sourceConnectorId: String(installedConnector.sourceConnectorId || ""),
         cardSlotId: String(slot.id || `visual-card-${index}`),
@@ -884,6 +905,7 @@ function normalizeConnector(connector, index, deviceWidth, nodeColorByType, opti
   );
   return {
     ...visualConnector,
+    ...cloneConnectorModuleMetadata(connector),
     id: String(connector.id || `connector-${index}`),
     schemaVersion: topology.schemaVersion,
     type,
@@ -1240,6 +1262,7 @@ function normalizeProjectWire(wire, index, context) {
     notes: String(wire.notes || ""),
     hideLabel: Boolean(wire.hideLabel),
     cableType,
+    ...(wire.cableAssembly !== undefined ? { cableAssembly: deepClone(wire.cableAssembly) } : {}),
     fiberMode,
     signalIndex: Number(wire.signalIndex) || 0,
     customColor: metadata.customColor,
@@ -1440,6 +1463,16 @@ function transformedRackRoutePointsForEngine(connection, rack, sourceRack, sourc
 
 function deepClone(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
+}
+
+function cloneConnectorModuleMetadata(connector) {
+  // Omitted module fields must stay omitted: null explicitly clears a module.
+  return Object.fromEntries([
+    ...CONNECTOR_MODULE_FIELDS.filter(key => connector[key] !== undefined)
+      .map(key => [key, deepClone(connector[key])]),
+    ...CONNECTOR_MODULE_STRING_FIELDS.filter(key => connector[key] !== undefined)
+      .map(key => [key, String(connector[key] ?? "")])
+  ]);
 }
 
 function cloneStringMap(value) {

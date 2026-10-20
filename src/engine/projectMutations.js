@@ -14,6 +14,14 @@ import { multiCorePortReference } from "./multiCoreProjection.js";
 import { eligibleDeviceForJump, reconcileJumpAttachment, jumpAttachmentSnapshot } from "./jumpAttachment.js";
 
 const ENGINE_EXPORT_FORMAT = "av-designer-engine-prototype";
+const CONNECTOR_MODULE_FIELDS = [
+  "installedModule", "module", "transceiverModule", "moduleCapabilities", "cageCapabilities", "supportedRates"
+];
+const CONNECTOR_MODULE_STRING_FIELDS = [
+  "moduleId", "moduleName", "moduleType", "moduleActiveType", "moduleEffectiveType", "moduleFiberMode",
+  "transceiverModuleId", "transceiverModuleName", "transceiverModuleType",
+  "transceiverModuleActiveType", "transceiverModuleEffectiveType", "transceiverModuleFiberMode"
+];
 
 export class ProjectMutationAdapter {
   constructor(sceneData = {}, options = {}) {
@@ -281,6 +289,8 @@ export class ProjectMutationAdapter {
       "resolutionFrameRateCaption",
       "customTextCaption",
       "installedModuleType",
+      ...CONNECTOR_MODULE_FIELDS,
+      ...CONNECTOR_MODULE_STRING_FIELDS,
       "installedModuleId",
       "installedModuleName",
       "installedModuleActiveType",
@@ -303,6 +313,11 @@ export class ProjectMutationAdapter {
     const override = entry.item.connectorOverrides[id];
     Object.entries(fields || {}).forEach(([key, value]) => {
       if (!allowed.has(key)) return;
+      if (CONNECTOR_MODULE_FIELDS.includes(key)) {
+        if (value !== undefined) override[key] = deepClone(value);
+        return;
+      }
+      if (CONNECTOR_MODULE_STRING_FIELDS.includes(key) && value === undefined) return;
       if (key === "colorSegments") {
         override[key] = Array.isArray(value) ? value.map(color => String(color || "")).filter(Boolean) : [];
         return;
@@ -364,10 +379,15 @@ export class ProjectMutationAdapter {
       "hideLabel",
       "fiberMode",
       "cableType",
+      "cableAssembly",
       "customColor"
     ]);
     Object.entries(fields || {}).forEach(([key, value]) => {
       if (!allowed.has(key)) return;
+      if (key === "cableAssembly") {
+        if (value !== undefined) entry.item[key] = deepClone(value);
+        return;
+      }
       if (key === "hideLabel") {
         entry.item[key] = Boolean(value);
         return;
@@ -1033,6 +1053,10 @@ function rawDeviceFromSceneDevice(device) {
       width: roundNumber(device.width),
       height: roundNumber(device.height),
       connectors: (device.connectors || []).map(connector => ({
+        ...Object.fromEntries(CONNECTOR_MODULE_FIELDS
+          .filter(key => connector[key] !== undefined).map(key => [key, deepClone(connector[key])])),
+        ...Object.fromEntries(CONNECTOR_MODULE_STRING_FIELDS
+          .filter(key => connector[key] !== undefined).map(key => [key, String(connector[key] ?? "")])),
         id: connector.id,
         label: connector.label || connector.type || connector.id,
         nameText: connector.label || connector.type || connector.id,
@@ -1045,6 +1069,10 @@ function rawDeviceFromSceneDevice(device) {
         installedModuleType: connector.installedModuleType || "",
         installedModuleId: connector.installedModuleId || "",
         installedModuleName: connector.installedModuleName || "",
+        installedModuleActiveType: connector.installedModuleActiveType || "",
+        installedModuleEffectiveType: connector.installedModuleEffectiveType || "",
+        installedModuleFiberMode: connector.installedModuleFiberMode || "",
+        installedModuleFiberFamily: connector.installedModuleFiberFamily || "",
         operationalStatus: connector.operationalStatus || "working",
         empty: false
       }))
@@ -1054,6 +1082,7 @@ function rawDeviceFromSceneDevice(device) {
 
 function rawConnectionFromSceneWireData(sceneData, wire) {
   const connection = {
+    ...(wire.cableAssembly !== undefined ? { cableAssembly: deepClone(wire.cableAssembly) } : {}),
     id: String(wire.sourceId || wire.id),
     label: wire.label || wire.cableType || "Engine Test Cable",
     cableType: wire.cableType || "Engine Test Cable",
@@ -1081,6 +1110,7 @@ function rawConnectionFromSceneWireData(sceneData, wire) {
 
 function rawConnectionFromWire(scene, wire, id) {
   const connection = {
+    ...(wire.cableAssembly !== undefined ? { cableAssembly: deepClone(wire.cableAssembly) } : {}),
     id,
     label: wire.label || wire.cableType || "Engine Test Cable",
     cableType: wire.cableType || "Engine Test Cable",

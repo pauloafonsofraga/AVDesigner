@@ -1,4 +1,5 @@
 import { normalizeMultiCore, multiCoreModelSnapshot } from "./multiCoreModel.js";
+import { dacWireValidation, isDacCableType } from "./transceiverModules.js";
 import { ENGINE_CONNECTOR_TYPE_COLORS, areEngineConnectorTypesCompatible, engineConnectorCompatibilityType,
   engineCompatibilitySummary, engineFiberModeFamily, normalizeEngineFiberMode, isEngineDeadCageConnector } from "./connectorCompatibility.js";
 import { normalizeSignalDirection } from "./deviceDefinitionV2.js";
@@ -433,6 +434,11 @@ export function traceMultiCoreSignalPath(snapshot, wireId, { reverse = false } =
   const externalCableIds = segments.filter(s => s.kind === "external-cable").map(s => s.wireId);
   for (const id of externalCableIds) {
     const cable = graph.cables.get(id)[0], wire = cable.connection;
+    if (isDacCableType(wire.cableType) || wire.cableAssembly) {
+      const result = dacWireValidation(wire, cable.from.connector, cable.to.connector);
+      if (!result.valid) diagnostics.push(diagnostic("equipment-incompatible", result.reason, { wireId: id, rule: "dac-assembly" }));
+      continue;
+    }
     for (const endpoint of [cable.from, cable.to]) if (endpoint.kind === "device") {
       const result = equipmentCompatibility(endpoint.connector, { type: wire.cableType, fiberMode: wire.fiberMode, signalDirection: "bidirectional" });
       if (result && !result.valid) diagnostics.push(diagnostic("equipment-incompatible", result.reason, { wireId: id, rule: result.rule }));

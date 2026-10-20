@@ -5,6 +5,7 @@ import { assertOutputSceneContract } from "./outputSceneContract.js";
 import { engineConnectorTypeDisplayName, engineConnectorUserFacingTypeLabel } from "./connectorCompatibility.js";
 import { normalizeRackShell, rackShellStyle } from "./rackShell.js";
 import { multiCorePortReference } from "./multiCoreProjection.js";
+import { isTransceiverCage, transceiverModulePresentation } from "./transceiverModules.js";
 
 function freeze(value) {
   if (value && typeof value === "object") { Object.values(value).forEach(freeze); Object.freeze(value); }
@@ -104,7 +105,10 @@ export function outputSelectionDetails(scene, selection) {
       ["Cable", readableType],
       ["Cable ID", wire.cableNumber],
       ["From", endpointLabel("from")], ["To", endpointLabel("to")],
-      ["Length", wire.length], ["Notes", wire.notes]
+      ["Length", wire.length], ["Notes", wire.notes],
+      ...(wire.cableAssembly ? [["Assembly", "Integrated direct-attach copper"],
+        ["Supported rates", wire.cableAssembly.supportedRates?.join(", ") || "Unverified"],
+        ["Compatibility", wire.cableAssembly.warnings?.join(" ") || "Declared capabilities match"]] : [])
     ], wireIds: [wire.id] };
   }
   if (selection.type === "jump-link") {
@@ -127,6 +131,7 @@ export function outputSelectionDetails(scene, selection) {
       ["Notes", device.notes], ["Text", device.visual.text]];
   if (device.kind === "jump") rows.push(["Role", jumpNodeRoleLabel(scene.jumpNodeRole(device.id).role)],
     ["Base role", jumpNodeRoleLabel(scene.jumpNodeRole(device.id).baseRole)]);
+  if (connector && isTransceiverCage(connector)) rows.push(["Installed Module", transceiverModulePresentation(connector)]);
   const wireIds = scene.wires.filter(w => !w.multiCoreIdentity && ["from", "to"].some(end =>
     (w[`${end}DeviceId`] === device.id || w[`${end}SurfaceId`] === device.id)
     && (!connector || w[`${end}ConnectorId`] === connector.id))).map(w => w.id);

@@ -5,6 +5,7 @@ import { adapterCenter, adapterRotationHandle, snapAdapterRotation } from "./ada
 import { ObjectSnapSession } from "./objectSnapping.js";
 import { CONNECTOR_RELATIONSHIP_FIELDS, applyConnectorRelationshipFieldPatch } from "./connectorRelationshipMetadata.js";
 import { multiCoreCanvasMethods } from "./multiCoreCanvas.js";
+import { transceiverModulePatch, dacAssemblyForConnectors, isDacCableType, dacWireValidation } from "./transceiverModules.js";
 import {
   ENGINE_DEFAULT_FIBER_MODE,
   effectiveConnectorTypeForEngine,
@@ -160,8 +161,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-114-editor-unsaved-changes";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-114-editor-unsaved-changes";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-115-sfp-sdi-dac";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-115-sfp-sdi-dac";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -179,14 +180,6 @@ function isEngineGuideCoordinate(value) {
     && value !== ""
     && Number.isFinite(Number(value));
 }
-
-const ENGINE_TRANSCEIVER_MODULE_OPTIONS = [
-  { value: "", label: "Empty", activeType: "", fiberMode: "" },
-  { value: "lc-singlemode", label: "LC Singlemode", activeType: "fiber-lc", fiberMode: "single-mode" },
-  { value: "lc-multimode", label: "LC Multimode", activeType: "fiber-lc", fiberMode: "om4" },
-  { value: "rj45-ethernet", label: "RJ45 Ethernet", activeType: "cat6a", fiberMode: "" },
-  { value: "mpo-fiber", label: "MPO Fiber", activeType: "fiber-mpo", fiberMode: "single-mode", qsfpOnly: true }
-];
 
 function isApplePointerPlatform() {
   const nav = globalThis.navigator || {};
@@ -4670,6 +4663,7 @@ class ProductionEngineBridge {
       color: metadata.color,
       colorSegments: engineWireColorSegmentsForCable(metadata.cableType),
       cableType: metadata.cableType,
+      cableAssembly: metadata.cableAssembly,
       fiberMode: metadata.fiberMode,
       customColor: metadata.customColor,
       colorSource: metadata.colorSource,
@@ -4851,6 +4845,7 @@ class ProductionEngineBridge {
       || "#32b6ff";
     return {
       cableType,
+      cableAssembly: dacAssemblyForConnectors(wireSource?.connector, wireTarget?.connector, cableType),
       fiberMode,
       customColor: explicitCustomColor,
       color: engineWireColorForCable(cableType, fiberMode, fallback) || fallback,
@@ -6577,6 +6572,9 @@ class ProductionEngineBridge {
       let targetHit = rewire.detachedSide === "from" ? this.wireCreate.from : this.wireCreate.target;
       const sourceIsJump = isJumpNodeDevice(sourceHit?.device);
       const targetIsJump = isJumpNodeDevice(targetHit?.device);
+      if ((sourceIsJump || targetIsJump) && (isDacCableType(rewire.originalWire.cableType) || rewire.originalWire.cableAssembly)) {
+        return { valid: false, rule: "dac-direct-cages", reason: "A DAC assembly must keep both integrated cage endpoints.", sourceType: "", targetType: "" };
+      }
       if (sourceIsJump !== targetIsJump) {
         const realHit = sourceIsJump ? targetHit : sourceHit;
         const pair = jumpDeviceAttachmentCompatibility(this.scene, (sourceIsJump ? sourceHit : targetHit).device.id,
@@ -6589,10 +6587,18 @@ class ProductionEngineBridge {
         engineCompatibilityHitForWireEndpoint(sourceHit, rewire.originalWire, "from"),
         engineCompatibilityHitForWireEndpoint(targetHit, rewire.originalWire, "to")
       );
+      if (summary.valid && (rewire.originalWire.cableAssembly || isDacCableType(rewire.originalWire.cableType))) {
+        const check = dacWireValidation(rewire.originalWire, sourceHit.connector, targetHit.connector);
+        if (!check.valid) return { ...summary, valid: false, rule: "dac-assembly", reason: check.reason };
+      }
       return mc?.valid && summary.rule === "type-mismatch" ? { ...summary, ...mc } : summary;
     }
     const sourceIsJump = isJumpNodeDevice(this.wireCreate.from?.device);
     const targetIsJump = isJumpNodeDevice(this.wireCreate.target?.device);
+    if ((sourceIsJump || targetIsJump) && [this.wireCreate.from, this.wireCreate.target]
+      .some(hit => isDacCableType(engineConnectorCompatibilityType(hit?.connector)))) {
+      return { valid: false, rule: "dac-direct-cages", reason: "Connect the integrated DAC directly between its two compatible cages.", sourceType: "", targetType: "" };
+    }
     let sourceHit = this.wireCreate.from;
     let targetHit = this.wireCreate.target;
     if (sourceIsJump && targetIsJump) {
@@ -7404,6 +7410,10 @@ class ProductionEngineBridge {
     const device = this.resolveDeviceBySourceId(deviceId);
     const connector = device ? this.scene.getConnector(device.id, connectorId) : null;
     if (!device || !connector) return false;
+    if (Object.keys(fields).length === 1 && fields.installedModuleType !== undefined
+      && fields.installedModuleType === connector.installedModuleType
+      && (connector.installedModuleType || (!installedModuleDetailsForEngine(connector).rawValue
+        && !effectiveConnectorTypeForEngine(connector)))) return true;
     if (Object.keys(fields).every(key => CONNECTOR_RELATIONSHIP_FIELDS.includes(key) || key === "nameCustom")) {
       const result = applyConnectorRelationshipFieldPatch(device, connectorId, fields);
       if (!result.patches.length) return false;
@@ -7421,18 +7431,33 @@ class ProductionEngineBridge {
       return true;
     }
     const affectedConnectorIds = connectorIdsForInspectorEdit(connector, fields);
+    if (fields.installedModuleType !== undefined) {
+      try {
+        affectedConnectorIds.forEach(id => transceiverModulePatch(this.scene.getConnector(device.id, id), fields.installedModuleType));
+      } catch (error) {
+        globalThis.alert?.(error.message);
+        this.updateSelectionHud();
+        return true;
+      }
+    }
+    if (fields.installedModuleType !== undefined
+      && affectedConnectorIds.some(id => this.scene.connectorWireIds(device.id, id).size > 0)) {
+      globalThis.alert?.("Disconnect the cage's cable before changing or removing its installed module. The cable was not changed.");
+      this.updateSelectionHud();
+      return true;
+    }
     const before = affectedConnectorIds.map(id => captureConnectorInspectorFields(this.scene.getConnector(device.id, id), fields)).filter(Boolean);
     const afterFieldsByConnector = new Map();
     affectedConnectorIds.forEach(id => {
       const current = this.scene.getConnector(device.id, id);
       if (!current) return;
-      afterFieldsByConnector.set(id, normalizeConnectorInspectorPatch(current, fields));
+      try { afterFieldsByConnector.set(id, normalizeConnectorInspectorPatch(current, fields)); }
+      catch (error) { globalThis.alert?.(error.message); }
     });
     const after = [...afterFieldsByConnector.entries()].map(([id, fieldPatch]) => ({ connectorId: id, fields: fieldPatch }));
     if (!before.length || !after.length || !connectorInspectorStatesChanged(before, after)) return false;
-    const removed = fields.installedModuleType !== undefined
-      ? captureWiresForConnectors(this, device.id, affectedConnectorIds)
-      : [];
+    if (after.length !== affectedConnectorIds.length) { this.updateSelectionHud(); return true; }
+    const removed = [];
     this.beginProductionCommit("inspector connector fields");
     let mutationMs = 0;
     after.forEach(item => {
@@ -7489,7 +7514,9 @@ class ProductionEngineBridge {
     if (!device) return { mutationMs: 0 };
     const current = this.scene.getConnector(device.id, connectorId);
     if (!current) return { mutationMs: 0 };
-    const patch = normalizeConnectorInspectorPatch(current, fields);
+    // Commands contain full snapshots, not fresh picker selections. Reinstalling
+    // here would replace authored/legacy capability data during undo.
+    const patch = normalizeConnectorInspectorPatch(current, fields, { installModule: false });
     const updated = this.scene.updateConnector(device.id, connectorId, patch);
     if (!updated) return { mutationMs: 0 };
     const mutationMs = this.mutations?.updateConnectorFields(device.sourceId || device.id, connectorId, patch) || 0;
@@ -7628,10 +7655,19 @@ class ProductionEngineBridge {
     return wires.length ? this.commitMultiWireInspectorFields(wires.map(wire => wire.id), { label }, { preserveSelection: true }) : false;
   }
 
+  allowDacCableTypeEdit(wires, fields) {
+    if (fields.cableType === undefined) return true;
+    if (!wires.some(wire => fields.cableType !== wire.cableType
+      && (wire.cableAssembly || isDacCableType(wire.cableType) || isDacCableType(fields.cableType)))) return true;
+    globalThis.alert?.("A DAC is one integrated cable assembly. Disconnect it and choose compatible cable ends before changing its type.");
+    return false;
+  }
+
   commitWireInspectorFields(wireId, fields = {}) {
     if (!this.ready) return false;
     const wire = this.resolveWire(wireId);
     if (!wire) return false;
+    if (!this.allowDacCableTypeEdit([wire], fields)) return true;
     if (Object.keys(fields).length === 1 && fields.label !== undefined) {
       const link = this.jumpLinkForPhysicalWire(wire.id);
       if (link) return this.commitJumpLinkLabel(link.id, fields.label);
@@ -7657,6 +7693,7 @@ class ProductionEngineBridge {
     if (!this.ready) return false;
     const wire = this.resolveWire(wireId);
     if (!wire) return false;
+    if (!this.allowDacCableTypeEdit([wire], fields)) return true;
     if (Object.keys(fields).length === 1 && fields.label !== undefined) {
       const link = this.jumpLinkForPhysicalWire(wire.id);
       if (link) return this.previewJumpLinkLabel(link.id, fields.label);
@@ -7666,6 +7703,7 @@ class ProductionEngineBridge {
 
   previewMultiWireInspectorFields(wireIds = [], fields = {}) {
     if (!this.ready) return false;
+    if (!this.allowDacCableTypeEdit(wireIds.map(id => this.resolveWire(id)).filter(Boolean), fields)) return true;
     let previewed = 0;
     uniqueItems(wireIds)
       .map(id => this.resolveWire(id))
@@ -7685,6 +7723,7 @@ class ProductionEngineBridge {
       .filter(Boolean);
     const ids = uniqueItems(wires.map(wire => wire.id));
     if (!ids.length) return false;
+    if (!this.allowDacCableTypeEdit(wires, fields)) return true;
     const wiresById = new Map(wires.map(wire => [wire.id, wire]));
     const before = ids.map(id => {
       const wire = wiresById.get(id);
@@ -12579,6 +12618,7 @@ function cloneWire(wire) {
     colorSegments: Array.isArray(wire.colorSegments) ? wire.colorSegments.slice() : [],
     label: wire.label,
     cableType: wire.cableType,
+    cableAssembly: wire.cableAssembly ? deepClone(wire.cableAssembly) : null,
     fiberMode: wire.fiberMode,
     length: wire.length,
     cableNumber: wire.cableNumber,
@@ -12700,6 +12740,14 @@ function sanitizeConnectorInspectorFields(fields = {}) {
   ]);
   const sanitized = {};
   Object.entries(fields || {}).forEach(([key, value]) => {
+    if (["installedModule", "module", "transceiverModule", "moduleCapabilities", "cageCapabilities"].includes(key)) {
+      sanitized[key] = value && typeof value === "object" ? deepClone(value) : null;
+      return;
+    }
+    if (/^(?:module|transceiverModule)(?:Type|Id|Name|ActiveType|EffectiveType|FiberMode)$/.test(key)) {
+      sanitized[key] = String(value ?? "");
+      return;
+    }
     if (!allowed.has(key)) return;
     if (key === "colorSegments") return;
     if (key === "nameCustom") {
@@ -12712,30 +12760,10 @@ function sanitizeConnectorInspectorFields(fields = {}) {
   return sanitized;
 }
 
-function moduleOptionForConnector(connector, value) {
-  const requested = String(value || "");
-  const isQsfp = String(connector?.type || "").toLowerCase() === "qsfp-cage";
-  return ENGINE_TRANSCEIVER_MODULE_OPTIONS
-    .filter(option => !option.qsfpOnly || isQsfp)
-    .find(option => option.value === requested)
-    || ENGINE_TRANSCEIVER_MODULE_OPTIONS[0];
-}
-
-function normalizeConnectorInspectorPatch(connector, fields = {}) {
+function normalizeConnectorInspectorPatch(connector, fields = {}, { installModule = true } = {}) {
   let patch = sanitizeConnectorInspectorFields(fields);
-  if (fields.installedModuleType !== undefined && isEngineCageConnector(connector)) {
-    const option = moduleOptionForConnector(connector, fields.installedModuleType);
-    patch = {
-      ...patch,
-      installedModuleType: option.value,
-      installedModuleId: option.value,
-      installedModuleName: option.label,
-      installedModuleActiveType: option.activeType || "",
-      installedModuleEffectiveType: option.activeType || "",
-      installedModuleFiberMode: option.fiberMode || "",
-      installedModuleFiberFamily: option.fiberMode ? engineFiberModeOption(option.fiberMode).family || "" : "",
-      fiberMode: option.fiberMode || ""
-    };
+  if (installModule && fields.installedModuleType !== undefined && isEngineCageConnector(connector)) {
+    patch = { ...patch, ...transceiverModulePatch(connector, fields.installedModuleType) };
   }
   if (fields.fiberMode !== undefined) patch.fiberMode = String(fields.fiberMode || ENGINE_DEFAULT_FIBER_MODE);
   const merged = { ...connector, ...patch };
@@ -12783,7 +12811,9 @@ function captureConnectorInspectorFields(connector, requestedFields = {}) {
   const fields = {};
   keys.forEach(key => {
     if (key === "colorSegments") fields[key] = Array.isArray(connector.colorSegments) ? connector.colorSegments.slice() : [];
-    else fields[key] = connector[key] ?? "";
+    else if (["installedModule", "module", "transceiverModule", "moduleCapabilities", "cageCapabilities"].includes(key)) {
+      fields[key] = connector[key] ? deepClone(connector[key]) : null;
+    } else fields[key] = connector[key] ?? "";
   });
   return { connectorId: connector.id, fields };
 }
@@ -12824,20 +12854,9 @@ function inspectorFieldsChanged(before = {}, after = {}) {
   return afterKeys.some(key => {
     const a = before?.[key];
     const b = after?.[key];
-    if (Array.isArray(a) || Array.isArray(b)) return JSON.stringify(a || []) !== JSON.stringify(b || []);
+    if (a && typeof a === "object" || b && typeof b === "object") return JSON.stringify(a) !== JSON.stringify(b);
     return a !== b;
   });
-}
-
-function captureWiresForConnectors(bridge, deviceId, connectorIds = []) {
-  const wireIds = uniqueItems(connectorIds.flatMap(connectorId => [...bridge.scene.connectorWireIds(deviceId, connectorId)]));
-  return wireIds.map(wireId => {
-    const wire = bridge.scene.getWire(wireId);
-    return wire ? {
-      wireData: cloneWire(wire),
-      connectionData: bridge.mutations?.connectionDataForWire(wire.id)
-    } : null;
-  }).filter(item => item?.wireData && item?.connectionData);
 }
 
 function rewirePreviewRoute(originalWire, from, to, detachedSide) {

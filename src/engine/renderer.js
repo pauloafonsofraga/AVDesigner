@@ -1,5 +1,6 @@
 import { TextureCache } from "./textureCache.js";
 import { adapterRotationBounds, adapterWorldPoint, rotateAdapterPoint } from "./adapterRotation.js";
+import { isTransceiverCage, transceiverModulePresentation } from "./transceiverModules.js";
 import {
   applyCableHopsToPolyline,
   calculateCableHops,
@@ -75,7 +76,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-114-editor-unsaved-changes";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-115-sfp-sdi-dac";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -4670,8 +4671,10 @@ function drawConnectorTooltip(ctx, entry, camera, offsets = null) {
   ctx.font = `800 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
   const paddingX = 7;
   const paddingY = 5;
-  const width = Math.min(260, Math.max(56, ctx.measureText(text).width + paddingX * 2));
-  const height = size + paddingY * 2;
+  const width = isTransceiverCage(entry.connector) ? 260 : Math.min(260, Math.max(56, ctx.measureText(text).width + paddingX * 2));
+  const moduleLines = isTransceiverCage(entry.connector)
+    ? wrapScreenInfoBoxLines(ctx, transceiverModulePresentation(entry.connector), 246, 6) : [];
+  const height = (1 + moduleLines.length) * (size + 3) + paddingY * 2;
   const side = entry.connector?.side === "right" ? -1 : 1;
   const boxX = x + side * 16 - (side < 0 ? width : 0);
   const boxY = y - height - 10;
@@ -4691,7 +4694,9 @@ function drawConnectorTooltip(ctx, entry, camera, offsets = null) {
   ctx.fillStyle = "#ffffff";
   ctx.textBaseline = "middle";
   ctx.textAlign = "left";
-  ctx.fillText(text, boxX + paddingX, boxY + height / 2, width - paddingX * 2);
+  [text, ...moduleLines].forEach((value, index) => {
+    ctx.fillText(value, boxX + paddingX, boxY + paddingY + size / 2 + index * (size + 3), width - paddingX * 2);
+  });
   ctx.restore();
 }
 

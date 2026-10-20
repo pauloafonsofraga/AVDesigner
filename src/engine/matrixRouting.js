@@ -1,3 +1,4 @@
+import { effectiveTransceiverDirection, isTransceiverCage, isDacCableType } from "./transceiverModules.js";
 import {
   effectiveConnectorTypeForEngine,
   engineConnectorCompatibilityType,
@@ -94,6 +95,7 @@ export function defaultMatrixPortForEngineConnector(connector) {
   if (!connector || connector.empty || !connector.type || isEngineDeadCageConnector(connector)) return false;
   const rawType = String(connector.type || "").trim();
   const activeType = engineConnectorCompatibilityType(connector) || rawType;
+  if (isDacCableType(activeType)) return false;
   if (MATRIX_EXCLUDED_CABLE_TYPES.has(activeType) || isEnginePowerCableType(activeType)) return false;
   const text = matrixConnectorSearchText(connector);
   if (MATRIX_EXCLUDED_TEXT_RE.test(text)) return false;
@@ -111,10 +113,10 @@ export function matrixEndpointsForEngineDevice(device) {
       return (Number(a.x) || 0) - (Number(b.x) || 0);
     });
   const inputs = connectors
-    .filter(connector => connector.direction === "input")
+    .filter(connector => (isTransceiverCage(connector) ? effectiveTransceiverDirection(connector) : connector.direction) === "input")
     .map((connector, index) => ({ connector, id: connector.id, name: matrixConnectorNameForEngine(connector, "IN", index) }));
   const outputs = connectors
-    .filter(connector => connector.direction === "output")
+    .filter(connector => (isTransceiverCage(connector) ? effectiveTransceiverDirection(connector) : connector.direction) === "output")
     .map((connector, index) => ({ connector, id: connector.id, name: matrixConnectorNameForEngine(connector, "OUT", index) }));
   return { inputs, outputs };
 }

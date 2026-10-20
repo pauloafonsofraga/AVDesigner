@@ -5371,7 +5371,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled WireNexus Project" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">54.38.114 — Editor Unsaved Changes</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">54.38.115 — SFP Modules, SDI and DAC</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -6119,12 +6119,12 @@
   <script src="./src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script src="./src/engine/projectorModelCore.js?v=iteration54-38-11-engine-status-labels"></script>
   <script src="./src/engine/historyCloneCore.js?v=iteration54-38-29-memory-safe-undo"></script>
-  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-114-editor-unsaved-changes"></script>
+  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-115-sfp-sdi-dac"></script>
   <script type="text/wirenexus-app" id="wireNexusAppSource">
-    const APP_ITERATION = "54.38.114";
-    const APP_BUILD_ID = "iteration54-38-114-editor-unsaved-changes";
-    const APP_MODULE_CACHE_ID = "iteration54-38-114-editor-unsaved-changes-modules";
-    const APP_BUILD_LABEL = `${APP_ITERATION} — Editor Unsaved Changes`;
+    const APP_ITERATION = "54.38.115";
+    const APP_BUILD_ID = "iteration54-38-115-sfp-sdi-dac";
+    const APP_MODULE_CACHE_ID = "iteration54-38-115-sfp-sdi-dac-modules";
+    const APP_BUILD_LABEL = `${APP_ITERATION} — SFP Modules, SDI and DAC`;
     const { cloneHistoryValue, MAX_HISTORY_ENTRIES } = window.WireNexusHistoryClone;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
@@ -6273,6 +6273,15 @@
       { value: "lc-multimode", label: "LC Multimode", activeType: "fiber-lc", fiberMode: "om4" },
       { value: "rj45-ethernet", label: "RJ45 Ethernet", activeType: "cat6a", fiberMode: "" },
       { value: "mpo-fiber", label: "MPO Fiber", activeType: "fiber-mpo", fiberMode: "single-mode", qsfpOnly: true }
+    ];
+    const TRANSCEIVER_CONNECTOR_FIELDS = [
+      "installedModuleType", "installedModuleId", "installedModuleName",
+      "installedModuleActiveType", "installedModuleEffectiveType",
+      "installedModuleFiberMode", "installedModuleFiberFamily",
+      "installedModule", "module", "transceiverModule", "moduleCapabilities", "cageCapabilities",
+      "moduleId", "moduleName", "moduleType", "moduleActiveType", "moduleEffectiveType", "moduleFiberMode",
+      "transceiverModuleId", "transceiverModuleName", "transceiverModuleType",
+      "transceiverModuleActiveType", "transceiverModuleEffectiveType", "transceiverModuleFiberMode"
     ];
     const matrixExcludedCableTypes = new Set([
       "iec", "uk-13a", "schuko", "edison", "powercon", "powercon-true1",
@@ -7829,7 +7838,7 @@
       "matrixPortTouched",
       "fiberMode",
       "customColor",
-      "installedModuleType",
+      ...TRANSCEIVER_CONNECTOR_FIELDS,
       "schemaVersion",
       "physicalType",
       "connectorType",
@@ -7903,7 +7912,9 @@
       const override = overrides[connectorId];
       const normalized = field === "includeInMatrix" || field === "matrixPortTouched" || field === "nameCustom" || field === "empty"
         ? value === true
-        : String(value ?? "");
+        : window.WireNexusTransceivers && engineRendererRequested() && (value === null || typeof value === "object")
+          ? cloneEditorConnectorOverrideValue(value)
+          : String(value ?? "");
       const sourceValue = field === "includeInMatrix"
         ? connectorIncludedInMatrix(source)
         : (source[field] ?? (typeof normalized === "boolean" ? false : ""));
@@ -9422,6 +9433,21 @@
     function setConnectorModuleForEndpoint(deviceId, connectorId, value) {
       const connector = connectorById(deviceId, connectorId);
       if (!isCageConnector(connector)) return { affectedConnectorIds: [], removedConnectionIds: [] };
+      const api = engineTransceiverApi();
+      if (api) {
+        if (transceiverModuleSelectionUnchanged(connector, value)) return { affectedConnectorIds: [], removedConnectionIds: [] };
+        const affectedIds = [...new Set([connectorId, connector.pairedConnectorId].filter(Boolean))]
+          .filter(id => !transceiverModuleSelectionUnchanged(connectorById(deviceId, id), value));
+        const changes = affectedIds.map(id => {
+          const current = connectorById(deviceId, id);
+          const patch = api.transceiverModulePatch(current, value);
+          assertConnectedCageModuleUnchanged(deviceId, id, current, { ...current, ...patch });
+          return { id, patch };
+        });
+        pushUndo();
+        changes.forEach(({ id, patch }) => Object.assign(connectorOverride(deviceId, id, true), patch));
+        return { affectedConnectorIds: affectedIds, removedConnectionIds: [] };
+      }
       const option = transceiverModuleOptionsForConnector(connector).find(item => item.value === (value || "")) || TRANSCEIVER_MODULE_OPTIONS[0];
       const affectedIds = [connectorId, connector.pairedConnectorId].filter(Boolean);
       const connectionsToRemove = new Set();
@@ -9467,6 +9493,8 @@
           installedModuleId: connector.installedModuleId || "",
           installedModuleName: connector.installedModuleName || "",
           installedModuleActiveType: activeTypeForCageConnector(connector) || "",
+          ...(engineTransceiverApi() ? Object.fromEntries(TRANSCEIVER_CONNECTOR_FIELDS
+            .filter(field => hasOwn(connector, field)).map(field => [field, cloneEditorConnectorOverrideValue(connector[field])])) : {}),
           fiberMode: connectorFiberModeForEndpoint(deviceId, connectorId, connector),
           customColor: connector.customColor || "",
           nameText: connector.nameText || "",
@@ -11030,21 +11058,55 @@
       return FIBER_MODE_OPTIONS;
     }
 
-    function transceiverModuleOption(value) {
+    function engineTransceiverApi() {
+      return window.WireNexusTransceivers && engineRendererRequested() ? window.WireNexusTransceivers : null;
+    }
+
+    function transceiverModuleSelectionValue(connector) {
+      const api = engineTransceiverApi();
+      if (!api) return connector?.installedModuleType || "";
+      const details = api.installedModuleDetailsForEngine(connector);
+      const rawValue = details.rawValue || connector?.installedModuleType || details.effectiveType || "";
+      return api.transceiverModuleOption(rawValue, connector)?.value ?? rawValue;
+    }
+
+    function transceiverModuleSelectionUnchanged(connector, value) {
+      const requested = String(value ?? "");
+      return (Boolean(connector?.installedModuleType) && requested === connector.installedModuleType)
+        || requested === transceiverModuleSelectionValue(connector);
+    }
+
+    function transceiverModulePatchForTypeChange(connector, nextType) {
+      const api = engineTransceiverApi();
+      if (!api || (connector?.type || "") === nextType) return {};
+      const nextConnector = { ...connector, type: nextType, physicalType: nextType, connectorType: nextType };
+      if (!api.isEngineCageConnector(connector) && !api.isEngineCageConnector(nextConnector)) return {};
+      return api.transceiverModulePatch(nextConnector, "");
+    }
+
+    function transceiverModuleOption(value, connector) {
+      const api = engineTransceiverApi();
+      if (api) return api.transceiverModuleOption(value, connector);
       return TRANSCEIVER_MODULE_OPTIONS.find(option => option.value === (value || "")) || TRANSCEIVER_MODULE_OPTIONS[0];
     }
 
     function transceiverModuleOptionsForConnector(connector) {
+      const api = engineTransceiverApi();
+      if (api) return api.transceiverModuleOptionsForConnector(connector);
       return TRANSCEIVER_MODULE_OPTIONS.filter(option => !option.qsfpOnly || connector?.type === "qsfp-cage");
     }
 
     function activeTypeForCageConnector(connector) {
       if (!isCageConnector(connector)) return connector?.type || "";
+      const api = engineTransceiverApi();
+      if (api) return api.activeTypeForEngineCageConnector(connector);
       return transceiverModuleOption(connector.installedModuleType).activeType || "";
     }
 
     function activeFiberModeForCageConnector(connector) {
       if (!isCageConnector(connector)) return "";
+      const api = engineTransceiverApi();
+      if (api) return api.installedModuleDetailsForEngine(connector).fiberMode || "";
       return transceiverModuleOption(connector.installedModuleType).fiberMode || "";
     }
 
@@ -11055,6 +11117,13 @@
 
     function applyTransceiverModule(connector, value) {
       if (!isCageConnector(connector)) return;
+      const api = engineTransceiverApi();
+      if (api) {
+        if (transceiverModuleSelectionUnchanged(connector, value)) return;
+        Object.assign(connector, api.transceiverModulePatch(connector, value));
+        resetMatrixPortDefault(connector);
+        return;
+      }
       const option = transceiverModuleOptionsForConnector(connector).find(item => item.value === (value || "")) || TRANSCEIVER_MODULE_OPTIONS[0];
       connector.installedModuleType = option.value;
       connector.fiberMode = option.fiberMode || "";
@@ -11710,10 +11779,12 @@
     }
 
     function isCageConnector(connector) {
+      if (window.WireNexusTransceivers && engineRendererRequested()) return window.WireNexusTransceivers.isEngineCageConnector(connector);
       return cageConnectorTypes.has(connector?.type);
     }
 
     function isDeadCageConnector(connector) {
+      if (window.WireNexusTransceivers && engineRendererRequested()) return window.WireNexusTransceivers.isEngineDeadCageConnector(connector);
       return isCageConnector(connector) && !connector.installedModuleType;
     }
 
@@ -13201,6 +13272,47 @@
       });
     }
 
+    function cageModuleStateForEditor(connector) {
+      if (!connector) return null;
+      const api = engineTransceiverApi();
+      const details = api.installedModuleDetailsForEngine(connector);
+      const sort = value => Array.isArray(value) ? value.map(sort) : value && typeof value === "object"
+        ? Object.fromEntries(Object.keys(value).sort().map(key => [key, sort(value[key])])) : value;
+      return JSON.stringify(sort({
+        type: connector.type || "",
+        physicalType: connector.physicalType || connector.type || "",
+        empty: connector.empty === true,
+        module: { id: details.id, name: details.name, type: details.type, effectiveType: details.effectiveType },
+        capabilities: api.installedModuleCapabilities(connector),
+        fiberMode: isFiberCableType(details.effectiveType) ? connector.fiberMode || details.fiberMode || DEFAULT_FIBER_MODE : ""
+      }));
+    }
+
+    function assertConnectedCageModuleUnchanged(deviceId, connectorId, before, after) {
+      if (!engineTransceiverApi() || (!isCageConnector(before) && !isCageConnector(after))) return;
+      if (connectorHasCable(deviceId, connectorId) && cageModuleStateForEditor(before) !== cageModuleStateForEditor(after)) {
+        throw new Error("Disconnect connected cables before changing or removing this cage or its installed module.");
+      }
+    }
+
+    function assertEditorConnectedCageChanges(editedTemplate) {
+      if (!engineTransceiverApi()) return;
+      const instances = editorMode === "instance"
+        ? [instanceById(editorInstanceId)].filter(Boolean)
+        : editorMode === "project-template-edit"
+          ? state.devices.filter(instance => instance.templateId === editorProjectTemplateId && !instance.templateOverride)
+          : [];
+      instances.forEach(instance => {
+        const before = new Map(effectiveTemplateConnectors(templateForInstance(instance)).map(connector => [connector.id,
+          { ...connector, ...(instance.connectorOverrides?.[connector.id] || {}) }]));
+        const after = new Map(effectiveTemplateConnectors(editedTemplate).map(connector => [connector.id,
+          { ...connector, ...(editorMode === "instance" ? {} : instance.connectorOverrides?.[connector.id] || {}) }]));
+        new Set([...before.keys(), ...after.keys()]).forEach(id => {
+          assertConnectedCageModuleUnchanged(instance.instanceId, id, before.get(id), after.get(id));
+        });
+      });
+    }
+
     function invalidConnectionsAfterLibraryDeviceEdit(nextLibrary) {
       const nextDevices = state.devices.filter(instance => instance.templateOverride || templateByIdInLibrary(instance.templateId, nextLibrary));
       return state.connections.filter(connection => (
@@ -13309,6 +13421,7 @@
           const resolved = resolveEditorDraftForProject(editorDraft[editorIndex]);
           const editedTemplate = resolved.definition;
           validateEditorTemplateForApply(editedTemplate, [...serializeNodeLibrary(), ...resolved.nodes]);
+          if (window.WireNexusTransceivers && engineRendererRequested()) assertEditorConnectedCageChanges(editedTemplate);
           const invalidConnections = invalidConnectionsAfterInstanceDeviceEdit(instance.instanceId, editedTemplate);
           if (!confirmDeviceEditorWireRemoval(invalidConnections)) return;
           const beforeSnapshot = deviceEditorEngineSnapshot();
@@ -13388,6 +13501,7 @@
             : uniqueDeviceTemplateId(editedTemplate.id || editedTemplate.name || "project-custom-device", deviceLibrary);
           markProjectCustomDeviceTemplate(editedTemplate);
           validateEditorTemplateForApply(editedTemplate, [...serializeNodeLibrary(), ...resolved.nodes]);
+          if (window.WireNexusTransceivers && engineRendererRequested()) assertEditorConnectedCageChanges(editedTemplate);
           const beforeSnapshot = deviceEditorEngineSnapshot();
           const oldTemplate = deviceLibrary.find(template => template.id === editedTemplate.id);
           const projectorChanged = JSON.stringify(AVDesignerProjectors.normalizeProjectorTemplate(oldTemplate))
@@ -17313,11 +17427,14 @@
       physicalTypeControl?.addEventListener("change", event => {
         const nextType = String(event.target.value || "");
         if (installedSelection) {
+          const modulePatch = typeof window !== "undefined" && window.WireNexusTransceivers && engineRendererRequested()
+            ? transceiverModulePatchForTypeChange(connector, nextType) : null;
           setSelectedConnectorValue("type", nextType);
           setSelectedConnectorValue("physicalType", nextType);
           setSelectedConnectorValue("connectorType", nextType);
           setSelectedConnectorValue("empty", !nextType);
           setSelectedConnectorValue("label", nextType ? (editorNodeType(nextType)?.label || nextType) : connector.label || "Connector");
+          Object.entries(modulePatch || {}).forEach(([field, value]) => setSelectedConnectorValue(field, value));
           renderSelectedConnectorSettings();
           renderDeviceEditorPreview();
           renderDeviceAuthoringDebugPanel();
@@ -17329,13 +17446,16 @@
           mutate(draft) {
             const draftConnector = draft.connectors.find(item => item.id === connectorId);
             if (!draftConnector) return { cancelled: true };
+            const modulePatch = typeof window !== "undefined" && window.WireNexusTransceivers && engineRendererRequested()
+              ? transceiverModulePatchForTypeChange(draftConnector, nextType) : null;
             draftConnector.type = nextType;
             draftConnector.physicalType = nextType;
             draftConnector.connectorType = nextType;
             draftConnector.empty = !nextType;
             draftConnector.label = nextType ? (editorNodeType(nextType)?.label || nextType) : draftConnector.label;
             draftConnector.customColor = nextType === "misc" ? (draftConnector.customColor || cableTypes.misc.color) : "";
-            draftConnector.installedModuleType = cageConnectorTypes.has(nextType) ? (draftConnector.installedModuleType || "") : "";
+            if (modulePatch) Object.assign(draftConnector, modulePatch);
+            else draftConnector.installedModuleType = cageConnectorTypes.has(nextType) ? (draftConnector.installedModuleType || "") : "";
             draftConnector.fiberMode = isFiberCableType(effectiveConnectorType(draftConnector) || nextType)
               ? (draftConnector.fiberMode || activeFiberModeForCageConnector(draftConnector) || DEFAULT_FIBER_MODE)
               : "";
@@ -17416,6 +17536,20 @@
       });
       const moduleControl = selectedConnectorSettings.querySelector("#selectedConnectorModule");
       moduleControl?.addEventListener("change", event => {
+        if (engineTransceiverApi()) {
+          try {
+            commitEditorTransceiverModule(template, connector.id, event.target.value, installedSelection ? {
+              slotId: installedSelection.slot.id, sourceConnectorId: installedSelection.sourceConnector.id
+            } : {});
+          } catch (error) {
+            alert(error.message);
+          }
+          renderSelectedConnectorSettings();
+          renderConnectorRelationshipsPanel();
+          renderDeviceEditorPreview();
+          renderDeviceAuthoringDebugPanel();
+          return;
+        }
         if (installedSelection) {
           applyTransceiverModule(connector, event.target.value);
           setSelectedConnectorValue("installedModuleType", connector.installedModuleType || "");
@@ -17945,13 +18079,16 @@
       if (!connector) return { cancelled: true };
       const nextType = String(type || "");
       const previousType = connector.type || "";
+      const modulePatch = typeof window !== "undefined" && window.WireNexusTransceivers && engineRendererRequested()
+        ? transceiverModulePatchForTypeChange(connector, nextType) : null;
       connector.type = nextType;
       connector.physicalType = nextType;
       connector.connectorType = nextType;
       connector.empty = !nextType;
       connector.label = nextType ? (editorNodeType(nextType)?.label || nextType) : connector.label;
       connector.customColor = nextType === "misc" ? (connector.customColor || cableTypes.misc.color) : "";
-      connector.installedModuleType = cageConnectorTypes.has(nextType) && previousType === nextType ? (connector.installedModuleType || "") : "";
+      if (modulePatch) Object.assign(connector, modulePatch);
+      else connector.installedModuleType = cageConnectorTypes.has(nextType) && previousType === nextType ? (connector.installedModuleType || "") : "";
       connector.fiberMode = isFiberCableType(effectiveConnectorType(connector) || nextType) ? (connector.fiberMode || activeFiberModeForCageConnector(connector) || DEFAULT_FIBER_MODE) : "";
       if (nextType) applyAutomaticConnectorName(card.connectors, connector);
       normalizeCardConnector(connector, connectorIndex, connector.direction);
@@ -24162,6 +24299,12 @@
       if (!draftConnector || !type) return { cancelled: true };
       const typeLabel = editorNodeType(type)?.label || type;
       const previousType = draftConnector.type || "";
+      const modulePatch = typeof window !== "undefined" && window.WireNexusTransceivers && engineRendererRequested()
+        ? transceiverModulePatchForTypeChange(draftConnector, type) : null;
+      if (modulePatch && previousType !== type && (cageConnectorTypes.has(previousType) || cageConnectorTypes.has(type))) {
+        draftConnector.physicalType = type;
+        draftConnector.connectorType = type;
+      }
       const removeIds = [];
       const upsertIds = new Set();
       const hardTargets = {};
@@ -24186,8 +24329,9 @@
         draftConnector.empty = false;
         draftConnector.nameText = draftConnector.nameText || "";
         draftConnector.customColor = "";
-        draftConnector.installedModuleType = isCageConnector(draftConnector) && previousType === type ? (draftConnector.installedModuleType || "") : "";
-        draftConnector.fiberMode = "";
+        if (modulePatch) Object.assign(draftConnector, modulePatch);
+        else draftConnector.installedModuleType = isCageConnector(draftConnector) && previousType === type ? (draftConnector.installedModuleType || "") : "";
+        if (!modulePatch || previousType !== type) draftConnector.fiberMode = "";
         draftConnector.powerPlug = null;
         draftConnector.x = draftConnector.direction === "input" ? 0 : deviceTemplateWidth(draft);
         draftConnector.y = targetYForLane(targetLane);
@@ -24210,8 +24354,10 @@
       draftConnector.type = type;
       draftConnector.empty = false;
       draftConnector.customColor = type === "misc" ? (draftConnector.customColor || cableTypes.misc.color) : "";
-      draftConnector.fiberMode = isFiberCableType(type) ? (draftConnector.fiberMode || DEFAULT_FIBER_MODE) : "";
-      draftConnector.installedModuleType = "";
+      if (modulePatch) Object.assign(draftConnector, modulePatch);
+      else draftConnector.installedModuleType = "";
+      draftConnector.fiberMode = isFiberCableType(modulePatch ? effectiveConnectorType(draftConnector) || type : type)
+        ? (draftConnector.fiberMode || DEFAULT_FIBER_MODE) : "";
       if (!isPowerPlugConnector(draftConnector)) draftConnector.powerPlug = null;
       if (!draftConnector.label || /^input slot|^output slot/i.test(draftConnector.label)) {
         draftConnector.label = typeLabel;
@@ -24277,6 +24423,13 @@
     function connectorTypeLabel(connector, node = cableTypes[connector.type]) {
       if (isCageConnector(connector)) {
         const cageLabel = nodeLibraryDisplayLabel(connector.type, node);
+        const api = engineTransceiverApi();
+        if (api) {
+          if (api.isEngineDeadCageConnector(connector)) return `${cageLabel} Empty`;
+          const details = api.installedModuleDetailsForEngine(connector);
+          const option = api.transceiverModuleOption(details.rawValue, connector);
+          return `${cageLabel} / ${details.name || option?.label || details.rawValue || details.effectiveType}`;
+        }
         const module = transceiverModuleOption(connector.installedModuleType);
         return module.activeType ? `${cageLabel} / ${module.label}` : `${cageLabel} Empty`;
       }
@@ -24324,6 +24477,7 @@
 
     function setTemplateConnectorModule(template, connector, value) {
       if (!template || !isCageConnector(connector)) return;
+      if (engineTransceiverApi() && transceiverModuleSelectionUnchanged(connector, value)) return;
       applyTransceiverModule(connector, value);
       if (connector.pairedConnectorId) {
         const pair = template.connectors.find(item => item.id === connector.pairedConnectorId);
@@ -24332,6 +24486,33 @@
         }
       }
       syncPairedNetworkPairFields(template, connector);
+    }
+
+    function commitEditorTransceiverModule(template, connectorId, value, options = {}) {
+      const api = engineTransceiverApi();
+      if (!api || !template) return false;
+      const before = structuredClone(template);
+      const draft = structuredClone(template);
+      if (options.slotId) {
+        const slot = draft.cardSlots?.find(item => item.id === options.slotId);
+        const source = cardTypeById(draft, slot?.installedCardTypeId)?.connectors?.find(item => item.id === options.sourceConnectorId);
+        if (!slot || !source) throw new Error("The installed card connector no longer exists.");
+        const connector = mergedCardConnectorForSlot(draft, slot, source);
+        if (transceiverModuleSelectionUnchanged(connector, value)) return false;
+        const patch = api.transceiverModulePatch(connector, value);
+        Object.entries(patch).forEach(([field, fieldValue]) => setCardSlotConnectorOverride(draft, slot, source.id, field, fieldValue));
+      } else {
+        const owner = options.cardTypeId ? cardTypeById(draft, options.cardTypeId) : draft;
+        const connector = owner?.connectors?.find(item => item.id === connectorId);
+        if (!isCageConnector(connector)) throw new Error("Select an SFP cage before installing a module.");
+        if (transceiverModuleSelectionUnchanged(connector, value)) return false;
+        setTemplateConnectorModule(owner, connector, value);
+      }
+      assertEditorConnectedCageChanges(draft);
+      // Module edits are metadata-only: retain all IDs, anchors and placement.
+      replaceEditorTemplateContents(template, draft);
+      recordEditorPlacementHistory(template, before);
+      return true;
     }
 
     function syncEthernetPairFields(template, connector) {
@@ -30952,15 +31133,24 @@
     }
 
     function transceiverModuleSelectHtml(controlId, connector) {
-      const value = connector?.installedModuleType || "";
+      const api = engineTransceiverApi();
+      const details = api?.installedModuleDetailsForEngine(connector);
+      const rawValue = details?.rawValue || connector?.installedModuleType || details?.effectiveType || "";
+      const value = transceiverModuleSelectionValue(connector);
+      const presentation = api ? api.transceiverModulePresentation(connector) : "";
+      const options = transceiverModuleOptionsForConnector(connector).slice();
+      if (api && !options.some(option => option.value === value)) {
+        options.unshift({ value, label: details?.name || rawValue, disabled: true });
+      }
       return `
         <div class="field">
           <label for="${controlId}">Installed Module</label>
-          <select id="${controlId}">
-            ${transceiverModuleOptionsForConnector(connector).map(option => {
-              return `<option value="${escapeAttr(option.value)}" ${option.value === value ? "selected" : ""}>${escapeHtml(option.label)}</option>`;
+          <select id="${controlId}"${api ? ` title="${escapeAttr(presentation)}"` : ""}>
+            ${options.map(option => {
+              return `<option value="${escapeAttr(option.value)}" ${option.value === value ? "selected" : ""} ${option.disabled ? "disabled" : ""}>${escapeHtml(option.label)}</option>`;
             }).join("")}
           </select>
+          ${api ? `<div class="field-hint" data-transceiver-module-details style="white-space: normal; overflow-wrap: anywhere;">${escapeHtml(presentation)}</div>` : ""}
         </div>
       `;
     }
@@ -31138,6 +31328,24 @@
       if (moduleControl) {
         moduleControl.addEventListener("change", event => {
           const engineBridge = activeEngineBridge();
+          const api = engineTransceiverApi();
+          if (api) {
+            try {
+              if (transceiverModuleSelectionUnchanged(connectorById(deviceId, connectorId), event.target.value)) return;
+              [connectorId, connector.pairedConnectorId].filter(Boolean).forEach(id => {
+                const current = connectorById(deviceId, id);
+                if (transceiverModuleSelectionUnchanged(current, event.target.value)) return;
+                const patch = api.transceiverModulePatch(current, event.target.value);
+                assertConnectedCageModuleUnchanged(deviceId, id, current, { ...current, ...patch });
+              });
+              if (!engineBridge?.isReady?.()) throw new Error("Wait for the Engine canvas to finish loading before changing a module.");
+              engineBridge.commitConnectorInspectorFields(deviceId, connectorId, { installedModuleType: event.target.value });
+            } catch (error) {
+              alert(error.message);
+            }
+            renderConnectorInspector(deviceId, connectorId);
+            return;
+          }
           if (engineBridge?.commitConnectorInspectorFields?.(deviceId, connectorId, { installedModuleType: event.target.value })) return;
           const sync = setConnectorModuleForEndpoint(deviceId, connectorId, event.target.value);
           syncEngineConnectorsFromProduction(deviceId, sync.affectedConnectorIds, sync.removedConnectionIds);
@@ -31207,6 +31415,26 @@
       control.addEventListener("blur", commit);
     }
 
+    function wireAssemblyDetailsHtml(connection) {
+      const api = engineTransceiverApi();
+      const assembly = connection?.cableAssembly;
+      if (!api || !assembly || typeof assembly !== "object" || Array.isArray(assembly)) return "";
+      if (!api.isDacCableType(connection.cableType) && assembly.kind !== "direct-attach-copper") return "";
+      const formFactor = end => {
+        const form = assembly.ends?.[end]?.formFactor;
+        return ({ sfp: "SFP", "sfp-plus": "SFP+", sfp28: "SFP28", qsfp: "QSFP" })[form] || form || "Unverified";
+      };
+      const rates = Array.isArray(assembly.supportedRates) ? assembly.supportedRates.map(String).filter(Boolean) : [];
+      const warnings = Array.isArray(assembly.warnings) ? [...new Set(assembly.warnings.map(String).filter(Boolean))] : [];
+      return `
+        <dt>Assembly</dt><dd data-wire-assembly-kind>${escapeHtml(assembly.kind === "direct-attach-copper" ? "Direct-attach copper (DAC)" : assembly.kind || "Unverified")}</dd>
+        <dt>From end</dt><dd data-wire-assembly-from>${escapeHtml(formFactor("from"))}</dd>
+        <dt>To end</dt><dd data-wire-assembly-to>${escapeHtml(formFactor("to"))}</dd>
+        <dt>Data rate</dt><dd data-wire-assembly-rate>${escapeHtml(rates.join(", ") || "Unverified")}</dd>
+        ${warnings.length ? `<dt>Warnings</dt><dd data-wire-assembly-warnings style="overflow-wrap:anywhere">${warnings.map(escapeHtml).join("<br>")}</dd>` : ""}
+      `;
+    }
+
     function renderWireInspector(connectionId) {
       const connection = state.connections.find(item => item.id === connectionId);
       if (!connection) return;
@@ -31234,8 +31462,10 @@
       inspectorBody.innerHTML = `
         <dl class="details">
           <dt>Type</dt><dd>Wire</dd>
+          ${engineTransceiverApi() ? `<dt>Cable</dt><dd>${escapeHtml(reportCableType(connection))}</dd>` : ""}
           <dt>From</dt><dd>${escapeHtml(fromDevice ? `${fromDevice.name} / ${endpointConnectorName(connection.from)}` : fromSurface?.name || multiCoreLabel(connection.from) || "Missing")}</dd>
           <dt>To</dt><dd>${escapeHtml(toDevice ? `${toDevice.name} / ${endpointConnectorName(connection.to)}` : toSurface?.name || multiCoreLabel(connection.to) || "Missing")}</dd>
+          ${wireAssemblyDetailsHtml(connection)}
         </dl>
         ${activeEngineBridge() ? '<button class="tool-button" id="wireSignalChain" type="button">Signal Chain</button>' : ""}
         <button class="tool-button" id="playWireTrace" type="button">▶ Play Cable</button>
@@ -31985,7 +32215,11 @@
     }
 
     function reportCableType(connection) {
-      let label = cableTypes[connection.cableType]?.label || connection.cableType || "Cable";
+      let label = cableTypes[connection.cableType]?.label
+        || (connection.cableType && window.WireNexusTransceivers && engineRendererRequested()
+          && window.WireNexusTransceivers.isDacCableType(connection.cableType)
+          ? window.WireNexusTransceivers.engineConnectorTypeDisplayName(connection.cableType) : "")
+        || connection.cableType || "Cable";
       if (connection.cableType === "led-signal") label = "LED Signal";
       if (isFiberCableType(connection.cableType)) {
         const mode = FIBER_MODE_OPTIONS.find(option => option.value === (connection.fiberMode || DEFAULT_FIBER_MODE));
@@ -34383,7 +34617,16 @@ document.addEventListener("click", function(event) {
       } else if (input.dataset.cardField === "operationalStatus") {
         connector.operationalStatus = input.checked ? "not-working" : "working";
       } else if (input.dataset.cardField === "installedModuleType") {
-        applyTransceiverModule(connector, input.value);
+        if (engineTransceiverApi()) {
+          if (event.type === "input") return;
+          try {
+            commitEditorTransceiverModule(currentEditorTemplate(), connector.id, input.value, { cardTypeId: card.id });
+          } catch (error) {
+            alert(error.message);
+          }
+        } else {
+          applyTransceiverModule(connector, input.value);
+        }
       } else if (input.dataset.cardField === "fiberMode") {
         connector.fiberMode = input.value || DEFAULT_FIBER_MODE;
       } else {

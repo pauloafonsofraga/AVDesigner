@@ -5,6 +5,9 @@ import {
   V2_SUGGESTED_BIDIRECTIONAL_TYPES
 } from "./deviceDefinitionV2.js";
 import { isGeneratedScopedNodeId } from "./nodeCompatibilityIdentity.js";
+import {
+  transceiverModuleOption, installedModuleCapabilities, transceiverConnectionValidation, isDacCableType
+} from "./transceiverModules.js";
 
 const CAGE_CONNECTOR_TYPES = new Set(["sfp-cage", "sfp-plus-cage", "sfp28-cage", "qsfp-cage"]);
 const ENGINE_CONNECTOR_COMPATIBILITY_ALIASES = new Map([
@@ -96,6 +99,9 @@ export const ENGINE_CONNECTOR_TYPE_COLORS = new Map([
   ["sfp-plus-cage", "#678ACF"],
   ["sfp28-cage", "#678ACF"],
   ["qsfp-cage", "#A8B6C8"],
+  ["dac-sfp-plus", "#CF964D"],
+  ["dac-sfp28", "#CF964D"],
+  ["dac-qsfp", "#CF964D"],
   ["rs-422", "#607D8B"],
   ["led-signal", "#ff99cc"],
   ["usb-a", "#4E342E"],
@@ -205,6 +211,9 @@ const CONNECTOR_LABELS = new Map([
   ["sfp-plus-cage", "SFP+ Cage"],
   ["sfp28-cage", "SFP28 Cage"],
   ["qsfp-cage", "QSFP Cage"],
+  ["dac-sfp-plus", "SFP+ DAC"],
+  ["dac-sfp28", "SFP28 DAC"],
+  ["dac-qsfp", "QSFP DAC"],
   ["qsfp", "QSFP"],
   ["usb-a", "USB-A"],
   ["usb-b", "USB-B"],
@@ -349,7 +358,8 @@ export function installedModuleDetailsForEngine(connector) {
     activeType: directActiveType,
     effectiveType,
     fiberMode,
-    fiberFamily: engineFiberModeFamily(fiberMode)
+    fiberFamily: engineFiberModeFamily(fiberMode),
+    capabilities: installedModuleCapabilities(connector)
   };
 }
 
@@ -357,6 +367,8 @@ export function areEngineConnectorTypesCompatible(source, target) {
   const sourceType = engineConnectorCompatibilityType(source);
   const targetType = engineConnectorCompatibilityType(target);
   if (!sourceType || !targetType) return false;
+  if ((isEngineCageConnector(source) || isEngineCageConnector(target) || isDacCableType(sourceType) || isDacCableType(targetType))
+    && !transceiverConnectionValidation(source, target, sourceType, targetType).valid) return false;
   if (sourceType === targetType) return engineFiberModesCompatible(source, target, sourceType, targetType);
   if (CAT_CONNECTOR_TYPES.has(sourceType) && CAT_CONNECTOR_TYPES.has(targetType)) return true;
   if (POWER_CABLE_END_TYPES.has(sourceType) && POWER_CABLE_END_TYPES.has(targetType)) return true;
@@ -392,6 +404,8 @@ export function engineCompatibilitySummary(sourceHit, targetHit) {
   if ((isEngineCageConnector(source) && !sourceType) || (isEngineCageConnector(target) && !targetType)) {
     return result(false, "inactive-cage-module", "Installed transceiver/module does not expose a supported connector type.", sourceType, targetType, source, target);
   }
+  const moduleCheck = transceiverConnectionValidation(source, target, sourceType, targetType);
+  if (!moduleCheck.valid) return result(false, moduleCheck.rule, moduleCheck.reason, sourceType, targetType, source, target);
   if (sourceType === targetType && !engineFiberModesCompatible(source, target, sourceType, targetType)) {
     return result(
       false,
@@ -748,7 +762,7 @@ function installedModuleHasValue(connector) {
 
 function activeTypeForModuleValue(value) {
   const key = moduleKey(value);
-  return TRANSCEIVER_MODULE_ACTIVE_TYPES.get(key) || "";
+  return TRANSCEIVER_MODULE_ACTIVE_TYPES.get(key) || transceiverModuleOption(value)?.activeType || "";
 }
 
 function inferFiberModeFromModuleValue(value) {
@@ -822,6 +836,7 @@ function result(valid, rule, reason, sourceType, targetType, source = null, targ
   const selectedCableType = sourceType || targetType || "";
   return {
     valid,
+    warnings: valid ? transceiverConnectionValidation(source, target, sourceType, targetType).warnings : [],
     rule,
     reason,
     rawSourceType: connectorType(source),

@@ -1,5 +1,6 @@
 import { bezierPolyline } from "./wirePath.js";
 import { isConnectorExplicitlyBidirectional } from "./deviceDefinitionV2.js";
+import { effectiveTransceiverDirection, isTransceiverCage, installedModuleCapabilities } from "./transceiverModules.js";
 import { jumpPairLoomConflict, loomForJump } from "./loomJumpAssociation.js";
 import { multiCoreForJump, multiCoreJumpPairConflict } from "./multiCoreJumpRouting.js";
 import {
@@ -92,6 +93,10 @@ export function normalizeJumpNodeDirection(direction = "") {
 
 export function jumpConnectorBaseRole(connector = {}) {
   if (!connector) return JUMP_NODE_ROLE.neutral;
+  if (isTransceiverCage(connector)) {
+    const direction = effectiveTransceiverDirection(connector);
+    if (direction === "input" || direction === "output") return direction;
+  }
   const signalRole = normalizeJumpNodeDirection(connector.signalDirection);
   if (signalRole !== JUMP_NODE_ROLE.neutral) return signalRole;
   if (isConnectorExplicitlyBidirectional(connector)) return JUMP_NODE_ROLE.bidirectional;
@@ -447,13 +452,33 @@ export function jumpCompatibleHitForDeviceWire(jumpHit, realHit) {
   if (!jumpHit || !realHit) return jumpHit;
   const realConnector = realHit.connector || {};
   const role = jumpConnectorBaseRole(realConnector);
+  const jumpConnector = { ...jumpHit.connector };
+  for (const key of ["installedModule", "module", "transceiverModule", "moduleCapabilities", "cageCapabilities"]) {
+    const value = realConnector[key];
+    if (value === undefined) delete jumpConnector[key];
+    else jumpConnector[key] = value === null ? null : JSON.parse(JSON.stringify(value));
+  }
+  for (const key of [
+    "moduleId", "moduleName", "moduleType", "moduleActiveType", "moduleEffectiveType", "moduleFiberMode",
+    "transceiverModuleId", "transceiverModuleName", "transceiverModuleType",
+    "transceiverModuleActiveType", "transceiverModuleEffectiveType", "transceiverModuleFiberMode"
+  ]) {
+    if (realConnector[key] === undefined) delete jumpConnector[key];
+    else jumpConnector[key] = String(realConnector[key] ?? "");
+  }
   return {
     ...jumpHit,
     connector: {
-      ...jumpHit.connector,
+      ...jumpConnector,
       type: realConnector.type || "misc",
       compatibilityType: engineConnectorCompatibilityType(realConnector) || "",
       direction: role === JUMP_NODE_ROLE.input ? "output" : role === JUMP_NODE_ROLE.output ? "input" : "io",
+      ...(isTransceiverCage(realConnector) ? {
+        jumpModuleCompatibilityProxy: true,
+        ...(["input", "output"].includes(installedModuleCapabilities(realConnector).direction) ? {
+          signalDirection: role === JUMP_NODE_ROLE.input ? "output" : "input"
+        } : {})
+      } : {}),
       fiberMode: realConnector.fiberMode || jumpHit.connector?.fiberMode || "",
       installedModuleType: realConnector.installedModuleType || "",
       installedModuleId: realConnector.installedModuleId || "",

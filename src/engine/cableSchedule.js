@@ -1,6 +1,7 @@
 import { engineConnectorColor, engineConnectorDisplayLabel, engineConnectorCompatibilityType,
   engineConnectorUserFacingTypeLabel } from "./connectorCompatibility.js";
 import { normalizeSignalDirection } from "./deviceDefinitionV2.js";
+import { effectiveTransceiverDirection, isTransceiverCage } from "./transceiverModules.js";
 import { rawWireJumpIds, resolvePlayableSignalPath } from "./jumpNodeModel.js";
 import { cableLengthDisplayLabel } from "./loomMetadata.js";
 import { resolveRackPatchPresentation } from "./rackPatchTopology.js";
@@ -74,6 +75,7 @@ const typeFamilies = new Map(Object.entries({
   sdi: "V", bnc: "V", hdmi: "V", dvi: "V", "display-port": "V", "mini-display-port": "V",
   vga: "V", cxp: "V", "led-signal": "V", "led-grid-signal": "V",
   cat5e: "N", cat6: "N", cat6a: "N", ethercon: "N", ethernet: "N",
+  "dac-sfp-plus": "N", "dac-sfp28": "N", "dac-qsfp": "N",
   "xlr-3pin": "A", "xlr-5pin": "A", "trs-ts": "A", rca: "A", aes: "A",
   "dmx-3pin": "L", "dmx-5pin": "L",
   "speakon-nl2": "A", "speakon-nl4": "A", "speakon-nl8": "A", speakon: "A",
@@ -209,7 +211,8 @@ function endpointDisplay(project, endpoint, getConnector, nodeColors, nodeDefini
   return {
     deviceId: String(instance?.instanceId || ""), surfaceId: String(surface?.id || ""),
     connectorId: String(connector?.id || endpoint?.connectorId || ""),
-    direction: connector ? normalizeSignalDirection(connector.signalDirection, connector.direction) : "",
+    direction: connector ? (isTransceiverCage(connector) ? effectiveTransceiverDirection(connector)
+      : normalizeSignalDirection(connector.signalDirection, connector.direction)) : "",
     device: patch ? `${patch.rackName} / ${patch.panelLabel}` : semanticDevice,
     port: patch ? `Port ${patch.slot}` : semanticPort,
     realDevice: semanticDevice,
@@ -286,7 +289,9 @@ export function buildCableSchedule(input, options = {}) {
       cable: `${cableLabel}${fiberMode}`, length: cableLengthDisplayLabel(value("length"), loomRecord),
       fiberMode: String(value("fiberMode")),
       loomId, loom: String(loomRecord?.name || value("loom")), rackLocation,
-      notes: derivePatchReportNotes(deriveLoomReportNotes(value("notes"), loomRecord), source, destination),
+      notes: [derivePatchReportNotes(deriveLoomReportNotes(value("notes"), loomRecord), source, destination),
+        primary.cableAssembly?.kind === "direct-attach-copper"
+          ? ["Integrated DAC assembly", ...(primary.cableAssembly.supportedRates || []), ...(primary.cableAssembly.warnings || [])].join(" | ") : ""].filter(Boolean).join("\n"),
       wireIds: group.wires.map(wire => String(wire.id)),
       sourceNodeTypeId: source.typeId, destinationNodeTypeId: destination.typeId,
       sourceNodeTypeLabel: source.typeLabel, destinationNodeTypeLabel: destination.typeLabel,
