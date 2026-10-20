@@ -286,14 +286,18 @@ const cacheA = new TextureCache(gl, {
   }
 });
 const cacheB = new TextureCache(gl);
-cacheA.entriesByDeviceId.set("preview-a", { visualSources: ["preview://asset-a"] });
-cacheA.texturesByKey.set("key-a", textureRecord("texture-a"));
-cacheB.entriesByDeviceId.set("preview-b", { visualSources: ["preview://asset-b"] });
-cacheB.texturesByKey.set("key-b", textureRecord("texture-b"));
+const recordA = textureRecord("key-a"), recordB = textureRecord("key-b");
+cacheA.texturesByKey.set(recordA.key, recordA);
+cacheB.texturesByKey.set(recordB.key, recordB);
+cacheA.entriesByDeviceId.set("preview-a", { ...cacheA.createEntry({ id: "preview-a" }, recordA.key, recordA, "fixture", true), visualSources: ["preview://asset-a"] });
+cacheB.entriesByDeviceId.set("preview-b", { ...cacheB.createEntry({ id: "preview-b" }, recordB.key, recordB, "fixture", true), visualSources: ["preview://asset-b"] });
 assert.equal(deviceVisualAssetReadySubscriberCount(), subscriberBaseline + 3, "Subscriber count after cache subscriptions.");
 notifyDeviceVisualAssetReady("preview://asset-a");
 assert.equal(standaloneNotifications, 1, "Standalone subscriber should receive one notification.");
 assert.equal(cacheA.getEntry("preview-a"), null, "Cache A should invalidate the matching visual source.");
+assert.equal(recordA.refCount, 0, "Asset-ready releases the final texture owner.");
+assert.equal(recordA.texture, null, "Asset-ready retires the matching GPU texture.");
+assert.deepEqual(results.assetSubscriberLifecycle.cacheAEvent.deviceIds, ["preview-a"], "Asset-ready reaches the renderer callback without a swallowed exception.");
 assert.notEqual(cacheB.getEntry("preview-b"), null, "Cache B should ignore unrelated visual source.");
 unsubscribeStandalone();
 cacheA.dispose();

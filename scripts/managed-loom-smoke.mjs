@@ -49,6 +49,15 @@ try {
   assert.equal(first.plan.circuitCount, 2);
   assert.equal(first.plan.breakouts.length, 4);
   assert.equal(await page.locator("#loomName").inputValue(), "LM-001");
+  assert.deepEqual([first.looms[0].labelTextColor, first.looms[0].labelBackgroundColor], ["#ffffff", "#000000"],
+    "new Looms explicitly store normalized label defaults");
+  // Historical projects may omit these fields. Keep that cancellation coverage
+  // without assuming the current creation command produces a historical shape.
+  await page.evaluate(() => {
+    const project = structuredClone(projectSnapshotData({ forEngine: true }));
+    delete project.looms[0].labelTextColor; delete project.looms[0].labelBackgroundColor;
+    restoreSnapshot(project); activeEngineBridge().selectLoomById("loom-1"); renderInspector();
+  });
   const setColor = async (selector, value) => page.locator(selector).evaluate((control, color) => {
     control.value = color;
     control.dispatchEvent(new Event("input", { bubbles: true }));
@@ -64,6 +73,7 @@ try {
   };
   const historyState = () => page.evaluate(() => activeEngineBridge().engineHistoryState());
   const historyBeforeCancel = await historyState();
+  const canonicalBeforeCancel = await page.evaluate(() => JSON.stringify(activeEngineBridge().mutations.root.looms));
   assert.deepEqual(await page.evaluate(() => [Object.hasOwn(state.looms[0], "labelTextColor"),
     Object.hasOwn(state.looms[0], "labelBackgroundColor")]), [false, false]);
   await previewColor("#loomLabelTextColor", "#ff0000");
@@ -71,6 +81,8 @@ try {
     scene: activeEngineBridge().scene.looms.find(loom => loom.id === "loom-1").labelTextColor })),
   { root: false, scene: "#ff0000" });
   assert.deepEqual(await historyState(), historyBeforeCancel, "text preview creates no history entry");
+  assert.equal(await page.evaluate(() => JSON.stringify(activeEngineBridge().mutations.root.looms)), canonicalBeforeCancel,
+    "preview cannot mutate the canonical Engine root even when scene records were shared");
   await page.locator("#loomLabelTextColor").blur();
   assert.deepEqual(await page.evaluate(() => ({ root: Object.hasOwn(state.looms[0], "labelTextColor"),
     scene: activeEngineBridge().scene.looms.find(loom => loom.id === "loom-1").labelTextColor,

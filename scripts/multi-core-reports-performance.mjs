@@ -16,7 +16,12 @@ for (const count of [8, 16, 32, 64, 256]) {
   project.connections[0].to.connectorId = project.multiCores[0].circuits[0].endAPortId;
   project.connections[1].from.endId = project.multiCores[0].ends.B.id;
   project.connections[1].from.connectorId = project.multiCores[0].circuits[0].endBPortId;
-  const measure = async fn => { const start = performance.now(); const value = await fn(); return { ms: +(performance.now() - start).toFixed(2), value }; };
+  const measure = async fn => {
+    await fn(); const samples = []; let value;
+    for (let i = 0; i < 5; i++) { const start = performance.now(); value = await fn(); samples.push(performance.now() - start); }
+    samples.sort((a, b) => a - b);
+    return { ms: +samples[2].toFixed(2), worstMs: +samples.at(-1).toFixed(2), value };
+  };
   const report = await measure(() => buildMultiCoreReports(project));
   const schedule = await measure(() => buildCableSchedule(project, { assignNumbers: "readOnly" }));
   const manifest = await measure(() => multiCoreReportCsv(report.value, "channels"));
@@ -29,6 +34,8 @@ for (const count of [8, 16, 32, 64, 256]) {
   }));
   await writeFile(`${directory}/performance-${count}.pdf`, pdf.value.bytes);
   results.push({ channels: count, snapshotMs: report.ms, scheduleMs: schedule.ms, manifestCsvMs: manifest.ms,
-    signalPresentationMs: chain.ms, xlsxMs: xlsx.ms, pdfMs: pdf.ms, xlsxBytes: xlsx.value.byteLength, pdfBytes: pdf.value.bytes.byteLength });
+    signalPresentationMs: chain.ms, xlsxMs: xlsx.ms, pdfMs: pdf.ms, xlsxBytes: xlsx.value.byteLength, pdfBytes: pdf.value.bytes.byteLength,
+    samples: 5, worstMs: { snapshot: report.worstMs, schedule: schedule.worstMs, manifestCsv: manifest.worstMs,
+      signalPresentation: chain.worstMs, xlsx: xlsx.worstMs, pdf: pdf.worstMs } });
 }
 await writeFile(`${directory}/performance.json`, JSON.stringify(results, null, 2)); console.table(results);

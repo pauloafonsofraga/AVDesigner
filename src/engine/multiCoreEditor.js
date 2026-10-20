@@ -65,7 +65,8 @@ export class MultiCoreEditor {
       const circuit = list(this.session.value.circuits).find(c => c?.id === row.dataset.circuitId);
       const errors = diagnostics.filter(d => d.severity === "error" && d.circuitId === circuit?.id);
       const state = errors.length ? errors.some(d => /incompatible/.test(d.code)) ? "Incompatible" : "Incomplete / unresolved"
-        : occupied.has(circuit?.id) ? "Occupied" : circuit?.administrativeState === "spare" ? "Reserved" : circuit?.administrativeState === "disabled" ? "Disabled" : "Available";
+        : occupied.has(circuit?.id) ? "Occupied" : circuit?.administrativeState === "disabled" ? "Disabled"
+          : circuit?.reservation ? "Reserved" : circuit?.administrativeState === "spare" ? "Spare" : "Available";
       row.querySelector("[data-channel-status]").textContent = state;
     }
     for (const tab of this.root.querySelectorAll("[data-tab]")) tab.dataset.errors = String(diagnostics.some(d => d.severity === "error" &&

@@ -5,6 +5,8 @@ import { connectedMultiCoreProject } from "../fixtures/multi-core-connectivity.m
 import { multiCoreJumpProject } from "../fixtures/multi-core-jump.mjs";
 import { buildOutputJumpNavigation } from "../src/engine/outputNavigation.js";
 import { pdfPageLayout } from "../src/engine/outputPdfLayout.js";
+import { hybridMultiCoreDefinition } from "../src/engine/multiCoreReferenceDefinitions.js";
+import { auditMultiCoreReference } from "./multi-core-stability-acceptance.mjs";
 const { chromium } = createRequire(import.meta.url)("playwright");
 const browser = await chromium.launch({ headless: true, executablePath: process.env.AVDESIGNER_CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
 const dir = process.env.AVDESIGNER_SCREENSHOT_DIR || "/tmp/wirenexus-multi-core-jump";
@@ -17,7 +19,8 @@ try {
   await page.goto(process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8773");
   await page.waitForFunction(() => window.wireNexusReady); await page.evaluate(() => wireNexusReady);
   const project = connectedMultiCoreProject(); project.projectName = "Multi-Core Jump Acceptance";
-  project.multiCores = []; project.multiCoreDefinitions = []; project.connections = [];
+  project.multiCores = []; project.multiCoreDefinitions = [hybridMultiCoreDefinition()]; project.connections = [];
+  project.multiCoreDefinitions[0].circuits[1].reservation = "Backup camera 2";
   project.devices[0].x = -400; project.devices[1].x = 2000;
   const load = async value => { await page.locator("#fileInput").setInputFiles({ name: "acceptance.avd", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(value)) }); await page.waitForFunction(name => state.projectName === name && activeEngineBridge()?.ready, value.projectName); };
   await load(project);
@@ -154,6 +157,7 @@ try {
   await page.keyboard.press("Meta+z"); await drag(await point(ja), await point(jb), true);
   await page.keyboard.press("Escape"); await page.mouse.move((await point(ja)).x, (await point(ja)).y); await shot("gateway-hover");
   assert.equal((await trace()).valid, true); assert.deepEqual((await read()).mc.circuits, mapping);
+  const expectedReports = await auditMultiCoreReference({ page, dir, point, read });
   const final = await read();
   const download = page.waitForEvent("download"); await page.locator("#saveProject").click();
   const saved = JSON.parse(await readFile(await (await download).path(), "utf8"));
@@ -161,6 +165,9 @@ try {
   saved.projectName = "Multi-Core Jump Reload"; await load(saved); await page.locator("#zoomFit").click();
   await writeFile(`${dir}/multi-core-jump.avd`, JSON.stringify(saved));
   assert.deepEqual((await read()).mc, final.mc); await shot("reloaded");
+  await click(await point("B")); await page.locator("[data-mc-edit]").click();
+  assert.deepEqual(await page.evaluate(() => activeEngineBridge().multiCoreEditor.session.value.circuits), final.mc.circuits);
+  await page.locator('.mc-editor [data-action="cancel"]').click();
   const exported = await page.evaluate(async () => {
     await ensureEngineOutputSceneModule(); const result = await prepareEngineViewerOutput();
     const hosted = await prepareEngineViewerOutput({ mode: "hosted-viewer" });
@@ -173,6 +180,10 @@ try {
     await viewer.route("**/*", r => hosted && r.request().isNavigationRequest() ? r.fulfill({ status: 200, contentType: "text/html", body: exported.hostedHtml }) : r.abort());
     if (hosted) await viewer.goto("https://multi-core-jump.test/project"); else await viewer.setContent(exported.html, { waitUntil: "load" });
     await viewer.waitForFunction(() => window.outputViewer);
+    assert.deepEqual(await viewer.evaluate(() => JSON.parse(document.getElementById("engineOutputPayload").textContent).engineScene.modelData.reports), expectedReports);
+    await viewer.locator('[data-action="report"]').click();
+    assert.equal(await viewer.locator(".multi-core-report-section tbody tr").count(), 15 + expectedReports.diagnostics.length);
+    assert.equal(await viewer.locator('[data-mc-edit],.mc-editor').count(), 0);
     assert.deepEqual(await viewer.evaluate(() => outputViewer.scene.wires.map(w => ({ id: w.id, points: outputViewer.scene.wireRenderPolyline(w) }))), exported.paths);
     assert.equal(await viewer.evaluate(() => outputViewer.scene.devices.filter(d => d.visual?.jumpMultiCoreId).length), 2);
     await viewer.screenshot({ path: `${dir}/${hosted ? "publish" : "offline-html"}.png` }); await viewer.close();

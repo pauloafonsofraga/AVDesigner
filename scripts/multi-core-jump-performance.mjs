@@ -10,7 +10,7 @@ import { jumpNodeConnectionInfo } from "../src/engine/jumpNodeModel.js";
 import { createMultiCoreConnectivity, traceMultiCoreSignalPath } from "../src/engine/multiCoreConnectivity.js";
 
 const measurements = [];
-for (const channels of [8, 16, 32, 64]) {
+for (const channels of [8, 16, 32, 64, 256]) {
   const project = largeMultiCoreProject(channels);
   const connected = connectedMultiCoreProject();
   project.devices = connected.devices; project.connections = connected.connections;
@@ -43,7 +43,7 @@ for (const channels of [8, 16, 32, 64]) {
     const samples = [];
     for (let sample = 0; sample < 35; sample++) { const start = performance.now(); run(); if (sample >= 5) samples.push(performance.now() - start); }
     samples.sort((a, b) => a - b);
-    measurements.push({ channels, operation, medianMs: +samples[15].toFixed(3), p95Ms: +samples[28].toFixed(3) });
+    measurements.push({ channels, operation, samples: samples.length, medianMs: +samples[15].toFixed(3), p95Ms: +samples[28].toFixed(3), worstMs: +samples.at(-1).toFixed(3) });
   }
 }
 console.log(JSON.stringify({ runtime: process.version, measurements }, null, 2));

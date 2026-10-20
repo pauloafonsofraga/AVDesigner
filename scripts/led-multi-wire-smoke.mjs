@@ -11,6 +11,8 @@ mkdirSync(directory, { recursive: true });
 const browser = await chromium.launch({ headless: true,
   ...(process.env.AVDESIGNER_CHROME_PATH ? { executablePath: process.env.AVDESIGNER_CHROME_PATH } : {}) });
 const checks = [], errors = [];
+// Persistence has no undefined fields; compare every defined value and route.
+const persisted = value => JSON.parse(JSON.stringify(value));
 try {
   const page = await browser.newPage({ viewport: { width: 1800, height: 1100 } });
   page.on("pageerror", e => errors.push(e.message));
@@ -84,10 +86,12 @@ try {
     await page.evaluate(() => activeEngineBridge().undoEngineCommand());
     assert.equal((await read()).wires.length, 0);
     await page.evaluate(() => activeEngineBridge().redoEngineCommand());
-    assert.deepEqual((await read()).wires, current.wires);
+    // History stores JSON-shaped connection records; absent optional route
+    // style and an explicit undefined property have identical saved meaning.
+    assert.deepEqual(persisted((await read()).wires), persisted(current.wires));
     const saved = await page.evaluate(() => projectSnapshotData());
     await page.evaluate(data => restoreSnapshot(data), saved);
-    assert.deepEqual((await read()).wires, current.wires);
+    assert.deepEqual(persisted((await read()).wires), persisted(current.wires));
     checks.push(`${route}: native multi-selection, immediate/moving/target previews, three saved wires, one undo/redo, reload`);
 
     await load(route); await selectNodes();
@@ -154,10 +158,10 @@ try {
       await page.evaluate(() => activeEngineBridge().undoEngineCommand());
       assert.equal((await read()).wires.length, 0);
       await page.evaluate(() => activeEngineBridge().redoEngineCommand());
-      assert.deepEqual((await read()).wires, connected.wires);
+      assert.deepEqual(persisted((await read()).wires), persisted(connected.wires));
       const saved = await page.evaluate(() => projectSnapshotData());
       await page.evaluate(data => restoreSnapshot(data), saved);
-      assert.deepEqual((await read()).wires, connected.wires);
+      assert.deepEqual(persisted((await read()).wires), persisted(connected.wires));
       await selectNodes();
       const privatePorts = (await outputs()).slice(3);
       await marquee({ x: privatePorts[0].x + 65, y: privatePorts[0].y - 15 }, { x: privatePorts.at(-1).x - 25, y: privatePorts.at(-1).y + 15 });

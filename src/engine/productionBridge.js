@@ -160,8 +160,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-111-multi-core-reports";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-111-multi-core-reports";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-112-multi-core-stability";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-112-multi-core-stability";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -8353,14 +8353,18 @@ class ProductionEngineBridge {
   }
 
   previewManagedLoomLabelStyle(loomId, fields = {}) {
-    const loom = this.scene.looms.find(item => item.id === loomId);
-    if (!loom) return false;
+    const current = this.scene.looms.find(item => item.id === loomId);
+    if (!current) return false;
+    // Geometry rebuilds share normalized records with the canonical project.
+    // A colour preview must detach both the array and changed record.
+    const loom = { ...current };
     for (const [key, fallback] of [
       ["labelTextColor", DEFAULT_LOOM_LABEL_TEXT_COLOR],
       ["labelBackgroundColor", DEFAULT_LOOM_LABEL_BACKGROUND_COLOR]
     ]) {
       if (fields[key] !== undefined) loom[key] = normalizeLoomLabelColor(fields[key], fallback);
     }
+    this.scene.looms = this.scene.looms.map(item => item.id === loomId ? loom : item);
     this.scheduleRender();
     return true;
   }
