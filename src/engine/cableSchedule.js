@@ -5,6 +5,8 @@ import { rawWireJumpIds, resolvePlayableSignalPath } from "./jumpNodeModel.js";
 import { cableLengthDisplayLabel } from "./loomMetadata.js";
 import { resolveRackPatchPresentation } from "./rackPatchTopology.js";
 import { createMultiCoreConnectivity, isMultiCoreEndpointReference, traceMultiCoreSignalPath } from "./multiCoreConnectivity.js";
+import { multiCoreReportEndpoint, presentMultiCorePath } from "./multiCoreReportPresentation.js";
+export { multiCorePathMarkup } from "./multiCoreReportPresentation.js";
 
 const signalChainConnectivity = new WeakMap();
 
@@ -16,6 +18,12 @@ export const CABLE_SCHEDULE_COLUMNS = Object.freeze([
 ]);
 
 export const CABLE_SCHEDULE_FILTER_KEYS = Object.freeze(["sourceDevice", "destinationDevice", "cable", "loom"]);
+
+export function cableScheduleColumns(rows) {
+  return rows.some(row => row.multiCoreReferences?.length) ? [...CABLE_SCHEDULE_COLUMNS,
+    ["multiCoreId", "Multi-Core ID"], ["multiCoreEnd", "Multi-Core End"],
+    ["multiCorePort", "Multi-Core Port"], ["multiCoreChannel", "Multi-Core Channel"]] : CABLE_SCHEDULE_COLUMNS;
+}
 
 export function cableScheduleFilterOptions(rows, key) {
   if (!CABLE_SCHEDULE_FILTER_KEYS.includes(key)) return [];
@@ -228,6 +236,8 @@ function derivePatchReportNotes(notes, source, destination) {
 
 export function buildCableSchedule(input, options = {}) {
   const project = projectRoot(input);
+  const connectivity = options.connectivity || (project.multiCores?.length || project.connections?.some(c => isMultiCoreEndpointReference(c.from) || isMultiCoreEndpointReference(c.to))
+    ? createMultiCoreConnectivity(project, { getConnector: options.getConnector }) : null);
   const groups = options.assignNumbers === false ? groupedCables(project, options.getConnector)
     : options.assignNumbers === "readOnly"
       ? numberCableGroups(project, groupedCables(project, options.getConnector), options, false)
@@ -240,8 +250,11 @@ export function buildCableSchedule(input, options = {}) {
   const rows = groups.map(group => {
     const primary = group.primary;
     const value = key => group.wires.find(wire => String(wire[key] || "").trim())?.[key] || "";
-    const source = endpointDisplay(project, group.source, options.getConnector, nodeColors, nodeDefinitions);
-    const destination = endpointDisplay(project, group.destination, options.getConnector, nodeColors, nodeDefinitions);
+    const mcSource = multiCoreReportEndpoint(project, group.source, connectivity);
+    const mcDestination = multiCoreReportEndpoint(project, group.destination, connectivity);
+    const source = mcSource || endpointDisplay(project, group.source, options.getConnector, nodeColors, nodeDefinitions);
+    const destination = mcDestination || endpointDisplay(project, group.destination, options.getConnector, nodeColors, nodeDefinitions);
+    const refs = [mcSource, mcDestination].filter(Boolean);
     const family = group.family || groupFamily(project, group, { ...options, nodeDefinitions });
     const sourceRack = source.patch?.rackName || (source.rackId ? rackName(source.rackId) : "");
     const destinationRack = destination.patch?.rackName || (destination.rackId ? rackName(destination.rackId) : "");
@@ -255,6 +268,9 @@ export function buildCableSchedule(input, options = {}) {
     const loomRecord = (project.looms || []).find(item => String(item.id) === loomId);
     const fiberMode = family === "F" && value("fiberMode") ? ` - ${value("fiberMode")}` : "";
     return {
+      ...(refs.length ? { multiCoreReferences: refs, multiCoreId: refs.map(r => r.assemblyId).join(" / "),
+        multiCoreEnd: refs.map(r => r.role).join(" / "), multiCorePort: refs.map(r => r.port).join(" / "),
+        multiCoreChannel: refs.map(r => r.channel).join(" / ") } : {}),
       cableNumber: group.cableNumber || primary.cableNumber || "",
       sourceDevice: source.device, sourcePort: source.port,
       destinationDevice: destination.device, destinationPort: destination.port,
@@ -281,9 +297,7 @@ export function buildCableSchedule(input, options = {}) {
   }).sort((a, b) => familyOrder.indexOf(a.cableNumber[0]) - familyOrder.indexOf(b.cableNumber[0])
     || Number(a.cableNumber.slice(2)) - Number(b.cableNumber.slice(2))
     || a.cableNumber.localeCompare(b.cableNumber));
-  if (project.multiCores?.length || project.connections?.some(c => isMultiCoreEndpointReference(c.from) || isMultiCoreEndpointReference(c.to))) {
-    signalChainConnectivity.set(rows, createMultiCoreConnectivity(project, { getConnector: options.getConnector }));
-  }
+  if (connectivity) signalChainConnectivity.set(rows, connectivity);
   return rows;
 }
 
@@ -301,19 +315,22 @@ function signalChainFromRow(row) {
     to: endpoint(reverse ? "source" : "destination"), flow: directed ? "forward" : "bidirectional" };
 }
 
-export function signalChainForWire(rows, wireId, { connectivity = signalChainConnectivity.get(rows), reverse = false } = {}) {
+export function signalChainForWire(rows, wireId, { connectivity = signalChainConnectivity.get(rows), reverse } = {}) {
   const id = String(wireId || "");
   const row = id && rows.find(item => item.wireIds.includes(id));
   if (!row) return null;
   const chain = signalChainFromRow(row);
   if (!connectivity) return chain;
-  const path = traceMultiCoreSignalPath(connectivity, id, { reverse });
+  const startingCable = connectivity.cables.find(c => c.wireId === id);
+  const orientFromEquipment = isMultiCoreEndpointReference(startingCable?.from.reference)
+    && startingCable?.to.kind === "device";
+  const path = traceMultiCoreSignalPath(connectivity, id, { reverse: reverse ?? orientFromEquipment });
   const concernsMultiCore = path.segments.some(s => s.kind === "multi-core-passive-channel")
     || connectivity.cables.some(c => (path.externalCableIds.includes(c.wireId) || row.wireIds.includes(c.wireId))
       && [c.from, c.to].some(e => isMultiCoreEndpointReference(e.reference)))
     || path.diagnostics.some(d => isMultiCoreEndpointReference(d.reference));
   // wireIds still identifies a physical reporting row; path holds the expanded logical chain.
-  return concernsMultiCore ? { ...chain, path } : chain;
+  return concernsMultiCore ? { ...chain, path, presentation: presentMultiCorePath(path, rows, connectivity) } : chain;
 }
 
 export function signalChainsForConnector(rows, deviceId, connectorId) {
@@ -333,7 +350,14 @@ export function signalChainsForPatchPort(rows, rackId, patchPanelId, patchPortId
 }
 
 export function cableScheduleCsv(rows) {
-  const quote = value => `"${String(value ?? "").replaceAll('"', '""')}"`;
-  return [CABLE_SCHEDULE_COLUMNS.map(([, label]) => quote(label)),
-    ...rows.map(row => CABLE_SCHEDULE_COLUMNS.map(([key]) => quote(row[key])))].map(row => row.join(",")).join("\r\n") + "\r\n";
+  return reportCsv(cableScheduleColumns(rows), rows);
+}
+
+export function reportCsv(columns, rows) {
+  const quote = value => {
+    const text = String(value ?? "");
+    const safe = /^[\s\u0000-\u001f]*[=+@-]|^[\t\r\n]/.test(text) ? `'${text}` : text;
+    return `"${safe.replaceAll('"', '""')}"`;
+  };
+  return [columns.map(([, label]) => quote(label)), ...rows.map(row => columns.map(([key]) => quote(row[key])))].map(row => row.join(",")).join("\r\n") + "\r\n";
 }

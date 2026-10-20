@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs/dist/exceljs.min.js";
-import { CABLE_SCHEDULE_COLUMNS } from "./cableSchedule.js";
+import { cableScheduleColumns } from "./cableSchedule.js";
+import { multiCoreReportSections } from "./multiCoreReports.js";
 import { cableGraphic, cableIdGraphic, cleanCableScheduleColor, nodeGraphic } from "./cableScheduleGraphics.js";
 
 function toArgb(color) {
@@ -7,14 +8,15 @@ function toArgb(color) {
 }
 
 export async function createCableScheduleXlsx(rows, { nodeDefinitions = [], loadArtwork = async value => value,
-  graphics = null, looms = [] } = {}) {
+  graphics = null, looms = [], reports = null } = {}) {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "WireNexus";
   const sheet = workbook.addWorksheet("Cable Schedule", { views: [{ state: "frozen", ySplit: 1 }] });
-  sheet.columns = CABLE_SCHEDULE_COLUMNS.map(([key, header], index) => ({
-    key, header, width: [19, 25, 38, 25, 38, 13, 25, 38, 13, 20, 26, 38][index]
+  const columns = cableScheduleColumns(rows);
+  sheet.columns = columns.map(([key, header], index) => ({
+    key, header, width: [19, 25, 38, 25, 38, 13, 25, 38, 13, 20, 26, 38][index] || 24
   }));
-  sheet.autoFilter = { from: "A1", to: `L${Math.max(2, rows.length + 1)}` };
+  sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: Math.max(2, rows.length + 1), column: columns.length } };
   sheet.getRow(1).height = 28;
   sheet.getRow(1).eachCell(cell => {
     cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
@@ -47,7 +49,7 @@ export async function createCableScheduleXlsx(rows, { nodeDefinitions = [], load
   };
   for (let index = 0; index < rows.length; index++) {
     const record = rows[index], rowNumber = index + 2;
-    const row = sheet.addRow(Object.fromEntries(CABLE_SCHEDULE_COLUMNS.map(([key]) => [key, String(record[key] ?? "")])));
+    const row = sheet.addRow(Object.fromEntries(columns.map(([key]) => [key, String(record[key] ?? "")])));
     row.height = Math.max(36, String(record.notes || "").split("\n").length * 16);
     row.eachCell(cell => { cell.alignment = { vertical: "middle", wrapText: true }; });
     if (index % 2) row.eachCell(cell => { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F5F7" } }; });
@@ -95,6 +97,23 @@ export async function createCableScheduleXlsx(rows, { nodeDefinitions = [], load
     if (index % 2) row.eachCell(cell => {
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F5F7" } };
     });
+  }
+  for (const [title, columns, records] of multiCoreReportSections(reports)) {
+    const name = { "Multi-Core Assembly Register": "Multi-Core Assemblies", "Channel Allocation Manifest": "Channel Allocation" }[title] || title;
+    const report = workbook.addWorksheet(name, { views: [{ state: "frozen", ySplit: 1 }] });
+    report.columns = columns.map(([key, header]) => ({ key, header, width: key === "message" || key === "notes" ? 48 : 24 }));
+    report.autoFilter = { from: { row: 1, column: 1 }, to: { row: Math.max(2, records.length + 1), column: columns.length } };
+    report.getRow(1).height = 32;
+    report.getRow(1).eachCell(cell => {
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF263641" } };
+      cell.alignment = { wrapText: true, vertical: "middle" };
+    });
+    for (const record of records) {
+      const row = report.addRow(Object.fromEntries(columns.map(([key]) => [key, String(record[key] ?? "")])));
+      row.eachCell(cell => { cell.numFmt = "@"; cell.alignment = { wrapText: true, vertical: "top" }; });
+      row.height = Math.max(32, ...columns.map(([key]) => Math.ceil(String(record[key] ?? "").length / 24) * 12));
+    }
   }
   return workbook.xlsx.writeBuffer();
 }

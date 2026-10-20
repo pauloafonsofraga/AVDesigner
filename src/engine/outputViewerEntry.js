@@ -5,10 +5,10 @@ const host = document.getElementById("outputViewer");
 try {
   const payload = JSON.parse(document.getElementById("engineOutputPayload").textContent);
   const viewer = new EngineOutputViewer(host, payload.engineScene, { assets: payload.assets, icons: payload.icons,
-    title: payload.title, signalChains: payload.signalChains });
+    title: payload.title, signalChains: payload.engineScene.modelData?.reports?.signalPaths || payload.signalChains });
   window.outputViewer = viewer;
   window.engineOutputMetadata = Object.freeze(payload.metadata);
-  installOutputReport(viewer, payload.reportData, payload.cableGroups);
+  installOutputReport(viewer, payload.reportData, payload.cableGroups, payload.engineScene.modelData?.reports);
   window.engineOutputReady = viewer.ready.then(diagnostics => {
     if (diagnostics.assetFailures) throw new Error(`${diagnostics.assetFailures} embedded viewer images could not be decoded.`);
     return { ...diagnostics, bundleHash: payload.metadata.bundleHash };

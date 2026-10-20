@@ -70,7 +70,7 @@ test("output report renders collapsed matrix tables and Escape restores canvas f
     select() { assert.fail("closing the report must not change selection"); } };
   const c = vm.createContext({ document: { createElement: tag => new Element(tag) } });
   const source = readFileSync(new URL("../src/engine/outputViewerReport.js", import.meta.url), "utf8");
-  vm.runInContext(source.replace("export function", "function"), c);
+  vm.runInContext(source.replace(/^import .*;\n/gm, "").replace("export function", "function"), c);
   c.installOutputReport(viewer, report);
   const walk = node => [node, ...node.children.flatMap(walk)];
   const details = walk(host).filter(node => node.tag === "details");

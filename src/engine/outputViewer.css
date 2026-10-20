@@ -63,6 +63,14 @@
 .output-report table { width: 100%; border-collapse: collapse; }
 .output-report th, .output-report td { padding: 7px 8px; border-bottom: 1px solid var(--border); text-align: left; overflow-wrap: anywhere; }
 .output-report th { color: var(--muted); }
+.multi-core-report-section { margin: 12px 0; }
+.multi-core-report-section summary { cursor: pointer; font-weight: 700; padding: 10px 0; }
+.multi-core-report-section table { min-width: 1600px; table-layout: fixed; }
+.multi-core-report-section th { position: sticky; top: 0; background: var(--panel, #20262d); }
+.multi-core-report-section .output-report-table { max-height: 55vh; overflow: auto; }
+.multi-core-signal-path { padding-left: 24px; }
+.multi-core-signal-path li { margin: 10px 0; padding: 10px; border-bottom: 1px solid #546270; overflow-wrap: anywhere; }
+.multi-core-report-diagnostics { overflow-wrap: anywhere; font-size: 12px; }
 @media (max-width: 700px) {
   .output-caption { display: none; }
   .output-toolbar { padding: 6px; gap: 6px; }

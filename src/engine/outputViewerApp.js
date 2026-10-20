@@ -5,6 +5,7 @@ import { screenToWorld, hitTestConnector, hitTestDevice, hitTestWire, hitTestLoo
 import { deviceVisualSources } from "./deviceVisualBuilder.js";
 import { polylineLength, polylinePointAtDistance, wirePlaybackDurationMs, wirePlaybackEase } from "./wirePlayback.js";
 import { isJumpNodeDevice, jumpNodeCenter } from "./jumpNodeModel.js";
+import { multiCorePathMarkup } from "./multiCoreReportPresentation.js";
 
 export class EngineOutputViewer {
   constructor(host, snapshot, options = {}) {
@@ -372,6 +373,10 @@ export class EngineOutputViewer {
         list.append(button);
       });
       body.append(list);
+    }
+    if (chain.presentation) {
+      const expanded = document.createElement("div"); expanded.innerHTML = multiCorePathMarkup(chain.presentation);
+      body.append(expanded); return;
     }
     const graph = text("div", "", "output-signal-chain-graph");
     const endpoint = (end, role) => {

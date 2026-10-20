@@ -5358,7 +5358,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled WireNexus Project" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">54.38.109 — Multi-Core Jump Routing</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">54.38.111 — Multi-Core Reports</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5553,9 +5553,20 @@
         <thead id="cableScheduleHead"></thead><tbody id="cableScheduleBody"></tbody>
       </table>
       <p class="cable-schedule-empty hidden" id="cableScheduleEmpty">No cables in this project.</p>
+      <div id="multiCoreReports"></div>
     </div>
   </dialog>
 
+  <style>
+    .multi-core-report-section { margin: 12px; }
+    .multi-core-report-section summary { cursor: pointer; font-weight: 700; padding: 10px 0; }
+    .multi-core-report-section table { min-width: 1800px; table-layout: fixed; }
+    .multi-core-report-section td { overflow-wrap: anywhere; white-space: normal; }
+    .multi-core-report-section .cable-schedule-table-wrap { max-height: 50vh; overflow: auto; }
+    .multi-core-signal-path { padding-left: 24px; }
+    .multi-core-signal-path li { margin: 10px 0; padding: 10px; border-bottom: 1px solid #546270; overflow-wrap: anywhere; }
+    .multi-core-report-diagnostics { overflow-wrap: anywhere; font-size: 12px; }
+  </style>
   <dialog id="signalChainDialog" class="signal-chain-dialog" aria-label="Signal Chain">
     <header class="signal-chain-header"><h2 id="signalChainTitle">Signal Chain</h2><button class="tool-button" id="closeSignalChain" type="button">Close</button></header>
     <div class="signal-chain-body" id="signalChainBody"></div>
@@ -6095,12 +6106,12 @@
   <script src="./src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script src="./src/engine/projectorModelCore.js?v=iteration54-38-11-engine-status-labels"></script>
   <script src="./src/engine/historyCloneCore.js?v=iteration54-38-29-memory-safe-undo"></script>
-  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-109-multi-core-jumps"></script>
+  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-111-multi-core-reports"></script>
   <script type="text/wirenexus-app" id="wireNexusAppSource">
-    const APP_ITERATION = "54.38.109";
-    const APP_BUILD_ID = "iteration54-38-109-multi-core-jumps";
-    const APP_MODULE_CACHE_ID = "iteration54-38-109-multi-core-jumps-modules";
-    const APP_BUILD_LABEL = `${APP_ITERATION} — Multi-Core Jump Routing`;
+    const APP_ITERATION = "54.38.111";
+    const APP_BUILD_ID = "iteration54-38-111-multi-core-reports";
+    const APP_MODULE_CACHE_ID = "iteration54-38-111-multi-core-reports-modules";
+    const APP_BUILD_LABEL = `${APP_ITERATION} — Multi-Core Reports`;
     const { cloneHistoryValue, MAX_HISTORY_ENTRIES } = window.WireNexusHistoryClone;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
@@ -31103,11 +31114,18 @@
       const toSurface = connection.to.surfaceId ? ledSurfaceById(connection.to.surfaceId) : null;
       const fromConnector = connection.from.deviceId ? connectorById(connection.from.deviceId, connection.from.connectorId) : null;
       const toConnector = connection.to.deviceId ? connectorById(connection.to.deviceId, connection.to.connectorId) : null;
+      const multiCoreLabel = endpoint => {
+        if (!endpoint.multiCoreId) return "";
+        const mc = state.multiCores?.find(item => item.id === endpoint.multiCoreId);
+        const role = ["A", "B"].find(role => mc?.ends?.[role]?.id === endpoint.endId);
+        const channel = role && mc.circuits?.find(c => c[`end${role}PortId`] === endpoint.connectorId);
+        return `${mc?.name || endpoint.multiCoreId} / End ${role || "?"} / Channel ${channel?.displayNumber || "Unknown"} / ${endpoint.connectorId}`;
+      };
       inspectorBody.innerHTML = `
         <dl class="details">
           <dt>Type</dt><dd>Wire</dd>
-          <dt>From</dt><dd>${escapeHtml(fromDevice ? `${fromDevice.name} / ${endpointConnectorName(connection.from)}` : fromSurface?.name || "Missing")}</dd>
-          <dt>To</dt><dd>${escapeHtml(toDevice ? `${toDevice.name} / ${endpointConnectorName(connection.to)}` : toSurface?.name || "Missing")}</dd>
+          <dt>From</dt><dd>${escapeHtml(fromDevice ? `${fromDevice.name} / ${endpointConnectorName(connection.from)}` : fromSurface?.name || multiCoreLabel(connection.from) || "Missing")}</dd>
+          <dt>To</dt><dd>${escapeHtml(toDevice ? `${toDevice.name} / ${endpointConnectorName(connection.to)}` : toSurface?.name || multiCoreLabel(connection.to) || "Missing")}</dd>
         </dl>
         ${activeEngineBridge() ? '<button class="tool-button" id="wireSignalChain" type="button">Signal Chain</button>' : ""}
         <button class="tool-button" id="playWireTrace" type="button">▶ Play Cable</button>
@@ -31341,6 +31359,13 @@
     }
 
     let cableScheduleModulePromise = null;
+    let multiCoreReportsModulePromise = null;
+    let currentMultiCoreReports = null;
+    let multiCoreReportRevision = 0;
+    let currentMultiCoreReportRevision = -1;
+    function loadMultiCoreReportsModule() {
+      return multiCoreReportsModulePromise ||= import(engineImportUrl("./src/engine/multiCoreReports.js"));
+    }
     let cableScheduleGraphicsPromise = null;
     let cableScheduleXlsxPromise = null;
     let cableScheduleRows = [];
@@ -31356,6 +31381,7 @@
 
     function loadCableScheduleModule() {
       cableScheduleModulePromise ||= import(engineImportUrl("./src/engine/cableSchedule.js"))
+        .then(module => { window.wireNexusMultiCorePathMarkup = module.multiCorePathMarkup; return module; })
         .catch(error => { cableScheduleModulePromise = null; throw error; });
       return cableScheduleModulePromise;
     }
@@ -31420,6 +31446,7 @@
     }
 
     function signalChainMarkup(chain) {
+      if (chain.presentation) return window.wireNexusMultiCorePathMarkup(chain.presentation);
       const cable = cableTypes[chain.cableTypeId];
       const colors = (Array.isArray(cable?.colors) && !chain.cableCustomColor ? cable.colors : [])
         .map(color => signalChainColor(color, "")).filter(Boolean);
@@ -31568,7 +31595,12 @@
     }
 
     function renderCableScheduleFilterHeader(module) {
-      cableScheduleHead.innerHTML = `<tr>${module.CABLE_SCHEDULE_COLUMNS.map(([key, label]) => {
+      const columns = module.cableScheduleColumns(cableScheduleRows);
+      const table = cableScheduleHead.closest("table");
+      const widths = [130, 175, 250, 175, 250, 105, 185, 250, 85, 145, 180, 250];
+      table.style.width = `${2180 + Math.max(0, columns.length - 12) * 180}px`;
+      table.querySelector("colgroup").innerHTML = columns.map((_, i) => `<col style="width:${widths[i] || 180}px">`).join("");
+      cableScheduleHead.innerHTML = `<tr>${module.cableScheduleColumns(cableScheduleRows).map(([key, label]) => {
         if (!module.CABLE_SCHEDULE_FILTER_KEYS.includes(key)) return `<th>${escapeHtml(label)}</th>`;
         const options = module.cableScheduleFilterOptions(cableScheduleRows, key);
         if (!options.includes(cableScheduleFilters[key])) cableScheduleFilters[key] = "";
@@ -31580,7 +31612,7 @@
       const visibleIndexes = module.cableScheduleVisibleRowIndexes(cableScheduleRows, cableScheduleFilters);
       cableScheduleBody.innerHTML = visibleIndexes.map(index => {
         const row = cableScheduleRows[index], graphics = cableScheduleGraphicsRenderer;
-        return `<tr data-cable-schedule-row="${index}">${module.CABLE_SCHEDULE_COLUMNS.map(([key]) => {
+        return `<tr data-cable-schedule-row="${index}">${module.cableScheduleColumns(cableScheduleRows).map(([key]) => {
           let contents = escapeHtml(row[key] || "");
           if (key === "cableNumber") contents = `<span class="cable-schedule-id" style="color:${graphics.cleanCableScheduleColor(row.cableColor)}">${contents}</span>`;
           if (key === "sourcePort") contents = cableScheduleIllustratedCell(row[key], cableScheduleIllustratedRows[index].source, "node");
@@ -31609,14 +31641,16 @@
       const version = ++cableScheduleRefreshVersion;
       const module = await loadCableScheduleModule();
       if (!cableScheduleDialog.open || version !== cableScheduleRefreshVersion) return;
-      assignProjectCableNumbers(module);
       const nodeDefinitions = serializeNodeLibrary();
-      const rows = module.buildCableSchedule({ ...state, deviceLibrary, nodeLibrary: nodeDefinitions }, {
-        assignNumbers: false, getConnector: connectorById, nodeDefinitions
-      });
+      const reportsModule = await loadMultiCoreReportsModule();
+      const revision = multiCoreReportRevision;
+      const reports = currentMultiCoreReportRevision === revision && currentMultiCoreReports
+        ? currentMultiCoreReports : reportsModule.buildMultiCoreReports({ ...state, deviceLibrary, nodeLibrary: nodeDefinitions }, {
+          getConnector: connectorById, nodeDefinitions });
+      const rows = reports.cableRows;
       const nodeById = new Map(nodeDefinitions.map(node => [node.id, node]));
       const visualNodeIds = [...new Set(rows.flatMap(row => [row.sourceNodeTypeId, row.destinationNodeTypeId]).filter(Boolean))];
-      const signature = JSON.stringify([rows, visualNodeIds.map(id => [id, nodeById.get(id)?.thumbnail])]);
+      const signature = JSON.stringify([reports, visualNodeIds.map(id => [id, nodeById.get(id)?.thumbnail])]);
       if (signature === cableScheduleRenderedSignature) return;
       const graphics = await loadCableScheduleGraphics();
       const illustratedRows = await Promise.all(rows.map(async row => {
@@ -31634,6 +31668,12 @@
       }));
       if (!cableScheduleDialog.open || version !== cableScheduleRefreshVersion) return;
       cableScheduleRows = rows;
+      currentMultiCoreReports = reports;
+      currentMultiCoreReportRevision = revision;
+      const reportUi = await import(engineImportUrl("./src/engine/multiCoreReportUi.js"));
+      reportUi.renderMultiCoreReports(document.getElementById("multiCoreReports"), reports, {
+        download: (csv, title) => downloadBlob(`\uFEFF${csv}`, `${projectFileBaseName()}-${title.toLowerCase().replaceAll(" ", "-")}.csv`, "text/csv;charset=utf-8")
+      });
       cableScheduleIllustratedRows = illustratedRows;
       cableScheduleGraphicsRenderer = graphics;
       cableScheduleRenderedSignature = signature;
@@ -31643,6 +31683,7 @@
     }
 
     function requestCableScheduleRefresh() {
+      multiCoreReportRevision++;
       if (!cableScheduleDialog.open || cableScheduleRefreshQueued) return;
       cableScheduleRefreshQueued = true;
       requestAnimationFrame(() => {
@@ -31653,6 +31694,7 @@
 
     async function openCableSchedule() {
       flushPendingInspectorCommit();
+      multiCoreReportRevision++;
       cableScheduleDialog.showModal();
       cableScheduleRenderedSignature = "";
       cableScheduleRows = [];
@@ -31684,7 +31726,7 @@
         }
         const writer = await loadCableScheduleXlsxBundle();
         const data = await writer.createCableScheduleXlsx(cableScheduleRows, {
-          nodeDefinitions: serializeNodeLibrary(), loadArtwork: imagePathToDataUrl, looms: state.looms
+          nodeDefinitions: serializeNodeLibrary(), loadArtwork: imagePathToDataUrl, looms: state.looms, reports: currentMultiCoreReports
         });
         downloadBlob(data, filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       } catch (error) { alert(`Cable Schedule could not be downloaded: ${error.message}`); }

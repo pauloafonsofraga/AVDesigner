@@ -50,7 +50,7 @@ test("shared export filename base preserves project capitalization and existing 
     assert.equal(suggested(), `${expected}-project.avd`);
   }
   const downloads = [];
-  const context = { projectFileBaseName: () => "My-CLIENT-Project-2026", cableScheduleRows: [],
+  const context = { projectFileBaseName: () => "My-CLIENT-Project-2026", cableScheduleRows: [], currentMultiCoreReports: null,
     refreshCableSchedule: async () => {}, loadCableScheduleModule: async () => ({ cableScheduleCsv: () => "csv" }),
     loadCableScheduleXlsxBundle: async () => ({ createCableScheduleXlsx: async () => new Uint8Array([1]) }),
     serializeNodeLibrary: () => [], imagePathToDataUrl: () => "", state: { looms: [] },

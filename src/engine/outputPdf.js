@@ -4,6 +4,7 @@ import { pdfPageLayout } from "./outputPdfLayout.js";
 import { addJumpLink } from "./outputPdfNavigation.js";
 import { buildOutputJumpNavigation } from "./outputNavigation.js";
 import { expandInlineSvgImages } from "./pdfInlineSvgImages.js";
+import { multiCoreReportSections } from "./multiCoreReports.js";
 
 const dark = "#20262d", text = "#17202a", rule = "#cbd3dc";
 const sections = report => [
@@ -112,6 +113,54 @@ function reportPages(doc, report, layout) {
   }
 }
 
+/** Appended pages only: drawing page references and XYZ destinations are untouched. */
+function multiCoreReportPages(doc, reports, layout) {
+  const margin = Math.max(layout.margin, 24), width = layout.paperWidth - 2 * margin;
+  const columnWidth = width / 3, lineHeight = 11;
+  let y;
+  const page = title => {
+    doc.flushPages(); doc.addPage({ size: [layout.paperWidth, layout.paperHeight], margin: 0 });
+    doc.font("Helvetica-Bold").fontSize(13).fillColor(text).text(title, margin, margin, { width });
+    y = margin + 32;
+  };
+  const wrap = value => {
+    const result = []; doc.font("Helvetica").fontSize(8);
+    for (const paragraph of String(value).split("\n")) {
+      let line = "";
+      for (const char of paragraph) {
+        if (line && doc.widthOfString(line + char) > columnWidth - 16) { result.push(line); line = ""; }
+        line += char;
+      }
+      result.push(line);
+    }
+    return result;
+  };
+  for (const [title, columns, records] of multiCoreReportSections(reports)) {
+    page(title);
+    for (const record of records) {
+      const groupSize = Math.ceil(columns.length / 3);
+      const cells = [0, 1, 2].map(i => wrap(columns.slice(i * groupSize, (i + 1) * groupSize)
+        .map(([key, label]) => `${label}: ${record[key] ?? ""}`).join("\n")));
+      let offset = 0, remaining = Math.max(...cells.map(c => c.length));
+      const recordHeight = remaining * lineHeight + 12;
+      if (recordHeight <= layout.paperHeight - 2 * margin - 32 && y + recordHeight > layout.paperHeight - margin)
+        page(`${title} (continued)`);
+      while (remaining > 0) {
+        let available = Math.floor((layout.paperHeight - margin - y - 12) / lineHeight);
+        if (available < 2) { page(`${title} (continued)`); available = Math.floor((layout.paperHeight - margin - y - 12) / lineHeight); }
+        const take = Math.min(remaining, Math.max(1, available)), height = take * lineHeight + 12;
+        doc.rect(margin, y, width, height).fillAndStroke("#f7f9fb", rule);
+        cells.forEach((lines, column) => lines.slice(offset, offset + take).forEach((line, index) => {
+          doc.font("Helvetica").fontSize(8).fillColor(text).text(line, margin + column * columnWidth + 8, y + 6 + index * lineHeight,
+            { width: columnWidth - 16, lineBreak: false });
+        }));
+        y += height; offset += take; remaining -= take;
+      }
+      y += 5;
+    }
+  }
+}
+
 /** App-owned vector PDF with internal Jump navigation. */
 export async function generatePdf({ svg, diagnostics, engineScene, drawingPages,
   reportData, options = {} }) {
@@ -173,6 +222,8 @@ export async function generatePdf({ svg, diagnostics, engineScene, drawingPages,
   }
   doc.flushPages();
   if (reportData) reportPages(doc, reportData, layout);
+  const multiCoreReports = drawings.find(page => page.engineScene?.modelData?.reports)?.engineScene.modelData.reports;
+  if (reportData && multiCoreReports) multiCoreReportPages(doc, multiCoreReports, layout);
   doc.end();
   const parts = await complete;
   const bytes = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));

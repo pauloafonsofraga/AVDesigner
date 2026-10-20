@@ -15,7 +15,7 @@ export function buildEngineViewerHtml(snapshot, { bundle, assets = {}, title, ca
   validateOutputAssets(scene, assets);
   const projectName = title || snapshot.reportData?.projectName || "WireNexus";
   const payload = { engineScene: scene, assets, icons: bundle.icons, title: projectName,
-    reportData: snapshot.reportData || {}, cableGroups, signalChains,
+    reportData: snapshot.reportData || {}, cableGroups, signalChains: scene.modelData?.reports ? [] : signalChains,
     metadata: { ...snapshot.metadata, drawingDependency: "engine-webgl", sceneSignature: scene.signature,
       sceneVersion: scene.version, sceneSchemaFingerprint: scene.schemaFingerprint,
       bundleHash: bundle.bundleHash } };

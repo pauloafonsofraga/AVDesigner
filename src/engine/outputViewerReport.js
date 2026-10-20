@@ -1,4 +1,7 @@
-export function installOutputReport(viewer, report = {}, cableGroups = []) {
+import { cableScheduleColumns } from "./cableSchedule.js";
+import { renderMultiCoreReports } from "./multiCoreReportUi.js";
+
+export function installOutputReport(viewer, report = {}, cableGroups = [], multiCoreReports = null) {
   const host = viewer.host, toolbar = host.querySelector('[role="toolbar"]');
   const button = document.createElement("button"); button.type = "button"; button.textContent = "Report"; button.dataset.action = "report";
   toolbar.prepend(button);
@@ -30,6 +33,9 @@ export function installOutputReport(viewer, report = {}, cableGroups = []) {
         if (cable && index === 0) {
           const action = text("button", item[key]); action.type = "button";
           action.addEventListener("click", () => {
+            if (cable === "physical") {
+              viewer.select({ type: "wire", id: item.wireIds[0] }); dialog.close(); viewer.openSignalChain(); return;
+            }
             const ids = [...new Set(cableGroups.filter(g => g.typeId === item.typeId).flatMap(g => g.wireIds || []))];
             viewer.select(ids.length === 1 ? { type: "wire", id: ids[0] } : { type: "multi-wire", ids }); dialog.close();
           }, { signal: viewer.abort.signal });
@@ -46,6 +52,11 @@ export function installOutputReport(viewer, report = {}, cableGroups = []) {
   table("Cable Schedule", [["type", "Cable"], ["length", "Length"], ["quantity", "Qty"]], report.cableRows, true);
   for (const section of report.matrixSections || []) table(`Matrix Routing - ${[section.brand, section.name].filter(Boolean).join(" / ")} (${section.size || ""})`,
     [["output", "Output"], ["input", "Input Source"]], section.routeRows, false, true);
+  if (multiCoreReports) {
+    table("Physical Cable Schedule", cableScheduleColumns(multiCoreReports.cableRows), multiCoreReports.cableRows, "physical");
+    const reports = document.createElement("div"); body.append(reports);
+    renderMultiCoreReports(reports, multiCoreReports);
+  }
   button.addEventListener("click", () => dialog.showModal(), { signal: viewer.abort.signal });
   close.addEventListener("click", () => dialog.close(), { signal: viewer.abort.signal });
   dialog.addEventListener("cancel", event => { event.preventDefault(); dialog.close(); }, { signal: viewer.abort.signal });

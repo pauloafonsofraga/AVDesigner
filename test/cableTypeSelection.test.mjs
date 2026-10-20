@@ -115,7 +115,7 @@ test("real output report buttons select a whole cable type, not only the clicked
   groups.push({ typeId: "hdmi", length: "other", wireIds: ["cable-1"] });
   const before = JSON.stringify({ cableRows, groups });
   const c = vm.createContext({ document: { createElement: tag => new Element(tag) } });
-  vm.runInContext(reportSource.replace("export function", "function"), c);
+  vm.runInContext(reportSource.replace(/^import .*;\n/gm, "").replace("export function", "function"), c);
   c.installOutputReport(viewer, { cableRows }, groups);
   const walk = node => [node, ...node.children.flatMap(walk)];
   const buttons = walk(host).filter(node => node.tag === "button" && node.textContent === "HDMI");

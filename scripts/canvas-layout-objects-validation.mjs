@@ -25,7 +25,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-38-109-multi-core-jumps";
+const BUILD_ID = "iteration54-38-111-multi-core-reports";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -41,9 +41,9 @@ function sourceSlice(source, startNeedle, endNeedle) {
 }
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Jump glow contrast");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.109";'), "visible iteration should be 54.38.109");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-109-multi-core-jumps-modules";'), "module cache key should bust current modules");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-109-multi-core-jumps"'), "Engine bridge version should identify the current build");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.111";'), "visible iteration should be 54.38.111");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-111-multi-core-reports-modules";'), "module cache key should bust current modules");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-111-multi-core-reports"'), "Engine bridge version should identify the current build");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
 assert.ok(classicScripts.length >= 1, "index.html should contain at least one classic script");

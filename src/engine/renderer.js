@@ -75,7 +75,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-109-multi-core-jumps";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-111-multi-core-reports";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";

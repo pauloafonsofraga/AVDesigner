@@ -6,6 +6,7 @@ import { calculateCableHops, applyCableHopsToPolyline } from "./cableHops.js";
 import { jumpNodeCenter, jumpLinkBezierPolyline } from "./jumpNodeModel.js";
 import { adapterWorldPoint } from "./adapterRotation.js";
 import { multiCoreConnectivityModelSnapshot } from "./multiCoreConnectivity.js";
+import { buildMultiCoreReports } from "./multiCoreReports.js";
 
 import { OUTPUT_SCENE_VERSION, OUTPUT_SCENE_SOURCE, OUTPUT_SCENE_SCHEMA_FINGERPRINT } from "./outputSceneContract.js";
 export { OUTPUT_SCENE_VERSION, OUTPUT_SCENE_SOURCE, OUTPUT_SCENE_SCHEMA_FINGERPRINT } from "./outputSceneContract.js";
@@ -73,7 +74,8 @@ function rotateBusSegment(device, segment) {
 export function buildEngineOutputScene(projectSnapshot = {}) {
   const project = plainData(projectSnapshot);
   const root = project.state || project.project || project;
-  const modelData = multiCoreConnectivityModelSnapshot(root);
+  const model = multiCoreConnectivityModelSnapshot(root);
+  const modelData = model ? { ...model, reports: buildMultiCoreReports(root, { connectivity: model.connectivity }) } : undefined;
   const scene = new SceneGraph();
   // The interactive adapter supplies a demo graph for an empty document. An
   // output contract must describe the empty document, not that demonstration.
