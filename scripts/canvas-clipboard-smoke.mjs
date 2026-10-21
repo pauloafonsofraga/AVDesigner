@@ -71,8 +71,9 @@ try {
   assert.ok(after.devices.slice(1).every(d => !source.devices.some(s => s.instanceId === d.instanceId)));
   assert.equal(after.imageObjects.length, 1); assert.equal(after.racks.length, 1);
   assert.ok(after.imageObjects[0].image.startsWith("data:image/png;"));
-  assert.equal(after.jumpLinks.length, 1); assert.equal(after.jumpNodes.length, 3);
-  assert.equal(after.jumpNodes[0].pairId, after.jumpNodes[1].pairId); assert.equal(after.jumpNodes[2].pairId, undefined);
+  assert.equal(after.jumpLinks.length, 0); assert.equal(after.jumpNodes.length, 3);
+  assert.ok(after.jumpNodes.every(node => node.pairId === undefined));
+  assert.ok(after.connections.every(wire => !wire.from.jumpNodeId && !wire.to.jumpNodeId));
   assert.equal(after.connections.length, payload.connections.length);
   assert.ok(after.connections.every(w => !w.id.includes("external")));
   assert.equal(after.deviceLibrary.length, 2);

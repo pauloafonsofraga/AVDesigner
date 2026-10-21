@@ -5048,6 +5048,10 @@ function paletteDropHarness({ mode = "engine", scale = 1 } = {}) {
   context.editorDataTransferHasType = (event, type) => event.dataTransfer.types.includes(type);
   context.editorPreviewCanCreateCardSlotFromDrop = () => false;
   context.editorDropPointCreatesAdapterNode = () => false;
+  // This harness isolates the existing empty-slot fill lifecycle. Filled-node
+  // replacement has its own behavioral and native-browser coverage.
+  context.editorNodeReplacementCandidate = () => null;
+  context.previewEditorNodeReplacement = () => {};
   context.fillEditorSlot = api.fillEditorSlot;
   context.fillEditorSlotById = api.fillEditorSlotById;
   context.editorPaletteDragSession = null;

@@ -58,7 +58,7 @@ test("rejects broken bounds, identities, endpoints and routes atomically", () =>
   }
 });
 
-test("remaps all object identities, Jump pairs, racks, endpoints, LED order and absolute route points", () => {
+test("remaps object identities, racks, endpoints, LED order and routes while isolating copied Jumps", () => {
   const { project, payload } = fixture(), before = structuredClone(project);
   const plan = clipboard.prepareCanvasClipboardPaste(payload, project, target);
   assert.deepEqual(project, before);
@@ -66,10 +66,9 @@ test("remaps all object identities, Jump pairs, racks, endpoints, LED order and 
     assert.equal(list.length, payload[key].length);
     for (let i = 0; i < list.length; i++) assert.notEqual(list[i].instanceId || list[i].id, payload[key][i].instanceId || payload[key][i].id);
   }
-  const link = plan.additions.jumpLinks[0], nodes = plan.additions.jumpNodes;
-  assert.equal(nodes[0].id, link.outputJumpId); assert.equal(nodes[1].id, link.inputJumpId);
-  assert.equal(nodes[0].pairId, nodes[1].pairId); assert.notEqual(nodes[0].pairId, "original-pair");
-  assert.equal(nodes[2].pairId, undefined);
+  assert.deepEqual(plan.additions.jumpLinks, []);
+  assert.ok(plan.additions.jumpNodes.every(node => node.pairId === undefined));
+  assert.ok(plan.additions.connections.every(wire => !wire.from.jumpNodeId && !wire.to.jumpNodeId));
   const wire = plan.additions.connections.find((_, i) => payload.connections[i].id === "cross-horizontal");
   assert.deepEqual(wire.orthogonalRoutePoints[0], { x: 2600, y: 1280 });
   const rack = plan.additions.racks[0];
@@ -148,7 +147,7 @@ test("single Jump is detached and partial rack selection becomes an independent 
   assert.equal(payload.racks.length, 0); assert.equal(payload.devices[0].rackId, undefined);
 });
 
-test("pasted Jump attachment remaps only when its connected device is copied", () => {
+test("pasted Jump detaches even when its original attached device is also copied", () => {
   const { project, bounds } = canvasClipboardFixture();
   project.jumpNodes.find(node => node.id === "jump-out").attachedDeviceId = "ordinary-a";
   const alone = clipboard.createCanvasClipboardPayload(project, [{ type: "jump-node", id: "jump-out" }], bounds);
@@ -158,7 +157,7 @@ test("pasted Jump attachment remaps only when its connected device is copied", (
     { type: "jump-node", id: "jump-out" }, { type: "device", id: "ordinary-a" }
   ], bounds);
   const togetherPlan = clipboard.prepareCanvasClipboardPaste(together, project, target);
-  assert.equal(togetherPlan.additions.jumpNodes[0].attachedDeviceId, togetherPlan.additions.devices[0].instanceId);
+  assert.equal(togetherPlan.additions.jumpNodes[0].attachedDeviceId, undefined);
 });
 
 test("same-origin fallback is atomic, versioned and expires after thirty minutes", () => {
