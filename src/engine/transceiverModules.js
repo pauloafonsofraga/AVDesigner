@@ -159,6 +159,30 @@ export function transceiverModulePatch(connector, value) {
   };
 }
 
+// A physical-type edit is metadata-only. Never copy identity or placement here.
+export function connectorPhysicalTypePatch(connector, type) {
+  if (!type) throw new Error("Select an ordinary connector type, or cancel the conversion.");
+  const patch = { type, physicalType: type, connectorType: type, empty: false };
+  if (!isTransceiverCage(connector) && !CAGE_FORM_FACTORS[type]) return patch;
+  const next = { ...connector, ...patch };
+  if (isTransceiverCage(next) && isTransceiverCage(connector)
+    && transceiverModuleValidation(next).valid) return patch;
+  return { ...patch, ...transceiverModulePatch(next, "") };
+}
+
+// Personal node IDs stay in the library; placed connectors use the canonical
+// physical type and carry their defaults, independently of later library edits.
+export function nodeDefinitionConnectorPatch(definition = {}) {
+  const type = definition.physicalType || (CAGE_FORM_FACTORS[definition.id] ? definition.id : "");
+  if (!type) return {};
+  const patch = { type, physicalType: type, connectorType: type };
+  if (!isTransceiverCage(patch)) return patch;
+  for (const field of [...Object.keys(transceiverModulePatch(patch, "")), "cageCapabilities"]) {
+    if (definition[field] !== undefined) patch[field] = structuredClone(definition[field]);
+  }
+  return patch;
+}
+
 export function transceiverModulePresentation(connector = {}) {
   const module = connector.installedModule || connector.module || connector.transceiverModule || {};
   const raw = installedModuleValue(connector);

@@ -24,7 +24,8 @@ test("SFP28 is a factory editor-only cage with the same palette and direction ru
   assert.deepEqual(type, { ...catalogue.nodeTypes["sfp-plus-cage"], label: "SFP28 Cage" });
   assert.ok(catalogue.nodeTags["sfp28-cage"].includes("sfp28"));
   const preview = createNodeBuilderPreviewScene({ typeId: "sfp28-cage", connectorType: type });
-  assert.equal(effectiveConnectorTypeForEngine(preview.devices[0].connectors[0]), "fiber-lc");
+  assert.equal(effectiveConnectorTypeForEngine(preview.devices[0].connectors[0]), "");
+  assert.equal(isEngineDeadCageConnector(preview.devices[0].connectors[0]), true);
 });
 
 test("empty SFP28 cages stay grey, labelled and unavailable until a module is installed", () => {

@@ -19,7 +19,7 @@ for (const engine of [true, false]) {
   test(`Node Builder list and selection guard agree without changing palette records (Engine=${engine})`, () => {
     const cableTypes = structuredClone(catalogue.nodeTypes), before = structuredClone(cableTypes);
     for (const id of cages) cableTypes[id].editorPalette = false;
-    const context = vm.createContext({ cableTypes, engineRendererRequested: () => engine,
+    const context = vm.createContext({ cableTypes, nodeBuilderSession: null, engineRendererRequested: () => engine,
       ensureNodeLibraryDefaults() {}, nodeTypeOrder: Object.keys(cableTypes),
       cageConnectorTypes: new Set(cages), deviceEditorOnlyNodeTypeOrder: cages,
       nodeSearchHaystack: (key, type) => `${key} ${type.label}`.toLowerCase(), nodeBuilderSelectedType: "" });

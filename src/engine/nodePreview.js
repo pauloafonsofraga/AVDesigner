@@ -1,4 +1,5 @@
 import { normalizeAvDesignerDevice } from "./projectAdapter.js";
+import { nodeDefinitionConnectorPatch, isTransceiverCage } from "./transceiverModules.js";
 
 export const NODE_PREVIEW_BUILD_ID = "iteration53-4-3-compact-rack-projection";
 export const NODE_PREVIEW_DEVICE_ID = "node-builder-preview-device";
@@ -85,6 +86,7 @@ function selectedTypeId(options = {}) {
 
 function normalizeConnectorType(type, typeId) {
   return {
+    ...structuredClone(type),
     id: typeId,
     label: String(type.label || type.name || typeId || "Connector"),
     color: String(type.color || "#32B6FF"),
@@ -114,6 +116,8 @@ function createPreviewConnector(typeId, type, options = {}) {
     empty: false
   };
   Object.assign(connector, previewTransceiverMetadata(typeId, options));
+  Object.assign(connector, nodeDefinitionConnectorPatch(type));
+  if (isTransceiverCage(connector)) connector.signalDirection = "bidirectional";
   return connector;
 }
 
@@ -127,22 +131,6 @@ function previewTransceiverMetadata(typeId, options = {}) {
       installedModuleActiveType: requested.activeType || requested.effectiveType || requested.connectorType || "",
       installedModuleFiberMode: requested.fiberMode || "",
       fiberMode: requested.fiberMode || options.fiberMode || ""
-    };
-  }
-  if (typeId === "sfp-cage" || typeId === "sfp-plus-cage" || typeId === "sfp28-cage") {
-    return {
-      installedModuleType: "lc-singlemode",
-      installedModuleActiveType: "fiber-lc",
-      installedModuleFiberMode: "single-mode",
-      fiberMode: "single-mode"
-    };
-  }
-  if (typeId === "qsfp-cage") {
-    return {
-      installedModuleType: "mpo-fiber",
-      installedModuleActiveType: "fiber-mpo",
-      installedModuleFiberMode: "single-mode",
-      fiberMode: "single-mode"
     };
   }
   return options.fiberMode ? { fiberMode: options.fiberMode } : {};

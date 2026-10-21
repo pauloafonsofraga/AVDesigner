@@ -100,7 +100,9 @@ const newDevice = async name => {
 const addCage = async (type, direction = "output") => {
   await tab("connectors"); await page.locator(direction === "input" ? "#addInputNode" : "#addOutputNode").click();
   const id = (await draft()).connectors.at(-1).id;
-  await selectEditorNode(id); await page.locator("#selectedConnectorPhysicalType").selectOption(type); await quiet();
+  await selectEditorNode(id);
+  await page.locator('[data-sfp-owner="device"] [data-sfp-enabled]').check();
+  await page.locator('[data-sfp-owner="device"] [data-sfp-family]').selectOption(type); await quiet();
   await directionControl(direction).click();
   await page.locator("#selectedConnectorModule").waitFor(); return id;
 };
@@ -272,7 +274,8 @@ try {
     await page.locator("#addCardOutputNode").click();
     const cardBefore = await page.evaluate(() => structuredClone(currentEditorCard()));
     const index = cardBefore.connectors.length - 1;
-    await page.locator(`[data-card-physical-type="${index}"]`).selectOption("sfp-plus-cage");
+    await page.locator('[data-sfp-owner="card"] [data-sfp-enabled]').check();
+    await page.locator('[data-sfp-owner="card"] [data-sfp-family]').selectOption("sfp-plus-cage");
     await page.locator("#selectedCardConnectorModule").selectOption("lc-singlemode");
     const geometry = await page.evaluate(() => structuredClone(currentEditorCard().connectors.at(-1)));
     await page.locator("#selectedCardConnectorModule").selectOption("sfp-sdi-3g-tx");
@@ -298,6 +301,13 @@ try {
       return { x: r.x + p.x, y: r.y + p.y };
     }, target.id);
     await page.mouse.click(hit.x, hit.y);
+    assert.equal(await page.locator('[data-sfp-owner="device"] [data-sfp-enabled]').isChecked(), true);
+    await page.locator('[data-sfp-owner="device"] [data-sfp-family]').selectOption("sfp28-cage");
+    const changedFamily = await page.evaluate(id => generatedCardConnectors(currentEditorTemplate()).find(c => c.id === id), target.id);
+    assert.equal(changedFamily.type, "sfp28-cage");
+    assert.equal(changedFamily.installedModuleType, target.installedModuleType);
+    assert.equal(changedFamily.id, target.id); assert.equal(changedFamily.x, target.x); assert.equal(changedFamily.y, target.y);
+    await page.locator('[data-sfp-owner="device"] [data-sfp-family]').selectOption("sfp-plus-cage");
     await page.locator("#selectedConnectorModule").selectOption("sfp-sdi-12g-tx");
     const installed = await page.evaluate(id => generatedCardConnectors(currentEditorTemplate()).find(c => c.id === id), target.id);
     assert.equal(installed.installedModuleType, "sfp-sdi-12g-tx"); assert.deepEqual(structure(installed), structure(target));
@@ -342,6 +352,16 @@ try {
     const persisted = await page.evaluate(id => connectorById("sdi-source", id), id);
     assert.equal(persisted.installedModuleType, "sfp-sdi-12g-tx"); assert.equal(persisted.signalDirection, "output");
     assert.equal(saved.connections.length, 1); check("SDI cable creation, module direction and project save/reload");
+    await openInstance(source.id); await selectEditorNode(id);
+    const connectedDraft = await draft(), cablesBefore = await page.evaluate(() => structuredClone(state.connections));
+    await page.locator('[data-sfp-owner="device"] [data-sfp-enabled]').uncheck();
+    await page.locator('[data-sfp-owner="device"] [data-sfp-ordinary]').selectOption("hdmi");
+    assert.match(report.alerts.at(-1).message, /Disconnect/);
+    assert.deepEqual(await draft(), connectedDraft);
+    assert.deepEqual(await page.evaluate(() => structuredClone(state.connections)), cablesBefore);
+    assert.equal(await page.locator('[data-sfp-owner="device"] [data-sfp-enabled]').isChecked(), true);
+    await closeEditor();
+    check("Connected checkbox conversion is rejected atomically with original cage and canonical cables intact");
   });
 
   for (const [form, rate] of [["sfp-plus", "10G"], ["sfp28", "25G"]]) {

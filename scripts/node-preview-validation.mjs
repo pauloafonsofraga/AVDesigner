@@ -11,6 +11,7 @@ import {
   NODE_PREVIEW_TEMPLATE_ID
 } from "../src/engine/nodePreview.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
+import { isEngineDeadCageConnector } from "../src/engine/connectorCompatibility.js";
 
 const nodeLibrary = [
   nodeType("hdmi", "HDMI", "#FFD400", { videoCable: true }),
@@ -132,10 +133,16 @@ const qsfpSummary = nodeBuilderPreviewSummary(createNodeBuilderPreviewScene({
   connectorType: nodeLibrary.find(node => node.id === "qsfp-cage"),
   nodeLibrary
 }));
-assert.equal(sfpSummary.effectiveType, "fiber-lc", "SFP cage preview resolves the installed LC module");
-assert.equal(qsfpSummary.effectiveType, "fiber-mpo", "QSFP cage preview resolves the installed MPO module");
-assert.equal(sfpSummary.fiberMode, "single-mode", "SFP cage preview carries fiber mode");
-assert.equal(qsfpSummary.fiberMode, "single-mode", "QSFP cage preview carries fiber mode");
+assert.equal(sfpSummary.effectiveType, "sfp-cage", "An empty SFP preview must not invent an LC module");
+assert.equal(qsfpSummary.effectiveType, "qsfp-cage", "An empty QSFP preview must not invent an MPO module");
+assert(isEngineDeadCageConnector(createNodeBuilderPreviewDevice({ typeId: "sfp-cage" }).connectors[0]));
+for (const [typeId, moduleType, activeType] of [["sfp-cage", "lc-singlemode", "fiber-lc"], ["qsfp-cage", "mpo-fiber", "fiber-mpo"]]) {
+  const installed = nodeBuilderPreviewSummary(createNodeBuilderPreviewScene({ typeId,
+    connectorType: nodeLibrary.find(node => node.id === typeId), nodeLibrary,
+    installedModule: { type: moduleType, activeType, fiberMode: "single-mode" } }));
+  assert.equal(installed.effectiveType, activeType, "An explicitly installed preview resolves its actual module");
+  assert.equal(installed.fiberMode, "single-mode");
+}
 results.cages = {
   sfp: sfpSummary,
   qsfp: qsfpSummary

@@ -428,6 +428,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     }
   };
   const context = {
+    window: {},
     console,
     JSON,
     Map,
@@ -906,6 +907,9 @@ function structuralEditorHarness(inputTemplate = {}) {
     "defaultConnectorNameFor",
     "applyAutomaticConnectorName",
     "applyEditorConnectorTypeToDraft",
+    "applyEditorConnectorTypeCore",
+    "engineTransceiverApi",
+    "validateReusableNodePlacement",
     "fillEditorSlotById",
     "fillEditorSlot",
     "removeEditorNode",
@@ -924,6 +928,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     "commitEditorCardCollectionEdit",
     "commitEditorCardDefinitionEdit",
     "applyCardConnectorPhysicalTypeToDraft",
+    "applyCardConnectorPhysicalTypeCore",
     "addCardConnector",
     "fillCardConnector",
     "removeCardConnector",
@@ -2076,7 +2081,7 @@ test("Device Editor direct structural operations use the shared atomic transacti
   const addNode = functionSource("addEditorNode");
   const fillSlot = functionSource("fillEditorSlot");
   const fillSlotById = functionSource("fillEditorSlotById");
-  const typeDraft = functionSource("applyEditorConnectorTypeToDraft");
+  const typeDraft = functionSource("applyEditorConnectorTypeToDraft") + functionSource("applyEditorConnectorTypeCore");
   const removeNode = functionSource("removeEditorNode");
   const applyLed = functionSource("applyLedProcessorSettings");
   const applyPowerDistro = functionSource("applyPowerDistroSettings");
