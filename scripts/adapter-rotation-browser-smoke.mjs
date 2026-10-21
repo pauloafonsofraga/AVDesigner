@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -15,13 +15,23 @@ try {
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 }, acceptDownloads: true });
   page.on("pageerror", error => errors.push(error.message));
   const templates = adapterThumbnailFixtures();
-  const project = { deviceLibrary: [templates.oneToOne, templates.fanOut], nodeLibrary: [],
+  templates.oneToOne = structuredClone(templates.oneToOne);
+  templates.oneToOne.connectors[0].type = "usb-c";
+  const usbSource = { ...structuredClone(templates.oneToOne), id: "usb-source" };
+  usbSource.connectors[1].type = "usb-c";
+  templates.segmented.connectors[0].operationalStatus = "not-working";
+  const project = { deviceLibrary: [templates.oneToOne, templates.fanOut, usbSource, templates.segmented, templates.twoBus], nodeLibrary: [],
     devices: [
-      { instanceId: "adapter", templateId: templates.oneToOne.id, name: "HDMI adapter", x: 280, y: 190 },
-      { instanceId: "breakout", templateId: templates.fanOut.id, name: "HDMI breakout", x: 690, y: 220 }
+      { instanceId: "adapter", templateId: templates.oneToOne.id, name: "USB-C to HDMI", x: 280, y: 190 },
+      { instanceId: "breakout", templateId: templates.fanOut.id, name: "HDMI breakout", x: 690, y: 220 },
+      { instanceId: "source", templateId: usbSource.id, name: "USB-C source", x: 30, y: 190 },
+      { instanceId: "segmented", templateId: templates.segmented.id, name: "Segmented marker", x: 280, y: 780, rotation: 45 },
+      { instanceId: "bus", templateId: templates.twoBus.id, name: "Shared bus", x: 690, y: 780, rotation: 45 }
     ],
     connections: [{ id: "physical", cableType: "hdmi", from: { deviceId: "adapter", connectorId: "out" },
-      to: { deviceId: "breakout", connectorId: "in" } }] };
+      to: { deviceId: "breakout", connectorId: "in" } },
+    { id: "usb-leg", cableType: "usb-c", from: { deviceId: "source", connectorId: "out" },
+      to: { deviceId: "adapter", connectorId: "in" } }] };
   await page.goto(`${process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8769"}/index.html`);
   await page.waitForFunction(() => typeof restoreSnapshot === "function" && activeEngineBridge()?.ready);
   await page.waitForFunction(() => {
@@ -32,7 +42,7 @@ try {
   await page.waitForFunction(() => activeEngineBridge()?.ready && activeEngineBridge().scene.getDevice("breakout"));
   await page.evaluate(() => {
     const bridge = activeEngineBridge();
-    bridge.camera.x = 0; bridge.camera.y = 0; bridge.camera.zoom = 1;
+    bridge.camera.x = 0; bridge.camera.y = 0; bridge.camera.zoom = 0.8;
     bridge.scheduleRender();
   });
 
@@ -82,19 +92,33 @@ try {
     await page.mouse.click(center.x, center.y);
     assert.deepEqual(await page.evaluate(() => [...activeEngineBridge().scene.selectedIds]), [id]);
     await page.screenshot({ path: join(screenshots, `${id}-selected.png`) });
-    for (const angle of [15, 30, 45, 90, 180, 270, 0]) {
+    for (const angle of [...Array.from({ length: 23 }, (_, i) => (i + 1) * 15), 0]) {
       await rotateTo(id, angle, angle + (angle % 90 === 0 ? 9 : 2));
-      if ([15, 30, 45].includes(angle)) {
-        const hit = await page.evaluate(async deviceId => {
+      const connectors = await page.evaluate(deviceId => activeEngineBridge().scene.getDevice(deviceId).connectors.map(c => c.id), id);
+      for (const connectorId of connectors) {
+        const point = await page.evaluate(async ({ deviceId, connectorId }) => {
           const bridge = activeEngineBridge();
           const device = bridge.scene.getDevice(deviceId);
-          const connector = device.connectors[0];
+          const connector = bridge.scene.getConnector(deviceId, connectorId);
           const point = bridge.scene.connectorWorldPoint(device, connector);
           const { hitTestConnector } = await import("./src/engine/hitTest.js");
-          return hitTestConnector(bridge.scene, point, 10).connector?.connector?.id || "";
-        }, id);
-        assert.ok(hit);
+          if (hitTestConnector(bridge.scene, point, 10).connector?.connector?.id !== connectorId) throw new Error("Rotated hit mismatch");
+          return point;
+        }, { deviceId: id, connectorId });
+        const target = await screen(point);
+        await page.mouse.move(target.x, target.y);
+        await page.waitForFunction(key => activeEngineBridge().hoverState.connector?.key === key, `${id}:${connectorId}`);
+        await page.mouse.click(target.x, target.y, { button: "right" });
+        assert.deepEqual(await page.evaluate(() => [...activeEngineBridge().scene.selectedConnectorKeys]), [`${id}:${connectorId}`]);
+        await page.keyboard.press("Escape");
+        await page.mouse.move(target.x, target.y);
+        await page.mouse.down();
+        assert.ok(await page.evaluate(() => Boolean(activeEngineBridge().wireCreate)), `${id}:${connectorId} at ${angle} starts cable interaction`);
+        await page.keyboard.press("Escape");
+        await page.mouse.up();
       }
+      await page.evaluate(deviceId => { const bridge = activeEngineBridge(); bridge.scene.selectOnly(deviceId); bridge.updateSelectionHud(); bridge.scheduleRender(); }, id);
+      if ([45, 90, 180, 270].includes(angle)) await page.screenshot({ path: join(screenshots, `${id}-${angle}-interaction.png`) });
     }
     await rotateTo(id, 45);
     await page.evaluate(() => activeEngineBridge().undoEngineCommand());
@@ -119,6 +143,7 @@ try {
     assert.equal(saved.devices.find(item => item.instanceId === id).rotation, 45);
     await page.evaluate(snapshot => restoreSnapshot(snapshot), saved);
     await page.waitForFunction(() => activeEngineBridge()?.ready);
+    await page.evaluate(() => { const b = activeEngineBridge(); b.camera.x = 0; b.camera.y = 0; b.camera.zoom = 0.8; b.scheduleRender(); });
     assert.equal(await page.evaluate(deviceId => activeEngineBridge().scene.getDevice(deviceId).rotation, id), 45);
     await page.evaluate(deviceId => { const bridge = activeEngineBridge(); bridge.scene.selectOnly(deviceId); bridge.updateSelectionHud(); }, id);
     const normalDragBefore = await page.evaluate(deviceId => {
@@ -156,6 +181,15 @@ try {
     await page.evaluate(() => activeEngineBridge().undoEngineCommand());
     await page.evaluate(() => activeEngineBridge().redoEngineCommand());
   }
+  const savedConnections = await page.evaluate(async () => JSON.parse(await projectJsonPayload()).connections);
+  for (const original of project.connections) {
+    const saved = savedConnections.find(wire => wire.id === original.id);
+    assert.ok(saved, `Cable ${original.id} preserved`);
+    assert.equal(saved.from.deviceId, original.from.deviceId);
+    assert.equal(saved.from.connectorId, original.from.connectorId);
+    assert.equal(saved.to.deviceId, original.to.deviceId);
+    assert.equal(saved.to.connectorId, original.to.connectorId);
+  }
   await page.locator("#exportPdf").click();
   const downloadPromise = page.waitForEvent("download", { timeout: 12000 });
   await page.locator("#confirmPdfExport").click();
@@ -182,6 +216,36 @@ try {
   assert.deepEqual(output.angles, [45, 45]);
   assert.notDeepEqual(output.from, output.to);
   await viewer.screenshot({ path: join(screenshots, "offline-rotated-adapters.png") });
+  let published;
+  const base = process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8769";
+  await page.route("**/api/publish", route => {
+    published = route.request().postDataJSON();
+    return route.fulfill({ json: { url: base + "/viewer.html?id=rotation-local-test" } });
+  });
+  await page.evaluate(async () => {
+    window.rotationPublishedFiles = {};
+    loadBlobClient = async () => ({ upload: async (pathname, blob, options) => {
+      if (options.access !== "private") throw new Error("Private Publish required");
+      rotationPublishedFiles[pathname] = await blob.text(); return { pathname };
+    } });
+    openPublishProjectModal(); publishProjectPassword.value = "rotation-local-test";
+    await publishHostedProject();
+  });
+  assert.ok(published?.htmlPath);
+  const hostedHtml = await page.evaluate(path => rotationPublishedFiles[path], published.htmlPath);
+  const hostedPath = join(screenshots, "prepared-publish.html");
+  writeFileSync(hostedPath, hostedHtml);
+  const hosted = await offlineContext.newPage();
+  hosted.on("pageerror", error => errors.push(error.message));
+  await hosted.goto(pathToFileURL(hostedPath).href);
+  await hosted.evaluate(() => engineOutputReady);
+  const geometry = view => view.evaluate(() => ({
+    devices: outputViewer.scene.devices.map(d => ({ id: d.id, rotation: d.rotation, connectors: d.connectors })),
+    wires: outputViewer.scene.wires.map(w => ({ id: w.id, from: w.from, to: w.to }))
+  }));
+  assert.deepEqual(await geometry(hosted), await geometry(viewer));
+  await hosted.screenshot({ path: join(screenshots, "prepared-publish.png") });
+  await page.evaluate(() => closePublishProjectModal());
   await offlineContext.close();
   assert.deepEqual(errors, []);
   console.log(`adapter rotation browser smoke passed; screenshots: ${screenshots}; pdf: ${pdfPath}; offline html: ${htmlPath}`);

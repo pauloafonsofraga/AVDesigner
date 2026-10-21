@@ -1,6 +1,7 @@
 import { TextureCache } from "./textureCache.js";
 import { deviceHeaderLabel, hasOrdinaryDeviceHeader } from "./deviceDisplayName.js";
 import { adapterRotationBounds, adapterWorldPoint, rotateAdapterPoint } from "./adapterRotation.js";
+import { attachedConnectorLabelPosition, orientAttachedConnectorVertices } from "./attachedConnectorOrientation.js";
 import { isTransceiverCage, transceiverModulePresentation } from "./transceiverModules.js";
 import {
   applyCableHopsToPolyline,
@@ -78,7 +79,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-119-sfp-capable";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-120-attached-node-rotation";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -3158,6 +3159,7 @@ function pushJumpSelectionGlow(vertices, center, radius, mode = "selected") {
 }
 
 function pushConnectorNode(vertices, point, connector = {}, device = {}, options = DEFAULT_RENDER_OPTIONS, camera = null) {
+  const start = vertices.length;
   const radius = connectorVisualRadius(device, camera);
   const strokeWidth = connectorVisualStrokeWidth(device, camera);
   const fill = options.connectorColors ? connector.color || PORT_COLOR : PORT_COLOR;
@@ -3172,6 +3174,7 @@ function pushConnectorNode(vertices, point, connector = {}, device = {}, options
   if (segments?.length > 1) pushSegmentedCircle(vertices, point, radius, segments, opacity);
   else pushCircle(vertices, point, radius, colorWithOpacity(fill, opacity), 20);
   pushCircleOutline(vertices, point, radius + strokeWidth * 1.2, Math.max(1.1, strokeWidth * 0.55), colorWithOpacity("rgba(0,0,0,.45)", opacity), 20);
+  orientAttachedConnectorVertices(vertices, start, device, point);
 }
 
 export function connectorOperationalStatusMarkSegments(point = {}, radius = CONNECTOR_RADIUS) {
@@ -3186,11 +3189,13 @@ export function connectorOperationalStatusMarkSegments(point = {}, radius = CONN
 
 function pushConnectorNotWorkingMark(vertices, point, connector = {}, device = {}, camera = null) {
   if (!connectorIsNotWorking(connector)) return 0;
+  const start = vertices.length;
   const radius = connectorVisualRadius(device, camera);
   const stroke = Math.max(2.2, connectorVisualStrokeWidth(device, camera) * 1.05);
   connectorOperationalStatusMarkSegments(point, radius).forEach(([from, to]) => {
     pushLine(vertices, from, to, stroke, CONNECTOR_NOT_WORKING_COLOR);
   });
+  orientAttachedConnectorVertices(vertices, start, device, point);
   return 2;
 }
 
@@ -3996,12 +4001,12 @@ function drawVisibleConnectorLabels(ctx, scene, camera, renderOptions = DEFAULT_
         };
         drawConnectorWorldLabel(ctx,
           connectorAnchorRenderPoint(baseX, baseY, connector, anchor, device),
-          renderConnector, text, camera, connectorCaptionWidth(device, connector));
+          renderConnector, text, camera, connectorCaptionWidth(device, connector), device);
         count += 1;
       });
     });
     displayLayout.groups.forEach(layout => {
-      if (drawSharedBusConnectorWorldLabel(ctx, layout, baseX, baseY, camera, connectorCaptionWidth(device, layout.representative))) count += 1;
+      if (drawSharedBusConnectorWorldLabel(ctx, layout, baseX, baseY, camera, connectorCaptionWidth(device, layout.representative), device)) count += 1;
     });
     drawn.add(device.id);
     renderer?.recordObjectLayer?.(layerTrace, device.id, "connectorLabelLayer", reason);
@@ -4023,18 +4028,17 @@ function connectorCaptionWidth(device, connector) {
   return Math.max(20, (card?.width || device.width / 2) - 24);
 }
 
-function drawConnectorWorldLabel(ctx, point, connector = {}, text = "", camera, maxWidth = Infinity) {
+function drawConnectorWorldLabel(ctx, point, connector = {}, text = "", camera, maxWidth = Infinity, device = {}) {
   const side = connector.side === "right" ? "right" : "left";
   const metrics = legacyConnectorLabelMetrics(camera.zoom);
-  const anchorX = point.x + (side === "right" ? -metrics.offsetX : metrics.offsetX);
-  const anchorY = point.y + metrics.offsetY;
-  const x = (anchorX - camera.x) * camera.zoom;
-  const y = (anchorY - camera.y) * camera.zoom;
+  const anchor = attachedConnectorLabelPosition(device, point, side, metrics.offsetX, metrics.offsetY);
+  const x = (anchor.x - camera.x) * camera.zoom;
+  const y = (anchor.y - camera.y) * camera.zoom;
   const size = metrics.screenFontSize;
   ctx.save();
   ctx.globalAlpha *= Number.isFinite(connector.__renderOpacity) ? connector.__renderOpacity : 1;
   ctx.font = `800 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
-  ctx.textAlign = side === "right" ? "right" : "left";
+  ctx.textAlign = anchor.textAlign;
   ctx.textBaseline = "middle";
   ctx.lineJoin = "round";
   ctx.strokeStyle = "rgba(0,0,0,.84)";
@@ -4051,19 +4055,19 @@ function drawConnectorWorldLabel(ctx, point, connector = {}, text = "", camera, 
   ctx.restore();
 }
 
-function drawSharedBusConnectorWorldLabel(ctx, layout, baseX, baseY, camera, maxWidth = Infinity) {
+function drawSharedBusConnectorWorldLabel(ctx, layout, baseX, baseY, camera, maxWidth = Infinity, device = {}) {
   const text = sharedBusConnectorLabel(layout);
   if (!text) return false;
   const side = layout.side === "output" ? "right" : "left";
-  const worldX = baseX + layout.connectorX + (side === "right" ? -SHARED_BUS_LABEL_OFFSET : SHARED_BUS_LABEL_OFFSET);
-  const worldY = baseY + layout.centerY + SHARED_BUS_LABEL_Y_OFFSET;
-  const x = (worldX - camera.x) * camera.zoom;
-  const y = (worldY - camera.y) * camera.zoom;
+  const point = connectorAnchorRenderPoint(baseX, baseY, {}, { x: layout.connectorX, y: layout.centerY }, device);
+  const anchor = attachedConnectorLabelPosition(device, point, side, SHARED_BUS_LABEL_OFFSET, SHARED_BUS_LABEL_Y_OFFSET);
+  const x = (anchor.x - camera.x) * camera.zoom;
+  const y = (anchor.y - camera.y) * camera.zoom;
   const metrics = legacyConnectorLabelMetrics(camera.zoom);
   const size = metrics.screenFontSize;
   ctx.save();
   ctx.font = `900 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
-  ctx.textAlign = side === "right" ? "right" : "left";
+  ctx.textAlign = anchor.textAlign;
   ctx.textBaseline = "middle";
   ctx.lineJoin = "round";
   ctx.strokeStyle = "rgba(0,0,0,.84)";

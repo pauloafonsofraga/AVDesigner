@@ -5,6 +5,8 @@ import { readFileSync } from "node:fs";
 import { engineConnectorInfoFields, engineConnectorCanvasLabelLines } from "../src/engine/connectorCompatibility.js";
 import { isTransceiverCage } from "../src/engine/transceiverModules.js";
 import { legacyConnectorLabelMetrics } from "../src/engine/legacyZoomDetail.js";
+import { attachedConnectorLabelPosition } from "../src/engine/attachedConnectorOrientation.js";
+import { adapterWorldPoint } from "../src/engine/adapterRotation.js";
 
 const source = readFileSync(new URL("../src/engine/renderer.js", import.meta.url), "utf8");
 
@@ -16,7 +18,8 @@ function functionSource(name) {
 }
 
 function rendererFunctions(names, bindings = {}) {
-  const context = vm.createContext(bindings);
+  const context = vm.createContext({ attachedConnectorLabelPosition, adapterWorldPoint, ...bindings });
+  vm.runInContext(functionSource("connectorAnchorRenderPoint"), context);
   names.forEach(name => vm.runInContext(functionSource(name), context));
   return context;
 }
