@@ -429,6 +429,7 @@ function structuralEditorHarness(inputTemplate = {}) {
   };
   const context = {
     window: {},
+    engineRendererRequested: () => true,
     console,
     JSON,
     Map,
@@ -677,6 +678,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     },
     cardTypeById: (device, cardTypeId) => device?.cardTypes?.find(card => card.id === cardTypeId) || null,
     cardSlotLaneCount: (device, slot) => {
+      if (slot.physicalLayout) return persistentPlacement.cardSlotPhysicalLayout(slot).span;
       const card = context.cardTypeById(device, slot?.installedCardTypeId);
       if (!card) return 1;
       const inputs = (card.connectors || []).filter(connector => connector.direction === "input" && !connector.empty).length;
@@ -2708,11 +2710,18 @@ test("Device Editor structural card-slot edits keep IDs stable and use renderEdi
   assert.equal(counters.editorRenders, 2);
   assert.equal(counters.solverCalls, 2);
 
+  assert.equal(api.removeCardSlot(0), false, "occupied slots require explicit card removal first");
+  assert.equal(template.cardSlots[0].installedCardTypeId, "io-card");
+  assert.equal(counters.editorRenders, 2, "rejected deletion must not render or record history");
+  const occupiedLayout = api.resolveEditorModularLayout(template);
+  assert.equal(api.installCardInSlot(0, ""), true);
+  assert.equal(template.cardSlots[0].id, slotId);
+  assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), itemLaneMap(occupiedLayout));
+  assert.equal(counters.solverCalls, 2, "removal must retain the occupied footprint without moving neighbors");
   api.removeCardSlot(0);
   assert.deepEqual(template.cardSlots, []);
-  assert.equal(counters.editorRenders, 3);
-  assert.equal(counters.solverCalls, 3);
-  assert.deepEqual(counters.edits[2].removeIds, [`card:${slotId}`]);
+  assert.equal(counters.editorRenders, 4);
+  assert.equal(counters.solverCalls, 2);
 });
 
 test("Device Editor card definition add, fill, and type-change fan out through one atomic edit", () => {
@@ -3307,16 +3316,20 @@ test("Device Editor card type deletion keeps slots stable and skips solver for u
     ]
   });
   installed.context.editorCardIndex = 0;
+  const occupiedSlots = installed.template.cardSlots.map(slot => ({ id: slot.id, y: slot.y,
+    physicalLayout: persistentPlacement.cardSlotPhysicalLayout(slot, installed.template.cardTypes[0]) }));
   let before = editorCounterSnapshot(installed.counters);
   installed.api.deleteCurrentCardType();
   assert.deepEqual(editorCounterDelta(installed.counters, before), {
     structuralSessions: 1,
-    solverCalls: 1,
+    solverCalls: 0,
     previewRenders: 0,
     editorRenders: 1,
-    animationSeeds: 1,
-    animationRetargets: 1
+    animationSeeds: 0,
+    animationRetargets: 0
   });
+  assert.deepEqual(installed.template.cardSlots.map(({ id, y, physicalLayout }) => ({ id, y, physicalLayout })), occupiedSlots,
+    "deleting a definition retains each installed slot's exact footprint and position");
   assert.deepEqual(installed.template.cardTypes, []);
   assert.deepEqual(installed.template.cardSlots.map(slot => [slot.id, slot.installedCardTypeId, slot.connectorOverrides]), [
     ["slot-a", "", {}],

@@ -1,4 +1,5 @@
 import { resolveProjectorLens } from "./projectorModel.js";
+import { assertSafeModularCardChanges } from "./modularCardSafety.js";
 import { cloneHistoryValue, MAX_HISTORY_ENTRIES } from "./historyClone.js";
 import { DragSession } from "./dragSession.js";
 import { adapterCenter, adapterRotationHandle, snapAdapterRotation } from "./adapterRotation.js";
@@ -161,8 +162,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-121-adapter-cable-exit";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-121-adapter-cable-exit";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-122-card-slot-safety";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-122-card-slot-safety";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -7948,6 +7949,7 @@ class ProductionEngineBridge {
       this.hud?.setMetric("blocked command", "device editor apply while loading");
       return false;
     }
+    assertSafeModularCardChanges(payload.before, payload.after);
     const command = deviceEditorApplyCommand(payload);
     const result = this.applyDeviceEditorSnapshot(payload.after, payload);
     this.recordCommand(command);

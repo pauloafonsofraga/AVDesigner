@@ -2263,6 +2263,34 @@ export function cardSlotPlacementSideMask(card = {}) {
   return MODULAR_LAYOUT_SIDE_MASKS.both;
 }
 
+// Optional, authored slot footprint. Historical slots keep their existing derived
+// layout until a card is removed; no load-time migration or fake card.
+export function cardSlotPhysicalLayout(slot = {}, card = null) {
+  const saved = slot.physicalLayout;
+  return {
+    sideMask: ["left", "right", "both"].includes(saved?.sideMask) ? saved.sideMask : cardSlotPlacementSideMask(card),
+    span: Number.isInteger(saved?.span) && saved.span >= 2 ? saved.span : cardSlotSpanLanes(card)
+  };
+}
+
+export function cardFitsPhysicalSlot(slot, card) {
+  if (!card || !slot.physicalLayout) return true;
+  const layout = cardSlotPhysicalLayout(slot, card), side = cardSlotPlacementSideMask(card);
+  return cardSlotSpanLanes(card) <= layout.span && (layout.sideMask === "both" || layout.sideMask === side);
+}
+
+export function retainChangedCardSlotLayouts(before = {}, after = {}) {
+  for (const slot of after.cardSlots || []) {
+    const previous = before.cardSlots?.find(item => item.id === slot.id);
+    if (previous && previous.installedCardTypeId !== slot.installedCardTypeId) {
+      if (previous.physicalLayout || (!slot.installedCardTypeId && !slot.physicalLayout)) {
+        slot.physicalLayout = cardSlotPhysicalLayout(previous, before.cardTypes?.find(card => card.id === previous.installedCardTypeId));
+      }
+      slot.connectorOverrides = {};
+    }
+  }
+}
+
 export function placementItemFromConnector(connector = {}, options = {}) {
   const id = stableString(connector.id, `connector-${finiteNumber(options.index, 0)}`);
   const startY = finiteNumber(options.startY, 0);
@@ -2298,10 +2326,10 @@ export function placementItemFromCardSlot(slot = {}, card = null, options = {}) 
   return {
     id,
     itemType: "card-slot",
-    sideMask: cardSlotPlacementSideMask(card),
+    sideMask: cardSlotPhysicalLayout(slot, card).sideMask,
     requestedY,
     requestedLane: layoutLaneForY(requestedY, startY, slotHeight),
-    span: cardSlotSpanLanes(card),
+    span: cardSlotPhysicalLayout(slot, card).span,
     order: finiteNumber(options.order ?? options.index, 0),
     source: slot,
     card
@@ -2385,8 +2413,9 @@ export function cardBandGeometryForSlot(slot = {}, card = null, options = {}) {
   const width = positiveNumber(options.deviceWidth, LEGACY_MODULAR_DEVICE_WIDTH);
   const slotHeight = positiveNumber(options.slotHeight, MODULAR_LAYOUT_SLOT_HEIGHT);
   const scale = Math.max(0.35, width / positiveNumber(options.legacyDeviceWidth, LEGACY_MODULAR_DEVICE_WIDTH));
-  const kind = String(card?.kind || card?.direction || "io").trim().toLowerCase();
-  const lanes = cardSlotSpanLanes(card);
+  const physical = cardSlotPhysicalLayout(slot, card);
+  const kind = physical.sideMask === "left" ? "input" : physical.sideMask === "right" ? "output" : "io";
+  const lanes = physical.span;
   const slotY = Number.isFinite(Number(options.slotY)) ? Number(options.slotY) : finiteNumber(slot?.y, 0);
   const y = slotY - slotHeight / 2;
   const height = Math.max(slotHeight * 2, lanes * slotHeight);

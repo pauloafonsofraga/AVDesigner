@@ -61,7 +61,7 @@ import {
 import {
   cardBandGeometryForSlot,
   cardConnectorRowCounts,
-  cardSlotSpanLanes,
+  cardSlotPhysicalLayout,
   placementItemFromConnector,
   placementItemFromCardSlot,
   resolveModularPlacementItems,
@@ -752,7 +752,7 @@ function normalizeVisualCards(
   return template.cardSlots.map((slot, index) => {
     const card = template.cardTypes.find(item => item.id === slot.installedCardTypeId) || null;
     const rowCount = cardSlotRowCount(card);
-    const laneCount = cardSlotSpanLanes(card);
+    const laneCount = cardSlotPhysicalLayout(slot, card).span;
     const slotPosition = expansion.layout.cardSlotPositions.get(String(slot.id || `slot-${index}`));
     const slotY = finiteNumber(slotPosition?.y, finiteNumber(slot.y, 0));
     const band = cardBandGeometry(width, { ...slot, y: slotY }, card);
