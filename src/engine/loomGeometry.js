@@ -48,7 +48,8 @@ export function loomBreakoutPolyline(scene, breakout, offsetMap = null) {
     ? scene.endpointForWire(wire, externalEnd, offsetMap) : null;
   const gateway = breakout?.gatewayPoint;
   if (!external || !gateway) return breakout?.points || [];
-  if (breakout.routeStyle === "straight") return breakout.gatewayAtStart
+  const direction = scene.wireEndpointDirection?.(wire, externalEnd);
+  if (breakout.routeStyle === "straight" && !direction) return breakout.gatewayAtStart
     ? [gateway, external] : [external, gateway];
   const interior = breakout.routePoints || [];
   const points = breakout.gatewayAtStart
@@ -56,7 +57,8 @@ export function loomBreakoutPolyline(scene, breakout, offsetMap = null) {
     : [external, ...interior, gateway];
   if (breakout.routeStyle === "orthogonal") return interior.length
     ? orthogonalManualPoints(points) : buildPreviewOrthogonalWirePoints(points[0], points.at(-1));
-  return wirePolylineFromPoints({ routeStyle: "bezier", routePoints: interior }, points);
+  return wirePolylineFromPoints({ routeStyle: "bezier", routePoints: interior }, points,
+    breakout.gatewayAtStart ? { toDirection: direction } : { fromDirection: direction });
 }
 
 export function orientCableEndpoints(pair, headA, headB) {
@@ -442,6 +444,12 @@ export function loomGeometry(project, scene, loom, cableGroups = groupedCables(p
         gatewayAtStart: false, gatewayPoint: attachmentB, routePoints: [], routeStyle: "straight", points: [b, attachmentB] }
     ];
   });
+  for (const breakout of breakouts) {
+    const wire = scene.getWire(String(breakout.externalWireId || breakout.wireId));
+    if (wire && scene.wireEndpointDirection?.(wire, breakout.externalEnd)) {
+      breakout.points = loomBreakoutPolyline(scene, breakout);
+    }
+  }
   const familyCounts = context?.familyCounts || new Map();
   if (!context) for (const row of scheduleRows) if (row.loomId === loom.id) {
     const family = String(row.signal || "Other");

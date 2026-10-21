@@ -161,8 +161,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-120-attached-node-rotation";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-120-attached-node-rotation";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-121-adapter-cable-exit";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-121-adapter-cable-exit";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -5637,6 +5637,9 @@ class ProductionEngineBridge {
       : this.wireCreate?.loomExitPoint || this.wireCreate?.from?.point;
     const previewTo = rewire?.loomTail ? tempTo
       : rewire?.detachedSide === "from" ? this.wireCreate?.from?.point : tempTo;
+    const exitDirection = hit => this.scene.connectorExitDirection?.(hit?.device, hit?.connector, hit?.anchorId);
+    const fixedDirection = this.wireCreate?.loomExitPoint || rewire?.loomTail ? null : exitDirection(this.wireCreate?.from);
+    const targetDirection = this.wireCreate?.gatewayHover ? null : exitDirection(this.wireCreate?.target);
     const tempRoute = this.wireCreate
       ? rewire
         ? rewire.loomTail
@@ -5648,6 +5651,8 @@ class ProductionEngineBridge {
       ? {
         from: previewFrom,
         to: previewTo,
+        fromDirection: !rewire?.loomTail && rewire?.detachedSide === "from" ? targetDirection : fixedDirection,
+        toDirection: !rewire?.loomTail && rewire?.detachedSide === "from" ? fixedDirection : targetDirection,
         color: this.wireCreate.color,
         cableType: this.wireCreate.cableType,
         colorSegments: Object.freeze([...(this.wireCreate.colorSegments || [])]),
@@ -5666,6 +5671,7 @@ class ProductionEngineBridge {
       ? {
         from: this.wireCreate.from.point,
         to: this.wireCreate.loomEntryPoint,
+        fromDirection: exitDirection(this.wireCreate.from),
         color: this.wireCreate.color,
         cableType: this.wireCreate.cableType,
         colorSegments: Object.freeze([...(this.wireCreate.colorSegments || [])]),

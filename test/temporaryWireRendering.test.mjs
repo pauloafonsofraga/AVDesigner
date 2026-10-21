@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import * as colors from "../src/engine/connectorCompatibility.js";
 import { wirePolylineFromPoints } from "../src/engine/wirePath.js";
+import { attachedConnectorExitDirection } from "../src/engine/attachedConnectorOrientation.js";
 
 const bridge = readFileSync(new URL("../src/engine/productionBridge.js", import.meta.url), "utf8");
 const renderer = readFileSync(new URL("../src/engine/renderer.js", import.meta.url), "utf8");
@@ -105,6 +106,38 @@ function rendererHarness() {
   const names = ["pushInteractionOverlay", "pushWireColorSegments", "polylineLength", "polylinePointAtDistance", "polylineSlice"];
   return vm.runInNewContext(`${names.map(name => fn(renderer, name)).join("\n")}\n({pushInteractionOverlay, pushWireColorSegments, polylineLength})`, context);
 }
+
+test("rotated adapter drawing, rewiring and Loom preview directions reach the renderer", () => {
+  const b = engineHarness(), r = rendererHarness();
+  b.scene.connectorExitDirection = (device, connector) => attachedConnectorExitDirection(device, connector?.side);
+  const fromHit = { ...hit("hdmi", { side: "right" }), device: { id: "a", kind: "adapter", rotation: 90 } };
+  const toHit = { ...hit("hdmi", { side: "left" }), device: { id: "b", kind: "adapter", rotation: 45 }, point: { x: 500, y: 200 } };
+  const fromDirection = attachedConnectorExitDirection(fromHit.device, "right");
+  const toDirection = attachedConnectorExitDirection(toHit.device, "left");
+  b.beginWireCreate(fromHit, toHit.point);
+  b.wireCreate.target = toHit;
+  let temp = b.interactionRenderState().tempWire;
+  assert.deepEqual(temp.fromDirection, fromDirection);
+  assert.deepEqual(temp.toDirection, toDirection);
+  const rendered = [];
+  r.pushInteractionOverlay(rendered, {}, { tempWire: temp });
+  assert.deepEqual(rendered[0].points, wirePolylineFromPoints(temp, [temp.from, temp.to], temp));
+  for (const side of ["from", "to"]) {
+    const wire = { id: "wire", cableType: "hdmi", fromHit, toHit, routeStyle: "bezier", routePoints: [] };
+    b.beginWireRewire(side === "from" ? fromHit : toHit, { wire, end: side, otherEnd: side === "from" ? "to" : "from" }, { x: 300, y: 100 });
+    b.wireCreate.target = side === "from" ? fromHit : toHit;
+    temp = b.interactionRenderState().tempWire;
+    assert.deepEqual(temp.fromDirection, fromDirection);
+    assert.deepEqual(temp.toDirection, toDirection);
+  }
+  b.beginWireCreate(fromHit, { x: 700, y: 200 });
+  b.enterWireLoomGateway({ loomId: "loom-1", part: "sideA", point: { x: 200, y: 100 } });
+  b.wireCreate.target = toHit;
+  const tails = b.interactionRenderState().tempWires;
+  assert.deepEqual(tails[0].fromDirection, fromDirection);
+  assert.equal(tails[1].fromDirection, null, "Loom exit is not an adapter connector");
+  assert.deepEqual(tails[1].toDirection, toDirection);
+});
 for (const routeStyle of ["bezier", "orthogonal"]) test(`Engine ${routeStyle} preview uses committed path-length segmentation`, () => {
   const r = rendererHarness();
   const temp = { from: { x: 0, y: 0 }, to: { x: 600, y: 200 }, routeStyle, routePoints: [], colorSegments: expected, color: "#03E300" };

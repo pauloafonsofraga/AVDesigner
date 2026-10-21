@@ -25,13 +25,16 @@ export function wirePolylineFromPoints(wire = {}, points = [], options = {}) {
   if (clean.length < 2) return clean;
   const kind = wireRenderKind(wire);
   if (kind === "orthogonal") return wire.manualRoute ? orthogonalManualPoints(clean) : clean;
-  if (kind === "custom") return splinePolylineThroughPoints(clean, options.manualSegmentSteps || MANUAL_SEGMENT_STEPS);
-  return bezierPolyline(clean[0], clean[clean.length - 1], options.bezierSteps || DEFAULT_BEZIER_STEPS);
+  if (kind === "custom") return splinePolylineThroughPoints(clean, options.manualSegmentSteps || MANUAL_SEGMENT_STEPS, options);
+  return bezierPolyline(clean[0], clean[clean.length - 1], options.bezierSteps || DEFAULT_BEZIER_STEPS, options);
 }
 
 
-export function bezierPolyline(from, to, steps = DEFAULT_BEZIER_STEPS) {
+export function bezierPolyline(from, to, steps = DEFAULT_BEZIER_STEPS, options = {}) {
   const controls = legacyBezierControls(from, to);
+  const reach = Math.max(80, Math.hypot(to.x - from.x, to.y - from.y) * 0.45);
+  controls.c1 = directedControl(from, options.fromDirection, reach) || controls.c1;
+  controls.c2 = directedControl(to, options.toDirection, reach) || controls.c2;
   const points = [];
   const count = Math.max(2, Math.floor(steps));
   for (let index = 0; index <= count; index += 1) {
@@ -40,9 +43,9 @@ export function bezierPolyline(from, to, steps = DEFAULT_BEZIER_STEPS) {
   return points;
 }
 
-export function splinePolylineSegmentsThroughPoints(points, stepsPerSegment = MANUAL_SEGMENT_STEPS) {
+export function splinePolylineSegmentsThroughPoints(points, stepsPerSegment = MANUAL_SEGMENT_STEPS, options = {}) {
   if (points.length < 2) return [];
-  if (points.length === 2) return [bezierPolyline(points[0], points[1], DEFAULT_BEZIER_STEPS)];
+  if (points.length === 2) return [bezierPolyline(points[0], points[1], DEFAULT_BEZIER_STEPS, options)];
   const tangents = points.map((_, index) => tangentForPoint(points, index));
   const segments = [];
   for (let index = 0; index < points.length - 1; index += 1) {
@@ -50,14 +53,19 @@ export function splinePolylineSegmentsThroughPoints(points, stepsPerSegment = MA
     const next = points[index + 1];
     const currentTangent = tangents[index];
     const nextTangent = tangents[index + 1];
-    const c1 = {
+    let c1 = {
       x: current.x + currentTangent.x / 3,
       y: current.y + currentTangent.y / 3
     };
-    const c2 = {
+    let c2 = {
       x: next.x - nextTangent.x / 3,
       y: next.y - nextTangent.y / 3
     };
+    // Only the endpoint handles follow the node; authored waypoints stay fixed.
+    if (index === 0) c1 = directedControl(current, options.fromDirection,
+      Math.hypot(currentTangent.x, currentTangent.y) / 3) || c1;
+    if (index === points.length - 2) c2 = directedControl(next, options.toDirection,
+      Math.hypot(nextTangent.x, nextTangent.y) / 3) || c2;
     const samples = [];
     for (let step = 0; step <= stepsPerSegment; step += 1) samples.push(
       cubicPoint(current, c1, c2, next, step / stepsPerSegment));
@@ -66,9 +74,15 @@ export function splinePolylineSegmentsThroughPoints(points, stepsPerSegment = MA
   return segments;
 }
 
-function splinePolylineThroughPoints(points, stepsPerSegment) {
-  return splinePolylineSegmentsThroughPoints(points, stepsPerSegment)
+function splinePolylineThroughPoints(points, stepsPerSegment, options) {
+  return splinePolylineSegmentsThroughPoints(points, stepsPerSegment, options)
     .flatMap((segment, index) => index ? segment.slice(1) : segment);
+}
+
+function directedControl(point, direction, reach) {
+  const length = Math.hypot(direction?.x, direction?.y);
+  if (!Number.isFinite(length) || length < 1e-8) return null;
+  return { x: point.x + direction.x / length * reach, y: point.y + direction.y / length * reach };
 }
 
 function legacyBezierControls(from, to) {

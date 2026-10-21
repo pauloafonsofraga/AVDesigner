@@ -25,7 +25,7 @@ import {
   titleBlockLayout
 } from "../src/engine/titleBlockLayout.js";
 
-const BUILD_ID = "iteration54-38-120-attached-node-rotation";
+const BUILD_ID = "iteration54-38-121-adapter-cable-exit";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -41,9 +41,9 @@ function sourceSlice(source, startNeedle, endNeedle) {
 }
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Jump glow contrast");
-assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.120";'), "visible iteration should be 54.38.120");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-120-attached-node-rotation-modules";'), "module cache key should bust current modules");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-120-attached-node-rotation"'), "Engine bridge version should identify the current build");
+assert.ok(indexHtml.includes('const APP_ITERATION = "54.38.121";'), "visible iteration should be 54.38.121");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-121-adapter-cable-exit-modules";'), "module cache key should bust current modules");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-121-adapter-cable-exit"'), "Engine bridge version should identify the current build");
 
 const classicScripts = [...indexHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
 assert.ok(classicScripts.length >= 1, "index.html should contain at least one classic script");

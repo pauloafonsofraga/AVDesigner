@@ -12,6 +12,7 @@ import {
   shiftRoutePoints
 } from "./orthogonalRouting.js";
 import { wirePolylineFromPoints } from "./wirePath.js";
+import { attachedConnectorExitDirection } from "./attachedConnectorOrientation.js";
 import { loomGeometry } from "./loomGeometry.js";
 import { normalizeLoom, normalizeLoomCollection } from "./loomModel.js";
 import { loomForJump, reconcileLoomJumpAssociations } from "./loomJumpAssociation.js";
@@ -2007,6 +2008,21 @@ export class SceneGraph {
     };
   }
 
+  connectorExitDirection(device, connector, anchorId = "", fallbackSide = "") {
+    if (device?.kind !== "adapter" || (connector && this.compactRackPortForConnector(device, connector))) return null;
+    const anchor = connector ? connectorDisplayAnchorById(device, connector,
+      anchorId || connector.primaryAnchorId || "", this.connectorDisplayLayoutForDevice(device)) : null;
+    return attachedConnectorExitDirection(device, anchor?.side || connector?.side || fallbackSide);
+  }
+
+  wireEndpointDirection(wire, end) {
+    if (wire.multiCoreIdentity || this.wireEndpointSurfaceId(wire, end)
+      || wire[`${end}PatchPortId`]) return null;
+    const device = this.getDevice(wire[`${end}DeviceId`]);
+    return this.connectorExitDirection(device, device?.connectorsById.get(wire[`${end}ConnectorId`]),
+      wire[`${end}AnchorId`], wire[`${end}Side`]);
+  }
+
   endpointForWire(wire, end, offsetMap = null) {
     const rawFrom = this.rawEndpointForWire(wire, "from", offsetMap);
     const rawTo = this.rawEndpointForWire(wire, "to", offsetMap);
@@ -2123,6 +2139,8 @@ export class SceneGraph {
     if (isJumpNodeDevice(device) && connectorId === JUMP_NODE_CONNECTOR_ID) return point;
     const connector = connectorId ? device?.connectorsById.get(connectorId) : null;
     const radius = device?.kind === "jump" ? 22 : 6;
+    const exitDirection = this.wireEndpointDirection(wire, end);
+    if (exitDirection) return { x: point.x + exitDirection.x * radius, y: point.y + exitDirection.y * radius };
     const layout = connector ? this.connectorDisplayLayoutForDevice(device) : null;
     const anchor = connector ? connectorDisplayAnchorById(device, connector, anchorId || connector.primaryAnchorId || "", layout) : null;
     const connectorSide = anchor?.side || connector?.side || side;
@@ -2162,7 +2180,10 @@ export class SceneGraph {
   }
 
   wireRenderPolyline(wire, offsetMap = null) {
-    return wirePolylineFromPoints(wire, this.wirePoints(wire, offsetMap));
+    return wirePolylineFromPoints(wire, this.wirePoints(wire, offsetMap), {
+      fromDirection: this.wireEndpointDirection(wire, "from"),
+      toDirection: this.wireEndpointDirection(wire, "to")
+    });
   }
 
   routePointOffsetForWire(wire, offsetMap = null) {

@@ -79,7 +79,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-120-attached-node-rotation";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-121-adapter-cable-exit";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -2324,7 +2324,8 @@ function pushInteractionOverlay(vertices, scene, interaction = {}, renderOptions
       wirePolylineFromPoints(
         { routeStyle: tempWire.routeStyle || "bezier", routePoints: tempRoutePoints,
           manualRoute: tempWire.manualRoute },
-        [tempWire.from, ...tempRoutePoints, tempWire.to]
+        [tempWire.from, ...tempRoutePoints, tempWire.to],
+        { fromDirection: tempWire.fromDirection, toDirection: tempWire.toDirection }
       ),
       3.4,
       tempWire,

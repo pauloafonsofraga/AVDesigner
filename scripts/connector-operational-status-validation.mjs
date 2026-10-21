@@ -15,7 +15,7 @@ import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { connectorOperationalStatusMarkSegments } from "../src/engine/renderer.js";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 
-const BUILD_ID = "iteration54-38-120-attached-node-rotation";
+const BUILD_ID = "iteration54-38-121-adapter-cable-exit";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const indexHtml = readFileSync(resolve(repoRoot, "index.html"), "utf8");
@@ -25,10 +25,10 @@ const projectAdapterSource = readFileSync(resolve(repoRoot, "src/engine/projectA
 const mutationSource = readFileSync(resolve(repoRoot, "src/engine/projectMutations.js"), "utf8");
 
 assert.ok(indexHtml.includes(`const APP_BUILD_ID = "${BUILD_ID}";`), "app build id should identify Jump glow contrast");
-assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-120-attached-node-rotation-modules"'), "module cache key should bust current modules");
-assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-120-attached-node-rotation"'), "bridge version should identify the current build");
+assert.ok(indexHtml.includes('const APP_MODULE_CACHE_ID = "iteration54-38-121-adapter-cable-exit-modules"'), "module cache key should bust current modules");
+assert.ok(bridgeSource.includes('ENGINE_BRIDGE_VERSION = "iteration54-38-121-adapter-cable-exit"'), "bridge version should identify the current build");
 assert.ok(bridgeSource.includes('ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility"'), "bridge feature label should identify the current Jump compatibility fix");
-assert.ok(rendererSource.includes("renderer-iteration54-38-120-attached-node-rotation"), "renderer fingerprint should identify the current renderer build");
+assert.ok(rendererSource.includes("renderer-iteration54-38-121-adapter-cable-exit"), "renderer fingerprint should identify the current renderer build");
 
 assert.equal(normalizeConnectorOperationalStatus(), "working", "missing connector status should default to working");
 assert.equal(normalizeConnectorOperationalStatus("working"), "working", "working status should remain working");

@@ -72,13 +72,20 @@ try {
       const bridge = activeEngineBridge();
       const wire = bridge.scene.getWire("physical");
       const end = deviceId === "adapter" ? "from" : "to";
+      const points = bridge.scene.wireRenderPolyline(wire);
+      const direction = bridge.scene.wireEndpointDirection(wire, end);
+      const a = end === "from" ? points[0] : points.at(-1);
+      const b = end === "from" ? points[1] : points.at(-2);
+      const alignment = ((b.x - a.x) * direction.x + (b.y - a.y) * direction.y) / Math.hypot(b.x - a.x, b.y - a.y);
       return { angle: bridge.scene.getDevice(deviceId).rotation,
+        alignment,
         endpoint: bridge.scene.rawEndpointForWire(wire, end),
         connector: bridge.scene.connectorWorldPoint(bridge.scene.getDevice(deviceId),
           bridge.scene.getConnector(deviceId, deviceId === "adapter" ? "out" : "in")) };
     }, id);
     assert.equal(preview.angle, target);
     assert.deepEqual(preview.endpoint, preview.connector);
+    assert.ok(preview.alignment > 0.97, `${id} cable exit follows ${target}-degree live rotation`);
     await page.mouse.up();
     assert.equal(await page.evaluate(deviceId => activeEngineBridge().scene.getDevice(deviceId).rotation, id), target);
   };
@@ -114,6 +121,14 @@ try {
         await page.mouse.move(target.x, target.y);
         await page.mouse.down();
         assert.ok(await page.evaluate(() => Boolean(activeEngineBridge().wireCreate)), `${id}:${connectorId} at ${angle} starts cable interaction`);
+        const previewDirections = await page.evaluate(() => {
+          const bridge = activeEngineBridge(), state = bridge.wireCreate;
+          const preview = bridge.interactionRenderState().tempWire;
+          const direction = bridge.scene.connectorExitDirection(state.from.device, state.from.connector, state.from.anchorId);
+          const detachedFrom = state.rewire?.detachedSide === "from";
+          return { expected: direction, actual: detachedFrom ? preview.toDirection : preview.fromDirection };
+        });
+        assert.deepEqual(previewDirections.actual, previewDirections.expected, "live drawing/rewiring keeps the fixed node direction");
         await page.keyboard.press("Escape");
         await page.mouse.up();
       }

@@ -6,6 +6,13 @@ export function attachedConnectorBasis(device) {
   return rotateAdapterPoint({ x: 0, y: 0, width: 0, height: 0, rotation: device.rotation }, { x: 1, y: 0 });
 }
 
+export function attachedConnectorExitDirection(device, side) {
+  if (device?.kind !== "adapter" || !["left", "right"].includes(side)) return null;
+  const basis = attachedConnectorBasis(device);
+  const sign = side === "left" ? -1 : 1;
+  return { x: basis.x * sign, y: basis.y * sign };
+}
+
 export function attachedConnectorLabelPosition(device, point, side, offsetX, offsetY) {
   const basis = attachedConnectorBasis(device);
   const inward = side === "right" ? -1 : 1;
