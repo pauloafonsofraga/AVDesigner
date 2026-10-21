@@ -1,0 +1,175 @@
+{
+  "inputs": [
+    {
+      "filename": "wirenexus-device-library (5).json",
+      "sha256": "c13d0e2d29f1020e41991c3d5df9535b0354653b839af0e8615fe3bb06d7e305",
+      "bytes": 124007898,
+      "exportedAt": "2026-10-21T12:55:21.625Z"
+    }
+  ],
+  "baseline": "5d1b2caf05baeb8a14f387e660fb33528f79ab4d",
+  "devices": [
+    {
+      "id": "custom-device-mvhqsv2w",
+      "name": "Spyder X80",
+      "brand": "Christie",
+      "fingerprint": "456e7340cafaf507d62584d04fd2e11712287db2b2410fb4f39fb3b32dc316f7",
+      "connectors": 142,
+      "cards": 1,
+      "slots": 0,
+      "artwork": {
+        "99d9b30cb23a3ff2d4ae84501eee30c67f7d446083b4b92f9c893a7d76b24a81": {
+          "bytes": 965004,
+          "mime": "image/png"
+        },
+        "89e96918fdd41dc08b38ec3373a253f9188dcf4862b085e2a68fabcddce250bd": {
+          "bytes": 68827,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mvhz2z2t",
+      "name": "Zenith 200",
+      "brand": "Analog Way",
+      "fingerprint": "f63489fffbcecb6712e303853cbd3962965eb5b6ccc083604a0f5ccd9df9608b",
+      "connectors": 42,
+      "cards": 1,
+      "slots": 1,
+      "artwork": {
+        "ec1ca38fd6f288e8d9007283c3b4f5f45178a315fc5dd9c084d1896e135870b6": {
+          "bytes": 1572477,
+          "mime": "image/png"
+        },
+        "0445cdfc031fad391b3f813a05716bc31caf16cd5f239dc183a042aa78a045ac": {
+          "bytes": 30408,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-zenith-200-copy-2",
+      "name": "Zenith 100",
+      "brand": "Analog Way",
+      "fingerprint": "34972aa5af8e9e8f7bf0d34e408e845126640c1234a4839d65c6bd4cdecb2f68",
+      "connectors": 33,
+      "cards": 1,
+      "slots": 1,
+      "artwork": {
+        "01027bef1c2a288b469a76ff33b9dfdc68bfc7ffd1e2a98fb05b5e1910ecd716": {
+          "bytes": 1551063,
+          "mime": "image/png"
+        },
+        "781be031e741a60d87f764e6a4a9c79db92605439f07683f01c246c9c28d60a6": {
+          "bytes": 30860,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-zenith-100-copy",
+      "name": "Eikos 4K",
+      "brand": "Analog Way",
+      "fingerprint": "3082ff3658c51f42824b853e5a6f13a9b4ddc59188223ce1c5af8c4bab6b4af1",
+      "connectors": 24,
+      "cards": 1,
+      "slots": 1,
+      "artwork": {
+        "041d05cf9b5a70d1ebdf73925046f338ea448df5b13b5087b4a0603ffa8450f9": {
+          "bytes": 954223,
+          "mime": "image/png"
+        },
+        "e9bb20d18ee20c89621cd6ffa3076616b28fd49b475c2bdb27be6620a5294cdf": {
+          "bytes": 22070,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-eikos-4k-copy",
+      "name": "Pulse 4K",
+      "brand": "Analog Way",
+      "fingerprint": "d473bec0eab1ab364e6013886970507fb4ab6efa293aa201414ca11e5a7b3ceb",
+      "connectors": 24,
+      "cards": 1,
+      "slots": 1,
+      "artwork": {
+        "36945b68c6b5147efb8dcde04047b15c763e28c0c95f447f5d4026874205927b": {
+          "bytes": 1052485,
+          "mime": "image/png"
+        },
+        "7c2764a4430e00142e67cbddf108c90a1f60cc2fe953866744ad8d8509629b5d": {
+          "bytes": 23400,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-pulse-4k-copy",
+      "name": "QuickMatrix 4K",
+      "brand": "Analog Way",
+      "fingerprint": "ed0a5ba84160cff6a989da76d635787996623a1902956f90904feefbd62497f1",
+      "connectors": 24,
+      "cards": 1,
+      "slots": 1,
+      "artwork": {
+        "0ec816d7766b7168656665c33e08635bea390ea0d1ed729c655103aed0932511": {
+          "bytes": 1088077,
+          "mime": "image/png"
+        },
+        "aa7e34165cc6f5e0c766c65cb2b3e6861b9f85f57555fa167f8512683bb84d7f": {
+          "bytes": 23427,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-quickmatrix-4k-copy",
+      "name": "QuickVu 4K",
+      "brand": "Analog Way",
+      "fingerprint": "7b4e814065f083d20a6a607246285ba9b73a12aea628dd746e737de80e28b275",
+      "connectors": 24,
+      "cards": 1,
+      "slots": 1,
+      "artwork": {
+        "bb585f3d930d42217c56acfcb128d9ad1765d161b65d9cc516f0f1d9fb96fbcb": {
+          "bytes": 965659,
+          "mime": "image/png"
+        },
+        "0977ac56937aee61efcb40ca5db0169cc50cf03b75623c06ea9afb6f887cbcde": {
+          "bytes": 21837,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mvi2qkk6",
+      "name": "Ascender 48 4K-PL",
+      "brand": "Analog Way",
+      "fingerprint": "8f6587b855b37a294a49f46164523702917a92e8c589d40dd99879c35ef4bff2",
+      "connectors": 72,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "7d28c2207756b200eefe2b36c302c13ef3e9f5f343eca8b49aa8ef3f19c9bf99": {
+          "bytes": 650182,
+          "mime": "image/png"
+        },
+        "dab820e2b2a43ba45bbbdd336354b6b505038023ee33a48057af1f18250ebefc": {
+          "bytes": 53909,
+          "mime": "image/png"
+        }
+      }
+    }
+  ],
+  "nodes": [],
+  "packageId": "bc62af4e0b84850407afc0cbb9cf65d6f81f579895cc18f4af0176c1e190560e",
+  "measurements": {
+    "devicesBefore": 115,
+    "devicesAfter": 123,
+    "catalogueBytesBefore": 5561326,
+    "catalogueBytesAfter": 6263331,
+    "addedAssets": 16,
+    "addedAssetBytes": 9073908
+  }
+}

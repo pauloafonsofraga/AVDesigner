@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { createRequire } from "node:module";
 
 const { chromium } = createRequire(import.meta.url)(process.env.AVDESIGNER_PLAYWRIGHT_PATH || "playwright");
-const inventory = JSON.parse(readFileSync(new URL("../test/fixtures/factory-library-2026-10-20.json", import.meta.url)));
+const inventory = JSON.parse(readFileSync(process.env.AVDESIGNER_FACTORY_INVENTORY || new URL("../test/fixtures/factory-library-2026-10-20.json", import.meta.url)));
 const base = process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8768";
 const dir = mkdtempSync(join(tmpdir(), "factory-library-import-"));
 const browser = await chromium.launch({ headless: true, ...(process.env.AVDESIGNER_CHROME_PATH ? { executablePath: process.env.AVDESIGNER_CHROME_PATH } : {}) });
@@ -55,7 +55,7 @@ try {
     await page.locator("#closeDeviceEditor").click();
     await page.locator("#deviceEditorModal").waitFor({ state: "hidden" });
   }
-  checks.push("all 18 additions searchable, bounded thumbnails decoded, full artwork and authored cards/ports open in Device Editor; Q8 and V-Node inserted with real drags");
+  checks.push(`all ${inventory.devices.length} additions searchable, bounded thumbnails decoded, full artwork and authored cards/ports open in Device Editor; first and last additions inserted with real drags`);
 
   const fixture = await page.evaluate(ids => ({
     projectName: "October factory additions", deviceLibrary: structuredClone(deviceLibrary.filter(d => ids.includes(d.id))),
@@ -82,11 +82,11 @@ try {
     return Promise.all(sources.map(async src => { const img = new Image(); img.src = src; await img.decode(); return [img.naturalWidth, img.naturalHeight]; }));
   });
   assert.equal(images.length, inventory.devices.length); assert.ok(images.every(([w, h]) => w > 0 && h > 0));
-  for (const index of [0, 12, 17]) {
+  for (const index of [...new Set([0, Math.floor(inventory.devices.length / 2), inventory.devices.length - 1])]) {
     await viewer.evaluate(id => { const v = outputViewer, d = v.scene.getDevice(id); v.camera = { x: d.x - 80, y: d.y - 30, zoom: 0.4 }; v.renderNow(); }, `import-${index}`);
     await viewer.screenshot({ path: join(dir, `offline-${index}.png`) });
   }
-  checks.push("all 18 factory faceplates included in HTML, including offscreen devices; standalone viewer renders with network disabled");
+  checks.push(`all ${inventory.devices.length} factory faceplates included in HTML, including offscreen devices; standalone viewer renders with network disabled`);
 
   const save = page.waitForEvent("download"); await page.locator("#saveProjectAs").click();
   const savedPath = join(dir, "all-additions.avd"); await (await save).saveAs(savedPath);
@@ -98,7 +98,7 @@ try {
   }
   assert.match(saved.nodeLibrary.find(n => n.id === "new-node-5").thumbnail, /^data:image\//);
   await page.locator("#fileInput").setInputFiles(savedPath);
-  await page.waitForFunction(() => activeEngineBridge()?.scene.getDevice("import-17")?.visual.faceImage.startsWith("data:image/"));
+  await page.waitForFunction(id => activeEngineBridge()?.scene.getDevice(id)?.visual.faceImage.startsWith("data:image/"), `import-${inventory.devices.length - 1}`);
   assert.equal(await page.evaluate(() => state.devices.length), inventory.devices.length);
   checks.push("real save/reopen retains all new device definitions, card layouts and embedded device/node artwork");
   assert.deepEqual(errors, []);
