@@ -4386,6 +4386,13 @@
       transition: opacity .16s ease, transform .16s ease, background-color .16s ease;
     }
 
+    .node-library-group {
+      padding: 10px;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--muted);
+    }
+
     body.dark-mode .node-library-item {
       background: rgba(255,255,255,.035);
     }
@@ -5371,7 +5378,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled WireNexus Project" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">54.38.117 — SFP Cage Picker</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">54.38.118 — SFP Cage Labels</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -6119,12 +6126,12 @@
   <script src="./src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script src="./src/engine/projectorModelCore.js?v=iteration54-38-11-engine-status-labels"></script>
   <script src="./src/engine/historyCloneCore.js?v=iteration54-38-29-memory-safe-undo"></script>
-  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-117-cage-picker"></script>
+  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-118-cage-labels"></script>
   <script type="text/wirenexus-app" id="wireNexusAppSource">
-    const APP_ITERATION = "54.38.117";
-    const APP_BUILD_ID = "iteration54-38-117-cage-picker";
-    const APP_MODULE_CACHE_ID = "iteration54-38-117-cage-picker-modules";
-    const APP_BUILD_LABEL = `${APP_ITERATION} — SFP Cage Picker`;
+    const APP_ITERATION = "54.38.118";
+    const APP_BUILD_ID = "iteration54-38-118-cage-labels";
+    const APP_MODULE_CACHE_ID = "iteration54-38-118-cage-labels-modules";
+    const APP_BUILD_LABEL = `${APP_ITERATION} — SFP Cage Labels`;
     const { cloneHistoryValue, MAX_HISTORY_ENTRIES } = window.WireNexusHistoryClone;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
@@ -11970,6 +11977,18 @@
       });
     }
 
+    function nodeBuilderEntries(filterText = "") {
+      const entries = orderedNodeEntries();
+      if (engineRendererRequested()) {
+        const cages = deviceEditorOnlyNodeTypeOrder
+          .filter(key => cageConnectorTypes.has(key) && cableTypes[key])
+          .map(key => [key, cableTypes[key]]);
+        entries.splice(0, entries.length, ...cages, ...entries.filter(([key]) => !cageConnectorTypes.has(key)));
+      }
+      const filter = String(filterText || "").trim().toLowerCase();
+      return entries.filter(([key, type]) => !filter || nodeSearchHaystack(key, type).includes(filter));
+    }
+
     function filteredDeviceEditorNodeEntries(filterText) {
       const filter = String(filterText || "").trim().toLowerCase();
       const entries = orderedDeviceEditorNodeEntries();
@@ -12024,8 +12043,14 @@
     }
 
     function renderNodeBuilderList() {
-      nodeBuilderList.innerHTML = filteredNodeEntries(nodeBuilderFilter)
-        .map(([key, type], index) => nodeItemHtml(key, type, index, { builder: true, selectedType: nodeBuilderSelectedType }))
+      const entries = nodeBuilderEntries(nodeBuilderFilter);
+      nodeBuilderList.innerHTML = entries
+        .map(([key, type], index) => {
+          const group = engineRendererRequested() && cageConnectorTypes.has(key)
+            && !entries.slice(0, index).some(([id]) => cageConnectorTypes.has(id))
+            ? `<div class="node-library-group">SFP / QSFP Cages</div>` : "";
+          return group + nodeItemHtml(key, type, index, { builder: true, selectedType: nodeBuilderSelectedType });
+        })
         .join("") || `<div class="placeholder" style="padding:14px;">No connectors found.</div>`;
     }
 
@@ -12087,7 +12112,8 @@
 
     function selectedNodeType() {
       ensureNodeLibraryDefaults();
-      if (!cableTypes[nodeBuilderSelectedType] || cableTypes[nodeBuilderSelectedType].palette === false) {
+      const selectableCage = engineRendererRequested() && cageConnectorTypes.has(nodeBuilderSelectedType);
+      if (!cableTypes[nodeBuilderSelectedType] || (cableTypes[nodeBuilderSelectedType].palette === false && !selectableCage)) {
         nodeBuilderSelectedType = orderedNodeEntries()[0]?.[0] || "";
       }
       return nodeBuilderSelectedType ? cableTypes[nodeBuilderSelectedType] : null;
@@ -22312,6 +22338,22 @@
             label.textContent = sharedBus
               ? [...new Set(sharedBus.members.map(member => connectorTypeLabel(member, editorNodeType(member.type))))].join(" / ")
               : connector.empty ? "Drop node" : connectorTypeLabel(connector, editorNodeType(connector.type));
+            const labelResolver = engineTransceiverApi()?.engineConnectorCanvasLabelLines;
+            const members = sharedBus?.members || [connector];
+            if (labelResolver && !connector.empty && members.some(isCageConnector)) {
+              const details = members.map(labelResolver);
+              const installed = details.some(lines => lines.length > 1);
+              const lines = [
+                ...(installed && editorPreviewZoom >= 0.5 ? details.find(lines => lines.length > 1).slice(0, 1) : []),
+                [...new Set(details.map(lines => lines.at(-1)))].join(" / ")
+              ];
+              label.textContent = "";
+              lines.forEach((text, line) => {
+                const span = createSvg("tspan", { x: label.getAttribute("x"), dy: line ? 10.6 : 0 });
+                span.textContent = text;
+                label.appendChild(span);
+              });
+            }
             g.appendChild(label);
           }
           if (selected && positionIndex === 0) {
@@ -22340,6 +22382,13 @@
             g.appendChild(remove);
           }
           deviceEditorPreview.appendChild(g);
+          const maxLabelWidth = Math.max(20, band.width - 16);
+          g.querySelectorAll("text > tspan").forEach(span => {
+            if (span.getComputedTextLength() > maxLabelWidth) {
+              span.setAttribute("textLength", maxLabelWidth);
+              span.setAttribute("lengthAdjust", "spacingAndGlyphs");
+            }
+          });
         });
       };
       connectorLayout.forEach(drawCardPreviewConnector);

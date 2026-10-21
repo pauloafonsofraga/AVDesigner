@@ -5,12 +5,24 @@ import { createRequire } from "node:module";
 const { chromium } = createRequire(import.meta.url)(process.env.AVDESIGNER_PLAYWRIGHT_PATH || "playwright");
 const base = process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8773";
 assert(["localhost", "127.0.0.1"].includes(new URL(base).hostname));
-const dir = process.env.AVDESIGNER_SCREENSHOT_DIR || "/tmp/wirenexus-cage-picker-2026-10-20/chrome";
+const dir = process.env.AVDESIGNER_SCREENSHOT_DIR || "/tmp/wirenexus-cage-labels-2026-10-21/chrome";
 await mkdir(dir, { recursive: true });
 const browser = await chromium.launch({ headless: true,
   executablePath: process.env.AVDESIGNER_CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
 const context = await browser.newContext({ viewport: { width: 1700, height: 1050 }, acceptDownloads: true });
+const recordLabels = () => {
+  window.__moduleDraws = [];
+  const fill = CanvasRenderingContext2D.prototype.fillText;
+  CanvasRenderingContext2D.prototype.fillText = function(text, ...args) {
+    if (/Installed Module|SFP SDI|LC Single|RJ45 Ethernet|DAC 25G/.test(text)) {
+      window.__moduleDraws.push({ text, canvas: this.canvas.id, x: args[0], y: args[1] });
+      if (window.__moduleDraws.length > 2000) window.__moduleDraws.splice(0, 1000);
+    }
+    return fill.call(this, text, ...args);
+  };
+};
 await context.addInitScript(() => { window.showSaveFilePicker = undefined; });
+await context.addInitScript(recordLabels);
 await context.route("**/*", route => new URL(route.request().url()).origin === new URL(base).origin
   ? route.continue() : route.abort());
 const page = await context.newPage(), report = { chrome: browser.version(), checks: [], errors: [], fixtures: [] };
@@ -56,6 +68,16 @@ const structure = c => JSON.parse(JSON.stringify(Object.fromEntries(["id", "type
 const cages = ["sfp-cage", "sfp-plus-cage", "sfp28-cage", "qsfp-cage"];
 try {
   await ready();
+  await page.locator("#nodeBuilderButton").click();
+  await page.locator("#nodeBuilderSearch").fill("SFP");
+  for (const type of cages) {
+    await page.locator(`#nodeBuilderList [data-node-type="${type}"]`).click();
+    assert.equal(await page.evaluate(() => nodeBuilderSelectedType), type);
+    assert.equal(await page.locator("#nodeBuilderName").inputValue(), ({ "sfp-cage": "SFP Cage", "sfp-plus-cage": "SFP+ Cage", "sfp28-cage": "SFP28 Cage", "qsfp-cage": "QSFP Cage" })[type]);
+  }
+  await shot("node-builder-cages");
+  await page.locator("#closeNodeBuilder").click();
+  check("Actual Node Builder search exposes and selects all four canonical cages");
   await reopen({ name: "VX 2+", id: "custom-device-vx3-copy" });
   const vx = (await draft()).connectors.filter(c => /cage/.test(c.type));
   await selectNode(vx[0].id);
@@ -75,14 +97,22 @@ try {
     const id = (await draft()).connectors.at(-1).id; ids.push(id); await selectNode(id);
     const options = await choices("#selectedConnectorPhysicalType");
     assert.deepEqual(options.filter(o => cages.includes(o.value)).map(o => o.value), cages);
-    await page.locator("#selectedConnectorPhysicalType").selectOption(type); await quiet();
+    await page.locator("#nodePaletteSearch").fill(type);
+    const source = page.locator(`#nodePalette [data-node-type="${type}"]`);
+    const target = page.locator(`#deviceEditorPreviewHost [data-editor-node-id="${id}"] .editor-slot-shape`).first();
+    await source.dragTo(target); await quiet();
+    assert.equal((await draft()).connectors.find(c => c.id === id).type, type, "Native palette drop fills the stable slot");
+    await selectNode(id);
     assert.equal(await page.locator("#selectedConnectorModule").inputValue(), "");
     const optionsForCage = (await choices("#selectedConnectorModule")).map(o => o.value);
     assert.equal(optionsForCage.includes("sfp-sdi-12g-rx"), ["sfp-plus-cage", "sfp28-cage"].includes(type));
     assert.equal(optionsForCage.includes("sfp-sdi-3g-rx"), type !== "qsfp-cage");
+    const initialModule = { "sfp-cage": "sfp-sdi-3g-rx", "sfp28-cage": "dac-sfp28", "qsfp-cage": "lc-singlemode" }[type];
+    if (initialModule) await page.locator("#selectedConnectorModule").selectOption(initialModule);
   }
   await selectShot("#selectedConnectorPhysicalType", "cage-type-selector", 8);
-  check("All four physical cages created using standard Add Node and Physical Connector controls");
+  await page.locator("#nodePaletteSearch").fill("sfp"); await shot("device-editor-cage-palette");
+  check("All four physical cages created with real mouse drag from connector palette onto Add Node slots");
   await selectNode(ids[1]);
   await page.locator('[data-connector-signal-direction="bidirectional"]').locator("..").click();
   report.sdiOptions = await choices("#selectedConnectorModule");
@@ -91,6 +121,7 @@ try {
   await page.locator('[data-connector-signal-direction="input"]').locator("..").click();
   const before = (await draft()).connectors.find(c => c.id === ids[1]);
   await page.locator("#selectedConnectorModule").selectOption("sfp-sdi-12g-rx");
+  await page.waitForFunction(() => window.__moduleDraws.some(d => d.text === "SFP SDI 12G RX"));
   const installed = (await draft()).connectors.find(c => c.id === ids[1]);
   assert.deepEqual(structure(installed), structure(before));
   const details = await page.locator("[data-transceiver-module-details]").innerText();
@@ -103,6 +134,11 @@ try {
   await reopen(definition); await selectNode(ids[1]);
   assert.equal(await page.locator("#selectedConnectorModule").inputValue(), "sfp-sdi-12g-rx");
   assert.deepEqual(structure((await draft()).connectors.find(c => c.id === ids[1])), structure(installed));
+  for (const id of ids) {
+    const expected = definition.connectors.find(c => c.id === id), actual = (await draft()).connectors.find(c => c.id === id);
+    assert.equal(actual.installedModuleType, expected.installedModuleType);
+    assert.deepEqual(structure(actual), structure(expected));
+  }
   await page.locator("#selectedConnectorModule").scrollIntoViewIfNeeded(); await shot("saved-reopened-receiver");
   check("12G Receiver details, stable ID/position, dirty Keep/Save and personal reopen");
   await page.locator("#selectedConnectorModule").selectOption("");
@@ -146,6 +182,71 @@ try {
   assert.deepEqual(structure((await draft()).connectors.find(c => c.id === ids[1])), structure(installed));
   await page.locator("#selectedConnectorModule").scrollIntoViewIfNeeded(); await shot("project-reloaded-receiver");
   check("Historical node definitions remain selectable; actual .avd Save/reload preserves SFP+ identity, receiver and position");
+  await close(); await closed();
+  await page.locator("#zoomFit").click();
+  const nodePoint = await page.evaluate(id => {
+    const b = activeEngineBridge(), d = b.scene.getDevice("historical-device"), c = d.connectors.find(c => c.id === id);
+    const p = b.worldToScreenPoint({ x: d.x + c.x, y: d.y + c.y }), r = b.canvas.getBoundingClientRect();
+    return { x: r.x + p.x, y: r.y + p.y };
+  }, ids[1]);
+  await page.mouse.click(nodePoint.x, nodePoint.y);
+  await page.locator("#connectorModule").selectOption("lc-singlemode");
+  await page.waitForFunction(() => window.__moduleDraws.some(d => d.text === "LC Single Mode"));
+  await page.locator("#zoomFit").click();
+  await page.keyboard.press("Meta+z");
+  await page.waitForFunction(id => activeEngineBridge().scene.getConnector("historical-device", id).installedModuleType === "sfp-sdi-12g-rx", ids[1]);
+  await page.keyboard.press("Meta+Shift+z");
+  await page.waitForFunction(id => activeEngineBridge().scene.getConnector("historical-device", id).installedModuleType === "lc-singlemode", ids[1]);
+  await page.keyboard.press("Meta+z");
+  await page.waitForFunction(id => activeEngineBridge().scene.getConnector("historical-device", id).installedModuleType === "sfp-sdi-12g-rx", ids[1]);
+  check("Canvas module replacement refreshes immediately; real undo/redo restores previous module identity");
+  await shot("main-canvas-module-label");
+  for (let n = 0; n < 9; n++) await page.locator("#zoomOut").click();
+  await shot("low-zoom-module-label");
+  await page.locator("#zoomFit").click();
+  for (let n = 0; n < 2; n++) await page.locator("#zoomIn").click();
+  await shot("high-zoom-module-label");
+  await page.locator("#zoomFit").click();
+  const htmlPending = page.waitForEvent("download"); await page.locator("#exportHtml").click();
+  const htmlDownload = await htmlPending; await htmlDownload.saveAs(dir + "/cage-labels.html");
+  const offline = await browser.newContext({ viewport: { width: 1600, height: 1000 }, serviceWorkers: "block" });
+  await offline.route("**/*", route => route.abort());
+  await offline.addInitScript(recordLabels);
+  const viewer = await offline.newPage();
+  await viewer.evaluate(recordLabels);
+  await viewer.setContent(await readFile(dir + "/cage-labels.html", "utf8"), { waitUntil: "load" });
+  await viewer.waitForFunction(() => window.outputViewer && window.__moduleDraws.some(d => d.text === "SFP SDI 12G RX"));
+  assert(await viewer.evaluate(() => __moduleDraws.some(d => d.text === "Installed Module")));
+  await viewer.screenshot({ path: dir + "/offline-html-module-label.png", fullPage: true });
+  check("Offline standalone HTML draws both module lines using bundled Output Viewer");
+  let published;
+  await page.route("**/api/publish", route => {
+    published = route.request().postDataJSON();
+    return route.fulfill({ json: { url: base + "/viewer.html?id=local-cage-test" } });
+  });
+  await page.evaluate(async () => {
+    window.testPublishedFiles = {};
+    loadBlobClient = async () => ({ upload: async (pathname, blob, options) => {
+      if (options.access !== "private") throw new Error("Publish must remain private");
+      testPublishedFiles[pathname] = await blob.text(); return { pathname };
+    } });
+    openPublishProjectModal(); publishProjectPassword.value = "local-cage-test";
+    await publishHostedProject();
+  });
+  assert(published?.htmlPath);
+  const hostedHtml = await page.evaluate(path => testPublishedFiles[path], published.htmlPath);
+  await writeFile(dir + "/simulated-publish.html", hostedHtml);
+  const hosted = await offline.newPage(); await hosted.evaluate(recordLabels);
+  await hosted.setContent(hostedHtml, { waitUntil: "load" });
+  await hosted.waitForFunction(() => window.outputViewer && window.__moduleDraws.some(d => d.text === "SFP SDI 12G RX"));
+  await hosted.screenshot({ path: dir + "/publish-module-label.png", fullPage: true });
+  await page.evaluate(() => closePublishProjectModal());
+  await offline.close(); check("Actual Publish preparation with mocked private storage renders identical module labels offline");
+  await page.locator("#exportPdf").click();
+  const pdfPending = page.waitForEvent("download"); await page.locator("#confirmPdfExport").click();
+  const pdf = await pdfPending; await pdf.saveAs(dir + "/cage-labels.pdf");
+  assert.equal((await readFile(dir + "/cage-labels.pdf")).subarray(0, 4).toString(), "%PDF");
+  check("Vector PDF export completes for the UI-authored cage device");
   assert.deepEqual(report.errors, []);
   report.status = "passed";
 } catch (error) {

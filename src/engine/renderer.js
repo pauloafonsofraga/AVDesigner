@@ -27,6 +27,7 @@ import {
 import { isCanvasObjectKind, isLedSurfaceKind } from "./canvasObjectKinds.js";
 import {
   engineConnectorInfoFields,
+  engineConnectorCanvasLabelLines,
   engineConnectorPlugTypeLabel,
   engineConnectorUserFacingTypeLabel
 } from "./connectorCompatibility.js";
@@ -77,7 +78,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-117-cage-picker";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-118-cage-labels";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -3982,7 +3983,7 @@ function drawVisibleConnectorLabels(ctx, scene, camera, renderOptions = DEFAULT_
     let count = 0;
     deviceConnectorsForRender(device).forEach(connector => {
       if (displayLayout.byConnectorId.has(connector.id)) return;
-      const text = engineConnectorPlugTypeLabel(connector);
+      const text = engineConnectorCanvasLabelLines(connector);
       if (!text) return;
       connectorDisplayAnchors(device, connector, displayLayout).forEach(anchor => {
         const renderConnector = {
@@ -3995,12 +3996,12 @@ function drawVisibleConnectorLabels(ctx, scene, camera, renderOptions = DEFAULT_
         };
         drawConnectorWorldLabel(ctx,
           connectorAnchorRenderPoint(baseX, baseY, connector, anchor, device),
-          renderConnector, text, camera);
+          renderConnector, text, camera, connectorCaptionWidth(device, connector));
         count += 1;
       });
     });
     displayLayout.groups.forEach(layout => {
-      if (drawSharedBusConnectorWorldLabel(ctx, layout, baseX, baseY, camera)) count += 1;
+      if (drawSharedBusConnectorWorldLabel(ctx, layout, baseX, baseY, camera, connectorCaptionWidth(device, layout.representative))) count += 1;
     });
     drawn.add(device.id);
     renderer?.recordObjectLayer?.(layerTrace, device.id, "connectorLabelLayer", reason);
@@ -4017,7 +4018,12 @@ function drawVisibleConnectorLabels(ctx, scene, camera, renderOptions = DEFAULT_
   return total;
 }
 
-function drawConnectorWorldLabel(ctx, point, connector = {}, text = "", camera) {
+function connectorCaptionWidth(device, connector) {
+  const card = device.visual?.visualCards?.find(card => card.id === connector?.cardSlotId);
+  return Math.max(20, (card?.width || device.width / 2) - 24);
+}
+
+function drawConnectorWorldLabel(ctx, point, connector = {}, text = "", camera, maxWidth = Infinity) {
   const side = connector.side === "right" ? "right" : "left";
   const metrics = legacyConnectorLabelMetrics(camera.zoom);
   const anchorX = point.x + (side === "right" ? -metrics.offsetX : metrics.offsetX);
@@ -4034,12 +4040,18 @@ function drawConnectorWorldLabel(ctx, point, connector = {}, text = "", camera) 
   ctx.strokeStyle = "rgba(0,0,0,.84)";
   ctx.lineWidth = Math.max(2.4, size * 0.34);
   ctx.fillStyle = "#ffffff";
-  ctx.strokeText(text, x, y);
-  ctx.fillText(text, x, y);
+  const lines = Array.isArray(text) ? text : [text];
+  const visibleLines = camera.zoom < 0.5 && lines.length > 1 ? lines.slice(-1) : lines;
+  visibleLines.forEach((line, index) => {
+    const caption = isTransceiverCage(connector) ? fitCanvasText(ctx, line, maxWidth * camera.zoom) : line;
+    const lineY = y + index * size * 1.25;
+    ctx.strokeText(caption, x, lineY);
+    ctx.fillText(caption, x, lineY);
+  });
   ctx.restore();
 }
 
-function drawSharedBusConnectorWorldLabel(ctx, layout, baseX, baseY, camera) {
+function drawSharedBusConnectorWorldLabel(ctx, layout, baseX, baseY, camera, maxWidth = Infinity) {
   const text = sharedBusConnectorLabel(layout);
   if (!text) return false;
   const side = layout.side === "output" ? "right" : "left";
@@ -4057,8 +4069,16 @@ function drawSharedBusConnectorWorldLabel(ctx, layout, baseX, baseY, camera) {
   ctx.strokeStyle = "rgba(0,0,0,.84)";
   ctx.lineWidth = Math.max(2.8, size * 0.34);
   ctx.fillStyle = "#ffffff";
-  ctx.strokeText(text, x, y);
-  ctx.fillText(text, x, y);
+  const modules = (layout.members || []).map(engineConnectorCanvasLabelLines);
+  const hasModule = modules.some(lines => lines.length > 1);
+  const lines = hasModule
+    ? [...(camera.zoom >= 0.5 ? modules.find(lines => lines.length > 1).slice(0, 1) : []), [...new Set(modules.map(lines => lines.at(-1)))].join(" / ")]
+    : [text];
+  lines.forEach((line, index) => {
+    const caption = hasModule ? fitCanvasText(ctx, line, maxWidth * camera.zoom) : line;
+    ctx.strokeText(caption, x, y + index * size * 1.25);
+    ctx.fillText(caption, x, y + index * size * 1.25);
+  });
   ctx.restore();
   return true;
 }

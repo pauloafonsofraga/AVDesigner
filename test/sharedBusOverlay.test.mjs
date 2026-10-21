@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import vm from "node:vm";
 import { readFileSync } from "node:fs";
-import { engineConnectorInfoFields } from "../src/engine/connectorCompatibility.js";
+import { engineConnectorInfoFields, engineConnectorCanvasLabelLines } from "../src/engine/connectorCompatibility.js";
+import { isTransceiverCage } from "../src/engine/transceiverModules.js";
 import { legacyConnectorLabelMetrics } from "../src/engine/legacyZoomDetail.js";
 
 const source = readFileSync(new URL("../src/engine/renderer.js", import.meta.url), "utf8");
@@ -25,6 +26,7 @@ test("shared-bus labels use the standalone connector zoom scale", () => {
     "drawConnectorWorldLabel", "drawSharedBusConnectorWorldLabel", "sharedBusConnectorLabel"
   ], {
     legacyConnectorLabelMetrics,
+    engineConnectorCanvasLabelLines, isTransceiverCage,
     engineConnectorPlugTypeLabel: connector => connector.label,
     SHARED_BUS_LABEL_OFFSET: 8,
     SHARED_BUS_LABEL_Y_OFFSET: 18
@@ -102,6 +104,23 @@ test("shared-bus info boxes omit empty fields and close the gaps", () => {
   bus.customText = "Custom value";
   functions.drawVisibleConnectorInfoBoxes({}, {}, { zoom: 1 }, { connectorMarkers: true, hideLabels: false });
   assert.deepEqual(entries.filter(entry => entry.connectorId === "bus-a").map(entry => entry.index), [0, 1, 2]);
+});
+
+test("shared-bus cages reuse installed-module captions and keep low-zoom detail compact", () => {
+  const functions = rendererFunctions(["drawSharedBusConnectorWorldLabel", "sharedBusConnectorLabel", "fitCanvasText"], {
+    legacyConnectorLabelMetrics, engineConnectorCanvasLabelLines,
+    engineConnectorPlugTypeLabel: () => "SDI", SHARED_BUS_LABEL_OFFSET: 8, SHARED_BUS_LABEL_Y_OFFSET: 18
+  });
+  const drawn = [], ctx = { save() {}, restore() {}, strokeText() {}, fillText(text) { drawn.push(text); }, measureText(text) { return { width: text.length * 4 }; } };
+  const layout = { side: "input", connectorX: 0, centerY: 100, members: [0, 1].map(id => ({ id,
+    type: "sfp-plus-cage", installedModuleType: "sfp-sdi-12g-rx" })) };
+  const before = structuredClone(layout);
+  functions.drawSharedBusConnectorWorldLabel(ctx, layout, 0, 0, { x: 0, y: 0, zoom: 1 }, 180);
+  assert.deepEqual(drawn, ["Installed Module", "SFP SDI 12G RX"]);
+  drawn.length = 0;
+  functions.drawSharedBusConnectorWorldLabel(ctx, layout, 0, 0, { x: 0, y: 0, zoom: 0.34 }, 180);
+  assert.deepEqual(drawn, ["SFP SDI 12G RX"]);
+  assert.deepEqual(layout, before);
 });
 
 test("info-box values wrap long words using their rendered font and stay inside the box", () => {

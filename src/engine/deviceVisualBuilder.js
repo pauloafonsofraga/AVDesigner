@@ -1,4 +1,4 @@
-import { engineConnectorInfoFields } from "./connectorCompatibility.js";
+import { engineConnectorInfoFields, engineConnectorCanvasLabelLines, isEngineCageConnector } from "./connectorCompatibility.js";
 import { deviceHeaderLabel, hasOrdinaryDeviceHeader } from "./deviceDisplayName.js";
 import {
   adapterColorStops,
@@ -1097,14 +1097,15 @@ function drawConnectorMarkers(ctx, device, width, height, options) {
       const labelX = card
         ? alignLeft ? Number(card.x) + 8 : Number(card.x) + Number(card.width) - 8
         : alignLeft ? px + 16 : px - 16;
-      drawFittedText(ctx, text, alignLeft ? labelX : labelX - 84, py + 18, 84, 9, {
+      const lines = isEngineCageConnector(connector) ? engineConnectorCanvasLabelLines(connector) : [text];
+      lines.forEach((line, index) => drawFittedText(ctx, line, alignLeft ? labelX : labelX - 84, py + 18 + index * 11.25, 84, 9, {
         weight: 800,
         fill: "#f8fbff",
         stroke: "rgba(0,0,0,.82)",
         strokeWidth: 3,
         align: alignLeft ? "left" : "right",
         baseline: "top"
-      });
+      }));
     }
   });
 }

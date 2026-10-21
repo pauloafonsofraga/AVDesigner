@@ -278,6 +278,8 @@ try {
     await page.locator("#selectedCardConnectorModule").selectOption("sfp-sdi-3g-tx");
     const after = await page.evaluate(() => structuredClone(currentEditorCard().connectors.at(-1)));
     assert.equal(after.installedModuleType, "sfp-sdi-3g-tx"); assert.deepEqual(structure(after), structure(geometry));
+    assert.deepEqual(await page.locator(`[data-card-preview-node="${index}"] text > tspan`).allTextContents(),
+      ["Installed Module", "SFP SDI 3G TX"], "Card authoring uses the shared module caption, not the old cage/module concatenation");
     await shot("card-definition-sdi"); check("Create modular card cage and install/replace module using card controls");
     // Only the installed slot is a fixture; its module edit below must use the actual Inspector.
     await page.evaluate(() => {

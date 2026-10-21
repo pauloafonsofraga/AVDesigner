@@ -7,7 +7,7 @@ import { isMultiCoreConnection } from "./engine/multiCoreConnectivity.js";
 import * as editorLifecycle from "./editorLifecycle.js";
 import * as transceivers from "./engine/transceiverModules.js";
 import { installedModuleDetailsForEngine, activeTypeForEngineCageConnector,
-  isEngineCageConnector, isEngineDeadCageConnector, engineConnectorTypeDisplayName } from "./engine/connectorCompatibility.js";
+  isEngineCageConnector, isEngineDeadCageConnector, engineConnectorTypeDisplayName, engineConnectorCanvasLabelLines } from "./engine/connectorCompatibility.js";
 
 const version = new URL(import.meta.url).searchParams.get("v") || "";
 const load = createFactoryCatalogueLoader({ url: new URL(`../data/factory-catalogue.json?v=${encodeURIComponent(version)}`, import.meta.url) });
@@ -43,7 +43,7 @@ function start() {
     Object.defineProperty(window, "WireNexusEditorLifecycle", { value: editorLifecycle });
     Object.defineProperty(window, "WireNexusTransceivers", { value: Object.freeze({ ...transceivers,
       installedModuleDetailsForEngine, activeTypeForEngineCageConnector, isEngineCageConnector, isEngineDeadCageConnector,
-      engineConnectorTypeDisplayName }) });
+      engineConnectorTypeDisplayName, engineConnectorCanvasLabelLines }) });
     observeLibraryArtwork();
     // Keep the existing classic-script globals used by the shell/bridge. No app
     // initialization or persistence can run against an absent catalogue.

@@ -657,6 +657,24 @@ export function engineConnectorPlugTypeLabel(connector) {
   return engineConnectorTypeDisplayName("misc");
 }
 
+// Display-only detail: never write module captions into authored connector fields.
+export function engineConnectorCanvasLabelLines(connector) {
+  if (!isEngineCageConnector(connector)) return [engineConnectorPlugTypeLabel(connector)];
+  const module = installedModuleDetailsForEngine(connector);
+  if (!module.rawValue && !module.activeType) return [typeDisplayName(connectorType(connector))];
+  const profile = transceiverModuleOption(module.rawValue, connector);
+  let label;
+  if (profile?.capabilities.signalFamily === "sdi") {
+    const rate = (profile.capabilities.supportedRates || []).map(value => value.replace(/-SDI$/i, "")).join("/");
+    label = ["SFP SDI", rate, profile.capabilities.direction === "input" ? "RX" : "TX"].filter(Boolean).join(" ");
+  } else if (profile?.value) {
+    label = profile.label.replace(/ \(integrated cable end\)$/, "");
+  } else {
+    label = module.name || (module.effectiveType ? moduleLabel(module) : "Unknown module");
+  }
+  return ["Installed Module", label];
+}
+
 export function engineConnectorLabelSource(connector) {
   if (!connector) return "fallback";
   if (firstUsableLabel(connector.name, connector.displayName, connector.displayLabel)) return "explicit";

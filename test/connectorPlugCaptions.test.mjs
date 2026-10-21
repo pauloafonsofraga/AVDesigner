@@ -111,10 +111,10 @@ test("live label layer separates bold plug captions from information values and 
 test("cage installation and removal update live captions from effective module type, not stale displayLabel", () => {
   const scene = sceneFor(connectorPlugCaptionFixture());
   for (const cage of ["sfp-cage", "sfp-plus-cage", "sfp28-cage", "qsfp-cage"]) {
-    for (const [module, expected] of [["", engineConnectorTypeDisplayName(cage)], ["rj45", "CAT6A"], ["lc-multimode-om4", "Fiber LC"], ["mpo", "Fiber MPO"], ["", engineConnectorTypeDisplayName(cage)]]) {
+    for (const [module, expected] of [["", engineConnectorTypeDisplayName(cage)], ["rj45", "RJ45 Ethernet"], ["lc-multimode-om4", "LC Multimode"], ["mpo", "MPO Fiber"], ["", engineConnectorTypeDisplayName(cage)]]) {
       scene.updateConnector("matrix", "in-1", { type: cage, installedModuleType: module, displayLabel: "Stale node name" });
       const ctx = liveLabels(scene);
-      assert.equal(captions(ctx)[0].text, expected);
+      assert.deepEqual(captions(ctx).slice(0, module ? 2 : 1).map(d => d.text), module ? ["Installed Module", expected] : [expected]);
       assert.ok(values(ctx).includes("IN 1"));
     }
   }
@@ -150,9 +150,10 @@ test("installed cards, bidirectional anchors and generated switch ports use plug
   const device = scene.getDevice("d"), ctx = liveLabels(scene);
   assert.ok(device.connectors.some(c => c.id === "input-slot__in-0" && c.nameText === "Installed input"));
   assert.equal(captions(ctx).filter(d => d.text === "HDMI").length, 1, "installed input caption");
-  assert.equal(captions(ctx).filter(d => d.text === "Fiber MPO").length, 1, "installed output cage module caption");
+  assert.equal(captions(ctx).filter(d => d.text === "MPO Fiber").length, 1, "installed output cage module caption");
   assert.equal(captions(ctx).filter(d => d.text === "USB-C").length, 2, "both-side connector captions");
-  assert.ok(!captions(ctx).some(d => /Installed|12G/.test(d.text)));
+  assert.equal(captions(ctx).filter(d => d.text === "Installed Module").length, 1);
+  assert.ok(!captions(ctx).some(d => /12G/.test(d.text)), "Historical MPO must not acquire SDI capability");
   assert.deepEqual(project, before);
   const matrix = sceneFor(connectorPlugCaptionFixture());
   matrix.updateConnector("matrix", "lan", { generatedByEthernetSwitch: true, nameText: "PORT 7", label: "Switch 7" });

@@ -14,6 +14,29 @@ const functionSource = name => {
   assert(start >= 0, name);
   return html.slice(start, html.indexOf("\n    function ", start + 1));
 };
+
+for (const engine of [true, false]) {
+  test(`Node Builder list and selection guard agree without changing palette records (Engine=${engine})`, () => {
+    const cableTypes = structuredClone(catalogue.nodeTypes), before = structuredClone(cableTypes);
+    for (const id of cages) cableTypes[id].editorPalette = false;
+    const context = vm.createContext({ cableTypes, engineRendererRequested: () => engine,
+      ensureNodeLibraryDefaults() {}, nodeTypeOrder: Object.keys(cableTypes),
+      cageConnectorTypes: new Set(cages), deviceEditorOnlyNodeTypeOrder: cages,
+      nodeSearchHaystack: (key, type) => `${key} ${type.label}`.toLowerCase(), nodeBuilderSelectedType: "" });
+    for (const name of ["orderedNodeEntries", "nodeBuilderEntries", "selectedNodeType"]) vm.runInContext(functionSource(name), context);
+    const snapshot = plain(cableTypes);
+    for (const id of cages) {
+      assert.equal(vm.runInContext(`nodeBuilderEntries().filter(([key]) => key === '${id}').length`, context), engine ? 1 : 0);
+      context.nodeBuilderSelectedType = id;
+      const selected = vm.runInContext("selectedNodeType()", context);
+      assert.equal(selected === cableTypes[id], engine);
+      assert.equal(vm.runInContext(`orderedNodeEntries().some(([id]) => id === '${id}')`, context), false, "Not a cable palette entry");
+    }
+    if (engine) assert.equal(vm.runInContext('nodeBuilderEntries("sfp").filter(([id]) => cageConnectorTypes.has(id)).length', context), 4);
+    assert.deepEqual(cableTypes, snapshot);
+    assert.equal(Object.keys(cableTypes).length, Object.keys(before).length, "No duplicate catalogue");
+  });
+}
 function picker({ engine = true, stale = false, missing = false, hidden = false } = {}) {
   const nodes = Object.entries(catalogue.nodeTypes).filter(([id]) => !missing || !cages.includes(id))
     .map(([id, node]) => ({ ...structuredClone(node), id }));
