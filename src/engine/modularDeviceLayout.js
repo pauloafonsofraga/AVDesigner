@@ -4,6 +4,7 @@ import {
   normalizeInstalledCardConnectorAnchors,
   primaryAnchorForConnector
 } from "./deviceDefinitionV2.js";
+export { cardEditingBounds, resizeCardEditingBounds } from "./cardEditingArea.js";
 
 export const MODULAR_LAYOUT_SLOT_HEIGHT = 54;
 export const LEGACY_MODULAR_DEVICE_WIDTH = 380;
