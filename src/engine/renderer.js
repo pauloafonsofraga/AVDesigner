@@ -33,8 +33,6 @@ import {
   engineConnectorUserFacingTypeLabel
 } from "./connectorCompatibility.js";
 import {
-  SHARED_BUS_LABEL_OFFSET,
-  SHARED_BUS_LABEL_Y_OFFSET,
   SHARED_BUS_NODE_LINE_INSET,
   connectorDisplayAnchors,
   createConnectorDisplayLayout
@@ -79,7 +77,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-130-factory-library-additions";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-131-shared-bus-caption-spacing";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -4060,11 +4058,11 @@ function drawSharedBusConnectorWorldLabel(ctx, layout, baseX, baseY, camera, max
   const text = sharedBusConnectorLabel(layout);
   if (!text) return false;
   const side = layout.side === "output" ? "right" : "left";
-  const point = connectorAnchorRenderPoint(baseX, baseY, {}, { x: layout.connectorX, y: layout.centerY }, device);
-  const anchor = attachedConnectorLabelPosition(device, point, side, SHARED_BUS_LABEL_OFFSET, SHARED_BUS_LABEL_Y_OFFSET);
+  const metrics = legacyConnectorLabelMetrics(camera.zoom);
+  const point = connectorAnchorRenderPoint(baseX, baseY, {}, { x: layout.connectorX, y: layout.maxY ?? layout.centerY }, device);
+  const anchor = attachedConnectorLabelPosition(device, point, side, metrics.offsetX, metrics.offsetY);
   const x = (anchor.x - camera.x) * camera.zoom;
   const y = (anchor.y - camera.y) * camera.zoom;
-  const metrics = legacyConnectorLabelMetrics(camera.zoom);
   const size = metrics.screenFontSize;
   ctx.save();
   ctx.font = `900 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;

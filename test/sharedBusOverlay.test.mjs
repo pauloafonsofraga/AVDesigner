@@ -24,7 +24,7 @@ function rendererFunctions(names, bindings = {}) {
   return context;
 }
 
-test("shared-bus labels use the standalone connector zoom scale", () => {
+test("shared-bus labels use standalone scale and offsets from the lowest node", () => {
   const labels = rendererFunctions([
     "drawConnectorWorldLabel", "drawSharedBusConnectorWorldLabel", "sharedBusConnectorLabel"
   ], {
@@ -34,24 +34,26 @@ test("shared-bus labels use the standalone connector zoom scale", () => {
     SHARED_BUS_LABEL_OFFSET: 8,
     SHARED_BUS_LABEL_Y_OFFSET: 18
   });
-  const fontSizes = [];
+  const captions = [];
   const ctx = {
     globalAlpha: 1,
     save() {}, restore() {},
     strokeText() {},
-    fillText() { fontSizes.push(Number(this.font.match(/ ([\d.]+)px /)[1])); }
+    fillText(_text, x, y) { captions.push({ x, y, size: Number(this.font.match(/ ([\d.]+)px /)[1]) }); }
   };
-  for (const zoom of [0.34, 0.55, 1, 1.5]) {
+  for (const zoom of [0.34, 0.55, 1, 1.5]) for (const count of [2, 3, 4]) for (const side of ["left", "right"]) {
     const camera = { x: 0, y: 0, zoom };
-    labels.drawConnectorWorldLabel(ctx, { x: 0, y: 0 }, { side: "left" }, "SFP", camera);
+    const maxY = (count - 1) * 18;
+    labels.drawConnectorWorldLabel(ctx, { x: 80, y: maxY }, { side }, "SFP", camera);
     labels.drawSharedBusConnectorWorldLabel(ctx, {
-      side: "input", connectorX: 0, centerY: 0, members: [{ label: "SFP" }]
+      side: side === "left" ? "input" : "output", connectorX: 80, centerY: maxY / 2, maxY,
+      members: Array.from({ length: count }, () => ({ label: "SFP" }))
     }, 0, 0, camera);
     const expected = legacyConnectorLabelMetrics(zoom).screenFontSize;
-    assert.equal(fontSizes.at(-2), expected);
-    assert.equal(fontSizes.at(-1), expected);
+    assert.equal(captions.at(-2).size, expected);
+    assert.deepEqual(captions.at(-1), captions.at(-2));
   }
-  assert.ok(fontSizes[1] < 9, "the shared-bus caption must shrink below nine pixels when zoomed out");
+  assert.ok(captions[1].size < 9, "the shared-bus caption must shrink below nine pixels when zoomed out");
 });
 
 test("shared-bus info boxes omit empty fields and close the gaps", () => {
