@@ -5394,7 +5394,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled WireNexus Project" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">54.38.125 — Card Area and Connector Names</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">54.38.126 — Animated Card Reordering</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -6143,12 +6143,12 @@
   <script src="./src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script src="./src/engine/projectorModelCore.js?v=iteration54-38-11-engine-status-labels"></script>
   <script src="./src/engine/historyCloneCore.js?v=iteration54-38-29-memory-safe-undo"></script>
-  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-125-card-area-names"></script>
+  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-126-card-reorder"></script>
   <script type="text/wirenexus-app" id="wireNexusAppSource">
-    const APP_ITERATION = "54.38.125";
-    const APP_BUILD_ID = "iteration54-38-125-card-area-names";
-    const APP_MODULE_CACHE_ID = "iteration54-38-125-card-area-names-modules";
-    const APP_BUILD_LABEL = `${APP_ITERATION} — Card Area and Connector Names`;
+    const APP_ITERATION = "54.38.126";
+    const APP_BUILD_ID = "iteration54-38-126-card-reorder";
+    const APP_MODULE_CACHE_ID = "iteration54-38-126-card-reorder-modules";
+    const APP_BUILD_LABEL = `${APP_ITERATION} — Animated Card Reordering`;
     const { cloneHistoryValue, MAX_HISTORY_ENTRIES } = window.WireNexusHistoryClone;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
@@ -8527,7 +8527,7 @@
       const itemId = placementId(primarySourceId);
       const visualItem = editorPlacementItemByStableId(layout, itemId);
       if (!visualItem) return null;
-      const persistentAuthoringDrag = kind === "connector" && !isAdapterTemplate(template);
+      const persistentAuthoringDrag = options.engineCardReorder === true || kind === "connector" && !isAdapterTemplate(template);
       const session = (persistentAuthoringDrag ? placementModule.createPersistentModularLayoutSession : placementModule.createModularAuthoringInsertionSession)(layout.items, {
         capacity: Math.max(layout.endLane, Math.floor((Math.max(Number(template.height) || 0, deviceHeightForSlotCounts(template)) - startY - DEVICE_BOTTOM_PAD) / SLOT_HEIGHT)),
         draggedItemIds: itemIds,
@@ -8628,6 +8628,68 @@
         sourceIds: [options.id],
         primarySourceId: options.id
       });
+    }
+
+    function updateEditorCardReorderDrag(drag, event) {
+      const point = getEditorDragPreviewPoint(event, drag);
+      const module = requireDeviceEditorPlacementModule();
+      const item = drag.session.snapshot.byId[drag.itemId];
+      drag.visualY = point.y - drag.offsetY;
+      drag.rawPointerY = drag.visualY;
+      drag.visualMoved = Math.abs(drag.visualY - drag.visualStartY) > .5;
+      const previous = drag.lastValidResolvedLayout;
+      const previousReason = drag.invalidReason;
+      try {
+        if (currentEditorTemplate() !== drag.template || editorActiveTab !== "connectors") throw new Error("The editor changed. Start the card move again.");
+        if (point.x < 0 || point.x > deviceTemplateWidth(drag.template) || point.y < drag.startY
+          || point.y > drag.baselineTemplateHeight) throw new Error("Drop the card inside the chassis.");
+        const target = module.persistentTargetLaneWithHysteresis(event.clientY, {
+          session:drag.session, movingIds:[drag.itemId], primaryId:drag.itemId,
+          previousTargetLane:drag.currentTargetLane, pointerStartClientY:drag.pointerStartClientY,
+          projectedLanePx:drag.projectedLanePx
+        });
+        if (target + item.span > drag.session.capacity) throw new Error("Drop the card inside the chassis.");
+        if (target !== drag.currentTargetLane || drag.invalidReason) {
+          drag.lastValidResolvedLayout = module.resolveModularCardReorder(drag.session, drag.itemId, target, drag.fixedIds);
+          drag.currentTargetLane = target;
+          drag.currentBoundaryIndex = target;
+        }
+        drag.currentY = editorPlacementItemByStableId(drag.lastValidResolvedLayout, drag.itemId).y;
+        drag.invalidReason = "";
+      } catch (error) {
+        drag.invalidReason = error.message;
+      }
+      if (drag.invalidReason && drag.invalidReason !== previousReason) setStatus(`Cannot move card: ${drag.invalidReason}`);
+      drag.moved = drag.movementThresholdCrossed = !drag.invalidReason && drag.currentTargetLane !== item.lane;
+      if (previous !== drag.lastValidResolvedLayout) retargetEditorPlacementMotionForDrag(drag, {draggedY:drag.visualY});
+      else setEditorDraggedPlacementVisualY(drag, drag.visualY);
+    }
+
+    function drawEditorCardReorderTarget(parent, template) {
+      const drag = editorCardSlotDrag;
+      parent.querySelector("[data-card-reorder-target]")?.remove();
+      if (!drag?.engineCardReorder || !drag.motionStarted) return;
+      const slot = template.cardSlots.find(slot => slot.id === drag.slotId);
+      if (!slot) return;
+      const band = cardBandGeometryAtY(template, slot, drag.invalidReason ? drag.visualY : drag.currentY);
+      const group = createSvg("g", {"data-card-reorder-target":drag.invalidReason ? "invalid" : "valid", "pointer-events":"none"});
+      const color = drag.invalidReason ? "#ef4444" : "#22c55e";
+      group.appendChild(createSvg("rect", {x:band.x,y:band.y,width:band.width,height:band.height,rx:6,fill:color,"fill-opacity":.09,stroke:color,"stroke-width":2,"stroke-dasharray":"5 4"}));
+      const title = createSvg("title"); title.textContent = drag.invalidReason || "Move card here"; group.appendChild(title);
+      parent.appendChild(group);
+    }
+
+    function commitEditorCardReorder(template, drag) {
+      if (instanceById(editorInstanceId)?.locked) throw new Error("The device is locked.");
+      if (template !== drag.template || JSON.stringify(captureTemplateConfiguration(template)) !== drag.pointerDownTemplateSnapshot) {
+        throw new Error("The card configuration changed during the drag. Start the move again.");
+      }
+      const candidate = structuredClone(template);
+      applyEditorStableResolvedLayout(candidate, drag.lastValidResolvedLayout, {includeConnectors:false, updateHeight:false});
+      assertEditorModularCardChanges(candidate);
+      const before = structuredClone(template);
+      replaceEditorTemplateContents(template, candidate);
+      recordEditorPlacementHistory(template, before);
     }
 
     function resolveEditorCompactPlacementDragMove(drag, pointerClientY, options = {}) {
@@ -21026,7 +21088,8 @@
       drawEditorEngineCardTextureMasks(parent, template);
       const group = createSvg("g", {
         class: "editor-engine-dynamic-card-artwork",
-        "data-editor-dynamic-card-artwork": "true"
+        "data-editor-dynamic-card-artwork": "true",
+        ...(editorCardSlotDrag?.engineCardReorder ? {"data-card-reorder-artwork":"true"} : {})
       });
       drawCardSlotBands(group, template, {
         dynamicOwner: true,
@@ -21046,6 +21109,7 @@
         parent.appendChild(createSvg("rect", {
           class: "editor-engine-card-slot-hit",
           "data-editor-card-slot": index,
+          "data-editor-card-slot-id": slot.id,
           x: band.x,
           y: band.y,
           width: band.width,
@@ -21108,6 +21172,19 @@
     }
 
     function renderDeviceEditorEnginePreview(template, options = {}) {
+      const retainedCards = deviceEditorPreview.querySelector("[data-card-reorder-artwork]");
+      if (options.motionFrame === true && editorActiveTab === "connectors"
+        && editorEngineDynamicCardArtworkActive && editorPlacementMotionHasCardEntries() && retainedCards) {
+        // Fixed chassis connectors and baked artwork do not move in this gesture.
+        // Keep card nodes/captions mounted and only interpolate their owner groups.
+        syncDeviceEditorEngineOverlayViewBox();
+        retainedCards.querySelectorAll("[data-editor-card-slot-artwork]").forEach(owner => {
+          const slot = template.cardSlots.find(slot => slot.id === owner.dataset.editorCardSlotArtwork);
+          if (slot) owner.setAttribute("transform", `translate(0 ${cardSlotDisplayY(template, slot)})`);
+        });
+        drawEditorCardReorderTarget(deviceEditorPreview, template);
+        return;
+      }
       const previewTemplate = readonlyDeviceEditorPreviewTemplate(template);
       if (!previewTemplate.isPowerDistro || previewTemplate.faceImage || previewTemplate.faceplateDeleted) {
         editorSelectedFaceplate = false;
@@ -21150,6 +21227,7 @@
       drawEditorEngineCardSlotOverlay(deviceEditorPreview, previewTemplate);
       drawEditorEngineConnectorOverlay(deviceEditorPreview, previewTemplate);
       drawEditorResizeHandles(deviceEditorPreview, previewTemplate, deviceTemplateWidth(previewTemplate), Number(previewTemplate.height) || deviceHeightForSlotCounts(previewTemplate));
+      drawEditorCardReorderTarget(deviceEditorPreview, previewTemplate);
       editorEnginePreviewOverlayDraws += 1;
 
       renderDeviceAuthoringDebugPanel();
@@ -22954,6 +23032,7 @@
           artworkParent.appendChild(createSvg("rect", {
             class: "editor-engine-card-slot-hit",
             "data-editor-card-slot": index,
+            ...(options.dynamicOwner === true ? {"data-editor-card-slot-id":slot.id} : {}),
             x: band.x,
             y: band.y,
             width: band.width,
@@ -23868,7 +23947,9 @@
       const slotEl = event.target.closest("[data-editor-card-slot]");
       if (!slotEl) return false;
       const template = currentEditorTemplate();
-      const index = Number(slotEl.dataset.editorCardSlot);
+      const index = slotEl.dataset.editorCardSlotId
+        ? template?.cardSlots?.findIndex(slot => slot.id === slotEl.dataset.editorCardSlotId)
+        : Number(slotEl.dataset.editorCardSlot);
       const slot = template?.cardSlots?.[index];
       if (!template || !slot) return false;
       event.preventDefault();
@@ -23878,6 +23959,13 @@
       const coordinateFrame = captureEditorDragCoordinateFrame(event, point);
       const selectionSnapshot = captureEditorCardDragSelection();
       editorSlotIndex = clamp(index, 0, Math.max(0, template.cardSlots.length - 1));
+      const engineCardReorder = typeof engineRendererRequested === "function" && engineRendererRequested();
+      if (engineCardReorder && (!requireDeviceEditorPlacementModule().cardSlotAllowsReorder(slot)
+        || instanceById(editorInstanceId)?.locked)) {
+        setStatus("This physical slot is fixed or locked. Its card can be edited or replaced, but not reassigned by dragging.");
+        renderDeviceEditorPreview();
+        return true;
+      }
       let stableDrag = null;
       try {
         stableDrag = createEditorCompactCardDragSession(template, {
@@ -23886,7 +23974,8 @@
           pointerY: point.y,
           pointerClientY: event.clientY,
           coordinateFrame,
-          selectionSnapshot
+          selectionSnapshot,
+          engineCardReorder
         });
       } catch (error) {
         console.warn("Unable to start stable card-slot drag session.", error);
@@ -23904,6 +23993,11 @@
         motionStarted: false,
         ...stableDrag
       };
+      if (engineCardReorder) Object.assign(editorCardSlotDrag, {
+        engineCardReorder:true, template, invalidReason:"",
+        fixedIds: stableDrag.baselineResolvedLayout.items.filter(item => item.itemType !== "card-slot"
+          || !requireDeviceEditorPlacementModule().cardSlotAllowsReorder(template.cardSlots.find(slot => `card:${slot.id}` === item.id))).map(item => item.id)
+      });
       editorSelectedPowerPlugIds.clear();
       setEditorPointerCapture(event);
       renderDeviceEditorPreview();
@@ -24251,6 +24345,10 @@
           editorCardSlotDrag.motionStarted = true;
           renderDeviceEditorPreview({ refreshTexture: true, motionFrame: true });
         }
+        if (editorCardSlotDrag.engineCardReorder) {
+          updateEditorCardReorderDrag(editorCardSlotDrag, event);
+          return;
+        }
         const previousBoundaryIndex = editorCardSlotDrag.currentBoundaryIndex;
         const visualY = point.y - editorCardSlotDrag.offsetY;
         editorCardSlotDrag.visualY = visualY;
@@ -24423,11 +24521,25 @@
       if (editorCardSlotDrag) {
         if (event?.pointerId !== undefined && event.pointerId !== editorCardSlotDrag.pointerId) return;
         const completedDrag = editorCardSlotDrag;
+        if (completedDrag.engineCardReorder && completedDrag.motionStarted && event?.clientY !== undefined) updateEditorCardReorderDrag(completedDrag, event);
         editorDragPointerReleaseInProgress = true;
         releaseEditorPointerCapture(event);
         editorDragPointerReleaseInProgress = false;
         const template = currentEditorTemplate();
         editorCardSlotDrag = null;
+        if (completedDrag.engineCardReorder) {
+          try {
+            if (completedDrag.invalidReason) throw new Error(completedDrag.invalidReason);
+            if (completedDrag.moved) commitEditorCardReorder(template, completedDrag);
+            settleEditorPlacementMotionToLayout(completedDrag.moved ? completedDrag.lastValidResolvedLayout : completedDrag.baselineResolvedLayout, {clearWhenSettled:true});
+          } catch (error) {
+            setStatus(`Card move cancelled: ${error.message}`);
+            settleEditorPlacementMotionToLayout(completedDrag.baselineResolvedLayout, {clearWhenSettled:true});
+          }
+          if (!completedDrag.motionStarted) clearEditorPlacementMotion();
+          renderDeviceEditor();
+          return;
+        }
         if (template && completedDrag.moved) {
           commitEditorStablePlacementDrag(template, completedDrag, { includeConnectors: true, includeCards: true });
           recordEditorPlacementHistory(template, { ...structuredClone(template), ...JSON.parse(completedDrag.pointerDownTemplateSnapshot) });

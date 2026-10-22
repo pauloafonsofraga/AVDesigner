@@ -608,8 +608,12 @@ export function resolveModularInsertionDrag(snapshot, draggedItemId, targetLane,
   }
 
   const originalEndLane = finiteNumber(source.endLane, laneMapEndLane(items, laneMapFromItems(items)));
+  const fixedIds = new Set(options.fixedIds || []);
+  const withinReservations = lanes => items.every(item => !fixedIds.has(item.id) || lanes.get(item.id) === item.lane)
+    && (!Number.isFinite(options.maxEndLane) || laneMapEndLane(items, lanes) <= options.maxEndLane);
   const valid = candidates
     .filter(candidate => candidateIsValid(items, candidate.lanes, dragged, resolvedTargetLane))
+    .filter(candidate => withinReservations(candidate.lanes))
     .map(candidate => ({
       lanes: candidate.lanes,
       metrics: candidateMetrics(items, candidate.lanes, dragged, originalEndLane)
@@ -626,6 +630,7 @@ export function resolveModularInsertionDrag(snapshot, draggedItemId, targetLane,
     );
   }
   assertValidInsertionCandidate(items, laneById, dragged, resolvedTargetLane);
+  if (!withinReservations(laneById)) throw new Error('Cannot place the card without moving a fixed slot or leaving the chassis.');
 
   const result = placementResultForLaneMap(items, laneById, {
     startY,
@@ -1701,6 +1706,31 @@ export function resolvePersistentStructuralEdit(session, edit = {}, options = {}
   });
   const result = resolveModularStructuralEdit(session, { ...edit, upserts, compactVacatedSpace: false }, options);
   return Object.freeze({ ...freezeStructuralSnapshot(result, options), structuralEdit: result.structuralEdit });
+}
+
+// A reorder moves a flexible slot/card assembly, never a card assignment. An
+// authored physical footprint (including an empty bay) stays in its chassis.
+export function cardSlotAllowsReorder(slot = {}) {
+  return Boolean(slot.installedCardTypeId) && !slot.physicalLayout && slot.locked !== true;
+}
+
+export function resolveModularCardReorder(session, itemId, targetLane, fixedIds = []) {
+  const item = session.snapshot.byId[itemId];
+  if (!item || item.itemType !== 'card-slot') throw new Error('The card slot no longer exists.');
+  const fixed = new Set(fixedIds);
+  if (fixed.has(itemId)) throw new Error('This physical slot is fixed or locked.');
+  if (!Number.isSafeInteger(targetLane) || targetLane < 0 || targetLane + item.span > session.capacity) {
+    throw new Error('Drop the card inside the chassis.');
+  }
+  if (targetLane === item.lane) return session.snapshot;
+  for (const id of fixed) {
+    const fixedItem = session.snapshot.byId[id];
+    if (!fixedItem) throw new Error('A fixed placement no longer exists.');
+  }
+  // Use the established insertion collision chain with hard reservations. No compaction
+  // of intentional gaps, no alternative target and no resize of the chassis.
+  const result = resolveModularInsertionDrag(session.snapshot, itemId, targetLane, {fixedIds, maxEndLane:session.capacity});
+  return freezeStructuralSnapshot(result, session);
 }
 
 function structuralFieldValue(raw = {}, field = "") {
