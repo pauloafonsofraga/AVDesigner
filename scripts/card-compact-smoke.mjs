@@ -25,6 +25,10 @@ try {
   assert.equal(probe.layout.at(-1).y,162);
   const fieldCenter=await page.locator('[data-card-preview-node="0"] .info-box-base').first().evaluate(el=>Number(el.getAttribute('y'))+Number(el.getAttribute('height'))/2);
   assert.equal(fieldCenter,135,'shared fields align with the bus centre');
+  const caption=await page.locator('[data-card-shared-bus-label]').evaluate(el=>({x:Number(el.getAttribute('x')),y:Number(el.getAttribute('y'))}));
+  const trunkX=await page.locator('[data-shared-bus-segment="trunk"]').evaluate(el=>Number(el.getAttribute('x1')));
+  assert.equal(caption.y,fieldCenter+22,'caption uses the same field-relative gap as a standalone card node');
+  assert.ok(caption.x>trunkX+2,'four-node caption stays clear of the shared-bus trunk');
   const before=await page.evaluate(()=>structuredClone(currentEditorTemplate()));
   const h=await page.locator('[data-card-area-resize="s"]').boundingBox();
   await page.mouse.move(h.x+h.width/2,h.y+h.height/2);await page.mouse.down();
