@@ -3,6 +3,7 @@ import test from "node:test";
 import vm from "node:vm";
 import { readFileSync } from "node:fs";
 import * as displayLayout from "../src/engine/connectorDisplayLayout.js";
+import {cardConnectorEditingLayout} from "../src/engine/cardEditingArea.js";
 
 const source = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 function functionSource(name) {
@@ -14,7 +15,8 @@ function functionSource(name) {
 const context = vm.createContext({
   DEVICE_WIDTH: 380,
   SLOT_HEIGHT: 54,
-  requireDeviceEditorPlacementModule: () => displayLayout,
+  engineRendererRequested: () => true,
+  requireDeviceEditorPlacementModule: () => ({...displayLayout,cardConnectorEditingLayout}),
   normalizeEditorDisplaySide: (side, direction) => side || (direction === "output" ? "right" : "left"),
   editorPrimaryAnchorSide: connector => connector.direction === "output" ? "right" : "left",
   editorCardPreviewBand: () => ({ x: 10, width: 360 })
@@ -68,7 +70,7 @@ for (const side of ["left", "right", "both"]) for (const count of [2, 3, 4]) {
     assert.deepEqual(Array.from(grouped, item => item.y - grouped[0].y), members.map((_, i) => i * 18));
     assert.equal(grouped.filter(item => item.sharedBusRepresentative).length, 1);
     assert.equal(layout[0].y, 108);
-    assert.equal(layout.at(-1).y, 108 + (count + 1) * 54);
+    assert.equal(layout.at(-1).y, 108 + (Math.ceil(((count - 1) * 18 + 16) / 54) + 1) * 54);
     for (const item of grouped) {
       assert.equal(item.positions.length, side === "both" ? 2 : 1);
       assert.ok(item.positions.every(position => position.y === item.y));

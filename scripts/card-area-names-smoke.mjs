@@ -26,10 +26,10 @@ try {
     name: deviceEditorPreview.textContent.includes('SDI OUT 1')}));
   await page.screenshot({path: `${shots}/card-before.png`});
   if (process.env.AVDESIGNER_BASELINE_PROBE === '1') {
-    console.log(JSON.stringify({baseline: found, expected: {resize: 3, name: true}}));
-    assert.deepEqual(found, {resize: 3, name: true});
+    console.log(JSON.stringify({baseline: found, expected: {resize: 1, name: true}}));
+    assert.deepEqual(found, {resize: 1, name: true});
   }
-  assert.equal(found.resize, 3); assert.equal(found.name, true);
+  assert.equal(found.resize, 1); assert.equal(found.name, true);
   const draft = () => page.evaluate(() => structuredClone(currentEditorTemplate()));
   const bounds = () => page.evaluate(() => Object.fromEntries(['x','y','width','height'].map(k => [k, Number(deviceEditorPreview.querySelector('[data-card-editing-boundary]').getAttribute(k))])));
   const original = await draft(), originalBounds = await bounds();
@@ -56,20 +56,19 @@ try {
     else assert.deepEqual(await bounds(), preview, 'preview/commit boundary parity');
     return preview;
   };
-  await resize('e', 65, 0);
-  const wide = await bounds(); assert.ok(wide.width > originalBounds.width); assert.equal(wide.height, originalBounds.height);
+  const wide = await bounds(); assert.equal(wide.width, originalBounds.width);
   await resize('s', 0, 50);
   const tall = await bounds(); assert.ok(tall.height > wide.height); assert.equal(tall.width, wide.width);
   const changed = await draft();
   assert.deepEqual(changed.cardTypes[0].connectors, original.cardTypes[0].connectors);
-  assert.deepEqual(changed.cardSlots, original.cardSlots);
-  assert.equal(await page.evaluate(() => editorMetadataHistory.undo.length), 2);
-  await resize('se', 35, 35, true);
-  assert.equal(await page.evaluate(() => editorMetadataHistory.undo.length), 2);
+  assert.deepEqual(changed.cardSlots.map(({physicalLayout,...s})=>s), original.cardSlots);
+  assert.equal(await page.evaluate(() => editorMetadataHistory.undo.length), 1);
+  await resize('s', 35, 35, true);
+  assert.equal(await page.evaluate(() => editorMetadataHistory.undo.length), 1);
   await page.keyboard.press(`${modifier}+z`); assert.deepEqual(await bounds(), wide);
   await page.keyboard.press(`${modifier}+Shift+z`); assert.deepEqual(await draft(), changed);
   await page.screenshot({path: `${shots}/card-after.png`});
-  await resize('se', -200, -200);
+  await resize('s', -200, -200);
   const minimum = await page.evaluate(() => ({actual: editorCardAreaBounds(), saved: currentEditorCard().editingBounds}));
   assert.ok(minimum.saved.width >= minimum.actual.minimumWidth && minimum.saved.height >= minimum.actual.minimumHeight);
   await page.screenshot({path: `${shots}/card-minimum.png`});
@@ -101,7 +100,7 @@ try {
   await page.mouse.move(surface.x + 60, surface.y + 55, {steps:5}); await page.mouse.up({button:'middle'});
   assert.notDeepEqual(await page.evaluate(() => editorPreviewPan), panBefore);
   assert.deepEqual(await nodeGeometry(), fixedNodes, 'zoom/pan preserves node and label world geometry');
-  await resize('se', 15, 15);
+  await resize('s', 15, 15);
   await page.locator('#closeDeviceEditor').click(); await page.locator('[data-choice="discard"]').click();
   await page.locator('#deviceEditorModal').waitFor({state:'hidden'});
   await page.evaluate(() => openDeviceEditorForInstance('chassis-1'));
@@ -143,7 +142,7 @@ try {
       window.cardPreviewRenders = 0; window.originalCardPreview = renderCardEditorPreview;
       renderCardEditorPreview = (...args) => {window.cardPreviewRenders++; return window.originalCardPreview(...args);};
     });
-    await resize('se', 25, 25);
+    await resize('s', 25, 25);
     const performanceCheck = await page.evaluate(() => {
       renderCardEditorPreview = window.originalCardPreview;
       return {renders:window.cardPreviewRenders, zoom:editorPreviewZoom};

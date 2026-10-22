@@ -4,7 +4,8 @@ import {
   normalizeInstalledCardConnectorAnchors,
   primaryAnchorForConnector
 } from "./deviceDefinitionV2.js";
-export { cardEditingBounds, resizeCardEditingBounds } from "./cardEditingArea.js";
+import {authoredCardHeight, cardConnectorEditingLayout} from "./cardEditingArea.js";
+export { cardEditingBounds, resizeCardEditingBounds, cardConnectorEditingLayout } from "./cardEditingArea.js";
 
 export const MODULAR_LAYOUT_SLOT_HEIGHT = 54;
 export const LEGACY_MODULAR_DEVICE_WIDTH = 380;
@@ -2284,6 +2285,8 @@ export function cardConnectorRowCounts(card = {}) {
 }
 
 export function cardSlotSpanLanes(card = {}, extraLanes = 2) {
+  if (authoredCardHeight(card)) return Math.max(2, Math.ceil(authoredCardHeight(card) / MODULAR_LAYOUT_SLOT_HEIGHT),
+    cardConnectorEditingLayout(card).rows + 2);
   return Math.max(2, cardConnectorRowCounts(card).max + Math.max(0, Math.round(finiteNumber(extraLanes, 2))));
 }
 
@@ -2307,7 +2310,16 @@ export function cardSlotPhysicalLayout(slot = {}, card = null) {
 export function cardFitsPhysicalSlot(slot, card) {
   if (!card || !slot.physicalLayout) return true;
   const layout = cardSlotPhysicalLayout(slot, card), side = cardSlotPlacementSideMask(card);
-  return cardSlotSpanLanes(card) <= layout.span && (layout.sideMask === "both" || layout.sideMask === side);
+  const required = authoredCardHeight(card) ? cardConnectorEditingLayout(card).rows + 2 : cardSlotSpanLanes(card);
+  return required <= layout.span && (layout.sideMask === "both" || layout.sideMask === side);
+}
+
+export function retainResizedCardSlotLayouts(before, after, cardId) {
+  for (const slot of after.cardSlots || []) {
+    if (slot.installedCardTypeId !== cardId || slot.physicalLayout) continue;
+    const previous = before.cardSlots?.find(item => item.id === slot.id);
+    if (previous) slot.physicalLayout = cardSlotPhysicalLayout(previous, before.cardTypes?.find(card => card.id === cardId));
+  }
 }
 
 export function retainChangedCardSlotLayouts(before = {}, after = {}) {
@@ -2449,7 +2461,7 @@ export function cardBandGeometryForSlot(slot = {}, card = null, options = {}) {
   const lanes = physical.span;
   const slotY = Number.isFinite(Number(options.slotY)) ? Number(options.slotY) : finiteNumber(slot?.y, 0);
   const y = slotY - slotHeight / 2;
-  const height = Math.max(slotHeight * 2, lanes * slotHeight);
+  const height = Math.max(slotHeight * 2, Math.min(lanes * slotHeight, authoredCardHeight(card) || Infinity));
   if (kind === "input") {
     return {
       x: 10 * scale,
@@ -2509,6 +2521,7 @@ export function resolveInstalledCardConnectors(options = {}) {
       ? options.cardSlotY(slot, slotIndex, card)
       : slot.y, startY));
     const sideCounts = { input: 0, output: 0 };
+    const compact = authoredCardHeight(card) ? cardConnectorEditingLayout(card, slotHeight) : null;
     card.connectors
       .filter(connector => !connector.empty && connector.type)
       .forEach((sourceConnector, connectorIndex) => {
@@ -2518,7 +2531,7 @@ export function resolveInstalledCardConnectors(options = {}) {
         const direction = merged.direction === "input" ? "input" : "output";
         const rowIndex = sideCounts[direction]++;
         const installedX = direction === "input" ? 0 : deviceWidth;
-        const installedY = slotY + slotHeight + rowIndex * slotHeight;
+        const installedY = slotY + slotHeight + (compact?.byId.get(sourceConnector.id)?.offsetY ?? rowIndex * slotHeight);
         const id = `${stableString(slot.id, `slot-${slotIndex}`)}__${stableString(sourceConnector.id, `connector-${connectorIndex}`)}`;
         const installedConnector = normalizeInstalledCardConnectorAnchors({
           ...merged,

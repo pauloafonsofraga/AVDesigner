@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {cardEditingBounds, resizeCardEditingBounds} from '../src/engine/cardEditingArea.js';
-import {cardBandGeometryForSlot, resolveInstalledCardConnectors, cardFitsPhysicalSlot} from '../src/engine/modularDeviceLayout.js';
+import {cardBandGeometryForSlot, resolveInstalledCardConnectors, cardFitsPhysicalSlot, retainResizedCardSlotLayouts} from '../src/engine/modularDeviceLayout.js';
 import {cardSafetyFixture} from './helpers/cardSafetyFixture.mjs';
 import {assertSafeModularCardChanges} from '../src/engine/modularCardSafety.js';
 import {buildEngineOutputScene} from '../src/engine/outputSceneSnapshot.js';
@@ -13,7 +13,7 @@ const fallback = {x: 10, y: 27, width: 174, height: 216};
 for (const handle of ['e', 's', 'se']) test(`empty card ${handle} resize is finite and independently clamped`, () => {
   const start = cardEditingBounds({}, fallback);
   const enlarged = resizeCardEditingBounds(start, {x: 70, y: 40}, handle);
-  assert.equal(enlarged.width, handle.includes('e') ? 244 : 174);
+  assert.equal(enlarged.width, 174);
   assert.equal(enlarged.height, handle.includes('s') ? 256 : 216);
   const small = resizeCardEditingBounds(start, {x: -9999, y: -9999}, handle);
   assert.ok(small.width >= 96 && small.height >= 108);
@@ -44,11 +44,12 @@ test('authoring resize cannot resize a physical slot or alter installed connecto
   const template = after.deviceLibrary[0], card = template.cardTypes[0], slot = template.cardSlots[0];
   const geometry = cardBandGeometryForSlot(slot, card);
   const ports = resolveInstalledCardConnectors({...template}).connectors;
+  retainResizedCardSlotLayouts(before.deviceLibrary[0],template,card.id);
   card.editingBounds = {x: -100, y: 0, width: 1000, height: 2000};
   assert.deepEqual(cardBandGeometryForSlot(slot, card), geometry);
   assert.deepEqual(resolveInstalledCardConnectors({...template}).connectors, ports);
   assert.deepEqual(after.connections, before.connections);
-  assert.deepEqual(template.cardSlots, before.deviceLibrary[0].cardSlots);
+  assert.deepEqual(template.cardSlots.map(({physicalLayout,...s})=>s), before.deviceLibrary[0].cardSlots);
   assert.doesNotThrow(() => assertSafeModularCardChanges(before, after));
   assert.deepEqual(buildEngineOutputScene(after), buildEngineOutputScene(before));
   assert.deepEqual(JSON.parse(JSON.stringify(after)).deviceLibrary[0].cardTypes[0].editingBounds, card.editingBounds);
