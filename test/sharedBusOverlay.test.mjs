@@ -24,7 +24,7 @@ function rendererFunctions(names, bindings = {}) {
   return context;
 }
 
-test("shared-bus labels use standalone scale and offsets from the lowest node", () => {
+test("shared-bus captions use standalone scale and offsets from their field anchor", () => {
   const labels = rendererFunctions([
     "drawConnectorWorldLabel", "drawSharedBusConnectorWorldLabel", "sharedBusConnectorLabel"
   ], {
@@ -44,9 +44,10 @@ test("shared-bus labels use standalone scale and offsets from the lowest node", 
   for (const zoom of [0.34, 0.55, 1, 1.5]) for (const count of [2, 3, 4]) for (const side of ["left", "right"]) {
     const camera = { x: 0, y: 0, zoom };
     const maxY = (count - 1) * 18;
-    labels.drawConnectorWorldLabel(ctx, { x: 80, y: maxY }, { side }, "SFP", camera);
+    const fieldAnchorX = 80 + (side === "left" ? 8 : -8), centerY = maxY / 2;
+    labels.drawConnectorWorldLabel(ctx, { x: fieldAnchorX, y: centerY }, { side }, "SFP", camera);
     labels.drawSharedBusConnectorWorldLabel(ctx, {
-      side: side === "left" ? "input" : "output", connectorX: 80, centerY: maxY / 2, maxY,
+      side: side === "left" ? "input" : "output", connectorX: 80, fieldAnchorX, centerY, maxY,
       members: Array.from({ length: count }, () => ({ label: "SFP" }))
     }, 0, 0, camera);
     const expected = legacyConnectorLabelMetrics(zoom).screenFontSize;
