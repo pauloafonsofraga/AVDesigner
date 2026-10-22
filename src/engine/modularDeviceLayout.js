@@ -5,6 +5,7 @@ import {
   primaryAnchorForConnector
 } from "./deviceDefinitionV2.js";
 import {authoredCardHeight, cardConnectorEditingLayout} from "./cardEditingArea.js";
+export {resolveConnectorLabelCollisions} from './connectorLabelLayout.js';
 export { cardEditingBounds, resizeCardEditingBounds, cardConnectorEditingLayout } from "./cardEditingArea.js";
 
 export const MODULAR_LAYOUT_SLOT_HEIGHT = 54;

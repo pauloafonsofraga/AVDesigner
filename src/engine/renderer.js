@@ -38,6 +38,8 @@ import {
   createConnectorDisplayLayout
 } from "./connectorDisplayLayout.js";
 import { sharedBusOrthogonalSegments } from "./sharedBusRendering.js";
+import {resolveConnectorLabelCollisions} from './connectorLabelLayout.js';
+import {legacyFaceHeight} from './faceplateGeometry.js';
 import {
   INFO_BOX_COMPACT_SCALE,
   INFO_BOX_MAGNIFIED_ZOOM,
@@ -77,7 +79,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-134-transparent-faceplate-bounds";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-135-label-collision-avoidance";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -3971,8 +3973,11 @@ function connectorLabel(connector, fallback = "") {
     || engineConnectorUserFacingTypeLabel(connector, fallback)).trim();
 }
 
+const connectorAnnotationFrames = new WeakMap();
+
 function drawVisibleConnectorLabels(ctx, scene, camera, renderOptions = DEFAULT_RENDER_OPTIONS, dragSession = null, resolution = { width: 0, height: 0 }, layerTrace = null, renderer = null) {
   if (!renderOptions.connectorMarkers || renderOptions.hideLabels || camera.zoom < 0.08) return 0;
+  connectorAnnotationFrames.set(ctx,new Map());
   const offsets = dragSession?.offsetMap() || null;
   const selectedIds = new Set(dragSession?.selectedIds || []);
   const drawn = new Set();
@@ -3984,6 +3989,7 @@ function drawVisibleConnectorLabels(ctx, scene, camera, renderOptions = DEFAULT_
     const baseX = device.x + (offset?.dx || 0);
     const baseY = device.y + (offset?.dy || 0);
     const displayLayout = connectorDisplayLayoutForRender(scene, device);
+    const annotations = connectorAnnotationPlacementsForFrame(ctx, scene, device, camera);
     let count = 0;
     deviceConnectorsForRender(device).forEach(connector => {
       if (displayLayout.byConnectorId.has(connector.id)) return;
@@ -3998,14 +4004,19 @@ function drawVisibleConnectorLabels(ctx, scene, camera, renderOptions = DEFAULT_
           __anchorId: anchor.id,
           __renderOpacity: connectorAnchorRenderOpacity(scene, device, connector, anchor)
         };
+        const point = connectorAnchorRenderPoint(baseX, baseY, connector, anchor, device);
+        const shift = annotations.get(`node:${connector.id}:${anchor.id || ""}`);
+        drawConnectorAnnotationLeader(ctx, point, shift, camera, renderConnector.__renderOpacity);
         drawConnectorWorldLabel(ctx,
-          connectorAnchorRenderPoint(baseX, baseY, connector, anchor, device),
+          {x:point.x+(shift?.dx || 0),y:point.y+(shift?.dy || 0)},
           renderConnector, text, camera, connectorCaptionWidth(device, connector), device);
         count += 1;
       });
     });
     displayLayout.groups.forEach(layout => {
-      if (drawSharedBusConnectorWorldLabel(ctx, layout, baseX, baseY, camera, connectorCaptionWidth(device, layout.representative), device)) count += 1;
+      const shift=annotations.get(`bus:${layout.relationshipId}`);
+      drawConnectorAnnotationLeader(ctx,{x:baseX+layout.fieldAnchorX,y:baseY+layout.centerY},shift,camera);
+      if (drawSharedBusConnectorWorldLabel(ctx, layout, baseX+(shift?.dx || 0), baseY+(shift?.dy || 0), camera, connectorCaptionWidth(device, layout.representative), device)) count += 1;
     });
     drawn.add(device.id);
     renderer?.recordObjectLayer?.(layerTrace, device.id, "connectorLabelLayer", reason);
@@ -4025,6 +4036,76 @@ function drawVisibleConnectorLabels(ctx, scene, camera, renderOptions = DEFAULT_
 function connectorCaptionWidth(device, connector) {
   const card = device.visual?.visualCards?.find(card => card.id === connector?.cardSlotId);
   return Math.max(20, (card?.width || device.width / 2) - 24);
+}
+
+function drawConnectorAnnotationLeader(ctx, point, shift, camera, opacity = 1) {
+  if (!shift || !shift.dx && !shift.dy) return;
+  ctx.save();ctx.globalAlpha *= opacity;ctx.strokeStyle='rgba(125,165,185,.65)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo((point.x-camera.x)*camera.zoom,(point.y-camera.y)*camera.zoom);
+  ctx.lineTo((point.x+shift.dx-camera.x)*camera.zoom,(point.y+shift.dy-camera.y)*camera.zoom);
+  ctx.stroke();ctx.restore();
+}
+
+export function connectorAnnotationPlacements(ctx, scene, device, camera) {
+  if(device.kind==='adapter' || device.kind==='jump' || isLedSurfaceKind(device))return new Map();
+  const zoom=Math.max(.001,camera.zoom), metrics=legacyConnectorLabelMetrics(zoom);
+  const mode=legacyConnectorInfoBoxMode(zoom), scale=mode==='compact'?INFO_BOX_COMPACT_SCALE:legacyCanvasDetailScale(zoom);
+  const display=connectorDisplayLayoutForRender(scene,device), rows=[], obstacles=[];
+  const add=(key,connector,point,lines,weight=800)=>{
+    const side=connector.side==='right'?'right':'left';
+    const anchor=attachedConnectorLabelPosition(device,point,side,metrics.offsetX,metrics.offsetY);
+    const size=metrics.screenFontSize/zoom;
+    ctx.save();ctx.font=`${weight} ${metrics.screenFontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
+    const width=Math.max(1,...lines.map(line=>ctx.measureText(line).width/zoom));ctx.restore();
+    const parts=[{x:anchor.x-(anchor.textAlign==='right'?width:0)-2,y:anchor.y-size*.7-2,width:width+4,height:size*1.25*lines.length+4}];
+    if(mode!=='hidden')visibleConnectorInfoFields(connector).forEach((field,index)=>{
+      const r=connectorInfoBoxWorldRect(point,connector,index,scale);
+      ctx.save();ctx.font=`800 ${5.1*scale*zoom}px system-ui, -apple-system, Segoe UI, sans-serif`;
+      const titleWidth=mode==='compact'?0:ctx.measureText(field.title).width/zoom;ctx.restore();
+      const fieldWidth=Math.max(r.width,titleWidth);
+      parts.push({x:r.x+r.width/2-fieldWidth/2-2,y:r.y-5.1*scale*.6-2,width:fieldWidth+4,height:r.height+5.1*scale*.6+4});
+    });
+    const left=Math.min(...parts.map(r=>r.x)),top=Math.min(...parts.map(r=>r.y));
+    const rect={x:left,y:top,width:Math.max(...parts.map(r=>r.x+r.width))-left,height:Math.max(...parts.map(r=>r.y+r.height))-top};
+    const card=device.visual?.visualCards?.find(card=>card.id===connector.cardSlotId);
+    const body=card || {x:0,y:0,width:device.width,height:device.height};
+    const topLimit=card?(Number(body.y)||0)+36:connector.faceplateSide?32:38+legacyFaceHeight(device.visual,device.width)+8;
+    rows.push({key,rect,bounds:{x:Number(body.x)||0,y:topLimit,width:body.width,height:Math.max(1,(Number(body.y)||0)+body.height-topLimit-4)}});
+  };
+  deviceConnectorsForRender(device).forEach(connector=>{
+    const anchors=connectorDisplayAnchors(device,connector,display);
+    for(const anchor of anchors) {
+      const radius=legacyConnectorRadius(zoom)+2;
+      obstacles.push({x:anchor.x-radius,y:anchor.y-radius,width:radius*2,height:radius*2});
+      if(display.byConnectorId.has(connector.id))continue;
+      let lines=engineConnectorCanvasLabelLines(connector);
+      if(zoom<.5 && lines.length>1)lines=lines.slice(-1);
+      if(isTransceiverCage(connector)) {
+        ctx.save();ctx.font=`800 ${metrics.screenFontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
+        lines=lines.map(line=>fitCanvasText(ctx,line,connectorCaptionWidth(device,connector)*zoom));ctx.restore();
+      }
+      add(`node:${connector.id}:${anchor.id || ""}`,{...connector,side:anchor.side},{x:anchor.x,y:anchor.y},lines);
+    }
+  });
+  display.groups.forEach(layout=>{
+    const details=layout.members.map(engineConnectorCanvasLabelLines),installed=details.some(lines=>lines.length>1);
+    let lines=installed?[...(zoom>=.5?details.find(lines=>lines.length>1).slice(0,1):[]),[...new Set(details.map(lines=>lines.at(-1)))].join(' / ')]:[sharedBusConnectorLabel(layout)];
+    if(installed) {
+      ctx.save();ctx.font=`900 ${metrics.screenFontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
+      lines=lines.map(line=>fitCanvasText(ctx,line,connectorCaptionWidth(device,layout.representative)*zoom));ctx.restore();
+    }
+    add(`bus:${layout.relationshipId}`,{...layout.representative,direction:layout.side,side:layout.side==='output'?'right':'left'},
+      {x:layout.fieldAnchorX,y:layout.centerY},lines,900);
+  });
+  return resolveConnectorLabelCollisions(rows,obstacles,2);
+}
+
+function connectorAnnotationPlacementsForFrame(ctx,scene,device,camera) {
+  const frame=connectorAnnotationFrames.get(ctx);
+  if(frame?.has(device))return frame.get(device);
+  const placements=connectorAnnotationPlacements(ctx,scene,device,camera);
+  frame?.set(device,placements);
+  return placements;
 }
 
 function drawConnectorWorldLabel(ctx, point, connector = {}, text = "", camera, maxWidth = Infinity, device = {}) {
@@ -4121,6 +4202,7 @@ function drawVisibleConnectorInfoBoxes(ctx, scene, camera, renderOptions = DEFAU
     const baseX = device.x + (offset?.dx || 0);
     const baseY = device.y + (offset?.dy || 0);
     const displayLayout = connectorDisplayLayoutForRender(scene, device);
+    const annotations = connectorAnnotationPlacementsForFrame(ctx, scene, device, camera);
     deviceConnectorsForRender(device).forEach(connector => {
       if (displayLayout.byConnectorId.has(connector.id)) return;
       const fields = visibleConnectorInfoFields(connector);
@@ -4134,9 +4216,10 @@ function drawVisibleConnectorInfoBoxes(ctx, scene, camera, renderOptions = DEFAU
           __anchorId: anchor.id,
           __renderOpacity: connectorAnchorRenderOpacity(scene, device, connector, anchor)
         };
+        const shift=annotations.get(`node:${connector.id}:${anchor.id || ""}`);
         const point = {
-          x: baseX + anchor.x,
-          y: baseY + anchor.y
+          x: baseX + anchor.x+(shift?.dx || 0),
+          y: baseY + anchor.y+(shift?.dy || 0)
         };
         fields.forEach((field, index) => {
           entries.push({
@@ -4167,9 +4250,10 @@ function drawVisibleConnectorInfoBoxes(ctx, scene, camera, renderOptions = DEFAU
         __sharedBusRelationshipId: layout.relationshipId || "",
         __renderOpacity: 1
       };
+      const shift=annotations.get(`bus:${layout.relationshipId}`);
       const point = {
-        x: baseX + layout.fieldAnchorX,
-        y: baseY + layout.centerY
+        x: baseX + layout.fieldAnchorX+(shift?.dx || 0),
+        y: baseY + layout.centerY+(shift?.dy || 0)
       };
       visibleConnectorInfoFields(representative).forEach((field, index) => {
         entries.push({

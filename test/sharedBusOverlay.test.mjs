@@ -72,6 +72,7 @@ test("shared-bus info boxes omit empty fields and close the gaps", () => {
     "drawVisibleConnectorInfoBoxes", "visibleConnectorInfoFields", "connectorInfoBoxKey"
   ], {
     DEFAULT_RENDER_OPTIONS: {}, INFO_BOX_MAGNIFY_ZOOM: 0.8,
+    connectorAnnotationPlacementsForFrame:()=>new Map(),
     legacyConnectorInfoBoxMode: () => "full",
     visibleDevices: () => [device],
     deviceVisible: () => true, deviceUsesTextureLayer: () => true, isLedSurfaceKind: () => false,
