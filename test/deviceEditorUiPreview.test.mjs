@@ -3830,7 +3830,7 @@ test("Device Editor structural transactions reject silent modular-origin changes
   assert.equal(counters.animationSeeds, 0);
 });
 
-test("Device Editor custom face upload, replacement, and removal rebase lanes atomically", () => {
+test("Device Editor populated face upload and replacement preserve geometry; removal remains atomic", () => {
   const faceplateConnector = testConnector("faceplate-side", "left", 0, { v2: true, faceplateSide: true });
   faceplateConnector.powerPlug = { manual: true, x: 24, y: 36 };
   const { api, template, counters, context } = structuralEditorHarness({
@@ -3868,6 +3868,7 @@ test("Device Editor custom face upload, replacement, and removal rebase lanes at
   const initialGeneratedIds = api.generatedCardConnectors(template).map(connector => connector.id);
   const initialCounters = editorCounterSnapshot(counters);
   const initialValidationCalls = counters.validationCalls;
+  const initialTemplate = structuredClone(template);
 
   const firstTarget = api.captureEditorFaceplateUploadTarget();
   const first = api.commitPreparedEditorFaceplateUpload(firstTarget, {
@@ -3876,47 +3877,44 @@ test("Device Editor custom face upload, replacement, and removal rebase lanes at
     width: 800,
     height: 200
   });
-  assert.equal(first.baselineStartY, 262);
-  assert.equal(first.committedStartY, 125);
-  assert.equal(first.startYChanged, true);
+  assert.equal(first.faceImageLayout.connectorBounds.y + first.faceImageLayout.connectorBounds.height + 36, 262);
+  assert.deepEqual(template.connectors, initialTemplate.connectors);
+  assert.deepEqual(template.cardSlots, initialTemplate.cardSlots);
+  assert.equal(template.height, initialTemplate.height);
   assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), initialLanes);
   assert.equal(template.faceImage, "data:image/png;base64,first");
   assert.equal(template.thumbnailImage, "data:image/png;base64,first-thumb");
   assert.equal(template.faceImageNaturalWidth, 800);
   assert.equal(template.faceImageNaturalHeight, 200);
   assert.equal(template.faceplateDeleted, false);
-  assert.equal(template.powerDistroFaceY, 20);
-  assert.equal(template.powerDistroFaceHeight, 0);
-  assert.equal(template.connectors.some(connector => connector.powerPlug), false);
+  assert.equal(template.powerDistroFaceY, initialTemplate.powerDistroFaceY);
+  assert.equal(template.powerDistroFaceHeight, initialTemplate.powerDistroFaceHeight);
   assert.deepEqual(template.connectors.map(connector => connector.id), ids);
   assert.deepEqual(template.connectorRelationships, relationships);
   assert.deepEqual(api.generatedCardConnectors(template).map(connector => connector.id), initialGeneratedIds);
   assert.deepEqual(selectedNodeConnectorIds(context), ["faceplate-side", "left", "power-c"]);
   assert.equal(selectedNodePrimaryConnectorId(template, context), "faceplate-side");
   assert.equal(template.connectors.find(connector => connector.id === "faceplate-side").faceplateSide, true);
-  assert.equal(template.connectors.find(connector => connector.id === "faceplate-side").y, context.faceplateSideConnectorY(template));
-  assert.equal(counters.validationCalls - initialValidationCalls, 1);
+  assert.equal(counters.validationCalls - initialValidationCalls, 0);
   assert.equal(counters.normalizationCalls, 0);
   assert.deepEqual(editorCounterDelta(counters, initialCounters), {
-    structuralSessions: 1,
-    solverCalls: 1,
+    structuralSessions: 0,
+    solverCalls: 0,
     previewRenders: 0,
     editorRenders: 1,
-    animationSeeds: 1,
-    animationRetargets: 1
+    animationSeeds: 0,
+    animationRetargets: 0
   });
 
   let before = editorCounterSnapshot(counters);
   const replacementBaseline = structuredClone(template);
-  // The structural harness uses a synthetic origin; reserve its matching bounds.
-  template.faceImageLayout = {height:85,connectorBounds:{x:20,y:20,width:380,height:69}};
   const replacement = api.commitPreparedEditorFaceplateUpload(api.captureEditorFaceplateUploadTarget(), {
     dataUrl: "data:image/jpeg;base64,replacement",
     thumbnailDataUrl: "data:image/png;base64,replacement-thumb",
     width: 800,
     height: 400
   });
-  assert.equal(replacement.faceImageLayout.connectorBounds.height, 69);
+  assert.deepEqual(replacement.faceImageLayout, replacementBaseline.faceImageLayout);
   assert.deepEqual(template.connectors, replacementBaseline.connectors);
   assert.deepEqual(template.cardSlots, replacementBaseline.cardSlots);
   assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), initialLanes);
@@ -3933,7 +3931,7 @@ test("Device Editor custom face upload, replacement, and removal rebase lanes at
 
   before = editorCounterSnapshot(counters);
   const removed = api.applyEditorFaceImageRemoval();
-  assert.equal(removed.baselineStartY, 125);
+  assert.equal(removed.baselineStartY, 262);
   assert.equal(removed.committedStartY, 262);
   assert.equal(template.faceImage, "");
   assert.equal(template.thumbnailImage, "");
@@ -3942,11 +3940,11 @@ test("Device Editor custom face upload, replacement, and removal rebase lanes at
   assert.equal(api.resolveEditorModularLayout(template).byId.get("connector:right").lane, initialLanes["connector:right"]);
   assert.deepEqual(editorCounterDelta(counters, before), {
     structuralSessions: 1,
-    solverCalls: 1,
+    solverCalls: 0,
     previewRenders: 0,
     editorRenders: 1,
-    animationSeeds: 1,
-    animationRetargets: 1
+    animationSeeds: 0,
+    animationRetargets: 0
   });
 });
 
@@ -5553,6 +5551,10 @@ test("Device Editor faceplate mutations roll back fully and reject stale uploads
     const beforeSelection = selectedNodeConnectorIds(context);
     const beforePrimary = selectedNodePrimaryConnectorId(template, context);
     const beforeCounters = editorCounterSnapshot(counters);
+    if (testCase.name === "upload") context.assertEditorModularCardChanges = () => {
+      counters.validationCalls++;
+      throw new Error("invalid layout");
+    };
     placementModule.forceInvalid = true;
     assert.throws(() => testCase.run(api), /invalid layout/, `${testCase.name} should reject invalid layout`);
     placementModule.forceInvalid = false;
@@ -5561,8 +5563,8 @@ test("Device Editor faceplate mutations roll back fully and reject stale uploads
     assert.equal(selectedNodePrimaryConnectorId(template, context), beforePrimary);
     assert.equal(counters.validationCalls, 1);
     assert.deepEqual(editorCounterDelta(counters, beforeCounters), {
-      structuralSessions: 1,
-      solverCalls: 1,
+      structuralSessions: testCase.name === "upload" ? 0 : 1,
+      solverCalls: testCase.name === "upload" ? 0 : 1,
       previewRenders: 0,
       editorRenders: 0,
       animationSeeds: 0,

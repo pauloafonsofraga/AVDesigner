@@ -1,3 +1,5 @@
+import {normalizedFaceplateContentBounds} from './faceplateContentBounds.js';
+
 export const FACE_MARGIN = 12;
 export const FACE_TOP_Y = 38;
 export const FACE_HEIGHT = 78;
@@ -42,9 +44,11 @@ export function faceImageLayout(visual) {
     && bounds.width > 0 && bounds.height > 0 ? layout : null;
 }
 
-export function resizeFaceImage(visual, width, handle, delta) {
-  if (!['n','s','e','w','ne','nw','se','sw'].includes(handle)
+export function resizeFaceImage(visual, width, handle, delta, contentBounds = null) {
+  if (!['n','s','e','w','ne','nw','se','sw','move'].includes(handle)
     || !Number.isFinite(delta.x) || !Number.isFinite(delta.y)) throw new Error('Invalid artwork resize.');
+  const content = faceImageContentBounds(visual) || normalizedFaceplateContentBounds(contentBounds, visual.faceImageNaturalWidth, visual.faceImageNaturalHeight);
+  if (content && (content.width < 1 || content.height < 1)) return resizeContentFaceImage(visual, width, handle, delta, content);
   const start = legacyFaceImagePlacement(visual, width);
   const layout = faceImageLayout(visual) || {height: legacyFaceHeight(visual, width), connectorBounds: {...start}};
   const next = {...visual, faceImageLayout: structuredClone(layout)};
@@ -53,6 +57,11 @@ export function resizeFaceImage(visual, width, handle, delta) {
   const x = FACE_MARGIN + FACE_IMAGE_PADDING, y = FACE_TOP_Y + FACE_IMAGE_PADDING;
   const baseHeight = innerWidth * visual.faceImageNaturalHeight / visual.faceImageNaturalWidth;
   if (!(baseHeight > 0 && Number.isFinite(baseHeight))) throw new Error('Artwork dimensions are unavailable.');
+  if (handle === 'move') {
+    next.faceImageOffsetX=(Number(visual.faceImageOffsetX)||0)+clamp(start.x+delta.x,x,x+innerWidth-start.width)-start.x;
+    next.faceImageOffsetY=(Number(visual.faceImageOffsetY)||0)+clamp(start.y+delta.y,y,y+innerHeight-start.height)-start.y;
+    return next;
+  }
   const minW = Math.min(innerWidth, Math.max(24, innerWidth * .2));
   const minH = Math.min(innerHeight, Math.max(16, baseHeight * .2));
   let left=start.x, right=start.x+start.width, top=start.y, bottom=start.y+start.height;
@@ -69,6 +78,8 @@ export function resizeFaceImage(visual, width, handle, delta) {
 }
 
 export function legacyFaceImagePlacement(visual, width, image, physicalFace = null) {
+  const content = !physicalFace && faceImageContentBounds(visual);
+  if (content) return contentFaceImagePlacement(visual, width, content);
   const faceHeight = physicalFace?.height || legacyFaceHeight(visual, width);
   const pad = Math.min(FACE_IMAGE_PADDING, Math.max(0, faceHeight / 2 - 1));
   const inner = {
@@ -94,4 +105,71 @@ export function legacyFaceImagePlacement(visual, width, image, physicalFace = nu
     width: imageWidth,
     height: imageHeight
   };
+}
+export function faceImageContentBounds(visual) {
+  return faceImageLayout(visual) && normalizedFaceplateContentBounds(visual.faceImageLayout.contentBounds,
+    Number(visual.faceImageNaturalWidth), Number(visual.faceImageNaturalHeight));
+}
+
+function meetRect(rect, width, height) {
+  const scale=Math.min(rect.width/width,rect.height/height);
+  return {x:rect.x+(rect.width-width*scale)/2,y:rect.y+(rect.height-height*scale)/2,width:width*scale,height:height*scale};
+}
+
+export function faceImageVisiblePlacement(visual, width, bounds = faceImageContentBounds(visual)) {
+  const placement=legacyFaceImagePlacement(visual,width);
+  const content=normalizedFaceplateContentBounds(bounds,Number(visual.faceImageNaturalWidth),Number(visual.faceImageNaturalHeight));
+  if (!content || content.width===1 && content.height===1) return placement;
+  const actual=meetRect(placement,visual.faceImageNaturalWidth,visual.faceImageNaturalHeight);
+  return {x:actual.x+actual.width*content.x,y:actual.y+actual.height*content.y,
+    width:actual.width*content.width,height:actual.height*content.height};
+}
+
+function contentFrame(visual,width) {
+  const bounds=legacyFaceBounds(visual,width), pad=Math.min(FACE_IMAGE_PADDING,Math.max(0,bounds.height/2-1));
+  return {x:bounds.x+pad,y:bounds.y+pad,width:Math.max(1,bounds.width-2*pad),height:Math.max(1,bounds.height-2*pad)};
+}
+
+function contentFaceImagePlacement(visual,width,content) {
+  const frame=contentFrame(visual,width), baseHeight=frame.width*visual.faceImageNaturalHeight/visual.faceImageNaturalWidth;
+  const w=clamp(frame.width*(Number(visual.faceImageScaleX)||1)*content.width,1e-9,frame.width);
+  const h=clamp(baseHeight*(Number(visual.faceImageScaleY)||1)*content.height,1e-9,frame.height);
+  const box={x:clamp(frame.x+(frame.width-w)/2+(Number(visual.faceImageOffsetX)||0),frame.x,frame.x+frame.width-w),
+    y:clamp(frame.y+(frame.height-h)/2+(Number(visual.faceImageOffsetY)||0),frame.y,frame.y+frame.height-h),width:w,height:h};
+  const visible=meetRect(box,visual.faceImageNaturalWidth*content.width,visual.faceImageNaturalHeight*content.height);
+  const fullWidth=visible.width/content.width, fullHeight=visible.height/content.height;
+  return {x:visible.x-fullWidth*content.x,y:visible.y-fullHeight*content.y,width:fullWidth,height:fullHeight};
+}
+
+function resizeContentFaceImage(visual,width,handle,delta,content) {
+  const start=faceImageVisiblePlacement(visual,width,content), original=legacyFaceImagePlacement(visual,width);
+  const next={...visual,faceImageLayout:structuredClone(faceImageLayout(visual)||{
+    height:legacyFaceHeight(visual,width),connectorBounds:{...original}})};
+  next.faceImageLayout.contentBounds={...content};
+  const frame=contentFrame(next,width);
+  let rect={...start};
+  if(handle==='move') {
+    rect.x=clamp(start.x+delta.x,frame.x,frame.x+frame.width-start.width);
+    rect.y=clamp(start.y+delta.y,frame.y,frame.y+frame.height-start.height);
+  } else {
+    const horizontal=/[ew]/.test(handle), vertical=/[ns]/.test(handle);
+    const dx=(handle.includes('w')?-1:1)*delta.x, dy=(handle.includes('n')?-1:1)*delta.y;
+    let scale=horizontal && vertical ? 1+(dx*start.width+dy*start.height)/(start.width**2+start.height**2)
+      : horizontal ? 1+dx/start.width : 1+dy/start.height;
+    const anchorX=handle.includes('w')?start.x+start.width:handle.includes('e')?start.x:start.x+start.width/2;
+    const anchorY=handle.includes('n')?start.y+start.height:handle.includes('s')?start.y:start.y+start.height/2;
+    const maxWidth=handle.includes('w')?anchorX-frame.x:handle.includes('e')?frame.x+frame.width-anchorX:2*Math.min(anchorX-frame.x,frame.x+frame.width-anchorX);
+    const maxHeight=handle.includes('n')?anchorY-frame.y:handle.includes('s')?frame.y+frame.height-anchorY:2*Math.min(anchorY-frame.y,frame.y+frame.height-anchorY);
+    const maximum=Math.min(maxWidth/start.width,maxHeight/start.height);
+    scale=clamp(scale,Math.min(1,16/start.width,16/start.height,maximum),maximum);
+    rect.width=start.width*scale;rect.height=start.height*scale;
+    rect.x=handle.includes('w')?anchorX-rect.width:handle.includes('e')?anchorX:anchorX-rect.width/2;
+    rect.y=handle.includes('n')?anchorY-rect.height:handle.includes('s')?anchorY:anchorY-rect.height/2;
+  }
+  next.faceImageScaleX=rect.width/(frame.width*content.width);
+  next.faceImageScaleY=rect.height/(frame.width*visual.faceImageNaturalHeight/visual.faceImageNaturalWidth*content.height);
+  next.faceImageScale=Math.max(next.faceImageScaleX,next.faceImageScaleY);
+  next.faceImageOffsetX=rect.x-(frame.x+(frame.width-rect.width)/2);
+  next.faceImageOffsetY=rect.y-(frame.y+(frame.height-rect.height)/2);
+  return next;
 }
