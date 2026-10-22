@@ -10,6 +10,16 @@ import { renderEngineOutputSvg } from "../src/engine/outputSvgRenderer.js";
 import { expandInlineSvgImages } from "../src/engine/pdfInlineSvgImages.js";
 
 const view = { x: -200, y: 100, width: 2000, height: 500 };
+test("PDF export renders Jump-to-Jump spans without a local device connector", async () => {
+  const project = outputPdfJumpFixture();
+  project.connections = [{ id: "jump-span", cableType: "sdi",
+    from: { jumpNodeId: "strict-a" }, to: { jumpNodeId: "strict-b" } }];
+  const scene = buildEngineOutputScene(project), drawing = renderEngineOutputSvg(scene);
+  const result = await generatePdf({ ...drawing, engineScene: scene, reportData: { projectName: "Jump span" } });
+  assert.equal(new TextDecoder().decode(result.bytes.subarray(0, 4)), "%PDF");
+  assert.equal(result.jumpAnnotations, 4);
+  assert.deepEqual(result.warnings, []);
+});
 test("PDF page layout maps viewBox points and bounds through the exact drawing transform", () => {
   for (const [paper, marginMm, scale] of [
     ["A4", 0, "fit"], ["A4", 4, "fit"], ["A3", 0, "fit"],

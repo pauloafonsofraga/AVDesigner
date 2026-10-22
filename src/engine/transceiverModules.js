@@ -48,6 +48,7 @@ export const isDacCableType = type => /^dac-(sfp-plus|sfp28|qsfp)$/.test(String(
 export const isTransceiverCage = connector => Boolean(CAGE_FORM_FACTORS[connector?.physicalType || connector?.type]);
 const cageType = connector => connector?.physicalType || connector?.type || "";
 export function installedModuleValue(connector = {}) {
+  connector ??= {};
   const module = connector.installedModule || connector.module || connector.transceiverModule || {};
   return connector.installedModuleType || connector.moduleType || connector.transceiverModuleType
     || module.type || module.value || connector.installedModuleId || module.id || "";
@@ -66,6 +67,7 @@ export function transceiverModuleOption(value, connector) {
 }
 
 export function installedModuleCapabilities(connector = {}) {
+  connector ??= {};
   const module = connector.installedModule || connector.module || connector.transceiverModule || {};
   const value = installedModuleValue(connector);
   const profile = transceiverModuleOption(value, connector);

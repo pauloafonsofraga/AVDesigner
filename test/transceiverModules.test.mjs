@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { transceiverModuleOptionsForConnector, transceiverModulePatch, installedModuleCapabilities,
+import { transceiverModuleOptionsForConnector, transceiverModulePatch, installedModuleCapabilities, installedModuleValue,
   transceiverModulePresentation, transceiverModuleValidation, dacAssemblyForConnectors, dacWireValidation } from "../src/engine/transceiverModules.js";
 import { effectiveConnectorTypeForEngine, engineConnectorFiberMode, engineConnectorColor,
   engineCompatibilitySummary, areEngineConnectorTypesCompatible } from "../src/engine/connectorCompatibility.js";
@@ -18,6 +18,16 @@ const cage = (type = "sfp-plus-cage", extra = {}) => ({ id: "port", type, physic
 const install = (port, value) => ({ ...port, ...transceiverModulePatch(port, value) });
 const compare = (a, b) => engineCompatibilitySummary({ device: { id: "a" }, connector: a }, { device: { id: "b" }, connector: b });
 const sdiInput = { id: "sdi", type: "sdi", direction: "input", signalDirection: "input" };
+
+test("missing Jump endpoints have no installed module or inferred fiber capabilities", () => {
+  for (const connector of [null, undefined]) {
+    assert.equal(installedModuleValue(connector), "");
+    assert.deepEqual(installedModuleCapabilities(connector), {});
+    assert.equal(engineConnectorFiberMode(connector), "");
+    assert.equal(effectiveConnectorTypeForEngine(connector), "");
+    assert.equal(areEngineConnectorTypesCompatible(connector, sdiInput), false);
+  }
+});
 
 test("module picker filters physical family, declared host capabilities and direction", () => {
   const options = port => transceiverModuleOptionsForConnector(port).map(item => item.value);

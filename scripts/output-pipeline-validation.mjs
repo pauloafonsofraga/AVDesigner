@@ -24,7 +24,9 @@ export function validateOutputPipeline() {
   assert.match(fn("engineViewerResources"), /generated\/outputViewerBundle\.json/);
   assert.match(fn("exportPdfReport"), /pdfExportDialog/);
   assert.match(fn("generatePdfReport"), /buildEnginePrintDrawing\(snapshot\)/);
-  assert.match(fn("generatePdfReport"), /outputPdfBundle\.js/);
+  assert.match(fn("generatePdfReport"), /await loadPdfExportModule\(\)/);
+  assert.match(fn("loadPdfExportModule"), /return await import\(`/);
+  assert.match(fn("loadPdfExportModule"), /outputPdfBundle\.js\?v=\$\{APP_BUILD_ID\}/);
   assert.match(fn("generatePdfReport"), /module\.generatePdf\(/);
   assert.doesNotMatch(fn("generatePdfReport"), /window\.open|window\.print/);
   assert.match(fn("buildEnginePrintDrawing"), /outputSvgRenderer\.js/);

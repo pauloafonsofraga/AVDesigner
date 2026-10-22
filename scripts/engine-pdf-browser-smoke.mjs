@@ -54,6 +54,16 @@ try {
   assert.equal(unexpectedDownload, false, "failed export must not create a partial download");
   assert.equal(await failedPage.locator("#exportPdf").isEnabled(), true);
   assert.equal(await failedPage.locator("#confirmPdfExport").isEnabled(), true);
+  assert.equal(await failedPage.locator("#pdfExportDialog").evaluate(dialog => dialog.open), true);
+  assert.equal(await failedPage.locator("#pdfExportError").isVisible(), true);
+  assert.match(await failedPage.locator("#pdfExportError").textContent(), /^PDF export failed:/);
+  await failedPage.screenshot({ path: join(dir, "pdf-failure-retry.png") });
+  await failedPage.unroute(/outputPdfBundle\.js/);
+  const retried = failedPage.waitForEvent("download");
+  await failedPage.locator("#confirmPdfExport").click();
+  await retried;
+  assert.equal(await failedPage.locator("#pdfExportError").isVisible(), false);
+  assert.equal(await failedPage.locator("#statusText").textContent(), "PDF exported.");
   console.log(JSON.stringify({ pass: true, path, bytes: readFileSync(path).length,
     clickToDownloadMs: Math.round(performance.now() - started), errors, failureRecovery: true }));
 } finally { await browser.close(); }
