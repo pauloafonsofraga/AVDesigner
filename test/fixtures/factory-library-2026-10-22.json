@@ -1,0 +1,121 @@
+{
+  "sourceFile": "wirenexus-device-library.json",
+  "sourceSha256": "342f61c6460b4657c95966b7aec938e8cd24274a94b3dd0755e311087f3a654b",
+  "packageId": "adc284f0263e2b97c49534ddee066306ea97831102921a69e18020aac7994fdd",
+  "sourceDevices": 128,
+  "sourceNodes": 76,
+  "beforeDevices": 123,
+  "afterDevices": 128,
+  "catalogueBytesBefore": 6263331,
+  "catalogueBytesAfter": 6804195,
+  "devices": [
+    {
+      "id": "custom-device-v-80hd-copy",
+      "name": "V-1-4K",
+      "brand": "Roland",
+      "fingerprint": "f77061d9c30df67393265b8ecfe5edcfb36554bbd7362838bc496a0d53dd4822",
+      "connectors": 18,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "ba751b43602c37f6daac5b3d67ec141a5c17680ae569653e4085a8f7191ef8c3": {
+          "bytes": 573029,
+          "mime": "image/png"
+        },
+        "112384966656438f16bb0875bb0aa1587450269c8bf7dfe586d1cba863fdbdac": {
+          "bytes": 35343,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-e2-gen2-copy-2",
+      "name": "E3",
+      "brand": "Barco",
+      "fingerprint": "ccf7fddce0e74f74c52dd893b6000a43330d07a1e6ddc4647a1df175f82b7129",
+      "connectors": 10,
+      "cards": 7,
+      "slots": 7,
+      "artwork": {
+        "93c5286653db213882040591b323fd8f739f8994854c9353b0c885e97c6f9e0f": {
+          "bytes": 225877,
+          "mime": "image/png"
+        },
+        "f12731599343eae986166a3cb4b0bda009fdc1a316949490f4d680f2ef269250": {
+          "bytes": 21702,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-q8-copy",
+      "name": "P80",
+      "brand": "PixelHue",
+      "fingerprint": "32defeea5c1728c210bf21ab4c404352123f578cba52c3558baa50203ce81008",
+      "connectors": 49,
+      "cards": 4,
+      "slots": 1,
+      "artwork": {
+        "564f7e66f65ca303d326ce5bca4f97fedff8c48afeb67610666c5e9b2d09d80a": {
+          "bytes": 293242,
+          "mime": "image/png"
+        },
+        "a5fe2454c22d30472a83163defd50ec4e4379a906ad34b7050fd076d94bfcf22": {
+          "bytes": 38641,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-hippotizer-boreal-mk2-hdmi-2-0-copy-2",
+      "name": "T1",
+      "brand": "Kommander",
+      "fingerprint": "2af00852c3cc5c8c3770acf2cc0c82ac6addf1ace75d17f487a9363b6d8ec9c6",
+      "connectors": 20,
+      "cards": 1,
+      "slots": 0,
+      "artwork": {
+        "6e5c9bc216ab2faf5948c07815447b98f8168b219717e61b1844f7f9cda6c95d": {
+          "bytes": 360750,
+          "mime": "image/png"
+        },
+        "cff62331faeb897999789e36c731371724415015b6514e75cec29c5c8dbaaad9": {
+          "bytes": 11799,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mvjgk74g",
+      "name": "8-Bay Reversible Frame",
+      "brand": "Theatrixx",
+      "fingerprint": "90b08eb1141fb797e109760e1918150b940be6fc53fd1b1339a7b81873f3dfa2",
+      "connectors": 2,
+      "cards": 34,
+      "slots": 8,
+      "artwork": {
+        "8bbdb15a38e5e85f3e56bf0d25b4f90ea5ec2c419989cb2d56b716768f99b616": {
+          "bytes": 1045090,
+          "mime": "image/png"
+        },
+        "28320ebedd66729835865a56a9b6e1e87a6b52b41e17289703a8f37242164205": {
+          "bytes": 29526,
+          "mime": "image/png"
+        }
+      }
+    }
+  ],
+  "assetsAdded": [
+    "assets/factory/112384966656438f16bb0875bb0aa1587450269c8bf7dfe586d1cba863fdbdac.png",
+    "assets/factory/28320ebedd66729835865a56a9b6e1e87a6b52b41e17289703a8f37242164205.png",
+    "assets/factory/564f7e66f65ca303d326ce5bca4f97fedff8c48afeb67610666c5e9b2d09d80a.png",
+    "assets/factory/6e5c9bc216ab2faf5948c07815447b98f8168b219717e61b1844f7f9cda6c95d.png",
+    "assets/factory/8bbdb15a38e5e85f3e56bf0d25b4f90ea5ec2c419989cb2d56b716768f99b616.png",
+    "assets/factory/93c5286653db213882040591b323fd8f739f8994854c9353b0c885e97c6f9e0f.png",
+    "assets/factory/a5fe2454c22d30472a83163defd50ec4e4379a906ad34b7050fd076d94bfcf22.png",
+    "assets/factory/ba751b43602c37f6daac5b3d67ec141a5c17680ae569653e4085a8f7191ef8c3.png",
+    "assets/factory/cff62331faeb897999789e36c731371724415015b6514e75cec29c5c8dbaaad9.png",
+    "assets/factory/f12731599343eae986166a3cb4b0bda009fdc1a316949490f4d680f2ef269250.png"
+  ],
+  "assetBytesAdded": 2634999
+}
