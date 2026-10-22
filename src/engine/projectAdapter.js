@@ -674,6 +674,7 @@ function normalizeDeviceVisualMetadata(
     templateName: String(template.name || "").trim(),
     displayName: String(instance.name || template.name || template.model || "").trim(),
     faceImage,
+    ...(template.faceImageLayout ? {faceImageLayout: structuredClone(template.faceImageLayout)} : {}),
     thumbnailImage,
     hasFaceImage: Boolean(faceImage),
     hasThumbnailImage: Boolean(thumbnailImage),

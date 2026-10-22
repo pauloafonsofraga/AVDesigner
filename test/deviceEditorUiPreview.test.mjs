@@ -565,8 +565,12 @@ function structuralEditorHarness(inputTemplate = {}) {
     ],
     recordEditorPlacementHistory: () => {},
     requireDeviceEditorPlacementModule: () => placementModule,
+    assertEditorModularCardChanges: () => {},
+    editorFaceImageLayout: device => persistentPlacement.faceImageLayout(device),
+    faceplateHeightForTemplate: device => context.faceImageBounds(device).height + 16,
     requireDeviceEditorPlacementMotionModule: () => placementMotionModule,
     connectorStartYForTemplate: device => {
+      if (device?.faceImageLayout) return device.faceImageLayout.connectorBounds.y + device.faceImageLayout.connectorBounds.height + 36;
       const baseStartY = Number(device?.startY) || 100;
       if (device?.faceImage) {
         const explicitStartY = Number(device.faceImageStartY);
@@ -747,6 +751,8 @@ function structuralEditorHarness(inputTemplate = {}) {
       return { x: 20, y: 28, width: width - 40, height: Math.max(16, faceHeight - 16) };
     },
     faceImagePlacement: (device, width = 420) => {
+      if (device?.faceImageLayout) return structuredClone(device.faceImageLayout.connectorBounds);
+      if (!device.resizeGeometryMode) return {x:20,y:20,width:width-40,height:context.connectorStartYForTemplate(device)-56};
       const bounds = context.faceImageBounds(device, width);
       const scaleX = Number(device?.faceImageScaleX) || Number(device?.faceImageScale) || 1;
       const scaleY = Number(device?.faceImageScaleY) || Number(device?.faceImageScale) || 1;
@@ -2180,7 +2186,9 @@ test("Device Editor discrete faceplate actions delegate to one atomic origin tra
   assert.match(uploadHandlers, /await prepareAndCommitEditorFaceplateUpload\(uploadTarget, reader\.result, file\);/);
   assert.match(uploadHandlers, /removeEditorFaceImage\.addEventListener\("click", applyEditorFaceImageRemoval\);/);
   assert.match(uploadHandlers, /deleteEditorFaceplate\?\.addEventListener\("click", applyEditorFaceplateDeletion\);/);
-  [preparedUpload, prepareAndCommit, removeImage, deleteFaceplate, uploadHandlers].forEach(source => {
+  assert.match(preparedUpload, /candidate\.faceImageLayout = structuredClone/);
+  assert.match(preparedUpload, /assertEditorModularCardChanges\(candidate\)/);
+  [prepareAndCommit, removeImage, deleteFaceplate, uploadHandlers].forEach(source => {
     assert.doesNotMatch(source, /shiftRowsAfterFaceChange|shiftTemplateRowsForStartChange|normalizeConnectorRows|normalizeMixedDeviceRows|renderDeviceEditorPreview|renderDeviceEditor\(/);
   });
 });
@@ -3899,29 +3907,33 @@ test("Device Editor custom face upload, replacement, and removal rebase lanes at
   });
 
   let before = editorCounterSnapshot(counters);
+  const replacementBaseline = structuredClone(template);
+  // The structural harness uses a synthetic origin; reserve its matching bounds.
+  template.faceImageLayout = {height:85,connectorBounds:{x:20,y:20,width:380,height:69}};
   const replacement = api.commitPreparedEditorFaceplateUpload(api.captureEditorFaceplateUploadTarget(), {
     dataUrl: "data:image/jpeg;base64,replacement",
     thumbnailDataUrl: "data:image/png;base64,replacement-thumb",
     width: 800,
     height: 400
   });
-  assert.equal(replacement.baselineStartY, 125);
-  assert.equal(replacement.committedStartY, 150);
+  assert.equal(replacement.faceImageLayout.connectorBounds.height, 69);
+  assert.deepEqual(template.connectors, replacementBaseline.connectors);
+  assert.deepEqual(template.cardSlots, replacementBaseline.cardSlots);
   assert.deepEqual(itemLaneMap(api.resolveEditorModularLayout(template)), initialLanes);
   assert.equal(template.faceImage, "data:image/jpeg;base64,replacement");
   assert.equal(template.thumbnailImage, "data:image/png;base64,replacement-thumb");
   assert.deepEqual(editorCounterDelta(counters, before), {
-    structuralSessions: 1,
-    solverCalls: 1,
+    structuralSessions: 0,
+    solverCalls: 0,
     previewRenders: 0,
     editorRenders: 1,
-    animationSeeds: 1,
-    animationRetargets: 1
+    animationSeeds: 0,
+    animationRetargets: 0
   });
 
   before = editorCounterSnapshot(counters);
   const removed = api.applyEditorFaceImageRemoval();
-  assert.equal(removed.baselineStartY, 150);
+  assert.equal(removed.baselineStartY, 125);
   assert.equal(removed.committedStartY, 262);
   assert.equal(template.faceImage, "");
   assert.equal(template.thumbnailImage, "");
@@ -3982,6 +3994,7 @@ test("Device Editor origin-preserving face replacement and empty removal skip so
     connectors: [testConnector("row", "left", 0, { v2: true })]
   });
   const sameAspectCoordinates = structuredClone(sameAspect.template.connectors);
+  sameAspect.template.faceImageLayout = {height:110,connectorBounds:{x:20,y:20,width:380,height:94}};
   const sameAspectBefore = editorCounterSnapshot(sameAspect.counters);
   const replacement = sameAspect.api.commitPreparedEditorFaceplateUpload(
     sameAspect.api.captureEditorFaceplateUploadTarget(),
@@ -3992,11 +4005,11 @@ test("Device Editor origin-preserving face replacement and empty removal skip so
       height: 800
     }
   );
-  assert.equal(replacement.startYChanged, false);
+  assert.deepEqual(replacement.faceImageLayout, sameAspect.template.faceImageLayout);
   assert.deepEqual(sameAspect.template.connectors, sameAspectCoordinates);
   assert.equal(sameAspect.template.faceImage, "data:image/png;base64,new");
   assert.deepEqual(editorCounterDelta(sameAspect.counters, sameAspectBefore), {
-    structuralSessions: 1,
+    structuralSessions: 0,
     solverCalls: 0,
     previewRenders: 0,
     editorRenders: 1,

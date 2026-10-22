@@ -10,7 +10,7 @@ export const CONFIGURATION_KEYS = Object.freeze([
   "switchPortCount", "switchPortType", "isPowerDistro", "isMatrixRouter", "isProjector", "projectorLenses",
   "isPartOfPair", "pairedTemplateId", "pairPlaceFirst", "powerWatts", "powerUnit", "faceplateDeleted",
   "powerDistroFaceY", "powerDistroFaceHeight", "manualHeight", "faceImageScale", "faceImageScaleX",
-  "faceImageScaleY", "faceImageOffsetX", "faceImageOffsetY", "height"
+  "faceImageScaleY", "faceImageOffsetX", "faceImageOffsetY", "faceImageLayout", "height"
 ]);
 const record = v => v !== null && typeof v === "object" && !Array.isArray(v);
 const empty = () => ({ schemaVersion: 1, builtInDeviceDefaults: {} });

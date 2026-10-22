@@ -20,6 +20,8 @@ export function legacyFaceBounds(visual, width) {
 export function legacyFaceHeight(visual, width) {
   if (visual?.faceplateDeleted && !visual?.faceImage) return 0;
   if (!visual?.hasFaceImage && !visual?.faceImage) return FACE_HEIGHT;
+  const layout = faceImageLayout(visual);
+  if (layout) return layout.height;
   const naturalWidth = Number(visual.faceImageNaturalWidth);
   const naturalHeight = Number(visual.faceImageNaturalHeight);
   const availableWidth = Math.max(1, width - FACE_MARGIN * 2);
@@ -28,6 +30,42 @@ export function legacyFaceHeight(visual, width) {
     : FACE_HEIGHT;
   const scaleY = clamp(Number(visual.faceImageScaleY) || Number(visual.faceplateScaleY) || Number(visual.faceImageScale) || Number(visual.faceplateScale) || 1, 0.2, 6);
   return Math.max(24, Math.round(aspectHeight * scaleY));
+}
+
+// Optional reservation captured on an artwork-only edit. Old definitions keep
+// their historical scale-derived layout until explicitly edited.
+export function faceImageLayout(visual) {
+  const layout = visual?.faceImageLayout;
+  const bounds = layout?.connectorBounds;
+  return layout && Number.isFinite(layout.height) && layout.height >= 24
+    && bounds && ['x', 'y', 'width', 'height'].every(key => Number.isFinite(bounds[key]))
+    && bounds.width > 0 && bounds.height > 0 ? layout : null;
+}
+
+export function resizeFaceImage(visual, width, handle, delta) {
+  if (!['n','s','e','w','ne','nw','se','sw'].includes(handle)
+    || !Number.isFinite(delta.x) || !Number.isFinite(delta.y)) throw new Error('Invalid artwork resize.');
+  const start = legacyFaceImagePlacement(visual, width);
+  const layout = faceImageLayout(visual) || {height: legacyFaceHeight(visual, width), connectorBounds: {...start}};
+  const next = {...visual, faceImageLayout: structuredClone(layout)};
+  const innerWidth = Math.max(1, width - FACE_MARGIN * 2 - FACE_IMAGE_PADDING * 2);
+  const innerHeight = Math.max(1, layout.height - FACE_IMAGE_PADDING * 2);
+  const x = FACE_MARGIN + FACE_IMAGE_PADDING, y = FACE_TOP_Y + FACE_IMAGE_PADDING;
+  const baseHeight = innerWidth * visual.faceImageNaturalHeight / visual.faceImageNaturalWidth;
+  if (!(baseHeight > 0 && Number.isFinite(baseHeight))) throw new Error('Artwork dimensions are unavailable.');
+  const minW = Math.min(innerWidth, Math.max(24, innerWidth * .2));
+  const minH = Math.min(innerHeight, Math.max(16, baseHeight * .2));
+  let left=start.x, right=start.x+start.width, top=start.y, bottom=start.y+start.height;
+  if (handle.includes('w')) left=clamp(left+delta.x,x,right-minW);
+  if (handle.includes('e')) right=clamp(right+delta.x,left+minW,x+innerWidth);
+  if (handle.includes('n')) top=clamp(top+delta.y,y,bottom-minH);
+  if (handle.includes('s')) bottom=clamp(bottom+delta.y,top+minH,y+innerHeight);
+  next.faceImageScaleX=handle.includes('w') || handle.includes('e') ? clamp((right-left)/innerWidth,.2,6) : (visual.faceImageScaleX || visual.faceImageScale || 1);
+  next.faceImageScaleY=handle.includes('n') || handle.includes('s') ? clamp((bottom-top)/baseHeight,.2,6) : (visual.faceImageScaleY || visual.faceImageScale || 1);
+  next.faceImageScale=Math.max(next.faceImageScaleX,next.faceImageScaleY);
+  next.faceImageOffsetX=left-(x+(innerWidth-(right-left))/2);
+  next.faceImageOffsetY=top-(y+(innerHeight-(bottom-top))/2);
+  return next;
 }
 
 export function legacyFaceImagePlacement(visual, width, image, physicalFace = null) {

@@ -258,6 +258,7 @@ export function deviceVisualCacheKey(device, options = {}) {
     visual.faceImageScaleY || 1,
     visual.faceImageOffsetX || 0,
     visual.faceImageOffsetY || 0,
+    JSON.stringify(visual.faceImageLayout || null),
     visual.hasSwappableCards ? "cards" : "",
     visual.isRackCompact ? "rack-compact" : "",
     visual.suppressCardAreasInTexture ? "suppress-card-areas" : "",

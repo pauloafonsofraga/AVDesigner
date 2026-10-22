@@ -2430,6 +2430,7 @@ function normalizeVisualMetadata(visual = {}) {
     faceImageScaleY: Number(visual.faceImageScaleY) || Number(visual.faceplateScaleY) || faceImageScale,
     faceImageOffsetX: Number(visual.faceImageOffsetX ?? visual.faceplateOffsetX) || 0,
     faceImageOffsetY: Number(visual.faceImageOffsetY ?? visual.faceplateOffsetY) || 0,
+    ...(visual.faceImageLayout ? {faceImageLayout: structuredClone(visual.faceImageLayout)} : {}),
     hasSwappableCards: Boolean(visual.hasSwappableCards),
     suppressCardAreasInTexture: Boolean(visual.suppressCardAreasInTexture),
     isLedProcessor: Boolean(visual.isLedProcessor),
