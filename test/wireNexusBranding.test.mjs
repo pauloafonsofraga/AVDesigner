@@ -69,7 +69,7 @@ test("save and open pickers use the new name but keep the same extensions and pr
   const context = { window: {
     showSaveFilePicker: async options => { pickers.push(options); return handle; },
     showOpenFilePicker: async options => { pickers.push(options); return [handle]; }
-  }, projectJsonPayload: () => '{"projectName":"Existing"}', suggestedProjectFileName: () => "existing.avd",
+  }, projectUnsavedChanges: null, projectJsonPayload: () => '{"projectName":"Existing"}', suggestedProjectFileName: () => "existing.avd",
   supportsNativeProjectSave: () => true, writeProjectFile: async (...args) => writes.push(args),
   loadProjectFile: (...args) => loads.push(args), setStatus() {}, alert(message) { throw new Error(message); } };
   await shellFunction("saveProjectAs", context)();

@@ -148,6 +148,8 @@ try {
     await openDeviceEditorForProjectTemplateDraft(t, "project-template-create");
   });
   await editTab("faceplate"); p = await plugPoint();
+  // Earlier committed project edits must not mask the editor-only unload check.
+  await page.evaluate(() => projectUnsavedChanges?.reset());
   await page.mouse.move(p.x, p.y); await page.mouse.down(); await page.mouse.move(p.x + 100, p.y + 100, { steps: 5 }); await page.mouse.up();
   assert.equal(await page.evaluate(() => editorSessionHasUnsavedChanges()), true);
   await closeDevice(); await choose("Keep Editing"); assert.equal(await page.evaluate(() => editorSelectedPowerPlugIds.has("iec")), true);
