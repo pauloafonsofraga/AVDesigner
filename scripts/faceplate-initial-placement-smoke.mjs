@@ -1,0 +1,68 @@
+import assert from "node:assert/strict";
+import {mkdtempSync,readFileSync} from "node:fs";
+import {tmpdir} from "node:os";
+import {join} from "node:path";
+import {pathToFileURL} from "node:url";
+import {chromium} from "playwright";
+
+const dir=mkdtempSync(join(tmpdir(),"wirenexus-faceplate-initial-"));
+const browser=await chromium.launch({headless:true,executablePath:"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"});
+try {
+  const page=await browser.newPage({viewport:{width:1800,height:1100},acceptDownloads:true}),errors=[];
+  let proceed=true;
+  page.on("pageerror",e=>errors.push(e.message));page.on("dialog",d=>proceed?d.accept():d.dismiss());
+  await page.addInitScript(()=>{window.showSaveFilePicker=undefined;});
+  await page.goto(process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8789");
+  await page.waitForFunction(()=>localUserSettingsLoaded&&activeEngineBridge()?.ready);
+  await page.evaluate(()=>openDeviceEditorWithNewDevice());
+  await page.locator('[data-editor-tab="faceplate"]').click();
+  const data=process.argv[2] ? readFileSync(process.argv[2]) : Buffer.from(await page.evaluate(()=>{
+    const c=document.createElement("canvas");c.width=1920;c.height=1080;
+    const ctx=c.getContext("2d");ctx.fillStyle="#1370cd";ctx.fillRect(37,477,1847,166);return c.toDataURL().split(",")[1];
+  }),"base64");
+  await page.locator("#editorFaceUpload").setInputFiles({name:"xpresscue.png",mimeType:"image/png",buffer:data});
+  await page.waitForFunction(()=>currentEditorTemplate()?.faceImageNaturalWidth===1920);
+  const uploaded=await page.evaluate(()=>{
+    const t=currentEditorTemplate();return {template:structuredClone(t),visible:editorFaceImageVisiblePlacement(t),start:connectorStartYForTemplate(t)};
+  });
+  assert.equal(uploaded.visible.y,46);assert.equal(uploaded.start,113);assert.equal(uploaded.template.height,190);
+  assert.deepEqual(Buffer.from(uploaded.template.faceImage.split(",")[1],"base64"),data);
+  await page.screenshot({path:join(dir,"new-upload.png")});
+  await page.locator('[data-editor-tab="connectors"]').click();
+  await page.evaluate(()=>addEditorNode("input",{type:"iec"}));
+  assert.equal(await page.evaluate(()=>currentEditorTemplate().connectors[0].y),113);
+  await page.locator("#closeDeviceEditor").click();await page.locator('[data-choice="discard"]').click();
+  await page.evaluate(image=>{
+    const t={id:"xpresscue",name:"Theatrixx xPressCue",width:380,height:342,faceImage:image,
+      faceImageNaturalWidth:1920,faceImageNaturalHeight:1080,connectors:[{id:"iec",type:"iec",direction:"input",x:0,y:266}],cardTypes:[],cardSlots:[]};
+    const source={id:"source",name:"Power source",width:380,height:190,connectors:[{id:"out",type:"iec",direction:"output",x:380,y:120}]};
+    restoreSnapshot({devices:[{instanceId:"xpresscue",templateId:t.id,templateOverride:t,x:0,y:0},{instanceId:"source",templateId:source.id,templateOverride:source,x:-600,y:0}],deviceLibrary:[t,source],nodeLibrary:serializeNodeLibrary(),connections:[{id:"power",cableNumber:"P-001",cableType:"iec",from:{deviceId:"source",connectorId:"out"},to:{deviceId:"xpresscue",connectorId:"iec"}}]});
+    openDeviceEditorForInstance("xpresscue");
+  },uploaded.template.faceImage);
+  await page.locator('[data-editor-tab="faceplate"]').click();
+  const draft=()=>page.evaluate(()=>structuredClone(currentEditorTemplate()));
+  const before=await draft(),wire=await page.evaluate(()=>structuredClone(state.connections));
+  proceed=false;await page.locator("#fitEditorFaceplate").click();await page.waitForTimeout(100);assert.deepEqual(await draft(),before);
+  proceed=true;await page.locator("#fitEditorFaceplate").click();await page.waitForFunction(()=>currentEditorTemplate().connectors[0].y===113);
+  const fitted=await draft();assert.equal(fitted.connectors[0].id,"iec");assert.deepEqual(await page.evaluate(()=>state.connections),wire);
+  const modifier=process.platform==="darwin"?"Meta":"Control";
+  await page.keyboard.press(`${modifier}+z`);assert.deepEqual(await draft(),before);
+  await page.keyboard.press(`${modifier}+Shift+z`);assert.deepEqual(await draft(),fitted);
+  await page.screenshot({path:join(dir,"fitted-existing.png")});
+  await page.locator("#applyDeviceEditor").click();await page.locator("#deviceEditorModal").waitFor({state:"hidden"});
+  const download=page.waitForEvent("download");await page.locator("#saveProjectAs").click();
+  const file=join(dir,"fitted.avd");await(await download).saveAs(file);await page.locator("#fileInput").setInputFiles(file);
+  await page.evaluate(()=>openDeviceEditorForInstance("xpresscue"));
+  assert.deepEqual((await draft()).faceImageLayout,fitted.faceImageLayout);
+  assert.equal((await draft()).connectors[0].y,113);assert.deepEqual(await page.evaluate(()=>state.connections),wire);
+  await page.locator("#closeDeviceEditor").click();
+  const html=page.waitForEvent("download");await page.evaluate(()=>exportHtml());const htmlFile=join(dir,"fitted.html");await(await html).saveAs(htmlFile);
+  const offline=await browser.newContext({offline:true}),viewer=await offline.newPage();
+  await viewer.goto(pathToFileURL(htmlFile).href);assert.equal((await viewer.evaluate(()=>engineOutputReady)).assetFailures,0);
+  assert.deepEqual(await viewer.evaluate(()=>outputViewer.scene.getDevice("xpresscue").visual.faceImageLayout),fitted.faceImageLayout);
+  assert.equal(await viewer.evaluate(()=>outputViewer.scene.getConnector("xpresscue","iec").y),113);
+  await viewer.screenshot({path:join(dir,"offline.png")});await offline.close();
+  await page.locator("#exportPdf").click();const pdf=page.waitForEvent("download");await page.locator("#confirmPdfExport").click();
+  const pdfFile=join(dir,"fitted.pdf");await(await pdf).saveAs(pdfFile);assert.equal(readFileSync(pdfFile).subarray(0,5).toString(),"%PDF-");
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({dir,file,passed:true,checks:["new padded PNG at top, 113-unit first IEC row","original PNG bytes intact","explicit fit Cancel, Proceed, undo/redo","existing IEC cable and IDs unchanged","Save/reopen and offline HTML parity","production PDF export"]},null,2));
+} finally {await browser.close();}

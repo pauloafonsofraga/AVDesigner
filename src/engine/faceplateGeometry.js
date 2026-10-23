@@ -44,6 +44,23 @@ export function faceImageLayout(visual) {
     && bounds.width > 0 && bounds.height > 0 ? layout : null;
 }
 
+export function fitFaceImageToTop(visual, width, bounds = null) {
+  const naturalWidth = Number(visual.faceImageNaturalWidth), naturalHeight = Number(visual.faceImageNaturalHeight);
+  if (!(naturalWidth > 0 && naturalHeight > 0)) throw new Error('Artwork dimensions are unavailable.');
+  const content = normalizedFaceplateContentBounds(bounds, naturalWidth, naturalHeight)
+    || faceImageContentBounds(visual)
+    || {x:0,y:0,width:1,height:1,sourceWidth:naturalWidth,sourceHeight:naturalHeight};
+  const innerWidth = Math.max(1, width - 2 * (FACE_MARGIN + FACE_IMAGE_PADDING));
+  const visibleHeight = innerWidth * naturalHeight * content.height / (naturalWidth * content.width);
+  const height = Math.max(FACE_HEIGHT, visibleHeight + 2 * FACE_IMAGE_PADDING);
+  const next = {...visual, faceImageScale:1 / content.width, faceImageScaleX:1 / content.width,
+    faceImageScaleY:1 / content.width, faceImageOffsetX:0,
+    faceImageOffsetY:-(height - 2 * FACE_IMAGE_PADDING - visibleHeight) / 2,
+    faceImageLayout:{height, contentBounds:{...content},
+      connectorBounds:{x:FACE_MARGIN + FACE_IMAGE_PADDING,y:FACE_TOP_Y + FACE_IMAGE_PADDING,width:innerWidth,height:visibleHeight}}};
+  return next;
+}
+
 export function resizeFaceImage(visual, width, handle, delta, contentBounds = null) {
   if (!['n','s','e','w','ne','nw','se','sw','move'].includes(handle)
     || !Number.isFinite(delta.x) || !Number.isFinite(delta.y)) throw new Error('Invalid artwork resize.');
