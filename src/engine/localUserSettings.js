@@ -4,6 +4,19 @@ import { normalizeConnectorTopology, validateConnectorTopology } from "./deviceD
 // complete definitions and artwork are owned by ../personalDefinitions.js.
 
 export const LOCAL_USER_SETTINGS_KEY = "av-designer:user-settings:v1";
+
+export function hiddenFactoryDeviceIds(preferences, factory) {
+  const ids = new Set(factory.map(device => device.id));
+  const hidden = Array.isArray(preferences?.hiddenFactoryDeviceIds) ? preferences.hiddenFactoryDeviceIds : [];
+  return [...new Set(hidden.filter(id => ids.has(id)))];
+}
+
+export function factoryVisibilityPreferences(preferences, factory, id, hidden) {
+  const ids = new Set(hiddenFactoryDeviceIds(preferences, factory));
+  if (!factory.some(device => device.id === id)) throw new Error("Factory device is unavailable.");
+  if (hidden) ids.add(id); else ids.delete(id);
+  return { ...preferences, hiddenFactoryDeviceIds: [...ids] };
+}
 export const CONFIGURATION_KEYS = Object.freeze([
   "brand", "connectors", "hasSwappableCards", "cardTypes", "cardSlots", "schemaVersion", "deviceDefinitionVersion",
   "connectorRelationships", "connectorTopology", "isLedProcessor", "ledOutputCount", "isEthernetSwitch",

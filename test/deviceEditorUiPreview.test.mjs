@@ -157,6 +157,7 @@ function runnableIndexFunction(functionName, context = {}) {
 
 function editorTestBindings() {
   return {editorArtworkSide:"faceplate",editorArtworkTemplate:template=>template,
+    engineRendererRequested:()=>false,editorCardPalettePreview:null,previewEditorCardNodeInsertion:()=>false,
     document:{getElementById:()=>({value:""})},
     editorCardReplacementApprovals:new Set(),editorCardReplacementChanges:()=>[],editorApprovedCardReplacementWireIds:()=>[]};
 }

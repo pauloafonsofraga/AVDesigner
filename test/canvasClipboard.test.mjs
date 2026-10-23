@@ -71,7 +71,8 @@ test("remaps object identities, racks, endpoints, LED order and routes while iso
     && plan.additions.jumpNodes.some(node=>node.id===link.outputJumpId)
     && plan.additions.jumpNodes.some(node=>node.id===link.inputJumpId)));
   assert.ok(plan.additions.jumpNodes.every(node => node.pairId === undefined));
-  assert.ok(plan.additions.connections.every(wire => !wire.from.jumpNodeId && !wire.to.jumpNodeId));
+  assert.equal(plan.additions.connections.filter(wire => wire.from.jumpNodeId || wire.to.jumpNodeId).length,
+    payload.connections.filter(wire => wire.from.jumpNodeId || wire.to.jumpNodeId).length);
   const wire = plan.additions.connections.find((_, i) => payload.connections[i].id === "cross-horizontal");
   assert.deepEqual(wire.orthogonalRoutePoints[0], { x: 2600, y: 1280 });
   const rack = plan.additions.racks[0];

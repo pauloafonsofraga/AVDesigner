@@ -31,7 +31,7 @@ export function cardConnectorEditingLayout(card = {}, slotHeight = 54) {
       row, offsetY:row * slotHeight + (group?.offsets[i] || 0), sideMask:side
     }));
   }
-  return {byId, rows:Math.max(1, counts.left, counts.right)};
+  return {byId, groups, rows:Math.max(1, counts.left, counts.right)};
 }
 
 export function cardEditingBounds(card, fallback, contents = [], margin = 12) {

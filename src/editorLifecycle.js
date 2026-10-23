@@ -41,11 +41,12 @@ function freeze(element) {
   return () => { element.inert = wasInert; };
 }
 
-export function confirmCardReplacement(root) {
+export function confirmCardReplacement(root, message = "This will remove the current card connected nodes") {
   const dialog = document.createElement("dialog");
   dialog.className = "modal editor-unsaved-modal editor-card-replacement";
   dialog.setAttribute("aria-label", "Replace connected card");
   dialog.innerHTML = '<p>This will remove the current card connected nodes</p><footer class="modal-footer"><button type="button" class="tool-button" data-card-replacement="cancel">Cancel</button><button type="button" class="tool-button primary-button" data-card-replacement="proceed">Proceed</button></footer>';
+  dialog.querySelector("p").textContent = message;
   const focus = document.activeElement;
   document.body.append(dialog);
   return new Promise(resolve => {

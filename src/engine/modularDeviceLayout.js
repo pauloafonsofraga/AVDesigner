@@ -10,6 +10,36 @@ export {connectorFieldRowWidth} from './connectorFieldLayout.js';
 export {backplateArtworkView, backplateArtworkFromView} from './backplateArtwork.js';
 export { cardEditingBounds, resizeCardEditingBounds, cardConnectorEditingLayout } from "./cardEditingArea.js";
 
+export function reorderCardTypes(cards, ids) {
+  const byId = new Map(cards.map(card => [card.id, card]));
+  if (ids.length !== cards.length || new Set(ids).size !== ids.length || ids.some(id => !byId.has(id))) throw new Error("Card list changed during drag.");
+  return ids.map(id => byId.get(id));
+}
+
+export function cardConnectorPlacementOrder(card, selectedIds, primaryId, pointerY, slotHeight = 54) {
+  const local = cardConnectorEditingLayout(card, slotHeight), selected = new Set(selectedIds);
+  const consumed = new Set(), members = new Map(), items = [];
+  for (const connector of card.connectors || []) {
+    if (consumed.has(connector.id)) continue;
+    const group = local.groups.find(g => g.memberIds.includes(connector.id));
+    const ids = group?.memberIds || [connector.id];
+    ids.forEach(id => consumed.add(id));
+    const id = group ? `group:${group.id}` : `connector:${connector.id}`, entry = local.byId.get(connector.id);
+    members.set(id, ids);
+    items.push({id, sideMask:entry.sideMask, span:group?.span || 1, requestedY:entry.row * slotHeight, order:items.length});
+  }
+  const moving = items.filter(item => members.get(item.id).some(id => selected.has(id)));
+  if (!moving.length || moving.length === items.length) return (card.connectors || []).map(c => c.id);
+  const session = createModularAuthoringInsertionSession(items, {startY:0, slotHeight,
+    draggedItemIds:moving.map(item => item.id), primaryDraggedItemId:items.find(item => members.get(item.id).includes(primaryId))?.id});
+  const lane = Math.max(0, Math.round((pointerY - 2 * slotHeight) / slotHeight));
+  const boundary = authoringInsertionBoundaryForLane(session, lane);
+  resolveModularAuthoringInsertion(session, boundary);
+  const sequence = [...session.stationarySequence];
+  sequence.splice(session.boundaries[boundary].insertionIndex, 0, ...session.movingItems);
+  return sequence.flatMap(item => members.get(item.id));
+}
+
 export const MODULAR_LAYOUT_SLOT_HEIGHT = 54;
 export const LEGACY_MODULAR_DEVICE_WIDTH = 380;
 export const MODULAR_LAYOUT_SIDE_MASKS = Object.freeze({
@@ -2328,13 +2358,15 @@ export function cardSlotPlacementSideMask(card = {}) {
   return MODULAR_LAYOUT_SIDE_MASKS.both;
 }
 
-// Optional, authored slot footprint. Historical slots keep their existing derived
-// layout until a card is removed; no load-time migration or fake card.
+// Saved reservations are a floor when editing installed nodes. Replacement fit
+// still checks the authored reservation, without rewriting slot metadata.
 export function cardSlotPhysicalLayout(slot = {}, card = null) {
   const saved = slot.physicalLayout;
+  const contentSpan = authoredCardHeight(card) ? cardConnectorEditingLayout(card).rows + 2
+    : cardConnectorRowCounts(card).max + 2;
   return {
     sideMask: ["left", "right", "both"].includes(saved?.sideMask) ? saved.sideMask : cardSlotPlacementSideMask(card),
-    span: Number.isInteger(saved?.span) && saved.span >= 2 ? saved.span : cardSlotSpanLanes(card)
+    span: Math.max(contentSpan, Number.isInteger(saved?.span) && saved.span >= 2 ? saved.span : cardSlotSpanLanes(card))
   };
 }
 
@@ -2342,7 +2374,7 @@ export function cardFitsPhysicalSlot(slot, card) {
   if (!card || !slot.physicalLayout) return true;
   const layout = cardSlotPhysicalLayout(slot, card), side = cardSlotPlacementSideMask(card);
   const required = authoredCardHeight(card) ? cardConnectorEditingLayout(card).rows + 2 : cardSlotSpanLanes(card);
-  return required <= layout.span && (layout.sideMask === "both" || layout.sideMask === side);
+  return required <= slot.physicalLayout.span && (layout.sideMask === "both" || layout.sideMask === side);
 }
 
 export function retainResizedCardSlotLayouts(before, after, cardId) {
@@ -2492,7 +2524,12 @@ export function cardBandGeometryForSlot(slot = {}, card = null, options = {}) {
   const lanes = physical.span;
   const slotY = Number.isFinite(Number(options.slotY)) ? Number(options.slotY) : finiteNumber(slot?.y, 0);
   const y = slotY - slotHeight / 2;
-  const height = Math.max(slotHeight * 2, Math.min(lanes * slotHeight, authoredCardHeight(card) || Infinity));
+  const local = authoredCardHeight(card) ? cardConnectorEditingLayout(card, slotHeight) : null;
+  const contentLanes = local ? local.rows + 2 : cardConnectorRowCounts(card).max + 2;
+  const requiredHeight = local && card?.connectors?.length
+    ? slotHeight * 1.5 + Math.max(...[...local.byId.values()].map(entry => entry.offsetY)) + 36
+    : local ? slotHeight * 2 : slotHeight * contentLanes;
+  const height = Math.max(requiredHeight, Math.min(lanes * slotHeight, authoredCardHeight(card) || Infinity));
   if (kind === "input") {
     return {
       x: 10 * scale,

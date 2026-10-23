@@ -67,7 +67,7 @@ for (const owner of ["ordinary", "loom", "multi-core"]) test(`${owner} mixed-sel
   const payload = createCanvasClipboardPayload(project, [...items, {type: owner, id: owner}], bounds);
   const plan = prepareCanvasClipboardPaste(payload, project, {x: 500, y: 500});
   assert.ok(plan.additions.devices.length);
-  assert.ok(plan.additions.connections.every(w => !w.from.jumpNodeId && !w.to.jumpNodeId));
+  assert.equal(plan.additions.connections.filter(w => w.from.jumpNodeId || w.to.jumpNodeId).length, 2);
   assert.ok(plan.additions.jumpNodes.every(j => !j.pairId && !j.loomId && !j.multiCoreId && !j.attachedDeviceId && !j.waitingContinuation));
   assert.equal(plan.additions.jumpNodes[0].label, "Keep label");
   assert.deepEqual(project, original);
@@ -81,14 +81,16 @@ for (const owner of ["ordinary", "loom", "multi-core"]) test(`${owner} mixed-sel
   assert.ok(!next.jumpLinks.some(link=>link.id===repeat.additions.jumpLinks[0].id));
 });
 
-test("historical clipboard payload cannot restore paired wires at the paste boundary", () => {
+test("historical clipboard payload retains internal paired wires with fresh identities", () => {
   const {project, bounds} = canvasClipboardFixture();
   const payload = createCanvasClipboardPayload(project, ["jump-out", "jump-in"].map(id => ({type: "jump-node", id})), bounds);
   payload.jumpLinks = [{id: "old-link", outputJumpId: "jump-out", inputJumpId: "jump-in"}];
   payload.connections = [{id: "old-wire", cableType: "sdi", from: {jumpNodeId: "jump-out"}, to: {jumpNodeId: "jump-in"}}];
   payload.jumpNodes.forEach(j => {j.pairId = "old-pair";});
   const plan = prepareCanvasClipboardPaste(payload, project, {x: 1, y: 2});
-  assert.deepEqual(plan.additions.connections, []); assertCopiedPair(plan);
+  assert.equal(plan.additions.connections.length, 1); assertCopiedPair(plan);
+  assert.equal(plan.additions.connections[0].from.jumpNodeId, plan.additions.jumpLinks[0].outputJumpId);
+  assert.equal(plan.additions.connections[0].to.jumpNodeId, plan.additions.jumpLinks[0].inputJumpId);
   assert.ok(plan.additions.jumpNodes.every(j => !j.pairId));
 });
 

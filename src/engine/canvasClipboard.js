@@ -69,7 +69,6 @@ function detachClipboardJumps(payload) {
   const ids = new Set(payload.jumpNodes.map(node => node.id));
   payload.jumpLinks = normalizeJumpLinks((payload.jumpLinks || []).filter(link => ids.has(link.outputJumpId) && ids.has(link.inputJumpId)))
     .map(link => ({id:link.id, outputJumpId:link.outputJumpId, inputJumpId:link.inputJumpId, deviceIndependent:true}));
-  payload.connections = payload.connections.filter(wire => !wire.from?.jumpNodeId && !wire.to?.jumpNodeId);
 }
 
 function selectedJumpPairs(project, ids) {
@@ -241,8 +240,8 @@ export function createCanvasClipboardPayload(project, selection, bounds, builtin
     payload[key].push(cloneClipboardData(key === "jumpNodes" ? clipboardJumpPresentation(source) : source));
   }
   const selected = Object.fromEntries(Object.values(CLIPBOARD_COLLECTIONS).map(key => [key, new Map(payload[key].map(item => [idOf(item), idOf(item)]))]));
-  payload.connections = cloneClipboardData((project.connections || []).filter(wire => !wire.from?.jumpNodeId && !wire.to?.jumpNodeId
-    && remapClipboardEndpoint(wire.from, selected) && remapClipboardEndpoint(wire.to, selected)));
+  payload.connections = cloneClipboardData((project.connections || []).filter(wire =>
+    remapClipboardEndpoint(wire.from, selected) && remapClipboardEndpoint(wire.to, selected)));
   payload.connections.forEach(wire => { delete wire.loomId; });
   payload.jumpLinks = selectedJumpPairs(project, new Set(payload.jumpNodes.map(node => node.id)));
   detachClipboardJumps(payload);
