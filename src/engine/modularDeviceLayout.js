@@ -1619,7 +1619,7 @@ export function persistentTargetLane(session, movingIds, targetLane, options = {
 export function persistentTargetLaneWithHysteresis(pointerClientY, options = {}) {
   const { session, movingIds, primaryId } = options;
   const origin = session.snapshot.byId[primaryId].lane;
-  const step = Math.max(12, positiveNumber(options.projectedLanePx, 12));
+  const step = Math.max(positiveNumber(options.minimumStepPx, 12), positiveNumber(options.projectedLanePx, 12));
   const raw = origin + (finiteNumber(pointerClientY, options.pointerStartClientY) - options.pointerStartClientY) / step;
   const previous = finiteNumber(options.previousTargetLane, origin);
   const hysteresis = Math.min(0.45, 2 / step);
@@ -1718,7 +1718,7 @@ export function cardSlotAllowsReorder(slot = {}) {
   return Boolean(slot.installedCardTypeId) && !slot.physicalLayout && slot.locked !== true;
 }
 
-export function resolveModularCardReorder(session, itemId, targetLane, fixedIds = []) {
+export function resolveModularCardReorder(session, itemId, targetLane, fixedIds = [], options = {}) {
   const item = session.snapshot.byId[itemId];
   if (!item || item.itemType !== 'card-slot') throw new Error('The card slot no longer exists.');
   const fixed = new Set(fixedIds);
@@ -1731,10 +1731,38 @@ export function resolveModularCardReorder(session, itemId, targetLane, fixedIds 
     const fixedItem = session.snapshot.byId[id];
     if (!fixedItem) throw new Error('A fixed placement no longer exists.');
   }
+  // Close only the vacated interval between source and destination. The generic
+  // insertion chain can include an entire packed lane, including fixed chassis ports.
+  const lanes = new Map(session.snapshot.items.map(entry => [entry.id, entry.lane]));
+  lanes.set(itemId,targetLane);
+  const sides = sideMaskSides(item.sideMask), movingDown = targetLane > item.lane;
+  for (const other of session.snapshot.items) {
+    if (other.id === itemId || !sides.some(side => itemOccupiesSide(other,side))) continue;
+    const between = movingDown ? other.lane >= item.lane + item.span && other.lane + other.span <= targetLane + item.span
+      : other.lane >= targetLane && other.lane + other.span <= item.lane;
+    if (between && !fixed.has(other.id)) lanes.set(other.id,other.lane + (movingDown ? -item.span : item.span));
+  }
+  const local = placementResultForLaneMap(session.snapshot.items,lanes,{startY:session.startY,slotHeight:session.slotHeight,preserveRequestedY:false});
+  if (isValidModularInsertionResult(session.snapshot,local,itemId,targetLane)
+    && session.snapshot.items.every(entry => !fixed.has(entry.id) || local.byId.get(entry.id)?.lane === entry.lane)) {
+    return freezeStructuralSnapshot(local,session);
+  }
   // Use the established insertion collision chain with hard reservations. No compaction
   // of intentional gaps, no alternative target and no resize of the chassis.
-  const result = resolveModularInsertionDrag(session.snapshot, itemId, targetLane, {fixedIds, maxEndLane:session.capacity});
-  return freezeStructuralSnapshot(result, session);
+  try {
+    const result = resolveModularInsertionDrag(session.snapshot, itemId, targetLane, {fixedIds, maxEndLane:session.capacity});
+    return freezeStructuralSnapshot(result, session);
+  } catch (error) {
+    if (!options.snapToCards || session.snapshot.items.some(entry => fixed.has(entry.id)
+      && sides.some(side => itemOccupiesSide(entry,side)) && intervalsOverlap(targetLane,item.span,entry.lane,entry.lane+entry.span))) throw error;
+    const candidates = [...new Set([item.lane,...session.snapshot.items.filter(entry => entry.itemType === 'card-slot'
+      && !fixed.has(entry.id) && sides.some(side => itemOccupiesSide(entry,side)))
+      .map(entry => movingDown ? entry.lane+entry.span-item.span : entry.lane)])]
+      .filter(lane => lane >= 0 && lane+item.span <= session.capacity)
+      .sort((a,b)=>Math.abs(a-targetLane)-Math.abs(b-targetLane) || a-b);
+    for (const lane of candidates) try {return resolveModularCardReorder(session,itemId,lane,fixedIds);} catch {}
+    throw error;
+  }
 }
 
 function structuralFieldValue(raw = {}, field = "") {

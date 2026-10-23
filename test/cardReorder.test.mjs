@@ -84,3 +84,34 @@ test('dense reorder work is bounded by occupied structure, not huge intentional 
     assert.ok(performance.now()-start < 3000);
   }
 });
+
+test('packed card reorder closes its own vacancy without pushing the chain into fixed chassis ports', () => {
+  const fixed={id:'chassis',itemType:'chassis-connector',lane:24,span:1,sideMask:'both'};
+  const s=session([item('a',0,6,'left'),item('b',6,6,'left'),item('c',12,6,'left'),item('d',18,6,'left'),
+    item('opposite',0,24,'right'),fixed],25);
+  for(const target of [6,12,18]) {
+    const next=resolveModularCardReorder(s,'a',target,['chassis','opposite']);
+    assert.equal(next.byId.a.lane,target);
+    assert.equal(next.byId.b.lane,0);
+    assert.equal(next.byId.chassis.lane,24);assert.equal(next.byId.opposite.lane,0);
+    assert.equal(next.endLane,25);
+  }
+});
+
+test('card-specific fitted zoom target uses actual projected lane spacing; connector defaults remain unchanged', () => {
+  const s=session([item('a',0,6),item('b',6,6)]);
+  for(const zoom of [.035,.08,.15,.34,1]) {
+    const options={session:s,movingIds:['a'],primaryId:'a',pointerStartClientY:100,
+      previousTargetLane:0,projectedLanePx:54*zoom,minimumStepPx:1};
+    assert.equal(persistentTargetLaneWithHysteresis(100+6*54*zoom,options),6);
+  }
+});
+
+test('mixed-height packed card preview snaps to a feasible insertion boundary', () => {
+  const s=session([item('a',0,6),item('b',6,8),item('c',14,6),
+    {id:'chassis',itemType:'chassis-connector',lane:20,span:1,sideMask:'both'}],21);
+  const result=resolveModularCardReorder(s,'a',6,['chassis'],{snapToCards:true});
+  assert.equal(result.byId.a.lane,8);assert.equal(result.byId.b.lane,0);
+  assert.equal(result.byId.c.lane,14);assert.equal(result.byId.chassis.lane,20);
+  assert.throws(()=>resolveModularCardReorder(s,'a',18,['chassis'],{snapToCards:true}),/chassis|inside/);
+});

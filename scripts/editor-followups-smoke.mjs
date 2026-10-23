@@ -107,13 +107,20 @@ try {
     const count=state.jumpNodes.length;
     activeEngineBridge().commitCanvasClipboardPaste(plan);
     if (state.jumpNodes.length!==count+plan.additions.jumpNodes.length) throw new Error("Paste did not insert independent Jumps");
-    if (JSON.stringify({connections:state.connections,links:state.jumpLinks})!==topology) throw new Error("Paste changed original wiring");
+    const originalLinks=JSON.parse(topology).links;
+    if (JSON.stringify(state.connections)!==JSON.stringify(JSON.parse(topology).connections)
+      || JSON.stringify(state.jumpLinks.slice(0,originalLinks.length))!==JSON.stringify(originalLinks)) throw new Error("Paste changed original wiring");
     activeEngineBridge().undoEngineCommand();
     if (state.jumpNodes.length!==count) throw new Error("Jump paste undo failed");
     activeEngineBridge().redoEngineCommand();
     return {jumps:plan.additions.jumpNodes,wires:plan.additions.connections,links:plan.additions.jumpLinks};
   },bounds);
-  assert.equal(copied.jumps.length,project.jumpNodes.length);assert.deepEqual(copied.wires,[]);assert.deepEqual(copied.links,[]);
+  assert.equal(copied.jumps.length,project.jumpNodes.length);assert.deepEqual(copied.wires,[]);assert.equal(copied.links.length,1);
+  assert.ok(copied.links.every(link=>link.deviceIndependent&&copied.jumps.some(j=>j.id===link.outputJumpId)&&copied.jumps.some(j=>j.id===link.inputJumpId)));
   assert.ok(copied.jumps.every(j=>!j.pairId&&!j.loomId&&!j.multiCoreId));
+  const pairedSave=page.waitForEvent("download");await page.locator("#saveProjectAs").click();await(await pairedSave).saveAs(`${dir}/copied-pairs.avd`);
+  await page.evaluate(()=>{window.devicesBeforePairReopen=state.devices;});
+  await page.locator("#fileInput").setInputFiles(`${dir}/copied-pairs.avd`);await page.waitForFunction(()=>activeEngineBridge()?.ready && state.devices!==window.devicesBeforePairReopen);
+  assert.deepEqual(await page.evaluate(ids=>state.jumpLinks.filter(link=>ids.includes(link.id)),copied.links.map(link=>link.id)),copied.links);
   assert.deepEqual(errors,[]);console.log(JSON.stringify({result:"PASS",replacement:"cancel/proceed/save/undo/redo",backplate:"upload/resize/save/reopen/offline HTML/PDF",jumps:copied.jumps.length,errors}));
 } finally {await browser.close();}

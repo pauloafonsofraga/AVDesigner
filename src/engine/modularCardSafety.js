@@ -97,7 +97,9 @@ export function validateModularCardChanges(beforeValue, afterValue, { includeCon
       const oldModel = model(before, change.device, "before");
       const oldPort = oldModel.connectors.find(port => port.id === endpoint.connectorId);
       const slot = change.slots.find(slot => oldPort?.cardSlotId === slot.id
-        || endpoint.connectorId?.startsWith(`${slot.id}__`));
+        || endpoint.connectorId?.startsWith(`${slot.id}__`))
+        || (includeConnectorChanges && oldPort?.cardSlotId
+          ? change.oldTemplate.cardSlots?.find(slot => slot.id === oldPort.cardSlotId) : null);
       if (!slot && !change.connectorIds.has(endpoint.connectorId)) continue;
       const fail = reason => errors.push(`${slot ? `Slot ${slot.name || slot.id} [${slot.id}], card ${slot.installedCardTypeId || "empty"}, ` : ""}connector ${endpoint.connectorId}, cable ${wire.cableNumber || wire.label || wire.id} [${wire.id}]: ${reason}`);
       const nextSlot = slot && change.nextTemplate.cardSlots?.find(item => item.id === slot.id);

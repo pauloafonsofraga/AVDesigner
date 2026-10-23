@@ -1,5 +1,6 @@
 import { normalizeAvDesignerDevice } from "./projectAdapter.js";
 import { canonicalFactoryNodeIds, restoreNodeCompatibilityTypes } from "./nodeCompatibilityIdentity.js";
+import {normalizeJumpLinks} from "./jumpNodeModel.js";
 
 export const CLIPBOARD_PREFIX = "AVDESIGNER_SELECTION_V2:";
 export const CLIPBOARD_STORAGE_KEY = "avdesigner.canvas-clipboard.v2";
@@ -56,7 +57,7 @@ export function clipboardJson(value, { allowImageAssets = false } = {}) {
 // cloning repeatedly copies large strings before the asset envelope can dedupe them.
 const cloneClipboardData = value => clipboardJson(value, { allowImageAssets: true });
 
-// Clipboard Jumps are presentation-only objects, never a copy of signal topology.
+// Copy presentation and selected pair relationships, never external signal ownership.
 function clipboardJumpPresentation(node) {
   const presentation = ["id", "x", "y", "label", "name", "color", "style", "labelTextColor", "labelBackgroundColor"];
   return Object.fromEntries(presentation.filter(key => own(node, key) && node[key] !== undefined)
@@ -65,8 +66,25 @@ function clipboardJumpPresentation(node) {
 
 function detachClipboardJumps(payload) {
   payload.jumpNodes = payload.jumpNodes.map(clipboardJumpPresentation);
-  payload.jumpLinks = [];
+  const ids = new Set(payload.jumpNodes.map(node => node.id));
+  payload.jumpLinks = normalizeJumpLinks((payload.jumpLinks || []).filter(link => ids.has(link.outputJumpId) && ids.has(link.inputJumpId)))
+    .map(link => ({id:link.id, outputJumpId:link.outputJumpId, inputJumpId:link.inputJumpId, deviceIndependent:true}));
   payload.connections = payload.connections.filter(wire => !wire.from?.jumpNodeId && !wire.to?.jumpNodeId);
+}
+
+function selectedJumpPairs(project, ids) {
+  const links = normalizeJumpLinks((project.jumpLinks || []).filter(link => ids.has(link.outputJumpId) && ids.has(link.inputJumpId)));
+  const paired = new Set(links.flatMap(link => [link.outputJumpId,link.inputJumpId]));
+  const legacy = new Map();
+  for (const node of project.jumpNodes || []) if (typeof node.pairId === "string" && node.pairId) {
+    if (!legacy.has(node.pairId)) legacy.set(node.pairId,[]);
+    legacy.get(node.pairId).push(node.id);
+  }
+  for (const members of legacy.values()) if (members.length === 2 && members.every(id => ids.has(id) && !paired.has(id))) {
+    links.push({id:`clipboard-jump-pair-${links.length + 1}`,outputJumpId:members[0],inputJumpId:members[1]});
+    members.forEach(id => paired.add(id));
+  }
+  return links;
 }
 
 export function countClipboardObjects(payload) {
@@ -226,6 +244,7 @@ export function createCanvasClipboardPayload(project, selection, bounds, builtin
   payload.connections = cloneClipboardData((project.connections || []).filter(wire => !wire.from?.jumpNodeId && !wire.to?.jumpNodeId
     && remapClipboardEndpoint(wire.from, selected) && remapClipboardEndpoint(wire.to, selected)));
   payload.connections.forEach(wire => { delete wire.loomId; });
+  payload.jumpLinks = selectedJumpPairs(project, new Set(payload.jumpNodes.map(node => node.id)));
   detachClipboardJumps(payload);
   payload.ledSurfaces.forEach(surface => {
     if (surface.ledProcessorOrder) surface.ledProcessorOrder = surface.ledProcessorOrder.filter(id => selected.devices.has(id));
@@ -366,6 +385,10 @@ export function prepareCanvasClipboardPaste(value, destination, target) {
     if (key === "connections") {
       item.from = remapClipboardEndpoint(item.from, maps); item.to = remapClipboardEndpoint(item.to, maps);
       offsetRoutePointsForPaste(item, dx, dy);
+    }
+    if (key === "jumpLinks") {
+      item.outputJumpId = maps.jumpNodes.get(item.outputJumpId);
+      item.inputJumpId = maps.jumpNodes.get(item.inputJumpId);
     }
     if (key === "racks") {
       const local = new Map(item.devices.map(d => [d.instanceId, nextId("rackdev")]));

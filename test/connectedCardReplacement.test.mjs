@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {cardSafetyFixture} from "./helpers/cardSafetyFixture.mjs";
-import {connectedCardReplacements,assertSafeModularCardChanges} from "../src/engine/modularCardSafety.js";
+import {connectedCardReplacements,assertSafeModularCardChanges,assertSafeConnectorChanges} from "../src/engine/modularCardSafety.js";
 
 test("replacement identifies only affected wires before mutation, including compatible replacements", () => {
   const before=cardSafetyFixture(),after=structuredClone(before);
@@ -26,4 +26,14 @@ test("unchanged, unconnected and reordered cards require no removal", () => {
   after.deviceLibrary[0].cardSlots[1].installedCardTypeId="replacement";
   after.deviceLibrary[0].cardSlots[0].y+=20;
   assert.deepEqual(connectedCardReplacements(before,after),[]);
+});
+
+test("wired card geometry-only reordering resolves its installed local connector identity on Save", () => {
+  const before=cardSafetyFixture(),after=structuredClone(before);
+  [after.deviceLibrary[0].cardSlots[0].y,after.deviceLibrary[0].cardSlots[1].y]=
+    [after.deviceLibrary[0].cardSlots[1].y,after.deviceLibrary[0].cardSlots[0].y];
+  assert.equal(assertSafeConnectorChanges(before,after).valid,true);
+  assert.deepEqual(after.connections,before.connections);
+  after.deviceLibrary[0].cardTypes[0].connectors[0].id="different";
+  assert.throws(()=>assertSafeConnectorChanges(before,after),/identity|resolves/);
 });
