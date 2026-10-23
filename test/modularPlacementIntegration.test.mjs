@@ -287,8 +287,8 @@ test("repo modular fixture resolves installed card rows and anchors consistently
 
   const expectedSlotY = new Map([
     ["slot-alpha", 234],
-    ["slot-beta", 558],
-    ["slot-gamma", 774]
+    ["slot-beta", 612],
+    ["slot-gamma", 882]
   ]);
   for (const [slotId, slotY] of expectedSlotY) {
     assert.equal(visualCardById(device, slotId).slotY, slotY, `${slotId} resolved slot row`);

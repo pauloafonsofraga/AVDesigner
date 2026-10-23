@@ -24,7 +24,7 @@ import {
   normalizeMatrixRoutesForDevice,
   setMatrixRouteForDevice
 } from "../src/engine/matrixRouting.js";
-import { MODULAR_LAYOUT_SLOT_HEIGHT } from "../src/engine/modularDeviceLayout.js";
+import { MODULAR_LAYOUT_SLOT_HEIGHT, cardConnectorEditingLayout } from "../src/engine/modularDeviceLayout.js";
 import { POWER_CATALOG, powerCatalogProject } from "../fixtures/power-distro-catalog.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1432,8 +1432,8 @@ function validateModularPlacementProjectFixture() {
   const normalizedDevice = harness.normalized.devices.find(item => item.id === "fixture-modular");
   const expectedSlotY = new Map([
     ["slot-alpha", 234],
-    ["slot-beta", 558],
-    ["slot-gamma", 774]
+    ["slot-beta", 612],
+    ["slot-gamma", 882]
   ]);
 
   check("modular placement fixture loads repeated V2 card slots", () => {
@@ -1459,7 +1459,9 @@ function validateModularPlacementProjectFixture() {
         assert.equal(connector.x, visualConnector.x, `${visualConnector.id} x parity`);
         assert.equal(connector.y, visualConnector.y, `${visualConnector.id} y parity`);
         assert.deepEqual(connector.anchors, visualConnector.anchors, `${visualConnector.id} anchor parity`);
-        assert.equal(connector.y, card.slotY + SLOT_HEIGHT + Number(connector.rowIndex || 0) * SLOT_HEIGHT, `${visualConnector.id} row parity`);
+        const source = rawTemplate.cardTypes.find(item => item.id === card.cardTypeId);
+        const offset = cardConnectorEditingLayout(source).byId.get(connector.sourceConnectorId).offsetY;
+        assert.equal(connector.y, card.slotY + SLOT_HEIGHT + offset, `${visualConnector.id} Card Editor row parity`);
         const primary = connector.anchors.find(anchor => anchor.id === connector.primaryAnchorId) || connector.anchors[0];
         assert.equal(connector.x, primary.x, `${visualConnector.id} primary anchor x`);
         assert.equal(connector.y, primary.y, `${visualConnector.id} primary anchor y`);

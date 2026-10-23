@@ -135,10 +135,10 @@ test("generated card connector anchors are rebased from card-local rows into ins
   const expectedRows = new Map([
     ["slot-a__shared-input", 120 + SLOT_HEIGHT],
     ["slot-a__input-two", 120 + SLOT_HEIGHT * 2],
-    ["slot-a__output-one", 120 + SLOT_HEIGHT],
+    ["slot-a__output-one", 120 + SLOT_HEIGHT * 2],
     ["slot-b__shared-input", 360 + SLOT_HEIGHT],
     ["slot-b__input-two", 360 + SLOT_HEIGHT * 2],
-    ["slot-b__output-one", 360 + SLOT_HEIGHT]
+    ["slot-b__output-one", 360 + SLOT_HEIGHT * 2]
   ]);
 
   expectedRows.forEach((expectedY, connectorId) => {

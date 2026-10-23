@@ -35,7 +35,7 @@ test('authored height sizes new slots and installed artwork, without rewriting e
   const ports=resolveInstalledCardConnectors({cardSlots:[slot],cardTypes:[c],preserveRequestedY:true}).connectors;
   assert.deepEqual(ports.map(p=>p.y),[254,272,290,308]);
   assert.deepEqual(ports.map(p=>p.id),['slot__p0','slot__p1','slot__p2','slot__p3']);
-  assert.equal(cardSlotSpanLanes(card()),6,'historical cards retain their footprint until explicitly resized');
+  assert.equal(cardSlotSpanLanes(card()),4,'cards without resize metadata use the same compact footprint as the Card Editor');
 });
 
 test('compacting an installed shared bus preserves connected identities and neighboring reservations',()=>{
@@ -43,6 +43,7 @@ test('compacting an installed shared bus preserves connected identities and neig
   const c=card();c.id='original';
   c.kind='output';c.connectors.forEach(p=>{p.direction='output';p.displaySide='right';});
   before.deviceLibrary[0].cardTypes[0]=c;
+  before.deviceLibrary[0].cardSlots.forEach(slot=>{slot.physicalLayout={sideMask:'right',span:6};});
   const after=structuredClone(before), template=after.deviceLibrary[0];
   retainResizedCardSlotLayouts(before.deviceLibrary[0],template,c.id);
   template.cardTypes[0].editingBounds={x:10,y:27,width:174,height:175};

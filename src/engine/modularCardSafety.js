@@ -55,8 +55,13 @@ export function validateModularCardChanges(beforeValue, afterValue, { includeCon
       || signature(oldTemplate, slot) !== signature(nextTemplate, slots.get(slot.id)));
     for (const slot of nextTemplate.cardSlots || []) {
       const oldSlot = oldTemplate.cardSlots?.find(item => item.id === slot.id);
-      if ((!oldSlot || affected.some(item => item.id === slot.id) || JSON.stringify(oldSlot.physicalLayout) !== JSON.stringify(slot.physicalLayout))
-        && !cardFitsPhysicalSlot(slot, installed(nextTemplate, slot))) errors.push(`Slot ${slot.name || slot.id} [${slot.id}]: installed card does not fit the physical slot. Remove it before changing the slot layout.`);
+      const affectedSlot = affected.some(item => item.id === slot.id);
+      const reservationChanged = JSON.stringify(oldSlot?.physicalLayout) !== JSON.stringify(slot.physicalLayout);
+      // Existing installed content may outgrow a historical reservation. Only
+      // a replacement or an explicit reservation edit must fit that old limit.
+      const allowContentGrowth = oldSlot?.installedCardTypeId === slot.installedCardTypeId && !reservationChanged;
+      if ((!oldSlot || affectedSlot || reservationChanged)
+        && !cardFitsPhysicalSlot(slot, installed(nextTemplate, slot), { allowContentGrowth })) errors.push(`Slot ${slot.name || slot.id} [${slot.id}]: installed card does not fit the physical slot. Remove it before changing the slot layout.`);
     }
     const connectorIds = new Set();
     if (includeConnectorChanges && JSON.stringify(device) + JSON.stringify(oldTemplate) !== JSON.stringify(nextDevice) + JSON.stringify(nextTemplate)) {

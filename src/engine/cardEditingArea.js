@@ -3,8 +3,8 @@ import {connectorVisualAnchors} from './deviceDefinitionV2.js';
 
 const validRect = r => r && [r.x, r.y, r.width, r.height].every(Number.isFinite) && r.width > 0 && r.height > 0;
 
-// Historical cards stay unchanged until explicitly resized. A saved height is
-// also the installed artwork height; physical slot reservations remain separate.
+// An optional saved editing height also sizes the installed artwork.
+// Physical slot reservations remain separate from this authoring preference.
 export function authoredCardHeight(card) {
   return validRect(card?.editingBounds) ? card.editingBounds.height : null;
 }

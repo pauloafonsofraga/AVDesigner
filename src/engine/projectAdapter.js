@@ -565,6 +565,11 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType, nod
       CONNECTOR_RELATIONSHIP_FIELDS.forEach(key => { c[key] = installed[key] ?? ""; });
     }
   }));
+  if (template.hasSwappableCards && visual.visualCards.length) {
+    height = Math.max(height,
+      ...visual.visualCards.map(card => card.y + card.height + SLOT_HEIGHT / 2),
+      ...connectors.flatMap(connector => (connector.anchors || [connector]).map(anchor => anchor.y + 34)));
+  }
   const powerDistro = isPowerDistro
     ? normalizePowerDistroForEngine({ template, instance, width, connectors })
     : null;
@@ -830,14 +835,26 @@ function normalizeVisualCards(
 function effectiveConnectorsForTemplate(template) {
   if (!template || typeof template !== "object") return [];
   const chassis = Array.isArray(template.connectors) ? template.connectors : [];
-  return [...chassis, ...generatedCardConnectors(template)];
-}
-
-function generatedCardConnectors(template) {
   if (!template?.hasSwappableCards || !Array.isArray(template.cardSlots) || !Array.isArray(template.cardTypes)) {
-    return [];
+    return chassis;
   }
-  return installedCardLayout(template, positiveNumber(template.width) || DEFAULT_DEVICE_WIDTH).connectors;
+  const expansion = installedCardLayout(template, positiveNumber(template.width) || DEFAULT_DEVICE_WIDTH);
+  const shifts = new Map();
+  for (const item of expansion.layout.items) {
+    if (item.itemType === "card-slot" || !item.moved) continue;
+    for (const id of item.memberIds || [item.id]) shifts.set(id, item.y - item.requestedY);
+  }
+  // Consume the same solver result as the installed artwork, without changing
+  // authored chassis coordinates or rebasing a shared bus member independently.
+  const positioned = chassis.map(connector => {
+    const delta = shifts.get(connector.id);
+    if (!delta) return connector;
+    return { ...connector, y: finiteNumber(connector.y, 0) + delta,
+      ...(Array.isArray(connector.anchors) ? { anchors: connector.anchors.map(anchor => ({
+        ...anchor, y: finiteNumber(anchor.y, finiteNumber(connector.y, 0)) + delta
+      })) } : {}) };
+  });
+  return [...positioned, ...expansion.connectors];
 }
 
 function generatedCardRelationships(template) {
