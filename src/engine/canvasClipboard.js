@@ -57,10 +57,14 @@ export function clipboardJson(value, { allowImageAssets = false } = {}) {
 const cloneClipboardData = value => clipboardJson(value, { allowImageAssets: true });
 
 // Clipboard Jumps are presentation-only objects, never a copy of signal topology.
-function detachClipboardJumps(payload) {
+function clipboardJumpPresentation(node) {
   const presentation = ["id", "x", "y", "label", "name", "color", "style", "labelTextColor", "labelBackgroundColor"];
-  payload.jumpNodes = payload.jumpNodes.map(node => Object.fromEntries(presentation
-    .filter(key => own(node, key)).map(key => [key, node[key]])));
+  return Object.fromEntries(presentation.filter(key => own(node, key) && node[key] !== undefined)
+    .map(key => [key, node[key]]));
+}
+
+function detachClipboardJumps(payload) {
+  payload.jumpNodes = payload.jumpNodes.map(clipboardJumpPresentation);
   payload.jumpLinks = [];
   payload.connections = payload.connections.filter(wire => !wire.from?.jumpNodeId && !wire.to?.jumpNodeId);
 }
@@ -216,10 +220,11 @@ export function createCanvasClipboardPayload(project, selection, bounds, builtin
   for (const item of items) {
     const key = CLIPBOARD_COLLECTIONS[item.type], source = maps[key].get(item.id);
     if (!source) fail("selected object no longer exists");
-    payload[key].push(cloneClipboardData(source));
+    payload[key].push(cloneClipboardData(key === "jumpNodes" ? clipboardJumpPresentation(source) : source));
   }
   const selected = Object.fromEntries(Object.values(CLIPBOARD_COLLECTIONS).map(key => [key, new Map(payload[key].map(item => [idOf(item), idOf(item)]))]));
-  payload.connections = cloneClipboardData((project.connections || []).filter(wire => remapClipboardEndpoint(wire.from, selected) && remapClipboardEndpoint(wire.to, selected)));
+  payload.connections = cloneClipboardData((project.connections || []).filter(wire => !wire.from?.jumpNodeId && !wire.to?.jumpNodeId
+    && remapClipboardEndpoint(wire.from, selected) && remapClipboardEndpoint(wire.to, selected)));
   payload.connections.forEach(wire => { delete wire.loomId; });
   detachClipboardJumps(payload);
   payload.ledSurfaces.forEach(surface => {
@@ -306,8 +311,10 @@ export function prepareCanvasClipboardPaste(value, destination, target) {
   if (!target || !finite(target.x) || !finite(target.y)) fail("invalid placement");
   const dx = target.x - payload.bounds.x, dy = target.y - payload.bounds.y;
   const reserved = new Set();
+  const visited = new WeakSet();
   const reserve = object => {
-    if (!object || typeof object !== "object") return;
+    if (!object || typeof object !== "object" || visited.has(object)) return;
+    visited.add(object);
     for (const [key, value] of Object.entries(object)) {
       if ((key === "id" || key.endsWith("Id")) && typeof value === "string") reserved.add(value);
       else if (value && typeof value === "object") reserve(value);

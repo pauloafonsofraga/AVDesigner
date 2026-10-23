@@ -39,6 +39,7 @@ import {
 } from "./connectorDisplayLayout.js";
 import { sharedBusOrthogonalSegments } from "./sharedBusRendering.js";
 import {resolveConnectorLabelCollisions} from './connectorLabelLayout.js';
+import { connectorFieldRowWidth } from "./connectorFieldLayout.js";
 import {legacyFaceHeight} from './faceplateGeometry.js';
 import {
   INFO_BOX_COMPACT_SCALE,
@@ -79,7 +80,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-136-browser-unsaved-changes";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-137-editor-followups";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -4049,7 +4050,6 @@ function drawConnectorAnnotationLeader(ctx, point, shift, camera, opacity = 1) {
 export function connectorAnnotationPlacements(ctx, scene, device, camera) {
   if(device.kind==='adapter' || device.kind==='jump' || isLedSurfaceKind(device))return new Map();
   const zoom=Math.max(.001,camera.zoom), metrics=legacyConnectorLabelMetrics(zoom);
-  const mode=legacyConnectorInfoBoxMode(zoom), scale=mode==='compact'?INFO_BOX_COMPACT_SCALE:legacyCanvasDetailScale(zoom);
   const display=connectorDisplayLayoutForRender(scene,device), rows=[], obstacles=[];
   const add=(key,connector,point,lines,weight=800)=>{
     const side=connector.side==='right'?'right':'left';
@@ -4058,13 +4058,6 @@ export function connectorAnnotationPlacements(ctx, scene, device, camera) {
     ctx.save();ctx.font=`${weight} ${metrics.screenFontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
     const width=Math.max(1,...lines.map(line=>ctx.measureText(line).width/zoom));ctx.restore();
     const parts=[{x:anchor.x-(anchor.textAlign==='right'?width:0)-2,y:anchor.y-size*.7-2,width:width+4,height:size*1.25*lines.length+4}];
-    if(mode!=='hidden')visibleConnectorInfoFields(connector).forEach((field,index)=>{
-      const r=connectorInfoBoxWorldRect(point,connector,index,scale);
-      ctx.save();ctx.font=`800 ${5.1*scale*zoom}px system-ui, -apple-system, Segoe UI, sans-serif`;
-      const titleWidth=mode==='compact'?0:ctx.measureText(field.title).width/zoom;ctx.restore();
-      const fieldWidth=Math.max(r.width,titleWidth);
-      parts.push({x:r.x+r.width/2-fieldWidth/2-2,y:r.y-5.1*scale*.6-2,width:fieldWidth+4,height:r.height+5.1*scale*.6+4});
-    });
     const left=Math.min(...parts.map(r=>r.x)),top=Math.min(...parts.map(r=>r.y));
     const rect={x:left,y:top,width:Math.max(...parts.map(r=>r.x+r.width))-left,height:Math.max(...parts.map(r=>r.y+r.height))-top};
     const card=device.visual?.visualCards?.find(card=>card.id===connector.cardSlotId);
@@ -4178,7 +4171,8 @@ function sharedBusConnectorLabel(layout) {
 
 function drawVisibleConnectorInfoBoxes(ctx, scene, camera, renderOptions = DEFAULT_RENDER_OPTIONS, dragSession = null, resolution = { width: 0, height: 0 }, interaction = {}, renderer = null) {
   const stats = { visible: 0, compact: 0, magnified: 0 };
-  const mode = legacyConnectorInfoBoxMode(camera.zoom);
+  const requestedMode = legacyConnectorInfoBoxMode(camera.zoom);
+  const mode = requestedMode === "hidden" ? "compact" : requestedMode;
   const hitRects = [];
   if (!renderOptions.connectorMarkers || renderOptions.hideLabels || mode === "hidden") {
     if (renderer) {
@@ -4198,11 +4192,11 @@ function drawVisibleConnectorInfoBoxes(ctx, scene, camera, renderOptions = DEFAU
     if (!device || drawn.has(device.id)) return;
     if (!deviceVisible(device, renderOptions) || !deviceUsesTextureLayer(device, renderOptions)) return;
     if (device.kind === "jump" || device.kind === "adapter" || isLedSurfaceKind(device)) return;
+    const entryStart = entries.length;
     const offset = offsets?.get(device.id);
     const baseX = device.x + (offset?.dx || 0);
     const baseY = device.y + (offset?.dy || 0);
     const displayLayout = connectorDisplayLayoutForRender(scene, device);
-    const annotations = connectorAnnotationPlacementsForFrame(ctx, scene, device, camera);
     deviceConnectorsForRender(device).forEach(connector => {
       if (displayLayout.byConnectorId.has(connector.id)) return;
       const fields = visibleConnectorInfoFields(connector);
@@ -4216,10 +4210,9 @@ function drawVisibleConnectorInfoBoxes(ctx, scene, camera, renderOptions = DEFAU
           __anchorId: anchor.id,
           __renderOpacity: connectorAnchorRenderOpacity(scene, device, connector, anchor)
         };
-        const shift=annotations.get(`node:${connector.id}:${anchor.id || ""}`);
         const point = {
-          x: baseX + anchor.x+(shift?.dx || 0),
-          y: baseY + anchor.y+(shift?.dy || 0)
+          x: baseX + anchor.x,
+          y: baseY + anchor.y
         };
         fields.forEach((field, index) => {
           entries.push({
@@ -4250,10 +4243,9 @@ function drawVisibleConnectorInfoBoxes(ctx, scene, camera, renderOptions = DEFAU
         __sharedBusRelationshipId: layout.relationshipId || "",
         __renderOpacity: 1
       };
-      const shift=annotations.get(`bus:${layout.relationshipId}`);
       const point = {
-        x: baseX + layout.fieldAnchorX+(shift?.dx || 0),
-        y: baseY + layout.centerY+(shift?.dy || 0)
+        x: baseX + layout.fieldAnchorX,
+        y: baseY + layout.centerY
       };
       visibleConnectorInfoFields(representative).forEach((field, index) => {
         entries.push({
@@ -4270,6 +4262,16 @@ function drawVisibleConnectorInfoBoxes(ctx, scene, camera, renderOptions = DEFAU
         });
       });
     });
+    const deviceEntries = entries.slice(entryStart);
+    const scale = mode === "compact" ? INFO_BOX_COMPACT_SCALE : legacyCanvasDetailScale(camera.zoom);
+    const rows = deviceEntries.filter(entry => entry.index === 0).map(entry => {
+      const card = device.visual?.visualCards?.find(card => card.id === entry.connector.cardSlotId);
+      return {x:entry.point.x, y:entry.point.y, side:entry.connector.side,
+        count:visibleConnectorInfoFields(entry.connector).length,
+        left:baseX + (card?.x || 0) + 4, right:baseX + (card ? card.x + card.width : device.width) - 4,
+        connector:entry.connector};
+    });
+    rows.forEach(row => { row.connector.__fieldLayout = connectorFieldRowWidth(row, rows, scale, camera.zoom); });
     drawn.add(device.id);
   };
   visibleDevices(scene, camera, resolution).forEach(device => {
@@ -4388,9 +4390,9 @@ function drawMagnifiedConnectorInfoBox(ctx, entry, sourceRect, resolution = { wi
 }
 
 function connectorInfoBoxWorldRect(point, connector, index, scale) {
-  const width = 44 * scale;
+  const width = connector.__fieldLayout?.width ?? 44 * scale;
   const height = 15.5 * scale;
-  const slotStep = 48 * scale;
+  const slotStep = width + (connector.__fieldLayout?.gap ?? 4 * scale);
   const sideOffset = 18 * scale;
   const side = connectorInfoBoxSide(connector);
   return {
@@ -4454,8 +4456,10 @@ function drawScreenInfoBoxText(ctx, rect, scale, title, value) {
   ctx.lineWidth = Math.max(1.4, 3.5 * scale);
   ctx.fillStyle = "#28bdfd";
   const titleY = rect.y + Math.max(labelFontSize * 0.2, 0);
-  ctx.strokeText(title, rect.x + rect.width / 2, titleY);
-  ctx.fillText(title, rect.x + rect.width / 2, titleY);
+  const fittedTitle = fitScreenText(ctx, title, Math.max(0, rect.width - 4 * scale), "...");
+  if (rect.width < 10 * scale) { ctx.restore(); return; }
+  ctx.strokeText(fittedTitle, rect.x + rect.width / 2, titleY);
+  ctx.fillText(fittedTitle, rect.x + rect.width / 2, titleY);
 
   ctx.font = `700 ${valueFontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
   const lines = wrapScreenInfoBoxLines(ctx, value, Math.max(8, rect.width - 7 * scale), 2);

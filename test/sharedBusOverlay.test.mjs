@@ -7,6 +7,7 @@ import { isTransceiverCage } from "../src/engine/transceiverModules.js";
 import { legacyConnectorLabelMetrics } from "../src/engine/legacyZoomDetail.js";
 import { attachedConnectorLabelPosition } from "../src/engine/attachedConnectorOrientation.js";
 import { adapterWorldPoint } from "../src/engine/adapterRotation.js";
+import {connectorFieldRowWidth} from "../src/engine/connectorFieldLayout.js";
 
 const source = readFileSync(new URL("../src/engine/renderer.js", import.meta.url), "utf8");
 
@@ -18,7 +19,8 @@ function functionSource(name) {
 }
 
 function rendererFunctions(names, bindings = {}) {
-  const context = vm.createContext({ attachedConnectorLabelPosition, adapterWorldPoint, ...bindings });
+  const context = vm.createContext({ attachedConnectorLabelPosition, adapterWorldPoint, connectorFieldRowWidth,
+    legacyCanvasDetailScale:()=>1, INFO_BOX_COMPACT_SCALE:1.18, ...bindings });
   vm.runInContext(functionSource("connectorAnchorRenderPoint"), context);
   names.forEach(name => vm.runInContext(functionSource(name), context));
   return context;

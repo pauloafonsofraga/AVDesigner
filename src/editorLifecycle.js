@@ -41,6 +41,25 @@ function freeze(element) {
   return () => { element.inert = wasInert; };
 }
 
+export function confirmCardReplacement(root) {
+  const dialog = document.createElement("dialog");
+  dialog.className = "modal editor-unsaved-modal editor-card-replacement";
+  dialog.setAttribute("aria-label", "Replace connected card");
+  dialog.innerHTML = '<p>This will remove the current card connected nodes</p><footer class="modal-footer"><button type="button" class="tool-button" data-card-replacement="cancel">Cancel</button><button type="button" class="tool-button primary-button" data-card-replacement="proceed">Proceed</button></footer>';
+  const focus = document.activeElement;
+  document.body.append(dialog);
+  return new Promise(resolve => {
+    const finish = approved => {dialog.close();dialog.remove();if (focus?.isConnected) focus.focus();resolve(approved);};
+    dialog.addEventListener("cancel", event => {event.preventDefault();finish(false);}, {once:true});
+    dialog.addEventListener("click", event => {
+      const choice = event.target.closest("[data-card-replacement]")?.dataset.cardReplacement;
+      if (choice) finish(choice === "proceed");
+    });
+    dialog.showModal();
+    dialog.querySelector("button").focus();
+  });
+}
+
 export function confirmUnsavedChanges(label, root) {
   if (confirmation) return confirmation.promise;
   const focus = document.activeElement;

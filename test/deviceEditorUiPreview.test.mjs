@@ -151,7 +151,14 @@ function assertCameraContains(camera, bounds, viewportWidth, viewportHeight, pad
 }
 
 function runnableIndexFunction(functionName, context = {}) {
+  Object.entries(editorTestBindings()).forEach(([key,value])=>{if (!(key in context)) context[key]=value;});
   return vm.runInNewContext(`(${functionSource(functionName)})`, context);
+}
+
+function editorTestBindings() {
+  return {editorArtworkSide:"faceplate",editorArtworkTemplate:template=>template,
+    document:{getElementById:()=>({value:""})},
+    editorCardReplacementApprovals:new Set(),editorCardReplacementChanges:()=>[],editorApprovedCardReplacementWireIds:()=>[]};
 }
 
 function testSvgNode(tagName, attributes = {}) {
@@ -200,6 +207,7 @@ function sideParityConnector(id, side, direction, y = 152) {
 
 function stableDragHarness(template) {
   const context = {
+    ...editorTestBindings(),
     isAdapterTemplate: device => device?.objectType === "adapter",
     laneIndexForY: (y, startY) => Math.max(0, Math.round((y - startY) / 54)),
     recordEditorPlacementHistory: () => {},
@@ -428,6 +436,7 @@ function structuralEditorHarness(inputTemplate = {}) {
     }
   };
   const context = {
+    ...editorTestBindings(),
     window: {},
     engineRendererRequested: () => true,
     console,
@@ -1083,6 +1092,7 @@ test("editor placement history records and restores a whole gesture once", () =>
 
 function placementMotionIntegrationHarness(now = 0) {
   const context = {
+    ...editorTestBindings(),
     console,
     Map,
     Math,
@@ -1171,6 +1181,7 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
     commits: 0
   };
   const context = {
+    ...editorTestBindings(),
     console,
     JSON,
     Map,
@@ -1498,6 +1509,7 @@ function cardDragInteractionHarness(inputTemplate = {}, options = {}) {
 
 function deviceHeightCalculationHarness() {
   const context = {
+    ...editorTestBindings(),
     requireDeviceEditorPlacementModule: () => sharedBusPlacementModule,
     Math,
     Map,
@@ -3287,6 +3299,7 @@ test("Device Editor close skips final preview rendering and preserves an invalid
   const draft = { id: "unsaved", connectors: [], connectorRelationships: [{ id: "broken", type: "exclusive", members: ["missing"] }] };
   const before = structuredClone(draft), calls = [], classes = new Set();
   const context = {
+    ...editorTestBindings(),
     editorDependencySession: 7,
     editorPendingFields: null,
     editorDraft: [draft], currentEditorTemplate: () => draft,
@@ -4968,6 +4981,7 @@ test("Device Editor palette drops resolve a nearby empty slot through preview ov
     ]
   };
   const context = {
+    ...editorTestBindings(),
     Math,
     Number,
     SLOT_HEIGHT: 54,
@@ -5303,6 +5317,7 @@ test("Power Distro motion completion refreshes the committed plug artwork once",
   for (const isPowerDistro of [true, false]) {
     const renders = [];
     const context = {
+    ...editorTestBindings(),
       editorPlacementMotionScheduler: { cancel() {} }, editorPlacementMotionSampleCache: null,
       editorPlacementMotionClearWhenSettled: true, editorEngineDynamicCardArtworkActive: false,
       editorPlacementMotionState: { entries: new Map([["connector:powerlock", {}]]) },
@@ -5468,6 +5483,7 @@ test("stable host preserves card and adapter drops and palette reordering", () =
 
 test("opt-in Device Editor drop trace exposes bounded native event diagnostics", () => {
   const context = {
+    ...editorTestBindings(),
     editorDeviceDropDebugEnabled: true,
     editorDeviceDropEvents: [],
     editorPaletteDragSession: { connectorType: "32a-3ph", candidate: { connectorId: "slot-in" } },
@@ -5665,6 +5681,7 @@ test("Device Editor resize handlers delegate to detached transactional sessions"
 
 test("Legacy resize navigation keeps the absolute camera center across changing preview bounds", () => {
   const context = {
+    ...editorTestBindings(),
     console,
     Number,
     Object,
@@ -7511,6 +7528,7 @@ test("Device Editor card reorder freezes body height and Fit bounds through owne
   const acceptedLayout = { items: [{ id: "card:slot-a", kind: "card", y: 802, lane: 13, span: 2 }] };
   const finalRenders = [];
   const context = {
+    ...editorTestBindings(),
     console,
     Math,
     Number,
@@ -7648,6 +7666,7 @@ test("Engine Device Editor card motion has one visible owner per installed card"
     ]
   };
   const context = {
+    ...editorTestBindings(),
     Number,
     Math,
     DEVICE_WIDTH: 420,

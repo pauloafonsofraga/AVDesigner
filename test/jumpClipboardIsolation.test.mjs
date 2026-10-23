@@ -3,6 +3,30 @@ import assert from "node:assert/strict";
 import { canvasClipboardFixture } from "../fixtures/canvas-clipboard.mjs";
 import { createCanvasClipboardPayload, prepareCanvasClipboardPaste, applyCanvasClipboardPlan } from "../src/engine/canvasClipboard.js";
 
+test("live Jump undefined and cyclic topology is discarded before clipboard serialization", () => {
+  const {project, bounds} = canvasClipboardFixture();
+  for (const jump of project.jumpNodes) {
+    jump.name = undefined;
+    jump.pairId = undefined;
+    jump.loomOwner = project;
+    jump.multiCoreAssociation = {jump};
+  }
+  const wire = project.connections.find(w => w.from?.jumpNodeId || w.to?.jumpNodeId);
+  if (wire) wire.transient = project;
+  const originals = [...project.jumpNodes];
+  const payload = createCanvasClipboardPayload(project, originals.map(j => ({type: "jump-node", id: j.id})), bounds);
+  const plan = prepareCanvasClipboardPaste(JSON.parse(JSON.stringify(payload)), project, {x: 500, y: 500});
+  assert.equal(plan.additions.jumpNodes.length, originals.length);
+  assert.deepEqual(plan.additions.connections, []);
+  assert.deepEqual(plan.additions.jumpLinks, []);
+  for (const jump of originals) {
+    assert.equal(jump.loomOwner, project);
+    assert.equal(jump.multiCoreAssociation.jump, jump);
+    assert.ok(Object.hasOwn(jump, "pairId"));
+  }
+  assert.ok(plan.additions.jumpNodes.every(j => !Object.hasOwn(j, "pairId") && !j.loomOwner && !j.multiCoreAssociation));
+});
+
 test("copying both paired Jumps creates empty independent nodes, never a copied pair", () => {
   const { project, bounds } = canvasClipboardFixture();
   const before = structuredClone(project);

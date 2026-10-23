@@ -45,13 +45,13 @@ try {
     }
   }
   await page.evaluate(()=>{activeEngineBridge().camera={x:0,y:0,zoom:1};activeEngineBridge().scheduleRender();});await quiet();
-  // Hover rectangles must follow the moved fields, not their original rows.
+  // Fields retain their authored rows even when captions need collision avoidance.
   const hover=await page.evaluate(()=>{
-    const b=activeEngineBridge(),hit=b.renderer.lastConnectorInfoBoxHitRects.find(h=>h.connectorId==='after');
-    const r=b.canvas.getBoundingClientRect();return {key:hit.key,x:r.x+hit.rect.x+hit.rect.width/2,y:r.y+hit.rect.y+hit.rect.height/2};
+    const b=activeEngineBridge(),hit=b.renderer.lastConnectorInfoBoxHitRects.find(h=>h.connectorId==='last');
+    const r=b.canvas.getBoundingClientRect();return {key:hit.key,x:r.x+hit.rect.x+hit.rect.width/2,y:r.y+hit.rect.y+hit.rect.height-2};
   });
   await page.mouse.move(hover.x,hover.y);await quiet();
-  assert.equal(await page.evaluate(()=>activeEngineBridge().renderer.lastConnectorInfoBoxHitRects.find(h=>h.key===activeEngineBridge().hoverState.infoBox?.key)?.connectorId), 'after');
+  assert.equal(await page.evaluate(()=>activeEngineBridge().renderer.lastConnectorInfoBoxHitRects.find(h=>h.key===activeEngineBridge().hoverState.infoBox?.key)?.connectorId), 'last');
   await page.evaluate(()=>openDeviceEditorForInstance('dense'));await page.locator('[data-editor-tab="connectors"]').click();await quiet();
   const editorBefore=await page.evaluate(()=>JSON.stringify(currentEditorTemplate()));
   await page.locator('#editorZoomOut').click();await page.locator('#editorZoomReset').click();
@@ -76,12 +76,14 @@ try {
   const cardBefore=await page.evaluate(()=>JSON.stringify(currentEditorTemplate()));
   const svg=await page.evaluate(()=>{
     const groups=[...deviceEditorPreview.querySelectorAll('[data-card-annotation]')];
-    return groups.map(g=>{const b=g.getBBox(),m=g.transform.baseVal.consolidate()?.matrix;
-      return {key:g.dataset.cardAnnotation,rect:{x:b.x+(m?.e || 0),y:b.y+(m?.f || 0),width:b.width,height:b.height},transform:g.getAttribute('transform'),unresolved:g.dataset.annotationUnresolved};});
+    return groups.map(g=>{const label=g.lastElementChild,b=label.getBBox(),m=label.transform.baseVal.consolidate()?.matrix;
+      const fields=[...g.querySelectorAll('.info-box > rect')].map(r=>({y:Number(r.getAttribute('y')),height:Number(r.getAttribute('height'))}));
+      return {key:g.dataset.cardAnnotation,rect:{x:b.x+(m?.e || 0),y:b.y+(m?.f || 0),width:b.width,height:b.height},
+        transform:g.getAttribute('transform'),captionTransform:label.getAttribute('transform'),anchorY:Number(g.dataset.annotationY),fields};});
   });
   assert.equal(svg.length,2);
-  assert.ok(svg.some(row=>row.transform),'installed-module bus must exercise the SVG collision adjustment');
-  assert.ok(svg.every(row=>row.unresolved==='false'));
+  assert.ok(svg.every(row=>!row.transform),'field rows must never be translated');
+  svg.forEach(row=>row.fields.forEach(field=>assert.equal(field.y+field.height/2,row.anchorY)));
   assert.ok(svg[0].rect.y+svg[0].rect.height<=svg[1].rect.y || svg[1].rect.y+svg[1].rect.height<=svg[0].rect.y
     || svg[0].rect.x+svg[0].rect.width<=svg[1].rect.x || svg[1].rect.x+svg[1].rect.width<=svg[0].rect.x);
   await page.locator('#editorZoomOut').click();await page.locator('#editorZoomReset').click();await quiet();

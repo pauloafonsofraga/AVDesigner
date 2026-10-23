@@ -78,10 +78,11 @@ try {
     const saved = await download(p, '#saveProjectAs', `${from}-before.avd`);
     await open(p); const before = await snapshot(p), start = performance.now();
     await drag(p, "replacement");
-    timings.push({ operation: `reject ${from} to ${to} native drag`, ms: performance.now() - start });
+    await p.locator('[data-card-replacement="cancel"]').click();
+    timings.push({ operation: `cancel ${from} to ${to} native drag`, ms: performance.now() - start });
     assert.deepEqual(await snapshot(p), before);
-    assert.match(notices.join(" "), /cable-1/);
     await p.getByRole("button", { name: "Remove Card", exact: true }).click();
+    await p.locator('[data-card-replacement="cancel"]').click();
     assert.deepEqual(await snapshot(p), before);
     assert.equal(await p.evaluate(() => removeCardSlot(0)), false);
     assert.deepEqual(await snapshot(p), before);
@@ -103,16 +104,18 @@ try {
   assert.deepEqual(await snapshot(p), cancelled, 'dropping outside a card slot must cancel without changing the draft');
   const cables = await p.evaluate(() => JSON.stringify(state.connections));
   await drag(p, 'compatible');
+  await p.locator('[data-card-replacement="proceed"]').click();
   assert.equal(await p.evaluate(() => currentEditorTemplate().cardSlots[0].installedCardTypeId), 'compatible');
   await p.locator('#applyDeviceEditor').click(); await p.locator('#deviceEditorModal').waitFor({ state: 'hidden' });
-  assert.equal(await p.evaluate(() => JSON.stringify(state.connections)), cables);
+  assert.equal(await p.evaluate(() => state.connections.length), 0);
   assert.equal(await p.evaluate(() => JSON.stringify({ library: deviceLibrary, factory: window.WireNexusFactoryCatalogue })), ownership,
     'instance changes must not mutate the project definition or immutable factory');
   await p.evaluate(() => activeEngineBridge().undoEngineCommand());
+  assert.equal(await p.evaluate(() => JSON.stringify(state.connections)), cables);
   assert.equal(await p.evaluate(() => templateForInstance(instanceById('chassis-1')).cardSlots[0].installedCardTypeId), 'original');
   await p.evaluate(() => activeEngineBridge().redoEngineCommand());
   assert.equal(await p.evaluate(() => templateForInstance(instanceById('chassis-1')).cardSlots[0].installedCardTypeId), 'compatible');
-  assert.equal(await p.evaluate(() => JSON.stringify(state.connections)), cables);
+  assert.equal(await p.evaluate(() => state.connections.length), 0);
   await p.close();
 
   const emptyPage = await context.newPage();

@@ -21,6 +21,25 @@ const cageState = port => JSON.stringify(sorted({ type: port.type, physicalType:
   direction: port.signalDirection || port.direction, module: installedModuleDetailsForEngine(port),
   capabilities: installedModuleCapabilities(port), fiberMode: port.fiberMode }));
 
+export function connectedCardReplacements(beforeValue, afterValue) {
+  const before = rootOf(beforeValue), after = rootOf(afterValue), result = [];
+  for (const device of before.devices || []) {
+    const next = after.devices?.find(item => idOf(item) === idOf(device));
+    if (!next) continue;
+    const previous = templateFor(before, device), proposed = templateFor(after, next);
+    for (const slot of previous.cardSlots || []) {
+      const replacement = proposed.cardSlots?.find(item => item.id === slot.id);
+      if (!slot.installedCardTypeId || !replacement || slot.installedCardTypeId === replacement.installedCardTypeId) continue;
+      const ports = new Set(normalizeAvDesignerDevice(before, device).connectors.filter(port => port.cardSlotId === slot.id).map(port => port.id));
+      const wireIds = (before.connections || []).filter(wire => [wire.from, wire.to].some(endpoint =>
+        endpoint?.deviceId === idOf(device) && ports.has(endpoint.connectorId))).map(wire => wire.id);
+      if (wireIds.length) result.push({key:JSON.stringify([idOf(device), slot.id, slot.installedCardTypeId, replacement.installedCardTypeId]),
+        deviceId:idOf(device), slotId:slot.id, wireIds});
+    }
+  }
+  return result;
+}
+
 // Validate proposed definitions before any wire cleanup, project mutation or history.
 // Only devices/slots with changed installed content and their touching cables are resolved.
 export function validateModularCardChanges(beforeValue, afterValue, { includeConnectorChanges = false } = {}) {
@@ -164,7 +183,14 @@ export function validateModularCardChanges(beforeValue, afterValue, { includeCon
   return { valid: errors.length === 0, errors, warnings: [...warnings] };
 }
 
-export function assertSafeModularCardChanges(before, after) {
+export function assertSafeModularCardChanges(before, after, {approvedReplacementKeys = []} = {}) {
+  if (approvedReplacementKeys.length) {
+    const keys = new Set(approvedReplacementKeys), old = rootOf(before), next = rootOf(after);
+    const retained = new Set((next.connections || []).map(wire => wire.id));
+    const removed = new Set(connectedCardReplacements(old, next).filter(change => keys.has(change.key))
+      .flatMap(change => change.wireIds).filter(id => !retained.has(id)));
+    before = {...old, connections:(old.connections || []).filter(wire => !removed.has(wire.id))};
+  }
   const result = validateModularCardChanges(before, after);
   if (!result.valid) throw new Error(result.errors.join("\n"));
   return result;

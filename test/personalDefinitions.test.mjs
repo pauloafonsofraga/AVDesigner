@@ -29,7 +29,8 @@ async function setup(options = {}) {
 
 test("complete personal definition, custom nodes and original artwork survive reload without mutating inputs", async () => {
   const { owner, store, f } = await setup();
-  const draft = { ...factory(), name: "My E2", faceImage: png, thumbnailImage: png, factoryTemplateId: f[0].id };
+  const draft = { ...factory(), name: "My E2", faceImage: png, thumbnailImage: png,
+    backplate:{faceImage:png,faceImageOffsetX:12}, factoryTemplateId: f[0].id };
   draft.connectors[0].type = "custom-control";
   draft.connectors[0].nameText = "Authored connector";
   const custom = { id: "custom-control", label: "RS-232 Custom", color: "#224466", thumbnail: png, custom: true, extraMetadata: { baud: 9600 } };
@@ -38,6 +39,7 @@ test("complete personal definition, custom nodes and original artwork survive re
   const reloaded = (await setup({ store })).owner.entry(draft.id);
   assert.equal(reloaded.definition.name, "My E2");
   assert.equal(reloaded.definition.faceImage, png);
+  assert.deepEqual(reloaded.definition.backplate,draft.backplate);
   assert.deepEqual(reloaded.definition.cardTypes, saved.definition.cardTypes);
   assert.deepEqual(reloaded.definition.cardSlots, saved.definition.cardSlots);
   assert.deepEqual(reloaded.dependencies.nodes.find(n => n.id === custom.id), custom);
@@ -192,6 +194,7 @@ async function editorHarness(mode = "library", knownFactory = true) {
     return elements.get(id);
   };
   const c = vm.createContext({ structuredClone, Map, crypto, localUserSettingsModule: personal, localUserSettingsOwner: owner,
+    editorCardReplacementApprovals:new Set(),editorArtworkSide:"faceplate",
     accountLibraryUi: null, catalogueRevisions: {}, renderLibraryUpdateNotice() {},
     editorCloseGuard: { save: operation => operation() },
     window: { WireNexusEditorLifecycle: { editorDataContent: value => personal.definitionContent(value) } },

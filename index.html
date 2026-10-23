@@ -2359,6 +2359,7 @@
     }
     .editor-unsaved-modal p { margin: 0; padding: 20px 16px; line-height: 1.5; }
     .editor-unsaved-modal .modal-footer { padding: 12px 14px; flex-wrap: wrap; }
+    dialog.modal.editor-card-replacement { height: fit-content; grid-template-rows: auto auto; padding: 0; }
 
     .publish-modal {
       width: min(560px, calc(100vw - 28px));
@@ -5395,7 +5396,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled WireNexus Project" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">54.38.136 — Browser Unsaved Changes</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">54.38.137 — Editor Follow-ups</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5713,6 +5714,8 @@
                   <input id="editorFaceUpload" type="file" accept="image/png,image/jpeg,image/bmp,.bmp" aria-label="Front face image">
                 </label>
                 <div class="faceplate-button-row">
+                  <select id="editorArtworkSide" aria-label="Artwork side"><option value="faceplate">Faceplate</option><option value="backplate">Backplate</option></select>
+                  <button class="tool-button" id="uploadEditorBackplate" type="button">Upload Backplate</button>
                   <button class="tool-button" id="removeEditorFaceImage" type="button">Remove Custom Faceplate</button>
                   <button class="tool-button" id="deleteEditorFaceplate" type="button">Delete Faceplate</button>
                 </div>
@@ -6145,12 +6148,12 @@
   <script src="./src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script src="./src/engine/projectorModelCore.js?v=iteration54-38-11-engine-status-labels"></script>
   <script src="./src/engine/historyCloneCore.js?v=iteration54-38-29-memory-safe-undo"></script>
-  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-136-browser-unsaved-changes"></script>
+  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-137-editor-followups"></script>
   <script type="text/wirenexus-app" id="wireNexusAppSource">
-    const APP_ITERATION = "54.38.136";
-    const APP_BUILD_ID = "iteration54-38-136-browser-unsaved-changes";
-    const APP_MODULE_CACHE_ID = "iteration54-38-136-browser-unsaved-changes-modules";
-    const APP_BUILD_LABEL = `${APP_ITERATION} — Browser Unsaved Changes`;
+    const APP_ITERATION = "54.38.137";
+    const APP_BUILD_ID = "iteration54-38-137-editor-followups";
+    const APP_MODULE_CACHE_ID = "iteration54-38-137-editor-followups-modules";
+    const APP_BUILD_LABEL = `${APP_ITERATION} — Editor Follow-ups`;
     const { cloneHistoryValue, MAX_HISTORY_ENTRIES } = window.WireNexusHistoryClone;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
@@ -6934,6 +6937,8 @@
     let editorDraft = [];
     let editorIndex = 0;
     let editorFaceplateUploadRevision = 0;
+    let editorArtworkSide = "faceplate";
+    const editorCardReplacementApprovals = new Set();
     let editorCloseGuard = null;
     let editorPendingFields = null;
     let editorPreviewZoom = 1;
@@ -8640,6 +8645,7 @@
 
     function updateEditorCardReorderDrag(drag, event) {
       const point = getEditorDragPreviewPoint(event, drag);
+      drag.pointerPoint = point;
       const module = requireDeviceEditorPlacementModule();
       const item = drag.session.snapshot.byId[drag.itemId];
       drag.visualY = point.y - drag.offsetY;
@@ -8684,7 +8690,20 @@
       const color = drag.invalidReason ? "#ef4444" : "#22c55e";
       group.appendChild(createSvg("rect", {x:band.x,y:band.y,width:band.width,height:band.height,rx:6,fill:color,"fill-opacity":.09,stroke:color,"stroke-width":2,"stroke-dasharray":"5 4"}));
       const title = createSvg("title"); title.textContent = drag.invalidReason || "Move card here"; group.appendChild(title);
+      const card = cardTypeById(template, slot.installedCardTypeId);
+      const pointer = drag.pointerPoint || {x:band.x+20,y:band.y+20};
+      const scale = 1 / Math.max(.08, Number(editorPreviewZoom) || 1);
+      const ghost = createSvg("g", {"data-card-reorder-ghost":"true", opacity:.55,
+        transform:`translate(${pointer.x+14*scale} ${pointer.y+14*scale}) scale(${scale})`});
+      ghost.appendChild(createSvg("rect", {x:0,y:0,width:180,height:30,rx:4,fill:"#25323d",stroke:color}));
+      ghost.appendChild(createSvg("image", {x:8,y:8,width:20,height:14,href:SWAPPABLE_CARD_ICON_DATA_URI}));
+      const name = createSvg("text", {x:34,y:20,fill:"#fff","font-size":12,"font-weight":700});
+      name.textContent=card?.name || "Card";
+      ghost.appendChild(name);group.appendChild(ghost);
       parent.appendChild(group);
+      const caption = name.textContent;
+      let end = caption.length;
+      while (end > 0 && name.getComputedTextLength() > 138) name.textContent = caption.slice(0,--end) + "...";
     }
 
     function commitEditorCardReorder(template, drag) {
@@ -13569,6 +13588,10 @@
       const ownedTemplate = editorMode === "instance" && projectCustomTemplateRecordForInstance(instanceById(editorInstanceId));
       if (ownedTemplate) after.deviceLibrary = deviceLibrary.map(template => template.id === ownedTemplate.id
         ? { ...editedTemplate, id: ownedTemplate.id } : template);
+      const replacements = window.WireNexusModularCardSafety.connectedCardReplacements(before, after);
+      const removals = new Set(replacements.filter(change => editorCardReplacementApprovals.has(change.key)).flatMap(change => change.wireIds));
+      before.connections = before.connections.filter(wire => !removals.has(wire.id));
+      after.connections = after.connections.filter(wire => !removals.has(wire.id));
       return includeConnectorChanges
         ? window.WireNexusModularCardSafety.assertSafeConnectorChanges(before, after)
         : window.WireNexusModularCardSafety.assertSafeModularCardChanges(before, after);
@@ -13600,6 +13623,7 @@
 
     function assertEditorConnectedCageChanges(editedTemplate) {
       if (!engineTransceiverApi()) return;
+      const approvedWireIds = new Set(editorApprovedCardReplacementWireIds(editedTemplate));
       const instances = editorMode === "instance"
         ? [instanceById(editorInstanceId)].filter(Boolean)
         : editorMode === "project-template-edit"
@@ -13611,6 +13635,8 @@
         const after = new Map(effectiveTemplateConnectors(editedTemplate).map(connector => [connector.id,
           { ...connector, ...(editorMode === "instance" ? {} : instance.connectorOverrides?.[connector.id] || {}) }]));
         new Set([...before.keys(), ...after.keys()]).forEach(id => {
+          const wires = state.connections.filter(wire => [wire.from,wire.to].some(endpoint => endpoint?.deviceId === instance.instanceId && endpoint.connectorId === id));
+          if (wires.length && wires.every(wire => approvedWireIds.has(wire.id))) return;
           assertConnectedCageModuleUnchanged(instance.instanceId, id, before.get(id), after.get(id));
         });
       });
@@ -13706,6 +13732,7 @@
         before: beforeSnapshot,
         after: afterSnapshot,
         affectedDeviceIds,
+        approvedCardReplacementKeys: [...editorCardReplacementApprovals],
         affectedWireIds: [...wireIds]
       }) === true;
     }
@@ -13727,7 +13754,8 @@
           validateEditorTemplateForApply(editedTemplate, [...serializeNodeLibrary(), ...resolved.nodes]);
           const cardSafety = assertEditorModularCardChanges(editedTemplate, true);
           if (window.WireNexusTransceivers && engineRendererRequested()) assertEditorConnectedCageChanges(editedTemplate);
-          const invalidConnections = invalidConnectionsAfterInstanceDeviceEdit(instance.instanceId, editedTemplate);
+          const replacementIds = new Set(editorApprovedCardReplacementWireIds(editedTemplate));
+          const invalidConnections = invalidConnectionsAfterInstanceDeviceEdit(instance.instanceId, editedTemplate).filter(wire => !replacementIds.has(wire.id));
           if (!confirmDeviceEditorWireRemoval(invalidConnections)) return;
           const beforeSnapshot = deviceEditorEngineSnapshot();
           pushUndo(projectSnapshot({ includeClipboardDependencies: true }));
@@ -13772,6 +13800,7 @@
           pruneEditorOwnedInstanceConnectorOverrides(instance, editedTemplate);
           hydrateDeviceInstance(instance);
           state.connections = state.connections.filter(connection => {
+            if (replacementIds.has(connection.id)) return false;
             if (window.WireNexusMultiCore.isMultiCoreConnection(connection)) return true;
             return connectionEndpointStillExists(connection.from) && connectionEndpointStillExists(connection.to);
           });
@@ -13816,6 +13845,8 @@
             !== JSON.stringify(AVDesignerProjectors.normalizeProjectorTemplate(editedTemplate));
           pushUndo(projectSnapshot({ includeClipboardDependencies: true }));
           installEditorProjectNodes(resolved.nodes);
+          const replacementIds = new Set(editorApprovedCardReplacementWireIds(editedTemplate));
+          state.connections = state.connections.filter(wire => !replacementIds.has(wire.id));
           const existingIndex = deviceLibrary.findIndex(template => template.id === editedTemplate.id);
           if (existingIndex >= 0) deviceLibrary.splice(existingIndex, 1, editedTemplate);
           else deviceLibrary.push(editedTemplate);
@@ -18591,7 +18622,22 @@
       });
     }
 
-    function installCardInSlot(slotIndex, cardTypeId) {
+    function editorCardReplacementChanges(editedTemplate) {
+      if (!engineRendererRequested()) return [];
+      const before = {...state, deviceLibrary};
+      const after = {...before, devices:state.devices.map(instance => {
+        const affected = editorMode === "instance" ? instance.instanceId === editorInstanceId
+          : editorMode === "project-template-edit" && instance.templateId === editorProjectTemplateId && !instance.templateOverride;
+        return affected ? {...instance, templateOverride:editedTemplate} : instance;
+      })};
+      return window.WireNexusModularCardSafety.connectedCardReplacements(before, after);
+    }
+
+    function editorApprovedCardReplacementWireIds(editedTemplate) {
+      return editorCardReplacementChanges(editedTemplate).filter(change => editorCardReplacementApprovals.has(change.key)).flatMap(change => change.wireIds);
+    }
+
+    function installCardInSlot(slotIndex, cardTypeId, approved = false) {
       const template = currentEditorTemplate();
       const slot = template?.cardSlots?.[slotIndex];
       if (!template || !slot) return false;
@@ -18604,6 +18650,22 @@
         }
       }
       const slotId = slot.id;
+      if (engineRendererRequested() && !approved) {
+        const candidate = structuredClone(template);
+        candidate.cardSlots[slotIndex].installedCardTypeId = cardTypeId || "";
+        const replacements = editorCardReplacementChanges(candidate).filter(change => change.slotId === slotId);
+        if (replacements.length) {
+          console.debug("Connected card replacement", replacements);
+          const baseline = JSON.stringify(template), draft = editorDraft;
+          return window.WireNexusEditorLifecycle.confirmCardReplacement(deviceEditorModal).then(proceed => {
+            if (!proceed || currentEditorTemplate() !== template || editorDraft !== draft || JSON.stringify(template) !== baseline) return false;
+            replacements.forEach(change => editorCardReplacementApprovals.add(change.key));
+            const result = installCardInSlot(slotIndex, cardTypeId, true);
+            if (!result) replacements.forEach(change => editorCardReplacementApprovals.delete(change.key));
+            return result;
+          });
+        }
+      }
       const transaction = commitEditorStructuralEdit(template, {
         primaryItemId: `card:${slotId}`,
         renderEditor: true,
@@ -18777,6 +18839,7 @@
         faceImageOffsetX: template.faceImageOffsetX || 0,
         faceImageOffsetY: template.faceImageOffsetY || 0,
         ...(template.faceImageLayout ? {faceImageLayout: structuredClone(template.faceImageLayout)} : {}),
+        ...(template.backplate ? {backplate: structuredClone(template.backplate)} : {}),
         height: deviceHeightForSlotCounts(template)
       });
     }
@@ -18801,6 +18864,8 @@
       // Reopening may be declined by the guard. A caller must not mark that
       // still-active draft as saved after its awaited open was cancelled.
       if (editorCloseGuard?.closed === false) return;
+      editorCardReplacementApprovals.clear();
+      editorArtworkSide = "faceplate";
       editorDependencyContext();
       editorDependencyBaselines = editorDependencyContexts.slice();
       editorLibraryBaseline = structuredClone(editorDraft);
@@ -19029,6 +19094,7 @@
       template.faceImageScaleY = defaults.faceImageScaleY || defaults.faceImageScale || 1;
       template.faceImageOffsetX = defaults.faceImageOffsetX || 0;
       template.faceImageOffsetY = defaults.faceImageOffsetY || 0;
+      if (defaults.backplate) template.backplate = {...template.backplate, ...structuredClone(defaults.backplate)};
       if (engineRendererRequested()) {
         if (defaults.faceImageLayout) template.faceImageLayout = structuredClone(defaults.faceImageLayout);
         else delete template.faceImageLayout;
@@ -19216,6 +19282,19 @@
 
     function syncEditorFaceplateActionControls(template) {
       if (!template) return;
+      if (typeof document !== "undefined") for (const id of ["editorArtworkSide","uploadEditorBackplate"]) {
+        const control = document.getElementById(id);
+        if (control) control.hidden = !engineRendererRequested() || isAdapterTemplate(template);
+      }
+      if (typeof editorArtworkSide !== "undefined" && engineRendererRequested()) {
+        document.getElementById("editorArtworkSide").value = editorArtworkSide;
+        if (editorArtworkSide === "backplate") {
+          removeEditorFaceImage.textContent = "Remove Backplate";
+          removeEditorFaceImage.disabled = !template.backplate?.faceImage;
+          deleteEditorFaceplate.disabled = true;
+          return;
+        }
+      }
       removeEditorFaceImage.textContent = template.faceplateDeleted && !template.faceImage ? "Restore Default Faceplate" : "Remove Custom Faceplate";
       removeEditorFaceImage.disabled = !template.faceImage && !template.faceplateDeleted;
       if (deleteEditorFaceplate) deleteEditorFaceplate.disabled = template.faceplateDeleted === true && !template.faceImage;
@@ -19276,6 +19355,7 @@
       editorFaceplateUploadRevision += 1;
       return {
         revision: editorFaceplateUploadRevision,
+        artworkSide: editorArtworkSide,
         draft: editorDraft,
         index: editorIndex,
         template,
@@ -19301,6 +19381,15 @@
       if (!isEditorFaceplateUploadTargetCurrent(target)) return null;
       if (!prepared?.dataUrl || !Number(prepared.width) || !Number(prepared.height)) {
         throw new Error("Prepared faceplate image metadata is incomplete.");
+      }
+      if (target.artworkSide === "backplate" && engineRendererRequested()) {
+        const before = structuredClone(target.template);
+        target.template.backplate = {faceImage:prepared.dataUrl, faceImageNaturalWidth:prepared.width,
+          faceImageNaturalHeight:prepared.height, faceImageScale:1, faceImageScaleX:1, faceImageScaleY:1,
+          faceImageOffsetX:0, faceImageOffsetY:0};
+        recordEditorPlacementHistory(target.template, before);
+        renderDeviceEditor();
+        return target.template;
       }
       if (engineRendererRequested() && (target.template.faceImage || (!target.template.faceplateDeleted && !isAdapterTemplate(target.template)
         && (target.template.connectors?.length || target.template.cardSlots?.length)))) {
@@ -19345,6 +19434,7 @@
     function applyEditorFaceImageRemoval() {
       const template = currentEditorTemplate();
       if (!template) return null;
+      if (editorArtworkSide === "backplate" && engineRendererRequested()) return removeEditorBackplate(template);
       return commitEditorFaceplateOriginMutation(template, {
         mutate(draft) {
           resetEditorFaceImageFields(draft);
@@ -19367,6 +19457,14 @@
           return {};
         }
       });
+    }
+
+    function removeEditorBackplate(template) {
+      const before = structuredClone(template);
+      delete template.backplate;
+      recordEditorPlacementHistory(template, before);
+      renderDeviceEditor();
+      return template;
     }
 
     function adapterCenterY(template) {
@@ -20311,7 +20409,7 @@
       const previewLock = editorPlacementPreviewLockFor(sourceTemplate);
       const dragLayout = previewLock ? null : editorActiveStableDragLayout();
       draft.height = previewLock?.height ?? deviceHeightForSlotCounts(sourceTemplate, { layout: dragLayout });
-      return draft;
+      return editorArtworkTemplate(draft);
     }
 
     function editorEnginePreviewTemplateClone(template, options = {}) {
@@ -20728,9 +20826,12 @@
       if (editorActiveTab !== "connectors") return null;
       const template = currentEditorTemplate();
       const node = event.target.closest?.("[data-editor-card-connector-id]");
+      const cardBody = event.target.closest?.("[data-editor-card-slot]");
+      const screen = cardBody && !node ? deviceEditorEnginePreviewScreenPoint(event) : null;
+      const preciseHit = screen ? editorEnginePreviewSurface?.hitTestConnector(screen, 4).connector : null;
       const generatedConnectorId = node
         ? `${node.dataset.editorCardSlotId || ""}__${node.dataset.editorCardConnectorId || ""}`
-        : editorEngineConnectorIdFromEvent(event);
+        : cardBody ? String(preciseHit?.connector?.id || "") : editorEngineConnectorIdFromEvent(event);
       return editorInstalledCardConnectorById(template, generatedConnectorId);
     }
 
@@ -21037,6 +21138,8 @@
 
     function drawEditorEngineFaceplateOverlay(parent, template, previewDevice = null) {
       if (editorActiveTab !== "faceplate") return;
+      if (editorArtworkSide === "backplate" && !template.backplate?.faceImage) return;
+      template = editorArtworkTemplate(template);
       if (template?.faceImage) {
         const face = editorFaceImageVisiblePlacement(template);
         drawEditorFaceImageResizeTool(parent, template, face);
@@ -21329,6 +21432,7 @@
     }
 
     function editorFaceplatePreviewBounds(template = currentEditorTemplate()) {
+      template = editorArtworkTemplate(template);
       const width = deviceTemplateWidth(template);
       const fullBounds = editorFullDevicePreviewBounds(template);
       if (!template || isAdapterTemplate(template)) return fullBounds;
@@ -22007,6 +22111,12 @@
       return requireDeviceEditorPlacementModule().faceImageLayout(template);
     }
 
+    function editorArtworkTemplate(template) {
+      if (!engineRendererRequested() || !template?.backplate?.faceImage) return template;
+      if (editorActiveTab !== "connectors" && !(editorActiveTab === "faceplate" && editorArtworkSide === "backplate")) return template;
+      return requireDeviceEditorPlacementModule().backplateArtworkView(template, deviceTemplateWidth(template));
+    }
+
     function editorFaceImageContentBounds(template) {
       if (!engineRendererRequested() || !template?.faceImage) return null;
       const module = requireDeviceEditorPlacementModule();
@@ -22016,7 +22126,7 @@
       if (!cached) {
         const camera = JSON.stringify(editorEnginePreviewSurface?.camera);
         module.prepareFaceplateContentBounds(source).then(result => {
-          if (editorActiveTab !== "faceplate" || deviceEditorModal.classList.contains("hidden") || currentEditorTemplate()?.faceImage !== source) return;
+          if (editorActiveTab !== "faceplate" || deviceEditorModal.classList.contains("hidden") || editorArtworkTemplate(currentEditorTemplate())?.faceImage !== source) return;
           if (result.state === "empty") setStatus("This artwork is fully transparent. Using the full image boundary.");
           if (result.state === "unavailable") setStatus("Artwork boundaries could not be read. Using the full image boundary.");
           if (result.bounds && (result.bounds.width < 1 || result.bounds.height < 1)
@@ -22028,6 +22138,7 @@
     }
 
     function editorFaceImageVisiblePlacement(template) {
+      template = editorArtworkTemplate(template);
       return requireDeviceEditorPlacementModule().faceImageVisiblePlacement(template, deviceTemplateWidth(template), editorFaceImageContentBounds(template));
     }
 
@@ -22726,7 +22837,7 @@
       const move = engineRendererRequested() && event.target.closest("[data-editor-face-image-move]");
       if (!handle && !move) return false;
       const template = currentEditorTemplate();
-      if (!template?.faceImage) return false;
+      if (!editorArtworkTemplate(template)?.faceImage) return false;
       event.preventDefault();
       event.stopPropagation();
       return beginEditorResizeSession(event, {
@@ -22854,7 +22965,8 @@
           if (!sharedBus || sharedBusRepresentative) {
             const annotation = engineRendererRequested() ? createSvg("g", {
               "data-card-annotation": `${connector.id}:${positionSide}`,
-              "data-annotation-x": position.x, "data-annotation-y": sharedBus?.centerY ?? position.y
+              "data-annotation-x": position.x, "data-annotation-y": sharedBus?.centerY ?? position.y,
+              "data-annotation-side": positionSide
             }) : g;
             const fieldAnchorX = position.x + (sharedBus
               ? (positionSide === "input" ? 1 : -1) * EDITOR_SHARED_BUS_FIELD_ANCHOR_OFFSET : 0);
@@ -22953,24 +23065,37 @@
 
     function resolveEditorCardAnnotationCollisions(bounds) {
       const groups=[...deviceEditorPreview.querySelectorAll("[data-card-annotation]")];
-      const rows=groups.map(group=>{
-        const b=group.getBBox();return {key:group.dataset.cardAnnotation,
-          rect:{x:b.x-2,y:b.y-2,width:b.width+4,height:b.height+4},
+      const rows=groups.map(group=>({group,x:Number(group.dataset.annotationX),y:Number(group.dataset.annotationY),
+        side:group.dataset.annotationSide === "output" ? "right" : "left", count:group.querySelectorAll(".info-box").length,
+        left:bounds.x+4,right:bounds.x+bounds.width-4}));
+      rows.forEach(row=>{
+        if (!row.count) return;
+        const {width,gap}=requireDeviceEditorPlacementModule().connectorFieldRowWidth(row,rows,1,editorPreviewZoom);
+        row.group.querySelectorAll(".info-box").forEach((box,index)=>{
+          const rect=box.querySelector("rect"),oldX=Number(rect.getAttribute("x")),oldWidth=Number(rect.getAttribute("width"));
+          const anchor=index===0 ? row.side === "left" ? oldX-18 : oldX+oldWidth+18 : row.x;
+          if (index===0) row.fieldX=anchor;
+          const x=row.side === "left" ? row.fieldX+18+index*(width+gap) : row.fieldX-18-width-index*(width+gap);
+          rect.setAttribute("x",x);rect.setAttribute("width",width);
+          box.querySelectorAll("text").forEach(text=>{
+            text.setAttribute("x",x+width/2);
+            text.style.display=editorPreviewZoom<.5 || width<10 ? "none" : "";
+            const lines=text.querySelectorAll("tspan");
+            (lines.length ? [...lines] : [text]).forEach(line=>{
+              line.setAttribute("x",x+width/2);
+              let value=line.textContent;
+              while(value.length && line.getComputedTextLength()>width-5) {value=value.slice(0,-1);line.textContent=value+"...";}
+            });
+          });
+        });
+      });
+      const captions = groups.map(group => group.lastElementChild).filter(node => node?.tagName === "text");
+      const captionRows = captions.map((label,index) => {
+        const b=label.getBBox();return {key:String(index),rect:{x:b.x,y:b.y,width:b.width,height:b.height},
           bounds:{x:bounds.x+4,y:bounds.y+42,width:bounds.width-8,height:Math.max(1,bounds.height-46)}};
       });
-      const obstacles=[...deviceEditorPreview.querySelectorAll("[data-card-preview-node] > circle")].map(node=>{
-        const b=node.getBBox();return {x:b.x-2,y:b.y-2,width:b.width+4,height:b.height+4};
-      });
-      const placements=requireDeviceEditorPlacementModule().resolveConnectorLabelCollisions(rows,obstacles,2);
-      groups.forEach(group=>{
-        const shift=placements.get(group.dataset.cardAnnotation);
-        group.setAttribute("data-annotation-unresolved", String(shift.unresolved));
-        if(!shift.dx && !shift.dy)return;
-        group.setAttribute("transform", `translate(${shift.dx} ${shift.dy})`);
-        const x=Number(group.dataset.annotationX),y=Number(group.dataset.annotationY);
-        group.parentNode.insertBefore(createSvg("line",{x1:x,y1:y,x2:x+shift.dx,y2:y+shift.dy,
-          stroke:"rgba(125,165,185,.65)","stroke-width":1,"pointer-events":"none","data-annotation-leader":"true"}),group);
-      });
+      const placements=requireDeviceEditorPlacementModule().resolveConnectorLabelCollisions(captionRows,[],2);
+      captions.forEach((label,index)=>{const shift=placements.get(String(index));if(shift?.dx||shift?.dy)label.setAttribute("transform",`translate(${shift.dx} ${shift.dy})`);});
     }
 
     function updateEditorCardAreaBoundary(bounds) {
@@ -23535,14 +23660,14 @@
       const kind = String(options.kind || "");
       if (!template || !["device-height", "generated-faceplate", "custom-face-image", "card-area"].includes(kind)) return false;
       if (kind === "custom-face-image" && editorActiveTab === "faceplate" && engineRendererRequested()
-        && !(Number(template.faceImageNaturalWidth) > 0 && Number(template.faceImageNaturalHeight) > 0)) {
+        && !(Number(editorArtworkTemplate(template).faceImageNaturalWidth) > 0 && Number(editorArtworkTemplate(template).faceImageNaturalHeight) > 0)) {
         setStatus("Artwork dimensions are unavailable. Reload or replace the image before resizing.");
         return false;
       }
       if (editorResizeSession) cancelEditorResizeSession(null, { render: false });
       const artworkOnly = kind === "custom-face-image" && editorActiveTab === "faceplate" && engineRendererRequested();
-      const contentBounds = artworkOnly ? editorFaceImageContentBounds(template) : null;
-      if (artworkOnly && requireDeviceEditorPlacementModule().cachedFaceplateContentBounds(template.faceImage)?.state === "loading") {
+      const contentBounds = artworkOnly ? editorFaceImageContentBounds(editorArtworkTemplate(template)) : null;
+      if (artworkOnly && requireDeviceEditorPlacementModule().cachedFaceplateContentBounds(editorArtworkTemplate(template).faceImage)?.state === "loading") {
         setStatus("Reading artwork boundaries. Try again in a moment.");
         return false;
       }
@@ -23551,6 +23676,7 @@
       const baseline = captureEditorResizeBaseline(template, kind);
       editorResizeSession = {
         kind,
+        backplate: artworkOnly && editorArtworkSide === "backplate" && Boolean(template.backplate?.faceImage),
         ...(artworkOnly ? {artworkOnly:true, contentBounds, coordinateFrame:captureEditorDragCoordinateFrame(event, startPoint)} : {}),
         ...(kind === "card-area" ? {cardId: currentEditorCard().id, cardBounds: editorCardAreaBounds(), coordinateFrame: captureEditorDragCoordinateFrame(event, startPoint)} : {}),
         pointerId: event.pointerId,
@@ -23622,6 +23748,13 @@
 
     function deriveEditorResizePreviewCandidate(session, point = session?.latestPoint) {
       if (!session || !point) return null;
+      if (session.backplate) {
+        const module = requireDeviceEditorPlacementModule();
+        const source = session.baseline.template, width = deviceTemplateWidth(source);
+        const artwork = module.resizeFaceImage(module.backplateArtworkView(source, width), width, session.handle,
+          {x:point.x-session.startPoint.x,y:point.y-session.startPoint.y}, session.contentBounds);
+        return {...structuredClone(source), backplate:module.backplateArtworkFromView(artwork)};
+      }
       if (session.artworkOnly) return requireDeviceEditorPlacementModule().resizeFaceImage(session.baseline.template,
         deviceTemplateWidth(session.baseline.template), session.handle, {x:point.x-session.startPoint.x,y:point.y-session.startPoint.y}, session.contentBounds);
       if (session.kind === "card-area") {
@@ -23667,7 +23800,7 @@
     }
 
     function editorResizeCandidateIsValid(session, candidate) {
-      if (session?.artworkOnly) return Boolean(candidate && editorFaceImageLayout(candidate))
+      if (session?.artworkOnly) return Boolean(candidate && editorFaceImageLayout(editorArtworkTemplate(candidate)))
         && candidate.height === session.baseline.template.height
         && JSON.stringify(candidate.connectors) === JSON.stringify(session.baseline.template.connectors)
         && JSON.stringify(candidate.cardSlots) === JSON.stringify(session.baseline.template.cardSlots);
@@ -35341,6 +35474,19 @@ document.addEventListener("click", function(event) {
     });
     duplicateEditorDeviceButton.addEventListener("click", duplicateCurrentEditorDevice);
     deleteEditorDeviceButton.addEventListener("click", deleteCurrentEditorDevice);
+    document.getElementById("editorArtworkSide").addEventListener("change", event => {
+      cancelEditorResizeSession(null, {render:false});
+      invalidateEditorFaceplateUploadTarget();
+      editorArtworkSide = event.target.value;
+      editorEnginePreviewFitPending = true;
+      renderDeviceEditor();
+    });
+    document.getElementById("uploadEditorBackplate").addEventListener("click", () => {
+      cancelEditorResizeSession(null, {render:false});
+      editorArtworkSide = "backplate";
+      syncEditorFaceplateActionControls(currentEditorTemplate());
+      editorFaceUpload.click();
+    });
     editorFaceUpload.addEventListener("change", event => {
       const [file] = event.target.files;
       if (!file) return;

@@ -10,7 +10,7 @@ export const CONFIGURATION_KEYS = Object.freeze([
   "switchPortCount", "switchPortType", "isPowerDistro", "isMatrixRouter", "isProjector", "projectorLenses",
   "isPartOfPair", "pairedTemplateId", "pairPlaceFirst", "powerWatts", "powerUnit", "faceplateDeleted",
   "powerDistroFaceY", "powerDistroFaceHeight", "manualHeight", "faceImageScale", "faceImageScaleX",
-  "faceImageScaleY", "faceImageOffsetX", "faceImageOffsetY", "faceImageLayout", "height"
+  "faceImageScaleY", "faceImageOffsetX", "faceImageOffsetY", "faceImageLayout", "backplate", "height"
 ]);
 const record = v => v !== null && typeof v === "object" && !Array.isArray(v);
 const empty = () => ({ schemaVersion: 1, builtInDeviceDefaults: {} });
@@ -88,6 +88,7 @@ export function resolveEffectiveBuiltInTemplate(factory, settings, { normalize, 
   try {
     const configuration = compactDeviceConfiguration(entry.configuration);
     const result = Object.assign(fallback(), configuration);
+    if (configuration.backplate) result.backplate = {...factory.backplate, ...configuration.backplate};
     if (result.faceplateDeleted) { delete result.faceImage; delete result.thumbnailImage; }
     const normalizeNodes = device => {
       device.connectors = (device.connectors || []).map(c => ({ ...c, ...normalizeConnectorTopology(c, { deviceWidth: device.width || factory.width }) }));
