@@ -1,0 +1,3206 @@
+{
+  "sourceFile": "wirenexus-device-library (7).json",
+  "sourceSha256": "f95e4d16df94f1293b6b226b21aa24ff91204993c658d91cb49c3799ddd4398b",
+  "packageId": "623584c1cf2b864f20c6711a02cc9377e141a584dbcc8fcd0bb76cf03d74e52a",
+  "additionalPackageIds": [
+    "2c9fac2524fc21b0a4580452639d03293132d80d62c8df5d1616110078cf6302"
+  ],
+  "pairingRepair": {
+    "id": "fiber-extender-rx",
+    "isPartOfPair": true,
+    "pairedTemplateId": "fiber-extender-tx",
+    "authorization": "User confirmed reciprocal Tx/Rx pairing"
+  },
+  "baseline": "e58ed9d2414e073d8129ed89292d6e7b100ba753",
+  "sourceDevices": 128,
+  "sourceNodes": 76,
+  "beforeDevices": 128,
+  "afterDevices": 128,
+  "orderBefore": [
+    "camera-ptz-4k",
+    "matrix-8x8",
+    "barco-e2-gen2",
+    "novastar-mctrl4k",
+    "custom-device-mq7z05by",
+    "custom-device-mq803pb0",
+    "custom-device-mq80gw7y",
+    "custom-device-mq82015i",
+    "custom-device-mq84dpgn",
+    "custom-device-mq939de6",
+    "custom-device-mq93sah6",
+    "custom-device-mq961ujb",
+    "custom-device-mq96wvk9",
+    "custom-device-mq9c2k14",
+    "custom-device-mq9d8b77",
+    "custom-device-mq9dqm7w",
+    "custom-device-mq9f9c3u",
+    "custom-device-mq9fgdlq",
+    "custom-device-mq9k09sh",
+    "custom-device-mqgoe7m3",
+    "custom-device-e2-gen2-copy",
+    "custom-device-e2-gen1-copy",
+    "custom-device-mqiwsva9",
+    "custom-device-mqj3nj49",
+    "custom-device-mqj43gzs",
+    "custom-device-custom-device-copy",
+    "custom-device-mqj4ksjd",
+    "custom-device-m1-dp-hdmi-pro-tx-copy",
+    "custom-device-mqkjqqqd",
+    "custom-device-atem-contellation-4-m-e-4k-copy",
+    "custom-device-mqkpef03",
+    "custom-device-mqkqx8lg",
+    "custom-device-mqkx04yg",
+    "custom-device-mqkx8fji",
+    "custom-device-p20-copy",
+    "custom-device-mqqhbped",
+    "custom-device-mqqhmikz",
+    "custom-device-mqqhtywv",
+    "custom-device-mqqkh3lq",
+    "custom-device-mqqmigja",
+    "custom-device-mqqmmarc",
+    "custom-device-mqv5z17y",
+    "custom-device-mqv6d5lu",
+    "custom-device-mqv6jegr",
+    "custom-device-mqw9yhs8",
+    "custom-device-mqwcg4mc",
+    "custom-device-mqwdo4zp",
+    "custom-device-dm7-copy",
+    "custom-device-dm7-copy-2",
+    "custom-device-mqz417mi",
+    "custom-device-mqz446pi",
+    "custom-device-vx4s-copy",
+    "custom-device-mqz28eyz",
+    "custom-device-mrn1z47g",
+    "custom-device-aquilon-rs2-copy-2",
+    "custom-device-aquilon-rs4-copy-2",
+    "custom-device-aquilon-rs6-copy-2",
+    "custom-device-aquilon-rs-alpha-copy",
+    "custom-device-aquilon-rs1-copy",
+    "custom-device-aquilon-rs2-copy",
+    "custom-device-aquilon-rs3-copy",
+    "custom-device-aquilon-rs4-copy",
+    "custom-device-aquilon-rs5-copy",
+    "custom-device-aquilon-rs6-copy",
+    "custom-device-mqz57vqs",
+    "barco-udx-4k40",
+    "barco-udx-4k22",
+    "custom-device-mtidnv7i",
+    "custom-device-mticfthn",
+    "custom-device-mticgo23",
+    "custom-device-mtichhpp",
+    "custom-device-mticj8aq",
+    "panasonic-pt-rq25k",
+    "christie-griffyn-4k50-rgb",
+    "christie-sapphire-4k40-rgbh",
+    "brompton-tessera-sq200",
+    "brompton-tessera-sx40",
+    "brompton-tessera-s8",
+    "brompton-tessera-qd-s",
+    "brompton-tessera-xd-s",
+    "novastar-novapro-uhd-jr",
+    "125a-soca-distro",
+    "13a-plugboard",
+    "32a-soca-distro",
+    "400a-ses-db",
+    "4k-hdmi-splitter",
+    "dgs-1024d",
+    "fiber-extender-rx",
+    "fiber-extender-tx",
+    "hdmi-to-dvi",
+    "mac-mini-m1",
+    "pixera-two-octo",
+    "prosafe-xs508m",
+    "soca-to-6x-16a",
+    "soca-to-6x-powercon",
+    "custom-device-mvaqvarp",
+    "custom-device-mvevuyh2",
+    "custom-device-ex-2c-copy",
+    "custom-device-ex3-copy",
+    "custom-device-gx3-copy",
+    "custom-device-gx3-copy-2",
+    "custom-device-gx3-copy-3",
+    "custom-device-hippotizer-boreal-mk2-dp-1-2-copy",
+    "custom-device-hippotizer-boreal-mk2-hdmi-2-0-copy",
+    "custom-device-modulo-player-pro-ruggedized-4x4k-copy",
+    "custom-device-modulo-pro-ruggedized-4x4k-copy",
+    "custom-device-mvf4q0db",
+    "custom-device-mvgekxns",
+    "custom-device-v-160hd-copy",
+    "custom-device-vx-4-copy",
+    "custom-device-vx3-copy",
+    "custom-device-vx3-copy-2",
+    "custom-device-vx4-copy-2",
+    "modulo-pi-player-pro-ruggedized-4x4k",
+    "personal-d21bdb6e-18a7-4ec1-9802-bcc383eeaadd",
+    "custom-device-eikos-4k-copy",
+    "custom-device-mvhqsv2w",
+    "custom-device-mvhz2z2t",
+    "custom-device-mvi2qkk6",
+    "custom-device-pulse-4k-copy",
+    "custom-device-quickmatrix-4k-copy",
+    "custom-device-zenith-100-copy",
+    "custom-device-zenith-200-copy-2",
+    "custom-device-e2-gen2-copy-2",
+    "custom-device-hippotizer-boreal-mk2-hdmi-2-0-copy-2",
+    "custom-device-mvjgk74g",
+    "custom-device-q8-copy",
+    "custom-device-v-80hd-copy"
+  ],
+  "updated": [
+    {
+      "kind": "device",
+      "id": "barco-udx-4k22",
+      "name": "UDX-4K22",
+      "changes": [
+        "height",
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "barco-udx-4k40",
+      "name": "UDX-4K40",
+      "changes": [
+        "height",
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "brompton-tessera-qd-s",
+      "name": "Tessera QD-S",
+      "changes": [
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "brompton-tessera-s8",
+      "name": "Tessera S8",
+      "changes": [
+        "height",
+        "connectors",
+        "isLedProcessor",
+        "ledOutputCount",
+        "connectorRelationships",
+        "connectorTopology"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "brompton-tessera-sq200",
+      "name": "Tessera SQ200",
+      "changes": [
+        "connectors",
+        "connectorRelationships",
+        "connectorTopology"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "brompton-tessera-sx40",
+      "name": "Tessera SX40",
+      "changes": [
+        "connectors",
+        "connectorRelationships",
+        "connectorTopology"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "brompton-tessera-xd-s",
+      "name": "Tessera XD-S",
+      "changes": [
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "christie-griffyn-4k50-rgb",
+      "name": "Griffyn 4K50-RGB",
+      "changes": [
+        "height",
+        "connectors",
+        "hasSwappableCards",
+        "cardSlots"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "christie-sapphire-4k40-rgbh",
+      "name": "Sapphire 4K40-RGBH",
+      "changes": [
+        "height",
+        "connectors",
+        "hasSwappableCards",
+        "cardSlots"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-aquilon-rs-alpha-copy",
+      "name": "Aquilon Cmini",
+      "changes": [
+        "connectors",
+        "cardTypes",
+        "cardSlots"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-atem-contellation-4-m-e-4k-copy",
+      "name": "ATEM Contellation 2 M/E 4K Copy",
+      "changes": [
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-dm7-copy",
+      "name": "Rio 1608-D2",
+      "changes": [
+        "height",
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-dm7-copy-2",
+      "name": "Rio 3234-D3",
+      "changes": [
+        "height",
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-e2-gen2-copy",
+      "name": "E2 Gen1",
+      "changes": [
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mq803pb0",
+      "name": "Mac Studios",
+      "changes": [
+        "height",
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mq84dpgn",
+      "name": "P20",
+      "changes": [
+        "height",
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mq93sah6",
+      "name": "M4250 10 Port",
+      "changes": [
+        "height",
+        "connectors",
+        "faceImageScale",
+        "faceImageScaleY",
+        "faceImageOffsetY",
+        "faceImageLayout"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mq961ujb",
+      "name": "Resolume Server",
+      "changes": [
+        "height",
+        "connectors",
+        "faceImageScaleY",
+        "faceImageLayout"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mq96wvk9",
+      "name": "HDMI <> SDI Bi-Directional",
+      "changes": [
+        "height",
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mq9d8b77",
+      "name": "AW-UE100 PTZ",
+      "changes": [
+        "height",
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mq9k09sh",
+      "name": "MX2 48 x 48 HDMI",
+      "changes": [
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mqiwsva9",
+      "name": "MCTRL660 Pro",
+      "changes": [
+        "height",
+        "connectors",
+        "faceImageScale",
+        "faceImageScaleY",
+        "connectorRelationships",
+        "connectorTopology",
+        "faceImageLayout"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mqkjqqqd",
+      "name": "ATEM Contellation 4 M/E 4K",
+      "changes": [
+        "height",
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mqkpef03",
+      "name": "MIG-EC90",
+      "changes": [
+        "height",
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mqkqx8lg",
+      "name": "VX1000",
+      "changes": [
+        "height",
+        "connectors",
+        "connectorRelationships",
+        "connectorTopology"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mqkx04yg",
+      "name": "Mac Mini M2",
+      "changes": [
+        "height",
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mqkx8fji",
+      "name": "Macbook Pro M4 Max",
+      "changes": [
+        "height",
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mqqhtywv",
+      "name": "LA8",
+      "changes": [
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mqqmigja",
+      "name": "LA-PANEL",
+      "changes": [
+        "height",
+        "connectors",
+        "faceImageScale",
+        "faceImageScaleY",
+        "faceImageLayout"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mqqmmarc",
+      "name": "LA-POWER",
+      "changes": [
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mqv6jegr",
+      "name": "LA4X",
+      "changes": [
+        "height",
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mqw9yhs8",
+      "name": "DM7",
+      "changes": [
+        "height",
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mqwcg4mc",
+      "name": "Gigacore 10 Neutrik Duo",
+      "changes": [
+        "height",
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mqwdo4zp",
+      "name": "NA-2I-DLINE",
+      "changes": [
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mqz28eyz",
+      "name": "VX4S",
+      "changes": [
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mqz417mi",
+      "name": "Scarlet Solo 3rd Gen",
+      "changes": [
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mqz446pi",
+      "name": "Fireface UC",
+      "changes": [
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mrn1z47g",
+      "name": "EB-PU2220B",
+      "changes": [
+        "height",
+        "connectors"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mtidnv7i",
+      "name": "PT-RQ50K",
+      "changes": [
+        "height",
+        "connectors",
+        "cardSlots"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-mvhqsv2w",
+      "name": "Spyder X80",
+      "changes": [
+        "cardSlots",
+        "cardTypes",
+        "connectorRelationships",
+        "connectorTopology",
+        "connectors",
+        "hasSwappableCards",
+        "height"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-p20-copy",
+      "name": "P10",
+      "changes": [
+        "connectors",
+        "hasSwappableCards",
+        "cardTypes",
+        "cardSlots",
+        "connectorRelationships",
+        "connectorTopology"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "custom-device-vx4s-copy",
+      "name": "VX2S",
+      "changes": [
+        "height",
+        "connectors",
+        "connectorRelationships",
+        "connectorTopology"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "novastar-novapro-uhd-jr",
+      "name": "NovaPro UHD Jr",
+      "changes": [
+        "height",
+        "connectors",
+        "ledOutputCount",
+        "connectorRelationships",
+        "connectorTopology"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "panasonic-pt-rq25k",
+      "name": "PT-RQ25K",
+      "changes": [
+        "height",
+        "connectors",
+        "cardSlots"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "prosafe-xs508m",
+      "name": "ProSafe XS508M",
+      "changes": [
+        "connectors",
+        "height"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "fiber-extender-rx",
+      "name": "Fiber Extender Rx",
+      "changes": [
+        "isPartOfPair",
+        "pairedTemplateId"
+      ]
+    },
+    {
+      "kind": "device",
+      "id": "fiber-extender-tx",
+      "name": "Fiber Extender Tx",
+      "changes": [
+        "isPartOfPair",
+        "pairedTemplateId"
+      ]
+    }
+  ],
+  "deferred": [],
+  "catalogueBytesBefore": 6804195,
+  "catalogueBytesAfter": 6677776,
+  "assetsAdded": [],
+  "devices": [
+    {
+      "id": "camera-ptz-4k",
+      "name": "PTZ Camera 4K",
+      "brand": "",
+      "fingerprint": "6b3f40bc95efdd1ec02377249f802fd0e7928d63230a539aec786d54956b2e20",
+      "connectors": 2,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {}
+    },
+    {
+      "id": "matrix-8x8",
+      "name": "8x8 Matrix",
+      "brand": "",
+      "fingerprint": "fc1e3305ae3af370535ab2044df4a5e6ee2d4124caa51a43cc4e4835069ffecb",
+      "connectors": 9,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {}
+    },
+    {
+      "id": "barco-e2-gen2",
+      "name": "E2 Gen2",
+      "brand": "Barco",
+      "fingerprint": "e61da2acf5ac14421c38f5c921c6870213ec74fe113bcc31bf64ffe0c20317a5",
+      "connectors": 16,
+      "cards": 7,
+      "slots": 13,
+      "artwork": {
+        "9797eecdb1b40462c458ac4699c6954b2f65850fd7561ecd2ce00dce47a86759": {
+          "bytes": 42409,
+          "mime": "image/png"
+        },
+        "08166e36c42837c2fc8a452b5459413f31f5697149816cb687ef9e3356211a95": {
+          "bytes": 6380,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "novastar-mctrl4k",
+      "name": "MCTRL4K",
+      "brand": "Novastar",
+      "fingerprint": "e2eab867692f0b1e99d54411853c9590cf6eab237014f010ea2330ed6495d517",
+      "connectors": 30,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "0a537823720d8953f0a35d53a10c8e66ae02f53c9cafee78d1f647b8299a1b51": {
+          "bytes": 40213,
+          "mime": "image/png"
+        },
+        "98d817da3919c2e0713f5d1c48df7ec699ea0dfe14d886b9b8635bb86d0c29c0": {
+          "bytes": 3617,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mq7z05by",
+      "name": "Pixera Two",
+      "brand": "AVStumpfl",
+      "fingerprint": "2fe9478d6e3bf0d98f09e766ea155b341e5eb3c4c37bce50275dbc624719f9fc",
+      "connectors": 10,
+      "cards": 10,
+      "slots": 3,
+      "artwork": {
+        "7c37c60e7e71aa0d7d5d15f41eb9e8ca642c54127cb1328de390acd811b0199a": {
+          "bytes": 280363,
+          "mime": "image/png"
+        },
+        "a362cc209a6b20ede4ba1435363c72146529c106765321696a6151e45db5a265": {
+          "bytes": 7009,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mq803pb0",
+      "name": "Mac Studios",
+      "brand": "Apple",
+      "fingerprint": "e7c0d5d5a3fad2450b28e3e73dd005ee60700404cc79d0399931c501f413a8b8",
+      "connectors": 25,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "167a0fd43b9b972bef379a84ad69385ea0f57eca5da50cc0749815dd2a832366": {
+          "bytes": 322408,
+          "mime": "image/png"
+        },
+        "0262dff5dbd49f956fe856158b79ca4c71664112b4fedca60bea1e184fb063ba": {
+          "bytes": 11155,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mq80gw7y",
+      "name": "Laptop",
+      "brand": "Misc.",
+      "fingerprint": "a61b9cf5a3081e314340f2f43ea3d1b37a5c11411bdfcec8c1ec3b7ce3e5a080",
+      "connectors": 8,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "a6860e0469b49fff7bd8873884d4dc57d3c3bd16ceb13c418d266a1d09d9c964": {
+          "bytes": 145331,
+          "mime": "image/png"
+        },
+        "11660f438753ffb7de94fed4535b9dd295ab09e5f43b2c23a5c2d877dc919c2c": {
+          "bytes": 11554,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mq82015i",
+      "name": "Streamdeck XL +",
+      "brand": "Elgato",
+      "fingerprint": "e0eedd62306031ab8296138e6ea26c7673308cf5adb05cd03d78bae49b8a02de",
+      "connectors": 1,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "043d40edf0595dd61844f32f375c5ef05fc7ba298e90eae05742b68f2ba94ff9": {
+          "bytes": 473929,
+          "mime": "image/png"
+        },
+        "1ef940e626c534429552829c8958a4722365c386bbc35c4257d8eb6a0c24c520": {
+          "bytes": 41214,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mq84dpgn",
+      "name": "P20",
+      "brand": "PixelHue",
+      "fingerprint": "a830668c439cda511a208b34ea2ed6b1563f7f381a5f3f3969764caf8b92db1a",
+      "connectors": 54,
+      "cards": 9,
+      "slots": 0,
+      "artwork": {
+        "aec84c985834836c9fb4bd11717088045bb93b473d275701f8fe28f6219c61b6": {
+          "bytes": 543135,
+          "mime": "image/png"
+        },
+        "8822ac9ed36877fc610b8f0dbf91b74304baff393c548f19429d5708cb0f3a4d": {
+          "bytes": 10855,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mq939de6",
+      "name": "USB-C >> HDMI",
+      "brand": "",
+      "fingerprint": "186836e242205fc92a348d5c5d222f867a7cda73274b3a45b906f4e7299ea1fe",
+      "connectors": 2,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {}
+    },
+    {
+      "id": "custom-device-mq93sah6",
+      "name": "M4250 10 Port",
+      "brand": "Netgear",
+      "fingerprint": "54d4cafd4844c2480441cdf20e7c7d626279aef0196914592899824a32426b8e",
+      "connectors": 16,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "4b55b2f43f832be28184fa0aa38e552196a399ee2107db25252a39307ed1d33e": {
+          "bytes": 146087,
+          "mime": "image/png"
+        },
+        "5e0bddc75da541f1b8fab1d3ab60767f2ca80ae277b78544c32bbf5b6b03b278": {
+          "bytes": 4946,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mq961ujb",
+      "name": "Resolume Server",
+      "brand": "",
+      "fingerprint": "dc31d55f7d54966c73b279fe241199ba18ee0f59ff6041cee3b21c01c151be29",
+      "connectors": 11,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "5ef1efec572f56b09bc652906e6da396de868448a5f8ff95c47a174fb682afb8": {
+          "bytes": 1401441,
+          "mime": "image/png"
+        },
+        "e5976847e59021da9d95fd60e7008b70963cd447c8bf943a729e0f217e0542b5": {
+          "bytes": 12163,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mq96wvk9",
+      "name": "HDMI <> SDI Bi-Directional",
+      "brand": "Blackmagick Design",
+      "fingerprint": "c27726c24948e02e4b46913e87d37dd0272d7a6e2322434f8e2623d8bdc1a974",
+      "connectors": 5,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "df6bf10850a11a1287421fb2f3dc229233cd06ce32b767753f6ebfb0364d28d0": {
+          "bytes": 204248,
+          "mime": "image/png"
+        },
+        "6eece09b609c358744bb11181d17a279b3b3dedcf024529d824394c4f1e39f53": {
+          "bytes": 29346,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mq9c2k14",
+      "name": "Monitor",
+      "brand": "",
+      "fingerprint": "b5eb6581f91abc971d0ff791f6cfc3628b40fb58a96564de28623f0f16b30b45",
+      "connectors": 4,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "9c50d833ea6b7359959ef5f91f80129dc421c098fb34b2512c15679dbd7a94b7": {
+          "bytes": 224828,
+          "mime": "image/png"
+        },
+        "0afa7f83af27bb0c363d97502b6e5d652ab00ef46e171dcb287682e38e36f292": {
+          "bytes": 6438,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mq9d8b77",
+      "name": "AW-UE100 PTZ",
+      "brand": "Panasonic",
+      "fingerprint": "d4c557f46fbe66ce471858c9fac61e260501e478d969c4f4212672347b9728c9",
+      "connectors": 8,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "cdd37c796de7c6d60bd05f14f1a7727547f96cb1926170ffd237e9d5c7e62a0e": {
+          "bytes": 138647,
+          "mime": "image/png"
+        },
+        "8f39323675a00e8bee25a2356f4e71b7518c783569b5b854204d50828615bcd9": {
+          "bytes": 5322,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mq9dqm7w",
+      "name": "HDMI DA",
+      "brand": "Theatrixx",
+      "fingerprint": "87597ce91a105ee052d426f8c011f702030e2aef4454c3abbce05377d5a0bfe1",
+      "connectors": 6,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "81d8d91544074ccf68937b10da3bd269a34787fee4b9907d5ce1bc708aea34ca": {
+          "bytes": 170103,
+          "mime": "image/png"
+        },
+        "79e33261b70ab1205af9eba4c672bea73630ea7297e020645de03c6bb41cf683": {
+          "bytes": 6030,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mq9f9c3u",
+      "name": "63A > 4 x Soca + 3 x 16A 1Ph",
+      "brand": "Solas",
+      "fingerprint": "888a5642fe5a5d43c71166fde6ddc78ce0f82dd77c35a0934a731f1b3928ffe1",
+      "connectors": 8,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {}
+    },
+    {
+      "id": "custom-device-mq9fgdlq",
+      "name": "Soca >> 6 x 16A 1Ph",
+      "brand": "Solas",
+      "fingerprint": "ceea922f6daa45a68f8af96a7abb348aefb051f7b7edcff2d0c0270205ddc526",
+      "connectors": 7,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {}
+    },
+    {
+      "id": "custom-device-mq9k09sh",
+      "name": "MX2 48 x 48 HDMI",
+      "brand": "Lightware",
+      "fingerprint": "ef7c676b02131bce2117b4fde4239b9aac79ec16c6afd9c474738f76339aa0ca",
+      "connectors": 99,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "d855302ef432509313ecfaaac0fa91d3da65078fb57f8ea2cf20b8c0127317f3": {
+          "bytes": 1399623,
+          "mime": "image/png"
+        },
+        "580cb3b93aa83060373abad8f23e7ad294eadedd649f3e9465d1d01dc8be0929": {
+          "bytes": 27770,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqgoe7m3",
+      "name": "MicroCue 3",
+      "brand": "Interspace Industries",
+      "fingerprint": "c0114df28a4a7100b6d9b4d0b4d13f3569001e50f44eb81e19600cb09fb8f7ed",
+      "connectors": 5,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "a38966412813313e77b386bd18d4a8dad4046705e8ef9c70399636adb47e277a": {
+          "bytes": 174520,
+          "mime": "image/png"
+        },
+        "e8fab7a09eb0ab4a9d04f5c61bd09016310e867b21687a7db902c1a569acadfc": {
+          "bytes": 5997,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-e2-gen2-copy",
+      "name": "E2 Gen1",
+      "brand": "Barco",
+      "fingerprint": "50305fa4bf0c3c8602877d085ac00927b6bdf96a2cc45a862059ec50eecf86bb",
+      "connectors": 16,
+      "cards": 12,
+      "slots": 13,
+      "artwork": {
+        "006d0a2355cf7d585cd0788ccbeef3b029e312170bae14b8b188750d79756f2b": {
+          "bytes": 41867,
+          "mime": "image/png"
+        },
+        "63f1a49fa07a16f0ab34b71f6a4a7fc4d21869bfcf8c7f1616b00d07799de965": {
+          "bytes": 6399,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-e2-gen1-copy",
+      "name": "S3",
+      "brand": "Barco",
+      "fingerprint": "97d94feb6c26098c17dc382503ce2fc96764f5986e41ff09c479c26e4ed0a97c",
+      "connectors": 14,
+      "cards": 12,
+      "slots": 6,
+      "artwork": {
+        "43a5aa43fc6e3e635b501623cf92c79411c52ca82051861a4275703d89e5214f": {
+          "bytes": 34289,
+          "mime": "image/png"
+        },
+        "e21e0ed6d36b336fc18cda6dec273de3b52f703b0ee0a0731cfd8178bd280a57": {
+          "bytes": 5134,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqiwsva9",
+      "name": "MCTRL660 Pro",
+      "brand": "Novastar",
+      "fingerprint": "4843952dccf1692f44d05dc8bb29838fad1dc8642505cb52270039e7928ce51a",
+      "connectors": 21,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "d10b471a3c56d8c45c7057e283bdacafea452f08dd25c92917b1f2bae4ad680b": {
+          "bytes": 197778,
+          "mime": "image/png"
+        },
+        "c731b47de7be0ce31e7f7dfd73764256ffb46fec5330ebb36bcf35ef59ec3063": {
+          "bytes": 3721,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqj3nj49",
+      "name": "ACM200",
+      "brand": "Blustream",
+      "fingerprint": "3db1dadbc47759ab9b172d5796224e920cea5f7353884e9bc9dfe1487c1028de",
+      "connectors": 5,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "51253220b41bb6ff3b19c3854ede82c8afcfdbc2ceb602fb6046f0022a922f68": {
+          "bytes": 741131,
+          "mime": "image/png"
+        },
+        "ea7c07c004204a6944bfd2887fff8f50ae57e2bbac5cdc703f9fee32cf787971": {
+          "bytes": 8828,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqj43gzs",
+      "name": "IP50HD-RX",
+      "brand": "BluStream",
+      "fingerprint": "be6306bde6c92c8ed7127895ffa7d4303faade87e35ce549662f0b50b316823c",
+      "connectors": 9,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "19497c3a66e53079429a620a760d9b2b0598edc71dfddb9a4e4c44be9dfd1af7": {
+          "bytes": 124455,
+          "mime": "image/png"
+        },
+        "35c77e1b108dcf4d867a7fc58d9fe71f9d288871dc6404754c55be4558dc9a37": {
+          "bytes": 5574,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-custom-device-copy",
+      "name": "IP50HD-TX",
+      "brand": "BluStream",
+      "fingerprint": "ef4893a177a166928268f0972926e98e0a3038a47096dbb68db962bfed8bbdfa",
+      "connectors": 10,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "393a8f91261f0de1805c1caa6e1381519e62077c1b547705d195467cc249f4e1": {
+          "bytes": 131326,
+          "mime": "image/png"
+        },
+        "77735a0549809111106c2dbe1809988f2cdbd3437d5a56386d77e5e9a8fdb98b": {
+          "bytes": 5464,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqj4ksjd",
+      "name": "M1-DP&HDMI-Pro TX",
+      "brand": "Beetek",
+      "fingerprint": "c6e933bc0e4203e74431f0ef893f21581f869c221624924553367a86ea01589f",
+      "connectors": 10,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "033e4dcbff6c91e93c2ccbc0ae4f6ffbac97e3438ba527a89d15e5ecd30ba275": {
+          "bytes": 223518,
+          "mime": "image/png"
+        },
+        "a58cbf52c50ab2f313790cc6dc32121eb9b083fc1e5b4c5839df739db42631ae": {
+          "bytes": 18507,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-m1-dp-hdmi-pro-tx-copy",
+      "name": "M1-DP&HDMI-Pro RX",
+      "brand": "Beetek",
+      "fingerprint": "792062d0acbb7590fffed0867d021274a60e40e41fb9ca82f7888e5fb20f9575",
+      "connectors": 11,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "033e4dcbff6c91e93c2ccbc0ae4f6ffbac97e3438ba527a89d15e5ecd30ba275": {
+          "bytes": 223518,
+          "mime": "image/png"
+        },
+        "a58cbf52c50ab2f313790cc6dc32121eb9b083fc1e5b4c5839df739db42631ae": {
+          "bytes": 18507,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqkjqqqd",
+      "name": "ATEM Contellation 4 M/E 4K",
+      "brand": "Black Magic Design",
+      "fingerprint": "ace7458ba9d162cb3926da438dbc816662a1534f6b2774498de82e7d30b21a08",
+      "connectors": 84,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "933488806183ae32d153ba61d978857dbbf45bdca7adb1b528be2aa2149b44bf": {
+          "bytes": 348399,
+          "mime": "image/png"
+        },
+        "967113164d2f4f2f2b89a51ec4883589a4fd004dd5d1f1203598f9263dc92570": {
+          "bytes": 7770,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-atem-contellation-4-m-e-4k-copy",
+      "name": "ATEM Contellation 2 M/E 4K Copy",
+      "brand": "Black Magic Design",
+      "fingerprint": "7eba8e3f9b7b5050575a3a2f66f2ddc1d215794771c79a803e0ee29df93340e3",
+      "connectors": 40,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "48790f75124d1757cc4d8c2c5e75caf16dbfad617522b7722f31d3a8e9d9daa0": {
+          "bytes": 463831,
+          "mime": "image/png"
+        },
+        "b684899f00ee3473af0c379ab691682000efc0ecadb8344e7fb648546c36ea0b": {
+          "bytes": 5169,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqkpef03",
+      "name": "MIG-EC90",
+      "brand": "Magnimage",
+      "fingerprint": "a778fbe18aef5207d83038fa9d8ebd72607e39ec165f78b4ba6b6d38ab762e89",
+      "connectors": 22,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "e9306c824552d0f9f32e13afcf8656a14eeda6a93893cc1d8c12b067e9888d33": {
+          "bytes": 638399,
+          "mime": "image/png"
+        },
+        "d6c5d59e0953e664f8499efec6784b17a4bafafcd9e42cd5c4db7cf96af82953": {
+          "bytes": 22253,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqkqx8lg",
+      "name": "VX1000",
+      "brand": "Novastar",
+      "fingerprint": "a198d052e47f2f4e19d83b63c5e545a48c5c4ffe48bcc5945859864c431da710",
+      "connectors": 27,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "d28c77b2938c442c2fe80b6c5ad311ddab0c10db9e0d38b4a276eb5d8c9e36c0": {
+          "bytes": 1119703,
+          "mime": "image/png"
+        },
+        "94485b1ea79d25a788a8b513b9b9be3f3c4361de1223076256be7b918eae6e0d": {
+          "bytes": 4270,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqkx04yg",
+      "name": "Mac Mini M2",
+      "brand": "Apple",
+      "fingerprint": "72609ab1a4e2303feec9014b0cc64fd751c42711d2138a47337c688f34bd51c7",
+      "connectors": 10,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "96ef9b7fdc8da88910d408772bb9a1b0c82e6d8dd4a5ac8b4740286798458ce5": {
+          "bytes": 860015,
+          "mime": "image/png"
+        },
+        "e23bbd03d3d6ad757d7f4697657e14bfc73f235d00b0bc92aa71fb72eac8c9df": {
+          "bytes": 12190,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqkx8fji",
+      "name": "Macbook Pro M4 Max",
+      "brand": "Apple",
+      "fingerprint": "3e03204fefd0bfbb5186aff5f9eb1a64754f0cb9ce02c41cfa37f65c2f21eb52",
+      "connectors": 6,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "5841aaf012a50831286bbaf046475e8317f0c8e9d6cbac3cf269006a481e88dc": {
+          "bytes": 1405638,
+          "mime": "image/png"
+        },
+        "5c394523be8bc5d7ce62b28ac70c4779436b94cb2fada3f1a7b73310855a1839": {
+          "bytes": 16261,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-p20-copy",
+      "name": "P10",
+      "brand": "PixelHue",
+      "fingerprint": "884447f844ab10a0dfdd10726db13770e1018e52c1716d76c96989a4ec1aa2fd",
+      "connectors": 36,
+      "cards": 1,
+      "slots": 0,
+      "artwork": {
+        "8ab55c278217b5932541ce2e321ccaeb7308536366e40c178878845c8236217e": {
+          "bytes": 91034,
+          "mime": "image/png"
+        },
+        "32ebae4e602d5f580a55ad05ff26521dfd64509bac115104483e3a1c10d8985d": {
+          "bytes": 7596,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqqhbped",
+      "name": "Kara II",
+      "brand": "L'Acoustics",
+      "fingerprint": "846dd9f1a96e016a11a2029b21b1e6ea2decb31a16a73aae0023022a7fdcae22",
+      "connectors": 2,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "654ad534c2831cb4de527783a1b5c933e62a7f6d9a259018179c6552ee48315d": {
+          "bytes": 148674,
+          "mime": "image/png"
+        },
+        "50333e9e9f9c1c617de135f7bb6c3b7febf26012f58a886dcb66bb2c6444e21b": {
+          "bytes": 10794,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqqhmikz",
+      "name": "SB18",
+      "brand": "L'Acoustics",
+      "fingerprint": "49fb1e557f8f75594423d7e8917e8d3ef24884391ed3d4bc25f09b2091ab00ad",
+      "connectors": 2,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "bb60e25f2c9a4fd3065d519f475f8f9a41b2701af18cace44ca16d51fdfc2f40": {
+          "bytes": 173452,
+          "mime": "image/png"
+        },
+        "119babd03d41a7d7c53e16d8ba9b22d8fa8af2822bab98dd82f4fd3739fa2418": {
+          "bytes": 17026,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqqhtywv",
+      "name": "LA8",
+      "brand": "L'Acoustics",
+      "fingerprint": "24b079de2c021600051a673f58c88ede3d9086457d030c20efd81cf7b513101a",
+      "connectors": 12,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "c03e5bff7a5a073717f656c1fdfd91e3f37c3c3e645df2c831364fc14453741d": {
+          "bytes": 176078,
+          "mime": "image/png"
+        },
+        "fb4bd7df703aca3d030a0357dc96c2c236a36f35b6548e016cbd52ac4193f3f2": {
+          "bytes": 7954,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqqkh3lq",
+      "name": "LA-PANEL AES3",
+      "brand": "L'Acoustics",
+      "fingerprint": "bddd557bb1202c21257197ea0a7ab3b3241bfbc32c9d3972d846c7c6693e73a2",
+      "connectors": 6,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "305af8133bf605cb3e37df485cb05f24c218e7ceca1651376db0432029da2815": {
+          "bytes": 575594,
+          "mime": "image/png"
+        },
+        "c1235e0efc136b97f78e3db3ddec9701f3ccd6f9f6da42df33068346be7dee21": {
+          "bytes": 2864,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqqmigja",
+      "name": "LA-PANEL",
+      "brand": "L'Acoustics",
+      "fingerprint": "d5981607a521f2d400b2104b2afa8b803f42241668cacdd20468bf17e8652038",
+      "connectors": 6,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "357f7255898e498a9475abae3ab777985cfb278a9df8ba517725c77be78a1a68": {
+          "bytes": 497084,
+          "mime": "image/png"
+        },
+        "4f2f6a6aefd6bcc97b804e93a7308c5bd51fd929f5e35b4179a5e73a0f1a89d5": {
+          "bytes": 4480,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqqmmarc",
+      "name": "LA-POWER",
+      "brand": "L'Acoustics",
+      "fingerprint": "f734c8054428b5039af8d0c4a98b1dcf6f759d1d00968cb77663451c754802b1",
+      "connectors": 7,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "c59b75db343bc7670457454f59cec92d17baecff9fa85f08c90bd1d2939b513d": {
+          "bytes": 541766,
+          "mime": "image/png"
+        },
+        "9d6ec37c93734f40c7ef03b761fb99064140f6b03bd82eb5f5b9fc2b42ed33ce": {
+          "bytes": 5260,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqv5z17y",
+      "name": "X12",
+      "brand": "L'Acoustics",
+      "fingerprint": "f41dacd9ea6e186a81a606bab6fbbbdb8a809a2b3a600cf177ce767b0120b060",
+      "connectors": 2,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "3de118c29aa4fc72cc3f5db34e178934dde6d2bf8e5a8e80c030e74448467a08": {
+          "bytes": 851683,
+          "mime": "image/png"
+        },
+        "f7c71ce9194f98866dd660a5c1ef5bf3e450bb202c8a8f59f808abad1538fbc7": {
+          "bytes": 29509,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqv6d5lu",
+      "name": "X8",
+      "brand": "L'Acoustics",
+      "fingerprint": "e4e82f12c3145cebf0c55473a63c211a520c23bc203760177f7ee2fd7fac50e0",
+      "connectors": 2,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "1672a3a67f9182e8e3143d4d66f8d81220c2ba7be76f33e1936ed9f46a3a9477": {
+          "bytes": 101270,
+          "mime": "image/png"
+        },
+        "5e8387b0574921b55ce53559dba503ad170654f2c5855de365ffb89bd8d26070": {
+          "bytes": 18750,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqv6jegr",
+      "name": "LA4X",
+      "brand": "L'Acoustics",
+      "fingerprint": "5e2397b2473247f106944cc4f266e7aa8cc7722714713d582b46315622295db0",
+      "connectors": 15,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "644f7dcd0690af5d8efb217c1a612a28e626ba552147d24e04c238946f20abb7": {
+          "bytes": 155694,
+          "mime": "image/png"
+        },
+        "8f2b11ed5736764462580ad4328c42b955bc6a889e78adfe553c949366633516": {
+          "bytes": 5348,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqw9yhs8",
+      "name": "DM7",
+      "brand": "Yamaha",
+      "fingerprint": "600f71f962044bf93a627589c2c6b33b2a5b5626c9a1aecdb074d8f54ab15d3c",
+      "connectors": 62,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "0f1348149188571bed53f4a55eae2bfa48b2971138121f88e035d3ebdf315530": {
+          "bytes": 4886691,
+          "mime": "image/png"
+        },
+        "86251a391c0b57c9c53776a5567292391814b8a7796d3b12398f589f08a9acd1": {
+          "bytes": 26423,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqwcg4mc",
+      "name": "Gigacore 10 Neutrik Duo",
+      "brand": "Luminex",
+      "fingerprint": "6877c79c08364da5193bc9c25e1562eba050079797cbf606c3725eb772b7b99d",
+      "connectors": 11,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "0d609bc3621ac9e7f157ac85bb59134ce78776522d72d02639aae946b1fa7028": {
+          "bytes": 371281,
+          "mime": "image/png"
+        },
+        "cd380ea9cf8a96f1cb9501da51679bce716c30fe006ee9f8ae48eeba1dfbd4d7": {
+          "bytes": 13640,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqwdo4zp",
+      "name": "NA-2I-DLINE",
+      "brand": "Neutrik",
+      "fingerprint": "8a412ba808f9c29d01fa4ffb2bcc0886c330099d7c5a5c8418a9a03532a0ece2",
+      "connectors": 5,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "390a1b42b1b1934afa56ce21969cb7cebe8169e102c2c72326c94f757d57272c": {
+          "bytes": 153570,
+          "mime": "image/png"
+        },
+        "ffdec6a274f2d324fb0406c3a9afd054ca9120b58f6b5c28ea2fdb6e0df5b41f": {
+          "bytes": 10489,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-dm7-copy",
+      "name": "Rio 1608-D2",
+      "brand": "Yamaha",
+      "fingerprint": "5dab7095e39ff7fa133b4d8c988f3e4ebfacbfed7d1f7000d8f1468cc7e9361f",
+      "connectors": 28,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "64d286b1ff69c5cf17dd117070e5efb5aab009194543aa905e8da45f541eada1": {
+          "bytes": 640354,
+          "mime": "image/png"
+        },
+        "52c8d0c38de698522f2bd2b19d5e0344b4e532a1d912da09e30e68972a945a30": {
+          "bytes": 14040,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-dm7-copy-2",
+      "name": "Rio 3234-D3",
+      "brand": "Yamaha",
+      "fingerprint": "bdb8bbbe22fae7b64d80ee4798b16eda661389af6ecb19196cf2635190806400",
+      "connectors": 61,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "5d4fcfff8c13ee53616997c57e983a199c00dddeaea8ca336c9e218a0b085fee": {
+          "bytes": 5336425,
+          "mime": "image/png"
+        },
+        "8061991fe9de00cc672d8add6be8e424eb437c8bf781f711bac8cd86b656ad7b": {
+          "bytes": 25841,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqz417mi",
+      "name": "Scarlet Solo 3rd Gen",
+      "brand": "Focusrite",
+      "fingerprint": "9d4acdd66478086496102abb1b3bd2e53474474e46b0066e4b06e12fde58e4ee",
+      "connectors": 6,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "3554f8ad501f3da36e37b645e190f7fe2a533ccd744b5798fe3243b79f726bd3": {
+          "bytes": 1206449,
+          "mime": "image/png"
+        },
+        "fc25351b13c68f58b518a91c9ae431ab0afb2cd62a84614d7a54cf40e10af8ee": {
+          "bytes": 25612,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqz446pi",
+      "name": "Fireface UC",
+      "brand": "RME",
+      "fingerprint": "6c13d9e5eddb6e37abd65d7b81ff509d29485688606b7252b4fa31ae6d6c27bb",
+      "connectors": 23,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "83236ae0bd1a0ece2277d10703600dba75804e7de4aed04703a5e7fed34ddde1": {
+          "bytes": 882967,
+          "mime": "image/png"
+        },
+        "1497ec2d255634f7ae5ab839df80c28cf3ee969ca6d3f9f20656636a6c53a6cb": {
+          "bytes": 25425,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-vx4s-copy",
+      "name": "VX2S",
+      "brand": "Novastar",
+      "fingerprint": "f8829d47eddcf99475ce6a7e3a8243fbd765ac18bae3f9bd05126496d9401502",
+      "connectors": 17,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "af94ae621005d682e7af7eb2ca117aeaad5c5c54366c1e23ce60768dac8478b9": {
+          "bytes": 552768,
+          "mime": "image/png"
+        },
+        "3f3b51337e771a199cc2aa74ea5e05de5f3c7d19f29924573b144b4f029a2044": {
+          "bytes": 13761,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqz28eyz",
+      "name": "VX4S",
+      "brand": "Novastar",
+      "fingerprint": "a439b1990dc3ce241be41e72fa3934a200094b1f3f139036d2e02df3ac70867e",
+      "connectors": 19,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "af94ae621005d682e7af7eb2ca117aeaad5c5c54366c1e23ce60768dac8478b9": {
+          "bytes": 552768,
+          "mime": "image/png"
+        },
+        "3f3b51337e771a199cc2aa74ea5e05de5f3c7d19f29924573b144b4f029a2044": {
+          "bytes": 13761,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mrn1z47g",
+      "name": "EB-PU2220B",
+      "brand": "Epson",
+      "fingerprint": "3241c377cf3f966e61ee6661cda68fdf625c8cc7d68fe7288befc6cbf03b1a89",
+      "connectors": 13,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "0bfca097b6593b103748a228ca5134f43f52e60f1a215f606a84ac57fbc03642": {
+          "bytes": 5934,
+          "mime": "image/webp"
+        },
+        "d313faf632cb435e3a7c39e9a476303688dab867dafdabcf939f6e1f99a3e4a5": {
+          "bytes": 21093,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-aquilon-rs2-copy-2",
+      "name": "Aquilon C",
+      "brand": "Analog Way",
+      "fingerprint": "534a55e31c2f2284e7de4dd8abced649df2c445a84a6d7f7446279dd1291d414",
+      "connectors": 5,
+      "cards": 21,
+      "slots": 10,
+      "artwork": {
+        "326a3d340c7da6f251d0a0749a4598b022eef52c5e56738db75a1307c09cd01d": {
+          "bytes": 921457,
+          "mime": "image/png"
+        },
+        "b7b48a284e14b57eb9db13e9fe73ef3cec72ddef96a18a0eee70c54b3d1db603": {
+          "bytes": 40127,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-aquilon-rs4-copy-2",
+      "name": "Aquilon C +",
+      "brand": "Analog Way",
+      "fingerprint": "0cd4ed44c3964d6cde16b0e4d5cd504fc08f991148a72b87353921c74a45f7c7",
+      "connectors": 5,
+      "cards": 21,
+      "slots": 13,
+      "artwork": {
+        "84008737391e494d2a48eadc87a77d36e2ffbfb40387c7dbaeb82447eacf46b2": {
+          "bytes": 1052447,
+          "mime": "image/png"
+        },
+        "2b477d5f44068990bb25d88411c4513280dffabd51d6f6e8df75e654929f01ee": {
+          "bytes": 43499,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-aquilon-rs6-copy-2",
+      "name": "Aquilon Cmax",
+      "brand": "Analog Way",
+      "fingerprint": "ef479a0e0fd9d1deaddcaabf3d0299a6dd43ff80b3c21f6406537015d26ad5fd",
+      "connectors": 5,
+      "cards": 21,
+      "slots": 16,
+      "artwork": {
+        "a524790445aacffdd4df5f0c27388c373969d3184d14c305d2de7af338313b73": {
+          "bytes": 1184937,
+          "mime": "image/png"
+        },
+        "46351815db91c41799c9916813bb8de465b86c907e4f64fc10d6215349d0a306": {
+          "bytes": 48416,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-aquilon-rs-alpha-copy",
+      "name": "Aquilon Cmini",
+      "brand": "Analog Way",
+      "fingerprint": "705c8b9f261879a78804b21dcc1bb4e2210834bf1c2f31cdfde3990dc37657a9",
+      "connectors": 4,
+      "cards": 21,
+      "slots": 7,
+      "artwork": {
+        "2dfd5e809b94741c77103467eeec5be7448015f12d0c5181817b1792a5ac4493": {
+          "bytes": 765262,
+          "mime": "image/png"
+        },
+        "7f2d096117f773b828ae24ffe6d6b8d459138ad409e403f46e7ec06900691b9e": {
+          "bytes": 34586,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-aquilon-rs1-copy",
+      "name": "Aquilon RS Alpha",
+      "brand": "Analog Way",
+      "fingerprint": "fabe38217e94a73303d295d091eade47cc94f3dab5113bfa8f36fd3458ac8b6d",
+      "connectors": 5,
+      "cards": 21,
+      "slots": 6,
+      "artwork": {
+        "cd63c748ccbb84c47771e01814809788f32ef81e2ec35bbccb299c139e463d04": {
+          "bytes": 924568,
+          "mime": "image/png"
+        },
+        "b15b7a956c7fab2340092b41bc441493475a79d1fb94ab118649f3154c8a9856": {
+          "bytes": 40311,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-aquilon-rs2-copy",
+      "name": "Aquilon RS1",
+      "brand": "Analog Way",
+      "fingerprint": "e223c3704bc3e5c8fdef73042c6ce92ff2f15d2688d6989246260fd8bf632c55",
+      "connectors": 5,
+      "cards": 21,
+      "slots": 9,
+      "artwork": {
+        "eda723b1aae46c90a55507557de57b66425546458f99550e706e7c8f37ec1ead": {
+          "bytes": 923319,
+          "mime": "image/png"
+        },
+        "cb25b3d7e722cec830346912e8c923a775a3fd304bffda3fa6c7ac3991cd930a": {
+          "bytes": 40198,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-aquilon-rs3-copy",
+      "name": "Aquilon RS2",
+      "brand": "Analog Way",
+      "fingerprint": "4bd7d7cc0ff21905c3dfcc315ee7d2e3bba150ef0e776f7adb144d9428be2561",
+      "connectors": 5,
+      "cards": 21,
+      "slots": 10,
+      "artwork": {
+        "4396d8c0cde689d9f3d06fd0da3997963edf7a7b28866b46b676d6ab1bbca060": {
+          "bytes": 923296,
+          "mime": "image/png"
+        },
+        "771798ddd2e8a21e0f79258e27fc89788845e68cebf2720e1467e49586d472f9": {
+          "bytes": 40204,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-aquilon-rs4-copy",
+      "name": "Aquilon RS3",
+      "brand": "Analog Way",
+      "fingerprint": "2b3e8c5458c2426328f8d05c7430b44bd29e7a5815632f640c1dd6647c38f814",
+      "connectors": 5,
+      "cards": 21,
+      "slots": 12,
+      "artwork": {
+        "8018f1f81f72a0fd85033c2fb6366d72f59156c59311383807d7f0dd876b1853": {
+          "bytes": 1054779,
+          "mime": "image/png"
+        },
+        "d24a3d06784f90d0658c8557199ca2fe9d6b5650f4d47fa1ab0739015e30c178": {
+          "bytes": 42628,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-aquilon-rs5-copy",
+      "name": "Aquilon RS4",
+      "brand": "Analog Way",
+      "fingerprint": "ca04172d89c15b8391914a3288e3ec54aa55ecdd3053ae0baa0f7b7086a421ea",
+      "connectors": 5,
+      "cards": 21,
+      "slots": 13,
+      "artwork": {
+        "04de05ff64cc0ac04d02e5bc203ca92177db78d3dc982cb950e551d7b032f87c": {
+          "bytes": 1055199,
+          "mime": "image/png"
+        },
+        "149546267f29aa78a8deb8b2c724af78ef54876f3c0f7a1df3e057b8a4c8266a": {
+          "bytes": 43560,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-aquilon-rs6-copy",
+      "name": "Aquilon RS5",
+      "brand": "Analog Way",
+      "fingerprint": "ea37ba51671aefda24678dd8885243f6cf770aff6ef7969d17845c0cc05fdc95",
+      "connectors": 5,
+      "cards": 21,
+      "slots": 15,
+      "artwork": {
+        "76f17f2293876fcce9583e2deaba83d5151fae94cbf6d0e75ca550c6341c4afb": {
+          "bytes": 1184949,
+          "mime": "image/png"
+        },
+        "3fd1f5bb262d9b863774ef28ea9c0600d32e53d4fd24f95ccd7a0ed06c3b287c": {
+          "bytes": 48360,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mqz57vqs",
+      "name": "Aquilon RS6",
+      "brand": "Analog Way",
+      "fingerprint": "765edcd313e73e3e0bee0edae8a5995595eb18ee47acec89094ab555aa33a392",
+      "connectors": 5,
+      "cards": 21,
+      "slots": 16,
+      "artwork": {
+        "150f0e8b37e3d86241583722e3be57d9871e12a010e72a01fc5d1d2005109bf2": {
+          "bytes": 1185337,
+          "mime": "image/png"
+        },
+        "7b3d3a60ca9cfeeb836b11d4d525b520d000b58b192607fa1947e3c45748f60c": {
+          "bytes": 48368,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "barco-udx-4k40",
+      "name": "UDX-4K40",
+      "brand": "Barco",
+      "fingerprint": "957bcc7f53044e7ccd1ad10ff3d69d4c54c12c59675fc921f7eed227ceb1b76d",
+      "connectors": 22,
+      "cards": 2,
+      "slots": 1,
+      "artwork": {
+        "d6f9b60111ceffb5afc9b809a8fe2b156aee6577ce3b9941debd26d4dbcdac8a": {
+          "bytes": 1645649,
+          "mime": "image/png"
+        },
+        "fe4d706a857b3c2f5c2702749e358caeccb7448b11b392a35628011e3e29c9cc": {
+          "bytes": 69238,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "barco-udx-4k22",
+      "name": "UDX-4K22",
+      "brand": "Barco",
+      "fingerprint": "aefcc6d8b800c16511d900da9ff1dadca0a5e70a775990f4b9909df499192d3e",
+      "connectors": 22,
+      "cards": 2,
+      "slots": 1,
+      "artwork": {
+        "4488ac0f6eb815577fb4bf618bc18d61344acbed1276663a1095ac4e7cb3009c": {
+          "bytes": 1629847,
+          "mime": "image/png"
+        },
+        "b6d9c3407288246c6fcb6fe6b56d8b9e30c8be9868893bc0fbe61947e0455003": {
+          "bytes": 68886,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mtidnv7i",
+      "name": "PT-RQ50K",
+      "brand": "Panasonic",
+      "fingerprint": "0609440c488910dc1fdae33afb31b7b2efd2cb5952f338406c95f78f0b861ab6",
+      "connectors": 18,
+      "cards": 5,
+      "slots": 1,
+      "artwork": {
+        "d72d2214a5b18716c2dbb232347ec155007d06ad8ae492b79c6e5f3875aa59bf": {
+          "bytes": 303245,
+          "mime": "image/png"
+        },
+        "8b33141f662a4bdeb10aa41934e8693f2ea65045bdb5b8df2b5028ebc42fbe67": {
+          "bytes": 31351,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mticfthn",
+      "name": "USB-C to HDMI",
+      "brand": "",
+      "fingerprint": "d4e4b7eb75b5480f6fdbf8bd52db3fcc3928ad9dd2e359a362ad37c8abb6a899",
+      "connectors": 2,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {}
+    },
+    {
+      "id": "custom-device-mticgo23",
+      "name": "USB-C to Display Port",
+      "brand": "",
+      "fingerprint": "84abb432dcb90f9be99a3d9ed4c35ab4b13bd459b2b80b9cb6afc075ca4b9dbb",
+      "connectors": 2,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {}
+    },
+    {
+      "id": "custom-device-mtichhpp",
+      "name": "USB-C to Mini DisplayPort",
+      "brand": "",
+      "fingerprint": "e0c9b74d3404ea072b284b091db49576170a056cd72f6e64fcd70db43ec7c98c",
+      "connectors": 2,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {}
+    },
+    {
+      "id": "custom-device-mticj8aq",
+      "name": "Mini DP to DP",
+      "brand": "",
+      "fingerprint": "9661c2bd67b665e93d8ee3c0dd378335c94c13c201691863896741b54bb8ea73",
+      "connectors": 2,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {}
+    },
+    {
+      "id": "panasonic-pt-rq25k",
+      "name": "PT-RQ25K",
+      "brand": "Panasonic",
+      "fingerprint": "140ae7bcf18f4880ad26b096917e04315d7d5f05232aa94c2c4c99a3fb18926c",
+      "connectors": 16,
+      "cards": 4,
+      "slots": 1,
+      "artwork": {
+        "1985d9ff312556db39226e4380096af05f736bddb8f0e5d9c3c5378781a5757c": {
+          "bytes": 1499451,
+          "mime": "image/png"
+        },
+        "5ea865fb453816cddd9dea7fe0ecb89774517aa41bf67bc184ce0cfed8957bd9": {
+          "bytes": 41005,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "christie-griffyn-4k50-rgb",
+      "name": "Griffyn 4K50-RGB",
+      "brand": "Christie",
+      "fingerprint": "efe9cc7abdbd3d37d8d1c6392cfc5eaa3b8d63382b78107aa21c59b00f833911",
+      "connectors": 32,
+      "cards": 2,
+      "slots": 1,
+      "artwork": {
+        "b8b7ac6eae37f265a3fdf3f02366ad9ee2c99509f010c41f5d83b48d2e85ed99": {
+          "bytes": 1519973,
+          "mime": "image/png"
+        },
+        "406af0b9b51cbe385b688e841cd9b739041c79190130c6e72a8509dabed7f5e1": {
+          "bytes": 41736,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "christie-sapphire-4k40-rgbh",
+      "name": "Sapphire 4K40-RGBH",
+      "brand": "Christie",
+      "fingerprint": "af3085e2e891b93aec44fd401b357fd432af05d1c2f5808a48f2c31723ea5027",
+      "connectors": 32,
+      "cards": 2,
+      "slots": 1,
+      "artwork": {
+        "b8b7ac6eae37f265a3fdf3f02366ad9ee2c99509f010c41f5d83b48d2e85ed99": {
+          "bytes": 1519973,
+          "mime": "image/png"
+        },
+        "406af0b9b51cbe385b688e841cd9b739041c79190130c6e72a8509dabed7f5e1": {
+          "bytes": 41736,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "brompton-tessera-sq200",
+      "name": "Tessera SQ200",
+      "brand": "Brompton",
+      "fingerprint": "3dd0725cfc31f4d29adb3f65012de36e7a46ec110b0d9e26abac844a729982e0",
+      "connectors": 23,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "3027f9981df67dcb2964ed8d0173ed64376cfcd2a9b73699892c9d02fc425b92": {
+          "bytes": 969640,
+          "mime": "image/png"
+        },
+        "d16b1894437b214b6f486d9154d564ac1ec8b7f82df4483f752a2c04fb719ba5": {
+          "bytes": 24891,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "brompton-tessera-sx40",
+      "name": "Tessera SX40",
+      "brand": "Brompton",
+      "fingerprint": "856e3f3f1b7e23eb157637e6f7cd81d16c289f5d64799dedbc0d94f26344400c",
+      "connectors": 24,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "91d45ba4e70467dc4828766db6236167c6d282514ab21621b3d153436acce301": {
+          "bytes": 953282,
+          "mime": "image/png"
+        },
+        "6e460a9db5ff6c7224ea248d7d310980c00bb34b8af06a091a845404520e4d25": {
+          "bytes": 21285,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "brompton-tessera-s8",
+      "name": "Tessera S8",
+      "brand": "Brompton",
+      "fingerprint": "903426d8b16985af4f53fe1916b9aea3f91307043caf414e2cdaa1f018b2bbc2",
+      "connectors": 24,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "a7c36dd1240a997fa5f0784fffbbc042fd841c70359060ae2991d74768789161": {
+          "bytes": 953093,
+          "mime": "image/png"
+        },
+        "a9093a0e6874e19c81a469e29a2301d7e2e30cb825d8dbccb3fe136d9a2a9063": {
+          "bytes": 21284,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "brompton-tessera-qd-s",
+      "name": "Tessera QD-S",
+      "brand": "Brompton",
+      "fingerprint": "3741f082fe5cc8bc7dab15e231291fbefb7a51859566de5032ddaba930aaff41",
+      "connectors": 15,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "60b899f08cc80b0baf34808379c6f8806e5ff62a02e9171e78449f6e0d21ad9a": {
+          "bytes": 836030,
+          "mime": "image/png"
+        },
+        "2850af89d7778844e6b8f79ae7f082e718d3b08c17ca15bdd3ce9365e3cd07ae": {
+          "bytes": 22868,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "brompton-tessera-xd-s",
+      "name": "Tessera XD-S",
+      "brand": "Brompton",
+      "fingerprint": "f8d0dfe55429ba2737bec68b5b8ee9451df3dba7d1c861779cbde399eb8f4bca",
+      "connectors": 15,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "99e2f1c6890eb77e03ba469ea552bfa864f4e2ec5e5cce2702049395d2bb1324": {
+          "bytes": 825090,
+          "mime": "image/png"
+        },
+        "970701cf197dd3fcc95f697a52c994ec4f878b5b32b76e46a8d2b50c74823763": {
+          "bytes": 22672,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "novastar-novapro-uhd-jr",
+      "name": "NovaPro UHD Jr",
+      "brand": "Novastar",
+      "fingerprint": "7e17cddc871cf49d83600c755b729fead443068a0a0d8be0120ce991a0b630bd",
+      "connectors": 38,
+      "cards": 1,
+      "slots": 0,
+      "artwork": {
+        "6ceddf88b8141e317c10fb535114d67d86639a2e3f3bb6dd1a8141dcce1071cd": {
+          "bytes": 687654,
+          "mime": "image/png"
+        },
+        "798b856a2cc43feded0308a606097fcc249298e55adfa4dade544241d1720fe6": {
+          "bytes": 20938,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "125a-soca-distro",
+      "name": "125 to 1x 63A | 2x 32A | 4x Soca | 5x 16A",
+      "brand": "",
+      "fingerprint": "a631a4a63850423132bf3f6dbe5e3e6b919bf53ef5e1e9733ccd621714a1f818",
+      "connectors": 13,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {}
+    },
+    {
+      "id": "13a-plugboard",
+      "name": "13A Plugboard",
+      "brand": "",
+      "fingerprint": "435ee9c6dfecc47bf47092707f55b4a7bdf3c8e4021e1cb42ea4507742c97e7b",
+      "connectors": 7,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {}
+    },
+    {
+      "id": "32a-soca-distro",
+      "name": "32A to 2x Soca | 3x 16A",
+      "brand": "",
+      "fingerprint": "655dbd7b3f483b602fe3df574402b523c0998bc52dda28161b9dbee40a16e469",
+      "connectors": 6,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {}
+    },
+    {
+      "id": "400a-ses-db",
+      "name": "400A SES DB",
+      "brand": "",
+      "fingerprint": "5d362716bc118169833aac7218486de306cb56b45deb7b0dccadadc538c415d4",
+      "connectors": 22,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {}
+    },
+    {
+      "id": "4k-hdmi-splitter",
+      "name": "4K HDMI Splitter",
+      "brand": "DTech",
+      "fingerprint": "1a27a703758a6872881587633fedf35c6278ae708b6c4a0f9c54351d5b3b66ca",
+      "connectors": 10,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "a7932304ebd8c8377e11b164077154fe1a260e835ced7c0bbe91bf7348ce5904": {
+          "bytes": 531181,
+          "mime": "image/png"
+        },
+        "f645dad0dbff693a888af9d5b6a8a2e9d4fbe68068983522746e7b8685f22751": {
+          "bytes": 13810,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "dgs-1024d",
+      "name": "DGS-1024D",
+      "brand": "D-Link",
+      "fingerprint": "46564a4d083d3bec6bc306f2790b4c32dbbfe4dd7c20d67aa5caa9c13b6d4c8b",
+      "connectors": 25,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "52694fbd5ad7e598eda8e5807a75e8437bec4a1010861b486f98fd8abb26469c": {
+          "bytes": 60825,
+          "mime": "image/png"
+        },
+        "8f2d6c6dc62f5af42d453b0b931f2308a2acf410fa6ebbdd448643be5420cecd": {
+          "bytes": 14208,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "fiber-extender-rx",
+      "name": "Fiber Extender Rx",
+      "brand": "HDCTV",
+      "fingerprint": "c1d5a51637f29a5c5e6bf8fbb0ece7387864ba897a8845c48e80f74c585ce38b",
+      "connectors": 8,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "8e9f362681427d1a50c9a03a3e7c060ade3f7576a0a62c7318f5d302f3e61198": {
+          "bytes": 295929,
+          "mime": "image/png"
+        },
+        "ca965c5c5d4e2fa5eb48c232171c8f842ae2d6dd462736c81259c413c7ea8c03": {
+          "bytes": 11179,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "fiber-extender-tx",
+      "name": "Fiber Extender Tx",
+      "brand": "HDCTV",
+      "fingerprint": "3e507457aa5a1ea43b55e38972dfa65946534ac53e1655a0db2a2f94cd42357f",
+      "connectors": 9,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "87e5cca90b0516047f61104fec8d0049684f77813f9d6ae883fe750350f18881": {
+          "bytes": 298072,
+          "mime": "image/png"
+        },
+        "f599424515035243e1a631de595d5cfe9f6df6119252f6408fdb9272c332df9b": {
+          "bytes": 12536,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "hdmi-to-dvi",
+      "name": "HDMI to DVI",
+      "brand": "",
+      "fingerprint": "13d821799560d2e5f9bfeab699b2b9833fb10aa0eb51b314556cbec38c1a6e34",
+      "connectors": 2,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {}
+    },
+    {
+      "id": "mac-mini-m1",
+      "name": "Mac Mini M1",
+      "brand": "Apple",
+      "fingerprint": "2d816ccb433a5f64418df93a8a9b8cc4cfaf241166672866ccefaa51f56fc08d",
+      "connectors": 8,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "f6bc20bacafe1fb55c7eb28df433834b841cadd70bf389e82889aa559851349a": {
+          "bytes": 130083,
+          "mime": "image/png"
+        },
+        "f54ba446a5eb8dcbacb22a106a54d39b5edb96e48ae7d8bd8400dd88bfe0a1ce": {
+          "bytes": 14315,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "pixera-two-octo",
+      "name": "Pixera Two Octo",
+      "brand": "AVStumpfl",
+      "fingerprint": "7245b64b0951231a3ed1c8c874e29c18d1918f0bcb5958d637212e57133b2e86",
+      "connectors": 10,
+      "cards": 10,
+      "slots": 5,
+      "artwork": {
+        "7c37c60e7e71aa0d7d5d15f41eb9e8ca642c54127cb1328de390acd811b0199a": {
+          "bytes": 280363,
+          "mime": "image/png"
+        },
+        "a362cc209a6b20ede4ba1435363c72146529c106765321696a6151e45db5a265": {
+          "bytes": 7009,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "prosafe-xs508m",
+      "name": "ProSafe XS508M",
+      "brand": "Netgear",
+      "fingerprint": "b6ed57322962fb6667ee046219c8eaeef8122a832d787636038b7d6583ad8b28",
+      "connectors": 10,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "88a7654d94d9dd699d4d9fac51425b422fe02fce97514939f61b6a5cfba10849": {
+          "bytes": 692861,
+          "mime": "image/png"
+        },
+        "ed955549f8afc24659e5a3f3319a4aff6015494e2e645f4dbeba7d589ecb0339": {
+          "bytes": 15954,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "soca-to-6x-16a",
+      "name": "Soca to 6x 16A",
+      "brand": "",
+      "fingerprint": "4f2162c1c716dd9ea4a5b884d03a11104e1ffd2751fa2895a3605d11dcb9923c",
+      "connectors": 7,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {}
+    },
+    {
+      "id": "soca-to-6x-powercon",
+      "name": "Soca to 6x powerCON",
+      "brand": "",
+      "fingerprint": "3c693a73def9d576d697738564216336261455f7bd42afa85e6b78f48ef73f4f",
+      "connectors": 7,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {}
+    },
+    {
+      "id": "custom-device-mvaqvarp",
+      "name": "Helios",
+      "brand": "Megapixel",
+      "fingerprint": "ad0c630459c9e8c75cb16ddc6f7eefa8d05047f058ceab151db8648fc89457ed",
+      "connectors": 15,
+      "cards": 3,
+      "slots": 2,
+      "artwork": {
+        "05b1606bcc03ef0540ee18f3bb905ef37a17858377c0756a9c451056d0b48527": {
+          "bytes": 360367,
+          "mime": "image/png"
+        },
+        "6180e29e2db5186e9859f0283e616c184c8b8f25c521b9740758f9093e4d8dae": {
+          "bytes": 11501,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mvevuyh2",
+      "name": "RS12",
+      "brand": "Megapixel",
+      "fingerprint": "3a007dc39fd0005a796eeff3dd3e2d1cd424040f257d96639ca24f9f35334f4f",
+      "connectors": 14,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "eb28ea61b70ca2fb7cf68ff6c15eb69e991d61883b91e11382b5a32eeab844b8": {
+          "bytes": 693710,
+          "mime": "image/png"
+        },
+        "42704e2e9c85a6e1a094b3ce7f991cbc275023b719523936dd689eef6b75f43b": {
+          "bytes": 17396,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-ex-2c-copy",
+      "name": "EX 2",
+      "brand": "Disguise",
+      "fingerprint": "fb886b4352e23447a5a242d57ebd2a490c86e4ff8df4233d30b9d32090cae0ed",
+      "connectors": 13,
+      "cards": 5,
+      "slots": 0,
+      "artwork": {
+        "b4342a4c48b5967fbd36991824be24c36dd5f3bfad10f2a347550dbb31ae6efb": {
+          "bytes": 57952,
+          "mime": "image/png"
+        },
+        "05ba982b62ff55261fd4b9569cff739bed7f697e2c9028e7a35fa27418843e3d": {
+          "bytes": 14049,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-ex3-copy",
+      "name": "EX 2C",
+      "brand": "Disguise",
+      "fingerprint": "90a5366e63e887b3d0db1710f9a37a9c73e44ea65c5ea322ab5dfa2733d8d353",
+      "connectors": 17,
+      "cards": 5,
+      "slots": 0,
+      "artwork": {
+        "b2f313dbcb7bec86660faf3a74110544e70fff525bcc068c91c28a57d3ce2a9b": {
+          "bytes": 58479,
+          "mime": "image/png"
+        },
+        "4a733134a61d984d34bca68f16103ac1cccc456c76d71259d1eb58afbed88f7c": {
+          "bytes": 14427,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-gx3-copy",
+      "name": "GX 3",
+      "brand": "Disguise",
+      "fingerprint": "86d7640644ae720d93b21f83405408313c2437e092eb00266d047ef64601a78f",
+      "connectors": 35,
+      "cards": 5,
+      "slots": 3,
+      "artwork": {
+        "18e0c37e1c8a7af35c05df72eaed677529a08785a47c12bd4e4f6f17cf99c76e": {
+          "bytes": 3010382,
+          "mime": "image/png"
+        },
+        "5038c1abb4529c1375cbfab1444ed08ed0d1f4d4cde721bd3a683b6ead7cd7a3": {
+          "bytes": 55891,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-gx3-copy-2",
+      "name": "RX III",
+      "brand": "Disguise",
+      "fingerprint": "01fae0fdbb835fba4b58883c696e618d55d893baa22fa7915cc7dcd70e8fa531",
+      "connectors": 9,
+      "cards": 1,
+      "slots": 0,
+      "artwork": {
+        "b2d9591993b3a862605709fc6cd92455a96489aad4bc032935058634809d2b0e": {
+          "bytes": 708205,
+          "mime": "image/png"
+        },
+        "4c8e417530538a91073f8c4830c0656a1113feeb71ca829df53a5d81f22d433a": {
+          "bytes": 16423,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-gx3-copy-3",
+      "name": "EX 3+",
+      "brand": "Disguise",
+      "fingerprint": "9c65e48663fce154f81c0e0f3167f9fe832f4bfaa0001813c9ee3e78716ba519",
+      "connectors": 18,
+      "cards": 5,
+      "slots": 0,
+      "artwork": {
+        "bcd3ce6f6861e4a3fb92ee9f73197b8eb1fd90fddb60d344e6b6fa752b958129": {
+          "bytes": 57128,
+          "mime": "image/png"
+        },
+        "b282af9d347cc38f834ac0f0594c92c1c7e6d583b2f4da57b821e7970cf1be7b": {
+          "bytes": 14735,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-hippotizer-boreal-mk2-dp-1-2-copy",
+      "name": "Hyco MX",
+      "brand": "Green Hippo",
+      "fingerprint": "18c2cebe1574ff825984fa6a0b7c38364bec215445a36fc31f357a0cdc622172",
+      "connectors": 20,
+      "cards": 6,
+      "slots": 7,
+      "artwork": {
+        "1ff820589e210b99067fdfc124bdf622b7b87aa7511fd1e6ffd8088112b6cc84": {
+          "bytes": 1773588,
+          "mime": "image/png"
+        },
+        "6d063a82525f3cb5347e54ecbf6fef2e577e387e12c4a4a0b8a1c31eb72cdcd6": {
+          "bytes": 33373,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-hippotizer-boreal-mk2-hdmi-2-0-copy",
+      "name": "Hippotizer Boreal+ MK2 (DP 1.2)",
+      "brand": "Green Hippo",
+      "fingerprint": "1f8e36a25f06548fd1a91460bf7a06d51d66ecc94d969da3b3d9a439eaf7ec18",
+      "connectors": 23,
+      "cards": 1,
+      "slots": 0,
+      "artwork": {
+        "485be3b2e3550ccad5f1d44e2b49a45a7a65633ac8fcb26fdb27efd0998245ac": {
+          "bytes": 174068,
+          "mime": "image/png"
+        },
+        "a9043538431d58703bac72d79942bf3827bdf0aa77cb48c60205073c265a12b6": {
+          "bytes": 39806,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-modulo-player-pro-ruggedized-4x4k-copy",
+      "name": "Modulo Kinetic V-Node Ruggedized (4x4K)",
+      "brand": "Modulo Pi",
+      "fingerprint": "29dc0c0439f38940935c3e094ea46975b137ce6a6e9176174c396ec7689ca9b8",
+      "connectors": 12,
+      "cards": 15,
+      "slots": 8,
+      "artwork": {
+        "1292ab4efdf634c510b9b82c889dc3d1f669cc32094231a950dd7cb5ab585bc6": {
+          "bytes": 665502,
+          "mime": "image/png"
+        },
+        "2de0c5f7b9fe2d9d68a98ce75f69b812f011d3d4da86cf93d2eb5d5151846bef": {
+          "bytes": 44974,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-modulo-pro-ruggedized-4x4k-copy",
+      "name": "Modulo Kinetic Designer Ruggedized",
+      "brand": "Modulo Pi",
+      "fingerprint": "728d9b1fbfed70df64fdfd5a0de1dee70550688d469c965c302bfdbdf0795d44",
+      "connectors": 10,
+      "cards": 15,
+      "slots": 3,
+      "artwork": {
+        "1292ab4efdf634c510b9b82c889dc3d1f669cc32094231a950dd7cb5ab585bc6": {
+          "bytes": 665502,
+          "mime": "image/png"
+        },
+        "2de0c5f7b9fe2d9d68a98ce75f69b812f011d3d4da86cf93d2eb5d5151846bef": {
+          "bytes": 44974,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mvf4q0db",
+      "name": "Q8",
+      "brand": "PixelHue",
+      "fingerprint": "addb47ced70533b207c49aabdf463cfc5beeffbc9b3a811250d9ea62fb92e166",
+      "connectors": 25,
+      "cards": 7,
+      "slots": 10,
+      "artwork": {
+        "4caaffe1562c399a218d194844b4060ea7d42df086c451d7d7710277f1b9a83d": {
+          "bytes": 277851,
+          "mime": "image/png"
+        },
+        "46557d74861e221b2a8ba7a42d2faab8f2c570e9c72f17dbd419c7bcbad1f397": {
+          "bytes": 50467,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mvgekxns",
+      "name": "V-160HD",
+      "brand": "Roland",
+      "fingerprint": "89f817dbfa6d2e4856e53cab8fdc5cd07937b583a5581a9df91bda1630bd914d",
+      "connectors": 39,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "98cdff4aead11deef57c33ffa0c1b0430c12093fa81334dae0134614fd14dfa9": {
+          "bytes": 929204,
+          "mime": "image/png"
+        },
+        "d5903367d88871045f7d0157815654ee91ce9fdb819055e4ed952b67eabaddb0": {
+          "bytes": 50482,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-v-160hd-copy",
+      "name": "V-80HD",
+      "brand": "Roland",
+      "fingerprint": "ea0ced929a7687e7ffd9941056a6ff4e9004082065f823c643f1b1946a98a81a",
+      "connectors": 28,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "1b7a8fe00a1b96bd9f601b040157c3b13f775149a717f65e0ca06ef53a736e24": {
+          "bytes": 954981,
+          "mime": "image/png"
+        },
+        "4cb8d56feee1f522eebdf5a23334e585bda55bb1a96c596d2f2076cde380aaf3": {
+          "bytes": 56995,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-vx-4-copy",
+      "name": "Hippotizer Boreal+ MK2 (HDMI 2.0)",
+      "brand": "Green Hippo",
+      "fingerprint": "5a288c1ecef9485fd65a8a53147441743c7f306e49e900ad21399f702641bf33",
+      "connectors": 23,
+      "cards": 1,
+      "slots": 0,
+      "artwork": {
+        "485be3b2e3550ccad5f1d44e2b49a45a7a65633ac8fcb26fdb27efd0998245ac": {
+          "bytes": 174068,
+          "mime": "image/png"
+        },
+        "a9043538431d58703bac72d79942bf3827bdf0aa77cb48c60205073c265a12b6": {
+          "bytes": 39806,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-vx3-copy",
+      "name": "VX 2+",
+      "brand": "Disguise",
+      "fingerprint": "d1e9f733b0d71d6100c7a3a4495bd54427c2cba32650f62d8d6c0b45c624b513",
+      "connectors": 31,
+      "cards": 5,
+      "slots": 2,
+      "artwork": {
+        "534109ef6d7f28c2e16163719f57752635a460535a34cb85fd0cef80339f3918": {
+          "bytes": 3004397,
+          "mime": "image/png"
+        },
+        "4a2585a7dab325dd4409fe0edf1c2a53e2277b441bbaaac6990d200a033a9b54": {
+          "bytes": 56616,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-vx3-copy-2",
+      "name": "GX 3+",
+      "brand": "Disguise",
+      "fingerprint": "b7eaabcb7c10c510a4aa2e8d9ab0253db1ea1a1b114c1d08ab3145c15fcc845e",
+      "connectors": 36,
+      "cards": 5,
+      "slots": 3,
+      "artwork": {
+        "5ad34b6bbcc5efda5b481f2eb0935aad47ec5e242f23a9d758281b81b1f552ac": {
+          "bytes": 248578,
+          "mime": "image/png"
+        },
+        "24abcd8521a5319c7e6de8ea8a127117f5fce0aa6368646e3aba7b72c381300a": {
+          "bytes": 32323,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-vx4-copy-2",
+      "name": "VX 3",
+      "brand": "Disguise",
+      "fingerprint": "db291494acd799a288a7c884fad2b26af6a34e81cead91f35b9ec0cecdea09dd",
+      "connectors": 39,
+      "cards": 5,
+      "slots": 3,
+      "artwork": {
+        "a899cb17e48e9231782cc1e04b0c1c2c8105d3dd4a49979f1c795956b5159836": {
+          "bytes": 2208525,
+          "mime": "image/png"
+        },
+        "8f92d78a4dc408917aa82c0b2fae0c9f3ef25159b607cc5846ac2335e43182e8": {
+          "bytes": 58337,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "modulo-pi-player-pro-ruggedized-4x4k",
+      "name": "Modulo Player Pro Ruggedized (4x4K)",
+      "brand": "Modulo Pi",
+      "fingerprint": "10cb598627d488bd17b5f5f588c1716bc520e277b7e95a55cc19fe32b70894fa",
+      "connectors": 12,
+      "cards": 15,
+      "slots": 8,
+      "artwork": {
+        "1292ab4efdf634c510b9b82c889dc3d1f669cc32094231a950dd7cb5ab585bc6": {
+          "bytes": 665502,
+          "mime": "image/png"
+        },
+        "2de0c5f7b9fe2d9d68a98ce75f69b812f011d3d4da86cf93d2eb5d5151846bef": {
+          "bytes": 44974,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "personal-d21bdb6e-18a7-4ec1-9802-bcc383eeaadd",
+      "name": "VX 4+",
+      "brand": "Disguise",
+      "fingerprint": "b7537e2913c6763e52bc8aef6b6eccedc93c695b19769db5ab4b214ef69b43a9",
+      "connectors": 39,
+      "cards": 5,
+      "slots": 4,
+      "artwork": {
+        "e5472001eed3acf284698d82279e893b608a701c62ccb6a2ac8f734a37c944b8": {
+          "bytes": 2661368,
+          "mime": "image/png"
+        },
+        "d3d1e1a34aec523d8bef6881e54ea58e6e95a652e62e60b4697cb4dad63f0e67": {
+          "bytes": 51800,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-eikos-4k-copy",
+      "name": "Pulse 4K",
+      "brand": "Analog Way",
+      "fingerprint": "d473bec0eab1ab364e6013886970507fb4ab6efa293aa201414ca11e5a7b3ceb",
+      "connectors": 24,
+      "cards": 1,
+      "slots": 1,
+      "artwork": {
+        "36945b68c6b5147efb8dcde04047b15c763e28c0c95f447f5d4026874205927b": {
+          "bytes": 1052485,
+          "mime": "image/png"
+        },
+        "7c2764a4430e00142e67cbddf108c90a1f60cc2fe953866744ad8d8509629b5d": {
+          "bytes": 23400,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mvhqsv2w",
+      "name": "Spyder X80",
+      "brand": "Christie",
+      "fingerprint": "3b4f59f52236c803ee4704e92ce1dd891b29f372132daec214814dd6e829672f",
+      "connectors": 22,
+      "cards": 3,
+      "slots": 11,
+      "artwork": {
+        "99d9b30cb23a3ff2d4ae84501eee30c67f7d446083b4b92f9c893a7d76b24a81": {
+          "bytes": 965004,
+          "mime": "image/png"
+        },
+        "89e96918fdd41dc08b38ec3373a253f9188dcf4862b085e2a68fabcddce250bd": {
+          "bytes": 68827,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mvhz2z2t",
+      "name": "Zenith 200",
+      "brand": "Analog Way",
+      "fingerprint": "f63489fffbcecb6712e303853cbd3962965eb5b6ccc083604a0f5ccd9df9608b",
+      "connectors": 42,
+      "cards": 1,
+      "slots": 1,
+      "artwork": {
+        "ec1ca38fd6f288e8d9007283c3b4f5f45178a315fc5dd9c084d1896e135870b6": {
+          "bytes": 1572477,
+          "mime": "image/png"
+        },
+        "0445cdfc031fad391b3f813a05716bc31caf16cd5f239dc183a042aa78a045ac": {
+          "bytes": 30408,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mvi2qkk6",
+      "name": "Ascender 48 4K-PL",
+      "brand": "Analog Way",
+      "fingerprint": "8f6587b855b37a294a49f46164523702917a92e8c589d40dd99879c35ef4bff2",
+      "connectors": 72,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "7d28c2207756b200eefe2b36c302c13ef3e9f5f343eca8b49aa8ef3f19c9bf99": {
+          "bytes": 650182,
+          "mime": "image/png"
+        },
+        "dab820e2b2a43ba45bbbdd336354b6b505038023ee33a48057af1f18250ebefc": {
+          "bytes": 53909,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-pulse-4k-copy",
+      "name": "QuickMatrix 4K",
+      "brand": "Analog Way",
+      "fingerprint": "ed0a5ba84160cff6a989da76d635787996623a1902956f90904feefbd62497f1",
+      "connectors": 24,
+      "cards": 1,
+      "slots": 1,
+      "artwork": {
+        "0ec816d7766b7168656665c33e08635bea390ea0d1ed729c655103aed0932511": {
+          "bytes": 1088077,
+          "mime": "image/png"
+        },
+        "aa7e34165cc6f5e0c766c65cb2b3e6861b9f85f57555fa167f8512683bb84d7f": {
+          "bytes": 23427,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-quickmatrix-4k-copy",
+      "name": "QuickVu 4K",
+      "brand": "Analog Way",
+      "fingerprint": "7b4e814065f083d20a6a607246285ba9b73a12aea628dd746e737de80e28b275",
+      "connectors": 24,
+      "cards": 1,
+      "slots": 1,
+      "artwork": {
+        "bb585f3d930d42217c56acfcb128d9ad1765d161b65d9cc516f0f1d9fb96fbcb": {
+          "bytes": 965659,
+          "mime": "image/png"
+        },
+        "0977ac56937aee61efcb40ca5db0169cc50cf03b75623c06ea9afb6f887cbcde": {
+          "bytes": 21837,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-zenith-100-copy",
+      "name": "Eikos 4K",
+      "brand": "Analog Way",
+      "fingerprint": "3082ff3658c51f42824b853e5a6f13a9b4ddc59188223ce1c5af8c4bab6b4af1",
+      "connectors": 24,
+      "cards": 1,
+      "slots": 1,
+      "artwork": {
+        "041d05cf9b5a70d1ebdf73925046f338ea448df5b13b5087b4a0603ffa8450f9": {
+          "bytes": 954223,
+          "mime": "image/png"
+        },
+        "e9bb20d18ee20c89621cd6ffa3076616b28fd49b475c2bdb27be6620a5294cdf": {
+          "bytes": 22070,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-zenith-200-copy-2",
+      "name": "Zenith 100",
+      "brand": "Analog Way",
+      "fingerprint": "34972aa5af8e9e8f7bf0d34e408e845126640c1234a4839d65c6bd4cdecb2f68",
+      "connectors": 33,
+      "cards": 1,
+      "slots": 1,
+      "artwork": {
+        "01027bef1c2a288b469a76ff33b9dfdc68bfc7ffd1e2a98fb05b5e1910ecd716": {
+          "bytes": 1551063,
+          "mime": "image/png"
+        },
+        "781be031e741a60d87f764e6a4a9c79db92605439f07683f01c246c9c28d60a6": {
+          "bytes": 30860,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-e2-gen2-copy-2",
+      "name": "E3",
+      "brand": "Barco",
+      "fingerprint": "ccf7fddce0e74f74c52dd893b6000a43330d07a1e6ddc4647a1df175f82b7129",
+      "connectors": 10,
+      "cards": 7,
+      "slots": 7,
+      "artwork": {
+        "93c5286653db213882040591b323fd8f739f8994854c9353b0c885e97c6f9e0f": {
+          "bytes": 225877,
+          "mime": "image/png"
+        },
+        "f12731599343eae986166a3cb4b0bda009fdc1a316949490f4d680f2ef269250": {
+          "bytes": 21702,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-hippotizer-boreal-mk2-hdmi-2-0-copy-2",
+      "name": "T1",
+      "brand": "Kommander",
+      "fingerprint": "2af00852c3cc5c8c3770acf2cc0c82ac6addf1ace75d17f487a9363b6d8ec9c6",
+      "connectors": 20,
+      "cards": 1,
+      "slots": 0,
+      "artwork": {
+        "6e5c9bc216ab2faf5948c07815447b98f8168b219717e61b1844f7f9cda6c95d": {
+          "bytes": 360750,
+          "mime": "image/png"
+        },
+        "cff62331faeb897999789e36c731371724415015b6514e75cec29c5c8dbaaad9": {
+          "bytes": 11799,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mvjgk74g",
+      "name": "8-Bay Reversible Frame",
+      "brand": "Theatrixx",
+      "fingerprint": "90b08eb1141fb797e109760e1918150b940be6fc53fd1b1339a7b81873f3dfa2",
+      "connectors": 2,
+      "cards": 34,
+      "slots": 8,
+      "artwork": {
+        "8bbdb15a38e5e85f3e56bf0d25b4f90ea5ec2c419989cb2d56b716768f99b616": {
+          "bytes": 1045090,
+          "mime": "image/png"
+        },
+        "28320ebedd66729835865a56a9b6e1e87a6b52b41e17289703a8f37242164205": {
+          "bytes": 29526,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-q8-copy",
+      "name": "P80",
+      "brand": "PixelHue",
+      "fingerprint": "32defeea5c1728c210bf21ab4c404352123f578cba52c3558baa50203ce81008",
+      "connectors": 49,
+      "cards": 4,
+      "slots": 1,
+      "artwork": {
+        "564f7e66f65ca303d326ce5bca4f97fedff8c48afeb67610666c5e9b2d09d80a": {
+          "bytes": 293242,
+          "mime": "image/png"
+        },
+        "a5fe2454c22d30472a83163defd50ec4e4379a906ad34b7050fd076d94bfcf22": {
+          "bytes": 38641,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-v-80hd-copy",
+      "name": "V-1-4K",
+      "brand": "Roland",
+      "fingerprint": "f77061d9c30df67393265b8ecfe5edcfb36554bbd7362838bc496a0d53dd4822",
+      "connectors": 18,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "ba751b43602c37f6daac5b3d67ec141a5c17680ae569653e4085a8f7191ef8c3": {
+          "bytes": 573029,
+          "mime": "image/png"
+        },
+        "112384966656438f16bb0875bb0aa1587450269c8bf7dfe586d1cba863fdbdac": {
+          "bytes": 35343,
+          "mime": "image/png"
+        }
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "iec",
+      "fingerprint": "e4a20249e911507fbcac17e876ed486724012cc189145d4828e2e3ab7d96b378"
+    },
+    {
+      "id": "uk-13a",
+      "fingerprint": "6503d2e81330e4ce041ee2a7812f7857e5c4ae01e521cd34ad96966310d86777"
+    },
+    {
+      "id": "schuko",
+      "fingerprint": "0e7e4cf8163aa9d8dcc14696b96f3c7e6bcd71b9b0e7c2845d9ae14475a39a8f"
+    },
+    {
+      "id": "edison",
+      "fingerprint": "fcc94882c61897f02df1b1e49cf753bf292ff08ce23ade3529f045c40da3422f"
+    },
+    {
+      "id": "powercon",
+      "fingerprint": "7c5d623a6c1c40e0099dc920cfaae2209b2a3883dfab7f7afb9c2d2e3d74119e"
+    },
+    {
+      "id": "powercon-true1",
+      "fingerprint": "318ca9c094b161b9c8ec57678c14ccb3da6c00f634453a81ee9f47ffc9bf46ef"
+    },
+    {
+      "id": "16a-cee",
+      "fingerprint": "620e500b8319e91893b9e9582aea7a9151aec95b4c024a43662d739f8e25f263"
+    },
+    {
+      "id": "32a-cee",
+      "fingerprint": "09936baa2134714141e826339918f784b3718bda3e46a574c858d4b94a41a436"
+    },
+    {
+      "id": "63a-cee",
+      "fingerprint": "59ae09477bbb18492a0d065614dbddce900600c32ff0691e478bb941e012f286"
+    },
+    {
+      "id": "125a-cee",
+      "fingerprint": "ba1fa7c71e275e07e5ee32e08e046b54b2305103e55d3dee0f32fc7f2bd28b81"
+    },
+    {
+      "id": "socapex",
+      "fingerprint": "b77156dd2572344ed4aa2d48884568b1013a062f50e0d3694119633fe455dff9"
+    },
+    {
+      "id": "harting",
+      "fingerprint": "306edb28d7a78c04d5fddf8921fa3193e72f02f2f06f500cdbf4ecb2dab43155"
+    },
+    {
+      "id": "powerlock",
+      "fingerprint": "594e1f9040c59e05ce21aed13f116686d1876494b3678ddb8ca9c710e423900a"
+    },
+    {
+      "id": "nema",
+      "fingerprint": "3a15568bc168815db286885f582524fd7181360a0f558f0d3501aae979cac4bf"
+    },
+    {
+      "id": "16a-1ph-110v",
+      "fingerprint": "cde872cc9b4a358eb9f53b74a00b8f34a5931a6cd6d065282fc022fdba56afa7"
+    },
+    {
+      "id": "16a-1ph",
+      "fingerprint": "79cd7ddfa432e02f341ee7c8adbee3534bfc83ea5ffe3a5bd47e38b1acccb346"
+    },
+    {
+      "id": "32a-1ph-110v",
+      "fingerprint": "1f88fb7e00ee86c821aee400e9ca0dc6d7a264355a45977a01e442a15ef306f0"
+    },
+    {
+      "id": "32a-1ph",
+      "fingerprint": "181e33a2720b3e9b2260d6b57c4c1a6f6ad28095b63c2ca19e96b79cdf5c111c"
+    },
+    {
+      "id": "16a-3ph",
+      "fingerprint": "bfcf151c7913b448c4a95aeeba50f2999639ba6ef7b8935cf8d45d6f64602bda"
+    },
+    {
+      "id": "32a-3ph",
+      "fingerprint": "665e56ab3dc04e7e36e6bf97bd17023d90534d3775a85e7e251c90974270d5ab"
+    },
+    {
+      "id": "63a-3ph",
+      "fingerprint": "e85ab7945be8842a637c9230699371c8e67356f62f71825499f008572d9e32b4"
+    },
+    {
+      "id": "125a-3ph",
+      "fingerprint": "756c3ea931f05389c97cd5192d18a93b3406e372e4734b43ba585396a9b38b90"
+    },
+    {
+      "id": "sdi",
+      "fingerprint": "3933519ad05147b14f43287e43002c966845f5ef015325e8ca456d42751158f3"
+    },
+    {
+      "id": "bnc",
+      "fingerprint": "424e4bc769a8b190014a37d656efa5ab7b0e378627ec9c2893e9a8252298f1a2"
+    },
+    {
+      "id": "dvi",
+      "fingerprint": "5d8864b57deead9255e11bffb1d218adec9112ce4380638fee120bc6b5b47395"
+    },
+    {
+      "id": "display-port",
+      "fingerprint": "2ffbcd03bc1c1cbecad36e89513efbee44aa73b873b50e81c30b49c49b83f041"
+    },
+    {
+      "id": "mini-display-port",
+      "fingerprint": "303dfa92e6be8477f12de8b890a7ac4f6ffc2c1c3c155279b0eb98dfbdcfffdf"
+    },
+    {
+      "id": "hdmi",
+      "fingerprint": "5b1f7ff3701d15e96d6893e64d5b341e294bfd4ad5e462bd2d6f0178048b1b44"
+    },
+    {
+      "id": "vga",
+      "fingerprint": "b69587f649009382e39037f1844e7bae8397946066185a0e65b8d8839fe7e9d9"
+    },
+    {
+      "id": "xlr-3pin",
+      "fingerprint": "3bab970ce4cc86038dc4770b78ace433c7c161320099f8e6b06583cf5f6457c5"
+    },
+    {
+      "id": "xlr-5pin",
+      "fingerprint": "abef4d95ed1ac0b15f04e93935330a6c7efe1cf8d83134aeafde5a4e394a2f9d"
+    },
+    {
+      "id": "trs-ts",
+      "fingerprint": "c7fe78957ed9226ef44a53a4aa5632f3220e13eae2ce90c7dc440fbc35589bee"
+    },
+    {
+      "id": "rca",
+      "fingerprint": "988a473cd1b237cd0df8a23cd751cdf4799f14ed658e569753ed24826822e967"
+    },
+    {
+      "id": "aes",
+      "fingerprint": "b7ceba8bed4177496b2906340c655073e81596057aa2cfe5f740afbee7f1a069"
+    },
+    {
+      "id": "midi",
+      "fingerprint": "cc478b57e7e7c16b824f46c7bef9e0fdaf2bba07faa580be515c4e27ade05716"
+    },
+    {
+      "id": "mini-din-6pin",
+      "fingerprint": "53b2e57765604a04d8411fba95b8fa9c8e87d331764f429ddbd4f4e53d45c07d"
+    },
+    {
+      "id": "ca-com",
+      "fingerprint": "5e4557d54ec4a101a372d3d5c8fc81277830bc1483d69df56f9aff847cb44d65"
+    },
+    {
+      "id": "domm",
+      "fingerprint": "ca89b6b0836bd84e24f79f3bc789c88c4f69c5ef16e0dbdd9d5e37e3e7b2072d"
+    },
+    {
+      "id": "speakon-nl2",
+      "fingerprint": "cac5e0fb721aa923fe5d3dbbd2523e6e84509b83437597af8b63d1adca880d66"
+    },
+    {
+      "id": "speakon-nl4",
+      "fingerprint": "90e65392424b6a851d0b4b07b1105e4409fb99485be8abcd0f9b2f531c21bd11"
+    },
+    {
+      "id": "speakon-nl8",
+      "fingerprint": "05cc10180d199445bf3781b250d1f96d2b99505be7976adec32be3727a05aa7f"
+    },
+    {
+      "id": "dmx-3pin",
+      "fingerprint": "7929cedf408448de4a433afc4b9e4ca51fdac9f35d7990fca31fe66a5056e5c2"
+    },
+    {
+      "id": "dmx-5pin",
+      "fingerprint": "2d810f691cada2638413c49f1dff561fdf528dcc9efa918e31df38767dc4a298"
+    },
+    {
+      "id": "fiber-lc",
+      "fingerprint": "c10035a1e8849d97088b3b70d28ceebeed0d0b1b0c2c5601f5beaca3f26fa31a"
+    },
+    {
+      "id": "fiber-sc",
+      "fingerprint": "991d04a87b207acf672e99836021dc50fa6ae0edab39d7830d15eca6593df9d5"
+    },
+    {
+      "id": "fiber-st",
+      "fingerprint": "3e61207d7082364f99a5069bdf14f8ce82d420639c418c92d9664f9843e2e936"
+    },
+    {
+      "id": "fiber-mpo",
+      "fingerprint": "448c01e95eb11c2c34027127f5c25d3f4550f8ff92af6ce36dcdb3c20f743645"
+    },
+    {
+      "id": "opticalcon",
+      "fingerprint": "ee53151f0203d4a2c0e9ab902db5ce65a1256c2b730cd2e32425117531b0ca81"
+    },
+    {
+      "id": "fiberfox",
+      "fingerprint": "a30fd6b085facea58f47537bcf4cc908fe430577f131787bd01b53032694039a"
+    },
+    {
+      "id": "qsfp",
+      "fingerprint": "6be1100e6293bf3259cdae59f10d4c87c825da2c329d665ff60b72e78eacf8f6"
+    },
+    {
+      "id": "cxp",
+      "fingerprint": "64f17d7a1af7094776ee77f53eda9754d176f1b647fc75fa72336dcc7b342a28"
+    },
+    {
+      "id": "cat5e",
+      "fingerprint": "f8f5ce7fd68cb4e2c90934f41d1b4c3c853daecd178268e1b28beb7fcd284c3b"
+    },
+    {
+      "id": "cat6",
+      "fingerprint": "ffb2d515650d3799671b187e554659fe017cf2b71952555bac77c5feb4b8f0bb"
+    },
+    {
+      "id": "cat6a",
+      "fingerprint": "b21594d769cb21d37a6cfc6911306dbfbdb4fa20cffcb2a815fd7a4919194b2a"
+    },
+    {
+      "id": "ethercon",
+      "fingerprint": "7e6a8779191c179034eb31961a78648eca9f7cb717996d6eef97a1caa6e3a30b"
+    },
+    {
+      "id": "ethernet",
+      "fingerprint": "b5d497012523b951b9fc29e5addcb2d3cd72048d514d1749c1db7cb0f384c4f1"
+    },
+    {
+      "id": "sfp-cage",
+      "fingerprint": "a788675b8cfedf52f285512d88d996ae280fb8db7feedd57fc7576fbe34b4543"
+    },
+    {
+      "id": "sfp-plus-cage",
+      "fingerprint": "dde6a6f17b8d797967645377dc478c56124d2b8c767b98d051ed04a1e5c40a1a"
+    },
+    {
+      "id": "sfp28-cage",
+      "fingerprint": "a946f1a2c58be49526c5021c83f74d29910660074e5d949988353c8c5a85eeeb"
+    },
+    {
+      "id": "qsfp-cage",
+      "fingerprint": "ed11cfb73f238065821ec556f601d69590a0e7db10640aaad8289bc72f953cc9"
+    },
+    {
+      "id": "rs-422",
+      "fingerprint": "941d4bc41244749aa75ca41fc5c53b941e5d1e083cf92ce9c261a2335f3c8578"
+    },
+    {
+      "id": "led-signal",
+      "fingerprint": "acc0c4627636545fb262c28a8223e454f0ded0a53fbf6ca8831951868845f99a"
+    },
+    {
+      "id": "usb-a",
+      "fingerprint": "bc8e4211cb8723ff81340c75fd12bd1a7631402fa39a449915032e695aea8f54"
+    },
+    {
+      "id": "usb-b",
+      "fingerprint": "b5115dc0860aeb5e009a40220d31dbfcfd2ca50fe3a143606389c239e8604792"
+    },
+    {
+      "id": "usb-c",
+      "fingerprint": "164c11d313f6d427853117826fad6fec49994a61544a679994a52839d556e7f1"
+    },
+    {
+      "id": "misc",
+      "fingerprint": "001ae1a850628c5a61e77c9b7a4ae2223270f9c906384776579726cd2a4d12a1"
+    },
+    {
+      "id": "xlr",
+      "fingerprint": "29cf93e75d8f8505558bf1c2d0553f969d7694623eb27bb452288210f1ec7b0d"
+    },
+    {
+      "id": "jack",
+      "fingerprint": "f76b388226641b42c1aa9719352a164532d1fd73ae796fadf8ac7e195e61cfe3"
+    },
+    {
+      "id": "phono",
+      "fingerprint": "bb6043c4a3bbdbb125b3c83fddc920a99e9cf4c2d85452ea02a0e92ac471077f"
+    },
+    {
+      "id": "speakon",
+      "fingerprint": "ef3c70a70190c265b76dd05e5f44bcd3b830d439861d6cd3f73e72e02399b570"
+    },
+    {
+      "id": "usb",
+      "fingerprint": "ec36771258d5f79942f32e695c2919c719eeb466a2418859230cf92178b81a17"
+    },
+    {
+      "id": "new-node-4",
+      "fingerprint": "63a026b32bd6241b3345243e10f7f74c37b227ae080f4e6e43c694318d8a3b14"
+    },
+    {
+      "id": "new-node-5",
+      "fingerprint": "548207e38a0b7d1d4272dfce0653c22ddd8cae4dde5f23e47e7adb50585e172f"
+    },
+    {
+      "id": "new-node-3",
+      "fingerprint": "8dfc44a884455f5855d57fd2a70c7d4775a28861e8228cb14c264b34f4f497a3"
+    },
+    {
+      "id": "new-node-2",
+      "fingerprint": "a5166d503b995e958cea8e3c25f5480a6fe04b3b98eb8a54b016f55319e3bddf"
+    },
+    {
+      "id": "new-node",
+      "fingerprint": "14c286118400a5bc274427b50a0e4ab70e2892b8bda69f86b01aa7151202e759"
+    }
+  ]
+}

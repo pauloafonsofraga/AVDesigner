@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { factoryPromotionNodes, reviewFactoryPromotion, createPromotionPackage, validatePromotionPackage, promotionDevice, promotionFingerprint } from "../src/factoryPromotion.js";
 import { imageDataUrl } from "../src/imageAssets.js";
+import { currentImportExpectation } from "./helpers/factoryImportHistory.mjs";
 
 const catalogue = JSON.parse(readFileSync(new URL("../data/factory-catalogue.json", import.meta.url), "utf8"));
 const byId = id => catalogue.devices.find(device => device.id === id);
@@ -17,11 +18,14 @@ test("October library import preserves the reviewed authored definitions and ima
     "custom-device-mvevuyh2": "3a007dc39fd0005a796eeff3dd3e2d1cd424040f257d96639ca24f9f35334f4f"
   };
   for (const [id, fingerprint] of Object.entries(fingerprints)) {
+    const receipt = catalogue.promotions.find(p => p.records.some(r => r.kind === "device" && r.id === id && r.candidateFingerprint === fingerprint));
+    assert.ok(receipt, `Original import receipt: ${id}`);
+    const expected = await currentImportExpectation(catalogue, receipt, { id, fingerprint, artwork: {} });
     const definition = promotionDevice(byId(id));
     for (const key of ["faceImage", "thumbnailImage"]) {
       definition[key] = imageDataUrl(await readFile(new URL(`../${definition[key]}`, import.meta.url)));
     }
-    assert.equal(await promotionFingerprint(definition, catalogue), fingerprint, id);
+    assert.equal(await promotionFingerprint(definition, catalogue), expected.fingerprint, id);
   }
   assert.equal(catalogue.nodeTypes["sfp28-cage"].label, "SFP28 Cage", "newer nodes missing from the export survive");
 });

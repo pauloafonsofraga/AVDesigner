@@ -4,13 +4,15 @@ import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { promotionDevice, promotionFingerprint } from "../src/factoryPromotion.js";
 import { imageDataUrl, imageMime, inlineProjectArtwork } from "../src/imageAssets.js";
+import { currentImportExpectation } from "./helpers/factoryImportHistory.mjs";
 
 const readJson = async path => JSON.parse(await readFile(new URL(path, import.meta.url), "utf8"));
 const catalogue = await readJson("../data/factory-catalogue.json");
 const inventory = await readJson("./fixtures/factory-library-2026-10-21.json");
 
 test("October 21 factory additions preserve exported definitions and original artwork", async () => {
-  for (const expected of inventory.devices) {
+  for (const historical of inventory.devices) {
+    const expected = await currentImportExpectation(catalogue, inventory, historical);
     const definition = promotionDevice(catalogue.devices.find(d => d.id === expected.id));
     const artwork = {};
     await inlineProjectArtwork(definition, async source => {
