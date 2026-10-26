@@ -26,6 +26,14 @@ try {
   await page.locator('[data-device-menu="internal-routing"]').click();
   await page.locator(".internal-routing-dialog").waitFor({ state: "visible" }); await quiet();
   assert.equal(await page.locator(".internal-routing-dialog table").count(), 0);
+  const sizes = await page.locator(".internal-routing-dialog").evaluate(dialog => ({
+    title: getComputedStyle(dialog.querySelector("h2")).fontSize,
+    button: getComputedStyle(dialog.querySelector("button")).fontSize,
+    height: getComputedStyle(dialog.querySelector("button")).minHeight,
+    name: getComputedStyle(dialog.querySelector(".internal-routing-device-name")).fontSize,
+    icon: getComputedStyle(dialog.querySelector(".toolbar-icon")).width
+  }));
+  assert.deepEqual(sizes, { title: "16px", button: "14px", height: "28px", name: "11px", icon: "16px" });
   const originalZoom = await page.evaluate(() => internalSignalRoutingEditor.preview.camera.zoom);
   await page.locator('.internal-routing-dialog [data-action="in"]').click();
   assert.ok(await page.evaluate(() => internalSignalRoutingEditor.preview.camera.zoom) > originalZoom);
