@@ -5378,6 +5378,31 @@
     .topbar .brand { flex-shrink: 0; }
     .topbar .toolbar { min-width: 0; overflow-x: auto; flex: 1 1 auto; }
     .topbar .toolbar > * { flex-shrink: 0; }
+    .topbar .toolbar { gap: 4px; flex-wrap: nowrap; }
+    .topbar .toolbar .has-icon,
+    .topbar .toolbar .theme-switch.has-icon {
+      width: 34px; min-width: 34px; height: 32px; padding: 0;
+      border-radius: 7px; overflow: visible;
+    }
+    .topbar .toolbar .toolbar-icon,
+    .topbar .toolbar .theme-switch.has-icon .toolbar-icon {
+      width: 27px; height: 27px; display: block;
+    }
+    .topbar .toolbar .theme-switch.has-icon[aria-pressed="true"] {
+      color: #32b6ff; border-color: #32b6ff;
+      background: rgba(50,182,255,.12) !important;
+    }
+    .topbar .toolbar #objectSnappingToggle[aria-pressed="true"] { color: #32b6ff; }
+    .topbar .toolbar #voltageToggle {
+      width: 44px; min-width: 44px; height: 32px; padding: 0;
+      border: 1px solid var(--panel-border); border-radius: 7px;
+      background: var(--panel); color: var(--ink);
+      text-align: center; font-size: 12px;
+    }
+    .topbar .toolbar #voltageToggle span { font-size: 12px; line-height: 1; }
+    .topbar .toolbar #voltageToggle::after { display: none; }
+    .topbar .toolbar button:disabled { opacity: .4; cursor: not-allowed; }
+    .topbar .toolbar button:focus-visible { outline: 2px solid #32b6ff; outline-offset: -2px; }
   </style>
 </head>
 <body>
@@ -5396,7 +5421,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled WireNexus Project" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">54.38.148 — Adaptive Bus Labels</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">54.38.149 — Toolbar Icons</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -5409,82 +5434,54 @@
           <span>Fit</span>
         </button>
         <button class="tool-button has-icon" id="undoAction" type="button" title="Undo" aria-label="Undo">
-          <!-- Icon: Undo action, icons/undo.png -->
-          <img class="toolbar-icon" src="icons/undo.png" alt="" aria-hidden="true">
           <span>Undo</span>
         </button>
         <button class="tool-button has-icon" id="redoAction" type="button" title="Redo" aria-label="Redo">
-          <!-- Icon: Redo action, icons/redo.png -->
-          <img class="toolbar-icon" src="icons/redo.png" alt="" aria-hidden="true">
           <span>Redo</span>
         </button>
         <button class="theme-switch has-icon" id="darkModeToggle" type="button" aria-pressed="true" title="Toggle dark mode" aria-label="Toggle dark mode">
-          <!-- Icon: Dark/light mode state, icons/darkmode.png or icons/lightmode.png -->
-          <img class="toolbar-icon" src="icons/darkmode.png" alt="" aria-hidden="true">
           <span>DARK<br>MODE</span>
         </button>
         <button class="theme-switch has-icon" id="gridToggle" type="button" aria-pressed="true" title="Toggle canvas grid" aria-label="Toggle canvas grid">
-          <!-- Icon: Canvas grid state, icons/grid_on.png or icons/grid_off.png -->
-          <img class="toolbar-icon" src="icons/grid_on.png" alt="" aria-hidden="true">
           <span>GRID</span>
         </button>
         <button class="theme-switch" id="objectSnappingToggle" type="button" aria-pressed="true" title="Toggle object snapping">
           <span>SNAP</span>
         </button>
         <button class="theme-switch wire-mode-switch has-icon" id="wireModeToggle" type="button" aria-pressed="false" title="Toggle Bezier / 90 degree wires" aria-label="Toggle Bezier / 90 degree wires">
-          <!-- Icon: Wire drawing mode, icons/wires_curved.png or icons/wires_90degree.png -->
-          <img class="toolbar-icon" src="icons/wires_curved.png" alt="" aria-hidden="true">
           <span>CURVE</span>
         </button>
         <select class="wire-placement-select" id="wirePlacementSelect" title="Cable placement" aria-label="Cable placement"><option value="auto">Auto</option><option value="manual">Manual</option></select>
         <button class="tool-button" id="createCableLoom" type="button" aria-pressed="false">Create Cable Loom</button>
         <button class="tool-button" id="createMultiCore" type="button">Place Multi-Core</button>
         <button class="theme-switch has-icon" id="cableHopsToggle" type="button" aria-pressed="true" title="Toggle cable crossing hops" aria-label="Toggle cable crossing hops">
-          <!-- Icon: Cable hop state, icons/cable_hop_on.png or icons/cable_hop_off.png -->
-          <img class="toolbar-icon" src="icons/cable_hop_on.png" alt="" aria-hidden="true">
           <span>HOPS</span>
         </button>
-        <button class="theme-switch voltage-switch has-icon" id="voltageToggle" type="button" aria-pressed="true" title="Toggle project voltage" aria-label="Toggle project voltage">
-          <!-- Icon: Project voltage state, icons/220.png or icons/110v.png -->
-          <img class="toolbar-icon" src="icons/220.png" alt="" aria-hidden="true">
+        <button class="theme-switch voltage-switch" id="voltageToggle" type="button" aria-pressed="true" title="Toggle project voltage" aria-label="Toggle project voltage">
           <span>220V</span>
         </button>
         <button class="tool-button has-icon" id="deviceEditorButton" type="button" title="Edit device library" aria-label="Edit device library">
-          <!-- Icon: Device Editor, icons/Device_Editor.png -->
-          <img class="toolbar-icon" src="icons/Device_Editor.png" alt="" aria-hidden="true">
           <span>Device Editor</span>
         </button>
         <button class="tool-button has-icon" id="nodeBuilderButton" type="button" title="Edit node and plug library" aria-label="Edit node and plug library">
-          <!-- Icon: Node Builder, icons/Node_Builder.png -->
-          <img class="toolbar-icon" src="icons/Node_Builder.png" alt="" aria-hidden="true">
           <span>Node Builder</span>
         </button>
         <button class="tool-button has-icon" id="rackBuilderButton" type="button" title="Build reusable racks" aria-label="Build reusable racks">
-          <!-- Icon: Rack Builder uses the generic base icon, icons/base.png -->
-          <img class="toolbar-icon" src="icons/base.png" alt="" aria-hidden="true">
           <span>Rack Builder</span>
         </button>
         <button class="tool-button has-icon" id="importLedGrid" type="button" title="Import LED grid PNG" aria-label="Import LED grid PNG">
-          <!-- Icon: Import LED Grid, icons/Import_LED_Grid.png -->
-          <img class="toolbar-icon" src="icons/Import_LED_Grid.png" alt="" aria-hidden="true">
           <span>Import LED Grid</span>
         </button>
         <button class="tool-button has-icon" id="commentTool" type="button" title="Add comment callout" aria-label="Add comment callout">
-          <!-- Icon: Comment tool, icons/Comment.png -->
-          <img class="toolbar-icon" src="icons/Comment.png" alt="" aria-hidden="true">
           <span>Comment</span>
         </button>
         <button class="tool-button has-icon" id="areaTool" type="button" title="Add area or room" aria-label="Add area or room">
-          <!-- Icon: Area / Room tool, icons/Area_Room.png -->
-          <img class="toolbar-icon" src="icons/Area_Room.png" alt="" aria-hidden="true">
           <span>Area / Room</span>
         </button>
         <button class="tool-button" id="jumpNodeTool" type="button" title="Insert paired jump nodes">
           <span>Insert Jump Node</span>
         </button>
         <button class="tool-button has-icon" id="titleBlockButton" type="button" title="Add title block" aria-label="Add title block">
-          <!-- Icon: Title block tool, icons/Title_block.png -->
-          <img class="toolbar-icon" src="icons/Title_block.png" alt="" aria-hidden="true">
           <span>Title Block</span>
         </button>
         <button class="tool-button" id="newProject" type="button" title="New project">
@@ -5494,21 +5491,15 @@
           <span>Load</span>
         </button>
         <button class="primary-button has-icon" id="saveProject" type="button" title="Save project" aria-label="Save project">
-          <!-- Icon: Save WireNexus project, icons/save_project.png -->
-          <img class="toolbar-icon" src="icons/save_project.png" alt="" aria-hidden="true">
           <span>Save</span>
         </button>
         <button class="tool-button" id="saveProjectAs" type="button" title="Save project as a new .avd file">
           <span>Save As</span>
         </button>
         <button class="tool-button has-icon" id="exportHtml" type="button" title="Export a self-contained HTML wirechart" aria-label="Export HTML wirechart">
-          <!-- Icon: Export HTML, icons/save_html.png -->
-          <img class="toolbar-icon" src="icons/save_html.png" alt="" aria-hidden="true">
           <span>Export HTML</span>
         </button>
         <button class="primary-button has-icon" id="publishProjectButton" type="button" title="Publish a password-protected hosted viewer link" aria-label="Publish viewer link">
-          <!-- Icon: Publish hosted viewer link, icons/publish.png -->
-          <img class="toolbar-icon" src="icons/publish.png" alt="" aria-hidden="true">
           <span>Publish</span>
         </button>
         <button class="tool-button" id="projectReportButton" type="button" title="Open project report">
@@ -5516,8 +5507,6 @@
         </button>
         <button class="tool-button" id="cableScheduleButton" type="button" title="Open live cable schedule">Cable Schedule</button>
         <button class="tool-button has-icon" id="exportPdf" type="button" title="Export a print-ready PDF report" aria-label="Export PDF report">
-          <!-- Icon: Export PDF, icons/pdf.png -->
-          <img class="toolbar-icon" src="icons/pdf.png" alt="" aria-hidden="true">
           <span>Export PDF</span>
         </button>
         <input class="hidden" id="fileInput" type="file" accept=".avd,.json,application/json">
@@ -6154,12 +6143,13 @@
   <script src="./src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script src="./src/engine/projectorModelCore.js?v=iteration54-38-11-engine-status-labels"></script>
   <script src="./src/engine/historyCloneCore.js?v=iteration54-38-29-memory-safe-undo"></script>
-  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-148-adaptive-bus-labels"></script>
+  <script src="./src/toolbarIcons.js?v=iteration54-38-149-toolbar-icons"></script>
+  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-149-toolbar-icons"></script>
   <script type="text/wirenexus-app" id="wireNexusAppSource">
-    const APP_ITERATION = "54.38.148";
-    const APP_BUILD_ID = "iteration54-38-148-adaptive-bus-labels";
-    const APP_MODULE_CACHE_ID = "iteration54-38-148-adaptive-bus-labels-modules";
-    const APP_BUILD_LABEL = `${APP_ITERATION} — Adaptive Bus Labels`;
+    const APP_ITERATION = "54.38.149";
+    const APP_BUILD_ID = "iteration54-38-149-toolbar-icons";
+    const APP_MODULE_CACHE_ID = "iteration54-38-149-toolbar-icons-modules";
+    const APP_BUILD_LABEL = `${APP_ITERATION} — Toolbar Icons`;
     const { cloneHistoryValue, MAX_HISTORY_ENTRIES } = window.WireNexusHistoryClone;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
@@ -12946,6 +12936,7 @@
     }
 
     function setToolbarIcon(button, src) {
+      if (window.WireNexusToolbarIcons?.set(button, src)) return;
       const icon = button?.querySelector(".toolbar-icon");
       if (icon && src) icon.src = src;
     }
