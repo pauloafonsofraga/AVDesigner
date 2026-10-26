@@ -10,9 +10,10 @@ const catalogue = await json("../data/factory-catalogue.json");
 const inventory = await json("./fixtures/factory-library-2026-10-23.json");
 
 test("October 23 library update preserves all 128 IDs and ordering, without duplicate additions", () => {
-  assert.equal(catalogue.devices.length, inventory.afterDevices);
-  assert.deepEqual(catalogue.devices.map(d => d.id), inventory.orderBefore);
-  assert.equal(new Set(catalogue.devices.map(d => d.id)).size, 128);
+  const historicalDevices=catalogue.devices.slice(0,inventory.afterDevices);
+  assert.equal(historicalDevices.length, inventory.afterDevices);
+  assert.deepEqual(historicalDevices.map(d => d.id), inventory.orderBefore);
+  assert.equal(new Set(catalogue.devices.map(d => d.id)).size, catalogue.devices.length);
   const receipts = [inventory.packageId, ...inventory.additionalPackageIds].map(id => catalogue.promotions.find(p => p.packageId === id));
   assert.ok(receipts.every(Boolean));
   const records = receipts.flatMap(r => r.records);

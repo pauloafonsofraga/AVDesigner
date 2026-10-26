@@ -1,0 +1,46 @@
+{
+  "sourceFile": "wirenexus-device-library (1).json",
+  "sourceSha256": "e44f50a8e5ed2bcef35df12d562a2adf39504de5404a203b94eee4e763eafcbd",
+  "packageId": "2dc30ea89744edc3304bd5c525ff6ea74adb9e97e6921be7aba77afba720b3ae",
+  "sourceDevices": 131,
+  "beforeDevices": 128,
+  "afterDevices": 130,
+  "excludedDraft": "custom-device-mvp2rr5g",
+  "existingDevicesSha256": "ad229673c6a92e9151e33528ff91ff745ba237f91438398575ee6f7f1436ef73",
+  "nodesSha256": "4c5b341459f5ae3986723732038b1501bba9d467a577816de3218151196161de",
+  "devices": [
+    {
+      "id": "custom-device-mvp2ub68",
+      "name": "MX8x8DVI-HDCP-Pro",
+      "brand": "Lightware",
+      "fingerprint": "b9909423e1347f4bd44f486f5cb66705497c06ba377b7325f2ecb76900581ee0",
+      "connectors": 19,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {
+        "d476036bba3d0689eccecc2367d2b43b2490a383937a9ff9410e7ad898fc329c": {
+          "bytes": 14035,
+          "mime": "image/png"
+        },
+        "f18ae79a5aff9bbae9d1e836c29cc06742131575a368b8c9ceee8df97b2cfe00": {
+          "bytes": 742221,
+          "mime": "image/png"
+        },
+        "c7720e8855091f315546a1d2dd753a84de02236de079820de60c1fa7c0430d04": {
+          "bytes": 154128,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mvp3nb9m",
+      "name": "DVI to HDMI",
+      "brand": "",
+      "fingerprint": "0e475797186d9efd67677198d0e5604da183368d2f631b0bf27a54d59d0c6fdb",
+      "connectors": 2,
+      "cards": 0,
+      "slots": 0,
+      "artwork": {}
+    }
+  ]
+}
