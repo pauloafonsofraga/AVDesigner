@@ -38,3 +38,22 @@ Verification:
 
 No source artwork, factory definitions, protected files or unrelated Device
 JSON Import work are included in the commit.
+# Top-Aligned Resize Follow-Up
+
+Ordinary Engine Faceplate images no longer expose free artwork dragging. Uploads
+and replacements fit alpha-visible content to the usable width at the top. Resize
+handles preserve aspect ratio, remain top-aligned and can grow visible content to
+full width even when the original PNG contains substantial transparent padding.
+Original image bytes are not cropped or rewritten. The existing optional artwork
+layout carries `topAligned`; older saved definitions remain readable unchanged.
+
+Replacement and resize preserve existing connectors, slots, cables and device
+dimensions. For historical definitions with connector rows already far below the
+artwork, **Fit Faceplate** explicitly compacts the origin and realigns rows through
+the existing confirmed, undoable structural transaction. This does not silently
+reposition existing connections merely on opening an editor. Backplate movement
+and Legacy remain unchanged.
+
+Regression coverage includes all eight resize handles, extremely padded images,
+old-image resizing, original-byte preservation, actual pointer resizing in Chrome,
+replacement, undo/redo, save/reopen, offline HTML and production PDF.

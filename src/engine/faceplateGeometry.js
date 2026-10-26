@@ -56,7 +56,7 @@ export function fitFaceImageToTop(visual, width, bounds = null) {
   const next = {...visual, faceImageScale:1 / content.width, faceImageScaleX:1 / content.width,
     faceImageScaleY:1 / content.width, faceImageOffsetX:0,
     faceImageOffsetY:-(height - 2 * FACE_IMAGE_PADDING - visibleHeight) / 2,
-    faceImageLayout:{height, contentBounds:{...content},
+    faceImageLayout:{height, topAligned:true, contentBounds:{...content},
       connectorBounds:{x:FACE_MARGIN + FACE_IMAGE_PADDING,y:FACE_TOP_Y + FACE_IMAGE_PADDING,width:innerWidth,height:visibleHeight}}};
   return next;
 }
@@ -65,6 +65,7 @@ export function resizeFaceImage(visual, width, handle, delta, contentBounds = nu
   if (!['n','s','e','w','ne','nw','se','sw','move'].includes(handle)
     || !Number.isFinite(delta.x) || !Number.isFinite(delta.y)) throw new Error('Invalid artwork resize.');
   const content = faceImageContentBounds(visual) || normalizedFaceplateContentBounds(contentBounds, visual.faceImageNaturalWidth, visual.faceImageNaturalHeight);
+  if (faceImageLayout(visual)?.topAligned) return resizeTopAlignedFaceImage(visual, width, handle, delta, content);
   if (content && (content.width < 1 || content.height < 1)) return resizeContentFaceImage(visual, width, handle, delta, content);
   const start = legacyFaceImagePlacement(visual, width);
   const layout = faceImageLayout(visual) || {height: legacyFaceHeight(visual, width), connectorBounds: {...start}};
@@ -152,10 +153,33 @@ function contentFaceImagePlacement(visual,width,content) {
   const w=clamp(frame.width*(Number(visual.faceImageScaleX)||1)*content.width,1e-9,frame.width);
   const h=clamp(baseHeight*(Number(visual.faceImageScaleY)||1)*content.height,1e-9,frame.height);
   const box={x:clamp(frame.x+(frame.width-w)/2+(Number(visual.faceImageOffsetX)||0),frame.x,frame.x+frame.width-w),
-    y:clamp(frame.y+(frame.height-h)/2+(Number(visual.faceImageOffsetY)||0),frame.y,frame.y+frame.height-h),width:w,height:h};
+    y:visual.faceImageLayout.topAligned ? frame.y : clamp(frame.y+(frame.height-h)/2+(Number(visual.faceImageOffsetY)||0),frame.y,frame.y+frame.height-h),width:w,height:h};
   const visible=meetRect(box,visual.faceImageNaturalWidth*content.width,visual.faceImageNaturalHeight*content.height);
   const fullWidth=visible.width/content.width, fullHeight=visible.height/content.height;
   return {x:visible.x-fullWidth*content.x,y:visible.y-fullHeight*content.y,width:fullWidth,height:fullHeight};
+}
+
+export function resizeTopAlignedFaceImage(visual,width,handle,delta,content) {
+  if (!['n','s','e','w','ne','nw','se','sw','move'].includes(handle)
+    || !Number.isFinite(delta.x) || !Number.isFinite(delta.y)) throw new Error('Invalid artwork resize.');
+  if (handle === 'move') return structuredClone(visual);
+  const start=faceImageVisiblePlacement(visual,width,content);
+  const available=Math.max(1,width-2*(FACE_MARGIN+FACE_IMAGE_PADDING));
+  const dx=(handle.includes('w')?-1:1)*delta.x,dy=(handle.includes('n')?-1:1)*delta.y;
+  const horizontal=/[ew]/.test(handle),vertical=/[ns]/.test(handle);
+  const factor=horizontal&&vertical ? 1+(dx*start.width+dy*start.height)/(start.width**2+start.height**2)
+    : horizontal ? 1+dx/start.width : 1+dy/start.height;
+  const visibleWidth=clamp(start.width*factor,Math.min(16,available),available);
+  const next=fitFaceImageToTop(visual,width,content);
+  const scale=visibleWidth/available;
+  next.faceImageScaleX*=scale;next.faceImageScaleY*=scale;next.faceImageScale*=scale;
+  const fittedContent=next.faceImageLayout.contentBounds;
+  next.faceImageLayout.height=Math.max(FACE_HEIGHT,visibleWidth*visual.faceImageNaturalHeight*fittedContent.height
+    /(visual.faceImageNaturalWidth*fittedContent.width)+2*FACE_IMAGE_PADDING);
+  // Artwork resizing does not rebase existing connector or card positions.
+  next.faceImageLayout.connectorBounds=structuredClone(faceImageLayout(visual)?.connectorBounds || legacyFaceImagePlacement(visual,width));
+  next.faceImageOffsetY=0;
+  return next;
 }
 
 function resizeContentFaceImage(visual,width,handle,delta,content) {

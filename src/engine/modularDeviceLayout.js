@@ -2636,5 +2636,5 @@ export function resolveInstalledCardConnectors(options = {}) {
     connectorsBySlotId
   };
 }
-export { faceImageLayout, fitFaceImageToTop, resizeFaceImage, faceImageContentBounds, faceImageVisiblePlacement, legacyFaceImagePlacement } from './faceplateGeometry.js';
+export { faceImageLayout, fitFaceImageToTop, resizeFaceImage, resizeTopAlignedFaceImage, faceImageContentBounds, faceImageVisiblePlacement, legacyFaceImagePlacement } from './faceplateGeometry.js';
 export { cachedFaceplateContentBounds, prepareFaceplateContentBounds } from './faceplateContentBounds.js';

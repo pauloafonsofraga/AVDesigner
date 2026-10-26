@@ -27,6 +27,20 @@ try {
   });
   assert.equal(uploaded.visible.y,46);assert.equal(uploaded.start,113);assert.equal(uploaded.template.height,190);
   assert.deepEqual(Buffer.from(uploaded.template.faceImage.split(",")[1],"base64"),data);
+  assert.equal(await page.locator('[data-editor-face-image-move]').count(),0);
+  const handle=page.locator('[data-editor-face-image-resize][data-corner="se"]');
+  const box=await handle.boundingBox();
+  await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();
+  await page.mouse.move(box.x-45,box.y-6,{steps:8});await page.mouse.up();
+  const smaller=await page.evaluate(()=>({t:structuredClone(currentEditorTemplate()),visible:editorFaceImageVisiblePlacement(currentEditorTemplate())}));
+  assert.ok(smaller.visible.width<uploaded.visible.width);assert.equal(smaller.visible.y,46);
+  assert.deepEqual(smaller.t.connectors,uploaded.template.connectors);
+  assert.deepEqual(smaller.t.cardSlots,uploaded.template.cardSlots);
+  const grown=await page.locator('[data-editor-face-image-resize][data-corner="se"]').boundingBox();
+  await page.mouse.move(grown.x+grown.width/2,grown.y+grown.height/2);await page.mouse.down();
+  await page.mouse.move(grown.x+800,grown.y+100,{steps:10});await page.mouse.up();
+  assert.ok(Math.abs((await page.evaluate(()=>editorFaceImageVisiblePlacement(currentEditorTemplate()))).width-340)<.01);
+  await page.locator('#editorZoomReset').click();
   await page.screenshot({path:join(dir,"new-upload.png")});
   await page.locator('[data-editor-tab="connectors"]').click();
   await page.evaluate(()=>addEditorNode("input",{type:"iec"}));
@@ -48,6 +62,14 @@ try {
   const modifier=process.platform==="darwin"?"Meta":"Control";
   await page.keyboard.press(`${modifier}+z`);assert.deepEqual(await draft(),before);
   await page.keyboard.press(`${modifier}+Shift+z`);assert.deepEqual(await draft(),fitted);
+  // Replacement must not reintroduce the raw 1080px source reservation.
+  await page.locator("#editorFaceUpload").setInputFiles({name:"replacement.png",mimeType:"image/png",buffer:data});
+  await page.waitForFunction(()=>currentEditorTemplate().faceImageLayout?.topAligned===true);
+  await page.waitForTimeout(100);
+  assert.equal((await draft()).connectors[0].y,113);
+  assert.deepEqual((await draft()).faceImageLayout.contentBounds,fitted.faceImageLayout.contentBounds);
+  assert.deepEqual(await page.evaluate(()=>state.connections),wire);
+  await page.locator('#editorZoomReset').click();
   await page.screenshot({path:join(dir,"fitted-existing.png")});
   await page.locator("#applyDeviceEditor").click();await page.locator("#deviceEditorModal").waitFor({state:"hidden"});
   const download=page.waitForEvent("download");await page.locator("#saveProjectAs").click();
