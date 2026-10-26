@@ -30,6 +30,15 @@
     'icons/wires_curved.png':'spline','icons/wires_90degree.png':'orthogonal',
     'icons/cable_hop_on.png':'hops','icons/cable_hop_off.png':'hops-off'
   };
+  const labels = {
+    zoomOut:'Zoom out',zoomIn:'Zoom in',zoomFit:'Fit',undoAction:'Undo',redoAction:'Redo',
+    darkModeToggle:'Theme',gridToggle:'Grid',objectSnappingToggle:'Snap',wireModeToggle:'Curve',
+    createCableLoom:'Loom',createMultiCore:'Multi-Core',cableHopsToggle:'Hops',deviceEditorButton:'Devices',
+    nodeBuilderButton:'Nodes',rackBuilderButton:'Racks',importLedGrid:'LED grid',commentTool:'Comment',
+    areaTool:'Area',jumpNodeTool:'Jump',titleBlockButton:'Title',newProject:'New',loadProject:'Open',
+    saveProject:'Save',saveProjectAs:'Save As',exportHtml:'HTML',publishProjectButton:'Publish',
+    projectReportButton:'Report',cableScheduleButton:'Schedule',exportPdf:'PDF'
+  };
   function create(document, name) {
     const nodes=custom[name]||lucide[name];
     if(!nodes) throw new Error(`Unknown toolbar icon: ${name}`);
@@ -65,11 +74,14 @@
       const label=button.querySelector('span');
       if(!button.title)button.title=label.textContent.trim();
       if(!button.getAttribute('aria-label'))button.setAttribute('aria-label',button.title);
+      label.textContent=labels[id];
+      label.setAttribute('class','toolbar-caption');
+      label.setAttribute('aria-hidden','true');
       button.classList.add('has-icon');
       const svg=create(document,name),old=button.querySelector('.toolbar-icon');
       if(old)old.replaceWith(svg);else button.prepend(svg);
     }
   }
-  window.WireNexusToolbarIcons=Object.freeze({create,set,install,buttons:Object.freeze(buttons)});
+  window.WireNexusToolbarIcons=Object.freeze({create,set,install,buttons:Object.freeze(buttons),labels:Object.freeze(labels)});
   install(document);
 })();

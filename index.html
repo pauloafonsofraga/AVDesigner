@@ -5380,14 +5380,24 @@
     .topbar .toolbar > * { flex-shrink: 0; }
     .topbar .toolbar { gap: 4px; flex-wrap: nowrap; }
     .topbar .toolbar .has-icon,
+    .topbar .toolbar .has-icon:not(.theme-switch),
     .topbar .toolbar .theme-switch.has-icon {
-      width: 34px; min-width: 34px; height: 32px; padding: 0;
+      display: inline-flex; flex-direction: column; justify-content: center; align-items: center;
+      gap: 3px; width: 52px; min-width: 52px; height: 46px; padding: 4px 2px;
       border-radius: 7px; overflow: visible;
     }
     .topbar .toolbar .toolbar-icon,
     .topbar .toolbar .theme-switch.has-icon .toolbar-icon {
       width: 22px; height: 22px; display: block;
+      position: static; transform: none;
     }
+    .topbar .toolbar .has-icon span.toolbar-caption {
+      position: static; width: auto; height: auto; max-width: 100%; margin: 0;
+      overflow: visible; clip: auto; white-space: nowrap;
+      font-size: 8px; line-height: 10px; font-weight: 600;
+      letter-spacing: 0; text-transform: uppercase; pointer-events: none;
+    }
+    .topbar .toolbar #createMultiCore { width: 64px; min-width: 64px; }
     .topbar .toolbar .theme-switch.has-icon[aria-pressed="true"] {
       color: #32b6ff; border-color: #32b6ff;
       background: rgba(50,182,255,.12) !important;
@@ -5440,7 +5450,7 @@
           <span>Redo</span>
         </button>
         <button class="theme-switch has-icon" id="darkModeToggle" type="button" aria-pressed="true" title="Toggle dark mode" aria-label="Toggle dark mode">
-          <span>DARK<br>MODE</span>
+          <span>Theme</span>
         </button>
         <button class="theme-switch has-icon" id="gridToggle" type="button" aria-pressed="true" title="Toggle canvas grid" aria-label="Toggle canvas grid">
           <span>GRID</span>
@@ -6143,7 +6153,7 @@
   <script src="./src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script src="./src/engine/projectorModelCore.js?v=iteration54-38-11-engine-status-labels"></script>
   <script src="./src/engine/historyCloneCore.js?v=iteration54-38-29-memory-safe-undo"></script>
-  <script src="./src/toolbarIcons.js?v=iteration54-38-150-preserve-wire-routing"></script>
+  <script src="./src/toolbarIcons.js?v=iteration54-38-150-toolbar-captions"></script>
   <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-150-preserve-wire-routing"></script>
   <script type="text/wirenexus-app" id="wireNexusAppSource">
     const APP_ITERATION = "54.38.150";
@@ -12948,7 +12958,7 @@
       document.body.classList.toggle("dark-mode", enabled);
       darkModeToggle.setAttribute("aria-pressed", String(enabled));
       setToolbarIcon(darkModeToggle, enabled ? "icons/darkmode.png" : "icons/lightmode.png");
-      darkModeToggle.querySelector("span").innerHTML = "DARK<br>MODE";
+      darkModeToggle.querySelector("span").textContent = "Theme";
 
     }
 

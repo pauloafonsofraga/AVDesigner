@@ -16,6 +16,17 @@ test('toolbar icons cover every icon action, leaving voltage and placement as ex
   assert.equal(api.buttons.jumpNodeTool,'jump');
   assert.ok(!api.buttons.voltageToggle&&!api.buttons.wirePlacementSelect);
 });
+test('every toolbar icon has a short, single-line caption',()=>{
+  assert.deepEqual(Object.keys(api.labels),Object.keys(api.buttons));
+  for(const label of Object.values(api.labels)){
+    assert.ok(label.length>0&&label.length<=10,label);
+    assert.doesNotMatch(label,/[\n<>]/);
+  }
+  assert.equal(api.labels.deviceEditorButton,'Devices');
+  assert.equal(api.labels.saveProjectAs,'Save As');
+  assert.match(source,/label\.setAttribute\('class','toolbar-caption'\)/);
+  assert.match(source,/label\.setAttribute\('aria-hidden','true'\)/);
+});
 test('all standard and custom icons share one 22px, currentColor, rounded-stroke system',()=>{
   for(const name of new Set([...Object.values(api.buttons),'sun','hops-off','orthogonal'])){
     const icon=api.create(document,name);

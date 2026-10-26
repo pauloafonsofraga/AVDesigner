@@ -20,17 +20,22 @@ try{
       return {wrap:getComputedStyle(toolbar).flexWrap,overflow:getComputedStyle(toolbar).overflowX,width:r.width,content:toolbar.scrollWidth,
         controls:toolbar.querySelectorAll('button,select').length,icons:[...toolbar.querySelectorAll('svg.toolbar-icon')].map(svg=>{
           const s=svg.getBoundingClientRect(),b=svg.closest('button').getBoundingClientRect();
-          return {w:s.width,h:s.height,left:s.left-b.left,right:b.right-s.right,top:s.top-b.top,bottom:b.bottom-s.bottom,y:b.y};
+          const label=svg.closest('button').querySelector('.toolbar-caption'),l=label.getBoundingClientRect();
+          return {w:s.width,h:s.height,left:s.left-b.left,right:b.right-s.right,top:s.top-b.top,bottom:b.bottom-s.bottom,y:b.y,
+            label:label.textContent,labelHeight:l.height,labelWidth:l.width,labelContent:label.scrollWidth,
+            labelTop:l.top,iconBottom:s.bottom,labelBottom:l.bottom,buttonBottom:b.bottom};
         })};
     });
     assert.equal(result.controls,31);assert.equal(result.icons.length,29);assert.equal(result.wrap,'nowrap');assert.equal(result.overflow,'auto');
-    result.icons.forEach(i=>{assert.equal(i.w,22);assert.equal(i.h,22);assert.ok(Math.min(i.left,i.right)>=6);assert.ok(Math.min(i.top,i.bottom)>=5);assert.equal(i.y,result.icons[0].y);});
-    if(width<=1440)assert.ok(result.content>result.width);else assert.ok(result.content<=result.width+1,JSON.stringify({viewport:width,...result}));
+    result.icons.forEach(i=>{assert.equal(i.w,22);assert.equal(i.h,22);assert.ok(Math.min(i.left,i.right)>=6);assert.ok(Math.min(i.top,i.bottom)>=4);assert.equal(i.y,result.icons[0].y);
+      assert.ok(i.label.length);assert.equal(i.labelHeight,10);assert.ok(i.labelTop>=i.iconBottom+2);
+      assert.ok(i.labelBottom<i.buttonBottom);assert.ok(i.labelContent<=i.labelWidth+1,JSON.stringify(i));});
+    if(width<=1920)assert.ok(result.content>result.width);
     await page.locator('#exportPdf').scrollIntoViewIfNeeded();assert.ok(await page.locator('#exportPdf').evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth;}));
     await page.evaluate(()=>document.querySelector('.topbar .toolbar').scrollLeft=0);
     await page.screenshot({path:`${dir}/toolbar-${width}.png`});
   }
-  checks.push('31 controls; 29 fixed 22px glyphs; padding, alignment and horizontal scrolling at four desktop widths');
+  checks.push('31 controls; 29 fixed 22px glyphs with readable single-line captions; padding, alignment and horizontal scrolling at four desktop widths');
   await page.setViewportSize({width:1920,height:1080});
   const zoom=await page.evaluate(()=>activeEngineBridge().getZoom());await click('zoomIn');assert.ok(await page.evaluate(()=>activeEngineBridge().getZoom())>zoom);await click('zoomOut');
   await click('zoomFit');
