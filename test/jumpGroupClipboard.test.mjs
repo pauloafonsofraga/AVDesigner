@@ -84,6 +84,7 @@ for(const style of ['bezier','orthogonal'])test(`manual ${style} route metadata 
 
 test('automatic-route scene fallback writer also emits strict JSON connections',()=>{
   const {data,scene}=liveChain();
+  scene.wires.forEach(wire=>Object.assign(wire,{manualRoute:false,routeAutomatic:true}));
   const exported=new ProjectMutationAdapter({devices:data.devices,wires:scene.wires}).project;
   for(const wire of exported.connections) {
     assert.equal(Object.hasOwn(wire,'manualRouteStyle'),false);assert.doesNotThrow(()=>clipboardJson(wire));

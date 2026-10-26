@@ -7,6 +7,7 @@ import { hitTestRoutePoint, hitTestConnector, hitTestLoomGateway, hitTestLoomTru
 import { SceneGraph } from "../src/engine/sceneGraph.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
 import { cableTypeSelectionFixture } from "../fixtures/cable-type-selection.mjs";
+import { wireRouteState } from "../src/engine/wireRouteEditing.js";
 
 const source = readFileSync(new URL("../src/engine/productionBridge.js", import.meta.url), "utf8");
 function method(name) {
@@ -24,7 +25,7 @@ function harness(zoom = 0.34) {
     "beginRoutePointDrag", "handlePointerDown", "updateHover", "contextMenuTarget"];
   const b = vm.runInNewContext(`({${methods.map(method).join(",")}})`, {
     hitTestRoutePoint, hitTestConnector, hitTestLoomGateway, hitTestLoomTrunk, hitTestLoomPortal, hitTestSelectedLoomRoutePoint,
-    screenToWorld, cloneRoutePoints: structuredClone,
+    screenToWorld, cloneRoutePoints: structuredClone, wireRouteState,
     isAdditiveSelectionModifier: () => false, isJumpConnectorHit: () => false,
     jumpHoverDiagnostics: value => value, jumpIdleHoverPrecedence: () => ({ owner: "route-point" })
   });

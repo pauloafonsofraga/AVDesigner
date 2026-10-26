@@ -10,6 +10,7 @@ import * as editorLifecycle from "../src/editorLifecycle.js";
 import * as transceivers from "../src/engine/transceiverModules.js";
 import * as modularCardSafety from "../src/engine/modularCardSafety.js";
 import * as multibandSignals from "../src/engine/multibandSignals.js";
+import * as wireRouting from "../src/engine/wireRoutingPolicy.js";
 import * as nodeReplacement from "../src/engine/nodeReplacement.js";
 import * as connectorCompatibility from "../src/engine/connectorCompatibility.js";
 
@@ -35,7 +36,7 @@ function harness({ fetchCatalogue = async () => Response.json(catalogue), initia
     body: { append() { calls.scripts++; window.wireNexusShellReady = initialize ? initialize() : Promise.resolve(); } }
   };
   const context = { window, document, URL, Error, FACTORY_AUTHORING, MULTI_CORE_PROJECT_FIELDS, multiCoreProjectFields, isMultiCoreConnection, editorLifecycle,
-    transceivers, modularCardSafety, multibandSignals, nodeReplacement, ...connectorCompatibility,
+    transceivers, modularCardSafety, multibandSignals, wireRouting, nodeReplacement, ...connectorCompatibility,
     createFactoryCatalogueLoader: options => createFactoryCatalogueLoader({ ...options, fetchCatalogue: (...args) => { calls.fetch++; return fetchCatalogue(...args); } }),
     imageAssets: {}, portableProjectData() {}, observeLibraryArtwork() { calls.observers++; },
     localStorage: { setItem() { assert.fail("bootstrap must not write storage"); }, clear() { assert.fail("bootstrap must not clear storage"); } }

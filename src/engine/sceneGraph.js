@@ -2708,6 +2708,7 @@ function normalizeWire(wire) {
         .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y))
       : [],
     manualRoute: Boolean(wire.manualRoute),
+    routeAutomatic: wire.routeAutomatic !== false && !wire.manualRoute,
     // Rack-internal wires must keep Legacy's fixed 90-degree visual contract
     // even if older/imported data still carries a Bezier/custom route flag.
     routeStyle: internalRackWire ? "orthogonal" : wire.routeStyle === "orthogonal" ? "orthogonal" : wire.routePoints?.length ? "custom" : "bezier",

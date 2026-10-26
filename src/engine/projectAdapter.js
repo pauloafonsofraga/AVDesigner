@@ -1,4 +1,5 @@
 import { resolveProjectorLens } from "./projectorModel.js";
+import { projectWireRouting } from "./wireRoutingPolicy.js";
 import { deviceBrandForDisplay } from "./deviceDisplayName.js";
 import { multiCoreConnectivityModelSnapshot, isMultiCoreEndpointReference } from "./multiCoreConnectivity.js";
 import { projectMultiCoreScene, multiCoreEndKey } from "./multiCoreProjection.js";
@@ -1235,8 +1236,8 @@ function normalizeProjectWire(wire, index, context) {
   const metadata = effectiveJumpDeviceWireMetadata(wire, from, to, context, index);
   const cableType = metadata.cableType;
   const fiberMode = metadata.fiberMode;
-  const usesOrthogonalRoute = !wire.manualRoute && Array.isArray(wire.orthogonalRoutePoints);
-  const routePoints = normalizeRoutePoints(usesOrthogonalRoute ? wire.orthogonalRoutePoints : wire.routePoints);
+  const routing = projectWireRouting(wire, context.wireMode);
+  const routePoints = normalizeRoutePoints(routing.routePoints);
   const fromFallback = Boolean(from.deviceId && !from.usesRealConnector);
   const toFallback = Boolean(to.deviceId && !to.usesRealConnector);
   return {
@@ -1262,9 +1263,9 @@ function normalizeProjectWire(wire, index, context) {
     fromPortIndex: from.portIndex ?? index % 4,
     toPortIndex: to.portIndex ?? (index * 3) % 4,
     routePoints,
-    routeStyle: wire.manualRoute ? (wire.manualRouteStyle === "orthogonal" ? "orthogonal" : "bezier")
-      : usesOrthogonalRoute ? "orthogonal" : routePoints.length ? "custom" : "bezier",
-    manualRoute: Boolean(wire.manualRoute),
+    routeStyle: routing.routeStyle,
+    manualRoute: routing.manualRoute,
+    routeAutomatic: routing.routeAutomatic,
     fromUsesRealConnector: Boolean(from.usesRealConnector),
     toUsesRealConnector: Boolean(to.usesRealConnector),
     usesRealConnectorEndpoints: Boolean(from.usesRealConnector && to.usesRealConnector),

@@ -1,4 +1,5 @@
 import { resolveProjectorLens } from "./projectorModel.js";
+import { markWireRouteAuthored } from "./wireRoutingPolicy.js";
 import {sharedBusTypeLabels} from './sharedBusLabels.js';
 import {multibandSignal, groupedCoaxMetadata} from "./multibandSignals.js";
 import { assertSafeModularCardChanges } from "./modularCardSafety.js";
@@ -165,8 +166,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-149-toolbar-icons";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-149-toolbar-icons";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-150-preserve-wire-routing";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-150-preserve-wire-routing";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -3070,10 +3071,11 @@ class ProductionEngineBridge {
     }
     if (this.routePointDrag) {
       const commitStart = performance.now();
-      const { wireId, beforePoints, moved } = this.routePointDrag;
+      const { wireId, beforePoints, beforeRouteState, moved } = this.routePointDrag;
       if (moved) {
         this.scene.refreshWireIndexes([wireId]);
         const afterPoints = cloneRoutePoints(this.scene.getWire(wireId)?.routePoints || []);
+        markWireRouteAuthored(this.scene.getWire(wireId));
         this.beginProductionCommit("route point");
         const mutationMs = this.mutations?.commitRoutePoints(this.scene, wireId) || 0;
         const dirtyStats = this.renderer.updateDirty(this.scene, { wireIds: [wireId] });
@@ -3082,7 +3084,7 @@ class ProductionEngineBridge {
         this.renderer.setRenderOptions(this.renderOptions);
         this.recordDirtyVisualMetrics(dirtyStats, "route point final");
         this.markCommitted("route point", mutationMs);
-        this.recordCommand(routePointCommand(wireId, beforePoints, afterPoints));
+        this.recordCommand(routePointCommand(wireId, beforePoints, afterPoints, beforeRouteState, wireRouteState(this.scene.getWire(wireId))));
       }
       this.routePointDrag = null;
       this.canvas.classList.remove("dragging");
@@ -3092,13 +3094,14 @@ class ProductionEngineBridge {
     }
     if (this.wireSegmentDrag) {
       const commitStart = performance.now();
-      const { wireId, beforePoints, moved, lastSnap } = this.wireSegmentDrag;
+      const { wireId, beforePoints, beforeRouteState, moved, lastSnap } = this.wireSegmentDrag;
       if (moved) {
         const cleanup = lastSnap?.snapped
           ? this.scene.finalizeSnappedOrthogonalSegment(wireId, { refreshIndexes: false })
           : { changed: false, removed: 0 };
         this.scene.refreshWireIndexes([wireId]);
         const afterPoints = cloneRoutePoints(this.scene.getWire(wireId)?.routePoints || []);
+        markWireRouteAuthored(this.scene.getWire(wireId));
         this.beginProductionCommit("wire segment");
         const mutationMs = this.mutations?.commitRoutePoints(this.scene, wireId) || 0;
         const dirtyStats = this.renderer.updateDirty(this.scene, { wireIds: [wireId] });
@@ -3107,7 +3110,7 @@ class ProductionEngineBridge {
         this.renderer.setRenderOptions(this.renderOptions);
         this.recordDirtyVisualMetrics(dirtyStats, "wire segment final");
         this.markCommitted("wire segment", mutationMs);
-        this.recordCommand(wireSegmentCommand(wireId, beforePoints, afterPoints));
+        this.recordCommand(wireSegmentCommand(wireId, beforePoints, afterPoints, beforeRouteState, wireRouteState(this.scene.getWire(wireId))));
         this.hud.setMetric("segment cleanup", cleanup.removed
           ? `${cleanup.removed} redundant corner${cleanup.removed === 1 ? "" : "s"} removed`
           : "none");
@@ -4058,6 +4061,7 @@ class ProductionEngineBridge {
       sourcePointIndex: routePoint.pointIndex,
       pointIndex: routePoint.pointIndex,
       beforePoints: cloneRoutePoints(routePoint.wire.routePoints),
+      beforeRouteState: wireRouteState(routePoint.wire),
       startScreen: screenPoint ? { ...screenPoint } : null,
       startWorld: worldPoint ? { ...worldPoint } : null,
       moved: false,
@@ -4100,6 +4104,7 @@ class ProductionEngineBridge {
       snapTargets: this.scene.orthogonalSegmentSnapTargetsForDrag(wire.id),
       lastSnap: null,
       beforePoints: cloneRoutePoints(wire.routePoints),
+      beforeRouteState: wireRouteState(wire),
       moved: false
     };
     this.canvas.classList.add("dragging");
@@ -7164,6 +7169,7 @@ class ProductionEngineBridge {
     if (wireData.notes !== undefined) wire.notes = String(wireData.notes || "");
     if (wireData.hideLabel !== undefined) wire.hideLabel = Boolean(wireData.hideLabel);
     if (wireData.manualRoute !== undefined) wire.manualRoute = Boolean(wireData.manualRoute);
+    if (wireData.routeAutomatic !== undefined) wire.routeAutomatic = Boolean(wireData.routeAutomatic);
     if (wireData.routeStyle !== undefined || wireData.routePoints !== undefined) {
       wire.routePoints = normalizeRoutePointsForBridge(wireData.routePoints);
       wire.routeStyle = wireData.routeStyle === "orthogonal" ? "orthogonal" : wire.routePoints.length ? "custom" : "bezier";
@@ -8922,6 +8928,12 @@ class ProductionEngineBridge {
       if (!wire) return;
       wire.routeStyle = state.routeStyle || (state.routePoints?.length ? "custom" : "bezier");
       wire.routePoints = cloneRoutePoints(state.routePoints);
+      if(state.manualRoute!==undefined)wire.manualRoute=Boolean(state.manualRoute);
+      if(state.routeAutomatic!==undefined)wire.routeAutomatic=Boolean(state.routeAutomatic);
+      if(state.routeAutomatic){
+        wire.routeStyle=this.currentWireRouteMode();
+        if(wire.routeStyle!==state.routeStyle)wire.routePoints=[];
+      }
       this.scene.dirtyWires.add(wire.id);
       ids.push(wire.id);
     });
@@ -9041,12 +9053,13 @@ class ProductionEngineBridge {
     const wires = [...new Set(sourceWireIds.map(String))]
       .map(sourceId => this.resolveWire(sourceId))
       .filter(Boolean)
-      .filter(wire => wire.routePoints?.length);
+      .filter(wire => wire.manualRoute || wire.routePoints?.length);
     if (!wires.length) return false;
     const before = wires.map(wireRouteState);
     const after = wires.map(wire => resetWireRoute(wire, {
       from: this.scene.endpointForWire(wire, "from"),
-      to: this.scene.endpointForWire(wire, "to")
+      to: this.scene.endpointForWire(wire, "to"),
+      automaticStyle: this.currentWireRouteMode()
     }));
     return this.commitWireRouteAction("ResetWireRouteCommand", before, after, {
       action: "reset",
@@ -12027,7 +12040,8 @@ function multiWireInspectorFieldsCommand(beforeStates, afterStates) {
   };
 }
 
-function routePointCommand(wireId, beforePoints, afterPoints) {
+function routePointCommand(wireId, beforePoints, afterPoints, beforeState, afterState) {
+  if(beforeState && afterState)return wireRouteActionCommand("MoveRoutePointCommand",[beforeState],[afterState]);
   return {
     type: "MoveRoutePointCommand",
     affectedIds: [wireId],
@@ -12036,7 +12050,8 @@ function routePointCommand(wireId, beforePoints, afterPoints) {
   };
 }
 
-function wireSegmentCommand(wireId, beforePoints, afterPoints) {
+function wireSegmentCommand(wireId, beforePoints, afterPoints, beforeState, afterState) {
+  if(beforeState && afterState)return wireRouteActionCommand("MoveWireSegmentCommand",[beforeState],[afterState]);
   return {
     type: "MoveWireSegmentCommand",
     affectedIds: [wireId],
@@ -12115,6 +12130,8 @@ function applyWireRouteActionStates(bridge, states) {
 function cloneWireRouteState(state = {}) {
   return {
     id: String(state.id || ""),
+    ...(state.manualRoute!==undefined ? {manualRoute:Boolean(state.manualRoute)} : {}),
+    ...(state.routeAutomatic!==undefined ? {routeAutomatic:Boolean(state.routeAutomatic)} : {}),
     routeStyle: state.routeStyle || "bezier",
     routePoints: cloneRoutePoints(state.routePoints)
   };
@@ -12620,6 +12637,7 @@ function cloneWire(wire) {
     routeStyle: wire.routeStyle,
     routePoints: cloneRoutePoints(wire.routePoints),
     manualRoute: Boolean(wire.manualRoute),
+    routeAutomatic: Boolean(wire.routeAutomatic),
     loomId: wire.loomId || "",
     loomEntrySide: wire.loomEntrySide || "",
     loomEntryRoutePoints: cloneRoutePoints(wire.loomEntryRoutePoints),

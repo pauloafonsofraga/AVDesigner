@@ -1,4 +1,5 @@
 import { engineWireColorSegmentsForCable } from "./connectorCompatibility.js";
+import { projectWireRouting } from "./wireRoutingPolicy.js";
 import { CONNECTOR_RELATIONSHIP_FIELDS, applyConnectorRelationshipFieldPatch } from "./connectorRelationshipMetadata.js";
 import {
   canonicalEngineObjectKind,
@@ -486,10 +487,22 @@ export class ProjectMutationAdapter {
     }
     const sourceId = String(wire.sourceId || wire.id);
     const entry = this.connectionById.get(sourceId) || this.ensureConnection(scene, wire);
-    const routeKey = !wire.manualRoute && (wire.routeStyle === "orthogonal" || Array.isArray(entry.item.orthogonalRoutePoints))
+    const previousRouting=projectWireRouting(entry.item,this.root.wireMode);
+    const keepOwnership=wire.manualRoute && previousRouting.manualRoute
+      && (wire.routeStyle==='orthogonal')===(previousRouting.routeStyle==='orthogonal');
+    const routeKey = keepOwnership
+      ? previousRouting.routePoints===entry.item.orthogonalRoutePoints?'orthogonalRoutePoints':'routePoints'
+      : !wire.manualRoute && (wire.routeStyle === "orthogonal" || Array.isArray(entry.item.orthogonalRoutePoints))
       ? "orthogonalRoutePoints"
       : "routePoints";
-    if (wire.manualRoute) entry.item.manualRouteStyle = wire.routeStyle === "orthogonal" ? "orthogonal" : "bezier";
+    // Editing an already-authored legacy route need not materialize new metadata;
+    // this also keeps undo snapshots of sparse historical connections exact.
+    if(!keepOwnership){
+      if (wire.manualRoute) entry.item.manualRouteStyle = wire.routeStyle === "orthogonal" ? "orthogonal" : "bezier";
+      else delete entry.item.manualRouteStyle;
+      entry.item.manualRoute = Boolean(wire.manualRoute);
+      entry.item.routeAutomatic = !wire.manualRoute;
+    }
     entry.item[routeKey] = (wire.routePoints || []).map(point => ({
       x: roundNumber(point.x),
       y: roundNumber(point.y)
@@ -1027,6 +1040,8 @@ function buildProjectFromSceneData(sceneData = {}) {
     format: ENGINE_EXPORT_FORMAT,
     version: 1,
     projectName: sceneData.meta?.projectName || sceneData.meta?.sourceName || "Engine Prototype Project",
+    wireMode: sceneData.meta?.wireMode || ((sceneData.wires || []).some(wire=>!wire.manualRoute && !wire.multiCoreIdentity
+      && !wire.internalRackWire && wire.sourceKind!=="rackInternalConnection" && wire.routeStyle==="orthogonal")?"orthogonal":"bezier"),
     devices,
     connections,
     jumpNodes: [],
@@ -1098,6 +1113,7 @@ function rawConnectionFromSceneWireData(sceneData, wire) {
     loomEntryRoutePoints: wire.loomEntryRoutePoints || [],
     loomExitRoutePoints: wire.loomExitRoutePoints || [],
     manualRoute: Boolean(wire.manualRoute),
+    routeAutomatic: !wire.manualRoute,
     ...(wire.manualRoute ? {manualRouteStyle:wire.routeStyle === "orthogonal" ? "orthogonal" : "bezier"} : {}),
     loom: wire.loom || "",
     fiberMode: wire.fiberMode || "",
@@ -1126,6 +1142,7 @@ function rawConnectionFromWire(scene, wire, id) {
     loomEntryRoutePoints: wire.loomEntryRoutePoints || [],
     loomExitRoutePoints: wire.loomExitRoutePoints || [],
     manualRoute: Boolean(wire.manualRoute),
+    routeAutomatic: !wire.manualRoute,
     ...(wire.manualRoute ? {manualRouteStyle:wire.routeStyle === "orthogonal" ? "orthogonal" : "bezier"} : {}),
     loom: wire.loom || "",
     fiberMode: wire.fiberMode || "",
