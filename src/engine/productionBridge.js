@@ -1,4 +1,5 @@
 import { resolveProjectorLens } from "./projectorModel.js";
+import {sharedBusTypeLabels} from './sharedBusLabels.js';
 import {multibandSignal, groupedCoaxMetadata} from "./multibandSignals.js";
 import { assertSafeModularCardChanges } from "./modularCardSafety.js";
 import { cloneHistoryValue, MAX_HISTORY_ENTRIES } from "./historyClone.js";
@@ -164,8 +165,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-147-jump-group-clipboard";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-147-jump-group-clipboard";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-148-adaptive-bus-labels";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-148-adaptive-bus-labels";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -8654,6 +8655,7 @@ class ProductionEngineBridge {
     }
     if (selectedConnectors.length === 1 && !selectedRacks.length && !selectedDevices.length && !selectedWires.length && !selectedRoutePoints.length) {
       const selected = selectedConnectors[0];
+      const bus=this.scene.connectorDisplayLayoutForDevice?.(selected.device)?.byConnectorId.get(selected.connector.id)?.layout;
       this.inspectorPanel.innerHTML = `
         <h3>Engine Inspector</h3>
         ${detailsMarkup([
@@ -8661,6 +8663,8 @@ class ProductionEngineBridge {
           ["Device", selected.device.label || selected.device.id],
           ["Direction", selected.connector.direction || "io"],
           ["Cable Type", engineConnectorUserFacingTypeLabel(selected.connector, "-")],
+          ...(bus ? [["Shared Bus Types",sharedBusTypeLabels(bus.members).join(' / ')],
+            ...bus.members.map(c=>[c.nameText||c.label||c.id,engineConnectorUserFacingTypeLabel(c,'-')])] : []),
           ["Side", selected.connector.side || "-"],
           ["Position", `${roundForUi(selected.point.x)}, ${roundForUi(selected.point.y)}`],
           ["Connected Wires", selected.connectedWireIds.length],

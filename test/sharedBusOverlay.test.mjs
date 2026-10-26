@@ -8,6 +8,7 @@ import { legacyConnectorLabelMetrics } from "../src/engine/legacyZoomDetail.js";
 import { attachedConnectorLabelPosition } from "../src/engine/attachedConnectorOrientation.js";
 import { adapterWorldPoint } from "../src/engine/adapterRotation.js";
 import {connectorFieldRowWidth} from "../src/engine/connectorFieldLayout.js";
+import {sharedBusTypeLabels,adaptiveSharedBusLabel} from '../src/engine/sharedBusLabels.js';
 
 const source = readFileSync(new URL("../src/engine/renderer.js", import.meta.url), "utf8");
 
@@ -19,7 +20,7 @@ function functionSource(name) {
 }
 
 function rendererFunctions(names, bindings = {}) {
-  const context = vm.createContext({ attachedConnectorLabelPosition, adapterWorldPoint, connectorFieldRowWidth,
+  const context = vm.createContext({ attachedConnectorLabelPosition, adapterWorldPoint, connectorFieldRowWidth,sharedBusTypeLabels,adaptiveSharedBusLabel,
     legacyCanvasDetailScale:()=>1, INFO_BOX_COMPACT_SCALE:1.18, ...bindings });
   vm.runInContext(functionSource("connectorAnchorRenderPoint"), context);
   names.forEach(name => vm.runInContext(functionSource(name), context));
@@ -125,7 +126,7 @@ test("shared-bus cages reuse installed-module captions and keep low-zoom detail 
     type: "sfp-plus-cage", installedModuleType: "sfp-sdi-12g-rx" })) };
   const before = structuredClone(layout);
   functions.drawSharedBusConnectorWorldLabel(ctx, layout, 0, 0, { x: 0, y: 0, zoom: 1 }, 180);
-  assert.deepEqual(drawn, ["Installed Module", "SFP SDI 12G RX"]);
+  assert.deepEqual(drawn, ["SFP SDI 12G RX"]);
   drawn.length = 0;
   functions.drawSharedBusConnectorWorldLabel(ctx, layout, 0, 0, { x: 0, y: 0, zoom: 0.34 }, 180);
   assert.deepEqual(drawn, ["SFP SDI 12G RX"]);

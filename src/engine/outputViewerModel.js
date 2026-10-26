@@ -1,5 +1,6 @@
 import { SceneGraph } from "./sceneGraph.js";
 import { deviceHeaderLabel } from "./deviceDisplayName.js";
+import {sharedBusTypeLabels} from './sharedBusLabels.js';
 import { resolvePlayableSignalPath, jumpNodeRoleLabel } from "./jumpNodeModel.js";
 import { resolveOutputDeviceAssets } from "./outputViewerAssets.js";
 import { assertOutputSceneContract } from "./outputSceneContract.js";
@@ -133,6 +134,9 @@ export function outputSelectionDetails(scene, selection) {
   if (device.kind === "jump") rows.push(["Role", jumpNodeRoleLabel(scene.jumpNodeRole(device.id).role)],
     ["Base role", jumpNodeRoleLabel(scene.jumpNodeRole(device.id).baseRole)]);
   if (connector && isTransceiverCage(connector)) rows.push(["Installed Module", transceiverModulePresentation(connector)]);
+  const bus=connector && scene.connectorDisplayLayoutForDevice(device).byConnectorId.get(connector.id)?.layout;
+  if(bus)rows.push(['Shared Bus Types',sharedBusTypeLabels(bus.members).join(' / ')],
+    ...bus.members.map(c=>[c.nameText||c.label||c.id,engineConnectorUserFacingTypeLabel(c)]));
   const wireIds = scene.wires.filter(w => !w.multiCoreIdentity && ["from", "to"].some(end =>
     (w[`${end}DeviceId`] === device.id || w[`${end}SurfaceId`] === device.id)
     && (!connector || w[`${end}ConnectorId`] === connector.id))).map(w => w.id);

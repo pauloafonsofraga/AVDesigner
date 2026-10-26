@@ -2638,3 +2638,4 @@ export function resolveInstalledCardConnectors(options = {}) {
 }
 export { faceImageLayout, fitFaceImageToTop, resizeFaceImage, resizeTopAlignedFaceImage, faceImageContentBounds, faceImageVisiblePlacement, legacyFaceImagePlacement } from './faceplateGeometry.js';
 export { cachedFaceplateContentBounds, prepareFaceplateContentBounds } from './faceplateContentBounds.js';
+export {sharedBusTypeLabels,resolveSharedBusLabels} from './sharedBusLabels.js';

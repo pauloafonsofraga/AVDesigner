@@ -40,6 +40,7 @@ import {
 import { sharedBusOrthogonalSegments } from "./sharedBusRendering.js";
 import {multibandNodePolygons, multibandWirePolygons, multibandCableWidth} from "./multibandGeometry.js";
 import {resolveConnectorLabelCollisions} from './connectorLabelLayout.js';
+import {sharedBusTypeLabels,adaptiveSharedBusLabel,resolveSharedBusLabels} from './sharedBusLabels.js';
 import { connectorFieldRowWidth } from "./connectorFieldLayout.js";
 import {legacyFaceHeight} from './faceplateGeometry.js';
 import {
@@ -81,7 +82,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-147-jump-group-clipboard";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-148-adaptive-bus-labels";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -212,6 +213,18 @@ export class WebglGraphRenderer {
     this.lastFrameStats = null;
     this.lastLabelStats = defaultLabelStats();
     this.lastConnectorInfoBoxHitRects = [];
+    this.lastSharedBusLabelHitRects = [];
+    this.sharedBusHoverTarget=canvas.parentElement||canvas;
+    this.sharedBusHoverTitle=this.sharedBusHoverTarget.title||'';
+    this.onSharedBusHover=event=>{
+      const rect=this.canvas.getBoundingClientRect();
+      const point={x:(event.clientX-rect.left)*this.resolution.width/rect.width,y:(event.clientY-rect.top)*this.resolution.height/rect.height};
+      const hit=this.lastSharedBusLabelHitRects.find(hit=>pointInScreenRect(point,hit.rect));
+      this.sharedBusHoverTarget.title=hit?.fullText||this.sharedBusHoverTitle;
+    };
+    this.onSharedBusLeave=()=>{this.sharedBusHoverTarget.title=this.sharedBusHoverTitle;};
+    this.sharedBusHoverTarget.addEventListener?.('pointermove',this.onSharedBusHover);
+    this.sharedBusHoverTarget.addEventListener?.('pointerleave',this.onSharedBusLeave);
     this.lastZoomDetailStats = {};
     this.lastWirePathStats = { bezier: 0, custom: 0, orthogonal: 0 };
     this.cableHopMap = new Map();
@@ -421,6 +434,9 @@ export class WebglGraphRenderer {
     if (this.disposed) return;
     const gl = this.gl;
     this.disposed = true;
+    this.sharedBusHoverTarget?.removeEventListener?.('pointermove',this.onSharedBusHover);
+    this.sharedBusHoverTarget?.removeEventListener?.('pointerleave',this.onSharedBusLeave);
+    this.onSharedBusLeave?.();
     this.textureCache?.dispose?.();
     this.clearGlowTextureCache();
     [
@@ -1420,6 +1436,7 @@ export class WebglGraphRenderer {
     const renderOptions = options.renderOptions || this.renderOptions;
     this.lastLabelStats = defaultLabelStats();
     this.lastConnectorInfoBoxHitRects = [];
+    this.lastSharedBusLabelHitRects = [];
     this.lastZoomDetailStats = zoomDetailStatsForCamera(camera, 0, 0, null, 0);
     if (!renderOptions.labels || renderOptions.hideLabels) return;
     if (camera.zoom < 0.08) return;
@@ -4010,7 +4027,12 @@ function drawVisibleConnectorLabels(ctx, scene, camera, renderOptions = DEFAULT_
     displayLayout.groups.forEach(layout => {
       const shift=annotations.get(`bus:${layout.relationshipId}`);
       drawConnectorAnnotationLeader(ctx,{x:baseX+layout.fieldAnchorX,y:baseY+layout.centerY},shift,camera);
-      if (drawSharedBusConnectorWorldLabel(ctx, layout, baseX+(shift?.dx || 0), baseY+(shift?.dy || 0), camera, connectorCaptionWidth(device, layout.representative), device)) count += 1;
+      if (drawSharedBusConnectorWorldLabel(ctx, layout, baseX+(shift?.dx||0), baseY, camera, connectorCaptionWidth(device, layout.representative), device, shift)) count += 1;
+      if(renderer && shift) {
+        const fullText=(layout.members||[]).map(c=>[c.nameText||c.label||c.id,...engineConnectorCanvasLabelLines(c),c.resolutionFrameRate,c.customText].filter(Boolean).join(' / ')).join('\n');
+        renderer.lastSharedBusLabelHitRects.push({rect:worldRectToScreenRect({...shift.rect,x:baseX+shift.rect.x,y:baseY+shift.rect.y},camera),fullText});
+        for(const p of layout.points||[])renderer.lastSharedBusLabelHitRects.push({rect:worldRectToScreenRect({x:baseX+p.x-12,y:baseY+p.y-12,width:24,height:24},camera),fullText});
+      }
     });
     drawn.add(device.id);
     renderer?.recordObjectLayer?.(layerTrace, device.id, "connectorLabelLayer", reason);
@@ -4073,17 +4095,37 @@ export function connectorAnnotationPlacements(ctx, scene, device, camera) {
       add(`node:${connector.id}:${anchor.id || ""}`,{...connector,side:anchor.side},{x:anchor.x,y:anchor.y},lines);
     }
   });
-  display.groups.forEach(layout=>{
-    const details=layout.members.map(engineConnectorCanvasLabelLines),installed=details.some(lines=>lines.length>1);
-    let lines=installed?[...(zoom>=.5?details.find(lines=>lines.length>1).slice(0,1):[]),[...new Set(details.map(lines=>lines.at(-1)))].join(' / ')]:[sharedBusConnectorLabel(layout)];
-    if(installed) {
-      ctx.save();ctx.font=`900 ${metrics.screenFontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
-      lines=lines.map(line=>fitCanvasText(ctx,line,connectorCaptionWidth(device,layout.representative)*zoom));ctx.restore();
-    }
-    add(`bus:${layout.relationshipId}`,{...layout.representative,direction:layout.side,side:layout.side==='output'?'right':'left'},
-      {x:layout.fieldAnchorX,y:layout.centerY},lines,900);
+  const placements=resolveConnectorLabelCollisions(rows,obstacles,2),fixed=[];
+  const fieldRows=[];
+  const addFields=(connector,point,owner)=>{
+    const count=visibleConnectorInfoFields(connector).length;
+    const card=device.visual?.visualCards?.find(c=>c.id===connector.cardSlotId);
+    fieldRows.push({connector:{...connector},point,owner,count,x:point.x,y:point.y,
+      side:connector.side==='right'?'right':'left',left:(card?.x||0)+4,right:card?card.x+card.width-4:device.width-4});
+  };
+  deviceConnectorsForRender(device).forEach(c=>{
+    if(!display.byConnectorId.has(c.id))for(const a of connectorDisplayAnchors(device,c,display))addFields({...c,side:a.side},{x:a.x,y:a.y},`node:${c.id}:${a.id||''}`);
   });
-  return resolveConnectorLabelCollisions(rows,obstacles,2);
+  for(const layout of display.groups) {
+    const side=layout.side==='output'?'right':'left',key=`bus:${layout.relationshipId}`;
+    const anchor=attachedConnectorLabelPosition(device,{x:layout.fieldAnchorX,y:layout.centerY},side,metrics.offsetX,metrics.offsetY);
+    const card=device.visual?.visualCards?.find(c=>c.id===layout.representative.cardSlotId),size=metrics.screenFontSize/zoom;
+    const padding=Math.max(2.8,metrics.screenFontSize*.34)/(2*zoom);
+    fixed.push({key,x:anchor.x,top:anchor.y-size*.7-padding,height:size*1.25+2*padding,side,
+      left:(card?.x||0)+4,right:card?card.x+card.width-4:device.width-4,
+      minTop:(card?.y||0)+4,bottom:card?card.y+card.height-4:device.height-4,
+      padding,labels:sharedBusTypeLabels(layout.members)});
+    addFields({...layout.representative,side,direction:layout.side},{x:layout.fieldAnchorX,y:layout.centerY},key);
+  }
+  const scale=legacyConnectorInfoBoxMode(zoom)==='full'?legacyCanvasDetailScale(zoom):INFO_BOX_COMPACT_SCALE;
+  const blockers=[...obstacles,...[...placements.values()].map(p=>p.rect)];
+  for(const row of fieldRows) {
+    row.connector.__fieldLayout=connectorFieldRowWidth(row,fieldRows,scale,zoom);
+    for(let i=0;i<row.count;i++)blockers.push({...connectorInfoBoxWorldRect(row.point,row.connector,i,scale),owner:row.owner});
+  }
+  ctx.save();ctx.font=`900 ${metrics.screenFontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  for(const [key,value] of resolveSharedBusLabels(fixed,blockers,text=>ctx.measureText(text).width/zoom,2))placements.set(key,value);
+  ctx.restore();return placements;
 }
 
 function connectorAnnotationPlacementsForFrame(ctx,scene,device,camera) {
@@ -4121,7 +4163,7 @@ function drawConnectorWorldLabel(ctx, point, connector = {}, text = "", camera, 
   ctx.restore();
 }
 
-function drawSharedBusConnectorWorldLabel(ctx, layout, baseX, baseY, camera, maxWidth = Infinity, device = {}) {
+function drawSharedBusConnectorWorldLabel(ctx, layout, baseX, baseY, camera, maxWidth = Infinity, device = {}, presentation = null) {
   const text = sharedBusConnectorLabel(layout);
   if (!text) return false;
   const side = layout.side === "output" ? "right" : "left";
@@ -4139,26 +4181,15 @@ function drawSharedBusConnectorWorldLabel(ctx, layout, baseX, baseY, camera, max
   ctx.strokeStyle = "rgba(0,0,0,.84)";
   ctx.lineWidth = Math.max(2.8, size * 0.34);
   ctx.fillStyle = "#ffffff";
-  const modules = (layout.members || []).map(engineConnectorCanvasLabelLines);
-  const hasModule = modules.some(lines => lines.length > 1);
-  const lines = hasModule
-    ? [...(camera.zoom >= 0.5 ? modules.find(lines => lines.length > 1).slice(0, 1) : []), [...new Set(modules.map(lines => lines.at(-1)))].join(" / ")]
-    : [text];
-  lines.forEach((line, index) => {
-    const caption = hasModule ? fitCanvasText(ctx, line, maxWidth * camera.zoom) : line;
-    ctx.strokeText(caption, x, y + index * size * 1.25);
-    ctx.fillText(caption, x, y + index * size * 1.25);
-  });
+  const label=presentation||adaptiveSharedBusLabel(sharedBusTypeLabels(layout.members),maxWidth*camera.zoom,
+    value=>ctx.measureText?ctx.measureText(value).width:value.length*size*.6);
+  if(label.text){ctx.strokeText(label.text,x,y);ctx.fillText(label.text,x,y);}
   ctx.restore();
   return true;
 }
 
 function sharedBusConnectorLabel(layout) {
-  const labels = [];
-  (layout?.members || []).forEach(connector => {
-    const label = engineConnectorPlugTypeLabel(connector);
-    if (label && !labels.includes(label)) labels.push(label);
-  });
+  const labels = sharedBusTypeLabels(layout?.members);
   return labels.join(" / ") || String(layout?.relationship?.label || "Shared bus").trim();
 }
 
@@ -4777,9 +4808,11 @@ function drawConnectorTooltip(ctx, entry, camera, offsets = null) {
   ctx.font = `800 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
   const paddingX = 7;
   const paddingY = 5;
-  const width = isTransceiverCage(entry.connector) ? 260 : Math.min(260, Math.max(56, ctx.measureText(text).width + paddingX * 2));
-  const moduleLines = isTransceiverCage(entry.connector)
-    ? wrapScreenInfoBoxLines(ctx, transceiverModulePresentation(entry.connector), 246, 6) : [];
+  const bus=createConnectorDisplayLayout(entry.device).byConnectorId.get(entry.connector.id)?.layout;
+  const width = bus || isTransceiverCage(entry.connector) ? 260 : Math.min(260, Math.max(56, ctx.measureText(text).width + paddingX * 2));
+  const moduleLines = bus ? bus.members.flatMap(c=>wrapScreenInfoBoxLines(ctx,
+    [c.nameText||c.label,...engineConnectorCanvasLabelLines(c),c.resolutionFrameRate,c.customText].filter(Boolean).join(' / '),246,12))
+    : isTransceiverCage(entry.connector) ? wrapScreenInfoBoxLines(ctx, transceiverModulePresentation(entry.connector), 246, 6) : [];
   const height = (1 + moduleLines.length) * (size + 3) + paddingY * 2;
   const side = entry.connector?.side === "right" ? -1 : 1;
   const boxX = x + side * 16 - (side < 0 ? width : 0);
