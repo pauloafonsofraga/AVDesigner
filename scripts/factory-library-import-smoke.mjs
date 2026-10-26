@@ -42,6 +42,7 @@ try {
     await page.locator("#deviceSearch").fill(expected.name);
     const row = page.locator(`#deviceList [data-template-id="${expected.id}"]`);
     await row.scrollIntoViewIfNeeded();
+    await page.waitForFunction(id => document.querySelector(`#deviceList [data-template-id="${id}"] img`)?.getAttribute("src"), expected.id);
     await row.locator("img").evaluate(image => image.decode());
     assert.ok(await row.locator("img").evaluate(image => image.naturalWidth > 0 && image.naturalWidth <= 512));
     await page.evaluate(id => openDeviceEditorForTemplate(id), expected.id);

@@ -1,0 +1,129 @@
+{
+  "sourceFile": "wirenexus-device-library (8).json",
+  "sourceSha256": "610a7a92355ff5f4ec57927cdab62b008e5326689cf98a18c236cbc8a3b72f44",
+  "packageId": "b5b9ab849669981d919e60ea8b7d59db56866e70f9ecea415d5c48d65a27a883",
+  "beforeDevices": 130,
+  "afterDevices": 133,
+  "existingDevicesSha256": "452b8a48e4bec99c73b036312a7f5db35a25a94c174da7622f04aa3bea052683",
+  "nodesSha256": "4c5b341459f5ae3986723732038b1501bba9d467a577816de3218151196161de",
+  "devices": [
+    {
+      "id": "custom-device-e2-gen2-copy-3",
+      "name": "EX",
+      "brand": "Barco",
+      "connectors": 8,
+      "cards": 7,
+      "slots": 2,
+      "fingerprint": "e7b8fe960252b2a92ae65b564d106e8dc255be082e4c5792aefc567a3bd8e840",
+      "artwork": {
+        "97668ee3286b9fea77b60e347322a5d850050490f3cf0df44eec32086b82d60f": {
+          "bytes": 801881,
+          "mime": "image/png"
+        },
+        "cefb8af87685e29d09eded59282b5ec0cfb5414d5d6f07b6c65145cbd45f43eb": {
+          "bytes": 13367,
+          "mime": "image/png"
+        },
+        "eb854c1798c6eb057dfa17c4ed79cf7f5b18ac9413627613d0f96619ea9f71b9": {
+          "bytes": 766442,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mvpjkcho",
+      "name": "xPressCue",
+      "brand": "Theatrixx",
+      "connectors": 18,
+      "cards": 0,
+      "slots": 0,
+      "fingerprint": "5b0be6b0b2accc1edcf2e86791c9d5394ce703df023065f739b66ad635c86e8c",
+      "artwork": {
+        "4fea4706f184057720977168b3d506a418798134266cf7270664039578ebd3a0": {
+          "bytes": 514550,
+          "mime": "image/png"
+        },
+        "d627bf74069639c1e83e60dc2c5dc0a4ad6b37f6b9fa7997d8f442f94da9794c": {
+          "bytes": 13230,
+          "mime": "image/png"
+        },
+        "1810a83b01ed172f5d85434bfc520d5ef0eb89b6749add6a56eb30ef28a5184b": {
+          "bytes": 599584,
+          "mime": "image/png"
+        }
+      }
+    },
+    {
+      "id": "custom-device-mvpkodby",
+      "name": "CorePlay Solo",
+      "brand": "Analog Way",
+      "connectors": 12,
+      "cards": 0,
+      "slots": 0,
+      "fingerprint": "596b289d7cd341f9b125a5bd1a3f3bb601e07b41d47a5a9bf25f6c494abb9485",
+      "artwork": {
+        "18649a34bf2662104f3e5b3d7f03682787d8f6d3e77b99d88aabcb098b37d291": {
+          "bytes": 6337611,
+          "mime": "image/png"
+        },
+        "579a398749c502e8c69738ee9cc357b3f5b0d5c4d4e3325b693ccbdf8d76f58c": {
+          "bytes": 27531,
+          "mime": "image/png"
+        },
+        "916277febeaec5d28c86feba774836eef5b63e167f1b10e76e0235daded7f243": {
+          "bytes": 2258605,
+          "mime": "image/png"
+        }
+      }
+    }
+  ],
+  "barcoEx": {
+    "faceImageLayout": {
+      "height": 78,
+      "topAligned": true,
+      "contentBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 1,
+        "height": 1,
+        "sourceWidth": 2128,
+        "sourceHeight": 207
+      },
+      "connectorBounds": {
+        "x": 20,
+        "y": 46,
+        "width": 340,
+        "height": 126
+      }
+    },
+    "visible": {
+      "x": 20,
+      "y": 46,
+      "width": 340,
+      "height": 33.07330827067669
+    },
+    "placement": {
+      "x": 20,
+      "y": 46,
+      "width": 340,
+      "height": 33.07330827067669
+    },
+    "cardSlots": [
+      {
+        "id": "card-slot-1",
+        "name": "Card Slot 1",
+        "installedCardTypeId": "new-card",
+        "connectorOverrides": {},
+        "y": 208
+      },
+      {
+        "id": "card-slot-2",
+        "name": "Card Slot 2",
+        "installedCardTypeId": "card-4",
+        "connectorOverrides": {},
+        "y": 208
+      }
+    ],
+    "firstInstalledNodeY": 262
+  }
+}
