@@ -166,8 +166,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-150-preserve-wire-routing";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-150-preserve-wire-routing";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-151-preserve-drawn-routing";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-151-preserve-drawn-routing";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -8930,10 +8930,6 @@ class ProductionEngineBridge {
       wire.routePoints = cloneRoutePoints(state.routePoints);
       if(state.manualRoute!==undefined)wire.manualRoute=Boolean(state.manualRoute);
       if(state.routeAutomatic!==undefined)wire.routeAutomatic=Boolean(state.routeAutomatic);
-      if(state.routeAutomatic){
-        wire.routeStyle=this.currentWireRouteMode();
-        if(wire.routeStyle!==state.routeStyle)wire.routePoints=[];
-      }
       this.scene.dirtyWires.add(wire.id);
       ids.push(wire.id);
     });

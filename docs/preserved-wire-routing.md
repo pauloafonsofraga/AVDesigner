@@ -1,9 +1,9 @@
 # Preserve User-Defined Cable Routing
 
-Build 54.38.150 keeps global routing changes separate from per-cable authored
-geometry. The global Bezier/90-degree button affects automatic cables and the
-default for new cables. Manually placed paths, edited control points, and moved
-orthogonal segments retain their own style and points. Node and cable endpoints,
+The Bezier/90-degree button now sets only the default for future cables.
+Every existing cable retains its style and geometry, including automatically
+drawn cables. Manually placed paths, edited control points, and moved
+orthogonal segments also retain their own style and points. Node and cable endpoints,
 connector compatibility, rack-internal routing and Multi-Core trunk rules are
 unchanged. Legacy routing remains unchanged.
 
@@ -14,12 +14,17 @@ points and hand-edited segments used the same array without reliable ownership
 metadata. Unmarked historical nonempty route arrays are therefore conservatively
 preserved as authored geometry, not discarded or reinterpreted by a mode switch.
 There is no migration or rewrite on load. Explicit manual ownership always wins.
+New cables store their per-cable `routeStyle` using the existing scene routing
+values. Before switching the default, older automatic cables without a style
+are pinned to the previous project mode. Loading a different project does not
+capture styles from the previous project's default.
 
 **Reset Wire Route** in the Inspector or cable context menu clears authored
-ownership and returns the cable to the current global routing mode. Reset,
+ownership and explicitly applies the current default routing mode once. Later
+toolbar changes leave that reset cable unchanged as well. Reset,
 control-point edits and segment drags use existing history commands, now carrying
-the route ownership as well as its geometry. Undo/Redo restores both; automatic
-history states follow the currently selected global mode. Canceled previews do
+the route ownership as well as its geometry. Undo/Redo restores both, including
+the original style of an automatic cable. Canceled previews do
 not claim ownership or dirty the project. History snapshots retain subpixel
 authored coordinates.
 Deleting the last control point retains the existing behavior of returning that

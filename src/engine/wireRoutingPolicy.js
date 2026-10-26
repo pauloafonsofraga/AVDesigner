@@ -10,8 +10,17 @@ export function projectWireRouting(wire = {}, mode = 'bezier') {
     const points=orthogonalStyle && !wire.manualRoute && orthogonal.length?orthogonal:curved;
     return {routeStyle:orthogonalStyle?'orthogonal':points.length?'custom':'bezier',routePoints:points,manualRoute:true,routeAutomatic:false};
   }
-  return {routeStyle:mode==='orthogonal'?'orthogonal':'bezier',
-    routePoints:mode==='orthogonal'?orthogonal:[],manualRoute:false,routeAutomatic:true};
+  const style=wire.routeStyle==='orthogonal'||wire.routeStyle==='bezier'?wire.routeStyle:mode;
+  return {routeStyle:style==='orthogonal'?'orthogonal':'bezier',
+    routePoints:style==='orthogonal'?orthogonal:[],manualRoute:false,routeAutomatic:true};
+}
+
+// Capture older automatic cables before changing the default for future cables.
+export function preserveAutomaticWireStyles(connections = [], mode = 'bezier') {
+  for(const wire of connections){
+    const routing=projectWireRouting(wire,mode);
+    if(!routing.manualRoute && hasIndependentWireRoute(wire))wire.routeStyle=routing.routeStyle;
+  }
 }
 
 export function hasIndependentWireRoute(wire = {}) {

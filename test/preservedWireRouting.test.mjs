@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 import {preservedWireRoutingFixture} from '../fixtures/preserved-wire-routing.mjs';
-import {projectWireRouting,markWireRouteAuthored} from '../src/engine/wireRoutingPolicy.js';
+import {projectWireRouting,markWireRouteAuthored,preserveAutomaticWireStyles} from '../src/engine/wireRoutingPolicy.js';
 import {normalizeAvDesignerProject} from '../src/engine/projectAdapter.js';
 import {SceneGraph} from '../src/engine/sceneGraph.js';
 import {ProjectMutationAdapter} from '../src/engine/projectMutations.js';
@@ -17,7 +17,7 @@ const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 test('actual toolbar mode switch and live synchronization never change authored source geometry or style',()=>{
   const state=preservedWireRoutingFixture(),before=structuredClone(state.connections),synced=new Map();
   const bridge={syncWireFromProduction:(id,data)=>synced.set(id,data)};
-  const context={state,window:{WireNexusWireRouting:{projectWireRouting}},activeEngineBridge:()=>bridge,
+  const context={state,window:{WireNexusWireRouting:{projectWireRouting,preserveAutomaticWireStyles}},activeEngineBridge:()=>bridge,
     colorForConnection:()=>'',wireModeToggle:{setAttribute(){},querySelector:()=>({})},setToolbarIcon(){},renderCanvasOnly(){},
     freezeOrthogonalRoute(){throw Error('Global switching must not freeze manual geometry');}};
   vm.createContext(context);
@@ -27,11 +27,18 @@ test('actual toolbar mode switch and live synchronization never change authored 
     context.setWireMode(mode);
     assert.deepEqual(state.connections,before);
     assert.equal(synced.get('cable-0').routeStyle,'custom');assert.equal(synced.get('cable-1').routeStyle,'orthogonal');
-    assert.equal(synced.get('cable-2').routeStyle,'orthogonal');assert.equal(synced.get('cable-3').routeStyle,mode);
+    assert.equal(synced.get('cable-2').routeStyle,'orthogonal');assert.equal(synced.get('cable-3').routeStyle,'bezier');
     for(let i=0;i<3;i++)assert.equal(synced.get(`cable-${i}`).manualRoute,true);
   }
+  state.connections=[{id:'historical-auto',manualRoute:false,routeAutomatic:true,orthogonalRoutePoints:[]}];
+  context.setWireMode('orthogonal',{preserveExisting:false});
+  assert.equal(state.connections[0].routeStyle,undefined,'loading uses the loaded project mode, not the previous mode');
+  assert.equal(synced.get('historical-auto').routeStyle,'orthogonal');
+  context.setWireMode('bezier');
+  assert.equal(state.connections[0].routeStyle,'orthogonal');
+  assert.equal(synced.get('historical-auto').routeStyle,'orthogonal');
 });
-test('only positively identified automatic caches follow the global mode; historical edits are protected',()=>{
+test('legacy automatic styles are captured before switching the creation default; historical edits are protected',()=>{
   const points=[{x:10,y:20}];
   const historical={manualRoute:false,orthogonalRoutePoints:points};
   assert.equal(projectWireRouting(historical,'bezier').routeStyle,'orthogonal');
@@ -39,6 +46,12 @@ test('only positively identified automatic caches follow the global mode; histor
   assert.equal(projectWireRouting(automatic,'bezier').routeStyle,'bezier');
   assert.deepEqual(projectWireRouting(automatic,'bezier').routePoints,[]);
   assert.deepEqual(projectWireRouting(automatic,'orthogonal').routePoints,points);
+  preserveAutomaticWireStyles([automatic],'orthogonal');
+  assert.equal(projectWireRouting(automatic,'bezier').routeStyle,'orthogonal');
+  assert.deepEqual(projectWireRouting(automatic,'bezier').routePoints,points);
+  const empty={manualRoute:false,routeAutomatic:true,orthogonalRoutePoints:[]};
+  preserveAutomaticWireStyles([empty],'orthogonal');
+  assert.equal(projectWireRouting(empty,'bezier').routeStyle,'orthogonal');
   assert.equal(projectWireRouting({manualRoute:true,manualRouteStyle:'bezier',routeAutomatic:true,routePoints:points},'orthogonal').routeStyle,'custom');
 });
 test('actual Inspector/context-menu lookup uses the cable route, not the global mode or alternate storage key',()=>{
@@ -55,7 +68,7 @@ test('actual Inspector/context-menu lookup uses the cable route, not the global 
 for(const mode of ['orthogonal','bezier'])test(`${mode}: saved/reopened project and exported viewer retain identical authored wire pixels`,()=>{
   const project=preservedWireRoutingFixture(),before=structuredClone(project),baseline=geometry(sceneFor(project));
   project.wireMode=mode;const scene=sceneFor(project),current=geometry(scene);
-  assert.deepEqual(current.slice(0,3),baseline.slice(0,3));assert.equal(current[3].style,mode);
+  assert.deepEqual(current,baseline);
   const saved=JSON.parse(new ProjectMutationAdapter(normalizeAvDesignerProject(project)).exportJson());
   assert.deepEqual(geometry(sceneFor(saved)),current);
   const output=createOutputViewerModel(buildEngineOutputScene(saved));
@@ -63,7 +76,8 @@ for(const mode of ['orthogonal','bezier'])test(`${mode}: saved/reopened project 
   assert.deepEqual(project.connections,before.connections);
 });
 for(const mode of ['orthogonal','bezier'])test(`${mode}: adding/removing controls marks an authored route and explicit reset restores automatic ownership`,()=>{
-  const project=preservedWireRoutingFixture();project.wireMode=mode;const data=normalizeAvDesignerProject(project),scene=sceneFor(project);
+  const project=preservedWireRoutingFixture();project.wireMode=mode;project.connections[3].routeStyle=mode;
+  const data=normalizeAvDesignerProject(project),scene=sceneFor(project);
   const mutations=new ProjectMutationAdapter(data),wire=scene.wires[3],before=wireRouteState(wire);
   const from=scene.endpointForWire(wire,'from'),to=scene.endpointForWire(wire,'to');
   const edited=addWireRoutePoint({wire,from,to,nearestPoint:{x:400,y:360},renderedPoints:scene.wireRenderPolyline(wire),segmentIndex:0});
@@ -78,7 +92,8 @@ for(const mode of ['orthogonal','bezier'])test(`${mode}: adding/removing control
   Object.assign(wire,reset);mutations.commitRoutePoints(scene,wire.id);
   const resetRaw=JSON.parse(mutations.exportJson()).connections.find(c=>c.id===wire.id);
   assert.equal(resetRaw.manualRouteStyle,undefined);assert.equal(resetRaw.routeAutomatic,true);
-  assert.equal(projectWireRouting(resetRaw,'bezier').routeStyle,'bezier');assert.equal(projectWireRouting(resetRaw,'orthogonal').routeStyle,'orthogonal');
+  assert.equal(projectWireRouting(resetRaw,'bezier').routeStyle,saved.wireMode);
+  assert.equal(projectWireRouting(resetRaw,'orthogonal').routeStyle,saved.wireMode);
   assert.equal(wireRouteStatesEqual(before,edited),false);assert.equal(wireRouteStatesEqual(edited,reset),false);
   Object.assign(wire,edited);mutations.commitRoutePoints(scene,wire.id);
   assert.equal(JSON.parse(mutations.exportJson()).connections.find(c=>c.id===wire.id).manualRoute,true);
@@ -98,7 +113,8 @@ test('route history snapshots preserve authored subpixel control positions',()=>
   assert.deepEqual(wireRouteState(wire).routePoints,wire.routePoints);
 });
 test('scene-only project export preserves the automatic routing mode as well as authored styles',()=>{
-  const project=preservedWireRoutingFixture();project.wireMode='orthogonal';const scene=sceneFor(project);
+  const project=preservedWireRoutingFixture();project.wireMode='orthogonal';project.connections[3].routeStyle='orthogonal';
+  const scene=sceneFor(project);
   const saved=JSON.parse(new ProjectMutationAdapter({devices:scene.devices,wires:scene.wires}).exportJson());
   assert.equal(saved.wireMode,'orthogonal');
   assert.deepEqual(sceneFor(saved).wires.map(w=>w.routeStyle),scene.wires.map(w=>w.routeStyle));

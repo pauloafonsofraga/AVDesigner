@@ -18,10 +18,10 @@ try{
   const baseline=await geometry(),raw=await page.evaluate(()=>JSON.stringify(state.connections));
   for(let i=0;i<4;i++){
     await page.locator('#wireModeToggle').click();await quiet();
-    const current=await geometry();assert.deepEqual(current.slice(0,3),baseline.slice(0,3));
-    assert.equal(current[3].style,i%2===0?'orthogonal':'bezier');assert.equal(await page.evaluate(()=>JSON.stringify(state.connections)),raw);
+    const current=await geometry();assert.deepEqual(current,baseline);
+    assert.equal(await page.evaluate(()=>JSON.stringify(state.connections)),raw);
   }
-  checks.push('repeated toolbar changes preserve manual Bezier, manual orthogonal and historical edited segments exactly; automatic cable follows');
+  checks.push('repeated toolbar changes preserve every existing cable, including automatic cables, exactly');
   await page.locator('#wireModeToggle').click();const toggled=await geometry();
   await page.locator('#undoAction').click();assert.deepEqual(await geometry(),baseline);
   await page.locator('#redoAction').click();assert.deepEqual(await geometry(),toggled);
@@ -33,7 +33,15 @@ try{
     await page.mouse.move(a.x,a.y);await page.mouse.down();await page.mouse.move(z.x,z.y,{steps:10});await page.mouse.up();await quiet();
     const id=await page.evaluate(()=>state.connections[0]?.id);assert.ok(id);
     assert.equal(await page.evaluate(()=>state.connections[0].routeAutomatic),true);
-    await page.locator('#wireModeToggle').click();assert.equal((await geometry())[0].style,mode==='bezier'?'orthogonal':'bezier');
+    const automatic=(await geometry())[0];
+    assert.equal(automatic.style,mode);
+    await page.locator('#wireModeToggle').click();assert.deepEqual((await geometry())[0],automatic);
+    const nextEnds=await page.evaluate(()=>{const b=activeEngineBridge();return['source','sink'].map(id=>b.scene.connectorWorldPoint(b.scene.getDevice(id),b.scene.getConnector(id,'port-1')));});
+    const nextA=await screen(nextEnds[0]),nextZ=await screen(nextEnds[1]);
+    await page.mouse.move(nextA.x,nextA.y);await page.mouse.down();await page.mouse.move(nextZ.x,nextZ.y,{steps:10});await page.mouse.up();await quiet();
+    assert.equal((await geometry()).length,2);
+    assert.equal((await geometry())[1].style,mode==='bezier'?'orthogonal':'bezier');
+    assert.deepEqual((await geometry())[0],automatic);
     await page.evaluate(mode=>setWireMode(mode),mode);
     if(mode==='bezier'){
       assert.equal(await page.evaluate(id=>activeEngineBridge().createWireRoutePoint(id,{nearestPoint:{x:500,y:350}}),id),true);
@@ -51,7 +59,7 @@ try{
     const authored=(await geometry())[0];assert.equal(await page.evaluate(()=>state.connections[0].manualRoute),true);
     await page.evaluate(mode=>setWireMode(mode==='bezier'?'orthogonal':'bezier'),mode);assert.deepEqual((await geometry())[0],authored);
     await page.locator('#undoAction').click();assert.equal(await page.evaluate(()=>state.connections[0].manualRoute),false);
-    assert.equal((await geometry())[0].style,mode==='bezier'?'orthogonal':'bezier');
+    assert.deepEqual((await geometry())[0],automatic);
     await page.locator('#redoAction').click();assert.deepEqual((await geometry())[0],authored);
     await page.evaluate(id=>{state.selected={type:'wire',id};renderInspector();},id);
     assert.equal(await page.locator('#resetWireRoute').isEnabled(),true);await page.locator('#resetWireRoute').click();
@@ -59,7 +67,8 @@ try{
     assert.equal((await geometry())[0].style,mode==='bezier'?'orthogonal':'bezier');
     await page.locator('#undoAction').click();assert.deepEqual((await geometry())[0],authored);
     await page.locator('#redoAction').click();assert.equal(await page.evaluate(()=>state.connections[0].routeAutomatic),true);
-    await page.locator('#wireModeToggle').click();assert.equal((await geometry())[0].style,mode);
+    const reset=(await geometry())[0];
+    await page.locator('#wireModeToggle').click();assert.deepEqual((await geometry())[0],reset);
     await page.screenshot({path:`${dir}/${mode}-reset.png`});
   }
   checks.push('new automatic wires, native orthogonal segment drag, curved control insertion, cross-mode Undo/Redo and Inspector Reset in both modes');

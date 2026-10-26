@@ -502,6 +502,7 @@ export class ProjectMutationAdapter {
       else delete entry.item.manualRouteStyle;
       entry.item.manualRoute = Boolean(wire.manualRoute);
       entry.item.routeAutomatic = !wire.manualRoute;
+      entry.item.routeStyle = wire.routeStyle === "orthogonal" ? "orthogonal" : "bezier";
     }
     entry.item[routeKey] = (wire.routePoints || []).map(point => ({
       x: roundNumber(point.x),
@@ -1170,8 +1171,8 @@ function routeFieldsFromWire(wire) {
     y: roundNumber(point.y)
   }));
   return wire.routeStyle === "orthogonal" && !wire.manualRoute
-    ? { orthogonalRoutePoints: points }
-    : { routePoints: points };
+    ? { routeStyle: "orthogonal", orthogonalRoutePoints: points }
+    : { routeStyle: wire.routeStyle === "orthogonal" ? "orthogonal" : "bezier", routePoints: points };
 }
 
 function endpointToProject(scene, wire, end) {
