@@ -58,6 +58,9 @@ directory. Override `AVDESIGNER_BASE_URL` for an isolated validation server.
 
 ## Limitations
 
-Overall cable width is intentionally preserved. At distant zoom levels individual
+Each conductor band is half a normal cable's width. Component Video therefore
+uses 1.5 times normal width; RGBHV and Powerlock use 2.5 times normal width.
+Preview, selection/hover halos, print meshes and schedule graphics follow this
+rule without changing ordinary cables or node sizes. At distant zoom levels
 bands can become subpixel; zooming in reveals the complete ordered profile.
 There is no implicit analog format conversion or automatic cable assembly.

@@ -38,7 +38,7 @@ import {
   createConnectorDisplayLayout
 } from "./connectorDisplayLayout.js";
 import { sharedBusOrthogonalSegments } from "./sharedBusRendering.js";
-import {multibandNodePolygons, multibandWirePolygons} from "./multibandGeometry.js";
+import {multibandNodePolygons, multibandWirePolygons, multibandCableWidth} from "./multibandGeometry.js";
 import {resolveConnectorLabelCollisions} from './connectorLabelLayout.js';
 import { connectorFieldRowWidth } from "./connectorFieldLayout.js";
 import {legacyFaceHeight} from './faceplateGeometry.js';
@@ -81,7 +81,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-144-top-aligned-faceplates";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-145-multiband-width";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -3498,16 +3498,18 @@ function colorAtAdapterWireStop(inputColor, outputColor, t) {
 
 function pushWireSelection(vertices, scene, wire, offsets, options = DEFAULT_RENDER_OPTIONS, cableHopMap = options.cableHopMap) {
   const drawOptions = { ...options, routePoints: false, wireColorSegments: false };
-  pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 11, "rgba(255,121,4,.18)", drawOptions, cableHopMap);
-  pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 6, "rgba(255,121,4,.36)", drawOptions, cableHopMap);
-  pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 1.5, "rgba(255,121,4,.82)", drawOptions, cableHopMap);
+  const width=multibandCableWidth(WIRE_BASE_WIDTH,wire.colorSegments);
+  pushWire(vertices, scene, wire, offsets, width + 11, "rgba(255,121,4,.18)", drawOptions, cableHopMap);
+  pushWire(vertices, scene, wire, offsets, width + 6, "rgba(255,121,4,.36)", drawOptions, cableHopMap);
+  pushWire(vertices, scene, wire, offsets, width + 1.5, "rgba(255,121,4,.82)", drawOptions, cableHopMap);
   if (wire.colorSegments?.length > 1) pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH, wireColor(wire, options), options, cableHopMap);
 }
 
 function pushWireHover(vertices, scene, wire, offsets, options = DEFAULT_RENDER_OPTIONS, cableHopMap = options.cableHopMap) {
   const drawOptions = { ...options, routePoints: false, wireColorSegments: false };
-  pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 8, "rgba(255,255,255,.22)", drawOptions, cableHopMap);
-  pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 3, "rgba(50,182,255,.72)", drawOptions, cableHopMap);
+  const width=multibandCableWidth(WIRE_BASE_WIDTH,wire.colorSegments);
+  pushWire(vertices, scene, wire, offsets, width + 8, "rgba(255,255,255,.22)", drawOptions, cableHopMap);
+  pushWire(vertices, scene, wire, offsets, width + 3, "rgba(50,182,255,.72)", drawOptions, cableHopMap);
   if (wire.colorSegments?.length > 1) pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH, wireColor(wire, options), options, cableHopMap);
 }
 
@@ -3561,8 +3563,9 @@ function pushWireColorSegments(vertices, points, width, wire, fallbackColor, opa
     pushPolyline(vertices, points, width, colorWithOpacity(fallbackColor, opacity));
     return;
   }
-  multibandWirePolygons(points, width + .6, ["#28323b"]).forEach(polygon => pushBandPolygon(vertices, polygon, opacity));
-  multibandWirePolygons(points, width, colors).forEach(polygon => pushBandPolygon(vertices, polygon, opacity));
+  const bandWidth=multibandCableWidth(width,colors);
+  multibandWirePolygons(points, bandWidth + .6, ["#28323b"]).forEach(polygon => pushBandPolygon(vertices, polygon, opacity));
+  multibandWirePolygons(points, bandWidth, colors).forEach(polygon => pushBandPolygon(vertices, polygon, opacity));
 }
 
 function pushBandPolygon(vertices, {points, color}, opacity = 1) {

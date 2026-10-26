@@ -99,9 +99,10 @@ try {
         const data=new Uint8Array(1*100*4),x=(500-b.camera.x)*8,y=(index*500+100-b.camera.y)*8;
         const scale=r.canvas.height/r.resolution.height;
         gl.readPixels(Math.round(x*scale),Math.max(0,r.canvas.height-Math.round(y*scale)-50),1,100,gl.RGBA,gl.UNSIGNED_BYTE,data);
-        return colors.map(color=>{const rgb=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16));let count=0;for(let p=0;p<data.length;p+=4)if(rgb.every((v,j)=>Math.abs(data[p+j]-v)<12))count++;return {color,count};});
+        const normalWidth=selected?4.6:2.2;
+        return colors.map(color=>{const rgb=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16));let count=0;for(let p=0;p<data.length;p+=4)if(rgb.every((v,j)=>Math.abs(data[p+j]-v)<12))count++;return {color,count,expectedWidth:normalWidth*.5*8*scale};});
       },{type,index,selected});
-      for(const p of pixels)assert.ok(p.count>0,`${type}, selected=${selected}: ${JSON.stringify(pixels)}`);
+      for(const p of pixels)assert.ok(Math.abs(p.count-p.expectedWidth)<=2,`${type}, selected=${selected}: ${JSON.stringify(pixels)}`);
       await page.screenshot({path:join(dir,`${type}-${selected?"selected":"bands"}.png`)});
     }
   }

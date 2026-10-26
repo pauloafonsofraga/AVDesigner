@@ -1,4 +1,5 @@
 import {multibandColors, groupedCoaxMetadata} from "./multibandSignals.js";
+import {multibandCableWidth} from "./multibandGeometry.js";
 
 export function cleanCableScheduleColor(value, fallback = "#32b6ff") {
   return /^#[0-9a-f]{6}$/i.test(String(value || "")) ? value : fallback;
@@ -58,8 +59,9 @@ export function cableGraphic(color, colors = null) {
   context.strokeStyle = cleanCableScheduleColor(color); context.lineWidth = 7; context.lineCap = "round";
   context.beginPath(); context.moveTo(7, 20); context.lineTo(57, 20); context.stroke();
   if(colors?.length>1) {
-    context.fillStyle="#28323b";context.fillRect(7,16,50,8);
-    colors.forEach((c,i)=>{context.fillStyle=c;context.fillRect(7,16.5+i*7/colors.length,50,7/colors.length);});
+    const width=multibandCableWidth(7,colors),top=20-width/2;
+    context.fillStyle="#28323b";context.fillRect(7,top-.5,50,width+1);
+    colors.forEach((c,i)=>{context.fillStyle=c;context.fillRect(7,top+i*3.5,50,3.5);});
   }
   context.fillStyle = "#f8fafc";
   for (const x of [7, 57]) { context.beginPath(); context.arc(x, 20, 3, 0, Math.PI * 2); context.fill(); }

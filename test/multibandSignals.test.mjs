@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {MULTIBAND_SIGNALS,multibandColors,groupedCoaxMetadata} from "../src/engine/multibandSignals.js";
-import {multibandWirePolygons,multibandNodePolygons} from "../src/engine/multibandGeometry.js";
+import {multibandWirePolygons,multibandNodePolygons,multibandCableWidth} from "../src/engine/multibandGeometry.js";
 import {engineConnectorColorSegments,engineWireColorSegmentsForCable,engineWireColorSegmentsForWire,areEngineConnectorTypesCompatible} from "../src/engine/connectorCompatibility.js";
 import {buildEngineOutputScene} from "../src/engine/outputSceneSnapshot.js";
 import {createOutputViewerModel} from "../src/engine/outputViewerModel.js";
@@ -37,6 +37,17 @@ for(const type of ["component-video","rgbhv"])test(`${type} only matches its sig
   }
 });
 for(const type of Object.keys(MULTIBAND_SIGNALS)) {
+  test(`${type}: each conductor is half a normal cable width at canvas, preview and print scales`,()=>{
+    const colors=multibandColors(type);
+    for(const normal of [4.6,3.4,2.2]) {
+      const width=multibandCableWidth(normal,colors);
+      assert.equal(width,normal*colors.length*.5);
+      const bands=multibandWirePolygons([{x:0,y:0},{x:100,y:0}],width,colors);
+      for(const band of bands)assert.ok(Math.abs(Math.abs(band.points[3].y-band.points[0].y)-normal*.5)<1e-8);
+    }
+    assert.equal(multibandCableWidth(4.6,[]),4.6);
+    assert.equal(multibandCableWidth(4.6,['#123456']),4.6);
+  });
   test(`${type}: equal adjacent node bands are clipped inside one circle`,()=>{
     const colors=multibandColors(type),polygons=multibandNodePolygons({x:50,y:20},10,colors);
     assert.deepEqual(polygons.map(p=>p.color),colors);

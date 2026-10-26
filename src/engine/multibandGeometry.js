@@ -1,3 +1,8 @@
+export function multibandCableWidth(normalWidth, colors) {
+  const count=Array.isArray(colors) ? colors.filter(Boolean).length : 0;
+  return count>1 ? normalWidth*count*.5 : normalWidth;
+}
+
 // Adjacent bands share exact boundary vertices at every routed path sample.
 // Bounded miter joins keep corners closed without long spikes at reversals.
 export function multibandWirePolygons(points, width, colors) {
