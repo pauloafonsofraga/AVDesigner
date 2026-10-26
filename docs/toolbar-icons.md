@@ -1,6 +1,6 @@
 # Toolbar Icon System
 
-Build 54.38.149 replaces main-toolbar PNGs and long text actions with 27px inline
+Build 54.38.149 replaces main-toolbar PNGs and long text actions with 22px inline
 SVGs inside 34x32px buttons. Button IDs, order, native disabled states, existing
 tooltips, click handlers and keyboard handling remain unchanged. Missing tooltip
 and accessible names on former text actions are derived from their existing labels.
@@ -15,7 +15,7 @@ Theme/grid/snap/hop/routing states reuse the current state setters. The explicit
 110V/220V value and Auto/Manual dropdown remain visible. Original artwork files
 are retained. The toolbar stays single-row, with fixed-size glyphs and horizontal
 scrolling when its contents exceed available width. Inter-button gaps are 4px;
-each icon has 3.5px horizontal and 2.5px vertical padding within its button.
+each icon has 6px horizontal and 5px vertical padding within its button.
 
 Coverage: `test/toolbarIcons.test.mjs` checks action inventory, SVG consistency,
 state swaps and the unchanged control order. `scripts/toolbar-icons-smoke.mjs`

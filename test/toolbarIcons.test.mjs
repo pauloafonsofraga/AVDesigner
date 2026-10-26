@@ -16,10 +16,10 @@ test('toolbar icons cover every icon action, leaving voltage and placement as ex
   assert.equal(api.buttons.jumpNodeTool,'jump');
   assert.ok(!api.buttons.voltageToggle&&!api.buttons.wirePlacementSelect);
 });
-test('all standard and custom icons share one 27px, currentColor, rounded-stroke system',()=>{
+test('all standard and custom icons share one 22px, currentColor, rounded-stroke system',()=>{
   for(const name of new Set([...Object.values(api.buttons),'sun','hops-off','orthogonal'])){
     const icon=api.create(document,name);
-    for(const [key,value] of Object.entries({width:'27',height:'27',viewBox:'0 0 24 24',stroke:'currentColor','stroke-width':'2','stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true',focusable:'false'}))assert.equal(icon.getAttribute(key),value,name);
+    for(const [key,value] of Object.entries({width:'22',height:'22',viewBox:'0 0 24 24',stroke:'currentColor','stroke-width':'2','stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true',focusable:'false'}))assert.equal(icon.getAttribute(key),value,name);
     assert.ok(icon.childNodes.length);assert.equal(icon.getElementsByTagName('image').length,0);
     assert.equal(icon.getElementsByTagName('script').length,0);
   }

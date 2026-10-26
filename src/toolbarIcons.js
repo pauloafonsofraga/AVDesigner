@@ -39,7 +39,7 @@
       if(text)e.textContent=text;
       return e;
     };
-    const svg=element('svg',{viewBox:'0 0 24 24',width:27,height:27,fill:'none',stroke:'currentColor',
+    const svg=element('svg',{viewBox:'0 0 24 24',width:22,height:22,fill:'none',stroke:'currentColor',
       'stroke-width':2,'stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true',focusable:'false',
       class:'toolbar-icon','data-toolbar-icon':name});
     nodes.forEach(([tag,attrs,text])=>svg.appendChild(element(tag,attrs,text)));
