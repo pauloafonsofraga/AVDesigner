@@ -57,6 +57,14 @@ export function clipboardJson(value, { allowImageAssets = false } = {}) {
 // cloning repeatedly copies large strings before the asset envelope can dedupe them.
 const cloneClipboardData = value => clipboardJson(value, { allowImageAssets: true });
 
+function clipboardConnection(wire) {
+  const connection = Object.assign(Object.create(Object.getPrototypeOf(wire)), wire);
+  // Older live Engine connections wrote this absent optional field as undefined.
+  // Project it away without relaxing validation of the remaining clipboard data.
+  if (connection.manualRouteStyle === undefined) delete connection.manualRouteStyle;
+  return cloneClipboardData(connection);
+}
+
 // Copy presentation and selected pair relationships, never external signal ownership.
 function clipboardJumpPresentation(node) {
   const presentation = ["id", "x", "y", "label", "name", "color", "style", "labelTextColor", "labelBackgroundColor"];
@@ -240,8 +248,8 @@ export function createCanvasClipboardPayload(project, selection, bounds, builtin
     payload[key].push(cloneClipboardData(key === "jumpNodes" ? clipboardJumpPresentation(source) : source));
   }
   const selected = Object.fromEntries(Object.values(CLIPBOARD_COLLECTIONS).map(key => [key, new Map(payload[key].map(item => [idOf(item), idOf(item)]))]));
-  payload.connections = cloneClipboardData((project.connections || []).filter(wire =>
-    remapClipboardEndpoint(wire.from, selected) && remapClipboardEndpoint(wire.to, selected)));
+  payload.connections = (project.connections || []).filter(wire =>
+    remapClipboardEndpoint(wire.from, selected) && remapClipboardEndpoint(wire.to, selected)).map(clipboardConnection);
   payload.connections.forEach(wire => { delete wire.loomId; });
   payload.jumpLinks = selectedJumpPairs(project, new Set(payload.jumpNodes.map(node => node.id)));
   detachClipboardJumps(payload);

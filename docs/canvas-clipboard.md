@@ -185,3 +185,28 @@ PNG declared as JPEG failed at `d29a621` with exactly:
 `Clipboard image bytes do not match image/jpeg.` Both regressions were confirmed
 red before production changes. Invalid-image diagnostics now identify the field
 path, declared MIME, detected MIME (or unknown) and byte length, never asset content.
+
+## Live Jump Group Serialization
+
+Engine-created automatic-route connections formerly carried an own
+`manualRouteStyle: undefined` property. Strict clipboard serialization rejected
+that non-JSON value with the acyclic-data error even though the topology was not
+cyclic. Saved/reloaded fixtures missed the issue because JSON removed the field.
+
+Both Engine wire writers now omit the optional style unless a manual route exists.
+The copy-side connection projection also omits this specific undefined property
+from older live connections, without modifying the source. The strict validator
+is unchanged: cycles, unexpected undefined values, executable/non-plain values,
+unsafe keys and resource limits remain rejected.
+
+Existing selection-local endpoint mapping preserves Device-to-Jump legs and pairs
+only when their referenced objects are selected. Paste allocates fresh instance,
+Jump, cable and pair identities; template-local connector references remain valid
+under their new owning instances. External cables are excluded. A single Jump
+still copies as presentation only, with no cables, pair or external ownership.
+
+`test/jumpGroupClipboard.test.mjs` exercises live Engine mutation writers before
+JSON save, older in-memory records, strict rejection, repeat paste and round-trip
+topology. `node scripts/jump-group-clipboard-smoke.mjs` exercises actual Engine wire
+creation and native Chrome copy/paste, three pastes, undo/redo, singleton isolation
+and project save/reopen. Override `AVDESIGNER_BASE_URL` for an isolated server.
