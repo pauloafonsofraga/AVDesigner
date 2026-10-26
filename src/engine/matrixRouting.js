@@ -194,6 +194,56 @@ export function matrixInternalRoutePairsForDevice(device = {}, routes = device?.
     .filter(Boolean);
 }
 
+export function internalSignalRoutingEnabled(device = {}) {
+  return device.visual?.enableInternalRouting === true && !device.visual?.isMatrixRouter;
+}
+
+export function internalSignalEndpoints(device = {}) {
+  if (!internalSignalRoutingEnabled(device)) return { inputs: [], outputs: [] };
+  const connectors = (device.connectors || []).filter(c => c && !c.empty && c.type)
+    .slice().sort((a, b) => a.y - b.y || String(a.id).localeCompare(String(b.id)));
+  const direction = c => isTransceiverCage(c) ? effectiveTransceiverDirection(c) : c.signalDirection || c.direction;
+  const entries = (role, prefix) => connectors.filter(c => direction(c) === role
+    || ["both", "two-way", "bidirectional"].includes(direction(c)))
+    .map((connector, index) => ({ connector, id: connector.id, name: matrixConnectorNameForEngine(connector, prefix, index) }));
+  return { inputs: entries("input", "IN"), outputs: entries("output", "OUT") };
+}
+
+export function normalizeInternalSignalRoutes(device, routes = device?.internalSignalRoutes) {
+  const { inputs, outputs } = internalSignalEndpoints(device);
+  const inputIds = new Set(inputs.map(p => p.id)), outputIds = new Set(outputs.map(p => p.id)), seen = new Set();
+  return (Array.isArray(routes) ? routes : []).flatMap(route => {
+    const inputId = String(route?.inputId || ""), outputId = String(route?.outputId || "");
+    const identity = JSON.stringify([inputId, outputId]);
+    if (!inputIds.has(inputId) || !outputIds.has(outputId) || inputId === outputId || seen.has(identity)) return [];
+    seen.add(identity);
+    return [{ inputId, outputId }];
+  });
+}
+
+export function setInternalSignalRoute(device, inputId, outputId, { remove = false } = {}) {
+  const routes = normalizeInternalSignalRoutes(device);
+  if (!remove && routes.some(r => r.inputId === inputId && r.outputId === outputId)) return routes;
+  const without = routes.filter(r => r.inputId !== inputId || r.outputId !== outputId);
+  return remove ? without : normalizeInternalSignalRoutes(device, [...without, { inputId, outputId }]);
+}
+
+// Ordinary logical routes use the Matrix anchor and curve geometry, not physical wires.
+export function deviceInternalRoutePairs(device = {}) {
+  if (device.visual?.isMatrixRouter) return matrixInternalRoutePairsForDevice(device);
+  const { inputs, outputs } = internalSignalEndpoints(device);
+  const layout = createConnectorDisplayLayout(device);
+  return normalizeInternalSignalRoutes(device).flatMap(route => {
+    const input = inputs.find(p => p.id === route.inputId), output = outputs.find(p => p.id === route.outputId);
+    const inputAnchor = matrixRouteAnchorForConnector(device, input.connector, "input", layout);
+    const outputAnchor = matrixRouteAnchorForConnector(device, output.connector, "output", layout);
+    if (!inputAnchor || !outputAnchor) return [];
+    return [{ deviceId: device.sourceId || device.id, routeKey: matrixCrosspointKey(device.id, input.id, output.id),
+      input, output, inputConnector: input.connector, outputConnector: output.connector, inputAnchor, outputAnchor,
+      start: matrixAnchorPoint(input.connector, inputAnchor, device), end: matrixAnchorPoint(output.connector, outputAnchor, device) }];
+  });
+}
+
 export function matrixInternalRouteBezierGeometry(device = {}, pair = {}, baseX = 0, baseY = 0) {
   const width = Math.max(1, Number(device?.width) || 1);
   const height = Math.max(1, Number(device?.height) || 1);

@@ -5,7 +5,7 @@ import { effectiveTransceiverDirection, isTransceiverCage } from "./transceiverM
 import { rawWireJumpIds, resolvePlayableSignalPath } from "./jumpNodeModel.js";
 import { cableLengthDisplayLabel } from "./loomMetadata.js";
 import { resolveRackPatchPresentation } from "./rackPatchTopology.js";
-import { createMultiCoreConnectivity, isMultiCoreEndpointReference, traceMultiCoreSignalPath } from "./multiCoreConnectivity.js";
+import { createMultiCoreConnectivity, isMultiCoreEndpointReference, traceMultiCoreSignalPath, traceInternalSignalPaths } from "./multiCoreConnectivity.js";
 import { multiCoreReportEndpoint, presentMultiCorePath } from "./multiCoreReportPresentation.js";
 import {groupedCoaxMetadata, groupedCoaxLabel, multibandColors} from "./multibandSignals.js";
 export { multiCorePathMarkup } from "./multiCoreReportPresentation.js";
@@ -242,7 +242,10 @@ function derivePatchReportNotes(notes, source, destination) {
 
 export function buildCableSchedule(input, options = {}) {
   const project = projectRoot(input);
-  const connectivity = options.connectivity || (project.multiCores?.length || project.connections?.some(c => isMultiCoreEndpointReference(c.from) || isMultiCoreEndpointReference(c.to))
+  const connectivity = options.connectivity || (project.multiCores?.length
+    || project.deviceLibrary?.some(t => t.enableInternalRouting)
+    || project.devices?.some(d => d.templateOverride?.enableInternalRouting || d.template?.enableInternalRouting || d.enableInternalRouting)
+    || project.connections?.some(c => isMultiCoreEndpointReference(c.from) || isMultiCoreEndpointReference(c.to))
     ? createMultiCoreConnectivity(project, { getConnector: options.getConnector }) : null);
   const groups = options.assignNumbers === false ? groupedCables(project, options.getConnector)
     : options.assignNumbers === "readOnly"
@@ -339,6 +342,14 @@ export function signalChainForWire(rows, wireId, { connectivity = signalChainCon
   if (!row) return null;
   const chain = signalChainFromRow(row);
   if (!connectivity) return chain;
+  if (connectivity.edges.some(e => e.kind === "device-internal-route")) {
+    const paths = traceInternalSignalPaths(connectivity, id);
+    if (paths.some(p => p.segments.some(s => s.kind === "device-internal-route"))) {
+      const presentations = paths.map(p => presentMultiCorePath(p, rows, connectivity));
+      return { ...chain, path: paths[0], paths, presentation: presentations.length === 1 ? presentations[0]
+        : { ...presentations[0], branches: presentations } };
+    }
+  }
   const startingCable = connectivity.cables.find(c => c.wireId === id);
   const orientFromEquipment = isMultiCoreEndpointReference(startingCable?.from.reference)
     && startingCable?.to.kind === "device";

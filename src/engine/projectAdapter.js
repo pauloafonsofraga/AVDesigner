@@ -45,6 +45,7 @@ import {
 } from "./ledSurfaceModel.js";
 import {
   connectorIncludedInMatrixForEngine,
+  normalizeInternalSignalRoutes,
   normalizeMatrixRoutesForDevice
 } from "./matrixRouting.js?v=iteration54-4-0-matrix-routing-internal-routes";
 import {
@@ -627,6 +628,7 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType, nod
   // the value. Normalize it after connectors are resolved so deleted/renamed
   // connector IDs cannot survive in the Engine scene.
   normalized.matrixRoutes = normalizeMatrixRoutesForDevice(normalized, instance.matrixRoutes);
+  if (visual.enableInternalRouting) normalized.internalSignalRoutes = normalizeInternalSignalRoutes(normalized, instance.internalSignalRoutes);
   if (isAdapter) {
     const mapping = adapterMappingForDevice(normalized);
     normalized.visual.adapterMapping = adapterMappingSummary(mapping);
@@ -697,6 +699,7 @@ function normalizeDeviceVisualMetadata(
     isLedProcessor: Boolean(template.isLedProcessor),
     isPowerDistro: Boolean(template.isPowerDistro || instance.isPowerDistro),
     isMatrixRouter: Boolean(template.isMatrixRouter),
+    enableInternalRouting: template.enableInternalRouting === true,
     isAdapterBreakout: isAdapter,
     adapterClassification: adapterClassificationForEngine(template, instance, isAdapter),
     projectCustomRevision,

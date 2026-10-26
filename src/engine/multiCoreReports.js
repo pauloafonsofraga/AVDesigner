@@ -28,7 +28,9 @@ const freeze = value => { if (value && typeof value === "object") { Object.value
 export function buildMultiCoreReports(input, options = {}) {
   const project = input?.state || input?.project || input || {};
   const active = list(project.multiCores).length > 0 || list(project.connections).some(c => isMultiCoreEndpointReference(c?.from) || isMultiCoreEndpointReference(c?.to));
-  const connectivity = active ? options.connectivity || createMultiCoreConnectivity(project, options) : null;
+  const internalRouting = list(project.deviceLibrary).some(t => t.enableInternalRouting)
+    || list(project.devices).some(d => d.templateOverride?.enableInternalRouting || d.template?.enableInternalRouting || d.enableInternalRouting);
+  const connectivity = active || internalRouting ? options.connectivity || createMultiCoreConnectivity(project, options) : null;
   const cableRows = buildCableSchedule(project, { ...options, connectivity, assignNumbers: "readOnly" });
   const byWire = new Map(cableRows.flatMap(row => row.wireIds.map(id => [id, row])));
   const channels = [], assemblies = [], diagnostics = connectivity ? [...connectivity.diagnostics, ...multiCoreJumpDiagnostics(project)] : [];

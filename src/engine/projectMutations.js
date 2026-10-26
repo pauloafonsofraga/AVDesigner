@@ -367,6 +367,16 @@ export class ProjectMutationAdapter {
     return this.lastMutation.durationMs;
   }
 
+  updateInternalSignalRoutes(deviceId, routes = []) {
+    const start = performance.now(), entry = this.deviceById.get(String(deviceId));
+    if (!entry?.item) return 0;
+    entry.item.internalSignalRoutes = deepClone(routes);
+    this.record("internal signal routing", performance.now() - start, `devices[${entry.index}].internalSignalRoutes`, {
+      deviceId, routes: routes.length
+    });
+    return this.lastMutation.durationMs;
+  }
+
   updateWireFields(wireId, fields = {}) {
     const start = performance.now();
     const id = String(wireId || "");
@@ -1054,6 +1064,7 @@ function buildProjectFromSceneData(sceneData = {}) {
 
 function rawDeviceFromSceneDevice(device) {
   return {
+    ...(device.visual?.enableInternalRouting ? { internalSignalRoutes: deepClone(device.internalSignalRoutes || []) } : {}),
     instanceId: String(device.sourceId || device.id),
     id: String(device.sourceId || device.id),
     name: device.label || String(device.id),
@@ -1062,6 +1073,7 @@ function rawDeviceFromSceneDevice(device) {
     width: roundNumber(device.width),
     height: roundNumber(device.height),
     templateOverride: {
+      ...(device.visual?.enableInternalRouting ? { enableInternalRouting: true } : {}),
       id: device.templateId || `engine-template-${device.id}`,
       name: device.label || String(device.id),
       brand: device.brand || "",

@@ -22,7 +22,8 @@ import {
   adapterInternalWirePairs
 } from "./adapterMapping.js";
 import {
-  matrixInternalRoutePairsForDevice,
+  deviceInternalRoutePairs,
+  internalSignalRoutingEnabled,
   matrixInternalRoutePolyline
 } from "./matrixRouting.js?v=iteration54-4-0-matrix-routing-internal-routes";
 import { isCanvasObjectKind, isLedSurfaceKind } from "./canvasObjectKinds.js";
@@ -82,7 +83,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-151-preserve-drawn-routing";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-152-internal-signal-routing";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -3782,7 +3783,7 @@ export function engineOutputPrimitives(scene, contract) {
         if (relationship.type === "through") pushThroughConnectorArrow(vertices, device, relationship, device.x, device.y, layout);
       }
     }) })),
-    matrix: scene.devices.filter(device => device.visual?.isMatrixRouter).map(device => ({
+    matrix: scene.devices.filter(device => device.visual?.isMatrixRouter || internalSignalRoutingEnabled(device)).map(device => ({
       id: device.id, vertices: mesh(vertices => pushMatrixInternalRoutes(vertices, device)) })),
     jumps: scene.devices.filter(device => device.kind === "jump").map(device => ({ id: device.id,
       vertices: mesh(vertices => pushJumpNode(vertices, jumpNodeCenter(device), jumpNodeRenderRadius(device), {
@@ -3923,8 +3924,8 @@ function verticesForMatrixInternalRoutes(device, offsets = null, options = DEFAU
 }
 
 function pushMatrixInternalRoutes(vertices, device, offsets = null, options = DEFAULT_RENDER_OPTIONS, mode = "normal") {
-  if (!device?.visual?.isMatrixRouter || options.wires === false) return 0;
-  const pairs = matrixInternalRoutePairsForDevice(device);
+  if ((!device?.visual?.isMatrixRouter && !internalSignalRoutingEnabled(device)) || options.wires === false) return 0;
+  const pairs = deviceInternalRoutePairs(device);
   if (!pairs.length) return 0;
   const offset = offsets?.get(device.id);
   const baseX = device.x + (offset?.dx || 0);

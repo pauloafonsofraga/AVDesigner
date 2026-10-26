@@ -40,6 +40,7 @@ import {
 } from "./rackPorts.js";
 import {
   connectorIncludedInMatrixForEngine,
+  normalizeInternalSignalRoutes,
   normalizeMatrixRoutesForDevice
 } from "./matrixRouting.js?v=iteration54-4-0-matrix-routing-internal-routes";
 import {
@@ -2380,6 +2381,7 @@ function normalizeDevice(device) {
         : (explicitPortCount ?? Math.max(1, connectors.length || 4))
   };
   normalized.matrixRoutes = normalizeMatrixRoutesForDevice(normalized, device.matrixRoutes);
+  if (visual.enableInternalRouting) normalized.internalSignalRoutes = normalizeInternalSignalRoutes(normalized, device.internalSignalRoutes);
   return normalized;
 }
 
@@ -2436,6 +2438,7 @@ function normalizeVisualMetadata(visual = {}) {
     isLedProcessor: Boolean(visual.isLedProcessor),
     isPowerDistro: Boolean(visual.isPowerDistro),
     isMatrixRouter: Boolean(visual.isMatrixRouter),
+    enableInternalRouting: visual.enableInternalRouting === true,
     isAdapterBreakout: Boolean(visual.isAdapterBreakout),
     adapterClassification: normalizeAdapterClassification(visual.adapterClassification),
     adapterMapping: normalizeAdapterMapping(visual.adapterMapping),

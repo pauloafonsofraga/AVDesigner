@@ -35,8 +35,8 @@ export function presentMultiCorePath(path, rows, connectivity) {
     const row = rows.find(r => ref.deviceId && (r.sourceDeviceId === ref.deviceId && r.sourceConnectorId === ref.connectorId
       || r.destinationDeviceId === ref.deviceId && r.destinationConnectorId === ref.connectorId));
     const side = row?.sourceDeviceId === ref.deviceId && row?.sourceConnectorId === ref.connectorId ? "source" : "destination";
-    return { key, reference: ref, kind: e?.kind || "unresolved", title: row?.[`${side}Device`] || ref.jumpNodeId || ref.deviceId || "Unresolved endpoint",
-      detail: row?.[`${side}Port`] || ref.connectorId || "", status: e?.status || "unresolved" };
+    return { key, reference: ref, kind: e?.kind || "unresolved", title: row?.[`${side}Device`] || e?.deviceName || ref.jumpNodeId || ref.deviceId || "Unresolved endpoint",
+      detail: row?.[`${side}Port`] || e?.connector?.nameText || e?.connector?.label || ref.connectorId || "", status: e?.status || "unresolved" };
   };
   const segments = path.segments.map(segment => {
     const from = endpoint(segment.fromKey), to = endpoint(segment.toKey);
@@ -48,6 +48,8 @@ export function presentMultiCorePath(path, rows, connectivity) {
     if (segment.kind === "multi-core-passive-channel") return { ...segment, from, to,
       title: `${segment.multiCoreName || segment.multiCoreId} / Channel ${segment.displayNumber}`,
       detail: `${reportLength(segment.length, segment.lengthUnit)} trunk / ${segment.direction}` };
+    if (segment.kind === "device-internal-route") return { ...segment, from, to,
+      title: `${segment.deviceName} / Internal Signal Routing`, detail: `${from.detail} → ${to.detail}` };
     return { ...segment, from, to, title: "Jump continuation", detail: segment.jumpLinkId };
   });
   const diagnostics = path.diagnostics.map(d => ({ ...d, display: d.code === "open-termination"
@@ -57,5 +59,6 @@ export function presentMultiCorePath(path, rows, connectivity) {
 
 const escape = value => reportText(value).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 export function multiCorePathMarkup(presentation) {
+  if (presentation.branches) return presentation.branches.map((branch, i) => `<section class="internal-signal-path-branch"><h3>Route ${i + 1}</h3>${multiCorePathMarkup(branch)}</section>`).join("");
   return `<ol class="multi-core-signal-path">${presentation.segments.map(s => `<li data-path-kind="${escape(s.kind)}"><strong>${escape(s.title)}</strong><div>${escape(s.detail)}</div><div>${escape(s.from.title)} / ${escape(s.from.detail)} &rarr; ${escape(s.to.title)} / ${escape(s.to.detail)}</div></li>`).join("")}</ol><ul class="multi-core-report-diagnostics">${presentation.diagnostics.map(d => `<li>${escape(d.display)}</li>`).join("")}</ul>`;
 }

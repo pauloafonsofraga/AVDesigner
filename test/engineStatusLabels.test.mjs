@@ -20,7 +20,7 @@ for (const type of ["route point", "object move", "wire create"]) {
     const commit = vm.runInNewContext(`(${callback})`, {
       renderCableLegend() {}, renderProjectCustomDevices() {}, renderInspector() {}, updateUndoRedoButtons() {},
       requestCableScheduleRefresh() {}, requestSignalChainRefresh() {},
-      matrixRoutingModal: null, statusSummary: () => "2 devices / 4 cables",
+      matrixRoutingModal: null, internalSignalRoutingEditor: null, statusSummary: () => "2 devices / 4 cables",
       setStatus: message => messages.push(message), recordShellAction: (...args) => actions.push(args), console: { info() {} }
     });
     commit({ type, mutationStats: {} });

@@ -1,4 +1,5 @@
 import { resolveProjectorLens } from "./projectorModel.js";
+import { internalSignalRoutingEnabled, normalizeInternalSignalRoutes, setInternalSignalRoute } from "./matrixRouting.js?v=iteration54-4-0-matrix-routing-internal-routes";
 import { markWireRouteAuthored } from "./wireRoutingPolicy.js";
 import {sharedBusTypeLabels} from './sharedBusLabels.js';
 import {multibandSignal, groupedCoaxMetadata} from "./multibandSignals.js";
@@ -166,8 +167,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-151-preserve-drawn-routing";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-151-preserve-drawn-routing";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-152-internal-signal-routing";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-152-internal-signal-routing";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -7582,6 +7583,32 @@ class ProductionEngineBridge {
       routes,
       diagnostics: matrixRouteDiagnosticsForDevice({ ...device, matrixRoutes: routes })
     };
+  }
+
+  commitInternalSignalRoute(deviceId, inputId, outputId, options = {}) {
+    const device = this.resolveDeviceBySourceId(deviceId);
+    if (!this.ready || !internalSignalRoutingEnabled(device)) return false;
+    const before = normalizeInternalSignalRoutes(device);
+    const after = setInternalSignalRoute(device, inputId, outputId, options);
+    if (JSON.stringify(before) === JSON.stringify(after)) return false;
+    const sourceId = String(device.sourceId || device.id);
+    this.beginProductionCommit("internal signal routing");
+    const result = this.applyInternalSignalRoutes(sourceId, after);
+    this.recordCommand({ type: "InternalSignalRoutingCommand", affectedIds: [sourceId],
+      undo: bridge => bridge.applyInternalSignalRoutes(sourceId, before),
+      redo: bridge => bridge.applyInternalSignalRoutes(sourceId, after) });
+    this.markCommitted("internal signal routing", result.mutationMs || 0);
+    return true;
+  }
+
+  applyInternalSignalRoutes(deviceId, routes) {
+    const device = this.resolveDeviceBySourceId(deviceId);
+    if (!internalSignalRoutingEnabled(device)) return { mutationMs: 0 };
+    device.internalSignalRoutes = normalizeInternalSignalRoutes(device, routes);
+    const mutationMs = this.mutations?.updateInternalSignalRoutes(device.sourceId || device.id, device.internalSignalRoutes) || 0;
+    this.renderer.updateMatrixInternalRoutes(this.scene, [device.id]);
+    this.scheduleRender();
+    return { mutationMs };
   }
 
   commitMatrixRoute(deviceId, outputId, inputId, options = {}) {
