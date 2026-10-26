@@ -212009,6 +212009,98 @@
       ],
       "thumbnail": "Nodes/Thumbnails/blank.png",
       "videoCable": false
+    },
+    "component-video": {
+      "id": "component-video",
+      "label": "Component Video (YPbPr)",
+      "color": "#00E676",
+      "colors": [
+        "#00E676",
+        "#2A7FFF",
+        "#FF1744"
+      ],
+      "rendering": "multiband",
+      "bands": [
+        {
+          "id": "Y",
+          "color": "#00E676"
+        },
+        {
+          "id": "Pb",
+          "color": "#2A7FFF"
+        },
+        {
+          "id": "Pr",
+          "color": "#FF1744"
+        }
+      ],
+      "direction": "one-way",
+      "thumbnail": "Nodes/Thumbnails/bnc.png",
+      "tags": [
+        "video",
+        "analog",
+        "coax",
+        "ypbpr",
+        "component"
+      ],
+      "videoCable": true,
+      "custom": false,
+      "impedanceOhms": 75,
+      "physicalConductorCount": 3,
+      "connectorFamilies": [
+        "bnc",
+        "rca"
+      ]
+    },
+    "rgbhv": {
+      "id": "rgbhv",
+      "label": "RGBHV",
+      "color": "#FF1744",
+      "colors": [
+        "#FF1744",
+        "#00E676",
+        "#2A7FFF",
+        "#FFD600",
+        "#FFFFFF"
+      ],
+      "rendering": "multiband",
+      "bands": [
+        {
+          "id": "R",
+          "color": "#FF1744"
+        },
+        {
+          "id": "G",
+          "color": "#00E676"
+        },
+        {
+          "id": "B",
+          "color": "#2A7FFF"
+        },
+        {
+          "id": "H",
+          "color": "#FFD600"
+        },
+        {
+          "id": "V",
+          "color": "#FFFFFF"
+        }
+      ],
+      "direction": "one-way",
+      "thumbnail": "Nodes/Thumbnails/bnc.png",
+      "tags": [
+        "video",
+        "analog",
+        "coax",
+        "rgbhv"
+      ],
+      "videoCable": true,
+      "custom": false,
+      "impedanceOhms": 75,
+      "physicalConductorCount": 5,
+      "connectorFamilies": [
+        "bnc"
+      ]
     }
   },
   "nodes": [
@@ -212747,6 +212839,98 @@
       ],
       "thumbnail": "Nodes/Thumbnails/blank.png",
       "videoCable": false
+    },
+    {
+      "id": "component-video",
+      "label": "Component Video (YPbPr)",
+      "color": "#00E676",
+      "colors": [
+        "#00E676",
+        "#2A7FFF",
+        "#FF1744"
+      ],
+      "rendering": "multiband",
+      "bands": [
+        {
+          "id": "Y",
+          "color": "#00E676"
+        },
+        {
+          "id": "Pb",
+          "color": "#2A7FFF"
+        },
+        {
+          "id": "Pr",
+          "color": "#FF1744"
+        }
+      ],
+      "direction": "one-way",
+      "thumbnail": "Nodes/Thumbnails/bnc.png",
+      "tags": [
+        "video",
+        "analog",
+        "coax",
+        "ypbpr",
+        "component"
+      ],
+      "videoCable": true,
+      "custom": false,
+      "impedanceOhms": 75,
+      "physicalConductorCount": 3,
+      "connectorFamilies": [
+        "bnc",
+        "rca"
+      ]
+    },
+    {
+      "id": "rgbhv",
+      "label": "RGBHV",
+      "color": "#FF1744",
+      "colors": [
+        "#FF1744",
+        "#00E676",
+        "#2A7FFF",
+        "#FFD600",
+        "#FFFFFF"
+      ],
+      "rendering": "multiband",
+      "bands": [
+        {
+          "id": "R",
+          "color": "#FF1744"
+        },
+        {
+          "id": "G",
+          "color": "#00E676"
+        },
+        {
+          "id": "B",
+          "color": "#2A7FFF"
+        },
+        {
+          "id": "H",
+          "color": "#FFD600"
+        },
+        {
+          "id": "V",
+          "color": "#FFFFFF"
+        }
+      ],
+      "direction": "one-way",
+      "thumbnail": "Nodes/Thumbnails/bnc.png",
+      "tags": [
+        "video",
+        "analog",
+        "coax",
+        "rgbhv"
+      ],
+      "videoCable": true,
+      "custom": false,
+      "impedanceOhms": 75,
+      "physicalConductorCount": 5,
+      "connectorFamilies": [
+        "bnc"
+      ]
     }
   ],
   "nodeTags": {
@@ -212846,6 +213030,19 @@
     "new-node-5": [
       "audio",
       "optical"
+    ],
+    "component-video": [
+      "video",
+      "analog",
+      "coax",
+      "ypbpr",
+      "component"
+    ],
+    "rgbhv": [
+      "video",
+      "analog",
+      "coax",
+      "rgbhv"
     ]
   },
   "nodeThumbnails": {
@@ -216552,6 +216749,23 @@
           "id": "usb-b",
           "baseFingerprint": "b5115dc0860aeb5e009a40220d31dbfcfd2ca50fe3a143606389c239e8604792",
           "candidateFingerprint": "b5115dc0860aeb5e009a40220d31dbfcfd2ca50fe3a143606389c239e8604792"
+        }
+      ]
+    },
+    {
+      "packageId": "f889300ce90e05bad0c2f13724e4c259f6404c2f468fcda1f06fb6c99063280d",
+      "records": [
+        {
+          "kind": "node",
+          "id": "component-video",
+          "baseFingerprint": null,
+          "candidateFingerprint": "26f932c8eac8f11c0a494c7d5baf6a9c5016b1c0b66acf517659ce61e2bbeb57"
+        },
+        {
+          "kind": "node",
+          "id": "rgbhv",
+          "baseFingerprint": null,
+          "candidateFingerprint": "031b14892e7f6511dca5448fe782a66b7dccea76b8212f91ee53eee8ae0eb2e2"
         }
       ]
     }

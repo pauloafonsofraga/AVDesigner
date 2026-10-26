@@ -43,7 +43,9 @@ test("October 23 device definitions match reviewed source, including geometry, c
 
 test("October 23 import leaves all shared factory node definitions unchanged", async () => {
   const nodes = factoryPromotionNodes(catalogue);
-  assert.equal(nodes.length, inventory.nodes.length);
+  const originalIds=new Set(inventory.nodes.map(n=>n.id));
+  assert.deepEqual(nodes.filter(n=>!originalIds.has(n.id)).map(n=>n.id).sort(),["component-video","rgbhv"],"only reviewed multiband additions follow the historical inventory");
+  assert.equal(nodes.filter(n=>originalIds.has(n.id)).length, inventory.nodes.length);
   for (const expected of inventory.nodes) assert.equal(await promotionFingerprint(nodes.find(n => n.id === expected.id), catalogue), expected.fingerprint, expected.id);
 });
 

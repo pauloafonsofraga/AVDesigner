@@ -304,7 +304,8 @@ export class ProjectMutationAdapter {
       "label",
       "color",
       "colorSegments",
-      "customColor"
+      "customColor",
+      "coaxConnectorFamily"
     ]);
     if (!entry.item.connectorOverrides || typeof entry.item.connectorOverrides !== "object") {
       entry.item.connectorOverrides = {};

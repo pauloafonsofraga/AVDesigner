@@ -1,3 +1,5 @@
+import {multibandColors, groupedCoaxMetadata} from "./multibandSignals.js";
+
 export function cleanCableScheduleColor(value, fallback = "#32b6ff") {
   return /^#[0-9a-f]{6}$/i.test(String(value || "")) ? value : fallback;
 }
@@ -20,7 +22,22 @@ export async function nodeGraphic(node, colorValue, loadArtwork) {
   const color = cleanCableScheduleColor(colorValue || node?.color);
   context.fillStyle = color;
   context.beginPath(); context.arc(13, 20, 8, 0, Math.PI * 2); context.fill();
+  const signal=node && {...node,type:node.type || node.id};
+  const colors=multibandColors(signal);
+  if(colors) {
+    context.save();context.clip();
+    colors.forEach((c,i)=>{context.fillStyle=c;context.fillRect(5+i*16/colors.length,12,16/colors.length,16);});
+    context.restore();
+  }
   context.strokeStyle = "#32404b"; context.lineWidth = 2; context.stroke();
+  const grouped=groupedCoaxMetadata(signal);
+  if(grouped) {
+    for(let i=0;i<grouped.count;i++) {
+      context.beginPath();context.arc(31+i*6,20,2.3,0,Math.PI*2);context.fillStyle=colors[i];context.fill();
+      context.strokeStyle="#32404b";context.lineWidth=.6;context.stroke();
+    }
+    return canvas.toDataURL("image/png");
+  }
   let artwork = null;
   if (node?.thumbnail) {
     try { artwork = await imageForSource(await loadArtwork(node.thumbnail)); } catch { /* Color marker remains usable. */ }
@@ -33,13 +50,17 @@ export async function nodeGraphic(node, colorValue, loadArtwork) {
   return canvas.toDataURL("image/png");
 }
 
-export function cableGraphic(color) {
+export function cableGraphic(color, colors = null) {
   if (typeof document === "undefined") return null;
   const canvas = document.createElement("canvas");
   canvas.width = 64; canvas.height = 40;
   const context = canvas.getContext("2d");
   context.strokeStyle = cleanCableScheduleColor(color); context.lineWidth = 7; context.lineCap = "round";
   context.beginPath(); context.moveTo(7, 20); context.lineTo(57, 20); context.stroke();
+  if(colors?.length>1) {
+    context.fillStyle="#28323b";context.fillRect(7,16,50,8);
+    colors.forEach((c,i)=>{context.fillStyle=c;context.fillRect(7,16.5+i*7/colors.length,50,7/colors.length);});
+  }
   context.fillStyle = "#f8fafc";
   for (const x of [7, 57]) { context.beginPath(); context.arc(x, 20, 3, 0, Math.PI * 2); context.fill(); }
   return canvas.toDataURL("image/png");

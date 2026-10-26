@@ -7,6 +7,7 @@ import { isMultiCoreConnection } from "./engine/multiCoreConnectivity.js";
 import * as editorLifecycle from "./editorLifecycle.js";
 import * as transceivers from "./engine/transceiverModules.js";
 import * as modularCardSafety from "./engine/modularCardSafety.js";
+import * as multibandSignals from "./engine/multibandSignals.js";
 import * as nodeReplacement from "./engine/nodeReplacement.js";
 import { installedModuleDetailsForEngine, activeTypeForEngineCageConnector,
   isEngineCageConnector, isEngineDeadCageConnector, engineConnectorTypeDisplayName, engineConnectorCanvasLabelLines } from "./engine/connectorCompatibility.js";
@@ -43,6 +44,7 @@ function start() {
     Object.defineProperty(window, "WireNexusImageAssets", { value: Object.freeze({ ...imageAssets, portableProjectData }) });
     Object.defineProperty(window, "WireNexusMultiCore", { value: Object.freeze({ MULTI_CORE_PROJECT_FIELDS, multiCoreProjectFields, isMultiCoreConnection }) });
     Object.defineProperty(window, "WireNexusEditorLifecycle", { value: editorLifecycle });
+    Object.defineProperty(window, "WireNexusMultiband", { value: multibandSignals });
     Object.defineProperty(window, "WireNexusModularCardSafety", { value: Object.freeze({ ...modularCardSafety, ...nodeReplacement }) });
     Object.defineProperty(window, "WireNexusTransceivers", { value: Object.freeze({ ...transceivers,
       installedModuleDetailsForEngine, activeTypeForEngineCageConnector, isEngineCageConnector, isEngineDeadCageConnector,

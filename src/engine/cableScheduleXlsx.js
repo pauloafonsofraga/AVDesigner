@@ -59,8 +59,8 @@ export async function createCableScheduleXlsx(rows, { nodeDefinitions = [], load
     await addGraphic(rowNumber, 5, `node:${destinationId}:${record.destinationNodeColor}`, async () => graphics?.nodes?.[destinationId]
       || nodeGraphic(nodeById.get(destinationId), record.destinationNodeColor, loadArtwork));
     const color = cleanCableScheduleColor(record.cableColor);
-    await addGraphic(rowNumber, 8, `cable:${color}`, async () => graphics?.cables?.[color]
-      || cableGraphic(color));
+    await addGraphic(rowNumber, 8, `cable:${color}:${record.cableColors?.join(",") || ""}`, async () => graphics?.cables?.[color]
+      || cableGraphic(color, record.cableColors));
     const idCell = sheet.getCell(rowNumber, 1);
     idCell.font = { bold: true, size: 17, color: { argb: toArgb(color) } };
     // Keep the ID searchable as cell text; the image supplies the separate black text stroke.

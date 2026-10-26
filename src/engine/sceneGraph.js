@@ -2669,6 +2669,7 @@ function normalizeVisualCardConnector(connector, index) {
     faceplateSide: Boolean(connector.faceplateSide),
     color: connector.color || "#32b6ff",
     colorSegments: cloneColorSegments(connector.colorSegments),
+    ...(connector.coaxConnectorFamily ? {coaxConnectorFamily:String(connector.coaxConnectorFamily)} : {}),
     infoFields: cloneInfoFields(connector.infoFields)
   };
 }
@@ -2810,6 +2811,7 @@ function normalizeConnector(connector, index, deviceWidth = 0, options = {}) {
     signalIndex: Number(connector.signalIndex) || 0,
     faceplateSide: Boolean(connector.faceplateSide),
     adapterRole: String(connector.adapterRole || ""),
+    ...(connector.coaxConnectorFamily ? {coaxConnectorFamily:String(connector.coaxConnectorFamily)} : {}),
     adapterBranchCount: Math.max(0, Number(connector.adapterBranchCount) || 0),
     adapterMultipleExternalConnections: Boolean(connector.adapterMultipleExternalConnections),
     powerPlug: normalizePowerPlugPlacement(connector.powerPlug),

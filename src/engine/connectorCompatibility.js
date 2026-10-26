@@ -5,6 +5,7 @@ import {
   V2_SUGGESTED_BIDIRECTIONAL_TYPES
 } from "./deviceDefinitionV2.js";
 import { isGeneratedScopedNodeId } from "./nodeCompatibilityIdentity.js";
+import {multibandSignal, multibandColors} from "./multibandSignals.js";
 import {
   transceiverModuleOption, installedModuleCapabilities, transceiverConnectionValidation, isDacCableType
 } from "./transceiverModules.js";
@@ -19,7 +20,7 @@ const USB_CONNECTOR_TYPES = new Set(["usb-a", "usb-b", "usb-c"]);
 const POWER_CABLE_END_TYPES = new Set([
   "iec", "uk-13a", "powercon", "powercon-true1", "new-node", "barrel-jack", "schuko", "nema"
 ]);
-const ENGINE_POWERLOCK_SEGMENT_COLORS = ["#03E300", "#2A7FFF", "#A05A2C", "#4A4A4A", "#999999"];
+const ENGINE_POWERLOCK_SEGMENT_COLORS = multibandColors("powerlock");
 const ENGINE_SIGNAL_LINE_COLORS = [
   "#ff99cc", "#ffff99", "#ffcc99", "#ccffcc",
   "#ccffff", "#99ccff", "#cc99ff", "#ffff00",
@@ -63,6 +64,8 @@ export const ENGINE_CONNECTOR_TYPE_COLORS = new Map([
   ["125a-3ph", "#B3131A"],
   ["sdi", "#0B6B3A"],
   ["bnc", "#B88A1A"],
+  ["component-video", "#00E676"],
+  ["rgbhv", "#FF1744"],
   ["dvi", "#00E676"],
   ["display-port", "#3D5AFE"],
   ["mini-display-port", "#6C7DFF"],
@@ -262,6 +265,8 @@ const CONNECTOR_LABELS = new Map([
   ["socapex", "Socapex"],
   ["harting", "Harting"],
   ["powerlock", "PowerLock"],
+  ["component-video", "Component Video (YPbPr)"],
+  ["rgbhv", "RGBHV"],
   ["nema", "NEMA"],
   ["16a-1ph-110v", "16A 1ph 110v"],
   ["16a-1ph", "16A 1ph"],
@@ -549,11 +554,25 @@ export function engineWireColorForCable(cableType, fiberMode, fallback = "") {
 }
 
 export function engineWireColorSegmentsForCable(cableType) {
+  const profile = multibandColors(cableType);
+  if (profile) return profile;
   const type = typeof cableType === "string"
     ? moduleKey(cableType)
     : connectorType(cableType);
-  const segments = CONNECTOR_TYPE_SEGMENTS.get(type);
+  const segments = multibandColors(type) || CONNECTOR_TYPE_SEGMENTS.get(type);
   return Array.isArray(segments) ? segments.slice() : null;
+}
+
+export function engineWireColorSegmentsForWire(wire, scene) {
+  const canonical=engineWireColorSegmentsForCable(wire?.cableType);
+  if(canonical)return canonical;
+  for(const end of ["from","to"]) {
+    const connector=scene?.getConnector?.(wire?.[`${end}DeviceId`],wire?.[`${end}ConnectorId`]);
+    if(connector?.type===wire?.cableType) {
+      const colors=multibandColors(connector);if(colors)return colors;
+    }
+  }
+  return null;
 }
 
 export function engineSignalLineColor(index) {
@@ -563,6 +582,7 @@ export function engineSignalLineColor(index) {
 
 export function engineConnectorColor(connector, nodeColorByType = new Map()) {
   if (!connector) return "#32B6FF";
+  if (multibandSignal(connector)) return multibandColors(connector)[0];
   if (connector.type === "led-signal") return String(connector.customColor || "").trim() || engineSignalLineColor(connector.signalIndex);
   if (isEngineDeadCageConnector(connector)) return "#778492";
   const rawType = connectorType(connector);
@@ -581,6 +601,8 @@ export function engineConnectorColor(connector, nodeColorByType = new Map()) {
 
 export function engineConnectorColorSegments(connector) {
   if (!connector || isEngineDeadCageConnector(connector)) return null;
+  const profile = multibandColors(connector);
+  if (profile) return profile;
   const activeType = effectiveConnectorTypeForEngine(connector) || connectorType(connector);
   if (connector.customColor || connector.type === "led-signal" || isEngineFiberCableType(activeType)) return null;
   const segments = CONNECTOR_TYPE_SEGMENTS.get(activeType);

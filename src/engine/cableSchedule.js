@@ -7,6 +7,7 @@ import { cableLengthDisplayLabel } from "./loomMetadata.js";
 import { resolveRackPatchPresentation } from "./rackPatchTopology.js";
 import { createMultiCoreConnectivity, isMultiCoreEndpointReference, traceMultiCoreSignalPath } from "./multiCoreConnectivity.js";
 import { multiCoreReportEndpoint, presentMultiCorePath } from "./multiCoreReportPresentation.js";
+import {groupedCoaxMetadata, groupedCoaxLabel, multibandColors} from "./multibandSignals.js";
 export { multiCorePathMarkup } from "./multiCoreReportPresentation.js";
 
 const signalChainConnectivity = new WeakMap();
@@ -73,7 +74,7 @@ const families = Object.freeze({ V: "Video", N: "Network", A: "Audio", F: "Fibre
 const familyOrder = ["A", "F", "L", "N", "P", "V", "X"];
 const typeFamilies = new Map(Object.entries({
   sdi: "V", bnc: "V", hdmi: "V", dvi: "V", "display-port": "V", "mini-display-port": "V",
-  vga: "V", cxp: "V", "led-signal": "V", "led-grid-signal": "V",
+  vga: "V", cxp: "V", "component-video":"V", rgbhv:"V", "led-signal": "V", "led-grid-signal": "V",
   cat5e: "N", cat6: "N", cat6a: "N", ethercon: "N", ethernet: "N",
   "dac-sfp-plus": "N", "dac-sfp28": "N", "dac-qsfp": "N",
   "xlr-3pin": "A", "xlr-5pin": "A", "trs-ts": "A", rca: "A", aes: "A",
@@ -201,6 +202,7 @@ function endpointDisplay(project, endpoint, getConnector, nodeColors, nodeDefini
   const surface = (project.ledSurfaces || []).find(item => item.id === endpoint?.surfaceId);
   const connector = connectorFor(project, endpoint, getConnector);
   const node = nodeDefinition(nodeDefinitions, connector?.type);
+  const groupedConnector=connector && {...connector,compatibilityType:connector.compatibilityType || node?.compatibilityType};
   const template = instance?.templateOverride || (project.deviceLibrary || []).find(item => item.id === instance?.templateId);
   const semanticDevice = String(instance?.name || template?.name || surface?.name || "Unconnected");
   const semanticPort = String(connector?.nameText || (connector?.label !== connector?.type ? connector?.label : "")
@@ -220,9 +222,10 @@ function endpointDisplay(project, endpoint, getConnector, nodeColors, nodeDefini
     type: String(connector ? engineConnectorCompatibilityType({ ...connector,
       compatibilityType: connector.compatibilityType || node?.compatibilityType }) || connector.physicalType || connector.type || "" : ""),
     typeId: String(connector?.type || ""),
-    typeLabel: connector ? engineConnectorUserFacingTypeLabel({ ...connector,
+    physicalCircuits: groupedCoaxMetadata(groupedConnector),
+    typeLabel: groupedCoaxLabel(groupedConnector) || (connector ? engineConnectorUserFacingTypeLabel({ ...connector,
       typeLabel: node?.label !== connector.type ? node?.label : connector.typeLabel,
-      compatibilityType: connector.compatibilityType || node?.compatibilityType }) : "",
+      compatibilityType: connector.compatibilityType || node?.compatibilityType }) : ""),
     rackId: patch?.rackId || String(instance?.rackId || ""),
     patch,
     color: connector ? engineConnectorColor(connector, nodeColors) : ""
@@ -265,12 +268,20 @@ export function buildCableSchedule(input, options = {}) {
       ? sourceRack : `${sourceRack} → ${destinationRack}`.trim();
     const cableType = String(group.wires.find(wire => wire.cableType && wire.cableType !== "jump")?.cableType || value("cableType"));
     const cableNode = node(cableType);
+    const cableSignal={type:cableType,compatibilityType:cableNode?.compatibilityType};
+    const physicalCircuits = groupedCoaxMetadata(cableSignal);
     const cableLabel = cableType ? engineConnectorUserFacingTypeLabel({ type: cableType,
       typeLabel: cableNode?.label, compatibilityType: cableNode?.compatibilityType }, "Cable") : "Cable";
     const loomId = String(value("loomId"));
     const loomRecord = (project.looms || []).find(item => String(item.id) === loomId);
     const fiberMode = family === "F" && value("fiberMode") ? ` - ${value("fiberMode")}` : "";
     return {
+      ...(physicalCircuits ? {physicalCircuits:{...physicalCircuits,
+        sourceConnectorFamily:source.physicalCircuits?.connectorFamily || physicalCircuits.connectorFamily,
+        destinationConnectorFamily:destination.physicalCircuits?.connectorFamily || physicalCircuits.connectorFamily,
+        circuits:physicalCircuits.circuits.map(circuit=>({...circuit,
+          sourceConnectorFamily:source.physicalCircuits?.connectorFamily || circuit.connectorFamily,
+          destinationConnectorFamily:destination.physicalCircuits?.connectorFamily || circuit.connectorFamily}))}} : {}),
       ...(refs.length ? { multiCoreReferences: refs, multiCoreId: refs.map(r => r.assemblyId).join(" / "),
         multiCoreEnd: refs.map(r => r.role).join(" / "), multiCorePort: refs.map(r => r.port).join(" / "),
         multiCoreChannel: refs.map(r => r.channel).join(" / ") } : {}),
@@ -290,6 +301,7 @@ export function buildCableSchedule(input, options = {}) {
       fiberMode: String(value("fiberMode")),
       loomId, loom: String(loomRecord?.name || value("loom")), rackLocation,
       notes: [derivePatchReportNotes(deriveLoomReportNotes(value("notes"), loomRecord), source, destination),
+        physicalCircuits ? `${physicalCircuits.count} separate 75 ohm coaxial circuits: ${physicalCircuits.circuits.map(c=>c.id).join(", ")}. Grouped signal; all circuits required.` : "",
         primary.cableAssembly?.kind === "direct-attach-copper"
           ? ["Integrated DAC assembly", ...(primary.cableAssembly.supportedRates || []), ...(primary.cableAssembly.warnings || [])].join(" | ") : ""].filter(Boolean).join("\n"),
       wireIds: group.wires.map(wire => String(wire.id)),
@@ -297,6 +309,7 @@ export function buildCableSchedule(input, options = {}) {
       sourceNodeTypeLabel: source.typeLabel, destinationNodeTypeLabel: destination.typeLabel,
       sourceNodeColor: source.color, destinationNodeColor: destination.color,
       cableTypeId: cableType, cableColor: String(value("customColor") || node(cableType)?.color || "#32b6ff"),
+      ...(multibandColors(cableSignal) ? {cableColors:multibandColors(cableSignal)} : {}),
       cableCustomColor: String(value("customColor"))
     };
   }).sort((a, b) => familyOrder.indexOf(a.cableNumber[0]) - familyOrder.indexOf(b.cableNumber[0])

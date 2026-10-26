@@ -38,6 +38,7 @@ import {
   createConnectorDisplayLayout
 } from "./connectorDisplayLayout.js";
 import { sharedBusOrthogonalSegments } from "./sharedBusRendering.js";
+import {multibandNodePolygons, multibandWirePolygons} from "./multibandGeometry.js";
 import {resolveConnectorLabelCollisions} from './connectorLabelLayout.js';
 import { connectorFieldRowWidth } from "./connectorFieldLayout.js";
 import {legacyFaceHeight} from './faceplateGeometry.js';
@@ -80,7 +81,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-142-faceplate-initial-placement";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-143-multiband-signals";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -3207,23 +3208,7 @@ function pushSegmentedCircle(vertices, point, radius, colors, opacity = 1) {
     pushCircle(vertices, point, radius, colorWithOpacity(usable[0] || PORT_COLOR, opacity), 20);
     return;
   }
-  const totalWidth = radius * 2;
-  const segmentWidth = totalWidth / usable.length;
-  usable.forEach((color, index) => {
-    const x1 = point.x - radius + index * segmentWidth;
-    const x2 = index === usable.length - 1 ? point.x + radius : x1 + segmentWidth;
-    const stripCount = Math.max(2, Math.ceil((x2 - x1) / 1.35));
-    const stripWidth = (x2 - x1) / stripCount;
-    for (let strip = 0; strip < stripCount; strip += 1) {
-      const sx1 = x1 + strip * stripWidth;
-      const sx2 = strip === stripCount - 1 ? x2 : sx1 + stripWidth;
-      const cx = (sx1 + sx2) / 2;
-      const dx = Math.max(-radius, Math.min(radius, cx - point.x));
-      const halfHeight = Math.sqrt(Math.max(0, radius * radius - dx * dx));
-      if (halfHeight <= 0) continue;
-      pushRect(vertices, sx1, point.y - halfHeight, sx2 - sx1, halfHeight * 2, colorWithOpacity(color, opacity));
-    }
-  });
+  multibandNodePolygons(point, radius, usable).forEach(polygon => pushBandPolygon(vertices, polygon, opacity));
   pushCircleOutline(vertices, point, radius, 0.9, colorWithOpacity("rgba(0,0,0,.18)", opacity), 24);
 }
 
@@ -3516,12 +3501,14 @@ function pushWireSelection(vertices, scene, wire, offsets, options = DEFAULT_REN
   pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 11, "rgba(255,121,4,.18)", drawOptions, cableHopMap);
   pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 6, "rgba(255,121,4,.36)", drawOptions, cableHopMap);
   pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 1.5, "rgba(255,121,4,.82)", drawOptions, cableHopMap);
+  if (wire.colorSegments?.length > 1) pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH, wireColor(wire, options), options, cableHopMap);
 }
 
 function pushWireHover(vertices, scene, wire, offsets, options = DEFAULT_RENDER_OPTIONS, cableHopMap = options.cableHopMap) {
   const drawOptions = { ...options, routePoints: false, wireColorSegments: false };
   pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 8, "rgba(255,255,255,.22)", drawOptions, cableHopMap);
   pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH + 3, "rgba(50,182,255,.72)", drawOptions, cableHopMap);
+  if (wire.colorSegments?.length > 1) pushWire(vertices, scene, wire, offsets, WIRE_BASE_WIDTH, wireColor(wire, options), options, cableHopMap);
 }
 
 function pushWire(vertices, scene, wire, offsets, width, color, options = DEFAULT_RENDER_OPTIONS, cableHopMap = options.cableHopMap) {
@@ -3574,10 +3561,15 @@ function pushWireColorSegments(vertices, points, width, wire, fallbackColor, opa
     pushPolyline(vertices, points, width, colorWithOpacity(fallbackColor, opacity));
     return;
   }
-  colors.forEach((color, index) => {
-    const segment = polylineSlice(points, index / colors.length, (index + 1) / colors.length);
-    pushPolyline(vertices, segment, width, colorWithOpacity(color, opacity));
-  });
+  multibandWirePolygons(points, width + .6, ["#28323b"]).forEach(polygon => pushBandPolygon(vertices, polygon, opacity));
+  multibandWirePolygons(points, width, colors).forEach(polygon => pushBandPolygon(vertices, polygon, opacity));
+}
+
+function pushBandPolygon(vertices, {points, color}, opacity = 1) {
+  const rgba = parseColor(colorWithOpacity(color, opacity));
+  for (let i = 1; i < points.length - 1; i++) {
+    for (const point of [points[0], points[i], points[i+1]]) pushVertex(vertices, point.x, point.y, rgba);
+  }
 }
 
 function polylineLength(points) {
@@ -3869,9 +3861,7 @@ function verticesForLoomPlan(scene, plan, offsets = null) {
     const wire = scene.getWire(breakout.wireId);
     const resolvedColor = loomCableDisplayColor(wire);
     const points = offsets ? loomBreakoutPolyline(scene, breakout, offsets) : breakout.points;
-    if (wire?.customColor) {
-      pushPolyline(vertices, points, WIRE_BASE_WIDTH, resolvedColor);
-    } else if (wire?.colorSegments?.length > 1) {
+    if (wire?.colorSegments?.length > 1) {
       pushWireColorSegments(vertices, points, WIRE_BASE_WIDTH, wire, resolvedColor);
     } else {
       pushPolyline(vertices, points, WIRE_BASE_WIDTH, resolvedColor);

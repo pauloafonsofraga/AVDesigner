@@ -15,7 +15,7 @@ import {
   engineConnectorInfoFields,
   engineConnectorLabelSource,
   engineWireColorForCable,
-  engineWireColorSegmentsForCable,
+  engineWireColorSegmentsForWire,
   installedModuleDetailsForEngine
 } from "./connectorCompatibility.js";
 import {
@@ -928,6 +928,7 @@ function normalizeConnector(connector, index, deviceWidth, nodeColorByType, opti
     id: String(connector.id || `connector-${index}`),
     schemaVersion: topology.schemaVersion,
     type,
+    ...(connector.coaxConnectorFamily ? {coaxConnectorFamily:String(connector.coaxConnectorFamily)} : {}),
     compatibilityType: String(connector.compatibilityType || ""),
     physicalType: topology.physicalType,
     connectorType: topology.connectorType,
@@ -1269,7 +1270,8 @@ function normalizeProjectWire(wire, index, context) {
     usesRealConnectorEndpoints: Boolean(from.usesRealConnector && to.usesRealConnector),
     hasFallbackEndpoint: Boolean(fromFallback || toFallback),
     color: metadata.color,
-    colorSegments: engineWireColorSegmentsForCable(cableType),
+    colorSegments: engineWireColorSegmentsForWire({cableType,fromDeviceId:from.deviceId,fromConnectorId:from.connectorId,
+      toDeviceId:to.deviceId,toConnectorId:to.connectorId}, {getConnector:(d,c)=>context.normalizedDeviceById.get(d)?.connectors.find(port=>port.id===c)}),
     label: wire.label || cableType || `Wire ${index + 1}`,
     length: wire.length || wire.cableLength || "",
     cableNumber: String(wire.cableNumber || ""),

@@ -7,6 +7,7 @@ import { deviceVisualSources } from "./deviceVisualBuilder.js";
 import { polylineLength, polylinePointAtDistance, wirePlaybackDurationMs, wirePlaybackEase } from "./wirePlayback.js";
 import { isJumpNodeDevice, jumpNodeCenter } from "./jumpNodeModel.js";
 import { multiCorePathMarkup } from "./multiCoreReportPresentation.js";
+import {multibandCss} from "./multibandSignals.js";
 
 export class EngineOutputViewer {
   constructor(host, snapshot, options = {}) {
@@ -323,7 +324,7 @@ export class EngineOutputViewer {
         button.title = "Select port; double-click to jump to the connected port";
         const dot = document.createElement("span"); dot.className = "output-connected-node-dot";
         const colors = item.colorSegments?.filter(color => /^#[\da-f]{3,8}$/i.test(color)) || [];
-        dot.style.background = colors.length ? `linear-gradient(90deg, ${colors.join(", ")})`
+        dot.style.background = colors.length ? multibandCss(colors)
           : /^#[\da-f]{3,8}$/i.test(item.color || "") ? item.color : "#32b6ff";
         const body = document.createElement("span");
         for (const [className, value] of [["output-connected-node-main", item.port],

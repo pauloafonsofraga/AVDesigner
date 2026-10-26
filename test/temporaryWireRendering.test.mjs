@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {multibandWirePolygons} from "../src/engine/multibandGeometry.js";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import * as colors from "../src/engine/connectorCompatibility.js";
@@ -101,6 +102,7 @@ for (const type of ["hdmi", "sdi", "fiber-lc", "led-signal", "misc"]) test(`Engi
 function rendererHarness() {
   const context = { wirePolylineFromPoints, DEFAULT_RENDER_OPTIONS: {},
     pushPolyline: (vertices, points, width, color) => vertices.push({ points, color }),
+    multibandWirePolygons, pushBandPolygon:(vertices, polygon)=>vertices.push(polygon),
     colorWithOpacity: (color, opacity) => opacity >= 1 ? color : color,
     connectorVisualRadius: () => 10, pushConnectorHighlight() {}, pushWirePlaybackOverlay: () => 0, pushSnapGuides: () => 0 };
   const names = ["pushInteractionOverlay", "pushWireColorSegments", "polylineLength", "polylinePointAtDistance", "polylineSlice"];
@@ -138,7 +140,7 @@ test("rotated adapter drawing, rewiring and Loom preview directions reach the re
   assert.equal(tails[1].fromDirection, null, "Loom exit is not an adapter connector");
   assert.deepEqual(tails[1].toDirection, toDirection);
 });
-for (const routeStyle of ["bezier", "orthogonal"]) test(`Engine ${routeStyle} preview uses committed path-length segmentation`, () => {
+for (const routeStyle of ["bezier", "orthogonal"]) test(`Engine ${routeStyle} preview uses committed parallel bands`, () => {
   const r = rendererHarness();
   const temp = { from: { x: 0, y: 0 }, to: { x: 600, y: 200 }, routeStyle, routePoints: [], colorSegments: expected, color: "#03E300" };
   for (const validTarget of [false, true]) {
@@ -146,9 +148,8 @@ for (const routeStyle of ["bezier", "orthogonal"]) test(`Engine ${routeStyle} pr
     r.pushInteractionOverlay(preview, {}, { tempWire: { ...temp, targetPoint: temp.to, validTarget } });
     r.pushWireColorSegments(committed, wirePolylineFromPoints(temp, [temp.from, temp.to]), 3.4, temp, temp.color);
     assert.deepEqual(preview, committed);
-    assert.deepEqual(plain(preview.map(segment => segment.color)), expected);
-    const lengths = preview.map(segment => r.polylineLength(segment.points));
-    assert.ok(lengths.every(length => Math.abs(length - lengths[0]) < 1e-8));
+    for(const color of expected) assert.equal(preview.filter(segment=>segment.color===color).length,
+      wirePolylineFromPoints(temp,[temp.from,temp.to]).length-1,"every band covers every route segment");
   }
 });
 
@@ -158,7 +159,7 @@ test("Engine repeated preview/finish leaves no interaction vertices or metadata"
     b.beginWireCreate(hit(), { x: 100, y: 60 });
     const vertices = [];
     r.pushInteractionOverlay(vertices, {}, b.interactionRenderState());
-    assert.equal(vertices.length, 5);
+    assert.deepEqual([...new Set(vertices.map(band=>band.color).filter(color=>color!=="#28323b"))],expected);
     b.finishWireInteraction();
     const cleared = [];
     r.pushInteractionOverlay(cleared, {}, b.interactionRenderState());
@@ -204,8 +205,10 @@ for (const routeStyle of ["bezier", "orthogonal"]) {
 
         const rendered = [];
         r.pushInteractionOverlay(rendered, {}, first);
-        assert.equal(rendered.length, 2 * first.tempWires[0].colorSegments.length,
-          "the renderer draws both hops, including every cable colour segment");
+        const separately=[];
+        first.tempWires.forEach(tempWire=>r.pushInteractionOverlay(separately,{}, {tempWire}));
+        assert.deepEqual(rendered,separately,"the renderer draws both complete routed hops");
+        for(const color of expected) assert.ok(rendered.some(band=>band.color===color));
 
         state.pointerWorld = { x: exit.x + 220, y: exit.y + 130 };
         const moved = b.interactionRenderState();

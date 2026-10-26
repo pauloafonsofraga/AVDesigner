@@ -1,4 +1,5 @@
 import { resolveProjectorLens } from "./projectorModel.js";
+import {multibandSignal, groupedCoaxMetadata} from "./multibandSignals.js";
 import { assertSafeModularCardChanges } from "./modularCardSafety.js";
 import { cloneHistoryValue, MAX_HISTORY_ENTRIES } from "./historyClone.js";
 import { DragSession } from "./dragSession.js";
@@ -15,6 +16,7 @@ import {
   engineCompatibilitySummary,
   engineConnectorColor,
   engineConnectorColorSegments,
+  engineWireColorSegmentsForWire,
   engineConnectorDisplayLabel,
   engineConnectorFiberFamily,
   engineConnectorFiberMode,
@@ -162,8 +164,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-142-faceplate-initial-placement";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-142-faceplate-initial-placement";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-143-multiband-signals";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-143-multiband-signals";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -7171,7 +7173,7 @@ class ProductionEngineBridge {
       const nextColor = engineWireColorForCable(wire.cableType, wire.fiberMode, wire.color || "#32b6ff");
       if (nextColor) wire.color = nextColor;
     }
-    wire.colorSegments = engineWireColorSegmentsForCable(wire.cableType) || [];
+    wire.colorSegments = engineWireColorSegmentsForWire(wire, this.scene) || [];
     this.scene.dirtyWires.add(wire.id);
     this.scene.refreshWireIndexes([wire.id]);
     const dirtyStats = this.renderer.updateDirty(this.scene, {
@@ -7534,7 +7536,7 @@ class ProductionEngineBridge {
       if (isEngineFiberCableType(wire.cableType) && patch.fiberMode !== undefined) {
         wire.fiberMode = patch.fiberMode || ENGINE_DEFAULT_FIBER_MODE;
         wire.color = engineWireColorForCable(wire.cableType, wire.fiberMode, wire.color || "#32b6ff");
-        wire.colorSegments = engineWireColorSegmentsForCable(wire.cableType) || [];
+        wire.colorSegments = engineWireColorSegmentsForWire(wire, this.scene) || [];
         this.mutations?.updateWireFields(wire.sourceId || wire.id, { fiberMode: wire.fiberMode });
       }
       this.scene.dirtyWires.add(wire.id);
@@ -7769,7 +7771,7 @@ class ProductionEngineBridge {
     Object.assign(wire, patch);
     if (patch.fiberMode !== undefined || patch.cableType !== undefined || patch.customColor !== undefined) {
       wire.color = engineWireColorForCable(wire.cableType, wire.fiberMode, wire.color || "#32b6ff");
-      wire.colorSegments = engineWireColorSegmentsForCable(wire.cableType) || [];
+      wire.colorSegments = engineWireColorSegmentsForWire(wire, this.scene) || [];
     }
     this.scene.dirtyWires.add(wire.id);
     this.scene.refreshWireIndexes([wire.id]);
@@ -7835,7 +7837,7 @@ class ProductionEngineBridge {
     Object.assign(wire, patch);
     if (patch.fiberMode !== undefined || patch.cableType !== undefined || patch.customColor !== undefined) {
       wire.color = engineWireColorForCable(wire.cableType, wire.fiberMode, wire.color || "#32b6ff");
-      wire.colorSegments = engineWireColorSegmentsForCable(wire.cableType) || [];
+      wire.colorSegments = engineWireColorSegmentsForWire(wire, this.scene) || [];
     }
     this.scene.dirtyWires.add(wire.id);
     this.scene.refreshWireIndexes([wire.id]);
@@ -12744,7 +12746,8 @@ function sanitizeConnectorInspectorFields(fields = {}) {
     "displayLabel",
     "label",
     "color",
-    "fiberFamily"
+    "fiberFamily",
+    "coaxConnectorFamily"
   ]);
   const sanitized = {};
   Object.entries(fields || {}).forEach(([key, value]) => {
@@ -13034,8 +13037,11 @@ function detailsMarkup(rows) {
 
 function connectorFieldInputsMarkup(connector) {
   const fields = engineConnectorInfoFields(connector);
-  if (!fields.length) return "";
+  const profile=multibandSignal(connector), family=groupedCoaxMetadata(connector)?.connectorFamily;
+  const coax=profile?.connectorFamilies ? `<label class="engine-bridge-field"><span>Grouped Coax Connectors</span><select data-engine-connector-field="coaxConnectorFamily">${profile.connectorFamilies.map(f=>`<option value="${f}" ${f===family?"selected":""}>${profile.bands.length} x ${f.toUpperCase()}</option>`).join("")}</select></label>` : "";
+  if (!fields.length) return coax;
   return `
+    ${coax}
     <section class="engine-bridge-field-section">
       <h4 class="engine-bridge-field-heading">Fields</h4>
       ${fields.map(field => `

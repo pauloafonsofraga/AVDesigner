@@ -1,6 +1,7 @@
 import { isAdapterTemplateLikeForEngine } from "./adapterMapping.js";
 import { connectorIsNotWorking, connectorVisualAnchors, normalizeConnectorRelationships } from "./deviceDefinitionV2.js";
 import { createConnectorDisplayLayout } from "./connectorDisplayLayout.js";
+import {multibandNodePolygons} from "./multibandGeometry.js";
 import { effectiveConnectorTypeForEngine, engineConnectorColor, engineConnectorColorSegments,
   installedModuleDetailsForEngine } from "./connectorCompatibility.js";
 
@@ -115,9 +116,10 @@ export function adapterThumbnailSvg(model) {
   const routes = model.routes.map(r => `<path data-route-kind="${escape(r.kind)}" d="${r.segments.map(s => `M${finite(s.x1)} ${finite(s.y1)}H${finite(s.x2)}V${finite(s.y2)}`).join(" ")}" fill="none" stroke="${safeColor(r.color)}" stroke-width="${finite(r.width)}" opacity=".55"/>`).join("");
   const nodes = model.nodes.map(n => {
     const x = finite(n.x), y = finite(n.y), radius = Math.max(0, finite(n.radius));
+    const bandPolygons=multibandNodePolygons({x,y},radius,n.colorSegments);
     const segments = n.colorSegments.length > 1 ? n.colorSegments.map((color, i, colors) => {
-      const a = i * 2 * Math.PI / colors.length - Math.PI / 2, z = (i + 1) * 2 * Math.PI / colors.length - Math.PI / 2;
-      return `<path d="M${x} ${y}L${x + radius * Math.cos(a)} ${y + radius * Math.sin(a)}A${radius} ${radius} 0 0 1 ${x + radius * Math.cos(z)} ${y + radius * Math.sin(z)}Z" fill="${safeColor(color)}"/>`;
+      const polygon=bandPolygons[i];
+      return `<polygon data-band="${i}" points="${polygon.points.map(p=>`${p.x},${p.y}`).join(" ")}" fill="${safeColor(color)}"/>`;
     }).join("") : "";
     const error = n.notWorking ? `<path d="M${x - radius} ${y - radius}L${x + radius} ${y + radius}M${x - radius} ${y + radius}L${x + radius} ${y - radius}" stroke="#ff0000" stroke-width="${Math.min(1.3, radius * .6)}"/>` : "";
     return `<g data-connector-id="${escape(n.connectorId)}" data-anchor-id="${escape(n.anchorId)}" data-side="${escape(n.side)}"><circle cx="${x}" cy="${y}" r="${radius}" fill="${safeColor(n.color)}"/>${segments}<circle cx="${x}" cy="${y}" r="${radius}" fill="none" stroke="#edf2f7" stroke-width="${Math.min(.9, radius * .3)}"/>${error}</g>`;
