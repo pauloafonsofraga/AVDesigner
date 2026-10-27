@@ -140,11 +140,14 @@ try {
   check("Offline HTML actual headers, Inspector and hover match canvas with network blocked");
   let published;
   await page.route("**/api/publish", route => {
-    published = route.request().postDataJSON();
+    const body=route.request().postDataJSON();
+    if(body.action==='reserve')return route.fulfill({json:{id:'local-brand-test',projectPath:'reserved/project.json',htmlPath:'reserved/viewer.html'}});
+    published = {...body,htmlPath:'reserved/viewer.html'};
     return route.fulfill({ json: { url: base + "/viewer.html?id=local-brand-test" } });
   });
   await page.evaluate(async () => {
     window.testPublishedFiles = {};
+    accountLibraryUi = {publishingToken:async()=> 'test-publisher'};
     loadBlobClient = async () => ({ upload: async (pathname, blob, options) => {
       if (options.access !== "private") throw new Error("Publish must remain private");
       testPublishedFiles[pathname] = await blob.text(); return { pathname };

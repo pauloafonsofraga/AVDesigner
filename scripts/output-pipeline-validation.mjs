@@ -31,7 +31,9 @@ export function validateOutputPipeline() {
   assert.doesNotMatch(fn("generatePdfReport"), /window\.open|window\.print/);
   assert.match(fn("buildEnginePrintDrawing"), /outputSvgRenderer\.js/);
   assert.match(fn("buildEnginePrintDrawing"), /renderEngineOutputSvg\(snapshot/);
-  assert.match(wrapper, /frame\.srcdoc = result\.html/);
+  assert.match(wrapper, /frame\.srcdoc = .*Content-Security-Policy.*\+ result\.html/);
+  assert.match(wrapper, /setAttribute\("sandbox", "allow-scripts allow-downloads"\)/);
+  assert.doesNotMatch(wrapper, /allow-same-origin|allow-top-navigation|allow-popups/);
   assert.match(wrapper, /fetch\("\/api\/project"/);
   const modules = readdirSync(new URL("../src/engine/", import.meta.url)).filter(f => /^output.*\.js$/.test(f));
   for (const file of modules) {

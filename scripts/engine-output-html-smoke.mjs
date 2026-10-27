@@ -285,11 +285,14 @@ try {
     // Execute the actual Publish function, replacing only storage/network I/O.
     let publishRequest;
     await app.route("**/api/publish", route => {
-      publishRequest = route.request().postDataJSON();
+      const body=route.request().postDataJSON();
+      if(body.action==='reserve')return route.fulfill({json:{id:'smoke-project',projectPath:'reserved/project.json',htmlPath:'reserved/viewer.html'}});
+      publishRequest = {...body,htmlPath:'reserved/viewer.html'};
       return route.fulfill({ json: { url: `${base}/viewer.html?id=smoke-project` } });
     });
     await app.evaluate(async () => {
       window.uploadedFiles = {};
+      accountLibraryUi = {publishingToken:async()=> 'test-publisher'};
       loadBlobClient = async () => ({ upload: async (pathname, blob, options) => {
         if (options.access !== "private") throw new Error("Hosted files must remain private");
         uploadedFiles[pathname] = await blob.text(); return { pathname };

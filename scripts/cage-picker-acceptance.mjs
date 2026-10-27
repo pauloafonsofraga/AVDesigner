@@ -221,11 +221,14 @@ try {
   check("Offline standalone HTML draws both module lines using bundled Output Viewer");
   let published;
   await page.route("**/api/publish", route => {
-    published = route.request().postDataJSON();
+    const body=route.request().postDataJSON();
+    if(body.action==='reserve')return route.fulfill({json:{id:'local-cage-test',projectPath:'reserved/project.json',htmlPath:'reserved/viewer.html'}});
+    published = {...body,htmlPath:'reserved/viewer.html'};
     return route.fulfill({ json: { url: base + "/viewer.html?id=local-cage-test" } });
   });
   await page.evaluate(async () => {
     window.testPublishedFiles = {};
+    accountLibraryUi = {publishingToken:async()=> 'test-publisher'};
     loadBlobClient = async () => ({ upload: async (pathname, blob, options) => {
       if (options.access !== "private") throw new Error("Publish must remain private");
       testPublishedFiles[pathname] = await blob.text(); return { pathname };

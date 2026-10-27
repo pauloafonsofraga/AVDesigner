@@ -108,6 +108,12 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
     } else setState(state, config.error || 'See docs/owner-account-setup.md. Browser data is not account-synced.');
   } catch (error) { setState('Sync failed', `Account setup unavailable: ${error.message}`); }
   return Object.freeze({ isAccount: () => !!owner, canSave: () => !configured || !!owner, status: () => state,
+    async publishingToken() {
+      if (!client) throw new Error('Publishing requires the account service to be configured.');
+      const {data,error} = await client.auth.getSession();
+      if (error || !data.session?.access_token) throw new Error('Sign in through Owner Account before publishing.');
+      return data.session.access_token;
+    },
     async savePreferences(value) { if (!owner) throw new Error('Sign in to save account preferences.'); await owner.savePreferences(value); },
     preferences: () => owner?.preferences() || null });
 }

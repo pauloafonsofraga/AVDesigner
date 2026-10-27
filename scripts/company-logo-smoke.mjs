@@ -57,13 +57,20 @@ try {
 
   let request;
   await page.route("**/api/publish", route => {
-    request = route.request().postDataJSON();
+    const body = route.request().postDataJSON();
+    assert.equal(route.request().headers().authorization, 'Bearer branding-test-token');
+    if (body.action === 'reserve') return route.fulfill({json:{id:'logo-project',projectPath:'reserved/project.json',htmlPath:'reserved/viewer.html'}});
+    assert.equal(body.action,'finalize');
+    assert.equal(body.projectPath,undefined);assert.equal(body.htmlPath,undefined);
+    request = {...body,htmlPath:'reserved/viewer.html'};
     return route.fulfill({ json: { url: `${base}/viewer.html?id=logo-project` } });
   });
   await page.evaluate(() => {
     window.uploadedFiles = {};
+    accountLibraryUi = {publishingToken:async()=> 'branding-test-token'};
     loadBlobClient = async () => ({ upload: async (pathname, blob, options) => {
       if (options.access !== "private") throw Error("Private storage required");
+      if (options.headers.Authorization !== 'Bearer branding-test-token' || !JSON.parse(options.clientPayload).id) throw Error('Authenticated reservation required');
       uploadedFiles[pathname] = await blob.text(); return { pathname };
     } });
   });

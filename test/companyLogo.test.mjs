@@ -1,10 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import vm from "node:vm";
 import crypto from "node:crypto";
-import zlib from "node:zlib";
 import "../src/companyLogoCore.js";
+import {createProjectHandler} from '../api/project.js';
+import {createPublishHandler} from '../api/publish.js';
 
 const logos = globalThis.AVDesignerCompanyLogo;
 const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jG3sAAAAASUVORK5CYII=";
@@ -51,12 +50,6 @@ test("public branding accepts bounded inline PNGs only", () => {
   }
 });
 
-function api(name, dependencies) {
-  const source = readFileSync(new URL(`../api/${name}.js`, import.meta.url), "utf8")
-    .replace(/^import .*;\n/gm, "").replace("export default async function handler", "async function handler");
-  return vm.runInNewContext(`${source}\nhandler`, { ...dependencies, crypto, zlib, Buffer, Response,
-    AVDesignerCompanyLogo: logos, process: { env: { BLOB_READ_WRITE_TOKEN: "test" } } });
-}
 async function call(handler, request) {
   const response = { headers: {}, status(code) { this.code = code; return this; },
     setHeader(key, value) { this.headers[key] = value; }, end(value) { this.body = JSON.parse(value); } };
@@ -65,8 +58,8 @@ async function call(handler, request) {
 }
 function projectApi(companyLogo = png, overrides = {}) {
   const paths = [], metadata = { companyLogo, title: "Published title", projectName: "Test project", htmlPath: "private/viewer.html", projectPath: "private/project.json",
-    password: { salt: "test-salt", iterations: 120000, digest: "sha256", hash: crypto.pbkdf2Sync("secret", "test-salt", 120000, 32, "sha256").toString("hex") }, ...overrides };
-  const handler = api("project", { get: async path => {
+    password: { salt: "a".repeat(32), iterations: 120000, digest: "sha256", hash: crypto.pbkdf2Sync("secret", "a".repeat(32), 120000, 32, "sha256").toString("hex") }, ...overrides };
+  const handler = createProjectHandler({security:()=>({throttle:async()=>{},call:async()=>null}),blobGet: async path => {
     paths.push(path);
     return { statusCode: 200, stream: new Response(path.endsWith("meta.json") ? JSON.stringify(metadata) : "<html>private viewer</html>").body };
   } });
@@ -118,19 +111,19 @@ test("private viewer remains password protected after public branding fetch", as
 });
 
 test("Publish stores branding beside protected metadata without changing viewer HTML", async () => {
-  const puts = [], heads = [];
-  const handler = api("publish", { put: async (...args) => puts.push(args), head: async path => heads.push(path) });
-  const body = { id: "test-project", title: "Test", password: "secret", companyLogo: png,
-    projectPath: "avdesigner/projects/test-project/project.json", htmlPath: "avdesigner/projects/test-project/viewer.html" };
+  const commits = [], heads = [],reservation={id:'test-project',projectPath:'reserved/project.json',htmlPath:'reserved/viewer.html',projectBytes:12,htmlBytes:20};
+  const handler = createPublishHandler({security:()=>({authenticate:async()=>'owner',call:async(op,payload)=>{
+    if(op==='finalize')commits.push(payload.metadata);return reservation;
+  }}),blobHead:async path=>{heads.push(path);return {pathname:path,size:path.endsWith('.json')?12:20,contentType:path.endsWith('.json')?'application/json':'text/html'};}});
+  const body = { action:'finalize',id: "test-project", title: "Test", password: "secret", companyLogo: png };
   const response = await call(handler, { method: "POST", body });
   assert.equal(response.code, 200);
-  assert.deepEqual(heads, [body.projectPath, body.htmlPath]);
-  assert.equal(puts.length, 1);
-  const metadata = JSON.parse(puts[0][1]);
+  assert.deepEqual(heads, [reservation.projectPath, reservation.htmlPath]);
+  assert.equal(commits.length, 1);
+  const metadata = commits[0];
   assert.equal(metadata.companyLogo, png);
-  assert.equal(metadata.htmlPath, body.htmlPath);
+  assert.equal(metadata.schema, 2);
   assert.notEqual(metadata.password.hash, body.password);
-  assert.equal(puts[0][2].access, "private");
   assert.equal((await call(handler, { method: "POST", body: { ...body, companyLogo: "https://example.org/logo" } })).code, 400);
-  assert.equal(puts.length, 1);
+  assert.equal(commits.length, 1);
 });

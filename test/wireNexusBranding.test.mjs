@@ -122,5 +122,6 @@ test("clipboard and remembered settings retain their compatibility keys while er
   assert.match(html, /DEVICE_FAVORITES_STORAGE_KEY = "av-designer-device-favorites-v1"/);
   assert.match(read("src/engine/localUserSettings.js"), /av-designer:user-settings:v1/);
   assert.match(read("src/companyLogoCore.js"), /av-designer:company-logo:v1/);
-  assert.match(read("api/publish.js"), /avdesigner\/projects/);
+  assert.match(read("api/project.js"), /avdesigner\/projects/,'existing publication paths remain readable');
+  assert.match(read("supabase/migrations/202610270001_secure_publishing.sql"), /avdesigner\/publications/,'new paths are allocated by the server');
 });

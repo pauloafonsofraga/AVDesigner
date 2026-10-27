@@ -234,11 +234,14 @@ try {
   let published;
   const base = process.env.AVDESIGNER_BASE_URL || "http://127.0.0.1:8769";
   await page.route("**/api/publish", route => {
-    published = route.request().postDataJSON();
+    const body=route.request().postDataJSON();
+    if(body.action==='reserve')return route.fulfill({json:{id:'rotation-local-test',projectPath:'reserved/project.json',htmlPath:'reserved/viewer.html'}});
+    published = {...body,htmlPath:'reserved/viewer.html'};
     return route.fulfill({ json: { url: base + "/viewer.html?id=rotation-local-test" } });
   });
   await page.evaluate(async () => {
     window.rotationPublishedFiles = {};
+    accountLibraryUi = {publishingToken:async()=> 'test-publisher'};
     loadBlobClient = async () => ({ upload: async (pathname, blob, options) => {
       if (options.access !== "private") throw new Error("Private Publish required");
       rotationPublishedFiles[pathname] = await blob.text(); return { pathname };

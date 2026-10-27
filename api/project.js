@@ -1,96 +1,37 @@
-import { get } from "@vercel/blob";
-import crypto from "node:crypto";
-import "../src/companyLogoCore.js";
+import {get} from '@vercel/blob';
+import crypto from 'node:crypto';
+import '../src/companyLogoCore.js';
+import {LIMITS,PublishingError,readBody,send,failure,validId,createPublishingSecurity,blobText} from '../src/server/publishing.js';
 
-const PROJECT_PREFIX = "avdesigner/projects";
-const MAX_PASSWORD_LENGTH = 160;
-
-function json(response, status, payload) {
-  response.status(status).setHeader("Content-Type", "application/json");
-  response.setHeader("Cache-Control", "no-store");
-  response.end(JSON.stringify(payload));
+async function verifyPassword(password,record) {
+  // Retain the existing PBKDF2 format, but never trust arbitrary cost/digest metadata.
+  if(!/^[a-f0-9]{32}$/.test(record?.salt || '') || !/^[a-f0-9]{64}$/.test(record?.hash || '')
+      || record.iterations!==120000 || record.digest!=='sha256')return false;
+  const actual=await new Promise((resolve,reject)=>crypto.pbkdf2(password,record.salt,120000,32,'sha256',(err,value)=>err?reject(err):resolve(value)));
+  return crypto.timingSafeEqual(actual,Buffer.from(record.hash,'hex'));
 }
-
-function readBody(request) {
-  if (request.body && typeof request.body === "object") return request.body;
-  if (typeof request.body === "string") return JSON.parse(request.body || "{}");
-  return {};
+export function createProjectHandler({security=createPublishingSecurity,blobGet=get}={}) {
+  return async function handler(req,res) {
+    if(!['POST','GET'].includes(req.method)){res.setHeader('Allow','GET, POST');return send(res,405,{error:'Method not allowed.'});}
+    try {
+      const branding=req.method==='GET',body=branding?{id:req.query?.id}:readBody(req),id=body.id;
+      if(!validId(id))throw new PublishingError(400,'Invalid viewer link.');
+      const password=typeof body.password==='string'?body.password:'';
+      if(!branding && (!password || password.length>160))throw new PublishingError(400,'Enter a valid project password.');
+      const guard=security();await guard.throttle(req,branding?'branding':'unlock',id);
+      let metadata=await guard.call('lookup',{id});
+      if(!metadata) {
+        const text=await blobText(blobGet,`avdesigner/projects/${id}/meta.json`,LIMITS.request);
+        metadata=text?JSON.parse(text):null;
+      }
+      if(!metadata || metadata.unavailable)throw new PublishingError(404,'Project was not found.');
+      const projectName=[metadata.projectName,metadata.title].find(value=>typeof value==='string' && value.trim()) || 'Untitled WireNexus Project';
+      if(branding)return send(res,200,{projectName:projectName.trim().slice(0,120),companyLogo:globalThis.AVDesignerCompanyLogo.publishedCompanyLogo(metadata.companyLogo)});
+      if(!await verifyPassword(password,metadata.password))throw new PublishingError(401,'Password is incorrect.');
+      const html=await blobText(blobGet,metadata.htmlPath,LIMITS.html);
+      if(!html)throw new PublishingError(404,'The hosted viewer file was not found.');
+      return send(res,200,{id,title:metadata.title,projectName:metadata.projectName,html});
+    }catch(error){return failure(res,error);}
+  };
 }
-
-function safeProjectId(value) {
-  const id = String(value || "").trim();
-  if (!/^[a-z0-9][a-z0-9-]{2,90}$/.test(id)) return "";
-  return id;
-}
-
-function verifyPassword(password, record) {
-  if (!record?.salt || !record?.hash) return false;
-  const iterations = Number(record.iterations) || 120000;
-  const digest = record.digest || "sha256";
-  const hash = crypto.pbkdf2Sync(password, record.salt, iterations, 32, digest).toString("hex");
-  const expected = Buffer.from(record.hash, "hex");
-  const actual = Buffer.from(hash, "hex");
-  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
-}
-
-async function blobText(pathname) {
-  let result;
-  try {
-    result = await get(pathname, { access: "private" });
-  } catch (error) {
-    result = await get(pathname);
-  }
-  if (!result || result.statusCode !== 200 || !result.stream) return "";
-  return await new Response(result.stream).text();
-}
-
-export default async function handler(request, response) {
-  if (request.method !== "POST" && request.method !== "GET") {
-    response.setHeader("Allow", "GET, POST");
-    return json(response, 405, { error: "Method not allowed." });
-  }
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    return json(response, 500, { error: "Hosted viewer storage is not configured for this deployment." });
-  }
-
-  try {
-    const brandingOnly = request.method === "GET";
-    const body = brandingOnly ? { id: request.query?.id } : readBody(request);
-    const id = safeProjectId(body.id);
-    const password = String(body.password || "");
-
-    if (!id) return json(response, 400, { error: "Invalid viewer link." });
-    if (!brandingOnly && !password) return json(response, 400, { error: "Enter the project password." });
-    if (password.length > MAX_PASSWORD_LENGTH) return json(response, 400, { error: "Password is too long." });
-
-    const metaText = await blobText(`${PROJECT_PREFIX}/${id}/meta.json`);
-    if (!metaText) return json(response, 404, { error: "Project was not found." });
-
-    const metadata = JSON.parse(metaText);
-    // Only login branding is public. Never return the metadata record or fetch
-    // the private drawing before password verification.
-    if (brandingOnly) {
-      const projectName = [metadata.projectName, metadata.title]
-        .find(value => typeof value === "string" && value.trim()) || "Untitled WireNexus Project";
-      return json(response, 200, {
-        projectName: projectName.trim().slice(0, 120),
-        companyLogo: globalThis.AVDesignerCompanyLogo.publishedCompanyLogo(metadata.companyLogo)
-      });
-    }
-    if (!verifyPassword(password, metadata.password)) {
-      return json(response, 401, { error: "Password is incorrect." });
-    }
-
-    const html = await blobText(metadata.htmlPath);
-    if (!html) return json(response, 404, { error: "The hosted viewer file was not found." });
-
-    return json(response, 200, {
-      id,
-      title: metadata.title,
-      projectName: metadata.projectName,
-      html
-    });
-  } catch (error) {
-    return json(response, 500, { error: error.message || "Could not open project." });
-  }
-}
+export default createProjectHandler();

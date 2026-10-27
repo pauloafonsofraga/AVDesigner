@@ -34807,14 +34807,6 @@ document.addEventListener("click", function(event) {
       }
     }
 
-    function randomPublishId(title) {
-      const slug = slugify(title || "project").slice(0, 60) || "project";
-      const bytes = new Uint8Array(5);
-      crypto.getRandomValues(bytes);
-      const suffix = Array.from(bytes, value => value.toString(16).padStart(2, "0")).join("");
-      return `${slug}-${suffix}`;
-    }
-
     async function publishHostedProject() {
       const title = (publishProjectTitle?.value || projectDisplayName()).trim() || "Untitled WireNexus Project";
       const password = publishProjectPassword?.value || "";
@@ -34832,48 +34824,39 @@ document.addEventListener("click", function(event) {
       publishProjectResult?.classList.add("hidden");
       setPublishStatus("Preparing project data...");
       try {
+        const token = await accountLibraryUi?.publishingToken();
+        if (!token) throw new Error("Sign in through Owner Account before publishing.");
+        const headers = { Authorization: `Bearer ${token}` };
+        const publishRequest = async body => {
+          const response = await fetch("/api/publish", {
+            method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(body)
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(result.error || "Publishing service is unavailable.");
+          return result;
+        };
         const companyLogo = await preparePublishedCompanyLogo(
           AVDesignerCompanyLogo.projectCompanyLogo(state.titleBlocks) || publishCompanyLogoDraft?.source || "");
         const { html, data } = await prepareEngineViewerOutput({ mode: "hosted-viewer", title });
         data.projectName = title;
         const projectJson = JSON.stringify(data);
-        const id = randomPublishId(title);
-        const basePath = `avdesigner/projects/${id}`;
+        const projectFile = new Blob([projectJson], { type: "application/json" });
+        const htmlFile = new Blob([html], { type: "text/html; charset=utf-8" });
+        const reservation = await publishRequest({ action: "reserve", projectBytes: projectFile.size, htmlBytes: htmlFile.size });
+        const clientPayload = JSON.stringify({ id: reservation.id });
         const { upload } = await loadBlobClient();
         setPublishStatus("Uploading project data...");
-        const projectBlob = await upload(`${basePath}/project.json`, new Blob([projectJson], { type: "application/json" }), {
+        await upload(reservation.projectPath, projectFile, {
           access: "private",
-          handleUploadUrl: "/api/upload"
+          handleUploadUrl: "/api/upload", headers, clientPayload
         });
         setPublishStatus("Uploading hosted viewer...");
-        const htmlBlob = await upload(`${basePath}/viewer.html`, new Blob([html], { type: "text/html; charset=utf-8" }), {
+        await upload(reservation.htmlPath, htmlFile, {
           access: "private",
-          handleUploadUrl: "/api/upload"
+          handleUploadUrl: "/api/upload", headers, clientPayload
         });
         setPublishStatus("Finalizing secure viewer link...");
-        const response = await fetch("/api/publish", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id,
-            title,
-            password,
-            companyLogo,
-            projectPath: projectBlob.pathname,
-            htmlPath: htmlBlob.pathname
-          })
-        });
-        const rawResult = await response.text();
-        let result = {};
-        try {
-          result = rawResult ? JSON.parse(rawResult) : {};
-        } catch (error) {
-          result = {};
-        }
-        if (!response.ok) {
-          const details = result.error || rawResult.slice(0, 180).trim();
-          throw new Error(details || `Publish failed (${response.status}).`);
-        }
+        const result = await publishRequest({ action: "finalize", id: reservation.id, title, password, companyLogo });
         publishProjectLink.value = result.url || "";
         publishProjectResult?.classList.remove("hidden");
         setPublishStatus("Published. Send the link and password to the technician.");
