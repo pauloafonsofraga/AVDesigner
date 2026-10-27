@@ -34492,6 +34492,20 @@ document.addEventListener("click", function(event) {
       }
     }
 
+    let projectShortcutSavePending = false;
+    async function handleProjectSaveShortcut(event) {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey || event.key.toLowerCase() !== "s") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (event.repeat || projectShortcutSavePending) return;
+      projectShortcutSavePending = true;
+      try {
+        await saveProject();
+      } finally {
+        projectShortcutSavePending = false;
+      }
+    }
+
     async function saveProject() {
       if (!projectFileHandle) {
         await saveProjectAs();
@@ -36637,6 +36651,7 @@ document.addEventListener("click", function(event) {
       updateProjectNameControl(false);
     });
     document.getElementById("saveProject").addEventListener("click", editorActions.saveProject);
+    window.addEventListener("keydown", handleProjectSaveShortcut, true);
     document.getElementById("saveProjectAs").addEventListener("click", editorActions.saveProjectAs);
     document.getElementById("loadProject").addEventListener("click", () => {
       recordShellAction("load project");
