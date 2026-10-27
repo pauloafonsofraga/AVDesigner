@@ -23,6 +23,7 @@ function rendererFunctions(names, bindings = {}) {
   const context = vm.createContext({ attachedConnectorLabelPosition, adapterWorldPoint, connectorFieldRowWidth,sharedBusTypeLabels,adaptiveSharedBusLabel,
     legacyCanvasDetailScale:()=>1, INFO_BOX_COMPACT_SCALE:1.18, ...bindings });
   vm.runInContext(functionSource("connectorAnchorRenderPoint"), context);
+  vm.runInContext(functionSource("rotateAdapterLabel"), context);
   names.forEach(name => vm.runInContext(functionSource(name), context));
   return context;
 }

@@ -71,12 +71,12 @@ for (let angle = 0; angle < 360; angle += 15) {
   });
 }
 
-test("labels follow rotated connector offsets but remain upright, including shared buses", () => {
+test("adapter titles and connector labels rotate with their local anchors, including shared buses", () => {
   for (let angle = 0; angle < 360; angle += 15) {
     const m = model(project(angle)), labels = [];
     const ctx = new OutputSvgContext();
     ctx.strokeText = () => {};
-    ctx.fillText = function(text, x, y) { labels.push({ text, x, y, align: this.textAlign }); };
+    ctx.fillText = function(text, x, y) { labels.push({ text, x, y, align: this.textAlign, matrix:[...this.matrix] }); };
     drawEngineOutputLabels(ctx, m.scene, m.contract.bounds);
     const device = m.scene.getDevice("d0"), connector = m.scene.getConnector("d0", "out");
     const point = m.scene.connectorWorldPoint(device, connector);
@@ -86,6 +86,14 @@ test("labels follow rotated connector offsets but remain upright, including shar
       && Math.abs(label.y - (pos.y - m.contract.bounds.y)) < 1e-7 && label.align === pos.textAlign));
     const bus = labels.find(label => label.text === "SDI");
     assert.ok(bus);
+    const title=labels.find(label=>label.text===device.label);
+    assert.ok(title,'adapter title rendered');
+    for (const label of [title,bus,labels.find(label=>label.text==='HDMI')]) {
+      near(label.matrix[0],Math.cos(angle*Math.PI/180));
+      near(label.matrix[1],Math.sin(angle*Math.PI/180));
+    }
+    const titleAnchor=adapterWorldPoint(device,{x:device.width/2,y:-5});
+    near(title.x+m.contract.bounds.x,titleAnchor.x);near(title.y+m.contract.bounds.y,titleAnchor.y);
     const base = model(project()), baseLabels = [];
     const baseCtx = new OutputSvgContext();
     baseCtx.strokeText = () => {};

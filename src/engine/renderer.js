@@ -4193,6 +4193,13 @@ function connectorAnnotationPlacementsForFrame(ctx,scene,device,camera) {
   return placements;
 }
 
+function rotateAdapterLabel(ctx, device, x, y) {
+  if (device.kind !== "adapter" || !device.rotation) return;
+  ctx.translate(x,y);
+  ctx.rotate(device.rotation * Math.PI / 180);
+  ctx.translate(-x,-y);
+}
+
 function drawConnectorWorldLabel(ctx, point, connector = {}, text = "", camera, maxWidth = Infinity, device = {}) {
   const side = connector.side === "right" ? "right" : "left";
   const metrics = legacyConnectorLabelMetrics(camera.zoom);
@@ -4201,6 +4208,7 @@ function drawConnectorWorldLabel(ctx, point, connector = {}, text = "", camera, 
   const y = (anchor.y - camera.y) * camera.zoom;
   const size = metrics.screenFontSize;
   ctx.save();
+  rotateAdapterLabel(ctx, device, x, y);
   ctx.globalAlpha *= Number.isFinite(connector.__renderOpacity) ? connector.__renderOpacity : 1;
   ctx.font = `800 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
   ctx.textAlign = anchor.textAlign;
@@ -4231,6 +4239,7 @@ function drawSharedBusConnectorWorldLabel(ctx, layout, baseX, baseY, camera, max
   const y = (anchor.y - camera.y) * camera.zoom;
   const size = metrics.screenFontSize;
   ctx.save();
+  rotateAdapterLabel(ctx, device, x, y);
   ctx.font = `900 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
   ctx.textAlign = anchor.textAlign;
   ctx.textBaseline = "middle";
@@ -4936,9 +4945,10 @@ function drawDeviceLabel(ctx, device, camera, offsets = null, tone = "normal") {
   }
   if (device.kind === "adapter") {
     const labelSize = Math.max(5, 13 * camera.zoom * toneBoost);
-    const bounds = adapterRotationBounds(device, offset);
-    const labelX = (bounds.x + bounds.width / 2 - camera.x) * camera.zoom;
-    const labelY = (bounds.y - camera.y - 5) * camera.zoom;
+    const anchor = adapterWorldPoint(device, {x:device.width / 2,y:-5}, offset);
+    const labelX = (anchor.x - camera.x) * camera.zoom;
+    const labelY = (anchor.y - camera.y) * camera.zoom;
+    rotateAdapterLabel(ctx, device, labelX, labelY);
     ctx.font = `900 ${labelSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";

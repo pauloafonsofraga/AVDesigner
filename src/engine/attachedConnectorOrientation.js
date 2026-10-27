@@ -20,7 +20,7 @@ export function attachedConnectorLabelPosition(device, point, side, offsetX, off
   return {
     x: point.x + dx * basis.x - offsetY * basis.y,
     y: point.y + dx * basis.y + offsetY * basis.x,
-    textAlign: Math.abs(basis.x) < 1e-8 ? "center" : inward * basis.x < 0 ? "right" : "left"
+    textAlign: device?.kind === "adapter" ? (inward < 0 ? "right" : "left") : Math.abs(basis.x) < 1e-8 ? "center" : inward * basis.x < 0 ? "right" : "left"
   };
 }
 
