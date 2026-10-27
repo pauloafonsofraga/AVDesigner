@@ -5396,8 +5396,8 @@
     .topbar .toolbar .has-icon:not(.theme-switch),
     .topbar .toolbar .theme-switch.has-icon {
       display: inline-flex; flex-direction: column; justify-content: center; align-items: center;
-      gap: 3px; width: 52px; min-width: 52px; height: 46px; padding: 4px 2px;
-      border-radius: 7px; overflow: visible;
+      gap: 2px; width: 42px; min-width: 42px; height: 37px; padding: 1px 2px;
+      border-radius: 6px; overflow: visible;
     }
     .topbar .toolbar .toolbar-icon,
     .topbar .toolbar .theme-switch.has-icon .toolbar-icon {
@@ -5407,22 +5407,27 @@
     .topbar .toolbar .has-icon span.toolbar-caption {
       position: static; width: auto; height: auto; max-width: 100%; margin: 0;
       overflow: visible; clip: auto; white-space: nowrap;
-      font-size: 8px; line-height: 10px; font-weight: 600;
+      font-size: 7.2px; line-height: 9px; font-weight: 600;
       letter-spacing: 0; text-transform: uppercase; pointer-events: none;
     }
-    .topbar .toolbar #createMultiCore { width: 64px; min-width: 64px; }
+    .topbar .toolbar #zoomOut,
+    .topbar .toolbar #commentTool,
+    .topbar .toolbar #cableScheduleButton { width: 48px; min-width: 48px; }
+    .topbar .toolbar #createMultiCore { width: 54px; min-width: 54px; }
+    .topbar .toolbar .zoom-readout { min-width: 31px; font-size: 10.8px; }
+    .topbar .toolbar .wire-placement-select { min-width: 71px; height: 26px; padding: 0 6px; font-size: 10.8px; }
     .topbar .toolbar .theme-switch.has-icon[aria-pressed="true"] {
       color: #32b6ff; border-color: #32b6ff;
       background: rgba(50,182,255,.12) !important;
     }
     .topbar .toolbar #objectSnappingToggle[aria-pressed="true"] { color: #32b6ff; }
     .topbar .toolbar #voltageToggle {
-      width: 44px; min-width: 44px; height: 32px; padding: 0;
+      width: 36px; min-width: 36px; height: 26px; padding: 0;
       border: 1px solid var(--panel-border); border-radius: 7px;
       background: var(--panel); color: var(--ink);
-      text-align: center; font-size: 12px;
+      text-align: center; font-size: 10.8px;
     }
-    .topbar .toolbar #voltageToggle span { font-size: 12px; line-height: 1; }
+    .topbar .toolbar #voltageToggle span { font-size: 10.8px; line-height: 1; }
     .topbar .toolbar #voltageToggle::after { display: none; }
     .topbar .toolbar button:disabled { opacity: .4; cursor: not-allowed; }
     .topbar .toolbar button:focus-visible { outline: 2px solid #32b6ff; outline-offset: -2px; }
