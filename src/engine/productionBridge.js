@@ -6,7 +6,7 @@ import {multibandSignal, groupedCoaxMetadata} from "./multibandSignals.js";
 import { assertSafeModularCardChanges } from "./modularCardSafety.js";
 import { cloneHistoryValue, MAX_HISTORY_ENTRIES } from "./historyClone.js";
 import { DragSession } from "./dragSession.js";
-import { adapterCenter, adapterRotationHandle, snapAdapterRotation } from "./adapterRotation.js";
+import { adapterCenter, adapterRotationHandle, snapAdapterRotation, adapterRotationBounds, adapterContainsWorldPoint } from "./adapterRotation.js";
 import { ObjectSnapSession } from "./objectSnapping.js";
 import { CONNECTOR_RELATIONSHIP_FIELDS, applyConnectorRelationshipFieldPatch } from "./connectorRelationshipMetadata.js";
 import { multiCoreCanvasMethods } from "./multiCoreCanvas.js";
@@ -33,6 +33,7 @@ import {
   isEngineFiberCableType
 } from "./connectorCompatibility.js";
 import * as HitTest from "./hitTest.js";
+import {layerEditable,applyProjectLayers} from './projectLayers.js';
 import {
   normalizeAvDesignerDevice,
   normalizeAvDesignerProject,
@@ -167,8 +168,8 @@ const hitTestRack = typeof HitTest.hitTestRack === "function"
   : fallbackHitTestRack;
 
 // Expose build identity in diagnostics without adding an on-canvas HUD.
-export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-153-artwork-height-reflow";
-export const ENGINE_BRIDGE_VERSION = "iteration54-38-153-artwork-height-reflow";
+export const ENGINE_PRODUCTION_BRIDGE_FINGERPRINT = "production-bridge-iteration54-38-154-project-layers";
+export const ENGINE_BRIDGE_VERSION = "iteration54-38-154-project-layers";
 export const ENGINE_BRIDGE_FEATURE_LABEL = "jump-scoped-connector-compatibility";
 const BRIDGE_VERSION = ENGINE_BRIDGE_VERSION;
 const BRIDGE_FEATURE_LABEL = ENGINE_BRIDGE_FEATURE_LABEL;
@@ -1694,7 +1695,7 @@ class ProductionEngineBridge {
     let bestDistancePx = Infinity;
     for (let index = candidates.length - 1; index >= 0; index -= 1) {
       const device = candidates[index]?.payload?.device;
-      if (!device || !isJumpNodeDevice(device)) continue;
+      if (!layerEditable(device) || !isJumpNodeDevice(device)) continue;
       const center = this.jumpNodeCenter(device);
       if (!center) continue;
       const dxPx = (Number(worldPoint?.x) - center.x) * zoom;
@@ -3669,6 +3670,7 @@ class ProductionEngineBridge {
 
   deviceMovementLocked(device) {
     if (!device) return false;
+    if (!layerEditable(device)) return true;
     if (device.locked) return true;
     const rackId = this.scene.deviceRackId(device);
     return Boolean(rackId && this.scene.getRack(rackId)?.locked);
@@ -3720,7 +3722,9 @@ class ProductionEngineBridge {
     let result = null;
     for (let index = hits.length - 1; index >= 0; index -= 1) {
       const device = hits[index]?.payload?.device;
-      if (!device || !isCanvasObjectKind(device)) continue;
+      if (!layerEditable(device) || !isCanvasObjectKind(device)) continue;
+      if (this.scene.meta.projectLayers?.length && (hitTestDevice(this.scene,world).device?.layerOrder || 0) > (device.layerOrder || 0)) continue;
+      if (device.visual?.referenceImage) { const top=hitTestDevice(this.scene,world).device;if(top && top.id!==device.id)continue; }
       const kind = canonicalEngineObjectKind(device);
       if (allowedKinds && !allowedKinds.has(kind)) continue;
       const precise = preciseCanvasObjectHit(device, world, tolerance);
@@ -7077,6 +7081,8 @@ class ProductionEngineBridge {
     if (!this.ready) return false;
     const objectKind = canonicalEngineObjectKind(kind);
     const id = String(afterRaw?.id || beforeRaw?.id || "");
+    const existing=this.resolveDeviceBySourceId(id);
+    if (existing && !layerEditable(existing)) return false;
     if (!isCanvasObjectKind(objectKind) || !id) return false;
     if (!rawCanvasObjectsDiffer(beforeRaw, afterRaw)) return false;
     const index = Number.isInteger(options.index)
@@ -7199,10 +7205,37 @@ class ProductionEngineBridge {
     return true;
   }
 
+  commitProjectPresentationEdit(label, before, after, restore) {
+    if (!this.ready || JSON.stringify(before)===JSON.stringify(after)) return false;
+    const selectedIds=[...this.scene.selectedIds],selectedWireIds=[...this.scene.selectedWireIds];
+    const apply=snapshot=>{
+      restore(snapshot);
+      const raw=this.api.getProjectData();
+      this.scene.setData(normalizeProductionProject(raw,label));
+      this.scene.selectMany(selectedIds);
+      for (const id of selectedWireIds) if(layerEditable(this.scene.getWire(id))) this.scene.selectedWireIds.add(id);
+      this.mutations=new ProjectMutationAdapter({projectData:raw},{cloneProjectData:false});
+      this.renderer.setStaticScene(this.scene);
+      this.updateSelectionHud(); this.renderEngineInspector(); this.scheduleRender();
+      return {mutationMs:0};
+    };
+    this.beginProductionCommit(label);
+    try { apply(after); } catch (error) { apply(before); throw error; }
+    this.recordCommand({type:label,undo:()=>apply(before),redo:()=>apply(after)});
+    this.markCommitted(label);
+    return true;
+  }
+
+  refreshProjectLayerTags() {
+    if (!this.scene || !this.api.getProjectData?.().layers?.length) return;
+    applyProjectLayers(this.scene,this.api.getProjectData());
+    this.scheduleRender();
+  }
+
   commitObjectInspectorFields(objectId, fields = {}) {
     if (!this.ready) return false;
     const device = this.resolveDeviceBySourceId(objectId);
-    if (!device) return false;
+    if (!layerEditable(device)) return false;
     const before = captureObjectInspectorFields(device, fields);
     const after = sanitizeObjectInspectorFields(fields);
     if (after.selectedProjectorLensId !== undefined) {
@@ -7426,7 +7459,7 @@ class ProductionEngineBridge {
     if (!this.ready) return false;
     const device = this.resolveDeviceBySourceId(deviceId);
     const connector = device ? this.scene.getConnector(device.id, connectorId) : null;
-    if (!device || !connector) return false;
+    if (!device || !connector || device.layerLocked || device.layerHidden) return false;
     if (Object.keys(fields).length === 1 && fields.installedModuleType !== undefined
       && fields.installedModuleType === connector.installedModuleType
       && (connector.installedModuleType || (!installedModuleDetailsForEngine(connector).rawValue
@@ -7587,6 +7620,7 @@ class ProductionEngineBridge {
 
   commitInternalSignalRoute(deviceId, inputId, outputId, options = {}) {
     const device = this.resolveDeviceBySourceId(deviceId);
+    if (device?.layerLocked || device?.layerHidden) return false;
     if (!this.ready || !internalSignalRoutingEnabled(device)) return false;
     const before = normalizeInternalSignalRoutes(device);
     const after = setInternalSignalRoute(device, inputId, outputId, options);
@@ -7709,7 +7743,7 @@ class ProductionEngineBridge {
   commitWireInspectorFields(wireId, fields = {}) {
     if (!this.ready) return false;
     const wire = this.resolveWire(wireId);
-    if (!wire) return false;
+    if (!wire || wire.layerLocked || wire.layerHidden) return false;
     if (!this.allowDacCableTypeEdit([wire], fields)) return true;
     if (Object.keys(fields).length === 1 && fields.label !== undefined) {
       const link = this.jumpLinkForPhysicalWire(wire.id);
@@ -9825,7 +9859,7 @@ class ProductionEngineBridge {
 
   selectedDeletableDeviceIds() {
     return [...this.scene.selectedIds]
-      .filter(id => isEngineDeletableDevice(this.scene.getDevice(id)));
+      .filter(id => layerEditable(this.scene.getDevice(id)) && isEngineDeletableDevice(this.scene.getDevice(id)));
   }
 
   selectedRackIds() {
@@ -9838,6 +9872,10 @@ class ProductionEngineBridge {
   }
 
   deleteSelectedDevices(deviceIds = this.selectedDeletableDeviceIds()) {
+    if (this.scene.meta.projectLayers?.length && (deviceIds.some(id=>!layerEditable(this.scene.getDevice(id)))
+      || [...this.scene.affectedWireIdsForDevices(deviceIds)].some(id=>!layerEditable(this.scene.getWire(id))))) {
+      this.showError('Unlock the affected layers before deleting these objects.');return false;
+    }
     if (deviceIds.some(id => this.scene.getDevice(id)?.multiCoreIdentity)) {
       this.showError("Multi-Core ends cannot be deleted separately."); return false;
     }
@@ -11325,6 +11363,7 @@ function snapDebugText(snap) {
 
 function canvasObjectInteractionRect(device) {
   if (!device) return { x: 0, y: 0, width: 0, height: 0 };
+  if (device.kind==='image-object' && device.rotation) return adapterRotationBounds(device);
   if (device.kind === "comment") return worldCommentBoxRect(device);
   return {
     x: Number(device.x) || 0,
@@ -11375,6 +11414,7 @@ function worldCommentLeaderEnd(device) {
 
 function preciseCanvasObjectHit(device, world, tolerance = 8) {
   if (!device || !world) return null;
+  if (device.kind==='image-object' && device.rotation) return adapterContainsWorldPoint(device,world) ? {part:'body',distance:0} : null;
   if (device.kind === "comment") {
     const box = worldCommentBoxRect(device);
     return commentHitPart({

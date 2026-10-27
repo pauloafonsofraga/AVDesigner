@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { SceneGraph } from "../src/engine/sceneGraph.js";
+import {layerEditable} from '../src/engine/projectLayers.js';
 import { DragSession } from "../src/engine/dragSession.js";
 import { attachedJumpIdsForDevices } from "../src/engine/jumpAttachment.js";
 import { normalizeAvDesignerProject } from "../src/engine/projectAdapter.js";
@@ -10,7 +11,7 @@ import { cableTypeSelectionFixture } from "../fixtures/cable-type-selection.mjs"
 
 const source = readFileSync(new URL("../src/engine/productionBridge.js", import.meta.url), "utf8");
 function harness() {
-  const context = vm.createContext({ DragSession, attachedJumpIdsForDevices, document: { querySelector: () => null }, uniqueItems: ids => [...new Set(ids)] });
+  const context = vm.createContext({ DragSession, attachedJumpIdsForDevices, layerEditable, document: { querySelector: () => null }, uniqueItems: ids => [...new Set(ids)] });
   for (const name of ["consumeEngineShortcut", "isEditableEventTarget", "isEngineCanvasShortcut"]) {
     vm.runInContext(source.match(new RegExp(`^function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?^\\}`, "m"))[0], context);
   }

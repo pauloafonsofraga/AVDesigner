@@ -1,3 +1,6 @@
+import {layerEditable,layerVisible} from './projectLayers.js';
+const layerHitAllowed=(scene,item)=>scene.readOnly ? Boolean(item) && layerVisible(item) : layerEditable(item);
+
 export function screenToWorld(camera, point) {
   return {
     x: camera.x + point.x / camera.zoom,
@@ -8,13 +11,14 @@ export function screenToWorld(camera, point) {
 export function hitTestDevice(scene, worldPoint, predicate = null) {
   const start = performance.now();
   const hits = scene.spatialIndex.queryPoint(worldPoint);
+  if (scene.meta?.projectLayers?.length) hits.sort((a,b)=>(a.payload?.device?.layerOrder || 0)-(b.payload?.device?.layerOrder || 0));
   let result = null;
   for (let index = hits.length - 1; index >= 0; index -= 1) {
     const item = hits[index];
     const device = item?.payload?.device;
     const canvasDevice = device ? scene.canvasDeviceForId?.(device.id) || device : null;
-    if (device && (!predicate || predicate(device))
-      && (scene.isCompactRackDevice?.(device) || canvasDevice.kind !== "adapter" || adapterContainsWorldPoint(canvasDevice, worldPoint))) {
+    if (layerHitAllowed(scene,device) && (!predicate || predicate(device))
+      && (scene.isCompactRackDevice?.(device) || !["adapter","image-object"].includes(canvasDevice.kind) || adapterContainsWorldPoint(canvasDevice, worldPoint))) {
       result = device;
       break;
     }
@@ -31,7 +35,7 @@ export function hitTestRack(scene, worldPoint) {
   let result = null;
   for (let index = hits.length - 1; index >= 0; index -= 1) {
     const rack = hits[index]?.payload?.rack || hits[index]?.rack;
-    if (rack) {
+    if (layerHitAllowed(scene,rack)) {
       result = rack;
       break;
     }
@@ -53,7 +57,8 @@ export function hitTestConnector(scene, worldPoint, tolerance = 10) {
     const point = payload.point || item.point;
     const connector = payload.connector || item.connector;
     const device = payload.device || item.device;
-    if (!point || !connector || !device) return;
+    if (!point || !connector || !layerHitAllowed(scene,device)) return;
+    if (scene.meta?.projectLayers?.length && (hitTestDevice(scene,worldPoint).device?.layerOrder || 0) > (device.layerOrder || 0)) return;
     const distance = Math.hypot(point.x - worldPoint.x, point.y - worldPoint.y);
     const radius = device.kind === "jump" ? Math.max(tolerance * 1.9, device.visual?.jumpLoomId || device.visual?.jumpMultiCoreId ? 22 : 0) : tolerance;
     if (distance <= radius && distance < bestDistance) {
@@ -91,7 +96,7 @@ export function hitTestRoutePoint(scene, worldPoint, tolerance = 10, predicate =
     const point = item.payload?.point || item.point;
     const wire = item.payload?.wire || item.wire;
     const pointIndex = item.payload?.pointIndex ?? item.pointIndex;
-    if (!point || !wire) return;
+    if (!point || !layerHitAllowed(scene,wire)) return;
     const distance = Math.hypot(point.x - worldPoint.x, point.y - worldPoint.y);
     if (distance <= tolerance && distance < bestDistance) {
       const candidate = { wire, point, pointIndex, distance, key: `${wire.id}:${pointIndex}` };
@@ -114,7 +119,8 @@ export function hitTestWire(scene, worldPoint, tolerance = 8) {
   let bestDistance = Infinity;
   candidates.forEach(item => {
     const wire = item.payload?.wire || item.wire;
-    if (!wire || wire.selectable === false) return;
+    if (!layerHitAllowed(scene,wire) || wire.selectable === false) return;
+    if (scene.meta?.projectLayers?.length && (hitTestDevice(scene,worldPoint).device?.layerOrder || 0) > (wire.layerOrder || 0)) return;
     const breakout = item.payload?.breakout || item.breakout;
     const result = distanceToPolyline(breakout?.points || scene.wireRenderPolyline(wire), worldPoint);
     if (result.distance <= tolerance && result.distance < bestDistance) {
@@ -141,6 +147,7 @@ export function hitTestLoomPortal(scene, worldPoint, tolerance = 8) {
   for (const item of candidates) {
     const portal = item.payload;
     if (!portal?.point) continue;
+    if (!layerHitAllowed(scene,scene.looms?.find(loom=>loom.id===portal.loomId))) continue;
     const distance = Math.hypot(worldPoint.x - portal.point.x, worldPoint.y - portal.point.y);
     if (distance <= tolerance + 17 && (!best || distance < best.distance)) best = { ...portal, distance };
   }
@@ -150,6 +157,7 @@ export function hitTestLoomPortal(scene, worldPoint, tolerance = 8) {
 export function hitTestSelectedLoomRoutePoint(scene, worldPoint, tolerance = 8) {
   let best = null;
   const selected = scene.looms?.find(item => item.id === scene.selectedLoomId);
+  if (selected && !layerHitAllowed(scene,selected)) return null;
   for (const [index, point] of (selected?.routePoints || []).entries()) {
     if (point.id === selected.jumpRouting?.entryAnchorId) continue;
     const distance = Math.hypot(worldPoint.x - point.x, worldPoint.y - point.y);
@@ -163,6 +171,7 @@ export function hitTestSelectedLoomRoutePoint(scene, worldPoint, tolerance = 8) 
 export function hitTestLoomGateway(scene, worldPoint, tolerance = 8) {
   let best = null;
   for (const plan of scene.loomPlans || []) {
+    if (!layerHitAllowed(scene,plan)) continue;
     for (const [part, point] of [["sideA", plan.headA], ["sideB", plan.headB]]) {
       if (part === "sideB" && plan.hiddenHeadB) continue;
       const distance = Math.hypot(worldPoint.x - point.x, worldPoint.y - point.y);
@@ -177,6 +186,7 @@ export function hitTestLoomGateway(scene, worldPoint, tolerance = 8) {
 export function hitTestLoomTrunk(scene, worldPoint, tolerance = 8) {
   let best = null;
   for (const plan of scene.loomPlans || []) {
+    if (!layerHitAllowed(scene,plan)) continue;
     for (const [sectionIndex, section] of (plan.visibleTrunkSections || [plan.trunk]).entries()) {
       const hit = distanceToPolyline(section, worldPoint);
       if (hit.distance <= 7 + tolerance && (!best || hit.distance < best.distance)) {

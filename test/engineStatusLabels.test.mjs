@@ -21,6 +21,7 @@ for (const type of ["route point", "object move", "wire create"]) {
       renderCableLegend() {}, renderProjectCustomDevices() {}, renderInspector() {}, updateUndoRedoButtons() {},
       requestCableScheduleRefresh() {}, requestSignalChainRefresh() {},
       matrixRoutingModal: null, internalSignalRoutingEditor: null, statusSummary: () => "2 devices / 4 cables",
+      projectLayersPanel:null,activeEngineBridge:()=>null,
       setStatus: message => messages.push(message), recordShellAction: (...args) => actions.push(args), console: { info() {} }
     });
     commit({ type, mutationStats: {} });

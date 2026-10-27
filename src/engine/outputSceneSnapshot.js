@@ -1,4 +1,5 @@
 import { normalizeAvDesignerProject } from "./projectAdapter.js";
+import {layerVisible,layerSceneView} from './projectLayers.js';
 import { SceneGraph, deviceBounds } from "./sceneGraph.js";
 import { connectorDisplayAnchors, SHARED_BUS_NODE_LINE_INSET } from "./connectorDisplayLayout.js";
 import { sharedBusOrthogonalSegments } from "./sharedBusRendering.js";
@@ -133,23 +134,26 @@ export function buildEngineOutputScene(projectSnapshot = {}) {
   const warnings = empty ? [] : [...(scene.meta.jumpLinkWarnings || []), ...(scene.meta.jumpLinkIndexWarnings || [])];
   warnings.push(...(scene.meta.multiCoreDiagnostics || []).map(d => d.message).filter(Boolean));
   const skippedWires = empty ? (root.connections || []).length : normalized.meta.skippedWires || 0;
+  const visibleScene=scene.meta.projectLayers?.length ? layerSceneView(scene,null) : scene;
+  const visibleDeviceIds=new Set(visibleScene.devices.map(d=>d.id));
   if (skippedWires) warnings.push(`${skippedWires} project wires could not be normalized.`);
   if (!empty && normalized.wires.length !== scene.wires.length) warnings.push("SceneGraph rejected normalized wire endpoints.");
   const data = plainData({
     ...(modelData ? { modelData } : {}),
     version: OUTPUT_SCENE_VERSION, schemaFingerprint: OUTPUT_SCENE_SCHEMA_FINGERPRINT, sceneDataSource: OUTPUT_SCENE_SOURCE,
     coordinateSpace: "engine-world", devices, connectors, wires, racks: scene.racks,
+    ...(scene.meta.projectLayers ? {layers:scene.meta.projectLayers} : {}),
     jumpLinks, looms, loomPlans, ledSurfaces, cards, sharedBuses, rackExposure,
     sceneBounds: scene.bounds(),
-    bounds: geometryBounds([...scene.devices.map(deviceBounds), ...scene.racks.map(rack => rack.bounds)],
-      [...wires.filter(wire => !scene.isWireHiddenByLoom(wire.id)).flatMap(wire => wire.renderPolyline),
-        ...jumpLinks.flatMap(link => link.polyline),
-        ...loomPlans.flatMap(plan => [
+    bounds: geometryBounds([...visibleScene.devices.map(deviceBounds), ...visibleScene.racks.map(rack => rack.bounds)],
+      [...wires.filter(wire => layerVisible(wire) && !scene.isWireHiddenByLoom(wire.id)).flatMap(wire => wire.renderPolyline),
+        ...jumpLinks.filter(layerVisible).flatMap(link => link.polyline),
+        ...loomPlans.filter(layerVisible).flatMap(plan => [
           ...(plan.visibleTrunkSections || [plan.trunk]).flat(),
           ...(plan.portalPair ? [plan.portalPair.portalA, plan.portalPair.portalB] : []),
           ...plan.breakouts.flatMap(item => item.points)
         ]),
-        ...connectors.flatMap(connector => connector.anchors.map(anchor => anchor.worldPoint))]),
+        ...connectors.filter(connector=>visibleDeviceIds.has(connector.deviceId)).flatMap(connector => connector.anchors.map(anchor => anchor.worldPoint))]),
     diagnostics: { counts: { objects: devices.length, connectors: connectors.length, wires: wires.length,
       racks: scene.racks.length, cards: cards.length, sharedBuses: sharedBuses.length,
       jumpLinks: jumpLinks.length, looms: looms.length, ledSurfaces: ledSurfaces.length },

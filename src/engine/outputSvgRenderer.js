@@ -1,4 +1,5 @@
 import { createOutputViewerModel } from "./outputViewerModel.js";
+import {layerSceneView} from './projectLayers.js';
 import { drawDeviceVisual } from "./deviceVisualBuilder.js";
 import { engineOutputPrimitives, drawEngineOutputLabels, SHARED_BUS_LINE_STYLE } from "./renderer.js";
 import { outputAssetSources, isInlineOutputImage } from "./outputViewerAssets.js";
@@ -64,11 +65,11 @@ function drawRackShells(ctx, racks, images) {
 }
 
 function artwork(ctx, device) {
-  const bounds = device.kind === "adapter" ? adapterRotationBounds(device) : device;
+  const bounds = ["adapter","image-object"].includes(device.kind) ? adapterRotationBounds(device) : device;
   ctx.group({ "data-object-id":device.id, "data-kind":device.kind,
     "data-bounds":JSON.stringify({ x:bounds.x, y:bounds.y, width:bounds.width, height:bounds.height }) }, () => {
     ctx.save();
-    if (device.kind === "adapter" && device.rotation) {
+    if (["adapter","image-object"].includes(device.kind) && device.rotation) {
       ctx.translate(device.x + device.width / 2, device.y + device.height / 2);
       ctx.rotate(device.rotation * Math.PI / 180);
       ctx.translate(-device.width / 2, -device.height / 2);
@@ -87,8 +88,9 @@ export function collectEnginePrintTextMetrics(snapshot, images, measureText) {
     if (!Number.isFinite(metrics[key]) || metrics[key] < 0) throw new Error("Invalid print font metric");
     return { width:metrics[key] };
   };
-  scene.devices.filter(d => d.kind !== "jump").forEach(d => artwork(ctx,d));
-  if (contract.bounds) drawEngineOutputLabels(ctx,scene,contract.bounds);
+  const visibleScene=scene.meta.projectLayers?.length ? layerSceneView(scene,null) : scene;
+  visibleScene.devices.filter(d => d.kind !== "jump").forEach(d => artwork(ctx,d));
+  if (contract.bounds) drawEngineOutputLabels(ctx,visibleScene,contract.bounds);
   return metrics;
 }
 
@@ -99,13 +101,17 @@ export function renderEngineOutputSvg(snapshot, { images = {}, textMetrics = {},
   const bounds = contract.bounds || { x:0,y:0,width:1,height:1 };
   const ctx = new OutputSvgContext({ images,textMetrics });
   const primitives = engineOutputPrimitives(scene,contract);
+  const shellDiagnostics={imageCount:0,fallbackCount:0};
+  const drawLayer=(scene,contract)=>{
+  const primitives=engineOutputPrimitives(scene,contract);
   const meshes = (items,attribute) => items.forEach(item => ctx.group({ [attribute]:item.id },()=>ctx.mesh(item.vertices)));
-  scene.devices.filter(d => d.kind === "area").forEach(d=>artwork(ctx,d));
-  const shellDiagnostics = drawRackShells(ctx, contract.racks, images);
+  scene.devices.filter(d => d.kind === "area" || d.visual?.referenceImage).forEach(d=>artwork(ctx,d));
+  const shell = drawRackShells(ctx, contract.racks, images);
+  shellDiagnostics.imageCount+=shell.imageCount; shellDiagnostics.fallbackCount+=shell.fallbackCount;
   meshes(primitives.racks.filter(item => !contract.racks.some(rack => rack.id === item.id && rack.presentationMode === "compact")),"data-rack-id");
   meshes(primitives.wires,"data-wire-id");
   meshes(primitives.looms,"data-loom-id");
-  scene.devices.filter(d => !["area","jump"].includes(d.kind)).forEach(d=>artwork(ctx,d));
+  scene.devices.filter(d => !["area","jump"].includes(d.kind) && !d.visual?.referenceImage).forEach(d=>artwork(ctx,d));
   meshes(primitives.matrix,"data-matrix-id");
   meshes(primitives.relationships,"data-relationships-device-id");
   contract.sharedBuses.forEach(bus => {
@@ -122,6 +128,13 @@ export function renderEngineOutputSvg(snapshot, { images = {}, textMetrics = {},
   primitives.connectors.forEach(item=>ctx.group({ "data-connector-id":item.connectorId,"data-device-id":item.deviceId,
     "data-anchor-id":item.anchorId,"data-x":item.point.x,"data-y":item.point.y },()=>ctx.mesh(item.vertices)));
   ctx.group({ "data-layer":"labels" },()=>drawEngineOutputLabels(ctx,scene,bounds));
+  };
+  if (scene.meta.projectLayers?.length) for (const layer of scene.meta.projectLayers) {
+    const view=layerSceneView(scene,layer.id), ids=new Set(view.devices.map(d=>d.id)), wireIds=new Set(view.wires.map(w=>w.id));
+    drawLayer(view,{...contract,devices:view.devices,racks:view.racks,wires:contract.wires.filter(w=>wireIds.has(w.id)),
+      connectors:contract.connectors.filter(c=>ids.has(c.deviceId)),jumpLinks:view.jumpLinks,
+      sharedBuses:contract.sharedBuses.filter(bus=>ids.has(bus.deviceId))});
+  } else drawLayer(scene,contract);
   const text = ctx.textBounds;
   const x = Math.min(bounds.x,text?.left ?? bounds.x)-padding;
   const y = Math.min(bounds.y,text?.top ?? bounds.y)-padding;

@@ -20,6 +20,7 @@ export function createOutputViewerModel(snapshot, { assets } = {}) {
   assertOutputSceneContract(source);
   const contract = freeze(JSON.parse(JSON.stringify(source)));
   const scene = new SceneGraph();
+  scene.readOnly=true;
   const racks = contract.racks.map(rack => {
     const shell = normalizeRackShell(rack.rackShell);
     const source = rackShellStyle(shell).src;
@@ -27,7 +28,9 @@ export function createOutputViewerModel(snapshot, { assets } = {}) {
   });
   scene.setData({ devices: contract.devices.map(d => resolveOutputDeviceAssets(d, assets)), wires: contract.wires, racks,
     jumpLinks: contract.jumpLinks, looms: contract.looms, loomPlans: contract.loomPlans,
-    projectData: contract.modelData ? { multiCores: contract.modelData.multiCores } : null,
+    projectData: contract.layers ? {...(contract.modelData ? {multiCores:contract.modelData.multiCores} : {}), layers:contract.layers,
+      looms:contract.looms, connections:contract.wires, racks:contract.racks, jumpLinks:contract.jumpLinks}
+      : contract.modelData ? { multiCores: contract.modelData.multiCores } : null,
     meta: { cableHops: contract.diagnostics?.cableHops?.enabled !== false } });
   return { contract, scene, normalizationMs: performance.now() - start };
 }

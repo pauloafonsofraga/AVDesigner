@@ -1,4 +1,5 @@
 import { resolveProjectorLens } from "./projectorModel.js";
+import {applyProjectLayers, layerEditable, layerSceneView} from './projectLayers.js';
 import { SpatialIndex } from "./spatialIndex.js";
 import {
   cleanOrthogonalRoutePoints,
@@ -155,6 +156,7 @@ export class SceneGraph {
     this.refreshJumpNodeRoles();
     this.rebuildRackIndex();
     this.applyRackConnectorVisibility();
+    applyProjectLayers(this, this.projectData);
     this.selectedIds.clear();
     this.selectedRackIds.clear();
     this.selectedWireIds.clear();
@@ -1267,7 +1269,7 @@ export class SceneGraph {
     this.selectedRoutePointKeys.clear();
     this.primarySelectedJumpId = "";
     this.selectedJumpLinkId = "";
-    if (id) this.selectedIds.add(id);
+    if (id && layerEditable(this.getDevice(id))) this.selectedIds.add(id);
   }
 
   selectJumpPairPrimary(jumpId) {
@@ -1336,7 +1338,7 @@ export class SceneGraph {
   selectMany(ids) {
     this.selectedLoomId = "";
     this.selectedLoomPortalKey = "";
-    this.selectedIds = new Set(ids.filter(id => this.devicesById.has(id)));
+    this.selectedIds = new Set(ids.filter(id => layerEditable(this.getDevice(id))));
     this.selectedRackIds.clear();
     this.selectedWireIds.clear();
     this.selectedConnectorKeys.clear();
@@ -1355,7 +1357,7 @@ export class SceneGraph {
     this.selectedRoutePointKeys.clear();
     this.primarySelectedJumpId = "";
     this.selectedJumpLinkId = "";
-    if (this.wiresById.has(id)) this.selectedWireIds.add(id);
+    if (layerEditable(this.getWire(id))) this.selectedWireIds.add(id);
   }
 
   toggleWireSelection(id) {
@@ -2205,6 +2207,7 @@ export class SceneGraph {
   }
 
   bounds() {
+    if (this.meta.projectLayers?.length && !this.isProjectLayerView) return layerSceneView(this,null).bounds();
     if (!this.devices.length && !this.loomPlans.length) return { x: 0, y: 0, width: 1000, height: 600 };
     let minX = Infinity;
     let minY = Infinity;
@@ -2243,7 +2246,7 @@ export class SceneGraph {
 }
 
 export function deviceBounds(device) {
-  if (device.kind === "adapter") return adapterRotationBounds(device);
+  if (device.kind === "adapter" || device.kind === "image-object") return adapterRotationBounds(device);
   return {
     x: device.x,
     y: device.y,
@@ -2343,7 +2346,8 @@ function normalizeDevice(device) {
     sourceRackDeviceId: String(device.sourceRackDeviceId || ""),
     x: Number(device.x) || 0,
     y: Number(device.y) || 0,
-    rotation: kind === "adapter" ? normalizeAdapterRotation(device.rotation) : 0,
+    rotation: kind === "adapter" || kind === "image-object" ? normalizeAdapterRotation(device.rotation) : 0,
+    ...(device.layerId ? {layerId:device.layerId} : {}),
     width,
     height,
     label: device.label || device.name || String(device.id),
@@ -2391,6 +2395,7 @@ function normalizeRack(rack) {
   if (!id) return null;
   return {
     id,
+    ...(rack.layerId ? {layerId:rack.layerId} : {}),
     sourceRackId: String(rack.sourceRackId || "").trim(),
     name: String(rack.name || rack.label || "Rack"),
     rackShell: normalizeRackShell(rack.rackShell),
@@ -2447,6 +2452,7 @@ function normalizeVisualMetadata(visual = {}) {
     visualRevision: String(visual.visualRevision || visual.projectCustomRevision || "").trim(),
     isProjectCustomDevice: Boolean(visual.isProjectCustomDevice),
     objectKind: canonicalEngineObjectKind(visual.objectKind || ""),
+    ...(visual.referenceImage ? {referenceImage:true} : {}),
     image: visual.image || "",
     naturalWidth: Number(visual.naturalWidth) || 0,
     naturalHeight: Number(visual.naturalHeight) || 0,
@@ -2681,6 +2687,7 @@ function normalizeWire(wire) {
   const internalRackWire = Boolean(wire.internalRackWire);
   return {
     id: String(wire.id),
+    ...(wire.layerId ? {layerId:wire.layerId} : {}),
     ...(wire.multiCoreIdentity ? { multiCoreIdentity: { ...wire.multiCoreIdentity } } : {}),
     sourceKind: wire.sourceKind || "",
     sourceId: wire.sourceId || wire.id || "",

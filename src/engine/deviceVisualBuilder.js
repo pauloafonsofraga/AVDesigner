@@ -849,7 +849,7 @@ function drawImageObjectVisual(ctx, device, width, height) {
   const image = visualImage(ctx, visual.image);
   if (image?.complete && image.naturalWidth > 0) {
     ctx.save();
-    ctx.globalAlpha = clamp(Number(visual.opacity), 0, 1) || 1;
+    ctx.globalAlpha = Number.isFinite(Number(visual.opacity)) ? clamp(Number(visual.opacity), 0, 1) : 1;
     const rect = preserveAspectRatioMeetRect({ x: 0, y: 0, width, height }, image.naturalWidth, image.naturalHeight);
     ctx.drawImage(image, rect.x, rect.y, rect.width, rect.height);
     ctx.restore();

@@ -1091,6 +1091,7 @@ function normalizeImageObjects(images) {
       sourceKind: "imageObject",
       sourceId: id,
       kind: "image-object",
+      rotation: finiteNumber(image.rotation, 0),
       x: finiteNumber(image.x, 0),
       y: finiteNumber(image.y, 0),
       width,
@@ -1102,6 +1103,7 @@ function normalizeImageObjects(images) {
       color: "rgba(18, 28, 38, .72)",
       visual: {
         objectKind: "image-object",
+        ...(image.referenceImage ? {referenceImage:true} : {}),
         image: String(image.image || image.src || image.href || "").trim(),
         naturalWidth: positiveNumber(image.naturalWidth) || positiveNumber(image.imageNaturalWidth),
         naturalHeight: positiveNumber(image.naturalHeight) || positiveNumber(image.imageNaturalHeight),

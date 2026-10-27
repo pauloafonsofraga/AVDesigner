@@ -5376,6 +5376,38 @@
     .multi-core-actions label { flex-basis: 100%; }
     .multi-core-route-point { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; margin-bottom: 8px; overflow-wrap: anywhere; }
     .topbar .brand { flex-shrink: 0; }
+    .with-project-layers { min-height: 0; overflow: hidden; }
+    .with-project-layers .inspector-body { flex: 1 1 0; min-height: 100px; }
+    .project-layers-divider { flex: 0 0 7px; cursor: ns-resize; border-top: 1px solid var(--panel-border); border-bottom: 1px solid var(--panel-border); background: var(--panel); touch-action: none; }
+    .project-layers-divider:hover, .project-layers-divider:focus-visible { background: var(--accent); }
+    .project-layers-panel { flex: 0 1 var(--project-layers-height, 240px); min-height: 100px; display: flex; flex-direction: column; overflow: hidden; background: var(--panel); }
+    .project-layers-panel header { display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 7px 10px; border-bottom: 1px solid var(--panel-border); }
+    .project-layers-panel h2 { font-size: 12px; margin: 0; }
+    .project-layer-tools { display: flex; gap: 2px; }
+    .project-layers-panel button { display: inline-flex; align-items: center; justify-content: center; width: 24px; min-width: 24px; height: 24px; padding: 3px; border: 1px solid transparent; border-radius: 4px; color: var(--ink); background: transparent; cursor: pointer; }
+    .project-layers-panel button:hover { background: rgba(50,182,255,.12); border-color: var(--accent); }
+    .project-layers-panel button:disabled { opacity: .35; cursor: default; }
+    .project-layers-panel .toolbar-icon { width: 16px; height: 16px; }
+    .project-layer-assignment { padding: 7px 10px; border-bottom: 1px solid var(--panel-border); }
+    .project-layer-assignment label { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+    .project-layer-assignment select { flex: 1; min-width: 0; width: 50%; height: 26px; background: var(--panel); color: var(--ink); border: 1px solid var(--panel-border); border-radius: 4px; font: inherit; }
+    .project-layer-list { overflow: auto; flex: 1; min-height: 0; }
+    .project-layer-row { display: grid; grid-template-columns: 24px 24px minmax(0,1fr); align-items: center; gap: 3px; padding: 5px 8px; border-top: 2px solid transparent; border-bottom: 1px solid var(--panel-border); cursor: grab; }
+    .project-layer-row.active { background: rgba(50,182,255,.14); }
+    .project-layer-row.dragging { opacity: .4; }
+    .project-layer-row.drop-target { border-top-color: var(--accent); }
+    .project-layer-row input { width: 100%; min-width: 0; padding: 4px; border: 1px solid transparent; border-radius: 3px; background: transparent; color: var(--ink); font: inherit; font-size: 12px; }
+    .project-layer-row input:focus { border-color: var(--accent); outline: none; }
+    .project-reference-field { display: grid; grid-template-columns: 70px minmax(0,1fr); align-items: center; gap: 8px; margin: 10px 0; font-size: 12px; }
+    .project-reference-field input { min-width: 0; width: 100%; }
+    .project-reference-field input:not([type="range"]), .venue-pdf-dialog input { height: 28px; padding: 4px 7px; border: 1px solid var(--panel-border); border-radius: 4px; background: var(--panel); color: var(--ink); font: inherit; }
+    .project-reference-field input[type="range"] { accent-color: var(--accent); }
+    .venue-pdf-dialog { width: min(700px,calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow: auto; padding: 18px; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--panel); color: var(--ink); }
+    .venue-pdf-dialog::backdrop { background: #0009; }
+    .venue-pdf-dialog h2 { margin: 0 0 12px; font-size: 16px; }
+    .venue-pdf-dialog img { display: block; max-width: 100%; max-height: 55vh; margin: 12px auto; object-fit: contain; background: white; }
+    .venue-pdf-dialog footer { display: flex; justify-content: flex-end; gap: 8px; }
+    .venue-pdf-dialog input { width: 80px; }
     .internal-routing-dialog { width: min(1120px, calc(100vw - 40px)); max-height: calc(100dvh - 40px); padding: 16px; border: 1px solid #52616c; border-radius: 8px; background: #20262d; color: #edf2f7; font-size: 14px; }
     .internal-routing-dialog::backdrop { background: #0009; }
     .internal-routing-dialog header, .internal-routing-tools { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
@@ -5449,7 +5481,7 @@
         <label for="projectNameInput">Project</label>
         <input id="projectNameInput" type="text" value="Untitled WireNexus Project" aria-label="Project name">
       </div>
-      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">54.38.153 — Internal Signal Routing</div>
+      <div class="app-build-label" id="appBuildLabel" aria-label="Current WireNexus build">54.38.154 — Internal Signal Routing</div>
       <div class="toolbar" aria-label="Project actions">
         <button class="tool-button zoom-control" id="zoomOut" type="button" title="Zoom out">
           <span>-</span>
@@ -6172,13 +6204,13 @@
   <script src="./src/companyLogoCore.js?v=iteration54-38-12-company-logo-branding"></script>
   <script src="./src/engine/projectorModelCore.js?v=iteration54-38-11-engine-status-labels"></script>
   <script src="./src/engine/historyCloneCore.js?v=iteration54-38-29-memory-safe-undo"></script>
-  <script src="./src/toolbarIcons.js?v=iteration54-38-150-toolbar-captions"></script>
-  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-153-artwork-height-reflow"></script>
+  <script src="./src/toolbarIcons.js?v=iteration54-38-154-project-layers"></script>
+  <script type="module" src="./src/factoryCatalogueBootstrap.js?v=iteration54-38-154-project-layers"></script>
   <script type="text/wirenexus-app" id="wireNexusAppSource">
-    const APP_ITERATION = "54.38.153";
-    const APP_BUILD_ID = "iteration54-38-153-artwork-height-reflow";
-    const APP_MODULE_CACHE_ID = "iteration54-38-153-artwork-height-reflow-modules";
-    const APP_BUILD_LABEL = `${APP_ITERATION} — Artwork Height Reflow`;
+    const APP_ITERATION = "54.38.154";
+    const APP_BUILD_ID = "iteration54-38-154-project-layers";
+    const APP_MODULE_CACHE_ID = "iteration54-38-154-project-layers-modules";
+    const APP_BUILD_LABEL = `${APP_ITERATION} — Project Layers and Venue Layouts`;
     const { cloneHistoryValue, MAX_HISTORY_ENTRIES } = window.WireNexusHistoryClone;
     const SWAPPABLE_CARD_ICON_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAOCAMAAAAYGszCAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAutQTFRFAAAAJMpbIMFXH8FWHsFWH8JWIMJXHsFWHsFVHsJWHsdXDK5JkKRGkqRDAng4P41AdapFNqJBN6JBLJpBA3w6Anw6Ans6Ano6Ano5Anc4kKNFk6JBB6RECZ1DoKBAn59CA3Y3MYlBWJtDHI09A3s6F4k9KZdAFX89VphHUJBmfJNvHX1KYJR2B3Q5n58+oZ5BBZY/B55DCnM0CnEzGn03NoE/M5NLHoRJFn5GN6FAEHs4SZE2O35TWHdRF3JBWmxbCHM4EHQ1HHU2BJdAB5xCEXs5UYtBD3I+Un1maoN1bIR3ZINxL44+CXs5LJc+B3o5JJE+JZA9UZpXLZVANpE8bJU+BJc/BptCC3c3UpU3HH1JVm1gR0dHR0dHRkZGTGNVFHo+KpY+LJY+Goc7KH1EPH9QLXNJBHA1CXI0BJY/BplBAnU3MZo+QphRYW5mQEBAQEBAQD9AV2NbO5lEIYw7OJ8/OIVbVl9aPj4+OTk5W4VtAnE1A5Q+BphAYJVwOYBUIn1MYG1mQUFBPz9AVmJaOpdEM5s/H4o8NoNZVF5YOTo6WYNqA5M+BZdAaH5YPW9EJH1NYW1lQEBBPj4/VmBZLYtCH4k7J5E9PI9ONlZDKzsyKDkvOHhUBXE2A5I+BZdARodiKnhMCXQ7H104ND00Oj47PEA8O0E6G1gyDno4K5Q8GYY6I448M5Y8L5A5L5E6Rpg8hqBBIoA8I387AnM3GIQ6RJFQTopbQ4BcRohZKI46F4I4GIQ6LJQ9KYlHWIBbR4FZA3A1In07I3k4ApI+BJVAm51Am5w+DHM4P5dDJ487Op4+KZI7JY86PKE9T6NCMZA9NJk+MY9FVH9LOXVLA200m5w/nJs9A489BqFDhZQ5iJQ7Ink3ZJA5CHc3Mpk9QKY+QKc9QaY+a506KHY0DXs4G4U5GoU5J406Am41hZM4iZI6BZtCCKpIC6hICqhJC6hJCqdICadICqdHC6dJCqZIFrJJCaZHCKdHORcAzwAAAPl0Uk5TAN/k5OTk5OXk5eDi/f39/f3+/v7+/v79/v39/eXn/f39/f3+/v7+/f39/f39/f796uj+/f39/v7+/v39/f39/f39/ero/f39/f7+/f39/v39/v39/f3q5/39/f39/v39/f39/f39/f396uj9/f79/f7+/f39/f39/f39/evo/f79/f39/f3+/v3+/f3r5/39/f39/f39/f39/f39/f7q6P39/f39/f39/f3+/v39/f39/f39/f39/f39/f3+/v39/f39/ero/v39/f39/f39/f7+/f39/f396uH+/f39/f7+/v7+/f7+/v79/v3k5Orq6urq6urq6urlWwxJAAAAAHNJREFUeJxjZGAEgv9MjH9ZgBTDHwYWBqZvjNyMcMAAlgUBWUYswJCR8bYauqALI+NlPXTBcLh5SCALm2AtmHzHKATh/mJn/CDI2AtivpD8KICscj6mg94yzhfG4s6j2Bx/E5sgw1uoi/4xM/75x8wCpDkAGkUZKRYFsNQAAAAASUVORK5CYII=";
     const APP_SOURCE_BRANCH = "engine-prototype";
@@ -10003,6 +10035,7 @@
 
     function projectSnapshot({ includeClipboardDependencies = false } = {}) {
       return cloneHistoryValue({
+        ...(state.layers ? {layers:state.layers,activeLayerId:state.activeLayerId} : {}),
         ...window.WireNexusMultiCore.multiCoreProjectFields(state, { cloneValues: false }),
         ...(includeClipboardDependencies ? { deviceLibrary, nodeLibrary: serializeNodeLibrary() } : {}),
         imageObjects: state.imageObjects,
@@ -10032,6 +10065,8 @@
     }
 
     function restoreSnapshot(snapshot) {
+      if (snapshot.layers) state.layers=cloneHistoryValue(snapshot.layers); else delete state.layers;
+      state.activeLayerId=snapshot.activeLayerId || 'layer-default';
       for (const key of window.WireNexusMultiCore.MULTI_CORE_PROJECT_FIELDS) delete state[key];
       Object.assign(state, window.WireNexusMultiCore.multiCoreProjectFields(snapshot));
       if (Array.isArray(snapshot.deviceLibrary)) deviceLibrary = cloneHistoryValue(snapshot.deviceLibrary);
@@ -30983,7 +31018,26 @@
       }
     }
 
+    let projectLayersPanel = null;
+    let projectLayersPanelPromise = null;
+    function renderProjectLayersPanel() {
+      if (!activeEngineBridge()) return;
+      if (projectLayersPanel) { projectLayersPanel.render(); return; }
+      projectLayersPanelPromise ||= import(engineImportUrl('./src/engine/projectLayersPanel.js')).then(module=>{
+        projectLayersPanel=module.mountProjectLayersPanel({
+          state:()=>state,selection:()=>state.selected,documentIdentity:()=>state.devices,
+          commit:(label,before,after,restore)=>activeEngineBridge()?.commitProjectPresentationEdit(label,before,after,restore),
+          center:()=>{const b=activeEngineBridge(),r=canvasWrap.getBoundingClientRect();return {x:b.camera.x+r.width/(2*b.camera.zoom),y:b.camera.y+r.height/(2*b.camera.zoom)};},
+          error:message=>alert(message),
+          select:id=>{const b=activeEngineBridge();b.scene.selectOnly(id);b.updateSelectionHud();b.scheduleRender();}
+        });
+        renderInspector();
+      }).catch(error=>{console.error('Layers panel could not load',error);projectLayersPanelPromise=null;});
+    }
+
     function renderInspector() {
+      renderProjectLayersPanel();
+      if (state.selected?.type==='image-object' && projectLayersPanel?.renderReferenceInspector(inspectorBody,state.selected.id)) return;
       if (activeEngineBridge()?.renderMultiCoreInspector?.(inspectorBody)) return;
       const selection = state.selected;
       if (!selection) {
@@ -33344,6 +33398,7 @@
       return {
         ...window.WireNexusMultiCore.multiCoreProjectFields(state, { cloneValues: false }),
         version: state.version,
+        ...(state.layers ? {layers:state.layers,...(!readOnly ? {activeLayerId:state.activeLayerId} : {})} : {}),
         projectName: state.projectName,
         darkMode: state.darkMode,
         gridVisible: state.gridVisible,
@@ -34521,6 +34576,8 @@ document.addEventListener("click", function(event) {
           state.devices = Array.isArray(data.devices) ? data.devices.map(hydrateDeviceInstance).filter(Boolean) : [];
           state.ledSurfaces = Array.isArray(data.ledSurfaces) ? data.ledSurfaces : [];
           state.imageObjects = Array.isArray(data.imageObjects) ? data.imageObjects : [];
+          if (Array.isArray(data.layers)) state.layers=cloneHistoryValue(data.layers); else delete state.layers;
+          state.activeLayerId=data.activeLayerId || 'layer-default';
           state.areas = Array.isArray(data.areas) ? data.areas : [];
           state.racks = Array.isArray(data.racks) ? data.racks.filter(rack => rack && rack.id) : [];
           state.jumpNodes = Array.isArray(data.jumpNodes) ? data.jumpNodes : [];
@@ -34847,6 +34904,8 @@ document.addEventListener("click", function(event) {
       state.loomPortalNumberCounter = 0;
       state.cableNumberCounters = {};
       state.imageObjects = [];
+      delete state.layers;
+      state.activeLayerId='layer-default';
       deviceLibrary = structuredClone(builtInDeviceLibrary);
       projectNodeDefinitions = [];
       restoreCanvasClipboardNodeLibrary(personalLibraryNodes);
@@ -37465,6 +37524,8 @@ document.addEventListener("click", function(event) {
               console.info("[engine-bridge] production undo snapshot captured", { type });
             },
             onEngineCommit: ({ type, mutationStats }) => {
+              projectLayersPanel?.render();
+              activeEngineBridge()?.refreshProjectLayerTags();
               internalSignalRoutingEditor?.refresh();
               requestCableScheduleRefresh();
               requestSignalChainRefresh();
@@ -37496,6 +37557,7 @@ document.addEventListener("click", function(event) {
             }
           });
           const activeMode = appRuntimeModeLabel();
+          renderProjectLayersPanel();
           setStatus(`${activeMode} active.`);
           updateAppBuildLabel();
           updateLibraryDragDebug();

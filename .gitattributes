@@ -1,2 +1,4 @@
 # ExcelJS embeds whitespace-significant template literals in this generated bundle.
 src/engine/generated/cableScheduleBundle.js whitespace=-blank-at-eol
+# Preserve upstream PDF.js assets and license notices byte-for-byte.
+assets/vendor/pdfjs/** whitespace=-blank-at-eol

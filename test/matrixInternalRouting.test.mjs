@@ -200,7 +200,7 @@ test("Engine renderer owns a dynamic internal matrix route buffer", () => {
   assert.match(RENDERER_SOURCE, /matrixRouteVertexMap = new Map\(\)/);
   assert.match(RENDERER_SOURCE, /matrixRouteRangeMap = new Map\(\)/);
   assert.match(functionSource(RENDERER_SOURCE, "setStaticScene"), /verticesForMatrixInternalRoutes\(device, null, this\.renderOptions\)/);
-  assert.match(functionSource(RENDERER_SOURCE, "draw"), /this\.drawTextureDevices\(scene, camera, renderOptions, dragSession, layerTrace, device => device\.kind !== "area"\)/);
+  assert.match(functionSource(RENDERER_SOURCE, "draw"), /this\.drawTextureDevices\(scene, camera, renderOptions, dragSession, layerTrace, device => device\.kind !== "area" && !device\.visual\?\.referenceImage\)/);
   assert.match(functionSource(RENDERER_SOURCE, "draw"), /this\.drawMatrixInternalRoutes\(dragSession, layerTrace\)/);
   assert.match(functionSource(RENDERER_SOURCE, "draw"), /pushVisibleConnectorNodes\(liveVertices, scene, camera, this\.resolution, renderOptions, dragSession, layerTrace, this\)/);
   assert.match(functionSource(RENDERER_SOURCE, "updateMatrixInternalRoutes"), /subUpload\(this\.gl, this\.matrixRouteBuffer, range\.offset, next\)/);

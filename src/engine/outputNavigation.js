@@ -1,10 +1,11 @@
 // PDF navigation is derived from canonical Engine geometry, never print layout.
+import {layerVisible} from './projectLayers.js';
 export const pdfJumpDestinationId = id => `pdf-jump-destination-${Array.from(String(id),
   character => character.codePointAt(0).toString(16)).join("-")}`;
 
 export function buildOutputJumpNavigation(snapshot) {
   const scene = snapshot?.engineScene || snapshot || {};
-  const nodes = new Map((scene.devices || []).filter(device => device.kind === "jump")
+  const nodes = new Map((scene.devices || []).filter(device => layerVisible(device) && device.kind === "jump")
     .map(device => [String(device.id), device]));
   const jumpNodes = [], used = new Set();
   for (const link of scene.jumpLinks || []) {

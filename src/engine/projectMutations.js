@@ -1,4 +1,5 @@
 import { engineWireColorSegmentsForCable } from "./connectorCompatibility.js";
+import {assignNewObjectsToLayer, layerObjects} from './projectLayers.js';
 import { projectWireRouting } from "./wireRoutingPolicy.js";
 import { CONNECTOR_RELATIONSHIP_FIELDS, applyConnectorRelationshipFieldPatch } from "./connectorRelationshipMetadata.js";
 import {
@@ -41,6 +42,7 @@ export class ProjectMutationAdapter {
     this.connectorMetadataModels = new Map((sceneData.devices || []).map(device => [String(device.sourceId || device.id), device]));
     this.resetStats();
     this.rebuildIndexes();
+    this.layerKnownObjects=new Map(layerObjects(this.root).map(entry=>[entry.collection+':'+entry.id,entry.object.layerId || null]));
   }
 
   resetStats() {
@@ -851,6 +853,7 @@ export class ProjectMutationAdapter {
   }
 
   record(type, durationMs, path, detail = {}) {
+    assignNewObjectsToLayer(this.root,this.layerKnownObjects || new Map());
     this.dirty = true;
     this.mutationCount += 1;
     this.lastMutation = {

@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build:reference-pdf": "node scripts/build-reference-pdf.mjs",
     "build:output-viewer": "node scripts/build-output-viewer.mjs",
     "check:output-viewer": "node scripts/output-viewer-bundle-validation.mjs",
     "build:cable-schedule": "node scripts/build-cable-schedule.mjs",
@@ -20,6 +21,7 @@
   "dependencies": {
     "@supabase/supabase-js": "2.117.2",
     "@vercel/blob": "latest",
-    "exceljs": "4.4.0"
+    "exceljs": "4.4.0",
+    "pdfjs-dist": "6.4.299"
   }
 }

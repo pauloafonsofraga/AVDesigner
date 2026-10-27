@@ -1,6 +1,7 @@
 import { TextureCache } from "./textureCache.js";
 import { deviceHeaderLabel, hasOrdinaryDeviceHeader } from "./deviceDisplayName.js";
 import { adapterRotationBounds, adapterWorldPoint, rotateAdapterPoint } from "./adapterRotation.js";
+import {DEFAULT_LAYER_ID, layerSceneView, layerVisible} from './projectLayers.js';
 import { attachedConnectorLabelPosition, orientAttachedConnectorVertices } from "./attachedConnectorOrientation.js";
 import { isTransceiverCage, transceiverModulePresentation } from "./transceiverModules.js";
 import {
@@ -83,7 +84,7 @@ import { isPhysicalJumpWire, wireCaption } from "./cableCaption.js";
 import { highlightedCableWireIds } from "./cableSelection.js";
 import { rackShellSlices, rackShellStyle, normalizeRackShell } from "./rackShell.js";
 
-export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-153-artwork-height-reflow";
+export const ENGINE_RENDERER_MODULE_FINGERPRINT = "renderer-iteration54-38-154-project-layers";
 
 const DEVICE_FILL = "#171d24";
 const DEVICE_SELECTED = "#fb7904";
@@ -435,6 +436,7 @@ export class WebglGraphRenderer {
     if (this.disposed) return;
     const gl = this.gl;
     this.disposed = true;
+    if (this.projectLayerLabelTexture) gl?.deleteTexture(this.projectLayerLabelTexture);
     this.sharedBusHoverTarget?.removeEventListener?.('pointermove',this.onSharedBusHover);
     this.sharedBusHoverTarget?.removeEventListener?.('pointerleave',this.onSharedBusLeave);
     this.onSharedBusLeave?.();
@@ -1054,6 +1056,21 @@ export class WebglGraphRenderer {
   }
 
   draw(scene, camera, options = {}) {
+    if (scene.meta.projectLayers?.length && !options.projectLayerPass) {
+      let total=0;
+      const infoRects=[],busRects=[];
+      try {
+        scene.meta.projectLayers.forEach((layer,index)=>{
+          this.activeProjectLayerId=layer.id;
+          total+=this.draw(layerSceneView(scene,layer.id),camera,{...options,projectLayerPass:true,projectLayerPassIndex:index,
+            renderOptions:{...options.renderOptions,gridVisible:index===0 && (options.renderOptions?.gridVisible ?? this.renderOptions.gridVisible)}}) || 0;
+          infoRects.push(...(this.lastConnectorInfoBoxHitRects || []));busRects.push(...(this.lastSharedBusLabelHitRects || []));
+          this.drawProjectLayerLabels(camera);
+        });
+      } finally { this.activeProjectLayerId=null; }
+      this.lastConnectorInfoBoxHitRects=infoRects;this.lastSharedBusLabelHitRects=busRects.reverse();
+      return total;
+    }
     if (this.disposed || !this.gl) {
       this.lastFrameStats = { totalMs: 0, disposed: true };
       return this.lastFrameStats;
@@ -1113,7 +1130,7 @@ export class WebglGraphRenderer {
     if (Array.isArray(canvasBackground) && canvasBackground.length === 4 && canvasBackground.every(Number.isFinite)) {
       gl.clearColor(...canvasBackground);
     } else gl.clearColor(0.047, 0.071, 0.094, 1);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    if (!options.projectLayerPassIndex) gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(this.program);
     gl.uniform4f(this.viewLocation, camera.x, camera.y, this.resolution.width / camera.zoom, this.resolution.height / camera.zoom);
     const renderOptions = {
@@ -1162,7 +1179,7 @@ export class WebglGraphRenderer {
     frameStats.gridMs = performance.now() - sectionStart;
     const layerTrace = this.beginLayerTrace(scene, dragSession, renderOptions, { selectedWireIds, hoveredWireId });
     sectionStart = performance.now();
-    this.drawTextureDevices(scene, camera, renderOptions, dragSession, layerTrace, device => device.kind === "area");
+    this.drawTextureDevices(scene, camera, renderOptions, dragSession, layerTrace, device => device.kind === "area" || device.visual?.referenceImage);
     frameStats.backgroundObjectMs = performance.now() - sectionStart;
     sectionStart = performance.now();
     frameStats.rackFrames = this.drawRackFrames(scene, camera, renderOptions, dragSession, options, layerTrace);
@@ -1218,7 +1235,7 @@ export class WebglGraphRenderer {
     this.drawObjectGlows(scene, camera, renderOptions, dragSession, options, layerTrace);
     frameStats.objectGlowMs = performance.now() - sectionStart;
     sectionStart = performance.now();
-    this.drawTextureDevices(scene, camera, renderOptions, dragSession, layerTrace, device => device.kind !== "area");
+    this.drawTextureDevices(scene, camera, renderOptions, dragSession, layerTrace, device => device.kind !== "area" && !device.visual?.referenceImage);
     frameStats.textureDrawMs = performance.now() - sectionStart;
     sectionStart = performance.now();
     frameStats.matrixInternalRoutes = this.drawMatrixInternalRoutes(dragSession, layerTrace);
@@ -1433,7 +1450,7 @@ export class WebglGraphRenderer {
     const ctx = this.labelContext;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, this.resolution.width, this.resolution.height);
+    if (!options.projectLayerPassIndex) ctx.clearRect(0, 0, this.resolution.width, this.resolution.height);
     const renderOptions = options.renderOptions || this.renderOptions;
     this.lastLabelStats = defaultLabelStats();
     this.lastConnectorInfoBoxHitRects = [];
@@ -1813,6 +1830,7 @@ export class WebglGraphRenderer {
   }
 
   drawStaticWires(dragSession = null, layerTrace = null, suppressedWireIds = dragSession?.affectedWireIds || new Set()) {
+    if (this.activeProjectLayerId) return this.drawProjectLayerRanges(this.staticWireBuffer,this.staticWireVertexCount,this.wireRangeMap,suppressedWireIds,'wire');
     const suppressIds = suppressedWireIds || new Set();
     if (!suppressIds.size) {
       this.drawBuffer(this.staticWireBuffer, this.staticWireVertexCount);
@@ -1829,6 +1847,7 @@ export class WebglGraphRenderer {
   }
 
   drawStaticDevices(dragSession = null, layerTrace = null) {
+    if (this.activeProjectLayerId) return this.drawProjectLayerRanges(this.staticDeviceBuffer,this.staticDeviceVertexCount,this.deviceRangeMap,new Set(dragSession?.selectedIds || []));
     if (!dragSession?.selectedIds?.length) {
       this.drawBuffer(this.staticDeviceBuffer, this.staticDeviceVertexCount);
       return;
@@ -1844,6 +1863,7 @@ export class WebglGraphRenderer {
   }
 
   drawMatrixInternalRoutes(dragSession = null, layerTrace = null) {
+    if (this.activeProjectLayerId) return this.drawProjectLayerRanges(this.matrixRouteBuffer,this.matrixRouteVertexCount,this.matrixRouteRangeMap,new Set(dragSession?.selectedIds || []));
     if (!this.matrixRouteVertexCount) return 0;
     if (!dragSession?.selectedIds?.length) {
       this.drawBuffer(this.matrixRouteBuffer, this.matrixRouteVertexCount);
@@ -1858,6 +1878,41 @@ export class WebglGraphRenderer {
     });
     this.drawBufferExceptRanges(this.matrixRouteBuffer, this.matrixRouteVertexCount, skippedRanges);
     return Math.max(0, this.matrixRouteVertexCount - skippedRanges.reduce((total, range) => total + range.count / 6, 0));
+  }
+
+  drawProjectLayerLabels(camera) {
+    if (!this.labelCanvas || !this.labelContext) return;
+    const gl=this.gl,vertices=[];
+    // Composite labels into the same layer as their objects, not above later layers.
+    if (!this.projectLayerLabelTexture) this.projectLayerLabelTexture=uploadOverlayTexture(gl,this.labelCanvas);
+    else {
+      gl.bindTexture(gl.TEXTURE_2D,this.projectLayerLabelTexture);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,true);
+      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,this.labelCanvas);
+    }
+    pushTextureRect(vertices,camera.x,camera.y,this.resolution.width/camera.zoom,this.resolution.height/camera.zoom);
+    gl.useProgram(this.textureProgram);
+    gl.uniform4f(this.textureViewLocation,camera.x,camera.y,this.resolution.width/camera.zoom,this.resolution.height/camera.zoom);
+    gl.uniform1i(this.textureSamplerLocation,0);gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D,this.projectLayerLabelTexture);gl.bindBuffer(gl.ARRAY_BUFFER,this.textureBuffer);
+    gl.enableVertexAttribArray(this.texturePositionLocation);gl.vertexAttribPointer(this.texturePositionLocation,2,gl.FLOAT,false,16,0);
+    gl.enableVertexAttribArray(this.textureCoordLocation);gl.vertexAttribPointer(this.textureCoordLocation,2,gl.FLOAT,false,16,8);
+    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(vertices),gl.STREAM_DRAW);gl.drawArrays(gl.TRIANGLES,0,vertices.length/4);
+    gl.useProgram(this.program);
+    this.labelContext.save();this.labelContext.setTransform(1,0,0,1,0,0);
+    this.labelContext.clearRect(0,0,this.labelCanvas.width,this.labelCanvas.height);this.labelContext.restore();
+  }
+
+  drawProjectLayerRanges(buffer, count, ranges, excluded=new Set(), kind='device') {
+    const skipped=[];
+    for (const [id,range] of ranges) {
+      const item=kind==='wire' ? id.startsWith('loom:') ? this.textureScene.looms.find(l=>l.id===id.slice(5)) : this.textureScene.getWire(id)
+        : this.textureScene.canvasDeviceForId(id);
+      if (excluded?.has(id) || !layerVisible(item) || (item?.layerId || DEFAULT_LAYER_ID)!==this.activeProjectLayerId) skipped.push(range);
+    }
+    skipped.sort((a,b)=>a.offset-b.offset);
+    this.drawBufferExceptRanges(buffer,count,skipped);
+    return count;
   }
 
   drawBufferExceptRanges(buffer, vertexCount, skippedRanges = []) {
@@ -1910,6 +1965,7 @@ export class WebglGraphRenderer {
 
     const dragOffsets = dragSession?.offsetMap() || null;
     const addDevice = (device, reason = "drawn", offsets = null) => {
+      if (this.activeProjectLayerId && (!layerVisible(device) || (device.layerId || DEFAULT_LAYER_ID)!==this.activeProjectLayerId)) return;
       if (!deviceVisible(device, renderOptions)) return;
       if (device.kind === "jump") {
         // Jump nodes are drawn by the live/static geometry path only. The
@@ -2196,7 +2252,7 @@ function visibleDevices(scene, camera, resolution) {
 }
 
 function canvasRenderDevices(scene) {
-  return typeof scene?.renderDevices === "function" ? scene.renderDevices() : scene?.devices || [];
+  return (typeof scene?.renderDevices === "function" ? scene.renderDevices() : scene?.devices || []).filter(layerVisible);
 }
 
 function visibleRacks(scene, camera, resolution) {
@@ -3687,7 +3743,7 @@ function pushTextureQuad(vertices, device, offsets = null) {
 }
 
 function rotateAdapterTextureVertices(vertices, start, device, offset = null) {
-  if (device.kind !== "adapter" || !device.rotation) return;
+  if (!["adapter","image-object"].includes(device.kind) || !device.rotation) return;
   for (let index = start; index < vertices.length; index += 4) {
     const point = rotateAdapterPoint(device, {
       x: vertices[index] - (offset?.dx || 0), y: vertices[index + 1] - (offset?.dy || 0)
