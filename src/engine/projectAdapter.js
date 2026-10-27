@@ -1,5 +1,6 @@
 import { resolveProjectorLens } from "./projectorModel.js";
 import { projectWireRouting } from "./wireRoutingPolicy.js";
+import { reflowFaceImageLayout } from "./faceplateGeometry.js";
 import { deviceBrandForDisplay } from "./deviceDisplayName.js";
 import { multiCoreConnectivityModelSnapshot, isMultiCoreEndpointReference } from "./multiCoreConnectivity.js";
 import { projectMultiCoreScene, multiCoreEndKey } from "./multiCoreProjection.js";
@@ -517,9 +518,12 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType, nod
   // connector definitions, adapter flags, and faceplate data, which makes the
   // Engine invent a normal generic device. Use the instance as the template
   // source in that case; explicit instance fields still override below.
-  const template = resolvedTemplate || instance || {};
+  let template = resolvedTemplate || instance || {};
   const isAdapter = isAdapterTemplateForEngine(template, instance);
   const isPowerDistro = !isAdapter && isPowerDistroTemplateForEngine(template, instance);
+  const originalHeight = template.height;
+  if (!isAdapter && !isPowerDistro) template = reflowFaceImageLayout(template, positiveNumber(instance.width) || positiveNumber(template.width) || DEFAULT_DEVICE_WIDTH);
+  const artworkHeightDelta = (Number(template.height) || 0) - (Number(originalHeight) || 0);
   const schemaVersion = Math.max(
     deviceDefinitionVersion(template),
     deviceDefinitionVersion(instance)
@@ -530,7 +534,9 @@ function normalizeProjectDevice(instance, index, templates, nodeColorByType, nod
   const widthSource = isAdapter
     ? LEGACY_ADAPTER_WIDTH
     : positiveNumber(instance.width) || positiveNumber(template.width);
-  const heightSource = positiveNumber(instance.height) || positiveNumber(template.height);
+  const heightSource = positiveNumber(instance.height)
+    ? artworkHeightDelta ? Math.max(190, Number(template.manualHeight) || 0, instance.height + artworkHeightDelta) : Number(instance.height)
+    : positiveNumber(template.height);
   const width = widthSource || DEFAULT_DEVICE_WIDTH;
   let height = isAdapter
     ? adapterHeightForConnectors(rawConnectors, heightSource)

@@ -35,15 +35,16 @@ for(const size of [[1920,1080],[2000,150],[100,500]])test(`${size.join("x")} ful
   }
 });
 
-test("top-aligned artwork cannot move and resizing retains the connector reservation",()=>{
+test("top-aligned artwork cannot move and resizing updates the connector origin",()=>{
   const t=geometry.fitFaceImageToTop(source(),380,bounds);
   const moved=geometry.resizeFaceImage(t,380,"move",{x:0,y:12});
   near(geometry.faceImageVisiblePlacement(moved,380).y,46);
   assert.deepEqual(moved,t);
   const smaller=geometry.resizeFaceImage(moved,380,"se",{x:-20,y:-3});
   for(const next of [moved,smaller]) {
-    assert.deepEqual(next.faceImageLayout.connectorBounds,t.faceImageLayout.connectorBounds);
-    assert.equal(context.connectorStartYForTemplate(next),113);
+    const visible=geometry.faceImageVisiblePlacement(next,380);
+    near(next.faceImageLayout.connectorBounds.height,visible.height);
+    assert.equal(context.connectorStartYForTemplate(next),Math.ceil(visible.y+visible.height+36));
     assert.deepEqual(next.connectors,t.connectors);assert.deepEqual(next.cardSlots,t.cardSlots);
   }
 });
@@ -57,7 +58,7 @@ for(const handle of ['n','s','e','w','ne','nw','se','sw'])test(`top-aligned ${ha
   near(geometry.faceImageVisiblePlacement(larger,380).width,340);
   near(geometry.faceImageVisiblePlacement(larger,380).y,46);
   assert.deepEqual(smaller.connectors,t.connectors);assert.deepEqual(smaller.cardSlots,t.cardSlots);
-  assert.deepEqual(smaller.faceImageLayout.connectorBounds,t.faceImageLayout.connectorBounds);
+  near(smaller.faceImageLayout.connectorBounds.height,visible.height);
   assert.equal(smaller.faceImage,t.faceImage);assert.deepEqual(t,before);
   assert.deepEqual(geometry.faceImageVisiblePlacement(JSON.parse(JSON.stringify(smaller)),380),visible);
 });
@@ -77,7 +78,7 @@ test("resizing historical padded artwork can fill the width without retaining a 
   const visible=geometry.faceImageVisiblePlacement(next,380);
   near(visible.x,20);near(visible.y,46);near(visible.width,340);
   near(visible.height,340*166/1847);assert.equal(next.faceImageLayout.height,78);
-  assert.deepEqual(next.connectors,t.connectors);assert.deepEqual(t,before);
+  assert.deepEqual(next.connectors,[{id:'iec',y:113}]);assert.deepEqual(t,before);
 });
 
 test("new visible placement survives JSON reopen and canonical output",()=>{

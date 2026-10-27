@@ -36,7 +36,7 @@ test('all three additions preserve exported definitions and original faceplate, 
     assert.deepEqual(artwork,expected.artwork);
   }
 });
-test('Barco EX spacing is traced to the saved artwork reservation and card header, not enlarged image rendering',()=>{
+test('Barco EX historical reservation stays in the source but derived layout uses visible artwork and card header',()=>{
   const device=catalogue.devices.find(d=>d.id==='custom-device-e2-gen2-copy-3');
   const visible=faceImageVisiblePlacement(device,device.width);
   assert.deepEqual(device.faceImageLayout,inventory.barcoEx.faceImageLayout);
@@ -46,5 +46,7 @@ test('Barco EX spacing is traced to the saved artwork reservation and card heade
   assert.equal(Math.ceil(device.faceImageLayout.connectorBounds.y+device.faceImageLayout.connectorBounds.height+36),208);
   assert.deepEqual(device.cardSlots,inventory.barcoEx.cardSlots,'import does not silently relocate authored slots');
   const normalized=normalizeAvDesignerDevice({}, {instanceId:'ex',templateOverride:device});
-  assert.equal(Math.min(...normalized.connectors.filter(c=>c.generatedFromCard).map(c=>c.y)),262);
+  assert.equal(Math.min(...normalized.connectors.filter(c=>c.generatedFromCard).map(c=>c.y)),170);
+  assert.equal(normalized.visual.visualCards[0].y,89,'card border is half a row above its slot origin');
+  assert.deepEqual(device.cardSlots,inventory.barcoEx.cardSlots);
 });

@@ -34,8 +34,7 @@ export function legacyFaceHeight(visual, width) {
   return Math.max(24, Math.round(aspectHeight * scaleY));
 }
 
-// Optional reservation captured on an artwork-only edit. Old definitions keep
-// their historical scale-derived layout until explicitly edited.
+// Historical connectorBounds also records the origin used by saved connector rows.
 export function faceImageLayout(visual) {
   const layout = visual?.faceImageLayout;
   const bounds = layout?.connectorBounds;
@@ -143,6 +142,25 @@ export function faceImageVisiblePlacement(visual, width, bounds = faceImageConte
     width:actual.width*content.width,height:actual.height*content.height};
 }
 
+export function reflowFaceImageLayout(visual, width, previousBounds = faceImageLayout(visual)?.connectorBounds) {
+  if (!visual?.faceImage || !faceImageLayout(visual)?.topAligned || !previousBounds) return visual;
+  const visible = faceImageVisiblePlacement(visual, width);
+  const delta = Math.ceil(visible.y + visible.height + 36) - Math.ceil(previousBounds.y + previousBounds.height + 36);
+  if (['x','y','width','height'].every(key => Math.abs(visible[key] - visual.faceImageLayout.connectorBounds[key]) < 1e-7) && !delta) return visual;
+  const next = structuredClone(visual);
+  next.faceImageLayout.connectorBounds = {...visible};
+  // Translate the chassis layout as a rigid block; card-local coordinates and IDs stay intact.
+  for (const connector of next.connectors || []) {
+    const shift = connector.faceplateSide === true
+      ? visible.y + visible.height / 2 - (previousBounds.y + previousBounds.height / 2) : delta;
+    if (Number.isFinite(connector.y)) connector.y += shift;
+    for (const anchor of connector.anchors || []) if (Number.isFinite(anchor.y)) anchor.y += shift;
+  }
+  for (const slot of next.cardSlots || []) if (Number.isFinite(slot.y)) slot.y += delta;
+  if (Number.isFinite(next.height)) next.height = Math.max(190, Number(next.manualHeight) || 0, next.height + delta);
+  return next;
+}
+
 function contentFrame(visual,width) {
   const bounds=legacyFaceBounds(visual,width), pad=Math.min(FACE_IMAGE_PADDING,Math.max(0,bounds.height/2-1));
   return {x:bounds.x+pad,y:bounds.y+pad,width:Math.max(1,bounds.width-2*pad),height:Math.max(1,bounds.height-2*pad)};
@@ -176,10 +194,8 @@ export function resizeTopAlignedFaceImage(visual,width,handle,delta,content) {
   const fittedContent=next.faceImageLayout.contentBounds;
   next.faceImageLayout.height=Math.max(FACE_HEIGHT,visibleWidth*visual.faceImageNaturalHeight*fittedContent.height
     /(visual.faceImageNaturalWidth*fittedContent.width)+2*FACE_IMAGE_PADDING);
-  // Artwork resizing does not rebase existing connector or card positions.
-  next.faceImageLayout.connectorBounds=structuredClone(faceImageLayout(visual)?.connectorBounds || legacyFaceImagePlacement(visual,width));
   next.faceImageOffsetY=0;
-  return next;
+  return reflowFaceImageLayout(next,width,faceImageLayout(visual)?.connectorBounds || legacyFaceImagePlacement(visual,width));
 }
 
 function resizeContentFaceImage(visual,width,handle,delta,content) {

@@ -3997,7 +3997,7 @@ test("Device Editor ordinary face removal returns to the default origin without 
   });
 });
 
-test("Device Editor origin-preserving face replacement and empty removal skip solver motion", () => {
+test("Device Editor face replacement rebases rows to visible artwork and empty removal skips solver motion", () => {
   const sameAspect = structuralEditorHarness({
     faceImage: "data:image/png;base64,old",
     thumbnailImage: "data:image/png;base64,old-thumb",
@@ -4018,7 +4018,10 @@ test("Device Editor origin-preserving face replacement and empty removal skip so
     }
   );
   assert.deepEqual(replacement.faceImageLayout, sameAspect.template.faceImageLayout);
-  assert.deepEqual(sameAspect.template.connectors, sameAspectCoordinates);
+  const bounds = replacement.faceImageLayout.connectorBounds;
+  const delta = Math.ceil(bounds.y + bounds.height + 36) - 150;
+  assert.deepEqual(sameAspect.template.connectors, sameAspectCoordinates.map(c => ({...c, y:c.y+delta,
+    anchors:c.anchors.map(a => ({...a,y:a.y+delta}))})));
   assert.equal(sameAspect.template.faceImage, "data:image/png;base64,new");
   assert.deepEqual(editorCounterDelta(sameAspect.counters, sameAspectBefore), {
     structuralSessions: 0,
