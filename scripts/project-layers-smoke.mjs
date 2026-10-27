@@ -29,6 +29,8 @@ try {
   const fresh=async name=>{
     await page.getByRole('button',{name:'New layer',exact:true}).click();
     const id=await page.evaluate(()=>state.activeLayerId),input=page.locator(`[data-layer-id="${id}"] input`);
+    await input.click();assert.equal(await input.evaluate(e=>e.readOnly),true);
+    await input.dblclick();assert.equal(await input.evaluate(e=>e.readOnly),false);
     await input.fill(name);await input.press('Enter');return id;
   };
   const select=async ids=>page.evaluate(ids=>{const b=activeEngineBridge();b.scene.selectMany(ids);b.updateSelectionHud();b.scheduleRender();},ids);
@@ -44,6 +46,17 @@ try {
   await page.evaluate(()=>redoAction());assert.equal(await page.evaluate(()=>state.devices.find(d=>d.instanceId==='layer-new-device').layerId),equipment);
   await page.evaluate(()=>undoAction());
   const venue=await fresh('Venue');
+  const equipmentName=page.locator(`[data-layer-id="${equipment}"] input`);
+  await equipmentName.dblclick();
+  assert.equal(await equipmentName.evaluate(e=>e.readOnly),false);
+  await equipmentName.fill('Canceled rename');await equipmentName.press('Escape');
+  assert.equal(await equipmentName.inputValue(),'Equipment');
+  await equipmentName.dblclick();await equipmentName.fill('Equipment renamed');await equipmentName.press('Enter');
+  assert.equal(await page.evaluate(id=>state.layers.find(l=>l.id===id).name,equipment),'Equipment renamed');
+  await page.evaluate(()=>undoAction());assert.equal(await equipmentName.inputValue(),'Equipment');
+  await page.evaluate(()=>redoAction());assert.equal(await equipmentName.inputValue(),'Equipment renamed');
+  await page.evaluate(()=>undoAction());
+  await page.locator(`[data-layer-id="${venue}"] input`).click();
   const png=Buffer.from(await page.evaluate(()=>{const c=document.createElement('canvas');c.width=200;c.height=100;const ctx=c.getContext('2d');ctx.fillStyle='#ef1515';ctx.fillRect(0,0,200,100);return c.toDataURL().split(',')[1];}),'base64');
   const upload=page.locator('.project-layers-panel input[type=file]');
   await upload.setInputFiles({name:'venue.png',mimeType:'image/png',buffer:png});

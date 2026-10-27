@@ -38,7 +38,7 @@ export function mountProjectLayersPanel(api) {
     return objects.filter(entry=>items.some(item=>entry.collection===collections[item.type || item.kind] && entry.id===String(item.multiCoreId || (item.type==='connector'?item.deviceId:item.id))));
   };
   const choose=id=>{
-    selected=id;api.state().activeLayerId=id;lastKey='';render();
+    selected=id;api.state().activeLayerId=id;render();
   };
   const move=(id,to)=>commit('Reorder layers',draft=>{
     const index=draft.layers.findIndex(l=>l.id===id),[layer]=draft.layers.splice(index,1);
@@ -84,20 +84,28 @@ export function mountProjectLayersPanel(api) {
     assignNewObjectsToLayer(api.state(),known);
     const layers=projectLayers(api.state()),selection=entries();
     if(!layers.some(layer=>layer.id===selected)) selected=DEFAULT_LAYER_ID;
-    const key=JSON.stringify([layers,selected,selection.map(e=>[e.collection,e.id,e.object.layerId]),busy]);
+    const selectedIndex=layers.findIndex(l=>l.id===selected),buttons=tools.querySelectorAll('button');
+    const target=layers[selectedIndex];
+    buttons[1].disabled=busy || target.locked || !target.visible;buttons[2].disabled=selectedIndex>=layers.length-1;buttons[3].disabled=selectedIndex<=0;buttons[4].disabled=selected===DEFAULT_LAYER_ID;
+    for(const row of list.children)row.classList.toggle('active',selected===row.dataset.layerId);
+    const key=JSON.stringify([layers,selection.map(e=>[e.collection,e.id,e.object.layerId]),busy]);
     if(key===lastKey)return;lastKey=key;
     list.replaceChildren();
     [...layers].reverse().forEach(layer=>{
       const row=document.createElement('div');row.className='project-layer-row';row.dataset.layerId=layer.id;
-      row.classList.toggle('active',selected===layer.id);row.setAttribute('role','listitem');row.draggable=true;
+      row.classList.toggle('active',selected===layer.id);row.setAttribute('role','listitem');row.draggable=true;row.tabIndex=0;
       row.append(button(layer.visible?'layer-eye':'layer-hidden',`${layer.visible?'Hide':'Show'} layer ${layer.name}`,()=>commit('Toggle layer visibility',draft=>{draft.layers.find(l=>l.id===layer.id).visible=!layer.visible;})),
         button(layer.locked?'layer-lock':'layer-unlock',`${layer.locked?'Unlock':'Lock'} layer ${layer.name}`,()=>commit('Toggle layer lock',draft=>{draft.layers.find(l=>l.id===layer.id).locked=!layer.locked;})));
       const name=document.createElement('input');name.value=layer.name;name.setAttribute('aria-label','Layer name');name.maxLength=120;
-      name.onfocus=()=>{selected=layer.id;api.state().activeLayerId=layer.id;};
+      name.readOnly=true;name.tabIndex=-1;
+      const rename=()=>{choose(layer.id);name.readOnly=false;name.tabIndex=0;row.draggable=false;name.focus();name.select();};
+      name.onblur=()=>{name.readOnly=true;name.tabIndex=-1;row.draggable=true;};
       name.onchange=()=>{const value=name.value.trim();if(value && value!==layer.name)commit('Rename layer',draft=>{draft.layers.find(l=>l.id===layer.id).name=value;});else name.value=layer.name;};
-      name.onkeydown=e=>{if(e.key==='Enter')name.blur();if(e.key==='Escape'){name.value=layer.name;name.blur();}};
+      name.onkeydown=e=>{if(!name.readOnly && ['Enter','Escape'].includes(e.key)){e.stopPropagation();if(e.key==='Escape')name.value=layer.name;name.blur();}};
       row.append(name);row.onclick=e=>{if(!e.target.closest('button'))choose(layer.id);};
-      row.ondragstart=e=>{if(e.target===name){e.preventDefault();return;}dragId=layer.id;e.dataTransfer.setData('application/x-wirenexus-layer',layer.id);e.dataTransfer.effectAllowed='move';row.classList.add('dragging');};
+      row.ondblclick=e=>{if(!e.target.closest('button'))rename();};
+      row.onkeydown=e=>{if(e.target===row && ['Enter','F2'].includes(e.key)){e.preventDefault();rename();}};
+      row.ondragstart=e=>{if(!name.readOnly){e.preventDefault();return;}dragId=layer.id;e.dataTransfer.setData('application/x-wirenexus-layer',layer.id);e.dataTransfer.effectAllowed='move';row.classList.add('dragging');};
       row.ondragover=e=>{if(dragId && dragId!==layer.id){e.preventDefault();row.classList.add('drop-target');}};
       row.ondragleave=()=>row.classList.remove('drop-target');
       row.ondrop=e=>{if(!dragId || dragId===layer.id)return;e.preventDefault();const source=dragId;dragId='';move(source,layers.findIndex(l=>l.id===layer.id));};
@@ -109,9 +117,6 @@ export function mountProjectLayersPanel(api) {
     layers.forEach(layer=>assignment.add(new Option(layer.name,layer.id)));
     assignment.value=currentIds.size===1?[...currentIds][0]:'';
     assignment.disabled=!selection.length || selection.some(e=>layers.find(l=>l.id===(e.object.layerId || DEFAULT_LAYER_ID))?.locked);
-    const selectedIndex=layers.findIndex(l=>l.id===selected),buttons=tools.querySelectorAll('button');
-    const target=layers[selectedIndex];
-    buttons[1].disabled=busy || target.locked || !target.visible;buttons[2].disabled=selectedIndex>=layers.length-1;buttons[3].disabled=selectedIndex<=0;buttons[4].disabled=selected===DEFAULT_LAYER_ID;
   }
 
   async function choosePdfPage(pdf) {
