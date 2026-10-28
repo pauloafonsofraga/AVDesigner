@@ -3,6 +3,50 @@
 This change does not deploy, apply production SQL, change environment settings,
 enable registration, or add billing or simultaneous editing.
 
+## Phase 3 closure: complete (2026-10-28)
+
+Implementation and local regression verification are complete on engine-prototype.
+The approved implementation commit is
+`a1ab83918d0a5a638e341bb021ede4400d6454f0`, verified on GitHub before closure.
+This closure changes documentation only, not the approved application or SQL.
+Production readiness remains conditional on the staging checks below; Phase 4
+has not started.
+
+Fresh verification ran from an isolated archive of that exact commit, excluding
+unrelated working-tree changes:
+
+- `node --test`: 2,144 passed, zero failed, skipped or canceled. This includes the
+  nine focused cloud tests and existing local Save/Save As, shortcut, dirty-state,
+  account isolation and historical project compatibility regressions.
+- All 16 `scripts/*-validation.mjs` static validators passed.
+- `scripts/cloud-projects-smoke.mjs` passed: Cloud Save/Open, actual .avd loading,
+  embedded artwork/topology, browser rename/duplicate/archive/restore, recovery,
+  earlier-version opening, stale-save conflicts, interrupted uploads, edits during
+  upload, project switching and desktop/mobile layout.
+- `scripts/accounts-workspaces-smoke.mjs` and
+  `scripts/publishing-auth-smoke.mjs` passed, retaining existing authentication,
+  MFA, account isolation, publishing-token and local-project behavior.
+- Actual migration/RPC tests enforce workspace roles, read-only Viewers, revoked
+  membership and cross-user denial, including an MFA-verified Platform Admin.
+  Failed/corrupt uploads and stale revisions retain the valid cloud head/history.
+- Local Save/Save As implementations and .avd format are unchanged. Cloud operations
+  reuse serialization/loading; no account IDs or ownership schema enter .avd files.
+
+Browser Auth issuance is locally simulated and database tests use PGlite. These
+passes do not certify a hosted Supabase installation. Before any deployment,
+follow Migration and deployment below: backups/restoration, migrations in order,
+private-schema/RPC/RLS grant checks, real staging accounts for all workspace roles,
+real JWT authorization, two-browser conflicts, failed transfers, historical artwork
+round trips and representative maximum-size performance/capacity checks.
+
+Remaining limitations are intentional: 64 MiB snapshots, eight pending uploads per
+account, 24-hour staging expiry, no automatic merge, quotas/retention, billing or
+simultaneous editing. Lost finalization responses require catalogue refresh before
+retrying. The pre-existing broader account-library .avd download timeout remains
+documented below; a real-browser local-download staging check is still required.
+Unrelated work and artwork were preserved. No production data, migrations,
+environment settings or registration gates were changed during closure.
+
 ## User workflow
 
 Sign in through Device Editor > Defaults > Account. The main toolbar now has
