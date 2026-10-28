@@ -1,4 +1,5 @@
 import { createAccountLibraryStore, reviewBrowserImport, importBrowserLibrary } from './accountLibrary.js';
+import {mountPlansPanel} from './plansUi.js';
 
 // The UI capability is display-only. Every storage operation reauthorizes at the
 // RPC boundary using auth.uid(), including promotion receipt writes/removals.
@@ -150,10 +151,12 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
   });
   const close = document.createElement('button'); close.type = 'button'; close.className = 'tool-button'; close.textContent = 'Close'; close.addEventListener('click', () => dialog.close());
   dialog.append(heading, status, privileges, workspaces, fields, mfa, actions, review, close); document.body.append(dialog); container.append(button);
+  const plansPanel=mountPlansPanel({container:dialog,identity:()=>owner && identity,rpc:(...args)=>client.rpc(...args)});
   dialog.addEventListener('close',()=>{const pending=pendingFactor;pendingFactor='';clearSecrets();if(pending)client.auth.mfa.unenroll({factorId:pending}).catch(()=>{});});
-  button.addEventListener('click', () => dialog.showModal());
+  button.addEventListener('click', () => {dialog.showModal();plansPanel.refresh();});
   async function activate(session) {
     const ticket = ++epoch;
+    plansPanel.clear();
     if (!session) {
       activeId = null; owner = null; store = null; identity=null;pendingFactor='';passwordRecovery=recoveryRequested=false;review.replaceChildren();clearSecrets();
       await onOwner(recoveryOwner, false, null); setState(configured ? 'Pending sync' : state, configured ? 'Sign in to save to your account. Browser recovery is retained.' : ''); return;
@@ -167,7 +170,7 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
       identity=candidate.identity();
       if(identity.accountId!==session.user.id)throw new Error('Account changed while loading. Refresh Account.');
       store = candidate; owner = next; activeId = identity.accountId;
-      await onOwner(next,platformAdmin(),identity); setState('Synced');
+      await onOwner(next,platformAdmin(),identity); setState('Synced'); plansPanel.refresh();
     } catch (error) {
       if (ticket === epoch) {
         owner = null; store = null;identity=null; activeId = session.user.id;

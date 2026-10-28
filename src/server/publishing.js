@@ -26,11 +26,14 @@ export function createPublishingSecurity({env=process.env,clientFactory=createCl
   const url=env.WIRENEXUS_SUPABASE_URL,key=env.WIRENEXUS_SUPABASE_SERVICE_ROLE_KEY;
   if(!url || !key)throw new PublishingError(503,'Publishing service requires administrator configuration.');
   const client=clientFactory(url,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+  let verifiedAal='aal1';
   const call=async(operation,payload)=>{
-    const {data,error}=await client.rpc('wirenexus_publishing',{operation,payload});
+    const {data,error}=await client.rpc('wirenexus_publishing',{operation,payload:{...payload,actorAal:verifiedAal}});
     if(error){
       if(error.code==='42501')throw new PublishingError(403,'Publication is unavailable or publishing is not authorized.');
       if(error.code==='P0429')throw new PublishingError(429,'Too many requests. Please try again later.');
+      if(error.code==='P0402')throw new PublishingError(403,'Workspace quota exceeded. Existing publications are unchanged.');
+      if(error.code==='P0403')throw new PublishingError(403,'Publishing is not included in this workspace plan.');
       throw new PublishingError(503,'Publishing service is temporarily unavailable.');
     }
     return data;
@@ -42,11 +45,17 @@ export function createPublishingSecurity({env=process.env,clientFactory=createCl
     await call('throttle',{scope,key:crypto.createHmac('sha256',key).update(ip).digest('hex'),publicationId});
   };
   return {call,throttle,async authenticate(req){
+    verifiedAal='aal1';
     await throttle(req,'auth');
     const authorization=req.headers?.authorization;
     if(typeof authorization!=='string' || !/^Bearer [^\s]+$/.test(authorization))throw new PublishingError(401,'Sign in to publish this project.');
     const {data,error}=await client.auth.getUser(authorization.slice(7));
     if(error || !data?.user?.id || data.user.is_anonymous)throw new PublishingError(401,'Sign in to publish this project.');
+    // getUser has verified this exact bearer with Auth. Read AAL only from that
+    // verified token, with matching subject; never from request JSON or user metadata.
+    try {const claims=JSON.parse(Buffer.from(authorization.slice(7).split('.')[1],'base64url'));
+      if(claims.sub===data.user.id && claims.aal==='aal2')verifiedAal='aal2';
+    } catch { /* Non-JWT/older sessions never receive an Admin override. */ }
     return data.user.id;
   }};
 }

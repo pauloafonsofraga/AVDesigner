@@ -1,5 +1,9 @@
 # Accounts Phase 3: private cloud projects
 
+Phase 4 adds server-enforced workspace plans and quotas on top of these storage
+operations; see [Plans & Entitlements](plans-entitlements.md). The Phase 3 closure
+record below describes its approved implementation before that policy layer.
+
 This change does not deploy, apply production SQL, change environment settings,
 enable registration, or add billing or simultaneous editing.
 
