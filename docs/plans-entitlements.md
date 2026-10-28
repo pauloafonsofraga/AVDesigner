@@ -1,5 +1,8 @@
 # Accounts Phase 4: plans and entitlements
 
+Phase 5 adds the organizationTeams entitlement and reserved-member quota while
+retaining these policy boundaries; see [Organizations & Teams](organizations-teams.md).
+
 Implementation only: no deployment, production SQL, environment changes, public
 registration, billing or collaboration is enabled by this change.
 

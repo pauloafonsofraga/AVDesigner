@@ -1,5 +1,6 @@
 import { createAccountLibraryStore, reviewBrowserImport, importBrowserLibrary } from './accountLibrary.js';
 import {mountPlansPanel} from './plansUi.js';
+import {mountOrganizationsPanel} from './organizationsUi.js';
 
 // The UI capability is display-only. Every storage operation reauthorizes at the
 // RPC boundary using auth.uid(), including promotion receipt writes/removals.
@@ -27,7 +28,7 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
   mfa.append(qr,secret,mfaCode);mfa.hidden=true;
   let client, store, owner, identity=null, configured = false, registrationEnabled=false,
     recoveryRequested=false,passwordRecovery=false,factorId='',pendingFactor='',
-    state = 'Browser recovery only - account service not configured', detail = '', epoch = 0, activeId = null, busy = false;
+    state = 'Browser recovery only - account service not configured', detail = '', epoch = 0, activeId = null, busy = false, selectedWorkspaceId=null;
   const clearSecrets=()=>{password.value=confirmPassword.value=code.value=mfaCode.value='';qr.hidden=true;qr.removeAttribute('src');secret.textContent='';factorId='';};
   const platformAdmin=()=>identity?.admin===true && identity?.entitlements?.fullProductAccess===true && identity?.mfaRequired===false;
   const paint = () => {
@@ -41,7 +42,7 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
     register.hidden=fields.hidden || !registrationEnabled || recoveryRequested;
     recoverAccount.hidden=!!activeId || !configured;verifyRecovery.hidden=!recoveryRequested || !!activeId;
     setPassword.hidden=!passwordRecovery;cancelRecovery.hidden=!recoveryRequested && !passwordRecovery;
-    signOut.hidden = !activeId; refresh.hidden = !activeId; recover.hidden = !owner;
+    signOut.hidden = !activeId; refresh.hidden = !activeId; recover.hidden = !owner || identity?.workspaceRole==='viewer';
     const adminMfa=!!activeId && (identity?.mfaRequired===true || platformAdmin());
     mfaStart.hidden=mfaRemove.hidden=!adminMfa;mfaVerify.hidden=!adminMfa || !factorId;mfa.hidden=!adminMfa || !factorId;
     workspaces.replaceChildren();
@@ -152,25 +153,45 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
   const close = document.createElement('button'); close.type = 'button'; close.className = 'tool-button'; close.textContent = 'Close'; close.addEventListener('click', () => dialog.close());
   dialog.append(heading, status, privileges, workspaces, fields, mfa, actions, review, close); document.body.append(dialog); container.append(button);
   const plansPanel=mountPlansPanel({container:dialog,identity:()=>owner && identity,rpc:(...args)=>client.rpc(...args)});
+  const teamsPanel=mountOrganizationsPanel({container:dialog,identity:()=>owner && identity,rpc:(...args)=>client.rpc(...args),
+    refreshAccount:async()=>activate(await currentSession()),
+    selectLibrary:async wid=>{
+      const member=identity?.workspaces.find(w=>w.id===wid);if(!member)throw new Error('Workspace access unavailable. Refresh Account.');
+      selectedWorkspaceId=member.kind==='enterprise'?wid:null;await activate(await currentSession());
+      if(!owner || identity.workspaceId!==wid)throw new Error('Shared access changed. Refresh Account.');
+    },
+    invite:async body=>{
+      const session=await currentSession();if(!session || session.user.id!==activeId)throw new Error('Account changed. Refresh.');
+      const response=await fetch('./api/organization-invite',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},body:JSON.stringify(body)});
+      const result=await response.json();if(!response.ok)throw new Error(result.error || 'Invitation could not be sent.');return result;
+    }});
   dialog.addEventListener('close',()=>{const pending=pendingFactor;pendingFactor='';clearSecrets();if(pending)client.auth.mfa.unenroll({factorId:pending}).catch(()=>{});});
-  button.addEventListener('click', () => {dialog.showModal();plansPanel.refresh();});
+  button.addEventListener('click', () => {dialog.showModal();plansPanel.refresh();teamsPanel.refresh();});
   async function activate(session) {
     const ticket = ++epoch;
     plansPanel.clear();
+    teamsPanel.clear();
     if (!session) {
-      activeId = null; owner = null; store = null; identity=null;pendingFactor='';passwordRecovery=recoveryRequested=false;review.replaceChildren();clearSecrets();
+      activeId = null; owner = null; store = null; identity=null;selectedWorkspaceId=null;pendingFactor='';passwordRecovery=recoveryRequested=false;review.replaceChildren();clearSecrets();teamsPanel.refresh();
       await onOwner(recoveryOwner, false, null); setState(configured ? 'Pending sync' : state, configured ? 'Sign in to save to your account. Browser recovery is retained.' : ''); return;
     }
-    if(activeId && activeId!==session.user.id){owner=store=identity=null;pendingFactor='';passwordRecovery=recoveryRequested=false;clearSecrets();await onOwner(recoveryOwner,false,null);}
+    if(activeId && activeId!==session.user.id){owner=store=identity=null;selectedWorkspaceId=null;pendingFactor='';passwordRecovery=recoveryRequested=false;clearSecrets();await onOwner(recoveryOwner,false,null);}
     setState('Pending sync', 'Verifying account and loading personal workspace');
-    const candidate = createAccountLibraryStore({ rpc: (...args) => client.rpc(...args), onState: (s, d) => { if (ticket === epoch) setState(s, d); } });
     try {
+      if(selectedWorkspaceId){
+        const membership=await client.rpc('wirenexus_library',{operation:'identity',payload:{expectedAccountId:session.user.id}});
+        if(ticket!==epoch)return;
+        if(membership.error)throw new Error(membership.error.message);
+        if(!membership.data.workspaces?.some(w=>w.id===selectedWorkspaceId && w.kind==='enterprise'))selectedWorkspaceId=null;
+      }
+      const candidate = createAccountLibraryStore({ rpc: (...args) => client.rpc(...args),workspaceId:selectedWorkspaceId,
+        onState: (s, d) => { if (ticket === epoch) setState(s, d); } });
       const next = await createOwner(candidate);
       if (ticket !== epoch) return;
       identity=candidate.identity();
       if(identity.accountId!==session.user.id)throw new Error('Account changed while loading. Refresh Account.');
       store = candidate; owner = next; activeId = identity.accountId;
-      await onOwner(next,platformAdmin(),identity); setState('Synced'); plansPanel.refresh();
+      await onOwner(next,platformAdmin(),identity); setState('Synced'); plansPanel.refresh();teamsPanel.refresh();
     } catch (error) {
       if (ticket === epoch) {
         owner = null; store = null;identity=null; activeId = session.user.id;
@@ -195,7 +216,16 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
       });
     } else setState(state, config.error || 'See docs/owner-account-setup.md. Browser data is not account-synced.');
   } catch (error) { setState('Sync failed', `Account setup unavailable: ${error.message}`); }
-  return Object.freeze({ isAccount: () => !!owner, canSave: () => !configured || !!owner, status: () => state,
+  if(teamsPanel.hasInvitation()){teamsPanel.refresh();dialog.showModal();}
+  return Object.freeze({ isAccount: () => !!owner, canSave: () => !configured || (!!owner && identity?.workspaceRole!=='viewer'), status: () => state,
+    async refreshLibrary() {
+      if(!owner)return recoveryOwner.refresh();const ticket=epoch,captured=store;
+      try {
+        await owner.refresh();if(ticket!==epoch)return;
+        const next=captured.identity();
+        if(next.workspaceRole!==identity.workspaceRole || JSON.stringify(next.workspaces)!==JSON.stringify(identity.workspaces))await activate(await currentSession());
+      }catch(error){if(selectedWorkspaceId && ticket===epoch){selectedWorkspaceId=null;await activate(await currentSession());}else throw error;}
+    },
     cloudIdentity: () => owner && identity ? structuredClone(identity) : null,
     async cloudRpc(name,args) {
       if(!owner || !client || name!=='wirenexus_cloud')throw new Error('Sign in through Account before opening cloud projects.');

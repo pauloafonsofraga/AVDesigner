@@ -1,4 +1,4 @@
-const labels={projects:'Cloud projects',storageBytes:'Storage',historyVersions:'Max versions per project',publications:'Publications',cloudSave:'Cloud saves',historyRecovery:'Version recovery',publishing:'Publishing'};
+const labels={projects:'Cloud projects',storageBytes:'Storage',historyVersions:'Max versions per project',publications:'Publications',cloudSave:'Cloud saves',historyRecovery:'Version recovery',publishing:'Publishing',members:'Members and reserved invitations',organizationTeams:'Enterprise teams'};
 const title=value=>value[0].toUpperCase()+value.slice(1);
 const amount=(key,value)=>value===null?'Unlimited':key==='storageBytes'?`${(value/1048576).toLocaleString(undefined,{maximumFractionDigits:2})} MiB`:String(value);
 

@@ -6729,17 +6729,18 @@
               if (identity) {
                 const preferences = owner.preferences(); libraryOrder = Array.isArray(preferences.order) ? preferences.order : [];
                 libraryFavorites.clear(); (Array.isArray(preferences.favorites) ? preferences.favorites : []).forEach(id => libraryFavorites.add(id));
-                await promotion.recognizePromotions(owner, window.WireNexusFactoryCatalogue);
+                if (identity.workspaceRole !== 'viewer') await promotion.recognizePromotions(owner, window.WireNexusFactoryCatalogue);
               } else { loadDeviceLibraryOrderPreference(); loadDeviceFavoritesPreference(); }
-              await mountAdministration(admin); refreshGlobalBuiltInDefaults();
+              await mountAdministration(admin && identity?.workspaceRole !== 'viewer'); refreshGlobalBuiltInDefaults();
             },
             onStatus: (state, detail) => {
               const label = document.getElementById('personalSyncStatus');
               label.textContent = state; label.title = detail || '';
             }
           });
-          if (personalLibraryChannel) personalLibraryChannel.onmessage = () => localUserSettingsOwner.refresh().catch(error => setStatus(`Personal library refresh failed: ${error.message}`));
-          window.addEventListener("focus", () => localUserSettingsOwner.refresh().catch(error => setStatus(`Personal library refresh failed: ${error.message}`)));
+          const refreshAccountLibrary = () => (accountLibraryUi?.refreshLibrary?.() || localUserSettingsOwner.refresh()).catch(error => setStatus(`Library refresh failed: ${error.message}`));
+          if (personalLibraryChannel) personalLibraryChannel.onmessage = refreshAccountLibrary;
+          window.addEventListener("focus", refreshAccountLibrary);
           refreshGlobalBuiltInDefaults();
         })
         .catch(error => {
@@ -19079,18 +19080,21 @@
       const factory = currentEditorFactoryTemplate(), id = editorPersonalTargetId();
       const personal = localUserSettingsOwner?.has(id);
       const project = editorMode === "instance" || isProjectTemplateEditorMode();
+      const account = accountLibraryUi?.cloudIdentity?.();
+      const shared = account?.workspaces?.find(workspace => workspace.id === account.workspaceId && workspace.kind === 'enterprise');
       if (duplicateEditorDeviceButton) duplicateEditorDeviceButton.disabled = personalDefaultsBusy
-        || editorMode === "instance" || editorMode === "master-create" || !currentEditorTemplate();
-      savePersonalDefaultButton.textContent = factory ? "Save as My Default" : project ? "Save a Copy to My Library" : "Save to My Library";
+        || editorMode === "instance" || editorMode === "master-create" || !currentEditorTemplate() || (shared && accountLibraryUi?.canSave() === false);
+      savePersonalDefaultButton.textContent = shared ? (project ? "Save a Copy to Shared Library" : "Save to Shared Library") : factory ? "Save as My Default" : project ? "Save a Copy to My Library" : "Save to My Library";
       savePersonalDefaultButton.disabled = personalDefaultsBusy || !localUserSettingsOwner || accountLibraryUi?.canSave() === false;
       document.getElementById("editorDefaultStatus").textContent = `${factory ? (personal ? "Your default" : "WireNexus Device Library") : personal ? "Your library device" : project ? "Project definition" : "New library device"}${editorHasUnsavedChanges() ? " / Unsaved changes" : ""}`;
+      if (shared) document.getElementById("editorDefaultStatus").textContent = `${shared.name} / ${document.getElementById("editorDefaultStatus").textContent}`;
       renderLibraryUpdateNotice();
       const reload = document.getElementById("resetDeviceDefault");
       reload.classList.toggle("hidden", !factory && (!personal || project));
       reload.disabled = personalDefaultsBusy || !localUserSettingsOwner;
       const restore = document.getElementById("restoreFactoryDefault");
       restore.classList.toggle("hidden", !factory);
-      restore.disabled = personalDefaultsBusy || !localUserSettingsOwner;
+      restore.disabled = personalDefaultsBusy || !localUserSettingsOwner || accountLibraryUi?.canSave() === false;
       document.getElementById("resetDeviceEditor").disabled = personalDefaultsBusy;
       const apply = document.getElementById("applyDeviceEditor");
       apply.textContent = editorMode === "master-create" ? "Save to My Library" : project ? "Save Project Device" : "Save Changes to Project Devices";

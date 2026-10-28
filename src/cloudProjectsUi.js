@@ -20,6 +20,7 @@ export function mountCloudProjects({account,serialize,load,capture,markSaved,isD
     const next=account()?.cloudIdentity();
     if(!next){detach();identity=null;throw new Error('Sign in through Device Editor > Defaults > Account first.');}
     if(identity?.accountId!==next.accountId){detach();identity=next;}
+    if(binding && !next.workspaces.some(w=>w.id===binding.workspace_id))detach();
     return next;
   };
   const check=(id,ticket)=>{if(account()?.cloudIdentity()?.accountId!==id || ticket!==epoch)throw new Error('Account or open project changed. Operation not applied to this canvas.');};

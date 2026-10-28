@@ -1,5 +1,9 @@
 # Accounts Phase 2: users, private workspaces and Platform Admin
 
+Phase 5 extends this foundation with company management, email-bound invitations
+and organization libraries; see [Organizations & Teams](organizations-teams.md).
+Its invitation flow supersedes direct member insertion through the foundation RPC.
+
 No production migration, account provisioning, environment change or deployment
 is performed by this implementation. Public registration stays disabled.
 

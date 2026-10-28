@@ -19,6 +19,7 @@ try {
     if(path==='/auth/v1/user')return route.fulfill({json:user});
     if(path==='/auth/v1/logout')return route.fulfill({status:204});
     if(path==='/rest/v1/rpc/wirenexus_plans')return route.fulfill({status:404,json:{message:'Plans migration is not available in this compatibility fixture.'}});
+    if(path==='/rest/v1/rpc/wirenexus_organizations')return route.fulfill({status:404,json:{message:'Organizations migration is not available in this compatibility fixture.'}});
     if(path==='/rest/v1/rpc/wirenexus_library'){
       const result=await database.rpc(req.headers().authorization===`Bearer ${token}`?OWNER:null)('wirenexus_library',req.postDataJSON());
       return route.fulfill({status:result.error?403:200,json:result.error || result.data});

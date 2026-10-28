@@ -14,16 +14,16 @@ const base64 = bytes => {
   let text = ''; for (let i = 0; i < bytes.length; i += 8192) text += String.fromCharCode(...bytes.subarray(i, i + 8192));
   return btoa(text);
 };
-export function createAccountLibraryStore({ rpc, onState = () => {} }) {
+export function createAccountLibraryStore({ rpc, workspaceId, onState = () => {} }) {
   let identity, verified = null;
   const call = async (operation, payload = {}) => {
-    const { data, error } = await rpc('wirenexus_library', { operation, payload: {...payload,...(identity?{expectedAccountId:identity.accountId}:{})} });
+    const { data, error } = await rpc(workspaceId?'wirenexus_workspace_library':'wirenexus_library', { operation, payload: {...payload,...(workspaceId?{workspaceId}:{}),...(identity?{expectedAccountId:identity.accountId}:{})} });
     if (error) throw new Error(error.message || String(error));
     return data;
   };
   const read = async () => {
     const nextIdentity = await call('identity');
-    if (!nextIdentity?.accountId || (identity && identity.accountId!==nextIdentity.accountId)) {
+    if (!nextIdentity?.accountId || (workspaceId && nextIdentity.workspaceId!==workspaceId) || (identity && (identity.accountId!==nextIdentity.accountId || identity.workspaceId!==nextIdentity.workspaceId))) {
       verified=null;throw new Error('Account changed. Reopen the account library.');
     }
     identity = nextIdentity;
@@ -45,7 +45,9 @@ export function createAccountLibraryStore({ rpc, onState = () => {} }) {
     async update(mutate, assets = {}) {
       onState('Saving');
       try {
-        const before = await read(), document = mutate(structuredClone(before.registry));
+        const before = await read();
+        if(identity.workspaceRole==='viewer')throw new Error('Workspace is read-only.');
+        const document = mutate(structuredClone(before.registry));
         if (definitionContent(document) === definitionContent(before.registry)) { onState('Synced'); return before; }
         document.generation = before.registry.generation + 1;
         for (const [hash, bytes] of Object.entries(assets)) {

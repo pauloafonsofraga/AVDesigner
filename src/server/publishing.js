@@ -44,7 +44,7 @@ export function createPublishingSecurity({env=process.env,clientFactory=createCl
     if(typeof ip!=='string' || !isIP(ip))throw new PublishingError(503,'Request source could not be verified.');
     await call('throttle',{scope,key:crypto.createHmac('sha256',key).update(ip).digest('hex'),publicationId});
   };
-  return {call,throttle,async authenticate(req){
+  return {call,throttle,verifiedAal:()=>verifiedAal,async authenticate(req){
     verifiedAal='aal1';
     await throttle(req,'auth');
     const authorization=req.headers?.authorization;
