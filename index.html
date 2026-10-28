@@ -5446,6 +5446,7 @@
     .topbar .toolbar #commentTool,
     .topbar .toolbar #cableScheduleButton { width: 48px; min-width: 48px; }
     .topbar .toolbar #createMultiCore { width: 54px; min-width: 54px; }
+    .topbar .toolbar #saveCloudProject, .topbar .toolbar #openCloudProject { width: 54px; min-width: 54px; }
     .topbar .toolbar .zoom-readout { min-width: 31px; font-size: 10.8px; }
     .topbar .toolbar .wire-placement-select { min-width: 71px; height: 26px; padding: 0 6px; font-size: 10.8px; }
     .topbar .toolbar .theme-switch.has-icon[aria-pressed="true"] {
@@ -5556,6 +5557,8 @@
         <button class="tool-button" id="saveProjectAs" type="button" title="Save project as a new .avd file">
           <span>Save As</span>
         </button>
+        <button class="tool-button has-icon" id="saveCloudProject" type="button" title="Save to Cloud" aria-label="Save to Cloud"><span class="toolbar-caption">Cloud Save</span></button>
+        <button class="tool-button has-icon" id="openCloudProject" type="button" title="Open from Cloud" aria-label="Open from Cloud"><span class="toolbar-caption">Cloud Open</span></button>
         <button class="tool-button has-icon" id="exportHtml" type="button" title="Export a self-contained HTML wirechart" aria-label="Export HTML wirechart">
           <span>Export HTML</span>
         </button>
@@ -6545,6 +6548,7 @@
     let personalDefaultsBusy = false;
     let factoryAuthoringUi = null;
     let accountLibraryUi = null;
+    let cloudProjectsUi = null, cloudProjectsMount = null;
     let signedInLibraryOwner = null;
     let catalogueRevisions = {};
     let catalogueProvenanceModule = null;
@@ -34436,6 +34440,22 @@ document.addEventListener("click", function(event) {
       return JSON.stringify(data, null, 2);
     }
 
+    async function showCloudProjects(mode) {
+      try {
+        await loadLocalUserSettings();
+        cloudProjectsMount ||= import(engineImportUrl("./src/cloudProjectsUi.js")).then(({ mountCloudProjects }) => {
+          cloudProjectsUi = mountCloudProjects({ account: () => accountLibraryUi,
+            serialize: projectJsonPayload, capture: () => projectUnsavedChanges?.capture(),
+            markSaved: checkpoint => projectUnsavedChanges?.markSaved(checkpoint),
+            isDirty: () => projectUnsavedChanges?.isDirty(), projectName: () => state.projectName, onStatus: setStatus,
+            load: (text, name) => new Promise((resolve, reject) => loadProjectFile(new File([text], `${name}.avd`, { type: "application/json" }),
+              { onLoaded: resolve, onError: reject })) });
+          return cloudProjectsUi;
+        });
+        await (await cloudProjectsMount).show(mode);
+      } catch (error) { alert(`Cloud projects unavailable: ${error.message || error}`); }
+    }
+
     function suggestedProjectFileName() {
       return `${projectFileBaseName()}-project.avd`;
     }
@@ -34632,17 +34652,22 @@ document.addEventListener("click", function(event) {
             console.error("[engine-bridge] Project loaded, but Engine Editor rebuild failed.", engineError);
             setStatus(`Engine editor failed after project load: ${engineError.message || engineError}`);
             showEngineFailure(engineError);
+            options.onError?.(engineError);
             return;
           }
           if (projectFileHandle) setStatus(`Loaded ${projectFileName || "project"}. Save will overwrite this file.`);
           projectUnsavedChanges?.reset();
+          if (typeof cloudProjectsUi !== "undefined") cloudProjectsUi?.detach();
+          options.onLoaded?.();
         } catch (error) {
+          options.onError?.(error);
           if (controller.signal.aborted) return;
           bridge?.abortProjectLoad?.("This project file could not be loaded.");
           alert("This project file could not be loaded.");
         }
       };
       reader.onerror = () => {
+        options.onError?.(reader.error || new Error("Project file could not be read."));
         if (controller.signal.aborted) return;
         engineBridge?.abortProjectLoad?.("Project file could not be read.");
         alert("This project file could not be read.");
@@ -34911,6 +34936,7 @@ document.addEventListener("click", function(event) {
       projectFileHandle = null;
       projectFileName = "";
       idCounter = 1;
+      if (typeof cloudProjectsUi !== "undefined") cloudProjectsUi?.detach();
       updateProjectNameControl();
       renderDeviceLibrary();
       refreshActiveEngineBridge("new project");
@@ -36636,6 +36662,10 @@ document.addEventListener("click", function(event) {
     document.getElementById("saveProject").addEventListener("click", editorActions.saveProject);
     window.addEventListener("keydown", handleProjectSaveShortcut, true);
     document.getElementById("saveProjectAs").addEventListener("click", editorActions.saveProjectAs);
+    for (const [id, mode] of [["saveCloudProject", "save"], ["openCloudProject", "open"]]) {
+      const button = document.getElementById(id);
+      button.addEventListener("click", () => showCloudProjects(mode));
+    }
     document.getElementById("loadProject").addEventListener("click", () => {
       recordShellAction("load project");
       openProjectFile();

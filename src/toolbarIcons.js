@@ -30,7 +30,7 @@
     createCableLoom:'loom',createMultiCore:'multi-core',cableHopsToggle:'hops',deviceEditorButton:'chassis',
     nodeBuilderButton:'plug',rackBuilderButton:'server',importLedGrid:'grid-2x2-plus',commentTool:'message-square',
     areaTool:'square-dashed',jumpNodeTool:'jump',titleBlockButton:'title-block',newProject:'file-plus',loadProject:'folder-open',
-    saveProject:'save',saveProjectAs:'save-copy',exportHtml:'file-code',publishProjectButton:'cloud-upload',
+    saveProject:'save',saveProjectAs:'save-copy',saveCloudProject:'cloud-upload',openCloudProject:'folder-open',exportHtml:'file-code',publishProjectButton:'cloud-upload',
     projectReportButton:'chart-no-axes-combined',cableScheduleButton:'table-properties',exportPdf:'pdf'
   };
   const states = {
@@ -44,7 +44,7 @@
     createCableLoom:'Loom',createMultiCore:'Multi-Core',cableHopsToggle:'Hops',deviceEditorButton:'Devices',
     nodeBuilderButton:'Nodes',rackBuilderButton:'Racks',importLedGrid:'LED grid',commentTool:'Comment',
     areaTool:'Area',jumpNodeTool:'Jump',titleBlockButton:'Title',newProject:'New',loadProject:'Open',
-    saveProject:'Save',saveProjectAs:'Save As',exportHtml:'HTML',publishProjectButton:'Publish',
+    saveProject:'Save',saveProjectAs:'Save As',saveCloudProject:'Cloud Save',openCloudProject:'Cloud Open',exportHtml:'HTML',publishProjectButton:'Publish',
     projectReportButton:'Report',cableScheduleButton:'Schedule',exportPdf:'PDF'
   };
   function create(document, name) {

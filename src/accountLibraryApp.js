@@ -193,6 +193,11 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
     } else setState(state, config.error || 'See docs/owner-account-setup.md. Browser data is not account-synced.');
   } catch (error) { setState('Sync failed', `Account setup unavailable: ${error.message}`); }
   return Object.freeze({ isAccount: () => !!owner, canSave: () => !configured || !!owner, status: () => state,
+    cloudIdentity: () => owner && identity ? structuredClone(identity) : null,
+    async cloudRpc(name,args) {
+      if(!owner || !client || name!=='wirenexus_cloud')throw new Error('Sign in through Account before opening cloud projects.');
+      return client.rpc(name,args);
+    },
     async publishingToken() {
       if (!client) throw new Error('Publishing requires the account service to be configured.');
       const {data,error} = await client.auth.getSession();
