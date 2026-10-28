@@ -6639,8 +6639,8 @@
     function refreshGlobalBuiltInDefaults() {
       document.getElementById("restoreFactoryDevices").classList.toggle("hidden", !removedFactoryDeviceIds().length);
       if (signedInLibraryOwner && localUserSettingsOwner === signedInLibraryOwner) {
-        const preferences = localUserSettingsOwner.preferences(); libraryOrder = preferences.order;
-        libraryFavorites.clear(); preferences.favorites.forEach(id => libraryFavorites.add(id));
+        const preferences = localUserSettingsOwner.preferences(); libraryOrder = Array.isArray(preferences.order) ? preferences.order : [];
+        libraryFavorites.clear(); (Array.isArray(preferences.favorites) ? preferences.favorites : []).forEach(id => libraryFavorites.add(id));
       }
       if (!projectNodeDefinitions.length && (state.devices.length || state.racks.length)) projectNodeDefinitions = serializeNodeLibrary();
       if (localUserSettingsOwner) {
@@ -6719,12 +6719,12 @@
               factoryNodeTypes: window.WireNexusFactoryCatalogue.nodeTypes,
               provenance: catalogueRevisions, store, assetManifest: window.WireNexusFactoryCatalogue.assets,
               resolveImage: source => imagePathToDataUrl(source, cache), onChange: refreshGlobalBuiltInDefaults }).initialize(),
-            onOwner: async (owner, admin) => {
+            onOwner: async (owner, admin, identity) => {
               localUserSettingsOwner = owner;
-              signedInLibraryOwner = admin ? owner : null;
-              if (admin) {
-                const preferences = owner.preferences(); libraryOrder = preferences.order;
-                libraryFavorites.clear(); preferences.favorites.forEach(id => libraryFavorites.add(id));
+              signedInLibraryOwner = identity ? owner : null;
+              if (identity) {
+                const preferences = owner.preferences(); libraryOrder = Array.isArray(preferences.order) ? preferences.order : [];
+                libraryFavorites.clear(); (Array.isArray(preferences.favorites) ? preferences.favorites : []).forEach(id => libraryFavorites.add(id));
                 await promotion.recognizePromotions(owner, window.WireNexusFactoryCatalogue);
               } else { loadDeviceLibraryOrderPreference(); loadDeviceFavoritesPreference(); }
               await mountAdministration(admin); refreshGlobalBuiltInDefaults();
@@ -34825,7 +34825,7 @@ document.addEventListener("click", function(event) {
       setPublishStatus("Preparing project data...");
       try {
         const token = await accountLibraryUi?.publishingToken();
-        if (!token) throw new Error("Sign in through Owner Account before publishing.");
+        if (!token) throw new Error("Sign in through Account before publishing.");
         const headers = { Authorization: `Bearer ${token}` };
         const publishRequest = async body => {
           const response = await fetch("/api/publish", {

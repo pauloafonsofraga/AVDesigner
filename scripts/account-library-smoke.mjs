@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { accountDatabase, OWNER } from '../test/fixtures/accountDatabase.mjs';
+import { workspacesDatabase, OWNER } from '../test/fixtures/workspacesDatabase.mjs';
 
 // Local integration only: real Auth SDK + actual SQL RPC; email/JWT issuer is
 // simulated. This is deliberately not labelled real Supabase acceptance.
@@ -9,7 +9,7 @@ const { chromium } = createRequire(import.meta.url)(process.env.AVDESIGNER_PLAYW
 const browser = await chromium.launch({headless:true,...(process.env.AVDESIGNER_CHROME_PATH ? {executablePath:process.env.AVDESIGNER_CHROME_PATH} : {})});
 const base=process.env.AVDESIGNER_BASE_URL || 'http://127.0.0.1:8768', dir='/tmp/wirenexus-account-acceptance';
 await mkdir(dir,{recursive:true});
-const database=await accountDatabase(), checks=[], errors=[];
+const database=await workspacesDatabase(), checks=[], errors=[];
 const token=Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url')+'.'+Buffer.from(JSON.stringify({sub:OWNER,role:'authenticated',exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')+'.local-test-signature';
 const user={id:OWNER,aud:'authenticated',role:'authenticated',email:'owner@example.test',app_metadata:{provider:'email'},user_metadata:{},created_at:new Date().toISOString()};
 const session={access_token:token,refresh_token:'local-test-refresh',expires_in:3600,token_type:'bearer',user};
@@ -59,12 +59,12 @@ try {
     await localUserSettingsOwner.save(d,{nodes:personalLibraryNodes});
   },png);
   const recoveryBefore=await a.evaluate(async()=>JSON.stringify((await localUserSettingsModule.createPersonalIndexedDbStore().read()).registry));
-  await login(a); assert.equal(await a.locator('#promoteToFactory').isVisible(),true);
+  await login(a); assert.equal(await a.locator('#promoteToFactory').count(),0,'personal ownership does not grant Platform Admin');
   await a.locator('#ownerAccount').click();await a.locator('#ownerImportBrowser').click();await a.locator('#confirmBrowserImport').click();
   await a.waitForFunction(()=>localUserSettingsOwner.entry('barco-e2-gen2')?.definition.name==='Recovered owner E2');
   assert.equal(await a.evaluate(async()=>JSON.stringify((await localUserSettingsModule.createPersonalIndexedDbStore().read()).registry)),recoveryBefore);
   await a.locator('#ownerAccountDialog').getByRole('button',{name:'Close',exact:true}).click();
-  checks.push('real SDK owner sign-in UI, normal-build admin, explicit recovery import, original recovery retained (local simulated Auth)');
+  checks.push('real SDK account sign-in, ordinary personal access without implicit Admin, explicit recovery import, original recovery retained (local simulated Auth)');
 
   const cb=await context(),b=await page(cb,true);await login(b);
   assert.equal(await b.evaluate(()=>localUserSettingsOwner.entry('barco-e2-gen2').definition.faceImage),png);

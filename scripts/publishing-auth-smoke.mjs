@@ -34,8 +34,8 @@ try {
       recoveryOwner:await createOwner(recoveryStore),createOwner,onOwner:async()=>{},recoveryPreferences:()=>({favorites:[],order:[]})});
   });
   await assert.rejects(page.evaluate(()=>accountUi.publishingToken()),/Sign in/);
-  await page.getByRole('button',{name:'Owner Sign In',exact:true}).click();
-  await page.getByLabel('Owner email').fill(user.email);await page.getByRole('button',{name:'Send Sign-in Code'}).click();
+  await page.locator('#ownerAccount').click();
+  await page.getByLabel('Email',{exact:true}).fill(user.email);await page.getByRole('button',{name:'Send Sign-in Code'}).click();
   await page.getByLabel('Email code').fill('123456');await page.getByRole('button',{name:'Sign In',exact:true}).click();
   await page.waitForFunction(()=>accountUi.isAccount());
   assert.equal(await page.evaluate(()=>accountUi.publishingToken()),token);

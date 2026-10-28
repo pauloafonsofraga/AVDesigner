@@ -17,13 +17,16 @@ const base64 = bytes => {
 export function createAccountLibraryStore({ rpc, onState = () => {} }) {
   let identity, verified = null;
   const call = async (operation, payload = {}) => {
-    const { data, error } = await rpc('wirenexus_library', { operation, payload });
+    const { data, error } = await rpc('wirenexus_library', { operation, payload: {...payload,...(identity?{expectedAccountId:identity.accountId}:{})} });
     if (error) throw new Error(error.message || String(error));
     return data;
   };
   const read = async () => {
-    identity = await call('identity');
-    if (!identity?.accountId || identity.admin !== true) throw new Error('Owner authorization required.');
+    const nextIdentity = await call('identity');
+    if (!nextIdentity?.accountId || (identity && identity.accountId!==nextIdentity.accountId)) {
+      verified=null;throw new Error('Account changed. Reopen the account library.');
+    }
+    identity = nextIdentity;
     const registry = await call('read'), assets = {};
     for (const hash of artworkReferences(registry.entries)) {
       const cached = verified?.assets[hash];
