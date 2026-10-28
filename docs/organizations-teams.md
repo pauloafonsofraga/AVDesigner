@@ -1,5 +1,27 @@
 # Accounts Phase 5: Enterprise organizations and teams
 
+## Development status
+
+Phase 5 development is complete. Approved implementation:
+`e092cb83f6a90da26ab2f6c17561c10134ffd051` on `engine-prototype`.
+Final closure on 2026-10-28 revalidates the isolated approved commit; this closure
+changes documentation only. Production readiness remains conditional on the staging
+and deployment checklist below, not on local test results alone.
+
+Known limitations remain: invitees need verified, existing or trusted-admin-provisioned
+accounts while registration is closed; library selection is session-local; switching
+libraries retains editor drafts and may require Reload Saved Default; downloaded
+local data cannot be recalled after revocation; organization deletion and PII
+retention automation are not implemented. Simultaneous editing and billing remain
+out of scope. The existing account-library download timeout still requires staging
+verification as noted below.
+
+Outstanding release gates include real Supabase RLS/grant and JWT checks with
+separate users, independent-connection concurrency tests for invitations/seat quotas
+and cloud/library conflicts, and actual email delivery, SPF/DKIM and invitation-link
+verification. Migration ordering, server-only credentials, backups and rollback
+must be reviewed before any separately authorized deployment. Phase 6 is not begun.
+
 No deployment, production migration, public registration, billing, Auth account
 creation or realtime collaboration is performed by this implementation.
 
