@@ -3,6 +3,52 @@
 Implementation only: no deployment, production SQL, environment changes, public
 registration, billing or collaboration is enabled by this change.
 
+## Phase 4 closure: development complete (2026-10-28)
+
+The approved implementation is
+`b516b746d8fce63b4a0cbed8c0bf0674d1847c45`, verified on GitHub's engine-prototype
+branch before closure. Phase 4 development and local regression validation are
+complete. This closure updates documentation only; the approved application and
+SQL are unchanged. Phase 5 has not started, and this is not production approval.
+
+Fresh closure checks used an isolated archive of the approved commit, excluding
+unrelated working-tree changes:
+
+- `node --test`: 2,159 passed; zero failed, skipped or canceled. The suite includes
+  14 focused plan/publishing tests covering Free defaults, Paid/Enterprise policy,
+  MFA Admin authority, assignment/configuration revisions, privilege escalation,
+  quota boundaries and reservations, downgrade/revocation, migration preservation,
+  workspace isolation, publishing ownership and password-protected viewer access.
+- All 16 `scripts/*-validation.mjs` validators passed.
+- `scripts/plans-smoke.mjs`, `scripts/cloud-projects-smoke.mjs`,
+  `scripts/accounts-workspaces-smoke.mjs` and
+  `scripts/publishing-auth-smoke.mjs` passed in Chrome. These verify plan management,
+  usage/limits, upgrade/downgrade, preserved over-limit projects, organization plans,
+  cloud/history workflows, authentication/MFA and publishing-token behavior.
+- Reservation interleaving and quota/configuration changes during uploads are
+  tested against the actual SQL/RPCs. Workspace/configuration locks and private
+  unmetered-function execution restrictions remain in place. Hosted concurrent
+  multi-connection behavior still requires staging verification.
+- Existing snapshots, artwork/registry bytes, history and publication paths/data
+  are retained. Local Save/Save As and the .avd format are unchanged; the existing
+  loader/save regressions and browser cloud round trips pass.
+
+Outstanding release prerequisites are the ordered migrations, tested backups,
+grant/RLS/private-schema inspection and explicit plan provisioning described below.
+Real Supabase staging must verify signed JWT/MFA enforcement, separate users and
+all workspace roles, simultaneous reservations/finalization and plan/configuration
+changes, actual Blob token expiry/downgrade behavior, old password viewers, local
+downloads, large-project performance and database/Blob capacity/accounting.
+Local Auth issuance is simulated and PGlite does not certify those hosted behaviors.
+
+Known limitations remain: storage usage is logical rather than provider-billed;
+revoked/expired publication bytes are not automatically reclaimed; old Blob objects
+need inventory; over-limit workspaces can read data but may need an upgrade for
+new writes. The pre-existing broad account-library download-test timeout remains
+documented in docs/secure-publishing.md and needs a real local-download staging check.
+There is no automated retention/deletion, billing or collaboration. No production
+data, migrations, registration gates or environment settings were changed at closure.
+
 ## Interface and policy
 
 Device Editor > Defaults > Account now includes Plans & Usage for every workspace
