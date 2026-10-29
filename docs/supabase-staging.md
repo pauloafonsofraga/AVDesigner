@@ -2,12 +2,20 @@
 
 Status: preparation only, 2026-10-29. Application baseline:
 `776ff65eb9f32450ab24c0b38015381ef5ce0917` on `engine-prototype`.
-No remote inspection, provisioning, migrations, environment changes or deployment
-has been performed. Registration stays disabled. This is not staging acceptance.
+Phase 6.6A performed no remote inspection, provisioning, migrations, environment
+changes or deployment. Closed registration is a required setup condition, not a
+claim about the subsequent hosted inspection below. This is not staging acceptance.
 
 This consolidates the current account, publishing, organization, cloud and live
 collaboration setup. Older phase documents describe their historical phase boundary;
 use the complete chain below, including Phase 6.5 conflict/undo behavior.
+
+Phase 6.6B now verifies target `puyrylatmtcwlvyycplc` (WireNexus Staging) through
+read-only hosted inspection. **Its existing Auth configuration has public signup
+enabled (`disable_signup=false`); approval is required to disable it.** The inventory
+and outstanding hosted checks are recorded in
+[the staging preflight report](supabase-staging-preflight.md). Supplying a project
+reference or passing inventory checks does not authorize setup or deployment.
 
 ## 1. Isolation and approval gates
 
@@ -15,7 +23,7 @@ Record this non-secret target sheet before any remote action:
 
 | Item | Required value / current evidence |
 | --- | --- |
-| Supabase project | New VideoCore **staging** project; exact project reference/dashboard URL not supplied or verified |
+| Supabase project | Verified `puyrylatmtcwlvyycplc`, WireNexus Staging, active in eu-west-1; application-empty inventory; signup currently enabled; see Phase 6.6B report |
 | Isolation | Dedicated project with no production/development users, data or secrets; project name alone is not proof |
 | Vercel | Dedicated staging project/origin, not an existing production deployment or shared preview secret scope |
 | Published viewer | Explicit staging HTTPS origin; may be the staging editor origin because HTML remains sandboxed |
