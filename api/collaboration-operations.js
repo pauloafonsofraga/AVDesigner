@@ -15,7 +15,8 @@ export function createCollaborationHandler({env=process.env,security=createPubli
     }catch(error) {
       const status=error instanceof PublishingError?error.status:503;
       if(status===429)res.setHeader('Retry-After','60');
-      return send(res,status,{error:error instanceof PublishingError?error.message:'Collaboration service is temporarily unavailable.'});
+      return send(res,status,{error:error instanceof PublishingError?error.message:'Collaboration service is temporarily unavailable.',
+        ...(['edit_conflict','topology_conflict','revision_conflict','history_unavailable'].includes(error.reason)?{reason:error.reason}:{})});
     }
   };
 }

@@ -5,12 +5,23 @@ export function mountLiveCollaboration({account,bridge,load,apply,readLocal,isDr
   const style=document.createElement('style');style.textContent='#liveCollaboration[hidden],#liveCollaboration [hidden]{display:none!important}';panel.append(style);
   panel.style.cssText='position:fixed;left:12px;bottom:12px;z-index:45;background:var(--panel,#20272d);color:var(--text,#fff);border:1px solid var(--line,#566);border-radius:4px;padding:8px;max-width:calc(100vw - 24px);font-size:12px';
   const status=document.createElement('span');status.setAttribute('role','status');
+  const conflict=document.createElement('p');conflict.hidden=true;conflict.setAttribute('role','alert');
+  conflict.style.cssText='margin:6px 0 0;max-width:520px;white-space:normal;color:var(--text,#fff)';
   const peersLabel=document.createElement('span');peersLabel.style.margin='0 8px';
   const action=(label,fn)=>{const b=document.createElement('button');b.type='button';b.className='tool-button';b.textContent=label;b.onclick=()=>Promise.resolve(fn()).catch(e=>onStatus(e.message));panel.append(b);return b;};
   panel.append(status,peersLabel);
-  let session=null,stopChannel=null,recovery=null,lastHint=0,cursor=null,cursorDirty=false,lastPresence=0,actorId=null,peers=[],activeRow=null,opening=false;
+  let session=null,stopChannel=null,lastHint=0,cursor=null,cursorDirty=false,lastPresence=0,actorId=null,peers=[],activeRow=null,opening=false;
+  const recoveries=new Map();
   const overlay=document.createElement('div');overlay.id='collaboratorCursors';overlay.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:44;overflow:hidden';
-  const setRecovery=(doc,message)=>{recovery=doc;recover.hidden=false;onStatus(message);};
+  const paintRecovery=()=>{
+    recover.hidden=!recoveries.size;recover.textContent=recoveries.size>1?`Unsynced Copy (${recoveries.size})`:'Unsynced Copy';
+    if(!recoveries.size){conflict.hidden=true;if(!session)panel.hidden=true;}
+  };
+  const setRecovery=(doc,message,id=crypto.randomUUID())=>{
+    const text=JSON.stringify(doc),latest=[...recoveries.values()].at(-1);
+    if(recoveries.has(id) || text!==latest)recoveries.set(id,text);
+    paintRecovery();conflict.textContent=message;conflict.hidden=false;onStatus(message);
+  };
   const retry=action('Retry',()=>session?.tick());
   const checkpoint=action('Checkpoint',async()=>{
     if(!session || session.pending.length || session.running)throw Error('Wait for pending operations to finish.');
@@ -18,10 +29,12 @@ export function mountLiveCollaboration({account,bridge,load,apply,readLocal,isDr
     await session.request('checkpoint',{expectedSequence:session.head.sequence});onSaved(saved);onStatus('Cloud checkpoint saved.');
   });
   const recover=action('Unsynced Copy',()=>{
-    if(!recovery)return;const url=URL.createObjectURL(new Blob([JSON.stringify(recovery)],{type:'application/json'}));
+    const [id,text]=recoveries.entries().next().value || [];if(!id)return;
+    const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));
     const a=document.createElement('a');a.href=url;a.download='WireNexus-unsynced-project.avd';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    recoveries.delete(id);paintRecovery();
   });recover.hidden=true;
-  action('Leave',()=>detach());document.body.append(panel,overlay);
+  action('Leave',()=>detach());panel.append(conflict);document.body.append(panel,overlay);
   const busy=()=>{
     const b=bridge();
     return !b?.ready || isDraftOpen() || Boolean(b.topologyProtocolPending || b.dragSession || b.pendingDrag || b.pendingJumpPress || b.rotationDrag
@@ -59,6 +72,7 @@ export function mountLiveCollaboration({account,bridge,load,apply,readLocal,isDr
   function detach() {
     if(opening)return;
     session?.stop();session=null;stopChannel?.();stopChannel=null;peers=[];overlay.replaceChildren();panel.hidden=true;activeRow=null;
+    if(recoveries.size){panel.hidden=false;status.textContent='Local recovery copies';peersLabel.textContent='';retry.disabled=true;checkpoint.disabled=true;}
     if(bridge())bridge().collaborationHistory=null;
   }
   const api=()=>createCollaborationApi({token:()=>account().publishingToken()});
@@ -67,7 +81,7 @@ export function mountLiveCollaboration({account,bridge,load,apply,readLocal,isDr
     const current=account()?.cloudIdentity();if(!current)return false;
     const execute=api(),s=await execute('status',{projectId:row.id},true);
     if(!s.active && !activate)return false;
-    detach();actorId=current.accountId;activeRow=row;retry.disabled=false;recovery=null;recover.hidden=true;
+    detach();actorId=current.accountId;activeRow=row;retry.disabled=false;paintRecovery();conflict.hidden=!recoveries.size;
     const next=new LiveCollaborationSession({projectId:row.id,api:execute,readLocal,isBusy:busy,
       apply:(next,previous,options)=>apply(next,previous,options),onState:state,onRecovery:setRecovery});
     session=next;

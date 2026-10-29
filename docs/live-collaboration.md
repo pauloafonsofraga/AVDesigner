@@ -1,5 +1,9 @@
 # Phase 6.4: Live multi-user synchronization
 
+The conflict and undo policy below describes Phase 6.4. Its current extension is
+documented in [Phase 6.5](collaboration-conflicts-undo.md); entry, authorization and
+notification transport remain as described here.
+
 Enterprise project collaboration connects the Phase 6.1/6.2 Engine commands to the
 Phase 6.3 operation store. No deployment, production migration or Phase 6.5 work is
 included. Local projects, local Save/Save As, file format and non-collaborative cloud

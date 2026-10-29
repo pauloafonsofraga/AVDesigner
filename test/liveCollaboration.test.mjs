@@ -97,7 +97,9 @@ test('per-user undo/redo uses new validated commands and refuses to undo another
   await a.session.history('redo');assert.equal(a.local.devices[0].x,x+2);
   await b.session.tick();await b.edit(p=>p.devices[0].x+=10);await a.session.tick();
   await a.session.history('undo');assert.equal(a.local.devices[0].x,x+12);
-  assert.match(a.states.at(-1).status,/Undo conflict/);
+  assert.match(a.session.lastRejection,/same field or relationship/);
+  assert.equal(a.session.undo.length,1,'rejected undo retains the accepted operation history');
+  assert.equal(a.recovery.length,1);
 });
 
 test('revoked members receive no further operation/cursor hints, reads or submissions and the client stops',async t=>{

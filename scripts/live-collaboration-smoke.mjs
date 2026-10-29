@@ -41,7 +41,7 @@ async function pageFor(uid) {
     const req=r.request(),res={setHeader(){},status(n){this.code=n;return this;},end(s){this.body=s;}};
     await (req.url().endsWith('collaboration-live')?live:operations)({method:'POST',headers:req.headers(),body:req.postDataJSON()},res);
     await r.fulfill({status:res.code,contentType:'application/json',body:res.body});
-    if(deliver && ['submit','presence','leave'].includes(req.postDataJSON().action))
+    if(deliver && res.code===200 && ['submit','rebase','undo','redo','presence','leave'].includes(req.postDataJSON().action))
       setTimeout(()=>{for(const p of pages)if(!p.isClosed())p.evaluate(()=>window.__liveHint?.()).catch(()=>{});},30);
   });
   await page.goto(base);await page.waitForFunction(()=>typeof activeEngineBridge==='function' && activeEngineBridge()?.ready && localUserSettingsLoaded);
@@ -99,6 +99,22 @@ try {
   const recovered=await Promise.all([a,b].map(p=>p.locator('#liveCollaboration button').filter({hasText:'Unsynced Copy'}).isVisible()));
   assert.equal(recovered.filter(Boolean).length,1);
   checks.push('concurrent edits reject the losing operation and expose its unsynced local recovery copy');
+  assert.equal((await Promise.all([a,b].map(p=>p.locator('#liveCollaboration [role=alert]').isVisible()))).filter(Boolean).length,1);
+  await idle(a);await idle(b);
+  const moved=await a.evaluate(()=>activeEngineBridge().scene.getDevice('source').x+4);
+  await Promise.all([
+    a.evaluate(x=>{const e=activeEngineBridge(),d=e.scene.getDevice('source');if(!e.commitObjectPositionFromInspector('source',x,d.y))throw Error('Move not committed');},moved),
+    b.evaluate(()=>{if(!activeEngineBridge().commitObjectInspectorFields('source',{name:'Independent source'}))throw Error('Rename not committed');})
+  ]);
+  await idle(a);await idle(b);await a.evaluate(()=>cloudProjectsUi.collaboration.session().tick());await b.evaluate(()=>cloudProjectsUi.collaboration.session().tick());
+  await Promise.all([a,b].map(p=>p.waitForFunction(()=>cloudProjectsUi.collaboration.session().head.sequence===9)));
+  for(const page of [a,b])assert.deepEqual(await page.evaluate(()=>{const d=state.devices.find(d=>d.instanceId==='source');return {x:d.x,name:d.name};}),{x:moved,name:'Independent source'});
+  await idle(a);await a.locator('#undoAction').click();await idle(a);await b.evaluate(()=>cloudProjectsUi.collaboration.session().tick());
+  assert.equal(await b.evaluate(()=>state.devices.find(d=>d.instanceId==='source').name),'Independent source');
+  assert.equal(await b.evaluate(()=>state.devices.find(d=>d.instanceId==='source').x),moved-4);
+  await a.keyboard.press('Meta+Shift+z');await idle(a);await b.evaluate(()=>cloudProjectsUi.collaboration.session().tick());
+  assert.equal(await b.evaluate(()=>state.devices.find(d=>d.instanceId==='source').x),moved);
+  checks.push('independent same-device edits rebase online; selective undo/redo retains the other collaborator name');
   await b.evaluate(()=>cloudProjectsUi.collaboration.session().presence({x:200,y:100},{id:'source',x:210,y:110}));
   await a.evaluate(()=>cloudProjectsUi.collaboration.session().tick());
   await a.waitForFunction(()=>document.getElementById('collaboratorCursors').childElementCount>0);
