@@ -1,5 +1,14 @@
 # Staging user provisioning with registration closed
 
+**Current workflow:** the [versioned provisioning compatibility fix](admin-provisioning-compatibility.md)
+has now been applied and verified on staging. Use its short-lived, UUID/email-bound
+authorization and matching Admin createUser `id`. The first approved account and
+personal Owner workspace are verified; Platform Admin has not been granted.
+The investigation and original blocked example below are historical, not the
+current procedure.
+
+## Historical ordering blocker
+
 Date: 2026-10-29. Exclusive target: `puyrylatmtcwlvyycplc` (WireNexus Staging).
 **BLOCKED after real hosted verification on 2026-10-29. Do not execute the
 historical creation example below or retry provisioning until a narrowly scoped

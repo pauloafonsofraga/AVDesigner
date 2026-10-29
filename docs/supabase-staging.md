@@ -37,6 +37,12 @@ authorized Dashboard inspection in Phase 6.6E). Do not replay these files
 or run a linked CLI push without reviewing that runner-version mapping. No users
 or application deployment have been provisioned.
 
+Subsequently, the [Auth Admin compatibility migration](admin-provisioning-compatibility.md)
+was approved and applied as the ninth staging migration. The first approved
+operator account now exists with a personal Owner workspace; real password
+authentication passed. Platform Admin, MFA, Resend delivery and deployment have
+not been performed. The eight-entry Phase 6.6D record remains historical.
+
 ## 1. Isolation and approval gates
 
 Record this non-secret target sheet before any remote action:
@@ -284,7 +290,14 @@ Capacity blockers to measure before acceptance:
 
 ## 6. Test accounts and Enterprise provisioning
 
-**Provisioning blocked by hosted Auth-service ordering:** see the
+**Provisioning compatibility is now verified:** use the
+[versioned authorization workflow](admin-provisioning-compatibility.md), not the
+old example below. It binds a short-lived trusted SQL authorization to the exact
+Admin API user UUID/email while keeping registration closed and the trigger
+enabled. The first approved staging account/personal Owner workspace and password
+authentication passed. Platform Admin remains unassigned; no deployment occurred.
+
+**Historical blocker:** see the
 [staging provisioning investigation](staging-user-provisioning.md). Admin API
 access is verified, but Auth inserts the user before applying the supplied trusted
 app metadata, so the current BEFORE INSERT guard rejects even the proposed Admin
