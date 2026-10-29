@@ -18,13 +18,20 @@ See the [security configuration check](staging-security-configuration.md) for cu
 settings and the [preflight report](supabase-staging-preflight.md) for historical
 inventory. No migrations, provisioning or deployment are authorized by these checks.
 
+Phase 6.6D separately approved and applied all eight migrations. See
+[database initialization](staging-database-initialization.md) for the exact hosted
+ledger/source-checksum mapping, passing hosted SQL checks, expected advisor notices
+and the stopped external Data API schema-exposure probe. Do not replay these files
+or run a linked CLI push without reviewing that runner-version mapping. No users
+or application deployment have been provisioned.
+
 ## 1. Isolation and approval gates
 
 Record this non-secret target sheet before any remote action:
 
 | Item | Required value / current evidence |
 | --- | --- |
-| Supabase project | Verified `puyrylatmtcwlvyycplc`, WireNexus Staging, active in eu-west-1; no application migrations/users; signup disabled and verified in Phase 6.6C |
+| Supabase project | Verified `puyrylatmtcwlvyycplc`, WireNexus Staging, active in eu-west-1; eight migrations installed in Phase 6.6D; no users; signup remains disabled |
 | Isolation | Dedicated project with no production/development users, data or secrets; project name alone is not proof |
 | Vercel | Dedicated staging project/origin, not an existing production deployment or shared preview secret scope |
 | Published viewer | Explicit staging HTTPS origin; may be the staging editor origin because HTML remains sandboxed |

@@ -3,6 +3,11 @@
 Date: 2026-10-29. Branch: `engine-prototype`. Target exclusively
 `puyrylatmtcwlvyycplc`, **WireNexus Staging**, VideoCore.
 
+Historical 6.6C configuration observations follow. The separately approved
+[Phase 6.6D database initialization](staging-database-initialization.md) has since
+installed all eight migrations and their application policies/registration guard.
+It did not provision users or change the SMTP/Realtime service settings below.
+
 ## Signup closed and independently verified
 
 The earlier interrupted interaction switched the signup control OFF but did not
