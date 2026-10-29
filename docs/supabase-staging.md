@@ -10,6 +10,14 @@ This consolidates the current account, publishing, organization, cloud and live
 collaboration setup. Older phase documents describe their historical phase boundary;
 use the complete chain below, including Phase 6.5 conflict/undo behavior.
 
+Phase 6.6F records the approved staging origin `https://staging.videocore.net`,
+reserved production origin `https://app.videocore.net`, and Resend sending domain
+`mail.videocore.net`. See [domain and email preparation](staging-domain-email-preparation.md)
+for the Google Cloud hosting proposal, current Vercel compatibility gaps, DNS
+preservation boundary and gated setup sequence. This supersedes the earlier
+unknown-domain/Vercel hosting assumption, not the verified security requirements.
+No DNS, deployment, credential or Auth setting was changed in that preparation.
+
 Phase 6.6B verified target `puyrylatmtcwlvyycplc` (WireNexus Staging) through
 read-only hosted inspection. Phase 6.6C now independently verifies **public signup
 disabled** (`disable_signup=true`). TOTP is enabled. Phase 6.6E saved and reloaded
@@ -37,7 +45,7 @@ Record this non-secret target sheet before any remote action:
 | --- | --- |
 | Supabase project | Verified `puyrylatmtcwlvyycplc`, WireNexus Staging, active in eu-west-1; eight migrations installed in Phase 6.6D; no users; signup remains disabled |
 | Isolation | Dedicated project with no production/development users, data or secrets; project name alone is not proof |
-| Vercel | Dedicated staging project/origin, not an existing production deployment or shared preview secret scope |
+| Hosting | Approved Google Cloud staging plan in Phase 6.6F; dedicated project/region/billing and Cloud Run adapter still required; existing app currently targets Vercel |
 | Published viewer | Explicit staging HTTPS origin; may be the staging editor origin because HTML remains sandboxed |
 | Blob | Dedicated **private** staging Vercel Blob store; never attach the production store/token |
 | Mail | Test-only verified SMTP/Resend senders and operator-controlled recipient inboxes |
