@@ -1,0 +1,60 @@
+import assert from 'node:assert/strict';
+import {mkdtempSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {chromium} from 'playwright';
+import {cableTypeSelectionFixture} from '../fixtures/cable-type-selection.mjs';
+
+const dir=mkdtempSync(join(tmpdir(),'wirenexus-device-protocol-'));
+const browser=await chromium.launch({headless:true,executablePath:process.env.AVDESIGNER_CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+try {
+  const page=await browser.newPage({viewport:{width:1600,height:1000},acceptDownloads:true}),errors=[];
+  page.on('pageerror',error=>errors.push(error.message));page.on('dialog',dialog=>dialog.accept());
+  await page.addInitScript(()=>{window.showSaveFilePicker=undefined;});
+  await page.goto(process.env.AVDESIGNER_BASE_URL || 'http://127.0.0.1:8790');
+  await page.waitForFunction(()=>activeEngineBridge()?.ready && localUserSettingsLoaded);
+  const data=cableTypeSelectionFixture();
+  data.devices.forEach(device=>device.config={});
+  data.connections.forEach((wire,index)=>wire.cableNumber=`V-${String(index+1).padStart(3,'0')}`);
+  await page.evaluate(data=>{restoreSnapshot({...data,nodeLibrary:serializeNodeLibrary()});zoomToFit();},data);
+  const initial=await page.evaluate(()=>JSON.parse(JSON.stringify(activeEngineBridge().mutations.root)));
+  const journal=()=>page.evaluate(()=>activeEngineBridge().getDeviceCommandProtocol());
+  const screen=point=>page.evaluate(point=>{const b=activeEngineBridge(),r=b.canvas.getBoundingClientRect();return {x:r.x+(point.x-b.camera.x)*b.camera.zoom,y:r.y+(point.y-b.camera.y)*b.camera.zoom};},point);
+  const start=await screen({x:100,y:100});
+  await page.mouse.move(start.x,start.y);await page.mouse.down();await page.mouse.move(start.x+40,start.y+40,{steps:8});
+  assert.equal((await journal()).commands.length,0);await page.keyboard.press('Escape');await page.mouse.up();
+  assert.equal((await journal()).commands.length,0);
+  await page.mouse.move(start.x,start.y);await page.mouse.down();await page.mouse.move(start.x+40,start.y+40,{steps:8});
+  assert.equal((await journal()).commands.length,0);await page.mouse.up();assert.equal((await journal()).commands.length,1);
+  await page.evaluate(()=>{activeEngineBridge().undoEngineCommand();activeEngineBridge().redoEngineCommand();});
+  const previewCount=(await journal()).commands.length;
+  await page.evaluate(()=>{const b=activeEngineBridge();b.previewObjectInspectorFields('source',{name:'Preview only'});b.previewObjectInspectorFields('source',{name:'Cable source'});b.scene.selectOnly('sink');b.fitView();});
+  assert.equal((await journal()).commands.length,previewCount);
+  await page.evaluate(()=>{
+    const b=activeEngineBridge();b.commitObjectInspectorFieldsFromBaseline('source',{name:'Cable source'},{name:'Renamed source',notes:'Protocol test'});
+    b.commitObjectInspectorFields('source',{notes:'Inspector path'});b.undoEngineCommand();b.redoEngineCommand();
+    b.setProjectDeviceLocked('source',true);b.undoEngineCommand();b.redoEngineCommand();b.setProjectDeviceLocked('source',false);
+    b.commitObjectPositionFromInspector('source',-200,50);
+    const d=structuredClone(state.devices[0]);d.instanceId='protocol-created';d.name='New device';d.x=1600;d.y=700;
+    if(!b.createDeviceFromLibraryDrop(d))throw Error('Create failed');
+    b.undoEngineCommand();b.redoEngineCommand();
+    b.deleteSelectedDevices(['source']);b.undoEngineCommand();b.redoEngineCommand();b.undoEngineCommand();
+  });
+  const captured=await journal();assert.equal(captured.error,null);assert.ok(captured.commands.some(c=>c.type==='device.create'));
+  assert.ok(captured.commands.some(c=>c.type==='device.delete'));assert.ok(captured.commands.some(c=>c.origin==='undo'));
+  const replay=await page.evaluate(async({initial,captured})=>{
+    const {replayDeviceCommand,createDeviceReplayState}=await import('./src/engine/deviceCommandProtocol.js');
+    let result={project:initial,state:createDeviceReplayState(captured.sessionId)};
+    for(const command of captured.commands)result=replayDeviceCommand(result.project,command,result.state);
+    return {devices:result.project.devices,connections:result.project.connections};
+  },{initial,captured});
+  const live=await page.evaluate(()=>JSON.parse(JSON.stringify({devices:state.devices,connections:state.connections})));
+  assert.deepEqual(replay,live);assert.equal(live.connections.length,4);
+  const download=page.waitForEvent('download');await page.locator('#saveProjectAs').click();
+  const file=join(dir,'protocol.avd');await(await download).saveAs(file);await page.locator('#fileInput').setInputFiles(file);
+  await page.waitForFunction(()=>activeEngineBridge()?.ready && state.devices.some(d=>d.instanceId==='protocol-created'));
+  assert.deepEqual(await page.evaluate(()=>JSON.parse(JSON.stringify({devices:state.devices,connections:state.connections}))),live);
+  assert.equal((await journal()).commands.length,0);assert.notEqual((await journal()).sessionId,captured.sessionId);
+  assert.deepEqual(errors,[]);
+  console.log(JSON.stringify({passed:true,commands:captured.commands.length,checks:['drag preview and cancellation stay local','device creation, movement, properties, deletion and Undo/Redo replay identically','cable topology and .avd save/reopen preserved','new load resets the in-memory journal'],dir}));
+} finally {await browser.close();}

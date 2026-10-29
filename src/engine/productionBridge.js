@@ -5,6 +5,7 @@ import {sharedBusTypeLabels} from './sharedBusLabels.js';
 import {multibandSignal, groupedCoaxMetadata} from "./multibandSignals.js";
 import { assertSafeModularCardChanges } from "./modularCardSafety.js";
 import { cloneHistoryValue, MAX_HISTORY_ENTRIES } from "./historyClone.js";
+import {DeviceCommandJournal} from './deviceCommandProtocol.js';
 import { DragSession } from "./dragSession.js";
 import { adapterCenter, adapterRotationHandle, snapAdapterRotation, adapterRotationBounds, adapterContainsWorldPoint } from "./adapterRotation.js";
 import { ObjectSnapSession } from "./objectSnapping.js";
@@ -986,6 +987,9 @@ class ProductionEngineBridge {
         if (jump) jump.attachedDeviceId = attachedDeviceId;
       });
       this.synchronizeMonitorNames({ render: false });
+      this.deviceCommandJournal = new DeviceCommandJournal({limit:MAX_HISTORY_ENTRIES});
+      this.deviceProtocolPending = null;
+      this.deviceProtocolError = null;
       this.commandHistory = [];
       this.commandIndex = 0;
       this.lastMutationType = "-";
@@ -2215,9 +2219,9 @@ class ProductionEngineBridge {
     this.rotationDrag = null;
     const after = this.scene.getDevice(drag.deviceId)?.rotation ?? drag.before;
     if (after === drag.before) return;
-    this.beginProductionCommit("rotate adapter");
+    this.beginProductionCommit("rotate adapter", {deviceIds:[drag.deviceId]});
     this.applyAdapterRotation(drag.deviceId, after);
-    this.recordCommand({ type: "RotateAdapterCommand", affectedIds: [drag.deviceId],
+    this.recordCommand({ type: "RotateAdapterCommand", affectedIds: [drag.deviceId], protocolDeviceIds:[drag.deviceId],
       undo: bridge => bridge.applyAdapterRotation(drag.deviceId, drag.before),
       redo: bridge => bridge.applyAdapterRotation(drag.deviceId, after) });
     this.markCommitted("rotate adapter", 0);
@@ -5189,7 +5193,7 @@ class ProductionEngineBridge {
       return device ? { id, x: device.x, y: device.y } : null;
     }).filter(Boolean);
     const afterRouteStates = captureWireRouteStates(this.scene, affectedWireIds);
-    this.beginProductionCommit(`move ${selectedIds.length} object${selectedIds.length === 1 ? "" : "s"}`);
+    this.beginProductionCommit(`move ${selectedIds.length} object${selectedIds.length === 1 ? "" : "s"}`, {deviceIds:selectedIds});
     const deviceMutationMs = this.mutations?.commitDevicePositions(this.scene, selectedIds) || 0;
     const routeMutationMs = this.commitWireRouteStates(afterRouteStates);
     const mutationMs = deviceMutationMs + routeMutationMs;
@@ -7242,7 +7246,7 @@ class ProductionEngineBridge {
       after.selectedProjectorLensId = resolveProjectorLens(device.visual, after).selectedProjectorLensId;
     }
     if (!inspectorFieldsChanged(before, after)) return false;
-    this.beginProductionCommit("inspector object fields");
+    this.beginProductionCommit("inspector object fields", {deviceIds:[device.sourceId || device.id]});
     const result = this.applyObjectInspectorFields(device.sourceId || device.id, after);
     this.recordCommand(objectInspectorFieldsCommand(device.sourceId || device.id, before, after));
     this.markCommitted("inspector object fields", result.mutationMs || 0, {
@@ -7338,7 +7342,7 @@ class ProductionEngineBridge {
     const before = sanitizeObjectInspectorFields(beforeFields);
     const after = sanitizeObjectInspectorFields(afterFields);
     if (!id || !inspectorFieldsChanged(before, after)) return false;
-    this.beginProductionCommit(label);
+    this.beginProductionCommit(label, {deviceIds:[id]});
     const result = this.applyObjectInspectorFields(id, after);
     this.recordCommand(objectInspectorFieldsCommand(id, before, after));
     this.markCommitted(label, result.mutationMs || 0, {
@@ -7362,7 +7366,7 @@ class ProductionEngineBridge {
       this.scheduleRender();
       return true;
     }
-    this.beginProductionCommit(`${afterLocked ? "lock" : "unlock"} device`);
+    this.beginProductionCommit(`${afterLocked ? "lock" : "unlock"} device`, {deviceIds:[id]});
     const result = this.applyObjectInspectorFields(id, { locked: afterLocked });
     this.recordCommand(lockDeviceCommand(id, beforeLocked, afterLocked));
     this.markCommitted(`${afterLocked ? "lock" : "unlock"} device`, result.mutationMs || 0, {
@@ -7417,7 +7421,7 @@ class ProductionEngineBridge {
     const afterPositions = [afterPosition, ...followers.map(follower => ({
       id: follower.id, x: follower.x + dx, y: follower.y + dy
     }))];
-    this.beginProductionCommit("inspector position");
+    this.beginProductionCommit("inspector position", {deviceIds:beforePositions.map(item => item.id)});
     const result = this.applyDevicePositions(afterPositions, []);
     this.recordCommand(moveDevicesCommand(beforePositions, afterPositions, [], []));
     this.markCommitted("inspector position", result.mutationMs || 0, {
@@ -8787,6 +8791,14 @@ class ProductionEngineBridge {
   markCommitted(type, mutationMs = 0, extra = {}) {
     this.multiCoreConnectivityCache = null;
     this.synchronizeMonitorNames();
+    const pending = this.deviceProtocolPending;
+    this.deviceProtocolPending = null;
+    if (pending) {
+      try {
+        const after = this.deviceCommandJournal.capture(this.mutations.root, pending.before.deviceIds);
+        this.deviceCommandJournal.record(pending.before, after, pending.origin);
+      } catch (error) { this.deviceProtocolError = error.message; }
+    }
     const mutationStats = this.mutations?.stats() || {};
     this.lastMutationType = type;
     this.hud.setMetric("last command", type);
@@ -8799,7 +8811,17 @@ class ProductionEngineBridge {
     this.hud.setMetric("production sync", `${(performance.now() - syncStart).toFixed(2)} ms`);
   }
 
-  beginProductionCommit(type, { snapshot = true } = {}) {
+  getDeviceCommandProtocol() {
+    return {...this.deviceCommandJournal?.export(), error:this.deviceProtocolError || null};
+  }
+
+  beginProductionCommit(type, { snapshot = true, deviceIds = [], origin = 'edit' } = {}) {
+    this.deviceProtocolPending = null;
+    if (deviceIds.length && this.deviceCommandJournal) {
+      try {
+        this.deviceProtocolPending = {before:this.deviceCommandJournal.capture(this.mutations.root, deviceIds), origin};
+      } catch (error) { this.deviceProtocolError = error.message; }
+    }
     this.productionDirty = true;
     const start = performance.now();
     if (snapshot) this.api.onEngineBeforeCommit?.({ type });
@@ -8869,7 +8891,7 @@ class ProductionEngineBridge {
     let textureBuildDelta = 0;
     let textureRebuildDelta = 0;
     try {
-      this.beginProductionCommit(`${direction} ${command.type}`, { snapshot: false });
+      this.beginProductionCommit(`${direction} ${command.type}`, { snapshot: false, deviceIds:command.protocolDeviceIds || [], origin:direction });
       const mutationStart = performance.now();
       result = applyCommand() || {};
       mutationReplayMs = performance.now() - mutationStart;
@@ -9299,7 +9321,7 @@ class ProductionEngineBridge {
       });
       return false;
     }
-    this.beginProductionCommit(`create ${rawDevices.length} device${rawDevices.length === 1 ? "" : "s"}`);
+    this.beginProductionCommit(`create ${rawDevices.length} device${rawDevices.length === 1 ? "" : "s"}`, {deviceIds:ids});
     const created = [];
     let mutationMs = 0;
     rawDevices.forEach((rawDevice, offset) => {
@@ -9910,7 +9932,7 @@ class ProductionEngineBridge {
       deviceIds: ids,
       connectedWireIds
     });
-    this.beginProductionCommit(`delete ${ids.length} device${ids.length === 1 ? "" : "s"}`);
+    this.beginProductionCommit(`delete ${ids.length} device${ids.length === 1 ? "" : "s"}`, {deviceIds:ids});
     const deletedWires = [];
     const deletedDevices = [];
     let mutationMs = 0;
@@ -11945,6 +11967,7 @@ function polylineIntersectsDevice(points = [], device = null) {
 
 function moveDevicesCommand(beforePositions, afterPositions, beforeRouteStates = [], afterRouteStates = []) {
   return {
+    protocolDeviceIds:afterPositions.map(item => item.id),
     type: `MoveDevicesCommand (${afterPositions.length})`,
     affectedIds: uniqueItems([
       ...afterPositions.map(item => item.id),
@@ -11993,6 +12016,7 @@ function objectInspectorFieldsCommand(objectId, beforeFields, afterFields) {
   const before = sanitizeObjectInspectorFields(beforeFields);
   const after = sanitizeObjectInspectorFields(afterFields);
   return {
+    protocolDeviceIds:[id],
     type: "InspectorObjectFieldsCommand",
     affectedIds: [id],
     undo: bridge => bridge.applyObjectInspectorFields(id, before),
@@ -12003,6 +12027,7 @@ function objectInspectorFieldsCommand(objectId, beforeFields, afterFields) {
 function lockDeviceCommand(objectId, beforeLocked, afterLocked) {
   const id = String(objectId || "");
   return {
+    protocolDeviceIds:[id],
     type: afterLocked ? "LockDeviceCommand" : "UnlockDeviceCommand",
     affectedIds: [id],
     undo: bridge => bridge.applyObjectInspectorFields(id, { locked: Boolean(beforeLocked) }),
@@ -12256,6 +12281,7 @@ function createDevicesCommand(deviceList = [], firstIndex = null) {
     })
     .filter(Boolean);
   return {
+    protocolDeviceIds:ids,
     type: rawDevices.length === 1 ? "CreateDeviceCommand" : `CreateDevicesCommand (${rawDevices.length})`,
     affectedIds: ids,
     undo: bridge => {
@@ -12417,6 +12443,7 @@ function deleteDevicesCommand(deletedDevices = [], deletedWires = [], selectionB
   ]);
   const restoredSelection = deepClone(selectionBefore || {});
   return {
+    protocolDeviceIds:devices.map(item => item.engineId),
     type: `DeleteDevicesCommand (${devices.length})`,
     affectedIds: uniqueItems([
       ...devices.map(item => item.engineId),
