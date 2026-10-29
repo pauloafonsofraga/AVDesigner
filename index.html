@@ -33270,14 +33270,17 @@
     }
 
     function assignProjectCableNumbers(module) {
+      const bridge = activeEngineBridge();
+      const recordProtocol = bridge && !bridge.topologyProtocolPending;
+      if (recordProtocol) bridge.beginTopologyProtocolEdit?.("assign cable numbers");
       const project = { ...state, deviceLibrary };
       module.ensureCableNumbers(project, { getConnector: connectorById, nodeDefinitions: serializeNodeLibrary() });
       state.cableNumberCounters = project.cableNumberCounters;
-      const bridge = activeEngineBridge();
       if (bridge) state.connections.forEach(connection => {
         const wire = bridge.resolveWire?.(connection.id);
         if (wire) wire.cableNumber = connection.cableNumber || "";
       });
+      if (recordProtocol) bridge.finishTopologyProtocolEdit?.("assign cable numbers");
     }
 
     async function refreshCableSchedule() {

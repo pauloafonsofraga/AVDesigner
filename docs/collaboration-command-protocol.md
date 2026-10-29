@@ -1,5 +1,9 @@
 # Phase 6.1: Device command protocol
 
+Phase 6.2 extends this with validated atomic topology transactions; see
+[Topology command protocol](topology-command-protocol.md). The v1 API and existing
+single-user behavior described here remain available for compatibility.
+
 This is a local preparation layer, not real-time collaboration. No transport,
 subscriptions, backend, Supabase migration, entitlements, registration or deployment
 is added. Local Engine mutations and history remain the source of truth.

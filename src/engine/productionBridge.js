@@ -6,6 +6,7 @@ import {multibandSignal, groupedCoaxMetadata} from "./multibandSignals.js";
 import { assertSafeModularCardChanges } from "./modularCardSafety.js";
 import { cloneHistoryValue, MAX_HISTORY_ENTRIES } from "./historyClone.js";
 import {DeviceCommandJournal} from './deviceCommandProtocol.js';
+import {TopologyCommandJournal} from './topologyCommandProtocol.js';
 import { DragSession } from "./dragSession.js";
 import { adapterCenter, adapterRotationHandle, snapAdapterRotation, adapterRotationBounds, adapterContainsWorldPoint } from "./adapterRotation.js";
 import { ObjectSnapSession } from "./objectSnapping.js";
@@ -990,6 +991,8 @@ class ProductionEngineBridge {
       this.deviceCommandJournal = new DeviceCommandJournal({limit:MAX_HISTORY_ENTRIES});
       this.deviceProtocolPending = null;
       this.deviceProtocolError = null;
+      this.topologyCommandJournal = new TopologyCommandJournal({limit:MAX_HISTORY_ENTRIES});
+      this.topologyProtocolPending = null;
       this.commandHistory = [];
       this.commandIndex = 0;
       this.lastMutationType = "-";
@@ -8012,7 +8015,9 @@ class ProductionEngineBridge {
       }
       return {};
     };
-    apply(true);
+    this.beginTopologyProtocolEdit('canvas clipboard');
+    try { apply(true); }
+    catch (error) { this.topologyProtocolPending=null; throw error; }
     this.recordCommand({ type: "canvas clipboard", undo: () => apply(false), redo: () => apply(true) });
     this.markCommitted("canvas clipboard");
     return true;
@@ -8024,6 +8029,7 @@ class ProductionEngineBridge {
       return false;
     }
     assertSafeModularCardChanges(payload.before, payload.after, {approvedReplacementKeys:payload.approvedCardReplacementKeys});
+    this.beginTopologyProtocolEdit?.('device editor apply','edit',{...(this.api?.getProjectData?.() || this.mutations?.root || {}),...payload.before});
     const command = deviceEditorApplyCommand(payload);
     const result = this.applyDeviceEditorSnapshot(payload.after, payload);
     this.recordCommand(command);
@@ -8808,6 +8814,7 @@ class ProductionEngineBridge {
     this.renderEngineInspector();
     const syncStart = performance.now();
     this.api.onEngineCommit?.({ type, mutationMs, mutationStats, ...extra });
+    this.finishTopologyProtocolEdit(type);
     this.hud.setMetric("production sync", `${(performance.now() - syncStart).toFixed(2)} ms`);
   }
 
@@ -8815,7 +8822,29 @@ class ProductionEngineBridge {
     return {...this.deviceCommandJournal?.export(), error:this.deviceProtocolError || null};
   }
 
+  async getTopologyCommandProtocol() {
+    return this.topologyCommandJournal?.export();
+  }
+
+  finishTopologyProtocolEdit(intent) {
+    const pending=this.topologyProtocolPending;
+    this.topologyProtocolPending=null;
+    if(!pending)return;
+    try {
+      const after=this.topologyCommandJournal.capture(this.api.getProjectData?.() || this.mutations.root);
+      this.topologyCommandJournal.record(pending.before,after,intent || pending.intent,pending.origin);
+    } catch(error) {this.topologyCommandJournal.error={code:error.code || 'INVALID_COMMAND',message:error.message};}
+  }
+
+  beginTopologyProtocolEdit(intent,origin='edit',project=this.api.getProjectData?.() || this.mutations?.root) {
+    this.topologyProtocolPending=null;
+    if(!this.topologyCommandJournal || !project)return;
+    try {this.topologyProtocolPending={before:this.topologyCommandJournal.capture(project),intent,origin};}
+    catch(error) {this.topologyCommandJournal.error={code:error.code || 'INVALID_COMMAND',message:error.message};}
+  }
+
   beginProductionCommit(type, { snapshot = true, deviceIds = [], origin = 'edit' } = {}) {
+    this.beginTopologyProtocolEdit(type,origin);
     this.deviceProtocolPending = null;
     if (deviceIds.length && this.deviceCommandJournal) {
       try {
