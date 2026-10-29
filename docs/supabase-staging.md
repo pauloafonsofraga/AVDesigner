@@ -284,13 +284,13 @@ Capacity blockers to measure before acceptance:
 
 ## 6. Test accounts and Enterprise provisioning
 
-For the Dashboard "Database error creating new user" failure, use the
-[staging provisioning procedure](staging-user-provisioning.md). It includes
-target-bound Admin SDK creation with the trusted app-metadata marker, redacted
-failure handling, read-only workspace checks and separate MFA Admin bootstrap.
-Do not disable the registration trigger or use normal Dashboard creation without
-the marker. The example below remains background; use the dedicated procedure's
-target and security checks for actual operator provisioning.
+**Provisioning blocked by hosted Auth-service ordering:** see the
+[staging provisioning investigation](staging-user-provisioning.md). Admin API
+access is verified, but Auth inserts the user before applying the supplied trusted
+app metadata, so the current BEFORE INSERT guard rejects even the proposed Admin
+SDK flow. The examples below are historical proposals, not operational steps.
+Do not retry them, disable the guard, enable registration or proceed to role
+bootstrap. A narrowly scoped compatibility repair needs separate approval.
 
 After migration approval, create synthetic accounts with separate controlled inboxes:
 

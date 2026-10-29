@@ -1,23 +1,51 @@
 # Staging user provisioning with registration closed
 
 Date: 2026-10-29. Exclusive target: `puyrylatmtcwlvyycplc` (WireNexus Staging).
-This is an administrator-operated procedure, not a public API or browser feature.
-No remote user, role, membership or configuration was created/changed while
-preparing or verifying this procedure. No migration or application fix is needed.
+**BLOCKED after real hosted verification on 2026-10-29. Do not execute the
+historical creation example below or retry provisioning until a narrowly scoped
+compatibility repair has been separately approved and validated.**
+
+The staging server credential was read from the two specifically authorized local
+Keychain items without printing secrets. Auth Admin listUsers succeeded (HTTP 200),
+confirming administrator API access. The attempted Admin SDK createUser included
+`app_metadata:{wirenexus_provisioned:true}`, but creation failed. Hosted PostgreSQL
+logs confirm `registration_guard` rejection (42501); the Auth transaction then
+reported its aborted state (25P02). No matching account exists afterward.
+
+Supabase Auth's [adminUserCreate implementation](https://github.com/supabase/auth/blob/master/internal/api/admin.go)
+initializes provider metadata, calls `tx.Create(user)`, and only later calls
+`UpdateAppMetaData` with the administrator-supplied metadata. Therefore the marker
+is not present when this project's BEFORE INSERT guard evaluates it. Supplying
+the marker to createUser does not satisfy the current trigger. This contradicts
+the original workflow assumption; local fixture tests insert metadata in the
+initial SQL row and did not simulate this Auth-service ordering.
+
+Stop here: no trigger, registration gate, RLS, migration or platform role was
+changed. Both triggers remain enabled, all eight migrations and the policy hash
+remain unchanged. Personal workspace/Owner verification, password authentication,
+MFA and email delivery cannot proceed without an account. No deployment or
+production change. A secure provisioning/guard compatibility design requires
+separate approval; do not use a temporary registration toggle, direct Auth-table
+insert, user-editable marker or broad Auth-role exemption as a workaround.
+
+The remainder records the original proposed workflow and its limitations, not an
+operational provisioning procedure. No remote account, role or membership was
+created by either the original documentation work or the hosted attempt.
 
 ## Why Dashboard creation fails
 
 The generic Dashboard **Create user** operation does not supply WireNexus's
 trusted creation marker. With registration closed, the existing
 `wirenexus_registration_guard` rejects such an insert. Supabase reports the
-trigger failure as "Database error creating new user." The supported path is
-Supabase's server-only Auth Admin API with:
+trigger failure as "Database error creating new user." The originally proposed
+path was Supabase's server-only Auth Admin API with:
 
 ```js
 app_metadata: { wirenexus_provisioned: true }
 ```
 
-This must accompany the **initial** creation. Adding it afterward cannot repair
+The guard requires this marker in the **initial database insert**, not merely in
+the API request. The hosted Auth service applies it too late. Adding it afterward cannot repair
 an account whose creation was rolled back. `user_metadata`, display names, JWT
 role hints and a publishable/anon key are not substitutes. Do not retry Dashboard
 creation, toggle registration, disable triggers, insert into `auth.users`, or add
@@ -54,12 +82,12 @@ and does not authorize this SDK operation on its own.
    temporarily relaxed. Credential identity must be independently checked by the
    operator; a key format alone does not establish which project issued it.
 
-## Create one account through the Auth Admin API
+## Historical creation example (blocked; do not execute)
 
-Run the following from the repository in the **secure operator environment** only
-after provisioning approval and secret injection. It deliberately has no role,
-plan, membership or arbitrary-metadata inputs. It was not run against staging in
-this verification; no recipient/password was supplied.
+The following example was the original proposed operator flow. A corresponding
+hosted request has now failed for the ordering reason above. It deliberately has
+no role, plan, membership or arbitrary-metadata inputs, but that alone is not
+sufficient for this trigger. Retained for diagnosis, not for repeated execution.
 
 ```sh
 node --input-type=module <<'JS'
@@ -224,7 +252,7 @@ If those are not ready, stop before invitations; do not bypass delivery/acceptan
 with SQL. Publishing authorization is separate and is not required to create a
 Platform Admin or Enterprise workspace; see the [complete test runbook](supabase-staging.md#6-test-accounts-and-enterprise-provisioning).
 
-## Verification performed and limits
+## Original local verification and hosted limitation
 
 Read-only hosted inspection confirmed registration policy false, both original
 Auth triggers enabled, unchanged guard/provision/MFA function definitions, eight
@@ -247,10 +275,10 @@ with mocked Auth/SDK calls: exact trusted create payload, wrong URL, wrong proje
 publishable-key rejection, open-signup refusal and sanitized provider failure.
 These checks did not use a real credential or make external requests.
 
-No hosted createUser, password login, MFA enrollment, SMTP send, role grant or
-Enterprise invitation was executed; no approved recipient credentials were
-provided. Real Admin API creation and subsequent login/MFA/mail acceptance remain
-operator checks. No claim of real end-to-end provisioning success is made from
-the local simulation. Existing guards, RLS, migrations, data and production remain
+The original local verification did not execute hosted createUser. Subsequent
+hosted verification is recorded in the blocking notice above: administrator read
+access passed, creation failed, and no password login, MFA enrollment, SMTP send,
+role grant or Enterprise invitation followed. No claim of real end-to-end
+provisioning success is made from the local simulation. Existing guards, RLS, migrations, data and production remain
 untouched. All eight local migration checksums and 245 protected-file hashes were
 verified unchanged before the scoped documentation commit.
