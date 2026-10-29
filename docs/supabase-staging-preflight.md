@@ -3,6 +3,10 @@
 Date: 2026-10-29. Branch: `engine-prototype`. Inspected repository baseline:
 `a94a39c35ba15315904e845f34106fce481551ba` (application baseline `776ff65`).
 
+Historical Phase 6.6B finding below: signup was enabled during that preflight.
+It is now verified disabled in [Phase 6.6C](staging-security-configuration.md).
+That follow-up inspects MFA/email/Realtime and does not apply migrations or deploy.
+
 ## Decision: inventory verified; setup approval still required
 
 **Blocking configuration finding: public Auth signup is currently enabled.**

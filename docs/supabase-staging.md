@@ -10,12 +10,13 @@ This consolidates the current account, publishing, organization, cloud and live
 collaboration setup. Older phase documents describe their historical phase boundary;
 use the complete chain below, including Phase 6.5 conflict/undo behavior.
 
-Phase 6.6B now verifies target `puyrylatmtcwlvyycplc` (WireNexus Staging) through
-read-only hosted inspection. **Its existing Auth configuration has public signup
-enabled (`disable_signup=false`); approval is required to disable it.** The inventory
-and outstanding hosted checks are recorded in
-[the staging preflight report](supabase-staging-preflight.md). Supplying a project
-reference or passing inventory checks does not authorize setup or deployment.
+Phase 6.6B verified target `puyrylatmtcwlvyycplc` (WireNexus Staging) through
+read-only hosted inspection. Phase 6.6C now independently verifies **public signup
+disabled** (`disable_signup=true`). TOTP is enabled, but SMTP/templates, staging
+URLs, private-only Realtime and deployment credentials still need configuration.
+See the [security configuration check](staging-security-configuration.md) for current
+settings and the [preflight report](supabase-staging-preflight.md) for historical
+inventory. No migrations, provisioning or deployment are authorized by these checks.
 
 ## 1. Isolation and approval gates
 
@@ -23,7 +24,7 @@ Record this non-secret target sheet before any remote action:
 
 | Item | Required value / current evidence |
 | --- | --- |
-| Supabase project | Verified `puyrylatmtcwlvyycplc`, WireNexus Staging, active in eu-west-1; application-empty inventory; signup currently enabled; see Phase 6.6B report |
+| Supabase project | Verified `puyrylatmtcwlvyycplc`, WireNexus Staging, active in eu-west-1; no application migrations/users; signup disabled and verified in Phase 6.6C |
 | Isolation | Dedicated project with no production/development users, data or secrets; project name alone is not proof |
 | Vercel | Dedicated staging project/origin, not an existing production deployment or shared preview secret scope |
 | Published viewer | Explicit staging HTTPS origin; may be the staging editor origin because HTML remains sandboxed |
