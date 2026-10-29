@@ -10181,6 +10181,7 @@
         updateUndoRedoButtons();
         return;
       }
+      if (typeof cloudProjectsUi !== 'undefined' && cloudProjectsUi?.collaboration?.active()) { cloudProjectsUi.collaboration.history('undo'); return; }
       const engineBridge = activeEngineBridge();
       if (engineBridge) {
         flushPendingInspectorCommit();
@@ -10211,6 +10212,7 @@
         updateUndoRedoButtons();
         return;
       }
+      if (typeof cloudProjectsUi !== 'undefined' && cloudProjectsUi?.collaboration?.active()) { cloudProjectsUi.collaboration.history('redo'); return; }
       const engineBridge = activeEngineBridge();
       if (engineBridge) {
         flushPendingInspectorCommit();
@@ -10237,6 +10239,12 @@
         if (undo) undo.disabled = undoStack.length === 0;
         if (redo) redo.disabled = redoStack.length === 0;
         updateShellDebug({ lastPanelAction: "rack builder undo/redo state" });
+        return;
+      }
+      const liveSession=typeof cloudProjectsUi !== 'undefined' && cloudProjectsUi?.collaboration?.active() && cloudProjectsUi.collaboration.session();
+      if(liveSession) {
+        if(undo)undo.disabled=!liveSession.writable || liveSession.pending.length>0 || !liveSession.undo.length;
+        if(redo)redo.disabled=!liveSession.writable || liveSession.pending.length>0 || !liveSession.redo.length;
         return;
       }
       const engineBridge = activeEngineBridge();
@@ -34450,8 +34458,29 @@ document.addEventListener("click", function(event) {
     async function showCloudProjects(mode) {
       try {
         await loadLocalUserSettings();
-        cloudProjectsMount ||= import(engineImportUrl("./src/cloudProjectsUi.js")).then(({ mountCloudProjects }) => {
+        cloudProjectsMount ||= import(engineImportUrl("./src/cloudProjectsUi.js")).then(async ({ mountCloudProjects }) => {
+          const {applyTopologyIntent} = await import(engineImportUrl("./src/liveCollaboration.js"));
+          const {captureTopologyState,TOPOLOGY_COLLECTIONS} = await import(engineImportUrl("./src/engine/topologyCommandProtocol.js"));
           cloudProjectsUi = mountCloudProjects({ account: () => accountLibraryUi,
+            live: {bridge:activeEngineBridge,readLocal:()=>projectSnapshotData({readOnly:true}),onHistory:updateUndoRedoButtons,
+              isDraftOpen:()=>!deviceEditorModal.classList.contains("hidden") || Boolean(document.querySelector('dialog[open],.modal-backdrop:not(.hidden)'))
+                || Boolean(document.activeElement?.matches('input,textarea,select,[contenteditable=true]')),
+              apply:(next,previous,{reset=false}={})=>{
+                const bridge=activeEngineBridge(),local=projectSnapshotData({readOnly:true});
+                const merged=applyTopologyIntent(local,captureTopologyState(reset?local:previous),captureTopologyState(next));
+                for(const key of TOPOLOGY_COLLECTIONS)if(!['deviceLibrary','nodeLibrary'].includes(key)) {
+                  if(Object.hasOwn(merged,key))state[key]=merged[key];
+                  else if(['multiCores','multiCoreDefinitions','layers'].includes(key))delete state[key];
+                  else state[key]=[];
+                }
+                deviceLibrary=mergeLoadedDeviceLibrary(merged.deviceLibrary);
+                applySerializedNodeLibrary(merged.nodeLibrary || []);
+                for(const key of ['wireMode','cableNumberCounters','loomNumberCounter','loomPortalNumberCounter','multiCoreIdCounter','powerVoltage'])
+                  if(Object.hasOwn(merged,key))state[key]=merged[key];else delete state[key];
+                syncIdCounter();undoStack=[];redoStack=[];
+                bridge.refreshForCollaboration();
+                renderProjectLayersPanel();requestCableScheduleRefresh();requestSignalChainRefresh();updateUndoRedoButtons();
+              }},
             serialize: projectJsonPayload, capture: () => projectUnsavedChanges?.capture(),
             markSaved: checkpoint => projectUnsavedChanges?.markSaved(checkpoint),
             isDirty: () => projectUnsavedChanges?.isDirty(), projectName: () => state.projectName, onStatus: setStatus,
@@ -34572,6 +34601,7 @@ document.addEventListener("click", function(event) {
     }
 
     function loadProjectFile(file, options = {}) {
+      if(typeof cloudProjectsUi !== 'undefined')cloudProjectsUi?.detach();
       cancelLedImagePreparation();
       const controller = ledImagePreparationController = new AbortController();
       const metrics = window.__AVD_PROJECT_LOAD_METRICS__ = { started: performance.now() };
@@ -34911,6 +34941,7 @@ document.addEventListener("click", function(event) {
         if (!confirmed) return;
         pushUndo();
       }
+      if(typeof cloudProjectsUi !== 'undefined')cloudProjectsUi?.detach();
       setDarkMode(true);
       setGridVisible(true);
       setObjectSnapping(true);

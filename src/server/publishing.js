@@ -22,7 +22,7 @@ export function failure(res,error) {
   return send(res,status,{error:error instanceof PublishingError?error.message:'Publishing service is temporarily unavailable.'});
 }
 export function validId(value) {return typeof value==='string' && /^[a-z0-9][a-z0-9-]{2,90}$/.test(value);}
-export function createPublishingSecurity({env=process.env,clientFactory=createClient}={}) {
+export function createPublishingSecurity({env=process.env,clientFactory=createClient,authenticationScope='auth'}={}) {
   const url=env.WIRENEXUS_SUPABASE_URL,key=env.WIRENEXUS_SUPABASE_SERVICE_ROLE_KEY;
   if(!url || !key)throw new PublishingError(503,'Publishing service requires administrator configuration.');
   const client=clientFactory(url,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
@@ -42,11 +42,15 @@ export function createPublishingSecurity({env=process.env,clientFactory=createCl
     // Do not accept a client-controlled X-Forwarded-For as a limiter identity.
     const ip=env.VERCEL?req.headers?.['x-vercel-forwarded-for']:req.socket?.remoteAddress;
     if(typeof ip!=='string' || !isIP(ip))throw new PublishingError(503,'Request source could not be verified.');
-    await call('throttle',{scope,key:crypto.createHmac('sha256',key).update(ip).digest('hex'),publicationId});
+    const sourceKey=crypto.createHmac('sha256',key).update(ip).digest('hex');
+    if(scope==='collaboration') {
+      const {error}=await client.rpc('wirenexus_collaboration_throttle',{source_key:sourceKey});
+      if(error)throw new PublishingError(error.code==='P0429'?429:503,'Collaboration authentication is temporarily unavailable.');
+    }else await call('throttle',{scope,key:sourceKey,publicationId});
   };
   return {call,throttle,verifiedAal:()=>verifiedAal,async authenticate(req){
     verifiedAal='aal1';
-    await throttle(req,'auth');
+    await throttle(req,authenticationScope);
     const authorization=req.headers?.authorization;
     if(typeof authorization!=='string' || !/^Bearer [^\s]+$/.test(authorization))throw new PublishingError(401,'Sign in to publish this project.');
     const {data,error}=await client.auth.getUser(authorization.slice(7));

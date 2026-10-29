@@ -7,7 +7,7 @@ export function createCollaborationHandler({env=process.env,security=createPubli
     if(req.method!=='POST'){res.setHeader('Allow','POST');return send(res,405,{error:'Method not allowed.'});}
     try {
       const body=readBody(req);
-      const guard=security({env}),actorId=await guard.authenticate(req);
+      const guard=security({env,authenticationScope:'collaboration'}),actorId=await guard.authenticate(req);
       const client=clientFactory(env.WIRENEXUS_SUPABASE_URL,env.WIRENEXUS_SUPABASE_SERVICE_ROLE_KEY,
         {auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
       const execute=createCollaborationOperations({rpc:client.rpc.bind(client),actorId,actorAal:guard.verifiedAal()});

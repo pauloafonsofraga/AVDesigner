@@ -1028,6 +1028,18 @@ class ProductionEngineBridge {
     }
   }
 
+  refreshForCollaboration() {
+    const sets=['selectedIds','selectedRackIds','selectedWireIds','selectedConnectorKeys','selectedRoutePointKeys','expandedLoomIds'];
+    const strings=['selectedLoomId','selectedLoomPortalKey','primarySelectedJumpId','selectedJumpLinkId'];
+    const selected=Object.fromEntries([...sets.map(k=>[k,new Set(this.scene[k])]),...strings.map(k=>[k,this.scene[k]])]);
+    this.refreshFromProduction('accepted collaboration operations',{preserveViewport:true});
+    for(const k of sets)this.scene[k]=selected[k];
+    for(const k of strings)this.scene[k]=selected[k];
+    this.scene.selectedIds=new Set([...this.scene.selectedIds].filter(id=>this.scene.getDevice(id)));
+    this.scene.selectedWireIds=new Set([...this.scene.selectedWireIds].filter(id=>this.scene.getWire(id)));
+    this.updateSelectionHud();this.renderEngineInspector();this.scheduleRender();
+  }
+
   updateRackBuilderDebugHud(reason = "rack debug") {
     if (!this.debugRackBuilder) return;
     const racks = this.scene.racks || [];
@@ -3171,6 +3183,11 @@ class ProductionEngineBridge {
   }
 
   handleKeyDown(event) {
+    if(this.collaborationHistory && (event.metaKey || event.ctrlKey) && ['z','y'].includes(event.key.toLowerCase())
+      && !event.target?.closest?.('input,textarea,[contenteditable=true]')
+      && this.collaborationHistory(event.shiftKey || event.key.toLowerCase()==='y'?'redo':'undo')) {
+      event.preventDefault();event.stopImmediatePropagation();return;
+    }
     if (isEditableEventTarget(event.target)) return;
     if (globalThis.document?.querySelector(".modal-backdrop:not(.hidden), dialog[open]")) return;
     if (!this.ready) {
@@ -8833,6 +8850,7 @@ class ProductionEngineBridge {
     try {
       const after=this.topologyCommandJournal.capture(this.api.getProjectData?.() || this.mutations.root);
       this.topologyCommandJournal.record(pending.before,after,intent || pending.intent,pending.origin);
+      window.dispatchEvent(new CustomEvent('wirenexus:topology-commit',{detail:{before:pending.before,after,intent:intent || pending.intent,origin:pending.origin}}));
     } catch(error) {this.topologyCommandJournal.error={code:error.code || 'INVALID_COMMAND',message:error.message};}
   }
 

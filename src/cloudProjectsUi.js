@@ -1,6 +1,8 @@
 import {createCloudProjects} from './cloudProjects.js';
+import {mountLiveCollaboration} from './liveCollaborationUi.js';
 
-export function mountCloudProjects({account,serialize,load,capture,markSaved,isDirty,projectName,onStatus=()=>{}}) {
+export function mountCloudProjects({account,serialize,load,capture,markSaved,isDirty,projectName,onStatus=()=>{},live}) {
+  const collaboration=live?mountLiveCollaboration({account,load,onStatus,capture,onSaved:checkpoint=>markSaved(checkpoint),...live}):null;
   const dialog=document.createElement('dialog');dialog.id='cloudProjectsDialog';
   dialog.style.cssText='width:min(900px,calc(100vw - 32px));max-height:85vh;overflow:auto;background:var(--panel,#20272d);color:var(--text,#fff);border:1px solid var(--line,#566);border-radius:6px;padding:20px';
   const style=document.createElement('style');style.textContent='#cloudProjectsDialog [hidden]{display:none!important} #cloudProjectsDialog .cloud-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0} #cloudProjectsDialog input,#cloudProjectsDialog select{min-width:0;max-width:100%} #cloudProjectsDialog select,#cloudProjectsDialog input:not([type=checkbox]){background:var(--panel,#20272d);color:var(--text,#fff);border:1px solid var(--line,#566);border-radius:4px;padding:6px;font:inherit} #cloudProjectsDialog .cloud-row{border-top:1px solid var(--line,#566);padding:12px 0;overflow-wrap:anywhere} #cloudProjectsDialog .cloud-name{font-weight:700} #cloudProjectsDialog .cloud-status{overflow-wrap:anywhere}';
@@ -15,7 +17,7 @@ export function mountCloudProjects({account,serialize,load,capture,markSaved,isD
   let binding=null,epoch=0,identity=null,busy=false,mode='open';
   const button=(parent,text,fn,id)=>{const b=document.createElement('button');b.type='button';b.className='tool-button';b.textContent=text;if(id)b.id=id;b.addEventListener('click',()=>run(fn));parent.append(b);return b;};
   const message=text=>{status.textContent=text;onStatus(text);};
-  const detach=()=>{binding=null;epoch++;};
+  const detach=()=>{binding=null;epoch++;collaboration?.detach();};
   const current=()=>{
     const next=account()?.cloudIdentity();
     if(!next){detach();identity=null;throw new Error('Sign in through Device Editor > Defaults > Account first.');}
@@ -47,6 +49,8 @@ export function mountCloudProjects({account,serialize,load,capture,markSaved,isD
       const meta=document.createElement('div');meta.textContent=`Version ${row.current_version} - ${new Date(row.updated_at).toLocaleString()}${row.archived?' - Archived':''}`;
       const actions=document.createElement('div');actions.className='cloud-controls';
       button(actions,'Open',()=>open(row));
+      if(collaboration && identity?.workspaces.find(w=>w.id===row.workspace_id)?.kind==='enterprise' && !row.archived)
+        button(actions,'Collaborate',()=>open(row,undefined,true));
       button(actions,'Versions',()=>versions(row));
       if(writable()){
         button(actions,'Rename',async()=>{const value=prompt('Project name',row.name);if(value?.trim())await mutate(row,'rename',{name:value.trim()});});
@@ -64,8 +68,11 @@ export function mountCloudProjects({account,serialize,load,capture,markSaved,isD
     if(binding?.id===row.id && binding.revision===row.revision && ['rename','archive'].includes(operation))binding=result;
     await refresh();
   }
-  async function open(row,versionId) {
+  async function open(row,versionId,activate=false) {
     if(isDirty() && !confirm('Open cloud project and discard unsaved canvas changes?'))return;
+    if(!versionId && collaboration && (activate || row.collaboration_active===true) && current().workspaces.find(w=>w.id===row.workspace_id)?.kind==='enterprise') {
+      if(await collaboration.open(row,{activate})) {binding=row;dialog.close();return;}
+    }
     const i=current(),ticket=epoch,result=await client().open(row.id,versionId);check(i.accountId,ticket);
     await load(result.text,result.project.name); // Existing .avd loader, including compatibility and artwork handling.
     if(account()?.cloudIdentity()?.accountId!==i.accountId){detach();throw new Error('Account changed while opening project.');}
@@ -92,8 +99,10 @@ export function mountCloudProjects({account,serialize,load,capture,markSaved,isD
     const i=current(),ticket=epoch,api=client(),target=!separate?binding:null,wid=workspace.value;
     if(!name.value.trim())throw new Error('Enter a cloud project name.');
     let checkpoint;
+    if(collaboration?.active() && !separate)throw new Error('Use the collaboration Checkpoint button, or Save Separate Copy.');
     const text=await serialize({onSnapshot:()=>{checkpoint=capture();}});check(i.accountId,ticket);
     const result=await api.save({workspaceId:wid,projectId:target?.id,name:name.value.trim(),expectedRevision:target?.revision || 0,text});check(i.accountId,ticket);
+    if(separate)collaboration?.detach();
     binding=result;markSaved(checkpoint);dialog.close();message(`Saved ${result.name} - version ${result.current_version}`);
   }
   button(controls,'Refresh',refresh,'cloudRefresh');controls.prepend(workspace,archivedLabel);
@@ -112,5 +121,5 @@ export function mountCloudProjects({account,serialize,load,capture,markSaved,isD
       await refresh();
     });
   }
-  return {show,detach,binding:()=>binding};
+  return {show,detach,binding:()=>binding,collaboration};
 }

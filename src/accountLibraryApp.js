@@ -227,6 +227,13 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
       }catch(error){if(selectedWorkspaceId && ticket===epoch){selectedWorkspaceId=null;await activate(await currentSession());}else throw error;}
     },
     cloudIdentity: () => owner && identity ? structuredClone(identity) : null,
+    collaborationNotifications(notify) {
+      if(!client || !owner || !identity)throw new Error('Sign in before joining collaboration.');
+      const channel=client.channel(`wirenexus:user:${identity.accountId}`,{config:{private:true}})
+        .on('broadcast',{event:'invalidate'},()=>notify())
+        .subscribe(status=>{if(['SUBSCRIBED','CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status))notify();});
+      return ()=>client.removeChannel(channel);
+    },
     async cloudRpc(name,args) {
       if(!owner || !client || name!=='wirenexus_cloud')throw new Error('Sign in through Account before opening cloud projects.');
       return client.rpc(name,args);
