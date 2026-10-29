@@ -1,5 +1,10 @@
 # Phase 6.6D: staging database initialization
 
+Follow-up: [Phase 6.6E](staging-auth-realtime-configuration.md) resolved the
+schema-exposure configuration check below through authenticated Dashboard
+inspection: only `public` and `graphql_public` exposed; `wirenexus_private`
+unchecked. The Phase 6.6D stop is retained here as historical evidence.
+
 Date: 2026-10-29. Repository branch: `engine-prototype`; starting documentation
 commit `18befc3053d274ceae1476a4e1629903d66824c7`.
 Exclusive target: `puyrylatmtcwlvyycplc`, **WireNexus Staging**, VideoCore,

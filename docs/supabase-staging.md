@@ -12,16 +12,20 @@ use the complete chain below, including Phase 6.5 conflict/undo behavior.
 
 Phase 6.6B verified target `puyrylatmtcwlvyycplc` (WireNexus Staging) through
 read-only hosted inspection. Phase 6.6C now independently verifies **public signup
-disabled** (`disable_signup=true`). TOTP is enabled, but SMTP/templates, staging
-URLs, private-only Realtime and deployment credentials still need configuration.
-See the [security configuration check](staging-security-configuration.md) for current
+disabled** (`disable_signup=true`). TOTP is enabled. Phase 6.6E saved and reloaded
+private-only Realtime and verified that `wirenexus_private` is not Data API exposed.
+SMTP/code templates, approved staging URLs and deployment credentials remain blocked
+on operator inputs. See [Auth and Realtime configuration](staging-auth-realtime-configuration.md)
+for the latest evidence and prepared templates, the
+[security configuration check](staging-security-configuration.md) for historical
 settings and the [preflight report](supabase-staging-preflight.md) for historical
 inventory. No migrations, provisioning or deployment are authorized by these checks.
 
 Phase 6.6D separately approved and applied all eight migrations. See
 [database initialization](staging-database-initialization.md) for the exact hosted
 ledger/source-checksum mapping, passing hosted SQL checks, expected advisor notices
-and the stopped external Data API schema-exposure probe. Do not replay these files
+and the historical stopped external Data API schema-exposure probe (resolved by
+authorized Dashboard inspection in Phase 6.6E). Do not replay these files
 or run a linked CLI push without reviewing that runner-version mapping. No users
 or application deployment have been provisioned.
 
