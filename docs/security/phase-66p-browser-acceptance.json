@@ -1,0 +1,169 @@
+{
+  "phase": "6.6P",
+  "date": "2026-10-30",
+  "scope": "Single operator, synthetic data, existing IAM-private image",
+  "browser": {
+    "phase": "6.6P",
+    "origin": "https://wirenexus-staging-837085353595.europe-west1.run.app",
+    "checks": [
+      {
+        "name": "Unauthenticated Cloud Run requests denied",
+        "status": 403
+      },
+      {
+        "name": "Real Chromium startup and Engine ready"
+      },
+      {
+        "name": "Real email-code sign-in, Owner workspace and AAL1 Admin gate"
+      },
+      {
+        "name": "Earlier cloud recovery reopened at revision 4 with original geometry, artwork and four cables",
+        "revision": 4,
+        "x": 0,
+        "devices": 2,
+        "cables": 4,
+        "embeddedPng": true
+      },
+      {
+        "name": "Device Editor Faceplate and Connectors tabs preserve project topology"
+      },
+      {
+        "name": "Canvas movement and toolbar undo/redo retain four cable connections"
+      },
+      {
+        "name": "Local .avd Save As and reopen preserve synthetic topology"
+      },
+      {
+        "name": "Publishing denied under Free AAL1 entitlements",
+        "message": "Publishing is not included in this workspace plan."
+      },
+      {
+        "name": "Existing authenticator verified through real WireNexus UI and server Auth at AAL2",
+        "aal": "aal2",
+        "verifiedUser": true
+      },
+      {
+        "name": "Real browser reserve, signed private GCS PUTs and finalize completed"
+      },
+      {
+        "name": "Password-protected hosted viewer opens in authorized browser",
+        "canvasCount": 0
+      },
+      {
+        "name": "Temporary browser session signed out; MFA factor and workspace retained"
+      },
+      {
+        "name": "IAM remains enforced after browser acceptance",
+        "status": 403
+      }
+    ],
+    "defects": [],
+    "browserErrors": [
+      "Failed to read the 'serviceWorker' property from 'Navigator': Service worker is disabled because the context is sandboxed and lacks the 'allow-same-origin' flag.",
+      "Failed to read the 'serviceWorker' property from 'Navigator': Service worker is disabled because the context is sandboxed and lacks the 'allow-same-origin' flag."
+    ],
+    "httpErrors": [
+      {
+        "origin": "https://wirenexus-staging-837085353595.europe-west1.run.app",
+        "path": "/api/publish",
+        "status": 403
+      },
+      {
+        "origin": "https://puyrylatmtcwlvyycplc.supabase.co",
+        "path": "/auth/v1/factors/[existing-factor]/verify",
+        "status": 422
+      }
+    ],
+    "failedRequests": [
+      {
+        "origin": "https://storage.googleapis.com",
+        "path": "/wirenexus-staging-publications-837085353595/avdesigner/publications/[operator]/[synthetic-publication]/project.json",
+        "error": "net::ERR_ABORTED"
+      },
+      {
+        "origin": "https://storage.googleapis.com",
+        "path": "/wirenexus-staging-publications-837085353595/avdesigner/publications/[operator]/[synthetic-publication]/viewer.html",
+        "error": "net::ERR_ABORTED"
+      },
+      {
+        "origin": "https://puyrylatmtcwlvyycplc.supabase.co",
+        "path": "/auth/v1/logout",
+        "error": "net::ERR_ABORTED"
+      }
+    ],
+    "syntheticProjectId": "1fd48191-ec4c-49d5-a595-1b7aad95c610",
+    "syntheticViewerPath": "/v/pub-884e5e95-c51f-4246-9151-27eefd089141",
+    "complete": true
+  },
+  "ui": {
+    "checks": [
+      "Toolbar zoom, grid and routing controls respond",
+      "Factory Device Editor tabs render and close without applying changes",
+      "Real canvas device drag and toolbar undo/redo preserve connections",
+      "Project-instance Faceplate and Connectors tabs preserve four cables",
+      "Local .avd save/reopen preserves embedded PNG and exact cable count",
+      "1280px desktop retains toolbar access"
+    ],
+    "errors": [],
+    "defects": []
+  },
+  "security": {
+    "publishingWithoutSupabaseBearer": 401,
+    "anonymousBucketRead": 403,
+    "allowedCors": {
+      "status": 200,
+      "allowOrigin": "https://wirenexus-staging-837085353595.europe-west1.run.app"
+    },
+    "untrustedCors": {
+      "status": 200,
+      "allowOrigin": null
+    },
+    "objectsCreated": 0,
+    "supabaseSignupDisabled": true,
+    "applicationRegistrationDisabled": true
+  },
+  "infrastructure": {
+    "result": "PASS",
+    "readyRevision": "projects/wirenexus-staging/locations/europe-west1/services/wirenexus-staging/revisions/wirenexus-staging-00001-nkj",
+    "image": "europe-west1-docker.pkg.dev/wirenexus-staging/wirenexus-images/wirenexus@sha256:fdba185aa262f916bb705ae929eae68c61eaf05afba37ec4aa55b1f1e0919598",
+    "configurationUnchanged": true,
+    "iamBindingsUnchanged": true,
+    "iamCheckEnabled": true,
+    "bucketPrivate": true,
+    "corsUnchanged": true
+  },
+  "viewer": {
+    "wrongViewerPasswordStatus": 401,
+    "unauthenticatedViewerStatus": 403,
+    "anonymousActualObjectStatus": 403,
+    "storedHtmlBytes": 501584,
+    "storedHtmlSha256": "ebcad270b0b66353eee91bbcdcde00e31282028634c69d79fe7f514ecf3e4477",
+    "browserErrors": [],
+    "frameCanvasCount": 2,
+    "sandbox": "allow-scripts allow-downloads",
+    "result": "PASS"
+  },
+  "sandboxControl": [
+    {
+      "serviceWorkers": "block",
+      "errors": [
+        "Failed to read the 'serviceWorker' property from 'Navigator': Service worker is disabled because the context is sandboxed and lacks the 'allow-same-origin' flag."
+      ]
+    },
+    {
+      "serviceWorkers": "allow",
+      "errors": []
+    }
+  ],
+  "focusedTests": {
+    "passed": 16,
+    "failed": 0
+  },
+  "qualifications": [
+    "Top-level viewer canvasCount=0 reflects opaque sandbox iframe; independent frame inspection found 2 canvases",
+    "Playwright service-worker blocking reproduces sandbox errors without application code",
+    "Final logout HTTP response was not independently confirmed; UI local sign-out observed",
+    "Two GCS abort telemetry events retained despite completed publication and real stored viewer verification",
+    "No real two-client Enterprise collaboration testing in this phase"
+  ]
+}
