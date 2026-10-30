@@ -1,0 +1,293 @@
+{
+  "phase": "6.6O",
+  "verifiedDate": "2026-10-30",
+  "project": "wirenexus-staging",
+  "region": "europe-west1",
+  "origin": "https://wirenexus-staging-837085353595.europe-west1.run.app",
+  "image": "europe-west1-docker.pkg.dev/wirenexus-staging/wirenexus-images/wirenexus@sha256:fdba185aa262f916bb705ae929eae68c61eaf05afba37ec4aa55b1f1e0919598",
+  "readyRevision": "projects/wirenexus-staging/locations/europe-west1/services/wirenexus-staging/revisions/wirenexus-staging-00001-nkj",
+  "created": "2026-10-30T12:29:25.106716Z",
+  "configuration": {
+    "labels": {
+      "application": "wirenexus",
+      "environment": "staging",
+      "pilot": "operator-only"
+    },
+    "scaling": {
+      "maxInstanceCount": 3
+    },
+    "timeout": "300s",
+    "serviceAccount": "wirenexus-runtime@wirenexus-staging.iam.gserviceaccount.com",
+    "containers": [
+      {
+        "image": "europe-west1-docker.pkg.dev/wirenexus-staging/wirenexus-images/wirenexus@sha256:fdba185aa262f916bb705ae929eae68c61eaf05afba37ec4aa55b1f1e0919598",
+        "env": [
+          {
+            "name": "NODE_ENV",
+            "value": "production"
+          },
+          {
+            "name": "WIRENEXUS_CLOUD_RUN_ACCESS",
+            "value": "iam-private"
+          },
+          {
+            "name": "WIRENEXUS_EDITOR_ORIGIN",
+            "value": "https://wirenexus-staging-837085353595.europe-west1.run.app"
+          },
+          {
+            "name": "PUBLIC_VIEWER_ORIGIN",
+            "value": "https://wirenexus-staging-837085353595.europe-west1.run.app"
+          },
+          {
+            "name": "WIRENEXUS_SUPABASE_URL",
+            "value": "https://puyrylatmtcwlvyycplc.supabase.co"
+          },
+          {
+            "name": "WIRENEXUS_REGISTRATION_ENABLED",
+            "value": "false"
+          },
+          {
+            "name": "WIRENEXUS_PUBLISHING_STORAGE",
+            "value": "gcs"
+          },
+          {
+            "name": "WIRENEXUS_GCS_BUCKET",
+            "value": "wirenexus-staging-publications-837085353595"
+          },
+          {
+            "name": "WIRENEXUS_BUILD_SHA",
+            "value": "54990e8196ffc250f370b8692d6ca23ef27a872b"
+          },
+          {
+            "name": "WIRENEXUS_BUILD_BRANCH",
+            "value": "engine-prototype"
+          },
+          {
+            "name": "WIRENEXUS_SUPABASE_SERVICE_ROLE_KEY",
+            "valueSource": {
+              "secretKeyRef": {
+                "secret": "wirenexus-staging-supabase-server",
+                "version": "1"
+              }
+            }
+          },
+          {
+            "name": "WIRENEXUS_SUPABASE_PUBLISHABLE_KEY",
+            "valueSource": {
+              "secretKeyRef": {
+                "secret": "wirenexus-staging-supabase-publishable",
+                "version": "1"
+              }
+            }
+          }
+        ],
+        "resources": {
+          "limits": {
+            "cpu": "1",
+            "memory": "1Gi"
+          },
+          "cpuIdle": true
+        },
+        "ports": [
+          {
+            "name": "http1",
+            "containerPort": 8080
+          }
+        ],
+        "startupProbe": {
+          "timeoutSeconds": 240,
+          "periodSeconds": 240,
+          "failureThreshold": 1,
+          "tcpSocket": {
+            "port": 8080
+          }
+        }
+      }
+    ],
+    "executionEnvironment": "EXECUTION_ENVIRONMENT_GEN2",
+    "maxInstanceRequestConcurrency": 8,
+    "client": "gcloud",
+    "clientVersion": "591.0.0"
+  },
+  "serviceScaling": {
+    "maxInstanceCount": 3
+  },
+  "ingress": "INGRESS_TRAFFIC_ALL",
+  "invokerIamCheckEnabled": true,
+  "serviceIamBindings": [
+    {
+      "role": "roles/run.invoker",
+      "members": [
+        "user:paulo@videocore.net"
+      ]
+    }
+  ],
+  "http": {
+    "result": "PASS",
+    "origin": "https://wirenexus-staging-837085353595.europe-west1.run.app",
+    "operator": "paulo@videocore.net",
+    "checks": [
+      {
+        "path": "/",
+        "status": 403
+      },
+      {
+        "path": "/api/health",
+        "status": 403
+      },
+      {
+        "path": "/api/health",
+        "check": "invalid IAM token denied",
+        "status": 401
+      },
+      {
+        "path": "/api/health",
+        "status": 200
+      },
+      {
+        "path": "/api/build-info",
+        "status": 200
+      },
+      {
+        "path": "/account-config.json",
+        "status": 200
+      },
+      {
+        "path": "/",
+        "status": 200
+      },
+      {
+        "path": "/engine-prototype.html",
+        "status": 200
+      },
+      {
+        "path": "/output-viewer.html",
+        "status": 200
+      },
+      {
+        "path": "/viewer.html",
+        "status": 200
+      },
+      {
+        "path": "/v/phase66o-fixture",
+        "status": 200
+      },
+      {
+        "path": "/.env",
+        "status": 404
+      },
+      {
+        "path": "/src/server/publishing.js",
+        "status": 404
+      },
+      {
+        "path": "/Masters/private.psd",
+        "status": 404
+      },
+      {
+        "path": "/api/unknown",
+        "status": 404
+      },
+      {
+        "path": "/api/publish",
+        "status": 401
+      },
+      {
+        "path": "/api/publish",
+        "status": 401
+      },
+      {
+        "path": "/api/health",
+        "status": 200
+      }
+    ],
+    "assetHashesVerified": 688,
+    "sourceCommit": "54990e8196ffc250f370b8692d6ca23ef27a872b",
+    "registrationUiEnabled": false,
+    "accountConfigSecretFiltering": true,
+    "googleIamAndSupabaseAuthSeparate": true
+  },
+  "applicationAuth": {
+    "result": "PASS",
+    "checks": [
+      {
+        "check": "Supabase public signup remains disabled",
+        "status": "PASS"
+      },
+      {
+        "check": "Existing operator account sign-in",
+        "status": 200,
+        "assuranceLevel": "aal1"
+      },
+      {
+        "check": "Verified Supabase bearer reaches post-auth validation without a mutation",
+        "status": 400
+      },
+      {
+        "check": "Authenticated operator cannot finalize an unowned/nonexistent publication",
+        "status": 403
+      }
+    ],
+    "projectWrites": 0,
+    "publicationsCreated": 0,
+    "invitesSent": 0,
+    "usersCreated": 0
+  },
+  "logs": {
+    "project": "wirenexus-staging",
+    "revision": "wirenexus-staging-00001-nkj",
+    "logEntriesReviewed": 713,
+    "startupListeningMessages": 1,
+    "startupFailures": 0,
+    "errorEntries": 0,
+    "httpStatusCounts": {
+      "200": 698,
+      "400": 1,
+      "401": 3,
+      "403": 3,
+      "404": 4
+    },
+    "credentialsOrBodiesPrinted": false
+  },
+  "storageCors": {
+    "result": "PASS",
+    "bucket": "wirenexus-staging-publications-837085353595",
+    "cors": [
+      {
+        "origin": [
+          "https://staging.videocore.net",
+          "https://wirenexus-staging-837085353595.europe-west1.run.app"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "responseHeader": [
+          "content-type",
+          "cache-control",
+          "content-encoding",
+          "x-goog-if-generation-match",
+          "x-goog-content-length-range",
+          "etag",
+          "x-goog-generation"
+        ],
+        "maxAgeSeconds": 300
+      }
+    ],
+    "privateAccessUnchanged": true,
+    "iamBindingsUnchanged": true,
+    "allowed": {
+      "status": 200,
+      "allowOrigin": "https://wirenexus-staging-837085353595.europe-west1.run.app"
+    },
+    "denied": {
+      "status": 200,
+      "allowOrigin": null
+    },
+    "objectsCreated": 0
+  },
+  "limitations": [
+    "Operator-only synthetic-data pilot; Phase N expiry 2026-11-06",
+    "No interactive browser, AAL2, publication-upload or collaboration acceptance in this phase",
+    "Known image vulnerabilities remain documented in Phase N"
+  ]
+}
