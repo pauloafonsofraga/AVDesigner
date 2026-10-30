@@ -40,7 +40,8 @@ export function createPublishingSecurity({env=process.env,clientFactory=createCl
   };
   const throttle=async(req,scope,publicationId)=>{
     // Do not accept a client-controlled X-Forwarded-For as a limiter identity.
-    const ip=env.VERCEL?req.headers?.['x-vercel-forwarded-for']:req.socket?.remoteAddress;
+    const ip=env.WIRENEXUS_HOSTING==='cloud-run'?req.wirenexusClientIp:
+      env.VERCEL?req.headers?.['x-vercel-forwarded-for']:req.socket?.remoteAddress;
     if(typeof ip!=='string' || !isIP(ip))throw new PublishingError(503,'Request source could not be verified.');
     const sourceKey=crypto.createHmac('sha256',key).update(ip).digest('hex');
     if(scope==='collaboration') {

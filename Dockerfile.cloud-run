@@ -1,0 +1,22 @@
+# Build only from the approved git-archive context described in docs/google-cloud-hosting.md.
+# Resolve and pin this base to a reviewed digest before an approved deployment.
+ARG NODE_IMAGE=node:24-bookworm-slim
+FROM ${NODE_IMAGE} AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts --omit=dev
+COPY . .
+RUN node scripts/build-cloud-run-public.mjs /app/build/cloud-run/public --archive
+
+FROM ${NODE_IMAGE} AS runtime
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=build /app/package.json /app/package-lock.json ./
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/api ./api
+COPY --from=build /app/src ./src
+COPY --from=build /app/scripts/start-cloud-run.mjs ./scripts/start-cloud-run.mjs
+COPY --from=build /app/build/cloud-run/public ./build/cloud-run/public
+USER node
+EXPOSE 8080
+CMD ["node", "scripts/start-cloud-run.mjs"]

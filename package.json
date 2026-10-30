@@ -9,7 +9,9 @@
     "build:cable-schedule": "node scripts/build-cable-schedule.mjs",
     "check:cable-schedule": "node scripts/build-cable-schedule.mjs --check",
     "build:pdf": "node scripts/build-pdf.mjs",
-    "check:pdf": "node scripts/build-pdf.mjs --check"
+    "check:pdf": "node scripts/build-pdf.mjs --check",
+    "build:cloud-run": "node scripts/build-cloud-run-public.mjs",
+    "start:cloud-run": "node scripts/start-cloud-run.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.3.14",
@@ -19,6 +21,7 @@
     "svg-to-pdfkit": "0.1.8"
   },
   "dependencies": {
+    "@google-cloud/storage": "8.4.0",
     "@supabase/supabase-js": "2.117.2",
     "@vercel/blob": "latest",
     "exceljs": "4.4.0",

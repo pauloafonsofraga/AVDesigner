@@ -34861,7 +34861,9 @@ document.addEventListener("click", function(event) {
       return result;
     }
 
-    async function loadBlobClient() {
+    async function loadBlobClient(provider = "vercel") {
+      if (provider === "gcs") return import("./src/hosting/gcsUploads.js");
+      if (provider !== "vercel") throw new Error("Unsupported publication storage provider.");
       try {
         return await import("https://esm.sh/@vercel/blob@2.4.0/es2022/client.bundle.mjs");
       } catch (error) {
@@ -34906,7 +34908,7 @@ document.addEventListener("click", function(event) {
         const htmlFile = new Blob([html], { type: "text/html; charset=utf-8" });
         const reservation = await publishRequest({ action: "reserve", projectBytes: projectFile.size, htmlBytes: htmlFile.size });
         const clientPayload = JSON.stringify({ id: reservation.id });
-        const { upload } = await loadBlobClient();
+        const { upload } = await loadBlobClient(reservation.uploadProvider);
         setPublishStatus("Uploading project data...");
         await upload(reservation.projectPath, projectFile, {
           access: "private",

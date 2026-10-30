@@ -13,7 +13,8 @@ export function createPublishHandler({security=createPublishingSecurity,blobHead
         for(const [key,limit] of [['projectBytes',LIMITS.project],['htmlBytes',LIMITS.html]])
           if(!Number.isSafeInteger(body[key]) || body[key]<1 || body[key]>limit)throw new PublishingError(413,'Project or viewer exceeds the upload limit.');
         if(body.workspaceId && !/^[a-f0-9-]{36}$/i.test(body.workspaceId))throw new PublishingError(400,'Invalid workspace.');
-        return send(res,200,await guard.call('reserve',{accountId,projectBytes:body.projectBytes,htmlBytes:body.htmlBytes,...(body.workspaceId?{workspaceId:body.workspaceId}:{})}));
+        const reservation=await guard.call('reserve',{accountId,projectBytes:body.projectBytes,htmlBytes:body.htmlBytes,...(body.workspaceId?{workspaceId:body.workspaceId}:{})});
+        return send(res,200,env.WIRENEXUS_PUBLISHING_STORAGE==='gcs'?{...reservation,uploadProvider:'gcs'}:reservation);
       }
       if(!validId(body.id))throw new PublishingError(400,'Invalid publication.');
       if(body.action==='revoke')return send(res,200,await guard.call('revoke',{accountId,id:body.id}));
