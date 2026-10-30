@@ -48,12 +48,17 @@ const env={...cleanEnv,PORT:String(port),GOOGLE_CLOUD_PROJECT:'wirenexus-staging
   WIRENEXUS_EDITOR_ORIGIN:'https://staging.videocore.net',PUBLIC_VIEWER_ORIGIN:'https://staging.videocore.net',
   WIRENEXUS_SUPABASE_URL:fixtureOrigin,WIRENEXUS_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_fixture',
   WIRENEXUS_SUPABASE_SERVICE_ROLE_KEY:'fixture-not-a-credential',WIRENEXUS_PUBLISHING_STORAGE:'gcs',WIRENEXUS_GCS_BUCKET:'fixture-private-bucket'};
-const child=spawn(process.execPath,['scripts/start-cloud-run.mjs'],{cwd:root,env,stdio:['ignore','pipe','pipe']});
+try {for(const access of ['load-balancer','iam-private']){
+const initialBucketReads=bucketReads,initialThrottles=throttles;
+const activeEnv=access==='iam-private'?{...env,WIRENEXUS_CLOUD_RUN_ACCESS:access,WIRENEXUS_TRUST_GOOGLE_LB:'',
+  WIRENEXUS_EDITOR_ORIGIN:'https://staging-fixture.run.app',PUBLIC_VIEWER_ORIGIN:'https://staging-fixture.run.app'}:env;
+const hostname=new URL(activeEnv.WIRENEXUS_EDITOR_ORIGIN).host;
+const child=spawn(process.execPath,['scripts/start-cloud-run.mjs'],{cwd:root,env:activeEnv,stdio:['ignore','pipe','pipe']});
 const exited=once(child,'exit');let output='';
 for(const stream of [child.stdout,child.stderr])stream.on('data',data=>{output=(output+data).slice(-16000);});
 const request=(url,{method='GET',headers={},body}={})=>new Promise((resolve,reject)=>{
   const req=http.request({host:'127.0.0.1',port,path:url,method,timeout:1500,
-    headers:{host:'staging.videocore.net','x-wirenexus-client-ip':'192.0.2.1',...headers}},res=>{
+    headers:{host:hostname,'x-wirenexus-client-ip':'192.0.2.1',...headers}},res=>{
     const chunks=[];res.on('data',chunk=>chunks.push(chunk));res.on('end',()=>resolve({status:res.statusCode,headers:res.headers,body:Buffer.concat(chunks)}));
   });req.on('error',reject);req.on('timeout',()=>req.destroy(Error('HTTP timeout')));req.end(body);
 });
@@ -63,7 +68,7 @@ try {
     try{if((await request('/api/health')).status===200){ready=true;break;}}catch{}
     if(child.exitCode!==null)throw Error('Configured fixture startup failed.');await delay(100);
   }
-  assert.ok(ready,'Startup did not become healthy.');assert.ok(bucketReads>0,'Startup must check private bucket metadata.');
+  assert.ok(ready,'Startup did not become healthy.');assert.ok(bucketReads>initialBucketReads,'Startup must check private bucket metadata.');
   assert.match(output,new RegExp(`listening on port ${port}`));
   const health=await request('/api/health');assert.equal(JSON.parse(health.body).storageProvider,'gcs');
   const config=await request('/account-config.json');assert.equal(config.status,200);assert.equal(config.headers['cache-control'],'no-store');
@@ -77,14 +82,16 @@ try {
   }
   assert.equal((await request('/viewer.html',{method:'HEAD'})).body.length,0);
   for(const url of ['/src/server/gcsStorage.js','/.env','/Masters/private.png','/index_before_hosted_viewer_publish.html','/api/nonexistent'])assert.equal((await request(url)).status,404,url);
-  assert.equal((await request('/api/health',{headers:{'x-wirenexus-client-ip':'spoofed'}})).status,503);
+  assert.equal((await request('/api/health',{headers:{'x-wirenexus-client-ip':'spoofed'}})).status,access==='iam-private'?200:503);
   assert.equal((await request('/api/publish',{method:'POST',headers:{'content-type':'application/json'},body:'{"action":"reserve","projectBytes":2,"htmlBytes":2}'})).status,401);
-  assert.ok(throttles>0);
-  console.log(JSON.stringify({result:'PASS',platform:process.platform,architecture:process.arch,uid:process.getuid?.(),port,
+  assert.ok(throttles>initialThrottles);
+  console.log(JSON.stringify({result:'PASS',access,platform:process.platform,architecture:process.arch,uid:process.getuid?.(),port,
     publicAssets:manifest.files.length,realEntrypoint:true,dependencies:'loopback fixtures only',checks:['asset hashes','private bucket startup gate',
       'configured startup','unconfigured startup refusal','editor/viewer routes','output viewer CSS','module MIME','account config filtering',
-      'HEAD','server-source denial','trusted-IP rejection','unauthorized publishing']}));
+      'HEAD','server-source denial',access==='iam-private'?'caller-IP headers ignored':'trusted-IP rejection','unauthorized publishing']}));
 }finally{
   child.kill('SIGTERM');await Promise.race([exited,delay(2000).then(()=>child.kill('SIGKILL'))]);
+}
+}}finally{
   fixture.closeAllConnections();await new Promise(resolve=>fixture.close(resolve));
 }

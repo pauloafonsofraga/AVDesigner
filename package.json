@@ -23,8 +23,11 @@
   "dependencies": {
     "@google-cloud/storage": "8.4.0",
     "@supabase/supabase-js": "2.117.2",
-    "@vercel/blob": "latest",
+    "@vercel/blob": "2.8.0",
     "exceljs": "4.4.0",
     "pdfjs-dist": "6.4.299"
+  },
+  "overrides": {
+    "@vercel/blob": {"undici": "6.29.1"}
   }
 }

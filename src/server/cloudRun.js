@@ -21,10 +21,16 @@ function httpsOrigin(value) {
 }
 export function validateCloudRunEnvironment(env,{local=false}={}) {
   const editor=httpsOrigin(env.WIRENEXUS_EDITOR_ORIGIN),viewer=httpsOrigin(env.PUBLIC_VIEWER_ORIGIN);
+  const access=env.WIRENEXUS_CLOUD_RUN_ACCESS||'load-balancer';
+  if(!['load-balancer','iam-private'].includes(access))throw Error('Unsupported Cloud Run access mode.');
   if(env.WIRENEXUS_PUBLISHING_STORAGE!=='gcs'||!env.WIRENEXUS_GCS_BUCKET||!env.WIRENEXUS_SUPABASE_SERVICE_ROLE_KEY
     ||!accountConfiguration(env).configured||env.WIRENEXUS_REGISTRATION_ENABLED==='true')throw Error('Cloud Run staging configuration is incomplete or unsafe.');
-  if(!local&&(!env.K_SERVICE||env.WIRENEXUS_TRUST_GOOGLE_LB!=='true'))throw Error('Cloud Run requires restricted load-balancer ingress and trusted header configuration.');
-  return {editor,viewer};
+  if(!local&&!env.K_SERVICE)throw Error('Cloud Run service identity is unavailable.');
+  if(access==='iam-private'){
+    if(env.WIRENEXUS_TRUST_GOOGLE_LB==='true'||editor.origin!==viewer.origin||!editor.hostname.endsWith('.run.app')||editor.port)
+      throw Error('Private IAM mode requires one explicit run.app origin and no load-balancer header trust.');
+  }else if(!local&&env.WIRENEXUS_TRUST_GOOGLE_LB!=='true')throw Error('Cloud Run requires restricted load-balancer ingress and trusted header configuration.');
+  return {editor,viewer,access};
 }
 
 export function createCloudRunRoutes({env,storage=createGcsPublicationStorage({bucketName:env.WIRENEXUS_GCS_BUCKET}),security}={}) {
@@ -43,7 +49,11 @@ export function createCloudRunRoutes({env,storage=createGcsPublicationStorage({b
   ]);
 }
 
-export function cloudRunClientIp(req,{local=false}={}) {
+export function cloudRunClientIp(req,{local=false,access='load-balancer'}={}) {
+  if(!['load-balancer','iam-private'].includes(access))throw new PublishingError(503,'Verified request source is unavailable.');
+  // IAM is enforced by Cloud Run, not caller headers. All private requests share
+  // one conservative limiter identity; this is not an asserted end-user IP.
+  if(!local&&access==='iam-private')return '127.0.0.1';
   // This header MUST be overwritten by the Google LB; direct ingress must be blocked.
   const ip=local?req.socket.remoteAddress:req.headers['x-wirenexus-client-ip'];
   if(typeof ip!=='string'||!isIP(ip))throw new PublishingError(503,'Verified request source is unavailable.');
@@ -61,7 +71,7 @@ async function parseBody(req) {
 }
 
 export function createCloudRunServer({env=process.env,publicRoot,routes,storage,local=false}={}) {
-  const {editor,viewer}=validateCloudRunEnvironment(env,{local});
+  const {editor,viewer,access}=validateCloudRunEnvironment(env,{local});
   const handlers=routes||createCloudRunRoutes({env,storage});
   const root=path.resolve(publicRoot);
   return http.createServer({maxHeaderSize:16384},async(req,res)=>{
@@ -78,7 +88,7 @@ export function createCloudRunServer({env=process.env,publicRoot,routes,storage,
       const apiPath=pathname==='/account-config.json'?'/api/account-config':pathname;
       const handler=handlers.get(apiPath);
       if(handler){
-        req.wirenexusClientIp=cloudRunClientIp(req,{local});
+        req.wirenexusClientIp=cloudRunClientIp(req,{local,access});
         req.query=Object.fromEntries(target.searchParams);req.body=await parseBody(req);
         return await handler(req,res);
       }

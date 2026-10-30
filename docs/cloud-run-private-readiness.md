@@ -5,6 +5,11 @@ Date: 2026-10-30. Project `wirenexus-staging` / `837085353595`, region
 **Preparation only; deployment is not authorized.** Existing Vercel, Supabase
 data, DNS, Squarespace and Google Workspace remain unchanged.
 
+Phase K's historical blockers below are superseded by the
+[Phase L implementation/status](private-deployment-blockers.md): publishable
+version 1 is configured and an explicit IAM-private adapter mode is implemented.
+Residual embedded dependency findings and a rebuilt/scanned image remain gates.
+
 ## Go/no-go
 
 **NO-GO for deployment.** The retained image is a readiness candidate, not a
