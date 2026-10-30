@@ -1,0 +1,38 @@
+{
+  "steps": [
+    {
+      "id": "fetch-pinned-source-and-prepare-context",
+      "name": "${_NODE_IMAGE}",
+      "entrypoint": "node",
+      "args": [
+        "--input-type=module",
+        "-e",
+        "import{mkdirSync,writeFileSync}from'node:fs';import{createHash}from'node:crypto';import{execFileSync}from'node:child_process';const sha='${_SOURCE_SHA}',expected='${_SOURCE_ARCHIVE_SHA256}';if(!/^[a-f0-9]{40}$/.test(sha)||!/^[a-f0-9]{64}$/.test(expected))throw Error('Require pinned source SHA and archive checksum');const r=await fetch('https://codeload.github.com/pauloafonsofraga/AVDesigner/tar.gz/'+sha);if(!r.ok)throw Error('Source download failed');const bytes=Buffer.from(await r.arrayBuffer());if(createHash('sha256').update(bytes).digest('hex')!==expected)throw Error('Source checksum mismatch');writeFileSync('/workspace/source.tar.gz',bytes);mkdirSync('/workspace/source');execFileSync('tar',['-xzf','/workspace/source.tar.gz','--strip-components=1','-C','/workspace/source']);execFileSync(process.execPath,['/workspace/source/scripts/prepare-cloud-build-context.mjs','/workspace/source','/workspace/context','/workspace/validation-manifest.json'],{stdio:'inherit'});console.log('Verified source '+sha);"
+      ]
+    },
+    {
+      "id": "build-linux-amd64",
+      "name": "${_DOCKER_BUILDER}",
+      "dir": "/workspace/context",
+      "args": ["build", "--platform=linux/amd64", "--build-arg", "NODE_IMAGE=${_NODE_IMAGE}", "-f", "Dockerfile.cloud-run", "-t", "wirenexus-staging-validation:${_SOURCE_SHA}", "."]
+    },
+    {
+      "id": "verify-image-and-run-real-entrypoint-with-loopback-fixtures",
+      "name": "${_DOCKER_BUILDER}",
+      "entrypoint": "sh",
+      "args": [
+        "-ceu",
+        "image='wirenexus-staging-validation:${_SOURCE_SHA}'; test \"$$(docker image inspect --format '{{.Os}}/{{.Architecture}}' \"$$image\")\" = linux/amd64; test \"$$(docker image inspect --format '{{.Config.User}}' \"$$image\")\" = node; test \"$$(docker image inspect --format '{{json .Config.Cmd}}' \"$$image\")\" = '[\"node\",\"scripts/start-cloud-run.mjs\"]'; docker image inspect --format '{{json .Config.ExposedPorts}}' \"$$image\" | grep -q '\"8080/tcp\"'; docker image inspect --format 'Validated image ID: {{.Id}}' \"$$image\"; docker run --rm --network=none --read-only --tmpfs /tmp --mount type=bind,src=/workspace/source/scripts/cloud-run-image-smoke.mjs,dst=/app/scripts/cloud-run-image-smoke.mjs,readonly --mount type=bind,src=/workspace/validation-manifest.json,dst=/validation-manifest.json,readonly \"$$image\" node scripts/cloud-run-image-smoke.mjs --require-linux-amd64 --port=8080 --manifest=/validation-manifest.json"
+      ]
+    }
+  ],
+  "serviceAccount": "projects/wirenexus-staging/serviceAccounts/wirenexus-build-validation@wirenexus-staging.iam.gserviceaccount.com",
+  "options": {"logging": "CLOUD_LOGGING_ONLY"},
+  "timeout": "600s",
+  "queueTtl": "600s",
+  "substitutions": {
+    "_NODE_IMAGE": "node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c",
+    "_DOCKER_BUILDER": "gcr.io/cloud-builders/docker@sha256:fbc05705e6f24467e40ae8a4097ab9b8fae1116551f838fa2c55f4367427fc36"
+  },
+  "tags": ["wirenexus", "staging", "container-validation-only"]
+}

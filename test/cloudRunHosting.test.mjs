@@ -121,11 +121,11 @@ test('Cloud Run throttles use verified LB identity and never the arbitrary forwa
 test('runtime allowlist excludes credentials, server modules, backups and original artwork sources',()=>{
   for(const file of ['.env','api/publish.js','src/server/publishing.js','supabase/migrations/file.sql','Masters/file.png',
     'Devices/faceplates/master.psd','index_before_hosted_viewer_publish.html','src/../secret.js','src/.env.json'])assert.equal(isPublicRuntimeAsset(file),false,file);
-  for(const file of ['index.html','viewer.html','src/engine/index.js','src/hosting/gcsUploads.js','assets/pdfjs/worker.mjs','assets/fonts/font.pfb','Devices/faceplates/test.png'])assert.equal(isPublicRuntimeAsset(file),true,file);
+  for(const file of ['index.html','viewer.html','src/engine/index.js','src/engine/outputViewer.css','src/hosting/gcsUploads.js','assets/pdfjs/worker.mjs','assets/fonts/font.pfb','Devices/faceplates/test.png'])assert.equal(isPublicRuntimeAsset(file),true,file);
 });
 test('Cloud Run serves rewrites and private-safe static assets, bounded APIs and original API contracts',async t=>{
   const root=await mkdtemp(path.join(tmpdir(),'wirenexus-hosting-'));t.after(()=>rm(root,{recursive:true,force:true}));
-  for(const [name,body]of [['index.html','editor'],['viewer.html','viewer'],['src/hosting/gcsUploads.js','export const test=1;']]){
+  for(const [name,body]of [['index.html','editor'],['viewer.html','viewer'],['src/engine/outputViewer.css','body{color:white}'],['src/hosting/gcsUploads.js','export const test=1;']]){
     await mkdir(path.dirname(path.join(root,name)),{recursive:true});await writeFile(path.join(root,name),body);
   }
   await symlink('/etc/passwd',path.join(root,'src','escape.js'));
@@ -139,6 +139,8 @@ test('Cloud Run serves rewrites and private-safe static assets, bounded APIs and
   const config=await(await fetch(base+'/account-config.json')).json();assert.equal(config.registrationEnabled,false);
   assert.ok(!JSON.stringify(config).includes('test-server-only'));
   assert.equal((await fetch(base+'/src/hosting/gcsUploads.js')).headers.get('content-type'),'text/javascript; charset=utf-8');
+  assert.equal(await(await fetch(base+'/src/engine/outputViewer.css')).text(),'body{color:white}');
+  assert.equal((await fetch(base+'/src/engine/outputViewer.css')).headers.get('content-type'),'text/css; charset=utf-8');
   assert.equal(await(await fetch(base+'/viewer.html',{method:'HEAD'})).text(),'');
   for(const file of ['/api/missing','/.env','/api/publish.js','/src/server/gcsStorage.js','/src/escape.js','/index_before_hosted_viewer_publish.html'])assert.equal((await fetch(base+file)).status,404,file);
   assert.equal((await fetch(base+'/%2e%2e%2f.env')).status,400);

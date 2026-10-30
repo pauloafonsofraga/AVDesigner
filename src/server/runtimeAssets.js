@@ -7,7 +7,7 @@ export function isPublicRuntimeAsset(file) {
   if(typeof file!=='string'||file.includes('\\')||file.split('/').some(p=>!p||p.startsWith('.')||p==='..'))return false;
   if(roots.has(file))return true;
   const extension=path.posix.extname(file).toLowerCase();
-  if(file.startsWith('src/')&&!file.startsWith('src/server/'))return ['.js','.json','.mjs','.wasm'].includes(extension);
+  if(file.startsWith('src/')&&!file.startsWith('src/server/'))return ['.js','.json','.mjs','.css','.wasm'].includes(extension);
   if(file.startsWith('assets/'))return runtime.has(extension);
   if(/^(Devices\/faceplates|Nodes|icons|logos)\//.test(file))return images.has(extension);
   return false;
