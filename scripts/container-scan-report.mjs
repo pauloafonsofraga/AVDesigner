@@ -13,7 +13,7 @@ export function scanEvidence(report,scanner){
     for(const v of result.Vulnerabilities||[]){
       const finding={kind:'container-vulnerability',target:result.Target,class:result.Class,type:result.Type,
         id:v.VulnerabilityID,package:v.PkgName,installed:v.InstalledVersion,fixed:v.FixedVersion||'',
-        status:v.Status||'',severity:v.Severity||'UNKNOWN',source:v.DataSource?.ID||'',url:v.PrimaryURL||''};
+        status:v.Status||'',severity:v.Severity||'UNKNOWN',source:v.DataSource?.ID||'',url:v.PrimaryURL||'',packagePath:v.PkgPath||''};
       assert.ok(finding.id&&finding.package&&finding.installed,'Incomplete vulnerability evidence');
       totals[finding.severity]=(totals[finding.severity]||0)+1;findings.push(finding);
     }

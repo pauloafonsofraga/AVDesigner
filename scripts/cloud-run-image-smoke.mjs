@@ -11,6 +11,9 @@ import {setTimeout as delay} from 'node:timers/promises';
 const root=fileURLToPath(new URL('../',import.meta.url));
 if(process.argv.includes('--require-linux-amd64')){
   assert.equal(process.platform,'linux');assert.equal(process.arch,'x64');
+  for(const file of ['/usr/local/bin/npm','/usr/local/bin/npx','/usr/local/bin/yarn','/usr/local/bin/yarnpkg','/usr/local/lib/node_modules/npm',
+    '/usr/local/bin/corepack','/usr/local/bin/pnpm','/usr/local/bin/pnpx','/usr/local/lib/node_modules/corepack'])
+    assert.equal(existsSync(file),false,'Runtime must not retain package-manager tooling.');
 }
 assert.notEqual(process.getuid?.(),0,'Image must run as a non-root user.');
 const port=Number(process.argv.find(value=>value.startsWith('--port='))?.split('=')[1]||8080);

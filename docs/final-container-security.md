@@ -84,6 +84,55 @@ when build, startup and scanner execution pass.
 
 Execution evidence, final digest and scan findings are appended after the build.
 
+## Initial scan and targeted hardening
+
+The first scan/build (`80558c3c-9f3a-48cb-baba-b75bed10eebb`, source `15566cd`)
+passed both Linux startup modes, then reported 247 package/advisory occurrences
+(118 unique advisory IDs): 1 critical, 62 high, 98 medium, 84 low, 2 unknown.
+The complete normalized findings are retained in
+`docs/security/phase-66m-container-evidence.json`; that initial image is not the
+final deployment candidate.
+
+The critical `CVE-2023-45853` entry is reported against Debian `zlib1g`
+`1:1.2.13.dfsg-1`, status `will_not_fix`. Debian's authoritative tracker explains
+that Bookworm's zlib source does **not build** the affected contrib/MiniZip code
+into its binary packages. This supports a package-specific not-affected
+assessment, not removal of essential zlib or blanket dismissal of critical CVEs.
+The unfiltered finding remains in every report. See
+[Debian's package/build notes](https://security-tracker.debian.org/tracker/CVE-2023-45853).
+
+Seventeen of the first scan's 19 advertised fixes concern Node/npm-bundled tools
+(brace-expansion 5.0.9, ip-address 10.5.0, postcss-selector-parser 7.1.4 and
+Undici 6.28.0), not the application's separately locked patched versions. The
+runtime never invokes package managers: it starts the existing Node entrypoint.
+The final Docker stage therefore removes global npm/npx/Yarn/Corepack shims while the build
+stage retains npm for `npm ci`. App dependencies and the Node runtime are not
+removed. New container assertions prove these package-manager executables are
+absent. The same source is rebuilt and rescanned to measure the effect rather
+than suppress their findings. This reduces active filesystem attack surface;
+base image layer bytes are not claimed erased from the registry.
+
+Other advertised fixes are a tzdata administrative update and UUID's existing
+major-version/bundled-artifact issue. No unpinned distro upgrade, repository
+switch or forced package override is introduced. The pinned Node base was
+independently checked against the current official Node 24 Bookworm Slim tag
+and already matches it. Further OS findings require package-specific distro
+analysis or an explicitly reviewed base-family/update change.
+
+The first OS scan has 229 occurrences: 170 `affected`, 41 `fix_deferred`,
+17 `will_not_fix`, and one advertised fixed update. Its 56 high occurrences
+include repeated source-package advisories across util-linux binaries/libraries,
+plus gzip, ACL, systemd/udev, ncurses and Perl packages. Most have no vendor fix
+listed in the current database. The server/API/entrypoint code has no observed
+`child_process`, `spawn` or `execFile` calls, so local utility exploitation is not
+an observed ordinary HTTP action; that is not proof that library vulnerabilities
+or a compromised container are harmless. Do not purge essential distro libraries
+or change OS families merely to obtain a lower count. Remaining OS entries need
+per-advisory vendor/exposure review or explicit security-owner acceptance.
+
+The hardened scoped source passed **2,300 repository tests** and all **16 static
+validators**, with zero test failures/skips/cancellations before its rebuild.
+
 Pre-build isolated validation: **2,299 repository tests passed**, zero failed,
 skipped or canceled; all **16 static validators** passed. The 245 protected and
 unrelated file hashes match their established baseline. Hosted metadata confirms
