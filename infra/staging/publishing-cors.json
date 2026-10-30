@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://staging.videocore.net"],
+    "method": ["PUT"],
+    "responseHeader": ["content-type", "cache-control", "content-encoding", "x-goog-if-generation-match", "x-goog-content-length-range", "etag", "x-goog-generation"],
+    "maxAgeSeconds": 300
+  }
+]

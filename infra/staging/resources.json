@@ -1,0 +1,36 @@
+{
+  "projectId": "wirenexus-staging",
+  "projectNumber": "837085353595",
+  "supabaseProjectRef": "puyrylatmtcwlvyycplc",
+  "region": "europe-west1",
+  "repository": {"id": "wirenexus-images", "format": "DOCKER", "immutableTags": true, "paidScanningApproved": false},
+  "bucket": {
+    "name": "wirenexus-staging-publications-837085353595",
+    "storageClass": "STANDARD",
+    "uniformBucketLevelAccess": true,
+    "publicAccessPrevention": "enforced",
+    "softDeleteRetentionSeconds": 604800,
+    "corsFile": "infra/staging/publishing-cors.json"
+  },
+  "runtimeAccount": "wirenexus-runtime@wirenexus-staging.iam.gserviceaccount.com",
+  "roles": {
+    "storage": {"id": "wirenexusPublicationsStorage", "permissions": ["storage.buckets.get", "storage.objects.get", "storage.objects.create"]},
+    "signing": {"id": "wirenexusPublicationsSigner", "permissions": ["iam.serviceAccounts.signBlob"]},
+    "temporaryProbe": {"id": "wirenexusRuntimeVerification", "permissions": ["iam.serviceAccounts.getAccessToken"]}
+  },
+  "secrets": [
+    {"id": "wirenexus-staging-supabase-server", "environmentVariable": "WIRENEXUS_SUPABASE_SERVICE_ROLE_KEY", "version": null},
+    {"id": "wirenexus-staging-supabase-publishable", "environmentVariable": "WIRENEXUS_SUPABASE_PUBLISHABLE_KEY", "version": null}
+  ],
+  "environment": {
+    "WIRENEXUS_SUPABASE_URL": "https://puyrylatmtcwlvyycplc.supabase.co",
+    "WIRENEXUS_REGISTRATION_ENABLED": "false",
+    "WIRENEXUS_EDITOR_ORIGIN": "https://staging.videocore.net",
+    "PUBLIC_VIEWER_ORIGIN": "https://staging.videocore.net",
+    "WIRENEXUS_PUBLISHING_STORAGE": "gcs",
+    "WIRENEXUS_GCS_BUCKET": "wirenexus-staging-publications-837085353595"
+  },
+  "trustedLoadBalancerConfigured": false,
+  "cloudRunDeploymentApproved": false,
+  "publicAccessApproved": false
+}
