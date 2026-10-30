@@ -133,6 +133,75 @@ per-advisory vendor/exposure review or explicit security-owner acceptance.
 The hardened scoped source passed **2,300 repository tests** and all **16 static
 validators**, with zero test failures/skips/cancellations before its rebuild.
 
+## Final candidate evidence
+
+| Evidence | Verified value |
+| --- | --- |
+| Source commit | `54990e8196ffc250f370b8692d6ca23ef27a872b` |
+| GitHub source archive SHA-256 | `349d5affc33d7b1c48fedbdd84655413f841502d951435a77df5cfde11fb1ab2` |
+| Cloud Build | `5a244ece-0ab2-4ce6-b6ea-65e3f7c46660`, `europe-west1`, SUCCESS, all seven steps passed |
+| UTC start / finish | `2026-10-30T11:45:18.515905199Z` / `2026-10-30T11:47:26.007683Z` |
+| Private image | `europe-west1-docker.pkg.dev/wirenexus-staging/wirenexus-images/wirenexus@sha256:fdba185aa262f916bb705ae929eae68c61eaf05afba37ec4aa55b1f1e0919598` |
+| Registry verification | Independent describe returns the same digest; SLSA level is unknown, not claimed certified |
+| Container proof | Linux x64, UID 1000, port 8080, real entrypoint; IAM-private and LB modes both PASS; all 688 asset hashes/API checks PASS |
+| Runtime hardening | npm/npx/Yarn/Corepack/pnpm shims absent; build-stage npm retained; app dependencies unchanged |
+| Scanner/database | Trivy 0.76.1; DB updated `2026-10-30T07:16:25.054174501Z`, scan created `2026-10-30T11:47:07.304554741Z` |
+| Complete normalized evidence | [hardened scan and startup records](security/phase-66m-hardened-evidence.json) |
+
+### Measured findings
+
+| Severity | Initial candidate | Hardened candidate |
+| --- | --- | --- |
+| Critical | 1 | 1 |
+| High | 62 | 56 |
+| Medium | 98 | 88 |
+| Low | 84 | 83 |
+| Unknown | 2 | 2 |
+| Total package/advisory occurrences | 247 | 230 |
+| Unique advisory IDs | 118 | 101 |
+| Occurrences with an advertised fix | 19 | 2 |
+
+Removing unused package managers eliminated **17** occurrences, including all
+six high Node-tooling occurrences, without changing the application dependency
+lockfile or server behavior. The final scan still has 229 Debian occurrences and
+one language-package occurrence: UUID 8.3.2 at
+`app/node_modules/uuid/package.json`. Its two advertised fixes are that previously
+reviewed UUID upgrade and tzdata `2026e-0+deb12u1 -> 2026f-0+deb12u1` (unknown
+severity/administrative update). No automatic application-major override or
+unpinned OS update was used.
+
+Trivy does **not** report the embedded CLI-config Zod copy. That is a scanner
+coverage gap, not evidence the four inherited high npm findings disappeared.
+The independent npm audit remains **six package entries, four high/two moderate**.
+The critical zlib entry remains visible with the Debian-specific not-affected
+assessment above. All other OS entries remain recorded and undispositioned;
+there is no blanket waiver for `affected` or `fix_deferred` status.
+
+### Final boundaries and readiness
+
+- Both staged build executions used only the existing registry and build account;
+  each temporary repository Writer binding was removed in `finally` and verified.
+  Final repository IAM has no direct bindings or public principals. Runtime IAM,
+  secret-scoped Accessor, self-signing and private bucket flags are unchanged.
+- Both Supabase references are pinned to enabled version 1. No secret values,
+  runtime credentials or signed URLs were printed or provided to either build.
+- No Cloud Run service exists in `europe-west1`. No deployment, DNS, production,
+  public-access, Supabase data/Auth or Vercel modification occurred. All 245
+  protected/unrelated hashes remain unchanged.
+- Two staging builds plus scan/download/logging and retained image storage are
+  cost-bearing usage; no new bucket, service account, scanning subscription,
+  load balancer or application compute service was created. Build execution
+  times were approximately 124.5 and 127.5 seconds, excluding queue/propagation.
+
+**Build/startup validation is complete; security deployment approval is not.**
+Remaining blockers: resolve or explicitly accept the embedded Zod/UUID risks and
+remaining OS findings; decide the tzdata update; separately approve the private
+Cloud Run deployment; resolve the actual service origin and exact CORS/Auth
+requirements; then verify real Invoker IAM denial, Supabase/GCS/secret access and
+application workflows. The critical package mismatch has a documented vendor
+assessment, not a hidden suppression. Do not deploy the initial image or confuse
+the final digest with an approval to release it.
+
 Pre-build isolated validation: **2,299 repository tests passed**, zero failed,
 skipped or canceled; all **16 static validators** passed. The 245 protected and
 unrelated file hashes match their established baseline. Hosted metadata confirms
