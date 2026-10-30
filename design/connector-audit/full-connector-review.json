@@ -1,0 +1,710 @@
+{
+  "project": "WireNexus",
+  "inventory_commit": "7dfad02",
+  "count": 78,
+  "notice": "Classifications are editorial triage, not physical verification. No replacements approved.",
+  "connectors": [
+    {
+      "type": "125a-3ph",
+      "name": "125A 3ph",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/ceeform3ph.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "125a-cee",
+      "name": "125 CEE",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/ceeform3ph.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "16a-1ph",
+      "name": "16A 1ph",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/ceeform1ph.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "16a-1ph-110v",
+      "name": "16A 1ph 110v",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/ceeform1ph110v.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "16a-3ph",
+      "name": "16A 3ph",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/ceeform3ph.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "16a-cee",
+      "name": "16A CEE",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/ceeform1ph.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "32a-1ph",
+      "name": "32A 1ph",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/ceeform1ph.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "32a-1ph-110v",
+      "name": "32A 1ph 110v",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/ceeform1ph110v.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "32a-3ph",
+      "name": "32A 3ph",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/ceeform3ph.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "32a-cee",
+      "name": "32A CEE",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/ceeform1ph.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "63a-3ph",
+      "name": "63A 3ph",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/ceeform3ph.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "63a-cee",
+      "name": "63A CEE",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/ceeform3ph.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "aes",
+      "name": "AES",
+      "classification": "signal-or-configuration",
+      "source": "Nodes/Thumbnails/XLR_Output.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "bnc",
+      "name": "BNC",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/bnc.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "ca-com",
+      "name": "CA-COM",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/CA-COM.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "cat5e",
+      "name": "RJ45 1G",
+      "classification": "signal-or-configuration",
+      "source": "Nodes/Thumbnails/RJ45.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "cat6",
+      "name": "RJ45 2.5G",
+      "classification": "signal-or-configuration",
+      "source": "Nodes/Thumbnails/RJ45.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "cat6a",
+      "name": "RJ45 10G",
+      "classification": "signal-or-configuration",
+      "source": "Nodes/Thumbnails/RJ45.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "component-video",
+      "name": "Component Video (YPbPr)",
+      "classification": "signal-or-configuration",
+      "source": "Nodes/Thumbnails/bnc.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "cxp",
+      "name": "CXP",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/CXP.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "display-port",
+      "name": "Display Port",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/DisplayPort.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "dmx-3pin",
+      "name": "DMX 3-Pin",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/xlr_input.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "dmx-5pin",
+      "name": "DMX 5-Pin",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/XLR5Pin.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "domm",
+      "name": "DOMM",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/DOMM.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "dvi",
+      "name": "DVI",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/DVI.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "edison",
+      "name": "Edison",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/blank.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "ethercon",
+      "name": "etherCON",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/etherCON.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "ethernet",
+      "name": "Ethernet",
+      "classification": "signal-or-configuration",
+      "source": "Nodes/Thumbnails/RJ45.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "fiber-lc",
+      "name": "Fiber LC",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/LC.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "fiber-mpo",
+      "name": "Fiber MPO",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/fiberMPO.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "fiber-sc",
+      "name": "Fiber SC",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/SC.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "fiber-st",
+      "name": "Fiber ST",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/FiberST.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "fiberfox",
+      "name": "FiberFox",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/FiberFox.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "harting",
+      "name": "Harting",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/Harting.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "hdmi",
+      "name": "HDMI",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/HDMI.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "iec",
+      "name": "IEC",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/C13.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "jack",
+      "name": "TRS/TS",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/TRS.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "led-signal",
+      "name": "LED Signal",
+      "classification": "signal-or-configuration",
+      "source": "Nodes/Thumbnails/blank.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "midi",
+      "name": "MIDI",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/MIDI.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "mini-din-6pin",
+      "name": "Mini Din 6-Pin",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/PS2.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "mini-display-port",
+      "name": "Mini-Display Port",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/MiniDisplayPort.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "misc",
+      "name": "Misc.",
+      "classification": "generic-placeholder",
+      "source": "Nodes/Thumbnails/blank.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "nema",
+      "name": "NEMA",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/NEMA.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "new-node",
+      "name": "Barrel Jack",
+      "classification": "generic-placeholder",
+      "source": "Nodes/Thumbnails/blank.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "new-node-2",
+      "name": "DAC",
+      "classification": "generic-placeholder",
+      "source": "Nodes/Thumbnails/blank.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "new-node-3",
+      "name": "RS-232",
+      "classification": "generic-placeholder",
+      "source": "Nodes/Thumbnails/blank.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "new-node-4",
+      "name": "Mini-SDI",
+      "classification": "generic-placeholder",
+      "source": "Nodes/Thumbnails/blank.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "new-node-5",
+      "name": "ADAT-S/PDIF",
+      "classification": "generic-placeholder",
+      "source": "Nodes/Thumbnails/blank.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "opticalcon",
+      "name": "OpticalCon",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/opticalCON.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "phono",
+      "name": "RCA",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/RCA.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "powercon",
+      "name": "powerCON",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/powerCON.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "powercon-true1",
+      "name": "powerCON TRUE1",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/powerCONTrue1.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "powerlock",
+      "name": "PowerLock",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/powerlock.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "qsfp",
+      "name": "QSFP",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/blank.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "qsfp-cage",
+      "name": "QSFP Cage",
+      "classification": "module-cage",
+      "source": "Nodes/Thumbnails/blank.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "rca",
+      "name": "RCA",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/RCA.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "rgbhv",
+      "name": "RGBHV",
+      "classification": "signal-or-configuration",
+      "source": "Nodes/Thumbnails/bnc.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "rs-422",
+      "name": "RS-422",
+      "classification": "signal-or-configuration",
+      "source": "Nodes/Thumbnails/VGA.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "schuko",
+      "name": "Schuko",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/Schuko.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "sdi",
+      "name": "SDI",
+      "classification": "signal-or-configuration",
+      "source": "Nodes/Thumbnails/bnc.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "sfp-cage",
+      "name": "SFP Cage",
+      "classification": "module-cage",
+      "source": "Nodes/Thumbnails/blank.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "sfp-plus-cage",
+      "name": "SFP+ Cage",
+      "classification": "module-cage",
+      "source": "Nodes/Thumbnails/blank.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "sfp28-cage",
+      "name": "SFP28 Cage",
+      "classification": "module-cage",
+      "source": "Nodes/Thumbnails/blank.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "socapex",
+      "name": "Socapex",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/socapex.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "speakon",
+      "name": "speakON NL4",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/speakON.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "speakon-nl2",
+      "name": "speakON NL2",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/speakON.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "speakon-nl4",
+      "name": "speakON NL4",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/speakON.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "speakon-nl8",
+      "name": "speakON NL8",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/speakON.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "trs-ts",
+      "name": "TRS/TS",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/TRS.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "uk-13a",
+      "name": "UK 13A",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/UK13A.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "usb",
+      "name": "USB-A",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/USBA.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "usb-a",
+      "name": "USB-A",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/USBA.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "usb-b",
+      "name": "USB-B",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/USBB.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "usb-c",
+      "name": "USB-C",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/USBC.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "vga",
+      "name": "VGA",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/VGA.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "manufacturer drawing review required"
+    },
+    {
+      "type": "xlr",
+      "name": "XLR 3-Pin",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/xlr_input.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "xlr-3pin",
+      "name": "XLR 3-Pin",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/xlr_input.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    },
+    {
+      "type": "xlr-5pin",
+      "name": "XLR 5-Pin",
+      "classification": "physical-connector-family",
+      "source": "Nodes/Thumbnails/XLR5Pin.png",
+      "source_gender": "unspecified",
+      "verification": "not-manufacturer-certified",
+      "review": "exact part/insert or gender may be ambiguous"
+    }
+  ]
+}
