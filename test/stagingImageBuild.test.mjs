@@ -35,3 +35,16 @@ test('private run.app readiness cannot bypass the existing verified-load-balance
   assert.throws(()=>validateCloudRunEnvironment(env),/restricted load-balancer ingress/);
   assert.throws(()=>cloudRunClientIp({headers:{authorization:'Bearer test-google-id-token','x-forwarded-for':'192.0.2.1'}}),/Verified request source/);
 });
+
+test('optional container scan uses a pinned scanner and runs before private image retention',async()=>{
+  const dir=await mkdtemp(path.join(tmpdir(),'wirenexus-image-scan-'));
+  try{
+    const output=path.join(dir,'build.json');const result=spawnSync(process.execPath,[new URL('../scripts/prepare-staging-image-build.mjs',import.meta.url).pathname,output,'--scan'],{encoding:'utf8'});
+    assert.equal(result.status,0,result.stderr);const config=JSON.parse(await readFile(output,'utf8'));
+    assert.equal(config.steps.length,7);assert.equal(config.steps[4].id,'scan-container-os-and-dependencies');
+    assert.match(config.steps[4].name,/@sha256:[a-f0-9]{64}$/);
+    const scan=config.steps[4].args.join(' ');assert.match(scan,/--scanners vuln/);assert.ok(!scan.includes('ignore-unfixed'));
+    assert.equal(config.steps[5].id,'record-unsuppressed-security-findings');assert.equal(config.steps[6].id,'retain-validated-staging-candidate');
+    assert.equal(config.timeout,'1200s');
+  }finally{await rm(dir,{recursive:true,force:true});}
+});
