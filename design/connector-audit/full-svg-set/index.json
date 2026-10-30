@@ -7,8 +7,50 @@
       "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/125-3ph.svg"
     ],
     "output_svg": "design/connector-audit/full-svg-set/125a-3ph.svg",
-    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved. Exact model, diameter and clock/key variant need part-specific confirmation.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/ceeform3ph.png",
+      "https://www.mennekes.org/fileadmin/MEN-Org/Plugs_Sockets/Service/Kataloge_Prospekte/sc_cee_international_0224_v3.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved."
+    ],
+    "remaining_issues": [
+      "Exact model, diameter and clock/key variant need part-specific confirmation."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 5,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "visible_variant": "female",
+    "embedded_alternate_variant": "male",
+    "alternate_symbol_id": "alternate-male",
+    "framing": {
+      "source_artwork_bounds": [
+        138.75,
+        25.0,
+        239.5,
+        133.25
+      ],
+      "uniform_scale": 2.069284065,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/ceeform3ph.png"
   },
   {
     "type": "125a-cee",
@@ -18,8 +60,50 @@
       "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/125-3ph.svg"
     ],
     "output_svg": "design/connector-audit/full-svg-set/125a-cee.svg",
-    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved. Exact model, diameter and clock/key variant need part-specific confirmation.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/ceeform3ph.png",
+      "https://www.mennekes.org/fileadmin/MEN-Org/Plugs_Sockets/Service/Kataloge_Prospekte/sc_cee_international_0224_v3.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved."
+    ],
+    "remaining_issues": [
+      "Exact model, diameter and clock/key variant need part-specific confirmation."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 5,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "visible_variant": "female",
+    "embedded_alternate_variant": "male",
+    "alternate_symbol_id": "alternate-male",
+    "framing": {
+      "source_artwork_bounds": [
+        138.75,
+        25.0,
+        239.5,
+        133.25
+      ],
+      "uniform_scale": 2.069284065,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/ceeform3ph.png"
   },
   {
     "type": "16a-1ph",
@@ -29,8 +113,50 @@
       "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/16-1ph.svg"
     ],
     "output_svg": "design/connector-audit/full-svg-set/16a-1ph.svg",
-    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved. Exact model, diameter and clock/key variant need part-specific confirmation.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/ceeform1ph.png",
+      "https://www.mennekes.org/fileadmin/MEN-Org/Plugs_Sockets/Service/Kataloge_Prospekte/sc_cee_international_0224_v3.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved."
+    ],
+    "remaining_issues": [
+      "Exact model, diameter and clock/key variant need part-specific confirmation."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 3,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "visible_variant": "female",
+    "embedded_alternate_variant": "male",
+    "alternate_symbol_id": "alternate-male",
+    "framing": {
+      "source_artwork_bounds": [
+        139.25,
+        26.0,
+        238.25,
+        132.0
+      ],
+      "uniform_scale": 2.113207547,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/ceeform1ph.png"
   },
   {
     "type": "16a-1ph-110v",
@@ -40,8 +166,50 @@
       "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/16-1ph110v.svg"
     ],
     "output_svg": "design/connector-audit/full-svg-set/16a-1ph-110v.svg",
-    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved. Exact model, diameter and clock/key variant need part-specific confirmation.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/ceeform1ph110v.png",
+      "https://www.mennekes.org/fileadmin/MEN-Org/Plugs_Sockets/Service/Kataloge_Prospekte/sc_cee_international_0224_v3.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved."
+    ],
+    "remaining_issues": [
+      "Exact model, diameter and clock/key variant need part-specific confirmation."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 3,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "visible_variant": "female",
+    "embedded_alternate_variant": "male",
+    "alternate_symbol_id": "alternate-male",
+    "framing": {
+      "source_artwork_bounds": [
+        139.5,
+        26.25,
+        238.5,
+        132.5
+      ],
+      "uniform_scale": 2.108235294,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/ceeform1ph110v.png"
   },
   {
     "type": "16a-3ph",
@@ -51,8 +219,50 @@
       "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/16-3ph.svg"
     ],
     "output_svg": "design/connector-audit/full-svg-set/16a-3ph.svg",
-    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved. Exact model, diameter and clock/key variant need part-specific confirmation.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/ceeform3ph.png",
+      "https://www.mennekes.org/fileadmin/MEN-Org/Plugs_Sockets/Service/Kataloge_Prospekte/sc_cee_international_0224_v3.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved."
+    ],
+    "remaining_issues": [
+      "Exact model, diameter and clock/key variant need part-specific confirmation."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 5,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "visible_variant": "female",
+    "embedded_alternate_variant": "male",
+    "alternate_symbol_id": "alternate-male",
+    "framing": {
+      "source_artwork_bounds": [
+        139.5,
+        26.0,
+        238.5,
+        132.0
+      ],
+      "uniform_scale": 2.113207547,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/ceeform3ph.png"
   },
   {
     "type": "16a-cee",
@@ -62,8 +272,50 @@
       "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/16-1ph.svg"
     ],
     "output_svg": "design/connector-audit/full-svg-set/16a-cee.svg",
-    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved. Exact model, diameter and clock/key variant need part-specific confirmation.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/ceeform1ph.png",
+      "https://www.mennekes.org/fileadmin/MEN-Org/Plugs_Sockets/Service/Kataloge_Prospekte/sc_cee_international_0224_v3.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved."
+    ],
+    "remaining_issues": [
+      "Exact model, diameter and clock/key variant need part-specific confirmation."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 3,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "visible_variant": "female",
+    "embedded_alternate_variant": "male",
+    "alternate_symbol_id": "alternate-male",
+    "framing": {
+      "source_artwork_bounds": [
+        139.25,
+        26.0,
+        238.25,
+        132.0
+      ],
+      "uniform_scale": 2.113207547,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/ceeform1ph.png"
   },
   {
     "type": "32a-1ph",
@@ -73,8 +325,50 @@
       "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/32-1ph.svg"
     ],
     "output_svg": "design/connector-audit/full-svg-set/32a-1ph.svg",
-    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved. Exact model, diameter and clock/key variant need part-specific confirmation.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/ceeform1ph.png",
+      "https://www.mennekes.org/fileadmin/MEN-Org/Plugs_Sockets/Service/Kataloge_Prospekte/sc_cee_international_0224_v3.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved."
+    ],
+    "remaining_issues": [
+      "Exact model, diameter and clock/key variant need part-specific confirmation."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 3,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "visible_variant": "female",
+    "embedded_alternate_variant": "male",
+    "alternate_symbol_id": "alternate-male",
+    "framing": {
+      "source_artwork_bounds": [
+        138.25,
+        25.0,
+        238.75,
+        133.0
+      ],
+      "uniform_scale": 2.074074074,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/ceeform1ph.png"
   },
   {
     "type": "32a-1ph-110v",
@@ -84,8 +378,50 @@
       "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/32-1ph110v.svg"
     ],
     "output_svg": "design/connector-audit/full-svg-set/32a-1ph-110v.svg",
-    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved. Exact model, diameter and clock/key variant need part-specific confirmation.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/ceeform1ph110v.png",
+      "https://www.mennekes.org/fileadmin/MEN-Org/Plugs_Sockets/Service/Kataloge_Prospekte/sc_cee_international_0224_v3.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved."
+    ],
+    "remaining_issues": [
+      "Exact model, diameter and clock/key variant need part-specific confirmation."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 3,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "visible_variant": "female",
+    "embedded_alternate_variant": "male",
+    "alternate_symbol_id": "alternate-male",
+    "framing": {
+      "source_artwork_bounds": [
+        138.5,
+        25.25,
+        239.25,
+        133.25
+      ],
+      "uniform_scale": 2.074074074,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/ceeform1ph110v.png"
   },
   {
     "type": "32a-3ph",
@@ -95,8 +431,50 @@
       "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/32-3ph.svg"
     ],
     "output_svg": "design/connector-audit/full-svg-set/32a-3ph.svg",
-    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved. Exact model, diameter and clock/key variant need part-specific confirmation.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/ceeform3ph.png",
+      "https://www.mennekes.org/fileadmin/MEN-Org/Plugs_Sockets/Service/Kataloge_Prospekte/sc_cee_international_0224_v3.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved."
+    ],
+    "remaining_issues": [
+      "Exact model, diameter and clock/key variant need part-specific confirmation."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 5,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "visible_variant": "female",
+    "embedded_alternate_variant": "male",
+    "alternate_symbol_id": "alternate-male",
+    "framing": {
+      "source_artwork_bounds": [
+        138.5,
+        25.0,
+        239.5,
+        133.0
+      ],
+      "uniform_scale": 2.074074074,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/ceeform3ph.png"
   },
   {
     "type": "32a-cee",
@@ -106,8 +484,50 @@
       "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/32-1ph.svg"
     ],
     "output_svg": "design/connector-audit/full-svg-set/32a-cee.svg",
-    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved. Exact model, diameter and clock/key variant need part-specific confirmation.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/ceeform1ph.png",
+      "https://www.mennekes.org/fileadmin/MEN-Org/Plugs_Sockets/Service/Kataloge_Prospekte/sc_cee_international_0224_v3.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved."
+    ],
+    "remaining_issues": [
+      "Exact model, diameter and clock/key variant need part-specific confirmation."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 3,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "visible_variant": "female",
+    "embedded_alternate_variant": "male",
+    "alternate_symbol_id": "alternate-male",
+    "framing": {
+      "source_artwork_bounds": [
+        138.25,
+        25.0,
+        238.75,
+        133.0
+      ],
+      "uniform_scale": 2.074074074,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/ceeform1ph.png"
   },
   {
     "type": "63a-3ph",
@@ -117,8 +537,50 @@
       "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/63-3ph.svg"
     ],
     "output_svg": "design/connector-audit/full-svg-set/63a-3ph.svg",
-    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved. Exact model, diameter and clock/key variant need part-specific confirmation.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/ceeform3ph.png",
+      "https://www.mennekes.org/fileadmin/MEN-Org/Plugs_Sockets/Service/Kataloge_Prospekte/sc_cee_international_0224_v3.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved."
+    ],
+    "remaining_issues": [
+      "Exact model, diameter and clock/key variant need part-specific confirmation."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 5,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "visible_variant": "female",
+    "embedded_alternate_variant": "male",
+    "alternate_symbol_id": "alternate-male",
+    "framing": {
+      "source_artwork_bounds": [
+        138.0,
+        24.25,
+        240.0,
+        133.75
+      ],
+      "uniform_scale": 2.0456621,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/ceeform3ph.png"
   },
   {
     "type": "63a-cee",
@@ -128,8 +590,50 @@
       "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/63-3ph.svg"
     ],
     "output_svg": "design/connector-audit/full-svg-set/63a-cee.svg",
-    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved. Exact model, diameter and clock/key variant need part-specific confirmation.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/ceeform3ph.png",
+      "https://www.mennekes.org/fileadmin/MEN-Org/Plugs_Sockets/Service/Kataloge_Prospekte/sc_cee_international_0224_v3.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "IEC 60309 family, 3/5 contact count, gender distinction and blue/yellow/red coding checked. Source geometry preserved."
+    ],
+    "remaining_issues": [
+      "Exact model, diameter and clock/key variant need part-specific confirmation."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 5,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "visible_variant": "female",
+    "embedded_alternate_variant": "male",
+    "alternate_symbol_id": "alternate-male",
+    "framing": {
+      "source_artwork_bounds": [
+        138.0,
+        24.25,
+        240.0,
+        133.75
+      ],
+      "uniform_scale": 2.0456621,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/ceeform3ph.png"
   },
   {
     "type": "aes",
@@ -138,8 +642,48 @@
       "Nodes/Thumbnails/XLR_Output.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/aes.svg",
-    "notes": "3 contacts; male example retained from XLR_Output thumbnail. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Three-contact family, female recesses versus male AES source example and frontal arrangement checked. Bare insert example retained; flange variant and exact source part unassigned.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/XLR_Output.png",
+      "https://www.neutrik.com/en/product/nc3fd-l-1",
+      "https://www.neutrik.com/uploads/media/400x/03/503-nc3fd-l-1.jpg?v=1-0"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Three-contact family, female recesses versus male AES source example and frontal arrangement checked."
+    ],
+    "remaining_issues": [
+      "Bare insert example retained; flange variant and exact source part unassigned."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 3,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        66.0,
+        18.0,
+        190.0,
+        142.0
+      ],
+      "uniform_scale": 1.806451613,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/XLR_Output.png"
   },
   {
     "type": "bnc",
@@ -148,8 +692,42 @@
       "Nodes/Thumbnails/bnc.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/bnc.svg",
-    "notes": "True frontal coaxial socket with concentric shell/dielectric, recessed center and opposed bayonet lugs; SDI reuses BNC geometry. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Front-facing female BNC concentric shell, bayonet lugs and center socket checked. Grouped channel counts/colors retained. Generic bulkhead family, not the referenced D-flange part. Impedance and exact dimensions cannot be determined visually.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/bnc.png",
+      "https://www.neutrik.com/en/product/nbb75dfi"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Front-facing female BNC concentric shell, bayonet lugs and center socket checked. Grouped channel counts/colors retained."
+    ],
+    "remaining_issues": [
+      "Generic bulkhead family, not the referenced D-flange part. Impedance and exact dimensions cannot be determined visually."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "framing": {
+      "source_artwork_bounds": [
+        72.0,
+        28.0,
+        184.0,
+        132.0
+      ],
+      "uniform_scale": 2.0,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/bnc.png"
   },
   {
     "type": "ca-com",
@@ -158,8 +736,47 @@
       "Nodes/Thumbnails/CA-COM.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/ca-com.svg",
-    "notes": "9 visible source-thumbnail contact locations rebuilt as a frontal circular insert; arrangement regularized from perspective artwork. Contact gender, exact key clocking and manufacturer insert require review. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Removed invented wide flange and radial contact arrays; restored square circular-shell proportions and source-observed staggered contact field. Count is source-observed only (9/19); exact insert, gender and key clock remain unresolved. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Source-observed 9 contact locations; square circular-shell family. ITT Cannon catalogue has many contact configurations, including 9; original thumbnail is insufficient to identify a specific arrangement. Do not replace it with an assumed common 8-pin speaker insert. Gender and mechanical key dimensions unresolved.",
+    "verification_status": "review-needed",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/CA-COM.png",
+      "https://www.mouser.com/datasheet/2/578/ITT_Cannon_CA_COM_Catalog-1316742.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Source-observed 9 contact locations; square circular-shell family."
+    ],
+    "remaining_issues": [
+      "ITT Cannon catalogue has many contact configurations, including 9; original thumbnail is insufficient to identify a specific arrangement. Do not replace it with an assumed common 8-pin speaker insert. Gender and mechanical key dimensions unresolved."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram. Technical approval withheld for the source/model uncertainties documented in remaining_issues.",
+    "thumbnail_status": "review-needed",
+    "interface": {
+      "contact_count": 9,
+      "count_basis": "source-observed",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        58.0,
+        11.0,
+        198.0,
+        149.0
+      ],
+      "uniform_scale": 1.6,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/CA-COM.png"
   },
   {
     "type": "cat5e",
@@ -168,8 +785,45 @@
       "Nodes/Thumbnails/RJ45.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/cat5e.svg",
-    "notes": "8-position RJ45/8P8C socket rebuilt frontally from source; speed/category aliases do not change contact geometry. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "source-observed",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/RJ45.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 8,
+      "count_basis": "original-thumbnail-family",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        56.0,
+        30.0,
+        200.0,
+        130.0
+      ],
+      "uniform_scale": 1.555555556,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/RJ45.png"
   },
   {
     "type": "cat6",
@@ -178,8 +832,45 @@
       "Nodes/Thumbnails/RJ45.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/cat6.svg",
-    "notes": "8-position RJ45/8P8C socket rebuilt frontally from source; speed/category aliases do not change contact geometry. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "source-observed",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/RJ45.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 8,
+      "count_basis": "original-thumbnail-family",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        56.0,
+        30.0,
+        200.0,
+        130.0
+      ],
+      "uniform_scale": 1.555555556,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/RJ45.png"
   },
   {
     "type": "cat6a",
@@ -188,8 +879,45 @@
       "Nodes/Thumbnails/RJ45.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/cat6a.svg",
-    "notes": "8-position RJ45/8P8C socket rebuilt frontally from source; speed/category aliases do not change contact geometry. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "source-observed",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/RJ45.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 8,
+      "count_basis": "original-thumbnail-family",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        56.0,
+        30.0,
+        200.0,
+        130.0
+      ],
+      "uniform_scale": 1.555555556,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/RJ45.png"
   },
   {
     "type": "component-video",
@@ -198,8 +926,42 @@
       "Nodes/Thumbnails/bnc.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/component-video.svg",
-    "notes": "Grouped frontal BNC family; Y/Pb/Pr green/blue/red; RGBHV red/green/blue/white/gray. Separate hardware count preserved. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Front-facing female BNC concentric shell, bayonet lugs and center socket checked. Grouped channel counts/colors retained. Generic bulkhead family, not the referenced D-flange part. Impedance and exact dimensions cannot be determined visually.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/bnc.png",
+      "https://www.neutrik.com/en/product/nbb75dfi"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Front-facing female BNC concentric shell, bayonet lugs and center socket checked. Grouped channel counts/colors retained."
+    ],
+    "remaining_issues": [
+      "Generic bulkhead family, not the referenced D-flange part. Impedance and exact dimensions cannot be determined visually."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Group/family silhouette and color remain visible at 32 px; individual high-density contacts cannot be counted at 32 px. Use 64/128 px for insert review; do not infer pin numbering from thumbnails.",
+    "thumbnail_status": "detail-limited",
+    "framing": {
+      "source_artwork_bounds": [
+        12.5,
+        52.0,
+        243.5,
+        122.75
+      ],
+      "uniform_scale": 0.96969697,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/bnc.png"
   },
   {
     "type": "cxp",
@@ -208,8 +970,48 @@
       "Nodes/Thumbnails/CXP.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/cxp.svg",
-    "notes": "Frontal shielded CXP module opening derived from source silhouette and spring cage; recessed interface deliberately leaves exact internal contact count unresolved, rather than asserting a pinout. Exact CXP generation requires review. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Corrected front cage opening proportions and paired top/bottom EMI spring treatment. Removed false bottom tongue. TE 2149152-1 confirms 84 internal positions; recessed contacts are not invented at the mouth. Source model cannot be uniquely assigned. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. TE CXP cage/module family and 84 recessed electrical positions checked; spring fingers are mechanical, not contacts. Source is consistent with a CXP cage, but SKU unassigned. Front artwork omits hidden rear pin layout; not an 84-pin diagram.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/CXP.png",
+      "https://www.te.com/en/product-2149152-1.html",
+      "https://www.te.com/content/dam/te-com/documents/about-te/marketing/global/select-campaign/data-communications-solutions-guide.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "TE CXP cage/module family and 84 recessed electrical positions checked; spring fingers are mechanical, not contacts."
+    ],
+    "remaining_issues": [
+      "Source is consistent with a CXP cage, but SKU unassigned. Front artwork omits hidden rear pin layout; not an 84-pin diagram."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 84,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": true
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        33.0,
+        33.0,
+        223.0,
+        126.0
+      ],
+      "uniform_scale": 1.178947368,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/CXP.png"
   },
   {
     "type": "display-port",
@@ -218,8 +1020,47 @@
       "Nodes/Thumbnails/DisplayPort.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/display-port.svg",
-    "notes": "Frontal 20-contact family study derived from thumbnail. Exact tongue, pitch and key/chamfer dimensions require model review. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Corrected aperture proportions rather than scaling old geometry: low-profile HDMI/DP; taller rectangular mini-DP. Two opposed contact rows (HDMI 10+9, DP/mini-DP 10+10); no anisotropic transforms. Source MiniDisplayPort thumbnail appears inconsistent with a modern mini-DP receptacle; exact part unresolved. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. 20 contacts in two rows and low-profile one-corner chamfered aperture checked. Family illustration, not the identified source SKU or a dimensionally certified drawing.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/DisplayPort.png",
+      "https://cdn.amphenol-cs.com/media/wysiwyg/files/drawing/dpf201027xxxx.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "20 contacts in two rows and low-profile one-corner chamfered aperture checked."
+    ],
+    "remaining_issues": [
+      "Family illustration, not the identified source SKU or a dimensionally certified drawing."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 20,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        31.0,
+        48.0,
+        225.0,
+        108.0
+      ],
+      "uniform_scale": 1.154639175,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/DisplayPort.png"
   },
   {
     "type": "dmx-3pin",
@@ -228,8 +1069,48 @@
       "Nodes/Thumbnails/xlr_input.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/dmx-3pin.svg",
-    "notes": "3 contacts; female example follows source thumbnail; signal direction does not establish gender. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Three-contact family, female recesses versus male AES source example and frontal arrangement checked. Bare insert example retained; flange variant and exact source part unassigned.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/xlr_input.png",
+      "https://www.neutrik.com/en/product/nc3fd-l-1",
+      "https://www.neutrik.com/uploads/media/400x/03/503-nc3fd-l-1.jpg?v=1-0"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Three-contact family, female recesses versus male AES source example and frontal arrangement checked."
+    ],
+    "remaining_issues": [
+      "Bare insert example retained; flange variant and exact source part unassigned."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 3,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        66.0,
+        18.0,
+        190.0,
+        142.0
+      ],
+      "uniform_scale": 1.806451613,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/xlr_input.png"
   },
   {
     "type": "dmx-5pin",
@@ -238,8 +1119,48 @@
       "Nodes/Thumbnails/XLR5Pin.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/dmx-5pin.svg",
-    "notes": "5 contacts; female example follows source thumbnail; signal direction does not establish gender. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Corrected five-contact insert to the source/manufacturer U-shaped pattern: two upper, two lower, one bottom-center; removed invented top-center contact. Female sockets retained. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Five female contacts; U-shaped arrangement compared with photograph. Exact source model and key dimensions unassigned.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/XLR5Pin.png",
+      "https://www.neutrik.com/en/product/nc5fd-l-1",
+      "https://www.neutrik.com/uploads/media/400x/02/522-nc5fd-l-1.jpg?v=1-0"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Five female contacts; U-shaped arrangement compared with photograph."
+    ],
+    "remaining_issues": [
+      "Exact source model and key dimensions unassigned."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 5,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        66.0,
+        18.0,
+        190.0,
+        142.0
+      ],
+      "uniform_scale": 1.806451613,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/XLR5Pin.png"
   },
   {
     "type": "domm",
@@ -248,8 +1169,46 @@
       "Nodes/Thumbnails/DOMM.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/domm.svg",
-    "notes": "19 visible source-thumbnail contact locations rebuilt as a frontal circular insert; arrangement regularized from perspective artwork. Contact gender, exact key clocking and manufacturer insert require review. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Removed invented wide flange and radial contact arrays; restored square circular-shell proportions and source-observed staggered contact field. Count is source-observed only (9/19); exact insert, gender and key clock remain unresolved. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Source-observed 19 contact locations; square circular-shell family. DOMM name did not identify a manufacturer/model. Pin positions, gender and keying remain source-observed, not manufacturer verified.",
+    "verification_status": "review-needed",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/DOMM.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Source-observed 19 contact locations; square circular-shell family."
+    ],
+    "remaining_issues": [
+      "DOMM name did not identify a manufacturer/model. Pin positions, gender and keying remain source-observed, not manufacturer verified."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram. Technical approval withheld for the source/model uncertainties documented in remaining_issues.",
+    "thumbnail_status": "review-needed",
+    "interface": {
+      "contact_count": 19,
+      "count_basis": "source-observed",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        58.0,
+        11.0,
+        198.0,
+        149.0
+      ],
+      "uniform_scale": 1.6,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/DOMM.png"
   },
   {
     "type": "dvi",
@@ -258,8 +1217,45 @@
       "Nodes/Thumbnails/DVI.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/dvi.svg",
-    "notes": "DVI-I dual-link example follows source: 24 digital + 4 analog contacts + flat blade. Catalogue does not specify DVI variant. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Corrected wide DVI frontal aspect; analog four-contact/blade cluster moved left to match source, 24 digital sockets right. DVI-I dual-link example only, no catalogue-wide subtype claim. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "source-observed",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/DVI.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 29,
+      "count_basis": "original-thumbnail-family",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        1.0,
+        48.0,
+        255.0,
+        114.0
+      ],
+      "uniform_scale": 0.881889764,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/DVI.png"
   },
   {
     "type": "edison",
@@ -268,8 +1264,41 @@
       "Nodes/Thumbnails/blank.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/edison.svg",
-    "notes": "Abstract review symbol: catalogue entry lacks a precise physical model/configuration; no unverified pinout or contact count invented. Physical implementation needs specification before a model-specific hardware drawing can replace this abstract. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted. Need a specified physical connector or installed module before creating a model-specific insert.",
+    "verification_status": "abstract-configuration",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/blank.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted."
+    ],
+    "remaining_issues": [
+      "Need a specified physical connector or installed module before creating a model-specific insert."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector.",
+    "thumbnail_status": "abstract-only",
+    "framing": {
+      "source_artwork_bounds": [
+        43.0,
+        38.0,
+        213.0,
+        126.0
+      ],
+      "uniform_scale": 1.317647059,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/blank.png"
   },
   {
     "type": "ethercon",
@@ -278,8 +1307,45 @@
       "Nodes/Thumbnails/etherCON.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/ethercon.svg",
-    "notes": "Front-facing circular etherCON shell around an 8P8C aperture; exact latch/model requires review. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Corrected housing proportions; retained known inner source family. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "source-observed",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/etherCON.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 8,
+      "count_basis": "original-thumbnail-family",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        66.0,
+        14.0,
+        190.0,
+        146.0
+      ],
+      "uniform_scale": 1.696969697,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/etherCON.png"
   },
   {
     "type": "ethernet",
@@ -288,8 +1354,45 @@
       "Nodes/Thumbnails/RJ45.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/ethernet.svg",
-    "notes": "8-position RJ45/8P8C socket rebuilt frontally from source; speed/category aliases do not change contact geometry. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "source-observed",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/RJ45.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 8,
+      "count_basis": "original-thumbnail-family",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        56.0,
+        30.0,
+        200.0,
+        130.0
+      ],
+      "uniform_scale": 1.555555556,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/RJ45.png"
   },
   {
     "type": "fiber-lc",
@@ -298,8 +1401,42 @@
       "Nodes/Thumbnails/LC.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/fiber-lc.svg",
-    "notes": "LC duplex blue adapter example. Front-facing source family; no visible electrical contacts. Blue is source finish, not a claim about all fiber/polish variants. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Preserved blue adapter family and duplex/simplex count; corrected empty black rectangles with recessed alignment-sleeve detail and latch channel. Exact adapter vendor/polish unspecified. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. LC duplex / SC simplex blue alignment-sleeve adapter families checked; fiber-mode/polish not assigned to all variants. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/LC.png",
+      "https://www.corning.com/catalog/coc/documents/product-family-specifications/0262_NAFTA_AEN.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "LC duplex / SC simplex blue alignment-sleeve adapter families checked; fiber-mode/polish not assigned to all variants."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "framing": {
+      "source_artwork_bounds": [
+        57.0,
+        23.0,
+        199.0,
+        137.0
+      ],
+      "uniform_scale": 1.577464789,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/LC.png"
   },
   {
     "type": "fiber-mpo",
@@ -308,8 +1445,40 @@
       "Nodes/Thumbnails/fiberMPO.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/fiber-mpo.svg",
-    "notes": "MPO adapter opening rebuilt from source; no invented fiber count, ferrule pin gender or polish assigned. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Corrected housing proportions; retained known inner source family. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "source-observed",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/fiberMPO.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "framing": {
+      "source_artwork_bounds": [
+        47.0,
+        31.0,
+        209.0,
+        131.0
+      ],
+      "uniform_scale": 1.382716049,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/fiberMPO.png"
   },
   {
     "type": "fiber-sc",
@@ -318,8 +1487,42 @@
       "Nodes/Thumbnails/SC.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/fiber-sc.svg",
-    "notes": "SC simplex blue adapter example. Front-facing source family; no visible electrical contacts. Blue is source finish, not a claim about all fiber/polish variants. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Preserved blue adapter family and duplex/simplex count; corrected empty black rectangles with recessed alignment-sleeve detail and latch channel. Exact adapter vendor/polish unspecified. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. LC duplex / SC simplex blue alignment-sleeve adapter families checked; fiber-mode/polish not assigned to all variants. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/SC.png",
+      "https://www.corning.com/catalog/coc/documents/product-family-specifications/0262_NAFTA_AEN.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "LC duplex / SC simplex blue alignment-sleeve adapter families checked; fiber-mode/polish not assigned to all variants."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "framing": {
+      "source_artwork_bounds": [
+        91.0,
+        23.0,
+        161.0,
+        137.0
+      ],
+      "uniform_scale": 1.964912281,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/SC.png"
   },
   {
     "type": "fiber-st",
@@ -328,8 +1531,40 @@
       "Nodes/Thumbnails/FiberST.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/fiber-st.svg",
-    "notes": "Frontal ST socket, two bayonet lugs and ceramic aperture based on source. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "source-observed",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/FiberST.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "framing": {
+      "source_artwork_bounds": [
+        75.0,
+        32.0,
+        181.0,
+        128.0
+      ],
+      "uniform_scale": 2.113207547,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/FiberST.png"
   },
   {
     "type": "fiberfox",
@@ -338,8 +1573,49 @@
       "Nodes/Thumbnails/FiberFox.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/fiberfox.svg",
-    "notes": "Frontal rugged FiberFox circular shell and red collar based on source. Optical insert is abstract/shuttered; lens/fiber count and precise model remain unspecified. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Removed invented shutter and wide plate; restored D-flange, red collar, opposing alignment jaws and four expanded-beam lenses using NO4M4DW-FX photograph and front drawing. Hermaphroditic optical interface, not electrical pins. Exact catalog thumbnail part remains unassigned. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Selected NO4M4DW-FX EBC15 4CH reference: hermaphroditic four-lens interface, red collar, opposing jaws, 26:31 flange proportions. Photo and front drawing visually inspected. Selected reference matches visible source family; exact inventory part is not supplied. Jaw profiles and optical spacing remain illustrative, not CAD-certified.",
+    "verification_status": "model-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/FiberFox.png",
+      "https://www.neutrik.com/en/product/fiberfox-4ch-bridge",
+      "https://www.neutrik.com/media/15869/download/Drawing%20NO4M4DW-FX.pdf?v=3",
+      "https://www.neutrik.com/uploads/media/743x/09/15989-FIBERFOX_NO4M4DW-FX_persp%20front_RGB_WEB%20%21.png?v=3-0"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Selected NO4M4DW-FX EBC15 4CH reference: hermaphroditic four-lens interface, red collar, opposing jaws, 26:31 flange proportions. Photo and front drawing visually inspected."
+    ],
+    "remaining_issues": [
+      "Selected reference matches visible source family; exact inventory part is not supplied. Jaw profiles and optical spacing remain illustrative, not CAD-certified."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "optical_channels": 4,
+      "gender": "hermaphroditic",
+      "count_basis": "NO4M4DW-FX reference drawing/photo"
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        58.0,
+        1.5,
+        198.0,
+        158.5
+      ],
+      "uniform_scale": 1.426751592,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/FiberFox.png"
   },
   {
     "type": "harting",
@@ -349,8 +1625,52 @@
       "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/HartingFemale.svg"
     ],
     "output_svg": "design/connector-audit/full-svg-set/harting.svg",
-    "notes": "Source geometry retained, including distinct contact forms and standard source colors. Exact commercial insert/model and keying require review. Review only; manufacturer/model verification incomplete. Paired wide groups are kept at their native aspect ratio; inspect the SVG enlarged for contact detail.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Existing male/female 64-contact source studies preserve their true 111:27 aspect ratio. Han D64 reference confirms a real 64-contact family exists. IMPORTANT source conflict: original Harting.png shows a different, unidentified insert. Retained reviewed 64-contact study is a documented family example, not a verified match to that thumbnail. Housing, PE and pin mapping need precise part identity.",
+    "verification_status": "review-needed",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/Harting.png",
+      "https://www.harting.com/sites/default/files/2020-01/02_11_Han_en.pdf",
+      "https://b2b.harting.com/ebusiness/es/Han-D-64-Pos-M-Insert-Crimp/09210643001"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Existing male/female 64-contact source studies preserve their true 111:27 aspect ratio. Han D64 reference confirms a real 64-contact family exists."
+    ],
+    "remaining_issues": [
+      "IMPORTANT source conflict: original Harting.png shows a different, unidentified insert. Retained reviewed 64-contact study is a documented family example, not a verified match to that thumbnail. Housing, PE and pin mapping need precise part identity."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Primary family silhouette remains visible at 32 px; high-density contacts/individual group details need 64/128 px. Alternate source form retained as an SVG symbol and rendered on gender-variants-64px.png. Technical approval withheld for the source/model uncertainties documented in remaining_issues.",
+    "thumbnail_status": "detail-limited",
+    "interface": {
+      "contact_count": 64,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false,
+      "exact_inventory_model_identified": false
+    },
+    "visible_variant": "female",
+    "embedded_alternate_variant": "male",
+    "alternate_symbol_id": "alternate-male",
+    "framing": {
+      "source_artwork_bounds": [
+        19.0,
+        89.0,
+        237.0,
+        142.0
+      ],
+      "uniform_scale": 1.027522936,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/Harting.png"
   },
   {
     "type": "hdmi",
@@ -359,8 +1679,47 @@
       "Nodes/Thumbnails/HDMI.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/hdmi.svg",
-    "notes": "Frontal 19-contact family study derived from thumbnail. Exact tongue, pitch and key/chamfer dimensions require model review. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Corrected aperture proportions rather than scaling old geometry: low-profile HDMI/DP; taller rectangular mini-DP. Two opposed contact rows (HDMI 10+9, DP/mini-DP 10+10); no anisotropic transforms. Source MiniDisplayPort thumbnail appears inconsistent with a modern mini-DP receptacle; exact part unresolved. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. 19 positions, 10+9 opposing rows and low-profile symmetric chamfered aperture checked. Generic Type A example; exact catalogue SKU unresolved.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/HDMI.png",
+      "https://www.molex.com/content/dam/molex/molex-dot-com/products/automated/en-us/salesdrawingpdf/208/208658/2086581001_sd.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "19 positions, 10+9 opposing rows and low-profile symmetric chamfered aperture checked."
+    ],
+    "remaining_issues": [
+      "Generic Type A example; exact catalogue SKU unresolved."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 19,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        33.0,
+        48.0,
+        223.0,
+        110.0
+      ],
+      "uniform_scale": 1.178947368,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/HDMI.png"
   },
   {
     "type": "iec",
@@ -369,8 +1728,48 @@
       "Nodes/Thumbnails/C13.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/iec.svg",
-    "notes": "IEC C13 female front, matching C13 source; 3 recessed rectangular contacts. Exact dimensions require model review. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Corrected recessed female slots to exposed metal blades: original C13.png depicts a male C14 inlet despite filename. Three contacts and front inlet/flange proportions checked against Schurter C14 reference. Exact source part unknown. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Original C13.png contains exposed blades: corrected to male C14 physical inlet, 3 contacts. Catalogue name is only IEC and thumbnail filename is misleading. Exact Schurter or other model not supplied.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/C13.png",
+      "https://catalogue.schurter.com/en/datasheet/6100-3"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Original C13.png contains exposed blades: corrected to male C14 physical inlet, 3 contacts."
+    ],
+    "remaining_issues": [
+      "Catalogue name is only IEC and thumbnail filename is misleading. Exact Schurter or other model not supplied."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 3,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false,
+      "gender": "male (C14 inlet; source filename C13 is misleading)"
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        29.0,
+        26.0,
+        227.0,
+        134.0
+      ],
+      "uniform_scale": 1.131313131,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/C13.png"
   },
   {
     "type": "jack",
@@ -379,8 +1778,42 @@
       "Nodes/Thumbnails/TRS.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/jack.svg",
-    "notes": "Frontal 6.35 mm jack socket family from TRS thumbnail; TS/TRS internal switching cannot be inferred from front view. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Restored the source jack hex mounting nut and threaded bushing appearance; retained concentric female bore. TS/TRS switching remains hidden, not inferred from the front. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. 6.35 mm jack family, hex nut and coaxial bore checked; no internal TS/TRS wiring shown. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/TRS.png",
+      "https://www.rean-connectors.com/en/product/nys230-1"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "6.35 mm jack family, hex nut and coaxial bore checked; no internal TS/TRS wiring shown."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "framing": {
+      "source_artwork_bounds": [
+        68.0,
+        28.0,
+        188.0,
+        132.0
+      ],
+      "uniform_scale": 1.866666667,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/TRS.png"
   },
   {
     "type": "led-signal",
@@ -389,8 +1822,41 @@
       "Nodes/Thumbnails/blank.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/led-signal.svg",
-    "notes": "Abstract review symbol: catalogue entry lacks a precise physical model/configuration; no unverified pinout or contact count invented. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted. Need a specified physical connector or installed module before creating a model-specific insert.",
+    "verification_status": "abstract-configuration",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/blank.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted."
+    ],
+    "remaining_issues": [
+      "Need a specified physical connector or installed module before creating a model-specific insert."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector.",
+    "thumbnail_status": "abstract-only",
+    "framing": {
+      "source_artwork_bounds": [
+        43.0,
+        38.0,
+        213.0,
+        126.0
+      ],
+      "uniform_scale": 1.317647059,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/blank.png"
   },
   {
     "type": "midi",
@@ -399,8 +1865,47 @@
       "Nodes/Thumbnails/MIDI.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/midi.svg",
-    "notes": "5-contact 180-degree DIN MIDI frontal example. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. 5-position 180-degree DIN female family checked; original geometry retained. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/MIDI.png",
+      "https://www.rean-connectors.com/en/product/nys325-1"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "5-position 180-degree DIN female family checked; original geometry retained."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 5,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        66.0,
+        18.0,
+        190.0,
+        142.0
+      ],
+      "uniform_scale": 1.806451613,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/MIDI.png"
   },
   {
     "type": "mini-din-6pin",
@@ -409,8 +1914,49 @@
       "Nodes/Thumbnails/PS2.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/mini-din-6pin.svg",
-    "notes": "6-contact mini-DIN frontal example; source shows green/purple PS/2 alternatives. No signal-role color chosen. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Corrected six-position mini-DIN to manufacturer front-view topology: inner upper pair, wider middle pair, inner lower pair and upper-center rectangular polarizing key. Neutral insert avoids assigning keyboard/mouse role color to a generic mini-DIN entry. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. 6-position polarized mini-DIN reference and original green/purple PS/2 source compared. E-tec MDJ 6-position front drawing visually inspected; six-contact topology and upper central rectangular key corrected. Exact vendor/PS2 color variant of catalogue thumbnail not specified. Socket detail remains illustrative, not a dimensional mating drawing.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/PS2.png",
+      "https://www.te.com/en/product-5749265-1.html",
+      "https://www.e-tec.com/v5/documents/pdfs/d-sub-and-i-o-connectors/ds-06_91a.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "6-position polarized mini-DIN reference and original green/purple PS/2 source compared.",
+      "E-tec MDJ 6-position front drawing visually inspected; six-contact topology and upper central rectangular key corrected."
+    ],
+    "remaining_issues": [
+      "Exact vendor/PS2 color variant of catalogue thumbnail not specified. Socket detail remains illustrative, not a dimensional mating drawing."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 6,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        66.0,
+        18.0,
+        190.0,
+        142.0
+      ],
+      "uniform_scale": 1.806451613,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/PS2.png"
   },
   {
     "type": "mini-display-port",
@@ -419,8 +1965,47 @@
       "Nodes/Thumbnails/MiniDisplayPort.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/mini-display-port.svg",
-    "notes": "Frontal 20-contact family study derived from thumbnail. Exact tongue, pitch and key/chamfer dimensions require model review. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Corrected aperture proportions rather than scaling old geometry: low-profile HDMI/DP; taller rectangular mini-DP. Two opposed contact rows (HDMI 10+9, DP/mini-DP 10+10); no anisotropic transforms. Source MiniDisplayPort thumbnail appears inconsistent with a modern mini-DP receptacle; exact part unresolved. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. 20-position mini-DP receptacle reference checked; removed nonuniform scale and corrected taller rectangular mouth. Original MiniDisplayPort.png appears to show a different shield/contact form. Catalogue part identity needs confirmation.",
+    "verification_status": "review-needed",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/MiniDisplayPort.png",
+      "https://www.amphenol-cs.com/product/g46m2023201erceu.html"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "20-position mini-DP receptacle reference checked; removed nonuniform scale and corrected taller rectangular mouth."
+    ],
+    "remaining_issues": [
+      "Original MiniDisplayPort.png appears to show a different shield/contact form. Catalogue part identity needs confirmation."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Rectangular mini-DP family silhouette improved at 32 px, but the source-thumbnail identity conflict prevents release approval.",
+    "thumbnail_status": "review-needed",
+    "interface": {
+      "contact_count": 20,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        57.0,
+        33.0,
+        199.0,
+        125.0
+      ],
+      "uniform_scale": 1.577464789,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/MiniDisplayPort.png"
   },
   {
     "type": "misc",
@@ -429,8 +2014,41 @@
       "Nodes/Thumbnails/blank.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/misc.svg",
-    "notes": "Abstract review symbol: catalogue entry lacks a precise physical model/configuration; no unverified pinout or contact count invented. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted. Need a specified physical connector or installed module before creating a model-specific insert.",
+    "verification_status": "abstract-configuration",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/blank.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted."
+    ],
+    "remaining_issues": [
+      "Need a specified physical connector or installed module before creating a model-specific insert."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector.",
+    "thumbnail_status": "abstract-only",
+    "framing": {
+      "source_artwork_bounds": [
+        43.0,
+        38.0,
+        213.0,
+        126.0
+      ],
+      "uniform_scale": 1.317647059,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/blank.png"
   },
   {
     "type": "nema",
@@ -439,8 +2057,42 @@
       "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/NEMA.svg"
     ],
     "output_svg": "design/connector-audit/full-svg-set/nema.svg",
-    "notes": "Original frontal socket geometry retained. NEMA configuration unspecified; retained source is only a visual study, not an assigned subtype. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Corrected square study perimeter to rounded single receptacle face and polarized slot proportions seen in thumbnail. NEMA 5-15R family example, not a claim that generic NEMA means this subtype. No exposed copper contacts. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. 5-15R-style polarized 2-slot + ground face checked as a family example. NEMA is a generic inventory label. Source resembles 5-15R but exact subtype/SKU is not established; do not use artwork to assert electrical compatibility.",
+    "verification_status": "review-needed",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/NEMA.png",
+      "https://leviton.com/content/dam/leviton/canada/commercial-industrial/product-specifications/spec-sheet-cr15-r-en.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "5-15R-style polarized 2-slot + ground face checked as a family example."
+    ],
+    "remaining_issues": [
+      "NEMA is a generic inventory label. Source resembles 5-15R but exact subtype/SKU is not established; do not use artwork to assert electrical compatibility."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram. Technical approval withheld for the source/model uncertainties documented in remaining_issues.",
+    "thumbnail_status": "review-needed",
+    "framing": {
+      "source_artwork_bounds": [
+        65.0,
+        15.5,
+        191.0,
+        141.0
+      ],
+      "uniform_scale": 1.777777778,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/NEMA.png"
   },
   {
     "type": "new-node",
@@ -449,8 +2101,40 @@
       "connector-inventory.json: Barrel Jack configuration"
     ],
     "output_svg": "design/connector-audit/full-svg-set/new-node.svg",
-    "notes": "Generic abstract barrel-jack family; center pin shown, no size/polarity assignment. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "source-observed",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/blank.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "framing": {
+      "source_artwork_bounds": [
+        80.0,
+        32.0,
+        176.0,
+        128.0
+      ],
+      "uniform_scale": 2.333333333,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/blank.png"
   },
   {
     "type": "new-node-2",
@@ -459,8 +2143,41 @@
       "Nodes/Thumbnails/blank.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/new-node-2.svg",
-    "notes": "Abstract review symbol: catalogue entry lacks a precise physical model/configuration; no unverified pinout or contact count invented. Physical implementation needs specification before a model-specific hardware drawing can replace this abstract. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted. Need a specified physical connector or installed module before creating a model-specific insert.",
+    "verification_status": "abstract-configuration",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/blank.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted."
+    ],
+    "remaining_issues": [
+      "Need a specified physical connector or installed module before creating a model-specific insert."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector.",
+    "thumbnail_status": "abstract-only",
+    "framing": {
+      "source_artwork_bounds": [
+        43.0,
+        38.0,
+        213.0,
+        126.0
+      ],
+      "uniform_scale": 1.317647059,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/blank.png"
   },
   {
     "type": "new-node-3",
@@ -469,8 +2186,41 @@
       "Nodes/Thumbnails/blank.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/new-node-3.svg",
-    "notes": "Abstract review symbol: catalogue entry lacks a precise physical model/configuration; no unverified pinout or contact count invented. Physical implementation needs specification before a model-specific hardware drawing can replace this abstract. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted. Need a specified physical connector or installed module before creating a model-specific insert.",
+    "verification_status": "abstract-configuration",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/blank.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted."
+    ],
+    "remaining_issues": [
+      "Need a specified physical connector or installed module before creating a model-specific insert."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector.",
+    "thumbnail_status": "abstract-only",
+    "framing": {
+      "source_artwork_bounds": [
+        43.0,
+        38.0,
+        213.0,
+        126.0
+      ],
+      "uniform_scale": 1.317647059,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/blank.png"
   },
   {
     "type": "new-node-4",
@@ -479,8 +2229,41 @@
       "Nodes/Thumbnails/blank.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/new-node-4.svg",
-    "notes": "Abstract review symbol: catalogue entry lacks a precise physical model/configuration; no unverified pinout or contact count invented. Physical implementation needs specification before a model-specific hardware drawing can replace this abstract. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted. Need a specified physical connector or installed module before creating a model-specific insert.",
+    "verification_status": "abstract-configuration",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/blank.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted."
+    ],
+    "remaining_issues": [
+      "Need a specified physical connector or installed module before creating a model-specific insert."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector.",
+    "thumbnail_status": "abstract-only",
+    "framing": {
+      "source_artwork_bounds": [
+        43.0,
+        38.0,
+        213.0,
+        126.0
+      ],
+      "uniform_scale": 1.317647059,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/blank.png"
   },
   {
     "type": "new-node-5",
@@ -489,8 +2272,41 @@
       "Nodes/Thumbnails/blank.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/new-node-5.svg",
-    "notes": "Abstract review symbol: catalogue entry lacks a precise physical model/configuration; no unverified pinout or contact count invented. Physical implementation needs specification before a model-specific hardware drawing can replace this abstract. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted. Need a specified physical connector or installed module before creating a model-specific insert.",
+    "verification_status": "abstract-configuration",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/blank.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted."
+    ],
+    "remaining_issues": [
+      "Need a specified physical connector or installed module before creating a model-specific insert."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector.",
+    "thumbnail_status": "abstract-only",
+    "framing": {
+      "source_artwork_bounds": [
+        43.0,
+        38.0,
+        213.0,
+        126.0
+      ],
+      "uniform_scale": 1.317647059,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/blank.png"
   },
   {
     "type": "opticalcon",
@@ -499,8 +2315,40 @@
       "Nodes/Thumbnails/opticalCON.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/opticalcon.svg",
-    "notes": "Source shuttered opticalCON panel front; underlying fiber configuration hidden, not invented. Exact series unresolved. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Corrected housing proportions; retained known inner source family. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "source-observed",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/opticalCON.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "framing": {
+      "source_artwork_bounds": [
+        72.0,
+        14.0,
+        184.0,
+        146.0
+      ],
+      "uniform_scale": 1.696969697,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/opticalCON.png"
   },
   {
     "type": "phono",
@@ -509,8 +2357,40 @@
       "Nodes/Thumbnails/RCA.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/phono.svg",
-    "notes": "Frontal RCA female geometry shared by phono alias; no arbitrary channel color assigned. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "source-observed",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/RCA.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "framing": {
+      "source_artwork_bounds": [
+        77.0,
+        29.0,
+        179.0,
+        131.0
+      ],
+      "uniform_scale": 2.196078431,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/RCA.png"
   },
   {
     "type": "powercon",
@@ -520,8 +2400,51 @@
       "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/powerCON_White.svg"
     ],
     "output_svg": "design/connector-audit/full-svg-set/powercon.svg",
-    "notes": "Source geometry retained, including distinct contact forms and standard source colors. Exact commercial insert/model and keying require review. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Blue input/gray output and distinct keying; both panel examples are male, not male/female signal-direction assignments. Retained original insert geometry not a certified NAC3MP drawing.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/powerCON.png",
+      "https://www.neutrik.com/en/product/nac3mpb-1",
+      "https://www.neutrik.com/media/10218/download/BDA%20454%20V3%20-%20powerCON%20-%20NAC3MPA-1%20%2B%20NAC3MPB-1.pdf?v=2"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Blue input/gray output and distinct keying; both panel examples are male, not male/female signal-direction assignments."
+    ],
+    "remaining_issues": [
+      "Retained original insert geometry not a certified NAC3MP drawing."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 3,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": true
+    },
+    "visible_variant": "blue-input",
+    "embedded_alternate_variant": "gray-output",
+    "alternate_symbol_id": "alternate-gray-output",
+    "framing": {
+      "source_artwork_bounds": [
+        12.75,
+        25.0,
+        120.75,
+        132.5
+      ],
+      "uniform_scale": 2.074074074,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/powerCON.png"
   },
   {
     "type": "powercon-true1",
@@ -535,8 +2458,52 @@
       "https://www.neutrik.com/uploads/media/400x/04/12844-NAC3PX-TOP.jpg?v=1-0"
     ],
     "output_svg": "design/connector-audit/full-svg-set/powercon-true1.svg",
-    "notes": "Rebuilt as frontal combined inlet/outlet panel, using both source keyed inserts rather than a generic 3-pin circle. Source thumbnail shows duplex panel. IMPORTANT: source filenames invert the visible contact forms: the Female-named study has exposed blades (used for physical male inlet); the Male-named study has protected concentric socket structure (used for physical female outlet), reconciled against the manufacturer photo. Exact Seetronic/Neutrik generation, latch, aperture and mounting details still require model/photo verification; not a certified NAC3PX drawing. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Corrected 61:35.4 flange ratio, unequal 23.6/28.4 collars, 28 mm center separation and four mounting holes from NAC3PX-TOP front drawing. Removed invented top latch bar. Historical insert forms retained; exact blade/key profile still needs review. Original thumbnail has reversed outlet/inlet order; selected manufacturer example is inlet left/outlet right. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. NAC3PX-TOP reference front drawing visually inspected: 61:35.4 flange, 28 center spacing, 23.6/28.4 unequal collars and four mounting holes. Exposed/protected forms reconcile reversed historical filenames. Source thumbnail has opposite left/right order and may be Seetronic. Old insert blade/key shapes are not fully model-verified; do not claim exact manufacturer match.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/powerCONTrue1.png",
+      "https://www.neutrik.com/en/product/nac3px-top",
+      "https://www.neutrik.com/media/12881/download/st-nac3px-top.PDF?v=1",
+      "https://www.neutrik.com/uploads/media/400x/04/12844-NAC3PX-TOP.jpg?v=1-0"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "NAC3PX-TOP reference front drawing visually inspected: 61:35.4 flange, 28 center spacing, 23.6/28.4 unequal collars and four mounting holes. Exposed/protected forms reconcile reversed historical filenames."
+    ],
+    "remaining_issues": [
+      "Source thumbnail has opposite left/right order and may be Seetronic. Old insert blade/key shapes are not fully model-verified; do not claim exact manufacturer match."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contacts_per_port": 3,
+      "physical_forms": [
+        "male-inlet",
+        "female-outlet"
+      ],
+      "exact_inventory_model_identified": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        29.5,
+        22.25,
+        226.75,
+        137.75
+      ],
+      "uniform_scale": 1.135614702,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/powerCONTrue1.png"
   },
   {
     "type": "powerlock",
@@ -546,8 +2513,46 @@
       "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/Powelock drain.svg"
     ],
     "output_svg": "design/connector-audit/full-svg-set/powerlock.svg",
-    "notes": "Source geometry retained, including distinct contact forms and standard source colors. Exact commercial insert/model and keying require review. Review only; manufacturer/model verification incomplete. Paired wide groups are kept at their native aspect ratio; inspect the SVG enlarged for contact detail.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Manufacturer-authored ITT catalogue distinguishes source male contact in female housing, drain female contact in male housing, both with insulated safety features. Source/drain labels not guessed from signal direction. Old yellow/red center fills corrected to dark insulating safety caps, retaining original circular source/drain geometry and phase-color positions. Exact source part unassigned; source/drain safety-cap profile and phase keying still require the selected manufacturer part. Insulating caps are represented schematically.",
+    "verification_status": "review-needed",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/powerlock.png",
+      "https://www.tti.com/content/dam/ttiinc/manufacturers/itt-cannon/Resources/ITT-Cannon-VEAM-PowerLock-and-SnapLock-Catalog.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Manufacturer-authored ITT catalogue distinguishes source male contact in female housing, drain female contact in male housing, both with insulated safety features. Source/drain labels not guessed from signal direction.",
+      "Old yellow/red center fills corrected to dark insulating safety caps, retaining original circular source/drain geometry and phase-color positions."
+    ],
+    "remaining_issues": [
+      "Exact source part unassigned; source/drain safety-cap profile and phase keying still require the selected manufacturer part. Insulating caps are represented schematically."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Primary family silhouette remains visible at 32 px; high-density contacts/individual group details need 64/128 px. Alternate source form retained as an SVG symbol and rendered on gender-variants-64px.png. Technical approval withheld for the source/model uncertainties documented in remaining_issues.",
+    "thumbnail_status": "detail-limited",
+    "visible_variant": "source",
+    "embedded_alternate_variant": "drain",
+    "alternate_symbol_id": "alternate-drain",
+    "framing": {
+      "source_artwork_bounds": [
+        18.75,
+        26.0,
+        235.5,
+        56.75
+      ],
+      "uniform_scale": 1.033448674,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/powerlock.png"
   },
   {
     "type": "qsfp",
@@ -556,8 +2561,41 @@
       "Nodes/Thumbnails/blank.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/qsfp.svg",
-    "notes": "Abstract review symbol: catalogue entry lacks a precise physical model/configuration; no unverified pinout or contact count invented. Physical implementation needs specification before a model-specific hardware drawing can replace this abstract. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted. Need a specified physical connector or installed module before creating a model-specific insert.",
+    "verification_status": "abstract-configuration",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/blank.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted."
+    ],
+    "remaining_issues": [
+      "Need a specified physical connector or installed module before creating a model-specific insert."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector.",
+    "thumbnail_status": "abstract-only",
+    "framing": {
+      "source_artwork_bounds": [
+        43.0,
+        38.0,
+        213.0,
+        126.0
+      ],
+      "uniform_scale": 1.317647059,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/blank.png"
   },
   {
     "type": "qsfp-cage",
@@ -566,8 +2604,41 @@
       "Nodes/Thumbnails/blank.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/qsfp-cage.svg",
-    "notes": "Abstract review symbol: empty cage opening, no installed module or electrical contact assignment. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted. Need a specified physical connector or installed module before creating a model-specific insert.",
+    "verification_status": "abstract-configuration",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/blank.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted."
+    ],
+    "remaining_issues": [
+      "Need a specified physical connector or installed module before creating a model-specific insert."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector.",
+    "thumbnail_status": "abstract-only",
+    "framing": {
+      "source_artwork_bounds": [
+        43.0,
+        38.0,
+        213.0,
+        126.0
+      ],
+      "uniform_scale": 1.317647059,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/blank.png"
   },
   {
     "type": "rca",
@@ -576,8 +2647,40 @@
       "Nodes/Thumbnails/RCA.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/rca.svg",
-    "notes": "Frontal RCA female geometry shared by phono alias; no arbitrary channel color assigned. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "source-observed",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/RCA.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "framing": {
+      "source_artwork_bounds": [
+        77.0,
+        29.0,
+        179.0,
+        131.0
+      ],
+      "uniform_scale": 2.196078431,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/RCA.png"
   },
   {
     "type": "rgbhv",
@@ -586,8 +2689,42 @@
       "Nodes/Thumbnails/bnc.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/rgbhv.svg",
-    "notes": "Grouped frontal BNC family; Y/Pb/Pr green/blue/red; RGBHV red/green/blue/white/gray. Separate hardware count preserved. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Front-facing female BNC concentric shell, bayonet lugs and center socket checked. Grouped channel counts/colors retained. Generic bulkhead family, not the referenced D-flange part. Impedance and exact dimensions cannot be determined visually.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/bnc.png",
+      "https://www.neutrik.com/en/product/nbb75dfi"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Front-facing female BNC concentric shell, bayonet lugs and center socket checked. Grouped channel counts/colors retained."
+    ],
+    "remaining_issues": [
+      "Generic bulkhead family, not the referenced D-flange part. Impedance and exact dimensions cannot be determined visually."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Group/family silhouette and color remain visible at 32 px; individual high-density contacts cannot be counted at 32 px. Use 64/128 px for insert review; do not infer pin numbering from thumbnails.",
+    "thumbnail_status": "detail-limited",
+    "framing": {
+      "source_artwork_bounds": [
+        12.25,
+        51.0,
+        243.75,
+        93.75
+      ],
+      "uniform_scale": 0.967602592,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/bnc.png"
   },
   {
     "type": "rs-422",
@@ -596,8 +2733,41 @@
       "Nodes/Thumbnails/VGA.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/rs-422.svg",
-    "notes": "Abstract review symbol: catalogue entry lacks a precise physical model/configuration; no unverified pinout or contact count invented. Physical implementation needs specification before a model-specific hardware drawing can replace this abstract. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted. Need a specified physical connector or installed module before creating a model-specific insert.",
+    "verification_status": "abstract-configuration",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/VGA.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted."
+    ],
+    "remaining_issues": [
+      "Need a specified physical connector or installed module before creating a model-specific insert."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector.",
+    "thumbnail_status": "abstract-only",
+    "framing": {
+      "source_artwork_bounds": [
+        43.0,
+        38.0,
+        213.0,
+        126.0
+      ],
+      "uniform_scale": 1.317647059,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/VGA.png"
   },
   {
     "type": "schuko",
@@ -606,8 +2776,40 @@
       "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/Schuko.svg"
     ],
     "output_svg": "design/connector-audit/full-svg-set/schuko.svg",
-    "notes": "Original frontal socket geometry retained. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "source-observed",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/Schuko.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "framing": {
+      "source_artwork_bounds": [
+        59.75,
+        17.75,
+        196.0,
+        154.0
+      ],
+      "uniform_scale": 1.644036697,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/Schuko.png"
   },
   {
     "type": "sdi",
@@ -616,8 +2818,42 @@
       "Nodes/Thumbnails/bnc.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/sdi.svg",
-    "notes": "True frontal coaxial socket with concentric shell/dielectric, recessed center and opposed bayonet lugs; SDI reuses BNC geometry. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Front-facing female BNC concentric shell, bayonet lugs and center socket checked. Grouped channel counts/colors retained. Generic bulkhead family, not the referenced D-flange part. Impedance and exact dimensions cannot be determined visually.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/bnc.png",
+      "https://www.neutrik.com/en/product/nbb75dfi"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Front-facing female BNC concentric shell, bayonet lugs and center socket checked. Grouped channel counts/colors retained."
+    ],
+    "remaining_issues": [
+      "Generic bulkhead family, not the referenced D-flange part. Impedance and exact dimensions cannot be determined visually."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "framing": {
+      "source_artwork_bounds": [
+        72.0,
+        28.0,
+        184.0,
+        132.0
+      ],
+      "uniform_scale": 2.0,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/bnc.png"
   },
   {
     "type": "sfp-cage",
@@ -626,8 +2862,41 @@
       "Nodes/Thumbnails/blank.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/sfp-cage.svg",
-    "notes": "Abstract review symbol: empty cage opening, no installed module or electrical contact assignment. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted. Need a specified physical connector or installed module before creating a model-specific insert.",
+    "verification_status": "abstract-configuration",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/blank.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted."
+    ],
+    "remaining_issues": [
+      "Need a specified physical connector or installed module before creating a model-specific insert."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector.",
+    "thumbnail_status": "abstract-only",
+    "framing": {
+      "source_artwork_bounds": [
+        43.0,
+        38.0,
+        213.0,
+        126.0
+      ],
+      "uniform_scale": 1.317647059,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/blank.png"
   },
   {
     "type": "sfp-plus-cage",
@@ -636,8 +2905,41 @@
       "Nodes/Thumbnails/blank.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/sfp-plus-cage.svg",
-    "notes": "Abstract review symbol: empty cage opening, no installed module or electrical contact assignment. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted. Need a specified physical connector or installed module before creating a model-specific insert.",
+    "verification_status": "abstract-configuration",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/blank.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted."
+    ],
+    "remaining_issues": [
+      "Need a specified physical connector or installed module before creating a model-specific insert."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector.",
+    "thumbnail_status": "abstract-only",
+    "framing": {
+      "source_artwork_bounds": [
+        43.0,
+        38.0,
+        213.0,
+        126.0
+      ],
+      "uniform_scale": 1.317647059,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/blank.png"
   },
   {
     "type": "sfp28-cage",
@@ -646,8 +2948,41 @@
       "Nodes/Thumbnails/blank.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/sfp28-cage.svg",
-    "notes": "Abstract review symbol: empty cage opening, no installed module or electrical contact assignment. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted. Need a specified physical connector or installed module before creating a model-specific insert.",
+    "verification_status": "abstract-configuration",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/blank.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Original source is blank or does not establish one unique physical connector. Abstract configuration/cage language retained; no hardware pinout asserted."
+    ],
+    "remaining_issues": [
+      "Need a specified physical connector or installed module before creating a model-specific insert."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector.",
+    "thumbnail_status": "abstract-only",
+    "framing": {
+      "source_artwork_bounds": [
+        43.0,
+        38.0,
+        213.0,
+        126.0
+      ],
+      "uniform_scale": 1.317647059,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/blank.png"
   },
   {
     "type": "socapex",
@@ -657,8 +2992,51 @@
       "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/SocapexFemale.svg"
     ],
     "output_svg": "design/connector-audit/full-svg-set/socapex.svg",
-    "notes": "Source geometry retained, including distinct contact forms and standard source colors. Exact commercial insert/model and keying require review. 19 contact locations in each gender; paired concentric circles are contact rim and center, not extra contacts. Review only; manufacturer/model verification incomplete. Paired wide groups are kept at their native aspect ratio; inspect the SVG enlarged for contact detail.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. 19 contacts in each gender; retained source array compared with SL419/419AR family reference. Exact manufacturer insert/key variant and mirrored mating pin numbering require part-specific review.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/socapex.png",
+      "https://www.amphenol-socapex.com/sites/default/files/media/document/2023-07/dedicated%20solution%20for%20entertainment_datasheet.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "19 contacts in each gender; retained source array compared with SL419/419AR family reference."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer insert/key variant and mirrored mating pin numbering require part-specific review."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Primary family silhouette remains visible at 32 px; high-density contacts/individual group details need 64/128 px. Alternate source form retained as an SVG symbol and rendered on gender-variants-64px.png.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 19,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false,
+      "exact_inventory_model_identified": false
+    },
+    "visible_variant": "male",
+    "embedded_alternate_variant": "female",
+    "alternate_symbol_id": "alternate-female",
+    "framing": {
+      "source_artwork_bounds": [
+        13.75,
+        25.75,
+        120.0,
+        132.0
+      ],
+      "uniform_scale": 2.108235294,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/socapex.png"
   },
   {
     "type": "speakon",
@@ -667,8 +3045,47 @@
       "Nodes/Thumbnails/speakON.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/speakon.svg",
-    "notes": "4 contact positions; source circular shell/latch language retained. NL2/NL4/NL8 insert shapes and exact bayonet keying need part-specific verification. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Removed fictitious XLR-like holes; restored protected annular twist-lock face and keyed central bore from NL2MP/NL4MP/NL8MPR photographs. Contacts are hidden in frontal view, not drawn as an invented radial pinout. Manufacturer counts are 2/4/8; NL8 uses a larger square four-hole flange. Exact catalogue variant remains unresolved. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Manufacturer photograph inspected: protected annular twist-lock interface; 2/4/8 internal contacts as named, not an XLR-like ring of holes. Exact source generation/finish not supplied. Hidden electrical contacts are intentionally not depicted as a guessed frontal pinout.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/speakON.png",
+      "https://www.neutrik.com/en/product/nl4mp"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Manufacturer photograph inspected: protected annular twist-lock interface; 2/4/8 internal contacts as named, not an XLR-like ring of holes."
+    ],
+    "remaining_issues": [
+      "Exact source generation/finish not supplied. Hidden electrical contacts are intentionally not depicted as a guessed frontal pinout."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 4,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": true
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        72.0,
+        14.0,
+        184.0,
+        146.0
+      ],
+      "uniform_scale": 1.696969697,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/speakON.png"
   },
   {
     "type": "speakon-nl2",
@@ -677,8 +3094,47 @@
       "Nodes/Thumbnails/speakON.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/speakon-nl2.svg",
-    "notes": "2 contact positions; source circular shell/latch language retained. NL2/NL4/NL8 insert shapes and exact bayonet keying need part-specific verification. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Removed fictitious XLR-like holes; restored protected annular twist-lock face and keyed central bore from NL2MP/NL4MP/NL8MPR photographs. Contacts are hidden in frontal view, not drawn as an invented radial pinout. Manufacturer counts are 2/4/8; NL8 uses a larger square four-hole flange. Exact catalogue variant remains unresolved. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Manufacturer photograph inspected: protected annular twist-lock interface; 2/4/8 internal contacts as named, not an XLR-like ring of holes. Exact source generation/finish not supplied. Hidden electrical contacts are intentionally not depicted as a guessed frontal pinout.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/speakON.png",
+      "https://www.neutrik.com/en/product/nl2mp"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Manufacturer photograph inspected: protected annular twist-lock interface; 2/4/8 internal contacts as named, not an XLR-like ring of holes."
+    ],
+    "remaining_issues": [
+      "Exact source generation/finish not supplied. Hidden electrical contacts are intentionally not depicted as a guessed frontal pinout."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 2,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": true
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        72.0,
+        14.0,
+        184.0,
+        146.0
+      ],
+      "uniform_scale": 1.696969697,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/speakON.png"
   },
   {
     "type": "speakon-nl4",
@@ -687,8 +3143,47 @@
       "Nodes/Thumbnails/speakON.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/speakon-nl4.svg",
-    "notes": "4 contact positions; source circular shell/latch language retained. NL2/NL4/NL8 insert shapes and exact bayonet keying need part-specific verification. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Removed fictitious XLR-like holes; restored protected annular twist-lock face and keyed central bore from NL2MP/NL4MP/NL8MPR photographs. Contacts are hidden in frontal view, not drawn as an invented radial pinout. Manufacturer counts are 2/4/8; NL8 uses a larger square four-hole flange. Exact catalogue variant remains unresolved. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Manufacturer photograph inspected: protected annular twist-lock interface; 2/4/8 internal contacts as named, not an XLR-like ring of holes. Exact source generation/finish not supplied. Hidden electrical contacts are intentionally not depicted as a guessed frontal pinout.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/speakON.png",
+      "https://www.neutrik.com/en/product/nl4mp"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Manufacturer photograph inspected: protected annular twist-lock interface; 2/4/8 internal contacts as named, not an XLR-like ring of holes."
+    ],
+    "remaining_issues": [
+      "Exact source generation/finish not supplied. Hidden electrical contacts are intentionally not depicted as a guessed frontal pinout."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 4,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": true
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        72.0,
+        14.0,
+        184.0,
+        146.0
+      ],
+      "uniform_scale": 1.696969697,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/speakON.png"
   },
   {
     "type": "speakon-nl8",
@@ -697,8 +3192,47 @@
       "Nodes/Thumbnails/speakON.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/speakon-nl8.svg",
-    "notes": "8 contact positions; source circular shell/latch language retained. NL2/NL4/NL8 insert shapes and exact bayonet keying need part-specific verification. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Removed fictitious XLR-like holes; restored protected annular twist-lock face and keyed central bore from NL2MP/NL4MP/NL8MPR photographs. Contacts are hidden in frontal view, not drawn as an invented radial pinout. Manufacturer counts are 2/4/8; NL8 uses a larger square four-hole flange. Exact catalogue variant remains unresolved. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Manufacturer photograph inspected: protected annular twist-lock interface; 2/4/8 internal contacts as named, not an XLR-like ring of holes. Exact source generation/finish not supplied. Hidden electrical contacts are intentionally not depicted as a guessed frontal pinout.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/speakON.png",
+      "https://www.neutrik.com/en/product/nl8mpr"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Manufacturer photograph inspected: protected annular twist-lock interface; 2/4/8 internal contacts as named, not an XLR-like ring of holes."
+    ],
+    "remaining_issues": [
+      "Exact source generation/finish not supplied. Hidden electrical contacts are intentionally not depicted as a guessed frontal pinout."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 8,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": true
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        55.0,
+        7.0,
+        201.0,
+        153.0
+      ],
+      "uniform_scale": 1.534246575,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/speakON.png"
   },
   {
     "type": "trs-ts",
@@ -707,8 +3241,42 @@
       "Nodes/Thumbnails/TRS.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/trs-ts.svg",
-    "notes": "Frontal 6.35 mm jack socket family from TRS thumbnail; TS/TRS internal switching cannot be inferred from front view. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Restored the source jack hex mounting nut and threaded bushing appearance; retained concentric female bore. TS/TRS switching remains hidden, not inferred from the front. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. 6.35 mm jack family, hex nut and coaxial bore checked; no internal TS/TRS wiring shown. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/TRS.png",
+      "https://www.rean-connectors.com/en/product/nys230-1"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "6.35 mm jack family, hex nut and coaxial bore checked; no internal TS/TRS wiring shown."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "framing": {
+      "source_artwork_bounds": [
+        68.0,
+        28.0,
+        188.0,
+        132.0
+      ],
+      "uniform_scale": 1.866666667,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/TRS.png"
   },
   {
     "type": "uk-13a",
@@ -717,8 +3285,40 @@
       "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/13A-UK.svg"
     ],
     "output_svg": "design/connector-audit/full-svg-set/uk-13a.svg",
-    "notes": "Original frontal socket geometry retained. Three recessed Type G slots; no added copper contacts. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "source-observed",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/UK13A.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "framing": {
+      "source_artwork_bounds": [
+        59.75,
+        18.25,
+        196.25,
+        153.75
+      ],
+      "uniform_scale": 1.641025641,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/UK13A.png"
   },
   {
     "type": "usb",
@@ -727,8 +3327,47 @@
       "Nodes/Thumbnails/USBA.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/usb.svg",
-    "notes": "Front-facing receptacle; USB-A legacy 4, USB-B legacy 4, USB-C 24 contact positions. Exact USB generation/configuration unresolved. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Legacy 4-position USB-A receptacle family/tongue checked. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/USBA.png",
+      "https://www.amphenol-cs.com/product/10130976101blf.html"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Legacy 4-position USB-A receptacle family/tongue checked."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 4,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        47.0,
+        45.0,
+        209.0,
+        117.0
+      ],
+      "uniform_scale": 1.382716049,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/USBA.png"
   },
   {
     "type": "usb-a",
@@ -737,8 +3376,47 @@
       "Nodes/Thumbnails/USBA.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/usb-a.svg",
-    "notes": "Front-facing receptacle; USB-A legacy 4, USB-B legacy 4, USB-C 24 contact positions. Exact USB generation/configuration unresolved. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Legacy 4-position USB-A receptacle family/tongue checked. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/USBA.png",
+      "https://www.amphenol-cs.com/product/10130976101blf.html"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Legacy 4-position USB-A receptacle family/tongue checked."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 4,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        47.0,
+        45.0,
+        209.0,
+        117.0
+      ],
+      "uniform_scale": 1.382716049,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/USBA.png"
   },
   {
     "type": "usb-b",
@@ -747,8 +3425,47 @@
       "Nodes/Thumbnails/USBB.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/usb-b.svg",
-    "notes": "Front-facing receptacle; USB-A legacy 4, USB-B legacy 4, USB-C 24 contact positions. Exact USB generation/configuration unresolved. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Corrected USB-B near-square frontal shield and shoulder proportions; retained legacy four-contact interface. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Legacy 4-position USB-B receptacle family and square shoulder profile checked. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/USBB.png",
+      "https://www.amphenol-cs.com/product/gsb21110bpeu.html"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Legacy 4-position USB-B receptacle family and square shoulder profile checked."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 4,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        65.0,
+        22.0,
+        191.0,
+        138.0
+      ],
+      "uniform_scale": 1.777777778,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/USBB.png"
   },
   {
     "type": "usb-c",
@@ -757,8 +3474,47 @@
       "Nodes/Thumbnails/USBC.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/usb-c.svg",
-    "notes": "Front-facing receptacle; USB-A legacy 4, USB-B legacy 4, USB-C 24 contact positions. Exact USB generation/configuration unresolved. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. 24 positions, two-sided tongue and capsule opening checked against Amphenol 24-position drawing. Family example only. Some USB-C receptacles have fewer populated positions; catalogue generation unknown.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/USBC.png",
+      "https://cdn.amphenol-cs.com/media/wysiwyg/files/drawing/10163749.pdf"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "24 positions, two-sided tongue and capsule opening checked against Amphenol 24-position drawing."
+    ],
+    "remaining_issues": [
+      "Family example only. Some USB-C receptacles have fewer populated positions; catalogue generation unknown."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 24,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        44.0,
+        51.0,
+        212.0,
+        111.0
+      ],
+      "uniform_scale": 1.333333333,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/USBC.png"
   },
   {
     "type": "vga",
@@ -767,8 +3523,45 @@
       "Nodes/Thumbnails/VGA.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/vga.svg",
-    "notes": "15-contact VGA female. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Exact manufacturer part and dimensional tolerances are not established by the catalogue.",
+    "verification_status": "source-observed",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/VGA.png"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px."
+    ],
+    "remaining_issues": [
+      "Exact manufacturer part and dimensional tolerances are not established by the catalogue."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 15,
+      "count_basis": "original-thumbnail-family",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        20.0,
+        44.0,
+        236.0,
+        122.0
+      ],
+      "uniform_scale": 1.037037037,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/VGA.png"
   },
   {
     "type": "xlr",
@@ -777,8 +3570,48 @@
       "Nodes/Thumbnails/xlr_input.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/xlr.svg",
-    "notes": "3 contacts; female example follows source thumbnail; signal direction does not establish gender. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Three-contact family, female recesses versus male AES source example and frontal arrangement checked. Bare insert example retained; flange variant and exact source part unassigned.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/xlr_input.png",
+      "https://www.neutrik.com/en/product/nc3fd-l-1",
+      "https://www.neutrik.com/uploads/media/400x/03/503-nc3fd-l-1.jpg?v=1-0"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Three-contact family, female recesses versus male AES source example and frontal arrangement checked."
+    ],
+    "remaining_issues": [
+      "Bare insert example retained; flange variant and exact source part unassigned."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 3,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        66.0,
+        18.0,
+        190.0,
+        142.0
+      ],
+      "uniform_scale": 1.806451613,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/xlr_input.png"
   },
   {
     "type": "xlr-3pin",
@@ -787,8 +3620,48 @@
       "Nodes/Thumbnails/xlr_input.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/xlr-3pin.svg",
-    "notes": "3 contacts; female example follows source thumbnail; signal direction does not establish gender. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Three-contact family, female recesses versus male AES source example and frontal arrangement checked. Bare insert example retained; flange variant and exact source part unassigned.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/xlr_input.png",
+      "https://www.neutrik.com/en/product/nc3fd-l-1",
+      "https://www.neutrik.com/uploads/media/400x/03/503-nc3fd-l-1.jpg?v=1-0"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Three-contact family, female recesses versus male AES source example and frontal arrangement checked."
+    ],
+    "remaining_issues": [
+      "Bare insert example retained; flange variant and exact source part unassigned."
+    ],
+    "review_action": "preserve-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 3,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        66.0,
+        18.0,
+        190.0,
+        142.0
+      ],
+      "uniform_scale": 1.806451613,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/xlr_input.png"
   },
   {
     "type": "xlr-5pin",
@@ -797,7 +3670,47 @@
       "Nodes/Thumbnails/XLR5Pin.png"
     ],
     "output_svg": "design/connector-audit/full-svg-set/xlr-5pin.svg",
-    "notes": "5 contacts; female example follows source thumbnail; signal direction does not establish gender. Review only; manufacturer/model verification incomplete.",
-    "verification_status": "review-needed"
+    "notes": "Corrected five-contact insert to the source/manufacturer U-shaped pattern: two upper, two lower, one bottom-center; removed invented top-center contact. Female sockets retained. Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px. Five female contacts; U-shaped arrangement compared with photograph. Exact source model and key dimensions unassigned.",
+    "verification_status": "family-reference-checked",
+    "source_urls": [
+      "https://github.com/pauloafonsofraga/AVDesigner/blob/7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3/Nodes/Thumbnails/XLR5Pin.png",
+      "https://www.neutrik.com/en/product/nc5fd-l-1",
+      "https://www.neutrik.com/uploads/media/400x/02/522-nc5fd-l-1.jpg?v=1-0"
+    ],
+    "checked_aspects": [
+      "Original WireNexus thumbnail compared visually; existing SVG inspected at 32, 64 and 128 px.",
+      "Five female contacts; U-shaped arrangement compared with photograph."
+    ],
+    "remaining_issues": [
+      "Exact source model and key dimensions unassigned."
+    ],
+    "review_action": "correct-and-reframe",
+    "thumbnail_assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram.",
+    "thumbnail_status": "family-readable",
+    "interface": {
+      "contact_count": 5,
+      "count_basis": "selected-family-reference",
+      "hidden_contacts": false
+    },
+    "framing": {
+      "source_artwork_bounds": [
+        66.0,
+        18.0,
+        190.0,
+        142.0
+      ],
+      "uniform_scale": 1.806451613,
+      "canvas": [
+        256,
+        256
+      ],
+      "padding_min_px": 16
+    },
+    "thumbnail_sizes_px": [
+      32,
+      64,
+      128
+    ],
+    "reviewed_against": "Nodes/Thumbnails/XLR5Pin.png"
   }
 ]

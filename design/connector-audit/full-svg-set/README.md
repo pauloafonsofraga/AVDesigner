@@ -1,58 +1,74 @@
-# Full 78 connector SVG review set
+# WireNexus connector SVG review set — corrected thumbnail pass
 
-78 standalone, editable SVG files: exactly one per `type` in `connector-inventory.json` on `engine-prototype` at `7dfad0290ae62b2cd5bfc602de1fd860dc5f98a3`. This is a **review-only** library. No production artwork, catalogue, rendering code, or runtime references have been changed.
+Exactly **78 standalone SVGs**, one per connector type in the inventory. This pass edits the existing set from commit `2b85236`; it does not start a replacement library. Changes remain entirely inside this review folder. Production artwork, catalogue data, application rendering and runtime behavior are unchanged.
 
-Open [contact-sheet.png](contact-sheet.png) to compare the full set. Each SVG uses a transparent 256 × 192 viewport with a readable family caption, front-facing geometry, restrained polymer/metal shading and gold contact material where appropriate. Paired gender studies share one file; wide Harting and PowerLock groups are stacked to preserve readable detail. All SVGs contain vector shapes, no raster images, external dependencies, scripts, or embedded fonts.
+## Review at actual display sizes
 
-## Provenance and regeneration
+The cable-schedule renderer fits artwork into a 32 × 32 box with an aspect-preserving scale (`src/engine/cableScheduleGraphics.js`). This set now uses square 256 × 256 transparent canvases. Every visible drawing is fitted with **one uniform scale** and at least 16 units of transparent padding. No connector is widened or made taller to fill the canvas. Source reflections are retained; reflections do not change proportions.
 
-The 29 studies requested as the visual baseline are on `design/connector-geometry-preserving-audit` at commit `31a93c09004a1146857db02d1389181fc1f2e7d5`; they were not present on the base `engine-prototype` branch. This set incorporates all 29 studies, retaining their paths, contact coordinates, transforms, outlines and native aspect ratios. Changes to those shapes are confined to material fill gradients, document placement and editor metadata cleanup. Their original files are not modified or copied into production.
+- [32 px contact sheet](contact-sheet.png): all 78 SVGs directly rasterized at **32 × 32 pixels**, pasted at 1:1.
+- [64 px contact sheet](contact-sheet-64px.png): all 78 at **64 × 64 pixels**, pasted at 1:1.
+- [128 px contact sheet](contact-sheet-128px.png): all 78 at **128 × 128 pixels**, pasted at 1:1.
+- [32 px on light and dark backgrounds](contact-sheet-32px-backgrounds.png).
+- [Original / previous 32 px / corrected 32, 64, 128 px comparisons](comparisons/page-01.png): six pages, 13 types per page. Continue with [2](comparisons/page-02.png), [3](comparisons/page-03.png), [4](comparisons/page-04.png), [5](comparisons/page-05.png), [6](comparisons/page-06.png). Every original WireNexus thumbnail and every corrected SVG was visually inspected.
+- [Preserved alternative forms at 64 px](gender-variants-64px.png): inventoried male/female and source/drain alternatives.
 
-Other families were rebuilt as frontal vector interpretations of the existing `Nodes/Thumbnails/` artwork, rather than tracing its perspective or embedding raster images. Their geometry is a review interpretation, not a dimensional manufacturer drawing. Abstract symbols are used where the catalogue does not establish a unique physical implementation. `index.json` records each file's actual basis, selected physical example and outstanding questions.
+View PNGs at **100% zoom** to judge the stated pixel sizes. A browser or document viewer may resize an entire contact sheet to fit its window; that does not change the stored pixel dimensions. Names and statuses are outside each rendered icon. Large gallery captions no longer shrink the hardware inside its SVG. Existing source artwork markings such as IEC current ratings are retained.
 
-Run from the repository root:
+For types formerly showing two alternative connectors side by side, the default thumbnail now shows one primary form matching the original family: female IEC/Harting, male Socapex, blue-input powerCON, or PowerLock source. The alternative is preserved as a named `<symbol>` **inside the same SVG**, with its identity recorded in `index.json`. It is rendered separately on the alternative-form sheet. TRUE1 still shows both apertures because those belong to one real combined panel, not alternative genders of a single socket.
+
+## What changed, and what was preserved
+
+**26 connector types received targeted geometry corrections; 52 retain their existing geometry with improved framing/materials.** The metallic/polymer/gold visual language remains. BNC/SDI, RCA, XLR 3, MIDI, VGA, USB-A/C and established source-study outlines were not unnecessarily redrawn. All 29 original study sources remain recorded; 28 retain their primitive geometry, transforms and contact coordinates. NEMA's inaccurate square face was deliberately replaced with the rounded face seen in the original thumbnail.
+
+| Family | Correction / verification boundary |
+| --- | --- |
+| CA-COM | Restored square mounting/circular shell proportions and source-observed nine contact locations; removed the invented radial array. The generic name is not evidence for the common eight-pin speaker insert. ITT's catalogue contains many arrangements. Exact source model, gender and keys remain unresolved. |
+| DOMM | Replaced the invented 1+6+12 concentric arrays with approximate unprojection of the 19 locations observed in the original perspective image. The name did not identify a manufacturer. This is source evidence, **not** a verified pinout. |
+| CXP | Corrected cage mouth and top/bottom EMI spring treatment; removed a false visible tongue. TE's 2149152-1 reference establishes 84 internal positions. Those recessed contacts are not fabricated at the front opening or confused with spring fingers. Exact catalogue SKU unassigned. |
+| FiberFox | Replaced the invented shutter/wide plate with a D-flange, red collar, opposed alignment jaws and **four optical lenses**, using NO4M4DW-FX EBC15 4CH briDge photograph and front drawing. The reference is hermaphroditic, not a male/female electrical pin connector. Jaw detail remains illustrative. |
+| TRUE1 | Corrected flange ratio to 61:35.4, unequal 23.6/28.4 collar diameters, 28 center spacing and four mounting positions using the NAC3PX-TOP drawing. Removed the invented top latch bar. Preserved source insert forms; exact blade/key profiles are still unverified. Source thumbnail has opposite left/right order and may be a different manufacturer. |
+| Harting | Preserved the true 111:27 proportions of the reviewed male/female 64-contact studies. **Source conflict remains:** Harting.png depicts another unidentified insert. A real Han D64 family reference supports the retained example, but does not establish a match to the original thumbnail. |
+| HDMI / DP / mini-DP | Corrected overly tall HDMI/DP apertures, corrected the taller rectangular mini-DP mouth, and removed the nonuniform mini-DP transform. Opposing rows have 10+9 or 10+10 contacts. MiniDisplayPort.png appears inconsistent with the chosen modern mini-DP receptacle and remains review-needed. |
+| DVI / USB-B | Restored wide DVI proportions, analog blade cluster on the source's left and 24 digital positions on the right; retained DVI-I dual-link as an example. Corrected USB-B to a near-square shoulder profile and four contacts. |
+| XLR 5 / DMX 5 | Corrected five-contact topology to the source/manufacturer U pattern; removed the false top-center contact. Three-pin variants retain their geometry. |
+| mini-DIN 6 | Corrected upper/middle/lower contact pair spacing and upper-center rectangular key using E-tec's readable six-position front drawing. The generic entry does not select green mouse or purple keyboard signaling. |
+| speakON | Removed invented XLR-like drilled holes. Restored protected annular twist-lock face and keyed bore using NL2MP/NL4MP/NL8MPR photographs. Internal **2/4/8** contact counts are recorded, but not shown as a guessed frontal pinout. NL8 uses a larger square four-hole flange. |
+| etherCON / opticalCON / MPO / LC / SC | Corrected fictional wide flange proportions; retained known inserts/shutters. Added source-consistent optical alignment-sleeve detail to LC/SC. MPO does not invent a ferrule pin gender or fiber count. |
+| IEC | C13.png visibly shows exposed blades: corrected the artwork to a **male C14 inlet**, checked against Schurter's inlet reference. Filename is not physical-gender evidence. |
+| Jack / TRS-TS / NEMA | Restored jack hex mounting nut. Corrected NEMA's square perimeter to a rounded polarized single-face example; generic NEMA subtype remains unassigned. |
+| PowerLock | Retained source/drain geometry and five color positions, but corrected false yellow/red metal-like centers to schematic insulating safety caps using ITT's description. Exact cap profile, part and phase keying remain unresolved. |
+| IEC 60309 studies | Original contact coordinates, male/female forms and 3/5 contacts retained; restrained plastic colors and recess material rims improve their finish. Blue/yellow/red family coding is preserved. Clock/key variants remain unassigned. |
+
+**Socapex still has 19 contact locations in each gender**, verified structurally. Each location has a rim and center circle, not two independent contacts. UK 13A retains recessed Type G slots without exposed copper. BNC remains a true concentric frontal view with two opposed bayonet lugs. YPbPr and RGBHV retain three/five BNCs and their channel colors. Aliases have separate files and shared underlying geometry where appropriate.
+
+## Verification statuses and remaining review
+
+`index.json` contains per-type `source_urls`, `checked_aspects`, `remaining_issues`, `review_action`, `thumbnail_status`, `thumbnail_assessment`, framing measurements and source-thumbnail path, in addition to the requested mapping fields. Structured interface counts distinguish source-observed positions, manufacturer-reference counts, optical channels and hidden contacts.
+
+| Status | Count | Meaning |
+| --- | ---: | --- |
+| `model-reference-checked` | 1 | The selected FiberFox reference photo and drawing were inspected and identifiable features compared. This does not certify the inventory's unspecified part or dimensional manufacturing accuracy. |
+| `family-reference-checked` | 43 | A relevant manufacturer family reference supports the stated count/form/material features. Exact inventory SKU, tolerances or key variant may remain open; see per-item issues. |
+| `source-observed` | 15 | Original repository artwork compared and geometry preserved or corrected from visible evidence; no sufficient manufacturer model match established. |
+| `review-needed` | 6 | Material source/model conflict or unresolved specialized identity: **CA-COM, DOMM, Harting, mini-DisplayPort, NEMA, PowerLock**. |
+| `abstract-configuration` | 13 | Deliberately abstract entry/cage, with no invented physical insert or contacts. |
+
+The abstract entries are `edison`, `led-signal`, `misc`, `new-node-2` (DAC), `new-node-3` (RS-232), `new-node-4` (Mini-SDI), `new-node-5` (ADAT-S/PDIF), `qsfp`, `rs-422`, and the four SFP/QSFP cage types. RS-422's use of the VGA thumbnail does not establish a DB connector pinout. Blank/generic configuration sources do not establish physical hardware.
+
+**Thumbnail readability and technical verification are separate.** Family silhouettes and key broad features were assessed at 32 px; small contact details were compared at 64/128 px. Dense Harting/Socapex contacts and grouped PowerLock/RGBHV cannot be reliably counted at 32 px. No pin-count detail is enlarged by distorting the physical envelope. Shared configuration glyphs and empty cages are intentionally abstract, not uniquely recognizable hardware models. `thumbnail_status` records `family-readable`, `detail-limited`, `review-needed` or `abstract-only`; unresolved items are not production-approved merely because rendering checks pass.
+
+Manufacturer URLs, product photographs and drawings are recorded **per connector** in `index.json`; unidentified entries still link to their exact original repository image. No blanket technical-certification claim is made.
+
+## Reproduce and validate
 
 ```sh
-python3 design/connector-audit/full-svg-set/generate.py
-python3 design/connector-audit/full-svg-set/validate.py
+# In a Python environment with CairoSVG and Pillow installed:
+python design/connector-audit/full-svg-set/generate.py
+python design/connector-audit/full-svg-set/render_review.py
+python design/connector-audit/full-svg-set/validate.py
 ```
 
-The generator uses the Python standard library and reads the pinned study commit from Git. In a fresh clone that lacks this commit, fetch `design/connector-geometry-preserving-audit` first. The inventory is read from the repository, not from a separate local copy. `contact-sheet.png` is a visual review snapshot; generation of the SVGs does not require Pillow or CairoSVG.
+`generate.py` retains the previous set's source builders and applies targeted repairs from `review_corrections.py`; `framing.py` measures actual alpha bounds at 4× and applies only one uniform scale. `review-metadata.json` stores the researched evidence and review decisions. The pinned source studies come from `design/connector-geometry-preserving-audit` at `31a93c09004a1146857db02d1389181fc1f2e7d5` (fetch this branch if absent in a fresh clone). Before/after comparison rendering reads the previous review commit `2b85236`.
 
-## Requested corrections
-
-- **Socapex:** both source genders retain exactly 19 contact locations each. Each location uses two concentric circles; those rims and centers are not 38 separate contacts. Validation checks both 19-location sets.
-- **TRUE1:** a frontal combined inlet/outlet panel, including flange, mounting holes, latch bar, asymmetric keyed inserts and distinct protected/exposed contact forms. The source filenames invert the visible forms: `powerCON_True1_Female.svg` contains exposed blades and is used for the physical male inlet; `powerCON_True1_Male.svg` contains the protected concentric socket and is used for the physical female outlet. This naming conflict was reconciled against the [Neutrik product photo](https://www.neutrik.com/uploads/media/400x/04/12844-NAC3PX-TOP.jpg?v=1-0) and [NAC3PX-TOP reference drawing](https://www.neutrik.com/media/12881/download/st-nac3px-top.PDF?v=1). The [manufacturer page](https://www.neutrik.com/en/product/nac3px-top) establishes the combined panel family. The inventory thumbnail may represent a Seetronic equivalent; exact commercial model, panel proportions, aperture/latch shapes and keying remain unverified. This is not a certified NAC3PX drawing.
-- **UK 13A:** original Type G socket-slot geometry retained, with dark recessed slots and no added exposed copper.
-- **BNC:** concentric, true frontal socket with opposed bayonet lugs, recessed center and dielectric; no side barrel or perspective ellipse. SDI reuses this family. Component video and RGBHV use three and five separate BNCs with channel colors.
-
-## Aliases, genders and colors
-
-Every alias has its own SVG: CEE current variants share their established IEC family; Cat5e/Cat6/Cat6a/Ethernet use the same eight-position RJ45; USB/USB-A, RCA/phono, jack/TRS-TS, XLR/XLR-3, speakON/NL4 and SDI/BNC share the appropriate geometry. NL2/NL4/NL8 retain distinct 2/4/8 contact counts. XLR/DMX use 3/5 contacts as named. AES follows the male XLR source example, without treating signal direction as gender.
-
-IEC 60309 uses blue 1ph, yellow 110V, red 3ph; powerCON retains blue/white and PowerLock retains its source phase-color group. YPbPr is green/blue/red; RGBHV is red/green/blue/white/gray. Fiber blue follows the source adapter finish; it does not prescribe all fiber modes or polish variants. No new runtime compatibility or gender policy is implied.
-
-## Technical review queue
-
-**All 78 entries are `review-needed`.** No entry has complete manufacturer/model verification; retaining source geometry is not model verification. The notes in `index.json` are the per-item review queue.
-
-| Family/entries | Review still required |
-| --- | --- |
-| IEC/CEE, Schuko, UK, NEMA | Exact housing and clock/key; NEMA subtype is unspecified. |
-| Socapex, Harting, PowerLock, powerCON | Model, insert arrangement/numbering and mating keying; PowerLock phase order and source/drain safety detail. |
-| TRUE1 | Commercial panel identity, keyed aperture/latch dimensions and source gender-filename conflict described above. |
-| CA-COM, DOMM | 9 and 19 visible source-thumbnail contact locations respectively; frontal arrangement regularized from perspective. Confirm precise insert layout, gender and key clocking. |
-| XLR, MIDI, mini-DIN, speakON | Manufacturer insert layout, contact forms, keying and actual physical gender variant. |
-| USB, HDMI, DP, Mini-DP, DVI, VGA, RJ45 | Aperture and tongue shape, pitch and generation. DVI depicts the source's DVI-I dual-link example; catalogue variant unspecified. |
-| CXP | Source-derived shielded module opening; internal contact configuration unresolved and left recessed. |
-| LC, SC, ST, MPO, opticalCON, FiberFox | Exact optical family, simplex/duplex or lens/fiber count, polish, keying and gender. OpticalCON/FiberFox use abstract closed inserts; MPO does not invent a fiber count. |
-| RCA, TRS/TS, IEC, barrel jack | Exact commercial size/model and internal switching or polarity. Barrel jack remains a generic center-pin example. |
-| BNC/SDI and grouped coax | Model dimensions, impedance/series and precise bayonet dimensions. |
-
-Deliberately abstract, labeled configuration entries: `edison`, `led-signal`, `misc`, `new-node-2` (DAC), `new-node-3` (RS-232), `new-node-4` (Mini-SDI), `new-node-5` (ADAT-S/PDIF), `qsfp`, `rs-422`. Their names alone do not establish a model or physical port; blank/generic source thumbnails are not evidence for a pinout. Mini-SDI connector series and the optical/coax choice for ADAT-S/PDIF must be specified before replacing their abstract symbols.
-
-Deliberately abstract empty cages: `qsfp-cage`, `sfp-cage`, `sfp-plus-cage`, `sfp28-cage`. They depict an opening, not an installed transceiver, fiber connector, invented pins or a mechanical cage drawing. Their shared geometry is intentional.
-
-## Validation performed
-
-Inventory/output bijection (78), required mapping fields and review statuses; standalone XML parsing; unique SVG IDs and resolved internal paint references; absence of raster/external resources and scripts; source mechanical-geometry retention; Socapex 19 positions per gender; explicitly constructed contact counts; and successful raster rendering of all 78 files. The complete rendered contact sheet was visually inspected, including the four requested correction families. No runtime tests are needed because this branch changes only this review directory.
+Validation checks inventory/output bijection; mapping fields, URLs and status semantics; standalone XML and accessible descriptions; unique IDs/resolved paint references; no embedded rasters, scripts or external dependencies; square canvases and uniform scale/reflections; retained source geometry; Socapex 19 positions per form; constructed contact counts; hidden-contact policy; four FiberFox optical channels; alias consistency; **234 direct size renders with transparent margins and no clipping**; and SHA-256 correspondence between current SVGs and saved visual-check records. All six comparison pages and both-background thumbnails were visually inspected. Regeneration is deterministic. Runtime tests are not applicable because only review files changed.

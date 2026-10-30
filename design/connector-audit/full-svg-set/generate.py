@@ -3,6 +3,8 @@
 import json, math, re, subprocess
 from pathlib import Path
 import xml.etree.ElementTree as ET
+from review_corrections import correct
+from framing import fit, select_primary
 OUT=Path(__file__).resolve().parent
 ROOT=OUT.parents[2]
 INVENTORY=ROOT/'connector-inventory.json'
@@ -68,7 +70,18 @@ def embed_source(filename,x,y,w,h,prefix):
   m=re.search(r'(?:^|;)fill:(#[0-9a-fA-F]{6})(?:;|$)',style)
   if not m:continue
   color=m.group(1);rgb=[int(color[i:i+2],16) for i in (1,3,5)]
-  if max(rgb)<45:continue
+  if filename.startswith('Powelock') and color.lower() in ['#f6ec00','#ff2a2a']:
+   # Manufacturer specifies insulated source tip / spring-protected drain: no false exposed live metal.
+   e.set('style',style.replace('fill:'+color,'fill:#202a33'))
+   continue
+  if max(rgb)<45:
+   if filename[0].isdigit() and filename!='13A-UK.svg' and e.tag==Q('circle'):
+    # A material rim around existing recess geometry, not an additional contact.
+    e.set('style',style.replace('fill:'+color,'fill:#090e13').replace('stroke:#000000','stroke:#89949b'))
+   continue
+  pigment={'#ff0000':'#bb4438','#2a7fff':'#347aad','#0000ff':'#2b62a6','#ffff00':'#cbb248','#03e300':'#4b9654'}
+  if filename[0].isdigit() or filename.startswith(('Powelock','powerCON_')):
+   if color.lower() in pigment:rgb=[int(pigment[color.lower()][i:i+2],16) for i in (1,3,5)]
   if color not in palette:
    gid=prefix+'-finish-'+color[1:];palette[color]=gid
    grad=ET.SubElement(defs,Q('linearGradient'),id=gid,x1='0',y1='0',x2='.75',y2='1')
@@ -109,6 +122,7 @@ def use(files,labels=None):
  global current_basis
  current_basis=[f'{STUDY}:design/connector-audit/svg/{f}' for f in files]
  return source_pair(files,labels) if len(files)>1 else source_single(files[0])
+metadata=json.loads((OUT/'review-metadata.json').read_text())
 rows=[]
 for c in inventory['connectors']:
  t=c['type'];name=c['name'];notes=[];current_basis=[c.get('thumbnail_source_path','connector-inventory.json')];body=''
@@ -222,12 +236,16 @@ for c in inventory['connectors']:
   notes+=['Abstract review symbol: '+('empty cage opening, no installed module or electrical contact assignment.' if cage else 'catalogue entry lacks a precise physical model/configuration; no unverified pinout or contact count invented.')]
   if t in ['ca-com','domm','cxp','fiberfox']:notes+=['Source thumbnail consulted; exact insert/optical interface cannot be established reliably, so a deliberate abstract family symbol is used.']
   if t in ['edison','rs-422','new-node-3','new-node-4','new-node-5','qsfp','new-node-2']:notes+=['Physical implementation needs specification before a model-specific hardware drawing can replace this abstract.']
- notes+=['Review only; manufacturer/model verification incomplete.']
- if t in ['socapex','powerlock','harting']:
-  notes+=['Paired wide groups are kept at their native aspect ratio; inspect the SVG enlarged for contact detail.']
- svg=f'<svg xmlns="{NS}" width="256" height="192" viewBox="0 0 256 192" role="img" aria-labelledby="title desc"><title id="title">{name.replace("&","&amp;")} — review study</title><desc id="desc">{(" ".join(notes)).replace("&","&amp;")}</desc>{DEFS}{body}{text(name)}</svg>\n'
- ET.fromstring(svg)
- (OUT/(t+'.svg')).write_text(svg)
- rows.append(dict(type=t,name=name,source_basis=current_basis,output_svg=f'design/connector-audit/full-svg-set/{t}.svg',notes=' '.join(notes),verification_status='review-needed'))
+ body,corrections=correct(t,body,(rect,circle,path,contact,embed_source))
+ meta=dict(metadata[t])
+ if corrections:meta['review_action']='correct-and-reframe'
+ notes=corrections+meta['checked_aspects']+meta['remaining_issues']
+ from html import escape
+ svg=f'<svg xmlns="{NS}" width="256" height="192" viewBox="0 0 256 192" role="img" aria-labelledby="title desc"><title id="title">{escape(name)} — review study</title><desc id="desc">{escape(" ".join(notes))}</desc>{DEFS}{body}</svg>'
+ root=ET.fromstring(svg)
+ variants=select_primary(root,t)
+ framing=fit(root)
+ (OUT/(t+'.svg')).write_text(ET.tostring(root,encoding='unicode')+'\n')
+ rows.append(dict(type=t,name=name,source_basis=current_basis,output_svg=f'design/connector-audit/full-svg-set/{t}.svg',notes=' '.join(notes),**meta,**variants,framing=framing,thumbnail_sizes_px=[32,64,128],reviewed_against=c['thumbnail_source_path']))
 (OUT/'index.json').write_text(json.dumps(rows,indent=2,ensure_ascii=False)+'\n')
-print(f'Generated {len(rows)} SVGs')
+print(f'Generated {len(rows)} SVGs; preserved source geometry outside targeted corrections, fitted uniformly.')

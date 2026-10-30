@@ -1,0 +1,2975 @@
+{
+  "renderer": "CairoSVG; direct rasterization at requested size, RGBA compositing 1:1",
+  "sizes_px": [
+    32,
+    64,
+    128
+  ],
+  "count": 78,
+  "entries": [
+    {
+      "type": "125a-3ph",
+      "svg_sha256": "44c62bca00e754b2771d380974849155279b772ab723b596881aba80d9a8cd8a",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            5,
+            4,
+            59,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            11,
+            8,
+            117,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-01.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "125a-cee",
+      "svg_sha256": "e0cf902e8787a3e5316e46d1590e14a1f2fc961bcdcf3a2a681838bf14b5b5c5",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            5,
+            4,
+            59,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            11,
+            8,
+            117,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-01.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "16a-1ph",
+      "svg_sha256": "cda4b8ba99973d0a1c40caee378efd30718a2b9eb5e4606b4b233354deccbe49",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            5,
+            4,
+            59,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            11,
+            8,
+            117,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-01.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "16a-1ph-110v",
+      "svg_sha256": "8ce44cce016364d811643e5f2c0522339463baf05ea7cfe917a3081cb4ec8067",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            3,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            5,
+            4,
+            59,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            11,
+            8,
+            117,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-01.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "16a-3ph",
+      "svg_sha256": "d196160808ee5fcc7d3bb051db411a3e2ce8d8b4708281856b800b51c5aeebad",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            5,
+            4,
+            59,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            11,
+            8,
+            117,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-01.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "16a-cee",
+      "svg_sha256": "5e9567aeb3ffe39f07f185edb2b15822f411e9e0fbcb2bc7d0bba2609c978ae6",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            5,
+            4,
+            59,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            11,
+            8,
+            117,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-01.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "32a-1ph",
+      "svg_sha256": "0f44c3a0823fa99f09786032867a18f7bd4b2be795bffc4015613cbbc9f4bc70",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            5,
+            4,
+            59,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            11,
+            8,
+            117,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-01.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "32a-1ph-110v",
+      "svg_sha256": "1e55a4cc5d7a922546b79b7a0b281386b6c326e3936b1844d0f7620f71855339",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            5,
+            4,
+            59,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            11,
+            8,
+            117,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-01.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "32a-3ph",
+      "svg_sha256": "dfa5d57fcfb79e3a67799f37aa3c9b909d3fe3d91e204013f59e5a4a7630dc0c",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            5,
+            4,
+            59,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            11,
+            8,
+            117,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-01.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "32a-cee",
+      "svg_sha256": "5bd7a73653b5d7065418c3cb5137e4adcbc56267ecc9a7b6e606f97899171fdc",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            5,
+            4,
+            59,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            11,
+            8,
+            117,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-01.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "63a-3ph",
+      "svg_sha256": "0d60ae04f1a69e35ebf4a721fd5de2119af4236d5c60783f5adc905e80c2f0cb",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            3,
+            2,
+            29,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            6,
+            4,
+            58,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            11,
+            8,
+            117,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-01.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "63a-cee",
+      "svg_sha256": "6580041b92dd0e5647aa66d28b1ef7a2e2dc01a1b589987ac1d0285df578c40e",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            3,
+            2,
+            29,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            6,
+            4,
+            58,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            11,
+            8,
+            117,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-01.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "aes",
+      "svg_sha256": "c12f00ac105b1ff6d26db81d5e4ece78005489fe8f41cfca030454d7f565b2d2",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            4,
+            60,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            8,
+            120,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-01.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "bnc",
+      "svg_sha256": "527f034e8e0bf5f4823082ffa9b8e9a2e6e419ab6f2f9024fd342f1a4672bdfc",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            3,
+            30,
+            29
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            6,
+            60,
+            58
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            12,
+            120,
+            116
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-02.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "ca-com",
+      "svg_sha256": "4b5437359899f05598760808c3b65985c984513c129eaa51c2fc1ca749ead492",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            4,
+            60,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            8,
+            120,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-02.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram. Technical approval withheld for the source/model uncertainties documented in remaining_issues."
+    },
+    {
+      "type": "cat5e",
+      "svg_sha256": "9f3fb0637e907a1d2b0bbdeaaa780b6c153326562bc0d4719132a72ce5f3f66f",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            6,
+            30,
+            26
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            12,
+            60,
+            52
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            25,
+            120,
+            103
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-02.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "cat6",
+      "svg_sha256": "c1a7da855187b8b0b669246477fb8e7051ed5318747382ec402cccb706bb0398",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            6,
+            30,
+            26
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            12,
+            60,
+            52
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            25,
+            120,
+            103
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-02.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "cat6a",
+      "svg_sha256": "392ed70b7cbaf5bf62a388eb355b041058727fcfd3dc2a02f9a3ac9f32832456",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            6,
+            30,
+            26
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            12,
+            60,
+            52
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            25,
+            120,
+            103
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-02.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "component-video",
+      "svg_sha256": "11af9ca1fcf5ca6d4493657ef89cbd1d6dace39505ceed2000262bf4ff984908",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            11,
+            30,
+            21
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            23,
+            60,
+            41
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            46,
+            120,
+            82
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-02.png",
+      "assessment": "Group/family silhouette and color remain visible at 32 px; individual high-density contacts cannot be counted at 32 px. Use 64/128 px for insert review; do not infer pin numbering from thumbnails."
+    },
+    {
+      "type": "cxp",
+      "svg_sha256": "fc8839afc05eb7c83c71dff1fd321805c9c9e9d84f79cef80729c6cb79a6a951",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            9,
+            30,
+            23
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            18,
+            60,
+            46
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            36,
+            121,
+            92
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-02.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "display-port",
+      "svg_sha256": "21675d61d511f578b9abf5163b2136faa186c8c24fe907b6fcc315387cc82d3f",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            11,
+            30,
+            21
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            23,
+            60,
+            41
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            46,
+            120,
+            82
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-02.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "dmx-3pin",
+      "svg_sha256": "4d1a3a65f69bb3a708a2101eff38215da58e9942dcf79a20bac958f84c6daecd",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            4,
+            60,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            8,
+            120,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-02.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "dmx-5pin",
+      "svg_sha256": "ce9158d8deaa80c4e6cb8757dcafdfe5e6eaa3f9fbb902f07cedf32f76397b17",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            4,
+            60,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            8,
+            120,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-02.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "domm",
+      "svg_sha256": "895dfd5d16fc37ae4107ef545be71adf600bb045cd2377580cae957aa2bc4365",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            4,
+            60,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            8,
+            120,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-02.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram. Technical approval withheld for the source/model uncertainties documented in remaining_issues."
+    },
+    {
+      "type": "dvi",
+      "svg_sha256": "0b32c22fe4e278105beaf6cc51534edd1ab68a87b7d5731756b279df23b49307",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            12,
+            30,
+            20
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            24,
+            60,
+            40
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            49,
+            120,
+            79
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-02.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "edison",
+      "svg_sha256": "34b65f16842b624124bb7b84888d5fb1b35074733f0b3f9c0f49e202b146c27b",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            8,
+            31,
+            24
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            17,
+            60,
+            47
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            35,
+            121,
+            93
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-02.png",
+      "assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector."
+    },
+    {
+      "type": "ethercon",
+      "svg_sha256": "f05094251bd5c9d77023d547d4656c59f94eac1b2f22484509e3344d38c9ee0a",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            5,
+            4,
+            59,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            11,
+            8,
+            117,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-03.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "ethernet",
+      "svg_sha256": "85b8961e162bee759fa3f175f87a7288e4c5a0a2211925a645a34233ac985ea8",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            6,
+            30,
+            26
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            12,
+            60,
+            52
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            25,
+            120,
+            103
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-03.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "fiber-lc",
+      "svg_sha256": "ea382e7147752d2966814c496fae73d65f025db7ba9b1f02b00e308bde6c13f0",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            4,
+            30,
+            28
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            9,
+            60,
+            55
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            19,
+            121,
+            109
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-03.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "fiber-mpo",
+      "svg_sha256": "be8692c6761cf1d58da85d795480d8818732882b5cf4c385c0dc19fe85966ca5",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            7,
+            30,
+            25
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            14,
+            60,
+            50
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            29,
+            120,
+            99
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-03.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "fiber-sc",
+      "svg_sha256": "0a5d51209aa63df64d06d9d427d7eb84af1561b1d93d215c9f77500dda1ed912",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            7,
+            2,
+            25,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            14,
+            4,
+            50,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            29,
+            8,
+            99,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-03.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "fiber-st",
+      "svg_sha256": "c8a0f46962f020e58c058cfe5ef58533f397da296dadc432d531a078daf9b531",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            3,
+            30,
+            29
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            6,
+            60,
+            58
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            13,
+            120,
+            115
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-03.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "fiberfox",
+      "svg_sha256": "bd4cbfeaf8593c6234144e5e17c80566d2993c89417c8ca6d03b0f8b118a61f9",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            3,
+            2,
+            29,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            7,
+            4,
+            57,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            14,
+            8,
+            114,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-03.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "harting",
+      "svg_sha256": "4a76340a9631869aecf473c7ad8f150128cc987f641d69d037cbeec470512f29",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            12,
+            30,
+            20
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            25,
+            60,
+            39
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            50,
+            120,
+            78
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-03.png",
+      "assessment": "Primary family silhouette remains visible at 32 px; high-density contacts/individual group details need 64/128 px. Alternate source form retained as an SVG symbol and rendered on gender-variants-64px.png. Technical approval withheld for the source/model uncertainties documented in remaining_issues."
+    },
+    {
+      "type": "hdmi",
+      "svg_sha256": "9d8d465eea87ff56eb3de134d534c0237ff41bf54d21c7e041f9787bd2a7884a",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            11,
+            30,
+            21
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            22,
+            60,
+            42
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            45,
+            120,
+            83
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-03.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "iec",
+      "svg_sha256": "e4ada2c184a3bb60f81e65a3c53146f0f2ef98e0e64b2e7f9653f5fe287d3d03",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            8,
+            30,
+            24
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            16,
+            60,
+            48
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            33,
+            120,
+            95
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-03.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "jack",
+      "svg_sha256": "1613dc3696bbb79d38d04001cbbd4c7b72766d0f0e0a829affdc1e2a8e3670bc",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            3,
+            30,
+            29
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            7,
+            60,
+            57
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            15,
+            120,
+            113
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-03.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "led-signal",
+      "svg_sha256": "9c18c659383dbce4fb032dd91b937fcfe45be199559488fa344498d2bd072c34",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            8,
+            31,
+            24
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            17,
+            60,
+            47
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            35,
+            121,
+            93
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-03.png",
+      "assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector."
+    },
+    {
+      "type": "midi",
+      "svg_sha256": "4f26e53122cad6bbdad51023c96b4bb5621f7a346ccfaec16d14df5f9a8dcaa5",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            4,
+            60,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            8,
+            120,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-03.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "mini-din-6pin",
+      "svg_sha256": "2ef6f5f30351c6aa1d7f3ad82694c3b0c9c24b50aa115794cff5c6fe532c3d6e",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            4,
+            60,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            8,
+            120,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-04.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "mini-display-port",
+      "svg_sha256": "9b40b94062f9bff3d96a64b62fb6b5f2f8cab213e4040bf21cf75e7c8667d09d",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            6,
+            30,
+            26
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            13,
+            60,
+            51
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            27,
+            120,
+            101
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-04.png",
+      "assessment": "Rectangular mini-DP family silhouette improved at 32 px, but the source-thumbnail identity conflict prevents release approval."
+    },
+    {
+      "type": "misc",
+      "svg_sha256": "0165addc8d0e7453ee6ca578cb2f4a3c439a0131031bb1527ff0385575cdd1d2",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            8,
+            31,
+            24
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            17,
+            60,
+            47
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            35,
+            121,
+            93
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-04.png",
+      "assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector."
+    },
+    {
+      "type": "nema",
+      "svg_sha256": "45f57626315c90cfe329c63987e3a6a7cbaf4461aecebfd7ae28e0aedfd3b9f9",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            4,
+            60,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            8,
+            120,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-04.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram. Technical approval withheld for the source/model uncertainties documented in remaining_issues."
+    },
+    {
+      "type": "new-node",
+      "svg_sha256": "6f84109de6fa993e55c37d2b09d4775e4cad27a68199e39c2377686fda3c5ce4",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            4,
+            60,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            8,
+            120,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-04.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "new-node-2",
+      "svg_sha256": "bbcb60629e4581857b16f0473dfe7919d6b9083514063e13e88cd777e3dbc092",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            8,
+            31,
+            24
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            17,
+            60,
+            47
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            35,
+            121,
+            93
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-04.png",
+      "assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector."
+    },
+    {
+      "type": "new-node-3",
+      "svg_sha256": "f3d3b617fd7bbebc92e022755e50eef743a6eb5c679c49daad6efb800efc2c12",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            8,
+            31,
+            24
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            17,
+            60,
+            47
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            35,
+            121,
+            93
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-04.png",
+      "assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector."
+    },
+    {
+      "type": "new-node-4",
+      "svg_sha256": "1026c661ac80f850edc5f2d28d941a796958b80df04a6bd79c568ddcb9382a0b",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            8,
+            31,
+            24
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            17,
+            60,
+            47
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            35,
+            121,
+            93
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-04.png",
+      "assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector."
+    },
+    {
+      "type": "new-node-5",
+      "svg_sha256": "b90d1d32023f2eda4f8e246ae78786e7c70d3838f08a40428a4266eb48249d23",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            8,
+            31,
+            24
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            17,
+            60,
+            47
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            35,
+            121,
+            93
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-04.png",
+      "assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector."
+    },
+    {
+      "type": "opticalcon",
+      "svg_sha256": "883ebb79c5d711cea5d25b3a29d9b81fe54dd87cfa3060e77210b3679c604977",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            4,
+            2,
+            28,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            8,
+            4,
+            56,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            16,
+            8,
+            112,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-04.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "phono",
+      "svg_sha256": "95ede4a3a4d939f2420bacb8bf8ef4799fbdc79776f70a9cec0be3a97b295d9b",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            4,
+            60,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            8,
+            120,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-04.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "powercon",
+      "svg_sha256": "385de3b329e8bf65ff51a0c815aa1b36e85ba92e03f105c20f09477fb0527aa7",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            4,
+            60,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            8,
+            120,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-04.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "powercon-true1",
+      "svg_sha256": "0b22698e816e56c0a773bd5beba4cbe08d5dc0d7772cbb5ad61f70d8457b2f1f",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            1,
+            7,
+            30,
+            25
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            15,
+            60,
+            49
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            31,
+            120,
+            97
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-04.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "powerlock",
+      "svg_sha256": "f33ee95c3bce25bb8cb951dccdc8b4f08ee86b4855088fdf56ddc66f886b369a",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            14,
+            30,
+            18
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            28,
+            60,
+            36
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            56,
+            120,
+            72
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-05.png",
+      "assessment": "Primary family silhouette remains visible at 32 px; high-density contacts/individual group details need 64/128 px. Alternate source form retained as an SVG symbol and rendered on gender-variants-64px.png. Technical approval withheld for the source/model uncertainties documented in remaining_issues."
+    },
+    {
+      "type": "qsfp",
+      "svg_sha256": "45f09368474c1de652b4dd6f2973d93b0ef25ff4d51fd67c8d715ab34b484f3b",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            8,
+            31,
+            24
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            17,
+            60,
+            47
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            35,
+            121,
+            93
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-05.png",
+      "assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector."
+    },
+    {
+      "type": "qsfp-cage",
+      "svg_sha256": "00941d8be0feb9b9ba6dd10b040ea2e380b829658930e2d0520740b1e4e4e889",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            8,
+            31,
+            24
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            17,
+            60,
+            47
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            35,
+            121,
+            93
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-05.png",
+      "assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector."
+    },
+    {
+      "type": "rca",
+      "svg_sha256": "95ede4a3a4d939f2420bacb8bf8ef4799fbdc79776f70a9cec0be3a97b295d9b",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            4,
+            60,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            8,
+            120,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-05.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "rgbhv",
+      "svg_sha256": "98d299975b0348ae904b7ce39789b98dc2dc47a056a7c4e5f8d3a294bac31d03",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            13,
+            30,
+            19
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            26,
+            60,
+            38
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            53,
+            120,
+            75
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-05.png",
+      "assessment": "Group/family silhouette and color remain visible at 32 px; individual high-density contacts cannot be counted at 32 px. Use 64/128 px for insert review; do not infer pin numbering from thumbnails."
+    },
+    {
+      "type": "rs-422",
+      "svg_sha256": "ba6aa0e5a991a4ba3484d1e2aaef61203d3520efd3f4d00fd071c5d0bf1f0d91",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            8,
+            31,
+            24
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            17,
+            60,
+            47
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            35,
+            121,
+            93
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-05.png",
+      "assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector."
+    },
+    {
+      "type": "schuko",
+      "svg_sha256": "9e198588f97f932b3580511939b0529bc921a66ee5655bc7564be442f83ecd62",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            4,
+            60,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            8,
+            120,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-05.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "sdi",
+      "svg_sha256": "87b8f779c483e291cef95070a087d45d263db91bd06aee05b080f8a96fb659da",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            3,
+            30,
+            29
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            6,
+            60,
+            58
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            12,
+            120,
+            116
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-05.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "sfp-cage",
+      "svg_sha256": "0e68d0ca4a9ec6eefd451902141b7247e7b511f5597fb9c7747b8c1d3c7acf62",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            8,
+            31,
+            24
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            17,
+            60,
+            47
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            35,
+            121,
+            93
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-05.png",
+      "assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector."
+    },
+    {
+      "type": "sfp-plus-cage",
+      "svg_sha256": "170f323af39fe1f8416214668062c2b1efc7c1a5bc4fe30e4efb09edc22d6252",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            8,
+            31,
+            24
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            17,
+            60,
+            47
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            35,
+            121,
+            93
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-05.png",
+      "assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector."
+    },
+    {
+      "type": "sfp28-cage",
+      "svg_sha256": "4149d30e370f02f97cfd2f491d96102814284c88e4f581c721b50f5b60a0c833",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            8,
+            31,
+            24
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            17,
+            60,
+            47
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            35,
+            121,
+            93
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-05.png",
+      "assessment": "Abstract configuration symbol intentionally recognizable at 32 px; shared glyph does not identify a physical connector."
+    },
+    {
+      "type": "socapex",
+      "svg_sha256": "48545388c3144c7828204798c925ade152e1afa1bb39b6b1b0c9727f75155283",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            4,
+            60,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            8,
+            120,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-05.png",
+      "assessment": "Primary family silhouette remains visible at 32 px; high-density contacts/individual group details need 64/128 px. Alternate source form retained as an SVG symbol and rendered on gender-variants-64px.png."
+    },
+    {
+      "type": "speakon",
+      "svg_sha256": "5ff792794439bd61c1bbf278107d0164829583dcae5d1022ea42693923a2d803",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            4,
+            2,
+            28,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            8,
+            4,
+            56,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            16,
+            8,
+            112,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-05.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "speakon-nl2",
+      "svg_sha256": "6cd5fa5616cd7329e1bfc7476681271a873be97cd03458cf4d17444b0307ef91",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            4,
+            2,
+            28,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            8,
+            4,
+            56,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            16,
+            8,
+            112,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-06.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "speakon-nl4",
+      "svg_sha256": "5ff792794439bd61c1bbf278107d0164829583dcae5d1022ea42693923a2d803",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            4,
+            2,
+            28,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            8,
+            4,
+            56,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            16,
+            8,
+            112,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-06.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "speakon-nl8",
+      "svg_sha256": "ce4ca8797f990be397a296ba322f702f080083e7c775290846d23d3f7aa6d4bc",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            4,
+            61,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            8,
+            120,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-06.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "trs-ts",
+      "svg_sha256": "1613dc3696bbb79d38d04001cbbd4c7b72766d0f0e0a829affdc1e2a8e3670bc",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            3,
+            30,
+            29
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            7,
+            60,
+            57
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            15,
+            120,
+            113
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-06.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "uk-13a",
+      "svg_sha256": "13d2336d930558593515a8d73dfce22f4c4716ec4d7d4da7276ef6a98fd492eb",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            4,
+            60,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            8,
+            120,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-06.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "usb",
+      "svg_sha256": "e30ad77d905cf0c75d5cd71cbc44c41d594306515192d00115813222d2815b2c",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            9,
+            31,
+            23
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            19,
+            60,
+            45
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            39,
+            120,
+            89
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-06.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "usb-a",
+      "svg_sha256": "e30ad77d905cf0c75d5cd71cbc44c41d594306515192d00115813222d2815b2c",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            9,
+            31,
+            23
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            19,
+            60,
+            45
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            39,
+            120,
+            89
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-06.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "usb-b",
+      "svg_sha256": "e2182f5e28a3820a4f865428012be66c29cc0f44ef7c28b4c8bf5d6c09ebaedc",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            3,
+            30,
+            29
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            6,
+            60,
+            58
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            12,
+            120,
+            116
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-06.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "usb-c",
+      "svg_sha256": "b86d2a11da257c3a93f9441b52cdaebf5481a240f63f8937c0f3cdafe980cc28",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            11,
+            30,
+            21
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            22,
+            60,
+            42
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            44,
+            120,
+            84
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-06.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "vga",
+      "svg_sha256": "e1a157257704851db9f5ab4280b42a694c79211b01cf749da0c2548b21c347ef",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            10,
+            30,
+            22
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            21,
+            60,
+            43
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            43,
+            120,
+            85
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-06.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "xlr",
+      "svg_sha256": "c6016dbc387d967f5deef0ab346165d99b2580fbe18b750b6a32661922fc3618",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            4,
+            60,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            8,
+            120,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-06.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "xlr-3pin",
+      "svg_sha256": "c6016dbc387d967f5deef0ab346165d99b2580fbe18b750b6a32661922fc3618",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            4,
+            60,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            8,
+            120,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-06.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    },
+    {
+      "type": "xlr-5pin",
+      "svg_sha256": "be07c25fcc3a7aba9ddf379ae1af38f4fa8dac5d81ad40099869be073c112b34",
+      "renders": [
+        {
+          "size_px": 32,
+          "alpha_bbox": [
+            2,
+            2,
+            30,
+            30
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 64,
+          "alpha_bbox": [
+            4,
+            4,
+            60,
+            60
+          ],
+          "transparent_padding": true
+        },
+        {
+          "size_px": 128,
+          "alpha_bbox": [
+            8,
+            8,
+            120,
+            120
+          ],
+          "transparent_padding": true
+        }
+      ],
+      "comparison_page": "comparisons/page-06.png",
+      "assessment": "Family silhouette recognizable at 32 px; contact detail assessed at 64/128 px, not used as a wiring diagram."
+    }
+  ]
+}
