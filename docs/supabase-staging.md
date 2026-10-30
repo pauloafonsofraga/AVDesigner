@@ -43,6 +43,12 @@ operator account now exists with a personal Owner workspace; real password
 authentication passed. Platform Admin, MFA, Resend delivery and deployment have
 not been performed. The eight-entry Phase 6.6D record remains historical.
 
+Current follow-up: [staging Platform Admin verification](staging-platform-admin-verification.md)
+records the operator's completed TOTP enrollment, MFA-before-role bootstrap, real
+AAL2 administrative access and AAL1 denial. The personal Owner workspace and
+closed registration are preserved. This supersedes earlier pending MFA/Admin
+status only; deployment and live collaboration remain unperformed.
+
 ## 1. Isolation and approval gates
 
 Record this non-secret target sheet before any remote action:

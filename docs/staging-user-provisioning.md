@@ -3,7 +3,10 @@
 **Current workflow:** the [versioned provisioning compatibility fix](admin-provisioning-compatibility.md)
 has now been applied and verified on staging. Use its short-lived, UUID/email-bound
 authorization and matching Admin createUser `id`. The first approved account and
-personal Owner workspace are verified; Platform Admin has not been granted.
+personal Owner workspace are verified. The subsequent approved
+[MFA and Platform Admin setup](staging-platform-admin-verification.md) is now
+verified: AAL2 Admin allowed, password-only AAL1 Admin denied. Role bootstrap
+remains a separate explicit approval, never an automatic provisioning effect.
 The investigation and original blocked example below are historical, not the
 current procedure.
 

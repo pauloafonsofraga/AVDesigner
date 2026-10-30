@@ -136,6 +136,12 @@ No second hosted user was provisioned for isolation testing; cross-account denia
 was verified by the focused SQL/RLS tests. Resend delivery, MFA enrollment and
 Platform Admin bootstrap were not performed. Stop before those separate steps.
 
+Subsequent separately approved setup is recorded in
+[staging Platform Admin verification](staging-platform-admin-verification.md):
+TOTP/AAL2 verified before the role grant, real AAL2 Admin allowed, fresh AAL1
+Admin denied and temporary sessions signed out. The historical provisioning-only
+phase boundary above remains unchanged.
+
 Security advisors show the existing six intentional authenticated security-definer
 RPC warnings, twenty deny-all-private RLS/no-policy INFO findings (one new table),
 and a leaked-password-protection warning. The latter setting was not changed;
