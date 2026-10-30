@@ -113,14 +113,44 @@ Underlying references: [Zod](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5),
 
 ## Execution record and remaining gates
 
-Cloud execution outcome will be recorded after the build finishes; local checks
-alone must not be reported as a successful Google Cloud container build.
-Potential charges are bounded build-worker execution, normal network use and
-Cloud Logging ingestion/retention, subject to the billing account's free tiers
-and current [Cloud Build pricing](https://cloud.google.com/build/pricing).
-No registry repository, GCS source/application bucket or running application
-service is created by this configuration. The service account and IAM binding
-are persistent metadata, not running compute. No invoice amount is asserted.
+**Hosted result: SUCCESS**, independently read from the Cloud Build API and
+Cloud Logging, not inferred from local tests.
+
+| Evidence | Verified value |
+| --- | --- |
+| Build | [`9b92631a-68d2-4cb4-956f-7d86aaf00dea`](https://console.cloud.google.com/cloud-build/builds;region=europe-west1/9b92631a-68d2-4cb4-956f-7d86aaf00dea?project=837085353595) |
+| Region / worker | `europe-west1`, `E2_STANDARD_2` |
+| Exact source commit | `2e7dbd7bef57024f131842cd142b29243a6d7884` |
+| GitHub archive SHA-256 | `e38f57ee9927912653eb70febd2c42f4a2ce3600d429d46ffc0a8416c8b07cfe` |
+| Worker image ID | `sha256:06942dd9391b9a1f5d9fed1aa539d8bd7a773335c0dd9e244dc95f9a9baf83f7` |
+| Temporary image tag | `wirenexus-staging-validation:2e7dbd7bef57024f131842cd142b29243a6d7884`; not pushed |
+| Started / finished UTC | `2026-10-30T09:59:13.900041506Z` / `2026-10-30T10:00:16.009014Z` |
+| Execution duration | Approximately 62.1 seconds; all three steps SUCCESS |
+| Source/image assets | Clean context 710 files; all 688 public asset hashes passed |
+| Actual container proof | `result=PASS`, `platform=linux`, `architecture=x64`, `uid=1000`, `port=8080`, `realEntrypoint=true` |
+
+After a concurrent remote documentation-only connector inventory commit arrived,
+it was merged without modification before submission. That root inventory file
+is excluded from the container context. The exact downloaded public build archive
+was also independently retested: **2,293 passed**, zero failed/skipped/canceled,
+and all **16 static validators** passed. The original Device JSON Import edits
+remain unstaged (49 added lines in `index.html`, 40 in `src/personalDefinitions.js`).
+All 245 protected-file/original-edit hashes were verified before the source commit.
+
+Costs/resources: one approved service account with its sole Logs Writer binding,
+one completed default-pool build and Cloud Logging records. Actual build-worker
+time, network use and log ingestion/retention can incur charges, subject to free
+tiers and current [Cloud Build pricing](https://cloud.google.com/build/pricing).
+The service account/IAM binding are persistent metadata, not running compute.
+No invoice amount is asserted. No other build attempt was submitted.
+
+Post-build CLI inventory confirmed no GCS buckets, no Artifact Registry
+repositories across all locations, and no Cloud Run services in `europe-west1`.
+No user-managed key exists on the validation account. No source/application bucket,
+registry repository, retained image artifact, private worker pool, Cloud Run
+revision, DNS record or Supabase change was created. The tested worker image is
+ephemeral; retaining/pushing a deployment image requires a later approved build
+and registry destination. No production or Vercel service was changed.
 
 The [Phase 6.6H prerequisites](google-cloud-staging-readiness.md) still apply:
 private application bucket and signing/CORS checks, runtime/deploy identities,
