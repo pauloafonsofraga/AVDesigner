@@ -1,0 +1,803 @@
+[
+  {
+    "type": "125a-3ph",
+    "name": "125A 3ph",
+    "source_basis": [
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/125-3ph-Male.svg",
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/125-3ph.svg"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/125a-3ph.svg",
+    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "125a-cee",
+    "name": "125 CEE",
+    "source_basis": [
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/125-3ph-Male.svg",
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/125-3ph.svg"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/125a-cee.svg",
+    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "16a-1ph",
+    "name": "16A 1ph",
+    "source_basis": [
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/16-1ph-Male.svg",
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/16-1ph.svg"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/16a-1ph.svg",
+    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "16a-1ph-110v",
+    "name": "16A 1ph 110v",
+    "source_basis": [
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/16-1ph110v-Male.svg",
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/16-1ph110v.svg"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/16a-1ph-110v.svg",
+    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "16a-3ph",
+    "name": "16A 3ph",
+    "source_basis": [
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/16-3ph-Male.svg",
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/16-3ph.svg"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/16a-3ph.svg",
+    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "16a-cee",
+    "name": "16A CEE",
+    "source_basis": [
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/16-1ph-Male.svg",
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/16-1ph.svg"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/16a-cee.svg",
+    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "32a-1ph",
+    "name": "32A 1ph",
+    "source_basis": [
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/32-1ph-Male.svg",
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/32-1ph.svg"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/32a-1ph.svg",
+    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "32a-1ph-110v",
+    "name": "32A 1ph 110v",
+    "source_basis": [
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/32-1ph110vMale.svg",
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/32-1ph110v.svg"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/32a-1ph-110v.svg",
+    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "32a-3ph",
+    "name": "32A 3ph",
+    "source_basis": [
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/32-3ph-Male.svg",
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/32-3ph.svg"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/32a-3ph.svg",
+    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "32a-cee",
+    "name": "32A CEE",
+    "source_basis": [
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/32-1ph-Male.svg",
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/32-1ph.svg"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/32a-cee.svg",
+    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "63a-3ph",
+    "name": "63A 3ph",
+    "source_basis": [
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/63-3ph-Male.svg",
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/63-3ph.svg"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/63a-3ph.svg",
+    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "63a-cee",
+    "name": "63A CEE",
+    "source_basis": [
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/63-3ph-Male.svg",
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/63-3ph.svg"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/63a-cee.svg",
+    "notes": "Both inventoried genders shown; original contact coordinates, clock/key and current markings retained. IEC CEE aliases use the same family. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "aes",
+    "name": "AES",
+    "source_basis": [
+      "Nodes/Thumbnails/XLR_Output.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/aes.svg",
+    "notes": "3 contacts; male example retained from XLR_Output thumbnail. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "bnc",
+    "name": "BNC",
+    "source_basis": [
+      "Nodes/Thumbnails/bnc.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/bnc.svg",
+    "notes": "True frontal coaxial socket with concentric shell/dielectric, recessed center and opposed bayonet lugs; SDI reuses BNC geometry. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "ca-com",
+    "name": "CA-COM",
+    "source_basis": [
+      "Nodes/Thumbnails/CA-COM.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/ca-com.svg",
+    "notes": "9 visible source-thumbnail contact locations rebuilt as a frontal circular insert; arrangement regularized from perspective artwork. Contact gender, exact key clocking and manufacturer insert require review. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "cat5e",
+    "name": "RJ45 1G",
+    "source_basis": [
+      "Nodes/Thumbnails/RJ45.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/cat5e.svg",
+    "notes": "8-position RJ45/8P8C socket rebuilt frontally from source; speed/category aliases do not change contact geometry. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "cat6",
+    "name": "RJ45 2.5G",
+    "source_basis": [
+      "Nodes/Thumbnails/RJ45.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/cat6.svg",
+    "notes": "8-position RJ45/8P8C socket rebuilt frontally from source; speed/category aliases do not change contact geometry. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "cat6a",
+    "name": "RJ45 10G",
+    "source_basis": [
+      "Nodes/Thumbnails/RJ45.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/cat6a.svg",
+    "notes": "8-position RJ45/8P8C socket rebuilt frontally from source; speed/category aliases do not change contact geometry. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "component-video",
+    "name": "Component Video (YPbPr)",
+    "source_basis": [
+      "Nodes/Thumbnails/bnc.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/component-video.svg",
+    "notes": "Grouped frontal BNC family; Y/Pb/Pr green/blue/red; RGBHV red/green/blue/white/gray. Separate hardware count preserved. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "cxp",
+    "name": "CXP",
+    "source_basis": [
+      "Nodes/Thumbnails/CXP.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/cxp.svg",
+    "notes": "Frontal shielded CXP module opening derived from source silhouette and spring cage; recessed interface deliberately leaves exact internal contact count unresolved, rather than asserting a pinout. Exact CXP generation requires review. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "display-port",
+    "name": "Display Port",
+    "source_basis": [
+      "Nodes/Thumbnails/DisplayPort.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/display-port.svg",
+    "notes": "Frontal 20-contact family study derived from thumbnail. Exact tongue, pitch and key/chamfer dimensions require model review. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "dmx-3pin",
+    "name": "DMX 3-Pin",
+    "source_basis": [
+      "Nodes/Thumbnails/xlr_input.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/dmx-3pin.svg",
+    "notes": "3 contacts; female example follows source thumbnail; signal direction does not establish gender. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "dmx-5pin",
+    "name": "DMX 5-Pin",
+    "source_basis": [
+      "Nodes/Thumbnails/XLR5Pin.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/dmx-5pin.svg",
+    "notes": "5 contacts; female example follows source thumbnail; signal direction does not establish gender. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "domm",
+    "name": "DOMM",
+    "source_basis": [
+      "Nodes/Thumbnails/DOMM.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/domm.svg",
+    "notes": "19 visible source-thumbnail contact locations rebuilt as a frontal circular insert; arrangement regularized from perspective artwork. Contact gender, exact key clocking and manufacturer insert require review. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "dvi",
+    "name": "DVI",
+    "source_basis": [
+      "Nodes/Thumbnails/DVI.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/dvi.svg",
+    "notes": "DVI-I dual-link example follows source: 24 digital + 4 analog contacts + flat blade. Catalogue does not specify DVI variant. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "edison",
+    "name": "Edison",
+    "source_basis": [
+      "Nodes/Thumbnails/blank.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/edison.svg",
+    "notes": "Abstract review symbol: catalogue entry lacks a precise physical model/configuration; no unverified pinout or contact count invented. Physical implementation needs specification before a model-specific hardware drawing can replace this abstract. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "ethercon",
+    "name": "etherCON",
+    "source_basis": [
+      "Nodes/Thumbnails/etherCON.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/ethercon.svg",
+    "notes": "Front-facing circular etherCON shell around an 8P8C aperture; exact latch/model requires review. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "ethernet",
+    "name": "Ethernet",
+    "source_basis": [
+      "Nodes/Thumbnails/RJ45.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/ethernet.svg",
+    "notes": "8-position RJ45/8P8C socket rebuilt frontally from source; speed/category aliases do not change contact geometry. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "fiber-lc",
+    "name": "Fiber LC",
+    "source_basis": [
+      "Nodes/Thumbnails/LC.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/fiber-lc.svg",
+    "notes": "LC duplex blue adapter example. Front-facing source family; no visible electrical contacts. Blue is source finish, not a claim about all fiber/polish variants. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "fiber-mpo",
+    "name": "Fiber MPO",
+    "source_basis": [
+      "Nodes/Thumbnails/fiberMPO.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/fiber-mpo.svg",
+    "notes": "MPO adapter opening rebuilt from source; no invented fiber count, ferrule pin gender or polish assigned. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "fiber-sc",
+    "name": "Fiber SC",
+    "source_basis": [
+      "Nodes/Thumbnails/SC.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/fiber-sc.svg",
+    "notes": "SC simplex blue adapter example. Front-facing source family; no visible electrical contacts. Blue is source finish, not a claim about all fiber/polish variants. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "fiber-st",
+    "name": "Fiber ST",
+    "source_basis": [
+      "Nodes/Thumbnails/FiberST.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/fiber-st.svg",
+    "notes": "Frontal ST socket, two bayonet lugs and ceramic aperture based on source. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "fiberfox",
+    "name": "FiberFox",
+    "source_basis": [
+      "Nodes/Thumbnails/FiberFox.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/fiberfox.svg",
+    "notes": "Frontal rugged FiberFox circular shell and red collar based on source. Optical insert is abstract/shuttered; lens/fiber count and precise model remain unspecified. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "harting",
+    "name": "Harting",
+    "source_basis": [
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/HartingMale.svg",
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/HartingFemale.svg"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/harting.svg",
+    "notes": "Source geometry retained, including distinct contact forms and standard source colors. Exact commercial insert/model and keying require review. Review only; manufacturer/model verification incomplete. Paired wide groups are kept at their native aspect ratio; inspect the SVG enlarged for contact detail.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "hdmi",
+    "name": "HDMI",
+    "source_basis": [
+      "Nodes/Thumbnails/HDMI.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/hdmi.svg",
+    "notes": "Frontal 19-contact family study derived from thumbnail. Exact tongue, pitch and key/chamfer dimensions require model review. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "iec",
+    "name": "IEC",
+    "source_basis": [
+      "Nodes/Thumbnails/C13.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/iec.svg",
+    "notes": "IEC C13 female front, matching C13 source; 3 recessed rectangular contacts. Exact dimensions require model review. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "jack",
+    "name": "TRS/TS",
+    "source_basis": [
+      "Nodes/Thumbnails/TRS.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/jack.svg",
+    "notes": "Frontal 6.35 mm jack socket family from TRS thumbnail; TS/TRS internal switching cannot be inferred from front view. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "led-signal",
+    "name": "LED Signal",
+    "source_basis": [
+      "Nodes/Thumbnails/blank.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/led-signal.svg",
+    "notes": "Abstract review symbol: catalogue entry lacks a precise physical model/configuration; no unverified pinout or contact count invented. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "midi",
+    "name": "MIDI",
+    "source_basis": [
+      "Nodes/Thumbnails/MIDI.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/midi.svg",
+    "notes": "5-contact 180-degree DIN MIDI frontal example. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "mini-din-6pin",
+    "name": "Mini Din 6-Pin",
+    "source_basis": [
+      "Nodes/Thumbnails/PS2.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/mini-din-6pin.svg",
+    "notes": "6-contact mini-DIN frontal example; source shows green/purple PS/2 alternatives. No signal-role color chosen. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "mini-display-port",
+    "name": "Mini-Display Port",
+    "source_basis": [
+      "Nodes/Thumbnails/MiniDisplayPort.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/mini-display-port.svg",
+    "notes": "Frontal 20-contact family study derived from thumbnail. Exact tongue, pitch and key/chamfer dimensions require model review. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "misc",
+    "name": "Misc.",
+    "source_basis": [
+      "Nodes/Thumbnails/blank.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/misc.svg",
+    "notes": "Abstract review symbol: catalogue entry lacks a precise physical model/configuration; no unverified pinout or contact count invented. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "nema",
+    "name": "NEMA",
+    "source_basis": [
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/NEMA.svg"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/nema.svg",
+    "notes": "Original frontal socket geometry retained. NEMA configuration unspecified; retained source is only a visual study, not an assigned subtype. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "new-node",
+    "name": "Barrel Jack",
+    "source_basis": [
+      "connector-inventory.json: Barrel Jack configuration"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/new-node.svg",
+    "notes": "Generic abstract barrel-jack family; center pin shown, no size/polarity assignment. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "new-node-2",
+    "name": "DAC",
+    "source_basis": [
+      "Nodes/Thumbnails/blank.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/new-node-2.svg",
+    "notes": "Abstract review symbol: catalogue entry lacks a precise physical model/configuration; no unverified pinout or contact count invented. Physical implementation needs specification before a model-specific hardware drawing can replace this abstract. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "new-node-3",
+    "name": "RS-232",
+    "source_basis": [
+      "Nodes/Thumbnails/blank.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/new-node-3.svg",
+    "notes": "Abstract review symbol: catalogue entry lacks a precise physical model/configuration; no unverified pinout or contact count invented. Physical implementation needs specification before a model-specific hardware drawing can replace this abstract. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "new-node-4",
+    "name": "Mini-SDI",
+    "source_basis": [
+      "Nodes/Thumbnails/blank.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/new-node-4.svg",
+    "notes": "Abstract review symbol: catalogue entry lacks a precise physical model/configuration; no unverified pinout or contact count invented. Physical implementation needs specification before a model-specific hardware drawing can replace this abstract. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "new-node-5",
+    "name": "ADAT-S/PDIF",
+    "source_basis": [
+      "Nodes/Thumbnails/blank.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/new-node-5.svg",
+    "notes": "Abstract review symbol: catalogue entry lacks a precise physical model/configuration; no unverified pinout or contact count invented. Physical implementation needs specification before a model-specific hardware drawing can replace this abstract. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "opticalcon",
+    "name": "OpticalCon",
+    "source_basis": [
+      "Nodes/Thumbnails/opticalCON.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/opticalcon.svg",
+    "notes": "Source shuttered opticalCON panel front; underlying fiber configuration hidden, not invented. Exact series unresolved. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "phono",
+    "name": "RCA",
+    "source_basis": [
+      "Nodes/Thumbnails/RCA.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/phono.svg",
+    "notes": "Frontal RCA female geometry shared by phono alias; no arbitrary channel color assigned. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "powercon",
+    "name": "powerCON",
+    "source_basis": [
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/powerCON_Blue.svg",
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/powerCON_White.svg"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/powercon.svg",
+    "notes": "Source geometry retained, including distinct contact forms and standard source colors. Exact commercial insert/model and keying require review. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "powercon-true1",
+    "name": "powerCON TRUE1",
+    "source_basis": [
+      "Nodes/Thumbnails/powerCONTrue1.png",
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/powerCON_True1_Male.svg",
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/powerCON_True1_Female.svg",
+      "https://www.neutrik.com/en/product/nac3px-top",
+      "https://www.neutrik.com/media/12881/download/st-nac3px-top.PDF?v=1",
+      "https://www.neutrik.com/uploads/media/400x/04/12844-NAC3PX-TOP.jpg?v=1-0"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/powercon-true1.svg",
+    "notes": "Rebuilt as frontal combined inlet/outlet panel, using both source keyed inserts rather than a generic 3-pin circle. Source thumbnail shows duplex panel. IMPORTANT: source filenames invert the visible contact forms: the Female-named study has exposed blades (used for physical male inlet); the Male-named study has protected concentric socket structure (used for physical female outlet), reconciled against the manufacturer photo. Exact Seetronic/Neutrik generation, latch, aperture and mounting details still require model/photo verification; not a certified NAC3PX drawing. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "powerlock",
+    "name": "PowerLock",
+    "source_basis": [
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/Powelock source.svg",
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/Powelock drain.svg"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/powerlock.svg",
+    "notes": "Source geometry retained, including distinct contact forms and standard source colors. Exact commercial insert/model and keying require review. Review only; manufacturer/model verification incomplete. Paired wide groups are kept at their native aspect ratio; inspect the SVG enlarged for contact detail.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "qsfp",
+    "name": "QSFP",
+    "source_basis": [
+      "Nodes/Thumbnails/blank.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/qsfp.svg",
+    "notes": "Abstract review symbol: catalogue entry lacks a precise physical model/configuration; no unverified pinout or contact count invented. Physical implementation needs specification before a model-specific hardware drawing can replace this abstract. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "qsfp-cage",
+    "name": "QSFP Cage",
+    "source_basis": [
+      "Nodes/Thumbnails/blank.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/qsfp-cage.svg",
+    "notes": "Abstract review symbol: empty cage opening, no installed module or electrical contact assignment. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "rca",
+    "name": "RCA",
+    "source_basis": [
+      "Nodes/Thumbnails/RCA.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/rca.svg",
+    "notes": "Frontal RCA female geometry shared by phono alias; no arbitrary channel color assigned. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "rgbhv",
+    "name": "RGBHV",
+    "source_basis": [
+      "Nodes/Thumbnails/bnc.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/rgbhv.svg",
+    "notes": "Grouped frontal BNC family; Y/Pb/Pr green/blue/red; RGBHV red/green/blue/white/gray. Separate hardware count preserved. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "rs-422",
+    "name": "RS-422",
+    "source_basis": [
+      "Nodes/Thumbnails/VGA.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/rs-422.svg",
+    "notes": "Abstract review symbol: catalogue entry lacks a precise physical model/configuration; no unverified pinout or contact count invented. Physical implementation needs specification before a model-specific hardware drawing can replace this abstract. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "schuko",
+    "name": "Schuko",
+    "source_basis": [
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/Schuko.svg"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/schuko.svg",
+    "notes": "Original frontal socket geometry retained. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "sdi",
+    "name": "SDI",
+    "source_basis": [
+      "Nodes/Thumbnails/bnc.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/sdi.svg",
+    "notes": "True frontal coaxial socket with concentric shell/dielectric, recessed center and opposed bayonet lugs; SDI reuses BNC geometry. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "sfp-cage",
+    "name": "SFP Cage",
+    "source_basis": [
+      "Nodes/Thumbnails/blank.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/sfp-cage.svg",
+    "notes": "Abstract review symbol: empty cage opening, no installed module or electrical contact assignment. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "sfp-plus-cage",
+    "name": "SFP+ Cage",
+    "source_basis": [
+      "Nodes/Thumbnails/blank.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/sfp-plus-cage.svg",
+    "notes": "Abstract review symbol: empty cage opening, no installed module or electrical contact assignment. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "sfp28-cage",
+    "name": "SFP28 Cage",
+    "source_basis": [
+      "Nodes/Thumbnails/blank.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/sfp28-cage.svg",
+    "notes": "Abstract review symbol: empty cage opening, no installed module or electrical contact assignment. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "socapex",
+    "name": "Socapex",
+    "source_basis": [
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/SocapexMale.svg",
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/SocapexFemale.svg"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/socapex.svg",
+    "notes": "Source geometry retained, including distinct contact forms and standard source colors. Exact commercial insert/model and keying require review. 19 contact locations in each gender; paired concentric circles are contact rim and center, not extra contacts. Review only; manufacturer/model verification incomplete. Paired wide groups are kept at their native aspect ratio; inspect the SVG enlarged for contact detail.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "speakon",
+    "name": "speakON NL4",
+    "source_basis": [
+      "Nodes/Thumbnails/speakON.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/speakon.svg",
+    "notes": "4 contact positions; source circular shell/latch language retained. NL2/NL4/NL8 insert shapes and exact bayonet keying need part-specific verification. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "speakon-nl2",
+    "name": "speakON NL2",
+    "source_basis": [
+      "Nodes/Thumbnails/speakON.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/speakon-nl2.svg",
+    "notes": "2 contact positions; source circular shell/latch language retained. NL2/NL4/NL8 insert shapes and exact bayonet keying need part-specific verification. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "speakon-nl4",
+    "name": "speakON NL4",
+    "source_basis": [
+      "Nodes/Thumbnails/speakON.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/speakon-nl4.svg",
+    "notes": "4 contact positions; source circular shell/latch language retained. NL2/NL4/NL8 insert shapes and exact bayonet keying need part-specific verification. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "speakon-nl8",
+    "name": "speakON NL8",
+    "source_basis": [
+      "Nodes/Thumbnails/speakON.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/speakon-nl8.svg",
+    "notes": "8 contact positions; source circular shell/latch language retained. NL2/NL4/NL8 insert shapes and exact bayonet keying need part-specific verification. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "trs-ts",
+    "name": "TRS/TS",
+    "source_basis": [
+      "Nodes/Thumbnails/TRS.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/trs-ts.svg",
+    "notes": "Frontal 6.35 mm jack socket family from TRS thumbnail; TS/TRS internal switching cannot be inferred from front view. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "uk-13a",
+    "name": "UK 13A",
+    "source_basis": [
+      "31a93c09004a1146857db02d1389181fc1f2e7d5:design/connector-audit/svg/13A-UK.svg"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/uk-13a.svg",
+    "notes": "Original frontal socket geometry retained. Three recessed Type G slots; no added copper contacts. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "usb",
+    "name": "USB-A",
+    "source_basis": [
+      "Nodes/Thumbnails/USBA.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/usb.svg",
+    "notes": "Front-facing receptacle; USB-A legacy 4, USB-B legacy 4, USB-C 24 contact positions. Exact USB generation/configuration unresolved. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "usb-a",
+    "name": "USB-A",
+    "source_basis": [
+      "Nodes/Thumbnails/USBA.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/usb-a.svg",
+    "notes": "Front-facing receptacle; USB-A legacy 4, USB-B legacy 4, USB-C 24 contact positions. Exact USB generation/configuration unresolved. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "usb-b",
+    "name": "USB-B",
+    "source_basis": [
+      "Nodes/Thumbnails/USBB.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/usb-b.svg",
+    "notes": "Front-facing receptacle; USB-A legacy 4, USB-B legacy 4, USB-C 24 contact positions. Exact USB generation/configuration unresolved. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "usb-c",
+    "name": "USB-C",
+    "source_basis": [
+      "Nodes/Thumbnails/USBC.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/usb-c.svg",
+    "notes": "Front-facing receptacle; USB-A legacy 4, USB-B legacy 4, USB-C 24 contact positions. Exact USB generation/configuration unresolved. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "vga",
+    "name": "VGA",
+    "source_basis": [
+      "Nodes/Thumbnails/VGA.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/vga.svg",
+    "notes": "15-contact VGA female. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "xlr",
+    "name": "XLR 3-Pin",
+    "source_basis": [
+      "Nodes/Thumbnails/xlr_input.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/xlr.svg",
+    "notes": "3 contacts; female example follows source thumbnail; signal direction does not establish gender. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "xlr-3pin",
+    "name": "XLR 3-Pin",
+    "source_basis": [
+      "Nodes/Thumbnails/xlr_input.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/xlr-3pin.svg",
+    "notes": "3 contacts; female example follows source thumbnail; signal direction does not establish gender. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  },
+  {
+    "type": "xlr-5pin",
+    "name": "XLR 5-Pin",
+    "source_basis": [
+      "Nodes/Thumbnails/XLR5Pin.png"
+    ],
+    "output_svg": "design/connector-audit/full-svg-set/xlr-5pin.svg",
+    "notes": "5 contacts; female example follows source thumbnail; signal direction does not establish gender. Review only; manufacturer/model verification incomplete.",
+    "verification_status": "review-needed"
+  }
+]
