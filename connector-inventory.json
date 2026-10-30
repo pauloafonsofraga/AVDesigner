@@ -1,0 +1,4386 @@
+{
+  "schema_version": 1,
+  "application": "WireNexus",
+  "repository": "pauloafonsofraga/AVDesigner",
+  "branch": "engine-prototype",
+  "inspected_commit": "1fe965a2853ac8b9e7b5aeb015564d6de2ed476b",
+  "scope": "Every tracked file under Nodes, all factory node types and imported node definitions, and connector rendering paths used by palette, previews, adapters, power distros and cable schedules. Runtime user artwork is described by rendering method rather than enumerated.",
+  "gender_policy": "Gender describes physical artwork only where established; unspecified means source does not declare it. Input/output and one-way/two-way are signal roles, not physical genders. Shared images do not constrain connector gender. PowerLock drain/source and powerCON blue/white names are retained without guessing physical gender.",
+  "catalogue_source": "src/factoryCatalogueBootstrap.js loads data/factory-catalogue.json; nodeTypes are merged with nodes, then built-in thumbnail migrations apply.",
+  "counts": {
+    "node_files": 71,
+    "svg_files": 29,
+    "png_files": 42,
+    "connector_types": 78,
+    "rendering_methods": 8
+  },
+  "assets": [
+    {
+      "name": "125-3ph-Male",
+      "types": [
+        "125a-3ph",
+        "125a-cee"
+      ],
+      "gender": "male",
+      "gender_basis": "Explicit asset filename.",
+      "source_paths": [
+        "Nodes/PowerPlugs/125-3ph-Male.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "125a-3ph",
+          "surface": "power-distro",
+          "direction": "input"
+        },
+        {
+          "type": "125a-cee",
+          "surface": "power-distro",
+          "direction": "input"
+        }
+      ],
+      "sha256": "fc1ea9fbd6a205e38c7fcb091dbb948bb402d854ac8e1d0f5f18eafbfda708a5"
+    },
+    {
+      "name": "125-3ph",
+      "types": [
+        "125a-3ph",
+        "125a-cee"
+      ],
+      "gender": "female",
+      "gender_basis": "Un-suffixed socket counterpart of the explicitly named Male asset in POWER_PLUG_TYPES.",
+      "source_paths": [
+        "Nodes/PowerPlugs/125-3ph.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "125a-3ph",
+          "surface": "power-distro",
+          "direction": "output"
+        },
+        {
+          "type": "125a-cee",
+          "surface": "power-distro",
+          "direction": "output"
+        }
+      ],
+      "sha256": "7fb7c99a824c4f2e799fbecf4baa6b231b1cdd5a86b3ab2f21ecd2d09b73ca75"
+    },
+    {
+      "name": "13A-UK",
+      "types": [
+        "uk-13a"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/PowerPlugs/13A-UK.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "uk-13a",
+          "surface": "power-distro",
+          "direction": "input"
+        },
+        {
+          "type": "uk-13a",
+          "surface": "power-distro",
+          "direction": "output"
+        }
+      ],
+      "sha256": "cfbb9a932b7094bff2fb7d4dd327d61f0cd380de4f0f5482d801e081e218425b"
+    },
+    {
+      "name": "16-1ph-Male",
+      "types": [
+        "16a-1ph",
+        "16a-cee"
+      ],
+      "gender": "male",
+      "gender_basis": "Explicit asset filename.",
+      "source_paths": [
+        "Nodes/PowerPlugs/16-1ph-Male.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "16a-1ph",
+          "surface": "power-distro",
+          "direction": "input"
+        },
+        {
+          "type": "16a-cee",
+          "surface": "power-distro",
+          "direction": "input"
+        }
+      ],
+      "sha256": "9928c978aeb5a364daa3fc61b916a64bc78c97cf26bea3d843423942d4fd7bf9"
+    },
+    {
+      "name": "16-1ph",
+      "types": [
+        "16a-1ph",
+        "16a-cee"
+      ],
+      "gender": "female",
+      "gender_basis": "Un-suffixed socket counterpart of the explicitly named Male asset in POWER_PLUG_TYPES.",
+      "source_paths": [
+        "Nodes/PowerPlugs/16-1ph.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "16a-1ph",
+          "surface": "power-distro",
+          "direction": "output"
+        },
+        {
+          "type": "16a-cee",
+          "surface": "power-distro",
+          "direction": "output"
+        }
+      ],
+      "sha256": "052d1b650f6849f9482f0def411bb4fb9377d6599e5739472860f40bec14927b"
+    },
+    {
+      "name": "16-1ph110v-Male",
+      "types": [
+        "16a-1ph-110v"
+      ],
+      "gender": "male",
+      "gender_basis": "Explicit asset filename.",
+      "source_paths": [
+        "Nodes/PowerPlugs/16-1ph110v-Male.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "16a-1ph-110v",
+          "surface": "power-distro",
+          "direction": "input"
+        }
+      ],
+      "sha256": "0148e6d67a372b7f8849be734b02058d74e073faa1f5f664d2410a86e8c70e2a"
+    },
+    {
+      "name": "16-1ph110v",
+      "types": [
+        "16a-1ph-110v"
+      ],
+      "gender": "female",
+      "gender_basis": "Un-suffixed socket counterpart of the explicitly named Male asset in POWER_PLUG_TYPES.",
+      "source_paths": [
+        "Nodes/PowerPlugs/16-1ph110v.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "16a-1ph-110v",
+          "surface": "power-distro",
+          "direction": "output"
+        }
+      ],
+      "sha256": "83d1cc273c77e083bb5097cfda29e47aee957b8746ef0c04f6a88f02f3cd4683"
+    },
+    {
+      "name": "16-3ph-Male",
+      "types": [
+        "16a-3ph"
+      ],
+      "gender": "male",
+      "gender_basis": "Explicit asset filename.",
+      "source_paths": [
+        "Nodes/PowerPlugs/16-3ph-Male.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "16a-3ph",
+          "surface": "power-distro",
+          "direction": "input"
+        }
+      ],
+      "sha256": "6c6aa48a9969ba5bd10f2fd52e760218d76aaae99cd505569024d943bcfc868b"
+    },
+    {
+      "name": "16-3ph",
+      "types": [
+        "16a-3ph"
+      ],
+      "gender": "female",
+      "gender_basis": "Un-suffixed socket counterpart of the explicitly named Male asset in POWER_PLUG_TYPES.",
+      "source_paths": [
+        "Nodes/PowerPlugs/16-3ph.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "16a-3ph",
+          "surface": "power-distro",
+          "direction": "output"
+        }
+      ],
+      "sha256": "d24e57ee10c2e1fe2947db4456292587cbfc0fa68904f7dc3a24aeb2e5836f60"
+    },
+    {
+      "name": "32-1ph-Male",
+      "types": [
+        "32a-1ph",
+        "32a-cee"
+      ],
+      "gender": "male",
+      "gender_basis": "Explicit asset filename.",
+      "source_paths": [
+        "Nodes/PowerPlugs/32-1ph-Male.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "32a-1ph",
+          "surface": "power-distro",
+          "direction": "input"
+        },
+        {
+          "type": "32a-cee",
+          "surface": "power-distro",
+          "direction": "input"
+        }
+      ],
+      "sha256": "677e2a125e1d564eea6ffceb49cc2613ac333981db732dd50fcf5888712de2e0"
+    },
+    {
+      "name": "32-1ph",
+      "types": [
+        "32a-1ph",
+        "32a-cee"
+      ],
+      "gender": "female",
+      "gender_basis": "Un-suffixed socket counterpart of the explicitly named Male asset in POWER_PLUG_TYPES.",
+      "source_paths": [
+        "Nodes/PowerPlugs/32-1ph.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "32a-1ph",
+          "surface": "power-distro",
+          "direction": "output"
+        },
+        {
+          "type": "32a-cee",
+          "surface": "power-distro",
+          "direction": "output"
+        }
+      ],
+      "sha256": "8090ba98cca4cfb60c2271d94e1dc92ac8b9e1faf151e65352937b5a1cdb6fed"
+    },
+    {
+      "name": "32-1ph110v",
+      "types": [
+        "32a-1ph-110v"
+      ],
+      "gender": "female",
+      "gender_basis": "Un-suffixed socket counterpart of the explicitly named Male asset in POWER_PLUG_TYPES.",
+      "source_paths": [
+        "Nodes/PowerPlugs/32-1ph110v.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "32a-1ph-110v",
+          "surface": "power-distro",
+          "direction": "output"
+        }
+      ],
+      "sha256": "e25515aee3f99a145932f77b4dce49c981011c285e11944b0aeb967892eb7731"
+    },
+    {
+      "name": "32-1ph110vMale",
+      "types": [
+        "32a-1ph-110v"
+      ],
+      "gender": "male",
+      "gender_basis": "Explicit asset filename.",
+      "source_paths": [
+        "Nodes/PowerPlugs/32-1ph110vMale.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "32a-1ph-110v",
+          "surface": "power-distro",
+          "direction": "input"
+        }
+      ],
+      "sha256": "4bdab0aca50ac0437d91c62f448ec5c24df2e6cbcb7cdd200806011d3740819a"
+    },
+    {
+      "name": "32-3ph-Male",
+      "types": [
+        "32a-3ph"
+      ],
+      "gender": "male",
+      "gender_basis": "Explicit asset filename.",
+      "source_paths": [
+        "Nodes/PowerPlugs/32-3ph-Male.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "32a-3ph",
+          "surface": "power-distro",
+          "direction": "input"
+        }
+      ],
+      "sha256": "fe4ca2bb98426da92d0d8e6b1cca54f62769a53b75b2fbc2f5d68a8f399dbfad"
+    },
+    {
+      "name": "32-3ph",
+      "types": [
+        "32a-3ph"
+      ],
+      "gender": "female",
+      "gender_basis": "Un-suffixed socket counterpart of the explicitly named Male asset in POWER_PLUG_TYPES.",
+      "source_paths": [
+        "Nodes/PowerPlugs/32-3ph.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "32a-3ph",
+          "surface": "power-distro",
+          "direction": "output"
+        }
+      ],
+      "sha256": "29fcda51548f883fd383a3e6c117e6745cc887a7a94ef16edfc8d5b8cfdea626"
+    },
+    {
+      "name": "63-3ph-Male",
+      "types": [
+        "63a-3ph",
+        "63a-cee"
+      ],
+      "gender": "male",
+      "gender_basis": "Explicit asset filename.",
+      "source_paths": [
+        "Nodes/PowerPlugs/63-3ph-Male.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "63a-3ph",
+          "surface": "power-distro",
+          "direction": "input"
+        },
+        {
+          "type": "63a-cee",
+          "surface": "power-distro",
+          "direction": "input"
+        }
+      ],
+      "sha256": "687ed9815431544600d85a154d2cf25661d45c988fdd47eb960cfe85da65fe92"
+    },
+    {
+      "name": "63-3ph",
+      "types": [
+        "63a-3ph",
+        "63a-cee"
+      ],
+      "gender": "female",
+      "gender_basis": "Un-suffixed socket counterpart of the explicitly named Male asset in POWER_PLUG_TYPES.",
+      "source_paths": [
+        "Nodes/PowerPlugs/63-3ph.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "63a-3ph",
+          "surface": "power-distro",
+          "direction": "output"
+        },
+        {
+          "type": "63a-cee",
+          "surface": "power-distro",
+          "direction": "output"
+        }
+      ],
+      "sha256": "169975e80bb4fd3cc4ca4578839ffd3f2d52fa83c08a0756f3d4936fb53ed11e"
+    },
+    {
+      "name": "HartingFemale",
+      "types": [
+        "harting"
+      ],
+      "gender": "female",
+      "gender_basis": "Explicit asset filename.",
+      "source_paths": [
+        "Nodes/PowerPlugs/HartingFemale.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "harting",
+          "surface": "power-distro",
+          "direction": "output"
+        }
+      ],
+      "sha256": "bc7ce0674981ac43a2a1089d925c90c6745d0206bd9aa5adfd1293b6b7c76c8d"
+    },
+    {
+      "name": "HartingMale",
+      "types": [
+        "harting"
+      ],
+      "gender": "male",
+      "gender_basis": "Explicit asset filename.",
+      "source_paths": [
+        "Nodes/PowerPlugs/HartingMale.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "harting",
+          "surface": "power-distro",
+          "direction": "input"
+        }
+      ],
+      "sha256": "2a61499037db57e67c7a4a3b0bff5f30da1c783d0b34b100b88b0e2f50187266"
+    },
+    {
+      "name": "NEMA",
+      "types": [
+        "nema"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/PowerPlugs/NEMA.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "nema",
+          "surface": "power-distro",
+          "direction": "input"
+        },
+        {
+          "type": "nema",
+          "surface": "power-distro",
+          "direction": "output"
+        }
+      ],
+      "sha256": "ba7e52efee725d204263acb5aaacfd3d2ff247638863ce84326f253e65ebd91c"
+    },
+    {
+      "name": "Powelock drain",
+      "types": [
+        "powerlock"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/PowerPlugs/Powelock drain.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "powerlock",
+          "surface": "power-distro",
+          "direction": "input"
+        }
+      ],
+      "sha256": "786cb0d3de2faaa1a77c316ce937b88fef664d38bd76c126b0c01dcbaf854035"
+    },
+    {
+      "name": "Powelock source",
+      "types": [
+        "powerlock"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/PowerPlugs/Powelock source.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "powerlock",
+          "surface": "power-distro",
+          "direction": "output"
+        }
+      ],
+      "sha256": "8e0f1441f416a1e3add1e85200df73f06d3c41b773931b1a1f84ad3e0289bb7a"
+    },
+    {
+      "name": "Schuko",
+      "types": [
+        "schuko"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/PowerPlugs/Schuko.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "schuko",
+          "surface": "power-distro",
+          "direction": "input"
+        },
+        {
+          "type": "schuko",
+          "surface": "power-distro",
+          "direction": "output"
+        }
+      ],
+      "sha256": "944438d3999e529b2aad9530407d9973b9146c14ed460b89002df39554d5e7ac"
+    },
+    {
+      "name": "SocapexFemale",
+      "types": [
+        "socapex"
+      ],
+      "gender": "female",
+      "gender_basis": "Explicit asset filename.",
+      "source_paths": [
+        "Nodes/PowerPlugs/SocapexFemale.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "socapex",
+          "surface": "power-distro",
+          "direction": "output"
+        }
+      ],
+      "sha256": "119381149a07a04d54d7cea5720232e3106df45814a84b438c5ee47e3d43d7fb"
+    },
+    {
+      "name": "SocapexMale",
+      "types": [
+        "socapex"
+      ],
+      "gender": "male",
+      "gender_basis": "Explicit asset filename.",
+      "source_paths": [
+        "Nodes/PowerPlugs/SocapexMale.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "socapex",
+          "surface": "power-distro",
+          "direction": "input"
+        }
+      ],
+      "sha256": "fa43627c17b40b59f76528ec0cacf321b8ca52909905c19b2debd5b0d0e6faa8"
+    },
+    {
+      "name": "powerCON_Blue",
+      "types": [
+        "powercon"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/PowerPlugs/powerCON_Blue.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "powercon",
+          "surface": "power-distro",
+          "direction": "input"
+        }
+      ],
+      "sha256": "fc1c9cd494b085574d70edab33ac77a81b799cf516a4e38005d92461d601d2b3"
+    },
+    {
+      "name": "powerCON_True1_Female",
+      "types": [
+        "powercon-true1"
+      ],
+      "gender": "female",
+      "gender_basis": "Explicit asset filename.",
+      "source_paths": [
+        "Nodes/PowerPlugs/powerCON_True1_Female.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "powercon-true1",
+          "surface": "power-distro",
+          "direction": "output"
+        }
+      ],
+      "sha256": "de2feb2d0d7314adbd58f58bd4a0d4255d7d3c2f0862f892747e7a4a69c79dd9"
+    },
+    {
+      "name": "powerCON_True1_Male",
+      "types": [
+        "powercon-true1"
+      ],
+      "gender": "male",
+      "gender_basis": "Explicit asset filename.",
+      "source_paths": [
+        "Nodes/PowerPlugs/powerCON_True1_Male.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "powercon-true1",
+          "surface": "power-distro",
+          "direction": "input"
+        }
+      ],
+      "sha256": "e9d62d85f3531dd2b9421717ac5ef29190abdafdbcb121237095f1496e5c75a5"
+    },
+    {
+      "name": "powerCON_White",
+      "types": [
+        "powercon"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/PowerPlugs/powerCON_White.svg"
+      ],
+      "rendering_method": "external-svg-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "powercon",
+          "surface": "power-distro",
+          "direction": "output"
+        }
+      ],
+      "sha256": "3c31b9fcd28a8495884c30436abb61ab31d22b46409b2c84a416424eee524647"
+    },
+    {
+      "name": "C13",
+      "types": [
+        "iec"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/C13.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "iec",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "iec",
+          "surface": "power-distro",
+          "direction": "input"
+        },
+        {
+          "type": "iec",
+          "surface": "power-distro",
+          "direction": "output"
+        }
+      ],
+      "sha256": "43be4db7421451051dcc1ebc6e985732fc29949db0c62113d130a7a85649f424"
+    },
+    {
+      "name": "CA-COM",
+      "types": [
+        "ca-com"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/CA-COM.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "ca-com",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "e77093e3a165c609fdb01a23a6c46cf9340c2d7b9831a37c3432145bc68e10c2"
+    },
+    {
+      "name": "CXP",
+      "types": [
+        "cxp"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/CXP.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "cxp",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "60a1038ea7b2692184605dc44ef67d71b0690febf6e82d913a9f839f5f75f2f1"
+    },
+    {
+      "name": "DOMM",
+      "types": [
+        "domm"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/DOMM.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "domm",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "a144566b5968ca11f990e35b4b4840496642534e72d5091521e788c307259044"
+    },
+    {
+      "name": "DVI",
+      "types": [
+        "dvi"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/DVI.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "dvi",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "109d436f5d3a13057fb809a62d5c5516cf0f1784f5e7d771c30b96971e16f353"
+    },
+    {
+      "name": "DisplayPort",
+      "types": [
+        "display-port"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/DisplayPort.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "display-port",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "d07e059c3ebf3a97373479f01a5e591b82c0047dc02db0f617f519692da227b6"
+    },
+    {
+      "name": "FiberFox",
+      "types": [
+        "fiberfox"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/FiberFox.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "fiberfox",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "e060a45b28f364ea5f62c8e58c95b131c426d322b64c66eb0b777ff3c231cdb5"
+    },
+    {
+      "name": "FiberST",
+      "types": [
+        "fiber-st"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/FiberST.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "fiber-st",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "2dce98484a8e1dac280535a4ea6a4f7ec4d8f3fb713ca4701b8b0f958757a8fd"
+    },
+    {
+      "name": "HDMI",
+      "types": [
+        "hdmi"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/HDMI.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "hdmi",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "f775daa87eb83ad2c6c480d52ba742c6a9452d64c37a85191936c56a0da932e4"
+    },
+    {
+      "name": "Harting",
+      "types": [
+        "harting"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/Harting.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "harting",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "0ae6b6340184bbfa3847db7b39e42a0bf68abe7c87fe2b59a0cdd111fa4464ed"
+    },
+    {
+      "name": "LC",
+      "types": [
+        "fiber-lc"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/LC.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "fiber-lc",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "46e953b6be837a61543414e826e945837819f4ab32d5074e9b3c73e6e8e3ef3b"
+    },
+    {
+      "name": "MIDI",
+      "types": [
+        "midi"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/MIDI.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "midi",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "28e2f695ebde51c35073bb40e08a33f6cbe8280915413cf7ed08009d6c41f822"
+    },
+    {
+      "name": "MiniDisplayPort",
+      "types": [
+        "mini-display-port"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/MiniDisplayPort.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "mini-display-port",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "404958d35027e94add448b94a7473d85d90479f7c8b416edc14e5d732c926150"
+    },
+    {
+      "name": "NEMA",
+      "types": [
+        "nema"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/NEMA.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "nema",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "17d996fd1f7a0c46ceec2f175a88812dc41c2bcae49ea7c79183a1f981583aa1"
+    },
+    {
+      "name": "PS2",
+      "types": [
+        "mini-din-6pin"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/PS2.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "mini-din-6pin",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "9234646badbbd4d9b12755544967662fedaa8160a429a1752508f6a40d4a9f07"
+    },
+    {
+      "name": "RCA",
+      "types": [
+        "phono",
+        "rca"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/RCA.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "rca",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "phono",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "d4d931934ee84257c80506b60c4334f873b45ac1dd455173c28b9ba3bbcd9fb5"
+    },
+    {
+      "name": "RJ45",
+      "types": [
+        "cat5e",
+        "cat6",
+        "cat6a",
+        "ethernet"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/RJ45.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "cat5e",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "cat6",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "cat6a",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "ethernet",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "084bd9680b6f095b57639cbdfe3bed3f3a6a434baa140c160c55d189c2ae28c8"
+    },
+    {
+      "name": "SC",
+      "types": [
+        "fiber-sc"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/SC.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "fiber-sc",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "8aaf1d4236fafb1d067714b3b622234f710701e739b8054f994eb951d51b6c66"
+    },
+    {
+      "name": "Schuko",
+      "types": [
+        "schuko"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/Schuko.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "schuko",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "f15bae643862d8dd248521931b77957501606d174a1a85dfafd564b9c716f94b"
+    },
+    {
+      "name": "TRS",
+      "types": [
+        "jack",
+        "trs-ts"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/TRS.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "trs-ts",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "jack",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "713389fd0ced572358ab4d613c7dcfc6f168b8514ff5cafc220a76dff6ea1375"
+    },
+    {
+      "name": "UK13A",
+      "types": [
+        "uk-13a"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/UK13A.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "uk-13a",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "cacae080619e3fc661acff040fefd2dec7ea08fe08ab45b75f4eaed0de21b3a1"
+    },
+    {
+      "name": "USBA",
+      "types": [
+        "usb",
+        "usb-a"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/USBA.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "usb-a",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "usb",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "4ee23f32bac51d27f86e69501a87439dbc0a9419269da413aadcbb933f0320d5"
+    },
+    {
+      "name": "USBB",
+      "types": [
+        "usb-b"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/USBB.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "usb-b",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "c4a2ba4f374d4335162797880bd1d6816f446778e526d566f1d32f4b625a4b6c"
+    },
+    {
+      "name": "USBC",
+      "types": [
+        "usb-c"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/USBC.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "usb-c",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "570a0a3ca37acd5af934dc6e21ab41d4492f07552c06e4b4681671a26fdc3dc0"
+    },
+    {
+      "name": "VGA",
+      "types": [
+        "rs-422",
+        "vga"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/VGA.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "vga",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "rs-422",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "061e34e4f795ea582e8911e73b317a88daddb689549fa5e87ed7eb954a3016f4"
+    },
+    {
+      "name": "XLR5Pin",
+      "types": [
+        "dmx-5pin",
+        "xlr-5pin"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/XLR5Pin.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "xlr-5pin",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "dmx-5pin",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "59c4a2200c50da9c5cb8116a82c467e73c2d47ae2fb69b2d2abafd3c309479f4"
+    },
+    {
+      "name": "XLR_Output",
+      "types": [
+        "aes"
+      ],
+      "gender": "male",
+      "gender_basis": "XLR output thumbnail convention (filename), not a per-node gender constraint.",
+      "source_paths": [
+        "Nodes/Thumbnails/XLR_Output.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "aes",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "6090c0e8ac642d45ff07e6ae52b533b0ffe980446e75197b4259d14406cbab97"
+    },
+    {
+      "name": "blank",
+      "types": [
+        "edison",
+        "led-signal",
+        "misc",
+        "new-node",
+        "new-node-2",
+        "new-node-3",
+        "new-node-4",
+        "new-node-5",
+        "qsfp",
+        "qsfp-cage",
+        "sfp-cage",
+        "sfp-plus-cage",
+        "sfp28-cage"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/blank.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "placeholder",
+      "used_by": [
+        {
+          "type": "edison",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "qsfp",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "sfp-cage",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "sfp-plus-cage",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "sfp28-cage",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "qsfp-cage",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "led-signal",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "misc",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "new-node-4",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "new-node-5",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "new-node-3",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "new-node-2",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "new-node",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "72ac51646dc2f5d722f89b593a99d5331cc6f7e2697718a44bc22d18dda6e15b"
+    },
+    {
+      "name": "bnc",
+      "types": [
+        "bnc",
+        "component-video",
+        "rgbhv",
+        "sdi"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/bnc.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "sdi",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "bnc",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "component-video",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "rgbhv",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "d2a116fb5bc8faa6b878a2e3fb2ee26a10a4681b05c0bf0fceeb612e841fc762"
+    },
+    {
+      "name": "ceeform1ph",
+      "types": [
+        "16a-1ph",
+        "16a-cee",
+        "32a-1ph",
+        "32a-cee"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/ceeform1ph.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "16a-cee",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "32a-cee",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "16a-1ph",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "32a-1ph",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "bd4a47e1ac33733ec9a09bc7f879dcf7a322d124521418e96bd3925e6c3c6bd7"
+    },
+    {
+      "name": "ceeform1ph110v",
+      "types": [
+        "16a-1ph-110v",
+        "32a-1ph-110v"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/ceeform1ph110v.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "16a-1ph-110v",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "32a-1ph-110v",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "b2014979727398e2b2cdbf2d228919beba138ad8bac6cf9891bf55dced3b8825"
+    },
+    {
+      "name": "ceeform3ph",
+      "types": [
+        "125a-3ph",
+        "125a-cee",
+        "16a-3ph",
+        "32a-3ph",
+        "63a-3ph",
+        "63a-cee"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/ceeform3ph.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "63a-cee",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "125a-cee",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "16a-3ph",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "32a-3ph",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "63a-3ph",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "125a-3ph",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "cef33b49edf9a36f21f56c618d7bfacb6a871c77fef26f64aeb18d7f55c1f55d"
+    },
+    {
+      "name": "etherCON",
+      "types": [
+        "ethercon"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/etherCON.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "ethercon",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "9c621b034f18e0f930ddb2d6d79d40da9ca3c33f5c547271aafd16bbf7e9223e"
+    },
+    {
+      "name": "fiberMPO",
+      "types": [
+        "fiber-mpo"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/fiberMPO.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "fiber-mpo",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "b062cb21ea8b2cbb33e64f4c52f7bb72db295a555e6276599a59ce8cabff15e9"
+    },
+    {
+      "name": "opticalCON",
+      "types": [
+        "opticalcon"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/opticalCON.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "opticalcon",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "1b14042d0721b896ead82c4e91b6119484bb792166be286ad873ef178835f787"
+    },
+    {
+      "name": "powerCON",
+      "types": [
+        "powercon"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/powerCON.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "powercon",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "1ed4d51807489862f75909ea1af236a849e1599fc57dcf4b78005fb63fb79488"
+    },
+    {
+      "name": "powerCONTrue1",
+      "types": [
+        "powercon-true1"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/powerCONTrue1.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "powercon-true1",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "3d7f21a396150c81610deed7e3b25de71ade84c782c84c100603185b66b4017c"
+    },
+    {
+      "name": "powerlock",
+      "types": [
+        "powerlock"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/powerlock.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "powerlock",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "b9b0f597b9903ad1170a5447efe8d7ab3c080c8abb36c2d5fdd4509111105d30"
+    },
+    {
+      "name": "socapex",
+      "types": [
+        "socapex"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/socapex.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "socapex",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "6c28570b42bcaae5996830f9f84bf822915e58008c2b7a59c1d2308a11ad03e8"
+    },
+    {
+      "name": "speakON",
+      "types": [
+        "speakon",
+        "speakon-nl2",
+        "speakon-nl4",
+        "speakon-nl8"
+      ],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/Thumbnails/speakON.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "speakon-nl2",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "speakon-nl4",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "speakon-nl8",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "speakon",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "51b8bf67f004eed35ab92ba1b43c41d47567aaf2bc5fee973bc34575aae56c27"
+    },
+    {
+      "name": "xlr_input",
+      "types": [
+        "dmx-3pin",
+        "xlr",
+        "xlr-3pin"
+      ],
+      "gender": "female",
+      "gender_basis": "XLR input thumbnail convention (filename), not a per-node gender constraint.",
+      "source_paths": [
+        "Nodes/Thumbnails/xlr_input.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "connector-artwork",
+      "used_by": [
+        {
+          "type": "xlr-3pin",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "dmx-3pin",
+          "surface": "node-library",
+          "gender": "unspecified"
+        },
+        {
+          "type": "xlr",
+          "surface": "node-library",
+          "gender": "unspecified"
+        }
+      ],
+      "sha256": "886d12f345dbeb5ce319d4a11f3670bd045bae2b51e0ed12d443d01c3de55a14"
+    },
+    {
+      "name": "base",
+      "types": [],
+      "gender": "unspecified",
+      "gender_basis": "No physical gender is declared by the catalogue; signal direction is not gender.",
+      "source_paths": [
+        "Nodes/base.png"
+      ],
+      "rendering_method": "raster-image",
+      "role": "unreferenced-support-asset",
+      "used_by": [],
+      "sha256": "72ac51646dc2f5d722f89b593a99d5331cc6f7e2697718a44bc22d18dda6e15b"
+    }
+  ],
+  "connectors": [
+    {
+      "name": "125A 3ph",
+      "type": "125a-3ph",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/ceeform3ph.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/ceeform3ph.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "power-distro-image"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": [
+        {
+          "direction": "input",
+          "gender": "male",
+          "source_path": "Nodes/PowerPlugs/125-3ph-Male.svg"
+        },
+        {
+          "direction": "output",
+          "gender": "female",
+          "source_path": "Nodes/PowerPlugs/125-3ph.svg"
+        }
+      ]
+    },
+    {
+      "name": "125 CEE",
+      "type": "125a-cee",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/ceeform3ph.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/ceeform3ph.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "power-distro-image"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": false,
+      "editor_palette_enabled": false,
+      "power_plug_variants": [
+        {
+          "direction": "input",
+          "gender": "male",
+          "source_path": "Nodes/PowerPlugs/125-3ph-Male.svg"
+        },
+        {
+          "direction": "output",
+          "gender": "female",
+          "source_path": "Nodes/PowerPlugs/125-3ph.svg"
+        }
+      ]
+    },
+    {
+      "name": "16A 1ph",
+      "type": "16a-1ph",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/ceeform1ph.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/ceeform1ph.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "power-distro-image"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": [
+        {
+          "direction": "input",
+          "gender": "male",
+          "source_path": "Nodes/PowerPlugs/16-1ph-Male.svg"
+        },
+        {
+          "direction": "output",
+          "gender": "female",
+          "source_path": "Nodes/PowerPlugs/16-1ph.svg"
+        }
+      ]
+    },
+    {
+      "name": "16A 1ph 110v",
+      "type": "16a-1ph-110v",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/ceeform1ph110v.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/ceeform1ph110v.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "power-distro-image"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": [
+        {
+          "direction": "input",
+          "gender": "male",
+          "source_path": "Nodes/PowerPlugs/16-1ph110v-Male.svg"
+        },
+        {
+          "direction": "output",
+          "gender": "female",
+          "source_path": "Nodes/PowerPlugs/16-1ph110v.svg"
+        }
+      ]
+    },
+    {
+      "name": "16A 3ph",
+      "type": "16a-3ph",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/ceeform3ph.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/ceeform3ph.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "power-distro-image"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": [
+        {
+          "direction": "input",
+          "gender": "male",
+          "source_path": "Nodes/PowerPlugs/16-3ph-Male.svg"
+        },
+        {
+          "direction": "output",
+          "gender": "female",
+          "source_path": "Nodes/PowerPlugs/16-3ph.svg"
+        }
+      ]
+    },
+    {
+      "name": "16A CEE",
+      "type": "16a-cee",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/ceeform1ph.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/ceeform1ph.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "power-distro-image"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": false,
+      "editor_palette_enabled": false,
+      "power_plug_variants": [
+        {
+          "direction": "input",
+          "gender": "male",
+          "source_path": "Nodes/PowerPlugs/16-1ph-Male.svg"
+        },
+        {
+          "direction": "output",
+          "gender": "female",
+          "source_path": "Nodes/PowerPlugs/16-1ph.svg"
+        }
+      ]
+    },
+    {
+      "name": "32A 1ph",
+      "type": "32a-1ph",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/ceeform1ph.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/ceeform1ph.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "power-distro-image"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": [
+        {
+          "direction": "input",
+          "gender": "male",
+          "source_path": "Nodes/PowerPlugs/32-1ph-Male.svg"
+        },
+        {
+          "direction": "output",
+          "gender": "female",
+          "source_path": "Nodes/PowerPlugs/32-1ph.svg"
+        }
+      ]
+    },
+    {
+      "name": "32A 1ph 110v",
+      "type": "32a-1ph-110v",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/ceeform1ph110v.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/ceeform1ph110v.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "power-distro-image"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": [
+        {
+          "direction": "input",
+          "gender": "male",
+          "source_path": "Nodes/PowerPlugs/32-1ph110vMale.svg"
+        },
+        {
+          "direction": "output",
+          "gender": "female",
+          "source_path": "Nodes/PowerPlugs/32-1ph110v.svg"
+        }
+      ]
+    },
+    {
+      "name": "32A 3ph",
+      "type": "32a-3ph",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/ceeform3ph.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/ceeform3ph.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "power-distro-image"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": [
+        {
+          "direction": "input",
+          "gender": "male",
+          "source_path": "Nodes/PowerPlugs/32-3ph-Male.svg"
+        },
+        {
+          "direction": "output",
+          "gender": "female",
+          "source_path": "Nodes/PowerPlugs/32-3ph.svg"
+        }
+      ]
+    },
+    {
+      "name": "32A CEE",
+      "type": "32a-cee",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/ceeform1ph.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/ceeform1ph.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "power-distro-image"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": false,
+      "editor_palette_enabled": false,
+      "power_plug_variants": [
+        {
+          "direction": "input",
+          "gender": "male",
+          "source_path": "Nodes/PowerPlugs/32-1ph-Male.svg"
+        },
+        {
+          "direction": "output",
+          "gender": "female",
+          "source_path": "Nodes/PowerPlugs/32-1ph.svg"
+        }
+      ]
+    },
+    {
+      "name": "63A 3ph",
+      "type": "63a-3ph",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/ceeform3ph.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/ceeform3ph.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "power-distro-image"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": [
+        {
+          "direction": "input",
+          "gender": "male",
+          "source_path": "Nodes/PowerPlugs/63-3ph-Male.svg"
+        },
+        {
+          "direction": "output",
+          "gender": "female",
+          "source_path": "Nodes/PowerPlugs/63-3ph.svg"
+        }
+      ]
+    },
+    {
+      "name": "63A CEE",
+      "type": "63a-cee",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/ceeform3ph.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/ceeform3ph.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "power-distro-image"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": false,
+      "editor_palette_enabled": false,
+      "power_plug_variants": [
+        {
+          "direction": "input",
+          "gender": "male",
+          "source_path": "Nodes/PowerPlugs/63-3ph-Male.svg"
+        },
+        {
+          "direction": "output",
+          "gender": "female",
+          "source_path": "Nodes/PowerPlugs/63-3ph.svg"
+        }
+      ]
+    },
+    {
+      "name": "AES",
+      "type": "aes",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/XLR_Output.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/XLR_Output.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "BNC",
+      "type": "bnc",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/bnc.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/bnc.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "CA-COM",
+      "type": "ca-com",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/CA-COM.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/CA-COM.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "RJ45 1G",
+      "type": "cat5e",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/RJ45.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/RJ45.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "RJ45 2.5G",
+      "type": "cat6",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/RJ45.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/RJ45.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "RJ45 10G",
+      "type": "cat6a",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/RJ45.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/RJ45.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "Component Video (YPbPr)",
+      "type": "component-video",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/bnc.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/bnc.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "multiband-port"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "CXP",
+      "type": "cxp",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/CXP.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/CXP.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "Display Port",
+      "type": "display-port",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/DisplayPort.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/DisplayPort.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "DMX 3-Pin",
+      "type": "dmx-3pin",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/xlr_input.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/xlr_input.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "DMX 5-Pin",
+      "type": "dmx-5pin",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/XLR5Pin.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/XLR5Pin.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "DOMM",
+      "type": "domm",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/DOMM.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/DOMM.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "DVI",
+      "type": "dvi",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/DVI.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/DVI.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "Edison",
+      "type": "edison",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/blank.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/blank.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": false,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "etherCON",
+      "type": "ethercon",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/etherCON.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/etherCON.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "Ethernet",
+      "type": "ethernet",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/RJ45.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/RJ45.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "Fiber LC",
+      "type": "fiber-lc",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/LC.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/LC.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "Fiber MPO",
+      "type": "fiber-mpo",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/fiberMPO.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/fiberMPO.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "Fiber SC",
+      "type": "fiber-sc",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/SC.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/SC.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "Fiber ST",
+      "type": "fiber-st",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/FiberST.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/FiberST.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "FiberFox",
+      "type": "fiberfox",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/FiberFox.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/FiberFox.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "Harting",
+      "type": "harting",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/Harting.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/Harting.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "power-distro-image"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": [
+        {
+          "direction": "input",
+          "gender": "male",
+          "source_path": "Nodes/PowerPlugs/HartingMale.svg"
+        },
+        {
+          "direction": "output",
+          "gender": "female",
+          "source_path": "Nodes/PowerPlugs/HartingFemale.svg"
+        }
+      ]
+    },
+    {
+      "name": "HDMI",
+      "type": "hdmi",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/HDMI.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/HDMI.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "IEC",
+      "type": "iec",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/C13.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/C13.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "power-distro-image"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": [
+        {
+          "direction": "input",
+          "gender": "unspecified",
+          "source_path": "Nodes/Thumbnails/C13.png"
+        },
+        {
+          "direction": "output",
+          "gender": "unspecified",
+          "source_path": "Nodes/Thumbnails/C13.png"
+        }
+      ]
+    },
+    {
+      "name": "TRS/TS",
+      "type": "jack",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/TRS.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/TRS.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": false,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "LED Signal",
+      "type": "led-signal",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/blank.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/blank.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": false,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "MIDI",
+      "type": "midi",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/MIDI.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/MIDI.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "Mini Din 6-Pin",
+      "type": "mini-din-6pin",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/PS2.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/PS2.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "Mini-Display Port",
+      "type": "mini-display-port",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/MiniDisplayPort.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/MiniDisplayPort.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "Misc.",
+      "type": "misc",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/blank.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/blank.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "NEMA",
+      "type": "nema",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/NEMA.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/NEMA.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "power-distro-image"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": [
+        {
+          "direction": "input",
+          "gender": "unspecified",
+          "source_path": "Nodes/PowerPlugs/NEMA.svg"
+        },
+        {
+          "direction": "output",
+          "gender": "unspecified",
+          "source_path": "Nodes/PowerPlugs/NEMA.svg"
+        }
+      ]
+    },
+    {
+      "name": "Barrel Jack",
+      "type": "new-node",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/blank.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/blank.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "DAC",
+      "type": "new-node-2",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/blank.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/blank.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "RS-232",
+      "type": "new-node-3",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/blank.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/blank.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "Mini-SDI",
+      "type": "new-node-4",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/blank.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/blank.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "ADAT-S/PDIF",
+      "type": "new-node-5",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/blank.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/blank.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "OpticalCon",
+      "type": "opticalcon",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/opticalCON.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/opticalCON.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "RCA",
+      "type": "phono",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/RCA.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/RCA.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": false,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "powerCON",
+      "type": "powercon",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/powerCON.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/powerCON.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "power-distro-image"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": [
+        {
+          "direction": "input",
+          "gender": "unspecified",
+          "source_path": "Nodes/PowerPlugs/powerCON_Blue.svg"
+        },
+        {
+          "direction": "output",
+          "gender": "unspecified",
+          "source_path": "Nodes/PowerPlugs/powerCON_White.svg"
+        }
+      ]
+    },
+    {
+      "name": "powerCON TRUE1",
+      "type": "powercon-true1",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/powerCONTrue1.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/powerCONTrue1.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "power-distro-image"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": [
+        {
+          "direction": "input",
+          "gender": "male",
+          "source_path": "Nodes/PowerPlugs/powerCON_True1_Male.svg"
+        },
+        {
+          "direction": "output",
+          "gender": "female",
+          "source_path": "Nodes/PowerPlugs/powerCON_True1_Female.svg"
+        }
+      ]
+    },
+    {
+      "name": "PowerLock",
+      "type": "powerlock",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/powerlock.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/powerlock.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "multiband-port",
+        "power-distro-image"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": [
+        {
+          "direction": "input",
+          "gender": "unspecified",
+          "source_path": "Nodes/PowerPlugs/Powelock drain.svg"
+        },
+        {
+          "direction": "output",
+          "gender": "unspecified",
+          "source_path": "Nodes/PowerPlugs/Powelock source.svg"
+        }
+      ]
+    },
+    {
+      "name": "QSFP",
+      "type": "qsfp",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/blank.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/blank.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": false,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "QSFP Cage",
+      "type": "qsfp-cage",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/blank.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/blank.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": false,
+      "editor_palette_enabled": true,
+      "power_plug_variants": []
+    },
+    {
+      "name": "RCA",
+      "type": "rca",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/RCA.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/RCA.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "RGBHV",
+      "type": "rgbhv",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/bnc.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/bnc.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "multiband-port"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "RS-422",
+      "type": "rs-422",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/VGA.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/VGA.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "Schuko",
+      "type": "schuko",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/Schuko.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/Schuko.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "power-distro-image"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": [
+        {
+          "direction": "input",
+          "gender": "unspecified",
+          "source_path": "Nodes/PowerPlugs/Schuko.svg"
+        },
+        {
+          "direction": "output",
+          "gender": "unspecified",
+          "source_path": "Nodes/PowerPlugs/Schuko.svg"
+        }
+      ]
+    },
+    {
+      "name": "SDI",
+      "type": "sdi",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/bnc.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/bnc.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "SFP Cage",
+      "type": "sfp-cage",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/blank.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/blank.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": false,
+      "editor_palette_enabled": true,
+      "power_plug_variants": []
+    },
+    {
+      "name": "SFP+ Cage",
+      "type": "sfp-plus-cage",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/blank.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/blank.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": false,
+      "editor_palette_enabled": true,
+      "power_plug_variants": []
+    },
+    {
+      "name": "SFP28 Cage",
+      "type": "sfp28-cage",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/blank.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/blank.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": false,
+      "editor_palette_enabled": true,
+      "power_plug_variants": []
+    },
+    {
+      "name": "Socapex",
+      "type": "socapex",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/socapex.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/socapex.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "power-distro-image"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": [
+        {
+          "direction": "input",
+          "gender": "male",
+          "source_path": "Nodes/PowerPlugs/SocapexMale.svg"
+        },
+        {
+          "direction": "output",
+          "gender": "female",
+          "source_path": "Nodes/PowerPlugs/SocapexFemale.svg"
+        }
+      ]
+    },
+    {
+      "name": "speakON NL4",
+      "type": "speakon",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/speakON.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/speakON.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": false,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "speakON NL2",
+      "type": "speakon-nl2",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/speakON.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/speakON.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "speakON NL4",
+      "type": "speakon-nl4",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/speakON.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/speakON.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "speakON NL8",
+      "type": "speakon-nl8",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/speakON.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/speakON.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "TRS/TS",
+      "type": "trs-ts",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/TRS.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/TRS.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "UK 13A",
+      "type": "uk-13a",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/UK13A.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/UK13A.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon",
+        "power-distro-image"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": [
+        {
+          "direction": "input",
+          "gender": "unspecified",
+          "source_path": "Nodes/PowerPlugs/13A-UK.svg"
+        },
+        {
+          "direction": "output",
+          "gender": "unspecified",
+          "source_path": "Nodes/PowerPlugs/13A-UK.svg"
+        }
+      ]
+    },
+    {
+      "name": "USB-A",
+      "type": "usb",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/USBA.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/USBA.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": false,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "USB-A",
+      "type": "usb-a",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/USBA.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/USBA.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "USB-B",
+      "type": "usb-b",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/USBB.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/USBB.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "USB-C",
+      "type": "usb-c",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/USBC.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/USBC.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "two-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "VGA",
+      "type": "vga",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/VGA.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/VGA.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "XLR 3-Pin",
+      "type": "xlr",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/xlr_input.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/xlr_input.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": false,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "XLR 3-Pin",
+      "type": "xlr-3pin",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/xlr_input.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/xlr_input.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    },
+    {
+      "name": "XLR 5-Pin",
+      "type": "xlr-5pin",
+      "gender": "unspecified",
+      "source_paths": [
+        "data/factory-catalogue.json",
+        "Nodes/Thumbnails/XLR5Pin.png"
+      ],
+      "thumbnail_source_path": "Nodes/Thumbnails/XLR5Pin.png",
+      "rendering_methods": [
+        "palette-image",
+        "engine-port",
+        "legacy-port",
+        "adapter-thumbnail",
+        "schedule-icon"
+      ],
+      "signal_direction": "one-way",
+      "palette_enabled": true,
+      "editor_palette_enabled": false,
+      "power_plug_variants": []
+    }
+  ],
+  "dynamic_and_image_renderers": [
+    {
+      "id": "palette-image",
+      "name": "Node palette thumbnail",
+      "source_paths": [
+        "index.html",
+        "src/libraryArtwork.js"
+      ],
+      "symbols": [
+        "nodeThumbnailFor",
+        "nodeItemHtml"
+      ],
+      "rendering_method": "DOM img with lazy data-library-src and blank.png error fallback",
+      "types": [
+        "125a-3ph",
+        "125a-cee",
+        "16a-1ph",
+        "16a-1ph-110v",
+        "16a-3ph",
+        "16a-cee",
+        "32a-1ph",
+        "32a-1ph-110v",
+        "32a-3ph",
+        "32a-cee",
+        "63a-3ph",
+        "63a-cee",
+        "aes",
+        "bnc",
+        "ca-com",
+        "cat5e",
+        "cat6",
+        "cat6a",
+        "component-video",
+        "cxp",
+        "display-port",
+        "dmx-3pin",
+        "dmx-5pin",
+        "domm",
+        "dvi",
+        "edison",
+        "ethercon",
+        "ethernet",
+        "fiber-lc",
+        "fiber-mpo",
+        "fiber-sc",
+        "fiber-st",
+        "fiberfox",
+        "harting",
+        "hdmi",
+        "iec",
+        "jack",
+        "led-signal",
+        "midi",
+        "mini-din-6pin",
+        "mini-display-port",
+        "misc",
+        "nema",
+        "new-node",
+        "new-node-2",
+        "new-node-3",
+        "new-node-4",
+        "new-node-5",
+        "opticalcon",
+        "phono",
+        "powercon",
+        "powercon-true1",
+        "powerlock",
+        "qsfp",
+        "qsfp-cage",
+        "rca",
+        "rgbhv",
+        "rs-422",
+        "schuko",
+        "sdi",
+        "sfp-cage",
+        "sfp-plus-cage",
+        "sfp28-cage",
+        "socapex",
+        "speakon",
+        "speakon-nl2",
+        "speakon-nl4",
+        "speakon-nl8",
+        "trs-ts",
+        "uk-13a",
+        "usb",
+        "usb-a",
+        "usb-b",
+        "usb-c",
+        "vga",
+        "xlr",
+        "xlr-3pin",
+        "xlr-5pin"
+      ],
+      "gender": "unspecified"
+    },
+    {
+      "id": "engine-port",
+      "name": "Engine connector and Node Builder preview",
+      "source_paths": [
+        "src/engine/nodePreview.js",
+        "src/engine/renderer.js",
+        "src/engine/connectorCompatibility.js",
+        "src/engine/transceiverModules.js"
+      ],
+      "symbols": [
+        "createNodeBuilderPreviewScene",
+        "pushConnectorNode",
+        "pushConnectorNotWorkingMark"
+      ],
+      "rendering_method": "Dynamic WebGL circular port geometry with white rim; color from connector/effective transceiver module, optional red not-working cross. No thumbnail image is used.",
+      "variants": [
+        "ordinary port",
+        "empty cage (muted color)",
+        "cage with LC singlemode or multimode module",
+        "cage with RJ45 module",
+        "QSFP cage with MPO module",
+        "fiber-mode color",
+        "LED signal color",
+        "custom color"
+      ],
+      "types": [
+        "125a-3ph",
+        "125a-cee",
+        "16a-1ph",
+        "16a-1ph-110v",
+        "16a-3ph",
+        "16a-cee",
+        "32a-1ph",
+        "32a-1ph-110v",
+        "32a-3ph",
+        "32a-cee",
+        "63a-3ph",
+        "63a-cee",
+        "aes",
+        "bnc",
+        "ca-com",
+        "cat5e",
+        "cat6",
+        "cat6a",
+        "component-video",
+        "cxp",
+        "display-port",
+        "dmx-3pin",
+        "dmx-5pin",
+        "domm",
+        "dvi",
+        "edison",
+        "ethercon",
+        "ethernet",
+        "fiber-lc",
+        "fiber-mpo",
+        "fiber-sc",
+        "fiber-st",
+        "fiberfox",
+        "harting",
+        "hdmi",
+        "iec",
+        "jack",
+        "led-signal",
+        "midi",
+        "mini-din-6pin",
+        "mini-display-port",
+        "misc",
+        "nema",
+        "new-node",
+        "new-node-2",
+        "new-node-3",
+        "new-node-4",
+        "new-node-5",
+        "opticalcon",
+        "phono",
+        "powercon",
+        "powercon-true1",
+        "powerlock",
+        "qsfp",
+        "qsfp-cage",
+        "rca",
+        "rgbhv",
+        "rs-422",
+        "schuko",
+        "sdi",
+        "sfp-cage",
+        "sfp-plus-cage",
+        "sfp28-cage",
+        "socapex",
+        "speakon",
+        "speakon-nl2",
+        "speakon-nl4",
+        "speakon-nl8",
+        "trs-ts",
+        "uk-13a",
+        "usb",
+        "usb-a",
+        "usb-b",
+        "usb-c",
+        "vga",
+        "xlr",
+        "xlr-3pin",
+        "xlr-5pin"
+      ],
+      "gender": "unspecified"
+    },
+    {
+      "id": "legacy-port",
+      "name": "Legacy editor connector",
+      "source_paths": [
+        "index.html"
+      ],
+      "symbols": [
+        "drawEditorConnectorNode",
+        "appendSegmentedConnectorNode"
+      ],
+      "rendering_method": "Dynamic SVG circle or segmented SVG geometry; connector/effective-type color",
+      "types": [
+        "125a-3ph",
+        "125a-cee",
+        "16a-1ph",
+        "16a-1ph-110v",
+        "16a-3ph",
+        "16a-cee",
+        "32a-1ph",
+        "32a-1ph-110v",
+        "32a-3ph",
+        "32a-cee",
+        "63a-3ph",
+        "63a-cee",
+        "aes",
+        "bnc",
+        "ca-com",
+        "cat5e",
+        "cat6",
+        "cat6a",
+        "component-video",
+        "cxp",
+        "display-port",
+        "dmx-3pin",
+        "dmx-5pin",
+        "domm",
+        "dvi",
+        "edison",
+        "ethercon",
+        "ethernet",
+        "fiber-lc",
+        "fiber-mpo",
+        "fiber-sc",
+        "fiber-st",
+        "fiberfox",
+        "harting",
+        "hdmi",
+        "iec",
+        "jack",
+        "led-signal",
+        "midi",
+        "mini-din-6pin",
+        "mini-display-port",
+        "misc",
+        "nema",
+        "new-node",
+        "new-node-2",
+        "new-node-3",
+        "new-node-4",
+        "new-node-5",
+        "opticalcon",
+        "phono",
+        "powercon",
+        "powercon-true1",
+        "powerlock",
+        "qsfp",
+        "qsfp-cage",
+        "rca",
+        "rgbhv",
+        "rs-422",
+        "schuko",
+        "sdi",
+        "sfp-cage",
+        "sfp-plus-cage",
+        "sfp28-cage",
+        "socapex",
+        "speakon",
+        "speakon-nl2",
+        "speakon-nl4",
+        "speakon-nl8",
+        "trs-ts",
+        "uk-13a",
+        "usb",
+        "usb-a",
+        "usb-b",
+        "usb-c",
+        "vga",
+        "xlr",
+        "xlr-3pin",
+        "xlr-5pin"
+      ],
+      "gender": "unspecified"
+    },
+    {
+      "id": "multiband-port",
+      "name": "Multiband connector",
+      "types": [
+        "powerlock",
+        "component-video",
+        "rgbhv"
+      ],
+      "source_paths": [
+        "src/engine/multibandSignals.js",
+        "src/engine/multibandGeometry.js",
+        "src/engine/renderer.js"
+      ],
+      "symbols": [
+        "multibandNodePolygons",
+        "pushSegmentedCircle"
+      ],
+      "rendering_method": "Dynamic colored band polygons clipped to circular port geometry; 5 PowerLock, 3 YPbPr, or 5 RGBHV bands",
+      "gender": "unspecified"
+    },
+    {
+      "id": "adapter-thumbnail",
+      "name": "Adapter thumbnail connector markers",
+      "source_paths": [
+        "src/engine/adapterThumbnail.js"
+      ],
+      "symbols": [
+        "buildAdapterThumbnail",
+        "adapterThumbnailSvg"
+      ],
+      "rendering_method": "Dynamic inline SVG from adapter topology: circle markers, multiband polygons, white rims and red not-working crosses; cached by topology",
+      "types": [
+        "125a-3ph",
+        "125a-cee",
+        "16a-1ph",
+        "16a-1ph-110v",
+        "16a-3ph",
+        "16a-cee",
+        "32a-1ph",
+        "32a-1ph-110v",
+        "32a-3ph",
+        "32a-cee",
+        "63a-3ph",
+        "63a-cee",
+        "aes",
+        "bnc",
+        "ca-com",
+        "cat5e",
+        "cat6",
+        "cat6a",
+        "component-video",
+        "cxp",
+        "display-port",
+        "dmx-3pin",
+        "dmx-5pin",
+        "domm",
+        "dvi",
+        "edison",
+        "ethercon",
+        "ethernet",
+        "fiber-lc",
+        "fiber-mpo",
+        "fiber-sc",
+        "fiber-st",
+        "fiberfox",
+        "harting",
+        "hdmi",
+        "iec",
+        "jack",
+        "led-signal",
+        "midi",
+        "mini-din-6pin",
+        "mini-display-port",
+        "misc",
+        "nema",
+        "new-node",
+        "new-node-2",
+        "new-node-3",
+        "new-node-4",
+        "new-node-5",
+        "opticalcon",
+        "phono",
+        "powercon",
+        "powercon-true1",
+        "powerlock",
+        "qsfp",
+        "qsfp-cage",
+        "rca",
+        "rgbhv",
+        "rs-422",
+        "schuko",
+        "sdi",
+        "sfp-cage",
+        "sfp-plus-cage",
+        "sfp28-cage",
+        "socapex",
+        "speakon",
+        "speakon-nl2",
+        "speakon-nl4",
+        "speakon-nl8",
+        "trs-ts",
+        "uk-13a",
+        "usb",
+        "usb-a",
+        "usb-b",
+        "usb-c",
+        "vga",
+        "xlr",
+        "xlr-3pin",
+        "xlr-5pin"
+      ],
+      "gender": "unspecified"
+    },
+    {
+      "id": "schedule-icon",
+      "name": "Cable schedule connector graphic",
+      "source_paths": [
+        "src/engine/cableScheduleGraphics.js",
+        "src/engine/generated/cableScheduleBundle.js"
+      ],
+      "symbols": [
+        "nodeGraphic"
+      ],
+      "rendering_method": "Dynamic 64x40 Canvas 2D exported as PNG data URL: colored circular marker plus thumbnail artwork; grouped coax uses 3 or 5 small circles instead of artwork",
+      "types": [
+        "125a-3ph",
+        "125a-cee",
+        "16a-1ph",
+        "16a-1ph-110v",
+        "16a-3ph",
+        "16a-cee",
+        "32a-1ph",
+        "32a-1ph-110v",
+        "32a-3ph",
+        "32a-cee",
+        "63a-3ph",
+        "63a-cee",
+        "aes",
+        "bnc",
+        "ca-com",
+        "cat5e",
+        "cat6",
+        "cat6a",
+        "component-video",
+        "cxp",
+        "display-port",
+        "dmx-3pin",
+        "dmx-5pin",
+        "domm",
+        "dvi",
+        "edison",
+        "ethercon",
+        "ethernet",
+        "fiber-lc",
+        "fiber-mpo",
+        "fiber-sc",
+        "fiber-st",
+        "fiberfox",
+        "harting",
+        "hdmi",
+        "iec",
+        "jack",
+        "led-signal",
+        "midi",
+        "mini-din-6pin",
+        "mini-display-port",
+        "misc",
+        "nema",
+        "new-node",
+        "new-node-2",
+        "new-node-3",
+        "new-node-4",
+        "new-node-5",
+        "opticalcon",
+        "phono",
+        "powercon",
+        "powercon-true1",
+        "powerlock",
+        "qsfp",
+        "qsfp-cage",
+        "rca",
+        "rgbhv",
+        "rs-422",
+        "schuko",
+        "sdi",
+        "sfp-cage",
+        "sfp-plus-cage",
+        "sfp28-cage",
+        "socapex",
+        "speakon",
+        "speakon-nl2",
+        "speakon-nl4",
+        "speakon-nl8",
+        "trs-ts",
+        "uk-13a",
+        "usb",
+        "usb-a",
+        "usb-b",
+        "usb-c",
+        "vga",
+        "xlr",
+        "xlr-3pin",
+        "xlr-5pin"
+      ],
+      "gender": "unspecified"
+    },
+    {
+      "id": "power-distro-image",
+      "name": "Power distribution physical plug",
+      "source_paths": [
+        "src/engine/powerDistroModel.js",
+        "src/engine/deviceVisualBuilder.js",
+        "index.html"
+      ],
+      "symbols": [
+        "POWER_PLUG_TYPES",
+        "powerPlugImageForConnector",
+        "drawPowerPlugCanvasImage",
+        "powerPlugLayout"
+      ],
+      "rendering_method": "Input/output-specific SVG or PNG image; Canvas 2D drawImage in Engine faceplate and SVG image in editor overlay",
+      "types": [
+        "125a-3ph",
+        "125a-cee",
+        "16a-1ph",
+        "16a-1ph-110v",
+        "16a-3ph",
+        "16a-cee",
+        "32a-1ph",
+        "32a-1ph-110v",
+        "32a-3ph",
+        "32a-cee",
+        "63a-3ph",
+        "63a-cee",
+        "aes",
+        "bnc",
+        "ca-com",
+        "cat5e",
+        "cat6",
+        "cat6a",
+        "component-video",
+        "cxp",
+        "display-port",
+        "dmx-3pin",
+        "dmx-5pin",
+        "domm",
+        "dvi",
+        "edison",
+        "ethercon",
+        "ethernet",
+        "fiber-lc",
+        "fiber-mpo",
+        "fiber-sc",
+        "fiber-st",
+        "fiberfox",
+        "harting",
+        "hdmi",
+        "iec",
+        "jack",
+        "led-signal",
+        "midi",
+        "mini-din-6pin",
+        "mini-display-port",
+        "misc",
+        "nema",
+        "new-node",
+        "new-node-2",
+        "new-node-3",
+        "new-node-4",
+        "new-node-5",
+        "opticalcon",
+        "phono",
+        "powercon",
+        "powercon-true1",
+        "powerlock",
+        "qsfp",
+        "qsfp-cage",
+        "rca",
+        "rgbhv",
+        "rs-422",
+        "schuko",
+        "sdi",
+        "sfp-cage",
+        "sfp-plus-cage",
+        "sfp28-cage",
+        "socapex",
+        "speakon",
+        "speakon-nl2",
+        "speakon-nl4",
+        "speakon-nl8",
+        "trs-ts",
+        "uk-13a",
+        "usb",
+        "usb-a",
+        "usb-b",
+        "usb-c",
+        "vga",
+        "xlr",
+        "xlr-3pin",
+        "xlr-5pin"
+      ],
+      "gender": "unspecified"
+    },
+    {
+      "id": "custom-thumbnail",
+      "name": "User-authored connector thumbnail",
+      "source_paths": [
+        "index.html",
+        "src/imageAssets.js"
+      ],
+      "symbols": [
+        "renderNodeThumbnailCanvasFromUrl",
+        "loadNodeThumbnailFile",
+        "nodeThumbnailFor"
+      ],
+      "rendering_method": "Runtime uploaded/assigned artwork cropped on Canvas 2D and saved as 100x100 PNG in node JSON; unbounded user-created variants use the same palette and preview renderers",
+      "types": [
+        "125a-3ph",
+        "125a-cee",
+        "16a-1ph",
+        "16a-1ph-110v",
+        "16a-3ph",
+        "16a-cee",
+        "32a-1ph",
+        "32a-1ph-110v",
+        "32a-3ph",
+        "32a-cee",
+        "63a-3ph",
+        "63a-cee",
+        "aes",
+        "bnc",
+        "ca-com",
+        "cat5e",
+        "cat6",
+        "cat6a",
+        "component-video",
+        "cxp",
+        "display-port",
+        "dmx-3pin",
+        "dmx-5pin",
+        "domm",
+        "dvi",
+        "edison",
+        "ethercon",
+        "ethernet",
+        "fiber-lc",
+        "fiber-mpo",
+        "fiber-sc",
+        "fiber-st",
+        "fiberfox",
+        "harting",
+        "hdmi",
+        "iec",
+        "jack",
+        "led-signal",
+        "midi",
+        "mini-din-6pin",
+        "mini-display-port",
+        "misc",
+        "nema",
+        "new-node",
+        "new-node-2",
+        "new-node-3",
+        "new-node-4",
+        "new-node-5",
+        "opticalcon",
+        "phono",
+        "powercon",
+        "powercon-true1",
+        "powerlock",
+        "qsfp",
+        "qsfp-cage",
+        "rca",
+        "rgbhv",
+        "rs-422",
+        "schuko",
+        "sdi",
+        "sfp-cage",
+        "sfp-plus-cage",
+        "sfp28-cage",
+        "socapex",
+        "speakon",
+        "speakon-nl2",
+        "speakon-nl4",
+        "speakon-nl8",
+        "trs-ts",
+        "uk-13a",
+        "usb",
+        "usb-a",
+        "usb-b",
+        "usb-c",
+        "vga",
+        "xlr",
+        "xlr-3pin",
+        "xlr-5pin"
+      ],
+      "gender": "unspecified"
+    }
+  ]
+}
