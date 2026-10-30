@@ -8,31 +8,47 @@ The [hosting runbook](google-cloud-hosting.md) and successful
 
 ## Change approval and inventory
 
-**Creation is pending explicit confirmation of names, permissions and costs.**
-No Phase 6.6J remote resource has been created at this point. Proposed configuration
-is recorded in `infra/staging/resources.json`; null secret versions deliberately
-mean not configured, never an implicit `latest` reference.
+**Provisioning approved and performed on 2026-10-30.** The operator approved the
+specified resources, scoped IAM and estimated costs before creation. The actual
+configuration is recorded in `infra/staging/resources.json`; null secret versions
+deliberately mean not configured, never an implicit `latest` reference.
 
 Preflight preparation passed an isolated **2,297 repository tests** with zero
 failures/skips/cancellations and all **16 static validators**. The focused
-infrastructure/hosting/publishing set passed 32 tests. Hosted storage probes have
-not run: execution is waiting for the resource/cost confirmation and the exact
-authorized Keychain item names. No Keychain secret was read and no secret version,
-canary object, role, IAM binding or other Phase 6.6J resource was created.
+infrastructure/hosting/publishing set passed 32 tests. Post-provisioning focused
+hosting/configuration/response tests also pass (14 tests). Hosted verification results and
+temporary access cleanup are recorded below; local tests alone are not evidence
+of hosted access enforcement.
 
-| Resource | Proposed exact identity / configuration |
+The final isolated staged source passed **2,288 tests** using
+`node --test test/*.test.mjs` (all tracked matching files, excluding unrelated
+uncommitted import tests), with zero failures/skips/cancellations, and all
+**16** `scripts/*-validation.mjs` validators. The 14 focused tests include the
+new expiry-response regression cases. No application dependency was changed.
+
+| Resource | Created exact identity / configuration |
 | --- | --- |
 | Docker repository | `europe-west1-docker.pkg.dev/wirenexus-staging/wirenexus-images`, immutable tags; empty, private, no paid scanner enabled |
 | Publication bucket | `gs://wirenexus-staging-publications-837085353595`, `europe-west1`, Standard, uniform access, explicit public access prevention, seven-day soft delete |
 | Runtime service account | `wirenexus-runtime@wirenexus-staging.iam.gserviceaccount.com`, no downloaded key |
-| Server credential reference | `wirenexus-staging-supabase-server` -> `WIRENEXUS_SUPABASE_SERVICE_ROLE_KEY`; numeric version pending secure injection |
+| Server credential reference | `wirenexus-staging-supabase-server` -> `WIRENEXUS_SUPABASE_SERVICE_ROLE_KEY`; pinned enabled version `1` |
 | Publishable key reference | `wirenexus-staging-supabase-publishable` -> `WIRENEXUS_SUPABASE_PUBLISHABLE_KEY`; numeric version pending secure injection |
 
 Secrets use one user-managed replica in `europe-west1`. The publishable key is
 not a privileged secret, but this reference keeps operator configuration out of
-source. Only the two specifically identified staging credentials may be copied
-from Keychain; do not search unrelated credentials, use production keys or inject
-placeholders. The exact item names have been requested without asking for values.
+source. Only the authorized `WireNexus-Staging-AuthAdmin` Keychain item was read.
+Its credential was accepted by the target project's Auth settings endpoint, which
+also confirmed `disable_signup: true`. It was transferred directly in memory to
+the server secret and read back for a constant-time byte comparison. No key was
+printed, passed as a command argument, written to a temporary file or committed.
+No Supabase setting or database data was modified.
+
+The publishable container remains empty: there is no supplied Keychain item or
+secure Management API credential in this operator environment. An authorized
+connector can return configuration, but copying its key through tool output or
+command arguments would not satisfy the requested no-credential-logging rule.
+Leave its version null until an approved direct, in-memory configuration-to-secret
+transfer is available; do not invent a key or substitute the server credential.
 There is no Vercel Blob token or stored Google private key requirement: publishing
 uses the runtime identity's ADC and IAM signing. Invitation Resend credentials
 remain a separate prerequisite, not inferred from Supabase SMTP settings.
@@ -76,6 +92,47 @@ and deleted by the operator afterward; seven-day soft delete still applies.
 Provider bodies, credentials, signatures and signed URLs are redacted on failure.
 Local config tests do not substitute for successful hosted checks.
 
+### Hosted results (2026-10-30)
+
+The completed verifier reported `STORAGE_PASS_PREREQUISITES_PENDING`, not an
+unqualified deployment-ready result:
+
+- PASS: runtime metadata confirms uniform access and enforced public-access
+  prevention; exact-byte signed PUT succeeds; authenticated private read matches.
+- PASS: anonymous reads, runtime object list/delete and secret inventory return
+  403; signed overwrites return 412; both undersized and oversized bodies return
+  400. Allowed-origin CORS succeeds; an unauthorized origin receives no grant.
+- PASS: expired signed PUT returns 400 with an explicit expiry error. The verifier
+  requires both a rejection status and an expiry-specific XML error; an arbitrary
+  400/403 does not pass. Focused response tests preserve that distinction.
+- PASS: runtime can access only the configured pinned server-secret version;
+  it has no sign/token authority over the build-validation service account.
+- PASS: operator policy inspection confirms no runtime project-wide grant, no
+  public bindings on the new resources, exact scoped secret access, zero registry
+  images and unchanged build-account Logs Writer access.
+- PENDING: the runtime project-level `testIamPermissions` diagnostic is blocked by
+  disabled `cloudresourcemanager.googleapis.com` in this project. Its 403 is
+  explicitly classified as pending, not as proof of authorization enforcement.
+  No extra API was enabled. Enabling that diagnostic API requires a separately
+  approved staging configuration change; policy inspection above still passed.
+- PENDING: publishable-key secure injection and its runtime access check.
+
+Early attempts encountered normal custom-role/IAM propagation delays and then
+exposed the disabled diagnostic API and GCS's 400 expiry response. No broader role
+was substituted. Four successful synthetic canary uploads across these attempts
+were generation-matched and deleted by the operator; no cleanup failed. Seven-day
+soft delete retains these tiny test objects temporarily. A final operator listing
+confirmed zero active canary objects; Cloud Run services and registry images are
+also absent.
+
+After testing, the temporary operator impersonation binding was removed and
+`wirenexusRuntimeVerification` soft-deleted. The runtime account has zero
+user-managed keys; its account policy retains only its self-signing grant.
+Short-lived probe tokens were memory-only and expire within ten minutes; removing
+the binding is not a claim that already issued OAuth tokens are instantly revoked.
+All 245 protected/unrelated files matched their established hashes, including the
+existing Device JSON Import edits, artwork, Masters and backups.
+
 ## Cost confirmation
 
 No Cloud Run, load balancer, IP, DNS, image push, build or automatic paid scanner
@@ -111,7 +168,8 @@ Required remediation is a separately validated dependency change:
 
 OS/base-image scanning remains required before deployment. An empty repository
 cannot establish image vulnerability status. A retained image, build-writer grant,
-runtime secret injection, GCS/IAM verification, load-balancer/Compute API/TLS/DNS
+publishable-key injection, the pending Resource Manager diagnostic,
+load-balancer/Compute API/TLS/DNS
 approvals and real hosted acceptance are still required. Do not set the trusted
 LB flag before its network contract is configured. Keep registration disabled.
 No Supabase database, Squarespace DNS, Google Workspace email, Vercel deployment

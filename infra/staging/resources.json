@@ -19,7 +19,7 @@
     "temporaryProbe": {"id": "wirenexusRuntimeVerification", "permissions": ["iam.serviceAccounts.getAccessToken"]}
   },
   "secrets": [
-    {"id": "wirenexus-staging-supabase-server", "environmentVariable": "WIRENEXUS_SUPABASE_SERVICE_ROLE_KEY", "version": null},
+    {"id": "wirenexus-staging-supabase-server", "environmentVariable": "WIRENEXUS_SUPABASE_SERVICE_ROLE_KEY", "version": "1"},
     {"id": "wirenexus-staging-supabase-publishable", "environmentVariable": "WIRENEXUS_SUPABASE_PUBLISHABLE_KEY", "version": null}
   ],
   "environment": {

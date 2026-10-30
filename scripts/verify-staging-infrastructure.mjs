@@ -5,6 +5,7 @@ import {randomUUID} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
 import {Storage} from '@google-cloud/storage';
 import {GoogleAuth,OAuth2Client} from 'google-auth-library';
+import {isExplicitUploadExpiry} from './staging-verification-responses.mjs';
 import {createGcsPublicationStorage} from '../src/server/gcsStorage.js';
 
 const option=name=>process.argv.find(value=>value.startsWith(`--${name}=`))?.slice(name.length+3);
@@ -20,13 +21,18 @@ let phase='mint-runtime-token',runtimeToken;const results=[],cleanup=[];
 const jsonRequest=async(url,token,{method='GET',body}={})=>{
   const response=await fetch(url,{method,redirect:'error',signal:AbortSignal.timeout(30000),
     headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
-  if(!response.ok)throw Object.assign(Error('Cloud request refused'),{code:response.status});
+  if(!response.ok){
+    const problem=await response.json().catch(()=>null);
+    const disabled=problem?.error?.details?.find(detail=>detail.reason==='SERVICE_DISABLED');
+    throw Object.assign(Error('Cloud request refused'),{code:response.status,disabledService:disabled?.metadata?.service});
+  }
   return response.status===204?null:response.json();
 };
 const iam=`https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${config.runtimeAccount}`;
 const objectUrl=name=>`https://storage.googleapis.com/storage/v1/b/${config.bucket.name}/o/${encodeURIComponent(name)}`;
 const expect=async(response,allowed,label)=>{
-  assert.ok(allowed.includes(response.status),label);await response.arrayBuffer();results.push({check:label,status:response.status});
+  if(!allowed.includes(response.status))throw Object.assign(Error('Unexpected check response'),{code:'UNEXPECTED_HTTP_STATUS',check:label,httpStatus:response.status});
+  await response.arrayBuffer();results.push({check:label,status:response.status});
 };
 try {
   const issued=await jsonRequest(`${iam}:generateAccessToken`,operatorToken,{method:'POST',body:{scope:['https://www.googleapis.com/auth/cloud-platform'],lifetime:'600s'}});
@@ -66,12 +72,21 @@ try {
   phase='runtime-boundaries';
   await expect(await fetch(`https://storage.googleapis.com/storage/v1/b/${config.bucket.name}/o`,{headers:{Authorization:`Bearer ${runtimeToken}`},redirect:'error'}),[403],'runtime object listing denied');
   await expect(await fetch(objectUrl(target.pathname),{method:'DELETE',headers:{Authorization:`Bearer ${runtimeToken}`},redirect:'error'}),[403],'runtime object deletion denied');
-  const forbidden=await jsonRequest(`https://cloudresourcemanager.googleapis.com/v1/projects/${config.projectId}:testIamPermissions`,runtimeToken,{method:'POST',body:{permissions:['storage.buckets.create','storage.buckets.setIamPolicy','secretmanager.secrets.create','iam.roles.create','run.services.create','artifactregistry.repositories.create']}});
-  assert.deepEqual(forbidden.permissions||[],[]);results.push({check:'no project administration privileges',status:'PASS'});
+  try {
+    const forbidden=await jsonRequest(`https://cloudresourcemanager.googleapis.com/v1/projects/${config.projectId}:testIamPermissions`,runtimeToken,{method:'POST',body:{permissions:['storage.buckets.create','storage.buckets.setIamPolicy','secretmanager.secrets.create','iam.roles.create','run.services.create','artifactregistry.repositories.create']}});
+    assert.deepEqual(forbidden.permissions||[],[]);results.push({check:'no project administration privileges',status:'PASS'});
+  }catch(error){
+    // A disabled diagnostics API is not proof of an IAM denial. Keep it pending.
+    if(error.code!==403||error.disabledService!=='cloudresourcemanager.googleapis.com')throw error;
+    results.push({check:'project administration permission diagnostic',status:'PENDING_RESOURCE_MANAGER_API'});
+  }
   const otherAccount=await jsonRequest('https://iam.googleapis.com/v1/projects/wirenexus-staging/serviceAccounts/wirenexus-build-validation@wirenexus-staging.iam.gserviceaccount.com:testIamPermissions',runtimeToken,{method:'POST',body:{permissions:['iam.serviceAccounts.signBlob','iam.serviceAccounts.getAccessToken']}});
   assert.deepEqual(otherAccount.permissions||[],[]);results.push({check:'no authority over build account',status:'PASS'});
   phase='signature-expiry';const expiry=Date.now()+8000,expired=await sign('expired.json',3,expiry);await delay(Math.max(0,expiry-Date.now()+2000));
-  await expect(await put(expired,Buffer.from('abc')),[403],'expired signed PUT denied');
+  const expirationResponse=await put(expired,Buffer.from('abc'));
+  if(!isExplicitUploadExpiry(expirationResponse.status,await expirationResponse.text()))throw Object.assign(Error('Expiry not verified'),{
+    code:'EXPIRY_NOT_VERIFIED',check:'expired signed PUT denied',httpStatus:expirationResponse.status});
+  results.push({check:'expired signed PUT denied with explicit expiry error',status:expirationResponse.status});
   phase='secret-boundaries';
   for(const secret of config.secrets){
     if(!secret.version){results.push({check:secret.id,status:'PENDING_SECURE_INJECTION'});continue;}
@@ -81,9 +96,9 @@ try {
     results.push({check:`runtime access to pinned ${secret.id}`,status:'PASS'});
   }
   await expect(await fetch(`https://secretmanager.googleapis.com/v1/projects/${config.projectId}/secrets`,{headers:{Authorization:`Bearer ${runtimeToken}`},redirect:'error'}),[403],'runtime secret inventory denied');
-  console.log(JSON.stringify({result:config.secrets.every(secret=>secret.version)?'PASS':'STORAGE_PASS_SECRETS_PENDING',project:config.projectId,runtime:config.runtimeAccount,checks:results}));
+  console.log(JSON.stringify({result:results.some(result=>result.status.startsWith?.('PENDING_'))?'STORAGE_PASS_PREREQUISITES_PENDING':'PASS',project:config.projectId,runtime:config.runtimeAccount,checks:results}));
 }catch(error){
-  console.error(JSON.stringify({result:'FAIL',phase,code:error.code||'CHECK_FAILED',detail:'Redacted; no credentials, signed URLs or provider response bodies logged.'}));process.exitCode=1;
+  console.error(JSON.stringify({result:'FAIL',phase,code:error.code||'CHECK_FAILED',check:error.check,httpStatus:error.httpStatus,completedChecks:results,detail:'Redacted; no credentials, signed URLs or provider response bodies logged.'}));process.exitCode=1;
 }finally{
   let cleaned=0,failed=0;
   for(const name of new Set(cleanup)){
