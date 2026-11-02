@@ -3,11 +3,32 @@
 Date: 2026-11-02 (Asia/Dubai). Target: Supabase staging
 `puyrylatmtcwlvyycplc`, existing Cloud Run project `wirenexus-staging`.
 
-**Status: Enterprise baseline ready; secondary Editor enrollment BLOCKED.
-NOT ready for live collaboration acceptance.**
+**Status: Enterprise setup ready; secondary Editor invitation accepted and
+authenticated project read verified. Live collaboration acceptance NOT RUN.**
 No simultaneous-edit test was started.
 
-## Completed
+## Invitation Closure
+
+The subsequent operator-approved configuration rollout is documented in
+[staging Enterprise invitations](staging-enterprise-invitations.md). Private
+revision `wirenexus-staging-00002-4ph` uses the same reviewed image and IAM
+restrictions, with only the approved Resend secret reference and sender added.
+The former configuration blocker below is resolved. The invitation API returned
+200, the operator confirmed receipt and accepted it, and hosted checks confirm
+the intended account has Editor membership without Platform Admin authority.
+Its real authenticated cloud client successfully listed/read the existing
+shared project with full chunk/digest verification. Organization administration
+and the Owner's private workspace remain denied (`42501`). Both personal Owner
+memberships remain; shared project version/revision remain 1 and collaboration
+head count remains zero. Final anonymous access is 403, operator health is 200,
+and Auth signup remains disabled. The 19 focused hosting/invitation tests pass.
+
+The sections below retain the earlier setup observations and original blocked
+state as history, not current pending actions. Do not repeat provisioning,
+workspace creation or plan assignment. The next separately approved step is
+live two-user acceptance, not additional setup.
+
+## Original Setup Record
 
 - Provisioned only the explicitly approved secondary test identity through the
   server-only Auth Admin SDK and the existing short-lived UUID/email-bound
