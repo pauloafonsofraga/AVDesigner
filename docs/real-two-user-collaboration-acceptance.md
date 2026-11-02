@@ -2,6 +2,13 @@
 
 Date: 2026-11-02. **Result: BLOCKED / incomplete acceptance.**
 
+Follow-up: the sequential-undo blocker below was corrected in `dd109d4`, deployed
+to private revision `00003-zpp`, and its narrow real two-user reproduction and
+cross-user conflict protection passed. See
+[the deployment and verification record](collaborative-undo-staging-deployment.md).
+This historical report retains the original failure evidence; the broader
+acceptance items below remain incomplete, not newly certified by the undo retest.
+
 Target: existing IAM-private `wirenexus-staging` service, revision
 `wirenexus-staging-00002-4ph`, unchanged reviewed image. Existing Enterprise
 workspace `8f039bb0-df58-411e-beb4-c815d7c88404`; synthetic project

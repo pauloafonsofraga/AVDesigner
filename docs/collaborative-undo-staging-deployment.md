@@ -89,8 +89,34 @@ registration remain disabled. No DNS, production, public access, account, role,
 workspace, secret version or GCS permission change was made.
 
 Both fresh real account sessions were independently verified through hosted
-Auth. The narrow two-user undo reproduction is **pending operator browser
-actions**, not yet claimed passed. Pre-reproduction accepted head is sequence 8.
-Shared saved version/revision remain 1; the original personal project remains
-version/revision 4. No snapshot restore, checkpoint or unrelated acceptance
-sequence was initiated during deployment.
+Auth. **The narrow live two-user undo reproduction and cross-user protection
+checks PASS.** The operator performed the browser actions; actual hosted API
+responses and accepted history were independently checked.
+
+- Pre-reproduction accepted head was sequence 8. An Owner sink move/undo occupied
+  sequences 9/10. The Editor then moved `sink` twice at 11/12 and successfully
+  undid those moves at 13/14 (targets 12 then 11), all HTTP 200. The device returned
+  to its pre-test position. The operator confirmed agreement in both windows;
+  both independently authenticated head reads matched at sequence 14.
+- The operator used Cable sink rather than the requested Cable source; this
+  exercises the same per-device geometry defect. No source move is claimed.
+- Cross-user check: Editor sink move 17, Owner sink move 18, then Editor Undo
+  target 17/expected sequence 18 rejected with HTTP 409. A repeated check at
+  Editor 19/Owner 20 rejected target 19/expected sequence 20 identically. Neither
+  refusal appears in accepted history or advances the head. The operator
+  confirmed the Owner position survived in both windows.
+- Final authenticated Owner/Editor reads contain identical server documents at
+  sequence 20, retaining the Owner's sequence-20 sink position. Two devices and
+  four cables remain; endpoint identity comparisons after the successful undo
+  sequence matched the baseline.
+- Original saved version 1 was read through the existing cloud client, including
+  complete chunk/digest integrity verification, without restoring over the live
+  head. Final hosted SQL confirms that version still exists and shared saved
+  version/revision remain 1. The existing personal project remains version/revision
+  4. Both personal workspaces were preserved.
+
+No unrelated feature, cable-edit/reconnect/full collaboration acceptance sequence,
+snapshot restore or manual checkpoint was initiated. No remaining defect was
+observed in these narrow undo checks. Broader Phase 6.6Q acceptance and the
+documented security findings/pilot deadline remain outstanding; this is not full
+collaboration or public/production release approval.

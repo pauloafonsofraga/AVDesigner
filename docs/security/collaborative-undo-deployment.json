@@ -3410,6 +3410,28 @@
     "registryIamRestored": true,
     "registrationDisabled": true
   },
-  "liveUndoRetest": "PENDING_BROWSER_REPRODUCTION",
+  "liveUndoRetest": {
+    "status": "PASS_NARROW_TWO_USER_UNDO_AND_CONFLICT_CHECK",
+    "actualMovedDevice": "sink",
+    "operatorPerformedBrowserActions": true,
+    "editorMoveSequences": [11, 12],
+    "editorUndoSequences": [13, 14],
+    "undoTargets": [12, 11],
+    "undoHttpStatuses": [200, 200],
+    "originalPositionRestored": true,
+    "operatorConfirmedBothWindowsAgree": true,
+    "crossUserRejectedTargets": [17, 19],
+    "crossUserExpectedSequences": [18, 20],
+    "crossUserHttpStatuses": [409, 409],
+    "rejectionsDidNotAdvanceHead": true,
+    "ownerPositionPreserved": true,
+    "finalOwnerSequence": 20,
+    "finalEditorSequence": 20,
+    "identicalAuthenticatedServerDocuments": true,
+    "versionOneRecoveryDigestVerified": true,
+    "savedVersionAndRevision": 1,
+    "originalPersonalProjectVersionAndRevision": 4,
+    "noFullCollaborationAcceptanceClaim": true
+  },
   "savedBaselineVersion": 1
 }
