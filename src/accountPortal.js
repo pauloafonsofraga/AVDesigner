@@ -2,7 +2,7 @@ import {createCloudProjects} from './cloudProjects.js';
 
 export function portalView(state,designer=false) {
   if(state.configurationKnown && !state.configured)return 'offline';
-  if(!state.authenticated || state.requiresMfa || state.passwordRecovery || state.recoveryRequested)return 'login';
+  if(!state.authenticated || state.requiresMfa || state.passwordRecovery || state.recoveryRequested || state.registrationPending)return 'login';
   return designer?'designer':'dashboard';
 }
 

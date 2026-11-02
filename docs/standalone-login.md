@@ -38,6 +38,45 @@ treated as a verified session. This UI gate is not an authorization boundary:
 Supabase RLS, API authorization, IAM and publishing isolation remain mandatory.
 Legacy and read-only viewer/export entry points are not routed through this UI.
 
+## Password-first authentication
+
+Password is the default at startup and after sign-out, including after using the
+optional Email code alternative. Returning users call `signInWithPassword`
+directly; no email OTP is requested. Existing OTP-only accounts can establish a
+password through Forgot password without recreating the account. The same SDK
+client retains `persistSession`, automatic token refresh and its existing storage
+key; valid sessions restore without another email challenge. Browser storage
+clearing, session expiry/revocation and enrolled MFA still apply.
+
+Create account appears only when the existing public registration feature flag
+is enabled. It collects a matching password (the existing 12-character minimum),
+calls Supabase signup, clears password inputs and accepts the signup email's
+confirmation code. Invalid codes remain on Verify email; cancellation returns
+to password login without deleting the pending Auth user. Supabase email
+confirmation must remain enabled and the signup email template must contain
+`{{ .Token }}` for this code flow. Public registration still requires separate
+approval and both existing application/database registration safeguards. No
+staging setting, email template, registration policy or migration was changed.
+
+Ordinary users can opt into TOTP from Account using Set Up / Verify MFA and can
+remove their authenticator there. Opting in requires authenticator verification
+on later AAL1 sign-ins; optional MFA does not mean skipping an enrolled factor.
+Platform Admin's existing server-side AAL2 gates remain mandatory. No role is
+granted by MFA enrollment. Future Enterprise mandatory-MFA policy requires an
+explicit server-enforced workspace policy, not browser-controlled role flags;
+that policy is not introduced here.
+
+Focused browser checks additionally cover registration gating, password
+confirmation, invalid/valid signup codes, cancellation, ordinary MFA setup,
+subsequent MFA sign-in and removal, and session restoration in a fresh browser
+context with persisted SDK storage. Auth transport is local; SQL/RLS and the
+Supabase SDK are real. No hosted sign-in or email delivery is claimed.
+
+Password-first follow-up validation: the isolated staged tree passed all 2,312
+repository tests, all 16 static validators and the expanded desktop/mobile browser
+smoke. The focused portal/workspace/provisioning suite passed 18/18. Unrelated
+Device JSON Import edits, artwork, backups and Masters were left untouched.
+
 ## Validation
 
 Final isolated staged-tree validation: **2,310 repository tests passed**, zero

@@ -18,27 +18,31 @@ const cloud=createCloudProjects({rpc:db.rpc(),accountId:OWNER});
 const project=await cloud.save({workspaceId:personal,name:'Portal synthetic AV',text:JSON.stringify(cableTypeSelectionFixture())});
 const shared=await cloud.save({workspaceId:company.id,name:'Shared Stage',text:JSON.stringify(cableTypeSelectionFixture())});
 const browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome Dev.app/Contents/MacOS/Google Chrome Dev'});
-const dir=mkdtempSync(join(tmpdir(),'wirenexus-account-portal-')),errors=[];let aal='aal1',mfa=false,method='';
+const dir=mkdtempSync(join(tmpdir(),'wirenexus-account-portal-')),errors=[];let aal='aal1',mfa=false,method='',registrationEnabled=false,otpRequests=0;
 const user={id:OWNER,email:'owner@example.test',aud:'authenticated',role:'authenticated',app_metadata:{},user_metadata:{}};
 const token=()=>Buffer.from('{"alg":"HS256"}').toString('base64url')+'.'+Buffer.from(JSON.stringify({sub:user.id,role:'authenticated',aal,exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')+'.test';
 const session=()=>({user:{...user,factors:mfa?[{id:'factor',factor_type:'totp',status:'verified'}]:[]},access_token:token(),refresh_token:'local-test-refresh',expires_in:3600,token_type:'bearer'});
 try{
   const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
-  await context.route('**/account-config.json',r=>r.fulfill({json:{configured:true,url:'https://portal.test',publishableKey:'sb_publishable_test',registrationEnabled:false}}));
+  const configure=async context=>{
+  await context.route('**/account-config.json',r=>r.fulfill({json:{configured:true,url:'https://portal.test',publishableKey:'sb_publishable_test',registrationEnabled}}));
   await context.route('https://portal.test/**',async r=>{
     const path=new URL(r.request().url()).pathname,body=r.request().postData()?r.request().postDataJSON():{};
-    if(path==='/auth/v1/otp'){assert.equal(body.create_user,false);return r.fulfill({json:{}});}
+    if(path==='/auth/v1/otp'){otpRequests++;assert.equal(body.create_user,false);return r.fulfill({json:{}});}
+    if(path==='/auth/v1/signup'){assert.equal(registrationEnabled,true);assert.ok(body.password.length>=12);return r.fulfill({json:{...user,identities:[{id:user.id}]}});}
     if(path==='/auth/v1/recover')return r.fulfill({json:{}});
-    if(path==='/auth/v1/verify'){method=body.type;return r.fulfill({json:session()});}
+    if(path==='/auth/v1/verify'){method=body.type;if(body.token==='invalid')return r.fulfill({status:403,json:{msg:'Token has expired or is invalid',code:'otp_expired'}});return r.fulfill({json:session()});}
     if(path==='/auth/v1/token'){method=body.grant_type || 'password';if(body.password==='invalid')return r.fulfill({status:400,json:{msg:'Invalid login credentials',code:'invalid_credentials'}});return r.fulfill({json:session()});}
     if(path==='/auth/v1/user')return r.fulfill({json:session().user});
     if(path==='/auth/v1/logout')return r.fulfill({status:204});
-    if(path==='/auth/v1/factors')return r.fulfill({json:{all:[{id:'factor',factor_type:'totp',status:'verified'}],totp:[{id:'factor',factor_type:'totp',status:'verified'}]}});
+    if(path==='/auth/v1/factors' && r.request().method()==='POST')return r.fulfill({json:{id:'factor',type:'totp',totp:{qr_code:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=',secret:'local-fixture-only'}}});
+    if(path==='/auth/v1/factors/factor' && r.request().method()==='DELETE'){mfa=false;aal='aal1';return r.fulfill({json:{id:'factor'}});}
+    if(path==='/auth/v1/factors')return r.fulfill({json:{all:[],totp:[]}});
     if(path.endsWith('/challenge'))return r.fulfill({json:{id:'challenge',expires_at:Date.now()/1000+300}});
-    if(path.endsWith('/verify')){aal='aal2';return r.fulfill({json:session()});}
+    if(path.endsWith('/verify')){aal='aal2';mfa=true;return r.fulfill({json:session()});}
     if(path.startsWith('/rest/v1/rpc/')){const claims=JSON.parse(Buffer.from(r.request().headers().authorization.split('.')[1],'base64url').toString());assert.ok([OWNER,STRANGER].includes(claims.sub));const result=await db.rpc(claims.sub,claims.aal)(path.split('/').at(-1),body);return r.fulfill({status:result.error?403:200,json:result.error || result.data});}
     throw Error('Unexpected local Auth request '+path);
-  });
+  });};await configure(context);
   await context.route('**/portal-harness',r=>r.fulfill({contentType:'text/html',body:'<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div class="app"><header id="designerHeader"></header><div>Designer canvas</div></div><div id="accountMount"></div></body></html>'}));
   async function mount(){await page.goto(base+'/portal-harness');await page.evaluate(async()=>{
     const {mountAccountLibrary}=await import('/src/accountLibraryApp.js'),{mountAccountPortal}=await import('/src/accountPortal.js');
@@ -50,12 +54,30 @@ try{
   });}
   await page.goto(base);await page.waitForFunction(()=>window.wireNexusAccountPortal?.view()==='login');await page.evaluate(async()=>{await window.wireNexusReady;});assert.equal(await page.locator('.app').isVisible(),false);assert.equal(await page.locator('.app').evaluate(e=>e.inert),true);
   await mount();assert.equal(await page.evaluate(()=>portal.view()),'login');assert.equal(await page.locator('.app').isVisible(),false);
+  assert.equal(await page.locator('[data-mode="password"]').getAttribute('aria-pressed'),'true');
+  assert.equal(await page.getByLabel('Password',{exact:true}).isVisible(),true);assert.equal(await page.getByLabel('Email code',{exact:true}).isVisible(),false);
+  assert.equal(await page.locator('[data-mode="register"]').isVisible(),false);
   const frame=()=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
   await frame();await page.screenshot({path:join(dir,'login-desktop.png')});await page.setViewportSize({width:390,height:844});await frame();await page.screenshot({path:join(dir,'login-mobile.png')});
   assert.ok(await page.evaluate(()=>document.getElementById('accountPortal').scrollWidth<=innerWidth));await page.setViewportSize({width:1440,height:1000});
   await page.getByLabel('Email',{exact:true}).fill(user.email);await page.getByLabel('Password',{exact:true}).fill('invalid');await page.locator('#accountPasswordSignIn').click();await page.waitForFunction(()=>portalAccount.entryState().status==='Sync failed');assert.equal(await page.evaluate(()=>portal.view()),'login');
   await page.getByLabel('Password',{exact:true}).fill('local-test-password');await page.getByLabel('Password',{exact:true}).press('Enter');
   await page.locator('#portalLaunch').waitFor({state:'visible'});assert.equal(await page.evaluate(()=>portal.view()),'dashboard');
+  assert.equal(otpRequests,0,'Password login must never request an email OTP');
+  const restored=await browser.newContext({storageState:await context.storageState()});await configure(restored);
+  const restoredPage=await restored.newPage();await restoredPage.goto(base);await restoredPage.waitForFunction(()=>window.wireNexusAccountPortal?.view()==='dashboard');await restored.close();
+  assert.equal(otpRequests,0,'A new browser context restores the persisted SDK session without an OTP');
+  await page.locator('#portalAccount').click();await page.locator('#accountMfaStart').waitFor({state:'visible'});assert.equal(await page.locator('#accountMfaStart').textContent(),'Set Up / Verify MFA');
+  await page.locator('#accountMfaStart').click();await page.getByLabel('Authenticator code').fill('123456');await page.locator('#accountMfaVerify').click();
+  await page.waitForFunction(()=>portalAccount.entryState().status==='Synced' && !portalAccount.entryState().busy);
+  assert.equal(await page.locator('#planAdministration').isVisible(),false,'Ordinary MFA enrollment cannot grant Admin');
+  await page.locator('#ownerSignOut').click();await page.waitForFunction(()=>portal.view()==='login');aal='aal1';
+  await page.getByLabel('Email',{exact:true}).fill(user.email);await page.getByLabel('Password',{exact:true}).fill('local-test-password');await page.locator('#accountPasswordSignIn').click();
+  await page.waitForFunction(()=>portalAccount.entryState().requiresMfa);assert.equal(await page.evaluate(()=>portal.view()),'login');
+  await page.locator('#accountMfaStart').click();await page.getByLabel('Authenticator code').fill('123456');await page.locator('#accountMfaVerify').click();await page.waitForFunction(()=>portal.view()==='dashboard');
+  await page.locator('#portalAccount').click();assert.equal(await page.locator('#planAdministration').isVisible(),false);
+  page.once('dialog',d=>d.accept());await page.locator('#accountMfaRemove').click();await page.waitForFunction(()=>portalAccount.entryState().status==='Synced' && !portalAccount.entryState().busy);
+  await page.getByRole('button',{name:'Close',exact:true}).click();
   await page.locator(`[data-project-id="${project.id}"] button`).click();assert.equal(await page.evaluate(()=>window.openedProject),project.id);assert.equal(await page.evaluate(()=>portal.view()),'designer');
   await page.locator('#portalProjects').click();await page.getByLabel('Active workspace').selectOption(company.id);
   await page.waitForFunction(wid=>portalAccount.cloudIdentity()?.workspaceId===wid,company.id);
@@ -65,6 +87,20 @@ try{
   await page.getByRole('button',{name:'Email code',exact:true}).click();await page.getByLabel('Email',{exact:true}).fill(user.email);await page.locator('#ownerSendCode').click();await page.getByLabel('Email code',{exact:true}).fill('12345678');await page.locator('#ownerVerifyCode').click();
   await page.waitForFunction(()=>portal.view()==='dashboard');assert.equal(method,'email');
   await mount();assert.equal(await page.evaluate(()=>portal.view()),'dashboard'); // Same SDK storage restores the session.
+  await page.locator('#portalSignOut').click();await page.waitForFunction(()=>portal.view()==='login');
+  assert.equal(await page.locator('[data-mode="password"]').getAttribute('aria-pressed'),'true');
+  registrationEnabled=true;await mount();await page.locator('[data-mode="register"]').click();
+  await frame();await page.screenshot({path:join(dir,'registration-desktop.png')});await page.setViewportSize({width:390,height:844});await frame();await page.screenshot({path:join(dir,'registration-mobile.png')});
+  assert.ok(await page.evaluate(()=>document.getElementById('accountPortal').scrollWidth<=innerWidth));await page.setViewportSize({width:1440,height:1000});
+  await page.getByLabel('Email',{exact:true}).fill(user.email);await page.getByLabel('Password',{exact:true}).fill('registration-password');await page.getByLabel('Confirm new password').fill('not-matching');
+  await page.locator('#accountRegister').click();await page.waitForFunction(()=>portalAccount.entryState().status==='Sync failed');
+  await page.getByLabel('Confirm new password').fill('registration-password');await page.getByLabel('Confirm new password').press('Enter');
+  await page.waitForFunction(()=>portalAccount.entryState().registrationPending);assert.equal(await page.evaluate(()=>portal.view()),'login');assert.equal(await page.getByLabel('Password',{exact:true}).inputValue(),'');
+  await page.locator('#accountCancelRecovery').click();assert.equal(await page.locator('[data-mode="password"]').getAttribute('aria-pressed'),'true');
+  await page.locator('[data-mode="register"]').click();await page.getByLabel('Password',{exact:true}).fill('registration-password');await page.getByLabel('Confirm new password').fill('registration-password');await page.locator('#accountRegister').click();await page.waitForFunction(()=>portalAccount.entryState().registrationPending);
+  await page.getByLabel('Email code',{exact:true}).fill('invalid');await page.locator('#ownerVerifyCode').click();await page.waitForFunction(()=>portalAccount.entryState().status==='Sync failed');assert.equal(await page.evaluate(()=>portal.view()),'login');
+  await page.getByLabel('Email code',{exact:true}).fill('12345678');await page.locator('#ownerVerifyCode').click();await page.waitForFunction(()=>portal.view()==='dashboard');assert.equal(method,'signup');
+  registrationEnabled=false;
   await page.locator('#portalSignOut').click();await page.waitForFunction(()=>portal.view()==='login');await page.getByLabel('Email',{exact:true}).fill(user.email);await page.locator('#accountRecover').click();await page.getByLabel('Email code',{exact:true}).fill('87654321');await page.locator('#accountVerifyRecovery').click();
   await page.getByLabel('Confirm new password').waitFor({state:'visible'});assert.equal(await page.evaluate(()=>portal.view()),'login');
   await page.getByLabel('Password',{exact:true}).fill('local-new-password');await page.getByLabel('Confirm new password').fill('local-new-password');await page.locator('#accountSetPassword').click();await page.waitForFunction(()=>portal.view()==='dashboard');
@@ -134,5 +170,5 @@ try{
   assert.equal(await page.locator('#portalLaunch').textContent(),'New Designer Session');assert.equal(await page.locator('.app').isVisible(),false);
   await page.getByLabel('Active workspace').selectOption(company.id);await page.locator(`[data-project-id="${shared.id}"]`).waitFor();assert.equal(await page.locator(`[data-project-id="${shared.id}"] select`).count(),0);
   await page.waitForFunction(()=>document.getElementById('portalPlan').textContent==='Enterprise');
-  assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,dir,checks:['password','OTP closed signup','recovery','MFA gate','session restoration','workspace switch','current plan','rename/cancel','duplicate','archive/restore','stale revision rejection','linked canvas preservation','cloud browser launch','local .avd','new/cancel','Viewer actions','sign out','desktop/mobile screenshots'],verification:'Local Auth transport fixtures; actual Account, portal, Supabase SDK and SQL/RLS'}));
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,dir,checks:['password default/no OTP','optional email OTP','gated signup/confirmation/cancel','recovery','optional MFA/enrolled challenge/removal','Admin MFA gate','fresh-context session restoration','workspace switch','current plan','rename/cancel','duplicate','archive/restore','stale revision rejection','linked canvas preservation','cloud browser launch','local .avd','new/cancel','Viewer actions','sign out','desktop/mobile screenshots'],verification:'Local Auth transport fixtures; actual Account, portal, Supabase SDK and SQL/RLS'}));
 }finally{await browser.close();await db.db.close();}

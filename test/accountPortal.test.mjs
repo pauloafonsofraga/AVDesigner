@@ -11,7 +11,7 @@ test('restored authenticated sessions land at dashboard before explicitly launch
   assert.equal(portalView(signed),'dashboard');assert.equal(portalView(signed,true),'designer');
 });
 test('MFA and password recovery prevent navigation into designer',()=>{
-  for(const flag of ['requiresMfa','passwordRecovery','recoveryRequested'])assert.equal(portalView({...signed,[flag]:true},true),'login');
+  for(const flag of ['requiresMfa','passwordRecovery','recoveryRequested','registrationPending'])assert.equal(portalView({...signed,[flag]:true},true),'login');
 });
 test('unconfigured local installations retain existing offline designer workflows',()=>{
   assert.equal(portalView({configurationKnown:true,configured:false}),'offline');

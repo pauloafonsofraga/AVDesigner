@@ -27,42 +27,53 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
   mfaCode.inputMode='numeric';mfaCode.autocomplete='one-time-code';mfaCode.placeholder='Authenticator code';mfaCode.setAttribute('aria-label','Authenticator code');
   mfa.append(qr,secret,mfaCode);mfa.hidden=true;
   let client, store, owner, identity=null, configured = false, registrationEnabled=false,
-    recoveryRequested=false,passwordRecovery=false,factorId='',pendingFactor='',
+    recoveryRequested=false,passwordRecovery=false,registrationPending=false,factorId='',pendingFactor='',
     state = 'Browser recovery only - account service not configured', detail = '', epoch = 0, activeId = null, busy = false, selectedWorkspaceId=null,
     entryHost=null,authMode='password',ready=false,configurationKnown=false,requiresMfa=false;
   const listeners=new Set();
   const snapshot=()=>({ready,configurationKnown,configured,authenticated:!!owner && !!identity,accountId:activeId,
-    requiresMfa,passwordRecovery,recoveryRequested,busy,status:state,detail});
+    requiresMfa,passwordRecovery,recoveryRequested,registrationPending,busy,status:state,detail});
   const clearSecrets=()=>{password.value=confirmPassword.value=code.value=mfaCode.value='';qr.hidden=true;qr.removeAttribute('src');secret.textContent='';factorId='';};
   const platformAdmin=()=>identity?.admin===true && identity?.entitlements?.fullProductAccess===true && identity?.mfaRequired===false;
   const paint = (notify=true) => {
     status.textContent = `${state}${detail ? ': ' + detail : ''}`;
     button.textContent = activeId ? 'Account' : 'Account Sign In';
     fields.hidden = (!!activeId && !passwordRecovery) || !configured;
-    email.disabled=!!activeId;code.hidden=!!activeId;
+    for(const input of fields.querySelectorAll('input'))input.disabled=busy;
+    email.disabled=busy || !!activeId || registrationPending;code.hidden=!!activeId;
+    mfaCode.disabled=busy;
+    for(const b of modes.querySelectorAll('button'))b.disabled=busy;
+    password.autocomplete=passwordRecovery || authMode==='register'?'new-password':'current-password';
     confirmPassword.hidden=!passwordRecovery && (!registrationEnabled || recoveryRequested);
     send.hidden = verify.hidden = fields.hidden || recoveryRequested;
     passwordSignIn.hidden=fields.hidden || recoveryRequested;
     register.hidden=fields.hidden || !registrationEnabled || recoveryRequested;
     recoverAccount.hidden=!!activeId || !configured;verifyRecovery.hidden=!recoveryRequested || !!activeId;
-    setPassword.hidden=!passwordRecovery;cancelRecovery.hidden=!recoveryRequested && !passwordRecovery;
+    setPassword.hidden=!passwordRecovery;cancelRecovery.hidden=!recoveryRequested && !passwordRecovery && !registrationPending;
+    cancelRecovery.textContent=registrationPending?'Cancel Registration':'Cancel Recovery';
     signOut.hidden = !activeId; refresh.hidden = !activeId; recover.hidden = !owner || identity?.workspaceRole==='viewer';
-    const adminMfa=!!activeId && (identity?.mfaRequired===true || platformAdmin());
-    mfaStart.hidden=mfaRemove.hidden=!adminMfa;mfaVerify.hidden=!adminMfa || !factorId;mfa.hidden=!adminMfa || !factorId;
+    const accountMfa=!!activeId && !passwordRecovery;
+    mfaStart.textContent=identity?.mfaRequired===true || platformAdmin()?'Set Up / Verify Admin MFA':'Set Up / Verify MFA';
+    mfaStart.hidden=mfaRemove.hidden=!accountMfa;mfaVerify.hidden=!accountMfa || !factorId;mfa.hidden=!accountMfa || !factorId;
     if(entryHost){
-      heading.textContent=passwordRecovery?'Reset password':requiresMfa?'Verify your identity':'Sign in';
+      heading.textContent=passwordRecovery?'Reset password':requiresMfa?'Verify your identity':registrationPending?'Verify email':authMode==='register'?'Create account':'Sign in';
       status.hidden=state==='Pending sync' && detail.startsWith('Sign in to save');
       passwordSignIn.textContent='Sign In';recoverAccount.textContent='Forgot password?';
-      code.hidden=passwordRecovery || (!recoveryRequested && authMode!=='code');
+      code.hidden=passwordRecovery || (!recoveryRequested && !registrationPending && authMode!=='code');
       password.hidden=confirmPassword.hidden=passwordRecovery?false:true;
-      if(!activeId && !recoveryRequested && authMode==='password')password.hidden=false;
+      if(!activeId && !recoveryRequested && !registrationPending && ['password','register'].includes(authMode))password.hidden=false;
+      if(!activeId && !recoveryRequested && !registrationPending && authMode==='register')confirmPassword.hidden=false;
       passwordSignIn.hidden=fields.hidden || recoveryRequested || authMode!=='password';
-      send.hidden=verify.hidden=fields.hidden || recoveryRequested || authMode!=='code';
-      register.hidden=true;
+      send.hidden=fields.hidden || recoveryRequested || authMode!=='code' || registrationPending;
+      verify.hidden=fields.hidden || recoveryRequested || (authMode!=='code' && !registrationPending);
+      verify.textContent=registrationPending?'Verify Email':'Sign In';
+      register.hidden=fields.hidden || !registrationEnabled || authMode!=='register' || registrationPending || recoveryRequested;
+      recoverAccount.hidden=!!activeId || !configured || authMode==='register' || registrationPending;
       mfaStart.hidden=!activeId || (!requiresMfa && !identity?.mfaRequired);
       mfaRemove.hidden=true;mfaVerify.hidden=!factorId;mfa.hidden=!factorId;
       refresh.hidden=!activeId;recover.hidden=true;workspaces.hidden=true;privileges.hidden=true;
-      modes.hidden=!!activeId || recoveryRequested || passwordRecovery;
+      modes.hidden=!!activeId || recoveryRequested || passwordRecovery || registrationPending;
+      modes.querySelector('[data-mode="register"]').hidden=!registrationEnabled;
       for(const b of modes.querySelectorAll('button'))b.setAttribute('aria-pressed',String(b.dataset.mode===authMode));
     }else{heading.textContent='WireNexus Account';status.hidden=false;passwordSignIn.textContent='Sign In With Password';recoverAccount.textContent='Recover Account';password.hidden=false;workspaces.hidden=false;privileges.hidden=false;modes.hidden=true;}
     workspaces.replaceChildren();
@@ -87,8 +98,8 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
     if (error) throw error; setState('Pending sync', 'Check your email for the sign-in code.');
   });
   const verify = action('ownerVerifyCode', 'Sign In', async () => {
-    const { data, error } = await client.auth.verifyOtp({ email: email.value.trim(), token: code.value.trim(), type: 'email' });
-    if (error) throw error; code.value = ''; await activate(data.session);
+    const { data, error } = await client.auth.verifyOtp({ email: email.value.trim(), token: code.value.trim(), type: registrationPending?'signup':'email' });
+    if (error) throw error; registrationPending=false;authMode='password';clearSecrets();await activate(data.session);
   });
   const newPassword=()=>{if(password.value.length<12 || password.value!==confirmPassword.value)throw new Error('Use a password of at least 12 characters and matching confirmation.');return password.value;};
   const passwordSignIn=action('accountPasswordSignIn','Sign In With Password',async()=>{
@@ -99,7 +110,7 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
     if(!registrationEnabled)throw new Error('Registration is disabled.');
     const {data,error}=await client.auth.signUp({email:email.value.trim(),password:newPassword()});
     if(error)throw error;clearSecrets();
-    if(data.session)await activate(data.session);else setState('Pending sync','Check your email for the confirmation code, then Sign In.');
+    if(data.session){authMode='password';await activate(data.session);}else{registrationPending=true;setState('Pending sync','Check your email for the confirmation code.');}
   });
   const recoverAccount=action('accountRecover','Recover Account',async()=>{
     clearSecrets();
@@ -115,7 +126,7 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
     const {error}=await client.auth.updateUser({password:newPassword()});if(error)throw error;
     passwordRecovery=recoveryRequested=false;clearSecrets();setState('Synced','Password updated.');
   });
-  const cancelRecovery=action('accountCancelRecovery','Cancel Recovery',()=>{passwordRecovery=recoveryRequested=false;clearSecrets();paint();});
+  const cancelRecovery=action('accountCancelRecovery','Cancel Recovery',()=>{passwordRecovery=recoveryRequested=registrationPending=false;authMode='password';clearSecrets();paint();});
   const currentSession=async()=>{const {data,error}=await client.auth.getSession();if(error)throw error;return data.session;};
   const mfaStart=action('accountMfaStart','Set Up / Verify Admin MFA',async()=>{
     const ticket=epoch;
@@ -136,7 +147,7 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
     pendingFactor='';clearSecrets();await activate(await currentSession());
   });
   const mfaRemove=action('accountMfaRemove','Remove Authenticator',async()=>{
-    if(!confirm('Remove your authenticator? Platform Admin access will require MFA setup again.'))return;
+    if(!confirm(identity?.mfaRequired===true || platformAdmin()?'Remove your authenticator? Platform Admin access will require MFA setup again.':'Remove your authenticator?'))return;
     const {data,error}=await client.auth.mfa.listFactors();if(error)throw error;
     const verified=data.totp?.find(f=>f.status==='verified');if(!verified)throw new Error('No verified authenticator is installed.');
     const result=await client.auth.mfa.unenroll({factorId:verified.id});if(result.error)throw result.error;
@@ -173,10 +184,10 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
     })); review.append(commit);
   });
   const close = document.createElement('button'); close.type = 'button'; close.className = 'tool-button'; close.textContent = 'Close'; close.addEventListener('click', () => dialog.close());
-  fields.addEventListener('keydown',event=>{if(entryHost && event.key==='Enter'){event.preventDefault();(passwordRecovery?setPassword:recoveryRequested?verifyRecovery:authMode==='password'?passwordSignIn:verify).click();}});
+  fields.addEventListener('keydown',event=>{if(entryHost && event.key==='Enter'){event.preventDefault();(passwordRecovery?setPassword:recoveryRequested?verifyRecovery:registrationPending?verify:authMode==='register'?register:authMode==='password'?passwordSignIn:verify).click();}});
   mfaCode.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();mfaVerify.click();}});
   const modes=document.createElement('div');modes.className='account-auth-modes';modes.hidden=true;modes.setAttribute('aria-label','Sign-in method');
-  for(const [value,label] of [['password','Password'],['code','Email code']]){const b=document.createElement('button');b.type='button';b.dataset.mode=value;b.textContent=label;b.addEventListener('click',()=>{authMode=value;clearSecrets();paint();});modes.append(b);}
+  for(const [value,label] of [['password','Password'],['code','Email code'],['register','Create account']]){const b=document.createElement('button');b.type='button';b.dataset.mode=value;b.textContent=label;b.addEventListener('click',()=>{authMode=value;clearSecrets();paint();});modes.append(b);}
   dialog.append(heading, status, privileges, workspaces, modes, fields, mfa, actions, review, close); document.body.append(dialog); container.append(button);
   const plansPanel=mountPlansPanel({container:dialog,identity:()=>owner && identity,rpc:(...args)=>client.rpc(...args)});
   const selectWorkspace=async wid=>{
@@ -200,10 +211,11 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
     plansPanel.clear();
     teamsPanel.clear();
     if (!session) {
-      requiresMfa=false;
+      requiresMfa=false;registrationPending=false;authMode='password';
       activeId = null; owner = null; store = null; identity=null;selectedWorkspaceId=null;pendingFactor='';passwordRecovery=recoveryRequested=false;review.replaceChildren();clearSecrets();teamsPanel.refresh();
       await onOwner(recoveryOwner, false, null); setState(configured ? 'Pending sync' : state, configured ? 'Sign in to save to your account. Browser recovery is retained.' : ''); return;
     }
+    registrationPending=false;
     if(activeId && activeId!==session.user.id){owner=store=identity=null;selectedWorkspaceId=null;pendingFactor='';passwordRecovery=recoveryRequested=false;clearSecrets();await onOwner(recoveryOwner,false,null);}
     setState('Pending sync', 'Verifying account and loading personal workspace');
     try {
