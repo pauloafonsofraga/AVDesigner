@@ -5,8 +5,8 @@ import {readFileSync} from 'node:fs';
 
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const handler=html.match(/^    async function handleProjectSaveShortcut\(event\) \{[\s\S]*?^    \}/m)[0];
-const setup=saveProject=>{
-  const context=vm.createContext({saveProject});
+const setup=(saveProject,globals={})=>{
+  const context=vm.createContext({saveProject,...globals});
   vm.runInContext('let projectShortcutSavePending=false;\n'+handler,context);
   return context.handleProjectSaveShortcut;
 };
@@ -40,4 +40,8 @@ test('failed saves release the shortcut guard',async()=>{
 });
 test('shortcut uses window capture to own browser save before focused controls',()=>{
   assert.match(html,/window\.addEventListener\("keydown", handleProjectSaveShortcut, true\)/);
+});
+test('account entry consumes browser Save without saving the hidden project',async()=>{
+  let calls=0;const run=setup(()=>{calls++;},{wireNexusAccountPortal:{visible:()=>true}}),event=key({metaKey:true});
+  await run(event);assert.equal(calls,0);assert.equal(event.prevented,true);
 });

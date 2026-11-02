@@ -68,7 +68,7 @@ function start() {
     }
     await window.wireNexusShellReady;
     setPhase("ready");
-    shell.inert = false;
+    shell.inert = window.wireNexusAccountPortal?.visible() === true;
     panel.remove();
     return catalogue;
   });

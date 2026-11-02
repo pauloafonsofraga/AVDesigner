@@ -3183,6 +3183,7 @@ class ProductionEngineBridge {
   }
 
   handleKeyDown(event) {
+    if (globalThis.wireNexusAccountPortal?.visible()) return;
     if(this.collaborationHistory && (event.metaKey || event.ctrlKey) && ['z','y'].includes(event.key.toLowerCase())
       && !event.target?.closest?.('input,textarea,[contenteditable=true]')
       && this.collaborationHistory(event.shiftKey || event.key.toLowerCase()==='y'?'redo':'undo')) {

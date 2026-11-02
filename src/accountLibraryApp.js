@@ -28,10 +28,14 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
   mfa.append(qr,secret,mfaCode);mfa.hidden=true;
   let client, store, owner, identity=null, configured = false, registrationEnabled=false,
     recoveryRequested=false,passwordRecovery=false,factorId='',pendingFactor='',
-    state = 'Browser recovery only - account service not configured', detail = '', epoch = 0, activeId = null, busy = false, selectedWorkspaceId=null;
+    state = 'Browser recovery only - account service not configured', detail = '', epoch = 0, activeId = null, busy = false, selectedWorkspaceId=null,
+    entryHost=null,authMode='password',ready=false,configurationKnown=false,requiresMfa=false;
+  const listeners=new Set();
+  const snapshot=()=>({ready,configurationKnown,configured,authenticated:!!owner && !!identity,accountId:activeId,
+    requiresMfa,passwordRecovery,recoveryRequested,busy,status:state,detail});
   const clearSecrets=()=>{password.value=confirmPassword.value=code.value=mfaCode.value='';qr.hidden=true;qr.removeAttribute('src');secret.textContent='';factorId='';};
   const platformAdmin=()=>identity?.admin===true && identity?.entitlements?.fullProductAccess===true && identity?.mfaRequired===false;
-  const paint = () => {
+  const paint = (notify=true) => {
     status.textContent = `${state}${detail ? ': ' + detail : ''}`;
     button.textContent = activeId ? 'Account' : 'Account Sign In';
     fields.hidden = (!!activeId && !passwordRecovery) || !configured;
@@ -45,11 +49,28 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
     signOut.hidden = !activeId; refresh.hidden = !activeId; recover.hidden = !owner || identity?.workspaceRole==='viewer';
     const adminMfa=!!activeId && (identity?.mfaRequired===true || platformAdmin());
     mfaStart.hidden=mfaRemove.hidden=!adminMfa;mfaVerify.hidden=!adminMfa || !factorId;mfa.hidden=!adminMfa || !factorId;
+    if(entryHost){
+      heading.textContent=passwordRecovery?'Reset password':requiresMfa?'Verify your identity':'Sign in';
+      status.hidden=state==='Pending sync' && detail.startsWith('Sign in to save');
+      passwordSignIn.textContent='Sign In';recoverAccount.textContent='Forgot password?';
+      code.hidden=passwordRecovery || (!recoveryRequested && authMode!=='code');
+      password.hidden=confirmPassword.hidden=passwordRecovery?false:true;
+      if(!activeId && !recoveryRequested && authMode==='password')password.hidden=false;
+      passwordSignIn.hidden=fields.hidden || recoveryRequested || authMode!=='password';
+      send.hidden=verify.hidden=fields.hidden || recoveryRequested || authMode!=='code';
+      register.hidden=true;
+      mfaStart.hidden=!activeId || (!requiresMfa && !identity?.mfaRequired);
+      mfaRemove.hidden=true;mfaVerify.hidden=!factorId;mfa.hidden=!factorId;
+      refresh.hidden=!activeId;recover.hidden=true;workspaces.hidden=true;privileges.hidden=true;
+      modes.hidden=!!activeId || recoveryRequested || passwordRecovery;
+      for(const b of modes.querySelectorAll('button'))b.setAttribute('aria-pressed',String(b.dataset.mode===authMode));
+    }else{heading.textContent='WireNexus Account';status.hidden=false;passwordSignIn.textContent='Sign In With Password';recoverAccount.textContent='Recover Account';password.hidden=false;workspaces.hidden=false;privileges.hidden=false;modes.hidden=true;}
     workspaces.replaceChildren();
     for(const ws of identity?.workspaces || []){const row=document.createElement('li');row.textContent=`${ws.name} (${ws.kind}) - ${ws.role[0].toUpperCase()+ws.role.slice(1)}`;workspaces.append(row);}
     privileges.textContent=platformAdmin()?'Platform Admin - Full product access':identity?.mfaRequired?'Platform Admin requires authenticator verification':'';
     for (const b of actions.querySelectorAll('button')) b.disabled = busy;
     onStatus(state, detail);
+    if(notify)for(const listener of [...listeners])listener(snapshot());
   };
   const setState = (value, message = '') => { state = value; detail = message; paint(); };
   const run = async fn => {
@@ -122,11 +143,12 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
     const refreshed=await client.auth.refreshSession();if(refreshed.error)throw refreshed.error;
     clearSecrets();await activate(refreshed.data.session);
   });
-  const signOut = action('ownerSignOut', 'Sign Out', async () => {
+  const signOutAccount=async () => {
     const { error } = await client.auth.signOut({ scope: 'local' }); if (error) throw error;
     pendingFactor='';passwordRecovery=recoveryRequested=false;clearSecrets();
     await activate(null);
-  });
+  };
+  const signOut = action('ownerSignOut', 'Sign Out', signOutAccount);
   const refresh = action('ownerRefresh', 'Refresh Account', async () => {
     await activate(await currentSession());
   });
@@ -151,33 +173,44 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
     })); review.append(commit);
   });
   const close = document.createElement('button'); close.type = 'button'; close.className = 'tool-button'; close.textContent = 'Close'; close.addEventListener('click', () => dialog.close());
-  dialog.append(heading, status, privileges, workspaces, fields, mfa, actions, review, close); document.body.append(dialog); container.append(button);
+  fields.addEventListener('keydown',event=>{if(entryHost && event.key==='Enter'){event.preventDefault();(passwordRecovery?setPassword:recoveryRequested?verifyRecovery:authMode==='password'?passwordSignIn:verify).click();}});
+  mfaCode.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();mfaVerify.click();}});
+  const modes=document.createElement('div');modes.className='account-auth-modes';modes.hidden=true;modes.setAttribute('aria-label','Sign-in method');
+  for(const [value,label] of [['password','Password'],['code','Email code']]){const b=document.createElement('button');b.type='button';b.dataset.mode=value;b.textContent=label;b.addEventListener('click',()=>{authMode=value;clearSecrets();paint();});modes.append(b);}
+  dialog.append(heading, status, privileges, workspaces, modes, fields, mfa, actions, review, close); document.body.append(dialog); container.append(button);
   const plansPanel=mountPlansPanel({container:dialog,identity:()=>owner && identity,rpc:(...args)=>client.rpc(...args)});
+  const selectWorkspace=async wid=>{
+    const member=identity?.workspaces.find(w=>w.id===wid);if(!member)throw new Error('Workspace access unavailable. Refresh Account.');
+    selectedWorkspaceId=member.kind==='enterprise'?wid:null;await activate(await currentSession());
+    if(!owner || identity.workspaceId!==wid)throw new Error('Shared access changed. Refresh Account.');
+  };
   const teamsPanel=mountOrganizationsPanel({container:dialog,identity:()=>owner && identity,rpc:(...args)=>client.rpc(...args),
     refreshAccount:async()=>activate(await currentSession()),
-    selectLibrary:async wid=>{
-      const member=identity?.workspaces.find(w=>w.id===wid);if(!member)throw new Error('Workspace access unavailable. Refresh Account.');
-      selectedWorkspaceId=member.kind==='enterprise'?wid:null;await activate(await currentSession());
-      if(!owner || identity.workspaceId!==wid)throw new Error('Shared access changed. Refresh Account.');
-    },
+    selectLibrary:selectWorkspace,
     invite:async body=>{
       const session=await currentSession();if(!session || session.user.id!==activeId)throw new Error('Account changed. Refresh.');
       const response=await fetch('./api/organization-invite',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},body:JSON.stringify(body)});
       const result=await response.json();if(!response.ok)throw new Error(result.error || 'Invitation could not be sent.');return result;
     }});
   dialog.addEventListener('close',()=>{const pending=pendingFactor;pendingFactor='';clearSecrets();if(pending)client.auth.mfa.unenroll({factorId:pending}).catch(()=>{});});
-  button.addEventListener('click', () => {dialog.showModal();plansPanel.refresh();teamsPanel.refresh();});
+  const showAccount=()=>{if(entryHost){if(dialog.open)dialog.close();entryHost=null;document.body.append(dialog);dialog.classList.remove('account-entry');close.hidden=false;paint();}if(!dialog.open)dialog.showModal();plansPanel.refresh();teamsPanel.refresh();};
+  button.addEventListener('click',showAccount);
   async function activate(session) {
     const ticket = ++epoch;
     plansPanel.clear();
     teamsPanel.clear();
     if (!session) {
+      requiresMfa=false;
       activeId = null; owner = null; store = null; identity=null;selectedWorkspaceId=null;pendingFactor='';passwordRecovery=recoveryRequested=false;review.replaceChildren();clearSecrets();teamsPanel.refresh();
       await onOwner(recoveryOwner, false, null); setState(configured ? 'Pending sync' : state, configured ? 'Sign in to save to your account. Browser recovery is retained.' : ''); return;
     }
     if(activeId && activeId!==session.user.id){owner=store=identity=null;selectedWorkspaceId=null;pendingFactor='';passwordRecovery=recoveryRequested=false;clearSecrets();await onOwner(recoveryOwner,false,null);}
     setState('Pending sync', 'Verifying account and loading personal workspace');
     try {
+      const assurance=await client.auth.mfa?.getAuthenticatorAssuranceLevel?.();
+      if(ticket!==epoch)return;
+      if(assurance?.error)throw assurance.error;
+      requiresMfa=assurance?.data?.nextLevel==='aal2' && assurance?.data?.currentLevel!=='aal2';
       if(selectedWorkspaceId){
         const membership=await client.rpc('wirenexus_library',{operation:'identity',payload:{expectedAccountId:session.user.id}});
         if(ticket!==epoch)return;
@@ -189,6 +222,7 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
       const next = await createOwner(candidate);
       if (ticket !== epoch) return;
       identity=candidate.identity();
+      requiresMfa ||= identity.mfaRequired===true;
       if(identity.accountId!==session.user.id)throw new Error('Account changed while loading. Refresh Account.');
       store = candidate; owner = next; activeId = identity.accountId;
       await onOwner(next,platformAdmin(),identity); setState('Synced'); plansPanel.refresh();teamsPanel.refresh();
@@ -203,6 +237,8 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
   try {
     const response = await fetch(configUrl, { cache: 'no-store' });
     const config = response.ok ? await response.json() : { configured: false };
+    if(!response.ok && response.status!==404)throw new Error('Account configuration is temporarily unavailable.');
+    configurationKnown=true;
     configured = config.configured === true;
     registrationEnabled=config.registrationEnabled===true;
     if (configured) {
@@ -212,12 +248,19 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
       await activate(data.session);
       client.auth.onAuthStateChange((event, session) => {
         // Never await authenticated requests while the SDK's session lock is held.
-        if (event === 'SIGNED_OUT' || ['TOKEN_REFRESHED','MFA_CHALLENGE_VERIFIED'].includes(event) || (event === 'SIGNED_IN' && session?.user.id !== activeId)) setTimeout(() => activate(session).catch(error => setState('Sync failed', error.message)), 0);
+        if(event==='PASSWORD_RECOVERY')passwordRecovery=recoveryRequested=true;
+        if (event === 'SIGNED_OUT' || ['PASSWORD_RECOVERY','TOKEN_REFRESHED','MFA_CHALLENGE_VERIFIED'].includes(event) || (event === 'SIGNED_IN' && session?.user.id !== activeId)) setTimeout(() => activate(session).catch(error => setState('Sync failed', error.message)), 0);
       });
     } else setState(state, config.error || 'See docs/owner-account-setup.md. Browser data is not account-synced.');
   } catch (error) { setState('Sync failed', `Account setup unavailable: ${error.message}`); }
+  ready=true;paint();
   if(teamsPanel.hasInvitation()){teamsPanel.refresh();dialog.showModal();}
   return Object.freeze({ isAccount: () => !!owner, canSave: () => !configured || (!!owner && identity?.workspaceRole!=='viewer'), status: () => state,
+    entryState:snapshot,
+    subscribe(listener){listeners.add(listener);listener(snapshot());return()=>listeners.delete(listener);},
+    showAccount,selectWorkspace,signOut:()=>run(signOutAccount),
+    showEntry(host){if(entryHost!==host){if(dialog.open)dialog.close();entryHost=host;host.append(dialog);dialog.classList.add('account-entry');close.hidden=true;}if(!dialog.open)dialog.show();paintEntry();},
+    hideEntry(){if(entryHost && dialog.open)dialog.close();},
     async refreshLibrary() {
       if(!owner)return recoveryOwner.refresh();const ticket=epoch,captured=store;
       try {
@@ -246,4 +289,8 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
     },
     async savePreferences(value) { if (!owner) throw new Error('Sign in to save account preferences.'); await owner.savePreferences(value); },
     preferences: () => owner?.preferences() || null });
+  function paintEntry(){
+    // Do not notify navigation subscribers while changing dialog presentation.
+    paint(false);
+  }
 }

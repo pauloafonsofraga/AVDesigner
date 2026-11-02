@@ -69,9 +69,9 @@ export function mountCloudProjects({account,serialize,load,capture,markSaved,isD
     await refresh();
   }
   async function open(row,versionId,activate=false) {
-    if(isDirty() && !confirm('Open cloud project and discard unsaved canvas changes?'))return;
+    if(isDirty() && !confirm('Open cloud project and discard unsaved canvas changes?'))return false;
     if(!versionId && collaboration && (activate || row.collaboration_active===true) && current().workspaces.find(w=>w.id===row.workspace_id)?.kind==='enterprise') {
-      if(await collaboration.open(row,{activate})) {binding=row;dialog.close();return;}
+      if(await collaboration.open(row,{activate})) {binding=row;dialog.close();return true;}
     }
     const i=current(),ticket=epoch,result=await client().open(row.id,versionId);check(i.accountId,ticket);
     await load(result.text,result.project.name); // Existing .avd loader, including compatibility and artwork handling.
@@ -79,6 +79,7 @@ export function mountCloudProjects({account,serialize,load,capture,markSaved,isD
     // Opening old history is a read-only recovery preview. Save Separate Copy or recover it explicitly.
     binding=result.version===result.project.current_version?result.project:null;
     dialog.close();message(`Opened ${result.project.name} - version ${result.version}`);
+    return true;
   }
   async function versions(row) {
     const i=current(),ticket=epoch,items=await client().versions(row.id);check(i.accountId,ticket);history.replaceChildren();
@@ -121,5 +122,6 @@ export function mountCloudProjects({account,serialize,load,capture,markSaved,isD
       await refresh();
     });
   }
-  return {show,detach,binding:()=>binding,collaboration};
+  return {show,detach,binding:()=>binding,collaboration,
+    async openProject(row){if(busy)throw new Error('A cloud operation is in progress.');identity=current();return open(row);}};
 }

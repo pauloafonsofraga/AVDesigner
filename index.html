@@ -6738,6 +6738,23 @@
               label.textContent = state; label.title = detail || '';
             }
           });
+          if (engineRendererRequested()) {
+            const {mountAccountPortal} = await import(engineImportUrl("./src/accountPortal.js"));
+            window.wireNexusAccountPortal = mountAccountPortal({account:accountLibraryUi,
+              designerRoot:document.querySelector('.app'),designerHeader:document.querySelector('.topbar'),
+              launchProject:row=>showCloudProjects('open',row),
+              onNavigate:(_,{fit})=>{
+                if (!fit) return;
+                const deadline=performance.now()+5000;
+                const fitReadyCanvas=()=>{
+                  if (window.wireNexusAccountPortal?.visible()) return;
+                  const bridge=activeEngineBridge();
+                  if (bridge?.ready && !bridge.viewportReplayGuard) editorActions.fitView();
+                  else if (performance.now()<deadline) requestAnimationFrame(fitReadyCanvas);
+                };
+                requestAnimationFrame(fitReadyCanvas);
+              }});
+          }
           const refreshAccountLibrary = () => (accountLibraryUi?.refreshLibrary?.() || localUserSettingsOwner.refresh()).catch(error => setStatus(`Library refresh failed: ${error.message}`));
           if (personalLibraryChannel) personalLibraryChannel.onmessage = refreshAccountLibrary;
           window.addEventListener("focus", refreshAccountLibrary);
@@ -34455,7 +34472,7 @@ document.addEventListener("click", function(event) {
       return JSON.stringify(data, null, 2);
     }
 
-    async function showCloudProjects(mode) {
+    async function showCloudProjects(mode, project) {
       try {
         await loadLocalUserSettings();
         cloudProjectsMount ||= import(engineImportUrl("./src/cloudProjectsUi.js")).then(async ({ mountCloudProjects }) => {
@@ -34488,7 +34505,9 @@ document.addEventListener("click", function(event) {
               { onLoaded: resolve, onError: reject })) });
           return cloudProjectsUi;
         });
-        await (await cloudProjectsMount).show(mode);
+        const ui = await cloudProjectsMount;
+        if (project) return ui.openProject(project);
+        await ui.show(mode);
       } catch (error) { alert(`Cloud projects unavailable: ${error.message || error}`); }
     }
 
@@ -34551,6 +34570,7 @@ document.addEventListener("click", function(event) {
     let projectShortcutSavePending = false;
     async function handleProjectSaveShortcut(event) {
       if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey || event.key.toLowerCase() !== "s") return;
+      if (globalThis.wireNexusAccountPortal?.visible()) { event.preventDefault(); return; }
       event.preventDefault();
       event.stopImmediatePropagation();
       if (event.repeat || projectShortcutSavePending) return;
