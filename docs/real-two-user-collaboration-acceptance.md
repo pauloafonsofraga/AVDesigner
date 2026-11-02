@@ -1,13 +1,57 @@
 # Phase 6.6Q: Real two-user collaboration acceptance
 
-Date: 2026-11-02. **Result: BLOCKED / incomplete acceptance.**
+Date: 2026-11-02. **Result: PASS for the requested two-user synthetic staging
+acceptance scope on revision `00003-zpp`. Not production release approval.**
 
 Follow-up: the sequential-undo blocker below was corrected in `dd109d4`, deployed
 to private revision `00003-zpp`, and its narrow real two-user reproduction and
 cross-user conflict protection passed. See
 [the deployment and verification record](collaborative-undo-staging-deployment.md).
-This historical report retains the original failure evidence; the broader
-acceptance items below remain incomplete, not newly certified by the undo retest.
+The remaining acceptance checks have now passed as recorded below. The original
+failure evidence is retained in the historical section, not a current blocker.
+
+## Completed Remaining Acceptance
+
+Existing private staging service, workspace and synthetic project were reused.
+Two isolated Chrome Dev contexts used independently verified real Owner and
+Editor Supabase sessions through the existing authorized Google IAM transport.
+The operator performed canvas actions; hosted API responses and ordered history
+were independently inspected. No Auth, SQL, operation or Realtime response was
+mocked, and server validation was not bypassed.
+
+| Check | Evidence / result |
+| --- | --- |
+| Both users create and modify cables | Owner deleted/recreated the first HDMI cable at sequences 22/23, then set 11m at 24. Editor deleted/recreated the second at 25/26, then set 22m at 27. Both port pairs retained their intended device/connector endpoints; both windows agreed. |
+| Simultaneous conflicting edits | Two actual browser commands held briefly by the test transport both specified expected sequence 27. Released together, the Owner command committed at 28; the Editor command returned 409 and is absent from accepted history. A subsequent overlapping pair also rejected the Editor rebase atomically. The operator observed recovery to the Owner position. |
+| Connected objects preserve topology | Connected source/sink moves and cable edits retained two devices and four valid cables. The existing Engine `projectTopologyDiagnostics` returned zero findings at sequences 27, 29 and 31. Other cable identities/endpoints were preserved. |
+| Genuine disconnect and catch-up | Only the Editor test browser was set offline at sequence 29; its actual collaboration requests failed with `net::ERR_INTERNET_DISCONNECTED`. Owner committed source movement 30 and first-cable length 33m at 31. After network restoration, Editor history read `after: 29` returned exactly `[30,31]`, then empty catch-up pages after 31. No reload or manual snapshot injection. |
+| Final convergence | Both authenticated head reads returned identical documents at sequence 31. Operator confirmed the Editor canvas displayed the new source position, first HDMI 33m and second HDMI 22m, matching Owner without refresh. This combines server-document comparison and observed browser behavior, not a hash of browser-local camera/draft state. |
+| Recovery and personal data | Original version 1 remains readable through the existing cloud client; complete chunk/digest verification matches the earlier recovery read. Shared saved version/revision remain 1. Both personal Owner memberships and company Owner/Editor roles remain; the existing personal project remains version/revision 4, with no secondary personal project created. |
+
+Both contexts are online again; the temporary race gate was removed. No new
+application defect was observed. Final hosted checks: revision remains
+`wirenexus-staging-00003-zpp`, operator health 200, anonymous health 403 and
+Supabase signup disabled. No deployment, infrastructure, IAM, DNS, registration,
+workspace permission or production change occurred during these remaining tests.
+Only synthetic shared-project operations and normal Auth/presence/read traffic
+were exercised; no manual checkpoint, restore or personal-project edit was made.
+
+### Remaining Release Boundaries
+
+These results cover the requested two-user synthetic scenario, not arbitrary
+large projects, many-user contention, prolonged outages, offline merging, all
+modular/Jump/Loom/Multi-Core combinations, or browser-restart recovery. The test
+demonstrates catch-up through the authoritative history API; it does not isolate
+WebSocket notification delivery from the existing polling fallback. Historical
+version integrity/read access was verified without destructively restoring the
+baseline over the live head. Existing container/npm findings and the restricted
+pilot's 2026-11-06 security re-review deadline remain; public/production release
+and broader exposure are not authorized by this acceptance pass. See
+[the image security disposition](collaborative-undo-staging-deployment.md).
+
+Sanitized evidence: [completed acceptance](security/real-two-user-acceptance.json).
+
+## Historical Blocked Run
 
 Target: existing IAM-private `wirenexus-staging` service, revision
 `wirenexus-staging-00002-4ph`, unchanged reviewed image. Existing Enterprise

@@ -117,6 +117,9 @@ responses and accepted history were independently checked.
 
 No unrelated feature, cable-edit/reconnect/full collaboration acceptance sequence,
 snapshot restore or manual checkpoint was initiated. No remaining defect was
-observed in these narrow undo checks. Broader Phase 6.6Q acceptance and the
-documented security findings/pilot deadline remain outstanding; this is not full
-collaboration or public/production release approval.
+observed in these narrow undo checks. The subsequently requested remaining Phase
+6.6Q synthetic two-user checks also passed; see the
+[completed acceptance record](real-two-user-collaboration-acceptance.md).
+The documented security findings/pilot deadline and broader release validation
+remain outstanding; this is not general collaboration or public/production
+release approval.

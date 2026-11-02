@@ -3,9 +3,11 @@
 Date: 2026-11-02 (Asia/Dubai). Target: Supabase staging
 `puyrylatmtcwlvyycplc`, existing Cloud Run project `wirenexus-staging`.
 
-**Status: Enterprise setup ready; secondary Editor invitation accepted and
-authenticated project read verified. Live collaboration acceptance NOT RUN.**
-No simultaneous-edit test was started.
+**Status: Enterprise setup ready; requested real two-user synthetic collaboration
+acceptance passed on private revision `00003-zpp`.** See
+[the completed acceptance record](real-two-user-collaboration-acceptance.md).
+The setup and invitation records below describe the earlier milestones; their
+statements that live acceptance had not started are historical, not current status.
 
 ## Invitation Closure
 

@@ -1,0 +1,104 @@
+{
+  "date": "2026-11-02",
+  "timezone": "Asia/Dubai",
+  "status": "PASS_REQUESTED_REMAINING_TWO_USER_SYNTHETIC_SCOPE",
+  "project": "wirenexus-staging",
+  "region": "europe-west1",
+  "revision": "wirenexus-staging-00003-zpp",
+  "imageDigest": "sha256:81ae647d17c7631f1c6d55e7606bcc97ad780d146a4816b7d3206ffec1ea862a",
+  "workspaceId": "8f039bb0-df58-411e-beb4-c815d7c88404",
+  "projectId": "19617748-8724-4bfe-a6eb-37515a2e30fd",
+  "independentRealAccountSessions": true,
+  "operatorPerformedBrowserActions": true,
+  "mockedAuthoritativeResponses": false,
+  "cables": {
+    "ownerCreateSequence": 23,
+    "ownerModifySequence": 24,
+    "editorCreateSequence": 26,
+    "editorModifySequence": 27,
+    "ownerCableId": "engine-wire-4",
+    "editorCableId": "engine-wire-5",
+    "firstPortPairPreserved": true,
+    "secondPortPairPreserved": true,
+    "finalLengths": [
+      "33m",
+      "22m"
+    ],
+    "finalCableCount": 4
+  },
+  "simultaneousConflict": {
+    "releaseReason": "both-browser-commands-ready",
+    "submittedExpectedSequences": [
+      27,
+      27
+    ],
+    "winnerSequence": 28,
+    "winner": "owner",
+    "losingActor": "editor",
+    "losingHttpStatus": 409,
+    "losingCommandAbsentFromAcceptedHistory": true,
+    "noHybridGeometry": true
+  },
+  "connectedObjects": {
+    "engineTopologyDiagnosticCount": 0,
+    "checkedSequences": [
+      27,
+      29,
+      31
+    ],
+    "finalDevices": 2,
+    "finalCables": 4
+  },
+  "reconnect": {
+    "disconnectedContext": "editor",
+    "lastSeenSequence": 29,
+    "realBrowserOfflineFailuresObserved": true,
+    "missedSequences": [
+      30,
+      31
+    ],
+    "catchupReadObserved": true,
+    "finalSequence": 31,
+    "networkRestored": true,
+    "noRefreshRequired": true
+  },
+  "convergence": {
+    "ownerSequence": 31,
+    "editorSequence": 31,
+    "identicalServerDocuments": true,
+    "documentSha256": "2bb7b1b7bfe2542da4ab18351c69139121c1dc499a610f54984f94d2fcde2370",
+    "operatorConfirmedMatchingCanvas": true,
+    "clientCameraOrDraftHashClaimed": false
+  },
+  "preservation": {
+    "versionOneReadable": true,
+    "recoveryDigestVerified": true,
+    "recoveryDigestMatchesEarlierRead": true,
+    "sharedSavedVersion": 1,
+    "sharedSavedRevision": 1,
+    "personalOwnerMemberships": 2,
+    "originalPersonalProjectVersion": 4,
+    "originalPersonalProjectRevision": 4,
+    "secondaryPersonalProjects": 0,
+    "companyRoles": [
+      "owner",
+      "editor"
+    ]
+  },
+  "security": {
+    "anonymousStatus": 403,
+    "operatorHealth": 200,
+    "signupDisabled": true,
+    "revisionUnchanged": true,
+    "noDeployment": true,
+    "noIamOrInfrastructureChanges": true,
+    "noDnsOrProductionChanges": true
+  },
+  "limits": [
+    "No load/large-project/many-user certification",
+    "No automatic offline merging or browser-restart recovery claim",
+    "Private Realtime delivery was not isolated from polling fallback",
+    "Historical baseline read/integrity verified; no destructive restore",
+    "Existing image advisories and pilot security review deadline remain"
+  ]
+}
