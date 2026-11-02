@@ -46,13 +46,24 @@ ownership, the entire operation rejects. No project/head/log/version partially a
 `undo`/`redo` requests identify a target accepted sequence and a new stable command ID.
 The server fetches that operation and verifies its recorded actor is the authenticated
 requester. It derives inverse effects from durable history, checks intervening write
-footprints, validates the complete candidate and commits a new operation. Redo inverts
-the accepted undo, not a browser snapshot of the original project.
+footprints from other actors, validates the complete candidate and commits a new
+operation. Redo inverts the accepted undo, not a browser snapshot of the original
+project.
+
+The staging sequential-undo correction allows the requester's intervening writes
+to have been canceled by their own accepted undo operations. These writes are not
+historical peer conflicts. The current-value merge still requires every inverse
+effect to match the current field/group: an older undo cannot overwrite an active
+later move. Other actors' intervening footprints remain strict conflicts, even
+after an ABA round trip or that other actor's own undo. Rebase conflict checks are
+unchanged. The accepted inverse is regenerated with current entity revisions,
+validated and committed through the same sequence CAS and idempotent receipts.
 
 Only fields owned by that operation are reversed. Another user's unrelated name,
 geometry, circuit label or card-slot change remains intact. Reversing a creation or
 restoring a deleted cable can be refused if a collaborator now depends on the object
-or occupies its port. ABA writes also block undo. No partial compensation is applied.
+or occupies its port. Other actors' ABA writes also block undo. No partial
+compensation is applied.
 
 Local undo/redo stacks move only after the accepted operation is read/acknowledged.
 Lost responses retry the same request ID. Rejected undo and unrelated edit conflicts
@@ -104,6 +115,18 @@ and project checkpoints intact during rollback; accepted records remain ordinary
 transactions and need no file/schema migration.
 
 ## Development Validation
+
+Sequential-undo follow-up (2026-11-02): the exact two-move/two-undo regression
+failed before the correction. Four added regressions cover successive undo/redo,
+repeated cycles with interleaved peer edits, active own writes, peer geometry/ABA
+protection, idempotent receipts and revision pins. Focused protocol, cloud, local
+history and collaboration suites pass 118/118. An isolated HEAD archive plus only
+the two scoped code/test diffs passes `node --test --test-concurrency=2
+test/*.test.mjs`: 2,304 tests, zero failures/skips. All 16 static validators pass
+in that isolated tree. Unrelated Device JSON Import edits were excluded. No
+deployment, staging request/data change, infrastructure change or resumed browser
+acceptance was performed for this correction. The real staging result remains
+blocked until the fix is separately deployed and acceptance explicitly resumed.
 
 Validated on an isolated staged tree, excluding unrelated Device JSON Import work:
 

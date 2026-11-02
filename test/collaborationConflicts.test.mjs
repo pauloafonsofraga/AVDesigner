@@ -167,6 +167,71 @@ test('own field-selective undo/redo preserves another user property and is autho
   h=await c.call('read');assert.equal(h.document.devices[0].x,5);assert.equal(h.document.devices[0].name,'Other name');
 });
 
+test('two moves, two undos and two redos replay deterministically with stable receipts and revision guards',async t=>{
+  const c=await setup(t);await c.submit(await c.command(p=>p.devices[0].x=10),0,STRANGER);
+  let h=await c.call('read');await c.submit(await c.command(p=>p.devices[0].x=30,h),1,STRANGER);
+  const secondUndo=await c.undo(2,2,STRANGER),commandId=crypto.randomUUID();
+  const firstUndo=await c.undo(1,3,STRANGER,{commandId});
+  assert.equal((await c.undo(1,3,STRANGER,{commandId})).duplicate,true);
+  h=await c.call('read');assert.equal(h.sequence,4);assert.equal(h.document.devices[0].x,0);
+  const redo={targetSequence:firstUndo.sequence,expectedSequence:4,commandId:crypto.randomUUID()};
+  await assert.rejects(c.call('redo',{...redo,ontoSequence:5},STRANGER),conflict);
+  await c.call('redo',redo,STRANGER);
+  assert.equal((await c.call('redo',redo,STRANGER)).duplicate,true);
+  h=await c.call('read');assert.equal(h.sequence,5);assert.equal(h.document.devices[0].x,10);
+  await c.call('redo',{targetSequence:secondUndo.sequence,expectedSequence:5,commandId:crypto.randomUUID()},STRANGER);
+  h=await c.call('read');assert.equal(h.sequence,6);assert.equal(h.document.devices[0].x,30);
+  const history=await c.call('history');
+  assert.deepEqual(history.operations.map(o=>o.sequence),[1,2,3,4,5,6]);
+  assert.deepEqual(h.document.connections,c.head.document.connections);
+});
+
+test('successive own movement undo/redo ignores canceled own writes while preserving interleaved collaborator edits',async t=>{
+  const c=await setup(t),editor=await c.client(STRANGER),owner=await c.client(OWNER);
+  await editor.edit(p=>p.devices[0].x+=10);
+  await editor.edit(p=>p.devices[0].x+=20);
+  await owner.session.tick();
+  await owner.edit(p=>{p.devices[1].y=45;p.devices[0].name='Owner label';});
+  await editor.session.tick();
+  for(let cycle=0;cycle<2;cycle++) {
+    for(const [direction,positions] of [['undo',[10,0]],['redo',[10,30]]])for(const x of positions) {
+      await editor.session.history(direction);await owner.session.tick();
+      const head=await c.call('read');
+      assert.equal(head.document.devices[0].x,x);
+      assert.equal(head.document.devices[0].name,'Owner label');
+      assert.equal(head.document.devices[1].y,45);
+      assert.deepEqual(head.document.connections,c.head.document.connections);
+      assert.deepEqual(editor.local.devices,owner.local.devices);
+      assert.equal(editor.session.head.sequence,head.sequence);
+      assert.equal(owner.session.head.sequence,head.sequence);
+    }
+  }
+  assert.equal((await c.call('read')).sequence,11);
+  assert.equal(editor.recovery.length+owner.recovery.length,0);
+});
+
+test('undo still rejects an earlier own move while a later own move is active, without a partial commit',async t=>{
+  const c=await setup(t);await c.submit(await c.command(p=>p.devices[0].x=10),0,STRANGER);
+  let h=await c.call('read');await c.submit(await c.command(p=>p.devices[0].x=30,h),1,STRANGER);
+  const before=await c.call('read');
+  await assert.rejects(c.undo(1,2,STRANGER),conflict);
+  assert.deepEqual(await c.call('read'),before);
+  await c.undo(2,2,STRANGER);await c.undo(1,3,STRANGER);
+  h=await c.call('read');assert.equal(h.sequence,4);assert.equal(h.document.devices[0].x,0);
+});
+
+test('successive undo cannot overwrite another collaborator geometry even after that collaborator undoes it',async t=>{
+  const c=await setup(t);await c.submit(await c.command(p=>p.devices[0].x=10),0,STRANGER);
+  let h=await c.call('read');await c.submit(await c.command(p=>p.devices[0].x=30,h),1,STRANGER);
+  await c.undo(2,2,STRANGER);
+  h=await c.call('read');await c.submit(await c.command(p=>p.devices[0].y=50,h),3,OWNER);
+  await assert.rejects(c.undo(1,4,STRANGER),conflict);
+  await c.undo(4,4,OWNER);
+  const before=await c.call('read');assert.equal(before.document.devices[0].y,0);
+  await assert.rejects(c.undo(1,5,STRANGER),conflict);
+  assert.deepEqual(await c.call('read'),before);
+});
+
 test('undo cannot delete an earlier created object now used by another user cable',async t=>{
   const doc=cableTypeSelectionFixture(),source=doc.devices.shift(),wire=doc.connections[0];doc.connections=[];
   const c=await setup(t,doc),create=await c.command(p=>p.devices.push(source));await c.submit(create);

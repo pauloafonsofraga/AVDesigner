@@ -63,7 +63,9 @@ export function createCollaborationOperations({rpc,actorId,actorAal='aal1'}) {
           await replayTopologyCommand(base.project,command,base.state);
           original=command;
         }
-        assertIndependent(original,intervening);
+        // Own edits may already have been reversed. The current-value merge still
+        // guards active own writes; retain strict historical conflicts for peers.
+        assertIndependent(original,undo?intervening.filter(op=>op.actor_id!==actorId):intervening);
         const candidate=mergeCommandEffects(head.document,original,{inverse:undo});
         const accepted=await createTopologyCommand(head.document,candidate,{state:head.replayState,commandId,
           intent:undo?`${input.action}: ${original.intent}`.slice(0,512):original.intent,origin:undo?input.action:original.origin});
