@@ -259,6 +259,13 @@ export async function mountAccountLibrary({ container, recoveryStore, createOwne
     entryState:snapshot,
     subscribe(listener){listeners.add(listener);listener(snapshot());return()=>listeners.delete(listener);},
     showAccount,selectWorkspace,signOut:()=>run(signOutAccount),
+    async planStatus(){
+      if(!owner || !identity)throw new Error('Sign in before viewing plans.');
+      const ticket=epoch,uid=identity.accountId;
+      const {data,error}=await client.rpc('wirenexus_plans',{operation:'status',payload:{expectedAccountId:uid}});
+      if(ticket!==epoch || identity?.accountId!==uid)throw new Error('Account changed. Refresh plans.');
+      if(error)throw new Error(error.message || 'Plan information unavailable.');return data;
+    },
     showEntry(host){if(entryHost!==host){if(dialog.open)dialog.close();entryHost=host;host.append(dialog);dialog.classList.add('account-entry');close.hidden=true;}if(!dialog.open)dialog.show();paintEntry();},
     hideEntry(){if(entryHost && dialog.open)dialog.close();},
     async refreshLibrary() {

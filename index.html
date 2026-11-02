@@ -6743,6 +6743,13 @@
             window.wireNexusAccountPortal = mountAccountPortal({account:accountLibraryUi,
               designerRoot:document.querySelector('.app'),designerHeader:document.querySelector('.topbar'),
               launchProject:row=>showCloudProjects('open',row),
+              browseCloud:()=>showCloudProjects('open'),newProject,
+              projectName:()=>state.projectName,
+              mutateProject:async(row,operation,payload)=>(await ensureCloudProjectsUi()).mutateProject(row,operation,payload),
+              loadLocal:file=>{
+                if(projectUnsavedChanges?.isDirty() && !confirm('Open local project and discard unsaved canvas changes?'))return false;
+                return new Promise((resolve,reject)=>loadProjectFile(file,{onLoaded:()=>resolve(true),onError:reject}));
+              },
               onNavigate:(_,{fit})=>{
                 if (!fit) return;
                 const deadline=performance.now()+5000;
@@ -34472,8 +34479,7 @@ document.addEventListener("click", function(event) {
       return JSON.stringify(data, null, 2);
     }
 
-    async function showCloudProjects(mode, project) {
-      try {
+    async function ensureCloudProjectsUi() {
         await loadLocalUserSettings();
         cloudProjectsMount ||= import(engineImportUrl("./src/cloudProjectsUi.js")).then(async ({ mountCloudProjects }) => {
           const {applyTopologyIntent} = await import(engineImportUrl("./src/liveCollaboration.js"));
@@ -34501,11 +34507,17 @@ document.addEventListener("click", function(event) {
             serialize: projectJsonPayload, capture: () => projectUnsavedChanges?.capture(),
             markSaved: checkpoint => projectUnsavedChanges?.markSaved(checkpoint),
             isDirty: () => projectUnsavedChanges?.isDirty(), projectName: () => state.projectName, onStatus: setStatus,
+            onOpened:()=>window.wireNexusAccountPortal?.didOpenProject(),
             load: (text, name) => new Promise((resolve, reject) => loadProjectFile(new File([text], `${name}.avd`, { type: "application/json" }),
               { onLoaded: resolve, onError: reject })) });
           return cloudProjectsUi;
         });
-        const ui = await cloudProjectsMount;
+        return cloudProjectsMount;
+    }
+
+    async function showCloudProjects(mode, project) {
+      try {
+        const ui = await ensureCloudProjectsUi();
         if (project) return ui.openProject(project);
         await ui.show(mode);
       } catch (error) { alert(`Cloud projects unavailable: ${error.message || error}`); }
@@ -34960,7 +34972,7 @@ document.addEventListener("click", function(event) {
 
       if (state.devices.length || state.ledSurfaces.length || state.areas.length || state.jumpNodes.length || state.comments.length || state.titleBlocks.length || state.connections.length || Object.hasOwn(state, "multiCores") || Object.hasOwn(state, "multiCoreDefinitions")) {
         const confirmed = confirm("Start a new project? Unsaved changes will be lost.");
-        if (!confirmed) return;
+        if (!confirmed) return false;
         pushUndo();
       }
       if(typeof cloudProjectsUi !== 'undefined')cloudProjectsUi?.detach();
@@ -35003,6 +35015,7 @@ document.addEventListener("click", function(event) {
       resetZoom();
       render();
       projectUnsavedChanges?.reset();
+      return true;
     }
 
     function downloadBlob(content, filename, type) {

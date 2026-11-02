@@ -1,7 +1,7 @@
 import {createCloudProjects} from './cloudProjects.js';
 import {mountLiveCollaboration} from './liveCollaborationUi.js';
 
-export function mountCloudProjects({account,serialize,load,capture,markSaved,isDirty,projectName,onStatus=()=>{},live}) {
+export function mountCloudProjects({account,serialize,load,capture,markSaved,isDirty,projectName,onStatus=()=>{},onOpened=()=>{},live}) {
   const collaboration=live?mountLiveCollaboration({account,load,onStatus,capture,onSaved:checkpoint=>markSaved(checkpoint),...live}):null;
   const dialog=document.createElement('dialog');dialog.id='cloudProjectsDialog';
   dialog.style.cssText='width:min(900px,calc(100vw - 32px));max-height:85vh;overflow:auto;background:var(--panel,#20272d);color:var(--text,#fff);border:1px solid var(--line,#566);border-radius:6px;padding:20px';
@@ -61,17 +61,17 @@ export function mountCloudProjects({account,serialize,load,capture,markSaved,isD
     }
     message(binding?`Linked to ${binding.name} - revision ${binding.revision}`:'Cloud projects');
   }
-  async function mutate(row,operation,payload) {
+  async function mutate(row,operation,payload,refreshListing=true) {
     const i=current(),ticket=epoch;
     const result=await client().call(operation,{projectId:row.id,expectedRevision:row.revision,...payload});check(i.accountId,ticket);
     // Never adopt a revision from somebody else's changed head after a refresh.
     if(binding?.id===row.id && binding.revision===row.revision && ['rename','archive'].includes(operation))binding=result;
-    await refresh();
+    if(refreshListing)await refresh();return result;
   }
-  async function open(row,versionId,activate=false) {
+  async function open(row,versionId,activate=false,notify=true) {
     if(isDirty() && !confirm('Open cloud project and discard unsaved canvas changes?'))return false;
     if(!versionId && collaboration && (activate || row.collaboration_active===true) && current().workspaces.find(w=>w.id===row.workspace_id)?.kind==='enterprise') {
-      if(await collaboration.open(row,{activate})) {binding=row;dialog.close();return true;}
+      if(await collaboration.open(row,{activate})) {binding=row;dialog.close();if(notify)onOpened(row);return true;}
     }
     const i=current(),ticket=epoch,result=await client().open(row.id,versionId);check(i.accountId,ticket);
     await load(result.text,result.project.name); // Existing .avd loader, including compatibility and artwork handling.
@@ -79,6 +79,7 @@ export function mountCloudProjects({account,serialize,load,capture,markSaved,isD
     // Opening old history is a read-only recovery preview. Save Separate Copy or recover it explicitly.
     binding=result.version===result.project.current_version?result.project:null;
     dialog.close();message(`Opened ${result.project.name} - version ${result.version}`);
+    if(notify)onOpened(result.project);
     return true;
   }
   async function versions(row) {
@@ -123,5 +124,6 @@ export function mountCloudProjects({account,serialize,load,capture,markSaved,isD
     });
   }
   return {show,detach,binding:()=>binding,collaboration,
-    async openProject(row){if(busy)throw new Error('A cloud operation is in progress.');identity=current();return open(row);}};
+    async openProject(row){if(busy)throw new Error('A cloud operation is in progress.');identity=current();return open(row,undefined,false,false);},
+    async mutateProject(row,operation,payload){if(busy)throw new Error('A cloud operation is in progress.');identity=current();return mutate(row,operation,payload,false);}};
 }
