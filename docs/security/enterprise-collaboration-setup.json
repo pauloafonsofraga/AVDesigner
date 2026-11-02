@@ -1,0 +1,76 @@
+{
+  "date": "2026-11-02",
+  "status": "ENTERPRISE_BASELINE_READY_EDITOR_ENROLLMENT_BLOCKED",
+  "supabaseProject": "puyrylatmtcwlvyycplc",
+  "setup": {
+    "workspaceId": "8f039bb0-df58-411e-beb4-c815d7c88404",
+    "workspaceName": "WireNexus Collaboration Acceptance",
+    "enterprisePlanAssigned": true,
+    "projectId": "19617748-8724-4bfe-a6eb-37515a2e30fd",
+    "projectName": "Enterprise Collaboration Synthetic AV",
+    "projectVersion": 1,
+    "devices": 2,
+    "cables": 4,
+    "ownerAal2Verified": true,
+    "twoIsolatedAccountSessionsVerified": true,
+    "secondaryPlatformAdmin": false,
+    "secondaryMembershipGranted": false,
+    "secondarySharedAccessDenied": true,
+    "denialCode": "42501",
+    "invitationStatus": 503,
+    "invitationError": "Invitation email requires administrator configuration.",
+    "registration": {
+      "applicationRegistrationDisabled": true,
+      "authSignupDisabled": true
+    },
+    "logoutStatuses": [
+      204,
+      204
+    ],
+    "liveCollaborationActivated": false
+  },
+  "infrastructure": {
+    "result": "PASS",
+    "revision": "projects/wirenexus-staging/locations/europe-west1/services/wirenexus-staging/revisions/wirenexus-staging-00001-nkj",
+    "image": "europe-west1-docker.pkg.dev/wirenexus-staging/wirenexus-images/wirenexus@sha256:fdba185aa262f916bb705ae929eae68c61eaf05afba37ec4aa55b1f1e0919598",
+    "iamUnchanged": true,
+    "environmentUnchanged": true,
+    "invitationEmailStillUnconfigured": true,
+    "anonymousStatus": 403
+  },
+  "provisioning": {
+    "approvedSecondaryAccountCreated": true,
+    "personalWorkspaces": 1,
+    "personalOwnerMemberships": 1,
+    "personalPlan": "free",
+    "platformAdmin": false,
+    "trustedMarkerVerified": true,
+    "authorizationConsumed": true,
+    "passwordStored": false
+  },
+  "databaseChecks": {
+    "sharedProjectCount": 1,
+    "sharedCollaborationHeads": 0,
+    "invitationCount": 0,
+    "secondaryCompanyMembership": 0,
+    "operatorPlatformAdmin": true,
+    "secondaryPlatformAdmin": false,
+    "personalPlansUnchanged": true,
+    "personalProjectFingerprintsUnchanged": true,
+    "authTriggersEnabled": true,
+    "registrationEnabled": false
+  },
+  "tests": {
+    "passed": 34,
+    "failed": 0
+  },
+  "boundaries": {
+    "noIamChanges": true,
+    "noDnsChanges": true,
+    "noDeployment": true,
+    "noInvitationConfigurationChanges": true,
+    "noProductionChanges": true,
+    "noCustomAuthenticationHelper": true,
+    "noLiveAcceptanceTest": true
+  }
+}
