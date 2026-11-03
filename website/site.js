@@ -3,7 +3,8 @@ import {applicationUrl,products} from './config.js';
 for(const link of document.querySelectorAll('[data-app-link]'))link.href=applicationUrl(location.href);
 for(const list of document.querySelectorAll('[data-products]')){
   for(const product of products){
-    const link=document.createElement('a');link.href=product.href;link.className='product-link';
+    const link=document.createElement('a');link.href=product.href;link.className='product-link';link.dataset.product=product.name;
+    if(product.image){const img=document.createElement('img');img.src=product.image;img.alt=`${product.name} application preview`;img.loading='lazy';img.width=product.imageWidth || 1800;img.height=product.imageHeight || 1000;link.append(img);}
     const category=document.createElement('span');category.className='eyebrow';category.textContent=product.category;
     const title=document.createElement('h3');title.textContent=product.name;
     const description=document.createElement('p');description.textContent=product.description;

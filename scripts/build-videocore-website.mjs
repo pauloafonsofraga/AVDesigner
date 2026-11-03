@@ -10,10 +10,10 @@ if(!output)throw Error('Usage: node scripts/build-videocore-website.mjs <new-out
 if(target && applicationUrl('http://localhost/',target)!==new URL(target).href)throw Error('Use an absolute approved application URL.');
 try{await lstat(output);throw Error('Choose a new empty output directory.');}catch(error){if(error.code!=='ENOENT')throw error;}
 await mkdir(output,{recursive:true});
-for(const item of ['index.html','wirenexus.html','pricing.html','site.css','assets'])await cp(resolve(source,item),resolve(output,item),{recursive:true});
+for(const item of ['index.html','wirenexus.html','ledforge.html','pricing.html','site.css','assets'])await cp(resolve(source,item),resolve(output,item),{recursive:true});
 if(target){
   const href=applicationUrl('http://localhost/',target).replaceAll('&','&amp;').replaceAll('"','&quot;');
-  for(const page of ['index','wirenexus','pricing']){
+  for(const page of ['index','wirenexus','ledforge','pricing']){
     const path=resolve(output,page+'.html'),html=await readFile(path,'utf8');
     await writeFile(path,html.replaceAll('href="../index.html" data-app-link',`href="${href}" data-app-link`));
   }
