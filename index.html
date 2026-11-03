@@ -32434,7 +32434,7 @@
           <dt>Type</dt><dd>Title Block</dd>
           <dt>Position</dt><dd>${Math.round(block.x)}, ${Math.round(block.y)}</dd>
           <dt>Size</dt><dd>${Math.round(block.width || TITLE_BLOCK_WIDTH)} x ${Math.round(block.height || TITLE_BLOCK_HEIGHT)}</dd>
-          <dt>Title</dt><dd>${escapeHtml(titleValue(block, "title") || "Video Wirechart")}</dd>
+          <dt>Title</dt><dd>${escapeHtml(titleValue(block, "title") || "")}</dd>
         </dl>
         ${renderPositionInputs("titleBlock", block)}
         <button class="tool-button" id="editTitleBlock" type="button">Edit Title Block</button>

@@ -33,6 +33,15 @@ function drawFields(fields) {
   return { drawn, svg: ctx.elements.join("") };
 }
 
+test("empty and missing titles render blank instead of inserting a default caption", () => {
+  for (const fields of [{}, { title: "" }]) {
+    const { drawn, svg } = drawFields(fields);
+    assert.ok(!drawn.some(entry => entry.text.includes("Video Wirechart")));
+    assert.ok(!svg.includes("Video Wirechart"));
+  }
+  assert.ok(drawFields({ title: "Video Wirechart" }).drawn.some(entry => entry.text === "Video Wirechart"));
+});
+
 test("title-block values wrap inside every field without crossing cell borders", () => {
   const fields = {
     client: "A very long client name with multiple departments and offices",

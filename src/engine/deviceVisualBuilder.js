@@ -978,7 +978,7 @@ function drawTitleBlockVisual(ctx, device, width, height) {
   drawTitleBlockField(ctx, layout.fields.revision, "Revision:", fields.revision);
   drawTitleBlockField(ctx, layout.fields.project, "Project:", fields.project);
   drawTitleBlockField(ctx, layout.fields.location, "Location:", fields.location);
-  drawTitleBlockField(ctx, layout.fields.title, "Title:", fields.title || "Video Wirechart");
+  drawTitleBlockField(ctx, layout.fields.title, "Title:", fields.title || "");
   drawTitleBlockField(ctx, layout.fields.jobId, "Job ID:", fields.jobId);
   drawTitleBlockField(ctx, layout.fields.eventDate, "Event Date:", fields.eventDate);
   drawTitleBlockField(ctx, layout.fields.drawingDate, "Drawing Date:", fields.drawingDate);
