@@ -1,7 +1,7 @@
 import {createPrivateKey,createPublicKey,createHash,sign,verify} from 'node:crypto';
 import {createClient} from '@supabase/supabase-js';
 import {createPublishingSecurity,PublishingError,readBody,send} from '../src/server/publishing.js';
-import {publicDisplayName} from '../src/devicePackage.js';
+import {publicDisplayName} from '../src/deviceAttributionIdentity.js';
 
 function signingConfiguration(env) {
   const keys=JSON.parse(env.WIRENEXUS_DEVICE_ATTRIBUTION_PUBLIC_KEYS || '[]');

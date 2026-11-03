@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,mkdtempSync,mkdirSync,copyFileSync,writeFileSync,symlinkSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {pathToFileURL,fileURLToPath} from 'node:url';
 import {generateKeyPairSync} from 'node:crypto';
 import * as packages from '../src/devicePackage.js';
 import {createPersonalDefinitions} from '../src/personalDefinitions.js';
@@ -145,4 +148,15 @@ test('a matching child connector cannot reuse a destination compatibility parent
   assert.notEqual(importedChild.id,child.id);assert.notEqual(importedChild.compatibilityType,parent.id);
   assert.equal(prepared.nodes.find(node=>node.id===importedChild.compatibilityType).direction,'two-way');
   assert.equal(JSON.stringify(destination),before);
+});
+test('attribution API cold-starts without the browser Engine dependency graph in a minimal serverless tree',async t=>{
+  const directory=mkdtempSync(join(tmpdir(),'wnx-attribution-server-'));
+  t.after(()=>rmSync(directory,{recursive:true,force:true}));
+  for(const dir of ['api','src/server'])mkdirSync(join(directory,dir),{recursive:true});
+  for(const file of ['api/device-package.js','src/server/publishing.js','src/deviceAttributionIdentity.js'])copyFileSync(new URL('../'+file,import.meta.url),join(directory,file));
+  writeFileSync(join(directory,'package.json'),JSON.stringify({type:'module'}));
+  symlinkSync(fileURLToPath(new URL('../node_modules',import.meta.url)),join(directory,'node_modules'));
+  const module=await import(pathToFileURL(join(directory,'api/device-package.js')).href);
+  const result=await call(module.createDevicePackageHandler({env:{}}),{},'GET');
+  assert.equal(result.code,200);assert.deepEqual(result.body,{keys:[],signingAvailable:false});
 });

@@ -2,6 +2,8 @@ import {authoredDefinition, collectDefinitionDependencies, contentRevision, defi
 import {inlineProjectArtwork, imageDataUrl} from './imageAssets.js';
 import {visitConnectorTypes} from './engine/canvasClipboard.js';
 import {canonicalFactoryNodeIds,generatedPersonalAliasBase} from './engine/nodeCompatibilityIdentity.js';
+import {publicDisplayName} from './deviceAttributionIdentity.js';
+export {publicDisplayName} from './deviceAttributionIdentity.js';
 
 export const DEVICE_PACKAGE_VERSION = 1;
 export const PACKAGE_LIMITS = Object.freeze({compressed:32*1024*1024, expanded:128*1024*1024});
@@ -17,13 +19,6 @@ function plain(value,depth=0) {
     if(['__proto__','constructor','prototype'].includes(key))fail('Unsafe device package property.');
     plain(child,depth+1);
   }
-}
-export function publicDisplayName(metadata={}) {
-  for(const key of ['display_name','full_name','name']) {
-    const name=typeof metadata?.[key]==='string'?metadata[key].trim():'';
-    if(name && name.length<=100 && !/[@\x00-\x1f\x7f]/.test(name))return name;
-  }
-  return 'WireNexus contributor';
 }
 export function newDeviceAttribution(creator,now=new Date().toISOString()) {
   return creator?.id ? {version:1,creatorId:creator.id,displayName:publicDisplayName({display_name:creator.displayName}),createdAt:now} : undefined;

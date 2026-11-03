@@ -90,6 +90,12 @@ input, duplicate-safe library insertion, unchanged canvas topology, IndexedDB
 reopening, read-only attribution, re-export and invalid-file rejection.
 Use `AVDESIGNER_BASE_URL` for the isolated local validation server.
 
+The first Preview exposed Vercel file-tracing of browser-only, query-versioned
+Engine imports through the attribution API. The public-name helper is therefore
+an isolated, dependency-free module shared by the API and browser. A minimal
+serverless-tree cold-start regression verifies that the API does not depend on
+the browser Engine graph. No unrelated Engine imports were changed.
+
 Import is an atomic personal-library save, not a project mutation or an Undo
 entry. It reuses existing account/workspace library permissions. Paired devices
 are dependencies of the selected root; unrelated library entries are excluded.

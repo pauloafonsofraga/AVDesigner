@@ -1,7 +1,7 @@
 import { createAccountLibraryStore, reviewBrowserImport, importBrowserLibrary } from './accountLibrary.js';
 import {mountPlansPanel} from './plansUi.js';
 import {mountOrganizationsPanel} from './organizationsUi.js';
-import {publicDisplayName} from './devicePackage.js';
+import {publicDisplayName} from './deviceAttributionIdentity.js';
 
 // The UI capability is display-only. Every storage operation reauthorizes at the
 // RPC boundary using auth.uid(), including promotion receipt writes/removals.
