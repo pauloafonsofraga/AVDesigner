@@ -63,6 +63,20 @@
 .output-report table { width: 100%; border-collapse: collapse; }
 .output-report th, .output-report td { padding: 7px 8px; border-bottom: 1px solid var(--border); text-align: left; overflow-wrap: anywhere; }
 .output-report th { color: var(--muted); }
+.output-toolbar [data-action="cable-schedule"] { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; flex-shrink: 0; }
+.output-toolbar [role="toolbar"] { min-width: 0; overflow-x: auto; flex-shrink: 1; }
+.output-toolbar [role="toolbar"] > * { flex-shrink: 0; }
+.output-cable-schedule { width: min(1500px, 96vw); }
+.output-cable-schedule > header { gap: 12px; }
+.output-cable-schedule h2 { min-width: 0; }
+.output-cable-schedule .output-report-body { padding-top: 12px; }
+.output-cable-schedule .output-report-table { max-height: 60dvh; }
+.output-cable-schedule table { min-width: 1900px; }
+.output-cable-schedule th { position: sticky; top: 0; background: var(--panel); z-index: 1; vertical-align: top; }
+.output-cable-schedule td { white-space: pre-wrap; min-width: 105px; max-width: 260px; }
+.output-cable-schedule select { display: block; width: 100%; min-width: 130px; max-width: 230px; margin-top: 6px; padding: 5px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); font: inherit; }
+.output-cable-schedule > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--border); }
+.output-cable-schedule > footer span { color: var(--muted); }
 .multi-core-report-section { margin: 12px 0; }
 .multi-core-report-section summary { cursor: pointer; font-weight: 700; padding: 10px 0; }
 .multi-core-report-section table { min-width: 1600px; table-layout: fixed; }
@@ -72,6 +86,8 @@
 .multi-core-signal-path li { margin: 10px 0; padding: 10px; border-bottom: 1px solid #546270; overflow-wrap: anywhere; }
 .multi-core-report-diagnostics { overflow-wrap: anywhere; font-size: 12px; }
 @media (max-width: 700px) {
+  .output-toolbar [data-action="cable-schedule"] span { display: none; }
+  .output-toolbar [data-action="cable-schedule"] { justify-content: center; width: 30px; padding: 0; }
   .output-caption { display: none; }
   .output-toolbar { padding: 6px; gap: 6px; }
   .output-toolbar [role="toolbar"] { gap: 3px; }

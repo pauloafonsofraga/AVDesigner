@@ -218,7 +218,8 @@ try {
     await viewer.goto(pathToFileURL(filename).href);
     const initial = await viewer.evaluate(() => engineOutputReady);
     assert.equal(initial.assetFailures, 0);
-    assert.equal(await viewer.locator("svg, #canvas, #deviceLayer").count(), 0);
+    assert.equal(await viewer.locator(".output-stage svg, #canvas, #deviceLayer").count(), 0, "the drawing remains Engine/WebGL-only");
+    assert.equal(await viewer.locator('[data-action="cable-schedule"] svg').count(), 1, "the schedule toolbar uses its standard icon");
     assert.equal(await viewer.locator("canvas.output-webgl").count(), 1);
     await viewerParity(viewer, reference);
     for (const theme of ["dark", "light"]) {
@@ -266,10 +267,11 @@ try {
       await viewer.mouse.move(box.x + 550, box.y + 340, { steps: 4 }); await viewer.mouse.up();
       await viewer.getByRole("button", { name: "Fit", exact: true }).click();
       await viewer.getByRole("button", { name: "Report", exact: true }).click();
-      assert.equal(await viewer.getByRole("dialog", { name: "Project Report" }).isVisible(), true);
-      assert.ok((await viewer.locator(".output-report-body").textContent()).includes("Matrix Routing"));
-      assert.ok((await viewer.locator(".output-report-body").textContent()).includes("Cable Schedule"));
-      await viewer.locator(".output-report-table button").first().click();
+      const reportDialog = viewer.getByRole("dialog", { name: "Project Report", exact: true });
+      assert.equal(await reportDialog.isVisible(), true);
+      assert.ok((await reportDialog.locator(".output-report-body").textContent()).includes("Matrix Routing"));
+      assert.ok((await reportDialog.locator(".output-report-body").textContent()).includes("Cable Schedule"));
+      await reportDialog.locator(".output-report-table button").first().click();
       assert.ok(["wire", "multi-wire"].includes(await viewer.evaluate(() => outputViewer.selection.type)));
       await viewer.evaluate(() => outputViewer.select({ type: "wire", id: "jump-source" }));
       await viewer.getByRole("button", { name: "Play Cable", exact: true }).click();

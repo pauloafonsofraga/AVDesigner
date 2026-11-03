@@ -68,7 +68,7 @@ try {
     const channel = viewer.locator(".multi-core-report-section").filter({ hasText: "Channel Allocation Manifest" }); await channel.locator("summary").click();
     await channel.scrollIntoViewIfNeeded(); await viewer.screenshot({ path: `${dir}/${hosted ? "hosted" : "offline"}.png` });
     assert.equal(await viewer.locator('button[data-mc-edit],input[data-mc],.mc-editor-backdrop').count(), 0);
-    await viewer.locator('.output-report button').filter({ hasText: /^V-002$/ }).click();
+    await viewer.getByRole('dialog', {name:'Project Report',exact:true}).locator('button').filter({ hasText: /^V-002$/ }).click();
     assert.match(await viewer.locator(".output-signal-chain-body").innerText(), /B-to-A/);
     if (hosted) {
       await viewer.setViewportSize({ width: 390, height: 844 });

@@ -7,6 +7,8 @@ import { outputAssetSources, resolveOutputDeviceAssets, validateOutputAssets } f
 import { buildEngineOutputScene } from "../src/engine/outputSceneSnapshot.js";
 import { createOutputViewerModel } from "../src/engine/outputViewerModel.js";
 import { outputViewerParityFixture } from "../fixtures/output-viewer.mjs";
+import { buildCableSchedule } from "../src/engine/cableSchedule.js";
+import { connectedMultiCoreProject } from "../fixtures/multi-core-connectivity.mjs";
 const bundle = JSON.parse(readFileSync(new URL("../src/engine/generated/outputViewerBundle.json", import.meta.url)));
 const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==";
 const payload = html => JSON.parse(html.match(/id="engineOutputPayload">([\s\S]*?)<\/script>/)[1]);
@@ -65,6 +67,29 @@ test("downloaded and hosted outputs differ only in presentation metadata, not im
   assert.deepEqual(a.engineScene, b.engineScene);
   assert.equal(a.metadata.bundleHash, b.metadata.bundleHash);
   assert.equal(download.slice(download.lastIndexOf("<script>")), hosted.slice(hosted.lastIndexOf("<script>")));
+});
+
+test("downloaded and hosted viewers include the dedicated read-only schedule and identical physical cable rows", async () => {
+  const s = snapshot(), before = JSON.stringify(s), assets = await inlineOutputAssets(s.engineScene, () => png);
+  const rows = buildCableSchedule(outputViewerParityFixture(), {assignNumbers:"readOnly"});
+  assert.ok(rows.length > 0);
+  for (const title of ["Offline schedule", "Hosted schedule"]) {
+    const html = buildEngineViewerHtml(s, {bundle, assets, title, cableScheduleRows:rows});
+    assert.deepEqual(payload(html).cableScheduleRows, rows);
+    assert.ok(bundle.includedModules.includes("src/engine/outputViewerCableSchedule.js"));
+    assert.ok(html.includes("Cable Schedule") && html.includes("Export CSV"));
+  }
+  assert.equal(JSON.stringify(s), before);
+});
+
+test("Multi-Core viewers reuse authoritative embedded schedule rows without duplicating or replacing them", async () => {
+  const engineScene = buildEngineOutputScene(connectedMultiCoreProject()), before = JSON.stringify(engineScene);
+  const html = buildEngineViewerHtml({engineScene}, {bundle, cableScheduleRows:[{cableNumber:"not authoritative"}], assets:await inlineOutputAssets(engineScene,()=>png)});
+  const p = payload(html);
+  assert.deepEqual(p.cableScheduleRows, []);
+  assert.deepEqual(p.engineScene.modelData.reports.cableRows, engineScene.modelData.reports.cableRows);
+  assert.equal(p.engineScene.modelData.reports.cableRows.length, 2);
+  assert.equal(JSON.stringify(engineScene), before);
 });
 
 test("inline JSON and titles safely retain hostile text without executable HTML", async () => {

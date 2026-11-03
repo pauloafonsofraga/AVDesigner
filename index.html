@@ -34852,7 +34852,7 @@ document.addEventListener("click", function(event) {
             flow: chain.flow, from: chain.from, to: chain.to,
             ...(chain.presentation ? { path: chain.path, paths: chain.paths, presentation: chain.presentation } : {}) };
         });
-      const html = viewerModule.buildEngineViewerHtml(snapshot, { bundle, assets, title, cableGroups, signalChains });
+      const html = viewerModule.buildEngineViewerHtml(snapshot, { bundle, assets, title, cableGroups, signalChains, cableScheduleRows:signalRows });
       recordOutputTiming(mode, { htmlMs: outputNow() - started, htmlBytes: html.length });
       return { html, data, snapshot };
     }

@@ -1,5 +1,6 @@
 import { EngineOutputViewer } from "./outputViewerApp.js";
 import { installOutputReport } from "./outputViewerReport.js";
+import { installOutputCableSchedule } from "./outputViewerCableSchedule.js";
 
 const host = document.getElementById("outputViewer");
 try {
@@ -9,6 +10,7 @@ try {
   window.outputViewer = viewer;
   window.engineOutputMetadata = Object.freeze(payload.metadata);
   installOutputReport(viewer, payload.reportData, payload.cableGroups, payload.engineScene.modelData?.reports);
+  installOutputCableSchedule(viewer, payload.engineScene.modelData?.reports?.cableRows || payload.cableScheduleRows);
   window.engineOutputReady = viewer.ready.then(diagnostics => {
     if (diagnostics.assetFailures) throw new Error(`${diagnostics.assetFailures} embedded viewer images could not be decoded.`);
     return { ...diagnostics, bundleHash: payload.metadata.bundleHash };

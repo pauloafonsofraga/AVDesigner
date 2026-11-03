@@ -129,7 +129,7 @@ try {
   await viewer.getByRole("button", { name: "Report", exact: true }).click();
   await viewer.locator("details.output-report-matrix").first().locator("summary").click();
   await viewer.screenshot({ path: join(directory, "offline-report-mobile.png") });
-  assert.equal(await viewer.locator(".output-report").evaluate(d => d.getBoundingClientRect().right <= innerWidth), true);
+  assert.equal(await viewer.getByRole("dialog", { name: "Project Report", exact: true }).evaluate(d => d.getBoundingClientRect().right <= innerWidth), true);
   await viewer.keyboard.press("Escape");
   checks.push("mobile HTML report remains within the viewport");
   await offline.close(); assert.deepEqual(errors, []);
