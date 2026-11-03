@@ -1,8 +1,25 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
 import { drawDeviceVisual } from "../src/engine/deviceVisualBuilder.js";
 import { OutputSvgContext } from "../src/engine/outputSvgContext.js";
 import { TITLE_BLOCK_BASE_HEIGHT, TITLE_BLOCK_BASE_WIDTH, titleBlockLayout } from "../src/engine/titleBlockLayout.js";
+
+test("new title blocks have an empty Title without replacing authored or explicitly empty titles", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const start = html.indexOf("    function defaultTitleBlockData() {"), end = html.indexOf("    function openTitleBlockEditor(", start);
+  assert.ok(start >= 0 && end > start);
+  const context = vm.createContext({ nextId: () => "title-test", TITLE_BLOCK_WIDTH: 500, TITLE_BLOCK_HEIGHT: 300, titleBlockDraft: null });
+  vm.runInContext(html.slice(start, end), context);
+  assert.equal(vm.runInContext("defaultTitleBlockData().title", context), "");
+  assert.equal(vm.runInContext("createTitleBlockFromDraft(0, 0).fields.title", context), "");
+  for (const title of ["Authored title", "Video Wirechart", ""]) {
+    context.titleBlockDraft = { title };
+    const saved = JSON.parse(JSON.stringify(vm.runInContext("createTitleBlockFromDraft(0, 0)", context)));
+    assert.equal(saved.fields.title, title);
+  }
+});
 
 function drawFields(fields) {
   const ctx = new OutputSvgContext();
