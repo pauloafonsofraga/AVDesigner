@@ -19,9 +19,9 @@ test("Hybrid14 reports exactly two physical patches, one assembly, fourteen chan
   assert.equal(r.assemblies[0].occupied, 1); assert.equal(r.assemblies[0].spare, 13);
   assert.equal(r.assemblies[0].length, 75); assert.equal(r.cableRows[0].length, "3 m");
   assert.equal(r.cableRows[0].loom, "LM-001"); assert.equal(r.cableRows[0].multiCoreChannel, "01");
-  assert.deepEqual(r.cableRows.map(c => c.cableNumber), ["V-001", "V-002"]);
+  assert.deepEqual(r.cableRows.map(c => c.cableNumber), ["VX-001", "VX-002"]);
   assert.match(r.cableRows[0].destinationDevice, /MC-001.*End A/);
-  assert.equal(r.channels[0].endACableId, "V-001"); assert.equal(r.channels[0].endBCableId, "V-002");
+  assert.equal(r.channels[0].endACableId, "VX-001"); assert.equal(r.channels[0].endBCableId, "VX-002");
   assert.equal(r.channels[12].strands, "A (strand-a); B (strand-b)");
   assert.deepEqual(p, before); assert.deepEqual(buildMultiCoreReports(p), r);
   assert(Object.isFrozen(r.channels[0])); assert.throws(() => r.channels[0].state = "unused");
@@ -41,7 +41,7 @@ test("Signal Chain from either patch has the same edges, reverse orientation and
 
 test("ordinary Jump legs keep one physical cable ID and a typed continuation, trunk Jump sections do not count", () => {
   const r = buildMultiCoreReports(jumpMultiCoreProject());
-  assert.equal(r.cableRows.length, 2); assert.equal(r.cableRows.find(row => row.cableNumber === "V-001").wireIds.length, 2);
+  assert.equal(r.cableRows.length, 2); assert.equal(r.cableRows.find(row => row.cableNumber === "VX-001").wireIds.length, 2);
   assert(r.signalPaths.some(p => p.path?.segments.some(s => s.kind === "jump-link")));
   assert.equal(buildMultiCoreReports(multiCoreJumpProject()).assemblies.length, 1);
 });

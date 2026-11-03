@@ -29,7 +29,7 @@ try {
   const manifest = page.locator("#multiCoreReports details").filter({ has: page.locator('summary', { hasText: 'Channel Allocation Manifest' }) });
   await assembly.locator("summary").click(); assert.equal(await assembly.locator("tbody tr").count(), 1);
   await manifest.locator("summary").click(); assert.equal(await manifest.locator("tbody tr").count(), 14);
-  assert.match(await manifest.innerText(), /Connected at both ends/); assert.match(await manifest.innerText(), /V-001/);
+  assert.match(await manifest.innerText(), /Connected at both ends/); assert.match(await manifest.innerText(), /VX-001/);
   await manifest.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${dir}/manifest.png` });
   const expected = await page.evaluate(() => currentMultiCoreReports);
   for (const [selector, file] of [["#downloadCableScheduleCsv", "cable-schedule.csv"], ["#downloadCableScheduleXlsx", "reports.xlsx"]]) {
@@ -62,13 +62,13 @@ try {
     await viewer.waitForFunction(() => window.outputViewer); await viewer.evaluate(() => engineOutputReady);
     const actual = await viewer.evaluate(() => JSON.parse(document.getElementById("engineOutputPayload").textContent).engineScene.modelData.reports);
     assert.deepEqual(actual.channels, expected.channels); assert.deepEqual(actual.assemblies, expected.assemblies);
-    assert.deepEqual(actual.cableRows.map(r => r.cableNumber), ["V-001", "V-002"]);
+    assert.deepEqual(actual.cableRows.map(r => r.cableNumber), ["VX-001", "VX-002"]);
     await viewer.locator('[data-action="report"]').click();
     assert.equal(await viewer.locator(".multi-core-report-section tbody tr").count(), 1 + 14 + actual.diagnostics.length);
     const channel = viewer.locator(".multi-core-report-section").filter({ hasText: "Channel Allocation Manifest" }); await channel.locator("summary").click();
     await channel.scrollIntoViewIfNeeded(); await viewer.screenshot({ path: `${dir}/${hosted ? "hosted" : "offline"}.png` });
     assert.equal(await viewer.locator('button[data-mc-edit],input[data-mc],.mc-editor-backdrop').count(), 0);
-    await viewer.getByRole('dialog', {name:'Project Report',exact:true}).locator('button').filter({ hasText: /^V-002$/ }).click();
+    await viewer.getByRole('dialog', {name:'Project Report',exact:true}).locator('button').filter({ hasText: /^VX-002$/ }).click();
     assert.match(await viewer.locator(".output-signal-chain-body").innerText(), /B-to-A/);
     if (hosted) {
       await viewer.setViewportSize({ width: 390, height: 844 });

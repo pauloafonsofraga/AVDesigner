@@ -101,7 +101,7 @@ test("cable inspection uses readable endpoints and hides internal wire IDs", () 
   const details = outputSelectionDetails(model.scene, { type: "wire", id: wire.id });
   assert.equal(details.title, "OUT 3 to DP 3");
   assert.deepEqual(details.rows, [
-    ["Cable", "Display Port"], ["Cable ID", "V-171"],
+    ["Cable", "Display Port"], ["Cable ID", "VX-171"],
     ["From", "Processor A / output"], ["To", "Display B / input"],
     ["Length", ""], ["Notes", ""]
   ]);
@@ -110,7 +110,7 @@ test("cable inspection uses readable endpoints and hides internal wire IDs", () 
   assert.ok(!JSON.stringify(details.rows).includes('"ID","curve"'));
   assert.deepEqual(details.wireIds, ["curve"]);
   wire.label = "display-port";
-  assert.equal(outputSelectionDetails(model.scene, { type: "wire", id: wire.id }).title, "V-171");
+  assert.equal(outputSelectionDetails(model.scene, { type: "wire", id: wire.id }).title, "VX-171");
   wire.cableNumber = "";
   assert.equal(outputSelectionDetails(model.scene, { type: "wire", id: wire.id }).title, "Display Port");
 });

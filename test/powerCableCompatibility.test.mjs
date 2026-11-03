@@ -54,7 +54,7 @@ test("a mixed-end Barrel Jack cable is reported as Power with both end labels", 
     nodeLibrary: [{ id: "iec", label: "IEC" }, { id: "new-node", label: "Barrel Jack", tags: ["power"] }]
   };
   const [row] = buildCableSchedule(project);
-  assert.equal(row.cableNumber, "P-001");
+  assert.equal(row.cableNumber, "PWR-001");
   assert.equal(row.signal, "Power");
   assert.equal(row.connector, "IEC → Barrel Jack");
   assert.equal(row.sourcePort, "Power Out");

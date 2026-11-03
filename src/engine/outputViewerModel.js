@@ -1,4 +1,6 @@
 import { SceneGraph } from "./sceneGraph.js";
+import {formatCableNumber} from "./cableNumbering.js";
+import {cableFamily} from "./cableSchedule.js";
 import { deviceHeaderLabel } from "./deviceDisplayName.js";
 import {sharedBusTypeLabels} from './sharedBusLabels.js';
 import { resolvePlayableSignalPath, jumpNodeRoleLabel } from "./jumpNodeModel.js";
@@ -104,11 +106,12 @@ export function outputSelectionDetails(scene, selection) {
       return [device?.label || deviceId || "Unknown device", port].filter(Boolean).join(" / ");
     };
     const readableType = cableTypeName(wire.cableType);
+    const cableNumber = formatCableNumber(wire.cableNumber, cableFamily(wire.cableType));
     const title = wire.label && wire.label !== wire.cableType && wire.label !== wire.id
-      ? wire.label : wire.cableNumber || readableType;
+      ? wire.label : cableNumber || readableType;
     return { title, rows: [
       ["Cable", readableType],
-      ["Cable ID", wire.cableNumber],
+      ["Cable ID", cableNumber],
       ["From", endpointLabel("from")], ["To", endpointLabel("to")],
       ["Length", wire.length], ["Notes", wire.notes],
       ...(wire.cableAssembly ? [["Assembly", "Integrated direct-attach copper"],

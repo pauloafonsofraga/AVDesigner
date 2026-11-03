@@ -134,7 +134,7 @@ try {
   assert.ok(sheet.getImages().every(image => image.range.editAs === "twoCell" && image.range.br));
   assert.equal(sheet.getImages().filter(image => image.range.tl.nativeCol === 0).length, 5);
   assert.equal(sheet.getCell("A2").font.size, 17);
-  assert.equal(sheet.getCell("A2").value, "V-001");
+  assert.equal(sheet.getCell("A2").value, "VX-001");
   assert.equal(sheet.autoFilter, "A1:L6");
   assert.ok([...sheet.getColumn(10).values].includes("Loom A"));
   checks.push("downloaded XLSX is readable and embeds node/cable graphics alongside matching rows");
@@ -230,8 +230,8 @@ try {
   lighting.looms = [{ id: "loom-1", name: "LM-001" }];
   await page.evaluate(data => { restoreSnapshot(data); zoomToFit(); }, lighting);
   await page.locator("#cableScheduleButton").click();
-  await page.waitForFunction(() => cableScheduleRows.length === 1 && cableScheduleRows[0].cableNumber === "L-001");
-  assert.match(await page.locator("#cableScheduleBody").innerText(), /L-001/);
+  await page.waitForFunction(() => cableScheduleRows.length === 1 && cableScheduleRows[0].cableNumber === "RX-001");
+  assert.match(await page.locator("#cableScheduleBody").innerText(), /RX-001/);
   assert.match(await page.locator("#cableScheduleBody").innerText(), /LM-001/);
   const lightingDownload = page.waitForEvent("download");
   await page.locator("#downloadCableScheduleXlsx").click();
@@ -239,9 +239,9 @@ try {
   await lightingXlsx.saveAs(lightingPath);
   const lightingWorkbook = new ExcelJS.Workbook();
   await lightingWorkbook.xlsx.load(readFileSync(lightingPath));
-  assert.equal(lightingWorkbook.getWorksheet("Cable Schedule").getCell("A2").value, "L-001");
+  assert.equal(lightingWorkbook.getWorksheet("Cable Schedule").getCell("A2").value, "RX-001");
   assert.equal(lightingWorkbook.getWorksheet("Loom Schedule").getCell("A2").value, "LM-001");
-  checks.push("DMX-purpose XLR cable uses L ID while its loom remains a separate LM assembly in UI and XLSX");
+  checks.push("DMX-purpose XLR cable uses RX ID while its loom remains a separate LM assembly in UI and XLSX");
   assert.deepEqual(errors, []);
   checks.push("no browser page or console errors");
   console.log(JSON.stringify({ passed: checks.length, failed: 0, skipped: 0, checks, directory }, null, 2));

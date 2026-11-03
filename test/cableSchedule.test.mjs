@@ -57,13 +57,13 @@ test("direct cable derives current endpoint labels and persisted metadata", () =
   const data = project(), [row] = buildCableSchedule(data);
   assert.deepEqual([row.cableNumber, row.sourceDevice, row.sourcePort, row.destinationDevice,
     row.destinationPort, row.signal, row.length, row.loom, row.notes, row.wireIds],
-  ["V-001", "Source", "SDI Out", "Destination", "SDI In", "Video", "12 m", "FOH-01", "One, two\nThree", ["wire-1"]]);
-  assert.equal(data.connections[0].cableNumber, "V-001");
+  ["VX-001", "Source", "SDI Out", "Destination", "SDI In", "Video", "12 m", "FOH-01", "One, two\nThree", ["wire-1"]]);
+  assert.equal(data.connections[0].cableNumber, "VX-001");
   data.devices[0].name = 'Device "A", Main';
   data.devices[0].templateOverride.connectors[0].nameText = "Program Out";
   data.connections[0].to = { deviceId: "device-0", connectorId: "port" };
   const [changed] = buildCableSchedule(data);
-  assert.equal(changed.cableNumber, "V-001");
+  assert.equal(changed.cableNumber, "VX-001");
   assert.equal(changed.sourceDevice, 'Device "A", Main');
   assert.equal(changed.sourcePort, "Program Out");
   assert.equal(changed.destinationDevice, 'Device "A", Main');
@@ -120,15 +120,15 @@ test("loom cable-length validation warns only for known comparable values and ne
   const data = project();
   data.looms = [{ id: "loom-1", name: "LM-001", trunkLength: "75 m" }];
   data.connections[0].loomId = "loom-1";
-  data.connections[0].cableNumber = "V-014";
+  data.connections[0].cableNumber = "VX-014";
   data.connections[0].length = "50 m";
   assert.deepEqual(loomCableLengthWarnings(data),
-    ["Cable V-014 is 50 m but Loom LM-001 has a 75 m common run."]);
+    ["Cable VX-014 is 50 m but Loom LM-001 has a 75 m common run."]);
   const validation = validateEngineScene({ devices: [], wires: [], selectedIds: new Set(),
     selectedWireIds: new Set(), selectedConnectorKeys: new Set(), selectedRoutePointKeys: new Set() },
   { ...data, devices: [], connections: structuredClone(data.connections) });
   assert.equal(validation.ok, true, "short-cable finding is a warning, not a blocking validation error");
-  assert.ok(validation.warnings.some(message => message.includes("Cable V-014 is 50 m")));
+  assert.ok(validation.warnings.some(message => message.includes("Cable VX-014 is 50 m")));
   data.connections[0].length = "90 m";
   assert.deepEqual(loomCableLengthWarnings(data), []);
   data.connections[0].length = "as installed";
@@ -155,15 +155,15 @@ test("families, stable numbering, high-water marks and family changes", () => {
   }));
   ensureCableNumbers(data);
   assert.deepEqual(data.connections.map(wire => wire.cableNumber),
-    ["V-001", "V-002", "N-001", "A-001", "F-001", "P-001", "X-001"]);
+    ["VX-001", "VX-002", "IT-001", "LX-001", "F-001", "PWR-001", "X-001"]);
   data.connections.splice(0, 1);
   data.connections.push({ ...structuredClone(data.connections[0]), id: "new-video", cableNumber: "" });
   ensureCableNumbers(data);
-  assert.equal(data.connections.at(-1).cableNumber, "V-003");
+  assert.equal(data.connections.at(-1).cableNumber, "VX-003");
   data.connections[0].cableType = "cat6";
   ensureCableNumbers(data);
-  assert.equal(data.connections[0].cableNumber, "N-002");
-  assert.equal(data.connections[1].cableNumber, "N-001");
+  assert.equal(data.connections[0].cableNumber, "IT-002");
+  assert.equal(data.connections[1].cableNumber, "IT-001");
   const reloaded = JSON.parse(JSON.stringify(data));
   ensureCableNumbers(reloaded);
   assert.deepEqual(reloaded.connections.map(wire => wire.cableNumber), data.connections.map(wire => wire.cableNumber));
@@ -172,18 +172,18 @@ test("families, stable numbering, high-water marks and family changes", () => {
   assert.equal(cableFamily("unknown"), "X");
 });
 
-test("lighting cables use L numbers without treating every XLR or loom member as lighting", () => {
+test("lighting cables use RX numbers without treating every XLR or loom member as lighting", () => {
   const data = project();
   data.devices.forEach(device => { device.templateOverride.connectors[0].type = "dmx-5pin"; });
   data.connections[0].cableType = "xlr-5pin";
   const [first] = buildCableSchedule(data);
-  assert.equal(first.cableNumber, "L-001");
+  assert.equal(first.cableNumber, "RX-001");
   assert.equal(first.signal, "Lighting");
   assert.equal(first.loom, "FOH-01");
-  data.connections[0].cableNumber = "L-009";
+  data.connections[0].cableNumber = "RX-009";
   data.connections.push({ ...structuredClone(data.connections[0]), id: "wire-2", cableNumber: "", loomId: "loom-1" });
   data.looms = [{ id: "loom-1", name: "LM-001" }];
-  assert.deepEqual(buildCableSchedule(data).map(row => row.cableNumber), ["L-009", "L-010"]);
+  assert.deepEqual(buildCableSchedule(data).map(row => row.cableNumber), ["RX-009", "RX-010"]);
   assert.equal(data.cableNumberCounters.L, 10);
   assert.equal(buildCableSchedule(data)[1].loom, "LM-001");
   data.devices.forEach(device => { device.templateOverride.connectors[0].type = "xlr-5pin"; });
@@ -195,11 +195,11 @@ test("lighting cables use L numbers without treating every XLR or loom member as
 
 test("old project numbering is deterministic without changing connection data", () => {
   const data = project();
-  data.connections.push({ ...structuredClone(data.connections[0]), id: "wire-2", cableNumber: "V-009" });
+  data.connections.push({ ...structuredClone(data.connections[0]), id: "wire-2", cableNumber: "VX-009" });
   const first = structuredClone(data), second = structuredClone(data);
   ensureCableNumbers(first); ensureCableNumbers(second);
   assert.deepEqual(first, second);
-  assert.deepEqual(first.connections.map(wire => wire.cableNumber), ["V-010", "V-009"]);
+  assert.deepEqual(first.connections.map(wire => wire.cableNumber), ["VX-010", "VX-009"]);
 });
 
 test("rack locations use explicit memberships only", () => {
@@ -227,7 +227,7 @@ test("one patched endpoint reports physical termination and keeps real semantic 
     panelLabel: "VIDEO PATCH", rackFace: "rear", placementSide: "right", portId: "port-foh-3", slot: 3,
     sourceRackDeviceId: "source-0", sourceConnectorId: "port" });
   assert.equal(row.signal, "Video");
-  assert.equal(row.cableNumber, "V-001");
+  assert.equal(row.cableNumber, "VX-001");
   assert.equal(row.notes, "One, two\nThree\nSource patch: FOH Rack / VIDEO PATCH / Port 3 ↔ Source / SDI Out");
   assert.equal(data.connections[0].notes, "One, two\nThree", "derived patch notes are not persisted");
   assert.equal(row.rackLocation, "FOH Rack →");
@@ -334,7 +334,7 @@ test("direct, source-patched, and both-ends-patched CSV/XLSX exports remain one 
   const csv = cableScheduleCsv(rows);
   assert.match(csv, /"FOH Rack \/ VIDEO PATCH","Port 3"/);
   assert.match(csv, /Source patch: FOH Rack \/ VIDEO PATCH \/ Port 3 ↔ Source \/ SDI Out/);
-  assert.equal((csv.match(/"V-00[1-3]"/g) || []).length, 3);
+  assert.equal((csv.match(/"VX-00[1-3]"/g) || []).length, 3);
 
   const bytes = await createCableScheduleXlsx(rows);
   const workbook = new ExcelJS.Workbook();
@@ -423,7 +423,7 @@ test("Signal Chain resolves direct endpoints, names and metadata without mutatin
   const data = project(), before = structuredClone(data);
   const rows = buildCableSchedule(data, { assignNumbers: "readOnly" });
   const chain = signalChainForWire(rows, "wire-1");
-  assert.equal(chain.cableNumber, "V-001");
+  assert.equal(chain.cableNumber, "VX-001");
   assert.deepEqual([chain.from.device, chain.from.port, chain.to.device, chain.to.port],
     ["Source", "SDI Out", "Destination", "SDI In"]);
   assert.deepEqual([chain.length, chain.loom], ["12 m", "FOH-01"]);
@@ -488,15 +488,15 @@ test("Engine normalization and mutation retain schedule metadata", () => {
   ensureCableNumbers(data);
   const normalized = normalizeAvDesignerProject(data);
   const wire = normalized.wires.find(item => item.sourceId === "wire-1");
-  assert.equal(wire.cableNumber, "V-001");
+  assert.equal(wire.cableNumber, "VX-001");
   assert.equal(wire.loom, "FOH-01");
   assert.equal(wire.notes, "One, two\nThree");
   const mutations = new ProjectMutationAdapter(normalized, { cloneProjectData: false });
-  mutations.updateWireFields("wire-1", { cableNumber: "V-001", loom: "Loom A", length: "20 m",
+  mutations.updateWireFields("wire-1", { cableNumber: "VX-001", loom: "Loom A", length: "20 m",
     notes: "Changed", cableType: "sdi", fiberMode: "" });
   assert.deepEqual(Object.fromEntries(["cableNumber", "loom", "length", "notes", "cableType", "fiberMode"]
     .map(key => [key, mutations.root.connections[0][key]])), {
-    cableNumber: "V-001", loom: "Loom A", length: "20 m", notes: "Changed", cableType: "sdi", fiberMode: ""
+    cableNumber: "VX-001", loom: "Loom A", length: "20 m", notes: "Changed", cableType: "sdi", fiberMode: ""
   });
 });
 
@@ -506,14 +506,14 @@ test("XLSX contains text values, formatting, and reused endpoint/cable artwork",
   const rows = buildCableSchedule(data);
   const png = `data:image/png;base64,${readFileSync(new URL("../Nodes/Thumbnails/bnc.png", import.meta.url)).toString("base64")}`;
   const bytes = await createCableScheduleXlsx(rows, { graphics: {
-    nodes: { sdi: png }, cables: { "#32b6ff": png }, ids: { "V-001": png, "V-002": png }
+    nodes: { sdi: png }, cables: { "#32b6ff": png }, ids: { "VX-001": png, "VX-002": png }
   } });
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(bytes);
   const sheet = workbook.getWorksheet("Cable Schedule");
   assert.equal(sheet.rowCount, 3);
   assert.equal(sheet.getCell("A1").value, "Cable ID");
-  assert.equal(sheet.getCell("A2").value, "V-001");
+  assert.equal(sheet.getCell("A2").value, "VX-001");
   assert.equal(sheet.getCell("A2").font.size, 17);
   assert.equal(sheet.getCell("A2").font.bold, true);
   assert.equal(sheet.getCell("A2").font.color.argb, "FF32B6FF");

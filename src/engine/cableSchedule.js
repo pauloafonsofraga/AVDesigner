@@ -8,6 +8,7 @@ import { resolveRackPatchPresentation } from "./rackPatchTopology.js";
 import { createMultiCoreConnectivity, isMultiCoreEndpointReference, traceMultiCoreSignalPath, traceInternalSignalPaths } from "./multiCoreConnectivity.js";
 import { multiCoreReportEndpoint, presentMultiCorePath } from "./multiCoreReportPresentation.js";
 import {groupedCoaxMetadata, groupedCoaxLabel, multibandColors} from "./multibandSignals.js";
+import {CABLE_NUMBER_PREFIXES, parseCableNumber, formatCableNumber} from "./cableNumbering.js";
 export { multiCorePathMarkup } from "./multiCoreReportPresentation.js";
 
 const signalChainConnectivity = new WeakMap();
@@ -70,8 +71,8 @@ export function parseComparableCableLengthMeters(value) {
   return amount * factors[unit];
 }
 
-const families = Object.freeze({ V: "Video", N: "Network", A: "Audio", F: "Fibre", L: "Lighting", P: "Power", X: "Other" });
-const familyOrder = ["A", "F", "L", "N", "P", "V", "X"];
+const families = Object.freeze({ V: "Video", N: "Network", A: "Audio", F: "Fibre", L: "Lighting", P: "Power", U: "USB", X: "Other" });
+const familyOrder = ["A", "F", "L", "N", "P", "U", "V", "X"];
 const typeFamilies = new Map(Object.entries({
   sdi: "V", bnc: "V", hdmi: "V", dvi: "V", "display-port": "V", "mini-display-port": "V",
   vga: "V", cxp: "V", "component-video":"V", rgbhv:"V", "led-signal": "V", "led-grid-signal": "V",
@@ -79,6 +80,7 @@ const typeFamilies = new Map(Object.entries({
   "dac-sfp-plus": "N", "dac-sfp28": "N", "dac-qsfp": "N",
   "xlr-3pin": "A", "xlr-5pin": "A", "trs-ts": "A", rca: "A", aes: "A",
   "dmx-3pin": "L", "dmx-5pin": "L",
+  "usb-a": "U", "usb-b": "U", "usb-c": "U",
   "speakon-nl2": "A", "speakon-nl4": "A", "speakon-nl8": "A", speakon: "A",
   "fiber-lc": "F", "fiber-sc": "F", "fiber-st": "F", "fiber-mpo": "F", opticalcon: "F", fiberfox: "F",
   iec: "P", schuko: "P", "uk-13a": "P", edison: "P", powercon: "P", "powercon-true1": "P",
@@ -88,7 +90,6 @@ const typeFamilies = new Map(Object.entries({
   "16a-1ph-110v": "P", "16a-1ph": "P", "32a-1ph-110v": "P", "32a-1ph": "P",
   "16a-3ph": "P", "32a-3ph": "P", "63a-3ph": "P", "125a-3ph": "P"
 }));
-const numberPattern = /^([VNAFLPX])-(\d{3,})$/;
 const nodeDefinition = (definitions, id) => Array.isArray(definitions)
   ? definitions.find(item => item.id === id) : definitions?.[id];
 
@@ -99,7 +100,7 @@ export function cableFamily(typeId, nodeDefinitions = []) {
   const tags = Array.isArray(node?.tags) ? node.tags.map(tag => String(tag).toLowerCase()) : [];
   if (tags.includes("lighting") || tags.includes("dmx")) return "L";
   if (node?.compatibilityType && typeFamilies.has(node.compatibilityType)) return typeFamilies.get(node.compatibilityType);
-  for (const [tag, family] of [["fiber", "F"], ["fibre", "F"], ["power", "P"], ["network", "N"], ["audio", "A"], ["video", "V"]]) {
+  for (const [tag, family] of [["fiber", "F"], ["fibre", "F"], ["power", "P"], ["network", "N"], ["audio", "A"], ["video", "V"], ["usb", "U"]]) {
     if (tags.includes(tag)) return family;
   }
   return "X";
@@ -147,9 +148,9 @@ export function groupedCables(project, getConnector) {
 
 function preferredNumber(group, family, claimed) {
   for (const wire of group.wires) {
-    const number = String(wire.cableNumber || "");
-    const parsed = number.match(numberPattern);
-    if (parsed?.[1] === family && !claimed.has(number)) return number;
+    const number = formatCableNumber(wire.cableNumber, family);
+    const parsed = parseCableNumber(number);
+    if (parsed?.family === family && !claimed.has(number)) return number;
   }
   return "";
 }
@@ -175,14 +176,20 @@ function numberCableGroups(project, groups, options, commit) {
   const counters = { ...project.cableNumberCounters };
   for (const family of familyOrder) counters[family] = Math.max(0, Number(counters[family]) || 0);
   for (const wire of project.connections || []) {
-    const parsed = String(wire.cableNumber || "").match(numberPattern);
-    if (parsed) counters[parsed[1]] = Math.max(counters[parsed[1]], Number(parsed[2]));
+    const parsed = parseCableNumber(wire.cableNumber);
+    if (parsed) counters[parsed.family] = Math.max(counters[parsed.family], parsed.number);
+  }
+  for (const group of groups) if (groupFamily(project, group, options) === "U") {
+    for (const wire of group.wires) {
+      const parsed = parseCableNumber(wire.cableNumber);
+      if (parsed?.family === "X") counters.U = Math.max(counters.U, parsed.number);
+    }
   }
   const claimed = new Set();
   for (const group of groups) {
     const family = groupFamily(project, group, options);
     let number = preferredNumber(group, family, claimed);
-    if (!number) number = `${family}-${String(++counters[family]).padStart(3, "0")}`;
+    if (!number) number = `${CABLE_NUMBER_PREFIXES[family]}-${String(++counters[family]).padStart(3, "0")}`;
     claimed.add(number);
     group.family = family;
     group.cableNumber = number;
@@ -288,7 +295,7 @@ export function buildCableSchedule(input, options = {}) {
       ...(refs.length ? { multiCoreReferences: refs, multiCoreId: refs.map(r => r.assemblyId).join(" / "),
         multiCoreEnd: refs.map(r => r.role).join(" / "), multiCorePort: refs.map(r => r.port).join(" / "),
         multiCoreChannel: refs.map(r => r.channel).join(" / ") } : {}),
-      cableNumber: group.cableNumber || primary.cableNumber || "",
+      cableNumber: formatCableNumber(group.cableNumber || primary.cableNumber),
       sourceDevice: source.device, sourcePort: source.port,
       destinationDevice: destination.device, destinationPort: destination.port,
       sourceDeviceId: source.deviceId, sourceSurfaceId: source.surfaceId,
@@ -315,8 +322,8 @@ export function buildCableSchedule(input, options = {}) {
       ...(multibandColors(cableSignal) ? {cableColors:multibandColors(cableSignal)} : {}),
       cableCustomColor: String(value("customColor"))
     };
-  }).sort((a, b) => familyOrder.indexOf(a.cableNumber[0]) - familyOrder.indexOf(b.cableNumber[0])
-    || Number(a.cableNumber.slice(2)) - Number(b.cableNumber.slice(2))
+  }).sort((a, b) => familyOrder.indexOf(parseCableNumber(a.cableNumber)?.family) - familyOrder.indexOf(parseCableNumber(b.cableNumber)?.family)
+    || (parseCableNumber(a.cableNumber)?.number || 0) - (parseCableNumber(b.cableNumber)?.number || 0)
     || a.cableNumber.localeCompare(b.cableNumber));
   if (connectivity) signalChainConnectivity.set(rows, connectivity);
   return rows;
