@@ -3036,7 +3036,7 @@ class ProductionEngineBridge {
       return;
     }
     const point = this.eventPoint(event);
-    if ((this.loomCreationActive || this.wireCreate?.manual) && !this.panState) {
+    if ((this.loomCreationActive || (this.wireCreate?.manual && !this.wireCreate.rewire)) && !this.panState) {
       this.releasePointerCapture(event.pointerId);
       this.scheduleRender();
       return;
@@ -3174,7 +3174,7 @@ class ProductionEngineBridge {
   }
 
   handleLostPointerCapture(event) {
-    if (this.wireCreate?.manual || this.wireCreate?.loomId) return;
+    if ((this.wireCreate?.manual && !this.wireCreate.rewire) || this.wireCreate?.loomId) return;
     const jumpPointerId = this.pendingJumpPress?.pointerId ?? this.jumpLinkCreate?.pointerId;
     if (jumpPointerId != null && event?.pointerId != null && jumpPointerId !== event.pointerId) return;
     if (!this.rotationDrag && !this.dragSession && !this.pendingDrag && !this.pendingJumpPress && !this.jumpLinkCreate && !this.panState && !this.loomHeadDrag && !this.routePointDrag && !this.wireSegmentDrag && !this.wireCreate && !this.resizeSession && !this.commentBoxDrag && !this.marqueeState) return;
@@ -6111,14 +6111,15 @@ class ProductionEngineBridge {
       if (step.type === "teleport") {
         const fromDevice = this.scene.getDevice(step.fromJumpId);
         const toDevice = this.scene.getDevice(step.toJumpId);
+        const points = jumpLinkBezierPolyline(this.jumpNodeCenter(fromDevice), this.jumpNodeCenter(toDevice));
         return {
-          type: "teleport",
+          type: "jump-link",
           fromJumpId: step.fromJumpId,
           toJumpId: step.toJumpId,
           jumpLinkId: step.jumpLinkId || "",
-          from: this.jumpNodeCenter(fromDevice),
-          to: this.jumpNodeCenter(toDevice),
-          durationMs: 0
+          points,
+          color: "#32b6ff",
+          durationMs: wirePlaybackDurationMs(points)
         };
       }
       const sceneWire = this.sceneWireForPlaybackId(step.wireId) || sourceWire;

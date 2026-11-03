@@ -30516,9 +30516,10 @@
       setStatus(`${items.length} ${label} cable${items.length === 1 ? "" : "s"} selected.`);
     }
 
-    function selectReportCableGroup(typeId) {
+    function selectReportCableGroup(typeId, wireIds = null) {
+      const allowedIds = Array.isArray(wireIds) ? new Set(wireIds) : null;
       const items = state.connections
-        .filter(connection => (connection.cableType || "") === typeId)
+        .filter(connection => (connection.cableType || "") === typeId && (!allowedIds || allowedIds.has(connection.id)))
         .map(connection => ({ type: "wire", id: connection.id }));
       if (!items.length) return;
       selectWiresFast(items.length === 1 ? items[0] : { type: "multi", items });
@@ -33637,8 +33638,9 @@
         const typeId = connection.cableType || "";
         const length = normalizeCableLength(group.wires.find(wire => String(wire.length || "").trim())?.length);
         const key = `${typeId}|${length}`;
-        const row = cableMap.get(key) || { typeId, type, length, quantity: 0 };
+        const row = cableMap.get(key) || { typeId, type, length, quantity: 0, wireIds: [] };
         row.quantity += 1;
+        row.wireIds.push(...group.wires.map(wire => wire.id));
         cableMap.set(key, row);
       });
 
@@ -34108,7 +34110,7 @@
           <tbody>
             ${rows.map(row => {
               const attrs = interactive
-                ? ` data-report-cable-type="${escapeAttr(row.typeId || "")}" data-report-cable-length="${escapeAttr(row.length || "")}" title="Select all cables of this type in the canvas"`
+                ? ` data-report-cable-type="${escapeAttr(row.typeId || "")}" data-report-cable-length="${escapeAttr(row.length || "")}" data-report-cable-ids="${escapeAttr(JSON.stringify(row.wireIds || []))}" title="Select the cables in this report row"`
                 : "";
               return `<tr${attrs}><td>${escapeHtml(row.quantity ?? "")}</td><td>${escapeHtml(row.type ?? "")}</td><td>${escapeHtml(row.length ?? "")}</td></tr>`;
             }).join("")}
@@ -34349,7 +34351,10 @@ document.addEventListener("keydown", function(event) {
 document.addEventListener("click", function(event) {
   var row = event.target.closest("[data-report-cable-type]");
   if (!row || !window.opener || !window.opener.selectReportCableGroup) return;
-  window.opener.selectReportCableGroup(row.dataset.reportCableType || "");
+  var ids;
+  try { ids = JSON.parse(row.dataset.reportCableIds || "[]"); } catch (_) { return; }
+  if (!Array.isArray(ids)) return;
+  window.opener.selectReportCableGroup(row.dataset.reportCableType || "", ids);
 });
 <\/script>
 </body>
