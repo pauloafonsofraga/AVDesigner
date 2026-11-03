@@ -1577,11 +1577,10 @@ export class WebglGraphRenderer {
         wireLabelCount += 1;
         this.recordWireLayer(options.layerTrace, wire.id, "labelLayer", "drawn");
       });
-      // Label only portals already revealed by interaction, never hidden links.
+      // Playback reveals the Jump path, not its suspended caption. Keep portal
+      // captions hidden for the whole trace, including selected/hovered pairs.
       const interaction = options.interactionState || {};
-      const portals = new Map((interaction.jumpLinkOverlays || []).map(overlay => [overlay.id, overlay.points]));
-      const playback = interaction.wirePlayback;
-      if (playback?.active && playback.jumpLinkId && playback.points?.length) portals.set(playback.jumpLinkId, playback.points);
+      const portals = new Map((interaction.wirePlayback?.active ? [] : interaction.jumpLinkOverlays || []).map(overlay => [overlay.id, overlay.points]));
       portals.forEach((points, id) => {
         const link = scene.getJumpLink(id);
         if (!link || !points?.length) return;

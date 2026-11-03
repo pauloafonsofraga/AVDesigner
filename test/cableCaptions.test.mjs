@@ -259,13 +259,20 @@ test("caption resolution uses indexed lookups, no full scene scans and no mutati
   assert.equal(JSON.stringify(scene.devices), before);
 });
 
-test("portal captions follow visible overlays only, including playback, and respect label visibility", () => {
+test("portal captions follow visible overlays but stay hidden throughout playback", () => {
   const model = createOutputViewerModel(buildEngineOutputScene(cableCaptionFixture())), scene = model.scene;
   assert.ok(!liveLabels(scene).includes(strict));
   const overlays = outputJumpLinkOverlays(model, null, "strict-a");
   assert.equal(liveLabels(scene, { interactionState: { jumpLinkOverlays: overlays } }).filter(t => t === strict).length, 1);
   const interactionState = { jumpLinkOverlays: overlays, wirePlayback: { active: true, jumpLinkId: "strict-pair", points: overlays[0].points } };
-  assert.equal(liveLabels(scene, { interactionState }).filter(t => t === strict).length, 1);
+  assert.equal(liveLabels(scene, { interactionState }).filter(t => t === strict).length, 0);
+  for (const stepType of ["wire", "jump-link", "complete"]) {
+    const playing = { jumpLinkOverlays: overlays, wirePlayback: { active: true, stepType, jumpLinkId: "strict-pair", points: overlays[0].points } };
+    assert.ok(!liveLabels(scene, { interactionState: playing }).includes(strict));
+    assert.ok(liveLabels(scene, { interactionState: playing }).includes(normal), "ordinary cable labels keep their existing behavior");
+  }
+  assert.ok(!liveLabels(scene, { interactionState: {wirePlayback:interactionState.wirePlayback} }).includes(strict), "playback alone cannot introduce a caption");
+  assert.ok(liveLabels(scene, { interactionState: {jumpLinkOverlays:overlays,wirePlayback:{active:false}} }).includes(strict), "hover/selection caption returns after stopping");
   assert.deepEqual(liveLabels(scene, { interactionState, renderOptions: { ...DEFAULT_RENDER_OPTIONS, hideLabels: true } }), []);
   assert.ok(!liveLabels(scene).includes(strict));
   assert.deepEqual(liveLabels(scene, {}, .1), []);

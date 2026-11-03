@@ -23,7 +23,7 @@ try{
     await page.locator('#zoomFit').click();await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
   };
   const fixture=preservedWireRoutingFixture();
-  fixture.connections.forEach((wire,i)=>{wire.cableNumber=`V-${String(i+1).padStart(3,'0')}`;});
+  fixture.connections.forEach((wire,i)=>{wire.cableNumber=`VX-${String(i+1).padStart(3,'0')}`;});
   for(const [index,id,x,y] of [[1,'spare-sink',1200,0],[0,'spare-source',0,700]]){
     const device=structuredClone(fixture.devices[index]);Object.assign(device,{instanceId:id,name:id,x,y});fixture.devices.push(device);
   }
